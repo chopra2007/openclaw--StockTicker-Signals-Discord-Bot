@@ -6,10 +6,13 @@ Usage:
     python3 -m consensus_engine              # Run the full engine
     python3 -m consensus_engine --once       # Run one cycle and exit
     python3 -m consensus_engine --test       # Inject test data and verify
+    python3 -m consensus_engine --status     # Print engine health report
+    python3 -m consensus_engine --dry-run    # Run without sending Discord alerts
 """
 
 import asyncio
 import logging
+import os
 import signal
 import sys
 import time
@@ -23,8 +26,9 @@ from consensus_engine.scanners.social import (
 )
 from consensus_engine.scanners.news import scan_news_for_tickers
 from consensus_engine.consensus import run_consensus_cycle
+from consensus_engine.analysis.technical import shutdown_executor
 
-log: logging.Logger
+log = logging.getLogger("consensus_engine")
 
 
 async def scanner_loop_twitter(stop_event: asyncio.Event):
@@ -32,10 +36,13 @@ async def scanner_loop_twitter(stop_event: asyncio.Event):
     interval = cfg.get("intervals.twitter_scan", 120)
     while not stop_event.is_set():
         try:
+            t0 = time.time()
             signals = await scan_twitter_accounts()
+            elapsed = time.time() - t0
+            await db.record_metric("scanner_twitter_seconds", elapsed)
             if signals:
                 await db.insert_signals(signals)
-                log.info("Twitter: stored %d signals", len(signals))
+                log.info("Twitter: stored %d signals in %.1fs", len(signals), elapsed)
         except Exception as e:
             log.error("Twitter scanner error: %s", e, exc_info=True)
 
@@ -51,6 +58,7 @@ async def scanner_loop_social(stop_event: asyncio.Event):
     interval = cfg.get("intervals.social_scan", 300)
     while not stop_event.is_set():
         try:
+            t0 = time.time()
             # Run all social scanners concurrently
             reddit_task = scan_reddit()
             stocktwits_task = scan_stocktwits()
@@ -68,9 +76,11 @@ async def scanner_loop_social(stop_event: asyncio.Event):
                 elif isinstance(r, Exception):
                     log.error("Social scanner error: %s", r)
 
+            elapsed = time.time() - t0
+            await db.record_metric("scanner_social_seconds", elapsed)
             if all_signals:
                 await db.insert_signals(all_signals)
-                log.info("Social: stored %d signals", len(all_signals))
+                log.info("Social: stored %d signals in %.1fs", len(all_signals), elapsed)
 
             # Google Trends — only check tickers that already have signals
             active = await db.get_active_tickers(min_signals=3)
@@ -102,6 +112,7 @@ async def scanner_loop_news(stop_event: asyncio.Event):
     interval = cfg.get("intervals.news_scan", 300)
     while not stop_event.is_set():
         try:
+            t0 = time.time()
             # Only search news for tickers that have signals from both twitter + social
             active = await db.get_active_tickers(min_signals=3)
             tickers_needing_news = []
@@ -121,6 +132,9 @@ async def scanner_loop_news(stop_event: asyncio.Event):
                     await db.insert_signals(signals)
                     log.info("News: stored %d signals for %d tickers",
                              len(signals), len(tickers_needing_news))
+
+            elapsed = time.time() - t0
+            await db.record_metric("scanner_news_seconds", elapsed)
 
         except Exception as e:
             log.error("News scanner error: %s", e, exc_info=True)
@@ -190,31 +204,38 @@ async def run(once: bool = False):
     if once:
         # Single cycle mode
         log.info("Running single cycle...")
+        try:
+            # Run scanners concurrently
+            twitter_signals, reddit_signals, st_signals, ape_signals = await asyncio.gather(
+                scan_twitter_accounts(),
+                scan_reddit(),
+                scan_stocktwits(),
+                scan_apewisdom(),
+                return_exceptions=True,
+            )
 
-        # Run scanners concurrently
-        twitter_signals, reddit_signals, st_signals, ape_signals = await asyncio.gather(
-            scan_twitter_accounts(),
-            scan_reddit(),
-            scan_stocktwits(),
-            scan_apewisdom(),
-            return_exceptions=True,
-        )
+            for result in [twitter_signals, reddit_signals, st_signals, ape_signals]:
+                if isinstance(result, Exception):
+                    log.error("Scanner error in single cycle: %s", result)
+                elif isinstance(result, list) and result:
+                    await db.insert_signals(result)
 
-        for result in [twitter_signals, reddit_signals, st_signals, ape_signals]:
-            if isinstance(result, list) and result:
-                await db.insert_signals(result)
+            # News scan for active tickers
+            active = await db.get_active_tickers(min_signals=2)
+            if active:
+                try:
+                    news_signals = await scan_news_for_tickers(active[:10])
+                    if isinstance(news_signals, list):
+                        await db.insert_signals(news_signals)
+                except Exception as e:
+                    log.error("News scan error in single cycle: %s", e)
 
-        # News scan for active tickers
-        active = await db.get_active_tickers(min_signals=2)
-        if active:
-            news_signals = await scan_news_for_tickers(active[:10])
-            if isinstance(news_signals, list):
-                await db.insert_signals(news_signals)
-
-        # Run consensus
-        await run_consensus_cycle()
-        await db.close_db()
-        log.info("Single cycle complete.")
+            # Run consensus
+            await run_consensus_cycle()
+            log.info("Single cycle complete.")
+        finally:
+            shutdown_executor()
+            await db.close_db()
         return
 
     # Continuous mode — run all loops concurrently
@@ -243,19 +264,123 @@ async def run(once: bool = False):
     except asyncio.CancelledError:
         pass
     finally:
+        shutdown_executor()
         await db.close_db()
         log.info("Engine stopped.")
+
+
+async def print_status():
+    """Print a quick engine health report from the database."""
+    cfg.load_config()
+    await db.init_db()
+    conn = await db.get_db()
+    now = time.time()
+
+    print("=" * 55)
+    print("  Stock Trend Consensus Engine — Status Report")
+    print("=" * 55)
+
+    # Database size
+    db_path = cfg.get("database.path", "/root/.openclaw/workspace/consensus.db")
+    try:
+        db_size = os.path.getsize(db_path)
+        if db_size >= 1_048_576:
+            size_str = f"{db_size / 1_048_576:.1f} MB"
+        else:
+            size_str = f"{db_size / 1024:.1f} KB"
+    except OSError:
+        size_str = "unknown"
+    print(f"\n  Database: {db_path} ({size_str})")
+
+    # Active signals by source type
+    cursor = await conn.execute(
+        """SELECT source_type, COUNT(*) as cnt FROM ticker_signals
+           WHERE expires_at > ? GROUP BY source_type ORDER BY cnt DESC""",
+        (now,),
+    )
+    source_counts = await cursor.fetchall()
+    total_signals = sum(r["cnt"] for r in source_counts)
+    print(f"\n  Active signals: {total_signals}")
+    for row in source_counts:
+        print(f"    {row['source_type']:20s} {row['cnt']}")
+
+    # Active tickers
+    cursor = await conn.execute(
+        """SELECT ticker, COUNT(*) as cnt FROM ticker_signals
+           WHERE expires_at > ? GROUP BY ticker ORDER BY cnt DESC LIMIT 15""",
+        (now,),
+    )
+    tickers = await cursor.fetchall()
+    print(f"\n  Active tickers: {len(tickers)}")
+    for row in tickers:
+        print(f"    ${row['ticker']:8s} {row['cnt']} signals")
+
+    # Alerts in last 24h
+    cutoff_24h = now - 86400
+    cursor = await conn.execute(
+        "SELECT COUNT(*) as cnt FROM alert_history WHERE alerted_at > ?",
+        (cutoff_24h,),
+    )
+    row = await cursor.fetchone()
+    alerts_24h = row["cnt"]
+
+    cursor = await conn.execute(
+        """SELECT ticker, confidence_score, alerted_at FROM alert_history
+           WHERE alerted_at > ? ORDER BY alerted_at DESC LIMIT 5""",
+        (cutoff_24h,),
+    )
+    recent_alerts = await cursor.fetchall()
+    print(f"\n  Alerts (last 24h): {alerts_24h}")
+    for alert in recent_alerts:
+        ago = (now - alert["alerted_at"]) / 60
+        print(f"    ${alert['ticker']:8s} confidence={alert['confidence_score']:.0f}  {ago:.0f}m ago")
+
+    # Last scanner timings from pipeline_metrics
+    print("\n  Last scanner timings:")
+    for scanner in ["scanner_twitter_seconds", "scanner_social_seconds", "scanner_news_seconds"]:
+        cursor = await conn.execute(
+            """SELECT value, recorded_at FROM pipeline_metrics
+               WHERE metric_name = ? ORDER BY recorded_at DESC LIMIT 1""",
+            (scanner,),
+        )
+        row = await cursor.fetchone()
+        label = scanner.replace("scanner_", "").replace("_seconds", "")
+        if row:
+            ago = (now - row["recorded_at"]) / 60
+            print(f"    {label:20s} {row['value']:.1f}s  ({ago:.0f}m ago)")
+        else:
+            print(f"    {label:20s} no data")
+
+    # Last consensus cycle timing
+    cursor = await conn.execute(
+        """SELECT value, recorded_at FROM pipeline_metrics
+           WHERE metric_name = 'consensus_cycle_seconds'
+           ORDER BY recorded_at DESC LIMIT 1""",
+    )
+    row = await cursor.fetchone()
+    if row:
+        ago = (now - row["recorded_at"]) / 60
+        print(f"    {'consensus':20s} {row['value']:.1f}s  ({ago:.0f}m ago)")
+
+    print("\n" + "=" * 55)
+    await db.close_db()
 
 
 def main():
     """CLI entry point."""
     once = "--once" in sys.argv
     test = "--test" in sys.argv
+    status = "--status" in sys.argv
+    dry_run = "--dry-run" in sys.argv
 
-    if test:
-        from consensus_engine.tests import run_test
+    if status:
+        asyncio.run(print_status())
+    elif test:
+        from tests.test_consensus import run_test
         asyncio.run(run_test())
     else:
+        if dry_run:
+            cfg.dry_run = True
         asyncio.run(run(once=once))
 
 

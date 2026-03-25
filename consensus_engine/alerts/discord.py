@@ -118,13 +118,39 @@ async def send_alert(payload: AlertPayload) -> bool:
     Uses the bot token + channel ID from config.
     Returns True on success.
     """
+    # Dry-run mode: log the alert but don't send to Discord
+    if cfg.dry_run:
+        log.info("[DRY-RUN] Would send Discord alert for $%s (confidence=%.0f)",
+                 payload.ticker, payload.confidence_score)
+        _log_alert_fallback(payload)
+        # Still record in alert history so status reporting works
+        await db.insert_alert(
+            ticker=payload.ticker,
+            confidence=payload.confidence_score,
+            catalyst=payload.catalyst_summary,
+            catalyst_type=payload.catalyst_type,
+            consensus_json=json.dumps(payload.consensus.gate_summary()),
+            technical_json=json.dumps([
+                {"name": f.name, "value": f.value, "passed": f.passed}
+                for f in payload.technical.filters
+            ] if payload.technical else []),
+            analysts_json=json.dumps(payload.analyst_mentions),
+            price=payload.price,
+        )
+        return True
+
     token = cfg.get_api_key("discord_bot_token")
-    channel_id = cfg.get("api_keys.discord_channel_id", "")
+    channel_id = str(cfg.get("api_keys.discord_channel_id", ""))
 
     if not token or not channel_id:
         log.warning("Discord not configured (token=%s, channel=%s)",
                      bool(token), bool(channel_id))
-        # Log the alert to console as fallback
+        _log_alert_fallback(payload)
+        return False
+
+    # Validate channel_id is numeric to prevent URL injection
+    if not channel_id.isdigit():
+        log.error("Invalid Discord channel_id (must be numeric): %s", channel_id[:20])
         _log_alert_fallback(payload)
         return False
 

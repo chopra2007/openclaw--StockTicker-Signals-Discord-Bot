@@ -27,6 +27,13 @@ python3 -m consensus_engine --test
 # or
 python3 tests/test_consensus.py
 
+# Print engine health report (signal counts, timings, alerts)
+python3 -m consensus_engine --status
+
+# Run without sending Discord alerts (logs them instead)
+python3 -m consensus_engine --dry-run
+python3 -m consensus_engine --dry-run --once
+
 # Run with pytest
 python3 -m pytest tests/test_consensus.py -v
 

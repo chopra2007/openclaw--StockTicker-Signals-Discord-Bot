@@ -18,9 +18,13 @@ log = logging.getLogger("consensus_engine.apify")
 class ApifyClient:
     """Lightweight async Apify API client."""
 
-    def __init__(self):
-        self._token = cfg.get_api_key("apify_token")
-        self._base = cfg.get("apify.base_url", "https://api.apify.com/v2")
+    @property
+    def _token(self) -> str:
+        return cfg.get_api_key("apify_token")
+
+    @property
+    def _base(self) -> str:
+        return cfg.get("apify.base_url", "https://api.apify.com/v2")
 
     @property
     def enabled(self) -> bool:
@@ -122,9 +126,9 @@ class ApifyClient:
                         timeout: int) -> dict:
         """Poll a run until it finishes."""
         url = f"{self._base}/actor-runs/{run_id}"
-        deadline = asyncio.get_event_loop().time() + timeout
+        deadline = asyncio.get_running_loop().time() + timeout
 
-        while asyncio.get_event_loop().time() < deadline:
+        while asyncio.get_running_loop().time() < deadline:
             await asyncio.sleep(5)
             try:
                 async with session.get(url, headers=self._headers(),

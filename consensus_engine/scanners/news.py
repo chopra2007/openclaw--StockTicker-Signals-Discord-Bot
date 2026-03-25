@@ -55,6 +55,12 @@ def _classify_catalyst(text: str) -> Optional[str]:
     return None
 
 
+def _extract_domain(url: str) -> str:
+    """Extract domain from URL safely."""
+    parts = url.split("/")
+    return parts[2] if len(parts) > 2 else "unknown"
+
+
 def _is_trusted_source(url: str) -> bool:
     """Check if a URL is from a trusted news source."""
     trusted = cfg.get("news.trusted_sources", [])
@@ -192,7 +198,7 @@ async def evaluate_catalyst(ticker: str) -> Optional[CatalystResult]:
             ticker=ticker,
             catalyst_summary=best["title"],
             catalyst_type=best.get("catalyst_type") or "Market Movement",
-            news_sources=[best["url"].split("/")[2] if "/" in best["url"] else "unknown"],
+            news_sources=[_extract_domain(best["url"])],
             source_urls=[best["url"]],
             confidence=0.8 if best.get("catalyst_type") else 0.5,
         )
@@ -209,7 +215,7 @@ async def evaluate_catalyst(ticker: str) -> Optional[CatalystResult]:
         catalyst_type = _classify_catalyst(text)
 
         if _is_trusted_source(url):
-            domain = url.split("/")[2] if "/" in url else "unknown"
+            domain = _extract_domain(url)
             if domain not in sources:
                 sources.append(domain)
             if url not in urls:

@@ -30,6 +30,7 @@ class RateLimiter:
 
     async def acquire(self, source: str) -> bool:
         """Wait for rate limit clearance. Returns False if source is blocked."""
+        wait_time = 0.0
         async with self._lock:
             now = time.time()
 
@@ -44,10 +45,15 @@ class RateLimiter:
             elapsed = now - self._last_request.get(source, 0)
             if elapsed < min_interval:
                 wait_time = min_interval - elapsed
-                await asyncio.sleep(wait_time)
 
-            self._last_request[source] = time.time()
-            return True
+            # Reserve the slot now (before releasing lock)
+            self._last_request[source] = time.time() + wait_time
+
+        # Sleep outside the lock so other sources aren't blocked
+        if wait_time > 0:
+            await asyncio.sleep(wait_time)
+
+        return True
 
     def report_success(self, source: str):
         """Reset failure count on success."""

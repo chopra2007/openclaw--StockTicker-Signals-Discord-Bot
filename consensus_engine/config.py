@@ -9,6 +9,9 @@ from typing import Any
 _DEFAULT_CONFIG_PATH = Path(__file__).parent.parent / "config" / "consensus.yaml"
 _config: dict | None = None
 
+# Runtime flags (set via CLI, not persisted in YAML)
+dry_run: bool = False
+
 
 def _resolve_value(value: Any) -> Any:
     """Resolve environment variable references (strings starting with $)."""
@@ -62,11 +65,15 @@ def get(key: str, default: Any = None) -> Any:
 
 
 def get_api_key(name: str) -> str:
-    """Get an API key by name, with env var fallback."""
+    """Get an API key by name, with env var fallback.
+
+    Env var lookup order: config value (may itself reference $ENV_VAR),
+    then direct env var with the uppercased name.
+    """
     val = get(f"api_keys.{name}", "")
     if not val:
-        env_name = f"{name.upper()}_API_KEY" if name != "discord_bot_token" else "DISCORD_BOT_TOKEN"
-        val = os.environ.get(env_name, "")
+        # Fallback: try uppercased name directly as env var
+        val = os.environ.get(name.upper(), "")
     return val
 
 

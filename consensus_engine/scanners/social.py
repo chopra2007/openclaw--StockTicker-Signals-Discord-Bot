@@ -174,40 +174,42 @@ async def scan_stocktwits() -> list[TickerSignal]:
     try:
         async with create_stealth_browser() as (browser, context):
             page = await stealth_page(context)
-            if not await safe_goto(page, "https://stocktwits.com/rankings/trending", wait_until="networkidle"):
-                rate_limiter.report_failure("stocktwits")
-                return []
+            try:
+                if not await safe_goto(page, "https://stocktwits.com/rankings/trending", wait_until="networkidle"):
+                    rate_limiter.report_failure("stocktwits")
+                    return []
 
-            await asyncio.sleep(3)  # Let dynamic content load
+                await asyncio.sleep(3)  # Let dynamic content load
 
-            # Extract ticker symbols from the trending list
-            rows = await page.query_selector_all('a[href*="/symbol/"]')
-            seen = set()
-            for row in rows[:30]:
-                try:
-                    href = await row.get_attribute("href") or ""
-                    text = await row.inner_text()
-                    # Extract ticker from /symbol/NVDA or text like "$NVDA"
-                    ticker = ""
-                    if "/symbol/" in href:
-                        ticker = href.split("/symbol/")[-1].split("/")[0].split("?")[0].upper()
-                    if not ticker:
-                        tickers_found = extract_tickers(text)
-                        if tickers_found:
-                            ticker = next(iter(tickers_found))
-                    if ticker and ticker not in seen:
-                        seen.add(ticker)
-                        signals.append(TickerSignal(
-                            ticker=ticker,
-                            source_type=SourceType.STOCKTWITS,
-                            source_detail=f"trending #{len(seen)}",
-                            raw_text=f"${ticker} trending on StockTwits",
-                            sentiment=Sentiment.BULLISH,
-                            detected_at=time.time(),
-                        ))
-                except Exception:
-                    continue
-            await page.close()
+                # Extract ticker symbols from the trending list
+                rows = await page.query_selector_all('a[href*="/symbol/"]')
+                seen = set()
+                for row in rows[:30]:
+                    try:
+                        href = await row.get_attribute("href") or ""
+                        text = await row.inner_text()
+                        # Extract ticker from /symbol/NVDA or text like "$NVDA"
+                        ticker = ""
+                        if "/symbol/" in href:
+                            ticker = href.split("/symbol/")[-1].split("/")[0].split("?")[0].upper()
+                        if not ticker:
+                            tickers_found = extract_tickers(text)
+                            if tickers_found:
+                                ticker = next(iter(tickers_found))
+                        if ticker and ticker not in seen:
+                            seen.add(ticker)
+                            signals.append(TickerSignal(
+                                ticker=ticker,
+                                source_type=SourceType.STOCKTWITS,
+                                source_detail=f"trending #{len(seen)}",
+                                raw_text=f"${ticker} trending on StockTwits",
+                                sentiment=Sentiment.BULLISH,
+                                detected_at=time.time(),
+                            ))
+                    except Exception:
+                        continue
+            finally:
+                await page.close()
 
         rate_limiter.report_success("stocktwits")
         log.info("StockTwits: %d trending symbols", len(signals))

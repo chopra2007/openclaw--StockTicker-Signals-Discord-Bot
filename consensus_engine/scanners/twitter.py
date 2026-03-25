@@ -84,7 +84,8 @@ async def _scan_via_apify(accounts: list[str]) -> list[TickerSignal]:
                                 raw_ts.replace("Z", "+00:00")
                             ).timestamp()
                         elif isinstance(raw_ts, (int, float)):
-                            ts = float(raw_ts) if raw_ts > 1e9 else float(raw_ts) * 1000
+                            # Handle both seconds and milliseconds epoch
+                            ts = float(raw_ts) / 1000 if raw_ts > 1e12 else float(raw_ts)
                         break
                     except (ValueError, TypeError):
                         continue

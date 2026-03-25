@@ -52,6 +52,7 @@ async def create_stealth_browser() -> AsyncGenerator[tuple[Browser, BrowserConte
     timeout_ms = cfg.get("browser.page_timeout_seconds", 30) * 1000
 
     pw = await async_playwright().start()
+    browser = None
     try:
         launch_args = {
             "headless": headless,
@@ -79,10 +80,11 @@ async def create_stealth_browser() -> AsyncGenerator[tuple[Browser, BrowserConte
 
         yield browser, context
     finally:
-        try:
-            await browser.close()
-        except Exception:
-            pass
+        if browser:
+            try:
+                await browser.close()
+            except Exception:
+                pass
         await pw.stop()
 
 

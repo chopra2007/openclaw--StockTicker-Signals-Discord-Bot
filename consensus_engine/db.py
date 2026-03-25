@@ -60,6 +60,9 @@ async def init_db() -> aiosqlite.Connection:
     db_path = cfg.get("database.path", "/root/.openclaw/workspace/consensus.db")
     _db = await aiosqlite.connect(db_path)
     _db.row_factory = aiosqlite.Row
+    # WAL mode for concurrent read/write from multiple coroutines
+    await _db.execute("PRAGMA journal_mode=WAL")
+    await _db.execute("PRAGMA busy_timeout=5000")
     await _db.executescript(SCHEMA)
     await _db.commit()
     log.info("Database initialized at %s", db_path)
@@ -78,8 +81,12 @@ async def close_db():
     """Close the database connection."""
     global _db
     if _db:
-        await _db.close()
-        _db = None
+        try:
+            await _db.close()
+        except Exception as e:
+            log.warning("Error closing database: %s", e)
+        finally:
+            _db = None
 
 
 async def insert_signal(signal: TickerSignal):

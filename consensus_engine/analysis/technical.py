@@ -24,6 +24,11 @@ log = logging.getLogger("consensus_engine.analysis.technical")
 _executor = ThreadPoolExecutor(max_workers=2)
 
 
+def shutdown_executor():
+    """Shut down the thread pool executor cleanly."""
+    _executor.shutdown(wait=False)
+
+
 async def _fetch_finnhub_quote(ticker: str, session: aiohttp.ClientSession) -> Optional[dict]:
     """Fetch real-time quote from Finnhub (free tier)."""
     api_key = cfg.get_api_key("finnhub")
@@ -75,7 +80,7 @@ def _fetch_yfinance_history(ticker: str, period: str = "1mo") -> Optional[dict]:
 
 async def _fetch_history_async(ticker: str) -> Optional[dict]:
     """Async wrapper for yfinance (runs in executor to avoid blocking)."""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     return await loop.run_in_executor(_executor, _fetch_yfinance_history, ticker)
 
 

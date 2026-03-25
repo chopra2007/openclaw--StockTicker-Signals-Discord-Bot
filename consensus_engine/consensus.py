@@ -95,11 +95,16 @@ async def run_consensus_cycle():
     """
     start = time.time()
 
-    # Get all tickers with at least 2 signals (from any source)
+    # Get tickers with at least 2 signals, capped to avoid runaway cycles
+    max_tickers = cfg.get("consensus.max_tickers_per_cycle", 50)
     active_tickers = await db.get_active_tickers(min_signals=2)
     if not active_tickers:
         log.debug("No active tickers to evaluate")
         return
+
+    if len(active_tickers) > max_tickers:
+        log.info("Capping evaluation from %d to %d tickers", len(active_tickers), max_tickers)
+        active_tickers = active_tickers[:max_tickers]
 
     log.info("Evaluating consensus for %d active tickers: %s",
              len(active_tickers), ", ".join(active_tickers[:20]))

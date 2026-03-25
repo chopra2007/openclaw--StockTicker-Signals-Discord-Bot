@@ -100,6 +100,7 @@ async def score_confidence(ticker: str,
     model = cfg.get("llm.model", "openrouter/minimax/minimax-m2.5")
     max_tokens = cfg.get("llm.max_tokens", 1024)
     user_prompt = _build_user_prompt(ticker, twitter, social, catalyst, technical)
+    content = ""
 
     try:
         async with aiohttp.ClientSession() as session:
