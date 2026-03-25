@@ -1,0 +1,142 @@
+# =============================================================================
+# Stock Trend Consensus Engine — Configuration
+# =============================================================================
+# All thresholds, intervals, and parameters are tunable here.
+# API keys can be set directly or via environment variables (prefix with $).
+# =============================================================================
+
+api_keys:
+  brave_search: "your-brave-search-api-key"
+  finnhub: "your-finnhub-api-key"
+  openrouter: "your-openrouter-api-key"
+  discord_bot_token: "your-discord-bot-token"
+  discord_channel_id: "your-discord-channel-id"
+  apify_token: "your-apify-token"
+
+# Apify Actors (cloud-based scraping — more reliable than self-hosted Playwright)
+# Strategy: Apify primary for all scrapers, Playwright stealth fallback
+apify:
+  enabled: true
+  base_url: "https://api.apify.com/v2"
+  actors:
+    # Twitter: apidojo/tweet-scraper (134M+ runs, 100% success rate 30d)
+    twitter: "apidojo/tweet-scraper"
+    # Reddit: trudax/reddit-scraper-lite (2.6M runs, 3.6 stars, cheaper)
+    reddit: "trudax/reddit-scraper-lite"
+    # Google Trends: apify/google-trends-scraper (official, 476K runs, 4.4 stars)
+    google_trends: "apify/google-trends-scraper"
+  run_timeout: 120
+  max_results: 50
+  # Apify proxy (from your account — enables residential IPs for Twitter)
+  proxy_password: "apify_proxy_BXKuYvpKnrdXV4Q0lW2UulqX3kigZ63TQgKT"
+
+# Polling intervals (seconds)
+intervals:
+  twitter_scan: 120
+  social_scan: 300
+  news_scan: 300
+  consensus_eval: 30
+  state_prune: 900
+
+# Stage 1: X/Twitter Scanner
+twitter:
+  accounts_file: "/root/.openclaw/sources.json"
+  min_analysts: 3
+  rolling_window_minutes: 30
+
+# Stage 2: Social & Sentiment Scanner
+social:
+  subreddits:
+    - wallstreetbets
+    - stocks
+    - investing
+    - options
+    - pennystocks
+  stocktwits_enabled: true
+  apewisdom_enabled: true
+  google_trends_enabled: true
+  min_platforms_confirming: 1
+
+# Stage 3: News & Catalyst Finder
+news:
+  trusted_sources:
+    - reuters
+    - cnbc
+    - bloomberg
+    - wsj
+    - marketwatch
+    - finance.yahoo
+    - sec.gov
+    - fda.gov
+    - prnewswire
+    - business-wire
+    - seekingalpha
+    - benzinga
+    - barrons
+    - investors.com
+    - ft.com
+  max_article_age_hours: 24
+  max_search_results: 10
+
+# Stage 4: Technical Verification
+technical:
+  filters:
+    rvol_threshold: 2.0
+    rvol_lookback_days: 20
+    vwap_enabled: true
+    rsi_period: 14
+    rsi_lower: 40
+    rsi_upper: 75
+    ema_fast: 9
+    ema_slow: 21
+    price_change_min_pct: 2.0
+    atr_period: 14
+    atr_multiplier: 1.5
+
+# LLM Confidence Scoring
+llm:
+  model: "openrouter/minimax/minimax-m2.5"
+  min_confidence: 70
+  max_tokens: 1024
+
+# Consensus Model
+consensus:
+  require_twitter: true
+  require_social: true
+  require_catalyst: true
+  require_technical: true
+  require_llm_confidence: true
+
+# Alert Configuration
+alerts:
+  cooldown_hours: 6
+  max_alerts_per_hour: 5
+  embed_color_bullish: 0x00FF00
+  embed_color_bearish: 0xFF0000
+  embed_color_neutral: 0xFFAA00
+
+# Browser Stealth Configuration
+browser:
+  headless: true
+  user_agents:
+    - "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+    - "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+    - "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+    - "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0"
+    - "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0"
+  min_delay_seconds: 2
+  max_delay_seconds: 8
+  page_timeout_seconds: 30
+  proxy: null
+
+# Logging
+logging:
+  level: "INFO"
+  format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+  file: "/root/.openclaw/workspace/consensus_engine.log"
+
+# Database
+database:
+  path: "/root/.openclaw/workspace/consensus.db"
+  signal_ttl_hours: 2
+  alert_history_days: 90

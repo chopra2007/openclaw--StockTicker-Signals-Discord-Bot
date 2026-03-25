@@ -1,0 +1,40 @@
+# Databases
+*.db
+*.db-journal
+
+# Logs
+*.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Environment / secrets
+.env
+.env.*
+.brave_api
+
+# Backups
+backup*/
+
+# Node / Skills (OpenClaw bot infrastructure, not part of consensus engine)
+skills/
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.png
+apify.png
+memory/
+.claude/
+.clawhub/
+.openclaw/
