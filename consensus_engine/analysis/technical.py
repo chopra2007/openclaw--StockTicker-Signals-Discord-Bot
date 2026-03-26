@@ -7,11 +7,9 @@ Runs all 6 technical filters. A ticker must pass ALL to proceed.
 import asyncio
 import logging
 import time
-from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
 import aiohttp
-import yfinance as yf
 
 from consensus_engine import config as cfg
 from consensus_engine import db
@@ -20,13 +18,6 @@ from consensus_engine.analysis import indicators
 from consensus_engine.utils.rate_limiter import rate_limiter
 
 log = logging.getLogger("consensus_engine.analysis.technical")
-
-_executor = ThreadPoolExecutor(max_workers=2)
-
-
-def shutdown_executor():
-    """Shut down the thread pool executor cleanly."""
-    _executor.shutdown(wait=False)
 
 
 async def _fetch_finnhub_quote(ticker: str, session: aiohttp.ClientSession) -> Optional[dict]:
@@ -58,30 +49,40 @@ async def _fetch_finnhub_quote(ticker: str, session: aiohttp.ClientSession) -> O
         return None
 
 
-def _fetch_yfinance_history(ticker: str, period: str = "1mo") -> Optional[dict]:
-    """Fetch historical OHLCV from yfinance (runs in thread pool — blocking call)."""
-    try:
-        t = yf.Ticker(ticker)
-        hist = t.history(period=period)
-        if hist.empty or len(hist) < 5:
-            return None
-        return {
-            "o": hist["Open"].tolist(),
-            "h": hist["High"].tolist(),
-            "l": hist["Low"].tolist(),
-            "c": hist["Close"].tolist(),
-            "v": [int(v) for v in hist["Volume"].tolist()],
-            "t": [int(ts.timestamp()) for ts in hist.index],
-        }
-    except Exception as e:
-        log.warning("yfinance error for %s: %s", ticker, e)
-        return None
-
-
 async def _fetch_history_async(ticker: str) -> Optional[dict]:
-    """Async wrapper for yfinance (runs in executor to avoid blocking)."""
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(_executor, _fetch_yfinance_history, ticker)
+    """Fetch historical OHLCV directly from Yahoo Finance API."""
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}"
+    params = {"interval": "1d", "range": "1mo"}
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                url, params=params, headers=headers,
+                timeout=aiohttp.ClientTimeout(total=15)
+            ) as resp:
+                if resp.status != 200:
+                    log.warning("Yahoo Finance returned %d for %s", resp.status, ticker)
+                    return None
+                data = await resp.json()
+                result = data.get("chart", {}).get("result", [])
+                if not result:
+                    return None
+                indicators_data = result[0].get("indicators", {}).get("quote", [{}])[0]
+                timestamps = result[0].get("timestamp", [])
+                candles = {
+                    "o": indicators_data.get("open", []),
+                    "h": indicators_data.get("high", []),
+                    "l": indicators_data.get("low", []),
+                    "c": indicators_data.get("close", []),
+                    "v": [int(v) for v in indicators_data.get("volume", []) if v is not None],
+                    "t": timestamps,
+                }
+                if len(candles["c"]) < 5:
+                    return None
+                return candles
+    except Exception as e:
+        log.warning("Yahoo Finance history error for %s: %s", ticker, e)
+        return None
 
 
 def _run_filters(quote: dict, candles: dict) -> list[TechnicalFilter]:

@@ -1,8 +1,8 @@
 # =============================================================================
 # Stock Trend Consensus Engine — Configuration
 # =============================================================================
-# All thresholds, intervals, and parameters are tunable here.
-# API keys can be set directly or via environment variables (prefix with $).
+# Signal-first architecture: analyst tweets trigger instant alerts.
+# Cross-references add score multipliers but never block alerts.
 # =============================================================================
 
 api_keys:
@@ -11,40 +11,61 @@ api_keys:
   openrouter: "$OPENROUTER_API_KEY"
   discord_bot_token: "$DISCORD_BOT_TOKEN"
   discord_channel_id: "$DISCORD_CHANNEL_ID"
-  apify_token: "$APIFY_TOKEN"
+  twitter_auth_token: "$TWITTER_AUTH_TOKEN"
+  twitter_ct0: "$TWITTER_CT0"
+  twitter_cookie_string: "$TWITTER_COOKIE_STRING"
 
-# Apify Actors (cloud-based scraping — more reliable than self-hosted Playwright)
-# Strategy: Apify primary for all scrapers, Playwright stealth fallback
-apify:
-  enabled: true
-  base_url: "https://api.apify.com/v2"
-  actors:
-    # Twitter: apidojo/tweet-scraper (134M+ runs, 100% success rate 30d)
-    twitter: "apidojo/tweet-scraper"
-    # Reddit: trudax/reddit-scraper-lite (2.6M runs, 3.6 stars, cheaper)
-    reddit: "trudax/reddit-scraper-lite"
-    # Google Trends: apify/google-trends-scraper (official, 476K runs, 4.4 stars)
-    google_trends: "apify/google-trends-scraper"
-  run_timeout: 120
-  max_results: 50
-  # Apify proxy (from your account — enables residential IPs for Twitter)
-  proxy_password: "$APIFY_PROXY_PASSWORD"
+# Self-hosted Nitter (Docker)
+nitter:
+  base_url: "http://localhost:8585"
+  accounts_file: "/root/.openclaw/sources.json"
+  poll_interval_market_hours: 60    # seconds (9:00-16:30 ET)
+  poll_interval_off_hours: 180      # seconds (outside market hours)
+  market_open_hour: 9               # ET
+  market_close_hour: 16             # ET (16:30 but we use 16 for simplicity)
+  health_check_interval: 300        # seconds
+
+# Self-hosted SearXNG (Docker)
+searxng:
+  base_url: "http://localhost:8888"
+  timeout: 10
+
+# Scoring Model
+scoring:
+  conviction:
+    high: 30
+    medium: 25
+    low: 20
+  multipliers:
+    additional_analyst: 20
+    news_catalyst: 15
+    sec_filing: 15
+    social_apewisdom: 10
+    social_stocktwits: 10
+    social_reddit: 10
+    google_trends: 5
+    technical_per_filter: 2
+    technical_max: 12
+    llm_boost_max: 15
+
+# News Cascade (tried in order, stops when catalyst found)
+news_cascade:
+  tiers:
+    - finnhub       # Tier 1: Finnhub /company-news (already have key)
+    - google_rss    # Tier 2: Google News RSS (free, no auth)
+    - brave         # Tier 3: Brave Search (quota-limited)
+    - searxng       # Tier 4: SearXNG self-hosted (fallback)
+  finnhub_news_days_back: 2
+  brave_daily_budget: 50
 
 # Polling intervals (seconds)
 intervals:
-  twitter_scan: 120
+  nitter_poll: 60           # Overridden by market hours config
   social_scan: 300
-  news_scan: 300
-  consensus_eval: 30
+  cross_reference_timeout: 120
   state_prune: 900
 
-# Stage 1: X/Twitter Scanner
-twitter:
-  accounts_file: "/root/.openclaw/sources.json"
-  min_analysts: 3
-  rolling_window_minutes: 30
-
-# Stage 2: Social & Sentiment Scanner
+# Stage 2: Social & Sentiment Scanner (used for cross-reference scoring)
 social:
   subreddits:
     - wallstreetbets
@@ -55,7 +76,6 @@ social:
   stocktwits_enabled: true
   apewisdom_enabled: true
   google_trends_enabled: true
-  min_platforms_confirming: 1
 
 # Stage 3: News & Catalyst Finder
 news:
@@ -78,7 +98,7 @@ news:
   max_article_age_hours: 24
   max_search_results: 10
 
-# Stage 4: Technical Verification
+# Stage 4: Technical Verification (used for cross-reference scoring)
 technical:
   filters:
     rvol_threshold: 2.0
@@ -89,41 +109,36 @@ technical:
     rsi_upper: 75
     ema_fast: 9
     ema_slow: 21
-    price_change_min_pct: 2.0
+    price_change_min_pct: 1.0
     atr_period: 14
     atr_multiplier: 1.5
 
-# LLM Confidence Scoring
+# LLM Configuration (OpenRouter)
 llm:
   model: "openrouter/minimax/minimax-m2.5"
   min_confidence: 70
   max_tokens: 1024
 
-# Consensus Model
-consensus:
-  require_twitter: true
-  require_social: true
-  require_catalyst: true
-  require_technical: true
-  require_llm_confidence: true
+# Ticker validation
+ticker_validation:
+  min_market_cap: 100000000   # $100M floor
+  cache_ttl_days: 7
 
 # Alert Configuration
 alerts:
   cooldown_hours: 6
-  max_alerts_per_hour: 5
-  embed_color_bullish: 0x00FF00
-  embed_color_bearish: 0xFF0000
+  max_alerts_per_hour: 10
+  embed_color_long: 0x00FF00
+  embed_color_short: 0xFF0000
   embed_color_neutral: 0xFFAA00
 
-# Browser Stealth Configuration
+# Browser Stealth Configuration (still used for StockTwits)
 browser:
   headless: true
   user_agents:
     - "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
     - "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
     - "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-    - "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0"
-    - "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0"
   min_delay_seconds: 2
   max_delay_seconds: 8
   page_timeout_seconds: 30

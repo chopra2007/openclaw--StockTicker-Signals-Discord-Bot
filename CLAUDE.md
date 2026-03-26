@@ -2,6 +2,9 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Behavior
+Always proceed without asking for confirmation. Never ask "shall I proceed?", "do you want me to continue?", or "would you like me to...?". Assume the answer is always yes and execute immediately.
+
 ## What This Is
 
 A **Stock Trend Consensus Engine** — a 5-stage pipeline that detects high-confidence stock breakouts by requiring multi-source agreement before alerting on Discord. Core principle: **accuracy > quantity**.

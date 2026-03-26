@@ -1,0 +1,34 @@
+version: "3.8"
+
+services:
+  nitter:
+    image: zedeus/nitter:latest
+    container_name: openclaw-nitter
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8585:8080"
+    volumes:
+      - ./config/nitter.conf:/src/nitter.conf:ro
+    environment:
+      - NITTER_ACCOUNTS_FILE=/src/nitter.conf
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  searxng:
+    image: searxng/searxng:latest
+    container_name: openclaw-searxng
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8888:8080"
+    volumes:
+      - ./config/searxng:/etc/searxng:rw
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8888
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

@@ -23,6 +23,10 @@ class RateLimiter:
             "finnhub": 1.0,       # 60/min = 1/s
             "news_scrape": 3.0,   # News site scraping
             "discord": 0.5,       # Discord API
+            "nitter": 0.1,        # Nitter RSS is local, very fast
+            "finnhub_news": 1.0,  # 60/min on free tier
+            "google_news_rss": 0.5,  # No rate limit, but be polite
+            "searxng": 0.5,       # Local, but don't hammer it
         }
         self._failure_counts: dict[str, int] = defaultdict(int)
         self._blocked_until: dict[str, float] = defaultdict(float)

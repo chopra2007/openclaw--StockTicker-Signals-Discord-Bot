@@ -1,27 +1,28 @@
-"""Stage 3 — News & Catalyst Finder.
+"""News Cascade — 4-tier news source for catalyst detection.
 
-Uses Brave Search API and Playwright scraping to find breaking news
-and identify the catalyst behind a stock's movement.
+Tiers (tried in order, stops on first catalyst found):
+  1. Finnhub /company-news
+  2. Google News RSS
+  3. Brave Search
+  4. SearXNG (self-hosted)
 """
 
 import asyncio
 import logging
 import time
+import xml.etree.ElementTree as ET
 from typing import Optional
 
 import aiohttp
 
 from consensus_engine import config as cfg
 from consensus_engine import db
-from consensus_engine.models import (
-    TickerSignal, SourceType, Sentiment, CatalystResult,
-)
-from consensus_engine.utils.tickers import extract_tickers
+from consensus_engine.models import CatalystResult, TickerSignal, SourceType, Sentiment
 from consensus_engine.utils.rate_limiter import rate_limiter
+from consensus_engine.scanners.searxng import search_searxng
 
 log = logging.getLogger("consensus_engine.scanner.news")
 
-# Catalyst classification patterns
 _CATALYST_PATTERNS = [
     (["short squeeze", "squeeze", "short interest"], "Short Squeeze"),
     (["acquisition", "merger", "acquire", "buyout", "m&a"], "M&A"),
@@ -47,7 +48,7 @@ _CATALYST_PATTERNS = [
 
 
 def _classify_catalyst(text: str) -> Optional[str]:
-    """Classify the catalyst type from article text."""
+    """Classify catalyst type from text."""
     lower = text.lower()
     for patterns, label in _CATALYST_PATTERNS:
         if any(p in lower for p in patterns):
@@ -56,189 +57,203 @@ def _classify_catalyst(text: str) -> Optional[str]:
 
 
 def _extract_domain(url: str) -> str:
-    """Extract domain from URL safely."""
+    """Extract domain from URL."""
     parts = url.split("/")
     return parts[2] if len(parts) > 2 else "unknown"
 
 
 def _is_trusted_source(url: str) -> bool:
-    """Check if a URL is from a trusted news source."""
+    """Check if URL is from a trusted news source."""
     trusted = cfg.get("news.trusted_sources", [])
     url_lower = url.lower()
     return any(source in url_lower for source in trusted)
 
 
-async def search_brave(ticker: str) -> list[dict]:
-    """Search for news about a ticker using Brave Search API."""
-    api_key = cfg.get_api_key("brave_search")
-    if not api_key:
-        log.warning("Brave Search API key not configured")
-        return []
-
-    if not await rate_limiter.acquire("brave_search"):
-        return []
-
-    results = []
-    queries = [
-        f"{ticker} stock news today",
-        f"${ticker} breaking news catalyst",
-    ]
-
-    async with aiohttp.ClientSession() as session:
-        for query in queries:
-            try:
-                url = "https://api.search.brave.com/res/v1/web/search"
-                headers = {
-                    "Accept": "application/json",
-                    "X-Subscription-Token": api_key,
-                }
-                params = {
-                    "q": query,
-                    "count": cfg.get("news.max_search_results", 10),
-                    "freshness": "pd",  # Past day
-                }
-
-                async with session.get(url, headers=headers, params=params,
-                                       timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                    if resp.status != 200:
-                        rate_limiter.report_failure("brave_search")
-                        continue
-
-                    data = await resp.json()
-                    web_results = data.get("web", {}).get("results", [])
-
-                    for r in web_results:
-                        title = r.get("title", "")
-                        result_url = r.get("url", "")
-                        description = r.get("description", "")
-                        full_text = f"{title} {description}"
-                        catalyst_type = _classify_catalyst(full_text)
-
-                        results.append({
-                            "title": title[:200],
-                            "url": result_url,
-                            "description": description[:500],
-                            "catalyst_type": catalyst_type,
-                            "is_trusted": _is_trusted_source(result_url),
-                        })
-
-                rate_limiter.report_success("brave_search")
-                await asyncio.sleep(0.5)
-
-            except Exception as e:
-                log.warning("Brave search error for '%s': %s", query, e)
-                rate_limiter.report_failure("brave_search")
-
-    return results
-
-
-async def scan_news_for_tickers(tickers: list[str]) -> list[TickerSignal]:
-    """Search for news on a list of candidate tickers.
-
-    Only called for tickers that already have Twitter/social signals.
-    """
-    if not tickers:
-        return []
-
-    log.info("Searching news for %d tickers: %s", len(tickers), ", ".join(tickers))
-    start = time.time()
-    signals = []
-
-    for ticker in tickers:
-        results = await search_brave(ticker)
-
-        for r in results:
-            if r["is_trusted"] or r["catalyst_type"]:
-                sentiment = Sentiment.NEUTRAL
-                if r["catalyst_type"] in ("Earnings Beat", "Analyst Upgrade", "FDA Approval",
-                                          "Government Contract", "Partnership", "Insider Buying",
-                                          "Product Launch"):
-                    sentiment = Sentiment.BULLISH
-                elif r["catalyst_type"] in ("Earnings Miss", "Analyst Downgrade", "FDA Rejection",
-                                            "Insider Selling"):
-                    sentiment = Sentiment.BEARISH
-
-                signals.append(TickerSignal(
-                    ticker=ticker,
-                    source_type=SourceType.NEWS,
-                    source_detail=r["url"],
-                    raw_text=f"{r['title']} — {r['description']}"[:500],
-                    sentiment=sentiment,
-                    detected_at=time.time(),
-                ))
-
-        await asyncio.sleep(0.5)
-
-    elapsed = time.time() - start
-    log.info("News scan complete: %d signals for %d tickers in %.1fs",
-             len(signals), len(tickers), elapsed)
-    await db.record_metric("news_scan_seconds", elapsed)
-    return signals
-
-
-async def evaluate_catalyst(ticker: str) -> Optional[CatalystResult]:
-    """Evaluate whether a credible catalyst exists for a ticker."""
-    rows = await db.get_news_signals(ticker)
-    if not rows:
-        # Try a fresh search
-        search_results = await search_brave(ticker)
-        trusted_with_catalyst = [
-            r for r in search_results
-            if r["is_trusted"] and r["catalyst_type"]
-        ]
-        trusted_any = [r for r in search_results if r["is_trusted"]]
-        fallback = trusted_with_catalyst or trusted_any
-
-        if not fallback:
-            log.debug("Catalyst: No trusted news found for %s", ticker)
-            return None
-
-        best = fallback[0]
-        return CatalystResult(
-            ticker=ticker,
-            catalyst_summary=best["title"],
-            catalyst_type=best.get("catalyst_type") or "Market Movement",
-            news_sources=[_extract_domain(best["url"])],
-            source_urls=[best["url"]],
-            confidence=0.8 if best.get("catalyst_type") else 0.5,
-        )
-
-    # Build catalyst from stored signals
-    best_catalyst_type = "Market Movement"
-    sources = []
-    urls = []
-    best_text = ""
-
-    for row in rows:
-        url = row["source_detail"]
-        text = row["raw_text"]
-        catalyst_type = _classify_catalyst(text)
-
-        if _is_trusted_source(url):
-            domain = _extract_domain(url)
-            if domain not in sources:
-                sources.append(domain)
-            if url not in urls:
-                urls.append(url)
-            if catalyst_type and best_catalyst_type == "Market Movement":
-                best_catalyst_type = catalyst_type
-                best_text = text
-
-    if not sources:
-        return None
-
-    if not best_text and rows:
-        best_text = rows[0]["raw_text"]
-
-    result = CatalystResult(
+def _build_catalyst(ticker: str, title: str, url: str, catalyst_type: str) -> CatalystResult:
+    """Build a CatalystResult from a single news hit."""
+    return CatalystResult(
         ticker=ticker,
-        catalyst_summary=best_text[:200],
-        catalyst_type=best_catalyst_type,
-        news_sources=sources[:5],
-        source_urls=urls[:5],
-        confidence=0.8 if best_catalyst_type != "Market Movement" else 0.5,
+        catalyst_summary=title[:200],
+        catalyst_type=catalyst_type,
+        news_sources=[_extract_domain(url)],
+        source_urls=[url],
+        confidence=0.8 if catalyst_type != "Market Movement" else 0.5,
     )
 
-    if result.passed:
-        log.info("Catalyst FOUND for %s: %s (%s)", ticker, best_catalyst_type, ", ".join(sources[:3]))
-    return result
+
+async def _search_finnhub_news(ticker: str) -> Optional[CatalystResult]:
+    """Search Finnhub company news endpoint."""
+    api_key = cfg.get_api_key("finnhub")
+    if not api_key:
+        return None
+    if not await rate_limiter.acquire("finnhub_news"):
+        return None
+
+    days_back = cfg.get("news_cascade.finnhub_news_days_back", 2)
+    from datetime import datetime, timedelta
+    to_date = datetime.now().strftime("%Y-%m-%d")
+    from_date = (datetime.now() - timedelta(days=days_back)).strftime("%Y-%m-%d")
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            url = "https://finnhub.io/api/v1/company-news"
+            params = {"symbol": ticker, "from": from_date, "to": to_date, "token": api_key}
+            async with session.get(url, params=params,
+                                   timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status != 200:
+                    rate_limiter.report_failure("finnhub_news")
+                    return None
+                articles = await resp.json()
+                rate_limiter.report_success("finnhub_news")
+
+        if not isinstance(articles, list):
+            return None
+
+        for article in articles[:10]:
+            headline = article.get("headline", "")
+            source = article.get("source", "")
+            article_url = article.get("url", "")
+            full_text = f"{headline} {source}"
+            catalyst_type = _classify_catalyst(full_text)
+
+            if catalyst_type and _is_trusted_source(article_url):
+                log.info("Finnhub news catalyst for %s: %s (%s)", ticker, catalyst_type, source)
+                return _build_catalyst(ticker, headline, article_url, catalyst_type)
+
+        return None
+    except Exception as e:
+        log.warning("Finnhub news error for %s: %s", ticker, e)
+        rate_limiter.report_failure("finnhub_news")
+        return None
+
+
+async def _search_google_news_rss(ticker: str) -> Optional[CatalystResult]:
+    """Search Google News via RSS feed (free, no auth)."""
+    if not await rate_limiter.acquire("google_news_rss"):
+        return None
+
+    query = f"{ticker}+stock"
+    rss_url = f"https://news.google.com/rss/search?q={query}&hl=en-US&gl=US&ceid=US:en"
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                rss_url,
+                timeout=aiohttp.ClientTimeout(total=10),
+                headers={"User-Agent": "Mozilla/5.0"},
+            ) as resp:
+                if resp.status != 200:
+                    rate_limiter.report_failure("google_news_rss")
+                    return None
+                xml_text = await resp.text()
+                rate_limiter.report_success("google_news_rss")
+
+        root = ET.fromstring(xml_text)
+        for item in root.iter("item"):
+            title = item.findtext("title", "")
+            link = item.findtext("link", "")
+            source_el = item.find("source")
+            source_name = source_el.text if source_el is not None else ""
+
+            catalyst_type = _classify_catalyst(title)
+            is_trusted = _is_trusted_source(link) or any(
+                s.lower() in source_name.lower()
+                for s in cfg.get("news.trusted_sources", [])
+            )
+
+            if catalyst_type and is_trusted:
+                log.info("Google RSS catalyst for %s: %s (%s)", ticker, catalyst_type, source_name)
+                return _build_catalyst(ticker, title, link, catalyst_type)
+
+        return None
+    except Exception as e:
+        log.warning("Google News RSS error for %s: %s", ticker, e)
+        rate_limiter.report_failure("google_news_rss")
+        return None
+
+
+async def _search_brave(ticker: str) -> Optional[CatalystResult]:
+    """Search Brave for news (quota-limited, tier 3)."""
+    api_key = cfg.get_api_key("brave_search")
+    if not api_key:
+        return None
+    if not await rate_limiter.acquire("brave_search"):
+        return None
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            url = "https://api.search.brave.com/res/v1/web/search"
+            headers = {"Accept": "application/json", "X-Subscription-Token": api_key}
+            params = {
+                "q": f"{ticker} stock news today",
+                "count": cfg.get("news.max_search_results", 10),
+                "freshness": "pd",
+            }
+            async with session.get(url, headers=headers, params=params,
+                                   timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status != 200:
+                    rate_limiter.report_failure("brave_search")
+                    return None
+                data = await resp.json()
+                rate_limiter.report_success("brave_search")
+
+        for r in data.get("web", {}).get("results", []):
+            title = r.get("title", "")
+            result_url = r.get("url", "")
+            description = r.get("description", "")
+            full_text = f"{title} {description}"
+            catalyst_type = _classify_catalyst(full_text)
+
+            if catalyst_type and _is_trusted_source(result_url):
+                log.info("Brave catalyst for %s: %s", ticker, catalyst_type)
+                return _build_catalyst(ticker, title, result_url, catalyst_type)
+
+        return None
+    except Exception as e:
+        log.warning("Brave search error for %s: %s", ticker, e)
+        rate_limiter.report_failure("brave_search")
+        return None
+
+
+async def _search_searxng(ticker: str) -> Optional[CatalystResult]:
+    """Search SearXNG for news (self-hosted, unlimited)."""
+    results = await search_searxng(f"{ticker} stock news")
+    for r in results:
+        title = r.get("title", "")
+        url = r.get("url", "")
+        content = r.get("content", "")
+        full_text = f"{title} {content}"
+        catalyst_type = _classify_catalyst(full_text)
+
+        if catalyst_type and _is_trusted_source(url):
+            log.info("SearXNG catalyst for %s: %s", ticker, catalyst_type)
+            return _build_catalyst(ticker, title, url, catalyst_type)
+
+    return None
+
+
+async def news_cascade(ticker: str) -> Optional[CatalystResult]:
+    """Run the 4-tier news cascade. Stops at first catalyst found.
+
+    Order: Finnhub -> Google RSS -> Brave -> SearXNG
+    """
+    tiers = cfg.get("news_cascade.tiers", ["finnhub", "google_rss", "brave", "searxng"])
+
+    tier_funcs = {
+        "finnhub": _search_finnhub_news,
+        "google_rss": _search_google_news_rss,
+        "brave": _search_brave,
+        "searxng": _search_searxng,
+    }
+
+    for tier_name in tiers:
+        func = tier_funcs.get(tier_name)
+        if not func:
+            continue
+        result = await func(ticker)
+        if result and result.passed:
+            log.info("News cascade hit at tier '%s' for %s", tier_name, ticker)
+            return result
+
+    log.debug("News cascade: no catalyst found for %s across all tiers", ticker)
+    return None

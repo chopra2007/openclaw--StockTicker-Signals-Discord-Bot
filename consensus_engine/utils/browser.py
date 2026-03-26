@@ -78,6 +78,23 @@ async def create_stealth_browser() -> AsyncGenerator[tuple[Browser, BrowserConte
         context.set_default_timeout(timeout_ms)
         context.set_default_navigation_timeout(timeout_ms)
 
+        # Inject Twitter/X session cookies if configured
+        cookie_string = cfg.get_api_key("twitter_cookie_string")
+        if cookie_string:
+            cookies = []
+            for part in cookie_string.split(";"):
+                part = part.strip()
+                if "=" in part:
+                    name, _, value = part.partition("=")
+                    cookies.append({
+                        "name": name.strip(),
+                        "value": value.strip(),
+                        "domain": ".x.com",
+                        "path": "/",
+                    })
+            if cookies:
+                await context.add_cookies(cookies)
+
         yield browser, context
     finally:
         if browser:

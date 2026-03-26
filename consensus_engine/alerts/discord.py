@@ -1,6 +1,7 @@
-"""Stage 5 — Discord Alert Delivery.
+"""Two-Phase Discord Alert Delivery.
 
-Formats rich embeds and sends them via the Discord bot API.
+Phase 1: Instant ping — analyst name, ticker, direction, options, price
+Phase 2: Detail follow-up — replies to ping with cross-reference results
 """
 
 import json
@@ -12,201 +13,207 @@ import aiohttp
 
 from consensus_engine import config as cfg
 from consensus_engine import db
-from consensus_engine.models import AlertPayload, ConsensusResult
+from consensus_engine.models import (
+    ParsedTweet, CrossReferenceResult, ScoreBreakdown,
+    Direction, TweetType,
+)
 
 log = logging.getLogger("consensus_engine.alerts.discord")
 
 
-def _format_embed(payload: AlertPayload) -> dict:
-    """Build a Discord embed from an AlertPayload."""
-    consensus = payload.consensus
-    gates = consensus.gate_summary()
-    all_passed = consensus.all_gates_passed
+def format_instant_ping(tweet: ParsedTweet, current_price: float = 0.0) -> dict:
+    """Build Discord embed for the instant ping (Phase 1)."""
+    direction_str = tweet.direction.value.upper()
+    ticker = tweet.tickers[0] if tweet.tickers else "???"
 
-    # Color: green for bullish, red for bearish, orange for neutral
-    if payload.confidence_score >= 80:
-        color = cfg.get("alerts.embed_color_bullish", 0x00FF00)
-    elif payload.confidence_score >= 70:
-        color = cfg.get("alerts.embed_color_neutral", 0xFFAA00)
-    else:
-        color = cfg.get("alerts.embed_color_bearish", 0xFF0000)
+    color_map = {
+        Direction.LONG: cfg.get("alerts.embed_color_long", 0x00FF00),
+        Direction.SHORT: cfg.get("alerts.embed_color_short", 0xFF0000),
+        Direction.NEUTRAL: cfg.get("alerts.embed_color_neutral", 0xFFAA00),
+    }
+    color = color_map.get(tweet.direction, 0xFFAA00)
 
-    # Technical snapshot
-    tech_lines = []
-    if payload.technical and payload.technical.filters:
-        for f in payload.technical.filters:
-            icon = "\u2705" if f.passed else "\u274c"
-            tech_lines.append(f"{icon} {f.name}: {f.value} ({f.threshold})")
+    fields = []
 
-    tech_text = "\n".join(tech_lines) if tech_lines else "No technical data"
+    if current_price > 0:
+        fields.append({
+            "name": "Current Price",
+            "value": f"${current_price:.2f}",
+            "inline": True,
+        })
 
-    # Analyst mentions
-    analyst_text = ", ".join(f"@{a}" for a in payload.analyst_mentions[:10])
-    if not analyst_text:
-        analyst_text = "None detected"
-    analyst_header = f"{len(payload.analyst_mentions)} analysts in {payload.analyst_window_minutes:.0f} min"
+    if tweet.options and tweet.options.present:
+        opt = tweet.options
+        parts = []
+        if opt.option_type:
+            parts.append(opt.option_type.capitalize())
+        if opt.strike:
+            parts.append(f"${opt.strike:.0f} strike")
+        if opt.expiry:
+            parts.append(f"{opt.expiry} expiry")
+        if opt.target_price:
+            parts.append(f"Target: ${opt.target_price:.0f}")
+        if opt.profit_target_pct:
+            parts.append(f"{opt.profit_target_pct:.0f}% profit target")
 
-    # Consensus breakdown
-    gate_icons = {True: "\u2705", False: "\u274c"}
-    consensus_lines = [
-        f"{gate_icons[gates.get('twitter', False)]} X/Twitter: {len(payload.analyst_mentions)} analysts",
-        f"{gate_icons[gates.get('social', False)]} Social: {'confirmed' if gates.get('social') else 'unconfirmed'}",
-        f"{gate_icons[gates.get('catalyst', False)]} News Catalyst: {payload.catalyst_type or 'none'}",
-        f"{gate_icons[gates.get('technical', False)]} Technical: {payload.technical.passed_count}/{payload.technical.total_count} filters" if payload.technical else f"{gate_icons[False]} Technical: no data",
-        f"{gate_icons[gates.get('llm_confidence', False)]} LLM Score: {payload.confidence_score:.0f}/100",
-    ]
-    consensus_text = "\n".join(consensus_lines)
+        if parts:
+            fields.append({
+                "name": "Options",
+                "value": " | ".join(parts),
+                "inline": False,
+            })
 
-    # Source links (suppress embeds with angle brackets)
-    source_links = []
-    for url in payload.news_urls[:3]:
-        source_links.append(f"<{url}>")
-    sources_text = "\n".join(source_links) if source_links else "No source links"
+    fields.append({
+        "name": "Score",
+        "value": f"{tweet.base_score} (cross-references pending...)",
+        "inline": True,
+    })
 
     embed = {
-        "title": f"\U0001f6a8 BREAKOUT ALERT: ${payload.ticker}",
+        "title": f"@{tweet.analyst} — ${ticker} {direction_str}",
+        "description": f"\"{tweet.raw_text[:300]}\"",
         "color": color,
-        "fields": [
-            {
-                "name": "\U0001f4b0 Confidence Score",
-                "value": f"**{payload.confidence_score:.0f}/100**",
-                "inline": True,
-            },
-            {
-                "name": "\U0001f4b5 Price",
-                "value": f"${payload.price:.2f} ({payload.technical.price_change_pct:+.1f}%)" if payload.technical else "N/A",
-                "inline": True,
-            },
-            {
-                "name": "\U0001f4f0 Catalyst",
-                "value": f"**{payload.catalyst_type}**\n{payload.catalyst_summary[:200]}",
-                "inline": False,
-            },
-            {
-                "name": f"\U0001f426 Analyst Mentions ({analyst_header})",
-                "value": analyst_text,
-                "inline": False,
-            },
-            {
-                "name": "\U0001f4ca Technical Snapshot",
-                "value": tech_text,
-                "inline": False,
-            },
-            {
-                "name": "\u2705 Consensus Breakdown",
-                "value": consensus_text,
-                "inline": False,
-            },
-            {
-                "name": "\U0001f517 Sources",
-                "value": sources_text,
-                "inline": False,
-            },
-        ],
+        "fields": fields,
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
-        "footer": {
-            "text": "Stock Trend Consensus Engine",
-        },
+        "footer": {"text": "OpenClaw Signal Engine"},
     }
 
     return embed
 
 
-async def send_alert(payload: AlertPayload) -> bool:
-    """Send a rich embed alert to Discord.
+def format_detail_followup(xref: CrossReferenceResult) -> dict:
+    """Build Discord embed for the detail follow-up (Phase 2)."""
+    b = xref.breakdown
+    total = b.total
 
-    Uses the bot token + channel ID from config.
-    Returns True on success.
-    """
-    # Dry-run mode: log the alert but don't send to Discord
+    fields = []
+
+    if xref.catalyst_summary:
+        catalyst_text = f"**{xref.catalyst_type}**\n{xref.catalyst_summary[:200]}"
+        if xref.catalyst_sources:
+            catalyst_text += f"\nSources: {', '.join(xref.catalyst_sources[:3])}"
+        fields.append({"name": "News Catalyst", "value": catalyst_text, "inline": False})
+
+    if xref.technical and xref.technical.filters:
+        tech_lines = []
+        for f in xref.technical.filters:
+            icon = "\u2705" if f.passed else "\u274c"
+            tech_lines.append(f"{icon} {f.name}: {f.value} ({f.threshold})")
+        fields.append({"name": "Technical Snapshot", "value": "\n".join(tech_lines), "inline": False})
+
+    if xref.social_summary:
+        fields.append({"name": "Social", "value": xref.social_summary, "inline": False})
+
+    if xref.other_analysts:
+        analyst_text = ", ".join(f"@{a}" for a in xref.other_analysts[:10])
+        analyst_text += f" (+{b.additional_analysts} pts)"
+        fields.append({"name": "Other Analysts", "value": analyst_text, "inline": False})
+
+    if xref.llm_reasoning:
+        fields.append({"name": "LLM Analysis", "value": f"+{b.llm_boost} pts — {xref.llm_reasoning[:150]}", "inline": False})
+
+    parts = []
+    if b.base: parts.append(f"base({b.base})")
+    if b.additional_analysts: parts.append(f"analysts({b.additional_analysts})")
+    if b.news_catalyst: parts.append(f"news({b.news_catalyst})")
+    if b.sec_filing: parts.append(f"sec({b.sec_filing})")
+    if b.social_apewisdom: parts.append(f"ape({b.social_apewisdom})")
+    if b.social_stocktwits: parts.append(f"st({b.social_stocktwits})")
+    if b.social_reddit: parts.append(f"reddit({b.social_reddit})")
+    if b.google_trends: parts.append(f"trends({b.google_trends})")
+    if b.technical: parts.append(f"tech({b.technical})")
+    if b.llm_boost: parts.append(f"llm({b.llm_boost})")
+    breakdown_text = " + ".join(parts) + f" = {total}"
+    fields.append({"name": "Breakdown", "value": breakdown_text, "inline": False})
+
+    if not xref.catalyst_summary and not xref.other_analysts and not xref.social_summary:
+        fields.insert(0, {"name": "Status", "value": "No additional signals found", "inline": False})
+
+    embed = {
+        "title": f"Cross-Reference: ${xref.ticker} | Score: {total}",
+        "color": 0x5865F2,
+        "fields": fields,
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
+        "footer": {"text": "OpenClaw Signal Engine"},
+    }
+
+    return embed
+
+
+async def send_instant_ping(tweet: ParsedTweet, current_price: float = 0.0) -> Optional[str]:
+    """Send the instant ping to Discord. Returns the message ID or None."""
     if cfg.dry_run:
-        log.info("[DRY-RUN] Would send Discord alert for $%s (confidence=%.0f)",
-                 payload.ticker, payload.confidence_score)
-        _log_alert_fallback(payload)
-        # Still record in alert history so status reporting works
-        await db.insert_alert(
-            ticker=payload.ticker,
-            confidence=payload.confidence_score,
-            catalyst=payload.catalyst_summary,
-            catalyst_type=payload.catalyst_type,
-            consensus_json=json.dumps(payload.consensus.gate_summary()),
-            technical_json=json.dumps([
-                {"name": f.name, "value": f.value, "passed": f.passed}
-                for f in payload.technical.filters
-            ] if payload.technical else []),
-            analysts_json=json.dumps(payload.analyst_mentions),
-            price=payload.price,
-        )
-        return True
+        ticker = tweet.tickers[0] if tweet.tickers else "???"
+        log.info("[DRY-RUN] Instant ping: @%s $%s %s (score=%d)",
+                 tweet.analyst, ticker, tweet.direction.value, tweet.base_score)
+        return "dry_run_msg_id"
 
     token = cfg.get_api_key("discord_bot_token")
     channel_id = str(cfg.get("api_keys.discord_channel_id", ""))
+    if not token or not channel_id or not channel_id.isdigit():
+        log.warning("Discord not configured for instant ping")
+        return None
 
-    if not token or not channel_id:
-        log.warning("Discord not configured (token=%s, channel=%s)",
-                     bool(token), bool(channel_id))
-        _log_alert_fallback(payload)
-        return False
-
-    # Validate channel_id is numeric to prevent URL injection
-    if not channel_id.isdigit():
-        log.error("Invalid Discord channel_id (must be numeric): %s", channel_id[:20])
-        _log_alert_fallback(payload)
-        return False
-
-    embed = _format_embed(payload)
+    embed = format_instant_ping(tweet, current_price)
 
     try:
         async with aiohttp.ClientSession() as session:
             url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
-            headers = {
-                "Authorization": f"Bot {token}",
-                "Content-Type": "application/json",
-            }
+            headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
+            body = {"embeds": [embed]}
+
+            async with session.post(url, headers=headers, json=body,
+                                    timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status in (200, 201):
+                    data = await resp.json()
+                    msg_id = data.get("id")
+                    log.info("Instant ping sent for $%s by @%s (msg_id=%s)",
+                             tweet.tickers[0] if tweet.tickers else "???",
+                             tweet.analyst, msg_id)
+                    return msg_id
+                else:
+                    error = await resp.text()
+                    log.warning("Discord ping error (%d): %s", resp.status, error[:200])
+                    return None
+    except Exception as e:
+        log.error("Failed to send instant ping: %s", e)
+        return None
+
+
+async def send_detail_followup(xref: CrossReferenceResult, reply_to_msg_id: str) -> Optional[str]:
+    """Send the detail follow-up as a reply to the instant ping. Returns message ID."""
+    if cfg.dry_run:
+        log.info("[DRY-RUN] Detail follow-up: $%s score=%d", xref.ticker, xref.final_score)
+        return "dry_run_followup_id"
+
+    token = cfg.get_api_key("discord_bot_token")
+    channel_id = str(cfg.get("api_keys.discord_channel_id", ""))
+    if not token or not channel_id or not channel_id.isdigit():
+        return None
+
+    embed = format_detail_followup(xref)
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+            headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
             body = {
                 "embeds": [embed],
+                "message_reference": {"message_id": reply_to_msg_id},
             }
 
             async with session.post(url, headers=headers, json=body,
                                     timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                if resp.status in (200, 201, 204):
-                    log.info("Discord alert sent for %s (confidence=%.0f)",
-                             payload.ticker, payload.confidence_score)
-
-                    # Record in alert history
-                    await db.insert_alert(
-                        ticker=payload.ticker,
-                        confidence=payload.confidence_score,
-                        catalyst=payload.catalyst_summary,
-                        catalyst_type=payload.catalyst_type,
-                        consensus_json=json.dumps(payload.consensus.gate_summary()),
-                        technical_json=json.dumps([
-                            {"name": f.name, "value": f.value, "passed": f.passed}
-                            for f in payload.technical.filters
-                        ] if payload.technical else []),
-                        analysts_json=json.dumps(payload.analyst_mentions),
-                        price=payload.price,
-                    )
-                    return True
+                if resp.status in (200, 201):
+                    data = await resp.json()
+                    msg_id = data.get("id")
+                    log.info("Detail follow-up sent for $%s (score=%d, msg_id=%s)",
+                             xref.ticker, xref.final_score, msg_id)
+                    return msg_id
                 else:
                     error = await resp.text()
-                    log.warning("Discord API error (%d): %s", resp.status, error[:200])
-                    return False
-
+                    log.warning("Discord follow-up error (%d): %s", resp.status, error[:200])
+                    return None
     except Exception as e:
-        log.error("Failed to send Discord alert: %s", e)
-        return False
-
-
-def _log_alert_fallback(payload: AlertPayload):
-    """Log alert details to console when Discord is not configured."""
-    log.info("=" * 60)
-    log.info("BREAKOUT ALERT: $%s (Confidence: %.0f/100)", payload.ticker, payload.confidence_score)
-    log.info("Catalyst: %s — %s", payload.catalyst_type, payload.catalyst_summary[:100])
-    log.info("Analysts: %s", ", ".join(payload.analyst_mentions[:5]))
-    if payload.technical:
-        for f in payload.technical.filters:
-            status = "PASS" if f.passed else "FAIL"
-            log.info("  [%s] %s: %s (%s)", status, f.name, f.value, f.threshold)
-    log.info("Gates: %s", payload.consensus.gate_summary())
-    log.info("=" * 60)
+        log.error("Failed to send detail follow-up: %s", e)
+        return None

@@ -51,6 +51,32 @@ CREATE TABLE IF NOT EXISTS pipeline_metrics (
     value REAL,
     recorded_at REAL NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS seen_tweets (
+    tweet_url TEXT PRIMARY KEY,
+    analyst TEXT NOT NULL,
+    parsed_at REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS alert_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticker TEXT NOT NULL,
+    analyst TEXT NOT NULL,
+    instant_msg_id TEXT,
+    followup_msg_id TEXT,
+    base_score INTEGER DEFAULT 0,
+    final_score INTEGER DEFAULT 0,
+    created_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_alert_msgs_ticker ON alert_messages(ticker);
+
+CREATE TABLE IF NOT EXISTS ticker_metadata (
+    ticker TEXT PRIMARY KEY,
+    name TEXT,
+    market_cap REAL,
+    exchange TEXT,
+    last_checked REAL NOT NULL
+);
 """
 
 
@@ -250,3 +276,93 @@ async def get_signal_counts_by_source(ticker: str) -> dict[str, int]:
     )
     rows = await cursor.fetchall()
     return {r["source_type"]: r["cnt"] for r in rows}
+
+
+async def is_new_tweet(tweet_url: str) -> bool:
+    """Check if we've already seen this tweet."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT 1 FROM seen_tweets WHERE tweet_url = ?", (tweet_url,)
+    )
+    row = await cursor.fetchone()
+    return row is None
+
+
+async def mark_tweet_seen(tweet_url: str, analyst: str):
+    """Record a tweet as seen (idempotent)."""
+    conn = await get_db()
+    await conn.execute(
+        "INSERT OR IGNORE INTO seen_tweets (tweet_url, analyst, parsed_at) VALUES (?, ?, ?)",
+        (tweet_url, analyst, time.time()),
+    )
+    await conn.commit()
+
+
+async def insert_alert_message(ticker: str, analyst: str, instant_msg_id: str,
+                                base_score: int) -> int:
+    """Insert an alert message record. Returns the row ID."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        """INSERT INTO alert_messages (ticker, analyst, instant_msg_id, base_score, final_score, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (ticker, analyst, instant_msg_id, base_score, 0, time.time()),
+    )
+    await conn.commit()
+    return cursor.lastrowid
+
+
+async def get_alert_message(msg_id: int) -> dict | None:
+    """Get an alert message by ID."""
+    conn = await get_db()
+    cursor = await conn.execute("SELECT * FROM alert_messages WHERE id = ?", (msg_id,))
+    row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
+async def update_alert_message_followup(msg_id: int, followup_msg_id: str, final_score: int):
+    """Update an alert message with the follow-up Discord message ID and final score."""
+    conn = await get_db()
+    await conn.execute(
+        "UPDATE alert_messages SET followup_msg_id = ?, final_score = ? WHERE id = ?",
+        (followup_msg_id, final_score, msg_id),
+    )
+    await conn.commit()
+
+
+async def cache_ticker_metadata(ticker: str, name: str, market_cap: float, exchange: str):
+    """Cache ticker metadata from Finnhub."""
+    conn = await get_db()
+    await conn.execute(
+        """INSERT OR REPLACE INTO ticker_metadata (ticker, name, market_cap, exchange, last_checked)
+           VALUES (?, ?, ?, ?, ?)""",
+        (ticker, name, market_cap, exchange, time.time()),
+    )
+    await conn.commit()
+
+
+async def get_ticker_metadata(ticker: str, max_age_days: int = 7) -> dict | None:
+    """Get cached ticker metadata. Returns None if missing or stale."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT * FROM ticker_metadata WHERE ticker = ?", (ticker,)
+    )
+    row = await cursor.fetchone()
+    if not row:
+        return None
+    age = time.time() - row["last_checked"]
+    if age > max_age_days * 86400:
+        return None
+    return dict(row)
+
+
+async def get_recent_analysts_for_ticker(ticker: str, window_seconds: int = 3600) -> list[str]:
+    """Get unique analyst handles who mentioned a ticker recently (from ticker_signals)."""
+    conn = await get_db()
+    cutoff = time.time() - window_seconds
+    cursor = await conn.execute(
+        """SELECT DISTINCT source_detail FROM ticker_signals
+           WHERE ticker = ? AND source_type = 'twitter' AND detected_at >= ?""",
+        (ticker, cutoff),
+    )
+    rows = await cursor.fetchall()
+    return [r["source_detail"] for r in rows]
