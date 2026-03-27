@@ -77,6 +77,19 @@ CREATE TABLE IF NOT EXISTS ticker_metadata (
     exchange TEXT,
     last_checked REAL NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS reddit_posts (
+    id TEXT PRIMARY KEY,
+    subreddit TEXT NOT NULL,
+    title TEXT,
+    author TEXT,
+    score INTEGER DEFAULT 0,
+    num_comments INTEGER DEFAULT 0,
+    created_utc INTEGER NOT NULL,
+    fetched_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_reddit_posts_created ON reddit_posts(created_utc);
+CREATE INDEX IF NOT EXISTS idx_reddit_posts_sub ON reddit_posts(subreddit);
 """
 
 
@@ -405,3 +418,37 @@ async def update_alert_price(alert_id: int, field: str, price: float):
         (price, alert_id),
     )
     await conn.commit()
+
+
+async def insert_reddit_posts(posts: list[dict]) -> int:
+    """Bulk-insert Reddit posts, ignoring duplicates. Returns count inserted."""
+    conn = await get_db()
+    inserted = 0
+    for post in posts:
+        try:
+            await conn.execute(
+                """INSERT OR IGNORE INTO reddit_posts
+                   (id, subreddit, title, author, score, num_comments, created_utc, fetched_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    post["id"], post["subreddit"], post.get("title", ""),
+                    post.get("author", ""), post.get("score", 0),
+                    post.get("num_comments", 0), post["created_utc"], time.time(),
+                ),
+            )
+            inserted += 1
+        except Exception:
+            pass
+    await conn.commit()
+    return inserted
+
+
+async def get_reddit_posts_since(since_utc: int) -> list[dict]:
+    """Fetch posts created after since_utc."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT id, subreddit, title, author FROM reddit_posts WHERE created_utc > ? ORDER BY created_utc DESC",
+        (since_utc,),
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]

@@ -183,6 +183,50 @@ async def send_instant_ping(tweet: ParsedTweet, current_price: float = 0.0) -> O
         return None
 
 
+async def send_trend_digest(trending: list[dict]) -> Optional[str]:
+    """Post a Reddit trend digest to the main Discord channel. Returns message ID."""
+    if cfg.dry_run:
+        log.info("[DRY-RUN] Trend digest: %d tickers", len(trending))
+        return "dry_run_digest_id"
+
+    token = cfg.get_api_key("discord_bot_token")
+    channel_id = str(cfg.get("api_keys.discord_channel_id", ""))
+    if not token or not channel_id or not channel_id.isdigit():
+        log.warning("Discord not configured for trend digest")
+        return None
+
+    if not trending:
+        return None
+
+    lines = []
+    for i, t in enumerate(trending[:15], 1):
+        momentum_str = f"{t['momentum']:.1f}x" if t.get("momentum", 1.0) > 1.0 else "—"
+        lines.append(
+            f"**{i}.** `${t['ticker']}` — {t['mentions']} mentions | "
+            f"{t['unique_authors']} authors | momentum {momentum_str}"
+        )
+
+    embed = {
+        "title": "Reddit Trend Digest",
+        "description": "\n".join(lines),
+        "color": 0x7289DA,
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
+        "footer": {"text": "OpenClaw Signal Engine — last 24h"},
+    }
+
+    async with aiohttp.ClientSession() as session:
+        url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+        headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
+        payload = {"embeds": [embed]}
+        async with session.post(url, headers=headers, json=payload,
+                                timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            if resp.status not in (200, 201):
+                log.warning("Trend digest send failed: %d", resp.status)
+                return None
+            data = await resp.json()
+            return data.get("id")
+
+
 async def send_detail_followup(xref: CrossReferenceResult, reply_to_msg_id: str) -> Optional[str]:
     """Send the detail follow-up as a reply to the instant ping. Returns message ID."""
     if cfg.dry_run:

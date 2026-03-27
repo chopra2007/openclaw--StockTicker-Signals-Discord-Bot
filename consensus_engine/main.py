@@ -33,7 +33,8 @@ from consensus_engine.scanners.social import (
 )
 from consensus_engine.analysis.tweet_parser import parse_tweet
 from consensus_engine.cross_reference import cross_reference
-from consensus_engine.alerts.discord import send_instant_ping, send_detail_followup
+from consensus_engine.alerts.discord import send_instant_ping, send_detail_followup, send_trend_digest
+from consensus_engine.scanners.reddit_trend import crawl_and_get_trending
 from consensus_engine.utils.tickers import validate_ticker_market_cap
 
 log = logging.getLogger("consensus_engine")
@@ -258,6 +259,24 @@ async def tweetshift_listener_loop(stop_event: asyncio.Event):
     await listener.run(stop_event)
 
 
+async def reddit_trend_loop(stop_event: asyncio.Event):
+    """Background loop: crawl Reddit every 4h and post trend digest."""
+    interval = cfg.get("intervals.reddit_trend", 14400)  # 4 hours
+    while not stop_event.is_set():
+        try:
+            trending = await crawl_and_get_trending()
+            if trending:
+                await send_trend_digest(trending)
+        except Exception as e:
+            log.error("Reddit trend loop error: %s", e, exc_info=True)
+
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=interval)
+            break
+        except asyncio.TimeoutError:
+            pass
+
+
 async def prune_loop(stop_event: asyncio.Event):
     """Database pruning loop — cleans expired signals."""
     interval = cfg.get("intervals.state_prune", 900)
@@ -324,9 +343,10 @@ async def run(once: bool = False):
         asyncio.create_task(social_scan_loop(stop_event), name="social-scanner"),
         asyncio.create_task(price_followup_loop(stop_event), name="price-followup"),
         asyncio.create_task(prune_loop(stop_event), name="pruner"),
+        asyncio.create_task(reddit_trend_loop(stop_event), name="reddit-trend"),
     ]
 
-    log.info("All loops started: nitter-poller, tweetshift-listener, social-scanner, price-followup, pruner")
+    log.info("All loops started: nitter-poller, tweetshift-listener, social-scanner, price-followup, pruner, reddit-trend")
 
     try:
         await asyncio.gather(*tasks)
