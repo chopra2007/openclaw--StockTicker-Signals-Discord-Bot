@@ -142,7 +142,7 @@ async def _scan_and_reply(ticker: str, channel_id: str, message_id: str) -> None
             conviction=Conviction.MEDIUM,
             summary=f"On-demand scan for ${ticker}",
         )
-        xref = await cross_reference(ticker, fake_tweet)
+        xref = await cross_reference(ticker, fake_tweet, executor=None)
         b = xref.breakdown
         parts = []
         if b.base: parts.append(f"base={b.base}")

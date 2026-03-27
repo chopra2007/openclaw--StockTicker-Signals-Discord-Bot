@@ -64,6 +64,7 @@ news_cascade:
 intervals:
   nitter_poll: 60           # Overridden by market hours config
   social_scan: 300
+  reddit_trend: 14400         # Reddit trend digest interval (4 hours)
   cross_reference_timeout: 120
   state_prune: 900
 

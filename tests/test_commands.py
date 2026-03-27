@@ -55,14 +55,20 @@ async def test_route_scan_with_ticker_dispatches_task():
     from consensus_engine.alerts.commands import route_command
     with patch("consensus_engine.alerts.commands.send_command_reply", new_callable=AsyncMock) as mock_send, \
          patch("consensus_engine.alerts.commands.asyncio") as mock_asyncio:
-        mock_asyncio.create_task = MagicMock()
+        captured = []
+        def _capture_task(coro):
+            captured.append(coro)
+            return MagicMock()
+        mock_asyncio.create_task = _capture_task
         await route_command("scan", ["NVDA"], "chan123", "msg123")
         # Should send initial "Scanning..." reply
         mock_send.assert_called_once()
         content = mock_send.call_args[0][2]
         assert "NVDA" in content or "Scanning" in content
         # Should fire a background task
-        mock_asyncio.create_task.assert_called_once()
+        assert len(captured) == 1
+        # Close the coroutine to avoid ResourceWarning
+        captured[0].close()
 
 
 @pytest.mark.asyncio
