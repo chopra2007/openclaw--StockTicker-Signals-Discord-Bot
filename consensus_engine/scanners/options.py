@@ -82,7 +82,7 @@ async def check_unusual_options(ticker: str, executor) -> Optional[OptionsResult
     """Check for unusual options activity on a ticker.
 
     Fetches nearest-expiry options chain via yfinance (blocking, runs in executor).
-    Returns None if no data or on error.
+    Returns None if no data or on error (including executor errors).
     """
     import asyncio
 
@@ -99,8 +99,12 @@ async def check_unusual_options(ticker: str, executor) -> Optional[OptionsResult
             log.debug("yfinance options fetch error for %s: %s", ticker, e)
             return None
 
-    loop = asyncio.get_event_loop()
-    chain = await loop.run_in_executor(executor, _fetch)
+    loop = asyncio.get_running_loop()
+    try:
+        chain = await loop.run_in_executor(executor, _fetch)
+    except Exception as e:
+        log.debug("run_in_executor error for %s: %s", ticker, e)
+        return None
     if chain is None:
         return None
 
