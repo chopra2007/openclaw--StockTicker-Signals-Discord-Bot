@@ -1,6 +1,8 @@
 # Databases
 *.db
 *.db-journal
+*.db-shm
+*.db-wal
 
 # Logs
 *.log
