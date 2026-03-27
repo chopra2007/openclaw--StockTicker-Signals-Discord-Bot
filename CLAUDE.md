@@ -100,3 +100,11 @@ All config in `config/consensus.yaml`. API keys can reference env vars with `$` 
 - `playwright-stealth` v2.0.2 uses `from playwright_stealth import Stealth` then `Stealth().apply_stealth_async(page)` — NOT the old `stealth_async()` function.
 - StockTwits uses Playwright only (API blocked by Cloudflare). ApeWisdom has a free direct REST API.
 - Tests use `pytest.ini` with `asyncio_mode = auto` for async fixture support.
+
+## GitHub Automation Workflow
+- **Mandatory Commits:** After completing any functional change or task, create a local Git commit.
+- **Commit Standards:** Use clean, imperative-style commit messages (e.g., "Add multi-agent logic" or "Refactor Discord notifier").
+- **Automatic Push:** Immediately push all local commits to the remote GitHub repository.
+- **Repository Management:** If no remote is configured, use `gh repo create` to initialize a private repository and link it.
+- **Persistence:** This workflow is a core project requirement and must be maintained across all sessions.
+
