@@ -27,6 +27,7 @@ class RateLimiter:
             "finnhub_news": 1.0,  # 60/min on free tier
             "google_news_rss": 0.5,  # No rate limit, but be polite
             "searxng": 0.5,       # Local, but don't hammer it
+            "sec_edgar": 0.2,     # SEC asks for max 10 req/s
         }
         self._failure_counts: dict[str, int] = defaultdict(int)
         self._blocked_until: dict[str, float] = defaultdict(float)

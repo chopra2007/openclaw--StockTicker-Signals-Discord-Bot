@@ -222,6 +222,35 @@ async def social_scan_loop(stop_event: asyncio.Event):
             pass
 
 
+async def price_followup_loop(stop_event: asyncio.Event):
+    """Background loop: update price_1h_later and price_24h_later on past alerts."""
+    interval = 300  # check every 5 minutes
+    while not stop_event.is_set():
+        try:
+            for field in ("price_1h_later", "price_24h_later"):
+                alerts = await db.get_alerts_needing_price_update(field)
+                for alert in alerts:
+                    try:
+                        price = await _fetch_price(alert["ticker"])
+                        if price > 0:
+                            await db.update_alert_price(alert["id"], field, price)
+                            pct = ((price - alert["price_at_alert"]) / alert["price_at_alert"] * 100
+                                   if alert["price_at_alert"] else 0)
+                            label = "1h" if field == "price_1h_later" else "24h"
+                            log.info("Price %s for $%s: $%.2f → $%.2f (%+.1f%%)",
+                                     label, alert["ticker"], alert["price_at_alert"], price, pct)
+                    except Exception as e:
+                        log.debug("Price followup error for %s: %s", alert["ticker"], e)
+        except Exception as e:
+            log.error("Price followup loop error: %s", e)
+
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=interval)
+            break
+        except asyncio.TimeoutError:
+            pass
+
+
 async def prune_loop(stop_event: asyncio.Event):
     """Database pruning loop — cleans expired signals."""
     interval = cfg.get("intervals.state_prune", 900)
@@ -285,10 +314,11 @@ async def run(once: bool = False):
     tasks = [
         asyncio.create_task(nitter_poll_loop(stop_event), name="nitter-poller"),
         asyncio.create_task(social_scan_loop(stop_event), name="social-scanner"),
+        asyncio.create_task(price_followup_loop(stop_event), name="price-followup"),
         asyncio.create_task(prune_loop(stop_event), name="pruner"),
     ]
 
-    log.info("All loops started: nitter-poller, social-scanner, pruner")
+    log.info("All loops started: nitter-poller, social-scanner, price-followup, pruner")
 
     try:
         await asyncio.gather(*tasks)
@@ -354,12 +384,22 @@ async def print_status():
     print(f"\n  Alerts (last 24h): {row['cnt']}")
 
     cursor = await conn.execute(
-        "SELECT ticker, confidence_score, alerted_at FROM alert_history WHERE alerted_at > ? ORDER BY alerted_at DESC LIMIT 5",
+        """SELECT ticker, confidence_score, price_at_alert, price_1h_later, price_24h_later, alerted_at
+           FROM alert_history WHERE alerted_at > ? ORDER BY alerted_at DESC LIMIT 5""",
         (cutoff_24h,),
     )
     for alert in await cursor.fetchall():
         ago = (now - alert["alerted_at"]) / 60
-        print(f"    ${alert['ticker']:8s} score={alert['confidence_score']:.0f}  {ago:.0f}m ago")
+        line = f"    ${alert['ticker']:8s} score={alert['confidence_score']:.0f}  {ago:.0f}m ago"
+        if alert["price_at_alert"] and alert["price_at_alert"] > 0:
+            line += f"  entry=${alert['price_at_alert']:.2f}"
+            if alert["price_1h_later"]:
+                pct = (alert["price_1h_later"] - alert["price_at_alert"]) / alert["price_at_alert"] * 100
+                line += f"  1h={pct:+.1f}%"
+            if alert["price_24h_later"]:
+                pct = (alert["price_24h_later"] - alert["price_at_alert"]) / alert["price_at_alert"] * 100
+                line += f"  24h={pct:+.1f}%"
+        print(line)
 
     # Nitter poll timing
     print("\n  Last timings:")

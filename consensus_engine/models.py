@@ -262,6 +262,7 @@ class CrossReferenceResult:
     technical: Optional[TechnicalResult] = None
     other_analysts: list[str] = field(default_factory=list)
     social_summary: str = ""
+    sec_summary: str = ""
     llm_reasoning: str = ""
 
     @property

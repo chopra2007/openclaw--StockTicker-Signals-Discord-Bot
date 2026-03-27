@@ -86,7 +86,7 @@ async def test_cross_reference_with_mocked_sources():
     with patch("consensus_engine.cross_reference._run_news_cascade",
                new_callable=AsyncMock, return_value=mock_catalyst), \
          patch("consensus_engine.cross_reference._run_sec_check",
-               new_callable=AsyncMock, return_value=False), \
+               new_callable=AsyncMock, return_value=(False, "")), \
          patch("consensus_engine.cross_reference._run_social_check",
                new_callable=AsyncMock, return_value={"apewisdom": 3}), \
          patch("consensus_engine.cross_reference._run_technical",

@@ -94,6 +94,9 @@ def format_detail_followup(xref: CrossReferenceResult) -> dict:
             catalyst_text += f"\nSources: {', '.join(xref.catalyst_sources[:3])}"
         fields.append({"name": "News Catalyst", "value": catalyst_text, "inline": False})
 
+    if xref.sec_summary:
+        fields.append({"name": "SEC Filings", "value": xref.sec_summary, "inline": False})
+
     if xref.technical and xref.technical.filters:
         tech_lines = []
         for f in xref.technical.filters:

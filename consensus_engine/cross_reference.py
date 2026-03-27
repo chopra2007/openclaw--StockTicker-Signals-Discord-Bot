@@ -60,9 +60,15 @@ async def _run_news_cascade(ticker: str) -> Optional[CatalystResult]:
     return await news_cascade(ticker)
 
 
-async def _run_sec_check(ticker: str) -> bool:
-    """Check SEC EDGAR for recent filings. Returns True if relevant filing found."""
-    return False
+async def _run_sec_check(ticker: str) -> tuple[bool, str]:
+    """Check SEC EDGAR for recent filings. Returns (has_filing, summary)."""
+    try:
+        from consensus_engine.scanners.sec_edgar import check_recent_filings, classify_filing_significance
+        filings = await check_recent_filings(ticker, hours_back=48)
+        return classify_filing_significance(filings)
+    except Exception as e:
+        log.debug("SEC check error for %s: %s", ticker, e)
+        return False, ""
 
 
 async def _run_social_check(ticker: str) -> dict[str, int]:
@@ -97,7 +103,7 @@ async def cross_reference(ticker: str, tweet: ParsedTweet) -> CrossReferenceResu
     log.info("Starting cross-reference for $%s (base=%d)", ticker, tweet.base_score)
     m = cfg.get("scoring.multipliers", {})
 
-    catalyst, sec_hit, social_data, technical, other_analysts, (llm_score, llm_reasoning) = \
+    catalyst, (sec_hit, sec_summary), social_data, technical, other_analysts, (llm_score, llm_reasoning) = \
         await asyncio.gather(
             _run_news_cascade(ticker),
             _run_sec_check(ticker),
@@ -149,6 +155,7 @@ async def cross_reference(ticker: str, tweet: ParsedTweet) -> CrossReferenceResu
         technical=technical,
         other_analysts=other_analysts,
         social_summary=", ".join(social_parts) if social_parts else "",
+        sec_summary=sec_summary,
         llm_reasoning=llm_reasoning,
     )
 

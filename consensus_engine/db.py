@@ -366,3 +366,42 @@ async def get_recent_analysts_for_ticker(ticker: str, window_seconds: int = 3600
     )
     rows = await cursor.fetchall()
     return [r["source_detail"] for r in rows]
+
+
+async def get_alerts_needing_price_update(field: str) -> list[dict]:
+    """Get alerts where a price follow-up field is NULL and enough time has passed.
+
+    field must be 'price_1h_later' or 'price_24h_later'.
+    """
+    conn = await get_db()
+    now = time.time()
+    if field == "price_1h_later":
+        min_age = 3600       # at least 1 hour old
+        max_age = 7200       # no older than 2 hours (don't backfill ancient alerts)
+    elif field == "price_24h_later":
+        min_age = 86400      # at least 24 hours old
+        max_age = 172800     # no older than 48 hours
+    else:
+        return []
+
+    cursor = await conn.execute(
+        f"""SELECT id, ticker, price_at_alert, alerted_at FROM alert_history
+            WHERE {field} IS NULL
+            AND alerted_at <= ? AND alerted_at >= ?
+            ORDER BY alerted_at DESC LIMIT 20""",
+        (now - min_age, now - max_age),
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def update_alert_price(alert_id: int, field: str, price: float):
+    """Update a price follow-up field on an alert."""
+    if field not in ("price_1h_later", "price_24h_later"):
+        return
+    conn = await get_db()
+    await conn.execute(
+        f"UPDATE alert_history SET {field} = ? WHERE id = ?",
+        (price, alert_id),
+    )
+    await conn.commit()
