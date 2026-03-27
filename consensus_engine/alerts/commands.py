@@ -153,6 +153,7 @@ async def _scan_and_reply(ticker: str, channel_id: str, message_id: str) -> None
         social = b.social_apewisdom + b.social_stocktwits + b.social_reddit + b.google_trends
         if social: parts.append(f"social={social}")
         if b.llm_boost: parts.append(f"llm={b.llm_boost}")
+        if b.options_flow: parts.append(f"options={b.options_flow}")
 
         score_str = " + ".join(parts) + f" = **{xref.final_score}**"
         summary_lines = [f"**${ticker} Scan — Score: {xref.final_score}**", score_str]
@@ -160,6 +161,12 @@ async def _scan_and_reply(ticker: str, channel_id: str, message_id: str) -> None
             summary_lines.append(f"News: {xref.catalyst_summary[:200]}")
         if xref.social_summary:
             summary_lines.append(f"Social: {xref.social_summary}")
+        if xref.options and xref.options.has_unusual_activity:
+            opt = xref.options
+            opt_parts = []
+            if opt.unusual_calls: opt_parts.append(f"unusual calls ({opt.max_call_ratio:.1f}x vol/OI)")
+            if opt.unusual_puts: opt_parts.append(f"unusual puts ({opt.max_put_ratio:.1f}x vol/OI)")
+            summary_lines.append(f"Options: {', '.join(opt_parts)}")
 
         await send_command_reply(channel_id, message_id, "\n".join(summary_lines))
     except Exception as e:
