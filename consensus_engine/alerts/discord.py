@@ -107,6 +107,16 @@ def format_detail_followup(xref: CrossReferenceResult) -> dict:
     if xref.social_summary:
         fields.append({"name": "Social", "value": xref.social_summary, "inline": False})
 
+    if xref.options and xref.options.has_unusual_activity:
+        opt = xref.options
+        parts_o = []
+        if opt.unusual_calls:
+            parts_o.append(f"Unusual CALLS (max ratio {opt.max_call_ratio:.1f}x)")
+        if opt.unusual_puts:
+            parts_o.append(f"Unusual PUTS (max ratio {opt.max_put_ratio:.1f}x)")
+        parts_o.append(f"P/C ratio: {opt.put_call_ratio:.2f}")
+        fields.append({"name": "Options Flow", "value": "\n".join(parts_o), "inline": False})
+
     if xref.other_analysts:
         analyst_text = ", ".join(f"@{a}" for a in xref.other_analysts[:10])
         analyst_text += f" (+{b.additional_analysts} pts)"
@@ -126,6 +136,7 @@ def format_detail_followup(xref: CrossReferenceResult) -> dict:
     if b.google_trends: parts.append(f"trends({b.google_trends})")
     if b.technical: parts.append(f"tech({b.technical})")
     if b.llm_boost: parts.append(f"llm({b.llm_boost})")
+    if b.options_flow: parts.append(f"options({b.options_flow})")
     breakdown_text = " + ".join(parts) + f" = {total}"
     fields.append({"name": "Breakdown", "value": breakdown_text, "inline": False})
 

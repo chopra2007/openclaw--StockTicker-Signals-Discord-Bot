@@ -127,7 +127,7 @@ async def _run_cross_reference_and_followup(
 ):
     """Background task: run cross-references then send detail follow-up."""
     try:
-        xref = await cross_reference(ticker, parsed)
+        xref = await cross_reference(ticker, parsed, executor=_executor)
         followup_id = await send_detail_followup(xref, msg_id)
         if followup_id:
             await db.update_alert_message_followup(row_id, followup_id, xref.final_score)

@@ -241,13 +241,14 @@ class ScoreBreakdown:
     google_trends: int = 0
     technical: int = 0
     llm_boost: int = 0
+    options_flow: int = 0
 
     @property
     def total(self) -> int:
         return (self.base + self.additional_analysts + self.news_catalyst
                 + self.sec_filing + self.social_apewisdom + self.social_stocktwits
                 + self.social_reddit + self.google_trends + self.technical
-                + self.llm_boost)
+                + self.llm_boost + self.options_flow)
 
 
 @dataclass
@@ -264,6 +265,7 @@ class CrossReferenceResult:
     social_summary: str = ""
     sec_summary: str = ""
     llm_reasoning: str = ""
+    options: Optional["OptionsResult"] = None
 
     @property
     def final_score(self) -> int:
@@ -280,3 +282,19 @@ class AlertMessage:
     base_score: int = 0
     final_score: int = 0
     created_at: float = field(default_factory=time.time)
+
+
+@dataclass
+class OptionsResult:
+    """Unusual options activity detected for a ticker."""
+    ticker: str
+    unusual_calls: bool = False
+    unusual_puts: bool = False
+    max_call_ratio: float = 0.0   # max volume/OI ratio across calls
+    max_put_ratio: float = 0.0    # max volume/OI ratio across puts
+    put_call_ratio: float = 0.0   # total put volume / total call volume
+    top_contract: str = ""        # contractSymbol with highest unusual ratio
+
+    @property
+    def has_unusual_activity(self) -> bool:
+        return self.unusual_calls or self.unusual_puts

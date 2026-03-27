@@ -48,6 +48,7 @@ scoring:
     technical_per_filter: 2
     technical_max: 12
     llm_boost_max: 15
+    options_flow: 10
 
 # News Cascade (tried in order, stops when catalyst found)
 news_cascade:

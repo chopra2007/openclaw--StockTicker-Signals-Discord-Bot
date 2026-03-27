@@ -12,7 +12,7 @@ from consensus_engine import config as cfg
 from consensus_engine import db
 from consensus_engine.models import (
     ParsedTweet, CrossReferenceResult, ScoreBreakdown,
-    CatalystResult, TechnicalResult,
+    CatalystResult, TechnicalResult, OptionsResult,
 )
 from consensus_engine.scanners.news import news_cascade
 from consensus_engine.analysis.technical import verify_technical
@@ -98,12 +98,22 @@ async def _run_llm_score(ticker: str, catalyst: Optional[CatalystResult],
     return await score_confidence(ticker, None, None, catalyst, technical)
 
 
-async def cross_reference(ticker: str, tweet: ParsedTweet) -> CrossReferenceResult:
+async def _run_options_check(ticker: str, executor) -> Optional[OptionsResult]:
+    """Check for unusual options activity."""
+    try:
+        from consensus_engine.scanners.options import check_unusual_options
+        return await check_unusual_options(ticker, executor)
+    except Exception as e:
+        log.debug("Options check error for %s: %s", ticker, e)
+        return None
+
+
+async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> CrossReferenceResult:
     """Run all cross-reference sources in parallel and compute final score."""
     log.info("Starting cross-reference for $%s (base=%d)", ticker, tweet.base_score)
     m = cfg.get("scoring.multipliers", {})
 
-    catalyst, (sec_hit, sec_summary), social_data, technical, other_analysts, (llm_score, llm_reasoning) = \
+    catalyst, (sec_hit, sec_summary), social_data, technical, other_analysts, (llm_score, llm_reasoning), options = \
         await asyncio.gather(
             _run_news_cascade(ticker),
             _run_sec_check(ticker),
@@ -111,6 +121,7 @@ async def cross_reference(ticker: str, tweet: ParsedTweet) -> CrossReferenceResu
             _run_technical(ticker),
             _run_other_analysts(ticker, exclude_analyst=tweet.analyst),
             _run_llm_score(ticker, None, None),
+            _run_options_check(ticker, executor),
         )
 
     if technical or catalyst:
@@ -124,6 +135,8 @@ async def cross_reference(ticker: str, tweet: ParsedTweet) -> CrossReferenceResu
 
     llm_max = m.get("llm_boost_max", 15)
     llm_pts = int(llm_score / 100 * llm_max)
+
+    options_pts = m.get("options_flow", 10) if (options and options.has_unusual_activity) else 0
 
     social_parts = []
     if social_data.get("apewisdom", 0) >= 1:
@@ -142,6 +155,7 @@ async def cross_reference(ticker: str, tweet: ParsedTweet) -> CrossReferenceResu
         sec_filing=sec_pts,
         technical=tech_pts,
         llm_boost=llm_pts,
+        options_flow=options_pts,
         **social_breakdown,
     )
 
@@ -157,6 +171,7 @@ async def cross_reference(ticker: str, tweet: ParsedTweet) -> CrossReferenceResu
         social_summary=", ".join(social_parts) if social_parts else "",
         sec_summary=sec_summary,
         llm_reasoning=llm_reasoning,
+        options=options,
     )
 
     log.info("Cross-reference for $%s: score=%d (base=%d + xref=%d)",
