@@ -187,7 +187,7 @@ def _to_float(val) -> Optional[float]:
         return None
 
 
-async def parse_tweet(url: str, analyst: str, text: str) -> ParsedTweet:
+async def parse_tweet(url: str, analyst: str, text: str, image_url: Optional[str] = None) -> ParsedTweet:
     """Parse a tweet using LLM with regex fallback.
 
     This is the main entry point called by the pipeline.
@@ -197,8 +197,12 @@ async def parse_tweet(url: str, analyst: str, text: str) -> ParsedTweet:
     try:
         raw_response = await _call_openrouter(user_prompt)
         if not raw_response:
-            return _fallback_parse(url, analyst, text)
-        return _parse_llm_response(raw_response, url, analyst, text)
+            parsed = _fallback_parse(url, analyst, text)
+        else:
+            parsed = _parse_llm_response(raw_response, url, analyst, text)
     except Exception as e:
         log.warning("Tweet parse error for @%s: %s", analyst, e)
-        return _fallback_parse(url, analyst, text)
+        parsed = _fallback_parse(url, analyst, text)
+
+    parsed.image_url = image_url
+    return parsed

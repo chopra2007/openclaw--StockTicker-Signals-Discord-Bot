@@ -76,8 +76,9 @@ async def process_tweet(tweet_data: dict):
     url = tweet_data["url"]
     analyst = tweet_data["analyst"]
     text = tweet_data["text"]
+    image_url = tweet_data.get("image_url")
 
-    parsed = await parse_tweet(url, analyst, text)
+    parsed = await parse_tweet(url, analyst, text, image_url=image_url)
 
     if not parsed.is_actionable:
         log.debug("Non-actionable tweet from @%s (type=%s)", analyst, parsed.tweet_type.value)

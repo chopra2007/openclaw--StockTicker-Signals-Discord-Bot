@@ -214,10 +214,24 @@ class DiscordTweetShiftListener:
                 tweet_data = _parse_tweetshift_message(data)
                 if not tweet_data:
                     return
-                handle_lower = _normalize_handle(tweet_data["analyst"])
-                if self._known and handle_lower not in self._known:
-                    log.debug("Ignoring message from unknown handle @%s", tweet_data["analyst"])
-                    return
+                image_url = None
+                for att in data.get("attachments", []):
+                    ct = att.get("content_type", "")
+                    fn = att.get("filename", "")
+                    if ct.startswith("image/") or fn.lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".webp")):
+                        image_url = att["url"]
+                        break
+                if not image_url:
+                    for embed in data.get("embeds", []):
+                        image_url = embed.get("image", {}).get("url")
+                        if image_url:
+                            break
+                if not image_url:
+                    for embed in data.get("embeds", []):
+                        image_url = embed.get("thumbnail", {}).get("url")
+                        if image_url:
+                            break
+                tweet_data["image_url"] = image_url
                 if not await db.is_new_tweet(tweet_data["url"]):
                     return
                 await db.mark_tweet_seen(tweet_data["url"], tweet_data["analyst"])

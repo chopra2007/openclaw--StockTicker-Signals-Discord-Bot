@@ -78,6 +78,9 @@ def format_instant_ping(tweet: ParsedTweet, current_price: float = 0.0) -> dict:
         "footer": {"text": "OpenClaw Signal Engine"},
     }
 
+    if tweet.image_url:
+        embed["image"] = {"url": tweet.image_url}
+
     return embed
 
 

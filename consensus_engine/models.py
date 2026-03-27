@@ -217,6 +217,7 @@ class ParsedTweet:
     options: Optional[OptionsDetail]
     conviction: Conviction
     summary: str
+    image_url: Optional[str] = None
     parsed_at: float = field(default_factory=time.time)
 
     @property
