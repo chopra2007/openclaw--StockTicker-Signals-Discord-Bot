@@ -8,10 +8,13 @@ Commands:
   !scan <TICKER> — run cross-reference on a ticker and reply with score
 """
 
+import asyncio
 import logging
 from typing import Optional
 
 from consensus_engine.alerts.discord import send_command_reply
+from consensus_engine.scanners.reddit_trend import crawl_and_get_trending
+from consensus_engine.alerts.discord import send_trend_digest
 
 log = logging.getLogger("consensus_engine.alerts.commands")
 
@@ -104,11 +107,10 @@ async def _handle_trend(channel_id: str, message_id: str) -> None:
     """Trigger an on-demand Reddit trend digest."""
     try:
         await send_command_reply(channel_id, message_id, "Running trend scan... (may take ~30s)")
-        from consensus_engine.scanners.reddit_trend import crawl_and_get_trending
-        from consensus_engine.alerts.discord import send_trend_digest
         trending = await crawl_and_get_trending()
         if trending:
             await send_trend_digest(trending)
+            await send_command_reply(channel_id, message_id, f"Trend digest posted — {len(trending)} tickers found.")
         else:
             await send_command_reply(channel_id, message_id, "No trending tickers found right now.")
     except Exception as e:
@@ -118,13 +120,17 @@ async def _handle_trend(channel_id: str, message_id: str) -> None:
 
 async def _handle_scan(ticker: str, channel_id: str, message_id: str) -> None:
     """Run cross-reference on a ticker and reply with results."""
+    await send_command_reply(channel_id, message_id, f"Scanning `${ticker}`...")
+    asyncio.create_task(_scan_and_reply(ticker, channel_id, message_id))
+
+
+async def _scan_and_reply(ticker: str, channel_id: str, message_id: str) -> None:
+    """Background task: run cross-reference and post results."""
     try:
-        await send_command_reply(channel_id, message_id, f"Scanning `${ticker}`...")
         from consensus_engine.cross_reference import cross_reference
         from consensus_engine.models import (
-            ParsedTweet, TweetType, Direction, Conviction, OptionsDetail
+            ParsedTweet, TweetType, Direction, Conviction,
         )
-        # Build a minimal ParsedTweet so cross_reference() has what it needs
         fake_tweet = ParsedTweet(
             tweet_url="command",
             analyst="command",
@@ -157,5 +163,5 @@ async def _handle_scan(ticker: str, channel_id: str, message_id: str) -> None:
 
         await send_command_reply(channel_id, message_id, "\n".join(summary_lines))
     except Exception as e:
-        log.error("Scan command error for %s: %s", ticker, e)
+        log.error("Scan background task error for %s: %s", ticker, e)
         await send_command_reply(channel_id, message_id, f"Scan failed for `${ticker}`.")

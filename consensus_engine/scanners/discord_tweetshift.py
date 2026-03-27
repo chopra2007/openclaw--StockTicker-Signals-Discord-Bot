@@ -158,6 +158,8 @@ class DiscordTweetShiftListener:
         self._commands_channel_id = str(
             cfg.get("api_keys.discord_channel_id", "") or ""
         ).strip()
+        if not self._commands_channel_id:
+            log.warning("discord_channel_id not configured — command routing disabled")
         accounts = cfg.get_twitter_accounts()
         self._known = _known_handles(accounts)
 
