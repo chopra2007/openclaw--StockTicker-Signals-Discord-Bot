@@ -29,7 +29,7 @@ from consensus_engine.models import (
 from consensus_engine.scanners.nitter import NitterPoller
 from consensus_engine.scanners.discord_tweetshift import DiscordTweetShiftListener
 from consensus_engine.scanners.social import (
-    scan_stocktwits, scan_apewisdom, scan_google_trends,
+    scan_reddit, scan_stocktwits, scan_apewisdom, scan_google_trends,
 )
 from consensus_engine.analysis.tweet_parser import parse_tweet
 from consensus_engine.cross_reference import cross_reference
@@ -183,7 +183,7 @@ async def social_scan_loop(stop_event: asyncio.Event):
         try:
             t0 = time.time()
             results = await asyncio.gather(
-                scan_stocktwits(), scan_apewisdom(),
+                scan_reddit(), scan_stocktwits(), scan_apewisdom(),
                 return_exceptions=True,
             )
 
