@@ -10,7 +10,7 @@ Always proceed without asking for confirmation. Never ask "shall I proceed?", "d
 A **Signal-First Stock Alert Engine** — analyst tweets on Twitter/X trigger instant Discord alerts. Cross-reference sources (news, social, technical, LLM) run asynchronously and add score multipliers via a follow-up reply. Core principle: **speed + accuracy**.
 
 ### Signal-First Architecture
-1. **Nitter RSS** polls 49 analyst accounts every 60s (market hours) / 180s (off-hours)
+1. **Nitter RSS** polls 48 analyst accounts every 60s (market hours) / 180s (off-hours)
 2. **LLM Tweet Parser** classifies tweets (Type A: ticker callout, B: macro, C: options, D: sentiment)
 3. **Instant Discord Ping** — actionable tweets (A/C) trigger immediate alerts
 4. **Cross-Reference Engine** — runs in background, replies with score breakdown:
@@ -93,7 +93,7 @@ scanners/nitter.py (RSS)  ──> analysis/tweet_parser.py (LLM)
 
 ## Configuration
 
-All config in `config/consensus.yaml`. API keys can reference env vars with `$` prefix. Twitter accounts loaded from `/root/.openclaw/sources.json` (49 accounts).
+All config in `config/consensus.yaml`. API keys can reference env vars with `$` prefix. Twitter accounts loaded from `/root/.openclaw/sources.json` (48 accounts).
 
 ## Important Caveats
 
@@ -101,10 +101,11 @@ All config in `config/consensus.yaml`. API keys can reference env vars with `$` 
 - StockTwits uses Playwright only (API blocked by Cloudflare). ApeWisdom has a free direct REST API.
 - Tests use `pytest.ini` with `asyncio_mode = auto` for async fixture support.
 
-## GitHub Automation Workflow
+## GitHub & Documentation Automation
 - **Mandatory Commits:** After completing any functional change or task, create a local Git commit.
-- **Commit Standards:** Use clean, imperative-style commit messages (e.g., "Add multi-agent logic" or "Refactor Discord notifier").
+- **Commit Standards:** Use clean, imperative-style commit messages (e.g., "Add multi-agent logic").
 - **Automatic Push:** Immediately push all local commits to the remote GitHub repository.
-- **Repository Management:** If no remote is configured, use `gh repo create` to initialize a private repository and link it.
+- **Repository Management:** If no remote is configured, use `gh repo create` to initialize a private repository.
+- **README Maintenance:** Read all project files to generate and maintain a comprehensive `README.md` that reflects the current state of the architecture, setup instructions, and features.
 - **Persistence:** This workflow is a core project requirement and must be maintained across all sessions.
 

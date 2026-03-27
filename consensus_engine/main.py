@@ -27,6 +27,7 @@ from consensus_engine.models import (
     TickerSignal, SourceType, Sentiment,
 )
 from consensus_engine.scanners.nitter import NitterPoller
+from consensus_engine.scanners.discord_tweetshift import DiscordTweetShiftListener
 from consensus_engine.scanners.social import (
     scan_stocktwits, scan_apewisdom, scan_google_trends,
 )
@@ -251,6 +252,12 @@ async def price_followup_loop(stop_event: asyncio.Event):
             pass
 
 
+async def tweetshift_listener_loop(stop_event: asyncio.Event):
+    """Discord Gateway loop: receive TweetShift tweets and process them."""
+    listener = DiscordTweetShiftListener(on_tweet=process_tweet)
+    await listener.run(stop_event)
+
+
 async def prune_loop(stop_event: asyncio.Event):
     """Database pruning loop — cleans expired signals."""
     interval = cfg.get("intervals.state_prune", 900)
@@ -313,12 +320,13 @@ async def run(once: bool = False):
 
     tasks = [
         asyncio.create_task(nitter_poll_loop(stop_event), name="nitter-poller"),
+        asyncio.create_task(tweetshift_listener_loop(stop_event), name="tweetshift-listener"),
         asyncio.create_task(social_scan_loop(stop_event), name="social-scanner"),
         asyncio.create_task(price_followup_loop(stop_event), name="price-followup"),
         asyncio.create_task(prune_loop(stop_event), name="pruner"),
     ]
 
-    log.info("All loops started: nitter-poller, social-scanner, price-followup, pruner")
+    log.info("All loops started: nitter-poller, tweetshift-listener, social-scanner, price-followup, pruner")
 
     try:
         await asyncio.gather(*tasks)
