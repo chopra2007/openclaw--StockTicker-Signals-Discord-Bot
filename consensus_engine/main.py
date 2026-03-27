@@ -34,6 +34,7 @@ from consensus_engine.scanners.social import (
 from consensus_engine.analysis.tweet_parser import parse_tweet
 from consensus_engine.cross_reference import cross_reference
 from consensus_engine.alerts.discord import send_instant_ping, send_detail_followup, send_trend_digest
+from consensus_engine.alerts.commands import route_command
 from consensus_engine.scanners.reddit_trend import crawl_and_get_trending
 from consensus_engine.utils.tickers import validate_ticker_market_cap
 
@@ -255,7 +256,7 @@ async def price_followup_loop(stop_event: asyncio.Event):
 
 async def tweetshift_listener_loop(stop_event: asyncio.Event):
     """Discord Gateway loop: receive TweetShift tweets and process them."""
-    listener = DiscordTweetShiftListener(on_tweet=process_tweet)
+    listener = DiscordTweetShiftListener(on_tweet=process_tweet, on_command=route_command)
     await listener.run(stop_event)
 
 

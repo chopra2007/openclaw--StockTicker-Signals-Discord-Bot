@@ -130,14 +130,18 @@ def _parse_tweetshift_message(message: dict) -> Optional[dict]:
 class DiscordTweetShiftListener:
     """Listens to a Discord channel for TweetShift posts via Gateway WebSocket."""
 
-    def __init__(self, on_tweet: Callable):
+    def __init__(self, on_tweet: Callable, on_command: Optional[Callable] = None):
         """
         Args:
             on_tweet: async callback(tweet_data: dict) called for each new tweet.
+            on_command: optional async callback(command, args, channel_id, message_id)
+                        called for !-prefixed messages on the commands channel.
         """
         self._on_tweet = on_tweet
+        self._on_command = on_command
         self._token: str = ""
         self._feed_channel_id: str = ""
+        self._commands_channel_id: str = ""
         self._known: set[str] = set()
 
         self._session_id: Optional[str] = None
@@ -150,6 +154,9 @@ class DiscordTweetShiftListener:
         self._token = cfg.get_api_key("discord_bot_token") or ""
         self._feed_channel_id = str(
             cfg.get("api_keys.discord_feed_channel_id", "") or ""
+        ).strip()
+        self._commands_channel_id = str(
+            cfg.get("api_keys.discord_channel_id", "") or ""
         ).strip()
         accounts = cfg.get_twitter_accounts()
         self._known = _known_handles(accounts)
@@ -197,32 +204,42 @@ class DiscordTweetShiftListener:
 
         elif event == "MESSAGE_CREATE":
             channel_id = str(data.get("channel_id", ""))
-            if channel_id != self._feed_channel_id:
-                return
+            message_id = str(data.get("id", ""))
+            content = data.get("content", "")
 
-            tweet_data = _parse_tweetshift_message(data)
-            if not tweet_data:
-                return
+            # TweetShift feed channel: process as tweet
+            if channel_id == self._feed_channel_id:
+                tweet_data = _parse_tweetshift_message(data)
+                if not tweet_data:
+                    return
+                handle_lower = _normalize_handle(tweet_data["analyst"])
+                if self._known and handle_lower not in self._known:
+                    log.debug("Ignoring message from unknown handle @%s", tweet_data["analyst"])
+                    return
+                if not await db.is_new_tweet(tweet_data["url"]):
+                    return
+                await db.mark_tweet_seen(tweet_data["url"], tweet_data["analyst"])
+                log.info(
+                    "TweetShift tweet: @%s — %.80s",
+                    tweet_data["analyst"],
+                    tweet_data["text"],
+                )
+                try:
+                    await self._on_tweet(tweet_data)
+                except Exception as e:
+                    log.error("Tweet callback error: %s", e, exc_info=True)
 
-            handle_lower = _normalize_handle(tweet_data["analyst"])
-            if self._known and handle_lower not in self._known:
-                log.debug("Ignoring message from unknown handle @%s", tweet_data["analyst"])
-                return
-
-            # Dedup via seen_tweets
-            if not await db.is_new_tweet(tweet_data["url"]):
-                return
-            await db.mark_tweet_seen(tweet_data["url"], tweet_data["analyst"])
-
-            log.info(
-                "TweetShift tweet: @%s — %.80s",
-                tweet_data["analyst"],
-                tweet_data["text"],
-            )
-            try:
-                await self._on_tweet(tweet_data)
-            except Exception as e:
-                log.error("Tweet callback error: %s", e, exc_info=True)
+            # Commands channel: route !-prefixed messages
+            elif channel_id == self._commands_channel_id and self._on_command:
+                from consensus_engine.alerts.commands import parse_command
+                parsed = parse_command(content)
+                if parsed:
+                    cmd, args = parsed
+                    log.info("Discord command: !%s %s", cmd, args)
+                    try:
+                        await self._on_command(cmd, args, channel_id, message_id)
+                    except Exception as e:
+                        log.error("Command callback error: %s", e, exc_info=True)
 
     async def _connect_once(self):
         """Open one WebSocket session, run until disconnected."""

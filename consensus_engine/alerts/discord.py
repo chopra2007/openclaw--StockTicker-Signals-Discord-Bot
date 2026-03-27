@@ -227,6 +227,33 @@ async def send_trend_digest(trending: list[dict]) -> Optional[str]:
             return data.get("id")
 
 
+async def send_command_reply(channel_id: str, reply_to_msg_id: str, content: str) -> Optional[str]:
+    """Send a plain-text reply to a Discord command message."""
+    if cfg.dry_run:
+        log.info("[DRY-RUN] Command reply to %s: %s", reply_to_msg_id, content[:80])
+        return "dry_run_reply_id"
+
+    token = cfg.get_api_key("discord_bot_token")
+    if not token:
+        log.warning("Discord bot token not configured")
+        return None
+
+    async with aiohttp.ClientSession() as session:
+        url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+        headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
+        payload = {
+            "content": content[:2000],
+            "message_reference": {"message_id": reply_to_msg_id},
+        }
+        async with session.post(url, headers=headers, json=payload,
+                                timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            if resp.status not in (200, 201):
+                log.warning("Command reply failed: %d", resp.status)
+                return None
+            data = await resp.json()
+            return data.get("id")
+
+
 async def send_detail_followup(xref: CrossReferenceResult, reply_to_msg_id: str) -> Optional[str]:
     """Send the detail follow-up as a reply to the instant ping. Returns message ID."""
     if cfg.dry_run:
