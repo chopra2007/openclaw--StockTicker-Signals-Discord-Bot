@@ -40,12 +40,13 @@ async def test_filter_trending_passes_threshold():
     metrics = {
         "NVDA": {"mentions": 10, "unique_authors": 6, "momentum": 2.0},
         "TSLA": {"mentions": 5, "unique_authors": 3, "momentum": 1.2},
-        "AAPL": {"mentions": 9, "unique_authors": 2, "momentum": 3.0},
+        "AAPL": {"mentions": 9, "unique_authors": 2, "momentum": 1.0},
     }
     # NVDA: passes (mentions >= 8 AND unique_authors >= 5)
     # TSLA: fails both conditions
-    # AAPL: fails unique_authors < 5, momentum passes but unique_authors doesn't
+    # AAPL: fails (unique_authors 2 < 5 AND momentum 1.0 not > 1.5)
     trending = _filter_trending(metrics)
     tickers = [t["ticker"] for t in trending]
     assert "NVDA" in tickers
     assert "TSLA" not in tickers
+    assert "AAPL" not in tickers

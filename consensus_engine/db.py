@@ -426,7 +426,7 @@ async def insert_reddit_posts(posts: list[dict]) -> int:
     inserted = 0
     for post in posts:
         try:
-            await conn.execute(
+            cursor = await conn.execute(
                 """INSERT OR IGNORE INTO reddit_posts
                    (id, subreddit, title, author, score, num_comments, created_utc, fetched_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
@@ -436,7 +436,8 @@ async def insert_reddit_posts(posts: list[dict]) -> int:
                     post.get("num_comments", 0), post["created_utc"], time.time(),
                 ),
             )
-            inserted += 1
+            if cursor.rowcount > 0:
+                inserted += 1
         except Exception:
             pass
     await conn.commit()
