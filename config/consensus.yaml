@@ -6,15 +6,15 @@
 # =============================================================================
 
 api_keys:
-  brave_search: "$BRAVE_SEARCH_API_KEY"
-  finnhub: "$FINNHUB_API_KEY"
-  openrouter: "$OPENROUTER_API_KEY"
-  discord_bot_token: "$DISCORD_BOT_TOKEN"
-  discord_channel_id: "$DISCORD_CHANNEL_ID"
+  brave_search: "your-brave-search-api-key"
+  finnhub: "your-finnhub-api-key"
+  openrouter: "your-openrouter-api-key"
+  discord_bot_token: "your-discord-bot-token"
+  discord_channel_id: "your-discord-channel-id"
   discord_feed_channel_id: "your-discord-feed-channel-id"  # #twitter channel — TweetShift input
-  twitter_auth_token: "$TWITTER_AUTH_TOKEN"
-  twitter_ct0: "$TWITTER_CT0"
-  twitter_cookie_string: "$TWITTER_COOKIE_STRING"
+  twitter_auth_token: "your-twitter-auth-token"
+  twitter_ct0: "your-twitter-ct0-token"
+  twitter_cookie_string: "your-twitter-cookie-string"
 
 # Self-hosted Nitter (Docker)
 nitter:
