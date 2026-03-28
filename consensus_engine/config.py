@@ -6,6 +6,15 @@ import yaml
 from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
+
+# Load .env from /root/.openclaw/.env (or workspace .env as fallback)
+_ENV_PATH = Path("/root/.openclaw/.env")
+if _ENV_PATH.exists():
+    load_dotenv(_ENV_PATH, override=False)
+else:
+    load_dotenv(override=False)
+
 _DEFAULT_CONFIG_PATH = Path(__file__).parent.parent / "config" / "consensus.yaml"
 _config: dict | None = None
 
