@@ -32,6 +32,21 @@ def test_extract_tickers_filters_noise():
     assert "CO" not in tickers
 
 
+def test_technical_indicators_blacklisted():
+    """Technical indicator names should be blacklisted to prevent false alerts."""
+    indicators = ["RSI", "EMA", "MACD", "VWAP", "SMA", "RVOL", "ADX", "MFI", "OBV", "CCI", "DMI", "DOJI", "BOLL"]
+    for t in indicators:
+        assert t in BLACKLIST, f"Indicator {t} should be blacklisted"
+
+
+def test_extract_tickers_ignores_indicators():
+    """Indicator names in text should not be extracted as tickers."""
+    assert extract_tickers("RSI oversold on NVDA") == {"NVDA"}
+    assert extract_tickers("MACD crossover on AAPL") == {"AAPL"}
+    assert extract_tickers("EMA death cross on TSLA") == {"TSLA"}
+    assert extract_tickers("VWAP reclaim") == set()
+
+
 def test_extract_tickers_finds_real():
     text = "$NVDA breaking out, $TSLA also running"
     tickers = extract_tickers(text)

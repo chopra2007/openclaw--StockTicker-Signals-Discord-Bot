@@ -138,7 +138,7 @@ async def process_tweet(tweet_data: dict):
         row_id = await db.insert_alert_message(ticker, analyst, msg_id, parsed.base_score)
         # Launch cross-reference in background
         asyncio.create_task(
-            _run_cross_reference_and_followup(ticker, parsed, msg_id, row_id),
+            _run_cross_reference_and_followup(ticker, parsed, msg_id, row_id, price),
             name=f"xref-{ticker}",
         )
     else:
@@ -146,7 +146,7 @@ async def process_tweet(tweet_data: dict):
 
 
 async def _run_cross_reference_and_followup(
-    ticker: str, parsed, msg_id: str, row_id: int
+    ticker: str, parsed, msg_id: str, row_id: int, price_at_alert: float = 0.0
 ):
     """Background task: run cross-references then send detail follow-up."""
     try:
@@ -163,7 +163,7 @@ async def _run_cross_reference_and_followup(
             consensus_json=json.dumps({"breakdown": str(xref.breakdown)}),
             technical_json=json.dumps({"filters": len(xref.technical.filters) if xref.technical else 0}),
             analysts_json=json.dumps(xref.other_analysts),
-            price=0.0,
+            price=price_at_alert,
         )
     except Exception as e:
         log.error("Cross-reference failed for $%s: %s", ticker, e, exc_info=True)

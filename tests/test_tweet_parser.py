@@ -104,6 +104,23 @@ def test_parse_llm_response_markdown_wrapped():
     assert tweet.tickers == ["AMD"]
 
 
+def test_fallback_parser_ignores_indicators():
+    """Fallback regex parser should not extract indicator names as tickers."""
+    from consensus_engine.analysis.tweet_parser import _fallback_parse
+    tweet = _fallback_parse("https://x.com/test/1", "analyst", "RSI oversold on NVDA, MACD crossing")
+    assert "NVDA" in tweet.tickers
+    assert "RSI" not in tweet.tickers
+    assert "MACD" not in tweet.tickers
+
+
+def test_fallback_parser_no_tickers_returns_sentiment():
+    """If no real tickers found, fallback should return SENTIMENT type."""
+    from consensus_engine.analysis.tweet_parser import _fallback_parse
+    tweet = _fallback_parse("https://x.com/test/2", "analyst", "RSI and MACD both looking weak today")
+    assert tweet.tickers == []
+    assert tweet.tweet_type == TweetType.SENTIMENT
+
+
 @pytest.mark.asyncio
 async def test_parse_tweet_llm_call():
     """Test full parse_tweet with mocked LLM."""
