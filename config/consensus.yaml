@@ -77,7 +77,7 @@ social:
     - investing
     - options
     - pennystocks
-  stocktwits_enabled: true
+  stocktwits_enabled: false
   apewisdom_enabled: true
   google_trends_enabled: true
 
