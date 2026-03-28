@@ -1,10 +1,10 @@
 """Social & Sentiment Scanner.
 
 Scanners for cross-reference scoring:
-  - Reddit: Playwright stealth scraping
+  - Reddit: Public JSON API (no browser needed)
   - StockTwits: Playwright stealth (API blocked by Cloudflare)
   - ApeWisdom: Direct REST API (free)
-  - Google Trends: Playwright stealth
+  - Google Trends: SerpAPI
 """
 
 import asyncio
@@ -29,71 +29,71 @@ log = logging.getLogger("consensus_engine.scanner.social")
 
 
 # ---------------------------------------------------------------------------
-# Reddit (Playwright stealth)
+# Reddit (public RSS feeds — no Playwright, no auth needed)
 # ---------------------------------------------------------------------------
 
 async def scan_reddit() -> list[TickerSignal]:
-    """Scrape subreddits via Playwright stealth."""
+    """Fetch subreddit posts via Reddit's public RSS feeds."""
     subreddits = cfg.get("social.subreddits", [])
     if not subreddits:
         return []
 
     signals = []
-    async with create_stealth_browser() as (browser, context):
+    headers = {
+        "User-Agent": "OpenClaw/1.0 (stock trend engine)",
+    }
+    async with aiohttp.ClientSession(headers=headers) as session:
         for sub in subreddits:
-            sub_signals = await _scrape_subreddit_pw(context, sub)
+            if not await rate_limiter.acquire("reddit"):
+                break
+            sub_signals = await _fetch_subreddit_rss(session, sub)
             signals.extend(sub_signals)
-            await random_delay(2.0, 5.0)
+            await asyncio.sleep(2)
 
-    log.info("Reddit: %d signals", len(signals))
+    log.info("Reddit: %d signals from %d subreddits", len(signals), len(subreddits))
     return signals
 
 
-async def _scrape_subreddit_pw(context, subreddit: str) -> list[TickerSignal]:
-    """Scrape a single subreddit via Playwright."""
-    if not await rate_limiter.acquire("reddit"):
-        return []
+async def _fetch_subreddit_rss(session: aiohttp.ClientSession, subreddit: str) -> list[TickerSignal]:
+    """Fetch a single subreddit via Reddit's public RSS feed."""
+    import xml.etree.ElementTree as ET
 
+    url = f"https://www.reddit.com/r/{subreddit}/new/.rss"
     signals = []
-    page = await stealth_page(context)
     try:
-        url = f"https://old.reddit.com/r/{subreddit}/new/"
-        if not await safe_goto(page, url):
-            rate_limiter.report_failure("reddit")
-            return []
+        async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+            if resp.status != 200:
+                log.warning("Reddit RSS r/%s returned %d", subreddit, resp.status)
+                rate_limiter.report_failure("reddit")
+                return []
+            xml_text = await resp.text()
 
-        posts = await page.query_selector_all("#siteTable .thing.link")
-        for post in posts[:25]:
-            try:
-                title_el = await post.query_selector("a.title")
-                if not title_el:
-                    continue
-                title = await title_el.inner_text()
+        root = ET.fromstring(xml_text)
+        ns = {"atom": "http://www.w3.org/2005/Atom"}
+        entries = root.findall("atom:entry", ns)
 
-                text = title
-                expando = await post.query_selector(".expando .md")
-                if expando:
-                    text = title + " " + await expando.inner_text()
+        for entry in entries[:25]:
+            title_el = entry.find("atom:title", ns)
+            content_el = entry.find("atom:content", ns)
+            title = title_el.text if title_el is not None and title_el.text else ""
+            content = content_el.text if content_el is not None and content_el.text else ""
+            text = (title + " " + content).strip()
 
-                tickers = extract_tickers(text)
-                for ticker in tickers:
-                    signals.append(TickerSignal(
-                        ticker=ticker,
-                        source_type=SourceType.REDDIT,
-                        source_detail=f"r/{subreddit}",
-                        raw_text=text[:500],
-                        sentiment=_quick_sentiment(text),
-                        detected_at=time.time(),
-                    ))
-            except Exception:
-                continue
+            tickers = extract_tickers(text)
+            for ticker in tickers:
+                signals.append(TickerSignal(
+                    ticker=ticker,
+                    source_type=SourceType.REDDIT,
+                    source_detail=f"r/{subreddit}",
+                    raw_text=text[:500],
+                    sentiment=_quick_sentiment(text),
+                    detected_at=time.time(),
+                ))
 
         rate_limiter.report_success("reddit")
     except Exception as e:
-        log.warning("Playwright error for r/%s: %s", subreddit, e)
+        log.warning("Reddit RSS error for r/%s: %s", subreddit, e)
         rate_limiter.report_failure("reddit")
-    finally:
-        await page.close()
 
     return signals
 
@@ -114,11 +114,23 @@ async def scan_stocktwits() -> list[TickerSignal]:
         async with create_stealth_browser() as (browser, context):
             page = await stealth_page(context)
             try:
-                if not await safe_goto(page, "https://stocktwits.com/rankings/trending", wait_until="networkidle"):
+                # StockTwits uses Cloudflare which may return 403 initially
+                # while the JS challenge resolves, so ignore response status
+                try:
+                    await page.goto("https://stocktwits.com/rankings/trending",
+                                    wait_until="domcontentloaded")
+                except Exception as nav_err:
+                    log.warning("StockTwits navigation error: %s", nav_err)
                     rate_limiter.report_failure("stocktwits")
                     return []
 
-                await asyncio.sleep(3)
+                # Wait for symbol links to appear after Cloudflare challenge
+                try:
+                    await page.wait_for_selector('a[href*="/symbol/"]', timeout=20000)
+                except Exception:
+                    log.warning("StockTwits: symbol links did not appear (Cloudflare block?)")
+                    rate_limiter.report_failure("stocktwits")
+                    return []
 
                 rows = await page.query_selector_all('a[href*="/symbol/"]')
                 seen = set()
@@ -207,11 +219,11 @@ async def scan_apewisdom() -> list[TickerSignal]:
 
 
 # ---------------------------------------------------------------------------
-# Google Trends (Playwright stealth)
+# Google Trends (SerpAPI)
 # ---------------------------------------------------------------------------
 
 async def scan_google_trends(tickers: list[str]) -> dict[str, float]:
-    """Check Google Trends for ticker search volume spikes.
+    """Check Google Trends for ticker search volume spikes via SerpAPI.
 
     Returns dict of ticker -> trend delta (positive = rising interest).
     """
@@ -220,42 +232,55 @@ async def scan_google_trends(tickers: list[str]) -> dict[str, float]:
     if not tickers:
         return {}
 
+    api_key = cfg.get_api_key("serpapi")
+    if not api_key:
+        log.debug("Google Trends: no SerpAPI key configured, skipping")
+        return {}
+
     results = {}
-    async with create_stealth_browser() as (browser, context):
+    async with aiohttp.ClientSession() as session:
         for ticker in tickers[:10]:
             if not await rate_limiter.acquire("google_trends"):
                 break
 
-            page = await stealth_page(context)
             try:
-                url = f"https://trends.google.com/trends/explore?q={ticker}+stock&date=now%201-d&geo=US"
-                if not await safe_goto(page, url, wait_until="networkidle"):
-                    rate_limiter.report_failure("google_trends")
-                    continue
+                params = {
+                    "engine": "google_trends",
+                    "q": f"{ticker} stock",
+                    "date": "now 1-d",
+                    "geo": "US",
+                    "api_key": api_key,
+                }
+                async with session.get(
+                    "https://serpapi.com/search.json",
+                    params=params,
+                    timeout=aiohttp.ClientTimeout(total=15),
+                ) as resp:
+                    if resp.status != 200:
+                        log.warning("SerpAPI error (%d) for %s", resp.status, ticker)
+                        rate_limiter.report_failure("google_trends")
+                        continue
+                    data = await resp.json()
 
-                await asyncio.sleep(3)
-                trend_el = await page.query_selector('.summary-value-num')
-                if trend_el:
-                    trend_text = await trend_el.inner_text()
-                    try:
-                        if "%" in trend_text:
-                            results[ticker] = float(
-                                trend_text.replace("%", "").replace("+", "").replace(",", "")
-                            )
-                        else:
-                            results[ticker] = float(trend_text.replace(",", ""))
-                    except ValueError:
-                        pass
+                # Extract interest over time
+                timeline = data.get("interest_over_time", {}).get("timeline_data", [])
+                if len(timeline) >= 2:
+                    recent = timeline[-1].get("values", [{}])[0].get("extracted_value", 0)
+                    earlier = timeline[0].get("values", [{}])[0].get("extracted_value", 0)
+                    if earlier > 0:
+                        delta = ((recent - earlier) / earlier) * 100
+                        results[ticker] = delta
+                    elif recent > 0:
+                        results[ticker] = 100.0
 
                 rate_limiter.report_success("google_trends")
             except Exception as e:
-                log.debug("Google Trends error for %s: %s", ticker, e)
+                log.debug("Google Trends SerpAPI error for %s: %s", ticker, e)
                 rate_limiter.report_failure("google_trends")
-            finally:
-                await page.close()
-                await random_delay(3.0, 6.0)
 
-    log.info("Google Trends: %d/%d tickers with data", len(results), len(tickers))
+            await asyncio.sleep(1)
+
+    log.info("Google Trends (SerpAPI): %d/%d tickers with data", len(results), len(tickers))
     return results
 
 
