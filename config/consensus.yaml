@@ -9,7 +9,7 @@ api_keys:
   brave_search: "your-brave-search-api-key"
   finnhub: "your-finnhub-api-key"
   openrouter: "your-openrouter-api-key"
-  discord_bot_token: "your-discord-bot-token"
+  discord_bot_token: "$DISCORD_BOT_TOKEN"
   discord_channel_id: "your-discord-channel-id"
   discord_feed_channel_id: "your-discord-feed-channel-id"  # #twitter channel — TweetShift input
   twitter_auth_token: "your-twitter-auth-token"
