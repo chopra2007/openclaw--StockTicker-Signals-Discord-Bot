@@ -302,11 +302,16 @@ async def reddit_trend_loop(stop_event: asyncio.Event):
 
 
 async def prune_loop(stop_event: asyncio.Event):
-    """Database pruning loop — cleans expired signals."""
+    """Database pruning loop — cleans expired signals + daily VACUUM."""
     interval = cfg.get("intervals.state_prune", 900)
+    last_vacuum = 0.0
+    vacuum_interval = 86400  # once per day
     while not stop_event.is_set():
         try:
             await db.prune_expired()
+            if time.time() - last_vacuum >= vacuum_interval:
+                await db.vacuum()
+                last_vacuum = time.time()
         except Exception as e:
             log.error("Prune error: %s", e)
 
@@ -352,10 +357,14 @@ async def run(once: bool = False):
 
     # Continuous mode
     stop_event = asyncio.Event()
+    tasks = []
 
     def _signal_handler():
         log.info("Shutdown signal received...")
         stop_event.set()
+        # Cancel all running tasks so they don't hang
+        for task in tasks:
+            task.cancel()
 
     loop = asyncio.get_event_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):

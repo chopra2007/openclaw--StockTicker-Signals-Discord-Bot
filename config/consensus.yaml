@@ -80,6 +80,8 @@ social:
   stocktwits_enabled: false
   apewisdom_enabled: true
   google_trends_enabled: true
+  reddit_trend_min_mentions: 3    # Min mentions to qualify as trending
+  reddit_trend_min_authors: 2     # Min unique authors mentioning ticker
 
 # Stage 3: News & Catalyst Finder
 news:

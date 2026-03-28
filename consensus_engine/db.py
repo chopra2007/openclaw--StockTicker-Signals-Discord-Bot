@@ -267,6 +267,13 @@ async def prune_expired():
     return deleted
 
 
+async def vacuum():
+    """Run VACUUM to compact the database file."""
+    conn = await get_db()
+    await conn.execute("VACUUM")
+    log.info("Database VACUUM complete")
+
+
 async def record_metric(name: str, value: float):
     """Record a pipeline performance metric."""
     db = await get_db()
@@ -442,6 +449,93 @@ async def insert_reddit_posts(posts: list[dict]) -> int:
             pass
     await conn.commit()
     return inserted
+
+
+async def get_performance_stats() -> dict:
+    """Return aggregated performance stats from alert_history.
+
+    Returns a dict with keys:
+      total_all, total_7d,
+      win_rate_1h, win_rate_24h,
+      avg_pnl_1h, avg_pnl_24h,
+      top3_best_1h, top3_worst_1h
+    """
+    conn = await get_db()
+    now = time.time()
+    seven_days_ago = now - 7 * 86400
+
+    # Total counts
+    cursor = await conn.execute("SELECT COUNT(*) as cnt FROM alert_history")
+    row = await cursor.fetchone()
+    total_all = row["cnt"] if row else 0
+
+    cursor = await conn.execute(
+        "SELECT COUNT(*) as cnt FROM alert_history WHERE alerted_at >= ?",
+        (seven_days_ago,),
+    )
+    row = await cursor.fetchone()
+    total_7d = row["cnt"] if row else 0
+
+    # 1h stats
+    cursor = await conn.execute(
+        """SELECT
+             COUNT(*) as total,
+             SUM(CASE WHEN price_1h_later > price_at_alert THEN 1 ELSE 0 END) as wins,
+             AVG((price_1h_later - price_at_alert) / price_at_alert * 100) as avg_pnl
+           FROM alert_history
+           WHERE price_at_alert > 0 AND price_1h_later IS NOT NULL"""
+    )
+    row_1h = await cursor.fetchone()
+    total_1h = row_1h["total"] if row_1h else 0
+    win_rate_1h = (row_1h["wins"] / total_1h * 100) if total_1h > 0 else None
+    avg_pnl_1h = row_1h["avg_pnl"] if total_1h > 0 else None
+
+    # 24h stats
+    cursor = await conn.execute(
+        """SELECT
+             COUNT(*) as total,
+             SUM(CASE WHEN price_24h_later > price_at_alert THEN 1 ELSE 0 END) as wins,
+             AVG((price_24h_later - price_at_alert) / price_at_alert * 100) as avg_pnl
+           FROM alert_history
+           WHERE price_at_alert > 0 AND price_24h_later IS NOT NULL"""
+    )
+    row_24h = await cursor.fetchone()
+    total_24h = row_24h["total"] if row_24h else 0
+    win_rate_24h = (row_24h["wins"] / total_24h * 100) if total_24h > 0 else None
+    avg_pnl_24h = row_24h["avg_pnl"] if total_24h > 0 else None
+
+    # Top 3 best by 1h P&L
+    cursor = await conn.execute(
+        """SELECT ticker, alerted_at, price_at_alert, price_1h_later,
+                  (price_1h_later - price_at_alert) / price_at_alert * 100 as pnl_pct
+           FROM alert_history
+           WHERE price_at_alert > 0 AND price_1h_later IS NOT NULL
+           ORDER BY pnl_pct DESC LIMIT 3"""
+    )
+    top3_best = [dict(r) for r in await cursor.fetchall()]
+
+    # Top 3 worst by 1h P&L
+    cursor = await conn.execute(
+        """SELECT ticker, alerted_at, price_at_alert, price_1h_later,
+                  (price_1h_later - price_at_alert) / price_at_alert * 100 as pnl_pct
+           FROM alert_history
+           WHERE price_at_alert > 0 AND price_1h_later IS NOT NULL
+           ORDER BY pnl_pct ASC LIMIT 3"""
+    )
+    top3_worst = [dict(r) for r in await cursor.fetchall()]
+
+    return {
+        "total_all": total_all,
+        "total_7d": total_7d,
+        "total_1h": total_1h,
+        "total_24h": total_24h,
+        "win_rate_1h": win_rate_1h,
+        "win_rate_24h": win_rate_24h,
+        "avg_pnl_1h": avg_pnl_1h,
+        "avg_pnl_24h": avg_pnl_24h,
+        "top3_best_1h": top3_best,
+        "top3_worst_1h": top3_worst,
+    }
 
 
 async def get_reddit_posts_since(since_utc: int) -> list[dict]:

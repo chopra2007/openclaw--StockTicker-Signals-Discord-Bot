@@ -22,7 +22,8 @@ HELP_TEXT = """**OpenClaw Signal Engine — Commands**
 `!help` — show this message
 `!status` — engine health summary (active signals, last alert)
 `!trend` — post latest Reddit trend digest
-`!scan <TICKER>` — run cross-reference on a ticker (e.g. `!scan NVDA`)"""
+`!scan <TICKER>` — run cross-reference on a ticker (e.g. `!scan NVDA`)
+`!performance` — alert win rates and P&L stats"""
 
 
 def parse_command(content: str) -> Optional[tuple[str, list[str]]]:
@@ -54,6 +55,9 @@ async def route_command(
 
     elif command == "trend":
         await _handle_trend(channel_id, message_id)
+
+    elif command == "performance":
+        await _handle_performance(channel_id, message_id)
 
     elif command == "scan":
         if not args:
@@ -116,6 +120,60 @@ async def _handle_trend(channel_id: str, message_id: str) -> None:
     except Exception as e:
         log.error("Trend command error: %s", e)
         await send_command_reply(channel_id, message_id, "Trend scan failed.")
+
+
+async def _handle_performance(channel_id: str, message_id: str) -> None:
+    """Reply with alert performance stats (win rates, P&L, top/worst alerts)."""
+    try:
+        from consensus_engine import db
+        from datetime import datetime
+
+        stats = await db.get_performance_stats()
+
+        if stats["total_all"] == 0:
+            await send_command_reply(channel_id, message_id, "No alert data yet.")
+            return
+
+        lines = ["**Alert Performance**"]
+        lines.append(f"Total alerts: **{stats['total_all']}** all-time | **{stats['total_7d']}** last 7d")
+
+        # Win rates
+        if stats["win_rate_1h"] is not None:
+            lines.append(f"Win rate @ 1h: **{stats['win_rate_1h']:.1f}%** ({stats['total_1h']} alerts)")
+        else:
+            lines.append("Win rate @ 1h: no data")
+
+        if stats["win_rate_24h"] is not None:
+            lines.append(f"Win rate @ 24h: **{stats['win_rate_24h']:.1f}%** ({stats['total_24h']} alerts)")
+        else:
+            lines.append("Win rate @ 24h: no data")
+
+        # Avg P&L
+        if stats["avg_pnl_1h"] is not None:
+            sign = "+" if stats["avg_pnl_1h"] >= 0 else ""
+            lines.append(f"Avg P&L @ 1h: **{sign}{stats['avg_pnl_1h']:.2f}%**")
+        if stats["avg_pnl_24h"] is not None:
+            sign = "+" if stats["avg_pnl_24h"] >= 0 else ""
+            lines.append(f"Avg P&L @ 24h: **{sign}{stats['avg_pnl_24h']:.2f}%**")
+
+        # Top 3 best
+        if stats["top3_best_1h"]:
+            lines.append("\n**Top 3 Best (1h)**")
+            for r in stats["top3_best_1h"]:
+                dt = datetime.fromtimestamp(r["alerted_at"]).strftime("%m/%d %H:%M")
+                lines.append(f"`${r['ticker']}` +{r['pnl_pct']:.2f}% ({dt})")
+
+        # Top 3 worst
+        if stats["top3_worst_1h"]:
+            lines.append("\n**Top 3 Worst (1h)**")
+            for r in stats["top3_worst_1h"]:
+                dt = datetime.fromtimestamp(r["alerted_at"]).strftime("%m/%d %H:%M")
+                lines.append(f"`${r['ticker']}` {r['pnl_pct']:.2f}% ({dt})")
+
+        await send_command_reply(channel_id, message_id, "\n".join(lines))
+    except Exception as e:
+        log.error("Performance command error: %s", e)
+        await send_command_reply(channel_id, message_id, "Performance stats unavailable.")
 
 
 async def _handle_scan(ticker: str, channel_id: str, message_id: str) -> None:

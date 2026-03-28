@@ -1,209 +1,193 @@
-# OpenClaw — Signal-First Stock Alert Engine
+# OpenClaw -- Signal-First Stock Alert Engine
 
-Analyst tweets on Twitter/X trigger instant Discord alerts. Cross-reference sources (news, social, technical, LLM) run asynchronously and add score multipliers via a follow-up reply. Core principle: **speed + accuracy**.
+Analyst tweets on Twitter/X trigger instant Discord alerts. Cross-reference sources (news, social, technical, SEC filings, options flow, LLM confidence) run asynchronously and post a score breakdown as a follow-up reply. Core principle: **speed + accuracy**.
 
 ---
 
-## How It Works
-
-1. **Nitter RSS** polls 48 analyst accounts every 60s (market hours) / 180s (off-hours)
-2. **LLM Tweet Parser** classifies tweets into types:
-   - **Type A**: Ticker callout (e.g. "Buying $NVDA here")
-   - **Type B**: Macro commentary
-   - **Type C**: Options play
-   - **Type D**: General sentiment
-3. **Instant Discord Ping** — actionable tweets (A/C) fire an alert immediately
-4. **Cross-Reference Engine** — runs in background, then replies with a score breakdown:
-   - News catalyst (4-tier cascade: Finnhub → Google RSS → Brave → SearXNG)
-   - Social momentum (Reddit, StockTwits, ApeWisdom, Google Trends)
-   - Technical filters (RVOL, VWAP, RSI, EMA, ATR, Price Change)
-   - Options flow (unusual volume/OI ratios via yfinance)
-   - Other analysts mentioning the same ticker
-   - LLM confidence boost
-
-### Pipeline
+## Architecture
 
 ```
-Nitter RSS (60/180s)
-    └─> tweet_parser.py (LLM classify)
-            └─> main.py:process_tweet()
-                    ├─> alerts/discord.py     ← instant ping (Phase 1)
-                    └─> cross_reference.py    ← background task (Phase 2 reply)
-                            ├─> scanners/news.py         (4-tier cascade)
-                            ├─> analysis/technical.py    (RVOL, RSI, etc.)
-                            ├─> scanners/social.py        (Reddit, StockTwits)
-                            ├─> scanners/options.py       (yfinance unusual flow)
-                            └─> analysis/llm_scorer.py   (confidence boost)
+TweetShift (Discord Gateway)
+    |
+    v
+tweet_parser.py (LLM classify: A=ticker, B=macro, C=options, D=sentiment)
+    |
+    v
+Quality Gate (ticker validation, market-cap $100M floor, min score, conviction check)
+    |
+    v
++----------------------------+------------------------------------+
+|                            |                                    |
+v                            v                                    |
+alerts/discord.py      cross_reference.py (background)            |
+(Phase 1: instant ping)     |                                    |
+                             +--------+--------+--------+----+    |
+                             |        |        |        |    |    |
+                             v        v        v        v    v    |
+                          news.py  technical  social  sec   opts  |
+                          (4-tier)  .py       .py    edgar  .py   |
+                                                     .py         |
+                             +--------+--------+--------+----+    |
+                             |                                    |
+                             v                                    |
+                       llm_scorer.py (confidence boost)           |
+                             |                                    |
+                             v                                    |
+                       alerts/discord.py                          |
+                       (Phase 2: score reply)                     |
+                             |                                    |
+                             v                                    |
+                       price_followup_loop (1h + 24h tracking) <--+
 ```
 
-### Self-Hosted Services (Docker)
-| Service  | Port            | Purpose                              |
-|----------|-----------------|--------------------------------------|
-| Nitter   | localhost:8585  | Twitter RSS proxy (no API key needed)|
-| SearXNG  | localhost:8888  | Meta search engine (news fallback)   |
+**Tweet ingestion** is handled by TweetShift, a third-party bot that mirrors analyst tweets into a designated Discord channel. The engine connects to the Discord Gateway, intercepts those messages, and feeds them into the pipeline. Nitter RSS polling is available as a fallback but currently disabled.
 
 ---
 
-## Prerequisites
+## Features
 
-- **OS**: Ubuntu 22.04+ (or Debian-based Linux), running as `root` at `/root`
-- **Python**: 3.10+
-- **Docker** + **Docker Compose**
-- **Claude Code** (OpenClaw orchestrator)
-- **Git** + **GitHub CLI** (`gh`)
+### Signal Pipeline
+- **Two-phase Discord alerts** -- Phase 1 instant ping with ticker/direction/price, Phase 2 reply with full score breakdown
+- **Quality gate** -- blocks low-quality signals before alerting (ticker validation, conviction check, minimum base score, text length)
+- **LLM tweet parser** -- classifies tweets into 4 types via OpenRouter; extracts tickers, direction (long/short/neutral), conviction, and options details
+
+### Cross-Reference Sources
+- **News catalyst** -- 4-tier cascade: Finnhub company news, Google News RSS, Brave Search, self-hosted SearXNG
+- **SEC EDGAR** -- checks for recent 8-K, 10-K, 10-Q, Form 4, SC 13D/G filings within 48 hours
+- **Technical filters** -- direction-aware (long vs short thresholds): RVOL, VWAP, RSI, EMA crossover, price change %, ATR breakout. +2 points per passing filter, max +12
+- **Social scanners** -- Reddit RSS (5 subreddits), ApeWisdom trending, Google Trends spike detection. StockTwits via Playwright stealth (Cloudflare-blocked API)
+- **Options flow** -- detects unusual volume/open-interest ratios (>3x with >100 contracts) via yfinance option chains
+- **Other analysts** -- checks if multiple tracked analysts mention the same ticker within 1 hour
+- **LLM confidence boost** -- final LLM pass incorporating news + technical data, up to +15 points
+
+### Background Loops
+- **Reddit trend digest** -- crawls 7 finance subreddits every 4 hours, extracts trending tickers, posts digest to Discord
+- **Price followup tracking** -- records price at 1h and 24h after each alert for win-rate calculation
+- **Social scanner** -- polls Reddit, ApeWisdom, Google Trends every 5 minutes to populate cross-reference data
+- **Signal pruner** -- expires stale signals after 2 hours, cleans DB every 15 minutes
+
+### Discord Commands
+| Command           | Description                                              |
+|-------------------|----------------------------------------------------------|
+| `!help`           | List all available commands                               |
+| `!status`         | Active signal count and last alert summary                |
+| `!trend`          | Trigger on-demand Reddit trend digest                     |
+| `!scan <TICKER>`  | Run full cross-reference on any ticker (e.g. `!scan NVDA`) |
+| `!performance`    | Alert win rates, avg P&L, top/worst alerts at 1h and 24h |
 
 ---
 
-## Required API Keys
+## Quick Start
 
-| Key                   | Source                          | Used For                          |
-|-----------------------|---------------------------------|-----------------------------------|
-| `FINNHUB_API_KEY`     | finnhub.io (free tier)          | News, real-time quotes, ticker validation |
-| `OPENROUTER_API_KEY`  | openrouter.ai                   | LLM tweet parsing + confidence scoring |
-| `DISCORD_BOT_TOKEN`   | Discord Developer Portal        | Sending alerts + reading commands |
-| `DISCORD_CHANNEL_ID`  | Discord server                  | Alert destination channel         |
-| `BRAVE_SEARCH_API_KEY`| api.search.brave.com (free tier)| Tier 3 news cascade               |
+### Prerequisites
+- Python 3.10+
+- Docker + Docker Compose
+- Ubuntu 22.04+ (or Debian-based Linux)
 
-Optional (for Twitter cookie-based fallback):
-- `TWITTER_AUTH_TOKEN`, `TWITTER_CT0`, `TWITTER_COOKIE_STRING`
-
----
-
-## Setup (Fresh VPS)
-
-### 1. Install System Dependencies
+### 1. Clone and install
 
 ```bash
-sudo apt-get update
-sudo apt-get install -y python3-pip git docker.io docker-compose-plugin curl
-
-# Install GitHub CLI
-curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list
-sudo apt-get update && sudo apt-get install -y gh
-```
-
-### 2. Clone the Repository
-
-```bash
-mkdir -p /root/.openclaw
-cd /root/.openclaw
-gh auth login
+mkdir -p /root/.openclaw && cd /root/.openclaw
 git clone https://github.com/chopra2007/openclaw-workspace.git workspace
 cd workspace
-```
 
-### 3. Place sources.json
-
-The engine reads analyst accounts from `/root/.openclaw/sources.json`. Copy it from the repo:
-
-```bash
-cp /root/.openclaw/workspace/sources.json /root/.openclaw/sources.json
-```
-
-### 4. Install Python Dependencies
-
-```bash
 pip3 install aiohttp aiosqlite pyyaml yfinance feedparser requests beautifulsoup4 playwright playwright-stealth
-playwright install chromium
-playwright install-deps chromium
+playwright install chromium && playwright install-deps chromium
 ```
 
-### 5. Configure Environment Variables
+### 2. Environment variables
 
 Create `/root/.openclaw/workspace/.env`:
 
 ```bash
-cat > /root/.openclaw/workspace/.env << 'EOF'
 FINNHUB_API_KEY=your_key_here
 OPENROUTER_API_KEY=your_key_here
 DISCORD_BOT_TOKEN=your_token_here
 DISCORD_CHANNEL_ID=your_channel_id_here
+DISCORD_FEED_CHANNEL_ID=your_tweetshift_channel_id
 BRAVE_SEARCH_API_KEY=your_key_here
-# Optional Twitter cookie auth:
-# TWITTER_AUTH_TOKEN=
-# TWITTER_CT0=
-# TWITTER_COOKIE_STRING=
-EOF
 ```
 
-The engine loads env vars at startup. Config values prefixed with `$` in `config/consensus.yaml` are resolved from environment.
+The engine auto-loads `.env` at startup. All config values prefixed with `$` in `config/consensus.yaml` resolve from environment variables.
 
-### 6. Configure Discord Bot
+### 3. Discord bot setup
 
 In the Discord Developer Portal:
 - Enable **Message Content Intent** and **Server Members Intent**
-- Add bot to your server with `bot` + `applications.commands` scopes
-- Grant permissions: Read Messages, Send Messages, Read Message History, Embed Links
+- Add bot with `bot` + `applications.commands` scopes
+- Grant: Read Messages, Send Messages, Read Message History, Embed Links
+- Set up [TweetShift](https://tweetshift.com) to mirror analyst tweets into a dedicated channel
 
-Also set `discord_feed_channel_id` in `config/consensus.yaml` to your TweetShift input channel ID (where Twitter embeds arrive).
-
-### 7. Start Docker Services
+### 4. Start Docker services
 
 ```bash
-cd /root/.openclaw/workspace
 docker compose up -d
-
-# Verify both containers are healthy
-docker compose ps
+docker compose ps   # verify both healthy
 ```
 
-### 8. Initialize the Database
-
-The database is created automatically on first run at `consensus.db`.
-
-### 9. Run the Engine
+### 5. Run the engine
 
 ```bash
-cd /root/.openclaw/workspace
-
-# Full engine (Nitter poller + Discord listener + social scanner + pruner)
+# Full engine (TweetShift listener + social scanner + price tracker + pruner)
 python3 -m consensus_engine
 
-# Dry run (no Discord sends — logs alerts instead)
+# Dry run (logs alerts instead of sending to Discord)
 python3 -m consensus_engine --dry-run
 
 # Single poll cycle and exit
 python3 -m consensus_engine --once
 
-# Health report
+# Engine health report
 python3 -m consensus_engine --status
 ```
 
----
+### 6. Systemd service (optional)
 
-## Discord Bot Commands
+```ini
+[Unit]
+Description=OpenClaw Signal Engine
+After=network.target docker.service
 
-Send these in any channel the bot can read:
+[Service]
+Type=simple
+WorkingDirectory=/root/.openclaw/workspace
+ExecStart=/usr/bin/python3 -m consensus_engine
+Restart=always
+RestartSec=10
+Environment=PYTHONUNBUFFERED=1
 
-| Command          | Description                                         |
-|------------------|-----------------------------------------------------|
-| `!help`          | List all commands                                   |
-| `!status`        | Active signal count + last alert summary            |
-| `!trend`         | Post the latest Reddit trend digest on demand       |
-| `!scan TICKER`   | Run full cross-reference on a ticker (e.g. `!scan NVDA`) |
+[Install]
+WantedBy=multi-user.target
+```
+
+Save to `/etc/systemd/system/openclaw.service`, then:
+
+```bash
+systemctl daemon-reload
+systemctl enable --now openclaw
+```
 
 ---
 
 ## Scoring Model
 
-Alerts use additive scoring:
+Alerts use additive scoring. Base score comes from analyst conviction; cross-reference sources add multipliers:
 
-| Signal                    | Points          |
-|---------------------------|-----------------|
-| Base (conviction)         | 20–30           |
-| Additional analyst        | +20             |
-| News catalyst             | +15             |
-| SEC filing                | +15             |
-| ApeWisdom social          | +10             |
-| StockTwits social         | +10             |
-| Reddit social             | +10             |
-| Options flow (unusual)    | +10             |
-| Technical filters (each)  | +2 (max 12)     |
-| Google Trends             | +5              |
-| LLM confidence boost      | up to +15       |
+| Source                    | Points        |
+|---------------------------|---------------|
+| Base (conviction)         | 20--30        |
+| Additional analyst        | +20 each      |
+| News catalyst             | +15           |
+| SEC filing (recent)       | +15           |
+| ApeWisdom mentions        | +10           |
+| StockTwits trending       | +10           |
+| Reddit mentions (2+)      | +10           |
+| Options flow (unusual)    | +10           |
+| Technical filters         | +2 each (max +12) |
+| Google Trends spike       | +5            |
+| LLM confidence boost      | up to +15     |
 
-Higher scores = stronger multi-source confirmation. Typical actionable alerts score 35–80+.
+Typical actionable alerts score 35--80+. The quality gate blocks alerts with a base score below 25.
 
 ---
 
@@ -211,19 +195,20 @@ Higher scores = stronger multi-source confirmation. Typical actionable alerts sc
 
 All settings live in `config/consensus.yaml`. Key sections:
 
-```yaml
-api_keys:          # All reference $ENV_VAR
-nitter:            # Poll intervals, accounts_file path
-scoring:           # All score multipliers
-news_cascade:      # Tier order + Finnhub lookback
-intervals:         # social_scan, reddit_trend (4h), cross_reference_timeout
-social:            # Subreddits, toggle StockTwits/ApeWisdom/Trends
-technical:         # RVOL threshold, RSI bounds, EMA periods
-llm:               # OpenRouter model + min_confidence
-ticker_validation: # Min market cap ($100M floor)
-alerts:            # Cooldown hours, max per hour
-database:          # Path + signal TTL (2h)
-```
+| Section              | Controls                                              |
+|----------------------|-------------------------------------------------------|
+| `api_keys`           | All API keys (reference `$ENV_VAR` syntax)            |
+| `nitter`             | RSS poll intervals, accounts file path                |
+| `searxng`            | Self-hosted search URL and timeout                    |
+| `scoring`            | Conviction base scores and all multiplier values      |
+| `news_cascade`       | Tier order, Finnhub lookback days, Brave daily budget |
+| `intervals`          | Social scan (5m), Reddit trend (4h), prune (15m)      |
+| `social`             | Subreddit list, toggle StockTwits/ApeWisdom/Trends    |
+| `technical`          | RVOL threshold, RSI bounds (long + short), EMA periods, ATR |
+| `llm`                | OpenRouter model, min confidence, max tokens          |
+| `ticker_validation`  | Minimum market cap ($100M floor), cache TTL           |
+| `alerts`             | Cooldown hours, max per hour, embed colors, min score |
+| `database`           | SQLite path, signal TTL (2h), alert history retention |
 
 ---
 
@@ -231,66 +216,76 @@ database:          # Path + signal TTL (2h)
 
 ```
 /root/.openclaw/workspace/
-├── consensus_engine/           # Main Python package
-│   ├── main.py                 # Orchestrator: polling loops, tweet pipeline
-│   ├── cross_reference.py      # Background cross-ref aggregator
-│   ├── db.py                   # SQLite (aiosqlite) schema + queries
-│   ├── models.py               # Dataclasses: ParsedTweet, TickerSignal, etc.
-│   ├── config.py               # Config loader (YAML + env var resolution)
+├── consensus_engine/
+│   ├── main.py                  # Pipeline orchestrator: all loops + tweet processing
+│   ├── cross_reference.py       # Parallel cross-ref aggregator (news + tech + social + SEC + options + LLM)
+│   ├── db.py                    # SQLite schema, queries, performance stats
+│   ├── models.py                # Dataclasses: ParsedTweet, TickerSignal, CrossReferenceResult, etc.
+│   ├── config.py                # YAML config loader with $ENV_VAR resolution
 │   ├── alerts/
-│   │   ├── discord.py          # Instant ping + detail follow-up sends
-│   │   └── commands.py         # !help/!status/!trend/!scan routing
+│   │   ├── discord.py           # Two-phase alert delivery (instant ping + score followup)
+│   │   └── commands.py          # Discord command router (!help, !status, !trend, !scan, !performance)
 │   ├── analysis/
-│   │   ├── tweet_parser.py     # LLM tweet classification (OpenRouter)
-│   │   ├── technical.py        # RVOL, VWAP, RSI, EMA, ATR
-│   │   ├── llm_scorer.py       # LLM confidence boost scoring
-│   │   └── indicators.py       # Technical indicator calculations
+│   │   ├── tweet_parser.py      # LLM tweet classification via OpenRouter
+│   │   ├── technical.py         # Direction-aware technical filters (Finnhub + yfinance)
+│   │   ├── llm_scorer.py        # LLM confidence boost scoring
+│   │   └── indicators.py        # RVOL, VWAP, RSI, EMA, ATR calculations
 │   ├── scanners/
-│   │   ├── nitter.py           # Nitter RSS poller
-│   │   ├── discord_tweetshift.py # Discord Gateway listener (TweetShift input)
-│   │   ├── news.py             # 4-tier news cascade
-│   │   ├── social.py           # Reddit, StockTwits, ApeWisdom, Google Trends
-│   │   ├── options.py          # Options flow (yfinance unusual volume/OI)
-│   │   ├── reddit_trend.py     # Periodic Reddit trend digest
-│   │   ├── sec_edgar.py        # SEC EDGAR filing scanner
-│   │   └── searxng.py          # SearXNG self-hosted search
+│   │   ├── discord_tweetshift.py  # Discord Gateway listener (primary tweet ingestion)
+│   │   ├── nitter.py              # Nitter RSS poller (disabled, fallback)
+│   │   ├── news.py                # 4-tier news cascade
+│   │   ├── social.py              # Reddit RSS, StockTwits, ApeWisdom, Google Trends
+│   │   ├── options.py             # Unusual options activity via yfinance
+│   │   ├── reddit_trend.py        # Reddit trend digest (7 subreddits)
+│   │   ├── sec_edgar.py           # SEC EDGAR filing scanner (8-K, 10-K, Form 4, etc.)
+│   │   └── searxng.py             # SearXNG self-hosted search client
 │   └── utils/
-│       ├── rate_limiter.py     # Async per-source rate limiter + backoff
-│       ├── tickers.py          # Ticker validation (market cap via Finnhub)
-│       └── browser.py          # Playwright stealth browser (StockTwits)
-├── tests/                      # pytest test suite (89 tests)
+│       ├── rate_limiter.py        # Async per-source rate limiter with exponential backoff
+│       ├── tickers.py             # Ticker validation (market cap via Finnhub, cached)
+│       └── browser.py             # Playwright stealth browser (StockTwits)
+├── tests/                         # 115 pytest tests
 ├── config/
-│   ├── consensus.yaml          # Main configuration
-│   ├── nitter.conf             # Nitter Docker config
-│   └── searxng/settings.yml   # SearXNG Docker config
-├── sources.json                # 48 analyst Twitter accounts to monitor
-├── docker-compose.yaml         # Nitter + SearXNG services
-├── install_deps.sh             # Quick dependency installer
-├── pytest.ini                  # asyncio_mode = auto
-└── CLAUDE.md                   # Claude Code instructions for this project
+│   ├── consensus.yaml             # Main configuration file
+│   ├── nitter.conf                # Nitter Docker config
+│   └── searxng/settings.yml       # SearXNG Docker config
+├── sources.json                   # 48 analyst Twitter accounts to monitor
+├── docker-compose.yaml            # Nitter + SearXNG services
+├── pytest.ini                     # asyncio_mode = auto
+└── CLAUDE.md                      # Claude Code project instructions
 ```
 
 ---
 
-## Running Tests
+## Testing
 
 ```bash
-cd /root/.openclaw/workspace
 python3 -m pytest tests/ -v
 
 # Or via engine CLI
 python3 -m consensus_engine --test
 ```
 
-89 tests covering: tweet parsing, cross-reference, DB operations, Discord alerts, Reddit trend, options scanner, ticker validation, news cascade, and more.
+115 tests covering: tweet parsing, cross-reference scoring, DB operations, Discord alerts, quality gate, technical direction filters, Reddit trend pipeline, options scanner, SEC EDGAR, ticker validation, news cascade, TweetShift listener, price followup, and Discord commands.
 
 ---
 
-## Important Notes
+## Self-Hosted Services
 
-- **Finnhub free tier**: Only supports real-time quotes (`/quote`). Historical OHLCV comes from **yfinance** (run in `ThreadPoolExecutor` — it's blocking).
-- **StockTwits**: Uses Playwright stealth browser only (API blocked by Cloudflare). ApeWisdom uses a free REST API.
-- **Playwright stealth** v2.0.2: Use `from playwright_stealth import Stealth` then `Stealth().apply_stealth_async(page)`.
-- **Signal dedup**: Seen tweets stored in `seen_tweets` table. Signals expire after 2 hours.
-- **Ticker validation**: $100M market-cap floor via Finnhub, cached 7 days in DB.
-- **Rate limiting**: All external sources use async rate limiter with exponential backoff.
+| Service  | Port             | Status     | Purpose                                |
+|----------|------------------|------------|----------------------------------------|
+| Nitter   | localhost:8585   | Disabled   | Twitter RSS proxy (TweetShift replaced it) |
+| SearXNG  | localhost:8888   | Active     | Meta search engine (Tier 4 news fallback)  |
+
+Both are configured in `docker-compose.yaml` with health checks and auto-restart.
+
+---
+
+## Technical Notes
+
+- **Finnhub free tier** only supports real-time quotes (`/quote`). Historical OHLCV comes from yfinance, run in a `ThreadPoolExecutor` because it is blocking.
+- **StockTwits** requires Playwright stealth browser (API blocked by Cloudflare). Currently disabled.
+- **ApeWisdom** uses a free direct REST API with no authentication.
+- **Signal dedup** via `seen_tweets` SQLite table prevents reprocessing. Signals expire after 2 hours.
+- **Ticker validation** enforces a $100M market-cap floor via Finnhub, cached 7 days in DB.
+- **Rate limiting** on all external sources uses an async rate limiter with exponential backoff.
+- **LLM model**: OpenRouter MiniMax M2.5 for tweet parsing and confidence scoring.

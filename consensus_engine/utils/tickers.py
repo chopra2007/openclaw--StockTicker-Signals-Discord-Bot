@@ -56,6 +56,8 @@ BLACKLIST: set[str] = {
     "RSI", "EMA", "MACD", "VWAP", "SMA", "RVOL", "DOJI",
     "BOLL", "MFI", "OBV", "ADX", "CCI", "DMI", "SAR", "ROC",
     "WMA", "HMA", "TEMA", "KAMA", "PPO", "TSI", "CMF", "EMV",
+    # Financial acronyms that collide with tickers
+    "IRA", "DTE", "VOO", "DOW", "ROTH", "ESPP", "HSA",
     # Common tickers that are too noisy to track (index-like, or generate false positives)
     "SPY", "QQQ", "JOSE",
 }

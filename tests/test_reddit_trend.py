@@ -42,11 +42,21 @@ async def test_filter_trending_passes_threshold():
         "TSLA": {"mentions": 5, "unique_authors": 3, "momentum": 1.2},
         "AAPL": {"mentions": 9, "unique_authors": 2, "momentum": 1.0},
     }
+    # With strict thresholds (old defaults):
     # NVDA: passes (mentions >= 8 AND unique_authors >= 5)
-    # TSLA: fails both conditions
+    # TSLA: fails (mentions 5 < 8)
     # AAPL: fails (unique_authors 2 < 5 AND momentum 1.0 not > 1.5)
-    trending = _filter_trending(metrics)
+    trending = _filter_trending(metrics, min_mentions=8, min_unique_authors=5, min_momentum=1.5)
     tickers = [t["ticker"] for t in trending]
     assert "NVDA" in tickers
     assert "TSLA" not in tickers
     assert "AAPL" not in tickers
+
+    # With relaxed thresholds (new production defaults):
+    # NVDA: passes, TSLA: passes (mentions 5 >= 3 AND unique_authors 3 >= 2)
+    # AAPL: passes (mentions 9 >= 3 AND unique_authors 2 >= 2)
+    trending_relaxed = _filter_trending(metrics, min_mentions=3, min_unique_authors=2)
+    tickers_relaxed = [t["ticker"] for t in trending_relaxed]
+    assert "NVDA" in tickers_relaxed
+    assert "TSLA" in tickers_relaxed
+    assert "AAPL" in tickers_relaxed

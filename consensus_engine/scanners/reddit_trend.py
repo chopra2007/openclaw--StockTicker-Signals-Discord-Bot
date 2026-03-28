@@ -70,9 +70,9 @@ def _compute_metrics(posts: list[dict]) -> dict[str, dict]:
 
 def _filter_trending(
     metrics: dict[str, dict],
-    min_mentions: int = 8,
-    min_momentum: float = 1.5,
-    min_unique_authors: int = 5,
+    min_mentions: int = 0,
+    min_momentum: float = 0.0,
+    min_unique_authors: int = 0,
 ) -> list[dict]:
     """Filter tickers meeting the trend threshold.
 
@@ -176,7 +176,11 @@ async def crawl_and_get_trending() -> list[dict]:
         return []
 
     metrics = _compute_metrics(expanded)
-    trending = _filter_trending(metrics)
+    trending = _filter_trending(
+        metrics,
+        min_mentions=cfg.get("social.reddit_trend_min_mentions", 3),
+        min_unique_authors=cfg.get("social.reddit_trend_min_authors", 2),
+    )
 
     log.info("Reddit trend: %d trending tickers from %d posts", len(trending), len(recent))
     return trending

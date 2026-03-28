@@ -271,6 +271,7 @@ class DiscordTweetShiftListener:
 
                 async for msg in ws:
                     if self._stop:
+                        await ws.close()
                         break
                     if msg.type == aiohttp.WSMsgType.TEXT:
                         payload = json.loads(msg.data)
@@ -334,7 +335,10 @@ class DiscordTweetShiftListener:
             except Exception as e:
                 log.error("Discord Gateway error: %s", e)
 
-            if stop_event.is_set() or self._stop:
+            if stop_event.is_set():
+                self._stop = True
+                break
+            if self._stop:
                 break
 
             log.info("Reconnecting to Discord Gateway in %ds...", backoff)
