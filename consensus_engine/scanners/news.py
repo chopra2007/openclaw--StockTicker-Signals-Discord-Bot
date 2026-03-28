@@ -69,6 +69,32 @@ def _is_trusted_source(url: str) -> bool:
     return any(source in url_lower for source in trusted)
 
 
+async def _get_search_query(ticker: str) -> str:
+    """Build a better search query using company name if available."""
+    meta = await db.get_ticker_metadata(ticker, max_age_days=30)
+    if meta and meta.get("name"):
+        return f'"{meta["name"]}" OR "${ticker}" stock'
+    return f"${ticker} stock"
+
+
+def _headline_relevant(headline: str, ticker: str, company_name: str = "") -> bool:
+    """Check if a headline actually mentions the ticker or company."""
+    upper = headline.upper()
+    if ticker in upper:
+        return True
+    if company_name and company_name.lower() in headline.lower():
+        return True
+    return False
+
+
+async def _get_company_name(ticker: str) -> str:
+    """Get cached company name for relevance checking."""
+    meta = await db.get_ticker_metadata(ticker, max_age_days=30)
+    if meta and meta.get("name"):
+        return meta["name"]
+    return ""
+
+
 def _build_catalyst(ticker: str, title: str, url: str, catalyst_type: str) -> CatalystResult:
     """Build a CatalystResult from a single news hit."""
     return CatalystResult(
@@ -132,7 +158,9 @@ async def _search_google_news_rss(ticker: str) -> Optional[CatalystResult]:
     if not await rate_limiter.acquire("google_news_rss"):
         return None
 
-    query = f"{ticker}+stock"
+    search_query = await _get_search_query(ticker)
+    company_name = await _get_company_name(ticker)
+    query = search_query.replace('"', '').replace(' ', '+')
     rss_url = f"https://news.google.com/rss/search?q={query}&hl=en-US&gl=US&ceid=US:en"
 
     try:
@@ -154,6 +182,9 @@ async def _search_google_news_rss(ticker: str) -> Optional[CatalystResult]:
             link = item.findtext("link", "")
             source_el = item.find("source")
             source_name = source_el.text if source_el is not None else ""
+
+            if not _headline_relevant(title, ticker, company_name):
+                continue
 
             catalyst_type = _classify_catalyst(title)
             is_trusted = _is_trusted_source(link) or any(
@@ -180,12 +211,15 @@ async def _search_brave(ticker: str) -> Optional[CatalystResult]:
     if not await rate_limiter.acquire("brave_search"):
         return None
 
+    search_query = await _get_search_query(ticker)
+    company_name = await _get_company_name(ticker)
+
     try:
         async with aiohttp.ClientSession() as session:
             url = "https://api.search.brave.com/res/v1/web/search"
             headers = {"Accept": "application/json", "X-Subscription-Token": api_key}
             params = {
-                "q": f"{ticker} stock news today",
+                "q": f"{search_query} news today",
                 "count": cfg.get("news.max_search_results", 10),
                 "freshness": "pd",
             }
@@ -202,6 +236,10 @@ async def _search_brave(ticker: str) -> Optional[CatalystResult]:
             result_url = r.get("url", "")
             description = r.get("description", "")
             full_text = f"{title} {description}"
+
+            if not _headline_relevant(full_text, ticker, company_name):
+                continue
+
             catalyst_type = _classify_catalyst(full_text)
 
             if catalyst_type and _is_trusted_source(result_url):
@@ -217,12 +255,18 @@ async def _search_brave(ticker: str) -> Optional[CatalystResult]:
 
 async def _search_searxng(ticker: str) -> Optional[CatalystResult]:
     """Search SearXNG for news (self-hosted, unlimited)."""
-    results = await search_searxng(f"{ticker} stock news")
+    search_query = await _get_search_query(ticker)
+    company_name = await _get_company_name(ticker)
+    results = await search_searxng(f"{search_query} news")
     for r in results:
         title = r.get("title", "")
         url = r.get("url", "")
         content = r.get("content", "")
         full_text = f"{title} {content}"
+
+        if not _headline_relevant(full_text, ticker, company_name):
+            continue
+
         catalyst_type = _classify_catalyst(full_text)
 
         if catalyst_type and _is_trusted_source(url):

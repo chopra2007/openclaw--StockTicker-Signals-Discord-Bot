@@ -36,7 +36,8 @@ from consensus_engine.cross_reference import cross_reference
 from consensus_engine.alerts.discord import send_instant_ping, send_detail_followup, send_trend_digest
 from consensus_engine.alerts.commands import route_command
 from consensus_engine.scanners.reddit_trend import crawl_and_get_trending
-from consensus_engine.utils.tickers import validate_ticker_market_cap
+from consensus_engine.utils.tickers import validate_ticker_market_cap, is_valid_ticker
+from consensus_engine.models import Conviction, Direction
 
 log = logging.getLogger("consensus_engine")
 
@@ -62,6 +63,22 @@ async def _fetch_price(ticker: str) -> float:
     except Exception as e:
         log.debug("Price fetch failed for %s: %s", ticker, e)
         return 0.0
+
+
+def _passes_quality_gate(parsed, ticker: str) -> bool:
+    """Pre-alert quality check. Pure Python, no I/O."""
+    if not is_valid_ticker(ticker):
+        return False
+    if len(ticker) < 2:
+        return False
+    if parsed.conviction == Conviction.LOW and parsed.direction == Direction.NEUTRAL:
+        return False
+    if len(parsed.raw_text.strip()) < 15:
+        return False
+    min_score = cfg.get("alerts.min_base_score_for_alert", 25)
+    if parsed.base_score < min_score:
+        return False
+    return True
 
 
 async def process_tweet(tweet_data: dict):
@@ -93,6 +110,11 @@ async def process_tweet(tweet_data: dict):
     # Market-cap validation
     if not await validate_ticker_market_cap(ticker):
         log.debug("Ticker $%s failed market-cap validation", ticker)
+        return
+
+    # Quality gate — block low-quality signals before instant ping
+    if not _passes_quality_gate(parsed, ticker):
+        log.debug("Ticker $%s from @%s failed quality gate", ticker, analyst)
         return
 
     # Store the signal in DB

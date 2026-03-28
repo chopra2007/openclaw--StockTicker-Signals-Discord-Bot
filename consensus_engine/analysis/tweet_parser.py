@@ -48,7 +48,12 @@ Classification rules:
 - Type A: Explicit ticker mention with directional language ("buying NVDA", "long USO", "$AAPL looks good")
 - Type B: Macro/geopolitical commentary implying trades ("Strait of Hormuz closing", "Fed rate decision")
 - Type C: Options trade with any of: strike price, expiry, calls/puts ("TSLA 500c Friday", "buying puts on SPY")
-- Type D: General market sentiment with no specific ticker ("market weak", "careful out there")
+- Type D: General market sentiment with no specific ticker ("market weak", "careful out there"), life quotes, philosophical statements, motivational content, non-financial tweets
+
+CRITICAL — indicator names are NOT tickers:
+RSI, EMA, MACD, VWAP, SMA, ATR, RVOL, ADX, MFI, OBV, CCI, DMI, DOJI, BOLL are technical indicator names.
+Do NOT include them in the tickers array. If the tweet mentions "RSI oversold on NVDA", the only ticker is NVDA.
+If a tweet has NO actual stock ticker, return type D with an empty tickers array.
 
 Conviction rules:
 - high: "bought", "loaded", "all in", "adding more", mentions position size
@@ -160,9 +165,12 @@ def _parse_llm_response(raw: str, url: str, analyst: str, original_text: str) ->
     )
 
 
+_INDICATOR_NAMES = {"RSI", "EMA", "MACD", "VWAP", "SMA", "RVOL", "ATR", "ADX", "MFI", "OBV", "CCI", "DMI", "DOJI", "BOLL"}
+
+
 def _fallback_parse(url: str, analyst: str, text: str) -> ParsedTweet:
     """Regex fallback when LLM fails. Extracts tickers, defaults to Type A medium."""
-    tickers = list(extract_tickers(text))
+    tickers = [t for t in extract_tickers(text) if t not in _INDICATOR_NAMES]
     tweet_type = TweetType.TICKER_CALLOUT if tickers else TweetType.SENTIMENT
     return ParsedTweet(
         tweet_url=url,

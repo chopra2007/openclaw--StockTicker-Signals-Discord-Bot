@@ -52,6 +52,10 @@ BLACKLIST: set[str] = {
     "SAP", "SUM", "SUB",
     "TIP", "TOP",
     "VIA", "WAR", "WEB", "WIN", "ZAP",
+    # Technical indicator names (NOT tickers)
+    "RSI", "EMA", "MACD", "VWAP", "SMA", "RVOL", "DOJI",
+    "BOLL", "MFI", "OBV", "ADX", "CCI", "DMI", "SAR", "ROC",
+    "WMA", "HMA", "TEMA", "KAMA", "PPO", "TSI", "CMF", "EMV",
     # Common tickers that are too noisy to track (index-like, or generate false positives)
     "SPY", "QQQ", "JOSE",
 }
@@ -102,7 +106,7 @@ async def validate_ticker_market_cap(ticker: str) -> bool:
 
     api_key = cfg.get_api_key("finnhub")
     if not api_key:
-        return True
+        return False
 
     try:
         import aiohttp
@@ -112,7 +116,7 @@ async def validate_ticker_market_cap(ticker: str) -> bool:
             async with session.get(url, params=params,
                                    timeout=aiohttp.ClientTimeout(total=10)) as resp:
                 if resp.status != 200:
-                    return True
+                    return False
                 data = await resp.json()
 
         name = data.get("name", "")
@@ -127,4 +131,4 @@ async def validate_ticker_market_cap(ticker: str) -> bool:
         return market_cap >= min_cap
 
     except Exception:
-        return True
+        return False

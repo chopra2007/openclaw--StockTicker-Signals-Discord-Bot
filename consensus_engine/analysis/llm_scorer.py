@@ -36,6 +36,13 @@ Scoring guidelines:
 - 0-29: Likely noise, conflicting signals, or pump-and-dump risk"""
 
 
+def _sanitize_text(text: str, max_len: int = 150) -> str:
+    """Sanitize external text for LLM prompt injection safety."""
+    sanitized = text[:max_len].encode('utf-8', errors='replace').decode('utf-8')
+    sanitized = ''.join(c for c in sanitized if c.isprintable() or c in '\n\t')
+    return sanitized
+
+
 def _build_user_prompt(ticker: str,
                        twitter: Optional[TwitterConsensus],
                        social: Optional[SocialConsensus],
@@ -50,7 +57,7 @@ def _build_user_prompt(ticker: str,
         parts.append(f"- Analysts: {', '.join(twitter.analysts[:10])}")
         sample_texts = twitter.raw_texts[:3]
         for t in sample_texts:
-            parts.append(f"  > \"{t[:150]}\"")
+            parts.append(f"  > \"{_sanitize_text(t)}\"")
         parts.append("")
 
     if social:
@@ -65,7 +72,7 @@ def _build_user_prompt(ticker: str,
     if catalyst:
         parts.append(f"NEWS CATALYST:")
         parts.append(f"- Type: {catalyst.catalyst_type}")
-        parts.append(f"- Summary: {catalyst.catalyst_summary[:200]}")
+        parts.append(f"- Summary: {_sanitize_text(catalyst.catalyst_summary, 200)}")
         parts.append(f"- Sources: {', '.join(catalyst.news_sources[:5])}")
         parts.append(f"- Catalyst confidence: {catalyst.confidence:.0%}")
         parts.append("")

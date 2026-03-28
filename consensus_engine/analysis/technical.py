@@ -85,12 +85,14 @@ async def _fetch_history_async(ticker: str) -> Optional[dict]:
         return None
 
 
-def _run_filters(quote: dict, candles: dict) -> list[TechnicalFilter]:
+def _run_filters(quote: dict, candles: dict, direction: str = "long") -> list[TechnicalFilter]:
     """Run all 6 technical filters.
 
     quote: Finnhub quote {c, o, h, l, pc, dp, t}
     candles: yfinance history {o[], h[], l[], c[], v[], t[]}
+    direction: "long" or "short" — flips filter logic for bearish signals
     """
+    is_short = direction == "short"
     filter_cfg = cfg.get("technical.filters", {})
     results = []
 
@@ -119,25 +121,35 @@ def _run_filters(quote: dict, candles: dict) -> list[TechnicalFilter]:
             name="RVOL", value=0, threshold=f"> {rvol_threshold}x", passed=False,
         ))
 
-    # 2. Price above VWAP
+    # 2. Price vs VWAP (above for long, below for short)
     if filter_cfg.get("vwap_enabled", True) and closes and volumes:
         vwap_val = indicators.vwap(closes[-20:], volumes[-20:])
         if vwap_val and current_price:
+            if is_short:
+                vwap_passed = current_price < vwap_val
+                vwap_threshold = f"< {round(vwap_val, 2)} (VWAP)"
+            else:
+                vwap_passed = current_price > vwap_val
+                vwap_threshold = f"> {round(vwap_val, 2)} (VWAP)"
             results.append(TechnicalFilter(
                 name="VWAP",
                 value=round(current_price, 2),
-                threshold=f"> {round(vwap_val, 2)} (VWAP)",
-                passed=current_price > vwap_val,
+                threshold=vwap_threshold,
+                passed=vwap_passed,
             ))
         else:
             results.append(TechnicalFilter(
                 name="VWAP", value=0, threshold="above VWAP", passed=False,
             ))
 
-    # 3. RSI
+    # 3. RSI (long: 40-75 range, short: 60-85 overbought range)
     rsi_period = filter_cfg.get("rsi_period", 14)
-    rsi_lower = filter_cfg.get("rsi_lower", 40)
-    rsi_upper = filter_cfg.get("rsi_upper", 75)
+    if is_short:
+        rsi_lower = filter_cfg.get("rsi_lower_short", 60)
+        rsi_upper = filter_cfg.get("rsi_upper_short", 85)
+    else:
+        rsi_lower = filter_cfg.get("rsi_lower", 40)
+        rsi_upper = filter_cfg.get("rsi_upper", 75)
     if closes and len(closes) >= rsi_period + 1:
         rsi_val = indicators.rsi(closes, rsi_period)
         if rsi_val is not None:
@@ -156,7 +168,7 @@ def _run_filters(quote: dict, candles: dict) -> list[TechnicalFilter]:
             name="RSI", value=0, threshold=f"{rsi_lower}-{rsi_upper}", passed=False,
         ))
 
-    # 4. EMA Crossover
+    # 4. EMA Crossover (long: fast > slow, short: fast < slow / death cross)
     ema_fast = filter_cfg.get("ema_fast", 9)
     ema_slow = filter_cfg.get("ema_slow", 21)
     if closes and len(closes) >= ema_slow:
@@ -164,26 +176,38 @@ def _run_filters(quote: dict, candles: dict) -> list[TechnicalFilter]:
         fast_vals = indicators.ema(closes, ema_fast)
         slow_vals = indicators.ema(closes, ema_slow)
         diff = round(fast_vals[-1] - slow_vals[-1], 2) if fast_vals and slow_vals else 0
+        if is_short:
+            ema_passed = diff < 0  # death cross: fast < slow
+            ema_threshold = f"{ema_fast}EMA < {ema_slow}EMA"
+        else:
+            ema_passed = crossover is True
+            ema_threshold = f"{ema_fast}EMA > {ema_slow}EMA"
         results.append(TechnicalFilter(
             name="EMA Cross",
             value=diff,
-            threshold=f"{ema_fast}EMA > {ema_slow}EMA",
-            passed=crossover is True,
+            threshold=ema_threshold,
+            passed=ema_passed,
         ))
     else:
         results.append(TechnicalFilter(
             name="EMA Cross", value=0, threshold=f"{ema_fast}EMA > {ema_slow}EMA", passed=False,
         ))
 
-    # 5. Price Change %
+    # 5. Price Change % (long: >= +min_pct, short: <= -min_pct)
     min_pct = filter_cfg.get("price_change_min_pct", 2.0)
     if current_price and prev_close:
         pct = indicators.price_change_pct(current_price, prev_close)
+        if is_short:
+            pct_passed = pct <= -min_pct
+            pct_threshold = f"< -{min_pct}%"
+        else:
+            pct_passed = pct >= min_pct
+            pct_threshold = f"> +{min_pct}%"
         results.append(TechnicalFilter(
             name="Price Change",
             value=round(pct, 2),
-            threshold=f"> +{min_pct}%",
-            passed=pct >= min_pct,
+            threshold=pct_threshold,
+            passed=pct_passed,
         ))
     else:
         results.append(TechnicalFilter(
@@ -216,11 +240,11 @@ def _run_filters(quote: dict, candles: dict) -> list[TechnicalFilter]:
     return results
 
 
-async def verify_technical(ticker: str) -> Optional[TechnicalResult]:
+async def verify_technical(ticker: str, direction: str = "long") -> Optional[TechnicalResult]:
     """Run full technical verification on a ticker.
 
     Fetches real-time quote from Finnhub + historical OHLCV from yfinance.
-    Evaluates all 6 filters.
+    Evaluates all 6 filters. direction="long"|"short" flips filter logic.
     """
     log.info("Running technical verification for %s...", ticker)
     start = time.time()
@@ -240,7 +264,7 @@ async def verify_technical(ticker: str) -> Optional[TechnicalResult]:
         log.warning("Technical: no historical data for %s", ticker)
         return None
 
-    filters = _run_filters(quote, candles)
+    filters = _run_filters(quote, candles, direction=direction)
     current_price = quote.get("c", 0)
     prev_close = quote.get("pc", 0)
     volumes = candles.get("v", [])

@@ -82,8 +82,8 @@ async def _run_social_check(ticker: str) -> dict[str, int]:
     }
 
 
-async def _run_technical(ticker: str) -> Optional[TechnicalResult]:
-    return await verify_technical(ticker)
+async def _run_technical(ticker: str, direction: str = "long") -> Optional[TechnicalResult]:
+    return await verify_technical(ticker, direction=direction)
 
 
 async def _run_other_analysts(ticker: str, exclude_analyst: str = "") -> list[str]:
@@ -113,12 +113,14 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
     log.info("Starting cross-reference for $%s (base=%d)", ticker, tweet.base_score)
     m = cfg.get("scoring.multipliers", {})
 
+    direction = tweet.direction.value if hasattr(tweet.direction, 'value') else "long"
+
     catalyst, (sec_hit, sec_summary), social_data, technical, other_analysts, (llm_score, llm_reasoning), options = \
         await asyncio.gather(
             _run_news_cascade(ticker),
             _run_sec_check(ticker),
             _run_social_check(ticker),
-            _run_technical(ticker),
+            _run_technical(ticker, direction=direction),
             _run_other_analysts(ticker, exclude_analyst=tweet.analyst),
             _run_llm_score(ticker, None, None),
             _run_options_check(ticker, executor),
