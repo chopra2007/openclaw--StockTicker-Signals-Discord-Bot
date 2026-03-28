@@ -340,7 +340,7 @@ async def run(once: bool = False):
         loop.add_signal_handler(sig, _signal_handler)
 
     tasks = [
-        asyncio.create_task(nitter_poll_loop(stop_event), name="nitter-poller"),
+        # Nitter disabled — TweetShift handles tweet ingestion
         asyncio.create_task(tweetshift_listener_loop(stop_event), name="tweetshift-listener"),
         asyncio.create_task(social_scan_loop(stop_event), name="social-scanner"),
         asyncio.create_task(price_followup_loop(stop_event), name="price-followup"),
@@ -348,7 +348,7 @@ async def run(once: bool = False):
         asyncio.create_task(reddit_trend_loop(stop_event), name="reddit-trend"),
     ]
 
-    log.info("All loops started: nitter-poller, tweetshift-listener, social-scanner, price-followup, pruner, reddit-trend")
+    log.info("All loops started: tweetshift-listener, social-scanner, price-followup, pruner, reddit-trend")
 
     try:
         await asyncio.gather(*tasks)
