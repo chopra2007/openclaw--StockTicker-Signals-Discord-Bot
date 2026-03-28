@@ -97,24 +97,29 @@ async def process_tweet(tweet_data: dict):
 
     parsed = await parse_tweet(url, analyst, text, image_url=image_url)
 
+    log.info("Tweet from @%s: type=%s tickers=%s dir=%s conv=%s — %s",
+             analyst, parsed.tweet_type.value, parsed.tickers,
+             parsed.direction.value, parsed.conviction.value, text[:80])
+
     if not parsed.is_actionable:
-        log.debug("Non-actionable tweet from @%s (type=%s)", analyst, parsed.tweet_type.value)
+        log.info("REJECTED @%s: non-actionable type=%s", analyst, parsed.tweet_type.value)
         return
 
     if not parsed.tickers:
-        log.debug("No tickers extracted from @%s tweet", analyst)
+        log.info("REJECTED @%s: no tickers extracted", analyst)
         return
 
     ticker = parsed.tickers[0]
 
     # Market-cap validation
     if not await validate_ticker_market_cap(ticker):
-        log.debug("Ticker $%s failed market-cap validation", ticker)
+        log.info("REJECTED $%s from @%s: failed market-cap validation", ticker, analyst)
         return
 
     # Quality gate — block low-quality signals before instant ping
     if not _passes_quality_gate(parsed, ticker):
-        log.debug("Ticker $%s from @%s failed quality gate", ticker, analyst)
+        log.info("REJECTED $%s from @%s: failed quality gate (conv=%s dir=%s score=%d)",
+                 ticker, analyst, parsed.conviction.value, parsed.direction.value, parsed.base_score)
         return
 
     # Store the signal in DB
@@ -128,6 +133,10 @@ async def process_tweet(tweet_data: dict):
                   Sentiment.NEUTRAL,
         detected_at=time.time(),
     ))
+
+    log.info("PASSED $%s from @%s: type=%s dir=%s conv=%s score=%d — sending alert",
+             ticker, analyst, parsed.tweet_type.value, parsed.direction.value,
+             parsed.conviction.value, parsed.base_score)
 
     # Fetch price + send instant ping concurrently
     price = await _fetch_price(ticker)
@@ -207,8 +216,9 @@ async def social_scan_loop(stop_event: asyncio.Event):
     while not stop_event.is_set():
         try:
             t0 = time.time()
+            # Reddit disabled — rate-limited (403); StockTwits disabled — Cloudflare blocked
             results = await asyncio.gather(
-                scan_reddit(), scan_stocktwits(), scan_apewisdom(),
+                scan_apewisdom(),
                 return_exceptions=True,
             )
 
@@ -376,10 +386,10 @@ async def run(once: bool = False):
         asyncio.create_task(social_scan_loop(stop_event), name="social-scanner"),
         asyncio.create_task(price_followup_loop(stop_event), name="price-followup"),
         asyncio.create_task(prune_loop(stop_event), name="pruner"),
-        asyncio.create_task(reddit_trend_loop(stop_event), name="reddit-trend"),
+        # Reddit trend disabled — Reddit rate-limits RSS feeds
     ]
 
-    log.info("All loops started: tweetshift-listener, social-scanner, price-followup, pruner, reddit-trend")
+    log.info("All loops started: tweetshift-listener, social-scanner, price-followup, pruner")
 
     try:
         await asyncio.gather(*tasks)

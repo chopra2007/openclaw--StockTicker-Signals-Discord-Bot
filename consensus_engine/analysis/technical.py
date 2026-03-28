@@ -246,7 +246,7 @@ async def verify_technical(ticker: str, direction: str = "long") -> Optional[Tec
     Fetches real-time quote from Finnhub + historical OHLCV from yfinance.
     Evaluates all 6 filters. direction="long"|"short" flips filter logic.
     """
-    log.info("Running technical verification for %s...", ticker)
+    log.info("Running technical verification for %s (direction=%s)...", ticker, direction)
     start = time.time()
 
     # Fetch quote and history concurrently
