@@ -218,8 +218,9 @@ async def social_scan_loop(stop_event: asyncio.Event):
     while not stop_event.is_set():
         try:
             t0 = time.time()
-            # Reddit disabled — rate-limited (403); StockTwits disabled — Cloudflare blocked
+            # StockTwits disabled — Cloudflare blocked
             results = await asyncio.gather(
+                scan_reddit(),
                 scan_apewisdom(),
                 return_exceptions=True,
             )

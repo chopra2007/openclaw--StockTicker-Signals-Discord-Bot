@@ -29,11 +29,11 @@ log = logging.getLogger("consensus_engine.scanner.social")
 
 
 # ---------------------------------------------------------------------------
-# Reddit (public RSS feeds — no Playwright, no auth needed)
+# Reddit (public JSON API — no auth needed)
 # ---------------------------------------------------------------------------
 
 async def scan_reddit() -> list[TickerSignal]:
-    """Fetch subreddit posts via Reddit's public RSS feeds."""
+    """Fetch subreddit posts via Reddit's public JSON API."""
     subreddits = cfg.get("social.subreddits", [])
     if not subreddits:
         return []
@@ -46,55 +46,46 @@ async def scan_reddit() -> list[TickerSignal]:
         for sub in subreddits:
             if not await rate_limiter.acquire("reddit"):
                 break
-            sub_signals = await _fetch_subreddit_rss(session, sub)
-            signals.extend(sub_signals)
+            try:
+                url = f"https://www.reddit.com/r/{sub}/new.json?limit=25"
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                    if resp.status != 200:
+                        log.warning("Reddit JSON r/%s returned %d", sub, resp.status)
+                        rate_limiter.report_failure("reddit")
+                        continue
+                    data = await resp.json()
+                sub_signals = _parse_reddit_json(data, sub)
+                signals.extend(sub_signals)
+                rate_limiter.report_success("reddit")
+            except Exception as e:
+                log.warning("Reddit JSON error for r/%s: %s", sub, e)
+                rate_limiter.report_failure("reddit")
             await asyncio.sleep(2)
 
     log.info("Reddit: %d signals from %d subreddits", len(signals), len(subreddits))
     return signals
 
 
-async def _fetch_subreddit_rss(session: aiohttp.ClientSession, subreddit: str) -> list[TickerSignal]:
-    """Fetch a single subreddit via Reddit's public RSS feed."""
-    import xml.etree.ElementTree as ET
-
-    url = f"https://www.reddit.com/r/{subreddit}/new/.rss"
+def _parse_reddit_json(data: dict, subreddit: str) -> list[TickerSignal]:
+    """Parse Reddit JSON API response into TickerSignal list."""
+    children = data.get("data", {}).get("children", [])
     signals = []
-    try:
-        async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
-            if resp.status != 200:
-                log.warning("Reddit RSS r/%s returned %d", subreddit, resp.status)
-                rate_limiter.report_failure("reddit")
-                return []
-            xml_text = await resp.text()
+    for child in children[:25]:
+        post = child.get("data", {})
+        title = post.get("title", "")
+        selftext = post.get("selftext", "")
+        text = (title + " " + selftext).strip()
 
-        root = ET.fromstring(xml_text)
-        ns = {"atom": "http://www.w3.org/2005/Atom"}
-        entries = root.findall("atom:entry", ns)
-
-        for entry in entries[:25]:
-            title_el = entry.find("atom:title", ns)
-            content_el = entry.find("atom:content", ns)
-            title = title_el.text if title_el is not None and title_el.text else ""
-            content = content_el.text if content_el is not None and content_el.text else ""
-            text = (title + " " + content).strip()
-
-            tickers = extract_tickers(text)
-            for ticker in tickers:
-                signals.append(TickerSignal(
-                    ticker=ticker,
-                    source_type=SourceType.REDDIT,
-                    source_detail=f"r/{subreddit}",
-                    raw_text=text[:500],
-                    sentiment=_quick_sentiment(text),
-                    detected_at=time.time(),
-                ))
-
-        rate_limiter.report_success("reddit")
-    except Exception as e:
-        log.warning("Reddit RSS error for r/%s: %s", subreddit, e)
-        rate_limiter.report_failure("reddit")
-
+        tickers = extract_tickers(text)
+        for ticker in tickers:
+            signals.append(TickerSignal(
+                ticker=ticker,
+                source_type=SourceType.REDDIT,
+                source_detail=f"r/{subreddit}",
+                raw_text=text[:500],
+                sentiment=_quick_sentiment(text),
+                detected_at=time.time(),
+            ))
     return signals
 
 
