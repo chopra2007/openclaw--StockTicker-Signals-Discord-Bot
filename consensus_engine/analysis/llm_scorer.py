@@ -104,7 +104,7 @@ async def score_confidence(ticker: str,
         log.warning("OpenRouter API key not configured — returning 0")
         return 0.0, "LLM scoring unavailable (no API key)"
 
-    model = cfg.get("llm.model", "openrouter/minimax/minimax-m2.5")
+    model = cfg.get("llm.model", "minimax/minimax-m2.5")
     max_tokens = cfg.get("llm.max_tokens", 1024)
     user_prompt = _build_user_prompt(ticker, twitter, social, catalyst, technical)
     content = ""

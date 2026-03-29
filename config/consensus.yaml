@@ -123,7 +123,7 @@ technical:
 
 # LLM Configuration (OpenRouter)
 llm:
-  model: "openrouter/minimax/minimax-m2.5"
+  model: "minimax/minimax-m2.5"
   min_confidence: 70
   max_tokens: 1024
 

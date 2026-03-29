@@ -76,7 +76,7 @@ async def _call_openrouter(user_prompt: str) -> str:
     if not api_key:
         return ""
 
-    model = cfg.get("llm.model", "openrouter/minimax/minimax-m2.5")
+    model = cfg.get("llm.model", "minimax/minimax-m2.5")
 
     async with aiohttp.ClientSession() as session:
         url = "https://openrouter.ai/api/v1/chat/completions"
