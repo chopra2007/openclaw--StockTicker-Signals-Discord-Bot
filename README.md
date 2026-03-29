@@ -52,19 +52,27 @@ alerts/discord.py      cross_reference.py (background)            |
 - **LLM tweet parser** — classifies tweets into 4 types via OpenRouter; extracts tickers, direction (long/short/neutral), conviction, and options details
 
 ### Cross-Reference Sources
-- **News catalyst** — 4-tier cascade: Finnhub company news, Google News RSS, Brave Search, self-hosted SearXNG
+- **News catalyst** — 4-tier cascade: Finnhub company news, Google News RSS, Brave Search, self-hosted SearXNG. Tiered scoring: high-impact catalysts (Earnings Beat, M&A, FDA Approval) score +25, medium (Analyst Upgrade, SEC Filing) +15, low (Partnership, Patent) +8
 - **SEC EDGAR** — checks for recent 8-K, 10-K, 10-Q, Form 4, SC 13D/G filings within 48 hours
 - **Technical filters** — direction-aware (long vs short thresholds): RVOL, VWAP, RSI, EMA crossover, price change %, ATR breakout. +2 points per passing filter, max +12
-- **Social scanners** — Reddit RSS (5 subreddits), ApeWisdom trending, Google Trends spike detection
-- **Options flow** — detects unusual volume/open-interest ratios (>3x with >100 contracts) via yfinance option chains
-- **Other analysts** — checks if multiple tracked analysts mention the same ticker within 1 hour
-- **LLM confidence boost** — final LLM pass incorporating news + technical data, up to +15 points
+- **Social scanners** — Reddit JSON API (5 subreddits), ApeWisdom trending, Google Trends spike detection
+- **Options flow** — detects unusual volume/open-interest ratios (>3x with >100 contracts) via yfinance option chains; market-wide sweep scanner for proactive detection
+- **Other analysts** — checks if multiple tracked analysts mention the same ticker within 1 hour (capped at 3 for scoring)
+- **LLM confidence boost** — called only when technical or catalyst data exists, up to +15 points
+- **Cross-reference cache** — 5-minute TTL in-memory cache prevents redundant API calls when multiple analysts tweet the same ticker
 
 ### Background Loops
 - **Reddit trend digest** — crawls 7 finance subreddits every 4 hours, extracts trending tickers, posts digest to Discord
 - **Price followup tracking** — records price at 1h and 24h after each alert for win-rate calculation
-- **Social scanner** — polls Reddit, ApeWisdom, Google Trends every 5 minutes to populate cross-reference data
+- **Social scanner** — polls Reddit (JSON API), ApeWisdom, Google Trends every 5 minutes to populate cross-reference data
 - **Signal pruner** — expires stale signals after 2 hours, cleans DB every 15 minutes
+
+### Proactive Scanners
+- **Pre-market gap scanner** — detects >3% gaps on a 20-ticker watchlist between 8-9am ET via Finnhub quotes
+- **SEC 8-K real-time watcher** — monitors EDGAR ATOM feed for new 8-K filings, resolves CIK to ticker, alerts on matches
+- **Volume breakout scanner** — flags tickers with RVOL >5x and price change >1% during market hours
+- **Earnings calendar pre-alert** — fetches upcoming earnings for tracked tickers via Finnhub, alerts day-before
+- **Unusual options sweep scanner** — market-wide scan for high-notional sweeps (vol/OI >5x, >$100K notional)
 
 ### Discord Commands
 
@@ -99,6 +107,8 @@ alerts/discord.py      cross_reference.py (background)            |
 |---|---|
 | `!trend` | Trigger on-demand Reddit trend digest |
 | `!apewisdom` | ApeWisdom trending tickers |
+| `!gaps` | Pre-market gap scanner (>3% moves on watchlist) |
+| `!leaderboard` | Per-analyst win rate rankings (1h + 24h accuracy, avg P&L) |
 
 **Engine Health**
 | Command | Description |
@@ -210,8 +220,10 @@ Alerts use additive scoring. Base score comes from analyst conviction; cross-ref
 | Source | Points |
 |---|---|
 | Base (conviction) | 20–30 |
-| Additional analyst | +20 each |
-| News catalyst | +15 |
+| Additional analyst | +20 each (capped at 3 = +60 max) |
+| News catalyst (high tier) | +25 (Earnings Beat, M&A, FDA) |
+| News catalyst (medium tier) | +15 (Analyst Upgrade, SEC Filing) |
+| News catalyst (low tier) | +8 (Partnership, Patent) |
 | SEC filing (recent) | +15 |
 | ApeWisdom mentions | +10 |
 | Reddit mentions (2+) | +10 |
@@ -220,7 +232,7 @@ Alerts use additive scoring. Base score comes from analyst conviction; cross-ref
 | Google Trends spike | +5 |
 | LLM confidence boost | up to +15 |
 
-Typical actionable alerts score 35–80+. The quality gate blocks alerts with a base score below 25.
+Typical actionable alerts score 35–80+. The quality gate blocks alerts with a base score below 20 (LOW conviction with explicit direction now passes).
 
 ---
 
@@ -252,13 +264,15 @@ All settings live in `config/consensus.yaml`. API keys reference `$ENV_VAR` synt
 | `api_keys` | All API keys (reference `$ENV_VAR` syntax) |
 | `nitter` | RSS poll intervals, accounts file path |
 | `searxng` | Self-hosted search URL and timeout |
-| `scoring` | Conviction base scores and all multiplier values |
+| `scoring` | Conviction base scores, multipliers, catalyst tiers (high/medium/low) |
 | `news_cascade` | Tier order, Finnhub lookback days, Brave daily budget |
 | `intervals` | Social scan (5m), Reddit trend (4h), prune (15m) |
 | `social` | Subreddit list, toggle ApeWisdom/Trends |
 | `technical` | RVOL threshold, RSI bounds (long + short), EMA periods, ATR |
 | `llm` | OpenRouter model, min confidence, max tokens |
 | `ticker_validation` | Minimum market cap ($100M floor), cache TTL |
+| `premarket` | Gap scanner: threshold %, watchlist, scan hours |
+| `volume_scanner` | Volume breakout: RVOL threshold, min price change |
 | `alerts` | Cooldown hours, max per hour, embed colors, min score |
 | `database` | SQLite path, signal TTL (2h), alert history retention |
 
@@ -285,14 +299,19 @@ consensus_engine/
 │   ├── discord_tweetshift.py  # Discord Gateway listener (primary tweet ingestion)
 │   ├── nitter.py              # Nitter RSS poller (disabled, fallback)
 │   ├── news.py                # 4-tier news cascade
-│   ├── social.py              # Reddit RSS, ApeWisdom, Google Trends
+│   ├── social.py              # Reddit JSON API, ApeWisdom, Google Trends
 │   ├── options.py             # Unusual options activity via yfinance
 │   ├── reddit_trend.py        # Reddit trend digest (7 subreddits)
 │   ├── sec_edgar.py           # SEC EDGAR filing scanner (8-K, 10-K, Form 4, etc.)
+│   ├── sec_watcher.py         # Real-time SEC 8-K ATOM feed watcher
+│   ├── premarket.py           # Pre-market gap scanner via Finnhub quotes
+│   ├── volume_scanner.py      # RVOL >5x volume breakout detector
+│   ├── earnings_calendar.py   # Upcoming earnings pre-alert via Finnhub
 │   └── searxng.py             # SearXNG self-hosted search client
 └── utils/
     ├── rate_limiter.py        # Async per-source rate limiter with exponential backoff
     ├── tickers.py             # Ticker extraction + blacklist + market-cap validation
+    ├── xref_cache.py          # In-memory cross-reference cache (5-min TTL)
     └── browser.py             # Playwright stealth browser
 
 config/
@@ -300,7 +319,7 @@ config/
 ├── nitter.conf                # Nitter Docker config
 └── searxng/settings.yml       # SearXNG Docker config
 
-tests/                         # 115 pytest tests
+tests/                         # 148 pytest tests
 sources.json                   # Analyst Twitter accounts to monitor
 docker-compose.yaml            # Nitter + SearXNG services
 ```
@@ -324,7 +343,7 @@ Both are configured in `docker-compose.yaml` with health checks and auto-restart
 python3 -m pytest tests/ -v
 ```
 
-115 tests covering: tweet parsing, cross-reference scoring, DB operations, Discord alerts, quality gate, technical direction filters, Reddit trend pipeline, options scanner, SEC EDGAR, ticker validation, news cascade, TweetShift listener, price followup, and Discord commands.
+148 tests covering: tweet parsing (+ fallback direction detection), cross-reference scoring (+ tiered catalysts, analyst cap, xref cache), DB operations, Discord alerts, quality gate, technical direction filters, Reddit trend pipeline (+ JSON API), options scanner (+ sweep detection), SEC EDGAR, SEC 8-K watcher, pre-market gap scanner, volume breakout scanner, earnings calendar, ticker validation, news cascade, TweetShift listener, price followup, and Discord commands.
 
 ---
 
