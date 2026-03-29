@@ -6,8 +6,11 @@ All commands are typed in the alerts Discord channel with a `!` prefix.
 
 ## General
 
-### `!help`
-Lists all available commands.
+### `!help` / `!readme`
+Lists all available commands (both do the same thing).
+
+### `!list` / `!commands`
+Lists all available commands (both do the same thing).
 
 ### `!status`
 Engine health summary.
@@ -62,7 +65,7 @@ Example: `!google-trends NVDA`
 ## Ticker Intel
 
 ### `!signals <TICKER>`
-Active signal counts broken down by source (Twitter, Reddit, StockTwits, news, etc.).
+Active signal counts broken down by source (Twitter, Reddit, ApeWisdom, news, etc.).
 Example: `!signals NVDA`
 
 ### `!analysts <TICKER>`
@@ -83,9 +86,6 @@ Example: `!alert-history NVDA`
 ### `!trend`
 Trigger an on-demand Reddit trend digest.
 Crawls 7 finance subreddits, ranks tickers by mentions/momentum, and posts a digest embed.
-
-### `!stocktwits`
-Fetch StockTwits trending symbols (via Playwright stealth browser).
 
 ### `!apewisdom`
 Fetch ApeWisdom trending tickers (direct REST API).
@@ -109,7 +109,6 @@ Returns: online / degraded (HTTP status) / offline.
 | News catalyst | +15 |
 | SEC filing (recent) | +15 |
 | ApeWisdom mentions | +10 |
-| StockTwits trending | +10 |
 | Reddit mentions (2+) | +10 |
 | Options flow (unusual) | +10 |
 | Technical filters | +2 each (max +12) |

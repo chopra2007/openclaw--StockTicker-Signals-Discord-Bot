@@ -55,7 +55,7 @@ alerts/discord.py      cross_reference.py (background)            |
 - **News catalyst** — 4-tier cascade: Finnhub company news, Google News RSS, Brave Search, self-hosted SearXNG
 - **SEC EDGAR** — checks for recent 8-K, 10-K, 10-Q, Form 4, SC 13D/G filings within 48 hours
 - **Technical filters** — direction-aware (long vs short thresholds): RVOL, VWAP, RSI, EMA crossover, price change %, ATR breakout. +2 points per passing filter, max +12
-- **Social scanners** — Reddit RSS (5 subreddits), ApeWisdom trending, Google Trends spike detection. StockTwits via Playwright stealth (Cloudflare-blocked API)
+- **Social scanners** — Reddit RSS (5 subreddits), ApeWisdom trending, Google Trends spike detection
 - **Options flow** — detects unusual volume/open-interest ratios (>3x with >100 contracts) via yfinance option chains
 - **Other analysts** — checks if multiple tracked analysts mention the same ticker within 1 hour
 - **LLM confidence boost** — final LLM pass incorporating news + technical data, up to +15 points
@@ -71,7 +71,8 @@ alerts/discord.py      cross_reference.py (background)            |
 **General**
 | Command | Description |
 |---|---|
-| `!help` | List all available commands |
+| `!help` / `!readme` | List all available commands |
+| `!list` / `!commands` | List all available commands |
 | `!status` | Active signal count and last alert summary |
 | `!performance` | Alert win rates, avg P&L, top/worst alerts at 1h and 24h |
 
@@ -97,7 +98,6 @@ alerts/discord.py      cross_reference.py (background)            |
 | Command | Description |
 |---|---|
 | `!trend` | Trigger on-demand Reddit trend digest |
-| `!stocktwits` | StockTwits trending symbols |
 | `!apewisdom` | ApeWisdom trending tickers |
 
 **Engine Health**
@@ -214,7 +214,6 @@ Alerts use additive scoring. Base score comes from analyst conviction; cross-ref
 | News catalyst | +15 |
 | SEC filing (recent) | +15 |
 | ApeWisdom mentions | +10 |
-| StockTwits trending | +10 |
 | Reddit mentions (2+) | +10 |
 | Options flow (unusual) | +10 |
 | Technical filters | +2 each (max +12) |
@@ -256,7 +255,7 @@ All settings live in `config/consensus.yaml`. API keys reference `$ENV_VAR` synt
 | `scoring` | Conviction base scores and all multiplier values |
 | `news_cascade` | Tier order, Finnhub lookback days, Brave daily budget |
 | `intervals` | Social scan (5m), Reddit trend (4h), prune (15m) |
-| `social` | Subreddit list, toggle StockTwits/ApeWisdom/Trends |
+| `social` | Subreddit list, toggle ApeWisdom/Trends |
 | `technical` | RVOL threshold, RSI bounds (long + short), EMA periods, ATR |
 | `llm` | OpenRouter model, min confidence, max tokens |
 | `ticker_validation` | Minimum market cap ($100M floor), cache TTL |
@@ -286,7 +285,7 @@ consensus_engine/
 │   ├── discord_tweetshift.py  # Discord Gateway listener (primary tweet ingestion)
 │   ├── nitter.py              # Nitter RSS poller (disabled, fallback)
 │   ├── news.py                # 4-tier news cascade
-│   ├── social.py              # Reddit RSS, StockTwits, ApeWisdom, Google Trends
+│   ├── social.py              # Reddit RSS, ApeWisdom, Google Trends
 │   ├── options.py             # Unusual options activity via yfinance
 │   ├── reddit_trend.py        # Reddit trend digest (7 subreddits)
 │   ├── sec_edgar.py           # SEC EDGAR filing scanner (8-K, 10-K, Form 4, etc.)
@@ -294,7 +293,7 @@ consensus_engine/
 └── utils/
     ├── rate_limiter.py        # Async per-source rate limiter with exponential backoff
     ├── tickers.py             # Ticker extraction + blacklist + market-cap validation
-    └── browser.py             # Playwright stealth browser (StockTwits)
+    └── browser.py             # Playwright stealth browser
 
 config/
 ├── consensus.yaml             # Main configuration file
@@ -332,7 +331,6 @@ python3 -m pytest tests/ -v
 ## Technical Notes
 
 - **Finnhub free tier** only supports real-time quotes (`/quote`). Historical OHLCV comes from yfinance, run in a `ThreadPoolExecutor` because it is blocking.
-- **StockTwits** requires Playwright stealth browser (API blocked by Cloudflare). Currently disabled.
 - **ApeWisdom** uses a free direct REST API with no authentication.
 - **Signal dedup** via `seen_tweets` SQLite table prevents reprocessing. Signals expire after 2 hours.
 - **Ticker validation** enforces a $100M market-cap floor via Finnhub, cached 7 days in DB.

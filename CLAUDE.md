@@ -15,7 +15,7 @@ A **Signal-First Stock Alert Engine** — analyst tweets on Twitter/X trigger in
 3. **Instant Discord Ping** — actionable tweets (A/C) trigger immediate alerts
 4. **Cross-Reference Engine** — runs in background, replies with score breakdown:
    - News Catalyst (4-tier cascade: Finnhub → Google RSS → Brave → SearXNG)
-   - Social (Reddit, StockTwits, ApeWisdom, Google Trends)
+   - Social (Reddit, ApeWisdom, Google Trends)
    - Technical (RVOL, VWAP, RSI, EMA, Price Change, ATR)
    - Other analysts mentioning same ticker
    - LLM confidence score
@@ -64,7 +64,7 @@ scanners/nitter.py (RSS)  ──> analysis/tweet_parser.py (LLM)
                                                   │
                                     ┌─────────────┼─────────────┐
                               scanners/news.py  analysis/    scanners/social.py
-                              (4-tier cascade)  technical.py  (StockTwits, etc.)
+                              (4-tier cascade)  technical.py  social.py
                                                 analysis/
                                                 llm_scorer.py
 ```
@@ -98,7 +98,7 @@ All config in `config/consensus.yaml`. API keys can reference env vars with `$` 
 ## Important Caveats
 
 - `playwright-stealth` v2.0.2 uses `from playwright_stealth import Stealth` then `Stealth().apply_stealth_async(page)` — NOT the old `stealth_async()` function.
-- StockTwits uses Playwright only (API blocked by Cloudflare). ApeWisdom has a free direct REST API.
+- ApeWisdom has a free direct REST API with no authentication.
 - Tests use `pytest.ini` with `asyncio_mode = auto` for async fixture support.
 
 ## GitHub & Documentation Automation

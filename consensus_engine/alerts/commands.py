@@ -16,7 +16,6 @@ Commands:
   !news <TICKER>      — run news cascade standalone
   !nitter-health      — check if Nitter service is up
   !google-trends <T>  — Google Trends spike % for a ticker
-  !stocktwits         — StockTwits trending symbols
   !apewisdom          — ApeWisdom trending tickers
   !alert-history <T>  — alert history with price outcomes for a ticker
 """
@@ -50,7 +49,6 @@ HELP_TEXT = """**OpenClaw Signal Engine — Commands**
 `!alert-history <TICKER>` — past alerts with 1h/24h price outcomes
 
 **Market Scanners**
-`!stocktwits` — StockTwits trending symbols
 `!apewisdom` — ApeWisdom trending tickers
 
 **Engine Health**
@@ -141,9 +139,6 @@ async def route_command(
             await send_command_reply(channel_id, message_id, "Usage: `!google-trends <TICKER>` — e.g. `!google-trends NVDA`")
         else:
             await _handle_google_trends(args[0].upper(), channel_id, message_id)
-
-    elif command == "stocktwits":
-        await _handle_stocktwits(channel_id, message_id)
 
     elif command == "apewisdom":
         await _handle_apewisdom(channel_id, message_id)
@@ -500,28 +495,6 @@ async def _google_trends_and_reply(ticker: str, channel_id: str, message_id: str
     except Exception as e:
         log.error("Google Trends command error for %s: %s", ticker, e)
         await send_command_reply(channel_id, message_id, f"Google Trends lookup failed for `${ticker}`.")
-
-
-async def _handle_stocktwits(channel_id: str, message_id: str) -> None:
-    """Show StockTwits trending symbols."""
-    await send_command_reply(channel_id, message_id, "Fetching StockTwits trending... (may take ~15s)")
-    asyncio.create_task(_stocktwits_and_reply(channel_id, message_id))
-
-
-async def _stocktwits_and_reply(channel_id: str, message_id: str) -> None:
-    try:
-        from consensus_engine.scanners.social import scan_stocktwits
-        signals = await scan_stocktwits()
-        if not signals:
-            await send_command_reply(channel_id, message_id, "No StockTwits trending data available.")
-            return
-        lines = ["**StockTwits Trending**"]
-        for i, s in enumerate(signals[:15], 1):
-            lines.append(f"**{i}.** `${s.ticker}`")
-        await send_command_reply(channel_id, message_id, "\n".join(lines))
-    except Exception as e:
-        log.error("StockTwits command error: %s", e)
-        await send_command_reply(channel_id, message_id, "StockTwits scan failed.")
 
 
 async def _handle_apewisdom(channel_id: str, message_id: str) -> None:
