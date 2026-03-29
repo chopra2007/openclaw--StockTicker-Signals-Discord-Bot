@@ -103,3 +103,52 @@ async def test_cross_reference_with_mocked_sources():
     assert result.breakdown.social_apewisdom == 10
     assert result.breakdown.llm_boost > 0
     assert result.final_score > 30
+
+
+@pytest.mark.asyncio
+async def test_llm_called_once_with_real_data():
+    """LLM should be called exactly once — with real data after gather, not with nulls."""
+    tweet = ParsedTweet(
+        tweet_url="https://x.com/user/123",
+        analyst="test",
+        raw_text="$NVDA breaking out hard",
+        tweet_type=TweetType.TICKER_CALLOUT,
+        tickers=["NVDA"],
+        direction=Direction.LONG,
+        options=None,
+        conviction=Conviction.HIGH,
+        summary="NVDA breakout",
+    )
+
+    mock_catalyst = CatalystResult(
+        ticker="NVDA", catalyst_summary="Earnings beat",
+        catalyst_type="Earnings Beat", news_sources=["reuters"],
+        source_urls=["https://reuters.com"], confidence=0.8,
+    )
+    mock_technical = TechnicalResult(
+        ticker="NVDA",
+        filters=[TechnicalFilter(name="RVOL", value=3.0, threshold="> 2.0x", passed=True)],
+        price=100, volume=50000000,
+    )
+
+    llm_mock = AsyncMock(return_value=(80.0, "Strong"))
+
+    with patch("consensus_engine.cross_reference._run_news_cascade",
+               new_callable=AsyncMock, return_value=mock_catalyst), \
+         patch("consensus_engine.cross_reference._run_sec_check",
+               new_callable=AsyncMock, return_value=(False, "")), \
+         patch("consensus_engine.cross_reference._run_social_check",
+               new_callable=AsyncMock, return_value={}), \
+         patch("consensus_engine.cross_reference._run_technical",
+               new_callable=AsyncMock, return_value=mock_technical), \
+         patch("consensus_engine.cross_reference._run_other_analysts",
+               new_callable=AsyncMock, return_value=[]), \
+         patch("consensus_engine.cross_reference._run_llm_score", llm_mock), \
+         patch("consensus_engine.cross_reference._run_options_check",
+               new_callable=AsyncMock, return_value=None):
+        result = await cross_reference("NVDA", tweet)
+
+    assert llm_mock.call_count == 1
+    args = llm_mock.call_args
+    assert args[0][1] is not None  # catalyst
+    assert args[0][2] is not None  # technical

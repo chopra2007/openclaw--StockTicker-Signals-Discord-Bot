@@ -115,17 +115,17 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
 
     direction = tweet.direction.value if hasattr(tweet.direction, 'value') else "long"
 
-    catalyst, (sec_hit, sec_summary), social_data, technical, other_analysts, (llm_score, llm_reasoning), options = \
+    catalyst, (sec_hit, sec_summary), social_data, technical, other_analysts, options = \
         await asyncio.gather(
             _run_news_cascade(ticker),
             _run_sec_check(ticker),
             _run_social_check(ticker),
             _run_technical(ticker, direction=direction),
             _run_other_analysts(ticker, exclude_analyst=tweet.analyst),
-            _run_llm_score(ticker, None, None),
             _run_options_check(ticker, executor),
         )
 
+    llm_score, llm_reasoning = 0.0, ""
     if technical or catalyst:
         llm_score, llm_reasoning = await _run_llm_score(ticker, catalyst, technical)
 
