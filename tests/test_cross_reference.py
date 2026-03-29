@@ -152,3 +152,40 @@ async def test_llm_called_once_with_real_data():
     args = llm_mock.call_args
     assert args[0][1] is not None  # catalyst
     assert args[0][2] is not None  # technical
+
+
+@pytest.mark.asyncio
+async def test_analyst_multiplier_capped():
+    """Analyst multiplier should be capped at max_additional_analysts (default 3)."""
+    tweet = ParsedTweet(
+        tweet_url="https://x.com/user/123",
+        analyst="test",
+        raw_text="$NVDA breaking out all day",
+        tweet_type=TweetType.TICKER_CALLOUT,
+        tickers=["NVDA"],
+        direction=Direction.LONG,
+        options=None,
+        conviction=Conviction.HIGH,
+        summary="NVDA",
+    )
+
+    ten_analysts = [f"analyst_{i}" for i in range(10)]
+
+    with patch("consensus_engine.cross_reference._run_news_cascade",
+               new_callable=AsyncMock, return_value=None), \
+         patch("consensus_engine.cross_reference._run_sec_check",
+               new_callable=AsyncMock, return_value=(False, "")), \
+         patch("consensus_engine.cross_reference._run_social_check",
+               new_callable=AsyncMock, return_value={}), \
+         patch("consensus_engine.cross_reference._run_technical",
+               new_callable=AsyncMock, return_value=None), \
+         patch("consensus_engine.cross_reference._run_other_analysts",
+               new_callable=AsyncMock, return_value=ten_analysts), \
+         patch("consensus_engine.cross_reference._run_llm_score",
+               new_callable=AsyncMock, return_value=(0.0, "")), \
+         patch("consensus_engine.cross_reference._run_options_check",
+               new_callable=AsyncMock, return_value=None):
+        result = await cross_reference("NVDA", tweet)
+
+    # 3 (cap) * 20 = 60, NOT 10 * 20 = 200
+    assert result.breakdown.additional_analysts == 60

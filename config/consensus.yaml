@@ -40,6 +40,7 @@ scoring:
     low: 20
   multipliers:
     additional_analyst: 20
+    max_additional_analysts: 3
     news_catalyst: 15
     sec_filing: 15
     social_apewisdom: 10

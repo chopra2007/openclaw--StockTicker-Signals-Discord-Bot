@@ -129,7 +129,8 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
     if technical or catalyst:
         llm_score, llm_reasoning = await _run_llm_score(ticker, catalyst, technical)
 
-    analyst_pts = len(other_analysts) * m.get("additional_analyst", 20)
+    max_analysts = cfg.get("scoring.multipliers.max_additional_analysts", 3)
+    analyst_pts = min(len(other_analysts), max_analysts) * m.get("additional_analyst", 20)
     news_pts = m.get("news_catalyst", 15) if (catalyst and catalyst.passed) else 0
     sec_pts = m.get("sec_filing", 15) if sec_hit else 0
     tech_pts = compute_technical_score(technical)
