@@ -138,7 +138,7 @@ alerts:
   max_alerts_per_hour: 10
   embed_color_long: 0x00FF00
   embed_color_short: 0xFF0000
-  min_base_score_for_alert: 25  # Skip instant ping for LOW conviction (score 20)
+  min_base_score_for_alert: 20  # LOW conviction (20) now passes if direction is explicit
   embed_color_neutral: 0xFFAA00
 
 # Browser Stealth Configuration (still used for StockTwits)

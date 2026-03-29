@@ -31,10 +31,9 @@ def test_quality_gate_blocks_low_neutral():
 
 
 def test_quality_gate_allows_low_with_direction():
-    """LOW conviction but with a direction should still pass."""
+    """LOW conviction but with a direction should pass (score=20 >= threshold=20)."""
     parsed = _make_parsed(direction=Direction.LONG, conviction=Conviction.LOW)
-    # base_score for LOW is 20, min is 25 -> should fail on score
-    assert _passes_quality_gate(parsed, "NVDA") is False
+    assert _passes_quality_gate(parsed, "NVDA") is True
 
 
 def test_quality_gate_blocks_short_text():
