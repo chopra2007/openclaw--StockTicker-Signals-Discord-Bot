@@ -8,7 +8,24 @@ from consensus_engine.models import (
 )
 from consensus_engine.cross_reference import (
     compute_technical_score, compute_social_score, cross_reference,
+    _get_catalyst_score,
 )
+
+
+def test_tiered_catalyst_high():
+    assert _get_catalyst_score("Earnings Beat") == 25
+
+
+def test_tiered_catalyst_medium():
+    assert _get_catalyst_score("Analyst Upgrade") == 15
+
+
+def test_tiered_catalyst_low():
+    assert _get_catalyst_score("Partnership") == 8
+
+
+def test_tiered_catalyst_unknown_defaults_to_medium():
+    assert _get_catalyst_score("Unknown Event") == 15
 
 
 def test_compute_technical_score_all_pass():
@@ -98,7 +115,7 @@ async def test_cross_reference_with_mocked_sources():
         result = await cross_reference("NVDA", tweet)
 
     assert result.breakdown.base == 30
-    assert result.breakdown.news_catalyst == 15
+    assert result.breakdown.news_catalyst == 25  # Earnings Beat is a high-tier catalyst
     assert result.breakdown.additional_analysts == 20
     assert result.breakdown.social_apewisdom == 10
     assert result.breakdown.llm_boost > 0

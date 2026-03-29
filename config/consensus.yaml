@@ -51,6 +51,31 @@ scoring:
     technical_max: 12
     llm_boost_max: 15
     options_flow: 10
+  catalyst_tiers:
+    high:
+      score: 25
+      types:
+        - "Earnings Beat"
+        - "M&A"
+        - "FDA Approval"
+        - "Government Contract"
+        - "Short Squeeze"
+    medium:
+      score: 15
+      types:
+        - "Analyst Upgrade"
+        - "SEC Filing"
+        - "Insider Buying"
+        - "Guidance Update"
+        - "Analyst Downgrade"
+    low:
+      score: 8
+      types:
+        - "Partnership"
+        - "Patent"
+        - "Product Launch"
+        - "Breaking News"
+        - "Dividend"
 
 # News Cascade (tried in order, stops when catalyst found)
 news_cascade:

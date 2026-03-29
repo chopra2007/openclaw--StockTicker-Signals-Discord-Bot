@@ -56,6 +56,15 @@ def _compute_social_breakdown(social_data: dict[str, int]) -> dict[str, int]:
     }
 
 
+def _get_catalyst_score(catalyst_type: str) -> int:
+    """Look up tiered score for a catalyst type. Defaults to medium (15)."""
+    tiers = cfg.get("scoring.catalyst_tiers", {})
+    for tier_data in tiers.values():
+        if catalyst_type in tier_data.get("types", []):
+            return tier_data.get("score", 15)
+    return tiers.get("medium", {}).get("score", 15)
+
+
 async def _run_news_cascade(ticker: str) -> Optional[CatalystResult]:
     return await news_cascade(ticker)
 
@@ -131,7 +140,7 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
 
     max_analysts = cfg.get("scoring.multipliers.max_additional_analysts", 3)
     analyst_pts = min(len(other_analysts), max_analysts) * m.get("additional_analyst", 20)
-    news_pts = m.get("news_catalyst", 15) if (catalyst and catalyst.passed) else 0
+    news_pts = _get_catalyst_score(catalyst.catalyst_type) if (catalyst and catalyst.passed) else 0
     sec_pts = m.get("sec_filing", 15) if sec_hit else 0
     tech_pts = compute_technical_score(technical)
     social_breakdown = _compute_social_breakdown(social_data)
