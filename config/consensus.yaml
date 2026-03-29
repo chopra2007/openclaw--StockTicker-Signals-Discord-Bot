@@ -15,7 +15,7 @@ api_keys:
   twitter_auth_token: "$TWITTER_AUTH_TOKEN"
   twitter_ct0: "$TWITTER_CT0"
   twitter_cookie_string: "$TWITTER_COOKIE_STRING"
-  serpapi: "$SERPAPI_API_KEY"
+  serpapi: "$SERPAPI2_API_KEY"
 
 # Self-hosted Nitter (Docker)
 nitter:
