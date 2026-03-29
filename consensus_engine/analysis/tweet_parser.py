@@ -173,17 +173,32 @@ def _parse_llm_response(raw: str, url: str, analyst: str, original_text: str) ->
 _INDICATOR_NAMES = {"RSI", "EMA", "MACD", "VWAP", "SMA", "RVOL", "ATR", "ADX", "MFI", "OBV", "CCI", "DMI", "DOJI", "BOLL"}
 
 
+_LONG_KEYWORDS = {"long", "buy", "buying", "bullish", "calls", "moon", "breakout", "gap up", "ripping"}
+_SHORT_KEYWORDS = {"short", "put", "puts", "bearish", "dump", "gap down", "crash", "selling", "fade"}
+
+
 def _fallback_parse(url: str, analyst: str, text: str) -> ParsedTweet:
-    """Regex fallback when LLM fails. Extracts tickers, defaults to Type A medium."""
+    """Regex fallback when LLM fails. Extracts tickers and detects direction from keywords."""
     tickers = [t for t in extract_tickers(text) if t not in _INDICATOR_NAMES]
     tweet_type = TweetType.TICKER_CALLOUT if tickers else TweetType.SENTIMENT
+
+    lower = text.lower()
+    long_hits = sum(1 for kw in _LONG_KEYWORDS if kw in lower)
+    short_hits = sum(1 for kw in _SHORT_KEYWORDS if kw in lower)
+    if long_hits > short_hits:
+        direction = Direction.LONG
+    elif short_hits > long_hits:
+        direction = Direction.SHORT
+    else:
+        direction = Direction.NEUTRAL
+
     return ParsedTweet(
         tweet_url=url,
         analyst=analyst,
         raw_text=text,
         tweet_type=tweet_type,
         tickers=tickers,
-        direction=Direction.NEUTRAL,
+        direction=direction,
         options=None,
         conviction=Conviction.MEDIUM,
         summary=text[:100],

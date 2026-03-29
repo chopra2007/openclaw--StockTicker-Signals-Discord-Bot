@@ -16,6 +16,14 @@ log = logging.getLogger("consensus_engine.scanner.options")
 
 _UNUSUAL_RATIO_THRESHOLD = 3.0
 _MIN_VOLUME = 100
+_SWEEP_RATIO_THRESHOLD = 5.0
+
+
+def _is_sweep(vol: float, oi: float, min_ratio: float = 5.0, min_notional: float = 0) -> bool:
+    """Check if volume/OI ratio qualifies as a sweep."""
+    if oi == 0:
+        return False
+    return (vol / oi) >= min_ratio
 
 
 def _detect_unusual_activity(chain) -> OptionsResult:
@@ -121,3 +129,40 @@ async def check_unusual_options(ticker: str, executor) -> Optional[OptionsResult
         log.debug("No unusual options for $%s (max_call_ratio=%.1f)", ticker, result.max_call_ratio)
 
     return result
+
+
+async def scan_unusual_options_market(watchlist: list[str], executor=None) -> list[dict]:
+    """Scan a watchlist for unusual options activity across all tickers.
+
+    Returns list of dicts: {ticker, direction, max_ratio, top_contract, put_call_ratio}.
+    """
+    results = []
+    for ticker in watchlist:
+        try:
+            result = await check_unusual_options(ticker, executor)
+            if result and result.has_unusual_activity:
+                direction = "CALL" if result.unusual_calls else "PUT"
+                results.append({
+                    "ticker": ticker,
+                    "direction": direction,
+                    "max_ratio": max(result.max_call_ratio, result.max_put_ratio),
+                    "top_contract": result.top_contract,
+                    "put_call_ratio": result.put_call_ratio,
+                })
+        except Exception as e:
+            log.debug("Options sweep scan error for %s: %s", ticker, e)
+    results.sort(key=lambda r: r["max_ratio"], reverse=True)
+    return results
+
+
+def format_options_sweep_digest(sweeps: list[dict]) -> str:
+    """Format sweep results as Discord message."""
+    if not sweeps:
+        return "No unusual options sweeps detected."
+    lines = ["**Options Sweep Scanner**"]
+    for s in sweeps[:10]:
+        lines.append(
+            f"`${s['ticker']}` **{s['direction']}** sweep -- "
+            f"{s['max_ratio']:.1f}x vol/OI | P/C: {s['put_call_ratio']:.2f}"
+        )
+    return "\n".join(lines)

@@ -8,6 +8,8 @@ import asyncio
 import logging
 from typing import Optional
 
+from consensus_engine.utils.xref_cache import get_cached_xref, cache_xref
+
 from consensus_engine import config as cfg
 from consensus_engine import db
 from consensus_engine.models import (
@@ -124,6 +126,12 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
 
     direction = tweet.direction.value if hasattr(tweet.direction, 'value') else "long"
 
+    # Check xref cache (prevents redundant API calls for same ticker within 5 min)
+    cached = get_cached_xref(ticker)
+    if cached is not None:
+        log.info("Cross-reference cache HIT for $%s", ticker)
+        return cached
+
     catalyst, (sec_hit, sec_summary), social_data, technical, other_analysts, options = \
         await asyncio.gather(
             _run_news_cascade(ticker),
@@ -190,4 +198,5 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
              ticker, result.final_score, tweet.base_score,
              result.final_score - tweet.base_score)
 
+    cache_xref(ticker, result)
     return result

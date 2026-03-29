@@ -136,3 +136,22 @@ async def test_check_unusual_options_yfinance_error_returns_none():
         result = await check_unusual_options("FAIL", executor)
         assert result is None
         executor.shutdown(wait=False)
+
+
+# ---------------------------------------------------------------------------
+# Sweep detection
+# ---------------------------------------------------------------------------
+
+from consensus_engine.scanners.options import _is_sweep
+
+
+def test_is_sweep_high_volume_ratio():
+    assert _is_sweep(vol=600, oi=100, min_ratio=5.0, min_notional=0) is True
+
+
+def test_is_sweep_below_threshold():
+    assert _is_sweep(vol=200, oi=100, min_ratio=5.0, min_notional=0) is False
+
+
+def test_is_sweep_zero_oi():
+    assert _is_sweep(vol=1000, oi=0, min_ratio=5.0, min_notional=0) is False

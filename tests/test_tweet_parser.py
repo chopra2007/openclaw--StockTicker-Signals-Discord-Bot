@@ -142,3 +142,25 @@ async def test_parse_tweet_llm_call():
         )
         assert tweet.tickers == ["NVDA"]
         assert tweet.is_actionable is True
+
+
+# ---------------------------------------------------------------------------
+# Fallback direction detection
+# ---------------------------------------------------------------------------
+
+from consensus_engine.analysis.tweet_parser import _fallback_parse
+
+
+def test_fallback_detects_long_direction():
+    parsed = _fallback_parse("https://x.com/t/1", "analyst", "$NVDA bullish breakout, buying calls here")
+    assert parsed.direction == Direction.LONG
+
+
+def test_fallback_detects_short_direction():
+    parsed = _fallback_parse("https://x.com/t/2", "analyst", "$TSLA puts printing, bearish setup")
+    assert parsed.direction == Direction.SHORT
+
+
+def test_fallback_defaults_to_neutral():
+    parsed = _fallback_parse("https://x.com/t/3", "analyst", "$AAPL interesting chart pattern here")
+    assert parsed.direction == Direction.NEUTRAL

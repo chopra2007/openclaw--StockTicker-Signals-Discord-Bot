@@ -153,6 +153,42 @@ llm:
   min_confidence: 70
   max_tokens: 1024
 
+# Pre-Market Gap Scanner
+premarket:
+  enabled: true
+  gap_threshold_pct: 3.0
+  scan_interval: 300
+  start_hour: 8
+  end_hour: 9
+  watchlist:
+    - NVDA
+    - TSLA
+    - AAPL
+    - MSFT
+    - AMZN
+    - META
+    - GOOGL
+    - AMD
+    - SMCI
+    - PLTR
+    - MARA
+    - COIN
+    - SOFI
+    - RIVN
+    - NIO
+    - MSTR
+    - ARM
+    - AVGO
+    - CRM
+    - NFLX
+
+# Volume Breakout Scanner
+volume_scanner:
+  enabled: true
+  rvol_threshold: 5.0
+  min_price_change_pct: 1.0
+  scan_interval: 900
+
 # Ticker validation
 ticker_validation:
   min_market_cap: 100000000   # $100M floor

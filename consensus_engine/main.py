@@ -33,7 +33,7 @@ from consensus_engine.scanners.social import (
 )
 from consensus_engine.analysis.tweet_parser import parse_tweet
 from consensus_engine.cross_reference import cross_reference
-from consensus_engine.alerts.discord import send_instant_ping, send_detail_followup, send_trend_digest
+from consensus_engine.alerts.discord import send_instant_ping, send_detail_followup, send_trend_digest, send_command_reply
 from consensus_engine.alerts.commands import route_command
 from consensus_engine.scanners.reddit_trend import crawl_and_get_trending
 from consensus_engine.utils.tickers import validate_ticker_market_cap, is_valid_ticker
@@ -336,6 +336,169 @@ async def prune_loop(stop_event: asyncio.Event):
 
 
 # ---------------------------------------------------------------------------
+# Proactive scanner loops
+# ---------------------------------------------------------------------------
+
+async def premarket_gap_loop(stop_event: asyncio.Event):
+    """Background loop: scan for pre-market gaps 8:00-9:25am ET."""
+    from datetime import datetime
+    import pytz
+    interval = cfg.get("premarket.scan_interval", 300)
+    et = pytz.timezone("US/Eastern")
+
+    while not stop_event.is_set():
+        try:
+            now_et = datetime.now(et)
+            hour, minute = now_et.hour, now_et.minute
+            start_h = cfg.get("premarket.start_hour", 8)
+            end_h = cfg.get("premarket.end_hour", 9)
+
+            in_window = (hour >= start_h and (hour < end_h or (hour == end_h and minute <= 25)))
+            if in_window and cfg.get("premarket.enabled", True):
+                from consensus_engine.scanners.premarket import scan_premarket_gaps, format_gap_digest
+                gaps = await scan_premarket_gaps()
+                if gaps:
+                    channel = cfg.get("api_keys.discord_channel_id", "")
+                    if channel:
+                        msg = format_gap_digest(gaps)
+                        await send_command_reply(channel, None, msg)
+        except Exception as e:
+            log.error("Pre-market gap loop error: %s", e, exc_info=True)
+
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=interval)
+            break
+        except asyncio.TimeoutError:
+            pass
+
+
+async def sec_8k_watcher_loop(stop_event: asyncio.Event):
+    """Background loop: poll SEC EDGAR for new 8-K filings every 15 min."""
+    interval = 900
+    while not stop_event.is_set():
+        try:
+            from consensus_engine.scanners.sec_watcher import scan_8k_filings
+            filings = await scan_8k_filings()
+            for filing in filings:
+                ticker = filing["ticker"]
+                log.info("SEC 8-K alert: $%s — %s", ticker, filing["company"])
+                tweet_data = {
+                    "url": filing["url"],
+                    "analyst": "SEC-8K",
+                    "text": f"8-K filed by {filing['company']} (${ticker}) — material event disclosure",
+                    "image_url": None,
+                    "avatar_url": None,
+                    "display_name": "SEC EDGAR",
+                }
+                await process_tweet(tweet_data)
+        except Exception as e:
+            log.error("SEC 8-K watcher error: %s", e, exc_info=True)
+
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=interval)
+            break
+        except asyncio.TimeoutError:
+            pass
+
+
+async def volume_scanner_loop(stop_event: asyncio.Event):
+    """Background loop: scan for volume breakouts during market hours."""
+    from datetime import datetime
+    import pytz
+    interval = cfg.get("volume_scanner.scan_interval", 900)
+    et = pytz.timezone("US/Eastern")
+
+    while not stop_event.is_set():
+        try:
+            now_et = datetime.now(et)
+            if 9 <= now_et.hour < 16 and cfg.get("volume_scanner.enabled", True):
+                from consensus_engine.scanners.volume_scanner import scan_volume_breakouts, format_volume_digest
+                breakouts = await scan_volume_breakouts(executor=_executor)
+                if breakouts:
+                    channel = cfg.get("api_keys.discord_channel_id", "")
+                    if channel:
+                        msg = format_volume_digest(breakouts)
+                        await send_command_reply(channel, None, msg)
+                    for b in breakouts[:3]:
+                        tweet_data = {
+                            "url": f"volume-scanner-{b.ticker}-{time.time():.0f}",
+                            "analyst": "Volume-Scanner",
+                            "text": f"${b.ticker} volume breakout: {b.rvol:.1f}x RVOL, {b.price_change_pct:+.1f}%",
+                            "image_url": None,
+                            "avatar_url": None,
+                            "display_name": "Volume Scanner",
+                        }
+                        await process_tweet(tweet_data)
+        except Exception as e:
+            log.error("Volume scanner loop error: %s", e, exc_info=True)
+
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=interval)
+            break
+        except asyncio.TimeoutError:
+            pass
+
+
+async def earnings_alert_loop(stop_event: asyncio.Event):
+    """Background loop: check for earnings reports happening tomorrow. Runs daily at 6pm ET."""
+    from datetime import datetime
+    import pytz
+    et = pytz.timezone("US/Eastern")
+    last_run_date = None
+
+    while not stop_event.is_set():
+        try:
+            now_et = datetime.now(et)
+            today = now_et.date()
+            if now_et.hour >= 18 and last_run_date != today:
+                last_run_date = today
+                from consensus_engine.scanners.earnings_calendar import scan_upcoming_earnings, format_earnings_alert
+                earnings = await scan_upcoming_earnings()
+                if earnings:
+                    channel = cfg.get("api_keys.discord_channel_id", "")
+                    if channel:
+                        msg = format_earnings_alert(earnings)
+                        await send_command_reply(channel, None, msg)
+        except Exception as e:
+            log.error("Earnings alert loop error: %s", e, exc_info=True)
+
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=300)
+            break
+        except asyncio.TimeoutError:
+            pass
+
+
+async def options_sweep_loop(stop_event: asyncio.Event):
+    """Background loop: scan for unusual options sweeps during market hours."""
+    from datetime import datetime
+    import pytz
+    interval = 1800
+    et = pytz.timezone("US/Eastern")
+
+    while not stop_event.is_set():
+        try:
+            now_et = datetime.now(et)
+            if 9 <= now_et.hour < 16:
+                from consensus_engine.scanners.options import scan_unusual_options_market, format_options_sweep_digest
+                watchlist = cfg.get("premarket.watchlist", [])[:20]
+                sweeps = await scan_unusual_options_market(watchlist, executor=_executor)
+                if sweeps:
+                    channel = cfg.get("api_keys.discord_channel_id", "")
+                    if channel:
+                        msg = format_options_sweep_digest(sweeps)
+                        await send_command_reply(channel, None, msg)
+        except Exception as e:
+            log.error("Options sweep loop error: %s", e, exc_info=True)
+
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=interval)
+            break
+        except asyncio.TimeoutError:
+            pass
+
+
+# ---------------------------------------------------------------------------
 # Engine entry points
 # ---------------------------------------------------------------------------
 
@@ -389,10 +552,15 @@ async def run(once: bool = False):
         asyncio.create_task(social_scan_loop(stop_event), name="social-scanner"),
         asyncio.create_task(price_followup_loop(stop_event), name="price-followup"),
         asyncio.create_task(prune_loop(stop_event), name="pruner"),
-        # Reddit trend disabled — Reddit rate-limits RSS feeds
+        # Proactive scanners
+        asyncio.create_task(premarket_gap_loop(stop_event), name="premarket-gaps"),
+        asyncio.create_task(sec_8k_watcher_loop(stop_event), name="sec-8k-watcher"),
+        asyncio.create_task(volume_scanner_loop(stop_event), name="volume-scanner"),
+        asyncio.create_task(earnings_alert_loop(stop_event), name="earnings-alert"),
+        asyncio.create_task(options_sweep_loop(stop_event), name="options-sweep"),
     ]
 
-    log.info("All loops started: tweetshift-listener, social-scanner, price-followup, pruner")
+    log.info("All loops started: tweetshift, social, price-followup, pruner, premarket, sec-8k, volume, earnings, options-sweep")
 
     try:
         await asyncio.gather(*tasks)

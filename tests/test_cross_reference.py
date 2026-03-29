@@ -10,6 +10,14 @@ from consensus_engine.cross_reference import (
     compute_technical_score, compute_social_score, cross_reference,
     _get_catalyst_score,
 )
+from consensus_engine.utils.xref_cache import clear_xref_cache
+
+
+@pytest.fixture(autouse=True)
+def _clear_cache():
+    clear_xref_cache()
+    yield
+    clear_xref_cache()
 
 
 def test_tiered_catalyst_high():

@@ -538,6 +538,46 @@ async def get_performance_stats() -> dict:
     }
 
 
+async def get_analyst_performance_stats() -> list[dict]:
+    """Get per-analyst win rates by joining alert_messages with alert_history.
+
+    Returns list of dicts sorted by total_alerts desc:
+      {analyst, total_alerts, wins_1h, win_rate_1h, wins_24h, win_rate_24h, avg_pnl_1h}
+    """
+    conn = await get_db()
+    cursor = await conn.execute("""
+        SELECT
+            am.analyst,
+            COUNT(*) as total_alerts,
+            SUM(CASE WHEN ah.price_1h_later > ah.price_at_alert THEN 1 ELSE 0 END) as wins_1h,
+            SUM(CASE WHEN ah.price_24h_later > ah.price_at_alert THEN 1 ELSE 0 END) as wins_24h,
+            AVG(CASE WHEN ah.price_at_alert > 0 AND ah.price_1h_later IS NOT NULL
+                THEN (ah.price_1h_later - ah.price_at_alert) / ah.price_at_alert * 100
+                ELSE NULL END) as avg_pnl_1h
+        FROM alert_messages am
+        INNER JOIN alert_history ah ON am.ticker = ah.ticker
+            AND abs(am.created_at - ah.alerted_at) < 60
+        WHERE ah.price_at_alert > 0
+        GROUP BY am.analyst
+        HAVING total_alerts >= 1
+        ORDER BY total_alerts DESC
+    """)
+    rows = await cursor.fetchall()
+    results = []
+    for r in rows:
+        total = r["total_alerts"]
+        results.append({
+            "analyst": r["analyst"],
+            "total_alerts": total,
+            "wins_1h": r["wins_1h"] or 0,
+            "win_rate_1h": (r["wins_1h"] / total * 100) if r["wins_1h"] else 0,
+            "wins_24h": r["wins_24h"] or 0,
+            "win_rate_24h": (r["wins_24h"] / total * 100) if r["wins_24h"] else 0,
+            "avg_pnl_1h": r["avg_pnl_1h"] or 0,
+        })
+    return results
+
+
 async def get_reddit_posts_since(since_utc: int) -> list[dict]:
     """Fetch posts created after since_utc."""
     conn = await get_db()
