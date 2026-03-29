@@ -69,9 +69,18 @@ def format_instant_ping(tweet: ParsedTweet, current_price: float = 0.0) -> dict:
         "inline": True,
     })
 
+    author_block = {
+        "name": tweet.display_name or f"@{tweet.analyst}",
+        "url": f"https://twitter.com/{tweet.analyst}",
+    }
+    if tweet.avatar_url:
+        author_block["icon_url"] = tweet.avatar_url
+
     embed = {
-        "title": f"@{tweet.analyst} — ${ticker} {direction_str}",
-        "description": f"\"{tweet.raw_text[:300]}\"",
+        "author": author_block,
+        "title": f"${ticker} {direction_str}",
+        "url": tweet.tweet_url,
+        "description": tweet.raw_text[:300],
         "color": color,
         "fields": fields,
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),

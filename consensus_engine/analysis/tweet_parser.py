@@ -55,6 +55,11 @@ RSI, EMA, MACD, VWAP, SMA, ATR, RVOL, ADX, MFI, OBV, CCI, DMI, DOJI, BOLL are te
 Do NOT include them in the tickers array. If the tweet mentions "RSI oversold on NVDA", the only ticker is NVDA.
 If a tweet has NO actual stock ticker, return type D with an empty tickers array.
 
+CRITICAL — exchange/venue names are NOT tickers:
+CME (Chicago Mercantile Exchange), NYSE, NASDAQ, CBOE, CBOT, NYMEX, OPRA are exchange or regulatory organizations.
+If someone says "I know people at CME/NYSE/Nasdaq" or "trading on CME", they are NOT making a stock call on those symbols.
+Only include a ticker if the analyst is explicitly trading, buying, or calling directional movement on that stock.
+
 Conviction rules:
 - high: "bought", "loaded", "all in", "adding more", mentions position size
 - medium: "buying", "looking at", "watching for entry", "like this setup"

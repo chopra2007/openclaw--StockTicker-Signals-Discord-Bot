@@ -218,6 +218,8 @@ class ParsedTweet:
     conviction: Conviction
     summary: str
     image_url: Optional[str] = None
+    avatar_url: Optional[str] = None
+    display_name: Optional[str] = None
     parsed_at: float = field(default_factory=time.time)
 
     @property

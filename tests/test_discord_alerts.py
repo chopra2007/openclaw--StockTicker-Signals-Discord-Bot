@@ -20,7 +20,7 @@ def test_format_instant_ping_type_a():
         summary="Going long USO on geopolitical catalyst",
     )
     embed = format_instant_ping(tweet, current_price=78.15)
-    assert "WallStreetSilv" in embed["title"]
+    assert "WallStreetSilv" in embed["author"]["name"]
     assert "USO" in embed["title"]
     assert "LONG" in embed["title"]
     assert "78.15" in embed["fields"][0]["value"]

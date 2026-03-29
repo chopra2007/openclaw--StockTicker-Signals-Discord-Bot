@@ -63,6 +63,7 @@ def _parse_tweetshift_message(message: dict) -> Optional[dict]:
         author = embed.get("author", {})
         author_name = author.get("name", "")
         author_url = author.get("url", "")
+        author_icon = author.get("icon_url", "")
         description = embed.get("description", "")
         embed_url = embed.get("url", "")
 
@@ -109,6 +110,8 @@ def _parse_tweetshift_message(message: dict) -> Optional[dict]:
             "text": text,
             "analyst": handle,
             "timestamp": timestamp,
+            "avatar_url": author_icon or None,
+            "display_name": author_name or None,
         }
 
     # Fallback: plain-text format "@handle: text"

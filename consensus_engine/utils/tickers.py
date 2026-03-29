@@ -22,6 +22,8 @@ BLACKLIST: set[str] = {
     "OTC", "IPO", "PNL", "PR", "HR", "LLC", "INC", "ETF", "API", "NYSE", "ISIN",
     # More corporate/financial
     "IOT", "CPI", "PMI", "ISM",
+    # Exchange / venue names (mentioned as organizations, not stocks)
+    "CME", "OPRA", "CBOE", "CBOT", "NYMEX", "COMEX", "NASDAQ",
     # Reddit / WSB slang
     "YOLO", "FOMO", "LFG", "WSB", "MOON", "HOLD", "PUMP", "DUMP", "APE", "APES",
     "BULL", "BEAR", "GUH", "TEND", "DFV", "RH", "MAGA", "WIKI",

@@ -96,6 +96,8 @@ async def process_tweet(tweet_data: dict):
     image_url = tweet_data.get("image_url")
 
     parsed = await parse_tweet(url, analyst, text, image_url=image_url)
+    parsed.avatar_url = tweet_data.get("avatar_url")
+    parsed.display_name = tweet_data.get("display_name")
 
     log.info("Tweet from @%s: type=%s tickers=%s dir=%s conv=%s — %s",
              analyst, parsed.tweet_type.value, parsed.tickers,
