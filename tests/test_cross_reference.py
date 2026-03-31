@@ -108,7 +108,11 @@ async def test_cross_reference_with_mocked_sources():
         source_urls=["https://reuters.com/nvda"], confidence=0.8,
     )
 
-    with patch("consensus_engine.cross_reference._run_news_cascade",
+    with patch("consensus_engine.cross_reference.get_cached_xref",
+               new_callable=AsyncMock, return_value=None), \
+         patch("consensus_engine.cross_reference.cache_xref",
+               new_callable=AsyncMock), \
+         patch("consensus_engine.cross_reference._run_news_cascade",
                new_callable=AsyncMock, return_value=mock_catalyst), \
          patch("consensus_engine.cross_reference._run_sec_check",
                new_callable=AsyncMock, return_value=(False, "")), \
@@ -158,7 +162,11 @@ async def test_llm_called_once_with_real_data():
 
     llm_mock = AsyncMock(return_value=(80.0, "Strong"))
 
-    with patch("consensus_engine.cross_reference._run_news_cascade",
+    with patch("consensus_engine.cross_reference.get_cached_xref",
+               new_callable=AsyncMock, return_value=None), \
+         patch("consensus_engine.cross_reference.cache_xref",
+               new_callable=AsyncMock), \
+         patch("consensus_engine.cross_reference._run_news_cascade",
                new_callable=AsyncMock, return_value=mock_catalyst), \
          patch("consensus_engine.cross_reference._run_sec_check",
                new_callable=AsyncMock, return_value=(False, "")), \
@@ -196,7 +204,11 @@ async def test_analyst_multiplier_capped():
 
     ten_analysts = [f"analyst_{i}" for i in range(10)]
 
-    with patch("consensus_engine.cross_reference._run_news_cascade",
+    with patch("consensus_engine.cross_reference.get_cached_xref",
+               new_callable=AsyncMock, return_value=None), \
+         patch("consensus_engine.cross_reference.cache_xref",
+               new_callable=AsyncMock), \
+         patch("consensus_engine.cross_reference._run_news_cascade",
                new_callable=AsyncMock, return_value=None), \
          patch("consensus_engine.cross_reference._run_sec_check",
                new_callable=AsyncMock, return_value=(False, "")), \

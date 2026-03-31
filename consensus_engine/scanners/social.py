@@ -16,6 +16,7 @@ import aiohttp
 
 from consensus_engine import config as cfg
 from consensus_engine import db
+from consensus_engine.utils.http import get_session
 from consensus_engine.models import (
     TickerSignal, SourceType, Sentiment,
 )

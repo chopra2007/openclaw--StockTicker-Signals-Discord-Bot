@@ -35,12 +35,34 @@ class XRefCache:
 _cache = XRefCache(ttl_seconds=300)
 
 
-def get_cached_xref(ticker: str) -> Optional[Any]:
-    return _cache.get(ticker)
+async def get_cached_xref(ticker: str) -> Optional[Any]:
+    # L1: in-memory
+    hit = _cache.get(ticker)
+    if hit is not None:
+        return hit
+    # L2: DB
+    try:
+        from consensus_engine.db import get_xref_from_db
+        import json
+        raw = await get_xref_from_db(ticker)
+        if raw is not None:
+            from consensus_engine.models import CrossReferenceResult
+            result = CrossReferenceResult(**json.loads(raw))
+            _cache.put(ticker, result)
+            return result
+    except Exception:
+        pass
+    return None
 
 
-def cache_xref(ticker: str, result: Any) -> None:
+async def cache_xref(ticker: str, result: Any) -> None:
     _cache.put(ticker, result)
+    try:
+        from consensus_engine.db import set_xref_in_db
+        import json
+        await set_xref_in_db(ticker, json.dumps(result.__dict__, default=str))
+    except Exception:
+        pass
 
 
 def clear_xref_cache() -> None:

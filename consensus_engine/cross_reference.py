@@ -6,7 +6,8 @@ score from news, social, technical, other analysts, and LLM confidence.
 
 import asyncio
 import logging
-from typing import Optional
+import time
+from typing import Any, Optional
 
 from consensus_engine.utils.xref_cache import get_cached_xref, cache_xref
 
@@ -109,6 +110,14 @@ async def _run_llm_score(ticker: str, catalyst: Optional[CatalystResult],
     return await score_confidence(ticker, None, None, catalyst, technical)
 
 
+async def _timed(coro, metrics: dict, key: str) -> Any:
+    """Await a coroutine and record its elapsed time in milliseconds to metrics."""
+    t0 = time.perf_counter()
+    result = await coro
+    metrics[key] = int((time.perf_counter() - t0) * 1000)
+    return result
+
+
 async def _run_options_check(ticker: str, executor) -> Optional[OptionsResult]:
     """Check for unusual options activity."""
     try:
@@ -127,24 +136,27 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
     direction = tweet.direction.value if hasattr(tweet.direction, 'value') else "long"
 
     # Check xref cache (prevents redundant API calls for same ticker within 5 min)
-    cached = get_cached_xref(ticker)
+    cached = await get_cached_xref(ticker)
     if cached is not None:
         log.info("Cross-reference cache HIT for $%s", ticker)
         return cached
 
+    metrics: dict[str, int] = {}
     catalyst, (sec_hit, sec_summary), social_data, technical, other_analysts, options = \
         await asyncio.gather(
-            _run_news_cascade(ticker),
-            _run_sec_check(ticker),
-            _run_social_check(ticker),
-            _run_technical(ticker, direction=direction),
-            _run_other_analysts(ticker, exclude_analyst=tweet.analyst),
-            _run_options_check(ticker, executor),
+            _timed(_run_news_cascade(ticker), metrics, "news_cascade_ms"),
+            _timed(_run_sec_check(ticker), metrics, "sec_check_ms"),
+            _timed(_run_social_check(ticker), metrics, "social_ms"),
+            _timed(_run_technical(ticker, direction=direction), metrics, "technical_ms"),
+            _timed(_run_other_analysts(ticker, exclude_analyst=tweet.analyst), metrics, "analyst_check_ms"),
+            _timed(_run_options_check(ticker, executor), metrics, "options_check_ms"),
         )
 
     llm_score, llm_reasoning = 0.0, ""
     if technical or catalyst:
+        t0 = time.perf_counter()
         llm_score, llm_reasoning = await _run_llm_score(ticker, catalyst, technical)
+        metrics["llm_score_ms"] = int((time.perf_counter() - t0) * 1000)
 
     max_analysts = cfg.get("scoring.multipliers.max_additional_analysts", 3)
     analyst_pts = min(len(other_analysts), max_analysts) * m.get("additional_analyst", 20)
@@ -198,5 +210,10 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
              ticker, result.final_score, tweet.base_score,
              result.final_score - tweet.base_score)
 
-    cache_xref(ticker, result)
+    await cache_xref(ticker, result)
+
+    # Record per-component latency metrics
+    for metric_key, ms_value in metrics.items():
+        await db.record_metric(f"xref_{metric_key}", ms_value)
+
     return result

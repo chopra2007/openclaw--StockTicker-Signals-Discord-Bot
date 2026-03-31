@@ -140,6 +140,13 @@ async def process_tweet(tweet_data: dict):
              ticker, analyst, parsed.tweet_type.value, parsed.direction.value,
              parsed.conviction.value, parsed.base_score)
 
+    # Alert cooldown — skip if same ticker was alerted recently
+    if not await db.check_alert_cooldown(ticker):
+        cooldown_hours = cfg.get("alerts.cooldown_hours", 6)
+        log.info("COOLDOWN $%s from @%s: already alerted within %.0fh — skipping ping",
+                 ticker, analyst, cooldown_hours)
+        return
+
     # Fetch price + send instant ping concurrently
     price = await _fetch_price(ticker)
     msg_id = await send_instant_ping(parsed, current_price=price)

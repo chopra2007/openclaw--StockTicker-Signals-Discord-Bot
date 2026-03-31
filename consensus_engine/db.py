@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS alert_history (
 );
 CREATE INDEX IF NOT EXISTS idx_alerts_ticker ON alert_history(ticker);
 CREATE INDEX IF NOT EXISTS idx_alerts_time ON alert_history(alerted_at);
+CREATE INDEX IF NOT EXISTS idx_alerts_ticker_time ON alert_history(ticker, alerted_at);
 
 CREATE TABLE IF NOT EXISTS pipeline_metrics (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -90,6 +91,12 @@ CREATE TABLE IF NOT EXISTS reddit_posts (
 );
 CREATE INDEX IF NOT EXISTS idx_reddit_posts_created ON reddit_posts(created_utc);
 CREATE INDEX IF NOT EXISTS idx_reddit_posts_sub ON reddit_posts(subreddit);
+
+CREATE TABLE IF NOT EXISTS xref_cache (
+    ticker TEXT PRIMARY KEY,
+    result_json TEXT NOT NULL,
+    cached_at REAL NOT NULL
+);
 """
 
 
@@ -584,6 +591,40 @@ async def get_reddit_posts_since(since_utc: int) -> list[dict]:
     cursor = await conn.execute(
         "SELECT id, subreddit, title, author FROM reddit_posts WHERE created_utc > ? ORDER BY created_utc DESC",
         (since_utc,),
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def get_xref_from_db(ticker: str, ttl_seconds: int = 300) -> str | None:
+    """Get cached xref result JSON from DB, or None if missing/expired."""
+    conn = await get_db()
+    cutoff = time.time() - ttl_seconds
+    cursor = await conn.execute(
+        "SELECT result_json FROM xref_cache WHERE ticker = ? AND cached_at > ?",
+        (ticker, cutoff),
+    )
+    row = await cursor.fetchone()
+    return row["result_json"] if row else None
+
+
+async def set_xref_in_db(ticker: str, result_json: str):
+    """Store or update an xref cache entry in DB."""
+    conn = await get_db()
+    await conn.execute(
+        "INSERT OR REPLACE INTO xref_cache (ticker, result_json, cached_at) VALUES (?, ?, ?)",
+        (ticker, result_json, time.time()),
+    )
+    await conn.commit()
+
+
+async def get_warm_xref_entries(ttl_seconds: int = 300) -> list[dict]:
+    """Fetch all non-expired xref cache entries for warming in-memory cache on startup."""
+    conn = await get_db()
+    cutoff = time.time() - ttl_seconds
+    cursor = await conn.execute(
+        "SELECT ticker, result_json, cached_at FROM xref_cache WHERE cached_at > ?",
+        (cutoff,),
     )
     rows = await cursor.fetchall()
     return [dict(r) for r in rows]
