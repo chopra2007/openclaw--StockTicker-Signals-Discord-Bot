@@ -168,7 +168,11 @@ async def _run_cross_reference_and_followup(
 ):
     """Background task: run cross-references then send detail follow-up."""
     try:
-        xref = await cross_reference(ticker, parsed, executor=_executor)
+        timeout = cfg.get("intervals.cross_reference_timeout", 120)
+        xref = await asyncio.wait_for(
+            cross_reference(ticker, parsed, executor=_executor),
+            timeout=timeout,
+        )
         followup_id = await send_detail_followup(xref, msg_id)
         if followup_id:
             await db.update_alert_message_followup(row_id, followup_id, xref.final_score)
@@ -183,6 +187,9 @@ async def _run_cross_reference_and_followup(
             analysts_json=json.dumps(xref.other_analysts),
             price=price_at_alert,
         )
+    except asyncio.TimeoutError:
+        log.error("Cross-reference timed out for $%s after %ss — no follow-up sent",
+                  ticker, cfg.get("intervals.cross_reference_timeout", 120))
     except Exception as e:
         log.error("Cross-reference failed for $%s: %s", ticker, e, exc_info=True)
 

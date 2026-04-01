@@ -118,6 +118,18 @@ async def _timed(coro, metrics: dict, key: str) -> Any:
     return result
 
 
+async def _with_timeout(coro, timeout: float, default: Any, label: str) -> Any:
+    """Run a coroutine with a timeout, returning default on timeout or error."""
+    try:
+        return await asyncio.wait_for(coro, timeout=timeout)
+    except asyncio.TimeoutError:
+        log.warning("Cross-reference source timed out after %.0fs: %s", timeout, label)
+        return default
+    except Exception as e:
+        log.warning("Cross-reference source error (%s): %s", label, e)
+        return default
+
+
 async def _run_options_check(ticker: str, executor) -> Optional[OptionsResult]:
     """Check for unusual options activity."""
     try:
@@ -144,18 +156,23 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
     metrics: dict[str, int] = {}
     catalyst, (sec_hit, sec_summary), social_data, technical, other_analysts, options = \
         await asyncio.gather(
-            _timed(_run_news_cascade(ticker), metrics, "news_cascade_ms"),
-            _timed(_run_sec_check(ticker), metrics, "sec_check_ms"),
-            _timed(_run_social_check(ticker), metrics, "social_ms"),
-            _timed(_run_technical(ticker, direction=direction), metrics, "technical_ms"),
-            _timed(_run_other_analysts(ticker, exclude_analyst=tweet.analyst), metrics, "analyst_check_ms"),
-            _timed(_run_options_check(ticker, executor), metrics, "options_check_ms"),
+            _with_timeout(_timed(_run_news_cascade(ticker), metrics, "news_cascade_ms"), 15.0, None, "news"),
+            _with_timeout(_timed(_run_sec_check(ticker), metrics, "sec_check_ms"), 10.0, (False, ""), "sec"),
+            _with_timeout(_timed(_run_social_check(ticker), metrics, "social_ms"), 5.0, {}, "social"),
+            _with_timeout(_timed(_run_technical(ticker, direction=direction), metrics, "technical_ms"), 20.0, None, "technical"),
+            _with_timeout(_timed(_run_other_analysts(ticker, exclude_analyst=tweet.analyst), metrics, "analyst_check_ms"), 5.0, [], "analysts"),
+            _with_timeout(_timed(_run_options_check(ticker, executor), metrics, "options_check_ms"), 15.0, None, "options"),
         )
 
     llm_score, llm_reasoning = 0.0, ""
     if technical or catalyst:
         t0 = time.perf_counter()
-        llm_score, llm_reasoning = await _run_llm_score(ticker, catalyst, technical)
+        try:
+            llm_score, llm_reasoning = await asyncio.wait_for(
+                _run_llm_score(ticker, catalyst, technical), timeout=15.0
+            )
+        except asyncio.TimeoutError:
+            log.warning("LLM scorer timed out after 15s for $%s", ticker)
         metrics["llm_score_ms"] = int((time.perf_counter() - t0) * 1000)
 
     max_analysts = cfg.get("scoring.multipliers.max_additional_analysts", 3)
