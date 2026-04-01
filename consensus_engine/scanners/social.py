@@ -277,6 +277,189 @@ async def scan_google_trends(tickers: list[str]) -> dict[str, float]:
 
 
 # ---------------------------------------------------------------------------
+# Google Trends (Pytrends - Free, runs as background task)
+# ---------------------------------------------------------------------------
+
+# Track Pytrends failures for auto-disable
+_pytrends_failure_window: list[float] = []  # Timestamps of recent failures
+
+
+async def scan_google_trends_pytrends(tickers: list[str]) -> dict[str, float]:
+    """Check Google Trends for ticker search volume spikes via Pytrends (free).
+
+    Runs blocking pytrends calls in a thread executor to avoid blocking the
+    event loop. Sleeps 60s between each ticker (Google rate-limit threshold).
+    Auto-disables after 3 failures in 24 hours — Exa AI takes over as fallback.
+
+    Returns dict of ticker -> trend delta (positive = rising interest).
+    """
+    global _pytrends_failure_window
+
+    if not cfg.get("social.google_trends_enabled", True):
+        return {}
+    if not tickers:
+        return {}
+    if not cfg.get("social.pytrends_enabled", False):
+        return {}
+
+    # Auto-disable after 3 failures in 24 hours
+    now = time.time()
+    one_day_ago = now - 86400
+    _pytrends_failure_window = [ts for ts in _pytrends_failure_window if ts > one_day_ago]
+
+    if len(_pytrends_failure_window) >= 3:
+        log.warning("Pytrends auto-disabled: 3+ failures in 24h — Exa AI fallback will be used.")
+        cfg.config["social"]["pytrends_enabled"] = False
+        return {}
+
+    try:
+        from pytrends.request import TrendReq
+        import pandas as pd
+    except ImportError:
+        log.debug("Pytrends not installed, skipping")
+        return {}
+
+    results = {}
+    loop = asyncio.get_event_loop()
+    pytrends = TrendReq(hl='en-US', tz=360)
+    batch = tickers[:5]
+
+    for i, ticker in enumerate(batch):
+        # Sleep 60s between requests (not before first, not after last)
+        if i > 0:
+            await asyncio.sleep(60)
+
+        try:
+            kw = f"{ticker} stock"
+
+            # Run blocking calls in thread executor so event loop stays free
+            await loop.run_in_executor(
+                None,
+                lambda: pytrends.build_payload([kw], cat=0, timeframe='now 1-d', geo='US'),
+            )
+            interest = await loop.run_in_executor(None, pytrends.interest_over_time)
+
+            if interest is None or len(interest) < 2 or kw not in interest.columns:
+                continue
+
+            recent = interest.iloc[-1][kw]
+            earlier = interest.iloc[0][kw]
+
+            # Skip rows with NaN (no data for period — avoids false -100%)
+            if pd.isna(recent) or pd.isna(earlier):
+                continue
+
+            recent, earlier = float(recent), float(earlier)
+
+            if earlier > 0:
+                results[ticker] = ((recent - earlier) / earlier) * 100
+            elif recent > 0:
+                results[ticker] = 100.0
+            # both zero → skip (no meaningful signal)
+
+        except Exception as e:
+            log.warning("Pytrends error for %s: %s", ticker, e)
+            _pytrends_failure_window.append(now)
+
+    log.info("Google Trends (Pytrends): %d/%d tickers with data", len(results), len(batch))
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Google Trends (Exa AI - Fallback when Pytrends is rate-limited/disabled)
+# ---------------------------------------------------------------------------
+
+async def scan_google_trends_exa(tickers: list[str]) -> dict[str, float]:
+    """Proxy Google Trends interest via Exa AI recent article count (fallback).
+
+    Searches Exa for "{ticker} stock" limited to the last 24h.
+    Result count is a reliable proxy for trending interest:
+      10+ articles → strong spike (75.0)
+       5+ articles → moderate spike (40.0)
+       1+ articles → weak signal  (15.0)
+
+    Returns dict of ticker -> trend score.
+    """
+    if not tickers:
+        return {}
+
+    api_key = cfg.get_api_key("exa")
+    if not api_key:
+        log.debug("Exa AI: no API key configured, skipping trends fallback")
+        return {}
+
+    from datetime import datetime, timedelta, timezone
+    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    results = {}
+    async with aiohttp.ClientSession() as session:
+        for ticker in tickers[:10]:
+            if not await rate_limiter.acquire("exa"):
+                break
+            try:
+                payload = {
+                    "query": f"{ticker} stock",
+                    "numResults": 10,
+                    "startPublishedDate": yesterday,
+                    "useAutoprompt": False,
+                }
+                async with session.post(
+                    "https://api.exa.ai/search",
+                    json=payload,
+                    headers={"x-api-key": api_key, "Content-Type": "application/json"},
+                    timeout=aiohttp.ClientTimeout(total=10),
+                ) as resp:
+                    if resp.status != 200:
+                        rate_limiter.report_failure("exa")
+                        continue
+                    data = await resp.json()
+
+                count = len(data.get("results", []))
+                if count >= 10:
+                    results[ticker] = 75.0
+                elif count >= 5:
+                    results[ticker] = 40.0
+                elif count >= 1:
+                    results[ticker] = 15.0
+
+                rate_limiter.report_success("exa")
+            except Exception as e:
+                log.debug("Exa trends error for %s: %s", ticker, e)
+                rate_limiter.report_failure("exa")
+
+            await asyncio.sleep(0.5)
+
+    log.info("Google Trends (Exa fallback): %d/%d tickers with data", len(results), len(tickers))
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Google Trends (Combined - Pytrends primary, Exa fallback, SerpAPI via cron)
+# ---------------------------------------------------------------------------
+
+async def scan_google_trends_combined(tickers: list[str]) -> dict[str, float]:
+    """Run Google Trends using the best available source.
+
+    Priority:
+      1. Pytrends (free, runs as non-blocking background task every 300s)
+      2. Exa AI (fallback when Pytrends is auto-disabled after 3 failures/24h)
+      3. SerpAPI (cron only — once/day at 5:50am via jobs.json, never called here)
+    """
+    if cfg.get("social.pytrends_enabled", False):
+        results = await scan_google_trends_pytrends(tickers)
+        if results:
+            return results
+
+    # Pytrends disabled or returned nothing — use Exa AI
+    return await scan_google_trends_exa(tickers)
+
+
+async def scan_google_trends_serpapi(tickers: list[str]) -> dict[str, float]:
+    """Run SerpAPI Google Trends. Called only by cron at 5:50am (jobs.json)."""
+    return await scan_google_trends(tickers)
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 

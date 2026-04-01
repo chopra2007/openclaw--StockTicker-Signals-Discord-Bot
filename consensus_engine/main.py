@@ -29,7 +29,7 @@ from consensus_engine.models import (
 from consensus_engine.scanners.nitter import NitterPoller
 from consensus_engine.scanners.discord_tweetshift import DiscordTweetShiftListener
 from consensus_engine.scanners.social import (
-    scan_reddit, scan_stocktwits, scan_apewisdom, scan_google_trends,
+    scan_reddit, scan_stocktwits, scan_apewisdom, scan_google_trends_combined as scan_google_trends,
 )
 from consensus_engine.analysis.tweet_parser import parse_tweet
 from consensus_engine.cross_reference import cross_reference
@@ -219,6 +219,24 @@ async def nitter_poll_loop(stop_event: asyncio.Event):
             pass
 
 
+async def _run_trends_and_store(tickers: list[str]) -> None:
+    """Background task: run Google Trends (Pytrends or Exa) and store signals."""
+    try:
+        trends = await scan_google_trends(tickers)
+        for ticker, delta in trends.items():
+            await db.insert_signal(TickerSignal(
+                ticker=ticker,
+                source_type=SourceType.GOOGLE_TRENDS,
+                source_detail=f"delta={delta:.1f}",
+                raw_text=f"Google Trends spike: {delta:.1f}",
+                sentiment=Sentiment.BULLISH if delta > 0 else Sentiment.NEUTRAL,
+            ))
+        if trends:
+            log.info("Trends background task: stored %d signals", len(trends))
+    except Exception as e:
+        log.error("Trends background task error: %s", e, exc_info=True)
+
+
 async def social_scan_loop(stop_event: asyncio.Event):
     """Background loop: scan social sources for cross-reference data."""
     interval = cfg.get("intervals.social_scan", 300)
@@ -245,18 +263,15 @@ async def social_scan_loop(stop_event: asyncio.Event):
                 await db.insert_signals(all_signals)
                 log.info("Social: stored %d signals in %.1fs", len(all_signals), elapsed)
 
-            # Google Trends for tickers that already have signals
+            # Google Trends — fire as non-blocking background task.
+            # Pytrends sleeps 60s between each of 5 tickers (300s total);
+            # running as a task keeps the 300s social loop on schedule.
             active = await db.get_active_tickers(min_signals=2)
             if active:
-                trends = await scan_google_trends(active[:10])
-                for ticker, delta in trends.items():
-                    await db.insert_signal(TickerSignal(
-                        ticker=ticker,
-                        source_type=SourceType.GOOGLE_TRENDS,
-                        source_detail=f"delta={delta:.1f}",
-                        raw_text=f"Google Trends spike: {delta:.1f}",
-                        sentiment=Sentiment.BULLISH if delta > 0 else Sentiment.NEUTRAL,
-                    ))
+                asyncio.create_task(
+                    _run_trends_and_store(active[:5]),
+                    name="trends-background",
+                )
 
         except Exception as e:
             log.error("Social scanner error: %s", e, exc_info=True)

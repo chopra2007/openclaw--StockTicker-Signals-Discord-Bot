@@ -16,6 +16,7 @@ api_keys:
   twitter_ct0: "$TWITTER_CT0"
   twitter_cookie_string: "$TWITTER_COOKIE_STRING"
   serpapi: "$SERPAPI2_API_KEY"
+  exa: "$EXA_AI_API_KEY"
 
 # Self-hosted Nitter (Docker)
 nitter:
@@ -106,8 +107,10 @@ social:
   stocktwits_enabled: false
   apewisdom_enabled: true
   google_trends_enabled: true
-  reddit_trend_min_mentions: 3    # Min mentions to qualify as trending
-  reddit_trend_min_authors: 2     # Min unique authors mentioning ticker
+  pytrends_enabled: true           # Set to true to use free Pytrends (auto-disables on rate limit)
+  pytrends_interval_minutes: 30     # How often to run Pytrends (requires 60s delay per ticker)
+  reddit_trend_min_mentions: 3      # Min mentions to qualify as trending
+  reddit_trend_min_authors: 2       # Min unique authors mentioning ticker
 
 # Stage 3: News & Catalyst Finder
 news:
