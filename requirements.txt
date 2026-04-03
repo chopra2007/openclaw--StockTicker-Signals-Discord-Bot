@@ -1,0 +1,8 @@
+aiohttp>=3.13.3
+aiosqlite>=0.22.1
+PyYAML>=5.4.1
+yfinance>=1.2.0
+playwright-stealth>=2.0.2
+python-dotenv>=1.0.0
+pandas>=2.0.0
+playwright>=1.40.0

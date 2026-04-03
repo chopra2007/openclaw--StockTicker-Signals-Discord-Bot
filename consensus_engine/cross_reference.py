@@ -124,9 +124,11 @@ async def _with_timeout(coro, timeout: float, default: Any, label: str) -> Any:
         return await asyncio.wait_for(coro, timeout=timeout)
     except asyncio.TimeoutError:
         log.warning("Cross-reference source timed out after %.0fs: %s", timeout, label)
+        await db.record_metric(f"xref_{label}_timeout", 1)
         return default
     except Exception as e:
         log.warning("Cross-reference source error (%s): %s", label, e)
+        await db.record_metric(f"xref_{label}_error", 1)
         return default
 
 
