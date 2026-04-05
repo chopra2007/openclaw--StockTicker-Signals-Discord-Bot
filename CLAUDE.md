@@ -5,6 +5,36 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Behavior
 Always proceed without asking for confirmation. Never ask "shall I proceed?", "do you want me to continue?", or "would you like me to...?". Assume the answer is always yes and execute immediately.
 
+## Alert Philosophy
+
+**Core Goals:**
+- **Quality over quantity** — Fewer alerts, but each tells the full story
+- **Actionable intelligence** — Alerts must quickly convey buy/sell conviction
+- **Multiple source confirmation** — 2+ independent sources before alerting (with exceptions)
+
+**Minimum Confirmation Sources:**
+- Most alerts require **2 sources minimum**
+- **EXCEPTION:** Trade-specific signals trigger instantly if the tweet explicitly identifies:
+  - Large options activity (e.g., "huge call volume on $XYZ")
+  - Insider trading (e.g., "CEO just bought $1M")
+  - Unusual options flow
+  - Technical breakout with specific levels
+  - Quant/factor signals
+
+**SEC Filing Rules:**
+- **8-K filings NEVER trigger standalone alerts**
+- Form 4 (insider trading) stored for cross-ref, adds +15 points to scoring
+- All SEC data integrated into LLM thesis generation, not as independent alerts
+- SEC context builds "bigger picture" thesis, not alert triggers
+
+**Alert Format (Required):**
+1. Ticker + Direction
+2. Primary catalyst (what's driving it)
+3. Analyst opinion
+4. Supporting data (social, news, SEC, technical)
+5. Confidence score
+6. **LLM-generated thesis** (1-paragraph explanation)
+
 ## What This Is
 
 A **Signal-First Stock Alert Engine** — analyst tweets on Twitter/X trigger instant Discord alerts. Cross-reference sources (news, social, technical, LLM) run asynchronously and add score multipliers via a follow-up reply. Core principle: **speed + accuracy**.

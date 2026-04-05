@@ -105,9 +105,9 @@ async def _run_other_analysts(ticker: str, exclude_analyst: str = "") -> list[st
 
 
 async def _run_llm_score(ticker: str, catalyst: Optional[CatalystResult],
-                          technical: Optional[TechnicalResult]) -> tuple[float, str]:
-    """Get LLM confidence score."""
-    return await score_confidence(ticker, None, None, catalyst, technical)
+                          technical: Optional[TechnicalResult], sec_summary: str = "") -> tuple[float, str]:
+    """Get LLM confidence score with SEC/EDGAR data for thesis generation."""
+    return await score_confidence(ticker, None, None, catalyst, technical, sec_summary)
 
 
 async def _timed(coro, metrics: dict, key: str) -> Any:
@@ -171,7 +171,7 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
         t0 = time.perf_counter()
         try:
             llm_score, llm_reasoning = await asyncio.wait_for(
-                _run_llm_score(ticker, catalyst, technical), timeout=15.0
+                _run_llm_score(ticker, catalyst, technical, sec_summary), timeout=15.0
             )
         except asyncio.TimeoutError:
             log.warning("LLM scorer timed out after 15s for $%s", ticker)

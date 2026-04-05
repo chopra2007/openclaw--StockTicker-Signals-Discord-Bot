@@ -1,6 +1,61 @@
-# System Changes & Issues Documentation
+# System Issues & Changes Documentation
 
-## Date: April 1, 2026
+## User Goals & Requirements (As Stated by AK)
+
+### Alert Philosophy
+- **Quality over quantity** - Fewer alerts, but each tells the full story
+- **Actionable intelligence** - Need to quickly understand if buy/sell
+- **Multiple source confirmation** - Need 2+ independent sources before alerting
+
+### Specific Requirements
+
+#### 1. Minimum Confirmation Sources
+- **2 sources minimum** for most alerts
+- **EXCEPTION:** Trade-specific signals - these trigger instant alerts alone
+
+**What Makes Something "Trade-Specific":**
+The analyst tweet explicitly identifies a specific, actionable trade setup:
+- Large options activity (e.g., "huge call volume on $XYZ")
+- Insider trading detected (e.g., "CEO just bought $1M of stock")
+- Unusual options flow
+- Technical breakout setup with specific levels
+- Quant/factor signals
+
+**NOT Trade-Specific (needs 2+ sources):**
+- General bullish/bearish commentary
+- Market outlook
+- Earnings predictions without specific levels
+- General news about company
+
+#### 2. Broader Catalysts Need Independent Confirmation
+- News or earnings alerts need at least 1 independent source confirming:
+  - Major news outlet
+  - Social trend (ApeWisdom, Reddit, StockTwits)
+  - SEC filing
+
+#### 3. SEC Filing Rules (Updated April 2-3)
+- **8-K filings NEVER trigger standalone alerts**
+- Form 4 (insider trading) - stored for cross-reference, adds context/scoring (+15 points)
+- All SEC filings integrated into LLM thesis generation
+- SEC data used to build "bigger picture" thesis, not standalone alerts
+
+#### 4. Alert Types
+| Type | Trigger | Format |
+|------|---------|---------|
+| Trade-Specific | Analyst tweet with specific trade (options, insider) | Instant - Ticker, Direction, Price, Score |
+| Broader Catalyst | 2+ sources confirming | Goes to digest - full cross-ref |
+
+#### 5. Desired Alert Format
+- Ticker + Direction
+- Primary catalyst (what's driving the move)
+- Analyst opinion
+- Supporting data (social, news, SEC, technical)
+- Confidence score
+- **LLM-generated thesis** (1 paragraph explaining why bullish/bearish)
+
+---
+
+## Changes Made (Chronological)
 
 ---
 
@@ -60,3 +115,26 @@ value is NaN. Both-zero case also skipped (no meaningful signal).
 - `/root/.openclaw/workspace/consensus_engine/cross_reference.py` - Cross-reference logic
 - `/root/.openclaw/workspace/config/consensus.yaml` - Config settings
 - `/root/.openclaw/cron/jobs.json` - SerpAPI cron job (5:50am daily)
+
+---
+
+## 📊 SEC/EDGAR Integration (Updated April 3)
+
+The LLM now receives SEC/EDGAR data in its prompt to synthesize a thesis.
+
+### What's Included in LLM Prompt:
+- Form 4 (insider buying/selling) - detected and detailed
+- 8-K (material events) - stored for cross-ref only (no standalone alerts)
+- 10-K/10-Q (earnings)
+- SC 13D (activist stakes)
+
+### LLM Output:
+The LLM now generates a 1-paragraph thesis combining ALL signals:
+- Twitter/X signals
+- Social signals (Reddit, StockTwits, ApeWisdom)
+- SEC/EDGAR filings (new)
+- News catalyst
+- Technical data
+
+Example thesis:
+> *"Analyst mentioned $TSLA with bullish call flow. SEC EDGAR shows 3 Form 4 filings (insider buying) in the last 48 hours. Combined with news of new model debut, this creates a high-confidence bullish setup."*

@@ -13,6 +13,7 @@ class SourceType(str, Enum):
     APEWISDOM = "apewisdom"
     GOOGLE_TRENDS = "google_trends"
     NEWS = "news"
+    SEC_FILING = "sec_filing"
 
 
 class Sentiment(str, Enum):

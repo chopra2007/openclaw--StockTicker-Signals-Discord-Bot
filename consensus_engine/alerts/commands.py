@@ -142,6 +142,10 @@ async def route_command(
         else:
             await _handle_google_trends(args[0].upper(), channel_id, message_id)
 
+    elif command == "serpapi-trends":
+        # Run SerpAPI Google Trends for active tickers (called via cron)
+        await _run_serpapi_trends(channel_id, message_id)
+
     elif command == "apewisdom":
         await _handle_apewisdom(channel_id, message_id)
 
@@ -503,6 +507,50 @@ async def _google_trends_and_reply(ticker: str, channel_id: str, message_id: str
     except Exception as e:
         log.error("Google Trends command error for %s: %s", ticker, e)
         await send_command_reply(channel_id, message_id, f"Google Trends lookup failed for `${ticker}`.")
+
+
+async def _run_serpapi_trends(channel_id: str, message_id: str) -> None:
+    """Run SerpAPI Google Trends for all active tickers (cron job)."""
+    await send_command_reply(channel_id, message_id, "Running SerpAPI Google Trends...")
+    try:
+        from consensus_engine import db
+        from consensus_engine.scanners.social import scan_google_trends_serpapi
+        from consensus_engine.models import TickerSignal, SourceType, Sentiment
+        
+        # Get active tickers
+        active = await db.get_active_tickers(min_signals=2)
+        if not active:
+            await send_command_reply(channel_id, message_id, "No active tickers for SerpAPI Google Trends.")
+            return
+        
+        # Run SerpAPI (not Pytrends)
+        trends = await scan_google_trends_serpapi(active[:10])
+        
+        if not trends:
+            await send_command_reply(channel_id, message_id, "SerpAPI Google Trends: No data returned.")
+            return
+        
+        # Store results
+        for ticker, delta in trends.items():
+            await db.insert_signal(TickerSignal(
+                ticker=ticker,
+                source_type=SourceType.GOOGLE_TRENDS,
+                source_detail=f"serpapi delta={delta:.1f}",
+                raw_text=f"Google Trends (SerpAPI): {delta:.1f}%",
+                sentiment=Sentiment.BULLISH if delta > 0 else Sentiment.NEUTRAL,
+            ))
+        
+        # Format results
+        lines = ["**SerpAPI Google Trends Results:**"]
+        for ticker, delta in sorted(trends.items(), key=lambda x: -abs(x[1]))[:10]:
+            sign = "+" if delta >= 0 else ""
+            lines.append(f"  ${ticker}: {sign}{delta:.1f}%")
+        
+        await send_command_reply(channel_id, message_id, "\n".join(lines))
+        
+    except Exception as e:
+        log.error("SerpAPI trends cron error: %s", e)
+        await send_command_reply(channel_id, message_id, f"SerpAPI Google Trends failed: {e}")
 
 
 async def _handle_apewisdom(channel_id: str, message_id: str) -> None:

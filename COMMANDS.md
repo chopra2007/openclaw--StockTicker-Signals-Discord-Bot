@@ -60,6 +60,9 @@ Google Trends interest change % for a ticker.
 A spike of 20%+ is flagged as notable.
 Example: `!google-trends NVDA`
 
+### `!serpapi-trends`
+Run SerpAPI Google Trends for active tickers (used by cron job at 5:50am daily).
+
 ---
 
 ## Ticker Intel

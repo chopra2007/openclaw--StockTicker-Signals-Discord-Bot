@@ -47,7 +47,8 @@ def _build_user_prompt(ticker: str,
                        twitter: Optional[TwitterConsensus],
                        social: Optional[SocialConsensus],
                        catalyst: Optional[CatalystResult],
-                       technical: Optional[TechnicalResult]) -> str:
+                       technical: Optional[TechnicalResult],
+                       sec_summary: str = "") -> str:
     """Build the analysis prompt from aggregated signal data."""
     parts = [f"Evaluate breakout potential for ${ticker}:\n"]
 
@@ -69,6 +70,11 @@ def _build_user_prompt(ticker: str,
         parts.append(f"- Platforms confirming: {social.platforms_confirming}")
         parts.append("")
 
+    if sec_summary:
+        parts.append(f"SEC/EDGAR FILINGS:")
+        parts.append(f"- {sec_summary}")
+        parts.append("")
+
     if catalyst:
         parts.append(f"NEWS CATALYST:")
         parts.append(f"- Type: {catalyst.catalyst_type}")
@@ -86,7 +92,10 @@ def _build_user_prompt(ticker: str,
         parts.append(f"- Filters passed: {technical.passed_count}/{technical.total_count}")
         parts.append("")
 
-    parts.append("Based on the above, provide your confidence score (0-100) and brief reasoning.")
+    parts.append("Based on ALL the above signals, provide:")
+    parts.append("1. A confidence score (0-100)")
+    parts.append("2. A brief 1-paragraph thesis explaining WHY this is bullish or bearish")
+    parts.append("3. Key supporting evidence from the data above")
     return "\n".join(parts)
 
 
@@ -94,10 +103,12 @@ async def score_confidence(ticker: str,
                            twitter: Optional[TwitterConsensus],
                            social: Optional[SocialConsensus],
                            catalyst: Optional[CatalystResult],
-                           technical: Optional[TechnicalResult]) -> tuple[float, str]:
+                           technical: Optional[TechnicalResult],
+                           sec_summary: str = "") -> tuple[float, str]:
     """Get LLM confidence score for a ticker.
 
     Returns (score, reasoning). Score defaults to 0 on failure.
+    Includes SEC/EDGAR filings in the analysis for thesis generation.
     """
     api_key = cfg.get_api_key("openrouter")
     if not api_key:
@@ -106,7 +117,7 @@ async def score_confidence(ticker: str,
 
     model = cfg.get("llm.model", "minimax/minimax-m2.5")
     max_tokens = cfg.get("llm.max_tokens", 1024)
-    user_prompt = _build_user_prompt(ticker, twitter, social, catalyst, technical)
+    user_prompt = _build_user_prompt(ticker, twitter, social, catalyst, technical, sec_summary)
     content = ""
 
     try:
