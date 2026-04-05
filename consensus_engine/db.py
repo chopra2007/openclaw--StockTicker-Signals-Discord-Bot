@@ -1,17 +1,75 @@
-"""SQLite database layer using aiosqlite for async operations."""
+"""SQLite database layer with an async-compatible sqlite3 wrapper."""
 
+import asyncio
 import json
 import logging
+import sqlite3
 import time
-
-import aiosqlite
 
 from consensus_engine import config as cfg
 from consensus_engine.models import TickerSignal, SourceType
 
 log = logging.getLogger("consensus_engine.db")
 
-_db: aiosqlite.Connection | None = None
+
+class AsyncCursor:
+    """Small awaitable wrapper around sqlite3.Cursor."""
+
+    def __init__(self, cursor: sqlite3.Cursor, lock: asyncio.Lock):
+        self._cursor = cursor
+        self._lock = lock
+        self.rowcount = cursor.rowcount
+        self.lastrowid = cursor.lastrowid
+
+    async def fetchone(self):
+        async with self._lock:
+            return self._cursor.fetchone()
+
+    async def fetchall(self):
+        async with self._lock:
+            return self._cursor.fetchall()
+
+
+class AsyncConnection:
+    """Async facade over a sqlite3 connection."""
+
+    def __init__(self, conn: sqlite3.Connection):
+        self._conn = conn
+        self._lock = asyncio.Lock()
+
+    @property
+    def row_factory(self):
+        return self._conn.row_factory
+
+    @row_factory.setter
+    def row_factory(self, value):
+        self._conn.row_factory = value
+
+    async def execute(self, sql: str, params=()):
+        async with self._lock:
+            cursor = self._conn.execute(sql, params)
+            return AsyncCursor(cursor, self._lock)
+
+    async def executemany(self, sql: str, seq_of_params):
+        async with self._lock:
+            cursor = self._conn.executemany(sql, seq_of_params)
+            return AsyncCursor(cursor, self._lock)
+
+    async def executescript(self, sql_script: str):
+        async with self._lock:
+            cursor = self._conn.executescript(sql_script)
+            return AsyncCursor(cursor, self._lock)
+
+    async def commit(self):
+        async with self._lock:
+            self._conn.commit()
+
+    async def close(self):
+        async with self._lock:
+            self._conn.close()
+
+
+_db: AsyncConnection | None = None
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS ticker_signals (
@@ -100,12 +158,13 @@ CREATE TABLE IF NOT EXISTS xref_cache (
 """
 
 
-async def init_db() -> aiosqlite.Connection:
+async def init_db() -> AsyncConnection:
     """Initialize database and create tables."""
     global _db
     db_path = cfg.get("database.path", "/root/.openclaw/workspace/consensus.db")
-    _db = await aiosqlite.connect(db_path)
-    _db.row_factory = aiosqlite.Row
+    conn = sqlite3.connect(db_path, check_same_thread=False, isolation_level=None)
+    _db = AsyncConnection(conn)
+    _db.row_factory = sqlite3.Row
     # WAL mode for concurrent read/write from multiple coroutines
     await _db.execute("PRAGMA journal_mode=WAL")
     await _db.execute("PRAGMA busy_timeout=5000")
@@ -115,7 +174,7 @@ async def init_db() -> aiosqlite.Connection:
     return _db
 
 
-async def get_db() -> aiosqlite.Connection:
+async def get_db() -> AsyncConnection:
     """Get the database connection, initializing if needed."""
     global _db
     if _db is None:
@@ -248,9 +307,9 @@ async def check_alert_cooldown(ticker: str) -> bool:
 async def insert_alert(ticker: str, confidence: float, catalyst: str, catalyst_type: str,
                        consensus_json: str, technical_json: str, analysts_json: str,
                        price: float):
-    """Record an alert in history."""
+    """Record an alert in history. Returns the alert_history row ID."""
     db = await get_db()
-    await db.execute(
+    cursor = await db.execute(
         """INSERT INTO alert_history
            (ticker, confidence_score, catalyst, catalyst_type, consensus_breakdown,
             technical_data, analyst_mentions, alerted_at, price_at_alert)
@@ -260,6 +319,7 @@ async def insert_alert(ticker: str, confidence: float, catalyst: str, catalyst_t
     )
     await db.commit()
     log.info("Alert recorded: %s (confidence=%.1f)", ticker, confidence)
+    return cursor.lastrowid
 
 
 async def prune_expired():
@@ -315,6 +375,11 @@ async def is_new_tweet(tweet_url: str) -> bool:
     return row is None
 
 
+async def check_seen_tweet(tweet_url: str) -> bool:
+    """Return True when a tweet URL has already been processed."""
+    return not await is_new_tweet(tweet_url)
+
+
 async def mark_tweet_seen(tweet_url: str, analyst: str):
     """Record a tweet as seen (idempotent)."""
     conn = await get_db()
@@ -352,6 +417,34 @@ async def update_alert_message_followup(msg_id: int, followup_msg_id: str, final
     await conn.execute(
         "UPDATE alert_messages SET followup_msg_id = ?, final_score = ? WHERE id = ?",
         (followup_msg_id, final_score, msg_id),
+    )
+    await conn.commit()
+
+
+async def update_alert_breakdown(alert_id: int, consensus_json: str, technical_json: str,
+                                 analysts_json: str, confidence: float | None = None,
+                                 catalyst: str | None = None,
+                                 catalyst_type: str | None = None):
+    """Enrich an existing alert_history row with cross-reference details."""
+    conn = await get_db()
+    await conn.execute(
+        """UPDATE alert_history
+           SET confidence_score = COALESCE(?, confidence_score),
+               catalyst = COALESCE(?, catalyst),
+               catalyst_type = COALESCE(?, catalyst_type),
+               consensus_breakdown = ?,
+               technical_data = ?,
+               analyst_mentions = ?
+           WHERE id = ?""",
+        (
+            confidence,
+            catalyst,
+            catalyst_type,
+            consensus_json,
+            technical_json,
+            analysts_json,
+            alert_id,
+        ),
     )
     await conn.commit()
 

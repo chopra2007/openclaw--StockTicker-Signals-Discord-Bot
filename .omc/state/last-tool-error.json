@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"timeout 5 python3 -c \\\"\\nfrom consensus_engine import config as cfg\\ncfg.load_config()\\ncfg.dry_run = True\\nimport asyncio\\nfrom consensus_engine.main import run_once\\nprint('Starting run_...",
+  "error": "Exit code 124\n/usr/local/lib/python3.10/dist-packages/pytrends/request.py:260: FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version. Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`\n  df = df.fillna(False)",
+  "timestamp": "2026-04-05T20:47:47.927Z",
+  "retry_count": 3
+}

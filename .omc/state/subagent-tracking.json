@@ -1,0 +1,17 @@
+{
+  "agents": [
+    {
+      "agent_id": "a69fffa4b5373db51",
+      "agent_type": "codex:codex-rescue",
+      "started_at": "2026-04-05T20:10:42.835Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-04-05T20:31:16.122Z",
+      "duration_ms": 1233287
+    }
+  ],
+  "total_spawned": 1,
+  "total_completed": 1,
+  "total_failed": 0,
+  "last_updated": "2026-04-05T20:33:04.643Z"
+}

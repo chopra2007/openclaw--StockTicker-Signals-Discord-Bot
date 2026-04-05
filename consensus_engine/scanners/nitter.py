@@ -130,7 +130,6 @@ class NitterPoller:
                 items = parse_rss_feed(result, handle)
                 for item in items:
                     if await db.is_new_tweet(item["url"]):
-                        await db.mark_tweet_seen(item["url"], handle)
                         new_tweets.append(item)
 
         elapsed = time.time() - start

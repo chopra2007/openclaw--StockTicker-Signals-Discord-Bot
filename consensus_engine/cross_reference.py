@@ -23,6 +23,11 @@ from consensus_engine.analysis.llm_scorer import score_confidence
 
 log = logging.getLogger("consensus_engine.cross_reference")
 
+_sem_news = asyncio.Semaphore(3)
+_sem_social = asyncio.Semaphore(5)
+_sem_technical = asyncio.Semaphore(3)
+_sem_llm = asyncio.Semaphore(2)
+
 
 def compute_technical_score(technical: Optional[TechnicalResult]) -> int:
     """Compute score from technical filters. +2 per passing filter, max 12."""
@@ -118,10 +123,17 @@ async def _timed(coro, metrics: dict, key: str) -> Any:
     return result
 
 
-async def _with_timeout(coro, timeout: float, default: Any, label: str) -> Any:
+async def _with_timeout(coro, timeout: float, default: Any, label: str,
+                        sem: Optional[asyncio.Semaphore] = None) -> Any:
     """Run a coroutine with a timeout, returning default on timeout or error."""
+    async def _run():
+        if sem is None:
+            return await coro
+        async with sem:
+            return await coro
+
     try:
-        return await asyncio.wait_for(coro, timeout=timeout)
+        return await asyncio.wait_for(_run(), timeout=timeout)
     except asyncio.TimeoutError:
         log.warning("Cross-reference source timed out after %.0fs: %s", timeout, label)
         await db.record_metric(f"xref_{label}_timeout", 1)
@@ -134,6 +146,8 @@ async def _with_timeout(coro, timeout: float, default: Any, label: str) -> Any:
 
 async def _run_options_check(ticker: str, executor) -> Optional[OptionsResult]:
     """Check for unusual options activity."""
+    if executor is None:
+        return None
     try:
         from consensus_engine.scanners.options import check_unusual_options
         return await check_unusual_options(ticker, executor)
@@ -158,21 +172,22 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
     metrics: dict[str, int] = {}
     catalyst, (sec_hit, sec_summary), social_data, technical, other_analysts, options = \
         await asyncio.gather(
-            _with_timeout(_timed(_run_news_cascade(ticker), metrics, "news_cascade_ms"), 15.0, None, "news"),
-            _with_timeout(_timed(_run_sec_check(ticker), metrics, "sec_check_ms"), 10.0, (False, ""), "sec"),
-            _with_timeout(_timed(_run_social_check(ticker), metrics, "social_ms"), 5.0, {}, "social"),
-            _with_timeout(_timed(_run_technical(ticker, direction=direction), metrics, "technical_ms"), 20.0, None, "technical"),
+            _with_timeout(_timed(_run_news_cascade(ticker), metrics, "news_cascade_ms"), 15.0, None, "news", sem=_sem_news),
+            _with_timeout(_timed(_run_sec_check(ticker), metrics, "sec_check_ms"), 10.0, (False, ""), "sec", sem=_sem_news),
+            _with_timeout(_timed(_run_social_check(ticker), metrics, "social_ms"), 5.0, {}, "social", sem=_sem_social),
+            _with_timeout(_timed(_run_technical(ticker, direction=direction), metrics, "technical_ms"), 20.0, None, "technical", sem=_sem_technical),
             _with_timeout(_timed(_run_other_analysts(ticker, exclude_analyst=tweet.analyst), metrics, "analyst_check_ms"), 5.0, [], "analysts"),
-            _with_timeout(_timed(_run_options_check(ticker, executor), metrics, "options_check_ms"), 15.0, None, "options"),
+            _with_timeout(_timed(_run_options_check(ticker, executor), metrics, "options_check_ms"), 15.0, None, "options", sem=_sem_technical),
         )
 
     llm_score, llm_reasoning = 0.0, ""
     if technical or catalyst:
         t0 = time.perf_counter()
         try:
-            llm_score, llm_reasoning = await asyncio.wait_for(
-                _run_llm_score(ticker, catalyst, technical, sec_summary), timeout=15.0
-            )
+            async with _sem_llm:
+                llm_score, llm_reasoning = await asyncio.wait_for(
+                    _run_llm_score(ticker, catalyst, technical, sec_summary), timeout=15.0
+                )
         except asyncio.TimeoutError:
             log.warning("LLM scorer timed out after 15s for $%s", ticker)
         metrics["llm_score_ms"] = int((time.perf_counter() - t0) * 1000)

@@ -4,6 +4,8 @@ Prevents redundant API calls when multiple analysts tweet the same ticker
 within a short window. Keyed by ticker, 5-minute TTL.
 """
 
+from dataclasses import asdict
+import json
 import time
 from typing import Any, Optional
 
@@ -43,11 +45,31 @@ async def get_cached_xref(ticker: str) -> Optional[Any]:
     # L2: DB
     try:
         from consensus_engine.db import get_xref_from_db
-        import json
+        from consensus_engine.models import (
+            CrossReferenceResult,
+            OptionsResult,
+            ScoreBreakdown,
+            TechnicalFilter,
+            TechnicalResult,
+        )
+
         raw = await get_xref_from_db(ticker)
         if raw is not None:
-            from consensus_engine.models import CrossReferenceResult
-            result = CrossReferenceResult(**json.loads(raw))
+            data = json.loads(raw)
+            data["breakdown"] = ScoreBreakdown(**data["breakdown"])
+
+            technical_data = data.get("technical")
+            if technical_data:
+                technical_data["filters"] = [
+                    TechnicalFilter(**f) for f in technical_data.get("filters", [])
+                ]
+                data["technical"] = TechnicalResult(**technical_data)
+
+            options_data = data.get("options")
+            if options_data:
+                data["options"] = OptionsResult(**options_data)
+
+            result = CrossReferenceResult(**data)
             _cache.put(ticker, result)
             return result
     except Exception:
@@ -59,8 +81,7 @@ async def cache_xref(ticker: str, result: Any) -> None:
     _cache.put(ticker, result)
     try:
         from consensus_engine.db import set_xref_in_db
-        import json
-        await set_xref_in_db(ticker, json.dumps(result.__dict__, default=str))
+        await set_xref_in_db(ticker, json.dumps(asdict(result)))
     except Exception:
         pass
 

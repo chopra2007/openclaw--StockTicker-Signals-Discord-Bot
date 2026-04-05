@@ -84,6 +84,17 @@ async def test_full_pipeline_actionable_tweet():
     assert msg["ticker"] == "NVDA"
     assert msg["instant_msg_id"] == "msg_123"
 
+    conn = await db.get_db()
+    cursor = await conn.execute(
+        "SELECT confidence_score, consensus_breakdown, analyst_mentions FROM alert_history WHERE ticker = ?",
+        ("NVDA",),
+    )
+    alert = await cursor.fetchone()
+    assert alert is not None
+    assert alert["confidence_score"] == xref.final_score
+    assert json.loads(alert["consensus_breakdown"])["news_catalyst"] == 15
+    assert json.loads(alert["analyst_mentions"]) == []
+
 
 @pytest.mark.asyncio
 async def test_pipeline_skips_non_actionable():

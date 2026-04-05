@@ -309,7 +309,7 @@ async def scan_google_trends_pytrends(tickers: list[str]) -> dict[str, float]:
 
     if len(_pytrends_failure_window) >= 3:
         log.warning("Pytrends auto-disabled: 3+ failures in 24h — Exa AI fallback will be used.")
-        cfg.config["social"]["pytrends_enabled"] = False
+        cfg._config["social"]["pytrends_enabled"] = False
         return {}
 
     try:

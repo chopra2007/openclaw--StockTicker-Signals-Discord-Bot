@@ -235,9 +235,6 @@ class DiscordTweetShiftListener:
                         if image_url:
                             break
                 tweet_data["image_url"] = image_url
-                if not await db.is_new_tweet(tweet_data["url"]):
-                    return
-                await db.mark_tweet_seen(tweet_data["url"], tweet_data["analyst"])
                 log.info(
                     "TweetShift tweet: @%s — %.80s",
                     tweet_data["analyst"],
