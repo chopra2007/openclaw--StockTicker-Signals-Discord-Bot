@@ -1,19 +1,25 @@
 """YouTube transcript scanner.
 
-Polls configured channel IDs via free YouTube RSS feeds, extracts auto-generated
-captions via youtube-transcript-api (no API key required), and persists transcripts
-to DB + JSON export files.
+Polls configured channel IDs via free YouTube RSS feeds, then extracts
+transcripts via a Playwright stealth browser (no API key, no cookies, no
+maintenance required). One browser context is shared per scan cycle.
+
+Why Playwright instead of youtube-transcript-api:
+  youtube-transcript-api makes bare HTTP requests that YouTube blocks on
+  cloud/server IPs. Playwright with playwright-stealth looks like a real
+  browser and is not blocked.
 """
 
 import asyncio
+import html as html_module
 import logging
 import time
 import xml.etree.ElementTree as ET
-from concurrent.futures import ThreadPoolExecutor
 
 import aiohttp
 
 from consensus_engine import config as cfg, db
+from consensus_engine.utils.browser import create_stealth_browser, stealth_page, safe_goto
 from consensus_engine.utils.transcript_export import compute_hash, export_transcript_json
 
 log = logging.getLogger("consensus_engine.scanner.youtube")
@@ -21,17 +27,19 @@ log = logging.getLogger("consensus_engine.scanner.youtube")
 _ATOM_NS = "http://www.w3.org/2005/Atom"
 _YT_NS = "http://www.youtube.com/xml/schemas/2015"
 
-_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="yt-transcript")
 
+# ---------------------------------------------------------------------------
+# RSS feed polling
+# ---------------------------------------------------------------------------
 
 async def fetch_channel_videos_rss(
     session: aiohttp.ClientSession,
     channel_id: str,
     limit: int = 3,
 ) -> list[dict]:
-    """Fetch latest video metadata from YouTube Atom RSS feed.
+    """Fetch latest video metadata from YouTube Atom RSS feed (free, no auth).
 
-    Returns list of dicts with keys: video_id, channel_id, title, published_at.
+    Returns list of dicts: {video_id, channel_id, title, published_at}.
     """
     url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
     try:
@@ -69,79 +77,105 @@ async def fetch_channel_videos_rss(
     return videos
 
 
-def _make_api():
-    """Build a YouTubeTranscriptApi instance, optionally with cookie auth."""
-    from youtube_transcript_api import YouTubeTranscriptApi
-    import requests
-    from http.cookiejar import MozillaCookieJar
-
-    cookies_file = cfg.get("youtube.cookies_file", "")
-    if cookies_file:
-        jar = MozillaCookieJar(cookies_file)
-        try:
-            jar.load(ignore_discard=True, ignore_expires=True)
-            session = requests.Session()
-            session.cookies = jar
-            log.debug("youtube: using cookies from %s", cookies_file)
-            return YouTubeTranscriptApi(http_client=session)
-        except Exception as e:
-            log.warning("youtube: failed to load cookies from %s: %s — falling back to unauthenticated", cookies_file, e)
-
-    return YouTubeTranscriptApi()
-
-
-def _fetch_transcript_sync(video_id: str, preferred_languages: list[str]) -> tuple[str, str, bool]:
-    """Blocking call to youtube-transcript-api v1.x. Returns (text, language, is_auto)."""
-    api = _make_api()
-    transcript_list = api.list(video_id)
-
-    # Try preferred languages; fall back to any available transcript
-    transcript = None
-    try:
-        transcript = transcript_list.find_transcript(preferred_languages)
-    except Exception:
-        for t in transcript_list:
-            transcript = t
-            break
-
-    if transcript is None:
-        raise ValueError(f"No transcript available for {video_id}")
-
-    is_auto = getattr(transcript, "is_generated", True)
-    lang = getattr(transcript, "language_code", "unknown")
-
-    fetched = transcript.fetch()
-    parts = []
-    for seg in fetched:
-        if hasattr(seg, "text"):
-            parts.append(seg.text)
-        elif isinstance(seg, dict):
-            parts.append(seg.get("text", ""))
-    text = " ".join(parts).strip()
-    return text, lang, is_auto
-
+# ---------------------------------------------------------------------------
+# Transcript extraction via stealth browser
+# ---------------------------------------------------------------------------
 
 async def fetch_transcript(
     video_id: str,
     preferred_languages: list[str],
+    browser_context=None,
 ) -> tuple[str, str, bool]:
-    """Async wrapper around the blocking transcript fetch. Returns (text, lang, is_auto)."""
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(
-        _executor,
-        _fetch_transcript_sync,
-        video_id,
-        preferred_languages,
-    )
+    """Fetch transcript for a video via Playwright stealth browser.
 
+    Opens a page (reusing browser_context if provided), extracts
+    ytInitialPlayerResponse, picks the best caption track, and fetches
+    the timed text XML via the browser's own fetch() — inheriting its
+    fingerprint and session so YouTube doesn't block it.
+
+    Returns (transcript_text, language_code, is_auto_generated).
+    """
+    url = f"https://www.youtube.com/watch?v={video_id}"
+
+    async def _extract(context) -> tuple[str, str, bool]:
+        page = await stealth_page(context)
+        try:
+            ok = await safe_goto(page, url, wait_until="domcontentloaded")
+            if not ok:
+                raise ValueError(f"Page load failed for {video_id}")
+
+            player_response = await page.evaluate(
+                "() => window.ytInitialPlayerResponse || null"
+            )
+            if not player_response:
+                raise ValueError(f"No ytInitialPlayerResponse for {video_id}")
+
+            captions = player_response.get("captions", {})
+            tracklist = captions.get("playerCaptionsTracklistRenderer", {})
+            tracks = tracklist.get("captionTracks", [])
+
+            if not tracks:
+                raise ValueError(f"No caption tracks for {video_id}")
+
+            # Pick preferred language, fall back to first available
+            track = None
+            for lang in preferred_languages:
+                for t in tracks:
+                    if t.get("languageCode", "").startswith(lang):
+                        track = t
+                        break
+                if track:
+                    break
+            if not track:
+                track = tracks[0]
+
+            base_url = track.get("baseUrl", "")
+            lang_code = track.get("languageCode", "unknown")
+            is_auto = track.get("kind", "") == "asr"
+
+            if not base_url:
+                raise ValueError(f"Empty caption baseUrl for {video_id}")
+
+            # Fetch timed text XML via browser fetch() — uses browser session
+            caption_xml = await page.evaluate(
+                """async (url) => {
+                    const resp = await fetch(url);
+                    if (!resp.ok) throw new Error('caption fetch ' + resp.status);
+                    return await resp.text();
+                }""",
+                base_url,
+            )
+
+            root = ET.fromstring(caption_xml)
+            parts = [
+                html_module.unescape(el.text or "")
+                for el in root.findall(".//text")
+            ]
+            text = " ".join(parts).strip()
+            return text, lang_code, is_auto
+        finally:
+            await page.close()
+
+    if browser_context is not None:
+        return await _extract(browser_context)
+
+    # No shared context — open a dedicated browser (fallback / standalone use)
+    async with create_stealth_browser() as (_, context):
+        return await _extract(context)
+
+
+# ---------------------------------------------------------------------------
+# Per-video processing
+# ---------------------------------------------------------------------------
 
 async def process_video(
     video_meta: dict,
     semaphore: asyncio.Semaphore,
     preferred_languages: list[str],
     export_dir: str,
+    browser_context=None,
 ) -> None:
-    """Process one video: dedup → fetch transcript → save to DB + export JSON."""
+    """Dedup → fetch transcript → persist to DB + JSON export. Never raises."""
     async with semaphore:
         video_id = video_meta["video_id"]
         channel_id = video_meta["channel_id"]
@@ -159,14 +193,16 @@ async def process_video(
         )
 
         try:
-            text, lang, is_auto = await fetch_transcript(video_id, preferred_languages)
+            text, lang, is_auto = await fetch_transcript(
+                video_id, preferred_languages, browser_context
+            )
         except Exception as e:
-            err_str = str(e).lower()
-            if any(k in err_str for k in ("disabled", "no transcript", "no captions", "not available")):
+            err = str(e).lower()
+            if any(k in err for k in ("no caption", "caption track", "disabled", "not available")):
                 log.info("youtube: no captions for %s (%s)", video_id, e)
                 await db.mark_youtube_video_status(video_id, "missing")
             else:
-                log.warning("youtube: transcript fetch failed for %s: %s", video_id, e)
+                log.warning("youtube: transcript failed for %s: %s", video_id, e)
                 await db.mark_youtube_video_status(video_id, "failed")
             return
 
@@ -196,13 +232,17 @@ async def process_video(
             export_path=path,
         )
         log.info(
-            "youtube: saved transcript for %s (%s, auto=%s, %d chars) → %s",
+            "youtube: saved %s (%s, auto=%s, %d chars) → %s",
             video_id, lang, is_auto, len(text), path,
         )
 
 
+# ---------------------------------------------------------------------------
+# Scan cycle + poll loop
+# ---------------------------------------------------------------------------
+
 async def youtube_scan_once() -> None:
-    """One full poll cycle: discover new videos across all configured channels."""
+    """One full poll cycle across all configured channels."""
     channel_ids = cfg.get("youtube.channel_ids", [])
     if not channel_ids:
         log.debug("youtube: no channel_ids configured, skipping")
@@ -213,9 +253,8 @@ async def youtube_scan_once() -> None:
     export_dir = cfg.get("youtube.export_dir", "artifacts/transcripts")
     preferred_languages = cfg.get("youtube.preferred_languages", ["en"])
 
-    semaphore = asyncio.Semaphore(concurrency)
-    headers = {"User-Agent": "OpenClaw/1.0 (youtube-transcript-scanner)"}
-
+    # Collect new videos via RSS (lightweight, no browser)
+    headers = {"User-Agent": "OpenClaw/1.0 (youtube-rss-scanner)"}
     async with aiohttp.ClientSession(headers=headers) as session:
         all_videos: list[dict] = []
         for channel_id in channel_ids:
@@ -224,15 +263,30 @@ async def youtube_scan_once() -> None:
                 log.debug("youtube: channel %s → %d videos", channel_id, len(videos))
                 all_videos.extend(videos)
             except Exception as e:
-                log.warning("youtube: channel %s error: %s", channel_id, e)
+                log.warning("youtube: channel %s RSS error: %s", channel_id, e)
 
     if not all_videos:
         return
 
-    await asyncio.gather(*[
-        process_video(v, semaphore, preferred_languages, export_dir)
-        for v in all_videos
-    ])
+    # Filter to unprocessed videos before launching the browser
+    unprocessed = []
+    for v in all_videos:
+        if not await db.has_video_been_processed(v["video_id"]):
+            unprocessed.append(v)
+
+    if not unprocessed:
+        log.debug("youtube: all %d videos already processed", len(all_videos))
+        return
+
+    log.info("youtube: %d new videos to process", len(unprocessed))
+
+    # Open ONE shared stealth browser for the whole batch
+    semaphore = asyncio.Semaphore(concurrency)
+    async with create_stealth_browser() as (_, context):
+        await asyncio.gather(*[
+            process_video(v, semaphore, preferred_languages, export_dir, context)
+            for v in unprocessed
+        ])
 
 
 async def youtube_poll_loop(stop_event: asyncio.Event) -> None:
@@ -242,8 +296,10 @@ async def youtube_poll_loop(stop_event: asyncio.Event) -> None:
         return
 
     interval = cfg.get("youtube.poll_interval_seconds", 600)
-    log.info("youtube: poll loop started (interval=%ds, channels=%s)",
-             interval, cfg.get("youtube.channel_ids", []))
+    log.info(
+        "youtube: poll loop started (interval=%ds, channels=%s)",
+        interval, cfg.get("youtube.channel_ids", []),
+    )
 
     while not stop_event.is_set():
         try:

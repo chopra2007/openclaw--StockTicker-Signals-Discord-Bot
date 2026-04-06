@@ -112,23 +112,23 @@ async def test_process_video_dedup(test_db, tmp_path):
     semaphore = asyncio.Semaphore(1)
     video = {"video_id": "vidX", "channel_id": "UCX", "title": "T", "published_at": "2026-04-06T00:00:00Z"}
 
-    with patch("consensus_engine.scanners.youtube.fetch_transcript") as mock_ft:
-        mock_ft.return_value = ("Some transcript text", "en", True)
+    with patch("consensus_engine.scanners.youtube.fetch_transcript",
+               new=AsyncMock(return_value=("Some transcript text", "en", True))):
         await process_video(video, semaphore, ["en"], str(tmp_path))
-        # second call — fetch_transcript should NOT be called again
-        call_count_after_first = mock_ft.call_count
-        await process_video(video, semaphore, ["en"], str(tmp_path))
-        assert mock_ft.call_count == call_count_after_first
+        # second call — fetch_transcript should NOT be called again (video now processed)
+        with patch("consensus_engine.scanners.youtube.fetch_transcript",
+                   new=AsyncMock(side_effect=AssertionError("should not be called"))) as mock_ft2:
+            await process_video(video, semaphore, ["en"], str(tmp_path))
 
 
 @pytest.mark.asyncio
 async def test_process_video_missing_captions(test_db, tmp_path):
-    """NoTranscriptFound-like error sets status to 'missing', does not raise."""
+    """Caption-unavailable error sets status to 'missing', does not raise."""
     semaphore = asyncio.Semaphore(1)
     video = {"video_id": "vidY", "channel_id": "UCY", "title": "No Caps", "published_at": "2026-04-06T00:00:00Z"}
 
     with patch("consensus_engine.scanners.youtube.fetch_transcript",
-               side_effect=Exception("no transcript available")):
+               new=AsyncMock(side_effect=Exception("no caption tracks for vidY"))):
         await process_video(video, semaphore, ["en"], str(tmp_path))
 
     conn = await db.get_db()

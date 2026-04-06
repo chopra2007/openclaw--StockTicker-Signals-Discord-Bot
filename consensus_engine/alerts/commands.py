@@ -164,6 +164,12 @@ async def route_command(
     elif command in ("nitter-health", "nitter"):
         await _handle_nitter_health(channel_id, message_id)
 
+    elif command == "transcript":
+        if not args:
+            await send_command_reply(channel_id, message_id, "Usage: `!transcript <YOUTUBE_URL>` — e.g. `!transcript https://www.youtube.com/watch?v=xxxxx`")
+        else:
+            await _handle_transcript(args[0], channel_id, message_id)
+
     else:
         await send_command_reply(channel_id, message_id, f"Unknown command `!{command}`. Try `!help`.")
 
@@ -671,3 +677,42 @@ async def _handle_leaderboard(channel_id: str, message_id: str) -> None:
     except Exception as e:
         log.error("Leaderboard command error: %s", e)
         await send_command_reply(channel_id, message_id, "Leaderboard unavailable.")
+
+
+async def _handle_transcript(youtube_url: str, channel_id: str, message_id: str) -> None:
+    """Fetch YouTube video transcript."""
+    await send_command_reply(channel_id, message_id, f"Fetching transcript for {youtube_url}...")
+    asyncio.create_task(_transcript_and_reply(youtube_url, channel_id, message_id))
+
+
+async def _transcript_and_reply(youtube_url: str, channel_id: str, message_id: str) -> None:
+    try:
+        import os
+        from apify_client import ApifyClient
+        
+        token = os.environ.get('APIFY_TOKEN')
+        if not token:
+            await send_command_reply(channel_id, message_id, "APIFY_TOKEN not configured.")
+            return
+        
+        client = ApifyClient(token=token)
+        call = client.actor("trisecode/yt-transcript").call(
+            run_input={"video_url": youtube_url, "includeTimestamps": True}
+        )
+        
+        transcript_text = "No transcript available"
+        title = "Unknown"
+        
+        for item in client.dataset(call["defaultDatasetId"]).iterate_items():
+            title = item.get('video', {}).get('title', 'Unknown')
+            transcript = item.get('transcript', {})
+            if transcript:
+                transcript_text = transcript.get('full_text', 'No transcript available')
+            break
+        
+        # Send in chunks if too long
+        preview = transcript_text[:400] + "..." if len(transcript_text) > 400 else transcript_text
+        await send_command_reply(channel_id, message_id, f"**{title}**\n{preview}")
+    except Exception as e:
+        log.error("Transcript command error for %s: %s", youtube_url, e)
+        await send_command_reply(channel_id, message_id, f"Transcript failed: {e}")

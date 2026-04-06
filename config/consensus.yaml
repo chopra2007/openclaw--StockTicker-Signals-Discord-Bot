@@ -234,7 +234,6 @@ youtube:
   export_dir: "artifacts/transcripts"
   max_concurrency: 4
   summarize: false                     # LLM summary + Discord notification (Phase 3)
-  cookies_file: ""                     # path to Netscape cookies.txt exported from your browser (required on server IPs)
 
 # Database
 database:
