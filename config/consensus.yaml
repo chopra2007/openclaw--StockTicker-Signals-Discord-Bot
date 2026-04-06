@@ -224,6 +224,18 @@ logging:
   format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
   file: "/root/.openclaw/workspace/consensus_engine.log"
 
+# YouTube Transcript Scanner
+youtube:
+  enabled: false                       # set true + add channel_ids to activate
+  channel_ids: []                      # list of UC... channel IDs to track
+  poll_interval_seconds: 600
+  max_videos_per_channel: 3
+  preferred_languages: ["en"]
+  export_dir: "artifacts/transcripts"
+  max_concurrency: 4
+  summarize: false                     # LLM summary + Discord notification (Phase 3)
+  cookies_file: ""                     # path to Netscape cookies.txt exported from your browser (required on server IPs)
+
 # Database
 database:
   path: "/root/.openclaw/workspace/consensus.db"

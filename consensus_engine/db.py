@@ -155,6 +155,29 @@ CREATE TABLE IF NOT EXISTS xref_cache (
     result_json TEXT NOT NULL,
     cached_at REAL NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS youtube_videos (
+    video_id TEXT PRIMARY KEY,
+    channel_id TEXT NOT NULL,
+    title TEXT,
+    published_at TEXT,
+    fetched_at REAL NOT NULL,
+    transcript_status TEXT NOT NULL DEFAULT 'pending',
+    language TEXT,
+    is_auto_generated INTEGER DEFAULT 0,
+    export_path TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_youtube_videos_channel ON youtube_videos(channel_id);
+CREATE INDEX IF NOT EXISTS idx_youtube_videos_status ON youtube_videos(transcript_status);
+CREATE INDEX IF NOT EXISTS idx_youtube_videos_published ON youtube_videos(published_at);
+
+CREATE TABLE IF NOT EXISTS youtube_transcripts (
+    video_id TEXT PRIMARY KEY,
+    transcript_text TEXT NOT NULL,
+    transcript_hash TEXT NOT NULL,
+    summary_text TEXT,
+    saved_at REAL NOT NULL
+);
 """
 
 
@@ -721,3 +744,76 @@ async def get_warm_xref_entries(ttl_seconds: int = 300) -> list[dict]:
     )
     rows = await cursor.fetchall()
     return [dict(r) for r in rows]
+
+
+# ---------------------------------------------------------------------------
+# YouTube transcript helpers
+# ---------------------------------------------------------------------------
+
+async def has_video_been_processed(video_id: str) -> bool:
+    """Return True if this video_id already has a non-pending status."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT transcript_status FROM youtube_videos WHERE video_id = ?",
+        (video_id,),
+    )
+    row = await cursor.fetchone()
+    if row is None:
+        return False
+    return row["transcript_status"] != "pending"
+
+
+async def upsert_youtube_video(
+    video_id: str,
+    channel_id: str,
+    title: str,
+    published_at: str,
+    fetched_at: float,
+) -> None:
+    """Insert a video record with status=pending, ignoring if already present."""
+    conn = await get_db()
+    await conn.execute(
+        """INSERT OR IGNORE INTO youtube_videos
+           (video_id, channel_id, title, published_at, fetched_at, transcript_status)
+           VALUES (?, ?, ?, ?, ?, 'pending')""",
+        (video_id, channel_id, title, published_at, fetched_at),
+    )
+    await conn.commit()
+
+
+async def save_youtube_transcript(
+    video_id: str,
+    transcript_text: str,
+    transcript_hash: str,
+    summary_text: str | None = None,
+) -> None:
+    """Upsert transcript content for a video."""
+    conn = await get_db()
+    await conn.execute(
+        """INSERT OR REPLACE INTO youtube_transcripts
+           (video_id, transcript_text, transcript_hash, summary_text, saved_at)
+           VALUES (?, ?, ?, ?, ?)""",
+        (video_id, transcript_text, transcript_hash, summary_text, time.time()),
+    )
+    await conn.commit()
+
+
+async def mark_youtube_video_status(
+    video_id: str,
+    status: str,
+    language: str | None = None,
+    is_auto_generated: bool = False,
+    export_path: str | None = None,
+) -> None:
+    """Update the transcript_status (and optional metadata) for a video."""
+    conn = await get_db()
+    await conn.execute(
+        """UPDATE youtube_videos
+           SET transcript_status = ?,
+               language = COALESCE(?, language),
+               is_auto_generated = ?,
+               export_path = COALESCE(?, export_path)
+           WHERE video_id = ?""",
+        (status, language, 1 if is_auto_generated else 0, export_path, video_id),
+    )
+    await conn.commit()

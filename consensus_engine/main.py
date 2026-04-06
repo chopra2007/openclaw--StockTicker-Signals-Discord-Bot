@@ -31,6 +31,7 @@ from consensus_engine.cross_reference import cross_reference
 from consensus_engine.alerts.discord import send_detail_followup, send_instant_ping
 from consensus_engine.utils.http import get_session
 from consensus_engine.utils.tickers import is_valid_ticker, validate_ticker_market_cap
+from consensus_engine.scanners.youtube import youtube_poll_loop
 
 log = logging.getLogger("consensus")
 
@@ -197,6 +198,7 @@ async def run_live(stop_event: asyncio.Event):
         asyncio.create_task(price_outcome_loop(stop_event)),
         asyncio.create_task(sec_8k_watcher_loop(stop_event)),
         asyncio.create_task(sec_edgar_polling_loop(stop_event)),
+        asyncio.create_task(youtube_poll_loop(stop_event)),
     ]
 
     try:
