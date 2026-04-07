@@ -141,6 +141,24 @@ async def test_pipeline_handles_ping_failure():
 
 
 @pytest.mark.asyncio
+async def test_pipeline_ignores_sec_edgar_standalone_payload():
+    """SEC/EDGAR payloads must never trigger standalone tweet alerts."""
+    sec_payload = {
+        "url": "https://sec.gov/Archives/edgar/data/example",
+        "text": "8-K filed by Example Corp. ($EXMPL) — material event disclosure",
+        "analyst": "SEC EDGAR",
+        "timestamp": time.time(),
+    }
+
+    with patch("consensus_engine.main.parse_tweet", new_callable=AsyncMock) as mock_parse, \
+         patch("consensus_engine.main.send_instant_ping", new_callable=AsyncMock) as mock_ping:
+        await process_tweet(sec_payload)
+
+    mock_parse.assert_not_called()
+    mock_ping.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_nitter_poll_processes_tweets():
     """NitterPoller.poll_all() results feed into process_tweet."""
     from consensus_engine.main import nitter_poll_loop
