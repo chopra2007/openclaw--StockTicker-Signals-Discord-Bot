@@ -69,10 +69,12 @@ alerts/discord.py      cross_reference.py (background)            |
 
 ### Proactive Scanners
 - **Pre-market gap scanner** — detects >3% gaps on a 20-ticker watchlist between 8-9am ET via Finnhub quotes
-- **SEC 8-K real-time watcher** — monitors EDGAR ATOM feed for new 8-K filings, resolves CIK to ticker, alerts on matches
+- **SEC 8-K real-time watcher** — optional background watcher for EDGAR ATOM feed; when enabled, filings are stored for context/cross-reference (not standalone alerts)
 - **Volume breakout scanner** — flags tickers with RVOL >5x and price change >1% during market hours
 - **Earnings calendar pre-alert** — fetches upcoming earnings for tracked tickers via Finnhub, alerts day-before
 - **Unusual options sweep scanner** — market-wide scan for high-notional sweeps (vol/OI >5x, >$100K notional)
+
+> **Important safety rule:** SEC/EDGAR data is cross-reference context only. Standalone SEC alerts are blocked in the tweet pipeline, and background SEC watcher loops are disabled by default unless explicitly enabled in config.
 
 ### Discord Commands
 
@@ -271,6 +273,7 @@ All settings live in `config/consensus.yaml`. API keys reference `$ENV_VAR` synt
 | `technical` | RVOL threshold, RSI bounds (long + short), EMA periods, ATR |
 | `llm` | OpenRouter model, min confidence, max tokens |
 | `ticker_validation` | Minimum market cap ($100M floor), cache TTL |
+| `scanners` | Background scanner toggles (includes SEC watcher enable/disable switch) |
 | `premarket` | Gap scanner: threshold %, watchlist, scan hours |
 | `volume_scanner` | Volume breakout: RVOL threshold, min price change |
 | `alerts` | Cooldown hours, max per hour, embed colors, min score |

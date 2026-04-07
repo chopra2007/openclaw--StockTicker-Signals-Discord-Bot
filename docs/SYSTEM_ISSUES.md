@@ -138,3 +138,22 @@ The LLM now generates a 1-paragraph thesis combining ALL signals:
 
 Example thesis:
 > *"Analyst mentioned $TSLA with bullish call flow. SEC EDGAR shows 3 Form 4 filings (insider buying) in the last 48 hours. Combined with news of new model debut, this creates a high-confidence bullish setup."*
+
+---
+
+## ✅ Follow-up Hardening (April 7, 2026)
+
+### Issue Observed
+- Standalone Discord cards labeled `SEC EDGAR` with `cross-references pending...`
+- Actionable TweetShift signals were intermittently missed
+
+### Root Cause
+1. TweetShift message parsing needed more embed-shape tolerance (`description` vs `title`/`fields`).
+2. Feed-channel intake needed stricter handle gating to configured analyst accounts.
+3. A defensive guard was missing in the tweet pipeline to block SEC/EDGAR-origin payloads from the instant ping path.
+
+### Fixes Applied
+- Added strict guard in `process_tweet()` to ignore SEC/EDGAR analyst payloads in the instant-alert pipeline.
+- Added tracked-handle filtering in Discord TweetShift listener.
+- Expanded TweetShift parser fallback to accept `title` and first `fields` entry for tweet text.
+- Added config toggle `scanners.sec_background_watchers_enabled` (default `false`) so SEC background loops stay off unless explicitly requested.

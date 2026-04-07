@@ -105,6 +105,16 @@ class TestParseTweetShiftMessage:
         )
         assert _parse_tweetshift_message(msg) is None
 
+    def test_embed_title_fallback_when_description_missing(self):
+        msg = _embed_msg(
+            author_url="https://twitter.com/someone",
+            description="",
+        )
+        msg["embeds"][0]["title"] = "$NVDA breaking out on volume"
+        result = _parse_tweetshift_message(msg)
+        assert result is not None
+        assert "NVDA" in result["text"]
+
     def test_strips_bold_markdown(self):
         msg = _embed_msg(
             author_url="https://twitter.com/ripster47",

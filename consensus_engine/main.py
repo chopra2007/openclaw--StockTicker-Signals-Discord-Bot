@@ -196,10 +196,13 @@ async def run_live(stop_event: asyncio.Event):
         asyncio.create_task(tweetshift_listener.run(stop_event)),
         asyncio.create_task(fetch_loop(stop_event, interval=300)),
         asyncio.create_task(price_outcome_loop(stop_event)),
-        asyncio.create_task(sec_8k_watcher_loop(stop_event)),
-        asyncio.create_task(sec_edgar_polling_loop(stop_event)),
         asyncio.create_task(youtube_poll_loop(stop_event)),
     ]
+    if cfg.get("scanners.sec_background_watchers_enabled", False):
+        tasks.extend([
+            asyncio.create_task(sec_8k_watcher_loop(stop_event)),
+            asyncio.create_task(sec_edgar_polling_loop(stop_event)),
+        ])
 
     try:
         await asyncio.gather(*tasks)
@@ -283,6 +286,11 @@ async def process_tweet(raw_tweet: dict):
     tweet_url = raw_tweet.get("url") or raw_tweet.get("tweet_url") or ""
     analyst = raw_tweet.get("analyst") or ""
     text = raw_tweet.get("text") or ""
+
+    analyst_norm = analyst.strip().lower().replace("_", " ").replace("-", " ")
+    if "sec" in analyst_norm and "edgar" in analyst_norm:
+        log.warning("Ignoring SEC/EDGAR standalone payload in tweet pipeline: analyst=%s", analyst)
+        return
 
     if not tweet_url or not analyst or not text:
         log.warning("Skipping malformed tweet payload: %s", raw_tweet)

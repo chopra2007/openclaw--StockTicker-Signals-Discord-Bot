@@ -65,10 +65,13 @@ def _parse_tweetshift_message(message: dict) -> Optional[dict]:
         author_url = author.get("url", "")
         author_icon = author.get("icon_url", "")
         description = embed.get("description", "")
+        title = embed.get("title", "")
+        fields = embed.get("fields", []) or []
         embed_url = embed.get("url", "")
-
-        if not description:
-            continue
+        field_text = ""
+        if fields and isinstance(fields, list):
+            first = fields[0] if isinstance(fields[0], dict) else {}
+            field_text = str(first.get("value", "") or "").strip()
 
         # Extract handle from author.url (most reliable)
         # e.g. https://twitter.com/NickTimiraos or https://x.com/NickTimiraos
@@ -102,8 +105,10 @@ def _parse_tweetshift_message(message: dict) -> Optional[dict]:
             except (ValueError, TypeError):
                 pass
 
-        # Strip Twitter formatting artifacts from description
-        text = description.replace("**", "").strip()
+        # Tweet text can appear in description, title, or embed fields depending on TweetShift format.
+        text = (description or title or field_text).replace("**", "").strip()
+        if not text:
+            continue
 
         return {
             "url": tweet_url,
@@ -216,6 +221,13 @@ class DiscordTweetShiftListener:
             if channel_id == self._feed_channel_id:
                 tweet_data = _parse_tweetshift_message(data)
                 if not tweet_data:
+                    return
+                analyst_norm = _normalize_handle(tweet_data.get("analyst", ""))
+                if self._known and analyst_norm not in self._known:
+                    log.debug(
+                        "Ignoring non-tracked handle in feed channel: @%s",
+                        tweet_data.get("analyst", ""),
+                    )
                     return
                 image_url = None
                 for att in data.get("attachments", []):
