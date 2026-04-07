@@ -96,6 +96,11 @@ intervals:
   cross_reference_timeout: 120
   state_prune: 900
 
+# Scanner toggles
+scanners:
+  # SEC filings must be cross-reference only. Keep background SEC watchers off unless explicitly needed.
+  sec_background_watchers_enabled: false
+
 # Stage 2: Social & Sentiment Scanner (used for cross-reference scoring)
 social:
   subreddits:
