@@ -253,6 +253,16 @@ def _passes_quality_gate(tweet, ticker: str) -> bool:
     if len((tweet.raw_text or "").strip()) < 10:
         return False
 
+    # Block SEC/EDGAR/8-K content from triggering alerts - only store for cross-reference
+    text_lower = (tweet.raw_text or "").lower()
+    analyst_lower = (tweet.analyst or "").lower()
+    if any(kw in text_lower for kw in ["8-k", "8k", "sec ", " sec", "edgar", "form 4", "form-4", "sec filing"]):
+        log.debug("Blocking SEC content from alert: %s", ticker)
+        return False
+    if "sec" in analyst_lower and any(kw in analyst_lower for kw in ["edgar", "filing", "8k", "form"]):
+        log.debug("Blocking SEC analyst from alert: %s", tweet.analyst)
+        return False
+
     quality_score = tweet.base_score
     if getattr(getattr(tweet, "direction", None), "value", getattr(tweet, "direction", "neutral")) == "neutral":
         quality_score -= 5
