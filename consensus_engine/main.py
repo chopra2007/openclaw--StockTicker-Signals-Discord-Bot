@@ -33,7 +33,7 @@ from consensus_engine.utils.http import get_session
 from consensus_engine.utils.tickers import is_valid_ticker, validate_ticker_market_cap
 from consensus_engine.scanners.youtube import youtube_poll_loop
 
-log = logging.getLogger("consensus")
+log = logging.getLogger("consensus_engine.main")
 
 
 # =============================================================================
@@ -256,7 +256,7 @@ def _passes_quality_gate(tweet, ticker: str) -> bool:
     # Block SEC/EDGAR/8-K content from triggering alerts - only store for cross-reference
     text_lower = (tweet.raw_text or "").lower()
     analyst_lower = (tweet.analyst or "").lower()
-    if any(kw in text_lower for kw in ["8-k", "8k", "sec ", " sec", "edgar", "form 4", "form-4", "sec filing"]):
+    if any(kw in text_lower for kw in ["8-k", "sec filing", "edgar", "form 4", "form-4", "filed with the sec", "filed an 8"]):
         log.debug("Blocking SEC content from alert: %s", ticker)
         return False
     if "sec" in analyst_lower and any(kw in analyst_lower for kw in ["edgar", "filing", "8k", "form"]):
@@ -477,6 +477,9 @@ async def price_outcome_loop(stop_event: asyncio.Event):
 # =============================================================================
 
 def main():
+    from consensus_engine.utils import setup_logging
+    setup_logging()
+
     import argparse
 
     parser = argparse.ArgumentParser(description="Consensus Engine")
