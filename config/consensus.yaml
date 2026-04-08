@@ -240,6 +240,29 @@ youtube:
   max_concurrency: 4
   summarize: false                     # LLM summary + Discord notification (Phase 3)
 
+# Precision Scoring Engine
+precision_engine:
+  enabled: true
+  budget:
+    finnhub_calls: 3000
+    brave_queries: 200
+    exa_queries: 100
+    serpapi_queries: 25
+    firecrawl_credits: 10
+  thresholds:
+    high_confidence: 80
+    medium_confidence: 65
+    min_trusted_sources: 2
+    min_score_for_serpapi: 60
+    min_score_for_firecrawl: 65
+    max_firecrawl_urls: 2
+    require_mainstream_for_strong: true
+    require_market_confirmation: true
+  api_keys:
+    exa: "$EXA_AI_API_KEY"
+    serpapi: "$SERPAPI3_API_KEY"
+    firecrawl: "$FIRECRAWL_API_KEY"
+
 # Database
 database:
   path: "/root/.openclaw/workspace/consensus.db"
