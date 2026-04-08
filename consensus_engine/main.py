@@ -32,6 +32,7 @@ from consensus_engine.alerts.discord import send_detail_followup, send_instant_p
 from consensus_engine.utils.http import get_session
 from consensus_engine.utils.tickers import is_valid_ticker, validate_ticker_market_cap
 from consensus_engine.scanners.youtube import youtube_poll_loop
+from consensus_engine.engine import analyze_signal, SignalClass
 
 log = logging.getLogger("consensus_engine.main")
 
@@ -386,7 +387,29 @@ async def _run_cross_reference_and_followup(
 ):
     """Run slow xref work after the instant alert has already been persisted."""
     try:
-        xref = await cross_reference(ticker, tweet)
+        xref_task = asyncio.create_task(cross_reference(ticker, tweet))
+        precision_task = asyncio.create_task(
+            analyze_signal(ticker, base_score=tweet.base_score)
+        )
+        xref, precision = await asyncio.gather(xref_task, precision_task, return_exceptions=True)
+
+        if isinstance(xref, Exception):
+            raise xref
+        if isinstance(precision, Exception):
+            log.warning("Precision engine failed for $%s: %s", ticker, precision)
+            precision = None
+
+        if precision and not precision.get("skipped"):
+            classification = precision.get("classification", SignalClass.IGNORE)
+            log.info(
+                "$%s precision classification: %s (score=%d, mainstream=%s, market_ok=%s)",
+                ticker,
+                classification.value,
+                precision.get("total_score", 0),
+                precision.get("has_mainstream"),
+                precision.get("market_ok"),
+            )
+
         followup_id = await send_detail_followup(xref, instant_msg_id)
         await db.update_alert_message_followup(alert_message_id, followup_id, xref.final_score)
         await db.update_alert_breakdown(

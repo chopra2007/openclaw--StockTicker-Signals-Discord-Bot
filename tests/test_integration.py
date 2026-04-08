@@ -61,11 +61,15 @@ async def test_full_pipeline_actionable_tweet():
         catalyst_type="earnings",
     )
 
+    from consensus_engine.engine import SignalClass
+    precision_result = {"ticker": "NVDA", "classification": SignalClass.WATCHLIST, "total_score": 30,
+                        "skipped": False, "has_mainstream": True, "market_ok": True}
     with patch("consensus_engine.main.parse_tweet", new_callable=AsyncMock, return_value=parsed), \
          patch("consensus_engine.main.validate_ticker_market_cap", new_callable=AsyncMock, return_value=True), \
          patch("consensus_engine.main.send_instant_ping", new_callable=AsyncMock, return_value="msg_123"), \
          patch("consensus_engine.main.send_detail_followup", new_callable=AsyncMock, return_value="followup_456"), \
          patch("consensus_engine.main.cross_reference", new_callable=AsyncMock, return_value=xref), \
+         patch("consensus_engine.main.analyze_signal", new_callable=AsyncMock, return_value=precision_result), \
          patch("consensus_engine.main._fetch_price", new_callable=AsyncMock, return_value=135.50):
 
         await process_tweet(SAMPLE_TWEET)
