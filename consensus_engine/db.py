@@ -171,6 +171,16 @@ CREATE INDEX IF NOT EXISTS idx_youtube_videos_channel ON youtube_videos(channel_
 CREATE INDEX IF NOT EXISTS idx_youtube_videos_status ON youtube_videos(transcript_status);
 CREATE INDEX IF NOT EXISTS idx_youtube_videos_published ON youtube_videos(published_at);
 
+CREATE TABLE IF NOT EXISTS api_usage_daily (
+    day_utc TEXT PRIMARY KEY,
+    finnhub_calls INTEGER NOT NULL DEFAULT 0,
+    brave_queries INTEGER NOT NULL DEFAULT 0,
+    exa_queries INTEGER NOT NULL DEFAULT 0,
+    serpapi_queries INTEGER NOT NULL DEFAULT 0,
+    firecrawl_credits INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS youtube_transcripts (
     video_id TEXT PRIMARY KEY,
     transcript_text TEXT NOT NULL,
