@@ -193,12 +193,13 @@ async def process_video(
         )
 
         try:
-            text, lang, is_auto = await fetch_transcript(
-                video_id, preferred_languages, browser_context
+            from consensus_engine.utils.transcript_fetch import fetch_transcript_cascade
+            text, lang, is_auto = await fetch_transcript_cascade(
+                video_id, preferred_languages
             )
         except Exception as e:
             err = str(e).lower()
-            if any(k in err for k in ("no caption", "caption track", "disabled", "not available")):
+            if any(k in err for k in ("no caption", "caption track", "disabled", "not available", "all transcript")):
                 log.info("youtube: no captions for %s (%s)", video_id, e)
                 await db.mark_youtube_video_status(video_id, "missing")
             else:

@@ -687,32 +687,26 @@ async def _handle_transcript(youtube_url: str, channel_id: str, message_id: str)
 
 async def _transcript_and_reply(youtube_url: str, channel_id: str, message_id: str) -> None:
     try:
-        import os
-        from apify_client import ApifyClient
-        
-        token = os.environ.get('APIFY_TOKEN')
-        if not token:
-            await send_command_reply(channel_id, message_id, "APIFY_TOKEN not configured.")
-            return
-        
-        client = ApifyClient(token=token)
-        call = client.actor("trisecode/yt-transcript").call(
-            run_input={"video_url": youtube_url, "includeTimestamps": True}
+        from consensus_engine.utils.transcript_fetch import (
+            parse_video_id,
+            fetch_transcript_cascade,
         )
-        
-        transcript_text = "No transcript available"
-        title = "Unknown"
-        
-        for item in client.dataset(call["defaultDatasetId"]).iterate_items():
-            title = item.get('video', {}).get('title', 'Unknown')
-            transcript = item.get('transcript', {})
-            if transcript:
-                transcript_text = transcript.get('full_text', 'No transcript available')
-            break
-        
-        # Send in chunks if too long
-        preview = transcript_text[:400] + "..." if len(transcript_text) > 400 else transcript_text
-        await send_command_reply(channel_id, message_id, f"**{title}**\n{preview}")
+
+        video_id = parse_video_id(youtube_url)
+        if not video_id:
+            await send_command_reply(
+                channel_id, message_id,
+                "Could not parse video ID. Use a standard YouTube URL "
+                "(watch, shorts, or youtu.be).",
+            )
+            return
+
+        text, lang, is_auto = await fetch_transcript_cascade(video_id, ["en"])
+
+        caption_type = "auto-generated" if is_auto else "manual"
+        header = f"**Transcript** ({lang}, {caption_type}, {len(text)} chars)"
+        preview = text[:1500] + "..." if len(text) > 1500 else text
+        await send_command_reply(channel_id, message_id, f"{header}\n{preview}")
     except Exception as e:
         log.error("Transcript command error for %s: %s", youtube_url, e)
         await send_command_reply(channel_id, message_id, f"Transcript failed: {e}")
