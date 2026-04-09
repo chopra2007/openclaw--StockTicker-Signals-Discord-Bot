@@ -93,7 +93,7 @@ def format_instant_ping(tweet: ParsedTweet, current_price: float = 0.0) -> dict:
     return embed
 
 
-def format_detail_followup(xref: CrossReferenceResult) -> dict:
+def format_detail_followup(xref: CrossReferenceResult, precision: Optional[dict] = None) -> dict:
     """Build Discord embed for the detail follow-up (Phase 2)."""
     b = xref.breakdown
     total = b.total
@@ -136,6 +136,21 @@ def format_detail_followup(xref: CrossReferenceResult) -> dict:
 
     if xref.llm_reasoning:
         fields.append({"name": "LLM Analysis", "value": f"+{b.llm_boost} pts — {xref.llm_reasoning[:150]}", "inline": False})
+
+    if precision and not precision.get("skipped"):
+        cls = precision.get("classification")
+        cls_val = cls.value if hasattr(cls, "value") else str(cls)
+        icon = {"STRONG_ALERT": "🟢", "WATCHLIST": "🟡", "IGNORE": "🔴"}.get(cls_val, "⚪")
+        p_score = precision.get("total_score", 0)
+        flags = []
+        if precision.get("market_ok"):
+            flags.append("market ✅")
+        else:
+            flags.append("market ❌")
+        if precision.get("has_mainstream"):
+            flags.append("mainstream ✅")
+        precision_text = f"{icon} **{cls_val}** | score={p_score} | {' | '.join(flags)}"
+        fields.append({"name": "Precision Engine", "value": precision_text, "inline": False})
 
     parts = []
     if b.base: parts.append(f"base({b.base})")
@@ -277,7 +292,7 @@ async def send_command_reply(channel_id: str, reply_to_msg_id: str, content: str
             return data.get("id")
 
 
-async def send_detail_followup(xref: CrossReferenceResult, reply_to_msg_id: str) -> Optional[str]:
+async def send_detail_followup(xref: CrossReferenceResult, reply_to_msg_id: str, precision: Optional[dict] = None) -> Optional[str]:
     """Send the detail follow-up as a reply to the instant ping. Returns message ID."""
     if cfg.dry_run:
         log.info("[DRY-RUN] Detail follow-up: $%s score=%d", xref.ticker, xref.final_score)
@@ -288,7 +303,7 @@ async def send_detail_followup(xref: CrossReferenceResult, reply_to_msg_id: str)
     if not token or not channel_id or not channel_id.isdigit():
         return None
 
-    embed = format_detail_followup(xref)
+    embed = format_detail_followup(xref, precision)
 
     try:
         async with aiohttp.ClientSession() as session:

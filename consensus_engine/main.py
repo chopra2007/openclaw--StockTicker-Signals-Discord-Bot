@@ -410,7 +410,7 @@ async def _run_cross_reference_and_followup(
                 precision.get("market_ok"),
             )
 
-        followup_id = await send_detail_followup(xref, instant_msg_id)
+        followup_id = await send_detail_followup(xref, instant_msg_id, precision=precision)
         await db.update_alert_message_followup(alert_message_id, followup_id, xref.final_score)
         await db.update_alert_breakdown(
             alert_row_id,
