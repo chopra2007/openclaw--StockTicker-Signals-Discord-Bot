@@ -258,18 +258,24 @@ async def fetch_transcript_cascade(
         preferred_languages = ["en"]
     lang = preferred_languages[0] if preferred_languages else "en"
 
-    tiers = [
-        ("Supadata", _fetch_via_supadata(video_id, lang)),
-        ("Invidious", _fetch_via_invidious(video_id, lang)),
-        ("yt-transcript-api", _fetch_via_yt_transcript_api(video_id, lang)),
-        ("Playwright", _fetch_via_playwright(video_id, preferred_languages)),
+    # Each entry is (name, callable, timeout_seconds).
+    # Callables are used (not pre-created coroutines) so we only invoke
+    # the next tier if all previous ones failed.
+    tiers: list[tuple[str, object, int]] = [
+        ("Supadata", lambda: _fetch_via_supadata(video_id, lang), 20),
+        ("Invidious", lambda: _fetch_via_invidious(video_id, lang), 30),
+        ("yt-transcript-api", lambda: _fetch_via_yt_transcript_api(video_id, lang), 20),
+        ("Playwright", lambda: _fetch_via_playwright(video_id, preferred_languages), 45),
     ]
 
-    for name, coro in tiers:
+    for name, factory, timeout in tiers:
         try:
-            result = await coro
+            log.debug("transcript: trying %s for %s", name, video_id)
+            result = await asyncio.wait_for(factory(), timeout=timeout)
             if result and result[0]:
                 return result
+        except asyncio.TimeoutError:
+            log.debug("transcript: tier %s timed out for %s", name, video_id)
         except Exception as e:
             log.debug("transcript: tier %s failed for %s: %s", name, video_id, e)
 
