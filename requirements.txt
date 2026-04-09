@@ -1,4 +1,5 @@
 aiohttp>=3.13.3
+feedparser>=6.0.12
 aiosqlite>=0.22.1
 PyYAML>=5.4.1
 yfinance>=1.2.0
