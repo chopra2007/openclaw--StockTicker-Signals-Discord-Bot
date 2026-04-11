@@ -6,6 +6,7 @@ Signal-first stock alert system
 import asyncio
 import concurrent.futures
 from dataclasses import asdict, replace
+from datetime import datetime, timezone, timedelta
 import json
 import logging
 
@@ -35,6 +36,33 @@ from consensus_engine.scanners.youtube import youtube_poll_loop
 from consensus_engine.engine import analyze_signal, SignalClass
 
 log = logging.getLogger("consensus_engine.main")
+
+ET = timezone(timedelta(hours=-4))  # Eastern Time (EDT)
+
+
+def _is_weekend_pause() -> bool:
+    """Check if we're in the weekend pause window (Fri 3pm ET → Sun 2pm ET)."""
+    now = datetime.now(ET)
+    wd = now.weekday()  # Mon=0 … Sun=6
+    if wd == 4 and now.hour >= 15:   # Friday 3pm+
+        return True
+    if wd == 5:                       # All Saturday
+        return True
+    if wd == 6 and now.hour < 14:    # Sunday before 2pm
+        return True
+    return False
+
+
+def _seconds_until_resume() -> int:
+    """Seconds until Sunday 2pm ET."""
+    now = datetime.now(ET)
+    wd = now.weekday()
+    # Calculate days until Sunday (6)
+    days_ahead = (6 - wd) % 7
+    if days_ahead == 0 and now.hour >= 14:
+        days_ahead = 7  # Already past Sunday 2pm, next week
+    resume = now.replace(hour=14, minute=0, second=0, microsecond=0) + timedelta(days=days_ahead)
+    return max(int((resume - now).total_seconds()), 1)
 
 
 # =============================================================================
@@ -180,35 +208,77 @@ async def run_once():
 
 
 async def run_live(stop_event: asyncio.Event):
-    """Run continuous mode with all scanners."""
-    log.info("Starting live mode...")
+    """Run continuous mode with all scanners. Pauses Fri 3pm–Sun 2pm ET."""
+    while not stop_event.is_set():
+        # Weekend pause gate
+        if _is_weekend_pause():
+            secs = _seconds_until_resume()
+            log.info("Weekend pause active — sleeping %d seconds until Sunday 2pm ET", secs)
+            try:
+                await asyncio.wait_for(stop_event.wait(), timeout=secs)
+            except asyncio.TimeoutError:
+                pass
+            continue
 
-    async def on_tweet(tweet_data: dict):
-        await process_tweet(tweet_data)
+        log.info("Starting live mode...")
 
-    async def on_command(cmd: str, args: str, channel_id: str, message_id: str):
-        from consensus_engine.alerts.commands import handle_command
+        async def on_tweet(tweet_data: dict):
+            await process_tweet(tweet_data)
 
-        await handle_command(cmd, args, channel_id, message_id)
+        async def on_command(cmd: str, args: str, channel_id: str, message_id: str):
+            from consensus_engine.alerts.commands import handle_command
 
-    tweetshift_listener = DiscordTweetShiftListener(on_tweet=on_tweet, on_command=on_command)
-    tasks = [
-        asyncio.create_task(nitter_poll_loop(stop_event)),
-        asyncio.create_task(tweetshift_listener.run(stop_event)),
-        asyncio.create_task(fetch_loop(stop_event, interval=300)),
-        asyncio.create_task(price_outcome_loop(stop_event)),
-        asyncio.create_task(youtube_poll_loop(stop_event)),
-    ]
-    if cfg.get("scanners.sec_background_watchers_enabled", False):
-        tasks.extend([
-            asyncio.create_task(sec_8k_watcher_loop(stop_event)),
-            asyncio.create_task(sec_edgar_polling_loop(stop_event)),
-        ])
+            await handle_command(cmd, args, channel_id, message_id)
 
-    try:
-        await asyncio.gather(*tasks)
-    except asyncio.CancelledError:
-        log.info("Live mode cancelled")
+        pause_event = asyncio.Event()
+
+        async def weekend_watchdog():
+            """Check every 60s if we've entered the weekend pause window."""
+            while not stop_event.is_set() and not pause_event.is_set():
+                if _is_weekend_pause():
+                    log.info("Weekend pause triggered — stopping all scanners")
+                    pause_event.set()
+                    return
+                await asyncio.sleep(60)
+
+        tweetshift_listener = DiscordTweetShiftListener(on_tweet=on_tweet, on_command=on_command)
+        combined_stop = asyncio.Event()
+
+        async def stop_watcher():
+            """Set combined_stop when either stop_event or pause_event fires."""
+            done, _ = await asyncio.wait(
+                [asyncio.create_task(stop_event.wait()), asyncio.create_task(pause_event.wait())],
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            combined_stop.set()
+
+        tasks = [
+            asyncio.create_task(stop_watcher()),
+            asyncio.create_task(weekend_watchdog()),
+            asyncio.create_task(nitter_poll_loop(combined_stop)),
+            asyncio.create_task(tweetshift_listener.run(combined_stop)),
+            asyncio.create_task(fetch_loop(combined_stop, interval=300)),
+            asyncio.create_task(price_outcome_loop(combined_stop)),
+            asyncio.create_task(youtube_poll_loop(combined_stop)),
+        ]
+        if cfg.get("scanners.sec_background_watchers_enabled", False):
+            tasks.extend([
+                asyncio.create_task(sec_8k_watcher_loop(combined_stop)),
+                asyncio.create_task(sec_edgar_polling_loop(combined_stop)),
+            ])
+
+        try:
+            await asyncio.gather(*tasks)
+        except asyncio.CancelledError:
+            log.info("Live mode cancelled")
+
+        # Cancel any lingering tasks
+        for t in tasks:
+            if not t.done():
+                t.cancel()
+
+        if stop_event.is_set():
+            return  # Full shutdown requested
 
 
 async def fetch_loop(stop_event: asyncio.Event, interval: int = 300):
