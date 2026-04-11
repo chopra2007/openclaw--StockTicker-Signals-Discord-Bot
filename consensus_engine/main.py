@@ -57,12 +57,22 @@ def _seconds_until_resume() -> int:
     """Seconds until Sunday 2pm ET."""
     now = datetime.now(ET)
     wd = now.weekday()
-    # Calculate days until Sunday (6)
     days_ahead = (6 - wd) % 7
     if days_ahead == 0 and now.hour >= 14:
         days_ahead = 7  # Already past Sunday 2pm, next week
     resume = now.replace(hour=14, minute=0, second=0, microsecond=0) + timedelta(days=days_ahead)
     return max(int((resume - now).total_seconds()), 1)
+
+
+def _seconds_until_pause() -> int:
+    """Seconds until Friday 3pm ET (next pause window)."""
+    now = datetime.now(ET)
+    wd = now.weekday()
+    days_ahead = (4 - wd) % 7  # Friday=4
+    if days_ahead == 0 and now.hour >= 15:
+        days_ahead = 7  # Already past this Friday 3pm
+    pause = now.replace(hour=15, minute=0, second=0, microsecond=0) + timedelta(days=days_ahead)
+    return max(int((pause - now).total_seconds()), 1)
 
 
 # =============================================================================
@@ -233,13 +243,14 @@ async def run_live(stop_event: asyncio.Event):
         pause_event = asyncio.Event()
 
         async def weekend_watchdog():
-            """Check every 60s if we've entered the weekend pause window."""
-            while not stop_event.is_set() and not pause_event.is_set():
-                if _is_weekend_pause():
-                    log.info("Weekend pause triggered — stopping all scanners")
-                    pause_event.set()
-                    return
-                await asyncio.sleep(60)
+            """Sleep exactly until Friday 3pm ET, then trigger pause."""
+            secs = _seconds_until_pause()
+            log.info("Weekend pause scheduled in %d seconds (Friday 3pm ET)", secs)
+            try:
+                await asyncio.wait_for(stop_event.wait(), timeout=secs)
+            except asyncio.TimeoutError:
+                log.info("Weekend pause triggered — stopping all scanners")
+                pause_event.set()
 
         tweetshift_listener = DiscordTweetShiftListener(on_tweet=on_tweet, on_command=on_command)
         combined_stop = asyncio.Event()
