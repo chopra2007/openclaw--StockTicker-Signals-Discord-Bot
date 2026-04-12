@@ -220,6 +220,9 @@ class ParsedTweet:
     conviction: Conviction
     summary: str
     image_url: Optional[str] = None
+    image_urls: list[str] = field(default_factory=list)
+    vision_outputs: list[dict] = field(default_factory=list)
+    final_signal: Optional[dict] = None
     avatar_url: Optional[str] = None
     display_name: Optional[str] = None
     parsed_at: float = field(default_factory=time.time)
