@@ -14,6 +14,7 @@ class SourceType(str, Enum):
     GOOGLE_TRENDS = "google_trends"
     NEWS = "news"
     SEC_FILING = "sec_filing"
+    YOUTUBE = "youtube"
 
 
 class Sentiment(str, Enum):
@@ -302,3 +303,55 @@ class OptionsResult:
     @property
     def has_unusual_activity(self) -> bool:
         return self.unusual_calls or self.unusual_puts
+
+
+# ---------------------------------------------------------------------------
+# YouTube video analysis models
+# ---------------------------------------------------------------------------
+
+@dataclass
+class PriceLevel:
+    """Extracted support/resistance level from YouTube video."""
+    ticker: str
+    level_type: str  # support|resistance|target|breakdown
+    price: float
+    condition: str  # "if holds above 640"
+    consequence: str  # "rally to 700"
+    confidence: float  # 0.0-1.0
+
+
+@dataclass
+class MacroThesis:
+    """Macro analysis extracted from YouTube video."""
+    direction: Direction  # bullish|bearish|neutral
+    themes: list[str]  # ["recession risk", "Fed pivot expected"]
+    timeframe: str  # short|medium|long
+    summary: str  # one paragraph
+
+
+@dataclass
+class ParsedVideo:
+    """LLM-parsed YouTube video with extracted trade intelligence."""
+    video_id: str
+    channel_name: str
+    raw_transcript: str
+    tickers: list[dict]  # [{"symbol": "SPY", "direction": "long", "conviction": "high", "mention_count": 3}]
+    price_levels: list[PriceLevel]
+    macro_thesis: MacroThesis
+    overall_conviction: Conviction
+    parsed_at: float = field(default_factory=time.time)
+
+    @property
+    def has_tickers(self) -> bool:
+        return len(self.tickers) > 0
+
+
+@dataclass
+class YouTubeContext:
+    """YouTube signal aggregation for cross-reference integration."""
+    mention_count: int
+    direction: Direction
+    top_conviction: Conviction
+    channels: list[str]
+    levels: list[dict]  # [{"type": "support", "price": 650.0, "confidence": 0.9}]
+    score_boost: int  # +15 for high, +10 for medium, +5 for low

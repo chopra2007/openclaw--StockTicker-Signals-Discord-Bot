@@ -237,6 +237,63 @@ async def process_video(
             video_id, lang, is_auto, len(text), path,
         )
 
+        # Parse transcript for trade intelligence if enabled
+        if cfg.get("youtube.analyze", True):
+            try:
+                from consensus_engine.analysis.video_parser import parse_video_transcript
+                parsed = await parse_video_transcript(
+                    video_id=video_id,
+                    transcript_text=text,
+                    channel_name=channel_id,
+                    published_at=video_meta["published_at"],
+                )
+
+                # Insert signals for each ticker
+                for ticker_data in parsed.tickers:
+                    ticker = ticker_data.get("symbol")
+                    if ticker:
+                        macro_json = None
+                        if parsed.macro_thesis:
+                            import json
+                            macro_json = json.dumps({
+                                "direction": parsed.macro_thesis.direction.value,
+                                "themes": parsed.macro_thesis.themes,
+                                "timeframe": parsed.macro_thesis.timeframe,
+                                "summary": parsed.macro_thesis.summary,
+                            })
+
+                        await db.insert_youtube_signal(
+                            video_id=video_id,
+                            channel_name=channel_id,
+                            ticker=ticker,
+                            direction=ticker_data.get("direction", "neutral"),
+                            conviction=ticker_data.get("conviction", "medium"),
+                            mention_count=ticker_data.get("mention_count", 1),
+                            macro_thesis=macro_json,
+                            published_at=video_meta["published_at"],
+                        )
+                        log.debug("youtube: signal created %s/%s conviction=%s", video_id, ticker, ticker_data.get("conviction"))
+
+                # Insert price levels
+                for level in parsed.price_levels:
+                    await db.insert_youtube_level(
+                        video_id=video_id,
+                        ticker=level.ticker,
+                        level_type=level.level_type,
+                        price=level.price,
+                        condition_text=level.condition,
+                        consequence_text=level.consequence,
+                        confidence=level.confidence,
+                        channel_name=channel_id,
+                        published_at=video_meta["published_at"],
+                    )
+                    log.debug("youtube: level created %s %s @ %.2f", video_id, level.ticker, level.price)
+
+                log.info("youtube: parsed %s → %d tickers, %d levels", video_id, len(parsed.tickers), len(parsed.price_levels))
+
+            except Exception as e:
+                log.warning("youtube: parse error for %s: %s", video_id, e)
+
 
 # ---------------------------------------------------------------------------
 # Scan cycle + poll loop

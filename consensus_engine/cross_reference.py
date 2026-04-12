@@ -156,6 +156,60 @@ async def _run_options_check(ticker: str, executor) -> Optional[OptionsResult]:
         return None
 
 
+async def _get_youtube_context(ticker: str):
+    """Query YouTube signals for ticker (8th source for cross-reference)."""
+    try:
+        from consensus_engine.models import YouTubeContext, Direction, Conviction
+        mentions = await db.get_youtube_signals_for_ticker(ticker, days=7)
+        if not mentions:
+            return None
+
+        # Aggregate mentions
+        direction_votes = {"long": 0, "short": 0, "neutral": 0}
+        conviction_scores = {"high": 3, "medium": 2, "low": 1}
+        max_conviction_score = 0
+        top_conviction = "medium"
+
+        for mention in mentions:
+            direction = mention.get("direction", "neutral")
+            conviction = mention.get("conviction", "medium")
+            direction_votes[direction] = direction_votes.get(direction, 0) + 1
+            conv_score = conviction_scores.get(conviction, 1)
+            if conv_score > max_conviction_score:
+                max_conviction_score = conv_score
+                top_conviction = conviction
+
+        # Consensus direction
+        consensus_dir = max(direction_votes, key=direction_votes.get)
+
+        # Get price levels
+        levels = await db.get_youtube_levels_for_ticker(ticker, days=7)
+        level_data = [
+            {
+                "type": level.get("level_type"),
+                "price": level.get("price"),
+                "confidence": level.get("confidence", 0.8),
+            }
+            for level in levels
+        ]
+
+        # Determine score boost
+        conv_map = {"high": 15, "medium": 10, "low": 5}
+        score_boost = conv_map.get(top_conviction, 10)
+
+        return YouTubeContext(
+            mention_count=len(mentions),
+            direction=Direction(consensus_dir),
+            top_conviction=Conviction(top_conviction),
+            channels=list(set(m.get("channel_name") for m in mentions if m.get("channel_name"))),
+            levels=level_data,
+            score_boost=score_boost,
+        )
+    except Exception as e:
+        log.debug("YouTube context error for $%s: %s", ticker, e)
+        return None
+
+
 async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> CrossReferenceResult:
     """Run all cross-reference sources in parallel and compute final score."""
     log.info("Starting cross-reference for $%s (base=%d)", ticker, tweet.base_score)
@@ -170,7 +224,7 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
         return cached
 
     metrics: dict[str, int] = {}
-    catalyst, (sec_hit, sec_summary), social_data, technical, other_analysts, options = \
+    catalyst, (sec_hit, sec_summary), social_data, technical, other_analysts, options, youtube = \
         await asyncio.gather(
             _with_timeout(_timed(_run_news_cascade(ticker), metrics, "news_cascade_ms"), 15.0, None, "news", sem=_sem_news),
             _with_timeout(_timed(_run_sec_check(ticker), metrics, "sec_check_ms"), 10.0, (False, ""), "sec", sem=_sem_news),
@@ -178,6 +232,7 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
             _with_timeout(_timed(_run_technical(ticker, direction=direction), metrics, "technical_ms"), 20.0, None, "technical", sem=_sem_technical),
             _with_timeout(_timed(_run_other_analysts(ticker, exclude_analyst=tweet.analyst), metrics, "analyst_check_ms"), 5.0, [], "analysts"),
             _with_timeout(_timed(_run_options_check(ticker, executor), metrics, "options_check_ms"), 15.0, None, "options", sem=_sem_technical),
+            _with_timeout(_timed(_get_youtube_context(ticker), metrics, "youtube_ms"), 8.0, None, "youtube"),
         )
 
     llm_score, llm_reasoning = 0.0, ""
@@ -204,6 +259,8 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
 
     options_pts = m.get("options_flow", 10) if (options and options.has_unusual_activity) else 0
 
+    youtube_pts = youtube.score_boost if youtube else 0
+
     social_parts = []
     if social_data.get("apewisdom", 0) >= 1:
         social_parts.append(f"ApeWisdom ({social_data['apewisdom']} mentions)")
@@ -213,6 +270,12 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
         social_parts.append(f"Reddit ({social_data['reddit']} mentions)")
     if social_data.get("google_trends", 0) >= 1:
         social_parts.append("Google Trends spike")
+
+    youtube_parts = []
+    if youtube:
+        youtube_parts.append(f"YouTube ({youtube.mention_count} videos, {youtube.direction.value})")
+        if youtube.levels:
+            youtube_parts.append(f"Levels: {len(youtube.levels)} S/R zones")
 
     breakdown = ScoreBreakdown(
         base=tweet.base_score,
@@ -224,6 +287,12 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
         options_flow=options_pts,
         **social_breakdown,
     )
+    # Add YouTube boost directly to breakdown
+    breakdown.llm_boost += youtube_pts  # Roll YouTube into LLM boost category
+
+    # Build social + YouTube summary
+    all_sources = social_parts + youtube_parts
+    sources_summary = ", ".join(all_sources) if all_sources else ""
 
     result = CrossReferenceResult(
         ticker=ticker,
@@ -234,15 +303,15 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
         catalyst_urls=catalyst.source_urls if catalyst else [],
         technical=technical,
         other_analysts=other_analysts,
-        social_summary=", ".join(social_parts) if social_parts else "",
+        social_summary=sources_summary,  # Include YouTube in summary
         sec_summary=sec_summary,
         llm_reasoning=llm_reasoning,
         options=options,
     )
 
-    log.info("Cross-reference for $%s: score=%d (base=%d + xref=%d)",
+    log.info("Cross-reference for $%s: score=%d (base=%d + xref=%d, youtube=%d)",
              ticker, result.final_score, tweet.base_score,
-             result.final_score - tweet.base_score)
+             result.final_score - tweet.base_score, youtube_pts)
 
     await cache_xref(ticker, result)
 

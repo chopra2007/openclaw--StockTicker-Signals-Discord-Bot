@@ -188,6 +188,41 @@ CREATE TABLE IF NOT EXISTS youtube_transcripts (
     summary_text TEXT,
     saved_at REAL NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS youtube_signals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    video_id TEXT NOT NULL,
+    channel_name TEXT NOT NULL,
+    ticker TEXT NOT NULL,
+    direction TEXT NOT NULL,
+    conviction TEXT NOT NULL,
+    mention_count INTEGER DEFAULT 1,
+    macro_thesis TEXT,
+    parsed_at REAL NOT NULL,
+    published_at TEXT,
+    extracted_at REAL NOT NULL,
+    FOREIGN KEY (video_id) REFERENCES youtube_videos(video_id)
+);
+CREATE INDEX IF NOT EXISTS idx_youtube_signals_ticker ON youtube_signals(ticker);
+CREATE INDEX IF NOT EXISTS idx_youtube_signals_channel ON youtube_signals(channel_name);
+CREATE INDEX IF NOT EXISTS idx_youtube_signals_extracted ON youtube_signals(extracted_at);
+
+CREATE TABLE IF NOT EXISTS youtube_levels (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    video_id TEXT NOT NULL,
+    ticker TEXT NOT NULL,
+    level_type TEXT NOT NULL,
+    price REAL NOT NULL,
+    condition_text TEXT,
+    consequence_text TEXT,
+    confidence REAL,
+    channel_name TEXT,
+    published_at TEXT,
+    extracted_at REAL NOT NULL,
+    FOREIGN KEY (video_id) REFERENCES youtube_videos(video_id)
+);
+CREATE INDEX IF NOT EXISTS idx_youtube_levels_ticker ON youtube_levels(ticker);
+CREATE INDEX IF NOT EXISTS idx_youtube_levels_extracted ON youtube_levels(extracted_at);
 """
 
 
@@ -827,3 +862,80 @@ async def mark_youtube_video_status(
         (status, language, 1 if is_auto_generated else 0, export_path, video_id),
     )
     await conn.commit()
+
+
+# ---------------------------------------------------------------------------
+# YouTube signal analysis helpers
+# ---------------------------------------------------------------------------
+
+async def insert_youtube_signal(
+    video_id: str,
+    channel_name: str,
+    ticker: str,
+    direction: str,
+    conviction: str,
+    mention_count: int = 1,
+    macro_thesis: str | None = None,
+    published_at: str | None = None,
+) -> None:
+    """Insert a YouTube signal for a ticker extracted from a video."""
+    conn = await get_db()
+    await conn.execute(
+        """INSERT INTO youtube_signals
+           (video_id, channel_name, ticker, direction, conviction, mention_count, macro_thesis, parsed_at, published_at, extracted_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (video_id, channel_name, ticker, direction, conviction, mention_count, macro_thesis, time.time(), published_at, time.time()),
+    )
+    await conn.commit()
+
+
+async def insert_youtube_level(
+    video_id: str,
+    ticker: str,
+    level_type: str,
+    price: float,
+    condition_text: str | None = None,
+    consequence_text: str | None = None,
+    confidence: float = 0.8,
+    channel_name: str | None = None,
+    published_at: str | None = None,
+) -> None:
+    """Insert a price level (support/resistance) extracted from a YouTube video."""
+    conn = await get_db()
+    await conn.execute(
+        """INSERT INTO youtube_levels
+           (video_id, ticker, level_type, price, condition_text, consequence_text, confidence, channel_name, published_at, extracted_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (video_id, ticker, level_type, price, condition_text, consequence_text, confidence, channel_name, published_at, time.time()),
+    )
+    await conn.commit()
+
+
+async def get_youtube_signals_for_ticker(ticker: str, days: int = 7) -> list[dict]:
+    """Get all YouTube signals for a ticker from the last N days."""
+    conn = await get_db()
+    cutoff = time.time() - (days * 86400)
+    cursor = await conn.execute(
+        """SELECT video_id, channel_name, ticker, direction, conviction, mention_count, macro_thesis, parsed_at, published_at
+           FROM youtube_signals
+           WHERE ticker = ? AND extracted_at >= ?
+           ORDER BY extracted_at DESC""",
+        (ticker, cutoff),
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def get_youtube_levels_for_ticker(ticker: str, days: int = 7) -> list[dict]:
+    """Get all YouTube price levels for a ticker from the last N days."""
+    conn = await get_db()
+    cutoff = time.time() - (days * 86400)
+    cursor = await conn.execute(
+        """SELECT ticker, level_type, price, condition_text, consequence_text, confidence, channel_name, published_at
+           FROM youtube_levels
+           WHERE ticker = ? AND extracted_at >= ?
+           ORDER BY confidence DESC, extracted_at DESC""",
+        (ticker, cutoff),
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
