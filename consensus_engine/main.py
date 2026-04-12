@@ -45,6 +45,9 @@ ET = timezone(timedelta(hours=-4))  # Eastern Time (EDT)
 # ---------------------------------------------------------------------------
 _source_stats: dict[str, dict] = {}
 
+# Global degraded-mode flag: set True when >=2 critical sources are unhealthy.
+DEGRADED_MODE: bool = False
+
 
 def _record_source_ok(source_id: str) -> None:
     """Record a successful data fetch for a source."""
@@ -58,6 +61,27 @@ def _record_source_error(source_id: str) -> None:
     s = _source_stats.setdefault(source_id, {"calls": 0, "errors": 0, "last_ok": 0.0})
     s["calls"] += 1
     s["errors"] += 1
+
+
+def _is_source_unhealthy(source_id: str) -> bool:
+    """Return True if this source's in-process stats indicate it is unhealthy."""
+    stats = _source_stats.get(source_id)
+    if not stats or stats["last_ok"] == 0.0:
+        return True  # Never seen a successful call
+    max_age = cfg.get(f"source_health.source_max_age.{source_id}", 300)
+    degraded_mult = cfg.get("source_health.degraded_freshness_multiplier", 5)
+    max_error_rate = cfg.get("source_health.max_error_rate", 0.3)
+    freshness = time.time() - stats["last_ok"]
+    calls = stats["calls"]
+    error_rate = stats["errors"] / calls if calls > 0 else 0.0
+    return freshness > max_age * degraded_mult or error_rate > max_error_rate
+
+
+def _recompute_degraded_mode() -> bool:
+    """Return True if >=2 critical sources are currently unhealthy."""
+    critical = cfg.get("source_health.critical_sources", ["finnhub", "yfinance", "nitter"])
+    unhealthy_count = sum(1 for src in critical if _is_source_unhealthy(src))
+    return unhealthy_count >= 2
 
 
 def _is_weekend_pause() -> bool:
@@ -455,9 +479,19 @@ async def process_tweet(raw_tweet: dict):
         if not await db.check_alert_cooldown(ticker):
             continue
 
+        # Degraded-mode suppression: skip high-confidence alerts when data is unreliable
+        suppress_when_degraded = cfg.get("alerts.suppress_when_degraded", False)
+        high_conf_threshold = cfg.get("precision_engine.thresholds.high_confidence", 80)
+        if DEGRADED_MODE and suppress_when_degraded and tweet.base_score >= high_conf_threshold:
+            log.warning(
+                "DEGRADED_MODE: suppressing high-confidence alert for $%s (score=%d)",
+                ticker, tweet.base_score,
+            )
+            continue
+
         alert_tweet = replace(tweet, tickers=[ticker])
         price = await _fetch_price(ticker)
-        instant_msg_id = await send_instant_ping(alert_tweet, price)
+        instant_msg_id = await send_instant_ping(alert_tweet, price, degraded=DEGRADED_MODE)
         if instant_msg_id is None:
             continue
 
@@ -537,7 +571,11 @@ async def _run_cross_reference_and_followup(
 
 
 async def source_health_updater_loop(stop_event: asyncio.Event) -> None:
-    """Periodically flush in-process source stats to the source_health DB table."""
+    """Periodically flush in-process source stats to the source_health DB table.
+
+    Also recomputes the global DEGRADED_MODE flag after each flush.
+    """
+    global DEGRADED_MODE
     interval = cfg.get("source_health.poll_interval", 60)
     while True:
         try:
@@ -548,6 +586,14 @@ async def source_health_updater_loop(stop_event: asyncio.Event) -> None:
                 error_rate = errors / calls if calls > 0 else 0.0
                 freshness = now - stats["last_ok"] if stats["last_ok"] > 0 else 9999.0
                 await db.upsert_source_health(source_id, stats["last_ok"], error_rate, freshness)
+
+            new_mode = _recompute_degraded_mode()
+            if new_mode != DEGRADED_MODE:
+                if new_mode:
+                    log.warning("DEGRADED_MODE activated — >=2 critical sources unhealthy")
+                else:
+                    log.info("DEGRADED_MODE cleared — critical sources recovering")
+            DEGRADED_MODE = new_mode
         except Exception as e:
             log.error("Source health updater error: %s", e)
         if stop_event.is_set():

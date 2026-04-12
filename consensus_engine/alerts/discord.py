@@ -181,12 +181,20 @@ def format_detail_followup(xref: CrossReferenceResult, precision: Optional[dict]
     return embed
 
 
-async def send_instant_ping(tweet: ParsedTweet, current_price: float = 0.0) -> Optional[str]:
-    """Send the instant ping to Discord. Returns the message ID or None."""
+async def send_instant_ping(
+    tweet: ParsedTweet,
+    current_price: float = 0.0,
+    degraded: bool = False,
+) -> Optional[str]:
+    """Send the instant ping to Discord. Returns the message ID or None.
+
+    When degraded=True, appends a DEGRADED DATA SOURCES warning to the embed footer.
+    """
     if cfg.dry_run:
         ticker = tweet.tickers[0] if tweet.tickers else "???"
-        log.info("[DRY-RUN] Instant ping: @%s $%s %s (score=%d)",
-                 tweet.analyst, ticker, tweet.direction.value, tweet.base_score)
+        log.info("[DRY-RUN] Instant ping: @%s $%s %s (score=%d)%s",
+                 tweet.analyst, ticker, tweet.direction.value, tweet.base_score,
+                 " [DEGRADED]" if degraded else "")
         return "dry_run_msg_id"
 
     token = cfg.get_api_key("discord_bot_token")
@@ -196,6 +204,8 @@ async def send_instant_ping(tweet: ParsedTweet, current_price: float = 0.0) -> O
         return None
 
     embed = format_instant_ping(tweet, current_price)
+    if degraded:
+        embed["footer"] = {"text": "OpenClaw Signal Engine | ⚠️ DEGRADED — data sources may be unreliable"}
 
     try:
         async with aiohttp.ClientSession() as session:

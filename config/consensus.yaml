@@ -227,6 +227,15 @@ alerts:
   embed_color_short: 0xFF0000
   min_base_score_for_alert: 20  # LOW conviction (20) now passes if direction is explicit
   embed_color_neutral: 0xFFAA00
+  suppress_when_degraded: false  # When true, skip high-confidence alerts in DEGRADED_MODE
+
+# Regime-shift detector
+regime_detector:
+  enabled: true
+  vol_spike_threshold: 3.0        # VIX or RVOL spike multiplier vs baseline
+  breadth_min_bull_pct: 0.3       # below this bullish fraction → deteriorating breadth
+  contradiction_index_max: 0.6    # above this → conflicting signals, raise abstain threshold
+  abstain_score_boost: 20         # add this to min_base_score_for_alert when regime is bad
 
 # Browser Stealth Configuration (still used for StockTwits)
 browser:
