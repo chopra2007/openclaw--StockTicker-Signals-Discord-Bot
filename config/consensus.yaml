@@ -202,6 +202,23 @@ ticker_validation:
   min_market_cap: 100000000   # $100M floor
   cache_ttl_days: 7
 
+# Source Health Monitoring
+source_health:
+  poll_interval: 60                      # seconds between health writes
+  degraded_freshness_multiplier: 5       # freshness > N × max_age → degraded
+  max_error_rate: 0.3                    # error rate above this → degraded
+  critical_sources:                      # >=2 unhealthy triggers DEGRADED_MODE
+    - finnhub
+    - yfinance
+    - nitter
+  source_max_age:                        # expected max freshness per source (seconds)
+    nitter: 180
+    finnhub: 60
+    yfinance: 300
+    apewisdom: 600
+    reddit: 600
+    discord_tweetshift: 120
+
 # Alert Configuration
 alerts:
   cooldown_hours: 6

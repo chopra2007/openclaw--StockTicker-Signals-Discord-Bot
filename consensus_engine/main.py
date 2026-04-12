@@ -9,6 +9,7 @@ from dataclasses import asdict, replace
 from datetime import datetime, timezone, timedelta
 import json
 import logging
+import time
 
 import aiohttp
 
@@ -38,6 +39,25 @@ from consensus_engine.engine import analyze_signal, SignalClass
 log = logging.getLogger("consensus_engine.main")
 
 ET = timezone(timedelta(hours=-4))  # Eastern Time (EDT)
+
+# ---------------------------------------------------------------------------
+# Source health tracking (in-process stats, flushed to DB every poll cycle)
+# ---------------------------------------------------------------------------
+_source_stats: dict[str, dict] = {}
+
+
+def _record_source_ok(source_id: str) -> None:
+    """Record a successful data fetch for a source."""
+    s = _source_stats.setdefault(source_id, {"calls": 0, "errors": 0, "last_ok": 0.0})
+    s["calls"] += 1
+    s["last_ok"] = time.time()
+
+
+def _record_source_error(source_id: str) -> None:
+    """Record a failed fetch for a source."""
+    s = _source_stats.setdefault(source_id, {"calls": 0, "errors": 0, "last_ok": 0.0})
+    s["calls"] += 1
+    s["errors"] += 1
 
 
 def _is_weekend_pause() -> bool:
@@ -89,8 +109,10 @@ async def fetch_signals(tickers: list[str] = None) -> int:
             for result in results:
                 await db.insert_signal(result)
                 total += 1
+            _record_source_ok("apewisdom")
     except Exception as e:
         log.error("ApeWisdom scan failed: %s", e)
+        _record_source_error("apewisdom")
 
     try:
         if cfg.get("social.reddit_enabled", False):
@@ -98,8 +120,10 @@ async def fetch_signals(tickers: list[str] = None) -> int:
             for result in results:
                 await db.insert_signal(result)
                 total += 1
+            _record_source_ok("reddit")
     except Exception as e:
         log.error("Reddit scan failed: %s", e)
+        _record_source_error("reddit")
 
     try:
         if cfg.get("social.stocktwits_enabled", False):
@@ -107,8 +131,10 @@ async def fetch_signals(tickers: list[str] = None) -> int:
             for result in results:
                 await db.insert_signal(result)
                 total += 1
+            _record_source_ok("stocktwits")
     except Exception as e:
         log.error("StockTwits scan failed: %s", e)
+        _record_source_error("stocktwits")
 
     try:
         if cfg.get("social.google_trends_enabled", True):
@@ -271,6 +297,7 @@ async def run_live(stop_event: asyncio.Event):
             asyncio.create_task(fetch_loop(combined_stop, interval=300)),
             asyncio.create_task(price_outcome_loop(combined_stop)),
             asyncio.create_task(youtube_poll_loop(combined_stop)),
+            asyncio.create_task(source_health_updater_loop(combined_stop)),
         ]
         if cfg.get("scanners.sec_background_watchers_enabled", False):
             tasks.extend([
@@ -367,9 +394,12 @@ async def _fetch_price(ticker: str) -> float:
             if resp.status != 200:
                 return 0.0
             data = await resp.json()
-        return float(data.get("c") or 0.0)
+        price = float(data.get("c") or 0.0)
+        _record_source_ok("finnhub")
+        return price
     except Exception as e:
         log.debug("Price fetch failed for $%s: %s", ticker, e)
+        _record_source_error("finnhub")
         return 0.0
 
 
@@ -506,19 +536,46 @@ async def _run_cross_reference_and_followup(
         log.error("Cross-reference follow-up failed for $%s: %s", ticker, e, exc_info=True)
 
 
+async def source_health_updater_loop(stop_event: asyncio.Event) -> None:
+    """Periodically flush in-process source stats to the source_health DB table."""
+    interval = cfg.get("source_health.poll_interval", 60)
+    while True:
+        try:
+            now = time.time()
+            for source_id, stats in list(_source_stats.items()):
+                calls = stats["calls"]
+                errors = stats["errors"]
+                error_rate = errors / calls if calls > 0 else 0.0
+                freshness = now - stats["last_ok"] if stats["last_ok"] > 0 else 9999.0
+                await db.upsert_source_health(source_id, stats["last_ok"], error_rate, freshness)
+        except Exception as e:
+            log.error("Source health updater error: %s", e)
+        if stop_event.is_set():
+            break
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=interval)
+        except asyncio.TimeoutError:
+            continue
+
+
 async def nitter_poll_loop(stop_event: asyncio.Event):
     """Poll Nitter RSS feeds and hand any new tweets to the main pipeline."""
     poller = NitterPoller()
     healthy = await poller.health_check()
     if not healthy:
         log.warning("Nitter health check failed at startup")
+        _record_source_error("nitter")
+    else:
+        _record_source_ok("nitter")
 
     while not stop_event.is_set():
         try:
             for tweet_data in await poller.poll_all():
                 await process_tweet(tweet_data)
+            _record_source_ok("nitter")
         except Exception as e:
             log.error("Nitter poll loop error: %s", e, exc_info=True)
+            _record_source_error("nitter")
 
         try:
             await asyncio.wait_for(stop_event.wait(), timeout=poller.get_poll_interval())
@@ -542,9 +599,11 @@ def _fetch_yfinance_price(ticker: str) -> float:
         if history is not None and not history.empty:
             close = history["Close"].dropna()
             if not close.empty:
+                _record_source_ok("yfinance")
                 return float(close.iloc[-1])
     except Exception as e:
         log.debug("Outcome price fetch failed for $%s: %s", ticker, e)
+        _record_source_error("yfinance")
     return 0.0
 
 

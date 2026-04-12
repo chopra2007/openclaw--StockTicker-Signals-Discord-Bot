@@ -54,7 +54,8 @@ HELP_TEXT = """**OpenClaw Signal Engine — Commands**
 `!leaderboard` — analyst win rate rankings
 
 **Engine Health**
-`!nitter-health` — check if Nitter service is responding"""
+`!nitter-health` — check if Nitter service is responding
+`!source-health` — data source status table (freshness, error rate)"""
 
 
 def parse_command(content: str) -> Optional[tuple[str, list[str]]]:
@@ -160,6 +161,9 @@ async def route_command(
 
     elif command == "leaderboard":
         await _handle_leaderboard(channel_id, message_id)
+
+    elif command in ("source-health", "source_health"):
+        await _handle_source_health(channel_id, message_id)
 
     elif command in ("nitter-health", "nitter"):
         await _handle_nitter_health(channel_id, message_id)
@@ -677,6 +681,55 @@ async def _handle_leaderboard(channel_id: str, message_id: str) -> None:
     except Exception as e:
         log.error("Leaderboard command error: %s", e)
         await send_command_reply(channel_id, message_id, "Leaderboard unavailable.")
+
+
+async def _handle_source_health(channel_id: str, message_id: str) -> None:
+    """Show source health status table with freshness and error rate."""
+    try:
+        from consensus_engine import db, config as cfg
+        import time
+
+        rows = await db.get_all_source_health()
+        if not rows:
+            await send_command_reply(
+                channel_id, message_id,
+                "No source health data yet — engine must run at least one cycle first.",
+            )
+            return
+
+        critical = set(cfg.get("source_health.critical_sources", ["finnhub", "yfinance", "nitter"]))
+        source_max_age = cfg.get("source_health.source_max_age", {})
+        degraded_mult = cfg.get("source_health.degraded_freshness_multiplier", 5)
+        max_error_rate = cfg.get("source_health.max_error_rate", 0.3)
+
+        lines = ["**Source Health**", "```"]
+        lines.append(f"{'Source':<24} {'Status':<9} {'Freshness':>12} {'Err%':>5}")
+        lines.append("-" * 54)
+
+        for r in rows:
+            src = r["source_id"]
+            freshness = r["freshness_seconds"]
+            err_rate = r["error_rate"]
+            max_age = source_max_age.get(src, 300)
+
+            if r["last_heartbeat"] == 0 or freshness > max_age * degraded_mult:
+                status = "OFFLINE"
+            elif err_rate > max_error_rate or freshness > max_age * 2:
+                status = "DEGRADED"
+            else:
+                status = "OK"
+
+            crit_flag = "*" if src in critical else " "
+            fresh_str = f"{int(freshness)}s ago" if freshness < 9990 else "never"
+            err_str = f"{err_rate * 100:.0f}%"
+            lines.append(f"{crit_flag}{src:<23} {status:<9} {fresh_str:>12} {err_str:>5}")
+
+        lines.append("```")
+        lines.append("_* = critical source_")
+        await send_command_reply(channel_id, message_id, "\n".join(lines))
+    except Exception as e:
+        log.error("Source-health command error: %s", e)
+        await send_command_reply(channel_id, message_id, "Source health unavailable.")
 
 
 async def _handle_transcript(youtube_url: str, channel_id: str, message_id: str) -> None:

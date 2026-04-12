@@ -223,6 +223,57 @@ CREATE TABLE IF NOT EXISTS youtube_levels (
 );
 CREATE INDEX IF NOT EXISTS idx_youtube_levels_ticker ON youtube_levels(ticker);
 CREATE INDEX IF NOT EXISTS idx_youtube_levels_extracted ON youtube_levels(extracted_at);
+
+CREATE TABLE IF NOT EXISTS signal_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_type TEXT NOT NULL,
+    source_detail TEXT,
+    ticker TEXT NOT NULL,
+    direction TEXT,
+    quality_score REAL DEFAULT 0.5,
+    latency_sec REAL,
+    provenance TEXT,
+    model_version TEXT,
+    recorded_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_signal_events_ticker ON signal_events(ticker);
+CREATE INDEX IF NOT EXISTS idx_signal_events_source ON signal_events(source_type);
+CREATE INDEX IF NOT EXISTS idx_signal_events_recorded ON signal_events(recorded_at);
+
+CREATE TABLE IF NOT EXISTS decision_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticker TEXT NOT NULL,
+    decision TEXT NOT NULL,
+    final_score REAL NOT NULL,
+    contradiction_index REAL DEFAULT 0.0,
+    sources_json TEXT NOT NULL,
+    feature_vector_json TEXT,
+    weights_json TEXT,
+    recorded_at REAL NOT NULL,
+    outcome_price_at_alert REAL,
+    outcome_price_1h REAL,
+    outcome_price_24h REAL
+);
+CREATE INDEX IF NOT EXISTS idx_snapshots_ticker ON decision_snapshots(ticker);
+CREATE INDEX IF NOT EXISTS idx_snapshots_recorded ON decision_snapshots(recorded_at);
+CREATE INDEX IF NOT EXISTS idx_snapshots_decision ON decision_snapshots(decision);
+
+CREATE TABLE IF NOT EXISTS source_health (
+    source_id TEXT PRIMARY KEY,
+    last_heartbeat REAL NOT NULL DEFAULT 0.0,
+    error_rate REAL NOT NULL DEFAULT 0.0,
+    freshness_seconds REAL NOT NULL DEFAULT 9999.0,
+    updated_at REAL NOT NULL DEFAULT 0.0
+);
+
+CREATE TABLE IF NOT EXISTS source_performance (
+    entity_id TEXT NOT NULL,
+    horizon TEXT NOT NULL,
+    rolling_accuracy REAL DEFAULT 0.0,
+    sample_count INTEGER DEFAULT 0,
+    updated_at REAL NOT NULL DEFAULT 0.0,
+    PRIMARY KEY (entity_id, horizon)
+);
 """
 
 
@@ -939,3 +990,150 @@ async def get_youtube_levels_for_ticker(ticker: str, days: int = 7) -> list[dict
     )
     rows = await cursor.fetchall()
     return [dict(r) for r in rows]
+
+
+# ---------------------------------------------------------------------------
+# Signal events helpers
+# ---------------------------------------------------------------------------
+
+async def record_signal_event(
+    source_type: str,
+    ticker: str,
+    direction: str | None = None,
+    source_detail: str | None = None,
+    quality_score: float = 0.5,
+    latency_sec: float | None = None,
+    provenance: str | None = None,
+    model_version: str | None = None,
+) -> int:
+    """Record a signal event. Returns the new row ID."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        """INSERT INTO signal_events
+           (source_type, source_detail, ticker, direction, quality_score,
+            latency_sec, provenance, model_version, recorded_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (source_type, source_detail, ticker, direction, quality_score,
+         latency_sec, provenance, model_version, time.time()),
+    )
+    await conn.commit()
+    return cursor.lastrowid
+
+
+async def get_signal_events_for_ticker(ticker: str, window_seconds: int = 3600) -> list[dict]:
+    """Fetch signal events for a ticker within the rolling window."""
+    conn = await get_db()
+    cutoff = time.time() - window_seconds
+    cursor = await conn.execute(
+        """SELECT id, source_type, source_detail, ticker, direction, quality_score,
+                  latency_sec, provenance, model_version, recorded_at
+           FROM signal_events
+           WHERE ticker = ? AND recorded_at >= ?
+           ORDER BY recorded_at DESC""",
+        (ticker, cutoff),
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
+
+
+# ---------------------------------------------------------------------------
+# Decision snapshot helpers
+# ---------------------------------------------------------------------------
+
+async def record_decision_snapshot(
+    ticker: str,
+    decision: str,
+    final_score: float,
+    sources_json: str,
+    contradiction_index: float = 0.0,
+    feature_vector_json: str | None = None,
+    weights_json: str | None = None,
+    outcome_price_at_alert: float | None = None,
+) -> int:
+    """Record a decision snapshot. Returns the new row ID."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        """INSERT INTO decision_snapshots
+           (ticker, decision, final_score, contradiction_index, sources_json,
+            feature_vector_json, weights_json, recorded_at, outcome_price_at_alert)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (ticker, decision, final_score, contradiction_index, sources_json,
+         feature_vector_json, weights_json, time.time(), outcome_price_at_alert),
+    )
+    await conn.commit()
+    return cursor.lastrowid
+
+
+async def get_recent_decision_snapshots(ticker: str, limit: int = 10) -> list[dict]:
+    """Get the most recent decision snapshots for a ticker."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT id, ticker, decision, final_score, contradiction_index,
+                  sources_json, feature_vector_json, weights_json, recorded_at,
+                  outcome_price_at_alert, outcome_price_1h, outcome_price_24h
+           FROM decision_snapshots
+           WHERE ticker = ?
+           ORDER BY recorded_at DESC LIMIT ?""",
+        (ticker, limit),
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def update_snapshot_outcomes(
+    snapshot_id: int,
+    outcome_price_1h: float | None = None,
+    outcome_price_24h: float | None = None,
+) -> None:
+    """Backfill price outcomes on a decision snapshot."""
+    conn = await get_db()
+    await conn.execute(
+        """UPDATE decision_snapshots
+           SET outcome_price_1h = COALESCE(?, outcome_price_1h),
+               outcome_price_24h = COALESCE(?, outcome_price_24h)
+           WHERE id = ?""",
+        (outcome_price_1h, outcome_price_24h, snapshot_id),
+    )
+    await conn.commit()
+
+
+# ---------------------------------------------------------------------------
+# Source health helpers
+# ---------------------------------------------------------------------------
+
+async def upsert_source_health(
+    source_id: str,
+    last_heartbeat: float,
+    error_rate: float,
+    freshness_seconds: float,
+) -> None:
+    """Upsert source health record."""
+    conn = await get_db()
+    await conn.execute(
+        """INSERT OR REPLACE INTO source_health
+           (source_id, last_heartbeat, error_rate, freshness_seconds, updated_at)
+           VALUES (?, ?, ?, ?, ?)""",
+        (source_id, last_heartbeat, error_rate, freshness_seconds, time.time()),
+    )
+    await conn.commit()
+
+
+async def get_all_source_health() -> list[dict]:
+    """Get all source health records, ordered by source_id."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT source_id, last_heartbeat, error_rate, freshness_seconds, updated_at FROM source_health ORDER BY source_id"
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def get_source_health(source_id: str) -> dict | None:
+    """Get health record for a single source."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT source_id, last_heartbeat, error_rate, freshness_seconds, updated_at FROM source_health WHERE source_id = ?",
+        (source_id,),
+    )
+    row = await cursor.fetchone()
+    return dict(row) if row else None
