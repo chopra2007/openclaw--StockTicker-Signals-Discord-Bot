@@ -133,8 +133,8 @@ async def test_parse_tweet_llm_call():
         "summary": "NVDA breakout"
     })
 
-    with patch("consensus_engine.analysis.tweet_parser._call_openrouter",
-               new_callable=AsyncMock, return_value=mock_response):
+    with patch("consensus_engine.analysis.tweet_parser.process_multimodal_tweet",
+               new_callable=AsyncMock, return_value=json.loads(mock_response)):
         tweet = await parse_tweet(
             url="https://x.com/whales/123",
             analyst="unusual_whales",
