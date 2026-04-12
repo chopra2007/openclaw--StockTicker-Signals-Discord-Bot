@@ -147,7 +147,7 @@ async def score_confidence(ticker: str,
                 data = await resp.json()
 
         # Extract the response text
-        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        content = data.get("choices", [{}])[0].get("message", {}).get("content") or ""
         if not content:
             return 0.0, "Empty LLM response"
 

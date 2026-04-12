@@ -95,20 +95,20 @@ async def _call_openrouter(user_prompt: str) -> str:
                 {"role": "system", "content": _SYSTEM_PROMPT},
                 {"role": "user", "content": user_prompt},
             ],
-            "max_tokens": 512,
+            "max_tokens": 2048,
             "temperature": 0.1,
         }
 
         async with session.post(
             url, headers=headers, json=payload,
-            timeout=aiohttp.ClientTimeout(total=15),
+            timeout=aiohttp.ClientTimeout(total=20),
         ) as resp:
             if resp.status != 200:
                 log.warning("OpenRouter error (%d) for tweet parse", resp.status)
                 return ""
             data = await resp.json()
 
-    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+    content = data.get("choices", [{}])[0].get("message", {}).get("content") or ""
     return content.strip()
 
 

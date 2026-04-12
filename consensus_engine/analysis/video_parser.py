@@ -96,7 +96,7 @@ async def _call_groq(user_prompt: str) -> str:
                     {"role": "system", "content": _SYSTEM_PROMPT},
                     {"role": "user", "content": user_prompt},
                 ],
-                "max_tokens": 1024,
+                "max_tokens": 2048,
                 "temperature": 0.1,
             }
 
@@ -109,7 +109,10 @@ async def _call_groq(user_prompt: str) -> str:
                     return await _call_openrouter(user_prompt)
                 data = await resp.json()
 
-        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        content = data.get("choices", [{}])[0].get("message", {}).get("content") or ""
+        if not content:
+            log.debug("Groq empty content, falling back to OpenRouter")
+            return await _call_openrouter(user_prompt)
         return content.strip()
     except Exception as e:
         log.warning("Groq call error: %s, trying OpenRouter", e)
@@ -137,20 +140,20 @@ async def _call_openrouter(user_prompt: str) -> str:
                     {"role": "system", "content": _SYSTEM_PROMPT},
                     {"role": "user", "content": user_prompt},
                 ],
-                "max_tokens": 1024,
+                "max_tokens": 4096,
                 "temperature": 0.1,
             }
 
             async with session.post(
                 url, headers=headers, json=payload,
-                timeout=aiohttp.ClientTimeout(total=20),
+                timeout=aiohttp.ClientTimeout(total=30),
             ) as resp:
                 if resp.status != 200:
                     log.warning("OpenRouter error (%d) for video parse", resp.status)
                     return ""
                 data = await resp.json()
 
-        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        content = data.get("choices", [{}])[0].get("message", {}).get("content") or ""
         return content.strip()
     except Exception as e:
         log.warning("OpenRouter call error: %s", e)
