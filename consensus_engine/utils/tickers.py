@@ -64,6 +64,22 @@ BLACKLIST: set[str] = {
     "SPY", "QQQ", "JOSE",
 }
 
+# Known institution names whose ticker symbols should be excluded when full name appears
+_INSTITUTION_TICKERS = {
+    "MS": ["morgan stanley"],
+    "GS": ["goldman sachs"],
+    "JPM": ["jp morgan", "jpmorgan", "chase"],
+    "C": ["citigroup", "citi"],
+    "BAC": ["bank of america", "bofa"],
+    "WFC": ["wells fargo"],
+    "BLK": ["blackrock"],
+    "SCHW": ["charles schwab"],
+    "AXP": ["american express"],
+    "CS": ["credit suisse"],
+    "UBS": ["ubs"],
+    "DB": ["deutsche bank"],
+}
+
 _TICKER_PATTERN = re.compile(r'(?<!\w)\$([A-Z]{1,5})(?!\w)|(?<!\w)([A-Z]{2,5})(?!\w)')
 
 
@@ -72,13 +88,27 @@ def extract_tickers(text: str) -> set[str]:
 
     Matches both $TICKER and plain TICKER formats.
     Filters against blacklist and validates format.
+    Excludes tickers that appear as part of known institution names.
     """
+    import logging
+    log = logging.getLogger("tickers")
     matches = _TICKER_PATTERN.findall(text)
     tickers = set()
+    text_lower = text.lower()
+    
     for dollar_match, plain_match in matches:
         ticker = dollar_match or plain_match
         if ticker and ticker not in BLACKLIST and not ticker.isdigit():
-            tickers.add(ticker)
+            # Skip if ticker matches institution name in text
+            if ticker in _INSTITUTION_TICKERS:
+                for phrase in _INSTITUTION_TICKERS[ticker]:
+                    if phrase in text_lower:
+                        log.debug(f"Skipping {ticker} - appears as institution: {phrase}")
+                        break
+                else:
+                    tickers.add(ticker)
+            else:
+                tickers.add(ticker)
     return tickers
 
 

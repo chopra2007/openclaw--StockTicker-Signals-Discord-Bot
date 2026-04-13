@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1775470290584,
+  "lastScanned": 1775950740462,
   "projectRoot": "/root/.openclaw/workspace",
   "techStack": {
     "languages": [
@@ -45,7 +45,7 @@
       "path": "backup1_2026-03-12",
       "purpose": null,
       "fileCount": 6,
-      "lastAccessed": 1775470290573,
+      "lastAccessed": 1775950740455,
       "keyFiles": [
         "COMMANDS.md",
         "HEARTBEAT.md",
@@ -58,7 +58,7 @@
       "path": "backup2_2026-03-15",
       "purpose": null,
       "fileCount": 23,
-      "lastAccessed": 1775470290573,
+      "lastAccessed": 1775950740456,
       "keyFiles": [
         "AGENTS.md",
         "COMMANDS.md",
@@ -71,7 +71,7 @@
       "path": "config",
       "purpose": "Configuration files",
       "fileCount": 2,
-      "lastAccessed": 1775470290574,
+      "lastAccessed": 1775950740456,
       "keyFiles": [
         "consensus.yaml",
         "nitter.conf"
@@ -80,21 +80,21 @@
     "consensus_engine": {
       "path": "consensus_engine",
       "purpose": null,
-      "fileCount": 7,
-      "lastAccessed": 1775470290574,
+      "fileCount": 11,
+      "lastAccessed": 1775950740457,
       "keyFiles": [
         "__init__.py",
         "__main__.py",
-        "config.py",
-        "cross_reference.py",
-        "db.py"
+        "adapter_protocols.py",
+        "api_adapters.py",
+        "config.py"
       ]
     },
     "docs": {
       "path": "docs",
       "purpose": "Documentation",
       "fileCount": 1,
-      "lastAccessed": 1775470290575,
+      "lastAccessed": 1775950740458,
       "keyFiles": [
         "SYSTEM_ISSUES.md"
       ]
@@ -103,7 +103,7 @@
       "path": "memory",
       "purpose": null,
       "fileCount": 5,
-      "lastAccessed": 1775470290575,
+      "lastAccessed": 1775950740458,
       "keyFiles": [
         "2026-03-15.md",
         "2026-03-28-discord-bot-fix.md",
@@ -116,70 +116,88 @@
       "path": "skills",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1775470290576,
+      "lastAccessed": 1775950740458,
       "keyFiles": []
     },
     "tests": {
       "path": "tests",
       "purpose": "Test files",
-      "fileCount": 24,
-      "lastAccessed": 1775470290576,
+      "fileCount": 30,
+      "lastAccessed": 1775950740459,
       "keyFiles": [
         "__init__.py",
+        "test_adapters.py",
         "test_commands.py",
         "test_cross_reference.py",
-        "test_db.py",
-        "test_discord_alerts.py"
+        "test_db.py"
       ]
     }
   },
   "hotPaths": [
     {
       "path": "consensus_engine/main.py",
-      "accessCount": 76,
-      "lastAccessed": 1775471238169,
+      "accessCount": 132,
+      "lastAccessed": 1776013329515,
       "type": "file"
     },
     {
       "path": "consensus_engine/db.py",
-      "accessCount": 31,
-      "lastAccessed": 1775471197829,
-      "type": "file"
-    },
-    {
-      "path": "consensus_engine/cross_reference.py",
-      "accessCount": 30,
-      "lastAccessed": 1775421717306,
+      "accessCount": 62,
+      "lastAccessed": 1776029301635,
       "type": "file"
     },
     {
       "path": "",
-      "accessCount": 19,
-      "lastAccessed": 1775387579305,
+      "accessCount": 48,
+      "lastAccessed": 1776029303000,
       "type": "directory"
+    },
+    {
+      "path": "consensus_engine/cross_reference.py",
+      "accessCount": 47,
+      "lastAccessed": 1776028854262,
+      "type": "file"
+    },
+    {
+      "path": "consensus_engine/alerts/discord.py",
+      "accessCount": 37,
+      "lastAccessed": 1776029236348,
+      "type": "file"
+    },
+    {
+      "path": "config/consensus.yaml",
+      "accessCount": 25,
+      "lastAccessed": 1776013349899,
+      "type": "file"
+    },
+    {
+      "path": "consensus_engine/alerts/commands.py",
+      "accessCount": 23,
+      "lastAccessed": 1776029315934,
+      "type": "file"
     },
     {
       "path": "consensus_engine",
-      "accessCount": 19,
-      "lastAccessed": 1775389747011,
+      "accessCount": 20,
+      "lastAccessed": 1775875889091,
       "type": "directory"
     },
     {
+      "path": "consensus_engine/models.py",
+      "accessCount": 20,
+      "lastAccessed": 1776028877416,
+      "type": "file"
+    },
+    {
       "path": "consensus_engine/analysis/technical.py",
-      "accessCount": 15,
-      "lastAccessed": 1775381787530,
+      "accessCount": 18,
+      "lastAccessed": 1775937747311,
       "type": "file"
     },
     {
       "path": "consensus_engine/scanners/social.py",
       "accessCount": 15,
       "lastAccessed": 1775471127182,
-      "type": "file"
-    },
-    {
-      "path": "consensus_engine/alerts/discord.py",
-      "accessCount": 14,
-      "lastAccessed": 1775387602125,
       "type": "file"
     },
     {
@@ -190,14 +208,14 @@
     },
     {
       "path": "consensus_engine/scanners/news.py",
-      "accessCount": 11,
-      "lastAccessed": 1774930778184,
+      "accessCount": 12,
+      "lastAccessed": 1775937747525,
       "type": "file"
     },
     {
-      "path": "config/consensus.yaml",
+      "path": "consensus_engine/analysis/tweet_parser.py",
       "accessCount": 11,
-      "lastAccessed": 1775471760606,
+      "lastAccessed": 1775986387772,
       "type": "file"
     },
     {
@@ -207,9 +225,39 @@
       "type": "file"
     },
     {
+      "path": "consensus_engine/analysis/llm_scorer.py",
+      "accessCount": 9,
+      "lastAccessed": 1775986435016,
+      "type": "file"
+    },
+    {
       "path": "tests/test_cross_reference.py",
+      "accessCount": 9,
+      "lastAccessed": 1776013368338,
+      "type": "file"
+    },
+    {
+      "path": "requirements.txt",
+      "accessCount": 9,
+      "lastAccessed": 1776029201794,
+      "type": "file"
+    },
+    {
+      "path": "consensus_engine/scanners/discord_tweetshift.py",
       "accessCount": 8,
-      "lastAccessed": 1774974638626,
+      "lastAccessed": 1775624603783,
+      "type": "file"
+    },
+    {
+      "path": "docs/SYSTEM_ISSUES.md",
+      "accessCount": 7,
+      "lastAccessed": 1775539086097,
+      "type": "file"
+    },
+    {
+      "path": "consensus_engine/config.py",
+      "accessCount": 7,
+      "lastAccessed": 1776012968379,
       "type": "file"
     },
     {
@@ -219,15 +267,9 @@
       "type": "file"
     },
     {
-      "path": "docs/SYSTEM_ISSUES.md",
+      "path": "consensus_engine/utils/http.py",
       "accessCount": 6,
-      "lastAccessed": 1775383111680,
-      "type": "file"
-    },
-    {
-      "path": "consensus_engine/models.py",
-      "accessCount": 6,
-      "lastAccessed": 1775387610690,
+      "lastAccessed": 1775731496433,
       "type": "file"
     },
     {
@@ -243,33 +285,33 @@
       "type": "file"
     },
     {
-      "path": "consensus_engine/scanners/discord_tweetshift.py",
-      "accessCount": 5,
-      "lastAccessed": 1775421718723,
-      "type": "file"
-    },
-    {
-      "path": "consensus_engine/analysis/tweet_parser.py",
-      "accessCount": 4,
-      "lastAccessed": 1775387604603,
-      "type": "file"
-    },
-    {
       "path": "CLAUDE.md",
       "accessCount": 4,
       "lastAccessed": 1775387609422,
       "type": "file"
     },
     {
-      "path": "consensus_engine/utils/http.py",
+      "path": "consensus_engine/utils/__init__.py",
       "accessCount": 4,
-      "lastAccessed": 1775421970170,
+      "lastAccessed": 1775624699488,
       "type": "file"
     },
     {
-      "path": "consensus_engine/utils/__init__.py",
-      "accessCount": 3,
-      "lastAccessed": 1774930836364,
+      "path": "consensus_engine/scanners/nitter.py",
+      "accessCount": 4,
+      "lastAccessed": 1775875897665,
+      "type": "file"
+    },
+    {
+      "path": "tests/test_db.py",
+      "accessCount": 4,
+      "lastAccessed": 1775986415754,
+      "type": "file"
+    },
+    {
+      "path": "consensus_engine/__main__.py",
+      "accessCount": 4,
+      "lastAccessed": 1775986439071,
       "type": "file"
     },
     {
@@ -285,51 +327,27 @@
       "type": "file"
     },
     {
-      "path": "consensus_engine/config.py",
+      "path": "consensus_engine/scanners/sec_edgar.py",
       "accessCount": 3,
-      "lastAccessed": 1775387599873,
+      "lastAccessed": 1775937752120,
       "type": "file"
     },
     {
-      "path": "consensus_engine/scanners/nitter.py",
+      "path": "README.md",
       "accessCount": 3,
-      "lastAccessed": 1775421718509,
-      "type": "file"
-    },
-    {
-      "path": "tests/test_db.py",
-      "accessCount": 3,
-      "lastAccessed": 1775471144807,
-      "type": "file"
-    },
-    {
-      "path": "requirements.txt",
-      "accessCount": 3,
-      "lastAccessed": 1775471166383,
+      "lastAccessed": 1775937762170,
       "type": "file"
     },
     {
       "path": "consensus_engine/utils/tickers.py",
-      "accessCount": 2,
-      "lastAccessed": 1774930629019,
-      "type": "file"
-    },
-    {
-      "path": "consensus_engine/scanners/sec_edgar.py",
-      "accessCount": 2,
-      "lastAccessed": 1774930649884,
+      "accessCount": 3,
+      "lastAccessed": 1776012967929,
       "type": "file"
     },
     {
       "path": "tests/test_news_cascade.py",
       "accessCount": 2,
       "lastAccessed": 1774930845123,
-      "type": "file"
-    },
-    {
-      "path": "consensus_engine/alerts/commands.py",
-      "accessCount": 2,
-      "lastAccessed": 1775005261518,
       "type": "file"
     },
     {
@@ -345,15 +363,15 @@
       "type": "file"
     },
     {
-      "path": "consensus_engine/__main__.py",
-      "accessCount": 1,
-      "lastAccessed": 1774854712052,
+      "path": "requirements-dev.txt",
+      "accessCount": 2,
+      "lastAccessed": 1775723321825,
       "type": "file"
     },
     {
-      "path": "consensus_engine/analysis/llm_scorer.py",
-      "accessCount": 1,
-      "lastAccessed": 1774930627646,
+      "path": "tests/test_discord_alerts.py",
+      "accessCount": 2,
+      "lastAccessed": 1775986416033,
       "type": "file"
     },
     {
@@ -387,21 +405,9 @@
       "type": "file"
     },
     {
-      "path": "tests/test_discord_alerts.py",
-      "accessCount": 1,
-      "lastAccessed": 1774930684487,
-      "type": "file"
-    },
-    {
       "path": "tests/test_nitter.py",
       "accessCount": 1,
       "lastAccessed": 1774930685043,
-      "type": "file"
-    },
-    {
-      "path": "README.md",
-      "accessCount": 1,
-      "lastAccessed": 1774976723335,
       "type": "file"
     },
     {
@@ -426,12 +432,6 @@
       "path": "pytest.ini",
       "accessCount": 1,
       "lastAccessed": 1775204032489,
-      "type": "file"
-    },
-    {
-      "path": "requirements-dev.txt",
-      "accessCount": 1,
-      "lastAccessed": 1775204221400,
       "type": "file"
     }
   ],

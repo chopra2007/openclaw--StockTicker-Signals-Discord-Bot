@@ -274,6 +274,11 @@ class CrossReferenceResult:
     sec_summary: str = ""
     llm_reasoning: str = ""
     options: Optional["OptionsResult"] = None
+    # Reliability engine fields (populated by cross_reference.py, default-safe)
+    reliability_decision: str = ""          # ALERT/WATCHLIST/IGNORE/UNCERTAIN/INSUFFICIENT_EVIDENCE/DEGRADED_MODE
+    contradiction_index: float = 0.0        # 0=unanimous, 1=perfectly split
+    reliability_weights: dict = field(default_factory=dict)  # per-source-type weight
+    suppressed: bool = False                # True when reliability gate blocks the alert
 
     @property
     def final_score(self) -> int:
