@@ -1,0 +1,115 @@
+"""Text model wrapper for tweet -> structured signal synthesis."""
+
+import json
+import re
+from typing import Any
+
+from . import model_config
+from .openrouter_client import chat_completion
+
+TEXT_PROMPT = """You are a stock market tweet classifier and trading signal synthesizer.
+
+Given tweet text and optional vision analysis JSON, return ONLY valid JSON with this schema:
+{
+  "type": "A|B|C|D",
+  "tickers": ["TICKER1"],
+  "direction": "long|short|neutral",
+  "options": {
+    "present": true,
+    "strike": null,
+    "expiry": null,
+    "type": null,
+    "target_price": null,
+    "profit_target_pct": null
+  },
+  "conviction": "high|medium|low",
+  "summary": "",
+  "final_signal": {
+    "ticker": "",
+    "signal": "bullish | bearish | neutral",
+    "confidence": 0.0,
+    "reason": "",
+    "key_levels": {
+      "bull_case": null,
+      "base_case": null,
+      "bear_case": null
+    },
+    "source_types": ["text"]
+  }
+}
+
+Rules:
+- If options details exist (strike/expiry/call/put), classify type C.
+- If no specific ticker, type D and empty tickers.
+- Exclude technical indicators (RSI, EMA, MACD, VWAP, SMA, ATR, RVOL) as tickers.
+- Use vision context if provided to enrich confidence, reason, and key_levels.
+- Ensure source_types includes "image" when vision context is provided.
+"""
+
+
+def _default_payload() -> dict[str, Any]:
+    return {
+        "type": "D",
+        "tickers": [],
+        "direction": "neutral",
+        "options": {
+            "present": False,
+            "strike": None,
+            "expiry": None,
+            "type": None,
+            "target_price": None,
+            "profit_target_pct": None,
+        },
+        "conviction": "medium",
+        "summary": "",
+        "final_signal": {
+            "ticker": "",
+            "signal": "neutral",
+            "confidence": 0.0,
+            "reason": "",
+            "key_levels": {"bull_case": None, "base_case": None, "bear_case": None},
+            "source_types": ["text"],
+        },
+    }
+
+
+def _parse_json_response(raw: str) -> dict[str, Any]:
+    if not raw:
+        return _default_payload()
+    cleaned = raw.strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+        cleaned = re.sub(r"\s*```$", "", cleaned)
+    try:
+        data = json.loads(cleaned)
+        payload = _default_payload()
+        payload.update({k: v for k, v in data.items() if k in payload})
+        final_signal = data.get("final_signal", {}) if isinstance(data, dict) else {}
+        if isinstance(final_signal, dict):
+            merged = payload["final_signal"]
+            merged.update({k: v for k, v in final_signal.items() if k in merged})
+            payload["final_signal"] = merged
+        return payload
+    except Exception:
+        return _default_payload()
+
+
+async def analyze_tweet(tweet_text: str, analyst: str, vision_output: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    user_context = {
+        "analyst": analyst,
+        "tweet_text": tweet_text,
+        "vision_output": vision_output or [],
+    }
+    raw = await chat_completion(
+        model_config.TEXT_MODEL,
+        [
+            {"role": "system", "content": TEXT_PROMPT},
+            {"role": "user", "content": json.dumps(user_context)},
+        ],
+        max_tokens=1800,
+        temperature=0.1,
+    )
+    parsed = _parse_json_response(raw)
+    if vision_output and "image" not in parsed["final_signal"].get("source_types", []):
+        parsed["final_signal"]["source_types"] = list({*parsed["final_signal"].get("source_types", []), "image"})
+    return parsed

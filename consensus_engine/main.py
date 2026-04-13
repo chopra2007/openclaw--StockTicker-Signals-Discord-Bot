@@ -446,7 +446,13 @@ async def process_tweet(raw_tweet: dict):
         return
     await db.mark_tweet_seen(tweet_url, analyst)
 
-    tweet = await parse_tweet(tweet_url, analyst, text, image_url=raw_tweet.get("image_url"))
+    tweet = await parse_tweet(
+        tweet_url,
+        analyst,
+        text,
+        image_url=raw_tweet.get("image_url"),
+        image_urls=raw_tweet.get("image_urls"),
+    )
     tweet.avatar_url = raw_tweet.get("avatar_url")
     tweet.display_name = raw_tweet.get("display_name")
 
