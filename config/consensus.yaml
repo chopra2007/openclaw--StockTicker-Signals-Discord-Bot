@@ -158,6 +158,8 @@ technical:
 # LLM Configuration (OpenRouter)
 llm:
   model: "minimax/minimax-m2.5"
+  text_model: "minimax/minimax-m2.5:free"
+  vision_model: "google/gemini-2.5-flash-preview"
   min_confidence: 70
   max_tokens: 1024
 
