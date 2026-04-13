@@ -42,6 +42,11 @@ alerts/discord.py      cross_reference.py (background)            |
 
 **Tweet ingestion** is handled by TweetShift, a third-party bot that mirrors analyst tweets into a designated Discord channel. The engine connects to the Discord Gateway, intercepts those messages, and feeds them into the pipeline. Nitter RSS polling is available as a fallback but currently disabled.
 
+For tweet parsing, the engine now uses a **hybrid multimodal router**:
+- **Text-only tweet** → text model only
+- **Tweet with image(s)** → vision model per image, then text model synthesis
+- Model defaults live in `config/consensus.yaml` and can be overridden via env (`TEXT_MODEL`, `VISION_MODEL`) for one-line runtime swaps.
+
 ---
 
 ## Features
@@ -143,6 +148,9 @@ Create `/root/.openclaw/.env` (sourced at startup):
 ```bash
 export FINNHUB_API_KEY="your_key"
 export OPENROUTER_API_KEY="your_key"
+# Optional runtime overrides (defaults also exist in config/consensus.yaml)
+export TEXT_MODEL="minimax/minimax-m2.5:free"
+export VISION_MODEL="google/gemini-2.5-flash-preview"
 export DISCORD_BOT_TOKEN="your_token"
 export DISCORD_CHANNEL_ID="your_alerts_channel_id"
 export DISCORD_FEED_CHANNEL_ID="your_tweetshift_channel_id"
@@ -151,6 +159,22 @@ export SERPAPI_API_KEY="your_key"
 ```
 
 Then `source /root/.openclaw/.env` before running.
+
+### Swap models instantly (no code change)
+
+To change the vision model, only update your `.env` and restart:
+
+```bash
+export VISION_MODEL="openai/gpt-4.1-mini"
+```
+
+Similarly, to switch text model:
+
+```bash
+export TEXT_MODEL="anthropic/claude-3.5-sonnet"
+```
+
+OpenClaw will pick these up automatically from `models/model_config.py`.
 
 ### 3. Discord bot setup
 
