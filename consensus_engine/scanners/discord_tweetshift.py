@@ -229,24 +229,25 @@ class DiscordTweetShiftListener:
                         tweet_data.get("analyst", ""),
                     )
                     return
-                image_url = None
+                image_urls = []
                 for att in data.get("attachments", []):
                     ct = att.get("content_type", "")
                     fn = att.get("filename", "")
                     if ct.startswith("image/") or fn.lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".webp")):
-                        image_url = att["url"]
-                        break
-                if not image_url:
-                    for embed in data.get("embeds", []):
-                        image_url = embed.get("image", {}).get("url")
-                        if image_url:
-                            break
-                if not image_url:
-                    for embed in data.get("embeds", []):
-                        image_url = embed.get("thumbnail", {}).get("url")
-                        if image_url:
-                            break
-                tweet_data["image_url"] = image_url
+                        image_urls.append(att["url"])
+                for embed in data.get("embeds", []):
+                    image_url = embed.get("image", {}).get("url")
+                    if image_url:
+                        image_urls.append(image_url)
+                for embed in data.get("embeds", []):
+                    thumb_url = embed.get("thumbnail", {}).get("url")
+                    if thumb_url:
+                        image_urls.append(thumb_url)
+
+                # De-duplicate while preserving order
+                deduped = list(dict.fromkeys(image_urls))
+                tweet_data["image_urls"] = deduped
+                tweet_data["image_url"] = deduped[0] if deduped else None
                 log.info(
                     "TweetShift tweet: @%s — %.80s",
                     tweet_data["analyst"],
