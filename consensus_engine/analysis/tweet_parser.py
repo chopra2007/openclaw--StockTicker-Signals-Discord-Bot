@@ -12,6 +12,8 @@ import json
 import re
 from typing import Optional
 
+import aiohttp
+
 from consensus_engine.models import (
     ParsedTweet, OptionsDetail, TweetType, Direction, Conviction,
 )
