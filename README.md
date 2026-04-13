@@ -6,39 +6,77 @@ Analyst tweets on Twitter/X trigger instant Discord alerts. Cross-reference sour
 
 ## Architecture
 
+### Unified Signal Pipeline (Phase A–D: FinalYTplan)
+
 ```
-TweetShift (Discord Gateway)
-    |
-    v
-tweet_parser.py (LLM classify: A=ticker, B=macro, C=options, D=sentiment)
-    |
-    v
-Quality Gate (ticker validation, market-cap $100M floor, min score, conviction check)
-    |
-    v
-+----------------------------+------------------------------------+
-|                            |                                    |
-v                            v                                    |
-alerts/discord.py      cross_reference.py (background)            |
-(Phase 1: instant ping)     |                                    |
-                             +--------+--------+--------+----+    |
-                             |        |        |        |    |    |
-                             v        v        v        v    v    |
-                          news.py  technical  social  sec   opts  |
-                          (4-tier)  .py       .py    edgar  .py   |
-                                                     .py         |
-                             +--------+--------+--------+----+    |
-                             |                                    |
-                             v                                    |
-                       llm_scorer.py (confidence boost)           |
-                             |                                    |
-                             v                                    |
-                       alerts/discord.py                          |
-                       (Phase 2: score reply)                     |
-                             |                                    |
-                             v                                    |
-                       price_followup_loop (1h + 24h tracking) <--+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ Signal Sources → Signal Events (idempotent, normalized)                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ • TweetShift (Discord) → tweet_parser.py (multimodal: text + vision)        │
+│ • YouTube transcripts → video_parser.py (quality-gated extraction)          │
+│ • News cascade (Finnhub/RSS/Brave/SearXNG)                                  │
+│ • Technical (RVOL, RSI, EMA, ATR via Finnhub + yfinance)                    │
+│ • Social (Reddit, ApeWisdom, Google Trends)                                 │
+│ • SEC EDGAR (8-K, Form 4, 13D filings)                                      │
+│ • Options flow (unusual vol/OI via yfinance)                                │
+│                      ↓                                                       │
+│          write → signal_events table (idempotency_key UNIQUE)               │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                |
+                    ┌───────────┴───────────┐
+                    v                       v
+            Phase 1: Instant Alert    Phase 2: Score + Reliability
+            (Discord ping)            (Async cross_reference)
+                    |                       |
+                    v                       v
+            Quality Gate            snapshot_builder.py
+            + Basic Score           (assemble evidence window)
+                    |                       |
+                    v                       v
+            alerts/discord.py       reliability_engine.py
+            (Phase 1 embed)         (W = R_class × R_entity × Q × D × I)
+                    |                       |
+                    |                   Compute:
+                    |                   • p_up, p_down, p_flat
+                    |                   • contradiction index C
+                    |                   • direction + confidence
+                    |                   • reason codes
+                    |                       |
+                    |                   Classify:
+                    |                   • ALERT / WATCHLIST / IGNORE
+                    |                   • UNCERTAIN (C > 0.75)
+                    |                   • INSUFFICIENT_EVIDENCE
+                    |                   • DEGRADED_MODE
+                    |                       |
+                    |                       v
+                    |               calibration.py
+                    |               (isotonic regression)
+                    |                       |
+                    |                       v
+                    |               alerts/discord.py
+                    |               (Phase 2 embed with
+                    └──────────────→ calibrated confidence
+                                     + contradiction
+                                     + freshness
+                                     + reason codes)
+                                            |
+                                            v
+                                    price_followup_loop
+                                    (1h + 24h tracking)
 ```
+
+### Signal Deduplication & Idempotency
+
+- Every signal gets an idempotency key: `hash(source_type + source_id + origin_ref + as_of_bucket + parser_version)`
+- signal_events table has UNIQUE(idempotency_key) to prevent reprocessing
+- decision_snapshots table records all (ticker, horizon, as_of) snapshots for calibration/backtest
+
+### Source Health & Degraded Mode
+
+- `source_health` table tracks per-source heartbeat, error rate, and freshness
+- If ≥2 critical sources (Finnhub, yfinance, Nitter) are stale → DEGRADED_MODE
+- Regime shift detector (vol + breadth + trend) raises abstain threshold temporarily
+- `!source-health` command renders live status dashboard
 
 **Tweet ingestion** is handled by TweetShift, a third-party bot that mirrors analyst tweets into a designated Discord channel. The engine connects to the Discord Gateway, intercepts those messages, and feeds them into the pipeline. Nitter RSS polling is available as a fallback but currently disabled.
 
@@ -51,20 +89,31 @@ For tweet parsing, the engine now uses a **hybrid multimodal router**:
 
 ## Features
 
-### Signal Pipeline
-- **Two-phase Discord alerts** — Phase 1 instant ping with ticker/direction/price, Phase 2 reply with full score breakdown
+### Signal Pipeline & Reliability (FinalYTplan)
+- **Two-phase Discord alerts** — Phase 1 instant ping with ticker/direction/price, Phase 2 reply with probabilistic decision + confidence + reason codes
+- **Probabilistic classification** — emits ALERT/WATCHLIST/IGNORE/UNCERTAIN/INSUFFICIENT_EVIDENCE/DEGRADED_MODE instead of just a score
+- **Reliability-weighted evidence** — each source gets weight `W = R_class × R_entity × Q × D × I`:
+  - `R_class` = source-type prior (config-driven)
+  - `R_entity` = rolling historical accuracy from source_performance table
+  - `Q` = extraction quality score
+  - `D` = freshness decay (`exp(-age/half_life)`)
+  - `I` = independence discount (cluster overlap detection)
+- **Contradiction detection** — `C = min(bull, bear) / max(bull, bear)` gates UNCERTAIN when C > 0.75
+- **Calibrated confidence** — isotonic regression (sklearn) trained on rolling decision_snapshots
 - **Quality gate** — blocks low-quality signals before alerting (ticker validation, conviction check, minimum base score, text length)
-- **LLM tweet parser** — classifies tweets into 4 types via OpenRouter; extracts tickers, direction (long/short/neutral), conviction, and options details
+- **Multimodal tweet parser** — classifies tweets into 4 types via OpenRouter; text-only or vision+text hybrid; extracts tickers, direction (long/short/neutral), conviction, and options details
 
-### Cross-Reference Sources
+### Cross-Reference Sources (Evidence Graph)
+- **YouTube transcripts** — `video_parser.py` extracts ticker mentions + direction + price levels + macro thesis. Quality gates: min 250 words, symbol disambiguation (reject ambiguous tickers), negation handling ("not bullish" flips to neutral). Stores to signal_events with source_type='youtube'
 - **News catalyst** — 4-tier cascade: Finnhub company news, Google News RSS, Brave Search, self-hosted SearXNG. Tiered scoring: high-impact catalysts (Earnings Beat, M&A, FDA Approval) score +25, medium (Analyst Upgrade, SEC Filing) +15, low (Partnership, Patent) +8
-- **SEC EDGAR** — checks for recent 8-K, 10-K, 10-Q, Form 4, SC 13D/G filings within 48 hours
-- **Technical filters** — direction-aware (long vs short thresholds): RVOL, VWAP, RSI, EMA crossover, price change %, ATR breakout. +2 points per passing filter, max +12
+- **SEC EDGAR** — checks for recent 8-K, 10-K, 10-Q, Form 4, SC 13D/G filings within 48 hours. Form 4 (insider trading) adds +15 to reliability_engine
+- **Technical filters** — direction-aware (long vs short thresholds): RVOL, VWAP, RSI, EMA crossover, price change %, ATR breakout. Weighted by freshness and historical accuracy
 - **Social scanners** — Reddit JSON API (5 subreddits), ApeWisdom trending, Google Trends spike detection
 - **Options flow** — detects unusual volume/open-interest ratios (>3x with >100 contracts) via yfinance option chains; market-wide sweep scanner for proactive detection
 - **Other analysts** — checks if multiple tracked analysts mention the same ticker within 1 hour (capped at 3 for scoring)
 - **LLM confidence boost** — called only when technical or catalyst data exists, up to +15 points
 - **Cross-reference cache** — 5-minute TTL in-memory cache prevents redundant API calls when multiple analysts tweet the same ticker
+- **Freshness policy** — each source has max-age windows (market: 60s, options: 30m, news: 90m, X: 4h, YouTube: 24h). Stale sources marked STALE and weighted down
 
 ### Background Loops
 - **Reddit trend digest** — crawls 7 finance subreddits every 4 hours, extracts trending tickers, posts digest to Discord
@@ -94,17 +143,19 @@ For tweet parsing, the engine now uses a **hybrid multimodal router**:
 **On-Demand Scans**
 | Command | Description |
 |---|---|
-| `!scan <TICKER>` | Full cross-reference on any ticker (news + technical + social + SEC + options + LLM) |
+| `!scan <TICKER>` | Full cross-reference on any ticker (news + technical + social + SEC + options + YouTube + LLM) |
 | `!news <TICKER>` | Run news cascade standalone — returns headline and catalyst type |
 | `!sec <TICKER>` | Recent SEC filings (8-K, Form 4 insider trades, 13D activist, etc.) |
 | `!options <TICKER>` | Unusual options activity — call/put vol/OI ratios and top contract |
 | `!technical <TICKER> [long\|short]` | Run 6 technical filters with pass/fail (defaults to long) |
 | `!google-trends <TICKER>` | Google Trends interest spike % for a ticker |
+| `!market-view <TICKER>` | Current probabilistic verdict: direction, P(up/down/flat), calibrated confidence, contradiction index |
+| `!levels <TICKER>` | Price levels from YouTube transcripts + signal events with condition text |
 
 **Ticker Intel**
 | Command | Description |
 |---|---|
-| `!signals <TICKER>` | Active signal counts by source (Twitter, Reddit, news, etc.) |
+| `!signals <TICKER>` | Active signal counts by source (Twitter, Reddit, news, YouTube, etc.) |
 | `!analysts <TICKER>` | Analysts who mentioned a ticker in the last hour |
 | `!active-tickers` | All tickers with active signals right now |
 | `!alert-history <TICKER>` | Past alerts with entry price and 1h/24h P&L outcomes |
@@ -120,6 +171,7 @@ For tweet parsing, the engine now uses a **hybrid multimodal router**:
 **Engine Health**
 | Command | Description |
 |---|---|
+| `!source-health` | Live dashboard of source statuses (heartbeat, error rate, freshness) with color-coded degradation |
 | `!nitter-health` | Check if Nitter Docker service is responding |
 
 ---
@@ -239,9 +291,53 @@ systemctl enable --now openclaw
 
 ---
 
-## Scoring Model
+## Scoring & Classification Model
 
-Alerts use additive scoring. Base score comes from analyst conviction; cross-reference sources add multipliers:
+### Reliability Weighting (Phase A–D: FinalYTplan)
+
+Each signal event gets a per-source weight:
+
+```
+W_i = R_class × R_entity × Q_i × D_i × I_i
+```
+
+Where:
+- **R_class** — Source-class reliability prior (e.g., youtube: 0.8, X: 0.7, news: 0.9). Config-driven.
+- **R_entity** — Rolling historical accuracy of the source entity from `source_performance` table. Defaults to 0.5 if insufficient samples.
+- **Q_i** — Extraction quality (0–1). From tweet parser confidence, transcript quality, option contract volume, etc.
+- **D_i** — Freshness decay: `exp(-age / half_life)`. Age in seconds; half_life from config per source.
+- **I_i** — Independence discount (0–1). Reduces weight for cluster overlaps (same URL reposted by multiple sources, identical text, etc.).
+
+**Direction mass:**
+```
+S_bull = Σ W_i × p_i(bull)
+S_bear = Σ W_i × p_i(bear)
+```
+
+**Contradiction:**
+```
+C = min(S_bull, S_bear) / max(S_bull, S_bear) + ε
+```
+
+### Classification Logic
+
+Given (S_bull, S_bear, C, evidence_mass):
+
+| Rule | Output |
+|------|--------|
+| `evidence_mass < 0.35` | `INSUFFICIENT_EVIDENCE` |
+| `C > 0.75` | `UNCERTAIN` |
+| `critical_source_stale` | `DEGRADED_MODE` |
+| `S_bull >> S_bear` | `ALERT` (if confidence > threshold) |
+| `S_bear >> S_bull` | `ALERT` (if confidence > threshold) |
+| `S_bull ≈ S_bear, mass > 0.35` | `WATCHLIST` |
+| low evidence mass | `IGNORE` |
+
+**Calibration:** Isotonic regression (sklearn) trained on rolling `decision_snapshots` to map raw confidence → calibrated confidence.
+
+### Legacy Scoring (Phase 1 only, backward-compatible)
+
+Base score from analyst conviction; cross-reference sources add multipliers:
 
 | Source | Points |
 |---|---|
@@ -258,7 +354,7 @@ Alerts use additive scoring. Base score comes from analyst conviction; cross-ref
 | Google Trends spike | +5 |
 | LLM confidence boost | up to +15 |
 
-Typical actionable alerts score 35–80+. The quality gate blocks alerts with a base score below 20 (LOW conviction with explicit direction now passes).
+Typical actionable alerts score 35–80+. Quality gate blocks alerts with a base score below 20.
 
 ---
 
@@ -302,6 +398,20 @@ All settings live in `config/consensus.yaml`. API keys reference `$ENV_VAR` synt
 | `volume_scanner` | Volume breakout: RVOL threshold, min price change |
 | `alerts` | Cooldown hours, max per hour, embed colors, min score |
 | `database` | SQLite path, signal TTL (2h), alert history retention |
+| `reliability` | Source-type priors (R_class), contradiction threshold (0.75), min evidence mass (0.35) |
+| `freshness_max_age` | Max age per source (market: 60s, options: 30m, news: 90m, X: 4h, youtube: 24h) |
+| `alerts` | suppress_when_degraded (bool), require_calibrated_confidence (bool), suppress_on list |
+
+### SQLite Schema (Phase A)
+
+**New tables from FinalYTplan:**
+- `signal_events` — immutable event records with idempotency_key (UNIQUE). Fields: event_id, as_of, source_type, source_id, ticker, horizon, signal_type, signal_payload (JSON), quality, origin_ref, parser_version
+- `decision_snapshots` — point-in-time snapshots of (ticker, horizon, as_of). Fields: snapshot_id, as_of, features (JSON), weights (JSON), output (JSON), versions (JSON)
+- `source_health` — per-source monitoring. Fields: source_id, last_heartbeat, error_rate, freshness_seconds
+- `source_performance` — rolling accuracy by entity+horizon. Fields: entity_id, horizon, rolling_accuracy, sample_count
+
+**Existing tables (preserved):**
+- `seen_tweets`, `active_signals`, `alert_history`, `ticker_validation_cache`, YouTube tables (`youtube_analysis`, `youtube_ticker_mentions`, `youtube_levels`, `youtube_macro`)
 
 ---
 
@@ -318,7 +428,11 @@ consensus_engine/
 │   ├── discord.py             # Two-phase alert delivery (instant ping + score followup)
 │   └── commands.py            # Discord command router (17 commands)
 ├── analysis/
-│   ├── tweet_parser.py        # LLM tweet classification via OpenRouter
+│   ├── tweet_parser.py        # Multimodal tweet classification (text + vision via OpenRouter)
+│   ├── video_parser.py        # YouTube transcript extraction (quality gates + negation handling)
+│   ├── snapshot_builder.py    # Assemble (ticker, horizon, as_of) evidence snapshot from signal_events
+│   ├── reliability_engine.py  # W = R_class × R_entity × Q × D × I; compute contradiction + direction
+│   ├── calibration.py         # Isotonic regression for confidence calibration
 │   ├── technical.py           # Direction-aware technical filters (Finnhub + yfinance)
 │   ├── llm_scorer.py          # LLM confidence boost scoring
 │   └── indicators.py          # RVOL, VWAP, RSI, EMA, ATR calculations
@@ -346,7 +460,10 @@ config/
 ├── nitter.conf                # Nitter Docker config
 └── searxng/settings.yml       # SearXNG Docker config
 
-tests/                         # 148 pytest tests
+scripts/
+└── backtest.py                # Replay decision_snapshots vs price outcomes; accuracy + calibration curves
+
+tests/                         # 280 pytest tests
 sources.json                   # Analyst Twitter accounts to monitor
 docker-compose.yaml            # Nitter + SearXNG services
 ```
@@ -370,16 +487,42 @@ Both are configured in `docker-compose.yaml` with health checks and auto-restart
 python3 -m pytest tests/ -v
 ```
 
-148 tests covering: tweet parsing (+ fallback direction detection), cross-reference scoring (+ tiered catalysts, analyst cap, xref cache), DB operations, Discord alerts, quality gate, technical direction filters, Reddit trend pipeline (+ JSON API), options scanner (+ sweep detection), SEC EDGAR, SEC 8-K watcher, pre-market gap scanner, volume breakout scanner, earnings calendar, ticker validation, news cascade, TweetShift listener, price followup, and Discord commands.
+280 tests covering:
+- **Phase A:** signal_events + decision_snapshots schema, snapshot_builder, reliability_engine weighting/contradiction/classification
+- **Phase B:** video_parser (quality gates, negation handling, disambiguation), cross_reference × reliability_engine integration
+- **Phase C:** calibration (isotonic regression, identity fallback, monotonicity), Discord embeds (confidence/contradiction/freshness/reason-codes), !market-view + !levels commands
+- **Phase D:** source_health monitoring + !source-health command, degraded-mode policy + alert suppression, backtest/walk-forward script
+- **Existing:** tweet parsing (multimodal + fallback), technical direction filters, Reddit trend pipeline, options scanner, SEC EDGAR, TweetShift listener, price followup, all Discord commands
 
 ---
 
 ## Technical Notes
+
+### FinalYTplan (Phase A–D)
+
+- **Idempotency** — All signals deduplicated via `hash(source_type + source_id + origin_ref + as_of_bucket + parser_version)`. signal_events table has UNIQUE(idempotency_key).
+- **Snapshot builder** — Assembles evidence from signal_events within freshness windows; marks stale sources explicitly.
+- **Reliability engine** — Weight formula: `W = R_class × R_entity × Q × D × I`. Contradiction gating at C=0.75. Insufficient evidence threshold: 0.35.
+- **YouTube quality gates** — Transcripts < 250 words rejected. Symbol disambiguation filters common-word false positives. Negation handling ("not bullish") flips direction to neutral.
+- **Calibration** — Isotonic regression (sklearn) trained on rolling snapshots. Falls back to identity if <50 samples.
+- **Source health** — Background heartbeat loop updates source_health table every poll cycle. Degraded-mode triggered when ≥2 critical sources stale.
+- **Backtest script** — `scripts/backtest.py` replays snapshots against yfinance outcomes; outputs accuracy, calibration curves (reliability diagram), contradiction-vs-accuracy plot.
+
+### Existing (Stable)
 
 - **Finnhub free tier** only supports real-time quotes (`/quote`). Historical OHLCV comes from yfinance, run in a `ThreadPoolExecutor` because it is blocking.
 - **ApeWisdom** uses a free direct REST API with no authentication.
 - **Signal dedup** via `seen_tweets` SQLite table prevents reprocessing. Signals expire after 2 hours.
 - **Ticker validation** enforces a $100M market-cap floor via Finnhub, cached 7 days in DB.
 - **Rate limiting** on all external sources uses an async rate limiter with exponential backoff.
-- **LLM model**: OpenRouter MiniMax M2.5 (`minimax/minimax-m2.5`) for tweet parsing and confidence scoring.
+- **LLM models**: OpenRouter (configurable via env; defaults in config.yaml). Text model for tweet/video parsing; vision model for image analysis.
 - **Exchange name filtering**: CME, CBOE, OPRA, NASDAQ, NYSE etc. are blacklisted from ticker extraction to prevent false positives on industry-context mentions.
+- **Multimodal router** — Hybrid text + vision processing. Text-only tweets skip vision model; tweets with images run vision per image, then text synthesis.
+
+---
+
+## Recent Changes (April 2026)
+
+**Merged PRs:**
+- PR #2: Multimodal tweet parsing (text + vision router, vision_model + text_model + OpenRouter client)
+- FinalYTplan phases A–D: Reliability weighting, YouTube intelligence, calibration, source health, degraded-mode policy, backtest script (280 tests passing)
