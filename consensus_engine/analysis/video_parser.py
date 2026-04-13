@@ -19,7 +19,7 @@ from typing import Optional
 
 import aiohttp
 
-from consensus_engine import config as cfg
+from consensus_engine import config as cfg, db
 from consensus_engine.models import (
     ParsedVideo, Direction, Conviction, PriceLevel, MacroThesis,
 )
@@ -193,12 +193,15 @@ def _parse_llm_response(raw: str, video_id: str, transcript: str) -> dict:
             symbol = str(t.get("symbol", "")).upper()
             direction = t.get("direction", "neutral").lower()
             conviction = t.get("conviction", "medium").lower()
+            context = t.get("context", "")
+            # Negation gate: flip direction if context contradicts it
+            direction = _apply_negation(direction, context)
             normalized_tickers.append({
                 "symbol": symbol,
                 "direction": direction,
                 "conviction": conviction,
                 "mention_count": t.get("mention_count", 1),
-                "context": t.get("context", ""),
+                "context": context,
             })
 
     # Parse price levels
@@ -240,6 +243,55 @@ _INDICATOR_NAMES = {"RSI", "EMA", "MACD", "VWAP", "SMA", "RVOL", "ATR", "ADX", "
 _LONG_KEYWORDS = {"long", "buy", "bullish", "calls", "breakout", "rally", "pump", "moon"}
 _SHORT_KEYWORDS = {"short", "put", "bearish", "dump", "crash", "sell", "drop", "fade"}
 
+# Negation patterns that flip a bullish read to neutral
+_BULL_NEGATIONS = (
+    "not bullish", "not long", "not buying", "don't buy", "wouldn't buy",
+    "no longer long", "no longer bullish", "not a bull", "avoid buying",
+    "stay away", "not going long", "wouldn't be long",
+)
+# Negation patterns that flip a bearish read to neutral
+_BEAR_NEGATIONS = (
+    "not bearish", "not short", "don't short", "covering short",
+    "no longer short", "no longer bearish", "not a bear",
+)
+
+# Financial context words that validate a plain (non-$) ticker mention
+_FINANCIAL_CONTEXT_RE = re.compile(
+    r'\b(buy|sell|long|short|bullish|bearish|calls?|puts?|position|trade|entry|exit|'
+    r'price|target|support|resistance|breakout|breakdown|invest|hold|watching|'
+    r'level|move|setup|thesis|sector|earnings|catalyst)\b',
+    re.IGNORECASE,
+)
+_DOLLAR_TICKER_RE = re.compile(r'\$([A-Z]{1,5})\b')
+
+
+def _apply_negation(direction: str, context: str) -> str:
+    """Flip direction to neutral if context contains negation indicators."""
+    ctx = context.lower()
+    if direction == "long" and any(neg in ctx for neg in _BULL_NEGATIONS):
+        return "neutral"
+    if direction == "short" and any(neg in ctx for neg in _BEAR_NEGATIONS):
+        return "neutral"
+    return direction
+
+
+def _has_financial_context(ticker: str, text: str) -> bool:
+    """Return True if ticker appears with $ prefix OR near financial context words.
+
+    Used in fallback parsing to reject plain-word false positives (e.g. "GAS",
+    "OIL") that appear without trading context.
+    """
+    # $TICKER prefix is strongest signal
+    if re.search(rf'\${re.escape(ticker)}\b', text):
+        return True
+    # Scan 120-char window around each mention for financial vocabulary
+    for m in re.finditer(rf'\b{re.escape(ticker)}\b', text):
+        start = max(0, m.start() - 120)
+        end = min(len(text), m.end() + 120)
+        if _FINANCIAL_CONTEXT_RE.search(text[start:end]):
+            return True
+    return False
+
 
 def _fallback_parse(transcript: str) -> dict:
     """Regex fallback when LLM fails. Extracts tickers and detects direction from keywords."""
@@ -255,6 +307,9 @@ def _fallback_parse(transcript: str) -> dict:
         direction = Direction.SHORT
     else:
         direction = Direction.NEUTRAL
+
+    # Disambiguation gate: reject plain-word tickers without financial context
+    tickers_found = [t for t in tickers_found if _has_financial_context(t, transcript)]
 
     normalized_tickers = [
         {
@@ -418,7 +473,36 @@ async def parse_video_transcript(
     """Parse a YouTube video transcript using LLM with chunking for long videos.
 
     This is the main entry point called by the pipeline.
+    Quality gates applied before LLM call:
+      - transcript length >= youtube.min_transcript_length (default 250 words)
+    Post-parse:
+      - signal_events rows written for each extracted ticker
     """
+    # Quality gate: reject transcripts that are too short to be meaningful
+    min_words = int(cfg.get("youtube.min_transcript_length", 250))
+    word_count = len(transcript_text.split())
+    if word_count < min_words:
+        log.info(
+            "video_parser: transcript too short for %s (%d words < min %d) — skipping",
+            video_id, word_count, min_words,
+        )
+        return ParsedVideo(
+            video_id=video_id,
+            channel_name=channel_name,
+            raw_transcript=transcript_text,
+            tickers=[],
+            price_levels=[],
+            macro_thesis=MacroThesis(
+                direction=Direction.NEUTRAL,
+                themes=[],
+                timeframe="short",
+                summary="transcript too short",
+            ),
+            overall_conviction=Conviction.LOW,
+            parsed_at=time.time(),
+        )
+
+    parse_start = time.time()
     try:
         # For videos > 2000 words, use chunking
         word_count = len(transcript_text.split())
@@ -464,7 +548,8 @@ async def parse_video_transcript(
     if isinstance(conviction_val, str):
         conviction_val = Conviction(conviction_val)
 
-    return ParsedVideo(
+    parse_latency = time.time() - parse_start
+    parsed_video = ParsedVideo(
         video_id=video_id,
         channel_name=channel_name,
         raw_transcript=transcript_text,
@@ -474,3 +559,29 @@ async def parse_video_transcript(
         overall_conviction=conviction_val,
         parsed_at=time.time(),
     )
+
+    # Write signal_events rows for each extracted ticker
+    _conviction_quality = {"high": 0.9, "medium": 0.6, "low": 0.3}
+    for ticker_data in parsed_video.tickers:
+        ticker = ticker_data.get("symbol")
+        if not ticker:
+            continue
+        mention_count = ticker_data.get("mention_count", 1)
+        base_q = _conviction_quality.get(ticker_data.get("conviction", "medium"), 0.6)
+        # Slight boost for repeated mentions, capped at 1.0
+        quality = min(base_q * (1.0 + 0.05 * (mention_count - 1)), 1.0)
+        try:
+            await db.record_signal_event(
+                source_type="youtube",
+                source_detail=video_id,
+                ticker=ticker,
+                direction=ticker_data.get("direction", "neutral"),
+                quality_score=round(quality, 4),
+                latency_sec=round(parse_latency, 3),
+                provenance=f"youtube://{channel_name}/{video_id}",
+                model_version="video_parser_v1",
+            )
+        except Exception as exc:
+            log.debug("video_parser: signal_event insert failed for %s/%s: %s", video_id, ticker, exc)
+
+    return parsed_video
