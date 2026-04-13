@@ -21,6 +21,95 @@ from consensus_engine.models import (
 log = logging.getLogger("consensus_engine.alerts.discord")
 
 
+# ---------------------------------------------------------------------------
+# Reliability display helpers
+# ---------------------------------------------------------------------------
+
+_DECISION_ICONS = {
+    "ALERT": "🟢",
+    "WATCHLIST": "🟡",
+    "IGNORE": "🔴",
+    "UNCERTAIN": "⚠️",
+    "INSUFFICIENT_EVIDENCE": "❓",
+    "DEGRADED_MODE": "🔧",
+}
+
+_DECISION_LABELS = {
+    "ALERT": "ALERT",
+    "WATCHLIST": "WATCHLIST",
+    "IGNORE": "NO_TRADE",
+    "UNCERTAIN": "UNCERTAIN",
+    "INSUFFICIENT_EVIDENCE": "INSUFFICIENT_EVIDENCE",
+    "DEGRADED_MODE": "DEGRADED_MODE",
+}
+
+
+def _top_reason_codes(xref: CrossReferenceResult) -> list[str]:
+    """Derive top-3 reason codes from score breakdown."""
+    b = xref.breakdown
+    candidates = []
+    if b.news_catalyst > 0:
+        candidates.append(("NEWS_CATALYST", b.news_catalyst))
+    if b.additional_analysts >= 20:
+        candidates.append(("MULTI_ANALYST", b.additional_analysts))
+    if b.technical >= 6:
+        candidates.append(("STRONG_TECHNICALS", b.technical))
+    if (b.social_reddit + b.social_apewisdom) >= 10:
+        candidates.append(("SOCIAL_MOMENTUM", b.social_reddit + b.social_apewisdom))
+    if b.options_flow > 0:
+        candidates.append(("OPTIONS_FLOW", b.options_flow))
+    if b.sec_filing > 0:
+        candidates.append(("SEC_FILING", b.sec_filing))
+    if b.llm_boost > 0:
+        candidates.append(("LLM_CONFIDENCE", b.llm_boost))
+    candidates.sort(key=lambda x: -x[1])
+    return [code for code, _ in candidates[:3]]
+
+
+def _freshness_label(weights: dict) -> str:
+    """Summarise source freshness from reliability weights."""
+    if not weights:
+        return "UNKNOWN"
+    vals = list(weights.values())
+    max_w = max(vals)
+    avg_w = sum(vals) / len(vals)
+    if max_w >= 0.5:
+        return "FRESH"
+    if avg_w >= 0.2:
+        return "MODERATE"
+    return "STALE"
+
+
+def _invalidation_condition(xref: CrossReferenceResult) -> str:
+    """One-line condition under which this signal should be discarded."""
+    decision = xref.reliability_decision
+    if decision == "UNCERTAIN":
+        return "Contradicting signals — verify before acting"
+    if decision == "DEGRADED_MODE":
+        return "Engine in degraded mode — signals may be unreliable"
+    if decision == "INSUFFICIENT_EVIDENCE":
+        return "Wait for additional source confirmation"
+    if xref.contradiction_index > 0.4:
+        return f"Contradiction index {xref.contradiction_index:.2f} rising — monitor closely"
+    return "Signal valid while contradiction index stays below 0.6"
+
+
+def _calibrated_section(xref: CrossReferenceResult) -> list[str]:
+    """Build lines for the calibrated probability field. Never raises."""
+    try:
+        from consensus_engine.analysis.calibration import calibrate
+        p_up = calibrate(float(xref.final_score), "1h")
+        p_down = round(1.0 - p_up, 3)
+        p_up_pct = f"{p_up * 100:.1f}%"
+        p_down_pct = f"{p_down * 100:.1f}%"
+        return [
+            f"P(up 1h): **{p_up_pct}** | P(down): **{p_down_pct}**",
+            f"Calibrated conf: **{p_up_pct}**",
+        ]
+    except Exception:
+        return []
+
+
 def format_instant_ping(tweet: ParsedTweet, current_price: float = 0.0) -> dict:
     """Build Discord embed for the instant ping (Phase 1)."""
     direction_str = tweet.direction.value.upper()
@@ -151,6 +240,31 @@ def format_detail_followup(xref: CrossReferenceResult, precision: Optional[dict]
             flags.append("mainstream ✅")
         precision_text = f"{icon} **{cls_val}** | score={p_score} | {' | '.join(flags)}"
         fields.append({"name": "Precision Engine", "value": precision_text, "inline": False})
+
+    # Reliability + calibration fields (additive, only shown when reliability engine ran)
+    if xref.reliability_decision:
+        decision = xref.reliability_decision
+        icon = _DECISION_ICONS.get(decision, "⚪")
+        label = _DECISION_LABELS.get(decision, decision)
+
+        cal_lines = _calibrated_section(xref)
+        rel_parts = [f"{icon} **{label}**"]
+        if cal_lines:
+            rel_parts.extend(cal_lines)
+        fields.append({"name": "Signal Verdict", "value": "\n".join(rel_parts), "inline": False})
+
+        # Contradiction + freshness
+        freshness = _freshness_label(xref.reliability_weights)
+        contra_bar = "█" * int(xref.contradiction_index * 10) + "░" * (10 - int(xref.contradiction_index * 10))
+        risk_lines = [
+            f"Contradiction: `{contra_bar}` {xref.contradiction_index:.2f}",
+            f"Freshness: **{freshness}**",
+        ]
+        reason_codes = _top_reason_codes(xref)
+        if reason_codes:
+            risk_lines.append(f"Drivers: {' · '.join(reason_codes)}")
+        risk_lines.append(f"Invalidation: _{_invalidation_condition(xref)}_")
+        fields.append({"name": "Risk Factors", "value": "\n".join(risk_lines), "inline": False})
 
     parts = []
     if b.base: parts.append(f"base({b.base})")

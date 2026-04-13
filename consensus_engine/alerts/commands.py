@@ -18,12 +18,15 @@ Commands:
   !google-trends <T>  — Google Trends spike % for a ticker
   !apewisdom          — ApeWisdom trending tickers
   !alert-history <T>  — alert history with price outcomes for a ticker
+  !market-view <T>    — current verdict from latest decision snapshot
+  !levels <T>         — price levels (support/resistance) from YouTube + signals
 """
 
 import asyncio
 import logging
 from typing import Optional
 
+from consensus_engine import db
 from consensus_engine.alerts.discord import send_command_reply
 from consensus_engine.scanners.reddit_trend import crawl_and_get_trending
 from consensus_engine.alerts.discord import send_trend_digest
@@ -55,7 +58,11 @@ HELP_TEXT = """**OpenClaw Signal Engine — Commands**
 
 **Engine Health**
 `!nitter-health` — check if Nitter service is responding
-`!source-health` — data source status table (freshness, error rate)"""
+`!source-health` — data source status table (freshness, error rate)
+
+**Reliability & Levels**
+`!market-view <TICKER>` — current verdict from latest decision snapshot (e.g. `!market-view NVDA`)
+`!levels <TICKER>` — price levels with condition text from YouTube + signals"""
 
 
 def parse_command(content: str) -> Optional[tuple[str, list[str]]]:
@@ -173,6 +180,18 @@ async def route_command(
             await send_command_reply(channel_id, message_id, "Usage: `!transcript <YOUTUBE_URL>` — e.g. `!transcript https://www.youtube.com/watch?v=xxxxx`")
         else:
             await _handle_transcript(args[0], channel_id, message_id)
+
+    elif command in ("market-view", "market_view", "marketview"):
+        if not args:
+            await send_command_reply(channel_id, message_id, "Usage: `!market-view <TICKER>` — e.g. `!market-view NVDA`")
+        else:
+            await _handle_market_view(args[0].upper(), channel_id, message_id)
+
+    elif command == "levels":
+        if not args:
+            await send_command_reply(channel_id, message_id, "Usage: `!levels <TICKER>` — e.g. `!levels NVDA`")
+        else:
+            await _handle_levels(args[0].upper(), channel_id, message_id)
 
     else:
         await send_command_reply(channel_id, message_id, f"Unknown command `!{command}`. Try `!help`.")
@@ -763,3 +782,89 @@ async def _transcript_and_reply(youtube_url: str, channel_id: str, message_id: s
     except Exception as e:
         log.error("Transcript command error for %s: %s", youtube_url, e)
         await send_command_reply(channel_id, message_id, f"Transcript failed: {e}")
+
+
+# ---------------------------------------------------------------------------
+# Reliability commands
+# ---------------------------------------------------------------------------
+
+async def _handle_market_view(ticker: str, channel_id: str, message_id: str) -> None:
+    """Show current verdict from the latest decision snapshot for a ticker."""
+    try:
+        from consensus_engine.analysis.calibration import calibrate
+
+        snapshots = await db.get_recent_decision_snapshots(ticker, limit=1)
+        if not snapshots:
+            await send_command_reply(
+                channel_id, message_id,
+                f"No decision snapshots for `${ticker}` yet — run `!scan {ticker}` first.",
+            )
+            return
+
+        s = snapshots[0]
+        decision = s.get("decision", "UNKNOWN")
+        score = s.get("final_score", 0.0)
+        contradiction = s.get("contradiction_index", 0.0)
+        recorded_at = s.get("recorded_at", 0.0)
+
+        import time
+        age_min = int((time.time() - recorded_at) / 60)
+
+        p_up = calibrate(float(score), "1h")
+        p_down = round(1.0 - p_up, 3)
+
+        _ICONS = {
+            "ALERT": "🟢", "WATCHLIST": "🟡", "IGNORE": "🔴",
+            "UNCERTAIN": "⚠️", "INSUFFICIENT_EVIDENCE": "❓", "DEGRADED_MODE": "🔧",
+        }
+        icon = _ICONS.get(decision, "⚪")
+
+        lines = [
+            f"**Market View — ${ticker}** ({age_min}m ago)",
+            f"{icon} **{decision}** | Score: {score:.0f}",
+            f"P(up 1h): **{p_up * 100:.1f}%** | P(down): **{p_down * 100:.1f}%**",
+            f"Contradiction index: {contradiction:.2f}",
+        ]
+
+        # Uncertainty warnings
+        if decision in ("UNCERTAIN", "DEGRADED_MODE", "INSUFFICIENT_EVIDENCE"):
+            lines.append(f"\n⚠️ State: **{decision}** — treat with caution")
+
+        await send_command_reply(channel_id, message_id, "\n".join(lines))
+    except Exception as e:
+        log.error("Market-view command error for %s: %s", ticker, e)
+        await send_command_reply(channel_id, message_id, f"Market view unavailable for `${ticker}`.")
+
+
+async def _handle_levels(ticker: str, channel_id: str, message_id: str) -> None:
+    """Show price levels (support/resistance) from YouTube + signal_events."""
+    try:
+        levels = await db.get_youtube_levels_for_ticker(ticker, days=14)
+        if not levels:
+            await send_command_reply(
+                channel_id, message_id,
+                f"No price levels found for `${ticker}` in the last 14 days.",
+            )
+            return
+
+        lines = [f"**Price Levels — ${ticker}** ({len(levels)} zones)"]
+        for lv in levels[:10]:
+            ltype = lv.get("level_type", "level").upper()
+            price = lv.get("price", 0.0)
+            conf = lv.get("confidence", 0.0)
+            condition = lv.get("condition_text") or ""
+            consequence = lv.get("consequence_text") or ""
+            channel = lv.get("channel_name") or "unknown"
+
+            conf_bar = "★" * round(conf * 5) + "☆" * (5 - round(conf * 5))
+            entry = f"`{ltype}` **${price:.2f}** {conf_bar} [{channel}]"
+            if condition:
+                entry += f"\n  ↳ IF {condition}"
+            if consequence:
+                entry += f"\n  ↳ THEN {consequence}"
+            lines.append(entry)
+
+        await send_command_reply(channel_id, message_id, "\n".join(lines))
+    except Exception as e:
+        log.error("Levels command error for %s: %s", ticker, e)
+        await send_command_reply(channel_id, message_id, f"Levels lookup failed for `${ticker}`.")
