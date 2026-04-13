@@ -1,4 +1,9 @@
-"""Centralized model configuration for text + vision model swapping via .env."""
+"""Centralized model configuration for text + vision model selection.
+
+Model names are not secrets. We support both:
+1) YAML defaults in config/consensus.yaml
+2) Optional env-var overrides for runtime model swaps
+"""
 
 import os
 from pathlib import Path
@@ -11,8 +16,27 @@ if _ENV_PATH.exists():
 else:
     load_dotenv(override=False)
 
-TEXT_MODEL = os.getenv("TEXT_MODEL", "minimax/minimax-m2.5:free")
-VISION_MODEL = os.getenv("VISION_MODEL", "google/gemini-2.5-flash-preview")
+try:
+    from consensus_engine import config as app_cfg
+except Exception:  # avoid hard dependency during isolated tests/imports
+    app_cfg = None
+
+
+def _cfg_get(key: str, default: str) -> str:
+    if app_cfg is None:
+        return default
+    try:
+        return str(app_cfg.get(key, default))
+    except Exception:
+        return default
+
+
+TEXT_MODEL_DEFAULT = _cfg_get("llm.text_model", "minimax/minimax-m2.5:free")
+VISION_MODEL_DEFAULT = _cfg_get("llm.vision_model", "google/gemini-2.5-flash-preview")
+
+# Env vars are runtime overrides, not secret-only fields.
+TEXT_MODEL = os.getenv("TEXT_MODEL", TEXT_MODEL_DEFAULT)
+VISION_MODEL = os.getenv("VISION_MODEL", VISION_MODEL_DEFAULT)
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_URL = os.getenv("OPENROUTER_URL", "https://openrouter.ai/api/v1/chat/completions")
 MODEL_TIMEOUT_SECONDS = float(os.getenv("MODEL_TIMEOUT_SECONDS", "25"))
