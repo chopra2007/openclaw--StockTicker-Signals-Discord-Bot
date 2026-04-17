@@ -62,7 +62,12 @@ HELP_TEXT = """**OpenClaw Signal Engine — Commands**
 
 **Reliability & Levels**
 `!market-view <TICKER>` — current verdict from latest decision snapshot (e.g. `!market-view NVDA`)
-`!levels <TICKER>` — price levels with condition text from YouTube + signals"""
+`!levels <TICKER>` — price levels with condition text from YouTube + signals
+
+**YouTube Intelligence**
+`!yt <URL>` — on-demand analysis of a YouTube video (tickers, conviction, macro, levels)
+`!yt-mentions <TICKER>` — YouTube signals for a ticker (last 7 days)
+`!macro` — macro digest across all channels (last 7 days)"""
 
 
 def parse_command(content: str) -> Optional[tuple[str, list[str]]]:
@@ -192,6 +197,22 @@ async def route_command(
             await send_command_reply(channel_id, message_id, "Usage: `!levels <TICKER>` — e.g. `!levels NVDA`")
         else:
             await _handle_levels(args[0].upper(), channel_id, message_id)
+
+    elif command == "yt":
+        if not args:
+            await send_command_reply(channel_id, message_id, "Usage: `!yt <URL>` — e.g. `!yt https://youtu.be/xxxxx`")
+        else:
+            await _handle_yt(args[0], channel_id, message_id)
+
+    elif command in ("yt-mentions", "yt_mentions"):
+        raw = args[0].lstrip("$").upper() if args else ""
+        if not raw:
+            await send_command_reply(channel_id, message_id, "Usage: `!yt-mentions $TICKER` — e.g. `!yt-mentions $NVDA`")
+        else:
+            await _handle_yt_mentions(raw, channel_id, message_id)
+
+    elif command == "macro":
+        await _handle_macro(channel_id, message_id)
 
     else:
         await send_command_reply(channel_id, message_id, f"Unknown command `!{command}`. Try `!help`.")
@@ -539,20 +560,26 @@ async def _google_trends_and_reply(ticker: str, channel_id: str, message_id: str
 
 
 async def _run_serpapi_trends(channel_id: str, message_id: str) -> None:
-    """Run SerpAPI Google Trends for all active tickers (cron job)."""
+    """Run SerpAPI Google Trends for trending tickers from ApeWisdom (cron job)."""
     await send_command_reply(channel_id, message_id, "Running SerpAPI Google Trends...")
     try:
         from consensus_engine import db
-        from consensus_engine.scanners.social import scan_google_trends_serpapi
+        from consensus_engine.scanners.social import scan_google_trends_serpapi, scan_apewisdom
         from consensus_engine.models import TickerSignal, SourceType, Sentiment
         
-        # Get active tickers
-        active = await db.get_active_tickers(min_signals=2)
-        if not active:
-            await send_command_reply(channel_id, message_id, "No active tickers for SerpAPI Google Trends.")
+        # Get trending tickers from ApeWisdom (retail sentiment) instead of database
+        ape_signals = await scan_apewisdom()
+        if not ape_signals:
+            await send_command_reply(channel_id, message_id, "No ApeWisdom data - cannot determine trending tickers.")
             return
         
-        # Run SerpAPI (not Pytrends)
+        # Extract top tickers by mentions
+        active = [s.ticker for s in ape_signals[:20]]  # Top 20 from ApeWisdom
+        if not active:
+            await send_command_reply(channel_id, message_id, "No trending tickers from ApeWisdom.")
+            return
+        
+        # Run SerpAPI on ApeWisdom tickers
         trends = await scan_google_trends_serpapi(active[:10])
         
         if not trends:
@@ -868,3 +895,146 @@ async def _handle_levels(ticker: str, channel_id: str, message_id: str) -> None:
     except Exception as e:
         log.error("Levels command error for %s: %s", ticker, e)
         await send_command_reply(channel_id, message_id, f"Levels lookup failed for `${ticker}`.")
+
+
+# ---------------------------------------------------------------------------
+# YouTube intelligence commands
+# ---------------------------------------------------------------------------
+
+async def _handle_yt(youtube_url: str, channel_id: str, message_id: str) -> None:
+    """On-demand full analysis of a YouTube video."""
+    await send_command_reply(channel_id, message_id, f"Analysing {youtube_url} ...")
+    asyncio.create_task(_yt_analyse_and_reply(youtube_url, channel_id, message_id))
+
+
+async def _yt_analyse_and_reply(youtube_url: str, channel_id: str, message_id: str) -> None:
+    try:
+        import time as _time
+        import aiohttp as _aiohttp
+        from consensus_engine.utils.transcript_fetch import parse_video_id, fetch_transcript_cascade
+        from consensus_engine.analysis.video_parser import parse_video_transcript
+
+        video_id = parse_video_id(youtube_url)
+        if not video_id:
+            await send_command_reply(channel_id, message_id, "Could not parse video ID from URL.")
+            return
+
+        # oEmbed for title + channel
+        title, channel_name = video_id, "unknown"
+        try:
+            async with _aiohttp.ClientSession() as sess:
+                oembed_url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={video_id}&format=json"
+                async with sess.get(oembed_url, timeout=_aiohttp.ClientTimeout(total=8)) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        title = data.get("title", video_id)
+                        channel_name = data.get("author_name", "unknown")
+        except Exception:
+            pass
+
+        # Check if already parsed
+        already = await db.has_video_been_processed(video_id)
+        if not already:
+            text, _lang, _is_auto = await fetch_transcript_cascade(video_id, ["en"])
+            if not text:
+                await send_command_reply(channel_id, message_id, "Could not fetch transcript for this video.")
+                return
+            parsed = await parse_video_transcript(
+                video_id, text, channel_name, _time.strftime("%Y-%m-%dT%H:%M:%SZ", _time.gmtime())
+            )
+        else:
+            # Pull cached signals from DB
+            sigs = await db.get_youtube_signals_for_ticker("", days=30)
+            sigs = [s for s in sigs if s.get("video_id") == video_id]
+            parsed = None
+
+        lines = [f"🎬 **{title}** — {channel_name}"]
+        if parsed is not None:
+            tickers = parsed.tickers[:5]
+            if tickers:
+                lines.append("**Tickers:**")
+                for t in tickers:
+                    dir_icon = {"long": "🟢", "short": "🔴"}.get(t.get("direction", ""), "⚪")
+                    lines.append(f"  {dir_icon} `${t['symbol']}` {t.get('direction','').upper()} [{t.get('conviction','').upper()}]")
+            else:
+                lines.append("No tickers extracted.")
+
+            macro = parsed.macro_thesis
+            dir_label = {"long": "BULLISH", "short": "BEARISH", "neutral": "NEUTRAL"}.get(macro.direction.value, str(macro.direction))
+            lines.append(f"**Macro:** {dir_label} — {macro.summary[:120] if macro.summary else 'N/A'}")
+            lines.append(f"**Conviction:** {parsed.overall_conviction.value.upper()}")
+
+            lvls = parsed.price_levels[:3]
+            if lvls:
+                lines.append("**Levels:**")
+                for lv in lvls:
+                    lines.append(f"  `{lv.level_type.upper()}` ${lv.price:.2f} (conf {lv.confidence:.0%})")
+        else:
+            lines.append("Already processed — use `!yt-mentions $TICKER` to see signals.")
+
+        await send_command_reply(channel_id, message_id, "\n".join(lines))
+    except Exception as e:
+        log.error("!yt command error for %s: %s", youtube_url, e)
+        await send_command_reply(channel_id, message_id, f"Analysis failed: {e}")
+
+
+async def _handle_yt_mentions(ticker: str, channel_id: str, message_id: str) -> None:
+    """Show YouTube signals for a ticker (last 7 days, top 5 by conviction)."""
+    try:
+        sigs = await db.get_youtube_signals_for_ticker(ticker, days=7)
+        if not sigs:
+            await send_command_reply(channel_id, message_id, f"No YouTube mentions of `${ticker}` in the last 7 days.")
+            return
+
+        _CONV_ORDER = {"high": 0, "medium": 1, "low": 2}
+        sigs.sort(key=lambda s: _CONV_ORDER.get(s.get("conviction", "low"), 2))
+        sigs = sigs[:5]
+
+        lines = [f"📹 **YouTube Mentions — ${ticker}** ({len(sigs)} results)"]
+        for s in sigs:
+            dir_icon = {"long": "🟢", "short": "🔴", "neutral": "⚪"}.get(s.get("direction", ""), "⚪")
+            conv = s.get("conviction", "").upper()
+            ch = s.get("channel_name") or "unknown"
+            lines.append(f"{dir_icon} [{ch}] {s.get('direction','').upper()} [{conv}] — video `{s.get('video_id','')}`")
+
+        await send_command_reply(channel_id, message_id, "\n".join(lines))
+    except Exception as e:
+        log.error("!yt-mentions command error for %s: %s", ticker, e)
+        await send_command_reply(channel_id, message_id, f"Lookup failed for `${ticker}`.")
+
+
+async def build_macro_digest() -> str:
+    """Build the macro digest string from youtube_macro (last 7 days)."""
+    rows = await db.get_recent_youtube_macro(days=7)
+    if not rows:
+        return "📊 Macro Digest: No data in the last 7 days."
+
+    counts: dict[str, int] = {"long": 0, "short": 0, "neutral": 0}
+    all_themes: list[str] = []
+    for r in rows:
+        direction = r.get("direction", "neutral").lower()
+        norm = {"bullish": "long", "long": "long", "bearish": "short", "short": "short"}.get(direction, "neutral")
+        counts[norm] = counts.get(norm, 0) + 1
+        all_themes.extend(r.get("themes") or [])
+
+    # Top 3 themes by frequency
+    theme_freq: dict[str, int] = {}
+    for t in all_themes:
+        theme_freq[t] = theme_freq.get(t, 0) + 1
+    top_themes = sorted(theme_freq, key=lambda x: -theme_freq[x])[:3]
+
+    bull = counts.get("long", 0)
+    bear = counts.get("short", 0)
+    neut = counts.get("neutral", 0)
+    themes_str = ", ".join(top_themes) if top_themes else "none"
+    return f"📊 Macro Digest: BULLISH ({bull} channels) / BEARISH ({bear}) / NEUTRAL ({neut}) — Top themes: {themes_str}"
+
+
+async def _handle_macro(channel_id: str, message_id: str) -> None:
+    """Post macro digest from youtube_macro (last 7 days)."""
+    try:
+        digest = await build_macro_digest()
+        await send_command_reply(channel_id, message_id, digest)
+    except Exception as e:
+        log.error("!macro command error: %s", e)
+        await send_command_reply(channel_id, message_id, "Macro digest unavailable.")

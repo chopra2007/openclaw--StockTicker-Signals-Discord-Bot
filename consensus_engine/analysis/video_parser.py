@@ -27,6 +27,8 @@ from consensus_engine.utils.tickers import extract_tickers
 
 log = logging.getLogger("consensus_engine.analysis.video_parser")
 
+_MACRO_NORM = {"bullish": "long", "bearish": "short", "neutral": "neutral"}
+
 _SYSTEM_PROMPT = """You are a financial analyst extracting structured trade intelligence from a YouTube video transcript.
 
 Respond ONLY in this exact JSON format (no extra text, no markdown):
@@ -160,6 +162,53 @@ async def _call_openrouter(user_prompt: str) -> str:
         return ""
 
 
+async def _call_groq_full(user_prompt: str, max_tokens: int = 2048) -> tuple[str, str]:
+    """Call Groq and return (content, finish_reason). Falls back to OpenRouter on error."""
+    groq_key = cfg.get_api_key("groq")
+    if not groq_key:
+        content = await _call_openrouter(user_prompt)
+        return content, "stop"
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            url = "https://api.groq.com/openai/v1/chat/completions"
+            headers = {
+                "Authorization": f"Bearer {groq_key}",
+                "Content-Type": "application/json",
+            }
+            model = cfg.get("video_parser.groq_model", "mixtral-8x7b-32768")
+            payload = {
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": _SYSTEM_PROMPT},
+                    {"role": "user", "content": user_prompt},
+                ],
+                "max_tokens": max_tokens,
+                "temperature": 0.1,
+            }
+            async with session.post(
+                url, headers=headers, json=payload,
+                timeout=aiohttp.ClientTimeout(total=20),
+            ) as resp:
+                if resp.status != 200:
+                    log.warning("Groq error (%d) in full call, falling back", resp.status)
+                    content = await _call_openrouter(user_prompt)
+                    return content, "stop"
+                data = await resp.json()
+
+        choice = data.get("choices", [{}])[0]
+        content = (choice.get("message") or {}).get("content") or ""
+        finish_reason = choice.get("finish_reason") or "stop"
+        if not content:
+            content = await _call_openrouter(user_prompt)
+            return content, "stop"
+        return content.strip(), finish_reason
+    except Exception as e:
+        log.warning("Groq full call error: %s, falling back", e)
+        content = await _call_openrouter(user_prompt)
+        return content, "stop"
+
+
 def _parse_llm_response(raw: str, video_id: str, transcript: str) -> dict:
     """Parse the LLM JSON response into structured data. Falls back to regex on failure."""
     cleaned = raw.strip()
@@ -192,6 +241,9 @@ def _parse_llm_response(raw: str, video_id: str, transcript: str) -> dict:
         if isinstance(t, dict):
             symbol = str(t.get("symbol", "")).upper()
             direction = t.get("direction", "neutral").lower()
+            # Normalize LLM variations (bullish→long, bearish→short) and reject unknowns
+            _TICKER_DIR_NORM = {"bullish": "long", "long": "long", "bearish": "short", "short": "short"}
+            direction = _TICKER_DIR_NORM.get(direction, "neutral")
             conviction = t.get("conviction", "medium").lower()
             context = t.get("context", "")
             # Negation gate: flip direction if context contradicts it
@@ -427,6 +479,7 @@ def _merge_chunk_results(chunks: list[dict]) -> dict:
     for chunk in chunks:
         macro = chunk.get("macro_thesis", {})
         direction = macro.get("direction", "neutral")
+        direction = _MACRO_NORM.get(direction, direction)
         macro_direction_votes[direction] = macro_direction_votes.get(direction, 0) + 1
 
         for theme in macro.get("themes", []):
@@ -513,7 +566,23 @@ async def parse_video_transcript(
         else:
             # Short transcript, analyze as-is
             prompt = _build_parser_prompt(transcript_text)
-            raw = await _call_groq(prompt)
+            max_tokens = 2048
+            raw, finish_reason = await _call_groq_full(prompt, max_tokens)
+            if finish_reason == "length":
+                log.warning(
+                    "video_parser: response truncated for video_id=%s, retrying with fewer tokens",
+                    video_id,
+                )
+                words = transcript_text.split()
+                reduced = " ".join(words[:int(len(words) * 0.75)])
+                raw, finish_reason = await _call_groq_full(
+                    _build_parser_prompt(reduced), max_tokens // 2
+                )
+                if finish_reason == "length":
+                    log.error(
+                        "video_parser: response still truncated after retry for video_id=%s, returning partial",
+                        video_id,
+                    )
             parsed_data = _parse_llm_response(raw, video_id, transcript_text)
 
     except Exception as e:
@@ -536,8 +605,10 @@ async def parse_video_transcript(
 
     # Build MacroThesis object
     macro_data = parsed_data.get("macro_thesis", {})
+    _raw_dir = str(macro_data.get("direction", "neutral")).lower()
+    _norm_dir = _MACRO_NORM.get(_raw_dir, _raw_dir)
     macro_thesis = MacroThesis(
-        direction=Direction(macro_data.get("direction", "neutral")),
+        direction=Direction(_norm_dir),
         themes=macro_data.get("themes", []),
         timeframe=macro_data.get("timeframe", "short"),
         summary=macro_data.get("summary", ""),

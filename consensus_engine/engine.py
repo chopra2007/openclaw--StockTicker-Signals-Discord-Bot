@@ -70,7 +70,7 @@ class BudgetManager:
             await conn.commit()
 
     async def consume(self, adapter_col: str, amount: int = 1) -> bool:
-        """Increment usage. Returns True if within budget, False if over."""
+        """Atomically increment usage if within budget. Returns False if over or column invalid."""
         if adapter_col not in self._COLUMNS:
             return False
         budget_key = f"precision_engine.budget.{adapter_col}"
@@ -81,20 +81,15 @@ class BudgetManager:
         await self._ensure_row(conn, day)
 
         cursor = await conn.execute(
-            f"SELECT {adapter_col} FROM api_usage_daily WHERE day_utc = ?", (day,)
-        )
-        row = await cursor.fetchone()
-        current = row[adapter_col] if row else 0
-
-        if current + amount > limit:
-            log.warning("Budget exceeded for %s: %d + %d > %d", adapter_col, current, amount, limit)
-            return False
-
-        await conn.execute(
-            f"UPDATE api_usage_daily SET {adapter_col} = {adapter_col} + ?, updated_at = datetime('now') WHERE day_utc = ?",
-            (amount, day),
+            f"""UPDATE api_usage_daily
+                SET {adapter_col} = {adapter_col} + ?, updated_at = datetime('now')
+                WHERE day_utc = ? AND {adapter_col} + ? <= ?""",
+            (amount, day, amount, limit),
         )
         await conn.commit()
+        if cursor.rowcount == 0:
+            log.warning("Budget exceeded for %s (limit=%d)", adapter_col, limit)
+            return False
         return True
 
     async def can_consume(self, adapter_col: str, amount: int = 1) -> bool:

@@ -31,7 +31,7 @@ from consensus_engine.scanners.nitter import NitterPoller
 from consensus_engine.analysis.tweet_parser import parse_tweet
 from consensus_engine.cross_reference import cross_reference
 from consensus_engine.alerts.discord import send_detail_followup, send_instant_ping
-from consensus_engine.utils.http import get_session
+from consensus_engine.utils.http import close_session, get_session
 from consensus_engine.utils.tickers import is_valid_ticker, validate_ticker_market_cap
 from consensus_engine.scanners.youtube import youtube_poll_loop
 from consensus_engine.engine import analyze_signal, SignalClass
@@ -322,6 +322,7 @@ async def run_live(stop_event: asyncio.Event):
             asyncio.create_task(price_outcome_loop(combined_stop)),
             asyncio.create_task(youtube_poll_loop(combined_stop)),
             asyncio.create_task(source_health_updater_loop(combined_stop)),
+            asyncio.create_task(macro_digest_loop(combined_stop)),
         ]
         if cfg.get("scanners.sec_background_watchers_enabled", False):
             tasks.extend([
@@ -340,6 +341,7 @@ async def run_live(stop_event: asyncio.Event):
                 t.cancel()
 
         if stop_event.is_set():
+            await close_session()
             return  # Full shutdown requested
 
 
@@ -350,7 +352,107 @@ async def fetch_loop(stop_event: asyncio.Event, interval: int = 300):
             await fetch_signals()
         except Exception as e:
             log.error("Fetch loop error: %s", e)
+        try:
+            await _check_youtube_level_alerts()
+        except Exception as e:
+            log.error("Level proximity check error: %s", e)
         await asyncio.sleep(interval)
+
+
+async def _post_to_alerts_channel(text: str) -> None:
+    """Post a plain text message to the main Discord alerts channel."""
+    token = cfg.get_api_key("discord_bot_token")
+    channel_id = str(cfg.get("api_keys.discord_channel_id", ""))
+    if not token or not channel_id or not channel_id.isdigit():
+        return
+    if cfg.dry_run:
+        log.info("[DRY-RUN] alerts channel: %s", text[:80])
+        return
+    try:
+        async with aiohttp.ClientSession() as session:
+            url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+            headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
+            async with session.post(url, headers=headers,
+                                    json={"content": text[:2000]},
+                                    timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status not in (200, 201):
+                    log.warning("Discord post failed: %d", resp.status)
+    except Exception as e:
+        log.error("_post_to_alerts_channel error: %s", e)
+
+
+async def _check_youtube_level_alerts() -> None:
+    """Check stored YouTube price levels against current prices; alert on proximity."""
+    proximity_pct = float(cfg.get("youtube.level_alert_proximity_pct", 0.005))
+    cutoff = time.time() - (14 * 86400)
+    try:
+        conn = await db.get_db()
+        cursor = await conn.execute(
+            "SELECT DISTINCT ticker FROM youtube_levels WHERE extracted_at >= ?", (cutoff,)
+        )
+        tickers = [row["ticker"] for row in await cursor.fetchall()]
+    except Exception as e:
+        log.debug("Level alert ticker fetch failed: %s", e)
+        return
+
+    loop = asyncio.get_event_loop()
+    for ticker in tickers:
+        try:
+            current_price = await loop.run_in_executor(None, _fetch_yfinance_price, ticker)
+            if not current_price:
+                continue
+            levels = await db.get_youtube_levels_for_ticker(ticker, days=14)
+            for level in levels:
+                lv_price = float(level.get("price", 0.0))
+                if not lv_price:
+                    continue
+                if abs(current_price - lv_price) / lv_price < proximity_pct:
+                    if not await db.was_level_recently_alerted(ticker, lv_price):
+                        ltype = level.get("level_type", "level")
+                        channel = level.get("channel_name") or "unknown"
+                        pub = level.get("published_at") or ""
+                        days_ago = ""
+                        if pub:
+                            try:
+                                from datetime import datetime as _dt, timezone as _tz
+                                pub_dt = _dt.fromisoformat(pub.replace("Z", "+00:00"))
+                                delta = int((_dt.now(_tz.utc) - pub_dt).total_seconds() / 86400)
+                                days_ago = f" {delta} days ago"
+                            except Exception:
+                                pass
+                        msg = (
+                            f"🎯 ${ticker} approaching {ltype} @ ${lv_price:.2f}"
+                            f" (flagged by {channel}{days_ago}) — current ${current_price:.2f}"
+                        )
+                        await _post_to_alerts_channel(msg)
+                        await db.record_level_alert(ticker, ltype, lv_price, channel)
+                        log.info("Level proximity alert fired: %s", msg)
+        except Exception as e:
+            log.debug("Level check error for %s: %s", ticker, e)
+
+
+async def macro_digest_loop(stop_event: asyncio.Event) -> None:
+    """Post daily macro digest to Discord at the configured UTC hour on weekdays."""
+    last_posted_date = ""
+    while not stop_event.is_set():
+        try:
+            from datetime import datetime as _dt, timezone as _tz
+            now = _dt.now(_tz.utc)
+            target_hour = int(cfg.get("youtube.macro_digest_utc_hour", 11))
+            if now.weekday() < 5 and now.hour == target_hour:
+                today = now.strftime("%Y-%m-%d")
+                if today != last_posted_date:
+                    from consensus_engine.alerts.commands import build_macro_digest
+                    digest = await build_macro_digest()
+                    await _post_to_alerts_channel(digest)
+                    last_posted_date = today
+                    log.info("Daily macro digest posted for %s", today)
+        except Exception as e:
+            log.error("macro_digest_loop error: %s", e)
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=300)
+        except asyncio.TimeoutError:
+            continue
 
 
 def _tweet_sentiment(tweet) -> Sentiment:
@@ -550,22 +652,24 @@ async def _run_cross_reference_and_followup(
             log.warning("Precision engine failed for $%s: %s", ticker, precision)
             precision = None
 
+        classification = None
         if precision and not precision.get("skipped"):
             classification = precision.get("classification", SignalClass.IGNORE)
             log.info(
-                "$%s precision classification: %s (score=%d, mainstream=%s, market_ok=%s)",
-                ticker,
-                classification.value,
-                precision.get("total_score", 0),
-                precision.get("has_mainstream"),
-                precision.get("market_ok"),
+                "$%s: precision=%s overrides xref_score=%.1f",
+                ticker, classification, xref.final_score,
             )
 
-        followup_id = await send_detail_followup(xref, instant_msg_id, precision=precision)
-        await db.update_alert_message_followup(alert_message_id, followup_id, xref.final_score)
+        if classification != SignalClass.IGNORE:
+            followup_id = await send_detail_followup(xref, instant_msg_id, precision=precision)
+            await db.update_alert_message_followup(alert_message_id, followup_id, xref.final_score)
+
+        breakdown_dict = json.loads(_serialize_breakdown(xref.breakdown))
+        if classification is not None:
+            breakdown_dict["precision_classification"] = classification.value
         await db.update_alert_breakdown(
             alert_row_id,
-            _serialize_breakdown(xref.breakdown),
+            json.dumps(breakdown_dict),
             json.dumps(asdict(xref.technical)) if xref.technical else json.dumps({}),
             json.dumps(xref.other_analysts),
             confidence=float(xref.final_score),
