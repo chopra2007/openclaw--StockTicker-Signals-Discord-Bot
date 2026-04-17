@@ -112,11 +112,11 @@ async def test_process_video_dedup(test_db, tmp_path):
     semaphore = asyncio.Semaphore(1)
     video = {"video_id": "vidX", "channel_id": "UCX", "title": "T", "published_at": "2026-04-06T00:00:00Z"}
 
-    with patch("consensus_engine.scanners.youtube.fetch_transcript",
+    with patch("consensus_engine.utils.transcript_fetch.fetch_transcript_cascade",
                new=AsyncMock(return_value=("Some transcript text", "en", True))):
         await process_video(video, semaphore, ["en"], str(tmp_path))
         # second call — fetch_transcript should NOT be called again (video now processed)
-        with patch("consensus_engine.scanners.youtube.fetch_transcript",
+        with patch("consensus_engine.utils.transcript_fetch.fetch_transcript_cascade",
                    new=AsyncMock(side_effect=AssertionError("should not be called"))) as mock_ft2:
             await process_video(video, semaphore, ["en"], str(tmp_path))
 
@@ -127,7 +127,7 @@ async def test_process_video_missing_captions(test_db, tmp_path):
     semaphore = asyncio.Semaphore(1)
     video = {"video_id": "vidY", "channel_id": "UCY", "title": "No Caps", "published_at": "2026-04-06T00:00:00Z"}
 
-    with patch("consensus_engine.scanners.youtube.fetch_transcript",
+    with patch("consensus_engine.utils.transcript_fetch.fetch_transcript_cascade",
                new=AsyncMock(side_effect=Exception("no caption tracks for vidY"))):
         await process_video(video, semaphore, ["en"], str(tmp_path))
 

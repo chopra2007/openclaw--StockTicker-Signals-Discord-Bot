@@ -165,6 +165,34 @@ async def fetch_transcript(
 
 
 # ---------------------------------------------------------------------------
+# Discord alert helper
+# ---------------------------------------------------------------------------
+
+async def _send_youtube_alert(message: str) -> None:
+    """Post a plain-text YouTube signal alert to the main Discord channel."""
+    if cfg.dry_run:
+        log.info("[DRY-RUN] YouTube alert: %s", message)
+        return
+    token = cfg.get_api_key("discord_bot_token")
+    channel = str(cfg.get("api_keys.discord_channel_id", ""))
+    if not token or not channel or not channel.isdigit():
+        log.debug("youtube: Discord not configured, skipping alert")
+        return
+    try:
+        async with aiohttp.ClientSession() as session:
+            url = f"https://discord.com/api/v10/channels/{channel}/messages"
+            headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
+            async with session.post(
+                url, headers=headers, json={"content": message},
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                if resp.status not in (200, 201):
+                    log.warning("youtube: Discord alert error (%d)", resp.status)
+    except Exception as exc:
+        log.warning("youtube: failed to send alert: %s", exc)
+
+
+# ---------------------------------------------------------------------------
 # Per-video processing
 # ---------------------------------------------------------------------------
 
@@ -241,10 +269,11 @@ async def process_video(
         if cfg.get("youtube.analyze", True):
             try:
                 from consensus_engine.analysis.video_parser import parse_video_transcript
+                display_name = await db.get_channel_display_name(channel_id)  # TODO: populate from YouTube API
                 parsed = await parse_video_transcript(
                     video_id=video_id,
                     transcript_text=text,
-                    channel_name=channel_id,
+                    channel_name=display_name,
                     published_at=video_meta["published_at"],
                 )
 
@@ -264,7 +293,7 @@ async def process_video(
 
                         await db.insert_youtube_signal(
                             video_id=video_id,
-                            channel_name=channel_id,
+                            channel_name=display_name,
                             ticker=ticker,
                             direction=ticker_data.get("direction", "neutral"),
                             conviction=ticker_data.get("conviction", "medium"),
@@ -284,10 +313,38 @@ async def process_video(
                         condition_text=level.condition,
                         consequence_text=level.consequence,
                         confidence=level.confidence,
-                        channel_name=channel_id,
+                        channel_name=display_name,
                         published_at=video_meta["published_at"],
                     )
                     log.debug("youtube: level created %s %s @ %.2f", video_id, level.ticker, level.price)
+
+                # Persist macro thesis to youtube_macro table
+                if parsed.macro_thesis and parsed.macro_thesis.summary:
+                    await db.insert_youtube_macro(
+                        video_id=video_id,
+                        channel_id=channel_id,
+                        direction=parsed.macro_thesis.direction.value,
+                        themes=parsed.macro_thesis.themes,
+                        timeframe=parsed.macro_thesis.timeframe,
+                        summary=parsed.macro_thesis.summary,
+                        confidence=0.7 if parsed.overall_conviction.value == "high" else 0.5,
+                        published_at=video_meta["published_at"],
+                    )
+
+                # Standalone alerts for HIGH conviction non-neutral tickers
+                if cfg.get("youtube.standalone_alerts", True):
+                    min_trust = cfg.get("youtube.min_trust", 0.5)
+                    trust = await db.get_channel_trust(channel_id)
+                    if trust >= min_trust:
+                        for ticker_data in parsed.tickers:
+                            if (
+                                ticker_data.get("conviction") == "high"
+                                and ticker_data.get("direction") in ("long", "short")
+                            ):
+                                ticker = ticker_data.get("symbol", "")
+                                direction_label = ticker_data["direction"].upper()
+                                msg = f"🎬 YouTube Signal: ${ticker} [{direction_label}] — {display_name}"
+                                await _send_youtube_alert(msg)
 
                 log.info("youtube: parsed %s → %d tickers, %d levels", video_id, len(parsed.tickers), len(parsed.price_levels))
 

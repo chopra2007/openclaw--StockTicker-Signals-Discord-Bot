@@ -258,6 +258,29 @@ CREATE INDEX IF NOT EXISTS idx_snapshots_ticker ON decision_snapshots(ticker);
 CREATE INDEX IF NOT EXISTS idx_snapshots_recorded ON decision_snapshots(recorded_at);
 CREATE INDEX IF NOT EXISTS idx_snapshots_decision ON decision_snapshots(decision);
 
+CREATE TABLE IF NOT EXISTS youtube_channels (
+    channel_id TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    approved INTEGER NOT NULL DEFAULT 1,
+    trust_score REAL NOT NULL DEFAULT 1.0,
+    added_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS youtube_macro (
+    id INTEGER PRIMARY KEY,
+    video_id TEXT NOT NULL,
+    channel_id TEXT NOT NULL,
+    direction TEXT NOT NULL,
+    themes TEXT,
+    timeframe TEXT,
+    summary TEXT,
+    confidence REAL DEFAULT 0.5,
+    published_at TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_youtube_macro_channel ON youtube_macro(channel_id);
+CREATE INDEX IF NOT EXISTS idx_youtube_macro_video ON youtube_macro(video_id);
+
 CREATE TABLE IF NOT EXISTS source_health (
     source_id TEXT PRIMARY KEY,
     last_heartbeat REAL NOT NULL DEFAULT 0.0,
@@ -274,6 +297,17 @@ CREATE TABLE IF NOT EXISTS source_performance (
     updated_at REAL NOT NULL DEFAULT 0.0,
     PRIMARY KEY (entity_id, horizon)
 );
+
+CREATE TABLE IF NOT EXISTS youtube_level_alerts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticker TEXT NOT NULL,
+    level_type TEXT NOT NULL,
+    price REAL NOT NULL,
+    channel_name TEXT,
+    alerted_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_yla_ticker ON youtube_level_alerts(ticker);
+CREATE INDEX IF NOT EXISTS idx_yla_alerted ON youtube_level_alerts(alerted_at);
 """
 
 
@@ -289,6 +323,7 @@ async def init_db() -> AsyncConnection:
     await _db.execute("PRAGMA busy_timeout=5000")
     await _db.executescript(SCHEMA)
     await _db.commit()
+    await seed_youtube_channels()
     log.info("Database initialized at %s", db_path)
     return _db
 
@@ -990,6 +1025,137 @@ async def get_youtube_levels_for_ticker(ticker: str, days: int = 7) -> list[dict
     )
     rows = await cursor.fetchall()
     return [dict(r) for r in rows]
+
+
+# ---------------------------------------------------------------------------
+# YouTube channel registry helpers
+# ---------------------------------------------------------------------------
+
+async def seed_youtube_channels() -> None:
+    """Seed youtube_channels from /root/.openclaw/sources.json if youtube_channels key present."""
+    import json as _json
+    sources_path = "/root/.openclaw/sources.json"
+    try:
+        with open(sources_path) as f:
+            sources = _json.load(f)
+    except (OSError, ValueError) as e:
+        log.debug("seed_youtube_channels: could not read sources.json: %s", e)
+        return
+
+    channels = sources.get("youtube_channels", [])
+    if not channels:
+        return
+
+    conn = await get_db()
+    for ch in channels:
+        channel_id = ch.get("channel_id", "").strip()
+        display_name = ch.get("display_name", channel_id).strip() or channel_id
+        trust_score = float(ch.get("trust_score", 1.0))
+        approved = int(ch.get("approved", 1))
+        if not channel_id:
+            continue
+        await conn.execute(
+            """INSERT OR IGNORE INTO youtube_channels
+               (channel_id, display_name, approved, trust_score)
+               VALUES (?, ?, ?, ?)""",
+            (channel_id, display_name, approved, trust_score),
+        )
+    await conn.commit()
+    log.debug("seed_youtube_channels: seeded %d channels", len(channels))
+
+
+async def get_channel_display_name(channel_id: str) -> str:
+    """Return display name for a channel_id, or channel_id itself if not registered."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT display_name FROM youtube_channels WHERE channel_id = ?",
+        (channel_id,),
+    )
+    row = await cursor.fetchone()
+    return row["display_name"] if row else channel_id
+
+
+async def get_channel_trust(channel_id: str) -> float:
+    """Return trust_score for a channel_id (default 1.0 if not registered)."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT trust_score FROM youtube_channels WHERE channel_id = ?",
+        (channel_id,),
+    )
+    row = await cursor.fetchone()
+    return float(row["trust_score"]) if row else 1.0
+
+
+async def insert_youtube_macro(
+    video_id: str,
+    channel_id: str,
+    direction: str,
+    themes: list | None = None,
+    timeframe: str | None = None,
+    summary: str | None = None,
+    confidence: float = 0.5,
+    published_at: str | None = None,
+) -> None:
+    """Upsert macro thesis for a video (one row per video_id)."""
+    import json as _json
+    conn = await get_db()
+    themes_json = _json.dumps(themes) if themes else None
+    await conn.execute(
+        """INSERT OR REPLACE INTO youtube_macro
+           (video_id, channel_id, direction, themes, timeframe, summary, confidence, published_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+        (video_id, channel_id, direction, themes_json, timeframe, summary, confidence, published_at),
+    )
+    await conn.commit()
+
+
+async def get_recent_youtube_macro(days: int = 7) -> list[dict]:
+    """Get all youtube_macro rows from the last N days."""
+    import json as _json
+    conn = await get_db()
+    cutoff = time.time() - (days * 86400)
+    cursor = await conn.execute(
+        """SELECT video_id, channel_id, direction, themes, timeframe, summary, confidence, published_at, created_at
+           FROM youtube_macro
+           WHERE created_at >= datetime(?, 'unixepoch')
+           ORDER BY created_at DESC""",
+        (cutoff,),
+    )
+    rows = await cursor.fetchall()
+    result = []
+    for r in rows:
+        d = dict(r)
+        try:
+            d["themes"] = _json.loads(d["themes"]) if d["themes"] else []
+        except (ValueError, TypeError):
+            d["themes"] = []
+        result.append(d)
+    return result
+
+
+async def was_level_recently_alerted(ticker: str, price: float, cooldown_seconds: int = 14400) -> bool:
+    """Return True if a level alert for this ticker/price was fired within cooldown window."""
+    conn = await get_db()
+    cutoff = time.time() - cooldown_seconds
+    cursor = await conn.execute(
+        """SELECT 1 FROM youtube_level_alerts
+           WHERE ticker = ? AND ABS(price - ?) / ? < 0.01 AND alerted_at >= ?
+           LIMIT 1""",
+        (ticker, price, price, cutoff),
+    )
+    row = await cursor.fetchone()
+    return row is not None
+
+
+async def record_level_alert(ticker: str, level_type: str, price: float, channel_name: str) -> None:
+    """Record that a level proximity alert was fired."""
+    conn = await get_db()
+    await conn.execute(
+        """INSERT INTO youtube_level_alerts (ticker, level_type, price, channel_name, alerted_at)
+           VALUES (?, ?, ?, ?, ?)""",
+        (ticker, level_type, price, channel_name, time.time()),
+    )
+    await conn.commit()
 
 
 # ---------------------------------------------------------------------------

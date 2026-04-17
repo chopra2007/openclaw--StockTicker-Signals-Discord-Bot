@@ -321,52 +321,52 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
 
     # --- Reliability engine pass (non-blocking, backward-compatible) ---
     # Enriches result with reliability_decision, contradiction_index, suppressed.
-    # Wrapped in broad try/except so it never breaks the existing scoring pipeline.
-    try:
-        from consensus_engine.analysis.reliability_engine import compute_weights, classify_decision
-        from consensus_engine.analysis.snapshot_builder import build_snapshot, commit_snapshot
+    if cfg.get("alerts.reliability_engine_enabled", False):
+        try:
+            from consensus_engine.analysis.reliability_engine import compute_weights, classify_decision
+            from consensus_engine.analysis.snapshot_builder import build_snapshot, commit_snapshot
 
-        signal_events = await db.get_signal_events_for_ticker(ticker, window_seconds=3600)
-        weights = await compute_weights(signal_events)
+            signal_events = await db.get_signal_events_for_ticker(ticker, window_seconds=3600)
+            weights = await compute_weights(signal_events)
 
-        # Assemble snapshot — also computes contradiction_index from live signal_events
-        snapshot = await build_snapshot(
-            ticker=ticker,
-            final_score=float(result.final_score),
-            decision="IGNORE",   # placeholder; overwritten below
-            weights=weights,
-        )
-
-        # Classify decision
-        if cfg.get("alerts.degraded_mode", False):
-            reliability_decision = "DEGRADED_MODE"
-        else:
-            reliability_decision = classify_decision(
+            # Assemble snapshot — also computes contradiction_index from live signal_events
+            snapshot = await build_snapshot(
+                ticker=ticker,
                 final_score=float(result.final_score),
-                contradiction_index=snapshot.contradiction_index,
+                decision="IGNORE",   # placeholder; overwritten below
                 weights=weights,
-                signal_events=signal_events,
             )
 
-        snapshot.decision = reliability_decision
-        await commit_snapshot(snapshot)
+            # Classify decision
+            if cfg.get("alerts.degraded_mode", False):
+                reliability_decision = "DEGRADED_MODE"
+            else:
+                reliability_decision = classify_decision(
+                    final_score=float(result.final_score),
+                    contradiction_index=snapshot.contradiction_index,
+                    weights=weights,
+                    signal_events=signal_events,
+                )
 
-        # Gate: which reliability labels trigger alert suppression
-        suppress_labels = set(cfg.get(
-            "alerts.suppress_on",
-            ["DEGRADED_MODE"],  # conservative default — callers opt in to stricter gates
-        ))
+            snapshot.decision = reliability_decision
+            await commit_snapshot(snapshot)
 
-        result.reliability_decision = reliability_decision
-        result.contradiction_index = snapshot.contradiction_index
-        result.reliability_weights = weights
-        result.suppressed = reliability_decision in suppress_labels
+            # Gate: which reliability labels trigger alert suppression
+            suppress_labels = set(cfg.get(
+                "alerts.suppress_on",
+                ["DEGRADED_MODE"],  # conservative default — callers opt in to stricter gates
+            ))
 
-        log.debug(
-            "cross_reference reliability $%s: decision=%s contradiction=%.2f suppressed=%s",
-            ticker, reliability_decision, snapshot.contradiction_index, result.suppressed,
-        )
-    except Exception as exc:
-        log.debug("cross_reference: reliability pass skipped for $%s: %s", ticker, exc)
+            result.reliability_decision = reliability_decision
+            result.contradiction_index = snapshot.contradiction_index
+            result.reliability_weights = weights
+            result.suppressed = reliability_decision in suppress_labels
+
+            log.debug(
+                "cross_reference reliability $%s: decision=%s contradiction=%.2f suppressed=%s",
+                ticker, reliability_decision, snapshot.contradiction_index, result.suppressed,
+            )
+        except ImportError as exc:
+            log.warning("cross_reference: reliability engine not available: %s", exc)
 
     return result

@@ -5,6 +5,12 @@ Source plans: `ytplan.md` (operational), `ytplan2.md` (unified/aspirational), `I
 
 ---
 
+## Current Decision Architecture
+
+Precision engine gates suppression/alert/IGNORE. Cross-reference provides breakdown enrichment. Reliability engine is Week 4, currently disabled via config flag.
+
+---
+
 ## ✅ Week 1 — MVP (SHIPPED)
 
 Commits: `a0895f9` (MVP), `0865243` (reasoning-model fix + Task #6 validation).
@@ -27,44 +33,51 @@ Supadata → SPY long/high → DB → `YouTubeContext(score_boost=15)`.
 ## ⏳ Week 2 — Alerting & On-Demand Commands
 
 ### 2a. Standalone YouTube Alerts (Subsystem 5 in ytplan.md)
-- [ ] Trigger: `parsed_video.overall_conviction == HIGH` AND `tickers[].direction != neutral`
-- [ ] Channel credibility gate (config threshold, default 0.5)
-- [ ] Phase 1 alert format (🎬 YouTube Signal) via `alerts/discord.py`
-- [ ] Phase 2 follow-up reuses existing cross-reference reply path
-- [ ] Config keys: `youtube.standalone_alerts`, `youtube.standalone_alert_min_conviction`
+- [x] Trigger: `parsed_video.overall_conviction == HIGH` AND `tickers[].direction != neutral` — 🔄 worker-1 (task 4)
+- [x] Channel credibility gate (config threshold, default 0.5) — 🔄 worker-1 (task 3)
+- [ ] Phase 1 alert format (🎬 YouTube Signal) via `alerts/discord.py` — in plan (task 4)
+- [ ] Phase 2 follow-up reuses existing cross-reference reply path — in plan
+- [ ] Config keys: `youtube.standalone_alerts`, `youtube.standalone_alert_min_conviction` — in plan (task 4)
 
 ### 2b. Discord Commands (Subsystem 7)
 File: `consensus_engine/alerts/commands.py`
-- [ ] `!yt <URL>` — on-demand full analysis. **Requires** new `fetch_video_metadata(url)` helper (oEmbed or Invidious `/api/v1/videos/{id}` for title/channel/duration — parser currently receives metadata from RSS only)
-- [ ] `!levels $TICKER` — query `youtube_levels` sorted by confidence
-- [ ] `!yt-mentions $TICKER` — query `youtube_signals` last 7 days
-- [ ] `!macro` — digest from `youtube_macro` (requires 2c)
+- [ ] `!yt <URL>` — on-demand full analysis with oEmbed title/channel fetch — in plan (task 9)
+- [ ] `!levels $TICKER` — query `youtube_levels` sorted by confidence — in plan (task 9)
+- [ ] `!yt-mentions $TICKER` — query `youtube_signals` last 7 days — in plan (task 9)
+- [ ] `!macro` — digest from `youtube_macro` — in plan (task 9)
 
 ### 2c. Macro Thesis Persistence (Subsystem 3, partial)
-- [ ] New table `youtube_macro` (schema in ytplan.md lines 144-156)
-- [ ] Write macro_thesis from parser output in scanner integration
-- [ ] Simple `!macro` digest (top 3 themes across channels)
+- [ ] New table `youtube_macro` (schema in ytplan.md lines 144-156) — in plan (task 4)
+- [ ] Write macro_thesis from parser output in scanner integration — in plan (task 4)
+- [ ] Simple `!macro` digest (top 3 themes across channels) — in plan (task 9)
 
 ### 2d. Hygiene
-- [ ] Close global aiohttp `get_session()` on daemon exit (currently emits "Unclosed client session" warnings on script termination — harmless in long-running daemon, noisy in CLI/tests)
-- [ ] Tighten `video_parser._call_openrouter` to handle `finish_reason=length` explicitly (log + retry with more tokens)
+- [x] Close global aiohttp `get_session()` on daemon exit — ✅ Phase 4b done (`utils/http.close_session()` called in `run_live` shutdown path)
+- [x] Tighten `video_parser._call_openrouter` to handle `finish_reason=length` — 🔄 worker-1 (task 1)
+- [x] Fix video_parser Direction enum mismatch — 🔄 worker-1 (task 1)
+- [x] Gate reliability engine behind config flag — 🔄 worker-1 (task 2)
+- [x] Precision engine as gating decision-maker in `main.py` — ✅ Phase 0c done (IGNORE suppresses follow-up, classification persisted in breakdown)
 
 ---
 
 ## ⏳ Week 3 — Level Alerting & Market View
 
 ### 3a. Level Proximity Alerter (Subsystem 2, completion)
-- [ ] Background loop checks current price vs stored S/R levels (0.5% default)
+- [ ] Background loop checks current price vs stored S/R levels (0.5% default) on every tweet poll cycle — in plan (task 10)
 - [ ] Config: `youtube.level_alert_proximity_pct`
 - [ ] Discord alert format: "🎯 $SPY approaching $650 (support flagged by Channel X 3 days ago)"
-- [ ] Cooldown to avoid re-firing same level
+- [ ] Cooldown to avoid re-firing same level (`youtube_level_alerts` table, 4hr cooldown) — in plan (task 10)
 
-### 3b. Composite Market Direction Score (Subsystem 3, completion)
+### 3b. Daily Macro Digest
+- [ ] Background loop posting daily `!macro` result to Discord #alerts at configurable UTC hour — in plan (task 10)
+- [ ] DB timestamp flag to prevent duplicate daily posts
+
+### 3c. Composite Market Direction Score (Subsystem 3, completion)
 - [ ] `market_score()` combining: youtube_macro avg, tweet sentiment, SPY/QQQ technicals, social
 - [ ] Output: `STRONGLY_BULLISH | BULLISH | NEUTRAL | BEARISH | STRONGLY_BEARISH` + confidence
 - [ ] `!market-view` Discord command
 
-### 3c. Channel Credibility Tracker (Subsystem used by 2a gate)
+### 3d. Channel Credibility Tracker (Subsystem used by 2a gate)
 - [ ] New table `youtube_channels` (credibility_score, total_calls, correct_calls)
 - [ ] Outcome tracker: after N days, compare stored calls to actual price action
 - [ ] `!channel-score` Discord command
@@ -110,17 +123,16 @@ File: `consensus_engine/alerts/commands.py`
 
 ---
 
-## 🔀 Precision-First Signal Engine (IMPLEMENTATION_PLAN.md)
+## ✅ Precision-First Decision Engine (ACTIVE)
 
-Independent track — likely Week 6+ or parallel. Not wired to YouTube system yet.
+Gating layer: `engine.py` `analyze_signal()` returns `STRONG_ALERT | WATCHLIST | IGNORE` for each signal.
+`IGNORE` suppresses the Discord follow-up embed. Cross-reference (`cross_reference.py`) runs in parallel for breakdown enrichment only — it does not gate alerts.
 
-- [ ] `adapter_protocols.py` (Finnhub, Brave, Exa, SerpApi, Firecrawl, Marketstack, Apify)
-- [ ] `api_adapters.py` implementations
-- [ ] `engine.py` with `BudgetManager` (daily caps in SQLite) + `analyze_signal()` escalation
-- [ ] Decision output: `STRONG_ALERT | WATCHLIST | IGNORE`
-- [ ] Integrate with tweet pipeline (replace/augment current cross-reference)
-
-**Open question:** is this replacing the current cross_reference.py routing, or running alongside it? (see Questions below)
+- [x] `adapter_protocols.py` (Finnhub, Brave, Exa, SerpApi, Firecrawl, Marketstack, Apify)
+- [x] `api_adapters.py` implementations
+- [x] `engine.py` with `BudgetManager` (daily caps in SQLite) + `analyze_signal()` escalation
+- [x] Decision output: `STRONG_ALERT | WATCHLIST | IGNORE`
+- [x] Integrated with tweet pipeline — precision classification gates Discord follow-up; xref score persisted as enrichment alongside `precision_classification` in `alert_breakdown`
 
 ---
 
@@ -133,16 +145,19 @@ Per `MEMORY.md` auto-memory:
 
 ---
 
-## ❓ Open Questions for Akash
+## ✅ Resolved Decisions
 
-1. **Plan reconciliation:** `ytplan.md` and `ytplan2.md` overlap but have different philosophies (ytplan = pragmatic 10-subsystem build, ytplan2 = full reliability/calibration/probabilistic architecture). Do you want ytplan2 to **replace** ytplan Weeks 4+ or **extend** it? My default: treat ytplan2 as Weeks 4-5 hardening layer on top of ytplan MVP.
-2. **Precision engine (IMPLEMENTATION_PLAN.md):** Is this a **replacement** for the existing tweet cross-reference routing, or a **parallel track** (e.g., for a different signal class)? Your call affects whether it's urgent or deferrable.
-3. **Channel credibility cold start:** How should we seed `credibility_score` before outcome tracking has data? Options: (a) all 0.5, (b) manual per-channel config, (c) derived from subscriber count. Default: (a).
-4. **Level proximity cadence:** Check every minute? Every 15 min? On every tweet poll cycle? Cheaper = less responsive.
-5. **Metadata fetch for `!yt <URL>`:** Prefer oEmbed (simpler, official) or Invidious `/api/v1/videos/{id}` (richer, already cascaded)? I'd default to oEmbed for reliability.
-6. **Macro digest format:** daily Discord summary, on-demand `!macro` only, or both?
+1. **Plan reconciliation:** `ytplan2.md` extends `ytplan.md` — ytplan2 is the Week 4-5 reliability/calibration/probabilistic hardening layer on top of the ytplan MVP. The two plans are not competing; ytplan2 kicks in after Week 3.
 
-Answer inline in this file or reply in chat — I'll update the roadmap accordingly.
+2. **Precision engine role:** Precision engine (`engine.py`) is the **primary gating layer** — it decides STRONG_ALERT / WATCHLIST / IGNORE. Cross-reference (`cross_reference.py`) runs as a parallel enrichment pass and contributes breakdown detail, but does not gate the alert. IGNORE from precision suppresses the Discord follow-up.
+
+3. **Channel credibility cold start:** Default all channels to `credibility_score = 0.5` until outcome tracking accumulates data.
+
+4. **Level proximity cadence:** Check on every tweet poll cycle (not a separate timer loop). Minimises extra infrastructure while keeping responsiveness tied to active market hours.
+
+5. **Metadata fetch for `!yt <URL>`:** Use oEmbed (`https://www.youtube.com/oembed?url=...&format=json`) for title and channel. Simpler and official; Invidious API available as fallback if needed.
+
+6. **Macro digest format:** Both — `!macro` on-demand command (task 9) plus a scheduled daily Discord post at a configurable UTC hour on weekdays (task 10, `youtube.macro_digest_utc_hour` config key).
 
 ---
 
@@ -153,4 +168,4 @@ Answer inline in this file or reply in chat — I'll update the roadmap accordin
 - Research artifacts: `.omc/research/<slug>.md` (already used for Task #6)
 - Drafts/discarded: `plans/archive/`
 
-Last updated: 2026-04-11 (end of session after Week 1 Task #6 + reasoning-model fix).
+Last updated: 2026-04-17 (ytfinal session — precision engine activated, session close fix, Week 2 progress reflected).
