@@ -93,53 +93,10 @@ def _filter_trending(
     return sorted(trending, key=lambda x: x["mentions"], reverse=True)
 
 
-async def _fetch_subreddit(session: aiohttp.ClientSession, subreddit: str, limit: int = 50) -> list[dict]:
-    """Fetch recent posts from a subreddit using Reddit's public RSS feed."""
-    import xml.etree.ElementTree as ET
-
-    url = f"https://www.reddit.com/r/{subreddit}/new/.rss"
-    headers = {"User-Agent": "OpenClaw/1.0 (stock trend engine)"}
-    try:
-        async with session.get(url, headers=headers,
-                               timeout=aiohttp.ClientTimeout(total=15)) as resp:
-            if resp.status != 200:
-                log.warning("Reddit r/%s returned %d", subreddit, resp.status)
-                return []
-            xml_text = await resp.text()
-
-        root = ET.fromstring(xml_text)
-        ns = {"atom": "http://www.w3.org/2005/Atom"}
-        entries = root.findall("atom:entry", ns)
-
-        posts = []
-        for entry in entries[:limit]:
-            title_el = entry.find("atom:title", ns)
-            content_el = entry.find("atom:content", ns)
-            author_el = entry.find("atom:author/atom:name", ns)
-            updated_el = entry.find("atom:updated", ns)
-            id_el = entry.find("atom:id", ns)
-
-            title = title_el.text if title_el is not None and title_el.text else ""
-            content = content_el.text if content_el is not None and content_el.text else ""
-            author = author_el.text.lstrip("/u/") if author_el is not None and author_el.text else ""
-            raw_id = id_el.text if id_el is not None and id_el.text else ""
-            parts = raw_id.rstrip("/").split("/")
-            post_id = parts[-1] if parts else ""
-
-            posts.append({
-                "id": post_id,
-                "subreddit": subreddit,
-                "title": title,
-                "selftext": content,
-                "author": author,
-                "score": 0,
-                "num_comments": 0,
-                "created_utc": int(time.time()),
-            })
-        return posts
-    except Exception as e:
-        log.warning("Reddit fetch error for r/%s: %s", subreddit, e)
-        return []
+async def _fetch_subreddit(session: aiohttp.ClientSession, subreddit: str, limit: int = 100) -> list[dict]:
+    """Fetch recent posts via OAuth API (if credentials set) or RSS fallback."""
+    from consensus_engine.utils.reddit import fetch_subreddit_posts
+    return await fetch_subreddit_posts(session, subreddit, limit=limit)
 
 
 async def crawl_and_get_trending() -> list[dict]:
