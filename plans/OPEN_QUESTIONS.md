@@ -15,7 +15,7 @@ Reply inline (add `**Answer:** ...` under each) or in chat.
 
 **My default:** extend (treat ytplan2 as Weeks 4–5 hardening).
 
-**Answer:**
+**Answer:** Extend. (Phase A–D already shipped 2026-04-13, Week 2 builds on existing system.)
 
 ---
 
@@ -24,7 +24,7 @@ Reply inline (add `**Answer:** ...` under each) or in chat.
 
 **Question:** Is this a **replacement** for the existing `cross_reference.py` tweet routing, or a **parallel track** (e.g., for a different signal class)?
 
-**Answer:**
+**Answer:** Replace. Precision engine becomes the new decision-maker; cross_reference.py is replaced entirely.
 
 ---
 
@@ -38,7 +38,7 @@ Before outcome tracking accumulates data, `youtube_channels.credibility_score` n
 
 **My default:** (a).
 
-**Answer:**
+**Answer:** Manual curation only. Only pre-approved YouTube channels added; all start at 100% trust. Cold-start problem doesn't apply.
 
 ---
 
@@ -49,7 +49,7 @@ The background loop that fires Discord alerts when price approaches stored S/R l
 
 Cheaper = less responsive. Finnhub quote cap is 3000/day.
 
-**Answer:**
+**Answer:** On every tweet poll cycle.
 
 ---
 
@@ -62,7 +62,7 @@ Cheaper = less responsive. Finnhub quote cap is 3000/day.
 
 **My default:** oEmbed.
 
-**Answer:**
+**Answer:** oEmbed.
 
 ---
 
@@ -74,7 +74,7 @@ The `!macro` command + daily summary posts.
 - On-demand `!macro` only
 - Both
 
-**Answer:**
+**Answer:** Both. Daily auto-post at 6 AM (user's time) Monday–Friday, plus on-demand `!macro` command.
 
 ---
 
