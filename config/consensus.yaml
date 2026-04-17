@@ -17,6 +17,8 @@ api_keys:
   twitter_cookie_string: "$TWITTER_COOKIE_STRING"
   serpapi: "$SERPAPI3_API_KEY"
   exa: "$EXA_AI_API_KEY"
+  reddit_client_id: "$REDDIT_CLIENT_ID"
+  reddit_client_secret: "$REDDIT_CLIENT_SECRET"
 
 # Self-hosted Nitter (Docker)
 nitter:

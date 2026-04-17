@@ -26,6 +26,16 @@ from consensus_engine.utils.browser import (
 )
 from consensus_engine.utils.rate_limiter import rate_limiter
 
+
+
+async def _has_market_cap(ticker: str) -> bool:
+    """Check if ticker has any market cap - skip if not a real stock."""
+    try:
+        from consensus_engine.utils.    tickers import validate_even_ticker
+        return await validate_even_ticker(ticker)
+    except Exception:
+        return True  # Fail open on errors
+
 log = logging.getLogger("consensus_engine.scanner.social")
 
 
@@ -34,32 +44,25 @@ log = logging.getLogger("consensus_engine.scanner.social")
 # ---------------------------------------------------------------------------
 
 async def scan_reddit() -> list[TickerSignal]:
-    """Fetch subreddit posts via Reddit's public JSON API."""
+    """Fetch subreddit posts via OAuth API (credentials) or RSS fallback."""
     subreddits = cfg.get("social.subreddits", [])
     if not subreddits:
         return []
 
+    from consensus_engine.utils.reddit import fetch_subreddit_posts
+
     signals = []
-    headers = {
-        "User-Agent": "OpenClaw/1.0 (stock trend engine)",
-    }
-    async with aiohttp.ClientSession(headers=headers) as session:
+    async with aiohttp.ClientSession() as session:
         for sub in subreddits:
             if not await rate_limiter.acquire("reddit"):
                 break
             try:
-                url = f"https://www.reddit.com/r/{sub}/new.json?limit=25"
-                async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
-                    if resp.status != 200:
-                        log.warning("Reddit JSON r/%s returned %d", sub, resp.status)
-                        rate_limiter.report_failure("reddit")
-                        continue
-                    data = await resp.json()
-                sub_signals = _parse_reddit_json(data, sub)
+                posts = await fetch_subreddit_posts(session, sub, limit=100)
+                sub_signals = _parse_reddit_posts(posts, sub)
                 signals.extend(sub_signals)
                 rate_limiter.report_success("reddit")
             except Exception as e:
-                log.warning("Reddit JSON error for r/%s: %s", sub, e)
+                log.warning("Reddit error for r/%s: %s", sub, e)
                 rate_limiter.report_failure("reddit")
             await asyncio.sleep(2)
 
@@ -67,12 +70,10 @@ async def scan_reddit() -> list[TickerSignal]:
     return signals
 
 
-def _parse_reddit_json(data: dict, subreddit: str) -> list[TickerSignal]:
-    """Parse Reddit JSON API response into TickerSignal list."""
-    children = data.get("data", {}).get("children", [])
+def _parse_reddit_posts(posts: list[dict], subreddit: str) -> list[TickerSignal]:
+    """Parse flat post list into TickerSignals."""
     signals = []
-    for child in children[:25]:
-        post = child.get("data", {})
+    for post in posts:
         title = post.get("title", "")
         selftext = post.get("selftext", "")
         text = (title + " " + selftext).strip()
@@ -229,9 +230,17 @@ async def scan_google_trends(tickers: list[str]) -> dict[str, float]:
         log.debug("Google Trends: no SerpAPI key configured, skipping")
         return {}
 
+    # Filter to valid tickers with market cap
+    valid_tickers = []
+    for t in tickers[:10]:
+        if await _has_market_cap(t):
+            valid_tickers.append(t)
+    if not valid_tickers:
+        return {}
+
     results = {}
     async with aiohttp.ClientSession() as session:
-        for ticker in tickers[:10]:
+        for ticker in valid_tickers:
             if not await rate_limiter.acquire("google_trends"):
                 break
 
@@ -391,9 +400,17 @@ async def scan_google_trends_exa(tickers: list[str]) -> dict[str, float]:
     from datetime import datetime, timedelta, timezone
     yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
+    # Filter to valid tickers with market cap
+    valid_tickers = []
+    for t in tickers[:10]:
+        if await _has_market_cap(t):
+            valid_tickers.append(t)
+    if not valid_tickers:
+        return {}
+
     results = {}
     async with aiohttp.ClientSession() as session:
-        for ticker in tickers[:10]:
+        for ticker in valid_tickers:
             if not await rate_limiter.acquire("exa"):
                 break
             try:
