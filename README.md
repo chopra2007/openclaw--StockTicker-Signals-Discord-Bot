@@ -104,7 +104,7 @@ For tweet parsing, the engine now uses a **hybrid multimodal router**:
 - **Multimodal tweet parser** — classifies tweets into 4 types via OpenRouter; text-only or vision+text hybrid; extracts tickers, direction (long/short/neutral), conviction, and options details
 
 ### Cross-Reference Sources (Evidence Graph)
-- **YouTube transcripts** — `video_parser.py` extracts ticker mentions + direction + price levels + macro thesis. Quality gates: min 250 words, symbol disambiguation (reject ambiguous tickers), negation handling ("not bullish" flips to neutral). Stores to signal_events with source_type='youtube'
+- **YouTube transcripts** — `video_parser.py` extracts ticker mentions + direction + price levels + macro thesis. Quality gates: min 250 words, symbol disambiguation (reject ambiguous tickers), negation handling ("not bullish" flips to neutral). Stores to signal_events with source_type='youtube'. **Channel management:** channels are stored in the `youtube_channels` DB table and persisted to `/root/.openclaw/sources.json` under the `youtube_channels` key. Add channels via `!yt-follow @handle` in Discord — no restart required. Channels seed automatically on startup from sources.json.
 - **News catalyst** — 4-tier cascade: Finnhub company news, Google News RSS, Brave Search, self-hosted SearXNG. Tiered scoring: high-impact catalysts (Earnings Beat, M&A, FDA Approval) score +25, medium (Analyst Upgrade, SEC Filing) +15, low (Partnership, Patent) +8
 - **SEC EDGAR** — checks for recent 8-K, 10-K, 10-Q, Form 4, SC 13D/G filings within 48 hours. Form 4 (insider trading) adds +15 to reliability_engine
 - **Technical filters** — direction-aware (long vs short thresholds): RVOL, VWAP, RSI, EMA crossover, price change %, ATR breakout. Weighted by freshness and historical accuracy
@@ -167,6 +167,14 @@ For tweet parsing, the engine now uses a **hybrid multimodal router**:
 | `!apewisdom` | ApeWisdom trending tickers |
 | `!gaps` | Pre-market gap scanner (>3% moves on watchlist) |
 | `!leaderboard` | Per-analyst win rate rankings (1h + 24h accuracy, avg P&L) |
+
+**YouTube Intelligence**
+| Command | Description |
+|---|---|
+| `!yt <URL>` | On-demand analysis of a YouTube video — returns tickers, conviction, macro direction, and price levels found |
+| `!yt-mentions <TICKER>` | YouTube signals for a ticker from the last 7 days, ordered by conviction |
+| `!macro` | Macro digest across all followed channels (last 7 days): direction counts + top 3 themes |
+| `!yt-follow <@handle or URL>` | Add a YouTube channel to the follow list. Accepts `@FiguringOutMoney`, `https://youtube.com/@FiguringOutMoney`, or any YouTube channel URL. Resolves the channel ID automatically, adds it to the DB and `sources.json`, and starts scanning on the next poll cycle. |
 
 **Engine Health**
 | Command | Description |
