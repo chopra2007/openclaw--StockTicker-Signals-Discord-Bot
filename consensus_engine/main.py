@@ -832,6 +832,14 @@ def main():
         return
 
     if args.live:
+        import fcntl
+        _lock_file = open("/tmp/consensus_engine.lock", "w")
+        try:
+            fcntl.flock(_lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            print("Another instance of consensus_engine --live is already running. Exiting.")
+            _lock_file.close()
+            return
         stop = asyncio.Event()
         asyncio.run(run_live(stop))
     else:
