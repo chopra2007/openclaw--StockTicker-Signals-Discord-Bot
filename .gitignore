@@ -33,6 +33,10 @@ node_modules/
 .DS_Store
 Thumbs.db
 
+# OMC session files
+.omc/sessions/
+.omc/state/
+
 # Misc
 *.png
 apify.png

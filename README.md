@@ -79,7 +79,6 @@ Analyst tweets on Twitter/X trigger instant Discord alerts. Cross-reference sour
 
 ### Proactive Scanners
 
-- **Pre-market gap scanner** — >3% gaps on a 20-ticker watchlist (8–9 AM ET)
 - **Volume breakout scanner** — RVOL >5x + price change >1% during market hours
 - **Unusual options sweep scanner** — vol/OI >5x, >$100K notional
 - **Earnings calendar pre-alert** — day-before alert for tracked tickers via Finnhub
@@ -133,7 +132,6 @@ Calibrated confidence via isotonic regression on rolling `decision_snapshots`.
 |---|---|
 | `!trend` | On-demand Reddit trend digest |
 | `!apewisdom` | ApeWisdom trending tickers |
-| `!gaps` | Pre-market gap scanner (>3% moves on watchlist) |
 | `!leaderboard` | Per-analyst win rate rankings (1h + 24h accuracy, avg P&L) |
 
 ### YouTube Intelligence
@@ -245,7 +243,6 @@ All settings in `config/consensus.yaml`. API keys use `$ENV_VAR` syntax.
 | `technical` | RVOL threshold, RSI bounds, EMA periods, ATR |
 | `ticker_validation` | Min market cap ($100M), cache TTL |
 | `scanners` | Background scanner toggles (incl. SEC watcher on/off) |
-| `premarket` | Gap threshold %, watchlist, scan hours |
 | `alerts` | Cooldown, max per hour, embed colors, min score |
 | `database` | SQLite path, signal TTL (2h), history retention |
 | `reliability` | R_class priors, contradiction threshold (0.75), min evidence mass (0.35) |
@@ -317,7 +314,6 @@ consensus_engine/
 │   ├── reddit_trend.py        # Reddit trend digest
 │   ├── sec_edgar.py           # SEC EDGAR filing scanner
 │   ├── sec_watcher.py         # Real-time 8-K ATOM feed (disabled by default)
-│   ├── premarket.py           # Pre-market gap scanner
 │   ├── volume_scanner.py      # RVOL >5x breakout detector
 │   ├── earnings_calendar.py   # Upcoming earnings pre-alert
 │   └── searxng.py             # SearXNG self-hosted search

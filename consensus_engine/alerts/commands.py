@@ -53,7 +53,6 @@ HELP_TEXT = """**OpenClaw Signal Engine — Commands**
 
 **Market Scanners**
 `!apewisdom` — ApeWisdom trending tickers
-`!gaps` — pre-market gap scanner (>3% gaps)
 `!leaderboard` — analyst win rate rankings
 
 **Engine Health**
@@ -168,9 +167,6 @@ async def route_command(
             await send_command_reply(channel_id, message_id, "Usage: `!alert-history <TICKER>` — e.g. `!alert-history NVDA`")
         else:
             await _handle_alert_history(args[0].upper(), channel_id, message_id)
-
-    elif command == "gaps":
-        await _handle_gaps(channel_id, message_id)
 
     elif command == "leaderboard":
         await _handle_leaderboard(channel_id, message_id)
@@ -694,23 +690,6 @@ async def _handle_nitter_health(channel_id: str, message_id: str) -> None:
         from consensus_engine import config as cfg
         nitter_url = cfg.get("nitter.url", "http://localhost:8585")
         await send_command_reply(channel_id, message_id, f"Nitter: **offline** — not responding ({nitter_url})")
-
-
-async def _handle_gaps(channel_id: str, message_id: str) -> None:
-    """Run pre-market gap scan on demand."""
-    await send_command_reply(channel_id, message_id, "Scanning pre-market gaps...")
-    asyncio.create_task(_gaps_and_reply(channel_id, message_id))
-
-
-async def _gaps_and_reply(channel_id: str, message_id: str) -> None:
-    try:
-        from consensus_engine.scanners.premarket import scan_premarket_gaps, format_gap_digest
-        gaps = await scan_premarket_gaps()
-        msg = format_gap_digest(gaps)
-        await send_command_reply(channel_id, message_id, msg)
-    except Exception as e:
-        log.error("Gaps command error: %s", e)
-        await send_command_reply(channel_id, message_id, "Gap scan failed.")
 
 
 async def _handle_leaderboard(channel_id: str, message_id: str) -> None:

@@ -70,6 +70,13 @@ async def scan_reddit() -> list[TickerSignal]:
     return signals
 
 
+def _parse_reddit_json(response: dict, subreddit: str) -> list[TickerSignal]:
+    """Parse a raw Reddit JSON API response (with data.children) into TickerSignals."""
+    children = response.get("data", {}).get("children", [])
+    posts = [c.get("data", {}) for c in children if isinstance(c, dict)]
+    return _parse_reddit_posts(posts, subreddit)
+
+
 def _parse_reddit_posts(posts: list[dict], subreddit: str) -> list[TickerSignal]:
     """Parse flat post list into TickerSignals."""
     signals = []

@@ -62,9 +62,6 @@ async def scan_upcoming_earnings() -> list[dict]:
     except Exception as e:
         log.debug("Error fetching tracked tickers: %s", e)
 
-    watchlist = cfg.get("premarket.watchlist", [])
-    tracked.update(watchlist)
-
     if not tracked:
         return []
 

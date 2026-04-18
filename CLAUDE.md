@@ -1,141 +1,42 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## Behavior
 Always proceed without asking for confirmation. Never ask "shall I proceed?", "do you want me to continue?", or "would you like me to...?". Assume the answer is always yes and execute immediately.
 
 ## Alert Philosophy
 
-**Core Goals:**
-- **Quality over quantity** — Fewer alerts, but each tells the full story
-- **Actionable intelligence** — Alerts must quickly convey buy/sell conviction
-- **Multiple source confirmation** — 2+ independent sources before alerting (with exceptions)
+**Core Goals:** Quality over quantity. Actionable intelligence. 2+ independent sources before alerting (with exceptions).
 
-**Minimum Confirmation Sources:**
-- Most alerts require **2 sources minimum**
-- **EXCEPTION:** Trade-specific signals trigger instantly if the tweet explicitly identifies:
-  - Large options activity (e.g., "huge call volume on $XYZ")
-  - Insider trading (e.g., "CEO just bought $1M")
-  - Unusual options flow
-  - Technical breakout with specific levels
-  - Quant/factor signals
+**Instant-trigger exceptions** (no second source needed): large options activity, insider trading, unusual flow, technical breakout with levels, quant/factor signals.
 
 **SEC Filing Rules:**
-- **8-K filings NEVER trigger standalone alerts**
-- Form 4 (insider trading) stored for cross-ref, adds +15 points to scoring
-- All SEC data integrated into LLM thesis generation, not as independent alerts
-- SEC context builds "bigger picture" thesis, not alert triggers
+- 8-K filings NEVER trigger standalone alerts
+- Form 4 stored for cross-ref, adds +15 points to scoring
+- All SEC data feeds LLM thesis generation only
 
-**Alert Format (Required):**
-1. Ticker + Direction
-2. Primary catalyst (what's driving it)
-3. Analyst opinion
-4. Supporting data (social, news, SEC, technical)
-5. Confidence score
-6. **LLM-generated thesis** (1-paragraph explanation)
-
-## What This Is
-
-A **Signal-First Stock Alert Engine** — analyst tweets on Twitter/X trigger instant Discord alerts. Cross-reference sources (news, social, technical, LLM) run asynchronously and add score multipliers via a follow-up reply. Core principle: **speed + accuracy**.
-
-### Signal-First Architecture
-1. **Nitter RSS** polls 48 analyst accounts every 60s (market hours) / 180s (off-hours)
-2. **LLM Tweet Parser** classifies tweets (Type A: ticker callout, B: macro, C: options, D: sentiment)
-3. **Instant Discord Ping** — actionable tweets (A/C) trigger immediate alerts
-4. **Cross-Reference Engine** — runs in background, replies with score breakdown:
-   - News Catalyst (4-tier cascade: Finnhub → Google RSS → Brave → SearXNG)
-   - Social (Reddit, ApeWisdom, Google Trends)
-   - Technical (RVOL, VWAP, RSI, EMA, Price Change, ATR)
-   - Other analysts mentioning same ticker
-   - LLM confidence score
+**Alert Format:** Ticker + Direction → Primary catalyst → Analyst opinion → Supporting data → Confidence score → LLM thesis (1-paragraph)
 
 ## Commands
 
 ```bash
-# Run the full engine (Nitter RSS polling + social scanner + pruner)
-python3 -m consensus_engine
-
-# Run a single poll cycle and exit
-python3 -m consensus_engine --once
-
-# Run without sending Discord alerts (logs them instead)
-python3 -m consensus_engine --dry-run
-python3 -m consensus_engine --dry-run --once
-
-# Print engine health report
-python3 -m consensus_engine --status
-
-# Run the test suite
-python3 -m pytest tests/ -v
-
-# Run tests via engine CLI
-python3 -m consensus_engine --test
-
-# Install dependencies
-pip3 install aiohttp aiosqlite pyyaml yfinance playwright-stealth
-playwright install chromium && playwright install-deps chromium
-
-# Docker services (Nitter + SearXNG)
-docker compose up -d
+python3 -m consensus_engine          # full engine
+python3 -m consensus_engine --once   # single poll cycle
+python3 -m consensus_engine --dry-run --once  # no Discord, logs only
+python3 -m consensus_engine --status # health report
+python3 -m pytest tests/ -v          # test suite
+docker compose up -d                 # Nitter (8585) + SearXNG (8888)
 ```
 
-## Architecture
-
-### Pipeline Flow
-```
-scanners/nitter.py (RSS)  ──> analysis/tweet_parser.py (LLM)
-                                      │
-                              main.py:process_tweet()
-                                      │
-                          ┌───────────┴───────────┐
-                    alerts/discord.py         cross_reference.py
-                    (instant ping)           (async background)
-                                                  │
-                                    ┌─────────────┼─────────────┐
-                              scanners/news.py  analysis/    scanners/social.py
-                              (4-tier cascade)  technical.py  social.py
-                                                analysis/
-                                                llm_scorer.py
-```
-
-### Self-Hosted Services
-- **Nitter** (localhost:8585) — Twitter RSS proxy, avoids API rate limits
-- **SearXNG** (localhost:8888) — meta search engine, news cascade fallback
-- Both configured in `docker-compose.yaml`
-
-### Key Design Decisions
-- **Signal-first**: Analyst tweet → instant alert → async cross-reference. No gates block the alert.
-- **Two-phase Discord alerts**: Phase 1 instant ping, Phase 2 reply with score breakdown.
-- **Additive scoring**: Base score from conviction (20-30), multipliers from cross-references (up to ~100+).
-- **Finnhub free tier only supports real-time quotes** (`/quote`), not historical candles. Historical OHLCV comes from **yfinance**, which runs in a `ThreadPoolExecutor` because it's blocking.
-- **Config-driven**: All thresholds, intervals, API keys live in `config/consensus.yaml`. Access via `config.get("dot.path.key", default)`.
-- **Rate limiting**: Per-source async rate limiter with exponential backoff (`utils/rate_limiter.py`).
-- **Signal TTL**: Signals in SQLite expire after 2 hours. Pruner loop cleans them.
-- **Ticker validation**: Market-cap check ($100M floor) via Finnhub with DB caching.
-- **Tweet dedup**: `seen_tweets` table prevents reprocessing.
-
-### Data Flow
-1. `NitterPoller.poll_all()` fetches RSS, deduplicates via `seen_tweets` table
-2. `process_tweet()` parses with LLM, validates ticker, sends instant ping
-3. Background task runs `cross_reference()` → `send_detail_followup()` as reply
-4. Social scanner loop independently populates cross-reference data
-
-## Configuration
-
-All config in `config/consensus.yaml`. API keys can reference env vars with `$` prefix. Twitter accounts loaded from `/root/.openclaw/sources.json` (48 accounts).
-
-## Important Caveats
-
-- `playwright-stealth` v2.0.2 uses `from playwright_stealth import Stealth` then `Stealth().apply_stealth_async(page)` — NOT the old `stealth_async()` function.
-- ApeWisdom has a free direct REST API with no authentication.
-- Tests use `pytest.ini` with `asyncio_mode = auto` for async fixture support.
+## Key Design Decisions
+- **Signal-first**: tweet → instant alert → async cross-reference. No gates block the alert.
+- **Finnhub free tier**: real-time quotes only (`/quote`). Historical OHLCV via yfinance in `ThreadPoolExecutor` (blocking).
+- **Config**: all thresholds/keys in `config/consensus.yaml` via `config.get("dot.path", default)`. Twitter accounts: `/root/.openclaw/sources.json`.
+- **playwright-stealth** v2.0.2: `from playwright_stealth import Stealth` → `Stealth().apply_stealth_async(page)` — NOT `stealth_async()`.
+- ApeWisdom: free REST API, no auth required.
+- Tests: `pytest.ini` `asyncio_mode = auto`.
 
 ## GitHub & Documentation Automation
-- **Mandatory Commits:** After completing any functional change or task, create a local Git commit.
-- **Commit Standards:** Use clean, imperative-style commit messages (e.g., "Add multi-agent logic").
-- **Automatic Push:** Immediately push all local commits to the remote GitHub repository.
-- **Repository Management:** If no remote is configured, use `gh repo create` to initialize a private repository.
-- **README Maintenance:** Read all project files to generate and maintain a comprehensive `README.md` that reflects the current state of the architecture, setup instructions, and features.
-- **Persistence:** This workflow is a core project requirement and must be maintained across all sessions.
-
+- After every functional change: commit locally then push immediately.
+- Commit style: imperative (e.g., "Add multi-agent logic").
+- No remote configured: use `gh repo create` to init private repo.
+- Keep `README.md` current with architecture, setup, and features.
