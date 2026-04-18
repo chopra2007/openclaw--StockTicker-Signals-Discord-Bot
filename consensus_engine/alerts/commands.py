@@ -25,6 +25,7 @@ Commands:
 import asyncio
 import logging
 import re
+from datetime import datetime
 from typing import Optional
 
 from consensus_engine import db
@@ -462,6 +463,23 @@ async def _handle_sec(ticker: str, channel_id: str, message_id: str) -> None:
     asyncio.create_task(_sec_and_reply(ticker, channel_id, message_id))
 
 
+def _fmt_insider_name(raw: str) -> str:
+    """Convert SEC 'LAST FIRST' format to 'First Last' for display."""
+    parts = raw.strip().split()
+    if len(parts) >= 2:
+        return " ".join(reversed(parts))
+    return raw.title()
+
+
+def _fmt_security(raw: str) -> str:
+    s = raw.strip()
+    if "restricted stock unit" in s.lower():
+        return "RSUs"
+    if "common stock" in s.lower():
+        return "Common Stock"
+    return s
+
+
 async def _sec_and_reply(ticker: str, channel_id: str, message_id: str) -> None:
     try:
         from consensus_engine.scanners.sec_edgar import (
@@ -471,15 +489,12 @@ async def _sec_and_reply(ticker: str, channel_id: str, message_id: str) -> None:
         if not filings:
             await send_command_reply(channel_id, message_id, f"No SEC filings in the last 72h for `${ticker}`.")
             return
-        has_significant, summary = classify_filing_significance(filings)
+
         lines = [f"**SEC Filings — ${ticker}** (last 72h)"]
-        if summary:
-            lines.append(summary)
 
         for f in filings[:8]:
             form = f.get("form", "?")
             filed = f.get("filing_date", "?")
-            lines.append(f"`{form}` — {filed}")
 
             if form == "4":
                 txs = await fetch_form4_details(
@@ -487,21 +502,37 @@ async def _sec_and_reply(ticker: str, channel_id: str, message_id: str) -> None:
                     f.get("accession_number", ""),
                     f.get("primary_document", ""),
                 )
+                # Group transactions by insider
+                grouped: dict[str, list] = {}
+                meta: dict[str, str] = {}
                 for tx in txs:
-                    name = tx["reporter_name"]
-                    title = tx["title"]
-                    direction = tx["direction"]
-                    shares = tx["shares"]
-                    price = tx["price"]
-                    tx_type = tx["transaction_type"]
-                    security = tx["security"]
-                    direction_icon = "🟢" if direction == "Buy" else "🔴" if direction == "Sell" else "⚪"
-                    shares_fmt = f"{shares:,.0f}"
-                    price_fmt = f"${price:.2f}" if price else "n/a"
-                    lines.append(
-                        f"  {direction_icon} **{name}** ({title})\n"
-                        f"    {tx_type} — {shares_fmt} shares of {security} @ {price_fmt}"
-                    )
+                    key = tx["reporter_name"]
+                    grouped.setdefault(key, []).append(tx)
+                    meta[key] = tx["title"]
+
+                try:
+                    date_fmt = datetime.strptime(filed, "%Y-%m-%d").strftime("%b %-d")
+                except ValueError:
+                    date_fmt = filed
+
+                lines.append(f"\n📋 **Form 4 · {date_fmt}** — Insider Transactions")
+                for raw_name, insider_txs in grouped.items():
+                    display_name = _fmt_insider_name(raw_name)
+                    title = meta[raw_name]
+                    lines.append(f"👤 **{display_name}** · {title}")
+                    for tx in insider_txs:
+                        direction = tx["direction"]
+                        shares = tx["shares"]
+                        price = tx["price"]
+                        tx_type = tx["transaction_type"]
+                        security = _fmt_security(tx["security"])
+                        icon = "🟢" if direction == "Buy" else "🔴" if direction == "Sell" else "⚪"
+                        prefix = "+" if direction == "Buy" else "−" if direction == "Sell" else ""
+                        shares_fmt = f"{shares:,.0f}"
+                        price_str = f" @ **${price:.2f}**" if price else ""
+                        lines.append(f"  {icon} {prefix}{shares_fmt} {security}{price_str}  _{tx_type}_")
+            else:
+                lines.append(f"\n📄 **{form}** · {filed}")
 
         await send_command_reply(channel_id, message_id, "\n".join(lines))
     except Exception as e:
