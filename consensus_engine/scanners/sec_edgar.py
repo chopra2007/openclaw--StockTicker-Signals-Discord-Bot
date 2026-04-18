@@ -6,6 +6,7 @@ CIK lookups are cached in the ticker_metadata table.
 
 import logging
 import time
+import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -93,6 +94,7 @@ async def check_recent_filings(ticker: str, hours_back: int = 48) -> list[dict]:
         filing_dates = recent.get("filingDate", [])
         acceptance_times = recent.get("acceptanceDateTime", [])
         accession_numbers = recent.get("accessionNumber", [])
+        primary_docs = recent.get("primaryDocument", [])
 
         cutoff = datetime.now(timezone.utc) - timedelta(hours=hours_back)
         results = []
@@ -118,11 +120,14 @@ async def check_recent_filings(ticker: str, hours_back: int = 48) -> list[dict]:
                     continue
 
             accession = accession_numbers[i] if i < len(accession_numbers) else ""
+            primary_doc = primary_docs[i] if i < len(primary_docs) else ""
             results.append({
                 "form": form,
                 "filing_date": filing_dates[i] if i < len(filing_dates) else "",
                 "acceptance_datetime": acceptance_str,
                 "accession_number": accession,
+                "primary_document": primary_doc,
+                "cik": cik,
             })
 
         if results:
@@ -163,3 +168,135 @@ def classify_filing_significance(filings: list[dict]) -> tuple[bool, str]:
 
     summary = "; ".join(parts)
     return bool(significant) or insider, summary
+
+
+async def fetch_form4_details(cik: str, accession_number: str, primary_document: str) -> list[dict]:
+    """Fetch and parse a Form 4 XML filing.
+
+    Returns a list of transaction dicts, each with:
+      reporter_name, title, transaction_type, shares, price, direction, security, date
+    """
+    if not accession_number or not primary_document:
+        return []
+
+    accession_nodash = accession_number.replace("-", "")
+    cik_int = str(int(cik))  # strip leading zeros for the path
+    # primaryDocument may have a stylesheet prefix like "xslF345X06/form4.xml"
+    filename = primary_document.split("/")[-1]
+    xml_url = (
+        f"https://www.sec.gov/Archives/edgar/data/{cik_int}"
+        f"/{accession_nodash}/{filename}"
+    )
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            headers = {"User-Agent": _USER_AGENT}
+            async with session.get(xml_url, headers=headers,
+                                   timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                if resp.status != 200:
+                    log.debug("Form 4 XML fetch failed %d: %s", resp.status, xml_url)
+                    return []
+                raw = await resp.text()
+    except Exception as e:
+        log.debug("Form 4 fetch error: %s", e)
+        return []
+
+    try:
+        root = ET.fromstring(raw)
+    except ET.ParseError as e:
+        log.debug("Form 4 XML parse error: %s", e)
+        return []
+
+    def _val(node, tag):
+        el = node.find(f".//{tag}/value")
+        if el is None:
+            el = node.find(f".//{tag}")
+        return (el.text or "").strip() if el is not None else ""
+
+    # Reporter identity
+    reporter_name = _val(root, "rptOwnerName") or "Unknown"
+    is_director = _val(root, "isDirector") == "1"
+    is_officer = _val(root, "isOfficer") == "1"
+    is_ten_pct = _val(root, "isTenPercentOwner") == "1"
+    officer_title = _val(root, "officerTitle")
+
+    if officer_title:
+        title = officer_title
+    elif is_director and is_officer:
+        title = "Director & Officer"
+    elif is_director:
+        title = "Director"
+    elif is_ten_pct:
+        title = "10% Owner"
+    else:
+        title = "Insider"
+
+    transactions = []
+
+    for tx in root.findall(".//nonDerivativeTransaction"):
+        shares_str = _val(tx, "transactionShares")
+        price_str = _val(tx, "transactionPricePerShare")
+        code = _val(tx, "transactionAcquiredDisposedCode")
+        date = _val(tx, "transactionDate")
+        security = _val(tx, "securityTitle") or "Common Stock"
+        tx_code = _val(tx, "transactionCode")  # P=purchase, S=sale, A=award, etc.
+
+        try:
+            shares = float(shares_str) if shares_str else 0.0
+        except ValueError:
+            shares = 0.0
+        try:
+            price = float(price_str) if price_str else 0.0
+        except ValueError:
+            price = 0.0
+
+        direction = "Buy" if code == "A" else "Sell" if code == "D" else code
+        tx_label = {"P": "Open Market Purchase", "S": "Open Market Sale",
+                    "A": "Award/Grant", "F": "Tax Withholding", "M": "Option Exercise",
+                    "G": "Gift", "D": "Disposition"}.get(tx_code, tx_code or "Transaction")
+
+        transactions.append({
+            "reporter_name": reporter_name,
+            "title": title,
+            "security": security,
+            "date": date,
+            "shares": shares,
+            "price": price,
+            "direction": direction,
+            "transaction_type": tx_label,
+        })
+
+    for tx in root.findall(".//derivativeTransaction"):
+        shares_str = _val(tx, "transactionShares")
+        price_str = _val(tx, "transactionPricePerShare")
+        code = _val(tx, "transactionAcquiredDisposedCode")
+        date = _val(tx, "transactionDate")
+        security = _val(tx, "securityTitle") or "Derivative"
+        tx_code = _val(tx, "transactionCode")
+
+        try:
+            shares = float(shares_str) if shares_str else 0.0
+        except ValueError:
+            shares = 0.0
+        try:
+            price = float(price_str) if price_str else 0.0
+        except ValueError:
+            price = 0.0
+
+        direction = "Buy" if code == "A" else "Sell" if code == "D" else code
+        tx_label = {"P": "Open Market Purchase", "S": "Open Market Sale",
+                    "A": "Award/Grant", "F": "Tax Withholding", "M": "Option Exercise",
+                    "G": "Gift", "D": "Disposition"}.get(tx_code, tx_code or "Transaction")
+
+        transactions.append({
+            "reporter_name": reporter_name,
+            "title": title,
+            "security": security,
+            "date": date,
+            "shares": shares,
+            "price": price,
+            "direction": direction,
+            "transaction_type": tx_label,
+        })
+
+    return transactions
