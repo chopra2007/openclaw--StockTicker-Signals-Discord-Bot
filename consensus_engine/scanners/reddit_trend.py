@@ -46,44 +46,30 @@ def _extract_tickers_from_text(text: str) -> set[str]:
     return {m.lstrip("$") for m in matches if m.lstrip("$") not in BLACKLIST}
 
 
-def _compute_metrics(posts: list[dict]) -> dict[str, dict]:
+def _compute_metrics(posts: list[dict], lookback_hours: float = 24.0) -> dict[str, dict]:
     """Compute per-ticker mention count, unique authors, and momentum from a post list.
 
     Each post dict must have keys: ticker, author, created_utc.
     Returns {ticker: {mentions, unique_authors, momentum}}.
-    Momentum is mentions per hour (velocity). Falls back to raw mention count
-    when only one timestamp is available, or 1.0 when none are present.
+    Momentum is mentions per hour over the full lookback window.
     """
     data: dict[str, dict] = {}
     for post in posts:
         ticker = post["ticker"]
         author = post.get("author", "")
-        created_utc = post.get("created_utc", 0)
         if ticker not in data:
-            data[ticker] = {"mentions": 0, "unique_authors": set(), "timestamps": []}
+            data[ticker] = {"mentions": 0, "unique_authors": set()}
         data[ticker]["mentions"] += 1
         if author:
             data[ticker]["unique_authors"].add(author)
-        if created_utc:
-            data[ticker]["timestamps"].append(created_utc)
 
     result = {}
     for ticker, metrics in data.items():
         mentions = metrics["mentions"]
-        timestamps = metrics["timestamps"]
-
-        if len(timestamps) >= 2:
-            time_span_hours = (max(timestamps) - min(timestamps)) / 3600.0
-            momentum = mentions / time_span_hours if time_span_hours > 0 else float(mentions)
-        elif len(timestamps) == 1:
-            momentum = float(mentions)
-        else:
-            momentum = 1.0
-
         result[ticker] = {
             "mentions": mentions,
             "unique_authors": len(metrics["unique_authors"]),
-            "momentum": momentum,
+            "momentum": mentions / lookback_hours,
         }
 
     return result
@@ -153,7 +139,7 @@ async def crawl_and_get_trending() -> list[dict]:
         log.info("Reddit trend: no posts in last %dh", lookback_hours)
         return []
 
-    metrics = _compute_metrics(expanded)
+    metrics = _compute_metrics(expanded, lookback_hours=lookback_hours)
     trending = _filter_trending(
         metrics,
         min_mentions=cfg.get("social.reddit_trend_min_mentions", 3),
