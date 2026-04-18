@@ -557,6 +557,7 @@ async def process_tweet(raw_tweet: dict):
     )
     tweet.avatar_url = raw_tweet.get("avatar_url")
     tweet.display_name = raw_tweet.get("display_name")
+    tweet.discord_source_link = raw_tweet.get("discord_source_link")
 
     if not tweet.is_actionable:
         for ticker in tweet.tickers:
