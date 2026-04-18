@@ -161,7 +161,7 @@ technical:
 llm:
   model: "minimax/minimax-m2.5"
   text_model: "minimax/minimax-m2.5:free"
-  vision_model: "google/gemini-2.5-flash-preview"
+  vision_model: "google/gemma-4-31b-it:free"
   min_confidence: 70
   max_tokens: 1024
 
