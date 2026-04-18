@@ -67,7 +67,8 @@ HELP_TEXT = """**OpenClaw Signal Engine — Commands**
 **YouTube Intelligence**
 `!yt <URL>` — on-demand analysis of a YouTube video (tickers, conviction, macro, levels)
 `!yt-mentions <TICKER>` — YouTube signals for a ticker (last 7 days)
-`!macro` — macro digest across all channels (last 7 days)"""
+`!macro` — macro digest across all channels (last 7 days)
+`!yt-follow <@handle or URL>` — add a YouTube channel to the follow list (e.g. `!yt-follow @FiguringOutMoney`)"""
 
 
 def parse_command(content: str) -> Optional[tuple[str, list[str]]]:
@@ -213,6 +214,12 @@ async def route_command(
 
     elif command == "macro":
         await _handle_macro(channel_id, message_id)
+
+    elif command in ("yt-follow", "yt_follow"):
+        if not args:
+            await send_command_reply(channel_id, message_id, "Usage: `!yt-follow @handle` or `!yt-follow https://youtube.com/@handle`")
+        else:
+            await _handle_yt_follow(args[0], channel_id, message_id)
 
     else:
         await send_command_reply(channel_id, message_id, f"Unknown command `!{command}`. Try `!help`.")
@@ -1038,3 +1045,89 @@ async def _handle_macro(channel_id: str, message_id: str) -> None:
     except Exception as e:
         log.error("!macro command error: %s", e)
         await send_command_reply(channel_id, message_id, "Macro digest unavailable.")
+
+
+# ---------------------------------------------------------------------------
+# !yt-follow
+# ---------------------------------------------------------------------------
+
+async def _handle_yt_follow(handle_or_url: str, channel_id: str, message_id: str) -> None:
+    """Resolve a YouTube @handle or channel URL to a channel_id and add it to the follow list."""
+    await send_command_reply(channel_id, message_id, f"Looking up `{handle_or_url}`...")
+    asyncio.create_task(_yt_follow_and_reply(handle_or_url, channel_id, message_id))
+
+
+async def _yt_follow_and_reply(handle_or_url: str, channel_id_discord: str, message_id: str) -> None:
+    import re
+    import json as _json
+    from consensus_engine.utils.http import get_session
+
+    # Normalise input → canonical URL
+    raw = handle_or_url.strip().lstrip("@")
+    if handle_or_url.startswith("@"):
+        url = f"https://www.youtube.com/@{raw}"
+    elif "youtube.com" in handle_or_url:
+        url = handle_or_url if handle_or_url.startswith("http") else f"https://{handle_or_url}"
+    else:
+        url = f"https://www.youtube.com/@{raw}"
+
+    try:
+        session = await get_session()
+        async with session.get(url, headers={"User-Agent": "Mozilla/5.0"}, allow_redirects=True) as resp:
+            if resp.status != 200:
+                await send_command_reply(channel_id_discord, message_id, f"Could not fetch channel page (HTTP {resp.status}).")
+                return
+            html = await resp.text()
+
+        # Extract channel_id from page HTML
+        m = re.search(r'"channelId"\s*:\s*"(UC[^"]{20,})"', html)
+        if not m:
+            # Fallback: canonical link
+            m = re.search(r'href="https://www\.youtube\.com/channel/(UC[^"]{20,})"', html)
+        if not m:
+            await send_command_reply(channel_id_discord, message_id, f"Could not find a channel ID for `{handle_or_url}`. Make sure the handle is correct.")
+            return
+
+        yt_channel_id = m.group(1)
+
+        # Extract display name
+        name_m = re.search(r'"title"\s*:\s*"([^"]+)".*?"channelId"\s*:\s*"' + re.escape(yt_channel_id), html, re.DOTALL)
+        if not name_m:
+            name_m = re.search(r'<title>([^<]+)\s*-\s*YouTube</title>', html)
+        display_name = name_m.group(1).strip() if name_m else yt_channel_id
+
+        # Check if already followed
+        existing = await db.get_channel_display_name(yt_channel_id)
+        if existing != yt_channel_id:  # found a real name → already in DB
+            await send_command_reply(channel_id_discord, message_id, f"Already following **{existing}** (`{yt_channel_id}`).")
+            return
+
+        # Insert into DB
+        conn = await db.get_db()
+        await conn.execute(
+            "INSERT OR IGNORE INTO youtube_channels (channel_id, display_name, approved, trust_score) VALUES (?, ?, 1, 1.0)",
+            (yt_channel_id, display_name),
+        )
+        await conn.commit()
+
+        # Persist to sources.json
+        sources_path = "/root/.openclaw/sources.json"
+        try:
+            with open(sources_path) as f:
+                sources = _json.load(f)
+            channels = sources.setdefault("youtube_channels", [])
+            if not any(c.get("channel_id") == yt_channel_id for c in channels):
+                channels.append({"channel_id": yt_channel_id, "display_name": display_name})
+                with open(sources_path, "w") as f:
+                    _json.dump(sources, f, indent=2)
+        except Exception as e:
+            log.warning("!yt-follow: could not update sources.json: %s", e)
+
+        await send_command_reply(
+            channel_id_discord, message_id,
+            f"✅ Now following **{display_name}** (`{yt_channel_id}`). New videos will be scanned automatically."
+        )
+
+    except Exception as e:
+        log.error("!yt-follow error for %s: %s", handle_or_url, e)
+        await send_command_reply(channel_id_discord, message_id, f"Error looking up channel: {e}")
