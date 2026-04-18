@@ -220,20 +220,9 @@ class DiscordTweetShiftListener:
             # TweetShift feed channel: process as tweet
             if channel_id == self._feed_channel_id:
                 tweet_data = _parse_tweetshift_message(data)
-                if not tweet_data:
-                    return
                 guild_id = str(data.get("guild_id", ""))
-                if guild_id and channel_id and message_id:
-                    tweet_data["discord_source_link"] = (
-                        f"https://discord.com/channels/{guild_id}/{channel_id}/{message_id}"
-                    )
-                analyst_norm = _normalize_handle(tweet_data.get("analyst", ""))
-                if self._known and analyst_norm not in self._known:
-                    log.debug(
-                        "Ignoring non-tracked handle in feed channel: @%s",
-                        tweet_data.get("analyst", ""),
-                    )
-                    return
+
+                # Extract images from attachments and embeds regardless of tweet parse
                 image_urls = []
                 for att in data.get("attachments", []):
                     ct = att.get("content_type", "")
@@ -248,9 +237,36 @@ class DiscordTweetShiftListener:
                     thumb_url = embed.get("thumbnail", {}).get("url")
                     if thumb_url:
                         image_urls.append(thumb_url)
-
-                # De-duplicate while preserving order
+                # Also extract bare URLs from markdown image links in content: [text](url)
+                if content:
+                    for m in re.finditer(r'\[.*?\]\((https?://\S+\.(?:png|jpe?g|gif|webp)[^)]*)\)', content, re.IGNORECASE):
+                        image_urls.append(m.group(1))
                 deduped = list(dict.fromkeys(image_urls))
+
+                if not tweet_data:
+                    # Image-only message: skip if no images to analyze
+                    if not deduped:
+                        return
+                    tweet_data = {
+                        "url": f"https://discord.com/channels/{guild_id}/{channel_id}/{message_id}",
+                        "text": "",
+                        "analyst": "image_post",
+                        "timestamp": time.time(),
+                    }
+                    log.info("Image-only message in feed channel — running vision analysis (%d image(s))", len(deduped))
+
+                if guild_id and channel_id and message_id:
+                    tweet_data["discord_source_link"] = (
+                        f"https://discord.com/channels/{guild_id}/{channel_id}/{message_id}"
+                    )
+                analyst_norm = _normalize_handle(tweet_data.get("analyst", ""))
+                if self._known and analyst_norm not in self._known and analyst_norm != "image_post":
+                    log.debug(
+                        "Ignoring non-tracked handle in feed channel: @%s",
+                        tweet_data.get("analyst", ""),
+                    )
+                    return
+
                 tweet_data["image_urls"] = deduped
                 tweet_data["image_url"] = deduped[0] if deduped else None
                 log.info(
