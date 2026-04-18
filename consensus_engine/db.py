@@ -836,7 +836,7 @@ async def get_reddit_posts_since(since_utc: int) -> list[dict]:
     """Fetch posts created after since_utc."""
     conn = await get_db()
     cursor = await conn.execute(
-        "SELECT id, subreddit, title, author FROM reddit_posts WHERE created_utc > ? ORDER BY created_utc DESC",
+        "SELECT id, subreddit, title, author, created_utc FROM reddit_posts WHERE created_utc > ? ORDER BY created_utc DESC",
         (since_utc,),
     )
     rows = await cursor.fetchall()

@@ -47,26 +47,46 @@ def _extract_tickers_from_text(text: str) -> set[str]:
 
 
 def _compute_metrics(posts: list[dict]) -> dict[str, dict]:
-    """Compute per-ticker mention count and unique authors from a post list.
+    """Compute per-ticker mention count, unique authors, and momentum from a post list.
 
     Each post dict must have keys: ticker, author, created_utc.
     Returns {ticker: {mentions, unique_authors, momentum}}.
+    Momentum is mentions per hour (velocity). Falls back to raw mention count
+    when only one timestamp is available, or 1.0 when none are present.
     """
     data: dict[str, dict] = {}
     for post in posts:
         ticker = post["ticker"]
         author = post.get("author", "")
+        created_utc = post.get("created_utc", 0)
         if ticker not in data:
-            data[ticker] = {"mentions": 0, "unique_authors": set(), "momentum": 1.0}
+            data[ticker] = {"mentions": 0, "unique_authors": set(), "timestamps": []}
         data[ticker]["mentions"] += 1
         if author:
             data[ticker]["unique_authors"].add(author)
+        if created_utc:
+            data[ticker]["timestamps"].append(created_utc)
 
-    # Freeze sets to counts
-    for ticker in data:
-        data[ticker]["unique_authors"] = len(data[ticker]["unique_authors"])
+    result = {}
+    for ticker, metrics in data.items():
+        mentions = metrics["mentions"]
+        timestamps = metrics["timestamps"]
 
-    return data
+        if len(timestamps) >= 2:
+            time_span_hours = (max(timestamps) - min(timestamps)) / 3600.0
+            momentum = mentions / time_span_hours if time_span_hours > 0 else float(mentions)
+        elif len(timestamps) == 1:
+            momentum = float(mentions)
+        else:
+            momentum = 1.0
+
+        result[ticker] = {
+            "mentions": mentions,
+            "unique_authors": len(metrics["unique_authors"]),
+            "momentum": momentum,
+        }
+
+    return result
 
 
 def _filter_trending(
