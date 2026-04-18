@@ -35,6 +35,43 @@ async def test_compute_trend_metrics_threshold():
 
 
 @pytest.mark.asyncio
+async def test_compute_metrics_velocity_two_hours():
+    """3 mentions over 2 hours = 1.5x momentum."""
+    from consensus_engine.scanners.reddit_trend import _compute_metrics
+    posts = [
+        {"ticker": "SPY", "author": "u1", "created_utc": 1000000},
+        {"ticker": "SPY", "author": "u2", "created_utc": 1003600},  # +1h
+        {"ticker": "SPY", "author": "u3", "created_utc": 1007200},  # +2h
+    ]
+    metrics = _compute_metrics(posts)
+    assert abs(metrics["SPY"]["momentum"] - 1.5) < 0.01
+
+
+@pytest.mark.asyncio
+async def test_compute_metrics_single_timestamp_fallback():
+    """Single timestamp → momentum = mention count."""
+    from consensus_engine.scanners.reddit_trend import _compute_metrics
+    posts = [
+        {"ticker": "AAPL", "author": "u1", "created_utc": 1000000},
+        {"ticker": "AAPL", "author": "u2", "created_utc": 1000000},
+    ]
+    metrics = _compute_metrics(posts)
+    assert metrics["AAPL"]["momentum"] == 2.0
+
+
+@pytest.mark.asyncio
+async def test_compute_metrics_no_timestamp_fallback():
+    """Missing timestamps → momentum defaults to 1.0."""
+    from consensus_engine.scanners.reddit_trend import _compute_metrics
+    posts = [
+        {"ticker": "MSFT", "author": "u1", "created_utc": 0},
+        {"ticker": "MSFT", "author": "u2", "created_utc": 0},
+    ]
+    metrics = _compute_metrics(posts)
+    assert metrics["MSFT"]["momentum"] == 1.0
+
+
+@pytest.mark.asyncio
 async def test_filter_trending_passes_threshold():
     from consensus_engine.scanners.reddit_trend import _filter_trending
     metrics = {
