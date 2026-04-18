@@ -222,6 +222,11 @@ class DiscordTweetShiftListener:
                 tweet_data = _parse_tweetshift_message(data)
                 if not tweet_data:
                     return
+                guild_id = str(data.get("guild_id", ""))
+                if guild_id and channel_id and message_id:
+                    tweet_data["discord_source_link"] = (
+                        f"https://discord.com/channels/{guild_id}/{channel_id}/{message_id}"
+                    )
                 analyst_norm = _normalize_handle(tweet_data.get("analyst", ""))
                 if self._known and analyst_norm not in self._known:
                     log.debug(

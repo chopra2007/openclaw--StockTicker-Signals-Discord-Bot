@@ -225,6 +225,7 @@ class ParsedTweet:
     final_signal: Optional[dict] = None
     avatar_url: Optional[str] = None
     display_name: Optional[str] = None
+    discord_source_link: Optional[str] = None
     parsed_at: float = field(default_factory=time.time)
 
     @property

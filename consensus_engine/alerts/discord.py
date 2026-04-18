@@ -158,6 +158,13 @@ def format_instant_ping(tweet: ParsedTweet, current_price: float = 0.0) -> dict:
         "inline": True,
     })
 
+    if tweet.discord_source_link:
+        fields.append({
+            "name": "Source",
+            "value": f"[View TweetShift message]({tweet.discord_source_link})",
+            "inline": False,
+        })
+
     author_block = {
         "name": tweet.display_name or f"@{tweet.analyst}",
         "url": f"https://twitter.com/{tweet.analyst}",
