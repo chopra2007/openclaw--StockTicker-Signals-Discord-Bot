@@ -464,7 +464,9 @@ async def _handle_sec(ticker: str, channel_id: str, message_id: str) -> None:
 
 async def _sec_and_reply(ticker: str, channel_id: str, message_id: str) -> None:
     try:
-        from consensus_engine.scanners.sec_edgar import check_recent_filings, classify_filing_significance
+        from consensus_engine.scanners.sec_edgar import (
+            check_recent_filings, classify_filing_significance, fetch_form4_details
+        )
         filings = await check_recent_filings(ticker, hours_back=72)
         if not filings:
             await send_command_reply(channel_id, message_id, f"No SEC filings in the last 72h for `${ticker}`.")
@@ -473,10 +475,34 @@ async def _sec_and_reply(ticker: str, channel_id: str, message_id: str) -> None:
         lines = [f"**SEC Filings — ${ticker}** (last 72h)"]
         if summary:
             lines.append(summary)
+
         for f in filings[:8]:
             form = f.get("form", "?")
             filed = f.get("filing_date", "?")
             lines.append(f"`{form}` — {filed}")
+
+            if form == "4":
+                txs = await fetch_form4_details(
+                    f.get("cik", ""),
+                    f.get("accession_number", ""),
+                    f.get("primary_document", ""),
+                )
+                for tx in txs:
+                    name = tx["reporter_name"]
+                    title = tx["title"]
+                    direction = tx["direction"]
+                    shares = tx["shares"]
+                    price = tx["price"]
+                    tx_type = tx["transaction_type"]
+                    security = tx["security"]
+                    direction_icon = "🟢" if direction == "Buy" else "🔴" if direction == "Sell" else "⚪"
+                    shares_fmt = f"{shares:,.0f}"
+                    price_fmt = f"${price:.2f}" if price else "n/a"
+                    lines.append(
+                        f"  {direction_icon} **{name}** ({title})\n"
+                        f"    {tx_type} — {shares_fmt} shares of {security} @ {price_fmt}"
+                    )
+
         await send_command_reply(channel_id, message_id, "\n".join(lines))
     except Exception as e:
         log.error("SEC command error for %s: %s", ticker, e)
