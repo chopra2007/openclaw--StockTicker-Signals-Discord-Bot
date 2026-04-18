@@ -35,40 +35,30 @@ async def test_compute_trend_metrics_threshold():
 
 
 @pytest.mark.asyncio
-async def test_compute_metrics_velocity_two_hours():
-    """3 mentions over 2 hours = 1.5x momentum."""
+async def test_compute_metrics_momentum_over_lookback():
+    """12 mentions over 24h lookback = 0.5x/hr momentum."""
     from consensus_engine.scanners.reddit_trend import _compute_metrics
-    posts = [
-        {"ticker": "SPY", "author": "u1", "created_utc": 1000000},
-        {"ticker": "SPY", "author": "u2", "created_utc": 1003600},  # +1h
-        {"ticker": "SPY", "author": "u3", "created_utc": 1007200},  # +2h
-    ]
-    metrics = _compute_metrics(posts)
-    assert abs(metrics["SPY"]["momentum"] - 1.5) < 0.01
+    posts = [{"ticker": "SPY", "author": f"u{i}", "created_utc": 1000000 + i * 100} for i in range(12)]
+    metrics = _compute_metrics(posts, lookback_hours=24.0)
+    assert abs(metrics["SPY"]["momentum"] - 0.5) < 0.001
 
 
 @pytest.mark.asyncio
-async def test_compute_metrics_single_timestamp_fallback():
-    """Single timestamp → momentum = mention count."""
+async def test_compute_metrics_momentum_short_window():
+    """6 mentions over 1h lookback = 6.0x/hr momentum."""
     from consensus_engine.scanners.reddit_trend import _compute_metrics
-    posts = [
-        {"ticker": "AAPL", "author": "u1", "created_utc": 1000000},
-        {"ticker": "AAPL", "author": "u2", "created_utc": 1000000},
-    ]
-    metrics = _compute_metrics(posts)
-    assert metrics["AAPL"]["momentum"] == 2.0
+    posts = [{"ticker": "AAPL", "author": f"u{i}", "created_utc": 1000000 + i} for i in range(6)]
+    metrics = _compute_metrics(posts, lookback_hours=1.0)
+    assert abs(metrics["AAPL"]["momentum"] - 6.0) < 0.001
 
 
 @pytest.mark.asyncio
-async def test_compute_metrics_no_timestamp_fallback():
-    """Missing timestamps → momentum defaults to 1.0."""
+async def test_compute_metrics_default_lookback():
+    """Default lookback is 24h."""
     from consensus_engine.scanners.reddit_trend import _compute_metrics
-    posts = [
-        {"ticker": "MSFT", "author": "u1", "created_utc": 0},
-        {"ticker": "MSFT", "author": "u2", "created_utc": 0},
-    ]
+    posts = [{"ticker": "MSFT", "author": "u1", "created_utc": 1000000}]
     metrics = _compute_metrics(posts)
-    assert metrics["MSFT"]["momentum"] == 1.0
+    assert abs(metrics["MSFT"]["momentum"] - (1 / 24)) < 0.001
 
 
 @pytest.mark.asyncio
