@@ -24,6 +24,7 @@ Commands:
 
 import asyncio
 import logging
+import re
 from typing import Optional
 
 from consensus_engine import db
@@ -74,8 +75,11 @@ def parse_command(content: str) -> Optional[tuple[str, list[str]]]:
     """Parse a Discord message into (command, args) if it starts with !.
 
     Returns None if the message is not a command.
+    Handles messages that begin with a bot mention: <@123> !command args
     """
     content = content.strip()
+    # Strip leading Discord mention so "@bot !options TSLA" works
+    content = re.sub(r'^<@!?[0-9]+>\s*', '', content)
     if not content.startswith("!"):
         return None
     parts = content[1:].split()
