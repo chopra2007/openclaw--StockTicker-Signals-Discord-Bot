@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1775950740462,
+  "lastScanned": 1776444103921,
   "projectRoot": "/root/.openclaw/workspace",
   "techStack": {
     "languages": [
@@ -35,6 +35,7 @@
     "workspaces": [],
     "mainDirectories": [
       "docs",
+      "scripts",
       "tests"
     ],
     "gitBranches": null
@@ -45,7 +46,7 @@
       "path": "backup1_2026-03-12",
       "purpose": null,
       "fileCount": 6,
-      "lastAccessed": 1775950740455,
+      "lastAccessed": 1776444103911,
       "keyFiles": [
         "COMMANDS.md",
         "HEARTBEAT.md",
@@ -58,7 +59,7 @@
       "path": "backup2_2026-03-15",
       "purpose": null,
       "fileCount": 23,
-      "lastAccessed": 1775950740456,
+      "lastAccessed": 1776444103912,
       "keyFiles": [
         "AGENTS.md",
         "COMMANDS.md",
@@ -71,7 +72,7 @@
       "path": "config",
       "purpose": "Configuration files",
       "fileCount": 2,
-      "lastAccessed": 1775950740456,
+      "lastAccessed": 1776444103913,
       "keyFiles": [
         "consensus.yaml",
         "nitter.conf"
@@ -81,7 +82,7 @@
       "path": "consensus_engine",
       "purpose": null,
       "fileCount": 11,
-      "lastAccessed": 1775950740457,
+      "lastAccessed": 1776444103915,
       "keyFiles": [
         "__init__.py",
         "__main__.py",
@@ -94,7 +95,7 @@
       "path": "docs",
       "purpose": "Documentation",
       "fileCount": 1,
-      "lastAccessed": 1775950740458,
+      "lastAccessed": 1776444103915,
       "keyFiles": [
         "SYSTEM_ISSUES.md"
       ]
@@ -102,90 +103,135 @@
     "memory": {
       "path": "memory",
       "purpose": null,
-      "fileCount": 5,
-      "lastAccessed": 1775950740458,
+      "fileCount": 6,
+      "lastAccessed": 1776444103916,
       "keyFiles": [
         "2026-03-15.md",
         "2026-03-28-discord-bot-fix.md",
         "2026-03-29.md",
-        "flash_alert_state.json",
-        "heartbeat-state.json"
+        "2026-04-16.md",
+        "flash_alert_state.json"
+      ]
+    },
+    "models": {
+      "path": "models",
+      "purpose": "Data models",
+      "fileCount": 6,
+      "lastAccessed": 1776444103917,
+      "keyFiles": [
+        "__init__.py",
+        "model_config.py",
+        "openrouter_client.py",
+        "router.py",
+        "text_model.py"
+      ]
+    },
+    "plans": {
+      "path": "plans",
+      "purpose": null,
+      "fileCount": 3,
+      "lastAccessed": 1776444103917,
+      "keyFiles": [
+        "ADVERSARIAL_REVIEW.md",
+        "OPEN_QUESTIONS.md",
+        "ROADMAP.md"
+      ]
+    },
+    "scripts": {
+      "path": "scripts",
+      "purpose": "Build/utility scripts",
+      "fileCount": 1,
+      "lastAccessed": 1776444103917,
+      "keyFiles": [
+        "backtest.py"
       ]
     },
     "skills": {
       "path": "skills",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1775950740458,
+      "lastAccessed": 1776444103917,
       "keyFiles": []
     },
     "tests": {
       "path": "tests",
       "purpose": "Test files",
-      "fileCount": 30,
-      "lastAccessed": 1775950740459,
+      "fileCount": 36,
+      "lastAccessed": 1776444103918,
       "keyFiles": [
         "__init__.py",
         "test_adapters.py",
-        "test_commands.py",
-        "test_cross_reference.py",
-        "test_db.py"
+        "test_backtest.py",
+        "test_calibration.py",
+        "test_commands.py"
       ]
     }
   },
   "hotPaths": [
     {
       "path": "consensus_engine/main.py",
-      "accessCount": 132,
-      "lastAccessed": 1776013329515,
+      "accessCount": 158,
+      "lastAccessed": 1776460081998,
       "type": "file"
     },
     {
       "path": "consensus_engine/db.py",
-      "accessCount": 62,
-      "lastAccessed": 1776029301635,
+      "accessCount": 91,
+      "lastAccessed": 1776459912251,
       "type": "file"
     },
     {
       "path": "",
-      "accessCount": 48,
-      "lastAccessed": 1776029303000,
+      "accessCount": 55,
+      "lastAccessed": 1776459665021,
       "type": "directory"
     },
     {
       "path": "consensus_engine/cross_reference.py",
-      "accessCount": 47,
-      "lastAccessed": 1776028854262,
-      "type": "file"
-    },
-    {
-      "path": "consensus_engine/alerts/discord.py",
-      "accessCount": 37,
-      "lastAccessed": 1776029236348,
-      "type": "file"
-    },
-    {
-      "path": "config/consensus.yaml",
-      "accessCount": 25,
-      "lastAccessed": 1776013349899,
+      "accessCount": 52,
+      "lastAccessed": 1776450763136,
       "type": "file"
     },
     {
       "path": "consensus_engine/alerts/commands.py",
-      "accessCount": 23,
-      "lastAccessed": 1776029315934,
+      "accessCount": 45,
+      "lastAccessed": 1776492013671,
+      "type": "file"
+    },
+    {
+      "path": "consensus_engine/alerts/discord.py",
+      "accessCount": 42,
+      "lastAccessed": 1776460010745,
+      "type": "file"
+    },
+    {
+      "path": "config/consensus.yaml",
+      "accessCount": 36,
+      "lastAccessed": 1776492024531,
+      "type": "file"
+    },
+    {
+      "path": "README.md",
+      "accessCount": 28,
+      "lastAccessed": 1776492053442,
+      "type": "file"
+    },
+    {
+      "path": "consensus_engine/models.py",
+      "accessCount": 24,
+      "lastAccessed": 1776459670512,
       "type": "file"
     },
     {
       "path": "consensus_engine",
-      "accessCount": 20,
-      "lastAccessed": 1775875889091,
+      "accessCount": 24,
+      "lastAccessed": 1776459868005,
       "type": "directory"
     },
     {
-      "path": "consensus_engine/models.py",
-      "accessCount": 20,
-      "lastAccessed": 1776028877416,
+      "path": "consensus_engine/scanners/social.py",
+      "accessCount": 21,
+      "lastAccessed": 1776460110859,
       "type": "file"
     },
     {
@@ -195,27 +241,21 @@
       "type": "file"
     },
     {
-      "path": "consensus_engine/scanners/social.py",
-      "accessCount": 15,
-      "lastAccessed": 1775471127182,
-      "type": "file"
-    },
-    {
       "path": "consensus_engine/utils/xref_cache.py",
       "accessCount": 13,
       "lastAccessed": 1775421717534,
       "type": "file"
     },
     {
-      "path": "consensus_engine/scanners/news.py",
-      "accessCount": 12,
-      "lastAccessed": 1775937747525,
+      "path": "consensus_engine/analysis/tweet_parser.py",
+      "accessCount": 13,
+      "lastAccessed": 1776046104340,
       "type": "file"
     },
     {
-      "path": "consensus_engine/analysis/tweet_parser.py",
-      "accessCount": 11,
-      "lastAccessed": 1775986387772,
+      "path": "consensus_engine/scanners/news.py",
+      "accessCount": 12,
+      "lastAccessed": 1775937747525,
       "type": "file"
     },
     {
@@ -261,21 +301,27 @@
       "type": "file"
     },
     {
+      "path": "consensus_engine/utils/http.py",
+      "accessCount": 7,
+      "lastAccessed": 1776450634222,
+      "type": "file"
+    },
+    {
+      "path": "consensus_engine/scanners/volume_scanner.py",
+      "accessCount": 7,
+      "lastAccessed": 1776491974868,
+      "type": "file"
+    },
+    {
       "path": "consensus_engine/scanners/premarket.py",
       "accessCount": 6,
       "lastAccessed": 1774976738935,
       "type": "file"
     },
     {
-      "path": "consensus_engine/utils/http.py",
+      "path": "CLAUDE.md",
       "accessCount": 6,
-      "lastAccessed": 1775731496433,
-      "type": "file"
-    },
-    {
-      "path": "consensus_engine/scanners/volume_scanner.py",
-      "accessCount": 5,
-      "lastAccessed": 1774930635560,
+      "lastAccessed": 1776407824999,
       "type": "file"
     },
     {
@@ -285,9 +331,15 @@
       "type": "file"
     },
     {
-      "path": "CLAUDE.md",
-      "accessCount": 4,
-      "lastAccessed": 1775387609422,
+      "path": "consensus_engine/scanners/reddit_trend.py",
+      "accessCount": 5,
+      "lastAccessed": 1776409179602,
+      "type": "file"
+    },
+    {
+      "path": "CHANGES.md",
+      "accessCount": 5,
+      "lastAccessed": 1776492080591,
       "type": "file"
     },
     {
@@ -315,27 +367,9 @@
       "type": "file"
     },
     {
-      "path": "consensus_engine/scanners/reddit_trend.py",
-      "accessCount": 3,
-      "lastAccessed": 1774931052230,
-      "type": "file"
-    },
-    {
-      "path": "CHANGES.md",
-      "accessCount": 3,
-      "lastAccessed": 1774984092398,
-      "type": "file"
-    },
-    {
       "path": "consensus_engine/scanners/sec_edgar.py",
       "accessCount": 3,
       "lastAccessed": 1775937752120,
-      "type": "file"
-    },
-    {
-      "path": "README.md",
-      "accessCount": 3,
-      "lastAccessed": 1775937762170,
       "type": "file"
     },
     {
@@ -345,16 +379,28 @@
       "type": "file"
     },
     {
+      "path": "consensus_engine/scanners",
+      "accessCount": 3,
+      "lastAccessed": 1776408916346,
+      "type": "directory"
+    },
+    {
+      "path": "consensus_engine/scanners/earnings_calendar.py",
+      "accessCount": 3,
+      "lastAccessed": 1776491982983,
+      "type": "file"
+    },
+    {
+      "path": "USER.md",
+      "accessCount": 3,
+      "lastAccessed": 1776492077909,
+      "type": "file"
+    },
+    {
       "path": "tests/test_news_cascade.py",
       "accessCount": 2,
       "lastAccessed": 1774930845123,
       "type": "file"
-    },
-    {
-      "path": "consensus_engine/scanners",
-      "accessCount": 2,
-      "lastAccessed": 1775381722849,
-      "type": "directory"
     },
     {
       "path": "consensus_engine/utils/browser.py",
@@ -372,6 +418,12 @@
       "path": "tests/test_discord_alerts.py",
       "accessCount": 2,
       "lastAccessed": 1775986416033,
+      "type": "file"
+    },
+    {
+      "path": "pytest.ini",
+      "accessCount": 2,
+      "lastAccessed": 1776459674446,
       "type": "file"
     },
     {
@@ -399,12 +451,6 @@
       "type": "file"
     },
     {
-      "path": "consensus_engine/scanners/earnings_calendar.py",
-      "accessCount": 1,
-      "lastAccessed": 1774930656194,
-      "type": "file"
-    },
-    {
       "path": "tests/test_nitter.py",
       "accessCount": 1,
       "lastAccessed": 1774930685043,
@@ -417,22 +463,10 @@
       "type": "file"
     },
     {
-      "path": "USER.md",
-      "accessCount": 1,
-      "lastAccessed": 1774983865600,
-      "type": "file"
-    },
-    {
       "path": "consensus_engine/alerts",
       "accessCount": 1,
       "lastAccessed": 1775107312489,
       "type": "directory"
-    },
-    {
-      "path": "pytest.ini",
-      "accessCount": 1,
-      "lastAccessed": 1775204032489,
-      "type": "file"
     }
   ],
   "userDirectives": []

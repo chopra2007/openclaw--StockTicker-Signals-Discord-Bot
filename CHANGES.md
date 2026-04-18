@@ -25,7 +25,6 @@ OpenClaw is a **Signal-First Stock Alert Engine** that monitors analyst tweets o
 ### Proactive Scanners Implementation (2026-03-29)
 **Commit:** `eaa029d`
 - Added 5 new proactive scanners:
-  - Pre-market gap scanner (>3% moves via Finnhub)
   - Technical pattern detection (RSI, VWAP, EMA crossovers)
   - Social sentiment spike detector
   - Analyst leaderboard tracking

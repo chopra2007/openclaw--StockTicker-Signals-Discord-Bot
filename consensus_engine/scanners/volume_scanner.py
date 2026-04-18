@@ -89,14 +89,29 @@ async def scan_volume_breakouts(executor=None) -> list[BreakoutResult]:
     if not api_key:
         return []
 
-    watchlist = cfg.get("volume_scanner.watchlist", cfg.get("premarket.watchlist", []))
+    watchlist = cfg.get("volume_scanner.watchlist", [])
     if not watchlist:
         return []
 
     rvol_threshold = cfg.get("volume_scanner.rvol_threshold", 5.0)
     min_pct = cfg.get("volume_scanner.min_price_change_pct", 1.0)
 
-    from consensus_engine.scanners.premarket import _fetch_quote
+    async def _fetch_quote(session: aiohttp.ClientSession, ticker: str, api_key: str) -> tuple[str, dict]:
+        if not await rate_limiter.acquire("finnhub"):
+            return ticker, {}
+        try:
+            url = f"https://finnhub.io/api/v1/quote?symbol={ticker}&token={api_key}"
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status != 200:
+                    return ticker, {}
+                data = await resp.json()
+                rate_limiter.report_success("finnhub")
+                return ticker, data
+        except Exception as e:
+            log.debug("Finnhub quote error for %s: %s", ticker, e)
+            rate_limiter.report_failure("finnhub")
+            return ticker, {}
+
     quotes = {}
     async with aiohttp.ClientSession() as session:
         for i in range(0, len(watchlist), 30):

@@ -25,7 +25,6 @@ AK set me up on March 11, 2026 with a directive to discover trending US stock op
 - LLM confidence scoring
 
 **5 Proactive Scanners:**
-- Pre-market gap scanner (>3% moves via Finnhub)
 - Technical pattern detection (RSI, VWAP, EMA crossovers)
 - Social sentiment spike detector
 - Analyst leaderboard tracking
