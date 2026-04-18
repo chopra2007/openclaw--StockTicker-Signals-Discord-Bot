@@ -272,12 +272,27 @@ async def run_live(stop_event: asyncio.Event):
     while not stop_event.is_set():
         # Weekend pause gate
         if _is_weekend_pause():
-            secs = _seconds_until_resume()
-            log.info("Weekend pause active — sleeping %d seconds until Sunday 2pm ET", secs)
-            try:
-                await asyncio.wait_for(stop_event.wait(), timeout=secs)
-            except asyncio.TimeoutError:
+            log.info("Weekend pause active — running command listener only")
+            
+            async def on_command_weekend(cmd, args, channel_id, message_id):
+                from consensus_engine.alerts.commands import route_command
+                await route_command(cmd, args, channel_id, message_id)
+            
+            async def _noop_tweet(_):
                 pass
+
+            # Run command listener during weekend
+            tweetshift_listener = DiscordTweetShiftListener(
+                on_tweet=_noop_tweet,
+                on_command=on_command_weekend
+            )
+            weekend_stop = asyncio.Event()
+            try:
+                await tweetshift_listener.run(weekend_stop)
+            except Exception as e:
+                log.debug("Command listener paused: %s", e)
+            
+            await asyncio.sleep(5)
             continue
 
         log.info("Starting live mode...")
@@ -286,9 +301,9 @@ async def run_live(stop_event: asyncio.Event):
             await process_tweet(tweet_data)
 
         async def on_command(cmd: str, args: str, channel_id: str, message_id: str):
-            from consensus_engine.alerts.commands import handle_command
+            from consensus_engine.alerts.commands import route_command
 
-            await handle_command(cmd, args, channel_id, message_id)
+            await route_command(cmd, args, channel_id, message_id)
 
         pause_event = asyncio.Event()
 
