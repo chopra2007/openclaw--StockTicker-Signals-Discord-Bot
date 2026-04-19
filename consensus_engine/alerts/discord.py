@@ -369,7 +369,7 @@ async def send_trend_digest(trending: list[dict]) -> Optional[str]:
 
     lines = []
     for i, t in enumerate(trending[:15], 1):
-        momentum_str = f"{t['momentum']:.2f}/hr" if t.get("momentum", 0.0) > 0 else "—"
+        momentum_str = f"{t['momentum']:.2f}".lstrip("0") if t.get("momentum", 0.0) > 0 else "—"
         lines.append(
             f"**{i}.** `${t['ticker']}` — {t['mentions']} mentions | "
             f"{t['unique_authors']} authors | momentum {momentum_str}"
