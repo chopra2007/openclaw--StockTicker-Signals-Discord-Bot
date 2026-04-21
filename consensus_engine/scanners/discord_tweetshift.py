@@ -210,6 +210,8 @@ class DiscordTweetShiftListener:
     async def _handle_dispatch(self, event: str, data: dict):
         if event == "READY":
             self._session_id = data.get("session_id")
+            self._reconnect_count = 0  # Reset on successful connect
+            self._tweet_count = 0  # Reset tweet counter on connect
             log.info("Discord Gateway READY (session=%s)", self._session_id)
 
         elif event == "MESSAGE_CREATE":
