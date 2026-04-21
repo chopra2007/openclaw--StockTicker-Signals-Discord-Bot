@@ -308,6 +308,42 @@ CREATE TABLE IF NOT EXISTS youtube_level_alerts (
 );
 CREATE INDEX IF NOT EXISTS idx_yla_ticker ON youtube_level_alerts(ticker);
 CREATE INDEX IF NOT EXISTS idx_yla_alerted ON youtube_level_alerts(alerted_at);
+
+CREATE TABLE IF NOT EXISTS research_jobs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticker TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    attempts INTEGER NOT NULL DEFAULT 0,
+    lease_expires_at REAL,
+    created_at REAL NOT NULL,
+    finished_at REAL
+);
+CREATE INDEX IF NOT EXISTS idx_research_jobs_ticker_status ON research_jobs(ticker, status);
+CREATE INDEX IF NOT EXISTS idx_research_jobs_status ON research_jobs(status);
+
+CREATE TABLE IF NOT EXISTS research_sections (
+    ticker TEXT NOT NULL,
+    source TEXT NOT NULL,
+    content TEXT,
+    last_good_content TEXT,
+    fetched_at REAL,
+    last_good_at REAL,
+    status TEXT,
+    PRIMARY KEY (ticker, source)
+);
+
+CREATE TABLE IF NOT EXISTS briefing_runs (
+    session_key TEXT PRIMARY KEY,
+    session_start_utc REAL NOT NULL,
+    session_end_utc REAL NOT NULL,
+    rendered_content TEXT,
+    discord_message_id TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at REAL NOT NULL,
+    posted_at REAL,
+    archived_at REAL
+);
 """
 
 
