@@ -1339,3 +1339,65 @@ async def get_source_health(source_id: str) -> dict | None:
     )
     row = await cursor.fetchone()
     return dict(row) if row else None
+
+
+async def enqueue_atlas_job(ticker: str, reason: str) -> int | None:
+    """Enqueue a research job. Coalesces: returns None if a pending/running
+    job for this ticker already exists.
+    """
+    conn = await get_db()
+    cur = await conn.execute(
+        "SELECT id FROM research_jobs WHERE ticker=? AND status IN ('pending','running')",
+        (ticker.upper(),),
+    )
+    if await cur.fetchone():
+        return None
+    cur = await conn.execute(
+        """INSERT INTO research_jobs (ticker, reason, status, attempts, created_at)
+           VALUES (?, ?, 'pending', 0, ?)""",
+        (ticker.upper(), reason, time.time()),
+    )
+    await conn.commit()
+    return cur.lastrowid
+
+
+async def acquire_atlas_lease(lease_ttl: float) -> dict | None:
+    """Claim the oldest pending job (or one whose lease expired).
+    Returns job dict with the lease stamped, or None if queue is idle.
+    """
+    conn = await get_db()
+    now = time.time()
+    cur = await conn.execute(
+        """SELECT id, ticker, reason, attempts FROM research_jobs
+           WHERE status='pending' OR (status='running' AND lease_expires_at < ?)
+           ORDER BY created_at ASC LIMIT 1""",
+        (now,),
+    )
+    row = await cur.fetchone()
+    if not row:
+        return None
+    job_id = row["id"]
+    await conn.execute(
+        """UPDATE research_jobs
+           SET status='running', lease_expires_at=?, attempts=attempts+1
+           WHERE id=?""",
+        (now + lease_ttl, job_id),
+    )
+    await conn.commit()
+    return {
+        "id": job_id,
+        "ticker": row["ticker"],
+        "reason": row["reason"],
+        "attempts": row["attempts"] + 1,
+        "status": "running",
+    }
+
+
+async def finish_atlas_job(job_id: int, status: str) -> None:
+    """Mark a job as done or failed."""
+    conn = await get_db()
+    await conn.execute(
+        "UPDATE research_jobs SET status=?, finished_at=? WHERE id=?",
+        (status, time.time(), job_id),
+    )
+    await conn.commit()
