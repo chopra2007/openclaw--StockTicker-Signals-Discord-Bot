@@ -1502,3 +1502,17 @@ async def upsert_briefing_run(session_key: str, **fields) -> None:
                 f"UPDATE briefing_runs SET {cols} WHERE session_key=?", values,
             )
     await conn.commit()
+
+
+async def get_top_tickers_session(session_start_utc: float, session_end_utc: float,
+                                  limit: int = 10) -> list[str]:
+    """Return tickers sorted desc by signal count within [start, end)."""
+    conn = await get_db()
+    cur = await conn.execute(
+        """SELECT ticker, COUNT(*) AS cnt FROM ticker_signals
+           WHERE detected_at >= ? AND detected_at < ?
+           GROUP BY ticker ORDER BY cnt DESC, ticker ASC LIMIT ?""",
+        (session_start_utc, session_end_utc, limit),
+    )
+    rows = await cur.fetchall()
+    return [r["ticker"] for r in rows]
