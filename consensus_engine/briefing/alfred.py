@@ -181,3 +181,37 @@ async def _render_briefing(data: dict) -> str:
     if out:
         return out
     return _fallback_render(data)
+
+
+async def _send_discord_briefing(content: str) -> str | None:
+    """POST a briefing to the dedicated channel. Returns Discord message id."""
+    token = cfg.get_api_key("discord_bot_token")
+    channel_id = str(cfg.get("alfred.channel_id", "") or
+                     cfg.get("api_keys.discord_briefing_channel_id", "") or "")
+    if not token or not channel_id:
+        log.warning("Alfred Discord: missing bot token or briefing channel id")
+        return None
+    if getattr(cfg, "dry_run", False):
+        log.info("[DRY-RUN] Alfred would post to %s: %s", channel_id, content[:80])
+        return "dry-run"
+
+    url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+    # Discord hard limit is 2000 chars.
+    payload = {"content": content[:1990]}
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                url,
+                headers={"Authorization": f"Bot {token}",
+                         "Content-Type": "application/json"},
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=15),
+            ) as resp:
+                if resp.status not in (200, 201):
+                    log.warning("Alfred Discord post failed: %d", resp.status)
+                    return None
+                data = await resp.json()
+                return str(data.get("id", ""))
+    except Exception as exc:
+        log.error("Alfred Discord send error: %s", exc)
+        return None
