@@ -236,3 +236,45 @@ async def _write_vault_briefing(session_key: str, content: str, vault_path: str)
     await _asyncio.get_event_loop().run_in_executor(None, _write)
     log.info("Alfred archived briefing to %s", final)
     return final
+
+
+async def post_briefing(session_key: str, data: dict) -> None:
+    """Drive the pending → posted → archived state machine.
+    Idempotent: safe to call repeatedly; no double-posts on restart.
+    """
+    vault_path = cfg.get("vault.path", "/root/.openclaw/vault")
+
+    run = await db.get_briefing_run(session_key)
+    if run and run["status"] == "archived":
+        log.info("Alfred %s already archived; skipping", session_key)
+        return
+
+    # Stage 1: render + persist as pending
+    if not run:
+        content = await _render_briefing(data)
+        await db.upsert_briefing_run(
+            session_key,
+            session_start_utc=data["session_start_utc"],
+            session_end_utc=data["session_end_utc"],
+            rendered_content=content,
+            status="pending",
+        )
+        run = await db.get_briefing_run(session_key)
+    elif run["status"] == "pending" and not run.get("rendered_content"):
+        content = await _render_briefing(data)
+        await db.upsert_briefing_run(session_key, rendered_content=content, status="pending")
+        run = await db.get_briefing_run(session_key)
+
+    # Stage 2: post to Discord (only if pending)
+    if run["status"] == "pending":
+        msg_id = await _send_discord_briefing(run["rendered_content"] or "")
+        if not msg_id:
+            log.warning("Alfred %s Discord post failed; leaving pending for retry", session_key)
+            return
+        await db.upsert_briefing_run(session_key, discord_message_id=msg_id, status="posted")
+        run = await db.get_briefing_run(session_key)
+
+    # Stage 3: archive to vault
+    if run["status"] == "posted":
+        await _write_vault_briefing(session_key, run["rendered_content"] or "", vault_path)
+        await db.upsert_briefing_run(session_key, status="archived")
