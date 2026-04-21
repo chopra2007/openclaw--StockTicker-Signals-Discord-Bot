@@ -1401,3 +1401,50 @@ async def finish_atlas_job(job_id: int, status: str) -> None:
         (status, time.time(), job_id),
     )
     await conn.commit()
+
+
+async def upsert_research_section(ticker: str, source: str,
+                                  content: str | None, status: str) -> None:
+    """Upsert a section. On status='ok' updates last_good_content/last_good_at.
+    On any other status, preserves prior last_good_content.
+    """
+    conn = await get_db()
+    now = time.time()
+    cur = await conn.execute(
+        "SELECT last_good_content, last_good_at FROM research_sections WHERE ticker=? AND source=?",
+        (ticker.upper(), source),
+    )
+    existing = await cur.fetchone()
+
+    if status == "ok":
+        lg_content = content
+        lg_at = now
+    else:
+        lg_content = existing["last_good_content"] if existing else None
+        lg_at = existing["last_good_at"] if existing else None
+
+    await conn.execute(
+        """INSERT INTO research_sections
+              (ticker, source, content, last_good_content, fetched_at, last_good_at, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(ticker, source) DO UPDATE SET
+              content=excluded.content,
+              last_good_content=excluded.last_good_content,
+              fetched_at=excluded.fetched_at,
+              last_good_at=excluded.last_good_at,
+              status=excluded.status""",
+        (ticker.upper(), source, content, lg_content, now, lg_at, status),
+    )
+    await conn.commit()
+
+
+async def get_research_sections(ticker: str) -> dict[str, dict]:
+    """Return {source: {content, last_good_content, fetched_at, last_good_at, status}}."""
+    conn = await get_db()
+    cur = await conn.execute(
+        "SELECT source, content, last_good_content, fetched_at, last_good_at, status "
+        "FROM research_sections WHERE ticker=?",
+        (ticker.upper(),),
+    )
+    rows = await cur.fetchall()
+    return {r["source"]: dict(r) for r in rows}
