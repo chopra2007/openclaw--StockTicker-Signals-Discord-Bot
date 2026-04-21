@@ -178,7 +178,7 @@ async def fetch_sec_section(ticker: str) -> str | None:
     if not filings:
         return None
     lines = [
-        f"- **{f['form']}** filed {f['filed']} — {f['items'] or f['summary'] or ''}"
+        f"- **{f['form']}** filed {f['filed']} — {' '.join(p for p in [f['items'], f['summary']] if p).strip()}"
         for f in filings
     ]
     prompt = (

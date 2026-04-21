@@ -68,3 +68,29 @@ async def test_news_section_returns_none_when_empty(monkeypatch):
     monkeypatch.setattr("consensus_engine.scanners.searxng.search_searxng", empty)
     out = await sources.fetch_news_section("ZZZZ")
     assert out is None
+
+
+async def test_sec_section_fetches_recent_8k(monkeypatch):
+    async def fake_filings(ticker, limit=5):
+        return [
+            {"form": "8-K", "filed": "2026-04-19", "accession": "0001-abc",
+             "items": "Item 2.02", "summary": "Q4 earnings released"},
+            {"form": "10-Q", "filed": "2026-03-10", "accession": "0002-def",
+             "items": "", "summary": "Quarterly report"},
+        ]
+    async def fake_llm(prompt):
+        assert "Q4 earnings" in prompt
+        return "- Q4 beat, revenue $60B"
+    monkeypatch.setattr(sources, "_recent_filings", fake_filings)
+    monkeypatch.setattr(sources, "_summarize_with_llm", fake_llm)
+
+    out = await sources.fetch_sec_section("NVDA")
+    assert out is not None
+    assert "Q4" in out
+
+
+async def test_sec_section_returns_none_on_no_filings(monkeypatch):
+    async def empty(ticker, limit=5): return []
+    monkeypatch.setattr(sources, "_recent_filings", empty)
+    out = await sources.fetch_sec_section("ZZZZ")
+    assert out is None
