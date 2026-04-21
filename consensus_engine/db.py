@@ -510,6 +510,12 @@ async def insert_alert(ticker: str, confidence: float, catalyst: str, catalyst_t
     )
     await db.commit()
     log.info("Alert recorded: %s (confidence=%.1f)", ticker, confidence)
+    # Atlas hook: enqueue a research job on every alert (non-blocking, coalesced).
+    try:
+        if cfg.get("atlas.enabled", False):
+            await enqueue_atlas_job(ticker, "alert")
+    except Exception as exc:
+        log.warning("Atlas alert-enqueue failed: %s", exc)
     return cursor.lastrowid
 
 
