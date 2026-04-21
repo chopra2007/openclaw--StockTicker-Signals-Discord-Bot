@@ -31,7 +31,7 @@ def _cfg_get(key: str, default: str) -> str:
         return default
 
 
-TEXT_MODEL_DEFAULT = _cfg_get("llm.text_model", "minimax/minimax-m2.5:free")
+TEXT_MODEL_DEFAULT = _cfg_get("llm.text_model", "nvidia/nemotron-3-super-120b-a12b:free")
 VISION_MODEL_DEFAULT = _cfg_get("llm.vision_model", "google/gemini-2.5-flash-preview")
 
 # Env vars are runtime overrides, not secret-only fields.
