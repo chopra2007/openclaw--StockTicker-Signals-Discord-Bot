@@ -70,6 +70,7 @@ class AsyncConnection:
 
 
 _db: AsyncConnection | None = None
+DB_PATH: str | None = None  # Override for tests; falls back to config database.path
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS ticker_signals (
@@ -350,7 +351,7 @@ CREATE TABLE IF NOT EXISTS briefing_runs (
 async def init_db() -> AsyncConnection:
     """Initialize database and create tables."""
     global _db
-    db_path = cfg.get("database.path", "/root/.openclaw/workspace/consensus.db")
+    db_path = DB_PATH or cfg.get("database.path", "/root/.openclaw/workspace/consensus.db")
     conn = sqlite3.connect(db_path, check_same_thread=False, isolation_level=None)
     _db = AsyncConnection(conn)
     _db.row_factory = sqlite3.Row
