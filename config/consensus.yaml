@@ -19,6 +19,7 @@ api_keys:
   exa: "$EXA_AI_API_KEY"
   reddit_client_id: "$REDDIT_CLIENT_ID"
   reddit_client_secret: "$REDDIT_CLIENT_SECRET"
+  discord_briefing_channel_id: "$DISCORD_BRIEFING_CHANNEL_ID"
 
 # Self-hosted Nitter (Docker)
 nitter:
@@ -272,3 +273,26 @@ database:
   path: "/root/.openclaw/workspace/consensus.db"
   signal_ttl_hours: 2
   alert_history_days: 90
+
+# -----------------------------------------------------------------------------
+# Vault + Atlas + Alfred (research memory + morning briefing)
+# -----------------------------------------------------------------------------
+vault:
+  path: "/root/.openclaw/vault"
+
+atlas:
+  enabled: false                       # flip to true after verifying a single ticker e2e
+  cache_days: 7
+  max_tickers_sweep: 10
+  sweep_time_et: "08:00"
+  lease_ttl_seconds: 1800
+  sources:
+    analyst: true
+    sec: true
+    news: true
+
+alfred:
+  enabled: false                       # flip to true after a manual dry-run
+  channel_id: "$DISCORD_BRIEFING_CHANNEL_ID"
+  post_window_et: ["08:50", "09:00"]
+  market_holidays: []
