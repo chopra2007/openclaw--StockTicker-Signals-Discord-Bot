@@ -37,6 +37,9 @@ Thumbs.db
 .omc/sessions/
 .omc/state/
 
+# Discord channel/server reference docs
+DISCORD_CHANNEL_INFO.md
+
 # Misc
 *.png
 apify.png
