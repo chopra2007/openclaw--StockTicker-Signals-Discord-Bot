@@ -278,3 +278,43 @@ async def post_briefing(session_key: str, data: dict) -> None:
     if run["status"] == "posted":
         await _write_vault_briefing(session_key, run["rendered_content"] or "", vault_path)
         await db.upsert_briefing_run(session_key, status="archived")
+
+
+def _in_post_window(now_et: datetime, window: list) -> bool:
+    if not window or len(window) != 2:
+        return False
+    try:
+        start_hh, start_mm = [int(x) for x in str(window[0]).split(":")]
+        end_hh, end_mm = [int(x) for x in str(window[1]).split(":")]
+    except Exception:
+        return False
+    cur = (now_et.hour, now_et.minute)
+    return (start_hh, start_mm) <= cur <= (end_hh, end_mm)
+
+
+async def alfred_loop(stop_event) -> None:
+    from consensus_engine.research.sessions import current_et_session, is_market_holiday
+
+    if not cfg.get("alfred.enabled", False):
+        log.info("Alfred disabled; loop exiting")
+        return
+
+    while not stop_event.is_set():
+        now_et = datetime.now(tz=_ET)
+        window = list(cfg.get("alfred.post_window_et", ["08:50", "09:00"]) or [])
+        is_trading = now_et.weekday() < 5 and not is_market_holiday(now_et)
+
+        if is_trading and _in_post_window(now_et, window):
+            start, end, session_key = current_et_session(now_et)
+            run = await db.get_briefing_run(session_key)
+            if not run or run["status"] != "archived":
+                try:
+                    data = await build_briefing_data(start, end)
+                    await post_briefing(session_key, data)
+                except Exception as exc:
+                    log.error("Alfred loop error for %s: %s", session_key, exc)
+
+        try:
+            await _asyncio.wait_for(stop_event.wait(), timeout=60)
+        except _asyncio.TimeoutError:
+            pass
