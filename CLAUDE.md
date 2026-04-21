@@ -40,3 +40,44 @@ docker compose up -d                 # Nitter (8585) + SearXNG (8888)
 - Commit style: imperative (e.g., "Add multi-agent logic").
 - No remote configured: use `gh repo create` to init private repo.
 - Keep `README.md` current with architecture, setup, and features.
+
+## Karpathy Guidelines
+
+Source: https://github.com/forrestchang/andrej-karpathy-skills
+Bias: caution over speed. For trivial tasks, use judgment.
+
+### 1. Think Before Coding
+- State assumptions explicitly; if uncertain, ask.
+- If multiple interpretations exist, surface them — never pick silently.
+- If simpler approach exists, push back.
+- Stop and name what's confusing before coding.
+
+### 2. Simplicity First
+- Minimum code that solves the stated problem. Nothing speculative.
+- No abstractions for single-use code. No unrequested flexibility/configurability.
+- No error handling for impossible scenarios.
+- If 200 lines could be 50, rewrite.
+
+### 3. Surgical Changes
+- Touch only what the request requires.
+- Don't "improve" adjacent code, comments, formatting, or style.
+- Match existing style even if you'd do it differently.
+- Remove only orphans YOUR change created; mention but don't delete pre-existing dead code.
+- Test: every changed line traces directly to the user's request.
+
+### 4. Goal-Driven Execution
+- Transform the task into a declarative Definition of Done before coding.
+- "Add validation" → "tests for invalid inputs pass".
+- "Fix bug" → "failing repro test now passes, no regressions".
+- For multi-step work: numbered plan with per-step verification.
+- Strong success criteria enable independent looping; weak ones cause thrash.
+
+### Negative-Constraint Examples (condensed from EXAMPLES.md)
+- **Export user data** → don't silently pick scope/format; ask (all users vs filtered? file vs API? which fields?).
+- **Discount calculator** → don't introduce ABCs, Strategy pattern, or plugin hooks for a single function. Ship the plain function.
+- **Empty-email validation bug** → fix only the validation branch. Don't reformat quotes, add type hints, or rename variables in the same diff.
+- **"Review and improve"** is not a goal. "Write failing test → implement fix → test passes → no regressions" is.
+- Overcomplicated code often uses legitimate patterns at the wrong time. Solve today's problem; refactor when real complexity arrives.
+
+### Working-correctly signals
+Fewer unnecessary lines in diffs · fewer rewrites from overengineering · clarifying questions before implementation, not after mistakes.
