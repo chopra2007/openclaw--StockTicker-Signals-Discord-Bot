@@ -1448,3 +1448,57 @@ async def get_research_sections(ticker: str) -> dict[str, dict]:
     )
     rows = await cur.fetchall()
     return {r["source"]: dict(r) for r in rows}
+
+
+async def get_briefing_run(session_key: str) -> dict | None:
+    conn = await get_db()
+    cur = await conn.execute("SELECT * FROM briefing_runs WHERE session_key=?", (session_key,))
+    row = await cur.fetchone()
+    return dict(row) if row else None
+
+
+async def upsert_briefing_run(session_key: str, **fields) -> None:
+    """Upsert a briefing row. Auto-stamps posted_at on status='posted' and
+    archived_at on status='archived'. Requires session_start_utc / session_end_utc
+    on first insert.
+    """
+    conn = await get_db()
+    now = time.time()
+    existing = await get_briefing_run(session_key)
+
+    if fields.get("status") == "posted" and "posted_at" not in fields:
+        fields["posted_at"] = now
+    if fields.get("status") == "archived" and "archived_at" not in fields:
+        fields["archived_at"] = now
+
+    if existing is None:
+        row = {
+            "session_key": session_key,
+            "session_start_utc": fields.get("session_start_utc", 0.0),
+            "session_end_utc": fields.get("session_end_utc", 0.0),
+            "rendered_content": fields.get("rendered_content"),
+            "discord_message_id": fields.get("discord_message_id"),
+            "status": fields.get("status", "pending"),
+            "created_at": now,
+            "posted_at": fields.get("posted_at"),
+            "archived_at": fields.get("archived_at"),
+        }
+        await conn.execute(
+            """INSERT INTO briefing_runs
+               (session_key, session_start_utc, session_end_utc, rendered_content,
+                discord_message_id, status, created_at, posted_at, archived_at)
+               VALUES (:session_key, :session_start_utc, :session_end_utc, :rendered_content,
+                       :discord_message_id, :status, :created_at, :posted_at, :archived_at)""",
+            row,
+        )
+    else:
+        allowed = {"session_start_utc", "session_end_utc", "rendered_content",
+                   "discord_message_id", "status", "posted_at", "archived_at"}
+        sets = {k: v for k, v in fields.items() if k in allowed}
+        if sets:
+            cols = ", ".join(f"{k}=?" for k in sets)
+            values = list(sets.values()) + [session_key]
+            await conn.execute(
+                f"UPDATE briefing_runs SET {cols} WHERE session_key=?", values,
+            )
+    await conn.commit()
