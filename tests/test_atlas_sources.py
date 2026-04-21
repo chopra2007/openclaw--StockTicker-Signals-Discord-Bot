@@ -43,3 +43,28 @@ async def test_analyst_section_returns_none_when_no_signals(monkeypatch):
     monkeypatch.setattr(sources, "_summarize_with_llm", fake_llm)
     out = await sources.fetch_analyst_section("ZZZZ")
     assert out is None
+
+
+async def test_news_section_queries_searxng_and_summarizes(monkeypatch):
+    async def fake_searxng(query):
+        assert "NVDA" in query
+        return [
+            {"title": "NVDA jumps on AI guidance", "url": "https://x.com/a", "content": "..."},
+            {"title": "Nvidia beats estimates", "url": "https://x.com/b", "content": "..."},
+        ]
+    async def fake_llm(prompt):
+        assert "NVDA jumps" in prompt
+        return "- AI guidance drove pop\n- Estimates beat"
+    monkeypatch.setattr("consensus_engine.scanners.searxng.search_searxng", fake_searxng)
+    monkeypatch.setattr(sources, "_summarize_with_llm", fake_llm)
+
+    out = await sources.fetch_news_section("NVDA")
+    assert out is not None
+    assert "AI guidance" in out
+
+
+async def test_news_section_returns_none_when_empty(monkeypatch):
+    async def empty(q): return []
+    monkeypatch.setattr("consensus_engine.scanners.searxng.search_searxng", empty)
+    out = await sources.fetch_news_section("ZZZZ")
+    assert out is None
