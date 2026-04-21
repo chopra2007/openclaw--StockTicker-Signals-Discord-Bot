@@ -215,3 +215,24 @@ async def _send_discord_briefing(content: str) -> str | None:
     except Exception as exc:
         log.error("Alfred Discord send error: %s", exc)
         return None
+
+
+import asyncio as _asyncio
+import os as _os
+
+
+async def _write_vault_briefing(session_key: str, content: str, vault_path: str) -> str:
+    """Atomically write vault/macro/briefings/{session_key}.md."""
+    dest_dir = _os.path.join(vault_path, "macro", "briefings")
+    _os.makedirs(dest_dir, exist_ok=True)
+    final = _os.path.join(dest_dir, f"{session_key}.md")
+    tmp = final + ".tmp"
+
+    def _write():
+        with open(tmp, "w", encoding="utf-8") as fh:
+            fh.write(content)
+        _os.replace(tmp, final)
+
+    await _asyncio.get_event_loop().run_in_executor(None, _write)
+    log.info("Alfred archived briefing to %s", final)
+    return final
