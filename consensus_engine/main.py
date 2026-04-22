@@ -35,6 +35,8 @@ from consensus_engine.utils.http import close_session, get_session
 from consensus_engine.utils.tickers import is_valid_ticker, validate_ticker_market_cap
 from consensus_engine.scanners.youtube import youtube_poll_loop
 from consensus_engine.engine import analyze_signal, SignalClass
+from consensus_engine.research.atlas import atlas_worker_loop, atlas_sweep_loop
+from consensus_engine.briefing.alfred import alfred_loop
 
 log = logging.getLogger("consensus_engine.main")
 
@@ -344,6 +346,11 @@ async def run_live(stop_event: asyncio.Event):
                 asyncio.create_task(sec_8k_watcher_loop(combined_stop)),
                 asyncio.create_task(sec_edgar_polling_loop(combined_stop)),
             ])
+        tasks.extend([
+            asyncio.create_task(atlas_worker_loop(combined_stop)),
+            asyncio.create_task(atlas_sweep_loop(combined_stop)),
+            asyncio.create_task(alfred_loop(combined_stop)),
+        ])
 
         try:
             await asyncio.gather(*tasks)
