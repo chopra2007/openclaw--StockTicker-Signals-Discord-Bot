@@ -281,7 +281,7 @@ vault:
   path: "/root/.openclaw/vault"
 
 atlas:
-  enabled: false                       # flip to true after verifying a single ticker e2e
+  enabled: true                        # verified e2e 2026-04-22
   cache_days: 7
   max_tickers_sweep: 10
   sweep_time_et: "08:00"
@@ -292,7 +292,7 @@ atlas:
     news: true
 
 alfred:
-  enabled: false                       # flip to true after a manual dry-run
+  enabled: true                        # verified dry-run 2026-04-22
   channel_id: "$DISCORD_BRIEFING_CHANNEL_ID"
   post_window_et: ["08:50", "09:00"]
   market_holidays: []
