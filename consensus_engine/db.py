@@ -345,7 +345,41 @@ CREATE TABLE IF NOT EXISTS briefing_runs (
     posted_at REAL,
     archived_at REAL
 );
+CREATE TABLE IF NOT EXISTS youtube_analysis_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    video_id TEXT NOT NULL,
+    parser_version TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'running',
+    call_budget_used INTEGER DEFAULT 0,
+    started_at REAL NOT NULL,
+    completed_at REAL,
+    UNIQUE(video_id, parser_version)
+);
+CREATE INDEX IF NOT EXISTS idx_yar_video ON youtube_analysis_runs(video_id);
 """
+
+
+async def _run_column_migrations(conn) -> None:
+    """Add provenance and run_id columns to pre-existing YouTube tables."""
+    migrations = [
+        ("youtube_signals", "run_id",         "INTEGER REFERENCES youtube_analysis_runs(id)"),
+        ("youtube_signals", "source_snippet",  "TEXT"),
+        ("youtube_signals", "chunk_id",        "INTEGER DEFAULT 0"),
+        ("youtube_signals", "parser_version",  "TEXT"),
+        ("youtube_levels",  "run_id",          "INTEGER REFERENCES youtube_analysis_runs(id)"),
+        ("youtube_levels",  "source_snippet",  "TEXT"),
+        ("youtube_levels",  "chunk_id",        "INTEGER DEFAULT 0"),
+        ("youtube_levels",  "parser_version",  "TEXT"),
+        ("youtube_levels",  "setup_id",        "INTEGER"),
+        ("youtube_macro",   "run_id",          "INTEGER REFERENCES youtube_analysis_runs(id)"),
+        ("youtube_macro",   "parser_version",  "TEXT"),
+    ]
+    for table, col, defn in migrations:
+        cur = await conn.execute(f"PRAGMA table_info({table})")
+        existing = {r["name"] for r in await cur.fetchall()}
+        if col not in existing:
+            await conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {defn}")
+    await conn.commit()
 
 
 async def init_db() -> AsyncConnection:
@@ -359,6 +393,7 @@ async def init_db() -> AsyncConnection:
     await _db.execute("PRAGMA journal_mode=WAL")
     await _db.execute("PRAGMA busy_timeout=5000")
     await _db.executescript(SCHEMA)
+    await _run_column_migrations(_db)   # add provenance columns to existing tables
     await _db.commit()
     await seed_youtube_channels()
     log.info("Database initialized at %s", db_path)
@@ -1158,6 +1193,34 @@ async def insert_youtube_macro(
            (video_id, channel_id, direction, themes, timeframe, summary, confidence, published_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
         (video_id, channel_id, direction, themes_json, timeframe, summary, confidence, published_at),
+    )
+    await conn.commit()
+
+
+async def create_analysis_run(video_id: str, parser_version: str) -> int:
+    """Create or return existing analysis run for this video+version. Returns run_id."""
+    conn = await get_db()
+    await conn.execute(
+        """INSERT OR IGNORE INTO youtube_analysis_runs (video_id, parser_version, status, started_at)
+           VALUES (?, ?, 'running', ?)""",
+        (video_id, parser_version, time.time()),
+    )
+    await conn.commit()
+    cur = await conn.execute(
+        "SELECT id FROM youtube_analysis_runs WHERE video_id=? AND parser_version=?",
+        (video_id, parser_version),
+    )
+    row = await cur.fetchone()
+    return row["id"]
+
+
+async def update_analysis_run(run_id: int, status: str, call_budget_used: int = 0) -> None:
+    conn = await get_db()
+    await conn.execute(
+        """UPDATE youtube_analysis_runs
+           SET status=?, call_budget_used=?, completed_at=?
+           WHERE id=?""",
+        (status, call_budget_used, time.time(), run_id),
     )
     await conn.commit()
 
