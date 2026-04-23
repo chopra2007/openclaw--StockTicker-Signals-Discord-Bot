@@ -203,7 +203,7 @@ async def process_video(
     export_dir: str,
     browser_context=None,
 ) -> None:
-    """Dedup → fetch transcript → persist to DB + JSON export. Never raises."""
+    """Dedup → Gemini fast-path (or transcript cascade) → persist. Never raises."""
     async with semaphore:
         video_id = video_meta["video_id"]
         channel_id = video_meta["channel_id"]
@@ -220,136 +220,214 @@ async def process_video(
             fetched_at=time.time(),
         )
 
-        try:
-            from consensus_engine.utils.transcript_fetch import fetch_transcript_cascade
-            text, lang, is_auto = await fetch_transcript_cascade(
-                video_id, preferred_languages
-            )
-        except Exception as e:
-            err = str(e).lower()
-            if any(k in err for k in ("no caption", "caption track", "disabled", "not available", "all transcript")):
-                log.info("youtube: no captions for %s (%s)", video_id, e)
-                await db.mark_youtube_video_status(video_id, "missing")
-            else:
-                log.warning("youtube: transcript failed for %s: %s", video_id, e)
+        display_name = await db.get_channel_display_name(channel_id)
+        parsed = None
+
+        # ── Gemini fast-path (skips transcript download entirely) ────────────
+        if cfg.get("youtube.gemini_enabled", True) and cfg.get("youtube.analyze", True):
+            try:
+                from consensus_engine.analysis.gemini_video_parser import parse_video_with_gemini
+                parsed = await parse_video_with_gemini(
+                    video_id, display_name, video_meta["published_at"]
+                )
+                if parsed is not None:
+                    await db.mark_youtube_video_status(video_id, "analyzed_gemini")
+                    log.info("youtube: Gemini analyzed %s (%d tickers)", video_id, len(parsed.tickers))
+            except Exception as e:
+                log.warning("youtube: Gemini fast-path error for %s: %s", video_id, e)
+                parsed = None
+
+        # ── Fallback: transcript cascade + multi-pass pipeline ────────────────
+        if parsed is None:
+            try:
+                from consensus_engine.utils.transcript_fetch import fetch_transcript_cascade
+                text, lang, is_auto = await fetch_transcript_cascade(
+                    video_id, preferred_languages
+                )
+            except Exception as e:
+                err = str(e).lower()
+                if any(k in err for k in ("no caption", "caption track", "disabled", "not available", "all transcript")):
+                    log.info("youtube: no captions for %s (%s)", video_id, e)
+                    await db.mark_youtube_video_status(video_id, "missing")
+                else:
+                    log.warning("youtube: transcript failed for %s: %s", video_id, e)
+                    await db.mark_youtube_video_status(video_id, "failed")
+                return
+
+            h = compute_hash(text)
+
+            try:
+                path = export_transcript_json(
+                    channel_id=channel_id,
+                    video_id=video_id,
+                    title=video_meta["title"],
+                    published_at=video_meta["published_at"],
+                    language=lang,
+                    is_auto_generated=is_auto,
+                    transcript_text=text,
+                    export_dir=export_dir,
+                )
+            except Exception as e:
+                log.error("youtube: export failed for %s: %s", video_id, e)
                 await db.mark_youtube_video_status(video_id, "failed")
-            return
+                return
 
-        h = compute_hash(text)
-
-        try:
-            path = export_transcript_json(
-                channel_id=channel_id,
-                video_id=video_id,
-                title=video_meta["title"],
-                published_at=video_meta["published_at"],
+            await db.save_youtube_transcript(video_id, text, h)
+            await db.mark_youtube_video_status(
+                video_id, "saved",
                 language=lang,
                 is_auto_generated=is_auto,
-                transcript_text=text,
-                export_dir=export_dir,
+                export_path=path,
             )
-        except Exception as e:
-            log.error("youtube: export failed for %s: %s", video_id, e)
-            await db.mark_youtube_video_status(video_id, "failed")
-            return
+            log.info(
+                "youtube: saved %s (%s, auto=%s, %d chars) → %s",
+                video_id, lang, is_auto, len(text), path,
+            )
 
-        await db.save_youtube_transcript(video_id, text, h)
-        await db.mark_youtube_video_status(
-            video_id, "saved",
-            language=lang,
-            is_auto_generated=is_auto,
-            export_path=path,
-        )
-        log.info(
-            "youtube: saved %s (%s, auto=%s, %d chars) → %s",
-            video_id, lang, is_auto, len(text), path,
-        )
-
-        # Parse transcript for trade intelligence if enabled
-        if cfg.get("youtube.analyze", True):
-            try:
-                from consensus_engine.analysis.video_parser import parse_video_transcript
-                display_name = await db.get_channel_display_name(channel_id)  # TODO: populate from YouTube API
-                parsed = await parse_video_transcript(
-                    video_id=video_id,
-                    transcript_text=text,
-                    channel_name=display_name,
-                    published_at=video_meta["published_at"],
-                )
-
-                # Insert signals for each ticker
-                for ticker_data in parsed.tickers:
-                    ticker = ticker_data.get("symbol")
-                    if ticker:
-                        macro_json = None
-                        if parsed.macro_thesis:
-                            import json
-                            macro_json = json.dumps({
-                                "direction": parsed.macro_thesis.direction.value,
-                                "themes": parsed.macro_thesis.themes,
-                                "timeframe": parsed.macro_thesis.timeframe,
-                                "summary": parsed.macro_thesis.summary,
-                            })
-
-                        await db.insert_youtube_signal(
-                            video_id=video_id,
-                            channel_name=display_name,
-                            ticker=ticker,
-                            direction=ticker_data.get("direction", "neutral"),
-                            conviction=ticker_data.get("conviction", "medium"),
-                            mention_count=ticker_data.get("mention_count", 1),
-                            macro_thesis=macro_json,
-                            published_at=video_meta["published_at"],
-                        )
-                        log.debug("youtube: signal created %s/%s conviction=%s", video_id, ticker, ticker_data.get("conviction"))
-
-                # Insert price levels
-                for level in parsed.price_levels:
-                    await db.insert_youtube_level(
+            if cfg.get("youtube.analyze", True):
+                try:
+                    from consensus_engine.analysis.video_parser import parse_video_transcript
+                    parsed = await parse_video_transcript(
                         video_id=video_id,
-                        ticker=level.ticker,
-                        level_type=level.level_type,
-                        price=level.price,
-                        condition_text=level.condition,
-                        consequence_text=level.consequence,
-                        confidence=level.confidence,
+                        transcript_text=text,
                         channel_name=display_name,
                         published_at=video_meta["published_at"],
                     )
-                    log.debug("youtube: level created %s %s @ %.2f", video_id, level.ticker, level.price)
+                except Exception as e:
+                    log.warning("youtube: transcript analysis error for %s: %s", video_id, e)
+                    return
 
-                # Persist macro thesis to youtube_macro table
-                if parsed.macro_thesis and parsed.macro_thesis.summary:
-                    await db.insert_youtube_macro(
-                        video_id=video_id,
-                        channel_id=channel_id,
-                        direction=parsed.macro_thesis.direction.value,
-                        themes=parsed.macro_thesis.themes,
-                        timeframe=parsed.macro_thesis.timeframe,
-                        summary=parsed.macro_thesis.summary,
-                        confidence=0.7 if parsed.overall_conviction.value == "high" else 0.5,
-                        published_at=video_meta["published_at"],
-                    )
+        # ── Persist results (shared path for both Gemini and transcript) ──────
+        if parsed is None:
+            return
 
-                # Standalone alerts for HIGH conviction non-neutral tickers
-                if cfg.get("youtube.standalone_alerts", True):
-                    min_trust = cfg.get("youtube.min_trust", 0.5)
-                    trust = await db.get_channel_trust(channel_id)
-                    if trust >= min_trust:
-                        for ticker_data in parsed.tickers:
-                            if (
-                                ticker_data.get("conviction") == "high"
-                                and ticker_data.get("direction") in ("long", "short")
-                            ):
-                                ticker = ticker_data.get("symbol", "")
-                                direction_label = ticker_data["direction"].upper()
-                                msg = f"🎬 YouTube Signal: ${ticker} [{direction_label}] — {display_name}"
-                                await _send_youtube_alert(msg)
+        # Insert signals for each ticker
+        for ticker_data in parsed.tickers:
+            ticker = ticker_data.get("symbol")
+            if ticker:
+                macro_json = None
+                if parsed.macro_thesis:
+                    import json
+                    macro_json = json.dumps({
+                        "direction": parsed.macro_thesis.direction.value,
+                        "themes": parsed.macro_thesis.themes,
+                        "timeframe": parsed.macro_thesis.timeframe,
+                        "summary": parsed.macro_thesis.summary,
+                    })
 
-                log.info("youtube: parsed %s → %d tickers, %d levels", video_id, len(parsed.tickers), len(parsed.price_levels))
+                await db.insert_youtube_signal(
+                    video_id=video_id,
+                    channel_name=display_name,
+                    ticker=ticker,
+                    direction=ticker_data.get("direction", "neutral"),
+                    conviction=ticker_data.get("conviction", "medium"),
+                    mention_count=ticker_data.get("mention_count", 1),
+                    macro_thesis=macro_json,
+                    published_at=video_meta["published_at"],
+                    run_id=parsed.run_id,
+                    source_snippet=ticker_data.get("source_snippet"),
+                    chunk_id=ticker_data.get("chunk_id", 0),
+                    parser_version="v2",
+                )
+                log.debug("youtube: signal created %s/%s conviction=%s", video_id, ticker, ticker_data.get("conviction"))
 
-            except Exception as e:
-                log.warning("youtube: parse error for %s: %s", video_id, e)
+        # Insert price levels
+        for level in parsed.price_levels:
+            await db.insert_youtube_level(
+                video_id=video_id,
+                ticker=level.ticker,
+                level_type=level.level_type,
+                price=level.price,
+                condition_text=level.condition,
+                consequence_text=level.consequence,
+                confidence=level.confidence,
+                channel_name=display_name,
+                published_at=video_meta["published_at"],
+                run_id=parsed.run_id,
+                parser_version="v2",
+            )
+            log.debug("youtube: level created %s %s @ %.2f", video_id, level.ticker, level.price)
+
+        # Persist macro thesis to youtube_macro table
+        if parsed.macro_thesis and parsed.macro_thesis.summary:
+            await db.insert_youtube_macro(
+                video_id=video_id,
+                channel_id=channel_id,
+                direction=parsed.macro_thesis.direction.value,
+                themes=parsed.macro_thesis.themes,
+                timeframe=parsed.macro_thesis.timeframe,
+                summary=parsed.macro_thesis.summary,
+                confidence=0.7 if parsed.overall_conviction.value == "high" else 0.5,
+                published_at=video_meta["published_at"],
+            )
+
+        # Insert options ideas
+        for opt in parsed.options:
+            await db.insert_youtube_option(
+                run_id=parsed.run_id,
+                video_id=video_id,
+                ticker=opt.ticker,
+                option_type=opt.option_type,
+                strike=opt.strike,
+                expiry=opt.expiry,
+                strategy=opt.strategy,
+                source=opt.source,
+                conviction=opt.conviction,
+                context_text=opt.context,
+                source_snippet=opt.source_snippet,
+                chunk_id=opt.chunk_id,
+                parser_version="v2",
+                channel_name=display_name,
+                published_at=video_meta["published_at"],
+            )
+            log.debug("youtube: option created %s/%s %s", video_id, opt.ticker, opt.option_type)
+
+        # Insert trade setups and absorb constituent levels
+        for setup in parsed.setups:
+            setup_id = await db.insert_youtube_setup(
+                run_id=parsed.run_id,
+                video_id=video_id,
+                ticker=setup.ticker,
+                entry_low=setup.entry_low,
+                entry_high=setup.entry_high,
+                stop_price=setup.stop,
+                targets=setup.targets,
+                timeframe=setup.timeframe,
+                setup_type=setup.setup_type,
+                context_text=setup.context,
+                source_snippet=setup.source_snippet,
+                chunk_id=setup.chunk_id,
+                risk_reward=setup.risk_reward,
+                parser_version="v2",
+                channel_name=display_name,
+                published_at=video_meta["published_at"],
+            )
+            conn = await db.get_db()
+            cur = await conn.execute(
+                "SELECT id FROM youtube_levels WHERE video_id=? AND ticker=? AND setup_id IS NULL",
+                (video_id, setup.ticker),
+            )
+            level_ids = [r["id"] for r in await cur.fetchall()]
+            if level_ids:
+                await db.mark_levels_absorbed_by_setup(level_ids, setup_id)
+            log.debug("youtube: setup created %s/%s type=%s (absorbed %d levels)", video_id, setup.ticker, setup.setup_type, len(level_ids))
+
+        # Standalone alerts for HIGH conviction non-neutral tickers
+        if cfg.get("youtube.standalone_alerts", True):
+            min_trust = cfg.get("youtube.min_trust", 0.5)
+            trust = await db.get_channel_trust(channel_id)
+            if trust >= min_trust:
+                for ticker_data in parsed.tickers:
+                    if (
+                        ticker_data.get("conviction") == "high"
+                        and ticker_data.get("direction") in ("long", "short")
+                    ):
+                        ticker = ticker_data.get("symbol", "")
+                        direction_label = ticker_data["direction"].upper()
+                        msg = f"🎬 YouTube Signal: ${ticker} [{direction_label}] — {display_name}"
+                        await _send_youtube_alert(msg)
+
+        log.info("youtube: parsed %s → %d tickers, %d levels", video_id, len(parsed.tickers), len(parsed.price_levels))
 
 
 # ---------------------------------------------------------------------------
