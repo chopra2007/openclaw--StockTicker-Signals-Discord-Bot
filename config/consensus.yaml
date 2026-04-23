@@ -231,6 +231,9 @@ youtube:
   summarize: false                     # LLM summary + Discord notification (Phase 3)
   standalone_alerts: true              # fire Discord alert for HIGH conviction signals
   min_trust: 0.5                       # minimum channel trust_score to trigger standalone alert
+  gemini_enabled: true                 # try Gemini fast-path before transcript fetch
+  gemini_model: "gemini-2.5-flash-lite"
+  analyze: true                        # run LLM analysis on transcripts (fallback path)
 
 # Precision Scoring Engine
 precision_engine:
