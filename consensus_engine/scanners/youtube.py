@@ -196,6 +196,289 @@ async def _send_youtube_alert(message: str) -> None:
 # Per-video processing
 # ---------------------------------------------------------------------------
 
+async def _process_video_two_stage(
+    video_id: str,
+    channel_id: str,
+    display_name: str,
+    published_at: str,
+) -> bool:
+    """Run the v2 two-stage evidence pipeline. Returns True if the video was
+    successfully analyzed and persisted (caller should skip fallback)."""
+    from consensus_engine.analysis.gemini_video_parser import extract_evidence_with_gemini
+    from consensus_engine.analysis.video_classifier import classify_evidence
+    from consensus_engine.analysis.catalyst_resolver import resolve_and_verify_catalysts
+
+    bundle, telemetry = await extract_evidence_with_gemini(
+        video_id, display_name, published_at,
+    )
+    if bundle is None:
+        return False
+
+    result = classify_evidence(bundle)
+    catalysts = await resolve_and_verify_catalysts(
+        result.catalyst_candidates, bundle.publish_ts,
+    )
+
+    min_conf = float(cfg.get("youtube.classifier.min_confidence", 0.5))
+    filter_drops = 0
+    for sig in result.signals:
+        if sig.classifier_confidence < min_conf and not sig.suppressed:
+            sig.suppressed = True
+            sig.suppression_reason = "low_confidence"
+            filter_drops += 1
+    for lv in result.levels:
+        if lv.classifier_confidence < min_conf and not lv.suppressed:
+            lv.suppressed = True
+            lv.suppression_reason = "low_confidence"
+            filter_drops += 1
+    for st in result.setups:
+        if st.classifier_confidence < min_conf and not st.suppressed:
+            st.suppressed = True
+            st.suppression_reason = "low_confidence"
+            filter_drops += 1
+
+    gemini_model = cfg.get("youtube.gemini.model", "gemini-2.5-flash")
+    parser_version = f"gemini-evidence/{gemini_model}-v1"
+    run_id = await db.create_analysis_run(video_id, parser_version)
+
+    import json as _json
+    macro_json = None
+    if result.macro_thesis is not None:
+        macro_json = _json.dumps({
+            "direction": result.macro_thesis.direction.value,
+            "themes": result.macro_thesis.themes,
+            "timeframe": result.macro_thesis.timeframe,
+            "summary": result.macro_thesis.summary,
+        })
+
+    # Persist signals
+    for sig in result.signals:
+        await db.insert_youtube_signal(
+            video_id=video_id,
+            channel_name=display_name,
+            ticker=sig.ticker,
+            direction=sig.direction.value,
+            conviction=sig.conviction.value,
+            mention_count=sig.mention_count,
+            macro_thesis=macro_json,
+            published_at=published_at,
+            run_id=run_id,
+            source_snippet=sig.context[:200] if sig.context else None,
+            chunk_id=0,
+            parser_version=parser_version,
+            video_timestamp_sec=sig.video_timestamp_sec,
+            evidence_span_ids=_json.dumps(sig.evidence_span_ids) if sig.evidence_span_ids else None,
+            classifier_confidence=sig.classifier_confidence,
+            suppressed=1 if sig.suppressed else 0,
+            suppression_reason=sig.suppression_reason,
+        )
+
+    # Persist levels
+    for lv in result.levels:
+        await db.insert_youtube_level(
+            video_id=video_id,
+            ticker=lv.ticker,
+            level_type=lv.level_type,
+            price=lv.price,
+            condition_text=lv.context,
+            consequence_text="",
+            confidence=lv.classifier_confidence,
+            channel_name=display_name,
+            published_at=published_at,
+            run_id=run_id,
+            source_snippet=lv.context[:200] if lv.context else None,
+            chunk_id=0,
+            parser_version=parser_version,
+            video_timestamp_sec=lv.video_timestamp_sec,
+            evidence_span_ids=_json.dumps(lv.evidence_span_ids) if lv.evidence_span_ids else None,
+            classifier_confidence=lv.classifier_confidence,
+            suppressed=1 if lv.suppressed else 0,
+            suppression_reason=lv.suppression_reason,
+        )
+
+    # Persist setups
+    for st in result.setups:
+        await db.insert_youtube_setup(
+            run_id=run_id,
+            video_id=video_id,
+            ticker=st.ticker,
+            entry_low=st.entry_low,
+            entry_high=st.entry_high,
+            stop_price=st.stop,
+            targets=st.targets,
+            timeframe=st.timeframe,
+            setup_type=st.setup_type,
+            context_text=st.context,
+            source_snippet=st.context[:200] if st.context else None,
+            chunk_id=0,
+            risk_reward=st.risk_reward,
+            parser_version=parser_version,
+            channel_name=display_name,
+            published_at=published_at,
+            video_timestamp_sec=st.video_timestamp_sec,
+            evidence_span_ids=_json.dumps(st.evidence_span_ids) if st.evidence_span_ids else None,
+            classifier_confidence=st.classifier_confidence,
+            suppressed=1 if st.suppressed else 0,
+            suppression_reason=st.suppression_reason,
+        )
+
+    # Persist catalysts
+    for cat in catalysts:
+        await db.insert_youtube_catalyst(
+            run_id=run_id,
+            video_id=video_id,
+            ticker=cat.ticker,
+            catalyst_type=cat.catalyst_type,
+            mentioned_date=cat.mentioned_date,
+            resolved_date=cat.resolved_date,
+            verified=cat.verified,
+            context_text=cat.context_text,
+            video_timestamp_sec=cat.video_timestamp_sec,
+            evidence_span_ids=(
+                __import__("json").dumps(cat.evidence_span_ids)
+                if cat.evidence_span_ids else None
+            ),
+        )
+
+    # Persist macro
+    if result.macro_thesis is not None and (
+        result.macro_thesis.narrative or result.macro_thesis.summary
+    ):
+        await db.insert_youtube_macro(
+            video_id=video_id,
+            channel_id=channel_id,
+            direction=result.macro_thesis.direction.value,
+            themes=result.macro_thesis.themes,
+            timeframe=result.macro_thesis.timeframe,
+            summary=result.macro_thesis.narrative or result.macro_thesis.summary,
+            confidence=0.6,
+            published_at=published_at,
+        )
+
+    # Update analysis_run telemetry
+    await db.update_analysis_run_metrics(
+        run_id=run_id,
+        input_tokens=telemetry.input_tokens or None,
+        output_tokens=telemetry.output_tokens or None,
+        latency_ms=telemetry.latency_ms or None,
+        json_parse_ok=1 if telemetry.json_parse_ok else 0,
+        span_count=telemetry.span_count,
+        filter_drop_count=filter_drops,
+    )
+
+    await db.mark_youtube_video_status(video_id, "analyzed_gemini_v2")
+
+    # Standalone alerts — one per (ticker) for HIGH conviction, unsuppressed.
+    if cfg.get("youtube.standalone_alerts", True):
+        min_trust = cfg.get("youtube.min_trust", 0.5)
+        trust = await db.get_channel_trust(channel_id)
+        if trust >= min_trust:
+            await _send_two_stage_alerts(
+                display_name=display_name,
+                signals=result.signals,
+                levels=result.levels,
+                setups=result.setups,
+                catalysts=catalysts,
+                bundle_spans=bundle.spans,
+                min_confidence=min_conf,
+                require_verified=bool(cfg.get("youtube.catalyst.require_verified", False)),
+            )
+
+    log.info(
+        "youtube: two-stage %s → %d spans, %d signals, %d levels, %d setups, %d catalysts",
+        video_id, len(bundle.spans), len(result.signals),
+        len(result.levels), len(result.setups), len(catalysts),
+    )
+    return True
+
+
+async def _send_two_stage_alerts(
+    display_name: str,
+    signals,
+    levels,
+    setups,
+    catalysts,
+    bundle_spans,
+    min_confidence: float,
+    require_verified: bool,
+) -> None:
+    """Fire one Discord alert per HIGH-conviction, unsuppressed ticker."""
+    from consensus_engine.alerts.commands import _format_ts, _format_verified
+
+    sent: set[str] = set()
+    for sig in signals:
+        if sig.suppressed or sig.ticker in sent:
+            continue
+        if sig.conviction.value != "high" or sig.direction.value not in ("long", "short"):
+            continue
+        if sig.classifier_confidence < min_confidence:
+            continue
+
+        sent.add(sig.ticker)
+        lines = [
+            f"🎬 **${sig.ticker} [{sig.direction.value.upper()}]** — {display_name} "
+            f"(conv {sig.conviction.value.upper()}, confidence {sig.classifier_confidence:.2f})"
+        ]
+
+        # Setup line (first setup for this ticker)
+        tkr_setups = [s for s in setups if s.ticker == sig.ticker and not s.suppressed]
+        if tkr_setups:
+            s = tkr_setups[0]
+            parts = []
+            if s.entry_low is not None:
+                parts.append(f"Entry ${s.entry_low:g}")
+            ts = _format_ts(s.video_timestamp_sec) if s.video_timestamp_sec is not None else ""
+            if ts:
+                parts[-1] = parts[-1] + f" @ {ts}" if parts else f"@ {ts}"
+            if s.stop is not None:
+                parts.append(f"Stop ${s.stop:g}")
+            if s.targets:
+                t_str = f"Target ${s.targets[0]:g}"
+                if s.risk_reward is not None:
+                    t_str += f" (R/R {s.risk_reward:.1f}x)"
+                parts.append(t_str)
+            # Catalyst — find first matching catalyst for this ticker
+            cats = [c for c in catalysts if c.ticker == sig.ticker and not c.suppressed]
+            if cats:
+                c = cats[0]
+                if require_verified and c.verified != 1:
+                    pass
+                else:
+                    date_str = c.resolved_date or c.mentioned_date
+                    mark = _format_verified(c.verified)
+                    parts.append(f"Catalyst {date_str} {c.catalyst_type} {mark}")
+            if parts:
+                lines.append("📐 " + " | ".join(parts))
+
+        # Support / resistance rows (separate)
+        tkr_levels = [lv for lv in levels if lv.ticker == sig.ticker and not lv.suppressed]
+        support_parts = []
+        resistance_parts = []
+        for lv in tkr_levels:
+            ts = _format_ts(lv.video_timestamp_sec) if lv.video_timestamp_sec is not None else ""
+            ts_str = f" @ {ts}" if ts else ""
+            fragment = f"${lv.price:g}{ts_str}"
+            if lv.level_type == "support":
+                support_parts.append(fragment)
+            elif lv.level_type == "resistance":
+                resistance_parts.append(fragment)
+        if support_parts:
+            lines.append("📊 Support " + " | ".join(support_parts[:4]))
+        if resistance_parts:
+            lines.append("📊 Resistance " + " | ".join(resistance_parts[:4]))
+
+        # Context quote — first matching span
+        quote = ""
+        for sp in bundle_spans:
+            if sig.ticker in sp.tickers:
+                quote = sp.quote
+                break
+        if quote:
+            lines.append(f'> "{quote[:220]}"')
+
+        await _send_youtube_alert("\n".join(lines))
+
+
 async def process_video(
     video_meta: dict,
     semaphore: asyncio.Semaphore,
@@ -203,7 +486,7 @@ async def process_video(
     export_dir: str,
     browser_context=None,
 ) -> None:
-    """Dedup → Gemini fast-path (or transcript cascade) → persist. Never raises."""
+    """Dedup → two-stage (or Gemini legacy / transcript cascade) → persist. Never raises."""
     async with semaphore:
         video_id = video_meta["video_id"]
         channel_id = video_meta["channel_id"]
@@ -222,6 +505,24 @@ async def process_video(
 
         display_name = await db.get_channel_display_name(channel_id)
         parsed = None
+
+        # ── v2 two-stage evidence pipeline (flag-gated) ───────────────────────
+        if (
+            cfg.get("youtube.use_two_stage", False)
+            and cfg.get("youtube.gemini_enabled", True)
+            and cfg.get("youtube.analyze", True)
+        ):
+            try:
+                ok = await _process_video_two_stage(
+                    video_id, channel_id, display_name, video_meta["published_at"],
+                )
+                if ok:
+                    return
+            except Exception as e:
+                log.warning("youtube: two-stage error for %s: %s", video_id, e)
+            if not cfg.get("youtube.legacy_fallback", True):
+                await db.mark_youtube_video_status(video_id, "failed")
+                return
 
         # ── Gemini fast-path (skips transcript download entirely) ────────────
         if cfg.get("youtube.gemini_enabled", True) and cfg.get("youtube.analyze", True):

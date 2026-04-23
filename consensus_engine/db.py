@@ -1165,16 +1165,23 @@ async def insert_youtube_signal(
     source_snippet: str | None = None,
     chunk_id: int = 0,
     parser_version: str | None = None,
+    video_timestamp_sec: int | None = None,
+    evidence_span_ids: str | None = None,
+    classifier_confidence: float | None = None,
+    suppressed: int = 0,
+    suppression_reason: str | None = None,
 ) -> None:
     """Insert a YouTube signal for a ticker extracted from a video."""
     conn = await get_db()
     await conn.execute(
         """INSERT OR IGNORE INTO youtube_signals
            (video_id, channel_name, ticker, direction, conviction, mention_count, macro_thesis, parsed_at, published_at, extracted_at,
-            run_id, source_snippet, chunk_id, parser_version)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            run_id, source_snippet, chunk_id, parser_version,
+            video_timestamp_sec, evidence_span_ids, classifier_confidence, suppressed, suppression_reason)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (video_id, channel_name, ticker, direction, conviction, mention_count, macro_thesis, time.time(), published_at, time.time(),
-         run_id, source_snippet, chunk_id, parser_version),
+         run_id, source_snippet, chunk_id, parser_version,
+         video_timestamp_sec, evidence_span_ids, classifier_confidence, suppressed, suppression_reason),
     )
     await conn.commit()
 
@@ -1193,16 +1200,23 @@ async def insert_youtube_level(
     source_snippet: str | None = None,
     chunk_id: int = 0,
     parser_version: str | None = None,
+    video_timestamp_sec: int | None = None,
+    evidence_span_ids: str | None = None,
+    classifier_confidence: float | None = None,
+    suppressed: int = 0,
+    suppression_reason: str | None = None,
 ) -> None:
     """Insert a price level (support/resistance) extracted from a YouTube video."""
     conn = await get_db()
     await conn.execute(
         """INSERT OR IGNORE INTO youtube_levels
            (video_id, ticker, level_type, price, condition_text, consequence_text, confidence, channel_name, published_at, extracted_at,
-            run_id, source_snippet, chunk_id, parser_version)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            run_id, source_snippet, chunk_id, parser_version,
+            video_timestamp_sec, evidence_span_ids, classifier_confidence, suppressed, suppression_reason)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (video_id, ticker, level_type, price, condition_text, consequence_text, confidence, channel_name, published_at, time.time(),
-         run_id, source_snippet, chunk_id, parser_version),
+         run_id, source_snippet, chunk_id, parser_version,
+         video_timestamp_sec, evidence_span_ids, classifier_confidence, suppressed, suppression_reason),
     )
     await conn.commit()
 
@@ -1363,17 +1377,26 @@ async def insert_youtube_option(
     source: str | None, conviction: str | None, context_text: str | None,
     source_snippet: str | None, chunk_id: int, parser_version: str,
     channel_name: str | None, published_at: str | None,
+    video_timestamp_sec: int | None = None,
+    evidence_span_ids: str | None = None,
+    classifier_confidence: float | None = None,
+    suppressed: int = 0,
+    suppression_reason: str | None = None,
 ) -> None:
     conn = await get_db()
     await conn.execute(
         """INSERT OR IGNORE INTO youtube_options
            (run_id, video_id, ticker, option_type, strike, expiry, strategy,
             source, conviction, context_text, source_snippet, chunk_id,
-            parser_version, channel_name, published_at, extracted_at)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            parser_version, channel_name, published_at, extracted_at,
+            video_timestamp_sec, evidence_span_ids, classifier_confidence,
+            suppressed, suppression_reason)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (run_id, video_id, ticker, option_type, strike, expiry, strategy,
          source, conviction, context_text, source_snippet, chunk_id,
-         parser_version, channel_name, published_at, time.time()),
+         parser_version, channel_name, published_at, time.time(),
+         video_timestamp_sec, evidence_span_ids, classifier_confidence,
+         suppressed, suppression_reason),
     )
     await conn.commit()
 
@@ -1397,6 +1420,11 @@ async def insert_youtube_setup(
     context_text: str | None, source_snippet: str | None, chunk_id: int,
     risk_reward: float | None, parser_version: str,
     channel_name: str | None, published_at: str | None,
+    video_timestamp_sec: int | None = None,
+    evidence_span_ids: str | None = None,
+    classifier_confidence: float | None = None,
+    suppressed: int = 0,
+    suppression_reason: str | None = None,
 ) -> int:
     """Insert a trade setup and return its id."""
     import json as _json
@@ -1405,12 +1433,16 @@ async def insert_youtube_setup(
         """INSERT OR IGNORE INTO youtube_setups
            (run_id, video_id, ticker, entry_low, entry_high, stop_price,
             targets_json, timeframe, setup_type, context_text, source_snippet,
-            chunk_id, risk_reward, parser_version, channel_name, published_at, extracted_at)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            chunk_id, risk_reward, parser_version, channel_name, published_at, extracted_at,
+            video_timestamp_sec, evidence_span_ids, classifier_confidence,
+            suppressed, suppression_reason)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (run_id, video_id, ticker, entry_low, entry_high, stop_price,
          _json.dumps(targets or []), timeframe, setup_type, context_text,
          source_snippet, chunk_id, risk_reward, parser_version,
-         channel_name, published_at, time.time()),
+         channel_name, published_at, time.time(),
+         video_timestamp_sec, evidence_span_ids, classifier_confidence,
+         suppressed, suppression_reason),
     )
     await conn.commit()
     if cur.lastrowid:

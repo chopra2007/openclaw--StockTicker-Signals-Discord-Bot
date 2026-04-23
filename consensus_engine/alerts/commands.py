@@ -926,6 +926,30 @@ async def _handle_levels(ticker: str, channel_id: str, message_id: str) -> None:
 # YouTube intelligence commands
 # ---------------------------------------------------------------------------
 
+def _format_ts(sec: int | None) -> str:
+    """Render a video timestamp as ``mm:ss`` (or ``h:mm:ss`` when ≥ 1 hour)."""
+    if sec is None:
+        return ""
+    try:
+        s = int(sec)
+    except (TypeError, ValueError):
+        return ""
+    if s < 0:
+        s = 0
+    if s >= 3600:
+        return f"{s // 3600}:{(s % 3600) // 60:02d}:{s % 60:02d}"
+    return f"{s // 60}:{s % 60:02d}"
+
+
+def _format_verified(verified: int | None) -> str:
+    """Return ``✓`` (confirmed), ``?`` (unverified), or ``⚠`` (contradicted)."""
+    if verified == 1:
+        return "✓"
+    if verified == -1:
+        return "⚠"
+    return "?"
+
+
 def _format_youtube_option_summary(opt) -> str:
     """Format a VideoOptionIdea (dataclass or dict) as a short Discord line."""
     def _get(attr, key):
@@ -936,11 +960,13 @@ def _format_youtube_option_summary(opt) -> str:
     strike = _get("strike", "strike")
     expiry = _get("expiry", "expiry")
     source = _get("source", "source") or ""
+    ts_sec = _get("video_timestamp_sec", "video_timestamp_sec")
 
     src_icon = "🔥" if "flow" in source.lower() else "💡"
     strike_str = f"${strike:.0f}" if strike is not None else ""
     expiry_str = f" exp {expiry}" if expiry else ""
-    return f"  {src_icon} `{ticker}` {opt_type} {strike_str}{expiry_str}".rstrip()
+    ts_str = f" @ {_format_ts(ts_sec)}" if ts_sec is not None else ""
+    return f"  {src_icon} `{ticker}` {opt_type} {strike_str}{expiry_str}{ts_str}".rstrip()
 
 
 def _format_youtube_setup_summary(setup) -> str:
@@ -956,6 +982,9 @@ def _format_youtube_setup_summary(setup) -> str:
     targets_raw = _get("targets", "targets")
     targets_json = _get("targets_json", "targets_json")
     risk_reward = _get("risk_reward", "risk_reward")
+    ts_sec = _get("video_timestamp_sec", "video_timestamp_sec")
+    catalyst_date = _get("catalyst_date", "catalyst_date")
+    catalyst_desc = _get("catalyst_desc", "catalyst_desc")
 
     # Resolve targets to a list
     targets: list = []
@@ -972,7 +1001,12 @@ def _format_youtube_setup_summary(setup) -> str:
     stop_str = f"${stop:.0f}" if stop is not None else "?"
     target_str = f"${targets[0]:.0f}" if targets else "?"
     rr_str = f" (R/R {risk_reward:.1f}x)" if risk_reward is not None else ""
-    return f"  📐 `{ticker}` Entry {entry_str} | Stop {stop_str} | Target {target_str}{rr_str}"
+    ts_str = f" @ {_format_ts(ts_sec)}" if ts_sec is not None else ""
+    catalyst_str = ""
+    if catalyst_date:
+        desc = f" {catalyst_desc}" if catalyst_desc else ""
+        catalyst_str = f" | Catalyst {catalyst_date}{desc}"
+    return f"  📐 `{ticker}` Entry {entry_str}{ts_str} | Stop {stop_str} | Target {target_str}{rr_str}{catalyst_str}"
 
 
 async def _handle_yt(
@@ -993,6 +1027,103 @@ async def _handle_yt(
         await db.log_user_command(author_id, "yt")
     await send_command_reply(channel_id, message_id, f"Analysing {youtube_url} ...")
     asyncio.create_task(_yt_analyse_and_reply(youtube_url, channel_id, message_id))
+
+
+def _format_two_stage_reply(
+    title: str,
+    channel_name: str,
+    bundle,
+    result,
+    catalysts,
+    min_confidence: float,
+    require_verified: bool,
+) -> str:
+    """Render the v2 two-stage `!yt` reply: outline + macro + catalysts + candidates."""
+    lines = [f"🎬 **{title}** — {channel_name}", ""]
+
+    # Timestamped outline
+    segments = getattr(bundle, "segments", []) or []
+    if segments:
+        lines.append("**Timestamped outline:**")
+        for seg in segments[:20]:
+            ts = _format_ts(seg.get("ts_start_sec"))
+            seg_title = (seg.get("title") or "").strip()
+            lines.append(f"[{ts}] {seg_title}")
+        lines.append("")
+
+    # Macro thesis (narrative)
+    macro = getattr(result, "macro_thesis", None)
+    if macro is not None:
+        dir_label = {
+            "long": "🟢 BULLISH", "short": "🔴 BEARISH", "neutral": "⚪ NEUTRAL",
+        }.get(getattr(macro.direction, "value", str(macro.direction)), "⚪ NEUTRAL")
+        lines.append(f"**Macro thesis:** {dir_label}")
+        narrative = getattr(macro, "narrative", "") or macro.summary or ""
+        if narrative:
+            lines.append(narrative[:500])
+        lines.append("")
+
+    # Upcoming catalysts
+    visible_catalysts = []
+    for cat in catalysts or []:
+        if require_verified and cat.verified != 1:
+            continue
+        if cat.suppressed:
+            continue
+        visible_catalysts.append(cat)
+    if visible_catalysts:
+        lines.append("**Upcoming catalysts:**")
+        for cat in visible_catalysts[:8]:
+            date_str = cat.resolved_date or cat.mentioned_date
+            mark = _format_verified(cat.verified)
+            lines.append(f"• {cat.ticker} {date_str} {cat.catalyst_type} {mark}")
+        lines.append("")
+
+    # Tickers (signals)
+    visible_signals = [s for s in (result.signals or []) if not s.suppressed
+                       and s.classifier_confidence >= min_confidence]
+    if visible_signals:
+        lines.append("**Tickers:**")
+        for sig in visible_signals[:10]:
+            dir_icon = {"long": "🟢", "short": "🔴"}.get(sig.direction.value, "⚪")
+            conv = sig.conviction.value.upper()
+            lines.append(
+                f"{dir_icon} {sig.ticker} {sig.direction.value.upper()} "
+                f"({conv}, {sig.classifier_confidence:.2f})"
+            )
+        lines.append("")
+
+    # Setups
+    visible_setups = [s for s in (result.setups or []) if not s.suppressed
+                      and s.classifier_confidence >= min_confidence]
+    if visible_setups:
+        lines.append("**Setups:**")
+        for setup in visible_setups[:5]:
+            lines.append(_format_youtube_setup_summary(setup).lstrip())
+        lines.append("")
+
+    # Levels (separate support / resistance rows)
+    visible_levels = [lv for lv in (result.levels or []) if not lv.suppressed
+                      and lv.classifier_confidence >= min_confidence]
+    support = [lv for lv in visible_levels if lv.level_type == "support"]
+    resistance = [lv for lv in visible_levels if lv.level_type == "resistance"]
+    targets = [lv for lv in visible_levels if lv.level_type == "target"]
+    if support or resistance or targets:
+        lines.append("**Levels:**")
+        for lv in support[:6]:
+            ts = _format_ts(lv.video_timestamp_sec)
+            ts_str = f" @ {ts}" if ts else ""
+            lines.append(f"SUPPORT {lv.ticker} ${lv.price:g}{ts_str}")
+        for lv in resistance[:6]:
+            ts = _format_ts(lv.video_timestamp_sec)
+            ts_str = f" @ {ts}" if ts else ""
+            lines.append(f"RESISTANCE {lv.ticker} ${lv.price:g}{ts_str}")
+        for lv in targets[:6]:
+            ts = _format_ts(lv.video_timestamp_sec)
+            ts_str = f" @ {ts}" if ts else ""
+            lines.append(f"TARGET {lv.ticker} ${lv.price:g}{ts_str}")
+
+    return "\n".join(lines).rstrip()
 
 
 async def _yt_analyse_and_reply(youtube_url: str, channel_id: str, message_id: str) -> None:
@@ -1019,6 +1150,36 @@ async def _yt_analyse_and_reply(youtube_url: str, channel_id: str, message_id: s
                         channel_name = data.get("author_name", "unknown")
         except Exception:
             pass
+
+        # ── v2 two-stage evidence pipeline (flag-gated) ───────────────────────
+        if cfg.get("youtube.use_two_stage", False):
+            try:
+                from consensus_engine.analysis.gemini_video_parser import extract_evidence_with_gemini
+                from consensus_engine.analysis.video_classifier import classify_evidence
+                from consensus_engine.analysis.catalyst_resolver import resolve_and_verify_catalysts
+
+                published_at = _time.strftime("%Y-%m-%dT%H:%M:%SZ", _time.gmtime())
+                bundle, _telemetry = await extract_evidence_with_gemini(
+                    video_id, channel_name, published_at,
+                )
+                if bundle is not None:
+                    result = classify_evidence(bundle)
+                    catalysts = await resolve_and_verify_catalysts(
+                        result.catalyst_candidates, bundle.publish_ts,
+                    )
+                    min_conf = float(cfg.get("youtube.classifier.min_confidence", 0.5))
+                    require_verified = bool(cfg.get("youtube.catalyst.require_verified", False))
+                    msg = _format_two_stage_reply(
+                        title, channel_name, bundle, result, catalysts,
+                        min_conf, require_verified,
+                    )
+                    await send_command_reply(channel_id, message_id, msg)
+                    return
+            except Exception as e:
+                log.warning("!yt two-stage error for %s, falling back: %s", video_id, e)
+                if not cfg.get("youtube.legacy_fallback", True):
+                    await send_command_reply(channel_id, message_id, f"Analysis failed: {e}")
+                    return
 
         # Check if already parsed
         already = await db.has_video_been_processed(video_id)

@@ -232,11 +232,23 @@ youtube:
   standalone_alerts: true              # fire Discord alert for HIGH conviction signals
   min_trust: 0.5                       # minimum channel trust_score to trigger standalone alert
   gemini_enabled: true                 # try Gemini fast-path before transcript fetch
-  gemini_model: "gemini-2.5-flash-lite"
+  gemini_model: "gemini-2.5-flash-lite"   # legacy single-call path
   analyze: true                        # run LLM analysis on transcripts (fallback path)
   user_rate_limit_per_hour: 5          # !yt command per user per hour
   rate_limit:
     gemini_qps: 2.0                    # 2 Gemini video calls/sec
+  # v2 evidence-first two-stage pipeline
+  use_two_stage: true                  # enable v2 evidence-first pipeline
+  legacy_fallback: true                # keep old path as rollback when evidence extractor fails
+  gemini:
+    model: "gemini-2.5-flash"          # upgrade from flash-lite for evidence extractor
+    timeout_sec: 120
+  classifier:
+    min_confidence: 0.5                # suppress candidates below this classifier_confidence
+  catalyst:
+    require_verified: false            # false = include unverified; true = only verified
+  show_timestamps_in_alerts: true
+  near_price_dedup_pct: 0.5
 
 # Precision Scoring Engine
 precision_engine:
