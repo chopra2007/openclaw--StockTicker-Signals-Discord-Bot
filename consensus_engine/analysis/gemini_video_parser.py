@@ -604,31 +604,198 @@ async def extract_evidence_with_gemini(
     every downstream candidate can be traced back to the span(s) that justify
     it.
     """
+    # Orchestrator: pick initial tier from yaml + budget, call Stage A once,
+    # optionally escalate one tier up if the span count is poor. Persistence
+    # happens here (once) so two escalation attempts don't create duplicate runs.
+    telemetry = RunTelemetry()
+    orchestrator_start = time.monotonic()
+
+    try:
+        from consensus_engine.engine import BudgetManager
+        budget_probe = BudgetManager()
+        budget_pct = await _best_effort_gemini_budget_pct(budget_probe)
+    except Exception as e:
+        log.debug("extract_evidence_with_gemini: budget probe failed: %s", e)
+        budget_pct = None
+
+    cfg_res = str(cfg.get("youtube.gemini.media_resolution", "auto")).strip().lower()
+    initial_tier = _pick_media_resolution(cfg_res, budget_pct)
+
+    bundle, telemetry = await _extract_evidence_single_pass(
+        video_id, channel_name, published_at, media_resolution=initial_tier,
+    )
+
+    if (
+        bundle is not None
+        and bool(cfg.get("youtube.gemini.auto_escalate_enabled", True))
+    ):
+        min_spans = int(cfg.get("youtube.gemini.auto_escalate_min_spans", 20))
+        min_duration_min = int(cfg.get("youtube.gemini.auto_escalate_min_duration_min", 15))
+        budget_pct_for_default = float(cfg.get("youtube.gemini.budget_pct_for_default", 50))
+        budget_pct_for_medium = float(cfg.get("youtube.gemini.budget_pct_for_medium", 75))
+        next_tier = _should_escalate(
+            span_count=telemetry.span_count or 0,
+            duration_sec=bundle.duration_sec,
+            current_tier=initial_tier,
+            budget_pct=budget_pct,
+            cfg_min_spans=min_spans,
+            cfg_min_duration_min=min_duration_min,
+            budget_pct_for_default=budget_pct_for_default,
+            budget_pct_for_medium=budget_pct_for_medium,
+        )
+        if next_tier:
+            log.info(
+                "extract_evidence_with_gemini: auto-escalating %s from %s → %s "
+                "(spans=%d < %d, duration=%ss)",
+                video_id, initial_tier, next_tier, telemetry.span_count or 0,
+                min_spans, bundle.duration_sec,
+            )
+            bundle2, tel2 = await _extract_evidence_single_pass(
+                video_id, channel_name, published_at, media_resolution=next_tier,
+            )
+            if bundle2 is not None and (tel2.span_count or 0) > (telemetry.span_count or 0):
+                bundle, telemetry = bundle2, tel2
+
+    # Persist spans exactly once — on the winner.
+    if bundle is not None:
+        model = cfg.get("youtube.gemini.model", "gemini-2.5-flash")
+        parser_version = f"gemini-evidence/{model}-v1"
+        try:
+            run_id = await db.create_analysis_run(video_id, parser_version)
+        except Exception as e:
+            log.warning("extract_evidence_with_gemini: could not create analysis run for %s: %s", video_id, e)
+            return (bundle, telemetry)
+        for span in bundle.spans:
+            try:
+                await db.insert_youtube_evidence_span(
+                    run_id=run_id,
+                    video_id=video_id,
+                    ts_sec=span.ts_sec,
+                    quote=span.quote,
+                    tickers=span.tickers,
+                    numbers=span.numbers,
+                    dates=span.dates_mentioned,
+                )
+            except Exception as e:
+                log.debug("extract_evidence_with_gemini: span persist failed: %s", e)
+        log.info(
+            "extract_evidence_with_gemini: %s → %d spans, %d segments, %dms",
+            video_id, len(bundle.spans), len(bundle.segments), telemetry.latency_ms,
+        )
+
+    # Orchestrator latency covers both passes if escalation ran.
+    telemetry.latency_ms = int((time.monotonic() - orchestrator_start) * 1000)
+    return (bundle, telemetry)
+
+
+_RESOLUTION_TIERS = ("low", "medium", "default", "high")
+
+
+def _pick_media_resolution(config_value: str, budget_pct_used: float | None) -> str:
+    """Pick an effective media_resolution tier.
+
+    ``config_value`` can be an explicit tier ("low"/"medium"/"high"/"default")
+    or "auto" / "" / "unspecified". In auto mode the tier is chosen from the
+    current budget utilisation so the system conserves quota when depleted:
+
+        budget_pct_used < budget_pct_for_default (default 50)  →  "default"
+        budget_pct_used < budget_pct_for_medium  (default 75)  →  "medium"
+        budget_pct_used >= budget_pct_for_medium               →  "low"
+
+    A missing budget reading (None) is treated optimistically as "default" —
+    we'd rather overshoot on one call than starve a video that already
+    consumed 700K tokens to extract spans.
+    """
+    cfg_val = (config_value or "").strip().lower()
+    if cfg_val in _RESOLUTION_TIERS:
+        return cfg_val
+    if cfg_val in ("", "unspecified"):
+        return "default"
+    if cfg_val == "auto":
+        if budget_pct_used is None:
+            return "default"
+        thresh_default = float(cfg.get("youtube.gemini.budget_pct_for_default", 50))
+        thresh_medium = float(cfg.get("youtube.gemini.budget_pct_for_medium", 75))
+        if budget_pct_used < thresh_default:
+            return "default"
+        if budget_pct_used < thresh_medium:
+            return "medium"
+        return "low"
+    return cfg_val  # unknown literal — pass through, SDK will error if invalid
+
+
+def _should_escalate(
+    *,
+    span_count: int,
+    duration_sec: int | None,
+    current_tier: str,
+    budget_pct: float | None,
+    cfg_min_spans: int,
+    cfg_min_duration_min: int,
+    budget_pct_for_default: float = 50.0,
+    budget_pct_for_medium: float = 75.0,
+) -> str | None:
+    """Return the next resolution tier to retry at, or None to stop."""
+    if current_tier in ("default", "high"):
+        return None
+    if span_count >= cfg_min_spans:
+        return None
+    if duration_sec is not None and duration_sec < cfg_min_duration_min * 60:
+        return None  # short video — not worth the extra quota
+    if budget_pct is not None and budget_pct >= budget_pct_for_medium:
+        # Too little budget left to spend on a retry.
+        return None
+    if current_tier == "low":
+        return "medium"
+    if current_tier == "medium":
+        if budget_pct is not None and budget_pct >= budget_pct_for_default:
+            return None  # don't jump to default when budget is moderately tight
+        return "default"
+    return None
+
+
+async def _best_effort_gemini_budget_pct(budget_manager) -> float | None:
+    """Return pct_used (0–100) for Gemini input tokens, or None on failure."""
+    try:
+        return await budget_manager.pct_used("gemini_input_tokens")
+    except Exception as e:
+        log.debug("_best_effort_gemini_budget_pct: %s", e)
+        return None
+
+
+async def _extract_evidence_single_pass(
+    video_id: str,
+    channel_name: str,
+    published_at: str,
+    media_resolution: str,
+) -> tuple[EvidenceBundle | None, RunTelemetry]:
+    """One Gemini extraction round at the given media_resolution.
+
+    Does: rate-limit acquire, budget gate, key rotation retry on 429, JSON parse,
+    bundle build, token-usage accounting. Does NOT persist evidence spans — the
+    orchestrator persists once on whichever pass wins.
+    """
     telemetry = RunTelemetry()
     start_ts = time.monotonic()
 
-    # Pre-call rate limiter + budget gate (fail-open: caller falls back on None).
     try:
         from consensus_engine.utils.rate_limiter import rate_limiter
         from consensus_engine.engine import BudgetManager
         await rate_limiter.acquire("gemini")
         budget = BudgetManager()
         if not await budget.can_consume_gemini():
-            log.warning("extract_evidence_with_gemini: Gemini budget exhausted, skipping %s", video_id)
+            log.warning("extract_evidence_single_pass: Gemini budget exhausted, skipping %s", video_id)
             telemetry.latency_ms = int((time.monotonic() - start_ts) * 1000)
             telemetry.json_parse_ok = False
             return (None, telemetry)
     except Exception as e:
-        log.debug("extract_evidence_with_gemini: budget/rate gate failed: %s", e)
+        log.debug("extract_evidence_single_pass: budget/rate gate failed: %s", e)
         budget = None
 
     model = cfg.get("youtube.gemini.model", "gemini-2.5-flash")
     youtube_url = f"https://www.youtube.com/watch?v={video_id}"
     timeout_sec = int(cfg.get("youtube.gemini.timeout_sec", 120))
-    media_res_cfg = str(cfg.get("youtube.gemini.media_resolution", "")).strip().lower()
 
-    # Key-rotation retry loop: try each non-exhausted key once. On 429, mark
-    # exhausted and rotate; on other errors, fail fast.
     response = None
     raw = None
     tried_labels: set[str] = set()
@@ -638,7 +805,7 @@ async def extract_evidence_with_gemini(
         client, key_label = _get_available_gemini_client(skip=tried_labels)
         if client is None:
             log.warning(
-                "extract_evidence_with_gemini: no available Gemini key for %s "
+                "extract_evidence_single_pass: no available Gemini key for %s "
                 "(tried %d, %d configured)", video_id, len(tried_labels), len(configured_keys)
             )
             telemetry.latency_ms = int((time.monotonic() - start_ts) * 1000)
@@ -647,7 +814,7 @@ async def extract_evidence_with_gemini(
         try:
             from google.genai import types
 
-            gen_config = _build_generation_config(media_res_cfg)
+            gen_config = _build_generation_config(media_resolution)
 
             def _sync_call(_client=client):
                 return _client.models.generate_content(
@@ -668,31 +835,33 @@ async def extract_evidence_with_gemini(
                 timeout=timeout_sec,
             )
             raw = response.text
-            log.info("extract_evidence_with_gemini: %s succeeded via %s", video_id, key_label)
+            log.info(
+                "extract_evidence_single_pass: %s succeeded via %s at %s",
+                video_id, key_label, media_resolution,
+            )
             break
         except asyncio.TimeoutError:
-            log.warning("extract_evidence_with_gemini: timeout for %s via %s", video_id, key_label)
+            log.warning("extract_evidence_single_pass: timeout for %s via %s", video_id, key_label)
             telemetry.latency_ms = int((time.monotonic() - start_ts) * 1000)
             telemetry.json_parse_ok = False
             return (None, telemetry)
         except Exception as e:
             if _is_quota_error(e):
                 log.warning(
-                    "extract_evidence_with_gemini: key %s hit quota for %s: %s",
+                    "extract_evidence_single_pass: key %s hit quota for %s: %s",
                     key_label, video_id, str(e)[:200],
                 )
                 _mark_key_exhausted(key_label)
                 tried_labels.add(key_label)
                 continue
-            log.warning("extract_evidence_with_gemini: API error for %s via %s: %s",
+            log.warning("extract_evidence_single_pass: API error for %s via %s: %s",
                         video_id, key_label, e)
             telemetry.latency_ms = int((time.monotonic() - start_ts) * 1000)
             telemetry.json_parse_ok = False
             return (None, telemetry)
 
     if raw is None:
-        # All keys exhausted — caller's legacy_fallback engages.
-        log.warning("extract_evidence_with_gemini: all Gemini keys exhausted for %s", video_id)
+        log.warning("extract_evidence_single_pass: all Gemini keys exhausted for %s", video_id)
         telemetry.latency_ms = int((time.monotonic() - start_ts) * 1000)
         telemetry.json_parse_ok = False
         return (None, telemetry)
@@ -704,7 +873,6 @@ async def extract_evidence_with_gemini(
     if out_tok is not None:
         telemetry.output_tokens = out_tok
 
-    # Record actual usage against the daily budget (best-effort; ignore errors).
     if budget is not None:
         try:
             await budget.consume_gemini(
@@ -712,41 +880,15 @@ async def extract_evidence_with_gemini(
                 telemetry.output_tokens or 0,
             )
         except Exception as e:
-            log.debug("extract_evidence_with_gemini: consume_gemini failed: %s", e)
+            log.debug("extract_evidence_single_pass: consume_gemini failed: %s", e)
 
     data = _parse_gemini_response(raw)
     if data is None:
-        log.warning("extract_evidence_with_gemini: unparseable response for %s", video_id)
+        log.warning("extract_evidence_single_pass: unparseable response for %s", video_id)
         telemetry.json_parse_ok = False
         return (None, telemetry)
 
     telemetry.json_parse_ok = True
     bundle = _build_evidence_bundle(data, video_id, published_at)
     telemetry.span_count = len(bundle.spans)
-
-    parser_version = f"gemini-evidence/{model}-v1"
-    try:
-        run_id = await db.create_analysis_run(video_id, parser_version)
-    except Exception as e:
-        log.warning("extract_evidence_with_gemini: could not create analysis run for %s: %s", video_id, e)
-        return (bundle, telemetry)
-
-    for span in bundle.spans:
-        try:
-            await db.insert_youtube_evidence_span(
-                run_id=run_id,
-                video_id=video_id,
-                ts_sec=span.ts_sec,
-                quote=span.quote,
-                tickers=span.tickers,
-                numbers=span.numbers,
-                dates=span.dates_mentioned,
-            )
-        except Exception as e:
-            log.debug("extract_evidence_with_gemini: span persist failed: %s", e)
-
-    log.info(
-        "extract_evidence_with_gemini: %s → %d spans, %d segments, %dms",
-        video_id, len(bundle.spans), len(bundle.segments), telemetry.latency_ms,
-    )
     return (bundle, telemetry)
