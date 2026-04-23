@@ -238,3 +238,177 @@ async def test_save_transcript_idempotent(test_db):
     cursor = await conn.execute("SELECT transcript_text FROM youtube_transcripts WHERE video_id='vid5'")
     row = await cursor.fetchone()
     assert row["transcript_text"] == "text v2"
+
+
+# --- P1a: v2 idempotent inserts + evidence spans + catalysts + metrics + rate limit ---
+
+
+@pytest.mark.asyncio
+async def test_insert_youtube_signal_idempotent(tmp_db):
+    run_id = await db.create_analysis_run("vidSIG1", "v2")
+    for _ in range(2):
+        await db.insert_youtube_signal(
+            video_id="vidSIG1", channel_name="Chan", ticker="AAPL",
+            direction="long", conviction="high", mention_count=1,
+            run_id=run_id, parser_version="v2",
+        )
+    conn = await db.get_db()
+    cur = await conn.execute(
+        "SELECT COUNT(*) AS cnt FROM youtube_signals WHERE run_id=? AND ticker='AAPL' AND direction='long'",
+        (run_id,),
+    )
+    row = await cur.fetchone()
+    assert row["cnt"] == 1
+
+
+@pytest.mark.asyncio
+async def test_insert_youtube_level_idempotent(tmp_db):
+    run_id = await db.create_analysis_run("vidLVL1", "v2")
+    for _ in range(2):
+        await db.insert_youtube_level(
+            video_id="vidLVL1", ticker="NVDA", level_type="support",
+            price=850.0, run_id=run_id, parser_version="v2",
+        )
+    conn = await db.get_db()
+    cur = await conn.execute(
+        "SELECT COUNT(*) AS cnt FROM youtube_levels WHERE run_id=? AND ticker='NVDA' AND level_type='support' AND price=850.0",
+        (run_id,),
+    )
+    row = await cur.fetchone()
+    assert row["cnt"] == 1
+
+
+@pytest.mark.asyncio
+async def test_insert_youtube_setup_idempotent(tmp_db):
+    run_id = await db.create_analysis_run("vidSET2", "v2")
+    ids = []
+    for _ in range(2):
+        sid = await db.insert_youtube_setup(
+            run_id=run_id, video_id="vidSET2", ticker="MSFT",
+            entry_low=400.0, entry_high=405.0, stop_price=390.0,
+            targets=[420.0], timeframe="swing", setup_type="breakout",
+            context_text=None, source_snippet=None, chunk_id=0,
+            risk_reward=2.0, parser_version="v2",
+            channel_name="Chan", published_at=None,
+        )
+        ids.append(sid)
+    conn = await db.get_db()
+    cur = await conn.execute(
+        "SELECT COUNT(*) AS cnt FROM youtube_setups WHERE run_id=? AND ticker='MSFT' AND entry_low=400.0 AND entry_high=405.0",
+        (run_id,),
+    )
+    row = await cur.fetchone()
+    assert row["cnt"] == 1
+    assert ids[0] == ids[1]  # same id returned both times
+
+
+@pytest.mark.asyncio
+async def test_insert_youtube_option_idempotent(tmp_db):
+    run_id = await db.create_analysis_run("vidOPT2", "v2")
+    for _ in range(2):
+        await db.insert_youtube_option(
+            run_id=run_id, video_id="vidOPT2", ticker="TSLA",
+            option_type="call", strike=250.0, expiry="weekly",
+            strategy="single", source="flow", conviction="high",
+            context_text=None, source_snippet=None, chunk_id=0,
+            parser_version="v2", channel_name="Chan", published_at=None,
+        )
+    conn = await db.get_db()
+    cur = await conn.execute(
+        "SELECT COUNT(*) AS cnt FROM youtube_options WHERE run_id=? AND ticker='TSLA' AND option_type='call' AND strike=250.0 AND expiry='weekly'",
+        (run_id,),
+    )
+    row = await cur.fetchone()
+    assert row["cnt"] == 1
+
+
+@pytest.mark.asyncio
+async def test_insert_youtube_evidence_span_idempotent(tmp_db):
+    run_id = await db.create_analysis_run("vidES1", "v2")
+    for _ in range(2):
+        await db.insert_youtube_evidence_span(
+            run_id=run_id, video_id="vidES1", ts_sec=120,
+            quote="MSFT earnings next Wednesday",
+            tickers=["MSFT"], numbers=[], dates=["next Wednesday"],
+        )
+    conn = await db.get_db()
+    cur = await conn.execute(
+        "SELECT COUNT(*) AS cnt FROM youtube_evidence_spans WHERE run_id=? AND ts_sec=120",
+        (run_id,),
+    )
+    row = await cur.fetchone()
+    assert row["cnt"] == 1
+
+
+@pytest.mark.asyncio
+async def test_insert_youtube_catalyst_idempotent(tmp_db):
+    run_id = await db.create_analysis_run("vidCAT1", "v2")
+    for _ in range(2):
+        await db.insert_youtube_catalyst(
+            run_id=run_id, video_id="vidCAT1", ticker="MSFT",
+            catalyst_type="earnings", mentioned_date="next Wednesday",
+            resolved_date="2026-04-29", verified=1,
+            context_text="MSFT reports earnings next Wednesday",
+            video_timestamp_sec=120, evidence_span_ids="1",
+        )
+    conn = await db.get_db()
+    cur = await conn.execute(
+        "SELECT COUNT(*) AS cnt FROM youtube_catalysts WHERE run_id=? AND ticker='MSFT' AND resolved_date='2026-04-29' AND catalyst_type='earnings'",
+        (run_id,),
+    )
+    row = await cur.fetchone()
+    assert row["cnt"] == 1
+
+
+@pytest.mark.asyncio
+async def test_update_analysis_run_metrics(tmp_db):
+    run_id = await db.create_analysis_run("vidMET1", "v2")
+    await db.update_analysis_run_metrics(
+        run_id,
+        input_tokens=1000, output_tokens=500, latency_ms=2500,
+        json_parse_ok=1, span_count=12, filter_drop_count=3,
+    )
+    conn = await db.get_db()
+    cur = await conn.execute(
+        """SELECT input_tokens, output_tokens, latency_ms,
+                  json_parse_ok, span_count, filter_drop_count
+           FROM youtube_analysis_runs WHERE id=?""",
+        (run_id,),
+    )
+    row = await cur.fetchone()
+    assert row["input_tokens"] == 1000
+    assert row["output_tokens"] == 500
+    assert row["latency_ms"] == 2500
+    assert row["json_parse_ok"] == 1
+    assert row["span_count"] == 12
+    assert row["filter_drop_count"] == 3
+
+
+@pytest.mark.asyncio
+async def test_user_rate_limit(tmp_db, monkeypatch):
+    """Log 5 invocations → limit=5/60s is reached (True). Advance mock time past
+    the window → limit no longer exceeded (False) until we log again past limit."""
+    base = 1_000_000.0
+    current = [base]
+
+    def fake_time():
+        return current[0]
+
+    monkeypatch.setattr(db.time, "time", fake_time)
+
+    for _ in range(5):
+        await db.log_user_command("user1", "yt")
+    # 5 rows in 60s → limit of 5 reached
+    assert await db.check_user_rate_limit("user1", "yt", limit=5, window_sec=60) is True
+    # Lower count under limit
+    assert await db.check_user_rate_limit("user1", "yt", limit=6, window_sec=60) is False
+
+    # Advance past the window
+    current[0] = base + 61.0
+    # All prior rows are now outside the 60s window → not rate-limited
+    assert await db.check_user_rate_limit("user1", "yt", limit=5, window_sec=60) is False
+
+    # Log 6 fresh calls at new time → limit=5 now reached again
+    for _ in range(6):
+        await db.log_user_command("user1", "yt")
+    assert await db.check_user_rate_limit("user1", "yt", limit=5, window_sec=60) is True
