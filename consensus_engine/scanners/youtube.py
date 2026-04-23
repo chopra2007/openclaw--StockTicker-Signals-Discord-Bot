@@ -417,15 +417,44 @@ async def process_video(
             min_trust = cfg.get("youtube.min_trust", 0.5)
             trust = await db.get_channel_trust(channel_id)
             if trust >= min_trust:
+                from consensus_engine.alerts.commands import (
+                    _format_youtube_setup_summary,
+                    _format_youtube_option_summary,
+                )
                 for ticker_data in parsed.tickers:
                     if (
                         ticker_data.get("conviction") == "high"
                         and ticker_data.get("direction") in ("long", "short")
                     ):
-                        ticker = ticker_data.get("symbol", "")
+                        sym = ticker_data.get("symbol", "")
                         direction_label = ticker_data["direction"].upper()
-                        msg = f"🎬 YouTube Signal: ${ticker} [{direction_label}] — {display_name}"
-                        await _send_youtube_alert(msg)
+                        lines = [f"🎬 **${sym} [{direction_label}]** — {display_name}"]
+
+                        # Price levels (support / resistance)
+                        levels = [lv for lv in parsed.price_levels if lv.ticker == sym]
+                        if levels:
+                            lv_parts = []
+                            for lv in levels[:4]:
+                                label = lv.level_type.capitalize()
+                                lv_parts.append(f"{label} ${lv.price:.0f}")
+                            lines.append("📊 " + " | ".join(lv_parts))
+
+                        # Trade setups
+                        setups = [s for s in parsed.setups if s.ticker == sym]
+                        for s in setups[:2]:
+                            lines.append(_format_youtube_setup_summary(s))
+
+                        # Options ideas
+                        opts = [o for o in parsed.options if o.ticker == sym]
+                        for o in opts[:2]:
+                            lines.append(_format_youtube_option_summary(o))
+
+                        # Context snippet
+                        ctx = ticker_data.get("context", "").strip()
+                        if ctx:
+                            lines.append(f'> "{ctx[:140]}"')
+
+                        await _send_youtube_alert("\n".join(lines))
 
         log.info("youtube: parsed %s → %d tickers, %d levels", video_id, len(parsed.tickers), len(parsed.price_levels))
 
