@@ -1340,6 +1340,51 @@ async def get_youtube_setups_for_ticker(ticker: str, days: int = 14) -> list[dic
     return [dict(r) for r in await cur.fetchall()]
 
 
+async def get_youtube_evidence_for_ticker(ticker: str, days: int = 7) -> list[dict]:
+    """Canonical read model: setups first, then unabsorbed raw levels. Never double-counts."""
+    conn = await get_db()
+    cutoff = time.time() - days * 86400
+    cur = await conn.execute(
+        """
+        SELECT 'setup' AS evidence_type,
+               s.id, s.ticker, s.entry_low, s.entry_high, s.stop_price,
+               s.targets_json, s.timeframe, s.setup_type, s.context_text,
+               s.source_snippet, s.risk_reward, s.channel_name, s.published_at,
+               s.extracted_at,
+               NULL AS price, NULL AS level_type, NULL AS condition_text,
+               NULL AS consequence_text
+        FROM youtube_setups s
+        WHERE s.ticker=? AND s.extracted_at>=?
+        UNION ALL
+        SELECT 'level' AS evidence_type,
+               l.id, l.ticker, NULL, NULL, NULL,
+               NULL, NULL, NULL, l.condition_text,
+               l.source_snippet, NULL, l.channel_name, l.published_at,
+               l.extracted_at,
+               l.price, l.level_type, l.condition_text,
+               l.consequence_text
+        FROM youtube_levels l
+        WHERE l.ticker=? AND l.extracted_at>=? AND l.setup_id IS NULL
+        ORDER BY extracted_at DESC
+        """,
+        (ticker, cutoff, ticker, cutoff),
+    )
+    return [dict(r) for r in await cur.fetchall()]
+
+
+async def mark_levels_absorbed_by_setup(level_ids: list[int], setup_id: int) -> None:
+    """Tag raw level rows as belonging to a setup so canonical reads skip them."""
+    if not level_ids:
+        return
+    conn = await get_db()
+    placeholders = ",".join("?" * len(level_ids))
+    await conn.execute(
+        f"UPDATE youtube_levels SET setup_id=? WHERE id IN ({placeholders})",
+        [setup_id, *level_ids],
+    )
+    await conn.commit()
+
+
 async def get_recent_youtube_macro(days: int = 7) -> list[dict]:
     """Get all youtube_macro rows from the last N days."""
     import json as _json
