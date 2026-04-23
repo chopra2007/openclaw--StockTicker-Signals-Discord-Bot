@@ -1,9 +1,22 @@
 """Tests for Gemini fast-path video parser."""
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
-from consensus_engine.analysis.gemini_video_parser import parse_video_with_gemini
-from consensus_engine.models import ParsedVideo, Direction, Conviction
 
+from consensus_engine.analysis.gemini_video_parser import (
+    parse_video_with_gemini,
+    extract_evidence_with_gemini,
+    _parse_ts_str,
+    _build_evidence_bundle,
+)
+from consensus_engine.models import (
+    ParsedVideo, Conviction,
+    EvidenceBundle, EvidenceSpan, RunTelemetry,
+)
+
+
+# ---------------------------------------------------------------------------
+# Legacy single-call parser (kept unchanged as P6 fallback)
+# ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
 async def test_parse_video_with_gemini_returns_parsed_video():
@@ -69,3 +82,192 @@ async def test_parse_video_with_gemini_handles_bad_json():
 
     # Bad JSON → returns None (caller will fall back to transcript pipeline)
     assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Helper: _parse_ts_str
+# ---------------------------------------------------------------------------
+
+def test_parse_ts_str_accepts_int_seconds():
+    assert _parse_ts_str(42) == 42
+    assert _parse_ts_str(0) == 0
+
+
+def test_parse_ts_str_accepts_float_seconds():
+    assert _parse_ts_str(42.9) == 42
+
+
+def test_parse_ts_str_parses_mm_ss():
+    assert _parse_ts_str("1:23") == 83
+    assert _parse_ts_str("35:42") == 35 * 60 + 42
+
+
+def test_parse_ts_str_parses_hh_mm_ss():
+    assert _parse_ts_str("1:02:03") == 3723
+
+
+def test_parse_ts_str_returns_zero_on_junk():
+    assert _parse_ts_str("not-a-time") == 0
+    assert _parse_ts_str("") == 0
+    assert _parse_ts_str(None) == 0
+    assert _parse_ts_str(True) == 0
+
+
+# ---------------------------------------------------------------------------
+# Stage A: extract_evidence_with_gemini
+# ---------------------------------------------------------------------------
+
+_EVIDENCE_JSON = """{
+  "duration_sec": 2340,
+  "segments": [
+    {"ts_start_sec": 2022, "title": "Number One Draft Pick: MSFT"}
+  ],
+  "spans": [
+    {"ts_sec": 2024, "quote": "Our number one draft pick this week is MSFT", "tickers": ["MSFT"], "numbers": [], "dates_mentioned": []},
+    {"ts_sec": 2142, "quote": "the 8 EMA is currently coming in at 400.15", "tickers": ["MSFT"], "numbers": [400.15], "dates_mentioned": []},
+    {"ts_sec": 2172, "quote": "Bullish bias into April 29th earnings with an entry target at 400.15", "tickers": ["MSFT"], "numbers": [400.15], "dates_mentioned": ["April 29"]}
+  ]
+}"""
+
+
+def _make_mock_response(text: str, prompt_tokens: int | None = 1234, output_tokens: int | None = 567):
+    response = MagicMock()
+    response.text = text
+    if prompt_tokens is None and output_tokens is None:
+        response.usage_metadata = None
+    else:
+        meta = MagicMock()
+        meta.prompt_token_count = prompt_tokens
+        meta.candidates_token_count = output_tokens
+        response.usage_metadata = meta
+    return response
+
+
+@pytest.mark.asyncio
+async def test_extract_evidence_parses_spans():
+    mock_client = MagicMock()
+    mock_client.models.generate_content.return_value = _make_mock_response(_EVIDENCE_JSON)
+
+    with patch("consensus_engine.analysis.gemini_video_parser._get_gemini_client", return_value=mock_client), \
+         patch("consensus_engine.db.create_analysis_run", new=AsyncMock(return_value=11)), \
+         patch("consensus_engine.db.insert_youtube_evidence_span", new=AsyncMock(return_value=None)):
+        bundle, telemetry = await extract_evidence_with_gemini(
+            "4mSyMr8PGLI", "ShadowTrader", "2026-04-17T12:00:00Z",
+        )
+
+    assert isinstance(bundle, EvidenceBundle)
+    assert bundle.video_id == "4mSyMr8PGLI"
+    assert bundle.duration_sec == 2340
+    assert len(bundle.segments) == 1
+    assert bundle.segments[0]["title"].startswith("Number One")
+    assert len(bundle.spans) == 3
+    assert all(isinstance(s, EvidenceSpan) for s in bundle.spans)
+    assert bundle.spans[2].tickers == ["MSFT"]
+    assert bundle.spans[2].numbers == [400.15]
+    assert bundle.spans[2].dates_mentioned == ["April 29"]
+
+    assert isinstance(telemetry, RunTelemetry)
+    assert telemetry.json_parse_ok is True
+    assert telemetry.span_count == 3
+    assert telemetry.input_tokens == 1234
+    assert telemetry.output_tokens == 567
+    assert telemetry.latency_ms >= 0
+
+
+@pytest.mark.asyncio
+async def test_extract_evidence_timeout():
+    import asyncio
+
+    mock_client = MagicMock()
+    mock_client.models.generate_content.side_effect = asyncio.TimeoutError()
+
+    async def _raise_timeout(*_a, **_k):
+        raise asyncio.TimeoutError()
+
+    with patch("consensus_engine.analysis.gemini_video_parser._get_gemini_client", return_value=mock_client), \
+         patch("consensus_engine.analysis.gemini_video_parser.asyncio.wait_for", new=_raise_timeout):
+        bundle, telemetry = await extract_evidence_with_gemini(
+            "vid", "Chan", "2026-04-17T12:00:00Z",
+        )
+
+    assert bundle is None
+    assert isinstance(telemetry, RunTelemetry)
+    assert telemetry.json_parse_ok is False
+
+
+@pytest.mark.asyncio
+async def test_extract_evidence_invalid_json():
+    mock_client = MagicMock()
+    mock_client.models.generate_content.return_value = _make_mock_response("not json garbage >>>")
+
+    with patch("consensus_engine.analysis.gemini_video_parser._get_gemini_client", return_value=mock_client):
+        bundle, telemetry = await extract_evidence_with_gemini(
+            "vid", "Chan", "2026-04-17T12:00:00Z",
+        )
+
+    assert bundle is None
+    assert telemetry.json_parse_ok is False
+    # Tokens still captured even when JSON fails
+    assert telemetry.input_tokens == 1234
+
+
+@pytest.mark.asyncio
+async def test_extract_evidence_persists_spans():
+    mock_client = MagicMock()
+    mock_client.models.generate_content.return_value = _make_mock_response(_EVIDENCE_JSON)
+
+    mock_insert = AsyncMock(return_value=None)
+    with patch("consensus_engine.analysis.gemini_video_parser._get_gemini_client", return_value=mock_client), \
+         patch("consensus_engine.db.create_analysis_run", new=AsyncMock(return_value=42)), \
+         patch("consensus_engine.db.insert_youtube_evidence_span", new=mock_insert):
+        bundle, telemetry = await extract_evidence_with_gemini(
+            "vid", "Chan", "2026-04-17T12:00:00Z",
+        )
+
+    assert bundle is not None
+    assert mock_insert.await_count == 3
+    first_call_kwargs = mock_insert.await_args_list[0].kwargs
+    assert first_call_kwargs["run_id"] == 42
+    assert first_call_kwargs["video_id"] == "vid"
+    assert first_call_kwargs["quote"].startswith("Our number one")
+
+
+@pytest.mark.asyncio
+async def test_extract_evidence_rejects_ta_abbreviations():
+    bad_json = """{
+      "duration_sec": 100,
+      "segments": [],
+      "spans": [
+        {"ts_sec": 10, "quote": "EMA holding at 400", "tickers": ["EMA","MSFT"], "numbers": [400], "dates_mentioned": []},
+        {"ts_sec": 20, "quote": "RSI overbought", "tickers": ["RSI"], "numbers": [], "dates_mentioned": []}
+      ]
+    }"""
+    mock_client = MagicMock()
+    mock_client.models.generate_content.return_value = _make_mock_response(bad_json)
+
+    with patch("consensus_engine.analysis.gemini_video_parser._get_gemini_client", return_value=mock_client), \
+         patch("consensus_engine.db.create_analysis_run", new=AsyncMock(return_value=7)), \
+         patch("consensus_engine.db.insert_youtube_evidence_span", new=AsyncMock(return_value=None)):
+        bundle, _telemetry = await extract_evidence_with_gemini(
+            "vid", "Chan", "2026-04-17T12:00:00Z",
+        )
+
+    assert bundle is not None
+    # EMA and RSI are TA abbreviations — must be filtered from tickers[]
+    assert bundle.spans[0].tickers == ["MSFT"]
+    assert bundle.spans[1].tickers == []
+
+
+def test_build_evidence_bundle_drops_empty_quotes():
+    data = {
+        "duration_sec": 60,
+        "segments": [],
+        "spans": [
+            {"ts_sec": 1, "quote": "", "tickers": ["SPY"], "numbers": [], "dates_mentioned": []},
+            {"ts_sec": 2, "quote": "   ", "tickers": ["SPY"], "numbers": [], "dates_mentioned": []},
+            {"ts_sec": 3, "quote": "real quote", "tickers": ["spy"], "numbers": [], "dates_mentioned": []},
+        ],
+    }
+    b = _build_evidence_bundle(data, "v", "2026-04-17T12:00:00Z")
+    assert len(b.spans) == 1
+    assert b.spans[0].tickers == ["SPY"]
