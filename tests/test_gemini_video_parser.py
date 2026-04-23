@@ -233,6 +233,52 @@ async def test_extract_evidence_persists_spans():
 
 
 @pytest.mark.asyncio
+async def test_extract_evidence_skips_when_budget_exhausted():
+    """When BudgetManager.can_consume_gemini returns False, extractor returns (None, telemetry)."""
+    mock_client = MagicMock()
+    mock_client.models.generate_content.return_value = _make_mock_response(_EVIDENCE_JSON)
+
+    mock_budget = MagicMock()
+    mock_budget.can_consume_gemini = AsyncMock(return_value=False)
+    mock_budget.consume_gemini = AsyncMock(return_value=True)
+
+    with patch("consensus_engine.analysis.gemini_video_parser._get_gemini_client", return_value=mock_client), \
+         patch("consensus_engine.engine.BudgetManager", return_value=mock_budget):
+        bundle, telemetry = await extract_evidence_with_gemini(
+            "vidBud", "Chan", "2026-04-17T12:00:00Z",
+        )
+
+    assert bundle is None
+    assert telemetry.json_parse_ok is False
+    # Gemini API was never called
+    mock_client.models.generate_content.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_extract_evidence_records_budget_usage_on_success():
+    """On success, consume_gemini should record input/output tokens."""
+    mock_client = MagicMock()
+    mock_client.models.generate_content.return_value = _make_mock_response(
+        _EVIDENCE_JSON, prompt_tokens=1234, output_tokens=567,
+    )
+
+    mock_budget = MagicMock()
+    mock_budget.can_consume_gemini = AsyncMock(return_value=True)
+    mock_budget.consume_gemini = AsyncMock(return_value=True)
+
+    with patch("consensus_engine.analysis.gemini_video_parser._get_gemini_client", return_value=mock_client), \
+         patch("consensus_engine.engine.BudgetManager", return_value=mock_budget), \
+         patch("consensus_engine.db.create_analysis_run", new=AsyncMock(return_value=77)), \
+         patch("consensus_engine.db.insert_youtube_evidence_span", new=AsyncMock(return_value=None)):
+        bundle, _telemetry = await extract_evidence_with_gemini(
+            "vidBud2", "Chan", "2026-04-17T12:00:00Z",
+        )
+
+    assert bundle is not None
+    mock_budget.consume_gemini.assert_awaited_once_with(1234, 567)
+
+
+@pytest.mark.asyncio
 async def test_extract_evidence_rejects_ta_abbreviations():
     bad_json = """{
       "duration_sec": 100,
