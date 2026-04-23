@@ -12,8 +12,12 @@ services:
       - ./config/searxng:/etc/searxng:rw
     environment:
       - SEARXNG_BASE_URL=http://localhost:8888
-    mem_limit: 512m
-    mem_reservation: 128m
+    # Steady-state SearXNG usage on this workload is ~200 MB. 2 GB gives
+    # ~10× headroom for query bursts and long-running caches while still
+    # bounding a runaway memory leak from taking down the whole 7.5 GB host.
+    # Disk has its own limits; this knob is RAM only.
+    mem_limit: 2g
+    mem_reservation: 256m
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/healthz"]
       interval: 30s
