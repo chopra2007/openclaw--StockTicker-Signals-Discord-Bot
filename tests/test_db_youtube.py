@@ -18,6 +18,56 @@ async def test_db(tmp_path):
     await db.close_db()
 
 
+@pytest.fixture
+async def tmp_db(tmp_path):
+    db_path = str(tmp_path / "test_yt_tmp.db")
+    cfg._config["database"] = {"path": db_path, "signal_ttl_hours": 2, "alert_history_days": 90}
+    conn = await db.init_db()
+    yield conn
+    await db.close_db()
+
+
+# --- Task 1: youtube_analysis_runs table + provenance columns ---
+
+@pytest.mark.asyncio
+async def test_create_analysis_run_returns_id(tmp_db):
+    run_id = await db.create_analysis_run("vid123", "v2")
+    assert isinstance(run_id, int)
+    assert run_id > 0
+
+@pytest.mark.asyncio
+async def test_create_analysis_run_idempotent(tmp_db):
+    id1 = await db.create_analysis_run("vid123", "v2")
+    id2 = await db.create_analysis_run("vid123", "v2")
+    assert id1 == id2  # same run returned
+
+@pytest.mark.asyncio
+async def test_update_analysis_run_status(tmp_db):
+    run_id = await db.create_analysis_run("vid999", "v2")
+    await db.update_analysis_run(run_id, status="complete", call_budget_used=5)
+    conn = await db.get_db()
+    cur = await conn.execute(
+        "SELECT status, call_budget_used FROM youtube_analysis_runs WHERE id=?", (run_id,)
+    )
+    row = await cur.fetchone()
+    assert row["status"] == "complete"
+    assert row["call_budget_used"] == 5
+
+@pytest.mark.asyncio
+async def test_provenance_columns_exist_on_youtube_signals(tmp_db):
+    conn = await db.get_db()
+    cur = await conn.execute("PRAGMA table_info(youtube_signals)")
+    cols = {r["name"] for r in await cur.fetchall()}
+    assert {"run_id", "source_snippet", "chunk_id", "parser_version"}.issubset(cols)
+
+@pytest.mark.asyncio
+async def test_provenance_columns_exist_on_youtube_levels(tmp_db):
+    conn = await db.get_db()
+    cur = await conn.execute("PRAGMA table_info(youtube_levels)")
+    cols = {r["name"] for r in await cur.fetchall()}
+    assert {"run_id", "source_snippet", "chunk_id", "parser_version", "setup_id"}.issubset(cols)
+
+
 @pytest.mark.asyncio
 async def test_tables_created(test_db):
     conn = await db.get_db()
