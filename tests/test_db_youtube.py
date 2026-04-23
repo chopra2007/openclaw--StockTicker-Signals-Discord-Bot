@@ -68,6 +68,46 @@ async def test_provenance_columns_exist_on_youtube_levels(tmp_db):
     assert {"run_id", "source_snippet", "chunk_id", "parser_version", "setup_id"}.issubset(cols)
 
 
+# --- Task 2: youtube_options + youtube_setups tables ---
+
+@pytest.mark.asyncio
+async def test_insert_and_get_youtube_option(tmp_db):
+    run_id = await db.create_analysis_run("vidOPT1", "v2")
+    await db.insert_youtube_option(
+        run_id=run_id, video_id="vidOPT1", ticker="TSLA",
+        option_type="call", strike=250.0, expiry="weekly",
+        strategy="single", source="flow_observation",
+        conviction="high", context_text="seeing massive call sweep at 250",
+        source_snippet="seeing massive call sweep at 250 strike",
+        chunk_id=0, parser_version="v2",
+        channel_name="CheddarFlow", published_at="2026-04-22T10:00:00Z",
+    )
+    rows = await db.get_youtube_options_for_ticker("TSLA", days=7)
+    assert len(rows) == 1
+    assert rows[0]["option_type"] == "call"
+    assert rows[0]["strike"] == 250.0
+    assert rows[0]["source_snippet"] == "seeing massive call sweep at 250 strike"
+
+@pytest.mark.asyncio
+async def test_insert_and_get_youtube_setup(tmp_db):
+    run_id = await db.create_analysis_run("vidSET1", "v2")
+    await db.insert_youtube_setup(
+        run_id=run_id, video_id="vidSET1", ticker="NVDA",
+        entry_low=845.0, entry_high=855.0, stop_price=820.0,
+        targets=[920.0, 980.0], timeframe="swing",
+        setup_type="breakout", context_text="buy NVDA at 850 stop 820 target 920",
+        source_snippet="buy NVDA at 850, stop 820, target 920",
+        chunk_id=0, risk_reward=2.5, parser_version="v2",
+        channel_name="ClickCapital", published_at="2026-04-22T10:00:00Z",
+    )
+    rows = await db.get_youtube_setups_for_ticker("NVDA", days=14)
+    assert len(rows) == 1
+    import json
+    targets = json.loads(rows[0]["targets_json"])
+    assert targets == [920.0, 980.0]
+    assert rows[0]["risk_reward"] == pytest.approx(2.5)
+
+
 @pytest.mark.asyncio
 async def test_tables_created(test_db):
     conn = await db.get_db()

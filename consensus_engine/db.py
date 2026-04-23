@@ -356,6 +356,50 @@ CREATE TABLE IF NOT EXISTS youtube_analysis_runs (
     UNIQUE(video_id, parser_version)
 );
 CREATE INDEX IF NOT EXISTS idx_yar_video ON youtube_analysis_runs(video_id);
+CREATE TABLE IF NOT EXISTS youtube_options (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id INTEGER NOT NULL REFERENCES youtube_analysis_runs(id),
+    video_id TEXT NOT NULL,
+    ticker TEXT NOT NULL,
+    option_type TEXT NOT NULL,
+    strike REAL,
+    expiry TEXT,
+    strategy TEXT,
+    source TEXT,
+    conviction TEXT,
+    context_text TEXT,
+    source_snippet TEXT,
+    chunk_id INTEGER DEFAULT 0,
+    parser_version TEXT NOT NULL,
+    channel_name TEXT,
+    published_at TEXT,
+    extracted_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_yopt_ticker ON youtube_options(ticker);
+CREATE INDEX IF NOT EXISTS idx_yopt_extracted ON youtube_options(extracted_at);
+
+CREATE TABLE IF NOT EXISTS youtube_setups (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id INTEGER NOT NULL REFERENCES youtube_analysis_runs(id),
+    video_id TEXT NOT NULL,
+    ticker TEXT NOT NULL,
+    entry_low REAL,
+    entry_high REAL,
+    stop_price REAL,
+    targets_json TEXT,
+    timeframe TEXT,
+    setup_type TEXT,
+    context_text TEXT,
+    source_snippet TEXT,
+    chunk_id INTEGER DEFAULT 0,
+    risk_reward REAL,
+    parser_version TEXT NOT NULL,
+    channel_name TEXT,
+    published_at TEXT,
+    extracted_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_yset_ticker ON youtube_setups(ticker);
+CREATE INDEX IF NOT EXISTS idx_yset_extracted ON youtube_setups(extracted_at);
 """
 
 
@@ -1223,6 +1267,77 @@ async def update_analysis_run(run_id: int, status: str, call_budget_used: int = 
         (status, call_budget_used, time.time(), run_id),
     )
     await conn.commit()
+
+
+async def insert_youtube_option(
+    run_id: int, video_id: str, ticker: str, option_type: str,
+    strike: float | None, expiry: str | None, strategy: str | None,
+    source: str | None, conviction: str | None, context_text: str | None,
+    source_snippet: str | None, chunk_id: int, parser_version: str,
+    channel_name: str | None, published_at: str | None,
+) -> None:
+    conn = await get_db()
+    await conn.execute(
+        """INSERT INTO youtube_options
+           (run_id, video_id, ticker, option_type, strike, expiry, strategy,
+            source, conviction, context_text, source_snippet, chunk_id,
+            parser_version, channel_name, published_at, extracted_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (run_id, video_id, ticker, option_type, strike, expiry, strategy,
+         source, conviction, context_text, source_snippet, chunk_id,
+         parser_version, channel_name, published_at, time.time()),
+    )
+    await conn.commit()
+
+
+async def get_youtube_options_for_ticker(ticker: str, days: int = 7) -> list[dict]:
+    conn = await get_db()
+    cutoff = time.time() - days * 86400
+    cur = await conn.execute(
+        """SELECT * FROM youtube_options
+           WHERE ticker=? AND extracted_at>=?
+           ORDER BY extracted_at DESC""",
+        (ticker, cutoff),
+    )
+    return [dict(r) for r in await cur.fetchall()]
+
+
+async def insert_youtube_setup(
+    run_id: int, video_id: str, ticker: str,
+    entry_low: float | None, entry_high: float | None, stop_price: float | None,
+    targets: list[float], timeframe: str | None, setup_type: str | None,
+    context_text: str | None, source_snippet: str | None, chunk_id: int,
+    risk_reward: float | None, parser_version: str,
+    channel_name: str | None, published_at: str | None,
+) -> int:
+    """Insert a trade setup and return its id."""
+    import json as _json
+    conn = await get_db()
+    cur = await conn.execute(
+        """INSERT INTO youtube_setups
+           (run_id, video_id, ticker, entry_low, entry_high, stop_price,
+            targets_json, timeframe, setup_type, context_text, source_snippet,
+            chunk_id, risk_reward, parser_version, channel_name, published_at, extracted_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (run_id, video_id, ticker, entry_low, entry_high, stop_price,
+         _json.dumps(targets or []), timeframe, setup_type, context_text,
+         source_snippet, chunk_id, risk_reward, parser_version,
+         channel_name, published_at, time.time()),
+    )
+    await conn.commit()
+    return cur.lastrowid
+
+
+async def get_youtube_setups_for_ticker(ticker: str, days: int = 14) -> list[dict]:
+    conn = await get_db()
+    cutoff = time.time() - days * 86400
+    cur = await conn.execute(
+        """SELECT * FROM youtube_setups
+           WHERE ticker=? AND extracted_at>=?
+           ORDER BY extracted_at DESC""",
+        (ticker, cutoff),
+    )
+    return [dict(r) for r in await cur.fetchall()]
 
 
 async def get_recent_youtube_macro(days: int = 7) -> list[dict]:
