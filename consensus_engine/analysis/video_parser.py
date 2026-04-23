@@ -236,6 +236,146 @@ async def _extract_macro_pass(transcript_text: str) -> dict:
     }
 
 
+async def _extract_mentions_pass_budgeted(text: str, chunk_id: int, caller) -> dict:
+    raw, ok = await caller(
+        _MENTIONS_PROMPT,
+        f"Transcript:\n\n{text[:8000]}",
+        _STAGE1_MODEL,
+    )
+    if not ok:
+        return {"tickers": [], "price_spans": [], "option_keywords_found": False}
+    result = _parse_json_safe(raw, {"tickers": [], "price_spans": [], "option_keywords_found": False})
+    for t in result.get("tickers", []):
+        t.setdefault("chunk_id", chunk_id)
+    for p in result.get("price_spans", []):
+        p.setdefault("chunk_id", chunk_id)
+    return result
+
+
+async def _extract_direction_pass_budgeted(transcript_text: str, ticker_symbols: list[str], caller) -> list[dict]:
+    if not ticker_symbols:
+        return []
+    ticker_list = ", ".join(ticker_symbols)
+    prompt = _DIRECTION_PROMPT.format(ticker_list=ticker_list)
+    raw, ok = await caller(
+        prompt,
+        f"Transcript (first 3000 words):\n\n{' '.join(transcript_text.split()[:3000])}",
+        _STAGE2_DIR_MODEL,
+        1024,
+    )
+    if not ok:
+        return []
+    data = _parse_json_safe(raw, {"tickers": []})
+    return [t for t in data.get("tickers", []) if isinstance(t, dict) and t.get("symbol")]
+
+
+async def _extract_macro_pass_budgeted(transcript_text: str, caller) -> dict:
+    excerpt = " ".join(transcript_text.split()[:2000])
+    raw, ok = await caller(_MACRO_PROMPT, f"Transcript:\n\n{excerpt}", _STAGE2_MACRO_MODEL, 512)
+    if not ok:
+        return {"direction": "neutral", "themes": [], "timeframe": "short", "summary": ""}
+    data = _parse_json_safe(raw, {})
+    macro = data.get("macro_thesis", {})
+    direction = _MACRO_NORM.get(str(macro.get("direction", "neutral")).lower(), "neutral")
+    return {
+        "direction": direction,
+        "themes": macro.get("themes", []) if isinstance(macro.get("themes"), list) else [],
+        "timeframe": str(macro.get("timeframe", "short")).lower(),
+        "summary": str(macro.get("summary", "")),
+    }
+
+
+async def _extract_options_pass_budgeted(snippets: list[str], ticker_symbols: list[str], caller) -> list[VideoOptionIdea]:
+    snippets_text = "\n---\n".join(snippets)
+    raw, ok = await caller(
+        _OPTIONS_PROMPT.format(snippets=snippets_text),
+        "Extract all options mentions from the snippets above.",
+        _STAGE2_OPTIONS_MODEL,
+        1024,
+    )
+    if not ok:
+        return []
+    data = _parse_json_safe(raw, {"options": []})
+    out = []
+    for o in data.get("options", []):
+        if not isinstance(o, dict):
+            continue
+        ticker = str(o.get("ticker", "")).upper()
+        if not ticker or ticker not in ticker_symbols:
+            continue
+        opt_type = str(o.get("option_type", "")).lower()
+        if opt_type not in ("call", "put"):
+            continue
+        out.append(VideoOptionIdea(
+            ticker=ticker, option_type=opt_type,
+            strike=float(o["strike"]) if o.get("strike") is not None else None,
+            expiry=o.get("expiry"), strategy=o.get("strategy"),
+            source=o.get("source"), conviction=o.get("conviction", "medium"),
+            context=str(o.get("context", "")),
+            source_snippet=str(o.get("context", ""))[:200],
+            chunk_id=0,
+        ))
+    return out
+
+
+async def _extract_setups_pass_budgeted(price_spans: list[dict], caller) -> list[VideoTradeSetup]:
+    by_ticker: dict[str, list[dict]] = {}
+    for ps in price_spans:
+        sym = str(ps.get("ticker", "")).upper()
+        if sym:
+            by_ticker.setdefault(sym, []).append(ps)
+    if not by_ticker:
+        return []
+    spans_text = "\n".join(
+        f"{sym}: " + "; ".join(f"${p['price']:.2f} ({p.get('source_snippet', '')})" for p in spans)
+        for sym, spans in by_ticker.items()
+    )
+    raw, ok = await caller(
+        _SETUPS_PROMPT.format(price_spans_by_ticker=spans_text),
+        "Link these price spans into trade setups.",
+        _STAGE2_SETUPS_MODEL,
+        1024,
+    )
+    if not ok:
+        return []
+    data = _parse_json_safe(raw, {"setups": []})
+    out = []
+    for s in data.get("setups", []):
+        if not isinstance(s, dict) or not s.get("ticker"):
+            continue
+        ticker = str(s["ticker"]).upper()
+        entry_low = float(s["entry_low"]) if s.get("entry_low") is not None else None
+        if entry_low is None:
+            continue
+        entry_high = float(s.get("entry_high") or entry_low)
+        stop = float(s["stop"]) if s.get("stop") is not None else None
+        targets = [float(t) for t in (s.get("targets") or []) if t is not None]
+        rr = _compute_risk_reward(entry_low, entry_high, stop, targets)
+        context = str(s.get("context", ""))
+        out.append(VideoTradeSetup(
+            ticker=ticker, entry_low=entry_low, entry_high=entry_high,
+            stop=stop, targets=targets,
+            timeframe=s.get("timeframe"), setup_type=s.get("setup_type"),
+            context=context, source_snippet=context[:200],
+            chunk_id=0, risk_reward=rr,
+        ))
+    return out
+
+
+def _compute_risk_reward(
+    entry_low: float | None, entry_high: float | None,
+    stop: float | None, targets: list[float],
+) -> float | None:
+    """Compute R/R: (first_target - midpoint_entry) / (midpoint_entry - stop)."""
+    if entry_low is None or stop is None or not targets:
+        return None
+    mid = ((entry_low or 0) + (entry_high or entry_low or 0)) / 2
+    if mid <= stop:
+        return None
+    rr = (targets[0] - mid) / (mid - stop)
+    return round(rr, 2) if rr > 0 else None
+
+
 _SYSTEM_PROMPT = """You are a financial analyst extracting structured trade intelligence from a YouTube video transcript.
 
 Respond ONLY in this exact JSON format (no extra text, no markdown):
@@ -730,136 +870,169 @@ async def parse_video_transcript(
     channel_name: str,
     published_at: str,
 ) -> ParsedVideo:
-    """Parse a YouTube video transcript using LLM with chunking for long videos.
-
-    This is the main entry point called by the pipeline.
-    Quality gates applied before LLM call:
-      - transcript length >= youtube.min_transcript_length (default 250 words)
-    Post-parse:
-      - signal_events rows written for each extracted ticker
-    """
-    # Quality gate: reject transcripts that are too short to be meaningful
+    """Two-stage extraction pipeline with budget enforcement and provenance tracking."""
     min_words = int(cfg.get("youtube.min_transcript_length", 250))
-    word_count = len(transcript_text.split())
-    if word_count < min_words:
-        log.info(
-            "video_parser: transcript too short for %s (%d words < min %d) — skipping",
-            video_id, word_count, min_words,
-        )
+    words = transcript_text.split()
+    if len(words) < min_words:
+        log.info("video_parser: transcript too short for %s (%d words)", video_id, len(words))
         return ParsedVideo(
-            video_id=video_id,
-            channel_name=channel_name,
-            raw_transcript=transcript_text,
-            tickers=[],
-            price_levels=[],
-            macro_thesis=MacroThesis(
-                direction=Direction.NEUTRAL,
-                themes=[],
-                timeframe="short",
-                summary="transcript too short",
-            ),
+            video_id=video_id, channel_name=channel_name, raw_transcript=transcript_text,
+            tickers=[], price_levels=[],
+            macro_thesis=MacroThesis(direction=Direction.NEUTRAL, themes=[], timeframe="short", summary="too short"),
             overall_conviction=Conviction.LOW,
-            parsed_at=time.time(),
         )
 
-    parse_start = time.time()
+    # Create (or resume) analysis run
+    run_id = await db.create_analysis_run(video_id, PARSER_VERSION)
+    budget_used = 0
+
+    async def _call_with_budget(system_prompt: str, user_prompt: str, model: str, max_tokens: int = 2048) -> tuple[str, bool]:
+        nonlocal budget_used
+        if budget_used >= _MAX_LLM_CALLS:
+            return "", False
+        content, ok = await _call_extraction_model(system_prompt, user_prompt, model, max_tokens)
+        budget_used += 1
+        return content, ok
+
+    status = "complete"
     try:
-        # For videos > 2000 words, use chunking
-        word_count = len(transcript_text.split())
-        if word_count > 2000:
-            log.info("video_parser: chunking long transcript for %s (%d words)", video_id, word_count)
-            chunk_results = await _chunk_and_analyze(transcript_text)
-            parsed_data = _merge_chunk_results(chunk_results)
+        # ── Stage 1: candidate extraction (1–2 calls) ──────────────────────
+        if len(words) <= _MAX_STAGE1_WORDS:
+            s1 = await _extract_mentions_pass_budgeted(transcript_text, 0, _call_with_budget)
+            all_tickers_raw = s1.get("tickers", [])
+            all_price_spans = s1.get("price_spans", [])
+            option_keywords_found = s1.get("option_keywords_found", False)
         else:
-            # Short transcript, analyze as-is
-            prompt = _build_parser_prompt(transcript_text)
-            max_tokens = 2048
-            raw, finish_reason = await _call_groq_full(prompt, max_tokens)
-            if finish_reason == "length":
-                log.warning(
-                    "video_parser: response truncated for video_id=%s, retrying with fewer tokens",
-                    video_id,
-                )
-                words = transcript_text.split()
-                reduced = " ".join(words[:int(len(words) * 0.75)])
-                raw, finish_reason = await _call_groq_full(
-                    _build_parser_prompt(reduced), max_tokens // 2
-                )
-                if finish_reason == "length":
-                    log.error(
-                        "video_parser: response still truncated after retry for video_id=%s, returning partial",
-                        video_id,
-                    )
-            parsed_data = _parse_llm_response(raw, video_id, transcript_text)
+            # Split into 2 chunks
+            mid = len(words) // 2
+            chunk1 = " ".join(words[:mid + 150])
+            chunk2 = " ".join(words[mid - 150:])
+            s1a = await _extract_mentions_pass_budgeted(chunk1, 0, _call_with_budget)
+            s1b = await _extract_mentions_pass_budgeted(chunk2, 1, _call_with_budget)
+            all_tickers_raw = s1a.get("tickers", []) + s1b.get("tickers", [])
+            all_price_spans = s1a.get("price_spans", []) + s1b.get("price_spans", [])
+            option_keywords_found = s1a.get("option_keywords_found", False) or s1b.get("option_keywords_found", False)
+
+        # Deduplicate ticker symbols
+        seen: dict[str, dict] = {}
+        for t in all_tickers_raw:
+            sym = str(t.get("symbol", "")).upper()
+            if sym and sym not in _INDICATOR_NAMES:
+                if sym not in seen or t.get("mention_count", 1) > seen[sym].get("mention_count", 1):
+                    seen[sym] = t
+        unique_symbols = list(seen.keys())
+
+        # ── Stage 2a: direction/conviction (1 call) ─────────────────────────
+        direction_records: dict[str, dict] = {}
+        if unique_symbols and budget_used < _MAX_LLM_CALLS:
+            dir_list = await _extract_direction_pass_budgeted(transcript_text, unique_symbols, _call_with_budget)
+            direction_records = {r["symbol"]: r for r in dir_list if r.get("symbol")}
+
+        # Merge mentions + direction
+        normalized_tickers = []
+        for sym, mention in seen.items():
+            dr = direction_records.get(sym, {})
+            direction = dr.get("direction", "neutral")
+            context = dr.get("context", mention.get("source_snippet", ""))
+            direction = _apply_negation(direction, context)
+            normalized_tickers.append({
+                "symbol": sym,
+                "direction": direction,
+                "conviction": dr.get("conviction", "medium"),
+                "mention_count": mention.get("mention_count", 1),
+                "context": context,
+                "source_snippet": dr.get("source_snippet") or mention.get("source_snippet", ""),
+                "chunk_id": mention.get("chunk_id", 0),
+            })
+
+        # ── Stage 2b: macro (1 call) ─────────────────────────────────────────
+        macro_data = {"direction": "neutral", "themes": [], "timeframe": "short", "summary": ""}
+        if budget_used < _MAX_LLM_CALLS:
+            macro_data = await _extract_macro_pass_budgeted(transcript_text, _call_with_budget)
+        else:
+            status = "partial"
+
+        # ── Stage 2c: options (1 call, only if keywords found) ───────────────
+        options_out: list[VideoOptionIdea] = []
+        if option_keywords_found and budget_used < _MAX_LLM_CALLS:
+            option_snippets = _find_option_snippets(transcript_text)
+            if option_snippets:
+                options_out = await _extract_options_pass_budgeted(option_snippets, unique_symbols, _call_with_budget)
+
+        # ── Stage 2d: setups (1 call, only if price spans exist) ────────────
+        setups_out: list[VideoTradeSetup] = []
+        if all_price_spans and budget_used < _MAX_LLM_CALLS:
+            setups_out = await _extract_setups_pass_budgeted(all_price_spans, _call_with_budget)
+
+        if budget_used >= _MAX_LLM_CALLS and status != "partial":
+            status = "partial"
 
     except Exception as e:
-        log.warning("Video parse error for %s: %s", video_id, e)
-        parsed_data = _fallback_parse(transcript_text)
+        log.warning("video_parser: pipeline error for %s: %s", video_id, e)
+        normalized_tickers = []
+        macro_data = {"direction": "neutral", "themes": [], "timeframe": "short", "summary": "parse error"}
+        options_out = []
+        setups_out = []
+        status = "failed"
 
-    # Convert parsed_data to ParsedVideo dataclass
-    # Build PriceLevel objects
+    await db.update_analysis_run(run_id, status=status, call_budget_used=budget_used)
+
+    # Build PriceLevel objects from raw price spans (legacy-compatible)
     price_levels = [
         PriceLevel(
-            ticker=level["ticker"],
-            level_type=level["type"],
-            price=level["price"],
-            condition=level["condition"],
-            consequence=level["consequence"],
-            confidence=level["confidence"],
+            ticker=ps.get("ticker", ""),
+            level_type="support",
+            price=ps.get("price", 0.0),
+            condition=ps.get("source_snippet", ""),
+            consequence="",
+            confidence=0.7,
         )
-        for level in parsed_data.get("price_levels", [])
+        for ps in all_price_spans if ps.get("price", 0) > 0
     ]
 
-    # Build MacroThesis object
-    macro_data = parsed_data.get("macro_thesis", {})
-    _raw_dir = str(macro_data.get("direction", "neutral")).lower()
-    _norm_dir = _MACRO_NORM.get(_raw_dir, _raw_dir)
+    _raw_macro_dir = macro_data.get("direction", "neutral")
+    _norm_macro_dir = _MACRO_NORM.get(_raw_macro_dir, _raw_macro_dir)  # already-normalized values pass through
     macro_thesis = MacroThesis(
-        direction=Direction(_norm_dir),
+        direction=Direction(_norm_macro_dir),
         themes=macro_data.get("themes", []),
         timeframe=macro_data.get("timeframe", "short"),
         summary=macro_data.get("summary", ""),
     )
 
-    # Get overall conviction
-    conviction_val = parsed_data.get("overall_conviction", Conviction.MEDIUM)
-    if isinstance(conviction_val, str):
-        conviction_val = Conviction(conviction_val)
+    # Derive overall conviction from highest in tickers
+    conv_order = {"high": 3, "medium": 2, "low": 1}
+    top_conv = max((conv_order.get(t.get("conviction", "low"), 1) for t in normalized_tickers), default=2)
+    overall_conviction = {3: Conviction.HIGH, 2: Conviction.MEDIUM, 1: Conviction.LOW}.get(top_conv, Conviction.MEDIUM)
 
-    parse_latency = time.time() - parse_start
-    parsed_video = ParsedVideo(
+    # Write signal_events for telemetry (unchanged from v1)
+    _conviction_quality = {"high": 0.9, "medium": 0.6, "low": 0.3}
+    parse_latency = 0.0
+    for t in normalized_tickers:
+        if not t.get("symbol"):
+            continue
+        q = _conviction_quality.get(t.get("conviction", "medium"), 0.6)
+        q = min(q * (1.0 + 0.05 * (t.get("mention_count", 1) - 1)), 1.0)
+        try:
+            await db.record_signal_event(
+                source_type="youtube", source_detail=video_id,
+                ticker=t["symbol"], direction=t.get("direction", "neutral"),
+                quality_score=round(q, 4), latency_sec=round(parse_latency, 3),
+                provenance=f"youtube://{channel_name}/{video_id}",
+                model_version=f"video_parser_{PARSER_VERSION}",
+            )
+        except Exception as exc:
+            log.debug("video_parser: signal_event insert failed for %s/%s: %s", video_id, t["symbol"], exc)
+
+    return ParsedVideo(
         video_id=video_id,
         channel_name=channel_name,
         raw_transcript=transcript_text,
-        tickers=parsed_data.get("tickers", []),
+        tickers=normalized_tickers,
         price_levels=price_levels,
         macro_thesis=macro_thesis,
-        overall_conviction=conviction_val,
+        overall_conviction=overall_conviction,
         parsed_at=time.time(),
+        run_id=run_id,
+        options=options_out,
+        setups=setups_out,
     )
-
-    # Write signal_events rows for each extracted ticker
-    _conviction_quality = {"high": 0.9, "medium": 0.6, "low": 0.3}
-    for ticker_data in parsed_video.tickers:
-        ticker = ticker_data.get("symbol")
-        if not ticker:
-            continue
-        mention_count = ticker_data.get("mention_count", 1)
-        base_q = _conviction_quality.get(ticker_data.get("conviction", "medium"), 0.6)
-        # Slight boost for repeated mentions, capped at 1.0
-        quality = min(base_q * (1.0 + 0.05 * (mention_count - 1)), 1.0)
-        try:
-            await db.record_signal_event(
-                source_type="youtube",
-                source_detail=video_id,
-                ticker=ticker,
-                direction=ticker_data.get("direction", "neutral"),
-                quality_score=round(quality, 4),
-                latency_sec=round(parse_latency, 3),
-                provenance=f"youtube://{channel_name}/{video_id}",
-                model_version="video_parser_v1",
-            )
-        except Exception as exc:
-            log.debug("video_parser: signal_event insert failed for %s/%s: %s", video_id, ticker, exc)
-
-    return parsed_video

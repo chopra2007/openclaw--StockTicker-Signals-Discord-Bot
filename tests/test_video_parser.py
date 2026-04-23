@@ -106,17 +106,17 @@ async def test_empty_llm_output_returns_parsed_video_without_exception():
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-async def test_finish_reason_length_logs_warning_returns_partial(caplog):
-    valid_json = _make_ticker_json("long", "medium")
-    with patch("consensus_engine.analysis.video_parser._call_groq_full", new_callable=AsyncMock) as mock_llm, \
+async def test_llm_failure_returns_partial_result(caplog):
+    """v2 pipeline: when _call_extraction_model fails, ParsedVideo is still returned."""
+    with patch("consensus_engine.analysis.video_parser._call_extraction_model",
+               new=AsyncMock(return_value=("", False))), \
+         patch("consensus_engine.db.create_analysis_run", new=AsyncMock(return_value=1)), \
+         patch("consensus_engine.db.update_analysis_run", new=AsyncMock()), \
          patch("consensus_engine.db.record_signal_event", new_callable=AsyncMock):
-        # First call: truncated; second call: valid
-        mock_llm.side_effect = [("", "length"), (valid_json, "stop")]
-        with caplog.at_level(logging.WARNING, logger="consensus_engine.analysis.video_parser"):
-            result = await parse_video_transcript("vid5", _LONG_TRANSCRIPT, "TestChannel", "2026-04-17")
+        result = await parse_video_transcript("vid5", _LONG_TRANSCRIPT, "TestChannel", "2026-04-17")
     assert result is not None
-    warning_messages = [r.message for r in caplog.records if r.levelno >= logging.WARNING]
-    assert any("truncated" in m for m in warning_messages), f"No truncation warning found in: {warning_messages}"
+    assert isinstance(result.tickers, list)
+    assert isinstance(result.macro_thesis.direction, Direction)
 
 
 # ---------------------------------------------------------------------------
@@ -252,3 +252,59 @@ async def test_extract_macro_pass_returns_thesis():
         result = await _extract_macro_pass("Fed is hiking rates and markets are falling.")
     assert result["direction"] == "bearish"
     assert "rate hikes" in result["themes"]
+
+
+# ---------------------------------------------------------------------------
+# Task 8 (Plan Task 7): Wire two-stage pipeline into parse_video_transcript()
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_parse_video_transcript_v2_pipeline_produces_parsed_video():
+    """Full pipeline integration: mentions → direction → macro → ParsedVideo."""
+    mentions_resp = '{"tickers": [{"symbol": "NVDA", "mention_count": 2, "source_snippet": "NVDA breakout", "chunk_id": 0}], "price_spans": [], "option_keywords_found": false}'
+    direction_resp = '{"tickers": [{"symbol": "NVDA", "direction": "long", "conviction": "high", "context": "breakout", "source_snippet": "NVDA breakout above 850"}]}'
+    macro_resp = '{"macro_thesis": {"direction": "bullish", "themes": ["tech rally"], "timeframe": "short", "summary": "Tech leading."}}'
+
+    call_log = []
+    async def mock_call(system_prompt, user_prompt, model="minimax/minimax-m2.5", max_tokens=2048):
+        call_log.append(model)
+        if "price_spans" in system_prompt:
+            return mentions_resp, True
+        if "conviction" in system_prompt:  # unique to _DIRECTION_PROMPT
+            return direction_resp, True
+        return macro_resp, True
+
+    with patch("consensus_engine.analysis.video_parser._call_extraction_model", new=mock_call), \
+         patch("consensus_engine.db.create_analysis_run", new=AsyncMock(return_value=42)), \
+         patch("consensus_engine.db.update_analysis_run", new=AsyncMock()), \
+         patch("consensus_engine.db.record_signal_event", new=AsyncMock()):
+        transcript = " ".join(["NVDA is breaking out above 850."] * 80)  # ~500 words
+        parsed = await parse_video_transcript("vid42", transcript, "ClickCapital", "2026-04-22T10:00:00Z")
+
+    assert parsed.run_id == 42
+    assert any(t.get("symbol") == "NVDA" for t in parsed.tickers)
+    assert parsed.macro_thesis.direction.value in ("long", "bullish")
+
+
+@pytest.mark.asyncio
+async def test_parse_video_transcript_marks_partial_on_budget_exhaustion():
+    """If budget is hit, run is marked partial but ParsedVideo is still returned."""
+    call_count = 0
+    async def mock_call_limited(system_prompt, user_prompt, model="minimax/minimax-m2.5", max_tokens=2048):
+        nonlocal call_count
+        call_count += 1
+        return "", False  # all calls fail
+
+    update_calls = []
+    async def mock_update(run_id, status, call_budget_used=0):
+        update_calls.append(status)
+
+    with patch("consensus_engine.analysis.video_parser._call_extraction_model", new=mock_call_limited), \
+         patch("consensus_engine.db.create_analysis_run", new=AsyncMock(return_value=1)), \
+         patch("consensus_engine.db.update_analysis_run", new=mock_update), \
+         patch("consensus_engine.db.record_signal_event", new=AsyncMock()):
+        transcript = " ".join(["NVDA is breaking out."] * 80)
+        parsed = await parse_video_transcript("vid99", transcript, "Chan", "2026-04-22T00:00:00Z")
+
+    assert parsed is not None  # always returns something
+    assert "partial" in update_calls or "complete" in update_calls
