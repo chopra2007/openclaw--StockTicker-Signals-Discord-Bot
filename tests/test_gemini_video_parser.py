@@ -457,6 +457,26 @@ async def test_extract_evidence_returns_none_when_all_keys_exhausted(monkeypatch
     assert not _key_is_available("GEMINI_API_KEY2")
 
 
+def test_build_generation_config_low():
+    from consensus_engine.analysis.gemini_video_parser import _build_generation_config
+    cfg = _build_generation_config("low")
+    assert cfg is not None
+    # google-genai enum stringifies as MEDIA_RESOLUTION_LOW
+    assert "LOW" in str(cfg.media_resolution)
+
+
+def test_build_generation_config_default_returns_none():
+    from consensus_engine.analysis.gemini_video_parser import _build_generation_config
+    assert _build_generation_config("default") is None
+    assert _build_generation_config("") is None
+    assert _build_generation_config("unspecified") is None
+
+
+def test_build_generation_config_invalid_returns_none():
+    from consensus_engine.analysis.gemini_video_parser import _build_generation_config
+    assert _build_generation_config("bogus") is None
+
+
 @pytest.mark.asyncio
 async def test_extract_evidence_non_quota_error_fails_fast(monkeypatch, reset_keys):
     """Non-quota errors must NOT trigger rotation — fail the call immediately."""

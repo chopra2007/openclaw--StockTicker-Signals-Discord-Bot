@@ -192,6 +192,35 @@ def _get_gemini_client():
     return client
 
 
+_MEDIA_RESOLUTION_MAP = {
+    "low": "MEDIA_RESOLUTION_LOW",
+    "medium": "MEDIA_RESOLUTION_MEDIUM",
+    "high": "MEDIA_RESOLUTION_HIGH",
+    "default": None,
+    "": None,
+    "unspecified": None,
+}
+
+
+def _build_generation_config(media_resolution_cfg: str):
+    """Return a GenerateContentConfig with media_resolution set, or None.
+
+    ``media_resolution_cfg`` maps yaml strings to google-genai enum values. At
+    "low" each video frame is tokenized at 66 tokens (vs 258 at default) —
+    ~3× cheaper. Returns ``None`` when nothing needs overriding so the SDK
+    applies its own defaults.
+    """
+    mapped = _MEDIA_RESOLUTION_MAP.get(media_resolution_cfg)
+    if not mapped:
+        return None
+    try:
+        from google.genai import types
+        return types.GenerateContentConfig(media_resolution=getattr(types.MediaResolution, mapped))
+    except Exception as e:
+        log.debug("gemini_video_parser: could not build GenerateContentConfig: %s", e)
+        return None
+
+
 def _parse_gemini_response(raw: str) -> dict | None:
     """Parse JSON from Gemini response, stripping markdown fences if present."""
     cleaned = raw.strip()
@@ -486,6 +515,7 @@ async def parse_video_with_gemini(
     """
     model = cfg.get("youtube.gemini_model", "gemini-2.5-flash-lite")
     youtube_url = f"https://www.youtube.com/watch?v={video_id}"
+    media_res_cfg = str(cfg.get("youtube.gemini.media_resolution", "")).strip().lower()
 
     raw = None
     tried_labels: set[str] = set()
@@ -498,6 +528,8 @@ async def parse_video_with_gemini(
         try:
             from google.genai import types
 
+            gen_config = _build_generation_config(media_res_cfg)
+
             def _sync_call(_client=client):
                 return _client.models.generate_content(
                     model=model,
@@ -508,6 +540,7 @@ async def parse_video_with_gemini(
                             mime_type="video/*",
                         ),
                     ],
+                    config=gen_config,
                 )
 
             loop = asyncio.get_event_loop()
@@ -592,6 +625,7 @@ async def extract_evidence_with_gemini(
     model = cfg.get("youtube.gemini.model", "gemini-2.5-flash")
     youtube_url = f"https://www.youtube.com/watch?v={video_id}"
     timeout_sec = int(cfg.get("youtube.gemini.timeout_sec", 120))
+    media_res_cfg = str(cfg.get("youtube.gemini.media_resolution", "")).strip().lower()
 
     # Key-rotation retry loop: try each non-exhausted key once. On 429, mark
     # exhausted and rotate; on other errors, fail fast.
@@ -613,6 +647,8 @@ async def extract_evidence_with_gemini(
         try:
             from google.genai import types
 
+            gen_config = _build_generation_config(media_res_cfg)
+
             def _sync_call(_client=client):
                 return _client.models.generate_content(
                     model=model,
@@ -623,6 +659,7 @@ async def extract_evidence_with_gemini(
                             mime_type="video/*",
                         ),
                     ],
+                    config=gen_config,
                 )
 
             loop = asyncio.get_event_loop()
