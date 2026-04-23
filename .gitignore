@@ -52,3 +52,12 @@ memory/
 .claude/
 .clawhub/
 .openclaw/
+
+# OpenClaw local introspection — dream diary, identity, soul files are
+# agent-local artifacts, not project code.
+# https://github.com/RogueCtrl/OpenClawDreams
+DREAMS.md
+NIGHTMARES.md
+SOUL.md
+IDENTITY.md
+MOODBOOK-filter.md
