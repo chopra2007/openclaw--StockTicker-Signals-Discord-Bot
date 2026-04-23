@@ -22,6 +22,7 @@ import aiohttp
 from consensus_engine import config as cfg, db
 from consensus_engine.models import (
     ParsedVideo, Direction, Conviction, PriceLevel, MacroThesis,
+    VideoOptionIdea, VideoTradeSetup,
 )
 from consensus_engine.utils.tickers import extract_tickers
 

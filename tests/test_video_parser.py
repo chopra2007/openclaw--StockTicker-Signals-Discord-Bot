@@ -132,3 +132,45 @@ async def test_short_transcript_skips_llm_and_returns_empty_parsed_video():
     mock_llm.assert_not_called()
     assert result.tickers == []
     assert result.overall_conviction == Conviction.LOW
+
+
+# ---------------------------------------------------------------------------
+# Task 4: VideoOptionIdea, VideoTradeSetup, ParsedVideo extensions
+# ---------------------------------------------------------------------------
+
+from consensus_engine.models import ParsedVideo, VideoOptionIdea, VideoTradeSetup, MacroThesis
+
+
+def test_parsed_video_has_run_id_options_setups():
+    pv = ParsedVideo(
+        video_id="v1", channel_name="Chan", raw_transcript="...",
+        tickers=[], price_levels=[], macro_thesis=MacroThesis(
+            direction=Direction.NEUTRAL, themes=[], timeframe="short", summary=""
+        ),
+        overall_conviction=Conviction.LOW,
+    )
+    assert pv.run_id is None
+    assert pv.options == []
+    assert pv.setups == []
+
+
+def test_video_option_idea_fields():
+    opt = VideoOptionIdea(
+        ticker="TSLA", option_type="call", strike=250.0, expiry="weekly",
+        strategy="single", source="flow_observation", conviction="high",
+        context="seeing massive call sweep", source_snippet="call sweep at 250",
+        chunk_id=0,
+    )
+    assert opt.ticker == "TSLA"
+    assert opt.source == "flow_observation"
+
+
+def test_video_trade_setup_fields():
+    s = VideoTradeSetup(
+        ticker="NVDA", entry_low=845.0, entry_high=855.0, stop=820.0,
+        targets=[920.0, 980.0], timeframe="swing", setup_type="breakout",
+        context="buy NVDA 850 stop 820 target 920",
+        source_snippet="buy NVDA at 850", chunk_id=0, risk_reward=2.5,
+    )
+    assert s.risk_reward == pytest.approx(2.5)
+    assert len(s.targets) == 2
