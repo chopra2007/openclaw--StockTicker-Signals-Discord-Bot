@@ -13,7 +13,6 @@ AK set me up on March 11, 2026 with a directive to discover trending US stock op
 ### Current Pipeline (Twitter/X-Based)
 
 **Phase 1 - Detection:**
-- Monitors 48 analyst accounts via Nitter (Twitter RSS proxy)
 - LLM classifies tweets as Type A/B/C/D signals
 - Instant Discord alert triggered for any signal
 

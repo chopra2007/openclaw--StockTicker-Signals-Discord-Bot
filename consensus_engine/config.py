@@ -86,18 +86,6 @@ def get_api_key(name: str) -> str:
     return val
 
 
-def get_twitter_accounts() -> list[str]:
-    """Load the Twitter/X accounts list from sources.json."""
-    accounts_file = get("twitter.accounts_file", "/root/.openclaw/sources.json")
-    try:
-        with open(accounts_file) as f:
-            data = json.load(f)
-        accounts = data.get("trusted_x_accounts", [])
-        return [a.lstrip("@") for a in accounts]
-    except Exception:
-        return []
-
-
 def reload():
     """Force config reload."""
     global _config

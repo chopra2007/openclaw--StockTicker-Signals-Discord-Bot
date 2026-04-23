@@ -42,12 +42,12 @@ async def test_upsert_and_get_source_health(test_db):
 async def test_upsert_source_health_replace(test_db):
     """Second upsert overwrites the first (INSERT OR REPLACE)."""
     t1 = time.time() - 100
-    await db.upsert_source_health("nitter", t1, 0.1, 120.0)
+    await db.upsert_source_health("discord_tweetshift", t1, 0.1, 120.0)
 
     t2 = time.time()
-    await db.upsert_source_health("nitter", t2, 0.0, 5.0)
+    await db.upsert_source_health("discord_tweetshift", t2, 0.0, 5.0)
 
-    row = await db.get_source_health("nitter")
+    row = await db.get_source_health("discord_tweetshift")
     assert row["error_rate"] == pytest.approx(0.0)
     assert row["freshness_seconds"] == pytest.approx(5.0)
 
@@ -146,7 +146,7 @@ async def test_source_health_command_formats_table():
     now = time.time()
     fake_rows = [
         {"source_id": "finnhub",  "last_heartbeat": now,        "error_rate": 0.0,  "freshness_seconds": 10.0},
-        {"source_id": "nitter",   "last_heartbeat": now - 1000, "error_rate": 0.5,  "freshness_seconds": 1000.0},
+        {"source_id": "discord_tweetshift",   "last_heartbeat": now - 1000, "error_rate": 0.5,  "freshness_seconds": 1000.0},
         {"source_id": "yfinance", "last_heartbeat": 0,          "error_rate": 0.0,  "freshness_seconds": 9999.0},
     ]
 
@@ -156,9 +156,9 @@ async def test_source_health_command_formats_table():
 
         content = mock_send.call_args[0][2]
         assert "finnhub" in content
-        assert "nitter" in content
+        assert "discord_tweetshift" in content
         assert "yfinance" in content
-        # nitter has 50% error rate and high freshness → should be DEGRADED or OFFLINE
+        # tweetshift has 50% error rate and high freshness → should be DEGRADED or OFFLINE
         assert "DEGRADED" in content or "OFFLINE" in content
         # finnhub is fresh → OK
         assert "OK" in content

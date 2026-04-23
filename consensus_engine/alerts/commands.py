@@ -14,7 +14,6 @@ Commands:
   !options <TICKER>   — unusual options activity (call/put ratios, vol/OI)
   !technical <TICKER> — run 6 technical filters independently
   !news <TICKER>      — run news cascade standalone
-  !nitter-health      — check if Nitter service is up
   !google-trends <T>  — Google Trends spike % for a ticker
   !apewisdom          — ApeWisdom trending tickers
   !alert-history <T>  — alert history with price outcomes for a ticker
@@ -58,7 +57,6 @@ HELP_TEXT = """**OpenClaw Signal Engine — Commands**
 `!leaderboard` — analyst win rate rankings
 
 **Engine Health**
-`!nitter-health` — check if Nitter service is responding
 `!source-health` — data source status table (freshness, error rate)
 
 **Reliability & Levels**
@@ -178,9 +176,6 @@ async def route_command(
 
     elif command in ("source-health", "source_health"):
         await _handle_source_health(channel_id, message_id)
-
-    elif command in ("nitter-health", "nitter"):
-        await _handle_nitter_health(channel_id, message_id)
 
     elif command == "transcript":
         if not args:
@@ -735,24 +730,6 @@ async def _handle_alert_history(ticker: str, channel_id: str, message_id: str) -
         await send_command_reply(channel_id, message_id, f"Alert history unavailable for `${ticker}`.")
 
 
-async def _handle_nitter_health(channel_id: str, message_id: str) -> None:
-    """Check if Nitter service is responding."""
-    try:
-        import aiohttp
-        from consensus_engine import config as cfg
-        nitter_url = cfg.get("nitter.url", "http://localhost:8585")
-        async with aiohttp.ClientSession() as session:
-            async with session.get(nitter_url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
-                if resp.status == 200:
-                    await send_command_reply(channel_id, message_id, f"Nitter: **online** ({nitter_url})")
-                else:
-                    await send_command_reply(channel_id, message_id, f"Nitter: **degraded** — HTTP {resp.status} ({nitter_url})")
-    except Exception:
-        from consensus_engine import config as cfg
-        nitter_url = cfg.get("nitter.url", "http://localhost:8585")
-        await send_command_reply(channel_id, message_id, f"Nitter: **offline** — not responding ({nitter_url})")
-
-
 async def _handle_leaderboard(channel_id: str, message_id: str) -> None:
     """Show analyst performance leaderboard."""
     try:
@@ -790,7 +767,7 @@ async def _handle_source_health(channel_id: str, message_id: str) -> None:
             )
             return
 
-        critical = set(cfg.get("source_health.critical_sources", ["finnhub", "yfinance", "nitter"]))
+        critical = set(cfg.get("source_health.critical_sources", ["finnhub", "yfinance"]))
         source_max_age = cfg.get("source_health.source_max_age", {})
         degraded_mult = cfg.get("source_health.degraded_freshness_multiplier", 5)
         max_error_rate = cfg.get("source_health.max_error_rate", 0.3)

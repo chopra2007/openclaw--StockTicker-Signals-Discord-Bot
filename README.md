@@ -5,7 +5,6 @@ Analyst tweets on Twitter/X trigger instant Discord alerts. Cross-reference sour
 ---
 
 ## Architecture
-
 ### Signal Pipeline
 
 ```
@@ -52,7 +51,6 @@ Analyst tweets on Twitter/X trigger instant Discord alerts. Cross-reference sour
 ---
 
 ## Features
-
 ### Signal Sources
 
 | Source | How it works |
@@ -99,7 +97,6 @@ Calibrated confidence via isotonic regression on rolling `decision_snapshots`.
 ---
 
 ## Discord Commands
-
 ### General
 | Command | Description |
 |---|---|
@@ -147,12 +144,10 @@ Calibrated confidence via isotonic regression on rolling `decision_snapshots`.
 | Command | Description |
 |---|---|
 | `!source-health` | Live status dashboard (heartbeat, error rate, freshness) with color-coded degradation |
-| `!nitter-health` | Check if Nitter Docker service is responding |
 
 ---
 
 ## Quick Start
-
 ### Prerequisites
 - Python 3.10+, Docker + Docker Compose, Ubuntu 22.04+
 
@@ -195,7 +190,6 @@ Then `source /root/.openclaw/.env` before running.
 ### 4. Start services and run
 
 ```bash
-docker compose up -d                         # Nitter (8585) + SearXNG (8888)
 python3 -m consensus_engine                  # full engine
 python3 -m consensus_engine --dry-run --once # no Discord, logs only
 python3 -m consensus_engine --once           # single poll cycle
@@ -327,7 +321,6 @@ consensus_engine/
 
 config/
 ├── consensus.yaml             # Main config (models, thresholds, intervals, API keys)
-├── nitter.conf                # Nitter Docker config
 └── searxng/settings.yml       # SearXNG Docker config
 
 scripts/
@@ -335,7 +328,6 @@ scripts/
 
 tests/                         # 287 pytest tests
 sources.json                   # Analyst Twitter accounts + followed YouTube channels
-docker-compose.yaml            # Nitter + SearXNG services
 ```
 
 ---
@@ -344,7 +336,6 @@ docker-compose.yaml            # Nitter + SearXNG services
 
 | Service | Port | Status | Purpose |
 |---|---|---|---|
-| Nitter | 8585 | Disabled | Twitter RSS proxy (replaced by TweetShift) |
 | SearXNG | 8888 | Active | Meta search engine (Tier 4 news fallback) |
 
 ---

@@ -27,7 +27,6 @@ from consensus_engine.scanners.social import (
     scan_stocktwits,
 )
 from consensus_engine.scanners.discord_tweetshift import DiscordTweetShiftListener
-from consensus_engine.scanners.nitter import NitterPoller
 from consensus_engine.analysis.tweet_parser import parse_tweet
 from consensus_engine.cross_reference import cross_reference
 from consensus_engine.alerts.discord import send_detail_followup, send_instant_ping
@@ -81,7 +80,7 @@ def _is_source_unhealthy(source_id: str) -> bool:
 
 def _recompute_degraded_mode() -> bool:
     """Return True if >=2 critical sources are currently unhealthy."""
-    critical = cfg.get("source_health.critical_sources", ["finnhub", "yfinance", "nitter"])
+    critical = cfg.get("source_health.critical_sources", ["finnhub", "yfinance"])
     unhealthy_count = sum(1 for src in critical if _is_source_unhealthy(src))
     return unhealthy_count >= 2
 
@@ -333,7 +332,6 @@ async def run_live(stop_event: asyncio.Event):
         tasks = [
             asyncio.create_task(stop_watcher()),
             asyncio.create_task(weekend_watchdog()),
-            asyncio.create_task(nitter_poll_loop(combined_stop)),
             asyncio.create_task(tweetshift_listener.run(combined_stop)),
             asyncio.create_task(fetch_loop(combined_stop, interval=300)),
             asyncio.create_task(price_outcome_loop(combined_stop)),
@@ -733,31 +731,6 @@ async def source_health_updater_loop(stop_event: asyncio.Event) -> None:
             break
         try:
             await asyncio.wait_for(stop_event.wait(), timeout=interval)
-        except asyncio.TimeoutError:
-            continue
-
-
-async def nitter_poll_loop(stop_event: asyncio.Event):
-    """Poll Nitter RSS feeds and hand any new tweets to the main pipeline."""
-    poller = NitterPoller()
-    healthy = await poller.health_check()
-    if not healthy:
-        log.warning("Nitter health check failed at startup")
-        _record_source_error("nitter")
-    else:
-        _record_source_ok("nitter")
-
-    while not stop_event.is_set():
-        try:
-            for tweet_data in await poller.poll_all():
-                await process_tweet(tweet_data)
-            _record_source_ok("nitter")
-        except Exception as e:
-            log.error("Nitter poll loop error: %s", e, exc_info=True)
-            _record_source_error("nitter")
-
-        try:
-            await asyncio.wait_for(stop_event.wait(), timeout=poller.get_poll_interval())
         except asyncio.TimeoutError:
             continue
 

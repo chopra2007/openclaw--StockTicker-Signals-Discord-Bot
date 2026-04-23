@@ -33,7 +33,7 @@ def test_recompute_degraded_mode_all_healthy():
     main_mod._source_stats = {
         "finnhub":  {"calls": 10, "errors": 0, "last_ok": now - 10},
         "yfinance": {"calls": 10, "errors": 0, "last_ok": now - 10},
-        "nitter":   {"calls": 10, "errors": 0, "last_ok": now - 10},
+        "discord_tweetshift":   {"calls": 10, "errors": 0, "last_ok": now - 10},
     }
     assert main_mod._recompute_degraded_mode() is False
 
@@ -44,11 +44,11 @@ def test_recompute_degraded_mode_two_critical_unhealthy():
 
     now = time.time()
     main_mod._source_stats = {
-        "finnhub":  {"calls": 10, "errors": 0, "last_ok": now - 10},
-        # yfinance: never called (no last_ok) → unhealthy
-        "yfinance": {"calls": 0, "errors": 0, "last_ok": 0.0},
-        # nitter: very stale → unhealthy
-        "nitter":   {"calls": 5, "errors": 0, "last_ok": now - 99999},
+        # finnhub: never called → unhealthy
+        "finnhub":  {"calls": 0, "errors": 0, "last_ok": 0.0},
+        # yfinance: very stale → unhealthy
+        "yfinance": {"calls": 5, "errors": 0, "last_ok": now - 99999},
+        "discord_tweetshift": {"calls": 10, "errors": 0, "last_ok": now - 10},
     }
     assert main_mod._recompute_degraded_mode() is True
 
@@ -61,7 +61,7 @@ def test_recompute_degraded_mode_one_critical_unhealthy():
     main_mod._source_stats = {
         "finnhub":  {"calls": 10, "errors": 0, "last_ok": now - 10},
         "yfinance": {"calls": 10, "errors": 0, "last_ok": now - 10},
-        "nitter":   {"calls": 0, "errors": 0, "last_ok": 0.0},   # unhealthy
+        "discord_tweetshift":   {"calls": 0, "errors": 0, "last_ok": 0.0},   # unhealthy
     }
     assert main_mod._recompute_degraded_mode() is False
 
@@ -74,7 +74,7 @@ def test_recompute_degraded_mode_high_error_rate():
     main_mod._source_stats = {
         "finnhub":  {"calls": 10, "errors": 8, "last_ok": now - 5},   # 80% error rate → unhealthy
         "yfinance": {"calls": 10, "errors": 9, "last_ok": now - 5},   # 90% error rate → unhealthy
-        "nitter":   {"calls": 10, "errors": 0, "last_ok": now - 5},   # healthy
+        "discord_tweetshift":   {"calls": 10, "errors": 0, "last_ok": now - 5},   # healthy
     }
     assert main_mod._recompute_degraded_mode() is True
 
@@ -262,7 +262,7 @@ def test_degraded_mode_clears_when_sources_recover():
     main_mod._source_stats = {
         "finnhub":  {"calls": 5, "errors": 0, "last_ok": 0.0},   # unhealthy
         "yfinance": {"calls": 5, "errors": 0, "last_ok": 0.0},   # unhealthy
-        "nitter":   {"calls": 5, "errors": 0, "last_ok": now - 5},
+        "discord_tweetshift":   {"calls": 5, "errors": 0, "last_ok": now - 5},
     }
     assert main_mod._recompute_degraded_mode() is True
 

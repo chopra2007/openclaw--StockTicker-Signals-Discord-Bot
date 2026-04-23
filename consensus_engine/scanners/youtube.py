@@ -358,9 +358,15 @@ async def process_video(
 
 async def youtube_scan_once() -> None:
     """One full poll cycle across all configured channels."""
-    channel_ids = cfg.get("youtube.channel_ids", [])
+    # Canonical source is youtube_channels DB table (seeded from sources.json).
+    # YAML youtube.channel_ids is a legacy override; merge both so neither is lost.
+    channel_ids = list(cfg.get("youtube.channel_ids", []))
+    db_channels = await db.get_approved_youtube_channels()
+    for ch in db_channels:
+        if ch not in channel_ids:
+            channel_ids.append(ch)
     if not channel_ids:
-        log.debug("youtube: no channel_ids configured, skipping")
+        log.debug("youtube: no channel_ids configured in DB or yaml, skipping")
         return
 
     limit = cfg.get("youtube.max_videos_per_channel", 3)
@@ -411,9 +417,12 @@ async def youtube_poll_loop(stop_event: asyncio.Event) -> None:
         return
 
     interval = cfg.get("youtube.poll_interval_seconds", 600)
+    db_channels = await db.get_approved_youtube_channels()
+    yaml_channels = cfg.get("youtube.channel_ids", [])
+    all_channels = list({*yaml_channels, *db_channels})
     log.info(
         "youtube: poll loop started (interval=%ds, channels=%s)",
-        interval, cfg.get("youtube.channel_ids", []),
+        interval, all_channels,
     )
 
     while not stop_event.is_set():

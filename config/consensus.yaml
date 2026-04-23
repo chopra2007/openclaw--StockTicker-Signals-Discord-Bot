@@ -21,16 +21,6 @@ api_keys:
   reddit_client_secret: "$REDDIT_CLIENT_SECRET"
   discord_briefing_channel_id: "$DISCORD_BRIEFING_CHANNEL_ID"
 
-# Self-hosted Nitter (Docker)
-nitter:
-  base_url: "http://localhost:8585"
-  accounts_file: "/root/.openclaw/sources.json"
-  poll_interval_market_hours: 60    # seconds (9:00-16:30 ET)
-  poll_interval_off_hours: 180      # seconds (outside market hours)
-  market_open_hour: 9               # ET
-  market_close_hour: 16             # ET (16:30 but we use 16 for simplicity)
-  health_check_interval: 300        # seconds
-
 # Self-hosted SearXNG (Docker)
 searxng:
   base_url: "http://localhost:8888"
@@ -93,7 +83,6 @@ news_cascade:
 
 # Polling intervals (seconds)
 intervals:
-  nitter_poll: 60           # Overridden by market hours config
   social_scan: 300
   reddit_trend: 14400         # Reddit trend digest interval (4 hours)
   cross_reference_timeout: 120
@@ -186,9 +175,7 @@ source_health:
   critical_sources:                      # >=2 unhealthy triggers DEGRADED_MODE
     - finnhub
     - yfinance
-    - nitter
   source_max_age:                        # expected max freshness per source (seconds)
-    nitter: 180
     finnhub: 60
     yfinance: 300
     apewisdom: 600
@@ -234,8 +221,8 @@ logging:
 
 # YouTube Transcript Scanner
 youtube:
-  enabled: false                       # set true + add channel_ids to activate
-  channel_ids: []                      # list of UC... channel IDs to track
+  enabled: true                        # channels come from youtube_channels DB (seeded from sources.json)
+  channel_ids: []                      # optional extra UC... IDs; DB table is the canonical source
   poll_interval_seconds: 600
   max_videos_per_channel: 3
   preferred_languages: ["en"]

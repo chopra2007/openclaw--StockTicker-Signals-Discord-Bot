@@ -5,7 +5,6 @@ All commands are typed in the alerts Discord channel with a `!` prefix.
 ---
 
 ## General
-
 ### `!help` / `!readme`
 Lists all available commands (both do the same thing).
 
@@ -27,7 +26,6 @@ Alert win rates and P&L stats.
 ---
 
 ## On-Demand Scans
-
 ### `!scan <TICKER>`
 Full cross-reference pipeline on any ticker.
 Runs: news cascade + SEC check + technical filters + social signals + LLM confidence + options flow.
@@ -66,7 +64,6 @@ Run SerpAPI Google Trends for active tickers (used by cron job at 5:50am daily).
 ---
 
 ## Ticker Intel
-
 ### `!signals <TICKER>`
 Active signal counts broken down by source (Twitter, Reddit, ApeWisdom, news, etc.).
 Example: `!signals NVDA`
@@ -85,7 +82,6 @@ Example: `!alert-history NVDA`
 ---
 
 ## Market Scanners
-
 ### `!trend`
 Trigger an on-demand Reddit trend digest.
 Crawls 7 finance subreddits, ranks tickers by mentions/momentum, and posts a digest embed.
@@ -97,8 +93,6 @@ Fetch ApeWisdom trending tickers (direct REST API).
 
 ## Engine Health
 
-### `!nitter-health`
-Check if the Nitter Docker service is online and responding.
 Returns: online / degraded (HTTP status) / offline.
 
 ---
