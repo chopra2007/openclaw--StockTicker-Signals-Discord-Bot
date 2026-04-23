@@ -400,11 +400,72 @@ CREATE TABLE IF NOT EXISTS youtube_setups (
 );
 CREATE INDEX IF NOT EXISTS idx_yset_ticker ON youtube_setups(ticker);
 CREATE INDEX IF NOT EXISTS idx_yset_extracted ON youtube_setups(extracted_at);
+
+CREATE TABLE IF NOT EXISTS youtube_evidence_spans (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id INTEGER NOT NULL REFERENCES youtube_analysis_runs(id),
+    video_id TEXT NOT NULL,
+    ts_sec INTEGER NOT NULL,
+    quote TEXT NOT NULL,
+    tickers_json TEXT,
+    numbers_json TEXT,
+    dates_json TEXT,
+    UNIQUE(run_id, ts_sec, quote)
+);
+CREATE INDEX IF NOT EXISTS idx_yes_run ON youtube_evidence_spans(run_id);
+CREATE INDEX IF NOT EXISTS idx_yes_video ON youtube_evidence_spans(video_id);
+
+CREATE TABLE IF NOT EXISTS youtube_catalysts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id INTEGER NOT NULL REFERENCES youtube_analysis_runs(id),
+    video_id TEXT NOT NULL,
+    ticker TEXT NOT NULL,
+    catalyst_type TEXT NOT NULL,
+    mentioned_date TEXT,
+    resolved_date TEXT,
+    verified INTEGER DEFAULT 0,
+    context_text TEXT,
+    video_timestamp_sec INTEGER,
+    evidence_span_ids TEXT,
+    suppressed INTEGER DEFAULT 0,
+    suppression_reason TEXT,
+    UNIQUE(run_id, ticker, resolved_date, catalyst_type)
+);
+CREATE INDEX IF NOT EXISTS idx_ycat_ticker ON youtube_catalysts(ticker);
+CREATE INDEX IF NOT EXISTS idx_ycat_run ON youtube_catalysts(run_id);
+
+CREATE TABLE IF NOT EXISTS discord_command_user_rate (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    command TEXT NOT NULL,
+    ts REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_dcur_user_cmd_ts ON discord_command_user_rate(user_id, command, ts);
 """
+
+# Unique indices that reference columns added by _run_column_migrations.
+# Applied AFTER migrations so run_id exists.
+POST_MIGRATION_INDICES = [
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_youtube_signals_uniq "
+    "ON youtube_signals(run_id, ticker, direction)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_youtube_levels_uniq "
+    "ON youtube_levels(run_id, ticker, level_type, price)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_youtube_setups_uniq "
+    "ON youtube_setups(run_id, ticker, entry_low, entry_high)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_youtube_options_uniq "
+    "ON youtube_options(run_id, ticker, option_type, strike, expiry)",
+]
 
 
 async def _run_column_migrations(conn) -> None:
     """Add provenance and run_id columns to pre-existing YouTube tables."""
+    v2_span_cols = [
+        ("video_timestamp_sec",  "INTEGER"),
+        ("evidence_span_ids",    "TEXT"),
+        ("classifier_confidence", "REAL"),
+        ("suppressed",           "INTEGER DEFAULT 0"),
+        ("suppression_reason",   "TEXT"),
+    ]
     migrations = [
         ("youtube_signals", "run_id",         "INTEGER REFERENCES youtube_analysis_runs(id)"),
         ("youtube_signals", "source_snippet",  "TEXT"),
@@ -417,7 +478,17 @@ async def _run_column_migrations(conn) -> None:
         ("youtube_levels",  "setup_id",        "INTEGER"),
         ("youtube_macro",   "run_id",          "INTEGER REFERENCES youtube_analysis_runs(id)"),
         ("youtube_macro",   "parser_version",  "TEXT"),
+        ("youtube_macro",   "narrative",       "TEXT"),
+        ("youtube_analysis_runs", "input_tokens",     "INTEGER"),
+        ("youtube_analysis_runs", "output_tokens",    "INTEGER"),
+        ("youtube_analysis_runs", "latency_ms",       "INTEGER"),
+        ("youtube_analysis_runs", "json_parse_ok",    "INTEGER"),
+        ("youtube_analysis_runs", "span_count",       "INTEGER"),
+        ("youtube_analysis_runs", "filter_drop_count", "INTEGER"),
     ]
+    for table in ("youtube_signals", "youtube_levels", "youtube_setups", "youtube_options"):
+        for col, defn in v2_span_cols:
+            migrations.append((table, col, defn))
     for table, col, defn in migrations:
         cur = await conn.execute(f"PRAGMA table_info({table})")
         existing = {r["name"] for r in await cur.fetchall()}
@@ -438,6 +509,8 @@ async def init_db() -> AsyncConnection:
     await _db.execute("PRAGMA busy_timeout=5000")
     await _db.executescript(SCHEMA)
     await _run_column_migrations(_db)   # add provenance columns to existing tables
+    for stmt in POST_MIGRATION_INDICES:
+        await _db.execute(stmt)
     await _db.commit()
     await seed_youtube_channels()
     log.info("Database initialized at %s", db_path)
@@ -1093,7 +1166,7 @@ async def insert_youtube_signal(
     """Insert a YouTube signal for a ticker extracted from a video."""
     conn = await get_db()
     await conn.execute(
-        """INSERT INTO youtube_signals
+        """INSERT OR IGNORE INTO youtube_signals
            (video_id, channel_name, ticker, direction, conviction, mention_count, macro_thesis, parsed_at, published_at, extracted_at,
             run_id, source_snippet, chunk_id, parser_version)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
@@ -1121,7 +1194,7 @@ async def insert_youtube_level(
     """Insert a price level (support/resistance) extracted from a YouTube video."""
     conn = await get_db()
     await conn.execute(
-        """INSERT INTO youtube_levels
+        """INSERT OR IGNORE INTO youtube_levels
            (video_id, ticker, level_type, price, condition_text, consequence_text, confidence, channel_name, published_at, extracted_at,
             run_id, source_snippet, chunk_id, parser_version)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
@@ -1290,7 +1363,7 @@ async def insert_youtube_option(
 ) -> None:
     conn = await get_db()
     await conn.execute(
-        """INSERT INTO youtube_options
+        """INSERT OR IGNORE INTO youtube_options
            (run_id, video_id, ticker, option_type, strike, expiry, strategy,
             source, conviction, context_text, source_snippet, chunk_id,
             parser_version, channel_name, published_at, extracted_at)
@@ -1326,7 +1399,7 @@ async def insert_youtube_setup(
     import json as _json
     conn = await get_db()
     cur = await conn.execute(
-        """INSERT INTO youtube_setups
+        """INSERT OR IGNORE INTO youtube_setups
            (run_id, video_id, ticker, entry_low, entry_high, stop_price,
             targets_json, timeframe, setup_type, context_text, source_snippet,
             chunk_id, risk_reward, parser_version, channel_name, published_at, extracted_at)
@@ -1337,7 +1410,16 @@ async def insert_youtube_setup(
          channel_name, published_at, time.time()),
     )
     await conn.commit()
-    return cur.lastrowid
+    if cur.lastrowid:
+        return cur.lastrowid
+    # INSERT OR IGNORE hit an existing unique row — look it up.
+    cur = await conn.execute(
+        """SELECT id FROM youtube_setups
+           WHERE run_id=? AND ticker=? AND entry_low IS ? AND entry_high IS ?""",
+        (run_id, ticker, entry_low, entry_high),
+    )
+    row = await cur.fetchone()
+    return row["id"] if row else 0
 
 
 async def get_youtube_setups_for_ticker(ticker: str, days: int = 14) -> list[dict]:
@@ -1395,6 +1477,116 @@ async def mark_levels_absorbed_by_setup(level_ids: list[int], setup_id: int) -> 
         [setup_id, *level_ids],
     )
     await conn.commit()
+
+
+# ---------------------------------------------------------------------------
+# v2 evidence spans + catalysts + analysis run metrics + user rate limit
+# ---------------------------------------------------------------------------
+
+async def insert_youtube_evidence_span(
+    run_id: int,
+    video_id: str,
+    ts_sec: int,
+    quote: str,
+    tickers: list | None = None,
+    numbers: list | None = None,
+    dates: list | None = None,
+) -> None:
+    """Idempotent insert of a grounded evidence span (quote + tags)."""
+    import json as _json
+    conn = await get_db()
+    await conn.execute(
+        """INSERT OR IGNORE INTO youtube_evidence_spans
+           (run_id, video_id, ts_sec, quote, tickers_json, numbers_json, dates_json)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (
+            run_id, video_id, ts_sec, quote,
+            _json.dumps(tickers) if tickers is not None else None,
+            _json.dumps(numbers) if numbers is not None else None,
+            _json.dumps(dates) if dates is not None else None,
+        ),
+    )
+    await conn.commit()
+
+
+async def insert_youtube_catalyst(
+    run_id: int,
+    video_id: str,
+    ticker: str,
+    catalyst_type: str,
+    mentioned_date: str | None = None,
+    resolved_date: str | None = None,
+    verified: int = 0,
+    context_text: str | None = None,
+    video_timestamp_sec: int | None = None,
+    evidence_span_ids: str | None = None,
+) -> None:
+    """Idempotent insert of a catalyst row (unique per run/ticker/date/type)."""
+    conn = await get_db()
+    await conn.execute(
+        """INSERT OR IGNORE INTO youtube_catalysts
+           (run_id, video_id, ticker, catalyst_type, mentioned_date, resolved_date,
+            verified, context_text, video_timestamp_sec, evidence_span_ids)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (
+            run_id, video_id, ticker, catalyst_type, mentioned_date, resolved_date,
+            verified, context_text, video_timestamp_sec, evidence_span_ids,
+        ),
+    )
+    await conn.commit()
+
+
+async def update_analysis_run_metrics(
+    run_id: int,
+    input_tokens: int | None = None,
+    output_tokens: int | None = None,
+    latency_ms: int | None = None,
+    json_parse_ok: int | None = None,
+    span_count: int | None = None,
+    filter_drop_count: int | None = None,
+) -> None:
+    """Update telemetry columns on a youtube_analysis_runs row."""
+    conn = await get_db()
+    await conn.execute(
+        """UPDATE youtube_analysis_runs
+           SET input_tokens      = COALESCE(?, input_tokens),
+               output_tokens     = COALESCE(?, output_tokens),
+               latency_ms        = COALESCE(?, latency_ms),
+               json_parse_ok     = COALESCE(?, json_parse_ok),
+               span_count        = COALESCE(?, span_count),
+               filter_drop_count = COALESCE(?, filter_drop_count)
+           WHERE id = ?""",
+        (input_tokens, output_tokens, latency_ms, json_parse_ok,
+         span_count, filter_drop_count, run_id),
+    )
+    await conn.commit()
+
+
+async def log_user_command(user_id: str, command: str) -> None:
+    """Record a user command invocation for rate limiting."""
+    conn = await get_db()
+    await conn.execute(
+        """INSERT INTO discord_command_user_rate (user_id, command, ts)
+           VALUES (?, ?, ?)""",
+        (user_id, command, time.time()),
+    )
+    await conn.commit()
+
+
+async def check_user_rate_limit(
+    user_id: str, command: str, limit: int, window_sec: int,
+) -> bool:
+    """Return True if user has exceeded limit invocations of command in window_sec."""
+    conn = await get_db()
+    cutoff = time.time() - window_sec
+    cur = await conn.execute(
+        """SELECT COUNT(*) AS cnt FROM discord_command_user_rate
+           WHERE user_id = ? AND command = ? AND ts >= ?""",
+        (user_id, command, cutoff),
+    )
+    row = await cur.fetchone()
+    return (row["cnt"] if row else 0) >= limit
+
 
 
 async def get_recent_youtube_macro(days: int = 7) -> list[dict]:
