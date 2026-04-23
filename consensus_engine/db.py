@@ -485,6 +485,9 @@ async def _run_column_migrations(conn) -> None:
         ("youtube_analysis_runs", "json_parse_ok",    "INTEGER"),
         ("youtube_analysis_runs", "span_count",       "INTEGER"),
         ("youtube_analysis_runs", "filter_drop_count", "INTEGER"),
+        ("api_usage_daily", "gemini_input_tokens",  "INTEGER NOT NULL DEFAULT 0"),
+        ("api_usage_daily", "gemini_output_tokens", "INTEGER NOT NULL DEFAULT 0"),
+        ("api_usage_daily", "gemini_video_calls",   "INTEGER NOT NULL DEFAULT 0"),
     ]
     for table in ("youtube_signals", "youtube_levels", "youtube_setups", "youtube_options"):
         for col, defn in v2_span_cols:

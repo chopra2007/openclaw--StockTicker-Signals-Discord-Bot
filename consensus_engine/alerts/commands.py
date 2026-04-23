@@ -27,7 +27,7 @@ import re
 from datetime import datetime
 from typing import Optional
 
-from consensus_engine import db
+from consensus_engine import config as cfg, db
 from consensus_engine.alerts.discord import send_command_reply
 from consensus_engine.scanners.reddit_trend import crawl_and_get_trending
 from consensus_engine.alerts.discord import send_trend_digest
@@ -92,6 +92,7 @@ async def route_command(
     args: list[str],
     channel_id: str,
     message_id: str,
+    author_id: str | None = None,
 ) -> None:
     """Dispatch a parsed command to its handler."""
     if command in ("help", "readme"):
@@ -199,7 +200,7 @@ async def route_command(
         if not args:
             await send_command_reply(channel_id, message_id, "Usage: `!yt <URL>` — e.g. `!yt https://youtu.be/xxxxx`")
         else:
-            await _handle_yt(args[0], channel_id, message_id)
+            await _handle_yt(args[0], channel_id, message_id, author_id=author_id)
 
     elif command in ("yt-mentions", "yt_mentions"):
         raw = args[0].lstrip("$").upper() if args else ""
@@ -974,8 +975,22 @@ def _format_youtube_setup_summary(setup) -> str:
     return f"  📐 `{ticker}` Entry {entry_str} | Stop {stop_str} | Target {target_str}{rr_str}"
 
 
-async def _handle_yt(youtube_url: str, channel_id: str, message_id: str) -> None:
+async def _handle_yt(
+    youtube_url: str,
+    channel_id: str,
+    message_id: str,
+    author_id: str | None = None,
+) -> None:
     """On-demand full analysis of a YouTube video."""
+    if author_id:
+        limit = int(cfg.get("youtube.user_rate_limit_per_hour", 5) or 5)
+        if await db.check_user_rate_limit(author_id, "yt", limit=limit, window_sec=3600):
+            await send_command_reply(
+                channel_id, message_id,
+                f"Rate limit: {limit} `!yt` per hour per user. Try again later.",
+            )
+            return
+        await db.log_user_command(author_id, "yt")
     await send_command_reply(channel_id, message_id, f"Analysing {youtube_url} ...")
     asyncio.create_task(_yt_analyse_and_reply(youtube_url, channel_id, message_id))
 

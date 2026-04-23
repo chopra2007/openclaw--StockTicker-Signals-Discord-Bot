@@ -271,8 +271,12 @@ class DiscordTweetShiftListener:
                 parsed = parse_command(content)
                 if parsed:
                     cmd, args = parsed
-                    log.info("Discord command: !%s %s", cmd, args)
+                    author_id = str((data.get("author") or {}).get("id") or "")
+                    log.info("Discord command: !%s %s (user=%s)", cmd, args, author_id or "?")
                     try:
+                        await self._on_command(cmd, args, channel_id, message_id, author_id)
+                    except TypeError:
+                        # Backward-compat for callbacks without author_id
                         await self._on_command(cmd, args, channel_id, message_id)
                     except Exception as e:
                         log.error("Command callback error: %s", e, exc_info=True)

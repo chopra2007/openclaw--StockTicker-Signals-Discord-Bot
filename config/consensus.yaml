@@ -234,6 +234,9 @@ youtube:
   gemini_enabled: true                 # try Gemini fast-path before transcript fetch
   gemini_model: "gemini-2.5-flash-lite"
   analyze: true                        # run LLM analysis on transcripts (fallback path)
+  user_rate_limit_per_hour: 5          # !yt command per user per hour
+  rate_limit:
+    gemini_qps: 2.0                    # 2 Gemini video calls/sec
 
 # Precision Scoring Engine
 precision_engine:
@@ -244,6 +247,9 @@ precision_engine:
     exa_queries: 100
     serpapi_queries: 25
     firecrawl_credits: 10
+    gemini_input_tokens: 2000000       # ~$0.30/day on Flash
+    gemini_output_tokens: 500000
+    gemini_video_calls: 100
   thresholds:
     high_confidence: 80
     medium_confidence: 65
