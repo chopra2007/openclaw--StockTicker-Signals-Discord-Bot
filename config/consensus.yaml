@@ -236,13 +236,23 @@ youtube:
   analyze: true                        # run LLM analysis on transcripts (fallback path)
   user_rate_limit_per_hour: 5          # !yt command per user per hour
   rate_limit:
-    gemini_qps: 2.0                    # 2 Gemini video calls/sec
+    # Free-tier: ~10 RPM per key (viewable in AI Studio). Use a conservative 6-sec
+    # floor per key = 10 req/min theoretical, ~5 req/min practical. Too-fast bursts
+    # trigger per-minute 429s; we'd rather pace than hit the limit and wait.
+    gemini_min_interval_sec: 6.0
+    gemini_qps: 0.1667                  # legacy key, matches 6s interval (≈0.17 req/sec)
   # v2 evidence-first two-stage pipeline
   use_two_stage: true                  # enable v2 evidence-first pipeline
   legacy_fallback: true                # keep old path as rollback when evidence extractor fails
   gemini:
-    model: "gemini-2.5-flash"          # upgrade from flash-lite for evidence extractor
+    # Conservative tier for dev/testing — swap to "gemini-2.5-flash" + "default" resolution
+    # once pipeline is proven. Flash-lite has a separate free-tier quota pool from flash.
+    model: "gemini-2.5-flash-lite"
     timeout_sec: 120
+    # media_resolution: "low" | "medium" | "default" (unspecified). "low" cuts video
+    # input cost ~3× (66 tok/frame vs 258) at the expense of chart-annotation legibility.
+    # Keep low while iterating; flip to "default" once Stage A prompt stabilises.
+    media_resolution: "low"
   classifier:
     min_confidence: 0.5                # suppress candidates below this classifier_confidence
   catalyst:

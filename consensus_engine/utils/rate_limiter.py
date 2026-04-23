@@ -27,7 +27,7 @@ class RateLimiter:
             "google_news_rss": 0.5,  # No rate limit, but be polite
             "searxng": 0.5,       # Local, but don't hammer it
             "sec_edgar": 0.2,     # SEC asks for max 10 req/s
-            "gemini": 0.5,        # 2 req/sec Gemini video analysis
+            "gemini": 6.0,        # ≤10 RPM free tier — pace at 6s/request to avoid per-minute 429s
         }
         self._failure_counts: dict[str, int] = defaultdict(int)
         self._blocked_until: dict[str, float] = defaultdict(float)

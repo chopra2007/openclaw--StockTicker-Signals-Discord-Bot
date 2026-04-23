@@ -86,7 +86,7 @@ async def test_rate_limit_user_yt_other_user_unaffected(tmp_db):
 @pytest.mark.asyncio
 async def test_gemini_rate_limiter_entry():
     from consensus_engine.utils.rate_limiter import rate_limiter
-    # interval registered at 0.5s (2 qps)
-    assert rate_limiter._min_intervals.get("gemini") == 0.5
+    # Conservative 6s floor (≈10 RPM) — free-tier Gemini limit is ~10 RPM per key.
+    assert rate_limiter._min_intervals.get("gemini") == 6.0
     ok = await rate_limiter.acquire("gemini")
     assert ok is True
