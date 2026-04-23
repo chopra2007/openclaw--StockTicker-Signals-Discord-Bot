@@ -135,3 +135,133 @@ async def test_process_video_missing_captions(test_db, tmp_path):
     cursor = await conn.execute("SELECT transcript_status FROM youtube_videos WHERE video_id='vidY'")
     row = await cursor.fetchone()
     assert row["transcript_status"] == "missing"
+
+
+@pytest.mark.asyncio
+async def test_process_video_uses_gemini_when_available(test_db, tmp_path, monkeypatch):
+    """Gemini fast-path: transcript fetch should NOT be called when Gemini succeeds."""
+    from consensus_engine.models import ParsedVideo, MacroThesis, Direction, Conviction
+
+    mock_parsed = ParsedVideo(
+        video_id="vidGEM1", channel_name="Chan", raw_transcript="",
+        tickers=[{"symbol": "AAPL", "direction": "long", "conviction": "high",
+                  "mention_count": 1, "context": "c", "source_snippet": "s", "chunk_id": 0}],
+        price_levels=[],
+        macro_thesis=MacroThesis(direction=Direction.LONG, themes=[], timeframe="short", summary=""),
+        overall_conviction=Conviction.HIGH,
+        run_id=99, options=[], setups=[],
+    )
+
+    fetch_called = []
+
+    async def fake_fetch(*a, **kw):
+        fetch_called.append(True)
+        return "transcript " * 300, "en", False
+
+    monkeypatch.setattr(
+        "consensus_engine.analysis.gemini_video_parser.parse_video_with_gemini",
+        AsyncMock(return_value=mock_parsed),
+    )
+    monkeypatch.setattr(
+        "consensus_engine.utils.transcript_fetch.fetch_transcript_cascade",
+        fake_fetch,
+    )
+
+    sem = asyncio.Semaphore(1)
+    video_meta = {"video_id": "vidGEM1", "channel_id": "ch1",
+                  "title": "T", "published_at": "2026-04-22T10:00:00Z"}
+    await process_video(video_meta, sem, ["en"], str(tmp_path))
+
+    assert not fetch_called, "transcript fetch should be skipped when Gemini succeeds"
+    sigs = await db.get_youtube_signals_for_ticker("AAPL", days=1)
+    assert len(sigs) == 1
+
+
+@pytest.mark.asyncio
+async def test_process_video_persists_options(test_db, tmp_path, monkeypatch):
+    """process_video() stores VideoOptionIdea rows in youtube_options."""
+    from consensus_engine.models import (
+        ParsedVideo, MacroThesis, Direction, Conviction, VideoOptionIdea,
+    )
+
+    opt = VideoOptionIdea(
+        ticker="TSLA", option_type="call", strike=250.0, expiry="2026-05-16",
+        strategy="single", source="flow_observation", conviction="high",
+        context="big call sweep", source_snippet="bought 250c", chunk_id=1,
+    )
+    mock_parsed = ParsedVideo(
+        video_id="vidOPT1", channel_name="TraderChan", raw_transcript="",
+        tickers=[],
+        price_levels=[],
+        macro_thesis=MacroThesis(direction=Direction.NEUTRAL, themes=[], timeframe="short", summary=""),
+        overall_conviction=Conviction.MEDIUM,
+        run_id=42, options=[opt], setups=[],
+    )
+
+    monkeypatch.setattr(
+        "consensus_engine.analysis.gemini_video_parser.parse_video_with_gemini",
+        AsyncMock(return_value=mock_parsed),
+    )
+
+    sem = asyncio.Semaphore(1)
+    video_meta = {"video_id": "vidOPT1", "channel_id": "ch2",
+                  "title": "Options Trade", "published_at": "2026-04-22T10:00:00Z"}
+    await process_video(video_meta, sem, ["en"], str(tmp_path))
+
+    opts = await db.get_youtube_options_for_ticker("TSLA", days=1)
+    assert len(opts) == 1
+    assert opts[0]["option_type"] == "call"
+    assert opts[0]["strike"] == 250.0
+    assert opts[0]["run_id"] == 42
+
+
+@pytest.mark.asyncio
+async def test_process_video_persists_setups(test_db, tmp_path, monkeypatch):
+    """process_video() stores VideoTradeSetup rows and absorbs constituent levels."""
+    from consensus_engine.models import (
+        ParsedVideo, MacroThesis, Direction, Conviction,
+        VideoTradeSetup, PriceLevel,
+    )
+
+    level = PriceLevel(
+        ticker="NVDA", level_type="support", price=800.0,
+        condition="if holds 800", consequence="rally to 850", confidence=0.9,
+    )
+    setup = VideoTradeSetup(
+        ticker="NVDA", entry_low=800.0, entry_high=810.0, stop=790.0,
+        targets=[850.0, 900.0], timeframe="swing", setup_type="breakout",
+        context="NVDA breakout above 810", source_snippet="buy 800-810 stop 790",
+        chunk_id=2, risk_reward=3.0,
+    )
+    mock_parsed = ParsedVideo(
+        video_id="vidSET1", channel_name="SetupChan", raw_transcript="",
+        tickers=[],
+        price_levels=[level],
+        macro_thesis=MacroThesis(direction=Direction.LONG, themes=[], timeframe="swing", summary=""),
+        overall_conviction=Conviction.HIGH,
+        run_id=55, options=[], setups=[setup],
+    )
+
+    monkeypatch.setattr(
+        "consensus_engine.analysis.gemini_video_parser.parse_video_with_gemini",
+        AsyncMock(return_value=mock_parsed),
+    )
+
+    sem = asyncio.Semaphore(1)
+    video_meta = {"video_id": "vidSET1", "channel_id": "ch3",
+                  "title": "Setup Video", "published_at": "2026-04-22T10:00:00Z"}
+    await process_video(video_meta, sem, ["en"], str(tmp_path))
+
+    setups = await db.get_youtube_setups_for_ticker("NVDA", days=1)
+    assert len(setups) == 1
+    assert setups[0]["setup_type"] == "breakout"
+    assert setups[0]["run_id"] == 55
+
+    # Level should be absorbed into the setup
+    conn = await db.get_db()
+    cur = await conn.execute(
+        "SELECT setup_id FROM youtube_levels WHERE video_id='vidSET1' AND ticker='NVDA'"
+    )
+    row = await cur.fetchone()
+    assert row is not None
+    assert row["setup_id"] == setups[0]["id"]

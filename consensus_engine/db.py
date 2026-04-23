@@ -1085,14 +1085,20 @@ async def insert_youtube_signal(
     mention_count: int = 1,
     macro_thesis: str | None = None,
     published_at: str | None = None,
+    run_id: int | None = None,
+    source_snippet: str | None = None,
+    chunk_id: int = 0,
+    parser_version: str | None = None,
 ) -> None:
     """Insert a YouTube signal for a ticker extracted from a video."""
     conn = await get_db()
     await conn.execute(
         """INSERT INTO youtube_signals
-           (video_id, channel_name, ticker, direction, conviction, mention_count, macro_thesis, parsed_at, published_at, extracted_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (video_id, channel_name, ticker, direction, conviction, mention_count, macro_thesis, time.time(), published_at, time.time()),
+           (video_id, channel_name, ticker, direction, conviction, mention_count, macro_thesis, parsed_at, published_at, extracted_at,
+            run_id, source_snippet, chunk_id, parser_version)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (video_id, channel_name, ticker, direction, conviction, mention_count, macro_thesis, time.time(), published_at, time.time(),
+         run_id, source_snippet, chunk_id, parser_version),
     )
     await conn.commit()
 
@@ -1107,14 +1113,20 @@ async def insert_youtube_level(
     confidence: float = 0.8,
     channel_name: str | None = None,
     published_at: str | None = None,
+    run_id: int | None = None,
+    source_snippet: str | None = None,
+    chunk_id: int = 0,
+    parser_version: str | None = None,
 ) -> None:
     """Insert a price level (support/resistance) extracted from a YouTube video."""
     conn = await get_db()
     await conn.execute(
         """INSERT INTO youtube_levels
-           (video_id, ticker, level_type, price, condition_text, consequence_text, confidence, channel_name, published_at, extracted_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (video_id, ticker, level_type, price, condition_text, consequence_text, confidence, channel_name, published_at, time.time()),
+           (video_id, ticker, level_type, price, condition_text, consequence_text, confidence, channel_name, published_at, extracted_at,
+            run_id, source_snippet, chunk_id, parser_version)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (video_id, ticker, level_type, price, condition_text, consequence_text, confidence, channel_name, published_at, time.time(),
+         run_id, source_snippet, chunk_id, parser_version),
     )
     await conn.commit()
 
