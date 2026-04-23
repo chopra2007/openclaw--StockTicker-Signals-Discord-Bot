@@ -318,15 +318,25 @@ class OptionsResult:
 # YouTube video analysis models
 # ---------------------------------------------------------------------------
 
+# Taxonomy constants — decoupled from LLM prompt so validators and the
+# deterministic classifier can share a single source of truth.
+LEVEL_TYPES = ("support", "resistance", "target", "breakdown", "ema", "ma")
+SETUP_TYPES = ("breakout", "pullback", "earnings", "trend", "reversal")
+CATALYST_TYPES = ("earnings", "fed", "cpi", "jobs", "other")
+
+
 @dataclass
 class PriceLevel:
     """Extracted support/resistance level from YouTube video."""
     ticker: str
-    level_type: str  # support|resistance|target|breakdown
+    level_type: str  # support|resistance|target|breakdown|ema|ma
     price: float
     condition: str  # "if holds above 640"
     consequence: str  # "rally to 700"
     confidence: float  # 0.0-1.0
+    video_timestamp_sec: int | None = None
+    evidence_span_ids: list[int] = field(default_factory=list)
+    classifier_confidence: float = 1.0
 
 
 @dataclass
@@ -336,6 +346,7 @@ class MacroThesis:
     themes: list[str]  # ["recession risk", "Fed pivot expected"]
     timeframe: str  # short|medium|long
     summary: str  # one paragraph
+    narrative: str = ""
 
 
 @dataclass
@@ -351,6 +362,9 @@ class VideoOptionIdea:
     context: str
     source_snippet: str
     chunk_id: int = 0
+    video_timestamp_sec: int | None = None
+    evidence_span_ids: list[int] = field(default_factory=list)
+    classifier_confidence: float | None = None
 
 
 @dataclass
@@ -362,11 +376,127 @@ class VideoTradeSetup:
     stop: float | None
     targets: list[float]
     timeframe: str | None   # intraday|swing|positional|long-term
-    setup_type: str | None  # breakout|pullback|earnings|trend
+    setup_type: str | None  # breakout|pullback|earnings|trend|reversal
     context: str
     source_snippet: str
     chunk_id: int = 0
     risk_reward: float | None = None
+    video_timestamp_sec: int | None = None
+    catalyst_date: str | None = None
+    catalyst_desc: str | None = None
+    evidence_span_ids: list[int] = field(default_factory=list)
+    classifier_confidence: float | None = None
+
+
+# ---------------------------------------------------------------------------
+# v2 two-stage pipeline: evidence-first models
+# ---------------------------------------------------------------------------
+
+@dataclass
+class EvidenceSpan:
+    """One literal quote extracted from a video with structured annotations.
+
+    Produced by Stage A (Gemini evidence extractor). No classification —
+    just verbatim transcription with entity tags.
+    """
+    ts_sec: int
+    quote: str
+    tickers: list[str] = field(default_factory=list)
+    numbers: list[float] = field(default_factory=list)
+    dates_mentioned: list[str] = field(default_factory=list)
+
+
+@dataclass
+class EvidenceBundle:
+    """Full Stage A output: video metadata + segments + evidence spans."""
+    video_id: str
+    duration_sec: int | None
+    publish_ts: str
+    segments: list[dict] = field(default_factory=list)
+    spans: list[EvidenceSpan] = field(default_factory=list)
+
+
+@dataclass
+class CandidateSignal:
+    """Directional candidate produced by Stage B deterministic classifier."""
+    ticker: str
+    direction: Direction
+    conviction: Conviction
+    mention_count: int
+    context: str
+    evidence_span_ids: list[int] = field(default_factory=list)
+    classifier_confidence: float = 0.0
+    suppressed: bool = False
+    suppression_reason: str | None = None
+    video_timestamp_sec: int | None = None
+
+
+@dataclass
+class CandidateLevel:
+    """Price-level candidate produced by Stage B deterministic classifier."""
+    ticker: str
+    level_type: str  # one of LEVEL_TYPES
+    price: float
+    context: str
+    evidence_span_ids: list[int] = field(default_factory=list)
+    classifier_confidence: float = 0.0
+    suppressed: bool = False
+    suppression_reason: str | None = None
+    video_timestamp_sec: int | None = None
+
+
+@dataclass
+class CandidateSetup:
+    """Entry/stop/target trade setup candidate produced by Stage B."""
+    ticker: str
+    entry_low: float | None
+    entry_high: float | None
+    stop: float | None
+    targets: list[float]
+    timeframe: str | None
+    setup_type: str | None  # one of SETUP_TYPES
+    catalyst_date: str | None
+    catalyst_desc: str | None
+    context: str
+    evidence_span_ids: list[int] = field(default_factory=list)
+    classifier_confidence: float = 0.0
+    suppressed: bool = False
+    suppression_reason: str | None = None
+    video_timestamp_sec: int | None = None
+    risk_reward: float | None = None
+
+
+@dataclass
+class CandidateCatalyst:
+    """Catalyst candidate with relative-date resolution and verification status.
+
+    `verified`: -1=contradicted by external source, 0=unverified, 1=confirmed.
+    """
+    ticker: str
+    catalyst_type: str  # one of CATALYST_TYPES
+    mentioned_date: str
+    resolved_date: str | None = None
+    verified: int = 0
+    context_text: str = ""
+    evidence_span_ids: list[int] = field(default_factory=list)
+    video_timestamp_sec: int | None = None
+    suppressed: bool = False
+    suppression_reason: str | None = None
+
+
+# Back-compat alias for call sites that prefer a video-scoped name.
+VideoCatalyst = CandidateCatalyst
+
+
+@dataclass
+class RunTelemetry:
+    """Per-run metrics persisted alongside youtube_analysis_runs."""
+    input_tokens: int = 0
+    output_tokens: int = 0
+    latency_ms: int = 0
+    json_parse_ok: bool = False
+    span_count: int = 0
+    filter_drop_count: int = 0
 
 
 @dataclass
@@ -383,6 +513,9 @@ class ParsedVideo:
     run_id: int | None = None
     options: list[VideoOptionIdea] = field(default_factory=list)
     setups: list[VideoTradeSetup] = field(default_factory=list)
+    catalysts: list[CandidateCatalyst] = field(default_factory=list)
+    evidence_spans: list[EvidenceSpan] = field(default_factory=list)
+    telemetry: RunTelemetry | None = None
 
     @property
     def has_tickers(self) -> bool:
