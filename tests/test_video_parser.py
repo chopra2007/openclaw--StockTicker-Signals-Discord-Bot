@@ -174,3 +174,47 @@ def test_video_trade_setup_fields():
     )
     assert s.risk_reward == pytest.approx(2.5)
     assert len(s.targets) == 2
+
+
+# ---------------------------------------------------------------------------
+# Task 5 (Plan Task 5): Stage 1 mentions pass + extraction model helper
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_extract_mentions_pass_parses_tickers_and_price_spans():
+    from consensus_engine.analysis.video_parser import _extract_mentions_pass
+    fake_response = """{
+      "tickers": [{"symbol": "NVDA", "mention_count": 3, "source_snippet": "I love NVDA here"}],
+      "price_spans": [{"ticker": "NVDA", "price": 850.0, "source_snippet": "NVDA at $850"}],
+      "option_keywords_found": false
+    }"""
+    with patch("consensus_engine.analysis.video_parser._call_extraction_model",
+               new=AsyncMock(return_value=(fake_response, True))):
+        result = await _extract_mentions_pass("I love NVDA here. NVDA at $850.", chunk_id=0)
+    assert result["tickers"][0]["symbol"] == "NVDA"
+    assert result["price_spans"][0]["price"] == 850.0
+    assert result["option_keywords_found"] is False
+
+
+@pytest.mark.asyncio
+async def test_extract_mentions_pass_returns_empty_on_bad_json():
+    from consensus_engine.analysis.video_parser import _extract_mentions_pass
+    with patch("consensus_engine.analysis.video_parser._call_extraction_model",
+               new=AsyncMock(return_value=("not json", False))):
+        result = await _extract_mentions_pass("some transcript", chunk_id=0)
+    assert result["tickers"] == []
+    assert result["price_spans"] == []
+
+
+def test_find_option_snippets_detects_calls_puts():
+    from consensus_engine.analysis.video_parser import _find_option_snippets
+    text = "I'm seeing huge call buying on TSLA at the 250 strike expiring next Friday. Also some put spreads on SPY."
+    snippets = _find_option_snippets(text)
+    assert len(snippets) >= 1
+    assert any("call" in s.lower() for s in snippets)
+
+
+def test_find_option_snippets_returns_empty_when_none():
+    from consensus_engine.analysis.video_parser import _find_option_snippets
+    snippets = _find_option_snippets("NVDA looks good above 850, stop at 820.")
+    assert snippets == []

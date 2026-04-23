@@ -30,6 +30,171 @@ log = logging.getLogger("consensus_engine.analysis.video_parser")
 
 _MACRO_NORM = {"bullish": "long", "bearish": "short", "neutral": "neutral"}
 
+# ── Two-stage parser constants ─────────────────────────────────────────────────
+PARSER_VERSION = "v2"
+
+_MAX_LLM_CALLS = 8  # hard cap per video
+
+_MENTIONS_PROMPT = """You are extracting structured financial mentions from a YouTube transcript.
+
+Respond ONLY in this exact JSON (no markdown):
+{
+  "tickers": [{"symbol": "NVDA", "mention_count": 3, "source_snippet": "exact quote ≤120 chars"}],
+  "price_spans": [{"ticker": "NVDA", "price": 850.0, "source_snippet": "exact quote ≤120 chars"}],
+  "option_keywords_found": false
+}
+
+Rules:
+- Only real stock tickers (AAPL, NVDA, SPY). Exclude RSI, EMA, MACD, VWAP, etc.
+- price_spans: only explicit price numbers tied to a specific ticker.
+- option_keywords_found: true if transcript mentions calls, puts, strike, expiry, debit, credit, spreads, or LEAPS.
+- source_snippet: shortest exact phrase from transcript containing the entity (≤120 chars).
+- If nothing found, return empty arrays."""
+
+_DIRECTION_PROMPT = """You are classifying directional sentiment for specific tickers in a YouTube transcript.
+
+Tickers to classify: {ticker_list}
+
+Respond ONLY in this exact JSON (no markdown):
+{{"tickers": [{{"symbol": "NVDA", "direction": "long|short|neutral", "conviction": "high|medium|low", "context": "one-sentence reason", "source_snippet": "exact quote ≤120 chars"}}]}}
+
+Rules:
+- long=bullish, short=bearish, neutral=no clear bias.
+- high=explicit position/trade, medium=strong opinion, low=tentative/watching.
+- Only classify tickers from the provided list."""
+
+_MACRO_PROMPT = """You are extracting the macro market thesis from a YouTube financial transcript.
+
+Respond ONLY in this exact JSON (no markdown):
+{"macro_thesis": {"direction": "bullish|bearish|neutral", "themes": ["theme1"], "timeframe": "short|medium|long", "summary": "1-2 sentence summary"}}
+
+Rules:
+- direction: overall market/macro bias expressed in the video.
+- themes: up to 5 specific themes mentioned (e.g. "Fed rate cuts", "earnings season").
+- timeframe: short=days/weeks, medium=1-3 months, long=6+ months."""
+
+_OPTIONS_PROMPT = """You are extracting options trade mentions from transcript snippets.
+
+Snippets:
+{snippets}
+
+Respond ONLY in this exact JSON (no markdown):
+{"options": [{"ticker": "TSLA", "option_type": "call|put", "strike": 250.0, "expiry": "weekly", "strategy": "single|spread|leaps|debit|credit", "source": "flow_observation|personal_idea", "conviction": "high|medium|low", "context": "exact quote"}]}
+
+Rules:
+- strike: null if not mentioned. expiry: exact phrase from transcript.
+- source: flow_observation if describing market activity; personal_idea if speaker's own trade.
+- Skip options without a specific ticker. Return empty array if nothing clear found."""
+
+_SETUPS_PROMPT = """You are linking entry/stop/target prices into coherent trade setups.
+
+Price spans by ticker:
+{price_spans_by_ticker}
+
+Respond ONLY in this exact JSON (no markdown):
+{"setups": [{"ticker": "NVDA", "entry_low": 845.0, "entry_high": 855.0, "stop": 820.0, "targets": [920.0], "timeframe": "intraday|swing|positional|long-term", "setup_type": "breakout|pullback|earnings|trend", "context": "exact quote"}]}
+
+Rules:
+- entry_low/entry_high: same value if exact entry, range if zone given.
+- stop and targets: null/[] if not mentioned.
+- Only create a setup if at least an entry price exists.
+- Never combine prices from different tickers.
+- If only isolated prices with no relational context, return empty array."""
+
+_STAGE1_MODEL = "openrouter/minimax/minimax-m2.5:free"
+_STAGE2_DIR_MODEL = cfg.get("video_parser.models.direction", "z-ai/glm-4.5-air:free")
+_STAGE2_MACRO_MODEL = "openrouter/minimax/minimax-m2.5:free"
+_STAGE2_OPTIONS_MODEL = cfg.get("video_parser.models.options", "z-ai/glm-4.5-air:free")
+_STAGE2_SETUPS_MODEL = "openrouter/minimax/minimax-m2.5:free"
+_MAX_STAGE1_WORDS = 10000  # above this, split into 2 chunks
+
+
+async def _call_extraction_model(
+    system_prompt: str,
+    user_prompt: str,
+    model: str = "minimax/minimax-m2.5",
+    max_tokens: int = 2048,
+) -> tuple[str, bool]:
+    """Call OpenRouter with a given model. Returns (content, ok)."""
+    api_key = cfg.get_api_key("openrouter")
+    if not api_key:
+        return "", False
+    try:
+        async with aiohttp.ClientSession() as session:
+            payload = {
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                "max_tokens": max_tokens,
+                "temperature": 0.1,
+            }
+            async with session.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=30),
+            ) as resp:
+                if resp.status != 200:
+                    log.warning("_call_extraction_model: HTTP %d for model %s", resp.status, model)
+                    return "", False
+                data = await resp.json()
+        content = data.get("choices", [{}])[0].get("message", {}).get("content") or ""
+        return content.strip(), bool(content)
+    except Exception as e:
+        log.warning("_call_extraction_model error (%s): %s", model, e)
+        return "", False
+
+
+_OPTION_KEYWORD_RE = re.compile(
+    r'\b(calls?|puts?|strike|expir\w+|debit|credit|spread|LEAPS?|weekly|monthly)\b',
+    re.IGNORECASE,
+)
+
+
+def _find_option_snippets(text: str, window: int = 300) -> list[str]:
+    """Return up to 5 text windows (≤300 chars) around option keywords."""
+    snippets = []
+    for m in _OPTION_KEYWORD_RE.finditer(text):
+        start = max(0, m.start() - window // 2)
+        end = min(len(text), m.end() + window // 2)
+        snippet = text[start:end].strip()
+        if snippet and not any(snippet in s for s in snippets):
+            snippets.append(snippet)
+        if len(snippets) >= 5:
+            break
+    return snippets
+
+
+def _parse_json_safe(raw: str, fallback: dict) -> dict:
+    cleaned = raw.strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r'^```(?:json)?\s*', '', cleaned)
+        cleaned = re.sub(r'\s*```$', '', cleaned)
+    try:
+        return json.loads(cleaned)
+    except (json.JSONDecodeError, TypeError):
+        return fallback
+
+
+async def _extract_mentions_pass(transcript_text: str, chunk_id: int = 0) -> dict:
+    """Stage 1: extract ticker mentions, price spans, option keyword flag."""
+    raw, ok = await _call_extraction_model(
+        _MENTIONS_PROMPT,
+        f"Transcript:\n\n{transcript_text[:8000]}",
+        model=_STAGE1_MODEL,
+    )
+    if not ok:
+        return {"tickers": [], "price_spans": [], "option_keywords_found": False}
+    result = _parse_json_safe(raw, {"tickers": [], "price_spans": [], "option_keywords_found": False})
+    # Inject chunk_id into every record
+    for t in result.get("tickers", []):
+        t.setdefault("chunk_id", chunk_id)
+    for p in result.get("price_spans", []):
+        p.setdefault("chunk_id", chunk_id)
+    return result
+
 _SYSTEM_PROMPT = """You are a financial analyst extracting structured trade intelligence from a YouTube video transcript.
 
 Respond ONLY in this exact JSON format (no extra text, no markdown):
