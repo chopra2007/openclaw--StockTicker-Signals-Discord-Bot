@@ -1,0 +1,64 @@
+# YouTube eval corpus — v2 two-stage pipeline regression benchmark.
+#
+# Each entry is a one-time curation:
+#   1. Watch the video once.
+#   2. Fill in the `expected` block: high-conviction tickers, tickers that
+#      MUST NOT alert (noisy or recap-only mentions), setups, levels, and a
+#      narrative check phrase.
+#   3. Commit the video to this file. The harness at
+#      `scripts/eval_extraction.py` runs the pipeline against every entry with
+#      `skip: false`, computes precision/recall, and fails CI if aggregate
+#      precision drops below the threshold in the harness.
+#
+# Seed with 1 real entry plus 4 placeholders so the harness can iterate once
+# the channels are curated. Placeholders have `skip: true` and are ignored.
+
+videos:
+  - video_id: 4mSyMr8PGLI
+    channel: ShadowTrader
+    title: "Weekend Edition 2026-04-17"
+    publish_ts: "2026-04-17T00:00:00Z"
+    skip: false
+    expected:
+      high_conviction_tickers: [MSFT, SPY, NDX]
+      excluded_tickers: [USO, TSLA, NVDA]  # must be neutral OR suppressed
+      min_span_count: 20
+      narrative_must_contain_any:
+        - "sellers shut off"
+        - "draft pick"
+        - "FOMO"
+        - "Virgin POC"
+      setups:
+        - ticker: MSFT
+          entry_low_min: 395
+          entry_low_max: 405
+          catalyst_date: "2026-04-29"
+      levels:
+        - {ticker: SPY,  type: support,    price_min: 6900,  price_max: 7100}
+        - {ticker: NDX,  type: support,    price_min: 26000, price_max: 26300}
+        - {ticker: NDX,  type: resistance, price_min: 27100, price_max: 27300}
+        - {ticker: MSFT, type: ema,        price_min: 398,   price_max: 402}
+
+  - video_id: PLACEHOLDER_FIGURING_OUT_MONEY_1
+    channel: FiguringOutMoney
+    title: "TBD — weekly macro breakdown"
+    skip: true
+    expected: {}
+
+  - video_id: PLACEHOLDER_SHADOW_TRADER_2
+    channel: ShadowTrader
+    title: "TBD — weekday open"
+    skip: true
+    expected: {}
+
+  - video_id: PLACEHOLDER_CHANNEL_3
+    channel: TBD
+    title: "TBD"
+    skip: true
+    expected: {}
+
+  - video_id: PLACEHOLDER_CHANNEL_4
+    channel: TBD
+    title: "TBD"
+    skip: true
+    expected: {}
