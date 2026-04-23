@@ -7,6 +7,12 @@ from consensus_engine.analysis.gemini_video_parser import (
     extract_evidence_with_gemini,
     _parse_ts_str,
     _build_evidence_bundle,
+    _get_gemini_keys,
+    _get_available_gemini_client,
+    _is_quota_error,
+    _mark_key_exhausted,
+    _reset_key_exhaustion,
+    _key_is_available,
 )
 from consensus_engine.models import (
     ParsedVideo, Conviction,
@@ -35,7 +41,7 @@ async def test_parse_video_with_gemini_returns_parsed_video():
     mock_client = MagicMock()
     mock_client.models.generate_content.return_value = mock_response
 
-    with patch("consensus_engine.analysis.gemini_video_parser._get_gemini_client", return_value=mock_client), \
+    with patch("consensus_engine.analysis.gemini_video_parser._get_available_gemini_client", return_value=(mock_client, "GEMINI_API_KEY")), \
          patch("consensus_engine.db.create_analysis_run", new=AsyncMock(return_value=5)):
         result = await parse_video_with_gemini("dQw4w9WgXcQ", "ClickCapital", "2026-04-22T10:00:00Z")
 
@@ -53,7 +59,7 @@ async def test_parse_video_with_gemini_returns_none_on_api_error():
     mock_client = MagicMock()
     mock_client.models.generate_content.side_effect = Exception("API error")
 
-    with patch("consensus_engine.analysis.gemini_video_parser._get_gemini_client", return_value=mock_client):
+    with patch("consensus_engine.analysis.gemini_video_parser._get_available_gemini_client", return_value=(mock_client, "GEMINI_API_KEY")):
         result = await parse_video_with_gemini("dQw4w9WgXcQ", "Chan", "2026-04-22T10:00:00Z")
 
     assert result is None
@@ -62,7 +68,7 @@ async def test_parse_video_with_gemini_returns_none_on_api_error():
 @pytest.mark.asyncio
 async def test_parse_video_with_gemini_returns_none_when_no_key(monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
-    with patch("consensus_engine.analysis.gemini_video_parser._get_gemini_client", return_value=None):
+    with patch("consensus_engine.analysis.gemini_video_parser._get_available_gemini_client", return_value=(None, None)):
         result = await parse_video_with_gemini("dQw4w9WgXcQ", "Chan", "2026-04-22T10:00:00Z")
 
     assert result is None
@@ -76,7 +82,7 @@ async def test_parse_video_with_gemini_handles_bad_json():
     mock_client = MagicMock()
     mock_client.models.generate_content.return_value = mock_response
 
-    with patch("consensus_engine.analysis.gemini_video_parser._get_gemini_client", return_value=mock_client), \
+    with patch("consensus_engine.analysis.gemini_video_parser._get_available_gemini_client", return_value=(mock_client, "GEMINI_API_KEY")), \
          patch("consensus_engine.db.create_analysis_run", new=AsyncMock(return_value=6)):
         result = await parse_video_with_gemini("dQw4w9WgXcQ", "Chan", "2026-04-22T10:00:00Z")
 
@@ -148,7 +154,7 @@ async def test_extract_evidence_parses_spans():
     mock_client = MagicMock()
     mock_client.models.generate_content.return_value = _make_mock_response(_EVIDENCE_JSON)
 
-    with patch("consensus_engine.analysis.gemini_video_parser._get_gemini_client", return_value=mock_client), \
+    with patch("consensus_engine.analysis.gemini_video_parser._get_available_gemini_client", return_value=(mock_client, "GEMINI_API_KEY")), \
          patch("consensus_engine.db.create_analysis_run", new=AsyncMock(return_value=11)), \
          patch("consensus_engine.db.insert_youtube_evidence_span", new=AsyncMock(return_value=None)):
         bundle, telemetry = await extract_evidence_with_gemini(
@@ -184,7 +190,7 @@ async def test_extract_evidence_timeout():
     async def _raise_timeout(*_a, **_k):
         raise asyncio.TimeoutError()
 
-    with patch("consensus_engine.analysis.gemini_video_parser._get_gemini_client", return_value=mock_client), \
+    with patch("consensus_engine.analysis.gemini_video_parser._get_available_gemini_client", return_value=(mock_client, "GEMINI_API_KEY")), \
          patch("consensus_engine.analysis.gemini_video_parser.asyncio.wait_for", new=_raise_timeout):
         bundle, telemetry = await extract_evidence_with_gemini(
             "vid", "Chan", "2026-04-17T12:00:00Z",
@@ -200,7 +206,7 @@ async def test_extract_evidence_invalid_json():
     mock_client = MagicMock()
     mock_client.models.generate_content.return_value = _make_mock_response("not json garbage >>>")
 
-    with patch("consensus_engine.analysis.gemini_video_parser._get_gemini_client", return_value=mock_client):
+    with patch("consensus_engine.analysis.gemini_video_parser._get_available_gemini_client", return_value=(mock_client, "GEMINI_API_KEY")):
         bundle, telemetry = await extract_evidence_with_gemini(
             "vid", "Chan", "2026-04-17T12:00:00Z",
         )
@@ -217,7 +223,7 @@ async def test_extract_evidence_persists_spans():
     mock_client.models.generate_content.return_value = _make_mock_response(_EVIDENCE_JSON)
 
     mock_insert = AsyncMock(return_value=None)
-    with patch("consensus_engine.analysis.gemini_video_parser._get_gemini_client", return_value=mock_client), \
+    with patch("consensus_engine.analysis.gemini_video_parser._get_available_gemini_client", return_value=(mock_client, "GEMINI_API_KEY")), \
          patch("consensus_engine.db.create_analysis_run", new=AsyncMock(return_value=42)), \
          patch("consensus_engine.db.insert_youtube_evidence_span", new=mock_insert):
         bundle, telemetry = await extract_evidence_with_gemini(
@@ -242,7 +248,7 @@ async def test_extract_evidence_skips_when_budget_exhausted():
     mock_budget.can_consume_gemini = AsyncMock(return_value=False)
     mock_budget.consume_gemini = AsyncMock(return_value=True)
 
-    with patch("consensus_engine.analysis.gemini_video_parser._get_gemini_client", return_value=mock_client), \
+    with patch("consensus_engine.analysis.gemini_video_parser._get_available_gemini_client", return_value=(mock_client, "GEMINI_API_KEY")), \
          patch("consensus_engine.engine.BudgetManager", return_value=mock_budget):
         bundle, telemetry = await extract_evidence_with_gemini(
             "vidBud", "Chan", "2026-04-17T12:00:00Z",
@@ -266,7 +272,7 @@ async def test_extract_evidence_records_budget_usage_on_success():
     mock_budget.can_consume_gemini = AsyncMock(return_value=True)
     mock_budget.consume_gemini = AsyncMock(return_value=True)
 
-    with patch("consensus_engine.analysis.gemini_video_parser._get_gemini_client", return_value=mock_client), \
+    with patch("consensus_engine.analysis.gemini_video_parser._get_available_gemini_client", return_value=(mock_client, "GEMINI_API_KEY")), \
          patch("consensus_engine.engine.BudgetManager", return_value=mock_budget), \
          patch("consensus_engine.db.create_analysis_run", new=AsyncMock(return_value=77)), \
          patch("consensus_engine.db.insert_youtube_evidence_span", new=AsyncMock(return_value=None)):
@@ -291,7 +297,7 @@ async def test_extract_evidence_rejects_ta_abbreviations():
     mock_client = MagicMock()
     mock_client.models.generate_content.return_value = _make_mock_response(bad_json)
 
-    with patch("consensus_engine.analysis.gemini_video_parser._get_gemini_client", return_value=mock_client), \
+    with patch("consensus_engine.analysis.gemini_video_parser._get_available_gemini_client", return_value=(mock_client, "GEMINI_API_KEY")), \
          patch("consensus_engine.db.create_analysis_run", new=AsyncMock(return_value=7)), \
          patch("consensus_engine.db.insert_youtube_evidence_span", new=AsyncMock(return_value=None)):
         bundle, _telemetry = await extract_evidence_with_gemini(
@@ -317,3 +323,159 @@ def test_build_evidence_bundle_drops_empty_quotes():
     b = _build_evidence_bundle(data, "v", "2026-04-17T12:00:00Z")
     assert len(b.spans) == 1
     assert b.spans[0].tickers == ["SPY"]
+
+
+# ---------------------------------------------------------------------------
+# Multi-key rotation — handles free-tier quota overflow across GEMINI_API_KEY{,2,3}
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(autouse=False)
+def reset_keys():
+    _reset_key_exhaustion()
+    yield
+    _reset_key_exhaustion()
+
+
+def test_get_gemini_keys_collects_multiple(monkeypatch, reset_keys):
+    monkeypatch.setenv("GEMINI_API_KEY", "AAA")
+    monkeypatch.setenv("GEMINI_API_KEY2", "BBB")
+    monkeypatch.delenv("GEMINI_API_KEY3", raising=False)
+    keys = _get_gemini_keys()
+    assert keys == [("GEMINI_API_KEY", "AAA"), ("GEMINI_API_KEY2", "BBB")]
+
+
+def test_get_gemini_keys_skips_empty(monkeypatch, reset_keys):
+    monkeypatch.setenv("GEMINI_API_KEY", "")
+    monkeypatch.setenv("GEMINI_API_KEY2", "BBB")
+    monkeypatch.delenv("GEMINI_API_KEY3", raising=False)
+    keys = _get_gemini_keys()
+    assert keys == [("GEMINI_API_KEY2", "BBB")]
+
+
+def test_is_quota_error_recognizes_429():
+    assert _is_quota_error(Exception("429 RESOURCE_EXHAUSTED"))
+    assert _is_quota_error(Exception("google.api_core.exceptions.ResourceExhausted: quota exceeded"))
+    assert _is_quota_error(Exception("rate limit hit"))
+    assert not _is_quota_error(Exception("connection refused"))
+    assert not _is_quota_error(Exception("invalid json"))
+
+
+def test_mark_exhausted_then_unavailable(monkeypatch, reset_keys):
+    monkeypatch.setenv("GEMINI_API_KEY", "AAA")
+    monkeypatch.setenv("GEMINI_API_KEY2", "BBB")
+    _mark_key_exhausted("GEMINI_API_KEY")
+    assert not _key_is_available("GEMINI_API_KEY")
+    assert _key_is_available("GEMINI_API_KEY2")
+
+
+def test_get_available_returns_none_when_all_exhausted(monkeypatch, reset_keys):
+    monkeypatch.setenv("GEMINI_API_KEY", "AAA")
+    monkeypatch.delenv("GEMINI_API_KEY2", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY3", raising=False)
+    _mark_key_exhausted("GEMINI_API_KEY")
+    client, label = _get_available_gemini_client()
+    assert client is None and label is None
+
+
+def test_get_available_rotates_past_skipped_labels(monkeypatch, reset_keys):
+    monkeypatch.setenv("GEMINI_API_KEY", "AAA")
+    monkeypatch.setenv("GEMINI_API_KEY2", "BBB")
+    monkeypatch.delenv("GEMINI_API_KEY3", raising=False)
+    with patch("consensus_engine.analysis.gemini_video_parser.genai", create=True) as mock_genai:
+        mock_genai.Client.side_effect = lambda api_key: MagicMock(name=f"client-{api_key}")
+        with patch("google.genai.Client", side_effect=lambda api_key: MagicMock(name=f"client-{api_key}")):
+            _client, label = _get_available_gemini_client(skip={"GEMINI_API_KEY"})
+            assert label == "GEMINI_API_KEY2"
+
+
+@pytest.mark.asyncio
+async def test_extract_evidence_rotates_on_quota_error(monkeypatch, reset_keys):
+    """Key1 429s -> rotate to Key2 -> succeed."""
+    monkeypatch.setenv("GEMINI_API_KEY", "KEY-ONE")
+    monkeypatch.setenv("GEMINI_API_KEY2", "KEY-TWO")
+    monkeypatch.delenv("GEMINI_API_KEY3", raising=False)
+
+    # Two distinct mock clients. Client1 raises 429, Client2 returns good JSON.
+    client1 = MagicMock(name="client1")
+    client1.models.generate_content.side_effect = Exception("429 RESOURCE_EXHAUSTED: quota")
+
+    good_json = """{
+      "duration_sec": 100, "segments": [],
+      "spans": [{"ts_sec": 10, "quote": "hello", "tickers": ["MSFT"], "numbers": [], "dates_mentioned": []}]
+    }"""
+    client2 = MagicMock(name="client2")
+    client2.models.generate_content.return_value = _make_mock_response(good_json)
+
+    clients = {"KEY-ONE": client1, "KEY-TWO": client2}
+
+    with patch(
+        "consensus_engine.analysis.gemini_video_parser._get_available_gemini_client",
+        side_effect=[
+            (clients["KEY-ONE"], "GEMINI_API_KEY"),
+            (clients["KEY-TWO"], "GEMINI_API_KEY2"),
+        ],
+    ), patch("consensus_engine.db.create_analysis_run", new=AsyncMock(return_value=1)), \
+       patch("consensus_engine.db.insert_youtube_evidence_span", new=AsyncMock(return_value=None)):
+        bundle, telemetry = await extract_evidence_with_gemini(
+            "vid-rotate", "Chan", "2026-04-17T12:00:00Z",
+        )
+
+    assert bundle is not None
+    assert len(bundle.spans) == 1
+    assert telemetry.json_parse_ok is True
+    # Key 1 should be marked exhausted for the day after the 429
+    assert not _key_is_available("GEMINI_API_KEY")
+
+
+@pytest.mark.asyncio
+async def test_extract_evidence_returns_none_when_all_keys_exhausted(monkeypatch, reset_keys):
+    monkeypatch.setenv("GEMINI_API_KEY", "AAA")
+    monkeypatch.setenv("GEMINI_API_KEY2", "BBB")
+    monkeypatch.delenv("GEMINI_API_KEY3", raising=False)
+
+    c1 = MagicMock()
+    c1.models.generate_content.side_effect = Exception("429 quota exceeded")
+    c2 = MagicMock()
+    c2.models.generate_content.side_effect = Exception("429 quota exceeded")
+
+    with patch(
+        "consensus_engine.analysis.gemini_video_parser._get_available_gemini_client",
+        side_effect=[
+            (c1, "GEMINI_API_KEY"),
+            (c2, "GEMINI_API_KEY2"),
+            (None, None),
+        ],
+    ), patch("consensus_engine.db.create_analysis_run", new=AsyncMock(return_value=1)), \
+       patch("consensus_engine.db.insert_youtube_evidence_span", new=AsyncMock(return_value=None)):
+        bundle, telemetry = await extract_evidence_with_gemini(
+            "vid-all-dead", "Chan", "2026-04-17T12:00:00Z",
+        )
+
+    assert bundle is None
+    assert telemetry.json_parse_ok is False
+    assert not _key_is_available("GEMINI_API_KEY")
+    assert not _key_is_available("GEMINI_API_KEY2")
+
+
+@pytest.mark.asyncio
+async def test_extract_evidence_non_quota_error_fails_fast(monkeypatch, reset_keys):
+    """Non-quota errors must NOT trigger rotation — fail the call immediately."""
+    monkeypatch.setenv("GEMINI_API_KEY", "AAA")
+    monkeypatch.setenv("GEMINI_API_KEY2", "BBB")
+    monkeypatch.delenv("GEMINI_API_KEY3", raising=False)
+
+    c1 = MagicMock()
+    c1.models.generate_content.side_effect = Exception("connection refused")
+
+    with patch(
+        "consensus_engine.analysis.gemini_video_parser._get_available_gemini_client",
+        side_effect=[(c1, "GEMINI_API_KEY")],
+    ):
+        bundle, telemetry = await extract_evidence_with_gemini(
+            "vid-boom", "Chan", "2026-04-17T12:00:00Z",
+        )
+
+    assert bundle is None
+    assert telemetry.json_parse_ok is False
+    # Key must NOT be marked exhausted (it was a transport error, not quota)
+    assert _key_is_available("GEMINI_API_KEY")

@@ -90,18 +90,92 @@ Extraction rules:
 - Target 30–80 spans for a 40-minute video. If no qualifying spans, return an empty `spans` array."""
 
 
-def _get_gemini_client():
-    """Return a configured Gemini client, or None if API key is absent."""
-    api_key = os.environ.get("GEMINI_API_KEY", "")
-    if not api_key:
-        log.debug("gemini_video_parser: GEMINI_API_KEY not set")
-        return None
+# ─── Multi-key rotation (free-tier quota overflow) ─────────────────────────
+#
+# Supports multiple Gemini API keys via env vars GEMINI_API_KEY, GEMINI_API_KEY2,
+# GEMINI_API_KEY3, ... When one hits a 429/RESOURCE_EXHAUSTED, the caller marks
+# it exhausted until the next UTC midnight and rotates to the next available key.
+# When all configured keys are exhausted, callers receive None and the scanner
+# falls back to the legacy transcript pipeline.
+_GEMINI_KEY_ENV_NAMES = ("GEMINI_API_KEY", "GEMINI_API_KEY2", "GEMINI_API_KEY3")
+_key_exhausted_until: dict[str, float] = {}
+_key_rotation_idx = 0
+
+
+def _get_gemini_keys() -> list[tuple[str, str]]:
+    """Return [(env_label, api_key)] for every configured non-empty Gemini key."""
+    result: list[tuple[str, str]] = []
+    for env_name in _GEMINI_KEY_ENV_NAMES:
+        v = os.environ.get(env_name, "").strip()
+        if v:
+            result.append((env_name, v))
+    return result
+
+
+def _next_utc_midnight_ts() -> float:
+    """Epoch seconds at the next UTC midnight (aligned to Gemini daily-quota reset)."""
+    from datetime import datetime, timedelta, timezone
+    now = datetime.now(timezone.utc)
+    tomorrow = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    return tomorrow.timestamp()
+
+
+def _key_is_available(label: str) -> bool:
+    return time.time() >= _key_exhausted_until.get(label, 0)
+
+
+def _mark_key_exhausted(label: str) -> None:
+    _key_exhausted_until[label] = _next_utc_midnight_ts()
+    log.warning("gemini_video_parser: key %s marked exhausted until UTC midnight", label)
+
+
+def _reset_key_exhaustion() -> None:
+    """Test helper — clear exhaustion state. Not called in production code."""
+    _key_exhausted_until.clear()
+    global _key_rotation_idx
+    _key_rotation_idx = 0
+
+
+def _get_available_gemini_client(skip: set[str] | None = None):
+    """Return (client, label) for the next round-robin available key.
+
+    ``skip`` is a set of labels to exclude (used during retry after 429). Returns
+    (None, None) when no keys are configured or all are exhausted.
+    """
+    skip = skip or set()
+    keys = _get_gemini_keys()
+    if not keys:
+        log.debug("gemini_video_parser: no Gemini API keys configured")
+        return (None, None)
+    available = [(l, k) for l, k in keys if _key_is_available(l) and l not in skip]
+    if not available:
+        return (None, None)
+    global _key_rotation_idx
+    label, key = available[_key_rotation_idx % len(available)]
+    _key_rotation_idx += 1
     try:
         from google import genai
-        return genai.Client(api_key=api_key)
+        return (genai.Client(api_key=key), label)
     except Exception as e:
-        log.warning("gemini_video_parser: failed to init client: %s", e)
-        return None
+        log.warning("gemini_video_parser: failed to init client for %s: %s", label, e)
+        return (None, None)
+
+
+def _is_quota_error(exc: Exception) -> bool:
+    """Detect Gemini 429 / RESOURCE_EXHAUSTED / quota exceeded errors."""
+    msg = str(exc).lower()
+    return (
+        "429" in msg
+        or "resource_exhausted" in msg
+        or "quota" in msg
+        or "rate limit" in msg
+    )
+
+
+def _get_gemini_client():
+    """Legacy helper: return the next-available Gemini client, or None."""
+    client, _label = _get_available_gemini_client()
+    return client
 
 
 def _parse_gemini_response(raw: str) -> dict | None:
@@ -396,40 +470,55 @@ async def parse_video_with_gemini(
     This is the legacy single-call path. Phase P6 gates this behind
     ``youtube.use_two_stage`` / ``youtube.legacy_fallback`` flags.
     """
-    client = _get_gemini_client()
-    if client is None:
-        return None
-
     model = cfg.get("youtube.gemini_model", "gemini-2.5-flash-lite")
     youtube_url = f"https://www.youtube.com/watch?v={video_id}"
 
-    try:
-        from google.genai import types
+    raw = None
+    tried_labels: set[str] = set()
+    configured_keys = _get_gemini_keys()
+    max_attempts = max(1, len(configured_keys))
+    for _attempt in range(max_attempts):
+        client, key_label = _get_available_gemini_client(skip=tried_labels)
+        if client is None:
+            return None
+        try:
+            from google.genai import types
 
-        def _sync_call():
-            return client.models.generate_content(
-                model=model,
-                contents=[
-                    types.Part.from_text(text=_GEMINI_PROMPT),
-                    types.Part.from_uri(
-                        file_uri=youtube_url,
-                        mime_type="video/*",
-                    ),
-                ],
+            def _sync_call(_client=client):
+                return _client.models.generate_content(
+                    model=model,
+                    contents=[
+                        types.Part.from_text(text=_GEMINI_PROMPT),
+                        types.Part.from_uri(
+                            file_uri=youtube_url,
+                            mime_type="video/*",
+                        ),
+                    ],
+                )
+
+            loop = asyncio.get_event_loop()
+            response = await asyncio.wait_for(
+                loop.run_in_executor(None, _sync_call),
+                timeout=60,
             )
+            raw = response.text
+            break
+        except asyncio.TimeoutError:
+            log.warning("gemini_video_parser: timeout for %s via %s", video_id, key_label)
+            return None
+        except Exception as e:
+            if _is_quota_error(e):
+                log.warning("gemini_video_parser: key %s hit quota for %s: %s",
+                            key_label, video_id, str(e)[:200])
+                _mark_key_exhausted(key_label)
+                tried_labels.add(key_label)
+                continue
+            log.warning("gemini_video_parser: API error for %s via %s: %s",
+                        video_id, key_label, e)
+            return None
 
-        # Run sync Gemini SDK call in thread executor (it's not async-native)
-        loop = asyncio.get_event_loop()
-        response = await asyncio.wait_for(
-            loop.run_in_executor(None, _sync_call),
-            timeout=60,
-        )
-        raw = response.text
-    except asyncio.TimeoutError:
-        log.warning("gemini_video_parser: timeout for %s", video_id)
-        return None
-    except Exception as e:
-        log.warning("gemini_video_parser: API error for %s: %s", video_id, e)
+    if raw is None:
+        log.warning("gemini_video_parser: all Gemini keys exhausted for %s", video_id)
         return None
 
     data = _parse_gemini_response(raw)
@@ -471,11 +560,6 @@ async def extract_evidence_with_gemini(
     telemetry = RunTelemetry()
     start_ts = time.monotonic()
 
-    client = _get_gemini_client()
-    if client is None:
-        telemetry.latency_ms = int((time.monotonic() - start_ts) * 1000)
-        return (None, telemetry)
-
     # Pre-call rate limiter + budget gate (fail-open: caller falls back on None).
     try:
         from consensus_engine.utils.rate_limiter import rate_limiter
@@ -495,35 +579,69 @@ async def extract_evidence_with_gemini(
     youtube_url = f"https://www.youtube.com/watch?v={video_id}"
     timeout_sec = int(cfg.get("youtube.gemini.timeout_sec", 120))
 
+    # Key-rotation retry loop: try each non-exhausted key once. On 429, mark
+    # exhausted and rotate; on other errors, fail fast.
     response = None
-    try:
-        from google.genai import types
-
-        def _sync_call():
-            return client.models.generate_content(
-                model=model,
-                contents=[
-                    types.Part.from_text(text=_EVIDENCE_PROMPT),
-                    types.Part.from_uri(
-                        file_uri=youtube_url,
-                        mime_type="video/*",
-                    ),
-                ],
+    raw = None
+    tried_labels: set[str] = set()
+    configured_keys = _get_gemini_keys()
+    max_attempts = max(1, len(configured_keys))
+    for _attempt in range(max_attempts):
+        client, key_label = _get_available_gemini_client(skip=tried_labels)
+        if client is None:
+            log.warning(
+                "extract_evidence_with_gemini: no available Gemini key for %s "
+                "(tried %d, %d configured)", video_id, len(tried_labels), len(configured_keys)
             )
+            telemetry.latency_ms = int((time.monotonic() - start_ts) * 1000)
+            telemetry.json_parse_ok = False
+            return (None, telemetry)
+        try:
+            from google.genai import types
 
-        loop = asyncio.get_event_loop()
-        response = await asyncio.wait_for(
-            loop.run_in_executor(None, _sync_call),
-            timeout=timeout_sec,
-        )
-        raw = response.text
-    except asyncio.TimeoutError:
-        log.warning("extract_evidence_with_gemini: timeout for %s", video_id)
-        telemetry.latency_ms = int((time.monotonic() - start_ts) * 1000)
-        telemetry.json_parse_ok = False
-        return (None, telemetry)
-    except Exception as e:
-        log.warning("extract_evidence_with_gemini: API error for %s: %s", video_id, e)
+            def _sync_call(_client=client):
+                return _client.models.generate_content(
+                    model=model,
+                    contents=[
+                        types.Part.from_text(text=_EVIDENCE_PROMPT),
+                        types.Part.from_uri(
+                            file_uri=youtube_url,
+                            mime_type="video/*",
+                        ),
+                    ],
+                )
+
+            loop = asyncio.get_event_loop()
+            response = await asyncio.wait_for(
+                loop.run_in_executor(None, _sync_call),
+                timeout=timeout_sec,
+            )
+            raw = response.text
+            log.info("extract_evidence_with_gemini: %s succeeded via %s", video_id, key_label)
+            break
+        except asyncio.TimeoutError:
+            log.warning("extract_evidence_with_gemini: timeout for %s via %s", video_id, key_label)
+            telemetry.latency_ms = int((time.monotonic() - start_ts) * 1000)
+            telemetry.json_parse_ok = False
+            return (None, telemetry)
+        except Exception as e:
+            if _is_quota_error(e):
+                log.warning(
+                    "extract_evidence_with_gemini: key %s hit quota for %s: %s",
+                    key_label, video_id, str(e)[:200],
+                )
+                _mark_key_exhausted(key_label)
+                tried_labels.add(key_label)
+                continue
+            log.warning("extract_evidence_with_gemini: API error for %s via %s: %s",
+                        video_id, key_label, e)
+            telemetry.latency_ms = int((time.monotonic() - start_ts) * 1000)
+            telemetry.json_parse_ok = False
+            return (None, telemetry)
+
+    if raw is None:
+        # All keys exhausted — caller's legacy_fallback engages.
+        log.warning("extract_evidence_with_gemini: all Gemini keys exhausted for %s", video_id)
         telemetry.latency_ms = int((time.monotonic() - start_ts) * 1000)
         telemetry.json_parse_ok = False
         return (None, telemetry)

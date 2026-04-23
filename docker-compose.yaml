@@ -12,6 +12,8 @@ services:
       - ./config/searxng:/etc/searxng:rw
     environment:
       - SEARXNG_BASE_URL=http://localhost:8888
+    mem_limit: 512m
+    mem_reservation: 128m
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/healthz"]
       interval: 30s
