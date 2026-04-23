@@ -207,3 +207,87 @@ async def test_route_levels_with_data():
         assert "875" in content
         assert "920" in content
         assert "holds above" in content.lower() or "875" in content
+
+
+@pytest.mark.asyncio
+async def test_format_youtube_option_summary_call():
+    """_format_youtube_option_summary renders ticker, type, strike, expiry."""
+    from consensus_engine.alerts.commands import _format_youtube_option_summary
+    opt = {
+        "ticker": "TSLA", "option_type": "call", "strike": 250.0,
+        "expiry": "2026-05-16", "source": "flow_observation",
+    }
+    result = _format_youtube_option_summary(opt)
+    assert "TSLA" in result
+    assert "CALL" in result.upper()
+    assert "250" in result
+
+
+@pytest.mark.asyncio
+async def test_format_youtube_setup_summary_basic():
+    """_format_youtube_setup_summary renders ticker, entry, stop, target."""
+    from consensus_engine.alerts.commands import _format_youtube_setup_summary
+    import json
+    setup = {
+        "ticker": "NVDA", "entry_low": 800.0, "entry_high": 810.0,
+        "stop_price": 790.0, "targets_json": json.dumps([850.0, 900.0]),
+        "risk_reward": 3.0,
+    }
+    result = _format_youtube_setup_summary(setup)
+    assert "NVDA" in result
+    assert "800" in result
+    assert "790" in result
+
+
+@pytest.mark.asyncio
+async def test_yt_analyse_reply_includes_setups_and_options():
+    """_yt_analyse_and_reply shows setups and options sections when parsed."""
+    from consensus_engine.alerts.commands import _yt_analyse_and_reply
+    from consensus_engine.models import (
+        ParsedVideo, MacroThesis, Direction, Conviction,
+        VideoOptionIdea, VideoTradeSetup,
+    )
+
+    opt = VideoOptionIdea(
+        ticker="TSLA", option_type="call", strike=250.0, expiry="2026-05-16",
+        strategy="single", source="flow_observation", conviction="high",
+        context="big sweep", source_snippet="250c", chunk_id=0,
+    )
+    setup = VideoTradeSetup(
+        ticker="NVDA", entry_low=800.0, entry_high=810.0, stop=790.0,
+        targets=[850.0], timeframe="swing", setup_type="breakout",
+        context="breakout", source_snippet="buy 800-810", chunk_id=0,
+    )
+    mock_parsed = ParsedVideo(
+        video_id="vidZ", channel_name="TestChan", raw_transcript="",
+        tickers=[],
+        price_levels=[],
+        macro_thesis=MacroThesis(direction=Direction.NEUTRAL, themes=[], timeframe="short", summary="test macro"),
+        overall_conviction=Conviction.MEDIUM,
+        run_id=1, options=[opt], setups=[setup],
+    )
+
+    # Mock aiohttp.ClientSession so oEmbed doesn't make real HTTP calls
+    mock_resp = MagicMock()
+    mock_resp.status = 404  # force oEmbed fallback (title = video_id, channel = "unknown")
+    mock_resp.__aenter__ = AsyncMock(return_value=mock_resp)
+    mock_resp.__aexit__ = AsyncMock(return_value=False)
+    mock_sess = MagicMock()
+    mock_sess.get = MagicMock(return_value=mock_resp)
+    mock_sess.__aenter__ = AsyncMock(return_value=mock_sess)
+    mock_sess.__aexit__ = AsyncMock(return_value=False)
+
+    mock_db = MagicMock()
+    mock_db.has_video_been_processed = AsyncMock(return_value=False)
+
+    with patch("consensus_engine.alerts.commands.send_command_reply", new_callable=AsyncMock) as mock_send, \
+         patch("consensus_engine.alerts.commands.db", mock_db), \
+         patch("aiohttp.ClientSession", return_value=mock_sess), \
+         patch("consensus_engine.utils.transcript_fetch.parse_video_id", return_value="vidZ"), \
+         patch("consensus_engine.utils.transcript_fetch.fetch_transcript_cascade", new_callable=AsyncMock, return_value=("transcript text", "en", False)), \
+         patch("consensus_engine.analysis.video_parser.parse_video_transcript", new_callable=AsyncMock, return_value=mock_parsed):
+        await _yt_analyse_and_reply("https://youtu.be/vidZ", "chan1", "msg1")
+
+    all_calls = "\n".join(str(c) for c in mock_send.call_args_list)
+    assert "TSLA" in all_calls or "250" in all_calls
+    assert "NVDA" in all_calls or "800" in all_calls
