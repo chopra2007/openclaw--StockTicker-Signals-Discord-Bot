@@ -339,6 +339,37 @@ class MacroThesis:
 
 
 @dataclass
+class VideoOptionIdea:
+    """Options trade idea extracted from a YouTube video."""
+    ticker: str
+    option_type: str        # call|put
+    strike: float | None
+    expiry: str | None
+    strategy: str | None    # single|spread|leaps|debit|credit
+    source: str | None      # flow_observation|personal_idea
+    conviction: str | None  # high|medium|low
+    context: str
+    source_snippet: str
+    chunk_id: int = 0
+
+
+@dataclass
+class VideoTradeSetup:
+    """Coherent entry/stop/target trade setup extracted from a YouTube video."""
+    ticker: str
+    entry_low: float | None
+    entry_high: float | None
+    stop: float | None
+    targets: list[float]
+    timeframe: str | None   # intraday|swing|positional|long-term
+    setup_type: str | None  # breakout|pullback|earnings|trend
+    context: str
+    source_snippet: str
+    chunk_id: int = 0
+    risk_reward: float | None = None
+
+
+@dataclass
 class ParsedVideo:
     """LLM-parsed YouTube video with extracted trade intelligence."""
     video_id: str
@@ -349,6 +380,9 @@ class ParsedVideo:
     macro_thesis: MacroThesis
     overall_conviction: Conviction
     parsed_at: float = field(default_factory=time.time)
+    run_id: int | None = None
+    options: list[VideoOptionIdea] = field(default_factory=list)
+    setups: list[VideoTradeSetup] = field(default_factory=list)
 
     @property
     def has_tickers(self) -> bool:
