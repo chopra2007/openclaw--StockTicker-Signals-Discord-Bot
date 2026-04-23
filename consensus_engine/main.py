@@ -275,9 +275,9 @@ async def run_live(stop_event: asyncio.Event):
         if _is_weekend_pause():
             log.info("Weekend pause active — running command listener only")
             
-            async def on_command_weekend(cmd, args, channel_id, message_id):
+            async def on_command_weekend(cmd, args, channel_id, message_id, author_id=None):
                 from consensus_engine.alerts.commands import route_command
-                await route_command(cmd, args, channel_id, message_id)
+                await route_command(cmd, args, channel_id, message_id, author_id=author_id)
             
             async def _noop_tweet(_):
                 pass
@@ -301,10 +301,10 @@ async def run_live(stop_event: asyncio.Event):
         async def on_tweet(tweet_data: dict):
             await process_tweet(tweet_data)
 
-        async def on_command(cmd: str, args: str, channel_id: str, message_id: str):
+        async def on_command(cmd: str, args: str, channel_id: str, message_id: str, author_id: str | None = None):
             from consensus_engine.alerts.commands import route_command
 
-            await route_command(cmd, args, channel_id, message_id)
+            await route_command(cmd, args, channel_id, message_id, author_id=author_id)
 
         pause_event = asyncio.Event()
 

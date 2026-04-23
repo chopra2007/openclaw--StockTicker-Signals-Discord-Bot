@@ -53,6 +53,7 @@ class BudgetManager:
     _COLUMNS = (
         "finnhub_calls", "brave_queries", "exa_queries",
         "serpapi_queries", "firecrawl_credits",
+        "gemini_input_tokens", "gemini_output_tokens", "gemini_video_calls",
     )
 
     async def _today_key(self) -> str:
@@ -127,6 +128,27 @@ class BudgetManager:
         row = await cursor.fetchone()
         current = row[adapter_col] if row else 0
         return (current / limit) * 100 if limit > 0 else 0.0
+
+    async def can_consume_gemini(self, estimated_tokens: int = 50000) -> bool:
+        """Peek if a Gemini call with `estimated_tokens` input fits under all caps.
+        Returns True if every Gemini budget (input_tokens, output_tokens, calls)
+        still has headroom; False otherwise.
+        """
+        if not await self.can_consume("gemini_input_tokens", estimated_tokens):
+            return False
+        if not await self.can_consume("gemini_video_calls", 1):
+            return False
+        return True
+
+    async def consume_gemini(self, input_tokens: int, output_tokens: int) -> bool:
+        """Atomically bump input_tokens, output_tokens, and video_calls by 1.
+        Returns True only if all three increments stayed under their caps.
+        Any single cap breach returns False (still logs per-column warning).
+        """
+        ok_in = await self.consume("gemini_input_tokens", max(0, int(input_tokens)))
+        ok_out = await self.consume("gemini_output_tokens", max(0, int(output_tokens)))
+        ok_calls = await self.consume("gemini_video_calls", 1)
+        return ok_in and ok_out and ok_calls
 
 
 # ---------------------------------------------------------------------------
