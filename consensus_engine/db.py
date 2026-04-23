@@ -500,6 +500,37 @@ async def _run_column_migrations(conn) -> None:
     await conn.commit()
 
 
+async def _dedup_legacy_rows(conn) -> None:
+    """Delete legacy duplicate rows that violate v2 UNIQUE indices.
+
+    Keeps the oldest row (MIN(id)) per composite key. Idempotent — safe to run
+    on already-deduped tables. Must execute AFTER _run_column_migrations (so
+    run_id exists) and BEFORE POST_MIGRATION_INDICES (so CREATE UNIQUE INDEX
+    does not raise IntegrityError on legacy duplicates).
+    """
+    targets = [
+        ("youtube_signals", "run_id, ticker, direction"),
+        ("youtube_levels",  "run_id, ticker, level_type, price"),
+        ("youtube_setups",  "run_id, ticker, entry_low, entry_high"),
+        ("youtube_options", "run_id, ticker, option_type, strike, expiry"),
+    ]
+    removed = {}
+    for table, cols in targets:
+        cur = await conn.execute(
+            f"DELETE FROM {table} WHERE id NOT IN ("
+            f"SELECT MIN(id) FROM {table} GROUP BY {cols})"
+        )
+        removed[table] = cur.rowcount or 0
+    await conn.commit()
+    total = sum(removed.values())
+    if total:
+        log.info(
+            "dedup: removed %d duplicate signals, %d levels, %d setups, %d options",
+            removed["youtube_signals"], removed["youtube_levels"],
+            removed["youtube_setups"], removed["youtube_options"],
+        )
+
+
 async def init_db() -> AsyncConnection:
     """Initialize database and create tables."""
     global _db
@@ -512,6 +543,7 @@ async def init_db() -> AsyncConnection:
     await _db.execute("PRAGMA busy_timeout=5000")
     await _db.executescript(SCHEMA)
     await _run_column_migrations(_db)   # add provenance columns to existing tables
+    await _dedup_legacy_rows(_db)       # drop legacy dupes so UNIQUE index creation is safe
     for stmt in POST_MIGRATION_INDICES:
         await _db.execute(stmt)
     await _db.commit()
