@@ -467,7 +467,8 @@ def test_reference_video_style_fixture_4mSyMr8PGLI():
     assert s.entry_low == 400
     assert s.stop == 389
     assert 450 in s.targets
-    assert s.catalyst_date == "April 29"
+    # classify_evidence resolves raw dates against bundle.publish_ts.
+    assert s.catalyst_date == "2026-04-29"
     assert s.risk_reward is not None
 
     # Macro thesis built from SPY/NDX quotes

@@ -106,6 +106,16 @@ _MA_RE = re.compile(
 _TARGET_KW = {"target", "objective", "going to", "draft pick", "upside to"}
 _BREAKDOWN_KW = {"breakdown", "broken below", "below", "loses", "losing"}
 
+# "7,000 level" / "at the N level" — generic support when price is above (prior-ATH logic).
+_GENERIC_LEVEL_RE = re.compile(
+    r"(at the|the)\s+[\d,.]+\s+level\b", re.IGNORECASE
+)
+# "today's high was N" / "high of N" / "the high" — recent rejection = resistance.
+_RECENT_HIGH_RE = re.compile(
+    r"\b(high\s+(?:was|of|today|yesterday)|today'?s\s+high|the\s+high\s+(?:was|today))\b",
+    re.IGNORECASE,
+)
+
 # Setup component keywords
 _ENTRY_KW = {"entry", "get in", "enter", "buying at", "start buying", "long at"}
 _STOP_KW = {"stop", "stop loss", "invalidation", "invalidate", "below"}
@@ -135,6 +145,94 @@ def _any_kw(text: str, kws: set[str]) -> bool:
 def _count_kw(text: str, kws: set[str]) -> int:
     low = _normalize(text)
     return sum(low.count(k) for k in kws)
+
+
+# Tickers whose index/name *contains* a number → the number is a name, not a price.
+# e.g. "Nasdaq 100" appears in every NDX mention but 100 is not a level.
+_TICKER_NAME_NUMBERS: dict[str, set[float]] = {
+    "NDX": {100.0},
+    "QQQ": {100.0},
+    "SPX": {500.0},
+    "SPY": {500.0},
+    "RUT": {2000.0},
+    "XLK": {50.0},
+    "XLF": {50.0},
+    "XLE": {50.0},
+}
+
+
+def _is_plausible_price(span: EvidenceSpan, number: float, ticker: str) -> bool:
+    """Reject numbers that are obviously not price levels.
+
+    A number from Stage A's raw ``numbers[]`` is only a valid level candidate if
+    it passes sanity checks:
+      - Not the index's own name number ("Nasdaq 100" → 100 isn't a price for NDX).
+      - Not a percentage ("down 18%" → 18 isn't a level).
+      - Not a small integer count ("11 sectors", "four charts", "23 days").
+      - Tiny values (< $10) only allowed when a dollar sign or 'dollar' sits
+        within a short window of the number in the quote.
+    """
+    if number <= 0:
+        return False
+    quote = span.quote or ""
+    low = quote.lower()
+
+    # Index/ETF "name numbers" — e.g. the 100 in "Nasdaq 100".
+    named_numbers = _TICKER_NAME_NUMBERS.get(ticker.upper(), set())
+    if number in named_numbers and f"{ticker.lower()} {int(number)}" in low.replace(",", ""):
+        return False
+    # Explicit "Nasdaq 100" phrase — hits for any ticker but SPX/NDX context.
+    if number == 100.0 and "nasdaq 100" in low:
+        return False
+
+    # Context window around the number for "%", "$", "percent" detection.
+    ctx = _window_around(quote, number)
+    ctx_low = ctx.lower()
+    # If followed by % / percent → it's a percentage, not a price.
+    num_str_candidates = [str(int(number)) if float(number).is_integer() else None,
+                          f"{number:.2f}", f"{number:g}"]
+    for cand in filter(None, num_str_candidates):
+        idx = ctx.find(cand)
+        if idx >= 0:
+            tail = ctx[idx + len(cand): idx + len(cand) + 8].lstrip()
+            if tail.startswith("%") or tail.startswith(" %") or tail.lower().startswith("percent"):
+                return False
+            # "up 18" / "down 18" — likely a percentage even without %.
+            head = ctx[max(0, idx - 12): idx].lower()
+            if any(kw in head for kw in ("up ", "down ", "gain", "lost", "loss ", "fell ", "rose ", "dropped ")):
+                if "$" not in head:
+                    return False
+            break
+
+    # Integer count heuristics — "11 sectors", "four charts", "23 days".
+    # If number is a small integer AND a count word follows within 25 chars.
+    if float(number).is_integer() and number <= 50:
+        # look within 35 chars after the number
+        for cand in filter(None, num_str_candidates):
+            idx = ctx.find(cand)
+            if idx >= 0:
+                tail = ctx[idx + len(cand): idx + len(cand) + 40].lower()
+                count_words = ("sector", "chart", "day", "week", "month", "year", "point",
+                               "bar", "candle", "stock", "minute", "hour", "times", "ticker",
+                               "reason", "thing", "line", "level")
+                # "level" is tricky — speakers say "the 7,000 level" meaning price.
+                # So require the count word to be NOT preceded by "the/at the/this".
+                for cw in count_words:
+                    if cw in tail:
+                        head = ctx[max(0, idx - 15): idx].lower().rstrip()
+                        if cw == "level":
+                            # "at the 7000 level" / "the 7000 level" → it IS a price.
+                            if "the " in head or " at " in head or head.endswith("at"):
+                                continue
+                        return False
+                break
+
+    # Tiny values: < 10 require explicit $ or "dollar" near the number.
+    if number < 10:
+        if "$" not in ctx and "dollar" not in ctx_low:
+            return False
+
+    return True
 
 
 def _window_around(quote: str, number: float) -> str:
@@ -260,6 +358,11 @@ def _classify_level_type(
     if _any_kw(low, _BREAKDOWN_KW) and ("below" in low or "broken" in low):
         return "breakdown", 0.8
 
+    # Recent-high framing: "today's high was 7147" or "the high of 7147" —
+    # price has already been rejected at this level, so it is resistance.
+    if _RECENT_HIGH_RE.search(low):
+        return "resistance", 0.75
+
     if _any_kw(low, _RESISTANCE_KW):
         return "resistance", 0.85
     if "above" in low and number > 0:
@@ -272,6 +375,12 @@ def _classify_level_type(
     # Prior-ATH framing → support if price currently above.
     if ("all-time high" in low or "ath" in low) and "above" not in low:
         return "support", 0.6
+    # "at the N level" / "the 7,000 level" — generic psychological level.
+    # When price broke through without reaction (speaker's framing), it
+    # becomes prior-resistance-now-support. We tag as support with moderate
+    # confidence so downstream alerts can surface it.
+    if _GENERIC_LEVEL_RE.search(low) or " level" in low:
+        return "support", 0.5
 
     if _any_kw(low, _TARGET_KW):
         return "target", 0.7
@@ -305,6 +414,12 @@ def _classify_component(span: EvidenceSpan, number: float) -> str | None:
     if idx < 0:
         return None
     before = quote[max(0, idx - 30):idx]
+    # "entry target at N" — compound phrase where the number is the entry, not a
+    # separate target. Restrict to short tail so "entry at 400 target 450" still
+    # tags 450 as a real target rather than entry.
+    tail = before[-16:]
+    if "entry target" in tail or "entry price" in tail:
+        return "entry"
     # Pick the latest (nearest-to-number) keyword that appears in `before`.
     component_kws = [
         ("stop", ("stop", "invalidation", "invalidate")),
@@ -426,14 +541,21 @@ def _infer_catalyst_type(quote: str) -> str:
 def _extract_catalyst_candidates(
     spans: list[EvidenceSpan],
 ) -> list[CandidateCatalyst]:
-    """One CandidateCatalyst per (ticker, mentioned_date). Dates resolved later."""
+    """One CandidateCatalyst per (ticker, mentioned_date). Dates resolved later.
+
+    Skip spans whose only "ticker" is an empty placeholder — those produce
+    catalyst rows with ticker="" that add no alerting value.
+    """
     out: list[CandidateCatalyst] = []
     seen: set[tuple[str, str]] = set()
     for sp in spans:
         if not sp.dates_mentioned:
             continue
-        tickers = sp.tickers or [""]  # allow un-tickered macro catalysts
-        for ticker in tickers:
+        if not sp.tickers:
+            continue  # un-tickered date mentions produce noise — drop.
+        for ticker in sp.tickers:
+            if not ticker:
+                continue
             for date in sp.dates_mentioned:
                 key = (ticker, date)
                 if key in seen:
@@ -456,6 +578,17 @@ def _extract_catalyst_candidates(
 # Rule 5 — macro thesis
 # ---------------------------------------------------------------------------
 
+_MACRO_BULL_KW = {
+    "bullish", "rally", "rallying", "breakout", "uptrend", "all-time high",
+    "new high", "risk on", "risk-on", "buyers", "strong", "moving higher",
+    "advancing", "FOMO",
+}
+_MACRO_BEAR_KW = {
+    "bearish", "selloff", "sell-off", "crash", "downtrend", "risk off",
+    "risk-off", "capping", "topped", "exhaustion", "breakdown",
+}
+
+
 def _build_macro_thesis(spans: list[EvidenceSpan]) -> MacroThesis:
     macro_spans = [sp for sp in spans if _any_kw(sp.quote, _MACRO_KW)]
     if not macro_spans:
@@ -463,12 +596,14 @@ def _build_macro_thesis(spans: list[EvidenceSpan]) -> MacroThesis:
             direction=Direction.NEUTRAL, themes=[], timeframe="short",
             summary="", narrative="",
         )
-    # Direction from macro-only keyword tally.
-    bull = sum(_count_kw(sp.quote, _BULLISH_KW) for sp in macro_spans)
-    bear = sum(_count_kw(sp.quote, _BEARISH_KW) for sp in macro_spans)
+    # Direction from macro-specific lexicon. General bull/bear words ("lower",
+    # "higher", "below", "above") trip on recap language and mislead the tally,
+    # so use tighter macro-only keywords here.
+    bull = sum(_count_kw(sp.quote, _MACRO_BULL_KW) for sp in macro_spans)
+    bear = sum(_count_kw(sp.quote, _MACRO_BEAR_KW) for sp in macro_spans)
     if bull > bear:
         direction = Direction.LONG
-    elif bear > bull:
+    elif bear > bull * 1.3:  # small bearish lead isn't enough on macro — require clear margin
         direction = Direction.SHORT
     else:
         direction = Direction.NEUTRAL
@@ -484,7 +619,30 @@ def _build_macro_thesis(spans: list[EvidenceSpan]) -> MacroThesis:
         if len(themes) >= 3:
             break
 
-    narrative_quotes = [sp.quote for sp in macro_spans[:5]]
+    # Narrative: up to 5 macro quotes PLUS any span carrying a speaker-
+    # specific phrase we want to surface verbatim (e.g. "Sellers Shut Off",
+    # "draft pick", "Virgin POC"). Ordered by timestamp, deduped.
+    signature_phrases = (
+        "sellers shut off", "draft pick", "virgin poc", "fomo",
+        "piling on", "iceberg tick",
+    )
+    signature_spans = [
+        sp for sp in spans
+        if any(ph in (sp.quote or "").lower() for ph in signature_phrases)
+    ]
+    selected = list(macro_spans[:5])
+    for sp in signature_spans:
+        if sp not in selected:
+            selected.append(sp)
+    selected.sort(key=lambda s: s.ts_sec)
+    seen_quotes: set[str] = set()
+    narrative_quotes: list[str] = []
+    for sp in selected:
+        q = (sp.quote or "").strip()
+        if not q or q in seen_quotes:
+            continue
+        seen_quotes.add(q)
+        narrative_quotes.append(q)
     summary = narrative_quotes[0] if narrative_quotes else ""
     narrative = " ".join(narrative_quotes)
     return MacroThesis(
@@ -501,11 +659,22 @@ def _build_macro_thesis(spans: list[EvidenceSpan]) -> MacroThesis:
 # ---------------------------------------------------------------------------
 
 def _suppress_weak_signals(signals: list[CandidateSignal]) -> None:
-    """In-place suppression — keep rows, annotate reason, don't delete."""
+    """In-place suppression — keep rows, annotate reason, don't delete.
+
+    Suppression rules:
+    - direction=neutral + conviction=low -> "neutral_low" (classic noise)
+    - direction=neutral at any conviction -> "neutral_direction"
+      Rationale: a neutral direction carries no trading edge regardless of
+      how often the ticker was mentioned. These rows persist for audit but
+      do not drive alerts.
+    """
     for sig in signals:
         if sig.direction == Direction.NEUTRAL and sig.conviction == Conviction.LOW:
             sig.suppressed = True
             sig.suppression_reason = "neutral_low"
+        elif sig.direction == Direction.NEUTRAL:
+            sig.suppressed = True
+            sig.suppression_reason = "neutral_direction"
 
 
 def _suppress_near_price_dedup(
@@ -569,6 +738,8 @@ def classify_evidence(bundle: EvidenceBundle) -> ClassificationResult:
             if ticker not in sp.tickers:
                 continue
             for n in sp.numbers:
+                if not _is_plausible_price(sp, n, ticker):
+                    continue
                 level_type, level_conf = _classify_level_type(sp, n)
                 if level_type not in LEVEL_TYPES:
                     continue
@@ -589,6 +760,24 @@ def classify_evidence(bundle: EvidenceBundle) -> ClassificationResult:
     for cat in catalyst_candidates:
         if cat.catalyst_type not in CATALYST_TYPES:
             cat.catalyst_type = "other"
+
+    # Resolve raw setup.catalyst_date ("April 29") to ISO ("2026-04-29") using
+    # the same sync resolver the async catalyst pipeline uses. This lets
+    # setup-derived alerts carry a machine-readable catalyst date without
+    # waiting for the downstream async resolver pass.
+    if getattr(bundle, "publish_ts", None):
+        try:
+            from consensus_engine.analysis.catalyst_resolver import (
+                _parse_publish_ts, _resolve_relative_date,
+            )
+            publish_dt = _parse_publish_ts(bundle.publish_ts)
+            for s in setups:
+                if s.catalyst_date and not s.catalyst_date.startswith("20"):
+                    resolved = _resolve_relative_date(s.catalyst_date, publish_dt)
+                    if resolved:
+                        s.catalyst_date = resolved
+        except Exception as e:
+            log.debug("classify_evidence: setup catalyst date resolve failed: %s", e)
 
     macro = _build_macro_thesis(spans)
 
