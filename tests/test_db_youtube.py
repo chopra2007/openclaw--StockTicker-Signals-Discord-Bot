@@ -412,3 +412,158 @@ async def test_user_rate_limit(tmp_db, monkeypatch):
     for _ in range(6):
         await db.log_user_command("user1", "yt")
     assert await db.check_user_rate_limit("user1", "yt", limit=5, window_sec=60) is True
+
+
+# --- P-verify hotfix: dedup legacy rows before UNIQUE index creation ---
+
+
+@pytest.mark.asyncio
+async def test_dedup_legacy_signals(tmp_db):
+    """3 duplicate (run_id, ticker, direction) rows → 1 remains (lowest id)."""
+    conn = await db.get_db()
+    # Simulate pre-hotfix state: no UNIQUE index on youtube_signals.
+    await conn.execute("DROP INDEX IF EXISTS idx_youtube_signals_uniq")
+    run_id = await db.create_analysis_run("vidDUP1", "v2")
+    now = time.time()
+    for _ in range(3):
+        await conn.execute(
+            """INSERT INTO youtube_signals
+               (video_id, channel_name, ticker, direction, conviction,
+                parsed_at, extracted_at, run_id, parser_version)
+               VALUES (?,?,?,?,?,?,?,?,?)""",
+            ("vidDUP1", "Chan", "TSLA", "short", "high", now, now, run_id, "v2"),
+        )
+    await conn.commit()
+    cur = await conn.execute(
+        "SELECT COUNT(*) AS c FROM youtube_signals WHERE run_id=? AND ticker='TSLA' AND direction='short'",
+        (run_id,),
+    )
+    assert (await cur.fetchone())["c"] == 3
+
+    await db._dedup_legacy_rows(conn)
+
+    cur = await conn.execute(
+        "SELECT COUNT(*) AS c, MIN(id) AS min_id FROM youtube_signals WHERE run_id=? AND ticker='TSLA' AND direction='short'",
+        (run_id,),
+    )
+    row = await cur.fetchone()
+    assert row["c"] == 1
+    # Surviving row is the oldest (lowest id)
+    cur = await conn.execute(
+        "SELECT id FROM youtube_signals WHERE run_id=? AND ticker='TSLA' AND direction='short'",
+        (run_id,),
+    )
+    surviving = await cur.fetchone()
+    assert surviving["id"] == row["min_id"]
+
+
+@pytest.mark.asyncio
+async def test_dedup_legacy_levels(tmp_db):
+    conn = await db.get_db()
+    await conn.execute("DROP INDEX IF EXISTS idx_youtube_levels_uniq")
+    run_id = await db.create_analysis_run("vidDUP2", "v2")
+    now = time.time()
+    for _ in range(4):
+        await conn.execute(
+            """INSERT INTO youtube_levels
+               (video_id, ticker, level_type, price, extracted_at, run_id, parser_version)
+               VALUES (?,?,?,?,?,?,?)""",
+            ("vidDUP2", "NVDA", "support", 850.0, now, run_id, "v2"),
+        )
+    await conn.commit()
+
+    await db._dedup_legacy_rows(conn)
+
+    cur = await conn.execute(
+        "SELECT COUNT(*) AS c FROM youtube_levels WHERE run_id=? AND ticker='NVDA' AND level_type='support' AND price=850.0",
+        (run_id,),
+    )
+    assert (await cur.fetchone())["c"] == 1
+
+
+@pytest.mark.asyncio
+async def test_dedup_noop_on_clean_db(tmp_db):
+    """All-unique rows → dedup removes nothing."""
+    conn = await db.get_db()
+    run_id = await db.create_analysis_run("vidCLN", "v2")
+    now = time.time()
+    # 3 distinct tickers — no duplicates under (run_id, ticker, direction)
+    for t in ("AAPL", "NVDA", "TSLA"):
+        await conn.execute(
+            """INSERT INTO youtube_signals
+               (video_id, channel_name, ticker, direction, conviction,
+                parsed_at, extracted_at, run_id, parser_version)
+               VALUES (?,?,?,?,?,?,?,?,?)""",
+            ("vidCLN", "Chan", t, "long", "high", now, now, run_id, "v2"),
+        )
+    await conn.commit()
+    cur = await conn.execute("SELECT COUNT(*) AS c FROM youtube_signals WHERE run_id=?", (run_id,))
+    before = (await cur.fetchone())["c"]
+    assert before == 3
+
+    await db._dedup_legacy_rows(conn)
+
+    cur = await conn.execute("SELECT COUNT(*) AS c FROM youtube_signals WHERE run_id=?", (run_id,))
+    after = (await cur.fetchone())["c"]
+    assert after == before
+
+
+@pytest.mark.asyncio
+async def test_init_db_survives_legacy_duplicates(tmp_path):
+    """Simulate production issue: DB has legacy dupes and no UNIQUE index yet.
+    init_db() must dedup-then-index without raising IntegrityError, and the
+    UNIQUE index must be present afterward.
+    """
+    import sqlite3 as _sqlite3
+    db_path = str(tmp_path / "legacy.db")
+
+    # Build a minimal legacy DB: schema + migrations, NO unique index, with dupes.
+    cfg._config["database"] = {"path": db_path, "signal_ttl_hours": 2, "alert_history_days": 90}
+    db._db = None
+    await db.init_db()
+    # Drop the fresh UNIQUE index to emulate the live DB state
+    raw_conn = _sqlite3.connect(db_path)
+    raw_conn.execute("DROP INDEX IF EXISTS idx_youtube_signals_uniq")
+    raw_conn.execute("DROP INDEX IF EXISTS idx_youtube_levels_uniq")
+    raw_conn.execute("DROP INDEX IF EXISTS idx_youtube_setups_uniq")
+    raw_conn.execute("DROP INDEX IF EXISTS idx_youtube_options_uniq")
+    # Insert legacy duplicates via raw INSERT (bypassing INSERT OR IGNORE helpers)
+    now = time.time()
+    raw_conn.execute(
+        """INSERT INTO youtube_analysis_runs (video_id, parser_version, status, started_at)
+           VALUES ('vidLEG', 'v2', 'complete', ?)""",
+        (now,),
+    )
+    run_id = raw_conn.execute(
+        "SELECT id FROM youtube_analysis_runs WHERE video_id='vidLEG'"
+    ).fetchone()[0]
+    for _ in range(4):
+        raw_conn.execute(
+            """INSERT INTO youtube_signals
+               (video_id, channel_name, ticker, direction, conviction,
+                parsed_at, extracted_at, run_id, parser_version)
+               VALUES ('vidLEG','Chan','TSLA','short','high',?,?,?, 'v2')""",
+            (now, now, run_id),
+        )
+    raw_conn.commit()
+    raw_conn.close()
+    await db.close_db()
+
+    # Now simulate engine restart: init_db() must NOT raise.
+    db._db = None
+    await db.init_db()  # would raise IntegrityError without the dedup hotfix
+
+    # UNIQUE index is present
+    conn = await db.get_db()
+    cur = await conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_youtube_signals_uniq'"
+    )
+    assert await cur.fetchone() is not None
+
+    # Duplicates collapsed to 1
+    cur = await conn.execute(
+        "SELECT COUNT(*) AS c FROM youtube_signals WHERE run_id=? AND ticker='TSLA' AND direction='short'",
+        (run_id,),
+    )
+    assert (await cur.fetchone())["c"] == 1
+    await db.close_db()
