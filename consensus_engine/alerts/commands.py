@@ -925,6 +925,55 @@ async def _handle_levels(ticker: str, channel_id: str, message_id: str) -> None:
 # YouTube intelligence commands
 # ---------------------------------------------------------------------------
 
+def _format_youtube_option_summary(opt) -> str:
+    """Format a VideoOptionIdea (dataclass or dict) as a short Discord line."""
+    def _get(attr, key):
+        return getattr(opt, attr, None) if hasattr(opt, attr) else (opt.get(key) if hasattr(opt, "get") else None)
+
+    ticker = _get("ticker", "ticker") or "?"
+    opt_type = (_get("option_type", "option_type") or "?").upper()
+    strike = _get("strike", "strike")
+    expiry = _get("expiry", "expiry")
+    source = _get("source", "source") or ""
+
+    src_icon = "🔥" if "flow" in source.lower() else "💡"
+    strike_str = f"${strike:.0f}" if strike is not None else ""
+    expiry_str = f" exp {expiry}" if expiry else ""
+    return f"  {src_icon} `{ticker}` {opt_type} {strike_str}{expiry_str}".rstrip()
+
+
+def _format_youtube_setup_summary(setup) -> str:
+    """Format a VideoTradeSetup (dataclass or dict) as a short Discord line."""
+    def _get(attr, key):
+        return getattr(setup, attr, None) if hasattr(setup, attr) else (setup.get(key) if hasattr(setup, "get") else None)
+
+    ticker = _get("ticker", "ticker") or "?"
+    entry_low = _get("entry_low", "entry_low")
+    entry_high = _get("entry_high", "entry_high")
+    # dataclass uses 'stop'; DB dict uses 'stop_price'
+    stop = _get("stop", "stop") if _get("stop", "stop") is not None else _get("stop_price", "stop_price")
+    targets_raw = _get("targets", "targets")
+    targets_json = _get("targets_json", "targets_json")
+    risk_reward = _get("risk_reward", "risk_reward")
+
+    # Resolve targets to a list
+    targets: list = []
+    if isinstance(targets_raw, list):
+        targets = targets_raw
+    elif isinstance(targets_json, str):
+        import json as _json
+        try:
+            targets = _json.loads(targets_json)
+        except Exception:
+            targets = []
+
+    entry_str = f"${entry_low:.0f}–${entry_high:.0f}" if entry_low is not None and entry_high is not None else (f"${entry_low:.0f}" if entry_low is not None else "?")
+    stop_str = f"${stop:.0f}" if stop is not None else "?"
+    target_str = f"${targets[0]:.0f}" if targets else "?"
+    rr_str = f" (R/R {risk_reward:.1f}x)" if risk_reward is not None else ""
+    return f"  📐 `{ticker}` Entry {entry_str} | Stop {stop_str} | Target {target_str}{rr_str}"
+
+
 async def _handle_yt(youtube_url: str, channel_id: str, message_id: str) -> None:
     """On-demand full analysis of a YouTube video."""
     await send_command_reply(channel_id, message_id, f"Analysing {youtube_url} ...")
@@ -993,6 +1042,18 @@ async def _yt_analyse_and_reply(youtube_url: str, channel_id: str, message_id: s
                 lines.append("**Levels:**")
                 for lv in lvls:
                     lines.append(f"  `{lv.level_type.upper()}` ${lv.price:.2f} (conf {lv.confidence:.0%})")
+
+            setups = getattr(parsed, "setups", [])[:3]
+            if setups:
+                lines.append("**Trade Setups:**")
+                for s in setups:
+                    lines.append(_format_youtube_setup_summary(s))
+
+            options = getattr(parsed, "options", [])[:3]
+            if options:
+                lines.append("**Options Ideas:**")
+                for o in options:
+                    lines.append(_format_youtube_option_summary(o))
         else:
             lines.append("Already processed — use `!yt-mentions $TICKER` to see signals.")
 
