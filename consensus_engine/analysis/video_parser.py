@@ -195,6 +195,47 @@ async def _extract_mentions_pass(transcript_text: str, chunk_id: int = 0) -> dic
         p.setdefault("chunk_id", chunk_id)
     return result
 
+
+async def _extract_direction_pass(transcript_text: str, ticker_symbols: list[str]) -> list[dict]:
+    """Stage 2a: classify direction+conviction for a known ticker list."""
+    if not ticker_symbols:
+        return []
+    ticker_list = ", ".join(ticker_symbols)
+    prompt = _DIRECTION_PROMPT.format(ticker_list=ticker_list)
+    raw, ok = await _call_extraction_model(
+        prompt,
+        f"Transcript (first 3000 words):\n\n{' '.join(transcript_text.split()[:3000])}",
+        model=_STAGE2_DIR_MODEL,
+        max_tokens=1024,
+    )
+    if not ok:
+        return []
+    data = _parse_json_safe(raw, {"tickers": []})
+    return [t for t in data.get("tickers", []) if isinstance(t, dict) and t.get("symbol")]
+
+
+async def _extract_macro_pass(transcript_text: str) -> dict:
+    """Stage 2b: extract macro thesis from first 2000 words."""
+    excerpt = " ".join(transcript_text.split()[:2000])
+    raw, ok = await _call_extraction_model(
+        _MACRO_PROMPT,
+        f"Transcript:\n\n{excerpt}",
+        model=_STAGE2_MACRO_MODEL,
+        max_tokens=512,
+    )
+    if not ok:
+        return {"direction": "neutral", "themes": [], "timeframe": "short", "summary": ""}
+    data = _parse_json_safe(raw, {})
+    macro = data.get("macro_thesis", {})
+    direction = str(macro.get("direction", "neutral")).lower()
+    return {
+        "direction": direction,
+        "themes": macro.get("themes", []) if isinstance(macro.get("themes"), list) else [],
+        "timeframe": str(macro.get("timeframe", "short")).lower(),
+        "summary": str(macro.get("summary", "")),
+    }
+
+
 _SYSTEM_PROMPT = """You are a financial analyst extracting structured trade intelligence from a YouTube video transcript.
 
 Respond ONLY in this exact JSON format (no extra text, no markdown):
