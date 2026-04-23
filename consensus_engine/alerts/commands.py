@@ -67,7 +67,9 @@ HELP_TEXT = """**OpenClaw Signal Engine — Commands**
 `!yt <URL>` — on-demand analysis of a YouTube video (tickers, conviction, macro, levels)
 `!yt-mentions <TICKER>` — YouTube signals for a ticker (last 7 days)
 `!macro` — macro digest across all channels (last 7 days)
-`!yt-follow <@handle or URL>` — add a YouTube channel to the follow list (e.g. `!yt-follow @FiguringOutMoney`)"""
+`!yt-follow <@handle or URL>` — add a YouTube channel to the follow list (e.g. `!yt-follow @FiguringOutMoney`)
+`!yt-health` — 7-day YouTube pipeline health + Gemini budget snapshot
+`!yt-evidence <video_id>` — first 10 grounded evidence spans extracted from a video"""
 
 
 def parse_command(content: str) -> Optional[tuple[str, list[str]]]:
@@ -217,6 +219,15 @@ async def route_command(
             await send_command_reply(channel_id, message_id, "Usage: `!yt-follow @handle` or `!yt-follow https://youtube.com/@handle`")
         else:
             await _handle_yt_follow(args[0], channel_id, message_id)
+
+    elif command in ("yt-health", "yt_health"):
+        await _handle_yt_health(channel_id, message_id)
+
+    elif command in ("yt-evidence", "yt_evidence"):
+        if not args:
+            await send_command_reply(channel_id, message_id, "Usage: `!yt-evidence <video_id>`")
+        else:
+            await _handle_yt_evidence(args[0], channel_id, message_id)
 
     else:
         await send_command_reply(channel_id, message_id, f"Unknown command `!{command}`. Try `!help`.")
@@ -1385,3 +1396,105 @@ async def _yt_follow_and_reply(handle_or_url: str, channel_id_discord: str, mess
     except Exception as e:
         log.error("!yt-follow error for %s: %s", handle_or_url, e)
         await send_command_reply(channel_id_discord, message_id, f"Error looking up channel: {e}")
+
+
+# ---------------------------------------------------------------------------
+# !yt-health  + !yt-evidence   (Phase P8 observability)
+# ---------------------------------------------------------------------------
+
+async def _handle_yt_health(channel_id: str, message_id: str) -> None:
+    """7-day YouTube pipeline health: runs, parse rate, tokens, latency, budget,
+    top channels, suppression count."""
+    try:
+        from consensus_engine.engine import BudgetManager
+        conn = await db.get_db()
+        cur = await conn.execute(
+            """SELECT
+                   COUNT(*) AS total_runs,
+                   SUM(CASE WHEN json_parse_ok = 1 THEN 1 ELSE 0 END) AS parse_ok,
+                   AVG(span_count) AS avg_spans,
+                   SUM(input_tokens) AS total_in,
+                   SUM(output_tokens) AS total_out,
+                   AVG(latency_ms) AS avg_latency_ms,
+                   SUM(filter_drop_count) AS total_suppressed
+               FROM youtube_analysis_runs
+               WHERE started_at >= strftime('%s', 'now') - 7*24*3600"""
+        )
+        row = await cur.fetchone()
+        total_runs = (row["total_runs"] or 0) if row else 0
+        parse_ok = (row["parse_ok"] or 0) if row else 0
+        avg_spans = (row["avg_spans"] or 0.0) if row else 0.0
+        total_in = (row["total_in"] or 0) if row else 0
+        total_out = (row["total_out"] or 0) if row else 0
+        avg_latency_ms = (row["avg_latency_ms"] or 0.0) if row else 0.0
+        total_suppressed = (row["total_suppressed"] or 0) if row else 0
+        parse_pct = (parse_ok / total_runs * 100.0) if total_runs else 0.0
+
+        budget = BudgetManager()
+        budget_in_pct = await budget.pct_used("gemini_input_tokens")
+        budget_out_pct = await budget.pct_used("gemini_output_tokens")
+        budget_calls_pct = await budget.pct_used("gemini_video_calls")
+
+        cur = await conn.execute(
+            """SELECT channel_name, COUNT(*) AS n
+               FROM youtube_signals
+               WHERE extracted_at >= strftime('%s','now') - 7*24*3600
+                 AND channel_name IS NOT NULL
+               GROUP BY channel_name
+               ORDER BY n DESC
+               LIMIT 5"""
+        )
+        top_channels = await cur.fetchall()
+        top_channels_str = (
+            ", ".join(f"{c['channel_name']} ({c['n']})" for c in top_channels)
+            if top_channels else "none"
+        )
+
+        lines = [
+            "📊 **YouTube Pipeline Health — last 7 days**",
+            f"Videos analyzed: {total_runs}   Parse-ok: {parse_pct:.1f}%",
+            f"Avg spans/video: {avg_spans:.1f}   Avg latency: {avg_latency_ms/1000:.1f}s",
+            f"Gemini tokens: in {total_in:,}  out {total_out:,}",
+            f"Candidates suppressed: {total_suppressed}",
+            f"**Budget used today:** input {budget_in_pct:.0f}%  output {budget_out_pct:.0f}%  calls {budget_calls_pct:.0f}%",
+            f"**Top channels (7d):** {top_channels_str}",
+        ]
+        await send_command_reply(channel_id, message_id, "\n".join(lines))
+    except Exception as e:
+        log.error("!yt-health error: %s", e, exc_info=True)
+        await send_command_reply(channel_id, message_id, "YouTube health unavailable.")
+
+
+async def _handle_yt_evidence(video_id: str, channel_id: str, message_id: str) -> None:
+    """Show the first 10 grounded evidence spans extracted from a video_id so
+    users can audit any alert."""
+    try:
+        conn = await db.get_db()
+        cur = await conn.execute(
+            """SELECT ts_sec, quote
+               FROM youtube_evidence_spans
+               WHERE video_id = ?
+               ORDER BY ts_sec ASC
+               LIMIT 10""",
+            (video_id,),
+        )
+        rows = await cur.fetchall()
+        if not rows:
+            await send_command_reply(
+                channel_id, message_id,
+                f"No evidence spans for `{video_id}`. "
+                "Either not analyzed yet or pre-v2 run.",
+            )
+            return
+        lines = [f"🔎 **Evidence spans for `{video_id}`** (first {len(rows)})"]
+        for r in rows:
+            ts = int(r["ts_sec"] or 0)
+            mm, ss = divmod(ts, 60)
+            quote = (r["quote"] or "").strip().replace("\n", " ")
+            if len(quote) > 160:
+                quote = quote[:157] + "..."
+            lines.append(f"`{mm:02d}:{ss:02d}` — {quote}")
+        await send_command_reply(channel_id, message_id, "\n".join(lines))
+    except Exception as e:
+        log.error("!yt-evidence error for %s: %s", video_id, e, exc_info=True)
+        await send_command_reply(channel_id, message_id, "Evidence lookup failed.")
