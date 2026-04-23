@@ -36,6 +36,11 @@ Thumbs.db
 # OMC session files
 .omc/sessions/
 .omc/state/
+.omc/project-memory.json
+
+# Generated artifacts
+artifacts/
+thumbnail.jpg
 
 # Discord channel/server reference docs
 DISCORD_CHANNEL_INFO.md
