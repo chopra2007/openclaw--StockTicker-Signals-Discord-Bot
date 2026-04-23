@@ -1,0 +1,604 @@
+"""Deterministic video classifier (Stage B of v2 two-stage pipeline).
+
+Converts evidence spans emitted by Stage A (Gemini evidence extractor) into
+CandidateSignal / CandidateLevel / CandidateSetup / CandidateCatalyst objects
+plus a MacroThesis. Classification is done here — in pure Python — so every
+rule is testable in isolation, auditable, and reversible via suppression.
+
+Rules are intentionally lexical + shallow rather than learned. If a rule
+cannot decide, it either leaves the decision to the read-time filter
+(via `suppressed=True`) or lowers classifier_confidence.
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+from dataclasses import dataclass, field
+
+from consensus_engine.models import (
+    CATALYST_TYPES,
+    CandidateCatalyst,
+    CandidateLevel,
+    CandidateSetup,
+    CandidateSignal,
+    Conviction,
+    Direction,
+    EvidenceBundle,
+    EvidenceSpan,
+    LEVEL_TYPES,
+    MacroThesis,
+)
+
+log = logging.getLogger("consensus_engine.analysis.video_classifier")
+
+
+# ---------------------------------------------------------------------------
+# Result container
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ClassificationResult:
+    """Aggregate output of Stage B for one video."""
+    signals: list[CandidateSignal] = field(default_factory=list)
+    levels: list[CandidateLevel] = field(default_factory=list)
+    setups: list[CandidateSetup] = field(default_factory=list)
+    catalyst_candidates: list[CandidateCatalyst] = field(default_factory=list)
+    macro_thesis: MacroThesis | None = None
+
+
+# ---------------------------------------------------------------------------
+# Keyword lexicons
+# ---------------------------------------------------------------------------
+
+_BULLISH_KW = {
+    "bullish", "long", "buy", "calls", "breakout", "rally", "uptrend",
+    "draft pick", "top pick", "beaten down unfairly", "favorite", "conviction",
+    "upside", "higher", "ath", "all-time high",
+}
+
+_BEARISH_KW = {
+    "bearish", "short", "puts", "fade", "downside", "breakdown", "selloff",
+    "sell-off", "crash", "lower", "capping",
+}
+
+_FORWARD_SHORT_RE = re.compile(
+    r"(going to|will|would|i'?d|let'?s|if it|set up to|target|bias to)"
+    r".{0,40}"
+    r"(short|put|puts|fade|sell|lower|below|downside|breakdown)",
+    re.IGNORECASE,
+)
+
+_NEGATION_RE = re.compile(
+    r"(don'?t|do not|not|never|no)\s+\w{0,20}?"
+    r"(long|short|buy|sell|bullish|bearish)",
+    re.IGNORECASE,
+)
+
+_PAST_TENSE_RECAP_RE = re.compile(
+    r"\b(was|is|were|has been|had been|got|fell|dropped|rallied|jumped|closed)\s+"
+    r"\w{0,30}(up|down|higher|lower)\b",
+    re.IGNORECASE,
+)
+
+_CONVICTION_UPGRADE_KW = {
+    "number one", "#1", "my favorite", "top pick", "draft pick",
+    "high conviction", "my conviction",
+}
+
+_MACRO_KW = {
+    "market", "s&p", "sp500", "spx", "spy", "nasdaq", "ndx", "qqq",
+    "sector", "rotation", "macro", "fed", "fomc", "inflation", "vix",
+    "yield", "yields", "bonds", "treasury",
+}
+
+# Level-type context phrases (each maps to level_type + base confidence weight).
+_RESISTANCE_KW = {"resistance", "ceiling", "overhead", "capping"}
+_SUPPORT_KW = {
+    "support", "floor", "fomo", "defended", "pullback to", "buyers at",
+    "hold ", "holding", "bounce off", "bounced off",
+}
+_EMA_RE = re.compile(r"\b(?:\d{1,3}[- ])?ema\b|(?:\d+)[- ]period\s+ema", re.IGNORECASE)
+_MA_RE = re.compile(
+    r"\b(moving average|sma|\d{1,3}[- ]day\s+ma|simple moving|exponential moving)\b",
+    re.IGNORECASE,
+)
+_TARGET_KW = {"target", "objective", "going to", "draft pick", "upside to"}
+_BREAKDOWN_KW = {"breakdown", "broken below", "below", "loses", "losing"}
+
+# Setup component keywords
+_ENTRY_KW = {"entry", "get in", "enter", "buying at", "start buying", "long at"}
+_STOP_KW = {"stop", "stop loss", "invalidation", "invalidate", "below"}
+# For targets inside setup detection we reuse _TARGET_KW.
+
+_CATALYST_KW_MAP: list[tuple[str, set[str]]] = [
+    ("earnings", {"earnings", "eps", "report", "quarterly"}),
+    ("fed", {"fed", "fomc", "powell", "rate decision", "rate hike", "rate cut"}),
+    ("cpi", {"cpi", "inflation print", "ppi"}),
+    ("jobs", {"jobs", "nfp", "non-farm", "nonfarm", "unemployment"}),
+]
+
+
+# ---------------------------------------------------------------------------
+# Small helpers
+# ---------------------------------------------------------------------------
+
+def _normalize(text: str) -> str:
+    return (text or "").lower()
+
+
+def _any_kw(text: str, kws: set[str]) -> bool:
+    low = _normalize(text)
+    return any(k in low for k in kws)
+
+
+def _count_kw(text: str, kws: set[str]) -> int:
+    low = _normalize(text)
+    return sum(low.count(k) for k in kws)
+
+
+def _window_around(quote: str, number: float) -> str:
+    """Return ±40 char context window around the first occurrence of `number`."""
+    s = quote
+    # Try a few textual forms of the number.
+    candidates: list[str] = []
+    if float(number).is_integer():
+        candidates.append(str(int(number)))
+    candidates.append(f"{number:.2f}")
+    candidates.append(f"{number:g}")
+    for cand in candidates:
+        idx = s.find(cand)
+        if idx >= 0:
+            lo = max(0, idx - 40)
+            hi = min(len(s), idx + len(cand) + 40)
+            return s[lo:hi]
+    return s  # fall back to full quote
+
+
+# ---------------------------------------------------------------------------
+# Rule 1 — direction + conviction
+# ---------------------------------------------------------------------------
+
+def _classify_direction(
+    spans: list[EvidenceSpan], ticker: str
+) -> tuple[Direction, Conviction, float, int, str]:
+    """Classify direction + conviction for a single ticker from its spans.
+
+    Returns (direction, conviction, confidence, mention_count, context_quote).
+    Applies forward-looking-verb check and negation to avoid false short signals.
+    """
+    mention_count = 0
+    bull_score = 0
+    bear_score = 0
+    forward_short = False
+    negated = False
+    recap_only = True  # set False once a non-recap bullish/bearish quote shows up
+    context_quote = ""
+
+    for sp in spans:
+        if ticker not in sp.tickers:
+            continue
+        mention_count += 1
+        quote = sp.quote or ""
+        if not context_quote:
+            context_quote = quote
+
+        bs = _count_kw(quote, _BULLISH_KW)
+        ss = _count_kw(quote, _BEARISH_KW)
+        bull_score += bs
+        bear_score += ss
+
+        if _NEGATION_RE.search(quote):
+            negated = True
+        if _FORWARD_SHORT_RE.search(quote):
+            forward_short = True
+        # A quote is "recap-only" if it's all past-tense descriptive ("oil was
+        # down 18%") with no forward-looking verb near a bearish keyword.
+        if (bs or ss) and not _PAST_TENSE_RECAP_RE.search(quote):
+            recap_only = False
+
+    if mention_count == 0:
+        return Direction.NEUTRAL, Conviction.LOW, 0.0, 0, ""
+
+    # Decide direction.
+    if negated:
+        direction = Direction.NEUTRAL
+    elif bull_score > bear_score:
+        direction = Direction.LONG
+    elif bear_score > bull_score and forward_short and not recap_only:
+        direction = Direction.SHORT
+    else:
+        direction = Direction.NEUTRAL
+
+    # Conviction from mention_count, with upgrade for strong conviction phrases.
+    if mention_count >= 4:
+        conviction = Conviction.HIGH
+    elif mention_count >= 2:
+        conviction = Conviction.MEDIUM
+    else:
+        conviction = Conviction.LOW
+    if any(_any_kw(sp.quote, _CONVICTION_UPGRADE_KW)
+           for sp in spans if ticker in sp.tickers):
+        conviction = {
+            Conviction.LOW: Conviction.MEDIUM,
+            Conviction.MEDIUM: Conviction.HIGH,
+            Conviction.HIGH: Conviction.HIGH,
+        }[conviction]
+
+    # Confidence: ratio of dominant-side score to total keyword hits, floor 0.2.
+    total_kw = bull_score + bear_score
+    if direction == Direction.NEUTRAL:
+        confidence = 0.3 if total_kw == 0 else 0.4
+    else:
+        dominant = bull_score if direction == Direction.LONG else bear_score
+        confidence = min(1.0, 0.4 + 0.1 * dominant) if total_kw else 0.3
+    return direction, conviction, round(confidence, 3), mention_count, context_quote
+
+
+# ---------------------------------------------------------------------------
+# Rule 2 — level-type classification
+# ---------------------------------------------------------------------------
+
+def _classify_level_type(
+    span: EvidenceSpan, number: float
+) -> tuple[str, float]:
+    """Classify a (ticker, number) pair as one of LEVEL_TYPES.
+
+    Returns (level_type, confidence). Defaults to ('target', 0.3) if ambiguous —
+    callers can downgrade based on classifier_confidence at read time.
+    """
+    ctx = _window_around(span.quote or "", number)
+    low = ctx.lower()
+
+    # Check EMA/MA first — they are TA constructs tagged separately.
+    if _EMA_RE.search(low):
+        return "ema", 0.9
+    if _MA_RE.search(low):
+        return "ma", 0.85
+
+    # Breakdown wins over support when negation/below framing present.
+    if _any_kw(low, _BREAKDOWN_KW) and ("below" in low or "broken" in low):
+        return "breakdown", 0.8
+
+    if _any_kw(low, _RESISTANCE_KW):
+        return "resistance", 0.85
+    if "above" in low and number > 0:
+        # "above N" framing with no bullish support keyword usually = resistance.
+        if not _any_kw(low, _SUPPORT_KW):
+            return "resistance", 0.6
+
+    if _any_kw(low, _SUPPORT_KW):
+        return "support", 0.85
+    # Prior-ATH framing → support if price currently above.
+    if ("all-time high" in low or "ath" in low) and "above" not in low:
+        return "support", 0.6
+
+    if _any_kw(low, _TARGET_KW):
+        return "target", 0.7
+
+    # Fallback — unclassified but we keep the row.
+    return "target", 0.3
+
+
+# ---------------------------------------------------------------------------
+# Rule 3 — setup clustering
+# ---------------------------------------------------------------------------
+
+def _classify_component(span: EvidenceSpan, number: float) -> str | None:
+    """Return one of {entry, stop, target} for a number inside a span, or None.
+
+    Uses the closest component keyword that precedes the number in the quote so
+    that a single sentence like "entry 400 stop 389 target 450" correctly
+    tags each of its numbers.
+    """
+    quote = (span.quote or "").lower()
+    candidates: list[str] = []
+    if float(number).is_integer():
+        candidates.append(str(int(number)))
+    candidates.append(f"{number:.2f}")
+    candidates.append(f"{number:g}")
+    idx = -1
+    for cand in candidates:
+        idx = quote.find(cand)
+        if idx >= 0:
+            break
+    if idx < 0:
+        return None
+    before = quote[max(0, idx - 30):idx]
+    # Pick the latest (nearest-to-number) keyword that appears in `before`.
+    component_kws = [
+        ("stop", ("stop", "invalidation", "invalidate")),
+        ("entry", ("entry", "enter", "get in", "buying at", "long at")),
+        ("target", ("target", "going to", "objective", "upside to")),
+    ]
+    best_comp: str | None = None
+    best_pos: int = -1
+    for comp, kws in component_kws:
+        for kw in kws:
+            p = before.rfind(kw)
+            if p > best_pos:
+                best_pos = p
+                best_comp = comp
+    return best_comp
+
+
+def _cluster_setups(
+    spans: list[EvidenceSpan], ticker: str, window_sec: int = 90
+) -> list[CandidateSetup]:
+    """Cluster nearby spans for `ticker` into trade setups.
+
+    Requires ≥2 of {entry, stop, target, catalyst_date} — matching the v2 plan.
+    Absorbed levels are *not* deleted here; the DB helper
+    `mark_levels_absorbed_by_setup` handles that at persistence time.
+    """
+    ticker_spans = [sp for sp in spans if ticker in sp.tickers]
+    if not ticker_spans:
+        return []
+    ticker_spans.sort(key=lambda s: s.ts_sec)
+
+    clusters: list[list[EvidenceSpan]] = []
+    current: list[EvidenceSpan] = []
+    last_ts: int | None = None
+    for sp in ticker_spans:
+        if last_ts is None or sp.ts_sec - last_ts <= window_sec:
+            current.append(sp)
+        else:
+            clusters.append(current)
+            current = [sp]
+        last_ts = sp.ts_sec
+    if current:
+        clusters.append(current)
+
+    setups: list[CandidateSetup] = []
+    for cluster in clusters:
+        entries: list[float] = []
+        stops: list[float] = []
+        targets: list[float] = []
+        ctx_snippets: list[str] = []
+        span_ids: list[int] = []
+        catalyst_date: str | None = None
+        catalyst_desc: str | None = None
+        first_ts = cluster[0].ts_sec
+
+        for sp in cluster:
+            ctx_snippets.append(sp.quote)
+            if sp.dates_mentioned and catalyst_date is None:
+                catalyst_date = sp.dates_mentioned[0]
+                catalyst_desc = sp.quote
+            for n in sp.numbers:
+                comp = _classify_component(sp, n)
+                if comp == "entry":
+                    entries.append(n)
+                elif comp == "stop":
+                    stops.append(n)
+                elif comp == "target":
+                    targets.append(n)
+            # track positional index for provenance (caller can remap to DB ids)
+            span_ids.append(cluster.index(sp))
+
+        components_present = sum(bool(x) for x in [entries, stops, targets])
+        has_date = catalyst_date is not None
+        # Require ≥2 of {entry, stop, target, catalyst_date}
+        if components_present + (1 if has_date else 0) < 2:
+            continue
+
+        entry_low = min(entries) if entries else None
+        entry_high = max(entries) if entries else None
+        stop = stops[0] if stops else None
+        rr: float | None = None
+        if entry_low is not None and stop is not None and targets:
+            risk = abs(entry_low - stop)
+            reward = abs(targets[0] - entry_low)
+            rr = round(reward / risk, 3) if risk else None
+
+        confidence = 0.4 + 0.2 * components_present  # 0.6..1.0
+        setups.append(CandidateSetup(
+            ticker=ticker,
+            entry_low=entry_low,
+            entry_high=entry_high,
+            stop=stop,
+            targets=targets,
+            timeframe=None,
+            setup_type=None,
+            catalyst_date=catalyst_date,
+            catalyst_desc=catalyst_desc,
+            context=" | ".join(ctx_snippets)[:500],
+            evidence_span_ids=[],  # filled by caller with real DB ids
+            classifier_confidence=round(min(1.0, confidence), 3),
+            video_timestamp_sec=first_ts,
+            risk_reward=rr,
+        ))
+    return setups
+
+
+# ---------------------------------------------------------------------------
+# Rule 4 — catalyst candidates
+# ---------------------------------------------------------------------------
+
+def _infer_catalyst_type(quote: str) -> str:
+    low = (quote or "").lower()
+    for label, kws in _CATALYST_KW_MAP:
+        if any(k in low for k in kws):
+            return label
+    return "other"
+
+
+def _extract_catalyst_candidates(
+    spans: list[EvidenceSpan],
+) -> list[CandidateCatalyst]:
+    """One CandidateCatalyst per (ticker, mentioned_date). Dates resolved later."""
+    out: list[CandidateCatalyst] = []
+    seen: set[tuple[str, str]] = set()
+    for sp in spans:
+        if not sp.dates_mentioned:
+            continue
+        tickers = sp.tickers or [""]  # allow un-tickered macro catalysts
+        for ticker in tickers:
+            for date in sp.dates_mentioned:
+                key = (ticker, date)
+                if key in seen:
+                    continue
+                seen.add(key)
+                out.append(CandidateCatalyst(
+                    ticker=ticker,
+                    catalyst_type=_infer_catalyst_type(sp.quote),
+                    mentioned_date=date,
+                    resolved_date=None,
+                    verified=0,
+                    context_text=sp.quote,
+                    evidence_span_ids=[],  # caller maps to DB ids
+                    video_timestamp_sec=sp.ts_sec,
+                ))
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Rule 5 — macro thesis
+# ---------------------------------------------------------------------------
+
+def _build_macro_thesis(spans: list[EvidenceSpan]) -> MacroThesis:
+    macro_spans = [sp for sp in spans if _any_kw(sp.quote, _MACRO_KW)]
+    if not macro_spans:
+        return MacroThesis(
+            direction=Direction.NEUTRAL, themes=[], timeframe="short",
+            summary="", narrative="",
+        )
+    # Direction from macro-only keyword tally.
+    bull = sum(_count_kw(sp.quote, _BULLISH_KW) for sp in macro_spans)
+    bear = sum(_count_kw(sp.quote, _BEARISH_KW) for sp in macro_spans)
+    if bull > bear:
+        direction = Direction.LONG
+    elif bear > bull:
+        direction = Direction.SHORT
+    else:
+        direction = Direction.NEUTRAL
+
+    # Themes — pick up to 3 distinct macro keywords actually mentioned.
+    themes: list[str] = []
+    for sp in macro_spans:
+        for kw in _MACRO_KW:
+            if kw in sp.quote.lower() and kw not in themes:
+                themes.append(kw)
+                if len(themes) >= 3:
+                    break
+        if len(themes) >= 3:
+            break
+
+    narrative_quotes = [sp.quote for sp in macro_spans[:5]]
+    summary = narrative_quotes[0] if narrative_quotes else ""
+    narrative = " ".join(narrative_quotes)
+    return MacroThesis(
+        direction=direction,
+        themes=themes,
+        timeframe="short",
+        summary=summary,
+        narrative=narrative,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Rule 6 — suppression + dedup
+# ---------------------------------------------------------------------------
+
+def _suppress_weak_signals(signals: list[CandidateSignal]) -> None:
+    """In-place suppression — keep rows, annotate reason, don't delete."""
+    for sig in signals:
+        if sig.direction == Direction.NEUTRAL and sig.conviction == Conviction.LOW:
+            sig.suppressed = True
+            sig.suppression_reason = "neutral_low"
+
+
+def _suppress_near_price_dedup(
+    levels: list[CandidateLevel], pct_window: float = 0.005
+) -> None:
+    """Within same ticker+level_type, mark duplicates within ±0.5% as suppressed."""
+    by_key: dict[tuple[str, str], list[CandidateLevel]] = {}
+    for lvl in levels:
+        by_key.setdefault((lvl.ticker, lvl.level_type), []).append(lvl)
+    for group in by_key.values():
+        group.sort(key=lambda l: l.price)
+        kept_prices: list[float] = []
+        for lvl in group:
+            if any(abs(lvl.price - kp) <= pct_window * max(kp, 1e-9)
+                   for kp in kept_prices):
+                lvl.suppressed = True
+                lvl.suppression_reason = "near_price_dedup"
+            else:
+                kept_prices.append(lvl.price)
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
+def _unique_tickers(spans: list[EvidenceSpan]) -> list[str]:
+    seen: list[str] = []
+    for sp in spans:
+        for t in sp.tickers:
+            if t and t not in seen:
+                seen.append(t)
+    return seen
+
+
+def classify_evidence(bundle: EvidenceBundle) -> ClassificationResult:
+    """Main entry point — classify Stage A evidence into Stage B candidates."""
+    spans = bundle.spans or []
+    tickers = _unique_tickers(spans)
+
+    signals: list[CandidateSignal] = []
+    levels: list[CandidateLevel] = []
+    setups: list[CandidateSetup] = []
+
+    for ticker in tickers:
+        direction, conviction, conf, count, ctx = _classify_direction(spans, ticker)
+        first_ts = next(
+            (sp.ts_sec for sp in spans if ticker in sp.tickers), None
+        )
+        signals.append(CandidateSignal(
+            ticker=ticker,
+            direction=direction,
+            conviction=conviction,
+            mention_count=count,
+            context=ctx,
+            evidence_span_ids=[],
+            classifier_confidence=conf,
+            video_timestamp_sec=first_ts,
+        ))
+
+        for sp in spans:
+            if ticker not in sp.tickers:
+                continue
+            for n in sp.numbers:
+                level_type, level_conf = _classify_level_type(sp, n)
+                if level_type not in LEVEL_TYPES:
+                    continue
+                levels.append(CandidateLevel(
+                    ticker=ticker,
+                    level_type=level_type,
+                    price=n,
+                    context=sp.quote,
+                    evidence_span_ids=[],
+                    classifier_confidence=level_conf,
+                    video_timestamp_sec=sp.ts_sec,
+                ))
+
+        setups.extend(_cluster_setups(spans, ticker))
+
+    catalyst_candidates = _extract_catalyst_candidates(spans)
+    # Validate catalyst_type against taxonomy.
+    for cat in catalyst_candidates:
+        if cat.catalyst_type not in CATALYST_TYPES:
+            cat.catalyst_type = "other"
+
+    macro = _build_macro_thesis(spans)
+
+    _suppress_weak_signals(signals)
+    _suppress_near_price_dedup(levels)
+
+    return ClassificationResult(
+        signals=signals,
+        levels=levels,
+        setups=setups,
+        catalyst_candidates=catalyst_candidates,
+        macro_thesis=macro,
+    )
