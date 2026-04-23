@@ -476,6 +476,21 @@ async def extract_evidence_with_gemini(
         telemetry.latency_ms = int((time.monotonic() - start_ts) * 1000)
         return (None, telemetry)
 
+    # Pre-call rate limiter + budget gate (fail-open: caller falls back on None).
+    try:
+        from consensus_engine.utils.rate_limiter import rate_limiter
+        from consensus_engine.engine import BudgetManager
+        await rate_limiter.acquire("gemini")
+        budget = BudgetManager()
+        if not await budget.can_consume_gemini():
+            log.warning("extract_evidence_with_gemini: Gemini budget exhausted, skipping %s", video_id)
+            telemetry.latency_ms = int((time.monotonic() - start_ts) * 1000)
+            telemetry.json_parse_ok = False
+            return (None, telemetry)
+    except Exception as e:
+        log.debug("extract_evidence_with_gemini: budget/rate gate failed: %s", e)
+        budget = None
+
     model = cfg.get("youtube.gemini.model", "gemini-2.5-flash")
     youtube_url = f"https://www.youtube.com/watch?v={video_id}"
     timeout_sec = int(cfg.get("youtube.gemini.timeout_sec", 120))
@@ -519,6 +534,16 @@ async def extract_evidence_with_gemini(
         telemetry.input_tokens = in_tok
     if out_tok is not None:
         telemetry.output_tokens = out_tok
+
+    # Record actual usage against the daily budget (best-effort; ignore errors).
+    if budget is not None:
+        try:
+            await budget.consume_gemini(
+                telemetry.input_tokens or 0,
+                telemetry.output_tokens or 0,
+            )
+        except Exception as e:
+            log.debug("extract_evidence_with_gemini: consume_gemini failed: %s", e)
 
     data = _parse_gemini_response(raw)
     if data is None:
