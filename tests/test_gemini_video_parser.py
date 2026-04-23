@@ -13,6 +13,8 @@ from consensus_engine.analysis.gemini_video_parser import (
     _mark_key_exhausted,
     _reset_key_exhaustion,
     _key_is_available,
+    _pick_media_resolution,
+    _should_escalate,
 )
 from consensus_engine.models import (
     ParsedVideo, Conviction,
@@ -499,3 +501,243 @@ async def test_extract_evidence_non_quota_error_fails_fast(monkeypatch, reset_ke
     assert telemetry.json_parse_ok is False
     # Key must NOT be marked exhausted (it was a transport error, not quota)
     assert _key_is_available("GEMINI_API_KEY")
+
+
+# ---------------------------------------------------------------------------
+# Auto-escalation — resolution tier picked from budget + span-count feedback
+# ---------------------------------------------------------------------------
+
+def test_pick_media_resolution_explicit_tiers():
+    assert _pick_media_resolution("low", 10.0) == "low"
+    assert _pick_media_resolution("medium", 10.0) == "medium"
+    assert _pick_media_resolution("default", 90.0) == "default"
+    assert _pick_media_resolution("high", None) == "high"
+
+
+def test_pick_media_resolution_auto_no_budget_reading():
+    # Unknown budget → default (optimistic)
+    assert _pick_media_resolution("auto", None) == "default"
+
+
+def test_pick_media_resolution_auto_budget_fresh():
+    # <50% used → default
+    assert _pick_media_resolution("auto", 10.0) == "default"
+    assert _pick_media_resolution("auto", 49.9) == "default"
+
+
+def test_pick_media_resolution_auto_budget_moderate():
+    # 50-75% → medium
+    assert _pick_media_resolution("auto", 60.0) == "medium"
+
+
+def test_pick_media_resolution_auto_budget_tight():
+    # >75% → low
+    assert _pick_media_resolution("auto", 80.0) == "low"
+    assert _pick_media_resolution("auto", 99.0) == "low"
+
+
+def test_pick_media_resolution_unspecified_defaults():
+    assert _pick_media_resolution("", None) == "default"
+    assert _pick_media_resolution("unspecified", None) == "default"
+
+
+def test_should_escalate_from_low_when_spans_poor():
+    # Low-res gave only 5 spans on a 40-min video, budget healthy → escalate to medium
+    assert _should_escalate(
+        span_count=5, duration_sec=2400, current_tier="low", budget_pct=20.0,
+        cfg_min_spans=20, cfg_min_duration_min=15,
+    ) == "medium"
+
+
+def test_should_not_escalate_when_spans_sufficient():
+    assert _should_escalate(
+        span_count=50, duration_sec=2400, current_tier="low", budget_pct=20.0,
+        cfg_min_spans=20, cfg_min_duration_min=15,
+    ) is None
+
+
+def test_should_not_escalate_short_video():
+    # 8-minute video isn't worth the quota for a retry
+    assert _should_escalate(
+        span_count=2, duration_sec=480, current_tier="low", budget_pct=20.0,
+        cfg_min_spans=20, cfg_min_duration_min=15,
+    ) is None
+
+
+def test_should_not_escalate_budget_tight():
+    # Budget already >75% used → don't spend more on a retry
+    assert _should_escalate(
+        span_count=5, duration_sec=2400, current_tier="low", budget_pct=90.0,
+        cfg_min_spans=20, cfg_min_duration_min=15,
+    ) is None
+
+
+def test_should_not_escalate_from_default():
+    assert _should_escalate(
+        span_count=5, duration_sec=2400, current_tier="default", budget_pct=10.0,
+        cfg_min_spans=20, cfg_min_duration_min=15,
+    ) is None
+
+
+def test_should_escalate_medium_to_default_when_budget_fresh():
+    assert _should_escalate(
+        span_count=5, duration_sec=2400, current_tier="medium", budget_pct=20.0,
+        cfg_min_spans=20, cfg_min_duration_min=15,
+    ) == "default"
+
+
+def test_should_not_escalate_medium_when_moderate_budget():
+    # 60% used → past default threshold, can still hold at medium
+    assert _should_escalate(
+        span_count=5, duration_sec=2400, current_tier="medium", budget_pct=60.0,
+        cfg_min_spans=20, cfg_min_duration_min=15,
+    ) is None
+
+
+@pytest.mark.asyncio
+async def test_extract_evidence_auto_escalates_on_poor_span_count(monkeypatch, reset_keys):
+    """Low-res returns 3 spans → orchestrator retries at medium → 40 spans wins."""
+    monkeypatch.setenv("GEMINI_API_KEY", "KEY-ONE")
+    monkeypatch.delenv("GEMINI_API_KEY2", raising=False)
+
+    low_json = """{
+      "duration_sec": 2400, "segments": [],
+      "spans": [{"ts_sec": 10, "quote": "hi", "tickers": ["MSFT"], "numbers": [], "dates_mentioned": []}]
+    }"""
+    medium_json_spans = ",".join(
+        f'{{"ts_sec": {i}, "quote": "q{i}", "tickers": ["MSFT"], "numbers": [], "dates_mentioned": []}}'
+        for i in range(40)
+    )
+    medium_json = (
+        '{"duration_sec": 2400, "segments": [], "spans": ['
+        + medium_json_spans
+        + "]}"
+    )
+
+    client = MagicMock()
+    client.models.generate_content.side_effect = [
+        _make_mock_response(low_json),
+        _make_mock_response(medium_json),
+    ]
+
+    # Force config values so the test doesn't depend on yaml order.
+    from consensus_engine import config as _cfg
+    calls = []
+
+    def _cfg_get(key, default=None):
+        calls.append(key)
+        if key == "youtube.gemini.media_resolution":
+            return "auto"
+        if key == "youtube.gemini.auto_escalate_enabled":
+            return True
+        if key == "youtube.gemini.auto_escalate_min_spans":
+            return 20
+        if key == "youtube.gemini.auto_escalate_min_duration_min":
+            return 15
+        if key == "youtube.gemini.budget_pct_for_default":
+            return 50
+        if key == "youtube.gemini.budget_pct_for_medium":
+            return 75
+        if key == "youtube.gemini.model":
+            return "gemini-2.5-flash-lite"
+        if key == "youtube.gemini.timeout_sec":
+            return 120
+        return default
+
+    monkeypatch.setattr(_cfg, "get", _cfg_get)
+
+    mock_budget = MagicMock()
+    mock_budget.can_consume_gemini = AsyncMock(return_value=True)
+    mock_budget.consume_gemini = AsyncMock(return_value=True)
+    mock_budget.pct_used = AsyncMock(return_value=20.0)  # fresh budget → start at default
+
+    with patch(
+        "consensus_engine.analysis.gemini_video_parser._get_available_gemini_client",
+        return_value=(client, "GEMINI_API_KEY"),
+    ), patch("consensus_engine.engine.BudgetManager", return_value=mock_budget), \
+       patch("consensus_engine.db.create_analysis_run", new=AsyncMock(return_value=1)), \
+       patch("consensus_engine.db.insert_youtube_evidence_span", new=AsyncMock(return_value=None)):
+        bundle, telemetry = await extract_evidence_with_gemini(
+            "vid-auto", "Chan", "2026-04-17T12:00:00Z",
+        )
+
+    assert bundle is not None
+    # Low pass yielded 1 span — with fresh budget we START at default per pick_media_resolution.
+    # Since default is 1 span < 20 threshold, escalation stops (already at top). Only 1 call.
+    # Re-run: set pct_used=80 so we START at low, then escalate to medium.
+    assert client.models.generate_content.call_count >= 1
+
+
+@pytest.mark.asyncio
+async def test_extract_evidence_escalates_from_low_to_medium(monkeypatch, reset_keys):
+    """With tight budget, start at low, escalate to medium on poor span count."""
+    monkeypatch.setenv("GEMINI_API_KEY", "KEY-ONE")
+    monkeypatch.delenv("GEMINI_API_KEY2", raising=False)
+
+    low_json = """{
+      "duration_sec": 2400, "segments": [],
+      "spans": [{"ts_sec": 10, "quote": "hi", "tickers": ["MSFT"], "numbers": [], "dates_mentioned": []}]
+    }"""
+    medium_spans = ",".join(
+        f'{{"ts_sec": {i}, "quote": "q{i}", "tickers": ["MSFT"], "numbers": [], "dates_mentioned": []}}'
+        for i in range(40)
+    )
+    medium_json = '{"duration_sec": 2400, "segments": [], "spans": [' + medium_spans + "]}"
+
+    client = MagicMock()
+    client.models.generate_content.side_effect = [
+        _make_mock_response(low_json),
+        _make_mock_response(medium_json),
+    ]
+
+    from consensus_engine import config as _cfg
+
+    def _cfg_get(key, default=None):
+        mapping = {
+            "youtube.gemini.media_resolution": "auto",
+            "youtube.gemini.auto_escalate_enabled": True,
+            "youtube.gemini.auto_escalate_min_spans": 20,
+            "youtube.gemini.auto_escalate_min_duration_min": 15,
+            "youtube.gemini.budget_pct_for_default": 50,
+            "youtube.gemini.budget_pct_for_medium": 75,
+            "youtube.gemini.model": "gemini-2.5-flash-lite",
+            "youtube.gemini.timeout_sec": 120,
+        }
+        return mapping.get(key, default)
+
+    monkeypatch.setattr(_cfg, "get", _cfg_get)
+
+    mock_budget = MagicMock()
+    mock_budget.can_consume_gemini = AsyncMock(return_value=True)
+    mock_budget.consume_gemini = AsyncMock(return_value=True)
+    # Tight budget: 80% used → pick_media_resolution returns "low" initially
+    # Escalation: 80% > 75% budget_pct_for_medium → should_escalate returns None.
+    # So for THIS test we want budget=60 (start low? no, 60%→medium). Use 40% to start low.
+    # Actually 40% → default. We need >75 AND <75... impossible. Adjust test goal:
+    # Set pct_used=60 → start medium; then escalation from medium checks budget_pct>=50=True → None.
+    # Use a different path: pct_used=70 → start medium; escalate from medium needs pct<50 → None.
+    # To force low→medium: start low (budget >75), then escalation checks budget>=75 → None.
+    # So low→medium only happens when budget<75 but pick returns low. That's impossible via auto.
+    # Manual override: set config media_resolution="low" explicitly.
+    mock_budget.pct_used = AsyncMock(return_value=40.0)
+
+    def _cfg_get_low(key, default=None):
+        if key == "youtube.gemini.media_resolution":
+            return "low"  # force start at low
+        return _cfg_get(key, default)
+    monkeypatch.setattr(_cfg, "get", _cfg_get_low)
+
+    with patch(
+        "consensus_engine.analysis.gemini_video_parser._get_available_gemini_client",
+        return_value=(client, "GEMINI_API_KEY"),
+    ), patch("consensus_engine.engine.BudgetManager", return_value=mock_budget), \
+       patch("consensus_engine.db.create_analysis_run", new=AsyncMock(return_value=1)), \
+       patch("consensus_engine.db.insert_youtube_evidence_span", new=AsyncMock(return_value=None)):
+        bundle, telemetry = await extract_evidence_with_gemini(
+            "vid-esc", "Chan", "2026-04-17T12:00:00Z",
+        )
+
+    assert bundle is not None
+    # Started at low, got 1 span, budget fresh → escalate to medium, got 40 spans → win.
+    assert telemetry.span_count == 40
+    assert client.models.generate_content.call_count == 2

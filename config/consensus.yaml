@@ -245,14 +245,28 @@ youtube:
   use_two_stage: true                  # enable v2 evidence-first pipeline
   legacy_fallback: true                # keep old path as rollback when evidence extractor fails
   gemini:
-    # Conservative tier for dev/testing — swap to "gemini-2.5-flash" + "default" resolution
-    # once pipeline is proven. Flash-lite has a separate free-tier quota pool from flash.
+    # Free-tier friendly model. Flash-lite has a separate quota pool from flash;
+    # both support video. Swap to "gemini-2.5-flash" for higher-quality extraction
+    # once daily usage allows.
     model: "gemini-2.5-flash-lite"
     timeout_sec: 120
-    # media_resolution: "low" | "medium" | "default" (unspecified). "low" cuts video
-    # input cost ~3× (66 tok/frame vs 258) at the expense of chart-annotation legibility.
-    # Keep low while iterating; flip to "default" once Stage A prompt stabilises.
-    media_resolution: "low"
+    # media_resolution: "auto" (recommended) | "low" | "medium" | "default".
+    #   auto    = pick tier based on Gemini daily-budget utilisation (see
+    #             budget_pct_for_* below). Starts cheap, bumps up when the
+    #             classifier returns too few spans.
+    #   low     = 66 tokens/frame (~3× cheaper than default). Good for iteration.
+    #   medium  = ~1.5× default cost. Better chart-text legibility.
+    #   default = 258 tokens/frame. Highest quality extraction.
+    media_resolution: "auto"
+    # When use_two_stage runs, re-try one tier higher if Stage A returned fewer
+    # than `auto_escalate_min_spans` spans on a video longer than
+    # `auto_escalate_min_duration_min` minutes. Capped by budget.
+    auto_escalate_enabled: true
+    auto_escalate_min_spans: 20
+    auto_escalate_min_duration_min: 15
+    # Budget-aware initial-tier selection (percent of daily gemini_input_tokens used).
+    budget_pct_for_default: 50    # <50% used → start at default
+    budget_pct_for_medium: 75     # 50-75% used → start at medium; >75% → low
   classifier:
     min_confidence: 0.5                # suppress candidates below this classifier_confidence
   catalyst:
