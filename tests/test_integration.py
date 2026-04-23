@@ -1,4 +1,4 @@
-"""Integration test: Nitter RSS → tweet parse → cross-ref → Discord alert."""
+"""Integration test: tweet parse → cross-ref → Discord alert."""
 
 import asyncio
 import json
@@ -27,7 +27,7 @@ async def setup_db(tmp_path):
 
 
 SAMPLE_TWEET = {
-    "url": "https://nitter.local/analyst1/status/123",
+    "url": "https://twitter.com/analyst1/status/123",
     "text": "Loading up $NVDA calls here, 150 strike Jan exp. High conviction breakout setup.",
     "analyst": "analyst1",
     "timestamp": time.time(),
@@ -161,34 +161,3 @@ async def test_pipeline_ignores_sec_edgar_standalone_payload():
     mock_parse.assert_not_called()
     mock_ping.assert_not_called()
 
-
-@pytest.mark.asyncio
-async def test_nitter_poll_processes_tweets():
-    """NitterPoller.poll_all() results feed into process_tweet."""
-    from consensus_engine.main import nitter_poll_loop
-
-    stop = asyncio.Event()
-
-    tweets = [
-        {"url": "https://nitter.local/a1/1", "text": "$AAPL long", "analyst": "a1", "timestamp": time.time()},
-        {"url": "https://nitter.local/a2/2", "text": "$TSLA calls", "analyst": "a2", "timestamp": time.time()},
-    ]
-
-    with patch("consensus_engine.main.NitterPoller") as MockPoller:
-        instance = MockPoller.return_value
-        instance.health_check = AsyncMock(return_value=True)
-        instance.poll_all = AsyncMock(return_value=tweets)
-        instance.get_poll_interval = MagicMock(return_value=1)
-
-        with patch("consensus_engine.main.process_tweet", new_callable=AsyncMock) as mock_process:
-            # Run one iteration then stop
-            async def stop_after_one():
-                await asyncio.sleep(0.3)
-                stop.set()
-
-            await asyncio.gather(
-                nitter_poll_loop(stop),
-                stop_after_one(),
-            )
-
-            assert mock_process.call_count == 2

@@ -481,7 +481,6 @@ In the `run()` function, add the new task to the `tasks` list:
 
 ```python
     tasks = [
-        asyncio.create_task(nitter_poll_loop(stop_event), name="nitter-poller"),
         asyncio.create_task(tweetshift_listener_loop(stop_event), name="tweetshift-listener"),
         asyncio.create_task(social_scan_loop(stop_event), name="social-scanner"),
         asyncio.create_task(price_followup_loop(stop_event), name="price-followup"),
@@ -493,7 +492,6 @@ In the `run()` function, add the new task to the `tasks` list:
 Also update the log line:
 
 ```python
-    log.info("All loops started: nitter-poller, tweetshift-listener, social-scanner, price-followup, pruner, reddit-trend")
 ```
 
 - [ ] **Step 7: Run tests**
@@ -826,7 +824,6 @@ Update `_load_config` to also read the commands channel:
         self._commands_channel_id = str(
             cfg.get("api_keys.discord_channel_id", "") or ""
         ).strip()
-        accounts = cfg.get_twitter_accounts()
         self._known = _known_handles(accounts)
 ```
 

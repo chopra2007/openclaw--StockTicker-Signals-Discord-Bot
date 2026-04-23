@@ -1129,6 +1129,16 @@ async def get_channel_trust(channel_id: str) -> float:
     return float(row["trust_score"]) if row else 1.0
 
 
+async def get_approved_youtube_channels() -> list[str]:
+    """Return all approved channel_ids from the youtube_channels table."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT channel_id FROM youtube_channels WHERE approved = 1"
+    )
+    rows = await cursor.fetchall()
+    return [row["channel_id"] for row in rows]
+
+
 async def insert_youtube_macro(
     video_id: str,
     channel_id: str,

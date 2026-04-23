@@ -4,7 +4,6 @@ import pytest
 from consensus_engine.scanners.discord_tweetshift import (
     _parse_tweetshift_message,
     _normalize_handle,
-    _known_handles,
 )
 
 
@@ -31,13 +30,6 @@ class TestNormalizeHandle:
 
     def test_lowercases(self):
         assert _normalize_handle("@CheddarFlow") == "cheddarflow"
-
-
-class TestKnownHandles:
-    def test_builds_set(self):
-        handles = _known_handles(["@NickTimiraos", "@WOWSTrade"])
-        assert "nicktimiraos" in handles
-        assert "wowstrade" in handles
 
 
 class TestParseTweetShiftMessage:

@@ -20,7 +20,6 @@ Track configured YouTube channel IDs, detect new videos via RSS (free, no API ke
 
 | Concern | Choice | Rationale |
 |---------|--------|-----------|
-| Channel polling | YouTube RSS feeds (`youtube.com/feeds/videos.xml?channel_id=...`) | Free, no auth, standard Atom XML, already used pattern (Nitter RSS) |
 | Transcript extraction | `youtube-transcript-api` PyPI package | Free, no API key, pure Python, handles auto-generated + manual captions, raises `TranscriptsDisabled` / `NoTranscriptFound` for clean error handling |
 | Storage | Dedicated `youtube_videos` + `youtube_transcripts` DB tables | Existing `ticker_signals.raw_text` truncates at 2000 chars — transcripts are 10K–100K chars |
 | Export format | JSON files in `artifacts/transcripts/` via atomic `.tmp → rename` | Crash-safe; LLM consumers can read independently |
@@ -289,7 +288,6 @@ asyncio.create_task(youtube_poll_loop(stop_event)),
 
 | Risk | Mitigation |
 |------|-----------|
-| YouTube blocks RSS scraping | RSS feeds are public/unauthenticated Atom; no auth needed — same as Nitter RSS pattern |
 | `youtube-transcript-api` breaks on YouTube changes | Library is actively maintained; pin version in requirements.txt; status `failed` keeps loop alive |
 | Transcript size inflates SQLite | Separate `youtube_transcripts` table; full text stored once with hash; add optional compression later |
 | Channel list grows, loop time increases | `max_concurrency` semaphore + `max_videos_per_channel` cap bounds each cycle |

@@ -1,12 +1,10 @@
 # Changes & Updates - OpenClaw Project
-
 ## Overview
 OpenClaw is a **Signal-First Stock Alert Engine** that monitors analyst tweets on Twitter/X and triggers instant Discord alerts with cross-referenced scoring from news, social, technical, and LLM sources.
 
 ---
 
 ## Recent Changes (Latest First)
-
 ### Performance Optimization (2026-03-30)
 **Commit:** `87f4478`
 - Parallel cross-reference cascade (news, social, technical, analyst mentions run concurrently)
@@ -50,7 +48,6 @@ OpenClaw is a **Signal-First Stock Alert Engine** that monitors analyst tweets o
 ---
 
 ## Major Features
-
 ### Reddit Integration Fix
 **Commit:** `dcf54b8`
 - Switched from deprecated RSS feed to Reddit JSON API (`/new.json`)
@@ -78,7 +75,6 @@ OpenClaw is a **Signal-First Stock Alert Engine** that monitors analyst tweets o
 ---
 
 ## Fixes & Improvements
-
 ### Command System Enhancement
 **Commit:** `d7bc1f1`
 - 12 new Discord commands added
@@ -119,10 +115,8 @@ OpenClaw is a **Signal-First Stock Alert Engine** that monitors analyst tweets o
 ---
 
 ## Architecture
-
 ### Core Pipeline
 ```
-Scanners (Nitter RSS, TweetShift Discord Gateway)
     ↓
 LLM Tweet Parser (Type A/B/C/D classification)
     ↓
@@ -139,7 +133,6 @@ Detail Reply with Score Breakdown
 ```
 
 ### Self-Hosted Services
-- **Nitter** (localhost:8585) — Twitter RSS proxy
 - **SearXNG** (localhost:8888) — Meta search engine fallback
 
 ### Key Technologies

@@ -30,7 +30,7 @@ docker compose up -d                 # SearXNG (8888)
 ## Key Design Decisions
 - **Signal-first**: tweet → instant alert → async cross-reference. No gates block the alert.
 - **Finnhub free tier**: real-time quotes only (`/quote`). Historical OHLCV via yfinance in `ThreadPoolExecutor` (blocking).
-- **Config**: all thresholds/keys in `config/consensus.yaml` via `config.get("dot.path", default)`. Twitter accounts: `/root/.openclaw/sources.json`.
+- **Config**: all thresholds/keys in `config/consensus.yaml` via `config.get("dot.path", default)`. YouTube channels: `/root/.openclaw/sources.json`. API keys: `/root/.openclaw/.env`.
 - **playwright-stealth**: `from playwright_stealth import Stealth` → `Stealth().apply_stealth_async(page)` — NOT `stealth_async()`.
 - Tests: `pytest.ini` `asyncio_mode = auto`.
 

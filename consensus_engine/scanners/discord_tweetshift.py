@@ -43,11 +43,6 @@ def _normalize_handle(raw: str) -> str:
     return raw.lstrip("@").lower()
 
 
-def _known_handles(sources: list[str]) -> set[str]:
-    """Build a set of normalized handles from sources.json accounts."""
-    return {_normalize_handle(h) for h in sources}
-
-
 def _parse_tweetshift_message(message: dict) -> Optional[dict]:
     """Extract tweet data from a TweetShift Discord message.
 
@@ -150,7 +145,6 @@ class DiscordTweetShiftListener:
         self._token: str = ""
         self._feed_channel_id: str = ""
         self._commands_channel_id: str = ""
-        self._known: set[str] = set()
 
         self._session_id: Optional[str] = None
         self._sequence: Optional[int] = None
@@ -168,8 +162,6 @@ class DiscordTweetShiftListener:
         ).strip()
         if not self._commands_channel_id:
             log.warning("discord_channel_id not configured — command routing disabled")
-        accounts = cfg.get_twitter_accounts()
-        self._known = _known_handles(accounts)
 
     async def _send(self, payload: dict):
         if self._ws and not self._ws.closed:
@@ -261,14 +253,6 @@ class DiscordTweetShiftListener:
                     tweet_data["discord_source_link"] = (
                         f"https://discord.com/channels/{guild_id}/{channel_id}/{message_id}"
                     )
-                analyst_norm = _normalize_handle(tweet_data.get("analyst", ""))
-                if self._known and analyst_norm not in self._known and analyst_norm != "image_post":
-                    log.debug(
-                        "Ignoring non-tracked handle in feed channel: @%s",
-                        tweet_data.get("analyst", ""),
-                    )
-                    return
-
                 tweet_data["image_urls"] = deduped
                 tweet_data["image_url"] = deduped[0] if deduped else None
                 log.info(
@@ -358,11 +342,7 @@ class DiscordTweetShiftListener:
             log.error("No discord_feed_channel_id configured — TweetShift listener disabled")
             return
 
-        log.info(
-            "TweetShift listener starting (channel=%s, watching %d accounts)",
-            self._feed_channel_id,
-            len(self._known),
-        )
+        log.info("TweetShift listener starting (channel=%s)", self._feed_channel_id)
 
         backoff = 5
         while not stop_event.is_set() and not self._stop:
