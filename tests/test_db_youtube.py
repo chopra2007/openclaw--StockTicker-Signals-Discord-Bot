@@ -108,6 +108,64 @@ async def test_insert_and_get_youtube_setup(tmp_db):
     assert rows[0]["risk_reward"] == pytest.approx(2.5)
 
 
+# --- Task 3: canonical evidence read + level absorption ---
+
+@pytest.mark.asyncio
+async def test_canonical_evidence_returns_setups_not_raw_levels(tmp_db):
+    """When a setup exists, absorbed levels are excluded from canonical evidence."""
+    run_id = await db.create_analysis_run("vidCE1", "v2")
+    # Insert a setup
+    setup_id = await db.insert_youtube_setup(
+        run_id=run_id, video_id="vidCE1", ticker="AAPL",
+        entry_low=180.0, entry_high=182.0, stop_price=175.0,
+        targets=[195.0], timeframe="swing", setup_type="breakout",
+        context_text="buy AAPL 180-182 stop 175 target 195",
+        source_snippet="buy AAPL", chunk_id=0, risk_reward=2.6,
+        parser_version="v2", channel_name="Chan", published_at=None,
+    )
+    # Insert levels that belong to this setup (absorbed)
+    conn = await db.get_db()
+    await conn.execute(
+        """INSERT INTO youtube_levels
+           (video_id, ticker, level_type, price, extracted_at, setup_id, parser_version, run_id)
+           VALUES (?,?,?,?,?,?,?,?)""",
+        ("vidCE1", "AAPL", "support", 180.0, time.time(), setup_id, "v2", run_id),
+    )
+    # Insert an unabsorbed level
+    await conn.execute(
+        """INSERT INTO youtube_levels
+           (video_id, ticker, level_type, price, extracted_at, parser_version, run_id)
+           VALUES (?,?,?,?,?,?,?)""",
+        ("vidCE1", "AAPL", "resistance", 200.0, time.time(), "v2", run_id),
+    )
+    await conn.commit()
+
+    rows = await db.get_youtube_evidence_for_ticker("AAPL", days=7)
+    types = {r["evidence_type"] for r in rows}
+    assert "setup" in types
+    # The absorbed level (180.0 support) must not appear as a standalone level
+    raw_level_prices = [r["price"] for r in rows if r["evidence_type"] == "level"]
+    assert 180.0 not in raw_level_prices
+    # The unabsorbed resistance should appear
+    assert 200.0 in raw_level_prices
+
+@pytest.mark.asyncio
+async def test_canonical_evidence_falls_back_to_levels_when_no_setup(tmp_db):
+    run_id = await db.create_analysis_run("vidCE2", "v2")
+    conn = await db.get_db()
+    await conn.execute(
+        """INSERT INTO youtube_levels
+           (video_id, ticker, level_type, price, extracted_at, parser_version, run_id)
+           VALUES (?,?,?,?,?,?,?)""",
+        ("vidCE2", "NVDA", "support", 850.0, time.time(), "v2", run_id),
+    )
+    await conn.commit()
+    rows = await db.get_youtube_evidence_for_ticker("NVDA", days=7)
+    assert len(rows) == 1
+    assert rows[0]["evidence_type"] == "level"
+    assert rows[0]["price"] == 850.0
+
+
 @pytest.mark.asyncio
 async def test_tables_created(test_db):
     conn = await db.get_db()
