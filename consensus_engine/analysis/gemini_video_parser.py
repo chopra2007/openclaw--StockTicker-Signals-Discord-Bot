@@ -112,12 +112,26 @@ def _get_gemini_keys() -> list[tuple[str, str]]:
     return result
 
 
-def _next_utc_midnight_ts() -> float:
-    """Epoch seconds at the next UTC midnight (aligned to Gemini daily-quota reset)."""
+def _next_quota_reset_ts() -> float:
+    """Epoch seconds at the next Gemini free-tier quota reset.
+
+    Google resets daily (RPD) quotas at midnight Pacific Time, not UTC:
+    https://ai.google.dev/gemini-api/docs/rate-limits#quotas-reset
+    """
     from datetime import datetime, timedelta, timezone
-    now = datetime.now(timezone.utc)
-    tomorrow = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-    return tomorrow.timestamp()
+    try:
+        from zoneinfo import ZoneInfo
+        pt = ZoneInfo("America/Los_Angeles")
+    except Exception:
+        # Fallback on systems without tzdata: approximate with UTC-8 (no DST).
+        pt = timezone(timedelta(hours=-8))
+    now_pt = datetime.now(pt)
+    tomorrow_pt = (now_pt + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    return tomorrow_pt.timestamp()
+
+
+# Backwards-compat alias for any test that referenced the old name.
+_next_utc_midnight_ts = _next_quota_reset_ts
 
 
 def _key_is_available(label: str) -> bool:
@@ -125,8 +139,8 @@ def _key_is_available(label: str) -> bool:
 
 
 def _mark_key_exhausted(label: str) -> None:
-    _key_exhausted_until[label] = _next_utc_midnight_ts()
-    log.warning("gemini_video_parser: key %s marked exhausted until UTC midnight", label)
+    _key_exhausted_until[label] = _next_quota_reset_ts()
+    log.warning("gemini_video_parser: key %s marked exhausted until next Pacific midnight", label)
 
 
 def _reset_key_exhaustion() -> None:
