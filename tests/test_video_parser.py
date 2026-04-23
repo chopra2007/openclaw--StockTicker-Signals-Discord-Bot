@@ -218,3 +218,37 @@ def test_find_option_snippets_returns_empty_when_none():
     from consensus_engine.analysis.video_parser import _find_option_snippets
     snippets = _find_option_snippets("NVDA looks good above 850, stop at 820.")
     assert snippets == []
+
+
+# ---------------------------------------------------------------------------
+# Task 7 (Plan Task 6): Stage 2 direction + macro passes
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_extract_direction_pass_classifies_tickers():
+    from consensus_engine.analysis.video_parser import _extract_direction_pass
+    fake = '{"tickers": [{"symbol": "NVDA", "direction": "long", "conviction": "high", "context": "breakout", "source_snippet": "NVDA breakout above 850"}]}'
+    with patch("consensus_engine.analysis.video_parser._call_extraction_model",
+               new=AsyncMock(return_value=(fake, True))):
+        result = await _extract_direction_pass("some transcript", ["NVDA"])
+    assert result[0]["symbol"] == "NVDA"
+    assert result[0]["direction"] == "long"
+    assert result[0]["source_snippet"] == "NVDA breakout above 850"
+
+
+@pytest.mark.asyncio
+async def test_extract_direction_pass_empty_tickers_returns_empty():
+    from consensus_engine.analysis.video_parser import _extract_direction_pass
+    result = await _extract_direction_pass("some transcript", [])
+    assert result == []
+
+
+@pytest.mark.asyncio
+async def test_extract_macro_pass_returns_thesis():
+    from consensus_engine.analysis.video_parser import _extract_macro_pass
+    fake = '{"macro_thesis": {"direction": "bearish", "themes": ["rate hikes"], "timeframe": "short", "summary": "Fed staying hawkish."}}'
+    with patch("consensus_engine.analysis.video_parser._call_extraction_model",
+               new=AsyncMock(return_value=(fake, True))):
+        result = await _extract_macro_pass("Fed is hiking rates and markets are falling.")
+    assert result["direction"] == "bearish"
+    assert "rate hikes" in result["themes"]
