@@ -182,16 +182,20 @@ async def _get_youtube_context(ticker: str):
         # Consensus direction
         consensus_dir = max(direction_votes, key=direction_votes.get)
 
-        # Get price levels
-        levels = await db.get_youtube_levels_for_ticker(ticker, days=7)
-        level_data = [
-            {
-                "type": level.get("level_type"),
-                "price": level.get("price"),
-                "confidence": level.get("confidence", 0.8),
-            }
-            for level in levels
-        ]
+        # Get canonical evidence: setups first, then unabsorbed raw levels
+        evidence = await db.get_youtube_evidence_for_ticker(ticker, days=7)
+        level_data = []
+        for ev in evidence:
+            if ev.get("evidence_type") == "setup":
+                price = ev.get("entry_low") or ev.get("entry_high")
+                level_type = f"setup:{ev.get('setup_type', 'unknown')}"
+                conf = 0.85
+            else:
+                price = ev.get("price")
+                level_type = ev.get("level_type")
+                conf = ev.get("confidence", 0.8)
+            if price is not None:
+                level_data.append({"type": level_type, "price": price, "confidence": conf})
 
         # Determine score boost
         conv_map = {"high": 15, "medium": 10, "low": 5}

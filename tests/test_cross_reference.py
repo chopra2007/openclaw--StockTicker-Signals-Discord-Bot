@@ -226,3 +226,44 @@ async def test_analyst_multiplier_capped():
 
     # 3 (cap) * 20 = 60, NOT 10 * 20 = 200
     assert result.breakdown.additional_analysts == 60
+
+
+@pytest.mark.asyncio
+async def test_get_youtube_context_uses_canonical_evidence():
+    """_get_youtube_context must call get_youtube_evidence_for_ticker, not get_youtube_levels_for_ticker."""
+    from consensus_engine.cross_reference import _get_youtube_context
+
+    signals = [
+        {"direction": "long", "conviction": "high", "channel_name": "Chan1"},
+    ]
+    # canonical evidence: one setup + one raw level
+    evidence = [
+        {
+            "evidence_type": "setup", "id": 1, "ticker": "TSLA",
+            "entry_low": 240.0, "entry_high": 250.0, "stop_price": 230.0,
+            "setup_type": "breakout", "price": None, "level_type": None,
+            "confidence": None, "channel_name": "Chan1",
+        },
+        {
+            "evidence_type": "level", "id": 2, "ticker": "TSLA",
+            "entry_low": None, "entry_high": None, "stop_price": None,
+            "setup_type": None, "price": 260.0, "level_type": "resistance",
+            "confidence": 0.85, "channel_name": "Chan1",
+        },
+    ]
+
+    with patch("consensus_engine.cross_reference.db") as mock_db:
+        mock_db.get_youtube_signals_for_ticker = AsyncMock(return_value=signals)
+        mock_db.get_youtube_evidence_for_ticker = AsyncMock(return_value=evidence)
+        # get_youtube_levels_for_ticker must NOT be called
+        mock_db.get_youtube_levels_for_ticker = AsyncMock(side_effect=AssertionError("must not call get_youtube_levels_for_ticker"))
+
+        ctx = await _get_youtube_context("TSLA")
+
+    assert ctx is not None
+    assert ctx.mention_count == 1
+    # Both setup and level should appear in ctx.levels (price fields populated)
+    assert len(ctx.levels) == 2
+    prices = {lv["price"] for lv in ctx.levels}
+    assert 240.0 in prices  # from setup entry_low
+    assert 260.0 in prices  # from raw level
