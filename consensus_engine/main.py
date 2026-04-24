@@ -605,7 +605,7 @@ async def process_tweet(raw_tweet: dict):
             sentiment=_tweet_sentiment(tweet),
         ))
 
-        if not await db.check_alert_cooldown(ticker):
+        if not await db.check_alert_cooldown(ticker, tweet.analyst, tweet.base_score):
             continue
 
         # Degraded-mode suppression: skip high-confidence alerts when data is unreliable

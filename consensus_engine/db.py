@@ -536,6 +536,9 @@ async def init_db() -> AsyncConnection:
     global _db
     db_path = DB_PATH or cfg.get("database.path", "/root/.openclaw/workspace/consensus.db")
     conn = sqlite3.connect(db_path, check_same_thread=False, isolation_level=None)
+    # unixepoch() is a SQLite 3.38+ builtin; shim it so test/dev boxes on 3.37
+    # (e.g. Ubuntu 22.04 default) can still run SQL that calls it.
+    conn.create_function("unixepoch", 0, lambda: int(time.time()))
     _db = AsyncConnection(conn)
     _db.row_factory = sqlite3.Row
     # WAL mode for concurrent read/write from multiple coroutines
@@ -694,17 +697,88 @@ async def get_active_tickers(min_signals: int = 1) -> list[str]:
     return [r["ticker"] for r in rows]
 
 
-async def check_alert_cooldown(ticker: str) -> bool:
-    """Returns True if we can alert on this ticker (cooldown has passed)."""
-    cooldown_hours = cfg.get("alerts.cooldown_hours", 6)
-    cutoff = time.time() - (cooldown_hours * 3600)
-    db = await get_db()
-    cursor = await db.execute(
-        "SELECT COUNT(*) as cnt FROM alert_history WHERE ticker = ? AND alerted_at > ?",
-        (ticker, cutoff),
+async def get_analyst_precision(analyst: str, horizon: str = "1h") -> float | None:
+    """Return rolling_accuracy for analyst at horizon, or None if sample_count < 5."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT rolling_accuracy, sample_count FROM source_performance
+           WHERE entity_id = ? AND horizon = ?""",
+        (analyst, horizon),
     )
     row = await cursor.fetchone()
-    return row["cnt"] == 0
+    if row is None or (row["sample_count"] or 0) < 5:
+        return None
+    return float(row["rolling_accuracy"])
+
+
+async def check_alert_cooldown(
+    ticker: str,
+    analyst: str | None = None,
+    base_score: int | None = None,
+) -> bool:
+    """Return True when an alert for (ticker, analyst, base_score) is allowed.
+
+    M3: exploits per-analyst 1h-hit-rate spread (14%-83% observed). High-precision
+    analysts get a shorter cooldown; every path still enforces floor_minutes.
+    Falls back to blanket ticker-level 6h when per_analyst_cooldown is disabled
+    OR the analyst has < 5 samples in source_performance.
+    """
+    cooldown_hours = cfg.get("alerts.cooldown_hours", 6)
+    per_analyst_enabled = cfg.get("alerts.per_analyst_cooldown.enabled", True)
+    high_conv_bypass = cfg.get("alerts.per_analyst_cooldown.high_conviction_bypass", True)
+    high_conv_threshold = cfg.get(
+        "precision_engine.thresholds.high_conviction_threshold", 30
+    )
+    floor_minutes = cfg.get("alerts.per_analyst_cooldown.floor_minutes", 30)
+
+    conn = await get_db()
+
+    async def _blanket_blocked() -> bool:
+        cutoff = time.time() - (cooldown_hours * 3600)
+        cursor = await conn.execute(
+            "SELECT COUNT(*) as cnt FROM alert_history WHERE ticker = ? AND alerted_at > ?",
+            (ticker, cutoff),
+        )
+        row = await cursor.fetchone()
+        return row["cnt"] > 0
+
+    async def _analyst_blocked_within(window_minutes: int) -> bool:
+        cutoff = time.time() - (window_minutes * 60)
+        cursor = await conn.execute(
+            """SELECT COUNT(*) as cnt FROM alert_history
+               WHERE ticker = ? AND analyst_mentions LIKE ? AND alerted_at > ?""",
+            (ticker, f'%"{analyst}"%', cutoff),
+        )
+        row = await cursor.fetchone()
+        return row["cnt"] > 0
+
+    # Legacy ticker-level blanket cooldown
+    if not per_analyst_enabled or analyst is None:
+        return not await _blanket_blocked()
+
+    # HIGH-conviction bypass: skips every cooldown including the floor.
+    if (
+        high_conv_bypass
+        and base_score is not None
+        and base_score >= high_conv_threshold
+    ):
+        return True
+
+    # Per-analyst path with precision weighting (fallback: default cooldown_hours).
+    precision = await get_analyst_precision(analyst, horizon="1h")
+    if precision is None:
+        scaled_minutes = cooldown_hours * 60
+    else:
+        # Map precision [0.0, 1.0] -> scaled_minutes [cooldown_hours*60, floor_minutes]
+        default_minutes = cooldown_hours * 60
+        scaled_minutes = max(
+            floor_minutes,
+            int(floor_minutes + (default_minutes - floor_minutes) * (1.0 - precision)),
+        )
+    if await _analyst_blocked_within(scaled_minutes):
+        return False
+    # Always enforce floor regardless of precision
+    return not await _analyst_blocked_within(floor_minutes)
 
 
 async def insert_alert(ticker: str, confidence: float, catalyst: str, catalyst_type: str,
