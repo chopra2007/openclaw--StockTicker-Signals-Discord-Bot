@@ -7,51 +7,41 @@ A Python pipeline that turns analyst tweets, YouTube transcripts, news, SEC fili
 Signals are ingested from independent scanners into a single `signal_events` table (idempotent, normalized). Each ingestion triggers a two-phase alert — Phase 1 ships an instant Discord ping within seconds; Phase 2 runs cross-reference + precision-engine in parallel and edits the Phase-1 message with the score breakdown (or an explicit skip reason on timeout).
 
 ```mermaid
-%%{init: {'theme':'base','themeVariables':{'fontSize':'18px','fontFamily':'ui-sans-serif, system-ui, sans-serif','primaryColor':'#1e40af','primaryTextColor':'#ffffff','primaryBorderColor':'#60a5fa','lineColor':'#475569','edgeLabelBackground':'#f1f5f9','tertiaryColor':'#0f172a'}}}%%
+%%{init: {'theme':'base','themeVariables':{'fontSize':'13px','lineColor':'#94a3b8'}}}%%
 flowchart TD
-    SRC["<b>Signal sources</b><br/>TweetShift · YouTube · News cascade<br/>SEC EDGAR · Technical · Social<br/>Options flow · Proactive scanners"]
-
-    SRC --> INGEST[("<b>signal_events</b><br/>idempotent · normalized")]
-
-    INGEST --> P1{"<b>Phase 1 gate</b><br/>quality + per-analyst cooldown"}
-    P1 -->|blocked| DROP["<b>Dropped</b><br/>logged only"]
-    P1 -->|pass| PING["<b>Discord instant ping</b><br/>#alerts · base score"]
-
-    PING --> P2["<b>Phase 2</b> — parallel<br/>asyncio.wait_for xref = 120s"]
-
-    P2 --> XREF["<b>cross_reference()</b><br/>news · SEC · technical · social<br/>options · LLM boost"]
-    P2 --> PREC["<b>analyze_signal()</b><br/>precision engine<br/><i>survives xref timeout</i>"]
-
-    XREF -->|timeout / error| SKIP1["<b>Edit:</b> Phase 2<br/>skipped — timeout"]
-    XREF -->|complete| MERGE{"merge xref<br/>+ precision"}
+    SRC["<b>Signal sources</b><br/>TweetShift · YouTube · News · SEC<br/>Technical · Social · Options"]
+    SRC --> INGEST["<b>signal_events</b>"]
+    INGEST --> P1{"Phase 1 gate<br/>quality + cooldown"}
+    P1 -->|blocked| DROP["dropped"]
+    P1 -->|pass| PING["<b>Discord ping</b>"]
+    PING --> P2["Phase 2 · wait_for 120s"]
+    P2 --> XREF["cross_reference()"]
+    P2 --> PREC["analyze_signal()<br/>survives timeout"]
+    XREF -->|timeout| SKIP1["edit: skipped — timeout"]
+    XREF -->|done| MERGE{merge}
     PREC --> MERGE
+    MERGE -->|IGNORE| SKIP2["edit: skipped — low precision"]
+    MERGE -->|ALERT| FOLLOW["<b>edit: follow-up embed</b><br/>score breakdown"]
+    FOLLOW --> SHADOW["<b>decision_snapshots</b><br/>shadow calibration"]
+    FOLLOW --> TRACK["price follow-up · 1h + 24h"]
+    TRACK --> PERF["<b>source_performance</b><br/>rolling_accuracy"]
+    PERF -.->|feeds cooldown| P1
 
-    MERGE -->|classification =<br/>IGNORE| SKIP2["<b>Edit:</b> Phase 2<br/>skipped — low precision"]
-    MERGE -->|ALERT /<br/>WATCHLIST| FOLLOW["<b>Edit: follow-up embed</b><br/>score breakdown<br/>+ score/100 (uncalibrated)"]
-
-    FOLLOW --> SHADOW[("<b>decision_snapshots</b><br/>shadow calibration JSON")]
-    FOLLOW --> TRACK["<b>Price follow-up</b><br/>1h + 24h outcomes"]
-
-    TRACK --> PERF[("<b>source_performance</b><br/>rolling_accuracy<br/>per analyst × horizon")]
-    PERF -.->|feeds M3 cooldown| P1
-
-    style SRC      fill:#1e3a8a,stroke:#3b82f6,stroke-width:2px,color:#ffffff
-    style INGEST   fill:#0f172a,stroke:#64748b,stroke-width:2px,color:#f8fafc
-    style P1       fill:#b45309,stroke:#f59e0b,stroke-width:2px,color:#ffffff
-    style PING     fill:#166534,stroke:#22c55e,stroke-width:2px,color:#ffffff
-    style P2       fill:#5b21b6,stroke:#a855f7,stroke-width:2px,color:#ffffff
-    style XREF     fill:#4c1d95,stroke:#8b5cf6,stroke-width:2px,color:#ffffff
-    style PREC     fill:#4c1d95,stroke:#8b5cf6,stroke-width:2px,color:#ffffff
-    style MERGE    fill:#6d28d9,stroke:#a855f7,stroke-width:2px,color:#ffffff
-    style FOLLOW   fill:#166534,stroke:#22c55e,stroke-width:2px,color:#ffffff
-    style SKIP1    fill:#991b1b,stroke:#ef4444,stroke-width:2px,color:#ffffff
-    style SKIP2    fill:#991b1b,stroke:#ef4444,stroke-width:2px,color:#ffffff
-    style DROP     fill:#374151,stroke:#9ca3af,stroke-width:2px,color:#ffffff
-    style SHADOW   fill:#0f172a,stroke:#64748b,stroke-width:2px,color:#f8fafc
-    style TRACK    fill:#1e40af,stroke:#60a5fa,stroke-width:2px,color:#ffffff
-    style PERF     fill:#0f172a,stroke:#64748b,stroke-width:2px,color:#f8fafc
-
-    linkStyle default stroke:#64748b,stroke-width:2px
+    style SRC      fill:#1e3a8a,stroke:#3b82f6,color:#ffffff
+    style INGEST   fill:#0f172a,stroke:#94a3b8,color:#ffffff
+    style P1       fill:#b45309,stroke:#f59e0b,color:#ffffff
+    style PING     fill:#166534,stroke:#22c55e,color:#ffffff
+    style P2       fill:#5b21b6,stroke:#a855f7,color:#ffffff
+    style XREF     fill:#4c1d95,stroke:#8b5cf6,color:#ffffff
+    style PREC     fill:#4c1d95,stroke:#8b5cf6,color:#ffffff
+    style MERGE    fill:#6d28d9,stroke:#a855f7,color:#ffffff
+    style FOLLOW   fill:#166534,stroke:#22c55e,color:#ffffff
+    style SKIP1    fill:#991b1b,stroke:#ef4444,color:#ffffff
+    style SKIP2    fill:#991b1b,stroke:#ef4444,color:#ffffff
+    style DROP     fill:#374151,stroke:#9ca3af,color:#ffffff
+    style SHADOW   fill:#0f172a,stroke:#94a3b8,color:#ffffff
+    style TRACK    fill:#1e40af,stroke:#60a5fa,color:#ffffff
+    style PERF     fill:#0f172a,stroke:#94a3b8,color:#ffffff
 ```
 
 Calibration is logged in shadow mode: predictions go into `decision_snapshots.feature_vector_json`, the Discord probability field renders `score/100 (uncalibrated)` until a trained model is persisted, and `retrain_enabled` flips true only after `signal_events` saturation passes 80% for 7 days.
