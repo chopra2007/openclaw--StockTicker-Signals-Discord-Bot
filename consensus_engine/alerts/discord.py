@@ -352,6 +352,40 @@ async def send_instant_ping(
         return None
 
 
+async def edit_instant_ping(msg_id: str, content: str) -> bool:
+    """Append a short status line (e.g. 'Phase 2 skipped — timeout') to an existing
+    Phase-1 Discord message via PATCH. Returns True on 200/204.
+
+    Silence never equals failure — callers invoke this on xref timeout or
+    SignalClass.IGNORE so the user sees an explicit skip reason.
+    """
+    if cfg.dry_run:
+        log.info("[DRY-RUN] Edit ping %s: %s", msg_id, content[:120])
+        return True
+
+    token = cfg.get_api_key("discord_bot_token")
+    channel_id = str(cfg.get("api_keys.discord_channel_id", ""))
+    if not token or not channel_id or not channel_id.isdigit() or not msg_id:
+        log.warning("Discord not configured for edit_instant_ping")
+        return False
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            url = f"https://discord.com/api/v10/channels/{channel_id}/messages/{msg_id}"
+            headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
+            async with session.patch(url, headers=headers, json={"content": content},
+                                     timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status in (200, 204):
+                    return True
+                error = await resp.text()
+                log.warning("Discord edit error (%d) for msg %s: %s",
+                            resp.status, msg_id, error[:200])
+                return False
+    except Exception as e:
+        log.error("Failed to edit instant ping %s: %s", msg_id, e)
+        return False
+
+
 async def send_trend_digest(trending: list[dict]) -> Optional[str]:
     """Post a Reddit trend digest to the main Discord channel. Returns message ID."""
     if cfg.dry_run:
