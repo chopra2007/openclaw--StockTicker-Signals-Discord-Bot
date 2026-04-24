@@ -4,12 +4,60 @@ A Python pipeline that turns analyst tweets, YouTube transcripts, news, SEC fili
 
 ## Architecture
 
-Signals are ingested from independent scanners into a single `signal_events` table (idempotent, normalized). Each ingestion triggers a two-phase alert:
+Signals are ingested from independent scanners into a single `signal_events` table (idempotent, normalized). Each ingestion triggers a two-phase alert — Phase 1 ships an instant Discord ping within seconds; Phase 2 runs cross-reference + precision-engine in parallel and edits the Phase-1 message with the score breakdown (or an explicit skip reason on timeout).
 
-- **Phase 1 — Instant ping.** The originating tweet plus a base score is posted to the alerts channel within seconds of detection.
-- **Phase 2 — Score breakdown.** A parallel task runs `cross_reference()` (news / SEC / technical / social / options / LLM) and `analyze_signal()` (precision engine). The precision classification (`ALERT` / `WATCHLIST` / `IGNORE`) drives suppression; the cross-reference drives the follow-up embed. Both are bounded by `intervals.cross_reference_timeout` (default 120 s) — on timeout, the Phase-1 message is explicitly edited with `"Phase 2 skipped — <reason>"` rather than ghosting.
+```mermaid
+flowchart TD
+    subgraph Sources["Signal Sources"]
+        direction TB
+        TW["TweetShift<br/>(Discord Gateway)"]
+        YT["YouTube transcripts"]
+        NEWS["News cascade<br/>Finnhub → RSS → Brave → SearXNG"]
+        SEC["SEC EDGAR<br/>8-K / Form 4 / 13D"]
+        TECH["Technical filters<br/>RVOL, RSI, EMA, ATR"]
+        SOCIAL["Social<br/>Reddit / ApeWisdom / Trends"]
+        OPT["Options flow"]
+        SCAN["Proactive scanners<br/>Volume breakout / Earnings"]
+    end
 
-Calibration is logged in shadow mode: predictions are written to `decision_snapshots.feature_vector_json`; the user-visible probability field renders `score/100 (uncalibrated)` until a trained model is persisted.
+    Sources --> INGEST[("signal_events<br/>idempotent, normalized")]
+
+    INGEST --> P1{"Phase 1<br/>quality gate +<br/>per-analyst cooldown"}
+    P1 -->|blocked| DROP[["Dropped (logged)"]]
+    P1 -->|pass| PING["📣 Instant Discord ping<br/>#alerts — base score"]
+
+    PING --> P2["Phase 2 — parallel tasks<br/>asyncio.wait_for xref = 120s"]
+
+    P2 --> XREF["cross_reference()<br/>news · SEC · technical · social<br/>options · LLM boost"]
+    P2 --> PREC["analyze_signal()<br/>precision engine<br/>(not cancelled on xref timeout)"]
+
+    XREF -->|"timeout or exception"| SKIP1[["✏️ Edit: Phase 2<br/>skipped — timeout"]]
+    XREF -->|"complete"| MERGE{"merge xref +<br/>precision result"}
+    PREC --> MERGE
+
+    MERGE -->|"classification = IGNORE"| SKIP2[["✏️ Edit: Phase 2<br/>skipped — low precision"]]
+    MERGE -->|"ALERT / WATCHLIST"| FOLLOW["✏️ Edit: follow-up embed<br/>score breakdown +<br/>score/100 (uncalibrated)"]
+
+    FOLLOW --> SHADOW["Shadow calibration<br/>→ decision_snapshots<br/>.feature_vector_json"]
+    FOLLOW --> TRACK["Price follow-up loop<br/>1h + 24h outcomes"]
+
+    TRACK --> PERF[("source_performance<br/>rolling_accuracy per<br/>analyst × horizon")]
+    PERF -.->|"feeds cooldown<br/>precision scaling"| P1
+
+    classDef source fill:#1e3a5f,stroke:#4a90c8,stroke-width:1px,color:#e0e7ff
+    classDef phase1 fill:#2d5a3d,stroke:#5ab976,stroke-width:1px,color:#dcf0e1
+    classDef phase2 fill:#3d3d5a,stroke:#8a8ac8,stroke-width:1px,color:#e0e0f0
+    classDef skip fill:#5a2d2d,stroke:#c85a5a,stroke-width:1px,color:#f0dcdc
+    classDef store fill:#1a1a1a,stroke:#808080,stroke-width:1px,color:#e0e0e0
+
+    class TW,YT,NEWS,SEC,TECH,SOCIAL,OPT,SCAN source
+    class P1,PING phase1
+    class P2,XREF,PREC,MERGE,FOLLOW,SHADOW,TRACK phase2
+    class SKIP1,SKIP2,DROP skip
+    class INGEST,PERF store
+```
+
+Calibration is logged in shadow mode: predictions go into `decision_snapshots.feature_vector_json`, the Discord probability field renders `score/100 (uncalibrated)` until a trained model is persisted, and `retrain_enabled` flips true only after `signal_events` saturation passes 80% for 7 days.
 
 Reliability weighting and regime-detector gating are on the roadmap but not wired into the live scoring path.
 
