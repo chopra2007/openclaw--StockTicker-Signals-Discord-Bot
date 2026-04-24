@@ -95,12 +95,23 @@ def _invalidation_condition(xref: CrossReferenceResult) -> str:
 
 
 def _calibrated_section(xref: CrossReferenceResult) -> list[str]:
-    """Build lines for the calibrated probability field. Never raises."""
+    """Build lines for the calibrated probability field. Never raises.
+
+    Q1: stop lying. When shadow_mode is enabled and no trained model is loaded,
+    render "score/100 (uncalibrated)" instead of the fake "Calibrated conf"
+    label — the underlying value has always been score/100 in that state.
+    """
     try:
-        from consensus_engine.analysis.calibration import calibrate
-        p_up = calibrate(float(xref.final_score), "1h")
-        p_down = round(1.0 - p_up, 3)
+        from consensus_engine.analysis.calibration import calibrate, has_trained_model
+        score = float(xref.final_score)
+        p_up = calibrate(score, "1h")
         p_up_pct = f"{p_up * 100:.1f}%"
+
+        shadow_mode = cfg.get("calibration.shadow_mode.enabled", True)
+        if shadow_mode and not has_trained_model("1h"):
+            return [f"score/100 (uncalibrated): **{score:.0f}/100**"]
+
+        p_down = round(1.0 - p_up, 3)
         p_down_pct = f"{p_down * 100:.1f}%"
         return [
             f"P(up 1h): **{p_up_pct}** | P(down): **{p_down_pct}**",
@@ -350,6 +361,40 @@ async def send_instant_ping(
     except Exception as e:
         log.error("Failed to send instant ping: %s", e)
         return None
+
+
+async def edit_instant_ping(msg_id: str, content: str) -> bool:
+    """Append a short status line (e.g. 'Phase 2 skipped — timeout') to an existing
+    Phase-1 Discord message via PATCH. Returns True on 200/204.
+
+    Silence never equals failure — callers invoke this on xref timeout or
+    SignalClass.IGNORE so the user sees an explicit skip reason.
+    """
+    if cfg.dry_run:
+        log.info("[DRY-RUN] Edit ping %s: %s", msg_id, content[:120])
+        return True
+
+    token = cfg.get_api_key("discord_bot_token")
+    channel_id = str(cfg.get("api_keys.discord_channel_id", ""))
+    if not token or not channel_id or not channel_id.isdigit() or not msg_id:
+        log.warning("Discord not configured for edit_instant_ping")
+        return False
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            url = f"https://discord.com/api/v10/channels/{channel_id}/messages/{msg_id}"
+            headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
+            async with session.patch(url, headers=headers, json={"content": content},
+                                     timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status in (200, 204):
+                    return True
+                error = await resp.text()
+                log.warning("Discord edit error (%d) for msg %s: %s",
+                            resp.status, msg_id, error[:200])
+                return False
+    except Exception as e:
+        log.error("Failed to edit instant ping %s: %s", msg_id, e)
+        return False
 
 
 async def send_trend_digest(trending: list[dict]) -> Optional[str]:

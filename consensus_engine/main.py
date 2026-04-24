@@ -29,7 +29,8 @@ from consensus_engine.scanners.social import (
 from consensus_engine.scanners.discord_tweetshift import DiscordTweetShiftListener
 from consensus_engine.analysis.tweet_parser import parse_tweet
 from consensus_engine.cross_reference import cross_reference
-from consensus_engine.alerts.discord import send_detail_followup, send_instant_ping
+from consensus_engine.alerts.discord import edit_instant_ping, send_detail_followup, send_instant_ping
+from consensus_engine.analysis.calibration import calibrate, log_shadow_prediction
 from consensus_engine.utils.http import close_session, get_session
 from consensus_engine.utils.tickers import is_valid_ticker, validate_ticker_market_cap
 from consensus_engine.scanners.youtube import youtube_poll_loop
@@ -605,7 +606,7 @@ async def process_tweet(raw_tweet: dict):
             sentiment=_tweet_sentiment(tweet),
         ))
 
-        if not await db.check_alert_cooldown(ticker):
+        if not await db.check_alert_cooldown(ticker, tweet.analyst, tweet.base_score):
             continue
 
         # Degraded-mode suppression: skip high-confidence alerts when data is unreliable
@@ -665,25 +666,69 @@ async def _run_cross_reference_and_followup(
         precision_task = asyncio.create_task(
             analyze_signal(ticker, base_score=tweet.base_score)
         )
-        xref, precision = await asyncio.gather(xref_task, precision_task, return_exceptions=True)
 
-        if isinstance(xref, Exception):
-            raise xref
-        if isinstance(precision, Exception):
-            log.warning("Precision engine failed for $%s: %s", ticker, precision)
+        # Q2a: wrap ONLY xref_task in wait_for. precision_task must survive an xref
+        # timeout so a slow xref does not cancel the fast precision engine.
+        timeout_sec = cfg.get("intervals.cross_reference_timeout", 120)
+        xref_timed_out = False
+        xref = None
+        try:
+            xref = await asyncio.wait_for(asyncio.shield(xref_task), timeout=timeout_sec)
+        except asyncio.TimeoutError:
+            xref_timed_out = True
+            log.warning("Phase-2 xref timed out after %ss for $%s", timeout_sec, ticker)
+        except Exception as e:
+            log.error("Phase-2 xref failed for $%s: %s", ticker, e)
+
+        try:
+            precision = await precision_task
+        except Exception as e:
+            log.warning("Precision engine failed for $%s: %s", ticker, e)
             precision = None
 
         classification = None
         if precision and not precision.get("skipped"):
             classification = precision.get("classification", SignalClass.IGNORE)
+
+        # Silent failure is the worst failure: surface the skip reason on the Phase-1 msg.
+        if xref_timed_out:
+            await edit_instant_ping(instant_msg_id, "Phase 2 skipped — timeout")
+            return
+        if classification == SignalClass.IGNORE:
+            await edit_instant_ping(instant_msg_id, "Phase 2 skipped — low precision")
+            return
+        if xref is None:
+            # xref raised a non-timeout exception; nothing to follow up with
+            return
+
+        if classification is not None:
             log.info(
                 "$%s: precision=%s overrides xref_score=%.1f",
                 ticker, classification, xref.final_score,
             )
 
-        if classification != SignalClass.IGNORE:
-            followup_id = await send_detail_followup(xref, instant_msg_id, precision=precision)
-            await db.update_alert_message_followup(alert_message_id, followup_id, xref.final_score)
+        followup_id = await send_detail_followup(xref, instant_msg_id, precision=precision)
+        await db.update_alert_message_followup(alert_message_id, followup_id, xref.final_score)
+
+        # Q1 shadow-mode logging: record a decision_snapshots row and merge the
+        # calibrated probability into its feature_vector_json. Never raises.
+        try:
+            final_score = float(xref.final_score)
+            shadow_prob = calibrate(final_score, "1h")
+            try:
+                sources_json = _serialize_breakdown(xref.breakdown)
+            except Exception:
+                sources_json = "{}"
+            snapshot_id = await db.record_decision_snapshot(
+                ticker=ticker,
+                decision=(classification.value if classification is not None else "UNCLASSIFIED"),
+                final_score=final_score,
+                sources_json=sources_json,
+                contradiction_index=float(getattr(xref, "contradiction_index", 0.0) or 0.0),
+            )
+            await log_shadow_prediction(snapshot_id, score=final_score, calibrated_prob=shadow_prob)
+        except Exception as shadow_exc:
+            log.debug("shadow calibration logging skipped for $%s: %s", ticker, shadow_exc)
 
         breakdown_dict = json.loads(_serialize_breakdown(xref.breakdown))
         if classification is not None:

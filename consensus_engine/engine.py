@@ -226,21 +226,35 @@ def _classify(
     total_score: int,
     has_mainstream: bool,
     market_ok: bool,
+    bypass_market_confirmation: bool = False,
 ) -> SignalClass:
-    """Map total score + quality flags to a signal classification."""
+    """Map total score + quality flags to a signal classification.
+
+    ``bypass_market_confirmation`` is set by HIGH-conviction or SEC-catalyst
+    callers; it lets them surface a WATCHLIST even when the flat-market gate
+    would normally route them to IGNORE.
+    """
     high = cfg.get("precision_engine.thresholds.high_confidence", 80)
     med = cfg.get("precision_engine.thresholds.medium_confidence", 65)
     require_mainstream = cfg.get("precision_engine.thresholds.require_mainstream_for_strong", True)
-    require_market = cfg.get("precision_engine.thresholds.require_market_confirmation", True)
+    require_market = cfg.get(
+        "precision_engine.thresholds.require_market_confirmation_for_low_conviction", True
+    )
+
+    effective_market_ok = market_ok or bypass_market_confirmation
 
     if total_score >= high:
         if require_mainstream and not has_mainstream:
             return SignalClass.WATCHLIST
-        if require_market and not market_ok:
+        if require_market and not effective_market_ok:
             return SignalClass.WATCHLIST
         return SignalClass.STRONG_ALERT
 
     if total_score >= med:
+        return SignalClass.WATCHLIST
+
+    if bypass_market_confirmation:
+        # HIGH-conviction or SEC catalyst — always worth at least a watchlist entry.
         return SignalClass.WATCHLIST
 
     return SignalClass.IGNORE
@@ -254,6 +268,7 @@ async def analyze_signal(
     ticker: str,
     base_score: int = 0,
     budget: Optional[BudgetManager] = None,
+    catalyst_type: str = "",
 ) -> dict:
     """Run the precision scoring pipeline for a ticker.
 
@@ -280,6 +295,15 @@ async def analyze_signal(
     all_hits: list[SearchHit] = []
     fc_pages: list[FirecrawlPage] = []
 
+    # KILL 4 / M6-lite: exemption flags computed once, used at both the early
+    # gate and _classify so HIGH-conviction + SEC-catalyst signals don't get
+    # buried by a flat-market read.
+    high_conv_threshold = cfg.get("precision_engine.thresholds.high_conviction_threshold", 30)
+    sec_exempt = cfg.get("precision_engine.thresholds.sec_catalyst_exempt", True)
+    is_high_conviction = base_score >= high_conv_threshold
+    is_sec_catalyst = (catalyst_type or "").lower().startswith("sec_")
+    skip_market_gate = is_high_conviction or (sec_exempt and is_sec_catalyst)
+
     # --- Phase 1: Finnhub (cheap, 2 calls) ---
     if await budget.consume("finnhub_calls", 2):
         adapter = FinnhubAdapter(session)
@@ -291,7 +315,10 @@ async def analyze_signal(
                  ticker, fh_score, finnhub_ctx.change_pct, finnhub_ctx.rvol,
                  len(finnhub_ctx.news_headlines))
 
-        if not market_ok and cfg.get("precision_engine.thresholds.require_market_confirmation", True):
+        require_market = cfg.get(
+            "precision_engine.thresholds.require_market_confirmation_for_low_conviction", True
+        )
+        if not market_ok and require_market and not skip_market_gate:
             log.info("$%s early exit: market not confirming (change=%.1f%%)", ticker, finnhub_ctx.change_pct)
             return {
                 "ticker": ticker,
@@ -351,7 +378,9 @@ async def analyze_signal(
             score += fc_score
 
     # --- Classify ---
-    classification = _classify(score, has_mainstream, market_ok)
+    classification = _classify(
+        score, has_mainstream, market_ok, bypass_market_confirmation=skip_market_gate
+    )
     log.info("$%s precision result: %s (score=%d, mainstream=%s, market_ok=%s)",
              ticker, classification.value, score, has_mainstream, market_ok)
 
