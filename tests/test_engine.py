@@ -243,7 +243,7 @@ class TestAnalyzeSignal:
             mapping = {
                 "precision_engine.enabled": True,
                 "precision_engine.budget.finnhub_calls": 3000,
-                "precision_engine.thresholds.require_market_confirmation": True,
+                "precision_engine.thresholds.require_market_confirmation_for_low_conviction": True,
             }
             return mapping.get(key, default)
 
