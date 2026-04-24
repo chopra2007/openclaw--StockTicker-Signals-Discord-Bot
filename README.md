@@ -355,3 +355,24 @@ python3 -m pytest tests/ -v
 - **ytfinal.md plan (Week 2):** YouTube channel registry (`youtube_channels` table + `!yt-follow`), `youtube_macro` table + macro digest loop, standalone HIGH-conviction alerts, `!yt`/`!yt-mentions`/`!macro` Discord commands, level proximity alerter, precision engine as decision-maker (xref stays as enrichment), atomic budget SQL, aiohttp session close on exit, video_parser direction normalization + finish_reason retry handling
 - **FinalYTplan (Phase A–D):** Reliability weighting, calibration, source health, degraded-mode policy, backtest script
 - **PR #2:** Multimodal tweet parsing (text + vision router via OpenRouter)
+
+### Recent changes (2026-04-24 PR)
+
+Phase-2 timeout fix + signal routing + calibration shadow mode + per-analyst cooldown + require_market_confirmation rename. Fixes 78.4% Phase-2 drop rate by wrapping xref with `asyncio.wait_for(timeout=120s)` while keeping precision engine unaffected. Enables tweet signals to flow into `signal_events` table for xref scoring. Calibration begins logging shadow predictions to `decision_snapshots.feature_vector_json` without retraining. Per-analyst cooldown replaces blanket 6h with precision-weighted lookup. See `.omc/plans/2026-04-24-top3-combined-pr-plan.md` for full design + 13 acceptance criteria.
+
+**New config flags:**
+- `calibration.shadow_mode.enabled` — log predictions to decision_snapshots; relabel Discord field to "score/100 (uncalibrated)"
+- `calibration.retrain_enabled` — enable model retraining (default false until signal_events >80% populated)
+- `alerts.per_analyst_cooldown.enabled` — use precision-weighted per-analyst cooldown instead of blanket ticker-level
+- `alerts.per_analyst_cooldown.floor_minutes` — min cooldown even for 100% accuracy analysts (default 30)
+- `alerts.per_analyst_cooldown.high_conviction_bypass` — base_score >= high_conviction_threshold skips cooldown
+- `precision_engine.thresholds.high_conviction_threshold` — base_score cutoff for exemptions (default 30)
+- `precision_engine.thresholds.sec_catalyst_exempt` — skip require_market_confirmation gate for SEC catalysts
+
+**Renamed (atomic, no shim):**
+- `precision_engine.thresholds.require_market_confirmation` → `precision_engine.thresholds.require_market_confirmation_for_low_conviction`
+
+**Deleted:**
+- `alerts.max_alerts_per_hour` (no enforcement code)
+- `alerts.reliability_engine_enabled` (module removed, guarded import block deleted, orphan .pyc cleaned)
+- `regime_detector:` config stanza (module preserved for tests)
