@@ -7,41 +7,44 @@ A Python pipeline that turns analyst tweets, YouTube transcripts, news, SEC fili
 Signals are ingested from independent scanners into a single `signal_events` table (idempotent, normalized). Each ingestion triggers a two-phase alert — Phase 1 ships an instant Discord ping within seconds; Phase 2 runs cross-reference + precision-engine in parallel and edits the Phase-1 message with the score breakdown (or an explicit skip reason on timeout).
 
 ```mermaid
-%%{init: {'theme':'base','themeVariables':{'fontSize':'13px','lineColor':'#94a3b8'}}}%%
+%%{init: {'theme':'dark'}}%%
 flowchart TD
-    SRC["<b>Signal sources</b><br/>TweetShift · YouTube · News · SEC<br/>Technical · Social · Options"]
-    SRC --> INGEST["<b>signal_events</b>"]
-    INGEST --> P1{"Phase 1 gate<br/>quality + cooldown"}
-    P1 -->|blocked| DROP["dropped"]
-    P1 -->|pass| PING["<b>Discord ping</b>"]
-    PING --> P2["Phase 2 · wait_for 120s"]
-    P2 --> XREF["cross_reference()"]
-    P2 --> PREC["analyze_signal()<br/>survives timeout"]
-    XREF -->|timeout| SKIP1["edit: skipped — timeout"]
-    XREF -->|done| MERGE{merge}
+    SRC[Signal sources<br/>TweetShift · YouTube · News · SEC<br/>Technical · Social · Options]
+    INGEST[signal_events]
+    P1{Phase 1 gate<br/>quality + cooldown}
+    DROP[dropped]
+    PING[Discord ping]
+    P2[Phase 2 · wait_for 120s]
+    XREF[cross_reference]
+    PREC[analyze_signal<br/>survives timeout]
+    SKIP1[edit: skipped — timeout]
+    MERGE{merge}
+    SKIP2[edit: skipped — low precision]
+    FOLLOW[edit: follow-up embed<br/>score breakdown]
+    SHADOW[decision_snapshots<br/>shadow calibration]
+    TRACK[price follow-up · 1h + 24h]
+    PERF[source_performance<br/>rolling_accuracy]
+
+    SRC --> INGEST --> P1
+    P1 -->|blocked| DROP
+    P1 -->|pass| PING --> P2
+    P2 --> XREF
+    P2 --> PREC
+    XREF -->|timeout| SKIP1
+    XREF -->|done| MERGE
     PREC --> MERGE
-    MERGE -->|IGNORE| SKIP2["edit: skipped — low precision"]
-    MERGE -->|ALERT| FOLLOW["<b>edit: follow-up embed</b><br/>score breakdown"]
-    FOLLOW --> SHADOW["<b>decision_snapshots</b><br/>shadow calibration"]
-    FOLLOW --> TRACK["price follow-up · 1h + 24h"]
-    TRACK --> PERF["<b>source_performance</b><br/>rolling_accuracy"]
+    MERGE -->|IGNORE| SKIP2
+    MERGE -->|ALERT| FOLLOW
+    FOLLOW --> SHADOW
+    FOLLOW --> TRACK --> PERF
     PERF -.->|feeds cooldown| P1
 
-    style SRC      fill:#1e3a8a,stroke:#3b82f6,color:#ffffff
-    style INGEST   fill:#0f172a,stroke:#94a3b8,color:#ffffff
-    style P1       fill:#b45309,stroke:#f59e0b,color:#ffffff
-    style PING     fill:#166534,stroke:#22c55e,color:#ffffff
-    style P2       fill:#5b21b6,stroke:#a855f7,color:#ffffff
-    style XREF     fill:#4c1d95,stroke:#8b5cf6,color:#ffffff
-    style PREC     fill:#4c1d95,stroke:#8b5cf6,color:#ffffff
-    style MERGE    fill:#6d28d9,stroke:#a855f7,color:#ffffff
-    style FOLLOW   fill:#166534,stroke:#22c55e,color:#ffffff
-    style SKIP1    fill:#991b1b,stroke:#ef4444,color:#ffffff
-    style SKIP2    fill:#991b1b,stroke:#ef4444,color:#ffffff
-    style DROP     fill:#374151,stroke:#9ca3af,color:#ffffff
-    style SHADOW   fill:#0f172a,stroke:#94a3b8,color:#ffffff
-    style TRACK    fill:#1e40af,stroke:#60a5fa,color:#ffffff
-    style PERF     fill:#0f172a,stroke:#94a3b8,color:#ffffff
+    classDef success fill:#15803d,stroke:#4ade80,color:#ffffff
+    classDef skip fill:#b91c1c,stroke:#f87171,color:#ffffff
+    classDef gate fill:#b45309,stroke:#fbbf24,color:#ffffff
+    class PING,FOLLOW success
+    class SKIP1,SKIP2,DROP skip
+    class P1,MERGE gate
 ```
 
 Calibration is logged in shadow mode: predictions go into `decision_snapshots.feature_vector_json`, the Discord probability field renders `score/100 (uncalibrated)` until a trained model is persisted, and `retrain_enabled` flips true only after `signal_events` saturation passes 80% for 7 days.
