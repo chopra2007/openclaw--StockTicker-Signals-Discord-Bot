@@ -873,8 +873,15 @@ async def _handle_market_view(ticker: str, channel_id: str, message_id: str) -> 
         import time
         age_min = int((time.time() - recorded_at) / 60)
 
+        from consensus_engine.analysis.calibration import has_trained_model
         p_up = calibrate(float(score), "1h")
         p_down = round(1.0 - p_up, 3)
+        shadow_mode = cfg.get("calibration.shadow_mode.enabled", True)
+        prob_line = (
+            f"score/100 (uncalibrated): **{float(score):.0f}/100**"
+            if shadow_mode and not has_trained_model("1h")
+            else f"P(up 1h): **{p_up * 100:.1f}%** | P(down): **{p_down * 100:.1f}%**"
+        )
 
         _ICONS = {
             "ALERT": "🟢", "WATCHLIST": "🟡", "IGNORE": "🔴",
@@ -885,7 +892,7 @@ async def _handle_market_view(ticker: str, channel_id: str, message_id: str) -> 
         lines = [
             f"**Market View — ${ticker}** ({age_min}m ago)",
             f"{icon} **{decision}** | Score: {score:.0f}",
-            f"P(up 1h): **{p_up * 100:.1f}%** | P(down): **{p_down * 100:.1f}%**",
+            prob_line,
             f"Contradiction index: {contradiction:.2f}",
         ]
 

@@ -95,12 +95,23 @@ def _invalidation_condition(xref: CrossReferenceResult) -> str:
 
 
 def _calibrated_section(xref: CrossReferenceResult) -> list[str]:
-    """Build lines for the calibrated probability field. Never raises."""
+    """Build lines for the calibrated probability field. Never raises.
+
+    Q1: stop lying. When shadow_mode is enabled and no trained model is loaded,
+    render "score/100 (uncalibrated)" instead of the fake "Calibrated conf"
+    label — the underlying value has always been score/100 in that state.
+    """
     try:
-        from consensus_engine.analysis.calibration import calibrate
-        p_up = calibrate(float(xref.final_score), "1h")
-        p_down = round(1.0 - p_up, 3)
+        from consensus_engine.analysis.calibration import calibrate, has_trained_model
+        score = float(xref.final_score)
+        p_up = calibrate(score, "1h")
         p_up_pct = f"{p_up * 100:.1f}%"
+
+        shadow_mode = cfg.get("calibration.shadow_mode.enabled", True)
+        if shadow_mode and not has_trained_model("1h"):
+            return [f"score/100 (uncalibrated): **{score:.0f}/100**"]
+
+        p_down = round(1.0 - p_up, 3)
         p_down_pct = f"{p_down * 100:.1f}%"
         return [
             f"P(up 1h): **{p_up_pct}** | P(down): **{p_down_pct}**",
