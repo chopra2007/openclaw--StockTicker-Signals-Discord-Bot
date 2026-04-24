@@ -190,6 +190,16 @@ alerts:
   min_base_score_for_alert: 20  # LOW conviction (20) now passes if direction is explicit
   embed_color_neutral: 0xFFAA00
   suppress_when_degraded: false  # When true, skip high-confidence alerts in DEGRADED_MODE
+  per_analyst_cooldown:
+    enabled: true
+    floor_minutes: 30               # even 100%-precision analyst can't fire faster than this
+    high_conviction_bypass: true    # base_score >= high_conviction_threshold skips cooldown entirely
+
+# Confidence calibration
+calibration:
+  shadow_mode:
+    enabled: true                   # log predictions to decision_snapshots.feature_vector_json; relabel Discord field
+  retrain_enabled: false            # flip to true only after Q2b signal_event feedthrough >= 80% for 7 days
 
 # Browser Stealth Configuration (still used for StockTwits)
 browser:
