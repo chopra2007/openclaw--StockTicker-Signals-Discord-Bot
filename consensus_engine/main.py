@@ -30,6 +30,7 @@ from consensus_engine.scanners.discord_tweetshift import DiscordTweetShiftListen
 from consensus_engine.analysis.tweet_parser import parse_tweet
 from consensus_engine.cross_reference import cross_reference
 from consensus_engine.alerts.discord import edit_instant_ping, send_detail_followup, send_instant_ping
+from consensus_engine.analysis.calibration import calibrate, log_shadow_prediction
 from consensus_engine.utils.http import close_session, get_session
 from consensus_engine.utils.tickers import is_valid_ticker, validate_ticker_market_cap
 from consensus_engine.scanners.youtube import youtube_poll_loop
@@ -708,6 +709,26 @@ async def _run_cross_reference_and_followup(
 
         followup_id = await send_detail_followup(xref, instant_msg_id, precision=precision)
         await db.update_alert_message_followup(alert_message_id, followup_id, xref.final_score)
+
+        # Q1 shadow-mode logging: record a decision_snapshots row and merge the
+        # calibrated probability into its feature_vector_json. Never raises.
+        try:
+            final_score = float(xref.final_score)
+            shadow_prob = calibrate(final_score, "1h")
+            try:
+                sources_json = _serialize_breakdown(xref.breakdown)
+            except Exception:
+                sources_json = "{}"
+            snapshot_id = await db.record_decision_snapshot(
+                ticker=ticker,
+                decision=(classification.value if classification is not None else "UNCLASSIFIED"),
+                final_score=final_score,
+                sources_json=sources_json,
+                contradiction_index=float(getattr(xref, "contradiction_index", 0.0) or 0.0),
+            )
+            await log_shadow_prediction(snapshot_id, score=final_score, calibrated_prob=shadow_prob)
+        except Exception as shadow_exc:
+            log.debug("shadow calibration logging skipped for $%s: %s", ticker, shadow_exc)
 
         breakdown_dict = json.loads(_serialize_breakdown(xref.breakdown))
         if classification is not None:
