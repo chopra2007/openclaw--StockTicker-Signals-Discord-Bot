@@ -7,7 +7,7 @@ import sqlite3
 import time
 
 from consensus_engine import config as cfg
-from consensus_engine.models import TickerSignal, SourceType
+from consensus_engine.models import TickerSignal, SourceType, Sentiment
 
 log = logging.getLogger("consensus_engine.db")
 
@@ -588,6 +588,31 @@ async def insert_signal(signal: TickerSignal):
             signal.expires_at,
         ),
     )
+    # Q2b: route tweet signals into signal_events so cross_reference scoring can see them.
+    # M3 will replace the 0.5 placeholder with per-analyst precision.
+    if signal.source_type == SourceType.TWITTER:
+        direction = (
+            "long" if signal.sentiment == Sentiment.BULLISH
+            else "short" if signal.sentiment == Sentiment.BEARISH
+            else None
+        )
+        await db.execute(
+            """INSERT INTO signal_events
+               (source_type, source_detail, ticker, direction, quality_score,
+                latency_sec, provenance, model_version, recorded_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                "twitter",
+                signal.source_detail,
+                signal.ticker,
+                direction,
+                0.5,
+                None,
+                "tweet",
+                None,
+                signal.detected_at,
+            ),
+        )
     await db.commit()
 
 
