@@ -185,21 +185,21 @@ source_health:
 # Alert Configuration
 alerts:
   cooldown_hours: 6
-  max_alerts_per_hour: 10
   embed_color_long: 0x00FF00
   embed_color_short: 0xFF0000
   min_base_score_for_alert: 20  # LOW conviction (20) now passes if direction is explicit
   embed_color_neutral: 0xFFAA00
   suppress_when_degraded: false  # When true, skip high-confidence alerts in DEGRADED_MODE
-  reliability_engine_enabled: false
+  per_analyst_cooldown:
+    enabled: true
+    floor_minutes: 30               # even 100%-precision analyst can't fire faster than this
+    high_conviction_bypass: true    # base_score >= high_conviction_threshold skips cooldown entirely
 
-# Regime-shift detector
-regime_detector:
-  enabled: true
-  vol_spike_threshold: 3.0        # VIX or RVOL spike multiplier vs baseline
-  breadth_min_bull_pct: 0.3       # below this bullish fraction → deteriorating breadth
-  contradiction_index_max: 0.6    # above this → conflicting signals, raise abstain threshold
-  abstain_score_boost: 20         # add this to min_base_score_for_alert when regime is bad
+# Confidence calibration
+calibration:
+  shadow_mode:
+    enabled: true                   # log predictions to decision_snapshots.feature_vector_json; relabel Discord field
+  retrain_enabled: false            # flip to true only after Q2b signal_event feedthrough >= 80% for 7 days
 
 # Browser Stealth Configuration (still used for StockTwits)
 browser:
@@ -294,7 +294,9 @@ precision_engine:
     min_score_for_firecrawl: 65
     max_firecrawl_urls: 2
     require_mainstream_for_strong: true
-    require_market_confirmation: true
+    require_market_confirmation_for_low_conviction: true
+    high_conviction_threshold: 30
+    sec_catalyst_exempt: true
   api_keys:
     exa: "$EXA_AI_API_KEY"
     serpapi: "$SERPAPI3_API_KEY"

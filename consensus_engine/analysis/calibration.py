@@ -24,6 +24,7 @@ Walk-forward usage
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import pickle
@@ -131,6 +132,47 @@ async def retrain_all() -> dict[str, int]:
     for h in ("1h", "24h"):
         results[h] = await retrain(h)
     return results
+
+
+def has_trained_model(horizon: str = "1h") -> bool:
+    """True when a trained calibration model is loaded for the horizon."""
+    _ensure_loaded()
+    return _models.get(horizon) is not None
+
+
+async def log_shadow_prediction(
+    snapshot_id: int,
+    score: float,
+    calibrated_prob: float,
+    horizon: str = "1h",
+) -> None:
+    """Q1 shadow-mode logging: merge {shadow_prob,...} into an existing
+    decision_snapshots row's feature_vector_json. Never calls _save_models —
+    this path is pure observability.
+    """
+    conn = await db.get_db()
+    cursor = await conn.execute(
+        "SELECT feature_vector_json FROM decision_snapshots WHERE id = ?",
+        (snapshot_id,),
+    )
+    row = await cursor.fetchone()
+    if row is None:
+        log.debug("log_shadow_prediction: no decision_snapshots row with id=%s", snapshot_id)
+        return
+
+    existing = row["feature_vector_json"]
+    try:
+        payload = json.loads(existing) if existing else {}
+    except (ValueError, TypeError):
+        payload = {}
+    payload["shadow_prob"] = float(calibrated_prob)
+    payload["shadow_score"] = float(score)
+    payload["shadow_horizon"] = horizon
+    await conn.execute(
+        "UPDATE decision_snapshots SET feature_vector_json = ? WHERE id = ?",
+        (json.dumps(payload), snapshot_id),
+    )
+    await conn.commit()
 
 
 # ---------------------------------------------------------------------------
