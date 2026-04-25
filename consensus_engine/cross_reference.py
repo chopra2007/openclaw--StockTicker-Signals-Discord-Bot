@@ -29,6 +29,20 @@ _sem_technical = asyncio.Semaphore(3)
 _sem_llm = asyncio.Semaphore(2)
 
 
+def _resolve_catalyst_type(news_catalyst_type: str, sec_hit: bool) -> str:
+    """Pick the catalyst_type for downstream M6 exemption.
+
+    News-classified catalysts win. When the only signal is from the SEC
+    watcher, fall back to 'sec_filing' so engine.py:304's
+    `is_sec_catalyst = catalyst_type.startswith("sec_")` check fires.
+    """
+    if news_catalyst_type:
+        return news_catalyst_type
+    if sec_hit:
+        return "sec_filing"
+    return ""
+
+
 def compute_technical_score(technical: Optional[TechnicalResult]) -> int:
     """Compute score from technical filters. +2 per passing filter, max 12."""
     if not technical or not technical.filters:
@@ -298,11 +312,16 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
     all_sources = social_parts + youtube_parts
     sources_summary = ", ".join(all_sources) if all_sources else ""
 
+    resolved_catalyst_type = _resolve_catalyst_type(
+        catalyst.catalyst_type if catalyst else "",
+        sec_hit=sec_hit,
+    )
+
     result = CrossReferenceResult(
         ticker=ticker,
         breakdown=breakdown,
         catalyst_summary=catalyst.catalyst_summary if catalyst else "",
-        catalyst_type=catalyst.catalyst_type if catalyst else "",
+        catalyst_type=resolved_catalyst_type,
         catalyst_sources=catalyst.news_sources if catalyst else [],
         catalyst_urls=catalyst.source_urls if catalyst else [],
         catalyst_body=catalyst.catalyst_body if catalyst else "",
