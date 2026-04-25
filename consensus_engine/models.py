@@ -83,6 +83,7 @@ class CatalystResult:
     news_sources: list[str] = field(default_factory=list)
     source_urls: list[str] = field(default_factory=list)
     confidence: float = 0.0  # 0-1
+    catalyst_body: str = ""  # Q4 enrichment: article body for LLM scoring
 
     @property
     def passed(self) -> bool:
@@ -270,6 +271,7 @@ class CrossReferenceResult:
     catalyst_type: str
     catalyst_sources: list[str] = field(default_factory=list)
     catalyst_urls: list[str] = field(default_factory=list)
+    catalyst_body: str = ""  # Q4 enrichment
     technical: Optional[TechnicalResult] = None
     other_analysts: list[str] = field(default_factory=list)
     social_summary: str = ""

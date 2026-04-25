@@ -95,7 +95,13 @@ async def _get_company_name(ticker: str) -> str:
     return ""
 
 
-def _build_catalyst(ticker: str, title: str, url: str, catalyst_type: str) -> CatalystResult:
+def _build_catalyst(
+    ticker: str,
+    title: str,
+    url: str,
+    catalyst_type: str,
+    body: str = "",
+) -> CatalystResult:
     """Build a CatalystResult from a single news hit."""
     return CatalystResult(
         ticker=ticker,
@@ -104,6 +110,7 @@ def _build_catalyst(ticker: str, title: str, url: str, catalyst_type: str) -> Ca
         news_sources=[_extract_domain(url)],
         source_urls=[url],
         confidence=0.8 if catalyst_type != "Market Movement" else 0.5,
+        catalyst_body=(body or "")[:1000],
     )
 
 
@@ -139,12 +146,13 @@ async def _search_finnhub_news(ticker: str) -> Optional[CatalystResult]:
             headline = article.get("headline", "")
             source = article.get("source", "")
             article_url = article.get("url", "")
-            full_text = f"{headline} {source}"
+            summary = article.get("summary", "")
+            full_text = f"{headline} {summary} {source}"
             catalyst_type = _classify_catalyst(full_text)
 
             if catalyst_type and _is_trusted_source(article_url):
                 log.info("Finnhub news catalyst for %s: %s (%s)", ticker, catalyst_type, source)
-                return _build_catalyst(ticker, headline, article_url, catalyst_type)
+                return _build_catalyst(ticker, headline, article_url, catalyst_type, body=summary)
 
         return None
     except Exception as e:
@@ -244,7 +252,7 @@ async def _search_brave(ticker: str) -> Optional[CatalystResult]:
 
             if catalyst_type and _is_trusted_source(result_url):
                 log.info("Brave catalyst for %s: %s", ticker, catalyst_type)
-                return _build_catalyst(ticker, title, result_url, catalyst_type)
+                return _build_catalyst(ticker, title, result_url, catalyst_type, body=description)
 
         return None
     except Exception as e:
@@ -271,7 +279,7 @@ async def _search_searxng(ticker: str) -> Optional[CatalystResult]:
 
         if catalyst_type and _is_trusted_source(url):
             log.info("SearXNG catalyst for %s: %s", ticker, catalyst_type)
-            return _build_catalyst(ticker, title, url, catalyst_type)
+            return _build_catalyst(ticker, title, url, catalyst_type, body=content)
 
     return None
 

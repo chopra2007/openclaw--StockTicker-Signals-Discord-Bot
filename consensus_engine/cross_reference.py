@@ -305,6 +305,7 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
         catalyst_type=catalyst.catalyst_type if catalyst else "",
         catalyst_sources=catalyst.news_sources if catalyst else [],
         catalyst_urls=catalyst.source_urls if catalyst else [],
+        catalyst_body=catalyst.catalyst_body if catalyst else "",
         technical=technical,
         other_analysts=other_analysts,
         social_summary=sources_summary,  # Include YouTube in summary
