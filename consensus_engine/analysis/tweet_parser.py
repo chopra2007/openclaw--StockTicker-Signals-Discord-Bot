@@ -54,7 +54,7 @@ def _parse_model_payload(payload: dict, url: str, analyst: str, original_text: s
 
     raw_conv = str(payload.get("conviction", "medium")).lower()
     conv_map = {"high": Conviction.HIGH, "medium": Conviction.MEDIUM, "low": Conviction.LOW}
-    conviction = conv_map.get(raw_conv, Conviction.MEDIUM)
+    llm_conviction = conv_map.get(raw_conv, Conviction.MEDIUM)
 
     tickers = payload.get("tickers", [])
     if not isinstance(tickers, list):
@@ -72,6 +72,8 @@ def _parse_model_payload(payload: dict, url: str, analyst: str, original_text: s
             target_price=_to_float(options_data.get("target_price")),
             profit_target_pct=_to_float(options_data.get("profit_target_pct")),
         )
+
+    conviction = _resolve_conviction(llm_conviction, _infer_conviction(original_text, options))
 
     summary = str(payload.get("summary", ""))
 
@@ -104,6 +106,58 @@ _LONG_KEYWORDS = {"long", "buy", "buying", "bullish", "calls", "moon", "breakout
 _SHORT_KEYWORDS = {"short", "put", "puts", "bearish", "dump", "gap down", "crash", "selling", "fade"}
 
 
+_HIGH_CONVICTION_KEYWORDS = re.compile(
+    r"\b(highest conviction|high conviction|hc|all in|loaded up|loading up|"
+    r"backing up the truck|yolo)\b",
+    re.IGNORECASE,
+)
+_LOW_CONVICTION_KEYWORDS = re.compile(
+    r"\b(watching|might|maybe|could|considering|thinking about|tentative|"
+    r"on watch|keeping an eye)\b",
+    re.IGNORECASE,
+)
+_STOP_LOSS_PATTERN = re.compile(r"\b(sl|stop|stop loss|stop-loss)\b", re.IGNORECASE)
+_TARGET_PATTERN = re.compile(r"(\btarget\b|🎯|\btp\b)", re.IGNORECASE)
+_ENTRY_PATTERN = re.compile(r"\b(at|@)\s*\$?\d", re.IGNORECASE)
+
+
+def _infer_conviction(text: str, options: Optional[OptionsDetail]) -> Conviction:
+    """Deterministic conviction tier from tweet text and options shape.
+
+    Returns HIGH or LOW only when the heuristic is decisive. MEDIUM is the
+    default when no rule matches — callers can fall back to LLM output.
+    """
+    if not text:
+        return Conviction.MEDIUM
+
+    has_sl = bool(_STOP_LOSS_PATTERN.search(text))
+    has_target = bool(_TARGET_PATTERN.search(text))
+    has_entry = bool(_ENTRY_PATTERN.search(text))
+
+    if options and options.present and options.strike and options.expiry \
+            and (options.target_price or options.profit_target_pct) and has_sl:
+        return Conviction.HIGH
+
+    if _HIGH_CONVICTION_KEYWORDS.search(text):
+        return Conviction.HIGH
+
+    if has_entry and has_target and has_sl:
+        return Conviction.HIGH
+
+    if _LOW_CONVICTION_KEYWORDS.search(text) and not (has_entry and has_target and has_sl) \
+            and not (options and options.present):
+        return Conviction.LOW
+
+    return Conviction.MEDIUM
+
+
+def _resolve_conviction(llm: Conviction, heuristic: Conviction) -> Conviction:
+    """Heuristic wins when decisive (HIGH/LOW); otherwise preserve LLM output."""
+    if heuristic in (Conviction.HIGH, Conviction.LOW):
+        return heuristic
+    return llm
+
+
 def _fallback_parse(url: str, analyst: str, text: str) -> ParsedTweet:
     """Regex fallback when model fails. Extracts tickers and detects direction from keywords."""
     tickers = [t for t in extract_tickers(text) if t not in _INDICATOR_NAMES]
@@ -127,7 +181,7 @@ def _fallback_parse(url: str, analyst: str, text: str) -> ParsedTweet:
         tickers=tickers,
         direction=direction,
         options=None,
-        conviction=Conviction.MEDIUM,
+        conviction=_infer_conviction(text, None),
         summary=text[:100],
     )
 

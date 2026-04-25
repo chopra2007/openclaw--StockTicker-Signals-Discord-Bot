@@ -66,3 +66,7 @@ NIGHTMARES.md
 SOUL.md
 IDENTITY.md
 MOODBOOK-filter.md
+
+# Auto-managed by the OMC memory-promotion mechanism — root-scoped to avoid
+# matching plans/MEMORY.md or any future tracked memory snapshots.
+/MEMORY.md

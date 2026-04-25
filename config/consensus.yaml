@@ -90,8 +90,25 @@ intervals:
 
 # Scanner toggles
 scanners:
-  # SEC filings must be cross-reference only. Keep background SEC watchers off unless explicitly needed.
-  sec_background_watchers_enabled: false
+  # SEC filings are cross-reference only — never trigger standalone alerts.
+  # M1 re-enables the watchers with item-type + dollar filters configured below.
+  sec_background_watchers_enabled: true
+
+# SEC Watcher (M1: re-enable with item-type whitelist + Form 4 dollar filter)
+sec_watcher:
+  # 8-K item codes that trigger downstream signals.
+  # 1.01 material agreement | 2.02 results of operations | 5.02 officer change
+  # 7.01 Reg FD disclosure  | 8.01 other material events
+  item_whitelist:
+    - "1.01"
+    - "2.02"
+    - "5.02"
+    - "7.01"
+    - "8.01"
+  # Form 4 insider transaction dollar floors. Only open-market trades count;
+  # awards / gifts / tax-withholding are excluded.
+  min_insider_dollars_buy: 100000     # $100k+ insider purchase signals conviction
+  min_insider_dollars_sell: 1000000   # Sells need higher floor — execs sell for many reasons
 
 # Stage 2: Social & Sentiment Scanner (used for cross-reference scoring)
 social:
@@ -155,12 +172,56 @@ llm:
   min_confidence: 70
   max_tokens: 1024
 
-# Volume Breakout Scanner
+# Volume Breakout Scanner (Q5 wire-up: emits VOLUME_BREAKOUT signals into main loop)
 volume_scanner:
   enabled: true
   rvol_threshold: 5.0
   min_price_change_pct: 1.0
   scan_interval: 900
+  watchlist:
+    # Indices / ETFs
+    - SPY
+    - QQQ
+    - IWM
+    - DIA
+    - VTI
+    # Mega-cap tech
+    - AAPL
+    - MSFT
+    - NVDA
+    - GOOGL
+    - AMZN
+    - META
+    - TSLA
+    - AMD
+    - NFLX
+    - AVGO
+    # High-momentum / liquid mid-large
+    - PLTR
+    - COIN
+    - HOOD
+    - MSTR
+    - SMCI
+    - CRWD
+    - SHOP
+    - SOFI
+    - RIVN
+    - LCID
+    - MARA
+    - RIOT
+    - DKNG
+    # Financials / megacaps
+    - JPM
+    - BAC
+    - GS
+    - WFC
+    - BRK.B
+    # Popular options names
+    - SPX
+    - VIX
+    - UVXY
+    - SQQQ
+    - TQQQ
 
 # Ticker validation
 ticker_validation:
@@ -194,11 +255,13 @@ alerts:
     enabled: true
     floor_minutes: 30               # even 100%-precision analyst can't fire faster than this
     high_conviction_bypass: true    # base_score >= high_conviction_threshold skips cooldown entirely
+    max_cooldown_hours: 24          # upper bound; clamps low-precision analysts (weight=0.5 → 12 h)
 
 # Confidence calibration
 calibration:
   shadow_mode:
     enabled: true                   # log predictions to decision_snapshots.feature_vector_json; relabel Discord field
+    retrain_on_startup: true        # NEW — gate for the run_live startup retrain hook
   retrain_enabled: false            # flip to true only after Q2b signal_event feedthrough >= 80% for 7 days
 
 # Browser Stealth Configuration (still used for StockTwits)
