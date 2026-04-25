@@ -323,8 +323,7 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
     for metric_key, ms_value in metrics.items():
         await db.record_metric(f"xref_{metric_key}", ms_value)
 
-    # Q2b: always-on signal_events read so tweet rows (now routed via insert_signal)
-    # reach a consumer after KILL 3 removed the reliability_engine guarded read.
+    # Always-on signal_events read so tweet rows (routed via insert_signal) reach a consumer.
     try:
         signal_events = await db.get_signal_events_for_ticker(ticker, window_seconds=3600)
         log.debug("cross_reference $%s: signal_events in 1h window=%d", ticker, len(signal_events))

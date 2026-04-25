@@ -194,11 +194,13 @@ alerts:
     enabled: true
     floor_minutes: 30               # even 100%-precision analyst can't fire faster than this
     high_conviction_bypass: true    # base_score >= high_conviction_threshold skips cooldown entirely
+    max_cooldown_hours: 24          # upper bound; clamps low-precision analysts (weight=0.5 → 12 h)
 
 # Confidence calibration
 calibration:
   shadow_mode:
     enabled: true                   # log predictions to decision_snapshots.feature_vector_json; relabel Discord field
+    retrain_on_startup: true        # NEW — gate for the run_live startup retrain hook
   retrain_enabled: false            # flip to true only after Q2b signal_event feedthrough >= 80% for 7 days
 
 # Browser Stealth Configuration (still used for StockTwits)

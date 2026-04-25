@@ -330,6 +330,16 @@ async def run_live(stop_event: asyncio.Event):
             )
             combined_stop.set()
 
+        # Milestone-0 / Spec 03: train calibration once on startup. Gated by config.
+        # retrain_all() is cold-start safe — logs INFO and returns when n < MIN_SAMPLES.
+        if cfg.get("calibration.shadow_mode.retrain_on_startup", True):
+            try:
+                from consensus_engine.analysis.calibration import retrain_all
+                results = await retrain_all()
+                log.info("Calibration startup retrain: %s", results)
+            except Exception as exc:
+                log.warning("Calibration startup retrain failed (continuing): %s", exc)
+
         tasks = [
             asyncio.create_task(stop_watcher()),
             asyncio.create_task(weekend_watchdog()),
@@ -648,6 +658,7 @@ async def process_tweet(raw_tweet: dict):
                 instant_msg_id,
                 alert_message_id,
                 alert_row_id,
+                entry_price=price,
             ),
             name=f"xref-{ticker}-{instant_msg_id}",
         )
@@ -659,8 +670,18 @@ async def _run_cross_reference_and_followup(
     instant_msg_id: str,
     alert_message_id: int,
     alert_row_id: int,
+    *,
+    entry_price: float | None = None,
 ):
     """Run slow xref work after the instant alert has already been persisted."""
+    # Optional kwarg for back-compat with legacy 5-arg positional callers (e.g.
+    # test_phase2_timeout.py). Production callers (process_tweet) always pass
+    # entry_price explicitly; legacy callers get None → snapshot records
+    # outcome_price_at_alert=None, which retrain() skips. Deliberately no
+    # _fetch_price fallback here: it pollutes module-level _source_stats with
+    # spurious "finnhub" errors on test runs that lack a real API session.
+    if entry_price is None or entry_price <= 0:
+        entry_price = 0.0
     try:
         xref_task = asyncio.create_task(cross_reference(ticker, tweet))
         precision_task = asyncio.create_task(
@@ -676,7 +697,7 @@ async def _run_cross_reference_and_followup(
             xref = await asyncio.wait_for(asyncio.shield(xref_task), timeout=timeout_sec)
         except asyncio.TimeoutError:
             xref_timed_out = True
-            log.warning("Phase-2 xref timed out after %ss for $%s", timeout_sec, ticker)
+            log.warning("Phase 2 skipped — timeout after %ss for ticker=%s", timeout_sec, ticker)
         except Exception as e:
             log.error("Phase-2 xref failed for $%s: %s", ticker, e)
 
@@ -725,8 +746,19 @@ async def _run_cross_reference_and_followup(
                 final_score=final_score,
                 sources_json=sources_json,
                 contradiction_index=float(getattr(xref, "contradiction_index", 0.0) or 0.0),
+                outcome_price_at_alert=(float(entry_price) if entry_price and entry_price > 0 else None),
+                alert_id=alert_row_id,
             )
             await log_shadow_prediction(snapshot_id, score=final_score, calibrated_prob=shadow_prob)
+
+            # Milestone-0 Spec 03: emit per-horizon shadow predictions.
+            # alert_id below references alert_history.id (NOT alert_messages.id) —
+            # the canonical identity shared with decision_snapshots.alert_id; see §3a.
+            # The Discord-facing "Calibrated conf." display in alerts/discord.py:101
+            # is intentionally NOT touched — shadow mode is observability only.
+            shadow_prob_24h = calibrate(final_score, "24h")
+            await db.insert_shadow_prediction(alert_row_id, shadow_prob,     "1h")
+            await db.insert_shadow_prediction(alert_row_id, shadow_prob_24h, "24h")
         except Exception as shadow_exc:
             log.debug("shadow calibration logging skipped for $%s: %s", ticker, shadow_exc)
 
@@ -816,11 +848,32 @@ async def price_outcome_loop(stop_event: asyncio.Event):
         while not stop_event.is_set():
             try:
                 for field in ("price_1h_later", "price_24h_later"):
+                    horizon = "1h" if field == "price_1h_later" else "24h"
                     alerts = await db.get_alerts_needing_price_update(field)
                     for alert in alerts:
                         price = await loop.run_in_executor(executor, _fetch_yfinance_price, alert["ticker"])
                         if price > 0:
                             await db.update_alert_price(alert["id"], field, price)
+                            # Codex fix #3: update decision_snapshots.outcome_price_{1h,24h}
+                            # so calibration.retrain() can read labelled rows.
+                            snapshot_id = await db.get_snapshot_id_for_alert(alert["id"])
+                            if snapshot_id is not None:
+                                if horizon == "1h":
+                                    await db.update_snapshot_outcomes(snapshot_id, outcome_price_1h=float(price))
+                                else:
+                                    await db.update_snapshot_outcomes(snapshot_id, outcome_price_24h=float(price))
+                            # Codex fix #2 + re-review fix: label shadow_predictions
+                            # by alert_id+horizon, NOT by ticker.  alert["id"] is
+                            # alert_history.id, which is also shadow_predictions.alert_id
+                            # (canonical identity per Section 3a) — direct WHERE alert_id = ?.
+                            entry = float(alert.get("price_at_alert") or 0.0)
+                            if entry > 0:
+                                await db.label_shadow_predictions_for_alert_id(
+                                    alert_history_id=alert["id"],
+                                    horizon=horizon,
+                                    entry_price=entry,
+                                    exit_price=float(price),
+                                )
             except Exception as e:
                 log.error("Price outcome loop error: %s", e, exc_info=True)
 
