@@ -79,6 +79,8 @@ def _build_user_prompt(ticker: str,
         parts.append(f"NEWS CATALYST:")
         parts.append(f"- Type: {catalyst.catalyst_type}")
         parts.append(f"- Summary: {_sanitize_text(catalyst.catalyst_summary, 200)}")
+        if getattr(catalyst, "catalyst_body", ""):
+            parts.append(f"- Body: {_sanitize_text(catalyst.catalyst_body, 600)}")
         parts.append(f"- Sources: {', '.join(catalyst.news_sources[:5])}")
         parts.append(f"- Catalyst confidence: {catalyst.confidence:.0%}")
         parts.append("")

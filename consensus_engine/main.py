@@ -34,6 +34,7 @@ from consensus_engine.analysis.calibration import calibrate, log_shadow_predicti
 from consensus_engine.utils.http import close_session, get_session
 from consensus_engine.utils.tickers import is_valid_ticker, validate_ticker_market_cap
 from consensus_engine.scanners.youtube import youtube_poll_loop
+from consensus_engine.scanners.volume_scanner import scan_volume_breakouts
 from consensus_engine.engine import analyze_signal, SignalClass
 from consensus_engine.research.atlas import atlas_worker_loop, atlas_sweep_loop
 from consensus_engine.briefing.alfred import alfred_loop
@@ -222,34 +223,99 @@ async def sec_8k_watcher_loop(stop_event: asyncio.Event):
 
 
 async def sec_edgar_polling_loop(stop_event: asyncio.Event):
-    """Background loop: poll SEC EDGAR for new filings every 5 min.
+    """Background loop: poll SEC EDGAR for new filings every 5 min for each
+    active ticker.
 
     IMPORTANT: SEC filings NEVER trigger standalone alerts.
     They are stored as signals and added to cross-reference scoring only.
+
+    M1: Form 4 filings below the configured insider-dollar floor are dropped
+    (boilerplate awards, low-conviction trades).
     """
     interval = 300
     while not stop_event.is_set():
         try:
-            from consensus_engine.scanners.sec_edgar import check_recent_filings
+            from consensus_engine.scanners.sec_edgar import (
+                check_recent_filings,
+                fetch_form4_details,
+                compute_insider_value,
+                insider_buy_or_sell,
+            )
 
-            filings = await check_recent_filings()
-            if filings:
+            tickers = await db.get_active_tickers(min_signals=1)
+            min_buy = cfg.get("sec_watcher.min_insider_dollars_buy", 100_000)
+            min_sell = cfg.get("sec_watcher.min_insider_dollars_sell", 1_000_000)
+
+            for ticker in tickers[:30]:
+                if stop_event.is_set():
+                    break
+                filings = await check_recent_filings(ticker, hours_back=48)
                 for filing in filings:
-                    ticker = filing["ticker"]
-                    company = filing.get("company", ticker)
-                    form_type = filing.get("form_type", "Unknown")
+                    form_type = filing.get("form", "Unknown")
 
-                    log.info("SEC filing stored (no alert): $%s - %s", ticker, company)
+                    if form_type == "4":
+                        txs = await fetch_form4_details(
+                            filing.get("cik", ""),
+                            filing.get("accession_number", ""),
+                            filing.get("primary_document", ""),
+                        )
+                        side = insider_buy_or_sell(txs)
+                        if side is None:
+                            continue
+                        value = compute_insider_value(txs, side)
+                        floor = min_buy if side == "Buy" else min_sell
+                        if value < floor:
+                            continue
+                        sentiment = Sentiment.BULLISH if side == "Buy" else Sentiment.BEARISH
+                        detail = f"Form 4 {side} ~${value:,.0f}"
+                    else:
+                        sentiment = Sentiment.NEUTRAL
+                        detail = f"{form_type}: {ticker}"
+
+                    log.info("SEC filing stored (no alert): $%s - %s", ticker, detail)
 
                     await db.insert_signal(TickerSignal(
                         ticker=ticker,
                         source_type=SourceType.SEC_FILING,
-                        source_detail=f"{form_type}: {company}",
-                        raw_text=f"SEC {form_type}: {filing.get('url', '')}",
-                        sentiment=Sentiment.NEUTRAL,
+                        source_detail=detail,
+                        raw_text=f"SEC {form_type} for {ticker}",
+                        sentiment=sentiment,
                     ))
         except Exception as e:
             log.error("SEC EDGAR polling error: %s", e, exc_info=True)
+
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=interval)
+        except asyncio.TimeoutError:
+            continue
+
+
+async def volume_scanner_loop(stop_event: asyncio.Event):
+    """Background loop: poll volume_scanner for RVOL breakouts.
+
+    Q5 wire-up. Each breakout is stored as a TickerSignal with
+    SourceType.VOLUME_BREAKOUT — fed into the same cross-reference path as
+    other social signals.
+    """
+    if not cfg.get("volume_scanner.enabled", False):
+        return
+    interval = cfg.get("volume_scanner.scan_interval", 900)
+    while not stop_event.is_set():
+        try:
+            breakouts = await scan_volume_breakouts()
+            for b in breakouts:
+                sentiment = Sentiment.BULLISH if b.price_change_pct > 0 else Sentiment.BEARISH
+                await db.insert_signal(TickerSignal(
+                    ticker=b.ticker,
+                    source_type=SourceType.VOLUME_BREAKOUT,
+                    source_detail=f"RVOL {b.rvol:.1f}x | {b.price_change_pct:+.1f}%",
+                    raw_text=f"Volume breakout: ${b.ticker} {b.rvol:.1f}x RVOL, {b.price_change_pct:+.1f}%",
+                    sentiment=sentiment,
+                ))
+            _record_source_ok("volume_scanner")
+        except Exception as e:
+            log.error("Volume scanner loop error: %s", e, exc_info=True)
+            _record_source_error("volume_scanner")
 
         try:
             await asyncio.wait_for(stop_event.wait(), timeout=interval)
@@ -330,6 +396,16 @@ async def run_live(stop_event: asyncio.Event):
             )
             combined_stop.set()
 
+        # Milestone-0 / Spec 03: train calibration once on startup. Gated by config.
+        # retrain_all() is cold-start safe — logs INFO and returns when n < MIN_SAMPLES.
+        if cfg.get("calibration.shadow_mode.retrain_on_startup", True):
+            try:
+                from consensus_engine.analysis.calibration import retrain_all
+                results = await retrain_all()
+                log.info("Calibration startup retrain: %s", results)
+            except Exception as exc:
+                log.warning("Calibration startup retrain failed (continuing): %s", exc)
+
         tasks = [
             asyncio.create_task(stop_watcher()),
             asyncio.create_task(weekend_watchdog()),
@@ -337,6 +413,7 @@ async def run_live(stop_event: asyncio.Event):
             asyncio.create_task(fetch_loop(combined_stop, interval=300)),
             asyncio.create_task(price_outcome_loop(combined_stop)),
             asyncio.create_task(youtube_poll_loop(combined_stop)),
+            asyncio.create_task(volume_scanner_loop(combined_stop)),
             asyncio.create_task(source_health_updater_loop(combined_stop)),
             asyncio.create_task(macro_digest_loop(combined_stop)),
         ]
@@ -648,6 +725,7 @@ async def process_tweet(raw_tweet: dict):
                 instant_msg_id,
                 alert_message_id,
                 alert_row_id,
+                entry_price=price,
             ),
             name=f"xref-{ticker}-{instant_msg_id}",
         )
@@ -659,8 +737,18 @@ async def _run_cross_reference_and_followup(
     instant_msg_id: str,
     alert_message_id: int,
     alert_row_id: int,
+    *,
+    entry_price: float | None = None,
 ):
     """Run slow xref work after the instant alert has already been persisted."""
+    # Optional kwarg for back-compat with legacy 5-arg positional callers (e.g.
+    # test_phase2_timeout.py). Production callers (process_tweet) always pass
+    # entry_price explicitly; legacy callers get None → snapshot records
+    # outcome_price_at_alert=None, which retrain() skips. Deliberately no
+    # _fetch_price fallback here: it pollutes module-level _source_stats with
+    # spurious "finnhub" errors on test runs that lack a real API session.
+    if entry_price is None or entry_price <= 0:
+        entry_price = 0.0
     try:
         xref_task = asyncio.create_task(cross_reference(ticker, tweet))
         precision_task = asyncio.create_task(
@@ -676,7 +764,7 @@ async def _run_cross_reference_and_followup(
             xref = await asyncio.wait_for(asyncio.shield(xref_task), timeout=timeout_sec)
         except asyncio.TimeoutError:
             xref_timed_out = True
-            log.warning("Phase-2 xref timed out after %ss for $%s", timeout_sec, ticker)
+            log.warning("Phase 2 skipped — timeout after %ss for ticker=%s", timeout_sec, ticker)
         except Exception as e:
             log.error("Phase-2 xref failed for $%s: %s", ticker, e)
 
@@ -725,8 +813,19 @@ async def _run_cross_reference_and_followup(
                 final_score=final_score,
                 sources_json=sources_json,
                 contradiction_index=float(getattr(xref, "contradiction_index", 0.0) or 0.0),
+                outcome_price_at_alert=(float(entry_price) if entry_price and entry_price > 0 else None),
+                alert_id=alert_row_id,
             )
             await log_shadow_prediction(snapshot_id, score=final_score, calibrated_prob=shadow_prob)
+
+            # Milestone-0 Spec 03: emit per-horizon shadow predictions.
+            # alert_id below references alert_history.id (NOT alert_messages.id) —
+            # the canonical identity shared with decision_snapshots.alert_id; see §3a.
+            # The Discord-facing "Calibrated conf." display in alerts/discord.py:101
+            # is intentionally NOT touched — shadow mode is observability only.
+            shadow_prob_24h = calibrate(final_score, "24h")
+            await db.insert_shadow_prediction(alert_row_id, shadow_prob,     "1h")
+            await db.insert_shadow_prediction(alert_row_id, shadow_prob_24h, "24h")
         except Exception as shadow_exc:
             log.debug("shadow calibration logging skipped for $%s: %s", ticker, shadow_exc)
 
@@ -816,11 +915,32 @@ async def price_outcome_loop(stop_event: asyncio.Event):
         while not stop_event.is_set():
             try:
                 for field in ("price_1h_later", "price_24h_later"):
+                    horizon = "1h" if field == "price_1h_later" else "24h"
                     alerts = await db.get_alerts_needing_price_update(field)
                     for alert in alerts:
                         price = await loop.run_in_executor(executor, _fetch_yfinance_price, alert["ticker"])
                         if price > 0:
                             await db.update_alert_price(alert["id"], field, price)
+                            # Codex fix #3: update decision_snapshots.outcome_price_{1h,24h}
+                            # so calibration.retrain() can read labelled rows.
+                            snapshot_id = await db.get_snapshot_id_for_alert(alert["id"])
+                            if snapshot_id is not None:
+                                if horizon == "1h":
+                                    await db.update_snapshot_outcomes(snapshot_id, outcome_price_1h=float(price))
+                                else:
+                                    await db.update_snapshot_outcomes(snapshot_id, outcome_price_24h=float(price))
+                            # Codex fix #2 + re-review fix: label shadow_predictions
+                            # by alert_id+horizon, NOT by ticker.  alert["id"] is
+                            # alert_history.id, which is also shadow_predictions.alert_id
+                            # (canonical identity per Section 3a) — direct WHERE alert_id = ?.
+                            entry = float(alert.get("price_at_alert") or 0.0)
+                            if entry > 0:
+                                await db.label_shadow_predictions_for_alert_id(
+                                    alert_history_id=alert["id"],
+                                    horizon=horizon,
+                                    entry_price=entry,
+                                    exit_price=float(price),
+                                )
             except Exception as e:
                 log.error("Price outcome loop error: %s", e, exc_info=True)
 
