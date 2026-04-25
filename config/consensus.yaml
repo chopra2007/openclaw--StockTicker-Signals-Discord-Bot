@@ -155,12 +155,56 @@ llm:
   min_confidence: 70
   max_tokens: 1024
 
-# Volume Breakout Scanner
+# Volume Breakout Scanner (Q5 wire-up: emits VOLUME_BREAKOUT signals into main loop)
 volume_scanner:
   enabled: true
   rvol_threshold: 5.0
   min_price_change_pct: 1.0
   scan_interval: 900
+  watchlist:
+    # Indices / ETFs
+    - SPY
+    - QQQ
+    - IWM
+    - DIA
+    - VTI
+    # Mega-cap tech
+    - AAPL
+    - MSFT
+    - NVDA
+    - GOOGL
+    - AMZN
+    - META
+    - TSLA
+    - AMD
+    - NFLX
+    - AVGO
+    # High-momentum / liquid mid-large
+    - PLTR
+    - COIN
+    - HOOD
+    - MSTR
+    - SMCI
+    - CRWD
+    - SHOP
+    - SOFI
+    - RIVN
+    - LCID
+    - MARA
+    - RIOT
+    - DKNG
+    # Financials / megacaps
+    - JPM
+    - BAC
+    - GS
+    - WFC
+    - BRK.B
+    # Popular options names
+    - SPX
+    - VIX
+    - UVXY
+    - SQQQ
+    - TQQQ
 
 # Ticker validation
 ticker_validation:
