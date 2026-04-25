@@ -15,6 +15,7 @@ class SourceType(str, Enum):
     NEWS = "news"
     SEC_FILING = "sec_filing"
     YOUTUBE = "youtube"
+    VOLUME_BREAKOUT = "volume_breakout"
 
 
 class Sentiment(str, Enum):
