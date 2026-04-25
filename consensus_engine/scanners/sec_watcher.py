@@ -25,6 +25,36 @@ _8K_FEED_URL = (
     "?action=getcurrent&type=8-K&dateb=&owner=include&count=40&output=atom"
 )
 
+# 8-K item codes that drive material price-moving events.
+# Reference: https://www.sec.gov/forms-8-k
+# 1.01 material agreement; 2.02 results of operations; 5.02 officer change;
+# 7.01 Reg FD disclosure; 8.01 other material events.
+_DEFAULT_ITEM_WHITELIST = {"1.01", "2.02", "5.02", "7.01", "8.01"}
+
+_ITEM_PATTERN = re.compile(r"\bItems?:?\s*((?:\d+\.\d+(?:\s*,\s*)?)+)", re.IGNORECASE)
+_ITEM_NUMBER_PATTERN = re.compile(r"\d+\.\d+")
+
+
+def _extract_item_types(summary: str) -> list[str]:
+    """Pull 8-K item codes (e.g. '2.02') from an ATOM <summary> string."""
+    if not summary:
+        return []
+    match = _ITEM_PATTERN.search(summary)
+    if not match:
+        return []
+    return _ITEM_NUMBER_PATTERN.findall(match.group(1))
+
+
+def _is_item_whitelisted(items: list[str], whitelist: set[str]) -> bool:
+    """True when at least one item is whitelisted, or no items are listed.
+
+    No-items case is treated as a pass: parsing failed or feed is sparse, so
+    fall through to the next filter rather than drop the filing.
+    """
+    if not items:
+        return True
+    return any(item in whitelist for item in items)
+
 
 @dataclass
 class Filing8K:
@@ -54,6 +84,7 @@ def _parse_8k_feed(xml_text: str) -> list[dict]:
         title_el = entry.find("atom:title", ns)
         link_el = entry.find("atom:link", ns)
         id_el = entry.find("atom:id", ns)
+        summary_el = entry.find("atom:summary", ns)
 
         if title_el is None or title_el.text is None:
             continue
@@ -69,6 +100,8 @@ def _parse_8k_feed(xml_text: str) -> list[dict]:
 
         url = link_el.get("href", "") if link_el is not None else ""
         filing_id = id_el.text if id_el is not None and id_el.text else url
+        summary = (summary_el.text or "") if summary_el is not None else ""
+        item_types = _extract_item_types(summary)
 
         filings.append({
             "cik": cik,
@@ -76,6 +109,7 @@ def _parse_8k_feed(xml_text: str) -> list[dict]:
             "form": "8-K",
             "url": url,
             "filing_id": filing_id,
+            "item_types": item_types,
         })
 
     return filings
@@ -127,9 +161,18 @@ async def scan_8k_filings() -> list[dict]:
     if not filings:
         return []
 
+    whitelist_cfg = cfg.get("sec_watcher.item_whitelist", None)
+    whitelist = set(whitelist_cfg) if whitelist_cfg else _DEFAULT_ITEM_WHITELIST
+
     results = []
     for f in filings:
         filing_id = f["filing_id"]
+        item_types = f.get("item_types", [])
+        if not _is_item_whitelisted(item_types, whitelist):
+            log.debug("SEC 8-K skipped (items=%s not whitelisted): %s",
+                      item_types, f.get("company", ""))
+            continue
+
         if not await db.is_new_tweet(filing_id):
             continue
 
@@ -148,6 +191,7 @@ async def scan_8k_filings() -> list[dict]:
             "url": f["url"],
             "filing_id": filing_id,
             "form": "8-K",
+            "item_types": item_types,
         })
 
     if results:
