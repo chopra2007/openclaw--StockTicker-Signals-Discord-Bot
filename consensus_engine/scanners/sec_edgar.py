@@ -141,6 +141,41 @@ async def check_recent_filings(ticker: str, hours_back: int = 48) -> list[dict]:
         return []
 
 
+# Open-market transactions only — awards, gifts, tax withholding don't
+# express insider conviction and are excluded from the dollar filter.
+_OPEN_MARKET_TX_TYPES = {"Open Market Purchase", "Open Market Sale"}
+
+
+def compute_insider_value(transactions: list[dict], direction: str) -> float:
+    """Sum dollar value of open-market insider transactions in `direction`.
+
+    direction: "Buy" | "Sell". Awards / tax withholding / gifts are
+    excluded — only conviction trades count toward the M1 filter.
+    """
+    total = 0.0
+    for tx in transactions:
+        if tx.get("transaction_type") not in _OPEN_MARKET_TX_TYPES:
+            continue
+        if tx.get("direction") != direction:
+            continue
+        try:
+            shares = float(tx.get("shares") or 0)
+            price = float(tx.get("price") or 0)
+        except (TypeError, ValueError):
+            continue
+        total += shares * price
+    return total
+
+
+def insider_buy_or_sell(transactions: list[dict]) -> Optional[str]:
+    """Whichever side has the higher dollar value, or None if neither side trades."""
+    buy = compute_insider_value(transactions, "Buy")
+    sell = compute_insider_value(transactions, "Sell")
+    if buy == 0 and sell == 0:
+        return None
+    return "Buy" if buy >= sell else "Sell"
+
+
 def classify_filing_significance(filings: list[dict]) -> tuple[bool, str]:
     """Classify filings by significance for cross-reference scoring.
 

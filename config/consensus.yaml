@@ -90,8 +90,25 @@ intervals:
 
 # Scanner toggles
 scanners:
-  # SEC filings must be cross-reference only. Keep background SEC watchers off unless explicitly needed.
-  sec_background_watchers_enabled: false
+  # SEC filings are cross-reference only — never trigger standalone alerts.
+  # M1 re-enables the watchers with item-type + dollar filters configured below.
+  sec_background_watchers_enabled: true
+
+# SEC Watcher (M1: re-enable with item-type whitelist + Form 4 dollar filter)
+sec_watcher:
+  # 8-K item codes that trigger downstream signals.
+  # 1.01 material agreement | 2.02 results of operations | 5.02 officer change
+  # 7.01 Reg FD disclosure  | 8.01 other material events
+  item_whitelist:
+    - "1.01"
+    - "2.02"
+    - "5.02"
+    - "7.01"
+    - "8.01"
+  # Form 4 insider transaction dollar floors. Only open-market trades count;
+  # awards / gifts / tax-withholding are excluded.
+  min_insider_dollars_buy: 100000     # $100k+ insider purchase signals conviction
+  min_insider_dollars_sell: 1000000   # Sells need higher floor — execs sell for many reasons
 
 # Stage 2: Social & Sentiment Scanner (used for cross-reference scoring)
 social:

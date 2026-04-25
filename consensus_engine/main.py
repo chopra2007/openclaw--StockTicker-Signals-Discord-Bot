@@ -223,31 +223,63 @@ async def sec_8k_watcher_loop(stop_event: asyncio.Event):
 
 
 async def sec_edgar_polling_loop(stop_event: asyncio.Event):
-    """Background loop: poll SEC EDGAR for new filings every 5 min.
+    """Background loop: poll SEC EDGAR for new filings every 5 min for each
+    active ticker.
 
     IMPORTANT: SEC filings NEVER trigger standalone alerts.
     They are stored as signals and added to cross-reference scoring only.
+
+    M1: Form 4 filings below the configured insider-dollar floor are dropped
+    (boilerplate awards, low-conviction trades).
     """
     interval = 300
     while not stop_event.is_set():
         try:
-            from consensus_engine.scanners.sec_edgar import check_recent_filings
+            from consensus_engine.scanners.sec_edgar import (
+                check_recent_filings,
+                fetch_form4_details,
+                compute_insider_value,
+                insider_buy_or_sell,
+            )
 
-            filings = await check_recent_filings()
-            if filings:
+            tickers = await db.get_active_tickers(min_signals=1)
+            min_buy = cfg.get("sec_watcher.min_insider_dollars_buy", 100_000)
+            min_sell = cfg.get("sec_watcher.min_insider_dollars_sell", 1_000_000)
+
+            for ticker in tickers[:30]:
+                if stop_event.is_set():
+                    break
+                filings = await check_recent_filings(ticker, hours_back=48)
                 for filing in filings:
-                    ticker = filing["ticker"]
-                    company = filing.get("company", ticker)
-                    form_type = filing.get("form_type", "Unknown")
+                    form_type = filing.get("form", "Unknown")
 
-                    log.info("SEC filing stored (no alert): $%s - %s", ticker, company)
+                    if form_type == "4":
+                        txs = await fetch_form4_details(
+                            filing.get("cik", ""),
+                            filing.get("accession_number", ""),
+                            filing.get("primary_document", ""),
+                        )
+                        side = insider_buy_or_sell(txs)
+                        if side is None:
+                            continue
+                        value = compute_insider_value(txs, side)
+                        floor = min_buy if side == "Buy" else min_sell
+                        if value < floor:
+                            continue
+                        sentiment = Sentiment.BULLISH if side == "Buy" else Sentiment.BEARISH
+                        detail = f"Form 4 {side} ~${value:,.0f}"
+                    else:
+                        sentiment = Sentiment.NEUTRAL
+                        detail = f"{form_type}: {ticker}"
+
+                    log.info("SEC filing stored (no alert): $%s - %s", ticker, detail)
 
                     await db.insert_signal(TickerSignal(
                         ticker=ticker,
                         source_type=SourceType.SEC_FILING,
-                        source_detail=f"{form_type}: {company}",
-                        raw_text=f"SEC {form_type}: {filing.get('url', '')}",
-                        sentiment=Sentiment.NEUTRAL,
+                        source_detail=detail,
+                        raw_text=f"SEC {form_type} for {ticker}",
+                        sentiment=sentiment,
                     ))
         except Exception as e:
             log.error("SEC EDGAR polling error: %s", e, exc_info=True)
