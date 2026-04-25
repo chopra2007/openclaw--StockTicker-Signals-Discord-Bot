@@ -259,6 +259,18 @@ CREATE INDEX IF NOT EXISTS idx_snapshots_ticker ON decision_snapshots(ticker);
 CREATE INDEX IF NOT EXISTS idx_snapshots_recorded ON decision_snapshots(recorded_at);
 CREATE INDEX IF NOT EXISTS idx_snapshots_decision ON decision_snapshots(decision);
 
+CREATE TABLE IF NOT EXISTS shadow_predictions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    alert_id INTEGER NOT NULL,
+    predicted_prob REAL NOT NULL,
+    horizon TEXT NOT NULL,
+    actual_hit INTEGER,
+    created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_shadow_alert ON shadow_predictions(alert_id);
+CREATE INDEX IF NOT EXISTS idx_shadow_pending ON shadow_predictions(actual_hit, horizon)
+    WHERE actual_hit IS NULL;
+
 CREATE TABLE IF NOT EXISTS youtube_channels (
     channel_id TEXT PRIMARY KEY,
     display_name TEXT NOT NULL,
@@ -309,6 +321,7 @@ CREATE TABLE IF NOT EXISTS youtube_level_alerts (
 );
 CREATE INDEX IF NOT EXISTS idx_yla_ticker ON youtube_level_alerts(ticker);
 CREATE INDEX IF NOT EXISTS idx_yla_alerted ON youtube_level_alerts(alerted_at);
+CREATE INDEX IF NOT EXISTS idx_yla_ticker_alerted ON youtube_level_alerts(ticker, alerted_at);
 
 CREATE TABLE IF NOT EXISTS research_jobs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -488,6 +501,7 @@ async def _run_column_migrations(conn) -> None:
         ("api_usage_daily", "gemini_input_tokens",  "INTEGER NOT NULL DEFAULT 0"),
         ("api_usage_daily", "gemini_output_tokens", "INTEGER NOT NULL DEFAULT 0"),
         ("api_usage_daily", "gemini_video_calls",   "INTEGER NOT NULL DEFAULT 0"),
+        ("decision_snapshots", "alert_id",  "INTEGER"),
     ]
     for table in ("youtube_signals", "youtube_levels", "youtube_setups", "youtube_options"):
         for col, defn in v2_span_cols:
@@ -764,17 +778,17 @@ async def check_alert_cooldown(
     ):
         return True
 
-    # Per-analyst path with precision weighting (fallback: default cooldown_hours).
+    # Per-analyst path: weight = clamp(precision * 2, 0.5, 2.0).
+    # cooldown_h = min(max_cap, base / weight); 50%-precision = baseline 6 h.
+    # Cold-start AND sample_count<5 both arrive as precision=None -> weight=1.0 (= base 6 h).
+    max_cooldown_hours = cfg.get("alerts.per_analyst_cooldown.max_cooldown_hours", 24)
     precision = await get_analyst_precision(analyst, horizon="1h")
     if precision is None:
-        scaled_minutes = cooldown_hours * 60
+        weight = 1.0
     else:
-        # Map precision [0.0, 1.0] -> scaled_minutes [cooldown_hours*60, floor_minutes]
-        default_minutes = cooldown_hours * 60
-        scaled_minutes = max(
-            floor_minutes,
-            int(floor_minutes + (default_minutes - floor_minutes) * (1.0 - precision)),
-        )
+        weight = min(2.0, max(0.5, precision * 2.0))
+    cooldown_h = min(max_cooldown_hours, cooldown_hours / weight)
+    scaled_minutes = max(floor_minutes, int(cooldown_h * 60))
     if await _analyst_blocked_within(scaled_minutes):
         return False
     # Always enforce floor regardless of precision
@@ -1779,13 +1793,21 @@ async def get_recent_youtube_macro(days: int = 7) -> list[dict]:
     return result
 
 
-async def was_level_recently_alerted(ticker: str, price: float, cooldown_seconds: int = 14400) -> bool:
-    """Return True if a level alert for this ticker/price was fired within cooldown window."""
+async def was_level_recently_alerted(ticker: str, price: float, cooldown_seconds: int = 86400) -> bool:
+    """Return True if a level alert for this ticker/price was fired within cooldown window.
+
+    Defaults: 24h cooldown, ±0.5% price band (matches youtube.level_alert_proximity_pct
+    so the dedup window matches the trigger window). Empirically validated by the
+    2026-04-24 signal audit, which observed 76% repeat alerts under the previous
+    4h / ±1% configuration.
+    """
     conn = await get_db()
     cutoff = time.time() - cooldown_seconds
     cursor = await conn.execute(
         """SELECT 1 FROM youtube_level_alerts
-           WHERE ticker = ? AND ABS(price - ?) / ? < 0.01 AND alerted_at >= ?
+           WHERE ticker = ?
+             AND ABS(price - ?) / NULLIF(?, 0) < 0.005
+             AND alerted_at >= ?
            LIMIT 1""",
         (ticker, price, price, cutoff),
     )
@@ -1861,16 +1883,19 @@ async def record_decision_snapshot(
     feature_vector_json: str | None = None,
     weights_json: str | None = None,
     outcome_price_at_alert: float | None = None,
+    alert_id: int | None = None,
 ) -> int:
     """Record a decision snapshot. Returns the new row ID."""
     conn = await get_db()
     cursor = await conn.execute(
         """INSERT INTO decision_snapshots
            (ticker, decision, final_score, contradiction_index, sources_json,
-            feature_vector_json, weights_json, recorded_at, outcome_price_at_alert)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            feature_vector_json, weights_json, recorded_at, outcome_price_at_alert,
+            alert_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (ticker, decision, final_score, contradiction_index, sources_json,
-         feature_vector_json, weights_json, time.time(), outcome_price_at_alert),
+         feature_vector_json, weights_json, time.time(), outcome_price_at_alert,
+         alert_id),
     )
     await conn.commit()
     return cursor.lastrowid
@@ -1907,6 +1932,96 @@ async def update_snapshot_outcomes(
         (outcome_price_1h, outcome_price_24h, snapshot_id),
     )
     await conn.commit()
+
+
+async def get_snapshot_id_for_alert(alert_id: int) -> int | None:
+    """Return the decision_snapshots.id for a given alert_history.id, or None."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT id FROM decision_snapshots WHERE alert_id = ? LIMIT 1",
+        (alert_id,),
+    )
+    row = await cursor.fetchone()
+    return row["id"] if row else None
+
+
+# ---------------------------------------------------------------------------
+# Shadow-prediction helpers (Milestone-0 Spec 03)
+# ---------------------------------------------------------------------------
+
+async def insert_shadow_prediction(
+    alert_id: int,
+    predicted_prob: float,
+    horizon: str,
+) -> int:
+    """Record an unlabelled calibration prediction. `alert_id` references
+    `alert_history.id` (Section 3a). Returns the new row ID."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        """INSERT INTO shadow_predictions
+           (alert_id, predicted_prob, horizon, actual_hit, created_at)
+           VALUES (?, ?, ?, NULL, ?)""",
+        (alert_id, float(predicted_prob), horizon, int(time.time())),
+    )
+    await conn.commit()
+    return cursor.lastrowid
+
+
+async def get_pending_shadow_predictions(horizon: str, limit: int = 500) -> list[dict]:
+    """Return shadow_predictions rows where actual_hit IS NULL for one horizon.
+    Joins through alert_history (the canonical FK target) for ticker context."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT sp.id, sp.alert_id, sp.predicted_prob, sp.horizon, sp.created_at,
+                  ah.ticker
+           FROM shadow_predictions sp
+           JOIN alert_history ah ON sp.alert_id = ah.id
+           WHERE sp.actual_hit IS NULL AND sp.horizon = ?
+           ORDER BY sp.created_at ASC
+           LIMIT ?""",
+        (horizon, limit),
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def update_shadow_actual(prediction_id: int, actual_hit: int) -> None:
+    """Label a shadow prediction with the realised 0/1 outcome."""
+    conn = await get_db()
+    await conn.execute(
+        "UPDATE shadow_predictions SET actual_hit = ? WHERE id = ?",
+        (int(actual_hit), prediction_id),
+    )
+    await conn.commit()
+
+
+async def label_shadow_predictions_for_alert_id(
+    alert_history_id: int,
+    horizon: str,
+    entry_price: float,
+    exit_price: float,
+) -> int:
+    """Label unlabelled shadow_predictions rows for a SPECIFIC alert_history.id
+    and horizon.  Returns the number of rows labelled (0 or 1 in normal operation).
+
+    Codex review fix #2 + re-review fix: the WHERE clause keys on alert_id (=
+    alert_history.id, the canonical FK target per Section 3a), NOT on ticker, so
+    multiple alerts for the same ticker get labelled independently with the
+    correct entry/exit pair for each."""
+    if entry_price <= 0 or exit_price <= 0:
+        return 0
+    actual = 1 if exit_price > entry_price else 0
+    conn = await get_db()
+    cursor = await conn.execute(
+        """UPDATE shadow_predictions
+              SET actual_hit = ?
+            WHERE actual_hit IS NULL
+              AND alert_id = ?
+              AND horizon = ?""",
+        (actual, alert_history_id, horizon),
+    )
+    await conn.commit()
+    return cursor.rowcount or 0
 
 
 # ---------------------------------------------------------------------------
