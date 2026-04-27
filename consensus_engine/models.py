@@ -253,13 +253,14 @@ class ScoreBreakdown:
     technical: int = 0
     llm_boost: int = 0
     options_flow: int = 0
+    consensus_boost: int = 0
 
     @property
     def total(self) -> int:
         return (self.base + self.additional_analysts + self.news_catalyst
                 + self.sec_filing + self.social_apewisdom + self.social_stocktwits
                 + self.social_reddit + self.google_trends + self.technical
-                + self.llm_boost + self.options_flow)
+                + self.llm_boost + self.options_flow + self.consensus_boost)
 
 
 @dataclass

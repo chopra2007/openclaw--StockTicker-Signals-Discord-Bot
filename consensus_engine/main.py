@@ -426,6 +426,7 @@ async def run_live(stop_event: asyncio.Event):
             asyncio.create_task(atlas_worker_loop(combined_stop)),
             asyncio.create_task(atlas_sweep_loop(combined_stop)),
             asyncio.create_task(alfred_loop(combined_stop)),
+            asyncio.create_task(feature_volume_monitor_loop()),
         ])
 
         try:
@@ -845,6 +846,58 @@ async def _run_cross_reference_and_followup(
         log.error("Cross-reference follow-up failed for $%s: %s", ticker, e, exc_info=True)
 
 
+async def feature_volume_monitor_loop() -> None:
+    """Monitor 24h alert volume for 50% drops after feature flips."""
+    import time as _time
+    while True:
+        try:
+            interval = cfg.get("intervals.feature_volume_monitor", 900)
+            await asyncio.sleep(interval)
+            conn = await db.get_db()
+            now = _time.time()
+            window = 86400
+            cur = await conn.execute(
+                "SELECT COUNT(*) as cnt FROM alert_history WHERE alerted_at >= ?",
+                (now - window,),
+            )
+            row = await cur.fetchone()
+            recent_count = row["cnt"] if row else 0
+
+            # Check if any feature was flipped in the last 24h
+            cur = await conn.execute(
+                "SELECT feature, new_state, flipped_at FROM feature_flag_audit WHERE flipped_at >= ? ORDER BY flipped_at DESC LIMIT 1",
+                (now - window,),
+            )
+            flip_row = await cur.fetchone()
+            if flip_row and flip_row["new_state"] == 1:
+                # Compare post-flip volume to pre-flip baseline
+                flip_at = flip_row["flipped_at"]
+                cur = await conn.execute(
+                    "SELECT COUNT(*) as cnt FROM alert_history WHERE alerted_at >= ? AND alerted_at < ?",
+                    (flip_at - window, flip_at),
+                )
+                base_row = await cur.fetchone()
+                baseline = base_row["cnt"] if base_row else 0
+                if baseline > 0 and recent_count < baseline * 0.5:
+                    log.warning(
+                        "[FEATURE-MONITOR] 50%% volume drop after enabling %s: baseline=%d recent=%d",
+                        flip_row["feature"], baseline, recent_count,
+                    )
+                    try:
+                        from consensus_engine.alerts.discord import send_message
+                        ops_channel = cfg.get("discord.ops_channel_id", cfg.get("discord.channel_id", ""))
+                        if ops_channel:
+                            await send_message(
+                                ops_channel,
+                                f"⚠️ **Volume drop alert**: 24h alert count dropped >50% after enabling `{flip_row['feature']}`. "
+                                f"Baseline: {baseline}, recent: {recent_count}. Consider `!disable-feature` via YAML.",
+                            )
+                    except Exception:
+                        pass
+        except Exception as e:
+            log.warning("feature_volume_monitor_loop error: %s", e)
+
+
 async def source_health_updater_loop(stop_event: asyncio.Event) -> None:
     """Periodically flush in-process source stats to the source_health DB table.
 
@@ -972,8 +1025,35 @@ def main():
     cfg.dry_run = args.dry_run
 
     if args.status:
-        print("Consensus Engine Status")
-        print("Use --once or --live to run")
+        async def _show_status():
+            await db.init_db()
+            print("Consensus Engine Status")
+            from consensus_engine.utils.feature_flags import KNOWN_FEATURES, read_feature_state, audit_history
+            import time as _time
+            print("\n--- Feature Flags ---")
+            enabled_count = 0
+            for name in KNOWN_FEATURES:
+                state = await read_feature_state(name)
+                if state:
+                    enabled_count += 1
+                status_str = "enabled" if state else "disabled"
+                print(f"  {name}: {status_str}")
+            print(f"  features active: {enabled_count}/{len(KNOWN_FEATURES)} enabled")
+            history = await audit_history(limit=5)
+            if history:
+                print("\n--- Recent Feature Flips ---")
+                for row in history:
+                    import datetime
+                    ts = datetime.datetime.utcfromtimestamp(row["flipped_at"]).strftime("%Y-%m-%d %H:%M")
+                    direction = "→ON" if row["new_state"] else "→OFF"
+                    print(f"  {row['feature']} {direction} at {ts}")
+            conn = await db.get_db()
+            cutoff = _time.time() - 86400
+            cur = await conn.execute("SELECT COUNT(*) as cnt FROM alert_history WHERE alerted_at >= ?", (cutoff,))
+            row = await cur.fetchone()
+            print(f"\n24h alert volume: {row['cnt'] if row else 0}")
+            await db.close_db()
+        asyncio.run(_show_status())
         return
 
     if args.live:

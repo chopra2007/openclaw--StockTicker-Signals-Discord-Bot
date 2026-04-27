@@ -454,6 +454,23 @@ CREATE TABLE IF NOT EXISTS discord_command_user_rate (
     ts REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_dcur_user_cmd_ts ON discord_command_user_rate(user_id, command, ts);
+
+CREATE TABLE IF NOT EXISTS feature_flag_audit (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    feature TEXT NOT NULL,
+    prior_state INTEGER NOT NULL,
+    new_state INTEGER NOT NULL,
+    reason TEXT,
+    flipped_by TEXT,
+    flipped_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_flag_audit_feature ON feature_flag_audit(feature);
+
+CREATE TABLE IF NOT EXISTS schema_version (
+    version INTEGER PRIMARY KEY,
+    applied_at REAL NOT NULL,
+    note TEXT
+);
 """
 
 # Unique indices that reference columns added by _run_column_migrations.
@@ -502,11 +519,18 @@ async def _run_column_migrations(conn) -> None:
         ("api_usage_daily", "gemini_output_tokens", "INTEGER NOT NULL DEFAULT 0"),
         ("api_usage_daily", "gemini_video_calls",   "INTEGER NOT NULL DEFAULT 0"),
         ("decision_snapshots", "alert_id",  "INTEGER"),
+        ("signal_events", "consumed_by_cluster_id", "INTEGER"),
+        ("sec_form4_filings", "is_10b5_1", "INTEGER DEFAULT 0"),
     ]
     for table in ("youtube_signals", "youtube_levels", "youtube_setups", "youtube_options"):
         for col, defn in v2_span_cols:
             migrations.append((table, col, defn))
+    # Get set of existing table names to skip migrations for non-existent tables
+    cur = await conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    existing_tables = {r["name"] for r in await cur.fetchall()}
     for table, col, defn in migrations:
+        if table not in existing_tables:
+            continue
         cur = await conn.execute(f"PRAGMA table_info({table})")
         existing = {r["name"] for r in await cur.fetchall()}
         if col not in existing:
@@ -563,6 +587,16 @@ async def init_db() -> AsyncConnection:
     await _dedup_legacy_rows(_db)       # drop legacy dupes so UNIQUE index creation is safe
     for stmt in POST_MIGRATION_INDICES:
         await _db.execute(stmt)
+    await _db.commit()
+    # Insert schema_version rows (idempotent via INSERT OR IGNORE)
+    _schema_versions = [
+        (7, "cross-cutting feature-flag bundle"),
+    ]
+    for version, note in _schema_versions:
+        await _db.execute(
+            "INSERT OR IGNORE INTO schema_version (version, applied_at, note) VALUES (?, ?, ?)",
+            (version, time.time(), note),
+        )
     await _db.commit()
     await seed_youtube_channels()
     log.info("Database initialized at %s", db_path)
