@@ -69,7 +69,11 @@ HELP_TEXT = """**OpenClaw Signal Engine — Commands**
 `!macro` — macro digest across all channels (last 7 days)
 `!yt-follow <@handle or URL>` — add a YouTube channel to the follow list (e.g. `!yt-follow @FiguringOutMoney`)
 `!yt-health` — 7-day YouTube pipeline health + Gemini budget snapshot
-`!yt-evidence <video_id>` — first 10 grounded evidence spans extracted from a video"""
+`!yt-evidence <video_id>` — first 10 grounded evidence spans extracted from a video
+
+**Feature Flags**
+`!feature-health` — list all 6 features, enabled state, last flip
+`!shadow-mode-report <feature>` — KPI report from last 14d shadow data"""
 
 
 def parse_command(content: str) -> Optional[tuple[str, list[str]]]:
@@ -228,6 +232,15 @@ async def route_command(
             await send_command_reply(channel_id, message_id, "Usage: `!yt-evidence <video_id>`")
         else:
             await _handle_yt_evidence(args[0], channel_id, message_id)
+
+    elif command in ("feature-health", "feature_health"):
+        await _handle_feature_health(channel_id, message_id)
+
+    elif command in ("shadow-mode-report", "shadow_mode_report", "shadow-report"):
+        if not args:
+            await send_command_reply(channel_id, message_id, "Usage: `!shadow-mode-report <feature>` — e.g. `!shadow-mode-report regime_classifier`")
+        else:
+            await _handle_shadow_mode_report(args[0].lower().replace("-", "_"), channel_id, message_id)
 
     else:
         await send_command_reply(channel_id, message_id, f"Unknown command `!{command}`. Try `!help`.")
@@ -632,6 +645,11 @@ async def _google_trends_and_reply(ticker: str, channel_id: str, message_id: str
 
 async def _run_serpapi_trends(channel_id: str, message_id: str) -> None:
     """Run SerpAPI Google Trends for trending tickers from ApeWisdom (cron job)."""
+    from consensus_engine.main import _is_weekend_pause
+    if _is_weekend_pause():
+        await send_command_reply(channel_id, message_id, "SerpAPI Google Trends: Skipped (weekend pause)")
+        return
+
     await send_command_reply(channel_id, message_id, "Running SerpAPI Google Trends...")
     try:
         from consensus_engine import db
@@ -1505,3 +1523,95 @@ async def _handle_yt_evidence(video_id: str, channel_id: str, message_id: str) -
     except Exception as e:
         log.error("!yt-evidence error for %s: %s", video_id, e, exc_info=True)
         await send_command_reply(channel_id, message_id, "Evidence lookup failed.")
+
+
+# ---------------------------------------------------------------------------
+# Feature flag commands
+# ---------------------------------------------------------------------------
+
+async def _handle_feature_health(channel_id: str, message_id: str) -> None:
+    """List all 6 features with enabled state + last audit row."""
+    from consensus_engine.utils.feature_flags import KNOWN_FEATURES, read_feature_state, audit_history
+    lines = ["**Feature Flag Health**"]
+    for name in KNOWN_FEATURES:
+        state = await read_feature_state(name)
+        icon = "🟢" if state else "⚫"
+        lines.append(f"{icon} `{name}`: {'enabled' if state else 'disabled'}")
+    # Last 3 audit rows
+    history = await audit_history(limit=3)
+    if history:
+        lines.append("\n**Recent flips:**")
+        for row in history:
+            import datetime
+            ts = datetime.datetime.utcfromtimestamp(row["flipped_at"]).strftime("%Y-%m-%d %H:%M")
+            direction = "→ON" if row["new_state"] else "→OFF"
+            lines.append(f"• `{row['feature']}` {direction} at {ts} ({row['reason'] or 'no reason'})")
+    await send_command_reply(channel_id, message_id, "\n".join(lines))
+
+
+async def _handle_shadow_mode_report(feature: str, channel_id: str, message_id: str) -> None:
+    """Compute KPIs from last 14d shadow feature_vector_json data."""
+    from consensus_engine.utils.feature_flags import KNOWN_FEATURES
+    if feature not in KNOWN_FEATURES:
+        await send_command_reply(channel_id, message_id, f"Unknown feature `{feature}`. Known: {', '.join(KNOWN_FEATURES)}")
+        return
+    try:
+        import json
+        import time
+        conn = await db.get_db()
+        cutoff = time.time() - 14 * 86400
+        cur = await conn.execute(
+            "SELECT feature_vector_json, decision FROM decision_snapshots WHERE recorded_at >= ? ORDER BY recorded_at DESC LIMIT 500",
+            (cutoff,),
+        )
+        rows = await cur.fetchall()
+        if not rows:
+            await send_command_reply(channel_id, message_id, f"No shadow data found for `{feature}` in the last 14 days.")
+            return
+
+        # Map feature names to feature_vector_json keys
+        key_map = {
+            "contradiction_penalty": "contradiction_verdict",
+            "regime_classifier": "regime_context",
+            "sector_confirmation": "sector_verdict",
+            "cross_source_consolidation": "consolidation_result",
+            "analyst_herding": "cluster_membership",
+            "form4_cluster": None,  # D1 has no shadow mode; gated on kill-switch
+        }
+        fv_key = key_map.get(feature)
+        if fv_key is None:
+            await send_command_reply(channel_id, message_id, f"`{feature}` does not have shadow-mode KPIs (it is gated on the kill-switch).")
+            return
+
+        total = 0
+        disagree = 0
+        for row in rows:
+            fv = json.loads(row["feature_vector_json"] or "{}")
+            if fv_key not in fv:
+                continue
+            total += 1
+            # Disagreement: shadow result differs from live decision
+            shadow_data = fv[fv_key]
+            if isinstance(shadow_data, dict) and shadow_data.get("apply_penalty") and row["decision"] == "STRONG_ALERT":
+                disagree += 1
+            elif isinstance(shadow_data, dict) and shadow_data.get("threshold_shift", 0) != 0:
+                disagree += 1
+            elif isinstance(shadow_data, dict) and shadow_data.get("consensus_boost", 0) != 0:
+                disagree += 1
+
+        if total == 0:
+            await send_command_reply(channel_id, message_id, f"No `{fv_key}` entries in shadow data yet for `{feature}`.")
+            return
+
+        disagree_rate = disagree / total * 100
+        lines = [
+            f"**Shadow-Mode Report: `{feature}`**",
+            f"Snapshots analyzed (last 14d): {total}",
+            f"Disagreement rate: {disagree_rate:.1f}%",
+            f"Note: Brier-Δ CI requires outcome data (price_1h/24h). Run after outcomes populate.",
+            f"\n*Shadow rows present — feature is computing. Ready for KPI-gated flip when thresholds met.*",
+        ]
+        await send_command_reply(channel_id, message_id, "\n".join(lines))
+    except Exception as e:
+        log.exception("shadow_mode_report error for %s", feature)
+        await send_command_reply(channel_id, message_id, f"Error computing shadow report: {e}")
