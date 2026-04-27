@@ -283,7 +283,7 @@ def test_degraded_mode_clears_when_sources_recover():
 async def test_regime_detector_adverse_high_contradiction(tmp_path):
     """Regime detector flags adverse regime when signals are split 50/50 bull/bear."""
     from consensus_engine import db
-    from consensus_engine.analysis.regime_detector import detect_regime
+    from consensus_engine.analysis._deprecated.regime_detector import detect_regime
 
     cfg._config["database"] = {"path": str(tmp_path / "r.db"), "signal_ttl_hours": 2, "alert_history_days": 90}
     await db.init_db()
@@ -317,7 +317,7 @@ async def test_regime_detector_adverse_high_contradiction(tmp_path):
 async def test_regime_detector_ok_one_directional(tmp_path):
     """Regime detector returns OK when signals are strongly bullish."""
     from consensus_engine import db
-    from consensus_engine.analysis.regime_detector import detect_regime
+    from consensus_engine.analysis._deprecated.regime_detector import detect_regime
 
     cfg._config["database"] = {"path": str(tmp_path / "r2.db"), "signal_ttl_hours": 2, "alert_history_days": 90}
     await db.init_db()
@@ -350,7 +350,7 @@ async def test_regime_detector_ok_one_directional(tmp_path):
 async def test_regime_detector_insufficient_data(tmp_path):
     """Regime detector returns OK (not adverse) when signal count is too low."""
     from consensus_engine import db
-    from consensus_engine.analysis.regime_detector import detect_regime
+    from consensus_engine.analysis._deprecated.regime_detector import detect_regime
 
     cfg._config["database"] = {"path": str(tmp_path / "r3.db"), "signal_ttl_hours": 2, "alert_history_days": 90}
     await db.init_db()
