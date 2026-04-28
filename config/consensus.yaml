@@ -403,20 +403,20 @@ features:
     contradiction_max: 0.5
     macro_blackout_minutes: 30
   analyst_herding:
-    enabled: false
+    enabled: true
     min_cluster_size: 3
     window_minutes: 30
     min_trusted_accuracy: 0.5
     panic_min_cluster_size: 4
     members_cap: 20
   sector_confirmation:
-    enabled: false
+    enabled: true
     bypass_on_unknown_catalyst: true
     market_hours_only: true
     sector_change_threshold_pct: 0.3
     quote_cache_ttl_sec: 300
   regime_classifier:
-    enabled: false
+    enabled: true
     regime_shifts:
       calm: -5
       elevated: 5
@@ -427,11 +427,11 @@ features:
     ema_alpha: 0.4
     cold_start_min_days: 30
   cross_source_consolidation:
-    enabled: false
+    enabled: true
     window_minutes: 15
     max_effective_clusters: 3
   form4_cluster:
-    enabled: false
+    enabled: true
     min_unique_insiders: 3
     min_dollar_threshold: 250000
     falling_knife_calm: 0.85
