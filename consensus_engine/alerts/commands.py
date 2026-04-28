@@ -242,6 +242,12 @@ async def route_command(
         else:
             await _handle_shadow_mode_report(args[0].lower().replace("-", "_"), channel_id, message_id)
 
+    elif command == "cluster":
+        if not args:
+            await send_command_reply(channel_id, message_id, "Usage: `!cluster <TICKER>` — e.g. `!cluster NVDA`")
+        else:
+            await _handle_cluster_history(args[0].upper(), channel_id, message_id)
+
     else:
         await send_command_reply(channel_id, message_id, f"Unknown command `!{command}`. Try `!help`.")
 
@@ -1615,3 +1621,40 @@ async def _handle_shadow_mode_report(feature: str, channel_id: str, message_id: 
     except Exception as e:
         log.exception("shadow_mode_report error for %s", feature)
         await send_command_reply(channel_id, message_id, f"Error computing shadow report: {e}")
+
+
+async def _handle_cluster_history(ticker: str, channel_id: str, message_id: str) -> None:
+    """Reply with last 5 analyst cluster events for a ticker."""
+    try:
+        import json
+        import time
+        conn = await db.get_db()
+        cur = await conn.execute(
+            """SELECT id, cluster_size, effective_size, members_json, regime_label, fired_at
+               FROM cluster_events
+               WHERE ticker = ?
+               ORDER BY fired_at DESC
+               LIMIT 5""",
+            (ticker,),
+        )
+        rows = await cur.fetchall()
+        if not rows:
+            await send_command_reply(channel_id, message_id, f"No analyst cluster events found for `${ticker}`.")
+            return
+        import datetime as _dt
+        lines = [f"**Analyst Cluster History — ${ticker}** (last {len(rows)})"]
+        for row in rows:
+            ts = _dt.datetime.utcfromtimestamp(row["fired_at"]).strftime("%Y-%m-%d %H:%M UTC")
+            members = json.loads(row["members_json"] or "[]")
+            analysts = ", ".join(m.get("analyst", "?") for m in members[:5])
+            if len(members) > 5:
+                analysts += f" +{len(members) - 5} more"
+            lines.append(
+                f"• [{ts}] cluster_id={row['id']} size={row['cluster_size']} "
+                f"effective={row['effective_size']:.1f} regime={row['regime_label'] or 'n/a'}\n"
+                f"  Analysts: {analysts}"
+            )
+        await send_command_reply(channel_id, message_id, "\n".join(lines))
+    except Exception as e:
+        log.exception("cluster_history error for %s", ticker)
+        await send_command_reply(channel_id, message_id, f"Error fetching cluster history: {e}")
