@@ -522,6 +522,7 @@ class ParsedVideo:
     catalysts: list[CandidateCatalyst] = field(default_factory=list)
     evidence_spans: list[EvidenceSpan] = field(default_factory=list)
     telemetry: RunTelemetry | None = None
+    parser_version: str = "v2"  # set by producer; never overwritten by persister
 
     @property
     def has_tickers(self) -> bool:

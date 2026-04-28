@@ -264,3 +264,30 @@ class FirecrawlAdapter:
         except Exception as e:
             log.debug("Firecrawl scrape failed for %s: %s", url, e)
             return FirecrawlPage(url=url)
+
+
+# ---------------------------------------------------------------------------
+# Standalone price accessor (used by price_sanity at alert time)
+# ---------------------------------------------------------------------------
+
+async def get_live_quote_price(ticker: str) -> float | None:
+    """Return current price from Finnhub, or None on any error.
+
+    Creates a short-lived aiohttp session (no shared pool needed for one-shot
+    alert-time checks). Returns None when Finnhub is unavailable or rate-limited
+    so callers can fail-open.
+    """
+    api_key = cfg.get_api_key("finnhub")
+    if not api_key:
+        return None
+    try:
+        async with aiohttp.ClientSession() as session:
+            adapter = FinnhubAdapter(session, api_key)
+            raw = await adapter._fetch_quote(ticker)
+        if not raw:
+            return None
+        price = float(raw.get("c") or 0)
+        return price if price > 0 else None
+    except Exception as e:
+        log.debug("get_live_quote_price: failed for %s: %s", ticker, e)
+        return None
