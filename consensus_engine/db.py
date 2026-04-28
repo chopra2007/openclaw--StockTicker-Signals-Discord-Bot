@@ -591,6 +591,7 @@ async def init_db() -> AsyncConnection:
     # Insert schema_version rows (idempotent via INSERT OR IGNORE)
     _schema_versions = [
         (7, "cross-cutting feature-flag bundle"),
+        (8, "A1 contradiction-penalty"),
     ]
     for version, note in _schema_versions:
         await _db.execute(

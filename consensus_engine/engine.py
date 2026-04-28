@@ -11,6 +11,7 @@ from enum import Enum
 from typing import Optional
 
 from consensus_engine import config as cfg, db
+from consensus_engine.analysis.contradiction import evaluate_contradiction, ContradictionVerdict
 from consensus_engine.adapter_protocols import (
     FinnhubContext,
     FirecrawlPage,
@@ -227,8 +228,13 @@ def _classify(
     has_mainstream: bool,
     market_ok: bool,
     bypass_market_confirmation: bool = False,
-) -> SignalClass:
+    contradiction_index: float = 0.0,
+    regime=None,
+) -> tuple["SignalClass", "ContradictionVerdict"]:
     """Map total score + quality flags to a signal classification.
+
+    Returns (SignalClass, ContradictionVerdict). ContradictionVerdict is always
+    computed for shadow-mode writes even when the feature is disabled.
 
     ``bypass_market_confirmation`` is set by HIGH-conviction or SEC-catalyst
     callers; it lets them surface a WATCHLIST even when the flat-market gate
@@ -236,28 +242,37 @@ def _classify(
     """
     high = cfg.get("precision_engine.thresholds.high_confidence", 80)
     med = cfg.get("precision_engine.thresholds.medium_confidence", 65)
+    # A5: shift `high` by regime threshold_shift (regime applied first, before A1)
+    if regime is not None and cfg.get("features.regime_classifier.enabled", False):
+        high = high + regime.threshold_shift
     require_mainstream = cfg.get("precision_engine.thresholds.require_mainstream_for_strong", True)
     require_market = cfg.get(
         "precision_engine.thresholds.require_market_confirmation_for_low_conviction", True
     )
-
     effective_market_ok = market_ok or bypass_market_confirmation
+
+    # Always compute contradiction verdict for shadow-mode writes
+    from datetime import datetime as _dt
+    _now = _dt.utcnow()
+    contradiction_verdict = evaluate_contradiction(contradiction_index, _now)
 
     if total_score >= high:
         if require_mainstream and not has_mainstream:
-            return SignalClass.WATCHLIST
+            return SignalClass.WATCHLIST, contradiction_verdict
         if require_market and not effective_market_ok:
-            return SignalClass.WATCHLIST
-        return SignalClass.STRONG_ALERT
+            return SignalClass.WATCHLIST, contradiction_verdict
+        # A1 (last gate before STRONG): contradiction penalty
+        if contradiction_verdict.apply_penalty:
+            return SignalClass.WATCHLIST, contradiction_verdict
+        return SignalClass.STRONG_ALERT, contradiction_verdict
 
     if total_score >= med:
-        return SignalClass.WATCHLIST
+        return SignalClass.WATCHLIST, contradiction_verdict
 
     if bypass_market_confirmation:
-        # HIGH-conviction or SEC catalyst — always worth at least a watchlist entry.
-        return SignalClass.WATCHLIST
+        return SignalClass.WATCHLIST, contradiction_verdict
 
-    return SignalClass.IGNORE
+    return SignalClass.IGNORE, contradiction_verdict
 
 
 # ---------------------------------------------------------------------------
@@ -269,6 +284,7 @@ async def analyze_signal(
     base_score: int = 0,
     budget: Optional[BudgetManager] = None,
     catalyst_type: str = "",
+    contradiction_index: float = 0.0,
 ) -> dict:
     """Run the precision scoring pipeline for a ticker.
 
@@ -283,6 +299,7 @@ async def analyze_signal(
             "classification": SignalClass.IGNORE,
             "total_score": base_score,
             "skipped": True,
+            "contradiction_verdict": ContradictionVerdict(apply_penalty=False, reason="disabled"),
         }
 
     budget = budget or BudgetManager()
@@ -332,6 +349,7 @@ async def analyze_signal(
                 "finnhub_ctx": finnhub_ctx,
                 "search_hits": [],
                 "firecrawl_pages": [],
+                "contradiction_verdict": ContradictionVerdict(apply_penalty=False, reason="disabled"),
             }
 
     # --- Phase 2: Brave Search (cheap) ---
@@ -378,9 +396,12 @@ async def analyze_signal(
             score += fc_score
 
     # --- Classify ---
-    classification = _classify(
-        score, has_mainstream, market_ok, bypass_market_confirmation=skip_market_gate
+    classification, contradiction_verdict = _classify(
+        score, has_mainstream, market_ok,
+        bypass_market_confirmation=skip_market_gate,
+        contradiction_index=contradiction_index,
     )
+    log.info("[A1] $%s contradiction=%.2f → %s", ticker, contradiction_index, contradiction_verdict.reason)
     log.info("$%s precision result: %s (score=%d, mainstream=%s, market_ok=%s)",
              ticker, classification.value, score, has_mainstream, market_ok)
 
@@ -396,4 +417,5 @@ async def analyze_signal(
         "finnhub_ctx": finnhub_ctx,
         "search_hits": all_hits,
         "firecrawl_pages": fc_pages,
+        "contradiction_verdict": contradiction_verdict,
     }
