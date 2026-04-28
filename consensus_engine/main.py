@@ -834,6 +834,15 @@ async def _run_cross_reference_and_followup(
                     "reason": contradiction_verdict.reason,
                     "macro_event": contradiction_verdict.macro_event,
                 }
+            if precision and precision.get("regime"):
+                regime = precision["regime"]
+                fv["regime_context"] = {
+                    "label": regime.label,
+                    "z_score": regime.z_score,
+                    "threshold_shift": regime.threshold_shift,
+                    "cold_start": regime.cold_start,
+                    "as_of_date": regime.as_of_date,
+                }
             snapshot_id = await db.record_decision_snapshot(
                 ticker=ticker,
                 decision=(classification.value if classification is not None else "UNCLASSIFIED"),

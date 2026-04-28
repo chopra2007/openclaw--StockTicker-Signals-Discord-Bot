@@ -447,6 +447,17 @@ CREATE TABLE IF NOT EXISTS youtube_catalysts (
 CREATE INDEX IF NOT EXISTS idx_ycat_ticker ON youtube_catalysts(ticker);
 CREATE INDEX IF NOT EXISTS idx_ycat_run ON youtube_catalysts(run_id);
 
+CREATE TABLE IF NOT EXISTS regime_daily (
+    date_utc TEXT PRIMARY KEY,
+    realized_vol_20d REAL NOT NULL,
+    mean_252d REAL NOT NULL,
+    std_252d REAL NOT NULL,
+    z_score_raw REAL NOT NULL,
+    z_score_smoothed REAL NOT NULL,
+    regime_label TEXT NOT NULL CHECK(regime_label IN ('calm','normal','elevated','panic')),
+    computed_at REAL NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS discord_command_user_rate (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id TEXT NOT NULL,
@@ -592,6 +603,7 @@ async def init_db() -> AsyncConnection:
     _schema_versions = [
         (7, "cross-cutting feature-flag bundle"),
         (8, "A1 contradiction-penalty"),
+        (9, "A5 regime tagger"),
     ]
     for version, note in _schema_versions:
         await _db.execute(
