@@ -295,6 +295,21 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
         if youtube.levels:
             youtube_parts.append(f"Levels: {len(youtube.levels)} S/R zones")
 
+    # A3: Bayesian multi-source consolidation (always runs for shadow data)
+    from consensus_engine.analysis.consolidation import consolidate_for_ticker
+    shadow_only = not cfg.get("features.cross_source_consolidation.enabled", False)
+    try:
+        cons_result = await consolidate_for_ticker(ticker, window_minutes=15, shadow_only=shadow_only)
+        consensus_boost = cons_result.consensus_boost if not shadow_only else 0
+    except Exception as _cons_exc:
+        log.warning("[A3] consolidate_for_ticker failed for $%s: %s", ticker, _cons_exc)
+        from consensus_engine.analysis.consolidation import ConsolidationResult
+        cons_result = ConsolidationResult(
+            fired=False, consolidated_id=None, effective_n_clusters=0,
+            combined_log_odds=0.0, consensus_boost=0, sources_seen=[], reason="disabled",
+        )
+        consensus_boost = 0
+
     breakdown = ScoreBreakdown(
         base=tweet.base_score,
         additional_analysts=analyst_pts,
@@ -303,6 +318,7 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
         technical=tech_pts,
         llm_boost=llm_pts,
         options_flow=options_pts,
+        consensus_boost=consensus_boost,
         **social_breakdown,
     )
     # Add YouTube boost directly to breakdown
@@ -331,6 +347,7 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
         sec_summary=sec_summary,
         llm_reasoning=llm_reasoning,
         options=options,
+        consolidation_result=cons_result,
     )
 
     log.info("Cross-reference for $%s: score=%d (base=%d + xref=%d, youtube=%d)",
