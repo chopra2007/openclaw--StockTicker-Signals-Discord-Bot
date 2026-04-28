@@ -1,5 +1,15 @@
 # YouTube description fetch + storage — yt-grounding follow-up
 
+> **STATUS: IMPLEMENTED — PR #13 merged at commit `00cdda1` on 2026-04-28.**
+>
+> This document is the original implementation spec. Two deviations from spec landed during execution:
+>
+> 1. **`upsert_youtube_video` uses `INSERT OR IGNORE`, NOT `INSERT OR REPLACE`** as section (c) shows. Worker-1 picked the safer pattern: existing rows are never touched on re-poll, preserving `transcript_status` / `language` / `is_auto_generated` / `export_path` processing state. Side effect — see [ADVERSARIAL_REVIEW.md](ADVERSARIAL_REVIEW.md) Finding #2: existing 69 videos with `description=NULL` will *not* be enriched on re-poll. New videos get descriptions immediately. A separate refresh-script PR would be needed if historical enrichment becomes operationally important; not done because operational impact is small.
+>
+> 2. **Two test fixtures patched** during execution (`tests/test_backfill_youtube_grounding.py`, `tests/test_backfill_rollback.py`) — their hand-rolled `youtube_videos` schemas didn't include the new `description` column and were crashing with `no such column: description`. Fix landed in commit `51fdcfd` alongside the scanner edits.
+>
+> Trust-level caveat (Adversarial Review Open Question): description text is now an allowlist grounding pool material, treated equally with title. Documented as a one-paragraph caveat on `build_video_allowlist`'s docstring at `consensus_engine/analysis/ticker_grounding.py:143-156`. Sponsor copy and watchlist dumps in descriptions can broaden the allowlist — Layers 2 (per-span quote) and 4 (price-sanity) remain the deeper safety nets.
+
 **Date:** 2026-04-28
 **Branch target:** `feat/yt-description-fetch` (already created)
 **Predecessor PR:** #12 (yt-grounding 5-layer hallucination defense)

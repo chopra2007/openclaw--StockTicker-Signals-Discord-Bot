@@ -139,6 +139,20 @@ def build_video_allowlist(
     `candidate_tickers`: if provided, restrict the check to this set. Otherwise
     we'd have to enumerate all known tickers — too expensive. In practice the
     caller passes the union of all tickers the LLM claimed.
+
+    Trust-level note (re: PR #13 adversarial review): description text is
+    treated as equally trustworthy as title for grounding. This is a
+    deliberate tradeoff. Finance YouTube descriptions reliably enumerate
+    discussed tickers — this is the precision win. But descriptions can
+    also contain sponsor copy, watchlist dumps ("Watchlist this week:
+    AAPL, MSFT, NVDA, TSLA, GOOGL..."), and links to unrelated videos.
+    A hallucinated ticker that *coincidentally* appears in the description
+    will be admitted to the allowlist. Layer 4 (price-sanity) and Layer 2
+    (per-span quote grounding) are the deeper safety nets in those cases.
+    Watch for spurious admits via `youtube_signals.suppression_reason IS
+    NULL` rollups; if false positives spike, scope description grounding
+    more narrowly (e.g. first 500 chars, or skip when description has
+    >10 ticker-like tokens — both deferred until evidence justifies it).
     """
     if not candidate_tickers:
         return set()
