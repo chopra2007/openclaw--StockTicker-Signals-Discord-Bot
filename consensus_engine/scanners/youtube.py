@@ -434,6 +434,16 @@ async def _process_video_two_stage(
     return True
 
 
+async def _safe_live_price(ticker: str) -> float | None:
+    """Return live quote price or None on any error. Logs at debug level."""
+    try:
+        from consensus_engine.api_adapters import get_live_quote_price
+        return await get_live_quote_price(ticker)
+    except Exception as e:
+        log.debug("price_sanity: live quote failed for %s: %s", ticker, e)
+        return None
+
+
 async def _send_two_stage_alerts(
     display_name: str,
     signals,
@@ -447,6 +457,8 @@ async def _send_two_stage_alerts(
     """Fire one Discord alert per HIGH-conviction, unsuppressed ticker."""
     from consensus_engine.alerts.commands import _format_ts, _format_verified
 
+    from consensus_engine.analysis.price_sanity import check_price_plausible
+
     sent: set[str] = set()
     for sig in signals:
         if sig.suppressed or sig.ticker in sent:
@@ -456,14 +468,52 @@ async def _send_two_stage_alerts(
         if sig.classifier_confidence < min_confidence:
             continue
 
+        # ── Price sanity: fetch live price ONCE per ticker, gate per-setup ──
+        tkr_setups = [s for s in setups if s.ticker == sig.ticker and not s.suppressed]
+        if tkr_setups:
+            live_price = await _safe_live_price(sig.ticker)
+            surviving_setups = []
+            for s in tkr_setups:
+                if s.entry_low is None:
+                    surviving_setups.append(s)
+                    continue
+                res = check_price_plausible(s.entry_low, live_price)
+                if res.accepted:
+                    surviving_setups.append(s)
+                else:
+                    log.warning(
+                        "price_sanity: suppressing setup %s entry=%.2f live=%s reason=%s",
+                        sig.ticker, s.entry_low, live_price, res.reason,
+                    )
+                    s.suppressed = True
+                    s.suppression_reason = "price_sanity"
+                    for lv in levels:
+                        if (
+                            lv.ticker == sig.ticker
+                            and lv.price == s.entry_low
+                            and not lv.suppressed
+                        ):
+                            lv.suppressed = True
+                            lv.suppression_reason = "price_sanity"
+            if not surviving_setups:
+                sig.suppressed = True
+                sig.suppression_reason = "price_sanity"
+                log.warning(
+                    "price_sanity: BLOCKING alert for %s — all setups failed sanity",
+                    sig.ticker,
+                )
+                continue
+            tkr_setups = surviving_setups
+
         sent.add(sig.ticker)
         lines = [
             f"🎬 **${sig.ticker} [{sig.direction.value.upper()}]** — {display_name} "
             f"(conv {sig.conviction.value.upper()}, confidence {sig.classifier_confidence:.2f})"
         ]
 
-        # Setup line (first setup for this ticker)
-        tkr_setups = [s for s in setups if s.ticker == sig.ticker and not s.suppressed]
+        # Setup line (first setup for this ticker — already filtered to survivors)
+        if not tkr_setups:
+            tkr_setups = [s for s in setups if s.ticker == sig.ticker and not s.suppressed]
         if tkr_setups:
             s = tkr_setups[0]
             parts = []
@@ -814,6 +864,35 @@ async def process_video(
                         and ticker_data.get("direction") in ("long", "short")
                     ):
                         sym = ticker_data.get("symbol", "")
+
+                        # Price sanity — per-setup gating (parity with Path A).
+                        tkr_setups = [s for s in parsed.setups if s.ticker == sym]
+                        if tkr_setups:
+                            from consensus_engine.analysis.price_sanity import check_price_plausible
+                            live_price = await _safe_live_price(sym)
+                            survived = []
+                            for s in tkr_setups:
+                                if s.entry_low is None:
+                                    survived.append(s)
+                                    continue
+                                res = check_price_plausible(s.entry_low, live_price)
+                                if res.accepted:
+                                    survived.append(s)
+                                else:
+                                    log.warning(
+                                        "price_sanity: legacy suppressing setup %s entry=%.2f live=%s reason=%s",
+                                        sym, s.entry_low, live_price, res.reason,
+                                    )
+                                    s.suppressed = True
+                                    s.suppression_reason = "price_sanity"
+                            if not survived:
+                                log.warning(
+                                    "price_sanity: BLOCKING legacy alert for %s — all setups failed sanity",
+                                    sym,
+                                )
+                                continue
+                            tkr_setups = survived
+
                         direction_label = ticker_data["direction"].upper()
                         lines = [f"🎬 **${sym} [{direction_label}]** — {display_name}"]
 
@@ -826,8 +905,8 @@ async def process_video(
                                 lv_parts.append(f"{label} ${lv.price:.0f}")
                             lines.append("📊 " + " | ".join(lv_parts))
 
-                        # Trade setups
-                        setups = [s for s in parsed.setups if s.ticker == sym]
+                        # Trade setups (only survivors)
+                        setups = tkr_setups if tkr_setups else [s for s in parsed.setups if s.ticker == sym]
                         for s in setups[:2]:
                             lines.append(_format_youtube_setup_summary(s))
 
