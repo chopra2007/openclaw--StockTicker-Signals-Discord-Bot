@@ -34,6 +34,18 @@ docker compose up -d                 # SearXNG (8888)
 - **playwright-stealth**: `from playwright_stealth import Stealth` → `Stealth().apply_stealth_async(page)` — NOT `stealth_async()`.
 - Tests: `pytest.ini` `asyncio_mode = auto`.
 
+## Deferred Task System
+When a task must run in the future:
+- Create it using `/root/task_system/scripts/create_task.sh`
+- Use systemd timers
+- Include retries, logging, and cleanup
+- Never leave future tasks unscheduled
+
+At the start of every session:
+- Check `/root/task_system/notifications.log`
+- If it contains entries: summarize them clearly, then clear the file
+- If empty: do nothing
+
 ## GitHub & Documentation Automation
 - After every functional change: commit locally then push immediately.
 - Commit style: imperative (e.g., "Add multi-agent logic").

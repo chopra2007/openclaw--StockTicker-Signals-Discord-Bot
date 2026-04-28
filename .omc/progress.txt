@@ -1,0 +1,124 @@
+Pass 5 execution progress — last updated 2026-04-27
+
+## COMPLETED PRs (pushed to master)
+
+PR #1 — schema v7 — infra/cross-cutting feature-flag bundle
+  commit: 98a45e3 (pushed, rebased on top of remote 53e114c)
+  files: utils/feature_flags.py, db.py, alerts/commands.py, main.py, models.py
+  tests: test_feature_flags.py (12), test_migration_idempotency.py (1), test_source_performance_contract.py (3)
+  test count after: 590
+
+PR #2 — no schema — deprecate analysis/regime_detector.py stub
+  commit: eaecf86
+  files: analysis/_deprecated/regime_detector.py, analysis/_deprecated/__init__.py, tests/test_degraded_mode.py
+  test count after: 590 (no new tests, imports fixed)
+
+PR #3 — schema v8 — A1 contradiction-penalty + macro blackout
+  commit: 096d4dc
+  files: analysis/contradiction.py, data/__init__.py, data/macro_events.yaml, engine.py, main.py, db.py, config/consensus.yaml
+  tests: test_contradiction_penalty.py (6)
+  test count after: 596
+  KEY ARCHITECTURE NOTE: analyze_signal runs in parallel with cross_reference. A1 uses
+  contradiction_index=0.0 by default inside engine; main.py does post-process A1 re-check
+  using real xref.contradiction_index after both parallel tasks complete.
+  config/consensus.yaml now has full features: block for all 6 features (A1 enabled=true,
+  rest enabled=false) + intervals: block.
+
+PR #4 — schema v9 — A5 realized-vol-z regime tagger
+  commit: b5305a9
+  files: analysis/regime.py, engine.py, main.py, db.py, tests/test_regime_classifier.py
+  tests: test_regime_classifier.py (8)
+  test count after: 604
+  KEY: Uses Yahoo Finance API directly (aiohttp), NOT yfinance library.
+  regime.py has CLI entry: python3 -m consensus_engine.analysis.regime --compute-today
+
+PR #5 — schema v10 — D1 form4 cluster-buy detector
+  commit: a09b8b8
+  files: scanners/sec_form4_cluster.py, db.py, main.py
+  tests: test_form4_cluster.py (15 — covers all 8 spec scenarios)
+  test count after: 619
+  KEY: Module-level imports (not lazy) in sec_form4_cluster.py so tests can patch
+  via consensus_engine.scanners.sec_form4_cluster.* paths.
+  falling_knife: calm/normal=0.85, elevated=0.65, panic=n≥5 (price floor disabled)
+  cooldown: checked directly against form4_clusters table (not check_alert_cooldown)
+
+PR #6 — schema v11 — A4 sector ETF peer-confirmation gate
+  commit: 7fa23cf
+  files: analysis/sector_confirmation.py, data/sector_map.yaml, engine.py, main.py, db.py
+  tests: test_sector_confirmation.py (7)
+  test count after: 626
+
+PR #7 — schema v12 — A2 analyst herding detector
+  commit: bab83c0 (cherry-picked from worktree 1f24e8b)
+  files: analysis/herding.py, db.py, main.py, alerts/commands.py
+  tests: test_analyst_herding.py (8)
+  test count after: 634
+
+PR #8 — schema v13 — A3 Bayesian source consolidation
+  commit: 2b81ed1 (landed on master via worktree)
+  files: analysis/consolidation.py, cross_reference.py, models.py
+  tests: test_source_consolidation.py (12), tests/integration/test_combined_pipeline.py (6)
+  test count after: 651 passing, 1 pre-existing failure (test_alert_flow_end_to_end.py — marked "RED until Commit F")
+
+## PASS 5 COMPLETE — all 8 PRs shipped
+
+Final state: 651 tests passing, 1 pre-existing integration test marked RED
+Schema: v13 (v7→v8→v9→v10→v11→v12→v13 all applied on init_db)
+All features disabled by default except A1 (contradiction_penalty.enabled=true)
+
+## REMAINING PRs (not yet implemented)
+
+PR #6 — schema v11 — A4 sector ETF peer-confirmation gate
+  - analysis/sector_confirmation.py (NEW)
+  - data/sector_map.yaml (NEW, ~500 ticker→ETF mappings)
+  - engine.py: check_sector_alignment before _classify + bypass OR-clause + bypass_attribution
+  - db.py: schema v11
+  - config already has features.sector_confirmation block
+  - tests: test_sector_confirmation.py (6 tests)
+
+PR #7 — schema v12 — A2 analyst herding detector
+  - analysis/herding.py (NEW)
+  - db.py: cluster_events + analyst_pair_correlations tables + schema v12
+  - main.py: detect_cluster between insert_signal and check_alert_cooldown + _emit_cluster_alert
+  - alerts/commands.py: !cluster <ticker> command
+  - config already has features.analyst_herding block
+  - tests: test_analyst_herding.py (8 tests)
+
+PR #8 — schema v13 — A3 Bayesian source consolidation
+  - analysis/consolidation.py (NEW)
+  - db.py: consolidated_events table + schema v13
+  - cross_reference.py: consolidate_for_ticker before ScoreBreakdown
+  - engine.py: pass consolidation_result into feature_vector_json
+  - config already has features.cross_source_consolidation block
+  - tests: test_source_consolidation.py (10 tests)
+  - tests/integration/test_combined_pipeline.py (1 integration test)
+
+## FINAL STEPS (after all 8 PRs pushed)
+- Service restart (if in weekend pause window Fri 3pm ET - Sun 2pm ET)
+- python3 -m consensus_engine --status to verify feature flags
+- Write pass-5-execution-log.md
+
+## RESOLVED OPEN DECISIONS
+1. Form4 fraud: manual review first 3 alerts (operator runbook)
+2. Discord flip commands: YAML-only (no !enable-feature / !disable-feature) - no auth surface
+3. Members cap: 20
+4. Sector map: S&P 500 GICS + top 50 hand-curated
+
+## KEY CODEBASE FACTS FOR NEXT SESSION
+- Config: /root/.openclaw/workspace/config/consensus.yaml (NOT inside consensus_engine/)
+- DB: SCHEMA in db.py, _run_column_migrations at line ~473, init_db at line ~548
+- engine.py: _classify returns (SignalClass, ContradictionVerdict) tuple since PR #3
+- engine.py: analyze_signal returns dict including 'regime', 'contradiction_verdict'
+- main.py: feature_vector_json built at line ~810-843, passed to record_decision_snapshot
+- main.py: process_tweet at line 630; insert_signal at line 678; check_alert_cooldown at line 686
+- cross_reference.py: cross_reference() -- ScoreBreakdown construction is the A3 insertion point
+- ScoreBreakdown in models.py now has consensus_boost field (PR #1)
+- sec_edgar.py / sec_watcher.py: check for rate_limiter('sec_edgar') usage before writing D1
+- Yahoo Finance: use direct API (aiohttp), NOT yfinance library
+- Test baseline after PR #4: 604 tests passing
+
+## TO RESUME
+Paste into fresh session:
+  "Continue Pass 5 execution for new-signal-features. PRD at .omc/prd.json.
+  Progress at .omc/progress.txt. Next: PR #5 (D1 form4 cluster). Plan at
+  .claude/discover/new-signal-features/final-plan.md sections 2.6 + 3.2 + 4.1.4."
