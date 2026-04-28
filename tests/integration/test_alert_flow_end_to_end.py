@@ -50,6 +50,7 @@ def _make_xref(ticker: str = "NVDA", final_score: float = 72.0):
     xr.breakdown = MagicMock()
     xr.breakdown.__iter__ = MagicMock(return_value=iter([]))
     xr.contradiction_index = 0.1
+    xr.consolidation_result = None
     return xr
 
 
