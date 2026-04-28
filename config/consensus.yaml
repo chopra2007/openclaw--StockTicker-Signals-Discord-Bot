@@ -306,7 +306,8 @@ youtube:
     gemini_qps: 0.1667                  # legacy key, matches 6s interval (≈0.17 req/sec)
   # v2 evidence-first two-stage pipeline
   use_two_stage: true                  # enable v2 evidence-first pipeline
-  legacy_fallback: true                # keep old path as rollback when evidence extractor fails
+  legacy_fallback: false               # disabled; Path B is the hallucination writer (vkqchQQnm88 incident).
+                                       # Set true only after manual review of coverage data; see specs/youtube-grounding/.
   gemini:
     # Free-tier friendly model. Flash-lite has a separate quota pool from flash;
     # both support video. Swap to "gemini-2.5-flash" for higher-quality extraction

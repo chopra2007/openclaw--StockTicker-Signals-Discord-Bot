@@ -122,8 +122,9 @@ async def test_process_video_dedup(test_db, tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_process_video_missing_captions(test_db, tmp_path):
+async def test_process_video_missing_captions(test_db, tmp_path, monkeypatch):
     """Caption-unavailable error sets status to 'missing', does not raise."""
+    monkeypatch.setitem(cfg._config["youtube"], "use_two_stage", False)
     semaphore = asyncio.Semaphore(1)
     video = {"video_id": "vidY", "channel_id": "UCY", "title": "No Caps", "published_at": "2026-04-06T00:00:00Z"}
 
@@ -140,6 +141,7 @@ async def test_process_video_missing_captions(test_db, tmp_path):
 @pytest.mark.asyncio
 async def test_process_video_uses_gemini_when_available(test_db, tmp_path, monkeypatch):
     """Gemini fast-path: transcript fetch should NOT be called when Gemini succeeds."""
+    monkeypatch.setitem(cfg._config["youtube"], "use_two_stage", False)
     from consensus_engine.models import ParsedVideo, MacroThesis, Direction, Conviction
 
     mock_parsed = ParsedVideo(
@@ -180,6 +182,7 @@ async def test_process_video_uses_gemini_when_available(test_db, tmp_path, monke
 @pytest.mark.asyncio
 async def test_process_video_persists_options(test_db, tmp_path, monkeypatch):
     """process_video() stores VideoOptionIdea rows in youtube_options."""
+    monkeypatch.setitem(cfg._config["youtube"], "use_two_stage", False)
     from consensus_engine.models import (
         ParsedVideo, MacroThesis, Direction, Conviction, VideoOptionIdea,
     )
@@ -331,6 +334,7 @@ async def test_process_video_two_stage_falls_back_on_none_bundle(test_db, tmp_pa
 @pytest.mark.asyncio
 async def test_process_video_persists_setups(test_db, tmp_path, monkeypatch):
     """process_video() stores VideoTradeSetup rows and absorbs constituent levels."""
+    monkeypatch.setitem(cfg._config["youtube"], "use_two_stage", False)
     from consensus_engine.models import (
         ParsedVideo, MacroThesis, Direction, Conviction,
         VideoTradeSetup, PriceLevel,
@@ -378,3 +382,97 @@ async def test_process_video_persists_setups(test_db, tmp_path, monkeypatch):
     row = await cur.fetchone()
     assert row is not None
     assert row["setup_id"] == setups[0]["id"]
+
+
+# ---------------------------------------------------------------------------
+# Layer 3: video-level allowlist suppression (off_allowlist)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_off_allowlist_suppressed(monkeypatch):
+    """An NVDA candidate signal is suppressed when video evidence has only AMC/GME."""
+    from consensus_engine.scanners import youtube as scanner
+    from consensus_engine.models import (
+        EvidenceBundle, EvidenceSpan, CandidateSignal, Direction, Conviction, RunTelemetry,
+    )
+    from consensus_engine.analysis.video_classifier import ClassificationResult
+
+    bundle = EvidenceBundle(
+        video_id="vidX", duration_sec=600, publish_ts="2026-04-23T00:00:00Z",
+        segments=[],
+        spans=[
+            EvidenceSpan(ts_sec=100, quote="Burry buys more AMC",
+                         tickers=["AMC"], numbers=[], dates_mentioned=[]),
+            EvidenceSpan(ts_sec=200, quote="GameStop short squeeze setup",
+                         tickers=["GME"], numbers=[], dates_mentioned=[]),
+        ],
+    )
+
+    async def _stub_extract(video_id, channel, published_at):
+        return bundle, RunTelemetry()
+
+    monkeypatch.setattr(
+        "consensus_engine.analysis.gemini_video_parser.extract_evidence_with_gemini",
+        _stub_extract,
+    )
+
+    def _stub_classify(b):
+        return ClassificationResult(signals=[
+            CandidateSignal(ticker="NVDA", direction=Direction.LONG,
+                            conviction=Conviction.HIGH, mention_count=1,
+                            classifier_confidence=0.8, evidence_span_ids=[],
+                            context="AI sector"),
+            CandidateSignal(ticker="AMC", direction=Direction.LONG,
+                            conviction=Conviction.HIGH, mention_count=4,
+                            classifier_confidence=0.9, evidence_span_ids=[],
+                            context="Burry buying AMC"),
+        ])
+
+    monkeypatch.setattr(
+        "consensus_engine.analysis.video_classifier.classify_evidence",
+        _stub_classify,
+    )
+
+    async def _stub_resolve(candidates, publish_ts):
+        return []
+
+    monkeypatch.setattr(
+        "consensus_engine.analysis.catalyst_resolver.resolve_and_verify_catalysts",
+        _stub_resolve,
+    )
+
+    async def _stub_get_video(vid):
+        return {"video_id": vid, "title": "AMC GAMESTOP — Burry buys more"}
+
+    monkeypatch.setattr("consensus_engine.db.get_youtube_video", _stub_get_video)
+
+    # Capture insert calls to verify suppression flags
+    inserted_signals = []
+
+    async def _fake_insert_signal(**kwargs):
+        inserted_signals.append(kwargs)
+        return 1
+
+    monkeypatch.setattr("consensus_engine.db.insert_youtube_signal", _fake_insert_signal)
+    monkeypatch.setattr("consensus_engine.db.insert_youtube_level", AsyncMock(return_value=1))
+    monkeypatch.setattr("consensus_engine.db.insert_youtube_setup", AsyncMock(return_value=1))
+    monkeypatch.setattr("consensus_engine.db.insert_youtube_catalyst", AsyncMock(return_value=1))
+    monkeypatch.setattr("consensus_engine.db.insert_youtube_macro", AsyncMock(return_value=None))
+    monkeypatch.setattr("consensus_engine.db.create_analysis_run", AsyncMock(return_value=99))
+    monkeypatch.setattr("consensus_engine.db.update_analysis_run_metrics", AsyncMock(return_value=None))
+    monkeypatch.setattr("consensus_engine.db.mark_youtube_video_status", AsyncMock(return_value=None))
+    monkeypatch.setattr("consensus_engine.db.get_channel_trust", AsyncMock(return_value=0.0))
+    monkeypatch.setattr(scanner, "_send_two_stage_alerts", AsyncMock(return_value=None))
+
+    ok = await scanner._process_video_two_stage(
+        "vidX", "ch1", "TestChan", "2026-04-23T00:00:00Z",
+    )
+
+    assert ok is True
+    nvda_rows = [r for r in inserted_signals if r.get("ticker") == "NVDA"]
+    amc_rows  = [r for r in inserted_signals if r.get("ticker") == "AMC"]
+    assert nvda_rows, "NVDA signal should have been persisted (suppressed)"
+    assert all(r.get("suppressed") == 1 for r in nvda_rows)
+    assert all(r.get("suppression_reason") == "off_allowlist" for r in nvda_rows)
+    assert amc_rows, "AMC signal should have been persisted"
+    assert all(r.get("suppressed") == 0 for r in amc_rows)

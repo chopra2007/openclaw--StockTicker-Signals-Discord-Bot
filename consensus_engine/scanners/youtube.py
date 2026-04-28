@@ -196,6 +196,27 @@ async def _send_youtube_alert(message: str) -> None:
 # Per-video processing
 # ---------------------------------------------------------------------------
 
+def _suppress_off_allowlist(items, allowlist: set[str], reason: str) -> int:
+    """Mark items whose .ticker is not in `allowlist` as suppressed. Returns count.
+
+    Idempotent: never re-suppresses or overwrites an already-suppressed item's
+    `suppression_reason` (preserves earlier reasons like "price_sanity" or
+    "near_price_dedup" so the audit trail attributes the FIRST cause).
+    """
+    n = 0
+    for it in items:
+        ticker = getattr(it, "ticker", "")
+        if not ticker:
+            continue
+        if getattr(it, "suppressed", False):
+            continue  # preserve earlier suppression_reason
+        if ticker.upper() not in allowlist:
+            it.suppressed = True
+            it.suppression_reason = reason
+            n += 1
+    return n
+
+
 async def _process_video_two_stage(
     video_id: str,
     channel_id: str,
@@ -218,6 +239,27 @@ async def _process_video_two_stage(
     catalysts = await resolve_and_verify_catalysts(
         result.catalyst_candidates, bundle.publish_ts,
     )
+
+    # ── Video-level allowlist (Layer 3) ─────────────────────────────────
+    from consensus_engine.analysis.ticker_grounding import build_video_allowlist
+    video_meta_row = await db.get_youtube_video(video_id)
+    title = video_meta_row.get("title", "") if video_meta_row else ""
+    span_quotes = [sp.quote for sp in bundle.spans]
+    candidate_set = (
+        {s.ticker for s in result.signals}
+        | {lv.ticker for lv in result.levels}
+        | {st.ticker for st in result.setups}
+        | {c.ticker for c in catalysts}
+    )
+    allowlist = build_video_allowlist(
+        video_title=title,
+        span_quotes=span_quotes,
+        candidate_tickers=list(candidate_set),
+    )
+    _suppress_off_allowlist(result.signals, allowlist, "off_allowlist")
+    _suppress_off_allowlist(result.levels, allowlist, "off_allowlist")
+    _suppress_off_allowlist(result.setups, allowlist, "off_allowlist")
+    _suppress_off_allowlist(catalysts, allowlist, "off_allowlist")
 
     min_conf = float(cfg.get("youtube.classifier.min_confidence", 0.5))
     filter_drops = 0
@@ -392,6 +434,16 @@ async def _process_video_two_stage(
     return True
 
 
+async def _safe_live_price(ticker: str) -> float | None:
+    """Return live quote price or None on any error. Logs at debug level."""
+    try:
+        from consensus_engine.api_adapters import get_live_quote_price
+        return await get_live_quote_price(ticker)
+    except Exception as e:
+        log.debug("price_sanity: live quote failed for %s: %s", ticker, e)
+        return None
+
+
 async def _send_two_stage_alerts(
     display_name: str,
     signals,
@@ -405,6 +457,8 @@ async def _send_two_stage_alerts(
     """Fire one Discord alert per HIGH-conviction, unsuppressed ticker."""
     from consensus_engine.alerts.commands import _format_ts, _format_verified
 
+    from consensus_engine.analysis.price_sanity import check_price_plausible
+
     sent: set[str] = set()
     for sig in signals:
         if sig.suppressed or sig.ticker in sent:
@@ -414,14 +468,52 @@ async def _send_two_stage_alerts(
         if sig.classifier_confidence < min_confidence:
             continue
 
+        # ── Price sanity: fetch live price ONCE per ticker, gate per-setup ──
+        tkr_setups = [s for s in setups if s.ticker == sig.ticker and not s.suppressed]
+        if tkr_setups:
+            live_price = await _safe_live_price(sig.ticker)
+            surviving_setups = []
+            for s in tkr_setups:
+                if s.entry_low is None:
+                    surviving_setups.append(s)
+                    continue
+                res = check_price_plausible(s.entry_low, live_price)
+                if res.accepted:
+                    surviving_setups.append(s)
+                else:
+                    log.warning(
+                        "price_sanity: suppressing setup %s entry=%.2f live=%s reason=%s",
+                        sig.ticker, s.entry_low, live_price, res.reason,
+                    )
+                    s.suppressed = True
+                    s.suppression_reason = "price_sanity"
+                    for lv in levels:
+                        if (
+                            lv.ticker == sig.ticker
+                            and lv.price == s.entry_low
+                            and not lv.suppressed
+                        ):
+                            lv.suppressed = True
+                            lv.suppression_reason = "price_sanity"
+            if not surviving_setups:
+                sig.suppressed = True
+                sig.suppression_reason = "price_sanity"
+                log.warning(
+                    "price_sanity: BLOCKING alert for %s — all setups failed sanity",
+                    sig.ticker,
+                )
+                continue
+            tkr_setups = surviving_setups
+
         sent.add(sig.ticker)
         lines = [
             f"🎬 **${sig.ticker} [{sig.direction.value.upper()}]** — {display_name} "
             f"(conv {sig.conviction.value.upper()}, confidence {sig.classifier_confidence:.2f})"
         ]
 
-        # Setup line (first setup for this ticker)
-        tkr_setups = [s for s in setups if s.ticker == sig.ticker and not s.suppressed]
+        # Setup line (first setup for this ticker — already filtered to survivors)
+        if not tkr_setups:
+            tkr_setups = [s for s in setups if s.ticker == sig.ticker and not s.suppressed]
         if tkr_setups:
             s = tkr_setups[0]
             parts = []
@@ -602,6 +694,38 @@ async def process_video(
         if parsed is None:
             return
 
+        # ── Video-level allowlist (Layer 3) — applies to both Path B and C ───
+        from consensus_engine.analysis.ticker_grounding import build_video_allowlist
+        candidate_set = (
+            {t.get("symbol", "").upper() for t in parsed.tickers if t.get("symbol")}
+            | {lv.ticker.upper() for lv in parsed.price_levels if lv.ticker}
+            | {s.ticker.upper() for s in parsed.setups if s.ticker}
+            | {o.ticker.upper() for o in parsed.options if o.ticker}
+        )
+        # Path B/C has no spans table — gather evidence from each item's context.
+        evidence_texts = (
+            [t.get("context", "") for t in parsed.tickers]
+            + [lv.condition for lv in parsed.price_levels]
+            + [s.context for s in parsed.setups]
+            + [o.context for o in parsed.options]
+        )
+        title = video_meta.get("title", "")
+        allowlist = build_video_allowlist(
+            video_title=title,
+            span_quotes=evidence_texts,
+            candidate_tickers=list(candidate_set),
+        )
+        log.info(
+            "video_allowlist (Path B/C): video=%s candidates=%s allowlist=%s",
+            video_meta["video_id"], sorted(candidate_set), sorted(allowlist),
+        )
+
+        def _suppress_meta(ticker: str) -> tuple[int, str | None]:
+            """Return (suppressed, reason) for an off-allowlist row; (0, None) otherwise."""
+            if ticker and ticker.upper() not in allowlist:
+                return 1, "off_allowlist"
+            return 0, None
+
         # Insert signals for each ticker
         for ticker_data in parsed.tickers:
             ticker = ticker_data.get("symbol")
@@ -616,6 +740,7 @@ async def process_video(
                         "summary": parsed.macro_thesis.summary,
                     })
 
+                supp, supp_reason = _suppress_meta(ticker)
                 await db.insert_youtube_signal(
                     video_id=video_id,
                     channel_name=display_name,
@@ -628,12 +753,15 @@ async def process_video(
                     run_id=parsed.run_id,
                     source_snippet=ticker_data.get("source_snippet"),
                     chunk_id=ticker_data.get("chunk_id", 0),
-                    parser_version="v2",
+                    parser_version=parsed.parser_version,
+                    suppressed=supp,
+                    suppression_reason=supp_reason,
                 )
                 log.debug("youtube: signal created %s/%s conviction=%s", video_id, ticker, ticker_data.get("conviction"))
 
         # Insert price levels
         for level in parsed.price_levels:
+            lv_supp, lv_supp_reason = _suppress_meta(level.ticker)
             await db.insert_youtube_level(
                 video_id=video_id,
                 ticker=level.ticker,
@@ -645,7 +773,9 @@ async def process_video(
                 channel_name=display_name,
                 published_at=video_meta["published_at"],
                 run_id=parsed.run_id,
-                parser_version="v2",
+                parser_version=parsed.parser_version,
+                suppressed=lv_supp,
+                suppression_reason=lv_supp_reason,
             )
             log.debug("youtube: level created %s %s @ %.2f", video_id, level.ticker, level.price)
 
@@ -664,6 +794,7 @@ async def process_video(
 
         # Insert options ideas
         for opt in parsed.options:
+            opt_supp, opt_supp_reason = _suppress_meta(opt.ticker)
             await db.insert_youtube_option(
                 run_id=parsed.run_id,
                 video_id=video_id,
@@ -677,14 +808,17 @@ async def process_video(
                 context_text=opt.context,
                 source_snippet=opt.source_snippet,
                 chunk_id=opt.chunk_id,
-                parser_version="v2",
+                parser_version=parsed.parser_version,
                 channel_name=display_name,
                 published_at=video_meta["published_at"],
+                suppressed=opt_supp,
+                suppression_reason=opt_supp_reason,
             )
             log.debug("youtube: option created %s/%s %s", video_id, opt.ticker, opt.option_type)
 
         # Insert trade setups and absorb constituent levels
         for setup in parsed.setups:
+            st_supp, st_supp_reason = _suppress_meta(setup.ticker)
             setup_id = await db.insert_youtube_setup(
                 run_id=parsed.run_id,
                 video_id=video_id,
@@ -699,9 +833,11 @@ async def process_video(
                 source_snippet=setup.source_snippet,
                 chunk_id=setup.chunk_id,
                 risk_reward=setup.risk_reward,
-                parser_version="v2",
+                parser_version=parsed.parser_version,
                 channel_name=display_name,
                 published_at=video_meta["published_at"],
+                suppressed=st_supp,
+                suppression_reason=st_supp_reason,
             )
             conn = await db.get_db()
             cur = await conn.execute(
@@ -728,6 +864,35 @@ async def process_video(
                         and ticker_data.get("direction") in ("long", "short")
                     ):
                         sym = ticker_data.get("symbol", "")
+
+                        # Price sanity — per-setup gating (parity with Path A).
+                        tkr_setups = [s for s in parsed.setups if s.ticker == sym]
+                        if tkr_setups:
+                            from consensus_engine.analysis.price_sanity import check_price_plausible
+                            live_price = await _safe_live_price(sym)
+                            survived = []
+                            for s in tkr_setups:
+                                if s.entry_low is None:
+                                    survived.append(s)
+                                    continue
+                                res = check_price_plausible(s.entry_low, live_price)
+                                if res.accepted:
+                                    survived.append(s)
+                                else:
+                                    log.warning(
+                                        "price_sanity: legacy suppressing setup %s entry=%.2f live=%s reason=%s",
+                                        sym, s.entry_low, live_price, res.reason,
+                                    )
+                                    s.suppressed = True
+                                    s.suppression_reason = "price_sanity"
+                            if not survived:
+                                log.warning(
+                                    "price_sanity: BLOCKING legacy alert for %s — all setups failed sanity",
+                                    sym,
+                                )
+                                continue
+                            tkr_setups = survived
+
                         direction_label = ticker_data["direction"].upper()
                         lines = [f"🎬 **${sym} [{direction_label}]** — {display_name}"]
 
@@ -740,8 +905,8 @@ async def process_video(
                                 lv_parts.append(f"{label} ${lv.price:.0f}")
                             lines.append("📊 " + " | ".join(lv_parts))
 
-                        # Trade setups
-                        setups = [s for s in parsed.setups if s.ticker == sym]
+                        # Trade setups (only survivors)
+                        setups = tkr_setups if tkr_setups else [s for s in parsed.setups if s.ticker == sym]
                         for s in setups[:2]:
                             lines.append(_format_youtube_setup_summary(s))
 

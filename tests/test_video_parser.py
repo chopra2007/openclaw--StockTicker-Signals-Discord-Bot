@@ -24,7 +24,7 @@ _LONG_TRANSCRIPT = " ".join(["stock market analysis"] * 100)
 
 def _make_ticker_json(direction: str, conviction: str = "high") -> str:
     return json.dumps({
-        "tickers": [{"symbol": "SPY", "direction": direction, "conviction": conviction, "mention_count": 2, "context": "price action"}],
+        "tickers": [{"symbol": "SPY", "direction": direction, "conviction": conviction, "mention_count": 2, "context": "SPY price action"}],
         "price_levels": [],
         "macro_thesis": {"direction": direction, "themes": ["rate policy"], "timeframe": "short", "summary": "thesis"},
         "overall_conviction": conviction,

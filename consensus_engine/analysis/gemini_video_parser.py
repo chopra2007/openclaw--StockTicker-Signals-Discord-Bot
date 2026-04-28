@@ -58,6 +58,8 @@ Watch the full video and respond ONLY with this exact JSON (no markdown, no extr
 
 Extraction rules:
 - Only real stock tickers (AAPL, NVDA, SPY, etc.). Exclude RSI, EMA, MACD, VWAP, SMA, ATR, etc.
+- CRITICAL — every entry in `tickers`, `price_levels`, `options`, and `setups` MUST reference a company that is either spoken by name or shown on-screen in the video. Do NOT include "related" or "sector peer" tickers. The `context` field MUST contain a verbatim or near-verbatim quote that names the ticker (or its company name like "Nvidia", "Tesla").
+- If you find yourself adding a ticker because the topic is "tech stocks" or "AI" or "meme stocks" without the speaker naming the specific company, leave it out. Empty arrays are correct when nothing specific is discussed.
 - price_levels: include BOTH verbally mentioned prices AND price levels visible as annotated lines or labels on charts in the video.
 - options: empty array if none discussed. strike is null if not mentioned.
 - setups: link entry/stop/target only when the speaker presents them together. Empty array if unclear.
@@ -84,6 +86,8 @@ Extraction rules:
 - `ts_sec` is an integer second offset from the video start. Use the speaker's actual time, not the segment's.
 - `quote` must be verbatim or near-verbatim auto-caption text — NO paraphrase, NO summarization.
 - `tickers` = UPPERCASE real stock/ETF symbols only (e.g., NVDA, SPY, MSFT). Reject technical-analysis abbreviations (RSI, EMA, MACD, VWAP, SMA, ATR, MA). Empty array if none.
+- CRITICAL — only include a ticker in `tickers` if EITHER the symbol is literally spoken in the quote (e.g., "NVDA", "Nvidia"), OR it is visibly displayed as a chart label / on-screen text within ±5 seconds of `ts_sec`. Do NOT infer tickers from sector context, related-stock chatter, or general topic. If the quote does not name a specific company, leave `tickers` empty.
+- A span about "the chip sector" without a named company has `tickers: []`. A span about Burry buying AMC has `tickers: ["AMC"]` only — never add NVDA, GOOGL, or other "related" names.
 - `numbers` = raw numeric values that appear in the quote (e.g., 400.15, 18). Empty array if none.
 - `dates_mentioned` = raw date strings exactly as spoken ("April 29", "next Wednesday", "Friday"). Do NOT resolve to ISO dates.
 - Do NOT emit direction, conviction, support/resistance labels, setup_type, or any macro summary. Those come from post-processing.
@@ -308,6 +312,8 @@ def _clean_dates(raw: list) -> list[str]:
 
 def _build_evidence_bundle(data: dict, video_id: str, published_at: str) -> EvidenceBundle:
     """Convert evidence-only JSON into an EvidenceBundle. Filters TA abbreviations."""
+    from consensus_engine.analysis.ticker_grounding import filter_tickers_by_grounding
+
     duration = data.get("duration_sec")
     try:
         duration_sec = int(duration) if duration is not None else None
@@ -324,19 +330,34 @@ def _build_evidence_bundle(data: dict, video_id: str, published_at: str) -> Evid
         })
 
     spans: list[EvidenceSpan] = []
+    drop_count = 0
     for sp in data.get("spans", []) or []:
         if not isinstance(sp, dict):
             continue
         quote = str(sp.get("quote", "")).strip()
         if not quote:
             continue
+        # Filter tickers to those grounded in this span's quote.
+        raw_tickers = _clean_tickers(sp.get("tickers", []))
+        grounded, dropped = filter_tickers_by_grounding(raw_tickers, quote)
+        if dropped:
+            log.info(
+                "ticker_grounding: dropped %s from span ts=%s video=%s quote=%r",
+                dropped, sp.get("ts_sec"), video_id, quote[:80],
+            )
+            drop_count += len(dropped)
         spans.append(EvidenceSpan(
             ts_sec=_parse_ts_str(sp.get("ts_sec", 0)),
             quote=quote,
-            tickers=_clean_tickers(sp.get("tickers", [])),
+            tickers=grounded,
             numbers=_clean_numbers(sp.get("numbers", [])),
             dates_mentioned=_clean_dates(sp.get("dates_mentioned", [])),
         ))
+    if drop_count:
+        log.warning(
+            "ticker_grounding: video=%s dropped %d ungrounded ticker labels across spans",
+            video_id, drop_count,
+        )
 
     return EvidenceBundle(
         video_id=video_id,
@@ -372,16 +393,23 @@ def _build_parsed_video(
     data: dict, video_id: str, channel_name: str, published_at: str, run_id: int
 ) -> ParsedVideo:
     """Convert Gemini JSON response dict into a ParsedVideo."""
+    from consensus_engine.analysis.ticker_grounding import is_ticker_grounded
+
     # Tickers
     raw_tickers = data.get("tickers", [])
     _dir_norm = {"long": "long", "short": "short", "neutral": "neutral",
                  "bullish": "long", "bearish": "short"}
     normalized_tickers = []
+    dropped_legacy: list[str] = []
     for t in raw_tickers:
         if not isinstance(t, dict):
             continue
         sym = str(t.get("symbol", "")).upper()
         if not sym:
+            continue
+        ctx = str(t.get("context", ""))
+        if not is_ticker_grounded(sym, ctx):
+            dropped_legacy.append(sym)
             continue
         direction = _dir_norm.get(str(t.get("direction", "neutral")).lower(), "neutral")
         normalized_tickers.append({
@@ -389,10 +417,15 @@ def _build_parsed_video(
             "direction": direction,
             "conviction": str(t.get("conviction", "medium")).lower(),
             "mention_count": int(t.get("mention_count", 1)),
-            "context": str(t.get("context", "")),
-            "source_snippet": str(t.get("context", ""))[:200],
+            "context": ctx,
+            "source_snippet": ctx[:200],
             "chunk_id": 0,
         })
+    if dropped_legacy:
+        log.warning(
+            "ticker_grounding (Path B): video=%s dropped ungrounded ticker labels: %s",
+            video_id, dropped_legacy,
+        )
 
     # Price levels
     price_levels = []
@@ -405,11 +438,16 @@ def _build_parsed_video(
             continue
         if price <= 0:
             continue
+        ticker = str(lv.get("ticker", "")).upper()
+        ctx = str(lv.get("context", ""))
+        if ticker and not is_ticker_grounded(ticker, ctx):
+            log.info("ticker_grounding (Path B): dropped level %s @ %.2f, ungrounded", ticker, price)
+            continue
         price_levels.append(PriceLevel(
-            ticker=str(lv.get("ticker", "")).upper(),
+            ticker=ticker,
             level_type=str(lv.get("type", "support")).lower(),
             price=price,
-            condition=str(lv.get("context", "")),
+            condition=ctx,
             consequence="",
             confidence=0.8,
         ))
@@ -433,6 +471,10 @@ def _build_parsed_video(
         opt_type = str(o.get("option_type", "")).lower()
         if not ticker or opt_type not in ("call", "put"):
             continue
+        opt_ctx = str(o.get("context", ""))
+        if not is_ticker_grounded(ticker, opt_ctx):
+            log.info("ticker_grounding (Path B): dropped option %s, ungrounded", ticker)
+            continue
         strike = None
         if o.get("strike") is not None:
             try:
@@ -444,8 +486,8 @@ def _build_parsed_video(
             strike=strike, expiry=o.get("expiry"),
             strategy=o.get("strategy"), source=o.get("source"),
             conviction=str(o.get("conviction", "medium")).lower(),
-            context=str(o.get("context", "")),
-            source_snippet=str(o.get("context", ""))[:200],
+            context=opt_ctx,
+            source_snippet=opt_ctx[:200],
             chunk_id=0,
         ))
 
@@ -463,6 +505,10 @@ def _build_parsed_video(
                 pass
         if not ticker or entry_low is None:
             continue
+        setup_ctx = str(s.get("context", ""))
+        if not is_ticker_grounded(ticker, setup_ctx):
+            log.info("ticker_grounding (Path B): dropped setup %s, ungrounded", ticker)
+            continue
         entry_high = float(s["entry_high"]) if s.get("entry_high") is not None else entry_low
         stop = float(s["stop"]) if s.get("stop") is not None else None
         targets = []
@@ -477,12 +523,11 @@ def _build_parsed_video(
             mid = (entry_low + entry_high) / 2
             if mid > stop:
                 rr = round((targets[0] - mid) / (mid - stop), 2)
-        context = str(s.get("context", ""))
         setups.append(VideoTradeSetup(
             ticker=ticker, entry_low=entry_low, entry_high=entry_high,
             stop=stop, targets=targets,
             timeframe=s.get("timeframe"), setup_type=s.get("setup_type"),
-            context=context, source_snippet=context[:200],
+            context=setup_ctx, source_snippet=setup_ctx[:200],
             chunk_id=0, risk_reward=rr,
         ))
 
@@ -581,6 +626,7 @@ async def parse_video_with_gemini(
         return None
 
     parsed = _build_parsed_video(data, video_id, channel_name, published_at, run_id)
+    parsed.parser_version = parser_version
     log.info(
         "gemini_video_parser: %s → %d tickers, %d levels, %d options, %d setups",
         video_id, len(parsed.tickers), len(parsed.price_levels),
