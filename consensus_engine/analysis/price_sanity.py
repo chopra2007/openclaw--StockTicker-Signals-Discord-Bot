@@ -23,7 +23,10 @@ _SPLIT_FACTORS: tuple[float, ...] = (
     2.0, 1 / 2,
     3.0, 1 / 3,
     4.0, 1 / 4,
-    5.0, 1 / 5,
+    # 5.0 intentionally excluded: the ±25% band around 5× extends to 6.25×,
+    # which would accept the vkqchQQnm88 hallucination (850 on a $145 stock ≈ 5.86×).
+    # Legitimate 5× post-split levels fall within 25% of 4× (boundary case 5.0 = 4×1.25).
+    1 / 5,
     10.0, 1 / 10,
     20.0, 1 / 20,
 )
