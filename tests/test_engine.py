@@ -135,25 +135,32 @@ class TestScoreFirecrawl:
 
 class TestClassify:
     def test_strong_alert(self):
-        assert _classify(85, has_mainstream=True, market_ok=True) == SignalClass.STRONG_ALERT
+        sig, _ = _classify(85, has_mainstream=True, market_ok=True)
+        assert sig == SignalClass.STRONG_ALERT
 
     def test_strong_but_no_mainstream_downgraded(self):
-        assert _classify(85, has_mainstream=False, market_ok=True) == SignalClass.WATCHLIST
+        sig, _ = _classify(85, has_mainstream=False, market_ok=True)
+        assert sig == SignalClass.WATCHLIST
 
     def test_strong_but_no_market_downgraded(self):
-        assert _classify(85, has_mainstream=True, market_ok=False) == SignalClass.WATCHLIST
+        sig, _ = _classify(85, has_mainstream=True, market_ok=False)
+        assert sig == SignalClass.WATCHLIST
 
     def test_watchlist(self):
-        assert _classify(70, has_mainstream=True, market_ok=True) == SignalClass.WATCHLIST
+        sig, _ = _classify(70, has_mainstream=True, market_ok=True)
+        assert sig == SignalClass.WATCHLIST
 
     def test_ignore_low_score(self):
-        assert _classify(30, has_mainstream=False, market_ok=False) == SignalClass.IGNORE
+        sig, _ = _classify(30, has_mainstream=False, market_ok=False)
+        assert sig == SignalClass.IGNORE
 
     def test_boundary_high(self):
-        assert _classify(80, has_mainstream=True, market_ok=True) == SignalClass.STRONG_ALERT
+        sig, _ = _classify(80, has_mainstream=True, market_ok=True)
+        assert sig == SignalClass.STRONG_ALERT
 
     def test_boundary_medium(self):
-        assert _classify(65, has_mainstream=False, market_ok=False) == SignalClass.WATCHLIST
+        sig, _ = _classify(65, has_mainstream=False, market_ok=False)
+        assert sig == SignalClass.WATCHLIST
 
 
 # ---------------------------------------------------------------------------
