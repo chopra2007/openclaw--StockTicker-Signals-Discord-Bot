@@ -284,6 +284,8 @@ class CrossReferenceResult:
     contradiction_index: float = 0.0        # 0=unanimous, 1=perfectly split
     reliability_weights: dict = field(default_factory=dict)  # per-source-type weight
     suppressed: bool = False                # True when reliability gate blocks the alert
+    # A3: Bayesian source consolidation result (always populated, None if disabled/error)
+    consolidation_result: Optional[object] = None
 
     @property
     def final_score(self) -> int:
