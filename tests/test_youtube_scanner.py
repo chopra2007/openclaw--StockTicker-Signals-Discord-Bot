@@ -122,8 +122,9 @@ async def test_process_video_dedup(test_db, tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_process_video_missing_captions(test_db, tmp_path):
+async def test_process_video_missing_captions(test_db, tmp_path, monkeypatch):
     """Caption-unavailable error sets status to 'missing', does not raise."""
+    monkeypatch.setitem(cfg._config["youtube"], "use_two_stage", False)
     semaphore = asyncio.Semaphore(1)
     video = {"video_id": "vidY", "channel_id": "UCY", "title": "No Caps", "published_at": "2026-04-06T00:00:00Z"}
 
@@ -140,6 +141,7 @@ async def test_process_video_missing_captions(test_db, tmp_path):
 @pytest.mark.asyncio
 async def test_process_video_uses_gemini_when_available(test_db, tmp_path, monkeypatch):
     """Gemini fast-path: transcript fetch should NOT be called when Gemini succeeds."""
+    monkeypatch.setitem(cfg._config["youtube"], "use_two_stage", False)
     from consensus_engine.models import ParsedVideo, MacroThesis, Direction, Conviction
 
     mock_parsed = ParsedVideo(
@@ -180,6 +182,7 @@ async def test_process_video_uses_gemini_when_available(test_db, tmp_path, monke
 @pytest.mark.asyncio
 async def test_process_video_persists_options(test_db, tmp_path, monkeypatch):
     """process_video() stores VideoOptionIdea rows in youtube_options."""
+    monkeypatch.setitem(cfg._config["youtube"], "use_two_stage", False)
     from consensus_engine.models import (
         ParsedVideo, MacroThesis, Direction, Conviction, VideoOptionIdea,
     )
@@ -331,6 +334,7 @@ async def test_process_video_two_stage_falls_back_on_none_bundle(test_db, tmp_pa
 @pytest.mark.asyncio
 async def test_process_video_persists_setups(test_db, tmp_path, monkeypatch):
     """process_video() stores VideoTradeSetup rows and absorbs constituent levels."""
+    monkeypatch.setitem(cfg._config["youtube"], "use_two_stage", False)
     from consensus_engine.models import (
         ParsedVideo, MacroThesis, Direction, Conviction,
         VideoTradeSetup, PriceLevel,

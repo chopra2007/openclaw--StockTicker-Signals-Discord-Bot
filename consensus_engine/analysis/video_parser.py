@@ -1052,4 +1052,5 @@ async def parse_video_transcript(
         run_id=run_id,
         options=options_out,
         setups=setups_out,
+        parser_version="v2-transcript",
     )

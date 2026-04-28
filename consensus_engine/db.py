@@ -1472,6 +1472,17 @@ async def insert_youtube_level(
     await conn.commit()
 
 
+async def get_youtube_video(video_id: str) -> dict | None:
+    """Return the youtube_videos row for video_id, or None."""
+    conn = await get_db()
+    cur = await conn.execute(
+        "SELECT video_id, channel_id, title, published_at FROM youtube_videos WHERE video_id = ?",
+        (video_id,),
+    )
+    row = await cur.fetchone()
+    return dict(row) if row else None
+
+
 async def get_youtube_signals_for_ticker(ticker: str, days: int = 7) -> list[dict]:
     """Get all YouTube signals for a ticker from the last N days."""
     conn = await get_db()

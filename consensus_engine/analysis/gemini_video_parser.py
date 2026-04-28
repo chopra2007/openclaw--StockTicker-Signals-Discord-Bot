@@ -626,6 +626,7 @@ async def parse_video_with_gemini(
         return None
 
     parsed = _build_parsed_video(data, video_id, channel_name, published_at, run_id)
+    parsed.parser_version = parser_version
     log.info(
         "gemini_video_parser: %s → %d tickers, %d levels, %d options, %d setups",
         video_id, len(parsed.tickers), len(parsed.price_levels),

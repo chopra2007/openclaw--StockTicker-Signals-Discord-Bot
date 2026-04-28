@@ -196,6 +196,27 @@ async def _send_youtube_alert(message: str) -> None:
 # Per-video processing
 # ---------------------------------------------------------------------------
 
+def _suppress_off_allowlist(items, allowlist: set[str], reason: str) -> int:
+    """Mark items whose .ticker is not in `allowlist` as suppressed. Returns count.
+
+    Idempotent: never re-suppresses or overwrites an already-suppressed item's
+    `suppression_reason` (preserves earlier reasons like "price_sanity" or
+    "near_price_dedup" so the audit trail attributes the FIRST cause).
+    """
+    n = 0
+    for it in items:
+        ticker = getattr(it, "ticker", "")
+        if not ticker:
+            continue
+        if getattr(it, "suppressed", False):
+            continue  # preserve earlier suppression_reason
+        if ticker.upper() not in allowlist:
+            it.suppressed = True
+            it.suppression_reason = reason
+            n += 1
+    return n
+
+
 async def _process_video_two_stage(
     video_id: str,
     channel_id: str,
@@ -218,6 +239,27 @@ async def _process_video_two_stage(
     catalysts = await resolve_and_verify_catalysts(
         result.catalyst_candidates, bundle.publish_ts,
     )
+
+    # ── Video-level allowlist (Layer 3) ─────────────────────────────────
+    from consensus_engine.analysis.ticker_grounding import build_video_allowlist
+    video_meta_row = await db.get_youtube_video(video_id)
+    title = video_meta_row.get("title", "") if video_meta_row else ""
+    span_quotes = [sp.quote for sp in bundle.spans]
+    candidate_set = (
+        {s.ticker for s in result.signals}
+        | {lv.ticker for lv in result.levels}
+        | {st.ticker for st in result.setups}
+        | {c.ticker for c in catalysts}
+    )
+    allowlist = build_video_allowlist(
+        video_title=title,
+        span_quotes=span_quotes,
+        candidate_tickers=list(candidate_set),
+    )
+    _suppress_off_allowlist(result.signals, allowlist, "off_allowlist")
+    _suppress_off_allowlist(result.levels, allowlist, "off_allowlist")
+    _suppress_off_allowlist(result.setups, allowlist, "off_allowlist")
+    _suppress_off_allowlist(catalysts, allowlist, "off_allowlist")
 
     min_conf = float(cfg.get("youtube.classifier.min_confidence", 0.5))
     filter_drops = 0
@@ -602,6 +644,38 @@ async def process_video(
         if parsed is None:
             return
 
+        # ── Video-level allowlist (Layer 3) — applies to both Path B and C ───
+        from consensus_engine.analysis.ticker_grounding import build_video_allowlist
+        candidate_set = (
+            {t.get("symbol", "").upper() for t in parsed.tickers if t.get("symbol")}
+            | {lv.ticker.upper() for lv in parsed.price_levels if lv.ticker}
+            | {s.ticker.upper() for s in parsed.setups if s.ticker}
+            | {o.ticker.upper() for o in parsed.options if o.ticker}
+        )
+        # Path B/C has no spans table — gather evidence from each item's context.
+        evidence_texts = (
+            [t.get("context", "") for t in parsed.tickers]
+            + [lv.condition for lv in parsed.price_levels]
+            + [s.context for s in parsed.setups]
+            + [o.context for o in parsed.options]
+        )
+        title = video_meta.get("title", "")
+        allowlist = build_video_allowlist(
+            video_title=title,
+            span_quotes=evidence_texts,
+            candidate_tickers=list(candidate_set),
+        )
+        log.info(
+            "video_allowlist (Path B/C): video=%s candidates=%s allowlist=%s",
+            video_meta["video_id"], sorted(candidate_set), sorted(allowlist),
+        )
+
+        def _suppress_meta(ticker: str) -> tuple[int, str | None]:
+            """Return (suppressed, reason) for an off-allowlist row; (0, None) otherwise."""
+            if ticker and ticker.upper() not in allowlist:
+                return 1, "off_allowlist"
+            return 0, None
+
         # Insert signals for each ticker
         for ticker_data in parsed.tickers:
             ticker = ticker_data.get("symbol")
@@ -616,6 +690,7 @@ async def process_video(
                         "summary": parsed.macro_thesis.summary,
                     })
 
+                supp, supp_reason = _suppress_meta(ticker)
                 await db.insert_youtube_signal(
                     video_id=video_id,
                     channel_name=display_name,
@@ -628,12 +703,15 @@ async def process_video(
                     run_id=parsed.run_id,
                     source_snippet=ticker_data.get("source_snippet"),
                     chunk_id=ticker_data.get("chunk_id", 0),
-                    parser_version="v2",
+                    parser_version=parsed.parser_version,
+                    suppressed=supp,
+                    suppression_reason=supp_reason,
                 )
                 log.debug("youtube: signal created %s/%s conviction=%s", video_id, ticker, ticker_data.get("conviction"))
 
         # Insert price levels
         for level in parsed.price_levels:
+            lv_supp, lv_supp_reason = _suppress_meta(level.ticker)
             await db.insert_youtube_level(
                 video_id=video_id,
                 ticker=level.ticker,
@@ -645,7 +723,9 @@ async def process_video(
                 channel_name=display_name,
                 published_at=video_meta["published_at"],
                 run_id=parsed.run_id,
-                parser_version="v2",
+                parser_version=parsed.parser_version,
+                suppressed=lv_supp,
+                suppression_reason=lv_supp_reason,
             )
             log.debug("youtube: level created %s %s @ %.2f", video_id, level.ticker, level.price)
 
@@ -664,6 +744,7 @@ async def process_video(
 
         # Insert options ideas
         for opt in parsed.options:
+            opt_supp, opt_supp_reason = _suppress_meta(opt.ticker)
             await db.insert_youtube_option(
                 run_id=parsed.run_id,
                 video_id=video_id,
@@ -677,14 +758,17 @@ async def process_video(
                 context_text=opt.context,
                 source_snippet=opt.source_snippet,
                 chunk_id=opt.chunk_id,
-                parser_version="v2",
+                parser_version=parsed.parser_version,
                 channel_name=display_name,
                 published_at=video_meta["published_at"],
+                suppressed=opt_supp,
+                suppression_reason=opt_supp_reason,
             )
             log.debug("youtube: option created %s/%s %s", video_id, opt.ticker, opt.option_type)
 
         # Insert trade setups and absorb constituent levels
         for setup in parsed.setups:
+            st_supp, st_supp_reason = _suppress_meta(setup.ticker)
             setup_id = await db.insert_youtube_setup(
                 run_id=parsed.run_id,
                 video_id=video_id,
@@ -699,9 +783,11 @@ async def process_video(
                 source_snippet=setup.source_snippet,
                 chunk_id=setup.chunk_id,
                 risk_reward=setup.risk_reward,
-                parser_version="v2",
+                parser_version=parsed.parser_version,
                 channel_name=display_name,
                 published_at=video_meta["published_at"],
+                suppressed=st_supp,
+                suppression_reason=st_supp_reason,
             )
             conn = await db.get_db()
             cur = await conn.execute(
