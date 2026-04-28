@@ -33,8 +33,19 @@ SUPPRESSION_REASON = "hallucination_backfill"
 async def _evidence_pool_for_video(video_id: str) -> tuple[str, list[str]]:
     """Return (title, evidence_texts) for a video.
 
-    evidence_texts is the union of every span quote, every level/setup
-    context_text, every signal source_snippet, and every option context_text.
+    evidence_texts is ONLY the union of trustworthy ground-truth strings:
+    - title (from YouTube metadata, always trustworthy)
+    - youtube_evidence_spans.quote (verbatim auto-caption-like text from
+      Path A; per-span grounding at write-time means the spans table is
+      already filtered)
+
+    DELIBERATELY EXCLUDED: condition_text, source_snippet, context_text from
+    levels/signals/setups/options. Those are LLM-generated alongside the
+    (possibly hallucinated) ticker label and form a circular evidence loop —
+    e.g. Path B writing `youtube_levels.condition_text` = 'They posted this
+    trade in the Discord, "NVDA Break down $845-855..."' as the "evidence"
+    for a hallucinated NVDA setup. Trusting that field would re-anchor the
+    hallucination. Title + verifiable spans is the safe pool.
     """
     conn = await db.get_db()
 
@@ -44,31 +55,10 @@ async def _evidence_pool_for_video(video_id: str) -> tuple[str, list[str]]:
     title = title_row["title"] if title_row else ""
 
     pool: list[str] = []
-
     cur = await conn.execute(
         "SELECT quote FROM youtube_evidence_spans WHERE video_id = ?", (video_id,)
     )
     pool.extend(r["quote"] for r in await cur.fetchall())
-
-    cur = await conn.execute(
-        "SELECT context_text FROM youtube_setups WHERE video_id = ?", (video_id,)
-    )
-    pool.extend(r["context_text"] or "" for r in await cur.fetchall())
-
-    cur = await conn.execute(
-        "SELECT condition_text FROM youtube_levels WHERE video_id = ?", (video_id,)
-    )
-    pool.extend(r["condition_text"] or "" for r in await cur.fetchall())
-
-    cur = await conn.execute(
-        "SELECT source_snippet FROM youtube_signals WHERE video_id = ?", (video_id,)
-    )
-    pool.extend(r["source_snippet"] or "" for r in await cur.fetchall())
-
-    cur = await conn.execute(
-        "SELECT context_text FROM youtube_options WHERE video_id = ?", (video_id,)
-    )
-    pool.extend(r["context_text"] or "" for r in await cur.fetchall())
 
     return title, pool
 
