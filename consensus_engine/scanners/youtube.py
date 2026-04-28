@@ -26,6 +26,7 @@ log = logging.getLogger("consensus_engine.scanner.youtube")
 
 _ATOM_NS = "http://www.w3.org/2005/Atom"
 _YT_NS = "http://www.youtube.com/xml/schemas/2015"
+_MEDIA_NS = "http://search.yahoo.com/mrss/"
 
 
 # ---------------------------------------------------------------------------
@@ -63,12 +64,19 @@ async def fetch_channel_videos_rss(
         video_id_el = entry.find(f"{{{_YT_NS}}}videoId")
         title_el = entry.find(f"{{{_ATOM_NS}}}title")
         published_el = entry.find(f"{{{_ATOM_NS}}}published")
+        media_group = entry.find(f"{{{_MEDIA_NS}}}group")
+        description = ""
+        if media_group is not None:
+            desc_el = media_group.find(f"{{{_MEDIA_NS}}}description")
+            if desc_el is not None and desc_el.text:
+                description = desc_el.text
         if video_id_el is None:
             continue
         videos.append({
             "video_id": video_id_el.text or "",
             "channel_id": channel_id,
             "title": (title_el.text or "") if title_el is not None else "",
+            "description": description,
             "published_at": (published_el.text or "") if published_el is not None else "",
         })
         if len(videos) >= limit:
@@ -244,6 +252,7 @@ async def _process_video_two_stage(
     from consensus_engine.analysis.ticker_grounding import build_video_allowlist
     video_meta_row = await db.get_youtube_video(video_id)
     title = video_meta_row.get("title", "") if video_meta_row else ""
+    description = video_meta_row.get("description", "") if video_meta_row else ""
     span_quotes = [sp.quote for sp in bundle.spans]
     candidate_set = (
         {s.ticker for s in result.signals}
@@ -253,6 +262,7 @@ async def _process_video_two_stage(
     )
     allowlist = build_video_allowlist(
         video_title=title,
+        video_description=description,
         span_quotes=span_quotes,
         candidate_tickers=list(candidate_set),
     )
@@ -591,6 +601,7 @@ async def process_video(
             video_id=video_id,
             channel_id=channel_id,
             title=video_meta["title"],
+            description=video_meta.get("description", ""),
             published_at=video_meta["published_at"],
             fetched_at=time.time(),
         )
@@ -712,6 +723,7 @@ async def process_video(
         title = video_meta.get("title", "")
         allowlist = build_video_allowlist(
             video_title=title,
+            video_description=video_meta.get("description", ""),
             span_quotes=evidence_texts,
             candidate_tickers=list(candidate_set),
         )

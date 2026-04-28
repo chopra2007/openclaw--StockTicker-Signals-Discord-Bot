@@ -50,11 +50,14 @@ async def _evidence_pool_for_video(video_id: str) -> tuple[str, list[str]]:
     conn = await db.get_db()
 
     title_row = await (await conn.execute(
-        "SELECT title FROM youtube_videos WHERE video_id = ?", (video_id,)
+        "SELECT title, description FROM youtube_videos WHERE video_id = ?", (video_id,)
     )).fetchone()
     title = title_row["title"] if title_row else ""
+    description = title_row["description"] if title_row else ""
 
     pool: list[str] = []
+    if description:
+        pool.append(description)
     cur = await conn.execute(
         "SELECT quote FROM youtube_evidence_spans WHERE video_id = ?", (video_id,)
     )
