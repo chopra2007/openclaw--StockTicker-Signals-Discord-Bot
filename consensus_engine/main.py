@@ -796,6 +796,23 @@ async def _run_cross_reference_and_followup(
                 ticker, classification, xref.final_score,
             )
 
+        # A1 post-process: re-apply with real contradiction_index from xref
+        # (analyze_signal ran with default 0.0 due to parallelism)
+        contradiction_verdict = None
+        if precision and not precision.get("skipped"):
+            contradiction_verdict = precision.get("contradiction_verdict")
+        if xref and classification == SignalClass.STRONG_ALERT:
+            real_ci = float(getattr(xref, "contradiction_index", 0.0) or 0.0)
+            if real_ci > 0.0:
+                from consensus_engine.analysis.contradiction import evaluate_contradiction
+                import datetime as _datetime
+                real_verdict = evaluate_contradiction(real_ci, _datetime.datetime.utcnow())
+                contradiction_verdict = real_verdict
+                if real_verdict.apply_penalty:
+                    classification = SignalClass.WATCHLIST
+                    log.info("[A1] $%s STRONG→WATCHLIST contradiction=%.2f reason=%s",
+                             ticker, real_ci, real_verdict.reason)
+
         followup_id = await send_detail_followup(xref, instant_msg_id, precision=precision)
         await db.update_alert_message_followup(alert_message_id, followup_id, xref.final_score)
 
@@ -808,6 +825,15 @@ async def _run_cross_reference_and_followup(
                 sources_json = _serialize_breakdown(xref.breakdown)
             except Exception:
                 sources_json = "{}"
+            import json as _json
+            fv = {}
+            if contradiction_verdict is not None:
+                from dataclasses import asdict as _asdict
+                fv["contradiction_verdict"] = {
+                    "apply_penalty": contradiction_verdict.apply_penalty,
+                    "reason": contradiction_verdict.reason,
+                    "macro_event": contradiction_verdict.macro_event,
+                }
             snapshot_id = await db.record_decision_snapshot(
                 ticker=ticker,
                 decision=(classification.value if classification is not None else "UNCLASSIFIED"),
@@ -816,6 +842,7 @@ async def _run_cross_reference_and_followup(
                 contradiction_index=float(getattr(xref, "contradiction_index", 0.0) or 0.0),
                 outcome_price_at_alert=(float(entry_price) if entry_price and entry_price > 0 else None),
                 alert_id=alert_row_id,
+                feature_vector_json=_json.dumps(fv) if fv else None,
             )
             await log_shadow_prediction(snapshot_id, score=final_score, calibrated_prob=shadow_prob)
 

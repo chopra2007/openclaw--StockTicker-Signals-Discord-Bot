@@ -393,3 +393,53 @@ alfred:
   channel_id: "$DISCORD_BRIEFING_CHANNEL_ID"
   post_window_et: ["08:50", "09:00"]
   market_holidays: []
+
+# =============================================================================
+# New Signal Features (A1/A2/A3/A4/A5/D1)
+# =============================================================================
+features:
+  contradiction_penalty:
+    enabled: true               # A1 default-on; manual rollback via YAML flip
+    contradiction_max: 0.5
+    macro_blackout_minutes: 30
+  analyst_herding:
+    enabled: false
+    min_cluster_size: 3
+    window_minutes: 30
+    min_trusted_accuracy: 0.5
+    panic_min_cluster_size: 4
+    members_cap: 20
+  sector_confirmation:
+    enabled: false
+    bypass_on_unknown_catalyst: true
+    market_hours_only: true
+    sector_change_threshold_pct: 0.3
+    quote_cache_ttl_sec: 300
+  regime_classifier:
+    enabled: false
+    regime_shifts:
+      calm: -5
+      elevated: 5
+      panic: 10
+    panic_z: 1.5
+    elevated_z: 0.5
+    calm_z: -1.0
+    ema_alpha: 0.4
+    cold_start_min_days: 30
+  cross_source_consolidation:
+    enabled: false
+    window_minutes: 15
+    max_effective_clusters: 3
+  form4_cluster:
+    enabled: false
+    min_unique_insiders: 3
+    min_dollar_threshold: 250000
+    falling_knife_calm: 0.85
+    falling_knife_elevated: 0.65
+    falling_knife_panic_min_insiders: 5
+    cooldown_days: 14
+    scan_window_days: 30
+
+intervals:
+  form4_cluster_loop: 14400
+  feature_volume_monitor: 900
