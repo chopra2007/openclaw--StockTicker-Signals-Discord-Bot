@@ -126,29 +126,24 @@ def assert_ticker_grounded_in_any(
 
 def build_video_allowlist(
     video_title: str,
-    span_quotes: list[str],
+    video_description: str = "",
+    span_quotes: list[str] | None = None,
     extra_texts: list[str] | None = None,
     candidate_tickers: list[str] | None = None,
 ) -> set[str]:
     """Build the set of tickers acceptably grounded in this video's evidence.
 
     A ticker is in the allowlist if it is grounded (literal or alias match) in
-    any of: title, any span quote, any extra text.
+    any of: title, description, any span quote, any extra text.
 
     `candidate_tickers`: if provided, restrict the check to this set. Otherwise
     we'd have to enumerate all known tickers — too expensive. In practice the
     caller passes the union of all tickers the LLM claimed.
-
-    Note on description: `youtube_videos` schema has no `description` column
-    (db.py:160-170). Adding one would be a migration, which this PR explicitly
-    forbids (README "No DB migrations"). Title + spans is sufficient grounding
-    pool for this fix; a future cheap PR can add description fetch and
-    upgrade the allowlist.
     """
     if not candidate_tickers:
         return set()
-    pool = [video_title or ""]
-    pool.extend(q for q in span_quotes if q)
+    pool = [video_title or "", video_description or ""]
+    pool.extend(q for q in span_quotes or [] if q)
     if extra_texts:
         pool.extend(t for t in extra_texts if t)
 

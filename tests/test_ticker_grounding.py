@@ -141,6 +141,18 @@ def test_video_allowlist_logs_candidate_and_allowlist(caplog):
     assert allow == {"AMC"}
 
 
+def test_allowlist_uses_description():
+    """Description is consulted as a grounding pool alongside title and spans."""
+    allow = ticker_grounding.build_video_allowlist(
+        video_title="Top 5 Stocks NOW",
+        video_description="Stocks discussed: $AAPL, $MSFT, $TSLA. Don't miss this one!",
+        span_quotes=[],
+        candidate_tickers=["AAPL", "MSFT", "TSLA", "NVDA"],
+    )
+    assert allow == {"AAPL", "MSFT", "TSLA"}
+    assert "NVDA" not in allow  # not in title or description
+
+
 def test_price_sanity_warns_with_reason(caplog):
     """Layer 4: check_price_plausible failure surfaces a structured reason."""
     import logging

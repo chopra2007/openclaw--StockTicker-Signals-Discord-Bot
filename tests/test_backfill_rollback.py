@@ -28,15 +28,15 @@ def populated_db(tmp_path, monkeypatch):
     db_path = tmp_path / "rollback.db"
     conn = sqlite3.connect(db_path)
     conn.executescript("""
-        CREATE TABLE youtube_videos (video_id TEXT PRIMARY KEY, title TEXT, channel_id TEXT, published_at TEXT);
+        CREATE TABLE youtube_videos (video_id TEXT PRIMARY KEY, title TEXT, description TEXT, channel_id TEXT, published_at TEXT);
         CREATE TABLE youtube_evidence_spans (id INTEGER PRIMARY KEY AUTOINCREMENT, video_id TEXT, quote TEXT);
         CREATE TABLE youtube_levels (id INTEGER PRIMARY KEY AUTOINCREMENT, video_id TEXT, ticker TEXT, level_type TEXT, price REAL, condition_text TEXT, suppressed INTEGER DEFAULT 0, suppression_reason TEXT);
         CREATE TABLE youtube_signals (id INTEGER PRIMARY KEY AUTOINCREMENT, video_id TEXT, ticker TEXT, source_snippet TEXT, suppressed INTEGER DEFAULT 0, suppression_reason TEXT);
         CREATE TABLE youtube_setups (id INTEGER PRIMARY KEY AUTOINCREMENT, video_id TEXT, ticker TEXT, context_text TEXT, suppressed INTEGER DEFAULT 0, suppression_reason TEXT);
         CREATE TABLE youtube_options (id INTEGER PRIMARY KEY AUTOINCREMENT, video_id TEXT, ticker TEXT, context_text TEXT, suppressed INTEGER DEFAULT 0, suppression_reason TEXT);
     """)
-    conn.execute("INSERT INTO youtube_videos VALUES (?, ?, ?, ?)",
-                 ("vkq", "AMC GAMESTOP KOSS - IT HAS BEGUN", "ch1", "2026-04-23T00:00:00Z"))
+    conn.execute("INSERT INTO youtube_videos VALUES (?, ?, ?, ?, ?)",
+                 ("vkq", "AMC GAMESTOP KOSS - IT HAS BEGUN", None, "ch1", "2026-04-23T00:00:00Z"))
     conn.execute("INSERT INTO youtube_evidence_spans (video_id, quote) VALUES (?, ?)",
                  ("vkq", "Burry bought more AMC at the dip"))
     conn.execute("INSERT INTO youtube_levels (video_id, ticker, level_type, price, condition_text) VALUES (?, ?, ?, ?, ?)",

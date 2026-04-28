@@ -161,6 +161,7 @@ CREATE TABLE IF NOT EXISTS youtube_videos (
     video_id TEXT PRIMARY KEY,
     channel_id TEXT NOT NULL,
     title TEXT,
+    description TEXT,
     published_at TEXT,
     fetched_at REAL NOT NULL,
     transcript_status TEXT NOT NULL DEFAULT 'pending',
@@ -587,6 +588,7 @@ async def _run_column_migrations(conn) -> None:
         ("decision_snapshots", "alert_id",  "INTEGER"),
         ("signal_events", "consumed_by_cluster_id", "INTEGER"),
         ("sec_form4_filings", "is_10b5_1", "INTEGER DEFAULT 0"),
+        ("youtube_videos",    "description", "TEXT"),
     ]
     for table in ("youtube_signals", "youtube_levels", "youtube_setups", "youtube_options"):
         for col, defn in v2_span_cols:
@@ -1349,14 +1351,15 @@ async def upsert_youtube_video(
     title: str,
     published_at: str,
     fetched_at: float,
+    description: str = "",
 ) -> None:
     """Insert a video record with status=pending, ignoring if already present."""
     conn = await get_db()
     await conn.execute(
         """INSERT OR IGNORE INTO youtube_videos
-           (video_id, channel_id, title, published_at, fetched_at, transcript_status)
-           VALUES (?, ?, ?, ?, ?, 'pending')""",
-        (video_id, channel_id, title, published_at, fetched_at),
+           (video_id, channel_id, title, description, published_at, fetched_at, transcript_status)
+           VALUES (?, ?, ?, ?, ?, ?, 'pending')""",
+        (video_id, channel_id, title, description, published_at, fetched_at),
     )
     await conn.commit()
 
@@ -1476,7 +1479,7 @@ async def get_youtube_video(video_id: str) -> dict | None:
     """Return the youtube_videos row for video_id, or None."""
     conn = await get_db()
     cur = await conn.execute(
-        "SELECT video_id, channel_id, title, published_at FROM youtube_videos WHERE video_id = ?",
+        "SELECT video_id, channel_id, title, description, published_at FROM youtube_videos WHERE video_id = ?",
         (video_id,),
     )
     row = await cur.fetchone()
