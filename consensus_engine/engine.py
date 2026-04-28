@@ -286,6 +286,7 @@ async def analyze_signal(
     budget: Optional[BudgetManager] = None,
     catalyst_type: str = "",
     contradiction_index: float = 0.0,
+    direction: str = "",
 ) -> dict:
     """Run the precision scoring pipeline for a ticker.
 
@@ -401,6 +402,19 @@ async def analyze_signal(
             fc_score = _score_firecrawl(fc_pages, ticker)
             score += fc_score
 
+    # A4: sector ETF peer-confirmation gate
+    from consensus_engine.analysis.sector_confirmation import check_sector_alignment
+    sector_verdict = await check_sector_alignment(
+        ticker, direction or "long", catalyst_type, datetime.utcnow(),
+    )
+    bypass_due_to_a4 = (
+        cfg.get("features.sector_confirmation.enabled", False)
+        and (sector_verdict.aligned or sector_verdict.bypass_due_to_catalyst
+             or sector_verdict.bypass_due_to_unknown or sector_verdict.bypass_due_to_premarket
+             or sector_verdict.bypass_due_to_unmapped)
+    )
+    skip_market_gate = skip_market_gate or bypass_due_to_a4
+
     # --- Classify ---
     classification, contradiction_verdict = _classify(
         score, has_mainstream, market_ok,
@@ -426,4 +440,5 @@ async def analyze_signal(
         "firecrawl_pages": fc_pages,
         "contradiction_verdict": contradiction_verdict,
         "regime": regime,
+        "sector_verdict": sector_verdict,
     }

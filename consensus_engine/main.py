@@ -916,6 +916,23 @@ async def _run_cross_reference_and_followup(
                     "cold_start": regime.cold_start,
                     "as_of_date": regime.as_of_date,
                 }
+            if precision and precision.get("sector_verdict"):
+                sv = precision["sector_verdict"]
+                fv["sector_verdict"] = {
+                    "aligned": sv.aligned,
+                    "reason": sv.reason,
+                    "sector_etf": sv.sector_etf,
+                    "sector_change_pct": sv.sector_change_pct,
+                }
+            if xref and getattr(xref, "consolidation_result", None) is not None:
+                cr = xref.consolidation_result
+                fv["consolidation_result"] = {
+                    "fired": cr.fired,
+                    "effective_n_clusters": cr.effective_n_clusters,
+                    "combined_log_odds": cr.combined_log_odds,
+                    "consensus_boost": cr.consensus_boost,
+                    "reason": cr.reason,
+                }
             snapshot_id = await db.record_decision_snapshot(
                 ticker=ticker,
                 decision=(classification.value if classification is not None else "UNCLASSIFIED"),
