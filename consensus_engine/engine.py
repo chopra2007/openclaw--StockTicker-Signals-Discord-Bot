@@ -12,6 +12,7 @@ from typing import Optional
 
 from consensus_engine import config as cfg, db
 from consensus_engine.analysis.contradiction import evaluate_contradiction, ContradictionVerdict
+from consensus_engine.analysis.regime import lookup_regime, RegimeContext, _COLD_START
 from consensus_engine.adapter_protocols import (
     FinnhubContext,
     FirecrawlPage,
@@ -300,10 +301,14 @@ async def analyze_signal(
             "total_score": base_score,
             "skipped": True,
             "contradiction_verdict": ContradictionVerdict(apply_penalty=False, reason="disabled"),
+            "regime": _COLD_START,
         }
 
     budget = budget or BudgetManager()
     session = await get_session()
+
+    # A5: lookup current regime for threshold shifting
+    regime = await lookup_regime()
 
     score = base_score
     has_mainstream = False
@@ -350,6 +355,7 @@ async def analyze_signal(
                 "search_hits": [],
                 "firecrawl_pages": [],
                 "contradiction_verdict": ContradictionVerdict(apply_penalty=False, reason="disabled"),
+                "regime": _COLD_START,
             }
 
     # --- Phase 2: Brave Search (cheap) ---
@@ -400,6 +406,7 @@ async def analyze_signal(
         score, has_mainstream, market_ok,
         bypass_market_confirmation=skip_market_gate,
         contradiction_index=contradiction_index,
+        regime=regime,
     )
     log.info("[A1] $%s contradiction=%.2f → %s", ticker, contradiction_index, contradiction_verdict.reason)
     log.info("$%s precision result: %s (score=%d, mainstream=%s, market_ok=%s)",
@@ -418,4 +425,5 @@ async def analyze_signal(
         "search_hits": all_hits,
         "firecrawl_pages": fc_pages,
         "contradiction_verdict": contradiction_verdict,
+        "regime": regime,
     }
