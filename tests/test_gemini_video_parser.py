@@ -29,8 +29,8 @@ from consensus_engine.models import (
 @pytest.mark.asyncio
 async def test_parse_video_with_gemini_returns_parsed_video():
     fake_json = """{
-      "tickers": [{"symbol": "NVDA", "direction": "long", "conviction": "high", "mention_count": 3, "context": "breakout above 850"}],
-      "price_levels": [{"ticker": "NVDA", "type": "support", "price": 820.0, "context": "key support annotated on chart"}],
+      "tickers": [{"symbol": "NVDA", "direction": "long", "conviction": "high", "mention_count": 3, "context": "NVDA breakout above 850"}],
+      "price_levels": [{"ticker": "NVDA", "type": "support", "price": 820.0, "context": "NVDA key support annotated on chart"}],
       "macro_thesis": {"direction": "bullish", "themes": ["tech rally"], "timeframe": "short", "summary": "Markets rallying."},
       "options": [],
       "setups": [{"ticker": "NVDA", "entry_low": 850.0, "entry_high": 855.0, "stop": 820.0, "targets": [920.0], "timeframe": "swing", "setup_type": "breakout", "context": "buy NVDA at 850"}],
@@ -132,8 +132,8 @@ _EVIDENCE_JSON = """{
   ],
   "spans": [
     {"ts_sec": 2024, "quote": "Our number one draft pick this week is MSFT", "tickers": ["MSFT"], "numbers": [], "dates_mentioned": []},
-    {"ts_sec": 2142, "quote": "the 8 EMA is currently coming in at 400.15", "tickers": ["MSFT"], "numbers": [400.15], "dates_mentioned": []},
-    {"ts_sec": 2172, "quote": "Bullish bias into April 29th earnings with an entry target at 400.15", "tickers": ["MSFT"], "numbers": [400.15], "dates_mentioned": ["April 29"]}
+    {"ts_sec": 2142, "quote": "MSFT 8 EMA is currently coming in at 400.15", "tickers": ["MSFT"], "numbers": [400.15], "dates_mentioned": []},
+    {"ts_sec": 2172, "quote": "MSFT bullish bias into April 29th earnings with an entry target at 400.15", "tickers": ["MSFT"], "numbers": [400.15], "dates_mentioned": ["April 29"]}
   ]
 }"""
 
@@ -292,7 +292,7 @@ async def test_extract_evidence_rejects_ta_abbreviations():
       "duration_sec": 100,
       "segments": [],
       "spans": [
-        {"ts_sec": 10, "quote": "EMA holding at 400", "tickers": ["EMA","MSFT"], "numbers": [400], "dates_mentioned": []},
+        {"ts_sec": 10, "quote": "MSFT EMA holding at 400", "tickers": ["EMA","MSFT"], "numbers": [400], "dates_mentioned": []},
         {"ts_sec": 20, "quote": "RSI overbought", "tickers": ["RSI"], "numbers": [], "dates_mentioned": []}
       ]
     }"""
@@ -319,7 +319,7 @@ def test_build_evidence_bundle_drops_empty_quotes():
         "spans": [
             {"ts_sec": 1, "quote": "", "tickers": ["SPY"], "numbers": [], "dates_mentioned": []},
             {"ts_sec": 2, "quote": "   ", "tickers": ["SPY"], "numbers": [], "dates_mentioned": []},
-            {"ts_sec": 3, "quote": "real quote", "tickers": ["spy"], "numbers": [], "dates_mentioned": []},
+            {"ts_sec": 3, "quote": "SPY real quote", "tickers": ["spy"], "numbers": [], "dates_mentioned": []},
         ],
     }
     b = _build_evidence_bundle(data, "v", "2026-04-17T12:00:00Z")

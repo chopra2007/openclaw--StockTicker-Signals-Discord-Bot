@@ -558,6 +558,8 @@ async def _call_groq_full(user_prompt: str, max_tokens: int = 2048) -> tuple[str
 
 def _parse_llm_response(raw: str, video_id: str, transcript: str) -> dict:
     """Parse the LLM JSON response into structured data. Falls back to regex on failure."""
+    from consensus_engine.analysis.ticker_grounding import is_ticker_grounded
+
     cleaned = raw.strip()
     if cleaned.startswith("```"):
         cleaned = re.sub(r'^```(?:json)?\s*', '', cleaned)
@@ -593,6 +595,13 @@ def _parse_llm_response(raw: str, video_id: str, transcript: str) -> dict:
             direction = _TICKER_DIR_NORM.get(direction, "neutral")
             conviction = t.get("conviction", "medium").lower()
             context = t.get("context", "")
+            # Ground against ticker's own context, falling back to full transcript
+            # (transcript can be 10K+ words; context is the LLM's own quoted reason).
+            if symbol and not (
+                is_ticker_grounded(symbol, context)
+                or is_ticker_grounded(symbol, transcript)
+            ):
+                continue
             # Negation gate: flip direction if context contradicts it
             direction = _apply_negation(direction, context)
             normalized_tickers.append({
@@ -610,11 +619,15 @@ def _parse_llm_response(raw: str, video_id: str, transcript: str) -> dict:
             try:
                 price = float(level.get("price", 0))
                 if price > 0:  # Valid price
+                    lv_ticker = str(level.get("ticker", "")).upper()
+                    lv_condition = str(level.get("condition", ""))
+                    if lv_ticker and not is_ticker_grounded(lv_ticker, lv_condition):
+                        continue
                     price_levels.append({
-                        "ticker": str(level.get("ticker", "")).upper(),
+                        "ticker": lv_ticker,
                         "type": str(level.get("type", "support")).lower(),
                         "price": price,
-                        "condition": str(level.get("condition", "")),
+                        "condition": lv_condition,
                         "consequence": str(level.get("consequence", "")),
                         "confidence": float(level.get("confidence", 0.8)),
                     })
@@ -709,6 +722,10 @@ def _fallback_parse(transcript: str) -> dict:
 
     # Disambiguation gate: reject plain-word tickers without financial context
     tickers_found = [t for t in tickers_found if _has_financial_context(t, transcript)]
+    # Grounding (alias-aware) — redundant with extract_tickers but cheap and
+    # ensures Path C output is consistent with Paths A/B.
+    from consensus_engine.analysis.ticker_grounding import is_ticker_grounded
+    tickers_found = [t for t in tickers_found if is_ticker_grounded(t, transcript)]
 
     normalized_tickers = [
         {
