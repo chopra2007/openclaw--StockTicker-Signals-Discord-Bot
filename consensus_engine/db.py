@@ -477,6 +477,21 @@ CREATE TABLE IF NOT EXISTS feature_flag_audit (
 );
 CREATE INDEX IF NOT EXISTS idx_flag_audit_feature ON feature_flag_audit(feature);
 
+CREATE TABLE IF NOT EXISTS form4_clusters (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticker TEXT NOT NULL,
+    window_start TEXT NOT NULL,
+    window_end TEXT NOT NULL,
+    n_insiders INTEGER NOT NULL,
+    total_dollars REAL NOT NULL,
+    members_json TEXT NOT NULL,
+    regime_label TEXT NOT NULL,
+    falling_knife_threshold TEXT NOT NULL,
+    alerted_at REAL NOT NULL,
+    UNIQUE(ticker, window_end)
+);
+CREATE INDEX IF NOT EXISTS idx_form4_clusters_alerted ON form4_clusters(alerted_at);
+
 CREATE TABLE IF NOT EXISTS schema_version (
     version INTEGER PRIMARY KEY,
     applied_at REAL NOT NULL,
@@ -604,6 +619,7 @@ async def init_db() -> AsyncConnection:
         (7, "cross-cutting feature-flag bundle"),
         (8, "A1 contradiction-penalty"),
         (9, "A5 regime tagger"),
+        (10, "D1 form4 cluster-buy detector"),
     ]
     for version, note in _schema_versions:
         await _db.execute(

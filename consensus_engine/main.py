@@ -290,6 +290,78 @@ async def sec_edgar_polling_loop(stop_event: asyncio.Event):
             continue
 
 
+async def _emit_form4_cluster_alert(alert) -> None:
+    """Post a SEC_FORM4_CLUSTER alert to the Discord alerts channel."""
+    top = alert.members[:3]
+    insider_lines = " | ".join(
+        f"{m['name']} ({m['role']}) ${m['dollars']:,.0f}" for m in top
+    )
+    suffix = f" +{alert.n_insiders - 3} more" if alert.n_insiders > 3 else ""
+    msg = (
+        f"[D1] 🏦 **SEC Form 4 Cluster Buy** — ${alert.ticker} "
+        f"({alert.n_insiders} insiders, ${alert.total_dollars:,.0f} total, {alert.regime_label} regime)\n"
+        f"{insider_lines}{suffix}"
+    )
+    await _post_to_alerts_channel(msg)
+
+
+async def sec_form4_cluster_loop(stop_event: asyncio.Event) -> None:
+    """Background loop: scan Form 4 cluster buys every 4h (D1).
+
+    Gated by features.form4_cluster.enabled and
+    scanners.sec_background_watchers_enabled (checked at call site).
+    """
+    while not stop_event.is_set():
+        if cfg.get("features.form4_cluster.enabled", False):
+            try:
+                from consensus_engine.scanners.sec_form4_cluster import scan_form4_clusters
+                for alert in await scan_form4_clusters():
+                    await _emit_form4_cluster_alert(alert)
+            except Exception as e:
+                log.error("sec_form4_cluster_loop error: %s", e, exc_info=True)
+        interval = cfg.get("intervals.form4_cluster_loop", 14400)
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=interval)
+        except asyncio.TimeoutError:
+            continue
+
+
+async def _emit_form4_cluster_alert(alert) -> None:
+    """Post a SEC_FORM4_CLUSTER alert to the Discord alerts channel."""
+    top = alert.members[:3]
+    insider_lines = " | ".join(
+        f"{m['name']} ({m['role']}) ${m['dollars']:,.0f}" for m in top
+    )
+    suffix = f" +{alert.n_insiders - 3} more" if alert.n_insiders > 3 else ""
+    msg = (
+        f"[D1] \U0001f3e6 **SEC Form 4 Cluster Buy** — ${alert.ticker} "
+        f"({alert.n_insiders} insiders, ${alert.total_dollars:,.0f} total, {alert.regime_label} regime)\n"
+        f"{insider_lines}{suffix}"
+    )
+    await _post_to_alerts_channel(msg)
+
+
+async def sec_form4_cluster_loop(stop_event: asyncio.Event) -> None:
+    """Background loop: scan Form 4 cluster buys every 4h (D1).
+
+    Gated by features.form4_cluster.enabled and
+    scanners.sec_background_watchers_enabled (checked at call site).
+    """
+    while not stop_event.is_set():
+        if cfg.get("features.form4_cluster.enabled", False):
+            try:
+                from consensus_engine.scanners.sec_form4_cluster import scan_form4_clusters
+                for alert in await scan_form4_clusters():
+                    await _emit_form4_cluster_alert(alert)
+            except Exception as e:
+                log.error("sec_form4_cluster_loop error: %s", e, exc_info=True)
+        interval = cfg.get("intervals.form4_cluster_loop", 14400)
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=interval)
+        except asyncio.TimeoutError:
+            continue
+
+
 async def volume_scanner_loop(stop_event: asyncio.Event):
     """Background loop: poll volume_scanner for RVOL breakouts.
 
@@ -421,6 +493,7 @@ async def run_live(stop_event: asyncio.Event):
             tasks.extend([
                 asyncio.create_task(sec_8k_watcher_loop(combined_stop)),
                 asyncio.create_task(sec_edgar_polling_loop(combined_stop)),
+                asyncio.create_task(sec_form4_cluster_loop(combined_stop)),
             ])
         tasks.extend([
             asyncio.create_task(atlas_worker_loop(combined_stop)),
