@@ -497,6 +497,22 @@ CREATE TABLE IF NOT EXISTS schema_version (
     applied_at REAL NOT NULL,
     note TEXT
 );
+
+CREATE TABLE IF NOT EXISTS consolidated_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticker TEXT NOT NULL,
+    window_start REAL NOT NULL,
+    window_end REAL NOT NULL,
+    sources_json TEXT NOT NULL,
+    clusters_hit_json TEXT NOT NULL,
+    effective_n_clusters INTEGER NOT NULL,
+    combined_log_odds REAL NOT NULL,
+    consensus_boost INTEGER NOT NULL,
+    shadow_only INTEGER NOT NULL,
+    created_at REAL NOT NULL,
+    UNIQUE(ticker, window_start)
+);
+CREATE INDEX IF NOT EXISTS idx_consolidated_ticker ON consolidated_events(ticker);
 """
 
 # Unique indices that reference columns added by _run_column_migrations.
@@ -620,6 +636,8 @@ async def init_db() -> AsyncConnection:
         (8, "A1 contradiction-penalty"),
         (9, "A5 regime tagger"),
         (10, "D1 form4 cluster-buy detector"),
+        (11, "A4 sector ETF peer-confirmation gate"),
+        (13, "A3 Bayesian source consolidation"),
     ]
     for version, note in _schema_versions:
         await _db.execute(

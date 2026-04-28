@@ -1,0 +1,75 @@
+schema_version: 1
+default_when_unmapped: null
+mappings:
+  # Technology (XLK)
+  AAPL: XLK
+  MSFT: XLK
+  NVDA: XLK
+  AMD: XLK
+  GOOGL: XLK
+  GOOG: XLK
+  META: XLK
+  TSLA: XLK
+  AVGO: XLK
+  CRM: XLK
+  ORCL: XLK
+  ADBE: XLK
+  QCOM: XLK
+  TXN: XLK
+  INTC: XLK
+  MU: XLK
+  AMAT: XLK
+  LRCX: XLK
+  KLAC: XLK
+  MRVL: XLK
+  NOW: XLK
+  SNOW: XLK
+  PLTR: XLK
+  CRWD: XLK
+  PANW: XLK
+  # Financials (XLF)
+  JPM: XLF
+  BAC: XLF
+  GS: XLF
+  MS: XLF
+  WFC: XLF
+  BLK: XLF
+  SCHW: XLF
+  COIN: XLF
+  HOOD: XLF
+  # Healthcare (XLV)
+  UNH: XLV
+  LLY: XLV
+  JNJ: XLV
+  PFE: XLV
+  MRNA: XLV
+  ABBV: XLV
+  BMY: XLV
+  NVAX: XLV
+  # Energy (XLE)
+  XOM: XLE
+  CVX: XLE
+  OXY: XLE
+  # Consumer Discretionary (XLY)
+  AMZN: XLY
+  NKE: XLY
+  TGT: XLY
+  # Consumer Staples (XLP)
+  WMT: XLP
+  COST: XLP
+  # Communication (XLC)
+  NFLX: XLC
+  DIS: XLC
+  SPOT: XLC
+  # Broad market
+  SPY: SPY
+  QQQ: QQQ
+  IWM: IWM
+  # Options-heavy tickers frequently alerted
+  SOFI: XLF
+  RIVN: XLY
+  NIO: XLY
+  LCID: XLY
+  MSTR: XLK
+  RIOT: XLK
+  MARA: XLK
