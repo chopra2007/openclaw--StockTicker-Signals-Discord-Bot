@@ -38,6 +38,7 @@ from consensus_engine.scanners.volume_scanner import scan_volume_breakouts
 from consensus_engine.engine import analyze_signal, SignalClass
 from consensus_engine.research.atlas import atlas_worker_loop, atlas_sweep_loop
 from consensus_engine.briefing.alfred import alfred_loop
+from consensus_engine.analysis.herding import detect_cluster, ClusterResult
 
 log = logging.getLogger("consensus_engine.main")
 
@@ -756,6 +757,17 @@ async def process_tweet(raw_tweet: dict):
             raw_text=tweet.raw_text,
             sentiment=_tweet_sentiment(tweet),
         ))
+
+        # A2: analyst herding cluster detection
+        if cfg.get("features.analyst_herding.enabled", False):
+            try:
+                from datetime import datetime as _dt, timezone as _tz
+                _cluster = await detect_cluster(ticker, new_event_id=0, now_utc=_dt.now(_tz.utc))
+                if _cluster.fired and _cluster.cluster_id:
+                    log.info("[A2] Cluster fired for $%s: %d members (effective=%.1f)",
+                             ticker, len(_cluster.members), _cluster.effective_size)
+            except Exception as _e:
+                log.warning("[A2] detect_cluster error for $%s: %s", ticker, _e)
 
         if not await db.check_alert_cooldown(ticker, tweet.analyst, tweet.base_score):
             continue

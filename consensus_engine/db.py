@@ -498,6 +498,30 @@ CREATE TABLE IF NOT EXISTS schema_version (
     note TEXT
 );
 
+CREATE TABLE IF NOT EXISTS cluster_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticker TEXT NOT NULL,
+    first_seen_at REAL NOT NULL,
+    last_seen_at REAL NOT NULL,
+    cluster_size INTEGER NOT NULL,
+    effective_size REAL NOT NULL,
+    members_json TEXT NOT NULL,
+    regime_label TEXT,
+    fired_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_cluster_events_ticker ON cluster_events(ticker);
+CREATE INDEX IF NOT EXISTS idx_cluster_events_fired ON cluster_events(fired_at);
+
+CREATE TABLE IF NOT EXISTS analyst_pair_correlations (
+    analyst_a TEXT NOT NULL,
+    analyst_b TEXT NOT NULL,
+    co_post_rate REAL NOT NULL,
+    sample_count INTEGER NOT NULL,
+    updated_at REAL NOT NULL,
+    PRIMARY KEY (analyst_a, analyst_b),
+    CHECK(analyst_a < analyst_b)
+);
+
 CREATE TABLE IF NOT EXISTS consolidated_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticker TEXT NOT NULL,
@@ -637,6 +661,7 @@ async def init_db() -> AsyncConnection:
         (9, "A5 regime tagger"),
         (10, "D1 form4 cluster-buy detector"),
         (11, "A4 sector ETF peer-confirmation gate"),
+        (12, "A2 analyst herding detector"),
         (13, "A3 Bayesian source consolidation"),
     ]
     for version, note in _schema_versions:
