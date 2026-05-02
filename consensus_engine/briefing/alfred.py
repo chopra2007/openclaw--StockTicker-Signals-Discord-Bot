@@ -38,7 +38,7 @@ async def build_briefing_data(session_start_utc: float,
         """SELECT ticker, level_type, price, condition_text, consequence_text,
                   channel_name, published_at
            FROM youtube_levels
-           WHERE extracted_at >= ?
+           WHERE extracted_at >= ? AND suppressed = 0
            ORDER BY extracted_at DESC LIMIT 30""",
         (levels_cutoff,),
     )
@@ -51,6 +51,7 @@ async def build_briefing_data(session_start_utc: float,
                   published_at
            FROM youtube_signals
            WHERE extracted_at >= ?
+             AND suppressed = 0
              AND conviction='high' AND direction != 'neutral'
            ORDER BY extracted_at DESC LIMIT 20""",
         (yt_cutoff,),
