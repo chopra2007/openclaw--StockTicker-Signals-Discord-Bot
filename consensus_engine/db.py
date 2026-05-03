@@ -538,6 +538,43 @@ CREATE TABLE IF NOT EXISTS consolidated_events (
     UNIQUE(ticker, window_start)
 );
 CREATE INDEX IF NOT EXISTS idx_consolidated_ticker ON consolidated_events(ticker);
+
+CREATE TABLE IF NOT EXISTS seen_ingest_nonces (
+    nonce TEXT PRIMARY KEY,
+    routine_id TEXT NOT NULL,
+    received_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sin_received ON seen_ingest_nonces(received_at);
+CREATE INDEX IF NOT EXISTS idx_sin_routine_received ON seen_ingest_nonces(routine_id, received_at);
+
+CREATE TABLE IF NOT EXISTS ingest_payload_results (
+    nonce TEXT PRIMARY KEY,
+    tickers_inserted INTEGER NOT NULL,
+    completed_at REAL NOT NULL,
+    FOREIGN KEY (nonce) REFERENCES seen_ingest_nonces(nonce)
+);
+
+CREATE TABLE IF NOT EXISTS seen_gmail_messages (
+    message_id TEXT PRIMARY KEY,
+    sender TEXT NOT NULL,
+    subject TEXT,
+    received_at REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS seen_gmail_bodies (
+    body_sha1 TEXT PRIMARY KEY,
+    sender TEXT NOT NULL,
+    first_seen_at REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS routine_health (
+    routine_id TEXT PRIMARY KEY,
+    last_cycle_started REAL,
+    last_success_at REAL,
+    errors_in_cycle INTEGER DEFAULT 0,
+    paused_until REAL,
+    meta_json TEXT
+);
 """
 
 # Unique indices that reference columns added by _run_column_migrations.
@@ -777,10 +814,11 @@ async def get_social_signals(ticker: str, window_seconds: int = 3600) -> list[di
     """Get social signals for a ticker within window."""
     db = await get_db()
     cutoff = time.time() - window_seconds
+    # desktop_local excluded: zero callers in v1; desktop_auth feeds cross-reference
     cursor = await db.execute(
         """SELECT source_type, source_detail, raw_text, sentiment, detected_at
            FROM ticker_signals
-           WHERE ticker = ? AND source_type IN ('reddit', 'stocktwits', 'apewisdom', 'google_trends')
+           WHERE ticker = ? AND source_type IN ('reddit', 'stocktwits', 'apewisdom', 'google_trends', 'desktop_auth')
            AND detected_at >= ?
            ORDER BY detected_at DESC""",
         (ticker, cutoff),
