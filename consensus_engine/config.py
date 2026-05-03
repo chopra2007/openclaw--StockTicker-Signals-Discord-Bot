@@ -8,9 +8,16 @@ from typing import Any
 
 from dotenv import load_dotenv
 
-# Load .env from /root/.openclaw/.env (or workspace .env as fallback)
+# Load .env from /root/.openclaw/.env (or workspace .env as fallback).
+# Use a try/except because Path.exists() raises PermissionError on Python <3.12
+# when the calling process lacks permission to stat the path (e.g. service user).
 _ENV_PATH = Path("/root/.openclaw/.env")
-if _ENV_PATH.exists():
+try:
+    _env_path_ok = _ENV_PATH.exists()
+except PermissionError:
+    _env_path_ok = False
+
+if _env_path_ok:
     load_dotenv(_ENV_PATH, override=False)
 else:
     load_dotenv(override=False)

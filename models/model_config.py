@@ -11,7 +11,12 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 _ENV_PATH = Path("/root/.openclaw/.env")
-if _ENV_PATH.exists():
+try:
+    _env_path_ok = _ENV_PATH.exists()
+except PermissionError:
+    _env_path_ok = False
+
+if _env_path_ok:
     load_dotenv(_ENV_PATH, override=False)
 else:
     load_dotenv(override=False)
