@@ -23,8 +23,8 @@ log = logging.getLogger(__name__)
 _rate_buckets: dict[str, tuple[int, float]] = defaultdict(lambda: (0, 0.0))
 _rate_lock = asyncio.Lock()
 
-# In-flight semaphore — set on first serve() call
-_inflight_sem: asyncio.Semaphore | None = None
+# In-flight semaphore — replaced by serve() with the configured concurrency
+_inflight_sem: asyncio.Semaphore = asyncio.Semaphore(32)
 
 # --- Per-routine bearer token mapping ---
 # routine_id → (current_env_var, previous_env_var)
@@ -82,8 +82,11 @@ async def ip_rate_limit_mw(request: aiohttp.web.Request, handler):
     limit = cfg.get("ingest_server.rate_limit_per_minute", 60)
     if request.path == "/heartbeat":
         limit = cfg.get("ingest_server.heartbeat_rate_limit_per_minute", 5)
-    peername = request.transport.get_extra_info("peername") if request.transport else None
-    ip = peername[0] if peername else None
+    try:
+        peername = request.transport.get_extra_info("peername") if request.transport else None
+        ip = peername[0] if peername else None
+    except Exception:
+        ip = None
     prefix = _ip_prefix(ip)
     now = time.time()
     async with _rate_lock:
@@ -99,6 +102,12 @@ async def ip_rate_limit_mw(request: aiohttp.web.Request, handler):
                     headers={"Retry-After": "60"},
                     text="Too Many Requests",
                 )
+        # Periodic GC: prune stale entries to prevent unbounded growth
+        if len(_rate_buckets) > 10_000:
+            cutoff = now - 120
+            stale = [k for k, (_, ws) in list(_rate_buckets.items()) if ws < cutoff]
+            for k in stale:
+                del _rate_buckets[k]
     return await handler(request)
 
 
@@ -111,8 +120,7 @@ async def redact_log_mw(request: aiohttp.web.Request, handler):
 
 async def _handle_ingest(request: aiohttp.web.Request) -> aiohttp.web.Response:
     """POST /ingest — validate, dedup, fan-out to insert_signal."""
-    global _inflight_sem
-    sem = _inflight_sem or asyncio.Semaphore(32)
+    sem = _inflight_sem
 
     async with sem:
         # --- Body parse ---
@@ -148,7 +156,11 @@ async def _handle_ingest(request: aiohttp.web.Request) -> aiohttp.web.Response:
         # --- Freshness ---
         max_age = cfg.get("ingest_server.signed_ts_max_age_seconds", 600)
         signed_ts = payload.get("signed_ts", 0)
-        if abs(time.time() - float(signed_ts)) > max_age:
+        try:
+            signed_ts_f = float(signed_ts)
+        except (TypeError, ValueError):
+            return aiohttp.web.Response(status=400, text="signed_ts must be numeric")
+        if abs(time.time() - signed_ts_f) > max_age:
             return aiohttp.web.Response(status=400, text="signed_ts out of window")
 
         # --- Nonce dedup ---
@@ -163,16 +175,25 @@ async def _handle_ingest(request: aiohttp.web.Request) -> aiohttp.web.Response:
         )
         await conn.commit()
         if cur.rowcount == 0:
-            # Nonce already seen — return cached result
+            # Nonce already seen — return cached result if available
             res = await conn.execute(
                 "SELECT tickers_inserted FROM ingest_payload_results WHERE nonce = ?", (nonce,)
             )
             row = await res.fetchone()
-            n = row["tickers_inserted"] if row else 0
-            return aiohttp.web.json_response({"ok": True, "tickers_inserted": n})
+            if row:
+                return aiohttp.web.json_response({"ok": True, "tickers_inserted": row["tickers_inserted"]})
+            # In-flight or crashed mid-fanout — tell client to retry
+            return aiohttp.web.Response(
+                status=409,
+                headers={"Retry-After": "10"},
+                text="nonce in-flight, retry",
+            )
 
         # --- Fan-out ---
-        event_ts = float(payload.get("event_ts", time.time()))
+        try:
+            event_ts = float(payload.get("event_ts", time.time()))
+        except (TypeError, ValueError):
+            event_ts = time.time()
         try:
             tickers = extract_tickers(raw_text)
         except Exception as exc:
@@ -220,7 +241,8 @@ async def _handle_heartbeat(request: aiohttp.web.Request) -> aiohttp.web.Respons
     try:
         raw = await asyncio.wait_for(request.read(), timeout=3.0)
         payload = json.loads(raw) if raw else {}
-    except Exception:
+    except Exception as exc:
+        log.warning("heartbeat body read/parse error: %s", exc)
         payload = {}
 
     routine_id = str(payload.get("routine_id", ""))
