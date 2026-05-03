@@ -1,0 +1,36 @@
+sites:
+  - name: reddit_wsb
+    url_template: "https://www.reddit.com/r/wallstreetbets/new.json?limit=25"
+    css_selector: "div.Post"
+    sentinel_selector: null
+    jitter_min_s: 5
+    dwell_min_s: 3
+    dwell_max_s: 8
+  - name: reddit_stocks
+    url_template: "https://www.reddit.com/r/stocks/new.json?limit=25"
+    css_selector: "div.Post"
+    sentinel_selector: null
+    jitter_min_s: 7
+    dwell_min_s: 3
+    dwell_max_s: 8
+  - name: seekingalpha_markets
+    url_template: "https://seekingalpha.com/market-news"
+    css_selector: "article.article-card"
+    sentinel_selector: "div.paywall-gate"
+    jitter_min_s: 10
+    dwell_min_s: 5
+    dwell_max_s: 15
+  - name: seekingalpha_options
+    url_template: "https://seekingalpha.com/options"
+    css_selector: "article.article-card"
+    sentinel_selector: "div.paywall-gate"
+    jitter_min_s: 8
+    dwell_min_s: 5
+    dwell_max_s: 12
+  - name: benzinga_news
+    url_template: "https://www.benzinga.com/news"
+    css_selector: "article.story"
+    sentinel_selector: null
+    jitter_min_s: 6
+    dwell_min_s: 4
+    dwell_max_s: 10
