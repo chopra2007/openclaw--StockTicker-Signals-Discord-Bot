@@ -444,3 +444,38 @@ features:
 intervals:
   form4_cluster_loop: 14400
   feature_volume_monitor: 900
+
+ingest_server:
+  enabled: true
+  bind_address: "0.0.0.0"
+  port: 8443
+  tls_cert_path: ""
+  tls_key_path: ""
+  bearer_token_env: "INGEST_BEARER_TOKEN"
+  bearer_token_previous_env: "INGEST_BEARER_TOKEN_PREVIOUS"
+  per_routine_bearer:
+    R1_AUTHED_WEB: "INGEST_BEARER_TOKEN_R1"
+    R7_DISCORD_DAEMON: "INGEST_BEARER_TOKEN_R7"
+  signed_ts_max_age_seconds: 600
+  body_max_bytes: 65536
+  raw_text_max_bytes: 8192
+  rate_limit_per_minute: 60
+  heartbeat_rate_limit_per_minute: 5
+  auth_fail_ban_threshold: 10
+  auth_fail_ban_duration_seconds: 600
+  inflight_concurrency: 32
+  nonce_dedup_window_seconds: 86400
+  nonce_sweep_interval_seconds: 3600
+
+gmail_watcher:
+  enabled: true
+  credentials_path: ""
+  token_path: ""
+  processed_label_name: "OpenClawProcessed"
+  poll_interval_seconds: 60
+  scope_verify_interval_seconds: 21600
+  sender_allowlist: []
+  subject_substrings: ["alert", "trade", "trigger", "signal", "$"]
+  per_sender_per_hour_cap: 20
+  per_day_total_cap: 200
+  tickers_per_email_cap: 5

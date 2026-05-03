@@ -70,3 +70,12 @@ MOODBOOK-filter.md
 # Auto-managed by the OMC memory-promotion mechanism — root-scoped to avoid
 # matching plans/MEMORY.md or any future tracked memory snapshots.
 /MEMORY.md
+
+# Windows runtime secrets and local state
+**/.bearer.*
+**/.bearer*.local
+**/*.token.json
+**/*credentials.json
+**/outbox*.db
+windows_runtime/R7_DISCORD_DAEMON/config.json
+windows_runtime/R1_AUTHED_WEB/routine_state.json

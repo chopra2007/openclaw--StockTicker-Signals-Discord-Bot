@@ -38,6 +38,8 @@ from consensus_engine.scanners.volume_scanner import scan_volume_breakouts
 from consensus_engine.engine import analyze_signal, SignalClass
 from consensus_engine.research.atlas import atlas_worker_loop, atlas_sweep_loop
 from consensus_engine.briefing.alfred import alfred_loop
+from consensus_engine import ingest_server
+from consensus_engine.scanners.gmail_watcher import gmail_watcher_loop
 from consensus_engine.analysis.herding import detect_cluster, ClusterResult
 
 log = logging.getLogger("consensus_engine.main")
@@ -501,6 +503,10 @@ async def run_live(stop_event: asyncio.Event):
             asyncio.create_task(atlas_sweep_loop(combined_stop)),
             asyncio.create_task(alfred_loop(combined_stop)),
             asyncio.create_task(feature_volume_monitor_loop()),
+        ])
+        tasks.extend([
+            asyncio.create_task(ingest_server.serve(combined_stop, _record_source_ok, _record_source_error)),
+            asyncio.create_task(gmail_watcher_loop(combined_stop, _record_source_ok, _record_source_error)),
         ])
 
         try:
@@ -1150,6 +1156,8 @@ async def price_outcome_loop(stop_event: asyncio.Event):
 def main():
     from consensus_engine.utils import setup_logging
     setup_logging()
+    from consensus_engine.utils.redacting_filter import RedactingFilter
+    logging.getLogger().addFilter(RedactingFilter())
 
     import argparse
 
