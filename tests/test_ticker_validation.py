@@ -72,3 +72,22 @@ async def test_validate_ticker_market_cap(tmp_path):
     assert result is False
 
     await db.close_db()
+
+
+@pytest.mark.asyncio
+async def test_has_market_cap_calls_validator(tmp_path):
+    """Regression: _has_market_cap had a typo'd import that silently fail-opened
+    every ticker. This test ensures the import chain reaches the real validator."""
+    from consensus_engine.scanners.social import _has_market_cap
+    from consensus_engine import db, config as cfg
+    cfg.load_config()
+    cfg._config["database"] = {"path": str(tmp_path / "test.db"), "signal_ttl_hours": 2}
+    await db.init_db()
+
+    await db.cache_ticker_metadata("BIG", "Big Corp", 5e11, "NASDAQ")
+    assert await _has_market_cap("BIG") is True
+
+    await db.cache_ticker_metadata("SML", "Small Co", 1e6, "OTC")
+    assert await _has_market_cap("SML") is False
+
+    await db.close_db()

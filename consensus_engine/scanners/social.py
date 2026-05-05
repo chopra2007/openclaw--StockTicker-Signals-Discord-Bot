@@ -31,8 +31,8 @@ from consensus_engine.utils.rate_limiter import rate_limiter
 async def _has_market_cap(ticker: str) -> bool:
     """Check if ticker has any market cap - skip if not a real stock."""
     try:
-        from consensus_engine.utils.    tickers import validate_even_ticker
-        return await validate_even_ticker(ticker)
+        from consensus_engine.utils.tickers import validate_ticker_market_cap
+        return await validate_ticker_market_cap(ticker)
     except Exception:
         return True  # Fail open on errors
 
@@ -375,7 +375,11 @@ async def scan_google_trends_pytrends(tickers: list[str]) -> dict[str, float]:
 
         except Exception as e:
             log.warning("Pytrends error for %s: %s", ticker, e)
-            _pytrends_failure_window.append(now)
+            _pytrends_failure_window.append(time.time())
+            if len(_pytrends_failure_window) >= 3:
+                log.warning("Pytrends: 3+ failures this cycle, bailing — Exa AI fallback will be used.")
+                cfg._config["social"]["pytrends_enabled"] = False
+                break
 
     log.info("Google Trends (Pytrends): %d/%d tickers with data", len(results), len(batch))
     return results
