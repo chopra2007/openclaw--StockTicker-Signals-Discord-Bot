@@ -24,7 +24,9 @@ async def fresh_db(tmp_path):
     db_module.DB_PATH = None
 
 
-async def test_read_feature_state_default_false():
+async def test_read_feature_state_default_false(monkeypatch):
+    from consensus_engine import config as cfg
+    monkeypatch.setattr(cfg, "get", lambda k, d=None: d)
     state = await read_feature_state("regime_classifier")
     assert state is False
 
@@ -95,7 +97,9 @@ async def test_read_feature_state_unknown_returns_false():
     assert state is False
 
 
-async def test_flip_feature_prior_state_recorded():
+async def test_flip_feature_prior_state_recorded(monkeypatch):
+    from consensus_engine import config as cfg
+    monkeypatch.setattr(cfg, "get", lambda k, d=None: d)
     await flip_feature("analyst_herding", True, reason="enable")
     history = await audit_history(limit=1)
     # prior_state should be 0 since config default is False
