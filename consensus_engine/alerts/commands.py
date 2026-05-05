@@ -650,7 +650,7 @@ async def _google_trends_and_reply(ticker: str, channel_id: str, message_id: str
 
 
 async def _run_serpapi_trends(channel_id: str, message_id: str) -> None:
-    """Run SerpAPI Google Trends for trending tickers from ApeWisdom (cron job)."""
+    """Run SerpAPI Google Trends for active DB tickers + ApeWisdom fill (cron job)."""
     from consensus_engine.main import _is_weekend_pause
     if _is_weekend_pause():
         await send_command_reply(channel_id, message_id, "SerpAPI Google Trends: Skipped (weekend pause)")
@@ -661,21 +661,22 @@ async def _run_serpapi_trends(channel_id: str, message_id: str) -> None:
         from consensus_engine import db
         from consensus_engine.scanners.social import scan_google_trends_serpapi, scan_apewisdom
         from consensus_engine.models import TickerSignal, SourceType, Sentiment
-        
-        # Get trending tickers from ApeWisdom (retail sentiment) instead of database
+
+        # DB tickers first (already in signal pipeline), then ApeWisdom fills remaining slots
+        db_tickers = await db.get_active_tickers(min_signals=1)
         ape_signals = await scan_apewisdom()
-        if not ape_signals:
-            await send_command_reply(channel_id, message_id, "No ApeWisdom data - cannot determine trending tickers.")
-            return
-        
-        # Extract top tickers by mentions
-        active = [s.ticker for s in ape_signals[:20]]  # Top 20 from ApeWisdom
+        ape_tickers = [s.ticker for s in ape_signals[:20]]
+
+        seen = set(db_tickers)
+        combined = list(db_tickers) + [t for t in ape_tickers if t not in seen]
+        active = combined[:10]
+
         if not active:
-            await send_command_reply(channel_id, message_id, "No trending tickers from ApeWisdom.")
+            await send_command_reply(channel_id, message_id, "No tickers to scan (DB empty, ApeWisdom unavailable).")
             return
-        
-        # Run SerpAPI on ApeWisdom tickers
-        trends = await scan_google_trends_serpapi(active[:10])
+
+        # Run SerpAPI on combined ticker list
+        trends = await scan_google_trends_serpapi(active)
         
         if not trends:
             await send_command_reply(channel_id, message_id, "SerpAPI Google Trends: No data returned.")
