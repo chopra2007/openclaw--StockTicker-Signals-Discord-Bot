@@ -179,7 +179,7 @@ The VPS is `62.238.13.149`, runs as root. You need to copy:
 - `/root/.openclaw/gmail/token.json` (Gmail OAuth token; only if it exists)
 - `/root/task_system/scripts/{create,list,run}_task.sh` (the actual task system scripts — Phase 8 needs these)
 
-**Pause here ONCE and ask the operator:** *"What's the path to the .pem key for SSH'ing into 62.238.13.149?"*
+**Pause here ONCE and ask the operator:** *"What's the path on this Debian PC to the .pem (or other SSH private key) that authenticates to root@62.238.13.149? If the key only lives on your Windows PC, copy it over first (USB, Syncthing, or `scp` from Windows) and tell me where you put it."*
 
 Once they answer, set `KEY=<their answer>` and run:
 
@@ -209,9 +209,13 @@ scp "${SSH_OPTS[@]}" root@62.238.13.149:/root/.openclaw/gmail/token.json \
 
 # Task system scripts
 scp "${SSH_OPTS[@]}" root@62.238.13.149:/root/task_system/scripts/create_task.sh /home/akash/task_system/scripts/
-scp "${SSH_OPTS[@]}" root@62.238.13.149:/root/task_system/scripts/list_task.sh   /home/akash/task_system/scripts/ 2>/dev/null || true
+scp "${SSH_OPTS[@]}" root@62.238.13.149:/root/task_system/scripts/list_tasks.sh  /home/akash/task_system/scripts/ 2>/dev/null || true
 scp "${SSH_OPTS[@]}" root@62.238.13.149:/root/task_system/scripts/run_task.sh    /home/akash/task_system/scripts/ 2>/dev/null || true
 chmod +x /home/akash/task_system/scripts/*.sh
+
+# Also pull the tasks.db if present (carries scheduled-task state)
+scp "${SSH_OPTS[@]}" root@62.238.13.149:/root/task_system/tasks.db /home/akash/task_system/tasks.db 2>/dev/null || \
+  echo "No tasks.db on VPS — fresh DB will be created on first task scheduled"
 ```
 
 Now generate a systemd-friendly env file (the original `.env` uses `export KEY=val`, which `EnvironmentFile=` in systemd cannot parse):
