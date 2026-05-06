@@ -415,8 +415,10 @@ async def _handle_mention(content: str, channel_id: str, message_id: str) -> Non
     import aiohttp as _aiohttp
     from consensus_engine.alerts.discord import send_command_reply
 
+    log.info("Handling mention in channel=%s msg=%s: %.80s", channel_id, message_id, content)
     api_key = cfg.get_api_key("openrouter")
     if not api_key:
+        log.warning("Mention handler: openrouter API key not configured")
         await send_command_reply(channel_id, message_id, "⚠️ LLM not configured.")
         return
 
@@ -461,9 +463,11 @@ async def _handle_mention(content: str, channel_id: str, message_id: str) -> Non
         return
 
     if reply:
-        await send_command_reply(channel_id, message_id, reply[:2000])
+        msg_id = await send_command_reply(channel_id, message_id, reply[:2000])
+        log.info("Mention reply sent to channel=%s (new_msg=%s): %.80s", channel_id, msg_id, reply)
     else:
         await send_command_reply(channel_id, message_id, "I couldn't generate a response. Try `!help`.")
+        log.warning("Mention LLM returned empty reply for channel=%s", channel_id)
 
 
 async def run_live(stop_event: asyncio.Event):
