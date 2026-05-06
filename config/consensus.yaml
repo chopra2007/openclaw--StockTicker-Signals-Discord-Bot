@@ -166,8 +166,8 @@ technical:
 
 # LLM Configuration (OpenRouter)
 llm:
-  model: "minimax/minimax-m2.5"
-  text_model: "minimax/minimax-m2.5:free"
+  model: "poolside/laguna-m.1:free"
+  text_model: "inclusionai/ling-2.6-1t:free"
   vision_model: "google/gemma-4-31b-it:free"
   min_confidence: 70
   max_tokens: 1024
@@ -280,7 +280,7 @@ browser:
 logging:
   level: "INFO"
   format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-  file: "/root/.openclaw/workspace/consensus_engine.log"
+  file: "/home/openclaw/.openclaw/workspace/consensus_engine.log"
 
 # YouTube Transcript Scanner
 youtube:
@@ -368,7 +368,7 @@ precision_engine:
 
 # Database
 database:
-  path: "/root/.openclaw/workspace/consensus.db"
+  path: "/home/openclaw/.openclaw/workspace/consensus.db"
   signal_ttl_hours: 2
   alert_history_days: 90
 
@@ -376,7 +376,7 @@ database:
 # Vault + Atlas + Alfred (research memory + morning briefing)
 # -----------------------------------------------------------------------------
 vault:
-  path: "/root/.openclaw/vault"
+  path: "/home/openclaw/.openclaw/vault"
 
 atlas:
   enabled: true                        # verified e2e 2026-04-22
@@ -468,7 +468,7 @@ ingest_server:
   nonce_sweep_interval_seconds: 3600
 
 gmail_watcher:
-  enabled: true
+  enabled: false
   credentials_path: ""
   token_path: ""
   processed_label_name: "OpenClawProcessed"

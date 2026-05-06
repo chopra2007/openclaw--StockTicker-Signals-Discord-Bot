@@ -647,6 +647,71 @@ ORDER BY first_seen ASC;
 
 ---
 
+## v3 Session Notes (2026-05-02)
+
+**Context:** Operator reviewed plan before implementation and made significant scope changes. No code was written. Plan requires full rewrite by Opus before implementation begins.
+
+### Phase Decisions
+
+| Phase | Original | v3 Decision | Reason |
+|---|---|---|---|
+| Phase 0 | Engine foundation (VPS) | **KEPT** | Still needed regardless of final architecture |
+| Phase 1 | R3 Gap Detection | **DEFERRED** | No Windows sources live yet — nothing to measure. Build after Phase 6+7 run for 2+ weeks. When built, must feed back into bot automatically (not manual review). |
+| Phase 2 | Outlook COM email (Windows) | **REVISED → Gmail API on VPS** | VPS can read Gmail directly via official API. No Windows dependency, no relay, no ACK/NACK. |
+| Phase 3 | Discord bot-relay | **REMOVED** | Operator cannot invite bot to all target channels. |
+| Phase 4 | Clipboard sentinel | **REMOVED** | Operator does not want clipboard monitoring. |
+| Phase 5 | Bookmark sentinel | **REMOVED** | Operator does not want bookmark sentinel. |
+| Phase 6 | R1 Authenticated Web | **KEPT** | Only true Windows scheduled routine. Fits original brief. |
+| Phase 7 | Discord UI automation | **KEPT** | Only way to read Discord channels bot can't access. Windows desktop app preferred over Chrome. pywinauto UIA chosen over OCR (reliability > ToS risk reduction). |
+
+### Critical Architectural Discovery
+
+The plan was built as **custom Python scripts with a Discord relay architecture**. This was wrong.
+
+The operator's original intent was to use **Claude Desktop's "routines" feature** — specifically **Desktop Scheduled Tasks** that run Claude Code sessions locally on Windows on a schedule. These are not custom Python daemons. They are autonomous Claude Code sessions that can use tools (browser, computer use, file access, MCP connectors).
+
+**Implication:** The entire relay architecture (DesktopFeedListener, Discord relay channel, ACK/NACK, outbox buffering, seen_relay_nonces) may be unnecessary. Claude Desktop routines on Windows can write signals directly to OpenClaw's VPS via an MCP connector — no Discord relay needed.
+
+Phase 0 (the relay infrastructure) needs to be reconsidered in light of this.
+
+### Claude Desktop Routines — Key Facts (from official docs)
+
+Source: `https://code.claude.com/docs/en/routines`
+
+- A routine is a saved Claude Code configuration: prompt + repositories + connectors, run automatically.
+- **Two types:**
+  - **Remote routines** — run on Anthropic's cloud infrastructure. Good for GitHub/repo work.
+  - **Desktop scheduled tasks** — run locally on the operator's machine (Windows). Have access to local files, local apps, local environment. Created in Claude Desktop by choosing "Local" instead of "Remote."
+- **Trigger types:** Schedule (hourly/daily/weekly/custom cron, minimum 1h interval), API (HTTP POST), GitHub events.
+- **Runtime:** Full autonomous Claude Code session. No permission prompts. Can run shell commands, use skills, call MCP connectors.
+- **Connectors (MCP):** Routines can use connected MCP servers to read/write external services. This is the clean path for writing signals to the VPS database.
+- **Limits:** Daily run cap per account (exact number shown at claude.ai/code/routines). One-off runs don't count against the cap.
+- **The 15/week figure in this plan** was operator-defined R1 scraping quota — NOT a platform limit.
+
+### Operator Philosophy (confirmed in this session)
+
+- **No manual review** unless there is absolutely no other option.
+- **Goal:** See actionable trades. Trust the automated system to be self-checking and reliable.
+- **Reliability > speed.** Missing a signal is worse than processing it slowly.
+- **System should be self-healing** — not generate reports for the operator to interpret.
+
+### What the Opus Replan Must Solve
+
+1. **Is the Discord relay architecture still needed**, or can Claude Desktop routines write to the VPS directly via MCP? If MCP can replace the relay, Phase 0 shrinks dramatically.
+2. **Phase 6 as a Claude routine:** Can R1 (authenticated web scraping) be implemented as a Claude Desktop scheduled task using Claude's browser/computer-use tools rather than a custom Playwright script? What are the tradeoffs?
+3. **Phase 7 as a Claude routine:** Can Discord UI reading be implemented as a Claude Desktop scheduled task, or does it need to be a persistent Python daemon?
+4. **Gmail (Phase 2):** Confirm Gmail API on VPS is the right call. Design the scanner properly.
+5. **Transport design:** Whatever transport is chosen (MCP, Discord relay, direct SSH, file drop), it must not require operator involvement to function.
+
+### Files This Plan References (still valid)
+
+- `.omc/plans/local-win-routines-discovery.md` — schema source of truth
+- `.omc/plans/local-win-routines-designs.md` — design rationale
+- Claude Desktop routines docs: `https://code.claude.com/docs/en/routines`
+- Desktop scheduled tasks docs: `https://code.claude.com/docs/en/desktop-scheduled-tasks`
+
+---
+
 ## Adversarial Review (v2)
 
 **Reviewer:** critic (Stage 4/4 — re-review iteration 1)
