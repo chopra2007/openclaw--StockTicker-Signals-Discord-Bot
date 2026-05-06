@@ -378,9 +378,7 @@ class DiscordTweetShiftListener:
         backoff = 5
         while not stop_event.is_set() and not self._stop:
             try:
-                await asyncio.wait_for(self._connect_once(), timeout=300)
-            except asyncio.TimeoutError:
-                log.warning("Discord Gateway connect attempt timed out after 300s")
+                await self._connect_once()
             except Exception as e:
                 log.error("Discord Gateway error: %s", e)
 
