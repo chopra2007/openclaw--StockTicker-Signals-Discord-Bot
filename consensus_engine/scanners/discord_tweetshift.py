@@ -133,18 +133,25 @@ def _parse_tweetshift_message(message: dict) -> Optional[dict]:
 class DiscordTweetShiftListener:
     """Listens to a Discord channel for TweetShift posts via Gateway WebSocket."""
 
-    def __init__(self, on_tweet: Callable, on_command: Optional[Callable] = None):
+    def __init__(self, on_tweet: Callable, on_command: Optional[Callable] = None,
+                 on_mention: Optional[Callable] = None):
         """
         Args:
             on_tweet: async callback(tweet_data: dict) called for each new tweet.
             on_command: optional async callback(command, args, channel_id, message_id)
                         called for !-prefixed messages on the commands channel.
+            on_mention: optional async callback(content, channel_id, message_id, author_id)
+                        called when the bot is @-mentioned with a non-command message
+                        in the commands channel or the briefing channel.
         """
         self._on_tweet = on_tweet
         self._on_command = on_command
+        self._on_mention = on_mention
         self._token: str = ""
         self._feed_channel_id: str = ""
         self._commands_channel_id: str = ""
+        self._briefing_channel_id: str = ""
+        self._bot_user_id: str = ""  # populated from READY event
 
         self._session_id: Optional[str] = None
         self._sequence: Optional[int] = None
@@ -159,6 +166,9 @@ class DiscordTweetShiftListener:
         ).strip()
         self._commands_channel_id = str(
             cfg.get("api_keys.discord_channel_id", "") or ""
+        ).strip()
+        self._briefing_channel_id = str(
+            cfg.get("api_keys.discord_briefing_channel_id", "") or ""
         ).strip()
         if not self._commands_channel_id:
             log.warning("discord_channel_id not configured — command routing disabled")
@@ -204,7 +214,8 @@ class DiscordTweetShiftListener:
             self._session_id = data.get("session_id")
             self._reconnect_count = 0  # Reset on successful connect
             self._tweet_count = 0  # Reset tweet counter on connect
-            log.info("Discord Gateway READY (session=%s)", self._session_id)
+            self._bot_user_id = str((data.get("user") or {}).get("id") or "")
+            log.info("Discord Gateway READY (session=%s, bot_id=%s)", self._session_id, self._bot_user_id)
 
         elif event == "MESSAGE_CREATE":
             channel_id = str(data.get("channel_id", ""))
@@ -265,13 +276,18 @@ class DiscordTweetShiftListener:
                 except Exception as e:
                     log.error("Tweet callback error: %s", e, exc_info=True)
 
-            # Commands channel: route !-prefixed messages
-            elif channel_id == self._commands_channel_id and self._on_command:
+            # Commands channel or briefing channel: route messages
+            elif channel_id in (self._commands_channel_id, self._briefing_channel_id) and channel_id:
+                author_id = str((data.get("author") or {}).get("id") or "")
+                # Ignore messages from bots/webhooks to avoid loops
+                author_obj = data.get("author") or {}
+                if author_obj.get("bot") or data.get("webhook_id"):
+                    return
+
                 from consensus_engine.alerts.commands import parse_command
                 parsed = parse_command(content)
-                if parsed:
+                if parsed and self._on_command and channel_id == self._commands_channel_id:
                     cmd, args = parsed
-                    author_id = str((data.get("author") or {}).get("id") or "")
                     log.info("Discord command: !%s %s (user=%s)", cmd, args, author_id or "?")
                     try:
                         await self._on_command(cmd, args, channel_id, message_id, author_id)
@@ -280,6 +296,17 @@ class DiscordTweetShiftListener:
                         await self._on_command(cmd, args, channel_id, message_id)
                     except Exception as e:
                         log.error("Command callback error: %s", e, exc_info=True)
+                elif self._on_mention and self._bot_user_id:
+                    # Check if the bot is @-mentioned
+                    mentioned_ids = [str(u.get("id", "")) for u in data.get("mentions", [])]
+                    if self._bot_user_id in mentioned_ids:
+                        # Strip the bot mention from content for cleaner input
+                        clean = re.sub(r'<@!?' + re.escape(self._bot_user_id) + r'>', '', content).strip()
+                        log.info("Discord mention in channel=%s (user=%s): %.80s", channel_id, author_id, clean)
+                        try:
+                            await self._on_mention(clean, channel_id, message_id, author_id)
+                        except Exception as e:
+                            log.error("Mention callback error: %s", e, exc_info=True)
 
     async def _connect_once(self):
         """Open one WebSocket session, run until disconnected."""

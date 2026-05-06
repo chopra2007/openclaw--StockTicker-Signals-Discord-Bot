@@ -410,6 +410,62 @@ async def run_once():
     return count
 
 
+async def _handle_mention(content: str, channel_id: str, message_id: str) -> None:
+    """Respond to a bot @-mention with an LLM-generated answer."""
+    import aiohttp as _aiohttp
+    from consensus_engine.alerts.discord import send_command_reply
+
+    api_key = cfg.get_api_key("openrouter")
+    if not api_key:
+        await send_command_reply(channel_id, message_id, "⚠️ LLM not configured.")
+        return
+
+    if not content:
+        await send_command_reply(channel_id, message_id,
+            "Hi! Ask me anything about the market or use `!help` to see available commands.")
+        return
+
+    model = cfg.get("llm.text_model", cfg.get("llm.model", "minimax/minimax-m2.5"))
+    system_prompt = (
+        "You are OpenClaw, an AI trading signal and market intelligence assistant running "
+        "on a Discord server. You monitor analyst tweets, SEC filings, Reddit trends, "
+        "YouTube channels, and options flow to surface actionable stock signals. "
+        "Answer concisely (under 500 characters). If the user asks about commands, "
+        "remind them to use !help. Never fabricate ticker data."
+    )
+    try:
+        async with _aiohttp.ClientSession() as session:
+            async with session.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                json={
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": content},
+                    ],
+                    "max_tokens": 300,
+                    "temperature": 0.5,
+                },
+                timeout=_aiohttp.ClientTimeout(total=30),
+            ) as resp:
+                if resp.status != 200:
+                    log.warning("Mention LLM call failed: HTTP %d", resp.status)
+                    await send_command_reply(channel_id, message_id, "⚠️ LLM unavailable right now.")
+                    return
+                data = await resp.json()
+                reply = (data.get("choices", [{}])[0].get("message", {}).get("content") or "").strip()
+    except Exception as exc:
+        log.warning("Mention LLM call error: %s", exc)
+        await send_command_reply(channel_id, message_id, "⚠️ Request timed out. Try `!help` for commands.")
+        return
+
+    if reply:
+        await send_command_reply(channel_id, message_id, reply[:2000])
+    else:
+        await send_command_reply(channel_id, message_id, "I couldn't generate a response. Try `!help`.")
+
+
 async def run_live(stop_event: asyncio.Event):
     """Run continuous mode with all scanners. Pauses Fri 3pm–Sun 2pm ET."""
     while not stop_event.is_set():
@@ -420,14 +476,18 @@ async def run_live(stop_event: asyncio.Event):
             async def on_command_weekend(cmd, args, channel_id, message_id, author_id=None):
                 from consensus_engine.alerts.commands import route_command
                 await route_command(cmd, args, channel_id, message_id, author_id=author_id)
-            
+
+            async def on_mention_weekend(content: str, channel_id: str, message_id: str, author_id=None):
+                await _handle_mention(content, channel_id, message_id)
+
             async def _noop_tweet(_):
                 pass
 
             # Run command listener during weekend
             tweetshift_listener = DiscordTweetShiftListener(
                 on_tweet=_noop_tweet,
-                on_command=on_command_weekend
+                on_command=on_command_weekend,
+                on_mention=on_mention_weekend,
             )
             weekend_stop = asyncio.Event()
             try:
@@ -448,6 +508,9 @@ async def run_live(stop_event: asyncio.Event):
 
             await route_command(cmd, args, channel_id, message_id, author_id=author_id)
 
+        async def on_mention(content: str, channel_id: str, message_id: str, author_id: str | None = None):
+            await _handle_mention(content, channel_id, message_id)
+
         pause_event = asyncio.Event()
 
         async def weekend_watchdog():
@@ -460,7 +523,7 @@ async def run_live(stop_event: asyncio.Event):
                 log.info("Weekend pause triggered — stopping all scanners")
                 pause_event.set()
 
-        tweetshift_listener = DiscordTweetShiftListener(on_tweet=on_tweet, on_command=on_command)
+        tweetshift_listener = DiscordTweetShiftListener(on_tweet=on_tweet, on_command=on_command, on_mention=on_mention)
         combined_stop = asyncio.Event()
 
         async def stop_watcher():
