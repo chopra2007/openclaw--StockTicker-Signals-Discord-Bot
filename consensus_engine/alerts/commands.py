@@ -39,6 +39,7 @@ HELP_TEXT = """**OpenClaw Signal Engine — Commands**
 `!status` — engine health summary (active signals, last alert)
 `!trend` — post latest Reddit trend digest
 `!scan <TICKER>` — full cross-reference on a ticker (e.g. `!scan NVDA`)
+`!all <TICKER>` — synthesize ALL sources into a single LLM analysis (e.g. `!all AMD`)
 `!performance` — alert win rates and P&L stats
 
 **Ticker Intel**
@@ -118,6 +119,12 @@ async def route_command(
             await send_command_reply(channel_id, message_id, "Usage: `!scan <TICKER>` — e.g. `!scan NVDA`")
         else:
             await _handle_scan(args[0].upper(), channel_id, message_id)
+
+    elif command == "all":
+        if not args:
+            await send_command_reply(channel_id, message_id, "Usage: `!all <TICKER>` — e.g. `!all AMD`")
+        else:
+            await _handle_all(args[0].upper(), channel_id, message_id)
 
     elif command == "signals":
         if not args:
@@ -405,6 +412,117 @@ async def _scan_and_reply(ticker: str, channel_id: str, message_id: str) -> None
     except Exception as e:
         log.error("Scan background task error for %s: %s", ticker, e)
         await send_command_reply(channel_id, message_id, f"Scan failed for `${ticker}`.")
+
+
+async def _handle_all(ticker: str, channel_id: str, message_id: str) -> None:
+    """Synthesize all data sources into a single LLM-powered analysis."""
+    await send_command_reply(channel_id, message_id, f"Analyzing `${ticker}` across all sources...")
+    asyncio.create_task(_all_and_reply(ticker, channel_id, message_id))
+
+
+async def _all_and_reply(ticker: str, channel_id: str, message_id: str) -> None:
+    try:
+        import sys as _sys
+        _sys.path.insert(0, "/home/openclaw/.openclaw/workspace")
+        from models.openrouter_client import chat_completion as _or_complete
+
+        # Gather all data sources concurrently
+        import asyncio as _aio
+        tw_task = _aio.create_task(db.get_twitter_signals(ticker, window_seconds=1800))
+        social_task = _aio.create_task(db.get_social_signals(ticker, window_seconds=3600))
+        yt_task = _aio.create_task(db.get_youtube_signals_for_ticker(ticker, days=7))
+        yt_opt_task = _aio.create_task(db.get_youtube_options_for_ticker(ticker, days=7))
+        tw_signals, social, yt_signals, yt_options = await _aio.gather(
+            tw_task, social_task, yt_task, yt_opt_task
+        )
+
+        # SEC filings (live)
+        sec_lines = []
+        try:
+            from consensus_engine.scanners.sec_edgar import check_recent_filings
+            filings = await check_recent_filings(ticker, hours_back=168)
+            for f in filings[:3]:
+                sec_lines.append(f"{f.get('form', '?')} filed {f.get('filing_date', '?')}")
+        except Exception:
+            pass
+
+        # Options flow (live)
+        opt_summary = ""
+        try:
+            from consensus_engine.scanners.options import check_unusual_options
+            opt = await check_unusual_options(ticker, executor=None)
+            if opt:
+                parts = [f"P/C={opt.put_call_ratio:.2f}"]
+                if opt.unusual_calls:
+                    parts.append(f"unusual CALLS {opt.max_call_ratio:.1f}x")
+                if opt.unusual_puts:
+                    parts.append(f"unusual PUTS {opt.max_put_ratio:.1f}x")
+                if opt.top_contract:
+                    parts.append(f"top={opt.top_contract}")
+                opt_summary = ", ".join(parts)
+        except Exception:
+            pass
+
+        # Build prompt blocks using actual DB field names
+        # twitter: source_detail, raw_text (no direction/analyst/summary fields)
+        tw_block = "\n".join(
+            f"- [{s.get('source_detail', '')}] {s.get('raw_text', '')[:120]}"
+            for s in tw_signals[:5]
+        ) or "_none_"
+        # social: source_type, source_detail, raw_text, sentiment
+        social_block = "\n".join(
+            f"- [{s.get('source_type', s.get('source_detail', ''))}] {s.get('raw_text', '')[:100]}"
+            for s in social[:5]
+        ) or "_none_"
+        # youtube signals: channel_name, direction, conviction, macro_thesis
+        yt_block = "\n".join(
+            f"- [{s.get('channel_name', '')}] {s.get('direction', '').upper()} ({s.get('conviction', '')}) {s.get('macro_thesis', '')[:120]}"
+            for s in yt_signals[:5]
+        ) or "_none_"
+        # youtube options: channel_name, option_type, strike, expiry, context_text
+        yt_opt_block = "\n".join(
+            f"- [{o.get('channel_name', '')}] {o.get('option_type', '').upper()} {o.get('strike', '')} {o.get('expiry', '')} — {o.get('context_text', o.get('source_snippet', ''))[:100]}"
+            for o in yt_options[:3]
+        ) or "_none_"
+        sec_block = "\n".join(f"- {l}" for l in sec_lines) or "_none_"
+
+        source_count = sum([
+            bool(tw_signals), bool(social), bool(yt_signals),
+            bool(yt_options), bool(sec_lines), bool(opt_summary)
+        ])
+
+        prompt = (
+            f"Synthesize ALL data below for ${ticker} into a Discord analysis under 1400 characters. "
+            f"Use bold markdown headers. End with VERDICT: BULLISH/BEARISH/NEUTRAL and one-sentence reason.\n\n"
+            f"## Analyst Tweets (last 30min)\n{tw_block}\n\n"
+            f"## Social/Reddit (last 1h)\n{social_block}\n\n"
+            f"## YouTube Signals (last 7d)\n{yt_block}\n\n"
+            f"## YouTube Options Mentions\n{yt_opt_block}\n\n"
+            f"## SEC Filings (last 7d)\n{sec_block}\n\n"
+            f"## Live Options Flow\n{opt_summary or '_none_'}\n"
+        )
+
+        llm_out = await _or_complete(
+            model="openrouter/free",
+            messages=[
+                {"role": "system", "content": "You are a concise financial analyst. Reply only with the analysis, no preamble."},
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=512,
+            temperature=0.2,
+        )
+
+        if llm_out:
+            header = f"**${ticker} — Full Analysis** _(synthesized from {source_count} sources)_\n\n"
+            await send_command_reply(channel_id, message_id, (header + llm_out)[:1990])
+        else:
+            lines = [f"**${ticker} — Full Analysis** _(no LLM data available)_"]
+            lines.append(f"Analyst tweets: {len(tw_signals)} | Social: {len(social)} | YouTube: {len(yt_signals)}")
+            lines.append(f"Options flow: {opt_summary or 'none'} | SEC: {', '.join(sec_lines) or 'none'}")
+            await send_command_reply(channel_id, message_id, "\n".join(lines))
+    except Exception as e:
+        log.error("!all command error for %s: %s", ticker, e)
+        await send_command_reply(channel_id, message_id, f"Analysis failed for `${ticker}`.")
 
 
 # ---------------------------------------------------------------------------
