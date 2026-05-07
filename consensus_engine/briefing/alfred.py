@@ -89,7 +89,7 @@ async def _llm_synthesize(prompt: str) -> str:
     api_key = cfg.get_api_key("openrouter")
     if not api_key:
         return ""
-    model = cfg.get("llm.model", "minimax/minimax-m2.5")
+    model = cfg.get("llm.model", "poolside/laguna-m.1:free")
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(

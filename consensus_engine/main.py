@@ -427,7 +427,7 @@ async def _handle_mention(content: str, channel_id: str, message_id: str) -> Non
             "Hi! Ask me anything about the market or use `!help` to see available commands.")
         return
 
-    model = cfg.get("llm.text_model", cfg.get("llm.model", "minimax/minimax-m2.5"))
+    model = cfg.get("llm.text_model", cfg.get("llm.model", "poolside/laguna-m.1:free"))
     system_prompt = (
         "You are OpenClaw, an AI trading signal and market intelligence assistant running "
         "on a Discord server. You monitor analyst tweets, SEC filings, Reddit trends, "

@@ -112,7 +112,7 @@ _MAX_STAGE1_WORDS = 10000  # above this, split into 2 chunks
 async def _call_extraction_model(
     system_prompt: str,
     user_prompt: str,
-    model: str = "minimax/minimax-m2.5",
+    model: str = "poolside/laguna-m.1:free",
     max_tokens: int = 2048,
 ) -> tuple[str, bool]:
     """Call OpenRouter with a given model. Returns (content, ok)."""
@@ -474,7 +474,7 @@ async def _call_openrouter(user_prompt: str) -> str:
     if not api_key:
         return ""
 
-    model = cfg.get("llm.model", "minimax/minimax-m2.5")
+    model = cfg.get("llm.model", "poolside/laguna-m.1:free")
 
     try:
         async with aiohttp.ClientSession() as session:

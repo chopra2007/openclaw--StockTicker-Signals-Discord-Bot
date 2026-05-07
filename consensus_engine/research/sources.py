@@ -29,7 +29,7 @@ async def _summarize_with_llm(prompt: str) -> str:
     if not api_key:
         log.warning("OpenRouter key missing; skipping LLM summary")
         return ""
-    model = cfg.get("llm.model", "minimax/minimax-m2.5")
+    model = cfg.get("llm.model", "poolside/laguna-m.1:free")
     max_tokens = cfg.get("llm.max_tokens", 1024)
     try:
         async with aiohttp.ClientSession() as session:
