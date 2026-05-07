@@ -462,7 +462,8 @@ async def send_command_reply(channel_id: str, reply_to_msg_id: str, content: str
         async with session.post(url, headers=headers, json=payload,
                                 timeout=aiohttp.ClientTimeout(total=10)) as resp:
             if resp.status not in (200, 201):
-                log.warning("Command reply failed: %d", resp.status)
+                error_body = await resp.text()
+                log.warning("Command reply failed: %d body=%.300s", resp.status, error_body)
                 return None
             data = await resp.json()
             return data.get("id")

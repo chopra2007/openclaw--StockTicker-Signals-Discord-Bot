@@ -34,6 +34,7 @@ OP_DISPATCH = 0
 OP_HEARTBEAT = 1
 OP_IDENTIFY = 2
 OP_RESUME = 6
+OP_INVALID_SESSION = 9
 OP_HELLO = 10
 OP_HEARTBEAT_ACK = 11
 
@@ -278,10 +279,16 @@ class DiscordTweetShiftListener:
 
             # Commands channel or briefing channel: route messages
             elif channel_id in (self._commands_channel_id, self._briefing_channel_id) and channel_id:
-                author_id = str((data.get("author") or {}).get("id") or "")
-                # Ignore messages from bots/webhooks to avoid loops
                 author_obj = data.get("author") or {}
-                if author_obj.get("bot") or data.get("webhook_id"):
+                author_id = str(author_obj.get("id") or "")
+                is_self = bool(self._bot_user_id) and author_id == self._bot_user_id
+                # Self-bot replies carry message_reference (Discord auto-pings
+                # the replied-to user, which is the bot itself, causing a
+                # mention loop). Drop them. Self-bot fresh posts (no
+                # message_reference) are verification probes — let them through.
+                is_self_reply = is_self and bool((data.get("message_reference") or {}).get("message_id"))
+                # Filter other bots, webhooks, and the bot's own replies.
+                if (author_obj.get("bot") and not is_self) or data.get("webhook_id") or is_self_reply:
                     return
 
                 from consensus_engine.alerts.commands import parse_command
@@ -355,10 +362,35 @@ class DiscordTweetShiftListener:
                         elif op == OP_HEARTBEAT_ACK:
                             log.debug("Gateway heartbeat ACK")
 
+                        elif op == OP_INVALID_SESSION:
+                            log.warning(
+                                "Discord Gateway op:9 INVALID_SESSION (resumable=%s) — clearing session, will IDENTIFY on next connect",
+                                bool(data),
+                            )
+                            self._session_id = None
+                            self._sequence = None
+                            await ws.close(code=4000)
+                            break
+
                     elif msg.type in (aiohttp.WSMsgType.CLOSE, aiohttp.WSMsgType.ERROR):
                         log.warning("Discord Gateway WS closed: %s", msg)
                         break
 
+                # Detect silent exit (sock_read=60 zombie): WS read loop
+                # ended without an explicit CLOSE/ERROR frame.
+                # Force IDENTIFY on next reconnect by clearing session state.
+                ws_close_code = ws.close_code if ws else None
+                log.info(
+                    "Gateway loop exited (last_op=%s, last_event=%s, ws_closed=%s, close_code=%s)",
+                    op if 'op' in dir() else None,
+                    event if 'event' in dir() else None,
+                    ws.closed if ws else None,
+                    ws_close_code,
+                )
+                if ws_close_code is None:
+                    log.warning("Silent gateway exit detected — clearing session to force IDENTIFY")
+                    self._session_id = None
+                    self._sequence = None
                 if hb_task:
                     hb_task.cancel()
 
