@@ -167,7 +167,13 @@ technical:
 # LLM Configuration (OpenRouter)
 llm:
   model: "poolside/laguna-m.1:free"
-  text_model: "inclusionai/ling-2.6-1t:free"
+  fallback_models:
+    - "tencent/hy3-preview:free"
+    - "nvidia/nemotron-3-super-120b-a12b:free"
+  text_model: "inclusionai/ling-2.6-flash"
+  text_fallback_models:
+    - "google/gemma-4-26b-a4b-it:free"
+    - "poolside/laguna-xs.2:free"
   vision_model: "google/gemma-4-31b-it:free"
   min_confidence: 70
   max_tokens: 1024

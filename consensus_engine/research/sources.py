@@ -22,46 +22,21 @@ _NEWS_LOOKBACK_SECONDS = 12 * 3600
 
 
 async def _summarize_with_llm(prompt: str) -> str:
-    """Thin OpenRouter call. Returns the assistant's text, or '' on failure.
-    Reuses llm.model from the consensus_engine config (same as llm_scorer).
+    """Thin OpenRouter call via the configured fallback chain.
+    Returns the assistant's text, or '' if every model in the chain fails.
     """
-    api_key = cfg.get_api_key("openrouter")
-    if not api_key:
-        log.warning("OpenRouter key missing; skipping LLM summary")
-        return ""
-    model = cfg.get("llm.model", "poolside/laguna-m.1:free")
-    max_tokens = cfg.get("llm.max_tokens", 1024)
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": model,
-                    "messages": [
-                        {"role": "system", "content":
-                            "You are a concise equity research analyst. "
-                            "Summarize in markdown bullet points — no preamble."},
-                        {"role": "user", "content": prompt},
-                    ],
-                    "max_tokens": max_tokens,
-                    "temperature": 0.3,
-                },
-                timeout=aiohttp.ClientTimeout(total=30),
-            ) as resp:
-                if resp.status != 200:
-                    log.warning("LLM summary HTTP %d", resp.status)
-                    return ""
-                data = await resp.json()
-                return (data.get("choices", [{}])[0]
-                            .get("message", {})
-                            .get("content") or "").strip()
-    except Exception as exc:
-        log.warning("LLM summary error: %s", exc)
-        return ""
+    from consensus_engine.llm_client import call_with_fallback
+    return await call_with_fallback(
+        role="primary",
+        messages=[
+            {"role": "system", "content":
+                "You are a concise equity research analyst. "
+                "Summarize in markdown bullet points — no preamble."},
+            {"role": "user", "content": prompt},
+        ],
+        max_tokens=cfg.get("llm.max_tokens", 1024),
+        temperature=0.3,
+    )
 
 
 async def fetch_analyst_section(ticker: str) -> str | None:

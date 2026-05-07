@@ -469,44 +469,17 @@ async def _call_groq(user_prompt: str) -> str:
 
 
 async def _call_openrouter(user_prompt: str) -> str:
-    """Call OpenRouter API and return raw response text."""
-    api_key = cfg.get_api_key("openrouter")
-    if not api_key:
-        return ""
-
-    model = cfg.get("llm.model", "poolside/laguna-m.1:free")
-
-    try:
-        async with aiohttp.ClientSession() as session:
-            url = "https://openrouter.ai/api/v1/chat/completions"
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            }
-            payload = {
-                "model": model,
-                "messages": [
-                    {"role": "system", "content": _SYSTEM_PROMPT},
-                    {"role": "user", "content": user_prompt},
-                ],
-                "max_tokens": 4096,
-                "temperature": 0.1,
-            }
-
-            async with session.post(
-                url, headers=headers, json=payload,
-                timeout=aiohttp.ClientTimeout(total=30),
-            ) as resp:
-                if resp.status != 200:
-                    log.warning("OpenRouter error (%d) for video parse", resp.status)
-                    return ""
-                data = await resp.json()
-
-        content = data.get("choices", [{}])[0].get("message", {}).get("content") or ""
-        return content.strip()
-    except Exception as e:
-        log.warning("OpenRouter call error: %s", e)
-        return ""
+    """Call OpenRouter via the configured llm.model fallback chain."""
+    from consensus_engine.llm_client import call_with_fallback
+    return await call_with_fallback(
+        role="primary",
+        messages=[
+            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
+        ],
+        max_tokens=4096,
+        temperature=0.1,
+    )
 
 
 async def _call_groq_full(user_prompt: str, max_tokens: int = 2048) -> tuple[str, str]:

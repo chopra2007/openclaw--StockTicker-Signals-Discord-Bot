@@ -85,40 +85,21 @@ async def build_briefing_data(session_start_utc: float,
 
 
 async def _llm_synthesize(prompt: str) -> str:
-    """OpenRouter call using the same llm.model as llm_scorer.py."""
-    api_key = cfg.get_api_key("openrouter")
-    if not api_key:
-        return ""
-    model = cfg.get("llm.model", "poolside/laguna-m.1:free")
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers={"Authorization": f"Bearer {api_key}",
-                         "Content-Type": "application/json"},
-                json={
-                    "model": model,
-                    "messages": [
-                        {"role": "system", "content":
-                            "You are a pre-market briefing writer. Produce concise, "
-                            "actionable markdown. Lead with the most important story. "
-                            "Keep under 1500 characters."},
-                        {"role": "user", "content": prompt},
-                    ],
-                    "max_tokens": cfg.get("llm.max_tokens", 1024),
-                    "temperature": 0.3,
-                },
-                timeout=aiohttp.ClientTimeout(total=45),
-            ) as resp:
-                if resp.status != 200:
-                    return ""
-                data = await resp.json()
-                return (data.get("choices", [{}])[0]
-                            .get("message", {})
-                            .get("content") or "").strip()
-    except Exception as exc:
-        log.warning("Alfred LLM call failed: %s", exc)
-        return ""
+    """OpenRouter call using llm.model + llm.fallback_models chain."""
+    from consensus_engine.llm_client import call_with_fallback
+    return await call_with_fallback(
+        role="primary",
+        messages=[
+            {"role": "system", "content":
+                "You are a pre-market briefing writer. Produce concise, "
+                "actionable markdown. Lead with the most important story. "
+                "Keep under 1500 characters."},
+            {"role": "user", "content": prompt},
+        ],
+        max_tokens=cfg.get("llm.max_tokens", 1024),
+        temperature=0.3,
+        timeout=45,
+    )
 
 
 def _fallback_render(data: dict) -> str:

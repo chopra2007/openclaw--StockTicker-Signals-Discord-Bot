@@ -9,9 +9,8 @@ import logging
 import re
 from typing import Optional
 
-import aiohttp
-
 from consensus_engine import config as cfg
+from consensus_engine.llm_client import call_with_fallback
 from consensus_engine.models import (
     TwitterConsensus, SocialConsensus, CatalystResult, TechnicalResult,
 )
@@ -112,49 +111,26 @@ async def score_confidence(ticker: str,
     Returns (score, reasoning). Score defaults to 0 on failure.
     Includes SEC/EDGAR filings in the analysis for thesis generation.
     """
-    api_key = cfg.get_api_key("openrouter")
-    if not api_key:
+    if not cfg.get_api_key("openrouter"):
         log.warning("OpenRouter API key not configured — returning 0")
         return 0.0, "LLM scoring unavailable (no API key)"
 
-    model = cfg.get("llm.model", "poolside/laguna-m.1:free")
     max_tokens = cfg.get("llm.max_tokens", 1024)
     user_prompt = _build_user_prompt(ticker, twitter, social, catalyst, technical, sec_summary)
-    content = ""
+
+    content = await call_with_fallback(
+        role="primary",
+        messages=[
+            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
+        ],
+        max_tokens=max_tokens,
+        temperature=0.3,
+    )
+    if not content:
+        return 0.0, "LLM scoring unavailable (all models failed)"
 
     try:
-        async with aiohttp.ClientSession() as session:
-            url = "https://openrouter.ai/api/v1/chat/completions"
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            }
-            payload = {
-                "model": model,
-                "messages": [
-                    {"role": "system", "content": _SYSTEM_PROMPT},
-                    {"role": "user", "content": user_prompt},
-                ],
-                "max_tokens": max_tokens,
-                "temperature": 0.3,
-            }
-
-            async with session.post(url, headers=headers, json=payload,
-                                    timeout=aiohttp.ClientTimeout(total=30)) as resp:
-                if resp.status != 200:
-                    error_text = await resp.text()
-                    log.warning("OpenRouter API error (%d): %s", resp.status, error_text[:200])
-                    return 0.0, f"API error: {resp.status}"
-
-                data = await resp.json()
-
-        # Extract the response text
-        content = data.get("choices", [{}])[0].get("message", {}).get("content") or ""
-        if not content:
-            return 0.0, "Empty LLM response"
-
-        # Parse JSON from response (handle markdown code blocks)
-        content = content.strip()
         if content.startswith("```"):
             content = re.sub(r'^```(?:json)?\s*', '', content)
             content = re.sub(r'\s*```$', '', content)
@@ -162,8 +138,6 @@ async def score_confidence(ticker: str,
         parsed = json.loads(content)
         score = float(parsed.get("confidence", 0))
         reasoning = str(parsed.get("reasoning", "No reasoning provided"))
-
-        # Clamp score to 0-100
         score = max(0, min(100, score))
 
         log.info("LLM score for %s: %.0f/100 — %s", ticker, score, reasoning[:100])
@@ -171,7 +145,6 @@ async def score_confidence(ticker: str,
 
     except json.JSONDecodeError as e:
         log.warning("Failed to parse LLM response for %s: %s (raw: %s)", ticker, e, content[:200])
-        # Try to extract score from non-JSON response
         match = re.search(r'"?confidence"?\s*:\s*(\d+)', content)
         if match:
             score = float(match.group(1))

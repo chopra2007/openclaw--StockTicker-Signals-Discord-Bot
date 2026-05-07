@@ -412,12 +412,11 @@ async def run_once():
 
 async def _handle_mention(content: str, channel_id: str, message_id: str) -> None:
     """Respond to a bot @-mention with an LLM-generated answer."""
-    import aiohttp as _aiohttp
     from consensus_engine.alerts.discord import send_command_reply
+    from consensus_engine.llm_client import call_with_fallback
 
     log.info("Handling mention in channel=%s msg=%s: %.80s", channel_id, message_id, content)
-    api_key = cfg.get_api_key("openrouter")
-    if not api_key:
+    if not cfg.get_api_key("openrouter"):
         log.warning("Mention handler: openrouter API key not configured")
         await send_command_reply(channel_id, message_id, "⚠️ LLM not configured.")
         return
@@ -427,7 +426,6 @@ async def _handle_mention(content: str, channel_id: str, message_id: str) -> Non
             "Hi! Ask me anything about the market or use `!help` to see available commands.")
         return
 
-    model = cfg.get("llm.text_model", cfg.get("llm.model", "poolside/laguna-m.1:free"))
     system_prompt = (
         "You are OpenClaw, an AI trading signal and market intelligence assistant running "
         "on a Discord server. You monitor analyst tweets, SEC filings, Reddit trends, "
@@ -435,38 +433,21 @@ async def _handle_mention(content: str, channel_id: str, message_id: str) -> Non
         "Answer concisely (under 500 characters). If the user asks about commands, "
         "remind them to use !help. Never fabricate ticker data."
     )
-    try:
-        async with _aiohttp.ClientSession() as session:
-            async with session.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                json={
-                    "model": model,
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": content},
-                    ],
-                    "max_tokens": 300,
-                    "temperature": 0.5,
-                },
-                timeout=_aiohttp.ClientTimeout(total=30),
-            ) as resp:
-                if resp.status != 200:
-                    log.warning("Mention LLM call failed: HTTP %d", resp.status)
-                    await send_command_reply(channel_id, message_id, "⚠️ LLM unavailable right now.")
-                    return
-                data = await resp.json()
-                reply = (data.get("choices", [{}])[0].get("message", {}).get("content") or "").strip()
-    except Exception as exc:
-        log.warning("Mention LLM call error: %s", exc)
-        await send_command_reply(channel_id, message_id, "⚠️ Request timed out. Try `!help` for commands.")
-        return
+    reply = await call_with_fallback(
+        role="text",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": content},
+        ],
+        max_tokens=300,
+        temperature=0.5,
+    )
 
     if reply:
         msg_id = await send_command_reply(channel_id, message_id, reply[:2000])
         log.info("Mention reply sent to channel=%s (new_msg=%s): %.80s", channel_id, msg_id, reply)
     else:
-        await send_command_reply(channel_id, message_id, "I couldn't generate a response. Try `!help`.")
+        await send_command_reply(channel_id, message_id, "⚠️ LLM unavailable right now.")
         log.warning("Mention LLM returned empty reply for channel=%s", channel_id)
 
 
