@@ -406,7 +406,7 @@ alfred:
 # model fails (silent on green chain) unless alert_only_on_failure: false.
 health_check:
   enabled: true
-  daily_time_et: "08:30"               # fires before alfred briefing window
+  daily_time_et: "20:30"               # 8:30pm ET — post-market, ahead of next-day briefing
   alert_only_on_failure: true
   channel_id: ""                       # blank → falls through to alfred.channel_id
 
