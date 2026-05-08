@@ -15,7 +15,6 @@ class SourceType(str, Enum):
     NEWS = "news"
     SEC_FILING = "sec_filing"
     YOUTUBE = "youtube"
-    VOLUME_BREAKOUT = "volume_breakout"
     DESKTOP_AUTH = "desktop_auth"
     DESKTOP_LOCAL = "desktop_local"
 

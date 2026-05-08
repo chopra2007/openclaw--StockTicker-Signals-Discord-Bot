@@ -34,7 +34,6 @@ from consensus_engine.analysis.calibration import calibrate, log_shadow_predicti
 from consensus_engine.utils.http import close_session, get_session
 from consensus_engine.utils.tickers import is_valid_ticker, validate_ticker_market_cap
 from consensus_engine.scanners.youtube import youtube_poll_loop
-from consensus_engine.scanners.volume_scanner import scan_volume_breakouts
 from consensus_engine.engine import analyze_signal, SignalClass
 from consensus_engine.research.atlas import atlas_worker_loop, atlas_sweep_loop
 from consensus_engine.briefing.alfred import alfred_loop
@@ -366,38 +365,6 @@ async def sec_form4_cluster_loop(stop_event: asyncio.Event) -> None:
             continue
 
 
-async def volume_scanner_loop(stop_event: asyncio.Event):
-    """Background loop: poll volume_scanner for RVOL breakouts.
-
-    Q5 wire-up. Each breakout is stored as a TickerSignal with
-    SourceType.VOLUME_BREAKOUT — fed into the same cross-reference path as
-    other social signals.
-    """
-    if not cfg.get("volume_scanner.enabled", False):
-        return
-    interval = cfg.get("volume_scanner.scan_interval", 900)
-    while not stop_event.is_set():
-        try:
-            breakouts = await scan_volume_breakouts()
-            for b in breakouts:
-                sentiment = Sentiment.BULLISH if b.price_change_pct > 0 else Sentiment.BEARISH
-                await db.insert_signal(TickerSignal(
-                    ticker=b.ticker,
-                    source_type=SourceType.VOLUME_BREAKOUT,
-                    source_detail=f"RVOL {b.rvol:.1f}x | {b.price_change_pct:+.1f}%",
-                    raw_text=f"Volume breakout: ${b.ticker} {b.rvol:.1f}x RVOL, {b.price_change_pct:+.1f}%",
-                    sentiment=sentiment,
-                ))
-            _record_source_ok("volume_scanner")
-        except Exception as e:
-            log.error("Volume scanner loop error: %s", e, exc_info=True)
-            _record_source_error("volume_scanner")
-
-        try:
-            await asyncio.wait_for(stop_event.wait(), timeout=interval)
-        except asyncio.TimeoutError:
-            continue
-
 
 # =============================================================================
 # Run Modes
@@ -537,7 +504,6 @@ async def run_live(stop_event: asyncio.Event):
             asyncio.create_task(fetch_loop(combined_stop, interval=300)),
             asyncio.create_task(price_outcome_loop(combined_stop)),
             asyncio.create_task(youtube_poll_loop(combined_stop)),
-            asyncio.create_task(volume_scanner_loop(combined_stop)),
             asyncio.create_task(source_health_updater_loop(combined_stop)),
             asyncio.create_task(macro_digest_loop(combined_stop)),
         ]

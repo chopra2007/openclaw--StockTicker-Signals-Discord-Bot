@@ -7,11 +7,7 @@ import time
 
 async def main():
     await db.init_db()
-    # Use volume watchlist from config as fallback
-    watchlist = cfg.get('volume_scanner.watchlist', [])
-    print(f"Volume watchlist length: {len(watchlist)}")
-    # Take first 10
-    tickers = watchlist[:10]
+    tickers = ["SPY", "AAPL", "NVDA", "TSLA", "MSFT", "AMZN", "META", "GOOGL", "AMD", "COIN"]
     print(f"Testing trends for: {tickers}")
     from consensus_engine.scanners import social
     trends = await social.scan_google_trends_serpapi(tickers)
