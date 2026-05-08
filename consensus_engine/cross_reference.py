@@ -7,6 +7,7 @@ score from news, social, technical, other analysts, and LLM confidence.
 import asyncio
 import logging
 import time
+from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from consensus_engine.utils.xref_cache import get_cached_xref, cache_xref
@@ -15,11 +16,37 @@ from consensus_engine import config as cfg
 from consensus_engine import db
 from consensus_engine.models import (
     ParsedTweet, CrossReferenceResult, ScoreBreakdown,
-    CatalystResult, TechnicalResult, OptionsResult,
+    CatalystResult, TechnicalResult, OptionsResult, YouTubeContext,
 )
 from consensus_engine.scanners.news import news_cascade
 from consensus_engine.analysis.technical import verify_technical
 from consensus_engine.analysis.llm_scorer import score_confidence
+
+
+@dataclass
+class ScoreTickerResult:
+    """Tweetless scoring result wrapping the parallel-gather + ScoreBreakdown.
+
+    Returned by `score_ticker()`; `cross_reference()` decorates this into a
+    `CrossReferenceResult` with tweet-specific fields.
+    """
+    ticker: str
+    breakdown: ScoreBreakdown
+    catalyst: Optional[CatalystResult] = None
+    technical: Optional[TechnicalResult] = None
+    options: Optional[OptionsResult] = None
+    youtube: Optional[YouTubeContext] = None
+    social_data: dict = field(default_factory=dict)
+    sec_hit: bool = False
+    sec_summary: str = ""
+    other_analysts: list = field(default_factory=list)
+    llm_reasoning: str = ""
+    consolidation_result: Optional[object] = None
+    metrics: dict = field(default_factory=dict)
+
+    @property
+    def final_score(self) -> int:
+        return self.breakdown.total
 
 log = logging.getLogger("consensus_engine.cross_reference")
 
@@ -228,18 +255,21 @@ async def _get_youtube_context(ticker: str):
         return None
 
 
-async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> CrossReferenceResult:
-    """Run all cross-reference sources in parallel and compute final score."""
-    log.info("Starting cross-reference for $%s (base=%d)", ticker, tweet.base_score)
+async def score_ticker(
+    ticker: str,
+    *,
+    base_score: int = 0,
+    direction: str = "long",
+    exclude_analyst: str = "",
+    executor=None,
+) -> ScoreTickerResult:
+    """Run the parallel-gather + ScoreBreakdown assembly for a ticker.
+
+    Tweetless pure scorer — does NOT consult the xref cache. Callers
+    (`cross_reference()`, `!all` command) decide their own caching strategy.
+    """
+    log.info("Starting score_ticker for $%s (base=%d)", ticker, base_score)
     m = cfg.get("scoring.multipliers", {})
-
-    direction = tweet.direction.value if hasattr(tweet.direction, 'value') else "long"
-
-    # Check xref cache (prevents redundant API calls for same ticker within 5 min)
-    cached = await get_cached_xref(ticker)
-    if cached is not None:
-        log.info("Cross-reference cache HIT for $%s", ticker)
-        return cached
 
     metrics: dict[str, int] = {}
     catalyst, (sec_hit, sec_summary), social_data, technical, other_analysts, options, youtube = \
@@ -248,7 +278,7 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
             _with_timeout(_timed(_run_sec_check(ticker), metrics, "sec_check_ms"), 10.0, (False, ""), "sec", sem=_sem_news),
             _with_timeout(_timed(_run_social_check(ticker), metrics, "social_ms"), 5.0, {}, "social", sem=_sem_social),
             _with_timeout(_timed(_run_technical(ticker, direction=direction), metrics, "technical_ms"), 20.0, None, "technical", sem=_sem_technical),
-            _with_timeout(_timed(_run_other_analysts(ticker, exclude_analyst=tweet.analyst), metrics, "analyst_check_ms"), 5.0, [], "analysts"),
+            _with_timeout(_timed(_run_other_analysts(ticker, exclude_analyst=exclude_analyst), metrics, "analyst_check_ms"), 5.0, [], "analysts"),
             _with_timeout(_timed(_run_options_check(ticker, executor), metrics, "options_check_ms"), 15.0, None, "options", sem=_sem_technical),
             _with_timeout(_timed(_get_youtube_context(ticker), metrics, "youtube_ms"), 8.0, None, "youtube"),
         )
@@ -279,22 +309,6 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
 
     youtube_pts = youtube.score_boost if youtube else 0
 
-    social_parts = []
-    if social_data.get("apewisdom", 0) >= 1:
-        social_parts.append(f"ApeWisdom ({social_data['apewisdom']} mentions)")
-    if social_data.get("stocktwits", 0) >= 1:
-        social_parts.append("StockTwits trending")
-    if social_data.get("reddit", 0) >= 2:
-        social_parts.append(f"Reddit ({social_data['reddit']} mentions)")
-    if social_data.get("google_trends", 0) >= 1:
-        social_parts.append("Google Trends spike")
-
-    youtube_parts = []
-    if youtube:
-        youtube_parts.append(f"YouTube ({youtube.mention_count} videos, {youtube.direction.value})")
-        if youtube.levels:
-            youtube_parts.append(f"Levels: {len(youtube.levels)} S/R zones")
-
     # A3: Bayesian multi-source consolidation (always runs for shadow data)
     from consensus_engine.analysis.consolidation import consolidate_for_ticker
     shadow_only = not cfg.get("features.cross_source_consolidation.enabled", False)
@@ -311,7 +325,7 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
         consensus_boost = 0
 
     breakdown = ScoreBreakdown(
-        base=tweet.base_score,
+        base=base_score,
         additional_analysts=analyst_pts,
         news_catalyst=news_pts,
         sec_filing=sec_pts,
@@ -324,30 +338,94 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
     # Add YouTube boost directly to breakdown
     breakdown.llm_boost += youtube_pts  # Roll YouTube into LLM boost category
 
-    # Build social + YouTube summary
+    return ScoreTickerResult(
+        ticker=ticker,
+        breakdown=breakdown,
+        catalyst=catalyst,
+        technical=technical,
+        options=options,
+        youtube=youtube,
+        social_data=social_data,
+        sec_hit=sec_hit,
+        sec_summary=sec_summary,
+        other_analysts=other_analysts,
+        llm_reasoning=llm_reasoning,
+        consolidation_result=cons_result,
+        metrics=metrics,
+    )
+
+
+def _build_social_summary(social_data: dict, youtube: Optional[YouTubeContext]) -> str:
+    """Build the human-readable social + youtube summary string."""
+    social_parts = []
+    if social_data.get("apewisdom", 0) >= 1:
+        social_parts.append(f"ApeWisdom ({social_data['apewisdom']} mentions)")
+    if social_data.get("stocktwits", 0) >= 1:
+        social_parts.append("StockTwits trending")
+    if social_data.get("reddit", 0) >= 2:
+        social_parts.append(f"Reddit ({social_data['reddit']} mentions)")
+    if social_data.get("google_trends", 0) >= 1:
+        social_parts.append("Google Trends spike")
+
+    youtube_parts = []
+    if youtube:
+        youtube_parts.append(f"YouTube ({youtube.mention_count} videos, {youtube.direction.value})")
+        if youtube.levels:
+            youtube_parts.append(f"Levels: {len(youtube.levels)} S/R zones")
+
     all_sources = social_parts + youtube_parts
-    sources_summary = ", ".join(all_sources) if all_sources else ""
+    return ", ".join(all_sources) if all_sources else ""
+
+
+async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> CrossReferenceResult:
+    """Run all cross-reference sources in parallel and compute final score.
+
+    Thin wrapper over `score_ticker()` that adds tweet-specific decoration
+    (catalyst URLs, social summary, resolved catalyst_type) and the xref
+    cache layer.
+    """
+    direction = tweet.direction.value if hasattr(tweet.direction, 'value') else "long"
+
+    # Check xref cache (prevents redundant API calls for same ticker within 5 min)
+    cached = await get_cached_xref(ticker)
+    if cached is not None:
+        log.info("Cross-reference cache HIT for $%s", ticker)
+        return cached
+
+    score_result = await score_ticker(
+        ticker,
+        base_score=tweet.base_score,
+        direction=direction,
+        exclude_analyst=tweet.analyst,
+        executor=executor,
+    )
+
+    catalyst = score_result.catalyst
+    youtube = score_result.youtube
+    youtube_pts = youtube.score_boost if youtube else 0
+
+    sources_summary = _build_social_summary(score_result.social_data, youtube)
 
     resolved_catalyst_type = _resolve_catalyst_type(
         catalyst.catalyst_type if catalyst else "",
-        sec_hit=sec_hit,
+        sec_hit=score_result.sec_hit,
     )
 
     result = CrossReferenceResult(
         ticker=ticker,
-        breakdown=breakdown,
+        breakdown=score_result.breakdown,
         catalyst_summary=catalyst.catalyst_summary if catalyst else "",
         catalyst_type=resolved_catalyst_type,
         catalyst_sources=catalyst.news_sources if catalyst else [],
         catalyst_urls=catalyst.source_urls if catalyst else [],
         catalyst_body=catalyst.catalyst_body if catalyst else "",
-        technical=technical,
-        other_analysts=other_analysts,
+        technical=score_result.technical,
+        other_analysts=score_result.other_analysts,
         social_summary=sources_summary,  # Include YouTube in summary
-        sec_summary=sec_summary,
-        llm_reasoning=llm_reasoning,
-        options=options,
-        consolidation_result=cons_result,
+        sec_summary=score_result.sec_summary,
+        llm_reasoning=score_result.llm_reasoning,
+        options=score_result.options,
+        consolidation_result=score_result.consolidation_result,
     )
 
     log.info("Cross-reference for $%s: score=%d (base=%d + xref=%d, youtube=%d)",
@@ -357,7 +435,7 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
     await cache_xref(ticker, result)
 
     # Record per-component latency metrics
-    for metric_key, ms_value in metrics.items():
+    for metric_key, ms_value in score_result.metrics.items():
         await db.record_metric(f"xref_{metric_key}", ms_value)
 
     # Always-on signal_events read so tweet rows (routed via insert_signal) reach a consumer.
