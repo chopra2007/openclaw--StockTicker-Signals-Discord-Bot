@@ -166,12 +166,13 @@ technical:
 
 # LLM Configuration (OpenRouter)
 llm:
-  # Primary chain: tencent first because poolside/laguna-m.1:free has been
-  # silently failing every call (returning empty content or dropping
-  # connection). Demoted to last position; remove entirely if it stays dead.
-  model: "tencent/hy3-preview:free"
+  # Primary chain: nvidia first because it's the only model that consistently
+  # survives the chain in recent live invocations. tencent now intermittently
+  # times out; poolside is dead. Verified via 15:38:24 PDT !all NVDA dry-run
+  # where nvidia rescued the call after tencent's TimeoutError() (~12s wasted).
+  model: "nvidia/nemotron-3-super-120b-a12b:free"
   fallback_models:
-    - "nvidia/nemotron-3-super-120b-a12b:free"
+    - "tencent/hy3-preview:free"
     - "poolside/laguna-m.1:free"
   text_model: "inclusionai/ling-2.6-flash"
   text_fallback_models:
