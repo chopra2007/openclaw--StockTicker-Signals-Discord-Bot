@@ -357,7 +357,10 @@ def _structured_data_summary(data: dict) -> str:
 
 async def _compute_all(ticker: str, start: float) -> dict:
     """The actual compute path under the cache single-flight. Returns the cache payload."""
+    stage_t: dict[str, float] = {}
+    _t = lambda: time.monotonic() - start
     data = await _gather_all_sources(ticker)
+    stage_t["gather"] = _t()
     score_result = data["score"]
     if score_result is None and not data.get("technical_long") and not data.get("news_catalyst"):
         # Per D13: abort only if score gate cannot be evaluated AT ALL
@@ -399,6 +402,7 @@ async def _compute_all(ticker: str, start: float) -> dict:
             "event_date_snippets": [],
         }
 
+    stage_t["gap_fill"] = _t()
     web_anchor_snippets = list(gap_fill_result.get("harvested_anchors_snippets", []))
     web_anchors = levels.extract_anchors_from_search_snippets(
         web_anchor_snippets,
@@ -458,6 +462,7 @@ async def _compute_all(ticker: str, start: float) -> dict:
         brief_msgs=brief_msgs,
         vault_text=prior_vault,
     )
+    stage_t["sanitize"] = _t()
 
     sources_used = list(data["source_status"])
 
@@ -483,6 +488,7 @@ async def _compute_all(ticker: str, start: float) -> dict:
             narrative = output_filter.render_data_only_fallback(
                 structured, score_breakdown, sources_used,
             )
+    stage_t["synthesize"] = _t()
 
     # Build embed + render vault markdown.
     embed_payload = embed_mod.build_embed(
@@ -503,10 +509,12 @@ async def _compute_all(ticker: str, start: float) -> dict:
         alert_history=data["alert_history"] if isinstance(data["alert_history"], list) else [],
         anchors_used=anchors_used,
     )
+    stage_t["render"] = _t()
+    stage_breakdown = " ".join(f"{k}={v:.1f}s" for k, v in stage_t.items())
     log.info(
-        "aggregator: $%s narrative_status=%s anchors=%d (sup=%d res=%d) elapsed=%.1fs",
+        "aggregator: $%s narrative_status=%s anchors=%d (sup=%d res=%d) elapsed=%.1fs stages=[%s]",
         ticker, narrative_status, len(all_anchors),
-        len(supports), len(resistances), time.monotonic() - start,
+        len(supports), len(resistances), time.monotonic() - start, stage_breakdown,
     )
     return {
         "embed": embed_payload,
@@ -568,13 +576,13 @@ async def handle_all(
     cached_at = payload.get("cached_at")
     embed_payload = dict(payload["embed"])
     if isinstance(cached_at, (int, float)):
-        age_s = int(time.time() - cached_at)
-        if age_s > 0:
-            footer = dict(embed_payload.get("footer", {}) or {})
-            ftext = footer.get("text", "") or ""
-            if "cached" not in ftext:
-                footer["text"] = f"cached {age_s // 60}m ago | {ftext}".rstrip("| ")
-                embed_payload["footer"] = footer
+        age_s = max(0, int(time.time() - cached_at))
+        footer = dict(embed_payload.get("footer", {}) or {})
+        ftext = footer.get("text", "") or ""
+        if "cached" not in ftext:
+            cache_marker = "cached just now" if age_s < 60 else f"cached {age_s // 60}m ago"
+            footer["text"] = f"{cache_marker} | {ftext}".rstrip("| ")
+            embed_payload["footer"] = footer
 
     vault_md = payload.get("vault_md", "")
     vault_path = cfg.get("vault.path", "")
