@@ -15,6 +15,7 @@ from typing import Literal
 import aiohttp
 
 from consensus_engine import config as cfg
+from consensus_engine.utils.rate_limiter import rate_limiter
 
 log = logging.getLogger("consensus_engine.llm_client")
 
@@ -75,6 +76,14 @@ async def call_with_fallback(
             "max_tokens": max_tokens,
             "temperature": temperature,
         }
+        # Process-level OpenRouter rate limit (D17 / S6): 60 req/min.
+        # If the bucket is currently in backoff, sleep briefly and retry once;
+        # if still blocked, fall through to the next model in the chain.
+        if not await rate_limiter.acquire("openrouter"):
+            await asyncio.sleep(0.5)
+            if not await rate_limiter.acquire("openrouter"):
+                log.warning("LLM %s skipped — openrouter rate limiter blocked", model)
+                continue
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(

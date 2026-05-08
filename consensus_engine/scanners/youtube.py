@@ -19,6 +19,7 @@ import xml.etree.ElementTree as ET
 import aiohttp
 
 from consensus_engine import config as cfg, db
+from consensus_engine.alerts.discord import _safe_send_kwargs
 from consensus_engine.utils.browser import create_stealth_browser, stealth_page, safe_goto
 from consensus_engine.utils.transcript_export import compute_hash, export_transcript_json
 
@@ -191,7 +192,7 @@ async def _send_youtube_alert(message: str) -> None:
             url = f"https://discord.com/api/v10/channels/{channel}/messages"
             headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
             async with session.post(
-                url, headers=headers, json={"content": message},
+                url, headers=headers, json=_safe_send_kwargs({"content": message}),
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as resp:
                 if resp.status not in (200, 201):

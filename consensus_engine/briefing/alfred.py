@@ -10,6 +10,7 @@ import aiohttp
 
 from consensus_engine import config as cfg
 from consensus_engine import db
+from consensus_engine.alerts.discord import _safe_send_kwargs
 
 _ET = ZoneInfo("America/New_York")
 
@@ -179,7 +180,7 @@ async def _send_discord_briefing(content: str) -> str | None:
 
     url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
     # Discord hard limit is 2000 chars.
-    payload = {"content": content[:1990]}
+    payload = _safe_send_kwargs({"content": content[:1990]})
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(

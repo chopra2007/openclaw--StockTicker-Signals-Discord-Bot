@@ -20,6 +20,7 @@ from zoneinfo import ZoneInfo
 import aiohttp
 
 from consensus_engine import config as cfg
+from consensus_engine.alerts.discord import _safe_send_kwargs
 
 _ET = ZoneInfo("America/New_York")
 _API_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -65,7 +66,7 @@ async def _probe_model(session: aiohttp.ClientSession,
     t0 = time.time()
     try:
         async with session.post(
-            _API_URL, headers=headers, json=payload,
+            _API_URL, headers=headers, json=_safe_send_kwargs(payload),
             timeout=aiohttp.ClientTimeout(total=30),
         ) as resp:
             dt = time.time() - t0
@@ -125,7 +126,7 @@ async def _post_to_discord(content: str) -> None:
         log.info("[DRY-RUN] health would post: %.120s", content)
         return
     url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
-    payload = {"content": content[:1990]}
+    payload = _safe_send_kwargs({"content": content[:1990]})
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(

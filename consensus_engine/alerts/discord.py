@@ -21,6 +21,19 @@ from consensus_engine.models import (
 log = logging.getLogger("consensus_engine.alerts.discord")
 
 
+def _safe_send_kwargs(payload: dict) -> dict:
+    """Add allowed_mentions safety to any Discord POST payload.
+
+    Always-on defense-in-depth: every Discord-bound POST passes through this
+    helper so the bot can never @everyone/@here/role/user-ping via an
+    accidentally-rendered string from an LLM, scraped page, or contributor
+    text. The caller's payload is mutated in-place AND returned so it can be
+    used inline (e.g. ``json=_safe_send_kwargs({...})``).
+    """
+    payload.setdefault("allowed_mentions", {"parse": []})
+    return payload
+
+
 # ---------------------------------------------------------------------------
 # Reliability display helpers
 # ---------------------------------------------------------------------------
@@ -343,7 +356,7 @@ async def send_instant_ping(
         async with aiohttp.ClientSession() as session:
             url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
             headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
-            body = {"embeds": [embed]}
+            body = _safe_send_kwargs({"embeds": [embed]})
 
             async with session.post(url, headers=headers, json=body,
                                     timeout=aiohttp.ClientTimeout(total=10)) as resp:
@@ -431,7 +444,7 @@ async def send_trend_digest(trending: list[dict]) -> Optional[str]:
     async with aiohttp.ClientSession() as session:
         url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
         headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
-        payload = {"embeds": [embed]}
+        payload = _safe_send_kwargs({"embeds": [embed]})
         async with session.post(url, headers=headers, json=payload,
                                 timeout=aiohttp.ClientTimeout(total=10)) as resp:
             if resp.status not in (200, 201):
@@ -455,10 +468,10 @@ async def send_command_reply(channel_id: str, reply_to_msg_id: str, content: str
     async with aiohttp.ClientSession() as session:
         url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
         headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
-        payload = {
+        payload = _safe_send_kwargs({
             "content": content[:2000],
             "message_reference": {"message_id": reply_to_msg_id},
-        }
+        })
         async with session.post(url, headers=headers, json=payload,
                                 timeout=aiohttp.ClientTimeout(total=10)) as resp:
             if resp.status not in (200, 201):
@@ -486,10 +499,10 @@ async def send_detail_followup(xref: CrossReferenceResult, reply_to_msg_id: str,
         async with aiohttp.ClientSession() as session:
             url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
             headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
-            body = {
+            body = _safe_send_kwargs({
                 "embeds": [embed],
                 "message_reference": {"message_id": reply_to_msg_id},
-            }
+            })
 
             async with session.post(url, headers=headers, json=body,
                                     timeout=aiohttp.ClientTimeout(total=10)) as resp:

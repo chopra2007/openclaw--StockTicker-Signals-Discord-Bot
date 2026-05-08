@@ -7,6 +7,14 @@ import aiohttp
 
 from . import model_config
 
+# Cross-package import to share the consensus_engine process-level rate
+# limiter (D17 / S6). Wrapped in try/except so models/ remains importable in
+# isolation if the consensus_engine package is unavailable.
+try:
+    from consensus_engine.utils.rate_limiter import rate_limiter as _rate_limiter
+except ImportError:  # pragma: no cover - standalone-use fallback
+    _rate_limiter = None
+
 log = logging.getLogger("models.openrouter")
 
 
@@ -25,6 +33,12 @@ async def chat_completion(model: str, messages: list[dict[str, Any]], *, max_tok
         "max_tokens": max_tokens,
         "temperature": temperature,
     }
+
+    # Acquire openrouter token before posting (60 req/min process-level cap).
+    if _rate_limiter is not None:
+        if not await _rate_limiter.acquire("openrouter"):
+            log.warning("OpenRouter rate-limited (backoff active); skipping call")
+            return ""
 
     try:
         async with aiohttp.ClientSession() as session:
