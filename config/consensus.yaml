@@ -176,7 +176,7 @@ llm:
     - "poolside/laguna-xs.2:free"
   vision_model: "google/gemma-4-31b-it:free"
   min_confidence: 70
-  max_tokens: 1024
+  max_tokens: 32000
 
 
 # Ticker validation
