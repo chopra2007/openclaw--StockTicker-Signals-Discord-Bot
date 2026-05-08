@@ -172,7 +172,7 @@ llm:
     - "nvidia/nemotron-3-super-120b-a12b:free"
   text_model: "inclusionai/ling-2.6-flash"
   text_fallback_models:
-    - "google/gemma-4-26b-a4b-it:free"
+    - "baidu/cobuddy:free"
     - "poolside/laguna-xs.2:free"
   vision_model: "google/gemma-4-31b-it:free"
   min_confidence: 70
