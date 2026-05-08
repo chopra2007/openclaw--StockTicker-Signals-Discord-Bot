@@ -482,6 +482,46 @@ async def send_command_reply(channel_id: str, reply_to_msg_id: str, content: str
             return data.get("id")
 
 
+async def send_command_embed_reply(
+    channel_id: str,
+    reply_to_msg_id: str,
+    embed: dict,
+) -> Optional[str]:
+    """Send an embed reply to a Discord command message (used by !all)."""
+    if cfg.dry_run:
+        log.info(
+            "[DRY-RUN] Embed reply to %s: %s",
+            reply_to_msg_id, embed.get("title", ""),
+        )
+        return "dry_run_reply_id"
+
+    token = cfg.get_api_key("discord_bot_token")
+    if not token:
+        log.warning("Discord bot token not configured")
+        return None
+
+    async with aiohttp.ClientSession() as session:
+        url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+        headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
+        body = _safe_send_kwargs({
+            "embeds": [embed],
+            "message_reference": {"message_id": reply_to_msg_id},
+        })
+        async with session.post(
+            url, headers=headers, json=body,
+            timeout=aiohttp.ClientTimeout(total=10),
+        ) as resp:
+            if resp.status not in (200, 201):
+                error_body = await resp.text()
+                log.warning(
+                    "Embed reply failed: %d body=%.300s",
+                    resp.status, error_body,
+                )
+                return None
+            data = await resp.json()
+            return data.get("id")
+
+
 async def send_detail_followup(xref: CrossReferenceResult, reply_to_msg_id: str, precision: Optional[dict] = None) -> Optional[str]:
     """Send the detail follow-up as a reply to the instant ping. Returns message ID."""
     if cfg.dry_run:

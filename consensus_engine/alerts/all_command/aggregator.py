@@ -1,0 +1,586 @@
+"""Top-level orchestrator for the !all command.
+
+Owns the 60s deadline, parallel data gather, anchor pipeline, gap-fill,
+synthesis LLM call, and the final embed-send + vault-write fan-out. Wraps
+everything in a single `cache.all_with_single_flight` so concurrent
+`!all NVDA` invocations share one compute pass and subsequent calls within
+15min hit the cache.
+
+Per plan §4 / §6.3 — invoked from `_handle_all` in commands.py (PR5).
+Partial source failures are absorbed inline (`<source>: unavailable`)
+rather than aborting (D13).
+"""
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import time
+from typing import Any, Optional
+
+from consensus_engine import config as cfg
+from consensus_engine.alerts.all_command import (
+    cache,
+    discord_history,
+    embed as embed_mod,
+    gap_fill,
+    levels,
+    narrator,
+    output_filter,
+    structured_fields,
+    vault_writer,
+)
+from consensus_engine.alerts.discord import (
+    send_command_embed_reply,
+    send_command_reply,
+)
+from consensus_engine.utils.tickers import is_valid_ticker
+
+log = logging.getLogger("consensus_engine.alerts.all_command.aggregator")
+
+_DEADLINE_SECONDS = 60.0
+_GAP_FILL_BUDGET = 20.0
+_SYNTHESIS_MIN_BUDGET = 10.0
+
+
+def _remaining(start: float, total: float = _DEADLINE_SECONDS) -> float:
+    """Seconds remaining vs the 60s hard ceiling."""
+    return max(0.0, total - (time.monotonic() - start))
+
+
+def _is_exc(x: Any) -> bool:
+    return isinstance(x, BaseException)
+
+
+def _result_or_default(x: Any, default: Any) -> Any:
+    """Treat exceptions as missing data; otherwise return as-is."""
+    if _is_exc(x) or x is None:
+        return default
+    return x
+
+
+def _source_label(name: str, raw: Any) -> Optional[str]:
+    """Render `<source>: unavailable` if the gather slot raised."""
+    if _is_exc(raw):
+        return f"{name}: unavailable"
+    return None
+
+
+async def _safe_call(coro_factory, default):
+    """Run a 0-arg coroutine factory; on any exception return `default`."""
+    try:
+        return await coro_factory()
+    except Exception as exc:  # noqa: BLE001 — D13 partial failure
+        log.debug("aggregator._safe_call: %s -> %s", coro_factory, exc)
+        return default
+
+
+async def _score_ticker_safe(ticker: str):
+    """Run cross_reference.score_ticker with graceful failure."""
+    try:
+        from consensus_engine.cross_reference import score_ticker
+        return await score_ticker(ticker)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("aggregator._score_ticker_safe: $%s failed: %s", ticker, exc)
+        return None
+
+
+async def _verify_technical_safe(ticker: str, direction: str):
+    try:
+        from consensus_engine.analysis.technical import verify_technical
+        return await verify_technical(ticker, direction)
+    except Exception as exc:  # noqa: BLE001
+        log.debug("aggregator._verify_technical_safe: %s", exc)
+        return None
+
+
+async def _db_call(name: str, *args, **kwargs):
+    """Call a function on consensus_engine.db by name, with graceful failure.
+
+    Returns the function's result, or None if the function does not exist or
+    raises. Lets the orchestrator survive against partial DB schema/feature
+    availability across deployments (D13).
+    """
+    try:
+        from consensus_engine import db
+        fn = getattr(db, name, None)
+        if fn is None:
+            return None
+        return await fn(*args, **kwargs)
+    except Exception as exc:  # noqa: BLE001
+        log.debug("aggregator._db_call(%s) raised: %s", name, exc)
+        return None
+
+
+async def _scanner_call(module_path: str, attr: str, *args, **kwargs):
+    """Import-and-call a scanner function with graceful failure."""
+    try:
+        import importlib
+        mod = importlib.import_module(module_path)
+        fn = getattr(mod, attr, None)
+        if fn is None:
+            return None
+        result = fn(*args, **kwargs)
+        if asyncio.iscoroutine(result):
+            return await result
+        return result
+    except Exception as exc:  # noqa: BLE001
+        log.debug("aggregator._scanner_call(%s.%s) raised: %s", module_path, attr, exc)
+        return None
+
+
+async def _gather_all_sources(ticker: str) -> dict:
+    """Run the parallel data gather. Per-source failures degrade gracefully."""
+    ticker_meta_task = _db_call("get_ticker_metadata", ticker)
+    score_task = _score_ticker_safe(ticker)
+    tech_long_task = _verify_technical_safe(ticker, "long")
+    tech_short_task = _verify_technical_safe(ticker, "short")
+    twitter_task = _db_call("get_twitter_signals", ticker, window_seconds=1800)
+    social_task = _db_call("get_social_signals", ticker, window_seconds=3600)
+    yt_signals_task = _db_call("get_youtube_signals_for_ticker", ticker, days=7)
+    yt_options_task = _db_call("get_youtube_options_for_ticker", ticker, days=7)
+    yt_levels_task = _db_call("get_youtube_levels_for_ticker", ticker, days=7)
+    yt_evidence_task = _db_call("get_youtube_evidence_for_ticker", ticker, days=7)
+    alert_history_task = _db_call("get_alert_history_for_ticker", ticker, limit=30, days=30)
+    decision_snapshots_task = _db_call("get_decision_snapshots", ticker, days=14)
+
+    news_task = _scanner_call("consensus_engine.scanners.news", "news_cascade", ticker)
+    sec_task = _scanner_call(
+        "consensus_engine.scanners.sec_edgar", "check_recent_filings", ticker, hours_back=168,
+    )
+    options_task = _scanner_call(
+        "consensus_engine.scanners.options", "check_unusual_options", ticker, executor=None,
+    )
+    trends_task: asyncio.Future = asyncio.ensure_future(asyncio.sleep(0, result={}))
+    if cfg.get("features.serpapi_enabled", False):
+        trends_task = asyncio.ensure_future(
+            _scanner_call(
+                "consensus_engine.scanners.social",
+                "scan_google_trends_serpapi",
+                [ticker],
+            )
+        )
+    apewisdom_task = _scanner_call(
+        "consensus_engine.scanners.social", "get_apewisdom_for_ticker", ticker,
+    )
+
+    name_for_filter = None
+    ticker_meta = await ticker_meta_task
+    if isinstance(ticker_meta, dict):
+        name = ticker_meta.get("name") or ticker_meta.get("company_name")
+        if name:
+            name_for_filter = str(name)
+
+    chat_task = discord_history.fetch_chat_24h_ticker_filtered(ticker, name_for_filter)
+    brief_task = discord_history.fetch_brief_last_3()
+    vault_path = cfg.get("vault.path", "")
+    vault_task = vault_writer.read_existing_vault(ticker, vault_path)
+
+    results = await asyncio.gather(
+        score_task,
+        tech_long_task,
+        tech_short_task,
+        twitter_task,
+        social_task,
+        yt_signals_task,
+        yt_options_task,
+        yt_levels_task,
+        yt_evidence_task,
+        alert_history_task,
+        decision_snapshots_task,
+        news_task,
+        sec_task,
+        options_task,
+        trends_task,
+        apewisdom_task,
+        chat_task,
+        brief_task,
+        vault_task,
+        return_exceptions=True,
+    )
+    (
+        score_result, tech_long, tech_short, twitter_signals, social_signals,
+        yt_signals, yt_options, yt_levels, yt_evidence, alert_history,
+        decision_snapshots, news_catalyst, sec_filings, options_unusual,
+        trends, apewisdom, chat_msgs, brief_msgs, prior_vault,
+    ) = results
+
+    # Per-source unavailability labels.
+    source_status: list[str] = []
+    for label, val in [
+        ("score", score_result),
+        ("technical_long", tech_long),
+        ("technical_short", tech_short),
+        ("twitter_db", twitter_signals),
+        ("social_db", social_signals),
+        ("youtube_signals_db", yt_signals),
+        ("youtube_options_db", yt_options),
+        ("youtube_levels_db", yt_levels),
+        ("youtube_evidence_db", yt_evidence),
+        ("alert_history_db", alert_history),
+        ("decision_snapshots_db", decision_snapshots),
+        ("news", news_catalyst),
+        ("sec", sec_filings),
+        ("options", options_unusual),
+        ("trends", trends),
+        ("apewisdom", apewisdom),
+        ("chat_24h", chat_msgs),
+        ("brief_last3", brief_msgs),
+        ("prior_vault", prior_vault),
+    ]:
+        s = _source_label(label, val)
+        if s:
+            source_status.append(s)
+
+    return {
+        "ticker_meta": ticker_meta if isinstance(ticker_meta, dict) else {},
+        "company_name": name_for_filter,
+        "score": _result_or_default(score_result, None),
+        "technical_long": _result_or_default(tech_long, None),
+        "technical_short": _result_or_default(tech_short, None),
+        "twitter_signals": _result_or_default(twitter_signals, []),
+        "social_signals": _result_or_default(social_signals, []),
+        "yt_signals": _result_or_default(yt_signals, []),
+        "yt_options": _result_or_default(yt_options, []),
+        "yt_levels": _result_or_default(yt_levels, []),
+        "yt_evidence": _result_or_default(yt_evidence, []),
+        "alert_history": _result_or_default(alert_history, []),
+        "decision_snapshots": _result_or_default(decision_snapshots, []),
+        "news_catalyst": _result_or_default(news_catalyst, None),
+        "sec_filings": _result_or_default(sec_filings, []),
+        "options_unusual": _result_or_default(options_unusual, None),
+        "trends": _result_or_default(trends, {}),
+        "apewisdom": _result_or_default(apewisdom, None),
+        "chat_msgs": _result_or_default(chat_msgs, []),
+        "brief_msgs": _result_or_default(brief_msgs, []),
+        "prior_vault": _result_or_default(prior_vault, None),
+        "source_status": source_status,
+    }
+
+
+def _swing_candles(technical_long) -> list[dict]:
+    """Best-effort list-of-dict candles for swing extraction."""
+    if technical_long is None:
+        return []
+    raw = (getattr(technical_long, "candles", None)
+           or getattr(technical_long, "candles_raw", None))
+    if isinstance(raw, list):
+        return raw
+    if isinstance(raw, dict):
+        highs = raw.get("h") or raw.get("highs") or []
+        lows = raw.get("l") or raw.get("lows") or []
+        n = min(len(highs), len(lows))
+        return [{"high": float(highs[i]), "low": float(lows[i])} for i in range(n)]
+    return []
+
+
+def _current_price(technical_long) -> Optional[float]:
+    """Best-effort current price from technical result."""
+    if technical_long is None:
+        return None
+    for attr in ("current_price", "last_price", "price"):
+        v = getattr(technical_long, attr, None)
+        if v is not None:
+            try:
+                return float(v)
+            except (TypeError, ValueError):
+                continue
+    return None
+
+
+def _atr_from_candles(technical_long) -> Optional[float]:
+    """Pull ATR(14) from technical result if available."""
+    if technical_long is None:
+        return None
+    for attr in ("atr14", "atr", "atr_14"):
+        v = getattr(technical_long, attr, None)
+        if v is not None:
+            try:
+                return float(v)
+            except (TypeError, ValueError):
+                continue
+    return None
+
+
+def _earnings_iso(decision_snapshots) -> Optional[str]:
+    """Extract a next-earnings ISO date from any source we have."""
+    if not isinstance(decision_snapshots, list):
+        return None
+    for row in decision_snapshots:
+        if isinstance(row, dict):
+            for key in ("next_earnings", "earnings_date", "earnings"):
+                v = row.get(key)
+                if v:
+                    return str(v)
+    return None
+
+
+def _build_searxng_snippets(news_catalyst, sec_filings, gap_fill_result) -> list[str]:
+    """Combine catalyst body + SEC filings + gap-fill snippets for sanitize batch."""
+    out: list[str] = []
+    body = getattr(news_catalyst, "catalyst_body", None) if news_catalyst else None
+    if body:
+        out.append(str(body))
+    if isinstance(sec_filings, list):
+        for f in sec_filings[:5]:
+            if isinstance(f, dict):
+                summary = f.get("summary") or f.get("title") or ""
+                if summary:
+                    out.append(str(summary))
+    if isinstance(gap_fill_result, dict):
+        for key in ("harvested_anchors_snippets",
+                    "eight_k_summary_snippets",
+                    "event_date_snippets"):
+            for snip in gap_fill_result.get(key, []) or []:
+                if snip:
+                    out.append(str(snip))
+    return out[:20]
+
+
+def _structured_data_summary(data: dict) -> str:
+    """JSON summary of structured (non-hostile) data fed to the synthesis prompt."""
+    summary = {
+        "news_passed": bool(getattr(data.get("news_catalyst"), "passed", False))
+                       if data.get("news_catalyst") else False,
+        "sec_filing_count": len(data.get("sec_filings") or []),
+        "options_unusual": bool(
+            getattr(data.get("options_unusual"), "has_unusual_activity", False)
+        ) if data.get("options_unusual") else False,
+        "trends": data.get("trends") or {},
+        "alert_history_count": len(data.get("alert_history") or []),
+    }
+    try:
+        return json.dumps(summary, default=str)
+    except Exception:  # noqa: BLE001
+        return "{}"
+
+
+async def _compute_all(ticker: str, start: float) -> dict:
+    """The actual compute path under the cache single-flight. Returns the cache payload."""
+    data = await _gather_all_sources(ticker)
+    score_result = data["score"]
+    if score_result is None and not data.get("technical_long") and not data.get("news_catalyst"):
+        # Per D13: abort only if score gate cannot be evaluated AT ALL
+        # (no technicals AND no catalyst). Emit a minimal embed instead.
+        log.warning(
+            "aggregator: $%s score+technical+catalyst all unavailable; emitting minimal embed",
+            ticker,
+        )
+
+    # Anchor pipeline.
+    yt_levels = data["yt_levels"] if isinstance(data["yt_levels"], list) else []
+    swing_candles = _swing_candles(data["technical_long"])
+    yt_anchors = levels.extract_anchors_from_youtube_levels(yt_levels)
+    swing_anchors = levels.extract_swing_levels(swing_candles)
+    initial_anchors = levels.cluster_anchors(yt_anchors + swing_anchors, 0.005)
+
+    # Gap-fill: run only if any trigger fires.
+    earnings_iso_str = _earnings_iso(data["decision_snapshots"])
+    sec_filings_list = data["sec_filings"] if isinstance(data["sec_filings"], list) else []
+    direction_str = (
+        getattr(getattr(score_result, "breakdown", None), "direction", None)
+        or "neutral"
+    )
+    gap_deadline = time.time() + min(_GAP_FILL_BUDGET, _remaining(start))
+    try:
+        gap_fill_result = await gap_fill.run_gap_fill(
+            ticker=ticker,
+            anchors_count=len(initial_anchors),
+            sec_filings=sec_filings_list,
+            has_event_date=bool(earnings_iso_str),
+            direction=direction_str,
+            deadline=gap_deadline,
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.warning("aggregator: gap_fill failed: %s", exc)
+        gap_fill_result = {
+            "harvested_anchors_snippets": [],
+            "eight_k_summary_snippets": [],
+            "event_date_snippets": [],
+        }
+
+    web_anchor_snippets = list(gap_fill_result.get("harvested_anchors_snippets", []))
+    web_anchors = levels.extract_anchors_from_search_snippets(
+        web_anchor_snippets,
+        current_price=_current_price(data["technical_long"]) or 0.0,
+    )
+
+    all_anchors = levels.cluster_anchors(initial_anchors + web_anchors, 0.005)
+    current_price = _current_price(data["technical_long"]) or 0.0
+    supports, resistances = levels.rank_anchors(all_anchors, current_price)
+    trade_plan = levels.select_trade_plan(supports, resistances)
+
+    # Structured fields.
+    score_breakdown = (
+        getattr(score_result, "breakdown", None) if score_result is not None else None
+    )
+    direction = structured_fields.compute_direction(score_breakdown)
+    final_score = (
+        getattr(score_breakdown, "total", 0)
+        if score_breakdown is not None else 0
+    )
+    confidence = structured_fields.compute_confidence_label(final_score)
+    earnings_iso = _earnings_iso(data["decision_snapshots"])
+    timeframe = structured_fields.compute_breakout_timeframe(
+        ticker, earnings_iso, data["options_unusual"],
+    )
+    atr14 = _atr_from_candles(data["technical_long"])
+    magnitude = structured_fields.compute_magnitude(atr14, current_price)
+
+    sl = trade_plan.get("sl") if trade_plan else None
+    tp1 = trade_plan.get("tp1") if trade_plan else None
+    tp2 = trade_plan.get("tp2") if trade_plan else None
+    tp3 = trade_plan.get("tp3") if trade_plan else None
+    if confidence == "LOW" or direction == "NEUTRAL":
+        sl = tp1 = tp2 = tp3 = None
+        magnitude = "TBD" if direction == "NEUTRAL" else magnitude
+        timeframe = "TBD" if direction == "NEUTRAL" else timeframe
+
+    structured = structured_fields.StructuredFields(
+        direction=direction,
+        confidence_label=confidence,
+        sl=sl, tp1=tp1, tp2=tp2, tp3=tp3,
+        breakout_timeframe=timeframe,
+        magnitude_label=magnitude,
+    )
+
+    # Sanitize hostile text.
+    searxng_snippets = _build_searxng_snippets(
+        data["news_catalyst"], data["sec_filings"], gap_fill_result,
+    )
+    chat_msgs = data["chat_msgs"] if isinstance(data["chat_msgs"], list) else []
+    brief_msgs = data["brief_msgs"] if isinstance(data["brief_msgs"], list) else []
+    prior_vault = data["prior_vault"] or ""
+
+    sanitized = await narrator.sanitize_hostile_text(
+        searxng_snippets=searxng_snippets,
+        chat_msgs=chat_msgs,
+        brief_msgs=brief_msgs,
+        vault_text=prior_vault,
+    )
+
+    sources_used = list(data["source_status"])
+
+    # Synthesis (skip if budget too tight).
+    if _remaining(start) < _SYNTHESIS_MIN_BUDGET:
+        narrative = output_filter.render_data_only_fallback(
+            structured, score_breakdown, sources_used,
+        )
+        narrative_status = "skipped_low_budget"
+    else:
+        narrative, narrative_status = await narrator.synthesize_narrative(
+            ticker=ticker,
+            structured=structured,
+            score_breakdown=score_breakdown,
+            sanitized_searxng=sanitized.get("searxng", []),
+            sanitized_chat=sanitized.get("chat", []),
+            sanitized_brief=sanitized.get("brief", []),
+            vault_summary=sanitized.get("vault", ""),
+            structured_data_json=_structured_data_summary(data),
+            deadline_seconds=_remaining(start),
+        )
+        if narrative_status != "ok":
+            narrative = output_filter.render_data_only_fallback(
+                structured, score_breakdown, sources_used,
+            )
+
+    # Build embed + render vault markdown.
+    embed_payload = embed_mod.build_embed(
+        ticker=ticker,
+        structured=structured,
+        score_breakdown=score_breakdown,
+        narrative=narrative,
+        sources_used=sources_used,
+        cache_age_seconds=None,
+    )
+    anchors_used: list[levels.Anchor] = list(supports[:6]) + list(resistances[:6])
+    vault_md = vault_writer.render_all_command_markdown(
+        ticker=ticker,
+        structured=structured,
+        score_breakdown=score_breakdown,
+        narrative=narrative,
+        sources_used=sources_used,
+        alert_history=data["alert_history"] if isinstance(data["alert_history"], list) else [],
+        anchors_used=anchors_used,
+    )
+    log.info(
+        "aggregator: $%s narrative_status=%s anchors=%d (sup=%d res=%d) elapsed=%.1fs",
+        ticker, narrative_status, len(all_anchors),
+        len(supports), len(resistances), time.monotonic() - start,
+    )
+    return {
+        "embed": embed_payload,
+        "vault_md": vault_md,
+        "cached_at": time.time(),
+    }
+
+
+async def handle_all(
+    ticker: str,
+    channel_id: str,
+    message_id: str,
+) -> None:
+    """Top-level !all entry point. Idempotent under the 15-min cache.
+
+    Side-effects:
+    - Sends "Analyzing $TICKER..." plain reply (always).
+    - Sends an embed reply with structured fields + narrative.
+    - Writes `<vault>/tickers/<TICKER>-all.md` (atomic, separate from Atlas).
+    - Caches the embed + vault markdown for 15 min.
+
+    Per plan §6.3: all exceptions are caught and logged here so that
+    `_handle_all`'s `asyncio.create_task` callback sees a clean completion.
+    """
+    if not is_valid_ticker(ticker):
+        log.warning("aggregator.handle_all: invalid ticker %r", ticker)
+        await send_command_reply(
+            channel_id, message_id,
+            f"Invalid ticker `{ticker}`.",
+        )
+        return
+
+    await send_command_reply(
+        channel_id, message_id, f"Analyzing `${ticker}`...",
+    )
+    start = time.monotonic()
+
+    async def _compute() -> dict:
+        return await _compute_all(ticker, start)
+
+    try:
+        payload = await cache.all_with_single_flight(ticker, _compute)
+    except Exception as exc:  # noqa: BLE001
+        log.error("aggregator.handle_all: $%s compute failed: %s", ticker, exc)
+        await send_command_reply(
+            channel_id, message_id,
+            f"`!all {ticker}` failed: internal error. Try again in a minute.",
+        )
+        return
+
+    if not isinstance(payload, dict) or "embed" not in payload:
+        log.error("aggregator.handle_all: malformed payload for $%s", ticker)
+        await send_command_reply(
+            channel_id, message_id,
+            f"`!all {ticker}` failed: malformed payload.",
+        )
+        return
+
+    cached_at = payload.get("cached_at")
+    embed_payload = dict(payload["embed"])
+    if isinstance(cached_at, (int, float)):
+        age_s = int(time.time() - cached_at)
+        if age_s > 0:
+            footer = dict(embed_payload.get("footer", {}) or {})
+            ftext = footer.get("text", "") or ""
+            if "cached" not in ftext:
+                footer["text"] = f"cached {age_s // 60}m ago | {ftext}".rstrip("| ")
+                embed_payload["footer"] = footer
+
+    vault_md = payload.get("vault_md", "")
+    vault_path = cfg.get("vault.path", "")
+
+    await asyncio.gather(
+        send_command_embed_reply(channel_id, message_id, embed_payload),
+        vault_writer.write_all_command_vault(ticker, vault_md, vault_path),
+        return_exceptions=True,
+    )
