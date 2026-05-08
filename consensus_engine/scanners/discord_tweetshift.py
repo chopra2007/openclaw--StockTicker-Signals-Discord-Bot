@@ -153,6 +153,7 @@ class DiscordTweetShiftListener:
         self._commands_channel_id: str = ""
         self._briefing_channel_id: str = ""
         self._bot_user_id: str = ""  # populated from READY event
+        self._allowed_webhook_ids: set[str] = set()  # populated by _load_config
 
         self._session_id: Optional[str] = None
         self._sequence: Optional[int] = None
@@ -171,6 +172,14 @@ class DiscordTweetShiftListener:
         self._briefing_channel_id = str(
             cfg.get("api_keys.discord_briefing_channel_id", "") or ""
         ).strip()
+        # Whitelist of webhook IDs allowed to post commands (default empty).
+        # Used so external test harnesses can trigger !all and other commands
+        # without going through a real Discord user account. Whitelisting by
+        # webhook_id (not username) prevents trivial spoofing.
+        raw_allowed = cfg.get("api_keys.discord_allowed_webhook_ids", []) or []
+        self._allowed_webhook_ids: set[str] = {
+            str(w).strip() for w in raw_allowed if str(w).strip()
+        }
         if not self._commands_channel_id:
             log.warning("discord_channel_id not configured — command routing disabled")
 
@@ -288,8 +297,20 @@ class DiscordTweetShiftListener:
                 # message_reference) are verification probes — let them through.
                 is_self_reply = is_self and bool((data.get("message_reference") or {}).get("message_id"))
                 # Filter other bots, webhooks, and the bot's own replies.
-                if (author_obj.get("bot") and not is_self) or data.get("webhook_id") or is_self_reply:
+                # Webhooks are dropped EXCEPT for ones explicitly whitelisted in
+                # api_keys.discord_allowed_webhook_ids — used for external test
+                # harnesses that need to trigger commands programmatically.
+                webhook_id = str(data.get("webhook_id") or "")
+                is_allowed_webhook = bool(webhook_id) and webhook_id in self._allowed_webhook_ids
+                if ((author_obj.get("bot") and not is_self)
+                        or (webhook_id and not is_allowed_webhook)
+                        or is_self_reply):
                     return
+                if is_allowed_webhook:
+                    log.info(
+                        "Discord command via allowed webhook id=%s username=%s",
+                        webhook_id, author_obj.get("username", ""),
+                    )
 
                 from consensus_engine.alerts.commands import parse_command
                 parsed = parse_command(content)

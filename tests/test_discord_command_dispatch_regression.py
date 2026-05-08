@@ -202,15 +202,61 @@ async def test_other_bot_still_filtered():
 
 @pytest.mark.asyncio
 async def test_webhook_still_filtered():
-    """Loop-safety check: webhook posts are still filtered regardless of
-    author.bot status."""
+    """Loop-safety check: webhook posts are filtered when their webhook_id is
+    NOT in the allow-list. Whitelisted webhooks are covered separately below."""
     listener = _make_listener()
+    listener._allowed_webhook_ids = set()  # empty allow-list
 
     payload = {
         "channel_id": "200",
         "id": "msg-id-3",
         "author": {"id": "999", "bot": True},
         "webhook_id": "abc-webhook",
+        "content": "!help",
+        "mentions": [],
+    }
+
+    await listener._handle_dispatch("MESSAGE_CREATE", payload)
+
+    listener._on_command.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_allowed_webhook_id_routes_command():
+    """A webhook whose ID is in `_allowed_webhook_ids` should bypass the
+    webhook filter and route the command. Used by external test harnesses
+    (e.g. ClaudeCode) to trigger !all programmatically."""
+    listener = _make_listener()
+    listener._allowed_webhook_ids = {"WEBHOOK_ID_REDACTED"}
+
+    payload = {
+        "channel_id": "200",
+        "id": "msg-id-allowed",
+        "author": {"id": "wh-author", "username": "ClaudeCode"},
+        "webhook_id": "WEBHOOK_ID_REDACTED",
+        "content": "!all NVDA",
+        "mentions": [],
+    }
+
+    await listener._handle_dispatch("MESSAGE_CREATE", payload)
+
+    listener._on_command.assert_called_once()
+    cmd, args, channel_id, message_id, author_id = listener._on_command.call_args.args
+    assert cmd == "all"
+    assert args == ["NVDA"]
+
+
+@pytest.mark.asyncio
+async def test_non_whitelisted_webhook_id_is_filtered():
+    """Webhook with a different ID than the allow-list still gets filtered."""
+    listener = _make_listener()
+    listener._allowed_webhook_ids = {"WEBHOOK_ID_REDACTED"}
+
+    payload = {
+        "channel_id": "200",
+        "id": "msg-id-other-wh",
+        "author": {"id": "wh-author", "username": "Other"},
+        "webhook_id": "9999999999999999999",
         "content": "!help",
         "mentions": [],
     }

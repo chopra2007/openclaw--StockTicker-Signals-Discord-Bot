@@ -20,6 +20,12 @@ api_keys:
   reddit_client_id: "$REDDIT_CLIENT_ID"
   reddit_client_secret: "$REDDIT_CLIENT_SECRET"
   discord_briefing_channel_id: "$DISCORD_BRIEFING_CHANNEL_ID"
+  # Webhook IDs allowed to post commands (bypasses the webhook filter in
+  # discord_tweetshift.py:291). Used by external test harnesses (e.g.
+  # ClaudeCode session) to trigger !all and other commands programmatically.
+  # Whitelist by webhook ID (not username) since IDs aren't spoofable.
+  discord_allowed_webhook_ids:
+    - "WEBHOOK_ID_REDACTED"  # ClaudeCode test webhook
 
 # Self-hosted SearXNG (Docker)
 searxng:
