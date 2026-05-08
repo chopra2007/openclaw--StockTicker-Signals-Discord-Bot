@@ -247,6 +247,9 @@ async def scan_google_trends(tickers: list[str]) -> dict[str, float]:
     """
     global _serpapi_key_index
 
+    if not cfg.get("precision_engine.serpapi_enabled", True):
+        log.debug("Google Trends: SerpAPI disabled via config, skipping")
+        return {}
     if not cfg.get("social.google_trends_enabled", True):
         return {}
     if not tickers:

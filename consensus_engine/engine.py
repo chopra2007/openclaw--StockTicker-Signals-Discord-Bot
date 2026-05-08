@@ -381,7 +381,7 @@ async def analyze_signal(
 
     # --- Phase 4: SerpApi (expensive, only if score >= threshold) ---
     serpapi_thresh = cfg.get("precision_engine.thresholds.min_score_for_serpapi", 60)
-    if score >= serpapi_thresh and await budget.can_consume("serpapi_queries"):
+    if cfg.get("precision_engine.serpapi_enabled", True) and score >= serpapi_thresh and await budget.can_consume("serpapi_queries"):
         await budget.consume("serpapi_queries")
         serpapi = SerpApiAdapter(session)
         serp_hits = await serpapi.search(f"{ticker} stock news")

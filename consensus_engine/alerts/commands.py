@@ -769,6 +769,9 @@ async def _google_trends_and_reply(ticker: str, channel_id: str, message_id: str
 
 async def _run_serpapi_trends(channel_id: str, message_id: str) -> None:
     """Run SerpAPI Google Trends for active DB tickers + ApeWisdom fill (cron job)."""
+    if not cfg.get("precision_engine.serpapi_enabled", True):
+        await send_command_reply(channel_id, message_id, "SerpAPI Google Trends: Disabled (no credits)")
+        return
     from consensus_engine.main import _is_weekend_pause
     if _is_weekend_pause():
         await send_command_reply(channel_id, message_id, "SerpAPI Google Trends: Skipped (weekend pause)")

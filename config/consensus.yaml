@@ -297,6 +297,7 @@ youtube:
 # Precision Scoring Engine
 precision_engine:
   enabled: true
+  serpapi_enabled: false   # set true when SerpAPI credits are available
   budget:
     finnhub_calls: 3000
     brave_queries: 200
