@@ -378,6 +378,53 @@ async def run_once():
     return count
 
 
+def _parse_history_limit(content: str, default: int = 20) -> int:
+    """Extract 'last N messages' from content, capped at 50."""
+    import re
+    m = re.search(r'last\s+(\d+)\s+messages?', content, re.IGNORECASE)
+    if m:
+        return min(int(m.group(1)), 50)
+    return default
+
+
+async def _fetch_channel_history(channel_id: str, limit: int = 20) -> str:
+    """Fetch recent messages from a Discord channel and format them as context."""
+    import aiohttp as _aiohttp
+    token = cfg.get_api_key("discord_bot_token")
+    if not token:
+        return ""
+    try:
+        async with _aiohttp.ClientSession() as session:
+            async with session.get(
+                f"https://discord.com/api/v10/channels/{channel_id}/messages?limit={limit}",
+                headers={"Authorization": f"Bot {token}"},
+                timeout=_aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                if resp.status != 200:
+                    return ""
+                msgs = await resp.json()
+        lines = []
+        for m in reversed(msgs):
+            author = m.get("author", {}).get("username", "unknown")
+            parts = []
+            body = m.get("content", "").strip()
+            if body:
+                parts.append(body)
+            for embed in m.get("embeds", []):
+                if embed.get("title"):
+                    parts.append(f"[embed: {embed['title']}]")
+                if embed.get("description"):
+                    parts.append(embed["description"][:200])
+                for field in embed.get("fields", []):
+                    parts.append(f"{field.get('name','')}: {field.get('value','')[:150]}")
+            if parts:
+                lines.append(f"{author}: " + " | ".join(parts))
+        return "\n".join(lines)
+    except Exception as exc:
+        log.warning("Failed to fetch channel history: %s", exc)
+        return ""
+
+
 async def _handle_mention(content: str, channel_id: str, message_id: str) -> None:
     """Respond to a bot @-mention with an LLM-generated answer."""
     from consensus_engine.alerts.discord import send_command_reply
@@ -394,12 +441,17 @@ async def _handle_mention(content: str, channel_id: str, message_id: str) -> Non
             "Hi! Ask me anything about the market or use `!help` to see available commands.")
         return
 
+    limit = _parse_history_limit(content, default=20)
+    history = await _fetch_channel_history(channel_id, limit=limit)
+    context_block = f"\n\nRecent channel messages (oldest→newest):\n{history}" if history else ""
+
     system_prompt = (
         "You are OpenClaw, an AI trading signal and market intelligence assistant running "
         "on a Discord server. You monitor analyst tweets, SEC filings, Reddit trends, "
         "YouTube channels, and options flow to surface actionable stock signals. "
-        "Answer concisely (under 500 characters). If the user asks about commands, "
-        "remind them to use !help. Never fabricate ticker data."
+        "Use the channel history below to answer questions about previous messages. "
+        "If the user asks about commands, remind them to use !help. "
+        f"Never fabricate ticker data.{context_block}"
     )
     reply = await call_with_fallback(
         role="text",
@@ -407,7 +459,7 @@ async def _handle_mention(content: str, channel_id: str, message_id: str) -> Non
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": content},
         ],
-        max_tokens=300,
+        max_tokens=cfg.get("llm.max_tokens", 1024),
         temperature=0.5,
     )
 
