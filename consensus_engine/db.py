@@ -1332,24 +1332,38 @@ async def get_reddit_posts_since(since_utc: int) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-async def get_xref_from_db(ticker: str, ttl_seconds: int = 300) -> str | None:
+def _xref_db_key(ticker: str, key_prefix: str = "") -> str:
+    """Build the namespaced xref_cache row key.
+
+    Empty prefix → bare ticker (preserves rows written before PR3).
+    """
+    return f"{key_prefix}:{ticker}" if key_prefix else ticker
+
+
+async def get_xref_from_db(
+    ticker: str,
+    ttl_seconds: int = 300,
+    key_prefix: str = "",
+) -> str | None:
     """Get cached xref result JSON from DB, or None if missing/expired."""
     conn = await get_db()
     cutoff = time.time() - ttl_seconds
+    db_key = _xref_db_key(ticker, key_prefix)
     cursor = await conn.execute(
         "SELECT result_json FROM xref_cache WHERE ticker = ? AND cached_at > ?",
-        (ticker, cutoff),
+        (db_key, cutoff),
     )
     row = await cursor.fetchone()
     return row["result_json"] if row else None
 
 
-async def set_xref_in_db(ticker: str, result_json: str):
+async def set_xref_in_db(ticker: str, result_json: str, key_prefix: str = ""):
     """Store or update an xref cache entry in DB."""
     conn = await get_db()
+    db_key = _xref_db_key(ticker, key_prefix)
     await conn.execute(
         "INSERT OR REPLACE INTO xref_cache (ticker, result_json, cached_at) VALUES (?, ?, ?)",
-        (ticker, result_json, time.time()),
+        (db_key, result_json, time.time()),
     )
     await conn.commit()
 
