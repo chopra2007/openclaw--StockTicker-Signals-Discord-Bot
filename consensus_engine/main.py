@@ -459,7 +459,7 @@ async def _handle_mention(content: str, channel_id: str, message_id: str) -> Non
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": content},
         ],
-        max_tokens=cfg.get("llm.max_tokens", 1024),
+        max_tokens=cfg.get("llm.text_max_tokens", cfg.get("llm.max_tokens", 1024)),
         temperature=0.5,
     )
 

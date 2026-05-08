@@ -166,17 +166,27 @@ technical:
 
 # LLM Configuration (OpenRouter)
 llm:
-  model: "poolside/laguna-m.1:free"
+  # Primary chain: tencent first because poolside/laguna-m.1:free has been
+  # silently failing every call (returning empty content or dropping
+  # connection). Demoted to last position; remove entirely if it stays dead.
+  model: "tencent/hy3-preview:free"
   fallback_models:
-    - "tencent/hy3-preview:free"
     - "nvidia/nemotron-3-super-120b-a12b:free"
+    - "poolside/laguna-m.1:free"
   text_model: "inclusionai/ling-2.6-flash"
   text_fallback_models:
     - "baidu/cobuddy:free"
     - "poolside/laguna-xs.2:free"
   vision_model: "google/gemma-4-31b-it:free"
   min_confidence: 70
-  max_tokens: 32000
+  # Primary-tier output cap. Free models cap at 4-8k output tokens; asking for
+  # 32k caused OpenRouter to return 200 with empty content or silently drop
+  # connection. Specific callers that legitimately need more (synthesize_narrative
+  # = 8000) hardcode their own value.
+  max_tokens: 4096
+  # Text-tier model `ling-2.6-flash` advertises a 32k output cap. Used only by
+  # callers that explicitly pass `role="text"`; primary callers stay on max_tokens.
+  text_max_tokens: 32000
 
 
 # Ticker validation

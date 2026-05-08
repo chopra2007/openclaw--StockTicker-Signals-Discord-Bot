@@ -113,7 +113,7 @@ async def call_with_fallback(
                                 model, resp.status, body)
                     return ""
         except (asyncio.TimeoutError, aiohttp.ClientError) as exc:
-            log.warning("LLM %s connection error (retryable): %s", model, exc)
+            log.warning("LLM %s connection error (retryable): %r", model, exc)
             continue
         except Exception as exc:
             log.warning("LLM %s unexpected error: %s", model, exc)
