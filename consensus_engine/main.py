@@ -38,6 +38,7 @@ from consensus_engine.scanners.volume_scanner import scan_volume_breakouts
 from consensus_engine.engine import analyze_signal, SignalClass
 from consensus_engine.research.atlas import atlas_worker_loop, atlas_sweep_loop
 from consensus_engine.briefing.alfred import alfred_loop
+from consensus_engine.health import chain_health_loop
 from consensus_engine import ingest_server
 from consensus_engine.scanners.gmail_watcher import gmail_watcher_loop
 from consensus_engine.analysis.herding import detect_cluster, ClusterResult
@@ -550,6 +551,7 @@ async def run_live(stop_event: asyncio.Event):
             asyncio.create_task(atlas_worker_loop(combined_stop)),
             asyncio.create_task(atlas_sweep_loop(combined_stop)),
             asyncio.create_task(alfred_loop(combined_stop)),
+            asyncio.create_task(chain_health_loop(combined_stop)),
             asyncio.create_task(feature_volume_monitor_loop()),
         ])
         tasks.extend([

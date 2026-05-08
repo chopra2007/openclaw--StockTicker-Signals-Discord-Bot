@@ -401,6 +401,15 @@ alfred:
   post_window_et: ["08:50", "09:00"]
   market_holidays: []
 
+# Daily LLM-chain health probe — checks every model in llm.fallback_models
+# and llm.text_fallback_models. Posts to Discord only when at least one
+# model fails (silent on green chain) unless alert_only_on_failure: false.
+health_check:
+  enabled: true
+  daily_time_et: "08:30"               # fires before alfred briefing window
+  alert_only_on_failure: true
+  channel_id: ""                       # blank → falls through to alfred.channel_id
+
 # =============================================================================
 # New Signal Features (A1/A2/A3/A4/A5/D1)
 # =============================================================================
