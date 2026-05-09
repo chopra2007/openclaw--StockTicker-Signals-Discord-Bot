@@ -523,10 +523,16 @@ async def _compute_all(ticker: str, start: float) -> dict:
     tp1 = trade_plan.get("tp1") if trade_plan else None
     tp2 = trade_plan.get("tp2") if trade_plan else None
     tp3 = trade_plan.get("tp3") if trade_plan else None
-    if confidence == "LOW" or direction == "NEUTRAL":
+    # Iter4: LOW confidence no longer wipes the trade plan — D3 is overridden
+    # by user feedback (Gemini provides actionable SL/TP without confidence
+    # gating). PR3's anchor-count gate is the single source of truth for
+    # whether levels exist; the LOW label still renders in the embed banner.
+    # NEUTRAL direction still wipes because SL/TP labels are direction-
+    # dependent (a "TP1 above price" only makes sense for BULLISH).
+    if direction == "NEUTRAL":
         sl = tp1 = tp2 = tp3 = None
-        magnitude = "TBD" if direction == "NEUTRAL" else magnitude
-        timeframe = "TBD" if direction == "NEUTRAL" else timeframe
+        magnitude = "TBD"
+        timeframe = "TBD"
 
     structured = structured_fields.StructuredFields(
         direction=direction,
