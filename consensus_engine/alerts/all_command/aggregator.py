@@ -185,6 +185,11 @@ async def _gather_all_sources(ticker: str) -> dict:
         "fetch_recent_earnings_for_ticker",
         ticker,
     )
+    daily_candles_task = _scanner_call(
+        "consensus_engine.analysis.patterns",
+        "fetch_daily_candles",
+        ticker,
+    )
 
     news_task = _scanner_call("consensus_engine.scanners.news", "news_cascade", ticker)
     sec_task = _scanner_call(
@@ -232,6 +237,7 @@ async def _gather_all_sources(ticker: str) -> dict:
         decision_snapshots_task,
         next_earnings_task,
         recent_earnings_task,
+        daily_candles_task,
         news_task,
         sec_task,
         options_task,
@@ -245,7 +251,7 @@ async def _gather_all_sources(ticker: str) -> dict:
     (
         score_result, tech_long, tech_short, twitter_signals, social_signals,
         yt_signals, yt_options, yt_levels, yt_evidence, alert_history,
-        decision_snapshots, next_earnings_iso, recent_earnings_recap, news_catalyst, sec_filings, options_unusual,
+        decision_snapshots, next_earnings_iso, recent_earnings_recap, daily_candles, news_catalyst, sec_filings, options_unusual,
         trends, apewisdom, chat_msgs, brief_msgs, prior_vault,
     ) = results
 
@@ -289,7 +295,7 @@ async def _gather_all_sources(ticker: str) -> dict:
         "decision_snapshots": _result_or_default(decision_snapshots, []),
         "next_earnings_iso": _result_or_default(next_earnings_iso, None) if isinstance(next_earnings_iso, str) else None,
         "recent_earnings_recap": recent_earnings_recap if isinstance(recent_earnings_recap, dict) else None,
-        "chart_pattern": _detect_chart_pattern(_swing_candles(_result_or_default(tech_long, None))),
+        "chart_pattern": _detect_chart_pattern(daily_candles if isinstance(daily_candles, list) else _swing_candles(_result_or_default(tech_long, None))),
         "news_catalyst": _result_or_default(news_catalyst, None),
         "sec_filings": _result_or_default(sec_filings, []),
         "options_unusual": _result_or_default(options_unusual, None),

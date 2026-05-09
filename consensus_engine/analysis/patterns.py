@@ -14,7 +14,53 @@ Detectors return either None (pattern absent) or
 """
 from __future__ import annotations
 
+import logging
 from typing import Optional
+
+import aiohttp
+
+log = logging.getLogger("consensus_engine.analysis.patterns")
+
+
+async def fetch_daily_candles(ticker: str, range_str: str = "3mo") -> list[dict]:
+    """Fetch ~60 days of daily OHLC bars via Yahoo Finance chart endpoint.
+
+    Returns list-of-dict in chronological order with `high`, `low`, `close`
+    keys per bar — the shape consumed by the pattern detectors below.
+    """
+    if not ticker:
+        return []
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}"
+    params = {"interval": "1d", "range": range_str}
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                url, params=params, headers=headers,
+                timeout=aiohttp.ClientTimeout(total=15),
+            ) as resp:
+                if resp.status != 200:
+                    return []
+                data = await resp.json()
+                result = data.get("chart", {}).get("result", [])
+                if not result:
+                    return []
+                quote = result[0].get("indicators", {}).get("quote", [{}])[0]
+                highs = quote.get("high", []) or []
+                lows = quote.get("low", []) or []
+                closes = quote.get("close", []) or []
+    except Exception as e:
+        log.debug("yfinance chart fetch error for %s: %s", ticker, e)
+        return []
+    n = min(len(highs), len(lows), len(closes))
+    out: list[dict] = []
+    for i in range(n):
+        h, l, c = highs[i], lows[i], closes[i]
+        if h is None or l is None:
+            continue
+        out.append({"high": float(h), "low": float(l),
+                    "close": float(c) if c is not None else (float(h) + float(l)) / 2})
+    return out
 
 
 def _close(candle: dict) -> float:
