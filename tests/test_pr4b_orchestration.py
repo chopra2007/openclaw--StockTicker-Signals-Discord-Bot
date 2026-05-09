@@ -376,7 +376,8 @@ async def test_aggregator_handle_all_e2e_calls_embed_and_vault(
             "news_catalyst": None, "sec_filings": [], "options_unusual": None,
             "trends": {}, "apewisdom": None,
             "chat_msgs": [], "brief_msgs": [], "prior_vault": None,
-            "source_status": ["score: unavailable"],
+            "sources_surfaced": [],
+            "source_failures": ["score: unavailable"],
         }
 
     async def _empty_sanitize(**_kwargs):

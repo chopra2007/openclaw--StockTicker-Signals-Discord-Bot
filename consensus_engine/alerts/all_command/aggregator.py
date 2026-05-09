@@ -61,6 +61,36 @@ def _result_or_default(x: Any, default: Any) -> Any:
     return x
 
 
+def _has_value(val: Any) -> bool:
+    """A source contributed if it returned non-None, non-exception, non-empty."""
+    if val is None or _is_exc(val):
+        return False
+    if isinstance(val, (list, dict, str, tuple, set)) and not val:
+        return False
+    return True
+
+
+def _classify_sources(items: list[tuple[str, Any]]) -> tuple[list[str], list[str]]:
+    """Split (label, value) gather results into (sources_surfaced, source_failures).
+
+    PR2 (B2 fix): pre-PR2 the aggregator only tracked `source_status`, which
+    was actually a list of failure labels — so the embed footer's
+    `sources: {len(source_status)}` reported 0 on a healthy run. Now both
+    lists are populated in one pass: a label goes into `failures` if its
+    raw result was an exception, otherwise into `surfaced` iff it carries
+    non-empty data.
+    """
+    surfaced: list[str] = []
+    failures: list[str] = []
+    for label, val in items:
+        s = _source_label(label, val)
+        if s:
+            failures.append(s)
+        elif _has_value(val):
+            surfaced.append(label)
+    return surfaced, failures
+
+
 def _source_label(name: str, raw: Any) -> Optional[str]:
     """Render `<source>: unavailable` if the gather slot raised."""
     if _is_exc(raw):
@@ -207,9 +237,8 @@ async def _gather_all_sources(ticker: str) -> dict:
         trends, apewisdom, chat_msgs, brief_msgs, prior_vault,
     ) = results
 
-    # Per-source unavailability labels.
-    source_status: list[str] = []
-    for label, val in [
+    # Classify each source as surfaced (non-empty data) or failed (exception).
+    sources_surfaced, source_failures = _classify_sources([
         ("score", score_result),
         ("technical_long", tech_long),
         ("technical_short", tech_short),
@@ -229,10 +258,7 @@ async def _gather_all_sources(ticker: str) -> dict:
         ("chat_24h", chat_msgs),
         ("brief_last3", brief_msgs),
         ("prior_vault", prior_vault),
-    ]:
-        s = _source_label(label, val)
-        if s:
-            source_status.append(s)
+    ])
 
     return {
         "ticker_meta": ticker_meta if isinstance(ticker_meta, dict) else {},
@@ -256,7 +282,8 @@ async def _gather_all_sources(ticker: str) -> dict:
         "chat_msgs": _result_or_default(chat_msgs, []),
         "brief_msgs": _result_or_default(brief_msgs, []),
         "prior_vault": _result_or_default(prior_vault, None),
-        "source_status": source_status,
+        "sources_surfaced": sources_surfaced,
+        "source_failures": source_failures,
     }
 
 
@@ -466,12 +493,13 @@ async def _compute_all(ticker: str, start: float) -> dict:
     )
     stage_t["sanitize"] = _t()
 
-    sources_used = list(data["source_status"])
+    sources_surfaced = list(data["sources_surfaced"])
+    source_failures = list(data["source_failures"])
 
     # Synthesis (skip if budget too tight).
     if _remaining(start) < _SYNTHESIS_MIN_BUDGET:
         narrative = output_filter.render_data_only_fallback(
-            structured, score_breakdown, sources_used,
+            structured, score_breakdown, sources_surfaced,
         )
         narrative_status = "skipped_low_budget"
     else:
@@ -485,10 +513,11 @@ async def _compute_all(ticker: str, start: float) -> dict:
             vault_summary=sanitized.get("vault", ""),
             structured_data_json=_structured_data_summary(data),
             deadline_seconds=_remaining(start),
+            sources_surfaced=sources_surfaced,
         )
         if narrative_status != "ok":
             narrative = output_filter.render_data_only_fallback(
-                structured, score_breakdown, sources_used,
+                structured, score_breakdown, sources_surfaced,
             )
     stage_t["synthesize"] = _t()
 
@@ -498,7 +527,7 @@ async def _compute_all(ticker: str, start: float) -> dict:
         structured=structured,
         score_breakdown=score_breakdown,
         narrative=narrative,
-        sources_used=sources_used,
+        sources_used=sources_surfaced,
         cache_age_seconds=None,
     )
     anchors_used: list[levels.Anchor] = list(supports[:6]) + list(resistances[:6])
@@ -507,7 +536,7 @@ async def _compute_all(ticker: str, start: float) -> dict:
         structured=structured,
         score_breakdown=score_breakdown,
         narrative=narrative,
-        sources_used=sources_used,
+        sources_used=sources_surfaced,
         alert_history=data["alert_history"] if isinstance(data["alert_history"], list) else [],
         anchors_used=anchors_used,
     )

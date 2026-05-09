@@ -58,10 +58,18 @@ async def isolated_db(tmp_path):
 
 @pytest.fixture
 def vault_path(tmp_path, monkeypatch):
-    """Point `cfg.get('vault.path', ...)` at tmp_path inside the aggregator."""
+    """Point `cfg.get('vault.path', ...)` at tmp_path inside the aggregator.
+
+    Delegates non-vault.path lookups back to the real `cfg.get` so that
+    `database.path` (set by the `isolated_db` fixture) is respected — earlier
+    versions returned `default` for everything else, which silently routed
+    `db.init_db()` at the production sqlite file.
+    """
+    from consensus_engine import config as _cfg
+    _orig_get = _cfg.get
     monkeypatch.setattr(
         "consensus_engine.alerts.all_command.aggregator.cfg.get",
-        lambda key, default=None: str(tmp_path) if key == "vault.path" else default,
+        lambda key, default=None: str(tmp_path) if key == "vault.path" else _orig_get(key, default),
     )
     return tmp_path
 
@@ -90,12 +98,18 @@ def captured_sends(monkeypatch):
     return captured
 
 
-def _bullish_gather_factory(source_status: list[str] | None = None):
+def _bullish_gather_factory(
+    source_status: list[str] | None = None,
+    sources_surfaced: list[str] | None = None,
+):
     """Return an async `_gather_all_sources` mock that yields a bullish data dict.
 
     Score breakdown produces direction=BULLISH (positive technical+news), and
     technical_long stub provides a current_price + ATR so structured fields
     compute SL/TP1/TP2/TP3 (i.e. the `<4 anchors` suppression DOES NOT fire).
+
+    `source_status` is now `source_failures` (PR2 rename); `sources_surfaced`
+    is the parallel list of labels whose data made it into the prompt/embed.
     """
     class _Tech:
         current_price = 100.0
@@ -134,7 +148,8 @@ def _bullish_gather_factory(source_status: list[str] | None = None):
             "chat_msgs": [],
             "brief_msgs": [],
             "prior_vault": None,
-            "source_status": list(source_status or []),
+            "sources_surfaced": list(sources_surfaced or []),
+            "source_failures": list(source_status or []),
         }
     return _gather
 
@@ -151,7 +166,8 @@ def _empty_gather_factory(source_status: list[str] | None = None):
             "news_catalyst": None, "sec_filings": [], "options_unusual": None,
             "trends": {}, "apewisdom": None,
             "chat_msgs": [], "brief_msgs": [], "prior_vault": None,
-            "source_status": list(source_status or []),
+            "sources_surfaced": [],
+            "source_failures": list(source_status or []),
         }
     return _gather
 
@@ -285,7 +301,10 @@ async def test_handle_all_partial_source_failure_continues(
 
     monkeypatch.setattr(
         aggregator, "_gather_all_sources",
-        _bullish_gather_factory(["sec: unavailable", "news: ok"]),
+        _bullish_gather_factory(
+            source_status=["sec: unavailable"],
+            sources_surfaced=["news", "twitter_db"],
+        ),
     )
     monkeypatch.setattr(narrator, "sanitize_hostile_text", _empty_sanitize)
 
@@ -298,11 +317,12 @@ async def test_handle_all_partial_source_failure_continues(
 
     assert len(captured_sends["embed"]) == 1
     embed = captured_sends["embed"][0][2]
-    # The unavailable label is rendered as part of the explicit Sources line
-    # in the description (sources <= 10 path).
+    # PR2: failed sources land in source_failures (not rendered in embed); the
+    # embed Sources line and footer count both reflect sources_surfaced only.
     desc = embed["description"]
-    assert "sec: unavailable" in desc
-    assert "news: ok" in desc
+    assert "news" in desc
+    assert "twitter_db" in desc
+    assert "sources: 2" in embed["footer"]["text"]
 
 
 # ---------------------------------------------------------------------------

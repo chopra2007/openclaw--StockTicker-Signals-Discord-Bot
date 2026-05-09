@@ -215,6 +215,7 @@ def _build_synthesis_prompt(
     sanitized_brief: list[str],
     vault_summary: str,
     structured_data_json: str,
+    sources_surfaced: Optional[list[str]] = None,
 ) -> list[dict]:
     """Build the synthesis-pass message list per plan §3.6 / Pass 2 R6."""
     final_score = (
@@ -239,10 +240,12 @@ def _build_synthesis_prompt(
     capped_brief = _truncate_list(sanitized_brief, _CAP_CHANNEL)
     capped_vault = (vault_summary or "")[:_CAP_VAULT_CHARS]
 
+    surfaced = list(sources_surfaced or [])
     user_blocks = [
         f"TASK: Write a 3-6 paragraph narrative for ${ticker}. Stick to the "
         "COMPUTED SIGNAL — it is canonical. Cite evidence by source.",
         f"COMPUTED SIGNAL:\n{json.dumps(computed_signal, default=str)}",
+        f"SOURCES SURFACED ({len(surfaced)}):\n{', '.join(surfaced) or '(none)'}",
         f"STRUCTURED DATA SUMMARY:\n{structured_data_json or '{}'}",
         f"ANALYST EVIDENCE:\n{json.dumps(capped_news[:_CAP_TWEETS], default=str)}",
         f"SEC EVIDENCE:\n{json.dumps(_truncate_list(capped_news, _CAP_SEC), default=str)}",
@@ -292,6 +295,7 @@ async def synthesize_narrative(
     vault_summary: str,
     structured_data_json: str,
     deadline_seconds: float,
+    sources_surfaced: Optional[list[str]] = None,
 ) -> tuple[str, str]:
     """Run the synthesis LLM call and pipe the result through output_filter.
 
@@ -309,6 +313,7 @@ async def synthesize_narrative(
         sanitized_brief=sanitized_brief or [],
         vault_summary=vault_summary or "",
         structured_data_json=structured_data_json or "{}",
+        sources_surfaced=sources_surfaced,
     )
 
     raw = await _invoke_synthesis(messages, deadline_seconds)
