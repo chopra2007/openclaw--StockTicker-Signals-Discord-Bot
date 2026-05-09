@@ -629,6 +629,25 @@ async def _compute_all(ticker: str, start: float) -> dict:
         len(supports), len(resistances), plan_status,
         time.monotonic() - start, stage_breakdown,
     )
+
+    # PR7 quality-bar telemetry: 12 fields covering all 9 acceptance criteria
+    # so live runs can be measured against the same checks as the pytest suite.
+    from consensus_engine.alerts.all_command import quality_bar as _qb
+    stage_synth_ms = max(0, int((stage_t.get("synthesize", 0.0)
+                                 - stage_t.get("sanitize", 0.0)) * 1000))
+    log.info(
+        "quality_bar: ticker=%s sources_surfaced=%d sources_failed=%d "
+        "anchors_total=%d sl=%s tp1=%s narrative_chars=%d narrative_status=%s "
+        "stage_synth_ms=%d numbered_facts=%d catalyst_bullets=%d risk_bullets=%d",
+        ticker, len(sources_surfaced), len(source_failures), len(all_anchors),
+        sl if sl is not None else "None",
+        tp1 if tp1 is not None else "None",
+        len(narrative), narrative_status,
+        stage_synth_ms,
+        _qb.count_numbered_facts(narrative),
+        _qb.count_catalyst_bullets(narrative),
+        _qb.count_risk_bullets(narrative),
+    )
     return {
         "embed": embed_payload,
         "vault_md": vault_md,
