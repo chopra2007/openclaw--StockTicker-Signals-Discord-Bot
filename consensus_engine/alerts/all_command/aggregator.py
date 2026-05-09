@@ -534,12 +534,22 @@ async def _compute_all(ticker: str, start: float) -> dict:
         magnitude = "TBD"
         timeframe = "TBD"
 
+    # Iter5: compute the entry zone from supports + current price so the
+    # embed answers the prompt's "buying level" requirement directly.
+    buy_low, buy_high = structured_fields.compute_buy_zone(
+        current_price, supports, direction,
+    )
+
     structured = structured_fields.StructuredFields(
         direction=direction,
         confidence_label=confidence,
         sl=sl, tp1=tp1, tp2=tp2, tp3=tp3,
         breakout_timeframe=timeframe,
         magnitude_label=magnitude,
+        current_price=current_price if current_price else None,
+        buy_zone_low=buy_low,
+        buy_zone_high=buy_high,
+        earnings_date=earnings_iso,
     )
 
     # Sanitize hostile text. PR4: split SearXNG into news+sec+gap-fill blocks

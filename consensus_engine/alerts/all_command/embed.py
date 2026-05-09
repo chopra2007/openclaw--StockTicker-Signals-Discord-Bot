@@ -57,6 +57,19 @@ def _format_price(value: Optional[float]) -> str:
         return "—"
 
 
+def _format_buy_zone(low: Optional[float], high: Optional[float]) -> str:
+    """Iter5: render `$low – $high` for the entry bracket; `—` if missing."""
+    if low is None or high is None:
+        return "—"
+    try:
+        lo, hi = float(low), float(high)
+    except (TypeError, ValueError):
+        return "—"
+    if lo == hi:
+        return f"${lo:.2f}"
+    return f"${lo:.2f} – ${hi:.2f}"
+
+
 def _format_cache_age(seconds: Optional[int]) -> Optional[str]:
     if seconds is None:
         return None
@@ -160,11 +173,14 @@ def build_embed(
         {"name": "Confidence",
          "value": getattr(structured, "confidence_label", "LOW") or "LOW",
          "inline": True},
-        {"name": "Timeframe",
-         "value": getattr(structured, "breakout_timeframe", "TBD") or "TBD",
+        {"name": "Price",
+         "value": _format_price(getattr(structured, "current_price", None)),
          "inline": True},
-        {"name": "Magnitude",
-         "value": getattr(structured, "magnitude_label", "—") or "—",
+        {"name": "Buy Zone",
+         "value": _format_buy_zone(
+             getattr(structured, "buy_zone_low", None),
+             getattr(structured, "buy_zone_high", None),
+         ),
          "inline": True},
         {"name": "SL",
          "value": _format_price(getattr(structured, "sl", None)),
@@ -177,6 +193,12 @@ def build_embed(
          "inline": True},
         {"name": "TP3",
          "value": _format_price(getattr(structured, "tp3", None)),
+         "inline": True},
+        {"name": "Timeframe",
+         "value": getattr(structured, "breakout_timeframe", "TBD") or "TBD",
+         "inline": True},
+        {"name": "Magnitude",
+         "value": getattr(structured, "magnitude_label", "—") or "—",
          "inline": True},
     ]
 

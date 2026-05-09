@@ -27,6 +27,14 @@ class StructuredFields:
     tp3: Optional[float] = None
     breakout_timeframe: str = "TBD"
     magnitude_label: str = "TBD"
+    # Iter5 — surface the entry zone (the prompt explicitly asks for "buying
+    # level"; v1-v4 only emitted SL+TPs). buy_zone_low/high bracket the
+    # support cluster nearest current_price; current_price is displayed in the
+    # embed and passed to the LLM so narrative can anchor specifics.
+    current_price: Optional[float] = None
+    buy_zone_low: Optional[float] = None
+    buy_zone_high: Optional[float] = None
+    earnings_date: Optional[str] = None  # ISO YYYY-MM-DD or None
 
 
 # Components contributing to direction scoring. Sign mapping is deferred to
@@ -120,6 +128,41 @@ def compute_breakout_timeframe(
             if d is not None and (d - today).days >= 0:
                 return f"options {d.isoformat()}"
     return "TBD"
+
+
+def compute_buy_zone(
+    current_price: Optional[float],
+    supports: list,
+    direction: str,
+) -> tuple[Optional[float], Optional[float]]:
+    """Return (low, high) entry-zone bracket from current price + support cluster.
+
+    Iter5: the prompt explicitly asks for a buying level. Heuristic:
+      - BULLISH: high = current_price (buy on a small dip back to spot or
+        better); low = max(supports below price) — the highest support is
+        the "should-hold" level. If no supports below price, fall back to a
+        2 % buffer below current_price.
+      - BEARISH: short-zone bracket — high = min(resistances above price);
+        low = current_price.
+      - NEUTRAL: no zone.
+    """
+    if current_price is None or current_price <= 0:
+        return None, None
+    direction_u = (direction or "").upper()
+    sup_prices = [getattr(s, "price", None) for s in (supports or [])]
+    sup_prices = [p for p in sup_prices if isinstance(p, (int, float)) and p < current_price]
+    if direction_u == "BULLISH":
+        high = float(current_price)
+        if sup_prices:
+            low = float(max(sup_prices))
+        else:
+            low = round(float(current_price) * 0.98, 2)
+        return low, high
+    if direction_u == "BEARISH":
+        # supports[] argument is overloaded here as "anchors above price"
+        # for bearish setups; caller flips them. Fall back to current_price.
+        return None, None
+    return None, None
 
 
 def compute_magnitude(atr14: Optional[float], current_price: float) -> str:

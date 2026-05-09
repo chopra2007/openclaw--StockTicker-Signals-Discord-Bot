@@ -278,12 +278,16 @@ def _build_synthesis_prompt(
         "ticker": ticker,
         "direction": getattr(structured, "direction", "NEUTRAL"),
         "confidence": getattr(structured, "confidence_label", "LOW"),
+        "current_price": getattr(structured, "current_price", None),
+        "buy_zone_low": getattr(structured, "buy_zone_low", None),
+        "buy_zone_high": getattr(structured, "buy_zone_high", None),
         "sl": getattr(structured, "sl", None),
         "tp1": getattr(structured, "tp1", None),
         "tp2": getattr(structured, "tp2", None),
         "tp3": getattr(structured, "tp3", None),
         "breakout_timeframe": getattr(structured, "breakout_timeframe", "TBD"),
         "magnitude": getattr(structured, "magnitude_label", "TBD"),
+        "earnings_date": getattr(structured, "earnings_date", None),
         "final_score": final_score,
     }
 
@@ -321,14 +325,29 @@ def _build_synthesis_prompt(
         f"PRIOR RESEARCH (vault excerpt):\n{capped_vault}",
         "CONSTRAINTS:\n"
         "- Structure your narrative with these EXACT sections in this order:\n"
-        "  1. Opening thesis paragraph (2-3 sentences) stating direction + headline.\n"
+        "  1. Opening thesis paragraph (2-3 sentences). FIRST sentence must "
+        "state the current price from COMPUTED SIGNAL.current_price, then "
+        "direction and headline.\n"
         "  2. A `## Catalysts` markdown header followed by AT LEAST 2 bulleted "
-        "items (`* …`), each citing a specific number, date, $, or %.\n"
+        "items (`* …`), each citing a specific number, date, $, or % drawn "
+        "from the EVIDENCE blocks (news / sec / yt_evidence / etc).\n"
         "  3. A `## Risk Considerations` markdown header followed by AT LEAST "
-        "1 bulleted item with a specific risk and threshold.\n"
-        "  4. Closing paragraph naming the COMPUTED SIGNAL trade plan "
-        "(SL/TP1/TP2/TP3 if populated) with a one-sentence rationale per level.\n"
-        "- Cite sources by name (e.g. 'news', 'twitter', 'youtube').\n"
+        "1 bulleted item with a specific risk and threshold (e.g. 'a break "
+        "below $X invalidates the thesis').\n"
+        "  4. A `## Trade Plan` markdown header followed by a markdown TABLE "
+        "with columns `Parameter | Level | Rationale`. Rows in this exact "
+        "order, populated from COMPUTED SIGNAL:\n"
+        "       | Buy Zone   | $buy_zone_low – $buy_zone_high | <why this band> |\n"
+        "       | Stop-Loss  | $sl                            | <why this stop> |\n"
+        "       | TP1        | $tp1                           | <why this target, e.g. measured-move, swing high, $ source> |\n"
+        "       | TP2        | $tp2 (or '—' if null)          | <reason or 'TP2/TP3 padded — fewer than 3 resistance anchors'> |\n"
+        "       | TP3        | $tp3 (or '—' if null)          | <reason or padding note> |\n"
+        "    If COMPUTED SIGNAL.earnings_date is non-null, add a final "
+        "sentence after the table naming the date as the binary catalyst "
+        "(e.g. 'Earnings on YYYY-MM-DD is the binary catalyst').\n"
+        "- Cite sources by name (e.g. 'news', 'twitter', 'youtube'); when "
+        "an evidence row names a channel or analyst, name them in the "
+        "rationale (e.g. 'TP1 from CheddarFlow YT call').\n"
         "- Do not contradict the COMPUTED SIGNAL.\n"
         "- Do not introduce price levels not present in the COMPUTED SIGNAL block.\n"
         "- No @everyone or @here.\n"

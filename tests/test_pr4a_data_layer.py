@@ -344,17 +344,18 @@ def test_embed_color_neutral_or_low_conf():
     assert out["color"] == 0xFEE75C
 
 
-def test_embed_field_count_exactly_8_inline():
+def test_embed_field_count_exactly_10_inline():
+    """Iter5 grew the field set from 8 to 10 (added Price + Buy Zone)."""
     s = StructuredFields(
         direction="BULLISH", confidence_label="HIGH",
         sl=98.5, tp1=112, tp2=125, tp3=140,
         breakout_timeframe="earnings 2026-05-15",
         magnitude_label="±$8.20 (2× ATR)",
+        current_price=110.0, buy_zone_low=105.0, buy_zone_high=110.0,
     )
     sb = ScoreBreakdown(news_catalyst=20)
     out = embed_mod.build_embed("NVDA", s, sb, "n", ["a"], None)
-    assert len(out["fields"]) == 8
-    # All inline for mobile readability
+    assert len(out["fields"]) == 10
     assert all(f.get("inline") for f in out["fields"])
 
 

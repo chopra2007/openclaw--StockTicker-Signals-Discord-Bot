@@ -213,11 +213,12 @@ async def test_handle_all_e2e_full_pipeline_bullish(
     # 3. Embed has color matching direction (BULLISH).
     assert embed["color"] == COLOR_BULLISH
 
-    # 4. Embed has all 8 expected inline fields.
+    # 4. Embed has all 10 expected inline fields (Iter5 added Price + Buy Zone).
     field_names = [f["name"] for f in embed["fields"]]
     assert field_names == [
-        "Direction", "Confidence", "Timeframe", "Magnitude",
+        "Direction", "Confidence", "Price", "Buy Zone",
         "SL", "TP1", "TP2", "TP3",
+        "Timeframe", "Magnitude",
     ]
     assert all(f.get("inline") is True for f in embed["fields"])
 
