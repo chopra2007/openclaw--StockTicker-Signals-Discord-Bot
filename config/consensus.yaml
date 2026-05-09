@@ -80,10 +80,11 @@ scoring:
 # News Cascade (tried in order, stops when catalyst found)
 news_cascade:
   tiers:
-    - finnhub       # Tier 1: Finnhub /company-news (already have key)
-    - google_rss    # Tier 2: Google News RSS (free, no auth)
-    - brave         # Tier 3: Brave Search (quota-limited)
-    - searxng       # Tier 4: SearXNG self-hosted (fallback)
+    - recent_earnings  # Tier 0: Synth recap from /calendar/earnings (revenue + EPS)
+    - finnhub          # Tier 1: Finnhub /company-news (already have key)
+    - google_rss       # Tier 2: Google News RSS (free, no auth)
+    - brave            # Tier 3: Brave Search (quota-limited)
+    - searxng          # Tier 4: SearXNG self-hosted
   finnhub_news_days_back: 2
   brave_daily_budget: 50
 

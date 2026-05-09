@@ -114,6 +114,75 @@ def _build_catalyst(
     )
 
 
+def _format_money(amount) -> str:
+    """Compact USD: 68132000000 → '$68.13B', 35080000000 → '$35.08B'."""
+    try:
+        n = float(amount)
+    except (TypeError, ValueError):
+        return ""
+    abs_n = abs(n)
+    if abs_n >= 1e12:
+        return f"${n / 1e12:.2f}T"
+    if abs_n >= 1e9:
+        return f"${n / 1e9:.2f}B"
+    if abs_n >= 1e6:
+        return f"${n / 1e6:.2f}M"
+    return f"${n:,.0f}"
+
+
+async def _search_recent_earnings(ticker: str) -> Optional[CatalystResult]:
+    """Highest-priority tier: synthesize a catalyst from the most recent print.
+
+    Finnhub /calendar/earnings carries revenueActual + epsActual which the
+    news headline summaries usually omit. Putting them in catalyst_body
+    means the synth prompt sees the real Q numbers instead of having to
+    guess from headline keywords.
+    """
+    from consensus_engine.scanners.earnings_calendar import fetch_recent_earnings_for_ticker
+
+    try:
+        recap = await fetch_recent_earnings_for_ticker(ticker)
+    except Exception as e:
+        log.debug("recent_earnings tier error for %s: %s", ticker, e)
+        return None
+    if not recap or not recap.get("date"):
+        return None
+
+    eps_a, eps_e = recap.get("eps_actual"), recap.get("eps_estimate")
+    rev_a, rev_e = recap.get("revenue_actual"), recap.get("revenue_estimate")
+    parts: list[str] = [f"{ticker} reported earnings on {recap['date']}."]
+    if rev_a is not None:
+        rev_str = f"Revenue {_format_money(rev_a)}"
+        if rev_e:
+            rev_str += f" (est {_format_money(rev_e)})"
+            try:
+                beat_pct = (float(rev_a) - float(rev_e)) / float(rev_e) * 100.0
+                rev_str += f" — {beat_pct:+.1f}% vs est"
+            except (TypeError, ValueError, ZeroDivisionError):
+                pass
+        parts.append(rev_str + ".")
+    if eps_a is not None:
+        eps_str = f"EPS {eps_a:.2f}"
+        if eps_e:
+            eps_str += f" (est {eps_e:.2f})"
+            try:
+                beat_pct = (float(eps_a) - float(eps_e)) / float(eps_e) * 100.0
+                eps_str += f" — {beat_pct:+.1f}% vs est"
+            except (TypeError, ValueError, ZeroDivisionError):
+                pass
+        parts.append(eps_str + ".")
+
+    body = " ".join(parts)
+    log.info("Recent earnings catalyst for %s: %s", ticker, recap["date"])
+    return _build_catalyst(
+        ticker,
+        title=f"{ticker} reported earnings on {recap['date']}",
+        url="https://finnhub.io/api/v1/calendar/earnings",
+        catalyst_type="Earnings Report",
+        body=body,
+    )
+
+
 async def _search_finnhub_news(ticker: str) -> Optional[CatalystResult]:
     """Search Finnhub company news endpoint."""
     api_key = cfg.get_api_key("finnhub")
@@ -289,9 +358,13 @@ async def news_cascade(ticker: str) -> Optional[CatalystResult]:
 
     Order: Finnhub -> Google RSS -> Brave -> SearXNG
     """
-    tiers = cfg.get("news_cascade.tiers", ["finnhub", "google_rss", "brave", "searxng"])
+    tiers = cfg.get(
+        "news_cascade.tiers",
+        ["recent_earnings", "finnhub", "google_rss", "brave", "searxng"],
+    )
 
     tier_funcs = {
+        "recent_earnings": _search_recent_earnings,
         "finnhub": _search_finnhub_news,
         "google_rss": _search_google_news_rss,
         "brave": _search_brave,

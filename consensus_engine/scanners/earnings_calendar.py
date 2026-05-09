@@ -22,6 +22,37 @@ def _filter_upcoming_earnings(earnings: list[dict], tracked_tickers: set[str]) -
     return [e for e in earnings if e.get("symbol") in tracked_tickers]
 
 
+async def fetch_recent_earnings_for_ticker(ticker: str, days_back: int = 90) -> dict | None:
+    """Return the most recent past earnings print for `ticker`, else None.
+
+    Hits Finnhub `/calendar/earnings` over the trailing window. Used by
+    news.py to inject Q-print numbers (revenue / EPS actual + estimate)
+    into the news catalyst body when no live news headline carries them.
+    """
+    if not ticker:
+        return None
+    today = datetime.utcnow().date()
+    start = today - timedelta(days=days_back)
+    rows = await fetch_earnings_calendar(start.isoformat(), today.isoformat())
+    target = ticker.upper()
+    matches = [
+        r for r in rows
+        if str(r.get("symbol", "")).upper() == target and r.get("date", "") <= today.isoformat()
+    ]
+    if not matches:
+        return None
+    matches.sort(key=lambda r: r.get("date", ""), reverse=True)
+    top = matches[0]
+    return {
+        "date": top.get("date"),
+        "eps_actual": top.get("epsActual"),
+        "eps_estimate": top.get("epsEstimate"),
+        "revenue_actual": top.get("revenueActual"),
+        "revenue_estimate": top.get("revenueEstimate"),
+        "hour": top.get("hour"),
+    }
+
+
 async def fetch_next_earnings_for_ticker(ticker: str, days_ahead: int = 60) -> str | None:
     """Return the next earnings ISO date for `ticker` within `days_ahead`, else None.
 
