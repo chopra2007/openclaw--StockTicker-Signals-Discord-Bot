@@ -298,7 +298,9 @@ async def test_narrator_synthesize_contradiction_retry_path():
     async def _call(role, messages, *, max_tokens, temperature, timeout):
         calls.append(messages[0]["content"])
         if len(calls) == 1:
-            return "Bearish, sell now, downside is huge."
+            # Post-iter3: tighter detector requires explicit thesis-reversal
+            # phrasing rather than bare bearish vocabulary.
+            return "Outlook is bearish despite the bullish setup."
         return "Bullish breakout setup with options flow confirming upside."
 
     with patch(

@@ -24,10 +24,23 @@ log = logging.getLogger("consensus_engine.alerts.all_command.output_filter")
 _MARKDOWN_LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
 _CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 _MENTION_RE = re.compile(r"@(?:everyone|here)\b", re.IGNORECASE)
+# Match thesis-reversal language only — generic financial vocabulary like
+# "sell-side", "short interest", or "downside protection" appears in
+# catalyst lists for bullish setups all the time and is not a contradiction.
 _BEARISH_WORDS = re.compile(
-    r"\b(bearish|sell|short|downside|tanking|crash|plunge)\b", re.IGNORECASE)
+    r"\b(?:bearish\s+(?:thesis|reversal|bias|outlook|setup|pattern)"
+    r"|outlook\s+is\s+bearish"
+    r"|recommend(?:s|ed)?\s+(?:selling|shorting|going\s+short)"
+    r"|expect(?:s|ed)?\s+(?:a\s+)?(?:crash|plunge|tanking|sell-?off))\b",
+    re.IGNORECASE,
+)
 _BULLISH_WORDS = re.compile(
-    r"\b(bullish|buy|long|upside|rally|breakout|surge)\b", re.IGNORECASE)
+    r"\b(?:bullish\s+(?:thesis|reversal|bias|outlook|setup|pattern)"
+    r"|outlook\s+is\s+bullish"
+    r"|recommend(?:s|ed)?\s+(?:buying|going\s+long)"
+    r"|expect(?:s|ed)?\s+(?:a\s+)?(?:rally|breakout|surge))\b",
+    re.IGNORECASE,
+)
 
 
 def sanitize_narrative(text: str) -> str:

@@ -272,7 +272,15 @@ def test_output_filter_strips_control_chars():
 
 def test_output_filter_detect_contradiction_bullish_with_bear_words():
     s = StructuredFields(direction="BULLISH", confidence_label="HIGH")
-    assert output_filter.detect_contradiction("This is a strong sell signal", s)
+    # Post-iter3: detector requires explicit thesis-reversal phrasing,
+    # not bare financial vocabulary like "sell signal" / "short interest".
+    assert output_filter.detect_contradiction(
+        "Our outlook is bearish despite the bullish setup.", s,
+    )
+    # Bare-word usage that legitimately appears in catalyst lists must NOT trip.
+    assert not output_filter.detect_contradiction(
+        "Short interest is climbing and sell-side analysts upgraded the name.", s,
+    )
 
 
 def test_output_filter_detect_contradiction_no_flag_on_neutral():
@@ -295,9 +303,9 @@ async def test_output_filter_sanitize_or_retry_returns_ok_when_clean():
 @pytest.mark.asyncio
 async def test_output_filter_sanitize_or_retry_falls_back_when_retry_still_contradicts():
     s = StructuredFields(direction="BULLISH", confidence_label="HIGH")
-    retry = AsyncMock(return_value="Still bearish on this name.")
+    retry = AsyncMock(return_value="Still a bearish thesis on this name.")
     text, status = await output_filter.sanitize_or_retry(
-        "This is bearish.", s, retry,
+        "Bearish reversal is the dominant view here.", s, retry,
     )
     assert status == "fallback_data_only"
     assert text == ""
