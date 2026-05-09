@@ -153,8 +153,12 @@ def compute_buy_zone(
     sup_prices = [p for p in sup_prices if isinstance(p, (int, float)) and p < current_price]
     if direction_u == "BULLISH":
         high = float(current_price)
+        # Cap the entry band at ~5 % below current price — anchors more than
+        # 5 % away aren't an actionable entry zone, they're a "patience" level.
+        floor = round(float(current_price) * 0.95, 2)
         if sup_prices:
-            low = float(max(sup_prices))
+            nearest = float(max(sup_prices))
+            low = max(nearest, floor) if nearest >= floor else floor
         else:
             low = round(float(current_price) * 0.98, 2)
         return low, high
