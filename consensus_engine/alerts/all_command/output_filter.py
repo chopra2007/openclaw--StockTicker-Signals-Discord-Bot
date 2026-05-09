@@ -40,20 +40,31 @@ def sanitize_narrative(text: str) -> str:
     return out
 
 
+_RISK_HEADING_RE = re.compile(
+    r"(?im)^\s*(?:#+\s*|\*\*\s*)?risk(?:s|\s+considerations?)?\b",
+)
+
+
 def detect_contradiction(narrative: str, structured: StructuredFields) -> bool:
     """Return True if the narrative direction contradicts structured.direction.
 
     BULLISH structured + bearish narrative words -> contradiction.
     BEARISH structured + bullish narrative words -> contradiction.
     NEUTRAL structured -> no contradiction (LLM is free to discuss either side).
+
+    Scope: only text BEFORE a `## Risk Considerations` (or similar) heading is
+    scanned. The Risk section legitimately discusses the opposing-direction
+    scenario — that is its purpose, not a thesis contradiction.
     """
     if not narrative or structured is None:
         return False
     direction = (structured.direction or "").upper()
+    risk_match = _RISK_HEADING_RE.search(narrative)
+    text_to_scan = narrative[: risk_match.start()] if risk_match else narrative
     if direction == "BULLISH":
-        return bool(_BEARISH_WORDS.search(narrative))
+        return bool(_BEARISH_WORDS.search(text_to_scan))
     if direction == "BEARISH":
-        return bool(_BULLISH_WORDS.search(narrative))
+        return bool(_BULLISH_WORDS.search(text_to_scan))
     return False
 
 
