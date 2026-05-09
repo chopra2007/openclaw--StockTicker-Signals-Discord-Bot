@@ -319,10 +319,20 @@ def _build_synthesis_prompt(
         f"INTERNAL CONTEXT (#chat last 24h):\n{json.dumps(capped_chat, default=str)}",
         f"INTERNAL CONTEXT (#brief last 3):\n{json.dumps(capped_brief, default=str)}",
         f"PRIOR RESEARCH (vault excerpt):\n{capped_vault}",
-        "CONSTRAINTS:\n- 3 to 6 paragraphs.\n- Do not contradict the "
-        "COMPUTED SIGNAL.\n- Do not introduce price levels not present in "
-        "the COMPUTED SIGNAL block.\n- No @everyone or @here.\n- No "
-        "markdown links — write source names plainly.",
+        "CONSTRAINTS:\n"
+        "- Structure your narrative with these EXACT sections in this order:\n"
+        "  1. Opening thesis paragraph (2-3 sentences) stating direction + headline.\n"
+        "  2. A `## Catalysts` markdown header followed by AT LEAST 2 bulleted "
+        "items (`* …`), each citing a specific number, date, $, or %.\n"
+        "  3. A `## Risk Considerations` markdown header followed by AT LEAST "
+        "1 bulleted item with a specific risk and threshold.\n"
+        "  4. Closing paragraph naming the COMPUTED SIGNAL trade plan "
+        "(SL/TP1/TP2/TP3 if populated) with a one-sentence rationale per level.\n"
+        "- Cite sources by name (e.g. 'news', 'twitter', 'youtube').\n"
+        "- Do not contradict the COMPUTED SIGNAL.\n"
+        "- Do not introduce price levels not present in the COMPUTED SIGNAL block.\n"
+        "- No @everyone or @here.\n"
+        "- No markdown links — write source names plainly.",
     ]
 
     return [
