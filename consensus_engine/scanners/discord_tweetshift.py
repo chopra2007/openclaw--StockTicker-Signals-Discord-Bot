@@ -302,7 +302,7 @@ class DiscordTweetShiftListener:
                 # harnesses that need to trigger commands programmatically.
                 webhook_id = str(data.get("webhook_id") or "")
                 is_allowed_webhook = bool(webhook_id) and webhook_id in self._allowed_webhook_ids
-                if ((author_obj.get("bot") and not is_self)
+                if ((author_obj.get("bot") and not is_self and not is_allowed_webhook)
                         or (webhook_id and not is_allowed_webhook)
                         or is_self_reply):
                     return

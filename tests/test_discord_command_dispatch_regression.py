@@ -232,7 +232,10 @@ async def test_allowed_webhook_id_routes_command():
     payload = {
         "channel_id": "200",
         "id": "msg-id-allowed",
-        "author": {"id": "wh-author", "username": "ClaudeCode"},
+        # Real Discord webhook payloads carry author.bot=true; the filter must
+        # exempt whitelisted webhook IDs from the bot-author drop or the
+        # message never reaches dispatch.
+        "author": {"id": "wh-author", "username": "ClaudeCode", "bot": True},
         "webhook_id": "WEBHOOK_ID_REDACTED",
         "content": "!all NVDA",
         "mentions": [],
