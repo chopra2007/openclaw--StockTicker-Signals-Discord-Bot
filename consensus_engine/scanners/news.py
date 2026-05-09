@@ -145,39 +145,42 @@ async def _search_recent_earnings(ticker: str) -> Optional[CatalystResult]:
     except Exception as e:
         log.debug("recent_earnings tier error for %s: %s", ticker, e)
         return None
-    if not recap or not recap.get("date"):
+    if not recap or not recap.get("period"):
         return None
 
+    period = recap["period"]
     eps_a, eps_e = recap.get("eps_actual"), recap.get("eps_estimate")
-    rev_a, rev_e = recap.get("revenue_actual"), recap.get("revenue_estimate")
-    parts: list[str] = [f"{ticker} reported earnings on {recap['date']}."]
+    eps_surprise_pct = recap.get("eps_surprise_pct")
+    rev_a, rev_yoy = recap.get("revenue_actual"), recap.get("revenue_yoy_pct")
+    parts: list[str] = [f"{ticker} reported earnings for the quarter ending {period}."]
     if rev_a is not None:
         rev_str = f"Revenue {_format_money(rev_a)}"
-        if rev_e:
-            rev_str += f" (est {_format_money(rev_e)})"
-            try:
-                beat_pct = (float(rev_a) - float(rev_e)) / float(rev_e) * 100.0
-                rev_str += f" — {beat_pct:+.1f}% vs est"
-            except (TypeError, ValueError, ZeroDivisionError):
-                pass
+        if rev_yoy is not None:
+            rev_str += f" ({rev_yoy:+.1f}% YoY)"
         parts.append(rev_str + ".")
     if eps_a is not None:
-        eps_str = f"EPS {eps_a:.2f}"
-        if eps_e:
-            eps_str += f" (est {eps_e:.2f})"
+        try:
+            eps_str = f"EPS ${float(eps_a):.2f}"
+        except (TypeError, ValueError):
+            eps_str = f"EPS {eps_a}"
+        if eps_e is not None:
             try:
-                beat_pct = (float(eps_a) - float(eps_e)) / float(eps_e) * 100.0
-                eps_str += f" — {beat_pct:+.1f}% vs est"
-            except (TypeError, ValueError, ZeroDivisionError):
+                eps_str += f" vs est ${float(eps_e):.2f}"
+            except (TypeError, ValueError):
+                pass
+        if eps_surprise_pct is not None:
+            try:
+                eps_str += f" ({float(eps_surprise_pct):+.1f}% surprise)"
+            except (TypeError, ValueError):
                 pass
         parts.append(eps_str + ".")
 
     body = " ".join(parts)
-    log.info("Recent earnings catalyst for %s: %s", ticker, recap["date"])
+    log.info("Recent earnings catalyst for %s: %s", ticker, period)
     return _build_catalyst(
         ticker,
-        title=f"{ticker} reported earnings on {recap['date']}",
-        url="https://finnhub.io/api/v1/calendar/earnings",
+        title=f"{ticker} reported earnings for quarter ending {period}",
+        url="https://finnhub.io/api/v1/stock/earnings",
         catalyst_type="Earnings Report",
         body=body,
     )

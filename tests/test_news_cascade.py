@@ -17,7 +17,9 @@ async def test_finnhub_news_returns_catalyst():
         source_urls=["https://reuters.com/nvda-earnings"],
         confidence=0.8,
     )
-    with patch("consensus_engine.scanners.news._search_finnhub_news",
+    with patch("consensus_engine.scanners.news._search_recent_earnings",
+               new_callable=AsyncMock, return_value=None), \
+         patch("consensus_engine.scanners.news._search_finnhub_news",
                new_callable=AsyncMock, return_value=mock_result):
         result = await news_cascade("NVDA")
         assert result is not None
@@ -36,7 +38,9 @@ async def test_cascade_falls_through_to_google_rss():
         source_urls=["https://cnbc.com/tsla"],
         confidence=0.7,
     )
-    with patch("consensus_engine.scanners.news._search_finnhub_news",
+    with patch("consensus_engine.scanners.news._search_recent_earnings",
+               new_callable=AsyncMock, return_value=None), \
+         patch("consensus_engine.scanners.news._search_finnhub_news",
                new_callable=AsyncMock, return_value=None), \
          patch("consensus_engine.scanners.news._search_google_news_rss",
                new_callable=AsyncMock, return_value=mock_google):
@@ -48,7 +52,9 @@ async def test_cascade_falls_through_to_google_rss():
 @pytest.mark.asyncio
 async def test_cascade_all_miss():
     """If all tiers miss, return None."""
-    with patch("consensus_engine.scanners.news._search_finnhub_news",
+    with patch("consensus_engine.scanners.news._search_recent_earnings",
+               new_callable=AsyncMock, return_value=None), \
+         patch("consensus_engine.scanners.news._search_finnhub_news",
                new_callable=AsyncMock, return_value=None), \
          patch("consensus_engine.scanners.news._search_google_news_rss",
                new_callable=AsyncMock, return_value=None), \

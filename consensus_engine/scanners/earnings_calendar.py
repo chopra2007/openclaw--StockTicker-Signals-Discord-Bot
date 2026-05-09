@@ -22,34 +22,121 @@ def _filter_upcoming_earnings(earnings: list[dict], tracked_tickers: set[str]) -
     return [e for e in earnings if e.get("symbol") in tracked_tickers]
 
 
-async def fetch_recent_earnings_for_ticker(ticker: str, days_back: int = 90) -> dict | None:
-    """Return the most recent past earnings print for `ticker`, else None.
+async def _fetch_finnhub_company_earnings(ticker: str) -> list[dict]:
+    """Hit Finnhub /stock/earnings (symbol-specific, free tier) for EPS history.
 
-    Hits Finnhub `/calendar/earnings` over the trailing window. Used by
-    news.py to inject Q-print numbers (revenue / EPS actual + estimate)
-    into the news catalyst body when no live news headline carries them.
+    The /calendar/earnings endpoint caps responses at 1500 rows globally,
+    which truncates wide windows down to a few days and drops major-cap
+    tickers entirely. The symbol-specific endpoint always returns the
+    most recent quarters for the requested ticker.
+    """
+    api_key = cfg.get_api_key("finnhub")
+    if not api_key:
+        return []
+    if not await rate_limiter.acquire("finnhub"):
+        return []
+    try:
+        async with aiohttp.ClientSession() as session:
+            url = f"https://finnhub.io/api/v1/stock/earnings?symbol={ticker.upper()}&token={api_key}"
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status != 200:
+                    rate_limiter.report_failure("finnhub")
+                    return []
+                data = await resp.json()
+                rate_limiter.report_success("finnhub")
+                return data if isinstance(data, list) else []
+    except Exception as e:
+        log.debug("Finnhub /stock/earnings error for %s: %s", ticker, e)
+        rate_limiter.report_failure("finnhub")
+        return []
+
+
+async def _fetch_yfinance_revenue_history(ticker: str) -> list[tuple[str, float]]:
+    """Quarterly revenue history via yfinance, oldest→newest order swapped.
+
+    Returns up to 5 quarters as (period_iso, revenue_float) so the recap
+    builder can compute YoY = (latest − same_quarter_prior_year) / prior.
+    Runs in the default executor since yfinance is blocking.
+    """
+    import asyncio
+    loop = asyncio.get_running_loop()
+
+    def _sync_fetch() -> list[tuple[str, float]]:
+        try:
+            import yfinance as yf
+            t = yf.Ticker(ticker)
+            qf = t.quarterly_financials
+            if qf is None or qf.empty:
+                return []
+            row_label = "Total Revenue" if "Total Revenue" in qf.index else (
+                "TotalRevenue" if "TotalRevenue" in qf.index else None
+            )
+            if row_label is None:
+                return []
+            series = qf.loc[row_label]
+            out: list[tuple[str, float]] = []
+            for ts, val in series.items():
+                try:
+                    out.append((ts.strftime("%Y-%m-%d"), float(val)))
+                except (TypeError, ValueError, AttributeError):
+                    continue
+            return out
+        except Exception as e:
+            log.debug("yfinance revenue fetch error for %s: %s", ticker, e)
+            return []
+
+    try:
+        return await loop.run_in_executor(None, _sync_fetch)
+    except Exception as e:
+        log.debug("run_in_executor error for %s: %s", ticker, e)
+        return []
+
+
+async def fetch_recent_earnings_for_ticker(ticker: str) -> dict | None:
+    """Return a recap dict for the most recent past earnings print, else None.
+
+    Combines Finnhub `/stock/earnings` (EPS actual + estimate + surprise %)
+    with yfinance quarterly_financials (revenue + YoY %). Either source
+    alone is insufficient: Finnhub free tier omits revenue, and yfinance
+    doesn't carry consensus estimates.
     """
     if not ticker:
         return None
-    today = datetime.utcnow().date()
-    start = today - timedelta(days=days_back)
-    rows = await fetch_earnings_calendar(start.isoformat(), today.isoformat())
-    target = ticker.upper()
-    matches = [
-        r for r in rows
-        if str(r.get("symbol", "")).upper() == target and r.get("date", "") <= today.isoformat()
-    ]
-    if not matches:
+    eps_quarters = await _fetch_finnhub_company_earnings(ticker)
+    revenue_history = await _fetch_yfinance_revenue_history(ticker)
+    if not eps_quarters:
         return None
-    matches.sort(key=lambda r: r.get("date", ""), reverse=True)
-    top = matches[0]
+
+    eps_quarters_sorted = sorted(
+        eps_quarters, key=lambda r: str(r.get("period", "")), reverse=True,
+    )
+    latest = eps_quarters_sorted[0]
+    period = str(latest.get("period", "")) or None
+
+    revenue_actual: float | None = None
+    revenue_yoy_pct: float | None = None
+    if revenue_history:
+        rev_sorted = sorted(revenue_history, key=lambda r: r[0], reverse=True)
+        rev_latest_period, rev_latest_val = rev_sorted[0]
+        revenue_actual = float(rev_latest_val)
+        if len(rev_sorted) >= 5:
+            _, rev_yoy_val = rev_sorted[4]
+            try:
+                if float(rev_yoy_val) > 0:
+                    revenue_yoy_pct = (
+                        (float(rev_latest_val) - float(rev_yoy_val))
+                        / float(rev_yoy_val) * 100.0
+                    )
+            except (TypeError, ValueError, ZeroDivisionError):
+                pass
+
     return {
-        "date": top.get("date"),
-        "eps_actual": top.get("epsActual"),
-        "eps_estimate": top.get("epsEstimate"),
-        "revenue_actual": top.get("revenueActual"),
-        "revenue_estimate": top.get("revenueEstimate"),
-        "hour": top.get("hour"),
+        "period": period,
+        "eps_actual": latest.get("actual"),
+        "eps_estimate": latest.get("estimate"),
+        "eps_surprise_pct": latest.get("surprisePercent"),
+        "revenue_actual": revenue_actual,
+        "revenue_yoy_pct": revenue_yoy_pct,
     }
 
 

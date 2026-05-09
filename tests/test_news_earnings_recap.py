@@ -24,43 +24,57 @@ from consensus_engine.scanners import earnings_calendar, news
 
 @pytest.mark.asyncio
 async def test_fetch_recent_earnings_returns_latest_print(monkeypatch):
-    """`/calendar/earnings` over backwards window → latest past print dict."""
-    fake_calendar = [
-        {"symbol": "NVDA", "date": "2025-11-19",
-         "epsActual": 0.81, "epsEstimate": 0.74,
-         "revenueActual": 35080000000, "revenueEstimate": 33270000000, "hour": "amc"},
-        {"symbol": "NVDA", "date": "2026-02-25",
-         "epsActual": 5.16, "epsEstimate": 4.60,
-         "revenueActual": 68132000000, "revenueEstimate": 64850000000, "hour": "amc"},
-        {"symbol": "AAPL", "date": "2026-01-30",
-         "epsActual": 2.40, "epsEstimate": 2.35},
+    """Finnhub /stock/earnings + yfinance quarterly_financials → recap dict."""
+    finnhub_eps_quarters = [
+        {"period": "2026-01-31", "actual": 5.16, "estimate": 4.60,
+         "surprise": 0.56, "surprisePercent": 12.17, "year": 2026, "quarter": 4},
+        {"period": "2025-10-31", "actual": 0.81, "estimate": 0.74,
+         "surprise": 0.07, "surprisePercent": 9.46, "year": 2026, "quarter": 3},
+    ]
+    yfinance_revenue_history = [
+        ("2026-01-31", 68132000000),
+        ("2025-10-31", 57006000000),
+        ("2025-07-31", 46743000000),
+        ("2025-04-30", 44062000000),
+        ("2025-01-31", 39330000000),
     ]
 
-    async def _stub(*_a, **_kw):
-        return fake_calendar
+    async def _stub_finnhub(_t):
+        return finnhub_eps_quarters
 
-    monkeypatch.setattr(earnings_calendar, "fetch_earnings_calendar", _stub)
+    async def _stub_yfinance(_t):
+        return yfinance_revenue_history
 
-    out = await earnings_calendar.fetch_recent_earnings_for_ticker("NVDA", days_back=120)
-    assert out is not None, "should find NVDA's most recent past print"
-    assert out["date"] == "2026-02-25", "should pick the most-recent past date"
+    monkeypatch.setattr(
+        earnings_calendar, "_fetch_finnhub_company_earnings", _stub_finnhub,
+    )
+    monkeypatch.setattr(
+        earnings_calendar, "_fetch_yfinance_revenue_history", _stub_yfinance,
+    )
+
+    out = await earnings_calendar.fetch_recent_earnings_for_ticker("NVDA")
+    assert out is not None, "should return a recap dict"
+    assert out["period"] == "2026-01-31"
     assert out["eps_actual"] == 5.16
+    assert out["eps_estimate"] == 4.60
     assert out["revenue_actual"] == 68132000000
-    assert out["revenue_estimate"] == 64850000000
+    # YoY = (68.13 - 39.33) / 39.33 ≈ 73.2%
+    assert 70 <= out["revenue_yoy_pct"] <= 76, (
+        f"YoY should be ~73%; got {out['revenue_yoy_pct']!r}"
+    )
 
 
 @pytest.mark.asyncio
-async def test_fetch_recent_earnings_skips_future_prints(monkeypatch):
-    """Only past prints qualify as 'recent'; future prints belong to next-earnings."""
-    from datetime import datetime, timedelta
-    future_date = (datetime.utcnow() + timedelta(days=20)).date().isoformat()
-
-    async def _stub(*_a, **_kw):
-        return [{"symbol": "NVDA", "date": future_date, "epsActual": None, "revenueActual": None}]
-
-    monkeypatch.setattr(earnings_calendar, "fetch_earnings_calendar", _stub)
+async def test_fetch_recent_earnings_returns_none_when_no_eps(monkeypatch):
+    """No Finnhub EPS data → no recap (we don't fabricate)."""
+    async def _empty(_t):
+        return []
+    async def _empty_rev(_t):
+        return []
+    monkeypatch.setattr(earnings_calendar, "_fetch_finnhub_company_earnings", _empty)
+    monkeypatch.setattr(earnings_calendar, "_fetch_yfinance_revenue_history", _empty_rev)
     out = await earnings_calendar.fetch_recent_earnings_for_ticker("NVDA")
-    assert out is None, "future prints must not be returned as recent earnings"
+    assert out is None
 
 
 @pytest.mark.asyncio
@@ -68,10 +82,9 @@ async def test_search_recent_earnings_builds_catalyst_with_revenue(monkeypatch):
     """News tier wraps the recap into CatalystResult.catalyst_body."""
     async def _stub(*_a, **_kw):
         return {
-            "date": "2026-02-25",
-            "eps_actual": 5.16, "eps_estimate": 4.60,
-            "revenue_actual": 68132000000, "revenue_estimate": 64850000000,
-            "hour": "amc",
+            "period": "2026-01-31",
+            "eps_actual": 5.16, "eps_estimate": 4.60, "eps_surprise_pct": 12.17,
+            "revenue_actual": 68132000000, "revenue_yoy_pct": 73.2,
         }
     monkeypatch.setattr(
         earnings_calendar, "fetch_recent_earnings_for_ticker", _stub,
@@ -82,11 +95,8 @@ async def test_search_recent_earnings_builds_catalyst_with_revenue(monkeypatch):
     assert result.catalyst_type == "Earnings Report"
     body = result.catalyst_body or ""
     assert "$68" in body, f"revenue actual must appear; got {body!r}"
-    # Beat-magnitude commentary is computed: (68.13 - 64.85) / 64.85 ≈ 5%
-    # but %YoY isn't in /calendar/earnings — we just need the absolute number
-    # in there. The prompt will let the LLM cite it.
-    assert "EPS" in body or "eps" in body.lower()
-    assert "5.16" in body
+    assert "73" in body, f"YoY % must appear; got {body!r}"
+    assert "5.16" in body or "EPS" in body
 
 
 @pytest.mark.asyncio
