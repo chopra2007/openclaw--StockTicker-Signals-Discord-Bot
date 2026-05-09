@@ -13,14 +13,18 @@ vault markdown round-trip cleanly through L1 (in-memory) and L2 (DB).
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 from typing import Any, Awaitable, Callable, Optional
 
+from consensus_engine import __version__ as _engine_version
 from consensus_engine.utils import xref_cache
 
 log = logging.getLogger("consensus_engine.alerts.all_command.cache")
 
-KEY_PREFIX = "all"
+# Prefix encodes a code-version hash so any release auto-invalidates `all:*`
+# rows without admin action. Evaluated once at import.
+KEY_PREFIX = "all_v" + hashlib.sha1(_engine_version.encode()).hexdigest()[:8]
 TTL_SECONDS = 900  # 15 minutes per locked decision D10
 
 

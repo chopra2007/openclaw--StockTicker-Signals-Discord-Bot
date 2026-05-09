@@ -206,9 +206,6 @@ llm:
   # in the chain support 65k-131k output, so 4096 is a soft per-call ceiling.
   # Specific callers that need more (synthesize_narrative = 8000) hardcode it.
   max_tokens: 4096
-  # Text-tier callers explicitly pass role="text" for sanitization. 32k covers
-  # the full hostile-text payload from SearXNG + Discord history.
-  text_max_tokens: 32000
 
 
 # Ticker validation
