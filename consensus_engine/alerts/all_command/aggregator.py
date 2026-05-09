@@ -344,18 +344,12 @@ def _earnings_iso(decision_snapshots) -> Optional[str]:
     return None
 
 
-def _build_searxng_snippets(news_catalyst, sec_filings, gap_fill_result) -> list[str]:
-    """Combine catalyst body + SEC filings + gap-fill snippets for sanitize batch."""
+def _build_news_snippets(news_catalyst, gap_fill_result) -> list[str]:
+    """News catalyst body + web-harvested gap-fill snippets (PR4)."""
     out: list[str] = []
     body = getattr(news_catalyst, "catalyst_body", None) if news_catalyst else None
     if body:
         out.append(str(body))
-    if isinstance(sec_filings, list):
-        for f in sec_filings[:5]:
-            if isinstance(f, dict):
-                summary = f.get("summary") or f.get("title") or ""
-                if summary:
-                    out.append(str(summary))
     if isinstance(gap_fill_result, dict):
         for key in ("harvested_anchors_snippets",
                     "eight_k_summary_snippets",
@@ -364,6 +358,71 @@ def _build_searxng_snippets(news_catalyst, sec_filings, gap_fill_result) -> list
                 if snip:
                     out.append(str(snip))
     return out[:20]
+
+
+def _build_sec_snippets(sec_filings) -> list[str]:
+    """SEC filing summaries — distinct from news so the prompt can label them (PR4)."""
+    out: list[str] = []
+    if isinstance(sec_filings, list):
+        for f in sec_filings[:5]:
+            if isinstance(f, dict):
+                summary = f.get("summary") or f.get("title") or ""
+                if summary:
+                    out.append(str(summary))
+    return out
+
+
+def _build_twitter_snippets(twitter_signals) -> list[str]:
+    """Pull raw_text / source_detail strings from twitter_signals rows (PR4)."""
+    out: list[str] = []
+    if isinstance(twitter_signals, list):
+        for row in twitter_signals[:30]:
+            if isinstance(row, dict):
+                txt = row.get("raw_text") or row.get("source_detail") or ""
+                if txt:
+                    out.append(str(txt))
+    return out
+
+
+def _build_social_snippets(social_signals) -> list[str]:
+    """Pull raw_text from reddit/wsb/apewisdom social_signals rows (PR4)."""
+    out: list[str] = []
+    if isinstance(social_signals, list):
+        for row in social_signals[:30]:
+            if isinstance(row, dict):
+                txt = row.get("raw_text") or row.get("source_detail") or ""
+                if txt:
+                    src = row.get("source_type", "social")
+                    out.append(f"[{src}] {txt}")
+    return out
+
+
+def _build_yt_evidence_snippets(yt_evidence) -> list[str]:
+    """Pull context_text + source_snippet from youtube_evidence rows (PR4)."""
+    out: list[str] = []
+    if isinstance(yt_evidence, list):
+        for row in yt_evidence[:10]:
+            if isinstance(row, dict):
+                ch = row.get("channel_name", "?")
+                ctx = row.get("context_text") or row.get("source_snippet") or row.get("condition_text") or ""
+                if ctx:
+                    out.append(f"[{ch}] {ctx}")
+    return out
+
+
+def _build_technical_short_dict(tech_short) -> dict:
+    """Coerce technical_short scanner result into a JSON-friendly dict (PR4)."""
+    if tech_short is None:
+        return {}
+    if isinstance(tech_short, dict):
+        return {k: v for k, v in tech_short.items() if isinstance(v, (int, float, str, bool, type(None)))}
+    out: dict = {}
+    for attr in ("rsi", "macd", "ema_9", "ema_21", "vwap", "current_price",
+                 "atr14", "rvol", "price_change_pct"):
+        v = getattr(tech_short, attr, None)
+        if v is not None:
+            out[attr] = v
+    return out
 
 
 def _structured_data_summary(data: dict) -> str:
@@ -477,19 +536,27 @@ async def _compute_all(ticker: str, start: float) -> dict:
         magnitude_label=magnitude,
     )
 
-    # Sanitize hostile text.
-    searxng_snippets = _build_searxng_snippets(
-        data["news_catalyst"], data["sec_filings"], gap_fill_result,
-    )
+    # Sanitize hostile text. PR4: split SearXNG into news+sec+gap-fill blocks
+    # and route the 6 previously-discarded sources to their own batches.
+    news_snippets = _build_news_snippets(data["news_catalyst"], gap_fill_result)
+    sec_snippets = _build_sec_snippets(data["sec_filings"])
+    twitter_msgs = _build_twitter_snippets(data["twitter_signals"])
+    social_msgs = _build_social_snippets(data["social_signals"])
+    yt_evidence_msgs = _build_yt_evidence_snippets(data["yt_evidence"])
     chat_msgs = data["chat_msgs"] if isinstance(data["chat_msgs"], list) else []
     brief_msgs = data["brief_msgs"] if isinstance(data["brief_msgs"], list) else []
     prior_vault = data["prior_vault"] or ""
 
     sanitized = await narrator.sanitize_hostile_text(
-        searxng_snippets=searxng_snippets,
+        searxng_snippets=[],   # PR4 split: news+sec routed below
         chat_msgs=chat_msgs,
         brief_msgs=brief_msgs,
         vault_text=prior_vault,
+        news_snippets=news_snippets,
+        sec_snippets=sec_snippets,
+        twitter_msgs=twitter_msgs,
+        social_msgs=social_msgs,
+        yt_evidence_msgs=yt_evidence_msgs,
     )
     stage_t["sanitize"] = _t()
 
@@ -514,6 +581,14 @@ async def _compute_all(ticker: str, start: float) -> dict:
             structured_data_json=_structured_data_summary(data),
             deadline_seconds=_remaining(start),
             sources_surfaced=sources_surfaced,
+            sanitized_news=sanitized.get("news", []),
+            sanitized_sec=sanitized.get("sec", []),
+            sanitized_twitter=sanitized.get("twitter", []),
+            sanitized_social=sanitized.get("social", []),
+            sanitized_yt_signals=data["yt_signals"] if isinstance(data["yt_signals"], list) else [],
+            sanitized_yt_options=data["yt_options"] if isinstance(data["yt_options"], list) else [],
+            sanitized_yt_evidence=sanitized.get("yt_evidence", []),
+            sanitized_technical_short=_build_technical_short_dict(data["technical_short"]),
         )
         if narrative_status != "ok":
             narrative = output_filter.render_data_only_fallback(

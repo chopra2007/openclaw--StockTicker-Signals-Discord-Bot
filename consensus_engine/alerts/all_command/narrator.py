@@ -109,6 +109,16 @@ async def searxng_batch(snippets: list[str]) -> list[str]:
     return await _batch_summarize(snippets)
 
 
+async def news_batch(snippets: list[str]) -> list[str]:
+    """Sanitize-summarize news catalyst body fragments in one call (PR4)."""
+    return await _batch_summarize(snippets)
+
+
+async def sec_batch(snippets: list[str]) -> list[str]:
+    """Sanitize-summarize SEC filing summaries in one call (PR4)."""
+    return await _batch_summarize(snippets)
+
+
 async def chat_batch(messages: list[str]) -> list[str]:
     """Sanitize-summarize all #chat ticker-filtered messages in one batched call."""
     return await _batch_summarize(messages)
@@ -116,6 +126,21 @@ async def chat_batch(messages: list[str]) -> list[str]:
 
 async def brief_batch(messages: list[str]) -> list[str]:
     """Sanitize-summarize the last 3 #brief messages in one batched call."""
+    return await _batch_summarize(messages)
+
+
+async def twitter_batch(messages: list[str]) -> list[str]:
+    """Sanitize-summarize twitter_signals raw_text in one call (PR4)."""
+    return await _batch_summarize(messages)
+
+
+async def social_batch(messages: list[str]) -> list[str]:
+    """Sanitize-summarize reddit/wsb social_signals raw_text in one call (PR4)."""
+    return await _batch_summarize(messages)
+
+
+async def yt_evidence_batch(messages: list[str]) -> list[str]:
+    """Sanitize-summarize youtube_evidence context/source_snippet text (PR4)."""
     return await _batch_summarize(messages)
 
 
@@ -147,16 +172,29 @@ async def sanitize_hostile_text(
     chat_msgs: list[str],
     brief_msgs: list[str],
     vault_text: str,
+    news_snippets: Optional[list[str]] = None,
+    sec_snippets: Optional[list[str]] = None,
+    twitter_msgs: Optional[list[str]] = None,
+    social_msgs: Optional[list[str]] = None,
+    yt_evidence_msgs: Optional[list[str]] = None,
 ) -> dict:
-    """Run all 4 batches concurrently. Returns dict with sanitized lists.
+    """Run sanitize batches concurrently. Returns dict with sanitized lists.
 
-    Total = 4 LLM calls regardless of snippet count (per Pass 4 critic R1).
+    PR4 grew from 4 to 9 concurrent calls (still bounded — 1 LLM call per
+    source type regardless of row count). The legacy `searxng_snippets`
+    param stays for back-compat with callers that haven't been split yet;
+    when news_snippets / sec_snippets are passed the legacy list is empty.
     """
     results = await asyncio.gather(
         searxng_batch(searxng_snippets or []),
         chat_batch(chat_msgs or []),
         brief_batch(brief_msgs or []),
         vault_excerpt(vault_text or ""),
+        news_batch(news_snippets or []),
+        sec_batch(sec_snippets or []),
+        twitter_batch(twitter_msgs or []),
+        social_batch(social_msgs or []),
+        yt_evidence_batch(yt_evidence_msgs or []),
         return_exceptions=True,
     )
 
@@ -175,6 +213,11 @@ async def sanitize_hostile_text(
         "chat": _coerce_list(results[1]),
         "brief": _coerce_list(results[2]),
         "vault": _coerce_str(results[3]),
+        "news": _coerce_list(results[4]),
+        "sec": _coerce_list(results[5]),
+        "twitter": _coerce_list(results[6]),
+        "social": _coerce_list(results[7]),
+        "yt_evidence": _coerce_list(results[8]),
     }
 
 
@@ -216,6 +259,15 @@ def _build_synthesis_prompt(
     vault_summary: str,
     structured_data_json: str,
     sources_surfaced: Optional[list[str]] = None,
+    # PR4: distinct evidence blocks per source (no more shared `capped_news`).
+    sanitized_news: Optional[list[str]] = None,
+    sanitized_sec: Optional[list[str]] = None,
+    sanitized_twitter: Optional[list[str]] = None,
+    sanitized_social: Optional[list[str]] = None,
+    sanitized_yt_signals: Optional[list[dict]] = None,
+    sanitized_yt_options: Optional[list[dict]] = None,
+    sanitized_yt_evidence: Optional[list[dict]] = None,
+    sanitized_technical_short: Optional[dict] = None,
 ) -> list[dict]:
     """Build the synthesis-pass message list per plan §3.6 / Pass 2 R6."""
     final_score = (
@@ -235,7 +287,16 @@ def _build_synthesis_prompt(
         "final_score": final_score,
     }
 
-    capped_news = _truncate_list(sanitized_searxng, _CAP_NEWS + _CAP_SEC + _CAP_TWEETS)
+    # PR4: prefer distinct per-source lists; fall back to legacy
+    # sanitized_searxng for callers (and tests) that haven't been migrated.
+    news_block = _truncate_list(sanitized_news or sanitized_searxng, _CAP_NEWS)
+    sec_block = _truncate_list(sanitized_sec or [], _CAP_SEC)
+    twitter_block = _truncate_list(sanitized_twitter or [], _CAP_TWEETS)
+    social_block = _truncate_list(sanitized_social or [], _CAP_SOCIAL)
+    yt_signals_block = _truncate_list(sanitized_yt_signals or [], _CAP_YT)
+    yt_options_block = _truncate_list(sanitized_yt_options or [], _CAP_YT)
+    yt_evidence_block = _truncate_list(sanitized_yt_evidence or [], _CAP_YT)
+    technical_block = sanitized_technical_short or {}
     capped_chat = _truncate_list(sanitized_chat, _CAP_CHANNEL)
     capped_brief = _truncate_list(sanitized_brief, _CAP_CHANNEL)
     capped_vault = (vault_summary or "")[:_CAP_VAULT_CHARS]
@@ -247,10 +308,14 @@ def _build_synthesis_prompt(
         f"COMPUTED SIGNAL:\n{json.dumps(computed_signal, default=str)}",
         f"SOURCES SURFACED ({len(surfaced)}):\n{', '.join(surfaced) or '(none)'}",
         f"STRUCTURED DATA SUMMARY:\n{structured_data_json or '{}'}",
-        f"ANALYST EVIDENCE:\n{json.dumps(capped_news[:_CAP_TWEETS], default=str)}",
-        f"SEC EVIDENCE:\n{json.dumps(_truncate_list(capped_news, _CAP_SEC), default=str)}",
-        f"TECHNICAL EVIDENCE:\n{json.dumps(_truncate_list(capped_news, _CAP_NEWS), default=str)}",
-        f"SOCIAL EVIDENCE:\n{json.dumps(_truncate_list(capped_news, _CAP_SOCIAL), default=str)}",
+        f"NEWS / ANALYST EVIDENCE:\n{json.dumps(news_block, default=str)}",
+        f"SEC FILINGS:\n{json.dumps(sec_block, default=str)}",
+        f"TECHNICAL CONTEXT:\n{json.dumps(technical_block, default=str)}",
+        f"SOCIAL SIGNALS (twitter):\n{json.dumps(twitter_block, default=str)}",
+        f"SOCIAL SIGNALS (reddit/wsb):\n{json.dumps(social_block, default=str)}",
+        f"YOUTUBE ANALYST CALLS:\n{json.dumps(yt_signals_block, default=str)}",
+        f"YOUTUBE OPTIONS FLOW:\n{json.dumps(yt_options_block, default=str)}",
+        f"YOUTUBE TRADE SETUPS:\n{json.dumps(yt_evidence_block, default=str)}",
         f"INTERNAL CONTEXT (#chat last 24h):\n{json.dumps(capped_chat, default=str)}",
         f"INTERNAL CONTEXT (#brief last 3):\n{json.dumps(capped_brief, default=str)}",
         f"PRIOR RESEARCH (vault excerpt):\n{capped_vault}",
@@ -296,6 +361,14 @@ async def synthesize_narrative(
     structured_data_json: str,
     deadline_seconds: float,
     sources_surfaced: Optional[list[str]] = None,
+    sanitized_news: Optional[list[str]] = None,
+    sanitized_sec: Optional[list[str]] = None,
+    sanitized_twitter: Optional[list[str]] = None,
+    sanitized_social: Optional[list[str]] = None,
+    sanitized_yt_signals: Optional[list[dict]] = None,
+    sanitized_yt_options: Optional[list[dict]] = None,
+    sanitized_yt_evidence: Optional[list[dict]] = None,
+    sanitized_technical_short: Optional[dict] = None,
 ) -> tuple[str, str]:
     """Run the synthesis LLM call and pipe the result through output_filter.
 
@@ -314,6 +387,14 @@ async def synthesize_narrative(
         vault_summary=vault_summary or "",
         structured_data_json=structured_data_json or "{}",
         sources_surfaced=sources_surfaced,
+        sanitized_news=sanitized_news,
+        sanitized_sec=sanitized_sec,
+        sanitized_twitter=sanitized_twitter,
+        sanitized_social=sanitized_social,
+        sanitized_yt_signals=sanitized_yt_signals,
+        sanitized_yt_options=sanitized_yt_options,
+        sanitized_yt_evidence=sanitized_yt_evidence,
+        sanitized_technical_short=sanitized_technical_short,
     )
 
     raw = await _invoke_synthesis(messages, deadline_seconds)
