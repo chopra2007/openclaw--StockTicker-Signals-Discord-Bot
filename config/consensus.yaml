@@ -172,27 +172,42 @@ technical:
 
 # LLM Configuration (OpenRouter)
 llm:
-  # Primary chain: nvidia first because it's the only model that consistently
-  # survives the chain in recent live invocations. tencent now intermittently
-  # times out; poolside is dead. Verified via 15:38:24 PDT !all NVDA dry-run
-  # where nvidia rescued the call after tencent's TimeoutError() (~12s wasted).
-  model: "nvidia/nemotron-3-super-120b-a12b:free"
+  # Chain selected via 3-trial empirical benchmark on 2026-05-08 (7 free models,
+  # 21 calls). Ranked by latency (TTFT + total), max output, and quality of
+  # 4-paragraph financial-narrative output for the !all use case.
+  #
+  # Disqualified models:
+  #   - nvidia/nemotron-3-super-120b-a12b:free — non-streaming on free tier
+  #     (TTFT≈Total ~58s for 2k tokens); also dumps internal planning +
+  #     word-counting into response, contaminating Discord output.
+  #   - tencent/hy3-preview:free — removed from OpenRouter API.
+  #   - poolside/laguna-m.1:free / laguna-xs.2:free — coding-specialized; 8k
+  #     output cap; wrong domain for financial narrative.
+  #   - inclusionai/ling-2.6-flash — paid ($0.08/$0.24 per Mtok), not free.
+  #   - openrouter/owl-alpha + google/gemma-4 (26b/31b):free — 429-blocked on
+  #     free tier in all 3 benchmark trials.
+  #   - minimax/minimax-m2.5:free — 84s pause then big dump; ignores max_tokens.
+  #
+  # Surviving chain (all free, three distinct providers for failover diversity):
+  #   gpt-oss-120b   (OpenInference) — 1.79s TTFT, 26s total, A-grade output
+  #   ring-2.6-1t    (Novita)        — 5s eff TTFT, 10-26s total, A-grade
+  #   glm-4.5-air    (Z.AI)          — 21s TTFT (variable), 30s total, B+ grade
+  model: "openai/gpt-oss-120b:free"
   fallback_models:
-    - "tencent/hy3-preview:free"
-    - "poolside/laguna-m.1:free"
-  text_model: "inclusionai/ling-2.6-flash"
+    - "inclusionai/ring-2.6-1t:free"
+    - "z-ai/glm-4.5-air:free"
+  text_model: "openai/gpt-oss-120b:free"
   text_fallback_models:
-    - "baidu/cobuddy:free"
-    - "poolside/laguna-xs.2:free"
+    - "inclusionai/ring-2.6-1t:free"
+    - "z-ai/glm-4.5-air:free"
   vision_model: "google/gemma-4-31b-it:free"
   min_confidence: 70
-  # Primary-tier output cap. Free models cap at 4-8k output tokens; asking for
-  # 32k caused OpenRouter to return 200 with empty content or silently drop
-  # connection. Specific callers that legitimately need more (synthesize_narrative
-  # = 8000) hardcode their own value.
+  # Primary-tier output cap. gpt-oss-120b honors max_tokens cleanly; free models
+  # in the chain support 65k-131k output, so 4096 is a soft per-call ceiling.
+  # Specific callers that need more (synthesize_narrative = 8000) hardcode it.
   max_tokens: 4096
-  # Text-tier model `ling-2.6-flash` advertises a 32k output cap. Used only by
-  # callers that explicitly pass `role="text"`; primary callers stay on max_tokens.
+  # Text-tier callers explicitly pass role="text" for sanitization. 32k covers
+  # the full hostile-text payload from SearXNG + Discord history.
   text_max_tokens: 32000
 
 
