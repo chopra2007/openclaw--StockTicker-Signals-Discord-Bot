@@ -454,8 +454,46 @@ async def send_trend_digest(trending: list[dict]) -> Optional[str]:
             return data.get("id")
 
 
+_DISCORD_MSG_LIMIT = 2000
+
+
+def _split_for_discord(content: str, limit: int = _DISCORD_MSG_LIMIT) -> list[str]:
+    """Split `content` into chunks ≤ `limit` chars. Prefer paragraph then line breaks.
+
+    Returns [] for empty input. Any single line longer than the limit is hard-cut
+    on a character boundary as a last resort.
+    """
+    if not content:
+        return []
+    if len(content) <= limit:
+        return [content]
+
+    chunks: list[str] = []
+    remaining = content
+    while remaining:
+        if len(remaining) <= limit:
+            chunks.append(remaining)
+            break
+        window = remaining[:limit]
+        cut = window.rfind("\n\n")
+        if cut < limit // 4:
+            cut = window.rfind("\n")
+        if cut < limit // 4:
+            cut = window.rfind(" ")
+        if cut < limit // 4:
+            cut = limit
+        chunks.append(remaining[:cut])
+        remaining = remaining[cut:].lstrip("\n").lstrip()
+    return chunks
+
+
 async def send_command_reply(channel_id: str, reply_to_msg_id: str, content: str) -> Optional[str]:
-    """Send a plain-text reply to a Discord command message."""
+    """Send a plain-text reply, splitting into multiple messages if > 2000 chars.
+
+    Each subsequent chunk replies to the prior bot message so the thread stays
+    visually grouped. Returns the ID of the last sent message (or None on
+    first-message failure).
+    """
     if cfg.dry_run:
         log.info("[DRY-RUN] Command reply to %s: %s", reply_to_msg_id, content[:80])
         return "dry_run_reply_id"
@@ -465,21 +503,31 @@ async def send_command_reply(channel_id: str, reply_to_msg_id: str, content: str
         log.warning("Discord bot token not configured")
         return None
 
+    chunks = _split_for_discord(content)
+    if not chunks:
+        return None
+
+    last_id: Optional[str] = None
+    reply_target = reply_to_msg_id
     async with aiohttp.ClientSession() as session:
         url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
         headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
-        payload = _safe_send_kwargs({
-            "content": content[:2000],
-            "message_reference": {"message_id": reply_to_msg_id},
-        })
-        async with session.post(url, headers=headers, json=payload,
-                                timeout=aiohttp.ClientTimeout(total=10)) as resp:
-            if resp.status not in (200, 201):
-                error_body = await resp.text()
-                log.warning("Command reply failed: %d body=%.300s", resp.status, error_body)
-                return None
-            data = await resp.json()
-            return data.get("id")
+        for chunk in chunks:
+            payload = _safe_send_kwargs({
+                "content": chunk,
+                "message_reference": {"message_id": reply_target},
+            })
+            async with session.post(url, headers=headers, json=payload,
+                                    timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status not in (200, 201):
+                    error_body = await resp.text()
+                    log.warning("Command reply failed: %d body=%.300s", resp.status, error_body)
+                    return last_id
+                data = await resp.json()
+                last_id = data.get("id")
+                if last_id:
+                    reply_target = last_id
+    return last_id
 
 
 async def send_command_embed_reply(

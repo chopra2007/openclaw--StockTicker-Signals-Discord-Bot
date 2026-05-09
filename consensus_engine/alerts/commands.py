@@ -38,12 +38,100 @@ _INVALID_TICKER_MSG = "Invalid ticker `{ticker}`. Tickers must be 1-6 uppercase 
 
 log = logging.getLogger("consensus_engine.alerts.commands")
 
+
+def _parse_history_limit(content: str, default: int = 20) -> int:
+    """Extract 'last N messages' from content, capped at 50."""
+    m = re.search(r'last\s+(\d+)\s+messages?', content, re.IGNORECASE)
+    if m:
+        return min(int(m.group(1)), 50)
+    return default
+
+
+async def _fetch_channel_history(channel_id: str, limit: int = 20) -> str:
+    """Fetch recent messages from a Discord channel and format them as context."""
+    import aiohttp
+    token = cfg.get_api_key("discord_bot_token")
+    if not token:
+        return ""
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                f"https://discord.com/api/v10/channels/{channel_id}/messages?limit={limit}",
+                headers={"Authorization": f"Bot {token}"},
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                if resp.status != 200:
+                    return ""
+                msgs = await resp.json()
+        lines = []
+        for m in reversed(msgs):
+            author = m.get("author", {}).get("username", "unknown")
+            parts = []
+            body = m.get("content", "").strip()
+            if body:
+                parts.append(body)
+            for embed in m.get("embeds", []):
+                if embed.get("title"):
+                    parts.append(f"[embed: {embed['title']}]")
+                if embed.get("description"):
+                    parts.append(embed["description"][:200])
+                for field in embed.get("fields", []):
+                    parts.append(f"{field.get('name','')}: {field.get('value','')[:150]}")
+            if parts:
+                lines.append(f"{author}: " + " | ".join(parts))
+        return "\n".join(lines)
+    except Exception as exc:
+        log.warning("Failed to fetch channel history: %s", exc)
+        return ""
+
+
+async def _handle_ask(question: str, channel_id: str, message_id: str) -> None:
+    """Route a question to the heavyweight primary LLM chain.
+
+    Bare @-mentions stay on the lighter `text` chain (faster, cheaper).
+    `!ask` is the explicit escape hatch for full-length analytical answers —
+    role="primary", max_tokens=8000, with channel history as context. The
+    response is delivered via send_command_reply, which transparently splits
+    long output into multiple Discord messages.
+    """
+    from consensus_engine.llm_client import call_with_fallback
+
+    if not cfg.get_api_key("openrouter"):
+        await send_command_reply(channel_id, message_id, "⚠️ LLM not configured.")
+        return
+
+    history = await _fetch_channel_history(channel_id, limit=20)
+    context_block = (
+        f"\n\nRecent channel messages (oldest→newest):\n{history}" if history else ""
+    )
+    system_prompt = (
+        "You are OpenClaw, an AI trading signal and market intelligence assistant "
+        "running on a Discord server. Answer the user's question with full reasoning "
+        "and specific numbers wherever possible. Cite the data you rely on by source "
+        "name. Never fabricate ticker data."
+        f"{context_block}"
+    )
+    reply = await call_with_fallback(
+        role="primary",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": question},
+        ],
+        max_tokens=8000,
+        temperature=0.4,
+    )
+    if reply:
+        await send_command_reply(channel_id, message_id, reply)
+    else:
+        await send_command_reply(channel_id, message_id, "⚠️ LLM unavailable right now.")
+
 HELP_TEXT = """**OpenClaw Signal Engine — Commands**
 `!help` — show this message
 `!status` — engine health summary (active signals, last alert)
 `!trend` — post latest Reddit trend digest
 `!scan <TICKER>` — full cross-reference on a ticker (e.g. `!scan NVDA`)
 `!all <TICKER>` — synthesize ALL sources into a single LLM analysis (e.g. `!all AMD`)
+`!ask <question>` — full-power LLM answer (auto-splits if > 2000 chars)
 `!performance` — alert win rates and P&L stats
 
 **Ticker Intel**
@@ -127,6 +215,15 @@ async def route_command(
                 await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=ticker))
             else:
                 await _handle_scan(ticker, channel_id, message_id)
+
+    elif command == "ask":
+        question = " ".join(args).strip()
+        if not question:
+            await send_command_reply(channel_id, message_id,
+                "Usage: `!ask <your question>` — routes to the heavyweight LLM "
+                "chain with longer answers (auto-split across messages if needed).")
+        else:
+            await _handle_ask(question, channel_id, message_id)
 
     elif command == "all":
         if not args:

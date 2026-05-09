@@ -378,55 +378,12 @@ async def run_once():
     return count
 
 
-def _parse_history_limit(content: str, default: int = 20) -> int:
-    """Extract 'last N messages' from content, capped at 50."""
-    import re
-    m = re.search(r'last\s+(\d+)\s+messages?', content, re.IGNORECASE)
-    if m:
-        return min(int(m.group(1)), 50)
-    return default
-
-
-async def _fetch_channel_history(channel_id: str, limit: int = 20) -> str:
-    """Fetch recent messages from a Discord channel and format them as context."""
-    import aiohttp as _aiohttp
-    token = cfg.get_api_key("discord_bot_token")
-    if not token:
-        return ""
-    try:
-        async with _aiohttp.ClientSession() as session:
-            async with session.get(
-                f"https://discord.com/api/v10/channels/{channel_id}/messages?limit={limit}",
-                headers={"Authorization": f"Bot {token}"},
-                timeout=_aiohttp.ClientTimeout(total=10),
-            ) as resp:
-                if resp.status != 200:
-                    return ""
-                msgs = await resp.json()
-        lines = []
-        for m in reversed(msgs):
-            author = m.get("author", {}).get("username", "unknown")
-            parts = []
-            body = m.get("content", "").strip()
-            if body:
-                parts.append(body)
-            for embed in m.get("embeds", []):
-                if embed.get("title"):
-                    parts.append(f"[embed: {embed['title']}]")
-                if embed.get("description"):
-                    parts.append(embed["description"][:200])
-                for field in embed.get("fields", []):
-                    parts.append(f"{field.get('name','')}: {field.get('value','')[:150]}")
-            if parts:
-                lines.append(f"{author}: " + " | ".join(parts))
-        return "\n".join(lines)
-    except Exception as exc:
-        log.warning("Failed to fetch channel history: %s", exc)
-        return ""
-
-
 async def _handle_mention(content: str, channel_id: str, message_id: str) -> None:
     """Respond to a bot @-mention with an LLM-generated answer."""
+    from consensus_engine.alerts.commands import (
+        _fetch_channel_history,
+        _parse_history_limit,
+    )
     from consensus_engine.alerts.discord import send_command_reply
     from consensus_engine.llm_client import call_with_fallback
 
@@ -464,7 +421,7 @@ async def _handle_mention(content: str, channel_id: str, message_id: str) -> Non
     )
 
     if reply:
-        msg_id = await send_command_reply(channel_id, message_id, reply[:2000])
+        msg_id = await send_command_reply(channel_id, message_id, reply)
         log.info("Mention reply sent to channel=%s (new_msg=%s): %.80s", channel_id, msg_id, reply)
     else:
         await send_command_reply(channel_id, message_id, "⚠️ LLM unavailable right now.")
