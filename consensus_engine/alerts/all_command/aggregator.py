@@ -175,6 +175,11 @@ async def _gather_all_sources(ticker: str) -> dict:
     yt_evidence_task = _db_call("get_youtube_evidence_for_ticker", ticker, days=7)
     alert_history_task = _db_call("get_alert_history_for_ticker", ticker, limit=30, days=30)
     decision_snapshots_task = _db_call("get_decision_snapshots", ticker, days=14)
+    next_earnings_task = _scanner_call(
+        "consensus_engine.scanners.earnings_calendar",
+        "fetch_next_earnings_for_ticker",
+        ticker,
+    )
 
     news_task = _scanner_call("consensus_engine.scanners.news", "news_cascade", ticker)
     sec_task = _scanner_call(
@@ -220,6 +225,7 @@ async def _gather_all_sources(ticker: str) -> dict:
         yt_evidence_task,
         alert_history_task,
         decision_snapshots_task,
+        next_earnings_task,
         news_task,
         sec_task,
         options_task,
@@ -233,7 +239,7 @@ async def _gather_all_sources(ticker: str) -> dict:
     (
         score_result, tech_long, tech_short, twitter_signals, social_signals,
         yt_signals, yt_options, yt_levels, yt_evidence, alert_history,
-        decision_snapshots, news_catalyst, sec_filings, options_unusual,
+        decision_snapshots, next_earnings_iso, news_catalyst, sec_filings, options_unusual,
         trends, apewisdom, chat_msgs, brief_msgs, prior_vault,
     ) = results
 
@@ -250,6 +256,7 @@ async def _gather_all_sources(ticker: str) -> dict:
         ("youtube_evidence_db", yt_evidence),
         ("alert_history_db", alert_history),
         ("decision_snapshots_db", decision_snapshots),
+        ("earnings_calendar", next_earnings_iso),
         ("news", news_catalyst),
         ("sec", sec_filings),
         ("options", options_unusual),
@@ -274,6 +281,7 @@ async def _gather_all_sources(ticker: str) -> dict:
         "yt_evidence": _result_or_default(yt_evidence, []),
         "alert_history": _result_or_default(alert_history, []),
         "decision_snapshots": _result_or_default(decision_snapshots, []),
+        "next_earnings_iso": _result_or_default(next_earnings_iso, None) if isinstance(next_earnings_iso, str) else None,
         "news_catalyst": _result_or_default(news_catalyst, None),
         "sec_filings": _result_or_default(sec_filings, []),
         "options_unusual": _result_or_default(options_unusual, None),
@@ -466,7 +474,7 @@ async def _compute_all(ticker: str, start: float) -> dict:
     initial_anchors = levels.cluster_anchors(yt_anchors + swing_anchors, 0.005)
 
     # Gap-fill: run only if any trigger fires.
-    earnings_iso_str = _earnings_iso(data["decision_snapshots"])
+    earnings_iso_str = _earnings_iso(data["decision_snapshots"]) or data.get("next_earnings_iso")
     sec_filings_list = data["sec_filings"] if isinstance(data["sec_filings"], list) else []
     direction_str = (
         getattr(getattr(score_result, "breakdown", None), "direction", None)
@@ -512,7 +520,7 @@ async def _compute_all(ticker: str, start: float) -> dict:
         if score_breakdown is not None else 0
     )
     confidence = structured_fields.compute_confidence_label(final_score)
-    earnings_iso = _earnings_iso(data["decision_snapshots"])
+    earnings_iso = _earnings_iso(data["decision_snapshots"]) or data.get("next_earnings_iso")
     timeframe = structured_fields.compute_breakout_timeframe(
         ticker, earnings_iso, data["options_unusual"],
     )

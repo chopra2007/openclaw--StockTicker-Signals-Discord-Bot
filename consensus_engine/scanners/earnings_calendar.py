@@ -22,6 +22,27 @@ def _filter_upcoming_earnings(earnings: list[dict], tracked_tickers: set[str]) -
     return [e for e in earnings if e.get("symbol") in tracked_tickers]
 
 
+async def fetch_next_earnings_for_ticker(ticker: str, days_ahead: int = 60) -> str | None:
+    """Return the next earnings ISO date for `ticker` within `days_ahead`, else None.
+
+    Used by the !all command to populate `compute_breakout_timeframe` when the
+    DB's `decision_snapshots` table doesn't carry earnings metadata. Calls
+    Finnhub `/calendar/earnings` over the lookahead window and picks the
+    earliest entry whose symbol matches.
+    """
+    if not ticker:
+        return None
+    today = datetime.utcnow().date()
+    horizon = today + timedelta(days=days_ahead)
+    rows = await fetch_earnings_calendar(today.isoformat(), horizon.isoformat())
+    target = ticker.upper()
+    matches = [r for r in rows if str(r.get("symbol", "")).upper() == target]
+    if not matches:
+        return None
+    matches.sort(key=lambda r: r.get("date", ""))
+    return str(matches[0].get("date") or "") or None
+
+
 async def fetch_earnings_calendar(from_date: str, to_date: str) -> list[dict]:
     """Fetch earnings calendar from Finnhub."""
     api_key = cfg.get_api_key("finnhub")
