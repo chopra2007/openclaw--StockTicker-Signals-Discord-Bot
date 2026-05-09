@@ -289,6 +289,7 @@ async def _gather_all_sources(ticker: str) -> dict:
         "decision_snapshots": _result_or_default(decision_snapshots, []),
         "next_earnings_iso": _result_or_default(next_earnings_iso, None) if isinstance(next_earnings_iso, str) else None,
         "recent_earnings_recap": recent_earnings_recap if isinstance(recent_earnings_recap, dict) else None,
+        "chart_pattern": _detect_chart_pattern(_swing_candles(_result_or_default(tech_long, None))),
         "news_catalyst": _result_or_default(news_catalyst, None),
         "sec_filings": _result_or_default(sec_filings, []),
         "options_unusual": _result_or_default(options_unusual, None),
@@ -316,6 +317,18 @@ def _swing_candles(technical_long) -> list[dict]:
         n = min(len(highs), len(lows))
         return [{"high": float(highs[i]), "low": float(lows[i])} for i in range(n)]
     return []
+
+
+def _detect_chart_pattern(swing_candles: list[dict]) -> Optional[dict]:
+    """Run the pattern library over swing candles, return the best hit or None."""
+    if not swing_candles:
+        return None
+    try:
+        from consensus_engine.analysis import patterns
+        return patterns.detect_all(swing_candles)
+    except Exception as exc:  # noqa: BLE001 — pattern detection never raises into gather
+        log.debug("aggregator._detect_chart_pattern raised: %s", exc)
+        return None
 
 
 def _current_price(technical_long) -> Optional[float]:
@@ -621,6 +634,7 @@ async def _compute_all(ticker: str, start: float) -> dict:
             sanitized_yt_evidence=sanitized.get("yt_evidence", []),
             sanitized_technical_short=_build_technical_short_dict(data["technical_short"]),
             recent_earnings_recap=data.get("recent_earnings_recap"),
+            chart_pattern=data.get("chart_pattern"),
         )
         if narrative_status != "ok":
             narrative = output_filter.render_data_only_fallback(

@@ -269,6 +269,7 @@ def _build_synthesis_prompt(
     sanitized_yt_evidence: Optional[list[dict]] = None,
     sanitized_technical_short: Optional[dict] = None,
     recent_earnings_recap: Optional[dict] = None,
+    chart_pattern: Optional[dict] = None,
 ) -> list[dict]:
     """Build the synthesis-pass message list per plan §3.6 / Pass 2 R6."""
     final_score = (
@@ -320,6 +321,10 @@ def _build_synthesis_prompt(
         f"NEWS / ANALYST EVIDENCE:\n{json.dumps(news_block, default=str)}",
         f"SEC FILINGS:\n{json.dumps(sec_block, default=str)}",
         f"TECHNICAL CONTEXT:\n{json.dumps(technical_block, default=str)}",
+        *([
+            f"CHART PATTERN (literal — cite by name + key level):\n"
+            f"{json.dumps(chart_pattern, default=str)}"
+        ] if isinstance(chart_pattern, dict) and chart_pattern else []),
         f"SOCIAL SIGNALS (twitter):\n{json.dumps(twitter_block, default=str)}",
         f"SOCIAL SIGNALS (reddit/wsb):\n{json.dumps(social_block, default=str)}",
         f"YOUTUBE ANALYST CALLS:\n{json.dumps(yt_signals_block, default=str)}",
@@ -332,7 +337,9 @@ def _build_synthesis_prompt(
         "- Structure your narrative with these EXACT sections in this order:\n"
         "  1. Opening thesis paragraph (2-3 sentences). FIRST sentence must "
         "state the current price from COMPUTED SIGNAL.current_price, then "
-        "direction and headline.\n"
+        "direction and headline. If a CHART PATTERN block is present, the "
+        "opening MUST name the pattern and its key_level (e.g. 'a bull flag "
+        "with breakout above $130').\n"
         "  2. A `## Catalysts` markdown header followed by AT LEAST 2 bulleted "
         "items (`* …`), each citing a specific number, date, $, or % drawn "
         "from the EVIDENCE blocks (news / sec / yt_evidence / etc). "
@@ -407,6 +414,7 @@ async def synthesize_narrative(
     sanitized_yt_evidence: Optional[list[dict]] = None,
     sanitized_technical_short: Optional[dict] = None,
     recent_earnings_recap: Optional[dict] = None,
+    chart_pattern: Optional[dict] = None,
 ) -> tuple[str, str]:
     """Run the synthesis LLM call and pipe the result through output_filter.
 
@@ -434,6 +442,7 @@ async def synthesize_narrative(
         sanitized_yt_evidence=sanitized_yt_evidence,
         sanitized_technical_short=sanitized_technical_short,
         recent_earnings_recap=recent_earnings_recap,
+        chart_pattern=chart_pattern,
     )
 
     raw = await _invoke_synthesis(messages, deadline_seconds)
