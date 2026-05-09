@@ -180,6 +180,11 @@ async def _gather_all_sources(ticker: str) -> dict:
         "fetch_next_earnings_for_ticker",
         ticker,
     )
+    recent_earnings_task = _scanner_call(
+        "consensus_engine.scanners.earnings_calendar",
+        "fetch_recent_earnings_for_ticker",
+        ticker,
+    )
 
     news_task = _scanner_call("consensus_engine.scanners.news", "news_cascade", ticker)
     sec_task = _scanner_call(
@@ -226,6 +231,7 @@ async def _gather_all_sources(ticker: str) -> dict:
         alert_history_task,
         decision_snapshots_task,
         next_earnings_task,
+        recent_earnings_task,
         news_task,
         sec_task,
         options_task,
@@ -239,7 +245,7 @@ async def _gather_all_sources(ticker: str) -> dict:
     (
         score_result, tech_long, tech_short, twitter_signals, social_signals,
         yt_signals, yt_options, yt_levels, yt_evidence, alert_history,
-        decision_snapshots, next_earnings_iso, news_catalyst, sec_filings, options_unusual,
+        decision_snapshots, next_earnings_iso, recent_earnings_recap, news_catalyst, sec_filings, options_unusual,
         trends, apewisdom, chat_msgs, brief_msgs, prior_vault,
     ) = results
 
@@ -282,6 +288,7 @@ async def _gather_all_sources(ticker: str) -> dict:
         "alert_history": _result_or_default(alert_history, []),
         "decision_snapshots": _result_or_default(decision_snapshots, []),
         "next_earnings_iso": _result_or_default(next_earnings_iso, None) if isinstance(next_earnings_iso, str) else None,
+        "recent_earnings_recap": recent_earnings_recap if isinstance(recent_earnings_recap, dict) else None,
         "news_catalyst": _result_or_default(news_catalyst, None),
         "sec_filings": _result_or_default(sec_filings, []),
         "options_unusual": _result_or_default(options_unusual, None),
@@ -613,6 +620,7 @@ async def _compute_all(ticker: str, start: float) -> dict:
             sanitized_yt_options=data["yt_options"] if isinstance(data["yt_options"], list) else [],
             sanitized_yt_evidence=sanitized.get("yt_evidence", []),
             sanitized_technical_short=_build_technical_short_dict(data["technical_short"]),
+            recent_earnings_recap=data.get("recent_earnings_recap"),
         )
         if narrative_status != "ok":
             narrative = output_filter.render_data_only_fallback(

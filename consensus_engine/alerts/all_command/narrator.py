@@ -268,6 +268,7 @@ def _build_synthesis_prompt(
     sanitized_yt_options: Optional[list[dict]] = None,
     sanitized_yt_evidence: Optional[list[dict]] = None,
     sanitized_technical_short: Optional[dict] = None,
+    recent_earnings_recap: Optional[dict] = None,
 ) -> list[dict]:
     """Build the synthesis-pass message list per plan §3.6 / Pass 2 R6."""
     final_score = (
@@ -312,6 +313,10 @@ def _build_synthesis_prompt(
         f"COMPUTED SIGNAL:\n{json.dumps(computed_signal, default=str)}",
         f"SOURCES SURFACED ({len(surfaced)}):\n{', '.join(surfaced) or '(none)'}",
         f"STRUCTURED DATA SUMMARY:\n{structured_data_json or '{}'}",
+        *([
+            f"EARNINGS RECAP (literal — cite these numbers verbatim):\n"
+            f"{json.dumps(recent_earnings_recap, default=str)}"
+        ] if isinstance(recent_earnings_recap, dict) and recent_earnings_recap else []),
         f"NEWS / ANALYST EVIDENCE:\n{json.dumps(news_block, default=str)}",
         f"SEC FILINGS:\n{json.dumps(sec_block, default=str)}",
         f"TECHNICAL CONTEXT:\n{json.dumps(technical_block, default=str)}",
@@ -330,7 +335,10 @@ def _build_synthesis_prompt(
         "direction and headline.\n"
         "  2. A `## Catalysts` markdown header followed by AT LEAST 2 bulleted "
         "items (`* …`), each citing a specific number, date, $, or % drawn "
-        "from the EVIDENCE blocks (news / sec / yt_evidence / etc).\n"
+        "from the EVIDENCE blocks (news / sec / yt_evidence / etc). "
+        "If an EARNINGS RECAP block is present, ONE of the catalyst bullets "
+        "MUST cite the revenue dollar value AND YoY percent from that block "
+        "verbatim (e.g. 'Revenue $68.13B, +73% YoY').\n"
         "  3. A `## Risk Considerations` markdown header followed by AT LEAST "
         "1 bulleted item with a specific risk and threshold (e.g. 'a break "
         "below $X invalidates the thesis').\n"
@@ -398,6 +406,7 @@ async def synthesize_narrative(
     sanitized_yt_options: Optional[list[dict]] = None,
     sanitized_yt_evidence: Optional[list[dict]] = None,
     sanitized_technical_short: Optional[dict] = None,
+    recent_earnings_recap: Optional[dict] = None,
 ) -> tuple[str, str]:
     """Run the synthesis LLM call and pipe the result through output_filter.
 
@@ -424,6 +433,7 @@ async def synthesize_narrative(
         sanitized_yt_options=sanitized_yt_options,
         sanitized_yt_evidence=sanitized_yt_evidence,
         sanitized_technical_short=sanitized_technical_short,
+        recent_earnings_recap=recent_earnings_recap,
     )
 
     raw = await _invoke_synthesis(messages, deadline_seconds)
