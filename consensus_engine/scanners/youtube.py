@@ -455,6 +455,43 @@ async def _safe_live_price(ticker: str) -> float | None:
         return None
 
 
+async def _apply_price_sanity_to_levels(levels, get_live_price=_safe_live_price) -> None:
+    """Mark levels with implausible prices vs live quote as suppressed in-place.
+
+    PR5 (B5 fix): the parser occasionally produces prices like $90,451 for a
+    stock trading at $200. The setup-tier alert path (line 482-513) catches
+    these but only mutates in-memory objects — the corrupt row is already in
+    `youtube_levels` by then and the !all anchor pipeline picks it up. Run
+    the same check at insert time so the DB row carries `suppressed=1` from
+    the start; the SELECT-side filter in db.get_youtube_levels_for_ticker
+    then keeps it out of `!all`.
+
+    Already-suppressed levels (e.g. off_allowlist) are left untouched.
+    """
+    from consensus_engine.analysis.price_sanity import check_price_plausible
+
+    tickers = sorted({lv.ticker for lv in levels if getattr(lv, "ticker", None)})
+    live_prices: dict[str, float | None] = {}
+    for t in tickers:
+        live_prices[t] = await get_live_price(t)
+
+    for level in levels:
+        if getattr(level, "suppressed", 0):
+            continue
+        ticker = getattr(level, "ticker", None)
+        price = getattr(level, "price", None)
+        if not ticker or not isinstance(price, (int, float)):
+            continue
+        result = check_price_plausible(price, live_prices.get(ticker))
+        if not result.accepted:
+            level.suppressed = 1
+            level.suppression_reason = "price_sanity"
+            log.warning(
+                "price_sanity: suppressing level %s @ $%.2f (live=%s reason=%s)",
+                ticker, price, live_prices.get(ticker), result.reason,
+            )
+
+
 async def _send_two_stage_alerts(
     display_name: str,
     signals,
@@ -772,9 +809,15 @@ async def process_video(
                 )
                 log.debug("youtube: signal created %s/%s conviction=%s", video_id, ticker, ticker_data.get("conviction"))
 
-        # Insert price levels
+        # Insert price levels (PR5: pre-insert price sanity vs live quote).
+        await _apply_price_sanity_to_levels(parsed.price_levels)
         for level in parsed.price_levels:
             lv_supp, lv_supp_reason = _suppress_meta(level.ticker)
+            # Honor either off-allowlist (lv_supp from _suppress_meta) OR the
+            # price-sanity flag set by _apply_price_sanity_to_levels above.
+            if not lv_supp and getattr(level, "suppressed", 0):
+                lv_supp = level.suppressed
+                lv_supp_reason = getattr(level, "suppression_reason", None)
             await db.insert_youtube_level(
                 video_id=video_id,
                 ticker=level.ticker,

@@ -1554,13 +1554,19 @@ async def get_youtube_signals_for_ticker(ticker: str, days: int = 7) -> list[dic
 
 
 async def get_youtube_levels_for_ticker(ticker: str, days: int = 7) -> list[dict]:
-    """Get all YouTube price levels for a ticker from the last N days."""
+    """Get all YouTube price levels for a ticker from the last N days.
+
+    PR5: excludes rows marked `suppressed=1` (price-sanity violations or
+    off-allowlist), so corrupt parser output never reaches the !all anchor
+    pipeline. NULL `suppressed` (legacy rows pre-PR5) is treated as 0.
+    """
     conn = await get_db()
     cutoff = time.time() - (days * 86400)
     cursor = await conn.execute(
         """SELECT ticker, level_type, price, condition_text, consequence_text, confidence, channel_name, published_at
            FROM youtube_levels
            WHERE ticker = ? AND extracted_at >= ?
+             AND (suppressed IS NULL OR suppressed = 0)
            ORDER BY confidence DESC, extracted_at DESC""",
         (ticker, cutoff),
     )
