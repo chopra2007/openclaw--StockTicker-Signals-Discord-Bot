@@ -268,7 +268,7 @@ async def _invoke_synthesis(
     deadline_seconds: float,
 ) -> str:
     """Single call_with_fallback role=primary call. Returns '' on any failure."""
-    timeout = max(1, min(15, int(deadline_seconds)))
+    timeout = max(15, min(50, int(deadline_seconds)))
     try:
         return await call_with_fallback(
             role="primary",

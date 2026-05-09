@@ -38,13 +38,15 @@ from consensus_engine.utils.tickers import is_valid_ticker
 
 log = logging.getLogger("consensus_engine.alerts.all_command.aggregator")
 
-_DEADLINE_SECONDS = 60.0
+_DEADLINE_SECONDS = 80.0
 _GAP_FILL_BUDGET = 20.0
 _SYNTHESIS_MIN_BUDGET = 10.0
 
 
 def _remaining(start: float, total: float = _DEADLINE_SECONDS) -> float:
-    """Seconds remaining vs the 60s hard ceiling."""
+    """Seconds remaining vs the 80s p95 ceiling (PR1: was 60s; raised so the
+    synthesis call inherits ≥50s after gather/gap_fill/sanitize stages eat
+    ~30s, matching narrator.py:271's 50s cap)."""
     return max(0.0, total - (time.monotonic() - start))
 
 

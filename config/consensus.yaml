@@ -188,17 +188,20 @@ llm:
   #     free tier in all 3 benchmark trials.
   #   - minimax/minimax-m2.5:free — 84s pause then big dump; ignores max_tokens.
   #
-  # Surviving chain (all free, three distinct providers for failover diversity):
-  #   gpt-oss-120b   (OpenInference) — 1.79s TTFT, 26s total, A-grade output
-  #   ring-2.6-1t    (Novita)        — 5s eff TTFT, 10-26s total, A-grade
-  #   glm-4.5-air    (Z.AI)          — 21s TTFT (variable), 30s total, B+ grade
-  model: "openai/gpt-oss-120b:free"
+  # Surviving chain (all free, three distinct providers for failover diversity).
+  # Order driven by latency-budget realism (R8 isolated test 2026-05-09):
+  #   ring-2.6-1t    (Novita)        — 14s for Gemini-tier output  → PRIMARY
+  #   gpt-oss-120b   (OpenInference) — 78.7s for Gemini-tier output → FALLBACK 1
+  #   glm-4.5-air    (Z.AI)          — 21s TTFT, 30s total, B+ grade → FALLBACK 2
+  # Synthesis cap is 50s (narrator.py:271), so ring-first wins inside budget on
+  # the common path; gpt-oss is held in reserve for runs where ring exceeds 14s.
+  model: "inclusionai/ring-2.6-1t:free"
   fallback_models:
-    - "inclusionai/ring-2.6-1t:free"
+    - "openai/gpt-oss-120b:free"
     - "z-ai/glm-4.5-air:free"
-  text_model: "openai/gpt-oss-120b:free"
+  text_model: "inclusionai/ring-2.6-1t:free"
   text_fallback_models:
-    - "inclusionai/ring-2.6-1t:free"
+    - "openai/gpt-oss-120b:free"
     - "z-ai/glm-4.5-air:free"
   vision_model: "google/gemma-4-31b-it:free"
   min_confidence: 70
