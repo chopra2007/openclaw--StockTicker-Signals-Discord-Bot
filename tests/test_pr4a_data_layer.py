@@ -96,8 +96,13 @@ def test_levels_rank_splits_supports_and_resistances():
 def test_levels_select_trade_plan_suppresses_under_4():
     supports = [levels.Anchor(price=95.0, source="s", source_type="swing")]
     resistances = [levels.Anchor(price=105.0, source="r", source_type="web")]
-    # Total = 2 → suppression
-    assert levels.select_trade_plan(supports, resistances) is None
+    # Total = 2 → suppressed (PR3: returns dict-with-None + reason)
+    plan = levels.select_trade_plan(supports, resistances)
+    assert plan["sl"] is None
+    assert plan["tp1"] is None
+    assert plan["tp2"] is None
+    assert plan["tp3"] is None
+    assert "2 anchors" in plan["suppression_reason"]
 
 
 def test_levels_select_trade_plan_returns_dict_when_enough():
@@ -110,7 +115,11 @@ def test_levels_select_trade_plan_returns_dict_when_enough():
         levels.Anchor(price=115.0, source="r3", source_type="yt", computed_score=4),
     ]
     plan = levels.select_trade_plan(supports, resistances)
-    assert plan == {"sl": 95.0, "tp1": 105.0, "tp2": 110.0, "tp3": 115.0}
+    assert plan["sl"] == 95.0
+    assert plan["tp1"] == 105.0
+    assert plan["tp2"] == 110.0
+    assert plan["tp3"] == 115.0
+    assert plan["suppression_reason"] is None
 
 
 # ---------------------------------------------------------------------------

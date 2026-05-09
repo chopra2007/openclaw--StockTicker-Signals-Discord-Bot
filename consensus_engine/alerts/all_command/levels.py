@@ -249,21 +249,40 @@ def rank_anchors(
 def select_trade_plan(
     supports: list[Anchor],
     resistances: list[Anchor],
-) -> Optional[dict]:
-    """Pick 1 best support + 3 best resistances.
+) -> dict:
+    """Pick 1 best support + up to 3 best resistances per locked decision D1.
 
-    If fewer than 4 total anchors are available across both lists, return None
-    (signals suppression to the caller). Otherwise return a dict with keys
-    'sl', 'tp1', 'tp2', 'tp3' as float prices.
+    D1 is "anchored-only ... suppress trade plan if <4 anchors after gap-fill".
+    PR3 honors that total-count gate. With ≥4 total but fewer than 3
+    resistances (or no support below price), populate what is available and
+    pad the rest with `None`. The returned dict always has the same keys so
+    callers can read `suppression_reason` to explain partial / fully empty
+    plans without a None-vs-dict branch.
     """
     total = len(supports) + len(resistances)
     if total < 4:
-        return None
-    if not supports or len(resistances) < 3:
-        return None
+        return {
+            "sl": None, "tp1": None, "tp2": None, "tp3": None,
+            "suppression_reason": f"only {total} anchors after gap-fill (need 4)",
+        }
+
+    sl = supports[0].price if supports else None
+    tp_prices = [r.price for r in resistances[:3]]
+    tps = tp_prices + [None] * (3 - len(tp_prices))
+
+    reasons: list[str] = []
+    if not supports:
+        reasons.append("no support anchors below current price")
+    if len(resistances) < 3:
+        reasons.append(
+            f"fewer than 3 resistances ({len(resistances)} found); "
+            "TP2/TP3 padded with None"
+        )
+
     return {
-        "sl": supports[0].price,
-        "tp1": resistances[0].price,
-        "tp2": resistances[1].price,
-        "tp3": resistances[2].price,
+        "sl": sl,
+        "tp1": tps[0],
+        "tp2": tps[1],
+        "tp3": tps[2],
+        "suppression_reason": "; ".join(reasons) if reasons else None,
     }

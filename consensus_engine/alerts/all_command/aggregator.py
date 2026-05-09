@@ -542,10 +542,17 @@ async def _compute_all(ticker: str, start: float) -> dict:
     )
     stage_t["render"] = _t()
     stage_breakdown = " ".join(f"{k}={v:.1f}s" for k, v in stage_t.items())
+    if trade_plan and trade_plan.get("suppression_reason"):
+        plan_status = f'trade_plan=partial reason="{trade_plan["suppression_reason"]}"'
+    elif trade_plan:
+        plan_status = "trade_plan=populated"
+    else:
+        plan_status = "trade_plan=missing"
     log.info(
-        "aggregator: $%s narrative_status=%s anchors=%d (sup=%d res=%d) elapsed=%.1fs stages=[%s]",
+        "aggregator: $%s narrative_status=%s anchors=%d (sup=%d res=%d) %s elapsed=%.1fs stages=[%s]",
         ticker, narrative_status, len(all_anchors),
-        len(supports), len(resistances), time.monotonic() - start, stage_breakdown,
+        len(supports), len(resistances), plan_status,
+        time.monotonic() - start, stage_breakdown,
     )
     return {
         "embed": embed_payload,
