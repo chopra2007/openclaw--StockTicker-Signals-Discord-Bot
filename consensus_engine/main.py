@@ -379,53 +379,9 @@ async def run_once():
 
 
 async def _handle_mention(content: str, channel_id: str, message_id: str) -> None:
-    """Respond to a bot @-mention with an LLM-generated answer."""
-    from consensus_engine.alerts.commands import (
-        _fetch_channel_history,
-        _parse_history_limit,
-    )
-    from consensus_engine.alerts.discord import send_command_reply
-    from consensus_engine.llm_client import call_with_fallback
-
-    log.info("Handling mention in channel=%s msg=%s: %.80s", channel_id, message_id, content)
-    if not cfg.get_api_key("openrouter"):
-        log.warning("Mention handler: openrouter API key not configured")
-        await send_command_reply(channel_id, message_id, "⚠️ LLM not configured.")
-        return
-
-    if not content:
-        await send_command_reply(channel_id, message_id,
-            "Hi! Ask me anything about the market or use `!help` to see available commands.")
-        return
-
-    limit = _parse_history_limit(content, default=20)
-    history = await _fetch_channel_history(channel_id, limit=limit)
-    context_block = f"\n\nRecent channel messages (oldest→newest):\n{history}" if history else ""
-
-    system_prompt = (
-        "You are OpenClaw, an AI trading signal and market intelligence assistant running "
-        "on a Discord server. You monitor analyst tweets, SEC filings, Reddit trends, "
-        "YouTube channels, and options flow to surface actionable stock signals. "
-        "Use the channel history below to answer questions about previous messages. "
-        "If the user asks about commands, remind them to use !help. "
-        f"Never fabricate ticker data.{context_block}"
-    )
-    reply = await call_with_fallback(
-        role="text",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": content},
-        ],
-        max_tokens=cfg.get("llm.text_max_tokens", cfg.get("llm.max_tokens", 1024)),
-        temperature=0.5,
-    )
-
-    if reply:
-        msg_id = await send_command_reply(channel_id, message_id, reply)
-        log.info("Mention reply sent to channel=%s (new_msg=%s): %.80s", channel_id, msg_id, reply)
-    else:
-        await send_command_reply(channel_id, message_id, "⚠️ LLM unavailable right now.")
-        log.warning("Mention LLM returned empty reply for channel=%s", channel_id)
+    # @-mentions are handled by the OpenClaw gateway agent (agentic mode with full workspace access).
+    # This handler intentionally does nothing so the gateway response is not shadowed.
+    log.debug("Mention suppressed in Python bot — handled by OpenClaw gateway: channel=%s msg=%s", channel_id, message_id)
 
 
 async def run_live(stop_event: asyncio.Event):
