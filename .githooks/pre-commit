@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Pre-commit gate that blocks the May 8-10 bug class at the source.
+#
+# If this commit touches config/consensus.yaml's llm.* keys, the gateway model
+# array (under /root/.openclaw/openclaw.json) must match. Run
+# `make sync-models` to fix, or `SKIP_MODEL_SYNC_CHECK=1 git commit` to
+# override (don't override unless you understand the risk).
+#
+# Install once: git config core.hooksPath .githooks
+set -euo pipefail
+
+if [[ "${SKIP_MODEL_SYNC_CHECK:-}" == "1" ]]; then
+  exit 0
+fi
+
+# Only check when consensus.yaml's llm.* section is part of this commit.
+if ! git diff --cached --unified=0 -- config/consensus.yaml 2>/dev/null \
+    | grep -qE '^\+(llm\.|  *(model|fallback_models|text_model|text_fallback_models):)'; then
+  exit 0
+fi
+
+# Gateway lives under /root — check requires the openclaw CLI installed locally.
+if ! command -v openclaw >/dev/null 2>&1; then
+  echo "pre-commit: openclaw CLI not installed; skipping gateway-chain drift check"
+  echo "pre-commit: install openclaw or run on the deploy host to enable this gate"
+  exit 0
+fi
+
+if ! python3 scripts/sync_gateway_models.py --check; then
+  echo
+  echo "pre-commit: BLOCKED — consensus.yaml llm.* changed but the gateway chain"
+  echo "pre-commit: at /root/.openclaw/openclaw.json hasn't been synced."
+  echo "pre-commit: run  sudo make sync-models  and stage the result, or"
+  echo "pre-commit: bypass intentionally with  SKIP_MODEL_SYNC_CHECK=1 git commit"
+  exit 1
+fi

@@ -71,6 +71,10 @@ def patched_cfg(monkeypatch):
                         lambda k, default=None: CHAIN_CFG.get(k, default))
     monkeypatch.setattr("consensus_engine.health.cfg.get_api_key",
                         lambda k: "fake-key" if k == "openrouter" else "")
+    # Suppress gateway-chain reads in tests that only care about consensus.yaml.
+    # Gateway-specific behavior is covered by test_gateway_chain_sync.py.
+    monkeypatch.setattr("consensus_engine.health._enumerate_gateway_chain_models",
+                        lambda: ([], ""))
 
 
 async def test_run_chain_check_all_green(patched_cfg, monkeypatch):
@@ -124,6 +128,8 @@ async def test_run_chain_check_no_models_configured(monkeypatch):
                         lambda k, default=None: default)
     monkeypatch.setattr("consensus_engine.health.cfg.get_api_key",
                         lambda k: "fake-key" if k == "openrouter" else "")
+    monkeypatch.setattr("consensus_engine.health._enumerate_gateway_chain_models",
+                        lambda: ([], ""))
     failed, report = await health.run_chain_check()
     assert failed is True
     assert "no models configured" in report

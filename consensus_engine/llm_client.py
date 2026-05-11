@@ -26,11 +26,10 @@ Role = Literal["primary", "text"]
 
 def _chain(role: Role) -> list[str]:
     if role == "text":
-        primary = cfg.get("llm.text_model",
-                          cfg.get("llm.model", "poolside/laguna-m.1:free"))
+        primary = cfg.get("llm.text_model", cfg.get("llm.model", ""))
         fallbacks = cfg.get("llm.text_fallback_models", []) or []
     else:
-        primary = cfg.get("llm.model", "poolside/laguna-m.1:free")
+        primary = cfg.get("llm.model", "")
         fallbacks = cfg.get("llm.fallback_models", []) or []
     seen: set[str] = set()
     chain: list[str] = []
