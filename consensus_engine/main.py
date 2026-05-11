@@ -379,7 +379,13 @@ async def run_once():
 
 
 async def _handle_mention(content: str, channel_id: str, message_id: str) -> None:
-    """Forward @-mentions to the OpenClaw gateway agent (full workspace access via OpenRouter)."""
+    """Forward @-mentions to the OpenClaw gateway agent (full workspace access via OpenRouter).
+
+    Gateway has its own server-side model failover via openclaw.json `params.models`.
+    This wrapper adds engine-side retry on top: if the gateway call itself errors
+    (transient network glitch, full failover chain exhausted), retry up to 2 more
+    times with exponential backoff before giving up.
+    """
     from consensus_engine.alerts.discord import send_command_reply
 
     if not content:
@@ -388,29 +394,36 @@ async def _handle_mention(content: str, channel_id: str, message_id: str) -> Non
         return
 
     log.info("Mention → OpenClaw agent: channel=%s msg=%s: %.80s", channel_id, message_id, content)
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            "openclaw", "agent", "--agent", "main",
-            "--message", content,
-            "--timeout", "120",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=125)
-        reply = stdout.decode().strip()
-        if not reply:
-            err = stderr.decode().strip()
-            log.warning("OpenClaw agent returned no output: %s", err[:200])
-            await send_command_reply(channel_id, message_id, "⚠️ Agent returned no response.")
-            return
-        await send_command_reply(channel_id, message_id, reply)
-        log.info("Agent reply sent (%d chars) to channel=%s", len(reply), channel_id)
-    except asyncio.TimeoutError:
-        log.warning("OpenClaw agent timed out for channel=%s", channel_id)
-        await send_command_reply(channel_id, message_id, "⚠️ Agent timed out (>120s).")
-    except Exception as exc:
-        log.error("OpenClaw agent error: %s", exc)
-        await send_command_reply(channel_id, message_id, f"⚠️ Agent error: {exc}")
+    last_err = ""
+    for attempt in range(1, 4):
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "openclaw", "agent", "--agent", "main",
+                "--message", content,
+                "--timeout", "120",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=125)
+            reply = stdout.decode().strip()
+            if reply:
+                await send_command_reply(channel_id, message_id, reply)
+                log.info("Agent reply sent (%d chars, attempt=%d) to channel=%s",
+                         len(reply), attempt, channel_id)
+                return
+            last_err = stderr.decode().strip()[:200]
+            log.warning("OpenClaw agent empty stdout (attempt=%d/3): %s", attempt, last_err)
+        except asyncio.TimeoutError:
+            last_err = "subprocess timed out (>125s)"
+            log.warning("OpenClaw agent timed out (attempt=%d/3) for channel=%s", attempt, channel_id)
+        except Exception as exc:
+            last_err = f"{type(exc).__name__}: {exc}"
+            log.error("OpenClaw agent error (attempt=%d/3): %s", attempt, exc)
+        if attempt < 3:
+            await asyncio.sleep(2 ** attempt)  # 2s, 4s
+    log.error("OpenClaw agent failed after 3 attempts (channel=%s): %s", channel_id, last_err)
+    await send_command_reply(channel_id, message_id,
+        f"⚠️ Agent unavailable after 3 retries. Last error: {last_err[:120]}")
 
 
 async def run_live(stop_event: asyncio.Event):
