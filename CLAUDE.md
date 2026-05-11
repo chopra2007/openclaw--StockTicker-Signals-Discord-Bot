@@ -3,6 +3,27 @@
 ## Behavior
 Always proceed without asking for confirmation. Never ask "shall I proceed?", "do you want me to continue?", or "would you like me to...?". Assume the answer is always yes and execute immediately.
 
+## Definition of Done
+
+A task is not done if a user-facing critical path is broken at the end of the work — regardless of who broke it, when, or whether it's technically in scope.
+
+"Pre-existing", "out of scope", "not my regression", "upstream issue" are NOT valid exemptions for declaring a task complete. If verification surfaces a broken critical path, only three responses are acceptable:
+1. Fix it
+2. Attempt a fix, then surface the specific failure and ask whether to keep digging
+3. Get explicit spoken user permission to defer
+
+The path the user asked me to verify is critical by definition — I don't get to redefine "critical" mid-task to exclude something that's failing.
+
+**Critical paths for this project** (must work end-to-end before any "done"):
+- `consensus-engine.service` and `openclaw-gateway.service` both `active` under systemd
+- `!ask`, `!trend`, `!all <ticker>` return coherent replies in Discord
+- `@-mention <BOT>` returns coherent replies (tests workspace shell + LLM path)
+- Both cron scripts (`check_searxng_health.sh`, `run_reference_assertions_cron.sh`) run as `openclaw` user with exit 0
+- Engine boot logs `boot drift check: gateway chain matches consensus.yaml` (no `❌ GATEWAY drift` Discord alert)
+- `/root/.openclaw` resolves to `/home/openclaw/.openclaw` (single-user consolidation intact)
+
+Watch for premature-closure tells: counting passing checks while moving on from failures, reframing a broken feature as a "documented limitation", declaring a summary before all critical paths report green.
+
 ## Alert Philosophy
 
 **Core Goals:** Quality over quantity. Actionable intelligence. 2+ independent sources before alerting (with exceptions).
