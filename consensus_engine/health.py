@@ -61,10 +61,15 @@ def _enumerate_gateway_chain_models() -> tuple[list[tuple[str, str, str]], str]:
     that as a ❌ row in the report so the failure surfaces in the same daily
     Discord alert as model outages.
     """
-    if not _GATEWAY_CONFIG.exists():
-        return [], f"missing: {_GATEWAY_CONFIG}"
     try:
+        if not _GATEWAY_CONFIG.exists():
+            return [], f"missing: {_GATEWAY_CONFIG}"
         data = json.loads(_GATEWAY_CONFIG.read_text())
+    except PermissionError as exc:
+        # Consensus engine runs as `openclaw`; gateway config is owned by root
+        # under /root/. Treat this as a config error (posts ❌ in the report)
+        # rather than crashing the engine.
+        return [], f"unreadable: {exc}"
     except Exception as exc:
         return [], f"unparseable: {type(exc).__name__}: {exc}"
 
@@ -184,27 +189,34 @@ async def boot_drift_check() -> None:
     Posts a Discord alert immediately if the gateway chain has drifted from
     consensus.yaml. Bounds MTTD for the May 8 bug class from 24h (daily probe)
     down to "the time it takes the engine to start."
-    """
-    if not cfg.get("health_check.enabled", True):
-        return
-    models = _enumerate_chain_models()
-    gateway_models, gateway_error = _enumerate_gateway_chain_models()
-    drift_detail = _compute_drift(models, gateway_models)
-    if not gateway_error and not drift_detail:
-        log.info("boot drift check: gateway chain matches consensus.yaml")
-        return
 
-    when = datetime.now(tz=_ET).strftime("%Y-%m-%d %H:%M ET")
-    lines = [f"**LLM chain drift at boot — {when}**", ""]
-    if gateway_error:
-        lines.append(f"❌ `GATEWAY` `config` — {gateway_error}")
-    if drift_detail:
-        lines.append(f"❌ `GATEWAY` `drift` — {drift_detail[:140]}")
-    lines.append("")
-    lines.append("Run `make sync-models` to restore.")
-    report = "\n".join(lines)
-    log.warning("boot drift check FAILED:\n%s", report)
-    await _post_to_discord(report)
+    Wrapped in a broad try/except: if anything goes wrong inside the check it
+    must not take down the engine's asyncio.gather. We log the failure and
+    return — the daily probe will surface the same drift independently.
+    """
+    try:
+        if not cfg.get("health_check.enabled", True):
+            return
+        models = _enumerate_chain_models()
+        gateway_models, gateway_error = _enumerate_gateway_chain_models()
+        drift_detail = _compute_drift(models, gateway_models)
+        if not gateway_error and not drift_detail:
+            log.info("boot drift check: gateway chain matches consensus.yaml")
+            return
+
+        when = datetime.now(tz=_ET).strftime("%Y-%m-%d %H:%M ET")
+        lines = [f"**LLM chain drift at boot — {when}**", ""]
+        if gateway_error:
+            lines.append(f"❌ `GATEWAY` `config` — {gateway_error}")
+        if drift_detail:
+            lines.append(f"❌ `GATEWAY` `drift` — {drift_detail[:140]}")
+        lines.append("")
+        lines.append("Run `make sync-models` to restore.")
+        report = "\n".join(lines)
+        log.warning("boot drift check FAILED:\n%s", report)
+        await _post_to_discord(report)
+    except Exception as exc:
+        log.error("boot drift check crashed (continuing): %s", exc)
 
 
 async def _post_to_discord(content: str) -> None:
