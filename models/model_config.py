@@ -12,13 +12,14 @@ from dotenv import load_dotenv
 
 _ENV_PATH = Path("/root/.openclaw/.env")
 try:
-    _env_path_ok = _ENV_PATH.exists()
+    # exists() and load_dotenv() are independent privilege checks. Once an ACL
+    # grants traversal on /root/.openclaw, exists() succeeds but a read still
+    # raises if the file itself isn't readable — guard both.
+    if _ENV_PATH.exists():
+        load_dotenv(_ENV_PATH, override=False)
+    else:
+        load_dotenv(override=False)
 except PermissionError:
-    _env_path_ok = False
-
-if _env_path_ok:
-    load_dotenv(_ENV_PATH, override=False)
-else:
     load_dotenv(override=False)
 
 try:
