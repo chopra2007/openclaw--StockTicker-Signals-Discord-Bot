@@ -379,9 +379,38 @@ async def run_once():
 
 
 async def _handle_mention(content: str, channel_id: str, message_id: str) -> None:
-    # @-mentions are handled by the OpenClaw gateway agent (agentic mode with full workspace access).
-    # This handler intentionally does nothing so the gateway response is not shadowed.
-    log.debug("Mention suppressed in Python bot — handled by OpenClaw gateway: channel=%s msg=%s", channel_id, message_id)
+    """Forward @-mentions to the OpenClaw gateway agent (full workspace access via OpenRouter)."""
+    from consensus_engine.alerts.discord import send_command_reply
+
+    if not content:
+        await send_command_reply(channel_id, message_id,
+            "Hi! Ask me anything or use `!help` to see available commands.")
+        return
+
+    log.info("Mention → OpenClaw agent: channel=%s msg=%s: %.80s", channel_id, message_id, content)
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "sudo", "openclaw", "agent", "--agent", "main",
+            "--message", content,
+            "--timeout", "120",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=125)
+        reply = stdout.decode().strip()
+        if not reply:
+            err = stderr.decode().strip()
+            log.warning("OpenClaw agent returned no output: %s", err[:200])
+            await send_command_reply(channel_id, message_id, "⚠️ Agent returned no response.")
+            return
+        await send_command_reply(channel_id, message_id, reply)
+        log.info("Agent reply sent (%d chars) to channel=%s", len(reply), channel_id)
+    except asyncio.TimeoutError:
+        log.warning("OpenClaw agent timed out for channel=%s", channel_id)
+        await send_command_reply(channel_id, message_id, "⚠️ Agent timed out (>120s).")
+    except Exception as exc:
+        log.error("OpenClaw agent error: %s", exc)
+        await send_command_reply(channel_id, message_id, f"⚠️ Agent error: {exc}")
 
 
 async def run_live(stop_event: asyncio.Event):
