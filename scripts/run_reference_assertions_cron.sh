@@ -12,8 +12,8 @@
 
 set -u
 
-WORKSPACE="/root/.openclaw/workspace"
-ENV_FILE="/root/.openclaw/.env"
+WORKSPACE="/home/openclaw/.openclaw/workspace"
+ENV_FILE="/home/openclaw/.openclaw/.env"
 LOG_DIR="${WORKSPACE}/.omc/logs"
 LOG_FILE="${LOG_DIR}/v2_assertions_$(date +%Y%m%d).log"
 

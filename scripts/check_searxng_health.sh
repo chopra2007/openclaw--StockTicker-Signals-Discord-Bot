@@ -10,8 +10,8 @@
 # cron doesn't spam errors.
 set -u
 
-WORKSPACE="/root/.openclaw/workspace"
-ENV_FILE="/root/.openclaw/.env"
+WORKSPACE="/home/openclaw/.openclaw/workspace"
+ENV_FILE="/home/openclaw/.openclaw/.env"
 STATE_DIR="${WORKSPACE}/.omc/state"
 STATE_FILE="${STATE_DIR}/searxng_health.json"
 LOG_FILE="${WORKSPACE}/.omc/logs/searxng_health.log"

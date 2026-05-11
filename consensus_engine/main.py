@@ -390,7 +390,7 @@ async def _handle_mention(content: str, channel_id: str, message_id: str) -> Non
     log.info("Mention → OpenClaw agent: channel=%s msg=%s: %.80s", channel_id, message_id, content)
     try:
         proc = await asyncio.create_subprocess_exec(
-            "sudo", "openclaw", "agent", "--agent", "main",
+            "openclaw", "agent", "--agent", "main",
             "--message", content,
             "--timeout", "120",
             stdout=asyncio.subprocess.PIPE,
