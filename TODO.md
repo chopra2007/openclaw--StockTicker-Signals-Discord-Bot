@@ -137,3 +137,50 @@ without verifying the acceptance criteria.
 **Effort:** Phase 2.1 is the high-value item and requires the most care (Brave budget
 implications + HTTP connection cleanup after task cancellation). Phase 1.1 migration
 and Phase 3.2 are mechanical/low-risk. Full plan detail at `plans/speed-accuracy-optimization.md`.
+
+---
+
+## 5. Add test coverage for `_handle_mention` retry logic
+
+**Layperson:** Commit `b918ee3` added 3-attempt retry with exponential backoff to
+the @-mention handler in `consensus_engine/main.py`. There's no automated test
+covering it. If a future refactor regresses the retry behavior, the only way to
+catch it is by @-mentioning the bot and watching Discord — exactly the manual-test
+trap that bit the consolidation work.
+
+**What to add:** new file `tests/test_handle_mention.py` with two tests:
+1. **Retry-then-success**: monkeypatch `asyncio.create_subprocess_exec` to return
+   a mock that yields `(b"", b"FailoverError")` on attempts 1+2 and `(b"4", b"")`
+   on attempt 3. Stub `send_command_reply`. Assert: exactly one reply sent, reply
+   text is `"4"`, subprocess invoked 3 times.
+2. **All-attempts-fail**: mock always returns empty stdout. Assert reply contains
+   `"⚠️ Agent unavailable after 3 retries"` and includes a `Last error:` prefix.
+
+**Acceptance:** both tests pass; existing test suite still green.
+
+**Effort:** 30 min, mock-heavy.
+
+---
+
+## 6. Check in `openclaw-gateway.service` unit file to the repo
+
+**Layperson:** The systemd unit that runs the OpenClaw gateway as the openclaw
+user (`/etc/systemd/system/openclaw-gateway.service`) was created during the
+2026-05-11 VPS consolidation but only exists on the live host. If the host is
+rebuilt (Debian PC migration, disk swap, etc.), the unit has to be hand-recreated
+from memory or from a backup tarball.
+
+**What to add:** create `infra/systemd/openclaw-gateway.service` (or follow whatever
+dir convention the project already has — check first) containing the exact unit
+body, plus a short `infra/README.md` documenting install steps:
+`sudo cp infra/systemd/openclaw-gateway.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now openclaw-gateway.service`.
+
+**Why now:** the file is small (~15 lines) but the knowledge of HOW to invoke
+the gateway (`openclaw gateway --port 18789 --bind loopback`, NOT `openclaw
+gateway start`) was learned the hard way during consolidation. Repo is the right
+place for that knowledge to live.
+
+**Acceptance:** unit file checked in, byte-identical to `/etc/systemd/system/openclaw-gateway.service`;
+README documents install + how to verify it's running.
+
+**Effort:** 15 min.
