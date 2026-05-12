@@ -185,10 +185,17 @@ def _identity(raw_confidence: float) -> float:
 
 
 def _ensure_loaded() -> None:
-    """Lazy-load models from disk into _models if cache is stale."""
+    """Lazy-load models from disk into _models if cache is stale.
+
+    Cache freshness is governed by _loaded_at, not by _models truthiness. An
+    empty _models is a legitimate cached state (no model file on disk yet, or
+    a test-time sentinel). The previous gate `if _models and ...` re-read disk
+    on every call until a model existed; in shadow mode (the live state) that
+    meant a disk-stat per alert hot path.
+    """
     global _models, _loaded_at
     now = time.time()
-    if _models and (now - _loaded_at) < _MODEL_TTL_SEC:
+    if _loaded_at > 0 and (now - _loaded_at) < _MODEL_TTL_SEC:
         return
     _models = _load_models()
     _loaded_at = now
