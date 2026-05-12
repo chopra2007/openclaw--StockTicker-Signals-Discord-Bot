@@ -599,10 +599,16 @@ async def _check_youtube_level_alerts() -> None:
         return
 
     loop = asyncio.get_event_loop()
-    for ticker in tickers:
+    # Phase 1: fetch every ticker's price concurrently (yfinance is blocking,
+    # so without gather the for-loop awaits each future serially).
+    price_futures = [
+        loop.run_in_executor(None, _fetch_yfinance_price, t) for t in tickers
+    ]
+    prices = await asyncio.gather(*price_futures, return_exceptions=True)
+
+    for ticker, current_price in zip(tickers, prices):
         try:
-            current_price = await loop.run_in_executor(None, _fetch_yfinance_price, ticker)
-            if not current_price:
+            if isinstance(current_price, Exception) or not current_price:
                 continue
             levels = await db.get_youtube_levels_for_ticker(ticker, days=14)
             for level in levels:
@@ -1138,8 +1144,19 @@ async def price_outcome_loop(stop_event: asyncio.Event):
                 for field in ("price_1h_later", "price_24h_later"):
                     horizon = "1h" if field == "price_1h_later" else "24h"
                     alerts = await db.get_alerts_needing_price_update(field)
-                    for alert in alerts:
-                        price = await loop.run_in_executor(executor, _fetch_yfinance_price, alert["ticker"])
+                    # Submit every yfinance fetch concurrently to the
+                    # ThreadPoolExecutor; awaiting in zip-order keeps the
+                    # downstream DB writes serial against a known alert row.
+                    price_futures = [
+                        loop.run_in_executor(executor, _fetch_yfinance_price, a["ticker"])
+                        for a in alerts
+                    ]
+                    fetched = await asyncio.gather(*price_futures, return_exceptions=True)
+                    for alert, price in zip(alerts, fetched):
+                        if isinstance(price, Exception):
+                            log.debug("yfinance fetch error for %s: %s",
+                                      alert["ticker"], price)
+                            continue
                         if price > 0:
                             await db.update_alert_price(alert["id"], field, price)
                             # Codex fix #3: update decision_snapshots.outcome_price_{1h,24h}

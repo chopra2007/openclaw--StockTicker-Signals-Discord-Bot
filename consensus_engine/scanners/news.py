@@ -1,16 +1,24 @@
-"""News Cascade — 4-tier news source for catalyst detection.
+"""News Cascade — 5-tier news source for catalyst detection.
 
-Tiers (tried in order, stops on first catalyst found):
-  1. Finnhub /company-news
-  2. Google News RSS
-  3. Brave Search
-  4. SearXNG (self-hosted)
+All enabled tiers race concurrently; the first passed=True wins and the
+others are cancelled. Brave self-gates on `news_cascade.brave_daily_budget`
+so concurrent firing does not exhaust the free quota.
+
+Tiers (configurable via news_cascade.tiers):
+  - recent_earnings (synthesizes from most recent print)
+  - finnhub /company-news
+  - google_rss
+  - brave search
+  - searxng (self-hosted)
 """
 
 import asyncio
+import json
 import logging
 import time
 import xml.etree.ElementTree as ET
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
 
 import aiohttp
@@ -284,10 +292,54 @@ async def _search_google_news_rss(ticker: str) -> Optional[CatalystResult]:
         return None
 
 
+_BRAVE_COUNTER_PATH = Path(".omc/state/news_cascade_brave_counter.json")
+
+
+def _brave_counter_today() -> int:
+    """Return today's Brave call count from the on-disk counter (0 if absent
+    or the stored day is stale)."""
+    try:
+        raw = _BRAVE_COUNTER_PATH.read_text()
+        data = json.loads(raw)
+    except (FileNotFoundError, json.JSONDecodeError, ValueError):
+        return 0
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    if data.get("day_utc") != today:
+        return 0
+    try:
+        return int(data.get("count", 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _bump_brave_counter() -> None:
+    """Increment today's Brave call counter. Resets if the day rolled over."""
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    n = _brave_counter_today() + 1
+    try:
+        _BRAVE_COUNTER_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _BRAVE_COUNTER_PATH.write_text(
+            json.dumps({"day_utc": today, "count": n})
+        )
+    except OSError as e:
+        log.warning("Failed to write Brave counter: %s", e)
+
+
+def _brave_budget_ok() -> bool:
+    """True if today's Brave-tier usage is below `news_cascade.brave_daily_budget`."""
+    cap = int(cfg.get("news_cascade.brave_daily_budget", 50))
+    return _brave_counter_today() < cap
+
+
 async def _search_brave(ticker: str) -> Optional[CatalystResult]:
-    """Search Brave for news (quota-limited, tier 3)."""
+    """Search Brave for news. Gated by news_cascade.brave_daily_budget so
+    parallel cascade firing doesn't blow the free tier quota."""
     api_key = cfg.get_api_key("brave_search")
     if not api_key:
+        return None
+    if not _brave_budget_ok():
+        cap = cfg.get("news_cascade.brave_daily_budget", 50)
+        log.info("news_cascade: Brave daily cap (%d) reached, skipping tier", cap)
         return None
     if not await rate_limiter.acquire("brave_search"):
         return None
@@ -311,6 +363,7 @@ async def _search_brave(ticker: str) -> Optional[CatalystResult]:
                 return None
             data = await resp.json()
             rate_limiter.report_success("brave_search")
+            _bump_brave_counter()
 
         for r in data.get("web", {}).get("results", []):
             title = r.get("title", "")
@@ -358,9 +411,10 @@ async def _search_searxng(ticker: str) -> Optional[CatalystResult]:
 
 
 async def news_cascade(ticker: str) -> Optional[CatalystResult]:
-    """Run the 4-tier news cascade. Stops at first catalyst found.
+    """Race the configured tiers concurrently; return the first passed=True.
 
-    Order: Finnhub -> Google RSS -> Brave -> SearXNG
+    Pending tier tasks are cancelled and awaited after the winner is found
+    so aiohttp connections are drained cleanly.
     """
     tiers = cfg.get(
         "news_cascade.tiers",
@@ -375,14 +429,51 @@ async def news_cascade(ticker: str) -> Optional[CatalystResult]:
         "searxng": _search_searxng,
     }
 
+    tasks: list[asyncio.Task] = []
+    task_to_tier: dict[asyncio.Task, str] = {}
     for tier_name in tiers:
         func = tier_funcs.get(tier_name)
         if not func:
             continue
-        result = await func(ticker)
-        if result and result.passed:
-            log.info("News cascade hit at tier '%s' for %s", tier_name, ticker)
-            return result
+        t = asyncio.create_task(func(ticker), name=f"news_cascade:{tier_name}")
+        tasks.append(t)
+        task_to_tier[t] = tier_name
 
+    if not tasks:
+        return None
+
+    timeout_sec = float(cfg.get("news_cascade.parallel_timeout_sec", 12.0))
+    hit: Optional[CatalystResult] = None
+    hit_tier: Optional[str] = None
+    try:
+        for fut in asyncio.as_completed(tasks, timeout=timeout_sec):
+            try:
+                result = await fut
+            except asyncio.CancelledError:
+                continue
+            except Exception as exc:  # noqa: BLE001 — keep racing on tier errors
+                log.warning("news_cascade tier task error: %s", exc)
+                continue
+            if result and getattr(result, "passed", False):
+                hit = result
+                for done_t, name in task_to_tier.items():
+                    if (done_t.done() and not done_t.cancelled()
+                            and done_t.exception() is None
+                            and done_t.result() is result):
+                        hit_tier = name
+                        break
+                break
+    except asyncio.TimeoutError:
+        log.debug("news_cascade: timeout (%.1fs) for %s", timeout_sec, ticker)
+
+    pending = [t for t in tasks if not t.done()]
+    for t in pending:
+        t.cancel()
+    if pending:
+        await asyncio.gather(*pending, return_exceptions=True)
+
+    if hit:
+        log.info("News cascade hit at tier '%s' for %s", hit_tier or "?", ticker)
+        return hit
     log.debug("News cascade: no catalyst found for %s across all tiers", ticker)
     return None
