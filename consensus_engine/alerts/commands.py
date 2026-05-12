@@ -32,6 +32,7 @@ from consensus_engine.alerts.discord import send_command_reply
 from consensus_engine.scanners.reddit_trend import crawl_and_get_trending
 from consensus_engine.alerts.discord import send_trend_digest
 from consensus_engine.utils.tickers import is_valid_ticker
+from consensus_engine.utils.time_context import build_time_context
 
 
 _INVALID_TICKER_MSG = "Invalid ticker `{ticker}`. Tickers must be 1-6 uppercase letters."
@@ -51,6 +52,7 @@ async def _fetch_channel_history(channel_id: str, limit: int = 20) -> str:
     """Fetch recent messages from a Discord channel and format them as context."""
     import aiohttp
     from consensus_engine.utils.http import get_session
+    from consensus_engine.main import _strip_secrets_preamble
     token = cfg.get_api_key("discord_bot_token")
     if not token:
         return ""
@@ -70,7 +72,11 @@ async def _fetch_channel_history(channel_id: str, limit: int = 20) -> str:
             parts = []
             body = m.get("content", "").strip()
             if body:
-                parts.append(body)
+                # Defensive: strip any residual `[secrets]` preamble from prior
+                # bot replies so it never re-enters the LLM context window.
+                cleaned = _strip_secrets_preamble(body)
+                if cleaned and cleaned != "(agent returned no content)":
+                    parts.append(cleaned)
             for embed in m.get("embeds", []):
                 if embed.get("title"):
                     parts.append(f"[embed: {embed['title']}]")
@@ -106,6 +112,7 @@ async def _handle_ask(question: str, channel_id: str, message_id: str) -> None:
         f"\n\nRecent channel messages (oldest→newest):\n{history}" if history else ""
     )
     system_prompt = (
+        build_time_context() + "\n\n"
         "You are OpenClaw, an AI trading signal and market intelligence assistant "
         "running on a Discord server. Answer the user's question with full reasoning "
         "and specific numbers wherever possible. Cite the data you rely on by source "

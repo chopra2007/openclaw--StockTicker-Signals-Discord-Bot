@@ -83,7 +83,7 @@ async def test_handle_mention_all_attempts_fail_returns_unavailable(monkeypatch)
 
 async def test_handle_mention_timeout_branch_reports_timeout(monkeypatch):
     """All 3 attempts raise asyncio.TimeoutError inside wait_for. Reply
-    contains the "subprocess timed out (>125s)" branch's last_err."""
+    contains the "subprocess timed out (>180s)" branch's last_err."""
     factory = AsyncMock(return_value=_make_proc(b"x", b""))
     monkeypatch.setattr(main_mod.asyncio, "create_subprocess_exec", factory)
     monkeypatch.setattr(main_mod.asyncio, "sleep", AsyncMock())
@@ -102,7 +102,7 @@ async def test_handle_mention_timeout_branch_reports_timeout(monkeypatch):
     assert reply_mock.await_count == 1
     reply_text = reply_mock.call_args.args[2]
     assert "Agent unavailable after 3 retries" in reply_text
-    assert "subprocess timed out (>125s)" in reply_text
+    assert "subprocess timed out (>180s)" in reply_text
 
 
 async def test_handle_mention_empty_content_short_circuits(monkeypatch):

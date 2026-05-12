@@ -24,6 +24,7 @@ from consensus_engine.alerts.all_command import output_filter
 from consensus_engine.alerts.all_command.structured_fields import StructuredFields
 from consensus_engine.llm_client import call_with_fallback
 from consensus_engine.models import ScoreBreakdown
+from consensus_engine.utils.time_context import build_time_context
 
 log = logging.getLogger("consensus_engine.alerts.all_command.narrator")
 
@@ -410,7 +411,7 @@ def _build_synthesis_prompt(
     ]
 
     return [
-        {"role": "system", "content": _SYS_INSTRUCTION},
+        {"role": "system", "content": build_time_context() + "\n\n" + _SYS_INSTRUCTION},
         {"role": "user", "content": "\n\n".join(user_blocks)},
     ]
 
@@ -494,7 +495,8 @@ async def synthesize_narrative(
         hardened = list(messages)
         hardened[0] = dict(hardened[0])
         hardened[0]["content"] = (
-            _SYS_INSTRUCTION + " STRICT: do not contradict the COMPUTED "
+            build_time_context() + "\n\n"
+            + _SYS_INSTRUCTION + " STRICT: do not contradict the COMPUTED "
             "SIGNAL block. Do not include @everyone or @here."
         )
         # Re-derive remaining time from a fresh deadline call site.

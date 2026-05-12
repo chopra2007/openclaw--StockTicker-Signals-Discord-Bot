@@ -332,6 +332,10 @@ class DiscordTweetShiftListener:
                         # Strip the bot mention from content for cleaner input
                         clean = re.sub(r'<@!?' + re.escape(self._bot_user_id) + r'>', '', content).strip()
                         log.info("Discord mention in channel=%s (user=%s): %.80s", channel_id, author_id, clean)
+                        log.info("mention_received", extra={
+                            "channel_id": channel_id,
+                            "user_id": author_id,
+                        })
                         try:
                             await self._on_mention(clean, channel_id, message_id, author_id)
                         except Exception as e:
