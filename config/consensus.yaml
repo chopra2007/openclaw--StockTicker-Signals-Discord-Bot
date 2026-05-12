@@ -327,6 +327,13 @@ youtube:
   show_timestamps_in_alerts: true
   near_price_dedup_pct: 0.5
 
+# !all command tuning (swing-realism)
+all_command:
+  # W3: compute v2 anchor scoring (distance penalty + tier multiplier) in
+  # parallel with v1, log delta, but render v1 for ranking. Flip to false
+  # to make v2 the rendered score after 7-day shadow review.
+  score_v2_shadow_mode: true
+
 # Precision Scoring Engine
 precision_engine:
   enabled: true

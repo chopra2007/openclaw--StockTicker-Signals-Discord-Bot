@@ -72,6 +72,75 @@ def _score(anchor: Anchor) -> float:
     )
 
 
+# W3 C-C1/C-C3 — distance penalty + source-tier multiplier (shadow mode).
+# Values per final-plan §2; carve-outs match Codex amendment.
+SCORE_V2_TIER_MULTIPLIERS: dict[str, float] = {
+    "yt_curated": 1.0,
+    "swing": 0.7,
+    "yt": 0.5,
+    "web": 0.2,
+}
+
+# Default exponent for the distance penalty 1/(1 + alpha * distance_pct).
+# Tuned per Codex commentary: alpha=4 gives 0.71 @ 10%, 0.50 @ 25%, 0.20 @ 100%.
+_SCORE_V2_DEFAULT_ALPHA = 4.0
+# Penny-stock skip threshold: distance penalty becomes degenerate when the
+# spot price is tiny because every anchor is at high % distance.
+_SCORE_V2_PENNY_SKIP_PRICE = 5.0
+# High-priced ticker gentler-tail threshold (alpha=2 instead of 4).
+_SCORE_V2_HIGH_PRICE_BAND = 1000.0
+_SCORE_V2_HIGH_PRICE_ALPHA = 2.0
+
+
+def _distance_penalty(distance_pct: Optional[float], current_price: float) -> float:
+    """1/(1 + alpha * distance_pct) with carve-outs.
+
+    Penny stocks (`current_price < $5`) skip the penalty (multiplier 1.0)
+    because distance_pct dynamics are degenerate at small spots. High-priced
+    stocks (`current_price > $1000`) get a softer tail (alpha=2) because
+    a $200 anchor 10% away on a $2000 stock is informationally similar to
+    a $20 anchor 10% away on a $200 stock and shouldn't be punished harder.
+    """
+    if distance_pct is None or distance_pct < 0:
+        return 1.0
+    if current_price is None or current_price <= 0:
+        return 1.0
+    if current_price < _SCORE_V2_PENNY_SKIP_PRICE:
+        return 1.0
+    alpha = (
+        _SCORE_V2_HIGH_PRICE_ALPHA
+        if current_price > _SCORE_V2_HIGH_PRICE_BAND
+        else _SCORE_V2_DEFAULT_ALPHA
+    )
+    return 1.0 / (1.0 + alpha * distance_pct)
+
+
+def _score_v2(
+    anchor: Anchor,
+    *,
+    current_price: float,
+    tier_multipliers: dict[str, float] = None,
+) -> float:
+    """Anchor score with C-C1 distance penalty + C-C3 source-tier multiplier.
+
+    Compared to v1, multiplies the base score by `distance_penalty *
+    tier_multiplier`. The score remains comparable in magnitude when the
+    anchor is a curated high-trust YouTube source very close to spot
+    (penalty ~1, multiplier 1.0). Far-away or low-trust anchors get
+    progressively attenuated.
+
+    Falls back to v1 score (no penalty/multiplier) if `current_price` is
+    not usable — callers should already have gated on `spot_policy`.
+    """
+    base = _score(anchor)
+    mults = tier_multipliers or SCORE_V2_TIER_MULTIPLIERS
+    tier_mult = mults.get(anchor.source_type, mults.get("yt", 0.5))
+    if anchor.distance_pct is None and current_price and current_price > 0:
+        anchor.distance_pct = abs(anchor.price - current_price) / current_price
+    penalty = _distance_penalty(anchor.distance_pct, current_price)
+    return base * penalty * tier_mult
+
+
 def extract_anchors_from_youtube_levels(rows: list[dict]) -> list[Anchor]:
     """Convert youtube_levels DB rows to Anchor objects.
 
@@ -290,11 +359,38 @@ def rank_anchors(
 
     Returns (supports_below, resistances_above). An anchor exactly at the
     current price is dropped (cannot serve as either side of a trade plan).
+
+    W3 shadow mode: computes both v1 (base touches/volume/source/freshness)
+    and v2 (with distance penalty + tier multiplier) scores. v1 drives the
+    actual sort; v2 is stashed on `anchor.score_v2` and emitted via a
+    structured log line (`score_v1`, `score_v2`, `delta`) for observability.
+    Flip `all_command.score_v2_shadow_mode` to false in config once the
+    distribution is validated.
     """
+    import logging as _logging
+    log = _logging.getLogger("consensus_engine.alerts.all_command.levels")
+
+    try:
+        from consensus_engine import config as _cfg
+        shadow_mode = bool(_cfg.get("all_command.score_v2_shadow_mode", True))
+    except Exception:
+        shadow_mode = True
+
     supports: list[Anchor] = []
     resistances: list[Anchor] = []
     for a in anchors:
-        a.computed_score = _score(a)
+        v1 = _score(a)
+        a.computed_score = v1
+        if shadow_mode and current_price and current_price > 0:
+            v2 = _score_v2(a, current_price=current_price)
+            # Stash v2 so callers (and W5 confluence bonus) can inspect.
+            setattr(a, "score_v2", v2)
+            log.info(
+                "score_shadow ticker_anchor=%s source_type=%s "
+                "score_v1=%.2f score_v2=%.2f delta=%.2f distance_pct=%s",
+                f"${a.price:.2f}", a.source_type, v1, v2, v2 - v1,
+                f"{a.distance_pct:.4f}" if a.distance_pct is not None else "None",
+            )
         if a.price < current_price:
             supports.append(a)
         elif a.price > current_price:
