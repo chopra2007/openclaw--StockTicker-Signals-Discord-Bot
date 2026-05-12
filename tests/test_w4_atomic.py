@@ -151,7 +151,7 @@ def test_next_catalyst_days_none_when_nothing_available():
 
 
 # ---------------------------------------------------------------------------
-# Embed field shape — v2 (default) renders Next Catalyst + Swing Horizon +
+# Embed field shape — v2 (default) renders Next Catalyst + Horizon +
 # Expected Move; v0 renders Timeframe + Magnitude. 11 vs 10 fields.
 # ---------------------------------------------------------------------------
 
@@ -172,7 +172,7 @@ def test_embed_v2_renders_next_catalyst_swing_horizon_expected_move():
     out = embed_mod.build_embed("NVDA", s, sb, "n", ["a"], None)
     names = [f["name"] for f in out["fields"]]
     assert "Next Catalyst" in names
-    assert "Swing Horizon" in names
+    assert "Horizon" in names
     assert "Expected Move" in names
     assert "Timeframe" not in names
     assert "Magnitude" not in names
@@ -196,7 +196,7 @@ def test_embed_v0_renders_timeframe_magnitude(monkeypatch):
     names = [f["name"] for f in out["fields"]]
     assert "Timeframe" in names
     assert "Magnitude" in names
-    assert "Swing Horizon" not in names
+    assert "Horizon" not in names
     assert len(out["fields"]) == 10
 
 
@@ -221,7 +221,7 @@ def test_narrator_computed_signal_v2_keys_present():
     assert '"swing_horizon_days": 10' in user_msg
     assert '"expected_move_band"' in user_msg
     # Trade Plan rows in prompt
-    assert "Swing Horizon" in user_msg
+    assert "Horizon" in user_msg
     assert "Expected Move" in user_msg
     assert "Next Catalyst" in user_msg
 
@@ -232,7 +232,7 @@ def test_narrator_constraints_block_v0_keeps_v0_table(monkeypatch):
         lambda key, default=None: False if key == "all_command.swing_v2_enabled" else default,
     )
     block = narrator_mod._build_constraints_block(swing_v2=False)
-    assert "Swing Horizon" not in block
+    assert "Horizon" not in block
     assert "Expected Move" not in block
     assert "Buy Zone" in block
     assert "TP1" in block
@@ -262,7 +262,7 @@ def test_vault_writer_v2_includes_schema_version_2_and_new_keys():
     )
     assert "schema_version=2" in md
     assert "Next Catalyst: 4d" in md
-    assert "Swing Horizon: 8–13 days" in md
+    assert "Horizon: 8–13 days" in md
     assert "Expected Move: ±$8 / 10d" in md
     assert "Timeframe:" not in md
     assert "Magnitude:" not in md

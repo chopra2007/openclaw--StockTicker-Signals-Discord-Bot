@@ -213,7 +213,7 @@ def build_embed(
         em_value = getattr(structured, "magnitude_band_label", None) or "—"
         fields.extend([
             {"name": "Next Catalyst", "value": nc_value, "inline": True},
-            {"name": "Swing Horizon", "value": sh_value, "inline": True},
+            {"name": "Horizon", "value": sh_value, "inline": True},
             {"name": "Expected Move", "value": em_value, "inline": True},
         ])
     else:

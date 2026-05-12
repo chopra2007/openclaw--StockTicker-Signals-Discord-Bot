@@ -263,7 +263,7 @@ _TRADE_PLAN_V2_ROWS = (
     "       | TP1             | $tp1                           | <why this target — measured-move, swing high, $ source> |\n"
     "       | TP2             | $tp2 (or '—' if null)          | <reason or 'TP2/TP3 padded — fewer than 3 resistance anchors'> |\n"
     "       | TP3             | $tp3 (or '—' if null)          | <reason or padding note> |\n"
-    "       | Swing Horizon   | swing_horizon_band low-high days | <derived from |tp1-spot|/0.7×ATR, capped at next catalyst> |\n"
+    "       | Horizon         | swing_horizon_band low-high days | <derived from |tp1-spot|/0.7×ATR, capped at next catalyst> |\n"
     "       | Expected Move   | expected_move_band             | <typical move over horizon; cite ATR(14)> |\n"
     "       | Next Catalyst   | next_catalyst_days days        | <earnings or options expiry that bounds the horizon> |\n"
 )

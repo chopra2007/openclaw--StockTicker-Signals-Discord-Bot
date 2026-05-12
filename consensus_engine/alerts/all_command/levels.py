@@ -375,6 +375,8 @@ def cluster_anchors(
 def rank_anchors(
     anchors: list[Anchor],
     current_price: float,
+    *,
+    ticker: Optional[str] = None,
 ) -> tuple[list[Anchor], list[Anchor]]:
     """Score, split into supports/resistances, and sort by descending score.
 
@@ -385,8 +387,9 @@ def rank_anchors(
     and v2 (with distance penalty + tier multiplier) scores. v1 drives the
     actual sort; v2 is stashed on `anchor.score_v2` and emitted via a
     structured log line (`score_v1`, `score_v2`, `delta`) for observability.
-    Flip `all_command.score_v2_shadow_mode` to false in config once the
-    distribution is validated.
+    The `ticker` kwarg is passed by the aggregator so review scripts can
+    group log lines by !all invocation. Flip `all_command.score_v2_shadow_mode`
+    to false in config once the distribution is validated.
     """
     import logging as _logging
     log = _logging.getLogger("consensus_engine.alerts.all_command.levels")
@@ -409,9 +412,10 @@ def rank_anchors(
             # Stash v2 so callers (and W5 confluence bonus) can inspect.
             setattr(a, "score_v2", v2)
             log.info(
-                "score_shadow ticker_anchor=%s source_type=%s "
+                "score_shadow ticker=%s current_price=%.2f anchor_price=%.2f source_type=%s "
                 "score_v1=%.2f score_v2=%.2f delta=%.2f distance_pct=%s",
-                f"${a.price:.2f}", a.source_type, v1, v2, v2 - v1,
+                ticker or "UNKNOWN", float(current_price), a.price, a.source_type,
+                v1, v2, v2 - v1,
                 f"{a.distance_pct:.4f}" if a.distance_pct is not None else "None",
             )
         if a.price < current_price:

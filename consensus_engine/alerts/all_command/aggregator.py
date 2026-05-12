@@ -533,7 +533,7 @@ async def _compute_all(ticker: str, start: float) -> dict:
 
     all_anchors = levels.cluster_anchors(initial_anchors + web_anchors, 0.005)
     current_price = _current_price(data["technical_long"]) or 0.0
-    supports, resistances = levels.rank_anchors(all_anchors, current_price)
+    supports, resistances = levels.rank_anchors(all_anchors, current_price, ticker=ticker)
     trade_plan = levels.select_trade_plan(supports, resistances)
 
     # Structured fields.

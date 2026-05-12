@@ -175,7 +175,7 @@ def render_all_command_markdown(
         em_str = getattr(structured, "magnitude_band_label", None) or "TBD"
         trade_plan_block = (
             f"- Next Catalyst: {nc_str}\n"
-            f"- Swing Horizon: {sh_str}\n"
+            f"- Horizon: {sh_str}\n"
             f"- Expected Move: {em_str}\n"
         )
         schema_version = 2

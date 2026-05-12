@@ -345,7 +345,7 @@ def test_embed_color_neutral_or_low_conf():
 
 
 def test_embed_field_count_exactly_11_inline():
-    """W4 grew the field set from 10 to 11 (Next Catalyst + Swing Horizon
+    """W4 grew the field set from 10 to 11 (Next Catalyst + Horizon
     + Expected Move replace Timeframe + Magnitude when swing_v2_enabled).
     Iter5 grew 8 → 10 (Price + Buy Zone)."""
     s = StructuredFields(
@@ -366,7 +366,7 @@ def test_embed_field_count_exactly_11_inline():
     assert all(f.get("inline") for f in out["fields"])
     field_names = [f["name"] for f in out["fields"]]
     assert "Next Catalyst" in field_names
-    assert "Swing Horizon" in field_names
+    assert "Horizon" in field_names
     assert "Expected Move" in field_names
 
 
