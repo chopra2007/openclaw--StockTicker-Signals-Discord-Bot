@@ -338,6 +338,10 @@ all_command:
   # Set to false for emergency revert — old breakout_timeframe / 2× ATR
   # rendering paths stay populated for fallback.
   swing_v2_enabled: true
+  # W5: confluence bonus over cluster_source_types (W2 plumbing).
+  # Default OFF per final-plan §7 — flip true after 48h of W4 stability.
+  # Bonus is 1.0×–1.5× scaled by number of distinct tiers in cluster.
+  confluence_bonus_enabled: false
 
 # Precision Scoring Engine
 precision_engine:

@@ -1,2 +1,2 @@
 """Stock Trend Consensus Engine — Multi-source breakout detection."""
-__version__ = "0.4.0-swing-realism-w4-atomic-atr-horizon-band-2026-05-11"
+__version__ = "0.4.1-swing-realism-w5-confluence-bonus-2026-05-11"

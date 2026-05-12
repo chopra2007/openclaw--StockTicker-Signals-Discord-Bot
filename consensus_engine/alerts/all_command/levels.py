@@ -115,22 +115,38 @@ def _distance_penalty(distance_pct: Optional[float], current_price: float) -> fl
     return 1.0 / (1.0 + alpha * distance_pct)
 
 
+# W5 C-C8 confluence bonus — applied on top of v2 score when a cluster
+# contains anchors from multiple source tiers. Default OFF per plan §7
+# (flip after W4 is stable for 48h). Bonus = 1.0 + (num_distinct_tiers - 1)
+# * SCORE_V2_CONFLUENCE_PER_TIER, capped at SCORE_V2_CONFLUENCE_MAX_MULT.
+SCORE_V2_CONFLUENCE_PER_TIER = 0.10
+SCORE_V2_CONFLUENCE_MAX_MULT = 1.5
+
+
+def _confluence_bonus(cluster_source_types) -> float:
+    """1.0 when cluster has only one tier; up to 1.5x when 3+ tiers diverge."""
+    if not cluster_source_types or len(cluster_source_types) <= 1:
+        return 1.0
+    bonus = 1.0 + (len(cluster_source_types) - 1) * SCORE_V2_CONFLUENCE_PER_TIER
+    return min(bonus, SCORE_V2_CONFLUENCE_MAX_MULT)
+
+
 def _score_v2(
     anchor: Anchor,
     *,
     current_price: float,
     tier_multipliers: dict[str, float] = None,
+    confluence_bonus_enabled: bool = False,
 ) -> float:
     """Anchor score with C-C1 distance penalty + C-C3 source-tier multiplier.
 
-    Compared to v1, multiplies the base score by `distance_penalty *
-    tier_multiplier`. The score remains comparable in magnitude when the
-    anchor is a curated high-trust YouTube source very close to spot
-    (penalty ~1, multiplier 1.0). Far-away or low-trust anchors get
-    progressively attenuated.
+    W5 extension: when `confluence_bonus_enabled` is True and the anchor's
+    cluster spans multiple source tiers, multiply by a confluence bonus
+    (capped at 1.5x). This rewards anchors confirmed by independent source
+    types (e.g. yt_curated + swing + web all landing on the same level).
 
-    Falls back to v1 score (no penalty/multiplier) if `current_price` is
-    not usable — callers should already have gated on `spot_policy`.
+    Compared to v1, multiplies the base score by `distance_penalty *
+    tier_multiplier * confluence_bonus`.
     """
     base = _score(anchor)
     mults = tier_multipliers or SCORE_V2_TIER_MULTIPLIERS
@@ -138,7 +154,12 @@ def _score_v2(
     if anchor.distance_pct is None and current_price and current_price > 0:
         anchor.distance_pct = abs(anchor.price - current_price) / current_price
     penalty = _distance_penalty(anchor.distance_pct, current_price)
-    return base * penalty * tier_mult
+    cbonus = (
+        _confluence_bonus(getattr(anchor, "cluster_source_types", None))
+        if confluence_bonus_enabled
+        else 1.0
+    )
+    return base * penalty * tier_mult * cbonus
 
 
 def extract_anchors_from_youtube_levels(rows: list[dict]) -> list[Anchor]:
@@ -370,11 +391,9 @@ def rank_anchors(
     import logging as _logging
     log = _logging.getLogger("consensus_engine.alerts.all_command.levels")
 
-    try:
-        from consensus_engine import config as _cfg
-        shadow_mode = bool(_cfg.get("all_command.score_v2_shadow_mode", True))
-    except Exception:
-        shadow_mode = True
+    from consensus_engine import config as _cfg
+    shadow_mode = bool(_cfg.get("all_command.score_v2_shadow_mode", True))
+    confluence_enabled = bool(_cfg.get("all_command.confluence_bonus_enabled", False))
 
     supports: list[Anchor] = []
     resistances: list[Anchor] = []
@@ -382,7 +401,11 @@ def rank_anchors(
         v1 = _score(a)
         a.computed_score = v1
         if shadow_mode and current_price and current_price > 0:
-            v2 = _score_v2(a, current_price=current_price)
+            v2 = _score_v2(
+                a,
+                current_price=current_price,
+                confluence_bonus_enabled=confluence_enabled,
+            )
             # Stash v2 so callers (and W5 confluence bonus) can inspect.
             setattr(a, "score_v2", v2)
             log.info(
