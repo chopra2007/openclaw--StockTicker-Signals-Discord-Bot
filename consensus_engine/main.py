@@ -1127,7 +1127,7 @@ def _fetch_yfinance_price(ticker: str) -> float:
 async def price_outcome_loop(stop_event: asyncio.Event):
     """Backfill 1h and 24h alert outcome prices."""
     executor = concurrent.futures.ThreadPoolExecutor(
-        max_workers=4,
+        max_workers=8,
         thread_name_prefix="price-outcome",
     )
     loop = asyncio.get_running_loop()

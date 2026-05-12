@@ -52,8 +52,10 @@ class RateLimiter:
             if elapsed < min_interval:
                 wait_time = min_interval - elapsed
 
-            # Reserve the slot now (before releasing lock)
-            self._last_request[source] = time.time() + wait_time
+            # Reserve the slot now (before releasing lock).
+            # Use `now` captured above, not a fresh time.time(): under
+            # contention the lock-held time itself drifts the slot reservation.
+            self._last_request[source] = now + wait_time
 
         # Sleep outside the lock so other sources aren't blocked
         if wait_time > 0:
