@@ -1,0 +1,58 @@
+# Editorial channel trust scores for `youtube_channels.trust_score`.
+#
+# Run `python3 -m scripts.seed_trust_scores` to apply this file to the live DB.
+# The script is idempotent — re-running with the same content is a no-op.
+#
+# Tier guidance:
+#   0.9 — trusted: long-running track record, technical clarity, consistent accuracy.
+#   0.6 — standard: solid analysis but mixed signal-to-noise.
+#   0.3 — probationary: noisy / new / unverified channels worth keeping but not boosting.
+#   0.0 — disabled (would also need approved=0; this script only writes trust_score).
+#
+# All 13 current channels are seeded with `default_trust: 1.0` so the live ranking is
+# unchanged at W2 deploy time. Per CEF-1 in the discover plan, C-C3's distinction
+# between yt_curated (≥0.7) and yt (<0.7) is operationally inert until the operator
+# differentiates these values. Edit and rerun before W3 flips out of shadow mode.
+
+default_trust: 1.0
+
+channels:
+  - channel_id: UCfdPOTevbfCh_QHsyPeZ8MQ
+    display_name: Figuring Out Money
+    trust_score: 1.0
+  - channel_id: UCsKdUbXfgsrxtGdpaPoOiFQ
+    display_name: TheStockWatch
+    trust_score: 1.0
+  - channel_id: UCUP_ao_7-Yct5FcVIA4Kobg
+    display_name: The Stocks Channel
+    trust_score: 1.0
+  - channel_id: UCgkP76aRwL1Kp_62qyQN_lA
+    display_name: Market Rebellion
+    trust_score: 1.0
+  - channel_id: UCd2Zb5Ml48BS09Z37j7xD3g
+    display_name: FX Evolution
+    trust_score: 1.0
+  - channel_id: UC0jLMq-d_xJOQWZfemiJ0Pg
+    display_name: StockedUp
+    trust_score: 1.0
+  - channel_id: UCV00elXN8Z0vrFIAZu3rIKw
+    display_name: The Real Shadow Trader
+    trust_score: 1.0
+  - channel_id: UCpBPTKot6Im9SWs1upQMZKA
+    display_name: Click Capital
+    trust_score: 1.0
+  - channel_id: UCEN0rg-Sa7tnGOrtolozA1Q
+    display_name: The Technical Take
+    trust_score: 1.0
+  - channel_id: UCZwcPsE_ApWOsCUyBtUTZXw
+    display_name: CheddarFlow
+    trust_score: 1.0
+  - channel_id: UCrtHpWM3GlFmCdqCkOL3xAg
+    display_name: Dynamic Trading with Robert Miner
+    trust_score: 1.0
+  - channel_id: UCpDIpBd3rAbPc2ZTPSEUgug
+    display_name: Lottery Stocks
+    trust_score: 1.0
+  - channel_id: UCQSiWKh7o9oRtApc4YjRssg
+    display_name: Wicked Stocks
+    trust_score: 1.0

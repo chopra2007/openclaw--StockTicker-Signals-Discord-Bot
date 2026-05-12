@@ -1559,15 +1559,29 @@ async def get_youtube_levels_for_ticker(ticker: str, days: int = 7) -> list[dict
     PR5: excludes rows marked `suppressed=1` (price-sanity violations or
     off-allowlist), so corrupt parser output never reaches the !all anchor
     pipeline. NULL `suppressed` (legacy rows pre-PR5) is treated as 0.
+
+    W2: LEFT JOIN youtube_channels on display_name = channel_name so the
+    caller gets `channel_id` and `trust_score` in the same query. This is
+    the CEF-10 fix — `rank_anchors()` is sync and `get_channel_trust()`
+    is async, so pre-fetching trust at query time eliminates the boundary.
+    Levels for unregistered channels return `channel_id=NULL, trust_score=NULL`
+    and downstream code applies the bootstrap default (0.5 yt tier).
     """
     conn = await get_db()
     cutoff = time.time() - (days * 86400)
     cursor = await conn.execute(
-        """SELECT ticker, level_type, price, condition_text, consequence_text, confidence, channel_name, published_at
-           FROM youtube_levels
-           WHERE ticker = ? AND extracted_at >= ?
-             AND (suppressed IS NULL OR suppressed = 0)
-           ORDER BY confidence DESC, extracted_at DESC""",
+        """SELECT yl.ticker, yl.level_type, yl.price, yl.condition_text,
+                  yl.consequence_text, yl.confidence, yl.channel_name,
+                  yl.published_at, yl.source_snippet,
+                  yc.channel_id AS channel_id,
+                  yc.trust_score AS trust_score,
+                  yc.approved AS approved
+           FROM youtube_levels yl
+           LEFT JOIN youtube_channels yc
+             ON yc.display_name = yl.channel_name
+           WHERE yl.ticker = ? AND yl.extracted_at >= ?
+             AND (yl.suppressed IS NULL OR yl.suppressed = 0)
+           ORDER BY yl.confidence DESC, yl.extracted_at DESC""",
         (ticker, cutoff),
     )
     rows = await cursor.fetchall()

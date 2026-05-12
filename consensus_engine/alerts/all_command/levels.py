@@ -23,17 +23,39 @@ NEGATIVE_CONTEXT = {"billion", "million", "eps", "p/e", "revenue",
                     "market cap", "shares", "%"}
 
 
+# Tier ordering for source_type collisions when clustering merges anchors with
+# different provenance. yt_curated wins over swing wins over yt wins over web.
+# CEF-3 fix: previous code inherited source_type from cluster[0] which gave
+# first-arrival-wins semantics — a web anchor sorted ahead of a yt_curated
+# anchor would permanently down-tier the cluster.
+SOURCE_TIER_ORDER: tuple[str, ...] = ("yt_curated", "swing", "yt", "web")
+
+
+def _max_tier(source_types: list[str]) -> str:
+    """Return the highest-priority source_type from a cluster."""
+    for tier in SOURCE_TIER_ORDER:
+        if tier in source_types:
+            return tier
+    # Anything unrecognised falls back to web (most conservative).
+    return source_types[0] if source_types else "web"
+
+
 @dataclass
 class Anchor:
     """A single price anchor with provenance and ranking metadata."""
     price: float
     source: str               # e.g. "youtube:LunaTrades", "swing_high", "web:reuters.com"
-    source_type: str          # "yt" | "swing" | "web"
+    source_type: str          # "yt_curated" | "swing" | "yt" | "web"
     touches: int = 0
     volume_strength: float = 0.0
     freshness_days: int = 0
     computed_score: float = 0.0
     source_count: int = 1     # increases when anchors merge in clustering
+    # W2 provenance plumbing additions
+    channel_id: Optional[str] = None        # join key for trust lookup (CEF-10)
+    trust_score: Optional[float] = None     # pre-fetched at query time
+    distance_pct: Optional[float] = None    # populated at rank time (W3)
+    cluster_source_types: Optional[set] = None  # retained tier set for C-C8 (W5)
 
 
 def _freshness_bonus(days_old: int) -> float:
@@ -54,6 +76,11 @@ def extract_anchors_from_youtube_levels(rows: list[dict]) -> list[Anchor]:
     """Convert youtube_levels DB rows to Anchor objects.
 
     Expected row keys: price, channel_name, level_type, freshness_days (optional).
+    W2: also reads `channel_id`, `trust_score`, `approved` (from the LEFT JOIN
+    in db.get_youtube_levels_for_ticker). When trust_score >= 0.7 AND approved=1
+    the anchor is tagged `yt_curated`; otherwise it falls into `yt` tier.
+    Bootstrap default for missing/null trust is 0.5 (yt tier), NOT 0.2 (web tier) —
+    CEF-1 amendment to keep unregistered channels from collapsing under C-C3.
     Rows missing price are skipped.
     """
     anchors: list[Anchor] = []
@@ -71,13 +98,25 @@ def extract_anchors_from_youtube_levels(rows: list[dict]) -> list[Anchor]:
         freshness = row.get("freshness_days")
         if freshness is None:
             freshness = 0
+
+        channel_id = row.get("channel_id")
+        approved = row.get("approved")
+        trust_raw = row.get("trust_score")
+        trust = float(trust_raw) if trust_raw is not None else 0.5
+        if trust >= 0.7 and (approved == 1 or approved is True):
+            source_type = "yt_curated"
+        else:
+            source_type = "yt"
+
         anchors.append(Anchor(
             price=price_f,
             source=f"youtube:{channel}",
-            source_type="yt",
+            source_type=source_type,
             touches=int(row.get("touches", 0) or 0),
             volume_strength=float(row.get("volume_strength", 0.0) or 0.0),
             freshness_days=int(freshness),
+            channel_id=channel_id,
+            trust_score=trust,
         ))
     return anchors
 
@@ -208,18 +247,37 @@ def cluster_anchors(
     merged: list[Anchor] = []
     for cluster in clusters:
         if len(cluster) == 1:
-            merged.append(cluster[0])
+            singleton = cluster[0]
+            if singleton.cluster_source_types is None:
+                singleton.cluster_source_types = {singleton.source_type}
+            merged.append(singleton)
             continue
         avg_price = sum(c.price for c in cluster) / len(cluster)
         merged_sources = ";".join(sorted({c.source for c in cluster}))
+        tier_set = {c.source_type for c in cluster}
+        # W2 CEF-3 fix: max-tier-in-cluster instead of cluster[0] first-arrival.
+        merged_type = _max_tier([c.source_type for c in cluster])
+        # Prefer the highest trust score among the cluster's contributors.
+        trust_values = [c.trust_score for c in cluster if c.trust_score is not None]
+        merged_trust = max(trust_values) if trust_values else None
+        # Channel attribution: pick a channel_id from the contributing
+        # anchor that matches the winning tier, if any.
+        merged_channel_id = next(
+            (c.channel_id for c in cluster
+             if c.source_type == merged_type and c.channel_id),
+            None,
+        )
         merged.append(Anchor(
             price=avg_price,
             source=merged_sources,
-            source_type=cluster[0].source_type,
+            source_type=merged_type,
             touches=max(c.touches for c in cluster),
             volume_strength=max(c.volume_strength for c in cluster),
             freshness_days=min(c.freshness_days for c in cluster),
             source_count=sum(c.source_count for c in cluster),
+            channel_id=merged_channel_id,
+            trust_score=merged_trust,
+            cluster_source_types=tier_set,
         ))
     return merged
 
