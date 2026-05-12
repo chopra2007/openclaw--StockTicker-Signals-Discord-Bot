@@ -302,7 +302,7 @@ youtube:
     # both support video. Swap to "gemini-2.5-flash" for higher-quality extraction
     # once daily usage allows.
     model: "gemini-2.5-flash-lite"
-    timeout_sec: 120
+    timeout_sec: 240  # bumped 120→240 (2026-05-12) — free-tier video ingest borderline-exceeds 120s; see TODO "Gemini video-eval reference assertions"
     # media_resolution: "auto" (recommended) | "low" | "medium" | "default".
     #   auto    = pick tier based on Gemini daily-budget utilisation (see
     #             budget_pct_for_* below). Starts cheap, bumps up when the
