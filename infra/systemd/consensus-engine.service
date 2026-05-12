@@ -1,0 +1,33 @@
+[Unit]
+Description=OpenClaw Consensus Engine - Signal-First Stock Alert Engine
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+User=openclaw
+WorkingDirectory=/home/openclaw/.openclaw/workspace
+EnvironmentFile=-/home/openclaw/.openclaw/.env.service
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 -m consensus_engine --live
+Restart=always
+RestartSec=10
+TimeoutStopSec=30
+StandardOutput=journal
+StandardError=journal
+
+# Resource limits — tuned for 8GB host
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# OOM: protect engine from being killed first (-500 = harder to kill)
+OOMScoreAdj=-500
+
+# Hardening (ProtectHome omitted: service legitimately writes to its own homedir)
+ProtectSystem=strict
+ReadWritePaths=/home/openclaw/.openclaw /root/.openclaw /tmp
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

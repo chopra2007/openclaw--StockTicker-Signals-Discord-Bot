@@ -1,0 +1,23 @@
+[Unit]
+Description=OpenClaw Gateway (WebSocket/agent runtime)
+After=network.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=openclaw
+Group=openclaw
+WorkingDirectory=/home/openclaw/.openclaw/workspace
+EnvironmentFile=-/home/openclaw/.openclaw/.env.service
+Environment=HOME=/home/openclaw
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/openclaw gateway --port 18789 --bind loopback
+Restart=always
+RestartSec=10
+RestartPreventExitStatus=78
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
