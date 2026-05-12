@@ -1,5 +1,14 @@
 # Post-Batch Issues — must investigate in a fresh session
 
+> **RESOLVED 2026-05-12** in commits `caf1df0` + `1bd2759` (discover run
+> `todo-1456-verify`). All three problems below were fixed end-to-end and
+> verified with live Discord probes:
+> - Problem 1 (`!ask` time-confused): fixed by `time_context.py` helper + injection into `!ask` and `!all` system prompts
+> - Problem 2 (`[secrets]` preamble + dumb tool choices): fixed by `openclaw agent --local` flag (silences resolver at source) + multi-line strip helper (defense-in-depth) + fenced steering prefix
+> - Problem 3 (intermittent no-reply): not reproduced; n=20+ live mention probes all returned, 0 timeouts; new `mention_received`/`mention_reply` telemetry in place
+>
+> Of the 5 hypotheses, **H1 + H3 confirmed and addressed**; H2/H4 plausible-not-yet-confirmed (TCPConnector saturation) — left in place as connection pool wasn't observed saturating in tests. H5 (out-of-repo agent prompt) sidestepped by Fix B (`--local`). Doc retained for audit trail.
+
 User feedback after `discover: todo-1456-adversarial` batch landed (commits
 `5d15dca..a96e51f`): "the bot either doesn't reply to a mention, or gives
 very dumb replies." User explicitly believes these are NOT pre-existing —
