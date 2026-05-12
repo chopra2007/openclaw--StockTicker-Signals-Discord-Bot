@@ -20,6 +20,7 @@ import importlib
 import json
 import sys
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -267,7 +268,7 @@ async def test_run_chain_check_surfaces_drift_row(monkeypatch):
                         lambda: [("LLM", "primary", "ring")])
     monkeypatch.setattr(health, "_enumerate_gateway_chain_models",
                         lambda: ([("GATEWAY", "primary", "different-but-alive")], ""))
-    monkeypatch.setattr(health.aiohttp, "ClientSession", lambda *a, **kw: _ProbeStub())
+    monkeypatch.setattr("consensus_engine.health.get_session", AsyncMock(return_value=_ProbeStub()))
 
     failed, report = await health.run_chain_check()
     assert failed is True
@@ -282,7 +283,7 @@ async def test_run_chain_check_surfaces_gateway_config_error(monkeypatch):
                         lambda: [("LLM", "primary", "ring")])
     monkeypatch.setattr(health, "_enumerate_gateway_chain_models",
                         lambda: ([], "missing: /nope"))
-    monkeypatch.setattr(health.aiohttp, "ClientSession", lambda *a, **kw: _ProbeStub())
+    monkeypatch.setattr("consensus_engine.health.get_session", AsyncMock(return_value=_ProbeStub()))
 
     failed, report = await health.run_chain_check()
     assert failed is True

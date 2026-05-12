@@ -115,9 +115,10 @@ class _FakeSessionContext:
 
 async def _run_connect(listener, messages, close_code=None):
     fake_ws = _FakeWS(messages, close_code=close_code)
+    fake_session = _FakeSession(fake_ws)
     with patch(
-        "consensus_engine.scanners.discord_tweetshift.aiohttp.ClientSession",
-        return_value=_FakeSessionContext(fake_ws),
+        "consensus_engine.scanners.discord_tweetshift.get_session",
+        new=AsyncMock(return_value=fake_session),
     ):
         await listener._connect_once()
     return fake_ws

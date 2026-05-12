@@ -75,23 +75,24 @@ async def lookup_regime(now_utc: Optional[datetime] = None) -> RegimeContext:
 async def _fetch_spy_closes(n: int = 260) -> list[float]:
     """Fetch last n daily SPY closes from Yahoo Finance API."""
     import aiohttp
+    from consensus_engine.utils.http import get_session
     url = "https://query1.finance.yahoo.com/v8/finance/chart/SPY"
     params = {"interval": "1d", "range": "1y"}
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, params=params, headers=headers,
-                                   timeout=aiohttp.ClientTimeout(total=20)) as resp:
-                if resp.status != 200:
-                    log.warning("[A5] Yahoo Finance returned %d for SPY", resp.status)
-                    return []
-                data = await resp.json()
-                result = data.get("chart", {}).get("result", [])
-                if not result:
-                    return []
-                closes = result[0].get("indicators", {}).get("quote", [{}])[0].get("close", [])
-                closes = [c for c in closes if c is not None]
-                return closes[-n:] if len(closes) >= n else closes
+        session = await get_session()
+        async with session.get(url, params=params, headers=headers,
+                               timeout=aiohttp.ClientTimeout(total=20)) as resp:
+            if resp.status != 200:
+                log.warning("[A5] Yahoo Finance returned %d for SPY", resp.status)
+                return []
+            data = await resp.json()
+            result = data.get("chart", {}).get("result", [])
+            if not result:
+                return []
+            closes = result[0].get("indicators", {}).get("quote", [{}])[0].get("close", [])
+            closes = [c for c in closes if c is not None]
+            return closes[-n:] if len(closes) >= n else closes
     except Exception as e:
         log.warning("[A5] SPY fetch error: %s", e)
         return []

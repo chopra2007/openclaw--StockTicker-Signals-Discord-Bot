@@ -572,14 +572,14 @@ async def _post_to_alerts_channel(text: str) -> None:
         log.info("[DRY-RUN] alerts channel: %s", text[:80])
         return
     try:
-        async with aiohttp.ClientSession() as session:
-            url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
-            headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
-            async with session.post(url, headers=headers,
-                                    json={"content": text[:2000]},
-                                    timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                if resp.status not in (200, 201):
-                    log.warning("Discord post failed: %d", resp.status)
+        session = await get_session()
+        url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+        headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
+        async with session.post(url, headers=headers,
+                                json={"content": text[:2000]},
+                                timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            if resp.status not in (200, 201):
+                log.warning("Discord post failed: %d", resp.status)
     except Exception as e:
         log.error("_post_to_alerts_channel error: %s", e)
 

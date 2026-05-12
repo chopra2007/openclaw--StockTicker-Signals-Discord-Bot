@@ -12,6 +12,7 @@ from typing import Optional
 import aiohttp
 
 from consensus_engine import config as cfg
+from consensus_engine.utils.http import get_session
 from consensus_engine import db
 from consensus_engine.models import (
     ParsedTweet, CrossReferenceResult, ScoreBreakdown,
@@ -353,24 +354,24 @@ async def send_instant_ping(
         embed["footer"] = {"text": "OpenClaw Signal Engine | ⚠️ DEGRADED — data sources may be unreliable"}
 
     try:
-        async with aiohttp.ClientSession() as session:
-            url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
-            headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
-            body = _safe_send_kwargs({"embeds": [embed]})
+        session = await get_session()
+        url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+        headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
+        body = _safe_send_kwargs({"embeds": [embed]})
 
-            async with session.post(url, headers=headers, json=body,
-                                    timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                if resp.status in (200, 201):
-                    data = await resp.json()
-                    msg_id = data.get("id")
-                    log.info("Instant ping sent for $%s by @%s (msg_id=%s)",
-                             tweet.tickers[0] if tweet.tickers else "???",
-                             tweet.analyst, msg_id)
-                    return msg_id
-                else:
-                    error = await resp.text()
-                    log.warning("Discord ping error (%d): %s", resp.status, error[:200])
-                    return None
+        async with session.post(url, headers=headers, json=body,
+                                timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            if resp.status in (200, 201):
+                data = await resp.json()
+                msg_id = data.get("id")
+                log.info("Instant ping sent for $%s by @%s (msg_id=%s)",
+                         tweet.tickers[0] if tweet.tickers else "???",
+                         tweet.analyst, msg_id)
+                return msg_id
+            else:
+                error = await resp.text()
+                log.warning("Discord ping error (%d): %s", resp.status, error[:200])
+                return None
     except Exception as e:
         log.error("Failed to send instant ping: %s", e)
         return None
@@ -394,17 +395,17 @@ async def edit_instant_ping(msg_id: str, content: str) -> bool:
         return False
 
     try:
-        async with aiohttp.ClientSession() as session:
-            url = f"https://discord.com/api/v10/channels/{channel_id}/messages/{msg_id}"
-            headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
-            async with session.patch(url, headers=headers, json={"content": content},
-                                     timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                if resp.status in (200, 204):
-                    return True
-                error = await resp.text()
-                log.warning("Discord edit error (%d) for msg %s: %s",
-                            resp.status, msg_id, error[:200])
-                return False
+        session = await get_session()
+        url = f"https://discord.com/api/v10/channels/{channel_id}/messages/{msg_id}"
+        headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
+        async with session.patch(url, headers=headers, json={"content": content},
+                                 timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            if resp.status in (200, 204):
+                return True
+            error = await resp.text()
+            log.warning("Discord edit error (%d) for msg %s: %s",
+                        resp.status, msg_id, error[:200])
+            return False
     except Exception as e:
         log.error("Failed to edit instant ping %s: %s", msg_id, e)
         return False
@@ -441,17 +442,17 @@ async def send_trend_digest(trending: list[dict]) -> Optional[str]:
         "footer": {"text": "OpenClaw Signal Engine — last 24h"},
     }
 
-    async with aiohttp.ClientSession() as session:
-        url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
-        headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
-        payload = _safe_send_kwargs({"embeds": [embed]})
-        async with session.post(url, headers=headers, json=payload,
-                                timeout=aiohttp.ClientTimeout(total=10)) as resp:
-            if resp.status not in (200, 201):
-                log.warning("Trend digest send failed: %d", resp.status)
-                return None
-            data = await resp.json()
-            return data.get("id")
+    session = await get_session()
+    url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+    headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
+    payload = _safe_send_kwargs({"embeds": [embed]})
+    async with session.post(url, headers=headers, json=payload,
+                            timeout=aiohttp.ClientTimeout(total=10)) as resp:
+        if resp.status not in (200, 201):
+            log.warning("Trend digest send failed: %d", resp.status)
+            return None
+        data = await resp.json()
+        return data.get("id")
 
 
 _DISCORD_MSG_LIMIT = 2000
@@ -509,24 +510,24 @@ async def send_command_reply(channel_id: str, reply_to_msg_id: str, content: str
 
     last_id: Optional[str] = None
     reply_target = reply_to_msg_id
-    async with aiohttp.ClientSession() as session:
-        url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
-        headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
-        for chunk in chunks:
-            payload = _safe_send_kwargs({
-                "content": chunk,
-                "message_reference": {"message_id": reply_target},
-            })
-            async with session.post(url, headers=headers, json=payload,
-                                    timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                if resp.status not in (200, 201):
-                    error_body = await resp.text()
-                    log.warning("Command reply failed: %d body=%.300s", resp.status, error_body)
-                    return last_id
-                data = await resp.json()
-                last_id = data.get("id")
-                if last_id:
-                    reply_target = last_id
+    session = await get_session()
+    url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+    headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
+    for chunk in chunks:
+        payload = _safe_send_kwargs({
+            "content": chunk,
+            "message_reference": {"message_id": reply_target},
+        })
+        async with session.post(url, headers=headers, json=payload,
+                                timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            if resp.status not in (200, 201):
+                error_body = await resp.text()
+                log.warning("Command reply failed: %d body=%.300s", resp.status, error_body)
+                return last_id
+            data = await resp.json()
+            last_id = data.get("id")
+            if last_id:
+                reply_target = last_id
     return last_id
 
 
@@ -548,26 +549,26 @@ async def send_command_embed_reply(
         log.warning("Discord bot token not configured")
         return None
 
-    async with aiohttp.ClientSession() as session:
-        url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
-        headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
-        body = _safe_send_kwargs({
-            "embeds": [embed],
-            "message_reference": {"message_id": reply_to_msg_id},
-        })
-        async with session.post(
-            url, headers=headers, json=body,
-            timeout=aiohttp.ClientTimeout(total=10),
-        ) as resp:
-            if resp.status not in (200, 201):
-                error_body = await resp.text()
-                log.warning(
-                    "Embed reply failed: %d body=%.300s",
-                    resp.status, error_body,
-                )
-                return None
-            data = await resp.json()
-            return data.get("id")
+    session = await get_session()
+    url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+    headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
+    body = _safe_send_kwargs({
+        "embeds": [embed],
+        "message_reference": {"message_id": reply_to_msg_id},
+    })
+    async with session.post(
+        url, headers=headers, json=body,
+        timeout=aiohttp.ClientTimeout(total=10),
+    ) as resp:
+        if resp.status not in (200, 201):
+            error_body = await resp.text()
+            log.warning(
+                "Embed reply failed: %d body=%.300s",
+                resp.status, error_body,
+            )
+            return None
+        data = await resp.json()
+        return data.get("id")
 
 
 async def send_detail_followup(xref: CrossReferenceResult, reply_to_msg_id: str, precision: Optional[dict] = None) -> Optional[str]:
@@ -584,26 +585,26 @@ async def send_detail_followup(xref: CrossReferenceResult, reply_to_msg_id: str,
     embed = format_detail_followup(xref, precision)
 
     try:
-        async with aiohttp.ClientSession() as session:
-            url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
-            headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
-            body = _safe_send_kwargs({
-                "embeds": [embed],
-                "message_reference": {"message_id": reply_to_msg_id},
-            })
+        session = await get_session()
+        url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+        headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
+        body = _safe_send_kwargs({
+            "embeds": [embed],
+            "message_reference": {"message_id": reply_to_msg_id},
+        })
 
-            async with session.post(url, headers=headers, json=body,
-                                    timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                if resp.status in (200, 201):
-                    data = await resp.json()
-                    msg_id = data.get("id")
-                    log.info("Detail follow-up sent for $%s (score=%d, msg_id=%s)",
-                             xref.ticker, xref.final_score, msg_id)
-                    return msg_id
-                else:
-                    error = await resp.text()
-                    log.warning("Discord follow-up error (%d): %s", resp.status, error[:200])
-                    return None
+        async with session.post(url, headers=headers, json=body,
+                                timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            if resp.status in (200, 201):
+                data = await resp.json()
+                msg_id = data.get("id")
+                log.info("Detail follow-up sent for $%s (score=%d, msg_id=%s)",
+                         xref.ticker, xref.final_score, msg_id)
+                return msg_id
+            else:
+                error = await resp.text()
+                log.warning("Discord follow-up error (%d): %s", resp.status, error[:200])
+                return None
     except Exception as e:
         log.error("Failed to send detail follow-up: %s", e)
         return None

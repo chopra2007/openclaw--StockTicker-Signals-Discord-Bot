@@ -84,7 +84,7 @@ async def test_brave_search_passes_description_as_body():
         async def __aexit__(self, *_):
             pass
 
-    with patch("consensus_engine.scanners.news.aiohttp.ClientSession", return_value=MockSession()), \
+    with patch("consensus_engine.scanners.news.get_session", new_callable=AsyncMock, return_value=MockSession()), \
          patch("consensus_engine.scanners.news.cfg.get_api_key", return_value="fake-key"), \
          patch("consensus_engine.scanners.news.rate_limiter.acquire",
                new_callable=AsyncMock, return_value=True), \

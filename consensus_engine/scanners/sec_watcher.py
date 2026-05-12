@@ -13,6 +13,7 @@ from typing import Optional
 import aiohttp
 
 from consensus_engine import config as cfg
+from consensus_engine.utils.http import get_session
 from consensus_engine import db
 from consensus_engine.utils.rate_limiter import rate_limiter
 
@@ -121,15 +122,15 @@ async def fetch_recent_8k_filings() -> list[dict]:
         return []
 
     try:
-        async with aiohttp.ClientSession() as session:
-            headers = {"User-Agent": _USER_AGENT}
-            async with session.get(_8K_FEED_URL, headers=headers,
-                                   timeout=aiohttp.ClientTimeout(total=15)) as resp:
-                if resp.status != 200:
-                    log.warning("SEC 8-K feed returned %d", resp.status)
-                    rate_limiter.report_failure("sec_edgar")
-                    return []
-                xml_text = await resp.text()
+        session = await get_session()
+        headers = {"User-Agent": _USER_AGENT}
+        async with session.get(_8K_FEED_URL, headers=headers,
+                               timeout=aiohttp.ClientTimeout(total=15)) as resp:
+            if resp.status != 200:
+                log.warning("SEC 8-K feed returned %d", resp.status)
+                rate_limiter.report_failure("sec_edgar")
+                return []
+            xml_text = await resp.text()
 
         rate_limiter.report_success("sec_edgar")
         return _parse_8k_feed(xml_text)

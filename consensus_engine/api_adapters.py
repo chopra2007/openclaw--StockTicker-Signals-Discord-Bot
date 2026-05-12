@@ -12,6 +12,7 @@ from typing import Optional
 import aiohttp
 
 from consensus_engine import config as cfg
+from consensus_engine.utils.http import get_session
 from consensus_engine.adapter_protocols import (
     FinnhubContext,
     FirecrawlPage,
@@ -281,9 +282,9 @@ async def get_live_quote_price(ticker: str) -> float | None:
     if not api_key:
         return None
     try:
-        async with aiohttp.ClientSession() as session:
-            adapter = FinnhubAdapter(session, api_key)
-            raw = await adapter._fetch_quote(ticker)
+        session = await get_session()
+        adapter = FinnhubAdapter(session, api_key)
+        raw = await adapter._fetch_quote(ticker)
         if not raw:
             return None
         price = float(raw.get("c") or 0)

@@ -19,6 +19,7 @@ import xml.etree.ElementTree as ET
 import aiohttp
 
 from consensus_engine import config as cfg, db
+from consensus_engine.utils.http import get_session
 from consensus_engine.alerts.discord import _safe_send_kwargs
 from consensus_engine.utils.browser import create_stealth_browser, stealth_page, safe_goto
 from consensus_engine.utils.transcript_export import compute_hash, export_transcript_json
@@ -45,7 +46,11 @@ async def fetch_channel_videos_rss(
     """
     url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
     try:
-        async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+        async with session.get(
+            url,
+            headers={"User-Agent": "OpenClaw/1.0 (youtube-rss-scanner)"},
+            timeout=aiohttp.ClientTimeout(total=15),
+        ) as resp:
             if resp.status != 200:
                 log.warning("youtube: RSS %s returned HTTP %d", channel_id, resp.status)
                 return []
@@ -188,15 +193,15 @@ async def _send_youtube_alert(message: str) -> None:
         log.debug("youtube: Discord not configured, skipping alert")
         return
     try:
-        async with aiohttp.ClientSession() as session:
-            url = f"https://discord.com/api/v10/channels/{channel}/messages"
-            headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
-            async with session.post(
-                url, headers=headers, json=_safe_send_kwargs({"content": message}),
-                timeout=aiohttp.ClientTimeout(total=10),
-            ) as resp:
-                if resp.status not in (200, 201):
-                    log.warning("youtube: Discord alert error (%d)", resp.status)
+        session = await get_session()
+        url = f"https://discord.com/api/v10/channels/{channel}/messages"
+        headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
+        async with session.post(
+            url, headers=headers, json=_safe_send_kwargs({"content": message}),
+            timeout=aiohttp.ClientTimeout(total=10),
+        ) as resp:
+            if resp.status not in (200, 201):
+                log.warning("youtube: Discord alert error (%d)", resp.status)
     except Exception as exc:
         log.warning("youtube: failed to send alert: %s", exc)
 
@@ -1024,16 +1029,15 @@ async def youtube_scan_once() -> None:
     preferred_languages = cfg.get("youtube.preferred_languages", ["en"])
 
     # Collect new videos via RSS (lightweight, no browser)
-    headers = {"User-Agent": "OpenClaw/1.0 (youtube-rss-scanner)"}
-    async with aiohttp.ClientSession(headers=headers) as session:
-        all_videos: list[dict] = []
-        for channel_id in channel_ids:
-            try:
-                videos = await fetch_channel_videos_rss(session, channel_id, limit)
-                log.debug("youtube: channel %s → %d videos", channel_id, len(videos))
-                all_videos.extend(videos)
-            except Exception as e:
-                log.warning("youtube: channel %s RSS error: %s", channel_id, e)
+    session = await get_session()
+    all_videos: list[dict] = []
+    for channel_id in channel_ids:
+        try:
+            videos = await fetch_channel_videos_rss(session, channel_id, limit)
+            log.debug("youtube: channel %s → %d videos", channel_id, len(videos))
+            all_videos.extend(videos)
+        except Exception as e:
+            log.warning("youtube: channel %s RSS error: %s", channel_id, e)
 
     if not all_videos:
         return

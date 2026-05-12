@@ -16,6 +16,7 @@ from typing import Optional
 import aiohttp
 
 from consensus_engine import config as cfg
+from consensus_engine.utils.http import get_session
 from consensus_engine import db
 from consensus_engine.models import CatalystResult, TickerSignal, SourceType, Sentiment
 from consensus_engine.utils.rate_limiter import rate_limiter
@@ -200,16 +201,16 @@ async def _search_finnhub_news(ticker: str) -> Optional[CatalystResult]:
     from_date = (datetime.now() - timedelta(days=days_back)).strftime("%Y-%m-%d")
 
     try:
-        async with aiohttp.ClientSession() as session:
-            url = "https://finnhub.io/api/v1/company-news"
-            params = {"symbol": ticker, "from": from_date, "to": to_date, "token": api_key}
-            async with session.get(url, params=params,
-                                   timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                if resp.status != 200:
-                    rate_limiter.report_failure("finnhub_news")
-                    return None
-                articles = await resp.json()
-                rate_limiter.report_success("finnhub_news")
+        session = await get_session()
+        url = "https://finnhub.io/api/v1/company-news"
+        params = {"symbol": ticker, "from": from_date, "to": to_date, "token": api_key}
+        async with session.get(url, params=params,
+                               timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            if resp.status != 200:
+                rate_limiter.report_failure("finnhub_news")
+                return None
+            articles = await resp.json()
+            rate_limiter.report_success("finnhub_news")
 
         if not isinstance(articles, list):
             return None
@@ -244,17 +245,17 @@ async def _search_google_news_rss(ticker: str) -> Optional[CatalystResult]:
     rss_url = f"https://news.google.com/rss/search?q={query}&hl=en-US&gl=US&ceid=US:en"
 
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                rss_url,
-                timeout=aiohttp.ClientTimeout(total=10),
-                headers={"User-Agent": "Mozilla/5.0"},
-            ) as resp:
-                if resp.status != 200:
-                    rate_limiter.report_failure("google_news_rss")
-                    return None
-                xml_text = await resp.text()
-                rate_limiter.report_success("google_news_rss")
+        session = await get_session()
+        async with session.get(
+            rss_url,
+            timeout=aiohttp.ClientTimeout(total=10),
+            headers={"User-Agent": "Mozilla/5.0"},
+        ) as resp:
+            if resp.status != 200:
+                rate_limiter.report_failure("google_news_rss")
+                return None
+            xml_text = await resp.text()
+            rate_limiter.report_success("google_news_rss")
 
         root = ET.fromstring(xml_text)
         for item in root.iter("item"):
@@ -295,21 +296,21 @@ async def _search_brave(ticker: str) -> Optional[CatalystResult]:
     company_name = await _get_company_name(ticker)
 
     try:
-        async with aiohttp.ClientSession() as session:
-            url = "https://api.search.brave.com/res/v1/web/search"
-            headers = {"Accept": "application/json", "X-Subscription-Token": api_key}
-            params = {
-                "q": f"{search_query} news today",
-                "count": cfg.get("news.max_search_results", 10),
-                "freshness": "pd",
-            }
-            async with session.get(url, headers=headers, params=params,
-                                   timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                if resp.status != 200:
-                    rate_limiter.report_failure("brave_search")
-                    return None
-                data = await resp.json()
-                rate_limiter.report_success("brave_search")
+        session = await get_session()
+        url = "https://api.search.brave.com/res/v1/web/search"
+        headers = {"Accept": "application/json", "X-Subscription-Token": api_key}
+        params = {
+            "q": f"{search_query} news today",
+            "count": cfg.get("news.max_search_results", 10),
+            "freshness": "pd",
+        }
+        async with session.get(url, headers=headers, params=params,
+                               timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            if resp.status != 200:
+                rate_limiter.report_failure("brave_search")
+                return None
+            data = await resp.json()
+            rate_limiter.report_success("brave_search")
 
         for r in data.get("web", {}).get("results", []):
             title = r.get("title", "")

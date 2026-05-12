@@ -15,6 +15,7 @@ from typing import Literal
 import aiohttp
 
 from consensus_engine import config as cfg
+from consensus_engine.utils.http import get_session
 from consensus_engine.utils.rate_limiter import rate_limiter
 
 log = logging.getLogger("consensus_engine.llm_client")
@@ -84,33 +85,33 @@ async def call_with_fallback(
                 log.warning("LLM %s skipped — openrouter rate limiter blocked", model)
                 continue
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    _API_URL,
-                    headers=headers,
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=timeout),
-                ) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        content = (data.get("choices", [{}])[0]
-                                       .get("message", {})
-                                       .get("content") or "").strip()
-                        if content:
-                            if idx > 0:
-                                log.info("LLM fallback hit %s (chain idx=%d, role=%s)",
-                                         model, idx, role)
-                            return content
-                        log.warning("LLM %s returned empty content; trying next", model)
-                        continue
-                    body = await resp.text()
-                    if resp.status in (408, 429) or 500 <= resp.status < 600:
-                        log.warning("LLM %s HTTP %d (retryable): %.200s",
-                                    model, resp.status, body)
-                        continue
-                    log.warning("LLM %s HTTP %d (fatal, aborting chain): %.200s",
+            session = await get_session()
+            async with session.post(
+                _API_URL,
+                headers=headers,
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=timeout),
+            ) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    content = (data.get("choices", [{}])[0]
+                                   .get("message", {})
+                                   .get("content") or "").strip()
+                    if content:
+                        if idx > 0:
+                            log.info("LLM fallback hit %s (chain idx=%d, role=%s)",
+                                     model, idx, role)
+                        return content
+                    log.warning("LLM %s returned empty content; trying next", model)
+                    continue
+                body = await resp.text()
+                if resp.status in (408, 429) or 500 <= resp.status < 600:
+                    log.warning("LLM %s HTTP %d (retryable): %.200s",
                                 model, resp.status, body)
-                    return ""
+                    continue
+                log.warning("LLM %s HTTP %d (fatal, aborting chain): %.200s",
+                            model, resp.status, body)
+                return ""
         except (asyncio.TimeoutError, aiohttp.ClientError) as exc:
             log.warning("LLM %s connection error (retryable): %r", model, exc)
             continue

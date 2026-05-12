@@ -13,6 +13,7 @@ from typing import Any
 import aiohttp
 
 from consensus_engine import config as cfg
+from consensus_engine.utils.http import get_session
 from consensus_engine import db
 
 log = logging.getLogger("consensus_engine.research.sources")
@@ -115,11 +116,15 @@ async def _recent_filings(ticker: str, limit: int = 5) -> list[dict]:
         return []
     url = f"https://data.sec.gov/submissions/CIK{int(cik):010d}.json"
     try:
-        async with aiohttp.ClientSession(headers={"User-Agent": _SEC_USER_AGENT}) as s:
-            async with s.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
-                if resp.status != 200:
-                    return []
-                data = await resp.json()
+        s = await get_session()
+        async with s.get(
+            url,
+            headers={"User-Agent": _SEC_USER_AGENT},
+            timeout=aiohttp.ClientTimeout(total=15),
+        ) as resp:
+            if resp.status != 200:
+                return []
+            data = await resp.json()
     except Exception as exc:
         log.warning("SEC submissions fetch failed for %s: %s", ticker, exc)
         return []

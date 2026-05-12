@@ -53,19 +53,19 @@ async def scan_reddit() -> list[TickerSignal]:
     from consensus_engine.utils.reddit import fetch_subreddit_posts
 
     signals = []
-    async with aiohttp.ClientSession() as session:
-        for sub in subreddits:
-            if not await rate_limiter.acquire("reddit"):
-                break
-            try:
-                posts = await fetch_subreddit_posts(session, sub, limit=100)
-                sub_signals = _parse_reddit_posts(posts, sub)
-                signals.extend(sub_signals)
-                rate_limiter.report_success("reddit")
-            except Exception as e:
-                log.warning("Reddit error for r/%s: %s", sub, e)
-                rate_limiter.report_failure("reddit")
-            await asyncio.sleep(2)
+    session = await get_session()
+    for sub in subreddits:
+        if not await rate_limiter.acquire("reddit"):
+            break
+        try:
+            posts = await fetch_subreddit_posts(session, sub, limit=100)
+            sub_signals = _parse_reddit_posts(posts, sub)
+            signals.extend(sub_signals)
+            rate_limiter.report_success("reddit")
+        except Exception as e:
+            log.warning("Reddit error for r/%s: %s", sub, e)
+            rate_limiter.report_failure("reddit")
+        await asyncio.sleep(2)
 
     log.info("Reddit: %d signals from %d subreddits", len(signals), len(subreddits))
     return signals
@@ -184,30 +184,30 @@ async def scan_apewisdom() -> list[TickerSignal]:
 
     signals = []
     try:
-        async with aiohttp.ClientSession() as session:
-            for page_num in range(1, 3):
-                url = f"https://apewisdom.io/api/v1.0/filter/all-stocks/page/{page_num}"
-                async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                    if resp.status != 200:
-                        break
-                    data = await resp.json()
+        session = await get_session()
+        for page_num in range(1, 3):
+            url = f"https://apewisdom.io/api/v1.0/filter/all-stocks/page/{page_num}"
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status != 200:
+                    break
+                data = await resp.json()
 
-                results = data.get("results", [])
-                for idx, item in enumerate(results):
-                    ticker = item.get("ticker", "")
-                    mentions = item.get("mentions", 0)
-                    rank = item.get("rank", idx + 1)
-                    if not ticker:
-                        continue
-                    signals.append(TickerSignal(
-                        ticker=ticker,
-                        source_type=SourceType.APEWISDOM,
-                        source_detail=f"rank #{rank} ({mentions} mentions)",
-                        raw_text=f"${ticker} trending on ApeWisdom with {mentions} mentions",
-                        sentiment=Sentiment.NEUTRAL,
-                        detected_at=time.time(),
-                    ))
-                await asyncio.sleep(1)
+            results = data.get("results", [])
+            for idx, item in enumerate(results):
+                ticker = item.get("ticker", "")
+                mentions = item.get("mentions", 0)
+                rank = item.get("rank", idx + 1)
+                if not ticker:
+                    continue
+                signals.append(TickerSignal(
+                    ticker=ticker,
+                    source_type=SourceType.APEWISDOM,
+                    source_detail=f"rank #{rank} ({mentions} mentions)",
+                    raw_text=f"${ticker} trending on ApeWisdom with {mentions} mentions",
+                    sentiment=Sentiment.NEUTRAL,
+                    detected_at=time.time(),
+                ))
+            await asyncio.sleep(1)
 
         rate_limiter.report_success("apewisdom")
         log.info("ApeWisdom: %d trending tickers", len(signals))
@@ -269,73 +269,73 @@ async def scan_google_trends(tickers: list[str]) -> dict[str, float]:
         return {}
 
     results = {}
-    async with aiohttp.ClientSession() as session:
-        for ticker in valid_tickers:
-            if not await rate_limiter.acquire("google_trends"):
-                break
+    session = await get_session()
+    for ticker in valid_tickers:
+        if not await rate_limiter.acquire("google_trends"):
+            break
 
-            # Inner loop: try each key starting from current active index.
-            # On rate-limit, advance _serpapi_key_index and retry same ticker.
-            for attempt in range(len(keys)):
-                key = keys[_serpapi_key_index]
-                try:
-                    params = {
-                        "engine": "google_trends",
-                        "q": f"{ticker} stock",
-                        "date": "now 1-d",
-                        "geo": "US",
-                        "api_key": key,
-                    }
-                    async with session.get(
-                        "https://serpapi.com/search.json",
-                        params=params,
-                        timeout=aiohttp.ClientTimeout(total=15),
-                    ) as resp:
-                        if resp.status in (429, 401):
-                            log.warning(
-                                "SerpAPI key %d/%d rate limited (HTTP %d) for %s, rotating",
-                                _serpapi_key_index + 1, len(keys), resp.status, ticker,
-                            )
-                            _serpapi_key_index = (_serpapi_key_index + 1) % len(keys)
-                            continue  # retry same ticker with next key
-                        if resp.status != 200:
-                            log.warning("SerpAPI error (%d) for %s", resp.status, ticker)
-                            rate_limiter.report_failure("google_trends")
-                            break  # non-rate-limit error, skip ticker
-                        data = await resp.json()
-
-                    # SerpAPI also returns rate-limit errors in the JSON body
-                    err = data.get("error", "")
-                    if err and any(w in err.lower() for w in ("run out", "limit", "quota")):
+        # Inner loop: try each key starting from current active index.
+        # On rate-limit, advance _serpapi_key_index and retry same ticker.
+        for attempt in range(len(keys)):
+            key = keys[_serpapi_key_index]
+            try:
+                params = {
+                    "engine": "google_trends",
+                    "q": f"{ticker} stock",
+                    "date": "now 1-d",
+                    "geo": "US",
+                    "api_key": key,
+                }
+                async with session.get(
+                    "https://serpapi.com/search.json",
+                    params=params,
+                    timeout=aiohttp.ClientTimeout(total=15),
+                ) as resp:
+                    if resp.status in (429, 401):
                         log.warning(
-                            "SerpAPI key %d/%d exhausted (%s) for %s, rotating",
-                            _serpapi_key_index + 1, len(keys), err, ticker,
+                            "SerpAPI key %d/%d rate limited (HTTP %d) for %s, rotating",
+                            _serpapi_key_index + 1, len(keys), resp.status, ticker,
                         )
                         _serpapi_key_index = (_serpapi_key_index + 1) % len(keys)
                         continue  # retry same ticker with next key
+                    if resp.status != 200:
+                        log.warning("SerpAPI error (%d) for %s", resp.status, ticker)
+                        rate_limiter.report_failure("google_trends")
+                        break  # non-rate-limit error, skip ticker
+                    data = await resp.json()
 
-                    # Extract interest over time
-                    timeline = data.get("interest_over_time", {}).get("timeline_data", [])
-                    if len(timeline) >= 2:
-                        recent = timeline[-1].get("values", [{}])[0].get("extracted_value", 0)
-                        earlier = timeline[0].get("values", [{}])[0].get("extracted_value", 0)
-                        if earlier > 0:
-                            delta = ((recent - earlier) / earlier) * 100
-                            results[ticker] = delta
-                        elif recent > 0:
-                            results[ticker] = 100.0
+                # SerpAPI also returns rate-limit errors in the JSON body
+                err = data.get("error", "")
+                if err and any(w in err.lower() for w in ("run out", "limit", "quota")):
+                    log.warning(
+                        "SerpAPI key %d/%d exhausted (%s) for %s, rotating",
+                        _serpapi_key_index + 1, len(keys), err, ticker,
+                    )
+                    _serpapi_key_index = (_serpapi_key_index + 1) % len(keys)
+                    continue  # retry same ticker with next key
 
-                    rate_limiter.report_success("google_trends")
-                    break  # success
-                except Exception as e:
-                    log.debug("Google Trends SerpAPI error for %s: %s", ticker, e)
-                    rate_limiter.report_failure("google_trends")
-                    break  # network/parse error, skip ticker
-            else:
-                log.error("All %d SerpAPI keys exhausted for %s — skipping ticker", len(keys), ticker)
+                # Extract interest over time
+                timeline = data.get("interest_over_time", {}).get("timeline_data", [])
+                if len(timeline) >= 2:
+                    recent = timeline[-1].get("values", [{}])[0].get("extracted_value", 0)
+                    earlier = timeline[0].get("values", [{}])[0].get("extracted_value", 0)
+                    if earlier > 0:
+                        delta = ((recent - earlier) / earlier) * 100
+                        results[ticker] = delta
+                    elif recent > 0:
+                        results[ticker] = 100.0
+
+                rate_limiter.report_success("google_trends")
+                break  # success
+            except Exception as e:
+                log.debug("Google Trends SerpAPI error for %s: %s", ticker, e)
                 rate_limiter.report_failure("google_trends")
+                break  # network/parse error, skip ticker
+        else:
+            log.error("All %d SerpAPI keys exhausted for %s — skipping ticker", len(keys), ticker)
+            rate_limiter.report_failure("google_trends")
 
-            await asyncio.sleep(1)
+        await asyncio.sleep(1)
 
     log.info("Google Trends (SerpAPI): %d/%d tickers with data", len(results), len(tickers))
     return results
@@ -469,42 +469,42 @@ async def scan_google_trends_exa(tickers: list[str]) -> dict[str, float]:
         return {}
 
     results = {}
-    async with aiohttp.ClientSession() as session:
-        for ticker in valid_tickers:
-            if not await rate_limiter.acquire("exa"):
-                break
-            try:
-                payload = {
-                    "query": f"{ticker} stock",
-                    "numResults": 10,
-                    "startPublishedDate": yesterday,
-                    "useAutoprompt": False,
-                }
-                async with session.post(
-                    "https://api.exa.ai/search",
-                    json=payload,
-                    headers={"x-api-key": api_key, "Content-Type": "application/json"},
-                    timeout=aiohttp.ClientTimeout(total=10),
-                ) as resp:
-                    if resp.status != 200:
-                        rate_limiter.report_failure("exa")
-                        continue
-                    data = await resp.json()
+    session = await get_session()
+    for ticker in valid_tickers:
+        if not await rate_limiter.acquire("exa"):
+            break
+        try:
+            payload = {
+                "query": f"{ticker} stock",
+                "numResults": 10,
+                "startPublishedDate": yesterday,
+                "useAutoprompt": False,
+            }
+            async with session.post(
+                "https://api.exa.ai/search",
+                json=payload,
+                headers={"x-api-key": api_key, "Content-Type": "application/json"},
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                if resp.status != 200:
+                    rate_limiter.report_failure("exa")
+                    continue
+                data = await resp.json()
 
-                count = len(data.get("results", []))
-                if count >= 10:
-                    results[ticker] = 75.0
-                elif count >= 5:
-                    results[ticker] = 40.0
-                elif count >= 1:
-                    results[ticker] = 15.0
+            count = len(data.get("results", []))
+            if count >= 10:
+                results[ticker] = 75.0
+            elif count >= 5:
+                results[ticker] = 40.0
+            elif count >= 1:
+                results[ticker] = 15.0
 
-                rate_limiter.report_success("exa")
-            except Exception as e:
-                log.debug("Exa trends error for %s: %s", ticker, e)
-                rate_limiter.report_failure("exa")
+            rate_limiter.report_success("exa")
+        except Exception as e:
+            log.debug("Exa trends error for %s: %s", ticker, e)
+            rate_limiter.report_failure("exa")
 
-            await asyncio.sleep(0.5)
+        await asyncio.sleep(0.5)
 
     log.info("Google Trends (Exa fallback): %d/%d tickers with data", len(results), len(tickers))
     return results

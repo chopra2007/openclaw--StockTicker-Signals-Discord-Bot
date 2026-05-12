@@ -19,6 +19,8 @@ from typing import Optional
 
 import aiohttp
 
+from consensus_engine.utils.http import get_session
+
 log = logging.getLogger("consensus_engine.analysis.patterns")
 
 
@@ -34,21 +36,21 @@ async def fetch_daily_candles(ticker: str, range_str: str = "3mo") -> list[dict]
     params = {"interval": "1d", "range": range_str}
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                url, params=params, headers=headers,
-                timeout=aiohttp.ClientTimeout(total=15),
-            ) as resp:
-                if resp.status != 200:
-                    return []
-                data = await resp.json()
-                result = data.get("chart", {}).get("result", [])
-                if not result:
-                    return []
-                quote = result[0].get("indicators", {}).get("quote", [{}])[0]
-                highs = quote.get("high", []) or []
-                lows = quote.get("low", []) or []
-                closes = quote.get("close", []) or []
+        session = await get_session()
+        async with session.get(
+            url, params=params, headers=headers,
+            timeout=aiohttp.ClientTimeout(total=15),
+        ) as resp:
+            if resp.status != 200:
+                return []
+            data = await resp.json()
+            result = data.get("chart", {}).get("result", [])
+            if not result:
+                return []
+            quote = result[0].get("indicators", {}).get("quote", [{}])[0]
+            highs = quote.get("high", []) or []
+            lows = quote.get("low", []) or []
+            closes = quote.get("close", []) or []
     except Exception as e:
         log.debug("yfinance chart fetch error for %s: %s", ticker, e)
         return []

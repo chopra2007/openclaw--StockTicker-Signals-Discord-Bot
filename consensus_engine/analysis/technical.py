@@ -12,6 +12,7 @@ from typing import Optional
 import aiohttp
 
 from consensus_engine import config as cfg
+from consensus_engine.utils.http import get_session
 from consensus_engine import db
 from consensus_engine.models import TechnicalResult, TechnicalFilter
 from consensus_engine.analysis import indicators
@@ -55,31 +56,31 @@ async def _fetch_history_async(ticker: str) -> Optional[dict]:
     params = {"interval": "1d", "range": "1mo"}
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                url, params=params, headers=headers,
-                timeout=aiohttp.ClientTimeout(total=15)
-            ) as resp:
-                if resp.status != 200:
-                    log.warning("Yahoo Finance returned %d for %s", resp.status, ticker)
-                    return None
-                data = await resp.json()
-                result = data.get("chart", {}).get("result", [])
-                if not result:
-                    return None
-                indicators_data = result[0].get("indicators", {}).get("quote", [{}])[0]
-                timestamps = result[0].get("timestamp", [])
-                candles = {
-                    "o": indicators_data.get("open", []),
-                    "h": indicators_data.get("high", []),
-                    "l": indicators_data.get("low", []),
-                    "c": indicators_data.get("close", []),
-                    "v": [int(v) for v in indicators_data.get("volume", []) if v is not None],
-                    "t": timestamps,
-                }
-                if len(candles["c"]) < 5:
-                    return None
-                return candles
+        session = await get_session()
+        async with session.get(
+            url, params=params, headers=headers,
+            timeout=aiohttp.ClientTimeout(total=15)
+        ) as resp:
+            if resp.status != 200:
+                log.warning("Yahoo Finance returned %d for %s", resp.status, ticker)
+                return None
+            data = await resp.json()
+            result = data.get("chart", {}).get("result", [])
+            if not result:
+                return None
+            indicators_data = result[0].get("indicators", {}).get("quote", [{}])[0]
+            timestamps = result[0].get("timestamp", [])
+            candles = {
+                "o": indicators_data.get("open", []),
+                "h": indicators_data.get("high", []),
+                "l": indicators_data.get("low", []),
+                "c": indicators_data.get("close", []),
+                "v": [int(v) for v in indicators_data.get("volume", []) if v is not None],
+                "t": timestamps,
+            }
+            if len(candles["c"]) < 5:
+                return None
+            return candles
     except Exception as e:
         log.warning("Yahoo Finance history error for %s: %s", ticker, e)
         return None
@@ -250,11 +251,11 @@ async def verify_technical(ticker: str, direction: str = "long") -> Optional[Tec
     start = time.time()
 
     # Fetch quote and history concurrently
-    async with aiohttp.ClientSession() as session:
-        quote_coro = _fetch_finnhub_quote(ticker, session)
-        history_coro = _fetch_history_async(ticker)
+    session = await get_session()
+    quote_coro = _fetch_finnhub_quote(ticker, session)
+    history_coro = _fetch_history_async(ticker)
 
-        quote, candles = await asyncio.gather(quote_coro, history_coro)
+    quote, candles = await asyncio.gather(quote_coro, history_coro)
 
     if not quote:
         log.warning("Technical: no quote data for %s", ticker)

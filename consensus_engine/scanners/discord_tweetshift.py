@@ -19,6 +19,7 @@ import aiohttp
 
 from consensus_engine import config as cfg
 from consensus_engine import db
+from consensus_engine.utils.http import get_session
 
 log = logging.getLogger("consensus_engine.scanner.discord_tweetshift")
 
@@ -339,12 +340,13 @@ class DiscordTweetShiftListener:
     async def _connect_once(self):
         """Open one WebSocket session, run until disconnected."""
         headers = {"Authorization": f"Bot {self._token}"}
-        async with aiohttp.ClientSession() as session:
-            async with session.ws_connect(
-                GATEWAY_URL,
-                heartbeat=None,  # We manage heartbeats manually
-                timeout=aiohttp.ClientTimeout(total=None, sock_connect=30, sock_read=60),
-            ) as ws:
+        session = await get_session()
+        async with session.ws_connect(
+            GATEWAY_URL,
+            headers=headers,
+            heartbeat=None,  # We manage heartbeats manually
+            timeout=aiohttp.ClientTimeout(total=None, sock_connect=30, sock_read=60),
+        ) as ws:
                 self._ws = ws
                 hb_task = None
 

@@ -1,5 +1,6 @@
 """Fallback chain behavior for consensus_engine.llm_client.call_with_fallback."""
 import pytest
+from unittest.mock import AsyncMock
 
 from consensus_engine import llm_client
 
@@ -67,8 +68,8 @@ def patch_config(monkeypatch):
 
 def _install_session(monkeypatch, responses):
     session = _SequentialSession(responses)
-    monkeypatch.setattr("consensus_engine.llm_client.aiohttp.ClientSession",
-                        lambda *a, **kw: session)
+    monkeypatch.setattr("consensus_engine.llm_client.get_session",
+                        AsyncMock(return_value=session))
     return session
 
 

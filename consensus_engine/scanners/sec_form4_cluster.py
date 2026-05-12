@@ -20,6 +20,7 @@ from typing import Union, Optional
 import aiohttp
 
 from consensus_engine import config as cfg
+from consensus_engine.utils.http import get_session
 from consensus_engine import db
 from consensus_engine.analysis.regime import lookup_regime
 from consensus_engine.scanners.sec_edgar import check_recent_filings
@@ -133,16 +134,16 @@ async def _fetch_form4_xml(cik: str, accession_number: str, primary_document: st
         f"/{accession_nodash}/{filename}"
     )
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                url,
-                headers={"User-Agent": _USER_AGENT},
-                timeout=aiohttp.ClientTimeout(total=15),
-            ) as resp:
-                if resp.status != 200:
-                    log.debug("[D1] Form 4 XML %d: %s", resp.status, url)
-                    return None
-                return await resp.text()
+        session = await get_session()
+        async with session.get(
+            url,
+            headers={"User-Agent": _USER_AGENT},
+            timeout=aiohttp.ClientTimeout(total=15),
+        ) as resp:
+            if resp.status != 200:
+                log.debug("[D1] Form 4 XML %d: %s", resp.status, url)
+                return None
+            return await resp.text()
     except Exception as e:
         log.debug("[D1] Form 4 XML fetch error: %s", e)
         return None
@@ -156,26 +157,26 @@ async def _fetch_price_and_30d_high(ticker: str) -> tuple[float, float]:
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}"
     params = {"interval": "1d", "range": "1mo"}
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                url, params=params, headers=_YF_HEADERS,
-                timeout=aiohttp.ClientTimeout(total=15),
-            ) as resp:
-                if resp.status != 200:
-                    log.debug("[D1] Yahoo Finance %d for $%s", resp.status, ticker)
-                    return 0.0, 0.0
-                data = await resp.json()
-                result = data.get("chart", {}).get("result", [])
-                if not result:
-                    return 0.0, 0.0
-                quote = result[0].get("indicators", {}).get("quote", [{}])[0]
-                closes = [c for c in (quote.get("close") or []) if c is not None]
-                highs = [h for h in (quote.get("high") or []) if h is not None]
-                if not closes:
-                    return 0.0, 0.0
-                current_price = closes[-1]
-                high_30d = max(highs) if highs else current_price
-                return current_price, high_30d
+        session = await get_session()
+        async with session.get(
+            url, params=params, headers=_YF_HEADERS,
+            timeout=aiohttp.ClientTimeout(total=15),
+        ) as resp:
+            if resp.status != 200:
+                log.debug("[D1] Yahoo Finance %d for $%s", resp.status, ticker)
+                return 0.0, 0.0
+            data = await resp.json()
+            result = data.get("chart", {}).get("result", [])
+            if not result:
+                return 0.0, 0.0
+            quote = result[0].get("indicators", {}).get("quote", [{}])[0]
+            closes = [c for c in (quote.get("close") or []) if c is not None]
+            highs = [h for h in (quote.get("high") or []) if h is not None]
+            if not closes:
+                return 0.0, 0.0
+            current_price = closes[-1]
+            high_30d = max(highs) if highs else current_price
+            return current_price, high_30d
     except Exception as e:
         log.debug("[D1] Yahoo Finance error for $%s: %s", ticker, e)
         return 0.0, 0.0

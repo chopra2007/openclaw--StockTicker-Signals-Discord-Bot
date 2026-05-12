@@ -50,19 +50,20 @@ def _parse_history_limit(content: str, default: int = 20) -> int:
 async def _fetch_channel_history(channel_id: str, limit: int = 20) -> str:
     """Fetch recent messages from a Discord channel and format them as context."""
     import aiohttp
+    from consensus_engine.utils.http import get_session
     token = cfg.get_api_key("discord_bot_token")
     if not token:
         return ""
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                f"https://discord.com/api/v10/channels/{channel_id}/messages?limit={limit}",
-                headers={"Authorization": f"Bot {token}"},
-                timeout=aiohttp.ClientTimeout(total=10),
-            ) as resp:
-                if resp.status != 200:
-                    return ""
-                msgs = await resp.json()
+        session = await get_session()
+        async with session.get(
+            f"https://discord.com/api/v10/channels/{channel_id}/messages?limit={limit}",
+            headers={"Authorization": f"Bot {token}"},
+            timeout=aiohttp.ClientTimeout(total=10),
+        ) as resp:
+            if resp.status != 200:
+                return ""
+            msgs = await resp.json()
         lines = []
         for m in reversed(msgs):
             author = m.get("author", {}).get("username", "unknown")
@@ -1364,13 +1365,15 @@ async def _yt_analyse_and_reply(youtube_url: str, channel_id: str, message_id: s
         # oEmbed for title + channel
         title, channel_name = video_id, "unknown"
         try:
-            async with _aiohttp.ClientSession() as sess:
-                oembed_url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={video_id}&format=json"
-                async with sess.get(oembed_url, timeout=_aiohttp.ClientTimeout(total=8)) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        title = data.get("title", video_id)
-                        channel_name = data.get("author_name", "unknown")
+            import aiohttp as _aiohttp
+            from consensus_engine.utils.http import get_session as _get_session
+            sess = await _get_session()
+            oembed_url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={video_id}&format=json"
+            async with sess.get(oembed_url, timeout=_aiohttp.ClientTimeout(total=8)) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    title = data.get("title", video_id)
+                    channel_name = data.get("author_name", "unknown")
         except Exception:
             pass
 

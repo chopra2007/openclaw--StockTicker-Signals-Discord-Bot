@@ -22,6 +22,7 @@ from zoneinfo import ZoneInfo
 import aiohttp
 
 from consensus_engine import config as cfg
+from consensus_engine.utils.http import get_session
 from consensus_engine.alerts.discord import _safe_send_kwargs
 
 _ET = ZoneInfo("America/New_York")
@@ -173,15 +174,15 @@ async def run_chain_check() -> tuple[bool, str]:
         lines.append(f"❌ `GATEWAY` `drift` — {drift_detail[:140]}")
         any_failed = True
 
-    async with aiohttp.ClientSession() as session:
-        for role, position, model_id in all_models:
-            status, dt, detail = await _probe_model(session, model_id, api_key)
-            mark = "✅" if status == "OK" else "❌"
-            if status != "OK":
-                any_failed = True
-            lines.append(
-                f"{mark} `{role}` `{position}` `{model_id}` — {status} ({dt:.1f}s) — {detail[:60]}"
-            )
+    session = await get_session()
+    for role, position, model_id in all_models:
+        status, dt, detail = await _probe_model(session, model_id, api_key)
+        mark = "✅" if status == "OK" else "❌"
+        if status != "OK":
+            any_failed = True
+        lines.append(
+            f"{mark} `{role}` `{position}` `{model_id}` — {status} ({dt:.1f}s) — {detail[:60]}"
+        )
 
     return any_failed, "\n".join(lines)
 
@@ -280,16 +281,16 @@ async def _post_to_discord(content: str) -> None:
     url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
     payload = _safe_send_kwargs({"content": content[:1990]})
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                url,
-                headers={"Authorization": f"Bot {token}",
-                         "Content-Type": "application/json"},
-                json=payload,
-                timeout=aiohttp.ClientTimeout(total=15),
-            ) as resp:
-                if resp.status not in (200, 201):
-                    log.warning("health: Discord post HTTP %d", resp.status)
+        session = await get_session()
+        async with session.post(
+            url,
+            headers={"Authorization": f"Bot {token}",
+                     "Content-Type": "application/json"},
+            json=payload,
+            timeout=aiohttp.ClientTimeout(total=15),
+        ) as resp:
+            if resp.status not in (200, 201):
+                log.warning("health: Discord post HTTP %d", resp.status)
     except Exception as exc:
         log.warning("health: Discord post error: %s", exc)
 

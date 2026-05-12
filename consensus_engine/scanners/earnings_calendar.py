@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 import aiohttp
 
 from consensus_engine import config as cfg
+from consensus_engine.utils.http import get_session
 from consensus_engine import db
 from consensus_engine.utils.rate_limiter import rate_limiter
 
@@ -36,15 +37,15 @@ async def _fetch_finnhub_company_earnings(ticker: str) -> list[dict]:
     if not await rate_limiter.acquire("finnhub"):
         return []
     try:
-        async with aiohttp.ClientSession() as session:
-            url = f"https://finnhub.io/api/v1/stock/earnings?symbol={ticker.upper()}&token={api_key}"
-            async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                if resp.status != 200:
-                    rate_limiter.report_failure("finnhub")
-                    return []
-                data = await resp.json()
-                rate_limiter.report_success("finnhub")
-                return data if isinstance(data, list) else []
+        session = await get_session()
+        url = f"https://finnhub.io/api/v1/stock/earnings?symbol={ticker.upper()}&token={api_key}"
+        async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            if resp.status != 200:
+                rate_limiter.report_failure("finnhub")
+                return []
+            data = await resp.json()
+            rate_limiter.report_success("finnhub")
+            return data if isinstance(data, list) else []
     except Exception as e:
         log.debug("Finnhub /stock/earnings error for %s: %s", ticker, e)
         rate_limiter.report_failure("finnhub")
@@ -170,16 +171,16 @@ async def fetch_earnings_calendar(from_date: str, to_date: str) -> list[dict]:
         return []
 
     try:
-        async with aiohttp.ClientSession() as session:
-            url = f"https://finnhub.io/api/v1/calendar/earnings?from={from_date}&to={to_date}&token={api_key}"
-            async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
-                if resp.status != 200:
-                    log.warning("Finnhub earnings calendar returned %d", resp.status)
-                    rate_limiter.report_failure("finnhub")
-                    return []
-                data = await resp.json()
-                rate_limiter.report_success("finnhub")
-                return data.get("earningsCalendar", [])
+        session = await get_session()
+        url = f"https://finnhub.io/api/v1/calendar/earnings?from={from_date}&to={to_date}&token={api_key}"
+        async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+            if resp.status != 200:
+                log.warning("Finnhub earnings calendar returned %d", resp.status)
+                rate_limiter.report_failure("finnhub")
+                return []
+            data = await resp.json()
+            rate_limiter.report_success("finnhub")
+            return data.get("earningsCalendar", [])
     except Exception as e:
         log.warning("Finnhub earnings calendar error: %s", e)
         rate_limiter.report_failure("finnhub")

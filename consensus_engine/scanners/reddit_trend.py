@@ -112,13 +112,13 @@ async def crawl_and_get_trending() -> list[dict]:
     since_utc = int(time.time()) - lookback_hours * 3600
 
     all_posts = []
-    async with aiohttp.ClientSession() as session:
-        for sub in subreddits:
-            posts = await _fetch_subreddit(session, sub)
-            if posts:
-                await db.insert_reddit_posts(posts)
-                all_posts.extend(posts)
-            await asyncio.sleep(2)
+    session = await get_session()
+    for sub in subreddits:
+        posts = await _fetch_subreddit(session, sub)
+        if posts:
+            await db.insert_reddit_posts(posts)
+            all_posts.extend(posts)
+        await asyncio.sleep(2)
 
     # Get all recent posts (including previously stored)
     recent = await db.get_reddit_posts_since(since_utc)

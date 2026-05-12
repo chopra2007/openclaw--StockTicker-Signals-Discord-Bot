@@ -144,14 +144,15 @@ async def validate_ticker_market_cap(ticker: str) -> bool:
 
     try:
         import aiohttp
-        async with aiohttp.ClientSession() as session:
-            url = "https://finnhub.io/api/v1/stock/profile2"
-            params = {"symbol": ticker, "token": api_key}
-            async with session.get(url, params=params,
-                                   timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                if resp.status != 200:
-                    return False
-                data = await resp.json()
+        from consensus_engine.utils.http import get_session
+        session = await get_session()
+        url = "https://finnhub.io/api/v1/stock/profile2"
+        params = {"symbol": ticker, "token": api_key}
+        async with session.get(url, params=params,
+                               timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            if resp.status != 200:
+                return False
+            data = await resp.json()
 
         name = data.get("name", "")
         market_cap = data.get("marketCapitalization", 0) * 1_000_000

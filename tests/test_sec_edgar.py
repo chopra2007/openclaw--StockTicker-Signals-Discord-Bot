@@ -108,10 +108,8 @@ async def test_check_recent_filings_filters_old():
             __aexit__=AsyncMock(return_value=False),
         ))
 
-        with patch("aiohttp.ClientSession", return_value=AsyncMock(
-            __aenter__=AsyncMock(return_value=mock_session),
-            __aexit__=AsyncMock(return_value=False),
-        )):
+        with patch("consensus_engine.scanners.sec_edgar.get_session",
+                   new_callable=AsyncMock, return_value=mock_session):
             results = await check_recent_filings("TEST", hours_back=48)
 
     assert len(results) == 1

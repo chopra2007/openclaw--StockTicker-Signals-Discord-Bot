@@ -1,5 +1,6 @@
 """Tests for the daily LLM chain health check."""
 import pytest
+from unittest.mock import AsyncMock
 
 from consensus_engine import health
 
@@ -79,8 +80,8 @@ def patched_cfg(monkeypatch):
 
 async def test_run_chain_check_all_green(patched_cfg, monkeypatch):
     sess = _Session([_ok(), _ok(), _ok(), _ok(), _ok(), _ok()])
-    monkeypatch.setattr("consensus_engine.health.aiohttp.ClientSession",
-                        lambda *a, **kw: sess)
+    monkeypatch.setattr("consensus_engine.health.get_session",
+                        AsyncMock(return_value=sess))
     failed, report = await health.run_chain_check()
     assert failed is False
     assert report.count("✅") == 6
@@ -96,8 +97,8 @@ async def test_run_chain_check_flags_429(patched_cfg, monkeypatch):
         _ok(), _Resp(429, body="rate limited"),
         _ok(), _ok(), _ok(), _ok(),
     ])
-    monkeypatch.setattr("consensus_engine.health.aiohttp.ClientSession",
-                        lambda *a, **kw: sess)
+    monkeypatch.setattr("consensus_engine.health.get_session",
+                        AsyncMock(return_value=sess))
     failed, report = await health.run_chain_check()
     assert failed is True
     assert "HTTP 429" in report
@@ -107,8 +108,8 @@ async def test_run_chain_check_flags_429(patched_cfg, monkeypatch):
 
 async def test_run_chain_check_flags_empty_content(patched_cfg, monkeypatch):
     sess = _Session([_ok(""), _ok(), _ok(), _ok(), _ok(), _ok()])
-    monkeypatch.setattr("consensus_engine.health.aiohttp.ClientSession",
-                        lambda *a, **kw: sess)
+    monkeypatch.setattr("consensus_engine.health.get_session",
+                        AsyncMock(return_value=sess))
     failed, report = await health.run_chain_check()
     assert failed is True
     assert "EMPTY" in report

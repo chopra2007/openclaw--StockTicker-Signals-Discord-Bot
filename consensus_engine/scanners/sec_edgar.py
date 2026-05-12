@@ -13,6 +13,7 @@ from typing import Optional
 import aiohttp
 
 from consensus_engine import config as cfg
+from consensus_engine.utils.http import get_session
 from consensus_engine import db
 from consensus_engine.utils.rate_limiter import rate_limiter
 
@@ -34,15 +35,15 @@ async def _load_ticker_map():
         return
 
     try:
-        async with aiohttp.ClientSession() as session:
-            headers = {"User-Agent": _USER_AGENT}
-            url = "https://www.sec.gov/files/company_tickers.json"
-            async with session.get(url, headers=headers,
-                                   timeout=aiohttp.ClientTimeout(total=15)) as resp:
-                if resp.status != 200:
-                    log.warning("SEC ticker map fetch failed: %d", resp.status)
-                    return
-                data = await resp.json(content_type=None)
+        session = await get_session()
+        headers = {"User-Agent": _USER_AGENT}
+        url = "https://www.sec.gov/files/company_tickers.json"
+        async with session.get(url, headers=headers,
+                               timeout=aiohttp.ClientTimeout(total=15)) as resp:
+            if resp.status != 200:
+                log.warning("SEC ticker map fetch failed: %d", resp.status)
+                return
+            data = await resp.json(content_type=None)
 
         for entry in data.values():
             ticker = entry.get("ticker", "").upper()
@@ -76,16 +77,16 @@ async def check_recent_filings(ticker: str, hours_back: int = 48) -> list[dict]:
         return []
 
     try:
-        async with aiohttp.ClientSession() as session:
-            headers = {"User-Agent": _USER_AGENT}
-            url = f"https://data.sec.gov/submissions/CIK{cik}.json"
-            async with session.get(url, headers=headers,
-                                   timeout=aiohttp.ClientTimeout(total=15)) as resp:
-                if resp.status != 200:
-                    log.debug("SEC EDGAR %d for $%s (CIK %s)", resp.status, ticker, cik)
-                    rate_limiter.report_failure("sec_edgar")
-                    return []
-                data = await resp.json(content_type=None)
+        session = await get_session()
+        headers = {"User-Agent": _USER_AGENT}
+        url = f"https://data.sec.gov/submissions/CIK{cik}.json"
+        async with session.get(url, headers=headers,
+                               timeout=aiohttp.ClientTimeout(total=15)) as resp:
+            if resp.status != 200:
+                log.debug("SEC EDGAR %d for $%s (CIK %s)", resp.status, ticker, cik)
+                rate_limiter.report_failure("sec_edgar")
+                return []
+            data = await resp.json(content_type=None)
 
         rate_limiter.report_success("sec_edgar")
 
@@ -224,14 +225,14 @@ async def fetch_form4_details(cik: str, accession_number: str, primary_document:
     )
 
     try:
-        async with aiohttp.ClientSession() as session:
-            headers = {"User-Agent": _USER_AGENT}
-            async with session.get(xml_url, headers=headers,
-                                   timeout=aiohttp.ClientTimeout(total=15)) as resp:
-                if resp.status != 200:
-                    log.debug("Form 4 XML fetch failed %d: %s", resp.status, xml_url)
-                    return []
-                raw = await resp.text()
+        session = await get_session()
+        headers = {"User-Agent": _USER_AGENT}
+        async with session.get(xml_url, headers=headers,
+                               timeout=aiohttp.ClientTimeout(total=15)) as resp:
+            if resp.status != 200:
+                log.debug("Form 4 XML fetch failed %d: %s", resp.status, xml_url)
+                return []
+            raw = await resp.text()
     except Exception as e:
         log.debug("Form 4 fetch error: %s", e)
         return []

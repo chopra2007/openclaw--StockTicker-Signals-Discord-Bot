@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 import aiohttp
 
 from consensus_engine import config as cfg
+from consensus_engine.utils.http import get_session
 from consensus_engine import db
 from consensus_engine.alerts.discord import _safe_send_kwargs
 
@@ -182,19 +183,19 @@ async def _send_discord_briefing(content: str) -> str | None:
     # Discord hard limit is 2000 chars.
     payload = _safe_send_kwargs({"content": content[:1990]})
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                url,
-                headers={"Authorization": f"Bot {token}",
-                         "Content-Type": "application/json"},
-                json=payload,
-                timeout=aiohttp.ClientTimeout(total=15),
-            ) as resp:
-                if resp.status not in (200, 201):
-                    log.warning("Alfred Discord post failed: %d", resp.status)
-                    return None
-                data = await resp.json()
-                return str(data.get("id", ""))
+        session = await get_session()
+        async with session.post(
+            url,
+            headers={"Authorization": f"Bot {token}",
+                     "Content-Type": "application/json"},
+            json=payload,
+            timeout=aiohttp.ClientTimeout(total=15),
+        ) as resp:
+            if resp.status not in (200, 201):
+                log.warning("Alfred Discord post failed: %d", resp.status)
+                return None
+            data = await resp.json()
+            return str(data.get("id", ""))
     except Exception as exc:
         log.error("Alfred Discord send error: %s", exc)
         return None

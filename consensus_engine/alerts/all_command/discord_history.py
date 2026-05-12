@@ -21,6 +21,7 @@ from typing import Optional
 import aiohttp
 
 from consensus_engine import config as cfg
+from consensus_engine.utils.http import get_session
 
 log = logging.getLogger("consensus_engine.alerts.all_command.discord_history")
 
@@ -110,32 +111,32 @@ async def fetch_chat_24h_ticker_filtered(
     before: Optional[str] = None
 
     try:
-        async with aiohttp.ClientSession() as session:
-            for _page in range(_MAX_PAGES):
-                page = await _fetch_page(
-                    session, channel_id, headers, before=before,
-                )
-                if not page:
-                    break
-                for msg in page:
-                    msg_id = str(msg.get("id", ""))
-                    msg_ts = _snowflake_to_timestamp(msg_id)
-                    if msg_ts is None or msg_ts < cutoff:
-                        # 24h boundary reached on this page; stop after sweep.
-                        continue
-                    content = str(msg.get("content", "") or "")
-                    if not content:
-                        continue
-                    if pattern.search(content):
-                        matched.append(content)
-                        if len(matched) >= _MAX_RESULTS:
-                            return matched
-                # Decide whether to paginate further: stop if last msg is past cutoff
-                last_id = str(page[-1].get("id", ""))
-                last_ts = _snowflake_to_timestamp(last_id)
-                if last_ts is None or last_ts < cutoff:
-                    break
-                before = last_id
+        session = await get_session()
+        for _page in range(_MAX_PAGES):
+            page = await _fetch_page(
+                session, channel_id, headers, before=before,
+            )
+            if not page:
+                break
+            for msg in page:
+                msg_id = str(msg.get("id", ""))
+                msg_ts = _snowflake_to_timestamp(msg_id)
+                if msg_ts is None or msg_ts < cutoff:
+                    # 24h boundary reached on this page; stop after sweep.
+                    continue
+                content = str(msg.get("content", "") or "")
+                if not content:
+                    continue
+                if pattern.search(content):
+                    matched.append(content)
+                    if len(matched) >= _MAX_RESULTS:
+                        return matched
+            # Decide whether to paginate further: stop if last msg is past cutoff
+            last_id = str(page[-1].get("id", ""))
+            last_ts = _snowflake_to_timestamp(last_id)
+            if last_ts is None or last_ts < cutoff:
+                break
+            before = last_id
     except Exception as exc:  # noqa: BLE001 — graceful degrade per D13
         log.warning("discord_history.fetch_chat_24h failed: %s", exc)
         return []
@@ -154,9 +155,9 @@ async def fetch_brief_last_3() -> list[str]:
 
     headers = {"Authorization": f"Bot {token}"}
     try:
-        async with aiohttp.ClientSession() as session:
-            page = await _fetch_page(session, channel_id, headers, limit=3)
-            return [str(m.get("content", "") or "") for m in page if m.get("content")]
+        session = await get_session()
+        page = await _fetch_page(session, channel_id, headers, limit=3)
+        return [str(m.get("content", "") or "") for m in page if m.get("content")]
     except Exception as exc:  # noqa: BLE001 — graceful degrade per D13
         log.warning("discord_history.fetch_brief_last_3 failed: %s", exc)
         return []

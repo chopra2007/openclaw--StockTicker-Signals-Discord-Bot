@@ -9,6 +9,7 @@ from typing import Optional
 import aiohttp
 
 from consensus_engine import config as cfg
+from consensus_engine.utils.http import get_session
 from consensus_engine.utils.rate_limiter import rate_limiter
 
 log = logging.getLogger("consensus_engine.scanner.searxng")
@@ -35,22 +36,22 @@ async def search_searxng(query: str) -> list[dict]:
         return []
 
     try:
-        async with aiohttp.ClientSession() as session:
-            params = {"q": query, "format": "json"}
-            async with session.get(
-                f"{base_url}/search",
-                params=params,
-                timeout=aiohttp.ClientTimeout(total=timeout),
-            ) as resp:
-                if resp.status != 200:
-                    rate_limiter.report_failure("searxng")
-                    log.warning("SearXNG returned %d for '%s'", resp.status, query)
-                    return []
-                data = await resp.json()
-                rate_limiter.report_success("searxng")
-                results = _parse_searxng_results(data)
-                log.debug("SearXNG: %d results for '%s'", len(results), query)
-                return results
+        session = await get_session()
+        params = {"q": query, "format": "json"}
+        async with session.get(
+            f"{base_url}/search",
+            params=params,
+            timeout=aiohttp.ClientTimeout(total=timeout),
+        ) as resp:
+            if resp.status != 200:
+                rate_limiter.report_failure("searxng")
+                log.warning("SearXNG returned %d for '%s'", resp.status, query)
+                return []
+            data = await resp.json()
+            rate_limiter.report_success("searxng")
+            results = _parse_searxng_results(data)
+            log.debug("SearXNG: %d results for '%s'", len(results), query)
+            return results
     except Exception as e:
         log.warning("SearXNG error: %s", e)
         rate_limiter.report_failure("searxng")

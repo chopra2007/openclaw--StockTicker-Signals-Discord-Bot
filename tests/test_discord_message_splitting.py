@@ -8,6 +8,7 @@ nor the primary LLM gets clipped.
 from __future__ import annotations
 
 import pytest
+from unittest.mock import AsyncMock
 
 
 def test_short_content_returns_single_chunk():
@@ -81,8 +82,8 @@ async def test_send_command_reply_short_uses_one_post(monkeypatch):
             posts.append(json)
             return _Resp()
 
-    monkeypatch.setattr("consensus_engine.alerts.discord.aiohttp.ClientSession",
-                        lambda *a, **kw: _Session())
+    monkeypatch.setattr("consensus_engine.alerts.discord.get_session",
+                        AsyncMock(return_value=_Session()))
     monkeypatch.setattr("consensus_engine.alerts.discord.cfg.get_api_key",
                         lambda *_a, **_kw: "fake_token")
 
@@ -115,8 +116,8 @@ async def test_send_command_reply_long_splits_into_chained_posts(monkeypatch):
             posts.append(json)
             return _Resp()
 
-    monkeypatch.setattr("consensus_engine.alerts.discord.aiohttp.ClientSession",
-                        lambda *a, **kw: _Session())
+    monkeypatch.setattr("consensus_engine.alerts.discord.get_session",
+                        AsyncMock(return_value=_Session()))
     monkeypatch.setattr("consensus_engine.alerts.discord.cfg.get_api_key",
                         lambda *_a, **_kw: "fake_token")
 

@@ -20,6 +20,7 @@ from typing import Optional
 import aiohttp
 
 from consensus_engine import config as cfg, db
+from consensus_engine.utils.http import get_session
 from consensus_engine.models import (
     ParsedVideo, Direction, Conviction, PriceLevel, MacroThesis,
     VideoOptionIdea, VideoTradeSetup,
@@ -120,26 +121,26 @@ async def _call_extraction_model(
     if not api_key:
         return "", False
     try:
-        async with aiohttp.ClientSession() as session:
-            payload = {
-                "model": model,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                "max_tokens": max_tokens,
-                "temperature": 0.1,
-            }
-            async with session.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                json=payload,
-                timeout=aiohttp.ClientTimeout(total=30),
-            ) as resp:
-                if resp.status != 200:
-                    log.warning("_call_extraction_model: HTTP %d for model %s", resp.status, model)
-                    return "", False
-                data = await resp.json()
+        session = await get_session()
+        payload = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "max_tokens": max_tokens,
+            "temperature": 0.1,
+        }
+        async with session.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json=payload,
+            timeout=aiohttp.ClientTimeout(total=30),
+        ) as resp:
+            if resp.status != 200:
+                log.warning("_call_extraction_model: HTTP %d for model %s", resp.status, model)
+                return "", False
+            data = await resp.json()
         content = data.get("choices", [{}])[0].get("message", {}).get("content") or ""
         return content.strip(), bool(content)
     except Exception as e:
@@ -432,31 +433,31 @@ async def _call_groq(user_prompt: str) -> str:
         return await _call_openrouter(user_prompt)
 
     try:
-        async with aiohttp.ClientSession() as session:
-            url = "https://api.groq.com/openai/v1/chat/completions"
-            headers = {
-                "Authorization": f"Bearer {groq_key}",
-                "Content-Type": "application/json",
-            }
-            model = cfg.get("video_parser.groq_model", "mixtral-8x7b-32768")
-            payload = {
-                "model": model,
-                "messages": [
-                    {"role": "system", "content": _SYSTEM_PROMPT},
-                    {"role": "user", "content": user_prompt},
-                ],
-                "max_tokens": 2048,
-                "temperature": 0.1,
-            }
+        session = await get_session()
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {groq_key}",
+            "Content-Type": "application/json",
+        }
+        model = cfg.get("video_parser.groq_model", "mixtral-8x7b-32768")
+        payload = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            "max_tokens": 2048,
+            "temperature": 0.1,
+        }
 
-            async with session.post(
-                url, headers=headers, json=payload,
-                timeout=aiohttp.ClientTimeout(total=20),
-            ) as resp:
-                if resp.status != 200:
-                    log.warning("Groq error (%d), falling back to OpenRouter", resp.status)
-                    return await _call_openrouter(user_prompt)
-                data = await resp.json()
+        async with session.post(
+            url, headers=headers, json=payload,
+            timeout=aiohttp.ClientTimeout(total=20),
+        ) as resp:
+            if resp.status != 200:
+                log.warning("Groq error (%d), falling back to OpenRouter", resp.status)
+                return await _call_openrouter(user_prompt)
+            data = await resp.json()
 
         content = data.get("choices", [{}])[0].get("message", {}).get("content") or ""
         if not content:
@@ -490,31 +491,31 @@ async def _call_groq_full(user_prompt: str, max_tokens: int = 2048) -> tuple[str
         return content, "stop"
 
     try:
-        async with aiohttp.ClientSession() as session:
-            url = "https://api.groq.com/openai/v1/chat/completions"
-            headers = {
-                "Authorization": f"Bearer {groq_key}",
-                "Content-Type": "application/json",
-            }
-            model = cfg.get("video_parser.groq_model", "mixtral-8x7b-32768")
-            payload = {
-                "model": model,
-                "messages": [
-                    {"role": "system", "content": _SYSTEM_PROMPT},
-                    {"role": "user", "content": user_prompt},
-                ],
-                "max_tokens": max_tokens,
-                "temperature": 0.1,
-            }
-            async with session.post(
-                url, headers=headers, json=payload,
-                timeout=aiohttp.ClientTimeout(total=20),
-            ) as resp:
-                if resp.status != 200:
-                    log.warning("Groq error (%d) in full call, falling back", resp.status)
-                    content = await _call_openrouter(user_prompt)
-                    return content, "stop"
-                data = await resp.json()
+        session = await get_session()
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {groq_key}",
+            "Content-Type": "application/json",
+        }
+        model = cfg.get("video_parser.groq_model", "mixtral-8x7b-32768")
+        payload = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            "max_tokens": max_tokens,
+            "temperature": 0.1,
+        }
+        async with session.post(
+            url, headers=headers, json=payload,
+            timeout=aiohttp.ClientTimeout(total=20),
+        ) as resp:
+            if resp.status != 200:
+                log.warning("Groq error (%d) in full call, falling back", resp.status)
+                content = await _call_openrouter(user_prompt)
+                return content, "stop"
+            data = await resp.json()
 
         choice = data.get("choices", [{}])[0]
         content = (choice.get("message") or {}).get("content") or ""
