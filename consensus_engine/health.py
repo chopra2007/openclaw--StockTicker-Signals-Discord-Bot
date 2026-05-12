@@ -31,6 +31,11 @@ _API_URL = "https://openrouter.ai/api/v1/chat/completions"
 # scripts/sync_gateway_models.py is the only thing that should write here.
 _GATEWAY_CONFIG = Path("/root/.openclaw/openclaw.json")
 
+# Sticky marker so a boot that finds clean chains after a previous boot saw
+# drift can emit a paired ✅ resolution message to Discord. Without this, a
+# resolved drift leaves the channel reading as permanently broken.
+_DRIFT_STATE_FILE = Path(__file__).resolve().parent.parent / ".drift_state.json"
+
 log = logging.getLogger("consensus_engine.health")
 
 
@@ -200,11 +205,19 @@ async def boot_drift_check() -> None:
         models = _enumerate_chain_models()
         gateway_models, gateway_error = _enumerate_gateway_chain_models()
         drift_detail = _compute_drift(models, gateway_models)
+        when = datetime.now(tz=_ET).strftime("%Y-%m-%d %H:%M ET")
+
         if not gateway_error and not drift_detail:
             log.info("boot drift check: gateway chain matches consensus.yaml")
+            prior = _read_drift_state()
+            if prior:
+                msg = (f"**✅ LLM chain drift resolved — {when}**\n\n"
+                       f"Previous alert ({prior.get('first_seen','?')}) cleared. "
+                       f"Gateway chain now matches consensus.yaml.")
+                await _post_to_discord(msg)
+                _clear_drift_state()
             return
 
-        when = datetime.now(tz=_ET).strftime("%Y-%m-%d %H:%M ET")
         lines = [f"**LLM chain drift at boot — {when}**", ""]
         if gateway_error:
             lines.append(f"❌ `GATEWAY` `config` — {gateway_error}")
@@ -215,8 +228,39 @@ async def boot_drift_check() -> None:
         report = "\n".join(lines)
         log.warning("boot drift check FAILED:\n%s", report)
         await _post_to_discord(report)
+        _write_drift_state(when, gateway_error, drift_detail)
     except Exception as exc:
         log.error("boot drift check crashed (continuing): %s", exc)
+
+
+def _read_drift_state() -> dict | None:
+    try:
+        if _DRIFT_STATE_FILE.exists():
+            return json.loads(_DRIFT_STATE_FILE.read_text())
+    except Exception as exc:
+        log.warning("drift state unreadable: %s", exc)
+    return None
+
+
+def _write_drift_state(when: str, gateway_error: str, drift_detail: str) -> None:
+    try:
+        existing = _read_drift_state() or {}
+        first_seen = existing.get("first_seen") or when
+        _DRIFT_STATE_FILE.write_text(json.dumps({
+            "first_seen": first_seen,
+            "last_seen": when,
+            "gateway_error": gateway_error,
+            "drift_detail": drift_detail,
+        }))
+    except Exception as exc:
+        log.warning("drift state unwritable: %s", exc)
+
+
+def _clear_drift_state() -> None:
+    try:
+        _DRIFT_STATE_FILE.unlink(missing_ok=True)
+    except Exception as exc:
+        log.warning("drift state unclearable: %s", exc)
 
 
 async def _post_to_discord(content: str) -> None:

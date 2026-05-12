@@ -146,8 +146,9 @@ def test_drift_ignores_text_chain_rows():
 # boot_drift_check
 # ---------------------------------------------------------------------------
 
-async def test_boot_check_silent_when_synced(monkeypatch):
+async def test_boot_check_silent_when_synced(monkeypatch, tmp_path):
     posted: list[str] = []
+    monkeypatch.setattr(health, "_DRIFT_STATE_FILE", tmp_path / "drift_state.json")
     monkeypatch.setattr(health.cfg, "get", lambda k, d=None: True if k == "health_check.enabled" else d)
     monkeypatch.setattr(health, "_enumerate_chain_models",
                         lambda: [("LLM", "primary", "a")])
@@ -159,8 +160,9 @@ async def test_boot_check_silent_when_synced(monkeypatch):
     assert posted == []
 
 
-async def test_boot_check_posts_on_drift(monkeypatch):
+async def test_boot_check_posts_on_drift(monkeypatch, tmp_path):
     posted: list[str] = []
+    monkeypatch.setattr(health, "_DRIFT_STATE_FILE", tmp_path / "drift_state.json")
     monkeypatch.setattr(health.cfg, "get", lambda k, d=None: True if k == "health_check.enabled" else d)
     monkeypatch.setattr(health, "_enumerate_chain_models",
                         lambda: [("LLM", "primary", "ring")])
@@ -177,6 +179,53 @@ async def test_boot_check_posts_on_drift(monkeypatch):
     assert "ring" in posted[0]
     assert "ling" in posted[0]
     assert "make sync-models" in posted[0]  # actionable next step
+
+
+async def test_boot_check_emits_resolution_when_prior_drift_cleared(monkeypatch, tmp_path):
+    """If a prior boot recorded drift and current boot finds chains aligned,
+    post a ✅ resolution message and clear the state file."""
+    posted: list[str] = []
+    state_file = tmp_path / "drift_state.json"
+    state_file.write_text('{"first_seen": "2026-05-11 16:34 ET", "last_seen": "2026-05-11 16:34 ET"}')
+    monkeypatch.setattr(health, "_DRIFT_STATE_FILE", state_file)
+    monkeypatch.setattr(health.cfg, "get", lambda k, d=None: True if k == "health_check.enabled" else d)
+    monkeypatch.setattr(health, "_enumerate_chain_models",
+                        lambda: [("LLM", "primary", "a")])
+    monkeypatch.setattr(health, "_enumerate_gateway_chain_models",
+                        lambda: ([("GATEWAY", "primary", "a")], ""))
+
+    async def _capture(content: str) -> None:
+        posted.append(content)
+    monkeypatch.setattr(health, "_post_to_discord", _capture)
+
+    await health.boot_drift_check()
+
+    assert len(posted) == 1
+    assert "✅" in posted[0] and "resolved" in posted[0]
+    assert "2026-05-11 16:34 ET" in posted[0]  # quotes first-seen timestamp
+    assert not state_file.exists()  # state cleared
+
+
+async def test_boot_check_persists_drift_state_across_boots(monkeypatch, tmp_path):
+    """A drifted boot writes state; a second drifted boot keeps first_seen stable."""
+    state_file = tmp_path / "drift_state.json"
+    monkeypatch.setattr(health, "_DRIFT_STATE_FILE", state_file)
+    monkeypatch.setattr(health.cfg, "get", lambda k, d=None: True if k == "health_check.enabled" else d)
+    monkeypatch.setattr(health, "_enumerate_chain_models",
+                        lambda: [("LLM", "primary", "ring")])
+    monkeypatch.setattr(health, "_enumerate_gateway_chain_models",
+                        lambda: ([("GATEWAY", "primary", "ling")], ""))
+
+    async def _noop(content: str) -> None: pass
+    monkeypatch.setattr(health, "_post_to_discord", _noop)
+
+    await health.boot_drift_check()
+    first_state = json.loads(state_file.read_text())
+    assert "first_seen" in first_state and first_state["drift_detail"]
+
+    await health.boot_drift_check()
+    second_state = json.loads(state_file.read_text())
+    assert second_state["first_seen"] == first_state["first_seen"]  # sticky
 
 
 async def test_boot_check_disabled_via_config(monkeypatch):
