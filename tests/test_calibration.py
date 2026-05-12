@@ -20,10 +20,11 @@ def test_calibrate_identity_when_no_model(tmp_path, monkeypatch):
     assert cal.calibrate(100.0) == pytest.approx(1.0)
 
 
-def test_calibrate_identity_clamps(monkeypatch):
+def test_calibrate_identity_clamps(tmp_path, monkeypatch):
     """Identity fallback clamps values outside [0, 1]."""
     import consensus_engine.analysis.calibration as cal
     monkeypatch.setattr(cal, "_models", {})
+    monkeypatch.setattr(cal, "MODEL_PATH", tmp_path / "calibration_model.pkl")
 
     assert cal.calibrate(110.0) == pytest.approx(1.0)
     assert cal.calibrate(-10.0) == pytest.approx(0.0)
