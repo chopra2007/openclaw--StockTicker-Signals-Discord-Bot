@@ -159,9 +159,37 @@ def render_all_command_markdown(
     else:
         anchor_block = "_(no anchors)_"
 
+    from consensus_engine import config as _cfg
+    swing_v2 = bool(_cfg.get("all_command.swing_v2_enabled", True))
+    if swing_v2:
+        next_catalyst_days = getattr(structured, "next_catalyst_days", None)
+        nc_str = f"{next_catalyst_days}d" if isinstance(next_catalyst_days, int) and next_catalyst_days >= 0 else "TBD"
+        sh_days = getattr(structured, "swing_horizon_days", None)
+        sh_band = getattr(structured, "swing_horizon_band", None)
+        if isinstance(sh_days, int) and sh_days > 0 and sh_band:
+            sh_str = f"{sh_band[0]}–{sh_band[1]} days"
+        elif sh_days == 0:
+            sh_str = "at target"
+        else:
+            sh_str = "TBD"
+        em_str = getattr(structured, "magnitude_band_label", None) or "TBD"
+        trade_plan_block = (
+            f"- Next Catalyst: {nc_str}\n"
+            f"- Swing Horizon: {sh_str}\n"
+            f"- Expected Move: {em_str}\n"
+        )
+        schema_version = 2
+    else:
+        trade_plan_block = (
+            f"- Timeframe: {getattr(structured, 'breakout_timeframe', 'TBD') or 'TBD'}\n"
+            f"- Magnitude: {getattr(structured, 'magnitude_label', 'TBD') or 'TBD'}\n"
+        )
+        schema_version = 1
+
     return (
         f"# {ticker} — !all Analysis\n"
-        f"_Generated: {now_iso}_  •  _cache_key=all:{ticker}, ttl=15m_\n\n"
+        f"_Generated: {now_iso}_  •  _cache_key=all:{ticker}, ttl=15m_  •  "
+        f"_schema_version={schema_version}_\n\n"
         "## Direction / Confidence / Trade Plan\n"
         f"- Direction: **{direction}**\n"
         f"- Confidence: **{confidence}**\n"
@@ -169,8 +197,7 @@ def render_all_command_markdown(
         f"- TP1: {_price(getattr(structured, 'tp1', None))}\n"
         f"- TP2: {_price(getattr(structured, 'tp2', None))}\n"
         f"- TP3: {_price(getattr(structured, 'tp3', None))}\n"
-        f"- Timeframe: {getattr(structured, 'breakout_timeframe', 'TBD') or 'TBD'}\n"
-        f"- Magnitude: {getattr(structured, 'magnitude_label', 'TBD') or 'TBD'}\n\n"
+        f"{trade_plan_block}\n"
         "## Narrative\n"
         f"{narrative or '_(no narrative)_'}\n\n"
         "## Score Breakdown\n"

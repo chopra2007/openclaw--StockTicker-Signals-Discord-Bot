@@ -574,6 +574,24 @@ async def _compute_all(ticker: str, start: float) -> dict:
         current_price, supports, direction,
     )
 
+    # W4 swing-realism: compute new structured fields. Old fields above
+    # remain populated for backward compat and emergency revert via the
+    # `all_command.swing_v2_enabled=false` flag (consumed by embed,
+    # narrator, vault_writer at render time).
+    next_catalyst_days = structured_fields.compute_next_catalyst_days(
+        earnings_iso, data["options_unusual"],
+    )
+    swing_horizon_days, swing_horizon_band, _swing_note = (
+        structured_fields.compute_swing_horizon(
+            current_price, tp1, atr14, earnings_iso,
+        )
+    )
+    expected_move_typical, expected_move_high_vol, magnitude_band_label = (
+        structured_fields.compute_magnitude_band(
+            atr14, swing_horizon_days, current_price, atr_90d_high_pct=None,
+        )
+    )
+
     structured = structured_fields.StructuredFields(
         direction=direction,
         confidence_label=confidence,
@@ -584,6 +602,12 @@ async def _compute_all(ticker: str, start: float) -> dict:
         buy_zone_low=buy_low,
         buy_zone_high=buy_high,
         earnings_date=earnings_iso,
+        next_catalyst_days=next_catalyst_days,
+        swing_horizon_days=swing_horizon_days,
+        swing_horizon_band=swing_horizon_band,
+        expected_move_typical=expected_move_typical,
+        expected_move_high_vol=expected_move_high_vol,
+        magnitude_band_label=magnitude_band_label,
     )
 
     # Sanitize hostile text. PR4: split SearXNG into news+sec+gap-fill blocks

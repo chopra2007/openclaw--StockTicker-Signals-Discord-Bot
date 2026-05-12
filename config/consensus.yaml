@@ -333,6 +333,11 @@ all_command:
   # parallel with v1, log delta, but render v1 for ranking. Flip to false
   # to make v2 the rendered score after 7-day shadow review.
   score_v2_shadow_mode: true
+  # W4: atomic swing-horizon + magnitude-band + Next Catalyst rewrite.
+  # When true, embed/narrator/vault render the new swing-realism fields.
+  # Set to false for emergency revert — old breakout_timeframe / 2× ATR
+  # rendering paths stay populated for fallback.
+  swing_v2_enabled: true
 
 # Precision Scoring Engine
 precision_engine:

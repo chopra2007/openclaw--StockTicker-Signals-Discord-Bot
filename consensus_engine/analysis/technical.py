@@ -269,12 +269,27 @@ async def verify_technical(ticker: str, direction: str = "long") -> Optional[Tec
     prev_close = quote.get("pc", 0)
     volumes = candles.get("v", [])
 
+    # W4 B-M0: compute ATR(14) from the same candle window. Returns None
+    # for tickers with <14 bars (post-IPO) or zero-range halted sessions.
+    atr14_value: Optional[float] = None
+    try:
+        highs = candles.get("h", []) or []
+        lows = candles.get("l", []) or []
+        closes = candles.get("c", []) or []
+        # indicators.atr returns None on insufficient data and never raises.
+        atr14_value = indicators.atr(highs, lows, closes, period=14)
+        if atr14_value is not None and atr14_value <= 0:
+            atr14_value = None  # halted / zero-range guard
+    except Exception:  # noqa: BLE001
+        atr14_value = None
+
     result = TechnicalResult(
         ticker=ticker,
         filters=filters,
         price=current_price,
         volume=volumes[-1] if volumes else 0,
         price_change_pct=indicators.price_change_pct(current_price, prev_close) if prev_close else 0,
+        atr14=atr14_value,
     )
 
     elapsed = time.time() - start

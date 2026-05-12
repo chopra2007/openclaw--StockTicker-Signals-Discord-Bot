@@ -1,4 +1,4 @@
-"""Gap 1 — Earnings date must flow into the !all embed Timeframe field.
+"""Gap 1 — Earnings date must flow into the !all embed.
 
 Two paths are tested:
   - Path A: decision_snapshots row carries `earnings_date` → existing
@@ -9,9 +9,11 @@ Two paths are tested:
     date. The aggregator must add this as `data["next_earnings_iso"]` and
     `_earnings_iso` must check it as a fallback.
 
-The user-visible contract: the embed Timeframe field shows
-`earnings YYYY-MM-DD` (not "TBD") whenever any source has an upcoming
-earnings date within the next 30 days.
+W4: the embed field was renamed from "Timeframe" (string, e.g.
+"earnings 2026-05-20") to "Next Catalyst" (integer day count, e.g. "9d")
+when `all_command.swing_v2_enabled` is True. The user-visible contract
+now: the Next Catalyst field shows a positive day count whenever any
+source has an upcoming earnings date.
 """
 from __future__ import annotations
 
@@ -99,16 +101,19 @@ async def test_earnings_date_from_decision_snapshot_populates_timeframe(
 
     embed = captured_sends["embed"][0][2]
     fields = {f["name"]: f["value"] for f in embed["fields"]}
-    assert "earnings 2026-05-20" in fields["Timeframe"], (
-        f"Expected 'earnings 2026-05-20' in Timeframe; got {fields['Timeframe']!r}"
-    )
+    # W4: Next Catalyst is positive-integer days (earnings_date - today).
+    # The exact integer depends on the test-run date, but it must end in 'd'.
+    nc = fields["Next Catalyst"]
+    assert nc != "—", f"Expected non-empty Next Catalyst, got {nc!r}"
+    assert nc.endswith("d"), f"Expected day count like '9d', got {nc!r}"
+    assert int(nc[:-1]) >= 0
 
 
 @pytest.mark.asyncio
 async def test_next_earnings_scanner_fallback_when_decision_snapshot_empty(
     vault_path, captured_sends, monkeypatch, isolated_db,
 ):
-    """Path B: data['next_earnings_iso'] populated by scanner → Timeframe set."""
+    """Path B: data['next_earnings_iso'] populated by scanner → Next Catalyst set."""
     monkeypatch.setattr(
         aggregator, "_gather_all_sources",
         _bullish_gather_with_scanner_earnings(),
@@ -127,10 +132,10 @@ async def test_next_earnings_scanner_fallback_when_decision_snapshot_empty(
 
     embed = captured_sends["embed"][0][2]
     fields = {f["name"]: f["value"] for f in embed["fields"]}
-    assert "earnings 2026-05-20" in fields["Timeframe"], (
-        "Scanner-sourced earnings_date must populate Timeframe; "
-        f"got {fields['Timeframe']!r}"
-    )
+    nc = fields["Next Catalyst"]
+    assert nc != "—", f"Scanner-sourced earnings should yield non-empty Next Catalyst; got {nc!r}"
+    assert nc.endswith("d"), f"Expected day count like '9d', got {nc!r}"
+    assert int(nc[:-1]) >= 0
 
 
 @pytest.mark.asyncio

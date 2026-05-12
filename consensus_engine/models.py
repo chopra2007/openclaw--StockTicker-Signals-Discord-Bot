@@ -108,6 +108,10 @@ class TechnicalResult:
     price: float = 0.0
     volume: int = 0
     price_change_pct: float = 0.0
+    # W4 B-M0: Average True Range over 14 daily bars. Used by swing horizon
+    # and expected-move band. None when fewer than 14 bars available (post-IPO,
+    # halted, or yfinance failure) — callers must handle the None branch.
+    atr14: Optional[float] = None
 
     @property
     def all_passed(self) -> bool:

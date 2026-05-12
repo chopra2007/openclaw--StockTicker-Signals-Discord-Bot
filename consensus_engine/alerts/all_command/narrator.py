@@ -249,6 +249,68 @@ def _truncate_list(items: list, cap: int) -> list:
     return list(items)[:cap]
 
 
+_TRADE_PLAN_V0_ROWS = (
+    "       | Buy Zone   | $buy_zone_low – $buy_zone_high | <why this band> |\n"
+    "       | Stop-Loss  | $sl                            | <why this stop> |\n"
+    "       | TP1        | $tp1                           | <why this target, e.g. measured-move, swing high, $ source> |\n"
+    "       | TP2        | $tp2 (or '—' if null)          | <reason or 'TP2/TP3 padded — fewer than 3 resistance anchors'> |\n"
+    "       | TP3        | $tp3 (or '—' if null)          | <reason or padding note> |\n"
+)
+
+_TRADE_PLAN_V2_ROWS = (
+    "       | Buy Zone        | $buy_zone_low – $buy_zone_high | <why this band> |\n"
+    "       | Stop-Loss       | $sl                            | <why this stop> |\n"
+    "       | TP1             | $tp1                           | <why this target — measured-move, swing high, $ source> |\n"
+    "       | TP2             | $tp2 (or '—' if null)          | <reason or 'TP2/TP3 padded — fewer than 3 resistance anchors'> |\n"
+    "       | TP3             | $tp3 (or '—' if null)          | <reason or padding note> |\n"
+    "       | Swing Horizon   | swing_horizon_band low-high days | <derived from |tp1-spot|/0.7×ATR, capped at next catalyst> |\n"
+    "       | Expected Move   | expected_move_band             | <typical move over horizon; cite ATR(14)> |\n"
+    "       | Next Catalyst   | next_catalyst_days days        | <earnings or options expiry that bounds the horizon> |\n"
+)
+
+
+def _build_constraints_block(swing_v2: bool) -> str:
+    """CONSTRAINTS section of the synthesis prompt.
+
+    W4: when `swing_v2_enabled` is True, the Trade Plan table grows three
+    rows (Swing Horizon, Expected Move, Next Catalyst) and drops the
+    literal `(2× ATR)` qualifier in favor of the band-derived label.
+    """
+    trade_plan_rows = _TRADE_PLAN_V2_ROWS if swing_v2 else _TRADE_PLAN_V0_ROWS
+    return (
+        "CONSTRAINTS:\n"
+        "- Structure your narrative with these EXACT sections in this order:\n"
+        "  1. Opening thesis paragraph (2-3 sentences). FIRST sentence must "
+        "state the current price from COMPUTED SIGNAL.current_price, then "
+        "direction and headline. If a CHART PATTERN block is present, the "
+        "opening MUST name the pattern and its key_level (e.g. 'a bull flag "
+        "with breakout above $130').\n"
+        "  2. A `## Catalysts` markdown header followed by AT LEAST 2 bulleted "
+        "items (`* …`), each citing a specific number, date, $, or % drawn "
+        "from the EVIDENCE blocks (news / sec / yt_evidence / etc). "
+        "If an EARNINGS RECAP block is present, ONE of the catalyst bullets "
+        "MUST cite the revenue dollar value AND YoY percent from that block "
+        "verbatim (e.g. 'Revenue $68.13B, +73% YoY').\n"
+        "  3. A `## Risk Considerations` markdown header followed by AT LEAST "
+        "1 bulleted item with a specific risk and threshold (e.g. 'a break "
+        "below $X invalidates the thesis').\n"
+        "  4. A `## Trade Plan` markdown header followed by a markdown TABLE "
+        "with columns `Parameter | Level | Rationale`. Rows in this exact "
+        "order, populated from COMPUTED SIGNAL:\n"
+        f"{trade_plan_rows}"
+        "    If COMPUTED SIGNAL.earnings_date is non-null, add a final "
+        "sentence after the table naming the date as the binary catalyst "
+        "(e.g. 'Earnings on YYYY-MM-DD is the binary catalyst').\n"
+        "- Cite sources by name (e.g. 'news', 'twitter', 'youtube'); when "
+        "an evidence row names a channel or analyst, name them in the "
+        "rationale (e.g. 'TP1 from CheddarFlow YT call').\n"
+        "- Do not contradict the COMPUTED SIGNAL.\n"
+        "- Do not introduce price levels not present in the COMPUTED SIGNAL block.\n"
+        "- No @everyone or @here.\n"
+        "- No markdown links — write source names plainly."
+    )
+
+
 def _build_synthesis_prompt(
     ticker: str,
     structured: StructuredFields,
@@ -276,6 +338,9 @@ def _build_synthesis_prompt(
         getattr(score_breakdown, "total", None)
         if score_breakdown is not None else None
     )
+    from consensus_engine import config as _cfg
+    _swing_v2 = bool(_cfg.get("all_command.swing_v2_enabled", True))
+
     computed_signal = {
         "ticker": ticker,
         "direction": getattr(structured, "direction", "NEUTRAL"),
@@ -287,11 +352,19 @@ def _build_synthesis_prompt(
         "tp1": getattr(structured, "tp1", None),
         "tp2": getattr(structured, "tp2", None),
         "tp3": getattr(structured, "tp3", None),
-        "breakout_timeframe": getattr(structured, "breakout_timeframe", "TBD"),
-        "magnitude": getattr(structured, "magnitude_label", "TBD"),
         "earnings_date": getattr(structured, "earnings_date", None),
         "final_score": final_score,
     }
+    if _swing_v2:
+        computed_signal["next_catalyst_days"] = getattr(structured, "next_catalyst_days", None)
+        computed_signal["swing_horizon_days"] = getattr(structured, "swing_horizon_days", None)
+        computed_signal["swing_horizon_band"] = getattr(structured, "swing_horizon_band", None)
+        computed_signal["expected_move_typical"] = getattr(structured, "expected_move_typical", None)
+        computed_signal["expected_move_high_vol"] = getattr(structured, "expected_move_high_vol", None)
+        computed_signal["expected_move_band"] = getattr(structured, "magnitude_band_label", None)
+    else:
+        computed_signal["breakout_timeframe"] = getattr(structured, "breakout_timeframe", "TBD")
+        computed_signal["magnitude"] = getattr(structured, "magnitude_label", "TBD")
 
     # PR4: prefer distinct per-source lists; fall back to legacy
     # sanitized_searxng for callers (and tests) that haven't been migrated.
@@ -333,40 +406,7 @@ def _build_synthesis_prompt(
         f"INTERNAL CONTEXT (#chat last 24h):\n{json.dumps(capped_chat, default=str)}",
         f"INTERNAL CONTEXT (#brief last 3):\n{json.dumps(capped_brief, default=str)}",
         f"PRIOR RESEARCH (vault excerpt):\n{capped_vault}",
-        "CONSTRAINTS:\n"
-        "- Structure your narrative with these EXACT sections in this order:\n"
-        "  1. Opening thesis paragraph (2-3 sentences). FIRST sentence must "
-        "state the current price from COMPUTED SIGNAL.current_price, then "
-        "direction and headline. If a CHART PATTERN block is present, the "
-        "opening MUST name the pattern and its key_level (e.g. 'a bull flag "
-        "with breakout above $130').\n"
-        "  2. A `## Catalysts` markdown header followed by AT LEAST 2 bulleted "
-        "items (`* …`), each citing a specific number, date, $, or % drawn "
-        "from the EVIDENCE blocks (news / sec / yt_evidence / etc). "
-        "If an EARNINGS RECAP block is present, ONE of the catalyst bullets "
-        "MUST cite the revenue dollar value AND YoY percent from that block "
-        "verbatim (e.g. 'Revenue $68.13B, +73% YoY').\n"
-        "  3. A `## Risk Considerations` markdown header followed by AT LEAST "
-        "1 bulleted item with a specific risk and threshold (e.g. 'a break "
-        "below $X invalidates the thesis').\n"
-        "  4. A `## Trade Plan` markdown header followed by a markdown TABLE "
-        "with columns `Parameter | Level | Rationale`. Rows in this exact "
-        "order, populated from COMPUTED SIGNAL:\n"
-        "       | Buy Zone   | $buy_zone_low – $buy_zone_high | <why this band> |\n"
-        "       | Stop-Loss  | $sl                            | <why this stop> |\n"
-        "       | TP1        | $tp1                           | <why this target, e.g. measured-move, swing high, $ source> |\n"
-        "       | TP2        | $tp2 (or '—' if null)          | <reason or 'TP2/TP3 padded — fewer than 3 resistance anchors'> |\n"
-        "       | TP3        | $tp3 (or '—' if null)          | <reason or padding note> |\n"
-        "    If COMPUTED SIGNAL.earnings_date is non-null, add a final "
-        "sentence after the table naming the date as the binary catalyst "
-        "(e.g. 'Earnings on YYYY-MM-DD is the binary catalyst').\n"
-        "- Cite sources by name (e.g. 'news', 'twitter', 'youtube'); when "
-        "an evidence row names a channel or analyst, name them in the "
-        "rationale (e.g. 'TP1 from CheddarFlow YT call').\n"
-        "- Do not contradict the COMPUTED SIGNAL.\n"
-        "- Do not introduce price levels not present in the COMPUTED SIGNAL block.\n"
-        "- No @everyone or @here.\n"
-        "- No markdown links — write source names plainly.",
+        _build_constraints_block(_swing_v2),
     ]
 
     return [

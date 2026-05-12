@@ -168,6 +168,9 @@ def build_embed(
             if len(description) > _DESC_LIMIT:
                 description = description[:_DESC_LIMIT]
 
+    from consensus_engine import config as _cfg
+    _swing_v2 = bool(_cfg.get("all_command.swing_v2_enabled", True))
+
     fields = [
         {"name": "Direction", "value": direction_line, "inline": True},
         {"name": "Confidence",
@@ -194,13 +197,34 @@ def build_embed(
         {"name": "TP3",
          "value": _format_price(getattr(structured, "tp3", None)),
          "inline": True},
-        {"name": "Timeframe",
-         "value": getattr(structured, "breakout_timeframe", "TBD") or "TBD",
-         "inline": True},
-        {"name": "Magnitude",
-         "value": getattr(structured, "magnitude_label", "—") or "—",
-         "inline": True},
     ]
+
+    if _swing_v2:
+        nc_days = getattr(structured, "next_catalyst_days", None)
+        nc_value = f"{nc_days}d" if isinstance(nc_days, int) and nc_days >= 0 else "—"
+        sh_days = getattr(structured, "swing_horizon_days", None)
+        sh_band = getattr(structured, "swing_horizon_band", None)
+        if isinstance(sh_days, int) and sh_days > 0 and sh_band:
+            sh_value = f"{sh_band[0]}-{sh_band[1]}d"
+        elif sh_days == 0:
+            sh_value = "at target"
+        else:
+            sh_value = "—"
+        em_value = getattr(structured, "magnitude_band_label", None) or "—"
+        fields.extend([
+            {"name": "Next Catalyst", "value": nc_value, "inline": True},
+            {"name": "Swing Horizon", "value": sh_value, "inline": True},
+            {"name": "Expected Move", "value": em_value, "inline": True},
+        ])
+    else:
+        fields.extend([
+            {"name": "Timeframe",
+             "value": getattr(structured, "breakout_timeframe", "TBD") or "TBD",
+             "inline": True},
+            {"name": "Magnitude",
+             "value": getattr(structured, "magnitude_label", "—") or "—",
+             "inline": True},
+        ])
 
     cache_text = _format_cache_age(cache_age_seconds)
     sources_count = len(sources)

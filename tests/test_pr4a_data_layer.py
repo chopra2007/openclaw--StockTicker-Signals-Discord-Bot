@@ -344,19 +344,30 @@ def test_embed_color_neutral_or_low_conf():
     assert out["color"] == 0xFEE75C
 
 
-def test_embed_field_count_exactly_10_inline():
-    """Iter5 grew the field set from 8 to 10 (added Price + Buy Zone)."""
+def test_embed_field_count_exactly_11_inline():
+    """W4 grew the field set from 10 to 11 (Next Catalyst + Swing Horizon
+    + Expected Move replace Timeframe + Magnitude when swing_v2_enabled).
+    Iter5 grew 8 → 10 (Price + Buy Zone)."""
     s = StructuredFields(
         direction="BULLISH", confidence_label="HIGH",
         sl=98.5, tp1=112, tp2=125, tp3=140,
         breakout_timeframe="earnings 2026-05-15",
         magnitude_label="±$8.20 (2× ATR)",
         current_price=110.0, buy_zone_low=105.0, buy_zone_high=110.0,
+        next_catalyst_days=4,
+        swing_horizon_days=10,
+        swing_horizon_band=(8, 13),
+        expected_move_typical=8.5,
+        magnitude_band_label="±$8 / 10d",
     )
     sb = ScoreBreakdown(news_catalyst=20)
     out = embed_mod.build_embed("NVDA", s, sb, "n", ["a"], None)
-    assert len(out["fields"]) == 10
+    assert len(out["fields"]) == 11
     assert all(f.get("inline") for f in out["fields"])
+    field_names = [f["name"] for f in out["fields"]]
+    assert "Next Catalyst" in field_names
+    assert "Swing Horizon" in field_names
+    assert "Expected Move" in field_names
 
 
 def test_embed_truncates_long_narrative_keeps_score_line():

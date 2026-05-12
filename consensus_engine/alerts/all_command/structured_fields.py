@@ -35,6 +35,14 @@ class StructuredFields:
     buy_zone_low: Optional[float] = None
     buy_zone_high: Optional[float] = None
     earnings_date: Optional[str] = None  # ISO YYYY-MM-DD or None
+    # W4 swing-realism additions. Old fields above stay populated for
+    # back-compat (test fixtures, emergency-revert via swing_v2_enabled=false).
+    next_catalyst_days: Optional[int] = None
+    swing_horizon_days: Optional[int] = None
+    swing_horizon_band: Optional[tuple] = None        # (lo, hi) days
+    expected_move_typical: Optional[float] = None     # $ at horizon
+    expected_move_high_vol: Optional[float] = None    # $ at 80th pct, None if 90d data missing
+    magnitude_band_label: Optional[str] = None        # rendered string e.g. "±$5–$9 / 4-6w"
 
 
 # Components contributing to direction scoring. Sign mapping is deferred to
@@ -170,7 +178,11 @@ def compute_buy_zone(
 
 
 def compute_magnitude(atr14: Optional[float], current_price: float) -> str:
-    """2x ATR(14) magnitude band; "TBD" when ATR unavailable."""
+    """2x ATR(14) magnitude band; "TBD" when ATR unavailable.
+
+    Retained behind `all_command.swing_v2_enabled=false` for emergency
+    revert. New code paths use `compute_magnitude_band` (W4 B-M1).
+    """
     if atr14 is None:
         return "TBD"
     try:
@@ -180,3 +192,130 @@ def compute_magnitude(atr14: Optional[float], current_price: float) -> str:
     if atr_f <= 0:
         return "TBD"
     return f"±${atr_f * 2:.2f} (2× ATR)"
+
+
+# ---------------------------------------------------------------------------
+# W4 swing-realism additions — compute_swing_horizon, compute_magnitude_band,
+# compute_next_catalyst_days. These power the new Trade Plan rows + embed
+# fields once `all_command.swing_v2_enabled` is True.
+# ---------------------------------------------------------------------------
+
+_HORIZON_DAILY_SLIPPAGE = 0.7   # 0.7×ATR/day is the empirical slippage constant
+_HORIZON_BAND_PCT = 0.25        # ±25% band around the central estimate
+_HORIZON_GAP_UP_GUARD_PCT = 0.005  # tp1 within 0.5% of spot → already at target
+_HORIZON_LONG_CAP_DAYS = 365
+
+
+def compute_swing_horizon(
+    spot: Optional[float],
+    tp1: Optional[float],
+    atr14: Optional[float],
+    earnings_date: Optional[str] = None,
+) -> tuple[Optional[int], Optional[tuple], Optional[str]]:
+    """Estimate days-to-TP1 and a ±25% band around that estimate.
+
+    Returns `(days, band, note)` where:
+      * `days` is the central estimate (rounded int), or None if not computable.
+      * `band` is `(lo, hi)` (ints, ±25%), or None.
+      * `note` is a short qualifier string for narrator/embed when the
+        plain numeric form would mislead (e.g. "at target", "12+ months").
+
+    Math: `|tp1 - spot| / (0.7 × atr14_daily)` then `min(est, days_to_ER)`.
+    Bearish setups handled via abs() (CEF-8 fix). When tp1 within 0.5% of
+    spot, returns (0, (0,0), "at target"). When estimate exceeds 365 days,
+    returns (365, (300, 450), "12+ months"). When ATR is None or spot is
+    missing, returns (None, None, None) and callers render `—`.
+    """
+    if not spot or spot <= 0 or atr14 is None or atr14 <= 0 or tp1 is None:
+        return None, None, None
+    try:
+        atr_f = float(atr14)
+        spot_f = float(spot)
+        tp1_f = float(tp1)
+    except (TypeError, ValueError):
+        return None, None, None
+
+    distance = abs(tp1_f - spot_f)
+    if distance / spot_f < _HORIZON_GAP_UP_GUARD_PCT:
+        return 0, (0, 0), "at target"
+
+    raw_days = distance / (_HORIZON_DAILY_SLIPPAGE * atr_f)
+    est_days = max(1, int(round(raw_days)))
+
+    earnings_d = _parse_iso_date(earnings_date) if earnings_date else None
+    if earnings_d is not None:
+        days_to_er = (earnings_d - date.today()).days
+        if days_to_er > 0:
+            est_days = min(est_days, days_to_er)
+
+    if est_days > _HORIZON_LONG_CAP_DAYS:
+        return _HORIZON_LONG_CAP_DAYS, (300, 450), "12+ months"
+
+    lo = max(1, int(round(est_days * (1 - _HORIZON_BAND_PCT))))
+    hi = max(lo, int(round(est_days * (1 + _HORIZON_BAND_PCT))))
+    return est_days, (lo, hi), None
+
+
+def compute_magnitude_band(
+    atr14: Optional[float],
+    horizon_days: Optional[int],
+    spot: Optional[float],
+    atr_90d_high_pct: Optional[float] = None,
+) -> tuple[Optional[float], Optional[float], Optional[str]]:
+    """Compute expected move bands over the swing horizon.
+
+    Returns `(typical, high_vol, rendered_string)` where:
+      * `typical` = `atr14 × sqrt(horizon_days)` — random-walk variance over
+        the horizon. Returned in $ at spot scale.
+      * `high_vol` = `atr_90d_high_pct × spot` — 80th-percentile rolling
+        weekly move ($), or None if 90d data is unavailable.
+      * `rendered_string` is the embed-ready band, e.g. `±$5–$9 / 4-6w`
+        or `±$5 (typical; high-vol data unavailable)` when high_vol is None.
+    """
+    if atr14 is None or atr14 <= 0 or horizon_days is None or horizon_days <= 0:
+        return None, None, None
+    try:
+        atr_f = float(atr14)
+        h_days = int(horizon_days)
+    except (TypeError, ValueError):
+        return None, None, None
+
+    typical = atr_f * (h_days ** 0.5)
+    high_vol: Optional[float] = None
+    if atr_90d_high_pct is not None and spot is not None and spot > 0:
+        try:
+            high_vol = float(atr_90d_high_pct) * float(spot)
+        except (TypeError, ValueError):
+            high_vol = None
+
+    if high_vol is not None and high_vol > typical:
+        rendered = f"±${typical:.0f}-${high_vol:.0f} / {h_days}d"
+    else:
+        rendered = f"±${typical:.0f} (typical; high-vol data unavailable)" \
+            if high_vol is None else f"±${typical:.0f} / {h_days}d"
+    return typical, high_vol, rendered
+
+
+def compute_next_catalyst_days(
+    earnings_date: Optional[str],
+    options_data: Optional[OptionsResult],
+) -> Optional[int]:
+    """Days until next material catalyst (earnings preferred, then options).
+
+    Returns the integer day count, or None if no future catalyst is found.
+    Swing-trader-friendly replacement for the 30-day breakout_timeframe.
+    """
+    today = date.today()
+    earnings_d = _parse_iso_date(earnings_date) if earnings_date else None
+    if earnings_d is not None:
+        delta = (earnings_d - today).days
+        if delta >= 0:
+            return delta
+
+    if options_data is not None:
+        for attr in ("expiry", "top_contract"):
+            value = getattr(options_data, attr, None)
+            d = _parse_iso_date(value) if isinstance(value, str) else None
+            if d is not None and (d - today).days >= 0:
+                return (d - today).days
+    return None
