@@ -466,9 +466,15 @@ async def _apply_price_sanity_to_levels(levels, get_live_price=_safe_live_price)
     the start; the SELECT-side filter in db.get_youtube_levels_for_ticker
     then keeps it out of `!all`.
 
+    W1 A-T0 hardening: before the split-factor check, run the calendar-year
+    filter on (price, snippet, ticker) so MSFT-$2024-class leaks die at
+    insert time even when the live quote is available. The fail-closed
+    branch in check_price_plausible handles the live=None case.
+
     Already-suppressed levels (e.g. off_allowlist) are left untouched.
     """
     from consensus_engine.analysis.price_sanity import check_price_plausible
+    from consensus_engine.analysis.calendar_filter import is_calendar_year_in_context
 
     tickers = sorted({lv.ticker for lv in levels if getattr(lv, "ticker", None)})
     live_prices: dict[str, float | None] = {}
@@ -482,13 +488,27 @@ async def _apply_price_sanity_to_levels(levels, get_live_price=_safe_live_price)
         price = getattr(level, "price", None)
         if not ticker or not isinstance(price, (int, float)):
             continue
-        result = check_price_plausible(price, live_prices.get(ticker))
+        snippet = getattr(level, "source_snippet", None)
+        live = live_prices.get(ticker)
+        if is_calendar_year_in_context(price, snippet, ticker, current_price=live):
+            level.suppressed = 1
+            level.suppression_reason = "price_sanity_calendar"
+            log.warning(
+                "price_sanity_calendar: suppressing level %s @ $%.2f (snippet=%r)",
+                ticker, price, (snippet or "")[:80],
+            )
+            continue
+        result = check_price_plausible(price, live, source_snippet=snippet)
         if not result.accepted:
             level.suppressed = 1
-            level.suppression_reason = "price_sanity"
+            level.suppression_reason = (
+                "price_sanity_calendar"
+                if result.reason == "no_live_price_year_range"
+                else "price_sanity"
+            )
             log.warning(
                 "price_sanity: suppressing level %s @ $%.2f (live=%s reason=%s)",
-                ticker, price, live_prices.get(ticker), result.reason,
+                ticker, price, live, result.reason,
             )
 
 

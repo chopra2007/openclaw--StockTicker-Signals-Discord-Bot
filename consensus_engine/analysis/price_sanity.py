@@ -41,12 +41,37 @@ _RATIO_TOLERANCE = 0.25
 @dataclass(frozen=True)
 class SanityResult:
     accepted: bool
-    reason: str  # "ok", "no_live_price", "implausible_ratio", "implausible_zero"
+    reason: str  # "ok", "no_live_price", "implausible_ratio", "implausible_zero", "no_live_price_year_range"
+
+
+def _looks_like_calendar_year(level_price: float, source_snippet: str | None) -> bool:
+    """Narrow fail-closed condition for the live-quote-missing branch.
+
+    Only when both:
+      * `level_price` is an integer in (1900, 2100), and
+      * `source_snippet` mentions a calendar marker (Q1-4, fiscal, FY,
+        month name, or 'in'/'by')
+    do we suppress instead of fail-open. Anything outside the year window
+    keeps the prior fail-open behaviour, so Finnhub outages don't gate
+    legitimate alerts.
+    """
+    if not isinstance(level_price, (int, float)):
+        return False
+    if not (1900 < level_price < 2100):
+        return False
+    if abs(level_price - round(level_price)) > 1e-6:
+        return False
+    if not source_snippet:
+        return False
+    # Defer regex to calendar_filter so the marker list stays in one place.
+    from consensus_engine.analysis.calendar_filter import _CALENDAR_MARKERS
+    return bool(_CALENDAR_MARKERS.search(source_snippet))
 
 
 def check_price_plausible(
     level_price: float,
     live_price: float | None,
+    source_snippet: str | None = None,
 ) -> SanityResult:
     """Return SanityResult for one (level, live) pair.
 
@@ -55,12 +80,18 @@ def check_price_plausible(
     with reason='price_sanity'.
 
     Note: when live_price is None or 0 (Finnhub error / rate limit), we
-    accept (fail-open). The alternative — fail-closed — would gate every
-    alert behind a 3rd-party API and break alerts whenever Finnhub is down.
+    accept (fail-open) by default. The narrow exception is the
+    year-range-in-calendar-context case (W1 A-T0 hardening): if
+    `level_price` is an integer in the calendar year window AND the
+    surrounding snippet mentions a calendar marker, we fail-closed with
+    `reason='no_live_price_year_range'` so the MSFT-$2024 class doesn't
+    leak through whenever Finnhub is down.
     """
     if not isinstance(level_price, (int, float)) or level_price <= 0:
         return SanityResult(False, "implausible_zero")
     if not live_price or live_price <= 0:
+        if _looks_like_calendar_year(level_price, source_snippet):
+            return SanityResult(False, "no_live_price_year_range")
         return SanityResult(True, "no_live_price")
 
     ratio = level_price / live_price

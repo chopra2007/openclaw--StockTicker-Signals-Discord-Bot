@@ -37,3 +37,34 @@ def test_real_nvda_incident_blocked():
     for level in (845.0, 855.0, 820.0, 920.0):
         res = check_price_plausible(level, 145.0)
         assert res.accepted is False, f"level {level} should be blocked"
+
+
+def test_year_range_fails_closed_when_spot_none():
+    """W1: when live quote unavailable AND snippet has calendar marker AND price is
+    integer year in (1900, 2100), fail-closed with 'no_live_price_year_range' so the
+    MSFT-$2024 class doesn't leak through during Finnhub outages."""
+    res = check_price_plausible(2024.0, None, source_snippet="Q2 of 2024")
+    assert res.accepted is False
+    assert res.reason == "no_live_price_year_range"
+
+
+def test_year_range_fail_open_when_no_snippet():
+    """Without snippet context, fall back to legacy fail-open on spot=None."""
+    res = check_price_plausible(2024.0, None)
+    assert res.accepted is True
+    assert res.reason == "no_live_price"
+
+
+def test_year_range_fail_open_without_calendar_marker():
+    """Snippet present but no calendar marker → preserve fail-open."""
+    res = check_price_plausible(2024.0, None, source_snippet="the price target is two thousand")
+    assert res.accepted is True
+    assert res.reason == "no_live_price"
+
+
+def test_year_range_does_not_block_when_live_price_close():
+    """If we have a live quote, the regular ratio check handles things —
+    year-range branch only kicks in when live is None/0."""
+    res = check_price_plausible(2024.0, 2000.0, source_snippet="Q2 of 2024")
+    assert res.accepted is True
+    assert res.reason == "ok"
