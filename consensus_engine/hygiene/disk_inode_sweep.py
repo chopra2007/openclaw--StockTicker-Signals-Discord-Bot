@@ -14,7 +14,6 @@ import time
 log = logging.getLogger("consensus_engine.hygiene.disk_inode_sweep")
 
 _DEFAULT_WORKSPACE = "/var/tmp/video-fallback"
-_SWEEP_LOCK = "/var/tmp/video-fallback/.sweep.lock"
 _MIN_FREE_MB = 500
 _MAX_INODE_PCT = 85
 _MAX_AGE_HOURS = 6
@@ -78,7 +77,7 @@ def startup_sweep() -> None:
     """Delete stale files and dead-PID lockfiles. Called once at engine boot."""
     root = _workspace_root()
     _ensure_workspace(root)
-    lock_path = _workspace_root().rstrip("/") + "/.sweep.lock"
+    lock_path = root.rstrip("/") + "/.sweep.lock"
     try:
         fd = os.open(lock_path, os.O_CREAT | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
     except OSError as exc:
