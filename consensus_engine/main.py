@@ -516,6 +516,12 @@ async def _handle_mention(content: str, channel_id: str, message_id: str) -> Non
 
 async def run_live(stop_event: asyncio.Event):
     """Run continuous mode with all scanners. Pauses Fri 3pm–Sun 2pm ET."""
+    try:
+        from consensus_engine.hygiene.disk_inode_sweep import startup_sweep
+        startup_sweep()
+    except Exception as _exc:
+        log.warning("F6 startup sweep failed (continuing): %s", _exc)
+
     while not stop_event.is_set():
         # Weekend pause gate
         if _is_weekend_pause():

@@ -1387,14 +1387,17 @@ async def _yt_analyse_and_reply(youtube_url: str, channel_id: str, message_id: s
         # ── v2 two-stage evidence pipeline (flag-gated) ───────────────────────
         if cfg.get("youtube.use_two_stage", False):
             try:
-                from consensus_engine.analysis.gemini_video_parser import extract_evidence_with_gemini
+                from consensus_engine.local_video_ingest import extract_evidence_via_chain
                 from consensus_engine.analysis.video_classifier import classify_evidence
                 from consensus_engine.analysis.catalyst_resolver import resolve_and_verify_catalysts
+                import time as _chain_time
 
                 published_at = _time.strftime("%Y-%m-%dT%H:%M:%SZ", _time.gmtime())
-                bundle, _telemetry = await extract_evidence_with_gemini(
+                _chain_start = _chain_time.monotonic()
+                bundle, _telemetry = await extract_evidence_via_chain(
                     video_id, channel_name, published_at,
                 )
+                _chain_elapsed = _chain_time.monotonic() - _chain_start
                 if bundle is not None:
                     result = classify_evidence(bundle)
                     catalysts = await resolve_and_verify_catalysts(
@@ -1406,6 +1409,8 @@ async def _yt_analyse_and_reply(youtube_url: str, channel_id: str, message_id: s
                         title, channel_name, bundle, result, catalysts,
                         min_conf, require_verified,
                     )
+                    chain_winner = _telemetry.chain_winner or "unknown"
+                    msg = f"Extracted {len(bundle.spans)} spans via `{chain_winner}` in {_chain_elapsed:.1f}s.\n" + msg
                     await send_command_reply(channel_id, message_id, msg)
                     return
             except Exception as e:

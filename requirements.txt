@@ -1,4 +1,6 @@
 aiohttp>=3.13.3
+yt-dlp>=2026.3.17
+groq>=0.4
 feedparser>=6.0.12
 aiosqlite>=0.22.1
 PyYAML>=5.4.1

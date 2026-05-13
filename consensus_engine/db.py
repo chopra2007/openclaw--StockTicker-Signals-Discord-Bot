@@ -626,6 +626,11 @@ async def _run_column_migrations(conn) -> None:
         ("signal_events", "consumed_by_cluster_id", "INTEGER"),
         ("sec_form4_filings", "is_10b5_1", "INTEGER DEFAULT 0"),
         ("youtube_videos",    "description", "TEXT"),
+        ("youtube_evidence_spans", "parser_version",   "TEXT"),
+        ("youtube_evidence_spans", "chain_winner",     "TEXT"),
+        ("youtube_evidence_spans", "grounding_status", "TEXT DEFAULT 'grounded'"),
+        ("youtube_evidence_spans", "caption_entropy",  "REAL"),
+        ("youtube_videos", "chain_failed_alerted_at", "REAL"),
     ]
     for table in ("youtube_signals", "youtube_levels", "youtube_setups", "youtube_options"):
         for col, defn in v2_span_cols:
@@ -1863,19 +1868,25 @@ async def insert_youtube_evidence_span(
     tickers: list | None = None,
     numbers: list | None = None,
     dates: list | None = None,
+    parser_version: str | None = None,
+    chain_winner: str | None = None,
+    grounding_status: str = "grounded",
+    caption_entropy: float | None = None,
 ) -> None:
     """Idempotent insert of a grounded evidence span (quote + tags)."""
     import json as _json
     conn = await get_db()
     await conn.execute(
         """INSERT OR IGNORE INTO youtube_evidence_spans
-           (run_id, video_id, ts_sec, quote, tickers_json, numbers_json, dates_json)
-           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+           (run_id, video_id, ts_sec, quote, tickers_json, numbers_json, dates_json,
+            parser_version, chain_winner, grounding_status, caption_entropy)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             run_id, video_id, ts_sec, quote,
             _json.dumps(tickers) if tickers is not None else None,
             _json.dumps(numbers) if numbers is not None else None,
             _json.dumps(dates) if dates is not None else None,
+            parser_version, chain_winner, grounding_status, caption_entropy,
         ),
     )
     await conn.commit()

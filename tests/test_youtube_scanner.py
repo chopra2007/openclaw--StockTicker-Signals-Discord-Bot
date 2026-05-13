@@ -232,7 +232,7 @@ async def test_process_video_uses_two_stage_when_flag_on(test_db, tmp_path, monk
     monkeypatch.setitem(cfg._config["youtube"], "legacy_fallback", False)
 
     bundle = EvidenceBundle(
-        video_id="vidTS1",
+        video_id="vidTS1ABCDE",
         duration_sec=120,
         publish_ts="2026-04-17T12:00:00Z",
         segments=[{"ts_start_sec": 0, "title": "Intro"}],
@@ -265,7 +265,7 @@ async def test_process_video_uses_two_stage_when_flag_on(test_db, tmp_path, monk
     )
 
     monkeypatch.setattr(
-        "consensus_engine.analysis.gemini_video_parser.extract_evidence_with_gemini",
+        "consensus_engine.local_video_ingest.extract_evidence_via_chain",
         AsyncMock(return_value=(bundle, telemetry)),
     )
     monkeypatch.setattr(
@@ -280,13 +280,13 @@ async def test_process_video_uses_two_stage_when_flag_on(test_db, tmp_path, monk
     monkeypatch.setitem(cfg._config["youtube"], "standalone_alerts", False)
 
     sem = asyncio.Semaphore(1)
-    video_meta = {"video_id": "vidTS1", "channel_id": "ch-two-stage",
+    video_meta = {"video_id": "vidTS1ABCDE", "channel_id": "ch-two-stage",
                   "title": "Two-Stage Test", "published_at": "2026-04-17T12:00:00Z"}
     await process_video(video_meta, sem, ["en"], str(tmp_path))
 
     sigs = await db.get_youtube_signals_for_ticker("MSFT", days=1)
     assert len(sigs) == 1
-    assert sigs[0]["video_id"] == "vidTS1"
+    assert sigs[0]["video_id"] == "vidTS1ABCDE"
 
     lvls = await db.get_youtube_levels_for_ticker("MSFT", days=1)
     assert len(lvls) == 1
@@ -398,7 +398,7 @@ async def test_off_allowlist_suppressed(monkeypatch):
     from consensus_engine.analysis.video_classifier import ClassificationResult
 
     bundle = EvidenceBundle(
-        video_id="vidX", duration_sec=600, publish_ts="2026-04-23T00:00:00Z",
+        video_id="vidX1234567", duration_sec=600, publish_ts="2026-04-23T00:00:00Z",
         segments=[],
         spans=[
             EvidenceSpan(ts_sec=100, quote="Burry buys more AMC",
@@ -412,7 +412,7 @@ async def test_off_allowlist_suppressed(monkeypatch):
         return bundle, RunTelemetry()
 
     monkeypatch.setattr(
-        "consensus_engine.analysis.gemini_video_parser.extract_evidence_with_gemini",
+        "consensus_engine.local_video_ingest.extract_evidence_via_chain",
         _stub_extract,
     )
 
@@ -465,7 +465,7 @@ async def test_off_allowlist_suppressed(monkeypatch):
     monkeypatch.setattr(scanner, "_send_two_stage_alerts", AsyncMock(return_value=None))
 
     ok = await scanner._process_video_two_stage(
-        "vidX", "ch1", "TestChan", "2026-04-23T00:00:00Z",
+        "vidX1234567", "ch1", "TestChan", "2026-04-23T00:00:00Z",
     )
 
     assert ok is True

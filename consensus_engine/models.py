@@ -508,6 +508,11 @@ class RunTelemetry:
     json_parse_ok: bool = False
     span_count: int = 0
     filter_drop_count: int = 0
+    hallucinated_ticker_count: int = 0
+    cross_method_jaccard: float | None = None
+    chain_winner: str | None = None
+    chain_attempts: list[str] = field(default_factory=list)
+    chain_durations: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass

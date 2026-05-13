@@ -231,6 +231,43 @@ def _suppress_off_allowlist(items, allowlist: set[str], reason: str) -> int:
     return n
 
 
+async def _maybe_alert_chain_failure(video_id: str) -> None:
+    """Send one Discord #chat alert per video per 24h when all ingest methods fail."""
+    import time as _time
+    try:
+        row = await db.get_youtube_video(video_id)
+        if row is None:
+            return
+        last_alerted = row.get("chain_failed_alerted_at") or 0
+        if _time.time() - last_alerted < 86400:
+            return
+        token = cfg.get_api_key("discord_bot_token")
+        channel_id_str = str(cfg.get("api_keys.discord_channel_id", ""))
+        if not token or not channel_id_str or not channel_id_str.isdigit():
+            log.warning("Discord not configured — skipping chain-failure alert for %s", video_id)
+            return
+        import aiohttp as _aiohttp
+        from consensus_engine.utils.http import get_session
+        from consensus_engine.alerts.discord import _safe_send_kwargs
+        session = await get_session()
+        url = f"https://discord.com/api/v10/channels/{channel_id_str}/messages"
+        headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
+        body = _safe_send_kwargs({"content": f"⚠️ All ingest methods failed for video `{video_id}` — Gemini timeout + Groq Whisper terminal failure. No evidence spans extracted."})
+        async with session.post(url, headers=headers, json=body, timeout=_aiohttp.ClientTimeout(total=10)) as resp:
+            if resp.status in (200, 201):
+                conn = await db.get_db()
+                await conn.execute(
+                    "UPDATE youtube_videos SET chain_failed_alerted_at = ? WHERE video_id = ?",
+                    (_time.time(), video_id),
+                )
+                await conn.commit()
+                log.info("Chain-failure alert sent for %s", video_id)
+            else:
+                log.warning("Chain-failure alert HTTP %d for %s", resp.status, video_id)
+    except Exception as exc:
+        log.warning("Chain-failure alert error for %s: %s", video_id, exc)
+
+
 async def _process_video_two_stage(
     video_id: str,
     channel_id: str,
@@ -239,11 +276,11 @@ async def _process_video_two_stage(
 ) -> bool:
     """Run the v2 two-stage evidence pipeline. Returns True if the video was
     successfully analyzed and persisted (caller should skip fallback)."""
-    from consensus_engine.analysis.gemini_video_parser import extract_evidence_with_gemini
+    from consensus_engine.local_video_ingest import extract_evidence_via_chain
     from consensus_engine.analysis.video_classifier import classify_evidence
     from consensus_engine.analysis.catalyst_resolver import resolve_and_verify_catalysts
 
-    bundle, telemetry = await extract_evidence_with_gemini(
+    bundle, telemetry = await extract_evidence_via_chain(
         video_id, display_name, published_at,
     )
     if bundle is None:
@@ -688,6 +725,7 @@ async def process_video(
                 log.warning("youtube: two-stage error for %s: %s", video_id, e)
             if not cfg.get("youtube.legacy_fallback", True):
                 await db.mark_youtube_video_status(video_id, "failed")
+                await _maybe_alert_chain_failure(video_id)
                 return
 
         # ── Gemini fast-path (skips transcript download entirely) ────────────

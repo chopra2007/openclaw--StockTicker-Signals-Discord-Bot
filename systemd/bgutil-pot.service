@@ -1,0 +1,22 @@
+[Unit]
+Description=BGUtil POT (Proof of Origin Token) sidecar for YouTube caption fetching
+After=network.target
+ConditionPathExists=/root/.openclaw/.env
+
+[Service]
+Type=simple
+User=openclaw
+Group=openclaw
+EnvironmentFile=/root/.openclaw/.env
+ExecStart=/usr/local/bin/bgutil serve --bind 127.0.0.1:4416 --token-env BGUTIL_TOKEN
+Restart=on-failure
+RestartSec=10s
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+IPAddressAllow=localhost
+IPAddressDeny=any
+
+[Install]
+WantedBy=multi-user.target

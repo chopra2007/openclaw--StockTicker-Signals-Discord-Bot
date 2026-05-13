@@ -18,19 +18,19 @@ from consensus_engine.utils.transcript_fetch import (
 
 class TestParseVideoId:
     def test_watch_url(self):
-        assert parse_video_id("https://www.youtube.com/watch?v=abc123") == "abc123"
+        assert parse_video_id("https://www.youtube.com/watch?v=dQw4w9WgXcQ") == "dQw4w9WgXcQ"
 
     def test_short_url(self):
-        assert parse_video_id("https://youtu.be/abc123") == "abc123"
+        assert parse_video_id("https://youtu.be/dQw4w9WgXcQ") == "dQw4w9WgXcQ"
 
     def test_short_url_with_params(self):
-        assert parse_video_id("https://youtu.be/abc123?si=xyz") == "abc123"
+        assert parse_video_id("https://youtu.be/dQw4w9WgXcQ?si=xyz") == "dQw4w9WgXcQ"
 
     def test_shorts_url(self):
         assert parse_video_id("https://youtube.com/shorts/6UMKh-kmRWw?si=test") == "6UMKh-kmRWw"
 
     def test_embed_url(self):
-        assert parse_video_id("https://youtube.com/embed/abc123") == "abc123"
+        assert parse_video_id("https://youtube.com/embed/dQw4w9WgXcQ") == "dQw4w9WgXcQ"
 
     def test_invalid_url(self):
         assert parse_video_id("https://example.com/page") is None

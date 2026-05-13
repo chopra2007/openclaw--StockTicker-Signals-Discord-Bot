@@ -33,6 +33,11 @@ _INVIDIOUS_INSTANCES = [
 ]
 
 
+def _valid_vid(raw: str) -> str | None:
+    """Return raw if it is a valid 11-char YouTube video ID, else None."""
+    return raw if raw and re.fullmatch(r"[A-Za-z0-9_-]{11}", raw) else None
+
+
 def parse_video_id(url: str) -> str | None:
     """Extract video ID from any YouTube URL format."""
     u = urlparse(url)
@@ -40,15 +45,15 @@ def parse_video_id(url: str) -> str | None:
     path = u.path.strip("/")
 
     if "youtu.be" in host:
-        return path.split("/")[0].split("?")[0] or None
+        return _valid_vid(path.split("/")[0].split("?")[0])
     if "youtube.com" in host:
         if path.startswith("shorts/"):
-            return path.split("/", 1)[1].split("?")[0] or None
+            return _valid_vid(path.split("/", 1)[1].split("?")[0])
         if path.startswith("embed/"):
-            return path.split("/", 1)[1].split("?")[0] or None
+            return _valid_vid(path.split("/", 1)[1].split("?")[0])
         if path in ("watch", "watch/"):
             v = parse_qs(u.query).get("v", [""])[0]
-            return v or None
+            return _valid_vid(v)
     return None
 
 

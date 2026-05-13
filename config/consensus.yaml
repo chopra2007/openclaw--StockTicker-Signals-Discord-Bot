@@ -326,6 +326,40 @@ youtube:
     require_verified: false            # false = include unverified; true = only verified
   show_timestamps_in_alerts: true
   near_price_dedup_pct: 0.5
+  captions:
+    enabled: false            # F1 kill-switch — BGUtil POT not yet proven; defer to Phase 3
+    bgutil:
+      bind_addr: "127.0.0.1:4416"
+      token_env: "BGUTIL_TOKEN"
+    min_caption_entropy: 2.5
+    min_verbs_per_min: 4
+    min_unique_tokens_per_min: 30
+    timestamp_coverage_min_pct: 90
+  whisper:
+    enabled: true             # F3 kill-switch — ON for Phase 1 (load-bearing)
+    model_variant: "large-v3"
+    finance_prompt_max_tokens: 224
+    audio_chunk_max_mb: 24
+    chunk_boundary_overlap_ms: 200
+  vision:
+    enabled: false            # F4 kill-switch — OFF for Phase 1; enable after 7 days clean
+    metadata_trigger_regex: "(?i)(recap|levels|chart|support|resistance|%|\\$[0-9])"
+    scene_change_threshold: 0.3
+    uniform_safety_net_interval_sec: 30
+    max_frames: 80
+    nice_level: 19
+    ionice_class: 2
+    ionice_priority: 7
+  hygiene:
+    workspace_root: "/var/tmp/video-fallback"
+    min_free_disk_mb: 500
+    max_inode_pct: 85
+    file_max_age_hours: 6
+    sweep_lock_path: "/var/tmp/video-fallback/.sweep.lock"
+  telemetry:
+    cross_method_jaccard_alert_threshold: 0.6
+    jaccard_rolling_days: 7
+    hallucinated_ticker_alert_threshold: 5
 
 # !all command tuning (swing-realism)
 all_command:

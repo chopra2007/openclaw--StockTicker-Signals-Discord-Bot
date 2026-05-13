@@ -19,6 +19,7 @@ LOG_FILE="${LOG_DIR}/v2_assertions_$(date +%Y%m%d).log"
 
 mkdir -p "${LOG_DIR}"
 
+rc=0
 {
     echo "=========================================="
     echo "run_reference_assertions_cron  $(date -Is)"
@@ -32,6 +33,8 @@ mkdir -p "${LOG_DIR}"
         echo "WARN: ${ENV_FILE} missing — API keys may be unavailable."
     fi
     cd "${WORKSPACE}" || { echo "ERR: cd ${WORKSPACE} failed"; exit 1; }
-    /usr/bin/python3 scripts/run_reference_assertions.py
-    echo "--- exit $? ---"
+    timeout 600 python3 scripts/run_reference_assertions.py "$@"
+    rc=$?
+    echo "--- exit $rc ---"
 } >> "${LOG_FILE}" 2>&1
+exit "$rc"

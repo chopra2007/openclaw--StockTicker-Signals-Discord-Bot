@@ -286,7 +286,7 @@ async def test_yt_analyse_reply_two_stage_path(monkeypatch):
     monkeypatch.setitem(cfg._config["youtube"], "use_two_stage", True)
 
     bundle = EvidenceBundle(
-        video_id="vidY2", duration_sec=300, publish_ts="2026-04-17T12:00:00Z",
+        video_id="vidY2ABCDEF", duration_sec=300, publish_ts="2026-04-17T12:00:00Z",
         segments=[{"ts_start_sec": 60, "title": "Intro"}],
         spans=[EvidenceSpan(ts_sec=120, quote="MSFT bullish", tickers=["MSFT"],
                             numbers=[400.0], dates_mentioned=["April 29"])],
@@ -325,13 +325,13 @@ async def test_yt_analyse_reply_two_stage_path(monkeypatch):
 
     with patch("consensus_engine.alerts.commands.send_command_reply", new_callable=AsyncMock) as mock_send, \
          patch("aiohttp.ClientSession", return_value=mock_sess), \
-         patch("consensus_engine.utils.transcript_fetch.parse_video_id", return_value="vidY2"), \
-         patch("consensus_engine.analysis.gemini_video_parser.extract_evidence_with_gemini",
+         patch("consensus_engine.utils.transcript_fetch.parse_video_id", return_value="vidY2ABCDEF"), \
+         patch("consensus_engine.local_video_ingest.extract_evidence_via_chain",
                new=AsyncMock(return_value=(bundle, RunTelemetry(json_parse_ok=True, span_count=1)))), \
          patch("consensus_engine.analysis.video_classifier.classify_evidence", return_value=result), \
          patch("consensus_engine.analysis.catalyst_resolver.resolve_and_verify_catalysts",
                new=AsyncMock(return_value=catalysts)):
-        await _yt_analyse_and_reply("https://youtu.be/vidY2", "chan1", "msg1")
+        await _yt_analyse_and_reply("https://youtu.be/vidY2ABCDEF", "chan1", "msg1")
 
     reply = mock_send.call_args_list[-1][0][2]
     assert "MSFT" in reply
@@ -390,10 +390,11 @@ async def test_yt_analyse_reply_includes_setups_and_options():
     with patch("consensus_engine.alerts.commands.send_command_reply", new_callable=AsyncMock) as mock_send, \
          patch("consensus_engine.alerts.commands.db", mock_db), \
          patch("aiohttp.ClientSession", return_value=mock_sess), \
-         patch("consensus_engine.utils.transcript_fetch.parse_video_id", return_value="vidZ"), \
+         patch("consensus_engine.utils.transcript_fetch.parse_video_id", return_value="vidZ1234567"), \
+         patch("consensus_engine.config.get", side_effect=lambda k, d=None: False if k == "youtube.use_two_stage" else d), \
          patch("consensus_engine.utils.transcript_fetch.fetch_transcript_cascade", new_callable=AsyncMock, return_value=("transcript text", "en", False)), \
          patch("consensus_engine.analysis.video_parser.parse_video_transcript", new_callable=AsyncMock, return_value=mock_parsed):
-        await _yt_analyse_and_reply("https://youtu.be/vidZ", "chan1", "msg1")
+        await _yt_analyse_and_reply("https://youtu.be/vidZ1234567", "chan1", "msg1")
 
     all_calls = "\n".join(str(c) for c in mock_send.call_args_list)
     assert "TSLA" in all_calls or "250" in all_calls
