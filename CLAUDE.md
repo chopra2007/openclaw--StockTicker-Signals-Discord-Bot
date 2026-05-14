@@ -22,7 +22,28 @@ The path the user asked me to verify is critical by definition — I don't get t
 - Engine boot logs `boot drift check: gateway chain matches consensus.yaml` (no `❌ GATEWAY drift` Discord alert)
 - `/root/.openclaw` resolves to `/home/openclaw/.openclaw` (single-user consolidation intact)
 
-Watch for premature-closure tells: counting passing checks while moving on from failures, reframing a broken feature as a "documented limitation", declaring a summary before all critical paths report green.
+**Verification standard:** Never claim a fix or feature is complete until you have produced evidence of it working from the user's perspective — not just "the service started" or "the code looks right" or "unit tests pass."
+1. Name the user-observable claim precisely ("the bot responds to `!help`", not "the gateway is connected")
+2. Trace the full end-to-end path from input to output
+3. Produce evidence at the output end — show the actual output, not just that code ran without errors
+4. Test each distinct claim separately (e.g. commands and mentions route through different code paths)
+5. Verify after every restart — not before
+
+**Real-world test requirement:** For any multi-phase project execution (discover Pass 5, ralph, autopilot), unit tests passing is not sufficient. Before declaring a phase done, run at least one real end-to-end invocation against the production system with real input and inspect the actual output. Before deferring a test to the user, actively check what tools are accessible — look up available tools in memory, consider what commands and APIs are already wired up in the project, probe the runtime environment. Do not assume a tool is available or unavailable; check first.
+
+**Before typing any "done" / "complete" / "fixed" / "ready" claim:**
+1. Re-read this Definition of Done at the moment of claiming — not just at session start
+2. List every test failure, red probe, and unverified critical path from the work just done
+3. For each one, assign exactly one of the three acceptable responses above — "pre-existing" and "unrelated to my changes" are not on the list
+4. If any item has no response assigned, the work is not done — state that and ask
+
+**Premature-closure tells to watch for:**
+- Counting passing checks ("3/5 passed") while moving on from failures
+- Reframing a broken feature as a "documented limitation"
+- Declaring a summary before all critical paths report green
+- Marking a real-world test as "deferred to user" without first checking whether the tools to run it are already available
+- Any sentence combining a passing claim with a failure caveat ("X passes, Y fails but it's pre-existing") — that sentence shape is the violation
+- The word "pre-existing" in my own output about a user-facing feature — treat as a yellow flag, stop and dig instead
 
 ## Alert Philosophy
 
@@ -47,6 +68,10 @@ python3 -m consensus_engine --status # health report
 python3 -m pytest tests/ -v          # test suite
 docker compose up -d                 # SearXNG (8888)
 ```
+
+## Real-World Testing
+
+See the real-world test requirement under Definition of Done above. No static tool list is maintained here — before deferring a test, actively check memory and probe what's accessible in the environment rather than assuming a tool is unavailable.
 
 ## Key Design Decisions
 - **Signal-first**: tweet → instant alert → async cross-reference. No gates block the alert.
