@@ -45,12 +45,22 @@ async def extract_evidence_via_chain(
 # ─── Public helpers (isolated for testability) ────────────────────────────────
 
 async def fetch_captions(video_id: str) -> str | None:
-    """F1: fetch auto-captions via yt-dlp. Returns None when disabled or unavailable."""
+    """F1: fetch auto-captions via youtube_transcript_api. Returns None when disabled or unavailable."""
     from consensus_engine.config import get as cfg
     if not cfg("youtube.captions.enabled", False):
         return None
-    # Phase 3: BGUtil POT-backed caption fetch goes here.
-    return None
+    try:
+        from youtube_transcript_api import YouTubeTranscriptApi
+        cookies_path = cfg("youtube.cookies_path", "/root/.openclaw/youtube_cookies.txt")
+        kwargs = {}
+        if cookies_path and os.path.exists(cookies_path):
+            kwargs["cookies"] = cookies_path
+        api = YouTubeTranscriptApi(**kwargs)
+        fetched = api.fetch(video_id)
+        return " ".join(s.text for s in fetched)
+    except Exception as exc:
+        log.warning("F1 captions failed for %s: %s", video_id, exc)
+        return None
 
 
 async def fetch_audio_transcript(video_id: str, run_dir: str) -> str | None:
@@ -223,15 +233,21 @@ async def _stage_whisper(
 # ─── Audio download + transcription ──────────────────────────────────────────
 
 async def _download_audio(video_id: str, run_dir: str) -> str | None:
+    from consensus_engine.config import get as cfg
     url = f"https://www.youtube.com/watch?v={video_id}"
     out_template = os.path.join(run_dir, "audio.%(ext)s")
     cmd = [
-        "yt-dlp", "--",
+        "yt-dlp",
+        "--js-runtimes", "node",
+        "--remote-components", "ejs:github",
         url,
         "-x", "--audio-format", "mp3", "--audio-quality", "5",
         "-o", out_template,
         "--no-playlist", "--quiet",
     ]
+    cookies_path = cfg("youtube.cookies_path", "/root/.openclaw/youtube_cookies.txt")
+    if cookies_path and os.path.exists(cookies_path):
+        cmd += ["--cookies", cookies_path]
     try:
         proc = await asyncio.create_subprocess_exec(
             *cmd,
