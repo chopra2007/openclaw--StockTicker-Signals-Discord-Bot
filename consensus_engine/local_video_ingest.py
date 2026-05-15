@@ -110,11 +110,14 @@ async def _run_chain(
             if bundle is not None:
                 return bundle, telemetry
 
-        # F2: Gemini Part.from_uri (existing path)
-        telemetry.chain_attempts.append("gemini/v2")
-        bundle = await _stage_gemini(video_id, display_name, published_at, telemetry)
-        if bundle is not None:
-            return bundle, telemetry
+        # F2: Gemini Part.from_uri (existing path).
+        # `gemini.disabled_for_test` lets verification probes force F3 in production-shaped
+        # traffic without changing default behavior. Default false.
+        if not cfg("youtube.gemini.disabled_for_test", False):
+            telemetry.chain_attempts.append("gemini/v2")
+            bundle = await _stage_gemini(video_id, display_name, published_at, telemetry)
+            if bundle is not None:
+                return bundle, telemetry
 
         # F3: yt-dlp audio + Groq Whisper (load-bearing)
         if cfg("youtube.whisper.enabled", True):
@@ -301,7 +304,7 @@ async def _transcribe_with_groq(audio_path: str, run_dir: str) -> str | None:
                         model="whisper-large-v3",
                         file=_f,
                         response_format="text",
-                        prompt="Finance: tickers like $SPY $NVDA $AAPL $TSLA $QQQ $BTC",
+                        prompt="This transcript covers financial markets, stocks, ETFs, and macroeconomic commentary.",
                     ),
                 )
             parts.append(str(result))

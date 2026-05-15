@@ -173,3 +173,78 @@ async def test_s2_short_video_id_raises():
     from consensus_engine.local_video_ingest import extract_evidence_via_chain
     with pytest.raises(ValueError, match="invalid video_id"):
         await extract_evidence_via_chain("tooshort", "Test", "2026-01-01T00:00:00Z")
+
+
+# ─── C2.1: Whisper prompt rework (yt-chain-fixes) ────────────────────────────
+
+def test_whisper_prompt_is_naturalistic_no_dollar_tickers():
+    """The Groq Whisper prompt must not list $XXX tickens (anti-pattern that biased Whisper
+    to invent dollar-prefixed symbols like $GOODPAL, $VYD). It should use a naturalistic
+    domain hint instead."""
+    import pathlib
+    src = pathlib.Path(__file__).parent.parent / "consensus_engine" / "local_video_ingest.py"
+    text = src.read_text()
+    # The old anti-pattern must be gone
+    assert "Finance: tickers like $SPY" not in text, "old anti-pattern Whisper prompt still present"
+    # The new naturalistic prompt must be present
+    assert "This transcript covers financial markets" in text, "new Whisper prompt not found"
+    # No $XXX-style tokens in any Whisper prompt assignment
+    import re
+    for line in text.splitlines():
+        if "prompt=" in line and "transcriptions" in text[max(0, text.find(line) - 200):text.find(line)]:
+            # crude check: no $ followed by 2+ uppercase letters
+            assert not re.search(r"\$[A-Z]{2,}", line), f"dollar-prefixed ticker in prompt line: {line!r}"
+
+
+# ─── R3: force-whisper hook via youtube.gemini.disabled_for_test ─────────────
+
+@pytest.mark.asyncio
+async def test_force_whisper_hook_skips_gemini():
+    """When youtube.gemini.disabled_for_test=True, the chain skips F2 entirely and
+    only attempts F3 (whisper-groq/v1). Used by verification probes to exercise F3
+    in production-shaped traffic without changing default behavior."""
+    def cfg_get(key, default=None):
+        if key == "youtube.gemini.disabled_for_test":
+            return True
+        if key == "youtube.captions.enabled":
+            return False
+        if key == "youtube.whisper.enabled":
+            return True
+        return default
+
+    with (
+        patch("consensus_engine.local_video_ingest.pre_flight_check", return_value=True),
+        patch("consensus_engine.local_video_ingest.cleanup_run_workspace"),
+        patch("consensus_engine.config.get", side_effect=cfg_get),
+        patch("consensus_engine.local_video_ingest._stage_gemini", new_callable=AsyncMock, return_value=None) as gem_mock,
+        patch("consensus_engine.local_video_ingest._stage_whisper", new_callable=AsyncMock, return_value=None),
+    ):
+        from consensus_engine.local_video_ingest import _run_chain
+        bundle, telemetry = await _run_chain("dQw4w9WgXcQ", "Test Channel", "2026-01-01T00:00:00Z")
+
+    # F2 must NOT have been called when the hook is set
+    gem_mock.assert_not_called()
+    assert "gemini/v2" not in telemetry.chain_attempts
+    assert "whisper-groq/v1" in telemetry.chain_attempts
+
+
+@pytest.mark.asyncio
+async def test_force_whisper_hook_default_off():
+    """Default behavior (flag not set) MUST still attempt F2 — hook is opt-in only."""
+    def cfg_get(key, default=None):
+        # Return default for everything — no flag set
+        return default
+
+    with (
+        patch("consensus_engine.local_video_ingest.pre_flight_check", return_value=True),
+        patch("consensus_engine.local_video_ingest.cleanup_run_workspace"),
+        patch("consensus_engine.config.get", side_effect=cfg_get),
+        patch("consensus_engine.local_video_ingest._stage_gemini", new_callable=AsyncMock, return_value=None) as gem_mock,
+        patch("consensus_engine.local_video_ingest._stage_whisper", new_callable=AsyncMock, return_value=None),
+    ):
+        from consensus_engine.local_video_ingest import _run_chain
+        bundle, telemetry = await _run_chain("dQw4w9WgXcQ", "Test Channel", "2026-01-01T00:00:00Z")
+
+    # F2 MUST have been called when flag is not set
+    gem_mock.assert_called_once()
+    assert "gemini/v2" in telemetry.chain_attempts
