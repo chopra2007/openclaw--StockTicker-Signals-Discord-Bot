@@ -161,3 +161,32 @@ which re-ingests on Google's backend every time (no Files API caching).
 
 ---
 
+
+## 5. `inclusionai/ring-2.6-1t:free` model is dead — replace project-wide
+
+**Layperson:** This session discovered that one of the LLMs the bot uses
+has been switched to paid-only by OpenRouter. The bot tries it first for
+most LLM calls, fails with a 404, then falls back. Need to either
+upgrade to the paid endpoint or pick a different free primary.
+
+**Where it's used (grep for `ring-2.6-1t`):**
+- `config/consensus.yaml:199` — `llm.model: "inclusionai/ring-2.6-1t:free"` (PRIMARY for general/synthesis)
+- `config/consensus.yaml:203` — `llm.text_model: "inclusionai/ring-2.6-1t:free"` (PRIMARY for text tasks)
+- `consensus_engine/analysis/video_parser.py:105,107,109` — `_STAGE1_MODEL`, `_STAGE2_MACRO_MODEL`, `_STAGE2_SETUPS_MODEL` hardcoded to `openrouter/minimax/minimax-m2.5:free` already — separate; the **config** primary is what's dead.
+
+**Evidence (probe `/home/openclaw/.openclaw/workspace/.claude/discover/yt-chain-fixes/probe_gemini_flash_captions_output.txt`):**
+```
+"error": {
+  "message": "ring-2.6-1t has transitioned to a paid model...",
+  "code": 404
+}
+```
+
+**Options:**
+- (a) Switch primary to `openai/gpt-oss-120b:free` (currently fallback #1; probe-validated for caption extraction).
+- (b) Switch primary to `z-ai/glm-4.5-air:free` (currently fallback #2; slower on big payloads but reliable for small).
+- (c) Pay for `inclusionai/ring-2.6-1t` (no `:free` suffix). Check OpenRouter pricing first.
+
+**Acceptance:** `python3 -m consensus_engine --status` and any narrator/synthesis call land successfully without falling through to the secondary model. Cron health probe (the existing daily LLM chain check at `consensus_engine.health`) confirms primary green for 7 consecutive days.
+
+---
