@@ -229,6 +229,83 @@ async def test_force_whisper_hook_skips_gemini():
 
 
 @pytest.mark.asyncio
+async def test_fetch_captions_disabled_returns_none():
+    """When youtube.captions.enabled=False, fetch_captions returns None immediately
+    without calling either ytapi or Supadata."""
+    def cfg_get(key, default=None):
+        if key == "youtube.captions.enabled":
+            return False
+        return default
+
+    with patch("consensus_engine.config.get", side_effect=cfg_get):
+        from consensus_engine.local_video_ingest import fetch_captions
+        result = await fetch_captions("dQw4w9WgXcQ")
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_fetch_captions_supadata_fallback_on_ytapi_failure():
+    """When youtube_transcript_api raises (e.g. IpBlocked from cloud IPs),
+    fetch_captions falls back to Supadata and returns its transcript."""
+    def cfg_get(key, default=None):
+        if key == "youtube.captions.enabled":
+            return True
+        if key == "youtube.cookies_path":
+            return "/nonexistent/path"
+        return default
+
+    # Mock ytapi to raise; mock _fetch_via_supadata to return content
+    class FakeYTApi:
+        def __init__(self, *a, **kw): pass
+        def fetch(self, video_id):
+            raise RuntimeError("IpBlocked: simulated cloud IP block")
+
+    supadata_result = ("This is a Supadata-sourced transcript.", "en", True)
+
+    with (
+        patch("consensus_engine.config.get", side_effect=cfg_get),
+        patch("youtube_transcript_api.YouTubeTranscriptApi", FakeYTApi),
+        patch(
+            "consensus_engine.utils.transcript_fetch._fetch_via_supadata",
+            new_callable=AsyncMock,
+            return_value=supadata_result,
+        ),
+    ):
+        from consensus_engine.local_video_ingest import fetch_captions
+        result = await fetch_captions("dQw4w9WgXcQ")
+
+    assert result == "This is a Supadata-sourced transcript."
+
+
+@pytest.mark.asyncio
+async def test_fetch_captions_both_fail_returns_none():
+    """When both ytapi and Supadata fail, fetch_captions returns None
+    so the chain falls through to F2."""
+    def cfg_get(key, default=None):
+        if key == "youtube.captions.enabled":
+            return True
+        return default
+
+    class FakeYTApi:
+        def __init__(self, *a, **kw): pass
+        def fetch(self, video_id):
+            raise RuntimeError("ytapi blocked")
+
+    with (
+        patch("consensus_engine.config.get", side_effect=cfg_get),
+        patch("youtube_transcript_api.YouTubeTranscriptApi", FakeYTApi),
+        patch(
+            "consensus_engine.utils.transcript_fetch._fetch_via_supadata",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+    ):
+        from consensus_engine.local_video_ingest import fetch_captions
+        result = await fetch_captions("dQw4w9WgXcQ")
+    assert result is None
+
+
+@pytest.mark.asyncio
 async def test_force_whisper_hook_default_off():
     """Default behavior (flag not set) MUST still attempt F2 — hook is opt-in only."""
     def cfg_get(key, default=None):

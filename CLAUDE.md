@@ -73,6 +73,16 @@ docker compose up -d                 # SearXNG (8888)
 
 See the real-world test requirement under Definition of Done above. No static tool list is maintained here — before deferring a test, actively check memory and probe what's accessible in the environment rather than assuming a tool is unavailable.
 
+**Don't stop at code-functional during verification — do real-world testing whenever the user-observable outcome can be checked from this environment.** "Unit tests pass" or "service started" does NOT discharge the verification standard if the actual end-to-end behavior can be probed.
+
+**When real-world tests hit errors**, follow this ladder before pinging the user:
+1. **Diagnose** what's actually failing — error strings often mask the real cause (e.g. a 429 may be IP-wide rate limit, not per-resource; "cookies invalid" may be a downstream symptom).
+2. **Attempt to fix** with concrete repairs you can execute: change request parameters, swap auth modes, alternate flags, retry with backoff, different endpoint.
+3. **If no fix is available from this environment, explore alternative paths to the same goal** — same outcome via different mechanism (e.g. yt-dlp cookies dead → try `youtube_transcript_api` for captions, which has no YouTube auth; one transcript provider down → try another; HTTP timeout → smaller chunk).
+4. **Only then surface to the user** with concrete evidence: what failed, what you tried, why each alternative did or didn't work, and a specific recommendation.
+
+**Do not ask the user to do something you are fully capable of doing yourself.** Asking is acceptable when the next step genuinely requires their access (interactive re-auth), their decision (product tradeoff), or their information (something not derivable from logs/code/docs). It is NOT acceptable as a substitute for running another probe yourself.
+
 ## Key Design Decisions
 - **Signal-first**: tweet → instant alert → async cross-reference. No gates block the alert.
 - **Finnhub free tier**: real-time quotes only (`/quote`). Historical OHLCV via yfinance in `ThreadPoolExecutor` (blocking).

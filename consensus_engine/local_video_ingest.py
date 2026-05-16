@@ -45,10 +45,14 @@ async def extract_evidence_via_chain(
 # ─── Public helpers (isolated for testability) ────────────────────────────────
 
 async def fetch_captions(video_id: str) -> str | None:
-    """F1: fetch auto-captions via youtube_transcript_api. Returns None when disabled or unavailable."""
+    """F1: fetch auto-captions. Tries youtube_transcript_api first (free, may hit
+    YouTube IP blocks from cloud providers), then falls back to Supadata
+    (paid managed API, no IP dependency). Returns None when disabled or both fail."""
     from consensus_engine.config import get as cfg
     if not cfg("youtube.captions.enabled", False):
         return None
+
+    # Tier 1a: youtube_transcript_api — free, but YouTube blocks most cloud-provider IPs
     try:
         from youtube_transcript_api import YouTubeTranscriptApi
         cookies_path = cfg("youtube.cookies_path", "/root/.openclaw/youtube_cookies.txt")
@@ -57,10 +61,25 @@ async def fetch_captions(video_id: str) -> str | None:
             kwargs["cookies"] = cookies_path
         api = YouTubeTranscriptApi(**kwargs)
         fetched = api.fetch(video_id)
-        return " ".join(s.text for s in fetched)
+        text = " ".join(s.text for s in fetched)
+        if text:
+            return text
     except Exception as exc:
-        log.warning("F1 captions failed for %s: %s", video_id, exc)
-        return None
+        log.info("F1 youtube_transcript_api failed for %s (%s) — trying Supadata fallback", video_id, exc)
+
+    # Tier 1b: Supadata — fetches via their own residential infra, sidesteps IP blocks.
+    # SUPADATA_API_KEY in env. Existing helper at consensus_engine/utils/transcript_fetch.py.
+    try:
+        from consensus_engine.utils.transcript_fetch import _fetch_via_supadata
+        result = await _fetch_via_supadata(video_id)
+        if result is not None:
+            text, _lang, _is_manual = result
+            log.info("F1 captions via Supadata for %s: %d chars", video_id, len(text))
+            return text
+    except Exception as exc:
+        log.warning("F1 Supadata fallback failed for %s: %s", video_id, exc)
+
+    return None
 
 
 async def fetch_audio_transcript(video_id: str, run_dir: str) -> str | None:
