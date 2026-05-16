@@ -173,37 +173,51 @@ technical:
 
 # LLM Configuration (OpenRouter)
 llm:
-  # Chain selected via 3-trial empirical benchmark on 2026-05-08 (7 free models,
-  # 21 calls). Ranked by latency (TTFT + total), max output, and quality of
-  # 4-paragraph financial-narrative output for the !all use case.
+  # 5-model failover chain (TODO #5 — 2026-05-15). Probed live against
+  # OpenRouter; only models with HTTP 200 + non-empty content under sequential
+  # load qualified. llm_client.call_with_fallback walks the chain on
+  # 408/429/5xx/timeout/connection/empty-content; first 200-with-content wins.
   #
-  # Disqualified models:
-  #   - nvidia/nemotron-3-super-120b-a12b:free — non-streaming on free tier
-  #     (TTFT≈Total ~58s for 2k tokens); also dumps internal planning +
-  #     word-counting into response, contaminating Discord output.
+  # Order (latency from probe with "What is 2+2" / 300 max_tokens):
+  #   1. gpt-oss-120b   (OpenInference) — 2.1s   PRIMARY (was fallback 1; promoted
+  #      from ring-2.6-1t:free which was delisted from OpenRouter free tier)
+  #   2. glm-4.5-air    (Z.AI)          — 6.7s   B+ grade per prior R8 benchmark
+  #   3. deepseek-v4-flash (DeepSeek)   — 49s    1M ctx, V4 quality, slow but
+  #      reliable; held in reserve since it blows the 50s narrator cap
+  #   4. trinity-large-thinking (Arcee) — 1.5s   thinking model — reasoning
+  #      stays in .reasoning field, not .content, so no Discord contamination
+  #   5. cobuddy (Baidu Qianfan)        — 2.0s   last-resort fallback
+  #
+  # Disqualified (persistent 429 / "Provider returned error" in <600ms — popular
+  # free models that OpenRouter upstream rate-limits aggressively):
+  #   - meta-llama/llama-3.3-70b-instruct:free
+  #   - qwen/qwen3-next-80b-a3b-instruct:free
+  #   - nousresearch/hermes-3-llama-3.1-405b:free
+  #   - google/gemma-4-26b-a4b-it:free
+  #
+  # Historical disqualifications (preserved for context):
+  #   - inclusionai/ring-2.6-1t:free — delisted from OpenRouter free tier
+  #     (TODO #5 trigger); was prior primary at 14s.
+  #   - nvidia/nemotron-3-super-120b-a12b:free — non-streaming, dumps internal
+  #     planning into .content (not just .reasoning), contaminates output.
   #   - tencent/hy3-preview:free — removed from OpenRouter API.
-  #   - poolside/laguna-m.1:free / laguna-xs.2:free — coding-specialized; 8k
-  #     output cap; wrong domain for financial narrative.
-  #   - inclusionai/ling-2.6-flash — paid ($0.08/$0.24 per Mtok), not free.
-  #   - openrouter/owl-alpha + google/gemma-4 (26b/31b):free — 429-blocked on
-  #     free tier in all 3 benchmark trials.
-  #   - minimax/minimax-m2.5:free — 84s pause then big dump; ignores max_tokens.
-  #
-  # Surviving chain (all free, three distinct providers for failover diversity).
-  # Order driven by latency-budget realism (R8 isolated test 2026-05-09):
-  #   ring-2.6-1t    (Novita)        — 14s for Gemini-tier output  → PRIMARY
-  #   gpt-oss-120b   (OpenInference) — 78.7s for Gemini-tier output → FALLBACK 1
-  #   glm-4.5-air    (Z.AI)          — 21s TTFT, 30s total, B+ grade → FALLBACK 2
-  # Synthesis cap is 50s (narrator.py:271), so ring-first wins inside budget on
-  # the common path; gpt-oss is held in reserve for runs where ring exceeds 14s.
-  model: "inclusionai/ring-2.6-1t:free"
+  #   - poolside/laguna-m.1:free / laguna-xs.2:free — coding-specialized, wrong
+  #     domain for financial narrative.
+  #   - inclusionai/ling-2.6-flash — paid tier, not free.
+  #   - openrouter/owl-alpha — meta-router, not a model.
+  #   - minimax/minimax-m2.5:free — 84s pause + ignores max_tokens.
+  model: "openai/gpt-oss-120b:free"
   fallback_models:
-    - "openai/gpt-oss-120b:free"
     - "z-ai/glm-4.5-air:free"
-  text_model: "inclusionai/ring-2.6-1t:free"
+    - "deepseek/deepseek-v4-flash:free"
+    - "arcee-ai/trinity-large-thinking:free"
+    - "baidu/cobuddy:free"
+  text_model: "openai/gpt-oss-120b:free"
   text_fallback_models:
-    - "openai/gpt-oss-120b:free"
     - "z-ai/glm-4.5-air:free"
+    - "deepseek/deepseek-v4-flash:free"
+    - "arcee-ai/trinity-large-thinking:free"
+    - "baidu/cobuddy:free"
   vision_model: "google/gemma-4-31b-it:free"
   min_confidence: 70
   # Primary-tier output cap. gpt-oss-120b honors max_tokens cleanly; free models
