@@ -303,60 +303,7 @@ file-path matching: `consensus_engine/scanners/youtube*` → ingest;
 
 ---
 
-## 7. `nemotron-3-nano-omni-30b-a3b-reasoning` leaks raw float precision into Discord embeds
-
-**Layperson:** Position 4 in the LLM chain
-(`nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free`) was added to the
-chain on 2026-05-16. End-to-end `!all AMZN` verified it works, but the
-narrative it generates contains ugly raw-float strings like
-`Revenue $181519000000.0, +16.60724495236627% YoY` instead of
-`Revenue $181.519B, +16.6% YoY`. The other 4 chain models all format
-the same EARNINGS RECAP block cleanly (`$181.519 B` / `+16.61%`).
-
-**Reproduced 2026-05-16** during the live isolation test —
-full narrative archived at
-`.omc/research/llm-chain-2026-05-16/live_test-20260516-015207.json`
-(entry index 3).
-
-**Trigger condition:** Only surfaces when positions 0-3 of the LLM
-chain all fail and the request falls through to this model. With a
-healthy primary (`gpt-oss-120b`) this is rare in practice.
-
-**Three fix options:**
-
-**(A) Pre-format the EARNINGS RECAP block in `narrator.py` before
-sending to the LLM.** Round revenue to `$NNN.N B`, percent to one
-decimal. The synthesis prompt currently sends raw dict via
-`json.dumps(recent_earnings_recap, default=str)` at
-`consensus_engine/alerts/all_command/narrator.py:413`. Cheapest fix —
-single function. Other models won't regress because they were already
-formatting it cleanly downstream.
-
-**(B) Post-LLM regex sanitizer in `output_filter.py`.** Detect
-`$\d{10,}` and `\d{2}\.\d{10,}%` patterns, reformat to human-readable.
-More defensive but adds another sanitization pass.
-
-**(C) Drop the model from the chain.** Position 4 falls to position 5
-(`glm-4.5-air`), chain becomes 4 models. Loses provider decorrelation.
-Not recommended.
-
-**Recommendation:** Option A — fix the prompt-builder, not the model.
-Cleaner output for all 5 models and aligns the input format with how
-the prompt's CONSTRAINTS already describes the EARNINGS RECAP ("cite
-verbatim").
-
-**Acceptance:** Post-fix isolation test (same methodology as
-`.omc/research/llm-chain-2026-05-16/live_test_all.py`) shows
-`nemotron-omni-reasoning` posts `$181.5B / +16.6% YoY`-shaped text
-instead of `$181519000000.0 / +16.60724495236627%`. Commit + push.
-
-**Related:** `.omc/research/llm-chain-2026-05-16/RESULTS.md` (the
-re-selection that introduced this model), memory
-`project_llm_5model_chain_partial.md` (now superseded).
-
----
-
-## 8. Optimize `!all` output quality + feature surface (open-ended initiative)
+## 7. Optimize `!all` output quality + feature surface (open-ended initiative)
 
 **Layperson:** The user wants to improve what `!all <TICKER>` produces.
 This is intentionally broad — the framing matters because most of the
@@ -407,7 +354,7 @@ operations on a single `!all` invocation:
      etc.) with per-section caps to stay under 15k input tokens.
    - LLM call at `_invoke_synthesis` (~line 423):
      `call_with_fallback(role="primary", max_tokens=8000, temperature=0.35)`.
-   - The 5-model chain (TODO #7 just rebalanced) runs here.
+   - The 5-model chain (re-selected 2026-05-16, see `.omc/research/llm-chain-2026-05-16/`) runs here.
 
 5. **`output_filter.py`** — contradict-detection retry:
    - `detect_contradiction(narrative, structured)` (line 61) scans the
@@ -457,10 +404,13 @@ unchanged):
   (e.g. "every catalyst must cite an evidence row by index", "rationale
   column must be ≤ 25 words") removes the per-model wording drift the
   2026-05-16 test surfaced.
-- `narrator._build_synthesis_prompt` line ~413 — `recent_earnings_recap`
-  is sent via `json.dumps(... default=str)` which is what triggers the
-  float-precision leak (TODO #7). Pre-format the dict to human-readable
-  strings before serialization and the bug disappears for ALL models.
+- `narrator._build_synthesis_prompt` — evidence blocks are sent via
+  `json.dumps(... default=str)`. The EARNINGS RECAP block already gets
+  pre-formatted via `_format_earnings_recap` (added 2026-05-16, commit
+  732a475). Other blocks (news, sec, twitter, social, yt_*) still pass
+  raw — could apply the same pre-formatting pattern for date strings,
+  large dollar amounts, etc. to remove formatting variance between
+  chain models.
 - `narrator._build_constraints_block` — currently asks for "AT LEAST 2
   catalysts". Could raise to AT LEAST 3 when ≥3 distinct source-types
   surfaced, fall back to 2 only when evidence is thin.
@@ -500,8 +450,9 @@ unchanged):
   user-visible improvement.
 - **TODO #3** — Speed-accuracy optimization (8 of 13 items unimplemented)
   overlaps with output latency improvements above.
-- **TODO #7** — float-precision fix is a sub-task of this initiative
-  and the cheapest concrete win.
+- Float-precision fix (commit 732a475, 2026-05-16) was an early win
+  in this initiative — see `_format_earnings_recap` in `narrator.py`
+  for the pattern applied.
 
 ### How to scope a session
 
