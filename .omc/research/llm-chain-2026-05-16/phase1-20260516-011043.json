@@ -1,0 +1,82 @@
+{
+  "openai/gpt-oss-120b:free": {
+    "ok": true,
+    "status": 200,
+    "elapsed": 0.9623548984527588,
+    "error": "",
+    "content": "PONG",
+    "reasoning": "User wants exact reply \"PONG\"."
+  },
+  "z-ai/glm-4.5-air:free": {
+    "ok": true,
+    "status": 200,
+    "elapsed": 3.2179300785064697,
+    "error": "",
+    "content": "P",
+    "reasoning": "We are given a user command: \"Reply with exactly: PONG\"\n The user wants the assistant to respond with the exact string \"PONG\".\n Therefore, we must output only the string \"PONG\" and nothing else."
+  },
+  "meta-llama/llama-3.3-70b-instruct:free": {
+    "ok": false,
+    "status": 429,
+    "elapsed": 0.3453981876373291,
+    "error": "{\"error\":{\"message\":\"Provider returned error\",\"code\":429,\"metadata\":{\"raw\":\"meta-llama/llama-3.3-70b-instruct:free is temporarily rate-limited upstream. Please retry shortly, or add your own key to ac",
+    "content": "",
+    "reasoning": ""
+  },
+  "qwen/qwen3-next-80b-a3b-instruct:free": {
+    "ok": false,
+    "status": 429,
+    "elapsed": 0.34151768684387207,
+    "error": "{\"error\":{\"message\":\"Provider returned error\",\"code\":429,\"metadata\":{\"raw\":\"qwen/qwen3-next-80b-a3b-instruct:free is temporarily rate-limited upstream. Please retry shortly, or add your own key to acc",
+    "content": "",
+    "reasoning": ""
+  },
+  "nousresearch/hermes-3-llama-3.1-405b:free": {
+    "ok": false,
+    "status": 429,
+    "elapsed": 0.4051783084869385,
+    "error": "{\"error\":{\"message\":\"Provider returned error\",\"code\":429,\"metadata\":{\"raw\":\"nousresearch/hermes-3-llama-3.1-405b:free is temporarily rate-limited upstream. Please retry shortly, or add your own key to",
+    "content": "",
+    "reasoning": ""
+  },
+  "google/gemma-4-26b-a4b-it:free": {
+    "ok": true,
+    "status": 200,
+    "elapsed": 0.7022488117218018,
+    "error": "",
+    "content": "PONG",
+    "reasoning": ""
+  },
+  "google/gemma-4-31b-it:free": {
+    "ok": false,
+    "status": 429,
+    "elapsed": 0.27402567863464355,
+    "error": "{\"error\":{\"message\":\"Provider returned error\",\"code\":429,\"metadata\":{\"raw\":\"google/gemma-4-31b-it:free is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate you",
+    "content": "",
+    "reasoning": ""
+  },
+  "openai/gpt-oss-20b:free": {
+    "ok": true,
+    "status": 200,
+    "elapsed": 0.7254774570465088,
+    "error": "",
+    "content": "PONG",
+    "reasoning": "Just output PONG."
+  },
+  "nvidia/nemotron-3-nano-30b-a3b:free": {
+    "ok": true,
+    "status": 200,
+    "elapsed": 0.4741942882537842,
+    "error": "",
+    "content": "PONG",
+    "reasoning": "The user says: \"Reply with exactly: PONG\". So they want the assistant to output exactly \"PONG\". No extra text. Must obey. So just output \"PONG\"."
+  },
+  "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": {
+    "ok": true,
+    "status": 200,
+    "elapsed": 0.4618394374847412,
+    "error": "",
+    "content": "PONG",
+    "reasoning": "We need to follow instruction: \"Reply with exactly: PONG\". So output exactly \"PONG\". No extra spaces, no punctuation beyond that. Ensure no extra newline? Probably just \"PONG\"."
+  }
+}

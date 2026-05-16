@@ -1,0 +1,112 @@
+[
+  {
+    "model": "openai/gpt-oss-120b:free",
+    "live": true,
+    "live_ms": 962,
+    "synth_ok": true,
+    "synth_ms": 1280,
+    "synth_chars": 2404,
+    "quality": 11,
+    "parallel_ok": "3/3",
+    "synth_err": ""
+  },
+  {
+    "model": "z-ai/glm-4.5-air:free",
+    "live": true,
+    "live_ms": 3217,
+    "synth_ok": true,
+    "synth_ms": 2637,
+    "synth_chars": 1735,
+    "quality": 12,
+    "parallel_ok": "1/3",
+    "synth_err": ""
+  },
+  {
+    "model": "meta-llama/llama-3.3-70b-instruct:free",
+    "live": false,
+    "live_ms": 345,
+    "synth_ok": false,
+    "synth_ms": 0,
+    "synth_chars": 0,
+    "quality": 0,
+    "parallel_ok": "n/a",
+    "synth_err": ""
+  },
+  {
+    "model": "qwen/qwen3-next-80b-a3b-instruct:free",
+    "live": false,
+    "live_ms": 341,
+    "synth_ok": false,
+    "synth_ms": 0,
+    "synth_chars": 0,
+    "quality": 0,
+    "parallel_ok": "n/a",
+    "synth_err": ""
+  },
+  {
+    "model": "nousresearch/hermes-3-llama-3.1-405b:free",
+    "live": false,
+    "live_ms": 405,
+    "synth_ok": false,
+    "synth_ms": 0,
+    "synth_chars": 0,
+    "quality": 0,
+    "parallel_ok": "n/a",
+    "synth_err": ""
+  },
+  {
+    "model": "google/gemma-4-26b-a4b-it:free",
+    "live": true,
+    "live_ms": 702,
+    "synth_ok": true,
+    "synth_ms": 1176,
+    "synth_chars": 1498,
+    "quality": 12,
+    "parallel_ok": "0/3",
+    "synth_err": ""
+  },
+  {
+    "model": "google/gemma-4-31b-it:free",
+    "live": false,
+    "live_ms": 274,
+    "synth_ok": false,
+    "synth_ms": 0,
+    "synth_chars": 0,
+    "quality": 0,
+    "parallel_ok": "n/a",
+    "synth_err": ""
+  },
+  {
+    "model": "openai/gpt-oss-20b:free",
+    "live": true,
+    "live_ms": 725,
+    "synth_ok": true,
+    "synth_ms": 976,
+    "synth_chars": 2055,
+    "quality": 12,
+    "parallel_ok": "3/3",
+    "synth_err": ""
+  },
+  {
+    "model": "nvidia/nemotron-3-nano-30b-a3b:free",
+    "live": true,
+    "live_ms": 474,
+    "synth_ok": true,
+    "synth_ms": 480,
+    "synth_chars": 1338,
+    "quality": 11,
+    "parallel_ok": "3/3",
+    "synth_err": ""
+  },
+  {
+    "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    "live": true,
+    "live_ms": 461,
+    "synth_ok": true,
+    "synth_ms": 523,
+    "synth_chars": 1799,
+    "quality": 11,
+    "parallel_ok": "3/3",
+    "synth_err": ""
+  }
+]

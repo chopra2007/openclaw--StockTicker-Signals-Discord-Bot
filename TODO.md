@@ -303,81 +303,55 @@ file-path matching: `consensus_engine/scanners/youtube*` → ingest;
 
 ---
 
-## 7. Decide what to do with broken `!all` slots in the 5-model LLM chain
+## 7. `nemotron-3-nano-omni-30b-a3b-reasoning` leaks raw float precision into Discord embeds
 
-**Layperson:** A previous session shipped a 5-model LLM failover chain
-(commit `732dba6`, 2026-05-15). The user later asked whether each
-position actually works for `!all`, and isolation testing on 2026-05-16
-showed only the first 2 positions (`gpt-oss-120b` + `glm-4.5-air`)
-handle `!all`. Positions 3-5 fail under `!all`'s parallel multi-stage
-load — the chain still walks but ends in
-`narrative_status=fallback_data_only`, posting the engine's
-deterministic "auto-redacted; structured signal below" embed instead of
-an LLM narrative. The bot doesn't crash, but the LLM narrative quality
-silently degrades when the chain reaches those slots.
+**Layperson:** Position 4 in the LLM chain
+(`nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free`) was added to the
+chain on 2026-05-16. End-to-end `!all AMZN` verified it works, but the
+narrative it generates contains ugly raw-float strings like
+`Revenue $181519000000.0, +16.60724495236627% YoY` instead of
+`Revenue $181.519B, +16.6% YoY`. The other 4 chain models all format
+the same EARNINGS RECAP block cleanly (`$181.519 B` / `+16.61%`).
 
-**The chain that shipped** (`config/consensus.yaml:209-219`):
+**Reproduced 2026-05-16** during the live isolation test —
+full narrative archived at
+`.omc/research/llm-chain-2026-05-16/live_test-20260516-015207.json`
+(entry index 3).
 
-| idx | Model | `!all` | Why |
-|---|---|---|---|
-| 0 | `openai/gpt-oss-120b:free` | ✓ | Proven primary |
-| 1 | `z-ai/glm-4.5-air:free` | ✓ | Proven from prior R8 benchmark |
-| 2 | `deepseek/deepseek-v4-flash:free` | **✗** | 49s API response > 30s `llm_client.py:50` default timeout → `TimeoutError()` on every call |
-| 3 | `arcee-ai/trinity-large-thinking:free` | **flaky** | ~50% empty `.content` — thinking model burns max_tokens on `.reasoning` field |
-| 4 | `baidu/cobuddy:free` | **✗** | `TimeoutError()` under parallel load (works fine at 21s for single-call API probe) |
+**Trigger condition:** Only surfaces when positions 0-3 of the LLM
+chain all fail and the request falls through to this model. With a
+healthy primary (`gpt-oss-120b`) this is rare in practice.
 
-`!ask`, `!trend`, `@-mention` use lighter single-call LLM workflows —
-slots 2-4 *may* work fine for those but **were not isolation-tested**
-in the 2026-05-16 session.
+**Three fix options:**
 
-**Three options to pick from:**
+**(A) Pre-format the EARNINGS RECAP block in `narrator.py` before
+sending to the LLM.** Round revenue to `$NNN.N B`, percent to one
+decimal. The synthesis prompt currently sends raw dict via
+`json.dumps(recent_earnings_recap, default=str)` at
+`consensus_engine/alerts/all_command/narrator.py:413`. Cheapest fix —
+single function. Other models won't regress because they were already
+formatting it cleanly downstream.
 
-**(A) Trim chain to 2 proven models.** Honest but reverts the original
-"5 models" ask.
+**(B) Post-LLM regex sanitizer in `output_filter.py`.** Detect
+`$\d{10,}` and `\d{2}\.\d{10,}%` patterns, reformat to human-readable.
+More defensive but adds another sanitization pass.
 
-**(B) Re-test 4 model candidates and replace bad slots.** Models that
-returned 429 ("Provider returned error" in <600ms) on 2026-05-15 may
-have eased: `meta-llama/llama-3.3-70b-instruct:free`,
-`qwen/qwen3-next-80b-a3b-instruct:free`,
-`nousresearch/hermes-3-llama-3.1-405b:free`,
-`google/gemma-4-26b-a4b-it:free`. Also consider raising
-`llm_client.py:50` timeout from 30s → 60s (would let deepseek-v4-flash
-succeed at its ~49s heavy-prompt latency). Estimated 30 min of probing
-+ isolation tests.
+**(C) Drop the model from the chain.** Position 4 falls to position 5
+(`glm-4.5-air`), chain becomes 4 models. Loses provider decorrelation.
+Not recommended.
 
-**(C) Keep chain as-is, document the truth.** Update
-`config/consensus.yaml:174-208` comments to say "positions 3-5 are
-fallback-data-only for `!all`; the structured embed still posts so the
-command never fails-loud, just degrades on rare deep-failover events."
+**Recommendation:** Option A — fix the prompt-builder, not the model.
+Cleaner output for all 5 models and aligns the input format with how
+the prompt's CONSTRAINTS already describes the EARNINGS RECAP ("cite
+verbatim").
 
-**Recommendation:** Option B with a follow-up test pass — keeps the
-original "5 models" ask, but actually verifies each handles `!all`
-under load before committing it.
+**Acceptance:** Post-fix isolation test (same methodology as
+`.omc/research/llm-chain-2026-05-16/live_test_all.py`) shows
+`nemotron-omni-reasoning` posts `$181.5B / +16.6% YoY`-shaped text
+instead of `$181519000000.0 / +16.60724495236627%`. Commit + push.
 
-**How to test a candidate in a new session:**
-1. Stack 4 known-429 models in front of the candidate as the only
-   working option (need to re-verify the 4 still 429 — re-probe with
-   `curl -s -H "Authorization: Bearer $OPENROUTER_API_KEY" -H "Content-Type: application/json" -d '{"model":"...","messages":[{"role":"user","content":"hi"}],"max_tokens":50}' https://openrouter.ai/api/v1/chat/completions`).
-2. Edit `config/consensus.yaml` `llm.model` and `llm.fallback_models`,
-   `llm.text_model` and `llm.text_fallback_models`.
-3. `sudo systemctl restart consensus-engine.service` + wait 5s.
-4. Post `!all <FRESH_TICKER>` via webhook (cache is ticker-keyed — use
-   a ticker not recently queried). Webhook URL in memory
-   `discord_webhook.md`.
-5. Wait 240s, then `sudo journalctl -u consensus-engine.service
-   --since "5 minutes ago" --no-pager | grep -E "narrative_status|fallback hit|exhausted"`.
-6. Pass = `narrative_status=gemini_or_better`. Fail =
-   `narrative_status=fallback_data_only`.
-7. Restore good config from `git checkout config/consensus.yaml` +
-   `sudo -u openclaw python3 scripts/sync_gateway_models.py` + restart.
-
-**Acceptance:** All 5 chain positions either confirmed `!all`-capable
-under isolation, OR (per option C) `config/consensus.yaml` comments
-truthfully describe each position's `!all` behavior. Commit + push.
-
-**Related:** memory `project_llm_5model_chain_partial.md`. Original
-shipping commit `732dba6` should NOT be reverted — chain still works
-for the common case where primary serves; this TODO is about late-chain
-behavior.
+**Related:** `.omc/research/llm-chain-2026-05-16/RESULTS.md` (the
+re-selection that introduced this model), memory
+`project_llm_5model_chain_partial.md` (now superseded).
 
 ---

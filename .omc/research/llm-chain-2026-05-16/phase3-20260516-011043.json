@@ -1,0 +1,212 @@
+{
+  "openai/gpt-oss-120b:free": {
+    "ok_count": 3,
+    "batch_elapsed": 28.086300134658813,
+    "errors": [
+      "",
+      "",
+      ""
+    ],
+    "individual": [
+      {
+        "ok": true,
+        "status": 200,
+        "elapsed": 0.6749589443206787,
+        "error": "",
+        "content": "$AMD is trading at **$178.45** and the model flags a **bullish** outlook with medium confidence. Recent earnings beat, strong AI\u2011accelerator guidance and a technical breakout support a short\u2011to\u2011mid\u2011term upside thesis.\n\n## Catalysts\n* **Q1\u202f2026 earnings beat** \u2013 revenue of **$7.40\u202fB**, up **73\u202f% YoY**, and EPS of **$1.05** beating consensus by **8.2\u202f%** (Earnings Recap).  \n* **AI accelerator forecast raise** \u2013 Bloomberg reports AMD lifted its FY26 AI accelerator revenue target to **$5\u202fB** (up from $4\u202fB) as the MI400 ramp stays on track (Bloomberg\u202f2026\u201105\u201115).  \n* **Microsoft Azure expansion** \u2013 WSJ notes a **3\u00d7 increase** in Azure MI300X capacity, now valued at roughly **$2.8\u202fB** annualized (WSJ\u202f2026\u201105\u201113).  \n* **Upcoming Computex keynote** on **May\u202f26** where a new MI400 variant is expected (CNBC\u202f2026\u201105\u201112).\n\n## Risk Considerations\n* **Price dropping below $168.5** would invalidate the bullish setup and trigger the stop\u2011loss, indicating a potential shift in market sentiment or a missed AI rollout milestone.\n\n## Trade Plan\n| Parameter   | Level                         | Rationale |\n|-------------|------------------------------|-----------|\n| Buy Zone    | $175.0 \u2013 $180.0               | Aligns with the model\u2019s identified entry band and sits just above the 20\u2011EMA ($175.1) and 50\u2011EMA ($168.3), confirming bullish momentum (technical). |\n| Stop-Loss   | $168.5                        | Positioned below the 200\u2011EMA ($158.4) and the recent swing low, limiting downside to a manageable range. |\n| TP1         | $192.0                        | First target reflects a measured move from the cup\u2011and\u2011handle base cited by Meet Kevin (YouTube\u202f2026\u201105\u201115) and fits the expected 6.5\u202f% upside band. |\n| TP2         | $205.0                        | Captures further upside as AI accelerator revenue ramps, consistent with Morgan Stanley\u2019s upgraded price target ($215) and bullish sentiment. |\n| TP3         | $220.0                        | Long\u2011run upside scenario if MI400 launch exceeds expectations and Azure demand stays strong. |\n| Horizon     | 14\u201121 days                    | Swing horizon band from the model; ATR of 4.85 points suggests price can comfortably traverse the target range within this period. |\n| Expected Move | \u00b16.5\u202f%                     | The model\u2019s expected move band, matching historical volatility over similar horizons. |\n| Next Catalyst | 12 days                     | Earnings release scheduled for **May\u202f28,\u202f2026** (next_catalyst_days) and the imminent Computex event. |",
+        "reasoning": "We need to produce narrative with sections. Use given values. Cite sources."
+      },
+      {
+        "ok": true,
+        "status": 200,
+        "elapsed": 1.3631579875946045,
+        "error": "",
+        "content": "$AMD is trading at **$178.45** and the model issues a **BULLISH** outlook with medium confidence.  Recent earnings beat, strong AI\u2011accelerator guidance and a technical breakout support a short\u2011to\u2011intermediate swing toward the upper end of the $175\u2011$180 buy zone.\n\n## Catalysts\n* **Q1\u202f2026 earnings (May\u202f15)**: Revenue of **$7.40\u202fB**, up **73\u202f% YoY**, and EPS of **$1.05** beating estimates by **8.2\u202f%** while guidance was raised (earnings source).  \n* **AI accelerator forecast (May\u202f15)**: Bloomberg reports AMD lifted its FY26 AI accelerator revenue target to **$5\u202fB** from $4\u202fB, confirming the MI400 ramp is on track (news source).  \n* **Microsoft Azure expansion (May\u202f13)**: Azure adds three\u2011fold capacity for the MI300X, creating roughly **$2.8\u202fB** of annualized contracts (news source).  \n* **Computex keynote (May\u202f26)**: CEO Lisa\u202fSu will unveil the next\u2011gen MI400, adding forward\u2011looking upside (news source).  \n\n## Risk Considerations\n* **Technical downside breach**: If price falls below the 20\u2011day EMA at **$168.5**, the stop\u2011loss is triggered, indicating a potential reversal of the bullish bias (computed signal).\n\n## Trade Plan\n| Parameter   | Level                               | Rationale |\n|-------------|-------------------------------------|-----------|\n| Buy Zone    | $175.0 \u2013 $180.0                     | Captures the current swing range and aligns with the model\u2019s bullish buy window |\n| Stop-Loss   | $168.5                              | Protects against a break of the 20\u2011day EMA and the ATR\u2011based volatility buffer |\n| TP1         | $192.0                              | First profit target near the measured move from the recent cup\u2011and\u2011handle pattern (youtube claim) |\n| TP2         | $205.0                              | Aligns with the upgraded Morgan Stanley price target and AI\u2011accelerator upside (news) |\n| TP3         | $220.0                              | Reflects longer\u2011term upside if the MI400 launch exceeds expectations |\n| Horizon     | 14\u201121 days                          | Swing horizon band from the model, consistent with the 18\u2011day average move window |\n| Expected Move | \u00b16.5\u202f%                           | Typical price swing over the horizon per the computed signal |\n| Next Catalyst | 12 days                           | Earnings release on **May\u202f28** and upcoming Computex options flow (twitter, youtube) |",
+        "reasoning": "We need produce narrative with sections. Use given data. Cite sources. Let's craft."
+      },
+      {
+        "ok": true,
+        "status": 200,
+        "elapsed": 0.8696520328521729,
+        "error": "",
+        "content": "$AMD is trading at **$178.45** and the model flags a **bullish** outlook with medium confidence. Recent earnings beat, strong AI\u2011accelerator guidance and a technical breakout support a near\u2011term upside move toward the defined targets.\n\n## Catalysts\n* **Q1\u202f2026 earnings beat** \u2013 revenue of **$7.40\u202fB**, up **73\u202f% YoY**, and EPS of **$1.05** (+8.2\u202f% beat) with raised guidance (Earnings recap).  \n* **AI accelerator rollout** \u2013 Bloomberg reports AMD raised its FY26 AI accelerator forecast to **$5\u202fB** (up from $4\u202fB) and the MI400 ramp is on track (Bloomberg 2026\u201105\u201115).  \n* **Microsoft Azure expansion** \u2013 Azure adds MI300X capacity 3\u00d7, contracts now valued at roughly **$2.8\u202fB annualized** (WSJ 2026\u201105\u201113).  \n* **Upcoming Computex keynote** on May\u202f26, where a new MI400 variant is expected (CNBC 2026\u201105\u201112).  \n\n## Risk Considerations\n* **Support break** below the **$168.5** stop\u2011loss level could trigger a pullback, especially if the broader tech market weakens or AI demand slows.\n\n## Trade Plan\n| Parameter   | Level                         | Rationale |\n|-------------|------------------------------|-----------|\n| Buy Zone    | $175.0 \u2013 $180.0               | Captures the current price ($178.45) within the model\u2019s bullish entry band and aligns with the EMA\u201120 ($175.1) support (technical). |\n| Stop-Loss   | $168.5                        | Positioned just below the 20\u2011day EMA ($168.3) and the 200\u2011day EMA ($158.4) to limit downside if the breakout fails. |\n| TP1         | $192.0                        | First target reflects a measured move from the recent cup\u2011and\u2011handle base (Meet Kevin YouTube call). |\n| TP2         | $205.0                        | Aligns with the upgraded Morgan Stanley price target of **$215** and anticipates continued AI\u2011accelerator demand. |\n| TP3         | $220.0                        | Captures upside potential if the MI400 launch and Azure expansion exceed expectations. |\n| Horizon     | 14\u201121 days                    | Swing horizon band from the model, consistent with the ATR\u2011based volatility window (ATR\u202f$4.85). |\n| Expected Move | \u00b16.5\u202f%                     | Typical price swing over the 14\u201121\u2011day horizon per the model\u2019s expected move band. |\n| Next Catalyst | 12 days                     | Earnings release on **May\u202f28,\u202f2026** and options expiry driving elevated IV (twitter). |",
+        "reasoning": "We need to produce narrative with sections. Use data. Cite sources. Ensure price values from signal. Provide table. Let's craft."
+      }
+    ]
+  },
+  "z-ai/glm-4.5-air:free": {
+    "ok_count": 1,
+    "batch_elapsed": 50.25917339324951,
+    "errors": [
+      "",
+      "TimeoutError",
+      "TimeoutError"
+    ],
+    "individual": [
+      {
+        "ok": true,
+        "status": 200,
+        "elapsed": 7.4244935512542725,
+        "error": "",
+        "content": "AMD is currently trading at $178.45 with a BULLISH outlook according to our analysis, supported by a medium-confidence signal of 72. The technical indicators show a bullish crossover on the MACD, with the stock trading above its 20-day EMA of $175.1, while strong earnings results and positive analyst coverage from sources like news and youtube provide additional validation for this bullish stance.\n\n## Catalysts\n* AMD's Q1 2026 revenue of $7.40B beat estimates by $300M, with the data-center segment growing 73% YoY according to Reuters coverage.\n* The company has raised its FY26 AI accelerator forecast to $5B from $4B, with Microsoft expanding Azure MI300X capacity 3x, creating contracts valued at approximately $2.8B annualized as reported by Bloomberg and WSJ.\n* CEO Lisa Su will deliver a keynote at Computex 2026 on May 26, where the MI400 is expected to be unveiled, as confirmed by CNBC.\n\n## Risk Considerations\n* The stock faces resistance at the $180 level, which has been a key consolidation point according to twitter analysis, with a potential pullback to the $168.5 support level if momentum fails.\n\n## Trade Plan\n| Parameter | Level | Rationale |\n|-----------|-------|-----------|\n| Buy Zone | $175.0 \u2013 $180.0 | This range aligns with the 20-day EMA and previous consolidation level identified by technical analysis |\n| Stop-Loss | $168.5 | This level represents the 50-day EMA and provides a buffer against normal volatility |\n| TP1 | $192.0 | Measured move from cup-and-handle base pattern as identified by youtube technical analysis |\n| TP2 | $205.0 | Intermediate target based on extension of the prior move and Morgan Stanley's price target |\n| TP3 | $220.0 | Long-term target reflecting the full potential of the AI accelerator ramp-up |\n| Horizon | 14-21 days | Derived from the 18-day swing horizon and ATR of 4.85 |\n| Expected Move | \u00b16.5% | Typical move over the swing horizon based on historical volatility |\n| Next Catalyst | 12 days | Time until Computex 2026 event where MI400 is expected to be unveiled |",
+        "reasoning": "Let me break down this task:\n\n1. I need to write a 3-6 paragraph narrative about AMD stock based on the COMPUTED SIGNAL block.\n2. The COMPUTED SIGNAL is authoritative and I should not contradict its d"
+      },
+      {
+        "ok": false,
+        "status": 0,
+        "elapsed": 50.257359743118286,
+        "error": "TimeoutError",
+        "content": "",
+        "reasoning": ""
+      },
+      {
+        "ok": false,
+        "status": 0,
+        "elapsed": 50.25662326812744,
+        "error": "TimeoutError",
+        "content": "",
+        "reasoning": ""
+      }
+    ]
+  },
+  "google/gemma-4-26b-a4b-it:free": {
+    "ok_count": 0,
+    "batch_elapsed": 0.3634819984436035,
+    "errors": [
+      "{\"error\":{\"message\":\"Provider returned error\",\"code\":429,\"metadata\":{\"raw\":\"google/gemma-4-26b-a4b-it:free is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate",
+      "{\"error\":{\"message\":\"Provider returned error\",\"code\":429,\"metadata\":{\"raw\":\"google/gemma-4-26b-a4b-it:free is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate",
+      "{\"error\":{\"message\":\"Provider returned error\",\"code\":429,\"metadata\":{\"raw\":\"google/gemma-4-26b-a4b-it:free is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate"
+    ],
+    "individual": [
+      {
+        "ok": false,
+        "status": 429,
+        "elapsed": 0.29161572456359863,
+        "error": "{\"error\":{\"message\":\"Provider returned error\",\"code\":429,\"metadata\":{\"raw\":\"google/gemma-4-26b-a4b-it:free is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate",
+        "content": "",
+        "reasoning": ""
+      },
+      {
+        "ok": false,
+        "status": 429,
+        "elapsed": 0.36225366592407227,
+        "error": "{\"error\":{\"message\":\"Provider returned error\",\"code\":429,\"metadata\":{\"raw\":\"google/gemma-4-26b-a4b-it:free is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate",
+        "content": "",
+        "reasoning": ""
+      },
+      {
+        "ok": false,
+        "status": 429,
+        "elapsed": 0.30403590202331543,
+        "error": "{\"error\":{\"message\":\"Provider returned error\",\"code\":429,\"metadata\":{\"raw\":\"google/gemma-4-26b-a4b-it:free is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate",
+        "content": "",
+        "reasoning": ""
+      }
+    ]
+  },
+  "openai/gpt-oss-20b:free": {
+    "ok_count": 3,
+    "batch_elapsed": 36.808194160461426,
+    "errors": [
+      "",
+      "",
+      ""
+    ],
+    "individual": [
+      {
+        "ok": true,
+        "status": 200,
+        "elapsed": 1.762303113937378,
+        "error": "",
+        "content": "$AMD is trading at **$178.45** and the consensus is **bullish** with medium confidence. The stock sits comfortably within a defined upside trajectory that could see it reach $220 before the next major catalyst.\n\n## Catalysts\n* **Q1 2026 revenue of $7.40\u202fB** (+73% YoY) beat estimates, with the data\u2011center segment up 73% YoY (Reuters 2026\u201105\u201115).  \n* **AMD raises FY26 AI accelerator forecast to $5\u202fB** from $4\u202fB, signalling strong momentum for its MI400 platform (Bloomberg 2026\u201105\u201115).  \n* **Microsoft expands Azure MI300X capacity 3\u00d7**, creating a sizable new contract worth ~$2.8\u202fB annually (WSJ 2026\u201105\u201113).  \n* **Computex 2026 keynote (May\u202f26)** is expected to unveil the MI400, potentially driving a rally (CNBC 2026\u201105\u201112).\n\n## Risk Considerations\n* **Stop\u2011loss at $168.5** \u2013 below the 50\u2011day EMA of $168.3, protecting against a reversal into the recent consolidation zone.\n\n## Trade Plan\n\n| Parameter | Level | Rationale |\n|-----------|-------|-----------|\n| **Buy Zone** | $175.0 \u2013 $180.0 | Current price is near the lower end of the bullish band; buying here captures upside while staying within the established support area. |\n| **Stop\u2011Loss** | $168.5 | Anchored just below the 50\u2011day EMA to guard against a break of the recent trend. |\n| **TP1** | $192.0 | First technical target derived from the cup\u2011and\u2011handle base, aligning with the 14\u2011day swing horizon. |\n| **TP2** | $205.0 | Second target based on the 21\u2011day swing horizon, offering a solid mid\u2011term upside. |\n| **TP3** | $220.0 | Long\u2011term target reflecting the 18\u2011day swing horizon and the upper end of the expected move band. |\n| **Horizon** | 14\u201121 days | Matches the swing horizon band, supported by ATR\u2011based volatility. |\n| **Expected Move** | \u00b16.5% | Typical move over the swing horizon, consistent with ATR and recent price action. |\n| **Next Catalyst** | 12 days | Upcoming earnings on 2026\u201105\u201128 and the Computex keynote, providing clear event dates. |\n\nThis plan aligns with the computed signal and leverages recent earnings strength, AI forecast upgrades, and upcoming product announcements to capture a medium\u2011term upside while managing downside risk.",
+        "reasoning": "Need to follow structure. Use current price 178.45. Provide catalysts: e.g. Q1 revenue beat, AI accelerator forecast raise, Microsoft Azure expansion, Computex keynote. Cite news. Risk: stop loss 168."
+      },
+      {
+        "ok": true,
+        "status": 200,
+        "elapsed": 1.7583391666412354,
+        "error": "",
+        "content": "The current price of $AMD is $178.45, and the market outlook is bullish with medium confidence. The stock is positioned to capitalize on a strong earnings beat and expanding AI accelerator demand, targeting a 6.5\u202f% move over the next 14\u201121 days.\n\n## Catalysts\n* **Q1 2026 earnings** \u2013 Revenue of $7.40\u202fB, a 73\u202f% YoY jump, and an EPS of $1.05 that beat expectations by 8.2\u202f% (EARNINGS RECAP, news).  \n* **AI accelerator forecast** \u2013 AMD raised FY26 AI accelerator revenue to $5\u202fB from $4\u202fB, signaling robust demand for its MI400 platform (Bloomberg, news).  \n* **Institutional upgrade** \u2013 Morgan Stanley upgraded AMD to Overweight with a PT of $215 from $180, citing Hopper share gains (Barron's, news).  \n* **Options activity** \u2013 A $185 call sweep of $4.2\u202fM and a 12\u2011day expiration were noted by @unusual_whales (twitter), indicating bullish positioning.\n\n## Risk Considerations\n* **Stop\u2011loss at $168.5** \u2013 If the price falls below this level, the technical trend (EMA 20 at 175.1, EMA 50 at 168.3) and the bullish MACD crossover may reverse, exposing downside risk (technical).\n\n## Trade Plan\n| Parameter | Level | Rationale |\n|---|---|---|\n| Buy Zone | $175.0 \u2013 $180.0 | Current price is within the computed bullish band; the EMA 20 at 175.1 supports a short\u2011term upside bias (technical). |\n| Stop-Loss | $168.5 | Aligns with the EMA 50 and provides a buffer below the recent swing low (technical). |\n| TP1 | $192.0 | Matches the first target in the computed signal and reflects a 6.5\u202f% move from the entry (computed). |\n| TP2 | $205.0 | Second target aligns with the computed TP2, offering a 15\u202f% upside from entry (computed). |\n| TP3 | $220.0 | Long\u2011term target per computed signal, capturing the full upside potential (computed). |\n| Horizon | swing_horizon_band days (14\u201121) | Derived from ATR\u202f14 of 4.85 and the swing horizon band, indicating a typical holding period (technical). |\n| Expected Move | expected_move_band (\u00b16.5\u202f%) | Consistent with the computed expected move band, representing likely volatility over the horizon (computed). |\n| Next Catalyst | next_catalyst_days days (12) | Earnings release on 2026\u201105\u201128, the next major event that could move the stock (computed). |\n\nThis plan leverages the bullish fundamentals, technical support, and upcoming earnings catalyst while managing downside through a disciplined stop\u2011loss.",
+        "reasoning": "Need to produce narrative with sections. Use computed signal. Cite sources."
+      },
+      {
+        "ok": true,
+        "status": 200,
+        "elapsed": 1.761091947555542,
+        "error": "",
+        "content": "$AMD is currently trading at $178.45, and the consensus is bullish with medium confidence. The stock sits comfortably within a clear upside trajectory, supported by recent earnings strength and favorable analyst upgrades.  \n\n## Catalysts  \n* **Q1 2026 earnings** \u2013 Revenue hit $7.40\u202fB, up 73% YoY, with EPS of $1.05 beating estimates by 8.2% (Reuters 2026\u201105\u201115, earnings recap).  \n* **AI accelerator upside** \u2013 AMD raised its FY26 AI accelerator forecast to $5\u202fB from $4\u202fB, and the MI400 ramp is on track (Bloomberg 2026\u201105\u201115).  \n\n## Risk Considerations  \n* **Stop\u2011loss at $168.5** \u2013 This level sits below the 20\u2011day EMA and 50\u2011day EMA, providing a clear downside buffer (technical data).  \n\n## Trade Plan  \n\n| Parameter | Level | Rationale |\n|-----------|-------|-----------|\n| Buy Zone | $175.0 \u2013 $180.0 | Current price is near the lower end of the bullish band; buying in this range maximizes upside while staying within the computed buy zone. |\n| Stop\u2011Loss | $168.5 | Below the 20\u2011day EMA (175.1) and 50\u2011day EMA (168.3), protecting against a break of key support. |\n| TP1 | $192.0 | First technical target aligned with the computed TP1 and the measured cup\u2011and\u2011handle breakout from YouTube analyst Meet Kevin. |\n| TP2 | $205.0 | Second target reflects a moderate extension beyond TP1, consistent with the bullish MACD crossover. |\n| TP3 | $220.0 | Final target captures the full upside potential indicated by the computed TP3 and the 14\u201121 day swing horizon. |\n| Horizon | 14\u201121 days | Derived from the swing horizon band and supported by the ATR\u2011based volatility (ATR\u202f14\u202f=\u202f4.85). |\n| Expected Move | \u00b16.5% | Matches the computed expected move band, representing typical price movement over the swing horizon. |\n| Next Catalyst | 12 days | The next major event is the earnings release on 2026\u201105\u201128, 12 days away. |",
+        "reasoning": "Need to produce narrative with sections. Use computed signal values. Cite sources."
+      }
+    ]
+  },
+  "nvidia/nemotron-3-nano-30b-a3b:free": {
+    "ok_count": 3,
+    "batch_elapsed": 27.575164318084717,
+    "errors": [
+      "",
+      "",
+      ""
+    ],
+    "individual": [
+      {
+        "ok": true,
+        "status": 200,
+        "elapsed": 0.5321741104125977,
+        "error": "",
+        "content": "AMD is currently at $178.45, with a BULLISH outlook. The technical setup shows a bullish MACD crossover and RSI at 64.2, supporting upside momentum. With a medium confidence rating and upcoming catalysts, the stock is positioned for a measured rally.  \n\n## Catalysts  \n* Q1 2026 revenue of $7.4B beat estimates by $300M, reported on 2026-05-15 (news)  \n* MI400 AI accelerator forecast raised to $5B, with Computex keynote scheduled for 2026-05-26 (news)  \n\n## Risk Considerations  \n* A breach of the $168.5 stop\u2011loss would invalidate the bullish bias, representing a ~5.7% decline from the current price (technical)  \n\n## Trade Plan  \n\n| Parameter | Level | Rationale |\n|---|---|---|\n| Buy Zone | 175.0 \u2013 180.0 | Encompasses current price of $178.45 and aligns with EMA20 support at $175.1 (technical) |\n| Stop-Loss | 168.5 | Protects against a drop below the 200\u2011day EMA of $158.4 (technical) |\n| TP1 | 192.0 | First measured\u2011move target from cup\u2011and\u2011handle base (youtube) |\n| TP2 | 205.0 | Mid\u2011term target reflecting AI accelerator market expansion (news) |\n| TP3 | 220.0 | Long\u2011term upside as AI demand scales (twitter) |\n| Horizon | 14-21 days | Derived from ATR of $4.85, implying typical 18\u2011day swing (technical) |\n| Expected Move | \u00b16.5% | Typical price swing over the 14\u201121 day horizon (technical) |\n| Next Catalyst | 12 days | Upcoming earnings on 2026-05-28, 12 days away (earnings) |",
+        "reasoning": "We need to produce a 3-6 paragraph narrative for $AMD, with specific structure:\n\nSections in exact order:\n\n1. Opening thesis paragraph (2-3 sentences). First sentence must state the current price from"
+      },
+      {
+        "ok": true,
+        "status": 200,
+        "elapsed": 0.49830007553100586,
+        "error": "",
+        "content": "AMD is currentlyat $178.45 and the signal is BULLISH. The technical outlook supports a medium\u2011confidence bullish move ahead of the upcoming earnings release. With a swing horizon of 14\u201121 days and an expected move of \u00b16.5%, the setup aligns with a measured upside.  \n\n## Catalysts  \n* $5B AI accelerator forecast raised for FY26 (news)  * 73% YoY revenue growth reported in Q1 2026 (news)  \n* Unusual call sweep of $4.2M premium at $185 strike, expiring in 12 days (twitter)  \n\n## Risk Considerations  * Potential breach of $168.5 stop\u2011loss level if momentum fades (technical)  \n\n## Trade Plan  \n\n| Parameter | Level | Rationale |\n|-----------|-------|-----------|\n| Buy Zone | $175.0 \u2013 $180.0 | covers the current price range and aligns with the 20\u2011day EMA at $175.1 (technical) |\n| Stop-Loss | $168.5 | protects against a drop below the 50\u2011day EMA of $168.3 (technical) |\n| TP1 | $192.0 | first profit target near the measured move from the cup\u2011and\u2011handle pattern (youtube) |\n| TP2 | $205.0 | mid\u2011term target reflecting AI accelerator forecast upside (news) |\n| TP3 | $220.0 | long\u2011term target aligned with fair\u2011value estimates of $210\u2011$220 (youtube) |\n| Horizon | 14-21 days | swing horizon band derived from 14\u2011day ATR of 4.85, implying ~14\u201121 day swing (technical) |\n| Expected Move | \u00b16.5% | expected \u00b16.5% move over the horizon matches historical volatility (technical) |\n| Next Catalyst | 12 days | next catalyst in 12 days coincides with earnings release on 2026\u201105\u201128 (earnings) |",
+        "reasoning": "We need to produce a narrative 3-6 paragraphs, with exact sections in order. Must include opening thesis paragraph with first sentence stating current price from COMPUTED SIGNAL.current_price, then di"
+      },
+      {
+        "ok": true,
+        "status": 200,
+        "elapsed": 0.47493553161621094,
+        "error": "",
+        "content": "AMD is currently at $178.45, with a BULLISH direction and a headline of strong AI accelerator growth. The technical setup and recent earnings beat position the stock for a measured rally toward $192.\n\n## Catalysts\n* $5B AI accelerator forecast raised by Bloomberg (news) on 2026-05-15.  * Q1 2026 revenue of $7.40B beat estimates by $300M, with data\u2011center growth of 73% YoY (news).\n\n## Risk Considerations\n* A close below the $168.5 stop\u2011loss level would invalidate the bullish bias (technical).\n\n## Trade Plan\n| Parameter | Level | Rationale |\n|-----------|-------|-----------|\n| Buy Zone | 175.0 \u2013 180.0 | The $175\u2011$180 range aligns with technical support and recent bullish volume spikes (technical) |\n| Stop-Loss | 168.5 | The $168.5 stop\u2011loss sits just below the 200\u2011day EMA, protecting against a breakdown (technical) |\n| TP1 | 192.0 | TP1 at $192.0 targets the first measured\u2011move objective from the cup\u2011and\u2011handle pattern (youtube) |\n| TP2 | 205.0 | TP2 extends the rally toward the next resistance zone, reflecting AI accelerator demand (news) |\n| TP3 | 220.0 | TP3 projects a longer\u2011term upside to $220, consistent with fair\u2011value estimates (youtube) |\n| Horizon | 14-21 | The swing horizon spans 14\u201121 days, roughly 3\u00d7 the 14\u2011day ATR of 4.85 (technical) |\n| Expected Move | \u00b16.5% | The expected move band of \u00b16.5% over the horizon suggests typical price swings of about $11.6 (technical) |\n| Next Catalyst | 12 days | The next catalyst is the May\u202f28 earnings release, a key driver for near\u2011term momentum (earnings) |",
+        "reasoning": "We need to produce a 3-6 paragraph narrative for $AMD, following strict structure.\n\nSections in order:\n\n1. Opening thesis paragraph (2-3 sentences). First sentence must state the current price from CO"
+      }
+    ]
+  },
+  "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": {
+    "ok_count": 3,
+    "batch_elapsed": 23.464069366455078,
+    "errors": [
+      "",
+      "",
+      ""
+    ],
+    "individual": [
+      {
+        "ok": true,
+        "status": 200,
+        "elapsed": 0.5116486549377441,
+        "error": "",
+        "content": "At$178.45, AMD is positioned for a bullish breakout. The technical and fundamental backdrop supports a medium-confidence bullish outlook.  \n\n## Catalysts  \n* Reuters 2026-05-15 reported AMD Q1 revenue $7.4B vs $7.1B estimate, a $300M beat (news).  \n* Bloomberg 2026-05-15 said AMD raised FY26 AI accelerator forecast to $5B from $4B prior, a 25% increase (news).  \n\n## Risk Considerations  \n* A close below $168.5 would trigger the stop-loss and signal a reversal (technical).  \n\n## Trade Plan  \n| Parameter | Level | Rationale |\n|-----------|-------|-----------|\n| Buy Zone | $175.0 \u2013 $180.0 | The $175-$180 band aligns with the 20\u2011day EMA at $175.1 and recent consolidation near $180, providing a tight entry zone (technical). |\n| Stop-Loss | $168.5 | The $168.5 stop\u2011loss sits below the 200\u2011day EMA and recent low, protecting against a breakdown (technical). |\n| TP1 | $192.0 | TP1 at $192 corresponds to a measured move from the cup\u2011and\u2011handle base identified by Meet Kevin (youtube). |\n| TP2 | $205.0 | TP2 at $205 represents the next resistance level after TP1, aligning with the 200\u2011day EMA and prior highs (technical). |\n| TP3 | $220.0 | TP3 at $220 is the upper target based on the 200\u2011day EMA and historical resistance (technical). |\n| Horizon | 14-21 days | 14\u201121 days derived from the swing horizon band, consistent with the ATR of 4.85 indicating a typical 6.5% move over this period (technical). |\n| Expected Move | \u00b16.5% | \u00b16.5% expected move over the 14\u201121 day horizon, matching historical volatility and the expected move band (technical). |\n| Next Catalyst | 12 days | 12 days until the May 28, 2026 earnings release, the primary catalyst for price action (earnings). |",
+        "reasoning": "We need to see if the car is moving or stopped.\" The question is about the car's motion status. The COMPUTED SIGNAL indicates direction: BULLISH, which implies movement. The current_price is 178.45, a"
+      },
+      {
+        "ok": true,
+        "status": 200,
+        "elapsed": 0.47219061851501465,
+        "error": "",
+        "content": "At $178.45, AMD is poised for a bullish breakout as indicated by the COMPUTED SIGNAL. The technical setup, strong earnings beat, and upcoming AI catalyst combine to support a medium\u2011confidence bullish outlook.  \n\n## Catalysts  \n* Reuters (2026-05-15) reports Q1 revenue $7.4B versus $7.1B estimate, a $300M beat.  \n* Bloomberg (2026-05-15) indicates AMD raised FY26 AI accelerator forecast to $5B, up 25% from $4B prior.  \n* twitter (2026-05-14) highlights a $10B share buyback authorization.  \n\n## Risk Considerations  \n* technical (2026-05-13) warns that a close below $168.5 would break the EMA 50 support and trigger further downside.  \n\n## Trade Plan  \n\n| Parameter | Level | Rationale |\n|-----------|-------|-----------|\n| Buy Zone | $175.0 \u2013 $180.0 | Current price sits within the identified buy zone, offering upside potential before the next catalyst. |\n| Stop-Loss | $168.5 | Protects against a breakdown below the recent swing low and EMA 50 support. |\n| TP1 | $192.0 | First profit target aligns with measured move from cup-and-handle base as noted by Meet Kevin (youtube). |\n| TP2 | $205.0 | Second target targets the upper range of the expected move band and aligns with analyst price targets. |\n| TP3 | $220.0 | Long\u2011term target reflects upside potential from AI accelerator momentum and share buyback announcement. |\n| Horizon | 14-21 days | Derived from ATR\u2011based swing horizon of 18 days, within the 14\u201121 day range. |\n| Expected Move | \u00b16.5% | Typical price swing over the horizon is about \u00b16.5%. |\n| Next Catalyst | 12 days (earnings 2026-05-28) | Earnings on 2026-05-28 and Computex keynote on 2026-05-26 provide near\u2011term catalysts. |",
+        "reasoning": "We need to produce a 3-6 paragraph narrative. Must follow exact sections order:\n\n1. Opening thesis paragraph (2-3 sentences). First sentence must state the current price from COMPUTED SIGNAL.current_p"
+      },
+      {
+        "ok": true,
+        "status": 200,
+        "elapsed": 0.6774053573608398,
+        "error": "",
+        "content": "At $178.45, AMD is poised for a bullish breakout as indicated by a medium\u2011confidence signal. The technical setup, earnings beat, and strong AI accelerator demand support a medium\u2011term upside toward the $192\u2011$220 target range.  \n\n## Catalysts  \n* Reuters (news) reported Q1 2026 revenue of $7.4B, beating estimates by $300M and marking a 73% YoY increase (May 15, 2026).  \n* Bloomberg (news) indicated AMD raised its FY26 AI accelerator forecast to $5B from $4B, a 25% increase, with the MI400 ramp on track (May 15, 2026).  \n\n## Risk Considerations  \n* A close below the $168.5 stop\u2011loss level would invalidate the bullish thesis, as the technical stop is set at that price and the ATR of $4.85 suggests further downside risk (technical).  \n\n## Trade Plan  \n| Parameter | Level | Rationale |\n|---|---|---|\n| Buy Zone | $175.0 \u2013 $180.0 | Within the defined buy zone and supported by volume ratio 1.42 (technical) |\n| Stop-Loss | $168.5 | Protects against breakdown below the recent low and technical stop level (technical) |\n| TP1 | $192.0 | First target based on measured move from cup\u2011and\u2011handle base, matching the computed TP1 level (technical) |\n| TP2 | $205.0 | Second target reflecting next resistance and the 12\u2011day swing horizon derived from ATR (technical) |\n| TP3 | $220.0 | Ultimate target targeting the upper band of the expected move (\u00b16.5%) over the 14\u201121 day horizon (technical) |\n| Horizon | 14\u201121 days | Derived from ATR of $4.85 indicating a typical swing period within the 14\u201121 day band (technical) |\n| Expected Move | \u00b16.5% | Typical price swing over the 14\u201121 day horizon as indicated by the expected move band (technical) |\n| Next Catalyst | 12 days | Upcoming earnings on 2026\u201105\u201128 and Computex keynote on 2026\u201105\u201126 serve as near\u2011term catalysts (earnings, news) |",
+        "reasoning": "We need to produce 3-6 paragraph narrative. Must follow exact sections order:\n\n1. Opening thesis paragraph (2-3 sentences). First sentence must state current price from COMPUTED SIGNAL.current_price, "
+      }
+    ]
+  }
+}

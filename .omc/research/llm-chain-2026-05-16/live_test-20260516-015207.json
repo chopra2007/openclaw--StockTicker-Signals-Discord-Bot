@@ -1,0 +1,442 @@
+[
+  {
+    "model": "openai/gpt-oss-120b:free",
+    "ticker": "AMZN",
+    "elapsed_s": 50.9,
+    "got_result": true,
+    "result": {
+      "cached_at": 1778921199.6967309,
+      "result": {
+        "embed": {
+          "title": "$AMZN \u2014 Full Analysis",
+          "color": 16705372,
+          "description": "\ud83d\udcc8 BULLISH\n$264.14\u202fAMZN is currently trading bullish on a double\u2011bottom pattern centered around a key level of $220.47. The stock sits at the top of its computed buy zone and the technical outlook suggests a short\u2011term upside swing. Momentum is modest, reflected in a low\u2011confidence rating, but the price action remains poised for a measured rally.\n\n## Catalysts\n* **Revenue:** $181.519\u202fB, +16.607\u202f% YoY in the quarter ended 2026\u201103\u201131 (earnings recap).  \n* **Technical resistance:** $277.71 identified as a near\u2011term ceiling in recent news coverage (news).  \n* **Options flow:** Unusual options activity flagged in the data set, hinting at speculative interest (options).\n\n## Risk Considerations\n* A break below the stop\u2011loss level of $242.0 would invalidate the bullish thesis.\n\n## Trade Plan\n| Parameter   | Level                         | Rationale |\n|-------------|------------------------------|-----------|\n| Buy Zone    | $262.94 \u2013 $264.14            | Captures the current price within the computed bullish entry band. |\n| Stop-Loss   | $242.0                       | Positioned below recent support and the double\u2011bottom key level to limit downside. |\n| TP1         | $280.055                     | First target aligns with the next resistance band and the expected move range. |\n| TP2         | $277.71                      | Near\u2011term resistance noted in news; TP2/TP3 padded due to limited anchor points. |\n| TP3         | $327.0                       | Longer\u2011run upside scenario if the swing extends beyond typical resistance. |\n| Horizon     | 2\u20114 days                     | Derived from the swing horizon band in the signal. |\n| Expected Move | \u00b1$12 (typical; high\u2011vol data unavailable) | Based on the typical move estimate and ATR(14) of 6.75. |\n| Next Catalyst | null days                  | No scheduled earnings or other binary events in the immediate horizon. |\n\nThe analysis reflects the computed signal\u2019s parameters without introducing external price levels.\n**Score:** 24 (news=15, tech=4, llm=5)\n**Sources:** score, technical_long, technical_short, news, options, chat_24h, brief_last3, prior_vault",
+          "fields": [
+            {
+              "name": "Direction",
+              "value": "\ud83d\udcc8 BULLISH",
+              "inline": true
+            },
+            {
+              "name": "Confidence",
+              "value": "LOW",
+              "inline": true
+            },
+            {
+              "name": "Price",
+              "value": "$264.14",
+              "inline": true
+            },
+            {
+              "name": "Buy Zone",
+              "value": "$262.94 \u2013 $264.14",
+              "inline": true
+            },
+            {
+              "name": "SL",
+              "value": "$242.00",
+              "inline": true
+            },
+            {
+              "name": "TP1",
+              "value": "$280.06",
+              "inline": true
+            },
+            {
+              "name": "TP2",
+              "value": "$277.71",
+              "inline": true
+            },
+            {
+              "name": "TP3",
+              "value": "$327.00",
+              "inline": true
+            },
+            {
+              "name": "Next Catalyst",
+              "value": "\u2014",
+              "inline": true
+            },
+            {
+              "name": "Horizon",
+              "value": "2-4d",
+              "inline": true
+            },
+            {
+              "name": "Expected Move",
+              "value": "\u00b1$12 (typical; high-vol data unavailable)",
+              "inline": true
+            }
+          ],
+          "footer": {
+            "text": "sources: 8 | 2026-05-16T08:46:39+00:00"
+          }
+        },
+        "vault_md": "# AMZN \u2014 !all Analysis\n_Generated: 2026-05-16T08:46:39+00:00_  \u2022  _cache_key=all:AMZN, ttl=15m_  \u2022  _schema_version=2_\n\n## Direction / Confidence / Trade Plan\n- Direction: **BULLISH**\n- Confidence: **LOW**\n- SL: $242.00\n- TP1: $280.06\n- TP2: $277.71\n- TP3: $327.00\n- Next Catalyst: TBD\n- Horizon: 2\u20134 days\n- Expected Move: \u00b1$12 (typical; high-vol data unavailable)\n\n## Narrative\n$264.14\u202fAMZN is currently trading bullish on a double\u2011bottom pattern centered around a key level of $220.47. The stock sits at the top of its computed buy zone and the technical outlook suggests a short\u2011term upside swing. Momentum is modest, reflected in a low\u2011confidence rating, but the price action remains poised for a measured rally.\n\n## Catalysts\n* **Revenue:** $181.519\u202fB, +16.607\u202f% YoY in the quarter ended 2026\u201103\u201131 (earnings recap).  \n* **Technical resistance:** $277.71 identified as a near\u2011term ceiling in recent news coverage (news).  \n* **Options flow:** Unusual options activity flagged in the data set, hinting at speculative interest (options).\n\n## Risk Considerations\n* A break below the stop\u2011loss level of $242.0 would invalidate the bullish thesis.\n\n## Trade Plan\n| Parameter   | Level                         | Rationale |\n|-------------|------------------------------|-----------|\n| Buy Zone    | $262.94 \u2013 $264.14            | Captures the current price within the computed bullish entry band. |\n| Stop-Loss   | $242.0                       | Positioned below recent support and the double\u2011bottom key level to limit downside. |\n| TP1         | $280.055                     | First target aligns with the next resistance band and the expected move range. |\n| TP2         | $277.71                      | Near\u2011term resistance noted in news; TP2/TP3 padded due to limited anchor points. |\n| TP3         | $327.0                       | Longer\u2011run upside scenario if the swing extends beyond typical resistance. |\n| Horizon     | 2\u20114 days                     | Derived from the swing horizon band in the signal. |\n| Expected Move | \u00b1$12 (typical; high\u2011vol data unavailable) | Based on the typical move estimate and ATR(14) of 6.75. |\n| Next Catalyst | null days                  | No scheduled earnings or other binary events in the immediate horizon. |\n\nThe analysis reflects the computed signal\u2019s parameters without introducing external price levels.\n\n## Score Breakdown\n| component | points |\n|---|---|\n| news_catalyst | 15 |\n| technical | 4 |\n| llm_boost | 5 |\n\n**Total:** 24\n\n## Sources\n- score\n- technical_long\n- technical_short\n- news\n- options\n- chat_24h\n- brief_last3\n- prior_vault\n\n## Alert History (last 30d)\n_(no alerts in 30 days)_\n\n## Anchored Levels Used\n| price | source | type | touches | freshness | score |\n|---|---|---|---|---|---|\n| $242.00 | web | web | 1 | 0d | 10.00 |\n| $255.00 | web | web | 1 | 0d | 10.00 |\n| $262.94 | web | web | 1 | 0d | 10.00 |\n| $280.06 | web | web | 1 | 0d | 13.00 |\n| $277.71 | web | web | 1 | 0d | 10.00 |\n| $327.00 | web | web | 1 | 0d | 10.00 |\n",
+        "cached_at": 1778921199.69641
+      }
+    },
+    "logs": {
+      "matches": [
+        "2026-05-16 01:46:39,692 [INFO] consensus_engine.alerts.all_command.aggregator: aggregator: $AMZN narrative_status=ok anchors=6 (sup=3 res=3) trade_plan=populated elapsed=49.9s stages=[gather=12.3s gap_fill=12.9s sanitize=21.6s synthesize=49.9s render=49.9s]"
+      ],
+      "fallback_hits": [],
+      "errors": []
+    },
+    "narrative_chars": 2123,
+    "narrative": "\ud83d\udcc8 BULLISH\n$264.14\u202fAMZN is currently trading bullish on a double\u2011bottom pattern centered around a key level of $220.47. The stock sits at the top of its computed buy zone and the technical outlook suggests a short\u2011term upside swing. Momentum is modest, reflected in a low\u2011confidence rating, but the price action remains poised for a measured rally.\n\n## Catalysts\n* **Revenue:** $181.519\u202fB, +16.607\u202f% YoY in the quarter ended 2026\u201103\u201131 (earnings recap).  \n* **Technical resistance:** $277.71 identified as a near\u2011term ceiling in recent news coverage (news).  \n* **Options flow:** Unusual options activity flagged in the data set, hinting at speculative interest (options).\n\n## Risk Considerations\n* A break below the stop\u2011loss level of $242.0 would invalidate the bullish thesis.\n\n## Trade Plan\n| Parameter   | Level                         | Rationale |\n|-------------|------------------------------|-----------|\n| Buy Zone    | $262.94 \u2013 $264.14            | Captures the current price within the computed bullish entry band. |\n| Stop-Loss   | $242.0                       | Positioned below recent support and the double\u2011bottom key level to limit downside. |\n| TP1         | $280.055                     | First target aligns with the next resistance band and the expected move range. |\n| TP2         | $277.71                      | Near\u2011term resistance noted in news; TP2/TP3 padded due to limited anchor points. |\n| TP3         | $327.0                       | Longer\u2011run upside scenario if the swing extends beyond typical resistance. |\n| Horizon     | 2\u20114 days                     | Derived from the swing horizon band in the signal. |\n| Expected Move | \u00b1$12 (typical; high\u2011vol data unavailable) | Based on the typical move estimate and ATR(14) of 6.75. |\n| Next Catalyst | null days                  | No scheduled earnings or other binary events in the immediate horizon. |\n\nThe analysis reflects the computed signal\u2019s parameters without introducing external price levels.\n**Score:** 24 (news=15, tech=4, llm=5)\n**Sources:** score, technical_long, technical_short, news, options, chat_24h, brief_last3, prior_vault",
+    "status_from_logs": "2026-05-16 01:46:39,692 [INFO] consensus_engine.alerts.all_command.aggregator: aggregator: $AMZN narrative_status=ok anchors=6 (sup=3 res=3) trade_plan=populated elapsed=49.9s stages=[gather=12.3s gap_fill=12.9s sanitize=21.6s synthesize=49.9s render=49.9s]"
+  },
+  {
+    "model": "openai/gpt-oss-20b:free",
+    "ticker": "AMZN",
+    "elapsed_s": 40.5,
+    "got_result": true,
+    "result": {
+      "cached_at": 1778921262.415972,
+      "result": {
+        "embed": {
+          "title": "$AMZN \u2014 Full Analysis",
+          "color": 16705372,
+          "description": "\ud83d\udcc8 BULLISH\n$AMZN is trading at **$264.14** today, and the technical picture is bullish with a **double\u2011bottom** pattern forming around the key level of **$220.47** (pattern confidence 0.565). The price sits at the upper edge of the identified buy zone, suggesting a potential short\u2011term upside.\n\n## Catalysts\n* Amazon\u2019s most recent quarterly revenue was **$181,519,000,000**, up **16.61% YoY** (EARNINGS RECAP).  \n* The stock has broken above the double\u2011bottom low of **$220.47**, indicating a possible reversal (CHART PATTERN).  \n* Unusual options activity has been noted, hinting at institutional interest (options).\n\n## Risk Considerations\n* A break below **$242.00** would invalidate the bullish thesis and trigger a stop\u2011loss (COMPUTED SIGNAL.sl).\n\n## Trade Plan\n\n| Parameter | Level | Rationale |\n|-----------|-------|-----------|\n| Buy Zone | $262.94 \u2013 $264.14 | Current price sits at the upper edge of the buy band, providing a tight entry window. |\n| Stop\u2011Loss | $242.00 | Below recent swing lows and the ATR\u2011based support level. |\n| TP1 | $280.055 | Short\u2011term target derived from the expected move band (+$12 typical). |\n| TP2 | $277.71 | Secondary resistance level, slightly lower than TP1, used as a secondary exit. |\n| TP3 | $327.00 | Long\u2011term target based on broader trend analysis. |\n| Horizon | 2\u20134 days | Derived from |TP1\u2011spot|/0.7\u00d7ATR(14), capped at the next catalyst (no specific date). |\n| Expected Move | \u00b1$12 (typical; high\u2011vol data unavailable) | Based on ATR(14) of $6.75, projecting a typical move over the horizon. |\n| Next Catalyst | null | No earnings or other catalysts identified within the horizon. |\n\n*No earnings date is specified, so no binary catalyst is noted.*\n**Score:** 24 (news=15, tech=4, llm=5)\n**Sources:** score, technical_long, technical_short, news, options, chat_24h, brief_last3, prior_vault",
+          "fields": [
+            {
+              "name": "Direction",
+              "value": "\ud83d\udcc8 BULLISH",
+              "inline": true
+            },
+            {
+              "name": "Confidence",
+              "value": "LOW",
+              "inline": true
+            },
+            {
+              "name": "Price",
+              "value": "$264.14",
+              "inline": true
+            },
+            {
+              "name": "Buy Zone",
+              "value": "$262.94 \u2013 $264.14",
+              "inline": true
+            },
+            {
+              "name": "SL",
+              "value": "$242.00",
+              "inline": true
+            },
+            {
+              "name": "TP1",
+              "value": "$280.06",
+              "inline": true
+            },
+            {
+              "name": "TP2",
+              "value": "$277.71",
+              "inline": true
+            },
+            {
+              "name": "TP3",
+              "value": "$327.00",
+              "inline": true
+            },
+            {
+              "name": "Next Catalyst",
+              "value": "\u2014",
+              "inline": true
+            },
+            {
+              "name": "Horizon",
+              "value": "2-4d",
+              "inline": true
+            },
+            {
+              "name": "Expected Move",
+              "value": "\u00b1$12 (typical; high-vol data unavailable)",
+              "inline": true
+            }
+          ],
+          "footer": {
+            "text": "sources: 8 | 2026-05-16T08:47:42+00:00"
+          }
+        },
+        "vault_md": "# AMZN \u2014 !all Analysis\n_Generated: 2026-05-16T08:47:42+00:00_  \u2022  _cache_key=all:AMZN, ttl=15m_  \u2022  _schema_version=2_\n\n## Direction / Confidence / Trade Plan\n- Direction: **BULLISH**\n- Confidence: **LOW**\n- SL: $242.00\n- TP1: $280.06\n- TP2: $277.71\n- TP3: $327.00\n- Next Catalyst: TBD\n- Horizon: 2\u20134 days\n- Expected Move: \u00b1$12 (typical; high-vol data unavailable)\n\n## Narrative\n$AMZN is trading at **$264.14** today, and the technical picture is bullish with a **double\u2011bottom** pattern forming around the key level of **$220.47** (pattern confidence 0.565). The price sits at the upper edge of the identified buy zone, suggesting a potential short\u2011term upside.\n\n## Catalysts\n* Amazon\u2019s most recent quarterly revenue was **$181,519,000,000**, up **16.61% YoY** (EARNINGS RECAP).  \n* The stock has broken above the double\u2011bottom low of **$220.47**, indicating a possible reversal (CHART PATTERN).  \n* Unusual options activity has been noted, hinting at institutional interest (options).\n\n## Risk Considerations\n* A break below **$242.00** would invalidate the bullish thesis and trigger a stop\u2011loss (COMPUTED SIGNAL.sl).\n\n## Trade Plan\n\n| Parameter | Level | Rationale |\n|-----------|-------|-----------|\n| Buy Zone | $262.94 \u2013 $264.14 | Current price sits at the upper edge of the buy band, providing a tight entry window. |\n| Stop\u2011Loss | $242.00 | Below recent swing lows and the ATR\u2011based support level. |\n| TP1 | $280.055 | Short\u2011term target derived from the expected move band (+$12 typical). |\n| TP2 | $277.71 | Secondary resistance level, slightly lower than TP1, used as a secondary exit. |\n| TP3 | $327.00 | Long\u2011term target based on broader trend analysis. |\n| Horizon | 2\u20134 days | Derived from |TP1\u2011spot|/0.7\u00d7ATR(14), capped at the next catalyst (no specific date). |\n| Expected Move | \u00b1$12 (typical; high\u2011vol data unavailable) | Based on ATR(14) of $6.75, projecting a typical move over the horizon. |\n| Next Catalyst | null | No earnings or other catalysts identified within the horizon. |\n\n*No earnings date is specified, so no binary catalyst is noted.*\n\n## Score Breakdown\n| component | points |\n|---|---|\n| news_catalyst | 15 |\n| technical | 4 |\n| llm_boost | 5 |\n\n**Total:** 24\n\n## Sources\n- score\n- technical_long\n- technical_short\n- news\n- options\n- chat_24h\n- brief_last3\n- prior_vault\n\n## Alert History (last 30d)\n_(no alerts in 30 days)_\n\n## Anchored Levels Used\n| price | source | type | touches | freshness | score |\n|---|---|---|---|---|---|\n| $242.00 | web | web | 1 | 0d | 10.00 |\n| $255.00 | web | web | 1 | 0d | 10.00 |\n| $262.94 | web | web | 1 | 0d | 10.00 |\n| $280.06 | web | web | 1 | 0d | 13.00 |\n| $277.71 | web | web | 1 | 0d | 10.00 |\n| $327.00 | web | web | 1 | 0d | 10.00 |\n",
+        "cached_at": 1778921262.415706
+      }
+    },
+    "logs": {
+      "matches": [
+        "2026-05-16 01:47:42,411 [INFO] consensus_engine.alerts.all_command.aggregator: aggregator: $AMZN narrative_status=ok anchors=6 (sup=3 res=3) trade_plan=populated elapsed=35.3s stages=[gather=10.2s gap_fill=11.0s sanitize=19.3s synthesize=35.3s render=35.3s]"
+      ],
+      "fallback_hits": [],
+      "errors": []
+    },
+    "narrative_chars": 1841,
+    "narrative": "\ud83d\udcc8 BULLISH\n$AMZN is trading at **$264.14** today, and the technical picture is bullish with a **double\u2011bottom** pattern forming around the key level of **$220.47** (pattern confidence 0.565). The price sits at the upper edge of the identified buy zone, suggesting a potential short\u2011term upside.\n\n## Catalysts\n* Amazon\u2019s most recent quarterly revenue was **$181,519,000,000**, up **16.61% YoY** (EARNINGS RECAP).  \n* The stock has broken above the double\u2011bottom low of **$220.47**, indicating a possible reversal (CHART PATTERN).  \n* Unusual options activity has been noted, hinting at institutional interest (options).\n\n## Risk Considerations\n* A break below **$242.00** would invalidate the bullish thesis and trigger a stop\u2011loss (COMPUTED SIGNAL.sl).\n\n## Trade Plan\n\n| Parameter | Level | Rationale |\n|-----------|-------|-----------|\n| Buy Zone | $262.94 \u2013 $264.14 | Current price sits at the upper edge of the buy band, providing a tight entry window. |\n| Stop\u2011Loss | $242.00 | Below recent swing lows and the ATR\u2011based support level. |\n| TP1 | $280.055 | Short\u2011term target derived from the expected move band (+$12 typical). |\n| TP2 | $277.71 | Secondary resistance level, slightly lower than TP1, used as a secondary exit. |\n| TP3 | $327.00 | Long\u2011term target based on broader trend analysis. |\n| Horizon | 2\u20134 days | Derived from |TP1\u2011spot|/0.7\u00d7ATR(14), capped at the next catalyst (no specific date). |\n| Expected Move | \u00b1$12 (typical; high\u2011vol data unavailable) | Based on ATR(14) of $6.75, projecting a typical move over the horizon. |\n| Next Catalyst | null | No earnings or other catalysts identified within the horizon. |\n\n*No earnings date is specified, so no binary catalyst is noted.*\n**Score:** 24 (news=15, tech=4, llm=5)\n**Sources:** score, technical_long, technical_short, news, options, chat_24h, brief_last3, prior_vault",
+    "status_from_logs": "2026-05-16 01:47:42,411 [INFO] consensus_engine.alerts.all_command.aggregator: aggregator: $AMZN narrative_status=ok anchors=6 (sup=3 res=3) trade_plan=populated elapsed=35.3s stages=[gather=10.2s gap_fill=11.0s sanitize=19.3s synthesize=35.3s render=35.3s]"
+  },
+  {
+    "model": "nvidia/nemotron-3-nano-30b-a3b:free",
+    "ticker": "AMZN",
+    "elapsed_s": 45.4,
+    "got_result": true,
+    "result": {
+      "cached_at": 1778921338.2863572,
+      "result": {
+        "embed": {
+          "title": "$AMZN \u2014 Full Analysis",
+          "color": 16705372,
+          "description": "\ud83d\udcc8 BULLISH\nAMZN is currently trading at $264.14, BULLISH, with a double bottom pattern key level at $220.47. The analysis targets upside toward $280.06, $277.71 and $327.00 over the next 2\u20134 periods.\n\n## Catalysts\n* Revenue $181.519B, +16.61% YoY (Earnings Recap)  \n* ATR14 $6.75 (technical_context)\n\n## Risk Considerations\n* A close below $242.00 (stop\u2011loss) would invalidate the bullish thesis (COMPUTED SIGNAL.sl)\n\n## Trade Plan\n| Parameter | Level | Rationale |\n|---|---|---|\n| Buy Zone | $262.94 \u2013 $264.14 | covers current price and aligns with double bottom pattern (technical_long) |\n| Stop-Loss | $242.0 | provides room for volatility, below key support, protects against downside (technical_context) |\n| TP1 | $280.055 | first target from measured move, aligns with resistance noted in news (May 6, 2026) |\n| TP2 | $277.71 | second resistance level, part of multi\u2011target structure (technical_long) |\n| TP3 | $327.0 | extended upside target, padded after TP2 (prior_vault) |\n| Horizon | 2\u20134 days | derived from tp1\u2011spot divided by 0.7\u00d7ATR, capped at next catalyst (technical_context) |\n| Expected Move | \u00b1$12 (typical; high-vol data unavailable) | typical move over horizon, based on ATR(14) $6.75 (technical_context) |\n| Next Catalyst | \u2014 | \u2014 |\n**Score:** 19 (news=15, tech=4)\n**Sources:** score, technical_long, technical_short, news, options, chat_24h, brief_last3, prior_vault",
+          "fields": [
+            {
+              "name": "Direction",
+              "value": "\ud83d\udcc8 BULLISH",
+              "inline": true
+            },
+            {
+              "name": "Confidence",
+              "value": "LOW",
+              "inline": true
+            },
+            {
+              "name": "Price",
+              "value": "$264.14",
+              "inline": true
+            },
+            {
+              "name": "Buy Zone",
+              "value": "$262.94 \u2013 $264.14",
+              "inline": true
+            },
+            {
+              "name": "SL",
+              "value": "$242.00",
+              "inline": true
+            },
+            {
+              "name": "TP1",
+              "value": "$280.06",
+              "inline": true
+            },
+            {
+              "name": "TP2",
+              "value": "$277.71",
+              "inline": true
+            },
+            {
+              "name": "TP3",
+              "value": "$327.00",
+              "inline": true
+            },
+            {
+              "name": "Next Catalyst",
+              "value": "\u2014",
+              "inline": true
+            },
+            {
+              "name": "Horizon",
+              "value": "2-4d",
+              "inline": true
+            },
+            {
+              "name": "Expected Move",
+              "value": "\u00b1$12 (typical; high-vol data unavailable)",
+              "inline": true
+            }
+          ],
+          "footer": {
+            "text": "sources: 8 | 2026-05-16T08:48:58+00:00"
+          }
+        },
+        "vault_md": "# AMZN \u2014 !all Analysis\n_Generated: 2026-05-16T08:48:58+00:00_  \u2022  _cache_key=all:AMZN, ttl=15m_  \u2022  _schema_version=2_\n\n## Direction / Confidence / Trade Plan\n- Direction: **BULLISH**\n- Confidence: **LOW**\n- SL: $242.00\n- TP1: $280.06\n- TP2: $277.71\n- TP3: $327.00\n- Next Catalyst: TBD\n- Horizon: 2\u20134 days\n- Expected Move: \u00b1$12 (typical; high-vol data unavailable)\n\n## Narrative\nAMZN is currently trading at $264.14, BULLISH, with a double bottom pattern key level at $220.47. The analysis targets upside toward $280.06, $277.71 and $327.00 over the next 2\u20134 periods.\n\n## Catalysts\n* Revenue $181.519B, +16.61% YoY (Earnings Recap)  \n* ATR14 $6.75 (technical_context)\n\n## Risk Considerations\n* A close below $242.00 (stop\u2011loss) would invalidate the bullish thesis (COMPUTED SIGNAL.sl)\n\n## Trade Plan\n| Parameter | Level | Rationale |\n|---|---|---|\n| Buy Zone | $262.94 \u2013 $264.14 | covers current price and aligns with double bottom pattern (technical_long) |\n| Stop-Loss | $242.0 | provides room for volatility, below key support, protects against downside (technical_context) |\n| TP1 | $280.055 | first target from measured move, aligns with resistance noted in news (May 6, 2026) |\n| TP2 | $277.71 | second resistance level, part of multi\u2011target structure (technical_long) |\n| TP3 | $327.0 | extended upside target, padded after TP2 (prior_vault) |\n| Horizon | 2\u20134 days | derived from tp1\u2011spot divided by 0.7\u00d7ATR, capped at next catalyst (technical_context) |\n| Expected Move | \u00b1$12 (typical; high-vol data unavailable) | typical move over horizon, based on ATR(14) $6.75 (technical_context) |\n| Next Catalyst | \u2014 | \u2014 |\n\n## Score Breakdown\n| component | points |\n|---|---|\n| news_catalyst | 15 |\n| technical | 4 |\n\n**Total:** 19\n\n## Sources\n- score\n- technical_long\n- technical_short\n- news\n- options\n- chat_24h\n- brief_last3\n- prior_vault\n\n## Alert History (last 30d)\n_(no alerts in 30 days)_\n\n## Anchored Levels Used\n| price | source | type | touches | freshness | score |\n|---|---|---|---|---|---|\n| $242.00 | web | web | 1 | 0d | 10.00 |\n| $255.00 | web | web | 1 | 0d | 10.00 |\n| $262.94 | web | web | 1 | 0d | 10.00 |\n| $280.06 | web | web | 1 | 0d | 13.00 |\n| $277.71 | web | web | 1 | 0d | 10.00 |\n| $327.00 | web | web | 1 | 0d | 10.00 |\n",
+        "cached_at": 1778921338.2860687
+      }
+    },
+    "logs": {
+      "matches": [
+        "2026-05-16 01:48:58,282 [INFO] consensus_engine.alerts.all_command.aggregator: aggregator: $AMZN narrative_status=ok anchors=6 (sup=3 res=3) trade_plan=populated elapsed=43.5s stages=[gather=9.9s gap_fill=10.5s sanitize=16.4s synthesize=43.5s render=43.5s]"
+      ],
+      "fallback_hits": [],
+      "errors": []
+    },
+    "narrative_chars": 1387,
+    "narrative": "\ud83d\udcc8 BULLISH\nAMZN is currently trading at $264.14, BULLISH, with a double bottom pattern key level at $220.47. The analysis targets upside toward $280.06, $277.71 and $327.00 over the next 2\u20134 periods.\n\n## Catalysts\n* Revenue $181.519B, +16.61% YoY (Earnings Recap)  \n* ATR14 $6.75 (technical_context)\n\n## Risk Considerations\n* A close below $242.00 (stop\u2011loss) would invalidate the bullish thesis (COMPUTED SIGNAL.sl)\n\n## Trade Plan\n| Parameter | Level | Rationale |\n|---|---|---|\n| Buy Zone | $262.94 \u2013 $264.14 | covers current price and aligns with double bottom pattern (technical_long) |\n| Stop-Loss | $242.0 | provides room for volatility, below key support, protects against downside (technical_context) |\n| TP1 | $280.055 | first target from measured move, aligns with resistance noted in news (May 6, 2026) |\n| TP2 | $277.71 | second resistance level, part of multi\u2011target structure (technical_long) |\n| TP3 | $327.0 | extended upside target, padded after TP2 (prior_vault) |\n| Horizon | 2\u20134 days | derived from tp1\u2011spot divided by 0.7\u00d7ATR, capped at next catalyst (technical_context) |\n| Expected Move | \u00b1$12 (typical; high-vol data unavailable) | typical move over horizon, based on ATR(14) $6.75 (technical_context) |\n| Next Catalyst | \u2014 | \u2014 |\n**Score:** 19 (news=15, tech=4)\n**Sources:** score, technical_long, technical_short, news, options, chat_24h, brief_last3, prior_vault",
+    "status_from_logs": "2026-05-16 01:48:58,282 [INFO] consensus_engine.alerts.all_command.aggregator: aggregator: $AMZN narrative_status=ok anchors=6 (sup=3 res=3) trade_plan=populated elapsed=43.5s stages=[gather=9.9s gap_fill=10.5s sanitize=16.4s synthesize=43.5s render=43.5s]"
+  },
+  {
+    "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    "ticker": "AMZN",
+    "elapsed_s": 40.5,
+    "got_result": true,
+    "result": {
+      "cached_at": 1778921402.2396798,
+      "result": {
+        "embed": {
+          "title": "$AMZN \u2014 Full Analysis",
+          "color": 16705372,
+          "description": "\ud83d\udcc8 BULLISH\nAt$264.14, AMZN is positioned for a bullish move following a double\u2011bottom pattern with key level $220.47. The low\u2011confidence signal suggests a potential rally toward $280.06, $277.71, and $327.00 over the next 3\u20114 days.  \n\n## Catalysts  \n* Revenue $181519000000.0, +16.60724495236627% YoY (2026\u201103\u201131 earnings)  \n* Resistance level $277.71 noted on May 6, 2026 (news)  \n\n## Risk Considerations  \n* A break below the stop\u2011loss level of $242.00 would invalidate the bullish thesis.  \n\n## Trade Plan  \n\n| Parameter | Level | Rationale |\n|---|---|---|\n| Buy Zone | $262.94 \u2013 $264.14 | captures the current price and sits just above the double\u2011bottom key level $220.47, providing a tight entry |\n| Stop-Loss | $242.0 | protects against a downside move below the defined stop\u2011loss level |\n| TP1 | $280.055 | targets the first measured\u2011move level, aligning with the $277.71 resistance noted in news |\n| TP2 | $277.71 | sits at the next resistance level after TP1, offering a secondary upside target |\n| TP3 | $327.0 | represents the upper bound of the projected move, beyond the three resistance anchors |\n| Horizon | 2\u20114 days | derived from (TP1\u2011spot)/0.7\u00d7ATR \u2248 3.4 days, within the allowed swing range |\n| Expected Move | \u00b1$12 | typical move over the horizon, based on ATR(14) of $6.75 |\n| Next Catalyst | 0 days | no scheduled earnings or options expiry within the swing horizon |\n**Score:** 27 (news=15, tech=4, llm=8)\n**Sources:** score, technical_long, technical_short, news, options, chat_24h, brief_last3, prior_vault",
+          "fields": [
+            {
+              "name": "Direction",
+              "value": "\ud83d\udcc8 BULLISH",
+              "inline": true
+            },
+            {
+              "name": "Confidence",
+              "value": "LOW",
+              "inline": true
+            },
+            {
+              "name": "Price",
+              "value": "$264.14",
+              "inline": true
+            },
+            {
+              "name": "Buy Zone",
+              "value": "$262.94 \u2013 $264.14",
+              "inline": true
+            },
+            {
+              "name": "SL",
+              "value": "$242.00",
+              "inline": true
+            },
+            {
+              "name": "TP1",
+              "value": "$280.06",
+              "inline": true
+            },
+            {
+              "name": "TP2",
+              "value": "$277.71",
+              "inline": true
+            },
+            {
+              "name": "TP3",
+              "value": "$327.00",
+              "inline": true
+            },
+            {
+              "name": "Next Catalyst",
+              "value": "\u2014",
+              "inline": true
+            },
+            {
+              "name": "Horizon",
+              "value": "2-4d",
+              "inline": true
+            },
+            {
+              "name": "Expected Move",
+              "value": "\u00b1$12 (typical; high-vol data unavailable)",
+              "inline": true
+            }
+          ],
+          "footer": {
+            "text": "sources: 8 | 2026-05-16T08:50:02+00:00"
+          }
+        },
+        "vault_md": "# AMZN \u2014 !all Analysis\n_Generated: 2026-05-16T08:50:02+00:00_  \u2022  _cache_key=all:AMZN, ttl=15m_  \u2022  _schema_version=2_\n\n## Direction / Confidence / Trade Plan\n- Direction: **BULLISH**\n- Confidence: **LOW**\n- SL: $242.00\n- TP1: $280.06\n- TP2: $277.71\n- TP3: $327.00\n- Next Catalyst: TBD\n- Horizon: 2\u20134 days\n- Expected Move: \u00b1$12 (typical; high-vol data unavailable)\n\n## Narrative\nAt$264.14, AMZN is positioned for a bullish move following a double\u2011bottom pattern with key level $220.47. The low\u2011confidence signal suggests a potential rally toward $280.06, $277.71, and $327.00 over the next 3\u20114 days.  \n\n## Catalysts  \n* Revenue $181519000000.0, +16.60724495236627% YoY (2026\u201103\u201131 earnings)  \n* Resistance level $277.71 noted on May 6, 2026 (news)  \n\n## Risk Considerations  \n* A break below the stop\u2011loss level of $242.00 would invalidate the bullish thesis.  \n\n## Trade Plan  \n\n| Parameter | Level | Rationale |\n|---|---|---|\n| Buy Zone | $262.94 \u2013 $264.14 | captures the current price and sits just above the double\u2011bottom key level $220.47, providing a tight entry |\n| Stop-Loss | $242.0 | protects against a downside move below the defined stop\u2011loss level |\n| TP1 | $280.055 | targets the first measured\u2011move level, aligning with the $277.71 resistance noted in news |\n| TP2 | $277.71 | sits at the next resistance level after TP1, offering a secondary upside target |\n| TP3 | $327.0 | represents the upper bound of the projected move, beyond the three resistance anchors |\n| Horizon | 2\u20114 days | derived from (TP1\u2011spot)/0.7\u00d7ATR \u2248 3.4 days, within the allowed swing range |\n| Expected Move | \u00b1$12 | typical move over the horizon, based on ATR(14) of $6.75 |\n| Next Catalyst | 0 days | no scheduled earnings or options expiry within the swing horizon |\n\n## Score Breakdown\n| component | points |\n|---|---|\n| news_catalyst | 15 |\n| technical | 4 |\n| llm_boost | 8 |\n\n**Total:** 27\n\n## Sources\n- score\n- technical_long\n- technical_short\n- news\n- options\n- chat_24h\n- brief_last3\n- prior_vault\n\n## Alert History (last 30d)\n_(no alerts in 30 days)_\n\n## Anchored Levels Used\n| price | source | type | touches | freshness | score |\n|---|---|---|---|---|---|\n| $242.00 | web | web | 1 | 0d | 10.00 |\n| $255.00 | web | web | 1 | 0d | 10.00 |\n| $262.94 | web | web | 1 | 0d | 10.00 |\n| $280.06 | web | web | 1 | 0d | 13.00 |\n| $277.71 | web | web | 1 | 0d | 10.00 |\n| $327.00 | web | web | 1 | 0d | 10.00 |\n",
+        "cached_at": 1778921402.2392845
+      }
+    },
+    "logs": {
+      "matches": [
+        "2026-05-16 01:50:02,233 [INFO] consensus_engine.alerts.all_command.aggregator: aggregator: $AMZN narrative_status=ok anchors=6 (sup=3 res=3) trade_plan=populated elapsed=35.0s stages=[gather=9.8s gap_fill=10.4s sanitize=15.4s synthesize=35.0s render=35.0s]"
+      ],
+      "fallback_hits": [],
+      "errors": []
+    },
+    "narrative_chars": 1529,
+    "narrative": "\ud83d\udcc8 BULLISH\nAt$264.14, AMZN is positioned for a bullish move following a double\u2011bottom pattern with key level $220.47. The low\u2011confidence signal suggests a potential rally toward $280.06, $277.71, and $327.00 over the next 3\u20114 days.  \n\n## Catalysts  \n* Revenue $181519000000.0, +16.60724495236627% YoY (2026\u201103\u201131 earnings)  \n* Resistance level $277.71 noted on May 6, 2026 (news)  \n\n## Risk Considerations  \n* A break below the stop\u2011loss level of $242.00 would invalidate the bullish thesis.  \n\n## Trade Plan  \n\n| Parameter | Level | Rationale |\n|---|---|---|\n| Buy Zone | $262.94 \u2013 $264.14 | captures the current price and sits just above the double\u2011bottom key level $220.47, providing a tight entry |\n| Stop-Loss | $242.0 | protects against a downside move below the defined stop\u2011loss level |\n| TP1 | $280.055 | targets the first measured\u2011move level, aligning with the $277.71 resistance noted in news |\n| TP2 | $277.71 | sits at the next resistance level after TP1, offering a secondary upside target |\n| TP3 | $327.0 | represents the upper bound of the projected move, beyond the three resistance anchors |\n| Horizon | 2\u20114 days | derived from (TP1\u2011spot)/0.7\u00d7ATR \u2248 3.4 days, within the allowed swing range |\n| Expected Move | \u00b1$12 | typical move over the horizon, based on ATR(14) of $6.75 |\n| Next Catalyst | 0 days | no scheduled earnings or options expiry within the swing horizon |\n**Score:** 27 (news=15, tech=4, llm=8)\n**Sources:** score, technical_long, technical_short, news, options, chat_24h, brief_last3, prior_vault",
+    "status_from_logs": "2026-05-16 01:50:02,233 [INFO] consensus_engine.alerts.all_command.aggregator: aggregator: $AMZN narrative_status=ok anchors=6 (sup=3 res=3) trade_plan=populated elapsed=35.0s stages=[gather=9.8s gap_fill=10.4s sanitize=15.4s synthesize=35.0s render=35.0s]"
+  },
+  {
+    "model": "z-ai/glm-4.5-air:free",
+    "ticker": "AMZN",
+    "elapsed_s": 66.1,
+    "got_result": true,
+    "result": {
+      "cached_at": 1778921499.8626618,
+      "result": {
+        "embed": {
+          "title": "$AMZN \u2014 Full Analysis",
+          "color": 16705372,
+          "description": "\ud83d\udcc8 BULLISH\nAmazon (AMZN) is currently trading at $264.14 with a BULLISH outlook, forming a double bottom pattern with key support at $220.47. Despite the low confidence signal, the technical setup suggests potential upside momentum in the near term, with the stock positioned within its buy zone.\n\n## Catalysts:\n* AMZN reported quarterly revenue of $181,519,000,000, representing 16.61% year-over-year growth, indicating strong business performance despite a slight EPS miss of -3.61%.\n* Technical analysis from the score source identifies a double bottom pattern with 56.5% confidence, suggesting a potential reversal from recent price weakness.\n\n## Risk Considerations:\n* A break below the stop loss level at $242.0 would invalidate the bullish thesis, potentially indicating further downside pressure that could extend to previous support levels.\n\n## Trade Plan:\n| Parameter | Level | Rationale |\n|-----------|-------|-----------|\n| Buy Zone | $262.94 - $264.14 | Entry at current price levels with tight range to minimize risk |\n| Stop-Loss | $242.0 | Key technical support level below which the pattern is invalidated |\n| TP1 | $280.06 | Measured move from double bottom pattern |\n| TP2 | $277.71 | Resistance level identified in technical analysis |\n| TP3 | $327.00 | Longer-term target based on technical projections |\n| Horizon | 2-4 days | Short-term swing trade based on ATR(14) of $6.75 |\n| Expected Move | \u00b1$12 (typical) | Based on ATR(14) calculation of $6.75 over the horizon |\n| Next Catalyst | TBD | No specific catalyst identified within the horizon |\n**Score:** 19 (news=15, tech=4)\n**Sources:** score, technical_long, technical_short, news, options, chat_24h, brief_last3, prior_vault",
+          "fields": [
+            {
+              "name": "Direction",
+              "value": "\ud83d\udcc8 BULLISH",
+              "inline": true
+            },
+            {
+              "name": "Confidence",
+              "value": "LOW",
+              "inline": true
+            },
+            {
+              "name": "Price",
+              "value": "$264.14",
+              "inline": true
+            },
+            {
+              "name": "Buy Zone",
+              "value": "$262.94 \u2013 $264.14",
+              "inline": true
+            },
+            {
+              "name": "SL",
+              "value": "$242.00",
+              "inline": true
+            },
+            {
+              "name": "TP1",
+              "value": "$280.06",
+              "inline": true
+            },
+            {
+              "name": "TP2",
+              "value": "$277.71",
+              "inline": true
+            },
+            {
+              "name": "TP3",
+              "value": "$327.00",
+              "inline": true
+            },
+            {
+              "name": "Next Catalyst",
+              "value": "\u2014",
+              "inline": true
+            },
+            {
+              "name": "Horizon",
+              "value": "2-4d",
+              "inline": true
+            },
+            {
+              "name": "Expected Move",
+              "value": "\u00b1$12 (typical; high-vol data unavailable)",
+              "inline": true
+            }
+          ],
+          "footer": {
+            "text": "sources: 8 | 2026-05-16T08:51:39+00:00"
+          }
+        },
+        "vault_md": "# AMZN \u2014 !all Analysis\n_Generated: 2026-05-16T08:51:39+00:00_  \u2022  _cache_key=all:AMZN, ttl=15m_  \u2022  _schema_version=2_\n\n## Direction / Confidence / Trade Plan\n- Direction: **BULLISH**\n- Confidence: **LOW**\n- SL: $242.00\n- TP1: $280.06\n- TP2: $277.71\n- TP3: $327.00\n- Next Catalyst: TBD\n- Horizon: 2\u20134 days\n- Expected Move: \u00b1$12 (typical; high-vol data unavailable)\n\n## Narrative\nAmazon (AMZN) is currently trading at $264.14 with a BULLISH outlook, forming a double bottom pattern with key support at $220.47. Despite the low confidence signal, the technical setup suggests potential upside momentum in the near term, with the stock positioned within its buy zone.\n\n## Catalysts:\n* AMZN reported quarterly revenue of $181,519,000,000, representing 16.61% year-over-year growth, indicating strong business performance despite a slight EPS miss of -3.61%.\n* Technical analysis from the score source identifies a double bottom pattern with 56.5% confidence, suggesting a potential reversal from recent price weakness.\n\n## Risk Considerations:\n* A break below the stop loss level at $242.0 would invalidate the bullish thesis, potentially indicating further downside pressure that could extend to previous support levels.\n\n## Trade Plan:\n| Parameter | Level | Rationale |\n|-----------|-------|-----------|\n| Buy Zone | $262.94 - $264.14 | Entry at current price levels with tight range to minimize risk |\n| Stop-Loss | $242.0 | Key technical support level below which the pattern is invalidated |\n| TP1 | $280.06 | Measured move from double bottom pattern |\n| TP2 | $277.71 | Resistance level identified in technical analysis |\n| TP3 | $327.00 | Longer-term target based on technical projections |\n| Horizon | 2-4 days | Short-term swing trade based on ATR(14) of $6.75 |\n| Expected Move | \u00b1$12 (typical) | Based on ATR(14) calculation of $6.75 over the horizon |\n| Next Catalyst | TBD | No specific catalyst identified within the horizon |\n\n## Score Breakdown\n| component | points |\n|---|---|\n| news_catalyst | 15 |\n| technical | 4 |\n\n**Total:** 19\n\n## Sources\n- score\n- technical_long\n- technical_short\n- news\n- options\n- chat_24h\n- brief_last3\n- prior_vault\n\n## Alert History (last 30d)\n_(no alerts in 30 days)_\n\n## Anchored Levels Used\n| price | source | type | touches | freshness | score |\n|---|---|---|---|---|---|\n| $242.00 | web | web | 1 | 0d | 10.00 |\n| $255.00 | web | web | 1 | 0d | 10.00 |\n| $262.94 | web | web | 1 | 0d | 10.00 |\n| $280.06 | web | web | 1 | 0d | 13.00 |\n| $277.71 | web | web | 1 | 0d | 10.00 |\n| $327.00 | web | web | 1 | 0d | 10.00 |\n",
+        "cached_at": 1778921499.861914
+      }
+    },
+    "logs": {
+      "matches": [
+        "2026-05-16 01:51:39,850 [INFO] consensus_engine.alerts.all_command.aggregator: aggregator: $AMZN narrative_status=ok anchors=6 (sup=3 res=3) trade_plan=populated elapsed=64.7s stages=[gather=21.2s gap_fill=21.8s sanitize=30.2s synthesize=64.7s render=64.7s]"
+      ],
+      "fallback_hits": [],
+      "errors": []
+    },
+    "narrative_chars": 1702,
+    "narrative": "\ud83d\udcc8 BULLISH\nAmazon (AMZN) is currently trading at $264.14 with a BULLISH outlook, forming a double bottom pattern with key support at $220.47. Despite the low confidence signal, the technical setup suggests potential upside momentum in the near term, with the stock positioned within its buy zone.\n\n## Catalysts:\n* AMZN reported quarterly revenue of $181,519,000,000, representing 16.61% year-over-year growth, indicating strong business performance despite a slight EPS miss of -3.61%.\n* Technical analysis from the score source identifies a double bottom pattern with 56.5% confidence, suggesting a potential reversal from recent price weakness.\n\n## Risk Considerations:\n* A break below the stop loss level at $242.0 would invalidate the bullish thesis, potentially indicating further downside pressure that could extend to previous support levels.\n\n## Trade Plan:\n| Parameter | Level | Rationale |\n|-----------|-------|-----------|\n| Buy Zone | $262.94 - $264.14 | Entry at current price levels with tight range to minimize risk |\n| Stop-Loss | $242.0 | Key technical support level below which the pattern is invalidated |\n| TP1 | $280.06 | Measured move from double bottom pattern |\n| TP2 | $277.71 | Resistance level identified in technical analysis |\n| TP3 | $327.00 | Longer-term target based on technical projections |\n| Horizon | 2-4 days | Short-term swing trade based on ATR(14) of $6.75 |\n| Expected Move | \u00b1$12 (typical) | Based on ATR(14) calculation of $6.75 over the horizon |\n| Next Catalyst | TBD | No specific catalyst identified within the horizon |\n**Score:** 19 (news=15, tech=4)\n**Sources:** score, technical_long, technical_short, news, options, chat_24h, brief_last3, prior_vault",
+    "status_from_logs": "2026-05-16 01:51:39,850 [INFO] consensus_engine.alerts.all_command.aggregator: aggregator: $AMZN narrative_status=ok anchors=6 (sup=3 res=3) trade_plan=populated elapsed=64.7s stages=[gather=21.2s gap_fill=21.8s sanitize=30.2s synthesize=64.7s render=64.7s]"
+  }
+]
