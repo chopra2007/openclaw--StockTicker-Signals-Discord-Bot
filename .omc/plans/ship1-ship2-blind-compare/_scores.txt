@@ -1,0 +1,34 @@
+Phase B real-world verification — captured 2026-05-16
+
+## Heuristic auto-score (from _capture.py)
+NVDA: 8/10  {"N1_cashtag": 1, "N2_emoji": 1, "N3_compact_money": 0, "N4_arrows": 1, "N5_oneliner": 1, "N7_relative_date": 1, "M1_tldr": 1, "M2_bear_case": 1, "M3_variant": 0, "M6_risks_mitigants": 1}
+AMD:  9/10  {"N1_cashtag": 1, "N2_emoji": 1, "N3_compact_money": 0, "N4_arrows": 1, "N5_oneliner": 1, "N7_relative_date": 1, "M1_tldr": 1, "M2_bear_case": 1, "M3_variant": 1, "M6_risks_mitigants": 1}
+TSLA: 10/10 {"N1_cashtag": 1, "N2_emoji": 1, "N3_compact_money": 1, "N4_arrows": 1, "N5_oneliner": 1, "N7_relative_date": 1, "M1_tldr": 1, "M2_bear_case": 1, "M3_variant": 1, "M6_risks_mitigants": 1}
+
+## Manual recount — heuristic false negatives corrected
+
+NVDA: 10/10
+  N3 hit: "Revenue $68.13B, +73.2% YoY" (heuristic missed comma after B)
+  M3 hit: "Market view: consensus is mixed... but our view leans bullish... Catalyst: ..."
+          (heuristic required capital "Our view"; narrator used lowercase mid-sentence)
+
+AMD: 10/10
+  N3 hit: "Revenue $10.27B, +34.1% YoY"
+
+TSLA: 9/10
+  N7 partial — Next Catalyst field rendered "—" because next_catalyst_days
+  was None (no anchors derived in this run; structured_fields gap that
+  predates Ship 1/2). The _fmt_relative_date helper is wired and other
+  tickers use it (NVDA "in 4 sessions"). Narrative wrote "Earnings on
+  2026-03-31 is the binary catalyst" using ISO instead of relative — a
+  prompt-side miss, not a helper miss.
+
+TOTAL: 29/30 — passes the ≥27/30 acceptance gate
+
+## Engine log telemetry
+  NVDA: narrative_status=ok stage_synth_ms=38652 numbered_facts=22 catalyst_bullets=2 risk_bullets=1
+  AMD:  narrative_status=ok stage_synth_ms=27338 numbered_facts=18 catalyst_bullets=2 risk_bullets=1
+  TSLA: narrative_status=ok stage_synth_ms=57920 numbered_facts=9  catalyst_bullets=2 risk_bullets=1
+
+Zero contradict-retries, zero missing-sections retries — narrator + quality_bar
+passed all three on first attempt.

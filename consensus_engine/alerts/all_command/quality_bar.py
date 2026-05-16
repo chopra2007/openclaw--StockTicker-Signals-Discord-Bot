@@ -123,3 +123,30 @@ def trade_plan_complete(
     tp3: Optional[float],
 ) -> bool:
     return all(v is not None for v in (sl, tp1, tp2, tp3))
+
+
+# Ship 2 M2/M6 — narrative must contain these literal section markers.
+# Comparison is case-insensitive but token-exact so a missing token forces
+# a re-prompt rather than passing through with a malformed Bear Case section.
+REQUIRED_SECTION_TOKENS = (
+    "**TL;DR:**",
+    "**What could go wrong:**",
+    "**Risks & mitigants:**",
+)
+
+
+def missing_required_sections(narrative: str) -> list[str]:
+    """Return the list of REQUIRED_SECTION_TOKENS missing from `narrative`."""
+    if not narrative:
+        return list(REQUIRED_SECTION_TOKENS)
+    lower = narrative.lower()
+    return [tok for tok in REQUIRED_SECTION_TOKENS if tok.lower() not in lower]
+
+
+def has_required_sections(narrative: str) -> bool:
+    """Ship 2 — True iff every REQUIRED_SECTION_TOKENS marker is present.
+
+    Used by `narrator.synthesize_narrative` to structurally reject and
+    re-prompt narratives that drop a section.
+    """
+    return not missing_required_sections(narrative)

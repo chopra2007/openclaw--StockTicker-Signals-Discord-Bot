@@ -1,0 +1,62 @@
+$TSLA — Full Analysis
+
+**TL;DR:** Bullish $TSLA at $422.24, target $450, stop $413.8 — riding recent earnings beat and upside momentum.
+🟢 BULLISH
+The current price of $TSLA is $422.24, and the model signals a bullish outlook. Market view: consensus sees a modest upside; Our view: the recent earnings beat and strong revenue growth support a short‑term rally. Catalyst: the $22.39B revenue +15.8% YoY from the latest quarter.  
+
+## Catalysts  
+* Revenue $22.39B, +15.8% YoY (EARNINGS RECAP).  
+* Unusual options activity noted in the options_unusual flag, indicating heightened institutional interest.  
+
+## Risk Considerations  
+* A daily close below $413.8 would invalidate the bullish thesis.  
+
+**What could go wrong:**  
+A break below the $413.8 support would invalidate the bullish thesis, as the current buy zone ends there [youtube:1]. Additionally, if the market sentiment shifts toward a neutral stance as seen in recent YouTube analyst calls, the upside momentum could stall [youtube:3].  
+
+**Risks & mitigants:**  
+- Break below $413.8 → Exit position immediately.  
+- Shift to neutral sentiment → Reduce position size by 50%.  
+
+## Trade Plan  
+
+| Parameter | Level | Rationale |
+|-----------|-------|-----------|
+| Buy Zone | $413.8 – $422.24 | Current price sits at the upper edge of the buy zone, indicating a potential breakout. |
+| Stop-Loss | — | No explicit stop provided; rely on break below $413.8 as risk trigger. |
+| TP1 | — | No TP1 specified; focus on short‑term upside. |
+| TP2 | — | — |
+| TP3 | — | — |
+| Horizon | — | No swing horizon band provided. |
+| Expected Move | — | No expected move band provided. |
+| Next Catalyst | — | No next catalyst days specified. |
+
+*Earnings on 2026-03-31 is the binary catalyst.*
+**Score:** 54 (news=15, tech=6, llm=18)
+**Sources:** score, technical_long, technical_short, youtube_signals_db, youtube_evidence_db, news, sec, options, chat_24h, brief_last3
+
+--- Direction
+🟢 BULLISH
+--- Confidence
+LOW
+--- Price
+$422.24
+--- Buy Zone
+⇄ $413.80 – $422.24
+_Stage entries inside this band; chase past the high is FOMO._
+--- SL
+—
+--- TP1
+—
+--- TP2
+—
+--- TP3
+—
+--- Next Catalyst
+—
+--- Horizon
+—
+--- Expected Move
+—
+
+footer: cached just now | sources: 11 | 2026-05-16T23:12:46+00:00

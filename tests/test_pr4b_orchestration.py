@@ -291,17 +291,26 @@ async def test_narrator_synthesize_empty_returns_fallback_status():
 
 @pytest.mark.asyncio
 async def test_narrator_synthesize_contradiction_retry_path():
-    """A contradicting first response triggers retry; second consistent response wins."""
+    """A contradicting first response triggers retry; second consistent response wins.
+
+    Ship 2: both responses include the required section markers so the
+    has_required_sections retry path is bypassed and only the contradiction
+    retry path is exercised.
+    """
     structured = StructuredFields(direction="BULLISH", confidence_label="HIGH")
     calls: list[str] = []
+
+    _sections = (
+        "\n**TL;DR:** thesis.\n"
+        "**What could go wrong:** risk [evidence:1].\n"
+        "**Risks & mitigants:**\n- foo → bar"
+    )
 
     async def _call(role, messages, *, max_tokens, temperature, timeout):
         calls.append(messages[0]["content"])
         if len(calls) == 1:
-            # Post-iter3: tighter detector requires explicit thesis-reversal
-            # phrasing rather than bare bearish vocabulary.
-            return "Outlook is bearish despite the bullish setup."
-        return "Bullish breakout setup with options flow confirming upside."
+            return "Outlook is bearish despite the bullish setup." + _sections
+        return "Bullish breakout setup with options flow confirming upside." + _sections
 
     with patch(
         "consensus_engine.alerts.all_command.narrator.call_with_fallback",

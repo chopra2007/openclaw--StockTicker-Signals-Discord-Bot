@@ -101,12 +101,13 @@ async def test_earnings_date_from_decision_snapshot_populates_timeframe(
 
     embed = captured_sends["embed"][0][2]
     fields = {f["name"]: f["value"] for f in embed["fields"]}
-    # W4: Next Catalyst is positive-integer days (earnings_date - today).
-    # The exact integer depends on the test-run date, but it must end in 'd'.
+    # W4 + Ship 1 N7: Next Catalyst is rendered as relative phrasing
+    # ("today" / "in N sessions" / "in N days"), not a raw "Nd" count.
     nc = fields["Next Catalyst"]
     assert nc != "—", f"Expected non-empty Next Catalyst, got {nc!r}"
-    assert nc.endswith("d"), f"Expected day count like '9d', got {nc!r}"
-    assert int(nc[:-1]) >= 0
+    assert (
+        nc == "today" or nc.startswith("in ")
+    ), f"Expected relative phrasing (today / in N sessions / in N days), got {nc!r}"
 
 
 @pytest.mark.asyncio
@@ -134,8 +135,10 @@ async def test_next_earnings_scanner_fallback_when_decision_snapshot_empty(
     fields = {f["name"]: f["value"] for f in embed["fields"]}
     nc = fields["Next Catalyst"]
     assert nc != "—", f"Scanner-sourced earnings should yield non-empty Next Catalyst; got {nc!r}"
-    assert nc.endswith("d"), f"Expected day count like '9d', got {nc!r}"
-    assert int(nc[:-1]) >= 0
+    # Ship 1 N7 relative phrasing replaces raw "Nd" suffix.
+    assert (
+        nc == "today" or nc.startswith("in ")
+    ), f"Expected relative phrasing, got {nc!r}"
 
 
 @pytest.mark.asyncio

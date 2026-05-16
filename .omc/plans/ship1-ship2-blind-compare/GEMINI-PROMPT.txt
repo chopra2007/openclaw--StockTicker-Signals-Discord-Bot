@@ -1,0 +1,4 @@
+Look at <TICKER> stock and come up with a bullish or bearish thesis, along with a trade plan composed of:
+1. buying level
+2. stop-loss level
+3. take profit level.

@@ -2,17 +2,23 @@
 
 Layout:
 - color: bullish=0x57F287, bearish=0xED4245, neutral/low_conf=0xFEE75C
-- title: "${TICKER} — Full Analysis"
-- description: direction line + sanitized narrative + score breakdown + sources
+- title: "$TICKER — Full Analysis" (cashtag prefix per Ship 1 N1)
+- description: optional **TL;DR:** line (Ship 2 M1) + direction line +
+  sanitized narrative + score breakdown + sources.
   Truncation order: narrative first to fit 4000 chars; if still over, drop
   sources line (move count to footer); score breakdown ALWAYS stays.
-- 8 inline fields: Direction, Confidence, Timeframe, Magnitude, SL, TP1, TP2, TP3
+- 8 inline fields: Direction, Confidence, Price, Buy Zone, SL, TP1, TP2, TP3
+- Each level (SL/TPs/Buy Zone) renders with directional arrow + italic one-liner.
 - footer: cache age (if any) + sources count + ISO timestamp
+
+Ship 1 helpers (N1, N2, N3, N4, N5, N7) and Ship 2 helper (TL;DR extraction)
+live here so all rendering changes stay in one file per plan
+.omc/plans/ship1-ship2-format-narrative.md.
 """
 from __future__ import annotations
 
-import time
-from datetime import datetime, timezone
+import re
+from datetime import date, datetime, timezone
 from typing import Optional
 
 from consensus_engine.alerts.all_command.structured_fields import StructuredFields
@@ -26,15 +32,178 @@ COLOR_NEUTRAL = 0xFEE75C
 _DESC_LIMIT = 4000
 _TRUNC_SUFFIX = " _(see vault for full)_"
 
+# Ship 1 N4 — arrow stays "⇄" when level within this fraction of current price.
+_ARROW_TOLERANCE = 0.001  # 0.1 %
+
+# Ship 2 M1 — TL;DR is extracted by matching the literal `**TL;DR:**` prefix
+# (case-insensitive) at the start of any line in the narrative.
+_TLDR_RE = re.compile(r"(?im)^\s*\*\*TL;DR:\*\*\s*(.+?)$")
+
+
+# ---------------------------------------------------------------------------
+# Ship 1 helpers
+# ---------------------------------------------------------------------------
+
+def _fmt_cashtag(ticker: str) -> str:
+    """Ship 1 N1 — return `$TICKER` (idempotent on already-prefixed input)."""
+    if not ticker:
+        return ""
+    t = str(ticker).strip().upper()
+    return t if t.startswith("$") else f"${t}"
+
+
+def _fmt_money_compact(value) -> str:
+    """Ship 1 N3 — compact $-notation: 2,400,000 → '$2.4M', 437000 → '$437K'.
+
+    Strips trailing `.0` so whole-number compact values render as `$437K`
+    not `$437.0K` (acceptance criterion in US-S1-001).
+    """
+    if value is None:
+        return "—"
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return "—"
+    sign = "-" if v < 0 else ""
+    n = abs(v)
+
+    def _trim(x: float) -> str:
+        s = f"{x:.1f}"
+        return s[:-2] if s.endswith(".0") else s
+
+    # Boundaries pad by 50 of the next unit so 999_950+ rounds to "1M",
+    # not "1000K"; same idea at the K/B edges.
+    if n >= 999_500_000:
+        return f"{sign}${_trim(n / 1_000_000_000)}B"
+    if n >= 999_500:
+        return f"{sign}${_trim(n / 1_000_000)}M"
+    if n >= 950:
+        return f"{sign}${_trim(n / 1_000)}K"
+    if n == int(n):
+        return f"{sign}${int(n)}"
+    return f"{sign}${n:.2f}"
+
 
 def _direction_emoji(direction: str) -> str:
+    """Ship 1 N2 — colored-circle direction emoji (replaces 📈/📉/⏸)."""
     d = (direction or "").upper()
     if d == "BULLISH":
-        return "📈 BULLISH"
+        return "🟢 BULLISH"
     if d == "BEARISH":
-        return "📉 BEARISH"
-    return "⏸ NEUTRAL"
+        return "🔴 BEARISH"
+    return "⚪ NEUTRAL"
 
+
+def _arrow_for_level(level: Optional[float], current: Optional[float]) -> str:
+    """Ship 1 N4 — directional arrow for a price level relative to current_price.
+
+    Returns ↑ when level above spot, ↓ below, ⇄ when within 0.1 % of spot.
+    Returns empty string when either value is missing (caller renders plain).
+    """
+    if level is None or current is None:
+        return ""
+    try:
+        lv = float(level)
+        cur = float(current)
+    except (TypeError, ValueError):
+        return ""
+    if cur <= 0:
+        return ""
+    if abs(lv - cur) / cur <= _ARROW_TOLERANCE:
+        return "⇄"
+    return "↑" if lv > cur else "↓"
+
+
+def _level_oneliner(
+    field_name: str,
+    value: Optional[float],
+    current: Optional[float],
+    direction: str,
+) -> str:
+    """Ship 1 N5 — italic one-liner under a level. Empty string when no value."""
+    if value is None or current is None:
+        return ""
+    dir_u = (direction or "").upper()
+    fname = (field_name or "").upper()
+    if fname == "SL":
+        if dir_u == "BULLISH":
+            return "_Below this, the thesis is invalidated — exit._"
+        if dir_u == "BEARISH":
+            return "_Above this, the short thesis breaks — cover._"
+        return "_Risk-off level — close the position if breached._"
+    if fname == "TP1":
+        return "_Primary objective — trim a third to lock in the move._"
+    if fname == "TP2":
+        return "_Stretch target — trim the next third on touch._"
+    if fname == "TP3":
+        return "_Home-run target — runners only with a trailing stop._"
+    if fname == "BUY ZONE":
+        return "_Stage entries inside this band; chase past the high is FOMO._"
+    return ""
+
+
+def _fmt_relative_days(delta: int) -> str:
+    """Ship 1 N7 — bucket an integer day delta into relative phrasing.
+
+    today / in 1 session / in N sessions (≤7) / in N days / 1 day ago /
+    N days ago.
+    """
+    if delta == 0:
+        return "today"
+    if delta == 1:
+        return "in 1 session"
+    if 2 <= delta <= 7:
+        return f"in {delta} sessions"
+    if delta > 7:
+        return f"in {delta} days"
+    if delta == -1:
+        return "1 day ago"
+    return f"{abs(delta)} days ago"
+
+
+def _fmt_relative_date(iso_date: Optional[str]) -> str:
+    """Ship 1 N7 — relative phrasing for an ISO date string (YYYY-MM-DD).
+
+    Returns the raw input when parsing fails (graceful ISO fallback) and ''
+    when no input. Otherwise delegates to `_fmt_relative_days`.
+    """
+    if not iso_date:
+        return ""
+    try:
+        target = datetime.strptime(str(iso_date)[:10], "%Y-%m-%d").date()
+    except (TypeError, ValueError):
+        return str(iso_date)
+    return _fmt_relative_days((target - date.today()).days)
+
+
+# ---------------------------------------------------------------------------
+# Ship 2 helper
+# ---------------------------------------------------------------------------
+
+def _extract_tldr(narrative: str) -> str:
+    """Ship 2 M1 — extract the `**TL;DR:** ...` sentence text from narrative.
+
+    Returns the sentence stripped of the `**TL;DR:**` prefix, or '' when no
+    matching line is found. Caller decides how to render or fall back.
+    """
+    if not narrative:
+        return ""
+    m = _TLDR_RE.search(narrative)
+    if not m:
+        return ""
+    return m.group(1).strip()
+
+
+def _strip_tldr(narrative: str) -> str:
+    """Remove the matched TL;DR line from the body so it isn't shown twice."""
+    if not narrative:
+        return ""
+    return _TLDR_RE.sub("", narrative, count=1).lstrip("\n")
+
+
+# ---------------------------------------------------------------------------
+# Color + price helpers (unchanged from prior revisions)
+# ---------------------------------------------------------------------------
 
 def _color_for(structured: StructuredFields) -> int:
     confidence = (getattr(structured, "confidence_label", "") or "").upper()
@@ -57,8 +226,24 @@ def _format_price(value: Optional[float]) -> str:
         return "—"
 
 
-def _format_buy_zone(low: Optional[float], high: Optional[float]) -> str:
-    """Iter5: render `$low – $high` for the entry bracket; `—` if missing."""
+def _format_price_with_arrow(
+    value: Optional[float],
+    current: Optional[float],
+) -> str:
+    """Render `↑ $185.20` style. Falls back to plain price when no arrow."""
+    base = _format_price(value)
+    if base == "—":
+        return base
+    arrow = _arrow_for_level(value, current)
+    return f"{arrow} {base}" if arrow else base
+
+
+def _format_buy_zone(
+    low: Optional[float],
+    high: Optional[float],
+    current: Optional[float] = None,
+) -> str:
+    """Iter5 + Ship 1 N4: render `⇄ $low – $high` when zone brackets current."""
     if low is None or high is None:
         return "—"
     try:
@@ -66,8 +251,35 @@ def _format_buy_zone(low: Optional[float], high: Optional[float]) -> str:
     except (TypeError, ValueError):
         return "—"
     if lo == hi:
-        return f"${lo:.2f}"
-    return f"${lo:.2f} – ${hi:.2f}"
+        base = f"${lo:.2f}"
+    else:
+        base = f"${lo:.2f} – ${hi:.2f}"
+    # ⇄ when the zone straddles current price; ↑/↓ when zone fully above/below.
+    if current is not None:
+        try:
+            cur = float(current)
+            if cur > 0:
+                if lo <= cur <= hi:
+                    return f"⇄ {base}"
+                if hi < cur:
+                    return f"↓ {base}"
+                if lo > cur:
+                    return f"↑ {base}"
+        except (TypeError, ValueError):
+            pass
+    return base
+
+
+def _level_value_block(
+    field_name: str,
+    value: Optional[float],
+    current: Optional[float],
+    direction: str,
+) -> str:
+    """Combine arrow+price and italic one-liner into a single field value."""
+    line = _format_price_with_arrow(value, current)
+    oneliner = _level_oneliner(field_name, value, current, direction)
+    return f"{line}\n{oneliner}" if oneliner else line
 
 
 def _format_cache_age(seconds: Optional[int]) -> Optional[str]:
@@ -117,7 +329,9 @@ def build_embed(
     cache_age_seconds: Optional[int],
 ) -> dict:
     """Return a Discord embed payload dict for the !all command."""
-    direction_line = _direction_emoji(getattr(structured, "direction", ""))
+    direction = getattr(structured, "direction", "") or ""
+    current_price = getattr(structured, "current_price", None)
+    direction_line = _direction_emoji(direction)
     breakdown_inline = _build_breakdown_inline(score_breakdown)
     final_score = (
         getattr(score_breakdown, "total", None)
@@ -136,12 +350,22 @@ def build_embed(
         if sources else ""
     )
 
+    # Ship 2 M1 — pull TL;DR sentence (if narrator emitted it) for the
+    # first description line; strip it from the body so it doesn't appear
+    # twice. When missing, fall back to the existing direction-line header.
+    tldr_text = _extract_tldr(narrative)
+    body_narrative = _strip_tldr(narrative) if tldr_text else narrative
+    tldr_line = f"**TL;DR:** {tldr_text}" if tldr_text else ""
+
     # Build description with truncation order: narrative first, then drop
-    # sources line if needed. Score line always stays.
+    # sources line if needed. Score line + TL;DR line always stay.
     description_dropped_sources = False
 
     def _assemble(narrative_text: str, include_sources: bool) -> str:
-        chunks = [direction_line]
+        chunks: list[str] = []
+        if tldr_line:
+            chunks.append(tldr_line)
+        chunks.append(direction_line)
         if narrative_text:
             chunks.append(narrative_text)
         if score_line:
@@ -150,14 +374,13 @@ def build_embed(
             chunks.append(sources_line)
         return "\n".join(chunks)
 
-    description = _assemble(narrative, include_sources=True)
+    description = _assemble(body_narrative, include_sources=True)
     if len(description) > _DESC_LIMIT:
         # Step 1: truncate narrative
-        # Reserve length for fixed parts + truncation suffix
         fixed = _assemble("", include_sources=True)
         budget = _DESC_LIMIT - len(fixed) - len(_TRUNC_SUFFIX) - 1
-        if budget > 0 and narrative:
-            truncated = narrative[:budget].rstrip() + _TRUNC_SUFFIX
+        if budget > 0 and body_narrative:
+            truncated = body_narrative[:budget].rstrip() + _TRUNC_SUFFIX
         else:
             truncated = _TRUNC_SUFFIX.strip()
         description = _assemble(truncated, include_sources=True)
@@ -177,31 +400,46 @@ def build_embed(
          "value": getattr(structured, "confidence_label", "LOW") or "LOW",
          "inline": True},
         {"name": "Price",
-         "value": _format_price(getattr(structured, "current_price", None)),
+         "value": _format_price(current_price),
          "inline": True},
         {"name": "Buy Zone",
-         "value": _format_buy_zone(
-             getattr(structured, "buy_zone_low", None),
-             getattr(structured, "buy_zone_high", None),
+         "value": _level_value_block_zone(
+             low=getattr(structured, "buy_zone_low", None),
+             high=getattr(structured, "buy_zone_high", None),
+             current=current_price,
+             direction=direction,
          ),
          "inline": True},
         {"name": "SL",
-         "value": _format_price(getattr(structured, "sl", None)),
+         "value": _level_value_block(
+             "SL", getattr(structured, "sl", None), current_price, direction,
+         ),
          "inline": True},
         {"name": "TP1",
-         "value": _format_price(getattr(structured, "tp1", None)),
+         "value": _level_value_block(
+             "TP1", getattr(structured, "tp1", None), current_price, direction,
+         ),
          "inline": True},
         {"name": "TP2",
-         "value": _format_price(getattr(structured, "tp2", None)),
+         "value": _level_value_block(
+             "TP2", getattr(structured, "tp2", None), current_price, direction,
+         ),
          "inline": True},
         {"name": "TP3",
-         "value": _format_price(getattr(structured, "tp3", None)),
+         "value": _level_value_block(
+             "TP3", getattr(structured, "tp3", None), current_price, direction,
+         ),
          "inline": True},
     ]
 
     if _swing_v2:
         nc_days = getattr(structured, "next_catalyst_days", None)
-        nc_value = f"{nc_days}d" if isinstance(nc_days, int) and nc_days >= 0 else "—"
+        # Ship 1 N7 — relative phrasing instead of "Nd".
+        nc_value = (
+            _fmt_relative_days(nc_days)
+            if isinstance(nc_days, int) and nc_days >= 0
+            else "—"
+        )
         sh_days = getattr(structured, "swing_horizon_days", None)
         sh_band = getattr(structured, "swing_horizon_band", None)
         if isinstance(sh_days, int) and sh_days > 0 and sh_band:
@@ -239,9 +477,21 @@ def build_embed(
     footer_chunks.append(ts)
 
     return {
-        "title": f"${ticker} — Full Analysis",
+        "title": f"{_fmt_cashtag(ticker)} — Full Analysis",
         "color": _color_for(structured),
         "description": description,
         "fields": fields,
         "footer": {"text": " | ".join(footer_chunks)},
     }
+
+
+def _level_value_block_zone(
+    low: Optional[float],
+    high: Optional[float],
+    current: Optional[float],
+    direction: str,
+) -> str:
+    """Buy Zone variant of _level_value_block — uses _format_buy_zone for line."""
+    line = _format_buy_zone(low, high, current)
+    oneliner = _level_oneliner("BUY ZONE", low, current, direction)
+    return f"{line}\n{oneliner}" if oneliner else line

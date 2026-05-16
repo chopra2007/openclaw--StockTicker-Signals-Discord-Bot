@@ -1,0 +1,67 @@
+$AMD — Full Analysis
+
+**TL;DR:** Long $AMD at $424.1, target $500, stop $140 — bullish on double‑bottom rebound, low confidence, swing horizon 3‑5 days.
+🟢 BULLISH
+The stock trades at $424.1 and the signal is **BULLISH**, anchored by a double‑bottom pattern forming near a key level of $203.79. Market view: consensus is mixed with neutral to modestly positive sentiment. Our view: a low‑confidence bullish swing targeting the upper buy zone as the price tests recent highs. Catalyst: recent strong earnings and elevated options activity could push the stock into the buy zone.
+
+## Catalysts
+* Revenue $10.27B, +34.1% YoY reported for the quarter ended 2026‑03‑31 — a solid beat that underpins upside potential. [evidence:earnings]
+* Unusual options activity flagged across multiple strikes, suggesting speculative buying pressure. [evidence:options]
+
+## Risk Considerations
+* A break below the lower buy‑zone $402.89 would invalidate the bullish thesis. [evidence:technical_short]
+
+**What could go wrong:**  
+A daily close under $402.89 would break the double‑bottom support and nullify the bullish outlook [evidence:technical_short]. A sharp deterioration in competitive positioning versus Intel, as highlighted in recent market commentary, could cap upside and trigger a sell‑off [evidence:news]. Persistent low‑volume trading could cause the price to stall below the buy zone despite the earnings beat [evidence:options].
+
+**Risks & mitigants:**  
+- Break below $402.89 → Exit at stop‑loss $140 (pre‑defined SL).  
+- Volatile swing beyond $500 → Trim half position at TP1.  
+- Unexpected negative news → Reduce exposure to half‑size.  
+- Momentum fade before horizon → Shift to cash if price stalls below $424.1.
+
+## Trade Plan
+| Parameter   | Level                     | Rationale |
+|-------------|---------------------------|-----------|
+| Buy Zone    | $402.89 – $424.1          | Captures rebound from double‑bottom and aligns with computed buy band. |
+| Stop-Loss   | $140.0                    | Deep protection below key support, reflects low‑confidence risk tolerance. |
+| TP1         | $500.0                    | Primary upside target, matches expected move (+≈$50) and swing high projection. |
+| TP2         | $455.0                    | Secondary target if momentum sustains; provides staged exit. |
+| TP3         | $450.0                    | Final target before expected pull‑back; pads TP2 for flexibility. |
+| Horizon     | 3‑5 days                  | Derived from swing horizon band and typical move (≈$50) relative to ATR ≈ 24.9. |
+| Expected Move | ±$50 (typical)          | Based on ATR(14) of 24.9 and expected move band from signal. |
+| Next Catalyst | —                       | No specific catalyst date; trade relies on short‑term technical bounce. |
+
+*No earnings date is provided, so the trade is driven by technical rebound and recent earnings momentum.*
+**Score:** 59 (news=15, tech=6, llm=23)
+**Sources:** score, technical_long, technical_short, youtube_signals_db, youtube_levels_db, youtube_evidence_db, news, sec, options, chat_24h
+
+--- Direction
+🟢 BULLISH
+--- Confidence
+LOW
+--- Price
+$424.10
+--- Buy Zone
+⇄ $402.89 – $424.10
+_Stage entries inside this band; chase past the high is FOMO._
+--- SL
+↓ $140.00
+_Below this, the thesis is invalidated — exit._
+--- TP1
+↑ $500.00
+_Primary objective — trim a third to lock in the move._
+--- TP2
+↑ $455.00
+_Stretch target — trim the next third on touch._
+--- TP3
+↑ $450.00
+_Home-run target — runners only with a trailing stop._
+--- Next Catalyst
+—
+--- Horizon
+3-5d
+--- Expected Move
+±$50 (typical; high-vol data unavailable)
+
+footer: cached just now | sources: 12 | 2026-05-16T23:11:05+00:00

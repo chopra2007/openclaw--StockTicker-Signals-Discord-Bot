@@ -322,16 +322,31 @@ def _build_constraints_block(swing_v2: bool) -> str:
     W4: when `swing_v2_enabled` is True, the Trade Plan table grows three
     rows (Swing Horizon, Expected Move, Next Catalyst) and drops the
     literal `(2× ATR)` qualifier in favor of the band-derived label.
+
+    Ship 2 (Narrative Pack v1) adds four required blocks to the output —
+    TL;DR, Bear Case, Variant Perception line, Risks & mitigants — plus the
+    two cross-model-flagged defenses (contradiction acknowledgement,
+    evidence citation per Bear Case sentence). Applied regardless of
+    swing_v2_enabled.
     """
     trade_plan_rows = _TRADE_PLAN_V2_ROWS if swing_v2 else _TRADE_PLAN_V0_ROWS
     return (
         "CONSTRAINTS:\n"
-        "- Structure your narrative with these EXACT sections in this order:\n"
+        "- The VERY FIRST line of your output MUST be a one-sentence thesis "
+        "prefixed exactly `**TL;DR:**` (Ship 2 M1). Format example: "
+        "`**TL;DR:** Long $NVDA above $920, target $980, stop $895 — reclaim "
+        "of post-ER flat base on improving guide.` This single line is the "
+        "headline summary; downstream rendering extracts it from your text.\n"
+        "- Structure your narrative with these EXACT sections in this order "
+        "AFTER the TL;DR line:\n"
         "  1. Opening thesis paragraph (2-3 sentences). FIRST sentence must "
         "state the current price from COMPUTED SIGNAL.current_price, then "
         "direction and headline. If a CHART PATTERN block is present, the "
         "opening MUST name the pattern and its key_level (e.g. 'a bull flag "
-        "with breakout above $130').\n"
+        "with breakout above $130'). The opening paragraph MUST also contain "
+        "ONE sentence in this exact pattern: `Market view: <consensus take>. "
+        "Our view: <bot's read>. Catalyst: <what makes the difference>.` "
+        "(Ship 2 M3 variant perception line — single sentence, no bullets.)\n"
         "  2. A `## Catalysts` markdown header followed by AT LEAST 2 bulleted "
         "items (`* …`), each citing a specific number, date, $, or % drawn "
         "from the EVIDENCE blocks (news / sec / yt_evidence / etc). "
@@ -341,7 +356,25 @@ def _build_constraints_block(swing_v2: bool) -> str:
         "  3. A `## Risk Considerations` markdown header followed by AT LEAST "
         "1 bulleted item with a specific risk and threshold (e.g. 'a break "
         "below $X invalidates the thesis').\n"
-        "  4. A `## Trade Plan` markdown header followed by a markdown TABLE "
+        "  4. A section titled exactly `**What could go wrong:**` "
+        "followed by 2-4 sentences (Ship 2 M2 Bear Case). Two strict rules "
+        "for this section:\n"
+        "     (a) The Bear Case MUST acknowledge the COMPUTED SIGNAL's "
+        "direction. If our direction is BULLISH, enumerate what would "
+        "INVALIDATE the bullish thesis (e.g. a daily close below $X, a guide "
+        "cut, sector ETF breakdown). Do NOT assert the opposite direction.\n"
+        "     (b) Every Bear Case sentence MUST cite a specific evidence row "
+        "from the EVIDENCE blocks (news_id, sec_id, twitter_id, yt_evidence "
+        "row index, etc.) using an inline `[evidence:N]` marker. If no "
+        "evidence supports a candidate risk, OMIT it — short Bear Cases are "
+        "acceptable when evidence is thin.\n"
+        "  5. A section titled exactly `**Risks & mitigants:**` "
+        "followed by 2-4 bulleted items in the form `- <risk> → <mitigant>` "
+        "(Ship 2 M6). Each mitigant MUST reference a concrete feature already "
+        "in this trade plan — e.g. `→ Trim half at TP1`, `→ Stop at $178.50`, "
+        "`→ Size down to half-position`. Vague mitigants like 'be careful' "
+        "or 'watch closely' are rejected.\n"
+        "  6. A `## Trade Plan` markdown header followed by a markdown TABLE "
         "with columns `Parameter | Level | Rationale`. Rows in this exact "
         "order, populated from COMPUTED SIGNAL:\n"
         f"{trade_plan_rows}"
@@ -532,9 +565,35 @@ async def synthesize_narrative(
         chart_pattern=chart_pattern,
     )
 
+    from consensus_engine.alerts.all_command import quality_bar as _qb
+
     raw = await _invoke_synthesis(messages, deadline_seconds)
     if not raw:
         return "", "fallback_data_only"
+
+    # Ship 2 — if the narrator dropped one of the required sections
+    # (TL;DR / Bear Case / Risks & mitigants), retry once with a hardened
+    # prompt that lists the missing tokens explicitly. After one retry, we
+    # accept whatever comes back and let output_filter handle contradictions.
+    if not _qb.has_required_sections(raw):
+        missing = _qb.missing_required_sections(raw)
+        log.warning(
+            "narrator: missing required sections %s — re-prompting once", missing,
+        )
+        hardened_sections = list(messages)
+        hardened_sections[-1] = dict(hardened_sections[-1])
+        hardened_sections[-1]["content"] = (
+            hardened_sections[-1].get("content", "")
+            + "\n\nMISSING SECTIONS — your previous draft dropped: "
+            + ", ".join(missing)
+            + ". Re-emit the FULL narrative with EVERY required section "
+              "header present verbatim."
+        )
+        retried = await _invoke_synthesis(
+            hardened_sections, max(1.0, deadline_seconds * 0.5),
+        )
+        if retried:
+            raw = retried
 
     # Retry-once with hardened prompt if output_filter detects contradiction.
     async def _retry_fn() -> str:
@@ -545,7 +604,6 @@ async def synthesize_narrative(
             + _SYS_INSTRUCTION + " STRICT: do not contradict the COMPUTED "
             "SIGNAL block. Do not include @everyone or @here."
         )
-        # Re-derive remaining time from a fresh deadline call site.
         retry_deadline = max(1.0, deadline_seconds * 0.5)
         return await _invoke_synthesis(hardened, retry_deadline)
 
