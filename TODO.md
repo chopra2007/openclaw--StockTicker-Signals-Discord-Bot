@@ -355,3 +355,166 @@ re-selection that introduced this model), memory
 `project_llm_5model_chain_partial.md` (now superseded).
 
 ---
+
+## 8. Optimize `!all` output quality + feature surface (open-ended initiative)
+
+**Layperson:** The user wants to improve what `!all <TICKER>` produces.
+This is intentionally broad — the framing matters because most of the
+visible output isn't decided by the LLM. Before any session picks
+this up, read the architecture map below so you don't waste effort
+"fixing" things in the wrong place.
+
+### Architecture — who actually decides what
+
+`consensus_engine/alerts/all_command/` is the package. Order of
+operations on a single `!all` invocation:
+
+1. **`aggregator.py`** (802 lines) — the conductor.
+   - Validates ticker format via `is_valid_ticker` only — **no
+     market-cap gate** (main alerting engine has one; `!all` skips).
+   - Fans out data fetches: Finnhub `/quote` (current price),
+     yfinance OHLCV (technicals), Finnhub news, Brave + SearXNG
+     (broader web), Reddit/social, YouTube indexed analyst calls,
+     SEC EDGAR filings, TweetShift Twitter signals, internal #chat
+     + #brief Discord history, prior vault excerpts.
+   - Calls technical-indicator computation (RSI, EMAs, ATR, volume).
+   - Calls `structured_fields.compute_*` and `levels.select_trade_plan`.
+   - Packs everything into a `StructuredFields` dataclass at line 595.
+   - Hands the clipboard to `narrator.synthesize_narrative`.
+
+2. **`structured_fields.py`** (321 lines, 9 compute_ functions):
+   - `compute_direction`, `compute_confidence_label`
+   - `compute_buy_zone` (line 141), `compute_breakout_timeframe`
+   - `compute_magnitude`, `compute_magnitude_band`
+   - `compute_swing_horizon` (line 209), `compute_next_catalyst_days`
+   - All pure arithmetic on the data the aggregator already fetched.
+
+3. **`levels.py`** (469 lines) — TP1/TP2/TP3 + stop-loss anchor logic:
+   - `extract_anchors_from_youtube_levels` (line 165),
+     `extract_swing_levels` (214, from candles),
+     `extract_anchors_from_search_snippets` (258, from news).
+   - `cluster_anchors` (310), `rank_anchors` (375) — confluence +
+     freshness + source-tier scoring.
+   - `select_trade_plan` (430) — picks the final SL + 3 TPs.
+
+4. **`narrator.py`** — synthesis prompt builder + LLM call:
+   - System instruction (line 238): "COMPUTED SIGNAL is authoritative
+     — never contradict its direction, confidence label, or price
+     levels. Do NOT invent prices or levels."
+   - `_build_synthesis_prompt` (~line 320) packs the COMPUTED SIGNAL +
+     18 evidence blocks (news, sec, twitter, social, yt_signals,
+     yt_options, yt_evidence, technical, earnings_recap, chart_pattern,
+     etc.) with per-section caps to stay under 15k input tokens.
+   - LLM call at `_invoke_synthesis` (~line 423):
+     `call_with_fallback(role="primary", max_tokens=8000, temperature=0.35)`.
+   - The 5-model chain (TODO #7 just rebalanced) runs here.
+
+5. **`output_filter.py`** — contradict-detection retry:
+   - `detect_contradiction(narrative, structured)` (line 61) scans the
+     LLM output for new/contradicting price levels.
+   - `sanitize_or_retry` (line 86) — on contradiction, re-prompts the
+     LLM with a hardened instruction. Returns `("", "fallback_data_only")`
+     if retry also fails; engine then renders the deterministic embed.
+
+6. **`embed.py`** — Discord embed renderer (color + footer + fields).
+7. **`vault_writer.py`** — writes `<vault>/tickers/<TICKER>-all.md`.
+8. **`cache.py`** — single-flight + 15-min TTL on `xref_cache` table
+   keyed by `all_v<8-char-version-hash>:TICKER`.
+
+### Output-quality levers (by where the work lives)
+
+The 2026-05-16 isolation test showed all 5 chain models produce the
+same trade plan numbers — the only visible LLM-side variation is prose,
+catalyst selection, formatting, source-attribution style. So:
+
+**LLM-side changes don't move the trade plan.** To improve the
+actionable numbers, work in `structured_fields.py` + `levels.py`.
+
+**Engine-side (deterministic) levers:**
+- `levels.select_trade_plan` — current weighting blends YouTube
+  analyst calls + swing levels from candles + news mentions. Tune
+  `_freshness_bonus`, `_distance_penalty`, `_confluence_bonus` for
+  better target placement. Currently TP2/TP3 get "padded" when fewer
+  than 3 anchors land — gpt-oss-120b annotates this self-aware-ly;
+  others stay silent. Could add anchor-count to COMPUTED SIGNAL so
+  every narrative can comment on it.
+- `structured_fields.compute_buy_zone` — uses current price ± a band.
+  Could incorporate VWAP, EMA20 support, or recent swing-low proximity.
+- `structured_fields.compute_swing_horizon` — derived from
+  `|TP1−spot|/(0.7×ATR)` capped at next catalyst. Could weight by
+  recent realized volatility instead of headline ATR.
+- `structured_fields.compute_next_catalyst_days` — currently
+  earnings-only. Could include options expiry, ex-div, FDA dates,
+  pre-announced events from `news_catalyst`.
+- Add a `compute_pattern_strength` for chart patterns beyond the
+  current `chart_pattern` block — engine already detects double-
+  bottom etc., could score breakout-readiness.
+
+**LLM-side (prose) levers** (everything below leaves the trade plan
+unchanged):
+- `narrator._build_synthesis_prompt` — the CONSTRAINTS block tells
+  the model exactly what sections to write. Tightening the wording
+  (e.g. "every catalyst must cite an evidence row by index", "rationale
+  column must be ≤ 25 words") removes the per-model wording drift the
+  2026-05-16 test surfaced.
+- `narrator._build_synthesis_prompt` line ~413 — `recent_earnings_recap`
+  is sent via `json.dumps(... default=str)` which is what triggers the
+  float-precision leak (TODO #7). Pre-format the dict to human-readable
+  strings before serialization and the bug disappears for ALL models.
+- `narrator._build_constraints_block` — currently asks for "AT LEAST 2
+  catalysts". Could raise to AT LEAST 3 when ≥3 distinct source-types
+  surfaced, fall back to 2 only when evidence is thin.
+- `quality_bar.py` — already enforces minimum standards. Worth reviewing
+  what it catches vs. what it lets through.
+
+**Feature gaps** (things `!all` doesn't currently do):
+- No market-cap floor — `!all FAKEX` succeeds-empty instead of replying
+  "ticker not found on exchange." Fix: call `validate_ticker_market_cap`
+  in `aggregator.handle_all` before the data fetch.
+- No "data sparseness" warning — when ≤2 sources surface, the embed
+  still renders confidently. Could add a "low-confidence: only N sources"
+  banner.
+- No options-flow integration in the trade plan — engine fetches
+  options data (used in scoring) but the TPs don't incorporate
+  max-pain or large-strike concentration.
+- No competitor-context — for big tickers like AMZN, the narrative
+  doesn't relate to AAPL/MSFT/GOOGL moves. Could pull a "sector
+  context" mini-block.
+- No earnings-week-aware horizon — if earnings is in 3 days, current
+  horizon often spans the print; could clip horizon to T-1.
+- Cache is binary (hit/miss). On miss the user waits 60-180s with no
+  intermediate progress. Could push a 2-stage embed: structured fields
+  in 5s, narrative when ready.
+- Chart-pattern detection runs but only feeds the LLM. Could add
+  pattern_strength to the visible embed.
+
+### Existing prior art
+
+- **memory: `project_all_command_v2_planning.md`** — there's already
+  a v2-quality-rebuild planning effort in
+  `.claude/discover/all-command-rebuild/v2-quality-rebuild/`. Start
+  by reading that before scoping new work — may already capture some
+  of the items above.
+- **TODO #1** — Layer C blind-compare with Gemini is the human eval
+  loop for any quality changes; should be re-run after any
+  user-visible improvement.
+- **TODO #3** — Speed-accuracy optimization (8 of 13 items unimplemented)
+  overlaps with output latency improvements above.
+- **TODO #7** — float-precision fix is a sub-task of this initiative
+  and the cheapest concrete win.
+
+### How to scope a session
+
+This TODO is intentionally broad — don't try to do it all in one
+session. Recommended first move: read the v2-quality-rebuild artifacts,
+then pick ONE lever from the lists above + write a focused spec for
+just that change (e.g. "tighten Trade Plan rationale to ≤25 words and
+re-test all 5 chain models for compliance"). Use the test methodology
+from `.omc/research/llm-chain-2026-05-16/probe_llm_chain.py` as the
+quality-regression harness.
+
+**Acceptance for this TODO is "shipped at least one user-visible
+quality improvement with before/after evidence."** Not "completed all
+items above" — those are a menu, not a checklist.
+
+---
