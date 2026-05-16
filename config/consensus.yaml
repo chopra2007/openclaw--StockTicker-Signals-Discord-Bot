@@ -327,7 +327,7 @@ youtube:
   show_timestamps_in_alerts: true
   near_price_dedup_pct: 0.5
   captions:
-    enabled: false            # F1 OFF — rolled back 2026-05-15: F1 wins fast but bundles had tickers=[]→classify_evidence emits zero signals (prod regression). Re-enable after captions_llm_parser ships.
+    enabled: true             # F1 ON — captions_llm_parser (commit d3cf2be) resolves company name→ticker via Gemini Flash; real-world probe verified 20/20 spans had tickers
     # LLM chain for caption→ticker extraction. Real-world probe (2026-05-15)
     # on a 25k-char S&P 500 video:
     #   - google/gemini-2.5-flash      → 6.98s, 25 spans, 27 valid tickers ✅
