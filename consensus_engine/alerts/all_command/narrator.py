@@ -250,6 +250,52 @@ def _truncate_list(items: list, cap: int) -> list:
     return list(items)[:cap]
 
 
+def _format_earnings_recap(recap: dict) -> dict:
+    """Pre-format the raw earnings dict to display-ready strings before it
+    enters the synthesis prompt.
+
+    Why: chain models that copy values verbatim (TODO #7 — nemotron-omni-
+    reasoning) otherwise leak raw float precision like `$181519000000.0`
+    and `+16.60724495236627%` straight into the Discord embed. Formatting
+    here makes the bug structurally impossible for every model in the chain.
+    """
+    if not isinstance(recap, dict):
+        return recap
+
+    def _money(v):
+        if not isinstance(v, (int, float)):
+            return v
+        abs_v = abs(v)
+        if abs_v >= 1e9:
+            return f"${v / 1e9:.2f}B"
+        if abs_v >= 1e6:
+            return f"${v / 1e6:.1f}M"
+        return f"${v:,.2f}"
+
+    def _pct(v):
+        if not isinstance(v, (int, float)):
+            return v
+        return f"{v:+.1f}%"
+
+    def _eps(v):
+        if not isinstance(v, (int, float)):
+            return v
+        return f"${v:.2f}"
+
+    out = dict(recap)
+    if "revenue_actual" in out:
+        out["revenue_actual"] = _money(out["revenue_actual"])
+    if "revenue_yoy_pct" in out:
+        out["revenue_yoy_pct"] = _pct(out["revenue_yoy_pct"])
+    if "eps_actual" in out:
+        out["eps_actual"] = _eps(out["eps_actual"])
+    if "eps_estimate" in out:
+        out["eps_estimate"] = _eps(out["eps_estimate"])
+    if "eps_surprise_pct" in out:
+        out["eps_surprise_pct"] = _pct(out["eps_surprise_pct"])
+    return out
+
+
 _TRADE_PLAN_V0_ROWS = (
     "       | Buy Zone   | $buy_zone_low – $buy_zone_high | <why this band> |\n"
     "       | Stop-Loss  | $sl                            | <why this stop> |\n"
@@ -390,7 +436,7 @@ def _build_synthesis_prompt(
         f"STRUCTURED DATA SUMMARY:\n{structured_data_json or '{}'}",
         *([
             f"EARNINGS RECAP (literal — cite these numbers verbatim):\n"
-            f"{json.dumps(recent_earnings_recap, default=str)}"
+            f"{json.dumps(_format_earnings_recap(recent_earnings_recap), default=str)}"
         ] if isinstance(recent_earnings_recap, dict) and recent_earnings_recap else []),
         f"NEWS / ANALYST EVIDENCE:\n{json.dumps(news_block, default=str)}",
         f"SEC FILINGS:\n{json.dumps(sec_block, default=str)}",

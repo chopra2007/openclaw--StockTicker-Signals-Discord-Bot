@@ -274,3 +274,78 @@ def test_fixture_meets_critic_row_count_contract():
         assert 200 <= len(body) <= 1200, len(body)
     for ev in YT_EVIDENCE_FIXTURE:
         assert 200 <= len(ev["text"]) <= 1200, len(ev["text"])
+
+
+# ---------------------------------------------------------------------------
+# TODO #7 fix — earnings recap pre-formatting
+# ---------------------------------------------------------------------------
+
+def test_format_earnings_recap_strips_raw_float_precision():
+    """`_format_earnings_recap` converts raw floats to display strings so the
+    prompt no longer ships `$181519000000.0` / `+16.60724495236627%`.
+
+    This is the structural fix for TODO #7 — even chain models that copy
+    the EARNINGS RECAP block verbatim can't leak raw precision."""
+    raw = {
+        "period": "2026-03-31",
+        "eps_actual": 1.05,
+        "eps_estimate": 0.97,
+        "eps_surprise_pct": 8.247422680412371,
+        "revenue_actual": 181519000000.0,
+        "revenue_yoy_pct": 16.60724495236627,
+    }
+    out = narrator._format_earnings_recap(raw)
+    assert out["revenue_actual"] == "$181.52B"
+    assert out["revenue_yoy_pct"] == "+16.6%"
+    assert out["eps_actual"] == "$1.05"
+    assert out["eps_estimate"] == "$0.97"
+    assert out["eps_surprise_pct"] == "+8.2%"
+    assert out["period"] == "2026-03-31"  # non-numeric pass-through
+
+
+def test_format_earnings_recap_handles_none_and_missing():
+    """None/missing fields and small revenues don't crash or mis-format."""
+    assert narrator._format_earnings_recap(None) is None
+    assert narrator._format_earnings_recap({}) == {}
+    # Negative growth + small revenue
+    out = narrator._format_earnings_recap({
+        "revenue_actual": 50_000_000.0,
+        "revenue_yoy_pct": -3.5,
+        "eps_actual": -0.12,
+    })
+    assert out["revenue_actual"] == "$50.0M"
+    assert out["revenue_yoy_pct"] == "-3.5%"
+    assert out["eps_actual"] == "$-0.12"
+
+
+def test_synthesis_prompt_uses_formatted_earnings_recap():
+    """End-to-end: the EARNINGS RECAP block in the built prompt must contain
+    the formatted strings, NOT raw float literals."""
+    structured = StructuredFields(
+        direction="BULLISH", confidence_label="MEDIUM",
+        sl=100.0, tp1=120.0, tp2=130.0, tp3=140.0,
+        breakout_timeframe="TBD", magnitude_label="MEDIUM",
+        current_price=110.0, buy_zone_low=108.0, buy_zone_high=112.0,
+    )
+    score = ScoreBreakdown(base=20, news_catalyst=15, llm_boost=5)
+    raw_recap = {
+        "period": "2026-03-31",
+        "revenue_actual": 181519000000.0,
+        "revenue_yoy_pct": 16.60724495236627,
+        "eps_actual": 1.05,
+    }
+    messages = narrator._build_synthesis_prompt(
+        ticker="AMZN",
+        structured=structured,
+        score_breakdown=score,
+        sanitized_searxng=[], sanitized_chat=[], sanitized_brief=[],
+        vault_summary="", structured_data_json="{}",
+        recent_earnings_recap=raw_recap,
+    )
+    user_content = messages[1]["content"]
+    # Raw precision MUST NOT appear in the prompt
+    assert "181519000000.0" not in user_content
+    assert "16.60724495236627" not in user_content
+    # Formatted strings MUST appear
+    assert "$181.52B" in user_content
+    assert "+16.6%" in user_content
