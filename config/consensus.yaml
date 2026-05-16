@@ -327,7 +327,7 @@ youtube:
   show_timestamps_in_alerts: true
   near_price_dedup_pct: 0.5
   captions:
-    enabled: false            # F1 kill-switch — BGUtil POT not yet proven; defer to Phase 3
+    enabled: true             # F1 ON — Supadata fallback wired in fetch_captions (commit c91eed9); youtube_transcript_api still tried first, falls back to Supadata on IP-block
     bgutil:
       bind_addr: "127.0.0.1:4416"
       token_env: "BGUTIL_TOKEN"
