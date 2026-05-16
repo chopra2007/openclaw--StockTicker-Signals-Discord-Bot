@@ -125,7 +125,7 @@ async def _run_chain(
         # F1: captions (disabled Phase 1)
         if cfg("youtube.captions.enabled", False):
             telemetry.chain_attempts.append("ytdlp-captions/v1")
-            bundle = await _stage_captions(video_id, telemetry)
+            bundle = await _stage_captions(video_id, telemetry, published_at)
             if bundle is not None:
                 return bundle, telemetry
 
@@ -160,13 +160,23 @@ async def _run_chain(
 async def _stage_captions(
     video_id: str,
     telemetry: RunTelemetry,
+    published_at: str = "",
 ) -> EvidenceBundle | None:
     t0 = time.monotonic()
     try:
         text = await fetch_captions(video_id)
         if text is None:
             return None
-        bundle = _transcript_to_bundle(video_id, "", text, [])
+
+        # YouTube auto-captions don't markup tickers as $XXX and use natural
+        # language ("apple", "tesla"). Route the text through the configured
+        # LLM chain (Gemini Flash → free OpenRouter fallbacks) which can
+        # resolve company-name → ticker reliably.
+        from consensus_engine.analysis.captions_llm_parser import extract_evidence_from_captions
+        bundle = await extract_evidence_from_captions(video_id, text, published_at, telemetry)
+        if bundle is None:
+            return None
+
         telemetry.chain_winner = "ytdlp-captions/v1"
         return bundle
     except Exception as exc:

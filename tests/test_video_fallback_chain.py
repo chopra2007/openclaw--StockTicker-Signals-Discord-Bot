@@ -67,6 +67,16 @@ def test_grounding_mixed_result():
 
 # ─── US-VF-003: F3 happy path (mocked) ───────────────────────────────────────
 
+def _f3_only_cfg(key, default=None):
+    # Force F1 off + F3 on so tests of F3 behavior aren't pre-empted by the
+    # production default (youtube.captions.enabled=true) reaching real network.
+    if key == "youtube.captions.enabled":
+        return False
+    if key == "youtube.whisper.enabled":
+        return True
+    return default
+
+
 @pytest.mark.asyncio
 async def test_f3_happy_path():
     """F3 succeeds: mocked Gemini fails, Whisper returns transcript, chain_winner set."""
@@ -81,6 +91,7 @@ async def test_f3_happy_path():
     )
 
     with (
+        patch("consensus_engine.config.get", side_effect=_f3_only_cfg),
         patch("consensus_engine.local_video_ingest.pre_flight_check", return_value=True),
         patch("consensus_engine.local_video_ingest.cleanup_run_workspace"),
         patch("consensus_engine.local_video_ingest._stage_gemini", new_callable=AsyncMock, return_value=None),
@@ -100,6 +111,7 @@ async def test_f3_happy_path():
 async def test_f3_groq_429_falls_to_terminal():
     """Both Gemini and Whisper fail: chain returns (None, telemetry) with chain_winner=None."""
     with (
+        patch("consensus_engine.config.get", side_effect=_f3_only_cfg),
         patch("consensus_engine.local_video_ingest.pre_flight_check", return_value=True),
         patch("consensus_engine.local_video_ingest.cleanup_run_workspace"),
         patch("consensus_engine.local_video_ingest._stage_gemini", new_callable=AsyncMock, return_value=None),
@@ -118,6 +130,7 @@ async def test_f3_grounding_rejects_all():
     transcript_text = "The market is broadly moving higher today."
 
     with (
+        patch("consensus_engine.config.get", side_effect=_f3_only_cfg),
         patch("consensus_engine.local_video_ingest.pre_flight_check", return_value=True),
         patch("consensus_engine.local_video_ingest.cleanup_run_workspace"),
         patch("consensus_engine.local_video_ingest._stage_gemini", new_callable=AsyncMock, return_value=None),
@@ -325,3 +338,74 @@ async def test_force_whisper_hook_default_off():
     # F2 MUST have been called when flag is not set
     gem_mock.assert_called_once()
     assert "gemini/v2" in telemetry.chain_attempts
+
+
+# ─── F1 → captions_llm_parser wiring (yt-chain-fixes) ────────────────────────
+
+@pytest.mark.asyncio
+async def test_stage_captions_routes_text_to_llm_parser():
+    """F1 _stage_captions fetches caption text and hands it to
+    extract_evidence_from_captions (the LLM-based ticker extractor). Auto-captions
+    are natural language ("Apple", "Tesla") not $XXX markup, so a regex extractor
+    catches almost nothing — the LLM is what resolves company name → ticker."""
+    from consensus_engine.models import EvidenceBundle, EvidenceSpan
+    fake_bundle = EvidenceBundle(
+        video_id="dQw4w9WgXcQ",
+        duration_sec=60,
+        publish_ts="2026-01-01T00:00:00Z",
+        spans=[
+            EvidenceSpan(ts_sec=0, quote="Look at Apple and Tesla.", tickers=["AAPL", "TSLA"]),
+            EvidenceSpan(ts_sec=30, quote="Micron looks weak.", tickers=["MU"]),
+        ],
+    )
+
+    async def fake_fetch(video_id):
+        return "Look at Apple and Tesla. Micron looks weak."
+
+    async def fake_extract(video_id, text, published_at, telemetry):
+        telemetry.span_count = len(fake_bundle.spans)
+        return fake_bundle
+
+    with (
+        patch("consensus_engine.local_video_ingest.fetch_captions", side_effect=fake_fetch),
+        patch(
+            "consensus_engine.analysis.captions_llm_parser.extract_evidence_from_captions",
+            side_effect=fake_extract,
+        ),
+    ):
+        from consensus_engine.local_video_ingest import _stage_captions
+        tel = RunTelemetry()
+        bundle = await _stage_captions("dQw4w9WgXcQ", tel, "2026-01-01T00:00:00Z")
+
+    assert bundle is fake_bundle
+    assert tel.chain_winner == "ytdlp-captions/v1"
+    assert tel.span_count == 2
+    span_tickers = {t for span in bundle.spans for t in span.tickers}
+    assert span_tickers == {"AAPL", "TSLA", "MU"}
+
+
+@pytest.mark.asyncio
+async def test_stage_captions_returns_none_when_llm_yields_nothing():
+    """If the LLM extractor returns None (chain exhausted, no usable spans), the
+    chain must fall through to F2 — not produce an empty bundle that would
+    short-circuit to zero-signal classification (the prod regression we just rolled back)."""
+
+    async def fake_fetch(video_id):
+        return "Some unrelated transcript with no finance content at all."
+
+    async def fake_extract(video_id, text, published_at, telemetry):
+        return None  # LLM returned no usable spans
+
+    with (
+        patch("consensus_engine.local_video_ingest.fetch_captions", side_effect=fake_fetch),
+        patch(
+            "consensus_engine.analysis.captions_llm_parser.extract_evidence_from_captions",
+            side_effect=fake_extract,
+        ),
+    ):
+        from consensus_engine.local_video_ingest import _stage_captions
+        tel = RunTelemetry()
+        bundle = await _stage_captions("dQw4w9WgXcQ", tel, "")
+
+    assert bundle is None
+    assert tel.chain_winner is None

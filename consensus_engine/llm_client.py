@@ -42,18 +42,22 @@ def _chain(role: Role) -> list[str]:
 
 
 async def call_with_fallback(
-    role: Role,
+    role: Role | None,
     messages: list[dict],
     *,
     max_tokens: int = 1024,
     temperature: float = 0.3,
     timeout: int = 30,
+    chain: list[str] | None = None,
 ) -> str:
     """Call OpenRouter, walking the configured fallback chain.
 
     Returns assistant content as a stripped string, or ``''`` if every model
     in the chain fails. Callers handle empty-string as the "LLM unavailable"
     signal — same contract as the inline code this replaces.
+
+    Pass an explicit ``chain`` to bypass role-based config lookup (used by
+    callers that have their own per-feature model chain, e.g. captions).
     """
     api_key = cfg.get_api_key("openrouter")
     if not api_key:
@@ -64,7 +68,8 @@ async def call_with_fallback(
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
-    chain = _chain(role)
+    if chain is None:
+        chain = _chain(role)  # type: ignore[arg-type]
     if not chain:
         log.error("LLM fallback chain is empty for role=%s", role)
         return ""
