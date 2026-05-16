@@ -513,6 +513,7 @@ class RunTelemetry:
     chain_winner: str | None = None
     chain_attempts: list[str] = field(default_factory=list)
     chain_durations: dict[str, int] = field(default_factory=dict)
+    f2_failure_category: str | None = None  # "timeout"|"quota"|"unavailable"|"token_limit"|"unknown"
 
 
 @dataclass

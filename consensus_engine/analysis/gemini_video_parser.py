@@ -190,6 +190,50 @@ def _is_quota_error(exc: Exception) -> bool:
     )
 
 
+def _categorize_failure(exc: Exception | None) -> str:
+    """Classify an F2 failure into one of: timeout, quota, unavailable,
+    token_limit, unknown. Used to populate RunTelemetry.f2_failure_category
+    so observability can spot patterns without inspecting raw exception text."""
+    import asyncio as _asyncio
+    if exc is None:
+        return "unknown"
+    if isinstance(exc, _asyncio.TimeoutError):
+        return "timeout"
+    if _is_quota_error(exc):
+        return "quota"
+    msg = (str(exc) + " " + repr(exc)).lower()
+    if "503" in msg or "unavailable" in msg or "service_unavailable" in msg:
+        return "unavailable"
+    if "token" in msg and ("limit" in msg or "exceeded" in msg or "too many" in msg):
+        return "token_limit"
+    if "invalid_argument" in msg and "token" in msg:
+        return "token_limit"
+    return "unknown"
+
+
+def _log_f2_failure(
+    video_id: str,
+    category: str,
+    exc: Exception | None,
+    extra: str = "",
+) -> None:
+    """Emit one structured WARNING per F2 failure with credential-safe
+    exception text. Both str(exc) and repr(exc) are scrubbed because gRPC
+    errors put secrets in the repr but not the str (or vice versa)."""
+    from consensus_engine.utils.log_scrub import scrub
+    if exc is None:
+        log.warning(
+            "F2 failure category=%s video=%s%s exc=None",
+            category, video_id, f" {extra}" if extra else "",
+        )
+        return
+    log.warning(
+        "F2 failure category=%s video=%s%s exc=%s repr=%s",
+        category, video_id, f" {extra}" if extra else "",
+        scrub(str(exc)), scrub(repr(exc)),
+    )
+
+
 def _get_gemini_client():
     """Legacy helper: return the next-available Gemini client, or None."""
     client, _label = _get_available_gemini_client()
@@ -850,9 +894,10 @@ async def _extract_evidence_single_pass(
     for _attempt in range(max_attempts):
         client, key_label = _get_available_gemini_client(skip=tried_labels)
         if client is None:
-            log.warning(
-                "extract_evidence_single_pass: no available Gemini key for %s "
-                "(tried %d, %d configured)", video_id, len(tried_labels), len(configured_keys)
+            telemetry.f2_failure_category = "quota"
+            _log_f2_failure(
+                video_id, "quota", None,
+                extra=f"reason=no_available_key tried={len(tried_labels)} configured={len(configured_keys)}",
             )
             telemetry.latency_ms = int((time.monotonic() - start_ts) * 1000)
             telemetry.json_parse_ok = False
@@ -886,28 +931,31 @@ async def _extract_evidence_single_pass(
                 video_id, key_label, media_resolution,
             )
             break
-        except asyncio.TimeoutError:
-            log.warning("extract_evidence_single_pass: timeout for %s via %s", video_id, key_label)
+        except asyncio.TimeoutError as e:
+            telemetry.f2_failure_category = "timeout"
+            _log_f2_failure(video_id, "timeout", e, extra=f"key={key_label}")
             telemetry.latency_ms = int((time.monotonic() - start_ts) * 1000)
             telemetry.json_parse_ok = False
             return (None, telemetry)
         except Exception as e:
             if _is_quota_error(e):
-                log.warning(
-                    "extract_evidence_single_pass: key %s hit quota for %s: %s",
-                    key_label, video_id, str(e)[:200],
-                )
+                _log_f2_failure(video_id, "quota", e, extra=f"key={key_label} action=rotate")
                 _mark_key_exhausted(key_label)
                 tried_labels.add(key_label)
                 continue
-            log.warning("extract_evidence_single_pass: API error for %s via %s: %s",
-                        video_id, key_label, e)
+            category = _categorize_failure(e)
+            telemetry.f2_failure_category = category
+            _log_f2_failure(video_id, category, e, extra=f"key={key_label}")
             telemetry.latency_ms = int((time.monotonic() - start_ts) * 1000)
             telemetry.json_parse_ok = False
             return (None, telemetry)
 
     if raw is None:
-        log.warning("extract_evidence_single_pass: all Gemini keys exhausted for %s", video_id)
+        telemetry.f2_failure_category = "quota"
+        _log_f2_failure(
+            video_id, "quota", None,
+            extra="reason=all_keys_exhausted",
+        )
         telemetry.latency_ms = int((time.monotonic() - start_ts) * 1000)
         telemetry.json_parse_ok = False
         return (None, telemetry)
