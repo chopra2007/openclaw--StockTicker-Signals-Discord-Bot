@@ -358,16 +358,7 @@ def _format_yt_evidence(evidence):
 
 
 def _format_catalyst_research_block(snippets):
-    """Render web-mined catalyst snippets as a numbered markdown list.
-
-    iter8 surfaced that the free-tier LLM ignores raw JSON-dump
-    arrays in the prompt (cited 'Zen-5' / 'Microsoft' fabrications
-    despite the real Adobe-NVIDIA GTC and Meta-AMD MI450 entries
-    being in the EXTRACTED_CATALYSTS_RESEARCH block). Numbered
-    markdown list is easier for weak models to scan and copy from.
-    Each item keeps its [cat_*] tag so the model can attribute by
-    query type if it wants.
-    """
+    """Render web-mined catalyst snippets as a numbered markdown list."""
     if not isinstance(snippets, list) or not snippets:
         return "(no catalyst research found for this ticker — fall back to NEWS block)"
     lines = []
@@ -376,6 +367,50 @@ def _format_catalyst_research_block(snippets):
             continue
         lines.append(f"  {i}. {s}")
     return "\n".join(lines) if lines else "(empty)"
+
+
+def _extract_structured_catalysts(snippets, ticker, limit=4):
+    """Heuristic: distill EXTRACTED_CATALYSTS_RESEARCH snippets to a
+    structured list the synthesis LLM treats as authoritative.
+
+    iter9 surfaced: the free-tier LLM ignores the markdown-list version
+    of EXTRACTED_CATALYSTS_RESEARCH and writes weak/generic catalyst
+    bullets (NVDA: "AI demand YouTube macro themes"; AMD: "ApeWisdom 84
+    mentions"; TSLA: "ongoing news coverage"). The same chain WILL
+    follow COMPUTED SIGNAL fields because the system instruction says
+    it's authoritative. So we extract the headline + key entities here
+    and inject as computed_signal["extracted_catalysts"].
+
+    Snippet shape: "[cat_partnership] Title: snippet body text"
+    Output shape: [{"headline": str, "summary": str, "kind": str}, ...]
+    """
+    if not isinstance(snippets, list) or not snippets:
+        return []
+    out = []
+    for s in snippets:
+        if not isinstance(s, str) or not s.strip():
+            continue
+        kind = "catalyst"
+        if s.startswith("[cat_") and "] " in s:
+            tag_end = s.index("] ")
+            kind = s[5:tag_end]  # "partnership" / "product" / "regulatory"
+            rest = s[tag_end + 2:]
+        else:
+            rest = s
+        if ":" in rest:
+            headline, body = rest.split(":", 1)
+            headline = headline.strip()[:140]
+            summary = body.strip()[:220]
+        else:
+            headline = rest.strip()[:140]
+            summary = ""
+        # Skip thin entries with no real body content.
+        if len(summary) < 30:
+            continue
+        out.append({"headline": headline, "summary": summary, "kind": kind})
+        if len(out) >= limit:
+            break
+    return out
 
 
 _TRADE_PLAN_V0_ROWS = (
@@ -449,7 +484,14 @@ def _build_constraints_block(swing_v2: bool) -> str:
         "'sentiment' phrasings. Each bullet MUST name a specific business "
         "event with a date (or 'expected H2 2026', 'expected by EoY' style "
         "near-term anchor) AND a $ or % impact estimate where possible. "
-        "EACH bullet MUST be a paraphrase of one numbered item from the "
+        "CATALYST SOURCING RULES (in priority order): "
+        "(1) If COMPUTED SIGNAL.extracted_catalysts is non-empty, AT "
+        "LEAST 2 Catalysts bullets MUST be drawn from that list — copy "
+        "the partner name from `headline` VERBATIM (e.g. 'Meta', 'Oracle', "
+        "'Adobe', 'Google Cloud', 'LG Energy', 'Pilot', 'Intel') and "
+        "paraphrase the `summary` into one sentence with a specific "
+        "consequence for the stock. (2) Otherwise, EACH bullet MUST be "
+        "a paraphrase of one numbered item from the "
         "EXTRACTED_CATALYSTS_RESEARCH list above. Cite the partner name "
         "(e.g. 'Meta', 'Oracle', 'Adobe', 'Google Cloud', 'Pilot', 'LG "
         "Energy', 'Intel') VERBATIM as it appears in the numbered item — "
@@ -554,6 +596,16 @@ def _build_synthesis_prompt(
     from consensus_engine import config as _cfg
     _swing_v2 = bool(_cfg.get("all_command.swing_v2_enabled", True))
 
+    # Commit 10 — extract structured catalysts BEFORE computed_signal so
+    # the swing_v2 branch can inject them. Cap input list to keep regex
+    # work bounded; cap output list to 4 high-signal entries.
+    _catalyst_research_block_for_extract = _truncate_list(
+        catalyst_research or [], 12,
+    )
+    _structured_catalysts = _extract_structured_catalysts(
+        _catalyst_research_block_for_extract, ticker, limit=4,
+    )
+
     computed_signal = {
         "ticker": ticker,
         "direction": getattr(structured, "direction", "NEUTRAL"),
@@ -580,6 +632,13 @@ def _build_synthesis_prompt(
         # Catalysts bullet when available.
         computed_signal["next_catalyst_kind"] = getattr(structured, "next_catalyst_kind", None)
         computed_signal["next_catalyst_mechanism"] = getattr(structured, "next_catalyst_mechanism", None)
+        # Commit 10 — extracted catalysts inside COMPUTED SIGNAL so the
+        # LLM treats them with the same authority as direction/SL/TPs.
+        # iter9 evidence: free-tier LLM ignored EXTRACTED_CATALYSTS_RESEARCH
+        # block, wrote weak "AI demand"/"ApeWisdom mentions" filler instead.
+        # The "COMPUTED SIGNAL is authoritative" rule already exists in
+        # the system instruction — riding on that.
+        computed_signal["extracted_catalysts"] = _structured_catalysts
     else:
         computed_signal["breakout_timeframe"] = getattr(structured, "breakout_timeframe", "TBD")
         computed_signal["magnitude"] = getattr(structured, "magnitude_label", "TBD")
@@ -595,8 +654,8 @@ def _build_synthesis_prompt(
     yt_evidence_block = _truncate_list(sanitized_yt_evidence or [], _CAP_YT)
     # Commit 7: catalyst research snippets from gap_fill (targeted web
     # queries for partnerships/products/supply/regulatory/analyst-day).
-    # Cap to 12 to keep prompt under budget.
-    catalyst_research_block = _truncate_list(catalyst_research or [], 12)
+    # Reuse the pre-computed list from Commit 10 extraction above.
+    catalyst_research_block = _catalyst_research_block_for_extract
     technical_block = sanitized_technical_short or {}
     capped_chat = _truncate_list(sanitized_chat, _CAP_CHANNEL)
     capped_brief = _truncate_list(sanitized_brief, _CAP_CHANNEL)
