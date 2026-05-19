@@ -522,6 +522,7 @@ async def _compute_all(ticker: str, start: float) -> dict:
             "harvested_anchors_snippets": [],
             "eight_k_summary_snippets": [],
             "event_date_snippets": [],
+            "catalyst_research_snippets": [],
         }
 
     stage_t["gap_fill"] = _t()
@@ -712,6 +713,7 @@ async def _compute_all(ticker: str, start: float) -> dict:
             sanitized_technical_short=_build_technical_short_dict(data["technical_short"]),
             recent_earnings_recap=data.get("recent_earnings_recap"),
             chart_pattern=data.get("chart_pattern"),
+            catalyst_research=gap_fill_result.get("catalyst_research_snippets") or [],
         )
         if narrative_status != "ok":
             narrative = output_filter.render_data_only_fallback(

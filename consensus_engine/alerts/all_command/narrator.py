@@ -412,10 +412,21 @@ def _build_constraints_block(swing_v2: bool) -> str:
         "'sentiment' phrasings. Each bullet MUST name a specific business "
         "event with a date (or 'expected H2 2026', 'expected by EoY' style "
         "near-term anchor) AND a $ or % impact estimate where possible. "
-        "Draw catalysts from the NEWS / SEC / EXTRACTED_CATALYSTS evidence "
-        "blocks. If COMPUTED SIGNAL.next_catalyst_mechanism is non-null AND "
+        "Draw catalysts FIRST from EXTRACTED_CATALYSTS_RESEARCH (web-mined "
+        "partnership/product/supply/regulatory/analyst-day snippets, each "
+        "tagged with its query type). These are the highest-signal source — "
+        "use them when they contain dated forward events (e.g. an AMD-Meta "
+        "partnership scaling to N gigawatts in H2 2026, a product launch "
+        "scheduled for a specific quarter, an FDA PDUFA date). Fall back "
+        "to NEWS / SEC blocks only when EXTRACTED_CATALYSTS_RESEARCH is "
+        "thin. If COMPUTED SIGNAL.next_catalyst_mechanism is non-null AND "
         "is a substantive business event (NOT options expiry), ONE bullet "
-        "should mention it.\n"
+        "should mention it. CROSS-SOURCE CONFLICTS: if EXTRACTED_CATALYSTS "
+        "+ NEWS + YOUTUBE evidence agree on the same event, the catalyst "
+        "is HIGH-CONFIDENCE — say so. If they disagree on direction, "
+        "magnitude, or date, surface the disagreement explicitly in a "
+        "bullet (e.g. 'News reports X by Q3; YouTube analysts expect X "
+        "delayed to Q4 — watch for confirmation').\n"
         "  3. A `## Risk Considerations` markdown header followed by AT LEAST "
         "2 bulleted items naming substantive BUSINESS risks — not price-level "
         "risks. Substantive risks: margin compression (e.g. gaming segment "
@@ -496,6 +507,7 @@ def _build_synthesis_prompt(
     sanitized_technical_short: Optional[dict] = None,
     recent_earnings_recap: Optional[dict] = None,
     chart_pattern: Optional[dict] = None,
+    catalyst_research: Optional[list[str]] = None,  # Commit 7
 ) -> list[dict]:
     """Build the synthesis-pass message list per plan §3.6 / Pass 2 R6."""
     final_score = (
@@ -544,6 +556,10 @@ def _build_synthesis_prompt(
     yt_signals_block = _truncate_list(sanitized_yt_signals or [], _CAP_YT)
     yt_options_block = _truncate_list(sanitized_yt_options or [], _CAP_YT)
     yt_evidence_block = _truncate_list(sanitized_yt_evidence or [], _CAP_YT)
+    # Commit 7: catalyst research snippets from gap_fill (targeted web
+    # queries for partnerships/products/supply/regulatory/analyst-day).
+    # Cap to 12 to keep prompt under budget.
+    catalyst_research_block = _truncate_list(catalyst_research or [], 12)
     technical_block = sanitized_technical_short or {}
     capped_chat = _truncate_list(sanitized_chat, _CAP_CHANNEL)
     capped_brief = _truncate_list(sanitized_brief, _CAP_CHANNEL)
@@ -572,6 +588,12 @@ def _build_synthesis_prompt(
         f"YOUTUBE CURATED LEVELS:\n{json.dumps(_format_yt_signals(yt_signals_block), default=str)}",
         f"YOUTUBE OPTIONS FLOW:\n{json.dumps(_format_yt_signals(yt_options_block), default=str)}",
         f"YOUTUBE TRADE SETUPS:\n{json.dumps(_format_yt_evidence(yt_evidence_block), default=str)}",
+        # Commit 7 — substantive forward catalysts mined from web. Each
+        # snippet is prefixed with a query tag like [cat_partnership] /
+        # [cat_product] / [cat_supply] / [cat_regulatory] / [cat_analyst]
+        # so synthesis can attribute by query type.
+        f"EXTRACTED_CATALYSTS_RESEARCH (web-mined; each entry tagged by query type):\n"
+        f"{json.dumps(catalyst_research_block, default=str)}",
         f"INTERNAL CONTEXT (#chat last 24h):\n{json.dumps(capped_chat, default=str)}",
         f"INTERNAL CONTEXT (#brief last 3):\n{json.dumps(capped_brief, default=str)}",
         f"PRIOR RESEARCH (vault excerpt):\n{capped_vault}",
@@ -624,6 +646,7 @@ async def synthesize_narrative(
     sanitized_technical_short: Optional[dict] = None,
     recent_earnings_recap: Optional[dict] = None,
     chart_pattern: Optional[dict] = None,
+    catalyst_research: Optional[list[str]] = None,  # Commit 7
 ) -> tuple[str, str]:
     """Run the synthesis LLM call and pipe the result through output_filter.
 
@@ -652,6 +675,7 @@ async def synthesize_narrative(
         sanitized_technical_short=sanitized_technical_short,
         recent_earnings_recap=recent_earnings_recap,
         chart_pattern=chart_pattern,
+        catalyst_research=catalyst_research,
     )
 
     from consensus_engine.alerts.all_command import quality_bar as _qb
