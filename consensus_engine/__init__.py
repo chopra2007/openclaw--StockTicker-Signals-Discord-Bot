@@ -1,2 +1,2 @@
 """Stock Trend Consensus Engine — Multi-source breakout detection."""
-__version__ = "0.4.16-bypass-sanitize-for-catalysts-2026-05-19"
+__version__ = "0.4.17-drop-direction-gate-2026-05-19"
