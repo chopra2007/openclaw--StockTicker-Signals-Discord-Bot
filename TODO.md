@@ -311,6 +311,34 @@ visible output isn't decided by the LLM. Before any session picks
 this up, read the architecture map below so you don't waste effort
 "fixing" things in the wrong place.
 
+### Execution discipline (non-negotiable for this initiative)
+
+**1. The goal is what matters.** This is an open-ended quality
+initiative — there is no "completion ceremony" to chase. The worst
+possible outcome is shipping code that fails live testing and then
+falling back to *"we can just ditch the code."* That outcome burns
+time, tokens, and the user's trust. Before writing any code, name
+the user-observable outcome that must hold true after the session
+ends ("the embed now shows a max-pain level for every ticker", not
+"max-pain integration is in"). If you can't name it crisply, do not
+start coding — scope down or pick a different lever.
+
+**2. Pre-flight any feature that needs scraping or external-site
+access.** If the proposed feature pulls data from Unusual Whales,
+TipRanks, OptionStrat, Finviz, Seeking Alpha, or any other
+third-party site, **do a live access test first** — fetch the page
+or hit the endpoint manually with Firecrawl / WebFetch / curl and
+confirm you can actually extract the field you need from this VPS.
+If bot detection blocks you, a proxy returns empty, the data is
+paywalled, the markup is too dynamic to parse reliably, or the rate
+limits make production use untenable — **stop there and reconsider
+the lever before writing any code.** The failure mode this prevents:
+building a full end-to-end integration only to discover at live-test
+time that the source is inaccessible with no workaround. Capture the
+access-test result (worked / blocked / partial) in the external
+feature audit alongside the feature row, so the same pre-flight
+isn't redone next session.
+
 ### Architecture — who actually decides what
 
 `consensus_engine/alerts/all_command/` is the package. Order of
@@ -454,6 +482,67 @@ unchanged):
   in this initiative — see `_format_earnings_recap` in `narrator.py`
   for the pattern applied.
 
+### External research — feature gaps from the web
+
+The "Feature gaps" list above is everything *I* (the codebase author)
+already noticed. The high-leverage gaps are the ones nobody's looked
+for yet. Before scoping any internal lever, spend material time
+auditing what other stock/trading-analysis tools surface that `!all`
+doesn't. Sources to mine:
+
+- **Direct competitors** (free + paid tiers): TipRanks, Seeking Alpha,
+  Benzinga, Finviz, Stocktwits, TradingView analysis pages, Simply
+  Wall St, Koyfin, Stock Analysis dot com, Yahoo Finance, Robinhood
+  research pages. What sections does each ticker page have? Which
+  are free-tier table stakes vs. paywalled premium?
+- **Discord / Telegram trading bots** — Unusual Whales, FlowAlerts,
+  AlertaPro, options-flow bots. What does their `/ticker` or `/all`
+  equivalent produce? What flow / sentiment / dark-pool data do they
+  surface that `!all` doesn't?
+- **Sell-side research formats** — bank initiation reports,
+  one-pagers, "morning notes". What sections are table stakes
+  (catalysts, risks, peer comp, valuation tables, scenario fans)?
+- **Retail trader subreddits** (r/wallstreetbets, r/options, r/stocks,
+  r/investing, r/SecurityAnalysis) — top-upvoted DD post structure
+  conventions. What sections do high-quality DDs always include?
+- **Hedge fund letters / public memos** — public quarterly letters.
+  What frames do they use for thesis articulation, position sizing,
+  catalyst timelines?
+- **Twitter/X fintwit accounts** — what data points do top-engagement
+  ticker tweets reference (options flow, OI changes, gamma levels,
+  short interest deltas, insider clusters)?
+
+**The audit format — a markdown spreadsheet, not prose.** Produce a
+table with one row per missing feature and these columns: **Feature**
+| **Where I saw it** | **Build cost** (trivial / medium / big) |
+**How common** (count across competitor sources) | **Pre-flight
+access** (worked / blocked / partial / N/A — fill this in by actually
+hitting the source from this VPS per discipline rule 2 above).
+
+Concrete examples of what good rows look like:
+
+| Feature | Where I saw it | Build cost | How common | Pre-flight access |
+|---|---|---|---|---|
+| "Max pain" options level | Unusual Whales, OptionStrat | Medium — needs options chain data | 4/5 options tools | Blocked (UW Cloudflare) / partial (OptionStrat parseable) |
+| "3 insiders bought in last 30d" badge | TipRanks, OpenInsider | Trivial — Form 4 data already fetched | Almost universal | N/A (use existing SEC pipeline) |
+| Short-interest delta ("SI up 8% WoW") | Finviz, Stocktwits, Fintel | Medium — needs a SI data provider | Most retail tools | Worked (Finviz HTML stable) |
+| Peer-comparison mini-table (P/E, growth vs. AAPL/MSFT) | Seeking Alpha, Koyfin | Big — needs peer ticker logic | Sell-side standard | Blocked (SA paywall) / Worked (Koyfin free tier) |
+| "Earnings move history" ("avg ±6% on prints") | Benzinga, Estimize | Trivial — calc from existing OHLCV | ~half of tools | N/A (compute locally) |
+
+The audit's job is to make trade-offs visible at a glance. Sort by
+**best ratio of "shows up everywhere" to "cheap to build" AND
+pre-flight = worked / N/A** — those rows are the high-leverage gaps
+with no surprises waiting. Ship them first. Rows where pre-flight is
+"blocked" are *not* candidates until a workaround is documented in
+the same audit.
+
+Land the audit at
+`.claude/discover/all-command-rebuild/external-feature-audit-<YYYY-MM-DD>.md`
+before scoping any concrete code change. Use Firecrawl / WebSearch /
+WebFetch heavily — this is a "go deep" research pass, not a
+10-minute skim. The audit becomes the shared menu future sessions
+draw from.
+
 ### How to scope a session
 
 This TODO is intentionally broad — don't try to do it all in one
@@ -467,5 +556,194 @@ quality-regression harness.
 **Acceptance for this TODO is "shipped at least one user-visible
 quality improvement with before/after evidence."** Not "completed all
 items above" — those are a menu, not a checklist.
+
+---
+
+## 8. Discover skill modifications (3 changes)
+
+**Layperson:** Three quality-of-life upgrades to the `discover` skill
+(installed at `/root/.claude/plugins/cache/discover/discover/0.1.0/skills/discover/SKILL.md`,
+source-of-truth at `/root/work/claude-discover-publish/repo/skills/discover/SKILL.md`).
+Today discover only composes `superpowers:brainstorming`; the rest is OMC
+agents. Verification is enforced by `ralph` + the `verifier` agent looping
+on Pass 4's checklist, not by the dedicated superpowers gate skill.
+
+### 8a. Invoke `superpowers:verification-before-completion` in Pass 5
+
+**Why:** Pass 5 already has a checklist + verifier agent, but the
+superpowers skill enforces "no completion claim without fresh evidence
+in the same message" — a stronger gate than "verifier eventually says
+ok." Layering it on top of the existing loop catches premature
+"implementation complete" claims from the executor/ralph loop itself.
+
+**Where:** Pass 5 section in `SKILL.md` (currently lines 260–299).
+Insert an explicit `Skill` invocation step *before* the commit step
+(currently step 4). Also add the skill to the composition table
+(currently line 312, "Pass 5" row).
+
+**Acceptance:** Pass 5 documentation now lists
+`superpowers:verification-before-completion` in the pass-5 composition
+row; the execution flow tells the orchestrator to invoke the skill
+before any "ready to commit" claim; a dry-run of Pass 5 against a
+trivial fixture shows the skill being invoked.
+
+### 8b. Add a non-tmux parallel-agent option
+
+**Why:** Today discover *requires* tmux (`SKILL.md:26` lists it as a
+hard prerequisite) and forces a 3-pane or 6-pane layout
+(`SKILL.md:65–107`). On systems without tmux — or when the user just
+wants the skill to dispatch parallel agents via Claude Code's native
+`Agent` / `Task` tools — the skill bails. Add a third layout option
+(call it `--layout native` or `--parallel native`) that uses the
+native parallel-agent dispatch from
+`superpowers:dispatching-parallel-agents` instead of tmux panes.
+
+**Where:**
+- `discover.sh` (bundled with skill) — add a code path that skips the
+  `tmux new-session` setup when the native layout is selected.
+- `SKILL.md:24` and `SKILL.md:65–107` (layout selection question + the
+  tmux multi-agent layout section) — document the new option and stop
+  treating tmux as a hard prerequisite.
+- `references/tmux-layout.md` — add a "Native (no tmux) layout" sibling
+  doc or extend the existing one.
+- Pass 0 / Pass 1 dispatch steps that currently say "dispatch into
+  pane X" — branch on layout so they instead spawn parallel `Agent`
+  tool calls in a single message when native layout is active.
+
+**Acceptance:** Running `/discover` on a system without tmux installed
+no longer fails the prerequisite check; the layout question now
+offers 3-pane / 6-pane / native; selecting native completes Pass 0 +
+Pass 1 by dispatching parallel `Agent` calls instead of tmux panes;
+final-plan.md is produced identically (same schema) regardless of
+which layout was picked.
+
+### 8c. Kickoff prompt must be one short sentence
+
+**Why:** Today the Pass 4 → Pass 5 handoff generates an `EXECUTE.md`
+file and asks the user to **paste its contents** into a fresh session
+to start Pass 5. That's exactly the workflow the personal-preference
+rule in `/root/.claude/CLAUDE.md` forbids:
+> "When generating a kickoff prompt for the user to paste into a
+> fresh session, keep it to a single short trigger line; all detailed
+> instructions go in a file the new session reads, never inline in
+> the prompt."
+
+The kickoff prompt should be one sentence like
+`discover: resume EXECUTE.md` (or `discover: resume <run-dir>`) and
+nothing else. Pass 5 re-activates from that trigger, then reads
+`EXECUTE.md` / `state.json` / `final-plan.md` from disk itself.
+
+**Where:**
+- Pass 4 / end-of-pass-4 step that emits the kickoff prompt (search
+  `SKILL.md` for "EXECUTE.md" and "kickoff" / "paste").
+- Pass 5 entry point (`SKILL.md:260–262`) — already says it "reads
+  `state.json` and `final-plan.md`", so the on-disk read path
+  already exists; the change is purely on the prompt-generation side.
+- Update the discover hard-trigger list in the skill description
+  (line 3) if `discover: resume ...` needs to be recognized as a
+  trigger variant.
+
+**Acceptance:** Pass 4 output instructs the user to paste exactly one
+short line (`discover: resume <abs-path-to-EXECUTE.md>` or similar);
+the literal contents of `EXECUTE.md` no longer appear in the kickoff
+prompt; pasting that single sentence into a fresh Claude Code session
+correctly re-enters Pass 5 and reads the on-disk state.
+
+### 8d. Update plugin README to make tmux optional
+
+**Why:** Once 8b ships a native parallel-agent layout, the
+public-facing plugin README at
+https://github.com/chopra2007/claude-discover (local clone at
+`/root/work/claude-discover-publish/repo/README.md`) is out of date.
+Today it positions tmux as a hard dependency:
+- Line 3 tagline: "Composes existing OMC and superpowers skills via
+  tmux multi-agent orchestration — does not reinvent them."
+- Line 90 Prerequisites: `**tmux** — required for parallel multi-agent panes`
+
+After 8b ships, tmux becomes one of two parallelization options and
+should be moved from "Prerequisites" to "Optional" (or annotated as
+"required only for tmux layouts; native layout uses Claude Code's
+built-in parallel `Agent` dispatch").
+
+**Where:**
+- `/root/work/claude-discover-publish/repo/README.md` line 3 (tagline)
+- `/root/work/claude-discover-publish/repo/README.md` line 87–91
+  (Prerequisites section)
+- `/root/work/claude-discover-publish/extracted/discover-plugin/README.md`
+  (mirror copy, same edits)
+- Push the updated README to the GitHub repo
+  (`chopra2007/claude-discover`) alongside the 8b release so the docs
+  match the code.
+
+**Acceptance:** Plugin README no longer lists tmux as a hard
+prerequisite; it documents both layout options (tmux vs native);
+GitHub `README.md` on the default branch matches; release notes for
+the version that ships 8b call out the new layout option.
+
+### Notes for whoever picks this up
+
+- The cache copy at
+  `/root/.claude/plugins/cache/discover/discover/0.1.0/skills/discover/SKILL.md`
+  will be overwritten on next plugin update — edit the source at
+  `/root/work/claude-discover-publish/repo/skills/discover/SKILL.md`
+  (and `extracted/discover-plugin/skills/discover/` if that's the
+  publish staging path) and bump the version.
+- 8d (README update) is gated on 8b shipping — don't announce tmux as
+  optional until the native layout actually works.
+- The three sub-items are independent — each can ship as its own
+  patch. 8c is the smallest / highest-leverage (matches an explicit
+  personal preference).
+- Verify with a real `/discover` invocation on a small toy feature
+  before declaring done — not just by reading the diff.
+
+---
+
+## 9. Replay mentions/commands missed during gateway reconnects
+
+**Layperson:** When the engine restarts (or its Discord WebSocket
+drops and reconnects with a fresh `IDENTIFY`), any `!` commands or
+`@<bot>` mentions that arrived in the disconnect window are silently
+lost — Discord gateway is push-only and does not replay missed
+events for a new session. The user sees their message in the
+channel, but the bot never reacts.
+
+**Concrete repro:** `sudo systemctl restart consensus-engine.service`
+and within ~22s post a mention via the ClaudeCode webhook. The
+message lands in #chat, the gateway becomes READY a few seconds
+later, but no `Mention →` log line appears for it. Hit during the
+2026-05-18 steering-template fix verification — first retest mention
+was eaten by the reconnect gap, had to be resent.
+
+**Why it matters:** Any time the engine restarts (deploys, code
+pushes, OOM, weekend pause flips), in-flight user requests vanish
+without acknowledgement. Hard for the user to tell apart from "the
+bot is broken." Also masks real regressions during deploy-verify
+loops.
+
+**Proposed approach:**
+1. On every Gateway READY (especially fresh `IDENTIFY` after an
+   invalid session — see `discord_tweetshift.py` around the existing
+   `Reconnecting to Discord Gateway in 120s` log), fetch the last N
+   messages from #chat + #commands + #briefing via REST and replay
+   any `!`-commands or `@<bot_id>`-mentions whose `id` is newer than
+   the highest already-processed message id for that channel.
+2. Persist `last_processed_message_id` per channel in the DB
+   (`engine_state` table or similar) so the lookback window is
+   bounded and crash-safe across restarts.
+3. Dedupe by message id so the same mention isn't double-fired if
+   the gateway eventually delivers it via push too.
+4. Cap the replay window (e.g. 10 minutes / 50 messages per channel)
+   so the bot doesn't try to replay a multi-hour outage as a torrent
+   of belated replies.
+
+**Acceptance:**
+- Restart the engine mid-conversation; the user can send a `!ask` or
+  `@<bot>` during the ~20s reconnect; the bot replies within ~30s of
+  gateway-ready instead of going silent.
+- Restarting after an hour-long outage doesn't flood the channel —
+  only messages inside the configured replay window get processed.
+
+**Discovered:** 2026-05-18 during the steering-template fix
+verification; see commit 6bc150e on master.
 
 ---
