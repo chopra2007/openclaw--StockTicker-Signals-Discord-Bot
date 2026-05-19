@@ -468,6 +468,7 @@ async def _handle_mention(content: str, channel_id: str, message_id: str) -> Non
             proc = await asyncio.create_subprocess_exec(
                 "openclaw", "agent", "--local",
                 "--agent", "main",
+                "--session-id", f"channel-{channel_id}",
                 "--message", wrapped_message,
                 "--timeout", "120",
                 stdout=asyncio.subprocess.PIPE,

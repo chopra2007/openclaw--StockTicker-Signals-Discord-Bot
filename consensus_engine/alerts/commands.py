@@ -93,45 +93,32 @@ async def _fetch_channel_history(channel_id: str, limit: int = 20) -> str:
 
 
 async def _handle_ask(question: str, channel_id: str, message_id: str) -> None:
-    """Route a question to the heavyweight primary LLM chain.
+    """Route !ask through the same OpenClaw agent as @-mention.
 
-    Bare @-mentions stay on the lighter `text` chain (faster, cheaper).
-    `!ask` is the explicit escape hatch for full-length analytical answers —
-    role="primary", max_tokens=8000, with channel history as context. The
-    response is delivered via send_command_reply, which transparently splits
-    long output into multiple Discord messages.
+    Prepends the last 10 channel messages as context so the agent can answer
+    with awareness of the recent conversation flow. Otherwise relies on
+    `_handle_mention`'s subprocess invocation, retry loop, and telemetry —
+    so !ask and @mention now share one config, one prompt, one model chain.
     """
-    from consensus_engine.llm_client import call_with_fallback
-
-    if not cfg.get_api_key("openrouter"):
-        await send_command_reply(channel_id, message_id, "⚠️ LLM not configured.")
+    if not question:
+        await send_command_reply(
+            channel_id, message_id,
+            "Please include a question. Example: `!ask what is NVDA doing today?`",
+        )
         return
 
-    history = await _fetch_channel_history(channel_id, limit=20)
-    context_block = (
-        f"\n\nRecent channel messages (oldest→newest):\n{history}" if history else ""
-    )
-    system_prompt = (
-        build_time_context() + "\n\n"
-        "You are OpenClaw, an AI trading signal and market intelligence assistant "
-        "running on a Discord server. Answer the user's question with full reasoning "
-        "and specific numbers wherever possible. Cite the data you rely on by source "
-        "name. Never fabricate ticker data."
-        f"{context_block}"
-    )
-    reply = await call_with_fallback(
-        role="primary",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": question},
-        ],
-        max_tokens=8000,
-        temperature=0.4,
-    )
-    if reply:
-        await send_command_reply(channel_id, message_id, reply)
+    history = await _fetch_channel_history(channel_id, limit=10)
+    if history:
+        content = (
+            "Recent channel messages (oldest→newest, for context only):\n"
+            f"{history}\n\n"
+            f"Question: {question}"
+        )
     else:
-        await send_command_reply(channel_id, message_id, "⚠️ LLM unavailable right now.")
+        content = question
+
+    from consensus_engine.main import _handle_mention
+    await _handle_mention(content, channel_id, message_id)
 
 HELP_TEXT = """**OpenClaw Signal Engine — Commands**
 `!help` — show this message
