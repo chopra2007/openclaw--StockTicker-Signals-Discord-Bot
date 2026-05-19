@@ -357,6 +357,27 @@ def _format_yt_evidence(evidence):
     return [_strip_name_fields(item) for item in evidence]
 
 
+def _format_catalyst_research_block(snippets):
+    """Render web-mined catalyst snippets as a numbered markdown list.
+
+    iter8 surfaced that the free-tier LLM ignores raw JSON-dump
+    arrays in the prompt (cited 'Zen-5' / 'Microsoft' fabrications
+    despite the real Adobe-NVIDIA GTC and Meta-AMD MI450 entries
+    being in the EXTRACTED_CATALYSTS_RESEARCH block). Numbered
+    markdown list is easier for weak models to scan and copy from.
+    Each item keeps its [cat_*] tag so the model can attribute by
+    query type if it wants.
+    """
+    if not isinstance(snippets, list) or not snippets:
+        return "(no catalyst research found for this ticker — fall back to NEWS block)"
+    lines = []
+    for i, s in enumerate(snippets, 1):
+        if not isinstance(s, str):
+            continue
+        lines.append(f"  {i}. {s}")
+    return "\n".join(lines) if lines else "(empty)"
+
+
 _TRADE_PLAN_V0_ROWS = (
     "       | Buy Zone   | $buy_zone_low – $buy_zone_high | <why this band> |\n"
     "       | Stop-Loss  | $sl                            | <why this stop> |\n"
@@ -428,21 +449,21 @@ def _build_constraints_block(swing_v2: bool) -> str:
         "'sentiment' phrasings. Each bullet MUST name a specific business "
         "event with a date (or 'expected H2 2026', 'expected by EoY' style "
         "near-term anchor) AND a $ or % impact estimate where possible. "
-        "Draw catalysts FIRST from EXTRACTED_CATALYSTS_RESEARCH (web-mined "
-        "partnership/product/supply/regulatory/analyst-day snippets, each "
-        "tagged with its query type). These are the highest-signal source — "
-        "use them when they contain dated forward events (e.g. an AMD-Meta "
-        "partnership scaling to N gigawatts in H2 2026, a product launch "
-        "scheduled for a specific quarter, an FDA PDUFA date). Fall back "
-        "to NEWS / SEC blocks only when EXTRACTED_CATALYSTS_RESEARCH is "
-        "thin. If COMPUTED SIGNAL.next_catalyst_mechanism is non-null AND "
-        "is a substantive business event (NOT options expiry), ONE bullet "
-        "should mention it. CROSS-SOURCE CONFLICTS: if EXTRACTED_CATALYSTS "
-        "+ NEWS + YOUTUBE evidence agree on the same event, the catalyst "
-        "is HIGH-CONFIDENCE — say so. If they disagree on direction, "
-        "magnitude, or date, surface the disagreement explicitly in a "
-        "bullet (e.g. 'News reports X by Q3; YouTube analysts expect X "
-        "delayed to Q4 — watch for confirmation').\n"
+        "EACH bullet MUST be a paraphrase of one numbered item from the "
+        "EXTRACTED_CATALYSTS_RESEARCH list above. Cite the partner name "
+        "(e.g. 'Meta', 'Oracle', 'Adobe', 'Google Cloud', 'Pilot', 'LG "
+        "Energy', 'Intel') VERBATIM as it appears in the numbered item — "
+        "do NOT invent partners. Cite product names ('MI450', 'Blackwell', "
+        "'Rubin', 'Ryzen AI', 'Helios') VERBATIM as they appear. Cite "
+        "dates and amounts VERBATIM. FORBIDDEN patterns (auto-reject): "
+        "'Projected X', 'Expected partnership with [company]', "
+        "'industry chatter indicates', 'codenamed [made-up name]', "
+        "'estimated N% [no source]'. If the EXTRACTED list is empty OR "
+        "only contains generic results, fall back to NEWS / SEC blocks "
+        "and cite them by ID instead — never invent. CROSS-SOURCE CONFLICTS: "
+        "if a numbered EXTRACTED item is contradicted by NEWS or YOUTUBE "
+        "evidence, surface the disagreement (e.g. 'List item #3 says X "
+        "by Q3; NEWS row 2 says X delayed — watch for confirmation').\n"
         "  3. A `## Risk Considerations` markdown header followed by AT LEAST "
         "2 bulleted items naming substantive BUSINESS risks — not price-level "
         "risks. Substantive risks: margin compression (e.g. gaming segment "
@@ -586,15 +607,18 @@ def _build_synthesis_prompt(
         f"TASK: Write a 3-6 paragraph narrative for ${ticker}. Stick to the "
         "COMPUTED SIGNAL — it is canonical. Cite evidence by source.",
         f"COMPUTED SIGNAL:\n{json.dumps(computed_signal, default=str)}",
-        # Commit 8 — EXTRACTED_CATALYSTS_RESEARCH moved up to first
-        # evidence position. iter7 surfaced LLM ignoring it when buried
-        # below YOUTUBE blocks. Putting it right after COMPUTED SIGNAL
-        # gives it priority weight in the synthesis pass. These are the
-        # highest-signal forward-event source — partnership/product/
-        # regulatory snippets mined via SerpAPI in gap_fill.
-        f"EXTRACTED_CATALYSTS_RESEARCH (web-mined; tagged by query type — "
-        f"THIS IS YOUR PRIMARY SOURCE FOR CATALYSTS):\n"
-        f"{json.dumps(catalyst_research_block, default=str)}",
+        # Commit 9 — render as numbered markdown list (was JSON dump).
+        # iter8 NVDA showed the LLM ignored raw JSON and fabricated
+        # ("Projected AI-driven product updates ... industry chatter
+        # indicates ... second half of 2026") even though the real
+        # block had Adobe-NVIDIA GTC March 16 + Meta-NVIDIA long-term
+        # + Google Cloud NVIDIA. Numbered list with [cat_*] tags +
+        # explicit cite-by-number constraint below forces grounding.
+        "EXTRACTED_CATALYSTS_RESEARCH — THIS IS YOUR PRIMARY SOURCE "
+        "FOR CATALYSTS. Pick 2 numbered items below; paraphrase them "
+        "into Catalysts bullets. Partner names + dates + amounts MUST "
+        "be copied verbatim from these strings — do not invent.\n"
+        f"{_format_catalyst_research_block(catalyst_research_block)}",
         f"SOURCES SURFACED ({len(surfaced)}):\n{', '.join(surfaced) or '(none)'}",
         f"STRUCTURED DATA SUMMARY:\n{structured_data_json or '{}'}",
         *([
