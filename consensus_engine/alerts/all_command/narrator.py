@@ -296,6 +296,51 @@ def _format_earnings_recap(recap: dict) -> dict:
     return out
 
 
+_NAME_FIELDS_TO_STRIP = (
+    "analyst_name", "channel_name", "creator_name", "individual_name",
+    "handle", "author", "author_name", "source_name", "channel_title",
+    "name", "speaker", "speaker_name",
+)
+
+
+def _strip_name_fields(item):
+    """Drop fields that name a specific person, channel, or handle.
+
+    Why: chain models cite these as proof ("Wicked Stocks is calling
+    long") instead of building causal theses (TODO #11). Pre-format
+    here makes the leak structurally impossible — model never sees
+    the names. Mirrors _format_earnings_recap pattern.
+    """
+    if not isinstance(item, dict):
+        return item
+    out = {k: v for k, v in item.items() if k not in _NAME_FIELDS_TO_STRIP}
+    if "tier" in out or "trust_score" in out:
+        tier = out.get("tier")
+        if not tier:
+            ts = out.get("trust_score") or 0
+            tier = "curated" if ts >= 0.7 else "general"
+        out["source_type"] = f"youtube_{tier}"
+        out.pop("tier", None)
+        out.pop("trust_score", None)
+    else:
+        out.setdefault("source_type", "youtube")
+    return out
+
+
+def _format_yt_signals(signals):
+    """Strip analyst/channel names from YT signal items before synthesis."""
+    if not isinstance(signals, list):
+        return signals
+    return [_strip_name_fields(item) for item in signals]
+
+
+def _format_yt_evidence(evidence):
+    """Strip analyst/channel names from YT evidence items before synthesis."""
+    if not isinstance(evidence, list):
+        return evidence
+    return [_strip_name_fields(item) for item in evidence]
+
+
 _TRADE_PLAN_V0_ROWS = (
     "       | Buy Zone   | $buy_zone_low – $buy_zone_high | <why this band> |\n"
     "       | Stop-Loss  | $sl                            | <why this stop> |\n"
@@ -381,9 +426,15 @@ def _build_constraints_block(swing_v2: bool) -> str:
         "    If COMPUTED SIGNAL.earnings_date is non-null, add a final "
         "sentence after the table naming the date as the binary catalyst "
         "(e.g. 'Earnings on YYYY-MM-DD is the binary catalyst').\n"
-        "- Cite sources by name (e.g. 'news', 'twitter', 'youtube'); when "
-        "an evidence row names a channel or analyst, name them in the "
-        "rationale (e.g. 'TP1 from CheddarFlow YT call').\n"
+        "- Cite source TYPES when relevant (e.g. 'news', 'twitter', "
+        "'curated youtube call', 'options flow', 'SEC filing', 'earnings "
+        "recap'). Do NOT name analysts, channels, creators, or handles — "
+        "provenance is not proof. Phrases like 'analysts are calling X', "
+        "'[N] channels are bullish', 'YouTube analysts (...) are calling "
+        "long', or 'high-conviction analysts ... citing sentiment' are "
+        "REJECTED. Every Catalyst and Bear Case bullet MUST reference a "
+        "specific number, dated event, or price level — state the fact "
+        "directly, not who said it.\n"
         "- Do not contradict the COMPUTED SIGNAL.\n"
         "- Do not introduce price levels not present in the COMPUTED SIGNAL block.\n"
         "- No @everyone or @here.\n"
@@ -480,9 +531,9 @@ def _build_synthesis_prompt(
         ] if isinstance(chart_pattern, dict) and chart_pattern else []),
         f"SOCIAL SIGNALS (twitter):\n{json.dumps(twitter_block, default=str)}",
         f"SOCIAL SIGNALS (reddit/wsb):\n{json.dumps(social_block, default=str)}",
-        f"YOUTUBE ANALYST CALLS:\n{json.dumps(yt_signals_block, default=str)}",
-        f"YOUTUBE OPTIONS FLOW:\n{json.dumps(yt_options_block, default=str)}",
-        f"YOUTUBE TRADE SETUPS:\n{json.dumps(yt_evidence_block, default=str)}",
+        f"YOUTUBE CURATED LEVELS:\n{json.dumps(_format_yt_signals(yt_signals_block), default=str)}",
+        f"YOUTUBE OPTIONS FLOW:\n{json.dumps(_format_yt_signals(yt_options_block), default=str)}",
+        f"YOUTUBE TRADE SETUPS:\n{json.dumps(_format_yt_evidence(yt_evidence_block), default=str)}",
         f"INTERNAL CONTEXT (#chat last 24h):\n{json.dumps(capped_chat, default=str)}",
         f"INTERNAL CONTEXT (#brief last 3):\n{json.dumps(capped_brief, default=str)}",
         f"PRIOR RESEARCH (vault excerpt):\n{capped_vault}",

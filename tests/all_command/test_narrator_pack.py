@@ -200,3 +200,71 @@ async def test_synthesize_no_retry_when_sections_present():
     assert len(calls) == 1
     assert status == "ok"
     assert "TL;DR" in text
+
+
+# ---------------------------------------------------------------------------
+# TODO #11 — anti-influencer prose: pre-formatters + constraint clause
+# ---------------------------------------------------------------------------
+
+def test_format_yt_signals_strips_analyst_name():
+    items = [{"analyst_name": "Wicked Stocks", "price_level": 220.0,
+              "direction": "long"}]
+    out = narrator._format_yt_signals(items)
+    assert "analyst_name" not in out[0]
+    assert "Wicked Stocks" not in str(out)
+    assert out[0]["price_level"] == 220.0
+    assert out[0]["direction"] == "long"
+
+
+def test_format_yt_signals_strips_channel_name_and_adds_source_type():
+    items = [{"channel_name": "CheddarFlow", "price_level": 215.0}]
+    out = narrator._format_yt_signals(items)
+    assert "channel_name" not in out[0]
+    assert "CheddarFlow" not in str(out)
+    assert out[0]["source_type"] == "youtube"
+
+
+def test_format_yt_signals_collapses_trust_score_to_curated_tier():
+    items = [{"creator_name": "X", "trust_score": 0.85, "price_level": 220.0}]
+    out = narrator._format_yt_signals(items)
+    assert out[0]["source_type"] == "youtube_curated"
+    assert "trust_score" not in out[0]
+    assert "X" not in str(out)
+
+
+def test_format_yt_signals_low_trust_score_yields_general_tier():
+    items = [{"handle": "@randomtrader", "trust_score": 0.3, "price_level": 100.0}]
+    out = narrator._format_yt_signals(items)
+    assert out[0]["source_type"] == "youtube_general"
+    assert "@randomtrader" not in str(out)
+
+
+def test_format_yt_signals_passthrough_for_non_list():
+    assert narrator._format_yt_signals(None) is None
+    assert narrator._format_yt_signals("not a list") == "not a list"
+
+
+def test_format_yt_evidence_strips_names_same_as_signals():
+    items = [{"author": "Lottery Stocks", "speaker_name": "Joe",
+              "price_level": 200.0}]
+    out = narrator._format_yt_evidence(items)
+    assert "Lottery Stocks" not in str(out)
+    assert "Joe" not in str(out)
+    assert out[0]["price_level"] == 200.0
+
+
+@pytest.mark.parametrize("swing_v2", [True, False])
+def test_constraints_block_rejects_named_analysts(swing_v2):
+    """TODO #11 — anti-influencer rule in CONSTRAINTS."""
+    block = narrator._build_constraints_block(swing_v2)
+    assert "provenance is not proof" in block.lower()
+    assert "rejected" in block.lower()
+    assert "analysts are calling" in block.lower()
+
+
+@pytest.mark.parametrize("swing_v2", [True, False])
+def test_constraints_block_does_not_instruct_naming_cheddarflow(swing_v2):
+    """The pre-fix instruction explicitly told LLM to cite 'CheddarFlow'."""
+    block = narrator._build_constraints_block(swing_v2)
+    assert "CheddarFlow" not in block
+    assert "name them in the" not in block
