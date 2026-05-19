@@ -612,10 +612,12 @@ async def _compute_all(ticker: str, start: float) -> dict:
         nasdaq_events = await nasdaq_calendar.fetch_forward_catalysts(
             ticker, forward_days=60,
         )
-        # Always append the next weekly options expiry as a guaranteed
-        # dated forward catalyst (TODO #13). For optionable stocks without
-        # near-term earnings/dividends, this is the only real anchor.
-        nasdaq_events.append(nasdaq_calendar.next_weekly_options_expiry())
+        # NOTE: weekly options expiry was previously appended here as a
+        # guaranteed forward-catalyst fallback. Removed per user iter5
+        # feedback — mechanical Friday expiries are not substantive
+        # catalysts; surfacing them was fake-substance. Real catalysts
+        # come from Commit 7 (web mining for partnerships / product
+        # launches / regulatory dates).
     except Exception as exc:  # noqa: BLE001
         log.warning("aggregator: nasdaq_calendar fetch failed: %s", exc)
         nasdaq_events = []
