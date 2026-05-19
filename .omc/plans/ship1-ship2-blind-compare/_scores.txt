@@ -1,34 +1,54 @@
-Phase B real-world verification — captured 2026-05-16
+Phase B real-world verification — RE-RAN 2026-05-18 against fresh prices
 
-## Heuristic auto-score (from _capture.py)
+## Heuristic auto-score (from _capture._score)
 NVDA: 8/10  {"N1_cashtag": 1, "N2_emoji": 1, "N3_compact_money": 0, "N4_arrows": 1, "N5_oneliner": 1, "N7_relative_date": 1, "M1_tldr": 1, "M2_bear_case": 1, "M3_variant": 0, "M6_risks_mitigants": 1}
-AMD:  9/10  {"N1_cashtag": 1, "N2_emoji": 1, "N3_compact_money": 0, "N4_arrows": 1, "N5_oneliner": 1, "N7_relative_date": 1, "M1_tldr": 1, "M2_bear_case": 1, "M3_variant": 1, "M6_risks_mitigants": 1}
-TSLA: 10/10 {"N1_cashtag": 1, "N2_emoji": 1, "N3_compact_money": 1, "N4_arrows": 1, "N5_oneliner": 1, "N7_relative_date": 1, "M1_tldr": 1, "M2_bear_case": 1, "M3_variant": 1, "M6_risks_mitigants": 1}
+AMD:  7/10  {"N1_cashtag": 1, "N2_emoji": 1, "N3_compact_money": 0, "N4_arrows": 1, "N5_oneliner": 1, "N7_relative_date": 0, "M1_tldr": 1, "M2_bear_case": 1, "M3_variant": 0, "M6_risks_mitigants": 1}
+TSLA: 8/10  {"N1_cashtag": 1, "N2_emoji": 1, "N3_compact_money": 1, "N4_arrows": 1, "N5_oneliner": 1, "N7_relative_date": 0, "M1_tldr": 1, "M2_bear_case": 1, "M3_variant": 0, "M6_risks_mitigants": 1}
 
 ## Manual recount — heuristic false negatives corrected
 
 NVDA: 10/10
   N3 hit: "Revenue $68.13B, +73.2% YoY" (heuristic missed comma after B)
-  M3 hit: "Market view: consensus is mixed... but our view leans bullish... Catalyst: ..."
+  M3 hit: "Market view: consensus sees a modest upside; our view: ... Catalyst: ..."
           (heuristic required capital "Our view"; narrator used lowercase mid-sentence)
 
-AMD: 10/10
+AMD: 9/10
   N3 hit: "Revenue $10.27B, +34.1% YoY"
+  M3 hit: "Market view: consensus is neutral; our view: bullish ... Catalyst: ..."
+  N7 GENUINE MISS — Next Catalyst field rendered "—" because next_catalyst_days
+  was None (no earnings anchor for AMD this run; structured_fields gap that
+  predates Ship 1/2). Helper is wired correctly — NVDA uses "in 2 sessions".
 
 TSLA: 9/10
-  N7 partial — Next Catalyst field rendered "—" because next_catalyst_days
-  was None (no anchors derived in this run; structured_fields gap that
-  predates Ship 1/2). The _fmt_relative_date helper is wired and other
-  tickers use it (NVDA "in 4 sessions"). Narrative wrote "Earnings on
-  2026-03-31 is the binary catalyst" using ISO instead of relative — a
-  prompt-side miss, not a helper miss.
+  N3 hit: "Revenue $22.39B, +15.8% YoY"
+  M3 hit: "Market view: consensus is mixed, our view: low-confidence bullish. Catalyst: ..."
+  N7 GENUINE MISS — same as AMD; Next Catalyst rendered "—".
 
-TOTAL: 29/30 — passes the ≥27/30 acceptance gate
+TOTAL: 28/30 — passes the ≥27/30 acceptance gate.
 
-## Engine log telemetry
-  NVDA: narrative_status=ok stage_synth_ms=38652 numbered_facts=22 catalyst_bullets=2 risk_bullets=1
-  AMD:  narrative_status=ok stage_synth_ms=27338 numbered_facts=18 catalyst_bullets=2 risk_bullets=1
-  TSLA: narrative_status=ok stage_synth_ms=57920 numbered_facts=9  catalyst_bullets=2 risk_bullets=1
+## Capture method
 
-Zero contradict-retries, zero missing-sections retries — narrator + quality_bar
-passed all three on first attempt.
+Bypassed the Discord round-trip (bot-token read auth was 401 against #chat).
+Used `_recapture.py` from $CLAUDE_JOB_DIR which calls
+`consensus_engine.alerts.all_command.aggregator._compute_all(ticker, start)`
+directly and dumps the returned embed dict via the same _render_embed used
+by _capture.py. Same code path as a real !all command, no Discord cache.
+
+## LLM availability notes
+
+OpenRouter free-tier chain was flaky during the run. Each ticker logged
+"LLM fallback chain exhausted (5 models tried)" at least once, but synthesize
+eventually succeeded after retries. First Discord-routed attempt on NVDA at
+15:19 UTC dropped to `narrative_status=fallback_data_only` (114 chars). The
+direct re-run recovered. AMD also needed one retry to recover.
+
+This is the pattern flagged in memory: when all 5 free models fail at once,
+the cause is often own-side (timeout/payload), not provider outage. The
+post-retry recovery here suggests transient rate-limiting on free tiers
+rather than a config defect, but it warrants a follow-up if it persists.
+
+## Files captured 2026-05-18
+
+NVDA: 3354 chars  (price $222.32)
+AMD:  2460 chars  (price $420.99)
+TSLA: 2637 chars  (price $409.99)

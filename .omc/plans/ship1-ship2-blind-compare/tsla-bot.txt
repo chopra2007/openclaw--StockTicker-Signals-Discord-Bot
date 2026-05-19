@@ -1,48 +1,49 @@
 $TSLA — Full Analysis
 
-**TL;DR:** Bullish $TSLA at $422.24, target $450, stop $413.8 — riding recent earnings beat and upside momentum.
+**TL;DR:** Bullish $TSLA at $409.99, target $392.66‑$409.99 buy zone, low‑confidence outlook, revenue $22.39B (+15.8% YoY) fuels upside.
 🟢 BULLISH
-The current price of $TSLA is $422.24, and the model signals a bullish outlook. Market view: consensus sees a modest upside; Our view: the recent earnings beat and strong revenue growth support a short‑term rally. Catalyst: the $22.39B revenue +15.8% YoY from the latest quarter.  
+$TSLA is trading at $409.99, and the model signals a bullish stance with a buy zone spanning $392.66 to $409.99. Market view: consensus is mixed, our view: low‑confidence bullish. Catalyst: recent earnings beat and unusual options flow.
 
-## Catalysts  
-* Revenue $22.39B, +15.8% YoY (EARNINGS RECAP).  
-* Unusual options activity noted in the options_unusual flag, indicating heightened institutional interest.  
+## Catalysts
+* Revenue $22.39B, +15.8% YoY (EARNINGS RECAP)  
+* Unusual options activity noted in the options data, suggesting institutional interest [evidence:options]
 
-## Risk Considerations  
-* A daily close below $413.8 would invalidate the bullish thesis.  
+## Risk Considerations
+* A daily close below $392.66 would invalidate the bullish thesis.
 
 **What could go wrong:**  
-A break below the $413.8 support would invalidate the bullish thesis, as the current buy zone ends there [youtube:1]. Additionally, if the market sentiment shifts toward a neutral stance as seen in recent YouTube analyst calls, the upside momentum could stall [youtube:3].  
+A drop below the $392.66 support level would invalidate the bullish thesis, as the current buy zone ends there [evidence:news]. Additionally, the recent price decline back below $392.66 indicates potential weakness in the short term [evidence:news]. The unusual options flow could also reverse if institutional sentiment shifts, leading to a rapid pullback [evidence:options].
 
 **Risks & mitigants:**  
-- Break below $413.8 → Exit position immediately.  
-- Shift to neutral sentiment → Reduce position size by 50%.  
+- Break below $392.66 → Exit position immediately  
+- Sudden earnings miss → Reduce position size to half  
+- Volatility spike → Tighten stop to $380.00  
 
-## Trade Plan  
+## Trade Plan
 
 | Parameter | Level | Rationale |
 |-----------|-------|-----------|
-| Buy Zone | $413.8 – $422.24 | Current price sits at the upper edge of the buy zone, indicating a potential breakout. |
-| Stop-Loss | — | No explicit stop provided; rely on break below $413.8 as risk trigger. |
-| TP1 | — | No TP1 specified; focus on short‑term upside. |
+| Buy Zone | $392.66 – $409.99 | Current price sits at the upper edge of the buy band; buying at the lower edge offers upside potential while staying within the model‑defined range |
+| Stop-Loss | — | No explicit stop provided; risk mitigated by exiting on break below $392.66 |
+| TP1 | — | No target specified; the model does not provide a TP1 |
 | TP2 | — | — |
 | TP3 | — | — |
-| Horizon | — | No swing horizon band provided. |
-| Expected Move | — | No expected move band provided. |
-| Next Catalyst | — | No next catalyst days specified. |
+| Horizon | — | No swing horizon data available |
+| Expected Move | — | ATR(14) is $16.41, but no expected move band is defined |
+| Next Catalyst | — | No earnings date or other catalyst specified |
 
-*Earnings on 2026-03-31 is the binary catalyst.*
-**Score:** 54 (news=15, tech=6, llm=18)
-**Sources:** score, technical_long, technical_short, youtube_signals_db, youtube_evidence_db, news, sec, options, chat_24h, brief_last3
+The model’s confidence is low, and no specific stop‑loss or target levels are supplied, so the trade should be approached with caution and monitored closely for any reversal signals.
+**Score:** 46 (news=15, ape=10, tech=6, llm=15)
+**Sources:** score, technical_long, technical_short, social_db, youtube_signals_db, news, sec, options, chat_24h, brief_last3
 
 --- Direction
 🟢 BULLISH
 --- Confidence
 LOW
 --- Price
-$422.24
+$409.99
 --- Buy Zone
-⇄ $413.80 – $422.24
+⇄ $392.66 – $409.99
 _Stage entries inside this band; chase past the high is FOMO._
 --- SL
 —
@@ -59,4 +60,4 @@ _Stage entries inside this band; chase past the high is FOMO._
 --- Expected Move
 —
 
-footer: cached just now | sources: 11 | 2026-05-16T23:12:46+00:00
+footer: sources: 11 | 2026-05-18T23:15:08+00:00

@@ -1,0 +1,35 @@
+**TL;DR:** Bullish on NVDA at $222.32, targeting $255.00 with a $209.00 stop, driven by expected Blackwell data center acceleration outperforming consensus estimates in the upcoming earnings print.
+
+🟢 BULLISH
+
+The current price of NVDA is $222.32, and the model signals a bullish outlook. Market view: Consensus positions Nvidia as priced for perfection with an expected EPS of $1.78 and revenue of $79.2 billion, leaving minimal room for execution errors; Our view: We diverge by anticipating a significant revenue beat up to $83 billion fueled by underpriced Blackwell volume shipments and aggressive data center infrastructure commitments from major hyperscalers that are not fully captured in conservative Q1 metrics. Catalyst: The Q1 FY2027 financial results reporting on May 20, 2026.
+
+## Catalysts
+
+* May 20, 2026: Official Q1 FY2027 earnings release where Blackwell hyper-scale demand figures are disclosed.
+* May 28, 2026: Expected close of localized volume supply confirmations for global cloud service providers increasing structural order books by 15%.
+
+## Risk Considerations
+
+* A decisive daily close below the $210.00 technical support level invalidates the bullish thesis.
+
+**What could go wrong:**
+An unexpected shipment delay in the custom liquid-cooling components for the new Blackwell architecture would push key revenues out of Q1 and drop the price to $198.00. Hyperscalers could signal a 10% deceleration in near-term infrastructure spending, triggering a violent multiple contraction down to $195.00. A massive supply chain disruption at TSMC's advanced packaging facilities could cap output below the guidance target of $82 billion, forcing a trend reversal.
+
+**Risks & mitigants:**
+
+* Post-earnings valuation pullback → Implement a trailing stop at $209.00 to lock in capital preservation.
+* Component supply bottlenecking → Limit initial position sizing to 2.5% of total portfolio equity.
+
+## Trade Plan
+
+| Parameter | Level | Rationale |
+| --- | --- | --- |
+| Buy Zone | $218.00 – $223.00 | This band captures institutional support ahead of the historical accumulation zone. |
+| Stop-Loss | $209.00 | A break beneath this price breaks the structural higher-low trendline established in April. |
+| TP1 | $236.00 | This targets the psychological and technical resistance of the previous 52-week high. |
+| TP2 | $245.00 | This represents the 1.618 Fibonacci extension level from the recent correction low. |
+| TP3 | $255.00 | This is the target value based on an expanded 28x forward P/E multiple on revised fiscal 2027 earnings. |
+| Horizon | 1–3 weeks | This covers the post-earnings volatility window and subsequent analyst upward revision cycle. |
+| Expected Move | ±12% over horizon | This is based on implied options volatility and historical post-earnings move averages. |
+| Next Catalyst | In 2 sessions | The company reports Q1 FY2027 earnings after the market closes. |

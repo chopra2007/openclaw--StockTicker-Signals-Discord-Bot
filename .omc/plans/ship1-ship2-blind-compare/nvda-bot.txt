@@ -1,64 +1,68 @@
 $NVDA — Full Analysis
 
-**TL;DR:** Long $NVDA at $214‑$225, target $266.27, stop $178 — bullish on near‑term earnings catalyst despite low confidence.
+**TL;DR:** Bullish on $NVDA at $222.32, target $227.14, stop $178.00, earnings on 2026‑05‑20 is the key catalyst.
 🟢 BULLISH
-The stock trades at $225.32, sitting at the top of a bullish buy‑zone and poised for a short‑term upside. Market view: consensus is mixed with neutral to slightly bullish sentiment, but our view leans bullish ahead of the earnings catalyst. Catalyst: the upcoming Q1 2026 earnings on 2026‑05‑20, which historically drives strong moves in NVDA.
+$NVDA is trading at $222.32 today, and the signal is bullish with a low confidence level. Market view: consensus sees a modest upside; our view: a short‑term breakout above the current range is possible. Catalyst: earnings on 2026‑05‑20 could trigger a move toward the first target.  
 
-## Catalysts
-* Revenue $68.13B, +73.2% YoY reported for the quarter ending 2026‑03‑31 (earnings recap).  
-* Upcoming earnings release on 2026‑05‑20, four days away, expected to reinforce the bullish swing (computed signal).  
+## Catalysts  
+* Earnings report on 2026‑05‑20 is the binary catalyst that could push the stock higher.  
+* Revenue $68.13B, +73.2% YoY from the latest quarter, shows strong growth momentum.  
+* Multiple high‑conviction YouTube analysts (Wicked Stocks, Lottery Stocks, CheddarFlow, The Real Shadow Trader) are calling long, citing recent earnings beats and market sentiment.  
 
-## Risk Considerations
-* A break below the stop‑loss level of $178.00 would invalidate the bullish thesis.
+## Risk Considerations  
+* A break below $178.00 would invalidate the bullish thesis and trigger the stop‑loss.  
 
 **What could go wrong:**  
-A daily close under $178.00 would trigger the stop and nullify the trade, as the price would breach the defined risk floor [evidence:options]. A weaker‑than‑expected earnings surprise could stall the rally, given that the prior beat (+3.6% EPS surprise) was a key driver of recent upside [evidence:earnings_recap].
+A daily close below $178.00 would invalidate the bullish thesis [evidence:youtube]. If the earnings guidance is cut or the revenue growth slows below the +73.2% YoY level, the upside could stall [evidence:news]. A broader market sell‑off that drags the S&P 500 below key support levels could also pressure $NVDA, as noted by several YouTube channels [evidence:youtube].  
 
 **Risks & mitigants:**  
-- Break below $178 → Stop at $178.00.  
-- Failure to reach TP1 → Trim half position at $250 to lock partial gains.  
-- Volatility spike → Size down to half‑position until price stabilizes.  
+- Break below $178.00 → Stop at $178.00  
+- Earnings miss or downgrade → Trim half at TP1  
+- Market downturn → Size down to half‑position  
 
-## Trade Plan
+## Trade Plan  
+
 | Parameter | Level | Rationale |
 |-----------|-------|-----------|
-| Buy Zone | $214.05 – $225.32 | Captures the current price at the top of the bullish band, aligning with the computed buy range. |
-| Stop-Loss | $178.00 | Protects against a sharp downside move; aligns with the signal’s defined SL. |
-| TP1 | $266.27 | Primary target reflects the expected move (+$15 typical swing) and the signal’s TP1 level. |
-| TP2 | — | No second target defined; signal provides only one TP. |
-| TP3 | — | No third target defined; signal provides only one TP. |
-| Horizon | 3‑5 days | Matches the swing horizon band and the typical move timeframe derived from ATR(14). |
-| Expected Move | ±$15 (typical; high‑vol data unavailable) | Based on the signal’s expected move band and the 14‑day ATR of 7.70. |
-| Next Catalyst | 4 days | Earnings on 2026‑05‑20 is the binary catalyst driving the short‑term swing. |
+| Buy Zone | $219.34 – $222.32 | Current price sits at the upper edge of the buy zone, indicating a potential breakout. |
+| Stop‑Loss | $178.00 | Protects against a significant downside move beyond the 20‑day support level. |
+| TP1 | $227.14 | First target aligns with the ATR(14) typical move of ±$8 and is supported by recent resistance levels. |
+| TP2 | $231.30 | Second target extends the trend, offering a higher reward for a sustained move. |
+| TP3 | $266.27 | Long‑term target based on historical swing highs and potential breakout levels. |
+| Horizon | 1–1 days | Derived from |TP1‑spot|/0.7×ATR, capped at the next catalyst. |
+| Expected Move | ±$8 (typical; high‑vol data unavailable) | Reflects the ATR(14) typical move over the swing horizon. |
+| Next Catalyst | 2 days | Earnings on 2026‑05‑20 is the binary catalyst that bounds the horizon. |
 
 Earnings on 2026‑05‑20 is the binary catalyst.
-**Score:** 44 (news=15, tech=6, llm=23)
-**Sources:** score, technical_long, technical_short, youtube_signals_db, youtube_evidence_db, earnings_calendar, news, options, chat_24h, brief_last3
+**Score:** 46 (news=15, ape=10, tech=6, llm=15)
+**Sources:** score, technical_long, technical_short, social_db, youtube_signals_db, youtube_evidence_db, earnings_calendar, news, options, chat_24h
 
 --- Direction
 🟢 BULLISH
 --- Confidence
 LOW
 --- Price
-$225.32
+$222.32
 --- Buy Zone
-⇄ $214.05 – $225.32
+⇄ $219.34 – $222.32
 _Stage entries inside this band; chase past the high is FOMO._
 --- SL
 ↓ $178.00
 _Below this, the thesis is invalidated — exit._
 --- TP1
-↑ $266.27
+↑ $227.14
 _Primary objective — trim a third to lock in the move._
 --- TP2
-—
+↑ $231.30
+_Stretch target — trim the next third on touch._
 --- TP3
-—
+↑ $266.27
+_Home-run target — runners only with a trailing stop._
 --- Next Catalyst
-in 4 sessions
+in 2 sessions
 --- Horizon
-3-5d
+1-1d
 --- Expected Move
-±$15 (typical; high-vol data unavailable)
+±$8 (typical; high-vol data unavailable)
 
-footer: cached just now | sources: 11 | 2026-05-16T23:09:56+00:00
+footer: sources: 12 | 2026-05-18T23:09:42+00:00

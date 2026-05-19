@@ -105,5 +105,5 @@ At the start of every session:
 ## GitHub & Documentation Automation
 - After every functional change: commit locally then push immediately.
 - Commit style: imperative (e.g., "Add multi-agent logic").
-- Remote: `chopra2007/openclaw--StockTicker-Signals-Discord-Bot` (private).
+- Remote: `chopra2007/openclaw--StockTicker-Signals-Discord-Bot` (public).
 - Keep `README.md` current with architecture, setup, and features.

@@ -1,0 +1,35 @@
+**TL;DR:** Bullish on AMD at $420.99, targeting $485.00 with a $395.00 stop, driven by the massive 6-gigawatt Meta deployment partnership and accelerating sequential data center revenue growth.
+
+🟢 BULLISH
+
+The current price of AMD is $420.99, and the model signals a bullish outlook. Market view: Consensus views AMD as fully valued following its Q1 record earnings beat, expressing concern that memory bottlenecks and secondary gaming revenue declines will stall the momentum of its AI hardware cycle; Our view: We diverge by anticipating that the underappreciated multi-year Meta partnership for up to 6 gigawatts of compute infrastructure, combined with the unpriced scaling of custom MI450 accelerators, will drastically outpace conservative sequential revenue guidance of $11.2 billion. Catalyst: The upcoming volume validation data from global hyperscalers adopting the 6th Gen EPYC "Venice" platform.
+
+## Catalysts
+
+* May 28, 2026: Expected closing date for the first 1-gigawatt allocation phase of custom AMD Instinct MI450-based GPU hardware commitments by Meta.
+* June 09, 2026: Official supply chain volume verification for HBM4 memory allocation frameworks partnered with Samsung for next-generation Instinct accelerators.
+
+## Risk Considerations
+
+* A decisive daily close below the $400.00 critical support level invalidates the bullish thesis.
+
+**What could go wrong:**
+If unexpected architectural delays occur during the initial tape-out of the 6th Gen EPYC "Venice" processors, the stock could experience a rapid rotation downward to $365.00. A sharper-than-expected 20% sequential drop in second-half gaming segment margins would pressure the corporate gross margin down to 51%, dropping the price to $350.00. A failure to secure adequate HBM4 capacity wafers from Samsung would limit the full-year data center output threshold and push the equity to a technical trend reversal target of $335.00.
+
+**Risks & mitigants:**
+
+* Gaming revenue underperformance macro compression → Implement a hard stop at $395.00 to mitigate deeper structural consolidation.
+* Hyperscaler deploy timing friction → Limit individual position exposure to a strict 3% portfolio weight allocation.
+
+## Trade Plan
+
+| Parameter | Level | Rationale |
+| --- | --- | --- |
+| Buy Zone | $412.00 – $422.00 | This range aligns with the post-earnings institutional consolidation zone above the 20-day moving average. |
+| Stop-Loss | $395.00 | A drop below this level violates the major psychological support floor and the May 7 swing low. |
+| TP1 | $448.00 | This targets a retest of the high volume node established before the recent profit-taking pullbacks. |
+| TP2 | $465.00 | This represents technical resistance near the lifetime intraday high of $469.22. |
+| TP3 | $485.00 | This is a structural extension target based on Morningstar's revised long-term fair value model adjustments. |
+| Horizon | 2–4 weeks | This captures the period covering near-term hyperscaler pipeline updates and localized supply tracking reports. |
+| Expected Move | ±11% over horizon | This calculation is based on current 30-day implied options volatility and historical post-earnings settlement trends. |
+| Next Catalyst | In 10 sessions | The deployment schedule tracking for the first phase of the Meta infrastructure rollout goes live. |

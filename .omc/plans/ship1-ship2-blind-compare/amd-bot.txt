@@ -1,67 +1,64 @@
 $AMD — Full Analysis
 
-**TL;DR:** Long $AMD at $424.1, target $500, stop $140 — bullish on double‑bottom rebound, low confidence, swing horizon 3‑5 days.
+**TL;DR:** Long $AMD at $399.94–$420.99, stop $130, bullish outlook with low confidence; target based on ATR(14) and double‑bottom pattern.
 🟢 BULLISH
-The stock trades at $424.1 and the signal is **BULLISH**, anchored by a double‑bottom pattern forming near a key level of $203.79. Market view: consensus is mixed with neutral to modestly positive sentiment. Our view: a low‑confidence bullish swing targeting the upper buy zone as the price tests recent highs. Catalyst: recent strong earnings and elevated options activity could push the stock into the buy zone.
+$AMD is trading at $420.99, a bullish stance supported by a double‑bottom pattern at $203.79. Market view: consensus is neutral; our view: bullish with low confidence. Catalyst: a rebound from the $203.79 support.  
 
-## Catalysts
-* Revenue $10.27B, +34.1% YoY reported for the quarter ended 2026‑03‑31 — a solid beat that underpins upside potential. [evidence:earnings]
-* Unusual options activity flagged across multiple strikes, suggesting speculative buying pressure. [evidence:options]
+## Catalysts  
+* Revenue $10.27B, +34.1% YoY (EARNINGS RECAP).  
+* Double‑bottom pattern at $203.79 with 0.64 confidence (CHART PATTERN).  
 
-## Risk Considerations
-* A break below the lower buy‑zone $402.89 would invalidate the bullish thesis. [evidence:technical_short]
+## Risk Considerations  
+* A break below $203.79 invalidates the bullish thesis.  
 
 **What could go wrong:**  
-A daily close under $402.89 would break the double‑bottom support and nullify the bullish outlook [evidence:technical_short]. A sharp deterioration in competitive positioning versus Intel, as highlighted in recent market commentary, could cap upside and trigger a sell‑off [evidence:news]. Persistent low‑volume trading could cause the price to stall below the buy zone despite the earnings beat [evidence:options].
+A daily close below $203.79 would break the double‑bottom support and invalidate the bullish thesis [EVIDENCE: CHART PATTERN]. If the stock fails to rally above the $203.79 level, the current buy zone becomes questionable [EVIDENCE: CHART PATTERN].  
 
 **Risks & mitigants:**  
-- Break below $402.89 → Exit at stop‑loss $140 (pre‑defined SL).  
-- Volatile swing beyond $500 → Trim half position at TP1.  
-- Unexpected negative news → Reduce exposure to half‑size.  
-- Momentum fade before horizon → Shift to cash if price stalls below $424.1.
+- Break below $203.79 → Exit position immediately.  
+- Volatility spike above ATR(14) → Tighten stop to $140.  
+- Earnings miss or weaker guidance → Reduce position size by 50%.  
 
-## Trade Plan
-| Parameter   | Level                     | Rationale |
-|-------------|---------------------------|-----------|
-| Buy Zone    | $402.89 – $424.1          | Captures rebound from double‑bottom and aligns with computed buy band. |
-| Stop-Loss   | $140.0                    | Deep protection below key support, reflects low‑confidence risk tolerance. |
-| TP1         | $500.0                    | Primary upside target, matches expected move (+≈$50) and swing high projection. |
-| TP2         | $455.0                    | Secondary target if momentum sustains; provides staged exit. |
-| TP3         | $450.0                    | Final target before expected pull‑back; pads TP2 for flexibility. |
-| Horizon     | 3‑5 days                  | Derived from swing horizon band and typical move (≈$50) relative to ATR ≈ 24.9. |
-| Expected Move | ±$50 (typical)          | Based on ATR(14) of 24.9 and expected move band from signal. |
-| Next Catalyst | —                       | No specific catalyst date; trade relies on short‑term technical bounce. |
+## Trade Plan  
 
-*No earnings date is provided, so the trade is driven by technical rebound and recent earnings momentum.*
-**Score:** 59 (news=15, tech=6, llm=23)
-**Sources:** score, technical_long, technical_short, youtube_signals_db, youtube_levels_db, youtube_evidence_db, news, sec, options, chat_24h
+| Parameter | Level | Rationale |
+|-----------|-------|-----------|
+| Buy Zone | $399.94 – $420.99 | Current price sits at the upper bound; buying within this band captures upside while staying below recent highs. |
+| Stop-Loss | $130 | Historical low and ATR(14) support a conservative stop far below current volatility. |
+| TP1 | — | No TP1 provided; trade relies on ATR‑based horizon. |
+| TP2 | — | — |
+| TP3 | — | — |
+| Horizon | — | Not specified; use ATR(14) to estimate horizon. |
+| Expected Move | — | ATR(14) is 26.25; typical move over horizon ≈ 0.7×ATR ≈ $18.4. |
+| Next Catalyst | — | No earnings date; next catalyst undefined. |
+
+*Note: The computed signal indicates a bullish thesis with low confidence and a stop at $130.*
+**Score:** 54 (news=15, ape=10, tech=6, llm=23)
+**Sources:** score, technical_long, technical_short, social_db, youtube_signals_db, youtube_evidence_db, news, sec, options, chat_24h
 
 --- Direction
 🟢 BULLISH
 --- Confidence
 LOW
 --- Price
-$424.10
+$420.99
 --- Buy Zone
-⇄ $402.89 – $424.10
+⇄ $399.94 – $420.99
 _Stage entries inside this band; chase past the high is FOMO._
 --- SL
-↓ $140.00
+↓ $130.00
 _Below this, the thesis is invalidated — exit._
 --- TP1
-↑ $500.00
-_Primary objective — trim a third to lock in the move._
+—
 --- TP2
-↑ $455.00
-_Stretch target — trim the next third on touch._
+—
 --- TP3
-↑ $450.00
-_Home-run target — runners only with a trailing stop._
+—
 --- Next Catalyst
 —
 --- Horizon
-3-5d
+—
 --- Expected Move
-±$50 (typical; high-vol data unavailable)
+—
 
-footer: cached just now | sources: 12 | 2026-05-16T23:11:05+00:00
+footer: sources: 12 | 2026-05-18T23:17:33+00:00

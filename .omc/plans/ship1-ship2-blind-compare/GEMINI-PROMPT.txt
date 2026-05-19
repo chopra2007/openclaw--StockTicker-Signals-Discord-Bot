@@ -1,4 +1,43 @@
-Look at <TICKER> stock and come up with a bullish or bearish thesis, along with a trade plan composed of:
-1. buying level
-2. stop-loss level
-3. take profit level.
+Produce a bullish-or-bearish trade brief on <TICKER> (current price <PRICE>) in the EXACT format below. Pick a direction, commit to it, and back every claim with specific reasoning. Use today's date as the reference point.
+
+Required format — do not add or remove sections:
+
+**TL;DR:** <one sentence: direction, ticker, current price, target, stop, and the single most important reason in plain English>
+
+🟢 BULLISH  (or 🔴 BEARISH — pick one)
+
+<One opening paragraph that follows this exact pattern: "The current price of <TICKER> is <PRICE>, and the model signals a <bullish|bearish> outlook. Market view: <what consensus thinks>; Our view: <where you diverge or agree, with specifics>. Catalyst: <the single concrete near-term catalyst driving the call>.">
+
+## Catalysts
+* <Bullet 1 — specific, with a number or date>
+* <Bullet 2 — specific, with a number or date>
+
+## Risk Considerations
+* <One bullet stating the price level or condition that invalidates the thesis>
+
+**What could go wrong:**
+<Two-to-three sentences naming concrete scenarios that would break the thesis. Each sentence must reference a specific level, number, or event — no generic "macro headwinds" or "if sentiment turns".>
+
+**Risks & mitigants:**
+- <risk 1> → <specific mitigant: exit, hedge, size cut, etc.>
+- <risk 2> → <specific mitigant>
+
+## Trade Plan
+
+| Parameter | Level | Rationale |
+|-----------|-------|-----------|
+| Buy Zone | $<low> – $<high> | <why this band> |
+| Stop-Loss | $<level> | <why this level invalidates> |
+| TP1 | $<level> | <why this is the first take> |
+| TP2 | $<level> | <why this is the second take> |
+| TP3 | $<level> | <stretch target rationale> |
+| Horizon | <e.g. 1–3 weeks> | <why this timeframe> |
+| Expected Move | ±<%> over horizon | <basis> |
+| Next Catalyst | <relative phrasing, e.g. "in 4 sessions" or ISO date> | <what the catalyst is> |
+
+Rules:
+- Commit to numeric levels. No "—" placeholders. No "depends on price action".
+- Every level must have a one-sentence rationale.
+- The Bear Case ("What could go wrong") must acknowledge that you chose the opposite direction and explain what specifically would flip you.
+- Do not hedge by saying "this is not financial advice" or "do your own research" — the reader knows.
+- Do not add macroeconomic boilerplate or generic CAPM language.
