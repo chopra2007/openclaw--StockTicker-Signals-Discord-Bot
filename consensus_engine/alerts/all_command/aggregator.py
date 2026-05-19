@@ -661,24 +661,21 @@ async def _compute_all(ticker: str, start: float) -> dict:
     # Sanitize hostile text. PR4: split SearXNG into news+sec+gap-fill blocks
     # and route the 6 previously-discarded sources to their own batches.
     news_snippets = _build_news_snippets(data["news_catalyst"], gap_fill_result)
-    # Commit 13: Prepend SerpAPI catalyst snippets (Meta-AMD MI450 6GW,
-    # OpenAI $1T buildout, Tesla-LG $4.3B, NVIDIA-IREN 5GW etc.) into
-    # news_snippets so the LLM treats them as news entries. Verified
-    # path: free-tier gpt-oss-120b ignores COMPUTED SIGNAL nested arrays
-    # but reliably cites NEWS block entries (TSLA iter11 picked
-    # SpaceX IPO from news:3). Strip the [cat_*] tag prefix so they
-    # blend into the news flow naturally.
+    # Commit 13/14: SerpAPI catalysts are prepared here but NOT passed
+    # through sanitize_hostile_text — the sanitize LLM batch routinely
+    # fails on free-tier and truncates content to 50 chars (Commit 14
+    # raised that to 500 in narrator._batch_summarize, but bypassing
+    # entirely is safer for content we know is already clean). They
+    # get prepended into sanitized["news"] AFTER sanitize returns,
+    # below.
     catalyst_snips_raw = gap_fill_result.get("catalyst_research_snippets") or []
     catalyst_as_news = []
     for s in catalyst_snips_raw[:6]:
         if not isinstance(s, str) or not s.strip():
             continue
-        # Drop the "[cat_partnership] " etc. prefix the LLM doesn't need.
         if s.startswith("[cat_") and "] " in s:
             s = s.split("] ", 1)[1]
         catalyst_as_news.append(s)
-    if catalyst_as_news:
-        news_snippets = catalyst_as_news + news_snippets
     sec_snippets = _build_sec_snippets(data["sec_filings"])
     twitter_msgs = _build_twitter_snippets(data["twitter_signals"])
     social_msgs = _build_social_snippets(data["social_signals"])
@@ -698,6 +695,11 @@ async def _compute_all(ticker: str, start: float) -> dict:
         social_msgs=social_msgs,
         yt_evidence_msgs=yt_evidence_msgs,
     )
+    # Commit 14: prepend catalysts AFTER sanitize so they reach the
+    # synthesis LLM uncorrupted. The sanitize batch was destroying
+    # them to 50 chars on free-tier failures.
+    if catalyst_as_news:
+        sanitized["news"] = catalyst_as_news + (sanitized.get("news") or [])
     stage_t["sanitize"] = _t()
 
     sources_surfaced = list(data["sources_surfaced"])

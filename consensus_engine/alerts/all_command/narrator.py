@@ -99,9 +99,12 @@ async def _batch_summarize(items: list[str]) -> list[str]:
         )
     except Exception as e:
         log.warning("narrator: batch summarize raised %s; using truncated originals", e)
-        return [_sanitize_text(item)[:50] for item in items]
+        # Commit 14: was 50 chars — destroyed all evidence content when
+        # the free-tier sanitize LLM failed (which is most of the time).
+        # 500 chars preserves enough substance for synthesis to use.
+        return [_sanitize_text(item)[:500] for item in items]
     if not response:
-        return [_sanitize_text(item)[:50] for item in items]
+        return [_sanitize_text(item)[:500] for item in items]
     return _parse_numbered_response(response, len(items))
 
 
