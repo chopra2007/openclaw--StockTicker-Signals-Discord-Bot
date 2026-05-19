@@ -713,7 +713,14 @@ async def _invoke_synthesis(
     deadline_seconds: float,
 ) -> str:
     """Single call_with_fallback role=primary call. Returns '' on any failure."""
-    timeout = max(15, min(50, int(deadline_seconds)))
+    # Commit 11: cap raised 50s→90s. Diagnosis: with Commits 7+10 the
+    # prompt grew to ~3.6K tokens, and primary model (openai/gpt-oss-120b:free)
+    # legitimately needs 30-80s to respond at that size. The old 50s cap
+    # cut it off mid-response, the chain fell through, and the
+    # backup models (slower under load) also timed out, producing
+    # the "all 6 models timed out" symptom that looked like an outage
+    # but was self-inflicted.
+    timeout = max(15, min(90, int(deadline_seconds)))
     try:
         return await call_with_fallback(
             role="primary",

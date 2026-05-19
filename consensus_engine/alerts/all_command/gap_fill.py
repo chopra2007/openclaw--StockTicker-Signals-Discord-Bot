@@ -202,8 +202,12 @@ async def run_gap_fill(
     if remaining <= 0:
         return out
 
-    # SearXNG queries (anchors, 8-K, event_date) and SerpAPI catalyst
-    # queries fire in parallel under the same outer deadline.
+    # Commit 11 fix: SearXNG + SerpAPI catalyst queries fire under ONE
+    # asyncio.gather so they're truly parallel. Prior implementation
+    # used two sequential asyncio.wait_for blocks which serialised the
+    # catalyst wait behind the SearXNG wait and ate ~8s of wall clock
+    # — the resulting synthesis-deadline pressure caused iter10's
+    # "all 6 models timed out" symptom even though the chain was fine.
     sx_coros = [_run_query(q) for _, q in queries]
     serp_coros = [
         asyncio.wait_for(
@@ -212,21 +216,17 @@ async def run_gap_fill(
         )
         for _, q in catalyst_queries
     ]
+    all_coros = sx_coros + serp_coros
+    queries = list(queries) + list(catalyst_queries)
     try:
-        sx_results = await asyncio.wait_for(
-            asyncio.gather(*sx_coros, return_exceptions=True),
+        results = await asyncio.wait_for(
+            asyncio.gather(*all_coros, return_exceptions=True),
             timeout=remaining,
-        )
-        serp_results = await asyncio.wait_for(
-            asyncio.gather(*serp_coros, return_exceptions=True),
-            timeout=max(0.0, deadline - time.time()),
         )
     except asyncio.TimeoutError:
         log.warning("gap_fill: outer deadline %.1fs exceeded for %s",
                     remaining, ticker)
         return out
-    results = list(sx_results) + list(serp_results)
-    queries = list(queries) + list(catalyst_queries)
 
     key_for: dict[str, str] = {
         "anchors": "harvested_anchors_snippets",
