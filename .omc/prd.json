@@ -1,159 +1,154 @@
 {
-  "project": "consensus_engine new-signal-features Pass 5",
-  "description": "Ship 6 signal features + cross-cutting infra across 8 PR groups. Baseline: 574 tests. Target: 637 tests.",
+  "project": "Ship 1 + Ship 2 — Format & UX Pack + Narrative Pack v1",
+  "description": "ONE PR landing Ship 1 (6 embed-format changes) and Ship 2 (4 narrative-pack changes) per plan .omc/plans/ship1-ship2-format-narrative.md. Pure rendering + LLM prompting work; no new data fetches.",
   "stories": [
     {
-      "id": "US-001",
-      "title": "PR #1 — Cross-cutting feature-flag bundle (schema v7)",
+      "id": "US-S1-001",
+      "title": "Ship 1 N1+N3+N4: Cashtag, compact money, arrow icons in embed.py",
       "passes": true,
       "acceptanceCriteria": [
-        "consensus_engine/utils/feature_flags.py exists with flip_feature(name, new_state, reason), read_feature_state(name), audit_history(limit) functions",
-        "db.py SCHEMA string contains CREATE TABLE IF NOT EXISTS feature_flag_audit and CREATE TABLE IF NOT EXISTS schema_version",
-        "db.py _run_column_migrations includes ('signal_events', 'consumed_by_cluster_id', 'INTEGER') entry",
-        "db.py init_db inserts schema_version row 7 after migrations",
-        "alerts/commands.py route_command handles 'feature-health' and 'shadow-mode-report' commands",
-        "main.py contains async def feature_volume_monitor_loop() with asyncio.sleep(900) interval",
-        "models.py ScoreBreakdown has consensus_boost: int = 0 field and includes it in total property",
-        "__main__.py --status output includes per-feature enabled state",
-        "tests/test_feature_flags.py exists with 12 test functions",
-        "tests/test_migration_idempotency.py exists with test that calls init_db twice and asserts schema_version unchanged",
-        "tests/test_source_performance_contract.py exists with 3 test functions covering rolling_accuracy in [0,1], entity_id non-null, horizon enum",
-        "pytest tests/ -v exits 0 with all existing 574 tests + new 16 tests passing"
+        "embed.py _fmt_cashtag(ticker) returns '$TICKER' for plain ticker, '$TICKER' for $TICKER (idempotent)",
+        "embed.py _fmt_money_compact(value) returns '$2.4M' for 2400000, '$437K' for 437000, '$1.2B' for 1200000000, '$120' for 120, '—' for None",
+        "embed.py _arrow_for_level(level, current) returns '↑' when level > current, '↓' when level < current, '⇄' when within 0.1% of current",
+        "embed.py build_embed title uses _fmt_cashtag (renders '$NVDA — Full Analysis')",
+        "embed.py SL/TP1/TP2/TP3 fields render with arrow icons relative to current_price",
+        "embed.py Buy Zone field includes ⇄ arrow when zone brackets current"
       ]
     },
     {
-      "id": "US-002",
-      "title": "PR #2 — Deprecate analysis/regime_detector.py stub",
+      "id": "US-S1-002",
+      "title": "Ship 1 N2: Direction emoji upgrade (🟢/🔴/⚪)",
       "passes": true,
       "acceptanceCriteria": [
-        "consensus_engine/analysis/_deprecated/regime_detector.py exists (file moved)",
-        "consensus_engine/analysis/_deprecated/__init__.py exists",
-        "consensus_engine/analysis/regime_detector.py does NOT exist at original path",
-        "grep -r 'from .regime_detector\\|from consensus_engine.analysis.regime_detector' --include='*.py' . returns no results outside _deprecated/",
-        "pytest tests/ -v exits 0 with no regressions (test_degraded_mode.py import updated if needed)"
+        "embed.py _direction_emoji returns '🟢 BULLISH' for 'BULLISH'",
+        "embed.py _direction_emoji returns '🔴 BEARISH' for 'BEARISH'",
+        "embed.py _direction_emoji returns '⚪ NEUTRAL' for 'NEUTRAL' or unknown",
+        "embed.py build_embed direction line + Direction field reflect new emoji set"
       ]
     },
     {
-      "id": "US-003",
-      "title": "PR #3 — A1 contradiction-aware penalty + macro blackout (schema v8)",
+      "id": "US-S1-003",
+      "title": "Ship 1 N5: Plain-English one-liner under each level (per-field template)",
       "passes": true,
       "acceptanceCriteria": [
-        "consensus_engine/analysis/contradiction.py exists with ContradictionVerdict dataclass, is_in_macro_blackout(), evaluate_contradiction() functions",
-        "consensus_engine/data/ directory exists with macro_events.yaml containing fomc_press, cpi_release, nfp_release, pce_release, gdp_release, retail_sales events through 2026",
-        "engine.py _classify signature includes contradiction_index: float = 0.0 and regime parameter",
-        "engine.py _classify applies A5 threshold shift before A1 penalty (A5 first in code order)",
-        "engine.py _classify calls evaluate_contradiction after mainstream + market gates, before returning STRONG_ALERT",
-        "engine.py analyze_signal passes contradiction_index to _classify and writes contradiction_verdict to feature_vector_json",
-        "config/consensus.yaml contains features.contradiction_penalty with enabled: true",
-        "db.py init_db inserts schema_version row 8",
-        "tests/test_contradiction_penalty.py exists with exactly 6 test functions covering: below-threshold no-op, above-threshold downgrade, macro-blackout skip, disabled flag no-op, yaml-missing graceful, yaml-stale 90d warning",
-        "pytest tests/ -v exits 0 with all prior tests + 6 new contradiction tests passing"
+        "embed.py _level_oneliner(field_name, value, current) returns italic markdown string explaining the level",
+        "Stop-loss one-liner mentions 'exit' or 'invalidates' when level < current and direction bullish",
+        "TP1/TP2/TP3 one-liners are emitted (non-empty italic) when value is not None",
+        "Each level field's 'value' includes both the arrow+price line AND the italic one-liner separated by newline"
       ]
     },
     {
-      "id": "US-004",
-      "title": "PR #4 — A5 realized-vol-z regime tagger (schema v9)",
+      "id": "US-S1-004",
+      "title": "Ship 1 N7: Relative date phrasing for earnings_date and Next Catalyst",
       "passes": true,
       "acceptanceCriteria": [
-        "consensus_engine/analysis/regime.py exists with RegimeContext dataclass, lookup_regime(), compute_and_persist_regime() functions",
-        "regime.py cold-start path returns label='normal', threshold_shift=0 when regime_daily has <30 rows",
-        "regime.py has if __name__ == '__main__': block that calls compute_and_persist_regime for CLI invocation",
-        "db.py SCHEMA contains CREATE TABLE IF NOT EXISTS regime_daily with date_utc, realized_vol_20d, z_score_smoothed, regime_label columns",
-        "db.py init_db inserts schema_version row 9",
-        "engine.py analyze_signal calls lookup_regime() after get_session() and passes regime to _classify",
-        "engine.py writes regime_context to feature_vector_json",
-        "config/consensus.yaml contains features.regime_classifier with enabled: false and regime_shifts mapping",
-        "tests/test_regime_classifier.py exists with exactly 8 test functions",
-        "pytest tests/ -v exits 0 with all prior tests + 8 new regime tests passing"
+        "embed.py _fmt_relative_date(iso_date) returns 'today' when delta==0, 'in 1 session' when delta==1, 'in N sessions' when 0<delta<=7, 'in N days' for >7",
+        "_fmt_relative_date returns 'N days ago' for negative deltas, ISO fallback for invalid input",
+        "embed.py Next Catalyst field uses relative phrasing when next_catalyst_days is set (e.g. 'in 3 sessions')",
+        "Earnings information embedded in narrative or fields uses relative phrasing when within 7 days"
       ]
     },
     {
-      "id": "US-005",
-      "title": "PR #5 — D1 form4 cluster-buy detector (schema v10)",
-      "passes": false,
+      "id": "US-S2-001",
+      "title": "Ship 2 M1+M2+M3+M6: Narrator prompt emits TL;DR, Bear Case, Market vs Our view, Risks & mitigants",
+      "passes": true,
       "acceptanceCriteria": [
-        "consensus_engine/scanners/sec_form4_cluster.py exists with Form4ClusterAlert dataclass, is_10b5_1(), scan_form4_clusters(), passes_falling_knife_filter() functions",
-        "is_10b5_1() returns True for strings containing '10b5-1' or 'trading plan'",
-        "scan_form4_clusters() is gated on features.form4_cluster.enabled AND scanners.sec_background_watchers_enabled",
-        "db.py SCHEMA contains CREATE TABLE IF NOT EXISTS form4_clusters",
-        "db.py _run_column_migrations includes ('sec_form4_filings', 'is_10b5_1', 'INTEGER DEFAULT 0') entry",
-        "db.py init_db inserts schema_version row 10",
-        "main.py contains async def sec_form4_cluster_loop() wired via asyncio.create_task in main()",
-        "main.py contains _emit_form4_cluster_alert() function",
-        "config/consensus.yaml contains features.form4_cluster with enabled: false",
-        "config/consensus.yaml contains intervals.form4_cluster_loop: 14400",
-        "tests/test_form4_cluster.py exists with exactly 8 test functions",
-        "pytest tests/ -v exits 0 with all prior tests + 8 new form4 tests passing"
+        "narrator.py _build_constraints_block contains literal string '**TL;DR:**' as required first-line prefix",
+        "narrator.py _build_constraints_block requires '**What could go wrong:**' section header (M2 Bear Case)",
+        "narrator.py _build_constraints_block requires 'Market view:' / 'Our view:' / 'Catalyst:' sentence pattern (M3 variant perception)",
+        "narrator.py _build_constraints_block requires '**Risks & mitigants:**' section with bulleted risk → mitigant items (M6)",
+        "narrator.py constraints include the contradiction-defense clause: 'Bear Case must acknowledge the COMPUTED SIGNAL'S direction'",
+        "narrator.py constraints include the evidence-citation clause: 'Every Bear Case sentence must cite a specific evidence row' with [evidence:N] marker convention",
+        "narrator.py _build_constraints_block emits all four new clauses regardless of swing_v2_enabled flag"
       ]
     },
     {
-      "id": "US-006",
-      "title": "PR #6 — A4 sector ETF peer-confirmation gate (schema v11)",
-      "passes": false,
+      "id": "US-S2-002",
+      "title": "Ship 2 quality_bar.py: structural rejection of narratives missing required tokens",
+      "passes": true,
       "acceptanceCriteria": [
-        "consensus_engine/analysis/sector_confirmation.py exists with A4_BYPASS_CATALYSTS frozenset, SectorVerdict dataclass, check_sector_alignment() function",
-        "check_sector_alignment() returns bypass_due_to_unmapped=True for tickers not in sector_map",
-        "check_sector_confirmation() returns bypass_due_to_premarket=True before 09:35 ET or after 16:00 ET",
-        "sector_confirmation.py has module-level quote cache dict with 5-min TTL",
-        "consensus_engine/data/sector_map.yaml exists with schema_version, default_when_unmapped, mappings containing at least 50 ticker→ETF entries including AAPL:XLK, NVDA:XLK, JPM:XLF, XOM:XLE",
-        "db.py init_db inserts schema_version row 11",
-        "engine.py analyze_signal calls check_sector_alignment() before _classify and builds bypass OR-clause",
-        "engine.py writes sector_verdict and bypass_attribution to feature_vector_json",
-        "config/consensus.yaml contains features.sector_confirmation with enabled: false",
-        "tests/test_sector_confirmation.py exists with exactly 6 test functions covering aligned, catalyst bypass, unknown bypass, premarket bypass, unmapped bypass, blocked path",
-        "pytest tests/ -v exits 0 with all prior tests + 6 new sector tests passing"
+        "quality_bar.py has_required_sections(narrative) returns True iff narrative contains '**TL;DR:**', '**What could go wrong:**', AND '**Risks & mitigants:**'",
+        "has_required_sections returns False if any of the three tokens is missing",
+        "narrator.py synthesize_narrative re-prompts (one retry) when has_required_sections returns False on first attempt",
+        "After retry, if still missing required sections, returns ('', 'fallback_data_only') to caller"
       ]
     },
     {
-      "id": "US-007",
-      "title": "PR #7 — A2 analyst herding detector (schema v12)",
-      "passes": false,
+      "id": "US-S2-003",
+      "title": "TL;DR extraction + display in embed",
+      "passes": true,
       "acceptanceCriteria": [
-        "consensus_engine/analysis/herding.py exists with ClusterMember, ClusterResult dataclasses, detect_cluster(), refresh_correlation_matrix() functions",
-        "detect_cluster() returns fired=False with reason='below_threshold' when fewer than min_cluster_size distinct analysts in window",
-        "detect_cluster() applies panic regime guard requiring effective_size >= 4 when regime label is 'panic'",
-        "detect_cluster() caps members_json at 20 entries",
-        "db.py SCHEMA contains CREATE TABLE IF NOT EXISTS cluster_events and CREATE TABLE IF NOT EXISTS analyst_pair_correlations",
-        "db.py init_db inserts schema_version row 12",
-        "main.py process_tweet calls detect_cluster() between db.insert_signal() and db.check_alert_cooldown()",
-        "main.py contains _emit_cluster_alert() function",
-        "alerts/commands.py route_command handles 'cluster' command reading from cluster_events",
-        "config/consensus.yaml contains features.analyst_herding with enabled: false and members_cap: 20",
-        "tests/test_analyst_herding.py exists with exactly 8 test functions",
-        "pytest tests/ -v exits 0 with all prior tests + 8 new herding tests passing"
+        "embed.py _extract_tldr(narrative) returns the TL;DR sentence text (without the '**TL;DR:**' prefix) if present, else empty string",
+        "build_embed renders the extracted TL;DR as the first line of description (above direction line), bolded",
+        "When TL;DR is missing, embed falls back to the existing direction-line-only header (no error)"
       ]
     },
     {
-      "id": "US-008",
-      "title": "PR #8 — A3 Bayesian source consolidation (schema v13) + integration test",
-      "passes": false,
+      "id": "US-T-001",
+      "title": "Unit tests: tests/all_command/test_embed_format.py covers all new embed helpers",
+      "passes": true,
       "acceptanceCriteria": [
-        "consensus_engine/analysis/consolidation.py exists with SOURCE_CLUSTERS dict, ConsolidationResult dataclass, consolidate_for_ticker() function",
-        "consolidate_for_ticker() returns fired=False, reason='no_other_sources' when only one source cluster is present",
-        "consolidate_for_ticker() uses INSERT OR IGNORE on (ticker, window_start) for race safety",
-        "consolidate_for_ticker() returns consensus_boost=0 when shadow_only=True",
-        "db.py SCHEMA contains CREATE TABLE IF NOT EXISTS consolidated_events with UNIQUE(ticker, window_start)",
-        "db.py init_db inserts schema_version row 13",
-        "cross_reference.py calls consolidate_for_ticker() before building ScoreBreakdown and applies consensus_boost when not shadow_only",
-        "engine.py passes consolidation_result into feature_vector_json",
-        "config/consensus.yaml contains features.cross_source_consolidation with enabled: false",
-        "tests/test_source_consolidation.py exists with exactly 10 test functions",
-        "tests/integration/ directory exists with test_combined_pipeline.py containing 1 integration test that runs all 6 features against a synthesized signal and asserts all feature_vector_json keys present",
-        "pytest tests/ -v exits 0 with all 637 tests passing (574 baseline + 63 new)"
+        "tests/all_command/__init__.py exists (empty)",
+        "tests/all_command/test_embed_format.py exists",
+        "Tests for _fmt_cashtag, _fmt_money_compact, _fmt_relative_date, _direction_emoji, _arrow_for_level, _level_oneliner, _extract_tldr",
+        "Each helper has at least 3 cases: happy path + edge (None / invalid) + boundary",
+        "python3 -m pytest tests/all_command/test_embed_format.py -v passes 100%"
       ]
     },
     {
-      "id": "US-009",
-      "title": "Final deployment + smoke test + execution log",
+      "id": "US-T-002",
+      "title": "Unit tests: tests/all_command/test_narrator_pack.py covers constraints + quality gate",
+      "passes": true,
+      "acceptanceCriteria": [
+        "tests/all_command/test_narrator_pack.py exists",
+        "Test verifying _build_constraints_block contains TL;DR, Bear Case, Variant Perception, Risks & mitigants markers",
+        "Test verifying has_required_sections returns True for a full narrative",
+        "Test verifying has_required_sections returns False for narratives missing each individual marker",
+        "Test verifying synthesize_narrative retries when quality_bar rejects (mocked LLM)",
+        "python3 -m pytest tests/all_command/test_narrator_pack.py -v passes 100%"
+      ]
+    },
+    {
+      "id": "US-V-001",
+      "title": "Full test suite passes — no regressions vs baseline",
+      "passes": true,
+      "acceptanceCriteria": [
+        "python3 -m pytest tests/ -q exits 0 (no new failures)",
+        "Baseline pre-PR failure list documented in progress.txt; post-PR failure list is a subset (no new red)"
+      ]
+    },
+    {
+      "id": "US-V-002",
+      "title": "Phase B real-world: live !all on NVDA, AMD, TSLA after engine restart + cache invalidation",
+      "passes": true,
+      "acceptanceCriteria": [
+        "consensus-engine service active after restart",
+        "xref_cache cleared for NVDA, AMD, TSLA so cache-miss render is forced",
+        "!all NVDA returns an embed via Discord webhook within 180s; embed text captured to .omc/plans/ship1-ship2-blind-compare/nvda-bot.txt",
+        "!all AMD returns an embed via Discord webhook within 180s; embed text captured to .omc/plans/ship1-ship2-blind-compare/amd-bot.txt",
+        "!all TSLA returns an embed via Discord webhook within 180s; embed text captured to .omc/plans/ship1-ship2-blind-compare/tsla-bot.txt",
+        "Per-ticker score out of 10 (one point per sub-change visible) recorded in progress.txt; total score ≥27/30 required"
+      ]
+    },
+    {
+      "id": "US-V-003",
+      "title": "Phase C blind-compare materials",
+      "passes": true,
+      "acceptanceCriteria": [
+        ".omc/plans/ship1-ship2-blind-compare/GEMINI-PROMPT.txt contains the exact canonical blind-compare prompt from TODO #1",
+        ".omc/plans/ship1-ship2-blind-compare/README.md contains the 3-step copy-paste flow + acceptance line (3/3 prefer-bot or tie)",
+        ".omc/plans/ship1-ship2-blind-compare/ directory has nvda-bot.txt, amd-bot.txt, tsla-bot.txt (created in US-V-002)"
+      ]
+    },
+    {
+      "id": "US-V-004",
+      "title": "Phase D local commit (NOT pushed)",
       "passes": false,
       "acceptanceCriteria": [
-        "python3 -m consensus_engine --dry-run --once exits 0 with no tracebacks",
-        "python3 -m consensus_engine --status output includes 'features' section showing contradiction_penalty enabled=true and other 5 features disabled",
-        "SELECT MAX(version) FROM schema_version in consensus.db returns 13",
-        "PRAGMA table_info(signal_events) includes consumed_by_cluster_id column",
-        "consensus_engine/data/macro_events.yaml and consensus_engine/data/sector_map.yaml both exist",
-        "All 8 commits pushed to master on origin remote",
-        ".claude/discover/new-signal-features/pass-5-execution-log.md exists with files-changed list, test results, commit SHAs, open-decisions record, and operator runbook for D1 fraud review"
+        "git log -1 shows new commit with conventional-commit message 'feat(all): Ship 1 (format pack) + Ship 2 (narrative pack v1) per audit 2989eb7'",
+        "git status shows clean working tree (pre-existing unstaged files left untouched)",
+        "Pre-existing files .omc/prd.json, TODO.md, .omc/plans/yt-chain-next-steps-brief.md NOT included in the commit",
+        "git log shows commit is local-only (no remote push verified)"
       ]
     }
   ]
