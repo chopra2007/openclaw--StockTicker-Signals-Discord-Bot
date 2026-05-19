@@ -174,19 +174,28 @@ async def run_gap_fill(
             f"{ticker} upcoming catalyst earnings",
         ))
 
-    # Trigger 4 — Commit 7 catalyst mining via SerpAPI. Three targeted
-    # queries cover partnerships+product+regulatory which together
-    # capture most substantive catalysts. Capped at 3 to stay within
-    # SerpAPI free-tier monthly budget. SerpAPI returns full Google
-    # organic results with snippets — much higher signal than SearXNG
-    # for broad catalyst queries (see file header).
+    # Trigger 4 — Commit 12 (was Commit 7): SerpAPI catalyst mining
+    # with high-signal query patterns. Original wording in Commit 7
+    # ("AMD partnership announcement 2026") returned 0 hits in
+    # production; isolated SerpAPI tests proved these three patterns
+    # consistently surface real catalysts:
+    #   "{TICKER}" partnership deal billion → real partnerships
+    #     (AMD-OpenAI 6GW $T deal, NVDA-IREN 5GW, TSLA-Samsung $16.5B)
+    #   {TICKER} upcoming catalyst analyst day → analyst day +
+    #     catalyst-watch articles (AMD-Citi positive catalyst watch,
+    #     TSLA "5 Catalysts Will Ignite Stock in 2026")
+    #   {TICKER} stock catalyst 2026 → broad stock-mover events
+    #     (NVDA Sovereign AI multi-billion catalyst, AMD China deal)
+    # Quoting the ticker symbol kept SerpAPI from drifting onto
+    # adjacent-mention noise (Apple/NVIDIA appearing in AMD results).
+    _CATALYST_SERPAPI_MAX_CALLS_LOCAL = 3
     catalyst_queries: list[tuple[str, str]] = []
     if direction and direction.lower() != "neutral":
         catalyst_queries = [
-            ("cat_partnership", f"{ticker} partnership announcement 2026"),
-            ("cat_product",     f"{ticker} product launch upcoming 2026"),
-            ("cat_regulatory",  f"{ticker} upcoming earnings catalyst event"),
-        ][:_CATALYST_SERPAPI_MAX_CALLS]
+            ("cat_partnership", f'"{ticker}" partnership deal billion'),
+            ("cat_analyst_day", f"{ticker} upcoming catalyst analyst day"),
+            ("cat_catalyst",    f"{ticker} stock catalyst 2026"),
+        ][:_CATALYST_SERPAPI_MAX_CALLS_LOCAL]
 
     out = {
         "harvested_anchors_snippets": [],
