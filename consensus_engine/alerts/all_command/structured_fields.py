@@ -204,6 +204,11 @@ _HORIZON_DAILY_SLIPPAGE = 0.7   # 0.7×ATR/day is the empirical slippage constan
 _HORIZON_BAND_PCT = 0.25        # ±25% band around the central estimate
 _HORIZON_GAP_UP_GUARD_PCT = 0.005  # tp1 within 0.5% of spot → already at target
 _HORIZON_LONG_CAP_DAYS = 365
+_HORIZON_SWING_FLOOR_DAYS = 5   # TODO #12 — min horizon for a swing trade.
+# Without this floor, ATR-fallback TPs (set at exactly 1×ATR per TODO #10)
+# produce ~1.43-day horizons that clash with multi-percent SL drawdowns
+# (horizon_anchor_ratio >> 1.0). Five days matches a typical swing baseline
+# and is bypassed only for intraday catalysts (days_to_ER == 0).
 
 
 def compute_swing_horizon(
@@ -242,10 +247,19 @@ def compute_swing_horizon(
     raw_days = distance / (_HORIZON_DAILY_SLIPPAGE * atr_f)
     est_days = max(1, int(round(raw_days)))
 
+    # TODO #12 — apply swing floor unless the catalyst is intraday.
+    # Pre-fix: a 1-day ER cap turned every ATR-fallback trade into a "1-1 day"
+    # horizon that didn't match the multi-percent SL (NVDA/AMD/TSLA 2026-05-19
+    # iter2). Post-fix: floor=5 unless ER is today (T-0); ER between T-1 and
+    # T-5 is allowed to extend horizon ABOVE the floor (trader holds through),
+    # ER beyond T-5 caps as before.
     earnings_d = _parse_iso_date(earnings_date) if earnings_date else None
-    if earnings_d is not None:
-        days_to_er = (earnings_d - date.today()).days
-        if days_to_er > 0:
+    days_to_er = (earnings_d - date.today()).days if earnings_d is not None else None
+    if days_to_er is not None and days_to_er == 0:
+        pass  # intraday catalyst — keep est_days as computed (usually 1)
+    else:
+        est_days = max(est_days, _HORIZON_SWING_FLOOR_DAYS)
+        if days_to_er is not None and days_to_er > _HORIZON_SWING_FLOOR_DAYS:
             est_days = min(est_days, days_to_er)
 
     if est_days > _HORIZON_LONG_CAP_DAYS:

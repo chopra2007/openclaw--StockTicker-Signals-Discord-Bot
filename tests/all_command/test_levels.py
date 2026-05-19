@@ -161,10 +161,52 @@ def test_select_trade_plan_backward_compat_suppress_when_scarce():
 
 
 # ---------------------------------------------------------------------------
-# TODO #12 — horizon-aware re-rank: tests live in Commit 3 where the
-# aggregator starts passing earnings_days into select_trade_plan and the
-# rerank weights get tuned against real cases (NVDA $178 vs $209).
+# TODO #12 — horizon-aware drawdown gate (when earnings_days ≤ 5,
+# SL must be within ~3×ATR of spot or it's incoherent with horizon).
 # ---------------------------------------------------------------------------
+
+def test_horizon_aware_drawdown_gate_rejects_off_horizon_sl():
+    """NVDA 2026-05-19 case: SL $178 (~20×ATR away) with earnings T-2.
+    Pre-fix: SL passes the 20% drawdown gate (19.8% < 20%) and renders.
+    Post-fix: horizon-aware gate (3×ATR) rejects it → ATR fallback fires."""
+    # spot=222.32, atr14=8.26 → 3×ATR=24.78. SL=178 is 44.32 away → rejected.
+    supports = [_anchor(178.0)]
+    resistances = [_anchor(225.0), _anchor(230.0), _anchor(235.0)]
+    plan = select_trade_plan(
+        supports, resistances,
+        spot=222.32, atr14=8.26, direction="BULLISH",
+        earnings_days=2,
+    )
+    # ATR fallback fires: SL = 222.32 - 2*8.26 = 205.80
+    assert plan["sl"] == pytest.approx(205.80, abs=0.01)
+    assert "atr_fallback" in (plan["suppression_reason"] or "")
+
+
+def test_horizon_aware_drawdown_gate_keeps_in_band_sl():
+    """SL within 3×ATR + short horizon → keep the anchor."""
+    # spot=222.32, atr14=8.26 → 3×ATR=24.78. SL=210 is 12.32 away → KEPT.
+    supports = [_anchor(210.0)]
+    resistances = [_anchor(225.0), _anchor(230.0), _anchor(235.0)]
+    plan = select_trade_plan(
+        supports, resistances,
+        spot=222.32, atr14=8.26, direction="BULLISH",
+        earnings_days=2,
+    )
+    assert plan["sl"] == 210.0  # unchanged
+
+
+def test_horizon_aware_drawdown_gate_skipped_for_long_horizon():
+    """earnings_days > 5 → horizon-aware gate doesn't fire, only the 20% gate."""
+    supports = [_anchor(178.0)]
+    resistances = [_anchor(225.0), _anchor(230.0), _anchor(235.0)]
+    plan = select_trade_plan(
+        supports, resistances,
+        spot=222.32, atr14=8.26, direction="BULLISH",
+        earnings_days=14,  # > _SHORT_HORIZON_DAYS=5
+    )
+    # SL $178 is 19.8% drawdown — passes the 20% baseline gate; horizon
+    # gate doesn't fire because earnings_days > 5.
+    assert plan["sl"] == 178.0
 
 
 # ---------------------------------------------------------------------------

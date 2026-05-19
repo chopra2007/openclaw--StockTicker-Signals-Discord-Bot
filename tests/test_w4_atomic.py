@@ -61,13 +61,47 @@ def test_swing_horizon_at_target_when_tp1_within_half_pct():
     assert note == "at target"
 
 
-def test_swing_horizon_capped_at_earnings():
+def test_swing_horizon_floor_holds_through_near_earnings():
+    """TODO #12: earnings within the swing floor (≤5d) does NOT compress
+    horizon — trade is allowed to hold through the catalyst. Pre-fix this
+    case capped to 3 days; post-fix it stays at the computed swing horizon
+    (14 days here) so SL drawdown % stays coherent with horizon × ATR."""
     er = (date.today() + timedelta(days=3)).isoformat()
-    # Without ER cap this would be ~14 days
     days, band, note = compute_swing_horizon(
         spot=100.0, tp1=120.0, atr14=2.0, earnings_date=er,
     )
-    assert days <= 3
+    # |20|/(0.7×2) ≈ 14 days; earnings T-3 < swing floor → no cap
+    assert days == 14
+
+
+def test_swing_horizon_capped_at_far_earnings():
+    """TODO #12: earnings BEYOND the swing floor still cap horizon (preserves
+    the original swing_v2 design intent for normal earnings windows)."""
+    er = (date.today() + timedelta(days=10)).isoformat()
+    days, band, note = compute_swing_horizon(
+        spot=100.0, tp1=120.0, atr14=2.0, earnings_date=er,
+    )
+    # |20|/(0.7×2) ≈ 14 days; earnings T-10 > swing floor → cap at 10
+    assert days == 10
+
+
+def test_swing_horizon_intraday_catalyst_skips_floor():
+    """TODO #12: T-0 earnings (catalyst today) bypasses the swing floor —
+    the trader is doing an intraday play, not a multi-day swing."""
+    er = date.today().isoformat()
+    days, band, note = compute_swing_horizon(
+        spot=100.0, tp1=101.0, atr14=2.0, earnings_date=er,
+    )
+    # |1|/(0.7×2) = 0.71 → 1 day, T-0 catalyst preserves the 1-day est
+    assert days == 1
+
+
+def test_swing_horizon_floor_applied_when_no_catalyst():
+    """TODO #12: with no earnings and a 1×ATR TP1 (ATR-fallback shape),
+    horizon floors at SWING_FLOOR_DAYS (5) instead of dropping to 1.43d."""
+    # spot=100, tp1=102, atr=2 → raw=2/(0.7×2)=1.43d → floor to 5
+    days, band, note = compute_swing_horizon(spot=100.0, tp1=102.0, atr14=2.0)
+    assert days == 5
 
 
 def test_swing_horizon_long_horizon_cap():

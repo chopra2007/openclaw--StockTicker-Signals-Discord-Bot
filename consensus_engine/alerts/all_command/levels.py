@@ -539,12 +539,23 @@ def select_trade_plan(
     if total >= 4:
         sl = supports[0].price if supports else None
         tp_prices = [r.price for r in resistances[:3]]
-        # TODO #10 — drawdown sanity gate
+        # TODO #10 — drawdown sanity gate (default 20%)
         if (
             sl is not None and spot is not None
             and abs(spot - sl) / spot > sl_max_drawdown
         ):
             sl = None  # forces ATR fallback below
+        # TODO #12 — horizon-aware drawdown gate: when a short catalyst
+        # window is known, SL must be within ~3×ATR of spot or it's
+        # incoherent with the horizon (NVDA $178 SL with 2-day catalyst).
+        elif (
+            sl is not None and spot is not None
+            and atr14 is not None
+            and earnings_days is not None
+            and earnings_days <= _SHORT_HORIZON_DAYS
+            and abs(spot - sl) > 3 * atr14
+        ):
+            sl = None  # ATR fallback (2×ATR) is more coherent
     else:
         sl = None
         tp_prices = []

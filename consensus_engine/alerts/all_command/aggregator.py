@@ -534,20 +534,32 @@ async def _compute_all(ticker: str, start: float) -> dict:
     all_anchors = levels.cluster_anchors(initial_anchors + web_anchors, 0.005)
     current_price = _current_price(data["technical_long"]) or 0.0
     supports, resistances = levels.rank_anchors(all_anchors, current_price, ticker=ticker)
-    # TODO #10 — pre-compute ATR + direction here so select_trade_plan can
-    # apply the drawdown sanity gate + ATR fallback. Variables are
-    # re-computed below in the structured-fields block (same inputs,
-    # same values — harmless redundancy in exchange for a smaller diff).
+    # TODO #10/#12 — pre-compute ATR + direction + earnings_days here so
+    # select_trade_plan can apply the drawdown sanity gate + ATR fallback +
+    # horizon-aware short-window gate. Variables are re-computed below in
+    # the structured-fields block (same inputs, same values — harmless
+    # redundancy in exchange for a smaller diff).
     _atr14_for_plan = _atr_from_candles(data["technical_long"])
     _score_bd_for_plan = (
         getattr(score_result, "breakdown", None) if score_result is not None else None
     )
     _direction_for_plan = structured_fields.compute_direction(_score_bd_for_plan)
+    _earnings_days_for_plan = None
+    if earnings_iso_str:
+        try:
+            from datetime import datetime as _dt
+            _ed = _dt.strptime(earnings_iso_str, "%Y-%m-%d").date()
+            _d = (_ed - _dt.utcnow().date()).days
+            if _d >= 0:
+                _earnings_days_for_plan = _d
+        except (ValueError, TypeError):
+            pass
     trade_plan = levels.select_trade_plan(
         supports, resistances,
         spot=current_price,
         atr14=_atr14_for_plan,
         direction=_direction_for_plan,
+        earnings_days=_earnings_days_for_plan,
     )
 
     # Structured fields.
