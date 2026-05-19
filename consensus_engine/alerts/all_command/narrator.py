@@ -397,7 +397,12 @@ def _build_constraints_block(swing_v2: bool) -> str:
         "from the EVIDENCE blocks (news / sec / yt_evidence / etc). "
         "If an EARNINGS RECAP block is present, ONE of the catalyst bullets "
         "MUST cite the revenue dollar value AND YoY percent from that block "
-        "verbatim (e.g. 'Revenue $68.13B, +73% YoY').\n"
+        "verbatim (e.g. 'Revenue $68.13B, +73% YoY'). "
+        "TODO #13: if COMPUTED SIGNAL.next_catalyst_mechanism is non-null, "
+        "ONE of the catalyst bullets MUST mention that specific forward-dated "
+        "event (e.g. 'earnings on 2026-05-20' or 'ex-dividend $0.04 on 2026-06-05'). "
+        "This is the dated forward catalyst — name it explicitly, do not "
+        "abstract it to 'upcoming event'.\n"
         "  3. A `## Risk Considerations` markdown header followed by AT LEAST "
         "1 bulleted item with a specific risk and threshold (e.g. 'a break "
         "below $X invalidates the thesis').\n"
@@ -493,6 +498,11 @@ def _build_synthesis_prompt(
         computed_signal["expected_move_typical"] = getattr(structured, "expected_move_typical", None)
         computed_signal["expected_move_high_vol"] = getattr(structured, "expected_move_high_vol", None)
         computed_signal["expected_move_band"] = getattr(structured, "magnitude_band_label", None)
+        # TODO #13 — kind + mechanism for the next catalyst (e.g. "earnings on
+        # 2026-05-20", "ex-dividend $0.04"). Narrator surfaces this in a
+        # Catalysts bullet when available.
+        computed_signal["next_catalyst_kind"] = getattr(structured, "next_catalyst_kind", None)
+        computed_signal["next_catalyst_mechanism"] = getattr(structured, "next_catalyst_mechanism", None)
     else:
         computed_signal["breakout_timeframe"] = getattr(structured, "breakout_timeframe", "TBD")
         computed_signal["magnitude"] = getattr(structured, "magnitude_label", "TBD")

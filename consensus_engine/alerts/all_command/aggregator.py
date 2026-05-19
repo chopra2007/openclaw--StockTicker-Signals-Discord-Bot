@@ -604,8 +604,25 @@ async def _compute_all(ticker: str, start: float) -> dict:
     # remain populated for backward compat and emergency revert via the
     # `all_command.swing_v2_enabled=false` flag (consumed by embed,
     # narrator, vault_writer at render time).
-    next_catalyst_days = structured_fields.compute_next_catalyst_days(
-        earnings_iso, data["options_unusual"],
+    # TODO #13 — fetch forward-dated NASDAQ catalysts (earnings + dividends)
+    # so AMD/TSLA-style tickers without near-earnings get a real catalyst
+    # surfaced in the embed + narrator prompt instead of "—".
+    try:
+        from consensus_engine.scanners import nasdaq_calendar
+        nasdaq_events = await nasdaq_calendar.fetch_forward_catalysts(
+            ticker, forward_days=60,
+        )
+        # Always append the next weekly options expiry as a guaranteed
+        # dated forward catalyst (TODO #13). For optionable stocks without
+        # near-term earnings/dividends, this is the only real anchor.
+        nasdaq_events.append(nasdaq_calendar.next_weekly_options_expiry())
+    except Exception as exc:  # noqa: BLE001
+        log.warning("aggregator: nasdaq_calendar fetch failed: %s", exc)
+        nasdaq_events = []
+    next_catalyst_days, next_catalyst_kind, next_catalyst_mechanism = (
+        structured_fields.compute_next_catalyst(
+            earnings_iso, data["options_unusual"], extra_events=nasdaq_events,
+        )
     )
     swing_horizon_days, swing_horizon_band, _swing_note = (
         structured_fields.compute_swing_horizon(
@@ -634,6 +651,8 @@ async def _compute_all(ticker: str, start: float) -> dict:
         expected_move_typical=expected_move_typical,
         expected_move_high_vol=expected_move_high_vol,
         magnitude_band_label=magnitude_band_label,
+        next_catalyst_kind=next_catalyst_kind,
+        next_catalyst_mechanism=next_catalyst_mechanism,
     )
 
     # Sanitize hostile text. PR4: split SearXNG into news+sec+gap-fill blocks

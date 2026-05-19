@@ -43,6 +43,11 @@ class StructuredFields:
     expected_move_typical: Optional[float] = None     # $ at horizon
     expected_move_high_vol: Optional[float] = None    # $ at 80th pct, None if 90d data missing
     magnitude_band_label: Optional[str] = None        # rendered string e.g. "±$5–$9 / 4-6w"
+    # TODO #13 — surface the catalyst kind + mechanism string so the narrator
+    # can name what the catalyst IS, not just when (closes the D3 catalyst-
+    # quality gap from the 2026-05-18 blind-compare).
+    next_catalyst_kind: Optional[str] = None        # "earnings" | "dividend_ex" | "options_expiry" | ...
+    next_catalyst_mechanism: Optional[str] = None    # "earnings on 2026-05-20", "ex-dividend $0.04"
 
 
 # Components contributing to direction scoring. Sign mapping is deferred to
@@ -313,23 +318,72 @@ def compute_magnitude_band(
 def compute_next_catalyst_days(
     earnings_date: Optional[str],
     options_data: Optional[OptionsResult],
+    extra_events: Optional[list] = None,
 ) -> Optional[int]:
     """Days until next material catalyst (earnings preferred, then options).
 
     Returns the integer day count, or None if no future catalyst is found.
     Swing-trader-friendly replacement for the 30-day breakout_timeframe.
+
+    TODO #13: `extra_events` accepts CatalystEvent-shaped objects from the
+    new nasdaq_calendar scanner. Earnings and dividends from there get
+    merged into the candidate set; nearest forward-dated wins.
+    """
+    days, _, _ = compute_next_catalyst(
+        earnings_date, options_data, extra_events,
+    )
+    return days
+
+
+def compute_next_catalyst(
+    earnings_date: Optional[str],
+    options_data: Optional[OptionsResult],
+    extra_events: Optional[list] = None,
+) -> tuple[Optional[int], Optional[str], Optional[str]]:
+    """Like compute_next_catalyst_days but also returns kind + mechanism.
+
+    Returns `(days_to_next, kind_label, mechanism_string)` so the narrator
+    can name what the catalyst actually is (e.g. "Q1 2026 earnings on
+    2026-05-20" vs. just "in 2 days"). TODO #13 closes the catalyst-
+    quality gap by giving the narrator material to write specific bullets.
+
+    Priority: earnings > product/analyst events > options expiry >
+    dividend ex-date > IPO. Within priority, nearest date wins.
     """
     today = date.today()
+    candidates: list[tuple[date, str, str, int]] = []  # (date, kind, mechanism, priority)
+
+    _PRIO = {
+        "earnings": 0, "product_launch": 1, "analyst_day": 1, "fda_pdufa": 1,
+        "options_expiry": 3, "dividend_ex": 5, "ipo": 5, "ipo_lockup_or_listing": 5,
+    }
+
     earnings_d = _parse_iso_date(earnings_date) if earnings_date else None
-    if earnings_d is not None:
-        delta = (earnings_d - today).days
-        if delta >= 0:
-            return delta
+    if earnings_d is not None and (earnings_d - today).days >= 0:
+        candidates.append((earnings_d, "earnings", f"earnings on {earnings_d.isoformat()}", 0))
+
+    for ev in (extra_events or []):
+        ev_date = getattr(ev, "date", None)
+        ev_kind = getattr(ev, "kind", None)
+        ev_mech = getattr(ev, "mechanism", None) or ev_kind or "event"
+        if not isinstance(ev_date, date) or not ev_kind:
+            continue
+        if (ev_date - today).days < 0:
+            continue
+        candidates.append((ev_date, ev_kind, ev_mech, _PRIO.get(ev_kind, 4)))
 
     if options_data is not None:
         for attr in ("expiry", "top_contract"):
             value = getattr(options_data, attr, None)
             d = _parse_iso_date(value) if isinstance(value, str) else None
             if d is not None and (d - today).days >= 0:
-                return (d - today).days
-    return None
+                candidates.append((d, "options_expiry", f"options expiry {d.isoformat()}", 3))
+                break
+
+    if not candidates:
+        return None, None, None
+
+    # Sort by (priority asc, date asc) — picks the highest-priority nearest event.
+    candidates.sort(key=lambda c: (c[3], c[0]))
+    pick = candidates[0]
+    return (pick[0] - today).days, pick[1], pick[2]

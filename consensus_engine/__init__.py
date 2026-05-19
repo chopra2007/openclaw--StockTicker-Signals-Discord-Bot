@@ -1,2 +1,2 @@
 """Stock Trend Consensus Engine — Multi-source breakout detection."""
-__version__ = "0.4.5-todo12-horizon-coherence-2026-05-19"
+__version__ = "0.4.6-todo13-forward-catalysts-2026-05-19"

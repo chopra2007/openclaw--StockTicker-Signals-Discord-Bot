@@ -459,12 +459,16 @@ def _compute_atr_fallback(
     embed renders complete numeric levels with a footer flag for the
     user.
     """
+    # Round to 2 decimals at source: prevents float-precision leak into the
+    # LLM prompt (e.g. "$205.80005428716825" — TODO #7-style regression caught
+    # in iter3 NVDA). Matches the precision the embed renderer expects.
+    def _r(x): return round(x, 2)
     if (direction or "").upper() == "BEARISH":
-        return spot + 2 * atr14, [
-            spot - 1 * atr14, spot - 2 * atr14, spot - 3 * atr14,
+        return _r(spot + 2 * atr14), [
+            _r(spot - 1 * atr14), _r(spot - 2 * atr14), _r(spot - 3 * atr14),
         ]
-    return spot - 2 * atr14, [
-        spot + 1 * atr14, spot + 2 * atr14, spot + 3 * atr14,
+    return _r(spot - 2 * atr14), [
+        _r(spot + 1 * atr14), _r(spot + 2 * atr14), _r(spot + 3 * atr14),
     ]
 
 
