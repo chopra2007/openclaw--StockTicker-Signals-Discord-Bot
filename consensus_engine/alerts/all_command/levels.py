@@ -172,7 +172,16 @@ def extract_anchors_from_youtube_levels(rows: list[dict]) -> list[Anchor]:
     Bootstrap default for missing/null trust is 0.5 (yt tier), NOT 0.2 (web tier) —
     CEF-1 amendment to keep unregistered channels from collapsing under C-C3.
     Rows missing price are skipped.
+
+    TODO #10: rows where freshness_days exceeds
+    `all_command.levels.youtube_freshness_max_days` (default 30) are skipped
+    so stale double-bottom anchors (e.g. AMD $203.79 from 30d+ ago) don't
+    become the SL anchor for a fresh trade. Defaults to 30 days; set to None
+    or 0 in config to disable cutoff.
     """
+    from consensus_engine import config as _cfg
+    max_freshness = _cfg.get("all_command.levels.youtube_freshness_max_days", 30)
+
     anchors: list[Anchor] = []
     for row in rows or []:
         price = row.get("price")
@@ -188,6 +197,9 @@ def extract_anchors_from_youtube_levels(rows: list[dict]) -> list[Anchor]:
         freshness = row.get("freshness_days")
         if freshness is None:
             freshness = 0
+        # TODO #10 freshness cutoff
+        if max_freshness and int(freshness) > int(max_freshness):
+            continue
 
         channel_id = row.get("channel_id")
         approved = row.get("approved")
@@ -427,38 +439,149 @@ def rank_anchors(
     return supports, resistances
 
 
+# TODO #10 / #12 — drawdown sanity gate + ATR fallback + horizon-aware rerank.
+_SL_MAX_DRAWDOWN_PCT_DEFAULT = 0.20  # 20% — sane for swing horizons
+_SHORT_HORIZON_DAYS = 5
+_HORIZON_RERANK_TIGHT_BAND_MULT = 1.5
+_HORIZON_RERANK_FAR_PENALTY_PCT = 0.05
+
+
+def _compute_atr_fallback(
+    spot: float, atr14: float, direction: str,
+) -> tuple[float, list[float]]:
+    """Direction-aware ATR fallback levels.
+
+    BULLISH/NEUTRAL: SL = spot − 2×ATR, TPs = spot + 1/2/3×ATR
+    BEARISH: SL = spot + 2×ATR, TPs = spot − 1/2/3×ATR
+
+    Why: anchor scarcity + drawdown-gate rejection both produce all-None
+    plans (AMD/TSLA 2026-05-18 baseline). ATR fallback ensures every
+    embed renders complete numeric levels with a footer flag for the
+    user.
+    """
+    if (direction or "").upper() == "BEARISH":
+        return spot + 2 * atr14, [
+            spot - 1 * atr14, spot - 2 * atr14, spot - 3 * atr14,
+        ]
+    return spot - 2 * atr14, [
+        spot + 1 * atr14, spot + 2 * atr14, spot + 3 * atr14,
+    ]
+
+
+def _rerank_short_horizon(
+    anchors: list[Anchor], spot: float, atr14: float,
+) -> list[Anchor]:
+    """Re-rank anchors for short-horizon trades (TODO #12).
+
+    Bumps anchors within ±1.5×ATR of spot; penalises anchors implying >5%
+    drawdown. Triggered when earnings_days ≤ 5 so SL doesn't anchor to a
+    20-day support level (NVDA 2026-05-18 $178 SL with 2-day catalyst horizon).
+    """
+    tight = _HORIZON_RERANK_TIGHT_BAND_MULT * atr14
+    far_pct = _HORIZON_RERANK_FAR_PENALTY_PCT
+
+    def adj_score(a: Anchor) -> float:
+        dist = abs(a.price - spot)
+        dist_pct = dist / spot if spot else 0.0
+        adj = 0.0
+        if dist <= tight:
+            adj += 0.5
+        if dist_pct > far_pct:
+            adj -= 0.3
+        return (a.computed_score or 0.0) + adj
+
+    return sorted(anchors, key=adj_score, reverse=True)
+
+
 def select_trade_plan(
     supports: list[Anchor],
     resistances: list[Anchor],
+    *,
+    spot: Optional[float] = None,
+    atr14: Optional[float] = None,
+    direction: str = "BULLISH",
+    earnings_days: Optional[int] = None,
 ) -> dict:
     """Pick 1 best support + up to 3 best resistances per locked decision D1.
 
     D1 is "anchored-only ... suppress trade plan if <4 anchors after gap-fill".
-    PR3 honors that total-count gate. With ≥4 total but fewer than 3
-    resistances (or no support below price), populate what is available and
-    pad the rest with `None`. The returned dict always has the same keys so
-    callers can read `suppression_reason` to explain partial / fully empty
-    plans without a None-vs-dict branch.
-    """
-    total = len(supports) + len(resistances)
-    if total < 4:
-        return {
-            "sl": None, "tp1": None, "tp2": None, "tp3": None,
-            "suppression_reason": f"only {total} anchors after gap-fill (need 4)",
-        }
+    PR3 honored that total-count gate; TODO #10 extends it with an ATR
+    fallback so the embed never silently renders "—" when ATR is available.
 
-    sl = supports[0].price if supports else None
-    tp_prices = [r.price for r in resistances[:3]]
-    tps = tp_prices + [None] * (3 - len(tp_prices))
+    Kwargs (TODO #10 / #12 — all default None preserves prior behavior for
+    existing callers and tests that pass only the two positional args):
+      spot          — current price (required for drawdown gate + ATR fallback)
+      atr14         — ATR(14) value (required for ATR fallback + horizon rerank)
+      direction     — BULLISH/BEARISH/NEUTRAL; NEUTRAL disables ATR fallback
+      earnings_days — when ≤5, triggers horizon-aware re-rank of anchors
+
+    The returned dict always has the same keys; `suppression_reason` is
+    populated when ATR fallback fires or when the original gates trip.
+    """
+    from consensus_engine import config as _cfg
+    sl_max_drawdown = float(_cfg.get(
+        "all_command.levels.sl_max_drawdown_pct",
+        _SL_MAX_DRAWDOWN_PCT_DEFAULT,
+    ))
+
+    # TODO #12 — horizon-aware re-rank when short catalyst window known.
+    if (
+        earnings_days is not None
+        and earnings_days <= _SHORT_HORIZON_DAYS
+        and atr14 is not None
+        and spot
+    ):
+        supports = _rerank_short_horizon(supports, spot, atr14)
+        resistances = _rerank_short_horizon(resistances, spot, atr14)
+
+    total = len(supports) + len(resistances)
+
+    if total >= 4:
+        sl = supports[0].price if supports else None
+        tp_prices = [r.price for r in resistances[:3]]
+        # TODO #10 — drawdown sanity gate
+        if (
+            sl is not None and spot is not None
+            and abs(spot - sl) / spot > sl_max_drawdown
+        ):
+            sl = None  # forces ATR fallback below
+    else:
+        sl = None
+        tp_prices = []
+
+    tps: list[Optional[float]] = list(tp_prices) + [None] * (3 - len(tp_prices))
+
+    # TODO #10 — ATR fallback for any missing SL/TP. Requires ATR + spot.
+    # NEUTRAL direction is left alone (callers wipe levels for NEUTRAL anyway).
+    used_fallback = False
+    if (
+        (sl is None or any(t is None for t in tps))
+        and atr14 is not None
+        and spot
+        and (direction or "").upper() != "NEUTRAL"
+    ):
+        sl_fb, tps_fb = _compute_atr_fallback(spot, atr14, direction)
+        if sl is None:
+            sl = sl_fb
+            used_fallback = True
+        for i in range(3):
+            if tps[i] is None:
+                tps[i] = tps_fb[i]
+                used_fallback = True
 
     reasons: list[str] = []
-    if not supports:
-        reasons.append("no support anchors below current price")
-    if len(resistances) < 3:
-        reasons.append(
-            f"fewer than 3 resistances ({len(resistances)} found); "
-            "TP2/TP3 padded with None"
-        )
+    if used_fallback:
+        reasons.append("atr_fallback (low anchor confluence)")
+    if total < 4 and not used_fallback:
+        reasons.append(f"only {total} anchors after gap-fill (need 4)")
+    elif total >= 4:
+        if not supports and not used_fallback:
+            reasons.append("no support anchors below current price")
+        if len(resistances) < 3 and not used_fallback:
+            reasons.append(
+                f"fewer than 3 resistances ({len(resistances)} found); "
+                "TP2/TP3 padded with None"
+            )
 
     return {
         "sl": sl,
