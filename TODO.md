@@ -915,7 +915,7 @@ horizon (Gemini chose SL $209 for the same 2-day-catalyst trade).
 
 ---
 
-## 15. Redundant LLM fallback code — `openrouter/auto` already does this
+## 13. Redundant LLM fallback code — `openrouter/auto` already does this
 
 > why do we need llm chain fallback code when I have openrouter/auto? Instead, have main model, then fallback will be auto
 
@@ -956,7 +956,7 @@ horizon (Gemini chose SL $209 for the same 2-day-catalyst trade).
 
 ---
 
-## 13. `!all` has no forward-dated catalyst ingest beyond earnings
+## 15. `!all` has no forward-dated catalyst ingest beyond earnings
 
 **Layperson:** The Catalysts section of every `!all` embed lists at
 most the next earnings date and a backward-looking earnings recap
@@ -1016,7 +1016,7 @@ narrator/levels code.
 
 ---
 
-## 14. Brave Search API monthly cap maxed out
+## 16. Brave Search API monthly cap maxed out
 
 **Layperson:** The Brave Search free tier got fully used up this
 month ($5/$5). Until the cap resets or you upgrade, the news cascade
@@ -1056,7 +1056,7 @@ Brave's billing cycle.
 
 ---
 
-## 15. OpenRouter free-tier chain reliability — all 6 models flaky
+## 17. OpenRouter free-tier chain reliability — all 6 models flaky
 
 **Layperson:** The bot's primary text-generation chain (six free
 OpenRouter models tried in fallback order) is failing very often
@@ -1110,13 +1110,13 @@ already present).
 
 ---
 
-## 16. `narrator._batch_summarize` LLM sanitize step routinely fails
+## 18. `narrator._batch_summarize` LLM sanitize step routinely fails
 
 **Layperson:** Before the bot sends evidence to the main LLM, it
 runs a *second* LLM call to "sanitize and summarize" each evidence
 block (news, sec, twitter, social, etc.). That second LLM call
 fails most of the time because it uses the same free-tier chain
-that's wobbly (see #15). When it fails, the bot used to silently
+that's wobbly (see #17). When it fails, the bot used to silently
 chop every evidence entry to **50 characters** — destroying all
 substance. Commit 14 raised the fallback truncation to 500 chars,
 but the whole sanitize step is questionable design.
@@ -1149,7 +1149,7 @@ at lines 108-145.
 2. **Make sanitize optional via config** (`all_command.sanitize_llm_enabled`)
    so it can be turned off when the chain is unreliable.
 3. **Move sanitize to a more reliable model** — once Groq is wired
-   in (per #15), use Groq for sanitize too.
+   in (per #17), use Groq for sanitize too.
 
 **Risk if dropped:** prompt-injection attacks via news/social
 content. Mitigated by the existing system-prompt rule + the fact
@@ -1158,7 +1158,7 @@ snippet length and don't include user-controlled content.
 
 ---
 
-## 17. Cross-ref scorer's `breakdown.direction` is None on manual `!all`
+## 19. Cross-ref scorer's `breakdown.direction` is None on manual `!all`
 
 **Layperson:** When a user runs `!all <TICKER>` manually, the
 cross-reference scorer's `breakdown.direction` field is None
@@ -1210,9 +1210,9 @@ recurring as new features get gated on direction).
 
 ---
 
-## 18. Discord narrative `fallback_data_only` shipped to users in production
+## 20. Discord narrative `fallback_data_only` shipped to users in production
 
-**Layperson:** When the LLM chain is exhausted (see #15), the bot
+**Layperson:** When the LLM chain is exhausted (see #17), the bot
 renders a "Narrative auto-redacted; structured signal below." embed
 with just the trade plan — no thesis, no catalysts, no risk section.
 Users see this from Discord. Recently observed:
@@ -1238,7 +1238,7 @@ trade plan still renders so it looks ~OK but they're missing all
 the substance.
 
 **Fix options:**
-1. **Add Groq as a more-reliable fallback** (covered by #15).
+1. **Add Groq as a more-reliable fallback** (covered by #17).
 2. **Detect `fallback_data_only` status and explicitly tell the
    user** ("LLM provider temporarily unavailable — structured
    signal only this time, try again in a minute"). Better than
@@ -1254,5 +1254,5 @@ exhausts the chain.
 
 **Severity:** high. This is the user-visible quality regression
 that defeats most of the catalyst-mining + horizon-coherence +
-anti-influencer work the session shipped. Without #15, those
+anti-influencer work the session shipped. Without #17, those
 features can't reach the user.
