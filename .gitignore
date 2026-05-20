@@ -79,3 +79,8 @@ MOODBOOK-filter.md
 **/outbox*.db
 windows_runtime/R7_DISCORD_DAEMON/config.json
 windows_runtime/R1_AUTHED_WEB/routine_state.json
+
+# Runtime state for consensus_engine.health.boot_drift_check() —
+# created only while a yaml-vs-gateway model-chain drift is active,
+# deleted when the chains realign. Pure state, never commit.
+/.drift_state.json
