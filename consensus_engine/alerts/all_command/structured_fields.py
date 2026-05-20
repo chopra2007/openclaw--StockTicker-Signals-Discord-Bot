@@ -316,11 +316,20 @@ def compute_magnitude_band(
         except (TypeError, ValueError):
             high_vol = None
 
+    # Commit 17: include the exact calibrated formula in the rendered
+    # label so the LLM's rationale column paraphrases the right math
+    # (iter16 surfaced the LLM writing "ATR × 1.5" — an invented
+    # multiplier — instead of the actual 0.7×√N). Showing the formula
+    # in-band gives the model a literal string to copy.
+    _formula = f"0.7×ATR×√{h_days}"
     if high_vol is not None and high_vol > typical:
-        rendered = f"±${typical:.0f}-${high_vol:.0f} / {h_days}d"
+        rendered = f"±${typical:.0f}-${high_vol:.0f} / {h_days}d ({_formula})"
     else:
-        rendered = f"±${typical:.0f} (typical; high-vol data unavailable)" \
-            if high_vol is None else f"±${typical:.0f} / {h_days}d"
+        rendered = (
+            f"±${typical:.0f} / {h_days}d ({_formula})"
+            if high_vol is not None
+            else f"±${typical:.0f} / {h_days}d ({_formula}; high-vol data unavailable)"
+        )
     return typical, high_vol, rendered
 
 

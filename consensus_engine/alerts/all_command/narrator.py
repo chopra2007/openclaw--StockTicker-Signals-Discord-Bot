@@ -450,6 +450,16 @@ def _build_constraints_block(swing_v2: bool) -> str:
     swing_v2_enabled.
     """
     trade_plan_rows = _TRADE_PLAN_V2_ROWS if swing_v2 else _TRADE_PLAN_V0_ROWS
+    # Commit 17: anti-fabrication clause for the Expected Move row.
+    # Gated to swing_v2 only because v0 doesn't have an Expected Move row.
+    expected_move_clause = (
+        "    For the Expected Move row's Rationale: do NOT invent a "
+        "formula or multiplier. EITHER cite the parenthetical "
+        "derivation from COMPUTED SIGNAL.expected_move_band verbatim "
+        "(e.g. '0.7×ATR×√5') OR omit the formula and say 'over the "
+        "swing horizon, ATR(14)-based'. Never write 'ATR × 1.5', "
+        "'≈2×ATR', '≈ATR × N days' or similar — those are inventions.\n"
+    ) if swing_v2 else ""
     return (
         "CONSTRAINTS:\n"
         "- The VERY FIRST line of your output MUST be a one-sentence thesis "
@@ -552,6 +562,7 @@ def _build_constraints_block(swing_v2: bool) -> str:
         "    If COMPUTED SIGNAL.earnings_date is non-null, add a final "
         "sentence after the table naming the date as the binary catalyst "
         "(e.g. 'Earnings on YYYY-MM-DD is the binary catalyst').\n"
+        f"{expected_move_clause}"
         "- Cite source TYPES when relevant (e.g. 'news', 'twitter', "
         "'curated youtube call', 'options flow', 'SEC filing', 'earnings "
         "recap'). Do NOT name analysts, channels, creators, or handles — "
