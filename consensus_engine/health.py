@@ -30,7 +30,9 @@ _API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 # Gateway agent config — read for drift detection against consensus.yaml.
 # scripts/sync_gateway_models.py is the only thing that should write here.
-_GATEWAY_CONFIG = Path("/root/.openclaw/openclaw.json")
+# Use the real path, not the /root/.openclaw symlink: the engine runs as
+# `openclaw` and cannot traverse /root.
+_GATEWAY_CONFIG = Path("/home/openclaw/.openclaw/openclaw.json")
 
 # Sticky marker so a boot that finds clean chains after a previous boot saw
 # drift can emit a paired ✅ resolution message to Discord. Without this, a
@@ -59,10 +61,12 @@ def _enumerate_chain_models() -> list[tuple[str, str, str]]:
 
 
 def _enumerate_gateway_chain_models() -> tuple[list[tuple[str, str, str]], str]:
-    """Read the gateway model chain from openclaw.json for drift detection.
+    """Read the agent model chain from openclaw.json for drift detection.
 
-    Strips the ``openrouter/`` prefix so model ids match consensus.yaml shape
-    (and so ``_probe_model`` hits the same OpenRouter endpoint). If the file is
+    openclaw's ``openclaw agent`` failover walks ``agents.defaults.model`` —
+    a ``{"primary": ..., "fallbacks": [...]}`` object. Strips the
+    ``openrouter/`` prefix so ids match consensus.yaml shape (and so
+    ``_probe_model`` hits the same OpenRouter endpoint). If the file is
     missing or unparseable, returns ``([], "<reason>")`` — the caller renders
     that as a ❌ row in the report so the failure surfaces in the same daily
     Discord alert as model outages.
@@ -72,21 +76,24 @@ def _enumerate_gateway_chain_models() -> tuple[list[tuple[str, str, str]], str]:
             return [], f"missing: {_GATEWAY_CONFIG}"
         data = json.loads(_GATEWAY_CONFIG.read_text())
     except PermissionError as exc:
-        # Consensus engine runs as `openclaw`; gateway config is owned by root
-        # under /root/. Treat this as a config error (posts ❌ in the report)
-        # rather than crashing the engine.
+        # Treat an unreadable config as a reported ❌ row rather than
+        # crashing the engine's health loop.
         return [], f"unreadable: {exc}"
     except Exception as exc:
         return [], f"unparseable: {type(exc).__name__}: {exc}"
 
-    models = (data.get("agents", {})
-                  .get("defaults", {})
-                  .get("models", {})
-                  .get("openrouter/auto", {})
-                  .get("params", {})
-                  .get("models", [])) or []
+    model_cfg = (data.get("agents", {})
+                     .get("defaults", {})
+                     .get("model", {}))
+    if isinstance(model_cfg, str):
+        chain = [model_cfg]
+    elif isinstance(model_cfg, dict):
+        primary = model_cfg.get("primary")
+        chain = [primary, *(model_cfg.get("fallbacks") or [])] if primary else []
+    else:
+        chain = []
     out: list[tuple[str, str, str]] = []
-    for i, raw_id in enumerate(models):
+    for i, raw_id in enumerate(m for m in chain if m):
         clean = raw_id[len("openrouter/"):] if raw_id.startswith("openrouter/") else raw_id
         position = "primary" if i == 0 else f"fallback {i}"
         out.append(("GATEWAY", position, clean))
@@ -131,22 +138,34 @@ async def _probe_model(session: aiohttp.ClientSession,
         return "ERR", time.time() - t0, f"{type(exc).__name__}: {exc}"[:120]
 
 
-def _compute_drift(models: list[tuple[str, str, str]],
-                   gateway_models: list[tuple[str, str, str]]) -> str:
+def _consensus_agent_chain() -> list[str]:
+    """The agent-path chain from consensus.yaml — the sync source of truth."""
+    chain: list[str] = []
+    seen: set[str] = set()
+    for m in [cfg.get("llm.agent_model", ""),
+              *(cfg.get("llm.agent_fallback_models", []) or [])]:
+        if m and m not in seen:
+            chain.append(m)
+            seen.add(m)
+    return chain
+
+
+def _compute_drift(gateway_models: list[tuple[str, str, str]]) -> str:
     """Return a one-line drift description, or "" if chains match.
 
-    Compares consensus.yaml's LLM chain (primary + fallbacks) against the
-    gateway's resolved chain. Both should be identical ordered lists of model
-    ids. This catches silent drift where both chains point to *alive* but
-    *different* models — a failure mode per-model probing alone misses.
+    Compares consensus.yaml's agent chain (``llm.agent_model`` +
+    ``llm.agent_fallback_models``) against the chain openclaw.json actually
+    exposes at ``agents.defaults.model.{primary,fallbacks}``. Both should be
+    identical ordered lists. Catches silent drift — e.g. an openclaw npm
+    update overwriting openclaw.json — that per-model probing alone misses.
     """
-    llm_chain = [m for r, _, m in models if r == "LLM"]
+    expected = _consensus_agent_chain()
     gw_chain = [m for _, _, m in gateway_models]
-    if not llm_chain or not gw_chain:
+    if not expected or not gw_chain:
         return ""
-    if llm_chain == gw_chain:
+    if expected == gw_chain:
         return ""
-    return f"consensus={llm_chain} vs gateway={gw_chain}"
+    return f"consensus={expected} vs gateway={gw_chain}"
 
 
 async def run_chain_check() -> tuple[bool, str]:
@@ -157,7 +176,7 @@ async def run_chain_check() -> tuple[bool, str]:
 
     models = _enumerate_chain_models()
     gateway_models, gateway_error = _enumerate_gateway_chain_models()
-    drift_detail = _compute_drift(models, gateway_models)
+    drift_detail = _compute_drift(gateway_models)
     all_models = models + gateway_models
 
     if not all_models and not gateway_error:
@@ -203,9 +222,8 @@ async def boot_drift_check() -> None:
     try:
         if not cfg.get("health_check.enabled", True):
             return
-        models = _enumerate_chain_models()
         gateway_models, gateway_error = _enumerate_gateway_chain_models()
-        drift_detail = _compute_drift(models, gateway_models)
+        drift_detail = _compute_drift(gateway_models)
         when = datetime.now(tz=_ET).strftime("%Y-%m-%d %H:%M ET")
 
         if not gateway_error and not drift_detail:

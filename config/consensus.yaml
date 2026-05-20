@@ -224,6 +224,17 @@ llm:
     - "nvidia/nemotron-3-nano-30b-a3b:free"
     - "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
     - "z-ai/glm-4.5-air:free"
+  # Agent-path chain — !ask / @-mention via `openclaw agent --local`.
+  # SEPARATE from the !all chain above, deliberately: the `main` agent's
+  # full ~6-8K-token system prompt overflows gpt-oss-120b's OpenRouter free
+  # tier, and the path sends tool_choice (nemotron-omni-reasoning 404s on
+  # it). Every entry was probed end-to-end against the real agent 2026-05-19.
+  # scripts/sync_gateway_models.py mirrors this into openclaw.json
+  # agents.defaults.model.{primary,fallbacks}; health.py alerts on drift.
+  agent_model: "z-ai/glm-4.5-air:free"
+  agent_fallback_models:
+    - "nvidia/nemotron-3-nano-30b-a3b:free"
+    - "auto"
   vision_model: "google/gemma-4-31b-it:free"
   min_confidence: 70
   # Primary-tier output cap. gpt-oss-120b honors max_tokens cleanly; free models

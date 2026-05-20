@@ -1,13 +1,11 @@
-"""!ask command — full-power LLM responses via the primary chain.
+"""!ask command — routes through the OpenClaw agent (same path as @-mention).
 
-Bare @-mentions stay on role="text" with the lighter chain. The !ask
-command escapes to role="primary" with max_tokens=8000 so users can get
-multi-paragraph reasoning that the splitting layer in send_command_reply
-will fan out across multiple Discord messages.
+Since the !ask/@-mention unification, `!ask` no longer calls the Python
+`call_with_fallback` chain directly. `_handle_ask` prepends the last 10
+channel messages as context and forwards to `_handle_mention`, which runs
+`openclaw agent --local` (workspace + tools + the openclaw model roulette).
 """
 from __future__ import annotations
-
-from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -29,97 +27,73 @@ async def test_ask_with_no_args_shows_usage(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_ask_routes_to_primary_with_8000_max_tokens(monkeypatch):
-    sends: list[tuple[str, str, str]] = []
+async def test_ask_routes_question_through_handle_mention(monkeypatch):
+    """!ask forwards the question to _handle_mention (the openclaw agent path)."""
     captured: dict = {}
 
-    async def _fake_send(channel_id, msg_id, content):
-        sends.append((channel_id, msg_id, content))
-        return "id"
-
-    async def _fake_call(*, role, messages, max_tokens, temperature=None, timeout=None):
-        captured["role"] = role
-        captured["max_tokens"] = max_tokens
-        captured["messages"] = messages
-        return "Long bullish analysis of NVDA goes here."
+    async def _fake_mention(content, channel_id, message_id):
+        captured["content"] = content
+        captured["channel_id"] = channel_id
+        captured["message_id"] = message_id
 
     async def _fake_history(*_a, **_kw):
-        return "user1: previous chatter\nuser2: more chatter"
+        return ""  # no channel history
 
-    monkeypatch.setattr("consensus_engine.alerts.commands.send_command_reply", _fake_send)
-    monkeypatch.setattr("consensus_engine.llm_client.call_with_fallback", _fake_call)
+    monkeypatch.setattr("consensus_engine.main._handle_mention", _fake_mention)
     monkeypatch.setattr(
         "consensus_engine.alerts.commands._fetch_channel_history", _fake_history,
-    )
-    monkeypatch.setattr(
-        "consensus_engine.config.get_api_key", lambda *_a, **_kw: "fake_key",
     )
 
     await commands.route_command("ask", ["why", "is", "NVDA", "bullish?"], "ch", "msg")
 
-    assert captured.get("role") == "primary"
-    assert captured.get("max_tokens") == 8000
-    user_msg = captured["messages"][-1]["content"]
-    assert "why is NVDA bullish?" in user_msg
+    assert captured["content"] == "why is NVDA bullish?"
+    assert captured["channel_id"] == "ch"
+    assert captured["message_id"] == "msg"
 
 
 @pytest.mark.asyncio
-async def test_ask_sends_full_response_via_split_capable_send(monkeypatch):
-    """Long LLM output is delegated whole to send_command_reply (which splits)."""
-    sends: list[tuple[str, str, str]] = []
+async def test_ask_prepends_channel_history_as_context(monkeypatch):
+    """When channel history exists, !ask prefixes it to the question so the
+    agent can answer with awareness of the recent conversation."""
+    captured: dict = {}
 
-    async def _fake_send(channel_id, msg_id, content):
-        sends.append((channel_id, msg_id, content))
-        return "id"
-
-    long_response = "X" * 5500
-
-    async def _fake_call(**_kwargs):
-        return long_response
+    async def _fake_mention(content, channel_id, message_id):
+        captured["content"] = content
 
     async def _fake_history(*_a, **_kw):
-        return ""
+        return "user1: previous chatter\nuser2: more chatter"
 
-    monkeypatch.setattr("consensus_engine.alerts.commands.send_command_reply", _fake_send)
-    monkeypatch.setattr("consensus_engine.llm_client.call_with_fallback", _fake_call)
+    monkeypatch.setattr("consensus_engine.main._handle_mention", _fake_mention)
     monkeypatch.setattr(
         "consensus_engine.alerts.commands._fetch_channel_history", _fake_history,
-    )
-    monkeypatch.setattr(
-        "consensus_engine.config.get_api_key", lambda *_a, **_kw: "fake_key",
     )
 
     await commands.route_command("ask", ["what", "do", "you", "see"], "ch", "msg")
 
-    # Single delegated send — splitting happens inside send_command_reply (tested
-    # separately in test_discord_message_splitting.py).
-    assert len(sends) == 1
-    assert sends[0][2] == long_response
+    content = captured["content"]
+    assert "previous chatter" in content            # history is included
+    assert "Question: what do you see" in content   # question is preserved
 
 
 @pytest.mark.asyncio
-async def test_ask_handles_empty_llm_response(monkeypatch):
-    sends: list[tuple[str, str, str]] = []
+async def test_ask_empty_question_guard(monkeypatch):
+    """_handle_ask's defensive guard: an empty question replies with a hint
+    and never reaches the agent."""
+    sends: list[str] = []
+    mention_calls: list = []
 
     async def _fake_send(channel_id, msg_id, content):
-        sends.append((channel_id, msg_id, content))
+        sends.append(content)
         return "id"
 
-    async def _fake_call(**_kwargs):
-        return ""
-
-    async def _fake_history(*_a, **_kw):
-        return ""
+    async def _fake_mention(*_a):
+        mention_calls.append(_a)
 
     monkeypatch.setattr("consensus_engine.alerts.commands.send_command_reply", _fake_send)
-    monkeypatch.setattr("consensus_engine.llm_client.call_with_fallback", _fake_call)
-    monkeypatch.setattr(
-        "consensus_engine.alerts.commands._fetch_channel_history", _fake_history,
-    )
-    monkeypatch.setattr(
-        "consensus_engine.config.get_api_key", lambda *_a, **_kw: "fake_key",
-    )
+    monkeypatch.setattr("consensus_engine.main._handle_mention", _fake_mention)
 
-    await commands.route_command("ask", ["any", "q"], "ch", "msg")
+    await commands._handle_ask("", "ch", "msg")
+
+    assert mention_calls == []
     assert len(sends) == 1
-    assert "unavailable" in sends[0][2].lower() or "warning" in sends[0][2].lower()
+    assert "include a question" in sends[0].lower()

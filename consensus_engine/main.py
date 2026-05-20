@@ -431,12 +431,13 @@ _STEERING_TEMPLATE = (
 
 
 async def _handle_mention(content: str, channel_id: str, message_id: str) -> None:
-    """Forward @-mentions to the OpenClaw gateway agent (full workspace access via OpenRouter).
+    """Forward @-mentions / !ask to the OpenClaw agent (`openclaw agent --local`).
 
-    Gateway has its own server-side model failover via openclaw.json `params.models`.
-    This wrapper adds engine-side retry on top: if the gateway call itself errors
-    (transient network glitch, full failover chain exhausted), retry up to 2 more
-    times with exponential backoff before giving up.
+    openclaw walks the model chain in openclaw.json `agents.defaults.model`
+    ({primary, fallbacks}) within a single invocation — that is the model
+    roulette. This wrapper is the subprocess-level safety net on top: if the
+    whole `openclaw agent` call fails (crash, hang, empty output), retry once
+    before giving up.
     """
     from consensus_engine.alerts.discord import send_command_reply
 
@@ -462,7 +463,7 @@ async def _handle_mention(content: str, channel_id: str, message_id: str) -> Non
     reason = "crash"
     stdout_text = ""
     attempt_n = 0
-    for attempt in range(1, 4):
+    for attempt in range(1, 3):
         attempt_n = attempt
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -470,11 +471,11 @@ async def _handle_mention(content: str, channel_id: str, message_id: str) -> Non
                 "--agent", "main",
                 "--session-id", f"channel-{channel_id}",
                 "--message", wrapped_message,
-                "--timeout", "120",
+                "--timeout", "240",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=180)
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=270)
             stdout_text = stdout.decode(errors="replace")
             stdout_text = _strip_secrets_preamble(stdout_text)
             reply = stdout_text.strip()
@@ -495,18 +496,18 @@ async def _handle_mention(content: str, channel_id: str, message_id: str) -> Non
                 return
             last_err = stderr.decode().strip()[:200]
             reason = "empty"
-            log.warning("OpenClaw agent empty stdout (attempt=%d/3): %s", attempt, last_err)
+            log.warning("OpenClaw agent empty stdout (attempt=%d/2): %s", attempt, last_err)
         except asyncio.TimeoutError:
-            last_err = "subprocess timed out (>180s)"
+            last_err = "subprocess timed out (>270s)"
             reason = "timeout"
-            log.warning("OpenClaw agent timed out (attempt=%d/3) for channel=%s", attempt, channel_id)
+            log.warning("OpenClaw agent timed out (attempt=%d/2) for channel=%s", attempt, channel_id)
         except Exception as exc:
             last_err = f"{type(exc).__name__}: {exc}"
             reason = "crash"
-            log.error("OpenClaw agent error (attempt=%d/3): %s", attempt, exc)
-        if attempt < 3:
-            await asyncio.sleep(2 ** attempt)  # 2s, 4s
-    log.error("OpenClaw agent failed after 3 attempts (channel=%s): %s", channel_id, last_err)
+            log.error("OpenClaw agent error (attempt=%d/2): %s", attempt, exc)
+        if attempt < 2:
+            await asyncio.sleep(2 ** attempt)  # 2s
+    log.error("OpenClaw agent failed after 2 attempts (channel=%s): %s", channel_id, last_err)
     log.info("mention_reply", extra={
         "channel_id": channel_id,
         "success": success,
@@ -516,7 +517,7 @@ async def _handle_mention(content: str, channel_id: str, message_id: str) -> Non
         "stdout_bytes": len(stdout_text) if stdout_text else 0,
     })
     await send_command_reply(channel_id, message_id,
-        f"⚠️ Agent unavailable after 3 retries. Last error: {last_err[:120]}")
+        f"⚠️ Agent unavailable after 2 attempts. Last error: {last_err[:120]}")
 
 
 async def run_live(stop_event: asyncio.Event):

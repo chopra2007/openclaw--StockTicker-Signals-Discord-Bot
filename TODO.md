@@ -764,37 +764,32 @@ verification; see commit 6bc150e on master.
 ---
 
 
-## 9. Restore 5-model roulette for `!ask` and `@-mention` paths
+## 9. Restore 5-model roulette for `!ask` and `@-mention` paths — DONE 2026-05-20
 
-**Background — what happened:**
-`!ask` and `@-mention` originally used the same 5-model roulette as `!all`/`!trend` (`consensus_engine/llm_client.py:call_with_fallback()`). In the 2026-05-19 session, all LLMs appeared to be failing simultaneously — but the real causes were two separate bugs fixed in that same session:
-1. Env file ownership issue — `.env.service` and `auth-*.json` were `root:root`, so the gateway booted with no API keys and all LLM calls failed silently.
-2. Session overflow — `!ask`/`@-mention` shared a single `agent:main:main` session that had accumulated 30K tokens, causing context overflow on every call.
+Resolved. The premise was wrong: openclaw.json's `openrouter/auto`
+`params.models` array is **dead config** — openclaw drops a bare
+`params.models` key (verified in the openclaw 2026.5.18 bundle: not sent to
+OpenRouter, not iterated client-side). The "gateway 5-model roulette" the
+earlier writeup assumed never existed; `!ask`/`@-mention` ran on a 2-deep
+`agents.defaults.model` = `glm-4.5-air → openrouter/auto`.
 
-Instead of correctly attributing failures to those two bugs, Claude misdiagnosed the roulette itself as broken and suggested the workaround: pin `glm-4.5-air` as primary → `openrouter/auto` as fallback. Both real bugs were then fixed, but the roulette was unnecessarily removed from `!ask`/`@-mention` in the process — leaving those paths with a weaker fallback.
+openclaw's real failover engine (`runWithModelFallback`) walks
+`agents.defaults.model.{primary,fallbacks}` and already classifies errors
+(429/5xx/timeout vs fatal) and detects empty content — so the fix was config,
+not a Python reimplementation:
+- `consensus.yaml` `llm.agent_model` + `llm.agent_fallback_models` — verified
+  agent chain `glm-4.5-air → nemotron-3-nano-30b → openrouter/auto`, kept
+  SEPARATE from the `!all` chain (the `main` agent's ~6-8K-token prompt
+  overflows gpt-oss-120b's free tier; the path sends `tool_choice`, which
+  nemotron-omni-reasoning 404s on).
+- `sync_gateway_models.py` + `health.py` drift check repointed off the dead
+  `params.models` onto the real `agents.defaults.model.{primary,fallbacks}`.
+- `_handle_mention` `--timeout` 120→240s, retry 3→2 (the roulette is openclaw's
+  job within one invocation; the Python loop is only a subprocess-level net).
+- `make sync-models` now runs as `openclaw`, not root (see #4).
 
-**Why `openrouter/auto` as fallback is wrong for this use case:**
-- Returns 200 with empty content when the internally-selected model produces nothing — no recourse, bot goes silent.
-- Gives one opaque status code — can't distinguish retryable (429, 5xx, timeout) from fatal (bad payload, auth failure).
-- No process-level rate limiter integration — can't skip a throttled model and try the next.
-
-**Current broken state:**
-- `!all`, `!trend` → 5-model roulette via `llm_client.call_with_fallback` → rarely fails.
-- `!ask`, `@-mention` → `glm-4.5-air` → `openrouter/auto` → all the LLM failures.
-
-**The roulette works** — `!all`/`!trend` prove it. The `!ask`/`@-mention` failures post-2026-05-19 are caused by the weak fallback path, not a roulette design flaw.
-
-**Complication:** `!ask`/`@-mention` now routes through the OpenClaw gateway agent subprocess (`openclaw agent --local --agent main`), which uses `openclaw.json` for model config — not `llm_client.call_with_fallback`. The roulette can't be injected into the gateway agent process directly. Options to investigate:
-1. Route `!ask`/`@-mention` back through `llm_client.call_with_fallback` (bypass gateway agent, lose tool access).
-2. Configure `openclaw.json` with the full 5-model list under `agents.defaults.model.fallbacks` — but this doesn't solve the empty-content or retryable-vs-fatal problems since openclaw's router doesn't have that logic.
-3. Wrap the gateway agent call in Python with retry logic that detects empty/failed responses and retries with a different pinned model.
-
-**Files:**
-- `consensus_engine/llm_client.py` — `call_with_fallback()`, the working roulette.
-- `consensus_engine/main.py` — `_handle_mention()`, the `@-mention` handler that shells out to `openclaw agent`.
-- `consensus_engine/alerts/commands.py` — `_handle_ask()`, which currently calls `_handle_mention`.
-- `/home/openclaw/.openclaw/openclaw.json` — `agents.defaults.model` currently set to `glm-4.5-air` + `openrouter/auto`.
-- `config/consensus.yaml` — `llm.model` + `llm.fallback_models` (the 5-model chain used by `!all`/`!trend`).
+Verified: forced-failure probe (bad primary → openclaw failed over, replied),
+live `!ask` → "391", live `@-mention` → "pong", clean boot drift check.
 
 ---
 
@@ -1067,3 +1062,24 @@ exhausts the chain.
 that defeats most of the catalyst-mining + horizon-coherence +
 anti-influencer work the session shipped. Without #12, those
 features can't reach the user.
+
+---
+
+## 16. 13 stale unit tests after the `!all` refactor + critical-sources change
+
+Surfaced 2026-05-20 during the #9 full-suite verification run. 13 tests fail on
+`master` — pre-existing and unrelated to #9 (confirmed: identical failures with
+#9's diff stashed). All are stale assertions, not real bugs — `!all` posts a
+coherent embed and degraded mode runs; the tests check old structure:
+- `test_all_command_earnings_date.py` ×2 — `KeyError 'Next Catalyst'`
+- `test_all_command_low_confidence_trade_plan.py` ×2 — `KeyError 'SL'`
+- `test_all_command_narrator_prompt.py` — header `YOUTUBE ANALYST CALLS` changed
+- `test_all_command_narrator_timeout.py` — expects synth timeout ≤50s; code is
+  90s (commit 31cbaa9 raised it). Confirm the ~80s `!all` wall-clock budget
+  still holds — otherwise this one is a real perf regression, not a stale test.
+- `test_degraded_mode.py` ×3 — `assert True is False` (critical_sources set
+  changed in commit 108dcc9)
+- `test_pr4a_data_layer.py` ×2 — dict-key rename; embed field count 11→3
+- `test_pr5_all_command_e2e.py` ×2 — embed field list changed (`SL`/`TP1` gone)
+
+Update each assertion to the current structure.
