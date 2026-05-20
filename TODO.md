@@ -8,7 +8,7 @@ Delete an entry when it's completed.
 
 <!-- Add items below -->
 
-## 2. yt-grounding Path B hard-delete (date-gated 2026-05-28)
+## 1. yt-grounding Path B hard-delete (date-gated 2026-05-28)
 
 **Layperson:** The old YouTube-parsing code is dormant but still on disk as a
 safety net. After 30 days with no problems reported, rip it out.
@@ -33,7 +33,7 @@ once this lands.
 
 ---
 
-## 3. Speed-accuracy optimization plan — partially unimplemented
+## 2. Speed-accuracy optimization plan — partially unimplemented
 
 **Layperson:** The speed-accuracy optimization plan (`plans/speed-accuracy-optimization.md`,
 dated 2026-03-30) was marked complete in a prior session but was not. A prior Claude
@@ -95,7 +95,7 @@ and Phase 3.2 are mechanical/low-risk. Full plan detail at `plans/speed-accuracy
 
 ---
 
-## 4. Gemini video-eval reference assertions — 2/7 chronic failure
+## 3. Gemini video-eval reference assertions — 2/7 chronic failure
 
 **Layperson:** The daily cron `scripts/run_reference_assertions_cron.sh` is a
 regression test that asks Gemini to extract evidence-spans from a fixed
@@ -141,7 +141,7 @@ which re-ingests on Google's backend every time (no Files API caching).
 ---
 
 
-## 5. `sync_gateway_models.py` strips file ownership when run as root
+## 4. `sync_gateway_models.py` strips file ownership when run as root
 
 **Layperson:** A helper script that syncs the LLM model chain to the
 gateway config breaks the gateway if you run it with sudo. The file ends
@@ -179,7 +179,7 @@ skip the schema check when the file is unreadable.
 
 ---
 
-## 6. Redesign the CLAUDE.md DoD checklist to be scope-aware
+## 5. Redesign the CLAUDE.md DoD checklist to be scope-aware
 
 **Layperson:** The "Critical paths for this project" list in CLAUDE.md
 (lines 17-23) was built up incident-by-incident — every time a prior
@@ -282,7 +282,7 @@ file-path matching: `consensus_engine/scanners/youtube*` → ingest;
 
 ---
 
-## 7. Optimize `!all` output quality + feature surface (open-ended initiative)
+## 6. Optimize `!all` output quality + feature surface (open-ended initiative)
 
 > ### ✅ DONE 2026-05-19 — discover run `gemini-quality-all-command` (19 commits, 74292a6→1272317)
 >
@@ -488,10 +488,10 @@ unchanged):
   `.claude/discover/all-command-rebuild/v2-quality-rebuild/`. Start
   by reading that before scoping new work — may already capture some
   of the items above.
-- **TODO #1** — Layer C blind-compare with Gemini is the human eval
+- **Layer C blind-compare with Gemini** is the human eval
   loop for any quality changes; should be re-run after any
   user-visible improvement.
-- **TODO #3** — Speed-accuracy optimization (8 of 13 items unimplemented)
+- **TODO #2** — Speed-accuracy optimization (8 of 13 items unimplemented)
   overlaps with output latency improvements above.
 - Float-precision fix (commit 732a475, 2026-05-16) was an early win
   in this initiative — see `_format_earnings_recap` in `narrator.py`
@@ -574,7 +574,7 @@ items above" — those are a menu, not a checklist.
 
 ---
 
-## 8. Discover skill modifications (3 changes)
+## 7. Discover skill modifications (3 changes)
 
 **Layperson:** Three quality-of-life upgrades to the `discover` skill
 (installed at `/root/.claude/plugins/cache/discover/discover/0.1.0/skills/discover/SKILL.md`,
@@ -583,7 +583,7 @@ Today discover only composes `superpowers:brainstorming`; the rest is OMC
 agents. Verification is enforced by `ralph` + the `verifier` agent looping
 on Pass 4's checklist, not by the dedicated superpowers gate skill.
 
-### 8a. Invoke `superpowers:verification-before-completion` in Pass 5
+### 7a. Invoke `superpowers:verification-before-completion` in Pass 5
 
 **Why:** Pass 5 already has a checklist + verifier agent, but the
 superpowers skill enforces "no completion claim without fresh evidence
@@ -602,7 +602,7 @@ row; the execution flow tells the orchestrator to invoke the skill
 before any "ready to commit" claim; a dry-run of Pass 5 against a
 trivial fixture shows the skill being invoked.
 
-### 8b. Add a non-tmux parallel-agent option
+### 7b. Add a non-tmux parallel-agent option
 
 **Why:** Today discover *requires* tmux (`SKILL.md:26` lists it as a
 hard prerequisite) and forces a 3-pane or 6-pane layout
@@ -632,7 +632,7 @@ Pass 1 by dispatching parallel `Agent` calls instead of tmux panes;
 final-plan.md is produced identically (same schema) regardless of
 which layout was picked.
 
-### 8c. Kickoff prompt must be one short sentence
+### 7c. Kickoff prompt must be one short sentence
 
 **Why:** Today the Pass 4 → Pass 5 handoff generates an `EXECUTE.md`
 file and asks the user to **paste its contents** into a fresh session
@@ -664,9 +664,9 @@ the literal contents of `EXECUTE.md` no longer appear in the kickoff
 prompt; pasting that single sentence into a fresh Claude Code session
 correctly re-enters Pass 5 and reads the on-disk state.
 
-### 8d. Update plugin README to make tmux optional
+### 7d. Update plugin README to make tmux optional
 
-**Why:** Once 8b ships a native parallel-agent layout, the
+**Why:** Once 7b ships a native parallel-agent layout, the
 public-facing plugin README at
 https://github.com/chopra2007/claude-discover (local clone at
 `/root/work/claude-discover-publish/repo/README.md`) is out of date.
@@ -675,7 +675,7 @@ Today it positions tmux as a hard dependency:
   tmux multi-agent orchestration — does not reinvent them."
 - Line 90 Prerequisites: `**tmux** — required for parallel multi-agent panes`
 
-After 8b ships, tmux becomes one of two parallelization options and
+After 7b ships, tmux becomes one of two parallelization options and
 should be moved from "Prerequisites" to "Optional" (or annotated as
 "required only for tmux layouts; native layout uses Claude Code's
 built-in parallel `Agent` dispatch").
@@ -687,13 +687,13 @@ built-in parallel `Agent` dispatch").
 - `/root/work/claude-discover-publish/extracted/discover-plugin/README.md`
   (mirror copy, same edits)
 - Push the updated README to the GitHub repo
-  (`chopra2007/claude-discover`) alongside the 8b release so the docs
+  (`chopra2007/claude-discover`) alongside the 7b release so the docs
   match the code.
 
 **Acceptance:** Plugin README no longer lists tmux as a hard
 prerequisite; it documents both layout options (tmux vs native);
 GitHub `README.md` on the default branch matches; release notes for
-the version that ships 8b call out the new layout option.
+the version that ships 7b call out the new layout option.
 
 ### Notes for whoever picks this up
 
@@ -703,17 +703,17 @@ the version that ships 8b call out the new layout option.
   `/root/work/claude-discover-publish/repo/skills/discover/SKILL.md`
   (and `extracted/discover-plugin/skills/discover/` if that's the
   publish staging path) and bump the version.
-- 8d (README update) is gated on 8b shipping — don't announce tmux as
+- 7d (README update) is gated on 7b shipping — don't announce tmux as
   optional until the native layout actually works.
 - The three sub-items are independent — each can ship as its own
-  patch. 8c is the smallest / highest-leverage (matches an explicit
+  patch. 7c is the smallest / highest-leverage (matches an explicit
   personal preference).
 - Verify with a real `/discover` invocation on a small toy feature
   before declaring done — not just by reading the diff.
 
 ---
 
-## 9. Replay mentions/commands missed during gateway reconnects
+## 8. Replay mentions/commands missed during gateway reconnects
 
 **Layperson:** When the engine restarts (or its Discord WebSocket
 drops and reconnects with a fresh `IDENTIFY`), any `!` commands or
@@ -764,7 +764,7 @@ verification; see commit 6bc150e on master.
 ---
 
 
-## 13. Redundant LLM fallback code — `openrouter/auto` already does this
+## 9. Redundant LLM fallback code — `openrouter/auto` already does this
 
 > why do we need llm chain fallback code when I have openrouter/auto? Instead, have main model, then fallback will be auto
 
@@ -776,7 +776,7 @@ verification; see commit 6bc150e on master.
 
 ---
 
-## 14. OpenClaw web-search providers degraded — Exa out of credits, Brave plugin unstable
+## 10. OpenClaw web-search providers degraded — Exa out of credits, Brave plugin unstable
 
 **Layperson:** The `@-mention` bot path delegates to `openclaw agent --local --agent main`. That agent's `web_search` tool is currently broken at the provider level — Exa (the configured provider in `openclaw.json`) returns `402 NO_MORE_CREDITS`, and a swap to the official `@openclaw/brave-plugin` (installed via `openclaw plugins install clawhub:@openclaw/brave-plugin`) destabilized the whole agent path (even non-tool messages timed out, plus secret resolution failed: `unresolved SecretRef "env:default:BRAVE_SEARCH_API_KEY"`). Reverted to Exa so the gateway stays usable.
 
@@ -805,7 +805,7 @@ verification; see commit 6bc150e on master.
 
 ---
 
-## 16. Brave Search API monthly cap maxed out
+## 11. Brave Search API monthly cap maxed out
 
 **Layperson:** The Brave Search free tier got fully used up this
 month ($5/$5). Until the cap resets or you upgrade, the news cascade
@@ -845,7 +845,7 @@ Brave's billing cycle.
 
 ---
 
-## 17. OpenRouter free-tier chain reliability — all 6 models flaky
+## 12. OpenRouter free-tier chain reliability — all 6 models flaky
 
 **Layperson:** The bot's primary text-generation chain (six free
 OpenRouter models tried in fallback order) is failing very often
@@ -899,13 +899,13 @@ already present).
 
 ---
 
-## 18. `narrator._batch_summarize` LLM sanitize step routinely fails
+## 13. `narrator._batch_summarize` LLM sanitize step routinely fails
 
 **Layperson:** Before the bot sends evidence to the main LLM, it
 runs a *second* LLM call to "sanitize and summarize" each evidence
 block (news, sec, twitter, social, etc.). That second LLM call
 fails most of the time because it uses the same free-tier chain
-that's wobbly (see #17). When it fails, the bot used to silently
+that's wobbly (see #12). When it fails, the bot used to silently
 chop every evidence entry to **50 characters** — destroying all
 substance. Commit 14 raised the fallback truncation to 500 chars,
 but the whole sanitize step is questionable design.
@@ -938,7 +938,7 @@ at lines 108-145.
 2. **Make sanitize optional via config** (`all_command.sanitize_llm_enabled`)
    so it can be turned off when the chain is unreliable.
 3. **Move sanitize to a more reliable model** — once Groq is wired
-   in (per #17), use Groq for sanitize too.
+   in (per #12), use Groq for sanitize too.
 
 **Risk if dropped:** prompt-injection attacks via news/social
 content. Mitigated by the existing system-prompt rule + the fact
@@ -947,7 +947,7 @@ snippet length and don't include user-controlled content.
 
 ---
 
-## 19. Cross-ref scorer's `breakdown.direction` is None on manual `!all`
+## 14. Cross-ref scorer's `breakdown.direction` is None on manual `!all`
 
 **Layperson:** When a user runs `!all <TICKER>` manually, the
 cross-reference scorer's `breakdown.direction` field is None
@@ -999,9 +999,9 @@ recurring as new features get gated on direction).
 
 ---
 
-## 20. Discord narrative `fallback_data_only` shipped to users in production
+## 15. Discord narrative `fallback_data_only` shipped to users in production
 
-**Layperson:** When the LLM chain is exhausted (see #17), the bot
+**Layperson:** When the LLM chain is exhausted (see #12), the bot
 renders a "Narrative auto-redacted; structured signal below." embed
 with just the trade plan — no thesis, no catalysts, no risk section.
 Users see this from Discord. Recently observed:
@@ -1027,7 +1027,7 @@ trade plan still renders so it looks ~OK but they're missing all
 the substance.
 
 **Fix options:**
-1. **Add Groq as a more-reliable fallback** (covered by #17).
+1. **Add Groq as a more-reliable fallback** (covered by #12).
 2. **Detect `fallback_data_only` status and explicitly tell the
    user** ("LLM provider temporarily unavailable — structured
    signal only this time, try again in a minute"). Better than
@@ -1043,5 +1043,5 @@ exhausts the chain.
 
 **Severity:** high. This is the user-visible quality regression
 that defeats most of the catalyst-mining + horizon-coherence +
-anti-influencer work the session shipped. Without #17, those
+anti-influencer work the session shipped. Without #12, those
 features can't reach the user.
