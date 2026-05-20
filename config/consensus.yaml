@@ -243,8 +243,8 @@ source_health:
   degraded_freshness_multiplier: 5       # freshness > N × max_age → degraded
   max_error_rate: 0.3                    # error rate above this → degraded
   critical_sources:                      # >=2 unhealthy triggers DEGRADED_MODE
-    - finnhub
-    - yfinance
+    - apewisdom
+    - reddit
   source_max_age:                        # expected max freshness per source (seconds)
     finnhub: 60
     yfinance: 300
