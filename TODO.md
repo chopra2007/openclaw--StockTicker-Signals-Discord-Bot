@@ -764,15 +764,37 @@ verification; see commit 6bc150e on master.
 ---
 
 
-## 9. Redundant LLM fallback code — `openrouter/auto` already does this
+## 9. Restore 5-model roulette for `!ask` and `@-mention` paths
 
-> why do we need llm chain fallback code when I have openrouter/auto? Instead, have main model, then fallback will be auto
+**Background — what happened:**
+`!ask` and `@-mention` originally used the same 5-model roulette as `!all`/`!trend` (`consensus_engine/llm_client.py:call_with_fallback()`). In the 2026-05-19 session, all LLMs appeared to be failing simultaneously — but the real causes were two separate bugs fixed in that same session:
+1. Env file ownership issue — `.env.service` and `auth-*.json` were `root:root`, so the gateway booted with no API keys and all LLM calls failed silently.
+2. Session overflow — `!ask`/`@-mention` shared a single `agent:main:main` session that had accumulated 30K tokens, causing context overflow on every call.
 
-— user, 2026-05-19
+Instead of correctly attributing failures to those two bugs, Claude misdiagnosed the roulette itself as broken and suggested the workaround: pin `glm-4.5-air` as primary → `openrouter/auto` as fallback. Both real bugs were then fixed, but the roulette was unnecessarily removed from `!ask`/`@-mention` in the process — leaving those paths with a weaker fallback.
 
-**Where to look:** `consensus_engine/llm_client.py:call_with_fallback()` — currently does its own multi-model retry loop across a `fallback_models` list in `config/consensus.yaml`. `openclaw.json` now has `agents.defaults.model = {primary: "openrouter/openai/gpt-oss-120b:free", fallbacks: ["openrouter/auto"]}` so the gateway already does the cascade. The Python-side `call_with_fallback` should be simplifiable to "call gpt-oss-120b → on error, fall through to openrouter/auto, done."
+**Why `openrouter/auto` as fallback is wrong for this use case:**
+- Returns 200 with empty content when the internally-selected model produces nothing — no recourse, bot goes silent.
+- Gives one opaque status code — can't distinguish retryable (429, 5xx, timeout) from fatal (bad payload, auth failure).
+- No process-level rate limiter integration — can't skip a throttled model and try the next.
 
-**Acceptance:** `llm_client.call_with_fallback` shrinks to a 2-step path; the 5-model `fallback_models` list in `config/consensus.yaml` is removed; behavior verified by killing primary mid-call and confirming auto-fallback fires.
+**Current broken state:**
+- `!all`, `!trend` → 5-model roulette via `llm_client.call_with_fallback` → rarely fails.
+- `!ask`, `@-mention` → `glm-4.5-air` → `openrouter/auto` → all the LLM failures.
+
+**The roulette works** — `!all`/`!trend` prove it. The `!ask`/`@-mention` failures post-2026-05-19 are caused by the weak fallback path, not a roulette design flaw.
+
+**Complication:** `!ask`/`@-mention` now routes through the OpenClaw gateway agent subprocess (`openclaw agent --local --agent main`), which uses `openclaw.json` for model config — not `llm_client.call_with_fallback`. The roulette can't be injected into the gateway agent process directly. Options to investigate:
+1. Route `!ask`/`@-mention` back through `llm_client.call_with_fallback` (bypass gateway agent, lose tool access).
+2. Configure `openclaw.json` with the full 5-model list under `agents.defaults.model.fallbacks` — but this doesn't solve the empty-content or retryable-vs-fatal problems since openclaw's router doesn't have that logic.
+3. Wrap the gateway agent call in Python with retry logic that detects empty/failed responses and retries with a different pinned model.
+
+**Files:**
+- `consensus_engine/llm_client.py` — `call_with_fallback()`, the working roulette.
+- `consensus_engine/main.py` — `_handle_mention()`, the `@-mention` handler that shells out to `openclaw agent`.
+- `consensus_engine/alerts/commands.py` — `_handle_ask()`, which currently calls `_handle_mention`.
+- `/home/openclaw/.openclaw/openclaw.json` — `agents.defaults.model` currently set to `glm-4.5-air` + `openrouter/auto`.
+- `config/consensus.yaml` — `llm.model` + `llm.fallback_models` (the 5-model chain used by `!all`/`!trend`).
 
 ---
 
