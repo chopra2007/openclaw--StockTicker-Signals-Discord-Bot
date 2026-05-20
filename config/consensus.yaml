@@ -231,8 +231,9 @@ llm:
   # it). Every entry was probed end-to-end against the real agent 2026-05-19.
   # scripts/sync_gateway_models.py mirrors this into openclaw.json
   # agents.defaults.model.{primary,fallbacks}; health.py alerts on drift.
-  agent_model: "z-ai/glm-4.5-air:free"
+  agent_model: "poolside/laguna-m.1:free"
   agent_fallback_models:
+    - "z-ai/glm-4.5-air:free"
     - "nvidia/nemotron-3-nano-30b-a3b:free"
     - "auto"
   vision_model: "google/gemma-4-31b-it:free"
