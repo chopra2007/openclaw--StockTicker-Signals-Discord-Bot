@@ -284,6 +284,42 @@ file-path matching: `consensus_engine/scanners/youtube*` → ingest;
 
 ## 7. Optimize `!all` output quality + feature surface (open-ended initiative)
 
+> ### ✅ DONE 2026-05-19 — discover run `gemini-quality-all-command` (19 commits, 74292a6→1272317)
+>
+> The acceptance bar for this TODO ("shipped at least one user-visible
+> quality improvement with before/after evidence") is **met** — the
+> 2026-05-19 session shipped a full substance overhaul and the user
+> confirmed `!all` output is now equal-or-better than Gemini on
+> NVDA / AMD / TSLA. Completed levers:
+> - **Trade-plan completeness** — anchor freshness cutoff + drawdown
+>   sanity gate + direction-aware ATR fallback; no more "—" SL/TP.
+> - **Horizon coherence** — swing-horizon floor + horizon-aware SL
+>   drawdown gate; killed the "1-1 day horizon vs 20-day SL" mismatch.
+> - **Anti-influencer prose** — removed the "cite by name" constraint,
+>   added yt-signal name-stripping pre-formatters.
+> - **Real catalyst mining** — new SerpAPI catalyst pass in `gap_fill`
+>   (partnerships / analyst-day / stock-catalyst queries); `!all` now
+>   cites verifiable events (Meta-AMD MI450 6GW, OpenAI $100B-NVDA,
+>   Tesla-Samsung $16.5B) instead of options-expiry filler.
+> - **Embed dedup** — dropped the 8 trade-plan-duplicating inline
+>   fields; only Direction / Confidence / Price remain alongside the
+>   LLM trade-plan table.
+> - **Expected-move calibration** — `ATR×√N` → `0.7×ATR×√N` (≈ σ-based
+>   move); formula now shown in the field so the LLM stops inventing
+>   multipliers.
+> - Float-precision leak fixed; cross-source conflict surfacing added.
+>
+> Full run log: `.claude/discover/gemini-quality-all-command/pass-5-execution-log.md`
+>
+> **What REMAINS open under this umbrella** (the "menu" — none are
+> blockers, pick per-session): market-cap floor on `!all FAKEX`,
+> data-sparseness warning banner, options-flow / max-pain integration
+> into the trade plan, competitor / sector-context mini-block,
+> earnings-week-aware horizon clipping, 2-stage progressive embed,
+> `compute_pattern_strength` for chart patterns, and the external
+> feature audit. Architecture map + lever list below stays valid for
+> whoever picks those up.
+
 **Layperson:** The user wants to improve what `!all <TICKER>` produces.
 This is intentionally broad — the framing matters because most of the
 visible output isn't decided by the LLM. Before any session picks
