@@ -2,11 +2,14 @@
 #
 # pre-push regression gate.
 #
-# Runs the test suite and blocks the push if the number of broken tests
-# (failed + errored) rose above the committed baseline in .test-baseline.
+# Runs the test suite and blocks the push if any test is failing now that
+# was NOT already failing at baseline. .test-baseline holds the list of
+# known-failing test IDs, one per line. A change that breaks one test and
+# fixes another is still caught — it is the set that matters, not the count.
 # See the "Regression Gate" section of CLAUDE.md.
 #
 # Install:  make install-hooks      (copies this file into .git/hooks/)
+# Refresh:  make test-baseline      (rewrites .test-baseline)
 # Bypass :  git push --no-verify    (genuine exceptions only)
 #
 set -u
@@ -24,39 +27,43 @@ if [ -z "$SUMMARY" ]; then
     echo "[pre-push] push blocked. Fix the suite, or bypass: git push --no-verify"
     exit 1
 fi
-
-FAILED=$(echo "$OUTPUT" | grep -oE '[0-9]+ failed'  | tail -1 | grep -oE '^[0-9]+' || true)
-ERRORS=$(echo "$OUTPUT" | grep -oE '[0-9]+ errors?' | tail -1 | grep -oE '^[0-9]+' || true)
-BROKEN=$(( ${FAILED:-0} + ${ERRORS:-0} ))
 echo "[pre-push] suite: $SUMMARY"
-echo "[pre-push] broken now: $BROKEN (failed=${FAILED:-0}, errors=${ERRORS:-0})"
+
+CUR_F=$(mktemp)
+trap 'rm -f "$CUR_F"' EXIT
+echo "$OUTPUT" | grep -E '^(FAILED|ERROR) ' | sed -E 's/^(FAILED|ERROR) //' | sort -u > "$CUR_F"
+echo "[pre-push] broken tests now: $(wc -l < "$CUR_F")"
 
 if [ ! -f "$BASELINE_FILE" ]; then
-    echo "$BROKEN" > "$BASELINE_FILE"
-    echo "[pre-push] no baseline found — created $BASELINE_FILE at $BROKEN."
+    cp "$CUR_F" "$BASELINE_FILE"
+    echo "[pre-push] no baseline found — created $BASELINE_FILE with $(wc -l < "$BASELINE_FILE") known-failing test(s)."
     echo "[pre-push] commit $BASELINE_FILE so the gate is shared. Push allowed."
     exit 0
 fi
 
-BASELINE=$(tr -dc '0-9' < "$BASELINE_FILE")
-BASELINE=${BASELINE:-0}
-echo "[pre-push] baseline: $BASELINE"
+BASE_F=$(mktemp)
+trap 'rm -f "$CUR_F" "$BASE_F"' EXIT
+sort -u "$BASELINE_FILE" > "$BASE_F"
+echo "[pre-push] baseline known-failing: $(wc -l < "$BASE_F")"
 
-if [ "$BROKEN" -gt "$BASELINE" ]; then
+NEW=$(comm -13 "$BASE_F" "$CUR_F")
+FIXED=$(comm -23 "$BASE_F" "$CUR_F")
+
+if [ -n "$NEW" ]; then
     echo ""
-    echo "[pre-push] BLOCKED — broken tests rose $BASELINE -> $BROKEN ($(( BROKEN - BASELINE )) new)."
-    echo "[pre-push] currently failing/erroring:"
-    echo "$OUTPUT" | grep -E '^(FAILED|ERROR) ' | sed 's/^/    /'
+    echo "[pre-push] BLOCKED — $(echo "$NEW" | wc -l) test(s) failing now that were not failing at baseline:"
+    echo "$NEW" | sed 's/^/    /'
     echo ""
-    echo "[pre-push] Fix the regression before pushing."
+    echo "[pre-push] These are regressions from your changes. Fix them before pushing."
     echo "[pre-push] Genuine exception only: git push --no-verify"
     exit 1
 fi
 
-if [ "$BROKEN" -lt "$BASELINE" ]; then
-    echo "[pre-push] failures dropped $BASELINE -> $BROKEN — lower the baseline:"
-    echo "[pre-push]   echo $BROKEN > $BASELINE_FILE && git add $BASELINE_FILE"
+if [ -n "$FIXED" ]; then
+    echo "[pre-push] $(echo "$FIXED" | wc -l) baseline failure(s) now pass — refresh the baseline:"
+    echo "$FIXED" | sed 's/^/    /'
+    echo "[pre-push]   run 'make test-baseline' and commit .test-baseline"
 fi
 
-echo "[pre-push] regression gate passed."
+echo "[pre-push] regression gate passed — no new failures."
 exit 0

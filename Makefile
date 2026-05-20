@@ -1,4 +1,4 @@
-.PHONY: sync-models check-models test install-hooks
+.PHONY: sync-models check-models test install-hooks test-baseline
 
 sync-models:
 	# run as openclaw: `openclaw config patch` writes openclaw.json as the
@@ -16,3 +16,8 @@ install-hooks:
 	cp scripts/pre-push .git/hooks/pre-push
 	chmod +x .git/hooks/pre-push
 	@echo "installed .git/hooks/pre-push"
+
+test-baseline:
+	# regenerate .test-baseline — the known-failing list the pre-push gate uses
+	python3 -m pytest tests/ -q --tb=no -p no:cacheprovider | grep -E '^(FAILED|ERROR) ' | sed -E 's/^(FAILED|ERROR) //' | sort -u > .test-baseline
+	@echo "wrote .test-baseline ($$(grep -c '^' .test-baseline) known-failing tests)"

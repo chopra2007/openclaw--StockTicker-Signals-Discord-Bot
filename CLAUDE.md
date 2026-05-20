@@ -58,12 +58,12 @@ The path the user asked me to verify is critical by definition — I don't get t
 
 Before starting feature work — especially a `discover` run or any multi-commit change — establish a test baseline, and never let it regress.
 
-1. **Baseline** = the broken-test count in `.test-baseline` (repo root, committed). The `pre-push` hook creates it on first run.
-2. **No commit may raise the broken-test count above the baseline.** If it goes up, the change introduced a regression — fix it before committing.
-3. **Compare the delta, not raw pass/fail.** The suite is currently red, so an absolute "tests pass" check is meaningless — a chronically-red suite hides new breakage. Separately, treat the baseline as debt: drive it toward zero.
+1. **Baseline** = the list of known-failing test IDs in `.test-baseline` (repo root, committed). The `pre-push` hook creates it on first run; `make test-baseline` refreshes it.
+2. **No commit may make a test fail that was passing at baseline.** Any test failing now but absent from `.test-baseline` is a regression — fix it before committing.
+3. **It's the set that matters, not the count.** A change that fixes one test and breaks another is still a regression even though the count is unchanged. The suite is currently red — treat the baseline as debt to drive toward zero.
 4. **Separate verifier.** At the end of feature work, have a separate agent (not one that wrote the code) re-run the full suite and diff the baseline.
 
-The `pre-push` git hook (`scripts/pre-push`) enforces this mechanically — it runs the suite and blocks any push that raises the count. Install it after cloning with `make install-hooks`. Bypass only for a genuine exception: `git push --no-verify`.
+The `pre-push` git hook (`scripts/pre-push`) enforces this mechanically — it runs the suite and blocks any push that introduces a test failure not in the baseline. Install it after cloning with `make install-hooks`. Bypass only for a genuine exception: `git push --no-verify`.
 
 ## Alert Philosophy
 
