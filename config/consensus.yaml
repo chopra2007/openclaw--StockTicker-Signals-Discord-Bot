@@ -6,7 +6,7 @@
 # =============================================================================
 
 api_keys:
-  brave_search: "$BRAVE_SEARCH_API_KEY"
+  brave_search: "$BRAVE_SEARCH_API_KEY_2"
   finnhub: "$FINNHUB_API_KEY"
   openrouter: "$OPENROUTER_API_KEY"
   discord_bot_token: "$DISCORD_BOT_TOKEN"
