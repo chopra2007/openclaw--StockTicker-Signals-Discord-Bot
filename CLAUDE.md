@@ -3,6 +3,15 @@
 ## Behavior
 Always proceed without asking for confirmation. Never ask "shall I proceed?", "do you want me to continue?", or "would you like me to...?". Assume the answer is always yes and execute immediately.
 
+Always explain things to the user in simple, brief, clear, layman's terms.
+
+## Session Close Trigger
+When the user sends a message containing only "goodbye" or "bye", act immediately with no confirmation:
+1. `git status` — commit any uncommitted changes
+2. `git log origin/master..HEAD` — push any unpushed commits
+3. Verify memory index (MEMORY.md) is up to date
+4. Report what was done (or "nothing to push, all clean")
+
 ## Definition of Done
 
 A task is not done if a user-facing critical path is broken at the end of the work — regardless of who broke it, when, or whether it's technically in scope.
@@ -44,6 +53,17 @@ The path the user asked me to verify is critical by definition — I don't get t
 - Marking a real-world test as "deferred to user" without first checking whether the tools to run it are already available
 - Any sentence combining a passing claim with a failure caveat ("X passes, Y fails but it's pre-existing") — that sentence shape is the violation
 - The word "pre-existing" in my own output about a user-facing feature — treat as a yellow flag, stop and dig instead
+
+## Regression Gate (test baseline)
+
+Before starting feature work — especially a `discover` run or any multi-commit change — establish a test baseline, and never let it regress.
+
+1. **Baseline** = the broken-test count in `.test-baseline` (repo root, committed). The `pre-push` hook creates it on first run.
+2. **No commit may raise the broken-test count above the baseline.** If it goes up, the change introduced a regression — fix it before committing.
+3. **Compare the delta, not raw pass/fail.** The suite is currently red, so an absolute "tests pass" check is meaningless — a chronically-red suite hides new breakage. Separately, treat the baseline as debt: drive it toward zero.
+4. **Separate verifier.** At the end of feature work, have a separate agent (not one that wrote the code) re-run the full suite and diff the baseline.
+
+The `pre-push` git hook (`scripts/pre-push`) enforces this mechanically — it runs the suite and blocks any push that raises the count. Install it after cloning with `make install-hooks`. Bypass only for a genuine exception: `git push --no-verify`.
 
 ## Alert Philosophy
 

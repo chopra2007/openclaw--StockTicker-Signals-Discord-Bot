@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+#
+# pre-push regression gate.
+#
+# Runs the test suite and blocks the push if the number of broken tests
+# (failed + errored) rose above the committed baseline in .test-baseline.
+# See the "Regression Gate" section of CLAUDE.md.
+#
+# Install:  make install-hooks      (copies this file into .git/hooks/)
+# Bypass :  git push --no-verify    (genuine exceptions only)
+#
+set -u
+
+cd "$(git rev-parse --show-toplevel)" || exit 1
+BASELINE_FILE=".test-baseline"
+
+echo "[pre-push] regression gate: running test suite (can take a few minutes)..."
+OUTPUT=$(python3 -m pytest tests/ -q --tb=no -p no:cacheprovider 2>&1)
+
+SUMMARY=$(echo "$OUTPUT" | grep -E '[0-9]+ (passed|failed|error)' | tail -1)
+if [ -z "$SUMMARY" ]; then
+    echo "[pre-push] ERROR: no pytest summary found — the suite may have crashed."
+    echo "$OUTPUT" | tail -15
+    echo "[pre-push] push blocked. Fix the suite, or bypass: git push --no-verify"
+    exit 1
+fi
+
+FAILED=$(echo "$OUTPUT" | grep -oE '[0-9]+ failed'  | tail -1 | grep -oE '^[0-9]+' || true)
+ERRORS=$(echo "$OUTPUT" | grep -oE '[0-9]+ errors?' | tail -1 | grep -oE '^[0-9]+' || true)
+BROKEN=$(( ${FAILED:-0} + ${ERRORS:-0} ))
+echo "[pre-push] suite: $SUMMARY"
+echo "[pre-push] broken now: $BROKEN (failed=${FAILED:-0}, errors=${ERRORS:-0})"
+
+if [ ! -f "$BASELINE_FILE" ]; then
+    echo "$BROKEN" > "$BASELINE_FILE"
+    echo "[pre-push] no baseline found — created $BASELINE_FILE at $BROKEN."
+    echo "[pre-push] commit $BASELINE_FILE so the gate is shared. Push allowed."
+    exit 0
+fi
+
+BASELINE=$(tr -dc '0-9' < "$BASELINE_FILE")
+BASELINE=${BASELINE:-0}
+echo "[pre-push] baseline: $BASELINE"
+
+if [ "$BROKEN" -gt "$BASELINE" ]; then
+    echo ""
+    echo "[pre-push] BLOCKED — broken tests rose $BASELINE -> $BROKEN ($(( BROKEN - BASELINE )) new)."
+    echo "[pre-push] currently failing/erroring:"
+    echo "$OUTPUT" | grep -E '^(FAILED|ERROR) ' | sed 's/^/    /'
+    echo ""
+    echo "[pre-push] Fix the regression before pushing."
+    echo "[pre-push] Genuine exception only: git push --no-verify"
+    exit 1
+fi
+
+if [ "$BROKEN" -lt "$BASELINE" ]; then
+    echo "[pre-push] failures dropped $BASELINE -> $BROKEN — lower the baseline:"
+    echo "[pre-push]   echo $BROKEN > $BASELINE_FILE && git add $BASELINE_FILE"
+fi
+
+echo "[pre-push] regression gate passed."
+exit 0
