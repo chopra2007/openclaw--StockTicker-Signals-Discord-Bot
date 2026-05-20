@@ -299,7 +299,16 @@ def compute_magnitude_band(
     except (TypeError, ValueError):
         return None, None, None
 
-    typical = atr_f * (h_days ** 0.5)
+    # Commit 16: 0.7x calibration. ATR is the true range (high-low incl
+    # gaps), which is ~1.4x larger than close-to-close σ that traders mean
+    # by "expected move." Multiplying ATR×√N gives a typical-price-range
+    # value, not a statistical expected move. Empirical verification
+    # 2026-05-19 vs yfinance σ on NVDA / AMD / TSLA: bot was 1.37×, 1.08×,
+    # 1.82× the σ-derived 5-day move. 0.7 ≈ 1/1.43 brings the formula
+    # close to σ×spot×√N for the typical stock without needing to compute
+    # close-to-close stdev separately.
+    _ATR_TO_SIGMA_FACTOR = 0.7
+    typical = atr_f * (h_days ** 0.5) * _ATR_TO_SIGMA_FACTOR
     high_vol: Optional[float] = None
     if atr_90d_high_pct is not None and spot is not None and spot > 0:
         try:

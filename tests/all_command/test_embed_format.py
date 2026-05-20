@@ -284,7 +284,11 @@ def test_build_embed_no_tldr_falls_back_to_direction_line():
     assert first_line == "🟢 BULLISH"
 
 
-def test_build_embed_levels_have_arrow_and_oneliner():
+def test_build_embed_only_three_inline_fields_post_dedupe():
+    """Commit 16: embed shows ONLY Direction / Confidence / Price as
+    inline fields. The trade-plan-duplicating fields (Buy Zone, SL,
+    TP1-3, Horizon, Next Catalyst, Expected Move) were dropped because
+    they duplicate the LLM-generated Trade Plan table per user feedback."""
     payload = embed.build_embed(
         ticker="NVDA",
         structured=_FakeStructured(),
@@ -293,27 +297,13 @@ def test_build_embed_levels_have_arrow_and_oneliner():
         sources_used=["news"],
         cache_age_seconds=None,
     )
-    fields_by_name = {f["name"]: f["value"] for f in payload["fields"]}
-    sl_value = fields_by_name["SL"]
-    # SL is below current price → ↓ arrow expected
-    assert sl_value.startswith("↓ $175.00")
-    # one-liner appended after newline
-    assert "\n_" in sl_value
-    tp1_value = fields_by_name["TP1"]
-    assert tp1_value.startswith("↑ $190.00")
-
-
-def test_build_embed_next_catalyst_relative_phrasing():
-    payload = embed.build_embed(
-        ticker="NVDA",
-        structured=_FakeStructured(),
-        score_breakdown=_FakeBreakdown(),
-        narrative="",
-        sources_used=[],
-        cache_age_seconds=None,
-    )
-    nc = next(f["value"] for f in payload["fields"] if f["name"] == "Next Catalyst")
-    assert nc == "in 3 sessions"
+    names = [f["name"] for f in payload["fields"]]
+    assert names == ["Direction", "Confidence", "Price"]
+    # Dropped fields must NOT appear
+    for dropped in ("Buy Zone", "SL", "TP1", "TP2", "TP3",
+                    "Next Catalyst", "Horizon", "Expected Move",
+                    "Timeframe", "Magnitude"):
+        assert dropped not in names
 
 
 def test_build_embed_direction_field_uses_new_emoji():
@@ -327,17 +317,3 @@ def test_build_embed_direction_field_uses_new_emoji():
     )
     direction_field = next(f["value"] for f in payload["fields"] if f["name"] == "Direction")
     assert direction_field == "🟢 BULLISH"
-
-
-def test_build_embed_buy_zone_arrow_when_straddles():
-    payload = embed.build_embed(
-        ticker="NVDA",
-        structured=_FakeStructured(),
-        score_breakdown=_FakeBreakdown(),
-        narrative="",
-        sources_used=[],
-        cache_age_seconds=None,
-    )
-    bz = next(f["value"] for f in payload["fields"] if f["name"] == "Buy Zone")
-    # zone is 178.00 – 180.00, current 180.00 → straddles top edge → ⇄
-    assert bz.startswith("⇄ ")

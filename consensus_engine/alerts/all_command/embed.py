@@ -394,6 +394,12 @@ def build_embed(
     from consensus_engine import config as _cfg
     _swing_v2 = bool(_cfg.get("all_command.swing_v2_enabled", True))
 
+    # Commit 16: drop the trade-plan-duplicating fields per user feedback
+    # post-iter15 — Buy Zone / SL / TP1-3 / Horizon / Next Catalyst /
+    # Expected Move are already in the LLM-generated Trade Plan table
+    # (with rationale per row). Keeping the same numbers in inline fields
+    # was pure visual duplication. Keep only the three fields the table
+    # doesn't surface: Direction, Confidence, Price.
     fields = [
         {"name": "Direction", "value": direction_line, "inline": True},
         {"name": "Confidence",
@@ -402,67 +408,7 @@ def build_embed(
         {"name": "Price",
          "value": _format_price(current_price),
          "inline": True},
-        {"name": "Buy Zone",
-         "value": _level_value_block_zone(
-             low=getattr(structured, "buy_zone_low", None),
-             high=getattr(structured, "buy_zone_high", None),
-             current=current_price,
-             direction=direction,
-         ),
-         "inline": True},
-        {"name": "SL",
-         "value": _level_value_block(
-             "SL", getattr(structured, "sl", None), current_price, direction,
-         ),
-         "inline": True},
-        {"name": "TP1",
-         "value": _level_value_block(
-             "TP1", getattr(structured, "tp1", None), current_price, direction,
-         ),
-         "inline": True},
-        {"name": "TP2",
-         "value": _level_value_block(
-             "TP2", getattr(structured, "tp2", None), current_price, direction,
-         ),
-         "inline": True},
-        {"name": "TP3",
-         "value": _level_value_block(
-             "TP3", getattr(structured, "tp3", None), current_price, direction,
-         ),
-         "inline": True},
     ]
-
-    if _swing_v2:
-        nc_days = getattr(structured, "next_catalyst_days", None)
-        # Ship 1 N7 — relative phrasing instead of "Nd".
-        nc_value = (
-            _fmt_relative_days(nc_days)
-            if isinstance(nc_days, int) and nc_days >= 0
-            else "—"
-        )
-        sh_days = getattr(structured, "swing_horizon_days", None)
-        sh_band = getattr(structured, "swing_horizon_band", None)
-        if isinstance(sh_days, int) and sh_days > 0 and sh_band:
-            sh_value = f"{sh_band[0]}-{sh_band[1]}d"
-        elif sh_days == 0:
-            sh_value = "at target"
-        else:
-            sh_value = "—"
-        em_value = getattr(structured, "magnitude_band_label", None) or "—"
-        fields.extend([
-            {"name": "Next Catalyst", "value": nc_value, "inline": True},
-            {"name": "Horizon", "value": sh_value, "inline": True},
-            {"name": "Expected Move", "value": em_value, "inline": True},
-        ])
-    else:
-        fields.extend([
-            {"name": "Timeframe",
-             "value": getattr(structured, "breakout_timeframe", "TBD") or "TBD",
-             "inline": True},
-            {"name": "Magnitude",
-             "value": getattr(structured, "magnitude_label", "—") or "—",
-             "inline": True},
-        ])
 
     cache_text = _format_cache_age(cache_age_seconds)
     sources_count = len(sources)

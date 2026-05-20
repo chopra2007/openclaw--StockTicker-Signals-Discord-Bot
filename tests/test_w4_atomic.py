@@ -126,22 +126,25 @@ def test_swing_horizon_none_when_spot_missing():
 # Magnitude band math
 # ---------------------------------------------------------------------------
 
-def test_magnitude_band_typical_uses_sqrt_horizon():
+def test_magnitude_band_typical_uses_sqrt_horizon_with_calibration():
+    """Commit 16: ATR×√N is calibrated by 0.7 to approximate close-to-close
+    σ-based expected move (ATR is ~1.4× σ on typical stocks)."""
     typical, high_vol, rendered = compute_magnitude_band(
         atr14=2.0, horizon_days=9, spot=100.0,
     )
-    # 2.0 × sqrt(9) = 6.0
-    assert typical == pytest.approx(6.0, rel=1e-3)
+    # 2.0 × sqrt(9) × 0.7 = 6.0 × 0.7 = 4.2
+    assert typical == pytest.approx(4.2, rel=1e-3)
     assert high_vol is None
-    assert "±$6" in rendered
+    assert "±$4" in rendered
 
 
 def test_magnitude_band_with_90d_high_vol():
     typical, high_vol, rendered = compute_magnitude_band(
         atr14=2.0, horizon_days=9, spot=100.0, atr_90d_high_pct=0.08,
     )
-    assert typical == pytest.approx(6.0, rel=1e-3)
-    assert high_vol == pytest.approx(8.0, rel=1e-3)  # 0.08 × 100
+    # typical = 2.0 × sqrt(9) × 0.7 = 4.2
+    assert typical == pytest.approx(4.2, rel=1e-3)
+    assert high_vol == pytest.approx(8.0, rel=1e-3)  # 0.08 × 100 (unchanged)
 
 
 def test_magnitude_band_none_when_atr_missing():
@@ -185,11 +188,15 @@ def test_next_catalyst_days_none_when_nothing_available():
 
 
 # ---------------------------------------------------------------------------
-# Embed field shape — v2 (default) renders Next Catalyst + Horizon +
-# Expected Move; v0 renders Timeframe + Magnitude. 11 vs 10 fields.
+# Embed field shape — Commit 16: only Direction / Confidence / Price
+# render as inline fields. All trade-plan-duplicating fields (Buy Zone,
+# SL, TPs, Horizon, Next Catalyst, Expected Move, Timeframe, Magnitude)
+# were dropped per user iter15 feedback because they duplicated the LLM
+# Trade Plan table.
 # ---------------------------------------------------------------------------
 
-def test_embed_v2_renders_next_catalyst_swing_horizon_expected_move():
+def test_embed_renders_only_direction_confidence_price():
+    """Commit 16: same 3-field shape regardless of swing_v2 setting."""
     s = StructuredFields(
         direction="BULLISH", confidence_label="HIGH",
         sl=98.5, tp1=112, tp2=125, tp3=140,
@@ -205,16 +212,12 @@ def test_embed_v2_renders_next_catalyst_swing_horizon_expected_move():
     sb = ScoreBreakdown(news_catalyst=20)
     out = embed_mod.build_embed("NVDA", s, sb, "n", ["a"], None)
     names = [f["name"] for f in out["fields"]]
-    assert "Next Catalyst" in names
-    assert "Horizon" in names
-    assert "Expected Move" in names
-    assert "Timeframe" not in names
-    assert "Magnitude" not in names
-    assert len(out["fields"]) == 11
+    assert names == ["Direction", "Confidence", "Price"]
 
 
-def test_embed_v0_renders_timeframe_magnitude(monkeypatch):
-    """Operator can flip swing_v2_enabled=false → revert to v0 shape."""
+def test_embed_renders_only_direction_confidence_price_swing_v0(monkeypatch):
+    """Same 3-field shape with swing_v2_enabled=false too — no
+    Timeframe/Magnitude duplicates."""
     monkeypatch.setattr(
         "consensus_engine.config.get",
         lambda key, default=None: False if key == "all_command.swing_v2_enabled" else default,
@@ -228,10 +231,7 @@ def test_embed_v0_renders_timeframe_magnitude(monkeypatch):
     sb = ScoreBreakdown(news_catalyst=20)
     out = embed_mod.build_embed("NVDA", s, sb, "n", ["a"], None)
     names = [f["name"] for f in out["fields"]]
-    assert "Timeframe" in names
-    assert "Magnitude" in names
-    assert "Horizon" not in names
-    assert len(out["fields"]) == 10
+    assert names == ["Direction", "Confidence", "Price"]
 
 
 # ---------------------------------------------------------------------------
