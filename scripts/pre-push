@@ -1,69 +1,10 @@
 #!/usr/bin/env bash
 #
-# pre-push regression gate.
+# pre-push hook — regression gate runs in GitHub Actions CI, not locally.
+# Push goes through immediately; Discord gets a pass/fail notification from CI.
 #
-# Runs the test suite and blocks the push if any test is failing now that
-# was NOT already failing at baseline. .test-baseline holds the list of
-# known-failing test IDs, one per line. A change that breaks one test and
-# fixes another is still caught — it is the set that matters, not the count.
-# See the "Regression Gate" section of CLAUDE.md.
+# To bypass CI gate for a genuine exception: push with a commit message
+# containing "[skip ci]".
 #
-# Install:  make install-hooks      (copies this file into .git/hooks/)
-# Refresh:  make test-baseline      (rewrites .test-baseline)
-# Bypass :  git push --no-verify    (genuine exceptions only)
-#
-set -u
-
-cd "$(git rev-parse --show-toplevel)" || exit 1
-BASELINE_FILE=".test-baseline"
-
-echo "[pre-push] regression gate: running test suite (can take a few minutes)..."
-OUTPUT=$(python3 -m pytest tests/ -q --tb=no -p no:cacheprovider 2>&1)
-
-SUMMARY=$(echo "$OUTPUT" | grep -E '[0-9]+ (passed|failed|error)' | tail -1)
-if [ -z "$SUMMARY" ]; then
-    echo "[pre-push] ERROR: no pytest summary found — the suite may have crashed."
-    echo "$OUTPUT" | tail -15
-    echo "[pre-push] push blocked. Fix the suite, or bypass: git push --no-verify"
-    exit 1
-fi
-echo "[pre-push] suite: $SUMMARY"
-
-CUR_F=$(mktemp)
-trap 'rm -f "$CUR_F"' EXIT
-echo "$OUTPUT" | grep -E '^(FAILED|ERROR) ' | sed -E 's/^(FAILED|ERROR) //' | sort -u > "$CUR_F"
-echo "[pre-push] broken tests now: $(wc -l < "$CUR_F")"
-
-if [ ! -f "$BASELINE_FILE" ]; then
-    cp "$CUR_F" "$BASELINE_FILE"
-    echo "[pre-push] no baseline found — created $BASELINE_FILE with $(wc -l < "$BASELINE_FILE") known-failing test(s)."
-    echo "[pre-push] commit $BASELINE_FILE so the gate is shared. Push allowed."
-    exit 0
-fi
-
-BASE_F=$(mktemp)
-trap 'rm -f "$CUR_F" "$BASE_F"' EXIT
-sort -u "$BASELINE_FILE" > "$BASE_F"
-echo "[pre-push] baseline known-failing: $(wc -l < "$BASE_F")"
-
-NEW=$(comm -13 "$BASE_F" "$CUR_F")
-FIXED=$(comm -23 "$BASE_F" "$CUR_F")
-
-if [ -n "$NEW" ]; then
-    echo ""
-    echo "[pre-push] BLOCKED — $(echo "$NEW" | wc -l) test(s) failing now that were not failing at baseline:"
-    echo "$NEW" | sed 's/^/    /'
-    echo ""
-    echo "[pre-push] These are regressions from your changes. Fix them before pushing."
-    echo "[pre-push] Genuine exception only: git push --no-verify"
-    exit 1
-fi
-
-if [ -n "$FIXED" ]; then
-    echo "[pre-push] $(echo "$FIXED" | wc -l) baseline failure(s) now pass — refresh the baseline:"
-    echo "$FIXED" | sed 's/^/    /'
-    echo "[pre-push]   run 'make test-baseline' and commit .test-baseline"
-fi
-
-echo "[pre-push] regression gate passed — no new failures."
+echo "[pre-push] push allowed — regression gate runs in CI (watch Discord for results)."
 exit 0

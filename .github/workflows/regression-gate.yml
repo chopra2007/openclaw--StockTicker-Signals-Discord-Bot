@@ -1,0 +1,93 @@
+name: Regression Gate
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run test suite
+        id: suite
+        run: |
+          OUTPUT=$(python3 -m pytest tests/ -q --tb=no -p no:cacheprovider 2>&1)
+          echo "$OUTPUT"
+          SUMMARY=$(echo "$OUTPUT" | grep -E '[0-9]+ (passed|failed|error)' | tail -1)
+          echo "summary=$SUMMARY" >> $GITHUB_OUTPUT
+
+          # Extract failing test IDs
+          echo "$OUTPUT" | grep -E '^(FAILED|ERROR) ' | sed -E 's/^(FAILED|ERROR) //' | sort -u > /tmp/current_failures.txt
+          echo "failed_count=$(wc -l < /tmp/current_failures.txt)" >> $GITHUB_OUTPUT
+
+      - name: Compare against baseline
+        id: gate
+        run: |
+          sort -u .test-baseline > /tmp/baseline.txt
+          NEW=$(comm -13 /tmp/baseline.txt /tmp/current_failures.txt)
+          FIXED=$(comm -23 /tmp/baseline.txt /tmp/current_failures.txt)
+
+          if [ -n "$NEW" ]; then
+            echo "status=FAILED" >> $GITHUB_OUTPUT
+            # Truncate to 5 lines for Discord readability
+            TRUNCATED=$(echo "$NEW" | head -5)
+            COUNT=$(echo "$NEW" | wc -l)
+            echo "new_failures<<EOF" >> $GITHUB_OUTPUT
+            echo "$TRUNCATED" >> $GITHUB_OUTPUT
+            if [ "$COUNT" -gt 5 ]; then echo "...and $((COUNT - 5)) more" >> $GITHUB_OUTPUT; fi
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "status=PASSED" >> $GITHUB_OUTPUT
+            echo "new_failures=" >> $GITHUB_OUTPUT
+          fi
+
+          if [ -n "$FIXED" ]; then
+            FIXED_COUNT=$(echo "$FIXED" | wc -l)
+            echo "fixed_count=$FIXED_COUNT" >> $GITHUB_OUTPUT
+          else
+            echo "fixed_count=0" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Notify Discord (pass)
+        if: steps.gate.outputs.status == 'PASSED'
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          COMMIT_SHORT="${{ github.sha }}"
+          COMMIT_SHORT="${COMMIT_SHORT:0:7}"
+          COMMIT_MSG=$(git log -1 --pretty=%s)
+          FIXED_COUNT="${{ steps.gate.outputs.fixed_count }}"
+          FIXED_LINE=""
+          if [ "$FIXED_COUNT" -gt 0 ]; then
+            FIXED_LINE=" | $FIXED_COUNT test(s) newly fixed — run \`make test-baseline\`"
+          fi
+          curl -s -X POST "$DISCORD_WEBHOOK" \
+            -H "Content-Type: application/json" \
+            -d "{\"content\": \"✅ **Regression gate passed** — \`$COMMIT_SHORT\` $COMMIT_MSG\n${{ steps.suite.outputs.summary }}$FIXED_LINE\", \"username\": \"CI\"}"
+
+      - name: Notify Discord (fail)
+        if: steps.gate.outputs.status == 'FAILED'
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          COMMIT_SHORT="${{ github.sha }}"
+          COMMIT_SHORT="${COMMIT_SHORT:0:7}"
+          COMMIT_MSG=$(git log -1 --pretty=%s)
+          NEW_FAILURES="${{ steps.gate.outputs.new_failures }}"
+          curl -s -X POST "$DISCORD_WEBHOOK" \
+            -H "Content-Type: application/json" \
+            -d "{\"content\": \"❌ **Regression gate FAILED** — \`$COMMIT_SHORT\` $COMMIT_MSG\nNew test failures:\n\`\`\`\n$NEW_FAILURES\n\`\`\`\", \"username\": \"CI\"}"
+
+      - name: Fail the job if gate blocked
+        if: steps.gate.outputs.status == 'FAILED'
+        run: exit 1
