@@ -1,10 +1,10 @@
-"""PR1 — synthesis LLM timeout floor + ceiling.
+"""Synthesis LLM timeout floor + ceiling.
 
-v1 capped synthesis at `max(1, min(15, deadline))` (narrator.py:271). The
-primary model needs ~78s in isolated tests (R8 measurement). v2 raises the
-ceiling to 50s and the floor to 15s so a tight remaining budget never
-aborts the call before the FALLBACK 1 model (ring-2.6-1t at ~14s) can
-respond.
+narrator._invoke_synthesis clamps the per-model synthesis timeout to
+`max(15, min(90, deadline_seconds))` — a 15s floor so a tight remaining
+budget never aborts the call outright, and a 90s ceiling because a
+free-tier model needs ~70s for the real synthesis prompt (probed
+2026-05-21: gpt-oss-120b = 70.7s on a 4.5K-token prompt).
 """
 from __future__ import annotations
 
@@ -30,12 +30,12 @@ def test_synthesize_timeout_floor_is_15s(deadline_seconds):
 
     assert captured["timeout"] >= 15, (
         f"deadline={deadline_seconds}s -> timeout={captured['timeout']}s; "
-        "must be >=15 so ring-2.6-1t (14s in R8) can respond"
+        "must be >=15 so a tight remaining budget never aborts the call outright"
     )
 
 
-def test_synthesize_timeout_ceiling_is_50s():
-    """Even with a huge remaining deadline, timeout caps at 50s."""
+def test_synthesize_timeout_ceiling_is_90s():
+    """Even with a huge remaining deadline, timeout caps at 90s."""
     captured: dict = {}
 
     async def fake_call(*, role, messages, max_tokens, temperature, timeout):
@@ -45,7 +45,7 @@ def test_synthesize_timeout_ceiling_is_50s():
     with patch.object(narrator, "call_with_fallback", new=fake_call):
         asyncio.run(narrator._invoke_synthesis([{"role": "user", "content": "x"}], 200))
 
-    assert captured["timeout"] <= 50, (
+    assert captured["timeout"] <= 90, (
         f"deadline=200s -> timeout={captured['timeout']}s; "
-        "must be <=50 to keep total !all wall-clock under 80s"
+        "must be <=90 so a single model can't hang the !all call indefinitely"
     )
