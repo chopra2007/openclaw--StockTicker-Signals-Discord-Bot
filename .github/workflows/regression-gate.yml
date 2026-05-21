@@ -32,15 +32,22 @@ jobs:
           SUMMARY=$(echo "$OUTPUT" | grep -E '[0-9]+ (passed|failed|error)' | tail -1 || true)
           echo "summary=$SUMMARY" >> $GITHUB_OUTPUT
 
-          # Extract failing test IDs (grep exits 1 on an all-green suite —
-          # tolerate it so the step still produces an empty failures file).
-          echo "$OUTPUT" | grep -E '^(FAILED|ERROR) ' | sed -E 's/^(FAILED|ERROR) //' | sort -u > /tmp/current_failures.txt || true
+          # Extract failing test IDs. The sed strips the leading FAILED/ERROR
+          # marker AND the trailing " - <reason>" suffix pytest 9 appends to
+          # short-summary lines — that suffix is environment-dependent (it is
+          # truncated to terminal width) and would never match the bare node
+          # ids in .test-baseline. grep exits 1 on an all-green suite, so
+          # tolerate it and still emit an (empty) failures file.
+          echo "$OUTPUT" | grep -E '^(FAILED|ERROR) ' | sed -E 's/^(FAILED|ERROR) //; s/ - .*$//' | sort -u > /tmp/current_failures.txt || true
           echo "failed_count=$(wc -l < /tmp/current_failures.txt)" >> $GITHUB_OUTPUT
 
       - name: Compare against baseline
         id: gate
         run: |
-          sort -u .test-baseline > /tmp/baseline.txt
+          # Normalize the baseline the same way (strip any " - <reason>"
+          # suffix) so a baseline captured in either environment compares
+          # cleanly against /tmp/current_failures.txt.
+          sed -E 's/ - .*$//' .test-baseline | sort -u > /tmp/baseline.txt
           NEW=$(comm -13 /tmp/baseline.txt /tmp/current_failures.txt)
           FIXED=$(comm -23 /tmp/baseline.txt /tmp/current_failures.txt)
 

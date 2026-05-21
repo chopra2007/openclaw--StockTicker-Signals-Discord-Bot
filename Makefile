@@ -19,5 +19,5 @@ install-hooks:
 
 test-baseline:
 	# regenerate .test-baseline — the known-failing list the pre-push gate uses
-	python3 -m pytest tests/ -q --tb=no -p no:cacheprovider | grep -E '^(FAILED|ERROR) ' | sed -E 's/^(FAILED|ERROR) //' | sort -u > .test-baseline
+	python3 -m pytest tests/ -q --tb=no -p no:cacheprovider | grep -E '^(FAILED|ERROR) ' | sed -E 's/^(FAILED|ERROR) //; s/ - .*$$//' | sort -u > .test-baseline
 	@echo "wrote .test-baseline ($$(grep -c '^' .test-baseline) known-failing tests)"
