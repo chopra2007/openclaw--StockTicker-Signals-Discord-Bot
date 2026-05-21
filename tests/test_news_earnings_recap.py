@@ -78,6 +78,78 @@ async def test_fetch_recent_earnings_returns_none_when_no_eps(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_fetch_recent_earnings_suppresses_when_pending_quarter(monkeypatch):
+    """Quarter ended but actual=None → pre-earnings mode → return None.
+
+    Mirrors the NVDA May-20-2026 incident: Q4 FY26 (period 2026-01-26) was
+    already reported, but Q1 FY27 (period 2026-04-27) had ended without an
+    actual EPS yet.  The function must return None rather than surfacing the
+    stale Q4 recap.
+    """
+    from datetime import date, timedelta
+    import consensus_engine.scanners.earnings_calendar as ec
+
+    # Simulate "today" as May 20 2026 by patching datetime inside the module
+    past_period = (date.today() - timedelta(days=89)).isoformat()   # reported quarter
+    pending_period = (date.today() - timedelta(days=23)).isoformat()  # ended, not reported
+
+    finnhub_quarters = [
+        {"period": past_period, "actual": 5.16, "estimate": 4.60,
+         "surprise": 0.56, "surprisePercent": 12.17},
+        {"period": pending_period, "actual": None, "estimate": 4.90,
+         "surprise": None, "surprisePercent": None},
+    ]
+
+    async def _stub_finnhub(_t):
+        return finnhub_quarters
+
+    async def _stub_yfinance(_t):
+        return []
+
+    monkeypatch.setattr(ec, "_fetch_finnhub_company_earnings", _stub_finnhub)
+    monkeypatch.setattr(ec, "_fetch_yfinance_revenue_history", _stub_yfinance)
+
+    out = await ec.fetch_recent_earnings_for_ticker("NVDA")
+    assert out is None, (
+        "should return None when a quarter has ended but actual EPS is missing "
+        "(ticker is in pre-earnings mode)"
+    )
+
+
+@pytest.mark.asyncio
+async def test_fetch_recent_earnings_ignores_future_period_quarters(monkeypatch):
+    """Quarters whose period date is in the future are ignored entirely."""
+    from datetime import date, timedelta
+    import consensus_engine.scanners.earnings_calendar as ec
+
+    past_period = (date.today() - timedelta(days=89)).isoformat()
+    future_period = (date.today() + timedelta(days=30)).isoformat()
+
+    finnhub_quarters = [
+        {"period": past_period, "actual": 5.16, "estimate": 4.60,
+         "surprise": 0.56, "surprisePercent": 12.17},
+        {"period": future_period, "actual": None, "estimate": 5.50,
+         "surprise": None, "surprisePercent": None},
+    ]
+
+    async def _stub_finnhub(_t):
+        return finnhub_quarters
+
+    async def _stub_yfinance(_t):
+        return []
+
+    monkeypatch.setattr(ec, "_fetch_finnhub_company_earnings", _stub_finnhub)
+    monkeypatch.setattr(ec, "_fetch_yfinance_revenue_history", _stub_yfinance)
+
+    out = await ec.fetch_recent_earnings_for_ticker("NVDA")
+    # future-period quarter is dropped; past reported quarter has no pending
+    # siblings → should return the past quarter's recap
+    assert out is not None, "past reported quarter should still be returned"
+    assert out["period"] == past_period
+    assert out["eps_actual"] == 5.16
+
+
+@pytest.mark.asyncio
 async def test_search_recent_earnings_builds_catalyst_with_revenue(monkeypatch):
     """News tier wraps the recap into CatalystResult.catalyst_body."""
     async def _stub(*_a, **_kw):

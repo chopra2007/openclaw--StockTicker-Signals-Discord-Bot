@@ -100,6 +100,10 @@ async def fetch_recent_earnings_for_ticker(ticker: str) -> dict | None:
     with yfinance quarterly_financials (revenue + YoY %). Either source
     alone is insufficient: Finnhub free tier omits revenue, and yfinance
     doesn't carry consensus estimates.
+
+    Returns None if any quarter's period has already ended but earnings
+    haven't printed yet (actual=None) — that means the ticker is in
+    pre-earnings mode and old-quarter data would be misleading.
     """
     if not ticker:
         return None
@@ -108,8 +112,34 @@ async def fetch_recent_earnings_for_ticker(ticker: str) -> dict | None:
     if not eps_quarters:
         return None
 
+    today = datetime.utcnow().date()
+    reported_quarters: list[dict] = []
+    pending_quarters: list[dict] = []
+    for q in eps_quarters:
+        period_str = str(q.get("period", ""))
+        try:
+            period_date = datetime.strptime(period_str, "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            continue
+        if period_date > today:
+            continue  # quarter hasn't ended yet, ignore entirely
+        if q.get("actual") is not None:
+            reported_quarters.append(q)
+        else:
+            # Quarter ended but no actual EPS → earnings haven't printed yet.
+            pending_quarters.append(q)
+
+    # Any pending quarter means the ticker is in pre-earnings mode.
+    # Surfacing the prior quarter's recap here would be misleading — any
+    # mention of this ticker's earnings refers to the upcoming print, not Q-1.
+    if pending_quarters:
+        return None
+
+    if not reported_quarters:
+        return None
+
     eps_quarters_sorted = sorted(
-        eps_quarters, key=lambda r: str(r.get("period", "")), reverse=True,
+        reported_quarters, key=lambda r: str(r.get("period", "")), reverse=True,
     )
     latest = eps_quarters_sorted[0]
     period = str(latest.get("period", "")) or None
