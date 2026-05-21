@@ -38,15 +38,22 @@ from consensus_engine.utils.tickers import is_valid_ticker
 
 log = logging.getLogger("consensus_engine.alerts.all_command.aggregator")
 
-_DEADLINE_SECONDS = 80.0
+_DEADLINE_SECONDS = 160.0
 _GAP_FILL_BUDGET = 20.0
 _SYNTHESIS_MIN_BUDGET = 10.0
 
 
 def _remaining(start: float, total: float = _DEADLINE_SECONDS) -> float:
-    """Seconds remaining vs the 80s p95 ceiling (PR1: was 60s; raised so the
-    synthesis call inherits ≥50s after gather/gap_fill/sanitize stages eat
-    ~30s, matching narrator.py:271's 50s cap)."""
+    """Seconds remaining vs the deadline ceiling.
+
+    Raised 80s→160s: the synthesis per-model timeout is `min(90, _remaining)`
+    (narrator._invoke_synthesis). With an 80s ceiling and gather+gap_fill+
+    sanitize eating ~40-65s, synthesis only inherited ~40s — but a free-tier
+    model needs ~70s for the real prompt (probed: gpt-oss-120b = 70.7s on a
+    4.5K-token prompt). The 40s cap cut every model off mid-response, walked
+    the whole chain to exhaustion, and forced the data-only fallback. 160s
+    leaves synthesis the full 90s it caps at. gap_fill stays capped by
+    _GAP_FILL_BUDGET; this only widens the synthesis window."""
     return max(0.0, total - (time.monotonic() - start))
 
 
