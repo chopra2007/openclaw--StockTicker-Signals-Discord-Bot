@@ -235,7 +235,7 @@ llm:
   agent_fallback_models:
     - "z-ai/glm-4.5-air:free"
     - "nvidia/nemotron-3-nano-30b-a3b:free"
-    - "auto"
+    - "free"
   vision_model: "google/gemma-4-31b-it:free"
   min_confidence: 70
   # Primary-tier output cap. gpt-oss-120b honors max_tokens cleanly; free models
