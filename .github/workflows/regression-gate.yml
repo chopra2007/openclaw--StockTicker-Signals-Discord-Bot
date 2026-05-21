@@ -21,13 +21,20 @@ jobs:
       - name: Run test suite
         id: suite
         run: |
-          OUTPUT=$(python3 -m pytest tests/ -q --tb=no -p no:cacheprovider 2>&1)
+          # pytest exits non-zero whenever the suite is red — which is the
+          # expected baseline state. Under GitHub's default `bash -e` shell
+          # that non-zero exit would abort the step before the baseline
+          # comparison ever runs, so the gate could never pass. `|| true`
+          # keeps the step alive; the `Compare against baseline` step below
+          # is what actually decides pass/fail.
+          OUTPUT=$(python3 -m pytest tests/ -q --tb=no -p no:cacheprovider 2>&1) || true
           echo "$OUTPUT"
-          SUMMARY=$(echo "$OUTPUT" | grep -E '[0-9]+ (passed|failed|error)' | tail -1)
+          SUMMARY=$(echo "$OUTPUT" | grep -E '[0-9]+ (passed|failed|error)' | tail -1 || true)
           echo "summary=$SUMMARY" >> $GITHUB_OUTPUT
 
-          # Extract failing test IDs
-          echo "$OUTPUT" | grep -E '^(FAILED|ERROR) ' | sed -E 's/^(FAILED|ERROR) //' | sort -u > /tmp/current_failures.txt
+          # Extract failing test IDs (grep exits 1 on an all-green suite —
+          # tolerate it so the step still produces an empty failures file).
+          echo "$OUTPUT" | grep -E '^(FAILED|ERROR) ' | sed -E 's/^(FAILED|ERROR) //' | sort -u > /tmp/current_failures.txt || true
           echo "failed_count=$(wc -l < /tmp/current_failures.txt)" >> $GITHUB_OUTPUT
 
       - name: Compare against baseline
