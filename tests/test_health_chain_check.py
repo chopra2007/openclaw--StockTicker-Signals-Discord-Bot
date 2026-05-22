@@ -116,12 +116,14 @@ async def test_run_chain_check_flags_empty_content(patched_cfg, monkeypatch):
     assert "primary-llm:free" in report
 
 
-async def test_run_chain_check_no_api_key(monkeypatch):
+async def test_run_chain_check_no_api_key(patched_cfg, monkeypatch):
+    """With no provider key, every model reports KEY MISSING individually —
+    the report is no longer blanked by a single early abort."""
     monkeypatch.setattr("consensus_engine.health.cfg.get_api_key",
                         lambda k: "")
     failed, report = await health.run_chain_check()
     assert failed is True
-    assert "API key missing" in report
+    assert "KEY MISSING" in report
 
 
 async def test_run_chain_check_no_models_configured(monkeypatch):
