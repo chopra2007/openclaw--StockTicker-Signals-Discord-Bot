@@ -340,6 +340,7 @@ _brave_quota_exhausted = False
 async def _search_brave(ticker: str) -> Optional[CatalystResult]:
     """Search Brave for news. Gated by news_cascade.brave_daily_budget so
     parallel cascade firing doesn't blow the free tier quota."""
+    global _brave_quota_exhausted
     if _brave_quota_exhausted:
         return None
     api_key = cfg.get_api_key("brave_search")
@@ -368,7 +369,6 @@ async def _search_brave(ticker: str) -> Optional[CatalystResult]:
                                timeout=aiohttp.ClientTimeout(total=10)) as resp:
             if resp.status != 200:
                 if resp.status == 402:
-                    global _brave_quota_exhausted
                     _brave_quota_exhausted = True
                     log.warning("Brave monthly quota exhausted (HTTP 402) — "
                                 "circuit open until restart")
