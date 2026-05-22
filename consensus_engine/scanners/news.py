@@ -331,9 +331,17 @@ def _brave_budget_ok() -> bool:
     return _brave_counter_today() < cap
 
 
+# Circuit breaker: tripped on an HTTP 402 (Brave monthly quota exhausted) so the
+# tier stops issuing doomed requests for the rest of the process lifetime. The
+# monthly cap clears at the billing boundary, so a process restart resets it.
+_brave_quota_exhausted = False
+
+
 async def _search_brave(ticker: str) -> Optional[CatalystResult]:
     """Search Brave for news. Gated by news_cascade.brave_daily_budget so
     parallel cascade firing doesn't blow the free tier quota."""
+    if _brave_quota_exhausted:
+        return None
     api_key = cfg.get_api_key("brave_search")
     if not api_key:
         return None
@@ -359,6 +367,11 @@ async def _search_brave(ticker: str) -> Optional[CatalystResult]:
         async with session.get(url, headers=headers, params=params,
                                timeout=aiohttp.ClientTimeout(total=10)) as resp:
             if resp.status != 200:
+                if resp.status == 402:
+                    global _brave_quota_exhausted
+                    _brave_quota_exhausted = True
+                    log.warning("Brave monthly quota exhausted (HTTP 402) — "
+                                "circuit open until restart")
                 rate_limiter.report_failure("brave_search")
                 return None
             data = await resp.json()
