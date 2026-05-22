@@ -34,6 +34,7 @@ from consensus_engine.alerts.discord import (
     send_command_embed_reply,
     send_command_reply,
 )
+from consensus_engine.utils.rate_limiter import rate_limiter
 from consensus_engine.utils.tickers import is_valid_ticker
 
 log = logging.getLogger("consensus_engine.alerts.all_command.aggregator")
@@ -401,16 +402,163 @@ def _build_news_snippets(news_catalyst, gap_fill_result) -> list[str]:
     return out[:20]
 
 
-def _build_sec_snippets(sec_filings) -> list[str]:
-    """SEC filing summaries — distinct from news so the prompt can label them (PR4)."""
-    out: list[str] = []
-    if isinstance(sec_filings, list):
-        for f in sec_filings[:5]:
-            if isinstance(f, dict):
-                summary = f.get("summary") or f.get("title") or ""
-                if summary:
-                    out.append(str(summary))
+# #13 — SEC insider evidence. Form-4 detail is fetched for at most this many
+# of the most-recent Form 4 filings, and the whole fetch is time-boxed.
+_FORM4_ENRICH_LIMIT = 5
+_FORM4_ENRICH_TIMEOUT = 12.0
+
+
+def _fmt_insider_shares(v) -> str:
+    """Render a share count: 240000.0 -> '240,000'."""
+    try:
+        return f"{float(v):,.0f}"
+    except (TypeError, ValueError):
+        return str(v if v is not None else "?")
+
+
+def _fmt_insider_price(v) -> str:
+    """Render a per-share price suffix: 52.5 -> ' at $52.50'; 0/None -> ''."""
+    try:
+        p = float(v)
+    except (TypeError, ValueError):
+        return ""
+    return f" at ${p:.2f}" if p else ""
+
+
+def _format_insider_section(fetched: list) -> list[str]:
+    """Render the per-insider lines per the #13 significance rule.
+
+    Open-market purchases/sales are shown in full (name, title, shares,
+    price, date), grouped per insider; routine awards / option exercises /
+    tax withholding / gifts are collapsed to a count. A filing set whose
+    aggregate open-market value clears the configured buy/sell floor is
+    flagged NOTABLE. Returns [] when no Form-4 transactions were fetched.
+    """
+    from consensus_engine.alerts.commands import _fmt_insider_name
+    from consensus_engine.scanners.sec_edgar import (
+        _OPEN_MARKET_TX_TYPES, compute_insider_value,
+    )
+
+    all_txs = [t for _f, txs in fetched for t in (txs or [])]
+    if not all_txs:
+        return []
+    open_market = [t for t in all_txs
+                   if t.get("transaction_type") in _OPEN_MARKET_TX_TYPES]
+    routine_count = len(all_txs) - len(open_market)
+    if not open_market:
+        return ["Recent Form 4 filings were routine awards / option "
+                "exercises / tax withholding — no open-market conviction trades."]
+
+    buy_floor = cfg.get("sec_watcher.min_insider_dollars_buy", 100000)
+    sell_floor = cfg.get("sec_watcher.min_insider_dollars_sell", 1000000)
+    notable = (compute_insider_value(all_txs, "Buy") >= buy_floor
+               or compute_insider_value(all_txs, "Sell") >= sell_floor)
+
+    out = [("NOTABLE — " if notable else "")
+           + "open-market insider (Form 4) transactions:"]
+    grouped: dict[str, list] = {}
+    titles: dict[str, str] = {}
+    for t in open_market:
+        name = str(t.get("reporter_name") or "Unknown")
+        grouped.setdefault(name, []).append(t)
+        titles[name] = str(t.get("title") or "Insider")
+    for raw_name, insider_txs in grouped.items():
+        display = _fmt_insider_name(raw_name)
+        for t in insider_txs:
+            out.append(
+                f"  - {display} ({titles[raw_name]}) — "
+                f"{t.get('direction', '?')} {_fmt_insider_shares(t.get('shares'))} "
+                f"shares{_fmt_insider_price(t.get('price'))} "
+                f"on {t.get('date') or '?'}."
+            )
+    if routine_count:
+        out.append(f"  plus {routine_count} routine award / option "
+                   f"transaction(s) (collapsed).")
     return out
+
+
+def _format_sec_evidence_block(sec_filings: list, fetched: list,
+                               partial: bool) -> str:
+    """Build the one deterministic SEC evidence block string (#13).
+
+    Replaces the dead _build_sec_snippets. The block bypasses the LLM
+    sanitize step — it is factual SEC disclosure, not hostile external text.
+    """
+    dict_filings = [f for f in (sec_filings or []) if isinstance(f, dict)]
+    if not dict_filings:
+        return "No recent SEC filings."
+    forms = [f"{f.get('form', '?')} ({f.get('filing_date', '?')})"
+             for f in dict_filings[:12]]
+    lines: list[str] = ["Recent SEC filings: " + ", ".join(forms) + "."]
+
+    insider = _format_insider_section(fetched)
+    if insider:
+        lines.extend(insider)
+        if partial:
+            lines.append("(Some insider detail unavailable — SEC fetch timed "
+                         "out; the above is partial.)")
+    elif partial:
+        lines.append("Recent Form 4 filings present; insider detail "
+                     "unavailable (SEC fetch timed out).")
+    elif any(f.get("form") == "4" for f in dict_filings):
+        lines.append("Recent Form 4 filings present; insider detail "
+                     "could not be retrieved.")
+    else:
+        lines.append("No recent insider (Form 4) activity.")
+    return "\n".join(lines)
+
+
+async def _fetch_form4_safe(filing: dict) -> tuple[dict, list]:
+    """Fetch one Form-4 filing's transactions; one bad filing never voids the
+    rest (returns an empty transaction list on any failure)."""
+    from consensus_engine.scanners.sec_edgar import fetch_form4_details
+    try:
+        if not await rate_limiter.acquire("sec_edgar"):
+            return filing, []
+        txs = await fetch_form4_details(
+            filing.get("cik", ""),
+            filing.get("accession_number", ""),
+            filing.get("primary_document", ""),
+        )
+        return filing, list(txs or [])
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:  # noqa: BLE001 — D13 partial failure
+        log.debug("aggregator._fetch_form4_safe: %s", exc)
+        return filing, []
+
+
+async def _enrich_form4_insiders(sec_filings: list, deadline: float) -> dict:
+    """Fetch Form-4 insider detail and build the deterministic SEC evidence
+    block. Returns {"block": <str>, "partial": <bool>}.
+
+    The Form-4 fetch is bounded by _FORM4_ENRICH_TIMEOUT (and never longer
+    than `deadline`); on timeout the block is built from whatever completed
+    and `partial` is True.
+    """
+    filings = sec_filings if isinstance(sec_filings, list) else []
+    form4 = [f for f in filings
+             if isinstance(f, dict) and f.get("form") == "4"][:_FORM4_ENRICH_LIMIT]
+    partial = False
+    fetched: list[tuple[dict, list]] = []
+    if form4:
+        timeout = max(0.0, min(_FORM4_ENRICH_TIMEOUT, deadline))
+        tasks = [asyncio.create_task(_fetch_form4_safe(f)) for f in form4]
+        try:
+            await asyncio.wait_for(asyncio.gather(*tasks), timeout=timeout)
+        except asyncio.TimeoutError:
+            partial = True
+        for t in tasks:
+            if t.done() and not t.cancelled() and t.exception() is None:
+                fetched.append(t.result())
+            else:
+                t.cancel()
+        if partial:
+            await asyncio.gather(*tasks, return_exceptions=True)
+    return {
+        "block": _format_sec_evidence_block(filings, fetched, partial),
+        "partial": partial,
+    }
 
 
 def _build_twitter_snippets(twitter_signals) -> list[str]:
@@ -683,7 +831,11 @@ async def _compute_all(ticker: str, start: float) -> dict:
         if s.startswith("[cat_") and "] " in s:
             s = s.split("] ", 1)[1]
         catalyst_as_news.append(s)
-    sec_snippets = _build_sec_snippets(data["sec_filings"])
+    # #13: build the deterministic SEC evidence block (Form-4 insider detail).
+    sec_evidence = await _enrich_form4_insiders(
+        data["sec_filings"], _remaining(start),
+    )
+    sec_block = sec_evidence["block"]
     twitter_msgs = _build_twitter_snippets(data["twitter_signals"])
     social_msgs = _build_social_snippets(data["social_signals"])
     yt_evidence_msgs = _build_yt_evidence_snippets(data["yt_evidence"])
@@ -691,17 +843,36 @@ async def _compute_all(ticker: str, start: float) -> dict:
     brief_msgs = data["brief_msgs"] if isinstance(data["brief_msgs"], list) else []
     prior_vault = data["prior_vault"] or ""
 
-    sanitized = await narrator.sanitize_hostile_text(
-        searxng_snippets=[],   # PR4 split: news+sec routed below
-        chat_msgs=chat_msgs,
-        brief_msgs=brief_msgs,
-        vault_text=prior_vault,
-        news_snippets=news_snippets,
-        sec_snippets=sec_snippets,
-        twitter_msgs=twitter_msgs,
-        social_msgs=social_msgs,
-        yt_evidence_msgs=yt_evidence_msgs,
-    )
+    # #13: the SEC evidence block is deterministic, trusted disclosure — it
+    # bypasses the LLM sanitize step entirely (sec_snippets=[] below). The
+    # all_command.sanitize_enabled flag gates only the hostile-text batch for
+    # the remaining external sources; when off they get a plain truncation.
+    if cfg.get("all_command.sanitize_enabled", True):
+        sanitized = await narrator.sanitize_hostile_text(
+            searxng_snippets=[],   # PR4 split: news+sec routed below
+            chat_msgs=chat_msgs,
+            brief_msgs=brief_msgs,
+            vault_text=prior_vault,
+            news_snippets=news_snippets,
+            sec_snippets=[],
+            twitter_msgs=twitter_msgs,
+            social_msgs=social_msgs,
+            yt_evidence_msgs=yt_evidence_msgs,
+        )
+    else:
+        sanitized = {
+            "searxng": [],
+            "chat": [narrator._sanitize_text(m) for m in chat_msgs],
+            "brief": [narrator._sanitize_text(m) for m in brief_msgs],
+            "vault": narrator._sanitize_text(prior_vault),
+            "news": [narrator._sanitize_text(m) for m in news_snippets],
+            "sec": [],
+            "twitter": [narrator._sanitize_text(m) for m in twitter_msgs],
+            "social": [narrator._sanitize_text(m) for m in social_msgs],
+            "yt_evidence": [narrator._sanitize_text(m) for m in yt_evidence_msgs],
+        }
+    # Inject the deterministic SEC block (single element -> _CAP_SEC keeps it).
+    sanitized["sec"] = [sec_block] if sec_block else []
     # Commit 14: prepend catalysts AFTER sanitize so they reach the
     # synthesis LLM uncorrupted. The sanitize batch was destroying
     # them to 50 chars on free-tier failures.
@@ -716,6 +887,7 @@ async def _compute_all(ticker: str, start: float) -> dict:
     if _remaining(start) < _SYNTHESIS_MIN_BUDGET:
         narrative = output_filter.render_data_only_fallback(
             structured, score_breakdown, sources_surfaced,
+            sec_evidence_block=sec_block,
         )
         narrative_status = "skipped_low_budget"
     else:
@@ -745,6 +917,7 @@ async def _compute_all(ticker: str, start: float) -> dict:
         if narrative_status != "ok":
             narrative = output_filter.render_data_only_fallback(
                 structured, score_breakdown, sources_surfaced,
+                sec_evidence_block=sec_block,
             )
     stage_t["synthesize"] = _t()
 

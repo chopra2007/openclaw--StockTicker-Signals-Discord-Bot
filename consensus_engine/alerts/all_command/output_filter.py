@@ -116,8 +116,14 @@ def render_data_only_fallback(
     structured: StructuredFields,
     score_breakdown: ScoreBreakdown,
     sources: list[str],
+    sec_evidence_block: Optional[str] = None,
 ) -> str:
-    """Deterministic 2-line render used when narrative is auto-redacted."""
+    """Deterministic render used when the narrative is unavailable.
+
+    Direction/confidence/score on two lines by default. When a SEC evidence
+    block is supplied (#13), it is appended so insider detail survives the
+    low-budget / contradiction data-only fallback.
+    """
     direction = getattr(structured, "direction", "NEUTRAL") or "NEUTRAL"
     label = getattr(structured, "confidence_label", "LOW") or "LOW"
     final_score = (
@@ -126,8 +132,11 @@ def render_data_only_fallback(
         else None
     )
     score_str = str(final_score) if final_score is not None else "—"
-    return (
+    out = (
         "_(Narrative unavailable for this run — structured signal only.)_\n"
         f"**Direction:** {direction} · **Confidence:** {label} · "
         f"**Score:** {score_str}"
     )
+    if sec_evidence_block:
+        out += "\n\n**SEC insider activity:**\n" + sec_evidence_block
+    return out

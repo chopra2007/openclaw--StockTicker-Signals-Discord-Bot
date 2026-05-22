@@ -435,6 +435,11 @@ all_command:
   # Default OFF per final-plan §7 — flip true after 48h of W4 stability.
   # Bonus is 1.0×–1.5× scaled by number of distinct tiers in cluster.
   confluence_bonus_enabled: false
+  # #13: gate the LLM hostile-text sanitize batch for !all's external
+  # sources. When false, those sources are passed through a plain length
+  # truncation instead. The deterministic SEC evidence block always
+  # bypasses sanitize regardless of this flag.
+  sanitize_enabled: true
 
 # Precision Scoring Engine
 precision_engine:
