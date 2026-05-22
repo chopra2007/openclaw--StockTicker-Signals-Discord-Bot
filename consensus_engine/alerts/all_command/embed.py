@@ -7,8 +7,9 @@ Layout:
   sanitized narrative + score breakdown + sources.
   Truncation order: narrative first to fit 4000 chars; if still over, drop
   sources line (move count to footer); score breakdown ALWAYS stays.
-- 8 inline fields: Direction, Confidence, Price, Buy Zone, SL, TP1, TP2, TP3
-- Each level (SL/TPs/Buy Zone) renders with directional arrow + italic one-liner.
+- 3 inline fields: Direction, Confidence, Price (Commit 16 dropped the
+  trade-plan-duplicating Buy Zone / SL / TP fields — they now live only in
+  the narrative Trade Plan table)
 - footer: cache age (if any) + sources count + ISO timestamp
 
 Ship 1 helpers (N1, N2, N3, N4, N5, N7) and Ship 2 helper (TL;DR extraction)

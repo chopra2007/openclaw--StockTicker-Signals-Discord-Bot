@@ -140,6 +140,7 @@ async def test_gap_fill_no_triggers_returns_empty():
         "harvested_anchors_snippets": [],
         "eight_k_summary_snippets": [],
         "event_date_snippets": [],
+        "catalyst_research_snippets": [],
     }
 
 
@@ -344,10 +345,10 @@ def test_embed_color_neutral_or_low_conf():
     assert out["color"] == 0xFEE75C
 
 
-def test_embed_field_count_exactly_11_inline():
-    """W4 grew the field set from 10 to 11 (Next Catalyst + Horizon
-    + Expected Move replace Timeframe + Magnitude when swing_v2_enabled).
-    Iter5 grew 8 → 10 (Price + Buy Zone)."""
+def test_embed_field_count_exactly_3_inline():
+    """Commit 16 cut the embed to 3 inline fields — Direction, Confidence,
+    Price. Buy Zone / SL / TP / Horizon / Next Catalyst / Expected Move were
+    dropped as visual duplication of the narrative Trade Plan table."""
     s = StructuredFields(
         direction="BULLISH", confidence_label="HIGH",
         sl=98.5, tp1=112, tp2=125, tp3=140,
@@ -362,12 +363,9 @@ def test_embed_field_count_exactly_11_inline():
     )
     sb = ScoreBreakdown(news_catalyst=20)
     out = embed_mod.build_embed("NVDA", s, sb, "n", ["a"], None)
-    assert len(out["fields"]) == 11
+    assert len(out["fields"]) == 3
     assert all(f.get("inline") for f in out["fields"])
-    field_names = [f["name"] for f in out["fields"]]
-    assert "Next Catalyst" in field_names
-    assert "Horizon" in field_names
-    assert "Expected Move" in field_names
+    assert [f["name"] for f in out["fields"]] == ["Direction", "Confidence", "Price"]
 
 
 def test_embed_truncates_long_narrative_keeps_score_line():

@@ -26,14 +26,14 @@ def setup_config():
 # ---------------------------------------------------------------------------
 
 def test_recompute_degraded_mode_all_healthy():
-    """No unhealthy critical sources → DEGRADED_MODE = False."""
+    """No unhealthy critical sources (apewisdom, reddit) → DEGRADED_MODE = False."""
     import consensus_engine.main as main_mod
 
     now = time.time()
     main_mod._source_stats = {
-        "finnhub":  {"calls": 10, "errors": 0, "last_ok": now - 10},
-        "yfinance": {"calls": 10, "errors": 0, "last_ok": now - 10},
-        "discord_tweetshift":   {"calls": 10, "errors": 0, "last_ok": now - 10},
+        "apewisdom": {"calls": 10, "errors": 0, "last_ok": now - 10},
+        "reddit":    {"calls": 10, "errors": 0, "last_ok": now - 10},
+        "discord_tweetshift": {"calls": 10, "errors": 0, "last_ok": now - 10},
     }
     assert main_mod._recompute_degraded_mode() is False
 
@@ -59,9 +59,9 @@ def test_recompute_degraded_mode_one_critical_unhealthy():
 
     now = time.time()
     main_mod._source_stats = {
-        "finnhub":  {"calls": 10, "errors": 0, "last_ok": now - 10},
-        "yfinance": {"calls": 10, "errors": 0, "last_ok": now - 10},
-        "discord_tweetshift":   {"calls": 0, "errors": 0, "last_ok": 0.0},   # unhealthy
+        "apewisdom": {"calls": 10, "errors": 0, "last_ok": now - 10},
+        "reddit":    {"calls": 0, "errors": 0, "last_ok": 0.0},   # unhealthy
+        "discord_tweetshift": {"calls": 10, "errors": 0, "last_ok": now - 10},
     }
     assert main_mod._recompute_degraded_mode() is False
 
@@ -257,20 +257,20 @@ def test_degraded_mode_clears_when_sources_recover():
     """After sources recover, _recompute_degraded_mode() returns False."""
     import consensus_engine.main as main_mod
 
-    # Set up degraded state
+    # Set up degraded state: both critical sources unhealthy.
     now = time.time()
     main_mod._source_stats = {
-        "finnhub":  {"calls": 5, "errors": 0, "last_ok": 0.0},   # unhealthy
-        "yfinance": {"calls": 5, "errors": 0, "last_ok": 0.0},   # unhealthy
-        "discord_tweetshift":   {"calls": 5, "errors": 0, "last_ok": now - 5},
+        "apewisdom": {"calls": 5, "errors": 0, "last_ok": 0.0},   # unhealthy
+        "reddit":    {"calls": 5, "errors": 0, "last_ok": 0.0},   # unhealthy
+        "discord_tweetshift": {"calls": 5, "errors": 0, "last_ok": now - 5},
     }
     assert main_mod._recompute_degraded_mode() is True
 
-    # Sources recover
-    main_mod._source_stats["finnhub"]["last_ok"] = now - 5
-    main_mod._source_stats["finnhub"]["calls"] = 10
-    main_mod._source_stats["yfinance"]["last_ok"] = now - 5
-    main_mod._source_stats["yfinance"]["calls"] = 10
+    # Critical sources recover.
+    main_mod._source_stats["apewisdom"]["last_ok"] = now - 5
+    main_mod._source_stats["apewisdom"]["calls"] = 10
+    main_mod._source_stats["reddit"]["last_ok"] = now - 5
+    main_mod._source_stats["reddit"]["calls"] = 10
 
     assert main_mod._recompute_degraded_mode() is False
 

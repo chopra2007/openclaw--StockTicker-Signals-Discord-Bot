@@ -151,14 +151,16 @@ def test_evidence_blocks_distinct():
     )
     user = messages[1]["content"]
 
-    # Each block header appears exactly once.
+    # Each block header appears exactly once. The SEC header is checked with
+    # its trailing colon: #13's CONSTRAINTS carve-out also names the SEC
+    # evidence block, so the bare phrase legitimately recurs.
     for header in (
         "NEWS / ANALYST EVIDENCE",
-        "SEC FILINGS",
+        "SEC INSIDER ACTIVITY (EVIDENCE):",
         "TECHNICAL CONTEXT",
         "SOCIAL SIGNALS (twitter)",
         "SOCIAL SIGNALS (reddit/wsb)",
-        "YOUTUBE ANALYST CALLS",
+        "YOUTUBE CURATED LEVELS",
         "YOUTUBE OPTIONS FLOW",
         "YOUTUBE TRADE SETUPS",
     ):
@@ -167,7 +169,7 @@ def test_evidence_blocks_distinct():
     # The first item from twitter must NOT appear in the news block,
     # confirming sources stopped sharing the same `capped_news` list.
     twitter_marker = TWITTER_FIXTURE[0]
-    news_block = user.split("NEWS / ANALYST EVIDENCE")[1].split("SEC FILINGS")[0]
+    news_block = user.split("NEWS / ANALYST EVIDENCE")[1].split("SEC INSIDER ACTIVITY")[0]
     assert twitter_marker not in news_block
 
     # Conversely the news body must not show up under SOCIAL.

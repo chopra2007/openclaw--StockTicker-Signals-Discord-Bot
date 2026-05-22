@@ -91,7 +91,10 @@ async def test_earnings_date_from_decision_snapshot_populates_timeframe(
     async def _empty_sanitize(**_kw):
         return {"searxng": [], "chat": [], "brief": [], "vault": ""}
 
-    async def _synth(**_kw):
+    captured: dict = {}
+
+    async def _synth(**kw):
+        captured["structured"] = kw.get("structured")
         return "Bullish thesis.\n## Catalysts\n* x\n## Risk\n* z", "ok"
 
     monkeypatch.setattr(narrator, "sanitize_hostile_text", _empty_sanitize)
@@ -99,15 +102,12 @@ async def test_earnings_date_from_decision_snapshot_populates_timeframe(
 
     await aggregator.handle_all("NVDA", "ch", "m")
 
-    embed = captured_sends["embed"][0][2]
-    fields = {f["name"]: f["value"] for f in embed["fields"]}
-    # W4 + Ship 1 N7: Next Catalyst is rendered as relative phrasing
-    # ("today" / "in N sessions" / "in N days"), not a raw "Nd" count.
-    nc = fields["Next Catalyst"]
-    assert nc != "—", f"Expected non-empty Next Catalyst, got {nc!r}"
-    assert (
-        nc == "today" or nc.startswith("in ")
-    ), f"Expected relative phrasing (today / in N sessions / in N days), got {nc!r}"
+    # Commit 16 dropped the embed "Next Catalyst" field; the earnings date now
+    # propagates through `structured` into the synthesis layer and the
+    # narrative Trade Plan table. Assert the decision-snapshot earnings_date
+    # reached the structured fields passed to synthesize_narrative.
+    assert captured["structured"] is not None
+    assert captured["structured"].earnings_date == "2026-05-20"
 
 
 @pytest.mark.asyncio
@@ -123,7 +123,10 @@ async def test_next_earnings_scanner_fallback_when_decision_snapshot_empty(
     async def _empty_sanitize(**_kw):
         return {"searxng": [], "chat": [], "brief": [], "vault": ""}
 
-    async def _synth(**_kw):
+    captured: dict = {}
+
+    async def _synth(**kw):
+        captured["structured"] = kw.get("structured")
         return "Bullish thesis.\n## Catalysts\n* x\n## Risk\n* z", "ok"
 
     monkeypatch.setattr(narrator, "sanitize_hostile_text", _empty_sanitize)
@@ -131,14 +134,10 @@ async def test_next_earnings_scanner_fallback_when_decision_snapshot_empty(
 
     await aggregator.handle_all("NVDA", "ch", "m")
 
-    embed = captured_sends["embed"][0][2]
-    fields = {f["name"]: f["value"] for f in embed["fields"]}
-    nc = fields["Next Catalyst"]
-    assert nc != "—", f"Scanner-sourced earnings should yield non-empty Next Catalyst; got {nc!r}"
-    # Ship 1 N7 relative phrasing replaces raw "Nd" suffix.
-    assert (
-        nc == "today" or nc.startswith("in ")
-    ), f"Expected relative phrasing, got {nc!r}"
+    # Path B: the scanner-sourced next_earnings_iso reaches `structured`
+    # (Commit 16 dropped the embed "Next Catalyst" field).
+    assert captured["structured"] is not None
+    assert captured["structured"].earnings_date == "2026-05-20"
 
 
 @pytest.mark.asyncio

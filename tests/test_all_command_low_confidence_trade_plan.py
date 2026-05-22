@@ -84,7 +84,10 @@ async def test_low_confidence_with_anchors_keeps_trade_plan(
     async def _empty_sanitize(**_kw):
         return {"searxng": [], "chat": [], "brief": [], "vault": ""}
 
-    async def _synth(**_kw):
+    captured: dict = {}
+
+    async def _synth(**kw):
+        captured["structured"] = kw.get("structured")
         return "Bullish thesis with low conviction.\n## Catalysts\n* x\n* y\n## Risk\n* z", "ok"
 
     monkeypatch.setattr(narrator, "sanitize_hostile_text", _empty_sanitize)
@@ -96,16 +99,13 @@ async def test_low_confidence_with_anchors_keeps_trade_plan(
     embed = captured_sends["embed"][0][2]
     fields_by_name = {f["name"]: f["value"] for f in embed["fields"]}
 
-    # The 20 swing-derived candles should produce ≥4 anchors → PR3 populates
-    # at least SL + TP1. After iter4, LOW confidence must NOT zero them.
-    sl_value = fields_by_name["SL"]
-    tp1_value = fields_by_name["TP1"]
-    assert sl_value != "—", (
-        f"LOW confidence should retain SL when anchors ≥4; got {sl_value!r}"
-    )
-    assert tp1_value != "—", (
-        f"LOW confidence should retain TP1 when anchors ≥4; got {tp1_value!r}"
-    )
+    # Commit 16 dropped SL/TP from the embed fields; the trade plan now lives
+    # in `structured`. The 20 swing-derived candles produce >=4 anchors, and
+    # after iter4 LOW confidence must NOT zero them.
+    structured = captured["structured"]
+    assert structured is not None
+    assert structured.sl is not None, "LOW confidence should retain SL when anchors >=4"
+    assert structured.tp1 is not None, "LOW confidence should retain TP1 when anchors >=4"
     assert fields_by_name["Confidence"] == "LOW", "LOW confidence label missing"
 
 
@@ -124,16 +124,21 @@ async def test_neutral_direction_still_wipes_trade_plan(
     )
     monkeypatch.setattr(narrator, "sanitize_hostile_text", _empty_sanitize)
 
-    async def _synth(**_kw):
+    captured: dict = {}
+
+    async def _synth(**kw):
+        captured["structured"] = kw.get("structured")
         return "Some narrative.", "ok"
     monkeypatch.setattr(narrator, "synthesize_narrative", _synth)
 
     await aggregator.handle_all("ZZZZ", "ch", "m")
 
-    embed = captured_sends["embed"][0][2]
-    fields_by_name = {f["name"]: f["value"] for f in embed["fields"]}
-    for key in ("SL", "TP1", "TP2", "TP3"):
-        assert fields_by_name[key] == "—", f"NEUTRAL must wipe {key}"
+    # Commit 16 dropped SL/TP from the embed; NEUTRAL still wipes them in
+    # `structured` (direction-dependent levels make no sense when neutral).
+    structured = captured["structured"]
+    assert structured is not None
+    for key in ("sl", "tp1", "tp2", "tp3"):
+        assert getattr(structured, key) is None, f"NEUTRAL must wipe {key}"
 
 
 # Reuse the e2e fixtures

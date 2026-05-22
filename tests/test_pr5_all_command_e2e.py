@@ -213,15 +213,11 @@ async def test_handle_all_e2e_full_pipeline_bullish(
     # 3. Embed has color matching direction (BULLISH).
     assert embed["color"] == COLOR_BULLISH
 
-    # 4. Embed has all 11 expected inline fields. W4 added Next Catalyst,
-    #    Horizon, and Expected Move (replacing Timeframe + Magnitude
-    #    when all_command.swing_v2_enabled is True; default true).
+    # 4. Embed has exactly 3 inline fields (Commit 16 dropped the trade-plan-
+    #    duplicating Buy Zone / SL / TP / Horizon / Next Catalyst / Expected
+    #    Move fields — they live in the narrative Trade Plan table).
     field_names = [f["name"] for f in embed["fields"]]
-    assert field_names == [
-        "Direction", "Confidence", "Price", "Buy Zone",
-        "SL", "TP1", "TP2", "TP3",
-        "Next Catalyst", "Horizon", "Expected Move",
-    ]
+    assert field_names == ["Direction", "Confidence", "Price"]
     assert all(f.get("inline") is True for f in embed["fields"])
 
     # 5. Embed description includes the narrative paragraph.
@@ -355,10 +351,10 @@ async def test_handle_all_low_anchor_count_suppresses_trade_plan(
     embed = captured_sends["embed"][0][2]
     # Direction NEUTRAL is in description.
     assert "NEUTRAL" in embed["description"]
-    # All four trade-plan fields -> em-dash.
-    fields_by_name = {f["name"]: f["value"] for f in embed["fields"]}
-    for key in ("SL", "TP1", "TP2", "TP3"):
-        assert fields_by_name[key] == "—", f"{key} should be — but is {fields_by_name[key]!r}"
+    # Commit 16: the embed carries only Direction/Confidence/Price — SL/TP
+    # suppression is no longer an embed field (the trade plan lives in the
+    # narrative table). The neutral colour still signals the suppressed plan.
+    assert [f["name"] for f in embed["fields"]] == ["Direction", "Confidence", "Price"]
     # Color is neutral when confidence=LOW.
     assert embed["color"] == COLOR_NEUTRAL
 
