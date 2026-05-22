@@ -127,7 +127,7 @@ def render_data_only_fallback(
     )
     score_str = str(final_score) if final_score is not None else "—"
     return (
-        "_(Narrative auto-redacted; structured signal below.)_\n"
+        "_(Narrative unavailable for this run — structured signal only.)_\n"
         f"**Direction:** {direction} · **Confidence:** {label} · "
         f"**Score:** {score_str}"
     )

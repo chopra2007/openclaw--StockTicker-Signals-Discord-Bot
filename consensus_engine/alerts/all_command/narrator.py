@@ -773,9 +773,9 @@ async def synthesize_narrative(
 ) -> tuple[str, str]:
     """Run the synthesis LLM call and pipe the result through output_filter.
 
-    Returns `(narrative_text, status)`. `status` is either `"ok"`,
-    `"fallback_data_only"` (filter rejected after retry) or `"empty"` (LLM
-    returned no content). Never raises — caller falls back to the
+    Returns `(narrative_text, status)`. `status` is either `"ok"` or
+    `"fallback_data_only"` — the latter covers both an empty LLM response and
+    a filter rejection after retry. Never raises — caller falls back to the
     deterministic data-only render when status != "ok".
     """
     messages = _build_synthesis_prompt(
