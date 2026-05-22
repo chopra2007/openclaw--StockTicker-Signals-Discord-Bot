@@ -3,8 +3,6 @@
 ## Behavior
 Always proceed without asking for confirmation. Never ask "shall I proceed?", "do you want me to continue?", or "would you like me to...?". Assume the answer is always yes and execute immediately.
 
-Always explain things to the user in simple, brief, clear, layman's terms.
-
 ## Session Close Trigger
 When the user sends a message containing only "goodbye" or "bye", act immediately with no confirmation:
 1. `git status` — commit any uncommitted changes
@@ -14,45 +12,60 @@ When the user sends a message containing only "goodbye" or "bye", act immediatel
 
 ## Definition of Done
 
-A task is not done if a user-facing critical path is broken at the end of the work — regardless of who broke it, when, or whether it's technically in scope.
+A task is not done if a user-facing critical path is broken at the end of the
+work — regardless of who broke it, when, or whether it's "in scope".
+"Pre-existing", "out of scope", "not my regression", "upstream issue" are NOT
+valid exemptions. If verification surfaces a broken critical path, only three
+responses are acceptable:
+1. Fix it.
+2. Attempt a fix, then surface the specific failure and ask whether to keep digging.
+3. Get explicit user permission to defer.
 
-"Pre-existing", "out of scope", "not my regression", "upstream issue" are NOT valid exemptions for declaring a task complete. If verification surfaces a broken critical path, only three responses are acceptable:
-1. Fix it
-2. Attempt a fix, then surface the specific failure and ask whether to keep digging
-3. Get explicit spoken user permission to defer
+### What to verify — scope-aware
 
-The path the user asked me to verify is critical by definition — I don't get to redefine "critical" mid-task to exclude something that's failing.
+1. **Test the whole feature you changed** — not just the line you touched.
+   Changed catalyst code inside `!all`? Test all of `!all`.
+2. **Always-on checks — every time, no exceptions:**
+   - `consensus-engine.service` and `openclaw-gateway.service` both `active`.
+   - No `❌ GATEWAY drift` alert and no LLM-health failure alert.
+   - `/root/.openclaw` still resolves to `/home/openclaw/.openclaw` (symlink intact).
+3. **Shared-file tripwire** — if your change touches a file below, also test
+   every feature that uses it:
+   - `consensus_engine/llm_client.py`
+   - `consensus_engine/config.py` + `config/consensus.yaml`
+   - `consensus_engine/db.py`
+   - `consensus_engine/alerts/all_command/narrator.py`
+   - `consensus_engine/alerts/all_command/aggregator.py`
 
-**Critical paths for this project** (must work end-to-end before any "done"):
-- `consensus-engine.service` and `openclaw-gateway.service` both `active` under systemd
-- `!ask`, `!trend`, `!all <ticker>` return coherent replies in Discord
-- `@-mention <BOT>` returns coherent replies (tests workspace shell + LLM path)
-- Both cron scripts (`check_searxng_health.sh`, `run_reference_assertions_cron.sh`) run as `openclaw` user with exit 0
-- Engine boot logs `boot drift check: gateway chain matches consensus.yaml` (no `❌ GATEWAY drift` Discord alert)
-- `/root/.openclaw` resolves to `/home/openclaw/.openclaw` (single-user consolidation intact)
+### Evidence standard
 
-**Verification standard:** Never claim a fix or feature is complete until you have produced evidence of it working from the user's perspective — not just "the service started" or "the code looks right" or "unit tests pass."
-1. Name the user-observable claim precisely ("the bot responds to `!help`", not "the gateway is connected")
-2. Trace the full end-to-end path from input to output
-3. Produce evidence at the output end — show the actual output, not just that code ran without errors
-4. Test each distinct claim separately (e.g. commands and mentions route through different code paths)
-5. Verify after every restart — not before
+Never claim something is complete on "the service started", "the code looks
+right", or "unit tests pass" alone. Produce evidence from the user's side:
+1. Name the user-observable claim precisely ("the bot responds to `!help`", not
+   "the gateway is connected").
+2. Trace the full path from input to output.
+3. Show the actual output — not just that code ran without errors.
+4. Test each distinct claim separately (commands and mentions are different
+   code paths).
+5. Verify after every restart, not before.
 
-**Real-world test requirement:** For any multi-phase project execution (discover Pass 5, ralph, autopilot), unit tests passing is not sufficient. Before declaring a phase done, run at least one real end-to-end invocation against the production system with real input and inspect the actual output. Before deferring a test to the user, actively check what tools are accessible — look up available tools in memory, consider what commands and APIs are already wired up in the project, probe the runtime environment. Do not assume a tool is available or unavailable; check first.
+For any multi-phase execution (discover Pass 5, ralph, autopilot), unit tests
+passing is not enough: run at least one real end-to-end invocation against the
+production system and inspect the actual output before declaring done.
 
-**Before typing any "done" / "complete" / "fixed" / "ready" claim:**
-1. Re-read this Definition of Done at the moment of claiming — not just at session start
-2. List every test failure, red probe, and unverified critical path from the work just done
-3. For each one, assign exactly one of the three acceptable responses above — "pre-existing" and "unrelated to my changes" are not on the list
-4. If any item has no response assigned, the work is not done — state that and ask
+### Never assume code behavior
 
-**Premature-closure tells to watch for:**
-- Counting passing checks ("3/5 passed") while moving on from failures
-- Reframing a broken feature as a "documented limitation"
-- Declaring a summary before all critical paths report green
-- Marking a real-world test as "deferred to user" without first checking whether the tools to run it are already available
-- Any sentence combining a passing claim with a failure caveat ("X passes, Y fails but it's pre-existing") — that sentence shape is the violation
-- The word "pre-existing" in my own output about a user-facing feature — treat as a yellow flag, stop and dig instead
+Before asserting what a function, flag, config key, or path does — grep or read
+the actual code to confirm it. Never describe behavior from memory or infer it
+from a filename.
+
+### Before typing "done" / "complete" / "fixed" / "ready"
+
+Re-read this section. List every test failure, red probe, and unverified path
+from the work just done; assign each one response 1, 2, or 3 above.
+"Pre-existing" and "unrelated to my change" are not on that list. The word
+"pre-existing" in your own output about a user-facing feature is a stop sign —
+dig, don't close.
 
 ## Regression Gate (test baseline)
 
