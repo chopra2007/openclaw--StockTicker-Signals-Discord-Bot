@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -95,6 +96,12 @@ def main() -> int:
     ap.add_argument("--check", action="store_true",
                     help="diff-only mode; exit 1 if openclaw.json is out of sync")
     args = ap.parse_args()
+
+    # Writing openclaw.json as root leaves it root-owned; the gateway runs as
+    # `openclaw` and would then fail to read it. --check is read-only and exempt.
+    if os.geteuid() == 0 and not args.check:
+        sys.exit("error: run as openclaw, not root: "
+                 "sudo -u openclaw python3 scripts/sync_gateway_models.py")
 
     primary, fallbacks = _read_chain()
     try:
