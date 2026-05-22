@@ -39,10 +39,28 @@ OP_INVALID_SESSION = 9
 OP_HELLO = 10
 OP_HEARTBEAT_ACK = 11
 
+# #8 — reconnect replay tuning.
+_DISCORD_EPOCH_MS = 1420070400000   # Discord snowflake epoch (2015-01-01)
+_REPLAY_PAGE_LIMIT = 100            # Discord REST /messages max per page
+_REPLAY_MAX_MESSAGES = 50           # most-recent N replayed per channel
+_REPLAY_STALENESS_SECONDS = 900.0   # skip messages older than 15 minutes
+
 
 def _normalize_handle(raw: str) -> str:
     """Strip @ prefix and lowercase for comparison."""
     return raw.lstrip("@").lower()
+
+
+def _snowflake_age_seconds(message_id: str, now: float) -> float:
+    """Age in seconds of a Discord snowflake id relative to `now` (epoch secs).
+
+    An unparseable id returns 0.0 (treated as fresh) — routing/claim decides.
+    """
+    try:
+        created_ms = (int(message_id) >> 22) + _DISCORD_EPOCH_MS
+    except (TypeError, ValueError):
+        return 0.0
+    return max(0.0, now - created_ms / 1000.0)
 
 
 def _parse_tweetshift_message(message: dict) -> Optional[dict]:
@@ -161,6 +179,7 @@ class DiscordTweetShiftListener:
         self._heartbeat_interval: float = 41.25
         self._ws: Optional[aiohttp.ClientWebSocketResponse] = None
         self._stop = False
+        self._replay_lock = asyncio.Lock()  # #8 — serialize reconnect replays
 
     def _load_config(self):
         self._token = cfg.get_api_key("discord_bot_token") or ""
@@ -227,6 +246,9 @@ class DiscordTweetShiftListener:
             self._tweet_count = 0  # Reset tweet counter on connect
             self._bot_user_id = str((data.get("user") or {}).get("id") or "")
             log.info("Discord Gateway READY (session=%s, bot_id=%s)", self._session_id, self._bot_user_id)
+            # #8: READY (not RESUMED) means a fresh session with no Discord-side
+            # event replay — re-drive commands/mentions missed during the gap.
+            asyncio.create_task(self._replay_missed(), name="discord-replay")
 
         elif event == "MESSAGE_CREATE":
             channel_id = str(data.get("channel_id", ""))
@@ -287,59 +309,160 @@ class DiscordTweetShiftListener:
                 except Exception as e:
                     log.error("Tweet callback error: %s", e, exc_info=True)
 
-            # Commands channel or briefing channel: route messages
+            # Commands / briefing channel: route messages. #8 — the filter +
+            # dispatch logic moved into _filtered_out / _route_message so the
+            # reconnect-replay path reuses exactly the same routing.
             elif channel_id in (self._commands_channel_id, self._briefing_channel_id) and channel_id:
-                author_obj = data.get("author") or {}
-                author_id = str(author_obj.get("id") or "")
-                is_self = bool(self._bot_user_id) and author_id == self._bot_user_id
-                # Self-bot replies carry message_reference (Discord auto-pings
-                # the replied-to user, which is the bot itself, causing a
-                # mention loop). Drop them. Self-bot fresh posts (no
-                # message_reference) are verification probes — let them through.
-                is_self_reply = is_self and bool((data.get("message_reference") or {}).get("message_id"))
-                # Filter other bots, webhooks, and the bot's own replies.
-                # Webhooks are dropped EXCEPT for ones explicitly whitelisted in
-                # api_keys.discord_allowed_webhook_ids — used for external test
-                # harnesses that need to trigger commands programmatically.
-                webhook_id = str(data.get("webhook_id") or "")
-                is_allowed_webhook = bool(webhook_id) and webhook_id in self._allowed_webhook_ids
-                if ((author_obj.get("bot") and not is_self and not is_allowed_webhook)
-                        or (webhook_id and not is_allowed_webhook)
-                        or is_self_reply):
+                if self._filtered_out(data):
                     return
-                if is_allowed_webhook:
-                    log.info(
-                        "Discord command via allowed webhook id=%s username=%s",
-                        webhook_id, author_obj.get("username", ""),
-                    )
+                await self._route_message(data)
 
-                from consensus_engine.alerts.commands import parse_command
-                parsed = parse_command(content)
-                if parsed and self._on_command and channel_id == self._commands_channel_id:
-                    cmd, args = parsed
-                    log.info("Discord command: !%s %s (user=%s)", cmd, args, author_id or "?")
-                    try:
-                        await self._on_command(cmd, args, channel_id, message_id, author_id)
-                    except TypeError:
-                        # Backward-compat for callbacks without author_id
-                        await self._on_command(cmd, args, channel_id, message_id)
-                    except Exception as e:
-                        log.error("Command callback error: %s", e, exc_info=True)
-                elif self._on_mention and self._bot_user_id:
-                    # Check if the bot is @-mentioned
-                    mentioned_ids = [str(u.get("id", "")) for u in data.get("mentions", [])]
-                    if self._bot_user_id in mentioned_ids:
-                        # Strip the bot mention from content for cleaner input
-                        clean = re.sub(r'<@!?' + re.escape(self._bot_user_id) + r'>', '', content).strip()
-                        log.info("Discord mention in channel=%s (user=%s): %.80s", channel_id, author_id, clean)
-                        log.info("mention_received", extra={
-                            "channel_id": channel_id,
-                            "user_id": author_id,
-                        })
-                        try:
-                            await self._on_mention(clean, channel_id, message_id, author_id)
-                        except Exception as e:
-                            log.error("Mention callback error: %s", e, exc_info=True)
+    def _filtered_out(self, data: dict) -> bool:
+        """True if a commands/briefing-channel message should be ignored —
+        other bots, non-whitelisted webhooks, or the bot's own replies."""
+        author_obj = data.get("author") or {}
+        author_id = str(author_obj.get("id") or "")
+        is_self = bool(self._bot_user_id) and author_id == self._bot_user_id
+        # Self-bot replies carry message_reference (Discord auto-pings the
+        # replied-to user — the bot itself — causing a mention loop). Drop
+        # them. Self-bot fresh posts (no reference) are verification probes.
+        is_self_reply = is_self and bool(
+            (data.get("message_reference") or {}).get("message_id")
+        )
+        # Webhooks are dropped EXCEPT ones whitelisted in
+        # api_keys.discord_allowed_webhook_ids (external test harnesses).
+        webhook_id = str(data.get("webhook_id") or "")
+        is_allowed_webhook = bool(webhook_id) and webhook_id in self._allowed_webhook_ids
+        if ((author_obj.get("bot") and not is_self and not is_allowed_webhook)
+                or (webhook_id and not is_allowed_webhook)
+                or is_self_reply):
+            return True
+        if is_allowed_webhook:
+            log.info(
+                "Discord command via allowed webhook id=%s username=%s",
+                webhook_id, author_obj.get("username", ""),
+            )
+        return False
+
+    async def _route_message(self, data: dict) -> None:
+        """Route one commands/briefing-channel message to the command or
+        mention handler. The caller must have applied the channel check and
+        _filtered_out first.
+
+        #8: an atomic db.claim_message gate runs before dispatch so a live
+        delivery and a reconnect replay never both handle the same message;
+        db.mark_message_done after dispatch keeps replay from re-driving it.
+        """
+        channel_id = str(data.get("channel_id", ""))
+        message_id = str(data.get("id", ""))
+        content = data.get("content", "")
+        author_id = str((data.get("author") or {}).get("id") or "")
+        if not message_id:
+            return
+        if not await db.claim_message(message_id, channel_id):
+            return  # already handled (live or a prior replay), or in flight
+
+        from consensus_engine.alerts.commands import parse_command
+        parsed = parse_command(content)
+        if parsed and self._on_command and channel_id == self._commands_channel_id:
+            cmd, args = parsed
+            log.info("Discord command: !%s %s (user=%s)", cmd, args, author_id or "?")
+            try:
+                await self._on_command(cmd, args, channel_id, message_id, author_id)
+            except TypeError:
+                # Backward-compat for callbacks without author_id
+                await self._on_command(cmd, args, channel_id, message_id)
+            except Exception as e:
+                log.error("Command callback error: %s", e, exc_info=True)
+        elif self._on_mention and self._bot_user_id:
+            mentioned_ids = [str(u.get("id", "")) for u in data.get("mentions", [])]
+            if self._bot_user_id in mentioned_ids:
+                clean = re.sub(r'<@!?' + re.escape(self._bot_user_id) + r'>',
+                               '', content).strip()
+                log.info("Discord mention in channel=%s (user=%s): %.80s",
+                         channel_id, author_id, clean)
+                log.info("mention_received", extra={
+                    "channel_id": channel_id, "user_id": author_id,
+                })
+                try:
+                    await self._on_mention(clean, channel_id, message_id, author_id)
+                except Exception as e:
+                    log.error("Mention callback error: %s", e, exc_info=True)
+        await db.mark_message_done(message_id)
+
+    async def _replay_missed(self) -> None:
+        """Replay commands/mentions missed during a gateway outage.
+
+        Fires on READY only. The lock serializes two quick READYs — the
+        second runs after the first and finds everything already claimed.
+        """
+        async with self._replay_lock:
+            for channel_id in (self._commands_channel_id, self._briefing_channel_id):
+                if not channel_id:
+                    continue
+                try:
+                    await self._replay_channel(channel_id)
+                except Exception as e:  # noqa: BLE001 — replay must not crash the listener
+                    log.error("Replay error for channel %s: %s", channel_id, e)
+
+    async def _replay_channel(self, channel_id: str) -> None:
+        """Replay missed messages for one channel since its watermark."""
+        after_id = await db.channel_watermark(channel_id)
+        messages = await self._fetch_messages_since(channel_id, after_id)
+        if messages is None:
+            return  # REST error already logged
+        if len(messages) >= _REPLAY_PAGE_LIMIT:
+            log.warning(
+                "Replay channel %s hit the %d-message page cap — an older "
+                "backlog was likely dropped", channel_id, _REPLAY_PAGE_LIMIT,
+            )
+        # REST returns newest-first; replay oldest-first, capped at most-recent N.
+        ordered = list(reversed(messages))[-_REPLAY_MAX_MESSAGES:]
+        now = time.time()
+        replayed = 0
+        for msg in ordered:
+            msg_id = str(msg.get("id", ""))
+            if not msg_id:
+                continue
+            if _snowflake_age_seconds(msg_id, now) > _REPLAY_STALENESS_SECONDS:
+                continue  # staleness cutoff — too old to be worth answering
+            if self._filtered_out(msg):
+                continue
+            await self._route_message(msg)
+            replayed += 1
+        if replayed:
+            log.info("Replay: routed %d missed message(s) for channel %s",
+                     replayed, channel_id)
+
+    async def _fetch_messages_since(
+        self, channel_id: str, after_id: Optional[str],
+    ) -> Optional[list]:
+        """REST-fetch up to 100 messages for a channel, newest-first.
+
+        With a watermark, fetches messages strictly after it; without one,
+        the most recent page. Returns None on a non-200 (replay for the
+        channel is then skipped). Modelled on discord_history._fetch_page.
+        """
+        url = f"{GATEWAY_REST}/channels/{channel_id}/messages"
+        params: dict[str, object] = {"limit": _REPLAY_PAGE_LIMIT}
+        if after_id:
+            params["after"] = after_id
+        headers = {"Authorization": f"Bot {self._token}"}
+        try:
+            session = await get_session()
+            async with session.get(
+                url, headers=headers, params=params,
+                timeout=aiohttp.ClientTimeout(total=15),
+            ) as resp:
+                if resp.status != 200:
+                    log.warning("Replay fetch channel=%s HTTP %d",
+                                channel_id, resp.status)
+                    return None
+                payload = await resp.json()
+            return payload if isinstance(payload, list) else []
+        except Exception as e:  # noqa: BLE001 — replay must degrade gracefully
+            log.warning("Replay fetch channel=%s error: %s", channel_id, e)
+            return None
 
     async def _connect_once(self):
         """Open one WebSocket session, run until disconnected."""

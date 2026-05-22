@@ -118,6 +118,13 @@ CREATE TABLE IF NOT EXISTS seen_tweets (
     parsed_at REAL NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS processed_messages (
+    message_id  TEXT PRIMARY KEY,
+    channel_id  TEXT NOT NULL,
+    status      TEXT NOT NULL,
+    updated_at  REAL NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS alert_messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticker TEXT NOT NULL,
@@ -1036,6 +1043,70 @@ async def mark_tweet_seen(tweet_url: str, analyst: str):
         (tweet_url, analyst, time.time()),
     )
     await conn.commit()
+
+
+# #8 — gateway reconnect replay. A 'claimed' row older than this is treated as
+# an orphan (a handler that crashed before mark_message_done) and re-driven.
+# Set above the longest handler runtime (@-mention subprocess <=270s).
+_CLAIM_STALE_SECONDS = 300.0
+
+
+async def claim_message(message_id: str, channel_id: str) -> bool:
+    """Atomically claim a Discord message for handling. Returns True iff the
+    caller now owns the dispatch.
+
+    A claim succeeds for a brand-new message, or for one whose prior 'claimed'
+    row is older than _CLAIM_STALE_SECONDS (an orphan). It fails for a message
+    already 'done', or one 'claimed' within the staleness window (a handler is
+    still running, or a concurrent caller just won the claim).
+    """
+    conn = await get_db()
+    now = time.time()
+    cursor = await conn.execute(
+        "INSERT OR IGNORE INTO processed_messages "
+        "(message_id, channel_id, status, updated_at) VALUES (?, ?, 'claimed', ?)",
+        (message_id, channel_id, now),
+    )
+    if (cursor.rowcount or 0) > 0:
+        await conn.commit()
+        return True
+    # A row already exists — re-drive only a stale 'claimed' orphan. The
+    # UPDATE's WHERE keeps this atomic: a 'done' row or a fresh 'claimed' row
+    # matches nothing, and exactly one caller flips a given orphan.
+    cursor = await conn.execute(
+        "UPDATE processed_messages SET updated_at = ? "
+        "WHERE message_id = ? AND status = 'claimed' AND updated_at < ?",
+        (now, message_id, now - _CLAIM_STALE_SECONDS),
+    )
+    await conn.commit()
+    return (cursor.rowcount or 0) > 0
+
+
+async def mark_message_done(message_id: str) -> None:
+    """Mark a claimed message as fully handled so replay never re-drives it."""
+    conn = await get_db()
+    await conn.execute(
+        "UPDATE processed_messages SET status = 'done', updated_at = ? "
+        "WHERE message_id = ?",
+        (time.time(), message_id),
+    )
+    await conn.commit()
+
+
+async def channel_watermark(channel_id: str) -> str | None:
+    """Return the newest processed message_id for a channel, or None.
+
+    Discord ids are snowflakes — monotonically increasing — so the
+    numerically-largest id is the most recent message on record.
+    """
+    conn = await get_db()
+    cursor = await conn.execute(
+        "SELECT message_id FROM processed_messages WHERE channel_id = ? "
+        "ORDER BY CAST(message_id AS INTEGER) DESC LIMIT 1",
+        (channel_id,),
+    )
+    row = await cursor.fetchone()
+    return row["message_id"] if row else None
 
 
 async def insert_alert_message(ticker: str, analyst: str, instant_msg_id: str,
