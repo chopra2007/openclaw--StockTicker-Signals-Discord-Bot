@@ -2,7 +2,8 @@
 
 Items here are suggestions/ideas to tackle in a future session.
 Each entry has enough context to generate a prompt/plan from scratch.
-Delete an entry when it's completed.
+When an entry is completed, mark its header `— DONE YYYY-MM-DD` rather than deleting it.
+Leave completed entries in place for a while so live tests can confirm there are no issues; remove them only once the work is proven stable.
 
 ---
 
