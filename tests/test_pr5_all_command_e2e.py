@@ -390,7 +390,7 @@ async def test_handle_all_empty_llm_falls_back_to_data_only(
 
     embed = captured_sends["embed"][0][2]
     # `render_data_only_fallback` produces this exact prefix.
-    assert "Narrative auto-redacted" in embed["description"]
+    assert "Narrative unavailable for this run" in embed["description"]
 
 
 # ---------------------------------------------------------------------------
