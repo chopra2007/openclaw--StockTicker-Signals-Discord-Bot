@@ -532,8 +532,102 @@ async def scan_google_trends_combined(tickers: list[str]) -> dict[str, float]:
 
 
 async def scan_google_trends_serpapi(tickers: list[str]) -> dict[str, float]:
-    """Run SerpAPI Google Trends. Called only by cron at 5:50am (jobs.json)."""
-    return await scan_google_trends(tickers)
+    """Run SerpAPI Google Trends. Called only by cron at 5:50am (jobs.json).
+    
+    Bypasses the precision_engine.serpapi_enabled config flag since this is
+    the explicit cron entry point for SerpAPI scans.
+    """
+    global _serpapi_key_index
+
+    if not cfg.get("social.google_trends_enabled", True):
+        return {}
+    if not tickers:
+        return {}
+
+    keys = _get_serpapi_keys()
+    if not keys:
+        log.debug("Google Trends (SerpAPI cron): no SerpAPI key configured, skipping")
+        return {}
+
+    # Filter to valid tickers with market cap
+    valid_tickers = []
+    for t in tickers[:10]:
+        if await _has_market_cap(t):
+            valid_tickers.append(t)
+    if not valid_tickers:
+        return {}
+
+    results = {}
+    session = await get_session()
+    for ticker in valid_tickers:
+        if not await rate_limiter.acquire("google_trends"):
+            break
+
+        # Inner loop: try each key starting from current active index.
+        # On rate-limit, advance _serpapi_key_index and retry same ticker.
+        for attempt in range(len(keys)):
+            key = keys[_serpapi_key_index]
+            try:
+                params = {
+                    "engine": "google_trends",
+                    "q": f"{ticker} stock",
+                    "date": "now 1-d",
+                    "geo": "US",
+                    "api_key": key,
+                }
+                async with session.get(
+                    "https://serpapi.com/search.json",
+                    params=params,
+                    timeout=aiohttp.ClientTimeout(total=15),
+                ) as resp:
+                    if resp.status in (429, 401):
+                        log.warning(
+                            "SerpAPI key %d/%d rate limited (HTTP %d) for %s, rotating",
+                            _serpapi_key_index + 1, len(keys), resp.status, ticker,
+                        )
+                        _serpapi_key_index = (_serpapi_key_index + 1) % len(keys)
+                        continue  # retry same ticker with next key
+                    if resp.status != 200:
+                        log.warning("SerpAPI error (%d) for %s", resp.status, ticker)
+                        rate_limiter.report_failure("google_trends")
+                        break  # non-rate-limit error, skip ticker
+                    data = await resp.json()
+
+                # SerpAPI also returns rate-limit errors in the JSON body
+                err = data.get("error", "")
+                if err and any(w in err.lower() for w in ("run out", "limit", "quota")):
+                    log.warning(
+                        "SerpAPI key %d/%d exhausted (%s) for %s, rotating",
+                        _serpapi_key_index + 1, len(keys), err, ticker,
+                    )
+                    _serpapi_key_index = (_serpapi_key_index + 1) % len(keys)
+                    continue  # retry same ticker with next key
+
+                # Extract interest over time
+                timeline = data.get("interest_over_time", {}).get("timeline_data", [])
+                if len(timeline) >= 2:
+                    recent = timeline[-1].get("values", [{}])[0].get("extracted_value", 0)
+                    earlier = timeline[0].get("values", [{}])[0].get("extracted_value", 0)
+                    if earlier > 0:
+                        delta = ((recent - earlier) / earlier) * 100
+                        results[ticker] = delta
+                    elif recent > 0:
+                        results[ticker] = 100.0
+
+                rate_limiter.report_success("google_trends")
+                break  # success
+            except Exception as e:
+                log.debug("Google Trends SerpAPI error for %s: %s", ticker, e)
+                rate_limiter.report_failure("google_trends")
+                break  # network/parse error, skip ticker
+        else:
+            log.error("All %d SerpAPI keys exhausted for %s — skipping ticker", len(keys), ticker)
+            rate_limiter.report_failure("google_trends")
+
+        await asyncio.sleep(1)
+
+    log.info("Google Trends (SerpAPI cron): %d/%d tickers with data", len(results), len(tickers))
+    return results
 
 
 # ---------------------------------------------------------------------------

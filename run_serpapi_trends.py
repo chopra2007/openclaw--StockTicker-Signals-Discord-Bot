@@ -9,6 +9,7 @@ async def main():
     from consensus_engine.scanners.social import scan_google_trends_serpapi, scan_apewisdom
     from consensus_engine.models import TickerSignal, SourceType, Sentiment
     from consensus_engine.main import _is_weekend_pause
+    from consensus_engine.utils.http import close_session
     if _is_weekend_pause():
         print("SerpAPI Google Trends: Skipped (weekend pause)")
         return
@@ -33,13 +34,14 @@ async def main():
                 source_detail=f"serpapi delta={delta:.1f}",
                 raw_text=f"Google Trends (SerpAPI): {delta:.1f}%",
                 sentiment=Sentiment.BULLISH if delta > 0 else Sentiment.NEUTRAL))
-        await db.commit()
+
         print("SerpAPI Google Trends Results:")
         for ticker, delta in sorted(trends.items(), key=lambda x: -abs(x[1]))[:10]:
             sign = "+" if delta >= 0 else ""
             print(f"  ${ticker}: {sign}{delta:.1f}%")
     finally:
         await db.close_db()
+        await close_session()
 
 if __name__ == "__main__":
     asyncio.run(main())
