@@ -141,7 +141,7 @@ which re-ingests on Google's backend every time (no Files API caching).
 ---
 
 
-## 4. `sync_gateway_models.py` strips file ownership when run as root
+## 4. `sync_gateway_models.py` strips file ownership when run as root — DONE 2026-05-22
 
 **Layperson:** A helper script that syncs the LLM model chain to the
 gateway config breaks the gateway if you run it with sudo. The file ends
@@ -179,7 +179,7 @@ skip the schema check when the file is unreadable.
 
 ---
 
-## 5. Redesign the CLAUDE.md DoD checklist to be scope-aware
+## 5. Redesign the CLAUDE.md DoD checklist to be scope-aware — DONE 2026-05-22
 
 **Layperson:** The "Critical paths for this project" list in CLAUDE.md
 (lines 17-23) was built up incident-by-incident — every time a prior
@@ -713,7 +713,7 @@ the version that ships 7b call out the new layout option.
 
 ---
 
-## 8. Replay mentions/commands missed during gateway reconnects
+## 8. Replay mentions/commands missed during gateway reconnects — DONE 2026-05-22
 
 **Layperson:** When the engine restarts (or its Discord WebSocket
 drops and reconnects with a fresh `IDENTIFY`), any `!` commands or
@@ -822,7 +822,7 @@ live `!ask` → "391", live `@-mention` → "pong", clean boot drift check.
 
 ---
 
-## 11. Brave Search API monthly cap maxed out
+## 11. Brave Search API monthly cap maxed out — DONE 2026-05-22
 
 **Layperson:** The Brave Search free tier got fully used up this
 month ($5/$5). Until the cap resets or you upgrade, the news cascade
@@ -862,7 +862,7 @@ Brave's billing cycle.
 
 ---
 
-## 12. OpenRouter free-tier chain reliability — all 6 models flaky
+## 12. OpenRouter free-tier chain reliability — all 6 models flaky — DONE 2026-05-22
 
 **Layperson:** The bot's primary text-generation chain (six free
 OpenRouter models tried in fallback order) is failing very often
@@ -916,7 +916,7 @@ already present).
 
 ---
 
-## 13. `narrator._batch_summarize` LLM sanitize step routinely fails
+## 13. `narrator._batch_summarize` LLM sanitize step routinely fails — DONE 2026-05-22
 
 **Layperson:** Before the bot sends evidence to the main LLM, it
 runs a *second* LLM call to "sanitize and summarize" each evidence
@@ -1016,7 +1016,7 @@ recurring as new features get gated on direction).
 
 ---
 
-## 15. Discord narrative `fallback_data_only` shipped to users in production
+## 15. Discord narrative `fallback_data_only` shipped to users in production — DONE 2026-05-22
 
 **Layperson:** When the LLM chain is exhausted (see #12), the bot
 renders a "Narrative auto-redacted; structured signal below." embed
@@ -1065,7 +1065,7 @@ features can't reach the user.
 
 ---
 
-## 16. 13 stale unit tests after the `!all` refactor + critical-sources change
+## 16. 13 stale unit tests after the `!all` refactor + critical-sources change — DONE 2026-05-22
 
 Surfaced 2026-05-20 during the #9 full-suite verification run. 13 tests fail on
 `master` — pre-existing and unrelated to #9 (confirmed: identical failures with
