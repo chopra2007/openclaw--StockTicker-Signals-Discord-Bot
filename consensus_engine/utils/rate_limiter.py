@@ -29,6 +29,7 @@ class RateLimiter:
             "sec_edgar": 0.2,     # SEC asks for max 10 req/s
             "gemini": 6.0,        # ≤10 RPM free tier — pace at 6s/request to avoid per-minute 429s
             "openrouter": 1.0,    # 60/min process-level cap (D17 / S6)
+            "groq": 2.0,          # Groq free tier ~30 req/min
         }
         self._failure_counts: dict[str, int] = defaultdict(int)
         self._blocked_until: dict[str, float] = defaultdict(float)

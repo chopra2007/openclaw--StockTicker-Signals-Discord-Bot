@@ -9,6 +9,7 @@ api_keys:
   brave_search: "$BRAVE_SEARCH_API_KEY_2"
   finnhub: "$FINNHUB_API_KEY"
   openrouter: "$OPENROUTER_API_KEY"
+  groq: "$GROQ_API_KEY"  # bridges get_api_key's name.upper()=GROQ -> GROQ_API_KEY
   discord_bot_token: "$DISCORD_BOT_TOKEN"
   discord_channel_id: "$DISCORD_CHANNEL_ID"
   discord_feed_channel_id: "$DISCORD_FEED_CHANNEL_ID"  # #twitter channel — TweetShift input
@@ -224,6 +225,17 @@ llm:
     - "nvidia/nemotron-3-nano-30b-a3b:free"
     - "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
     - "z-ai/glm-4.5-air:free"
+  # !all-command synthesis chain (#12). Scoped to the !all narrator's three
+  # LLM call sites only — keeps the briefing, signal scorer, research, and
+  # captions on the OpenRouter chains above. `groq/`-prefixed ids route to
+  # Groq (api.groq.com); every other id to OpenRouter. Groq's
+  # llama-3.3-70b-versatile caps at 32,768 completion tokens, clearing the
+  # narrator's hardcoded synthesis max_tokens=8000. If this key is absent
+  # the narrator falls back to the role-based chains above.
+  all_command_chain:
+    - "groq/llama-3.3-70b-versatile"
+    - "openai/gpt-oss-120b:free"
+    - "openai/gpt-oss-20b:free"
   # Agent-path chain — !ask / @-mention via `openclaw agent --local`.
   # SEPARATE from the !all chain above, deliberately: the `main` agent's
   # full ~6-8K-token system prompt overflows gpt-oss-120b's OpenRouter free

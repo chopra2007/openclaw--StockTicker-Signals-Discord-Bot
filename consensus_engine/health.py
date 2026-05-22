@@ -26,7 +26,6 @@ from consensus_engine.utils.http import get_session
 from consensus_engine.alerts.discord import _safe_send_kwargs
 
 _ET = ZoneInfo("America/New_York")
-_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 # Gateway agent config — read for drift detection against consensus.yaml.
 # scripts/sync_gateway_models.py is the only thing that should write here.
@@ -43,7 +42,8 @@ log = logging.getLogger("consensus_engine.health")
 
 
 def _enumerate_chain_models() -> list[tuple[str, str, str]]:
-    """Return [(role_label, position, model_id), ...] for both chains."""
+    """Return [(role_label, position, model_id), ...] for the LLM, TEXT, and
+    ALL (!all-command) chains."""
     out: list[tuple[str, str, str]] = []
     primary_llm = cfg.get("llm.model", "")
     if primary_llm:
@@ -57,6 +57,10 @@ def _enumerate_chain_models() -> list[tuple[str, str, str]]:
     for i, m in enumerate(cfg.get("llm.text_fallback_models", []) or [], 1):
         if m:
             out.append(("TEXT", f"fallback {i}", m))
+    for i, m in enumerate(cfg.get("llm.all_command_chain", []) or []):
+        if m:
+            position = "primary" if i == 0 else f"fallback {i}"
+            out.append(("ALL", position, m))
     return out
 
 
@@ -101,11 +105,22 @@ def _enumerate_gateway_chain_models() -> tuple[list[tuple[str, str, str]], str]:
 
 
 async def _probe_model(session: aiohttp.ClientSession,
-                       model: str,
-                       api_key: str) -> tuple[str, float, str]:
-    """Send a trivial completion request. Returns (status_label, dt_seconds, detail)."""
+                       model: str) -> tuple[str, float, str]:
+    """Send a trivial completion request, routed to the model's provider.
+
+    Returns (status_label, dt_seconds, detail). A `groq/`-prefixed id is
+    probed against Groq; every other id against OpenRouter. Reports
+    "KEY MISSING" without issuing a request when the provider key is absent.
+    """
+    from consensus_engine.llm_client import (
+        _api_key_for, _endpoint_for, _provider_for,
+    )
+    provider = _provider_for(model)
+    api_key = _api_key_for(provider)
+    if not api_key:
+        return "KEY MISSING", 0.0, f"{provider} API key not configured"
     payload = {
-        "model": model,
+        "model": model[len("groq/"):] if provider == "groq" else model,
         "messages": [
             {"role": "system", "content": "You are concise."},
             {"role": "user", "content": "What is 2+2?"},
@@ -120,7 +135,8 @@ async def _probe_model(session: aiohttp.ClientSession,
     t0 = time.time()
     try:
         async with session.post(
-            _API_URL, headers=headers, json=_safe_send_kwargs(payload),
+            _endpoint_for(provider), headers=headers,
+            json=_safe_send_kwargs(payload),
             timeout=aiohttp.ClientTimeout(total=30),
         ) as resp:
             dt = time.time() - t0
@@ -169,11 +185,12 @@ def _compute_drift(gateway_models: list[tuple[str, str, str]]) -> str:
 
 
 async def run_chain_check() -> tuple[bool, str]:
-    """Probe every model. Returns (any_failed, markdown_report)."""
-    api_key = cfg.get_api_key("openrouter")
-    if not api_key:
-        return True, "**LLM chain health:** OpenRouter API key missing — cannot probe."
+    """Probe every model. Returns (any_failed, markdown_report).
 
+    Each model is probed against its own provider with its own key, so a
+    missing OpenRouter key no longer blanks the whole report — affected
+    models report KEY MISSING individually.
+    """
     models = _enumerate_chain_models()
     gateway_models, gateway_error = _enumerate_gateway_chain_models()
     drift_detail = _compute_drift(gateway_models)
@@ -195,7 +212,7 @@ async def run_chain_check() -> tuple[bool, str]:
 
     session = await get_session()
     for role, position, model_id in all_models:
-        status, dt, detail = await _probe_model(session, model_id, api_key)
+        status, dt, detail = await _probe_model(session, model_id)
         mark = "✅" if status == "OK" else "❌"
         if status != "OK":
             any_failed = True

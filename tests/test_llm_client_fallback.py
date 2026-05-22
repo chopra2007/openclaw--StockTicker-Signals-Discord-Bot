@@ -115,16 +115,17 @@ async def test_all_models_fail_returns_empty(patch_config, monkeypatch):
     ]
 
 
-async def test_fatal_4xx_aborts_chain(patch_config, monkeypatch):
-    """A 400/401/403 means the request itself is broken; no point retrying."""
+async def test_non_429_4xx_falls_through(patch_config, monkeypatch):
+    """A non-429 4xx (e.g. 400) is no longer fatal: the payload may be bad
+    for one model but fine for another, so the chain continues."""
     session = _install_session(monkeypatch, [
         _FakeResp(400, body="bad request"),
-        _ok_resp("should-not-be-reached"),
+        _ok_resp("from-second"),
     ])
     out = await llm_client.call_with_fallback(
         "primary", [{"role": "user", "content": "x"}])
-    assert out == ""
-    assert session.calls == ["primary-llm:free"]
+    assert out == "from-second"
+    assert session.calls == ["primary-llm:free", "fallback-llm-1:free"]
 
 
 async def test_empty_content_falls_through(patch_config, monkeypatch):

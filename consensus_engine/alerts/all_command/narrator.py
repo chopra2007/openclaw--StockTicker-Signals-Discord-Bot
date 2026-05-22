@@ -85,6 +85,17 @@ def _parse_numbered_response(text: str, expected_count: int) -> list[str]:
     return [(s if s is not None else "") for s in out]
 
 
+def _all_command_chain() -> Optional[list[str]]:
+    """The !all-scoped LLM chain (#12), or None to fall back to role config.
+
+    Scopes Groq routing to the !all narrator's three call sites only. When
+    llm.all_command_chain is absent the helper returns None and
+    call_with_fallback falls back to its role-based chain — safe.
+    """
+    from consensus_engine import config as _cfg
+    return _cfg.get("llm.all_command_chain") or None
+
+
 async def _batch_summarize(items: list[str]) -> list[str]:
     """Run one batched-summarize LLM call. Returns same-length list."""
     if not items:
@@ -96,6 +107,7 @@ async def _batch_summarize(items: list[str]) -> list[str]:
             messages=messages,
             max_tokens=_BATCH_MAX_TOKENS,
             timeout=_BATCH_TIMEOUT,
+            chain=_all_command_chain(),
         )
     except Exception as e:
         log.warning("narrator: batch summarize raised %s; using truncated originals", e)
@@ -164,6 +176,7 @@ async def vault_excerpt(prior_narrative: str) -> str:
             ],
             max_tokens=_BATCH_MAX_TOKENS,
             timeout=_BATCH_TIMEOUT,
+            chain=_all_command_chain(),
         )
     except Exception as e:
         log.warning("narrator: vault_excerpt raised %s; using truncated text", e)
@@ -742,6 +755,7 @@ async def _invoke_synthesis(
             max_tokens=8000,
             temperature=0.35,
             timeout=timeout,
+            chain=_all_command_chain(),
         )
     except Exception as exc:  # noqa: BLE001 — narrator never raises
         log.warning("narrator.synthesize: call_with_fallback raised %s", exc)
