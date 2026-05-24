@@ -575,7 +575,7 @@ items above" — those are a menu, not a checklist.
 
 ---
 
-## 7. Discover skill modifications (3 changes)
+## 7. Discover skill modifications (3 changes) — DONE
 
 **Layperson:** Three quality-of-life upgrades to the `discover` skill
 (installed at `/root/.claude/plugins/cache/discover/discover/0.1.0/skills/discover/SKILL.md`,
@@ -609,17 +609,25 @@ trivial fixture shows the skill being invoked.
 hard prerequisite) and forces a 3-pane or 6-pane layout
 (`SKILL.md:65–107`). On systems without tmux — or when the user just
 wants the skill to dispatch parallel agents via Claude Code's native
-`Agent` / `Task` tools — the skill bails. Add a third layout option
-(call it `--layout native` or `--parallel native`) that uses the
-native parallel-agent dispatch from
+`Agent` / `Task` tools — the skill bails. Add a native layout option
+that uses the native parallel-agent dispatch from
 `superpowers:dispatching-parallel-agents` instead of tmux panes.
+
+**Agent count:** The current fixed 3-pane / 6-pane choice should be
+replaced with a free-form "how many parallel agents?" question. Show
+`(suggested: 2–6)` in parentheses — below 2 there's no parallelism
+benefit; above 6, coordination overhead and token costs outweigh the
+gains. This applies to both the native layout and the tmux layout.
 
 **Where:**
 - `discover.sh` (bundled with skill) — add a code path that skips the
-  `tmux new-session` setup when the native layout is selected.
+  `tmux new-session` setup when the native layout is selected; pass the
+  user-chosen agent count through to the pane/agent spawning logic.
 - `SKILL.md:24` and `SKILL.md:65–107` (layout selection question + the
-  tmux multi-agent layout section) — document the new option and stop
-  treating tmux as a hard prerequisite.
+  tmux multi-agent layout section) — replace the fixed 3/6 choice with
+  a free-form agent-count question (`how many parallel agents? (suggested: 2–6)`);
+  document the new native option and stop treating tmux as a hard
+  prerequisite.
 - `references/tmux-layout.md` — add a "Native (no tmux) layout" sibling
   doc or extend the existing one.
 - Pass 0 / Pass 1 dispatch steps that currently say "dispatch into
@@ -627,11 +635,12 @@ native parallel-agent dispatch from
   tool calls in a single message when native layout is active.
 
 **Acceptance:** Running `/discover` on a system without tmux installed
-no longer fails the prerequisite check; the layout question now
-offers 3-pane / 6-pane / native; selecting native completes Pass 0 +
+no longer fails the prerequisite check; the layout question now offers
+tmux / native; both paths ask "how many parallel agents? (suggested: 2–6)"
+instead of offering only 3 or 6; selecting native completes Pass 0 +
 Pass 1 by dispatching parallel `Agent` calls instead of tmux panes;
 final-plan.md is produced identically (same schema) regardless of
-which layout was picked.
+layout or agent count chosen.
 
 ### 7c. Kickoff prompt must be one short sentence
 
