@@ -227,24 +227,6 @@ async def _fetch_via_yt_transcript_api(
         return None
 
 
-# ---------------------------------------------------------------------------
-# Tier 4: Playwright stealth (existing browser path)
-# ---------------------------------------------------------------------------
-
-async def _fetch_via_playwright(
-    video_id: str, preferred_languages: list[str],
-) -> tuple[str, str, bool] | None:
-    """Fetch via Playwright stealth browser (existing path)."""
-    try:
-        from consensus_engine.scanners.youtube import fetch_transcript
-        text, lang, is_auto = await fetch_transcript(video_id, preferred_languages)
-        if text:
-            log.info("transcript: Playwright success for %s (%d chars)", video_id, len(text))
-            return text, lang, is_auto
-        return None
-    except Exception as e:
-        log.debug("transcript: Playwright error for %s: %s", video_id, e)
-        return None
 
 
 # ---------------------------------------------------------------------------
@@ -270,7 +252,6 @@ async def fetch_transcript_cascade(
         ("Supadata", lambda: _fetch_via_supadata(video_id, lang), 20),
         ("Invidious", lambda: _fetch_via_invidious(video_id, lang), 30),
         ("yt-transcript-api", lambda: _fetch_via_yt_transcript_api(video_id, lang), 20),
-        ("Playwright", lambda: _fetch_via_playwright(video_id, preferred_languages), 45),
     ]
 
     for name, factory, timeout in tiers:

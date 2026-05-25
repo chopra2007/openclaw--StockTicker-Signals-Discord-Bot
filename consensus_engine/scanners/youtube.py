@@ -21,7 +21,6 @@ import aiohttp
 from consensus_engine import config as cfg, db
 from consensus_engine.utils.http import get_session
 from consensus_engine.alerts.discord import _safe_send_kwargs
-from consensus_engine.utils.browser import create_stealth_browser, stealth_page, safe_goto
 from consensus_engine.utils.transcript_export import compute_hash, export_transcript_json
 
 log = logging.getLogger("consensus_engine.scanner.youtube")
@@ -92,90 +91,6 @@ async def fetch_channel_videos_rss(
 
 
 # ---------------------------------------------------------------------------
-# Transcript extraction via stealth browser
-# ---------------------------------------------------------------------------
-
-async def fetch_transcript(
-    video_id: str,
-    preferred_languages: list[str],
-    browser_context=None,
-) -> tuple[str, str, bool]:
-    """Fetch transcript for a video via Playwright stealth browser.
-
-    Opens a page (reusing browser_context if provided), extracts
-    ytInitialPlayerResponse, picks the best caption track, and fetches
-    the timed text XML via the browser's own fetch() — inheriting its
-    fingerprint and session so YouTube doesn't block it.
-
-    Returns (transcript_text, language_code, is_auto_generated).
-    """
-    url = f"https://www.youtube.com/watch?v={video_id}"
-
-    async def _extract(context) -> tuple[str, str, bool]:
-        page = await stealth_page(context)
-        try:
-            ok = await safe_goto(page, url, wait_until="domcontentloaded")
-            if not ok:
-                raise ValueError(f"Page load failed for {video_id}")
-
-            player_response = await page.evaluate(
-                "() => window.ytInitialPlayerResponse || null"
-            )
-            if not player_response:
-                raise ValueError(f"No ytInitialPlayerResponse for {video_id}")
-
-            captions = player_response.get("captions", {})
-            tracklist = captions.get("playerCaptionsTracklistRenderer", {})
-            tracks = tracklist.get("captionTracks", [])
-
-            if not tracks:
-                raise ValueError(f"No caption tracks for {video_id}")
-
-            # Pick preferred language, fall back to first available
-            track = None
-            for lang in preferred_languages:
-                for t in tracks:
-                    if t.get("languageCode", "").startswith(lang):
-                        track = t
-                        break
-                if track:
-                    break
-            if not track:
-                track = tracks[0]
-
-            base_url = track.get("baseUrl", "")
-            lang_code = track.get("languageCode", "unknown")
-            is_auto = track.get("kind", "") == "asr"
-
-            if not base_url:
-                raise ValueError(f"Empty caption baseUrl for {video_id}")
-
-            # Fetch timed text XML via browser fetch() — uses browser session
-            caption_xml = await page.evaluate(
-                """async (url) => {
-                    const resp = await fetch(url);
-                    if (!resp.ok) throw new Error('caption fetch ' + resp.status);
-                    return await resp.text();
-                }""",
-                base_url,
-            )
-
-            root = ET.fromstring(caption_xml)
-            parts = [
-                html_module.unescape(el.text or "")
-                for el in root.findall(".//text")
-            ]
-            text = " ".join(parts).strip()
-            return text, lang_code, is_auto
-        finally:
-            await page.close()
-
-    if browser_context is not None:
-        return await _extract(browser_context)
-
-    # No shared context — open a dedicated browser (fallback / standalone use)
-    async with create_stealth_browser() as (_, context):
-        return await _extract(context)
 
 
 # ---------------------------------------------------------------------------
@@ -686,7 +601,6 @@ async def process_video(
     semaphore: asyncio.Semaphore,
     preferred_languages: list[str],
     export_dir: str,
-    browser_context=None,
 ) -> None:
     """Dedup → two-stage (or Gemini legacy / transcript cascade) → persist. Never raises."""
     async with semaphore:
@@ -1092,13 +1006,11 @@ async def youtube_scan_once() -> None:
 
     log.info("youtube: %d new videos to process", len(unprocessed))
 
-    # Open ONE shared stealth browser for the whole batch
     semaphore = asyncio.Semaphore(concurrency)
-    async with create_stealth_browser() as (_, context):
-        await asyncio.gather(*[
-            process_video(v, semaphore, preferred_languages, export_dir, context)
-            for v in unprocessed
-        ])
+    await asyncio.gather(*[
+        process_video(v, semaphore, preferred_languages, export_dir)
+        for v in unprocessed
+    ])
 
 
 async def youtube_poll_loop(stop_event: asyncio.Event) -> None:

@@ -92,13 +92,11 @@ class TestFetchTranscriptCascade:
             patch(f"{base}._fetch_via_supadata") as self.mock_supadata,
             patch(f"{base}._fetch_via_invidious") as self.mock_invidious,
             patch(f"{base}._fetch_via_yt_transcript_api") as self.mock_ytapi,
-            patch(f"{base}._fetch_via_playwright") as self.mock_pw,
         ):
             # Default: all return None (fail)
             self.mock_supadata.return_value = None
             self.mock_invidious.return_value = None
             self.mock_ytapi.return_value = None
-            self.mock_pw.return_value = None
             yield
 
     async def test_supadata_wins(self):
@@ -120,14 +118,6 @@ class TestFetchTranscriptCascade:
         self.mock_ytapi.return_value = ("from ytapi", "en", True)
         text, _, _ = await fetch_transcript_cascade("abc123")
         assert text == "from ytapi"
-
-    async def test_falls_through_to_playwright(self):
-        self.mock_supadata.return_value = None
-        self.mock_invidious.return_value = None
-        self.mock_ytapi.return_value = None
-        self.mock_pw.return_value = ("from pw", "en", True)
-        text, _, _ = await fetch_transcript_cascade("abc123")
-        assert text == "from pw"
 
     async def test_all_fail_raises(self):
         with pytest.raises(ValueError, match="All transcript sources failed"):
