@@ -52,14 +52,11 @@ async def fetch_captions(video_id: str) -> str | None:
     if not cfg("youtube.captions.enabled", False):
         return None
 
-    # Tier 1a: youtube_transcript_api — free, but YouTube blocks most cloud-provider IPs
+    # Tier 1a: youtube_transcript_api — free, but YouTube blocks most cloud-provider IPs.
+    # Cookies not used: VPS IP is blacklisted by YouTube so cookies don't help.
     try:
         from youtube_transcript_api import YouTubeTranscriptApi
-        cookies_path = cfg("youtube.cookies_path", "/root/.openclaw/youtube_cookies.txt")
-        kwargs = {}
-        if cookies_path and os.path.exists(cookies_path):
-            kwargs["cookies"] = cookies_path
-        api = YouTubeTranscriptApi(**kwargs)
+        api = YouTubeTranscriptApi()
         fetched = api.fetch(video_id)
         text = " ".join(s.text for s in fetched)
         if text:
@@ -277,9 +274,7 @@ async def _download_audio(video_id: str, run_dir: str) -> str | None:
         "-o", out_template,
         "--no-playlist", "--quiet",
     ]
-    cookies_path = cfg("youtube.cookies_path", "/root/.openclaw/youtube_cookies.txt")
-    if cookies_path and os.path.exists(cookies_path):
-        cmd += ["--cookies", cookies_path]
+    # Cookies not used: VPS IP is blacklisted by YouTube so --cookies doesn't help.
     try:
         proc = await asyncio.create_subprocess_exec(
             *cmd,
