@@ -69,8 +69,8 @@ Live test on the Cheddar Flow video returned:
 The fixes I made are in `consensus_engine/analysis/gemini_video_parser.py`:
 - `_EVIDENCE_PROMPT` (lines 70–95) — placeholder syntax, visual_evidence section, scaled-to-actual-duration anchor, dedup + cap hints
 
-**Status:** edits are in the local file, NOT YET committed or pushed.
-**Action:** review the diff, commit, push.
+**Status:** ✅ DONE — committed in `e7ae531` and pushed to origin/master 2026-05-25.
+**Action:** none for Priority 1; remaining work is Priority 2 (production wire-up).
 
 ### Priority 2 — Wire `response_schema` into production
 The probe used `response_schema` to hard-cap the vision call. Production code (`_build_generation_config` in same file) does NOT pass `response_schema` — it only sets `media_resolution`.
