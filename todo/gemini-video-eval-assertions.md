@@ -1,6 +1,7 @@
 # Gemini video-eval reference assertions — 2/7 chronic failure
 
 **Status:** OPEN — chronic failure since 2026-04-23.
+**Created:** 2026-05-12
 
 **Layperson:** The daily cron `scripts/run_reference_assertions_cron.sh` is a regression test that asks Gemini to extract evidence-spans from a fixed YouTube video (`4mSyMr8PGLI`) and checks ~7 assertions. It's been stuck at **2/7 passing every day since 2026-04-23** because Gemini's video-ingest times out (was 120s timeout, bumped to 240s on 2026-05-12). Even with the bump, the chance of all-7-pass is low without a deeper fix.
 

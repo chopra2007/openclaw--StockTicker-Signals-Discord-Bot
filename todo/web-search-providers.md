@@ -1,6 +1,7 @@
 # OpenClaw web-search providers degraded — Exa out of credits, Brave plugin unstable
 
 **Status:** OPEN — decision pending between 3 options.
+**Created:** 2026-05-19
 
 **Layperson:** The `@-mention` bot path delegates to `openclaw agent --local --agent main`. That agent's `web_search` tool is currently broken at the provider level — Exa (the configured provider in `openclaw.json`) returns `402 NO_MORE_CREDITS`, and a swap to the official `@openclaw/brave-plugin` (installed via `openclaw plugins install clawhub:@openclaw/brave-plugin`) destabilized the whole agent path (even non-tool messages timed out, plus secret resolution failed: `unresolved SecretRef "env:default:BRAVE_SEARCH_API_KEY"`). Reverted to Exa so the gateway stays usable.
 

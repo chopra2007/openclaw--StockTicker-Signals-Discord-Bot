@@ -1,6 +1,7 @@
 # Cross-ref scorer's `breakdown.direction` is None on manual `!all`
 
 **Status:** OPEN.
+**Created:** 2026-05-19
 
 **Layperson:** When a user runs `!all <TICKER>` manually, the cross-reference scorer's `breakdown.direction` field is None because no alerting workflow ran. The aggregator falls back to the literal string `"neutral"` and passes it downstream as the direction signal. This broke catalyst mining in production all session (Commit 15 fixed catalysts; other features may still be silently affected).
 

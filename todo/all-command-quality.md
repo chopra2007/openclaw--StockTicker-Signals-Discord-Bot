@@ -1,6 +1,7 @@
 # Optimize `!all` output quality + feature surface (open-ended initiative)
 
 **Status:** OPEN — initial acceptance bar MET 2026-05-19 (one shipped quality improvement); umbrella stays open as a menu for future sessions.
+**Created:** 2026-05-16
 
 > ### ✅ DONE 2026-05-19 — discover run `gemini-quality-all-command` (19 commits, 74292a6→1272317)
 >

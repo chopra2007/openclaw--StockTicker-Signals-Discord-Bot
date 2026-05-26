@@ -1,6 +1,7 @@
 # yt-grounding Path B hard-delete (date-gated 2026-05-28)
 
 **Status:** OPEN — date-gated, earliest action 2026-05-28.
+**Created:** 2026-05-09
 
 **Layperson:** The old YouTube-parsing code is dormant but still on disk as a safety net. After 30 days with no problems reported, rip it out.
 

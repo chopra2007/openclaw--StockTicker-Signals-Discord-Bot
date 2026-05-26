@@ -1,5 +1,8 @@
 # YouTube Vision Upgrade — Status
 
+**Status:** OPEN — prompt fixes shipped 2026-05-25; production wire-up still pending.
+**Created:** 2026-05-25
+
 **Goal:** give the LLM more useful data from each YouTube video so it can understand the analyst's actual evidence (chart levels, scanner numbers, gamma exposures) — not just what was said out loud.
 
 **Test video used throughout:** `https://youtu.be/F74qsOrb6t4` — "This is BIG" by Cheddar Flow, ~10 minutes long.

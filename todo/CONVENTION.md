@@ -8,7 +8,12 @@ The user maintains a two-layer TODO system:
 
 When the user says "add X to the to do list" (or any equivalent — "put that on the list", "add this to the todo", "save that as a todo"):
 
-1. **Write a detail file** at `todo/<descriptive-name>.md` containing all pertinent context:
+1. **Write a detail file** at `todo/<descriptive-name>.md` containing all pertinent context. The top of the file must include two short metadata lines right under the H1 title:
+   ```
+   **Status:** OPEN
+   **Created:** YYYY-MM-DD   (today's date)
+   ```
+   Then the body, covering:
    - What worked (so far)
    - What didn't work and why
    - Possible next steps, priority-ordered
@@ -48,6 +53,10 @@ The phrasing the user uses determines the filter:
 **Open items only** — when the user asks for what's *remaining* or *outstanding*. Triggers include: "what's left on the to do list?", "what's remaining?", "what's open?", "what's pending?", "what still needs doing?", "what's outstanding?". Command:
 ```
 grep -nE '^## ' TODO.md | grep -v '— DONE'
+```
+For each open item, also surface its `**Created:** YYYY-MM-DD` from the detail file so the user sees how long it has been outstanding. Quick lookup:
+```
+grep -h '^\*\*Created:\*\*' todo/<filename>.md
 ```
 
 **Everything (open + completed)** — when the user asks for the full list. Triggers include: "what's on the to do list?", "the whole todo list", "the entire todo list", "show me all todos", "everything on the list". Command:

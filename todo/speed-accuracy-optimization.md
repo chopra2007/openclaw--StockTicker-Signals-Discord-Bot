@@ -1,6 +1,7 @@
 # Speed-accuracy optimization plan — partially unimplemented
 
 **Status:** OPEN — 5 of 13 items complete, 8 remaining.
+**Created:** 2026-05-10
 
 **Layperson:** The speed-accuracy optimization plan (`plans/speed-accuracy-optimization.md`, dated 2026-03-30) was marked complete in a prior session but was not. A prior Claude session created the infrastructure in one commit (87f4478, 2026-03-31) and stopped, without verifying the acceptance criteria.
 
