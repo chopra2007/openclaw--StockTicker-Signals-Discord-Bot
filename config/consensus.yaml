@@ -255,10 +255,14 @@ llm:
     - "free"
   vision_model: "google/gemma-4-31b-it:free"
   min_confidence: 70
-  # Primary-tier output cap. gpt-oss-120b honors max_tokens cleanly; free models
-  # in the chain support 65k-131k output, so 4096 is a soft per-call ceiling.
-  # Specific callers that need more (synthesize_narrative = 8000) hardcode it.
-  max_tokens: 4096
+  # Primary-tier output cap. Set to 8000 (was 4096) to match narrator's
+  # hardcoded synthesis ceiling and give other callers headroom. Floor is
+  # gpt-oss-20b:free at 8,192 max output tokens — 192-token margin.
+  # If you add a model to the chain with a lower cap, drop this back to fit.
+  # Earlier history: 32000 (c6b7328) broke calls on free models that capped
+  # at 4-8k (OpenRouter returned empty content), 4e85ff0 dropped to 4096.
+  # Current chain's smallest is 8192, so 8000 is safe.
+  max_tokens: 8000
 
 
 # Ticker validation
