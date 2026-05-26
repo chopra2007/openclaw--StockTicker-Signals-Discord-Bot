@@ -86,28 +86,41 @@ def _vtt_to_text(vtt: str) -> str:
 # ---------------------------------------------------------------------------
 
 async def _fetch_via_supadata(video_id: str, lang: str = "en") -> tuple[str, str, bool] | None:
-    """Fetch transcript via Supadata free API (100 credits/month)."""
-    api_key = os.environ.get("SUPADATA_API_KEY", "")
-    if not api_key:
-        log.debug("transcript: Supadata API key not configured, skipping")
+    """Fetch transcript via Supadata API. Tries SUPADATA_API_KEY2 first (newer
+    key, allocated when KEY1 ran out), falls back to SUPADATA_API_KEY."""
+    keys = [
+        (name, os.environ.get(name, ""))
+        for name in ("SUPADATA_API_KEY2", "SUPADATA_API_KEY")
+    ]
+    keys = [(name, k) for name, k in keys if k]
+    if not keys:
+        log.debug("transcript: no Supadata API key in env, skipping")
         return None
 
     url = f"https://api.supadata.ai/v1/youtube/transcript?videoId={video_id}&lang={lang}"
-    try:
-        session = await get_session()
-        async with session.get(
-            url,
-            headers={"x-api-key": api_key},
-            timeout=aiohttp.ClientTimeout(total=15),
-        ) as resp:
-            if resp.status != 200:
-                log.debug("transcript: Supadata returned HTTP %d for %s", resp.status, video_id)
-                return None
-            data = await resp.json()
+    session = await get_session()
+
+    for name, api_key in keys:
+        try:
+            async with session.get(
+                url,
+                headers={"x-api-key": api_key},
+                timeout=aiohttp.ClientTimeout(total=15),
+            ) as resp:
+                if resp.status == 429:
+                    log.info("transcript: Supadata %s rate/plan-limited for %s, trying next key", name, video_id)
+                    continue
+                if resp.status != 200:
+                    log.debug("transcript: Supadata %s HTTP %d for %s", name, resp.status, video_id)
+                    return None
+                data = await resp.json()
+        except Exception as e:
+            log.debug("transcript: Supadata %s error for %s: %s", name, video_id, e)
+            continue
 
         content = data.get("content")
         if not content:
-            log.debug("transcript: Supadata returned empty content for %s", video_id)
+            log.debug("transcript: Supadata %s empty content for %s", name, video_id)
             return None
 
         # content is a list of segments with text/offset/duration
@@ -120,12 +133,10 @@ async def _fetch_via_supadata(video_id: str, lang: str = "en") -> tuple[str, str
             return None
 
         detected_lang = data.get("lang", lang)
-        log.info("transcript: Supadata success for %s (%d chars)", video_id, len(text))
+        log.info("transcript: Supadata success via %s for %s (%d chars)", name, video_id, len(text))
         return text, detected_lang, True  # Supadata doesn't distinguish auto vs manual
 
-    except Exception as e:
-        log.debug("transcript: Supadata error for %s: %s", video_id, e)
-        return None
+    return None
 
 
 # ---------------------------------------------------------------------------
