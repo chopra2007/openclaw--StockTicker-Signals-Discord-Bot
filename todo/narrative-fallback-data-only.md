@@ -1,6 +1,7 @@
 # Discord narrative `fallback_data_only` shipped to users in production
 
 **Status:** DONE 2026-05-22.
+**Created:** 2026-05-22
 
 **Layperson:** When the LLM chain is exhausted (see openrouter-chain-reliability.md), the bot renders a "Narrative auto-redacted; structured signal below." embed with just the trade plan — no thesis, no catalysts, no risk section. Users see this from Discord. Recently observed:
 

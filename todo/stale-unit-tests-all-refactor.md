@@ -1,6 +1,7 @@
 # 13 stale unit tests after the `!all` refactor + critical-sources change
 
 **Status:** DONE 2026-05-22.
+**Created:** 2026-05-22
 
 Surfaced 2026-05-20 during the agent-model-roulette full-suite verification run. 13 tests fail on `master` — pre-existing and unrelated to that work (confirmed: identical failures with the diff stashed). All are stale assertions, not real bugs — `!all` posts a coherent embed and degraded mode runs; the tests check old structure:
 

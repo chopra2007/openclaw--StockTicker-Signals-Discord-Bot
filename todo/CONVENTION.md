@@ -53,28 +53,30 @@ When an item is removed (post-soak), its number is retired forever. The next new
 
 ## Listing the backlog
 
-Render the backlog as a three-column table: `#`, `Task`, `Status`. The phrasing the user uses determines which rows to include.
+Render the backlog as a four-column **Markdown pipe table**: `#`, `Task`, `Created`, `Status`. Use real pipe-table syntax (`| ... |`) so the chat UI renders it as an actual table — NOT a fenced code block. The phrasing the user uses determines which rows to include.
 
 **Open items only** — when the user asks for what's *remaining* or *outstanding*. Triggers include: "what's left on the to do list?", "what's remaining?", "what's open?", "what's pending?", "what still needs doing?", "what's outstanding?". Include only rows whose header has no `— DONE` marker.
 
 **Everything (open + completed)** — when the user asks for the full list. Triggers include: "what's on the to do list?", "the whole todo list", "the entire todo list", "show me all todos", "everything on the list", a bare `/todo` with no args. Include every row.
 
-Single command to gather all rows:
+Two-source render:
+1. `grep -nE '^## ' TODO.md` → number, title, DONE marker.
+2. `grep -h '^\*\*Created:\*\*' todo/<filename>.md` → Created date for each row. Detail filename comes from the `**File:**` line in TODO.md.
+
+Use `Active` for open items, `Complete` for items whose header ends `— DONE YYYY-MM-DD`. Strip the `— DONE YYYY-MM-DD` suffix from the displayed Task. Show Created on every row (active and complete). If a detail file is missing the `**Created:**` line, BACKFILL it (insert the line right after `**Status:**` in the detail file, using the DONE date as the proxy if the item is complete, otherwise the date the detail file was first added to git) — don't render `—`.
+
+Output format (verbatim — keep the header + separator row exactly so the renderer recognises it as a table):
+
 ```
-grep -nE '^## ' TODO.md
+| #  | Task                              | Created    | Status   |
+|----|-----------------------------------|------------|----------|
+| 1  | Plain-English summary of the task | 2026-05-09 | Active   |
+| 4  | Another task                      | 2026-05-22 | Complete |
 ```
 
-Then format as a code-block table. Use `Active` for open items, `Complete` for items whose header ends `— DONE YYYY-MM-DD`. Strip the `— DONE YYYY-MM-DD` suffix from the displayed Task so the title alone reads as the goal. Two-space gap between columns, left-aligned.
+The Task column is the `## N. <title>` from TODO.md verbatim (minus any `— DONE …` suffix). Don't use angle-bracket placeholders like `<TICKER>` in titles — they may be parsed as HTML by the table renderer; write `the !all command` or use square brackets.
 
-```
- #   Task                                                  Status
- 1   Plain-English summary of the task                     Active
- 4   Another task                                          Complete
-```
-
-The Task column is the `## N. <title>` from TODO.md verbatim (minus any `— DONE …` suffix). If titles in TODO.md are not yet plain English, render them as-is — they should be cleaned up at write time via the title rule above, not at read time.
-
-NEVER load detail files for a list view.
+Don't read full detail-file bodies for a list view — just grep for the `**Created:**` line.
 
 ## Resume / Pause — working on a single task across turns
 

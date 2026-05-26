@@ -1,6 +1,7 @@
 # OpenRouter free-tier chain reliability — all 6 models flaky
 
 **Status:** DONE 2026-05-22.
+**Created:** 2026-05-22
 
 **Layperson:** The bot's primary text-generation chain (six free OpenRouter models tried in fallback order) is failing very often during real-world tests. Many `!all` captures during the 2026-05-19 session returned `fallback_data_only` (just the structured fields, no narrative) because every model in the chain timed out or returned empty.
 

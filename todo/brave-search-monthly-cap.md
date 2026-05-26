@@ -1,6 +1,7 @@
 # Brave Search API monthly cap maxed out
 
 **Status:** DONE 2026-05-22.
+**Created:** 2026-05-22
 
 **Layperson:** The Brave Search free tier got fully used up this month ($5/$5). Until the cap resets or you upgrade, the news cascade loses its Brave tier (still has Finnhub / Google RSS / SearXNG, so it degrades rather than breaks).
 

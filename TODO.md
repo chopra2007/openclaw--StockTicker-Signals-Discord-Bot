@@ -36,7 +36,7 @@ Stop the gateway-model sync script from breaking the gateway when run as root by
 
 Rewrite the done-checklist so each item is tagged by code surface and only the relevant tags run for a given change, instead of forcing every session to verify every check every time.
 
-## 6. Improve what !all <TICKER> shows
+## 6. Improve what the !all command shows
 
 **File:** `all-command-quality.md`
 

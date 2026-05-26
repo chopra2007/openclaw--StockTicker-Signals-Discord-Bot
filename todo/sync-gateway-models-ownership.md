@@ -1,6 +1,7 @@
 # sync_gateway_models.py strips file ownership when run as root
 
 **Status:** DONE 2026-05-22.
+**Created:** 2026-05-22
 
 **Layperson:** A helper script that syncs the LLM model chain to the gateway config breaks the gateway if you run it with sudo. The file ends up owned by root instead of openclaw, and the gateway (which runs as openclaw) can't read it and crashes with a misleading "missing gateway.mode" error.
 

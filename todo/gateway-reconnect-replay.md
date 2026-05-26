@@ -1,6 +1,7 @@
 # Replay mentions/commands missed during gateway reconnects
 
 **Status:** DONE 2026-05-22.
+**Created:** 2026-05-22
 
 **Layperson:** When the engine restarts (or its Discord WebSocket drops and reconnects with a fresh `IDENTIFY`), any `!` commands or `@<bot>` mentions that arrived in the disconnect window are silently lost — Discord gateway is push-only and does not replay missed events for a new session. The user sees their message in the channel, but the bot never reacts.
 

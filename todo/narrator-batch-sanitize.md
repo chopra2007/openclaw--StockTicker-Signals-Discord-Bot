@@ -1,6 +1,7 @@
 # narrator._batch_summarize LLM sanitize step routinely fails
 
 **Status:** DONE 2026-05-22.
+**Created:** 2026-05-22
 
 **Layperson:** Before the bot sends evidence to the main LLM, it runs a *second* LLM call to "sanitize and summarize" each evidence block (news, sec, twitter, social, etc.). That second LLM call fails most of the time because it uses the same free-tier chain that's wobbly (see `openrouter-chain-reliability.md`). When it fails, the bot used to silently chop every evidence entry to **50 characters** — destroying all substance. Commit 14 raised the fallback truncation to 500 chars, but the whole sanitize step is questionable design.
 

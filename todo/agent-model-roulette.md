@@ -1,6 +1,7 @@
 # Restore 5-model roulette for `!ask` and `@-mention` paths
 
 **Status:** DONE 2026-05-20.
+**Created:** 2026-05-20
 
 Resolved. The premise was wrong: openclaw.json's `openrouter/auto` `params.models` array is **dead config** — openclaw drops a bare `params.models` key (verified in the openclaw 2026.5.18 bundle: not sent to OpenRouter, not iterated client-side). The "gateway 5-model roulette" the earlier writeup assumed never existed; `!ask`/`@-mention` ran on a 2-deep `agents.defaults.model` = `glm-4.5-air → openrouter/auto`.
 
