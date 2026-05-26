@@ -213,18 +213,21 @@ llm:
   #   - inclusionai/ling-2.6-flash — paid tier.
   #   - openrouter/owl-alpha / openrouter/free — meta-routers, not models.
   #   - minimax/minimax-m2.5:free — 84s pause + ignores max_tokens.
-  model: "openai/gpt-oss-120b:free"
+  # 2026-05-26 split: morning-brief / research / !all-fallback path
+  # (role="primary") on paid deepseek-v4-flash; tweetshift scoring path
+  # (role="text", set by llm_scorer.py) on the openrouter/free meta-router.
+  # Revert plan + previous chain: .omc/notes/model-swap-2026-05-26-revert.md
+  model: "deepseek/deepseek-v4-flash"
   fallback_models:
-    - "openai/gpt-oss-20b:free"
-    - "nvidia/nemotron-3-nano-30b-a3b:free"
-    - "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
-    - "z-ai/glm-4.5-air:free"
-  text_model: "openai/gpt-oss-120b:free"
+    - "openrouter/free"
+  text_model: "openrouter/free"
   text_fallback_models:
-    - "openai/gpt-oss-20b:free"
-    - "nvidia/nemotron-3-nano-30b-a3b:free"
-    - "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
-    - "z-ai/glm-4.5-air:free"
+    # openrouter/free is a meta-router; 2026-05-26 probe showed ~20% of calls
+    # land on free reasoning models that drop the answer into .reasoning and
+    # leave .content empty (llm_client.py treats empty .content as failure
+    # and walks the chain). Pin gpt-oss-120b:free as the safety net — same
+    # known-good model that was primary before this swap.
+    - "openai/gpt-oss-120b:free"
   # !all-command synthesis chain (#12). Scoped to the !all narrator's three
   # LLM call sites only — keeps the briefing, signal scorer, research, and
   # captions on the OpenRouter chains above. `groq/`-prefixed ids route to
@@ -243,10 +246,12 @@ llm:
   # it). Every entry was probed end-to-end against the real agent 2026-05-19.
   # scripts/sync_gateway_models.py mirrors this into openclaw.json
   # agents.defaults.model.{primary,fallbacks}; health.py alerts on drift.
-  agent_model: "poolside/laguna-m.1:free"
+  # 2026-05-26: !ask + @-mention on paid deepseek-v4-flash with openrouter/free
+  # (the OR free meta-router) as the single fallback. sync_gateway_models.py
+  # prefixes each entry with `openrouter/` when mirroring into openclaw.json.
+  # Revert plan: .omc/notes/model-swap-2026-05-26-revert.md
+  agent_model: "deepseek/deepseek-v4-flash"
   agent_fallback_models:
-    - "z-ai/glm-4.5-air:free"
-    - "nvidia/nemotron-3-nano-30b-a3b:free"
     - "free"
   vision_model: "google/gemma-4-31b-it:free"
   min_confidence: 70

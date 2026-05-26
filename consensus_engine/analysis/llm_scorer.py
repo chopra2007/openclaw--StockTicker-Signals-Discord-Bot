@@ -118,8 +118,10 @@ async def score_confidence(ticker: str,
     max_tokens = cfg.get("llm.max_tokens", 1024)
     user_prompt = _build_user_prompt(ticker, twitter, social, catalyst, technical, sec_summary)
 
+    # role="text" routes through llm.text_model (tweetshift volume path) so it
+    # can be configured independently from llm.model (morning brief / research).
     content = await call_with_fallback(
-        role="primary",
+        role="text",
         messages=[
             {"role": "system", "content": _SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},
