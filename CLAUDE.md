@@ -1,5 +1,12 @@
 # CLAUDE.md
 
+## Communication Style
+
+The user is not a coder. This applies to all user-facing text, every session, every project, and overrides any other instruction on how to explain things:
+- Plain, everyday language only — no jargon. If a technical term is unavoidable, explain it in plain words right there.
+- Clear, concise, to the point. Short sentences. No long wind-up, no filler.
+- Use concrete, real examples instead of abstract description.
+
 ## Behavior
 Always proceed without asking for confirmation. Never ask "shall I proceed?", "do you want me to continue?", or "would you like me to...?". Assume the answer is always yes and execute immediately.
 
