@@ -57,7 +57,8 @@ DISCORD_CHANNEL_INFO.md
 *.png
 apify.png
 memory/
-.claude/
+.claude/*
+!.claude/commands/
 .clawhub/
 .openclaw/
 
