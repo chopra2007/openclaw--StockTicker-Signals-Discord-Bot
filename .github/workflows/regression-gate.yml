@@ -72,8 +72,8 @@ jobs:
             echo "fixed_count=0" >> $GITHUB_OUTPUT
           fi
 
-      - name: Notify Discord (pass)
-        if: steps.gate.outputs.status == 'PASSED'
+      - name: Notify Discord (pass, only when tests newly fixed)
+        if: steps.gate.outputs.status == 'PASSED' && steps.gate.outputs.fixed_count != '0'
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
@@ -81,13 +81,9 @@ jobs:
           COMMIT_SHORT="${COMMIT_SHORT:0:7}"
           COMMIT_MSG=$(git log -1 --pretty=%s)
           FIXED_COUNT="${{ steps.gate.outputs.fixed_count }}"
-          FIXED_LINE=""
-          if [ "$FIXED_COUNT" -gt 0 ]; then
-            FIXED_LINE=" | $FIXED_COUNT test(s) newly fixed — run \`make test-baseline\`"
-          fi
           curl -s -X POST "$DISCORD_WEBHOOK" \
             -H "Content-Type: application/json" \
-            -d "{\"content\": \"✅ **Regression gate passed** — \`$COMMIT_SHORT\` $COMMIT_MSG\n${{ steps.suite.outputs.summary }}$FIXED_LINE\", \"username\": \"CI\"}"
+            -d "{\"content\": \"✅ **Regression gate passed** — \`$COMMIT_SHORT\` $COMMIT_MSG | $FIXED_COUNT test(s) newly fixed — run \`make test-baseline\`\", \"username\": \"CI\"}"
 
       - name: Notify Discord (fail)
         if: steps.gate.outputs.status == 'FAILED'

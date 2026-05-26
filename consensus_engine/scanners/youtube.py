@@ -13,10 +13,13 @@ Why Playwright instead of youtube-transcript-api:
 import asyncio
 import html as html_module
 import logging
+import re
 import time
 import xml.etree.ElementTree as ET
 
 import aiohttp
+
+_YT_ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
 
 from consensus_engine import config as cfg, db
 from consensus_engine.utils.http import get_session
@@ -149,6 +152,11 @@ def _suppress_off_allowlist(items, allowlist: set[str], reason: str) -> int:
 async def _maybe_alert_chain_failure(video_id: str) -> None:
     """Send one Discord #chat alert per video per 24h when all ingest methods fail."""
     import time as _time
+    # Guard: real YouTube IDs are 11 chars (letters/digits/_/-). Anything else
+    # is a test fixture or malformed input — skip silently so tests can never
+    # leak alerts to production #chat.
+    if not _YT_ID_RE.match(video_id or ""):
+        return
     try:
         row = await db.get_youtube_video(video_id)
         if row is None:
