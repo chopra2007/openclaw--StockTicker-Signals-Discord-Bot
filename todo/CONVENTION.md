@@ -31,12 +31,17 @@ No confirmation needed — execute both steps immediately on trigger.
 ## TODO.md entry format
 
 ```
-## N. <short title>
+## N. <plain-English title — a few words, goal-readable>
 
 **File:** `<descriptive-name>.md`
 
 <one sentence describing the TASK/GOAL — see rule above>
 ```
+
+**Title rule:** the `## N. ...` header is what shows in the `/todo` table view. It must be plain English, a few words, so the user can understand the goal without opening the file or knowing extra context. Avoid file names, code symbols, abbreviations, and project jargon. The longer summary sentence below `**File:**` is where detail and jargon belong.
+
+- ✅ Good: `## 14. Fix missing direction on manual !all alerts`
+- ❌ Bad: `## 14. Cross-ref scorer's breakdown.direction is None on manual !all`
 
 ## Completion marker
 
@@ -48,23 +53,28 @@ When an item is removed (post-soak), its number is retired forever. The next new
 
 ## Listing the backlog
 
-The phrasing the user uses determines the filter:
+Render the backlog as a three-column table: `#`, `Task`, `Status`. The phrasing the user uses determines which rows to include.
 
-**Open items only** — when the user asks for what's *remaining* or *outstanding*. Triggers include: "what's left on the to do list?", "what's remaining?", "what's open?", "what's pending?", "what still needs doing?", "what's outstanding?". Command:
-```
-grep -nE '^## ' TODO.md | grep -v '— DONE'
-```
-For each open item, also surface its `**Created:** YYYY-MM-DD` from the detail file so the user sees how long it has been outstanding. Quick lookup:
-```
-grep -h '^\*\*Created:\*\*' todo/<filename>.md
-```
+**Open items only** — when the user asks for what's *remaining* or *outstanding*. Triggers include: "what's left on the to do list?", "what's remaining?", "what's open?", "what's pending?", "what still needs doing?", "what's outstanding?". Include only rows whose header has no `— DONE` marker.
 
-**Everything (open + completed)** — when the user asks for the full list. Triggers include: "what's on the to do list?", "the whole todo list", "the entire todo list", "show me all todos", "everything on the list". Command:
+**Everything (open + completed)** — when the user asks for the full list. Triggers include: "what's on the to do list?", "the whole todo list", "the entire todo list", "show me all todos", "everything on the list", a bare `/todo` with no args. Include every row.
+
+Single command to gather all rows:
 ```
 grep -nE '^## ' TODO.md
 ```
 
-Summarise the matching headers in plain English. The index is short by design (each item is 4 lines: title + file + summary + blank), so reading the whole index is cheap — but headers alone are usually all the user wants. NEVER load detail files unless the user drills into a specific item.
+Then format as a code-block table. Use `Active` for open items, `Complete` for items whose header ends `— DONE YYYY-MM-DD`. Strip the `— DONE YYYY-MM-DD` suffix from the displayed Task so the title alone reads as the goal. Two-space gap between columns, left-aligned.
+
+```
+ #   Task                                                  Status
+ 1   Plain-English summary of the task                     Active
+ 4   Another task                                          Complete
+```
+
+The Task column is the `## N. <title>` from TODO.md verbatim (minus any `— DONE …` suffix). If titles in TODO.md are not yet plain English, render them as-is — they should be cleaned up at write time via the title rule above, not at read time.
+
+NEVER load detail files for a list view.
 
 ## Resume / Pause — working on a single task across turns
 
