@@ -43,7 +43,19 @@ When an item is removed (post-soak), its number is retired forever. The next new
 
 ## Listing the backlog
 
-When the user asks "what's on the to do list?", run `grep -nE '^## ' TODO.md` and summarise the headers. The index is short by design (each item is 4 lines: title + file + summary + blank), so reading the whole index is cheap — but the headers alone are usually all the user wants. NEVER load detail files unless the user drills into a specific item.
+The phrasing the user uses determines the filter:
+
+**Open items only** — when the user asks for what's *remaining* or *outstanding*. Triggers include: "what's left on the to do list?", "what's remaining?", "what's open?", "what's pending?", "what still needs doing?", "what's outstanding?". Command:
+```
+grep -nE '^## ' TODO.md | grep -v '— DONE'
+```
+
+**Everything (open + completed)** — when the user asks for the full list. Triggers include: "what's on the to do list?", "the whole todo list", "the entire todo list", "show me all todos", "everything on the list". Command:
+```
+grep -nE '^## ' TODO.md
+```
+
+Summarise the matching headers in plain English. The index is short by design (each item is 4 lines: title + file + summary + blank), so reading the whole index is cheap — but headers alone are usually all the user wants. NEVER load detail files unless the user drills into a specific item.
 
 ## Why this two-layer system exists
 
