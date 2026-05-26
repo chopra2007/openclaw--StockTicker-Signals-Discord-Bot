@@ -42,10 +42,13 @@ _TA_ABBREVIATIONS = {
 
 _SYSTEM_PROMPT = (
     "You extract stock tickers from finance video transcripts. "
-    "You output JSON only — no markdown, no commentary."
+    "Return ONLY raw JSON — no markdown fences, no ```json, no commentary, no explanation. "
+    "The first character of your response must be '{' and the last must be '}'."
 )
 
-_USER_PROMPT_TEMPLATE = """Extract every stock ticker mentioned in this transcript — by company name OR by symbol. Output JSON ONLY (no markdown, no commentary):
+_USER_PROMPT_TEMPLATE = """Extract every stock ticker mentioned in this transcript — by company name OR by symbol.
+
+Return ONLY valid JSON. Do NOT wrap it in ```json fences. Do NOT add any text before or after. Start your response with {{ and end with }}:
 
 {{
   "spans": [
@@ -87,19 +90,32 @@ def _strip_json_fence(text: str) -> str:
     return s.strip()
 
 
-def _parse_json_safely(raw: str) -> dict[str, Any] | None:
+def _parse_json_safely(raw: str) -> tuple[dict[str, Any] | None, bool]:
+    """Parse JSON from LLM response.
+
+    Returns ``(data, clean)`` where ``clean=True`` means the response parsed
+    without needing fallback recovery (no markdown fences, no regex extraction).
+    ``clean=False`` means either parse failed outright (data is None) or the
+    response needed fence-stripping / regex recovery to extract valid JSON.
+    """
     if not raw:
-        return None
+        return None, False
+    stripped = _strip_json_fence(raw)
+    # Clean parse: fence-stripping was a no-op (or fences were all it needed)
+    # We consider it clean only when the stripped form equals the trimmed raw
+    # (i.e. the model returned bare JSON without fences).
+    is_clean = stripped == raw.strip()
     try:
-        return json.loads(_strip_json_fence(raw))
+        return json.loads(stripped), is_clean
     except json.JSONDecodeError:
+        # Fallback: try to extract the first {...} block from the raw response.
         match = re.search(r"\{.*\}", raw, re.DOTALL)
         if match:
             try:
-                return json.loads(match.group(0))
+                return json.loads(match.group(0)), False
             except json.JSONDecodeError:
-                return None
-        return None
+                return None, False
+        return None, False
 
 
 def _normalize_spans(raw_spans: list[Any]) -> list[EvidenceSpan]:
@@ -187,13 +203,19 @@ async def extract_evidence_from_captions(
         log.warning("captions_llm: chain exhausted for %s (%dms)", video_id, elapsed_ms)
         return None
 
-    parsed = _parse_json_safely(content)
+    parsed, json_clean = _parse_json_safely(content)
     if not parsed or not isinstance(parsed, dict):
         log.warning(
             "captions_llm: invalid JSON for %s (%dms): %.200s",
             video_id, elapsed_ms, content,
         )
         return None
+
+    if not json_clean:
+        log.debug(
+            "captions_llm: LLM returned non-bare JSON (fence/recovery) for %s — parse succeeded but json_parse_ok=False",
+            video_id,
+        )
 
     raw_spans = parsed.get("spans") or []
     if not isinstance(raw_spans, list):
@@ -218,9 +240,10 @@ async def extract_evidence_from_captions(
     )
 
     telemetry.span_count = len(spans)
+    telemetry.json_parse_ok = json_clean
     unique_tickers = {t for sp in spans for t in sp.tickers}
     log.info(
-        "captions_llm: %s → %d spans, %d unique tickers, %dms",
-        video_id, len(spans), len(unique_tickers), elapsed_ms,
+        "captions_llm: %s → %d spans, %d unique tickers, %dms, json_clean=%s",
+        video_id, len(spans), len(unique_tickers), elapsed_ms, json_clean,
     )
     return bundle

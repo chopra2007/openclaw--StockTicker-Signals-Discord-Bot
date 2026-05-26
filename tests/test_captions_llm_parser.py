@@ -179,3 +179,42 @@ async def test_passes_chain_into_call_with_fallback():
 
     assert captured_kwargs["role"] is None  # not using role lookup
     assert isinstance(captured_kwargs.get("chain"), list) and len(captured_kwargs["chain"]) >= 1
+
+
+@pytest.mark.asyncio
+async def test_clean_json_sets_json_parse_ok_true():
+    """When LLM returns bare JSON (no fences), json_parse_ok must be True."""
+    with patch.object(clp, "call_with_fallback", new_callable=AsyncMock, return_value=_VALID_LLM_JSON):
+        tel = RunTelemetry()
+        bundle = await clp.extract_evidence_from_captions(
+            "vid12345678", "some transcript", "", tel,
+        )
+    assert bundle is not None
+    assert tel.json_parse_ok is True
+
+
+@pytest.mark.asyncio
+async def test_fenced_json_sets_json_parse_ok_false():
+    """When LLM wraps JSON in ```json fences, json_parse_ok must be False (recovered, not clean)."""
+    fenced = "```json\n" + _VALID_LLM_JSON + "\n```"
+    with patch.object(clp, "call_with_fallback", new_callable=AsyncMock, return_value=fenced):
+        tel = RunTelemetry()
+        bundle = await clp.extract_evidence_from_captions(
+            "vid12345678", "some transcript", "", tel,
+        )
+    assert bundle is not None
+    assert len(bundle.spans) == 3
+    assert tel.json_parse_ok is False
+
+
+@pytest.mark.asyncio
+async def test_regex_recovered_json_sets_json_parse_ok_false():
+    """When JSON is embedded in prose and recovered via regex, json_parse_ok must be False."""
+    wrapped = "Sure! Here is your answer: " + _VALID_LLM_JSON + " Hope that helps!"
+    with patch.object(clp, "call_with_fallback", new_callable=AsyncMock, return_value=wrapped):
+        tel = RunTelemetry()
+        bundle = await clp.extract_evidence_from_captions(
+            "vid12345678", "some transcript", "", tel,
+        )
+    assert bundle is not None
+    assert tel.json_parse_ok is False
