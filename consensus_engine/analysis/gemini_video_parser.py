@@ -69,15 +69,17 @@ Extraction rules:
 
 _EVIDENCE_PROMPT = """You are a transcription assistant for a financial YouTube video. You do NOT classify. You do NOT label support/resistance. You do NOT give direction or conviction. Your job is only to extract verbatim timestamped evidence.
 
-Watch the full video and respond ONLY with this exact JSON (no markdown fences, no commentary):
+Watch the full video and respond ONLY with this exact JSON shape (no markdown fences, no commentary). The angle-bracket tokens below are placeholders — replace them with values extracted from the actual video; never echo the placeholder text or any example value:
 {
-  "duration_sec": 2340,
+  "duration_sec": <integer total video duration in seconds>,
+  "visual_evidence": [
+    {"ts_sec": <integer second offset when this is visible on screen>, "value": "<the literal text, price, or ticker visible on the chart, overlay, or scanner UI>", "kind": "<price|ticker|label|date|other>", "where": "<short description of where on screen — e.g. 'chart axis label', 'flow tool row', 'overlaid annotation', 'video title card'>"}
+  ],
   "segments": [
-    {"ts_start_sec": 2022, "title": "Number One Draft Pick: MSFT"}
+    {"ts_start_sec": <integer second offset where this segment begins>, "title": "<short title of this segment as spoken or shown on screen>"}
   ],
   "spans": [
-    {"ts_sec": 2024, "quote": "exact verbatim sentence as spoken", "tickers": ["MSFT"], "numbers": [], "dates_mentioned": []},
-    {"ts_sec": 2172, "quote": "Bullish bias into April 29th earnings with an entry target at 400.15", "tickers": ["MSFT"], "numbers": [400.15], "dates_mentioned": ["April 29"]}
+    {"ts_sec": <integer second offset>, "quote": "<verbatim sentence as spoken in the audio>", "tickers": [<zero or more uppercase symbols actually mentioned>], "numbers": [<zero or more numeric values present in the quote>], "dates_mentioned": [<zero or more date strings exactly as spoken>]}
   ]
 }
 
@@ -91,7 +93,16 @@ Extraction rules:
 - `numbers` = raw numeric values that appear in the quote (e.g., 400.15, 18). Empty array if none.
 - `dates_mentioned` = raw date strings exactly as spoken ("April 29", "next Wednesday", "Friday"). Do NOT resolve to ISO dates.
 - Do NOT emit direction, conviction, support/resistance labels, setup_type, or any macro summary. Those come from post-processing.
-- Target 30–80 spans for a 40-minute video. If no qualifying spans, return an empty `spans` array."""
+- Scale span count to the ACTUAL `duration_sec` you observed — roughly 1–2 spans per minute of real video. Never invent timestamps beyond `duration_sec`. If no qualifying spans, return an empty `spans` array.
+
+VISUAL EVIDENCE — the whole reason this is a video task instead of a transcript task:
+- `visual_evidence` is for things you can SEE on the chart, overlays, scanner UI, or on-screen text that are NOT spoken in the audio within ±10 seconds of `ts_sec`.
+- Include: price levels marked on a chart but not said aloud (e.g. an axis tick at "$742.83" while the speaker only says "this level"); ticker symbols visible on a flow scanner table but not named in the audio; option strikes, expirations, premium amounts in screenshots; dates on a calendar; labels overlaid on the chart ("inverse H&S", "gamma wall").
+- Exclude anything the speaker also says aloud at the same moment — that is already captured in `spans`.
+- If you see a chart with prices labeled and the speaker only refers to "this level" or "here", that is the most valuable case to record.
+- DEDUP: each distinct `value` MUST appear at most ONCE in the array. If the same label (e.g. "739.88") is visible on screen across many frames, emit a single entry with `ts_sec` set to the first moment it appears. Do NOT repeat the same value at different timestamps.
+- CAP: return at most 50 entries total. Prioritise the most informative visual-only items (precise chart-axis numbers, scanner UI values, overlay labels) over generic UI text.
+- Return an empty array only if the video shows no visible numbers, tickers, or labels that the audio doesn't also state."""
 
 
 # ─── Multi-key rotation (free-tier quota overflow) ─────────────────────────

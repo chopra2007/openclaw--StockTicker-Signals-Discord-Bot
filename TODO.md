@@ -1093,3 +1093,9 @@ coherent embed and degraded mode runs; the tests check old structure:
 - `test_pr5_all_command_e2e.py` ×2 — embed field list changed (`SL`/`TP1` gone)
 
 Update each assertion to the current structure.
+
+## 17. YouTube vision-extraction upgrade — prompt fixes + production wire-up pending
+
+**File:** `~/.openclaw/workspace/todo/youtube_vision_upgrade.md`
+
+Fixed the YouTube video-watcher so it stops making up fake stocks/dates and now actually pulls the precise numbers shown on the chart (like gamma lines and option-flow tables) that the speaker glosses over — the prompt fixes are written but not committed, and a 10-line production wire-up is still needed before live videos benefit.
