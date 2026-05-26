@@ -11,7 +11,7 @@ The user is not a coder. This applies to all user-facing text, every session, ev
 Always proceed without asking for confirmation. Never ask "shall I proceed?", "do you want me to continue?", or "would you like me to...?". Assume the answer is always yes and execute immediately.
 
 ## TODO list
-When the user says "add X to the to do list" (or "put that on the list", "add this to the todo", "save that as a todo"), OR asks "what's on the to do list?", OR references a TODO item by number (e.g. "look at #14"): read `todo/CONVENTION.md` and follow its instructions.
+When the user says "add X to the to do list" (or "put that on the list", "add this to the todo", "save that as a todo"), OR asks "what's on the to do list?", OR references a TODO item by number (e.g. "look at #14"), OR says "resume #N" / "/todo-resume N" / "work on #N" / "pick up #N", OR says "pause" / "/todo-pause" / "save progress": read `todo/CONVENTION.md` and follow its instructions.
 
 ## Session Close Trigger
 When the user sends a message containing only "goodbye" or "bye", act immediately with no confirmation:

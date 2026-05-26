@@ -26,6 +26,9 @@ __pycache__/
 # Backups
 backup*/
 
+# TODO active-task marker (session state, not committed)
+todo/.active
+
 # Node / Skills (OpenClaw bot infrastructure, not part of consensus engine)
 skills/
 node_modules/

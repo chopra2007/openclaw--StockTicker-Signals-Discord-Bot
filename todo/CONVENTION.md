@@ -66,6 +66,46 @@ grep -nE '^## ' TODO.md
 
 Summarise the matching headers in plain English. The index is short by design (each item is 4 lines: title + file + summary + blank), so reading the whole index is cheap — but headers alone are usually all the user wants. NEVER load detail files unless the user drills into a specific item.
 
+## Resume / Pause — working on a single task across turns
+
+Two commands let the user formally "open" a task for focused work and "save" what was learned back into its detail file. This keeps detail files current automatically instead of relying on manual updates.
+
+### Active-task marker
+
+A one-line file at `todo/.active` holds the currently-focused detail filename (e.g. `youtube_vision_upgrade.md`). Gitignored — session state, not committed knowledge. Present means a task is "resumed"; absent means none.
+
+### Resume — `/todo-resume N` (or "resume #N", "work on #N", "pick up #N")
+
+1. Find the detail filename: `grep -A2 "^## N\." TODO.md | grep -oP '`\K[^`]+\.md'`.
+2. Read `todo/<filename>`.
+3. Write `<filename>` (single line, no trailing newline) to `todo/.active`.
+4. Print to the user, in plain English:
+   - Title + status + Created date
+   - The one-sentence goal
+   - The highest-priority "next step" still open
+   Do NOT dump the whole file. Keep the resume printout under ~15 lines.
+
+### Pause — `/todo-pause` (or "pause", "save progress")
+
+1. Read `todo/.active`. If missing/empty: tell the user "no active task" and stop.
+2. Append a dated session-notes block to the bottom of `todo/<filename>`. Format:
+   ```
+   ### Session notes — YYYY-MM-DD
+   - **Worked on:** <one line>
+   - **Decisions:** <one line, or "none">
+   - **Next:** <one line of the most important next step>
+   ```
+   Use today's actual date. Pull content from the current session: what got done, what got decided, what's the obvious next thing.
+3. **Append-only — never edit existing prose in the detail file.** The session-notes blocks stack at the bottom in chronological order.
+4. Clear `todo/.active` (delete the file or write empty).
+5. Print a one-line confirmation: "Paused #N — session notes appended."
+
+### Edge cases
+
+- User says "pause" with no active task → tell them, do nothing.
+- User says "resume #N" while another task is already active → pause the old one first (run the pause flow), then resume the new one. Tell the user both things happened in one line.
+- User says "resume" with no number → if `todo/.active` exists, treat as a no-op + reprint the resume summary. If not, ask which task.
+
 ## Why this two-layer system exists
 
 The user wants rich, recoverable context captured in the moment without bloating the index, then a short scannable list later to pick what to work on next. Don't paste full file contents into TODO.md — that defeats the index pattern.
