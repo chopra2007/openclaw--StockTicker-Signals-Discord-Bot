@@ -7,6 +7,74 @@ The user is not a coder. This applies to all user-facing text, every session, ev
 - Clear, concise, to the point. Short sentences. No long wind-up, no filler.
 - Use concrete, real examples instead of abstract description.
 
+## Communication Discipline
+
+The Communication Style rules above keep getting eroded in practice. This section is the operational enforcement: a pre-send checklist, a verification ladder, a jargon-translation reference, and a cross-session test at `comm-check.md` (workspace root) for grading drift.
+
+### Pre-send check — before any explanation or factual claim
+
+1. **Translate jargon.** Any technical term I didn't translate? Translate it. See the table below.
+2. **Cold-read test.** Could a non-coder read this without context and understand? If not, rewrite.
+3. **No filler.** No "let me break this down," "there are several factors," "let me explain," "in summary." Every sentence must move the explanation forward. If not, cut.
+4. **Concrete example.** Did I use a real example or a specific name, path, or number? If not, add one.
+5. **Completeness check.** Did I stop at the first plausible cause? Force one more pass — "what else?" — and either name everything I actually know or flag the gap out loud.
+
+### Verification ladder — before claiming a fact about code, config, files, or paths
+
+1. **Already loaded?** Is the direct evidence already in this conversation's context (system reminders, earlier tool output, prior file reads)? Quote it. No new tool call needed.
+2. **Smallest probe first.**
+   - `grep -n "thing" path` for a symbol or phrase.
+   - Targeted `Read` (offset + limit) of the 20–50 lines around the match.
+   - Full `Read` only when the file is small (< 200 lines) or the question is genuinely structural.
+3. **Parallel for breadth.** Multiple files → parallel greps or the Explore agent, not sequential full Reads.
+
+Never describe behavior from memory or pattern-match alone. Pattern-matching is not knowledge — verify, or say "I don't know."
+
+### Jargon → plain English (grows over time; add verified terms only)
+
+| Project term | Say this instead |
+|---|---|
+| evidence span | the quoted sentence from a transcript |
+| signal row | a saved record that a source mentioned a ticker |
+| parser | the program that reads input and pulls out structured pieces |
+| aggregator | the controller for the `!all` command — gathers data from every source in parallel and hands it to the narrator for write-up |
+| narrator | the part that turns the gathered data into the readable summary text, using AI calls |
+| backfill | filling in missing data on old records |
+| schema | the shape of records in a database table |
+| endpoint | the address where a service answers requests |
+| service | a long-running background program managed by the system |
+| gateway | depends on context. (a) **Discord Gateway** — the live connection that lets the bot receive messages from Discord. (b) **openclaw-gateway** — the local background service that runs alongside the consensus engine (port 18789). |
+| hook | a script the system runs automatically at certain moments (e.g. before a git push) |
+| cron / cron job | a scheduled task |
+| poll cycle | one round where the engine (or a scanner) checks all its configured sources once |
+| regression | a thing that used to work and now doesn't |
+| baseline | the snapshot of which tests were already failing before this work |
+| rate limit / 429 | a cap on how often you can call an API; 429 = "too many requests" |
+| OHLCV | daily price data: open, high, low, close, volume |
+| Form 4 | SEC filing showing insider trading |
+| 8-K | SEC filing for major company events |
+| LLM | the AI model that writes alert text |
+| captions / transcript | the text version of a video's audio |
+| commit | a saved change to the codebase |
+| PR / pull request | a proposal to merge code |
+
+Translation is the rule, not the exception. Add new terms when they come up — but only after verifying their meaning from the actual code, not from a filename.
+
+### Cross-session test (`comm-check.md`) — self-invoking, no user invocation needed
+
+The test file at `comm-check.md` (workspace root) is the grading rubric. The user does not invoke it. I open it automatically on these triggers:
+
+1. **User pushback on an explanation.** When the user corrects me on jargon, laziness, hedging, wrong assumptions, or wasteful verification — anywhere in the conversation, not just in a formal "test" — I:
+   - Read `comm-check.md` and find the section that maps to the failure (Section 1 = jargon, Section 2 = lazy/incomplete, Section 3 = verify/probe).
+   - Save a feedback memory entry naming the specific gap (template in the file's "When Claude fails a check" section).
+   - Apply the relevant checks strictly to my next answer and the rest of the session.
+
+2. **Session start with prior failures present.** `MEMORY.md` auto-loads at session start. If it lists any `comm-check-fail-*` entries from prior sessions, I read `comm-check.md` before the first explanation of the session so the failure patterns are fresh.
+
+3. **Session close.** If any comm-check failures were saved this session, list them in the close summary (see Session Close Trigger above).
+
+What pushback looks like (so I don't miss it): "you used jargon," "you assumed," "you didn't check," "that's wrong," "you keep doing X," "again you," "you're being lazy," any correction or contradiction, any pointing-out of a specific failure mode. The trigger is the user's natural pushback, not a special command.
+
 ## Behavior
 Always proceed without asking for confirmation. Never ask "shall I proceed?", "do you want me to continue?", or "would you like me to...?". Assume the answer is always yes and execute immediately.
 
@@ -18,7 +86,8 @@ When the user sends a message containing only "goodbye" or "bye", act immediatel
 1. `git status` — commit any uncommitted changes
 2. `git log origin/master..HEAD` — push any unpushed commits
 3. Verify memory index (MEMORY.md) is up to date
-4. Report what was done (or "nothing to push, all clean")
+4. If any `comm-check-fail-*` entries were saved this session, list them
+5. Report what was done (or "nothing to push, all clean")
 
 ## Definition of Done
 
