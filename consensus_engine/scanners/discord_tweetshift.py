@@ -22,6 +22,7 @@ import aiohttp
 from consensus_engine import config as cfg
 from consensus_engine import db
 from consensus_engine.utils.http import get_session
+from consensus_engine.utils.obs_log import obs_log
 
 log = logging.getLogger("consensus_engine.scanner.discord_tweetshift")
 
@@ -290,6 +291,7 @@ class DiscordTweetShiftListener:
                 cap = self._pre_ready_buffer.maxlen or 100
                 if len(self._pre_ready_buffer) >= cap:
                     self._pre_ready_drops += 1
+                    obs_log({"ts": time.time(), "event": "pre_ready_drop", "total_drops": self._pre_ready_drops, "cap": cap})
                     log.warning(
                         "Pre-READY buffer full (cap=%d) — dropping message id=%s reason=pre_ready_buffer_full",
                         cap, data.get("id", "?"),

@@ -234,7 +234,8 @@ async def test_get_youtube_context_uses_canonical_evidence():
     from consensus_engine.cross_reference import _get_youtube_context
 
     signals = [
-        {"direction": "long", "conviction": "high", "channel_name": "Chan1"},
+        {"direction": "long", "conviction": "high", "channel_name": "Chan1",
+         "evidence_spans_for_ticker": 1},
     ]
     # canonical evidence: one setup + one raw level
     evidence = [
@@ -267,3 +268,73 @@ async def test_get_youtube_context_uses_canonical_evidence():
     prices = {lv["price"] for lv in ctx.levels}
     assert 240.0 in prices  # from setup entry_low
     assert 260.0 in prices  # from raw level
+
+
+@pytest.mark.asyncio
+async def test_get_youtube_context_all_zero_spans_returns_none():
+    """When all mentions have evidence_spans_for_ticker=0, return None."""
+    from consensus_engine.cross_reference import _get_youtube_context
+
+    signals = [
+        {"direction": "long", "conviction": "high", "channel_name": "Chan1",
+         "video_id": "vid1", "video_title": "Title1", "evidence_spans_for_ticker": 0},
+        {"direction": "short", "conviction": "medium", "channel_name": "Chan2",
+         "video_id": "vid2", "video_title": "Title2", "evidence_spans_for_ticker": 0},
+    ]
+
+    with patch("consensus_engine.cross_reference.db") as mock_db:
+        mock_db.get_youtube_signals_for_ticker = AsyncMock(return_value=signals)
+        mock_db.get_youtube_evidence_for_ticker = AsyncMock(return_value=[])
+
+        ctx = await _get_youtube_context("AAPL")
+
+    assert ctx is None
+
+
+@pytest.mark.asyncio
+async def test_get_youtube_context_mixed_spans_only_passing_appear():
+    """When some mentions pass the filter and others don't, only passing ones count."""
+    from consensus_engine.cross_reference import _get_youtube_context
+
+    signals = [
+        {"direction": "long", "conviction": "high", "channel_name": "GoodChan",
+         "video_id": "good1", "video_title": "Good Video", "evidence_spans_for_ticker": 2},
+        {"direction": "short", "conviction": "low", "channel_name": "BadChan",
+         "video_id": "bad1", "video_title": "Bad Video", "evidence_spans_for_ticker": 0},
+    ]
+
+    with patch("consensus_engine.cross_reference.db") as mock_db:
+        mock_db.get_youtube_signals_for_ticker = AsyncMock(return_value=signals)
+        mock_db.get_youtube_evidence_for_ticker = AsyncMock(return_value=[])
+
+        ctx = await _get_youtube_context("MSFT")
+
+    assert ctx is not None
+    assert ctx.mention_count == 1
+    assert ctx.videos == [{"video_id": "good1", "title": "Good Video", "channel_name": "GoodChan"}]
+    assert "GoodChan" in ctx.channels
+    assert "BadChan" not in ctx.channels
+
+
+@pytest.mark.asyncio
+async def test_get_youtube_context_all_passing_spans_unchanged():
+    """When all mentions pass the filter, behaviour is same as before the filter."""
+    from consensus_engine.cross_reference import _get_youtube_context
+
+    signals = [
+        {"direction": "long", "conviction": "high", "channel_name": "Chan1",
+         "video_id": "v1", "video_title": "T1", "evidence_spans_for_ticker": 3},
+        {"direction": "long", "conviction": "medium", "channel_name": "Chan2",
+         "video_id": "v2", "video_title": "T2", "evidence_spans_for_ticker": 1},
+    ]
+
+    with patch("consensus_engine.cross_reference.db") as mock_db:
+        mock_db.get_youtube_signals_for_ticker = AsyncMock(return_value=signals)
+        mock_db.get_youtube_evidence_for_ticker = AsyncMock(return_value=[])
+
+        ctx = await _get_youtube_context("NVDA")
+
+    assert ctx is not None
+    assert ctx.mention_count == 2
+    assert len(ctx.videos) == 2
+    assert ctx.direction.value == "long"

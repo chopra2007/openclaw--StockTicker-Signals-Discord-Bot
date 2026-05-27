@@ -27,6 +27,7 @@ from consensus_engine.alerts.all_command import output_filter
 from consensus_engine.alerts.all_command.structured_fields import StructuredFields
 from consensus_engine.llm_client import call_with_fallback
 from consensus_engine.models import ScoreBreakdown
+from consensus_engine.utils.obs_log import obs_log
 from consensus_engine.utils.time_context import build_time_context
 
 log = logging.getLogger("consensus_engine.alerts.all_command.narrator")
@@ -890,6 +891,7 @@ async def synthesize_narrative(
                 "narrator: cache hit ticker=%s direction_source=%s",
                 ticker, direction_source,
             )
+            obs_log({"ts": time.time(), "event": "narrator_cache_hit", "ticker": ticker})
             return _cached
 
     messages = _build_synthesis_prompt(
@@ -917,6 +919,7 @@ async def synthesize_narrative(
 
     from consensus_engine.alerts.all_command import quality_bar as _qb
 
+    obs_log({"ts": time.time(), "event": "narrator_cache_miss", "ticker": ticker})
     raw = await _invoke_synthesis(messages, deadline_seconds)
     if not raw:
         return "", "fallback_data_only"

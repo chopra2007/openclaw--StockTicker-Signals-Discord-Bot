@@ -148,11 +148,11 @@ async def test_get_youtube_context_deduplicates_video_ids():
 
     fake_mentions = [
         {"video_id": "vid1", "channel_name": "Chan", "direction": "long",
-         "conviction": "high", "video_title": "Title 1"},
+         "conviction": "high", "video_title": "Title 1", "evidence_spans_for_ticker": 1},
         {"video_id": "vid2", "channel_name": "Chan", "direction": "long",
-         "conviction": "medium", "video_title": "Title 2"},
+         "conviction": "medium", "video_title": "Title 2", "evidence_spans_for_ticker": 1},
         {"video_id": "vid1", "channel_name": "Chan", "direction": "long",
-         "conviction": "low", "video_title": "Title 1"},  # duplicate
+         "conviction": "low", "video_title": "Title 1", "evidence_spans_for_ticker": 1},  # duplicate
     ]
     fake_evidence = []
 

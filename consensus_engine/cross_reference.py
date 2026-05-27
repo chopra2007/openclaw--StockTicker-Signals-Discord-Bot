@@ -205,13 +205,19 @@ async def _get_youtube_context(ticker: str):
         if not mentions:
             return None
 
+        # Filter to signals with primary coverage (evidence spans >= threshold)
+        threshold = int(cfg.get("all_command.youtube_links.min_evidence_spans", 1))
+        primary_mentions = [m for m in mentions if (m.get("evidence_spans_for_ticker") or 0) >= threshold]
+        if not primary_mentions:
+            return None
+
         # Aggregate mentions
         direction_votes = {"long": 0, "short": 0, "neutral": 0}
         conviction_scores = {"high": 3, "medium": 2, "low": 1}
         max_conviction_score = 0
         top_conviction = "medium"
 
-        for mention in mentions:
+        for mention in primary_mentions:
             direction = mention.get("direction", "neutral")
             conviction = mention.get("conviction", "medium")
             direction_votes[direction] = direction_votes.get(direction, 0) + 1
@@ -246,7 +252,7 @@ async def _get_youtube_context(ticker: str):
         max_videos = cfg.get("all_command.youtube_links.max_videos", 3)
         seen_video_ids: set[str] = set()
         videos: list[dict] = []
-        for m in mentions:
+        for m in primary_mentions:
             vid = m.get("video_id")
             if vid and vid not in seen_video_ids:
                 seen_video_ids.add(vid)
@@ -259,10 +265,10 @@ async def _get_youtube_context(ticker: str):
                     break
 
         return YouTubeContext(
-            mention_count=len(mentions),
+            mention_count=len(primary_mentions),
             direction=Direction(consensus_dir),
             top_conviction=Conviction(top_conviction),
-            channels=list(set(m.get("channel_name") for m in mentions if m.get("channel_name"))),
+            channels=list(set(m.get("channel_name") for m in primary_mentions if m.get("channel_name"))),
             levels=level_data,
             score_boost=score_boost,
             videos=videos,

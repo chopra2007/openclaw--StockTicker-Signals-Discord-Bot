@@ -12,8 +12,11 @@ Ranking formula (Pass 1 best practice):
 from __future__ import annotations
 
 import re
+import time
 from dataclasses import dataclass, field
 from typing import Optional
+
+from consensus_engine.utils.obs_log import obs_log
 
 
 # 60-char context window price extraction
@@ -598,6 +601,8 @@ def select_trade_plan(
                 "TP2/TP3 padded with None"
             )
 
+    if used_fallback:
+        obs_log({"ts": time.time(), "event": "sltp_atr_fallback", "spot": spot, "atr14": atr14})
     return {
         "sl": sl,
         "tp1": tps[0],

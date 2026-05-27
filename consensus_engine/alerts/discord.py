@@ -15,6 +15,7 @@ import aiohttp
 
 from consensus_engine import config as cfg
 from consensus_engine.utils.http import get_session
+from consensus_engine.utils.obs_log import obs_log
 from consensus_engine import db
 from consensus_engine.models import (
     ParsedTweet, CrossReferenceResult, ScoreBreakdown,
@@ -73,6 +74,7 @@ async def _safe_send(
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as resp:
                 if resp.status in (200, 201):
+                    obs_log({"ts": time.time(), "event": "safe_send", "attempts": attempt, "status": "ok"})
                     return await resp.json()
 
                 if resp.status == 400:
@@ -133,9 +135,11 @@ async def _safe_send(
 
         except Exception as e:
             log.error("_safe_send exception (attempt=%d): %s", attempt, e)
+            obs_log({"ts": time.time(), "event": "safe_send", "attempts": attempt, "status": "error"})
             return None
 
     # 429 exhausted — post truncated-tail embed
+    obs_log({"ts": time.time(), "event": "safe_send", "attempts": attempt, "status": "exhausted"})
     log.error("_safe_send: 429 retries exhausted — posting truncation notice")
     truncation_payload = _safe_send_kwargs({
         "embeds": [{
