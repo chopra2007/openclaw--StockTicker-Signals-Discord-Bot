@@ -405,3 +405,56 @@ def compute_next_catalyst(
     candidates.sort(key=lambda c: (c[3], c[0]))
     pick = candidates[0]
     return (pick[0] - today).days, pick[1], pick[2]
+
+
+# ---------------------------------------------------------------------------
+# Dict-based helpers — callable before ScoreBreakdown is available (Step 9).
+# These accept plain dicts so aggregator.py can invoke them pre-gap_fill.
+# ---------------------------------------------------------------------------
+
+_HIGH_CONVICTION_TIERS = ("HIGH", "high", "High")
+_HIGH_CONVICTION_MULTIPLIER = 1.5
+_LOW_CONVICTION_MULTIPLIER = 1.0
+
+
+def compute_direction_from_fields(fields: dict) -> str:
+    """Sum _BULLISH_BIASED_FIELDS from a plain dict; return LONG | SHORT | NEUTRAL.
+
+    Positive net -> LONG, negative -> SHORT, zero -> NEUTRAL.
+    Missing or non-numeric values are treated as zero.
+    """
+    net = 0
+    for key in _BULLISH_BIASED_FIELDS:
+        try:
+            net += int(fields.get(key) or 0)
+        except (TypeError, ValueError):
+            continue
+    if net > 0:
+        return "LONG"
+    if net < 0:
+        return "SHORT"
+    return "NEUTRAL"
+
+
+def compute_expected_move(
+    fields: dict,
+    conviction_tier: str,
+    recent_vol_pct: float,
+) -> float:
+    """Return expected % move as recent_vol_pct scaled by conviction multiplier.
+
+    High conviction (tier == "HIGH") scales by 1.5; all others scale by 1.0.
+    Missing conviction_tier or non-positive recent_vol_pct returns 0.0.
+    """
+    try:
+        vol = float(recent_vol_pct)
+    except (TypeError, ValueError):
+        return 0.0
+    if vol <= 0:
+        return 0.0
+    multiplier = (
+        _HIGH_CONVICTION_MULTIPLIER
+        if conviction_tier in _HIGH_CONVICTION_TIERS
+        else _LOW_CONVICTION_MULTIPLIER
+    )
+    return round(vol * multiplier, 4)
