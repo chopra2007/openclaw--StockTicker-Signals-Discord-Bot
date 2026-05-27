@@ -88,6 +88,12 @@ news_cascade:
     - searxng          # Tier 4: SearXNG self-hosted
   finnhub_news_days_back: 2
   brave_daily_budget: 50
+  # Pass 5 Step 11 — parallelism gate.
+  # When true, all tiers race concurrently (asyncio.as_completed).
+  # Code default is false (safer; no race exposure) — YAML enables parallel.
+  parallel: true
+  # Finnhub budget window for priority ordering in parallel mode (ms).
+  finnhub_priority_ms: 3000
 
 # Polling intervals (seconds)
 intervals:
@@ -459,6 +465,12 @@ all_command:
     enabled: true          # kill switch — set false to revert to one-liner only
     max_videos: 3          # cap on link lines appended
     title_max_chars: 80    # truncate title (Unicode-safe; ellipsis appended)
+  # Pass 5 Step 11 — narrator synthesis cache.
+  # Key: sha256(ticker + structured_fields_json + direction_source + prompt_version).
+  # Code default for cache.enabled is false (safer if key missing); YAML enables it.
+  cache:
+    enabled: true          # set false to disable without code change
+    ttl_seconds: 60        # hard-expire even during Groq outage
 
 # Precision Scoring Engine
 precision_engine:

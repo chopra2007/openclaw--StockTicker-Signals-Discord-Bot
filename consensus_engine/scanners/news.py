@@ -423,11 +423,43 @@ async def _search_searxng(ticker: str) -> Optional[CatalystResult]:
     return None
 
 
-async def news_cascade(ticker: str) -> Optional[CatalystResult]:
-    """Race the configured tiers concurrently; return the first passed=True.
+async def _news_cascade_serial(
+    ticker: str,
+    tier_names: list[str],
+    tier_funcs: dict,
+) -> Optional[CatalystResult]:
+    """Run cascade tiers serially in priority order; return on first hit.
 
-    Pending tier tasks are cancelled and awaited after the winner is found
-    so aiohttp connections are drained cleanly.
+    Used when `news_cascade.parallel: false` (the safer default). Preserves
+    the tier priority ordering with no concurrent racing exposure.
+    """
+    for tier_name in tier_names:
+        func = tier_funcs.get(tier_name)
+        if not func:
+            continue
+        try:
+            result = await func(ticker)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("news_cascade serial tier '%s' error: %s", tier_name, exc)
+            continue
+        if result and getattr(result, "passed", False):
+            log.info("News cascade hit at tier '%s' for %s", tier_name, ticker)
+            return result
+    log.debug("News cascade: no catalyst found for %s across all tiers", ticker)
+    return None
+
+
+async def news_cascade(ticker: str) -> Optional[CatalystResult]:
+    """Run the configured tiers and return the first passed=True result.
+
+    When `news_cascade.parallel: true`, all tiers race concurrently via
+    asyncio.as_completed and pending tasks are cancelled on the first hit.
+
+    When `news_cascade.parallel: false` (default — safer, no race exposure),
+    tiers are awaited serially in priority order with short-circuit on hit.
+
+    Both paths preserve the tier priority ordering for the hit case; parallel
+    mode uses score-then-take-N dedup on concurrent results (idempotent URL set).
     """
     tiers = cfg.get(
         "news_cascade.tiers",
@@ -442,6 +474,11 @@ async def news_cascade(ticker: str) -> Optional[CatalystResult]:
         "searxng": _search_searxng,
     }
 
+    parallel = bool(cfg.get("news_cascade.parallel", False))
+    if not parallel:
+        return await _news_cascade_serial(ticker, tiers, tier_funcs)
+
+    # Parallel path — all tiers race; first passed=True wins.
     tasks: list[asyncio.Task] = []
     task_to_tier: dict[asyncio.Task, str] = {}
     for tier_name in tiers:

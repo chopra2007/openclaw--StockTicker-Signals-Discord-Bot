@@ -604,4 +604,7 @@ def select_trade_plan(
         "tp2": tps[1],
         "tp3": tps[2],
         "suppression_reason": "; ".join(reasons) if reasons else None,
+        # Pass 5 Step 11 — confidence annotation: "low" when ATR fallback fires
+        # (candle-pivot scarcity), None otherwise (anchor-derived levels).
+        "confidence": "low" if used_fallback else None,
     }

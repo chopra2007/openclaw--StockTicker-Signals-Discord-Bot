@@ -27,3 +27,14 @@ def _reset_http_singleton():
     from consensus_engine.utils import http as _http
     _http._session = None
     _http._lock = None
+
+
+@pytest.fixture(autouse=True)
+def _flush_narrator_cache():
+    """Pass 5 Step 11 added a module-level synthesis cache to narrator.py
+    (see _synthesis_cache). Without this, cached narratives leak between
+    tests and break expectations like "synthesize returns empty on failure"."""
+    from consensus_engine.alerts.all_command import narrator as _narrator
+    _narrator.flush_synthesis_cache()
+    yield
+    _narrator.flush_synthesis_cache()

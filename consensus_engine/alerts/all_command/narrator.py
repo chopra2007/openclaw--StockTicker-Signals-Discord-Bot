@@ -15,9 +15,12 @@ contradiction defense.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import re
+import signal
+import time
 from typing import Optional
 
 from consensus_engine.alerts.all_command import output_filter
@@ -27,6 +30,75 @@ from consensus_engine.models import ScoreBreakdown
 from consensus_engine.utils.time_context import build_time_context
 
 log = logging.getLogger("consensus_engine.alerts.all_command.narrator")
+
+# ---------------------------------------------------------------------------
+# Synthesis cache (Pass 5 Step 11)
+# Key: sha256(ticker + structured_fields_json + direction_source + prompt_version)
+# TTL: 60s hard-expire (no stale extension).  Max 100 entries, LRU eviction.
+# Flushed on SIGHUP or reload signal.
+# ---------------------------------------------------------------------------
+_CACHE_VERSION = "v1"
+_CACHE_MAX = 100
+_CACHE_TTL = 60  # seconds — hard-expire even during Groq outage
+
+# OrderedDict gives O(1) move_to_end for LRU eviction without pulling in
+# functools.lru_cache (which can't be invalidated externally).
+from collections import OrderedDict as _OrderedDict
+
+# Each value is (timestamp_float, (narrative_text, status))
+_synthesis_cache: _OrderedDict[str, tuple[float, tuple[str, str]]] = _OrderedDict()
+
+
+def _cache_key(
+    ticker: str,
+    structured_fields_json: str,
+    direction_source: str,
+) -> str:
+    raw = f"{ticker}\x00{structured_fields_json}\x00{direction_source}\x00{_CACHE_VERSION}"
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def _cache_get(key: str) -> Optional[tuple[str, str]]:
+    entry = _synthesis_cache.get(key)
+    if entry is None:
+        return None
+    ts, value = entry
+    if time.monotonic() - ts > _CACHE_TTL:
+        _synthesis_cache.pop(key, None)
+        return None
+    # LRU: move to end on hit
+    _synthesis_cache.move_to_end(key)
+    return value
+
+
+def _cache_put(key: str, value: tuple[str, str]) -> None:
+    if key in _synthesis_cache:
+        _synthesis_cache.move_to_end(key)
+    _synthesis_cache[key] = (time.monotonic(), value)
+    # Evict oldest when over cap
+    while len(_synthesis_cache) > _CACHE_MAX:
+        _synthesis_cache.popitem(last=False)
+
+
+def flush_synthesis_cache() -> None:
+    """Flush all cache entries (called on SIGHUP / config-reload signal)."""
+    count = len(_synthesis_cache)
+    _synthesis_cache.clear()
+    log.info("narrator: synthesis cache flushed (%d entries)", count)
+
+
+def _install_sighup_handler() -> None:
+    """Install SIGHUP handler to flush the synthesis cache on config reload."""
+    try:
+        def _handler(signum, frame):  # noqa: ARG001
+            flush_synthesis_cache()
+        signal.signal(signal.SIGHUP, _handler)
+    except (OSError, ValueError):
+        # Windows or non-main thread — skip silently.
+        pass
+
+
+_install_sighup_handler()
 
 
 _PER_SNIPPET_CAP = 300  # chars per item before going into the batch prompt
@@ -800,7 +872,26 @@ async def synthesize_narrative(
     `"fallback_data_only"` — the latter covers both an empty LLM response and
     a filter rejection after retry. Never raises — caller falls back to the
     deterministic data-only render when status != "ok".
+
+    Cache: when `all_command.cache.enabled` is true (default false), a
+    SHA256-keyed in-process LRU cache (max 100, TTL 60s) returns the prior
+    result without an LLM call. Cache key includes direction_source so a
+    config-flip invalidates all prior entries. Flush on SIGHUP.
     """
+    from consensus_engine import config as _cfg
+    cache_enabled = bool(_cfg.get("all_command.cache.enabled", False))
+    _cache_k: Optional[str] = None
+    if cache_enabled:
+        direction_source = str(_cfg.get("all_command.direction_source", "legacy"))
+        _cache_k = _cache_key(ticker, structured_data_json or "{}", direction_source)
+        _cached = _cache_get(_cache_k)
+        if _cached is not None:
+            log.info(
+                "narrator: cache hit ticker=%s direction_source=%s",
+                ticker, direction_source,
+            )
+            return _cached
+
     messages = _build_synthesis_prompt(
         ticker=ticker,
         structured=structured,
@@ -869,4 +960,6 @@ async def synthesize_narrative(
     sanitized, status = await output_filter.sanitize_or_retry(
         raw, structured, retry_fn=_retry_fn,
     )
+    if cache_enabled and _cache_k and status == "ok" and sanitized:
+        _cache_put(_cache_k, (sanitized, status))
     return sanitized, status
