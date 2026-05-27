@@ -51,7 +51,22 @@ async def _get_candidates(conn) -> list[dict]:
 
 
 async def _fetch_transcript(video_id: str) -> str | None:
-    """Try youtube_transcript_api first, then Supadata — same chain as local_video_ingest F1."""
+    """Return transcript text: DB cache first, then youtube_transcript_api, then Supadata."""
+    # Tier 0: already saved in youtube_transcripts — free, instant, no external call
+    try:
+        from consensus_engine.db import get_db
+        conn = await get_db()
+        cursor = await conn.execute(
+            "SELECT transcript_text FROM youtube_transcripts WHERE video_id = ?",
+            (video_id,),
+        )
+        row = await cursor.fetchone()
+        if row and row["transcript_text"]:
+            log.debug("transcript from DB cache for %s (%d chars)", video_id, len(row["transcript_text"]))
+            return row["transcript_text"]
+    except Exception as exc:
+        log.debug("DB transcript lookup failed for %s: %s", video_id, exc)
+
     # Tier 1: youtube_transcript_api (free, but may be IP-blocked)
     try:
         from youtube_transcript_api import YouTubeTranscriptApi
