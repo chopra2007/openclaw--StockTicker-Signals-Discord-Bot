@@ -13,6 +13,8 @@ import json
 import logging
 import re
 import time
+from collections import deque
+from json import JSONDecodeError
 from typing import Callable, Optional
 
 import aiohttp
@@ -181,6 +183,21 @@ class DiscordTweetShiftListener:
         self._stop = False
         self._replay_lock = asyncio.Lock()  # #8 — serialize reconnect replays
 
+        # Safe defaults — set properly on READY; pre-READY messages reference these
+        self._reconnect_count: int = 0
+        self._tweet_count: int = 0
+
+        # Pre-READY buffer: messages arriving before READY are queued (cap 100),
+        # then replayed in arrival order once READY fires.
+        _pre_ready_cap = cfg.get("tweetshift.pre_ready_buffer_cap", 100)
+        self._pre_ready_buffer: deque = deque(maxlen=_pre_ready_cap)
+        self._pre_ready_drops: int = 0
+        self._ready_received: bool = False
+
+        # Malformed-frame rate-limiting: log at most once per minute
+        self._malformed_frame_count: int = 0
+        self._malformed_last_log: float = 0.0
+
     def _load_config(self):
         self._token = cfg.get_api_key("discord_bot_token") or ""
         self._feed_channel_id = str(
@@ -246,11 +263,40 @@ class DiscordTweetShiftListener:
             self._tweet_count = 0  # Reset tweet counter on connect
             self._bot_user_id = str((data.get("user") or {}).get("id") or "")
             log.info("Discord Gateway READY (session=%s, bot_id=%s)", self._session_id, self._bot_user_id)
+            # Drain pre-READY buffer in arrival order before marking ready.
+            if self._pre_ready_buffer:
+                log.info(
+                    "Draining %d pre-READY buffered message(s)",
+                    len(self._pre_ready_buffer),
+                )
+                while self._pre_ready_buffer:
+                    buffered = self._pre_ready_buffer.popleft()
+                    try:
+                        await self._handle_dispatch("MESSAGE_CREATE", buffered)
+                    except Exception as e:
+                        log.error("Pre-READY replay error: %s", e, exc_info=True)
+            self._ready_received = True
             # #8: READY (not RESUMED) means a fresh session with no Discord-side
             # event replay — re-drive commands/mentions missed during the gap.
             asyncio.create_task(self._replay_missed(), name="discord-replay")
 
         elif event == "MESSAGE_CREATE":
+            # Buffer messages that arrive before READY — replay once READY fires.
+            # If _bot_user_id is already set (e.g. externally configured for tests),
+            # treat the listener as past-READY so messages are not buffered.
+            if self._bot_user_id and not self._ready_received:
+                self._ready_received = True
+            if not self._ready_received:
+                cap = self._pre_ready_buffer.maxlen or 100
+                if len(self._pre_ready_buffer) >= cap:
+                    self._pre_ready_drops += 1
+                    log.warning(
+                        "Pre-READY buffer full (cap=%d) — dropping message id=%s reason=pre_ready_buffer_full",
+                        cap, data.get("id", "?"),
+                    )
+                else:
+                    self._pre_ready_buffer.append(data)
+                return
             channel_id = str(data.get("channel_id", ""))
             message_id = str(data.get("id", ""))
             content = data.get("content", "")
@@ -364,14 +410,20 @@ class DiscordTweetShiftListener:
 
         from consensus_engine.alerts.commands import parse_command
         parsed = parse_command(content)
+        callback_succeeded = False
         if parsed and self._on_command and channel_id == self._commands_channel_id:
             cmd, args = parsed
             log.info("Discord command: !%s %s (user=%s)", cmd, args, author_id or "?")
             try:
                 await self._on_command(cmd, args, channel_id, message_id, author_id)
+                callback_succeeded = True
             except TypeError:
                 # Backward-compat for callbacks without author_id
-                await self._on_command(cmd, args, channel_id, message_id)
+                try:
+                    await self._on_command(cmd, args, channel_id, message_id)
+                    callback_succeeded = True
+                except Exception as e:
+                    log.error("Command callback error: %s", e, exc_info=True)
             except Exception as e:
                 log.error("Command callback error: %s", e, exc_info=True)
         elif self._on_mention and self._bot_user_id:
@@ -386,9 +438,18 @@ class DiscordTweetShiftListener:
                 })
                 try:
                     await self._on_mention(clean, channel_id, message_id, author_id)
+                    callback_succeeded = True
                 except Exception as e:
                     log.error("Mention callback error: %s", e, exc_info=True)
-        await db.mark_message_done(message_id)
+            else:
+                # Message in channel but not a command and not a mention — mark done anyway
+                callback_succeeded = True
+        else:
+            # No handler matched (e.g. no on_command / not the right channel)
+            callback_succeeded = True
+        # mark_message_done only on callback success — leaves message claimable on error
+        if callback_succeeded:
+            await db.mark_message_done(message_id)
 
     async def _replay_missed(self) -> None:
         """Replay commands/mentions missed during a gateway outage.
@@ -482,7 +543,19 @@ class DiscordTweetShiftListener:
                         await ws.close()
                         break
                     if msg.type == aiohttp.WSMsgType.TEXT:
-                        payload = json.loads(msg.data)
+                        try:
+                            payload = json.loads(msg.data)
+                        except (JSONDecodeError, UnicodeDecodeError):
+                            self._malformed_frame_count += 1
+                            now = time.time()
+                            if now - self._malformed_last_log >= 60.0:
+                                log.warning(
+                                    "Malformed Gateway frame (count=%d since last log) — skipping",
+                                    self._malformed_frame_count,
+                                )
+                                self._malformed_last_log = now
+                                self._malformed_frame_count = 0
+                            continue
                         op = payload.get("op")
                         data = payload.get("d", {})
                         seq = payload.get("s")

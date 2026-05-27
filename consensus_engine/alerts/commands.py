@@ -39,6 +39,24 @@ _INVALID_TICKER_MSG = "Invalid ticker `{ticker}`. Tickers must be 1-6 uppercase 
 
 log = logging.getLogger("consensus_engine.alerts.commands")
 
+# ---------------------------------------------------------------------------
+# Semaphore pool — concurrency discipline (plan section 2G)
+# ---------------------------------------------------------------------------
+# _OUTER_SEM: limits simultaneous handler entries (one per user command).
+# _INNER_SEM: limits background tasks spawned by create_task (heavy I/O).
+# Both use `async with` — no bare acquire/release; exception-safe.
+
+_OUTER_SEM = asyncio.Semaphore(cfg.get("commands.outer_concurrency", 4))
+_INNER_SEM = asyncio.Semaphore(cfg.get("commands.inner_concurrency", 64))
+
+
+async def _dispatch_inner(coro) -> asyncio.Task:
+    """Wrap a coroutine in _INNER_SEM and schedule as a Task."""
+    async def _guarded():
+        async with _INNER_SEM:
+            return await coro
+    return asyncio.create_task(_guarded())
+
 
 def _parse_history_limit(content: str, default: int = 20) -> int:
     """Extract 'last N messages' from content, capped at 50."""
@@ -189,6 +207,17 @@ async def route_command(
     author_id: str | None = None,
 ) -> None:
     """Dispatch a parsed command to its handler."""
+    async with _OUTER_SEM:
+        await _route_command_inner(command, args, channel_id, message_id, author_id)
+
+
+async def _route_command_inner(
+    command: str,
+    args: list[str],
+    channel_id: str,
+    message_id: str,
+    author_id: str | None = None,
+) -> None:
     if command in ("help", "readme"):
         await send_command_reply(channel_id, message_id, HELP_TEXT)
 
@@ -513,7 +542,7 @@ async def _handle_performance(channel_id: str, message_id: str) -> None:
 async def _handle_scan(ticker: str, channel_id: str, message_id: str) -> None:
     """Run cross-reference on a ticker and reply with results."""
     await send_command_reply(channel_id, message_id, f"Scanning `${ticker}`...")
-    asyncio.create_task(_scan_and_reply(ticker, channel_id, message_id))
+    await _dispatch_inner(_scan_and_reply(ticker, channel_id, message_id))
 
 
 async def _scan_and_reply(ticker: str, channel_id: str, message_id: str) -> None:
@@ -567,7 +596,7 @@ async def _scan_and_reply(ticker: str, channel_id: str, message_id: str) -> None
 async def _handle_all(ticker: str, channel_id: str, message_id: str) -> None:
     """Comprehensive cross-source analysis for a ticker via the all_command package."""
     from consensus_engine.alerts.all_command import handle_all
-    task = asyncio.create_task(handle_all(ticker, channel_id, message_id))
+    task = await _dispatch_inner(handle_all(ticker, channel_id, message_id))
 
     def _log_handle_all_exception(t: asyncio.Task) -> None:
         if t.cancelled():
@@ -633,7 +662,7 @@ async def _handle_active_tickers(channel_id: str, message_id: str) -> None:
 async def _handle_news(ticker: str, channel_id: str, message_id: str) -> None:
     """Run news cascade for a ticker and reply with result."""
     await send_command_reply(channel_id, message_id, f"Running news scan for `${ticker}`...")
-    asyncio.create_task(_news_and_reply(ticker, channel_id, message_id))
+    await _dispatch_inner(_news_and_reply(ticker, channel_id, message_id))
 
 
 async def _news_and_reply(ticker: str, channel_id: str, message_id: str) -> None:
@@ -658,7 +687,7 @@ async def _news_and_reply(ticker: str, channel_id: str, message_id: str) -> None
 async def _handle_sec(ticker: str, channel_id: str, message_id: str) -> None:
     """Show recent SEC filings for a ticker."""
     await send_command_reply(channel_id, message_id, f"Checking SEC filings for `${ticker}`...")
-    asyncio.create_task(_sec_and_reply(ticker, channel_id, message_id))
+    await _dispatch_inner(_sec_and_reply(ticker, channel_id, message_id))
 
 
 def _fmt_insider_name(raw: str) -> str:
@@ -741,7 +770,7 @@ async def _sec_and_reply(ticker: str, channel_id: str, message_id: str) -> None:
 async def _handle_options(ticker: str, channel_id: str, message_id: str) -> None:
     """Show unusual options activity for a ticker."""
     await send_command_reply(channel_id, message_id, f"Checking options flow for `${ticker}`...")
-    asyncio.create_task(_options_and_reply(ticker, channel_id, message_id))
+    await _dispatch_inner(_options_and_reply(ticker, channel_id, message_id))
 
 
 async def _options_and_reply(ticker: str, channel_id: str, message_id: str) -> None:
@@ -770,7 +799,7 @@ async def _options_and_reply(ticker: str, channel_id: str, message_id: str) -> N
 async def _handle_technical(ticker: str, direction: str, channel_id: str, message_id: str) -> None:
     """Run technical filters for a ticker."""
     await send_command_reply(channel_id, message_id, f"Running technical analysis for `${ticker}` ({direction})...")
-    asyncio.create_task(_technical_and_reply(ticker, direction, channel_id, message_id))
+    await _dispatch_inner(_technical_and_reply(ticker, direction, channel_id, message_id))
 
 
 async def _technical_and_reply(ticker: str, direction: str, channel_id: str, message_id: str) -> None:
@@ -799,7 +828,7 @@ async def _technical_and_reply(ticker: str, direction: str, channel_id: str, mes
 async def _handle_google_trends(ticker: str, channel_id: str, message_id: str) -> None:
     """Check Google Trends spike for a ticker."""
     await send_command_reply(channel_id, message_id, f"Checking Google Trends for `${ticker}`...")
-    asyncio.create_task(_google_trends_and_reply(ticker, channel_id, message_id))
+    await _dispatch_inner(_google_trends_and_reply(ticker, channel_id, message_id))
 
 
 async def _google_trends_and_reply(ticker: str, channel_id: str, message_id: str) -> None:
@@ -883,7 +912,7 @@ async def _run_serpapi_trends(channel_id: str, message_id: str) -> None:
 async def _handle_apewisdom(channel_id: str, message_id: str) -> None:
     """Show ApeWisdom trending tickers."""
     await send_command_reply(channel_id, message_id, "Fetching ApeWisdom trending...")
-    asyncio.create_task(_apewisdom_and_reply(channel_id, message_id))
+    await _dispatch_inner(_apewisdom_and_reply(channel_id, message_id))
 
 
 async def _apewisdom_and_reply(channel_id: str, message_id: str) -> None:
@@ -1017,7 +1046,7 @@ async def _handle_source_health(channel_id: str, message_id: str) -> None:
 async def _handle_transcript(youtube_url: str, channel_id: str, message_id: str) -> None:
     """Fetch YouTube video transcript."""
     await send_command_reply(channel_id, message_id, f"Fetching transcript for {youtube_url}...")
-    asyncio.create_task(_transcript_and_reply(youtube_url, channel_id, message_id))
+    await _dispatch_inner(_transcript_and_reply(youtube_url, channel_id, message_id))
 
 
 async def _transcript_and_reply(youtube_url: str, channel_id: str, message_id: str) -> None:
@@ -1244,7 +1273,7 @@ async def _handle_yt(
             return
         await db.log_user_command(author_id, "yt")
     await send_command_reply(channel_id, message_id, f"Analysing {youtube_url} ...")
-    asyncio.create_task(_yt_analyse_and_reply(youtube_url, channel_id, message_id))
+    await _dispatch_inner(_yt_analyse_and_reply(youtube_url, channel_id, message_id))
 
 
 def _format_two_stage_reply(
@@ -1533,7 +1562,7 @@ async def _handle_macro(channel_id: str, message_id: str) -> None:
 async def _handle_yt_follow(handle_or_url: str, channel_id: str, message_id: str) -> None:
     """Resolve a YouTube @handle or channel URL to a channel_id and add it to the follow list."""
     await send_command_reply(channel_id, message_id, f"Looking up `{handle_or_url}`...")
-    asyncio.create_task(_yt_follow_and_reply(handle_or_url, channel_id, message_id))
+    await _dispatch_inner(_yt_follow_and_reply(handle_or_url, channel_id, message_id))
 
 
 async def _yt_follow_and_reply(handle_or_url: str, channel_id_discord: str, message_id: str) -> None:

@@ -4,8 +4,10 @@ Phase 1: Instant ping — analyst name, ticker, direction, options, price
 Phase 2: Detail follow-up — replies to ping with cross-reference results
 """
 
+import asyncio
 import json
 import logging
+import re
 import time
 from typing import Optional
 
@@ -33,6 +35,125 @@ def _safe_send_kwargs(payload: dict) -> dict:
     """
     payload.setdefault("allowed_mentions", {"parse": []})
     return payload
+
+
+# Regex to redact token-like strings before posting error text to Discord.
+_SECRET_RE = re.compile(
+    r'(?:token|key|secret|password|MTQ[A-Za-z0-9_-]{20,})',
+    re.IGNORECASE,
+)
+
+
+def _redact_secrets(text: str) -> str:
+    """Replace secret-like substrings with [REDACTED] in error text."""
+    return _SECRET_RE.sub("[REDACTED]", text)
+
+
+async def _safe_send(
+    url: str,
+    headers: dict,
+    payload: dict,
+    *,
+    max_retries: int = 3,
+) -> Optional[dict]:
+    """POST payload to a Discord messages endpoint with retry/backoff.
+
+    - On 400: falls back to chunked plaintext (strips embed, posts content).
+    - On 429: reads Retry-After (header or body), sleeps, retries up to max_retries.
+    - On exhaustion: posts a truncated-tail embed and returns None.
+    - All error strings pass through _redact_secrets before any log/post.
+    - Semaphore discipline: callers use `async with` — this helper has no semaphore.
+    """
+    session = await get_session()
+
+    for attempt in range(max_retries + 1):
+        try:
+            async with session.post(
+                url, headers=headers, json=payload,
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                if resp.status in (200, 201):
+                    return await resp.json()
+
+                if resp.status == 400:
+                    error_body = await resp.text()
+                    log.warning(
+                        "_safe_send 400 (attempt=%d): %s",
+                        attempt, _redact_secrets(error_body[:300]),
+                    )
+                    # Strip embeds, fall back to plaintext content
+                    text_fallback = ""
+                    if "embeds" in payload:
+                        for emb in payload.get("embeds", []):
+                            text_fallback = (
+                                emb.get("description", "")
+                                or emb.get("title", "")
+                            )[:1900]
+                            break
+                    if not text_fallback:
+                        text_fallback = "[embed delivery failed — Discord rejected the payload]"
+                    plain_payload = _safe_send_kwargs({
+                        "content": text_fallback,
+                    })
+                    if "message_reference" in payload:
+                        plain_payload["message_reference"] = payload["message_reference"]
+                    async with session.post(
+                        url, headers=headers, json=plain_payload,
+                        timeout=aiohttp.ClientTimeout(total=10),
+                    ) as fb_resp:
+                        if fb_resp.status in (200, 201):
+                            return await fb_resp.json()
+                    return None  # fallback also failed
+
+                if resp.status == 429:
+                    if attempt >= max_retries:
+                        break
+                    retry_after = float(
+                        resp.headers.get("Retry-After", 1.0)
+                    )
+                    try:
+                        body = await resp.json()
+                        retry_after = float(body.get("retry_after", retry_after))
+                    except Exception:
+                        pass
+                    log.warning(
+                        "_safe_send 429 — sleeping %.1fs (attempt=%d/%d)",
+                        retry_after, attempt + 1, max_retries,
+                    )
+                    await asyncio.sleep(retry_after)
+                    continue
+
+                # Other non-success
+                error_body = await resp.text()
+                log.warning(
+                    "_safe_send HTTP %d (attempt=%d): %s",
+                    resp.status, attempt, _redact_secrets(error_body[:300]),
+                )
+                return None
+
+        except Exception as e:
+            log.error("_safe_send exception (attempt=%d): %s", attempt, e)
+            return None
+
+    # 429 exhausted — post truncated-tail embed
+    log.error("_safe_send: 429 retries exhausted — posting truncation notice")
+    truncation_payload = _safe_send_kwargs({
+        "embeds": [{
+            "description": "[reply truncated — Discord throttling]",
+            "color": 0xFF6600,
+        }],
+    })
+    if "message_reference" in payload:
+        truncation_payload["message_reference"] = payload["message_reference"]
+    try:
+        async with session.post(
+            url, headers=headers, json=truncation_payload,
+            timeout=aiohttp.ClientTimeout(total=10),
+        ) as resp:
+            pass
+    except Exception:
+        pass
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -353,28 +474,17 @@ async def send_instant_ping(
     if degraded:
         embed["footer"] = {"text": "OpenClaw Signal Engine | ⚠️ DEGRADED — data sources may be unreliable"}
 
-    try:
-        session = await get_session()
-        url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
-        headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
-        body = _safe_send_kwargs({"embeds": [embed]})
-
-        async with session.post(url, headers=headers, json=body,
-                                timeout=aiohttp.ClientTimeout(total=10)) as resp:
-            if resp.status in (200, 201):
-                data = await resp.json()
-                msg_id = data.get("id")
-                log.info("Instant ping sent for $%s by @%s (msg_id=%s)",
-                         tweet.tickers[0] if tweet.tickers else "???",
-                         tweet.analyst, msg_id)
-                return msg_id
-            else:
-                error = await resp.text()
-                log.warning("Discord ping error (%d): %s", resp.status, error[:200])
-                return None
-    except Exception as e:
-        log.error("Failed to send instant ping: %s", e)
-        return None
+    url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+    headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
+    body = _safe_send_kwargs({"embeds": [embed]})
+    data = await _safe_send(url, headers, body)
+    if data:
+        msg_id = data.get("id")
+        log.info("Instant ping sent for $%s by @%s (msg_id=%s)",
+                 tweet.tickers[0] if tweet.tickers else "???",
+                 tweet.analyst, msg_id)
+        return msg_id
+    return None
 
 
 async def edit_instant_ping(msg_id: str, content: str) -> bool:
@@ -442,17 +552,14 @@ async def send_trend_digest(trending: list[dict]) -> Optional[str]:
         "footer": {"text": "OpenClaw Signal Engine — last 24h"},
     }
 
-    session = await get_session()
     url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
     headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
     payload = _safe_send_kwargs({"embeds": [embed]})
-    async with session.post(url, headers=headers, json=payload,
-                            timeout=aiohttp.ClientTimeout(total=10)) as resp:
-        if resp.status not in (200, 201):
-            log.warning("Trend digest send failed: %d", resp.status)
-            return None
-        data = await resp.json()
-        return data.get("id")
+    data = await _safe_send(url, headers, payload)
+    if not data:
+        log.warning("Trend digest send failed")
+        return None
+    return data.get("id")
 
 
 _DISCORD_MSG_LIMIT = 2000
@@ -510,7 +617,6 @@ async def send_command_reply(channel_id: str, reply_to_msg_id: str, content: str
 
     last_id: Optional[str] = None
     reply_target = reply_to_msg_id
-    session = await get_session()
     url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
     headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
     for chunk in chunks:
@@ -518,16 +624,12 @@ async def send_command_reply(channel_id: str, reply_to_msg_id: str, content: str
             "content": chunk,
             "message_reference": {"message_id": reply_target},
         })
-        async with session.post(url, headers=headers, json=payload,
-                                timeout=aiohttp.ClientTimeout(total=10)) as resp:
-            if resp.status not in (200, 201):
-                error_body = await resp.text()
-                log.warning("Command reply failed: %d body=%.300s", resp.status, error_body)
-                return last_id
-            data = await resp.json()
-            last_id = data.get("id")
-            if last_id:
-                reply_target = last_id
+        data = await _safe_send(url, headers, payload)
+        if not data:
+            return last_id
+        last_id = data.get("id")
+        if last_id:
+            reply_target = last_id
     return last_id
 
 
@@ -549,26 +651,14 @@ async def send_command_embed_reply(
         log.warning("Discord bot token not configured")
         return None
 
-    session = await get_session()
     url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
     headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
     body = _safe_send_kwargs({
         "embeds": [embed],
         "message_reference": {"message_id": reply_to_msg_id},
     })
-    async with session.post(
-        url, headers=headers, json=body,
-        timeout=aiohttp.ClientTimeout(total=10),
-    ) as resp:
-        if resp.status not in (200, 201):
-            error_body = await resp.text()
-            log.warning(
-                "Embed reply failed: %d body=%.300s",
-                resp.status, error_body,
-            )
-            return None
-        data = await resp.json()
-        return data.get("id")
+    data = await _safe_send(url, headers, body)
+    return data.get("id") if data else None
 
 
 async def send_detail_followup(xref: CrossReferenceResult, reply_to_msg_id: str, precision: Optional[dict] = None) -> Optional[str]:
@@ -583,28 +673,16 @@ async def send_detail_followup(xref: CrossReferenceResult, reply_to_msg_id: str,
         return None
 
     embed = format_detail_followup(xref, precision)
-
-    try:
-        session = await get_session()
-        url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
-        headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
-        body = _safe_send_kwargs({
-            "embeds": [embed],
-            "message_reference": {"message_id": reply_to_msg_id},
-        })
-
-        async with session.post(url, headers=headers, json=body,
-                                timeout=aiohttp.ClientTimeout(total=10)) as resp:
-            if resp.status in (200, 201):
-                data = await resp.json()
-                msg_id = data.get("id")
-                log.info("Detail follow-up sent for $%s (score=%d, msg_id=%s)",
-                         xref.ticker, xref.final_score, msg_id)
-                return msg_id
-            else:
-                error = await resp.text()
-                log.warning("Discord follow-up error (%d): %s", resp.status, error[:200])
-                return None
-    except Exception as e:
-        log.error("Failed to send detail follow-up: %s", e)
-        return None
+    url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+    headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
+    body = _safe_send_kwargs({
+        "embeds": [embed],
+        "message_reference": {"message_id": reply_to_msg_id},
+    })
+    data = await _safe_send(url, headers, body)
+    if data:
+        msg_id = data.get("id")
+        log.info("Detail follow-up sent for $%s (score=%d, msg_id=%s)",
+                 xref.ticker, xref.final_score, msg_id)
+        return msg_id
+    return None

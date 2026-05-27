@@ -601,3 +601,12 @@ gmail_watcher:
   per_sender_per_hour_cap: 20
   per_day_total_cap: 200
   tickers_per_email_cap: 5
+
+# Command handler concurrency limits (plan section 2G).
+commands:
+  outer_concurrency: 4   # max simultaneous handler entries
+  inner_concurrency: 64  # max simultaneous background tasks
+
+# TweetShift listener hardening (plan section 2H).
+tweetshift:
+  pre_ready_buffer_cap: 100  # max messages buffered before READY fires
