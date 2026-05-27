@@ -26,7 +26,7 @@ REPO = Path("/home/openclaw/.openclaw/workspace")
 CONSENSUS_YAML = REPO / "config/consensus.yaml"
 DB = REPO / "consensus.db"
 OUTPUT_DIR = REPO / ".omc/research/llm-chain-2026-05-16"
-WEBHOOK = "WEBHOOK_REDACTED"
+WEBHOOK = os.environ.get("CLAUDECODE_WEBHOOK") or sys.exit("CLAUDECODE_WEBHOOK must be set (see .env.service)")
 BOT_MENTION = "<@1468886193054814352>"
 
 # Same ticker for every test so the COMPUTED SIGNAL + evidence corpus is

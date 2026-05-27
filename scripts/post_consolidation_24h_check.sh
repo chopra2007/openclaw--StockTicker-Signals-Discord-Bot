@@ -13,7 +13,10 @@
 # Posts the summary to #chat regardless of result, so the user always gets a heartbeat.
 set -uo pipefail
 
-WEBHOOK="WEBHOOK_REDACTED"
+# Webhook URL is sourced from .env.service (rotated 2026-05-26 after the
+# original was leaked into git history). The previous literal was removed
+# from history via `git filter-repo --replace-text` in the same commit.
+WEBHOOK="${CLAUDECODE_WEBHOOK:?CLAUDECODE_WEBHOOK must be set (see .env.service)}"
 LOG="/home/openclaw/.openclaw/workspace/.omc/logs/post_consolidation_24h.log"
 mkdir -p "$(dirname "$LOG")"
 

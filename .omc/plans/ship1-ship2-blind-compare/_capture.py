@@ -15,10 +15,9 @@ import time
 
 import requests  # type: ignore[import-not-found]
 
-WEBHOOK = (
-    "https://discord.com/api/webhooks/WEBHOOK_ID_REDACTED/"
-    "-npHx4ykAqzyWqsbI_EfsMotKRXb42Cvd1alw3M4znTKEHaLOPYQ9_fdyEq4cSnq-lkG"
-)
+WEBHOOK = os.environ.get("CLAUDECODE_WEBHOOK", "")
+if not WEBHOOK:
+    raise SystemExit("CLAUDECODE_WEBHOOK must be set (see .env.service)")
 CHANNEL_ID = "1468890179698692147"  # #chat
 BOT_USER_ID = "1468886193054814352"  # API#8079
 DISCORD_API = "https://discord.com/api/v10"
