@@ -13,9 +13,11 @@ rather than aborting (D13).
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import json
 import logging
 import time
+from pathlib import Path
 from typing import Any, Optional
 
 from consensus_engine import config as cfg
@@ -42,6 +44,10 @@ log = logging.getLogger("consensus_engine.alerts.all_command.aggregator")
 _DEADLINE_SECONDS = 160.0
 _GAP_FILL_BUDGET = 20.0
 _SYNTHESIS_MIN_BUDGET = 10.0
+_PARITY_LOG_PATH = Path(
+    "/home/openclaw/.openclaw/workspace"
+    "/.claude/discover/discord-bot-improvements/parity-results.jsonl"
+)
 
 
 def _remaining(start: float, total: float = _DEADLINE_SECONDS) -> float:
@@ -657,10 +663,40 @@ async def _compute_all(ticker: str, start: float) -> dict:
     # Gap-fill: run only if any trigger fires.
     earnings_iso_str = _earnings_iso(data["decision_snapshots"]) or data.get("next_earnings_iso")
     sec_filings_list = data["sec_filings"] if isinstance(data["sec_filings"], list) else []
-    direction_str = (
-        getattr(getattr(score_result, "breakdown", None), "direction", None)
-        or "neutral"
+    # Step 10: direction_source feature flag (default="legacy").
+    # "legacy" path: read breakdown.direction attribute directly (unchanged behavior).
+    # "structured" path: derive from breakdown field sums via compute_direction_from_fields.
+    # Step 10b: always compute both and log parity regardless of active flag.
+    _score_bd_raw = getattr(score_result, "breakdown", None)
+    _legacy_direction = (
+        getattr(_score_bd_raw, "direction", None) or "neutral"
     )
+    _bd_dict: dict = (
+        dataclasses.asdict(_score_bd_raw)
+        if _score_bd_raw is not None and dataclasses.is_dataclass(_score_bd_raw)
+        else {}
+    )
+    _structured_direction = structured_fields.compute_direction_from_fields(_bd_dict)
+    # Parity log — fires on every aggregator run.
+    try:
+        _PARITY_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _parity_entry = json.dumps({
+            "event_id": f"{ticker}:{int(start)}",
+            "ticker": ticker,
+            "legacy_direction": _legacy_direction,
+            "structured_direction": _structured_direction,
+            "agree": _legacy_direction.lower() == _structured_direction.lower(),
+            "ts": time.time(),
+        })
+        with _PARITY_LOG_PATH.open("a") as _pf:
+            _pf.write(_parity_entry + "\n")
+    except Exception as _pex:  # noqa: BLE001
+        log.debug("aggregator: parity log write failed: %s", _pex)
+    _direction_source = cfg.get("all_command.direction_source", "legacy")
+    if _direction_source == "structured":
+        direction_str = _structured_direction
+    else:
+        direction_str = _legacy_direction
     gap_deadline = time.time() + min(_GAP_FILL_BUDGET, _remaining(start))
     try:
         gap_fill_result = await gap_fill.run_gap_fill(

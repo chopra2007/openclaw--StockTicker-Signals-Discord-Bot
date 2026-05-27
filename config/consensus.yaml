@@ -431,6 +431,11 @@ youtube:
 
 # !all command tuning (swing-realism)
 all_command:
+  # Step 10: direction computation source gate (default "legacy" until 24h soak).
+  # "legacy"     — uses score_result.breakdown.direction attribute (unchanged behavior).
+  # "structured" — uses compute_direction_from_fields on the breakdown field sums.
+  # Flip to "structured" in Step 12 after zero parity divergences in 24h soak.
+  direction_source: legacy
   # W3: compute v2 anchor scoring (distance penalty + tier multiplier) in
   # parallel with v1, log delta, but render v1 for ranking. Flip to false
   # to make v2 the rendered score after 7-day shadow review.
