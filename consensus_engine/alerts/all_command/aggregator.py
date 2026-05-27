@@ -984,6 +984,7 @@ async def _compute_all(ticker: str, start: float) -> dict:
         narrative=narrative,
         sources_used=sources_surfaced,
         cache_age_seconds=None,
+        yt_signals=data["yt_signals"] if isinstance(data["yt_signals"], list) else None,
     )
     anchors_used: list[levels.Anchor] = list(supports[:6]) + list(resistances[:6])
     vault_md = vault_writer.render_all_command_markdown(

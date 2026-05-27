@@ -321,6 +321,54 @@ def _build_breakdown_inline(score_breakdown: ScoreBreakdown) -> str:
     return ", ".join(parts)
 
 
+def _build_youtube_links_field(yt_signals: list[dict]) -> Optional[dict]:
+    """Build the optional "Recent YouTube Coverage" embed field.
+
+    Reads up to `all_command.youtube_links.max_videos` distinct videos from
+    yt_signals (dedupe by video_id, preserve query order), formats each as
+    a clickable markdown link, returns a Discord field dict or None.
+
+    Shares the rendering contract with cross_reference._build_social_summary
+    (Step 11b / Section 2P) — same config keys, same escape helper, same
+    NULL-title fallback (channel-name preferred, plain "Video" last resort).
+    """
+    from consensus_engine import config as _cfg
+    from consensus_engine.alerts._markdown import _escape_md_link_text
+
+    if not yt_signals or not _cfg.get("all_command.youtube_links.enabled", True):
+        return None
+
+    max_videos = _cfg.get("all_command.youtube_links.max_videos", 3)
+    title_max = _cfg.get("all_command.youtube_links.title_max_chars", 80)
+    seen: set[str] = set()
+    link_lines: list[str] = []
+    for s in yt_signals:
+        vid = s.get("video_id")
+        if not vid or vid in seen:
+            continue
+        seen.add(vid)
+        url = f"https://www.youtube.com/watch?v={vid}"
+        raw_title = s.get("video_title")
+        if raw_title:
+            text = _escape_md_link_text(raw_title)
+            if len(text) > title_max:
+                text = text[:title_max] + "…"
+        else:
+            channel = s.get("channel_name") or "Unknown"
+            text = f"Video by {_escape_md_link_text(channel)}"
+        link_lines.append(f"• [{text}]({url})")
+        if len(link_lines) >= max_videos:
+            break
+
+    if not link_lines:
+        return None
+    return {
+        "name": "Recent YouTube Coverage",
+        "value": "\n".join(link_lines),
+        "inline": False,
+    }
+
+
 def build_embed(
     ticker: str,
     structured: StructuredFields,
@@ -328,6 +376,7 @@ def build_embed(
     narrative: str,
     sources_used: list[str],
     cache_age_seconds: Optional[int],
+    yt_signals: Optional[list[dict]] = None,
 ) -> dict:
     """Return a Discord embed payload dict for the !all command."""
     direction = getattr(structured, "direction", "") or ""
@@ -410,6 +459,9 @@ def build_embed(
          "value": _format_price(current_price),
          "inline": True},
     ]
+    yt_field = _build_youtube_links_field(yt_signals or [])
+    if yt_field is not None:
+        fields.append(yt_field)
 
     cache_text = _format_cache_age(cache_age_seconds)
     sources_count = len(sources)
