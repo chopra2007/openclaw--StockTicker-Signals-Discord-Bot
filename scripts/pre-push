@@ -1,10 +1,39 @@
 #!/usr/bin/env bash
 #
-# pre-push hook — regression gate runs in GitHub Actions CI, not locally.
-# Push goes through immediately; Discord gets a pass/fail notification from CI.
+# pre-push hook — regression gate. Restored 2026-05-26 (Pass 5, Section 2N).
+# Codex review flagged that the previous `exit 0` short-circuit eliminated
+# the local safety net. CI also runs the suite, but the local hook catches
+# regressions before they hit origin.
 #
-# To bypass CI gate for a genuine exception: push with a commit message
-# containing "[skip ci]".
+# Bypass for a genuine exception: `git push --no-verify`.
 #
-echo "[pre-push] push allowed — regression gate runs in CI (watch Discord for results)."
+set -e
+
+LOG=/tmp/pytest-prepush.log
+BASELINE="$(git rev-parse --show-toplevel)/.test-baseline"
+
+echo "[pre-push] running regression suite..."
+python3 -m pytest tests/ --tb=line -q 2>&1 | tee "$LOG"
+
+# Extract current failures (sorted, unique)
+CURRENT_FAILS=$(grep -E '^FAILED ' "$LOG" | awk '{print $2}' | sort -u)
+
+# Baseline failures — known-bug class, empty file means "must be all green"
+BASELINE_FAILS=""
+[ -s "$BASELINE" ] && BASELINE_FAILS=$(sort -u "$BASELINE")
+
+# Regressions = current failures NOT in baseline
+REGRESSIONS=$(comm -23 <(printf '%s\n' "$CURRENT_FAILS") <(printf '%s\n' "$BASELINE_FAILS"))
+
+if [ -n "$REGRESSIONS" ]; then
+    echo ""
+    echo "[pre-push] BLOCKED — new test failures not in .test-baseline:"
+    printf '  - %s\n' $REGRESSIONS
+    echo ""
+    echo "Either fix the test or, if intentionally accepted as known-bug,"
+    echo "add the ID to .test-baseline and commit that change first."
+    exit 1
+fi
+
+echo "[pre-push] OK — no regression vs baseline."
 exit 0
