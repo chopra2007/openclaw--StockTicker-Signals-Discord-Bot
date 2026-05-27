@@ -663,20 +663,39 @@ async def _compute_all(ticker: str, start: float) -> dict:
     # Gap-fill: run only if any trigger fires.
     earnings_iso_str = _earnings_iso(data["decision_snapshots"]) or data.get("next_earnings_iso")
     sec_filings_list = data["sec_filings"] if isinstance(data["sec_filings"], list) else []
-    # Step 10: direction_source feature flag (default="legacy").
-    # "legacy" path: read breakdown.direction attribute directly (unchanged behavior).
-    # "structured" path: derive from breakdown field sums via compute_direction_from_fields.
-    # Step 10b: always compute both and log parity regardless of active flag.
+    # Step 10 (revised 2026-05-26): direction_source feature flag.
+    # Original Step 10 had the "legacy" path read `breakdown.direction` —
+    # but ScoreBreakdown has no `direction` field, so that getattr() always
+    # returned None and "legacy" was always "neutral". That made the parity
+    # log compare a broken stub field against the new helper, producing
+    # the misleading 73% disagreement signal in the first soak window.
+    #
+    # Both paths now compute meaningful directions:
+    #   "legacy"     = compute_direction(score_breakdown) — the existing function
+    #                  the embed already uses; returns BULLISH/BEARISH/NEUTRAL.
+    #   "structured" = compute_direction_from_fields(asdict(breakdown)) — Agent C's
+    #                  dict-based wrapper around the same field-sum logic; returns
+    #                  LONG/SHORT/NEUTRAL.
+    # They implement the same logic on the same fields and should now agree
+    # nearly 100% of the time. The flag remains so a future divergent
+    # implementation can be soak-tested via the same gate.
     _score_bd_raw = getattr(score_result, "breakdown", None)
-    _legacy_direction = (
-        getattr(_score_bd_raw, "direction", None) or "neutral"
-    )
+    _legacy_direction = structured_fields.compute_direction(_score_bd_raw)
     _bd_dict: dict = (
         dataclasses.asdict(_score_bd_raw)
         if _score_bd_raw is not None and dataclasses.is_dataclass(_score_bd_raw)
         else {}
     )
     _structured_direction = structured_fields.compute_direction_from_fields(_bd_dict)
+    # Normalize label sets for the parity comparison — BULLISH/LONG and
+    # BEARISH/SHORT mean the same thing across the two label conventions.
+    _DIRECTION_SYNONYMS = {
+        "bullish": "long", "long": "long",
+        "bearish": "short", "short": "short",
+        "neutral": "neutral",
+    }
+    _legacy_normalized = _DIRECTION_SYNONYMS.get(_legacy_direction.lower(), _legacy_direction.lower())
+    _structured_normalized = _DIRECTION_SYNONYMS.get(_structured_direction.lower(), _structured_direction.lower())
     # Parity log — fires on every aggregator run.
     try:
         _PARITY_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -685,7 +704,7 @@ async def _compute_all(ticker: str, start: float) -> dict:
             "ticker": ticker,
             "legacy_direction": _legacy_direction,
             "structured_direction": _structured_direction,
-            "agree": _legacy_direction.lower() == _structured_direction.lower(),
+            "agree": _legacy_normalized == _structured_normalized,
             "ts": time.time(),
         })
         with _PARITY_LOG_PATH.open("a") as _pf:
