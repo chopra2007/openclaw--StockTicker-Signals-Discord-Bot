@@ -430,6 +430,13 @@ youtube:
     max_inode_pct: 85
     file_max_age_hours: 6
     sweep_lock_path: "/var/tmp/video-fallback/.sweep.lock"
+  alerts:
+    video_link:
+      enabled: true
+      title_max_chars: 80
+    context:
+      macro_max_chars: 220
+      quote_max_chars: 320
   telemetry:
     cross_method_jaccard_alert_threshold: 0.6
     jaccard_rolling_days: 7

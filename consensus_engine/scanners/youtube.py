@@ -24,6 +24,7 @@ _YT_ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
 from consensus_engine import config as cfg, db
 from consensus_engine.utils.http import get_session
 from consensus_engine.alerts.discord import _safe_send_kwargs
+from consensus_engine.alerts._markdown import _escape_md_link_text
 from consensus_engine.utils.transcript_export import compute_hash, export_transcript_json
 
 log = logging.getLogger("consensus_engine.scanner.youtube")
@@ -400,6 +401,9 @@ async def _process_video_two_stage(
                 bundle_spans=bundle.spans,
                 min_confidence=min_conf,
                 require_verified=bool(cfg.get("youtube.catalyst.require_verified", False)),
+                video_id=video_id,
+                video_title=title,
+                macro_summary=(result.macro_thesis.summary if result.macro_thesis else "") or "",
             )
 
     log.info(
@@ -477,6 +481,14 @@ async def _apply_price_sanity_to_levels(levels, get_live_price=_safe_live_price)
             )
 
 
+def _youtube_timestamp_url(video_id: str, ts_sec: int | None) -> str:
+    """Return a YouTube watch URL, appending ?t=<ts>s when ts_sec is not None."""
+    base = f"https://www.youtube.com/watch?v={video_id}"
+    if ts_sec is None:
+        return base
+    return f"{base}&t={ts_sec}s"
+
+
 async def _send_two_stage_alerts(
     display_name: str,
     signals,
@@ -486,6 +498,9 @@ async def _send_two_stage_alerts(
     bundle_spans,
     min_confidence: float,
     require_verified: bool,
+    video_id: str = "",
+    video_title: str = "",
+    macro_summary: str = "",
 ) -> None:
     """Fire one Discord alert per HIGH-conviction, unsuppressed ticker."""
     from consensus_engine.alerts.commands import _format_ts, _format_verified
@@ -544,6 +559,33 @@ async def _send_two_stage_alerts(
             f"(conv {sig.conviction.value.upper()}, confidence {sig.classifier_confidence:.2f})"
         ]
 
+        # 2Q: Clickable video title with timestamp deep-link
+        if video_id:
+            # Timestamp resolution order: setup.video_timestamp_sec → matching span.ts_sec → signal.video_timestamp_sec
+            tkr_ts: int | None = None
+            tmp_setups = tkr_setups if tkr_setups else [s for s in setups if s.ticker == sig.ticker and not s.suppressed]
+            if tmp_setups and tmp_setups[0].video_timestamp_sec is not None:
+                tkr_ts = tmp_setups[0].video_timestamp_sec
+            if tkr_ts is None:
+                for sp in bundle_spans:
+                    if sig.ticker in sp.tickers:
+                        tkr_ts = sp.ts_sec
+                        break
+            if tkr_ts is None and sig.video_timestamp_sec is not None:
+                tkr_ts = sig.video_timestamp_sec
+            title_max = int(cfg.get("youtube.alerts.video_link.title_max_chars", 80))
+            raw_title = (video_title or "").strip()
+            escaped_title = _escape_md_link_text(raw_title)[:title_max] if raw_title else "YouTube video"
+            url = _youtube_timestamp_url(video_id, tkr_ts)
+            lines.append(f"🎥 [{escaped_title}]({url})")
+
+        # 2Q: Macro "Big picture" line
+        macro_max = int(cfg.get("youtube.alerts.context.macro_max_chars", 220))
+        summary = (macro_summary or "").strip()
+        if summary and len(summary) >= 40:
+            truncated = summary[:macro_max] + "…" if len(summary) > macro_max else summary
+            lines.append(f"💡 Big picture: {truncated}")
+
         # Setup line (first setup for this ticker — already filtered to survivors)
         if not tkr_setups:
             tkr_setups = [s for s in setups if s.ticker == sig.ticker and not s.suppressed]
@@ -592,14 +634,23 @@ async def _send_two_stage_alerts(
         if resistance_parts:
             lines.append("📊 Resistance " + " | ".join(resistance_parts[:4]))
 
-        # Context quote — first matching span
+        # 2Q: Context quote — expanded window; optional second span when no macro + short quote
+        quote_max = int(cfg.get("youtube.alerts.context.quote_max_chars", 320))
         quote = ""
+        second_quote = ""
         for sp in bundle_spans:
             if sig.ticker in sp.tickers:
-                quote = sp.quote
-                break
+                if not quote:
+                    quote = sp.quote
+                elif not second_quote:
+                    second_quote = sp.quote
+                    break
         if quote:
-            lines.append(f'> "{quote[:220]}"')
+            rendered_quote = quote[:quote_max]
+            # Append second span when no macro summary and first quote is short
+            if not summary and len(quote) < 120 and second_quote:
+                rendered_quote = rendered_quote + " " + second_quote[:quote_max - len(rendered_quote) - 1]
+            lines.append(f'> "{rendered_quote}"')
 
         await _send_youtube_alert("\n".join(lines))
 
@@ -937,6 +988,30 @@ async def process_video(
                         direction_label = ticker_data["direction"].upper()
                         lines = [f"🎬 **${sym} [{direction_label}]** — {display_name}"]
 
+                        # 2Q: Clickable video title with timestamp deep-link
+                        b_video_id = video_meta.get("video_id", "")
+                        if b_video_id:
+                            # Timestamp: first matching setup's video_timestamp_sec
+                            b_ts: int | None = None
+                            for _s in (tkr_setups if tkr_setups else []):
+                                if _s.video_timestamp_sec is not None:
+                                    b_ts = _s.video_timestamp_sec
+                                    break
+                            title_max = int(cfg.get("youtube.alerts.video_link.title_max_chars", 80))
+                            raw_title = (video_meta.get("title") or "").strip()
+                            escaped_title = _escape_md_link_text(raw_title)[:title_max] if raw_title else "YouTube video"
+                            url = _youtube_timestamp_url(b_video_id, b_ts)
+                            lines.append(f"🎥 [{escaped_title}]({url})")
+
+                        # 2Q: Macro "Big picture" line
+                        macro_max = int(cfg.get("youtube.alerts.context.macro_max_chars", 220))
+                        b_summary = ""
+                        if parsed.macro_thesis and parsed.macro_thesis.summary:
+                            b_summary = parsed.macro_thesis.summary.strip()
+                        if b_summary and len(b_summary) >= 40:
+                            truncated = b_summary[:macro_max] + "…" if len(b_summary) > macro_max else b_summary
+                            lines.append(f"💡 Big picture: {truncated}")
+
                         # Price levels (support / resistance)
                         levels = [lv for lv in parsed.price_levels if lv.ticker == sym]
                         if levels:
@@ -956,10 +1031,11 @@ async def process_video(
                         for o in opts[:2]:
                             lines.append(_format_youtube_option_summary(o))
 
-                        # Context snippet
+                        # 2Q: Context snippet — expanded quote window
+                        quote_max = int(cfg.get("youtube.alerts.context.quote_max_chars", 320))
                         ctx = ticker_data.get("context", "").strip()
                         if ctx:
-                            lines.append(f'> "{ctx[:140]}"')
+                            lines.append(f'> "{ctx[:quote_max]}"')
 
                         await _send_youtube_alert("\n".join(lines))
 
