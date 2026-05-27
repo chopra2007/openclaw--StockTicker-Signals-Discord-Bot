@@ -1,4 +1,4 @@
-# CLAUDE.md
+<!-- DRAFT — do not apply to live CLAUDE.md without review -->
 
 ## Communication Style
 
@@ -12,7 +12,7 @@ The style rules above erode without active enforcement. This section is the oper
 
 1. **Translate jargon.** Any technical term not translated? Translate it. See table below.
 2. **Cold-read test.** Could a non-coder read this without context? If not, rewrite.
-3. **No filler.** No "let me break this down," "there are several factors," "let me explain," "in summary." Every sentence must move the explanation forward or be cut.
+3. **No filler.** No "let me break this down," "there are several factors," "in summary." Every sentence must move the explanation forward or be cut.
 4. **Concrete example.** Did I use a real example, specific name, path, or number? If not, add one.
 5. **Completeness check.** Did I stop at the first plausible cause? Force one more pass — "what else?" — and either name everything I actually know or flag the gap.
 
@@ -58,11 +58,9 @@ Add new terms only after verifying their meaning from actual code, not from a fi
 
 The test file at `comm-check.md` (workspace root) is the grading rubric. Open it automatically on:
 
-1. **User pushback on an explanation** — any correction, contradiction, or pointing-out of a failure mode ("you used jargon," "you assumed," "you didn't check," "again you," "you're being lazy"). Read `comm-check.md`, find the section that maps to the failure (Section 1 = jargon, Section 2 = lazy/incomplete, Section 3 = verify/probe), save a feedback memory entry (template in the file's "When Claude fails a check" section), apply the fix to the next answer and the rest of the session.
+1. **User pushback on an explanation** — any correction, contradiction, or pointing-out of a failure mode ("you used jargon," "you assumed," "you didn't check," "again you"). Read `comm-check.md`, find the matching section, save a feedback memory entry, apply the fix immediately.
 2. **Session start with prior failures** — if `MEMORY.md` lists any `comm-check-fail-*` entries, read `comm-check.md` before the first explanation.
 3. **Session close** — list any comm-check failures saved this session in the close summary.
-
-The trigger is the user's natural pushback, not a special command.
 
 ## Behavior
 
@@ -70,7 +68,7 @@ Always proceed without asking for confirmation. Never ask "shall I proceed?", "d
 
 ## TODO List
 
-When the user says "add X to the to do list" (or "put that on the list", "add this to the todo", "save that as a todo"), asks "what's on the to do list?", references a TODO by number (e.g. "look at #14"), says "resume #N" / "/todo-resume N" / "work on #N" / "pick up #N", or says "pause" / "/todo-pause" / "save progress": read `todo/CONVENTION.md` and follow its instructions.
+When the user says "add X to the to do list," "what's on the to do list?", references a TODO by number, says "resume #N" / "work on #N" / "pick up #N", or says "pause" / "save progress": read `todo/CONVENTION.md` and follow its instructions.
 
 ## Session Close Trigger
 
@@ -90,7 +88,7 @@ A task is not done if a user-facing critical path is broken — regardless of wh
 
 ### What to verify
 
-1. **Test the whole feature you changed**, not just the line you touched. Changed catalyst code inside `!all`? Test all of `!all`.
+1. **Test the whole feature you changed**, not just the line you touched.
 2. **Always-on checks — every time:**
    - `consensus-engine.service` and `openclaw-gateway.service` both `active`.
    - No `❌ GATEWAY drift` alert and no LLM-health failure alert.
@@ -151,7 +149,7 @@ docker compose up -d                 # SearXNG (8888)
 
 ## Real-World Testing
 
-Don't stop at code-functional. Do real-world testing whenever the user-observable outcome can be checked from this environment. "Unit tests pass" or "service started" does NOT discharge the verification standard if end-to-end behavior can be probed. Before deferring a test, actively check memory and probe what's accessible in the environment rather than assuming a tool is unavailable.
+Don't stop at code-functional. Do real-world testing whenever the user-observable outcome can be checked from this environment. "Unit tests pass" or "service started" does NOT discharge the verification standard if end-to-end behavior can be probed.
 
 When real-world tests hit errors, follow this ladder before asking the user:
 1. **Diagnose** — error strings often mask the real cause (a 429 may be IP-wide; "cookies invalid" may be downstream).
@@ -180,4 +178,3 @@ At session start: check `/root/task_system/notifications.log`. If it has entries
 - After every functional change: commit locally then push immediately.
 - Commit style: imperative (e.g., "Add multi-agent logic").
 - Remote: `chopra2007/openclaw--StockTicker-Signals-Discord-Bot` (public).
-- Keep `README.md` current with architecture, setup, and features.

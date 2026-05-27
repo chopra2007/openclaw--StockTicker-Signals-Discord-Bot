@@ -1,0 +1,25 @@
+{
+  "env": {
+    "OMC_SKIP_VERBOSE_SUPERPOWERS": "1",
+    "OMC_QUIET": "1"
+  },
+  "omcHud": {
+    "preset": "compact",
+    "elements": {
+      "omcLabel": true,
+      "contextBar": true,
+      "sessionHealth": false,
+      "showCallCounts": false
+    }
+  },
+  "permissions": {
+    "allow": [
+      "Read",
+      "Write",
+      "Edit",
+      "Bash",
+      "Glob",
+      "Grep"
+    ]
+  }
+}
