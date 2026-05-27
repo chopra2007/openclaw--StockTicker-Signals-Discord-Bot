@@ -1619,13 +1619,22 @@ async def get_youtube_signals_for_ticker(ticker: str, days: int = 7) -> list[dic
 
     LEFT JOIN youtube_videos so each row gains video_title (str or None).
     Signals without a matching youtube_videos row still appear (title=None).
+
+    Each row also carries `evidence_spans_for_ticker` — the count of
+    youtube_evidence_spans rows for the same video whose tickers_json
+    explicitly tags this ticker. The display layer uses that to
+    distinguish primary coverage from incidental over-tagging.
     """
     conn = await get_db()
     cutoff = time.time() - (days * 86400)
     cursor = await conn.execute(
         """SELECT s.video_id, s.channel_name, s.ticker, s.direction, s.conviction,
                   s.mention_count, s.macro_thesis, s.parsed_at, s.published_at,
-                  v.title AS video_title
+                  v.title AS video_title,
+                  (SELECT COUNT(*) FROM youtube_evidence_spans e
+                   WHERE e.video_id = s.video_id
+                     AND e.tickers_json LIKE '%"' || s.ticker || '"%')
+                  AS evidence_spans_for_ticker
            FROM youtube_signals s
            LEFT JOIN youtube_videos v ON v.video_id = s.video_id
            WHERE s.ticker = ? AND s.extracted_at >= ?

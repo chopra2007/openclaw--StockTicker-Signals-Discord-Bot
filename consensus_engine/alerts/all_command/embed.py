@@ -344,36 +344,39 @@ def _ticker_aliases(ticker: str) -> list[str]:
 
 
 def _signal_is_primary_coverage(signal: dict, ticker: str) -> bool:
-    """Heuristic: does this youtube_signals row represent real coverage of `ticker`,
-    or is it an incidental over-tag from a parser that saw a passing mention?
+    """Evidence-based filter: surface a video for `ticker` only if the parser
+    captured at least one youtube_evidence_spans row whose tickers_json
+    explicitly tags this ticker. That count is pre-computed by
+    db.get_youtube_signals_for_ticker as `evidence_spans_for_ticker`.
 
-    The youtube_signals table over-tags: when a video mentions multiple tickers
-    in passing (e.g. a Tesla-focused video that names NVDA once in a comparison),
-    the parser creates a row per ticker. Surfacing those incidental rows in the
-    Recent YouTube Coverage field is misleading — users expect coverage that's
-    primarily ABOUT their ticker.
+    Rationale: the youtube_signals table is coarse-grained — when a video
+    mentions multiple tickers, the parser creates a row per ticker, and
+    those rows can carry mention_count / conviction values that don't
+    reliably distinguish "primary topic" from "incidental mention".
+    The youtube_evidence_spans table is fine-grained — each row is a
+    transcript quote, and tickers_json lists the tickers that specific
+    quote actually discusses. Requiring at least one such quote tags
+    the ticker means the parser has fine-grained evidence that the
+    video discusses it, not just a coarse "I saw this ticker name
+    somewhere in the transcript" tag.
 
-    Accept a signal if any of:
-      • conviction is "high" — parser flagged this as primary discussion
-      • the video title literally contains the ticker symbol (e.g. "NVDA" in
-        "NVDA Earnings Recap")
-      • the title contains a known company-name alias (e.g. "nvidia" → NVDA)
-      • conviction is "medium" AND mention_count is high (≥3 — real
-        in-content discussion, not a one-off)
+    Trade-off: older signals from before the parser started emitting
+    evidence spans will have count=0 and be filtered out. That's
+    intentional — we'd rather show fewer (correct) results than fill
+    the field with false positives. As the parser ingests new videos
+    the field will populate naturally.
 
-    Otherwise reject."""
-    conviction = (signal.get("conviction") or "").lower()
-    if conviction == "high":
-        return True
-    title = (signal.get("video_title") or "").lower()
-    if ticker.upper() in title.upper():
-        return True
-    for alias in _ticker_aliases(ticker):
-        if alias and alias in title:
-            return True
-    if conviction == "medium" and (signal.get("mention_count") or 0) >= 3:
-        return True
-    return False
+    The `ticker` param is kept in the signature so future filters that
+    incorporate title-match or alias logic can be added without changing
+    callers. Currently unused."""
+    return (signal.get("evidence_spans_for_ticker") or 0) >= _cfg_min_evidence_spans()
+
+
+def _cfg_min_evidence_spans() -> int:
+    """Minimum quote-level evidence spans required for a signal to surface.
+    Threshold is config-driven so it can be raised without code changes."""
+    from consensus_engine import config as _cfg
+    return int(_cfg.get("all_command.youtube_links.min_evidence_spans", 1))
 
 
 def _build_youtube_links_field(yt_signals: list[dict], ticker: str = "") -> Optional[dict]:
