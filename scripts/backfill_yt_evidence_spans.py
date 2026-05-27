@@ -40,7 +40,7 @@ WHERE NOT EXISTS (
 )
 AND s.extracted_at >= (strftime('%s','now') - 30*86400)
 ORDER BY s.extracted_at DESC
-LIMIT 100
+LIMIT 500
 """
 
 
@@ -51,8 +51,7 @@ async def _get_candidates(conn) -> list[dict]:
 
 
 async def _fetch_transcript(video_id: str) -> str | None:
-    """Return transcript text: DB cache first, then youtube_transcript_api, then Supadata."""
-    # Tier 0: already saved in youtube_transcripts — free, instant, no external call
+    """Return transcript text from DB only — no external fetches."""
     try:
         from consensus_engine.db import get_db
         conn = await get_db()
@@ -62,33 +61,10 @@ async def _fetch_transcript(video_id: str) -> str | None:
         )
         row = await cursor.fetchone()
         if row and row["transcript_text"]:
-            log.debug("transcript from DB cache for %s (%d chars)", video_id, len(row["transcript_text"]))
+            log.debug("transcript from DB for %s (%d chars)", video_id, len(row["transcript_text"]))
             return row["transcript_text"]
     except Exception as exc:
         log.debug("DB transcript lookup failed for %s: %s", video_id, exc)
-
-    # Tier 1: youtube_transcript_api (free, but may be IP-blocked)
-    try:
-        from youtube_transcript_api import YouTubeTranscriptApi
-        api = YouTubeTranscriptApi()
-        fetched = api.fetch(video_id)
-        text = " ".join(s.text for s in fetched)
-        if text:
-            log.debug("transcript via youtube_transcript_api for %s (%d chars)", video_id, len(text))
-            return text
-    except Exception as exc:
-        log.debug("youtube_transcript_api failed for %s: %s", video_id, exc)
-
-    # Tier 2: Supadata
-    try:
-        from consensus_engine.utils.transcript_fetch import _fetch_via_supadata
-        result = await _fetch_via_supadata(video_id)
-        if result is not None:
-            text, _lang, _is_manual = result
-            log.debug("transcript via Supadata for %s (%d chars)", video_id, len(text))
-            return text
-    except Exception as exc:
-        log.debug("Supadata fallback failed for %s: %s", video_id, exc)
 
     return None
 

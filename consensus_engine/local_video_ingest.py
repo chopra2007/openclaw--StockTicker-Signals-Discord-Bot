@@ -96,6 +96,29 @@ async def extract_frames(video_id: str, mode: str = "scene-change") -> list:
     return []
 
 
+# ─── Transcript persistence ───────────────────────────────────────────────────
+
+async def _save_transcript_and_trim(video_id: str, text: str) -> None:
+    """Save transcript to DB and delete rows older than 30 days.
+
+    Called after each successful caption/whisper fetch so the backfill script
+    can re-parse transcripts without hitting external APIs. Old rows are trimmed
+    inline to avoid unbounded disk growth.
+    """
+    import hashlib
+    from consensus_engine import db
+    try:
+        h = hashlib.sha256(text.encode()).hexdigest()
+        await db.save_youtube_transcript(video_id, text, h)
+        conn = await db.get_db()
+        await conn.execute(
+            "DELETE FROM youtube_transcripts WHERE saved_at < strftime('%s','now') - 30*86400"
+        )
+        await conn.commit()
+    except Exception as exc:
+        log.debug("transcript save/trim failed for %s: %s", video_id, exc)
+
+
 # ─── Chain orchestrator ───────────────────────────────────────────────────────
 
 async def _run_chain(
@@ -165,6 +188,8 @@ async def _stage_captions(
         if text is None:
             return None
 
+        await _save_transcript_and_trim(video_id, text)
+
         # YouTube auto-captions don't markup tickers as $XXX and use natural
         # language ("apple", "tesla"). Route the text through the configured
         # LLM chain (Gemini Flash → free OpenRouter fallbacks) which can
@@ -225,6 +250,8 @@ async def _stage_whisper(
         transcript = await fetch_audio_transcript(video_id, run_dir)
         if transcript is None:
             return None
+
+        await _save_transcript_and_trim(video_id, transcript)
 
         from consensus_engine.analysis.hallucination_grounding import (
             ground_transcript_tickers, all_ungrounded,
