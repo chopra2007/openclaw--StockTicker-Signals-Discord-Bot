@@ -31,11 +31,11 @@ from consensus_engine import config as cfg, db
 from consensus_engine.alerts.discord import send_command_reply
 from consensus_engine.scanners.reddit_trend import crawl_and_get_trending
 from consensus_engine.alerts.discord import send_trend_digest
-from consensus_engine.utils.tickers import is_valid_ticker
+from consensus_engine.utils.tickers import is_valid_ticker_format
 from consensus_engine.utils.time_context import build_time_context
 
 
-_INVALID_TICKER_MSG = "Invalid ticker `{ticker}`. Tickers must be 1-6 uppercase letters."
+_INVALID_TICKER_MSG = "Invalid ticker `{ticker}`. Tickers must be 1-5 uppercase letters."
 
 log = logging.getLogger("consensus_engine.alerts.commands")
 
@@ -235,7 +235,7 @@ async def _route_command_inner(
             await send_command_reply(channel_id, message_id, "Usage: `!scan <TICKER>` — e.g. `!scan NVDA`")
         else:
             ticker = args[0].upper()
-            if not is_valid_ticker(ticker):
+            if not is_valid_ticker_format(ticker):
                 await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=ticker))
             else:
                 await _handle_scan(ticker, channel_id, message_id)
@@ -254,7 +254,7 @@ async def _route_command_inner(
             await send_command_reply(channel_id, message_id, "Usage: `!all <TICKER>` — e.g. `!all AMD`")
         else:
             ticker = args[0].upper()
-            if not is_valid_ticker(ticker):
+            if not is_valid_ticker_format(ticker):
                 await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=ticker))
             else:
                 await _handle_all(ticker, channel_id, message_id)
@@ -264,7 +264,7 @@ async def _route_command_inner(
             await send_command_reply(channel_id, message_id, "Usage: `!signals <TICKER>` — e.g. `!signals NVDA`")
         else:
             ticker = args[0].upper()
-            if not is_valid_ticker(ticker):
+            if not is_valid_ticker_format(ticker):
                 await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=ticker))
             else:
                 await _handle_signals(ticker, channel_id, message_id)
@@ -274,7 +274,7 @@ async def _route_command_inner(
             await send_command_reply(channel_id, message_id, "Usage: `!analysts <TICKER>` — e.g. `!analysts NVDA`")
         else:
             ticker = args[0].upper()
-            if not is_valid_ticker(ticker):
+            if not is_valid_ticker_format(ticker):
                 await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=ticker))
             else:
                 await _handle_analysts(ticker, channel_id, message_id)
@@ -287,7 +287,7 @@ async def _route_command_inner(
             await send_command_reply(channel_id, message_id, "Usage: `!news <TICKER>` — e.g. `!news NVDA`")
         else:
             ticker = args[0].upper()
-            if not is_valid_ticker(ticker):
+            if not is_valid_ticker_format(ticker):
                 await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=ticker))
             else:
                 await _handle_news(ticker, channel_id, message_id)
@@ -297,7 +297,7 @@ async def _route_command_inner(
             await send_command_reply(channel_id, message_id, "Usage: `!sec <TICKER>` — e.g. `!sec NVDA`")
         else:
             ticker = args[0].upper()
-            if not is_valid_ticker(ticker):
+            if not is_valid_ticker_format(ticker):
                 await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=ticker))
             else:
                 await _handle_sec(ticker, channel_id, message_id)
@@ -307,7 +307,7 @@ async def _route_command_inner(
             await send_command_reply(channel_id, message_id, "Usage: `!options <TICKER>` — e.g. `!options NVDA`")
         else:
             ticker = args[0].upper()
-            if not is_valid_ticker(ticker):
+            if not is_valid_ticker_format(ticker):
                 await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=ticker))
             else:
                 await _handle_options(ticker, channel_id, message_id)
@@ -317,7 +317,7 @@ async def _route_command_inner(
             await send_command_reply(channel_id, message_id, "Usage: `!technical <TICKER>` — e.g. `!technical NVDA`")
         else:
             ticker = args[0].upper()
-            if not is_valid_ticker(ticker):
+            if not is_valid_ticker_format(ticker):
                 await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=ticker))
             else:
                 direction = args[1].lower() if len(args) > 1 and args[1].lower() in ("long", "short") else "long"
@@ -328,7 +328,7 @@ async def _route_command_inner(
             await send_command_reply(channel_id, message_id, "Usage: `!google-trends <TICKER>` — e.g. `!google-trends NVDA`")
         else:
             ticker = args[0].upper()
-            if not is_valid_ticker(ticker):
+            if not is_valid_ticker_format(ticker):
                 await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=ticker))
             else:
                 await _handle_google_trends(ticker, channel_id, message_id)
@@ -345,7 +345,7 @@ async def _route_command_inner(
             await send_command_reply(channel_id, message_id, "Usage: `!alert-history <TICKER>` — e.g. `!alert-history NVDA`")
         else:
             ticker = args[0].upper()
-            if not is_valid_ticker(ticker):
+            if not is_valid_ticker_format(ticker):
                 await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=ticker))
             else:
                 await _handle_alert_history(ticker, channel_id, message_id)
@@ -367,7 +367,7 @@ async def _route_command_inner(
             await send_command_reply(channel_id, message_id, "Usage: `!market-view <TICKER>` — e.g. `!market-view NVDA`")
         else:
             ticker = args[0].upper()
-            if not is_valid_ticker(ticker):
+            if not is_valid_ticker_format(ticker):
                 await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=ticker))
             else:
                 await _handle_market_view(ticker, channel_id, message_id)
@@ -377,7 +377,7 @@ async def _route_command_inner(
             await send_command_reply(channel_id, message_id, "Usage: `!levels <TICKER>` — e.g. `!levels NVDA`")
         else:
             ticker = args[0].upper()
-            if not is_valid_ticker(ticker):
+            if not is_valid_ticker_format(ticker):
                 await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=ticker))
             else:
                 await _handle_levels(ticker, channel_id, message_id)
@@ -429,7 +429,7 @@ async def _route_command_inner(
             await send_command_reply(channel_id, message_id, "Usage: `!cluster <TICKER>` — e.g. `!cluster NVDA`")
         else:
             ticker = args[0].upper()
-            if not is_valid_ticker(ticker):
+            if not is_valid_ticker_format(ticker):
                 await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=ticker))
             else:
                 await _handle_cluster_history(ticker, channel_id, message_id)

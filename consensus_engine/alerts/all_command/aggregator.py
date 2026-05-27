@@ -37,7 +37,7 @@ from consensus_engine.alerts.discord import (
     send_command_reply,
 )
 from consensus_engine.utils.rate_limiter import rate_limiter
-from consensus_engine.utils.tickers import is_valid_ticker
+from consensus_engine.utils.tickers import is_valid_ticker_format
 
 log = logging.getLogger("consensus_engine.alerts.all_command.aggregator")
 
@@ -1052,7 +1052,7 @@ async def handle_all(
     Per plan §6.3: all exceptions are caught and logged here so that
     `_handle_all`'s `asyncio.create_task` callback sees a clean completion.
     """
-    if not is_valid_ticker(ticker):
+    if not is_valid_ticker_format(ticker):
         log.warning("aggregator.handle_all: invalid ticker %r", ticker)
         await send_command_reply(
             channel_id, message_id,

@@ -1,6 +1,44 @@
 """Tests for ticker validation and noise filtering."""
 import pytest
-from consensus_engine.utils.tickers import extract_tickers, is_valid_ticker, BLACKLIST
+from consensus_engine.utils.tickers import (
+    BLACKLIST, extract_tickers, is_valid_ticker, is_valid_ticker_format,
+)
+
+
+# ---------------------------------------------------------------------------
+# is_valid_ticker_format — used by explicit user commands (!all, !scan, etc.)
+# Skips the BLACKLIST so users can ask about ETFs like SPY/QQQ that the
+# strict extraction filter intentionally suppresses.
+# ---------------------------------------------------------------------------
+
+
+def test_format_accepts_blacklisted_tickers_users_might_command():
+    """User explicitly types '!all SPY' — accept it. The BLACKLIST is for
+    text-extraction false-positive suppression, not for command rejection."""
+    assert is_valid_ticker_format("SPY") is True
+    assert is_valid_ticker_format("QQQ") is True
+    # And strict is_valid_ticker still rejects them — extraction semantics unchanged
+    assert is_valid_ticker("SPY") is False
+    assert is_valid_ticker("QQQ") is False
+
+
+def test_format_rejects_bad_format():
+    """Format-only check still rejects: empty, lowercase, mixed case,
+    digits, too short (none — empty), too long, non-alpha."""
+    assert is_valid_ticker_format("") is False
+    assert is_valid_ticker_format("nvda") is False     # lowercase
+    assert is_valid_ticker_format("Nvda") is False     # mixed case
+    assert is_valid_ticker_format("NVDA1") is False    # contains digit
+    assert is_valid_ticker_format("TOOLONG") is False  # 7 chars > 5
+    assert is_valid_ticker_format("AB-C") is False     # hyphen
+
+
+def test_format_accepts_normal_tickers():
+    assert is_valid_ticker_format("NVDA") is True
+    assert is_valid_ticker_format("TSLA") is True
+    assert is_valid_ticker_format("F") is True       # single-letter ticker
+    assert is_valid_ticker_format("GOOGL") is True   # 5 chars (max)
+
 
 
 def test_common_words_blacklisted():

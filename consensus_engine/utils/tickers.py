@@ -112,11 +112,29 @@ def extract_tickers(text: str) -> set[str]:
     return tickers
 
 
-def is_valid_ticker(ticker: str) -> bool:
-    """Check if a string looks like a valid ticker symbol."""
+def is_valid_ticker_format(ticker: str) -> bool:
+    """Format-only check: 1-5 uppercase letters, no BLACKLIST filter.
+
+    Use this for EXPLICIT user commands (e.g. `!all SPY`) where the user
+    has clearly named a ticker. The BLACKLIST in is_valid_ticker exists
+    to suppress false positives during text-extraction (scanning tweets,
+    transcripts, etc.) where strings like SPY / QQQ / ETF would mostly
+    appear in non-ticker contexts. When the user types the ticker
+    directly, that ambiguity doesn't exist — accept it."""
     if not ticker or len(ticker) < 1 or len(ticker) > 5:
         return False
     if not ticker.isalpha() or not ticker.isupper():
+        return False
+    return True
+
+
+def is_valid_ticker(ticker: str) -> bool:
+    """Strict: format + BLACKLIST. Use for ticker EXTRACTION from arbitrary text.
+
+    For explicit user commands, prefer is_valid_ticker_format() — that one
+    skips the BLACKLIST so users can ask about ETFs and similar tickers
+    that the extraction filter intentionally suppresses."""
+    if not is_valid_ticker_format(ticker):
         return False
     if ticker in BLACKLIST:
         return False
