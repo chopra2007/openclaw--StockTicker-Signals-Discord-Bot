@@ -13,6 +13,7 @@ import pytest
 
 from consensus_engine.alerts.all_command.embed import (
     _build_youtube_links_field,
+    _signal_is_primary_coverage,
     build_embed,
 )
 from consensus_engine.alerts.all_command.structured_fields import StructuredFields
@@ -151,7 +152,7 @@ def test_build_embed_yt_field_appears_after_inline_three():
         narrative="Test narrative",
         sources_used=["news"],
         cache_age_seconds=None,
-        yt_signals=[_signal("vid1", title="A")],
+        yt_signals=[_signal("vid1", title="NVDA setup")],
     )
     fields = embed["fields"]
     assert len(fields) == 4
@@ -160,3 +161,109 @@ def test_build_embed_yt_field_appears_after_inline_three():
     # The new YT field is non-inline
     assert fields[3]["inline"] is False
     assert fields[3]["name"] == "Recent YouTube Coverage"
+
+
+# ---------------------------------------------------------------------------
+# _signal_is_primary_coverage — over-tag filter
+#
+# The youtube_signals table over-tags videos: a Tesla-focused video that
+# mentions NVDA once in passing gets a row with ticker=NVDA. This filter
+# rejects those incidental rows so the user only sees genuine coverage.
+# ---------------------------------------------------------------------------
+
+
+def _sig(title=None, conviction=None, mention_count=None, video_id="v"):
+    return {
+        "video_id": video_id,
+        "video_title": title,
+        "conviction": conviction,
+        "mention_count": mention_count,
+    }
+
+
+def test_primary_coverage_high_conviction_always_passes():
+    """conviction=high is the parser's strongest signal — accept regardless of title."""
+    s = _sig(title="Some Unrelated Title", conviction="high", mention_count=1)
+    assert _signal_is_primary_coverage(s, "NVDA") is True
+
+
+def test_primary_coverage_title_contains_ticker_passes():
+    """If the title literally contains the ticker, accept it."""
+    s = _sig(title="NVDA Earnings Recap", conviction="low", mention_count=1)
+    assert _signal_is_primary_coverage(s, "NVDA") is True
+
+
+def test_primary_coverage_title_contains_alias_passes():
+    """Title contains a company-name alias (NVDA → nvidia) — accept."""
+    s = _sig(title="NVIDIA crushes earnings beat", conviction="low", mention_count=1)
+    assert _signal_is_primary_coverage(s, "NVDA") is True
+
+
+def test_primary_coverage_medium_with_high_mentions_passes():
+    """conviction=medium AND mention_count>=3 means real in-content discussion."""
+    s = _sig(title="Macro market view", conviction="medium", mention_count=5)
+    assert _signal_is_primary_coverage(s, "NVDA") is True
+
+
+def test_primary_coverage_medium_with_few_mentions_rejected():
+    """conviction=medium with mention_count<3 = passing mention, reject."""
+    s = _sig(title="Tesla Stock Analysis", conviction="medium", mention_count=2)
+    assert _signal_is_primary_coverage(s, "NVDA") is False
+
+
+def test_primary_coverage_low_conviction_rejected():
+    """conviction=low is the parser's "incidental mention" signal — reject
+    unless the title explicitly contains the ticker or alias."""
+    s = _sig(title="GameStop AMC Hedge Funds Warning", conviction="low", mention_count=1)
+    assert _signal_is_primary_coverage(s, "NVDA") is False
+
+
+def test_primary_coverage_tsla_video_rejected_for_nvda():
+    """Real scenario from production: Tesla video over-tagged as NVDA."""
+    s = _sig(title="Tesla Stock Price Analysis | Top $TSLA Levels To Watch", conviction="medium", mention_count=2)
+    assert _signal_is_primary_coverage(s, "NVDA") is False
+    # But the same video qualifies for TSLA (title contains TSLA)
+    assert _signal_is_primary_coverage(s, "TSLA") is True
+
+
+def test_build_embed_filters_over_tagged_signals():
+    """Integration: build_embed receives mixed-quality yt_signals and renders
+    only the primary-coverage ones in the field."""
+    yt_signals = [
+        _sig(video_id="real", title="NVDA Earnings Recap", conviction="medium", mention_count=4),
+        _sig(video_id="tsla", title="Tesla Stock Analysis", conviction="medium", mention_count=2),
+        _sig(video_id="macro", title="Market Outlook May 26", conviction="low", mention_count=1),
+    ]
+    embed = build_embed(
+        ticker="NVDA",
+        structured=_make_structured(),
+        score_breakdown=ScoreBreakdown(),
+        narrative="Test narrative",
+        sources_used=["news"],
+        cache_age_seconds=None,
+        yt_signals=yt_signals,
+    )
+    yt_field = next(f for f in embed["fields"] if f["name"] == "Recent YouTube Coverage")
+    # Only the NVDA-titled one should appear; the TSLA + macro rows are filtered out
+    assert "real" in yt_field["value"]
+    assert "tsla" not in yt_field["value"]
+    assert "macro" not in yt_field["value"]
+
+
+def test_build_embed_no_yt_field_when_all_signals_filtered():
+    """If every signal is incidental, no YT field is added (better than misleading the user)."""
+    yt_signals = [
+        _sig(video_id="tsla", title="Tesla Stock Analysis", conviction="medium", mention_count=2),
+        _sig(video_id="macro", title="Market Outlook May 26", conviction="low", mention_count=1),
+    ]
+    embed = build_embed(
+        ticker="NVDA",
+        structured=_make_structured(),
+        score_breakdown=ScoreBreakdown(),
+        narrative="Test narrative",
+        sources_used=["news"],
+        cache_age_seconds=None,
+        yt_signals=yt_signals,
+    )
+    field_names = [f["name"] for f in embed["fields"]]
+    assert "Recent YouTube Coverage" not in field_names

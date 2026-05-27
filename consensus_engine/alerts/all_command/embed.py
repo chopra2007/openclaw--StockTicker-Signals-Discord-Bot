@@ -321,9 +321,66 @@ def _build_breakdown_inline(score_breakdown: ScoreBreakdown) -> str:
     return ", ".join(parts)
 
 
-def _build_youtube_links_field(yt_signals: list[dict]) -> Optional[dict]:
+_TICKER_ALIAS_PATH = "config/ticker_aliases.json"
+
+
+def _ticker_aliases(ticker: str) -> list[str]:
+    """Return lowercase aliases for a ticker (e.g. NVDA → ['nvidia']).
+
+    Empty list if the ticker isn't in config/ticker_aliases.json. Cheap
+    enough to re-read per call — file is ~1KB."""
+    import json
+    import os
+    try:
+        path = _TICKER_ALIAS_PATH
+        if not os.path.isabs(path):
+            # Resolve relative to repo root (where consensus-engine is launched).
+            path = os.path.join(os.getcwd(), path)
+        with open(path) as f:
+            d = json.load(f)
+        return [a.lower() for a in d.get(ticker.upper(), [])]
+    except (OSError, ValueError):
+        return []
+
+
+def _signal_is_primary_coverage(signal: dict, ticker: str) -> bool:
+    """Heuristic: does this youtube_signals row represent real coverage of `ticker`,
+    or is it an incidental over-tag from a parser that saw a passing mention?
+
+    The youtube_signals table over-tags: when a video mentions multiple tickers
+    in passing (e.g. a Tesla-focused video that names NVDA once in a comparison),
+    the parser creates a row per ticker. Surfacing those incidental rows in the
+    Recent YouTube Coverage field is misleading — users expect coverage that's
+    primarily ABOUT their ticker.
+
+    Accept a signal if any of:
+      • conviction is "high" — parser flagged this as primary discussion
+      • the video title literally contains the ticker symbol (e.g. "NVDA" in
+        "NVDA Earnings Recap")
+      • the title contains a known company-name alias (e.g. "nvidia" → NVDA)
+      • conviction is "medium" AND mention_count is high (≥3 — real
+        in-content discussion, not a one-off)
+
+    Otherwise reject."""
+    conviction = (signal.get("conviction") or "").lower()
+    if conviction == "high":
+        return True
+    title = (signal.get("video_title") or "").lower()
+    if ticker.upper() in title.upper():
+        return True
+    for alias in _ticker_aliases(ticker):
+        if alias and alias in title:
+            return True
+    if conviction == "medium" and (signal.get("mention_count") or 0) >= 3:
+        return True
+    return False
+
+
+def _build_youtube_links_field(yt_signals: list[dict], ticker: str = "") -> Optional[dict]:
     """Build the optional "Recent YouTube Coverage" embed field.
 
+    Filters out incidental cross-ticker tags (see _signal_is_primary_coverage)
+    so the user only sees videos that actually cover the requested ticker.
     Reads up to `all_command.youtube_links.max_videos` distinct videos from
     yt_signals (dedupe by video_id, preserve query order), formats each as
     a clickable markdown link, returns a Discord field dict or None.
@@ -345,6 +402,8 @@ def _build_youtube_links_field(yt_signals: list[dict]) -> Optional[dict]:
     for s in yt_signals:
         vid = s.get("video_id")
         if not vid or vid in seen:
+            continue
+        if ticker and not _signal_is_primary_coverage(s, ticker):
             continue
         seen.add(vid)
         url = f"https://www.youtube.com/watch?v={vid}"
@@ -459,7 +518,7 @@ def build_embed(
          "value": _format_price(current_price),
          "inline": True},
     ]
-    yt_field = _build_youtube_links_field(yt_signals or [])
+    yt_field = _build_youtube_links_field(yt_signals or [], ticker=ticker)
     if yt_field is not None:
         fields.append(yt_field)
 
