@@ -1615,14 +1615,21 @@ async def get_youtube_video(video_id: str) -> dict | None:
 
 
 async def get_youtube_signals_for_ticker(ticker: str, days: int = 7) -> list[dict]:
-    """Get all YouTube signals for a ticker from the last N days."""
+    """Get all YouTube signals for a ticker from the last N days.
+
+    LEFT JOIN youtube_videos so each row gains video_title (str or None).
+    Signals without a matching youtube_videos row still appear (title=None).
+    """
     conn = await get_db()
     cutoff = time.time() - (days * 86400)
     cursor = await conn.execute(
-        """SELECT video_id, channel_name, ticker, direction, conviction, mention_count, macro_thesis, parsed_at, published_at
-           FROM youtube_signals
-           WHERE ticker = ? AND extracted_at >= ?
-           ORDER BY extracted_at DESC""",
+        """SELECT s.video_id, s.channel_name, s.ticker, s.direction, s.conviction,
+                  s.mention_count, s.macro_thesis, s.parsed_at, s.published_at,
+                  v.title AS video_title
+           FROM youtube_signals s
+           LEFT JOIN youtube_videos v ON v.video_id = s.video_id
+           WHERE s.ticker = ? AND s.extracted_at >= ?
+           ORDER BY s.extracted_at DESC""",
         (ticker, cutoff),
     )
     rows = await cursor.fetchall()

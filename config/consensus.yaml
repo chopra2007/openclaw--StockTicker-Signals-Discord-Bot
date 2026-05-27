@@ -449,6 +449,11 @@ all_command:
   # truncation instead. The deterministic SEC evidence block always
   # bypasses sanitize regardless of this flag.
   sanitize_enabled: true
+  # Section 2P: clickable YouTube video links beneath the Social field.
+  youtube_links:
+    enabled: true          # kill switch — set false to revert to one-liner only
+    max_videos: 3          # cap on link lines appended
+    title_max_chars: 80    # truncate title (Unicode-safe; ellipsis appended)
 
 # Precision Scoring Engine
 precision_engine:

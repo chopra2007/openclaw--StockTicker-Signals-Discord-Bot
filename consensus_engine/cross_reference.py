@@ -242,6 +242,22 @@ async def _get_youtube_context(ticker: str):
         conv_map = {"high": 15, "medium": 10, "low": 5}
         score_boost = conv_map.get(top_conviction, 10)
 
+        # Build deduplicated video list (order from query: extracted_at DESC)
+        max_videos = cfg.get("all_command.youtube_links.max_videos", 3)
+        seen_video_ids: set[str] = set()
+        videos: list[dict] = []
+        for m in mentions:
+            vid = m.get("video_id")
+            if vid and vid not in seen_video_ids:
+                seen_video_ids.add(vid)
+                videos.append({
+                    "video_id": vid,
+                    "title": m.get("video_title"),
+                    "channel_name": m.get("channel_name"),
+                })
+                if len(videos) >= max_videos:
+                    break
+
         return YouTubeContext(
             mention_count=len(mentions),
             direction=Direction(consensus_dir),
@@ -249,6 +265,7 @@ async def _get_youtube_context(ticker: str):
             channels=list(set(m.get("channel_name") for m in mentions if m.get("channel_name"))),
             levels=level_data,
             score_boost=score_boost,
+            videos=videos,
         )
     except Exception as e:
         log.debug("YouTube context error for $%s: %s", ticker, e)
@@ -357,6 +374,8 @@ async def score_ticker(
 
 def _build_social_summary(social_data: dict, youtube: Optional[YouTubeContext]) -> str:
     """Build the human-readable social + youtube summary string."""
+    from consensus_engine.alerts._markdown import _escape_md_link_text
+
     social_parts = []
     if social_data.get("apewisdom", 0) >= 1:
         social_parts.append(f"ApeWisdom ({social_data['apewisdom']} mentions)")
@@ -374,7 +393,29 @@ def _build_social_summary(social_data: dict, youtube: Optional[YouTubeContext]) 
             youtube_parts.append(f"Levels: {len(youtube.levels)} S/R zones")
 
     all_sources = social_parts + youtube_parts
-    return ", ".join(all_sources) if all_sources else ""
+    summary = ", ".join(all_sources) if all_sources else ""
+
+    # Append clickable video links beneath the YouTube one-liner (Section 2P).
+    if youtube and youtube.videos and cfg.get("all_command.youtube_links.enabled", True):
+        title_max = cfg.get("all_command.youtube_links.title_max_chars", 80)
+        max_videos = cfg.get("all_command.youtube_links.max_videos", 3)
+        link_lines = []
+        for v in youtube.videos[:max_videos]:
+            url = f"https://www.youtube.com/watch?v={v['video_id']}"
+            raw_title = v.get("title")
+            if raw_title:
+                escaped = _escape_md_link_text(raw_title)
+                if len(escaped) > title_max:
+                    escaped = escaped[:title_max] + "…"
+                link_text = escaped
+            else:
+                channel = v.get("channel_name") or "Unknown"
+                link_text = f"Video by {_escape_md_link_text(channel)}"
+            link_lines.append(f"• [{link_text}]({url})")
+        if link_lines:
+            summary = summary + "\n" + "\n".join(link_lines)
+
+    return summary
 
 
 async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> CrossReferenceResult:

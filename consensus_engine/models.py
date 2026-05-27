@@ -549,3 +549,4 @@ class YouTubeContext:
     channels: list[str]
     levels: list[dict]  # [{"type": "support", "price": 650.0, "confidence": 0.9}]
     score_boost: int  # +15 for high, +10 for medium, +5 for low
+    videos: list[dict] = field(default_factory=list)  # [{"video_id": str, "title": str|None, "channel_name": str}]
