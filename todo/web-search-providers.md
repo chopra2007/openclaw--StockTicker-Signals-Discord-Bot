@@ -60,3 +60,19 @@ Write a small Python HTTP server that mimics the SearXNG API (`GET /search?q=...
 - Bot reply to `<@bot> any trump or iran news today of note?` produces a coherent answer with at least one fresh dated headline cited.
 
 **Discovered:** 2026-05-19 during the gateway-flap fix — bot quality-degradation root cause #2 (the #1 root cause was the gateway env-file ownership bug, fixed in-session).
+
+## Plan (2026-05-28)
+
+Full discover run complete. Plan at `.claude/discover/web-search-fallback-chain/final-plan.md`. Execute with: `discover: resume web-search-fallback-chain`
+
+**Planned approach — 3 file changes:**
+
+1. **Schema patch** — add `routingPreferences` field to `/home/openclaw/.openclaw/extensions/web-search-plus-plugin-v2/openclaw.plugin.json` (one field, unlocks static priority config)
+2. **Plugin config** — configure `web-search-plus-plugin-v2` in `openclaw.json` with SearXNG first, Tavily + Firecrawl as exception-only fallbacks
+3. **Python fallback** — modify `search_searxng()` in `consensus_engine/scanners/searxng.py` to call Tavily when SearXNG returns empty or throws (covers `!all`, news cascade, sources — all 3 callers automatically)
+
+**Before executing — review these open questions:**
+
+- Is this the right approach, or is there a simpler one? The plugin schema patch is a local-file hack that could be overwritten by a plugin update. Alternative: skip the plugin entirely and rely only on the Python fallback in `searxng.py` (covers the engine path) + leave the agent path as SearXNG-only (it's currently working).
+- The `web-search-plus-plugin-v2` plugin adds a `web_search_plus` tool alongside the existing `web_search`. Is having two search tools confusing to the agent, or is the distinction useful?
+- Tavily API confirmed working (tested 2026-05-28, 1 credit used). Firecrawl not tested yet.
