@@ -59,6 +59,7 @@ apify.png
 memory/
 .claude/*
 !.claude/commands/
+!.claude/discover/
 .clawhub/
 .openclaw/
 

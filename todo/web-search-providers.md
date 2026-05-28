@@ -1,6 +1,6 @@
 # OpenClaw web-search providers degraded — Exa out of credits, Brave plugin unstable
 
-**Status:** OPEN — decision pending between 3 options.
+**Status:** OPEN — decision pending.
 **Created:** 2026-05-19
 
 **Layperson:** The `@-mention` bot path delegates to `openclaw agent --local --agent main`. That agent's `web_search` tool is currently broken at the provider level — Exa (the configured provider in `openclaw.json`) returns `402 NO_MORE_CREDITS`, and a swap to the official `@openclaw/brave-plugin` (installed via `openclaw plugins install clawhub:@openclaw/brave-plugin`) destabilized the whole agent path (even non-tool messages timed out, plus secret resolution failed: `unresolved SecretRef "env:default:BRAVE_SEARCH_API_KEY"`). Reverted to Exa so the gateway stays usable.
@@ -12,11 +12,41 @@
 - Plugin manifest installed cleanly (`Installed plugin: brave`), `plugins.allow` list now contains `brave`, `plugins.entries.brave` has the same `apiKey: env:default:BRAVE_SEARCH_API_KEY` shape that exa uses successfully.
 - Yet exa says `secret ref is configured on an inactive surface; skipping command-time assignment` (warning only — still works enough to hit the API), while brave says the same is a hard failure.
 
-## Decision pending — three options
+## Options
 
-1. **Top up Exa credits.** Restores the current setup verbatim. Single-provider risk remains.
-2. **Debug Brave plugin's `--local` secret-resolution path.** The error message ("Resolve this command against an active gateway runtime snapshot before reading it") suggests Brave wants its API key delivered through a different surface than Exa does. Worth a 30-minute dig: compare `dist/exa-web-search-provider*.shared*.js` vs `dist/brave-web-search-provider*.shared*.js` for the secret-resolution hook differences. Could be a plugin bug in @openclaw/brave-plugin@2026.5.18 worth filing upstream.
-3. **Install `web-search-plus-plugin-v2`** (the alternative ClawHub plugin surfaced by `openclaw plugins search brave`) — it supports Serper/Google, Brave, Tavily, Exa, Querit, Linkup, Firecrawl, Perplexity, You.com, SearXNG behind one tool with multi-provider failover. Heavier dependency but eliminates the single-provider risk entirely.
+### Current state (2026-05-28)
+- `tools.web.search.provider` is set to `searxng` (local instance at `localhost:8888`) — working.
+- `web-search-plus-plugin-v2` is installed but dormant (`{ "enabled": true }`, no config).
+- Tavily API key added to `.env` and `.env.service` as `TAVILY_API_KEY` (1,000 free credits/month).
+- No paid providers will be added. Only free/already-owned options in scope.
+
+### Free providers available
+- **SearXNG** — self-hosted, fully free, already working. Only truly unlimited option.
+- **Tavily** — 1,000 credits/month free. Key in env.
+- **Firecrawl** — ~500 credits/month free. Key already in `.env`.
+- Brave, Exa — have free monthly tiers but previously caused problems; low priority.
+
+### Approach A — Patch the plugin's local schema (agent path)
+`web-search-plus-plugin-v2` supports a `provider_priority` list in its TypeScript code, but the field is missing from `openclaw.plugin.json`'s `configSchema` (which has `additionalProperties: false`), so OpenClaw rejects it. A one-line addition to the local plugin schema at `/home/openclaw/.openclaw/extensions/web-search-plus-plugin-v2/openclaw.plugin.json` would allow setting a persistent ordered priority (e.g. searxng → tavily → firecrawl) in `openclaw.json`. Caveat: the schema also requires `tavilyApiKey` as a plain `string`, but the key can't be hardcoded in a public repo — would need openclaw to support `env:` string interpolation, which is unconfirmed.
+
+### Approach B — Python fallback in the consensus engine (`!all` path)
+The `!all` command does web searches via Python code directly (not through openclaw agent tools). Wrapping those calls in try/except logic that cycles through providers — SearXNG → Firecrawl → Tavily — is fully under our control, no schema issues, no key exposure. Covers the `!all` search path but not `@-mention`/`!ask`.
+
+### Approach C — Debug Brave plugin secret-resolution
+The original Brave plugin fails because it requires key delivery through the active gateway runtime snapshot, not the `--local` surface. Worth a 30-minute dig comparing `dist/exa-web-search-provider*.shared*.js` vs `dist/brave-web-search-provider*.shared*.js`. Could be a plugin bug worth filing upstream.
+
+### Approach D — SearXNG-proxy (from scratch, no plugin)
+Write a small Python HTTP server that mimics the SearXNG API (`GET /search?q=...&format=json`). Point openclaw's existing SearXNG provider at it instead of `localhost:8888`. Internally the proxy tries the real SearXNG first, then falls back through Firecrawl, Tavily, etc. in whatever order you choose. Runs as a systemd service. No plugin, no JavaScript, no schema workarounds — covers both the `@-mention` agent path and `!all` in one shot. Keys stay in `.env`, never in `openclaw.json`.
+
+**Fallback API details (confirmed from docs):**
+- **Tavily**: POST `https://api.tavily.com/search` — body `{"api_key": "...", "query": "..."}`. Key from `TAVILY_API_KEY` env var. 1,000 free credits/month.
+- **Firecrawl**: already has a key in `.env` as `FIRECRAWL_API_KEY`. ~500 free credits/month.
+- Tavily MCP server was investigated as an alternative but ruled out — openclaw has no MCP server config support (confirmed: `mcporter` plugin exists but is disabled and unrelated).
+
+**Recommended fallback order:** SearXNG (localhost, unlimited) → Tavily → Firecrawl.
+
+### Dropped
+- ~~Top up Exa credits~~ — no paid options.
 
 ## Where
 

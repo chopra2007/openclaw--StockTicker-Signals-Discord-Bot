@@ -1,0 +1,38 @@
+{
+  "run_name": "web-search-fallback-chain",
+  "created_at": "2026-05-28T00:00:00Z",
+  "mode": "autonomous",
+  "layout": "native",
+  "agent_count": 3,
+  "pass_5": "skipped_planning_only",
+  "current_pass": 4,
+  "completed_passes": [0, 1, 2, 3, 4],
+  "status": "complete_pending_execution",
+  "feature_summary": "Restore resilient web_search for @-mention agent path: SearXNG (primary, working) + Tavily + Firecrawl fallback chain so a single provider failure doesn't break agent replies.",
+  "agents": {
+    "orchestrator": "main_session",
+    "architect_critic": "agent_1",
+    "researcher": "agent_2"
+  },
+  "decisions": {
+    "no_paid_providers": true,
+    "preferred_fallback_order": ["tavily", "firecrawl", "searxng"],
+    "approach": "plugin_config_plus_python_searxng_fallback",
+    "key_format": "try_env_ref_first_plain_string_fallback",
+    "scope_clarification": "plugin_routing_fires_on_exception_not_empty_results"
+  },
+  "critical_findings": [
+    "search_searxng() has 3 callers - modify the function itself not individual callers",
+    "web-search-plus-plugin-v2 fallback fires on exception only, not empty results",
+    "TAVILY_API_KEY already in .env.service - no action needed",
+    "searxngAllowPrivate: true required because plugin blocks localhost URLs by default"
+  ],
+  "artifacts": {
+    "pass_0": "pass-0-system-map.md",
+    "pass_1": "pass-1-candidates.md",
+    "pass_2": "pass-2-filtered.md",
+    "pass_3": "pass-3-stress-tested.md",
+    "pass_4": "final-plan.md",
+    "execute": "EXECUTE.md"
+  }
+}
