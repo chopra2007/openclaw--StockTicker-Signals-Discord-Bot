@@ -121,3 +121,27 @@ The "400 IPO" mishearing won't be common, but if it shows up as a signal-quality
 
 1. The vision model reported `duration_sec: 906` for a video the user said is 10:15 (615s). Could the user's stated length be wrong, or is the model misreading the timestamp readout? Worth confirming actual length.
 2. The Cheddar Flow video used a flow scanner UI we'd never seen before — vision extracted full table rows. Should we treat scanner UI screenshots as a special signal category in the alerts (e.g. "$52.9M call premium at strike $800" alone could trigger an unusual-flow alert)?
+
+---
+
+### Session notes — 2026-05-28 (PARTIAL — discover run todo-autobatch)
+
+**KEY DISCOVERY that reframes this TODO:** the visual chart data Gemini extracts was being **thrown away entirely**. `_build_evidence_bundle` never read `visual_evidence`; `EvidenceBundle`/`EvidenceSpan` had no field for it; there was NO DB table. So the "P2 add ~10 lines of response_schema" framing missed that nothing consumed the visual data at all. Capturing it is the real prerequisite and the real user value.
+
+**SHIPPED this session (code in working tree, 77 tests pass, new table live):**
+- `EvidenceBundle.visual_evidence: list[dict]` (models.py) — back-compat default `[]`.
+- `_build_evidence_bundle` now reads `visual_evidence` and runs `_clean_visual_evidence`: dedup by `value` (keep first), drop `ts_sec` outside `[0, duration_sec]` (no-op when duration unknown), drop negatives (catches the year-as-timestamp `2024` bug), cap 50. **This is the going-forward phantom defense.**
+- New additive table `youtube_visual_evidence` + `insert_youtube_visual_evidence()` (db.py); persisted in the orchestrator after spans.
+
+**DEFERRED (not done — needs care, not in this session):**
+1. **Narrator wiring (the part that makes the LLM actually SEE the numbers).** Stopped here deliberately: `visual_evidence` rows have NO ticker, and the `!all` consumer path is per-ticker (`get_youtube_evidence_for_ticker`). Feeding them to the alert AI needs a video→ticker attribution step (join via `youtube_evidence_spans`/`youtube_signals`, then decide which of a video's ~50 visual items belong to which ticker). Rushing a heuristic would attach the wrong chart numbers to the wrong ticker and HURT signal quality. **So the user-observable goal ("bot uses chart numbers in alerts") is NOT yet met — only "data is captured + stored."**
+2. **response_schema + two-trip (truncation fix).** Coupled to an unmeasured ~2× token-cost decision (Priority 3) and untestable while Gemini video was 503-ing. The schema cap was proven to work in isolation (asked for 80, got 50). Build behind a config flag + measure before enabling.
+3. **P5 phantom DB cleanup — BLOCKED on user approval.** The auto-mode classifier (correctly) denied an agent-inferred DELETE on the live `consensus.db`. Investigation found the TODO's suggested clauses were TOO BROAD — they'd delete what looks like real natural speech ("Microsoft is number one on my draft board") across 46 videos. The SAFE narrowed set = rows with the literal planted artifacts only. DB backed up at `consensus.db.bak.pre-phantom-cleanup-2026-05-28`. **Exact approved-pending query:**
+   ```sql
+   DELETE FROM youtube_evidence_spans
+   WHERE quote LIKE '%400.15%' OR quote LIKE '%Number One Draft Pick: MSFT%';
+   ```
+   (176 rows, 46 videos; the `400.15`-to-the-cent across 46 unrelated videos is impossible for real data). Run only after the user OKs.
+4. TODO's P1 commit hash is wrong: real prompt-fix commit is `6d20b67`, not `e7ae531`.
+
+**Open question for user (#17 q1 answered):** vision model reported duration_sec=906 vs stated 10:15 — the dedup filter now drops out-of-range ts regardless, so this is defended going forward.

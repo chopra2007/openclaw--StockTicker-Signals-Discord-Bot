@@ -341,6 +341,39 @@ async def test_insert_youtube_evidence_span_idempotent(tmp_db):
 
 
 @pytest.mark.asyncio
+async def test_insert_youtube_visual_evidence_writes_rows(tmp_db):
+    items = [
+        {"ts_sec": 10, "value": "739.88", "kind": "price", "where": "chart axis"},
+        {"ts_sec": 30, "value": "NVDA", "kind": "ticker", "where": "flow row"},
+    ]
+    await db.insert_youtube_visual_evidence("vidVE1", items)
+    conn = await db.get_db()
+    cur = await conn.execute(
+        "SELECT video_id, ts_sec, value, kind, where_seen FROM youtube_visual_evidence "
+        "WHERE video_id=? ORDER BY ts_sec",
+        ("vidVE1",),
+    )
+    rows = [dict(r) for r in await cur.fetchall()]
+    assert len(rows) == 2
+    assert rows[0]["value"] == "739.88"
+    assert rows[0]["kind"] == "price"
+    assert rows[0]["where_seen"] == "chart axis"
+    assert rows[1]["value"] == "NVDA"
+
+
+@pytest.mark.asyncio
+async def test_insert_youtube_visual_evidence_empty_noop(tmp_db):
+    await db.insert_youtube_visual_evidence("vidVE2", [])
+    conn = await db.get_db()
+    cur = await conn.execute(
+        "SELECT COUNT(*) AS cnt FROM youtube_visual_evidence WHERE video_id=?",
+        ("vidVE2",),
+    )
+    row = await cur.fetchone()
+    assert row["cnt"] == 0
+
+
+@pytest.mark.asyncio
 async def test_insert_youtube_catalyst_idempotent(tmp_db):
     run_id = await db.create_analysis_run("vidCAT1", "v2")
     for _ in range(2):

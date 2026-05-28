@@ -701,20 +701,6 @@ async def process_video(
                 await _maybe_alert_chain_failure(video_id)
                 return
 
-        # ── Gemini fast-path (skips transcript download entirely) ────────────
-        if cfg.get("youtube.gemini_enabled", True) and cfg.get("youtube.analyze", True):
-            try:
-                from consensus_engine.analysis.gemini_video_parser import parse_video_with_gemini
-                parsed = await parse_video_with_gemini(
-                    video_id, display_name, video_meta["published_at"]
-                )
-                if parsed is not None:
-                    await db.mark_youtube_video_status(video_id, "analyzed_gemini")
-                    log.info("youtube: Gemini analyzed %s (%d tickers)", video_id, len(parsed.tickers))
-            except Exception as e:
-                log.warning("youtube: Gemini fast-path error for %s: %s", video_id, e)
-                parsed = None
-
         # ── Fallback: transcript cascade + multi-pass pipeline ────────────────
         if parsed is None:
             try:

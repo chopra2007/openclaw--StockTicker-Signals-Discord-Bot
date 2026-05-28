@@ -3,7 +3,6 @@ import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
 
 from consensus_engine.analysis.gemini_video_parser import (
-    parse_video_with_gemini,
     extract_evidence_with_gemini,
     _parse_ts_str,
     _build_evidence_bundle,
@@ -17,79 +16,8 @@ from consensus_engine.analysis.gemini_video_parser import (
     _should_escalate,
 )
 from consensus_engine.models import (
-    ParsedVideo, Conviction,
     EvidenceBundle, EvidenceSpan, RunTelemetry,
 )
-
-
-# ---------------------------------------------------------------------------
-# Legacy single-call parser (kept unchanged as P6 fallback)
-# ---------------------------------------------------------------------------
-
-@pytest.mark.asyncio
-async def test_parse_video_with_gemini_returns_parsed_video():
-    fake_json = """{
-      "tickers": [{"symbol": "NVDA", "direction": "long", "conviction": "high", "mention_count": 3, "context": "NVDA breakout above 850"}],
-      "price_levels": [{"ticker": "NVDA", "type": "support", "price": 820.0, "context": "NVDA key support annotated on chart"}],
-      "macro_thesis": {"direction": "bullish", "themes": ["tech rally"], "timeframe": "short", "summary": "Markets rallying."},
-      "options": [],
-      "setups": [{"ticker": "NVDA", "entry_low": 850.0, "entry_high": 855.0, "stop": 820.0, "targets": [920.0], "timeframe": "swing", "setup_type": "breakout", "context": "buy NVDA at 850"}],
-      "overall_conviction": "high"
-    }"""
-
-    mock_response = MagicMock()
-    mock_response.text = fake_json
-
-    mock_client = MagicMock()
-    mock_client.models.generate_content.return_value = mock_response
-
-    with patch("consensus_engine.analysis.gemini_video_parser._get_available_gemini_client", return_value=(mock_client, "GEMINI_API_KEY")), \
-         patch("consensus_engine.db.create_analysis_run", new=AsyncMock(return_value=5)):
-        result = await parse_video_with_gemini("dQw4w9WgXcQ", "ClickCapital", "2026-04-22T10:00:00Z")
-
-    assert isinstance(result, ParsedVideo)
-    assert result.run_id == 5
-    assert any(t["symbol"] == "NVDA" for t in result.tickers)
-    assert result.overall_conviction == Conviction.HIGH
-    assert len(result.setups) == 1
-    assert result.setups[0].ticker == "NVDA"
-    assert len(result.price_levels) == 1
-
-
-@pytest.mark.asyncio
-async def test_parse_video_with_gemini_returns_none_on_api_error():
-    mock_client = MagicMock()
-    mock_client.models.generate_content.side_effect = Exception("API error")
-
-    with patch("consensus_engine.analysis.gemini_video_parser._get_available_gemini_client", return_value=(mock_client, "GEMINI_API_KEY")):
-        result = await parse_video_with_gemini("dQw4w9WgXcQ", "Chan", "2026-04-22T10:00:00Z")
-
-    assert result is None
-
-
-@pytest.mark.asyncio
-async def test_parse_video_with_gemini_returns_none_when_no_key(monkeypatch):
-    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
-    with patch("consensus_engine.analysis.gemini_video_parser._get_available_gemini_client", return_value=(None, None)):
-        result = await parse_video_with_gemini("dQw4w9WgXcQ", "Chan", "2026-04-22T10:00:00Z")
-
-    assert result is None
-
-
-@pytest.mark.asyncio
-async def test_parse_video_with_gemini_handles_bad_json():
-    mock_response = MagicMock()
-    mock_response.text = "Sorry, I cannot process this video."
-
-    mock_client = MagicMock()
-    mock_client.models.generate_content.return_value = mock_response
-
-    with patch("consensus_engine.analysis.gemini_video_parser._get_available_gemini_client", return_value=(mock_client, "GEMINI_API_KEY")), \
-         patch("consensus_engine.db.create_analysis_run", new=AsyncMock(return_value=6)):
-        result = await parse_video_with_gemini("dQw4w9WgXcQ", "Chan", "2026-04-22T10:00:00Z")
-
-    # Bad JSON → returns None (caller will fall back to transcript pipeline)
-    assert result is None
 
 
 # ---------------------------------------------------------------------------
@@ -325,6 +253,95 @@ def test_build_evidence_bundle_drops_empty_quotes():
     b = _build_evidence_bundle(data, "v", "2026-04-17T12:00:00Z")
     assert len(b.spans) == 1
     assert b.spans[0].tickers == ["SPY"]
+
+
+# ---------------------------------------------------------------------------
+# visual_evidence — TODO #17: keep on-screen chart numbers / scanner rows
+# ---------------------------------------------------------------------------
+
+def test_evidence_bundle_defaults_visual_evidence_empty():
+    """Back-compat: existing constructors that omit visual_evidence still work."""
+    b = EvidenceBundle(video_id="v", duration_sec=60, publish_ts="2026-04-17T12:00:00Z")
+    assert b.visual_evidence == []
+
+
+def test_build_evidence_bundle_dedups_visual_evidence_by_value():
+    data = {
+        "duration_sec": 600,
+        "spans": [],
+        "visual_evidence": [
+            {"ts_sec": 10, "value": "739.88", "kind": "price", "where": "chart axis"},
+            {"ts_sec": 95, "value": "739.88", "kind": "price", "where": "chart axis later"},
+            {"ts_sec": 30, "value": "NVDA", "kind": "ticker", "where": "flow row"},
+        ],
+    }
+    b = _build_evidence_bundle(data, "v", "2026-04-17T12:00:00Z")
+    assert len(b.visual_evidence) == 2
+    # First occurrence kept (ts_sec=10), not the later duplicate.
+    first = b.visual_evidence[0]
+    assert first["value"] == "739.88"
+    assert first["ts_sec"] == 10
+    assert b.visual_evidence[1]["value"] == "NVDA"
+
+
+def test_build_evidence_bundle_drops_out_of_range_ts():
+    data = {
+        "duration_sec": 100,
+        "spans": [],
+        "visual_evidence": [
+            {"ts_sec": 50, "value": "in_range", "kind": "price", "where": "x"},
+            {"ts_sec": 200, "value": "too_late", "kind": "price", "where": "x"},
+            {"ts_sec": -5, "value": "negative", "kind": "price", "where": "x"},
+        ],
+    }
+    b = _build_evidence_bundle(data, "v", "2026-04-17T12:00:00Z")
+    values = [v["value"] for v in b.visual_evidence]
+    assert values == ["in_range"]
+
+
+def test_build_evidence_bundle_no_range_filter_when_duration_none():
+    data = {
+        # duration_sec absent → upper-bound filter is a no-op
+        "spans": [],
+        "visual_evidence": [
+            {"ts_sec": 50, "value": "a", "kind": "price", "where": "x"},
+            {"ts_sec": 99999, "value": "b", "kind": "price", "where": "x"},
+            {"ts_sec": -1, "value": "neg", "kind": "price", "where": "x"},
+        ],
+    }
+    b = _build_evidence_bundle(data, "v", "2026-04-17T12:00:00Z")
+    values = [v["value"] for v in b.visual_evidence]
+    # Both non-negative entries kept (no upper bound); negative still dropped.
+    assert values == ["a", "b"]
+
+
+def test_build_evidence_bundle_caps_visual_evidence_at_50():
+    data = {
+        "duration_sec": 100000,
+        "spans": [],
+        "visual_evidence": [
+            {"ts_sec": 1, "value": f"val{i}", "kind": "price", "where": "x"}
+            for i in range(80)
+        ],
+    }
+    b = _build_evidence_bundle(data, "v", "2026-04-17T12:00:00Z")
+    assert len(b.visual_evidence) == 50
+
+
+def test_build_evidence_bundle_normalizes_malformed_visual_entries():
+    data = {
+        "duration_sec": 100,
+        "spans": [],
+        "visual_evidence": [
+            "not a dict",
+            {"value": "no_ts"},  # missing ts_sec/kind/where
+            {"ts_sec": 5},       # missing value → dropped (empty value)
+        ],
+    }
+    b = _build_evidence_bundle(data, "v", "2026-04-17T12:00:00Z")
+    assert len(b.visual_evidence) == 1
+    entry = b.visual_evidence[0]
+    assert entry == {"ts_sec": 0, "value": "no_ts", "kind": "", "where": ""}
 
 
 # ---------------------------------------------------------------------------
@@ -766,28 +783,3 @@ def test_evidence_bundle_drops_ungrounded_nvda():
     assert len(bundle.spans) == 1
     assert bundle.spans[0].tickers == ["AMC"]
 
-
-def test_legacy_path_drops_ungrounded_nvda():
-    """Path B: model invents NVDA in tickers[] but context is about AMC."""
-    from consensus_engine.analysis.gemini_video_parser import _build_parsed_video
-
-    data = {
-        "tickers": [
-            {"symbol": "AMC", "direction": "long", "conviction": "high",
-             "mention_count": 5, "context": "Michael Burry adding to AMC position"},
-            {"symbol": "NVDA", "direction": "long", "conviction": "high",
-             "mention_count": 1, "context": "AI sector strength"},  # ungrounded
-        ],
-        "price_levels": [
-            {"ticker": "NVDA", "type": "support", "price": 850.0,
-             "context": "AI sector strength"},  # ungrounded
-        ],
-        "macro_thesis": {},
-        "options": [],
-        "setups": [],
-        "overall_conviction": "high",
-    }
-    parsed = _build_parsed_video(data, "vidX", "channel", "2026-04-23T00:00:00Z", run_id=1)
-    syms = [t["symbol"] for t in parsed.tickers]
-    assert syms == ["AMC"]
-    assert parsed.price_levels == []  # NVDA level dropped

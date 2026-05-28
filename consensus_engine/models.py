@@ -425,6 +425,7 @@ class EvidenceBundle:
     publish_ts: str
     segments: list[dict] = field(default_factory=list)
     spans: list[EvidenceSpan] = field(default_factory=list)
+    visual_evidence: list[dict] = field(default_factory=list)
 
 
 @dataclass

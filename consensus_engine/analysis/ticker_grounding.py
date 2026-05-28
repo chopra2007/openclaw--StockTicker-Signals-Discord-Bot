@@ -7,7 +7,6 @@ the string.
 
 Used by:
 - gemini_video_parser._build_evidence_bundle (Path A)
-- gemini_video_parser._build_parsed_video (Path B)
 - video_parser._parse_llm_response and _fallback_parse (Path C)
 """
 

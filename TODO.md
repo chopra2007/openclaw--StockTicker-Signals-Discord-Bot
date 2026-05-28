@@ -6,7 +6,7 @@ This is the **index**. Each entry points to a detail file in `todo/<name>.md` th
 
 <!-- Add items below -->
 
-## 1. Delete old YouTube backup code (after 2026-05-28)
+## 1. Delete old YouTube backup code (after 2026-05-28) — DONE 2026-05-28
 
 **File:** `yt-grounding-path-b-hard-delete.md`
 
@@ -60,7 +60,7 @@ Stop losing user `!commands` and `@-mentions` that arrive during the Discord gat
 
 Get `!ask` and `@-mention` failover working reliably across multiple LLM models so a single flaky provider can't kill the bot's replies.
 
-## 10. Fix the broken web-search providers
+## 10. Fix the broken web-search providers — DONE 2026-05-28
 
 **File:** `web-search-providers.md`
 
@@ -84,7 +84,7 @@ Make the bot's primary text-generation chain reliable by wiring Groq into the ch
 
 Stop the evidence-sanitization LLM step from silently truncating evidence to 50 characters when the free-tier chain fails — either drop the sanitize step or move it to a reliable provider.
 
-## 14. Fix missing direction on manual !all alerts
+## 14. Fix missing direction on manual !all alerts — DONE 2026-05-28
 
 **File:** `crossref-direction-none.md`
 

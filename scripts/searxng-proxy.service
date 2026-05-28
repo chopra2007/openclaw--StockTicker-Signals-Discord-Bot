@@ -1,0 +1,13 @@
+[Unit]
+Description=SearXNG-first search proxy (agent web_search path)
+After=network.target
+
+[Service]
+User=openclaw
+EnvironmentFile=/home/openclaw/.openclaw/.env.service
+ExecStart=/usr/bin/python3 /home/openclaw/.openclaw/workspace/scripts/searxng_proxy.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

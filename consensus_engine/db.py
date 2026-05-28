@@ -436,6 +436,17 @@ CREATE TABLE IF NOT EXISTS youtube_evidence_spans (
 CREATE INDEX IF NOT EXISTS idx_yes_run ON youtube_evidence_spans(run_id);
 CREATE INDEX IF NOT EXISTS idx_yes_video ON youtube_evidence_spans(video_id);
 
+CREATE TABLE IF NOT EXISTS youtube_visual_evidence (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    video_id TEXT NOT NULL,
+    ts_sec INTEGER NOT NULL,
+    value TEXT NOT NULL,
+    kind TEXT,
+    where_seen TEXT,
+    created_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_yve_video ON youtube_visual_evidence(video_id);
+
 CREATE TABLE IF NOT EXISTS youtube_catalysts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     run_id INTEGER NOT NULL REFERENCES youtube_analysis_runs(id),
@@ -1976,6 +1987,34 @@ async def insert_youtube_evidence_span(
             parser_version, chain_winner, grounding_status, caption_entropy,
         ),
     )
+    await conn.commit()
+
+
+async def insert_youtube_visual_evidence(video_id: str, items: list[dict]) -> None:
+    """Insert on-screen visual-evidence items (chart numbers, scanner rows, labels).
+
+    Each item is a dict shaped like
+    ``{ts_sec:int, value:str, kind:str, where:str}`` (as produced by
+    ``_clean_visual_evidence``). No-op when ``items`` is empty.
+    """
+    if not items:
+        return
+    now = time.time()
+    conn = await get_db()
+    for item in items:
+        await conn.execute(
+            """INSERT INTO youtube_visual_evidence
+               (video_id, ts_sec, value, kind, where_seen, created_at)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (
+                video_id,
+                int(item.get("ts_sec", 0)),
+                str(item.get("value", "")),
+                item.get("kind"),
+                item.get("where"),
+                now,
+            ),
+        )
     await conn.commit()
 
 

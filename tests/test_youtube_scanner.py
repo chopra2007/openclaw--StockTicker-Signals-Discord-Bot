@@ -139,49 +139,8 @@ async def test_process_video_missing_captions(test_db, tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_process_video_uses_gemini_when_available(test_db, tmp_path, monkeypatch):
-    """Gemini fast-path: transcript fetch should NOT be called when Gemini succeeds."""
-    monkeypatch.setitem(cfg._config["youtube"], "use_two_stage", False)
-    from consensus_engine.models import ParsedVideo, MacroThesis, Direction, Conviction
-
-    mock_parsed = ParsedVideo(
-        video_id="vidGEM1", channel_name="Chan", raw_transcript="",
-        tickers=[{"symbol": "AAPL", "direction": "long", "conviction": "high",
-                  "mention_count": 1, "context": "c", "source_snippet": "s", "chunk_id": 0}],
-        price_levels=[],
-        macro_thesis=MacroThesis(direction=Direction.LONG, themes=[], timeframe="short", summary=""),
-        overall_conviction=Conviction.HIGH,
-        run_id=99, options=[], setups=[],
-    )
-
-    fetch_called = []
-
-    async def fake_fetch(*a, **kw):
-        fetch_called.append(True)
-        return "transcript " * 300, "en", False
-
-    monkeypatch.setattr(
-        "consensus_engine.analysis.gemini_video_parser.parse_video_with_gemini",
-        AsyncMock(return_value=mock_parsed),
-    )
-    monkeypatch.setattr(
-        "consensus_engine.utils.transcript_fetch.fetch_transcript_cascade",
-        fake_fetch,
-    )
-
-    sem = asyncio.Semaphore(1)
-    video_meta = {"video_id": "vidGEM1", "channel_id": "ch1",
-                  "title": "T", "published_at": "2026-04-22T10:00:00Z"}
-    await process_video(video_meta, sem, ["en"], str(tmp_path))
-
-    assert not fetch_called, "transcript fetch should be skipped when Gemini succeeds"
-    sigs = await db.get_youtube_signals_for_ticker("AAPL", days=1)
-    assert len(sigs) == 1
-
-
-@pytest.mark.asyncio
 async def test_process_video_persists_options(test_db, tmp_path, monkeypatch):
-    """process_video() stores VideoOptionIdea rows in youtube_options."""
+    """process_video() stores VideoOptionIdea rows in youtube_options (Path C)."""
     monkeypatch.setitem(cfg._config["youtube"], "use_two_stage", False)
     from consensus_engine.models import (
         ParsedVideo, MacroThesis, Direction, Conviction, VideoOptionIdea,
@@ -201,8 +160,15 @@ async def test_process_video_persists_options(test_db, tmp_path, monkeypatch):
         run_id=42, options=[opt], setups=[],
     )
 
+    async def fake_fetch(*a, **kw):
+        return "transcript " * 300, "en", False
+
     monkeypatch.setattr(
-        "consensus_engine.analysis.gemini_video_parser.parse_video_with_gemini",
+        "consensus_engine.utils.transcript_fetch.fetch_transcript_cascade",
+        fake_fetch,
+    )
+    monkeypatch.setattr(
+        "consensus_engine.analysis.video_parser.parse_video_transcript",
         AsyncMock(return_value=mock_parsed),
     )
 
@@ -294,44 +260,6 @@ async def test_process_video_uses_two_stage_when_flag_on(test_db, tmp_path, monk
 
 
 @pytest.mark.asyncio
-async def test_process_video_two_stage_falls_back_on_none_bundle(test_db, tmp_path, monkeypatch):
-    """When the evidence extractor returns None, two-stage yields and legacy path runs."""
-    from consensus_engine.models import RunTelemetry
-    from consensus_engine.models import ParsedVideo, MacroThesis, Direction, Conviction
-
-    monkeypatch.setitem(cfg._config["youtube"], "use_two_stage", True)
-    monkeypatch.setitem(cfg._config["youtube"], "legacy_fallback", True)
-
-    monkeypatch.setattr(
-        "consensus_engine.analysis.gemini_video_parser.extract_evidence_with_gemini",
-        AsyncMock(return_value=(None, RunTelemetry(json_parse_ok=False))),
-    )
-    # Legacy Gemini path picks up afterwards
-    legacy_parsed = ParsedVideo(
-        video_id="vidTS2", channel_name="Chan", raw_transcript="",
-        tickers=[{"symbol": "TSLA", "direction": "long", "conviction": "high",
-                  "mention_count": 1, "context": "c", "source_snippet": "s", "chunk_id": 0}],
-        price_levels=[],
-        macro_thesis=MacroThesis(direction=Direction.LONG, themes=[], timeframe="short", summary=""),
-        overall_conviction=Conviction.HIGH,
-        run_id=101, options=[], setups=[],
-    )
-    monkeypatch.setattr(
-        "consensus_engine.analysis.gemini_video_parser.parse_video_with_gemini",
-        AsyncMock(return_value=legacy_parsed),
-    )
-    monkeypatch.setitem(cfg._config["youtube"], "standalone_alerts", False)
-
-    sem = asyncio.Semaphore(1)
-    video_meta = {"video_id": "vidTS2", "channel_id": "ch-fb",
-                  "title": "Fallback", "published_at": "2026-04-22T10:00:00Z"}
-    await process_video(video_meta, sem, ["en"], str(tmp_path))
-
-    sigs = await db.get_youtube_signals_for_ticker("TSLA", days=1)
-    assert len(sigs) == 1
-
-
-@pytest.mark.asyncio
 async def test_process_video_persists_setups(test_db, tmp_path, monkeypatch):
     """process_video() stores VideoTradeSetup rows and absorbs constituent levels."""
     monkeypatch.setitem(cfg._config["youtube"], "use_two_stage", False)
@@ -359,8 +287,15 @@ async def test_process_video_persists_setups(test_db, tmp_path, monkeypatch):
         run_id=55, options=[], setups=[setup],
     )
 
+    async def fake_fetch(*a, **kw):
+        return "transcript " * 300, "en", False
+
     monkeypatch.setattr(
-        "consensus_engine.analysis.gemini_video_parser.parse_video_with_gemini",
+        "consensus_engine.utils.transcript_fetch.fetch_transcript_cascade",
+        fake_fetch,
+    )
+    monkeypatch.setattr(
+        "consensus_engine.analysis.video_parser.parse_video_transcript",
         AsyncMock(return_value=mock_parsed),
     )
 

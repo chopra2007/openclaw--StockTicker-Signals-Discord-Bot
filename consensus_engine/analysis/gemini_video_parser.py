@@ -1,10 +1,8 @@
 """Gemini fast-path for YouTube video analysis.
 
-Passes a YouTube URL directly to Gemini. The legacy ``parse_video_with_gemini``
-function asks the model to classify in a single JSON call. The new v2 path
-``extract_evidence_with_gemini`` asks only for literal, timestamped evidence
-spans — classification is done downstream by the deterministic Python
-classifier (Stage B).
+Passes a YouTube URL directly to Gemini. The ``extract_evidence_with_gemini``
+path asks only for literal, timestamped evidence spans — classification is
+done downstream by the deterministic Python classifier (Stage B).
 """
 
 import asyncio
@@ -16,56 +14,16 @@ import time
 
 from consensus_engine import config as cfg, db
 from consensus_engine.models import (
-    ParsedVideo, Direction, Conviction, PriceLevel, MacroThesis,
-    VideoOptionIdea, VideoTradeSetup,
     EvidenceBundle, EvidenceSpan, RunTelemetry,
 )
 
 log = logging.getLogger("consensus_engine.analysis.gemini_video_parser")
-
-_MACRO_NORM = {"bullish": "long", "bearish": "short", "neutral": "neutral"}
 
 # Technical-analysis abbreviations that look like tickers but aren't.
 _TA_ABBREVIATIONS = {
     "RSI", "EMA", "MACD", "VWAP", "SMA", "ATR", "MA", "BB", "ADX",
     "OBV", "CCI", "DMI", "ROC", "PSAR", "STOCH", "MFI",
 }
-
-_GEMINI_PROMPT = """You are a financial analyst extracting structured trade intelligence from a YouTube video.
-
-Watch the full video and respond ONLY with this exact JSON (no markdown, no extra text):
-{
-  "tickers": [
-    {"symbol": "NVDA", "direction": "long|short|neutral", "conviction": "high|medium|low", "mention_count": 3, "context": "why this direction — quote or paraphrase"}
-  ],
-  "price_levels": [
-    {"ticker": "NVDA", "type": "support|resistance|target|breakdown", "price": 850.0, "context": "quote or description of where this level comes from"}
-  ],
-  "macro_thesis": {
-    "direction": "bullish|bearish|neutral",
-    "themes": ["theme1", "theme2"],
-    "timeframe": "short|medium|long",
-    "summary": "1-2 sentence summary of the macro view"
-  },
-  "options": [
-    {"ticker": "TSLA", "option_type": "call|put", "strike": 250.0, "expiry": "weekly", "strategy": "single|spread|leaps|debit|credit", "source": "flow_observation|personal_idea", "conviction": "high|medium|low", "context": "exact quote or paraphrase"}
-  ],
-  "setups": [
-    {"ticker": "NVDA", "entry_low": 845.0, "entry_high": 855.0, "stop": 820.0, "targets": [920.0], "timeframe": "intraday|swing|positional|long-term", "setup_type": "breakout|pullback|earnings|trend", "context": "exact quote or paraphrase"}
-  ],
-  "overall_conviction": "high|medium|low"
-}
-
-Extraction rules:
-- Only real stock tickers (AAPL, NVDA, SPY, etc.). Exclude RSI, EMA, MACD, VWAP, SMA, ATR, etc.
-- CRITICAL — every entry in `tickers`, `price_levels`, `options`, and `setups` MUST reference a company that is either spoken by name or shown on-screen in the video. Do NOT include "related" or "sector peer" tickers. The `context` field MUST contain a verbatim or near-verbatim quote that names the ticker (or its company name like "Nvidia", "Tesla").
-- If you find yourself adding a ticker because the topic is "tech stocks" or "AI" or "meme stocks" without the speaker naming the specific company, leave it out. Empty arrays are correct when nothing specific is discussed.
-- price_levels: include BOTH verbally mentioned prices AND price levels visible as annotated lines or labels on charts in the video.
-- options: empty array if none discussed. strike is null if not mentioned.
-- setups: link entry/stop/target only when the speaker presents them together. Empty array if unclear.
-- context: quote or closely paraphrase the speaker for every extracted item.
-- If no tickers found, return empty arrays for tickers, price_levels, options, setups."""
-
 
 _EVIDENCE_PROMPT = """You are a transcription assistant for a financial YouTube video. You do NOT classify. You do NOT label support/resistance. You do NOT give direction or conviction. Your job is only to extract verbatim timestamped evidence.
 
@@ -414,13 +372,71 @@ def _build_evidence_bundle(data: dict, video_id: str, published_at: str) -> Evid
             video_id, drop_count,
         )
 
+    visual_evidence = _clean_visual_evidence(
+        data.get("visual_evidence", []), duration_sec
+    )
+
     return EvidenceBundle(
         video_id=video_id,
         duration_sec=duration_sec,
         publish_ts=published_at,
         segments=segments,
         spans=spans,
+        visual_evidence=visual_evidence,
     )
+
+
+def _is_negative_ts(ts) -> bool:
+    """True if a raw timestamp is numerically negative.
+
+    ``_parse_ts_str`` clamps negatives to 0, so the raw value must be checked
+    before parsing to honor the "drop ts_sec < 0" rule.
+    """
+    if isinstance(ts, bool):
+        return False
+    if isinstance(ts, (int, float)):
+        return ts < 0
+    if isinstance(ts, str):
+        s = ts.strip()
+        if s.startswith("-"):
+            return True
+    return False
+
+
+def _clean_visual_evidence(raw: object, duration_sec: int | None) -> list[dict]:
+    """Normalize, dedup, range-filter, and cap on-screen visual-evidence items.
+
+    - Each entry normalized to {ts_sec:int, value:str, kind:str, where:str}.
+    - Dedup by ``value`` (keep first occurrence).
+    - Drop entries whose ``ts_sec`` is outside [0, duration_sec]; if
+      ``duration_sec`` is None the upper-bound check is skipped.
+    - Hard-cap at 50 entries (the soft prompt cap is ignored by the model).
+    """
+    out: list[dict] = []
+    seen_values: set[str] = set()
+    for item in raw or []:
+        if not isinstance(item, dict):
+            continue
+        if _is_negative_ts(item.get("ts_sec", 0)):
+            continue
+        ts_sec = _parse_ts_str(item.get("ts_sec", 0))
+        value = str(item.get("value", "")).strip()
+        if not value:
+            continue
+        if value in seen_values:
+            continue
+        if duration_sec is not None and ts_sec > duration_sec:
+            continue
+        seen_values.add(value)
+        out.append({
+            "ts_sec": ts_sec,
+            "value": value,
+            "kind": str(item.get("kind", "")),
+            "where": str(item.get("where", "")),
+        })
+        if len(out) >= 50:
+            break
+    return out
 
 
 def _extract_token_counts(response) -> tuple[int | None, int | None]:
@@ -442,252 +458,6 @@ def _extract_token_counts(response) -> tuple[int | None, int | None]:
     except (TypeError, ValueError):
         output_tokens = None
     return (input_tokens, output_tokens)
-
-
-def _build_parsed_video(
-    data: dict, video_id: str, channel_name: str, published_at: str, run_id: int
-) -> ParsedVideo:
-    """Convert Gemini JSON response dict into a ParsedVideo."""
-    from consensus_engine.analysis.ticker_grounding import is_ticker_grounded
-
-    # Tickers
-    raw_tickers = data.get("tickers", [])
-    _dir_norm = {"long": "long", "short": "short", "neutral": "neutral",
-                 "bullish": "long", "bearish": "short"}
-    normalized_tickers = []
-    dropped_legacy: list[str] = []
-    for t in raw_tickers:
-        if not isinstance(t, dict):
-            continue
-        sym = str(t.get("symbol", "")).upper()
-        if not sym:
-            continue
-        ctx = str(t.get("context", ""))
-        if not is_ticker_grounded(sym, ctx):
-            dropped_legacy.append(sym)
-            continue
-        direction = _dir_norm.get(str(t.get("direction", "neutral")).lower(), "neutral")
-        normalized_tickers.append({
-            "symbol": sym,
-            "direction": direction,
-            "conviction": str(t.get("conviction", "medium")).lower(),
-            "mention_count": int(t.get("mention_count", 1)),
-            "context": ctx,
-            "source_snippet": ctx[:200],
-            "chunk_id": 0,
-        })
-    if dropped_legacy:
-        log.warning(
-            "ticker_grounding (Path B): video=%s dropped ungrounded ticker labels: %s",
-            video_id, dropped_legacy,
-        )
-
-    # Price levels
-    price_levels = []
-    for lv in data.get("price_levels", []):
-        if not isinstance(lv, dict):
-            continue
-        try:
-            price = float(lv["price"])
-        except (KeyError, TypeError, ValueError):
-            continue
-        if price <= 0:
-            continue
-        ticker = str(lv.get("ticker", "")).upper()
-        ctx = str(lv.get("context", ""))
-        if ticker and not is_ticker_grounded(ticker, ctx):
-            log.info("ticker_grounding (Path B): dropped level %s @ %.2f, ungrounded", ticker, price)
-            continue
-        price_levels.append(PriceLevel(
-            ticker=ticker,
-            level_type=str(lv.get("type", "support")).lower(),
-            price=price,
-            condition=ctx,
-            consequence="",
-            confidence=0.8,
-        ))
-
-    # Macro thesis
-    macro_data = data.get("macro_thesis", {})
-    raw_dir = str(macro_data.get("direction", "neutral")).lower()
-    macro_thesis = MacroThesis(
-        direction=Direction(_MACRO_NORM.get(raw_dir, "neutral")),
-        themes=macro_data.get("themes", []) if isinstance(macro_data.get("themes"), list) else [],
-        timeframe=str(macro_data.get("timeframe", "short")).lower(),
-        summary=str(macro_data.get("summary", "")),
-    )
-
-    # Options
-    options: list[VideoOptionIdea] = []
-    for o in data.get("options", []):
-        if not isinstance(o, dict):
-            continue
-        ticker = str(o.get("ticker", "")).upper()
-        opt_type = str(o.get("option_type", "")).lower()
-        if not ticker or opt_type not in ("call", "put"):
-            continue
-        opt_ctx = str(o.get("context", ""))
-        if not is_ticker_grounded(ticker, opt_ctx):
-            log.info("ticker_grounding (Path B): dropped option %s, ungrounded", ticker)
-            continue
-        strike = None
-        if o.get("strike") is not None:
-            try:
-                strike = float(o["strike"])
-            except (ValueError, TypeError):
-                pass
-        options.append(VideoOptionIdea(
-            ticker=ticker, option_type=opt_type,
-            strike=strike, expiry=o.get("expiry"),
-            strategy=o.get("strategy"), source=o.get("source"),
-            conviction=str(o.get("conviction", "medium")).lower(),
-            context=opt_ctx,
-            source_snippet=opt_ctx[:200],
-            chunk_id=0,
-        ))
-
-    # Setups
-    setups: list[VideoTradeSetup] = []
-    for s in data.get("setups", []):
-        if not isinstance(s, dict):
-            continue
-        ticker = str(s.get("ticker", "")).upper()
-        entry_low = None
-        if s.get("entry_low") is not None:
-            try:
-                entry_low = float(s["entry_low"])
-            except (ValueError, TypeError):
-                pass
-        if not ticker or entry_low is None:
-            continue
-        setup_ctx = str(s.get("context", ""))
-        if not is_ticker_grounded(ticker, setup_ctx):
-            log.info("ticker_grounding (Path B): dropped setup %s, ungrounded", ticker)
-            continue
-        entry_high = float(s["entry_high"]) if s.get("entry_high") is not None else entry_low
-        stop = float(s["stop"]) if s.get("stop") is not None else None
-        targets = []
-        for t in (s.get("targets") or []):
-            try:
-                targets.append(float(t))
-            except (ValueError, TypeError):
-                pass
-        # Compute R/R
-        rr = None
-        if stop and targets:
-            mid = (entry_low + entry_high) / 2
-            if mid > stop:
-                rr = round((targets[0] - mid) / (mid - stop), 2)
-        setups.append(VideoTradeSetup(
-            ticker=ticker, entry_low=entry_low, entry_high=entry_high,
-            stop=stop, targets=targets,
-            timeframe=s.get("timeframe"), setup_type=s.get("setup_type"),
-            context=setup_ctx, source_snippet=setup_ctx[:200],
-            chunk_id=0, risk_reward=rr,
-        ))
-
-    # Overall conviction
-    conv_map = {"high": Conviction.HIGH, "medium": Conviction.MEDIUM, "low": Conviction.LOW}
-    overall = conv_map.get(str(data.get("overall_conviction", "medium")).lower(), Conviction.MEDIUM)
-
-    return ParsedVideo(
-        video_id=video_id, channel_name=channel_name,
-        raw_transcript="",  # Gemini path — no transcript text stored
-        tickers=normalized_tickers, price_levels=price_levels,
-        macro_thesis=macro_thesis, overall_conviction=overall,
-        parsed_at=time.time(), run_id=run_id,
-        options=options, setups=setups,
-    )
-
-
-async def parse_video_with_gemini(
-    video_id: str,
-    channel_name: str,
-    published_at: str,
-) -> ParsedVideo | None:
-    """Analyze a YouTube video via Gemini. Returns ParsedVideo or None on any failure.
-
-    Passes the YouTube URL directly — Gemini processes the full video including
-    visually annotated chart levels. No transcript download needed.
-
-    This is the legacy single-call path. Phase P6 gates this behind
-    ``youtube.use_two_stage`` / ``youtube.legacy_fallback`` flags.
-    """
-    model = cfg.get("youtube.gemini_model", "gemini-2.5-flash-lite")
-    youtube_url = f"https://www.youtube.com/watch?v={video_id}"
-    media_res_cfg = str(cfg.get("youtube.gemini.media_resolution", "")).strip().lower()
-
-    raw = None
-    tried_labels: set[str] = set()
-    configured_keys = _get_gemini_keys()
-    max_attempts = max(1, len(configured_keys))
-    for _attempt in range(max_attempts):
-        client, key_label = _get_available_gemini_client(skip=tried_labels)
-        if client is None:
-            return None
-        try:
-            from google.genai import types
-
-            gen_config = _build_generation_config(media_res_cfg)
-
-            def _sync_call(_client=client):
-                return _client.models.generate_content(
-                    model=model,
-                    contents=[
-                        types.Part.from_text(text=_GEMINI_PROMPT),
-                        types.Part.from_uri(
-                            file_uri=youtube_url,
-                            mime_type="video/*",
-                        ),
-                    ],
-                    config=gen_config,
-                )
-
-            loop = asyncio.get_event_loop()
-            response = await asyncio.wait_for(
-                loop.run_in_executor(None, _sync_call),
-                timeout=60,
-            )
-            raw = response.text
-            break
-        except asyncio.TimeoutError:
-            log.warning("gemini_video_parser: timeout for %s via %s", video_id, key_label)
-            return None
-        except Exception as e:
-            if _is_quota_error(e):
-                log.warning("gemini_video_parser: key %s hit quota for %s: %s",
-                            key_label, video_id, str(e)[:200])
-                _mark_key_exhausted(key_label)
-                tried_labels.add(key_label)
-                continue
-            log.warning("gemini_video_parser: API error for %s via %s: %s",
-                        video_id, key_label, e)
-            return None
-
-    if raw is None:
-        log.warning("gemini_video_parser: all Gemini keys exhausted for %s", video_id)
-        return None
-
-    data = _parse_gemini_response(raw)
-    if data is None:
-        log.warning("gemini_video_parser: unparseable response for %s", video_id)
-        return None
-
-    parser_version = f"gemini/{model}"
-    try:
-        run_id = await db.create_analysis_run(video_id, parser_version)
-    except Exception as e:
-        log.warning("gemini_video_parser: could not create analysis run for %s: %s", video_id, e)
-        return None
-
-    parsed = _build_parsed_video(data, video_id, channel_name, published_at, run_id)
-    parsed.parser_version = parser_version
-    log.info(
-        "gemini_video_parser: %s → %d tickers, %d levels, %d options, %d setups",
-        video_id, len(parsed.tickers), len(parsed.price_levels),
-        len(parsed.options), len(parsed.setups),
-    )
-    return parsed
 
 
 async def extract_evidence_with_gemini(
@@ -779,9 +549,15 @@ async def extract_evidence_with_gemini(
                 )
             except Exception as e:
                 log.debug("extract_evidence_with_gemini: span persist failed: %s", e)
+        if bundle.visual_evidence:
+            try:
+                await db.insert_youtube_visual_evidence(video_id, bundle.visual_evidence)
+            except Exception as e:
+                log.debug("extract_evidence_with_gemini: visual_evidence persist failed: %s", e)
         log.info(
-            "extract_evidence_with_gemini: %s → %d spans, %d segments, %dms",
-            video_id, len(bundle.spans), len(bundle.segments), telemetry.latency_ms,
+            "extract_evidence_with_gemini: %s → %d spans, %d segments, %d visual, %dms",
+            video_id, len(bundle.spans), len(bundle.segments),
+            len(bundle.visual_evidence), telemetry.latency_ms,
         )
 
     # Orchestrator latency covers both passes if escalation ran.
