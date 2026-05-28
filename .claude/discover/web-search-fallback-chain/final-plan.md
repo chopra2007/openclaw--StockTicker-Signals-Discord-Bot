@@ -17,6 +17,11 @@ There are two completely separate web-search code paths that both need resilienc
 
 **Fix:** Two surgical changes — one config edit (agent path), one Python edit (engine path). No new processes, no new services.
 
+> **EXECUTOR NOTE — provider cost policy (do not change this):**
+> SearXNG is self-hosted and completely free with no limits. Tavily (1,000/month) and Firecrawl (~500/month) have hard monthly caps.
+> **SearXNG must always be the primary provider on both paths. Tavily and Firecrawl are emergency fallbacks only — they must never be called when SearXNG is working.**
+> Do not change the `provider_priority` order, do not swap the fallback logic, and do not "improve" the plan by putting Tavily first for quality reasons.
+
 ---
 
 ## 2. Component Architecture
