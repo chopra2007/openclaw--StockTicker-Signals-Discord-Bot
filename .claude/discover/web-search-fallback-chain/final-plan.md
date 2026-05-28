@@ -21,11 +21,15 @@ There are two completely separate web-search code paths that both need resilienc
 
 ## 2. Component Architecture
 
-### Change 1 — `openclaw.json` config (agent path)
+### Change 1 — Plugin schema patch + `openclaw.json` config (agent path)
 
-**File:** `/home/openclaw/.openclaw/openclaw.json`
-**What:** Configure the already-installed (but dormant) `web-search-plus-plugin-v2` plugin.
-**Effect:** Agent gets a second search tool `web_search_plus` with internal auto-routing: Tavily → Firecrawl → SearXNG (exception-based fallback — if a provider throws, tries next; if a provider returns `[]`, stops).
+**Files:**
+- `/home/openclaw/.openclaw/extensions/web-search-plus-plugin-v2/openclaw.plugin.json` (schema patch)
+- `/home/openclaw/.openclaw/openclaw.json` (config)
+
+**What:** The plugin already supports a `routingPreferences` object in its config that sets permanent provider priority. The only blocker is `routingPreferences` is missing from the plugin's JSON schema (`additionalProperties: false` rejects unknown fields). A one-field schema patch unlocks it. Then configure the plugin with `provider_priority: ["searxng", "tavily", "firecrawl"]`.
+
+**Effect:** Agent gets `web_search_plus` tool. SearXNG runs first on every call. Tavily and Firecrawl only fire if SearXNG throws an exception (connection refused, timeout, non-200). No credits consumed when SearXNG is healthy.
 
 ### Change 2 — `consensus_engine/scanners/searxng.py` (engine path)
 
@@ -37,7 +41,25 @@ There are two completely separate web-search code paths that both need resilienc
 
 ## 3. Integration Points — Exact File Changes
 
-### Change 1: `openclaw.json`
+### Change 1a: Schema patch — `openclaw.plugin.json`
+
+**Location:** `/home/openclaw/.openclaw/extensions/web-search-plus-plugin-v2/openclaw.plugin.json`
+
+**Section to modify:** `configSchema.properties` — add one new field alongside the existing ones:
+
+```json
+"routingPreferences": {
+  "type": "object",
+  "description": "Static routing preferences loaded at startup. Supports provider_priority (array), auto_routing (bool), fallback_provider (string).",
+  "additionalProperties": true
+}
+```
+
+**Caveat:** This file is inside the installed plugin extension, not the git workspace. It may be overwritten if OpenClaw updates the plugin. Low risk — free plugins rarely auto-update.
+
+---
+
+### Change 1b: `openclaw.json`
 
 **Location:** `/home/openclaw/.openclaw/openclaw.json`
 
@@ -58,10 +80,15 @@ Target:
     "tavilyApiKey": "<see key delivery below>",
     "firecrawlApiKey": "<see key delivery below>",
     "searxngInstanceUrl": "http://localhost:8888",
-    "searxngAllowPrivate": true
+    "searxngAllowPrivate": true,
+    "routingPreferences": {
+      "provider_priority": ["searxng", "tavily", "firecrawl"]
+    }
   }
 }
 ```
+
+**Provider priority result:** SearXNG runs first. If SearXNG throws (down, timeout, non-200) → Tavily. If Tavily throws → Firecrawl. No credits consumed when SearXNG is healthy.
 
 **`tools.web.search.provider`**: Leave as `"searxng"`. Keeping both `web_search` (SearXNG) and `web_search_plus` (multi-provider) available is correct — the acceptance test asks `web_search` to work; `web_search_plus` is the resilient alternative.
 
@@ -271,7 +298,8 @@ No config flag to flip — the plugin is already in `plugins.allow`. Adding conf
 
 | File | Type | Description |
 |---|---|---|
-| `/home/openclaw/.openclaw/openclaw.json` | Config (not in git) | Add web-search-plus-plugin-v2 config |
+| `/home/openclaw/.openclaw/extensions/web-search-plus-plugin-v2/openclaw.plugin.json` | Config (not in git) | Add `routingPreferences` field to configSchema |
+| `/home/openclaw/.openclaw/openclaw.json` | Config (not in git) | Add web-search-plus-plugin-v2 config with SearXNG-first priority |
 | `consensus_engine/scanners/searxng.py` | Python | Add `_tavily_fallback()` helper; modify `search_searxng()` |
 
 **Files NOT changed:** `news.py`, `sources.py`, `gap_fill.py`, `api_adapters.py`, any test files beyond adding Tavily fallback tests.
