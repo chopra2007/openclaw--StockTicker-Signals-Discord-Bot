@@ -214,6 +214,7 @@ async def _gather_all_sources(ticker: str) -> dict:
     options_task = _scanner_call(
         "consensus_engine.scanners.options", "check_unusual_options", ticker, executor=None,
     )
+    options_flow_task = _db_call("get_options_flow_for_ticker", ticker, days=7)
     trends_task: asyncio.Future = asyncio.ensure_future(asyncio.sleep(0, result={}))
     if cfg.get("features.serpapi_enabled", False):
         trends_task = asyncio.ensure_future(
@@ -258,6 +259,7 @@ async def _gather_all_sources(ticker: str) -> dict:
         news_task,
         sec_task,
         options_task,
+        options_flow_task,
         trends_task,
         apewisdom_task,
         chat_task,
@@ -269,6 +271,7 @@ async def _gather_all_sources(ticker: str) -> dict:
         score_result, tech_long, tech_short, twitter_signals, social_signals,
         yt_signals, yt_options, yt_levels, yt_evidence, yt_visual, alert_history,
         decision_snapshots, next_earnings_iso, recent_earnings_recap, daily_candles, news_catalyst, sec_filings, options_unusual,
+        options_flow_recent,
         trends, apewisdom, chat_msgs, brief_msgs, prior_vault,
     ) = results
 
@@ -289,6 +292,7 @@ async def _gather_all_sources(ticker: str) -> dict:
         ("news", news_catalyst),
         ("sec", sec_filings),
         ("options", options_unusual),
+        ("options_flow_recent", options_flow_recent),
         ("trends", trends),
         ("apewisdom", apewisdom),
         ("chat_24h", chat_msgs),
@@ -317,6 +321,7 @@ async def _gather_all_sources(ticker: str) -> dict:
         "news_catalyst": _result_or_default(news_catalyst, None),
         "sec_filings": _result_or_default(sec_filings, []),
         "options_unusual": _result_or_default(options_unusual, None),
+        "options_flow_recent": _result_or_default(options_flow_recent, []),
         "trends": _result_or_default(trends, {}),
         "apewisdom": _result_or_default(apewisdom, None),
         "chat_msgs": _result_or_default(chat_msgs, []),
@@ -664,8 +669,10 @@ def _is_useful_visual_row(row) -> bool:
         return False  # narrator already knows the ticker; a bare symbol adds nothing
     if kind in ("price", "date"):
         return True
-    # label / other: useful only if it carries a number; never if it's a promo code.
-    if _PROMO_CODE_RE.match(val.replace(" ", "")):
+    # label / other: useful only if it carries a number; never if it's a promo
+    # code. Promo codes are a single token with no spaces ("WICKED50"); real
+    # annotations have spaces ("RSI 71", "max pain 740"), so match the raw value.
+    if _PROMO_CODE_RE.match(val):
         return False
     return any(ch.isdigit() for ch in val)
 
@@ -710,6 +717,12 @@ def _structured_data_summary(data: dict) -> str:
         "options_unusual": bool(
             getattr(data.get("options_unusual"), "has_unusual_activity", False)
         ) if data.get("options_unusual") else False,
+        # #18: recent autonomous-detected unusual options FLOW (top by premium).
+        "options_flow_recent": [
+            {"side": r.get("side"), "strike": r.get("strike"), "expiry": r.get("expiry"),
+             "premium_usd": r.get("premium_usd"), "vol_oi_ratio": r.get("vol_oi_ratio")}
+            for r in (data.get("options_flow_recent") or [])[:5] if isinstance(r, dict)
+        ],
         "trends": data.get("trends") or {},
         "alert_history_count": len(data.get("alert_history") or []),
     }

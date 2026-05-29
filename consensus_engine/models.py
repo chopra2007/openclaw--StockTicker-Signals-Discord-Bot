@@ -325,6 +325,30 @@ class OptionsResult:
         return self.unusual_calls or self.unusual_puts
 
 
+@dataclass
+class FlowHit:
+    """A single unusual options contract found by the options-flow scanner (#18).
+
+    Premium is a notional estimate (lastPrice * volume * 100) used only as a
+    size gate — lastPrice can be stale, so it is not a tradeable quote.
+    """
+    ticker: str
+    side: str            # "CALL" or "PUT"
+    strike: float
+    expiry: str          # YYYY-MM-DD
+    volume: int
+    open_interest: int
+    vol_oi_ratio: float
+    premium_usd: float
+    last_trade_ts: float  # epoch seconds of the contract's last trade
+    spot: float           # underlying price at scan time (0.0 if unknown)
+    contract_symbol: str = ""
+
+    @property
+    def label(self) -> str:
+        return f"{self.ticker} {self.expiry} {self.strike:g}{self.side[0]}"
+
+
 # ---------------------------------------------------------------------------
 # YouTube video analysis models
 # ---------------------------------------------------------------------------

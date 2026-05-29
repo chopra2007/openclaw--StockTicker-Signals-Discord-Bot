@@ -399,6 +399,28 @@ CREATE TABLE IF NOT EXISTS youtube_options (
 CREATE INDEX IF NOT EXISTS idx_yopt_ticker ON youtube_options(ticker);
 CREATE INDEX IF NOT EXISTS idx_yopt_extracted ON youtube_options(extracted_at);
 
+-- #18: near-real-time unusual options FLOW detected from live yfinance chains.
+-- Distinct from youtube_options (analyst trade ideas from videos): this is
+-- market-microstructure flow. Feeds both the instant alert and !all cross-ref.
+CREATE TABLE IF NOT EXISTS options_flow (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticker TEXT NOT NULL,
+    side TEXT NOT NULL,
+    strike REAL,
+    expiry TEXT,
+    volume INTEGER,
+    open_interest INTEGER,
+    vol_oi_ratio REAL,
+    premium_usd REAL,
+    last_trade_ts REAL,
+    spot REAL,
+    contract_symbol TEXT,
+    alerted INTEGER DEFAULT 0,
+    detected_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_options_flow_ticker ON options_flow(ticker);
+CREATE INDEX IF NOT EXISTS idx_options_flow_detected ON options_flow(detected_at);
+
 CREATE TABLE IF NOT EXISTS youtube_setups (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     run_id INTEGER NOT NULL REFERENCES youtube_analysis_runs(id),
@@ -1856,6 +1878,52 @@ async def get_youtube_options_for_ticker(ticker: str, days: int = 7) -> list[dic
         (ticker, cutoff),
     )
     return [dict(r) for r in await cur.fetchall()]
+
+
+async def insert_options_flow(hits: list, alerted_tickers: set | None = None) -> None:
+    """#18: persist detected options-flow hits (FlowHit objects). Rows whose
+    ticker is in alerted_tickers are marked alerted=1, which drives the
+    per-ticker alert cooldown (get_last_flow_alert_ts)."""
+    if not hits:
+        return
+    alerted = alerted_tickers or set()
+    conn = await get_db()
+    now = time.time()
+    for h in hits:
+        await conn.execute(
+            """INSERT INTO options_flow
+               (ticker, side, strike, expiry, volume, open_interest, vol_oi_ratio,
+                premium_usd, last_trade_ts, spot, contract_symbol, alerted, detected_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (h.ticker, h.side, h.strike, h.expiry, h.volume, h.open_interest,
+             h.vol_oi_ratio, h.premium_usd, h.last_trade_ts, h.spot,
+             h.contract_symbol, 1 if h.ticker in alerted else 0, now),
+        )
+    await conn.commit()
+
+
+async def get_options_flow_for_ticker(ticker: str, days: int = 7) -> list[dict]:
+    """#18: recent options-flow rows for a ticker, for !all cross-reference."""
+    conn = await get_db()
+    cutoff = time.time() - days * 86400
+    cur = await conn.execute(
+        """SELECT * FROM options_flow WHERE ticker=? AND detected_at>=?
+           ORDER BY premium_usd DESC""",
+        (ticker, cutoff),
+    )
+    return [dict(r) for r in await cur.fetchall()]
+
+
+async def get_last_flow_alert_ts(ticker: str) -> float | None:
+    """#18: epoch of the most recent ALERTED options-flow row for a ticker
+    (None if never), used to enforce the per-ticker alert cooldown."""
+    conn = await get_db()
+    cur = await conn.execute(
+        "SELECT MAX(detected_at) AS ts FROM options_flow WHERE ticker=? AND alerted=1",
+        (ticker,),
+    )
+    row = await cur.fetchone()
+    return row["ts"] if row and row["ts"] else None
 
 
 async def insert_youtube_setup(

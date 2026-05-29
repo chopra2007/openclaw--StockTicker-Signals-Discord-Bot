@@ -610,10 +610,29 @@ features:
     falling_knife_panic_min_insiders: 5
     cooldown_days: 14
     scan_window_days: 30
+  options_flow:
+    enabled: true                  # #18 autonomous unusual-options-flow watcher
 
 intervals:
   form4_cluster_loop: 14400
   feature_volume_monitor: 900
+  options_flow_loop: 900           # #18 scan every 15 min (free ~15-min data)
+  options_flow_cooldown: 3600      # max one alert per ticker per hour
+
+# #18 unusual options FLOW — free yfinance ~15-min option chains.
+# "Balanced" thresholds (user-chosen 2026-05-29): a contract must trade >=N x
+# its open interest, >= min_volume contracts, and >= min_premium notional.
+options_flow:
+  min_vol_oi: 5.0                  # day volume / open interest (fresh positioning)
+  min_volume: 500                  # contracts traded today
+  min_premium_usd: 250000          # notional = lastPrice * volume * 100
+  max_staleness_min: 60            # skip contracts whose last trade is older (no stale/closed-market alerts)
+  nearest_expirations: 2           # scan the 2 nearest expiries per ticker
+  max_alerts_per_cycle: 8          # flood guard
+  # Active watchlist (get_active_tickers) is scanned automatically; this fixed
+  # liquid core is always added so big flow on a major name is caught even with
+  # no other signal yet (user chose "both combined").
+  fixed_core: ["AAPL", "NVDA", "TSLA", "SPY", "QQQ", "AMD", "MSFT", "META", "AMZN", "GOOGL"]
 
 ingest_server:
   enabled: true

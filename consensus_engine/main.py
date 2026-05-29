@@ -367,6 +367,71 @@ async def sec_form4_cluster_loop(stop_event: asyncio.Event) -> None:
             continue
 
 
+async def _run_options_flow_scan() -> None:
+    """#18: one options-flow scan cycle — detect unusual flow on the watchlist,
+    fire an instant alert per ticker (top contract, cooldown-gated), and persist
+    every hit for !all cross-reference. Free yfinance ~15-min chain data."""
+    from consensus_engine.scanners.options import scan_options_flow, format_flow_alert
+
+    active = await db.get_active_tickers(min_signals=1)
+    core = cfg.get("options_flow.fixed_core", []) or []
+    tickers = list(dict.fromkeys([*active, *core]))
+    if not tickers:
+        return
+
+    hits = await scan_options_flow(
+        tickers, executor=None,
+        min_vol_oi=float(cfg.get("options_flow.min_vol_oi", 5.0)),
+        min_volume=int(cfg.get("options_flow.min_volume", 500)),
+        min_premium=float(cfg.get("options_flow.min_premium_usd", 250000)),
+        max_staleness_min=int(cfg.get("options_flow.max_staleness_min", 60)),
+        nearest_expirations=int(cfg.get("options_flow.nearest_expirations", 2)),
+    )
+    if not hits:
+        return
+
+    cooldown = float(cfg.get("intervals.options_flow_cooldown", 3600))
+    cap = int(cfg.get("options_flow.max_alerts_per_cycle", 8))
+    now = time.time()
+    alerted: set[str] = set()
+    seen: set[str] = set()
+    fired = 0
+    for h in hits:  # sorted by premium desc -> biggest bet per ticker wins
+        if h.ticker in seen:
+            continue
+        seen.add(h.ticker)
+        if fired >= cap:
+            continue  # keep persisting hits, just stop alerting this cycle
+        last = await db.get_last_flow_alert_ts(h.ticker)
+        if last and (now - last) < cooldown:
+            continue  # per-ticker cooldown
+        await _post_to_alerts_channel(format_flow_alert(h))
+        alerted.add(h.ticker)
+        fired += 1
+
+    await db.insert_options_flow(hits, alerted_tickers=alerted)
+    if len(seen) > cap:
+        log.info("options_flow: %d tickers had qualifying flow; capped alerts at %d", len(seen), cap)
+    log.info("options_flow scan: %d hit(s) across %d ticker(s), %d alert(s) fired",
+             len(hits), len(seen), fired)
+
+
+async def options_flow_loop(stop_event: asyncio.Event) -> None:
+    """#18: background watcher — scan options flow every interval and alert on
+    unusual activity (instant trigger; no second source needed). Gated by
+    features.options_flow.enabled."""
+    while not stop_event.is_set():
+        if cfg.get("features.options_flow.enabled", False):
+            try:
+                await _run_options_flow_scan()
+            except Exception as e:
+                log.error("options_flow_loop error: %s", e, exc_info=True)
+        interval = cfg.get("intervals.options_flow_loop", 900)
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=interval)
+        except asyncio.TimeoutError:
+            continue
+
 
 # =============================================================================
 # Run Modes
@@ -640,6 +705,7 @@ async def run_live(stop_event: asyncio.Event):
             asyncio.create_task(chain_health_loop(combined_stop)),
             asyncio.create_task(boot_drift_check()),
             asyncio.create_task(feature_volume_monitor_loop()),
+            asyncio.create_task(options_flow_loop(combined_stop)),
         ])
         tasks.extend([
             asyncio.create_task(ingest_server.serve(combined_stop, _record_source_ok, _record_source_error)),
