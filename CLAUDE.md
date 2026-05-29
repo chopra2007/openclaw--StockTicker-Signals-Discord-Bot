@@ -178,6 +178,7 @@ At session start: check `/root/task_system/notifications.log`. If it has entries
 ## GitHub & Documentation Automation
 
 - After every functional change: commit locally then push immediately.
+- **Doc-only pushes skip the test gate.** When a commit touches NO code — only docs/notes (`*.md`, `todo/**`, `TODO.md`, comments) — push with `git push --no-verify` (near-instant). The pre-push suite exists to catch code regressions; running it on a markdown-only change is wasted time. **Code changes (anything under `consensus_engine/`, `scripts/*.py`, `tests/`, config) must go through the full gate — never `--no-verify` those.** The gate now runs in parallel (`scripts/pre-push`, `pytest -n 2`, ~2 min).
 - Commit style: imperative (e.g., "Add multi-agent logic").
 - Remote: `chopra2007/openclaw--StockTicker-Signals-Discord-Bot` (public).
 - Keep `README.md` current with architecture, setup, and features.
