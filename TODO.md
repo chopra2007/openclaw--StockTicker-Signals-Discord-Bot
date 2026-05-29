@@ -107,3 +107,9 @@ Update 13 stale unit-test assertions that the `!all` refactor and critical-sourc
 **File:** `youtube_vision_upgrade.md`
 
 Teach the video-watcher to read the precise chart numbers (gamma lines, option-flow tables) that the speaker glosses over, so the bot has the real evidence instead of just the speaker's rough verbal summary.
+
+## 18. Read live options flow and alert on unusual activity
+
+**File:** `options-flow-realtime.md`
+
+Teach the bot to read near-real-time options data (chain, open interest, volume) and alert on unusual options flow, instead of relying on 24-hour-old data.
