@@ -136,12 +136,12 @@ The "400 IPO" mishearing won't be common, but if it shows up as a signal-quality
 **DEFERRED (not done — needs care, not in this session):**
 1. **Narrator wiring (the part that makes the LLM actually SEE the numbers).** Stopped here deliberately: `visual_evidence` rows have NO ticker, and the `!all` consumer path is per-ticker (`get_youtube_evidence_for_ticker`). Feeding them to the alert AI needs a video→ticker attribution step (join via `youtube_evidence_spans`/`youtube_signals`, then decide which of a video's ~50 visual items belong to which ticker). Rushing a heuristic would attach the wrong chart numbers to the wrong ticker and HURT signal quality. **So the user-observable goal ("bot uses chart numbers in alerts") is NOT yet met — only "data is captured + stored."**
 2. **response_schema + two-trip (truncation fix).** Coupled to an unmeasured ~2× token-cost decision (Priority 3) and untestable while Gemini video was 503-ing. The schema cap was proven to work in isolation (asked for 80, got 50). Build behind a config flag + measure before enabling.
-3. **P5 phantom DB cleanup — BLOCKED on user approval.** The auto-mode classifier (correctly) denied an agent-inferred DELETE on the live `consensus.db`. Investigation found the TODO's suggested clauses were TOO BROAD — they'd delete what looks like real natural speech ("Microsoft is number one on my draft board") across 46 videos. The SAFE narrowed set = rows with the literal planted artifacts only. DB backed up at `consensus.db.bak.pre-phantom-cleanup-2026-05-28`. **Exact approved-pending query:**
+3. **P5 phantom DB cleanup — DONE 2026-05-28 (user approved).** The TODO's suggested clauses were TOO BROAD (would delete real natural speech like "Microsoft is number one on my draft board" across 46 videos). Narrowed to literal planted artifacts only and ran:
    ```sql
    DELETE FROM youtube_evidence_spans
    WHERE quote LIKE '%400.15%' OR quote LIKE '%Number One Draft Pick: MSFT%';
    ```
-   (176 rows, 46 videos; the `400.15`-to-the-cent across 46 unrelated videos is impossible for real data). Run only after the user OKs.
+   Result: **176 rows deleted** (13340→13164), 0 phantom rows remaining, 14 ambiguous natural-speech rows KEPT. Backup at `consensus.db.bak.pre-phantom-cleanup-2026-05-28` (untracked; safe to remove once soaked).
 4. TODO's P1 commit hash is wrong: real prompt-fix commit is `6d20b67`, not `e7ae531`.
 
 **Open question for user (#17 q1 answered):** vision model reported duration_sec=906 vs stated 10:15 — the dedup filter now drops out-of-range ts regardless, so this is defended going forward.
