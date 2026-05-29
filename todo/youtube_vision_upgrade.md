@@ -208,3 +208,9 @@ Recommended: build Conservative default, run `!all` on real tickers with recent 
 - Phase 2: kind-gated 10% price band (only `kind=='price'`) + exactly-one-in-band proximity fallback, in the aggregator (only layer with a live price).
 - Phase 3 (optional): Gemini per-number nullable same-frame `ticker` tagging.
 - DoD: a real `!all` on a video-covered ticker shows the chart number text in the synthesis prompt + alert.
+
+#### Task C UPDATE — Phase 1 + Phase 2 SHIPPED 2026-05-29
+- **Phase 1 (commit c608bfa):** `get_youtube_visual_evidence_for_ticker` (Conservative — a video's chart rows attach to the video's TOP-mentioned ticker only); aggregator parallel-fetch into `data['yt_visual_evidence']`; `_build_yt_visual_snippets` renders `chart shows <value>` → flows through the existing narrator path. Verified **live** via a real `!all USCI` in #chat (bot processed it; chart numbers reached the alert AI).
+- **Phase 2 (commit fabe237):** `_visual_band_filter` — a `kind=='price'` row is kept only within `youtube.visual.proximity_band_pct` (0.10 = ±10%) of the ticker's live price; drops axis gridlines AND cross-ticker numbers; non-price rows pass through; no-live-price → keep all. Real-data: 44 gridline rows (0-73) → 0 kept for USCI (~$98). 5 unit tests.
+- **Phase 3 (NOT built, optional):** Gemini per-number nullable same-frame `ticker` tagging. Only worth it if a real before/after shows Conservative+band leaving too many useful numbers unattached (e.g. multi-ticker videos where the band can't disambiguate two similar-priced stocks).
+- **IMPORTANT scope note:** Task C feeds the `!all` NARRATOR (the AI thesis), NOT the `youtube_levels`/`setups`/`catalysts` classifier tables. So it does **NOT** fix TODO #3's A1-A3 (which read those tables). Those are a separate path — see #3 correction note.
