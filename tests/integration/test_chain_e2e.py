@@ -62,9 +62,10 @@ def _patch_chain_env(*, captions_enabled=False, gemini_disabled=False, whisper_e
 # ─── Mocked orchestration tests (default) ─────────────────────────────────────
 
 @pytest.mark.asyncio
-async def test_chain_f1_happy_path_via_supadata():
-    """F1 enabled + Supadata returns text → captions_llm_parser returns bundle.
-    Chain short-circuits: F2 and F3 must NOT be called."""
+async def test_chain_f1_captions_fallback_via_supadata():
+    """Gemini (F2) is now PRIMARY. When it returns None (e.g. 503/quota), the
+    chain falls back to F1 captions via Supadata → captions_llm_parser returns
+    the bundle. F3 whisper must NOT be reached."""
     fake_bundle = _make_bundle("dQw4w9WgXcQ", ["SPY", "QQQ"], "S&P leading, Q's same.")
 
     cfg_get = _cfg_factory(**{"youtube.captions.enabled": True})
@@ -87,7 +88,7 @@ async def test_chain_f1_happy_path_via_supadata():
         ),
         patch(
             "consensus_engine.local_video_ingest._stage_gemini",
-            new_callable=AsyncMock,
+            new_callable=AsyncMock, return_value=None,
         ) as gem_mock,
         patch(
             "consensus_engine.local_video_ingest._stage_whisper",
@@ -101,8 +102,9 @@ async def test_chain_f1_happy_path_via_supadata():
 
     assert bundle is fake_bundle
     assert tel.chain_winner == "ytdlp-captions/v1"
-    assert tel.chain_attempts == ["ytdlp-captions/v1"]
-    gem_mock.assert_not_called()
+    # Gemini (primary) is attempted first, returns None, then captions wins.
+    assert tel.chain_attempts == ["gemini/v2", "ytdlp-captions/v1"]
+    gem_mock.assert_called_once()
     whisper_mock.assert_not_called()
 
 
