@@ -1,7 +1,7 @@
 # OpenClaw Signal Engine — Speed + Accuracy Optimization Plan
 
 **Date:** 2026-03-30
-**Status:** REVISED — Iteration 2
+**Status:** REVISED — Iteration 2 (updated 2026-05-29: phases 1.1, 1.2, 2.1, 2.3, 3.2, 3.3-partial marked done; 2.2 WON'T-DO; commit hashes corrected)
 **Estimated complexity:** HIGH (13 files, 5 phases)
 
 ---
@@ -83,9 +83,9 @@ metrics["news_cascade_ms"] = int((time.perf_counter() - t0) * 1000)
 
 ## Phase 1: Quick Wins (< 1 hour each, high impact)
 
-### 1.1 Global aiohttp Session Singleton
+### 1.1 Global aiohttp Session Singleton — DONE (commit `b1e85f1`)
 
-**Files:** New `consensus_engine/utils/http.py`, then update all 26 call sites
+**Files:** `consensus_engine/utils/http.py:34` (singleton constructor). All former call sites migrated; zero bare `aiohttp.ClientSession(` calls remain outside `utils/http.py`.
 **Change:** Create a module-level `get_session()` that lazily initializes a single `aiohttp.ClientSession` with connection pooling (`TCPConnector(limit=30)`). Replace all `async with aiohttp.ClientSession() as session:` patterns.
 
 **Shared session failure mode:** A shared session entering a bad state (e.g., `ServerDisconnectedError`, `ClientConnectionError`) affects all 26 call sites simultaneously. Mitigate with a recreation strategy: catch `aiohttp.ClientConnectionError` at the `get_session()` level, close the bad session, and recreate it. This ensures a single bad connection doesn't permanently break all HTTP calls.
@@ -105,7 +105,7 @@ metrics["news_cascade_ms"] = int((time.perf_counter() - t0) * 1000)
 - [ ] Graceful shutdown closes the session in both continuous mode finally block AND `--once` mode finally block
 - [ ] All 148 tests pass
 
-### 1.2 Increase ThreadPoolExecutor to 8 Workers
+### 1.2 Increase ThreadPoolExecutor to 8 Workers — DONE (commit `b1e85f1`)
 
 **Files:** `consensus_engine/main.py` line 44
 **Change:** `ThreadPoolExecutor(max_workers=4)` -> `ThreadPoolExecutor(max_workers=8)`
@@ -160,7 +160,9 @@ metrics["news_cascade_ms"] = int((time.perf_counter() - t0) * 1000)
 
 ## Phase 2: Core Pipeline Optimizations (Medium effort, critical path)
 
-### 2.1 Parallel News Cascade with Tiered-Timeout
+### 2.1 Parallel News Cascade with Tiered-Timeout — DONE
+
+**Live code:** `consensus_engine/scanners/news.py:453-495` — `asyncio.create_task` per tier + `as_completed`, `parallel_timeout_sec=12.0`, cancels losers. Config: `config/consensus.yaml:94` `parallel: true`. Brave budget enforced via `_brave_budget_ok` (`news.py:328-331`) + `_brave_quota_exhausted` (`news.py:337`).
 
 **Files:** `consensus_engine/scanners/news.py` — `news_cascade()` function
 **Change:** Replace the sequential `for tier_name in tiers: result = await func(ticker)` loop with a tiered-timeout concurrent approach:
@@ -185,10 +187,12 @@ metrics["news_cascade_ms"] = int((time.perf_counter() - t0) * 1000)
 - [ ] No orphaned connections in the shared aiohttp pool after cancellation
 - [ ] Latency metric recorded and < 8s average (per Phase 0 baseline)
 
-### 2.2 Technical Filter Short-Circuit
+### 2.2 Technical Filter Short-Circuit — WON'T-DO
+
+**Rationale:** Building this as spec'd would corrupt `compute_technical_score` at `cross_reference.py:79`, which counts passed filters out of 6, and the user-facing "N/6" display at `commands.py:812`. The actual I/O cost (quote + history fetch) is already done concurrently before filters run (`technical.py:258`), and the LLM scorer runs once per ticker on the whole bundle — not per filter — so truncating the filter loop saves zero LLM calls. Microsecond computation savings do not justify score corruption. Future option if alert cost is ever a concern: skip the LLM scorer at the call site when `passed_count < threshold` while still running all 6 cheap filters.
 
 **Files:** `consensus_engine/analysis/technical.py` — `_run_filters()` function
-**Change:** Currently all 6 filters run unconditionally. For the cross-reference scoring path (not the "all must pass" gate), add an optional `short_circuit=True` parameter. When enabled, stop running filters after 2 consecutive failures.
+**Change (spec, not built):** Currently all 6 filters run unconditionally. For the cross-reference scoring path (not the "all must pass" gate), add an optional `short_circuit=True` parameter. When enabled, stop running filters after 2 consecutive failures.
 
 **Corrected impact estimate:** Technical filters operate on in-memory data (already-fetched price/volume structs) and are pure computation — individual filter execution is microseconds, not ~50ms. **The primary benefit is not execution time savings but preventing unnecessary downstream scorer calls** when a ticker clearly fails basic technical checks. Impact is LOW for latency; MEDIUM for code clarity and resource hygiene.
 
@@ -199,7 +203,9 @@ metrics["news_cascade_ms"] = int((time.perf_counter() - t0) * 1000)
 - [ ] Tests cover both modes
 - [ ] Impact notes in code comments reflect that this is a hygiene improvement, not a major latency win
 
-### 2.3 Batch Price Followups with Concurrent yfinance
+### 2.3 Batch Price Followups with Concurrent yfinance — DONE
+
+**Live code:** `main.py:715-720` (`_check_youtube_level_alerts`, default executor + `asyncio.gather`). Note: `main.py:1246-1267` is a separate price-outcome backfill loop on an 8-worker pool — also concurrent but NOT the live signal path.
 
 **Files:** `consensus_engine/main.py` — `price_followup_loop()`
 **Change:** Currently iterates alerts sequentially: `for alert in alerts: price = await _fetch_price(alert["ticker"])`. Replace with batched `asyncio.gather()` for up to 5 concurrent price fetches.
@@ -230,7 +236,7 @@ metrics["news_cascade_ms"] = int((time.perf_counter() - t0) * 1000)
 - [ ] Startup warmup reads cached entries < 5 min old
 - [ ] All existing xref_cache tests pass
 
-### 3.2 Rate Limiter Slot-Drift Fix
+### 3.2 Rate Limiter Slot-Drift Fix — DONE (commit `b1e85f1`)
 
 **Files:** `consensus_engine/utils/rate_limiter.py` — `acquire()` method (lines 39-55)
 
@@ -255,10 +261,13 @@ where `now` is the value captured at the top of the `async with` block (line 40)
 - [ ] 5 concurrent acquires for same source yield distinct, non-overlapping slots
 - [ ] Backoff penalty count drops to zero in production logs
 
-### 3.3 Deduplicate Proactive Scanner Watchlists
+### 3.3 Deduplicate Proactive Scanner Watchlists — PARTIALLY DONE (query only)
+
+**Done:** Shared watchlist query `db.get_active_tickers(min_signals=1)` (`db.py:868`) is already reused by `main.py:173/250`, `sec_form4_cluster.py:260`, `commands.py:651/870`. There is no function literally named `get_active_watchlist`; do not rename.
+**NOT done:** The event-driven scheduler / instant-alert-on-threshold described below was never built.
 
 **Files:** `consensus_engine/main.py` — scanner loop functions, `consensus_engine/scanners/premarket.py`, `volume_scanner.py`, `options.py`
-**Change:** Premarket, volume, and options scanners each independently load and iterate the watchlist. Create a shared `get_active_watchlist()` function that returns the merged, deduplicated watchlist with a short cache (60s TTL). Each scanner calls this instead of loading its own.
+**Change (spec, partially implemented):** Premarket, volume, and options scanners each independently load and iterate the watchlist. Create a shared `get_active_watchlist()` function that returns the merged, deduplicated watchlist with a short cache (60s TTL). Each scanner calls this instead of loading its own.
 **Impact:** Reduces redundant Finnhub/yfinance calls by ~30% across scanner loops. Prevents the same ticker being fetched 3 times in parallel from different scanners.
 **Testability:** Mock watchlist source, verify deduplication. Count API calls.
 
@@ -353,3 +362,7 @@ where `now` is the value captured at the top of the `async with` block (line 40)
 - No changes to config file format (only additive keys)
 - No database migration that breaks existing data
 - No task cancellation that leaves orphaned HTTP connections in the shared pool
+
+---
+
+**Verified 2026-05-29** — Status updated against live code. Phases 1.1, 1.2, 2.1, 2.3, 3.2 confirmed done with line-level anchors. Phase 3.3 partial (shared query done; event-driven scheduler not built). Phase 2.2 recorded as WON'T-DO (score-corruption risk, zero LLM savings). Commit hashes corrected: `0a0309e`/`2cc59ee` → `b1e85f1`.
