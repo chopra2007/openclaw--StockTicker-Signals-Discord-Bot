@@ -386,6 +386,12 @@ youtube:
     # Budget-aware initial-tier selection (percent of daily gemini_input_tokens used).
     budget_pct_for_default: 50    # <50% used → start at default
     budget_pct_for_medium: 75     # 50-75% used → start at medium; >75% → low
+  visual:
+    # Task C Phase 2 — on-screen chart numbers (kind='price') attributed to a
+    # ticker in !all are kept only when within this fraction of the ticker's
+    # live price; drops axis gridlines (0/10/20 on a $98 stock) + numbers
+    # mis-attributed from another ticker the video also covered. 0.10 = ±10%.
+    proximity_band_pct: 0.10
   classifier:
     min_confidence: 0.5                # suppress candidates below this classifier_confidence
   catalyst:

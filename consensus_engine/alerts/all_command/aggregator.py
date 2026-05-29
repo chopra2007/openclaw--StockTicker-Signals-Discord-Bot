@@ -608,6 +608,39 @@ def _build_yt_evidence_snippets(yt_evidence) -> list[str]:
     return out
 
 
+def _visual_band_filter(rows, price: float, band_pct: float):
+    """Task C Phase 2: drop chart-axis NOISE from attributed visual rows.
+
+    A `kind=='price'` row is kept only when it sits within `band_pct` of the
+    ticker's live `price` — this removes generic Y-axis gridlines (e.g. 0/10/20
+    on a $98 stock) AND numbers mis-attributed from a different ticker the video
+    also covered (they won't be near this ticker's price). Non-price rows
+    (labels, tickers, $-exposure, greeks, dates) are NOT price levels, so the
+    band must not touch them — they pass through. When no live price is known
+    we can't disprove anything, so everything passes through unchanged.
+    """
+    if not isinstance(rows, list):
+        return []
+    if not price or price <= 0:
+        return rows
+    out = []
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        if (r.get("kind") or "").strip().lower() != "price":
+            out.append(r)
+            continue
+        try:
+            val = float(str(r.get("value", "")).replace(",", "").replace("$", "").strip())
+        except (TypeError, ValueError):
+            out.append(r)  # unparseable as a number — keep, don't silently drop
+            continue
+        if abs(val / price - 1.0) <= band_pct:
+            out.append(r)
+        # else: outside the band → gridline / mis-scaled / wrong-ticker → drop
+    return out
+
+
 def _build_yt_visual_snippets(yt_visual) -> list[str]:
     """Render on-screen chart numbers (visual_evidence) for the narrator."""
     out: list[str] = []
@@ -911,7 +944,12 @@ async def _compute_all(ticker: str, start: float) -> dict:
     sec_block = sec_evidence["block"]
     twitter_msgs = _build_twitter_snippets(data["twitter_signals"])
     social_msgs = _build_social_snippets(data["social_signals"])
-    yt_evidence_msgs = _build_yt_evidence_snippets(data["yt_evidence"]) + _build_yt_visual_snippets(data.get("yt_visual_evidence", []))
+    # Task C Phase 2: filter attributed chart numbers to those near the live
+    # price (drops axis gridlines + cross-ticker noise) before they reach the AI.
+    _visual_band = float(cfg.get("youtube.visual.proximity_band_pct", 0.10))
+    _visual_price = _current_price(data["technical_long"]) or 0.0
+    _visual_rows = _visual_band_filter(data.get("yt_visual_evidence", []), _visual_price, _visual_band)
+    yt_evidence_msgs = _build_yt_evidence_snippets(data["yt_evidence"]) + _build_yt_visual_snippets(_visual_rows)
     chat_msgs = data["chat_msgs"] if isinstance(data["chat_msgs"], list) else []
     brief_msgs = data["brief_msgs"] if isinstance(data["brief_msgs"], list) else []
     prior_vault = data["prior_vault"] or ""

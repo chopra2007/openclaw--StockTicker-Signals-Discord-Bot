@@ -8,7 +8,10 @@ narrator-facing snippet builder.
 import pytest
 
 from consensus_engine import db, config as cfg
-from consensus_engine.alerts.all_command.aggregator import _build_yt_visual_snippets
+from consensus_engine.alerts.all_command.aggregator import (
+    _build_yt_visual_snippets,
+    _visual_band_filter,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -90,3 +93,45 @@ def test_build_yt_visual_snippets_renders_chart_shows():
 def test_build_yt_visual_snippets_handles_non_list():
     assert _build_yt_visual_snippets(None) == []
     assert _build_yt_visual_snippets("not a list") == []
+
+
+# ── Phase 2: price-band filter ───────────────────────────────────────────────
+
+def test_visual_band_filter_drops_far_prices_keeps_near():
+    """At $98 with a 10% band, gridlines 0/20/50 drop; 95/102 (near) stay."""
+    rows = [
+        {"value": "0", "kind": "price"},
+        {"value": "20", "kind": "price"},
+        {"value": "50", "kind": "price"},
+        {"value": "95", "kind": "price"},     # within 10% of 98
+        {"value": "102", "kind": "price"},    # within 10% of 98
+        {"value": "$1,090", "kind": "price"}, # far → drop (also tests $/comma strip)
+    ]
+    out = _visual_band_filter(rows, price=98.0, band_pct=0.10)
+    assert sorted(r["value"] for r in out) == ["102", "95"]
+
+
+def test_visual_band_filter_passes_non_price_kinds_untouched():
+    """Greeks, $-exposure, tickers, labels are not price levels — band ignores them."""
+    rows = [
+        {"value": "$2.1B", "kind": "other"},     # notional, nowhere near 98
+        {"value": "IV 62", "kind": "indicator"},
+        {"value": "USCI", "kind": "ticker"},
+        {"value": "10", "kind": "price"},        # gridline → drop
+    ]
+    out = _visual_band_filter(rows, price=98.0, band_pct=0.10)
+    assert sorted(r["value"] for r in out) == ["$2.1B", "IV 62", "USCI"]
+
+
+def test_visual_band_filter_keeps_all_when_no_live_price():
+    rows = [{"value": "0", "kind": "price"}, {"value": "50", "kind": "price"}]
+    assert _visual_band_filter(rows, price=0.0, band_pct=0.10) == rows
+
+
+def test_visual_band_filter_keeps_unparseable_price_value():
+    rows = [{"value": "near the 200dma", "kind": "price"}]
+    assert _visual_band_filter(rows, price=98.0, band_pct=0.10) == rows
+
+
+def test_visual_band_filter_non_list():
+    assert _visual_band_filter(None, 98.0, 0.10) == []
