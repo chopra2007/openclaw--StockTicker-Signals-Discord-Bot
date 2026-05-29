@@ -18,11 +18,11 @@ Rip out the dormant old YouTube-parsing fallback code now that the 30-day soak w
 
 Finish the 8 partially-done speed-accuracy items (parallel news cascade, technical filter short-circuit, batch price followups, shared watchlist) so alerts arrive in 3–8 seconds instead of 10–30.
 
-## 3. Fix the daily Gemini video-test failures
+## 3. Fix the daily Gemini video-test failures — DONE 2026-05-29
 
 **File:** `gemini-video-eval-assertions.md`
 
-Make the daily Gemini regression cron stop failing 5 of its 7 checks every day by caching the reference video upload via the Files API instead of re-uploading on each run.
+Make the daily Gemini regression cron stop failing every day. Root cause (fixed earlier) was the chain testing a dead captions path, not Files-API re-upload. This session finished it: **A1** verified the eval video's levels are chart-sourced not spoken (classifier extracts 0 levels from 26 spoken spans); **A2** built the chart-numbers→`youtube_levels` pipe (commit on master); **A3/A4** re-pointed the cron's stale-value checks to honest capability checks and split "Gemini reading works" (gating) from "levels-filing" (informational) so it stops blanket-red.
 
 ## 4. Stop the model-sync script from breaking ownership — DONE 2026-05-22
 
@@ -40,7 +40,7 @@ Rewrite the done-checklist so each item is tagged by code surface and only the r
 
 **File:** `all-command-quality.md`
 
-Continue improving what `!all <TICKER>` shows by picking one quality lever per session (max-pain, peer comp, options flow, etc.) from the documented menu.
+Continue improving what `!all <TICKER>` shows by picking one quality lever per session (max-pain, peer comp, options flow, etc.) from the documented menu. **2026-05-29:** options-flow lever shipped via #18 — recent autonomous-detected unusual flow now feeds the `!all` narrator (`get_options_flow_for_ticker` → structured-data summary). Remaining levers (max-pain, peer comp) still open.
 
 ## 7. Three upgrades to the discover skill — DONE
 
@@ -102,14 +102,14 @@ Stop shipping ambiguous "narrative auto-redacted" embeds to users when the LLM c
 
 Update 13 stale unit-test assertions that the `!all` refactor and critical-sources change left behind.
 
-## 17. Read precise chart numbers from YouTube videos
+## 17. Read precise chart numbers from YouTube videos — DONE 2026-05-29
 
 **File:** `youtube_vision_upgrade.md`
 
-Teach the video-watcher to read the precise chart numbers (gamma lines, option-flow tables) that the speaker glosses over, so the bot has the real evidence instead of just the speaker's rough verbal summary.
+Teach the video-watcher to read the precise chart numbers (gamma lines, option-flow tables) the speaker glosses over. Task B (Gemini limit/model swap) + Task C (chart numbers → `!all` narrator) shipped earlier. This session: **B1** strips title-card/promo/bare-ticker noise from the narrator; **C1** daily chart-read coverage counter; **C2** Gemini stop-reason (`finish_reason`/`f2_failure_category`) persisted as queryable telemetry. Task B3 (per-number ticker tagging) remains optional/unbuilt.
 
-## 18. Read live options flow and alert on unusual activity
+## 18. Read live options flow and alert on unusual activity — DONE 2026-05-29
 
 **File:** `options-flow-realtime.md`
 
-Teach the bot to read near-real-time options data (chain, open interest, volume) and alert on unusual options flow, instead of relying on 24-hour-old data.
+Teach the bot to read near-real-time options data and alert on unusual flow. **Shipped:** FREE source = yfinance ~15-min chains (verified live); `scan_options_flow` (Balanced thresholds vol/OI≥5, vol≥500, premium≥$250k) + `options_flow` table + 15-min `options_flow_loop` (active watchlist ∪ fixed liquid core) firing instant alerts (per-ticker cooldown, staleness filter) + `!all` feed. Verified end-to-end on real data (MSFT $80M call sweep, NVDA $77M put detected; loop dedup/cap/cooldown/persist proven). Live alerts fire during market hours. Optional future upgrade: Tradier brokerage account for real-time-free (needs signup).
