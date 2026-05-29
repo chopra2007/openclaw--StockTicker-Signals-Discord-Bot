@@ -145,3 +145,42 @@ The "400 IPO" mishearing won't be common, but if it shows up as a signal-quality
 4. TODO's P1 commit hash is wrong: real prompt-fix commit is `6d20b67`, not `e7ae531`.
 
 **Open question for user (#17 q1 answered):** vision model reported duration_sec=906 vs stated 10:15 — the dedup filter now drops out-of-range ts regardless, so this is defended going forward.
+
+---
+
+## NEXT SESSION — remaining #17 work (handoff, 2026-05-28)
+
+Three things remain. **Don't start until a fresh session.** Self-contained brief below.
+
+### Verified fact (so nobody re-litigates the architecture)
+Gemini watches the ACTUAL video, not captions: call site `gemini_video_parser.py` ~line 695-704 sends `types.Part.from_uri(file_uri=youtube_url, mime_type="video/*")` with a `media_resolution` setting (frame detail). The single combined prompt `_EVIDENCE_PROMPT` (~line 28) asks for BOTH `visual_evidence` (on-screen numbers/labels not spoken) AND `spans` (spoken quotes) in ONE watch. There is a separate captions-only fallback (`parse_video_transcript`) that only fires if the video path fails. **Implication for the two-call idea:** both visual + spoken come from one watch, so splitting into two calls = Gemini watches the full ~182k-token video TWICE = ~2× cost + latency. The schema-cap mechanism is already proven (asked for 80 items, got exactly 50 via `response_schema` + `response_mime_type="application/json"` on SDK google-genai 1.73.1).
+
+### TASK A (DECIDED — BUILD IT) — two-call upgrade for high-quality transcription
+User decision 2026-05-28: **implement the two-call split. Quality matters; the cheaper "trim spoken quotes" middle option is REJECTED** — without high-quality transcription the info isn't useful, so accept the ~2× cost.
+- Trip A: vision-only prompt → `generate_content` WITH the visual schema cap (max 50) + `response_mime_type="application/json"` → parse `visual_evidence`.
+- Trip B: spoken-only prompt → `generate_content` WITHOUT schema (free-form) → parse `spans` + `segments` + `duration_sec`.
+- Merge into one `EvidenceBundle`. Sum token accounting across both trips (currently records one response). Partial-result policy if one trip fails.
+- Build `_build_generation_config(media_resolution_cfg, response_schema=None, response_mime_type=None)` + the minimal `_VISUAL_EVIDENCE_SCHEMA` (only the visual_evidence array; NO enums/nesting/ordering — complex schemas get rejected "too many states for serving").
+- Persist visual_evidence is ALREADY wired (this session): `_clean_visual_evidence` + `youtube_visual_evidence` table + insert at ~line 552.
+
+### TASK B (investigate FIRST — likely blocks Task A's live test) — why do Gemini video calls time out / 503?
+User is confident it is **NOT Google's servers down** (checked Google's status page — green, repeatedly) every time a "Gemini down" claim was made. **Assume the cause is on OUR side and diagnose it.** Prime suspects, in order:
+1. **Free-tier quota** — per-minute (RPM) and per-day (RPD) limits. Video calls are ~182k input tokens EACH; we fire many in a window (probe ran 6 back-to-back; the live engine youtube poll loop; the daily eval cron — see TODO #3). A `503 "experiencing high demand"` can be a disguised throttle, and TODO #3 already logged explicit `429 RESOURCE_EXHAUSTED` on Apr 23.
+2. **Shared project quota across keys** — `GEMINI_API_KEY` + `GEMINI_API_KEY2` may belong to the same Google project → "rotating keys" buys nothing. Verify they're separate projects.
+3. **Our timeout** — `youtube.gemini.timeout_sec=240`; a slow-but-not-dead ingest could be hitting our limit, not Google's.
+4. **Payload/config** — media_resolution tier, request size.
+**How to diagnose (next session):** check the actual error CODE returned (429 vs 503 vs DEADLINE), count our calls in the failing window vs the documented free-tier RPM/RPD for `gemini-2.5-flash-lite` video, confirm whether the two keys share a quota, and test a single isolated call (no concurrent engine/cron load) to see if it succeeds. Lesson recorded in memory `comm-check-fail-2026-05-28-section-3` + `feedback_diagnose_before_blaming_providers`.
+**Cross-link:** this is the SAME root issue as **TODO #3 (gemini-video-eval-assertions)** — that cron fails 2/7 daily for the same Gemini-video-call reason. Consider tackling A+B+#3 together.
+
+### TASK C (needs a USER decision, then build) — show the chart numbers to the alert AI
+The captured visual_evidence has NO ticker; the `!all` path is per-ticker. Attribution bridge VERIFIED to exist: `youtube_signals` table carries `video_id` + `ticker` + `conviction` + `mention_count` (+ `video_timestamp_sec`, `evidence_span_ids`). So: `youtube_visual_evidence.video_id` → `youtube_signals` (filter by ticker) → that video's visual numbers. `get_youtube_evidence_for_ticker()` (db.py:1912) currently reads `youtube_setups` + `youtube_levels` by ticker — wire visual_evidence into that read model + the narrator's `yt_evidence` block.
+**USER DECISION NEEDED — attribution risk posture** (a video often covers several stocks; wrong attachment hurts alert quality):
+- **Conservative** — attach a video's numbers to a ticker only if that video clearly centered on it (high conviction + top mention_count). Fewest wrong attachments.
+- **Middle** — attach a video's numbers to its single top ticker.
+- **Aggressive** — match each number to a ticker by proximity to that ticker's price (e.g. a 745.64 gamma line near SPY's price → SPY).
+Recommended: build Conservative default, run `!all` on real tickers with recent video coverage, show before/after; user reviews output + picks final posture.
+
+### Misc relevant info for #17
+- P1 prompt-fix real commit is `6d20b67` (TODO body's `e7ae531` is wrong/stale).
+- This session's capture/dedup/cleanup shipped in commit `52397e8`; P5 cleanup record in `9e0fbff`/`3048dbf`.
+- Sequence recommendation: **B (diagnose Gemini failures) → A (two-call, now testable) → C (attribution + before/after).** A's live test on harness video `4mSyMr8PGLI` needs B resolved (or Gemini quota available) first.
