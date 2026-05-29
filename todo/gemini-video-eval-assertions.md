@@ -29,3 +29,16 @@ Gemini free-tier video-ingest latency for a long trading-recap video; the call i
 ## Out-of-scope-for-now caveats
 - Wrapper script exits 0 (cron is happy) but inner-python exits 1 — DoD §7c ambiguity. Not a crash; a "signal in the log" per the script's own docstring.
 - This pre-dates the 2026-05-12 batch and the prior 2026-05-11 batch — not a regression from any recent work.
+
+---
+
+### Session notes — 2026-05-29 (discover run todo-2-3-17)
+
+**ROOT CAUSE was misdiagnosed.** Since 2026-05-15 the chain ran captions BEFORE Gemini video, so the cron was testing the captions path, not Gemini — and "json_ok=0" was a false alarm (captions LLM returns markdown-fenced JSON). Files API caching (the old #1 fix) targeted a dead path.
+
+**FIXED this session (shipped):**
+- The real blocker was a Gemini limit: `gemini-2.5-flash-lite`/`flash` 503 "high demand" for video; `gemini-flash-latest` works. Fixed in [[reference-gemini-video-models]] + TODO #17 Task B (model swap + fps 0.5 + chain reorder so Gemini is primary).
+- Harness (`run_reference_assertions.py`) now forces captions+whisper OFF so it regression-tests the Gemini path specifically. Result: **4/7** (was 1/7 on the dead path).
+- Removed two false-failures: idempotency is now report-only (a live LLM isn't byte-identical run-to-run); dump writes to a per-user temp path (was crashing on a root-owned `/tmp/yt_v2_dump.json`).
+
+**REMAINING (gated on #17 Task C):** A1/A2/A3 check chart-derived levels/setups/catalysts. Gemini extracts the chart numbers into `youtube_visual_evidence`, but nothing turns them into `youtube_levels` yet — that wiring IS #17 Task C. So full 7/7 green requires Task C. A5/A4/A6/A7 pass.

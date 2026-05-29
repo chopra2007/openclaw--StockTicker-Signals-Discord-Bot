@@ -192,3 +192,19 @@ Recommended: build Conservative default, run `!all` on real tickers with recent 
 - P1 prompt-fix real commit is `6d20b67` (TODO body's `e7ae531` is wrong/stale).
 - This session's capture/dedup/cleanup shipped in commit `52397e8`; P5 cleanup record in `9e0fbff`/`3048dbf`.
 - Sequence recommendation: **B (diagnose Gemini failures) → A (two-call, now testable) → C (attribution + before/after).** A's live test on harness video `4mSyMr8PGLI` needs B resolved (or Gemini quota available) first.
+
+---
+
+### Session notes — 2026-05-29 (discover run todo-2-3-17)
+
+**TASK B — DONE + SHIPPED + LIVE.** Ran isolated live Gemini video calls. The limit is identified:
+- `gemini-2.5-flash-lite` (the prod video model) AND `gemini-2.5-flash` return **persistent 503 "high demand"** for video on our tier. `gemini-2.0-flash` is 429-quota'd. **`gemini-flash-latest` works reliably** (`finish_reason=STOP`, complete JSON).
+- Free tier caps **~3-4 full videos/key/day** (429). `fps=0.5` cuts input **224,800→143,686 tokens** (~36%), no quality loss (42 spans + 25 visual on the eval video).
+- **`finish_reason=STOP` always → NOT the output-token cap.** So **TASK A (two-call split) is SHELVED** — it was premised on an output cap that doesn't exist; it would only double the 503/429-prone calls. (Decision: do not build.)
+- **Fix shipped (commits c6736c4 + reorder):** config `youtube.gemini.model` → `gemini-flash-latest`, add `fps: 0.5`, add `model_fallbacks`; parser attaches `VideoMetadata(fps)`, 503→model-fallback retry, captures `finish_reason`; **chain reordered so Gemini video is PRIMARY, captions the FALLBACK** (user chose "Free + 0.5fps + captions fallback"). Verified end-to-end via the production `_extract_evidence_single_pass` path. Engine restarted 2026-05-29 02:12 — live.
+
+**TASK C — REMAINING (the last piece; also unblocks #3's A1/A2/A3).** Captured `visual_evidence` chart numbers are still NOT consumed into per-ticker alerts. Demoable now: video `2UUTK-lntus` has 47 visual rows in `youtube_visual_evidence`. Build per the codex-reviewed plan (`.claude/discover/todo-2-3-17/final-plan.md` §3d):
+- Phase 1 (Conservative read-layer): new `get_youtube_visual_evidence_for_ticker(ticker, days)` join `youtube_visual_evidence.video_id → youtube_signals` top ticker; merge into `data['yt_visual_evidence']` in the aggregator ONLY (NOT the shared `get_youtube_evidence_for_ticker` at db.py:1912 — `cross_reference.py:233` hard-checks `=="setup"` and would drop new types); teach `_build_yt_evidence_snippets` (aggregator.py:595) to render visual rows or they're silently dropped before the LLM.
+- Phase 2: kind-gated 10% price band (only `kind=='price'`) + exactly-one-in-band proximity fallback, in the aggregator (only layer with a live price).
+- Phase 3 (optional): Gemini per-number nullable same-frame `ticker` tagging.
+- DoD: a real `!all` on a video-covered ticker shows the chart number text in the synthesis prompt + alert.
