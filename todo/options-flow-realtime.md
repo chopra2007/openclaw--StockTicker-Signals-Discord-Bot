@@ -5,6 +5,8 @@
 
 **Goal (plain):** the bot should read live-ish options data — the options chain, open interest, and volume — and alert on *unusual* options activity, **close to real-time, not 24-hour-old data.** Both the research AND the build happen in a fresh session (user's instruction).
 
+**HARD CONSTRAINT (user, 2026-05-29): must be FREE.** Paying for a real-time options-flow feed is OFF the table. The research job is to find the *freshest free* source. Don't evaluate paid feeds except to note they're excluded.
+
 ---
 
 ## STEP 1 — Research the data source FIRST (do this before any code)
@@ -17,11 +19,12 @@ Candidates to evaluate (verify each — don't assume):
 - **Polygon.io** — has an options API (chains, trades). Free tier is limited/delayed; real-time options needs a paid tier. Confirm current free-tier limits + cost.
 - **Tradier** — brokerage API with options chains; sandbox/free gives delayed data. Confirm.
 - **Alpha Vantage / CBOE delayed** — confirm whether they expose OI/volume and at what delay.
-- **Dedicated paid flow feeds** — Unusual Whales API, FlowAlgo, CheddarFlow. These are the only ones giving *true real-time* sweep/block flow, and they cost money. Get current pricing + API availability so the user can decide.
+- **Dedicated paid flow feeds** (Unusual Whales API, FlowAlgo, CheddarFlow) — **OUT OF SCOPE: paid.** Listed only so the new session doesn't chase them. The free path is the job.
+- **Check free API tiers carefully** — Polygon.io and Tradier may gate options behind paid plans; confirm what their *free* tier actually returns before committing. Alpha Vantage has free options endpoints (confirm OI/volume + delay).
 
 **Hard fact (verified this session):** Finnhub free tier has **NO options** data — real-time `/quote` only (per CLAUDE.md Key Design Decisions). Don't plan around Finnhub for options.
 
-**Reality to state plainly to the user:** truly real-time options *time-and-sales / sweep* flow is a paid product. Free/cheap sources top out around ~15-min delayed. "Close to real-time, not 24h" is achievable free (≈15-min delayed chain + volume/OI); "live tape" needs spend. The research must say exactly where that line is.
+**Realistic free ceiling:** truly real-time options *time-and-sales / sweep* flow is a paid product and is OFF the table. The best FREE data is ~15-min-delayed (or EOD) option chains with volume/OI (yfinance) or ~15–20-min-delayed scraped "unusual activity" pages. So "close to real-time, not 24h" realistically means **~15-min-fresh**. The research must confirm the actual freshest-free delay and pick the best free source within that ceiling.
 
 ## STEP 2 — Reuse what already exists (verified this session)
 - `consensus_engine/scanners/options.py` has **`scan_unusual_options_market(watchlist, ...)`** which is **DORMANT — it has NO caller** anywhere in `consensus_engine/` (found in the 2026-05-29 audit). Read it first: it may already implement detection logic worth reviving instead of rebuilding.
@@ -39,9 +42,10 @@ What makes flow "unusual" (put thresholds in `config/consensus.yaml`):
 Poll the chosen source for the watchlist on an interval → detect unusual strikes → score → fire an alert via the existing instant-trigger path → write to a table for `!all` cross-reference. Verify with a real ticker showing real unusual flow (real-world test, not just unit tests — per DoD).
 
 ## Open questions for the user (decide during the new session)
-1. **Pay or free?** Accept ~15-min-delayed free data, or pay for a real-time flow feed (Unusual Whales etc.)? This is the central decision — get pricing during research and ask.
-2. **Scope:** scan the active watchlist (`get_active_tickers`) or a fixed list? How many tickers (rate-limit budget)?
-3. **Thresholds:** what volume/OI ratio and premium size count as "unusual" (avoid alert spam)?
+(Pay-vs-free is already DECIDED: **free only**.)
+1. **Scope:** scan the active watchlist (`get_active_tickers`) or a fixed list? How many tickers (free sources are rate-limited)?
+2. **Thresholds:** what volume/OI ratio and premium size count as "unusual" (avoid alert spam)?
+3. **Acceptable freshness:** confirm ~15-min-delayed free data is good enough (it's the realistic free ceiling), or whether EOD-only is also acceptable as a fallback.
 
 ## Definition of Done
 A real options-flow alert fires on a ticker with genuine unusual activity, with the freshness the user signed off on, verified end-to-end (not just "code runs"). Both services stay healthy; full test suite vs `.test-baseline` clean.
