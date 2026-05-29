@@ -92,8 +92,6 @@ news_cascade:
   # When true, all tiers race concurrently (asyncio.as_completed).
   # Code default is false (safer; no race exposure) — YAML enables parallel.
   parallel: true
-  # Finnhub budget window for priority ordering in parallel mode (ms).
-  finnhub_priority_ms: 3000
 
 # Polling intervals (seconds)
 intervals:
@@ -357,11 +355,20 @@ youtube:
   legacy_fallback: false               # disabled; Path B is the hallucination writer (vkqchQQnm88 incident).
                                        # Set true only after manual review of coverage data; see specs/youtube-grounding/.
   gemini:
-    # Free-tier friendly model. Flash-lite has a separate quota pool from flash;
-    # both support video. Swap to "gemini-2.5-flash" for higher-quality extraction
-    # once daily usage allows.
-    model: "gemini-2.5-flash-lite"
-    timeout_sec: 240  # bumped 120→240 (2026-05-12) — free-tier video ingest borderline-exceeds 120s; see TODO "Gemini video-eval reference assertions"
+    # Live-tested 2026-05-29: "gemini-2.5-flash-lite" AND "gemini-2.5-flash" both
+    # return persistent 503 "high demand" for VIDEO on our tier; "gemini-flash-latest"
+    # works reliably. See memory reference-gemini-video-models / TODO #17 Task B.
+    model: "gemini-flash-latest"
+    # 503-fallback chain: try these in order before giving up + rotating key.
+    model_fallbacks:
+      - "gemini-2.5-flash"
+      - "gemini-2.0-flash"
+    # Frames/sec sampled from the video. Default (unset) = 1 fps ≈ 225k input
+    # tokens/video; 0.5 fps ≈ 144k (~36% less) → ~doubles free-tier videos/day,
+    # no measured quality loss (13 spans+13 visual on the eval video). Free tier
+    # caps ~3-4 full videos/key/day (429); captions is the overflow fallback.
+    fps: 0.5
+    timeout_sec: 240  # latency is fine (calls take 37-228s); kept generous for slow ingests
     # media_resolution: "auto" (recommended) | "low" | "medium" | "default".
     #   auto    = pick tier based on Gemini daily-budget utilisation (see
     #             budget_pct_for_* below). Starts cheap, bumps up when the

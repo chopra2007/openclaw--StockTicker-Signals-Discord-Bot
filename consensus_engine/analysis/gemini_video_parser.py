@@ -669,12 +669,36 @@ async def _extract_evidence_single_pass(
         log.debug("extract_evidence_single_pass: budget/rate gate failed: %s", e)
         budget = None
 
-    model = cfg.get("youtube.gemini.model", "gemini-2.5-flash")
+    model_primary = cfg.get("youtube.gemini.model", "gemini-2.5-flash")
+    model_fallbacks = [
+        m for m in (cfg.get("youtube.gemini.model_fallbacks", []) or [])
+        if m and m != model_primary
+    ]
+    models_to_try = [model_primary] + model_fallbacks
+    fps_cfg = cfg.get("youtube.gemini.fps", None)
     youtube_url = f"https://www.youtube.com/watch?v={video_id}"
     timeout_sec = int(cfg.get("youtube.gemini.timeout_sec", 120))
+    # 503 "high demand" is common on free-tier video models; latency is not a
+    # constraint, so retry once with backoff before falling to the next model.
+    _503_backoffs = [0, 6]
+
+    from google.genai import types
+
+    gen_config = _build_generation_config(media_resolution)
+
+    def _video_part():
+        # fps via VideoMetadata cuts input tokens (~225k→144k at 0.5fps, no
+        # measured quality loss); plain URI part when fps is unset (=1fps).
+        if fps_cfg:
+            return types.Part(
+                file_data=types.FileData(file_uri=youtube_url, mime_type="video/*"),
+                video_metadata=types.VideoMetadata(fps=float(fps_cfg)),
+            )
+        return types.Part.from_uri(file_uri=youtube_url, mime_type="video/*")
 
     response = None
     raw = None
+    used_model = None
     tried_labels: set[str] = set()
     configured_keys = _get_gemini_keys()
     max_attempts = max(1, len(configured_keys))
@@ -689,59 +713,83 @@ async def _extract_evidence_single_pass(
             telemetry.latency_ms = int((time.monotonic() - start_ts) * 1000)
             telemetry.json_parse_ok = False
             return (None, telemetry)
-        try:
-            from google.genai import types
 
-            gen_config = _build_generation_config(media_resolution)
+        key_quota_hit = False
+        for _m in models_to_try:
+            for _bo in _503_backoffs:
+                if _bo:
+                    await asyncio.sleep(_bo)
+                try:
+                    def _sync_call(_client=client, _model=_m):
+                        return _client.models.generate_content(
+                            model=_model,
+                            contents=[
+                                types.Part.from_text(text=_EVIDENCE_PROMPT),
+                                _video_part(),
+                            ],
+                            config=gen_config,
+                        )
 
-            def _sync_call(_client=client):
-                return _client.models.generate_content(
-                    model=model,
-                    contents=[
-                        types.Part.from_text(text=_EVIDENCE_PROMPT),
-                        types.Part.from_uri(
-                            file_uri=youtube_url,
-                            mime_type="video/*",
-                        ),
-                    ],
-                    config=gen_config,
-                )
-
-            loop = asyncio.get_event_loop()
-            response = await asyncio.wait_for(
-                loop.run_in_executor(None, _sync_call),
-                timeout=timeout_sec,
-            )
-            raw = response.text
-            log.info(
-                "extract_evidence_single_pass: %s succeeded via %s at %s",
-                video_id, key_label, media_resolution,
-            )
+                    loop = asyncio.get_event_loop()
+                    response = await asyncio.wait_for(
+                        loop.run_in_executor(None, _sync_call),
+                        timeout=timeout_sec,
+                    )
+                    raw = response.text
+                    used_model = _m
+                    # B0: capture why generation stopped. An output-token
+                    # truncation surfaces here as finish_reason=MAX_TOKENS —
+                    # previously invisible (only response.text was read).
+                    _finish = None
+                    try:
+                        _cands = getattr(response, "candidates", None) or []
+                        if _cands:
+                            _frv = getattr(_cands[0], "finish_reason", None)
+                            _finish = getattr(_frv, "name", str(_frv)) if _frv is not None else None
+                    except Exception:
+                        pass
+                    log.info(
+                        "extract_evidence_single_pass: %s succeeded via %s model=%s fps=%s finish=%s",
+                        video_id, key_label, _m, fps_cfg, _finish,
+                    )
+                    break  # backoff loop
+                except asyncio.TimeoutError as e:
+                    telemetry.f2_failure_category = "timeout"
+                    _log_f2_failure(video_id, "timeout", e, extra=f"key={key_label} model={_m}")
+                    telemetry.latency_ms = int((time.monotonic() - start_ts) * 1000)
+                    telemetry.json_parse_ok = False
+                    return (None, telemetry)
+                except Exception as e:
+                    if _is_quota_error(e):
+                        _log_f2_failure(video_id, "quota", e, extra=f"key={key_label} model={_m} action=rotate_key")
+                        _mark_key_exhausted(key_label)
+                        tried_labels.add(key_label)
+                        key_quota_hit = True
+                        break  # backoff loop
+                    category = _categorize_failure(e)
+                    telemetry.f2_failure_category = category
+                    if category == "unavailable":
+                        # 503 "high demand": retry this model with backoff, then
+                        # fall through to the next fallback model.
+                        _log_f2_failure(video_id, category, e, extra=f"key={key_label} model={_m} action=retry_then_next_model")
+                        continue  # next backoff
+                    # unknown/other failure: try the next fallback model
+                    _log_f2_failure(video_id, category, e, extra=f"key={key_label} model={_m} action=next_model")
+                    break  # backoff loop → next model
+            if raw is not None or key_quota_hit:
+                break  # model loop
+        if raw is not None:
+            break  # key loop
+        if not key_quota_hit:
+            # All models failed on this key for non-quota reasons (503/other);
+            # rotating keys won't fix model availability, so stop.
             break
-        except asyncio.TimeoutError as e:
-            telemetry.f2_failure_category = "timeout"
-            _log_f2_failure(video_id, "timeout", e, extra=f"key={key_label}")
-            telemetry.latency_ms = int((time.monotonic() - start_ts) * 1000)
-            telemetry.json_parse_ok = False
-            return (None, telemetry)
-        except Exception as e:
-            if _is_quota_error(e):
-                _log_f2_failure(video_id, "quota", e, extra=f"key={key_label} action=rotate")
-                _mark_key_exhausted(key_label)
-                tried_labels.add(key_label)
-                continue
-            category = _categorize_failure(e)
-            telemetry.f2_failure_category = category
-            _log_f2_failure(video_id, category, e, extra=f"key={key_label}")
-            telemetry.latency_ms = int((time.monotonic() - start_ts) * 1000)
-            telemetry.json_parse_ok = False
-            return (None, telemetry)
 
     if raw is None:
-        telemetry.f2_failure_category = "quota"
+        telemetry.f2_failure_category = telemetry.f2_failure_category or "quota"
         _log_f2_failure(
-            video_id, "quota", None,
-            extra="reason=all_keys_exhausted",
+            video_id, telemetry.f2_failure_category, None,
+            extra="reason=all_models_or_keys_exhausted",
         )
         telemetry.latency_ms = int((time.monotonic() - start_ts) * 1000)
         telemetry.json_parse_ok = False

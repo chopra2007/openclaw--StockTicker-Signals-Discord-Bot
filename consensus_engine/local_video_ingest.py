@@ -142,19 +142,23 @@ async def _run_chain(
             log.warning("F6 pre-flight failed — skipping chain for %s", video_id)
             return None, telemetry
 
-        # F1: captions (disabled Phase 1)
-        if cfg("youtube.captions.enabled", False):
-            telemetry.chain_attempts.append("ytdlp-captions/v1")
-            bundle = await _stage_captions(video_id, telemetry, published_at)
-            if bundle is not None:
-                return bundle, telemetry
-
-        # F2: Gemini Part.from_uri (existing path).
-        # `gemini.disabled_for_test` lets verification probes force F3 in production-shaped
-        # traffic without changing default behavior. Default false.
+        # F2: Gemini video — PRIMARY. Only path that reads on-screen chart
+        # numbers (visual_evidence). Uses gemini-flash-latest @ 0.5fps with a
+        # 503 model-fallback chain (see gemini_video_parser). On 503/quota
+        # exhaustion it returns None and the chain falls through to captions.
+        # `gemini.disabled_for_test` lets verification probes skip F2. Default false.
         if not cfg("youtube.gemini.disabled_for_test", False):
             telemetry.chain_attempts.append("gemini/v2")
             bundle = await _stage_gemini(video_id, display_name, published_at, telemetry)
+            if bundle is not None:
+                return bundle, telemetry
+
+        # F1: captions → LLM ticker extraction — FALLBACK when Gemini is
+        # unavailable / daily-quota-exhausted. Fast + cheap, but audio-only
+        # (no chart visual_evidence).
+        if cfg("youtube.captions.enabled", False):
+            telemetry.chain_attempts.append("ytdlp-captions/v1")
+            bundle = await _stage_captions(video_id, telemetry, published_at)
             if bundle is not None:
                 return bundle, telemetry
 
