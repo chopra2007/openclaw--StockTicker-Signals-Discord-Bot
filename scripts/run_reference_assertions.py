@@ -94,6 +94,13 @@ async def run_once(db_path: str) -> dict:
     cfg._config["youtube"]["use_two_stage"] = True
     cfg._config["youtube"]["legacy_fallback"] = False
     cfg._config["youtube"]["standalone_alerts"] = False  # keep it offline
+    # This cron regression-tests Gemini's chart-vision output specifically, so
+    # force the Gemini video path ONLY: disable the captions + whisper fallbacks
+    # (now the production primary/fallbacks) so a Gemini failure surfaces honestly
+    # instead of being masked by a fallback path that can't produce chart levels.
+    # gemini.disabled_for_test stays False (default) so F2 runs.
+    cfg._config["youtube"].setdefault("captions", {})["enabled"] = False
+    cfg._config["youtube"].setdefault("whisper", {})["enabled"] = False
     cfg._config["database"]["path"] = db_path
 
     await db.init_db()
@@ -265,6 +272,10 @@ async def main():
               f"{'IDEMPOTENT' if after_signals == before_signals else 'DRIFT'}")
         print(f"    evidence_spans: before={before_spans} after={after_spans} "
               f"{'IDEMPOTENT' if after_spans == before_spans else 'DRIFT'}")
+        # NOTE: this is REPORT-ONLY, not a pass/fail gate. Gemini is a live LLM
+        # whose extraction varies run-to-run, so exact-count equality across two
+        # real runs cannot hold (and never could once the chain stopped being
+        # mocked). Re-process dedup/replace is a separate persistence concern.
         idempotent = (
             after_levels == before_levels
             and after_signals == before_signals
@@ -285,15 +296,22 @@ async def main():
 
         print("\n" + "=" * 70)
         print(f"SUMMARY: {passed}/{len(checks)} assertions passed, "
-              f"idempotency={'PASS' if idempotent else 'FAIL'}")
+              f"idempotency={'PASS' if idempotent else 'DRIFT (informational; live-LLM)'}")
         print("=" * 70)
 
-        # Write full dump to /tmp for inspection
-        out_path = Path("/tmp/yt_v2_dump.json")
-        out_path.write_text(json.dumps(dump1, indent=2, default=str))
-        print(f"Full dump written to {out_path}")
+        # Write full dump for inspection. Use a per-user temp path so a file left
+        # by a prior run as a different user can't cause a PermissionError crash.
+        out_path = Path(tempfile.gettempdir()) / f"yt_v2_dump_{os.getuid()}.json"
+        try:
+            out_path.write_text(json.dumps(dump1, indent=2, default=str))
+            print(f"Full dump written to {out_path}")
+        except OSError as e:
+            print(f"(could not write dump to {out_path}: {e})")
 
-        return 0 if passed == len(checks) and idempotent else 1
+        # Exit gates on the A1-A7 assertions only. Idempotency is informational
+        # (see note above). A1/A2/A3 currently require TODO #17 Task C to wire
+        # visual_evidence (chart numbers) into youtube_levels/setups/catalysts.
+        return 0 if passed == len(checks) else 1
 
 
 if __name__ == "__main__":
