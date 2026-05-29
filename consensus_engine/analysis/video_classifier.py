@@ -791,3 +791,82 @@ def classify_evidence(bundle: EvidenceBundle) -> ClassificationResult:
         catalyst_candidates=catalyst_candidates,
         macro_thesis=macro,
     )
+
+
+# ---------------------------------------------------------------------------
+# A2: on-screen chart numbers -> structured price levels
+# ---------------------------------------------------------------------------
+
+def classify_visual_levels(
+    visual_rows: list[dict],
+    top_ticker: str,
+    live_price: float | None,
+    *,
+    band_pct: float = 0.10,
+    confidence: float = 0.55,
+    max_levels: int = 20,
+) -> list[CandidateLevel]:
+    """Turn Gemini-read on-screen chart PRICE numbers into structured levels.
+
+    The visual-evidence branch (`youtube_visual_evidence`) captures numbers
+    Gemini reads off the chart -- axis labels, fib levels, drawn price lines --
+    that are never spoken. The spoken-span classifier (`classify_evidence`)
+    never sees them, so they never reach `youtube_levels`. This files them so
+    they participate in scoring / cross-reference, not just the alert text.
+
+    Attribution is Conservative: the caller passes the video's single
+    top-mentioned ticker and every kept level is attached to it.
+
+    A live price anchor is required to separate real drawn levels from Y-axis
+    gridlines (0/10/20 on a $98 stock) and numbers belonging to a *different*
+    ticker the video also covered: a `kind=='price'` value is kept only within
+    `band_pct` of `live_price`. With no anchor we cannot tell a gridline from a
+    real level, so nothing is filed (the narrator path still shows the raw
+    numbers as text).
+
+    `level_type` is derived from the anchor: below price -> support, else
+    resistance. Confidence is held below the spoken-classifier tier so a visual
+    level never outranks a level the analyst actually spoke.
+    """
+    if not visual_rows or not top_ticker:
+        return []
+    if not live_price or live_price <= 0:
+        return []
+    out: list[CandidateLevel] = []
+    seen: set[float] = set()
+    for row in visual_rows:
+        if not isinstance(row, dict):
+            continue
+        if (row.get("kind") or "").strip().lower() != "price":
+            continue
+        raw = str(row.get("value", "")).replace(",", "").replace("$", "").strip()
+        try:
+            val = float(raw)
+        except (TypeError, ValueError):
+            continue
+        if val <= 0:
+            continue
+        if abs(val / live_price - 1.0) > band_pct:
+            continue  # gridline / mis-scaled / wrong-ticker -> not a real level
+        key = round(val, 2)
+        if key in seen:
+            continue
+        seen.add(key)
+        where = row.get("where_seen") or row.get("where") or "chart"
+        ts = row.get("ts_sec")
+        out.append(
+            CandidateLevel(
+                ticker=top_ticker,
+                level_type="support" if val < live_price else "resistance",
+                price=val,
+                context=f"chart shows {val} ({where})",
+                evidence_span_ids=[],
+                classifier_confidence=confidence,
+                suppressed=False,
+                suppression_reason=None,
+                video_timestamp_sec=int(ts) if isinstance(ts, (int, float)) else None,
+            )
+        )
+        if len(out) >= max_levels:
+            break
+    return out

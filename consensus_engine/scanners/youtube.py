@@ -215,6 +215,12 @@ async def _process_video_two_stage(
         result.catalyst_candidates, bundle.publish_ts,
     )
 
+    # ── A2: file Gemini-read chart numbers as structured levels ──────────
+    # The spoken-span classifier above never sees `bundle.visual_evidence`;
+    # this attributes those chart prices to the video's top ticker and appends
+    # them so they flow through the same allowlist/suppression + persistence.
+    result.levels.extend(await _build_visual_levels(bundle, result.signals))
+
     # ── Video-level allowlist (Layer 3) ─────────────────────────────────
     from consensus_engine.analysis.ticker_grounding import build_video_allowlist
     video_meta_row = await db.get_youtube_video(video_id)
@@ -422,6 +428,42 @@ async def _safe_live_price(ticker: str) -> float | None:
     except Exception as e:
         log.debug("price_sanity: live quote failed for %s: %s", ticker, e)
         return None
+
+
+async def _build_visual_levels(bundle, signals, get_live_price=_safe_live_price) -> list:
+    """A2 glue: file Gemini-read chart price numbers as structured levels.
+
+    Determines the video's top-mentioned ticker (Conservative attribution),
+    fetches a live price anchor, and delegates to `classify_visual_levels`
+    which applies the gridline/wrong-ticker band filter. Returns CandidateLevel
+    objects to be appended to `result.levels` before persistence (so they pass
+    through the same allowlist + low-confidence suppression as spoken levels).
+    """
+    if not cfg.get("youtube.visual.file_levels", True):
+        return []
+    visual = getattr(bundle, "visual_evidence", None) or []
+    if not visual:
+        return []
+    live_sigs = [s for s in signals if not getattr(s, "suppressed", 0)]
+    if not live_sigs:
+        return []
+    top = max(live_sigs, key=lambda s: getattr(s, "mention_count", 0) or 0)
+    if not getattr(top, "ticker", None):
+        return []
+    price = await get_live_price(top.ticker)
+    band = float(cfg.get("youtube.visual.proximity_band_pct", 0.10))
+    conf = float(cfg.get("youtube.visual.level_confidence", 0.55))
+    cap = int(cfg.get("youtube.visual.max_levels", 20))
+    from consensus_engine.analysis.video_classifier import classify_visual_levels
+    levels = classify_visual_levels(
+        visual, top.ticker, price, band_pct=band, confidence=conf, max_levels=cap,
+    )
+    if levels:
+        log.info(
+            "visual_levels: filed %d chart level(s) for $%s (anchor price=%s)",
+            len(levels), top.ticker, price,
+        )
+    return levels
 
 
 async def _apply_price_sanity_to_levels(levels, get_live_price=_safe_live_price) -> None:
