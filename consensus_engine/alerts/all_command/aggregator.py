@@ -16,6 +16,7 @@ import asyncio
 import dataclasses
 import json
 import logging
+import re
 import time
 from pathlib import Path
 from typing import Any, Optional
@@ -641,18 +642,47 @@ def _visual_band_filter(rows, price: float, band_pct: float):
     return out
 
 
+# B1: a promo/coupon code like "WICKED50" / "SAVE20" — letters then digits, no spaces.
+_PROMO_CODE_RE = re.compile(r"^[A-Za-z]{3,}\d{1,4}$")
+
+
+def _is_useful_visual_row(row) -> bool:
+    """B1: keep only chart items worth showing the narrator; drop label noise.
+
+    Title cards ("The Stock Market"), promo codes ("WICKED50") and bare ticker
+    labels reach visual_evidence and clutter the alert. Keep prices, dates, and
+    any label/annotation that carries a number (fib %, $ premium, gamma value,
+    "max pain 740"). Drop bare tickers, promo codes, and digit-less labels.
+    """
+    if not isinstance(row, dict):
+        return False
+    val = str(row.get("value") or "").strip()
+    if not val:
+        return False
+    kind = (row.get("kind") or "").strip().lower()
+    if kind == "ticker":
+        return False  # narrator already knows the ticker; a bare symbol adds nothing
+    if kind in ("price", "date"):
+        return True
+    # label / other: useful only if it carries a number; never if it's a promo code.
+    if _PROMO_CODE_RE.match(val.replace(" ", "")):
+        return False
+    return any(ch.isdigit() for ch in val)
+
+
 def _build_yt_visual_snippets(yt_visual) -> list[str]:
     """Render on-screen chart numbers (visual_evidence) for the narrator."""
     out: list[str] = []
     if isinstance(yt_visual, list):
-        for row in yt_visual[:15]:
-            if isinstance(row, dict):
-                val = row.get("value")
-                if not val:
-                    continue
-                ch = row.get("channel_name", "?")
-                where = row.get("where_seen") or row.get("where") or "on chart"
-                out.append(f"[{ch}] chart shows {val} ({where})")
+        for row in yt_visual:
+            if not _is_useful_visual_row(row):
+                continue
+            val = row.get("value")
+            ch = row.get("channel_name", "?")
+            where = row.get("where_seen") or row.get("where") or "on chart"
+            out.append(f"[{ch}] chart shows {val} ({where})")
+            if len(out) >= 15:
+                break
     return out
 
 
