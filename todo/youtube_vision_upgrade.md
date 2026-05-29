@@ -1,6 +1,6 @@
 # YouTube Vision Upgrade — Status
 
-**Status:** OPEN — prompt fixes shipped 2026-05-25; production wire-up still pending.
+**Status:** ACTIVE (partial) — as of 2026-05-28: visual-evidence capture + dedup + out-of-range filter + new `youtube_visual_evidence` table SHIPPED; P5 phantom DB cleanup DONE (176 rows). STILL PENDING: (1) narrator per-ticker wiring so the alert LLM actually sees the chart numbers (needs video→ticker attribution — see Session notes); (2) two-trip / response_schema truncation fix (gated on an unmeasured ~2× Gemini cost decision). Full breakdown in the "Session notes — 2026-05-28" block at the bottom.
 **Created:** 2026-05-25
 
 **Goal:** give the LLM more useful data from each YouTube video so it can understand the analyst's actual evidence (chart levels, scanner numbers, gamma exposures) — not just what was said out loud.
