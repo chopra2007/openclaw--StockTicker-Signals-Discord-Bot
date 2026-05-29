@@ -12,7 +12,7 @@ This is the **index**. Each entry points to a detail file in `todo/<name>.md` th
 
 Rip out the dormant old YouTube-parsing fallback code now that the 30-day soak window has passed.
 
-## 2. Finish making alerts arrive faster
+## 2. Finish making alerts arrive faster — DONE 2026-05-29
 
 **File:** `speed-accuracy-optimization.md`
 
