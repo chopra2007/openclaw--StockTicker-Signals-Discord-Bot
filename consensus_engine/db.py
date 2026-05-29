@@ -1941,6 +1941,34 @@ async def get_youtube_evidence_for_ticker(ticker: str, days: int = 7) -> list[di
     return [dict(r) for r in await cur.fetchall()]
 
 
+async def get_youtube_visual_evidence_for_ticker(ticker: str, days: int = 7) -> list[dict]:
+    """On-screen chart numbers (visual_evidence) attributed to a ticker.
+
+    Conservative attribution: youtube_visual_evidence has no ticker column,
+    so a video's visual rows are returned for `ticker` only when that ticker
+    is the TOP-mentioned ticker for the video (highest mention_count among the
+    video's signals in the window). Avoids leaking chart numbers onto an
+    off-topic ticker the video merely name-dropped.
+    """
+    conn = await get_db()
+    cutoff = time.time() - days * 86400
+    cur = await conn.execute(
+        """
+        SELECT v.video_id, v.ts_sec, v.value, v.kind, v.where_seen, s.channel_name
+        FROM youtube_visual_evidence v
+        JOIN youtube_signals s ON s.video_id = v.video_id
+        WHERE s.ticker = ? AND s.extracted_at >= ?
+          AND s.mention_count = (
+            SELECT MAX(s2.mention_count) FROM youtube_signals s2
+            WHERE s2.video_id = v.video_id AND s2.extracted_at >= ?
+          )
+        ORDER BY v.ts_sec ASC
+        """,
+        (ticker, cutoff, cutoff),
+    )
+    return [dict(r) for r in await cur.fetchall()]
+
+
 async def mark_levels_absorbed_by_setup(level_ids: list[int], setup_id: int) -> None:
     """Tag raw level rows as belonging to a setup so canonical reads skip them."""
     if not level_ids:

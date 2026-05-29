@@ -187,6 +187,7 @@ async def _gather_all_sources(ticker: str) -> dict:
     yt_options_task = _db_call("get_youtube_options_for_ticker", ticker, days=7)
     yt_levels_task = _db_call("get_youtube_levels_for_ticker", ticker, days=7)
     yt_evidence_task = _db_call("get_youtube_evidence_for_ticker", ticker, days=7)
+    yt_visual_task = _db_call("get_youtube_visual_evidence_for_ticker", ticker, days=7)
     alert_history_task = _db_call("get_alert_history_for_ticker", ticker, limit=30, days=30)
     decision_snapshots_task = _db_call("get_decision_snapshots", ticker, days=14)
     next_earnings_task = _scanner_call(
@@ -247,6 +248,7 @@ async def _gather_all_sources(ticker: str) -> dict:
         yt_options_task,
         yt_levels_task,
         yt_evidence_task,
+        yt_visual_task,
         alert_history_task,
         decision_snapshots_task,
         next_earnings_task,
@@ -264,7 +266,7 @@ async def _gather_all_sources(ticker: str) -> dict:
     )
     (
         score_result, tech_long, tech_short, twitter_signals, social_signals,
-        yt_signals, yt_options, yt_levels, yt_evidence, alert_history,
+        yt_signals, yt_options, yt_levels, yt_evidence, yt_visual, alert_history,
         decision_snapshots, next_earnings_iso, recent_earnings_recap, daily_candles, news_catalyst, sec_filings, options_unusual,
         trends, apewisdom, chat_msgs, brief_msgs, prior_vault,
     ) = results
@@ -305,6 +307,7 @@ async def _gather_all_sources(ticker: str) -> dict:
         "yt_options": _result_or_default(yt_options, []),
         "yt_levels": _result_or_default(yt_levels, []),
         "yt_evidence": _result_or_default(yt_evidence, []),
+        "yt_visual_evidence": _result_or_default(yt_visual, []),
         "alert_history": _result_or_default(alert_history, []),
         "decision_snapshots": _result_or_default(decision_snapshots, []),
         "next_earnings_iso": _result_or_default(next_earnings_iso, None) if isinstance(next_earnings_iso, str) else None,
@@ -605,6 +608,21 @@ def _build_yt_evidence_snippets(yt_evidence) -> list[str]:
     return out
 
 
+def _build_yt_visual_snippets(yt_visual) -> list[str]:
+    """Render on-screen chart numbers (visual_evidence) for the narrator."""
+    out: list[str] = []
+    if isinstance(yt_visual, list):
+        for row in yt_visual[:15]:
+            if isinstance(row, dict):
+                val = row.get("value")
+                if not val:
+                    continue
+                ch = row.get("channel_name", "?")
+                where = row.get("where_seen") or row.get("where") or "on chart"
+                out.append(f"[{ch}] chart shows {val} ({where})")
+    return out
+
+
 def _build_technical_short_dict(tech_short) -> dict:
     """Coerce technical_short scanner result into a JSON-friendly dict (PR4)."""
     if tech_short is None:
@@ -893,7 +911,7 @@ async def _compute_all(ticker: str, start: float) -> dict:
     sec_block = sec_evidence["block"]
     twitter_msgs = _build_twitter_snippets(data["twitter_signals"])
     social_msgs = _build_social_snippets(data["social_signals"])
-    yt_evidence_msgs = _build_yt_evidence_snippets(data["yt_evidence"])
+    yt_evidence_msgs = _build_yt_evidence_snippets(data["yt_evidence"]) + _build_yt_visual_snippets(data.get("yt_visual_evidence", []))
     chat_msgs = data["chat_msgs"] if isinstance(data["chat_msgs"], list) else []
     brief_msgs = data["brief_msgs"] if isinstance(data["brief_msgs"], list) else []
     prior_vault = data["prior_vault"] or ""
