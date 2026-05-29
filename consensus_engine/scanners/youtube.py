@@ -389,6 +389,8 @@ async def _process_video_two_stage(
         json_parse_ok=1 if telemetry.json_parse_ok else 0,
         span_count=telemetry.span_count,
         filter_drop_count=filter_drops,
+        chain_winner=telemetry.chain_winner,
+        f2_failure_category=telemetry.f2_failure_category,
     )
 
     await db.mark_youtube_video_status(video_id, "analyzed_gemini_v2")
@@ -1125,6 +1127,30 @@ async def youtube_scan_once() -> None:
     ])
 
 
+_LAST_COVERAGE_DAY: str | None = None
+
+
+async def _emit_daily_coverage() -> None:
+    """C1: once per UTC day, log how many video runs got the full Gemini chart
+    read (chain_winner='gemini/v2') vs fell back to captions/whisper. Free-tier
+    Gemini caps ~3-4 videos/key/day, so this makes chart-read coverage visible."""
+    global _LAST_COVERAGE_DAY
+    import time as _t
+    today = _t.strftime("%Y-%m-%d", _t.gmtime())
+    if today == _LAST_COVERAGE_DAY:
+        return
+    counts = await db.get_youtube_coverage_counts(hours=24)
+    _LAST_COVERAGE_DAY = today
+    if not counts:
+        return
+    gemini = counts.get("gemini/v2", 0)
+    total = sum(counts.values())
+    log.info(
+        "youtube coverage (24h): %d/%d videos got full Gemini chart read; breakdown=%s",
+        gemini, total, counts,
+    )
+
+
 async def youtube_poll_loop(stop_event: asyncio.Event) -> None:
     """Background loop — runs youtube_scan_once() every poll_interval_seconds."""
     if not cfg.get("youtube.enabled", False):
@@ -1145,6 +1171,10 @@ async def youtube_poll_loop(stop_event: asyncio.Event) -> None:
             await youtube_scan_once()
         except Exception as e:
             log.error("youtube: scan cycle error: %s", e)
+        try:
+            await _emit_daily_coverage()
+        except Exception as e:
+            log.debug("youtube: coverage emit error: %s", e)
         try:
             await asyncio.wait_for(stop_event.wait(), timeout=float(interval))
         except asyncio.TimeoutError:

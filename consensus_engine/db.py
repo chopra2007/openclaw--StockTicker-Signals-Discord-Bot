@@ -637,6 +637,11 @@ async def _run_column_migrations(conn) -> None:
         ("youtube_analysis_runs", "json_parse_ok",    "INTEGER"),
         ("youtube_analysis_runs", "span_count",       "INTEGER"),
         ("youtube_analysis_runs", "filter_drop_count", "INTEGER"),
+        # C1/C2: which chain method won (gemini/v2 = full chart read vs caption/
+        # whisper fallback) and why Gemini stopped (timeout|quota|unavailable|
+        # token_limit|unknown) — made queryable telemetry per video run.
+        ("youtube_analysis_runs", "chain_winner",       "TEXT"),
+        ("youtube_analysis_runs", "f2_failure_category", "TEXT"),
         ("api_usage_daily", "gemini_input_tokens",  "INTEGER NOT NULL DEFAULT 0"),
         ("api_usage_daily", "gemini_output_tokens", "INTEGER NOT NULL DEFAULT 0"),
         ("api_usage_daily", "gemini_video_calls",   "INTEGER NOT NULL DEFAULT 0"),
@@ -2081,22 +2086,41 @@ async def update_analysis_run_metrics(
     json_parse_ok: int | None = None,
     span_count: int | None = None,
     filter_drop_count: int | None = None,
+    chain_winner: str | None = None,
+    f2_failure_category: str | None = None,
 ) -> None:
     """Update telemetry columns on a youtube_analysis_runs row."""
     conn = await get_db()
     await conn.execute(
         """UPDATE youtube_analysis_runs
-           SET input_tokens      = COALESCE(?, input_tokens),
-               output_tokens     = COALESCE(?, output_tokens),
-               latency_ms        = COALESCE(?, latency_ms),
-               json_parse_ok     = COALESCE(?, json_parse_ok),
-               span_count        = COALESCE(?, span_count),
-               filter_drop_count = COALESCE(?, filter_drop_count)
+           SET input_tokens        = COALESCE(?, input_tokens),
+               output_tokens       = COALESCE(?, output_tokens),
+               latency_ms          = COALESCE(?, latency_ms),
+               json_parse_ok       = COALESCE(?, json_parse_ok),
+               span_count          = COALESCE(?, span_count),
+               filter_drop_count   = COALESCE(?, filter_drop_count),
+               chain_winner        = COALESCE(?, chain_winner),
+               f2_failure_category = COALESCE(?, f2_failure_category)
            WHERE id = ?""",
         (input_tokens, output_tokens, latency_ms, json_parse_ok,
-         span_count, filter_drop_count, run_id),
+         span_count, filter_drop_count, chain_winner, f2_failure_category, run_id),
     )
     await conn.commit()
+
+
+async def get_youtube_coverage_counts(hours: int = 24) -> dict[str, int]:
+    """C1: count video runs in the last `hours` by chain method, so chart-read
+    coverage (gemini/v2) vs caption/whisper fallback is visible day to day."""
+    conn = await get_db()
+    cutoff = time.time() - hours * 3600
+    cur = await conn.execute(
+        """SELECT COALESCE(chain_winner, 'none') AS method, COUNT(*) AS n
+           FROM youtube_analysis_runs
+           WHERE started_at >= ?
+           GROUP BY method""",
+        (cutoff,),
+    )
+    return {r["method"]: r["n"] for r in await cur.fetchall()}
 
 
 async def log_user_command(user_id: str, command: str) -> None:
