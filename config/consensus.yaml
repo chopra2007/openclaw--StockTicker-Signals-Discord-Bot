@@ -586,6 +586,15 @@ features:
     market_hours_only: true
     sector_change_threshold_pct: 0.3
     quote_cache_ttl_sec: 300
+  # !all quality levers (#6 / item 1-2). Both surface FREE yfinance data as
+  # embed fields in the !all command only (no autonomous watcher).
+  max_pain:
+    enabled: true                  # max-pain strike (weekly + monthly) embed field
+  peer_comparison:
+    enabled: true                  # relative-strength vs sub-industry peers
+    window_days: 5                 # 5-trading-day % move
+    outperform_threshold_pct: 1.0  # |delta| above this = out/under-performing
+    max_peers: 5                   # cap peer fetches (latency bound)
   regime_classifier:
     enabled: true
     regime_shifts:

@@ -48,6 +48,10 @@ class StructuredFields:
     # quality gap from the 2026-05-18 blind-compare).
     next_catalyst_kind: Optional[str] = None        # "earnings" | "dividend_ex" | "options_expiry" | ...
     next_catalyst_mechanism: Optional[str] = None    # "earnings on 2026-05-20", "ex-dividend $0.04"
+    # #6 !all levers — code-derived, embed-only (peer_strength also feeds the
+    # narrator when its mode is the clean curated-peer mean; see narrator.py).
+    max_pain: Optional[dict] = None       # {"spot", "weekly": {...}|None, "monthly": {...}|None}
+    peer_strength: Optional[dict] = None  # {stock_pct, benchmark_pct, delta, verdict, benchmark_label, mode, narrator_ok, ...}
 
 
 # Components contributing to direction scoring. Sign mapping is deferred to

@@ -240,6 +240,15 @@ async def _gather_all_sources(ticker: str) -> dict:
     vault_path = cfg.get("vault.path", "")
     vault_task = vault_writer.read_existing_vault(ticker, vault_path)
 
+    # #6 !all levers — appended LAST so the positional unpack below stays stable.
+    # max-pain (yfinance option chain) + peer relative strength (yfinance closes).
+    max_pain_task = _scanner_call(
+        "consensus_engine.scanners.options", "compute_max_pain", ticker, executor=None,
+    )
+    peer_strength_task = _scanner_call(
+        "consensus_engine.analysis.peer_comparison", "compute_relative_strength", ticker,
+    )
+
     results = await asyncio.gather(
         score_task,
         tech_long_task,
@@ -265,6 +274,8 @@ async def _gather_all_sources(ticker: str) -> dict:
         chat_task,
         brief_task,
         vault_task,
+        max_pain_task,
+        peer_strength_task,
         return_exceptions=True,
     )
     (
@@ -273,6 +284,7 @@ async def _gather_all_sources(ticker: str) -> dict:
         decision_snapshots, next_earnings_iso, recent_earnings_recap, daily_candles, news_catalyst, sec_filings, options_unusual,
         options_flow_recent,
         trends, apewisdom, chat_msgs, brief_msgs, prior_vault,
+        max_pain, peer_strength,
     ) = results
 
     # Classify each source as surfaced (non-empty data) or failed (exception).
@@ -298,6 +310,8 @@ async def _gather_all_sources(ticker: str) -> dict:
         ("chat_24h", chat_msgs),
         ("brief_last3", brief_msgs),
         ("prior_vault", prior_vault),
+        ("max_pain", max_pain),
+        ("peer_strength", peer_strength),
     ])
 
     return {
@@ -327,6 +341,8 @@ async def _gather_all_sources(ticker: str) -> dict:
         "chat_msgs": _result_or_default(chat_msgs, []),
         "brief_msgs": _result_or_default(brief_msgs, []),
         "prior_vault": _result_or_default(prior_vault, None),
+        "max_pain": _result_or_default(max_pain, None),
+        "peer_strength": _result_or_default(peer_strength, None),
         "sources_surfaced": sources_surfaced,
         "source_failures": source_failures,
     }
@@ -960,6 +976,8 @@ async def _compute_all(ticker: str, start: float) -> dict:
         magnitude_band_label=magnitude_band_label,
         next_catalyst_kind=next_catalyst_kind,
         next_catalyst_mechanism=next_catalyst_mechanism,
+        max_pain=data.get("max_pain"),
+        peer_strength=data.get("peer_strength"),
     )
 
     # Sanitize hostile text. PR4: split SearXNG into news+sec+gap-fill blocks

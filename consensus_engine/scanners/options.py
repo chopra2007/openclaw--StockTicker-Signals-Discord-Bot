@@ -308,3 +308,198 @@ def format_options_sweep_digest(sweeps: list[dict]) -> str:
             f"{s['max_ratio']:.1f}x vol/OI | P/C: {s['put_call_ratio']:.2f}"
         )
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Max-pain (#6 lever) — the strike where the most open options expire
+# worthless; acts like a price magnet into expiry. FREE: reuses the same
+# yfinance option-chain data as the flow scanner. Embed-field only.
+# ---------------------------------------------------------------------------
+
+def _third_friday(year: int, month: int):
+    """Date of the 3rd Friday of (year, month) — the standard monthly opex."""
+    from datetime import date
+    d = date(year, month, 1)
+    # weekday(): Mon=0 .. Fri=4. First Friday offset, then +14 days.
+    first_friday = 1 + ((4 - d.weekday()) % 7)
+    return date(year, month, first_friday + 14)
+
+
+def _max_pain_for_chain(chain) -> Optional[tuple]:
+    """Max-pain strike for one expiry. Returns (strike, total_oi) or None.
+
+    Max pain = the settle price S that minimises total in-the-money payout
+    to option *holders*: sum over calls of OI*max(0,S-K) plus over puts of
+    OI*max(0,K-S). Payout is piecewise-linear with breakpoints only at
+    listed strikes, so evaluating S over the listed strikes is exact (no
+    fine grid needed). Ties broken toward the strike nearest the mid of the
+    strike range (deterministic).
+    """
+    calls, puts = chain.calls, chain.puts
+    call_oi: dict = {}
+    put_oi: dict = {}
+    for df, dst in ((calls, call_oi), (puts, put_oi)):
+        if df is None or getattr(df, "empty", True):
+            continue
+        for _, row in df.iterrows():
+            k = row.get("strike")
+            oi = row.get("openInterest")
+            try:
+                k = float(k)
+                oi = float(oi) if oi == oi else 0.0  # NaN -> 0
+            except (TypeError, ValueError):
+                continue
+            if k <= 0:
+                continue
+            dst[k] = dst.get(k, 0.0) + max(0.0, oi)
+
+    strikes = sorted(set(call_oi) | set(put_oi))
+    total_oi = sum(call_oi.values()) + sum(put_oi.values())
+    if len(strikes) < 2 or total_oi <= 0:
+        return None
+
+    mid = strikes[len(strikes) // 2]
+
+    def _payout(S: float) -> float:
+        tot = 0.0
+        for k, oi in call_oi.items():
+            if S > k:
+                tot += (S - k) * oi
+        for k, oi in put_oi.items():
+            if k > S:
+                tot += (k - S) * oi
+        return tot
+
+    # argmin payout; deterministic tie-break toward the centre strike.
+    best = min(strikes, key=lambda S: (_payout(S), abs(S - mid)))
+    return best, total_oi
+
+
+async def compute_max_pain(ticker: str, executor=None) -> Optional[dict]:
+    """Compute max-pain for the nearest weekly + nearest monthly expiry.
+
+    FREE yfinance option-chain data (~15-min delayed). Self-contained single
+    fetch (one yf.Ticker, one t.options, only the two target expiries' chains)
+    — fewer network round-trips than reusing _fetch_flow_chains + a separate
+    monthly call, which matters on the latency-sensitive !all path.
+
+    Returns {"spot", "weekly": {...}|None, "monthly": {...}|None} or None.
+    Each leg dict: {"strike", "expiry", "total_oi"}. When the nearest expiry
+    *is* the monthly (or they coincide within ~5 days), monthly carries it and
+    weekly is None to avoid a redundant pair.
+    """
+    import asyncio
+    from datetime import date, datetime
+
+    def _f():
+        try:
+            import yfinance as yf
+            t = yf.Ticker(ticker)
+            exps = list(t.options or [])
+            if not exps:
+                return None
+
+            spot = 0.0
+            fi = getattr(t, "fast_info", None)
+            if fi is not None:
+                for k in ("lastPrice", "last_price", "regularMarketPrice"):
+                    try:
+                        v = fi.get(k) if hasattr(fi, "get") else getattr(fi, k, None)
+                    except Exception:
+                        v = None
+                    if v:
+                        spot = float(v)
+                        break
+
+            today = date.today()
+            parsed = []
+            for e in exps:
+                try:
+                    parsed.append((e, datetime.strptime(e, "%Y-%m-%d").date()))
+                except ValueError:
+                    continue
+            if not parsed:
+                return None
+
+            weekly_exp = parsed[0][0]
+
+            # nearest monthly = listed expiry closest to a 3rd-Friday >= today
+            monthly_targets = []
+            for yr, mo in ((today.year, today.month),
+                           (today.year + (today.month == 12),
+                            (today.month % 12) + 1)):
+                tf = _third_friday(yr, mo)
+                if tf >= today:
+                    monthly_targets.append(tf)
+            monthly_exp = None
+            if monthly_targets:
+                tgt = min(monthly_targets)
+                cand = min(parsed, key=lambda p: abs((p[1] - tgt).days))
+                if abs((cand[1] - tgt).days) <= 3:
+                    monthly_exp = cand[0]
+
+            want = []
+            for e in (weekly_exp, monthly_exp):
+                if e and e not in want:
+                    want.append(e)
+
+            chains = {}
+            for e in want:
+                try:
+                    chains[e] = t.option_chain(e)
+                except Exception:
+                    pass
+            return {"spot": spot, "weekly_exp": weekly_exp,
+                    "monthly_exp": monthly_exp, "chains_present": list(chains.keys()),
+                    "_chains": chains}
+        except Exception as ex:
+            log.debug("max-pain fetch error for %s: %s", ticker, ex)
+            return None
+
+    loop = asyncio.get_running_loop()
+    try:
+        raw = await loop.run_in_executor(executor, _f)
+    except Exception as ex:
+        log.debug("max-pain executor error for %s: %s", ticker, ex)
+        return None
+    if not raw:
+        return None
+
+    chains = raw["_chains"]
+    spot = raw["spot"]
+
+    def _leg(exp):
+        ch = chains.get(exp)
+        if ch is None:
+            return None
+        mp = _max_pain_for_chain(ch)
+        if mp is None:
+            return None
+        strike, total_oi = mp
+        return {"strike": round(strike, 2), "expiry": exp, "total_oi": int(total_oi)}
+
+    weekly_exp = raw["weekly_exp"]
+    monthly_exp = raw["monthly_exp"]
+
+    # Dedup: if the monthly is the same listed expiry as the weekly (or within
+    # ~5 days), show only the monthly leg to avoid a redundant near-identical pair.
+    redundant = False
+    if monthly_exp and monthly_exp == weekly_exp:
+        redundant = True
+    elif monthly_exp:
+        try:
+            from datetime import datetime as _dt
+            dw = _dt.strptime(weekly_exp, "%Y-%m-%d").date()
+            dm = _dt.strptime(monthly_exp, "%Y-%m-%d").date()
+            if abs((dm - dw).days) <= 5:
+                redundant = True
+        except ValueError:
+            pass
+
+    monthly_leg = _leg(monthly_exp) if monthly_exp else None
+    weekly_leg = None if redundant else _leg(weekly_exp)
+
+    if weekly_leg is None and monthly_leg is None:
+        return None
+    return {"spot": round(spot, 2) if spot else None,
+            "weekly": weekly_leg, "monthly": monthly_leg}

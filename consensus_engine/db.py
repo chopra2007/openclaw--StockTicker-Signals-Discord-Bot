@@ -164,6 +164,17 @@ CREATE TABLE IF NOT EXISTS xref_cache (
     cached_at REAL NOT NULL
 );
 
+-- Sub-industry peer layer (item 3): cache yfinance .info sector/industry for
+-- tickers NOT in data/peer_groups.yaml, so the !all peer-comparison dynamic
+-- fallback doesn't re-fetch a slow .info on every command. Sector/industry is
+-- stable → long TTL (see analysis/peer_comparison.py).
+CREATE TABLE IF NOT EXISTS ticker_sector_cache (
+    ticker TEXT PRIMARY KEY,
+    sector TEXT,
+    industry TEXT,
+    fetched_at REAL NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS youtube_videos (
     video_id TEXT PRIMARY KEY,
     channel_id TEXT NOT NULL,
@@ -752,6 +763,7 @@ async def init_db() -> AsyncConnection:
         (11, "A4 sector ETF peer-confirmation gate"),
         (12, "A2 analyst herding detector"),
         (13, "A3 Bayesian source consolidation"),
+        (14, "sub-industry peer layer cache (ticker_sector_cache)"),
     ]
     for version, note in _schema_versions:
         await _db.execute(
@@ -1478,6 +1490,35 @@ async def set_xref_in_db(ticker: str, result_json: str, key_prefix: str = ""):
     await conn.execute(
         "INSERT OR REPLACE INTO xref_cache (ticker, result_json, cached_at) VALUES (?, ?, ?)",
         (db_key, result_json, time.time()),
+    )
+    await conn.commit()
+
+
+async def get_ticker_sector(ticker: str, ttl_seconds: int = 2_592_000) -> dict | None:
+    """Cached yfinance sector/industry for a ticker, or None if missing/expired.
+
+    Default TTL 30 days — sector/industry classification is effectively static.
+    Returns {"sector": str|None, "industry": str|None} or None on miss.
+    """
+    conn = await get_db()
+    cutoff = time.time() - ttl_seconds
+    cursor = await conn.execute(
+        "SELECT sector, industry FROM ticker_sector_cache WHERE ticker = ? AND fetched_at > ?",
+        (ticker.upper(), cutoff),
+    )
+    row = await cursor.fetchone()
+    if not row:
+        return None
+    return {"sector": row["sector"], "industry": row["industry"]}
+
+
+async def set_ticker_sector(ticker: str, sector: str | None, industry: str | None):
+    """Store or update a ticker's yfinance sector/industry classification."""
+    conn = await get_db()
+    await conn.execute(
+        "INSERT OR REPLACE INTO ticker_sector_cache (ticker, sector, industry, fetched_at) "
+        "VALUES (?, ?, ?, ?)",
+        (ticker.upper(), sector, industry, time.time()),
     )
     await conn.commit()
 

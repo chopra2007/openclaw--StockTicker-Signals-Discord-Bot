@@ -727,6 +727,19 @@ def _build_synthesis_prompt(
         "earnings_date": getattr(structured, "earnings_date", None),
         "final_score": final_score,
     }
+    # #6 peer relative strength — directional, so feed the thesis. UNCONDITIONAL
+    # block (survives the swing_v2 emergency-revert). Only the clean curated-peer
+    # mean is fed (narrator_ok); the ETF-fallback benchmark includes the stock
+    # itself, so it stays embed-only to avoid a contaminated directional claim.
+    _peer = getattr(structured, "peer_strength", None)
+    if isinstance(_peer, dict) and _peer.get("narrator_ok"):
+        computed_signal["peer_strength"] = {
+            "verdict": _peer.get("verdict"),
+            "stock_pct": _peer.get("stock_pct"),
+            "benchmark_pct": _peer.get("benchmark_pct"),
+            "benchmark_label": _peer.get("benchmark_label"),
+            "window_days": _peer.get("window_days"),
+        }
     if _swing_v2:
         computed_signal["next_catalyst_days"] = getattr(structured, "next_catalyst_days", None)
         computed_signal["swing_horizon_days"] = getattr(structured, "swing_horizon_days", None)

@@ -1,0 +1,80 @@
+# Sub-industry peer groups for the !all relative-strength lever (#6 / item 3).
+#
+# SEPARATE from data/sector_map.yaml on purpose. The A4 sector-confirmation
+# gate (analysis/sector_confirmation.py) reads ONLY sector_map.yaml's
+# `mappings` key — it never reads this file. Editing this file CANNOT affect
+# the live alert gate. Do not merge the two.
+#
+# Group keys MATCH yfinance .info['industry'] strings verbatim, so a ticker
+# NOT listed below can still be slotted into the right group at runtime via
+# its yfinance industry (analysis/peer_comparison.py dynamic fallback).
+# Each group: benchmark_etf (used when <2 curated peers resolve) + members.
+schema_version: 1
+
+groups:
+  "Semiconductors":
+    benchmark_etf: SMH
+    members: [NVDA, AMD, AVGO, INTC, TSM, MU, QCOM, TXN, AMAT, LRCX, KLAC, ADI, MRVL, "ON", MCHP, NXPI, ARM, SMCI]  # "ON" quoted: bare ON parses as YAML boolean true
+  "Software - Infrastructure":
+    benchmark_etf: IGV
+    members: [MSFT, ORCL, PLTR, CRWD, PANW, FTNT, ZS, NET, DDOG, SNOW, MDB, NOW, GTLB]
+  "Software - Application":
+    benchmark_etf: IGV
+    members: [CRM, ADBE, INTU, TEAM, WDAY, HUBS, SHOP, U, APP, PATH]
+  "Internet Content & Information":
+    benchmark_etf: XLC
+    members: [GOOGL, GOOG, META, PINS, SNAP, RDDT]
+  "Internet Retail":
+    benchmark_etf: XLY
+    members: [AMZN, BABA, MELI, ETSY, EBAY, CHWY, CPNG]
+  "Auto Manufacturers":
+    benchmark_etf: XLY
+    members: [TSLA, F, GM, RIVN, LCID, NIO, STLA]
+  "Consumer Electronics":
+    benchmark_etf: XLK
+    members: [AAPL, SONY]
+  "Entertainment":
+    benchmark_etf: XLC
+    members: [NFLX, DIS, WBD, PARA, ROKU]
+  "Discount Stores":
+    benchmark_etf: XLP
+    members: [WMT, COST, TGT, DG, DLTR, BJ]
+  "Oil & Gas Integrated":
+    benchmark_etf: XLE
+    members: [XOM, CVX, COP, BP, SHEL, TTE]
+  "Banks - Diversified":
+    benchmark_etf: XLF
+    members: [JPM, BAC, WFC, C, USB, PNC]
+  "Capital Markets":
+    benchmark_etf: XLF
+    members: [HOOD, SCHW, MS, GS, COIN, IBKR]
+  "Credit Services":
+    benchmark_etf: XLF
+    members: [SOFI, AXP, COF, SYF, PYPL, V, MA]
+  "Drug Manufacturers - General":
+    benchmark_etf: XLV
+    members: [LLY, PFE, MRK, ABBV, BMY, JNJ, AZN]
+  "Healthcare Plans":
+    benchmark_etf: XLV
+    members: [UNH, CVS, CI, HUM, ELV, CNC]
+  "Aerospace & Defense":
+    benchmark_etf: ITA
+    members: [BA, GE, LMT, RTX, NOC, GD]
+  "Farm & Heavy Construction Machinery":
+    benchmark_etf: XLI
+    members: [CAT, DE, PCAR, CMI]
+
+# Broad sector -> ETF. Used when a ticker's yfinance industry is NOT one of the
+# curated groups above; the stock is then compared against this sector ETF.
+sector_etf_fallback:
+  "Technology": XLK
+  "Financial Services": XLF
+  "Healthcare": XLV
+  "Consumer Cyclical": XLY
+  "Communication Services": XLC
+  "Energy": XLE
+  "Industrials": XLI
+  "Consumer Defensive": XLP
+  "Utilities": XLU
+  "Real Estate": XLRE
+  "Basic Materials": XLB

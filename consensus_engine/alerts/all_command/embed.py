@@ -271,6 +271,83 @@ def _format_buy_zone(
     return base
 
 
+_MP_MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
+              "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+
+def _fmt_expiry_short(iso: Optional[str]) -> str:
+    """'2026-06-19' -> 'Jun 19'. Empty string on bad input."""
+    if not iso or not isinstance(iso, str):
+        return ""
+    parts = iso.split("-")
+    if len(parts) != 3:
+        return ""
+    try:
+        return f"{_MP_MONTHS[int(parts[1]) - 1]} {int(parts[2]):02d}"
+    except (ValueError, IndexError):
+        return ""
+
+
+def _format_max_pain(mp: Optional[dict], current: Optional[float]) -> str:
+    """#6 lever — render the weekly + monthly max-pain strikes with a ↑/↓/⇄
+    arrow vs current price. The adjacent Price field supplies the spot context,
+    so a strike far from spot (heavy deep-ITM/OTM open interest) reads as a
+    direction, not a bug. Returns '—' when no leg is available."""
+    if not isinstance(mp, dict):
+        return "—"
+
+    def _leg(leg) -> Optional[str]:
+        if not isinstance(leg, dict):
+            return None
+        strike = leg.get("strike")
+        if strike is None:
+            return None
+        try:
+            sval = float(strike)
+        except (TypeError, ValueError):
+            return None
+        arrow = _arrow_for_level(sval, current)
+        head = f"{arrow} " if arrow else ""
+        date = _fmt_expiry_short(leg.get("expiry"))
+        tail = f" ({date})" if date else ""
+        return f"{head}${sval:g}{tail}"
+
+    lines = []
+    wk = _leg(mp.get("weekly"))
+    mo = _leg(mp.get("monthly"))
+    if wk:
+        lines.append(f"wk {wk}")
+    if mo:
+        lines.append(f"mo {mo}")
+    return "\n".join(lines) if lines else "—"
+
+
+_RS_EMOJI = {"outperforming": "🟢", "underperforming": "🔴", "in-line": "⚪"}
+
+
+def _format_peer_strength(ps: Optional[dict]) -> str:
+    """#6 lever — 'stock% vs <benchmark> bench% (Nd) — verdict'. benchmark_label
+    is the peer-group name (clean curated mean) or the ETF symbol (fallback,
+    which includes the stock itself — labelled honestly). '—' when unavailable."""
+    if not isinstance(ps, dict):
+        return "—"
+    stock = ps.get("stock_pct")
+    bench = ps.get("benchmark_pct")
+    label = ps.get("benchmark_label")
+    verdict = ps.get("verdict")
+    if stock is None or bench is None or not label:
+        return "—"
+    try:
+        s = float(stock)
+        b = float(bench)
+    except (TypeError, ValueError):
+        return "—"
+    window = ps.get("window_days", 5)
+    emoji = _RS_EMOJI.get(verdict, "")
+    head = f"{emoji} " if emoji else ""
+    return f"{head}{s:+.1f}% vs {label} {b:+.1f}% ({window}d) — {verdict}"
+
+
 def _level_value_block(
     field_name: str,
     value: Optional[float],
@@ -521,6 +598,14 @@ def build_embed(
          "value": _format_price(current_price),
          "inline": True},
     ]
+    # #6 levers — append only when there's real data (em-dash means no data).
+    mp_val = _format_max_pain(getattr(structured, "max_pain", None), current_price)
+    if mp_val != "—":
+        fields.append({"name": "Max Pain", "value": mp_val, "inline": True})
+    rs_val = _format_peer_strength(getattr(structured, "peer_strength", None))
+    if rs_val != "—":
+        fields.append({"name": "Rel Strength", "value": rs_val, "inline": False})
+
     yt_field = _build_youtube_links_field(yt_signals or [], ticker=ticker)
     if yt_field is not None:
         fields.append(yt_field)
