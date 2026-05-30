@@ -75,13 +75,11 @@ When the user says "add X to the to do list" (or "put that on the list", "add th
 ## Session Close Trigger
 
 When the user sends only "goodbye" or "bye":
-1. `git status` — commit any uncommitted changes
-2. `git log origin/master..HEAD` — check for unpushed commits
-3. If any unpushed commits contain code changes (`consensus_engine/`, `scripts/*.py`, `tests/`, config): run `pytest -n 2` (regression gate) before pushing. If tests pass, push. If tests fail, report the failures and ask whether to push anyway.
-4. If unpushed commits are doc-only (`*.md`, `todo/**`, comments): push with `git push --no-verify`.
-5. Verify MEMORY.md is up to date
-6. List any `comm-check-fail-*` entries saved this session
-7. Report what was done (or "nothing to push, all clean")
+1. `git status` — commit any uncommitted changes (doc-only commits use `git push --no-verify`)
+2. Run `nohup /root/task_system/scripts/session_close.sh > /root/task_system/logs/session_close_latest.log 2>&1 &` to kick off the gate + push in the background
+3. Tell the user: "Gate running in background — safe to close. ci-monitor will catch any CI failures."
+4. Verify MEMORY.md is up to date
+5. List any `comm-check-fail-*` entries saved this session
 
 ## Definition of Done
 
