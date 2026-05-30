@@ -216,7 +216,7 @@ async def _gather_all_sources(ticker: str) -> dict:
     )
     options_flow_task = _db_call("get_options_flow_for_ticker", ticker, days=7)
     trends_task: asyncio.Future = asyncio.ensure_future(asyncio.sleep(0, result={}))
-    if cfg.get("features.serpapi_enabled", False):
+    if cfg.get("precision_engine.serpapi_enabled", False):
         trends_task = asyncio.ensure_future(
             _scanner_call(
                 "consensus_engine.scanners.social",

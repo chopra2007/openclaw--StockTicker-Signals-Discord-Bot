@@ -476,7 +476,8 @@ CREATE TABLE IF NOT EXISTS youtube_visual_evidence (
     value TEXT NOT NULL,
     kind TEXT,
     where_seen TEXT,
-    created_at REAL NOT NULL
+    created_at REAL NOT NULL,
+    ticker TEXT  -- B3: per-number ticker tag (NULL = untagged → top-ticker attribution)
 );
 CREATE INDEX IF NOT EXISTS idx_yve_video ON youtube_visual_evidence(video_id);
 
@@ -687,6 +688,7 @@ async def _run_column_migrations(conn) -> None:
         ("youtube_evidence_spans", "grounding_status", "TEXT DEFAULT 'grounded'"),
         ("youtube_evidence_spans", "caption_entropy",  "REAL"),
         ("youtube_videos", "chain_failed_alerted_at", "REAL"),
+        ("youtube_visual_evidence", "ticker", "TEXT"),  # B3 per-number ticker tag
     ]
     for table in ("youtube_signals", "youtube_levels", "youtube_setups", "youtube_options"):
         for col, defn in v2_span_cols:
@@ -2058,27 +2060,44 @@ async def get_youtube_evidence_for_ticker(ticker: str, days: int = 7) -> list[di
 async def get_youtube_visual_evidence_for_ticker(ticker: str, days: int = 7) -> list[dict]:
     """On-screen chart numbers (visual_evidence) attributed to a ticker.
 
-    Conservative attribution: youtube_visual_evidence has no ticker column,
-    so a video's visual rows are returned for `ticker` only when that ticker
-    is the TOP-mentioned ticker for the video (highest mention_count among the
-    video's signals in the window). Avoids leaking chart numbers onto an
-    off-topic ticker the video merely name-dropped.
+    Two-tier attribution (B3-aware, backward-compatible):
+      * A row whose `ticker` column is set (B3 per-number tagging, feature
+        `youtube.visual.per_number_ticker_tagging`) is returned ONLY for that
+        exact ticker — so a multi-stock video no longer dumps every number on
+        its top ticker.
+      * A row with `ticker` NULL (untagged: feature off, or Gemini left it
+        unlabeled) keeps the original conservative behavior — returned only
+        when `ticker` is the video's TOP-mentioned signal ticker in the window.
+    When the feature is off every row is NULL, so this is identical to the
+    pre-B3 query.
     """
     conn = await get_db()
     cutoff = time.time() - days * 86400
     cur = await conn.execute(
         """
-        SELECT v.video_id, v.ts_sec, v.value, v.kind, v.where_seen, s.channel_name
+        SELECT v.video_id, v.ts_sec, v.value, v.kind, v.where_seen,
+            (SELECT s.channel_name FROM youtube_signals s
+             WHERE s.video_id = v.video_id AND s.extracted_at >= ?
+             ORDER BY s.mention_count DESC LIMIT 1) AS channel_name
         FROM youtube_visual_evidence v
-        JOIN youtube_signals s ON s.video_id = v.video_id
-        WHERE s.ticker = ? AND s.extracted_at >= ?
-          AND s.mention_count = (
-            SELECT MAX(s2.mention_count) FROM youtube_signals s2
-            WHERE s2.video_id = v.video_id AND s2.extracted_at >= ?
-          )
+        WHERE
+          -- B3 tagged: surfaces ONLY under its own tag. The tag need not be a
+          -- video signal (visual-only tickers are valid); the parser already
+          -- rejects malformed tags, and a tag can only ever surface under
+          -- itself — never leak onto a different real ticker.
+          (v.ticker = ? AND EXISTS (
+             SELECT 1 FROM youtube_signals s
+             WHERE s.video_id = v.video_id AND s.extracted_at >= ?))
+          OR
+          (v.ticker IS NULL AND EXISTS (
+             SELECT 1 FROM youtube_signals s
+             WHERE s.video_id = v.video_id AND s.ticker = ? AND s.extracted_at >= ?
+               AND s.mention_count = (
+                 SELECT MAX(s2.mention_count) FROM youtube_signals s2
+                 WHERE s2.video_id = v.video_id AND s2.extracted_at >= ?)))
         ORDER BY v.ts_sec ASC
         """,
-        (ticker, cutoff, cutoff),
+        (cutoff, ticker, cutoff, ticker, cutoff, cutoff),
     )
     return [dict(r) for r in await cur.fetchall()]
 
@@ -2144,10 +2163,11 @@ async def insert_youtube_visual_evidence(video_id: str, items: list[dict]) -> No
     now = time.time()
     conn = await get_db()
     for item in items:
+        tkr = item.get("ticker")  # B3: None when untagged (feature off / unlabeled)
         await conn.execute(
             """INSERT INTO youtube_visual_evidence
-               (video_id, ts_sec, value, kind, where_seen, created_at)
-               VALUES (?, ?, ?, ?, ?, ?)""",
+               (video_id, ts_sec, value, kind, where_seen, created_at, ticker)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
             (
                 video_id,
                 int(item.get("ts_sec", 0)),
@@ -2155,6 +2175,7 @@ async def insert_youtube_visual_evidence(video_id: str, items: list[dict]) -> No
                 item.get("kind"),
                 item.get("where"),
                 now,
+                str(tkr).upper() if tkr else None,
             ),
         )
     await conn.commit()

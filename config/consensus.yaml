@@ -398,6 +398,11 @@ youtube:
     file_levels: true
     level_confidence: 0.55             # held below the spoken-level tier
     max_levels: 20                     # cap chart levels filed per video
+    # B3 (#17): ask Gemini to tag each on-screen number with its OWN stock so a
+    # multi-stock video stops dumping every number on its top ticker. OFF by
+    # default — flip true + restart to test (costs Gemini re-processing). When
+    # off, visual rows are untagged and attribution is unchanged (top-ticker).
+    per_number_ticker_tagging: false
   classifier:
     min_confidence: 0.5                # suppress candidates below this classifier_confidence
   catalyst:

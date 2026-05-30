@@ -63,6 +63,27 @@ VISUAL EVIDENCE — the whole reason this is a video task instead of a transcrip
 - Return an empty array only if the video shows no visible numbers, tickers, or labels that the audio doesn't also state."""
 
 
+# B3 (#17, opt-in via youtube.visual.per_number_ticker_tagging, default OFF):
+# ask Gemini to tag each visual number with the stock it belongs to so a
+# multi-stock video stops dumping every number onto its top ticker. "null"
+# is explicitly allowed so an ambiguous number is left unlabeled rather than
+# hallucinated onto the wrong stock.
+_B3_TICKER_ADDENDUM = """
+
+PER-NUMBER TICKER TAGGING (additional requirement):
+- For EACH `visual_evidence` entry, also include a `"ticker"` field naming the stock that the number/label belongs to — the symbol shown on the SAME chart or panel where the value appears.
+- Use null whenever the owning stock is unclear, or the value is not stock-specific (a market-wide index level, a generic UI label, a calendar date). NEVER guess: an unlabeled number is far better than a wrong ticker.
+- Example: a video showing an NVDA chart at 182.40 and later an AMD chart at 164.10 tags the first entry "ticker":"NVDA" and the second "ticker":"AMD"; a generic "VIX 14.2" overlay gets "ticker":null."""
+
+
+def _evidence_prompt() -> str:
+    """Evidence prompt, with the B3 per-number ticker addendum when enabled."""
+    from consensus_engine import config as cfg
+    if cfg.get("youtube.visual.per_number_ticker_tagging", False):
+        return _EVIDENCE_PROMPT + _B3_TICKER_ADDENDUM
+    return _EVIDENCE_PROMPT
+
+
 # ─── Multi-key rotation (free-tier quota overflow) ─────────────────────────
 #
 # Supports multiple Gemini API keys via env vars GEMINI_API_KEY, GEMINI_API_KEY2,
@@ -428,12 +449,21 @@ def _clean_visual_evidence(raw: object, duration_sec: int | None) -> list[dict]:
         if duration_sec is not None and ts_sec > duration_sec:
             continue
         seen_values.add(value)
-        out.append({
+        entry = {
             "ts_sec": ts_sec,
             "value": value,
             "kind": str(item.get("kind", "")),
             "where": str(item.get("where", "")),
-        })
+        }
+        # B3: keep the per-number ticker tag when Gemini supplied one (only
+        # asked for when the feature is on). Validate it looks like a symbol;
+        # null/blank/junk → untagged (falls back to top-ticker attribution).
+        raw_tkr = item.get("ticker")
+        if isinstance(raw_tkr, str):
+            cand = raw_tkr.strip().upper().lstrip("$")
+            if 1 <= len(cand) <= 5 and cand.isalpha():
+                entry["ticker"] = cand
+        out.append(entry)
         if len(out) >= 50:
             break
     return out
@@ -724,7 +754,7 @@ async def _extract_evidence_single_pass(
                         return _client.models.generate_content(
                             model=_model,
                             contents=[
-                                types.Part.from_text(text=_EVIDENCE_PROMPT),
+                                types.Part.from_text(text=_evidence_prompt()),
                                 _video_part(),
                             ],
                             config=gen_config,
