@@ -686,7 +686,8 @@ def build_embed(
         footer_chunks.append(f"Sources: {sources_count} (see vault)")
     else:
         footer_chunks.append(f"sources: {sources_count}")
-    ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    _now = datetime.now(timezone.utc)
+    ts = f"{_now.month}-{_now.day}-{str(_now.year)[2:]} {_now.strftime('%H:%M:%S')}"
     footer_chunks.append(ts)
 
     return {
