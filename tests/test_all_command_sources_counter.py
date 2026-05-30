@@ -107,7 +107,7 @@ def test_footer_shows_surfaced_count():
         sources_used=["news", "sec", "twitter_db"],
         cache_age_seconds=None,
     )
-    assert "sources: 3" in out["footer"]["text"], out["footer"]["text"]
+    assert "Sources: 3" in out["footer"]["text"], out["footer"]["text"]
 
 
 def test_footer_zero_when_nothing_surfaced():
@@ -120,4 +120,4 @@ def test_footer_zero_when_nothing_surfaced():
         sources_used=[],
         cache_age_seconds=None,
     )
-    assert "sources: 0" in out["footer"]["text"]
+    assert "Sources: 0" in out["footer"]["text"]

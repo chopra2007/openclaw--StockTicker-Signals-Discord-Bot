@@ -282,8 +282,8 @@ async def test_handle_all_second_invocation_hits_cache(
     assert len(captured_sends["reply"]) == 1
     assert len(captured_sends["embed"]) == 1
     embed = captured_sends["embed"][0][2]
-    # cache age was injected into the footer text by handle_all
-    assert "cached" in embed["footer"]["text"]
+    # cached embed is returned as-is (cache-age prefix removed in favour of simplicity)
+    assert embed["footer"]["text"] == "sources: 5"
 
 
 # ---------------------------------------------------------------------------
@@ -321,7 +321,7 @@ async def test_handle_all_partial_source_failure_continues(
     desc = embed["description"]
     assert "news" in desc
     assert "twitter_db" in desc
-    assert "sources: 2" in embed["footer"]["text"]
+    assert "Sources: 2" in embed["footer"]["text"]
 
 
 # ---------------------------------------------------------------------------
