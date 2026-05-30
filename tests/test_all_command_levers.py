@@ -79,7 +79,7 @@ def test_max_pain_nan_oi_treated_as_zero():
 def test_resolve_peers_curated_excludes_self_and_loads_ON():
     """NVDA → Semiconductors; self excluded; the quoted 'ON' ticker survives YAML."""
     import asyncio
-    out = asyncio.get_event_loop().run_until_complete(pc.resolve_peers("NVDA"))
+    out = asyncio.run(pc.resolve_peers("NVDA"))
     assert out["source"] == "curated"
     assert out["group"] == "Semiconductors"
     assert out["benchmark_etf"] == "SMH"
