@@ -40,6 +40,72 @@ _ARROW_TOLERANCE = 0.001  # 0.1 %
 # (case-insensitive) at the start of any line in the narrative.
 _TLDR_RE = re.compile(r"(?im)^\s*\*\*TL;DR:\*\*\s*(.+?)$")
 
+# Trade Plan table — match the section header + markdown table that follows.
+_TRADE_PLAN_SECTION_RE = re.compile(
+    r"(##\s*Trade Plan\s*\n)((?:\|.*\n?)+)",
+    re.IGNORECASE,
+)
+
+
+def _reformat_trade_plan(narrative: str) -> str:
+    """Replace the verbose markdown table under ## Trade Plan with compact bold lines.
+
+    Input rows look like:  | Buy Zone | $206–$211 | long rationale... |
+    Output:
+        ## Trade Plan
+        **Buy Zone:** $206–$211  ·  **SL:** $196.19
+        **TP1:** $218  ·  **TP2:** $226  ·  **TP3:** $233
+        **Horizon:** 4–6 days  ·  **Move:** ±$12/5d  ·  **Next Catalyst:** 3 days
+    """
+    def _replace(m: re.Match) -> str:
+        header = m.group(1).rstrip("\n")
+        table_text = m.group(2)
+        rows: dict[str, str] = {}
+        for line in table_text.splitlines():
+            cols = [c.strip() for c in line.strip().strip("|").split("|")]
+            if len(cols) < 2:
+                continue
+            param, level = cols[0], cols[1]
+            if not param or set(param) <= {"-", " "}:  # separator row
+                continue
+            if param.lower() == "parameter":  # header row
+                continue
+            rows[param] = level
+
+        lines: list[str] = [header]
+        # Line 1: Buy Zone + SL
+        bz = rows.get("Buy Zone", "")
+        sl = rows.get("Stop-Loss", rows.get("Stop Loss", rows.get("SL", "")))
+        if bz or sl:
+            parts = []
+            if bz:
+                parts.append(f"**Buy Zone:** {bz}")
+            if sl:
+                parts.append(f"**SL:** {sl}")
+            lines.append("  ·  ".join(parts))
+        # Line 2: TPs
+        tp_parts = []
+        for key in ("TP1", "TP2", "TP3"):
+            if rows.get(key):
+                tp_parts.append(f"**{key}:** {rows[key]}")
+        if tp_parts:
+            lines.append("  ·  ".join(tp_parts))
+        # Line 3: Horizon, Expected Move, Next Catalyst
+        extra_parts = []
+        for key, label in [
+            ("Horizon", "Horizon"),
+            ("Expected Move", "Move"),
+            ("Next Catalyst", "Next Catalyst"),
+        ]:
+            if rows.get(key):
+                extra_parts.append(f"**{label}:** {rows[key]}")
+        if extra_parts:
+            lines.append("  ·  ".join(extra_parts))
+
+        return "\n".join(lines) + "\n"
+
+    return _TRADE_PLAN_SECTION_RE.sub(_replace, narrative)
+
 
 # ---------------------------------------------------------------------------
 # Ship 1 helpers
@@ -544,6 +610,7 @@ def build_embed(
     # twice. When missing, fall back to the existing direction-line header.
     tldr_text = _extract_tldr(narrative)
     body_narrative = _strip_tldr(narrative) if tldr_text else narrative
+    body_narrative = _reformat_trade_plan(body_narrative)
     tldr_line = f"**TL;DR:** {tldr_text}" if tldr_text else ""
 
     # Build description with truncation order: narrative first, then drop
