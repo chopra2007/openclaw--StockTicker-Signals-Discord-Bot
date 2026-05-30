@@ -76,10 +76,12 @@ When the user says "add X to the to do list" (or "put that on the list", "add th
 
 When the user sends only "goodbye" or "bye":
 1. `git status` — commit any uncommitted changes
-2. `git log origin/master..HEAD` — push any unpushed commits
-3. Verify MEMORY.md is up to date
-4. List any `comm-check-fail-*` entries saved this session
-5. Report what was done (or "nothing to push, all clean")
+2. `git log origin/master..HEAD` — check for unpushed commits
+3. If any unpushed commits contain code changes (`consensus_engine/`, `scripts/*.py`, `tests/`, config): run `pytest -n 2` (regression gate) before pushing. If tests pass, push. If tests fail, report the failures and ask whether to push anyway.
+4. If unpushed commits are doc-only (`*.md`, `todo/**`, comments): push with `git push --no-verify`.
+5. Verify MEMORY.md is up to date
+6. List any `comm-check-fail-*` entries saved this session
+7. Report what was done (or "nothing to push, all clean")
 
 ## Definition of Done
 
@@ -177,8 +179,9 @@ At session start: check `/root/task_system/notifications.log`. If it has entries
 
 ## GitHub & Documentation Automation
 
-- After every functional change: commit locally then push immediately.
-- **Doc-only pushes skip the test gate.** When a commit touches NO code — only docs/notes (`*.md`, `todo/**`, `TODO.md`, comments) — push with `git push --no-verify` (near-instant). The pre-push suite exists to catch code regressions; running it on a markdown-only change is wasted time. **Code changes (anything under `consensus_engine/`, `scripts/*.py`, `tests/`, config) must go through the full gate — never `--no-verify` those.** The gate now runs in parallel (`scripts/pre-push`, `pytest -n 2`, ~2 min).
+- After every functional change: commit locally. Do NOT push mid-session.
+- Push and regression gate testing happen only at session close (the "bye"/"goodbye" trigger).
+- **Doc-only commits** (only `*.md`, `todo/**`, `TODO.md`, comments changed) push with `git push --no-verify` at close — no test gate needed. **Code changes** (anything under `consensus_engine/`, `scripts/*.py`, `tests/`, config) must go through the full gate (`scripts/pre-push`, `pytest -n 2`) before pushing at close — never `--no-verify` those.
 - Commit style: imperative (e.g., "Add multi-agent logic").
 - Remote: `chopra2007/openclaw--StockTicker-Signals-Discord-Bot` (public).
 - Keep `README.md` current with architecture, setup, and features.
