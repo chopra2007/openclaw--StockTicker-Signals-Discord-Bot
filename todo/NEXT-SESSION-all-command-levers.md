@@ -1,3 +1,6 @@
+> ✅ **DONE 2026-05-29** (discover run `all-levers-2026-05-29`, commits 53e3e35 + 7d77245).
+> Items 1 (max-pain), 2 (peer comparison), 3 (peer layer) shipped + live-verified via real Discord `!all` (NVDA/AMD/DELL embeds show Max Pain + Rel Strength). Item 4 (B2) proven with existing fresh chart-heavy video data — also surfaced the multi-stock mis-attribution problem. Item 5 (B3) BUILT but flag-gated OFF (`youtube.visual.per_number_ticker_tagging: false`) per user, ready to test later. Pre-existing `!all` Trends config-key bug fixed. Suite 1407 green, 0 regressions, independent verifier approved. Full log: `.claude/discover/all-levers-2026-05-29/pass-5-execution-log.md`.
+
 # Next-session backlog — `!all` quality levers + peer/sector overhaul
 
 Single entry point for a fresh **discover** run. The work: two `!all` quality levers (max-pain, peer comparison), the sector-map overhaul that peer comparison needs, and the two leftover YouTube items (B2/B3).
