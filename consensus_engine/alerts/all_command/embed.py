@@ -73,34 +73,22 @@ def _reformat_trade_plan(narrative: str) -> str:
             rows[param] = level
 
         lines: list[str] = [header]
-        # Line 1: Buy Zone + SL
         bz = rows.get("Buy Zone", "")
         sl = rows.get("Stop-Loss", rows.get("Stop Loss", rows.get("SL", "")))
-        if bz or sl:
-            parts = []
-            if bz:
-                parts.append(f"**Buy Zone:** {bz}")
-            if sl:
-                parts.append(f"**SL:** {sl}")
-            lines.append("  ·  ".join(parts))
-        # Line 2: TPs
-        tp_parts = []
+        if bz:
+            lines.append(f"**Buy Zone:** {bz}")
+        if sl:
+            lines.append(f"**SL:** {sl}")
         for key in ("TP1", "TP2", "TP3"):
             if rows.get(key):
-                tp_parts.append(f"**{key}:** {rows[key]}")
-        if tp_parts:
-            lines.append("  ·  ".join(tp_parts))
-        # Line 3: Horizon, Expected Move, Next Catalyst
-        extra_parts = []
-        for key, label in [
-            ("Horizon", "Horizon"),
-            ("Expected Move", "Move"),
-            ("Next Catalyst", "Next Catalyst"),
-        ]:
-            if rows.get(key):
-                extra_parts.append(f"**{label}:** {rows[key]}")
-        if extra_parts:
-            lines.append("  ·  ".join(extra_parts))
+                lines.append(f"**{key}:** {rows[key]}")
+        if rows.get("Horizon"):
+            lines.append(f"**Horizon:** {rows['Horizon']}")
+        if rows.get("Expected Move"):
+            lines.append(f"**Move:** {rows['Expected Move']}")
+        nc = rows.get("Next Catalyst", "")
+        if nc and nc.lower() not in ("unknown", "—", "-", "n/a", ""):
+            lines.append(f"**Next Catalyst:** {nc}")
 
         return "\n".join(lines) + "\n"
 
@@ -671,24 +659,18 @@ def build_embed(
         fields.append({"name": "Max Pain", "value": mp_val, "inline": True})
     rs_val = _format_peer_strength(getattr(structured, "peer_strength", None))
     if rs_val != "—":
-        fields.append({"name": "Rel Strength", "value": rs_val, "inline": False})
+        fields.append({"name": "Sector Strength", "value": rs_val, "inline": False})
 
     yt_field = _build_youtube_links_field(yt_signals or [], ticker=ticker)
     if yt_field is not None:
         fields.append(yt_field)
 
-    cache_text = _format_cache_age(cache_age_seconds)
     sources_count = len(sources)
     footer_chunks: list[str] = []
-    if cache_text:
-        footer_chunks.append(cache_text)
     if description_dropped_sources:
         footer_chunks.append(f"Sources: {sources_count} (see vault)")
     else:
-        footer_chunks.append(f"sources: {sources_count}")
-    _now = datetime.now(timezone.utc)
-    ts = f"{_now.month}-{_now.day}-{str(_now.year)[2:]} {_now.strftime('%H:%M:%S')}"
-    footer_chunks.append(ts)
+        footer_chunks.append(f"Sources: {sources_count}")
 
     return {
         "title": f"{_fmt_cashtag(ticker)} — Full Analysis",

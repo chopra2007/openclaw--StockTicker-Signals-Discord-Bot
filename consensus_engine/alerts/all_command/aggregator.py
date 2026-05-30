@@ -1203,16 +1203,7 @@ async def handle_all(
         )
         return
 
-    cached_at = payload.get("cached_at")
     embed_payload = dict(payload["embed"])
-    if isinstance(cached_at, (int, float)):
-        age_s = max(0, int(time.time() - cached_at))
-        footer = dict(embed_payload.get("footer", {}) or {})
-        ftext = footer.get("text", "") or ""
-        if "cached" not in ftext:
-            cache_marker = "cached just now" if age_s < 60 else f"cached {age_s // 60}m ago"
-            footer["text"] = f"{cache_marker} | {ftext}".rstrip("| ")
-            embed_payload["footer"] = footer
 
     vault_md = payload.get("vault_md", "")
     vault_path = cfg.get("vault.path", "")
