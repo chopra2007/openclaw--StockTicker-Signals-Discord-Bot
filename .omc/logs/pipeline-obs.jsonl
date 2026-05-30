@@ -101,3 +101,1529 @@
 {"ts": 1779872809.6235518, "event": "narrator_cache_hit", "ticker": "NVDA"}
 {"ts": 1779872809.6784515, "event": "narrator_cache_miss", "ticker": "AMD"}
 {"ts": 1779872809.7064462, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1779872953.3406334, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1779872953.351893, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1779872953.3560932, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1779872953.3599358, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1779872953.38007, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1779872953.9836004, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1779872954.0142338, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1779872960.9955118, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1779872972.312095, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1779872975.6551, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1779873012.2892423, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1779873012.2986343, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1779873012.2989168, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1779873012.299024, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1779873109.4229672, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1779873109.4281287, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1779873109.4351273, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1779873109.4487236, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1779873127.2171926, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1779873127.2179046, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1779873127.2480016, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1779873127.2661076, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1779873128.0769467, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1779873128.077597, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1779873128.0778847, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1779873128.129741, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1779873128.158837, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1779873128.1719072, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1779873128.2184777, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1779873137.0195634, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1779873137.0708735, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1779873137.092955, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1779873139.8561764, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1779873141.7667692, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1779873146.9554539, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1779873148.6917472, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1779875289.0688088, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1779875289.0790727, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1779875289.0850616, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1779875289.0911605, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1779875289.1176205, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1779875289.8769443, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1779875289.9057288, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1779875297.041899, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1779875308.3232157, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1779875311.6941116, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1779875346.9959009, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1779875347.006164, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1779875347.0066779, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1779875347.0069559, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1779875441.2576802, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1779875441.264327, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1779875441.2753725, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1779875441.2894282, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1779875458.9850178, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1779875458.985689, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1779875459.014399, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1779875459.0281174, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1779875460.2064579, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1779875460.2071016, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1779875460.2074363, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1779875460.253547, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1779875460.281288, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1779875460.2977743, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1779875460.3164337, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1779875468.8099935, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1779875468.8366325, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1779875468.8614686, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1779875471.5416152, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1779875473.4911835, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1779875475.7564597, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1779875477.728651, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1779876011.10415, "event": "sltp_atr_fallback", "spot": 750.59, "atr14": 7.215966679013145}
+{"ts": 1779876030.1932292, "event": "narrator_cache_miss", "ticker": "SPY"}
+{"ts": 1779876098.6622138, "event": "sltp_atr_fallback", "spot": 750.59, "atr14": 7.215966679013145}
+{"ts": 1779876117.4265754, "event": "narrator_cache_miss", "ticker": "SPY"}
+{"ts": 1779876974.8566728, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1779876974.8698883, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1779876974.8760438, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1779876974.8818061, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1779876974.9149222, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1779876975.7197258, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1779876975.746535, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1779876984.97618, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1779876998.8305888, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1779877001.7984765, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1779877036.9495068, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1779877036.959739, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1779877036.9600723, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1779877036.960205, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1779877130.791304, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1779877130.7960424, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1779877130.800797, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1779877130.811842, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1779877148.4808948, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1779877148.4816196, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1779877148.514528, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1779877148.5319283, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1779877149.8131526, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1779877149.813816, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1779877149.814173, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1779877149.8624296, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1779877149.8894355, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1779877149.9060998, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1779877149.9264235, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1779877157.901255, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1779877157.925775, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1779877157.950055, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1779877162.9290068, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1779877164.8118858, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1779877169.6252506, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1779877171.073787, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1779960630.830362, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1779960630.8419697, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1779960630.8465004, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1779960630.8509517, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1779960630.8689792, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1779960631.6906202, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1779960631.721982, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1779960639.587286, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1779960651.3067627, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1779960654.1279626, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1779960688.8331542, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1779960688.8413844, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1779960688.8416603, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1779960688.8417683, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1779960782.6237895, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1779960782.6281354, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1779960782.6345768, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1779960782.6489677, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1779960800.3920965, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1779960800.3929372, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1779960800.4208407, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1779960800.4359627, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1779960801.7768574, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1779960801.777458, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1779960801.7777627, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1779960801.8127124, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1779960801.834475, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1779960801.8444054, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1779960801.8586926, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1779960810.2113214, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1779960810.240807, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1779960810.2671628, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1779960812.6782568, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1779960814.2109835, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1779960816.0301538, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1779960817.5264673, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780000059.5590215, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780000059.568322, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780000059.5721467, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780000059.5759614, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780000059.596577, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780000060.3860567, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780000060.4155846, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780000066.8671534, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780000078.1649692, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780000081.774951, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780000116.2155294, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780000116.2233195, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780000116.2236736, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780000116.2238715, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780000210.1412768, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780000210.1461852, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780000210.152219, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780000210.1660683, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780000227.7854133, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780000227.786105, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780000227.8196888, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780000227.8384411, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780000228.8967924, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780000228.89734, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780000228.897537, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780000228.9417603, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780000228.9617062, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780000228.9743514, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780000228.9892664, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780000237.0222979, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780000237.0461035, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780000237.0660806, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780000239.6904325, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780000241.3587189, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780000243.5669978, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780000245.396309, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780000287.1474838, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780000287.1553106, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780000287.1590254, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780000287.1630843, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780000287.1851776, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780000287.9257903, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780000287.9564376, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780000294.2957187, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780000305.251712, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780000309.727757, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780000343.810957, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780000343.8192825, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780000343.8195734, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780000343.81971, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780000437.085018, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780000437.0911171, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780000437.0985174, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780000437.1153398, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780000454.7617328, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780000454.763393, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780000454.7959585, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780000454.8121014, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780000455.948096, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780000455.9487226, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780000455.949149, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780000455.9901657, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780000456.0158534, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780000456.0291727, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780000456.0470755, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780000464.0317109, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780000464.0530763, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780000464.0781019, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780000467.0235133, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780000468.7680476, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780000470.6625674, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780000472.4197824, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780001998.5857723, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780001998.593212, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780001998.597391, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780001998.6011875, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780001998.6192732, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780001999.2977998, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780001999.3254638, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780002006.5262423, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780002017.6206768, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780002021.0839868, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780002055.1295757, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780002055.1405423, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780002055.1409295, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780002055.141114, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780002148.964313, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780002148.9708211, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780002148.9756112, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780002148.988697, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780002166.6815355, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780002166.6822298, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780002166.7121844, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780002166.7282536, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780002167.4871018, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780002167.4875205, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780002167.4876912, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780002167.5354726, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780002167.5584118, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780002167.5723596, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780002167.5902498, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780002175.4811196, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780002175.5055957, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780002175.5286136, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780002178.0522404, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780002179.6854756, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780002181.7572403, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780002183.4193106, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780004809.161188, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780004809.170687, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780004809.1749024, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780004809.1792, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780004809.2022789, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780004809.9392579, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780004809.9673479, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780004816.8406703, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780004828.688075, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780004832.199356, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780004866.9144049, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780004866.9230864, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780004866.9233968, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780004866.9235702, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780004958.0034025, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780004958.0080216, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780004958.0137708, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780004958.0264528, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780004975.7260282, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780004975.7267249, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780004975.7566264, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780004975.7739065, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780004976.6428576, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780004976.643442, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780004976.643772, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780004976.6908224, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780004976.7133157, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780004976.7269657, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780004976.7461545, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780004984.889378, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780004984.9155202, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780004984.942604, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780004987.4148185, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780004989.034812, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780004990.8171144, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780004992.3994312, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780005991.7112956, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780005991.721464, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780005991.7259505, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780005991.730165, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780005991.7521622, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780005992.4860723, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780005992.512701, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780005998.7832406, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780006010.4110792, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780006013.7970667, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780006049.2837894, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780006049.2915208, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780006049.291796, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780006049.2919407, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780006140.2668912, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780006140.2729251, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780006140.2800508, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780006140.295703, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780006158.027495, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780006158.0282183, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780006158.059815, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780006158.076358, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780006158.859294, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780006158.8598905, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780006158.8601272, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780006158.9035225, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780006158.9260232, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780006158.9387326, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780006158.95597, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780006167.3510711, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780006167.3752074, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780006167.3974798, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780006170.1843703, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780006171.940062, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780006174.0437376, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780006175.8612077, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780006393.369353, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780006393.381412, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780006393.3858511, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780006393.3893282, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780006393.4058166, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780006394.105229, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780006394.138424, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780006401.0142436, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780006412.6245635, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780006416.105491, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780006451.746318, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780006451.7568169, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780006451.7571256, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780006451.7572284, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780006542.3568537, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780006542.3641686, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780006542.3702936, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780006542.3875563, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780006560.090466, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780006560.0911434, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780006560.1222937, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780006560.1409101, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780006561.061206, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780006561.0618925, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780006561.0622334, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780006561.1146674, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780006561.1374807, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780006561.1500602, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780006561.168027, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780006569.4704006, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780006569.4981143, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780006569.525423, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780006572.2941418, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780006573.9532013, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780006576.1476812, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780006577.9135392, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780028731.784798, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780028731.7943852, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780028731.79806, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780028731.8015804, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780028731.8203843, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780028732.532536, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780028732.558547, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780028738.9928617, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780028750.6499665, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780028753.9944088, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780028788.3402717, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780028788.3468716, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780028788.3471117, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780028788.347215, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780028878.5122554, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780028878.5195568, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780028878.5261865, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780028878.5426595, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780028896.189221, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780028896.1900115, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780028896.2192159, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780028896.2345595, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780028897.0370994, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780028897.0377097, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780028897.038021, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780028897.0736513, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780028897.0927966, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780028897.1043835, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780028897.1205008, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780028905.2816057, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780028905.3061671, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780028905.3285856, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780028908.0120156, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780028909.6622617, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780028911.8332117, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780028913.63798, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780029045.6455724, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780029045.6547046, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780029045.65866, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780029045.6629398, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780029045.6836703, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780029046.4553964, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780029046.4922812, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780029053.041805, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780029064.3147614, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780029067.4801102, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780029101.5631623, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780029101.5719912, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780029101.572307, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780029101.5724733, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780029192.2040374, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780029192.2085092, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780029192.2148545, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780029192.2320817, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780029209.8975093, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780029209.8983414, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780029209.9285662, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780029209.9445217, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780029210.8044796, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780029210.8051095, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780029210.805495, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780029210.8538053, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780029210.9071245, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780029210.9251814, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780029210.9441576, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780029219.3008213, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780029219.3248708, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780029219.3507652, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780029222.313205, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780029224.0645385, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780029226.2292523, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780029227.925074, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780031540.6128933, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780031540.623887, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780031540.6286368, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780031540.6335247, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780031540.6568844, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780031541.3743153, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780031541.406079, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780031547.9606798, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780031559.3665588, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780031562.6425047, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780031597.844995, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780031597.8533359, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780031597.85369, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780031597.85384, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780031688.2513099, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780031688.2573967, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780031688.2638094, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780031688.2821307, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780031706.1091232, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780031706.110037, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780031706.1556582, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780031706.1760292, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780031707.109964, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780031707.1107566, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780031707.1110992, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780031707.167514, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780031707.1920295, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780031707.208108, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780031707.2314622, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780031715.3893917, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780031715.4177668, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780031715.4453804, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780031718.131506, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780031719.7765021, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780031721.8401403, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780031723.546804, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780032019.2118115, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780032019.2260988, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780032019.2315698, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780032019.237191, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780032019.268115, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780032020.0959685, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780032020.12526, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780032026.5730433, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780032038.354143, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780032042.0803497, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780032077.2628632, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780032077.2706013, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780032077.2709885, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780032077.2711504, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780032168.3987079, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780032168.4032297, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780032168.4081557, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780032168.4196045, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780032186.1555638, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780032186.15637, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780032186.1928463, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780032186.217353, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780032187.0434446, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780032187.0439703, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780032187.0454087, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780032187.0879557, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780032187.1094522, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780032187.1236596, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780032187.1408143, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780032195.6315236, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780032195.6590302, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780032195.687256, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780032198.353384, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780032200.13351, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780032202.2449007, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780032203.9768052, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780032495.7018595, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780032495.711623, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780032495.7156894, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780032495.7198687, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780032495.740099, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780032496.515083, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780032496.541537, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780032503.2252152, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780032514.3574078, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780032517.5790803, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780032552.8883703, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780032552.8983946, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780032552.8987598, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780032552.8988993, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780032643.5621543, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780032643.5663369, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780032643.5716596, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780032643.5890734, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780032661.3116212, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780032661.3123314, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780032661.344336, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780032661.3594155, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780032662.2885916, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780032662.2894018, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780032662.289816, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780032662.3360584, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780032662.3604548, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780032662.3738694, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780032662.3957603, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780032670.8808615, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780032670.9084322, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780032670.938048, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780032673.5792375, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780032675.3220916, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780032677.6295338, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780032679.2906826, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780034031.7458813, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780034031.756581, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780034031.761394, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780034031.766275, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780034031.790786, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780034032.5980864, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780034032.6346056, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780034041.7935512, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780034055.8939886, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780034059.1871085, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780034093.6430311, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780034093.6517115, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780034093.6519725, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780034093.652073, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780034184.5058525, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780034184.5098698, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780034184.5148966, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780034184.5301874, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780034202.2409816, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780034202.2417622, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780034202.274129, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780034202.29138, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780034203.1357234, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780034203.1363509, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780034203.1366415, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780034203.1866841, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780034203.2143, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780034203.227367, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780034203.2456279, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780034211.3385024, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780034211.3739305, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780034211.409995, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780034216.6173599, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780034218.3238842, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780034223.0310547, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780034224.7897525, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780034850.1162589, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780034850.126718, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780034850.1321166, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780034850.136833, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780034850.3035505, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780034850.9795802, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780034851.012405, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780034853.656677, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780034867.717932, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780034870.9620914, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780034877.3001819, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780034877.3140955, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780034877.3145301, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780034877.3147488, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780034901.132406, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780034901.1389258, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780034901.1496081, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780034901.169039, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780034922.976566, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780034923.002185, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780034923.0315812, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780034942.2218807, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780034943.9699419, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780034946.0688162, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780034947.6659257, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780034948.594496, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780034948.5958009, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780034948.626466, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780034948.6426919, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780034949.7754123, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780034949.775904, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780034949.7761586, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780034949.8298728, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780034949.8546002, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780034949.867342, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780034949.8844397, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780035247.3783638, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780035247.3884702, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780035247.3929186, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780035247.3982368, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780035247.5717406, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780035248.297273, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780035248.3272705, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780035251.0740407, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780035264.264306, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780035267.6796737, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780035273.129481, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780035273.1396213, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780035273.1399915, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780035273.1401436, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780035295.926716, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780035295.9326808, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780035295.9416804, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780035295.9590883, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780035317.8543262, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780035317.881976, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780035317.9069467, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780035335.718137, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780035338.0032656, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780035340.9146693, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780035343.299761, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780035343.300545, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780035343.3369193, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780035343.3536499, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780035344.64183, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780035344.64242, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780035344.642749, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780035344.6972752, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780035344.7233553, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780035344.741221, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780035344.76448, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780035345.2197578, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780035430.9079077, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780035430.9192166, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780035430.9249337, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780035430.9307382, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780035431.1080928, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780035431.8437543, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780035431.873645, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780035434.574605, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780035448.6351113, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780035451.950904, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780035457.5629158, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780035457.5713406, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780035457.5715747, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780035457.571673, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780035480.9507084, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780035480.9579732, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780035480.969507, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780035480.9920785, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780035502.899758, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780035502.9290457, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780035502.9615374, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780035521.4582853, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780035523.5254505, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780035525.7957609, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780035528.7646484, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780035528.7656348, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780035528.8037684, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780035528.8210313, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780035530.0665488, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780035530.0671275, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780035530.0673835, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780035530.1272364, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780035530.145973, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780035530.1547477, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780035530.1698585, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780035530.1915536, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780044958.5114956, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780044958.5301943, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780044958.5375822, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780044958.543314, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780044958.7195325, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780044959.4152732, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780044959.4512775, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780044975.1573, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780044985.7363026, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780044985.7451956, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780044985.7455916, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780044985.7463114, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780045008.8845036, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780045008.8903368, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780045008.8973875, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780045008.9148867, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780045030.7164311, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780045030.7435544, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780045030.7711055, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780045044.1342084, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780045045.8603718, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780045048.0067635, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780045049.6840997, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780045051.5823152, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780045051.5831163, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780045051.6188986, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780045051.6357884, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780045052.760743, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780045052.7614486, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780045052.7618024, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780045052.82302, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780045052.8510516, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780045052.8707623, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780045052.896913, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780045162.7798364, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780045162.7922149, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780045162.7980645, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780045162.8038595, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780045162.9568236, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780045163.6299536, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780045163.6596966, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780045164.0309, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780045174.7429454, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780045177.974529, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780045189.271272, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780045189.2806456, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780045189.2809825, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780045189.2811108, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780045215.6375363, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780045215.6482682, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780045215.6581035, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780045215.6818156, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780045237.6694338, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780045237.7068577, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780045237.7397606, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780045250.8984694, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780045252.6140833, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780045254.7780662, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780045255.0374255, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780045255.0383978, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780045255.0736845, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780045255.0894659, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780045256.3678555, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780045256.3684657, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780045256.3687372, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780045256.4251297, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780045256.4521604, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780045256.4705412, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780045256.4954996, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780045256.6788614, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780045746.3273685, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780045746.341935, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780045746.3480332, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780045746.3540697, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780045746.538863, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780045747.2501125, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780045747.2882774, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780045760.284689, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780045763.6980698, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780045773.4061923, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780045773.4155004, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780045773.4158893, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780045773.4160526, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780045797.0125988, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780045797.0183752, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780045797.0251896, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780045797.0424058, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780045819.1268027, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780045819.1600385, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780045819.1933472, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780045831.7438362, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780045833.6648185, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780045835.9470093, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780045837.6818047, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780045840.431262, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780045840.4319615, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780045840.4683795, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780045840.4847417, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780045841.7253432, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780045841.7258868, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780045841.7261455, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780045841.781566, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780045841.8118587, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780045841.82904, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780045841.8533218, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780067761.3478074, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780067761.3590052, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780067761.3639832, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780067761.3687499, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780067761.5617845, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780067762.2403107, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780067762.2752564, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780067764.5281765, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780067776.8501847, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780067779.622099, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780067782.1288972, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780067783.6898844, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780067785.4544837, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780067787.0929928, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780067860.9821756, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780067882.1933117, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780067931.8884542, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780067931.898664, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780067931.902161, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780067931.9067352, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780067932.0471046, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780067932.6647458, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780067932.6954925, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780067934.3236153, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780067944.6879985, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780067947.9549568, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780067950.5318365, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780067952.2201736, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780067954.241862, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780067955.9387746, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780068103.2877378, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780068103.299189, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780068103.3037357, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780068103.3080187, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780068103.4432344, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780068103.9652455, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780068103.9871404, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780068104.2718797, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780068115.7926154, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780068119.2700226, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780068129.448191, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780068129.4569683, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780068129.4572487, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780068129.45744, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780068153.8811822, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780068153.88801, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780068153.8963513, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780068153.9140105, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780068176.1504257, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780068176.1751401, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780068176.2019818, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780068189.2976391, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780068190.8685877, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780068192.6500626, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780068194.3092742, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780068196.7824826, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780068196.7833364, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780068196.8326325, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780068196.8510077, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780068198.107798, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780068198.1081903, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780068198.1083543, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780068198.1607432, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780068198.1784713, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780068198.191854, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780068198.2158556, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780079879.2125897, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780079879.2255385, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780079879.2308683, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780079879.2359552, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780079879.402103, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780079880.0510383, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780079880.0800626, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780079882.860871, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780079896.902387, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780079900.406152, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780079906.7565103, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780079906.7647128, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780079906.7650676, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780079906.7652068, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780079919.2177155, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780079919.2231078, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780079919.2293465, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780079919.2441223, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780079936.9043083, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780079936.9051402, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780079936.9292498, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780079936.9413335, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780079937.8031223, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780079937.8036513, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780079937.80392, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780079937.8457024, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780079937.8632648, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780079937.8741546, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780079937.8887987, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780079946.0277872, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780079960.817785, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780079998.4457374, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780079998.4681554, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780079998.4975102, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780080003.8454714, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780080005.722424, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780093947.8772938, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780093947.8851159, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780093947.8888755, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780093947.8933382, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780093947.9120271, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780093948.698185, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780093948.7285576, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780093955.9345284, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780093967.7352812, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780093970.541893, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780094005.7700386, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780094005.7792487, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780094005.7795825, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780094005.7797718, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780094097.145036, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780094097.1521652, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780094097.1602826, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780094097.1783047, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780094114.8099387, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780094114.8106215, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780094114.840612, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780094114.8571668, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780094115.6286192, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780094115.6291993, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780094115.6294618, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780094115.675728, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780094115.6982114, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780094115.7115479, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780094115.7338269, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780094124.1548831, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780094124.1810176, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780094124.2057195, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780094126.501876, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780094128.081084, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780094129.8177319, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780094131.3947127, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780094639.2963006, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780094639.4555967, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780094639.4614308, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780094639.4682338, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780094639.4980361, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780094640.1949074, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780094640.2263367, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780094640.8500917, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780094652.31, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780094655.5711575, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780094665.6733725, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780094665.6832368, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780094665.6835787, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780094665.683861, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780094677.02719, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780094677.0328293, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780094677.03842, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780094677.0557635, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780094694.9547064, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780094694.9554083, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780094694.9840727, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780094695.0014362, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780094695.8676527, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780094695.868143, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780094695.868382, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780094695.9163337, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780094695.939361, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780094695.9548845, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780094695.9743688, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780094753.205281, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780094753.2284997, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780094753.25022, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780094755.5379474, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780094757.0345767, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780094758.7684734, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780094760.3215744, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780095619.3296626, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780095619.3416631, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780095619.347721, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780095619.3550718, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780095619.3809621, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780095619.9945352, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780095620.0259988, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780095621.7261457, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780095633.2010634, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780095636.0851054, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780095640.693151, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780095642.2587714, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780095644.1033967, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780095645.676044, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780095712.7474225, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780095712.7582932, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780095712.7640295, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780095712.7700863, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780095712.796493, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780095713.4620311, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780095713.499388, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780095713.6057098, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780095724.9562683, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780095727.8050146, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780095741.1926196, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780095741.203982, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780095741.2043757, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780095741.2046175, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780095753.1966813, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780095753.2017298, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780095753.2076867, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780095753.2226427, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780095770.9526236, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780095770.9532027, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780095770.980408, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780095770.9958827, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780095774.9038284, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780095774.9288814, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780095774.9551487, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780095787.8951004, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780095789.4321532, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780095791.1842945, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780095792.942612, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780095824.6052208, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780095824.6058655, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780095824.6061428, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780095824.6592233, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780095824.681907, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780095824.6947978, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780095824.7150161, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780095935.7993517, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780095935.8112214, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780095935.8162158, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780095935.8218875, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780095935.8449082, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780095936.514507, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780095936.543588, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780095936.73653, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780095948.5736887, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780095952.3079662, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780095964.6827652, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780095964.6950738, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780095964.695446, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780095964.6956306, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780095976.4957237, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780095976.5028422, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780095976.5108685, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780095976.5300748, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780095994.2313569, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780095994.2319465, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780095994.2626452, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780095994.2753606, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780095998.2304237, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780095998.259867, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780095998.286683, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780096011.5891976, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780096013.1612122, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780096015.0154023, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780096016.7741463, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780096049.775475, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780096049.7759712, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780096049.776145, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780096049.818768, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780096049.8397365, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780096049.8516169, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780096049.8726478, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780096233.612396, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780096233.7306755, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780096233.7350047, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780096233.7403624, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780096233.7614949, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780096234.3259382, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780096234.350196, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780096243.5612495, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780096257.6424708, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780096260.4832823, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780096299.0532115, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780096299.0618944, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780096299.0622942, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780096299.0624647, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780096391.2077482, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780096391.2129154, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780096391.219597, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780096391.2384133, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780096408.8928387, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780096408.8933346, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780096408.918224, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780096408.9331741, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780096410.3004432, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780096410.3011198, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780096410.301468, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780096410.34258, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780096410.3589976, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780096410.3706768, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780096410.3879945, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780096418.9065793, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780096418.9310038, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780096418.952684, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780096424.0037146, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780096425.6939425, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780096427.5430195, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780096431.9195838, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780097662.0190566, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780097662.0359635, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780097662.0455887, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780097662.0538244, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780097662.0916615, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780097662.7259183, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780097662.7538195, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780097665.557702, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780097679.8021955, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780097682.700959, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780097689.6831112, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780097689.6957512, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780097689.696021, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780097689.6961968, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780097701.2107344, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780097701.2192228, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780097701.2283268, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780097701.249941, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780097718.9650252, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780097718.9656932, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780097718.9941618, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780097719.0085976, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780097722.6982505, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780097722.7220433, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780097722.7455986, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780097740.772617, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780097742.2994819, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780097744.3994038, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780097746.0874007, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780097779.0864742, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780097779.0868993, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780097779.087123, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780097779.128267, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780097779.1497355, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780097779.1602728, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780097779.1773448, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780109672.4165757, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780109672.5489235, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780109672.5531645, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780109672.5581417, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780109672.578587, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780109673.1888783, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780109673.2124233, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780109680.359877, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780109692.6601264, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780109695.5578995, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780109734.9606285, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780109734.9700184, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780109734.9704049, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780109734.9706442, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780109826.9030302, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780109826.9066517, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780109826.9120815, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780109826.924236, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780109844.563196, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780109844.5637538, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780109844.5917368, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780109844.6043677, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780109845.7985616, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780109845.7991512, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780109845.7993655, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780109845.8454037, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780109845.8679633, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780109845.8811572, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780109845.9012926, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780109854.7820914, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780109854.8081985, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780109854.829205, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780109857.4446692, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780109858.972476, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780109860.75958, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780109862.548213, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780110428.2833076, "event": "sltp_atr_fallback", "spot": 211.14, "atr14": 7.473452962960131}
+{"ts": 1780110445.0073667, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780110526.1440494, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780110526.152171, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780110526.155285, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780110526.1596005, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780110526.1759048, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780110526.7411866, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780110526.7645395, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780110533.0078971, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780110544.1628714, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780110547.2403512, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780110585.3784735, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780110585.387338, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780110585.387764, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780110585.3880017, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780110677.6926625, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780110677.6985087, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780110677.7037842, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780110677.7157674, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780110695.4820971, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780110695.482844, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780110695.5149548, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780110695.5332358, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780110696.8433387, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780110696.843834, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780110696.8441255, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780110696.882681, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780110696.9027772, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780110696.9130743, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780110696.9261603, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780110705.7165837, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780110705.7406178, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780110705.7607975, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780110708.3180714, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780110709.9879055, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780110712.037461, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780110713.7520614, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780111024.5459511, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780111024.5589278, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780111024.566063, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780111024.5747013, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780111024.6094158, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780111025.3179953, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780111025.3471234, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780111025.4937918, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780111036.9008734, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780111040.118178, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780111054.1751997, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780111054.1829655, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780111054.1832473, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780111054.1833684, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780111072.359021, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780111072.365487, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780111072.372663, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780111072.3851311, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780111094.3556259, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780111094.3800929, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780111094.4069178, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780111106.870616, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780111108.719969, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780111111.1514463, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780111112.97662, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780111124.6826026, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780111124.6834607, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780111124.7192798, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780111124.737068, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780111126.2265387, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780111126.226954, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780111126.2271903, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780111126.268971, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780111126.2896426, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780111126.3017912, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780111126.3191142, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780111302.3675308, "event": "sltp_atr_fallback", "spot": 420.91, "atr14": 23.582446519047725}
+{"ts": 1780111317.8637314, "event": "narrator_cache_miss", "ticker": "DELL"}
+{"ts": 1780122080.5885055, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780122080.6011028, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780122080.6068685, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780122080.6135178, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780122080.6413457, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780122081.3539681, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780122081.3681972, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780122088.545357, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780122100.6634881, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780122103.6874344, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780122109.5533144, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780122109.5622528, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780122109.5675454, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780122109.5717492, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780122109.5914278, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780122110.114162, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780122110.1285121, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780122116.8491433, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780122128.179835, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780122131.0226257, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780122145.0645518, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780122145.0753658, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780122145.0757833, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780122145.07599, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780122170.9996274, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780122171.0122354, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780122171.0125947, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780122171.0128162, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780122238.1921399, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780122238.1976051, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780122238.2043386, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780122238.21996, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780122255.8987832, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780122255.8994331, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780122255.913203, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780122255.916281, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780122257.0982893, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780122257.0986977, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780122257.0991411, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780122257.1376486, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780122257.1594422, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780122257.171182, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780122257.1879082, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780122262.9453871, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780122262.950462, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780122262.9573755, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780122262.9721932, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780122265.838684, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780122265.8491976, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780122265.8581016, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780122268.609215, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780122270.231016, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780122272.287697, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780122274.1191075, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780122280.6278102, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780122280.6285093, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780122280.6429422, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780122280.6458502, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780122281.8383458, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780122281.838889, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780122281.8391712, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780122281.8725758, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780122281.8883412, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780122281.8993862, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780122281.91512, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780122290.553984, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780122290.5630367, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780122290.572613, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780122293.0331488, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780122294.6668987, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780122296.7250035, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780122298.4443831, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780122444.1062725, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780122444.1225665, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780122444.1297998, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780122444.1377833, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780122444.172308, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780122444.4495542, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780122444.744593, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780122444.7560253, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780122456.340119, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780122459.7242606, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780122472.6702664, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780122472.6820908, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780122472.68248, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780122472.6827285, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780122485.027968, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780122485.0323973, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780122485.0386465, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780122485.0547056, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780122502.798744, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780122502.7994764, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780122502.8197737, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780122502.8237643, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780122504.1731532, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780122504.17369, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780122504.1739972, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780122504.2334914, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780122504.2521863, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780122504.263524, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780122504.2851098, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780122560.702208, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780122560.714263, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780122560.7244794, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780122563.2419298, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780122564.7592099, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780122566.6509538, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780122568.3077018, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780145923.4034324, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780145923.4146779, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780145923.4200425, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780145923.4332736, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780145923.4776354, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780145923.8323588, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780145924.06721, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780145924.082481, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780145935.442975, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780145939.707582, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780145953.478954, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780145953.5014884, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780145953.5019133, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780145953.5021608, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780145966.0875933, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780145966.0934856, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780145966.101664, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780145966.117937, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780145983.899962, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780145983.900514, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780145983.9142718, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780145983.9171739, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780145985.209168, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780145985.2095718, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780145985.209734, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780145985.2489038, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780145985.2705612, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780145985.2815435, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780145985.3005025, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780146041.5078921, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780146041.5239072, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780146041.5388224, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780146044.150567, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780146045.750486, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780146047.8302503, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780146049.5924838, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780167460.0554535, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780167460.0650008, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780167460.0693867, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780167460.0741005, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780167460.0933917, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780167460.6303923, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780167460.642194, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780167467.0120943, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780167478.231008, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780167481.071467, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780167518.6636474, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780167518.6725566, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780167518.6729705, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780167518.6731296, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780167613.4402776, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780167613.44584, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780167613.4531207, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780167613.4725091, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780167631.168501, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780167631.1691186, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780167631.1823828, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780167631.1845598, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780167632.6026442, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780167632.6034462, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780167632.603835, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780167632.660252, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780167632.6836033, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780167632.6959767, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780167632.718283, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780167641.4679987, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780167641.485543, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780167641.4972641, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780167644.7243896, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780167646.4135356, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780167648.210394, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780167649.7815142, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780167774.0916216, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780167774.1026044, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780167774.1072414, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780167774.1121652, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780167774.1384254, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780167774.4003243, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780167774.6573284, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780167774.6692333, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780167785.392235, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780167789.0906286, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780167803.7060115, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780167803.7181215, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780167803.7183762, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780167803.7185764, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780167815.7664835, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780167815.7732587, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780167815.7803593, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780167815.7995315, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780167833.6126235, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780167833.613289, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780167833.6273785, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780167833.630823, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780167834.9441478, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780167834.9446464, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780167834.9449584, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780167834.9934525, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780167835.019734, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780167835.0321548, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780167835.0508714, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780167889.9048986, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780167889.9170601, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780167889.9277873, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780167892.7990766, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780167894.491057, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780167896.7628014, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780167898.3374035, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780168329.5289562, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780168329.5482283, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780168329.558336, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780168329.566495, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780168329.6008387, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780168329.902006, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780168330.2126365, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780168330.2273545, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780168341.237657, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780168344.87647, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780168358.0345967, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780168358.0481482, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780168358.048515, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780168358.0488029, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780168370.5465465, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780168370.5548427, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780168370.5629456, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780168370.5862265, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780169183.73779, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780169183.7480214, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780169183.7526767, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780169183.7586544, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780169183.7853935, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780169184.2251866, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780169184.3284044, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780169184.3421328, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780169195.1365921, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780169198.4922905, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780169212.0724635, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780169212.0864344, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780169212.0867534, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780169212.0869358, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780169224.1882203, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780169224.1936553, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780169224.2009795, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780169224.2171576, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780169241.8966742, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780169241.897384, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1780169241.9112923, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780169241.9140222, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780169243.260506, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1780169243.26093, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1780169243.2611396, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1780169243.3102672, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780169243.328989, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1780169243.3382215, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1780169243.3545825, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1780169298.62223, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780169298.6327324, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1780169298.6433134, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780169301.1692731, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780169302.773951, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780169304.9659045, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780169306.6231618, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780171035.552126, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780171332.0697744, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1780171332.0821137, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1780171332.0879762, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1780171332.0944123, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1780171332.1212626, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1780171332.6809318, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780171332.6942806, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1780171332.8651366, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780171343.7338915, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1780171347.6456254, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1780171361.2056427, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780171361.2168548, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780171361.2171488, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780171361.2172856, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1780171374.1737587, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780171374.1815076, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1780171374.1892736, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1780171374.2078156, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
