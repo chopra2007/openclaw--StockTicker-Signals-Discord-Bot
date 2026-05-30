@@ -87,7 +87,7 @@ def _reformat_trade_plan(narrative: str) -> str:
         if rows.get("Expected Move"):
             lines.append(f"**Move:** {rows['Expected Move']}")
         nc = rows.get("Next Catalyst", "")
-        if nc and nc.lower() not in ("unknown", "—", "-", "n/a", ""):
+        if nc and nc.lower() not in ("unknown", "none", "—", "-", "n/a", ""):
             lines.append(f"**Next Catalyst:** {nc}")
 
         return "\n".join(lines) + "\n"
