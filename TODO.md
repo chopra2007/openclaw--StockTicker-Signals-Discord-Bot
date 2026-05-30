@@ -40,7 +40,7 @@ Rewrite the done-checklist so each item is tagged by code surface and only the r
 
 **File:** `all-command-quality.md`
 
-Continue improving what `!all <TICKER>` shows by picking one quality lever per session (max-pain, peer comp, options flow, etc.) from the documented menu. **2026-05-29:** options-flow lever shipped via #18 — recent autonomous-detected unusual flow now feeds the `!all` narrator (`get_options_flow_for_ticker` → structured-data summary). **Next discover run** (max-pain + peer comparison + sector-map overhaul, plus #17 B2/B3): see `todo/NEXT-SESSION-all-command-levers.md`.
+Continue improving what `!all <TICKER>` shows by picking one quality lever per session (max-pain, peer comp, options flow, etc.) from the documented menu. **2026-05-29:** options-flow lever shipped via #18 — recent autonomous-detected unusual flow now feeds the `!all` narrator (`get_options_flow_for_ticker` → structured-data summary). **2026-05-30 (run `all-levers-2026-05-29`):** shipped **max-pain** (weekly+monthly embed field) + **peer relative-strength** (5-day vs sub-industry peers, embed + narrator) + a new sub-industry **peer layer** (`data/peer_groups.yaml`, separate from the A4 gate map). Commits `53e3e35`+`7d77245`, live-verified. Stays OPEN — more levers remain in the menu (`all-command-quality.md`).
 
 ## 7. Three upgrades to the discover skill — DONE
 
@@ -106,7 +106,7 @@ Update 13 stale unit-test assertions that the `!all` refactor and critical-sourc
 
 **File:** `youtube_vision_upgrade.md`
 
-Teach the video-watcher to read the precise chart numbers (gamma lines, option-flow tables) the speaker glosses over. Task B (Gemini limit/model swap) + Task C (chart numbers → `!all` narrator) shipped earlier. This session: **B1** strips title-card/promo/bare-ticker noise from the narrator; **C1** daily chart-read coverage counter; **C2** Gemini stop-reason (`finish_reason`/`f2_failure_category`) persisted as queryable telemetry. Task B3 (per-number ticker tagging) remains optional/unbuilt. **B2** (before/after chart-numbers demo — process a fresh chart-heavy video) + **B3** are scoped into the next discover run: see `todo/NEXT-SESSION-all-command-levers.md`.
+Teach the video-watcher to read the precise chart numbers (gamma lines, option-flow tables) the speaker glosses over. Task B (Gemini limit/model swap) + Task C (chart numbers → `!all` narrator) shipped earlier. **B1** strips title-card/promo/bare-ticker noise; **C1** daily chart-read coverage counter; **C2** Gemini stop-reason telemetry. **2026-05-30 (run `all-levers-2026-05-29`):** **B2** demonstrated — fresh chart-heavy videos do carry both signal+visual rows; surfaced that multi-stock videos dump every number onto the top ticker. **B3** (per-number ticker tagging) BUILT but flag-gated OFF (`youtube.visual.per_number_ticker_tagging: false`, commit `7d77245`) — flip true + restart to test. All of #17 now shipped or built.
 
 ## 18. Read live options flow and alert on unusual activity — DONE 2026-05-29
 

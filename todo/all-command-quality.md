@@ -131,3 +131,13 @@ Land the audit at `.claude/discover/all-command-rebuild/external-feature-audit-<
 This TODO is intentionally broad — don't try to do it all in one session. Recommended first move: read the v2-quality-rebuild artifacts, then pick ONE lever from the lists above + write a focused spec for just that change (e.g. "tighten Trade Plan rationale to ≤25 words and re-test all 5 chain models for compliance"). Use the test methodology from `.omc/research/llm-chain-2026-05-16/probe_llm_chain.py` as the quality-regression harness.
 
 **Acceptance for this TODO is "shipped at least one user-visible quality improvement with before/after evidence."** Not "completed all items above" — those are a menu, not a checklist.
+
+---
+
+## Update 2026-05-30 (run `all-levers-2026-05-29`)
+
+Two more levers shipped from the menu (commits `53e3e35` + `7d77245`, live-verified on NVDA/AMD/DELL):
+- **Max-pain** — `scanners/options.py:compute_max_pain`; nearest-weekly + nearest-monthly max-pain strike from the yfinance option chain; embed field only (no narrator). Textbook argmin-payout over listed strikes. Known caveat (user-confirmed, left as-is): for stocks that ran up, the monthly max-pain can sit far below spot because stale deep-ITM OI dominates — that's the correct definition, not a bug.
+- **Peer relative strength** — `analysis/peer_comparison.py` + NEW `data/peer_groups.yaml` (sub-industry peer layer, separate from the A4 `sector_map.yaml` gate). 5-day stock move vs peers' average; curated peers → dynamic `.info` fallback → sector ETF. Embed field + narrator (curated-mean mode only). Config: `features.peer_comparison.*`.
+
+Still OPEN — the menu has more levers. Also fixed a found bug: `!all` Trends gated on the non-existent key `features.serpapi_enabled` → corrected to `precision_engine.serpapi_enabled`.
