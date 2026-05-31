@@ -52,4 +52,4 @@ Split YouTube into its own `ScoreBreakdown.youtube` field → footer now shows `
 ### Weight-VALUE change — REVIEW GATE, recommend NO change (pending user blessing)
 The 5/10/15 values live in the SHARED `score_ticker` (main alerting engine uses it too), so changing them alters which alerts fire — kickoff gate #2. Recommendation: **leave as-is.** They are already conviction-tiered, capped at 15 (≈ the same ceiling as `llm_boost_max=15`), and the original lag concern is mitigated by the 7-day query window + conviction gating. No evidence the current values are miscalibrated. Adding visibility (done) ≠ changing alert behavior (not done, not recommended).
 
-**STATUS: research settled + visibility fix DONE & live. Weight-value left UNCHANGED by design; awaiting user blessing of "no change" (or a target value if they disagree).**
+**STATUS: DONE 2026-05-31.** Research settled (YouTube already weighted 5/10/15, was mislabeled as `llm`); visibility fix shipped & live-verified (commit `2196ba5`, `yt=N` footer); weight values **blessed UNCHANGED by the user** at the review gate. No further work.
