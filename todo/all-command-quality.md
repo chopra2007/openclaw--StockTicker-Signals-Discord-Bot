@@ -141,3 +141,13 @@ Two more levers shipped from the menu (commits `53e3e35` + `7d77245`, live-verif
 - **Peer relative strength** — `analysis/peer_comparison.py` + NEW `data/peer_groups.yaml` (sub-industry peer layer, separate from the A4 `sector_map.yaml` gate). 5-day stock move vs peers' average; curated peers → dynamic `.info` fallback → sector ETF. Embed field + narrator (curated-mean mode only). Config: `features.peer_comparison.*`.
 
 Still OPEN — the menu has more levers. Also fixed a found bug: `!all` Trends gated on the non-existent key `features.serpapi_enabled` → corrected to `precision_engine.serpapi_enabled`.
+
+## Update 2026-05-31 (run `all-quality-and-yt-score`)
+
+Two more levers + three correctness fixes shipped (suite 1433 green, 0 regressions; live-verified on NVDA/AMD + deployed `!all NVDA` round-trip).
+
+- **📊 Snapshot field** (commit `3fc4311`) — NEW `consensus_engine/scanners/snapshot.py`: one yfinance `.info` fetch (own bounded executor, won't starve the shared pool) → one compact embed field with **analyst price target + range + count + rating, forward P/E, short %/days-to-cover**. The single most-ubiquitous gap (table stakes on TipRanks/Yahoo/Finviz). Conditional-omit when `.info` empty/throttled (logged). Flag `features.snapshot.enabled` (defaults true in code; not in yaml to avoid bundling an unrelated pending consensus.yaml edit). **Live:** NVDA `🎯 $297 avg ($180–$500) · 58 anlsts · Strong Buy | Fwd P/E 17 · Short 1.3% (1.9d cover)`; deployed `sources_surfaced` 13→16.
+- **R:R field** (commit `4a80547`) — `structured_fields.compute_risk_reward`: reward-per-1.0-risk from the plan's SL/TP1 vs spot, direction-aware, rendered inline `R:R 1:X`. **Omitted on ATR-fallback (low-confidence) plans** so synthetic levels can't produce an authoritative-looking but meaningless ratio. (NVDA/AMD currently hit atr_fallback → R:R correctly hidden; verified positive render via `build_embed` test.)
+- **3 fixes** (commit `6a2c5b9`): BUG-1 earnings-days tz (utcnow→local date — killed a 7h/day trade-plan-vs-embed disagreement); BUG-3 scanner-failure logs debug→warning (no more silent source drops); BUG-4 footer source count now includes youtube_visual + recent_earnings.
+
+Still OPEN — menu has more levers. Top remaining cheap/ubiquitous (yfinance, pre-flight GREEN): earnings track record (avg ±% post-ER move), 52wk-high/low distance, relative volume, P/C-OI ratio. Biggest optimization (flagged, NOT done — too risky for one session): the synth model-chain walks serially per model → 60–240s tail; race/short-timeout it or post a 2-stage embed.
