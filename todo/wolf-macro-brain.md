@@ -1,0 +1,105 @@
+# Wolf newsletter → trade-finding macro brain
+
+**Status:** OPEN
+**Created:** 2026-05-31
+
+## North-star goal
+Find **actionable trades.** Turn the "Wolf on Wall Street" email feed into a market-context "brain" that surfaces trade leans, sector rotations, and catalysts — and **proactively pings** when a market/sector top or bottom is forming or a catalyst lands, **louder when other sources agree.** "Being more informed" is the means, not the end.
+
+## What's already DONE (the connection)
+- Gmail connected: **teche2014@gmail.com** OAuth complete, token auto-refreshing (verified), scope `gmail.modify`. Headless connect helper: `/root/.openclaw/gmail/oauth_connect.py`. Proven reading the inbox live.
+- `config/consensus.yaml` `gmail_watcher` block wired: `token_path`, `credentials_path`, `sender_allowlist: [support@wolf-on-wallstreet.com]` — but **`enabled: false` on purpose** (committed on master).
+- Sole inbox source = the Wolf newsletter (`support@wolf-on-wallstreet.com`), ~5–10 emails/day, some 40+ charts.
+
+## Why the CURRENT watcher is inadequate (must rebuild, not tweak)
+`consensus_engine/scanners/gmail_watcher.py` only decodes `text/plain` bodies + runs `extract_tickers` (regex). The Wolf emails:
+- Are **HTML-only** (no `text/plain` part) → current decoder returns empty → extracts nothing.
+- Carry the real signal in **remote chart images** (`wolfonwallstreet-trade.com/wp-content/uploads/...jpg`) + a SendGrid tracking pixel to skip; occasionally a news/social screenshot. Current watcher ignores images entirely.
+- Are macro/commentary, not ticker lists — and `extract_tickers` blacklists exactly what matters (SPY/QQQ/VOO/DOW/FED/CPI…).
+→ Needs a new reader: **HTML text + vision image-reading + LLM structured extraction.**
+
+## FULL REQUIREMENTS (interview, 2026-05-31)
+
+### Trade output style
+- Output unit: **directional lean + key level**, **watchlist of candidates**, **sector-rotation calls**. NOT exact entry/stop/target.
+- Timeframe: mostly **swing→position (1 week–months)** + long-lead top/bottom calls. Tag the timeframe per idea.
+- Instruments: **stocks, ETFs, options, futures** (all). Options/gamma angle matters.
+
+### Stateful thesis tracking (CORE)
+- A top/bottom call evolves over weeks–months as **stages**: "a top is forming" (months out) → "negative divergences building" (weeks out) → "imminent top, I've started a short in the Nasdaq" (acting). Track each major thesis and its **current stage**; detect stage changes. **Wolf revealing an actual position = highest-signal stage.**
+- A call stays **ACTIVE until invalidated** (price breaks the key level the wrong way, or Wolf drops it).
+
+### Proactive alerts → new #news channel
+- Ping at **every stage**: first warning, evidence building, imminent/acting, AND **key level breaks**.
+- **Critical** tier @-mentions the user; send **ANYTIME incl. overnight** (Wraps land ~12:10–12:40am PT). No quiet hours.
+
+### Confluence (the big lever)
+- Match Wolf's calls against: **14 YouTube channels** (esp. technical/top-bottom callers), **options flow** (yfinance + CheddarFlow), **Twitter/TweetShift**, **SEC** (Form 4/insider). Each source needs a derived directional "stance."
+- Match at **all levels**: whole-market top/bottom, sector/group, individual stocks, asset classes (oil/gold/bonds/yields/BTC/dollar).
+- **Tiers:** Wolf alone = surface; **Wolf + 1 other = high-conviction**; **Wolf + 2+ = critical.**
+- Do **BOTH**: a conviction tag on every call ("N others agree") AND a dedicated louder alert when sources line up.
+- "Agreement" only counts other analysts' calls from the **last ~2–3 weeks**.
+- **Disagreement is itself a signal** — surface "analysts divided — Wolf top vs N bullish."
+- All sources **weighted equally** for now (no accuracy-based weighting yet).
+
+### Catalysts & beneficiaries
+- Catalysts: **only what Wolf mentions** (no independent calendar/news scanning). Map them to sectors/names.
+- Beneficiary inference: **YES, but only for BIG catalysts** (war escalation, Fed surprise) — infer up/down names (oil spike → up: XLE/OIH/HAL/SLB; at risk: airlines, cruise). Always mark as the bot's inference, not Wolf's.
+
+### History / backfill
+- Read **everything available** in Gmail (All Mail, not just inbox / not just new) to reconstruct the current state of his months-long theses. (Inbox held ~74; All Mail likely has more/older.)
+
+### Digests (all Pacific time)
+- **Midday:** event-triggered (~1 min) after his ~12:00–1:05pm PT afternoon email (the one that sometimes reveals trades he's started).
+- **Nightly:** event-triggered after his **Wrap** (the long/40+-chart comprehensive evening email). Trigger window **7pm–2am PT** — Wraps land just after midnight PT; do NOT cut off at 11:59pm.
+- **Sunday:** ~10am PT weekly recap (clock-based).
+- **Sunday post-10am email** → short **add-on update** appended to that Sunday digest.
+- **Quiet day** (no email) → no digest, no "nothing to report" note.
+- **Weekly recap tracks what actually played out** → log call outcomes (track outcomes; weight equally).
+- Digest content: regime (top/bottom-prone) + active theses & their stage + watchlist + confluence scoreboard + beneficiaries.
+
+### Personalization & integration
+- **Keep general** — no user positions/watchlist.
+- **Phased:** build the new proactive **#news lane FIRST**; wire into `!all` + existing ticker alerts in a **later** phase.
+
+## What Wolf's emails contain (extraction targets)
+- Breadth + **3C divergences** (his proprietary price-vs-strength money-flow indicator; charts hand-labeled "divergence"/"confirming").
+- Candle patterns + exact levels (SPX 7500→7340, NDX 29679/30000, DJIA 50000, IWM 286.50–287.50, SOX 12548/12616/12710).
+- Sector rotation (Tech / Semis SOX / Software IGV vs Energy/defensives).
+- Intermarket (WTI, 2/10/30y yields, Dollar, gold, BTC, VIX; "war correlation" = stocks inverse to oil & yields).
+- Geopolitics (Iran/Hormuz; "Barak Ravid"/Axios headline-timing pattern), Fed speakers, econ data (PCE/GDP/jobless).
+- Named stocks on earnings (DELL/HOOD/BBY/DLTR/KSS/NVDA/COST/MU).
+- **Charts carry the real signal** (levels + divergence labels) → vision image reading is essential.
+
+## Possible next steps (priority-ordered)
+1. **Reader rebuild** — HTML text extraction (replace text/plain-only `_decode_body`); fetch remote chart images (skip the SendGrid pixel) and read via vision model (Gemini flash, like the video-frame path); LLM structured extraction → JSON (thesis, regime/stage, index/sector/asset views + levels, named stocks, catalysts, 3C status). Keep the regex symbol scan.
+2. **Stateful store** — a "market read" + per-thesis state (stage, key levels, active/invalidated) that updates per email and persists across restarts.
+3. **Confluence engine** — derive a stance per source (YouTube/options/Twitter/SEC), match against Wolf at all levels within a ~2–3wk window; tiered conviction; disagreement detection.
+4. **Proactive alerting** — create the #news channel; post stage-change + level-break + confluence alerts; @-ping on critical (anytime).
+5. **Digest scheduler** — event-triggered midday/nightly (Wrap window 7pm–2am PT) + clock Sunday 10am + Sunday add-on; content above; weekly recap with outcome tracking.
+6. **Beneficiary inference** for big catalysts.
+7. **Backfill** — ingest full Gmail history to seed state.
+8. **Phase 2** — integrate into `!all` + existing alerts.
+
+## Files / code involved
+- `consensus_engine/scanners/gmail_watcher.py` (rebuild)
+- `consensus_engine/main.py` (watcher task wiring, ~line 676)
+- `config/consensus.yaml` (`gmail_watcher` block, ~line 673)
+- `consensus_engine/utils/tickers.py` (`extract_tickers` — keep + supplement)
+- `consensus_engine/llm_client.py` (extraction); Gemini vision (see memory `reference_gemini_video_models`)
+- YouTube pipeline + `/root/.openclaw/sources.json` (14 channels), options-flow watcher (yfinance), TweetShift, SEC watcher — confluence sources
+- `consensus.db` (already has `seen_gmail_messages`/`seen_gmail_bodies`; add tables for theses / market-read / calls)
+- Discord: new **#news** channel + posting path
+- Token: `/root/.openclaw/gmail/token.json`; helper `/root/.openclaw/gmail/oauth_connect.py`
+
+## Open questions (build-side; decide during build)
+- LLM/vision **cost**: ~100 charts/day possible; Gemini free-tier per-key/day limits — may need batching/caps or a paid key. (Images are far cheaper than video.)
+- How to reliably identify "the Wrap" vs intraday notes (size / chart-count / subject heuristic).
+- How to derive a comparable **stance** from each confluence source — does the existing YouTube pipeline already emit a directional stance, or does that need adding?
+- Exact scope of "all available history" in Gmail (All Mail depth).
+- Align watcher `SCOPES` to `gmail.modify` on rebuild (current list is readonly+labels; labeling needs modify).
+
+## Anything else
+- Connection + direction also in memory: `project_gmail_wolf_connected.md`, `project_wolf_macro_brain_direction.md`.
+- Sample emails + ~100 charts saved at `/tmp/wolf_charts/` during research (ephemeral; re-pull via the token if needed).
+- Kickoff for a fresh session: `todo/kickoffs/wolf-macro-brain.md`.

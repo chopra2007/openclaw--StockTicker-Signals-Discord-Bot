@@ -119,3 +119,9 @@ Teach the bot to read near-real-time options data and alert on unusual flow. **S
 **File:** `youtube_db_score_weighting.md`
 
 Figure out whether YouTube database signals (video mentions, extracted levels) are currently weighted in the `!all` score, and whether they should be — then implement if the answer is yes.
+
+## 20. Turn the Wolf market newsletter into a trade-finding brain
+
+**File:** `wolf-macro-brain.md`
+
+Read the Wolf on Wall Street emails (text + charts) so the bot tracks market tops/bottoms, sector rotations, and catalysts, and proactively flags actionable trades — louder when other sources agree.
