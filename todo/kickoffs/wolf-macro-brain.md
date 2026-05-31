@@ -8,6 +8,13 @@ You are building TODO #20. The research/requirements phase is **DONE** — do NO
 - `CLAUDE.md` — Definition of Done, Regression Gate, Alert Philosophy, Real-World Testing ladder, shared-file tripwire.
 - The current (inadequate) reader: `consensus_engine/scanners/gmail_watcher.py`. Understand WHY it can't handle these emails (HTML-only, remote chart images) before rewriting.
 
+## Operating principles (user directive — non-negotiable)
+1. **Verify, don't assume.** No assumptions — confirm with **live, real-world tests** that things work in real scenarios (real Wolf emails, real chart images, real test-channel posts). When something looks blocked, **assume you CAN do it** and work from there: diagnose → fix → alternative path (CLAUDE.md real-world-testing ladder) before ever concluding it's impossible.
+2. **Found a better way → take it.** If a cleaner/better approach emerges mid-build, use it. The mechanics in the spec are a floor, not a ceiling.
+3. **Thought of a new improvement → build it.** New ideas that make the feature better are in-scope; add them.
+
+(Autonomy on *how* to build — but the stop gates at the bottom still hold: sign-off before any LIVE post or enabling in prod, and surface genuine ambiguity.)
+
 ## The connection is already done — don't redo OAuth
 Gmail is connected: `teche2014@gmail.com`, token at `/root/.openclaw/gmail/token.json` (auto-refresh, scope `gmail.modify`). `config/consensus.yaml gmail_watcher` is wired but `enabled: false`. To pull sample emails/charts for dev, reuse the token (see `/root/.openclaw/gmail/oauth_connect.py` and the read snippets referenced in the detail file).
 

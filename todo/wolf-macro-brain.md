@@ -6,6 +6,13 @@
 ## North-star goal
 Find **actionable trades.** Turn the "Wolf on Wall Street" email feed into a market-context "brain" that surfaces trade leans, sector rotations, and catalysts — and **proactively pings** when a market/sector top or bottom is forming or a catalyst lands, **louder when other sources agree.** "Being more informed" is the means, not the end.
 
+## Operating principles (user directive, 2026-05-31) — read first
+1. **Verify, don't assume.** No assumptions — confirm with **live, real-world tests** that things actually work in real scenarios (real Wolf emails, real chart images, real posts to a test channel). And when something looks blocked, **assume you CAN do it** and work from there: diagnose → fix → find an alternative path (CLAUDE.md real-world-testing ladder) before ever concluding it's impossible.
+2. **Found a better way → take it.** If a cleaner/better approach to any piece emerges mid-build, use it. The mechanics suggested below are a *floor, not a ceiling* — don't stay locked to them.
+3. **Thought of a new improvement → build it.** If you think of new ways to make the feature better, add them.
+
+(These encourage autonomy on *how* to build. They do NOT remove the stop gates — still get sign-off before any LIVE Discord post or before enabling the watcher in production, and still surface genuine ambiguity.)
+
 ## What's already DONE (the connection)
 - Gmail connected: **teche2014@gmail.com** OAuth complete, token auto-refreshing (verified), scope `gmail.modify`. Headless connect helper: `/root/.openclaw/gmail/oauth_connect.py`. Proven reading the inbox live.
 - `config/consensus.yaml` `gmail_watcher` block wired: `token_path`, `credentials_path`, `sender_allowlist: [support@wolf-on-wallstreet.com]` — but **`enabled: false` on purpose** (committed on master).
