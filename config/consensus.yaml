@@ -254,7 +254,7 @@ llm:
   # (the OR free meta-router) as the single fallback. sync_gateway_models.py
   # prefixes each entry with `openrouter/` when mirroring into openclaw.json.
   # Revert plan: .omc/notes/model-swap-2026-05-26-revert.md
-  agent_model: "deepseek/deepseek-v4-flash"
+  agent_model: "deepseek/deepseek-v4-flash:free"
   agent_fallback_models:
     - "free"
   vision_model: "google/gemma-4-31b-it:free"
