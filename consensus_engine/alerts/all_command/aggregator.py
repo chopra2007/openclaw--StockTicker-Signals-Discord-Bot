@@ -118,7 +118,7 @@ async def _safe_call(coro_factory, default):
     try:
         return await coro_factory()
     except Exception as exc:  # noqa: BLE001 — D13 partial failure
-        log.debug("aggregator._safe_call: %s -> %s", coro_factory, exc)
+        log.warning("aggregator._safe_call: %s -> %s", coro_factory, exc)
         return default
 
 
@@ -155,7 +155,7 @@ async def _db_call(name: str, *args, **kwargs):
             return None
         return await fn(*args, **kwargs)
     except Exception as exc:  # noqa: BLE001
-        log.debug("aggregator._db_call(%s) raised: %s", name, exc)
+        log.warning("aggregator._db_call(%s) raised: %s", name, exc)
         return None
 
 
@@ -172,7 +172,7 @@ async def _scanner_call(module_path: str, attr: str, *args, **kwargs):
             return await result
         return result
     except Exception as exc:  # noqa: BLE001
-        log.debug("aggregator._scanner_call(%s.%s) raised: %s", module_path, attr, exc)
+        log.warning("aggregator._scanner_call(%s.%s) raised: %s", module_path, attr, exc)
         return None
 
 
@@ -298,9 +298,11 @@ async def _gather_all_sources(ticker: str) -> dict:
         ("youtube_options_db", yt_options),
         ("youtube_levels_db", yt_levels),
         ("youtube_evidence_db", yt_evidence),
+        ("youtube_visual_db", yt_visual),
         ("alert_history_db", alert_history),
         ("decision_snapshots_db", decision_snapshots),
         ("earnings_calendar", next_earnings_iso),
+        ("recent_earnings", recent_earnings_recap),
         ("news", news_catalyst),
         ("sec", sec_filings),
         ("options", options_unusual),
@@ -372,7 +374,7 @@ def _detect_chart_pattern(swing_candles: list[dict]) -> Optional[dict]:
         from consensus_engine.analysis import patterns
         return patterns.detect_all(swing_candles)
     except Exception as exc:  # noqa: BLE001 — pattern detection never raises into gather
-        log.debug("aggregator._detect_chart_pattern raised: %s", exc)
+        log.warning("aggregator._detect_chart_pattern raised: %s", exc)
         return None
 
 
@@ -868,9 +870,12 @@ async def _compute_all(ticker: str, start: float) -> dict:
     _earnings_days_for_plan = None
     if earnings_iso_str:
         try:
-            from datetime import datetime as _dt
+            from datetime import datetime as _dt, date as _date
             _ed = _dt.strptime(earnings_iso_str, "%Y-%m-%d").date()
-            _d = (_ed - _dt.utcnow().date()).days
+            # BUG-1: use local date (matches structured_fields.compute_next_catalyst_days);
+            # _dt.utcnow().date() drifted 1 day ahead for ~7h each PT evening, so the
+            # trade-plan earnings proximity disagreed with the embed's Next Catalyst field.
+            _d = (_ed - _date.today()).days
             if _d >= 0:
                 _earnings_days_for_plan = _d
         except (ValueError, TypeError):
