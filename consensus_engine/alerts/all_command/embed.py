@@ -708,6 +708,10 @@ def build_embed(
          "value": _format_price(current_price),
          "inline": True},
     ]
+    # #6 A3 — reward:risk of the plan, next to the actionable numbers.
+    _rr = getattr(structured, "risk_reward", None)
+    if isinstance(_rr, (int, float)) and _rr > 0:
+        fields.append({"name": "R:R", "value": f"1:{_rr:.1f}", "inline": True})
     # #6 levers — append only when there's real data (em-dash means no data).
     mp_val = _format_max_pain(getattr(structured, "max_pain", None), current_price)
     if mp_val != "—":

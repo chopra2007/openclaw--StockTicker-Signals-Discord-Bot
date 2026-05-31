@@ -925,6 +925,12 @@ async def _compute_all(ticker: str, start: float) -> dict:
         sl = tp1 = tp2 = tp3 = None
         magnitude = "TBD"
         timeframe = "TBD"
+    # #6 A3 — reward:risk of the plan (after the NEUTRAL wipe so it stays None
+    # there). Gated on the trade_plan's own confidence to skip ATR-fallback plans.
+    risk_reward = structured_fields.compute_risk_reward(
+        current_price, sl, tp1, direction,
+        trade_plan.get("confidence") if trade_plan else None,
+    )
 
     # Iter5: compute the entry zone from supports + current price so the
     # embed answers the prompt's "buying level" requirement directly.
@@ -990,6 +996,7 @@ async def _compute_all(ticker: str, start: float) -> dict:
         max_pain=data.get("max_pain"),
         peer_strength=data.get("peer_strength"),
         snapshot=data.get("snapshot"),
+        risk_reward=risk_reward,
     )
 
     # Sanitize hostile text. PR4: split SearXNG into news+sec+gap-fill blocks

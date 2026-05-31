@@ -53,6 +53,7 @@ class StructuredFields:
     max_pain: Optional[dict] = None       # {"spot", "weekly": {...}|None, "monthly": {...}|None}
     peer_strength: Optional[dict] = None  # {stock_pct, benchmark_pct, delta, verdict, benchmark_label, mode, narrator_ok, ...}
     snapshot: Optional[dict] = None       # #6 analyst target + rating + fwd P/E + short interest (yfinance .info); embed-only
+    risk_reward: Optional[float] = None   # #6 reward:risk of the computed plan (reward per 1.0 risk); embed-only
 
 
 # Components contributing to direction scoring. Sign mapping is deferred to
@@ -92,6 +93,44 @@ def compute_direction(score_breakdown: ScoreBreakdown) -> str:
     if net < 0:
         return "BEARISH"
     return "NEUTRAL"
+
+
+def compute_risk_reward(current_price, sl, tp1, direction,
+                        trade_plan_confidence=None) -> Optional[float]:
+    """#6 — reward:risk of the computed plan as reward-per-1.0-risk (e.g. 2.4
+    renders 'R:R 1:2.4'). Direction-aware. Returns None — so the embed field is
+    omitted — when not meaningfully computable:
+      * NEUTRAL (levels are wiped) or unknown direction,
+      * the plan is an ATR-fallback (trade_plan confidence == "low") whose SL/TP
+        are synthetic and would yield an authoritative-looking but meaningless
+        ratio (Pass-3 critic M3),
+      * any of spot/sl/tp1 missing, zero/negative risk or reward (incl. spot==sl),
+      * absurd ratio outside [0.1, 20] (degenerate SL≈spot).
+    Entry is anchored on current_price (spot) — there is no separate 'entry'
+    level in the trade plan (Pass-3 critic M2).
+    """
+    if direction not in ("BULLISH", "BEARISH"):
+        return None
+    if str(trade_plan_confidence).lower() == "low":
+        return None
+    if current_price is None or sl is None or tp1 is None:
+        return None
+    try:
+        spot = float(current_price)
+        s = float(sl)
+        t = float(tp1)
+    except (TypeError, ValueError):
+        return None
+    if direction == "BULLISH":
+        risk, reward = spot - s, t - spot
+    else:  # BEARISH
+        risk, reward = s - spot, spot - t
+    if risk <= 0 or reward <= 0:
+        return None
+    rr = reward / risk
+    if rr < 0.1 or rr > 20:
+        return None
+    return round(rr, 1)
 
 
 def compute_confidence_label(
