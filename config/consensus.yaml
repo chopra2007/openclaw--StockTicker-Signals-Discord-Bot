@@ -671,13 +671,18 @@ ingest_server:
   nonce_sweep_interval_seconds: 3600
 
 gmail_watcher:
+  # Connection is fully set up (teche2014@gmail.com OAuth token at token_path,
+  # auto-refreshing). Left OFF on purpose: the current watcher only reads
+  # text/plain bodies + regex tickers, but the Wolf newsletter is HTML-only with
+  # remote chart images. The HTML/image/LLM "macro brain" reader is the next
+  # build; flip enabled: true once that ships.
   enabled: false
-  credentials_path: ""
-  token_path: ""
+  credentials_path: "/root/.openclaw/gmail/credentials.json"
+  token_path: "/root/.openclaw/gmail/token.json"
   processed_label_name: "OpenClawProcessed"
   poll_interval_seconds: 60
   scope_verify_interval_seconds: 21600
-  sender_allowlist: []
+  sender_allowlist: ["support@wolf-on-wallstreet.com"]
   subject_substrings: ["alert", "trade", "trigger", "signal", "$"]
   per_sender_per_hour_cap: 20
   per_day_total_cap: 200
