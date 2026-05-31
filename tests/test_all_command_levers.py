@@ -203,22 +203,26 @@ def test_format_peer_strength_curated_and_etf():
 
 
 # ---------------------------------------------------------------------------
-# Aggregator wiring — desync guard for the positional 24-tuple unpack (M1)
+# Aggregator wiring — desync guard for the positional 27-tuple unpack (M1)
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
 async def test_aggregator_wires_levers_without_desync(monkeypatch):
-    """compute_max_pain/compute_relative_strength land in the right dict keys and
-    no other source's value is shifted by the new positional unpack entries."""
+    """compute_max_pain/compute_relative_strength/fetch_ticker_snapshot land in
+    the right dict keys and no other source's value is shifted by the new
+    positional unpack entries."""
     mp_sentinel = {"spot": 1.0, "weekly": {"strike": 1.0, "expiry": "2026-06-01"}, "monthly": None}
     ps_sentinel = {"verdict": "outperforming", "stock_pct": 5.0, "benchmark_pct": 1.0,
                    "benchmark_label": "Semiconductors", "narrator_ok": True}
+    snap_sentinel = {"target_mean": 215.0, "rating": "Buy", "fwd_pe": 31.0, "n_analysts": 58}
 
     async def _routing_scanner(module_path, attr, *a, **k):
         if attr == "compute_max_pain":
             return mp_sentinel
         if attr == "compute_relative_strength":
             return ps_sentinel
+        if attr == "fetch_ticker_snapshot":
+            return snap_sentinel
         return None
 
     async def _none(*_a, **_k):
@@ -241,7 +245,9 @@ async def test_aggregator_wires_levers_without_desync(monkeypatch):
     out = await aggregator._gather_all_sources("NVDA")
     assert out["max_pain"] == mp_sentinel, "max_pain not wired to its dict key"
     assert out["peer_strength"] == ps_sentinel, "peer_strength not wired to its dict key"
+    assert out["snapshot"] == snap_sentinel, "snapshot not wired to its dict key (27th slot)"
     # Desync proof: trends is the serpapi-gated empty dict, NOT a lever sentinel.
     assert out["trends"] == {}, "positional unpack desynced (trends got a wrong value)"
     assert "max_pain" in out["sources_surfaced"]
     assert "peer_strength" in out["sources_surfaced"]
+    assert "snapshot_db" in out["sources_surfaced"]

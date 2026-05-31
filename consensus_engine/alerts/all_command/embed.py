@@ -402,6 +402,60 @@ def _format_peer_strength(ps: Optional[dict]) -> str:
     return f"{head}{s:+.1f}% vs {label} {b:+.1f}% ({window}d) — {verdict}"
 
 
+def _fmt_px(v: Optional[float]) -> Optional[str]:
+    """Compact dollar format: whole dollars at >=$10, else 2 decimals."""
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return f"${f:,.0f}" if abs(f) >= 10 else f"${f:.2f}"
+
+
+def _format_snapshot(snap: Optional[dict]) -> str:
+    """#6 lever — one compact line: analyst price target + rating, then forward
+    P/E + short interest. Each segment is conditional; '—' when nothing usable
+    (the scanner already returns None unless at least one block has data)."""
+    if not isinstance(snap, dict):
+        return "—"
+    segments: list[str] = []
+
+    # Analyst segment.
+    mean = _fmt_px(snap.get("target_mean"))
+    analyst_parts: list[str] = []
+    if mean:
+        head = f"🎯 {mean} avg"
+        lo, hi = _fmt_px(snap.get("target_low")), _fmt_px(snap.get("target_high"))
+        if lo and hi:
+            head += f" ({lo}–{hi})"
+        analyst_parts.append(head)
+    elif snap.get("rating"):
+        analyst_parts.append("🎯")
+    n = snap.get("n_analysts")
+    if isinstance(n, int) and n > 0:
+        analyst_parts.append(f"{n} anlsts")
+    if snap.get("rating"):
+        analyst_parts.append(str(snap["rating"]))
+    if analyst_parts:
+        segments.append(" · ".join(analyst_parts))
+
+    # Fundamentals segment.
+    fund_parts: list[str] = []
+    fwd = snap.get("fwd_pe")
+    if isinstance(fwd, (int, float)) and fwd > 0:
+        fund_parts.append(f"Fwd P/E {fwd:.0f}" if fwd >= 10 else f"Fwd P/E {fwd:.1f}")
+    sp = snap.get("short_pct")
+    if isinstance(sp, (int, float)) and sp > 0:
+        short = f"Short {sp * 100:.1f}%"
+        sd = snap.get("short_days")
+        if isinstance(sd, (int, float)) and sd > 0:
+            short += f" ({sd:.1f}d cover)"
+        fund_parts.append(short)
+    if fund_parts:
+        segments.append(" · ".join(fund_parts))
+
+    return "\n".join(segments) if segments else "—"
+
+
 def _level_value_block(
     field_name: str,
     value: Optional[float],
@@ -661,6 +715,9 @@ def build_embed(
     rs_val = _format_peer_strength(getattr(structured, "peer_strength", None))
     if rs_val != "—":
         fields.append({"name": "Sector Strength", "value": rs_val, "inline": False})
+    snap_val = _format_snapshot(getattr(structured, "snapshot", None))
+    if snap_val != "—":
+        fields.append({"name": "📊 Snapshot", "value": snap_val, "inline": False})
 
     yt_field = _build_youtube_links_field(yt_signals or [], ticker=ticker)
     if yt_field is not None:

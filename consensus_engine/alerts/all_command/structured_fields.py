@@ -52,6 +52,7 @@ class StructuredFields:
     # narrator when its mode is the clean curated-peer mean; see narrator.py).
     max_pain: Optional[dict] = None       # {"spot", "weekly": {...}|None, "monthly": {...}|None}
     peer_strength: Optional[dict] = None  # {stock_pct, benchmark_pct, delta, verdict, benchmark_label, mode, narrator_ok, ...}
+    snapshot: Optional[dict] = None       # #6 analyst target + rating + fwd P/E + short interest (yfinance .info); embed-only
 
 
 # Components contributing to direction scoring. Sign mapping is deferred to
