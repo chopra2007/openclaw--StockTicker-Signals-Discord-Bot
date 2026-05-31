@@ -65,6 +65,7 @@ _BULLISH_BIASED_FIELDS = (
     "google_trends",
     "technical",
     "llm_boost",
+    "youtube",
     "options_flow",
     "consensus_boost",
 )

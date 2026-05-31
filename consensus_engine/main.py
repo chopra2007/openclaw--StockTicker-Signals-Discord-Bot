@@ -828,6 +828,7 @@ def _serialize_breakdown(breakdown: ScoreBreakdown) -> str:
         "google_trends": breakdown.google_trends,
         "technical": breakdown.technical,
         "llm_boost": breakdown.llm_boost,
+        "youtube": breakdown.youtube,
         "options_flow": breakdown.options_flow,
         "total": breakdown.total,
     })

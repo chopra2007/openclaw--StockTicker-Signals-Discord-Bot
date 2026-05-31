@@ -358,8 +358,10 @@ async def score_ticker(
         consensus_boost=consensus_boost,
         **social_breakdown,
     )
-    # Add YouTube boost directly to breakdown
-    breakdown.llm_boost += youtube_pts  # Roll YouTube into LLM boost category
+    # YouTube boost as its own breakdown term (visible as `yt=N` in the footer).
+    # Kept inside the total so the numeric score is unchanged vs. the old
+    # llm_boost merge; see _BULLISH_BIASED_FIELDS for the direction-sum parity.
+    breakdown.youtube = youtube_pts
 
     return ScoreTickerResult(
         ticker=ticker,

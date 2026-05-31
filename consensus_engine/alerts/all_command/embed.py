@@ -439,6 +439,7 @@ def _build_breakdown_inline(score_breakdown: ScoreBreakdown) -> str:
         "google_trends": "trends",
         "technical": "tech",
         "llm_boost": "llm",
+        "youtube": "yt",
         "options_flow": "opts",
         "consensus_boost": "cons",
     }

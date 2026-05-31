@@ -257,6 +257,7 @@ class ScoreBreakdown:
     google_trends: int = 0
     technical: int = 0
     llm_boost: int = 0
+    youtube: int = 0
     options_flow: int = 0
     consensus_boost: int = 0
 
@@ -265,7 +266,7 @@ class ScoreBreakdown:
         return (self.base + self.additional_analysts + self.news_catalyst
                 + self.sec_filing + self.social_apewisdom + self.social_stocktwits
                 + self.social_reddit + self.google_trends + self.technical
-                + self.llm_boost + self.options_flow + self.consensus_boost)
+                + self.llm_boost + self.youtube + self.options_flow + self.consensus_boost)
 
 
 @dataclass

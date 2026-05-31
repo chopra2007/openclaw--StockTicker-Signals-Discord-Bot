@@ -104,7 +104,7 @@ def render_all_command_markdown(
         for attr in (
             "base", "additional_analysts", "news_catalyst", "sec_filing",
             "technical", "social_apewisdom", "social_stocktwits", "social_reddit",
-            "google_trends", "llm_boost", "options_flow", "consensus_boost",
+            "google_trends", "llm_boost", "youtube", "options_flow", "consensus_boost",
         ):
             try:
                 val = int(getattr(score_breakdown, attr, 0) or 0)
