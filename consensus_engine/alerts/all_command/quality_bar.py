@@ -125,14 +125,66 @@ def trade_plan_complete(
     return all(v is not None for v in (sl, tp1, tp2, tp3))
 
 
-# Ship 2 M2/M6 — narrative must contain these literal section markers.
-# Comparison is case-insensitive but token-exact so a missing token forces
-# a re-prompt rather than passing through with a malformed Bear Case section.
+# Narrative must contain these literal section markers. Comparison is
+# case-insensitive substring so a missing token forces a re-prompt rather than
+# passing through with a malformed narrative.
+#
+# all-risk-section: the old `**What could go wrong:**` + `**Risks & mitigants:**`
+# tokens are gone — those two sections were merged into a single
+# `## Risk Considerations` section (they overlapped and restated the stop-loss
+# 6× in one message). The merged header is the required token now.
 REQUIRED_SECTION_TOKENS = (
     "**TL;DR:**",
-    "**What could go wrong:**",
-    "**Risks & mitigants:**",
+    "## Risk Considerations",
 )
+
+
+def risk_section_violations(
+    narrative: str, stop_price: Optional[object] = None
+) -> list[str]:
+    """all-risk-section (Feature B) — content-rule violations INSIDE the merged
+    `## Risk Considerations` section.
+
+    The synthesis prompt bans restating the stop-loss / price level inside the
+    risk section, but prompt-only bans proved unreliable on this bot's
+    free-model chain (the live NVDA output restated the stop price 6×, three of
+    them inside the risk cluster, despite the prompt forbidding it). This is the
+    hard check that backs the prompt: `narrator.synthesize_narrative` re-prompts
+    once when this returns a non-empty list.
+
+    Currently detects: the stop-loss price literal appearing inside the section.
+    """
+    if not narrative:
+        return []
+    m = _RISK_HEADER_RE.search(narrative)
+    if not m:
+        return []
+    tail = narrative[m.end():]
+    next_header = re.search(
+        r"(?im)^\s*(?:#+\s+\S|\*\*[A-Z][\w\s]+:?\s*\*\*)",
+        tail,
+    )
+    section = tail[: next_header.start()] if next_header else tail
+
+    violations: list[str] = []
+    if stop_price is not None:
+        candidates: set[str] = set()
+        try:
+            sp = float(stop_price)
+            candidates.add(f"{sp:.2f}")                      # 196.19
+            candidates.add(f"{sp:.2f}".rstrip("0").rstrip("."))  # 196 for 196.00
+            candidates.add(f"{sp:g}")                        # 196.19 / 196
+        except (TypeError, ValueError):
+            s = str(stop_price).strip().lstrip("$")
+            if s:
+                candidates.add(s)
+        for c in candidates:
+            if c and re.search(r"\$?\b" + re.escape(c) + r"\b", section):
+                violations.append(
+                    f"stop-loss price {c} restated inside Risk Considerations"
+                )
+                break
+    return violations
 
 
 def missing_required_sections(narrative: str) -> list[str]:

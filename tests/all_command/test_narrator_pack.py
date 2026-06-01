@@ -20,15 +20,20 @@ def test_constraints_block_contains_tldr_marker(swing_v2):
 
 
 @pytest.mark.parametrize("swing_v2", [True, False])
-def test_constraints_block_contains_bear_case_marker(swing_v2):
+def test_constraints_block_has_single_merged_risk_section(swing_v2):
+    # all-risk-section: the 3 overlapping risk sections were merged into ONE
+    # `## Risk Considerations`, and the old headings are explicitly banned.
     block = narrator._build_constraints_block(swing_v2)
-    assert "**What could go wrong:**" in block
+    assert "## Risk Considerations" in block
+    assert "do NOT emit those headings" in block
 
 
 @pytest.mark.parametrize("swing_v2", [True, False])
-def test_constraints_block_contains_risks_marker(swing_v2):
+def test_constraints_block_bans_price_and_generic_risks(swing_v2):
     block = narrator._build_constraints_block(swing_v2)
-    assert "**Risks & mitigants:**" in block
+    assert "NO PRICE LEVELS" in block   # no stop-loss restatement
+    assert "BANNED" in block            # generic-risk ban list
+    assert "[evidence:N]" in block      # per-bullet citation still required
 
 
 @pytest.mark.parametrize("swing_v2", [True, False])
@@ -55,17 +60,22 @@ def test_constraints_block_contains_evidence_clause(swing_v2):
 
 
 @pytest.mark.parametrize("swing_v2", [True, False])
-def test_constraints_block_includes_arrow_mitigant_examples(swing_v2):
+def test_constraints_block_includes_swing_risk_buckets(swing_v2):
+    # all-risk-section: merged risk section draws from evidence-conditional
+    # swing-trade buckets instead of the old generic Bear Case / mitigants.
     block = narrator._build_constraints_block(swing_v2)
-    # M6 — risk → mitigant form with concrete trade-plan features.
-    assert "→ Trim half at TP1" in block
-    assert "→ Stop at" in block
+    assert "Macro / regulatory" in block
+    assert "Event / binary" in block
+    assert "Positioning / crowding" in block
 
 
 # ---------------------------------------------------------------------------
 # quality_bar.has_required_sections
 # ---------------------------------------------------------------------------
 
+# all-risk-section: merged-section fixture. ONE `## Risk Considerations`, no
+# old headings, and NO price level inside the risk section (so the Feature-B
+# stop-price gate stays clean).
 _FULL_NARRATIVE = (
     "**TL;DR:** Long $NVDA above $920, target $980.\n"
     "Body opening with **Market view:** consensus / **Our view:** ours / "
@@ -73,11 +83,8 @@ _FULL_NARRATIVE = (
     "## Catalysts\n"
     "* item\n"
     "## Risk Considerations\n"
-    "* risk one\n"
-    "**What could go wrong:** Daily close below $895 invalidates [evidence:1].\n"
-    "**Risks & mitigants:**\n"
-    "- thesis break → Stop at $895\n"
-    "- vol spike → Trim half at TP1\n"
+    "* China export curbs cut ~17% of revenue [evidence:1].\n"
+    "* Short interest 4.2% of float → unwind risk [evidence:2].\n"
     "## Trade Plan\n"
     "| Parameter | Level | Rationale |\n"
 )
@@ -92,13 +99,8 @@ def test_has_required_sections_false_missing_tldr():
     assert not quality_bar.has_required_sections(n)
 
 
-def test_has_required_sections_false_missing_bear_case():
-    n = _FULL_NARRATIVE.replace("**What could go wrong:**", "Maybe trouble:")
-    assert not quality_bar.has_required_sections(n)
-
-
-def test_has_required_sections_false_missing_risks():
-    n = _FULL_NARRATIVE.replace("**Risks & mitigants:**", "**Risks (no mit):**")
+def test_has_required_sections_false_missing_risk_considerations():
+    n = _FULL_NARRATIVE.replace("## Risk Considerations", "## Other")
     assert not quality_bar.has_required_sections(n)
 
 
@@ -111,8 +113,42 @@ def test_missing_required_sections_lists_only_missing():
     n = "**TL;DR:** present.\n only TL;DR section."
     missing = quality_bar.missing_required_sections(n)
     assert "**TL;DR:**" not in missing
-    assert "**What could go wrong:**" in missing
-    assert "**Risks & mitigants:**" in missing
+    assert "## Risk Considerations" in missing
+
+
+# ---------------------------------------------------------------------------
+# all-risk-section Feature B — risk_section_violations hard gate
+# ---------------------------------------------------------------------------
+
+def test_risk_section_violations_flags_stop_price():
+    narrative = (
+        "**TL;DR:** Long.\n## Risk Considerations\n"
+        "* A break below $196.19 ends it.\n## Trade Plan\n| x |\n"
+    )
+    v = quality_bar.risk_section_violations(narrative, 196.19)
+    assert v and "196.19" in v[0]
+
+
+def test_risk_section_violations_clean_when_no_price():
+    narrative = (
+        "**TL;DR:** Long.\n## Risk Considerations\n"
+        "* China export curbs cut revenue [evidence:1].\n## Trade Plan\n| x |\n"
+    )
+    assert quality_bar.risk_section_violations(narrative, 196.19) == []
+
+
+def test_risk_section_violations_only_scans_risk_section():
+    # the stop price in TL;DR and Trade Plan (outside the risk section) is fine
+    narrative = (
+        "**TL;DR:** stop $196.19.\n## Risk Considerations\n"
+        "* China export curbs [evidence:1].\n## Trade Plan\n| SL | $196.19 |\n"
+    )
+    assert quality_bar.risk_section_violations(narrative, 196.19) == []
+
+
+def test_risk_section_violations_none_stop_price():
+    narrative = "## Risk Considerations\n* something specific [evidence:1]\n"
+    assert quality_bar.risk_section_violations(narrative, None) == []
 
 
 # ---------------------------------------------------------------------------
@@ -200,6 +236,39 @@ async def test_synthesize_no_retry_when_sections_present():
     assert len(calls) == 1
     assert status == "ok"
     assert "TL;DR" in text
+
+
+@pytest.mark.asyncio
+async def test_synthesize_retries_when_stop_price_in_risk_section():
+    """Feature B gate: re-prompt once when the stop price ($175) leaks into the
+    `## Risk Considerations` section (prompt-only bans proved unreliable)."""
+    bad_first = (
+        "**TL;DR:** Long.\n## Risk Considerations\n"
+        "* A break below $175 invalidates it.\n## Trade Plan\n| x |\n"
+    )
+    good_second = _FULL_NARRATIVE  # clean risk section, no price level
+    calls = []
+
+    async def fake_invoke(messages, deadline):
+        calls.append(messages)
+        return bad_first if len(calls) == 1 else good_second
+
+    with patch.object(narrator, "_invoke_synthesis", side_effect=fake_invoke):
+        text, status = await narrator.synthesize_narrative(
+            ticker="NVDA",
+            structured=_S(),  # _S.sl == 175.0
+            score_breakdown=_BD(),
+            sanitized_searxng=[],
+            sanitized_chat=[],
+            sanitized_brief=[],
+            vault_summary="",
+            structured_data_json="{}",
+            deadline_seconds=30.0,
+        )
+
+    assert len(calls) == 2, "should retry once when stop price is in risk section"
+    assert any("RISK SECTION FIX" in m.get("content", "") for m in calls[1])
+    assert status == "ok"
 
 
 # ---------------------------------------------------------------------------

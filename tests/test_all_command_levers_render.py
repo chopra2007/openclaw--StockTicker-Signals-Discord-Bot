@@ -19,7 +19,7 @@ def _build():
     bd = ScoreBreakdown(news_catalyst=15, technical=4, llm_boost=9, youtube=15)
     return embed.build_embed(
         ticker="NVDA", structured=sf, score_breakdown=bd,
-        narrative="**TL;DR:** test. **What could go wrong:** x. **Risks & mitigants:** y -> z.",
+        narrative="**TL;DR:** test.\n## Risk Considerations\n* China export curbs [evidence:1].\n## Trade Plan\n| x |",
         sources_used=["news", "technical"], cache_age_seconds=None,
     )
 

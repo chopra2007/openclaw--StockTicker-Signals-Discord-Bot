@@ -303,8 +303,9 @@ async def test_narrator_synthesize_contradiction_retry_path():
 
     _sections = (
         "\n**TL;DR:** thesis.\n"
-        "**What could go wrong:** risk [evidence:1].\n"
-        "**Risks & mitigants:**\n- foo → bar"
+        "## Risk Considerations\n"
+        "* China export curbs cut revenue [evidence:1].\n"
+        "## Trade Plan\n| x |\n"
     )
 
     async def _call(role, messages, *, max_tokens, temperature, timeout,

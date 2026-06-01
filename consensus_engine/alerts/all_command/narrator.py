@@ -531,11 +531,16 @@ def _build_constraints_block(swing_v2: bool) -> str:
     rows (Swing Horizon, Expected Move, Next Catalyst) and drops the
     literal `(2× ATR)` qualifier in favor of the band-derived label.
 
-    Ship 2 (Narrative Pack v1) adds four required blocks to the output —
-    TL;DR, Bear Case, Variant Perception line, Risks & mitigants — plus the
-    two cross-model-flagged defenses (contradiction acknowledgement,
-    evidence citation per Bear Case sentence). Applied regardless of
+    Ship 2 (Narrative Pack v1) adds required blocks to the output —
+    TL;DR, Variant Perception line, and a single `## Risk Considerations`
+    section — plus the two cross-model-flagged defenses (contradiction
+    acknowledgement, evidence citation per risk bullet). Applied regardless of
     swing_v2_enabled.
+
+    all-risk-section: the former separate Bear Case ("What could go wrong") and
+    "Risks & mitigants" sections were merged into the single
+    `## Risk Considerations` section below (they overlapped, restated the stop
+    price, and read as generic boilerplate).
     """
     trade_plan_rows = _TRADE_PLAN_V2_ROWS if swing_v2 else _TRADE_PLAN_V0_ROWS
     # Commit 17: anti-fabrication clause for the Expected Move row.
@@ -607,43 +612,58 @@ def _build_constraints_block(swing_v2: bool) -> str:
         "if a numbered EXTRACTED item is contradicted by NEWS or YOUTUBE "
         "evidence, surface the disagreement (e.g. 'List item #3 says X "
         "by Q3; NEWS row 2 says X delayed — watch for confirmation').\n"
-        "  3. A `## Risk Considerations` markdown header followed by AT LEAST "
-        "2 bulleted items naming substantive BUSINESS risks — not price-level "
-        "risks. Substantive risks: margin compression (e.g. gaming segment "
-        "underperformance), supply-chain timing (e.g. hyperscaler deploy "
-        "friction, wafer allocation), sector cycle inflection (e.g. AI capex "
-        "deceleration), regulatory headwind, competitive displacement, "
-        "guidance cut. EXPLICITLY REJECTED in this section (do NOT use): "
-        "(a) 'a break below $X invalidates the thesis' — that's a Risks & "
-        "Mitigants line, not a risk; (b) restating the stop-loss price as a "
-        "risk; (c) generic 'volatility spike' or 'sentiment shift' without "
-        "a named driver. Each bullet should be 1 sentence naming the risk "
-        "driver and the mechanism by which it would hurt the trade.\n"
-        "  4. A section titled exactly `**What could go wrong:**` "
-        "followed by 3-4 sentences (Ship 2 M2 Bear Case). Three strict rules "
-        "for this section:\n"
-        "     (a) The Bear Case MUST acknowledge the COMPUTED SIGNAL's "
-        "direction. If our direction is BULLISH, enumerate what would "
-        "INVALIDATE the bullish thesis (e.g. a daily close below $X, a guide "
-        "cut, sector ETF breakdown). Do NOT assert the opposite direction.\n"
-        "     (b) Every Bear Case sentence MUST cite a specific evidence row "
-        "from the EVIDENCE blocks (news_id, sec_id, twitter_id, yt_evidence "
-        "row index, etc.) using an inline `[evidence:N]` marker. If no "
-        "evidence supports a candidate risk, OMIT it — short Bear Cases are "
-        "acceptable when evidence is thin.\n"
-        "     (c) TODO #11/D4: each sentence MUST name a specific number "
-        "(price level, $, %, date, or volume figure) drawn from EVIDENCE or "
-        "COMPUTED SIGNAL. Generic risks like 'macro headwinds' or 'sentiment "
-        "shift' without a paired number are REJECTED. Prefer 3 distinct "
-        "scenarios when evidence supports it; fall back to 2 only when "
-        "EVIDENCE blocks are genuinely thin.\n"
-        "  5. A section titled exactly `**Risks & mitigants:**` "
-        "followed by 2-4 bulleted items in the form `- <risk> → <mitigant>` "
-        "(Ship 2 M6). Each mitigant MUST reference a concrete feature already "
-        "in this trade plan — e.g. `→ Trim half at TP1`, `→ Stop at $178.50`, "
-        "`→ Size down to half-position`. Vague mitigants like 'be careful' "
-        "or 'watch closely' are rejected.\n"
-        "  6. A `## Trade Plan` markdown header followed by a markdown TABLE "
+        "  3. A `## Risk Considerations` markdown header — ONE single risk "
+        "section. This REPLACES the old separate 'What could go wrong' and "
+        "'Risks & mitigants' sections: do NOT emit those headings or any "
+        "variant of them. Write 2-4 bulleted items (`* …`). This section "
+        "answers ONE question for a SEASONED trader: what specific, non-obvious "
+        "risk threatens THIS setup on THIS name in THIS window? Strict rules:\n"
+        "     (a) NO PRICE LEVELS in this section. Never restate the "
+        "stop-loss, buy zone, or any price level here — the trader already sees "
+        "the stop in the Trade Plan, and 'a close below <stop> invalidates the "
+        "thesis' is obvious, not an insight. A bullet that names a price/stop "
+        "level is REJECTED.\n"
+        "     (b) Each bullet = a NAMED driver + a specific number/date/% + an "
+        "inline `[evidence:N]` citation to a real EVIDENCE row (news_id, "
+        "sec_id, twitter_id, yt_evidence index). Draw risks ONLY from the "
+        "buckets below, and ONLY when an EVIDENCE row or COMPUTED SIGNAL field "
+        "supports it — OMIT any bucket you have no evidence for; never pad to "
+        "hit a count:\n"
+        "        - Macro / regulatory / geopolitical: a specific named rule, "
+        "ban, export restriction, or demand shift from a NEWS row, with its "
+        "quantified impact (pattern: `<named action> per [evidence:N] → "
+        "<impact>`). PRIORITY RULE: if ANY NEWS evidence row is tagged "
+        "`[macro_risk]`, your FIRST risk bullet MUST be built from it — "
+        "macro/regulatory/geopolitical risk OUTRANKS positioning, technical, "
+        "and sector bullets because it is the risk a trader cannot see on the "
+        "chart. Paraphrase the headline into a concrete consequence and cite "
+        "the row with `[evidence:N]`.\n"
+        "        - Event / binary: a dated catalyst INSIDE the trade window "
+        "from COMPUTED SIGNAL (earnings_date / next_catalyst_days) plus the "
+        "expected move (expected_move_band), phrased `<event> on <date> (<N> "
+        "days out); expected move ±<X>%`. Write 'expected move', NOT 'options "
+        "imply', unless the band is explicitly options-derived.\n"
+        "        - Positioning / crowding: short interest "
+        "(short_interest_pct / short_days_to_cover from COMPUTED SIGNAL) or an "
+        "'already moved' run (recent_run_pct) — pattern: `short interest "
+        "<X>% of float → squeeze/unwind risk`.\n"
+        "        - Sector / correlation: a peer relative-strength lag "
+        "(peer_strength) or a sector peer's dated event from a NEWS row.\n"
+        "        - Company-specific: a named SEC / insider / options-flow fact "
+        "(a Form-4 NOTABLE sell, a large PUT flow from STRUCTURED DATA) stated "
+        "concretely with its figure.\n"
+        "     (c) Acknowledge the COMPUTED SIGNAL direction: if BULLISH, every "
+        "risk is something that would hurt a LONG — do NOT flip to a bearish "
+        "call.\n"
+        "     (d) BANNED — auto-reject any such bullet: generic macro ('a "
+        "recession could hurt the stock'), 'if they miss earnings the stock "
+        "drops', unanchored 'regulatory changes could impact' / 'competition "
+        "is intensifying' with no named rule/competitor/date, "
+        "'volatility/sentiment shift' with no named driver, and any disclaimer "
+        "('not financial advice'). If evidence is genuinely thin, a SHORT "
+        "2-bullet section is CORRECT — never manufacture generic risk to fill "
+        "space.\n"
+        "  4. A `## Trade Plan` markdown header followed by a markdown TABLE "
         "with columns `Parameter | Level | Rationale`. Rows in this exact "
         "order, populated from COMPUTED SIGNAL:\n"
         f"{trade_plan_rows}"
@@ -657,8 +677,8 @@ def _build_constraints_block(swing_v2: bool) -> str:
         "provenance is not proof. Phrases like 'analysts are calling X', "
         "'[N] channels are bullish', 'YouTube analysts (...) are calling "
         "long', or 'high-conviction analysts ... citing sentiment' are "
-        "REJECTED. Every Catalyst and Bear Case bullet MUST reference a "
-        "specific number, dated event, or price level — state the fact "
+        "REJECTED. Every Catalyst and Risk Considerations bullet MUST reference "
+        "a specific number, dated event, or named driver — state the fact "
         "directly, not who said it.\n"
         "- EXCEPTION: SEC Form 4 insider names ARE permitted and SHOULD be "
         "stated by name and title (e.g. 'CEO Jane Smith bought 10,000 "
@@ -740,6 +760,22 @@ def _build_synthesis_prompt(
             "benchmark_label": _peer.get("benchmark_label"),
             "window_days": _peer.get("window_days"),
         }
+    # all-risk-section (Feature C) — positioning/crowding inputs for the merged
+    # Risk Considerations section. ALL optional: snapshot is None on yfinance
+    # throttle, so guard every field and omit silently when absent (no retry,
+    # no fabrication). short_pct is a FRACTION from yfinance (0.0092) → ×100.
+    _snap = getattr(structured, "snapshot", None)
+    if isinstance(_snap, dict):
+        _short = _snap.get("short_pct")
+        if isinstance(_short, (int, float)):
+            computed_signal["short_interest_pct"] = round(_short * 100, 1)
+        _sdays = _snap.get("short_days")
+        if isinstance(_sdays, (int, float)):
+            computed_signal["short_days_to_cover"] = round(_sdays, 1)
+    if isinstance(sanitized_technical_short, dict):
+        _chg = sanitized_technical_short.get("price_change_pct")
+        if isinstance(_chg, (int, float)):
+            computed_signal["recent_run_pct"] = round(_chg, 1)
     if _swing_v2:
         computed_signal["next_catalyst_days"] = getattr(structured, "next_catalyst_days", None)
         computed_signal["swing_horizon_days"] = getattr(structured, "swing_horizon_days", None)
@@ -937,8 +973,8 @@ async def synthesize_narrative(
     if not raw:
         return "", "fallback_data_only"
 
-    # Ship 2 — if the narrator dropped one of the required sections
-    # (TL;DR / Bear Case / Risks & mitigants), retry once with a hardened
+    # If the narrator dropped one of the required sections
+    # (TL;DR / ## Risk Considerations), retry once with a hardened
     # prompt that lists the missing tokens explicitly. After one retry, we
     # accept whatever comes back and let output_filter handle contradictions.
     if not _qb.has_required_sections(raw):
@@ -960,6 +996,34 @@ async def synthesize_narrative(
         )
         if retried:
             raw = retried
+
+    # all-risk-section (Feature B) — hard gate behind the prompt's "no price
+    # levels in Risk Considerations" rule. Prompt-only bans proved unreliable on
+    # the free-model chain (live NVDA restated the stop 6×), so re-prompt once if
+    # the stop-loss price literal leaks into the merged risk section.
+    _stop_price = getattr(structured, "sl", None)
+    _risk_violations = _qb.risk_section_violations(raw, _stop_price)
+    if _risk_violations:
+        log.warning(
+            "narrator: risk-section violations %s — re-prompting once",
+            _risk_violations,
+        )
+        hardened_risk = list(messages)
+        hardened_risk[-1] = dict(hardened_risk[-1])
+        hardened_risk[-1]["content"] = (
+            hardened_risk[-1].get("content", "")
+            + "\n\nRISK SECTION FIX — your previous draft violated: "
+            + "; ".join(_risk_violations)
+            + ". Re-emit the FULL narrative. In `## Risk Considerations` do NOT "
+              "mention the stop-loss or ANY price level — the trader already "
+              "sees the stop in the Trade Plan. Replace every such line with a "
+              "specific, evidence-cited business / macro / positioning risk."
+        )
+        retried_risk = await _invoke_synthesis(
+            hardened_risk, max(1.0, deadline_seconds * 0.5),
+        )
+        if retried_risk:
+            raw = retried_risk
 
     # Retry-once with hardened prompt if output_filter detects contradiction.
     async def _retry_fn() -> str:

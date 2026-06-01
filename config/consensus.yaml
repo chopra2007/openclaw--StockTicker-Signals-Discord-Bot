@@ -16,7 +16,12 @@ api_keys:
   twitter_auth_token: "$TWITTER_AUTH_TOKEN"
   twitter_ct0: "$TWITTER_CT0"
   twitter_cookie_string: "$TWITTER_COOKIE_STRING"
-  serpapi: "$SERPAPI3_API_KEY"
+  # all-risk-section: was $SERPAPI3_API_KEY but key 3 is exhausted (HTTP 429
+  # "out of searches"); keys 1 and 2 have quota. The get_api_key("serpapi3")
+  # or ("serpapi2") failover never engaged (those aliases aren't mapped and the
+  # env fallback looks for SERPAPI3, not SERPAPI3_API_KEY), so the bot used the
+  # one exhausted key. Repointed to key 1. (Real rotate-on-429 = follow-up.)
+  serpapi: "$SERPAPI_API_KEY"
   exa: "$EXA_AI_API_KEY"
   reddit_client_id: "$REDDIT_CLIENT_ID"
   reddit_client_secret: "$REDDIT_CLIENT_SECRET"
@@ -535,7 +540,7 @@ precision_engine:
     sec_catalyst_exempt: true
   api_keys:
     exa: "$EXA_AI_API_KEY"
-    serpapi: "$SERPAPI3_API_KEY"
+    serpapi: "$SERPAPI_API_KEY"  # all-risk-section: key 3 exhausted; use key 1
     firecrawl: "$FIRECRAWL_API_KEY"
 
 # Database
