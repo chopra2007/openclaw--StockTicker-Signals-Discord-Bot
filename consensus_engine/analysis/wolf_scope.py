@@ -155,3 +155,29 @@ def is_inverse_proxy(identifier: str) -> bool:
     """True if `identifier` is an inverse ETF that unifies into a base thread, so its
     written direction must be flipped to the base instrument's (SOXS bull = SMH bear)."""
     return (identifier or "").strip().upper() in _INVERSE_PROXY
+
+
+# FORWARD map (Phase-3 outcomes): a canonical scope_key -> a liquid, yfinance-quotable
+# symbol whose daily close proxies the thesis. The inverse of resolve_scope's INTO-canonical
+# maps. Sector/stock scope_keys are already real symbols (XLE/SMH/IGV/NVDA) -> pass through.
+_SCOPE_PROXY = {
+    "SPX": "SPY", "NDX": "QQQ", "RUT": "IWM", "DJIA": "DIA", "VIX": "^VIX",
+    "OIL": "USO", "GOLD": "GLD", "BONDS": "TLT", "YIELDS": "^TNX", "DXY": "UUP", "BTC": "BTC-USD",
+}
+
+
+def proxy_symbol(scope_type: str, scope_key: str) -> str | None:
+    """Return a liquid tradeable symbol for a thesis scope, or None if unmapped.
+
+    None means the outcome scorer leaves the thesis 'inconclusive' (never a false
+    win/loss). Market/asset keys map via _SCOPE_PROXY; sector/stock keys are already
+    real symbols and pass through.
+    """
+    key = (scope_key or "").strip().upper()
+    if not key:
+        return None
+    if scope_type in ("market", "asset"):
+        return _SCOPE_PROXY.get(key)
+    if scope_type in ("sector", "stock"):
+        return key
+    return None

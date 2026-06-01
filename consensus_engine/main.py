@@ -791,10 +791,12 @@ async def run_all(stop_event: asyncio.Event):
     They are separate top-level tasks (NOT inside run_live's gather) so the Wolf
     lane survives the weekend pause and a crash on either side is isolated.
     """
+    from consensus_engine.alerts.wolf_digest import wolf_digest_loop
     await asyncio.gather(
         run_live(stop_event),
         wolf_news_supervisor(stop_event),
         wolf_confluence_loop(stop_event),
+        wolf_digest_loop(stop_event),
     )
 
 

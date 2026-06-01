@@ -728,6 +728,15 @@ wolf:
     interval_sec: 900                   # re-check active theses every 15 min (cheap, no LLM)
     window_days: 21                     # "last 2-3 weeks" — agreement only counts recent calls
     min_dominance: 0.6                  # a source's net vote needs >=60% one-sided rows, else it's "mixed"
+  digests:                              # Scheduled #news briefings (TODO #20, phase 3)
+    enabled: false                      # SHIP OFF — flip to true only after sign-off
+    narrate: false                      # optional <=2-sentence LLM takeaway; OFF (templated render is the product)
+    midday_window_pt: ["12:00", "13:05"]    # post ~1 min after Wolf's midday email lands
+    nightly_window_pt: ["19:00", "02:00"]   # crosses midnight — the long evening "Wrap"
+    sunday_recap_pt: "10:00"            # clock-based weekly recap (Sun >= 10am PT)
+    grace_minutes: 90                   # don't fire on a trigger email older than this (stale-reboot guard)
+    outcome_lookback_days: 7            # Sunday recap scores theses actionable within this window
+    max_theses_per_field: 8            # cap embed field length
 
 # Command handler concurrency limits (plan section 2G).
 commands:

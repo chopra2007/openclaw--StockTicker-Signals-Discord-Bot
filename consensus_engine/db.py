@@ -3038,6 +3038,46 @@ async def get_call_outcomes(since_epoch: float = 0.0) -> list[dict]:
     return [dict(r) for r in await cur.fetchall()]
 
 
+async def get_wolf_alert(dedupe_key: str) -> dict | None:
+    """Return the wolf_news_alerts row for a dedupe_key, or None. Used for the
+    persistent digest-already-fired check (survives restart)."""
+    conn = await get_db()
+    cur = await conn.execute(
+        "SELECT * FROM wolf_news_alerts WHERE dedupe_key = ?", (dedupe_key,)
+    )
+    row = await cur.fetchone()
+    return dict(row) if row else None
+
+
+async def count_wolf_emails_received_between(
+    lo: float, hi: float, min_received: float = 0.0
+) -> int:
+    """Count Wolf emails whose received_at (Gmail internalDate) falls in [lo, hi] and is
+    >= min_received. Legacy rows (received_at NULL) and old backfill rows are excluded —
+    so they can never trigger a 'fresh' digest. This is the digest scheduler's trigger."""
+    conn = await get_db()
+    cur = await conn.execute(
+        "SELECT COUNT(*) AS c FROM wolf_emails_processed "
+        "WHERE received_at IS NOT NULL AND received_at >= ? AND received_at <= ? "
+        "AND received_at >= ?",
+        (lo, hi, min_received),
+    )
+    row = await cur.fetchone()
+    return row["c"] if row else 0
+
+
+async def get_invalidated_theses_since(since_epoch: float) -> list[dict]:
+    """Return theses invalidated at/after `since_epoch` (for the Sunday recap, so a
+    call Wolf abandoned this week is reported as 'invalidated', not silently dropped)."""
+    conn = await get_db()
+    cur = await conn.execute(
+        "SELECT * FROM macro_theses WHERE status = 'invalidated' AND invalidated_at >= ? "
+        "ORDER BY invalidated_at DESC",
+        (since_epoch,),
+    )
+    return [dict(r) for r in await cur.fetchall()]
+
+
 async def create_pending_alert(
     dedupe_key: str, thesis_id: int, tier: str, payload_json: str, created_at: float
 ) -> int | None:

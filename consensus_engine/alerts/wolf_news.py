@@ -366,6 +366,107 @@ def format_confluence_alert(thesis_row: dict, confl_row: dict | None, event: dic
     }
 
 
+# ----------------------------------------------------------------- Phase-3 digests
+_DIGEST_TITLE = {
+    "midday": "☀️ Wolf Midday Brief",
+    "nightly": "🌙 Wolf Nightly Wrap",
+    "sunday": "🗓️ Wolf Weekly Recap",
+    "sunday-addon": "🗓️ Wolf Weekly Recap — update",
+}
+_DIGEST_COLOR = 0x5C7CFA
+
+
+def _digest_thesis_line(t: dict) -> str:
+    emoji = _DIR_EMOJI.get(t.get("direction"), "⚪")
+    sk = t.get("scope_key", "")
+    name = _SCOPE_DISPLAY.get(sk, "")
+    label = _STAGE_LABEL.get(t.get("stage"), t.get("stage", ""))
+    return f"{emoji} {sk}" + (f" ({name})" if name else "") + (f" · {label}" if label else "")
+
+
+def _scoreboard_line(s: dict) -> str:
+    emoji = _DIR_EMOJI.get(s.get("direction"), "⚪")
+    crown = "🚨 " if s.get("combined_tier") == "critical" else ""
+    return (f"{crown}{emoji} {s.get('scope_key', '')}: {s.get('agree', 0)} agree / "
+            f"{s.get('disagree', 0)} disagree ({s.get('combined_tier', '')})")
+
+
+def _outcome_line(o: dict) -> str:
+    """Humble wording only — NEVER 'played out' / 'nailed it' / 'win' (Codex BLOCKER-2)."""
+    sk = o.get("scope_key", "")
+    sym = o.get("proxy_symbol") or sk
+    pct = o.get("pct_move")
+    st = o.get("state")
+    if st == "moved_with":
+        return f"🟢 {sk}: since Wolf flagged it actionable, {sym} moved +{abs(pct):.1f}% in his direction"
+    if st == "moved_against":
+        return f"🔴 {sk}: {sym} moved {abs(pct):.1f}% against his call"
+    if st == "flat":
+        return f"⚪ {sk}: roughly flat since he flagged it ({sym} {pct:+.1f}%)"
+    if st == "invalidated":
+        return f"✖️ {sk}: Wolf has since dropped this call"
+    return f"… {sk}: not enough data to judge yet"
+
+
+def format_digest(variant: str, payload: dict) -> dict:
+    """Build the #news digest embed from a gathered payload (see wolf_digest.gather_digest).
+    Empty buckets are dropped; beneficiaries are omitted until phase-4."""
+    title = _DIGEST_TITLE.get(variant, "Wolf Brief")
+    fields: list[dict] = []
+
+    def _bucket(name, items, render):
+        if items:
+            val = "\n".join(render(i) for i in items)
+            fields.append({"name": name, "value": val[:1024], "inline": False})
+
+    _bucket("🎯 Acting now", payload.get("acting"), _digest_thesis_line)
+    _bucket("⏳ Imminent", payload.get("imminent"), _digest_thesis_line)
+    _bucket("👀 Watchlist", payload.get("watchlist"), _digest_thesis_line)
+    _bucket("🤝 Sources agree", payload.get("scoreboard"), _scoreboard_line)
+    if variant in ("sunday", "sunday-addon"):
+        outs = payload.get("outcomes") or []
+        scored = [o for o in outs if o.get("state") != "inconclusive"] or outs
+        _bucket("📊 How his calls have moved", scored, _outcome_line)
+
+    desc_lines = [x for x in (payload.get("lean"), payload.get("regime_clause")) if x]
+    embed = {
+        "title": title[:256],
+        "color": _DIGEST_COLOR,
+        "fields": fields,
+        "footer": {"text": f"Wolf macro-brain · {variant} · {payload.get('generated_at_pt', '')}"[:2048]},
+    }
+    if desc_lines:
+        embed["description"] = "\n".join(desc_lines)[:4096]
+    return embed
+
+
+async def _post_digest_event(event: dict, now: float) -> bool:
+    """Post a scheduled digest through the durable outbox (reuses dedupe + dry_run).
+    A digest carries its own dedupe_key (digest|<variant>|<PT-date>) and is not tied
+    to a thesis row, so it skips the thesis-centric path in post_event."""
+    dedupe_key = event["dedupe_key"]
+    payload = event.get("payload", {})
+    stored = {"event": {"kind": "digest", "variant": event.get("variant"), "dedupe_key": dedupe_key},
+              "digest": payload}
+    alert_id = await db.create_pending_alert(dedupe_key, None, "surface", json.dumps(stored), now)
+    if alert_id is None:
+        log.debug("wolf_news: digest already posted for %s, skipping", dedupe_key)
+        return False
+    embed = format_digest(event.get("variant", ""), payload)
+    dry_run = cfg.get("wolf.dry_run", True)
+    if dry_run:
+        log.info("wolf_news[DRY-RUN] would post digest %s:\n%s",
+                 dedupe_key, json.dumps(embed, ensure_ascii=False))
+        await db.mark_alert_posted(alert_id, None, now)
+        return True
+    msg_id = await _send_news(embed=embed)
+    if msg_id:
+        await db.mark_alert_posted(alert_id, msg_id, now)
+        return True
+    await db.mark_alert_failed(alert_id)
+    return False
+
+
 async def _send_news(content: str | None = None, embed: dict | None = None,
                      ping_user_id: str | None = None) -> str | None:
     """POST to #news (an embed and/or text). If ping_user_id is set, prefix an @-mention
@@ -415,6 +516,8 @@ async def post_event(event: dict) -> bool:
     rendered message but does NOT hit Discord — used for the pre-sign-off gate.
     """
     now = time.time()
+    if event.get("kind") == "digest":
+        return await _post_digest_event(event, now)
     thesis_id = event["thesis_id"]
     # Phase-2: combined tier (max of phase-1 stage tier and the stored confluence tier).
     confl_row = await db.get_confluence_check(thesis_id) if thesis_id is not None else None
