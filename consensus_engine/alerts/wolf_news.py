@@ -39,8 +39,11 @@ _STAGE_LABEL = {
 
 
 def tier_for(event: dict) -> str:
-    """Phase-1 tier from the stage. 'acting' is the highest Wolf-only signal."""
-    return "high" if event.get("stage") == "acting" else "surface"
+    """Phase-1 tier. HIGH on the action: stage=='acting' OR position started/adding.
+    Everything else (build steps) is surface. (critical/@-ping is phase-2.)"""
+    if event.get("stage") == "acting" or event.get("intent") in ("started", "adding"):
+        return "high"
+    return "surface"
 
 
 def _can_ping(now: float) -> bool:
@@ -74,6 +77,162 @@ def format_message(event: dict, levels: list[dict]) -> str:
             for l in levels[:5]
         )
         lines.append(f"Key levels: {lvl_txt}")
+    snippet = event.get("snippet", "")
+    if snippet:
+        lines.append(f"_{snippet}_")
+    return "\n".join(lines)
+
+
+_INTENT_LABEL = {
+    "none": None, "watching": "watching it", "looking": "looking for an entry",
+    "started": "started a position", "adding": "adding to the position",
+}
+_TRAJ_LABEL = {
+    "building": "building", "stable": "holding", "cooling": "cooling", "turned": "turned",
+}
+_TF_LADDER = ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "daily", "3d", "weekly"]
+_TF_RANK = {t: i for i, t in enumerate(_TF_LADDER)}
+
+
+def _fmt_date(ts) -> str:
+    """Mon DD from a unix ts (UTC), e.g. 'May 22'. Falls back to '' on bad input."""
+    try:
+        return time.strftime("%b %d", time.gmtime(float(ts)))
+    except Exception:
+        return ""
+
+
+def _tf_range_label(tf: list[str]) -> str:
+    """Compact range from a normalized ladder set, e.g. ['1m','3m','5m','15m'] -> '1M–15M'."""
+    rungs = sorted({t for t in (tf or []) if t in _TF_RANK}, key=lambda t: _TF_RANK[t])
+    if not rungs:
+        return ""
+    if len(rungs) == 1:
+        return rungs[0].upper()
+    return f"{rungs[0].upper()}–{rungs[-1].upper()}"
+
+
+def _entry_change_label(entry: dict, prev: dict | None) -> str:
+    """What-changed line from OUR enum labels only (never Wolf's raw words)."""
+    frm = entry.get("from")
+    to = entry.get("to")
+    if frm is None:
+        return "thesis forms" if to == "forming" else f"thesis opens at {to}"
+    parts = []
+    if frm != to:
+        if _TF_RANK and to == "acting":
+            parts.append("starts the position" if entry.get("intent") in ("started", "adding")
+                         else "moves to acting")
+        else:
+            parts.append(f"{frm} → {to}")
+    # timeframe widening vs the prior entry
+    prev_tf = set((prev or {}).get("tf", []) or [])
+    this_tf = set(entry.get("tf", []) or [])
+    if this_tf - prev_tf and len(this_tf) > len(prev_tf):
+        rng = _tf_range_label(sorted(this_tf, key=lambda t: _TF_RANK.get(t, 99)))
+        if rng:
+            parts.append(f"timeframes widen to {rng}")
+    # intent step
+    prev_intent = (prev or {}).get("intent", "none")
+    this_intent = entry.get("intent", "none")
+    intent_lbl = _INTENT_LABEL.get(this_intent)
+    if this_intent != prev_intent and intent_lbl:
+        parts.append(intent_lbl)
+    if not parts:
+        parts.append("reaffirmed")
+    return ", ".join(parts)
+
+
+def _build_story_so_far(evlog: list[dict]) -> list[str]:
+    """Dated • <Mon DD> · <what-changed> lines from OUR enum labels (last ~5)."""
+    lines = []
+    prev = None
+    for entry in evlog:
+        date = _fmt_date(entry.get("ts"))
+        change = _entry_change_label(entry, prev)
+        lines.append(f"• {date} · {change}")
+        prev = entry
+    return lines[-5:]
+
+
+async def build_backdrop(thesis_row: dict) -> str | None:
+    """R1: ONE labeled backdrop line from the most recent ACTIVE market-scope
+    bear/diverging thread — read-only, never merged into this thread's log. Omitted
+    if no such regime is active (never show a stale regime). Never for a market thread."""
+    if thesis_row.get("scope_type") == "market":
+        return None
+    try:
+        market_threads = await db.get_active_theses("market")
+    except Exception:
+        return None
+    for mt in market_threads:
+        if mt.get("direction") == "bear" and mt.get("stage") in ("diverging", "imminent", "acting"):
+            stage_lbl = _STAGE_LABEL.get(mt["stage"], mt["stage"])
+            return f"market regime: {mt['scope_key']} bear ({stage_lbl})"
+    return None
+
+
+def format_conviction_update(event: dict, thesis_row: dict, backdrop: str | None = None) -> str:
+    """Templated #news body for a conviction_update — validated fields only (R4/§6).
+
+    Built from our own enum labels + capped snippet/phrase + validated levels. The
+    raw email body never appears; only the ≤160-char snippet and ≤120-char phrase do.
+    Discord @-mentions are inert (the send path sets allowed_mentions {'parse': []}).
+    """
+    direction = event["direction"]
+    emoji = _DIR_EMOJI.get(direction, "⚪")
+    scope_key = event["scope_key"]
+    scope_type = event["scope_type"]
+    stage_lbl = _STAGE_LABEL.get(event["stage"], event["stage"])
+    tier = tier_for(event)
+
+    head = "🚨 Wolf STARTS the trade" if tier == "high" else "📈 Conviction building"
+    lines = [
+        f"{emoji} **{scope_key}** ({scope_type}) — Wolf **{direction.upper()}**",
+        f"{head}: {stage_lbl}",
+    ]
+    if backdrop:
+        lines.append(f"_Backdrop (market regime):_ {backdrop}")
+
+    # Story so far — from this thread's OWN evidence_log only (R1), our enum labels.
+    try:
+        evlog = json.loads(thesis_row.get("evidence_log_json") or "[]")
+    except Exception:
+        evlog = []
+    if evlog:
+        lines.append("**Story so far:**")
+        lines.extend(_build_story_so_far(evlog))
+
+    # Where he is now.
+    tf_range = _tf_range_label(event.get("tf", []))
+    rungs = [t for t in (event.get("tf") or []) if t in _TF_RANK]
+    now_bits = [f"stage **{event['stage']}**", f"conviction {event.get('conv', '?')}/100",
+                _TRAJ_LABEL.get(event.get("traj", ""), event.get("traj", ""))]
+    intent_lbl = _INTENT_LABEL.get(event.get("intent", "none"))
+    if intent_lbl:
+        now_bits.append(intent_lbl)
+    lines.append("**Where he is now:** " + " · ".join(b for b in now_bits if b))
+    if tf_range:
+        detail = "·".join(r.upper() for r in sorted(rungs, key=lambda t: _TF_RANK[t]))
+        lines.append(f"Timeframes: {tf_range} ({detail})")
+
+    # Levels / trigger (validated numbers from the thesis row).
+    try:
+        levels = json.loads(thesis_row.get("key_levels_json") or "[]")
+    except Exception:
+        levels = []
+    if levels:
+        lvl_txt = ", ".join(
+            f"{l['price']:g}" + (f" ({l['role']})" if l.get("role") else "")
+            for l in levels[:5] if "price" in l
+        )
+        if lvl_txt:
+            lines.append(f"Key levels: {lvl_txt}")
+
+    # His reasoning — validated phrase (italic) and/or capped snippet.
+    phrase = event.get("phrase")
+    if phrase:
+        lines.append(f"_“{phrase}”_")
     snippet = event.get("snippet", "")
     if snippet:
         lines.append(f"_{snippet}_")
@@ -127,11 +286,24 @@ async def post_event(event: dict) -> bool:
     now = time.time()
     tier = tier_for(event)
     thesis_id = event["thesis_id"]
-    dedupe_key = f"{thesis_id}|{event['stage']}"
 
-    # fetch the thesis levels for rendering
-    levels = []
+    # Dedupe bucket (§4): a conviction_update rides a (stage,intent,tf_width) bucket so
+    # an identical snapshot can't double-post, but a genuine escalation (new bucket)
+    # gets through. A 'new' event still dedupes on stage.
+    if event["kind"] == "conviction_update":
+        rungs = [t for t in (event.get("tf") or []) if t in _TF_RANK]
+        tf_width = len(set(rungs))
+        # include the highest rung so a same-width set that gains a LONGER timeframe
+        # (e.g. {5m,15m} -> {5m,daily}) is a distinct bucket and still posts.
+        max_rung = max(rungs, key=lambda t: _TF_RANK[t]) if rungs else "none"
+        bucket = f"{event['stage']}:{event.get('intent', 'none')}:{tf_width}:{max_rung}"
+        dedupe_key = f"{thesis_id}|conv|{bucket}"
+    else:
+        dedupe_key = f"{thesis_id}|{event['stage']}"
+
+    # fetch the thesis row for rendering (levels + evidence_log + backdrop)
     thesis = await db.get_active_thesis(event["scope_type"], event["scope_key"], event["direction"])
+    levels = []
     if thesis:
         try:
             levels = json.loads(thesis["key_levels_json"]) or []
@@ -144,7 +316,11 @@ async def post_event(event: dict) -> bool:
         log.debug("wolf_news: already alerted for %s, skipping", dedupe_key)
         return False
 
-    content = format_message(event, levels)
+    if event["kind"] == "conviction_update" and thesis:
+        backdrop = await build_backdrop(thesis)
+        content = format_conviction_update(event, thesis, backdrop=backdrop)
+    else:
+        content = format_message(event, levels)
 
     # critical @-ping is phase-2 only (needs confluence corroborator) AND opt-in
     ping_user = None

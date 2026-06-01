@@ -1,15 +1,17 @@
 """Stateful thesis tracker for the Wolf macro-brain (TODO #20, phase 1).
 
 Ingests a validated WolfExtraction and maintains `macro_theses`:
-  - match an existing active thesis (same scope + direction) or create a new one
+  - collapse same-thread sub-theses in ONE email into one merged thesis (R2),
+  - match an existing active thesis (same scope + direction) or create a new one,
   - advance the stage (forming -> diverging -> imminent -> acting), with DOWNGRADE
-    allowed and an explicit "Wolf dropped it" -> invalidate path
-  - an opposite-direction call on the same instrument invalidates the old one (flip)
-  - level-less theses are capped to the 'surface' tier (no @-ping / no confluence)
-  - sprawl caps per scope_type: when full, evict the oldest least-recently-updated
+    allowed and an explicit "Wolf dropped it" -> invalidate path,
+  - an opposite-direction call on the same instrument invalidates the old one (flip),
+  - roll a conviction history onto evidence_log_json (six derived keys, no schema bump),
+  - emit a `conviction_update` event ONLY on a material STRUCTURAL escalation (R4/R5);
+    first sighting emits `new`; routine reaffirmation / downgrade is QUIET (no event).
 
-Emits stage-change / new-thesis events for the alert layer. NO key-level-break
-price monitoring in phase 1 (deferred — no Wolf price-watcher yet).
+The event vocabulary is `new` | `conviction_update` (the bare `stage_change` is gone
+for tracked threads — R4). NO key-level-break price monitoring in phase 1.
 """
 from __future__ import annotations
 
@@ -18,21 +20,39 @@ import logging
 import time
 
 from consensus_engine import config as cfg, db
+from consensus_engine.analysis import wolf_conviction as conv
 
 log = logging.getLogger(__name__)
 
 _STAGE_ORDER = ["forming", "diverging", "imminent", "acting"]
+_INTENT_ORDER = ["none", "watching", "looking", "started", "adding"]
 
 # Per-scope active-thesis sprawl caps.
 _DEFAULT_CAPS = {"market": 10, "sector": 20, "stock": 30, "asset": 12}
+
+_DAY_SECONDS = 86400.0
 
 
 def _stage_rank(stage: str) -> int:
     return _STAGE_ORDER.index(stage) if stage in _STAGE_ORDER else 0
 
 
+def _intent_rank(intent: str) -> int:
+    return _INTENT_ORDER.index(intent) if intent in _INTENT_ORDER else 0
+
+
 def _caps() -> dict:
     return cfg.get("wolf.sprawl_caps", _DEFAULT_CAPS) or _DEFAULT_CAPS
+
+
+def _window_days() -> int:
+    return int(cfg.get("wolf.conviction.window_days", 10) or 10)
+
+
+def _traj_threshold() -> int:
+    """Config-tunable score-delta threshold for the 'stable' band (absent a structural
+    change). Wired from wolf.conviction.trajectory_threshold."""
+    return int(cfg.get("wolf.conviction.trajectory_threshold", 8) or 8)
 
 
 async def _enforce_sprawl_cap(scope_type: str, now: float) -> None:
@@ -62,26 +82,97 @@ def _merge_levels(existing_json: str, new_levels: list[dict]) -> tuple[str, int]
     return json.dumps(existing), (1 if existing else 0)
 
 
+def _collapse_theses(theses: list[dict]) -> list[dict]:
+    """R2: collapse same-thread sub-theses (same scope_type/scope_key/direction) into
+    ONE merged thesis so one email = at most one evidence entry per thread.
+
+    stage = MAX rank; intent = MAX rank; timeframes = UNION; levels = merged+deduped;
+    snippet/conviction_phrase = from the MAX-stage sub-thesis.
+    """
+    groups: dict[tuple, list[dict]] = {}
+    order: list[tuple] = []
+    for th in theses:
+        key = (th["scope_type"], th["scope_key"], th["direction"])
+        if key not in groups:
+            groups[key] = []
+            order.append(key)
+        groups[key].append(th)
+
+    merged: list[dict] = []
+    for key in order:
+        group = groups[key]
+        # the MAX-stage sub-thesis (ties → first) provides snippet/phrase
+        top = max(group, key=lambda t: _stage_rank(t.get("stage", "forming")))
+        best_stage = max(_stage_rank(t.get("stage", "forming")) for t in group)
+        best_intent = max(_intent_rank(t.get("position_intent", "none")) for t in group)
+        tf_raw: list[str] = []
+        chart_tf_raw: list[str] = []
+        for t in group:
+            tf_raw.extend(t.get("timeframes", []) or [])
+            chart_tf_raw.extend(t.get("chart_timeframes", []) or [])
+        levels: list[dict] = []
+        have: set[float] = set()
+        for t in group:
+            for lv in t.get("levels", []) or []:
+                try:
+                    p = round(float(lv["price"]), 2)
+                except (KeyError, TypeError, ValueError):
+                    continue
+                if p not in have:
+                    levels.append(lv)
+                    have.add(p)
+        merged.append({
+            "scope_type": key[0],
+            "scope_key": key[1],
+            "direction": key[2],
+            "stage": _STAGE_ORDER[best_stage],
+            "position_intent": _INTENT_ORDER[best_intent],
+            "timeframes": tf_raw,
+            "chart_timeframes": chart_tf_raw,
+            "levels": levels,
+            "snippet": top.get("snippet", ""),
+            "conviction_phrase": top.get("conviction_phrase"),
+        })
+    return merged
+
+
+def _distinct_day_count(evlog: list[dict], now: float, window_days: int) -> int:
+    """Distinct calendar-ish days (by floor(ts/86400)) with an entry in the trailing
+    window, INCLUDING the current entry's day (R5: mention frequency = distinct days)."""
+    cutoff = now - window_days * _DAY_SECONDS
+    days = {int(e["ts"] // _DAY_SECONDS) for e in evlog if e.get("ts", 0) >= cutoff}
+    days.add(int(now // _DAY_SECONDS))
+    return len(days)
+
+
 async def ingest(extraction: dict) -> list[dict]:
     """Ingest one WolfExtraction. Returns a list of events for the alert layer:
 
-        {"kind": "new"|"stage_change", "thesis_id", "scope_type", "scope_key",
-         "direction", "old_stage"|None, "stage", "has_levels", "snippet"}
+        {"kind": "new"|"conviction_update", "thesis_id", "scope_type", "scope_key",
+         "direction", "old_stage"|None, "stage", "has_levels", "snippet",
+         "tf", "intent", "conv", "traj", "phrase"}
     """
     now = float(extraction.get("ts") or time.time())
+    subject = str(extraction.get("subject") or "")[:120]
     events: list[dict] = []
 
-    for th in extraction.get("theses", []):
+    merged_theses = _collapse_theses(extraction.get("theses", []))
+
+    for th in merged_theses:
         scope_type = th["scope_type"]
         scope_key = th["scope_key"]
         direction = th["direction"]
         stage = th["stage"]
+        intent = th.get("position_intent", "none")
         new_levels = th.get("levels", [])
         snippet = th.get("snippet", "")
+        phrase = th.get("conviction_phrase")
+        tf = conv.normalize_timeframes(th.get("timeframes", []), th.get("chart_timeframes", []))
 
         # 1. Opposite-direction active thesis on the same instrument => flip (invalidate old).
         opposite = "bear" if direction == "bull" else "bull"
         opp = await db.get_active_thesis(scope_type, scope_key, opposite)
+        flipped = opp is not None
         if opp:
             await db.invalidate_thesis(opp["id"], now)
             log.info("wolf_theses: flip — invalidated %s %s %s (#%d), now %s",
@@ -91,31 +182,65 @@ async def ingest(extraction: dict) -> list[dict]:
 
         if existing:
             old_stage = existing["stage"]
-            # Allow forward AND downgrade; pick the incoming stage (Wolf's latest read).
-            new_stage = stage
+            new_stage = stage  # allow forward AND downgrade (Wolf's latest read)
             levels_json, has_levels = _merge_levels(existing["key_levels_json"], new_levels)
-            # append evidence
+
             try:
                 evlog = json.loads(existing["evidence_log_json"]) if existing["evidence_log_json"] else []
             except Exception:
                 evlog = []
-            evlog.append({"ts": now, "from": old_stage, "to": new_stage, "snippet": snippet})
+
+            prior = evlog[-1] if evlog else {}
+            prior_tf = prior.get("tf", []) or []
+            prior_intent = prior.get("intent", "none")
+            prior_convs = [e.get("conv", 0) for e in evlog if isinstance(e.get("conv"), int)]
+
+            # structural deltas (R5) — never score/cadence
+            stage_up = _stage_rank(new_stage) > _stage_rank(old_stage)
+            stage_down = _stage_rank(new_stage) < _stage_rank(old_stage)
+            tf_widened = conv.tf_widened(prior_tf, tf)
+            intent_up = _intent_rank(intent) > _intent_rank(prior_intent)
+            intent_down = _intent_rank(intent) < _intent_rank(prior_intent)
+
+            day_count = _distinct_day_count(evlog, now, _window_days())
+            score = conv.conviction_score(new_stage, tf, intent, day_count, json.loads(levels_json))
+            traj = conv.trajectory(score, prior_convs, stage_up, stage_down,
+                                   intent_up, intent_down, flipped,
+                                   threshold=_traj_threshold())
+
+            evlog.append({
+                "ts": now, "from": old_stage, "to": new_stage, "snippet": snippet,
+                "subject": subject, "tf": tf, "conv": score, "traj": traj,
+                "intent": intent, "phrase": phrase,
+            })
             evlog = evlog[-20:]  # cap history
             await db.update_thesis(existing["id"], new_stage, levels_json, has_levels,
                                    json.dumps(evlog), now)
-            if new_stage != old_stage:
+
+            material = conv.is_material_escalation(stage_up, stage_down, tf_widened,
+                                                   intent_up, flipped)
+            if material:
                 events.append({
-                    "kind": "stage_change", "thesis_id": existing["id"],
+                    "kind": "conviction_update", "thesis_id": existing["id"],
                     "scope_type": scope_type, "scope_key": scope_key, "direction": direction,
                     "old_stage": old_stage, "stage": new_stage,
                     "has_levels": has_levels, "snippet": snippet,
+                    "tf": tf, "intent": intent, "conv": score, "traj": traj, "phrase": phrase,
                 })
+            # else QUIET — evidence appended, no post.
         else:
             # 2. New thesis — enforce sprawl cap first.
             await _enforce_sprawl_cap(scope_type, now)
             levels_json = json.dumps(new_levels)
             has_levels = 1 if new_levels else 0
-            evlog = json.dumps([{"ts": now, "from": None, "to": stage, "snippet": snippet}])
+            day_count = 1
+            score = conv.conviction_score(stage, tf, intent, day_count, new_levels)
+            traj = conv.trajectory(score, [], False, False, False, False, False)  # first → building
+            evlog = json.dumps([{
+                "ts": now, "from": None, "to": stage, "snippet": snippet,
+                "subject": subject, "tf": tf, "conv": score, "traj": traj,
+                "intent": intent, "phrase": phrase,
+            }])
             tid = await db.insert_thesis(
                 scope_type, scope_key, direction, stage, levels_json,
                 None, has_levels, evlog, now,
@@ -125,6 +250,7 @@ async def ingest(extraction: dict) -> list[dict]:
                 "scope_type": scope_type, "scope_key": scope_key, "direction": direction,
                 "old_stage": None, "stage": stage,
                 "has_levels": has_levels, "snippet": snippet,
+                "tf": tf, "intent": intent, "conv": score, "traj": traj, "phrase": phrase,
             })
 
     return events

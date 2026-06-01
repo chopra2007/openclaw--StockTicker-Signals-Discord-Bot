@@ -12,6 +12,7 @@ can reach the thesis store or a Discord message.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -21,13 +22,21 @@ from bs4 import BeautifulSoup
 from consensus_engine import config as cfg
 from consensus_engine.llm_client import call_with_fallback
 from consensus_engine.analysis import wolf_vision
-from consensus_engine.analysis.wolf_scope import resolve_scope
+from consensus_engine.analysis.wolf_scope import resolve_scope, is_inverse_proxy
 
 log = logging.getLogger(__name__)
 
 _VALID_DIRECTIONS = {"bull", "bear", "neutral"}
 _VALID_STAGES = {"forming", "diverging", "imminent", "acting"}
 _TICKER_RE = re.compile(r"^[A-Z\^][A-Z0-9.\-=&]{0,11}$")
+
+# Generic style/factor/observation words the LLM sometimes emits as an "identifier"
+# (e.g. "Growth was down modestly"). Not instruments Wolf takes a position in — drop
+# them so an observation never becomes a tracked thesis / a #news alert.
+_NON_INSTRUMENT = {
+    "GROWTH", "VALUE", "MOMENTUM", "QUALITY", "BREADTH", "LEADERSHIP",
+    "DEFENSIVES", "CYCLICALS", "MEGACAP", "MEGACAPS", "RISK",
+}
 
 # Chart-host filter: real Wolf charts are WordPress media uploads on the CDN.
 _CHART_HOST_HINT = "wolfonwallstreet-trade.com"
@@ -50,9 +59,21 @@ _EXTRACTION_USER_TMPL = (
     '  - "direction": one of bull | bear | neutral\n'
     '  - "stage": one of forming (a top/bottom may be forming, long lead) | diverging '
     "(negative/positive divergences building) | imminent (close, near-term catalyst) | "
-    "acting (the author has TAKEN or is taking a position — highest signal)\n"
+    "acting (the author EXPLICITLY states he personally entered or holds a trade in THIS "
+    "instrument — e.g. 'I'm starting a short', 'I added'; NOT a strong opinion, a forecast, "
+    "or a hypothetical)\n"
     '  - "levels": array of {"price": number, "role": "support|resistance|target"} the author cites for it (may be empty)\n'
     '  - "snippet": a <=160 char quote from the text justifying this thesis\n'
+    '  - "timeframes": array of the raw chart timeframe strings the author cites for THIS instrument '
+    '(e.g. "<1M>", "<5M>", "<30-minute>", "<3D>", "<daily>"); list them verbatim, do not normalize; [] if none\n'
+    '  - "position_intent": one of none (just analysis) | watching (on the radar) | '
+    'looking (waiting for attractive risk/reward) | started (enough to start a position) | adding (room to add). '
+    "Return none unless the author uses explicit personal-position language; never infer a position from a directional "
+    "opinion alone. Hypothetical/conditional wording (e.g. '<if I weren't already long I'd look at it>') is NOT a position "
+    "— use watching/looking. Use started/adding ONLY when the author says he actually entered or added to a real trade in "
+    "THIS instrument\n"
+    '  - "conviction_phrase": a <=120 char VERBATIM quote of how strongly the author holds THIS view '
+    '(e.g. the author\'s own words like "<my strongest conviction this week>"), or null\n'
     "Rules: only include instruments with a real directional view (skip pure mentions). "
     "For rates/yields: 'rates higher' => identifier 'yields' direction bull; 'bonds' move opposite to yields. "
     "Output JSON: {\"regime\": \"<one line on overall market regime or null>\", "
@@ -114,6 +135,12 @@ def _coerce_thesis(raw: dict) -> dict | None:
     if direction == "neutral":
         return None  # neutral theses are not tracked as calls
 
+    # Inverse ETF (e.g. SOXS) unifies into its base thread (SMH); its written direction is
+    # the opposite of the base, so flip it: SOXS 'bull' (positive divergence) = semis BEAR.
+    # This makes Wolf's inverse-ETF evidence REINFORCE his short instead of cancelling it.
+    if is_inverse_proxy(identifier):
+        direction = "bear" if direction == "bull" else "bull"
+
     stage = str(raw.get("stage", "")).lower().strip()
     if stage not in _VALID_STAGES:
         stage = "forming"
@@ -121,6 +148,8 @@ def _coerce_thesis(raw: dict) -> dict | None:
     scope_type, scope_key = resolve_scope(identifier)
     if not scope_key or not _TICKER_RE.match(scope_key):
         return None  # canonical key must be a sane symbol
+    if scope_type == "stock" and scope_key in _NON_INSTRUMENT:
+        return None  # generic style/observation word, not a tradeable instrument
 
     levels = []
     for lv in (raw.get("levels") or []):
@@ -138,6 +167,28 @@ def _coerce_thesis(raw: dict) -> dict | None:
             "role": role if role in ("support", "resistance", "target") else None,
         })
 
+    # Conviction-tracker fields (§2). timeframes stay RAW here (normalized in code at
+    # ingest, not by the LLM); the substring guard on phrase/snippet runs in
+    # parse_email (it has the decoded body) — R3.
+    raw_tfs = raw.get("timeframes") or []
+    timeframes = [str(t)[:24] for t in raw_tfs if str(t).strip()][:12] if isinstance(raw_tfs, list) else []
+
+    intent = str(raw.get("position_intent", "none")).lower().strip()
+    if intent not in ("none", "watching", "looking", "started", "adding"):
+        intent = "none"
+
+    # Couple 'acting' to an EXPLICIT personal position (anti over-labeling). The loud
+    # "Wolf STARTS the trade" tier must require started/adding language, not a strong
+    # opinion the free LLM mislabeled 'acting'. acting <=> intent in {started, adding}.
+    if stage == "acting" and intent not in ("started", "adding"):
+        stage = "imminent"          # strong / near-term, but he hasn't said he entered
+    elif intent in ("started", "adding") and stage != "acting":
+        stage = "acting"            # he entered/added => acting regardless of LLM stage
+
+    phrase = raw.get("conviction_phrase")
+    if phrase is not None:
+        phrase = re.sub(r"[\r\n\t\x00-\x1f]", " ", str(phrase)).strip()[:120] or None
+
     return {
         "scope_type": scope_type,
         "scope_key": scope_key,
@@ -146,7 +197,34 @@ def _coerce_thesis(raw: dict) -> dict | None:
         "levels": levels,
         "snippet": str(raw.get("snippet", ""))[:160],
         "identifier_raw": identifier[:32],
+        "timeframes": timeframes,
+        "position_intent": intent,
+        "conviction_phrase": phrase,
     }
+
+
+def _normalize_for_match(s: str) -> str:
+    """Casefold + collapse whitespace + curly→straight quotes/apostrophes (R3)."""
+    if not s:
+        return ""
+    s = (s.replace("“", '"').replace("”", '"')
+          .replace("‘", "'").replace("’", "'")
+          .replace("–", "-").replace("—", "-"))
+    s = re.sub(r"\s+", " ", s)
+    return s.strip().casefold()
+
+
+def _verify_quotes_against_body(theses: list[dict], body: str) -> None:
+    """R3: drop any conviction_phrase / snippet that is not a normalized substring of
+    the SAME decoded body the LLM saw. phrase→None, snippet→"" on failure. Mutates."""
+    norm_body = _normalize_for_match(body)
+    for th in theses:
+        phrase = th.get("conviction_phrase")
+        if phrase and _normalize_for_match(phrase) not in norm_body:
+            th["conviction_phrase"] = None
+        snippet = th.get("snippet", "")
+        if snippet and _normalize_for_match(snippet) not in norm_body:
+            th["snippet"] = ""
 
 
 def _parse_json(raw: str) -> dict | None:
@@ -169,20 +247,32 @@ def _parse_json(raw: str) -> dict | None:
 
 
 async def _extract_theses_llm(body: str) -> dict:
-    """Run the LLM structured extraction over the email text. Returns raw dict."""
+    """Run the LLM structured extraction over the email text, with a small retry so a
+    transient free-tier timeout doesn't silently drop a whole email's theses (a missing
+    beat in the over-time story). Returns the raw parsed dict, or {} after all attempts.
+    """
     body = body[:12000]  # cap prompt size
     messages = [
         {"role": "system", "content": _EXTRACTION_SYSTEM},
         {"role": "user", "content": _EXTRACTION_USER_TMPL.replace("__BODY__", body)},
     ]
-    raw = await call_with_fallback(
-        "primary", messages,
-        max_tokens=cfg.get("wolf.extraction_max_tokens", 4096),
-        temperature=0.1,
-        timeout=cfg.get("wolf.extraction_timeout", 60),
-    )
-    parsed = _parse_json(raw)
-    return parsed or {}
+    attempts = 1 + int(cfg.get("wolf.extraction_retries", 2) or 0)
+    for i in range(attempts):
+        raw = await call_with_fallback(
+            "primary", messages,
+            max_tokens=cfg.get("wolf.extraction_max_tokens", 4096),
+            temperature=0.1,
+            timeout=cfg.get("wolf.extraction_timeout", 60),
+        )
+        parsed = _parse_json(raw)
+        if parsed is not None:
+            return parsed
+        if i < attempts - 1:
+            log.warning("wolf_email_parser: extraction attempt %d/%d returned no JSON; retrying",
+                        i + 1, attempts)
+            await asyncio.sleep(1)
+    log.error("wolf_email_parser: extraction failed after %d attempts — email yields no theses", attempts)
+    return {}
 
 
 async def parse_email(
@@ -215,6 +305,10 @@ async def parse_email(
         if clean:
             theses.append(clean)
 
+    # 1b. R3: substring-verify conviction_phrase + snippet against the SAME body the
+    # LLM saw (body[:12000]); drop anything fabricated. Normalize both sides.
+    _verify_quotes_against_body(theses, body[:12000])
+
     # 2. Chart reads (capped, deterministic order).
     chart_reads = []
     cap = cfg.get("gmail_watcher.charts_per_email_cap", 5)
@@ -223,19 +317,30 @@ async def parse_email(
         if cr:
             chart_reads.append(cr)
 
-    # 3. Merge chart-derived levels into matching theses (by canonical scope_key).
+    # 3. Attach chart-derived data to matching theses by the FULL (scope_type, scope_key)
+    #    tuple (never bare scope_key — avoids cross-scope mis-attribution): merge levels
+    #    AND collect the chart's coarse timeframe so the conviction ladder uses the image
+    #    data (daily/weekly), not just the author's text timeframes.
     for cr in chart_reads:
         inst = cr.get("instrument")
-        if not inst or not cr.get("levels"):
+        if not inst:
             continue
-        c_type, c_key = resolve_scope(inst)
+        c_scope = resolve_scope(inst)
         for th in theses:
-            if th["scope_key"] == c_key:
-                # add chart levels (dedupe by price)
-                have = {round(l["price"], 2) for l in th["levels"]}
-                for cl in cr["levels"]:
-                    if round(cl["price"], 2) not in have:
-                        th["levels"].append({"price": cl["price"], "role": cl.get("role")})
+            if (th["scope_type"], th["scope_key"]) != c_scope:
+                continue
+            have = {round(l["price"], 2) for l in th["levels"]}
+            for cl in (cr.get("levels") or []):
+                try:
+                    p = round(float(cl["price"]), 2)
+                except (KeyError, TypeError, ValueError):
+                    continue
+                if p not in have:
+                    th["levels"].append({"price": cl["price"], "role": cl.get("role")})
+                    have.add(p)
+            ctf = cr.get("timeframe")
+            if ctf:
+                th.setdefault("chart_timeframes", []).append(ctf)
 
     big = [str(c)[:80] for c in (raw.get("big_catalysts") or [])][:5]
     regime = raw.get("regime")

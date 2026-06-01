@@ -17,6 +17,24 @@ import yaml
 # Whole-market instruments
 _MARKET_IDS = {"SPY", "QQQ", "IWM", "SPX", "NDX", "RUT", "VIX", "DIA", "DJIA"}
 
+# R7: index/leveraged-index ETFs proxy to their underlying index so the index and
+# its tradable vehicles share ONE thread key. Applied in the market branch only.
+_INDEX_PROXY = {
+    "SPY": "SPX", "QQQ": "NDX", "IWM": "RUT", "DIA": "DJIA",
+    "TQQQ": "NDX", "SQQQ": "NDX",
+}
+
+# R7: all semiconductor vehicles unify into the single ('sector','SMH') thread.
+# Applied at step 4a (AFTER the market check so it can't steal market symbols).
+_SEMIS_UNIFY = {"SMH", "SOX", "SOXX", "SOXL", "SOXS"}
+
+# Inverse ETFs we unify into a base thread above: their WRITTEN direction is the
+# OPPOSITE of the base instrument's (SOXS up = semis DOWN; SQQQ up = Nasdaq DOWN), so
+# the parser flips it. Without this, an inverse ETF Wolf cites as EVIDENCE for his short
+# becomes a phantom opposite-direction thesis that cancels the real one via the flip
+# logic. Keep in sync with the inverse symbols in _SEMIS_UNIFY / _INDEX_PROXY.
+_INVERSE_PROXY = {"SOXS", "SQQQ"}
+
 # Sector / group ETFs (the 11 SPDR sectors + common industry ETFs Wolf cites)
 _SECTOR_ETFS = {
     "XLK", "XLF", "XLV", "XLY", "XLP", "XLC", "XLE", "XLI", "XLU", "XLRE", "XLB",
@@ -80,9 +98,10 @@ def resolve_scope(raw_identifier: str) -> tuple[str, str]:
     -> default to stock with the bare uppercased symbol.
 
     Examples:
-        resolve_scope("SPY")  -> ("market", "SPY")
+        resolve_scope("SPY")  -> ("market", "SPX")   # index ETF proxies to its index
         resolve_scope("S&P")  -> ("market", "SPX")
         resolve_scope("XLE")  -> ("sector", "XLE")
+        resolve_scope("SMH")  -> ("sector", "SMH")
         resolve_scope("USO")  -> ("asset", "OIL")
         resolve_scope("NVDA") -> ("stock", "NVDA")
     """
@@ -103,9 +122,16 @@ def resolve_scope(raw_identifier: str) -> tuple[str, str]:
     if upper in _ASSET_MAP:
         return ("asset", _ASSET_MAP[upper])
 
-    # 3. Whole market.
+    # 3. Whole market (with index-ETF proxy: SPY->SPX, QQQ->NDX, TQQQ->NDX, ...).
+    if upper in _INDEX_PROXY:
+        return ("market", _INDEX_PROXY[upper])
     if upper in _MARKET_IDS:
         return ("market", upper)
+
+    # 4a. Semis unify: all semiconductor vehicles -> ('sector','SMH'). After the
+    #     market check so it can never steal a market symbol.
+    if upper in _SEMIS_UNIFY:
+        return ("sector", "SMH")
 
     # 4. Sector / group ETF.
     if upper in _SECTOR_ETFS:
@@ -122,3 +148,9 @@ def resolve_scope(raw_identifier: str) -> tuple[str, str]:
 def stock_sector_etf(ticker: str) -> str | None:
     """Return the sector ETF for a stock ticker, or None if unknown."""
     return _stock_sector_map().get(ticker.upper())
+
+
+def is_inverse_proxy(identifier: str) -> bool:
+    """True if `identifier` is an inverse ETF that unifies into a base thread, so its
+    written direction must be flipped to the base instrument's (SOXS bull = SMH bear)."""
+    return (identifier or "").strip().upper() in _INVERSE_PROXY
