@@ -161,3 +161,10 @@ Shipped 2 of the 4 listed cheap levers; 17 new tests, full suite 1551 passed; li
 **Deferred (path documented in the run's final-plan):** P/C-OI ratio (`_max_pain_for_chain` discards split call/put OI — needs a return-shape refactor) and earnings-move history (needs ~2y OHLCV + historical earnings dates, neither currently fetched). Stays OPEN (menu). Go live via the Step-4 handoff (`.claude/discover/parallel-6-21-22-STEP4-HANDOFF.md`), HELD pending the wolf session.
 
 **LIVE 2026-06-01 09:52** — RVOL + 52wk merged to master (`9e0c760`) + pushed; real `!all NVDA` shows `Rel Vol 0.7×` and `6% below 52wk high` in the Snapshot field. Menu stays OPEN — next cheap levers: P/C-OI (sum call/put OI in `_max_pain_for_chain`), earnings-move history; biggest is still the serial model-chain latency.
+
+**LIVE 2026-06-01 11:09** — two MORE cheap levers shipped (merged `d42603f`, pushed, live-verified on real `!all NVDA`):
+- **Put/Call OI ratio** — `_max_pain_for_chain` now also returns the call/put OI sums (it computed then discarded them); `compute_max_pain` adds `pc_oi_ratio`; embed field "P/C OI". Live NVDA 0.42, AMD 1.39.
+- **Earnings-move history** — NEW `scanners/earnings_move.py` (bounded executor + timeout, mirrors snapshot.py); avg abs % reaction over last 8 prints, reaction day picked by report time (after-close → next session); embed field "Earnings ±X.X% (N)". Live NVDA ±3.7%, AMD ±8.5%, TSLA ±7.5%. Pre-flight caught a wrong-alignment bug first (don't measure the report-day session for after-close reporters). avg cast to native float (no np.float64 into the cache/LLM).
+- Also fixed a #22 scrub gap found during live verify: the model emits free-text `[evidence: the data ...]` tags the numeric-only regex missed — broadened `output_filter` to strip `[name]`/`[name: ...]` (with a `:`-guard so real phrases survive).
+
+Menu STILL OPEN. Remaining biggest item: the serial model-chain latency (60–240s). Minor cosmetic: the scrub can leave a dangling "," when a tag followed a comma — low priority.
