@@ -835,6 +835,14 @@ async def _compute_all(ticker: str, start: float) -> dict:
     else:
         direction_str = _legacy_direction
     gap_deadline = time.time() + min(_GAP_FILL_BUDGET, _remaining(start))
+    # Feature E — sector label for the macro-risk query disambiguation. The
+    # peer_strength result's "group" is a human-readable sector/industry name
+    # ("Semiconductors", "Technology"); far better in a search query than the
+    # ETF symbol from sector_map.yaml. Empty string when unavailable.
+    _peer_strength = data.get("peer_strength")
+    _macro_sector = ""
+    if isinstance(_peer_strength, dict):
+        _macro_sector = str(_peer_strength.get("group") or "")
     try:
         gap_fill_result = await gap_fill.run_gap_fill(
             ticker=ticker,
@@ -843,6 +851,8 @@ async def _compute_all(ticker: str, start: float) -> dict:
             has_event_date=bool(earnings_iso_str),
             direction=direction_str,
             deadline=gap_deadline,
+            company_name=data.get("company_name") or "",
+            sector=_macro_sector,
         )
     except Exception as exc:  # noqa: BLE001
         log.warning("aggregator: gap_fill failed: %s", exc)
@@ -851,6 +861,7 @@ async def _compute_all(ticker: str, start: float) -> dict:
             "eight_k_summary_snippets": [],
             "event_date_snippets": [],
             "catalyst_research_snippets": [],
+            "macro_risk_snippets": [],
         }
 
     stage_t["gap_fill"] = _t()
@@ -1017,6 +1028,14 @@ async def _compute_all(ticker: str, start: float) -> dict:
         if s.startswith("[cat_") and "] " in s:
             s = s.split("] ", 1)[1]
         catalyst_as_news.append(s)
+    # Feature E — recent macro/sector/regulatory risk rows. Unlike catalysts,
+    # KEEP the [macro_risk] tag so the narrator can tell macro risk apart from
+    # company catalysts when citing it in the Risk Considerations section.
+    macro_risk_raw = gap_fill_result.get("macro_risk_snippets") or []
+    macro_as_news = [
+        s for s in macro_risk_raw[:5]
+        if isinstance(s, str) and s.strip()
+    ]
     # #13: build the deterministic SEC evidence block (Form-4 insider detail).
     sec_evidence = await _enrich_form4_insiders(
         data["sec_filings"], _remaining(start),
@@ -1067,8 +1086,10 @@ async def _compute_all(ticker: str, start: float) -> dict:
     # Commit 14: prepend catalysts AFTER sanitize so they reach the
     # synthesis LLM uncorrupted. The sanitize batch was destroying
     # them to 50 chars on free-tier failures.
-    if catalyst_as_news:
-        sanitized["news"] = catalyst_as_news + (sanitized.get("news") or [])
+    if catalyst_as_news or macro_as_news:
+        sanitized["news"] = (
+            macro_as_news + catalyst_as_news + (sanitized.get("news") or [])
+        )
     stage_t["sanitize"] = _t()
 
     sources_surfaced = list(data["sources_surfaced"])

@@ -491,6 +491,12 @@ all_command:
   # truncation instead. The deterministic SEC evidence block always
   # bypasses sanitize regardless of this flag.
   sanitize_enabled: true
+  # Feature E — one recent (past-month) macro/sector/regulatory risk SerpAPI
+  # query for the Risk Considerations narrative (e.g. the NVDA China export
+  # ban). Disambiguated by company name + sector, trusted-source filtered,
+  # tagged [macro_risk]. Default ON; set false to revert (no macro bullet).
+  macro_risk_query:
+    enabled: true
   # Section 2P: clickable YouTube video links beneath the Social field.
   youtube_links:
     enabled: true          # kill switch — set false to revert to one-liner only
@@ -704,6 +710,10 @@ wolf:
     sector: 20
     stock: 30
     asset: 12
+  conviction:                           # Wolf-over-time conviction tracker (TODO #20, phase 1)
+    window_days: 10                     # trailing window for the mention-frequency (distinct-day) score term
+    trajectory_threshold: 8             # |conviction delta| below this is "stable" absent a structural change
+    narrate: false                      # OFF by default — templated render is the product; LLM gloss is phase-2
 
 # Command handler concurrency limits (plan section 2G).
 commands:

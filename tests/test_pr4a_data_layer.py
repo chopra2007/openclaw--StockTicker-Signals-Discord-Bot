@@ -141,6 +141,7 @@ async def test_gap_fill_no_triggers_returns_empty():
         "eight_k_summary_snippets": [],
         "event_date_snippets": [],
         "catalyst_research_snippets": [],
+        "macro_risk_snippets": [],
     }
 
 

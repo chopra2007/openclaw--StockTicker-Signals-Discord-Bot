@@ -87,6 +87,53 @@ async def _search_serpapi_raw(query: str, freshness: str = "qdr:y") -> list[str]
     return out
 
 
+async def _search_serpapi_trusted(query: str, freshness: str = "qdr:m") -> list[str]:
+    """Feature E: macro-risk SerpAPI search filtered to trusted sources.
+
+    Same SerpAPI call shape as `_search_serpapi_raw`, but only returns
+    title+snippet pairs whose result URL is from a `news.trusted_sources`
+    domain (reuters, cnbc, bloomberg, sec.gov, …). Macro/regulatory risk
+    must be CURRENT, so the default freshness is `qdr:m` (past month), not the
+    catalyst queries' `qdr:y`.
+    """
+    api_key = (
+        cfg.get_api_key("serpapi3")
+        or cfg.get_api_key("serpapi2")
+        or cfg.get_api_key("serpapi")
+    )
+    if not api_key:
+        return []
+    trusted = cfg.get("news.trusted_sources", []) or []
+    try:
+        session = await get_session()
+        url = "https://serpapi.com/search"
+        params = {
+            "q": query, "api_key": api_key, "engine": "google",
+            "num": 10, "tbs": freshness,
+        }
+        async with session.get(
+            url, params=params,
+            timeout=aiohttp.ClientTimeout(total=_PER_QUERY_TIMEOUT),
+        ) as resp:
+            if resp.status != 200:
+                log.debug("serpapi_trusted: HTTP %d for %s", resp.status, query)
+                return []
+            data = await resp.json()
+    except Exception as exc:  # noqa: BLE001
+        log.debug("serpapi_trusted: failed %s: %s", query, exc)
+        return []
+    out: list[str] = []
+    for r in data.get("organic_results", []) or []:
+        link = (r.get("link") or r.get("source") or "").lower()
+        if not any(src in link for src in trusted):
+            continue
+        title = r.get("title", "")
+        snippet = r.get("snippet", "")
+        if title or snippet:
+            out.append(f"{title}: {snippet}")
+    return out
+
+
 def _extract_8k_filing(sec_filings: list) -> Optional[dict]:
     """Find the most recent 8-K filing missing a body, if any."""
     for filing in sec_filings or []:
@@ -135,13 +182,25 @@ async def run_gap_fill(
     has_event_date: bool,
     direction: str,
     deadline: float,
+    company_name: str = "",
+    sector: str = "",
 ) -> dict:
     """Run output-field-driven gap-fill queries.
 
-    Returns dict with three keys, each a list of content strings:
+    Returns dict with these keys, each a list of content strings:
         harvested_anchors_snippets: from the price-targets query
         eight_k_summary_snippets:   from the 8-K filing query
         event_date_snippets:        from the catalyst/earnings query
+        catalyst_research_snippets: union of the cat_* SerpAPI queries
+        macro_risk_snippets:        from the [macro_risk] SerpAPI query
+                                    (Feature E — recent macro/sector/regulatory
+                                    risk news, disambiguated by company_name +
+                                    sector so single-word tickers don't return
+                                    garbage; empty when disabled, no name, or
+                                    the query did not fire).
+
+    `company_name` and `sector` default to "" so existing callers/tests keep
+    working; the macro-risk query is skipped when company_name is empty.
 
     Each empty list when its trigger did not fire or returned nothing.
     """
@@ -193,7 +252,22 @@ async def run_gap_fill(
         "eight_k_summary_snippets": [],
         "event_date_snippets": [],
         "catalyst_research_snippets": [],  # NEW: union of all 5 cat_* tags
+        "macro_risk_snippets": [],         # Feature E: recent macro/sector risk
     }
+
+    # Feature E — one recent (past-month) macro/sector/regulatory risk query,
+    # disambiguated by company name + sector so single-word tickers (AI, ON,
+    # NOW, CAT) don't return garbage. Config-gated, default ON. Built here so
+    # it joins the same wall-clock budget as the catalyst queries below.
+    macro_risk_query: Optional[str] = None
+    if (
+        company_name
+        and cfg.get("all_command.macro_risk_query.enabled", True)
+    ):
+        terms = '(export restriction OR regulation OR ban OR "demand" OR "guidance cut")'
+        sector_clause = f' OR "{sector}"' if sector else ""
+        macro_risk_query = f'"{company_name}"{sector_clause} {terms} 2026'
+
     if not queries:
         return out
 
@@ -216,8 +290,22 @@ async def run_gap_fill(
         )
         for _, q in catalyst_queries
     ]
-    all_coros = sx_coros + serp_coros
-    queries = list(queries) + list(catalyst_queries)
+    # Feature E — macro-risk query shares the same gather + wall-clock budget.
+    # If it blows the deadline the outer wait_for aborts the whole gather and
+    # returns `out` (empty macro_risk_snippets); it never blocks the catalyst
+    # queries on its own because they all run concurrently.
+    macro_coros = []
+    macro_specs: list[tuple[str, str]] = []
+    if macro_risk_query is not None:
+        macro_coros.append(
+            asyncio.wait_for(
+                _search_serpapi_trusted(macro_risk_query, freshness="qdr:m"),
+                timeout=_PER_QUERY_TIMEOUT,
+            )
+        )
+        macro_specs.append(("macro_risk", macro_risk_query))
+    all_coros = sx_coros + serp_coros + macro_coros
+    queries = list(queries) + list(catalyst_queries) + macro_specs
     try:
         results = await asyncio.wait_for(
             asyncio.gather(*all_coros, return_exceptions=True),
@@ -234,11 +322,20 @@ async def run_gap_fill(
         "event_date": "event_date_snippets",
     }
     catalyst_buckets: list[str] = []
+    macro_buckets: list[str] = []
     for (kind, _query), result in zip(queries, results):
         if isinstance(result, Exception):
             log.warning("gap_fill: %s query exception: %s", kind, result)
             continue
-        if kind.startswith("cat_"):
+        if kind == "macro_risk":
+            # Feature E — already trusted-source-filtered title+snippet strings.
+            # Keep the [macro_risk] tag so the narrator can distinguish these
+            # from company-specific catalyst rows.
+            raw = result if isinstance(result, list) else []
+            macro_buckets.extend(
+                f"[macro_risk] {s}" for s in raw if isinstance(s, str) and s
+            )
+        elif kind.startswith("cat_"):
             # SerpAPI already returns title+snippet strings, not the
             # SearXNG dict-list shape. Tag each with its query type for
             # downstream attribution.
@@ -262,4 +359,6 @@ async def run_gap_fill(
         if len(deduped) >= 15:
             break
     out["catalyst_research_snippets"] = deduped
+    # Feature E — cap macro-risk rows; trusted-source filter already trims junk.
+    out["macro_risk_snippets"] = macro_buckets[:5]
     return out
