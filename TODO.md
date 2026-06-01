@@ -125,3 +125,9 @@ Figure out whether YouTube database signals (video mentions, extracted levels) a
 **File:** `wolf-macro-brain.md`
 
 Read the Wolf on Wall Street emails (text + charts) so the bot tracks market tops/bottoms, sector rotations, and catalysts, and proactively flags actionable trades — louder when other sources agree.
+
+## 21. Auto-switch web-search keys when one runs out
+
+**File:** `serpapi-key-failover.md`
+
+Make the bot rotate to the next SerpAPI key (or provider) with credit when the current one hits its monthly limit, instead of silently going dark — the bot was stuck on one exhausted key while two others had quota.
