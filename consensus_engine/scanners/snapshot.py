@@ -103,6 +103,16 @@ async def fetch_ticker_snapshot(ticker: str) -> Optional[dict]:
         "short_days": _num(info.get("shortRatio")),
     }
 
+    # #6 lever — 52-week high/low distance, from the SAME .info call.
+    # wk52_high_pct negative = below the high; wk52_low_pct positive = above the low.
+    wk52_high = _num(info.get("fiftyTwoWeekHigh"))
+    wk52_low = _num(info.get("fiftyTwoWeekLow"))
+    price = (_num(info.get("currentPrice"))
+             or _num(info.get("regularMarketPrice"))
+             or _num(info.get("previousClose")))
+    snap["wk52_high_pct"] = (price / wk52_high - 1) * 100 if price and wk52_high and wk52_high > 0 else None
+    snap["wk52_low_pct"] = (price / wk52_low - 1) * 100 if price and wk52_low and wk52_low > 0 else None
+
     has_analyst = snap["target_mean"] is not None or snap["rating"] is not None
     has_fundamentals = snap["fwd_pe"] is not None or snap["short_pct"] is not None
     if not has_analyst and not has_fundamentals:

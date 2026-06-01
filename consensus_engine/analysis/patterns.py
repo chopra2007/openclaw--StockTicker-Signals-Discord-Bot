@@ -51,6 +51,7 @@ async def fetch_daily_candles(ticker: str, range_str: str = "3mo") -> list[dict]
             highs = quote.get("high", []) or []
             lows = quote.get("low", []) or []
             closes = quote.get("close", []) or []
+            volumes = quote.get("volume", []) or []
     except Exception as e:
         log.debug("yfinance chart fetch error for %s: %s", ticker, e)
         return []
@@ -60,8 +61,10 @@ async def fetch_daily_candles(ticker: str, range_str: str = "3mo") -> list[dict]
         h, l, c = highs[i], lows[i], closes[i]
         if h is None or l is None:
             continue
+        v = volumes[i] if i < len(volumes) else None
         out.append({"high": float(h), "low": float(l),
-                    "close": float(c) if c is not None else (float(h) + float(l)) / 2})
+                    "close": float(c) if c is not None else (float(h) + float(l)) / 2,
+                    "volume": float(v) if v is not None else None})
     return out
 
 

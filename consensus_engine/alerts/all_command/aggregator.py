@@ -338,6 +338,7 @@ async def _gather_all_sources(ticker: str) -> dict:
         "decision_snapshots": _result_or_default(decision_snapshots, []),
         "next_earnings_iso": _result_or_default(next_earnings_iso, None) if isinstance(next_earnings_iso, str) else None,
         "recent_earnings_recap": recent_earnings_recap if isinstance(recent_earnings_recap, dict) else None,
+        "daily_candles": daily_candles if isinstance(daily_candles, list) else [],
         "chart_pattern": _detect_chart_pattern(daily_candles if isinstance(daily_candles, list) else _swing_candles(_result_or_default(tech_long, None))),
         "news_catalyst": _result_or_default(news_catalyst, None),
         "sec_filings": _result_or_default(sec_filings, []),
@@ -1008,6 +1009,9 @@ async def _compute_all(ticker: str, start: float) -> dict:
         peer_strength=data.get("peer_strength"),
         snapshot=data.get("snapshot"),
         risk_reward=risk_reward,
+        relative_volume=structured_fields.compute_relative_volume(
+            data.get("daily_candles") if isinstance(data.get("daily_candles"), list) else []
+        ),
     )
 
     # Sanitize hostile text. PR4: split SearXNG into news+sec+gap-fill blocks

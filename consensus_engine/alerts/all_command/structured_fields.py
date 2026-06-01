@@ -9,6 +9,7 @@ expiry, else "TBD".
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Optional
@@ -54,6 +55,7 @@ class StructuredFields:
     peer_strength: Optional[dict] = None  # {stock_pct, benchmark_pct, delta, verdict, benchmark_label, mode, narrator_ok, ...}
     snapshot: Optional[dict] = None       # #6 analyst target + rating + fwd P/E + short interest (yfinance .info); embed-only
     risk_reward: Optional[float] = None   # #6 reward:risk of the computed plan (reward per 1.0 risk); embed-only
+    relative_volume: Optional[float] = None  # #6 last day's volume vs prior 20-day average (e.g. 1.8 = 1.8×); embed-only
 
 
 # Components contributing to direction scoring. Sign mapping is deferred to
@@ -131,6 +133,38 @@ def compute_risk_reward(current_price, sl, tp1, direction,
     if rr < 0.1 or rr > 20:
         return None
     return round(rr, 1)
+
+
+def compute_relative_volume(candles, lookback: int = 20) -> Optional[float]:
+    """#6 — last day's volume as a multiple of the prior `lookback`-day average
+    (e.g. 1.8 renders 'Rel Vol 1.8×'). Returns None — so the embed field is
+    omitted — when not meaningfully computable:
+      * fewer than lookback+1 candles with numeric volume,
+      * the prior-`lookback` average is <= 0.
+    Tolerates missing/None/NaN volume entries by dropping them before counting.
+    """
+    if not isinstance(candles, list):
+        return None
+    vols: list[float] = []
+    for c in candles:
+        if not isinstance(c, dict):
+            continue
+        v = c.get("volume")
+        try:
+            f = float(v)
+        except (TypeError, ValueError):
+            continue
+        if math.isnan(f) or math.isinf(f):
+            continue
+        vols.append(f)
+    if len(vols) < lookback + 1:
+        return None
+    last_vol = vols[-1]
+    prior = vols[-(lookback + 1):-1]
+    avg = sum(prior) / len(prior)
+    if avg <= 0:
+        return None
+    return round(last_vol / avg, 2)
 
 
 def compute_confidence_label(

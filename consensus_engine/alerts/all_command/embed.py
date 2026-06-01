@@ -453,6 +453,12 @@ def _format_snapshot(snap: Optional[dict]) -> str:
     if fund_parts:
         segments.append(" · ".join(fund_parts))
 
+    # #6 lever — 52-week high distance (one short segment). Negative pct = below high.
+    hp = snap.get("wk52_high_pct")
+    if isinstance(hp, (int, float)):
+        side = "below" if hp < 0 else "above"
+        segments.append(f"{abs(hp):.0f}% {side} 52wk high")
+
     return "\n".join(segments) if segments else "—"
 
 
@@ -712,6 +718,10 @@ def build_embed(
     _rr = getattr(structured, "risk_reward", None)
     if isinstance(_rr, (int, float)) and _rr > 0:
         fields.append({"name": "R:R", "value": f"1:{_rr:.1f}", "inline": True})
+    # #6 lever — relative volume (last day vs prior 20-day average).
+    _rv = getattr(structured, "relative_volume", None)
+    if isinstance(_rv, (int, float)) and _rv > 0:
+        fields.append({"name": "Rel Vol", "value": f"{_rv:.1f}×", "inline": True})
     # #6 levers — append only when there's real data (em-dash means no data).
     mp_val = _format_max_pain(getattr(structured, "max_pain", None), current_price)
     if mp_val != "—":
