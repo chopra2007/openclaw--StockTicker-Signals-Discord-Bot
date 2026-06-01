@@ -698,6 +698,24 @@ CREATE TABLE IF NOT EXISTS wolf_confluence_checks (
     disagree_sources_json TEXT NOT NULL DEFAULT '[]',
     alerted_tier TEXT NOT NULL DEFAULT 'surface' -- last tier actually POSTED for this thesis
 );
+
+-- Phase-3 (TODO #20): Sunday-recap "what played out" outcomes. ONE row per thesis
+-- (UPSERT on thesis_id). Only theses that reached an ACTIONABLE stage (imminent|acting)
+-- are ever scored; everything else stays absent / inconclusive. Wording is humble: a
+-- coarse proxy-price move from the actionable anchor, never a "win".
+CREATE TABLE IF NOT EXISTS wolf_call_outcomes (
+    thesis_id    INTEGER PRIMARY KEY,          -- FK macro_theses.id
+    scope_type   TEXT, scope_key TEXT, direction TEXT,   -- denormalized for display
+    proxy_symbol TEXT,
+    anchor_stage TEXT,                          -- 'imminent' | 'acting' — the stage scored from
+    anchor_ts    REAL,                          -- first evidence_log ts the thesis entered anchor_stage
+    anchor_close REAL,                          -- proxy close on/just before anchor_ts date
+    latest_close REAL,
+    pct_move     REAL,                          -- sign-adjusted toward Wolf's direction
+    band         REAL,                          -- vol-scaled threshold used
+    state        TEXT,                          -- moved_with|moved_against|flat|invalidated|inconclusive
+    computed_at  REAL
+);
 """
 
 # Unique indices that reference columns added by _run_column_migrations.
@@ -760,6 +778,10 @@ async def _run_column_migrations(conn) -> None:
         ("youtube_evidence_spans", "caption_entropy",  "REAL"),
         ("youtube_videos", "chain_failed_alerted_at", "REAL"),
         ("youtube_visual_evidence", "ticker", "TEXT"),  # B3 per-number ticker tag
+        # Phase-3 (TODO #20): the email's Gmail internalDate (epoch seconds). The
+        # digest scheduler triggers off THIS, never processed_at, so backfilled rows
+        # (old received_at) can never fire a "fresh" digest. NULL on legacy rows.
+        ("wolf_emails_processed", "received_at", "REAL"),
     ]
     for table in ("youtube_signals", "youtube_levels", "youtube_setups", "youtube_options"):
         for col, defn in v2_span_cols:
@@ -839,6 +861,7 @@ async def init_db() -> AsyncConnection:
         (14, "sub-industry peer layer cache (ticker_sector_cache)"),
         (15, "wolf macro-brain phase-1 (macro_theses, wolf_news_alerts, wolf_emails_processed)"),
         (16, "wolf macro-brain phase-2 cross-source confluence (wolf_confluence_checks)"),
+        (17, "wolf macro-brain phase-3: wolf_call_outcomes + wolf_emails_processed.received_at"),
     ]
     for version, note in _schema_versions:
         await _db.execute(
@@ -2951,16 +2974,68 @@ async def record_wolf_email(
     error: str | None,
     theses_touched: int,
     processed_at: float,
+    received_at: float | None = None,
 ) -> None:
-    """Record durable processing of a Wolf email (write BEFORE applying the Gmail label)."""
+    """Record durable processing of a Wolf email (write BEFORE applying the Gmail label).
+
+    `received_at` is the email's Gmail internalDate (epoch seconds) — the digest
+    scheduler triggers off this, NOT processed_at. Defaults None for legacy callers.
+    """
     conn = await get_db()
     await conn.execute(
         """INSERT OR IGNORE INTO wolf_emails_processed
-           (message_id, html_sha1, image_urls_sha1, parse_status, error, theses_touched, processed_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)""",
-        (message_id, html_sha1, image_urls_sha1, parse_status, error, theses_touched, processed_at),
+           (message_id, html_sha1, image_urls_sha1, parse_status, error, theses_touched,
+            processed_at, received_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+        (message_id, html_sha1, image_urls_sha1, parse_status, error, theses_touched,
+         processed_at, received_at),
     )
     await conn.commit()
+
+
+async def record_call_outcome(
+    thesis_id: int,
+    scope_type: str,
+    scope_key: str,
+    direction: str,
+    proxy_symbol: str | None,
+    anchor_stage: str | None,
+    anchor_ts: float | None,
+    anchor_close: float | None,
+    latest_close: float | None,
+    pct_move: float | None,
+    band: float | None,
+    state: str,
+    computed_at: float,
+) -> None:
+    """UPSERT one Sunday-recap outcome row (one per thesis_id)."""
+    conn = await get_db()
+    await conn.execute(
+        """INSERT INTO wolf_call_outcomes
+           (thesis_id, scope_type, scope_key, direction, proxy_symbol, anchor_stage,
+            anchor_ts, anchor_close, latest_close, pct_move, band, state, computed_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(thesis_id) DO UPDATE SET
+             scope_type=excluded.scope_type, scope_key=excluded.scope_key,
+             direction=excluded.direction, proxy_symbol=excluded.proxy_symbol,
+             anchor_stage=excluded.anchor_stage, anchor_ts=excluded.anchor_ts,
+             anchor_close=excluded.anchor_close, latest_close=excluded.latest_close,
+             pct_move=excluded.pct_move, band=excluded.band, state=excluded.state,
+             computed_at=excluded.computed_at""",
+        (thesis_id, scope_type, scope_key, direction, proxy_symbol, anchor_stage,
+         anchor_ts, anchor_close, latest_close, pct_move, band, state, computed_at),
+    )
+    await conn.commit()
+
+
+async def get_call_outcomes(since_epoch: float = 0.0) -> list[dict]:
+    """Return outcome rows computed at/after `since_epoch`, newest first."""
+    conn = await get_db()
+    cur = await conn.execute(
+        "SELECT * FROM wolf_call_outcomes WHERE computed_at >= ? ORDER BY computed_at DESC",
+        (since_epoch,),
+    )
+    return [dict(r) for r in await cur.fetchall()]
 
 
 async def create_pending_alert(

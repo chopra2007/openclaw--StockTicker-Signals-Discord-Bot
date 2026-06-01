@@ -318,7 +318,7 @@ async def _do_cycle(
             extraction = await wolf_email_parser.parse_email(text, html, subject, sender_addr, now)
             img_urls = [c.get("source_url", "") for c in extraction.get("chart_reads", [])]
             image_urls_sha1 = hashlib.sha1("|".join(img_urls).encode()).hexdigest()
-            events = await wolf_theses.ingest(extraction)
+            events = await wolf_theses.ingest(extraction, source_id=msg_id)
             await wolf_news.post_events(events)
         except Exception as exc:
             parse_status, error = "error", str(exc)[:200]
@@ -326,8 +326,15 @@ async def _do_cycle(
             log.error("gmail_watcher: wolf parse/ingest error for %s: %s", msg_id, exc, exc_info=True)
 
         # Durable state BEFORE applying the Gmail label (Codex review).
+        # received_at = the email's true Gmail receive time (internalDate, ms→s); the
+        # digest scheduler triggers off this, not processed_at.
+        try:
+            received_at = float(msg.get("internalDate", 0)) / 1000.0 or None
+        except (TypeError, ValueError):
+            received_at = None
         await db.record_wolf_email(
             msg_id, html_sha1, image_urls_sha1, parse_status, error, len(events), now,
+            received_at,
         )
         await conn.execute(
             "INSERT OR IGNORE INTO seen_gmail_messages (message_id, sender, subject, received_at) VALUES (?, ?, ?, ?)",

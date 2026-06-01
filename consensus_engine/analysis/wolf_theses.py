@@ -145,12 +145,19 @@ def _distinct_day_count(evlog: list[dict], now: float, window_days: int) -> int:
     return len(days)
 
 
-async def ingest(extraction: dict) -> list[dict]:
+async def ingest(extraction: dict, source_id: str | None = None) -> list[dict]:
     """Ingest one WolfExtraction. Returns a list of events for the alert layer:
 
         {"kind": "new"|"conviction_update", "thesis_id", "scope_type", "scope_key",
          "direction", "old_stage"|None, "stage", "has_levels", "snippet",
          "tf", "intent", "conv", "traj", "phrase"}
+
+    `source_id` (the source Gmail message id) makes ingest idempotent per source
+    email: each evidence_log entry is stamped with its `src`, and a thesis that
+    already carries an entry for this `source_id` is skipped. A crash between
+    ingest and the wolf_emails_processed ledger write therefore re-ingests to a
+    true no-op (Codex BLOCKER-3). When None (legacy callers/tests), no stamping
+    or dedup happens — exact prior behaviour.
     """
     now = float(extraction.get("ts") or time.time())
     subject = str(extraction.get("subject") or "")[:120]
@@ -190,6 +197,11 @@ async def ingest(extraction: dict) -> list[dict]:
             except Exception:
                 evlog = []
 
+            # Idempotence (Codex BLOCKER-3): this source email already contributed
+            # an evidence entry to this thesis → re-ingest is a no-op.
+            if source_id is not None and any(e.get("src") == source_id for e in evlog):
+                continue
+
             prior = evlog[-1] if evlog else {}
             prior_tf = prior.get("tf", []) or []
             prior_intent = prior.get("intent", "none")
@@ -208,11 +220,14 @@ async def ingest(extraction: dict) -> list[dict]:
                                    intent_up, intent_down, flipped,
                                    threshold=_traj_threshold())
 
-            evlog.append({
+            entry = {
                 "ts": now, "from": old_stage, "to": new_stage, "snippet": snippet,
                 "subject": subject, "tf": tf, "conv": score, "traj": traj,
                 "intent": intent, "phrase": phrase,
-            })
+            }
+            if source_id is not None:
+                entry["src"] = source_id
+            evlog.append(entry)
             evlog = evlog[-20:]  # cap history
             await db.update_thesis(existing["id"], new_stage, levels_json, has_levels,
                                    json.dumps(evlog), now)
@@ -236,11 +251,14 @@ async def ingest(extraction: dict) -> list[dict]:
             day_count = 1
             score = conv.conviction_score(stage, tf, intent, day_count, new_levels)
             traj = conv.trajectory(score, [], False, False, False, False, False)  # first → building
-            evlog = json.dumps([{
+            first_entry = {
                 "ts": now, "from": None, "to": stage, "snippet": snippet,
                 "subject": subject, "tf": tf, "conv": score, "traj": traj,
                 "intent": intent, "phrase": phrase,
-            }])
+            }
+            if source_id is not None:
+                first_entry["src"] = source_id
+            evlog = json.dumps([first_entry])
             tid = await db.insert_thesis(
                 scope_type, scope_key, direction, stage, levels_json,
                 None, has_levels, evlog, now,
