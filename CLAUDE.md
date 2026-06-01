@@ -68,6 +68,8 @@ The trigger is the user's natural pushback, not a special command.
 
 Always proceed without asking for confirmation. Never ask "shall I proceed?", "do you want me to continue?", or "would you like me to...?".
 
+Don't assume you can't access, research, or figure something out — assume you can, and work from there.
+
 ## TODO List
 
 When the user says "add X to the to do list" (or "put that on the list", "add this to the todo", "save that as a todo"), asks "what's on the to do list?", references a TODO by number (e.g. "look at #14"), says "resume #N" / "/todo-resume N" / "work on #N" / "pick up #N", or says "pause" / "/todo-pause" / "save progress": read `todo/CONVENTION.md` and follow its instructions.
