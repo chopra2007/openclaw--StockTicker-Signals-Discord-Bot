@@ -251,6 +251,9 @@ async def _gather_all_sources(ticker: str) -> dict:
     snapshot_task = _scanner_call(
         "consensus_engine.scanners.snapshot", "fetch_ticker_snapshot", ticker,
     )
+    earnings_move_task = _scanner_call(
+        "consensus_engine.scanners.earnings_move", "fetch_earnings_move", ticker,
+    )
 
     results = await asyncio.gather(
         score_task,
@@ -280,6 +283,7 @@ async def _gather_all_sources(ticker: str) -> dict:
         max_pain_task,
         peer_strength_task,
         snapshot_task,
+        earnings_move_task,
         return_exceptions=True,
     )
     (
@@ -288,7 +292,7 @@ async def _gather_all_sources(ticker: str) -> dict:
         decision_snapshots, next_earnings_iso, recent_earnings_recap, daily_candles, news_catalyst, sec_filings, options_unusual,
         options_flow_recent,
         trends, apewisdom, chat_msgs, brief_msgs, prior_vault,
-        max_pain, peer_strength, snapshot,
+        max_pain, peer_strength, snapshot, earnings_move,
     ) = results
 
     # Classify each source as surfaced (non-empty data) or failed (exception).
@@ -319,6 +323,7 @@ async def _gather_all_sources(ticker: str) -> dict:
         ("max_pain", max_pain),
         ("peer_strength", peer_strength),
         ("snapshot_db", snapshot),
+        ("earnings_move", earnings_move),
     ])
 
     return {
@@ -352,6 +357,7 @@ async def _gather_all_sources(ticker: str) -> dict:
         "max_pain": _result_or_default(max_pain, None),
         "peer_strength": _result_or_default(peer_strength, None),
         "snapshot": _result_or_default(snapshot, None),
+        "earnings_move": _result_or_default(earnings_move, None),
         "sources_surfaced": sources_surfaced,
         "source_failures": source_failures,
     }
@@ -1008,6 +1014,7 @@ async def _compute_all(ticker: str, start: float) -> dict:
         max_pain=data.get("max_pain"),
         peer_strength=data.get("peer_strength"),
         snapshot=data.get("snapshot"),
+        earnings_move=data.get("earnings_move"),
         risk_reward=risk_reward,
         relative_volume=structured_fields.compute_relative_volume(
             data.get("daily_candles") if isinstance(data.get("daily_candles"), list) else []

@@ -726,6 +726,18 @@ def build_embed(
     mp_val = _format_max_pain(getattr(structured, "max_pain", None), current_price)
     if mp_val != "—":
         fields.append({"name": "Max Pain", "value": mp_val, "inline": True})
+    # Lever A — put/call open-interest ratio (nearest expiry), from the max_pain dict.
+    _mp = getattr(structured, "max_pain", None)
+    _pc = _mp.get("pc_oi_ratio") if isinstance(_mp, dict) else None
+    if isinstance(_pc, (int, float)) and _pc > 0:
+        fields.append({"name": "P/C OI", "value": f"{_pc:.2f}", "inline": True})
+    # Lever B — avg absolute % earnings reaction over the last N reported prints.
+    _em = getattr(structured, "earnings_move", None)
+    if isinstance(_em, dict):
+        _avg = _em.get("avg_pct")
+        _n = _em.get("n")
+        if isinstance(_avg, (int, float)) and isinstance(_n, int) and _n > 0:
+            fields.append({"name": "Earnings", "value": f"±{_avg:.1f}% ({_n})", "inline": True})
     rs_val = _format_peer_strength(getattr(structured, "peer_strength", None))
     if rs_val != "—":
         fields.append({"name": "Sector Strength", "value": rs_val, "inline": False})
