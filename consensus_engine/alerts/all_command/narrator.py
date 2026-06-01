@@ -615,14 +615,24 @@ def _build_constraints_block(swing_v2: bool) -> str:
         "  3. A `## Risk Considerations` markdown header — ONE single risk "
         "section. This REPLACES the old separate 'What could go wrong' and "
         "'Risks & mitigants' sections: do NOT emit those headings or any "
-        "variant of them. Write 2-4 bulleted items (`* …`). This section "
-        "answers ONE question for a SEASONED trader: what specific, non-obvious "
-        "risk threatens THIS setup on THIS name in THIS window? Strict rules:\n"
-        "     (a) NO PRICE LEVELS in this section. Never restate the "
-        "stop-loss, buy zone, or any price level here — the trader already sees "
-        "the stop in the Trade Plan, and 'a close below <stop> invalidates the "
-        "thesis' is obvious, not an insight. A bullet that names a price/stop "
-        "level is REJECTED.\n"
+        "variant of them. Write EXACTLY 2-3 bulleted items (`* …`), in this "
+        "FIXED priority order: (1) the dated `[macro_risk]` news bullet when a "
+        "`[macro_risk]`-tagged NEWS row is present (always FIRST); (2) the "
+        "single strongest positioning/setup risk — prefer a real options "
+        "put-flow signal or genuine overextension over a weak squeeze line; (3) "
+        "OPTIONALLY a dated binary-event line, ONLY when a catalyst falls inside "
+        "the trade window, phrased as 'expectations stretched → outsized "
+        "downside on any miss'. OMIT any slot you have no evidence for — 2 "
+        "strong bullets beat 3 with a padded one. This section answers ONE "
+        "question for a SEASONED trader: what specific, non-obvious risk "
+        "threatens THIS setup on THIS name in THIS window? Strict rules:\n"
+        "     (a) NO PRICE LEVELS — BANNED IN THIS SECTION: any price level. "
+        "Before writing each bullet, if it contains a `$`, the word 'stop' or "
+        "'buy zone', or a standalone number that could be a share price, DELETE "
+        "that bullet and write a different risk instead. Example of a BANNED "
+        "bullet: 'a close below <stop> invalidates the thesis' — the trader "
+        "already sees the stop in the Trade Plan, so restating it is not an "
+        "insight. A bullet that names a price/stop level is REJECTED.\n"
         "     (b) Each bullet = a NAMED driver + a specific number/date/% + an "
         "inline `[evidence:N]` citation to a real EVIDENCE row (news_id, "
         "sec_id, twitter_id, yt_evidence index). Draw risks ONLY from the "
@@ -643,10 +653,18 @@ def _build_constraints_block(swing_v2: bool) -> str:
         "expected move (expected_move_band), phrased `<event> on <date> (<N> "
         "days out); expected move ±<X>%`. Write 'expected move', NOT 'options "
         "imply', unless the band is explicitly options-derived.\n"
-        "        - Positioning / crowding: short interest "
-        "(short_interest_pct / short_days_to_cover from COMPUTED SIGNAL) or an "
-        "'already moved' run (recent_run_pct) — pattern: `short interest "
-        "<X>% of float → squeeze/unwind risk`.\n"
+        "        - Positioning / crowding / overextension: emit a "
+        "squeeze/unwind line `short interest <X>% of float → squeeze/unwind "
+        "risk` ONLY if COMPUTED SIGNAL carries short_interest_pct (it is fed "
+        "ONLY when genuinely elevated — if absent, the short interest is low and "
+        "a squeeze bullet is NOISE, do NOT write one). Otherwise, prefer an "
+        "overextension bullet from COMPUTED SIGNAL: a stretched run "
+        "(recent_run_pct), an extended RSI (rsi), elevated relative volume "
+        "(rvol), or distance from the 52-week high (wk52_high_pct, a NEGATIVE "
+        "% below the high) — pattern: `up <recent_run_pct>% with RSI <rsi> "
+        "<N>% off the 52-wk high → pullback risk if the move unwinds`. Use ONLY "
+        "the fields actually present; never invent a distance-from-high if "
+        "wk52_high_pct is absent.\n"
         "        - Sector / correlation: a peer relative-strength lag "
         "(peer_strength) or a sector peer's dated event from a NEWS row.\n"
         "        - Company-specific: a named SEC / insider / options-flow fact "
@@ -766,16 +784,40 @@ def _build_synthesis_prompt(
     # no fabrication). short_pct is a FRACTION from yfinance (0.0092) → ×100.
     _snap = getattr(structured, "snapshot", None)
     if isinstance(_snap, dict):
+        # v2 Fix #1 — magnitude guard: feed short interest into the prompt ONLY
+        # when it is actually elevated (≥8% of float OR days-to-cover ≥5). A
+        # trivial 1.3% short fired a noise "squeeze risk" bullet; gating the
+        # FEED (not just the wording) means the model never sees the number when
+        # there is no real crowding setup.
         _short = _snap.get("short_pct")
-        if isinstance(_short, (int, float)):
-            computed_signal["short_interest_pct"] = round(_short * 100, 1)
         _sdays = _snap.get("short_days")
-        if isinstance(_sdays, (int, float)):
-            computed_signal["short_days_to_cover"] = round(_sdays, 1)
+        _short_elevated = (
+            (isinstance(_short, (int, float)) and _short >= 0.08)
+            or (isinstance(_sdays, (int, float)) and _sdays >= 5)
+        )
+        if _short_elevated:
+            if isinstance(_short, (int, float)):
+                computed_signal["short_interest_pct"] = round(_short * 100, 1)
+            if isinstance(_sdays, (int, float)):
+                computed_signal["short_days_to_cover"] = round(_sdays, 1)
+        # v2 Fix #2 — overextension: distance below the 52-week high (negative %)
+        # is genuinely in the snapshot dict (snapshot.py wk52_high_pct, added by
+        # #6), so the model can cite a real "N% off the high" instead of the
+        # weak squeeze line. Omit when absent — never fabricate the distance.
+        _wk52 = _snap.get("wk52_high_pct")
+        if isinstance(_wk52, (int, float)):
+            computed_signal["wk52_high_pct"] = round(_wk52, 1)
     if isinstance(sanitized_technical_short, dict):
         _chg = sanitized_technical_short.get("price_change_pct")
         if isinstance(_chg, (int, float)):
             computed_signal["recent_run_pct"] = round(_chg, 1)
+        # v2 Fix #2 — RSI / relative volume feed the overextension bullet.
+        _rsi = sanitized_technical_short.get("rsi")
+        if isinstance(_rsi, (int, float)):
+            computed_signal["rsi"] = round(_rsi, 1)
+        _rvol = sanitized_technical_short.get("rvol")
+        if isinstance(_rvol, (int, float)):
+            computed_signal["rvol"] = round(_rvol, 1)
     if _swing_v2:
         computed_signal["next_catalyst_days"] = getattr(structured, "next_catalyst_days", None)
         computed_signal["swing_horizon_days"] = getattr(structured, "swing_horizon_days", None)
@@ -1022,8 +1064,16 @@ async def synthesize_narrative(
         retried_risk = await _invoke_synthesis(
             hardened_risk, max(1.0, deadline_seconds * 0.5),
         )
-        if retried_risk:
+        # all-risk-section v2 Fix #3 — re-validate the retry before adopting it.
+        # A stubborn free-tier model can leak the stop price twice; adopting an
+        # unchecked retry let a still-bad output through. Keep the ORIGINAL raw
+        # if the retry still violates (or is empty).
+        if retried_risk and not _qb.risk_section_violations(retried_risk, _stop_price):
             raw = retried_risk
+        else:
+            log.warning(
+                "narrator: risk-section retry still violated (or empty) — keeping original",
+            )
 
     # Retry-once with hardened prompt if output_filter detects contradiction.
     async def _retry_fn() -> str:

@@ -24,6 +24,34 @@ log = logging.getLogger("consensus_engine.alerts.all_command.output_filter")
 _MARKDOWN_LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
 _CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 _MENTION_RE = re.compile(r"@(?:everyone|here)\b", re.IGNORECASE)
+
+# all-risk-section v2 Fix #5 — internal pipeline labels that leaked into the
+# Discord prose (live NVDA showed "per [macro_risk] news" and "as indicated by
+# the COMPUTED SIGNAL"). These are evidence/routing tags meant for the prompt,
+# never the reader. Strip them post-render so they never reach Discord.
+#  - `[macro_risk]` / `[evidence:3]` / `[news_id:2]` style bracket tags
+#  - the bare phrase `COMPUTED SIGNAL` (with optional "the"/"per"/"as indicated
+#    by the" lead-in so we don't leave a dangling "the")
+#  - the "high-vol data unavailable" apology that rides inside the swing
+#    expected-move parenthetical (e.g. "(0.7×ATR×√5; high-vol data
+#    unavailable)") — internal plumbing the reader shouldn't see. The bare
+#    formula "0.7×ATR×√5" is a legitimate Trade Plan citation and is KEPT.
+_INTERNAL_BRACKET_TAG_RE = re.compile(
+    r"\s*\[(?:macro_risk|evidence:\s*\d+|news_id:\s*\d+|sec_id:\s*\d+"
+    r"|twitter_id:\s*\d+|yt_evidence:\s*\d+)\]",
+    re.IGNORECASE,
+)
+# Replace the token, optionally absorbing a single preceding "the " so we get
+# "per the COMPUTED SIGNAL" -> "per the data" (one article, grammatical) rather
+# than "the the data".
+_COMPUTED_SIGNAL_RE = re.compile(
+    r"(?:\bthe\s+)?\bCOMPUTED\s+SIGNAL\b", re.IGNORECASE,
+)
+# Strip only the apology clause inside the parenthetical, keep the formula.
+_HIGH_VOL_APOLOGY_RE = re.compile(
+    r"\s*;\s*high-vol\s+data\s+unavailable", re.IGNORECASE,
+)
+_DANGLING_SPACE_RE = re.compile(r" {2,}")
 # Match thesis-reversal language only — generic financial vocabulary like
 # "sell-side", "short interest", or "downside protection" appears in
 # catalyst lists for bullish setups all the time and is not a contradiction.
@@ -43,13 +71,34 @@ _BULLISH_WORDS = re.compile(
 )
 
 
+def _scrub_internal_tags(text: str) -> str:
+    """all-risk-section v2 Fix #5 — strip internal pipeline labels from prose.
+
+    Removes the evidence/routing tags the prompt uses internally so they never
+    reach Discord: `[macro_risk]`, `[evidence:N]` and siblings, the bare phrase
+    `COMPUTED SIGNAL` (with a leading "per the"/"as indicated by the" if
+    present), and the `; high-vol data unavailable` apology clause inside the
+    expected-move parenthetical. Leaves the `0.7×ATR×√5` formula intact (it is a
+    legitimate Trade Plan citation).
+    """
+    out = _INTERNAL_BRACKET_TAG_RE.sub("", text)
+    out = _COMPUTED_SIGNAL_RE.sub("the data", out)
+    # collapse an accidental "the the" if a different lead-in preceded it.
+    out = re.sub(r"\bthe\s+the\b", "the", out, flags=re.IGNORECASE)
+    out = _HIGH_VOL_APOLOGY_RE.sub("", out)
+    out = _DANGLING_SPACE_RE.sub(" ", out)
+    return out
+
+
 def sanitize_narrative(text: str) -> str:
-    """Strip markdown links, control chars, and @everyone/@here mentions."""
+    """Strip markdown links, control chars, @everyone/@here mentions, and
+    internal pipeline tags (all-risk-section v2 Fix #5)."""
     if not text or not isinstance(text, str):
         return ""
     out = _MARKDOWN_LINK_RE.sub(r"\1 (\2)", text)
     out = _CONTROL_RE.sub("", out)
     out = _MENTION_RE.sub("[mention removed]", out)
+    out = _scrub_internal_tags(out)
     return out
 
 
