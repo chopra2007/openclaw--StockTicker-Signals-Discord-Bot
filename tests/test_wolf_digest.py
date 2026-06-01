@@ -131,14 +131,83 @@ async def test_dedup_second_tick_no_double_post(digest_env):
     assert len(digest_env) == 1                               # dedupe_key blocked the 2nd
 
 
-async def test_staleness_guard_skips_old_trigger(digest_env):
-    """Engine rebooted at 1:30am; the 7pm Wrap is 6h old -> not posted as 'fresh'."""
-    night_email = datetime(2026, 5, 31, 19, 5, tzinfo=PT).timestamp()
-    await _seed_email("wrap1", night_email)
+async def test_mid_window_restart_still_fires(digest_env):
+    """Codex MINOR-1 fix: a restart 2h into the 7h nightly window must STILL post the
+    Wrap — the old 90-min grace bound would have silently eaten it."""
+    now_pt = datetime(2026, 6, 3, 21, 30, tzinfo=PT)          # Wed, 2.5h into nightly window
+    await _seed_email("wrap1", datetime(2026, 6, 3, 19, 5, tzinfo=PT).timestamp())
     await _seed_thesis("market", "SPX", "bear", "imminent")
-    now_pt = datetime(2026, 6, 1, 1, 30, tzinfo=PT)            # reboot, in nightly window
     await wolf_digest._digest_tick(now_pt=now_pt, now_epoch=now_pt.timestamp())
-    assert digest_env == []                                    # stale -> skipped
+    assert len(digest_env) == 1
+    assert await db.get_wolf_alert(f"digest|nightly|{date(2026,6,3)}") is not None
+
+
+async def test_email_before_window_open_no_fire(digest_env):
+    """An email received BEFORE the window opened is not this window's trigger."""
+    now_pt = datetime(2026, 6, 3, 19, 30, tzinfo=PT)          # Wed, nightly window open
+    await _seed_email("early", datetime(2026, 6, 3, 18, 0, tzinfo=PT).timestamp())  # 18:00 < 19:00
+    await _seed_thesis("market", "SPX", "bear", "imminent")
+    await wolf_digest._digest_tick(now_pt=now_pt, now_epoch=now_pt.timestamp())
+    assert digest_env == []
+
+
+async def test_retry_after_failed_send(digest_env, monkeypatch):
+    """Codex MAJOR-1: a failed Discord send is retried on a later tick, not dropped forever."""
+    now_pt = datetime(2026, 6, 1, 12, 30, tzinfo=PT)          # Mon midday
+    await _seed_email("fresh1", datetime(2026, 6, 1, 12, 1, tzinfo=PT).timestamp())
+    await _seed_thesis("stock", "NVDA", "bull", "acting")
+
+    fail = [True]
+
+    async def maybe_fail(content=None, embed=None, ping_user_id=None):
+        if fail[0]:
+            return None
+        digest_env.append({"embed": embed})
+        return "ok_id"
+
+    monkeypatch.setattr(wolf_news, "_send_news", maybe_fail)
+    await wolf_digest._digest_tick(now_pt=now_pt, now_epoch=now_pt.timestamp())
+    row = await db.get_wolf_alert(f"digest|midday|{now_pt.date()}")
+    assert row is not None and row["status"] == "failed"      # failed, NOT posted
+    assert digest_env == []
+
+    fail[0] = False                                            # Discord recovers
+    await wolf_digest._digest_tick(now_pt=now_pt, now_epoch=now_pt.timestamp())
+    row = await db.get_wolf_alert(f"digest|midday|{now_pt.date()}")
+    assert row["status"] == "posted"
+    assert len(digest_env) == 1                                # posted exactly once on retry
+
+
+async def test_failed_recap_retries_not_addon(digest_env, monkeypatch):
+    """Codex MAJOR-2: a failed Sunday recap is RETRIED as a recap, never mis-branched
+    into the add-on path just because a (failed) row exists."""
+    monkeypatch.setattr(wolf_outcomes, "_fetch_proxy_series",
+                        lambda s, a: {"anchor_close": 100.0, "latest_close": 105.0, "band_pct": 1.0})
+    sunday = datetime(2026, 6, 7, 10, 30, tzinfo=PT)
+    await _seed_email("wk1", datetime(2026, 6, 5, 12, 0, tzinfo=PT).timestamp())
+    await _seed_thesis("stock", "NVDA", "bull", "acting", anchor_ts=sunday.timestamp() - 86400)
+
+    fail = [True]
+
+    async def maybe_fail(content=None, embed=None, ping_user_id=None):
+        if fail[0]:
+            return None
+        digest_env.append({"embed": embed})
+        return "ok"
+
+    monkeypatch.setattr(wolf_news, "_send_news", maybe_fail)
+    await wolf_digest._digest_tick(now_pt=sunday, now_epoch=sunday.timestamp())
+    row = await db.get_wolf_alert(f"digest|sunday|{date(2026,6,7)}")
+    assert row is not None and row["status"] == "failed"
+    assert await db.get_wolf_alert(f"digest|sunday-addon|{date(2026,6,7)}") is None   # NOT mis-branched
+    assert await wolf_digest.recap_fired_today(date(2026, 6, 7)) is False
+
+    fail[0] = False                                            # Discord recovers
+    await wolf_digest._digest_tick(now_pt=sunday, now_epoch=sunday.timestamp())
+    row = await db.get_wolf_alert(f"digest|sunday|{date(2026,6,7)}")
+    assert row["status"] == "posted"
+    assert await db.get_wolf_alert(f"digest|sunday-addon|{date(2026,6,7)}") is None
+    assert len(digest_env) == 1
 
 
 async def test_nightly_fires_when_fresh(digest_env):

@@ -450,8 +450,17 @@ async def _post_digest_event(event: dict, now: float) -> bool:
               "digest": payload}
     alert_id = await db.create_pending_alert(dedupe_key, None, "surface", json.dumps(stored), now)
     if alert_id is None:
-        log.debug("wolf_news: digest already posted for %s, skipping", dedupe_key)
-        return False
+        # Row exists. Only skip if it actually POSTED — otherwise a prior send FAILED and
+        # we retry it now (a transient Discord blip must not silently drop the digest
+        # forever). 'posted' rows are never re-sent, so no double-post.
+        existing = await db.get_wolf_alert(dedupe_key)
+        if existing and existing.get("status") == "posted":
+            log.debug("wolf_news: digest already posted for %s, skipping", dedupe_key)
+            return False
+        alert_id = existing["id"] if existing else None
+        if alert_id is None:
+            return False
+        log.info("wolf_news: retrying previously-failed digest %s", dedupe_key)
     embed = format_digest(event.get("variant", ""), payload)
     dry_run = cfg.get("wolf.dry_run", True)
     if dry_run:

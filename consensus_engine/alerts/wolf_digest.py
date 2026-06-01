@@ -132,8 +132,11 @@ async def post_digest(variant: str, anchor_date) -> bool:
 
 
 async def recap_fired_today(anchor_date) -> bool:
-    """Persistent check (survives restart): has the Sunday recap for this date posted?"""
-    return await db.get_wolf_alert(f"digest|sunday|{anchor_date}") is not None
+    """Persistent check (survives restart): has the Sunday recap for this date actually
+    POSTED? Keys on status, not mere row existence — a failed send leaves a non-posted
+    row that must still be retried, not treated as done."""
+    row = await db.get_wolf_alert(f"digest|sunday|{anchor_date}")
+    return row is not None and row.get("status") == "posted"
 
 
 async def _digest_tick(now_pt: datetime | None = None, now_epoch: float | None = None) -> None:
@@ -142,15 +145,19 @@ async def _digest_tick(now_pt: datetime | None = None, now_epoch: float | None =
         now_pt = datetime.now(_PT)
     if now_epoch is None:
         now_epoch = now_pt.timestamp()
-    grace = float(cfg.get("wolf.digests.grace_minutes", 90)) * 60.0
-    min_recv = now_epoch - grace
+
+    # An email is a valid trigger iff its received_at falls within the CURRENT open PT
+    # window [lo, hi]. pt_window_anchor already rejects a reboot that lands outside the
+    # window, so no extra staleness/grace bound is needed — and a restart *inside* a long
+    # window must still post the digest (a 90-min grace would eat the 7-hour nightly Wrap).
+    # Dedup (dedupe_key) makes a re-post after a successful one a no-op.
 
     # --- midday (same-day window) ---
     mw = cfg.get("wolf.digests.midday_window_pt", ["12:00", "13:05"])
     in_mid, mid_anchor = pt_window_anchor(now_pt, mw[0], mw[1])
     if in_mid:
         lo, hi = _pt_epoch(mid_anchor, mw[0]), _pt_epoch(mid_anchor, mw[1])
-        if await db.count_wolf_emails_received_between(lo, hi, min_recv) >= 1:
+        if await db.count_wolf_emails_received_between(lo, hi) >= 1:
             await post_digest("midday", mid_anchor)
 
     # --- nightly (cross-midnight window) ---
@@ -159,7 +166,7 @@ async def _digest_tick(now_pt: datetime | None = None, now_epoch: float | None =
     if in_night:
         lo = _pt_epoch(night_anchor, nw[0])
         hi = _pt_epoch(night_anchor + timedelta(days=1), nw[1])
-        if await db.count_wolf_emails_received_between(lo, hi, min_recv) >= 1:
+        if await db.count_wolf_emails_received_between(lo, hi) >= 1:
             await post_digest("nightly", night_anchor)
 
     # --- sunday recap + add-on (clock-based) ---
@@ -169,12 +176,15 @@ async def _digest_tick(now_pt: datetime | None = None, now_epoch: float | None =
         today = now_pt.date()
         if now_pt.hour * 60 + now_pt.minute >= rh * 60 + rm:
             recap_row = await db.get_wolf_alert(f"digest|sunday|{today}")
-            if recap_row is None:
+            recap_posted = recap_row is not None and recap_row.get("status") == "posted"
+            if not recap_posted:
+                # post the recap — or RETRY a previously-failed one. Do NOT fall through to
+                # the add-on branch just because a (failed) row exists (Codex MAJOR-2).
                 week_lo = now_epoch - 7 * 86400
                 if await db.count_wolf_emails_received_between(week_lo, now_epoch) >= 1:
                     await post_digest("sunday", today)
             else:
-                # add-on: a Sunday email arrived AFTER the recap posted
+                # add-on: a Sunday email arrived AFTER the recap actually posted
                 posted_at = recap_row.get("posted_at") or recap_row.get("created_at") or 0.0
                 if await db.count_wolf_emails_received_between(posted_at, now_epoch) >= 1:
                     await post_digest("sunday-addon", today)

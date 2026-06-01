@@ -734,7 +734,6 @@ wolf:
     midday_window_pt: ["12:00", "13:05"]    # post ~1 min after Wolf's midday email lands
     nightly_window_pt: ["19:00", "02:00"]   # crosses midnight — the long evening "Wrap"
     sunday_recap_pt: "10:00"            # clock-based weekly recap (Sun >= 10am PT)
-    grace_minutes: 90                   # don't fire on a trigger email older than this (stale-reboot guard)
     outcome_lookback_days: 7            # Sunday recap scores theses actionable within this window
     max_theses_per_field: 8            # cap embed field length
 

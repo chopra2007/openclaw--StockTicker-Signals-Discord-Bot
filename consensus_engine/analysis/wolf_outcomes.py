@@ -13,7 +13,8 @@ import asyncio
 import json
 import logging
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from consensus_engine import config as cfg, db
 from consensus_engine.analysis.wolf_scope import proxy_symbol
@@ -45,7 +46,10 @@ def _fetch_proxy_series(symbol: str, anchor_ts: float) -> dict:
     try:
         import yfinance as yf
 
-        anchor_date = datetime.fromtimestamp(anchor_ts, tz=timezone.utc).date()
+        # Anchor on the US MARKET (Eastern) trading date, not UTC: an evening (~7pm PT)
+        # Wolf Wrap is next-day in UTC, which would mis-match yfinance's ET daily bars
+        # and start the % move a day late (Codex MINOR-2).
+        anchor_date = datetime.fromtimestamp(anchor_ts, tz=ZoneInfo("America/New_York")).date()
         start = (anchor_date - timedelta(days=45)).isoformat()
         hist = yf.Ticker(symbol).history(start=start, interval="1d")
         if hist is None or hist.empty:
