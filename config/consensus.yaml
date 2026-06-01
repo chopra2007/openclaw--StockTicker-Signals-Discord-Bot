@@ -12,6 +12,8 @@ api_keys:
   groq: "$GROQ_API_KEY"  # bridges get_api_key's name.upper()=GROQ -> GROQ_API_KEY
   discord_bot_token: "$DISCORD_BOT_TOKEN"
   discord_channel_id: "$DISCORD_CHANNEL_ID"
+  discord_news_channel_id: "$DISCORD_NEWS_CHANNEL_ID"   # Wolf macro-brain #news lane
+  discord_owner_user_id: "$DISCORD_OWNER_USER_ID"       # @-ping target (phase-2, dormant)
   discord_feed_channel_id: "$DISCORD_FEED_CHANNEL_ID"  # #twitter channel — TweetShift input
   twitter_auth_token: "$TWITTER_AUTH_TOKEN"
   twitter_ct0: "$TWITTER_CT0"
@@ -687,7 +689,7 @@ gmail_watcher:
   # text/plain bodies + regex tickers, but the Wolf newsletter is HTML-only with
   # remote chart images. The HTML/image/LLM "macro brain" reader is the next
   # build; flip enabled: true once that ships.
-  enabled: false
+  enabled: true                          # LIVE — Wolf #news watcher (user sign-off 2026-06-01)
   credentials_path: "/root/.openclaw/gmail/credentials.json"
   token_path: "/root/.openclaw/gmail/token.json"
   processed_label_name: "OpenClawProcessed"
@@ -706,7 +708,7 @@ gmail_watcher:
 # Everything OFF by default: gmail_watcher.enabled:false gates ingestion, and
 # wolf.dry_run:true means alerts are logged, never posted to Discord.
 wolf:
-  dry_run: true                         # true = log alerts only (no Discord post). Flip after sign-off.
+  dry_run: false                        # LIVE — posts to #news (user sign-off 2026-06-01)
   enable_critical_ping: false           # phase-2 only (needs confluence corroborator)
   extraction_max_tokens: 4096
   extraction_timeout: 60
