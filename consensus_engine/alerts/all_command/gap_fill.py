@@ -21,6 +21,7 @@ Triggers:
 from __future__ import annotations
 
 import asyncio
+import datetime
 import logging
 import time
 from typing import Optional
@@ -45,6 +46,81 @@ _PER_QUERY_TIMEOUT = 8.0
 _CATALYST_SERPAPI_MAX_CALLS = 3
 
 
+# Three independent SerpAPI free-tier accounts (separate billing, ~250 searches/mo
+# each, reset independently — verified 2026-06-01: keys map to 3 distinct accounts).
+# Tried primary-first; a key that returns HTTP 429 ("out of searches") is skipped for
+# the rest of the day so we don't waste a call probing a dead key.
+_SERPAPI_KEY_ALIASES = ("serpapi", "serpapi2", "serpapi3")
+_EXHAUST_MARKERS = ("out of searches",)
+# alias -> ISO date (YYYY-MM-DD) the key last returned "out of searches". Same-day ->
+# skip; the date rolls over the next day -> retried (covers the monthly quota reset).
+_serpapi_exhausted: dict[str, str] = {}
+
+
+def _serpapi_keys() -> list[tuple[str, str]]:
+    """Ordered (alias, key) pairs: configured, non-empty, not exhausted today."""
+    today = datetime.date.today().isoformat()
+    pairs: list[tuple[str, str]] = []
+    for alias in _SERPAPI_KEY_ALIASES:
+        key = cfg.get_api_key(alias)
+        if not key:
+            continue
+        if _serpapi_exhausted.get(alias) == today:
+            continue
+        pairs.append((alias, key))
+    return pairs
+
+
+async def _serpapi_organic(query: str, freshness: str) -> list[dict]:
+    """Run one SerpAPI Google search, rotating keys on exhaustion.
+
+    Tries each available key in priority order. A key that returns HTTP 429 (or a
+    body carrying an "out of searches" error) is marked exhausted-for-today and the
+    next key is tried. Any other failure on a key returns [] without burning the rest
+    (a transient 500 shouldn't drain every key). Returns the raw ``organic_results``
+    list (possibly empty). No lock needed: callers run as coroutines in one asyncio
+    event loop (gap_fill.py asyncio.gather), so the dict writes don't interleave.
+    """
+    today = datetime.date.today().isoformat()
+    keys = _serpapi_keys()
+    if not keys:
+        return []
+    url = "https://serpapi.com/search"
+    for alias, api_key in keys:
+        params = {
+            "q": query, "api_key": api_key, "engine": "google",
+            "num": 10, "tbs": freshness,
+        }
+        try:
+            session = await get_session()
+            async with session.get(
+                url, params=params,
+                timeout=aiohttp.ClientTimeout(total=_PER_QUERY_TIMEOUT),
+            ) as resp:
+                status = resp.status
+                try:
+                    data = await resp.json()
+                except Exception:  # noqa: BLE001
+                    data = {}
+        except Exception as exc:  # noqa: BLE001
+            log.debug("serpapi: key %s failed for %s: %s", alias, query, exc)
+            return []
+        err = str(data.get("error") or "").lower()
+        if status == 429 or any(m in err for m in _EXHAUST_MARKERS):
+            _serpapi_exhausted[alias] = today
+            log.warning(
+                "serpapi: key '%s' out of searches (HTTP %d) — rotating to next key",
+                alias, status,
+            )
+            continue
+        if status != 200:
+            log.debug("serpapi: HTTP %d for %s (key %s)", status, query, alias)
+            return []
+        return data.get("organic_results", []) or []
+    log.warning("serpapi: all keys exhausted/unavailable for query: %s", query)
+    return []
+
+
 async def _search_serpapi_raw(query: str, freshness: str = "qdr:y") -> list[str]:
     """Thin Google-via-SerpAPI wrapper returning title+snippet pairs.
 
@@ -52,34 +128,10 @@ async def _search_serpapi_raw(query: str, freshness: str = "qdr:y") -> list[str]
     right for catalyst mining because partnership/product announcements
     can have multi-month visibility (the AMD-Meta deal pre-flight
     surfaced an October 2026 announcement that's still load-bearing).
+    Key selection + 429 rotation live in `_serpapi_organic`.
     """
-    api_key = (
-        cfg.get_api_key("serpapi3")
-        or cfg.get_api_key("serpapi2")
-        or cfg.get_api_key("serpapi")
-    )
-    if not api_key:
-        return []
-    try:
-        session = await get_session()
-        url = "https://serpapi.com/search"
-        params = {
-            "q": query, "api_key": api_key, "engine": "google",
-            "num": 10, "tbs": freshness,
-        }
-        async with session.get(
-            url, params=params,
-            timeout=aiohttp.ClientTimeout(total=_PER_QUERY_TIMEOUT),
-        ) as resp:
-            if resp.status != 200:
-                log.debug("serpapi_raw: HTTP %d for %s", resp.status, query)
-                return []
-            data = await resp.json()
-    except Exception as exc:  # noqa: BLE001
-        log.debug("serpapi_raw: failed %s: %s", query, exc)
-        return []
     out: list[str] = []
-    for r in data.get("organic_results", []) or []:
+    for r in await _serpapi_organic(query, freshness):
         title = r.get("title", "")
         snippet = r.get("snippet", "")
         if title or snippet:
@@ -96,34 +148,9 @@ async def _search_serpapi_trusted(query: str, freshness: str = "qdr:m") -> list[
     must be CURRENT, so the default freshness is `qdr:m` (past month), not the
     catalyst queries' `qdr:y`.
     """
-    api_key = (
-        cfg.get_api_key("serpapi3")
-        or cfg.get_api_key("serpapi2")
-        or cfg.get_api_key("serpapi")
-    )
-    if not api_key:
-        return []
     trusted = cfg.get("news.trusted_sources", []) or []
-    try:
-        session = await get_session()
-        url = "https://serpapi.com/search"
-        params = {
-            "q": query, "api_key": api_key, "engine": "google",
-            "num": 10, "tbs": freshness,
-        }
-        async with session.get(
-            url, params=params,
-            timeout=aiohttp.ClientTimeout(total=_PER_QUERY_TIMEOUT),
-        ) as resp:
-            if resp.status != 200:
-                log.debug("serpapi_trusted: HTTP %d for %s", resp.status, query)
-                return []
-            data = await resp.json()
-    except Exception as exc:  # noqa: BLE001
-        log.debug("serpapi_trusted: failed %s: %s", query, exc)
-        return []
     out: list[str] = []
-    for r in data.get("organic_results", []) or []:
+    for r in await _serpapi_organic(query, freshness):
         link = (r.get("link") or r.get("source") or "").lower()
         if not any(src in link for src in trusted):
             continue

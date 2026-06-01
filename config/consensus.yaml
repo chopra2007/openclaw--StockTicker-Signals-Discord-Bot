@@ -18,12 +18,14 @@ api_keys:
   twitter_auth_token: "$TWITTER_AUTH_TOKEN"
   twitter_ct0: "$TWITTER_CT0"
   twitter_cookie_string: "$TWITTER_COOKIE_STRING"
-  # all-risk-section: was $SERPAPI3_API_KEY but key 3 is exhausted (HTTP 429
-  # "out of searches"); keys 1 and 2 have quota. The get_api_key("serpapi3")
-  # or ("serpapi2") failover never engaged (those aliases aren't mapped and the
-  # env fallback looks for SERPAPI3, not SERPAPI3_API_KEY), so the bot used the
-  # one exhausted key. Repointed to key 1. (Real rotate-on-429 = follow-up.)
+  # 3 independent SerpAPI free accounts (~250 searches/mo each, reset separately).
+  # gap_fill._serpapi_organic tries them primary-first and rotates to the next on a
+  # 429 "out of searches", skipping a dead key for the rest of the day. All three
+  # must be mapped here so get_api_key("serpapi2"/"serpapi3") resolves (the env-var
+  # fallback in config.py looks for the wrong name, SERPAPI2 not SERPAPI2_API_KEY).
   serpapi: "$SERPAPI_API_KEY"
+  serpapi2: "$SERPAPI2_API_KEY"
+  serpapi3: "$SERPAPI3_API_KEY"
   exa: "$EXA_AI_API_KEY"
   reddit_client_id: "$REDDIT_CLIENT_ID"
   reddit_client_secret: "$REDDIT_CLIENT_SECRET"
