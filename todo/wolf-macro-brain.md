@@ -1,7 +1,17 @@
 # Wolf newsletter → trade-finding macro brain
 
-**Status:** OPEN
+**Status:** IN PROGRESS — phase-1 (Type-1 over-time conviction tracker) **LIVE in #news 2026-06-01**; phase-2 (cross-source confluence) is NEXT.
 **Created:** 2026-05-31
+
+## Progress / what's shipped
+- **Phase-1 / Type-1 (Wolf-over-time conviction tracker): SHIPPED + LIVE 2026-06-01** (user sign-off). Reader → per-thesis threads (scope+direction in `macro_theses`) → conviction tracker (stage progression + timeframe widening + position intent) → clean Discord **embed** alert to #news, firing ONLY on a material escalation. New `consensus_engine/analysis/wolf_conviction.py`; rides `evidence_log_json` (no DB schema change). Quality fixes from real-email replay on the May semis-short arc: acting⟺explicit-position gate, junk style-word scope filter, LLM-extraction retry, chart-image timeframes into the ladder, **inverse-ETF direction flip** (SOXS→SMH bear), embed format. Config flips: `wolf.dry_run:false`, `gmail_watcher.enabled:true`, added `api_keys.discord_news_channel_id`. Commits dd90348 → b817834. Detail: memory `project_wolf_phase1_live`.
+- **Re-scope (user, 2026-05-31):** dropped the within-email "3-of-3 charts agree" idea (one email = one view). "Confluence" = (1) **Wolf-over-time [DONE]** and (2) **cross-source [NEXT]**.
+- Known caveat at go-live: Gemini vision quota exhausted → alert LEVELS blank until ~midnight PT reset; text/story/timeframes/quote work.
+
+## NEXT — Phase-2: cross-source confluence (Type-2)
+Compare Wolf's thesis vs OTHER sources the user follows — **YouTube + TweetShift/Twitter — WITH sector roll-up** (e.g. a YouTube "bearish semis/nasdaq" + a TweetShift "big bearish NVDA & MU" → both semis → reinforce Wolf's SMH short). Higher-risk: reads several LIVE tables and touches the live `!all` data.
+**Agreed process (2026-05-31):** write a dedicated confluence plan → run the **Codex (gpt-5.5) adversarial review gate** on it → then build (TDD + verify). The plan supersedes the thin phase-2 sketch in the discover `final-plan.md` (known BLOCKER there: must read THREE source tables — `signal_events` twitter/youtube, `options_flow` side→dir, `ticker_signals[sec]` sentiment→dir — NOT just signal_events; plus scope matrix, Wolf-echo filter, YT cluster-cap, recency decay, non-Wolf level-bearing requirement for high/critical).
+**HARD PRECONDITION:** verify Codex can actually READ the plan + code files (a cheap access probe) BEFORE dispatching the review — it once fell back to a stale GitHub copy on perm-denied; don't burn credits on a blind review (memory `feedback_verify_codex_file_access`). Detailed direction also saved at `.claude/discover/wolf-news-brain/pass5-confluence-direction.md`.
 
 ## North-star goal
 Find **actionable trades.** Turn the "Wolf on Wall Street" email feed into a market-context "brain" that surfaces trade leans, sector rotations, and catalysts — and **proactively pings** when a market/sector top or bottom is forming or a catalyst lands, **louder when other sources agree.** "Being more informed" is the means, not the end.

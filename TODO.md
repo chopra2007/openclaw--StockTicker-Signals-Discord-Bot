@@ -120,11 +120,11 @@ Teach the bot to read near-real-time options data and alert on unusual flow. **S
 
 Figure out whether YouTube database signals (video mentions, extracted levels) are currently weighted in the `!all` score, and whether they should be — then implement if the answer is yes.
 
-## 20. Turn the Wolf market newsletter into a trade-finding brain
+## 20. Turn the Wolf market newsletter into a trade-finding brain — phase-1 LIVE, phase-2 (confluence) next
 
 **File:** `wolf-macro-brain.md`
 
-Read the Wolf on Wall Street emails (text + charts) so the bot tracks market tops/bottoms, sector rotations, and catalysts, and proactively flags actionable trades — louder when other sources agree.
+Read the Wolf on Wall Street emails (text + charts) so the bot tracks market tops/bottoms, sector rotations, and catalysts, and proactively flags actionable trades — louder when other sources agree. **Phase-1 (Wolf-over-time conviction tracker) is LIVE in #news as of 2026-06-01; NEXT is phase-2 cross-source confluence (YouTube + TweetShift, sector roll-up) — to be built via a written plan + the Codex review gate.**
 
 ## 21. Auto-switch web-search keys when one runs out
 
