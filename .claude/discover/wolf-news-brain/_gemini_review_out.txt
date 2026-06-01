@@ -1,0 +1,51 @@
+===== GEMINI REVIEW (model=gemini-2.5-flash) =====
+
+This plan is exceptionally thorough and has clearly absorbed the prior adversarial passes. The level of detail on mitigations, specific component responsibilities, and architectural separation is commendable for a non-coder's project.
+
+However, the directive "simplest thing that works for a first live #news lane" and the need to avoid hidden dependencies or late risks still highlight areas for refinement or deferral. My review focuses on the current plan's *residual* risks and scope ambition.
+
+---
+
+### BLOCKER
+
+*   **Issue: Unverified Confluence Data Dependency (Critical Path Risk).**
+    The plan correctly notes the crucial dependency: "Verify options/twitter/sec actually write `signal_events` with a usable `direction`." This verification is positioned as a "during build" step. However, the `wolf_confluence` component is a major feature ("the big lever") and its entire premise relies on reliable directional data from these external sources. If these sources do not consistently provide clear directional stances, the confluence engine will be starved, produce unreliable output, or require a significant (and un-planned) refactor of existing source parsers to derive `direction`. Building the confluence engine without confirming the viability and quality of its input data is a high risk for wasted effort and V1 delays. This is a pre-requisite, not a mid-build check.
+*   **Fix:** **Elevate to a hard pre-code BLOCKER for the `wolf_confluence` component.** Before *any* code is written for `wolf_confluence.py`, a small, focused script (`scripts/verify_confluence_sources.py`) **must** be executed against live `youtube_signals`, `signal_events` (options/Twitter/SEC) tables to confirm that they consistently store a reliable, parseable `direction` field (e.g., 'bull', 'bear', 'neutral'). If this verification fails or shows significant data quality/availability issues, the entire `wolf_confluence.py` component **must be explicitly deferred to a later phase (e.g., Phase 2.1 or 3).** Ship the Wolf-only reader→thesis→alert #news lane first. This aligns with "simplest thing that works for a first live #news lane" by de-risking a major dependency.
+
+---
+
+### MAJOR
+
+*   **Issue: LLM Synthesis Security Risk in Digests (`_llm_synthesize`).**
+    The plan has strong `[SEC-CRIT]` mitigations for prompt injection during *extraction* from incoming email/chart text. However, `wolf_digest.py` explicitly states `_llm_synthesize` will `skip hostile-sanitize` when generating Discord digest content. If any free-text content (e.g., `ChartRead.raw_caption`, or LLM-generated `notes` which are not rigorously checked) flows into the digest synthesis prompt, this creates a new prompt injection vector for *output generation*. The LLM could be coerced to generate misleading, offensive, or otherwise problematic content directly into Discord, even if the internal `WolfExtraction` data is otherwise "clean." Input sanitization does not automatically secure LLM output generation from malicious prompts for synthesis.
+*   **Fix:** **Implement robust output sanitization or a strict content filter *after* `_llm_synthesize` for all Discord-bound LLM-generated text (digests and any other LLM prose).** Alternatively, if `skip hostile-sanitize` is absolutely necessary for `_llm_synthesize`, the LLM prompt itself **must be explicitly hardened to forbid verbatim inclusion of any source text,** strictly operating *only* on fully validated, enum-clamped, and allow-listed fields from the `WolfExtraction` or `WolfSignal` models. Add a `[SEC-CRIT]` test specifically for synthesis output injection.
+
+*   **Issue: Over-ambitious V1 Scope: Beneficiary Inference.**
+    The inclusion of "Beneficiary inference for BIG catalysts" in V1 is an advanced LLM task. Inferring specific "up/down names" from a high-level catalyst (even Wolf-flagged ones like "war escalation") is prone to hallucination, requires significant validation (which the bot cannot do independently for V1), and adds considerable complexity to LLM prompt engineering and output processing. For a non-coder's solo project focused on "simplest thing that works," this feature introduces a high potential for incorrect or confusing inferences, which could erode user trust and significantly delay the core value delivery of the bot.
+*   **Fix:** **Defer Beneficiary Inference to a much later phase (e.g., Phase 3 or beyond).** The core value proposition of tracking Wolf's theses, stages, and confluence (if enabled) should be established, verified, and proven reliable before tackling speculative inference tasks that add another layer of potential error and complexity.
+
+---
+
+### MINOR
+
+*   **Issue: Vague Chart Prioritization Logic (`wolf_vision.py`).**
+    The plan specifies "cap 5 charts/email, prioritize text-referenced." The mechanism for "prioritize text-referenced" is not detailed. For a non-coder, implementing a robust heuristic to reliably link arbitrary text mentions to specific chart images can be surprisingly complex, error-prone, and fragile. If this prioritization is faulty, critical charts might be overlooked, or irrelevant ones processed, impacting the quality of extracted signals and wasting LLM quota.
+*   **Fix:** **Simplify the chart prioritization for V1.** Recommend processing the first 5 distinct, non-tracking image URLs found in the HTML body based on their order of appearance. This is deterministic, simpler to implement and debug, and avoids complex textual-visual linking heuristics for the initial version. If a strong need for more sophisticated text-image linking emerges, it can be added in a later phase.
+
+*   **Issue: Unclear Chart-Text Integration for LLM Parsing (`wolf_email_parser.py`).**
+    The plan states "merge chart reads (from `wolf_vision`) with text" before LLM structured extraction. It's unclear *how* this merging translates into input for the LLM. Does the LLM receive multi-modal input (text + images directly), or a concatenated text string (original HTML text + `ChartRead.raw_caption` from vision)? The quality and accuracy of the `WolfExtraction` will heavily depend on how this critical integration step is performed. If the LLM doesn't process the text and chart information synergistically, it might miss crucial connections.
+*   **Fix:** **Clarify the exact integration strategy.** For V1, a more robust and simpler approach might be to have the LLM perform primary extraction from the HTML text (as is common) and then append the structured `ChartRead` results (instrument, levels, direction, etc.) as distinct, separate elements within the `WolfExtraction` output, possibly linking them to text-derived theses by shared `identifier` *after* the initial LLM pass. This avoids complex multi-modal LLM prompting for the initial version, which is often harder to fine-tune and debug.
+
+*   **Issue: Undefined Sprawl Cap Behavior (`wolf_theses.py`).**
+    The plan correctly introduces sprawl caps (10 market/20 sector/30 stock) to prevent database bloat, which is a good operational safeguard. However, it does not specify what happens *when these caps are reached*. Silently dropping new theses means missing signals. Arbitrarily invalidating existing active theses could prematurely close valid Wolf calls. The behavior needs to be explicit to avoid unintended data loss or misleading state.
+*   **Fix:** **Define the exact behavior for when sprawl caps are hit.** Suggestion: When a cap is reached for a given `scope_level`, log a warning, and invalidate the *oldest, least recently updated* active thesis of that specific `scope_level`. This prioritizes Wolf's most recent thinking while managing database growth.
+
+*   **Issue: Diminished Urgency of Batched Critical Pings (`wolf_news.py`).**
+    The plan implements a `[SEC-HIGH]` mitigation to "batch overflow into the next digest" for critical `@-pings` due to rate limiting. While rate limiting is crucial for Discord compliance, delaying a *critical* alert (or its essential mention component) to the "next digest" (which could be hours or the next day) significantly diminishes its real-time actionability and the "critical" nature of the signal. Users might miss time-sensitive opportunities.
+*   **Fix:** **Re-evaluate the "batch overflow" strategy for critical alerts.** If the `@-ping` itself must be delayed, the full message content (minus the `@-ping`) **must still be posted immediately** to the #news channel. This message could then include a note like `(User ping suppressed due to rate limit, will be re-attempted with next digest)` if the `@-ping` is still crucial.
+
+---
+
+### VERDICT: REVISE (must-fix: Confluence Data Dependency, LLM Synthesis Security)
+
+REVIEW_DONE

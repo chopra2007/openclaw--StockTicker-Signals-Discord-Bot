@@ -627,6 +627,57 @@ CREATE TABLE IF NOT EXISTS routine_health (
     paused_until REAL,
     meta_json TEXT
 );
+
+-- Wolf macro-brain (TODO #20) phase 1. Separate from ticker_signals so Wolf's
+-- macro commentary never enters the live per-ticker alert/scoring pipeline.
+CREATE TABLE IF NOT EXISTS macro_theses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    scope_type TEXT NOT NULL,            -- market | sector | stock | asset
+    scope_key TEXT NOT NULL,             -- canonical: SPX, XLE, NVDA, OIL, GOLD, BONDS, YIELDS, BTC, DXY
+    direction TEXT NOT NULL,             -- bull | bear
+    stage TEXT NOT NULL DEFAULT 'forming',  -- forming | diverging | imminent | acting | invalidated
+    source TEXT NOT NULL DEFAULT 'wolf',
+    key_levels_json TEXT NOT NULL DEFAULT '[]',  -- [{"price":.., "role":"support|resistance|target", "confidence":..}]
+    price_at_creation REAL,
+    created_at REAL NOT NULL,
+    last_updated REAL NOT NULL,
+    invalidated_at REAL,
+    status TEXT NOT NULL DEFAULT 'active',   -- active | invalidated
+    has_levels INTEGER NOT NULL DEFAULT 0,   -- 0 => surface tier only (no @-ping)
+    evidence_log_json TEXT NOT NULL DEFAULT '[]'
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_theses_active_unique
+    ON macro_theses(scope_type, scope_key, direction) WHERE status='active';
+CREATE INDEX IF NOT EXISTS idx_theses_scope ON macro_theses(scope_type, scope_key);
+CREATE INDEX IF NOT EXISTS idx_theses_status ON macro_theses(status);
+
+-- Durable outbox for #news posts (Codex review): build a 'pending' row, post,
+-- then mark 'posted' so a crash can never double-post or lose an alert.
+CREATE TABLE IF NOT EXISTS wolf_news_alerts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    dedupe_key TEXT NOT NULL UNIQUE,     -- e.g. "<thesis_id>|<stage>" — one alert per stage
+    thesis_id INTEGER,
+    tier TEXT NOT NULL DEFAULT 'surface',-- surface | high | critical
+    status TEXT NOT NULL DEFAULT 'pending',  -- pending | posted | failed
+    payload_json TEXT NOT NULL DEFAULT '{}',
+    discord_message_id TEXT,
+    created_at REAL NOT NULL,
+    posted_at REAL
+);
+CREATE INDEX IF NOT EXISTS idx_wolf_alerts_status ON wolf_news_alerts(status);
+
+-- Wolf email processing ledger (Codex review): Wolf signal lives in image URLs,
+-- not text, so the generic text-only seen_gmail_bodies dedupe is insufficient.
+-- Mark a Gmail message processed (label) ONLY after a row here is written.
+CREATE TABLE IF NOT EXISTS wolf_emails_processed (
+    message_id TEXT PRIMARY KEY,
+    html_sha1 TEXT,
+    image_urls_sha1 TEXT,
+    parse_status TEXT NOT NULL DEFAULT 'ok',  -- ok | partial | error
+    error TEXT,
+    theses_touched INTEGER NOT NULL DEFAULT 0,
+    processed_at REAL NOT NULL
+);
 """
 
 # Unique indices that reference columns added by _run_column_migrations.
@@ -766,6 +817,7 @@ async def init_db() -> AsyncConnection:
         (12, "A2 analyst herding detector"),
         (13, "A3 Bayesian source consolidation"),
         (14, "sub-industry peer layer cache (ticker_sector_cache)"),
+        (15, "wolf macro-brain phase-1 (macro_theses, wolf_news_alerts, wolf_emails_processed)"),
     ]
     for version, note in _schema_versions:
         await _db.execute(
@@ -2752,3 +2804,176 @@ async def get_top_tickers_session(session_start_utc: float, session_end_utc: flo
     )
     rows = await cur.fetchall()
     return [r["ticker"] for r in rows]
+
+
+# ─────────────────────────── Wolf macro-brain (TODO #20) ───────────────────────────
+
+async def get_active_thesis(scope_type: str, scope_key: str, direction: str) -> dict | None:
+    """Return the single active Wolf thesis matching scope+direction, or None."""
+    conn = await get_db()
+    cur = await conn.execute(
+        "SELECT * FROM macro_theses WHERE scope_type = ? AND scope_key = ? "
+        "AND direction = ? AND status = 'active'",
+        (scope_type, scope_key, direction),
+    )
+    row = await cur.fetchone()
+    return dict(row) if row else None
+
+
+async def get_active_theses(scope_type: str | None = None) -> list[dict]:
+    """Return all active Wolf theses, optionally filtered by scope_type."""
+    conn = await get_db()
+    if scope_type:
+        cur = await conn.execute(
+            "SELECT * FROM macro_theses WHERE status = 'active' AND scope_type = ? "
+            "ORDER BY last_updated DESC",
+            (scope_type,),
+        )
+    else:
+        cur = await conn.execute(
+            "SELECT * FROM macro_theses WHERE status = 'active' ORDER BY last_updated DESC"
+        )
+    return [dict(r) for r in await cur.fetchall()]
+
+
+async def insert_thesis(
+    scope_type: str,
+    scope_key: str,
+    direction: str,
+    stage: str,
+    key_levels_json: str,
+    price_at_creation: float | None,
+    has_levels: int,
+    evidence_log_json: str,
+    created_at: float,
+) -> int:
+    """Insert a new active Wolf thesis. Returns the new thesis id."""
+    conn = await get_db()
+    cur = await conn.execute(
+        """INSERT INTO macro_theses
+           (scope_type, scope_key, direction, stage, key_levels_json, price_at_creation,
+            created_at, last_updated, status, has_levels, evidence_log_json)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)""",
+        (scope_type, scope_key, direction, stage, key_levels_json, price_at_creation,
+         created_at, created_at, has_levels, evidence_log_json),
+    )
+    await conn.commit()
+    return cur.lastrowid
+
+
+async def update_thesis(
+    thesis_id: int,
+    stage: str,
+    key_levels_json: str,
+    has_levels: int,
+    evidence_log_json: str,
+    last_updated: float,
+) -> None:
+    """Update an existing thesis's stage/levels/evidence."""
+    conn = await get_db()
+    await conn.execute(
+        """UPDATE macro_theses SET stage = ?, key_levels_json = ?, has_levels = ?,
+           evidence_log_json = ?, last_updated = ? WHERE id = ?""",
+        (stage, key_levels_json, has_levels, evidence_log_json, last_updated, thesis_id),
+    )
+    await conn.commit()
+
+
+async def invalidate_thesis(thesis_id: int, when: float) -> None:
+    """Mark a thesis invalidated (frees the active-unique slot for that scope+direction)."""
+    conn = await get_db()
+    await conn.execute(
+        "UPDATE macro_theses SET status = 'invalidated', stage = 'invalidated', "
+        "invalidated_at = ?, last_updated = ? WHERE id = ?",
+        (when, when, thesis_id),
+    )
+    await conn.commit()
+
+
+async def count_active_theses(scope_type: str) -> int:
+    """Count active theses for a scope_type (sprawl-cap enforcement)."""
+    conn = await get_db()
+    cur = await conn.execute(
+        "SELECT COUNT(*) AS cnt FROM macro_theses WHERE status = 'active' AND scope_type = ?",
+        (scope_type,),
+    )
+    row = await cur.fetchone()
+    return row["cnt"] if row else 0
+
+
+async def get_oldest_active_thesis(scope_type: str) -> dict | None:
+    """Return the least-recently-updated active thesis of a scope_type (for sprawl eviction)."""
+    conn = await get_db()
+    cur = await conn.execute(
+        "SELECT * FROM macro_theses WHERE status = 'active' AND scope_type = ? "
+        "ORDER BY last_updated ASC LIMIT 1",
+        (scope_type,),
+    )
+    row = await cur.fetchone()
+    return dict(row) if row else None
+
+
+async def wolf_email_seen(message_id: str) -> bool:
+    """True if this Gmail message was already durably processed by the Wolf pipeline."""
+    conn = await get_db()
+    cur = await conn.execute(
+        "SELECT 1 FROM wolf_emails_processed WHERE message_id = ?", (message_id,)
+    )
+    return await cur.fetchone() is not None
+
+
+async def record_wolf_email(
+    message_id: str,
+    html_sha1: str,
+    image_urls_sha1: str,
+    parse_status: str,
+    error: str | None,
+    theses_touched: int,
+    processed_at: float,
+) -> None:
+    """Record durable processing of a Wolf email (write BEFORE applying the Gmail label)."""
+    conn = await get_db()
+    await conn.execute(
+        """INSERT OR IGNORE INTO wolf_emails_processed
+           (message_id, html_sha1, image_urls_sha1, parse_status, error, theses_touched, processed_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (message_id, html_sha1, image_urls_sha1, parse_status, error, theses_touched, processed_at),
+    )
+    await conn.commit()
+
+
+async def create_pending_alert(
+    dedupe_key: str, thesis_id: int, tier: str, payload_json: str, created_at: float
+) -> int | None:
+    """Create a 'pending' outbox row. Returns its id, or None if dedupe_key already exists."""
+    conn = await get_db()
+    cur = await conn.execute(
+        """INSERT OR IGNORE INTO wolf_news_alerts
+           (dedupe_key, thesis_id, tier, status, payload_json, created_at)
+           VALUES (?, ?, ?, 'pending', ?, ?)""",
+        (dedupe_key, thesis_id, tier, payload_json, created_at),
+    )
+    await conn.commit()
+    if cur.rowcount == 0:
+        return None  # already alerted for this dedupe_key
+    return cur.lastrowid
+
+
+async def mark_alert_posted(alert_id: int, discord_message_id: str | None, when: float) -> None:
+    """Mark an outbox row posted (after a successful Discord send)."""
+    conn = await get_db()
+    await conn.execute(
+        "UPDATE wolf_news_alerts SET status = 'posted', discord_message_id = ?, posted_at = ? "
+        "WHERE id = ?",
+        (discord_message_id, when, alert_id),
+    )
+    await conn.commit()
+
+
+async def mark_alert_failed(alert_id: int) -> None:
+    """Mark an outbox row failed (Discord send error); a later cycle may retry."""
+    conn = await get_db()
+    await conn.execute(
+        "UPDATE wolf_news_alerts SET status = 'failed' WHERE id = ?", (alert_id,)
+    )
+    await conn.commit()

@@ -1,0 +1,59 @@
+{
+  "run_name": "wolf-news-brain",
+  "feature": "Wolf newsletter -> trade-finding macro brain (TODO #20)",
+  "spec_source_of_truth": "todo/wolf-macro-brain.md",
+  "kickoff": "todo/kickoffs/wolf-macro-brain.md",
+  "created": "2026-05-31T12:33:21Z",
+  "mode": "autonomous",
+  "execution_handoff": "build-now",
+  "layout": "native",
+  "agent_count": 6,
+  "greenfield": false,
+  "current_pass": 5,
+  "status": "in_progress",
+  "plan_revision": "v2 (post real-Codex). Thin v1 = reader->vision->extraction->thesis->#news alert (new/stage-change ONLY; level-breaks deferred). BLOCKER FIX: Wolf runs as a SEPARATE top-level supervisor gathered beside run_live (NOT raw stop_event inside run_live's gather -> would deadlock the weekend command-listener); remove old gmail task from run_live. NEW: durable wolf_news_alerts outbox + wolf_emails_processed dedupe table. Deferred: level-breaks/confluence(P2)/digests(P3)/beneficiary(P4)/backfill(P5)/!all(later). Other must-fixes: consensus_engine/data/*.yaml paths; skip subject gate for trusted Wolf sender; gmail.modify startup test; image-specific Gemini helper.",
+  "discord_wiring_done": "#news channel 1510722777923981432 + owner 615525529537216513 in BOTH .env and .env.service (mode 600 openclaw, NOT in public repo). Bot post to #news verified HTTP 200 (test msg id 1510723869311242250 - user to delete). Codex CLI fixed to gpt-5.5 (gpt-5.4 retired).",
+  "health_at_pass0": {"consensus_engine": "active", "openclaw_gateway": "active", "symlink": "intact"},
+  "real_world_assets": {"wolf_charts": "/tmp/wolf_charts/ (e01_1.jpg, e01_2.jpg present)", "gmail_token": "/root/.openclaw/gmail/token.json present", "libs": "bs4 4.14.3 + lxml installed; google.genai installed; html2text NOT installed"},
+  "adaptation_note": "Spec/requirements are COMPLETE (interview rounds 1-6 done). Passes 1-3 are NOT used to invent a new feature set; they map the system (P0), then validate / improve / adversarially stress-test the spec's already-fixed approach (kickoff invites 'better way -> take it' and real-world rigor). Pass 4 = build plan via ralplan. EXTRA user-requested gate between Pass 4 and Pass 5: send the plan to codex for adversarial review, decide modify/recreate, then execute.",
+  "agent_slots": {
+    "orchestrator": "this session (opus)",
+    "architect": "opus",
+    "planner": "opus",
+    "critic": "opus",
+    "researcher-1": "sonnet/explore",
+    "researcher-2": "sonnet/explore"
+  },
+  "hard_gates": [
+    "Sign-off before any LIVE Discord post (creating #news + first live post) or before flipping gmail_watcher enabled:true in prod.",
+    "External source/key genuinely blocked after diagnose->fix->alternative ladder.",
+    "Genuine ambiguity not resolvable from spec/code/sensible defaults."
+  ],
+  "decisions": [
+    "VISION PROBE PASSED (live, real Wolf charts): Gemini read QQQ/levels/3C-divergence correctly; flash-latest 503 under load -> fallback gemini-2.5-flash worked. Use native genai from_bytes + multi-model fallback.",
+    "C-1 (Critic, CRITICAL): Wolf data must write ONLY to new tables (macro_theses/stances). Do NOT reuse db.insert_signal/ticker_signals -> would pollute live #chat alerts + !all discovery (get_active_tickers counts any source, 2h TTL). If phase-2 needs ticker_signals, use a NEW source_type WOLF_MACRO excluded from get_active_tickers/get_social_signals; add a test.",
+    "C-2 (Critic, CRITICAL): weekend pause (_is_weekend_pause Fri3pmET->Sun2pmET via combined_stop) silences the gmail loop, but spec needs overnight Wrap (lands ~3am ET incl weekends) + Sunday 10am PT (=1pm ET, inside pause). Wolf watcher + digest scheduler must run on stop_event (shutdown only), NOT combined_stop.",
+    "C-3 (Critic, CRITICAL): contradiction_index is NOT dormant - it IS populated on CrossReferenceResult and consumed in main.py:1070/1133 for the live STRONG->WATCHLIST gate. Pass-0 map was WRONG. Confluence must compute its OWN agreement value in NEW tables; never overwrite the existing contradiction_index.",
+    "M-1: stage machine must allow downgrade OR model 'Wolf drops it' as explicit invalidate-and-close; not strictly monotonic (spec self-contradicts a pure monotonic model).",
+    "M-2: level-less theses capped to surface tier (no @-ping, no confluence vote) + short auto-expiry; recap flag is not a control.",
+    "M-3: confluence needs a Wolf-echo filter (drop stances quoting Wolf) + cap YouTube to one video-cluster vote (reuse A3 cluster model) to avoid crowding/self-agreement.",
+    "M-4: recency decay over the 21d window + require >=1 non-Wolf LEVEL-BEARING stance before high/critical tier; critical @-ping requires a non-Wolf corroborator. Equal-weighting accepted as a stated product risk.",
+    "M-5: write an explicit scope-match matrix (which identifiers roll up to market/sector/stock/asset; cross-scope rules) with worked examples BEFORE coding confluence.",
+    "SEC-CRIT: validate LLM extraction as data - clamp enums, ticker regex, level range + confidence>=0.7, anti-injection prompt clause; NEVER let email text become a Discord mention string.",
+    "SEC-HIGH: image fetch SSRF guard - https-only, host allowlist (newsletter CDN), allow_redirects=False, size cap 10MB, reject private/loopback IPs.",
+    "SEC-HIGH: critical @-ping rate limit <=3/hr + batch overflow (independent of the 20/hr email cap).",
+    "SEC-MED/LOW: tighten DKIM/SPF/DMARC to word-boundary regex; chmod 600 credentials.json; new env vars (DISCORD_OWNER_USER_ID, DISCORD_NEWS_CHANNEL_ID, GEMINI_API_KEY3?) in BOTH .env and .env.service then chown openclaw:openclaw + chmod 600.",
+    "PRE-BUILD: .test-baseline is EMPTY -> run `make test-baseline` and commit before feature work, else the gate flags pre-existing failures.",
+    "VERIFY-REAL: subject_substrings gate + DKIM/SPF/DMARC-all-pass may DROP Wolf Wraps (SendGrid-relayed); confirm against a real Wolf email; detect 'the Wrap' by chart-count/size, not a subject keyword.",
+    "CROSS-MODEL: Pass-3 ccg consolidated into the user-mandated codex adversarial review of the Pass-4 PLAN (Pass 4->5 gate). Noted adaptation; user instruction takes precedence over running ccg twice."
+  ],
+  "passes": {
+    "0": {"status": "done", "output": "pass-0-system-map.md"},
+    "1": {"status": "done", "output": "pass-1-candidates.md"},
+    "2": {"status": "done", "output": "pass-2-filtered.md"},
+    "3": {"status": "done", "output": "pass-3-stress-tested.md"},
+    "4": {"status": "done", "output": "final-plan.md"},
+    "4b-codex-review": {"status": "done", "output": "codex-adversarial-review.md + codex-review-raw.txt", "note": "ROUND 1: codex CLI was on retired gpt-5.4 -> Gemini + code-verifier (REVISE, confluence-data BLOCKER + thin-v1). ROUND 2: user fixed CLI to gpt-5.5, real Codex ran (REVISE) - found the supervisor-deadlock BLOCKER the others missed (verified in main.py:680/560-601/1383). Codex sandbox couldn't read workspace (perm denied) so it used live-source+spec+GitHub; plan-text claims unverified by it but code findings solid. All folded into final-plan.md PLAN REVISION v2."},
+    "5": {"status": "running", "output": "pass-5-execution-log.md", "scope": "PHASE 1 only (reader->thesis->#news); confluence/digests/beneficiary/backfill deferred to phase 2+"}
+  }
+}

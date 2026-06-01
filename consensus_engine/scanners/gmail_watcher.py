@@ -1,9 +1,15 @@
-"""Gmail API background watcher — polls openclaw inbox and inserts ticker signals."""
+"""Gmail watcher — reads the Wolf newsletter into the macro-brain (TODO #20).
+
+Polls the Gmail inbox for allowlisted Wolf emails, extracts directional theses
+from the HTML text + chart images (vision), updates the stateful thesis store,
+and posts proactive #news alerts. Writes ONLY to the Wolf tables — never to
+ticker_signals — so Wolf's macro commentary never enters the live per-ticker
+alert/scoring pipeline.
+"""
 
 import asyncio
 import base64
 import hashlib
-import json
 import logging
 import os
 import re
@@ -14,18 +20,17 @@ from typing import Callable
 
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
-from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
 from consensus_engine import config as cfg, db
-from consensus_engine.models import Sentiment, SourceType, TickerSignal
-from consensus_engine.utils.tickers import extract_tickers
+from consensus_engine.analysis import wolf_email_parser, wolf_theses
+from consensus_engine.alerts import wolf_news
 
 log = logging.getLogger(__name__)
 
+# gmail.modify is required: _mark_processed applies a label via messages().modify.
 SCOPES = [
-    "https://www.googleapis.com/auth/gmail.readonly",
-    "https://www.googleapis.com/auth/gmail.labels",
+    "https://www.googleapis.com/auth/gmail.modify",
 ]
 
 _QUOTED_RE = re.compile(
@@ -130,27 +135,25 @@ def _sender_allowed(from_header: str) -> bool:
     return False
 
 
-def _subject_matches(subject: str) -> bool:
-    """Check subject against configured substrings."""
-    substrings = cfg.get("gmail_watcher.subject_substrings", ["alert", "trade", "trigger", "signal", "$"])
-    subject_lower = subject.lower()
-    return any(s.lower() in subject_lower for s in substrings)
+_DKIM_PASS_RE = re.compile(r"\bdkim=pass\b", re.IGNORECASE)
+_SPF_PASS_RE = re.compile(r"\bspf=pass\b", re.IGNORECASE)
+_DMARC_PASS_RE = re.compile(r"\bdmarc=pass\b", re.IGNORECASE)
 
 
 def _auth_results_pass(headers: list[dict]) -> bool:
-    """Return True if Authentication-Results shows dkim=pass AND spf=pass AND dmarc=pass."""
-    auth_header = ""
-    for h in headers:
-        if h.get("name", "").lower() == "authentication-results":
-            auth_header = h.get("value", "")
-            break
-    if not auth_header:
-        return False
-    return (
-        "dkim=pass" in auth_header.lower()
-        and "spf=pass" in auth_header.lower()
-        and "dmarc=pass" in auth_header.lower()
-    )
+    """True if any Authentication-Results header shows dkim+spf+dmarc all = pass.
+
+    Evaluates ALL Authentication-Results headers (Gmail can add several) with
+    word-boundary matching so 'dkim=pass' does not match inside another token.
+    """
+    auth_values = [
+        h.get("value", "") for h in headers
+        if h.get("name", "").lower() == "authentication-results"
+    ]
+    for val in auth_values:
+        if _DKIM_PASS_RE.search(val) and _SPF_PASS_RE.search(val) and _DMARC_PASS_RE.search(val):
+            return True
+    return False
 
 
 def _strip_quoted(body: str) -> str:
@@ -161,20 +164,25 @@ def _strip_quoted(body: str) -> str:
     return body.strip()
 
 
-def _decode_body(msg_payload: dict) -> str:
-    """Extract plain-text body from Gmail message payload."""
-    def _parts(part):
+def _decode_body(msg_payload: dict) -> tuple[str, str]:
+    """Extract (plain_text, raw_html) from a Gmail message payload.
+
+    Wolf emails are HTML-only (no text/plain part). We collect the first of each
+    MIME type found anywhere in the tree so the parser can fall back to HTML.
+    """
+    found = {"text/plain": "", "text/html": ""}
+
+    def _walk(part):
         mime = part.get("mimeType", "")
-        if mime == "text/plain":
+        if mime in found and not found[mime]:
             data = part.get("body", {}).get("data", "")
             if data:
-                return base64.urlsafe_b64decode(data + "==").decode("utf-8", errors="replace")
+                found[mime] = base64.urlsafe_b64decode(data + "==").decode("utf-8", errors="replace")
         for sub in part.get("parts", []):
-            result = _parts(sub)
-            if result:
-                return result
-        return ""
-    return _parts(msg_payload)
+            _walk(sub)
+
+    _walk(msg_payload)
+    return found["text/plain"], found["text/html"]
 
 
 async def _do_cycle(
@@ -227,7 +235,6 @@ async def _do_cycle(
     now = time.time()
     per_day_cap = cfg.get("gmail_watcher.per_day_total_cap", 200)
     per_sender_hour_cap = cfg.get("gmail_watcher.per_sender_per_hour_cap", 20)
-    tickers_per_email_cap = cfg.get("gmail_watcher.tickers_per_email_cap", 5)
 
     # Check daily total
     cur = await conn.execute(
@@ -264,32 +271,22 @@ async def _do_cycle(
         from_header = h.get("from", "")
         subject = h.get("subject", "")
 
-        # Three-of-three gate
+        # Gate: sender must be allowlisted AND DKIM/SPF/DMARC must pass.
+        # The subject substring gate is SKIPPED for the trusted Wolf sender
+        # (the allowlist already pins it) so "Market Wrap" subjects aren't dropped.
         if not _sender_allowed(from_header):
             continue
-        if not _subject_matches(subject):
-            continue
         if not _auth_results_pass(headers):
-            continue
-
-        body_raw = _decode_body(msg.get("payload", {}))
-        body = _strip_quoted(body_raw)
-        if not body.strip():
-            # Entire body was quoted — noop but still mark processed
-            await _mark_processed(service, msg_id, label_id, loop)
-            continue
-
-        # Body-hash dedup
-        body_sha1 = hashlib.sha1(body.encode()).hexdigest()
-        cur = await conn.execute(
-            "SELECT first_seen_at FROM seen_gmail_bodies WHERE body_sha1 = ?", (body_sha1,)
-        )
-        body_row = await cur.fetchone()
-        if body_row and now - body_row["first_seen_at"] < 86400:
-            await _mark_processed(service, msg_id, label_id, loop)
+            log.warning("gmail_watcher: auth (dkim/spf/dmarc) not all-pass; skipping %s", subject[:80])
             continue
 
         _, sender_addr = parseaddr(from_header)
+
+        # Durable Wolf-processing dedup (image-only emails aren't covered by the
+        # text-body hash). If we've already durably processed this message, skip.
+        if await db.wolf_email_seen(msg_id):
+            await _mark_processed(service, msg_id, label_id, loop)
+            continue
 
         # Per-sender-per-hour quota
         cur = await conn.execute(
@@ -310,45 +307,37 @@ async def _do_cycle(
                 record_err("gmail_quota")
             break
 
-        # Extract tickers
+        text, html = _decode_body(msg.get("payload", {}))
+        text = _strip_quoted(text)
+        html_sha1 = hashlib.sha1((html or text).encode()).hexdigest()
+
+        # Parse -> ingest theses -> post #news. Wolf data goes ONLY to wolf tables.
+        parse_status, error = "ok", None
+        events = []
         try:
-            tickers = extract_tickers(body[:8000])
+            extraction = await wolf_email_parser.parse_email(text, html, subject, sender_addr, now)
+            img_urls = [c.get("source_url", "") for c in extraction.get("chart_reads", [])]
+            image_urls_sha1 = hashlib.sha1("|".join(img_urls).encode()).hexdigest()
+            events = await wolf_theses.ingest(extraction)
+            await wolf_news.post_events(events)
         except Exception as exc:
-            log.warning("gmail_watcher: extract_tickers error: %s", exc)
-            tickers = set()
-        tickers = set(list(tickers)[:tickers_per_email_cap])
-        if not tickers:
-            await _mark_processed(service, msg_id, label_id, loop)
-            continue
+            parse_status, error = "error", str(exc)[:200]
+            image_urls_sha1 = ""
+            log.error("gmail_watcher: wolf parse/ingest error for %s: %s", msg_id, exc, exc_info=True)
 
-        inserted = 0
-        for ticker in tickers:
-            try:
-                await db.insert_signal(TickerSignal(
-                    ticker=ticker,
-                    source_type=SourceType.DESKTOP_AUTH,
-                    source_detail=f"gmail|from:{sender_addr}|subject:{subject[:80]}",
-                    raw_text=body[:2000],
-                    sentiment=Sentiment.NEUTRAL,
-                ))
-                inserted += 1
-            except Exception as exc:
-                log.error("gmail_watcher: insert_signal error ticker=%s: %s", ticker, exc)
-
-        if inserted > 0:
-            # Mark dedup tables
-            await conn.execute(
-                "INSERT OR IGNORE INTO seen_gmail_messages (message_id, sender, subject, received_at) VALUES (?, ?, ?, ?)",
-                (msg_id, sender_addr, subject[:200], now),
-            )
-            if not body_row:
-                await conn.execute(
-                    "INSERT OR IGNORE INTO seen_gmail_bodies (body_sha1, sender, first_seen_at) VALUES (?, ?, ?)",
-                    (body_sha1, sender_addr, now),
-                )
-            await conn.commit()
-            await _mark_processed(service, msg_id, label_id, loop)
-            daily_count += 1
+        # Durable state BEFORE applying the Gmail label (Codex review).
+        await db.record_wolf_email(
+            msg_id, html_sha1, image_urls_sha1, parse_status, error, len(events), now,
+        )
+        await conn.execute(
+            "INSERT OR IGNORE INTO seen_gmail_messages (message_id, sender, subject, received_at) VALUES (?, ?, ?, ?)",
+            (msg_id, sender_addr, subject[:200], now),
+        )
+        await conn.commit()
+        await _mark_processed(service, msg_id, label_id, loop)
+        daily_count += 1
+        if events:
+            log.info("gmail_watcher: %s -> %d thesis event(s)", subject[:60], len(events))
 
         if record_ok:
             record_ok("gmail")

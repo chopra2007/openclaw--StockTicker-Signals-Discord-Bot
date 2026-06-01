@@ -673,8 +673,11 @@ async def run_live(stop_event: asyncio.Event):
         ])
         tasks.extend([
             asyncio.create_task(ingest_server.serve(combined_stop, _record_source_ok, _record_source_error)),
-            asyncio.create_task(gmail_watcher_loop(combined_stop, _record_source_ok, _record_source_error)),
         ])
+        # NOTE: the Wolf gmail watcher is NOT in this list. It runs in
+        # wolf_news_supervisor() beside run_live() (see run_all) so it survives
+        # the weekend pause — Wolf is a 7-day feed and its overnight/Sunday
+        # outputs must fire even while the live scanners are paused.
 
         try:
             await asyncio.gather(*tasks)
@@ -689,6 +692,40 @@ async def run_live(stop_event: asyncio.Event):
         if stop_event.is_set():
             await close_session()
             return  # Full shutdown requested
+
+
+async def wolf_news_supervisor(stop_event: asyncio.Event):
+    """Top-level supervisor for the Wolf macro-brain #news lane (TODO #20).
+
+    Runs the Wolf gmail watcher on `stop_event` (shutdown only), independent of
+    run_live's weekend pause, so overnight Wrap alerts and the Sunday recap still
+    fire. Wrapped so a Wolf-side crash can never take down run_live.
+    """
+    while not stop_event.is_set():
+        try:
+            await gmail_watcher_loop(stop_event, _record_source_ok, _record_source_error)
+            # gmail_watcher_loop returns only on stop or disabled; if it returns
+            # while not stopping, wait a bit before restarting to avoid a hot loop.
+            if not stop_event.is_set():
+                try:
+                    await asyncio.wait_for(stop_event.wait(), timeout=60)
+                except asyncio.TimeoutError:
+                    pass
+        except Exception as exc:
+            log.error("wolf_news_supervisor: crashed, restarting in 60s: %s", exc, exc_info=True)
+            try:
+                await asyncio.wait_for(stop_event.wait(), timeout=60)
+            except asyncio.TimeoutError:
+                pass
+
+
+async def run_all(stop_event: asyncio.Event):
+    """Entrypoint coroutine: run the live engine and the Wolf #news lane together.
+
+    They are separate top-level tasks (NOT inside run_live's gather) so the Wolf
+    lane survives the weekend pause and a crash on either side is isolated.
+    """
+    await asyncio.gather(run_live(stop_event), wolf_news_supervisor(stop_event))
 
 
 async def fetch_loop(stop_event: asyncio.Event, interval: int = 300):
@@ -1397,7 +1434,7 @@ def main():
             _lock_file.close()
             return
         stop = asyncio.Event()
-        asyncio.run(run_live(stop))
+        asyncio.run(run_all(stop))
     else:
         asyncio.run(run_once())
 

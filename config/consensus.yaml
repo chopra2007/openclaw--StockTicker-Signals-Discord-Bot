@@ -687,6 +687,23 @@ gmail_watcher:
   per_sender_per_hour_cap: 20
   per_day_total_cap: 200
   tickers_per_email_cap: 5
+  # Wolf macro-brain reader (TODO #20)
+  charts_per_email_cap: 5                # max chart images read via vision per email
+  cdn_allowlist: ["wolfonwallstreet-trade.com"]   # SSRF guard: only fetch chart images from here
+
+# Wolf macro-brain (#news lane). Phase-1 = reader -> thesis -> #news alert.
+# Everything OFF by default: gmail_watcher.enabled:false gates ingestion, and
+# wolf.dry_run:true means alerts are logged, never posted to Discord.
+wolf:
+  dry_run: true                         # true = log alerts only (no Discord post). Flip after sign-off.
+  enable_critical_ping: false           # phase-2 only (needs confluence corroborator)
+  extraction_max_tokens: 4096
+  extraction_timeout: 60
+  sprawl_caps:                          # max active theses per scope
+    market: 10
+    sector: 20
+    stock: 30
+    asset: 12
 
 # Command handler concurrency limits (plan section 2G).
 commands:
