@@ -22,7 +22,7 @@ def test_synthesize_timeout_floor_is_15s(deadline_seconds):
     captured: dict = {}
 
     async def fake_call(*, role, messages, max_tokens, temperature, timeout,
-                        chain=None):
+                        chain=None, **_kw):
         captured["timeout"] = timeout
         return ""
 
@@ -40,7 +40,7 @@ def test_synthesize_timeout_ceiling_is_90s():
     captured: dict = {}
 
     async def fake_call(*, role, messages, max_tokens, temperature, timeout,
-                        chain=None):
+                        chain=None, **_kw):
         captured["timeout"] = timeout
         return ""
 

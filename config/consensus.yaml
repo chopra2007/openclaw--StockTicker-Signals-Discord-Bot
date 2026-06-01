@@ -252,6 +252,15 @@ llm:
     - "groq/llama-3.3-70b-versatile"
     - "openai/gpt-oss-120b:free"
     - "openai/gpt-oss-20b:free"
+  # #6 latency-speedup: how the !all synthesis call walks all_command_chain.
+  #   serial     = original one-model-at-a-time (DEFAULT; unchanged behavior)
+  #   head_start = groq solo for head_start_timeout s, race fallbacks on stall
+  #   race_all   = fire all 3 at once, first structurally-valid wins
+  # Dark-shipped at 'serial'; flip to 'head_start' only after a measured
+  # before/after on 3 tickers (.claude/discover/latency-speedup/final-plan.md).
+  all_command_strategy: serial
+  all_command_head_start_timeout: 15        # groq solo window (s); tune to groq P90+5
+  all_command_circuit_breaker_threshold: 3  # consecutive groq stalls -> race_all
   # Agent-path chain — !ask / @-mention via `openclaw agent --local`.
   # SEPARATE from the !all chain above, deliberately: the `main` agent's
   # full ~6-8K-token system prompt overflows gpt-oss-120b's OpenRouter free

@@ -188,3 +188,187 @@ async def test_chain_dedupes_when_primary_in_fallbacks(monkeypatch):
         "primary", [{"role": "user", "content": "x"}])
     assert out == "from-different"
     assert session.calls == ["same-model:free", "different:free"]
+
+
+# --- #6 latency-speedup: head_start / race / circuit-breaker ----------------
+import asyncio as _asyncio  # noqa: E402
+
+
+class _RaceResp:
+    """Timed/scriptable response: optional delay, then either raise `exc` or
+    return a 200/`status` body with `content`."""
+
+    def __init__(self, status=200, content="answer", delay=0.0, exc=None, body=""):
+        self.status = status
+        self._payload = {"choices": [{"message": {"content": content}}]}
+        self._delay = delay
+        self._exc = exc
+        self._body = body
+
+    async def __aenter__(self):
+        if self._delay:
+            await _asyncio.sleep(self._delay)
+        if self._exc is not None:
+            raise self._exc
+        return self
+
+    async def __aexit__(self, *a):
+        return False
+
+    async def json(self):
+        return self._payload
+
+    async def text(self):
+        return self._body
+
+
+class _RaceSession:
+    """Maps wire model-id -> _RaceResp kwargs; records call order."""
+
+    def __init__(self, specs):
+        self._specs = specs
+        self.calls: list[str] = []
+
+    def post(self, url, headers=None, json=None, timeout=None):
+        wire = json["model"]
+        self.calls.append(wire)
+        return _RaceResp(**self._specs[wire])
+
+
+def _install_race(monkeypatch, specs, *, cfg_get=None):
+    session = _RaceSession(specs)
+    monkeypatch.setattr("consensus_engine.llm_client.get_session",
+                        AsyncMock(return_value=session))
+    monkeypatch.setattr("consensus_engine.llm_client.cfg.get_api_key",
+                        lambda k: "fake-key")
+    monkeypatch.setattr("consensus_engine.llm_client.rate_limiter.acquire",
+                        AsyncMock(return_value=True))
+    monkeypatch.setattr("consensus_engine.llm_client.cfg.get",
+                        cfg_get or (lambda k, default=None: default))
+    return session
+
+
+@pytest.fixture(autouse=True)
+def _reset_breaker():
+    llm_client._reset_groq_breaker()
+    yield
+    llm_client._reset_groq_breaker()
+
+
+_HS_CHAIN = ["groq/m0", "m1", "m2"]
+
+
+def _accept(s: str) -> bool:
+    return "VALID" in s
+
+
+async def test_head_start_groq_wins_no_fanout(monkeypatch):
+    """Groq answers within the window -> fallbacks are never even called."""
+    session = _install_race(monkeypatch, {
+        "m0": dict(content="VALID groq"),
+        "m1": dict(content="VALID one"),
+        "m2": dict(content="VALID two"),
+    })
+    out = await llm_client.call_with_fallback(
+        "primary", [{"role": "user", "content": "x"}],
+        chain=list(_HS_CHAIN), strategy="head_start", head_start=15, accept=_accept)
+    assert out == "VALID groq"
+    assert session.calls == ["m0"]
+
+
+async def test_head_start_stall_fans_out(monkeypatch):
+    """Groq stalls (timeout) -> race the fallbacks, first valid wins."""
+    session = _install_race(monkeypatch, {
+        "m0": dict(exc=_asyncio.TimeoutError()),
+        "m1": dict(content="VALID fallback", delay=0.01),
+        "m2": dict(content="VALID other", delay=0.05),
+    })
+    out = await llm_client.call_with_fallback(
+        "primary", [{"role": "user", "content": "x"}],
+        chain=list(_HS_CHAIN), strategy="head_start", head_start=15, accept=_accept)
+    assert out == "VALID fallback"
+    assert "m0" in session.calls and "m1" in session.calls
+
+
+async def test_race_prefers_valid_over_fast_invalid(monkeypatch):
+    """A fast structurally-INVALID answer must not beat a slower valid one."""
+    _install_race(monkeypatch, {
+        "m1": dict(content="incomplete", delay=0.01),
+        "m2": dict(content="VALID full", delay=0.05),
+    })
+    out = await llm_client.call_with_fallback(
+        "primary", [{"role": "user", "content": "x"}],
+        chain=["m1", "m2"], strategy="race_all", accept=_accept)
+    assert out == "VALID full"
+
+
+async def test_race_falls_back_to_first_nonempty_when_none_valid(monkeypatch):
+    """If nothing passes `accept`, keep the first non-empty answer seen."""
+    _install_race(monkeypatch, {
+        "m1": dict(content="incomplete-a", delay=0.01),
+        "m2": dict(content="incomplete-b", delay=0.05),
+    })
+    out = await llm_client.call_with_fallback(
+        "primary", [{"role": "user", "content": "x"}],
+        chain=["m1", "m2"], strategy="race_all", accept=_accept)
+    assert out == "incomplete-a"
+
+
+async def test_race_all_fail_returns_empty(monkeypatch):
+    _install_race(monkeypatch, {
+        "m1": dict(status=503, body="down"),
+        "m2": dict(exc=_asyncio.TimeoutError()),
+    })
+    out = await llm_client.call_with_fallback(
+        "primary", [{"role": "user", "content": "x"}],
+        chain=["m1", "m2"], strategy="race_all", accept=_accept)
+    assert out == ""
+
+
+async def test_serial_strategy_explicit_matches_default(patch_config, monkeypatch):
+    """strategy='serial' is byte-for-byte the dark-ship default path."""
+    session = _install_session(monkeypatch, [_FakeResp(429), _ok_resp("recovered")])
+    out = await llm_client.call_with_fallback(
+        "primary", [{"role": "user", "content": "x"}], strategy="serial")
+    assert out == "recovered"
+    assert session.calls == ["primary-llm:free", "fallback-llm-1:free"]
+
+
+async def test_breaker_opens_after_threshold_stalls(monkeypatch):
+    """N consecutive groq stalls open the breaker (so the wait is skipped next)."""
+    specs = {
+        "m0": dict(exc=_asyncio.TimeoutError()),
+        "m1": dict(content="VALID f", delay=0.01),
+        "m2": dict(content="VALID g", delay=0.02),
+    }
+    cfg_get = (lambda k, default=None:
+               2 if k == "llm.all_command_circuit_breaker_threshold" else default)
+    for _ in range(2):
+        _install_race(monkeypatch, specs, cfg_get=cfg_get)
+        await llm_client.call_with_fallback(
+            "primary", [{"role": "user", "content": "x"}],
+            chain=list(_HS_CHAIN), strategy="head_start", head_start=5, accept=_accept)
+    assert llm_client._breaker_is_open()
+
+
+async def test_breaker_resets_on_groq_success(monkeypatch):
+    """A groq head-start success clears the stall streak."""
+    cfg_get = (lambda k, default=None:
+               3 if k == "llm.all_command_circuit_breaker_threshold" else default)
+    # one stall -> streak 1
+    _install_race(monkeypatch, {
+        "m0": dict(exc=_asyncio.TimeoutError()),
+        "m1": dict(content="VALID f", delay=0.01),
+        "m2": dict(content="VALID g", delay=0.02),
+    }, cfg_get=cfg_get)
+    await llm_client.call_with_fallback(
+        "primary", [{"role": "user", "content": "x"}],
+        chain=list(_HS_CHAIN), strategy="head_start", head_start=5, accept=_accept)
+    assert llm_client._groq_fail_streak == 1
+    # groq now succeeds -> streak resets
+    _install_race(monkeypatch, {"m0": dict(content="VALID groq")}, cfg_get=cfg_get)
+    out = await llm_client.call_with_fallback(
+        "primary", [{"role": "user", "content": "x"}],
+        chain=list(_HS_CHAIN), strategy="head_start", head_start=5, accept=_accept)
+    assert out == "VALID groq"
+    assert llm_client._groq_fail_streak == 0
