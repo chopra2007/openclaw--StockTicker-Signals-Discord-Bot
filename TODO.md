@@ -126,13 +126,13 @@ Figure out whether YouTube database signals (video mentions, extracted levels) a
 
 Read the Wolf on Wall Street emails (text + charts) so the bot tracks market tops/bottoms, sector rotations, and catalysts, and proactively flags actionable trades — louder when other sources agree. **Phase-1 (Wolf-over-time conviction tracker) is LIVE in #news as of 2026-06-01; NEXT is phase-2 cross-source confluence (YouTube + TweetShift, sector roll-up) — to be built via a written plan + the Codex review gate.**
 
-## 21. Auto-switch web-search keys when one runs out
+## 21. Auto-switch web-search keys when one runs out — DONE 2026-06-01
 
 **File:** `serpapi-key-failover.md`
 
 Make the bot rotate to the next SerpAPI key (or provider) with credit when the current one hits its monthly limit, instead of silently going dark — the bot was stuck on one exhausted key while two others had quota.
 
-## 22. Sharpen the !all risk section (round 2)
+## 22. Sharpen the !all risk section (round 2) — DONE 2026-06-01
 
 **File:** `all-risk-section-v2.md`
 

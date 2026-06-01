@@ -159,3 +159,5 @@ Shipped 2 of the 4 listed cheap levers; 17 new tests, full suite 1551 passed; li
 - **52-week high/low distance** — pulled from the Snapshot's existing `.info` fetch (`fiftyTwoWeekHigh/Low` + price), rendered as a compact "N% below 52wk high" segment in the Snapshot field. Zero new fetch. Live NVDA → **10.7% below high**. (This value also now feeds #22's overextension bullet.)
 
 **Deferred (path documented in the run's final-plan):** P/C-OI ratio (`_max_pain_for_chain` discards split call/put OI — needs a return-shape refactor) and earnings-move history (needs ~2y OHLCV + historical earnings dates, neither currently fetched). Stays OPEN (menu). Go live via the Step-4 handoff (`.claude/discover/parallel-6-21-22-STEP4-HANDOFF.md`), HELD pending the wolf session.
+
+**LIVE 2026-06-01 09:52** — RVOL + 52wk merged to master (`9e0c760`) + pushed; real `!all NVDA` shows `Rel Vol 0.7×` and `6% below 52wk high` in the Snapshot field. Menu stays OPEN — next cheap levers: P/C-OI (sum call/put OI in `_max_pain_for_chain`), earnings-move history; biggest is still the serial model-chain latency.
