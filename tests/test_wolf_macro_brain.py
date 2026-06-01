@@ -792,3 +792,24 @@ async def test_dedupe_bucket_longer_rung_still_posts(fresh_db, monkeypatch):
     assert await wolf_news.post_event({**base, "tf": ["5m", "15m"]}) is True
     assert await wolf_news.post_event({**base, "tf": ["5m", "daily"]}) is True   # longer rung → distinct
     assert await wolf_news.post_event({**base, "tf": ["5m", "15m"]}) is False    # identical → deduped
+
+
+def test_normalize_timeframes_strips_placeholder_brackets():
+    """The LLM sometimes echoes '<15M>' / '(daily)' placeholder wrappers — they must
+    still normalize, not be silently dropped (which blanked the timeframes line)."""
+    out = wolf_conviction.normalize_timeframes(["<15M>", "<5M>", "(daily)", "<3D>"], [])
+    assert out == ["5m", "15m", "daily", "3d"]
+
+
+def test_nasdaq_100_alias_resolves_to_ndx():
+    assert wolf_scope.resolve_scope("NASDAQ-100") == ("market", "NDX")
+    assert wolf_scope.resolve_scope("nasdaq 100") == ("market", "NDX")
+
+
+def test_story_line_no_redundant_position_label():
+    """The 'starts the position' stage label should not be echoed again by the intent
+    label ('started a position')."""
+    lbl = wolf_news._entry_change_label(
+        {"from": "imminent", "to": "acting", "intent": "started", "tf": []},
+        {"intent": "none", "tf": []})
+    assert "starts the position" in lbl and "started a position" not in lbl

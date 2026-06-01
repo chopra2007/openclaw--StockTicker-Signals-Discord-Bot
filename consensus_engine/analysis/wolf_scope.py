@@ -63,6 +63,7 @@ _NAME_ALIASES = {
     "s&p": "SPX", "s&p 500": "SPX", "sp500": "SPX", "sp 500": "SPX", "spx": "SPX", "spooz": "SPX",
     "es": "SPX", "es=f": "SPX",
     "nasdaq": "NDX", "ndx": "NDX", "naz": "NDX", "nq": "NDX", "nq=f": "NDX",
+    "nasdaq-100": "NDX", "nasdaq 100": "NDX", "nasdaq100": "NDX", "ndx100": "NDX",
     "russell": "RUT", "russell 2000": "RUT", "small caps": "RUT", "small-caps": "RUT",
     "dow": "DJIA", "dow jones": "DJIA", "djia": "DJIA",
     "semis": "SMH", "semiconductors": "SMH", "sox": "SMH",

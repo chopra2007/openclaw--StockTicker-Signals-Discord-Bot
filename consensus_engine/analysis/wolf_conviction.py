@@ -64,7 +64,9 @@ def normalize_timeframes(raw_strings: list[str], chart_coarse: list[str]) -> lis
 
 
 def _normalize_one(raw: str) -> str | None:
-    s = raw.strip().lower()
+    # Strip placeholder wrappers the LLM sometimes echoes (e.g. "<15M>", "(daily)") so
+    # the real timeframe survives normalization instead of being silently dropped.
+    s = re.sub(r"[<>()\[\]{}\"'`]", "", raw or "").strip().lower()
     if not s:
         return None
     if s in ("daily", "weekly"):

@@ -119,10 +119,13 @@ def _entry_change_label(entry: dict, prev: dict | None) -> str:
     if frm is None:
         return "thesis forms" if to == "forming" else f"thesis opens at {to}"
     parts = []
+    position_emitted = False
     if frm != to:
-        if _TF_RANK and to == "acting":
-            parts.append("starts the position" if entry.get("intent") in ("started", "adding")
-                         else "moves to acting")
+        if to == "acting" and entry.get("intent") in ("started", "adding"):
+            parts.append("starts the position")
+            position_emitted = True
+        elif to == "acting":
+            parts.append("moves to acting")
         else:
             parts.append(f"{frm} → {to}")
     # timeframe widening vs the prior entry
@@ -136,7 +139,8 @@ def _entry_change_label(entry: dict, prev: dict | None) -> str:
     prev_intent = (prev or {}).get("intent", "none")
     this_intent = entry.get("intent", "none")
     intent_lbl = _INTENT_LABEL.get(this_intent)
-    if this_intent != prev_intent and intent_lbl:
+    if (this_intent != prev_intent and intent_lbl
+            and not (position_emitted and this_intent in ("started", "adding"))):
         parts.append(intent_lbl)
     if not parts:
         parts.append("reaffirmed")
@@ -186,7 +190,12 @@ def format_conviction_update(event: dict, thesis_row: dict, backdrop: str | None
     stage_lbl = _STAGE_LABEL.get(event["stage"], event["stage"])
     tier = tier_for(event)
 
-    head = "🚨 Wolf STARTS the trade" if tier == "high" else "📈 Conviction building"
+    if tier == "high":
+        head = "🚨 Wolf STARTS the trade"
+    elif event.get("kind") == "new":
+        head = "🆕 New thesis"
+    else:
+        head = "📈 Conviction building"
     lines = [
         f"{emoji} **{scope_key}** ({scope_type}) — Wolf **{direction.upper()}**",
         f"{head}: {stage_lbl}",
@@ -316,7 +325,9 @@ async def post_event(event: dict) -> bool:
         log.debug("wolf_news: already alerted for %s, skipping", dedupe_key)
         return False
 
-    if event["kind"] == "conviction_update" and thesis:
+    # Render the rich conviction card for ANY event backed by a thesis row (a first
+    # sighting that's already a position deserves the same card as an escalation).
+    if thesis:
         backdrop = await build_backdrop(thesis)
         content = format_conviction_update(event, thesis, backdrop=backdrop)
     else:
