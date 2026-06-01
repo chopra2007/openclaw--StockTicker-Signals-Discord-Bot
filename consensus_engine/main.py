@@ -719,13 +719,83 @@ async def wolf_news_supervisor(stop_event: asyncio.Event):
                 pass
 
 
+_CONFL_RANK = {"surface": 0, "high": 1, "critical": 2}
+
+
+async def _run_confluence_cycle(window_days: int, min_dom: float) -> None:
+    """One confluence pass: score every active Wolf thesis against the other sources,
+    store the current state, and post a standalone #news alert on a strict tier-UP."""
+    from dataclasses import asdict as _asdict
+    from consensus_engine.alerts import wolf_news
+    from consensus_engine.analysis import wolf_confluence as wc
+
+    theses = await db.get_active_theses()
+    await db.prune_confluence_orphans()  # bound the table: drop rows for dead theses
+    if not theses:
+        return
+    gathered = await db.get_confluence_stances(window_days)
+    now = time.time()
+    for th in theses:
+        confl = wc.score_confluence(th, gathered, min_dom)
+        p1_tier = "high" if th.get("stage") == "acting" else "surface"
+        comb = wc.combined_tier(p1_tier, confl.tier)
+        prev = await db.get_confluence_check(th["id"])
+        prev_alerted = (prev or {}).get("alerted_tier", "surface")
+        agree_json = json.dumps([_asdict(v) for v in confl.agree])
+        disagree_json = json.dumps([_asdict(v) for v in confl.disagree])
+        # store fresh state BEFORE any post, so the embed's confluence field reads it.
+        await db.record_confluence_check(
+            th["id"], th["scope_type"], th["scope_key"], th["direction"], now,
+            window_days, confl.agree_count, confl.disagree_count, confl.tier, comb,
+            int(confl.divided), agree_json, disagree_json, prev_alerted,
+        )
+        # alert only on a STRICT tier-UP past what we've already posted (hysteresis).
+        if comb in ("high", "critical") and _CONFL_RANK[comb] > _CONFL_RANK.get(prev_alerted, 0):
+            event = wolf_news.confluence_event(th, confl, comb)
+            if await wolf_news.post_event(event):
+                await db.record_confluence_check(
+                    th["id"], th["scope_type"], th["scope_key"], th["direction"], now,
+                    window_days, confl.agree_count, confl.disagree_count, confl.tier, comb,
+                    int(confl.divided), agree_json, disagree_json, comb,  # advance alerted_tier
+                )
+
+
+async def wolf_confluence_loop(stop_event: asyncio.Event):
+    """Phase-2 cross-source confluence (TODO #20, Type-2). Every interval, check whether
+    YouTube / Twitter / options / SEC-buys corroborate each live Wolf thesis and post a
+    louder #news alert when one escalates. Runs on stop_event (NOT the weekend pause) so
+    corroboration landing overnight/weekend still fires. Cheap (pure SQL+dict, no LLM);
+    crash-isolated so it can never take down run_live."""
+    if not cfg.get("wolf.confluence.enabled", False):
+        log.info("wolf_confluence_loop: disabled (wolf.confluence.enabled=false); not running")
+        return
+    interval = int(cfg.get("wolf.confluence.interval_sec", 900))
+    window_days = int(cfg.get("wolf.confluence.window_days", 21))
+    min_dom = float(cfg.get("wolf.confluence.min_dominance", 0.6))
+    log.info("wolf_confluence_loop: started (interval=%ss window=%sd min_dom=%s)",
+             interval, window_days, min_dom)
+    while not stop_event.is_set():
+        try:
+            await _run_confluence_cycle(window_days, min_dom)
+        except Exception as exc:
+            log.error("wolf_confluence_loop: cycle error: %s", exc, exc_info=True)
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=interval)
+        except asyncio.TimeoutError:
+            pass
+
+
 async def run_all(stop_event: asyncio.Event):
     """Entrypoint coroutine: run the live engine and the Wolf #news lane together.
 
     They are separate top-level tasks (NOT inside run_live's gather) so the Wolf
     lane survives the weekend pause and a crash on either side is isolated.
     """
-    await asyncio.gather(run_live(stop_event), wolf_news_supervisor(stop_event))
+    await asyncio.gather(
+        run_live(stop_event),
+        wolf_news_supervisor(stop_event),
+        wolf_confluence_loop(stop_event),
+    )
 
 
 async def fetch_loop(stop_event: asyncio.Event, interval: int = 300):

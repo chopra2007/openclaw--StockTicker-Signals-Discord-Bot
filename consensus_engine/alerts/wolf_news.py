@@ -21,6 +21,7 @@ import logging
 import time
 
 from consensus_engine import config as cfg, db
+from consensus_engine.analysis.wolf_confluence import combined_tier, _SOURCE_LABEL
 
 log = logging.getLogger(__name__)
 
@@ -44,6 +45,51 @@ def tier_for(event: dict) -> str:
     if event.get("stage") == "acting" or event.get("intent") in ("started", "adding"):
         return "high"
     return "surface"
+
+
+def effective_tier(event: dict, confl_row: dict | None) -> str:
+    """Combined tier = max(phase-1 tier, confluence tier). Confluence can only push UP.
+    The confluence tier already enforces its gates (has_levels + >=1/>=2 corroborators)."""
+    confl_tier = (confl_row or {}).get("tier") or event.get("confluence_tier", "surface")
+    return combined_tier(tier_for(event), confl_tier)
+
+
+def _confluence_field(confl_row: dict | None) -> dict | None:
+    """Build the '🤝 Confluence' embed field from a stored wolf_confluence_checks row.
+    None when there's nothing to say (no agreeing or disagreeing source)."""
+    if not confl_row:
+        return None
+    agree_n = int(confl_row.get("agree_count", 0) or 0)
+    disagree_n = int(confl_row.get("disagree_count", 0) or 0)
+    if agree_n == 0 and disagree_n == 0:
+        return None
+    try:
+        agree = json.loads(confl_row.get("agree_sources_json") or "[]")
+        disagree = json.loads(confl_row.get("disagree_sources_json") or "[]")
+    except Exception:
+        agree, disagree = [], []
+
+    def _label(s: dict) -> str:
+        lbl = _SOURCE_LABEL.get(s.get("source_type", ""), s.get("source_type", "?"))
+        extra = ""
+        if s.get("source_type") == "youtube" and s.get("n_channels"):
+            extra += f" ({s['n_channels']} ch)"
+        tickers = s.get("sample_tickers") or []
+        if tickers:
+            extra += f": {', '.join(tickers[:3])}"
+        return lbl + extra
+
+    direction = (confl_row.get("direction") or "").upper()
+    if confl_row.get("divided"):
+        opp = ", ".join(_label(s) for s in disagree) or "others"
+        value = f"⚖️ **Analysts divided** — Wolf {direction} vs {opp}"
+    else:
+        s_word = "source" if agree_n == 1 else "sources"
+        lines = [f"**{agree_n} {s_word} agree** — " + ("; ".join(_label(s) for s in agree) or "—")]
+        if disagree_n:
+            lines.append(f"{disagree_n} disagree — " + "; ".join(_label(s) for s in disagree))
+        value = "\n".join(lines)
+    return {"name": "🤝 Confluence", "value": value[:1024], "inline": False}
 
 
 def _can_ping(now: float) -> bool:
@@ -186,7 +232,8 @@ async def build_backdrop(thesis_row: dict) -> str | None:
     return None
 
 
-def format_conviction_update(event: dict, thesis_row: dict, backdrop: str | None = None) -> dict:
+def format_conviction_update(event: dict, thesis_row: dict, backdrop: str | None = None,
+                             confluence: dict | None = None) -> dict:
     """Clean Discord EMBED for a Wolf alert — validated fields only (R4/§6).
 
     A title + a few short labelled fields + a footer (no text wall). Built from our own
@@ -246,6 +293,11 @@ def format_conviction_update(event: dict, thesis_row: dict, backdrop: str | None
     if quote:
         fields.append({"name": "Wolf's words", "value": f"“{quote[:300]}”", "inline": False})
 
+    # 6) Confluence (phase-2) — how many other sources agree/disagree, if known.
+    confl_field = _confluence_field(confluence)
+    if confl_field:
+        fields.append(confl_field)
+
     footer = "Wolf macro-brain"
     if backdrop:
         footer += f"  ·  Backdrop: {backdrop}"
@@ -255,6 +307,62 @@ def format_conviction_update(event: dict, thesis_row: dict, backdrop: str | None
         "color": _DIR_COLOR.get(direction, 0x9AA0A6),
         "fields": fields,
         "footer": {"text": footer[:2048]},
+    }
+
+
+def confluence_event(thesis_row: dict, result, combined: str) -> dict:
+    """Build a standalone #news event for a confluence tier-up (kind='confluence').
+
+    `result` is a wolf_confluence.ConfluenceResult; `combined` the max(phase1,confluence) tier.
+    """
+    return {
+        "kind": "confluence",
+        "thesis_id": thesis_row["id"],
+        "scope_type": thesis_row["scope_type"],
+        "scope_key": thesis_row["scope_key"],
+        "direction": thesis_row["direction"],
+        "stage": thesis_row.get("stage", ""),
+        "confluence_tier": result.tier,
+        "snippet": f"{result.agree_count} other source(s) now corroborate Wolf.",
+    }
+
+
+def format_confluence_alert(thesis_row: dict, confl_row: dict | None, event: dict) -> dict:
+    """Clean #news EMBED for a standalone confluence escalation — its headline IS the
+    cross-source agreement, plus Wolf's standing call + levels. Validated fields only."""
+    direction = event["direction"]
+    emoji = _DIR_EMOJI.get(direction, "⚪")
+    scope_key = event["scope_key"]
+    name = _SCOPE_DISPLAY.get(scope_key, "")
+    dir_word = "BEARISH" if direction == "bear" else ("BULLISH" if direction == "bull" else direction.upper())
+    tier = (confl_row or {}).get("combined_tier") or event.get("confluence_tier", "high")
+    crown = "🚨 " if tier == "critical" else ""
+
+    title = f"{crown}{emoji} ${scope_key}" + (f" · {name}" if name else "") + " — sources back Wolf"
+    fields: list[dict] = [
+        {"name": "Wolf's call",
+         "value": f"Wolf is {dir_word} — {_STAGE_LABEL.get(event.get('stage'), event.get('stage', ''))}",
+         "inline": False},
+    ]
+    confl_field = _confluence_field(confl_row)
+    if confl_field:
+        fields.append(confl_field)
+    try:
+        levels = json.loads(thesis_row.get("key_levels_json") or "[]")
+    except Exception:
+        levels = []
+    lvl_txt = ", ".join(
+        f"{l['price']:g}" + (f" ({l['role']})" if l.get("role") else "")
+        for l in levels[:5] if "price" in l
+    )
+    if lvl_txt:
+        fields.append({"name": "Key levels", "value": lvl_txt[:1024], "inline": True})
+
+    return {
+        "title": title[:256],
+        "color": _DIR_COLOR.get(direction, 0x9AA0A6),
+        "fields": fields,
+        "footer": {"text": f"Wolf macro-brain · confluence {tier}"[:2048]},
     }
 
 
@@ -307,8 +415,10 @@ async def post_event(event: dict) -> bool:
     rendered message but does NOT hit Discord — used for the pre-sign-off gate.
     """
     now = time.time()
-    tier = tier_for(event)
     thesis_id = event["thesis_id"]
+    # Phase-2: combined tier (max of phase-1 stage tier and the stored confluence tier).
+    confl_row = await db.get_confluence_check(thesis_id) if thesis_id is not None else None
+    tier = effective_tier(event, confl_row)
 
     # Dedupe bucket (§4): a conviction_update rides a (stage,intent,tf_width) bucket so
     # an identical snapshot can't double-post, but a genuine escalation (new bucket)
@@ -321,6 +431,10 @@ async def post_event(event: dict) -> bool:
         max_rung = max(rungs, key=lambda t: _TF_RANK[t]) if rungs else "none"
         bucket = f"{event['stage']}:{event.get('intent', 'none')}:{tf_width}:{max_rung}"
         dedupe_key = f"{thesis_id}|conv|{bucket}"
+    elif event["kind"] == "confluence":
+        # one standalone confluence alert per tier escalation (loop hysteresis is the
+        # primary guard; this outbox key is the durable belt-and-suspenders).
+        dedupe_key = f"{thesis_id}|confl|{tier}"
     else:
         dedupe_key = f"{thesis_id}|{event['stage']}"
 
@@ -342,9 +456,12 @@ async def post_event(event: dict) -> bool:
     # Render the clean conviction EMBED for ANY event backed by a thesis row (a first
     # sighting that's already a position deserves the same card as an escalation); the
     # rare no-thesis fallback uses plain text.
-    if thesis:
+    if thesis and event["kind"] == "confluence":
+        embed = format_confluence_alert(thesis, confl_row, event)
+        content = None
+    elif thesis:
         backdrop = await build_backdrop(thesis)
-        embed = format_conviction_update(event, thesis, backdrop=backdrop)
+        embed = format_conviction_update(event, thesis, backdrop=backdrop, confluence=confl_row)
         content = None
     else:
         embed = None

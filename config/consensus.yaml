@@ -721,6 +721,11 @@ wolf:
     window_days: 10                     # trailing window for the mention-frequency (distinct-day) score term
     trajectory_threshold: 8             # |conviction delta| below this is "stable" absent a structural change
     narrate: false                      # OFF by default — templated render is the product; LLM gloss is phase-2
+  confluence:                           # Cross-source confluence (TODO #20, phase 2 / Type-2)
+    enabled: false                      # HARD GATE: stays false until live sign-off (restart to pick up)
+    interval_sec: 900                   # re-check active theses every 15 min (cheap, no LLM)
+    window_days: 21                     # "last 2-3 weeks" — agreement only counts recent calls
+    min_dominance: 0.6                  # a source's net vote needs >=60% one-sided rows, else it's "mixed"
 
 # Command handler concurrency limits (plan section 2G).
 commands:

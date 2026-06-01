@@ -678,6 +678,26 @@ CREATE TABLE IF NOT EXISTS wolf_emails_processed (
     theses_touched INTEGER NOT NULL DEFAULT 0,
     processed_at REAL NOT NULL
 );
+
+-- Phase-2 cross-source confluence (TODO #20, Type-2): ONE current-state row per
+-- thesis (UPSERT on thesis_id) so the table stays bounded by the small # of active
+-- theses. alerted_tier carries the hysteresis (only a strict tier-UP re-posts).
+CREATE TABLE IF NOT EXISTS wolf_confluence_checks (
+    thesis_id INTEGER PRIMARY KEY,       -- one row per thesis (FK macro_theses.id)
+    scope_type TEXT NOT NULL,
+    scope_key TEXT NOT NULL,
+    direction TEXT NOT NULL,             -- bull | bear (the Wolf thesis side)
+    checked_at REAL NOT NULL,
+    window_days INTEGER NOT NULL,
+    agree_count INTEGER NOT NULL DEFAULT 0,
+    disagree_count INTEGER NOT NULL DEFAULT 0,
+    tier TEXT NOT NULL DEFAULT 'surface',        -- confluence component: surface|high|critical
+    combined_tier TEXT NOT NULL DEFAULT 'surface',-- max(phase1, confluence)
+    divided INTEGER NOT NULL DEFAULT 0,
+    agree_sources_json TEXT NOT NULL DEFAULT '[]',
+    disagree_sources_json TEXT NOT NULL DEFAULT '[]',
+    alerted_tier TEXT NOT NULL DEFAULT 'surface' -- last tier actually POSTED for this thesis
+);
 """
 
 # Unique indices that reference columns added by _run_column_migrations.
@@ -818,6 +838,7 @@ async def init_db() -> AsyncConnection:
         (13, "A3 Bayesian source consolidation"),
         (14, "sub-industry peer layer cache (ticker_sector_cache)"),
         (15, "wolf macro-brain phase-1 (macro_theses, wolf_news_alerts, wolf_emails_processed)"),
+        (16, "wolf macro-brain phase-2 cross-source confluence (wolf_confluence_checks)"),
     ]
     for version, note in _schema_versions:
         await _db.execute(
@@ -2977,3 +2998,113 @@ async def mark_alert_failed(alert_id: int) -> None:
         "UPDATE wolf_news_alerts SET status = 'failed' WHERE id = ?", (alert_id,)
     )
     await conn.commit()
+
+
+# ───────────── Phase-2 cross-source confluence (TODO #20, Type-2) ─────────────
+
+async def get_confluence_stances(window_days: int = 21) -> dict[str, list[dict]]:
+    """Gather recent directional stances from the four confluence sources, within the
+    trailing window. Returns {source_type: [{'ticker','dir','channel'?}, ...]}.
+
+    Reads ONLY (no writes). SEC is buys-only (sells are routine pay events). Excludes
+    apewisdom/google_trends/reddit (not on the user's confluence source list).
+    """
+    conn = await get_db()
+    cutoff = time.time() - window_days * 86400
+    out: dict[str, list[dict]] = {"twitter": [], "youtube": [], "options": [], "sec": []}
+
+    # Twitter — signal_events.direction (long/short); youtube path there is dead.
+    cur = await conn.execute(
+        "SELECT ticker, direction FROM signal_events "
+        "WHERE source_type='twitter' AND direction IN ('long','short') AND recorded_at >= ?",
+        (cutoff,),
+    )
+    out["twitter"] = [{"ticker": r["ticker"], "dir": r["direction"]} for r in await cur.fetchall()]
+
+    # YouTube — youtube_signals.direction, dropping suppressed rows; keep channel for breadth.
+    cur = await conn.execute(
+        "SELECT ticker, direction, channel_name FROM youtube_signals "
+        "WHERE direction IN ('long','short') AND COALESCE(suppressed,0)=0 AND extracted_at >= ?",
+        (cutoff,),
+    )
+    out["youtube"] = [
+        {"ticker": r["ticker"], "dir": r["direction"], "channel": r["channel_name"]}
+        for r in await cur.fetchall()
+    ]
+
+    # Options flow — side CALL/PUT (freshest of last_trade_ts / detected_at).
+    cur = await conn.execute(
+        "SELECT ticker, side FROM options_flow "
+        "WHERE COALESCE(last_trade_ts, detected_at) >= ?",
+        (cutoff,),
+    )
+    out["options"] = [{"ticker": r["ticker"], "dir": r["side"]} for r in await cur.fetchall()]
+
+    # SEC — insider BUYS only (sentiment='bullish'); sells excluded by design.
+    cur = await conn.execute(
+        "SELECT ticker, sentiment FROM ticker_signals "
+        "WHERE source_type='sec_filing' AND sentiment='bullish' AND detected_at >= ?",
+        (cutoff,),
+    )
+    out["sec"] = [{"ticker": r["ticker"], "dir": r["sentiment"]} for r in await cur.fetchall()]
+
+    return out
+
+
+async def get_confluence_check(thesis_id: int) -> dict | None:
+    """Return the current confluence state row for a thesis, or None."""
+    conn = await get_db()
+    cur = await conn.execute(
+        "SELECT * FROM wolf_confluence_checks WHERE thesis_id = ?", (thesis_id,)
+    )
+    row = await cur.fetchone()
+    return dict(row) if row else None
+
+
+async def record_confluence_check(
+    thesis_id: int, scope_type: str, scope_key: str, direction: str,
+    checked_at: float, window_days: int, agree_count: int, disagree_count: int,
+    tier: str, combined_tier: str, divided: int,
+    agree_sources_json: str, disagree_sources_json: str, alerted_tier: str,
+) -> None:
+    """Upsert the single current-state confluence row for a thesis (bounded: one per thesis)."""
+    conn = await get_db()
+    await conn.execute(
+        """INSERT INTO wolf_confluence_checks
+            (thesis_id, scope_type, scope_key, direction, checked_at, window_days,
+             agree_count, disagree_count, tier, combined_tier, divided,
+             agree_sources_json, disagree_sources_json, alerted_tier)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(thesis_id) DO UPDATE SET
+             scope_type=excluded.scope_type, scope_key=excluded.scope_key,
+             direction=excluded.direction, checked_at=excluded.checked_at,
+             window_days=excluded.window_days, agree_count=excluded.agree_count,
+             disagree_count=excluded.disagree_count, tier=excluded.tier,
+             combined_tier=excluded.combined_tier, divided=excluded.divided,
+             agree_sources_json=excluded.agree_sources_json,
+             disagree_sources_json=excluded.disagree_sources_json,
+             alerted_tier=excluded.alerted_tier""",
+        (thesis_id, scope_type, scope_key, direction, checked_at, window_days,
+         agree_count, disagree_count, tier, combined_tier, divided,
+         agree_sources_json, disagree_sources_json, alerted_tier),
+    )
+    await conn.commit()
+
+
+async def delete_confluence_check(thesis_id: int) -> None:
+    """Prune a thesis's confluence row (call when the thesis is invalidated)."""
+    conn = await get_db()
+    await conn.execute("DELETE FROM wolf_confluence_checks WHERE thesis_id = ?", (thesis_id,))
+    await conn.commit()
+
+
+async def prune_confluence_orphans() -> int:
+    """Delete confluence rows whose thesis is no longer active. Keeps the table bounded
+    by the small set of live theses. Returns rows deleted."""
+    conn = await get_db()
+    cur = await conn.execute(
+        "DELETE FROM wolf_confluence_checks WHERE thesis_id NOT IN "
+        "(SELECT id FROM macro_theses WHERE status='active')"
+    )
+    await conn.commit()
+    return cur.rowcount or 0

@@ -1,6 +1,6 @@
 # Wolf newsletter → trade-finding macro brain
 
-**Status:** IN PROGRESS — phase-1 (Type-1 over-time conviction tracker) **LIVE in #news 2026-06-01**; phase-2 (cross-source confluence) is NEXT.
+**Status:** IN PROGRESS — phase-1 (Type-1 over-time conviction tracker) **LIVE in #news 2026-06-01**; phase-2 (Type-2 cross-source confluence) **BUILT + tested + live-verified, flag OFF — pending sign-off to enable**.
 **Created:** 2026-05-31
 
 ## Progress / what's shipped
@@ -8,7 +8,14 @@
 - **Re-scope (user, 2026-05-31):** dropped the within-email "3-of-3 charts agree" idea (one email = one view). "Confluence" = (1) **Wolf-over-time [DONE]** and (2) **cross-source [NEXT]**.
 - Known caveat at go-live: Gemini vision quota exhausted → alert LEVELS blank until ~midnight PT reset; text/story/timeframes/quote work.
 
-## NEXT — Phase-2: cross-source confluence (Type-2)
+## Phase-2 / Type-2 — BUILT 2026-06-01 (flag OFF, awaiting sign-off)
+Cross-source confluence shipped via the `discover` run `wolf-confluence` (artifacts in `.claude/discover/wolf-confluence/`). Pure SQL+dict, **no LLM** — cheap/fast/stable. For each live Wolf thesis it checks whether YouTube / Twitter / options / SEC-buys agree within 21 days, rolled up by scope, each source casting ONE net vote: Wolf alone=surface, +1 source=high, +2=critical (@-ping). Disagreement → "analysts divided". Writes ONLY to a new `wolf_confluence_checks` table (one row/thesis, bounded) — cannot pollute `!all`/ticker alerts.
+- New `consensus_engine/analysis/wolf_confluence.py`; new `wolf_confluence_loop` in main.py (runs on stop_event → overnight/weekend-safe); confluence field on every Wolf embed + a standalone louder alert on tier-up; reuses phase-1 outbox + @-ping.
+- Gates passed: opus critic (B1 sector-map fix + 6 HIGH), Gemini cross-model (unbounded-growth BLOCKER → one-row-per-thesis), 1578/1578 tests green (baseline 0), independent reviewer = SHIP, LIVE-verified on real data (NVDA bull→critical w/ twitter+youtube; XLK/SMH/NDX roll-ups correct; OIL=surface; level-less capped; hysteresis holds).
+- **TO ENABLE (after sign-off):** set `wolf.confluence.enabled: true` (+ optionally `wolf.enable_critical_ping: true`) in `config/consensus.yaml`, restart `consensus-engine.service`, tail logs for "wolf_confluence_loop: started".
+- **Deferred follow-ups (tracked):** (1) Wolf-echo filter (drop a source row that merely re-quotes Wolf — planned §2b, not yet wired into the gather queries; low risk since Twitter rows carry no text and analysts rarely cite the newsletter). (2) per-Twitter-author vote granularity (currently Twitter = 1 net vote). (3) VIX/UVXY direction semantics (excluded in v1). (4) asset-class two-hop matching (XLE→OIL; excluded in v1, conservative). (5) minor: `_run_confluence_cycle` does one redundant upsert on a tier-up.
+
+## (superseded) NEXT — Phase-2: cross-source confluence (Type-2)
 Compare Wolf's thesis vs OTHER sources the user follows — **YouTube + TweetShift/Twitter — WITH sector roll-up** (e.g. a YouTube "bearish semis/nasdaq" + a TweetShift "big bearish NVDA & MU" → both semis → reinforce Wolf's SMH short). Higher-risk: reads several LIVE tables and touches the live `!all` data.
 **Agreed process (2026-05-31):** write a dedicated confluence plan → run the **Codex (gpt-5.5) adversarial review gate** on it → then build (TDD + verify). The plan supersedes the thin phase-2 sketch in the discover `final-plan.md` (known BLOCKER there: must read THREE source tables — `signal_events` twitter/youtube, `options_flow` side→dir, `ticker_signals[sec]` sentiment→dir — NOT just signal_events; plus scope matrix, Wolf-echo filter, YT cluster-cap, recency decay, non-Wolf level-bearing requirement for high/critical).
 **HARD PRECONDITION:** verify Codex can actually READ the plan + code files (a cheap access probe) BEFORE dispatching the review — it once fell back to a stale GitHub copy on perm-denied; don't burn credits on a blind review (memory `feedback_verify_codex_file_access`). Detailed direction also saved at `.claude/discover/wolf-news-brain/pass5-confluence-direction.md`.
