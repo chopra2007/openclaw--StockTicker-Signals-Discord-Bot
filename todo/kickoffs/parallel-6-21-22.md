@@ -1,41 +1,50 @@
-# Kickoff: work #6+#22 and #21 in parallel, isolated, background
+# Kickoff: three discover runs for #6, #21, #22 (each its own 2–4 agents)
 
-**Trigger (paste this one line into a fresh session):**
-`run todo/kickoffs/parallel-6-21-22.md`
+Run the `discover` plugin three times — once per TODO — each with its own 2–4 agents, in isolated worktrees, so no run bloats another's context or clobbers its files.
 
-## Goal
-Advance the open !all-improvement work as TWO independent streams, each in its own git worktree and driven by background agents, so this orchestrating session's context stays light (only summaries return here).
+## The runs (paste ONE trigger line per fresh session)
 
-## The two streams (NOT three — see why)
-- **Stream A — `!all` risk section (#6 + #22).** #22 is round 2 of #6; both edit the SAME files (`narrator.py`, `quality_bar.py`, `output_filter.py`). They CANNOT run in parallel with each other — run them as one stream, #22's fixes on top of #6. Plan source: `todo/all-command-quality.md` (#6) + `todo/all-risk-section-v2.md` (#22, has the verified fix list + file:line pointers).
-- **Stream B — SerpAPI key failover (#21).** Touches `gap_fill.py` + `config/consensus.yaml` — disjoint from Stream A, so it runs in parallel safely. Plan source: `todo/serpapi-key-failover.md`.
+**Run 1 — #21 SerpAPI failover** (independent; start anytime, parallel-safe):
+```
+discover: SerpAPI key/provider failover per todo/serpapi-key-failover.md — work in worktree /home/openclaw/wt-serpapi (branch feat/serpapi-failover), native layout, 2 agents, review-then-build, commit only (do NOT push). Read todo/kickoffs/parallel-6-21-22.md first.
+```
 
-## Why isolation is mandatory (hard lesson, 2026-05-31)
-This repo has ONE shared working tree (the `/root/.openclaw → /home/openclaw/.openclaw` symlink). Two agents editing the same tree clobber each other — a concurrent session's worktree workflow silently reset uncommitted files mid-build. The Agent/Workflow built-in `isolation:"worktree"` is BROKEN here (it nests worktrees inside `.claude/worktrees/` and the symlink duplicates them). See memory `reference_worktree_isolation_broken`.
-**Therefore: use MANUAL worktrees at EXTERNAL paths (verified working), never the built-in isolation. Commit early and often.**
+**Run 2 — #6 broad !all improvements** (start anytime; MUST finish + commit before Run 3):
+```
+discover: improve what the !all command shows per todo/all-command-quality.md (non-risk fields — catalysts, trade plan, snapshot, etc.; the risk section is handled separately in #22) — work in worktree /home/openclaw/wt-allcmd (branch feat/allcmd), native layout, 4 agents, review-then-build, commit only (do NOT push). Read todo/kickoffs/parallel-6-21-22.md first.
+```
 
-## Setup the orchestrator should run
-1. Create two external worktrees, each on its own branch:
-   - `git worktree add /home/openclaw/wt-all-risk -b feat/all-risk-v2`
-   - `git worktree add /home/openclaw/wt-serpapi  -b feat/serpapi-failover`
-2. Dispatch ONE background agent per worktree (`Agent` with `run_in_background: true`), each told to:
-   - `cd` into its worktree path and do ALL work there (never touch the other worktree or the main workspace).
-   - Read its plan source file(s) above; for thoroughness it may run the `discover` skill scoped to that stream.
-   - Build → write/update tests → run `python3 -m pytest tests/ -n 2` IN THE WORKTREE → commit to its branch. Establish the test baseline first.
-   - Report back a summary only (keeps this session's context light).
-3. Each agent runs `verify`/a separate reviewer before claiming done (author ≠ reviewer).
+**Run 3 — #22 risk-section round 2** (run AFTER Run 2 commits; SAME worktree/branch):
+```
+discover: sharpen the !all risk section round 2 per todo/all-risk-section-v2.md — work in the EXISTING worktree /home/openclaw/wt-allcmd on branch feat/allcmd (on top of #6's commits), native layout, 3 agents, review-then-build, commit only (do NOT push). Read todo/kickoffs/parallel-6-21-22.md first.
+```
 
-## Merging back (after a stream's agent reports success)
-Worktree changes are NOT live until merged into the main workspace and the service restarts:
-1. In the main workspace: `git merge feat/<branch>` (resolve any overlap — there shouldn't be cross-stream overlap by design).
-2. Run the regression gate (`scripts/pre-push`, `pytest -n 2`) — no NEW failures vs `.test-baseline`.
-3. For live verification, restart `consensus-engine.service` and run a real `!all NVDA` (see this session's pattern: webhook ID 1508945176335482880 is whitelisted; the live narrative lands in the vault file). NOTE: a restart also activates whatever else is in the working tree — check with whoever owns concurrent work first.
-4. `git worktree remove /home/openclaw/wt-<name>` when done.
+## Why this grouping (don't change it without checking files)
+- #21 touches `gap_fill.py` + `config/consensus.yaml` — disjoint from the others → its own branch, runs in parallel.
+- #6 and #22 BOTH edit `narrator.py` (+ `quality_bar.py`/`output_filter.py`). Separate branches would collide on merge and force a rebase. So they share ONE worktree/branch and run **sequentially: #6 first, then #22 on top.**
+- Net: 2 worktrees, 3 discover runs. Two tracks run in parallel (wt-serpapi ‖ wt-allcmd); within wt-allcmd, #6 → #22 are serial.
+
+## Worktree setup (run once, in the main workspace, before the discover runs)
+```
+git worktree add /home/openclaw/wt-serpapi -b feat/serpapi-failover
+git worktree add /home/openclaw/wt-allcmd  -b feat/allcmd
+```
+Each discover run `cd`s into its worktree and does ALL work there. (Manual external-path worktrees are verified to isolate correctly here; the built-in `isolation:"worktree"` is BROKEN by the `/root/.openclaw` symlink — never use it. See memory `reference_worktree_isolation_broken`.)
+
+## discover settings to use (answer its setup questions with these)
+- **Layout:** native (no tmux; parallel `Agent` calls).
+- **Agents:** #21 → 2, #6 → 4, #22 → 3 (all within your 2–4).
+- **Mode:** autonomous for the research/planning passes (or pause-for-review if you want to steer).
+- **Execution handoff:** review-then-build (see each plan before it builds).
+- **Push:** OVERRIDE discover's Pass-5 push. This project's CLAUDE.md forbids mid-session push — let discover **commit only**; pushing happens at session close through the gate.
+
+## Merge-back + go-live (after a run's discover reports success + tests green in its worktree)
+1. Main workspace: `git merge feat/serpapi-failover` and (after #6→#22 done) `git merge feat/allcmd`.
+2. Regression gate: `python3 -m pytest tests/ -n 2` — zero NEW failures vs `.test-baseline`.
+3. Live check: restart `consensus-engine.service`, run a real `!all NVDA` (whitelisted webhook ID 1508945176335482880; output lands in the vault file). **A restart also activates any other pending work in the tree — coordinate with the wolf session before restarting.**
+4. `git worktree remove /home/openclaw/wt-serpapi` and `/home/openclaw/wt-allcmd` when merged.
 
 ## Guardrails
-- NEVER run two agents editing the same file. Stream A owns narrator/quality_bar/output_filter; Stream B owns gap_fill/config. If a real overlap appears (gap_fill is touched by both the macro query and #21), sequence those, don't parallelize.
-- If another Claude session is open on this repo, prefer worktrees + frequent commits — uncommitted work in the shared tree is not safe.
-- Doc/TODO commits push with `--no-verify` at session close; code changes go through the full gate.
-
-## Simpler fallback (if worktrees feel heavy)
-Do the two streams one at a time as separate `discover` runs in the main workspace. `discover` already keeps each run's context lean (sub-agents + on-disk artifacts) and supports separate-session handoff. Zero conflict risk; trade-off is sequential, not simultaneous.
+- Never run two agents editing the same file at once. The grouping above guarantees no cross-track file overlap.
+- If a second Claude session is open on this repo, commit early/often — uncommitted work in the shared tree is not safe (it got reset this way on 2026-05-31).
+- The three TODO detail files already hold the verified findings + file:line pointers — discover should read them in Pass 0/1 rather than re-deriving.
