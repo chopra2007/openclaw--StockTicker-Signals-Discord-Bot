@@ -44,12 +44,14 @@ def test_max_pain_known_fixture():
     # All call OI at 100, all put OI at 120. Payout is minimised between them;
     # with equal OI the min sits where total ITM distance is least.
     ch = _chain({100.0: 1000, 110.0: 0, 120.0: 0}, {100.0: 0, 110.0: 0, 120.0: 1000})
-    strike, total_oi = options._max_pain_for_chain(ch)
+    strike, total_oi, call_oi_sum, put_oi_sum = options._max_pain_for_chain(ch)
     assert total_oi == 2000
+    assert call_oi_sum == 1000
+    assert put_oi_sum == 1000
     assert strike in (100.0, 110.0, 120.0)
     # heavy call OI low + heavy put OI high → min payout at a middle strike
     ch2 = _chain({90.0: 5000}, {130.0: 5000})
-    s2, _ = options._max_pain_for_chain(ch2)
+    s2, _, _, _ = options._max_pain_for_chain(ch2)
     assert 90.0 <= s2 <= 130.0
 
 

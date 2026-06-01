@@ -326,7 +326,8 @@ def _third_friday(year: int, month: int):
 
 
 def _max_pain_for_chain(chain) -> Optional[tuple]:
-    """Max-pain strike for one expiry. Returns (strike, total_oi) or None.
+    """Max-pain strike for one expiry.
+    Returns (strike, total_oi, call_oi_sum, put_oi_sum) or None.
 
     Max pain = the settle price S that minimises total in-the-money payout
     to option *holders*: sum over calls of OI*max(0,S-K) plus over puts of
@@ -372,7 +373,7 @@ def _max_pain_for_chain(chain) -> Optional[tuple]:
 
     # argmin payout; deterministic tie-break toward the centre strike.
     best = min(strikes, key=lambda S: (_payout(S), abs(S - mid)))
-    return best, total_oi
+    return best, total_oi, sum(call_oi.values()), sum(put_oi.values())
 
 
 async def compute_max_pain(ticker: str, executor=None) -> Optional[dict]:
@@ -383,7 +384,9 @@ async def compute_max_pain(ticker: str, executor=None) -> Optional[dict]:
     — fewer network round-trips than reusing _fetch_flow_chains + a separate
     monthly call, which matters on the latency-sensitive !all path.
 
-    Returns {"spot", "weekly": {...}|None, "monthly": {...}|None} or None.
+    Returns {"spot", "weekly": {...}|None, "monthly": {...}|None,
+    "pc_oi_ratio": float|None} or None. pc_oi_ratio = put-OI/call-OI summed
+    over the nearest expiry's chain (2dp; None when call OI is 0).
     Each leg dict: {"strike", "expiry", "total_oi"}. When the nearest expiry
     *is* the monthly (or they coincide within ~5 days), monthly carries it and
     weekly is None to avoid a redundant pair.
@@ -475,11 +478,21 @@ async def compute_max_pain(ticker: str, executor=None) -> Optional[dict]:
         mp = _max_pain_for_chain(ch)
         if mp is None:
             return None
-        strike, total_oi = mp
+        strike, total_oi, _call_oi, _put_oi = mp
         return {"strike": round(strike, 2), "expiry": exp, "total_oi": int(total_oi)}
 
     weekly_exp = raw["weekly_exp"]
     monthly_exp = raw["monthly_exp"]
+
+    # Put/Call OPEN-INTEREST ratio from the NEAREST expiry (weekly_exp == exps[0]).
+    # Same call/put OI sums max-pain already aggregates; >1 = more put OI (bearish
+    # positioning), <1 = more call OI. None when the nearest chain has no call OI.
+    pc_oi_ratio = None
+    _near = _max_pain_for_chain(chains.get(weekly_exp)) if weekly_exp else None
+    if _near is not None:
+        _, _, _call_oi_sum, _put_oi_sum = _near
+        if _call_oi_sum:
+            pc_oi_ratio = round(_put_oi_sum / _call_oi_sum, 2)
 
     # Dedup: if the monthly is the same listed expiry as the weekly (or within
     # ~5 days), show only the monthly leg to avoid a redundant near-identical pair.
@@ -502,4 +515,5 @@ async def compute_max_pain(ticker: str, executor=None) -> Optional[dict]:
     if weekly_leg is None and monthly_leg is None:
         return None
     return {"spot": round(spot, 2) if spot else None,
-            "weekly": weekly_leg, "monthly": monthly_leg}
+            "weekly": weekly_leg, "monthly": monthly_leg,
+            "pc_oi_ratio": pc_oi_ratio}
