@@ -29,16 +29,20 @@ _MENTION_RE = re.compile(r"@(?:everyone|here)\b", re.IGNORECASE)
 # Discord prose (live NVDA showed "per [macro_risk] news" and "as indicated by
 # the COMPUTED SIGNAL"). These are evidence/routing tags meant for the prompt,
 # never the reader. Strip them post-render so they never reach Discord.
-#  - `[macro_risk]` / `[evidence:3]` / `[news_id:2]` style bracket tags
+#  - `[macro_risk]` / `[evidence:3]` / `[news_id:2]` style bracket tags, AND the
+#    free-text variant the model also emits, e.g.
+#    `[evidence: the data recent_run_pct and wk52_high_pct]` (live NVDA 2026-06-01)
 #  - the bare phrase `COMPUTED SIGNAL` (with optional "the"/"per"/"as indicated
 #    by the" lead-in so we don't leave a dangling "the")
 #  - the "high-vol data unavailable" apology that rides inside the swing
 #    expected-move parenthetical (e.g. "(0.7×ATR×√5; high-vol data
 #    unavailable)") — internal plumbing the reader shouldn't see. The bare
 #    formula "0.7×ATR×√5" is a legitimate Trade Plan citation and is KEPT.
+# `[name]` or `[name: <anything>]`; the `:`-guard means a real phrase like
+# "[evidence-based approach]" is NOT stripped (after the name must come `]` or `:`).
 _INTERNAL_BRACKET_TAG_RE = re.compile(
-    r"\s*\[(?:macro_risk|evidence:\s*\d+|news_id:\s*\d+|sec_id:\s*\d+"
-    r"|twitter_id:\s*\d+|yt_evidence:\s*\d+)\]",
+    r"\s*\[(?:macro_risk|evidence|news_id|sec_id|twitter_id|yt_evidence)"
+    r"(?:\s*:[^\]]*)?\]",
     re.IGNORECASE,
 )
 # Replace the token, optionally absorbing a single preceding "the " so we get

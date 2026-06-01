@@ -291,6 +291,22 @@ def test_scrub_evidence_tags():
     assert "evidence:" not in out
 
 
+def test_scrub_free_text_evidence_tag():
+    # Live NVDA 2026-06-01 leaked a free-text evidence tag the numeric-only regex missed.
+    out = output_filter.sanitize_narrative(
+        "pullback risk if it unwinds [evidence: the data recent_run_pct and wk52_high_pct]."
+    )
+    assert "evidence" not in out
+    assert "recent_run_pct" not in out
+    assert out.strip() == "pullback risk if it unwinds."
+
+
+def test_scrub_keeps_evidence_based_phrase():
+    # The ':'-guard means a real bracketed phrase is NOT stripped.
+    clean = "we used an [evidence-based approach] here."
+    assert output_filter.sanitize_narrative(clean) == clean
+
+
 def test_scrub_high_vol_apology_keeps_formula():
     out = output_filter.sanitize_narrative(
         "Expected move ±$5 / 5d (0.7×ATR×√5; high-vol data unavailable)."
