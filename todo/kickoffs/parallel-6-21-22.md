@@ -1,6 +1,8 @@
 # Kickoff: run discover for #6, #21, #22 — ONE session, sequential, worktree-isolated
 
-**You (the human) do ONE thing:** in a fresh session, paste `run todo/kickoffs/parallel-6-21-22.md`, then answer discover's short setup questions when they pop up (recommended answers below). Everything else below is for the orchestrating session to execute.
+**You (the human) do ONE thing:** in a fresh session, paste `run todo/kickoffs/parallel-6-21-22.md` (no `discover:` prefix — that would misfire on this file). Then answer discover's short setup questions when they pop up (recommended answers below). Everything else below is for the orchestrating session to execute.
+
+**Orchestrator note:** for EACH feature, invoke the full `discover` skill (Skill tool, `skill: discover`) on that feature — i.e. run the complete 5-pass flow per feature. The user running this kickoff IS the explicit authorization to use discover; do not do an ad-hoc build instead, and do not start a single discover run on this kickoff file itself.
 
 ## Recommended answers when discover asks (every run)
 - Run name → confirm the suggested one
