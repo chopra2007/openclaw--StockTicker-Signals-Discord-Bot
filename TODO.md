@@ -131,3 +131,9 @@ Read the Wolf on Wall Street emails (text + charts) so the bot tracks market top
 **File:** `serpapi-key-failover.md`
 
 Make the bot rotate to the next SerpAPI key (or provider) with credit when the current one hits its monthly limit, instead of silently going dark — the bot was stuck on one exhausted key while two others had quota.
+
+## 22. Sharpen the !all risk section (round 2)
+
+**File:** `all-risk-section-v2.md`
+
+Fix the quality defects a Gemini head-to-head exposed in the merged Risk Considerations: drop the weak "1.3% short interest → squeeze" noise bullet, use real positioning/overextension data instead, make the no-price rule mechanical, close a gate bug, and stop internal tags ([macro_risk], COMPUTED SIGNAL) leaking into the Discord text.
