@@ -35,3 +35,8 @@ The bot pays for web searches through SerpAPI, and we have **three keys**. Right
 ## Open questions
 - Do keys 1/2/3 share one SerpAPI account/plan (so all exhaust together near month-end) or separate accounts (true failover)? Verify before relying on rotation as a real capacity boost vs just resilience.
 - Should rotation be SerpAPI-only, or a generic "try providers in order until one returns results" layer across SerpAPI/Brave/Exa/SearXNG?
+
+### Session notes — 2026-06-01 (BUILT — branch `feat/serpapi-failover`, commit `cdd2c66`, NOT live yet)
+- **Worked on:** Implemented rotate-on-429 in `gap_fill.py` (new shared `_serpapi_organic` used by both search helpers); mapped `serpapi2`/`serpapi3` in `consensus.yaml` top-level `api_keys`; a dead key is cached exhausted-for-the-day and auto-clears the next date (covers the monthly reset). 6 new tests + 198 `!all` blast-radius tests green.
+- **Decisions:** Open-Q1 RESOLVED by live probe — keys 1/2/3 are **3 SEPARATE free accounts** (~750 searches/mo combined; key 3 was already empty), so rotation is real added capacity, not just resilience. Open-Q2 RESOLVED — SerpAPI-only rotation (generic cross-provider layer left out, per the priority order). Left the `config.py` env-fallback name bug alone (mapping makes it moot). Exhaustion signature confirmed live = HTTP 429 + "run out of searches".
+- **Next:** go live via the Step-4 handoff (merge `feat/serpapi-failover` → restart → confirm). HELD pending the concurrent wolf session — see `.claude/discover/parallel-6-21-22-STEP4-HANDOFF.md`.

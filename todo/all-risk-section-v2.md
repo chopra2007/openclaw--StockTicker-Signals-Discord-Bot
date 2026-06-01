@@ -41,3 +41,8 @@ But the comparison found **genuine, fixable defects in ours** — that's what th
 ## Open questions
 - Does `levels` carry a recent-high value (for rec #2's "distance from high" clause)? Verify before relying on it.
 - Should put-flow be auto-preferred over short-interest for the positioning bullet, or ranked by a magnitude score?
+
+### Session notes — 2026-06-01 (BUILT — branch `feat/allcmd`, commit `ecfe010`, on top of #6, NOT live yet)
+- **Worked on:** All 6 fixes shipped. #1 magnitude-guard (feed short interest to the model only when ≥8% of float OR ≥5 days-to-cover, so a trivial 1.3% can't fire a squeeze bullet); #2 overextension via `wk52_high_pct`; #3 the real BUG — the hard gate now re-validates its corrective retry and keeps the original output if the violation isn't actually gone; #4 mechanical no-price rule (gate kept as backstop); #5 `output_filter` scrub of `[macro_risk]`/`COMPUTED SIGNAL`/`[evidence:N]` (runs AFTER the gate); #6 locked to 2-3 bullets, fixed priority. 12 new tests (#1/#3/#5 each covered); 321 blast-radius tests green.
+- **Decisions:** Open-Q1 RESOLVED — `wk52_high_pct` IS available (added by #6, read at `narrator.py:784`), so rec #2's distance-from-high is wired with a real value (no fabrication). Respected the "explicitly DROPPED" list (no valuation/structural bullets).
+- **Next:** go live via the Step-4 handoff (merge `feat/allcmd` → restart → confirm). HELD pending the wolf session — see `.claude/discover/parallel-6-21-22-STEP4-HANDOFF.md`.

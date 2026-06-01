@@ -151,3 +151,11 @@ Two more levers + three correctness fixes shipped (suite 1433 green, 0 regressio
 - **3 fixes** (commit `6a2c5b9`): BUG-1 earnings-days tz (utcnow→local date — killed a 7h/day trade-plan-vs-embed disagreement); BUG-3 scanner-failure logs debug→warning (no more silent source drops); BUG-4 footer source count now includes youtube_visual + recent_earnings.
 
 Still OPEN — menu has more levers. Top remaining cheap/ubiquitous (yfinance, pre-flight GREEN): earnings track record (avg ±% post-ER move), 52wk-high/low distance, relative volume, P/C-OI ratio. Biggest optimization (flagged, NOT done — too risky for one session): the synth model-chain walks serially per model → 60–240s tail; race/short-timeout it or post a 2-stage embed.
+
+## Update 2026-06-01 (run `all-quality-cheap-levers`) — branch `feat/allcmd`, commit `a178cf7`, NOT live yet
+
+Shipped 2 of the 4 listed cheap levers; 17 new tests, full suite 1551 passed; live NVDA verified.
+- **Relative Volume** — today's volume vs its 20-day average, as a "Rel Vol N.N×" embed field. Found+fixed `fetch_daily_candles` silently dropping the volume array; threaded `daily_candles` through the `data` dict to the StructuredFields construction. Live NVDA → **1.77×**.
+- **52-week high/low distance** — pulled from the Snapshot's existing `.info` fetch (`fiftyTwoWeekHigh/Low` + price), rendered as a compact "N% below 52wk high" segment in the Snapshot field. Zero new fetch. Live NVDA → **10.7% below high**. (This value also now feeds #22's overextension bullet.)
+
+**Deferred (path documented in the run's final-plan):** P/C-OI ratio (`_max_pain_for_chain` discards split call/put OI — needs a return-shape refactor) and earnings-move history (needs ~2y OHLCV + historical earnings dates, neither currently fetched). Stays OPEN (menu). Go live via the Step-4 handoff (`.claude/discover/parallel-6-21-22-STEP4-HANDOFF.md`), HELD pending the wolf session.
