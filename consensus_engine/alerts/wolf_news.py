@@ -93,6 +93,16 @@ _TRAJ_LABEL = {
 _TF_LADDER = ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "daily", "3d", "weekly"]
 _TF_RANK = {t: i for i, t in enumerate(_TF_LADDER)}
 
+# Embed colour by direction (bear red / bull green); grey if unknown.
+_DIR_COLOR = {"bear": 0xE03131, "bull": 0x2F9E44}
+# Plain-English instrument names so the title reads cleanly ("$SMH · Semis").
+_SCOPE_DISPLAY = {
+    "SMH": "Semis", "SOX": "Semis", "NDX": "Nasdaq", "SPX": "S&P 500", "RUT": "Russell 2000",
+    "DJIA": "Dow", "VIX": "Volatility", "OIL": "Oil", "GOLD": "Gold", "BONDS": "Bonds",
+    "YIELDS": "Yields", "DXY": "US Dollar", "BTC": "Bitcoin", "IGV": "Software",
+    "XLE": "Energy", "XLF": "Financials", "XLK": "Tech", "XLV": "Healthcare",
+}
+
 
 def _fmt_date(ts) -> str:
     """Mon DD from a unix ts (UTC), e.g. 'May 22'. Falls back to '' on bad input."""
@@ -172,86 +182,86 @@ async def build_backdrop(thesis_row: dict) -> str | None:
     for mt in market_threads:
         if mt.get("direction") == "bear" and mt.get("stage") in ("diverging", "imminent", "acting"):
             stage_lbl = _STAGE_LABEL.get(mt["stage"], mt["stage"])
-            return f"market regime: {mt['scope_key']} bear ({stage_lbl})"
+            return f"{mt['scope_key']} bear ({stage_lbl})"
     return None
 
 
-def format_conviction_update(event: dict, thesis_row: dict, backdrop: str | None = None) -> str:
-    """Templated #news body for a conviction_update — validated fields only (R4/§6).
+def format_conviction_update(event: dict, thesis_row: dict, backdrop: str | None = None) -> dict:
+    """Clean Discord EMBED for a Wolf alert — validated fields only (R4/§6).
 
-    Built from our own enum labels + capped snippet/phrase + validated levels. The
-    raw email body never appears; only the ≤160-char snippet and ≤120-char phrase do.
-    Discord @-mentions are inert (the send path sets allowed_mentions {'parse': []}).
+    A title + a few short labelled fields + a footer (no text wall). Built from our own
+    enum labels + capped snippet/phrase + validated levels; the raw email body never
+    appears, and the send path sets allowed_mentions {'parse': []} so any @ is inert.
     """
     direction = event["direction"]
     emoji = _DIR_EMOJI.get(direction, "⚪")
     scope_key = event["scope_key"]
-    scope_type = event["scope_type"]
-    stage_lbl = _STAGE_LABEL.get(event["stage"], event["stage"])
+    name = _SCOPE_DISPLAY.get(scope_key, "")
+    dir_word = "BEARISH" if direction == "bear" else ("BULLISH" if direction == "bull" else direction.upper())
     tier = tier_for(event)
 
-    if tier == "high":
-        head = "🚨 Wolf STARTS the trade"
-    elif event.get("kind") == "new":
-        head = "🆕 New thesis"
-    else:
-        head = "📈 Conviction building"
-    lines = [
-        f"{emoji} **{scope_key}** ({scope_type}) — Wolf **{direction.upper()}**",
-        f"{head}: {stage_lbl}",
-    ]
-    if backdrop:
-        lines.append(f"_Backdrop (market regime):_ {backdrop}")
+    title = f"{emoji} ${scope_key}" + (f" · {name}" if name else "") + f" — Wolf {dir_word}"
 
-    # Story so far — from this thread's OWN evidence_log only (R1), our enum labels.
+    fields: list[dict] = []
+
+    # 1) Wolf's move — the headline action + conviction, in one tidy field.
+    if tier == "high":
+        move = "🚨 **Started a position**" + (" — room to add" if event.get("intent") == "adding" else "")
+    elif event.get("kind") == "new":
+        move = f"New — {_STAGE_LABEL.get(event['stage'], event['stage'])}"
+    else:
+        move = _STAGE_LABEL.get(event["stage"], event["stage"])
+    conv = event.get("conv")
+    if conv is not None:
+        traj = _TRAJ_LABEL.get(event.get("traj", ""), "")
+        move += f"\nConviction **{conv}/100**" + (f" · {traj}" if traj else "")
+    fields.append({"name": "Wolf's move", "value": move[:1024], "inline": False})
+
+    # 2) Story so far — the dated arc, ONLY when there's a real multi-day build.
     try:
         evlog = json.loads(thesis_row.get("evidence_log_json") or "[]")
     except Exception:
         evlog = []
-    if evlog:
-        lines.append("**Story so far:**")
-        lines.extend(_build_story_so_far(evlog))
+    story = _build_story_so_far(evlog)
+    if len(story) > 1:
+        fields.append({"name": "Story so far", "value": "\n".join(story)[:1024], "inline": False})
 
-    # Where he is now.
+    # 3) Timeframes + 4) Key levels — short, side by side.
     tf_range = _tf_range_label(event.get("tf", []))
-    rungs = [t for t in (event.get("tf") or []) if t in _TF_RANK]
-    now_bits = [f"stage **{event['stage']}**", f"conviction {event.get('conv', '?')}/100",
-                _TRAJ_LABEL.get(event.get("traj", ""), event.get("traj", ""))]
-    intent_lbl = _INTENT_LABEL.get(event.get("intent", "none"))
-    if intent_lbl:
-        now_bits.append(intent_lbl)
-    lines.append("**Where he is now:** " + " · ".join(b for b in now_bits if b))
     if tf_range:
-        detail = "·".join(r.upper() for r in sorted(rungs, key=lambda t: _TF_RANK[t]))
-        lines.append(f"Timeframes: {tf_range} ({detail})")
-
-    # Levels / trigger (validated numbers from the thesis row).
+        fields.append({"name": "Timeframes", "value": tf_range, "inline": True})
     try:
         levels = json.loads(thesis_row.get("key_levels_json") or "[]")
     except Exception:
         levels = []
-    if levels:
-        lvl_txt = ", ".join(
-            f"{l['price']:g}" + (f" ({l['role']})" if l.get("role") else "")
-            for l in levels[:5] if "price" in l
-        )
-        if lvl_txt:
-            lines.append(f"Key levels: {lvl_txt}")
+    lvl_txt = ", ".join(
+        f"{l['price']:g}" + (f" ({l['role']})" if l.get("role") else "")
+        for l in levels[:5] if "price" in l
+    )
+    if lvl_txt:
+        fields.append({"name": "Key levels", "value": lvl_txt[:1024], "inline": True})
 
-    # His reasoning — validated phrase (italic) and/or capped snippet.
-    phrase = event.get("phrase")
-    if phrase:
-        lines.append(f"_“{phrase}”_")
-    snippet = event.get("snippet", "")
-    if snippet:
-        lines.append(f"_{snippet}_")
-    return "\n".join(lines)
+    # 5) Wolf's words — ONE quote (prefer the conviction phrase).
+    quote = event.get("phrase") or event.get("snippet") or ""
+    if quote:
+        fields.append({"name": "Wolf's words", "value": f"“{quote[:300]}”", "inline": False})
+
+    footer = "Wolf macro-brain"
+    if backdrop:
+        footer += f"  ·  Backdrop: {backdrop}"
+
+    return {
+        "title": title[:256],
+        "color": _DIR_COLOR.get(direction, 0x9AA0A6),
+        "fields": fields,
+        "footer": {"text": footer[:2048]},
+    }
 
 
-async def _send_news(content: str, ping_user_id: str | None = None) -> str | None:
-    """POST to #news. If ping_user_id is set, prefix an @-mention and allow it.
-
-    Returns the Discord message id on success, None otherwise.
+async def _send_news(content: str | None = None, embed: dict | None = None,
+                     ping_user_id: str | None = None) -> str | None:
+    """POST to #news (an embed and/or text). If ping_user_id is set, prefix an @-mention
+    and allow only that user. Returns the Discord message id on success, None otherwise.
     """
     import aiohttp
 
@@ -261,13 +271,17 @@ async def _send_news(content: str, ping_user_id: str | None = None) -> str | Non
         log.warning("wolf_news: missing discord token or news channel_id; skipping post")
         return None
 
-    payload: dict = {"content": content[:1990]}
+    payload: dict = {}
+    if embed is not None:
+        payload["embeds"] = [embed]
+    msg = content or ""
     if ping_user_id:
-        payload["content"] = f"<@{ping_user_id}> " + payload["content"]
-        payload["content"] = payload["content"][:1990]
+        msg = (f"<@{ping_user_id}> " + msg).strip()
         payload["allowed_mentions"] = {"users": [str(ping_user_id)]}
     else:
         payload["allowed_mentions"] = {"parse": []}
+    if msg:
+        payload["content"] = msg[:1990]
 
     url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
     headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
@@ -325,12 +339,15 @@ async def post_event(event: dict) -> bool:
         log.debug("wolf_news: already alerted for %s, skipping", dedupe_key)
         return False
 
-    # Render the rich conviction card for ANY event backed by a thesis row (a first
-    # sighting that's already a position deserves the same card as an escalation).
+    # Render the clean conviction EMBED for ANY event backed by a thesis row (a first
+    # sighting that's already a position deserves the same card as an escalation); the
+    # rare no-thesis fallback uses plain text.
     if thesis:
         backdrop = await build_backdrop(thesis)
-        content = format_conviction_update(event, thesis, backdrop=backdrop)
+        embed = format_conviction_update(event, thesis, backdrop=backdrop)
+        content = None
     else:
+        embed = None
         content = format_message(event, levels)
 
     # critical @-ping is phase-2 only (needs confluence corroborator) AND opt-in
@@ -342,11 +359,12 @@ async def post_event(event: dict) -> bool:
 
     dry_run = cfg.get("wolf.dry_run", True)
     if dry_run:
-        log.info("wolf_news[DRY-RUN] would post to #news (tier=%s):\n%s", tier, content)
+        preview = content if content is not None else json.dumps(embed, ensure_ascii=False)
+        log.info("wolf_news[DRY-RUN] would post to #news (tier=%s):\n%s", tier, preview)
         await db.mark_alert_posted(alert_id, None, now)
         return True
 
-    msg_id = await _send_news(content, ping_user_id=ping_user)
+    msg_id = await _send_news(content=content, embed=embed, ping_user_id=ping_user)
     if msg_id:
         await db.mark_alert_posted(alert_id, msg_id, now)
         return True

@@ -580,17 +580,12 @@ async def test_conviction_update_render(fresh_db):
          "conviction_phrase": "most confirmed movement this week"}]})
     update = [e for e in ev if e["kind"] == "conviction_update"][0]
     row = await db.get_active_thesis("sector", "SMH", "bear")
-    msg = wolf_news.format_conviction_update(update, row)
-    assert "SMH" in msg and "BEAR" in msg
-    # story-so-far is built from our enum labels, not Wolf's raw words
-    assert "Story so far" in msg or "story" in msg.lower()
-    # timeframe range rendered
-    assert "15M" in msg or "15m" in msg
-    # validated phrase echoed (italic), level echoed
-    assert "most confirmed movement this week" in msg
-    assert "250" in msg
-    # the raw decoded email body is never present (only capped snippet/phrase)
-    assert "filled the gap" in msg or "SOX filled the gap" in msg  # capped snippet ok
+    msg = json.dumps(wolf_news.format_conviction_update(update, row), ensure_ascii=False)
+    assert "SMH" in msg and "BEAR" in msg          # title
+    assert "Story so far" in msg                    # multi-day arc field present
+    assert "15M" in msg or "15m" in msg             # timeframe range
+    assert "most confirmed movement this week" in msg   # validated phrase shown (one quote)
+    assert "250" in msg                             # validated level
 
 
 def test_conviction_update_render_injection_inert():
@@ -611,12 +606,12 @@ def test_conviction_update_render_injection_inert():
                 "tf": ["1m", "5m"], "intent": "started", "conv": 90, "traj": "building",
                 "phrase": "@here pump it"},
            ])}
-    msg = wolf_news.format_conviction_update(event, row)
-    # the text is present but inert — the @ stays a literal char (allowed_mentions parse:[] is set on send)
-    # we assert the renderer does not invent a level and keeps the content as plain italic text
-    assert "ignore previous instructions" in msg  # echoed as data, not obeyed
-    # no fabricated numeric level beyond what's in key_levels_json (empty)
-    assert "Key" not in msg or "Key levels" not in msg or "[]" not in msg
+    msg = json.dumps(wolf_news.format_conviction_update(event, row), ensure_ascii=False)
+    # the shown quote (the phrase) is echoed as inert DATA — the @ is a literal char and the
+    # send path sets allowed_mentions {'parse': []}, so it can never ping.
+    assert "pump it" in msg
+    # no fabricated key-levels field (key_levels_json is empty)
+    assert "Key levels" not in msg
 
 
 # ───────────────────────── dedupe + supersession + weekend wrap ─────────────────────────
@@ -676,10 +671,10 @@ async def test_backdrop_context_line(fresh_db):
     update = [e for e in ev if e["kind"] == "conviction_update"][0]
     row = await db.get_active_thesis("sector", "SMH", "bear")
     backdrop = await wolf_news.build_backdrop(row)
-    msg = wolf_news.format_conviction_update(update, row, backdrop=backdrop)
+    msg = json.dumps(wolf_news.format_conviction_update(update, row, backdrop=backdrop), ensure_ascii=False)
     assert "Backdrop" in msg
     # render with no backdrop still works
-    msg2 = wolf_news.format_conviction_update(update, row, backdrop=None)
+    msg2 = json.dumps(wolf_news.format_conviction_update(update, row, backdrop=None), ensure_ascii=False)
     assert "Backdrop" not in msg2 and "SMH" in msg2
 
 
