@@ -92,7 +92,12 @@ async def test_brave_search_passes_description_as_body():
                new_callable=AsyncMock, return_value="AMD stock"), \
          patch("consensus_engine.scanners.news._get_company_name",
                new_callable=AsyncMock, return_value="AMD"), \
-         patch("consensus_engine.scanners.news._is_trusted_source", return_value=True):
+         patch("consensus_engine.scanners.news._is_trusted_source", return_value=True), \
+         patch("consensus_engine.scanners.news._brave_budget_ok", return_value=True), \
+         patch("consensus_engine.scanners.news._brave_quota_exhausted", False):
+        # _brave_budget_ok reads a PERSISTENT daily counter file that the live engine
+        # writes; _brave_quota_exhausted is a process global a 402 can set. Patch both so
+        # this test exercises _search_brave's logic deterministically, never the live quota.
         result = await news_mod._search_brave("AMD")
 
     assert result is not None
