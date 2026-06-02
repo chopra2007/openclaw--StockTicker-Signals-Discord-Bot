@@ -264,15 +264,16 @@ llm:
   all_command_circuit_breaker_threshold: 3  # consecutive groq stalls -> race_all
   # #6 root-cause: the sanitize/cleanup calls run groq-free so they don't drain
   # groq's 100k/day budget that the synthesis call above needs.
-  # Order = fastest-reliable first. nemotron-nano (NVIDIA, measured ~1s, on a
-  # DIFFERENT upstream pool than the OpenAI gpt-oss pair) leads; the gpt-oss free
-  # models back it up. 2026-06-02: the gpt-oss pool was intermittently 429'ing AND
-  # gpt-oss-120b swings 2-11s, so cleanup kept timing out -> truncation. A fast
-  # primary on an independent pool fixes it WITHOUT a longer timeout (a longer
-  # _BATCH_TIMEOUT was measured to starve the synthesis budget — see narrator.py).
+  # NOTE: this free pool is unreliable (gpt-oss-20b 429s ~half the time on the
+  # OpenRouter shared free pool; gpt-oss-120b swings 2-11s vs the 5s _BATCH_TIMEOUT),
+  # so cleanup OFTEN falls back to trimmed raw text. That's acceptable: the
+  # synthesis writeup is robust to trimmed evidence (every test produced a valid
+  # narrative regardless of cleanup outcome). Do NOT add a reasoning model here
+  # (tried nvidia/nemotron-3-nano-30b-a3b:free 2026-06-02 — its hidden reasoning
+  # eats the 512-token budget on real 20-source batches and returns BLANK). If
+  # reliable cleanup is ever wanted, route to a cheap PAID non-reasoning model.
   # Absent key -> role-based text chain (also groq-free) -> safe.
   all_command_sanitize_chain:
-    - "nvidia/nemotron-3-nano-30b-a3b:free"
     - "openai/gpt-oss-120b:free"
     - "openai/gpt-oss-20b:free"
   # Agent-path chain — !ask / @-mention via `openclaw agent --local`.

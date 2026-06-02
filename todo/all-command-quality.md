@@ -168,3 +168,24 @@ Shipped 2 of the 4 listed cheap levers; 17 new tests, full suite 1551 passed; li
 - Also fixed a #22 scrub gap found during live verify: the model emits free-text `[evidence: the data ...]` tags the numeric-only regex missed — broadened `output_filter` to strip `[name]`/`[name: ...]` (with a `:`-guard so real phrases survive).
 
 Menu STILL OPEN. Remaining biggest item: the serial model-chain latency (60–240s). Minor cosmetic: the scrub can leave a dangling "," when a tag followed a comma — low priority.
+
+## Update 2026-06-02 — cleanup reliability + things to watch/optimize
+
+Two cleanup-chain changes plus a set of lessons worth keeping. ("Cleanup" = the small AI calls that tidy up raw evidence — tweets, news, filings — before the main writeup. In code: `_batch_summarize` (searxng/news/sec/chat/brief batches) + `vault_excerpt`, role=text.)
+
+**Shipped:**
+- **Cleanup taken off groq — `5e64656`, LIVE.** Those ~7–9 cleanup calls per `!all` used to run on groq first, the same model the main writeup needs. They burned ~18–25k of groq's 100k/day free budget per command, so after ~5 commands groq ran dry and the writeup fell back to slow models. Now cleanup runs on a groq-free chain (`all_command_sanitize_chain`); the writeup keeps groq.
+- **Tried nemotron as cleanup lead — TRIED AND REVERTED.** The free cleanup pool (gpt-oss-120b/20b) is unreliable: gpt-oss-20b returns "too busy" (429) ~half the time and gpt-oss-120b swings 2–11s, so cleanup often times out → trimmed raw text. (Our OpenRouter account is paid and barely used — 6¢ of a $5/day allowance — so the 429s are the *free pool's* shared limit, not us.) Tried prepending `nvidia/nemotron-3-nano-30b-a3b:free` — looked great in quick 3-item probes (~1s, valid summaries). **But it FAILED live and was reverted:** nemotron is a *reasoning* model — on the real 20-source cleanup batches its hidden reasoning eats the whole 512-token budget and it returns BLANK (confirmed via the API's usage counters: 408 reasoning tokens, 0 content). **Lesson: no reasoning models in the cleanup chain.** Reverted to the off-groq 2-model chain (the `5e64656` baseline).
+- **KEY FINDING — cleanup failing has NO visible effect on the writeup.** Every live and clean test produced a valid narrative regardless of whether cleanup succeeded or fell back to trimmed raw text — the writeup is robust to messy/trimmed evidence. So free-model cleanup reliability is a **low-value** problem; don't keep chasing it with free models. The only thing that would actually make cleanup run reliably is a cheap PAID non-reasoning model (~0.1¢ per `!all`) — deferred (free-first by design).
+
+**Issues to WATCH / TEST:**
+1. **Cleanup fails quietly, not loudly.** When every cleanup model fails, it silently uses trimmed raw text (500 chars) — the writeup still renders, just from rawer input. Health check: during a real `!all`, grep the engine log for `LLM fallback chain exhausted for role=text`. That line = cleanup failed that batch (currently common — the free pool is flaky). Per the KEY FINDING above this is low-impact, but if you ever want it fixed, go paid-model.
+2. **Groq can't do the writeup for big tickers.** For source-heavy tickers (e.g. NVDA, 20 sources) the writeup request is bigger than groq's free 12,000-tokens-per-minute cap, so groq rejects it (413) and the work hands off to the free models. So groq only ever "wins" the writeup on small tickers — the head-start speed trick rarely helps the biggest ones.
+3. **Cleanup and the writeup share one 160-second budget.** A slow cleanup phase eats the time the writeup needs for its quality-retry passes; starve those and the writeup drops to the bare data-only fallback. This is exactly why bumping the cleanup deadline to 12s BACKFIRED (tested: 3 models × 12s = 36s cleanup tail → downgraded narratives). **Keep cleanup fast.**
+4. **Testing trap that cost real time this session:** measuring the `!all` path by hooking into the AI-call layer (`call_with_fallback` / `synthesize_narrative`) breaks the head-start race logic and produces FALSE empty narratives — 100% false-empty *with* that hook, 100% valid *without* it (8 clean tickers). When testing `!all` end-to-end, only mock the edges (the 15-min cache and the Discord send), never the AI calls.
+
+**Optimization IDEAS (not done):**
+- **Pay pennies for reliable cleanup.** We use 6¢ of a $5/day OpenRouter allowance. Routing cleanup to the cheap *paid* gpt-oss (~0.1¢ per `!all`) would dodge the free-pool 429s entirely. Deferred (free-first by design) — revisit if nemotron also gets jammed.
+- **Trim the writeup prompt for big tickers** so it fits groq's 12k/min cap and groq can actually do the writeup (faster, fewer hand-offs).
+- **Guarantee the writeup a minimum slice of the 160s budget** so a slow cleanup phase can never starve its retries.
+- **Add 1–2 more independent free providers** to the cleanup chain for extra resilience.
