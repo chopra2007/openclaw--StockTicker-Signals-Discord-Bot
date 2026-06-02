@@ -729,7 +729,7 @@ wolf:
     window_days: 21                     # "last 2-3 weeks" — agreement only counts recent calls
     min_dominance: 0.6                  # a source's net vote needs >=60% one-sided rows, else it's "mixed"
   digests:                              # Scheduled #news briefings (TODO #20, phase 3)
-    enabled: false                      # SHIP OFF — flip to true only after sign-off
+    enabled: true                       # LIVE — posts midday/nightly/Sunday digests to #news (user sign-off 2026-06-01)
     narrate: false                      # optional <=2-sentence LLM takeaway; OFF (templated render is the product)
     midday_window_pt: ["12:00", "13:05"]    # post ~1 min after Wolf's midday email lands
     nightly_window_pt: ["19:00", "02:00"]   # crosses midnight — the long evening "Wrap"
