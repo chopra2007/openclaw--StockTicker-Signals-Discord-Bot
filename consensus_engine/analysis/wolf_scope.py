@@ -15,7 +15,7 @@ import os
 import yaml
 
 # Whole-market instruments
-_MARKET_IDS = {"SPY", "QQQ", "IWM", "SPX", "NDX", "RUT", "VIX", "DIA", "DJIA"}
+_MARKET_IDS = {"SPY", "QQQ", "IWM", "SPX", "NDX", "RUT", "VIX", "DIA", "DJIA", "TRANSPORTS"}
 
 # R7: index/leveraged-index ETFs proxy to their underlying index so the index and
 # its tradable vehicles share ONE thread key. Applied in the market branch only.
@@ -60,12 +60,13 @@ _ASSET_MAP = {
 
 # Broad-name aliases (Wolf writes "S&P", "Nasdaq", "the dollar", etc.)
 _NAME_ALIASES = {
-    "s&p": "SPX", "s&p 500": "SPX", "sp500": "SPX", "sp 500": "SPX", "spx": "SPX", "spooz": "SPX",
-    "es": "SPX", "es=f": "SPX",
+    "s&p": "SPX", "s&p 500": "SPX", "sp500": "SPX", "sp 500": "SPX", "sp-500": "SPX",
+    "spx": "SPX", "spooz": "SPX", "es": "SPX", "es=f": "SPX",
     "nasdaq": "NDX", "ndx": "NDX", "naz": "NDX", "nq": "NDX", "nq=f": "NDX",
-    "nasdaq-100": "NDX", "nasdaq 100": "NDX", "nasdaq100": "NDX", "ndx100": "NDX",
+    "nasdaq-100": "NDX", "nasdaq 100": "NDX", "nasdaq100": "NDX", "ndx100": "NDX", "nas100": "NDX",
     "russell": "RUT", "russell 2000": "RUT", "small caps": "RUT", "small-caps": "RUT",
     "dow": "DJIA", "dow jones": "DJIA", "djia": "DJIA",
+    "transports": "TRANSPORTS", "transportation": "TRANSPORTS", "dow transports": "TRANSPORTS",
     "semis": "SMH", "semiconductors": "SMH", "sox": "SMH",
     "software": "IGV", "tech": "XLK", "energy": "XLE", "financials": "XLF", "banks": "XLF",
     "oil": "OIL", "crude": "OIL", "gold": "GOLD", "bonds": "BONDS", "treasuries": "BONDS",

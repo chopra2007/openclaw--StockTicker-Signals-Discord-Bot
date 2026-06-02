@@ -71,6 +71,19 @@ def test_index_etf_unify():
     assert wolf_scope.resolve_scope("SQQQ") == ("market", "NDX")
 
 
+def test_phase4_macro_name_canonicalization():
+    """phase-4 #4: NAS100/SP-500/TRANSPORTS thread to canonical market scopes,
+    not stray ('stock', <name>) threads. Fixes the upstream threading bug."""
+    assert wolf_scope.resolve_scope("NAS100") == ("market", "NDX")
+    assert wolf_scope.resolve_scope("nas100") == ("market", "NDX")
+    assert wolf_scope.resolve_scope("SP-500") == ("market", "SPX")
+    assert wolf_scope.resolve_scope("sp-500") == ("market", "SPX")
+    assert wolf_scope.resolve_scope("TRANSPORTS") == ("market", "TRANSPORTS")
+    assert wolf_scope.resolve_scope("transports") == ("market", "TRANSPORTS")
+    # the outcome-scoring proxy still resolves for the canonical keys
+    assert wolf_scope.proxy_symbol("market", "TRANSPORTS") == "IYT"
+
+
 def test_vix_etf_not_threaded():
     """R7: UVXY/VXX/SVXY stay ('stock',SYM); VIX stays ('market','VIX')."""
     assert wolf_scope.resolve_scope("UVXY") == ("stock", "UVXY")
