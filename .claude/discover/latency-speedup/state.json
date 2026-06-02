@@ -11,8 +11,11 @@
   "branch": "feat/latency",
   "push": "OFF (commit only; push at session close)",
   "current_pass": 5,
-  "status": "pass-5-build-complete — committed 85ac88f on feat/latency (dark), 1639 tests green 0 regressions; activation/go-live pending (outward-facing, shared bot)",
+  "status": "COMPLETE — built (85ac88f), merged to master (94d8276), 1664 tests green, head_start ACTIVATED + live-verified (!all TSLA: 234s+fail -> 82.7s+valid narrative). Hard requirement met.",
   "build_commit": "85ac88f",
+  "merge_commit": "94d8276",
+  "activated": "all_command_strategy=head_start, window=15, live since 2026-06-01 19:10 restart",
+  "live_evidence": "!all TSLA via deployed engine: head-start stalled->fan-out->race resolved structurally_valid=True, narrative_status=ok, 82.7s (vs May-31 serial 234.3s fallback_data_only)",
   "degradations": ["Pass 4 ralplan not invoked separately; plan authored directly from the Pass2 analyst + Pass3 (2 critics + Codex cross-model) consensus, which covers the same Planner/Architect/Critic loop. ccg NOT degraded — Codex responded."],
   "design_decision": "C1 head-start, scoped to synthesis via per-call strategy param, dark-shipped (default serial), time-based half-open circuit breaker (Codex), structural-valid race acceptance, deadline-scaled window. C4 2-stage embed deferred.",
   "task_b_disposition": {

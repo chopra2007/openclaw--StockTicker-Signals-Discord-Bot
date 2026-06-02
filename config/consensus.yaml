@@ -256,9 +256,10 @@ llm:
   #   serial     = original one-model-at-a-time (DEFAULT; unchanged behavior)
   #   head_start = groq solo for head_start_timeout s, race fallbacks on stall
   #   race_all   = fire all 3 at once, first structurally-valid wins
-  # Dark-shipped at 'serial'; flip to 'head_start' only after a measured
-  # before/after on 3 tickers (.claude/discover/latency-speedup/final-plan.md).
-  all_command_strategy: serial
+  # Activated 'head_start' 2026-06-01 after measured before/after on NVDA/AMD/
+  # SOFI: valid narratives in every case; forced-stall (groq down) 63.5s vs
+  # serial-timeout 200-240s. Revert to 'serial' to disable instantly.
+  all_command_strategy: head_start
   all_command_head_start_timeout: 15        # groq solo window (s); tune to groq P90+5
   all_command_circuit_breaker_threshold: 3  # consecutive groq stalls -> race_all
   # Agent-path chain — !ask / @-mention via `openclaw agent --local`.
