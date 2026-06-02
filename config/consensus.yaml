@@ -756,6 +756,20 @@ wolf:
     sunday_recap_pt: "10:00"            # clock-based weekly recap (Sun >= 10am PT)
     outcome_lookback_days: 7            # Sunday recap scores theses actionable within this window
     max_theses_per_field: 8            # cap embed field length
+  beneficiaries:                        # Inferred beneficiary LONGs per macro/sector thesis (TODO #20, phase 4 / #2)
+    enabled: false                      # master gate: runs the precompute loop + populates wolf_beneficiaries (flip ON to start the shadow-run)
+    surface_in_digest: false            # gates the digest section (flip ON only AFTER shadow-run sign-off)
+    compute_interval_sec: 900           # precompute cycle cadence
+    per_thesis_throttle_sec: 3600       # recompute a given thesis at most hourly
+    digest_max_age_sec: 7200            # digest omits rows older than this (engine-was-down guard)
+    rs_window_days: 21                  # 1-month peer-relative RS (user choice; see plan flag #1 — 63d was the research rec)
+    abs_rs_floor: 0.5                   # candidate must beat peers by >0.5pp to be eligible (no manufactured winners)
+    top_k: 3                            # max longs surfaced per thesis
+    conf_floor: 0.40                    # below this confidence => dropped
+    confluence_max_age_sec: 86400       # confluence multiplier only applies if the check is this fresh
+    use_catalyst: true                  # news-catalyst confidence lift (read-only news_cascade)
+    use_flow: true                      # options-flow confidence lift (read-only)
+    shorts_enabled: false               # v1 is longs-only; short buckets exist in the map but are gated off
 
 # Command handler concurrency limits (plan section 2G).
 commands:

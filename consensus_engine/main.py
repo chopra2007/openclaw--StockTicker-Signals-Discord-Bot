@@ -785,6 +785,30 @@ async def wolf_confluence_loop(stop_event: asyncio.Event):
             pass
 
 
+async def wolf_beneficiary_loop(stop_event: asyncio.Event):
+    """Phase-4 (TODO #20) #2: precompute inferred beneficiary LONGs per active macro/sector
+    thesis into wolf_beneficiaries, read cheaply by the digest (digest-time compute would
+    storm yfinance). Independent + self-gated by its OWN flag (NOT nested under confluence,
+    which may be disabled). Runs on stop_event (survives the weekend pause). Crash-isolated."""
+    if not cfg.get("wolf.beneficiaries.enabled", False):
+        log.info("wolf_beneficiary_loop: disabled (wolf.beneficiaries.enabled=false); not running")
+        return
+    from consensus_engine.analysis import wolf_beneficiaries as wb
+    interval = int(cfg.get("wolf.beneficiaries.compute_interval_sec", 900))
+    log.info("wolf_beneficiary_loop: started (interval=%ss)", interval)
+    while not stop_event.is_set():
+        try:
+            n = await wb.run_cycle()
+            if n:
+                log.info("wolf_beneficiary_loop: wrote beneficiaries for %d thesis/es", n)
+        except Exception as exc:
+            log.error("wolf_beneficiary_loop: cycle error: %s", exc, exc_info=True)
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=interval)
+        except asyncio.TimeoutError:
+            pass
+
+
 async def run_all(stop_event: asyncio.Event):
     """Entrypoint coroutine: run the live engine and the Wolf #news lane together.
 
@@ -797,6 +821,7 @@ async def run_all(stop_event: asyncio.Event):
         wolf_news_supervisor(stop_event),
         wolf_confluence_loop(stop_event),
         wolf_digest_loop(stop_event),
+        wolf_beneficiary_loop(stop_event),
     )
 
 

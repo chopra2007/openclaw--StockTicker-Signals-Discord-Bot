@@ -716,6 +716,25 @@ CREATE TABLE IF NOT EXISTS wolf_call_outcomes (
     state        TEXT,                          -- moved_with|moved_against|flat|invalidated|inconclusive
     computed_at  REAL
 );
+
+-- Phase-4 (TODO #20) #2: inferred beneficiary LONGs per macro/sector thesis. Precomputed
+-- by the beneficiary cycle (never at digest time) and read cheaply by the digest. Rows are
+-- the bot's RS-leadership inference (NOT Wolf's picks). Bounded by replace-per-thesis;
+-- writes ONLY happen here in the wolf lane (isolation).
+CREATE TABLE IF NOT EXISTS wolf_beneficiaries (
+    thesis_id    INTEGER NOT NULL,              -- FK macro_theses.id
+    ticker       TEXT NOT NULL,
+    side         TEXT NOT NULL DEFAULT 'long',
+    scope_type   TEXT, scope_key TEXT, direction TEXT,   -- denormalized for the digest
+    score        REAL,                           -- winsorized-percentile rank_score (0-1)
+    confidence   REAL,                           -- 0.15-0.95
+    tier         TEXT,                           -- 'green' | 'yellow'
+    reason       TEXT,                           -- terse honest justification
+    signals_json TEXT,                           -- {rs_delta, rs_mode, catalyst, flow_bullish, ...}
+    computed_at  REAL NOT NULL,
+    PRIMARY KEY (thesis_id, ticker, side)
+);
+CREATE INDEX IF NOT EXISTS idx_benef_computed ON wolf_beneficiaries(computed_at);
 """
 
 # Unique indices that reference columns added by _run_column_migrations.
@@ -862,6 +881,7 @@ async def init_db() -> AsyncConnection:
         (15, "wolf macro-brain phase-1 (macro_theses, wolf_news_alerts, wolf_emails_processed)"),
         (16, "wolf macro-brain phase-2 cross-source confluence (wolf_confluence_checks)"),
         (17, "wolf macro-brain phase-3: wolf_call_outcomes + wolf_emails_processed.received_at"),
+        (18, "wolf macro-brain phase-4: wolf_beneficiaries"),
     ]
     for version, note in _schema_versions:
         await _db.execute(
@@ -3219,6 +3239,52 @@ async def prune_confluence_orphans() -> int:
     conn = await get_db()
     cur = await conn.execute(
         "DELETE FROM wolf_confluence_checks WHERE thesis_id NOT IN "
+        "(SELECT id FROM macro_theses WHERE status='active')"
+    )
+    await conn.commit()
+    return cur.rowcount or 0
+
+
+# ---------------------------------------------------------------- phase-4 #2 beneficiaries
+async def get_beneficiaries(thesis_id: int) -> list[dict]:
+    """Inferred beneficiary rows for a thesis, best (highest confidence) first."""
+    conn = await get_db()
+    cur = await conn.execute(
+        "SELECT * FROM wolf_beneficiaries WHERE thesis_id=? ORDER BY confidence DESC",
+        (thesis_id,),
+    )
+    return [dict(r) for r in await cur.fetchall()]
+
+
+async def replace_beneficiaries(thesis_id: int, rows: list[dict]) -> None:
+    """Atomically replace a thesis's beneficiary rows (delete-then-insert in ONE
+    transaction; rollback on error). Callers pass the FULL precomputed set — never a
+    partial result — so a thesis's rows are never left half-written or staler-but-fresh.
+    An empty `rows` just clears the thesis (the digest then omits the section)."""
+    conn = await get_db()
+    try:
+        await conn.execute("DELETE FROM wolf_beneficiaries WHERE thesis_id=?", (thesis_id,))
+        for r in rows:
+            await conn.execute(
+                """INSERT INTO wolf_beneficiaries
+                    (thesis_id, ticker, side, scope_type, scope_key, direction,
+                     score, confidence, tier, reason, signals_json, computed_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (thesis_id, r["ticker"], r.get("side", "long"), r.get("scope_type"),
+                 r.get("scope_key"), r.get("direction"), r.get("score"), r.get("confidence"),
+                 r.get("tier"), r.get("reason"), r.get("signals_json"), r["computed_at"]),
+            )
+        await conn.commit()
+    except Exception:
+        await conn.rollback()
+        raise
+
+
+async def prune_beneficiary_orphans() -> int:
+    """Delete beneficiary rows whose thesis is no longer active. Returns rows deleted."""
+    conn = await get_db()
+    cur = await conn.execute(
+        "DELETE FROM wolf_beneficiaries WHERE thesis_id NOT IN "
         "(SELECT id FROM macro_theses WHERE status='active')"
     )
     await conn.commit()

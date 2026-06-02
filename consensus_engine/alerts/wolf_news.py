@@ -408,9 +408,20 @@ def _outcome_line(o: dict) -> str:
     return f"… {sk}: not enough data to judge yet"
 
 
+def _beneficiary_block(g: dict) -> str:
+    """Render one thesis's inferred beneficiary picks (phase-4 #2). Header names the Wolf
+    thesis; each pick is the bot's RS-leadership inference with an honest tier dot."""
+    head = f"**{g.get('scope_key', '')} {g.get('direction', '')}** → bot's leaders:"
+    lines = [head]
+    for p in g.get("picks", []):
+        dot = "🟢" if p.get("tier") == "green" else "🟡"
+        lines.append(f"{dot} {p.get('ticker', '')} {str(p.get('side', 'long')).upper()} — {p.get('reason', '')}")
+    return "\n".join(lines)
+
+
 def format_digest(variant: str, payload: dict) -> dict:
     """Build the #news digest embed from a gathered payload (see wolf_digest.gather_digest).
-    Empty buckets are dropped; beneficiaries are omitted until phase-4."""
+    Empty buckets are dropped (so a thin/absent beneficiaries list omits the section)."""
     title = _DIGEST_TITLE.get(variant, "Wolf Brief")
     fields: list[dict] = []
     max_field = int(cfg.get("wolf.digests.max_theses_per_field", 8))
@@ -427,6 +438,7 @@ def format_digest(variant: str, payload: dict) -> dict:
     _bucket("⏳ Imminent", payload.get("imminent"), _digest_thesis_line)
     _bucket("👀 Watchlist", payload.get("watchlist"), _digest_thesis_line)
     _bucket("🤝 Sources agree", payload.get("scoreboard"), _scoreboard_line)
+    _bucket("🤖 Bot's read — inferred, not Wolf's picks", payload.get("beneficiaries"), _beneficiary_block)
     if variant in ("sunday", "sunday-addon"):
         outs = payload.get("outcomes") or []
         scored = [o for o in outs if o.get("state") != "inconclusive"] or outs

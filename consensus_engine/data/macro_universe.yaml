@@ -1,0 +1,43 @@
+# Curated macro/index -> beneficiary-equity map for Wolf phase-4 #2 (beneficiary inference).
+#
+# Direction-explicit (Codex C1/C6): each (scope_key, direction) names the LONG beneficiary
+# bucket + the causal mechanism. Direction keys use the system's bull/bear vocabulary,
+# read as the SCOPE moving that way (OIL bull = oil rising; YIELDS bull = yields rising;
+# DXY bull = dollar strengthening). If the newsletter's convention differs for an asset,
+# this is a one-line swap — surfaced during the shadow-run review.
+#
+# Scopes/directions with NO clean single-name long beneficiary are intentionally ABSENT
+# (e.g. VIX, and broad-market BULL — "the beneficiary of the market going up" is just the
+# index / the highest-beta trap). The feature OMITS those rather than forcing a pick.
+#
+# Curated (not derived) because these macro relationships have no ETF to pull holdings from
+# and are decade-stable; reviewed quarterly alongside peer_groups.yaml. Sector scopes
+# (XLE/XLF/IGV/SMH/...) are NOT here — they derive from peer_groups.yaml at runtime.
+map_version: 1
+reviewed_at: "2026-06-02"
+
+universes:
+  OIL:
+    bull: {beneficiary_longs: [XOM, CVX, COP, OXY, EOG, DVN], mechanism: "producer revenue = price x volume"}
+    bear: {beneficiary_longs: [DAL, UAL, AAL, LUV], mechanism: "jet fuel is 25-30% of airline opex; cheaper oil cuts cost"}
+  YIELDS:
+    bull: {beneficiary_longs: [JPM, BAC, WFC, GS, MS], mechanism: "loans reprice up before deposits; net interest margin widens"}
+    bear: {beneficiary_longs: [CRWD, NET, ZS, SNOW, DDOG], mechanism: "lower discount rate lifts long-duration growth valuations"}
+  BONDS:   # inverse alias of YIELDS (bond prices up == yields down)
+    bull: {beneficiary_longs: [CRWD, NET, ZS, SNOW, DDOG], mechanism: "bond rally = falling yields lift long-duration growth"}
+    bear: {beneficiary_longs: [JPM, BAC, WFC, GS, MS], mechanism: "bond selloff = rising yields widen bank net interest margin"}
+  DXY:
+    bull: {beneficiary_longs: [IWM], mechanism: "strong dollar hurts foreign-revenue mega-caps; domestic small-caps relatively insulated"}
+    bear: {beneficiary_longs: [AAPL, MSFT, GOOGL, META, AMZN], mechanism: "weak dollar boosts foreign-revenue translation for mega-cap multinationals"}
+  GOLD:
+    bull: {beneficiary_longs: [NEM, GOLD, AEM, FNV, WPM], mechanism: "miner operating leverage: fixed cost, variable revenue"}
+  BTC:
+    bull: {beneficiary_longs: [MSTR, MARA, RIOT, CLSK, COIN], mechanism: "crypto-levered equities track bitcoin"}
+  SPX:
+    bear: {beneficiary_longs: [WMT, COST, PG, NEE, SO, LLY, JNJ], mechanism: "risk-off rotation to inelastic-demand defensives"}
+  NDX:
+    bear: {beneficiary_longs: [WMT, COST, PG, LLY, JNJ], mechanism: "risk-off rotation to inelastic-demand defensives"}
+  RUT:
+    bear: {beneficiary_longs: [WMT, COST, PG], mechanism: "risk-off rotation to defensives"}
+  DJIA:
+    bear: {beneficiary_longs: [WMT, COST, PG], mechanism: "risk-off rotation to defensives"}

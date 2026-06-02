@@ -106,6 +106,28 @@ async def gather_digest(variant: str) -> dict:
     else:
         regime_clause = f"Market regime: {reg.label}"
 
+    # Phase-4 #2: inferred beneficiary LONGs (the bot's read, NOT Wolf's picks). Only when
+    # BOTH flags are on (enabled gates precompute; surface_in_digest gates the post — the
+    # OFF period is the shadow-run). Attach to the prominent macro/sector theses (acting/
+    # imminent), reading precomputed rows that pass a freshness gate (stale => omitted).
+    beneficiaries: list[dict] = []
+    if (cfg.get("wolf.beneficiaries.enabled", False)
+            and cfg.get("wolf.beneficiaries.surface_in_digest", False)):
+        max_age = float(cfg.get("wolf.beneficiaries.digest_max_age_sec", 7200))
+        now_ts = datetime.now(_PT).timestamp()
+        for t in theses:
+            if t["scope_type"] == "stock" or t["stage"] not in ("acting", "imminent"):
+                continue
+            fresh = [r for r in await db.get_beneficiaries(t["id"])
+                     if (now_ts - float(r.get("computed_at", 0) or 0)) <= max_age]
+            if fresh:
+                beneficiaries.append({
+                    "scope_key": t["scope_key"], "direction": t["direction"],
+                    "scope_type": t["scope_type"],
+                    "picks": [{"ticker": r["ticker"], "side": r["side"],
+                               "tier": r["tier"], "reason": r["reason"]} for r in fresh],
+                })
+
     payload = {
         "variant": variant,
         "generated_at_pt": datetime.now(_PT).strftime("%a %b %-d, %-I:%M %p PT"),
@@ -115,6 +137,7 @@ async def gather_digest(variant: str) -> dict:
         "imminent": imminent,
         "watchlist": watchlist,
         "scoreboard": scoreboard,
+        "beneficiaries": beneficiaries,
     }
     if variant in ("sunday", "sunday-addon"):
         payload["outcomes"] = await wolf_outcomes.compute_outcomes(
