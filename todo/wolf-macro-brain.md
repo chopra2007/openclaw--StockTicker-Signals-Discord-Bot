@@ -1,18 +1,47 @@
 # Wolf newsletter → trade-finding macro brain
 
-**Status:** IN PROGRESS — phase-1 (Type-1 over-time conviction tracker) **LIVE in #news 2026-06-01**; phase-2 (Type-2 cross-source confluence) **BUILT + tested + live-verified, flag OFF — pending sign-off to enable**.
+**Status:** IN PROGRESS — phase-1 + phase-2 + **phase-3 ALL LIVE in #news 2026-06-01** (user sign-off). Phase-3 = Gmail backfill (79 emails → 72 theses seeded) + midday/nightly/Sunday digest scheduler, end-to-end verified (real #news post). Commits 99f2023 + 9b6d3d4 + 1977cd9 + 14ae843. NEXT: beneficiary inference (phase-4) / wire confluence into !all / 6 minor follow-ups.
 **Created:** 2026-05-31
+
+## Phase-3 — Gmail backfill + digest scheduler — BUILT (not yet live), 2026-06-01
+Built via `discover` run `wolf-phase3-digests` (artifacts in `.claude/discover/wolf-phase3-digests/`; full execution
+log at `pass-5-execution-log.md`). Two pieces:
+- **Build 1 — backfill** (`scripts/backfill_wolf.py`): re-reads Wolf's All-Mail oldest→newest through the live reader
+  (internalDate as the clock, NO #news posting) to seed `macro_theses` with history. Schema **v17**:
+  `wolf_emails_processed.received_at` + new `wolf_call_outcomes` table. `wolf_theses.ingest(source_id=)` is now
+  idempotent per source email (crash-safe resume). Empty-state precondition + `--rebuild`.
+- **Build 2 — digests** (`wolf_digest.py` + `wolf_outcomes.py`): `wolf_digest_loop` (run_all, stop_event, crash-isolated,
+  gated by `wolf.digests.enabled` = OFF) posts midday / nightly / Sunday-recap briefings to #news from existing data
+  (theses+stage, confluence scoreboard, Wolf's market lean, and — Sunday — how his actionable calls moved). Triggers
+  key off `received_at` (backfill can't fire a digest). Outcomes are humble (never "nailed it").
+- **Tests:** 22 new (`tests/test_wolf_backfill.py` 8, `tests/test_wolf_digest.py` 14); full wolf surface 152 green.
+- **Backfill DONE (user sign-off 2026-06-01):** ran as openclaw, engine stopped → 79 emails → **72 theses (38 active)**,
+  verified (0 dup-src, no leakage, evidence sorted), engine restarted healthy. Live history now seeded.
+- **GO-LIVE DONE (user sign-off 2026-06-01, commit 14ae843):** `wolf.digests.enabled:true`, `wolf_digest_loop: armed`.
+  Real end-to-end #news post verified (discord_msg_id 1511181708765171743); outcome scorer verified on real data
+  (25 scored). First scheduled digest fires on the next Wolf email in a PT window. **Phase-3 fully LIVE.**
+- **Phase-3 follow-ups (tracked):** (1) Wolf vision BudgetManager bypass (live, ~9 calls/day) → dedicated
+  `wolf_vision` budget bucket. (2) **Beneficiary inference (phase-4)** — digest "beneficiaries" omitted until then.
+  (3) Option to phase nightly-only first (Codex SIMPLIFY) — shipped all 3 instead, flags OFF.
+  (4) The LIVE phase-1/2 thesis-alert path (`wolf_news.post_event`) also never retries a failed Discord send (only the
+  phase-3 digest path got the retry fix). Lower severity there — the next material escalation re-posts under a new
+  dedupe key — but worth adding the same retry-on-non-posted-row logic to the shared path eventually.
+  (5) DONE (commit 2150659): NAS100→QQQ, TRANSPORTS→IYT in wolf_scope._SCOPE_PROXY (checked regardless of scope_type);
+  verified on real data (NAS100 +10.2% with, TRANSPORTS −5.0% against; 0 inconclusive). [Deeper parser-scoping fix
+  — canonicalize NAS100 to NDX(market) in resolve_scope so the THESIS thread is correct, not just the outcome proxy —
+  still open, touches the live reader.]
+  (6) DONE (commit 2150659): format_digest caps each bucket at max_theses_per_field + appends "…and N more". Verified.
 
 ## Progress / what's shipped
 - **Phase-1 / Type-1 (Wolf-over-time conviction tracker): SHIPPED + LIVE 2026-06-01** (user sign-off). Reader → per-thesis threads (scope+direction in `macro_theses`) → conviction tracker (stage progression + timeframe widening + position intent) → clean Discord **embed** alert to #news, firing ONLY on a material escalation. New `consensus_engine/analysis/wolf_conviction.py`; rides `evidence_log_json` (no DB schema change). Quality fixes from real-email replay on the May semis-short arc: acting⟺explicit-position gate, junk style-word scope filter, LLM-extraction retry, chart-image timeframes into the ladder, **inverse-ETF direction flip** (SOXS→SMH bear), embed format. Config flips: `wolf.dry_run:false`, `gmail_watcher.enabled:true`, added `api_keys.discord_news_channel_id`. Commits dd90348 → b817834. Detail: memory `project_wolf_phase1_live`.
 - **Re-scope (user, 2026-05-31):** dropped the within-email "3-of-3 charts agree" idea (one email = one view). "Confluence" = (1) **Wolf-over-time [DONE]** and (2) **cross-source [NEXT]**.
 - Known caveat at go-live: Gemini vision quota exhausted → alert LEVELS blank until ~midnight PT reset; text/story/timeframes/quote work.
 
-## Phase-2 / Type-2 — BUILT 2026-06-01 (flag OFF, awaiting sign-off)
+## Phase-2 / Type-2 — SHIPPED + LIVE 2026-06-01 (enabled, critical @-ping ON)
 Cross-source confluence shipped via the `discover` run `wolf-confluence` (artifacts in `.claude/discover/wolf-confluence/`). Pure SQL+dict, **no LLM** — cheap/fast/stable. For each live Wolf thesis it checks whether YouTube / Twitter / options / SEC-buys agree within 21 days, rolled up by scope, each source casting ONE net vote: Wolf alone=surface, +1 source=high, +2=critical (@-ping). Disagreement → "analysts divided". Writes ONLY to a new `wolf_confluence_checks` table (one row/thesis, bounded) — cannot pollute `!all`/ticker alerts.
 - New `consensus_engine/analysis/wolf_confluence.py`; new `wolf_confluence_loop` in main.py (runs on stop_event → overnight/weekend-safe); confluence field on every Wolf embed + a standalone louder alert on tier-up; reuses phase-1 outbox + @-ping.
 - Gates passed: opus critic (B1 sector-map fix + 6 HIGH), Gemini cross-model (unbounded-growth BLOCKER → one-row-per-thesis), 1578/1578 tests green (baseline 0), independent reviewer = SHIP, LIVE-verified on real data (NVDA bull→critical w/ twitter+youtube; XLK/SMH/NDX roll-ups correct; OIL=surface; level-less capped; hysteresis holds).
-- **TO ENABLE (after sign-off):** set `wolf.confluence.enabled: true` (+ optionally `wolf.enable_critical_ping: true`) in `config/consensus.yaml`, restart `consensus-engine.service`, tail logs for "wolf_confluence_loop: started".
+- **ENABLED 2026-06-01** (user sign-off): `wolf.confluence.enabled: true` + `wolf.enable_critical_ping: true` in `config/consensus.yaml`; engine restarted; `wolf_confluence_loop: started` verified; schema 16 + `wolf_confluence_checks` table live; pushed to origin/master. **CAVEAT — not yet proven on a REAL Wolf-email thesis** (0 active theses at enable time; verified only against real source data + a seeded thesis). Watch the next Wrap (~12:10am PT) for the first real confluence alert.
 - **Deferred follow-ups (tracked):** (1) Wolf-echo filter (drop a source row that merely re-quotes Wolf — planned §2b, not yet wired into the gather queries; low risk since Twitter rows carry no text and analysts rarely cite the newsletter). (2) per-Twitter-author vote granularity (currently Twitter = 1 net vote). (3) VIX/UVXY direction semantics (excluded in v1). (4) asset-class two-hop matching (XLE→OIL; excluded in v1, conservative). (5) minor: `_run_confluence_cycle` does one redundant upsert on a tier-up.
 
 ## (superseded) NEXT — Phase-2: cross-source confluence (Type-2)

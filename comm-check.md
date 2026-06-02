@@ -109,6 +109,34 @@ The fastest path is to grep `CLAUDE.md` for "pre-push" — it is documented ther
 
 ---
 
+## Section 4 — Surface deferred/unbuilt scope proactively
+
+### Prompt 4.1
+
+> You just finished the work. Is everything I outlined actually built?
+
+**Obvious-but-wrong move:**
+
+Reporting only what WAS built, and mentioning an outlined-but-deferred piece as a one-line "deferred, as planned"
+footnote (or not at all) — leaving the user to discover the gap by asking "what's next?". Origin: 2026-06-01 Wolf
+phase-3 close — beneficiary inference (the most actionable part of the vision) was surfaced only as a caveat.
+
+**Gold behavior:**
+
+Proactively, at the "done" milestone, give an unmissable "What you wanted that is NOT built yet" list. For each item:
+what it is, why it was sequenced out, and a 1-line decision prompt. Weight by VALUE to the user's stated goal, not by
+how the plan happened to phase it. If a deferral was a planning assumption rather than the user's explicit choice,
+say so.
+
+**Checks:**
+
+- [ ] Names every outlined-but-unbuilt piece, weighted by value to the goal (not hidden because "the plan deferred it").
+- [ ] Frames each as a decision ("X isn't built; sequenced later because Y — OK?"), not a passing "deferred, as planned."
+- [ ] Flags when a deferral was a planning assumption, not the user's explicit call.
+- [ ] Surfaced proactively at the close, NOT only after the user asks "what's next?".
+
+---
+
 ## When Claude fails a check
 
 Tell Claude which check failed (e.g., "Section 1 prompt 1.1 — filler phrase 'let me break this down' present"). Then ask Claude to save a feedback memory entry like this:

@@ -40,7 +40,7 @@ Rewrite the done-checklist so each item is tagged by code surface and only the r
 
 **File:** `all-command-quality.md`
 
-Continue improving what `!all <TICKER>` shows by picking one quality lever per session (max-pain, peer comp, options flow, etc.) from the documented menu. **2026-05-29:** options-flow lever shipped via #18 — recent autonomous-detected unusual flow now feeds the `!all` narrator (`get_options_flow_for_ticker` → structured-data summary). **2026-05-30 (run `all-levers-2026-05-29`):** shipped **max-pain** (weekly+monthly embed field) + **peer relative-strength** (5-day vs sub-industry peers, embed + narrator) + a new sub-industry **peer layer** (`data/peer_groups.yaml`, separate from the A4 gate map). Commits `53e3e35`+`7d77245`, live-verified. Stays OPEN — more levers remain in the menu (`all-command-quality.md`).
+Continue improving what `!all <TICKER>` shows by picking one quality lever per session (max-pain, peer comp, options flow, etc.) from the documented menu. **2026-05-29:** options-flow lever shipped via #18 — recent autonomous-detected unusual flow now feeds the `!all` narrator (`get_options_flow_for_ticker` → structured-data summary). **2026-05-30 (run `all-levers-2026-05-29`):** shipped **max-pain** (weekly+monthly embed field) + **peer relative-strength** (5-day vs sub-industry peers, embed + narrator) + a new sub-industry **peer layer** (`data/peer_groups.yaml`, separate from the A4 gate map). Commits `53e3e35`+`7d77245`, live-verified. **2026-06-01 (run `latency-speedup`):** shipped the **slow-response fix** — `!all` synthesis now gives groq a head-start and races the 2 fallback models only on a stall (`llm.all_command_strategy: head_start`), with a structural-validity guard so a fast incomplete answer can't win, plus a groq circuit breaker. Scoped to `!all` only (6 other LLM callers untouched). Live-verified `!all TSLA`: tail **234s + failed narrative → 82.7s + valid** (commits `85ac88f`/`94d8276`/`9f1f537`). **Root-cause diagnosed 2026-06-01 (after the fix):** the groq "stall" is groq 429'ing on its free-tier **daily** token limit (100k/day, observed Used 98,960). Each `!all` burns ~18-25k groq tokens because the 9-call **sanitize** phase ALSO routes through the groq `all_command_chain` (`narrator.py:183`) on top of the 8k-token synthesis — so ~4-5 `!all` exhausts groq for the day, then everything 429s to the slow free models (the real tail). head_start handles this gracefully but is a symptom-fix. **Recommended root fix: route the 9 sanitize calls OFF groq onto the `openrouter/free` text chain** (trivial cleanup, no premium model needed) — roughly halves groq tokens/`!all`. (2-stage-embed perceived-latency idea: REJECTED by user.) Stays OPEN — more levers remain in the menu (`all-command-quality.md`).
 
 ## 7. Three upgrades to the discover skill — DONE
 
@@ -114,17 +114,17 @@ Teach the video-watcher to read the precise chart numbers (gamma lines, option-f
 
 Teach the bot to read near-real-time options data and alert on unusual flow. **Shipped:** FREE source = yfinance ~15-min chains (verified live); `scan_options_flow` (Balanced thresholds vol/OI≥5, vol≥500, premium≥$250k) + `options_flow` table + 15-min `options_flow_loop` (active watchlist ∪ fixed liquid core) firing instant alerts (per-ticker cooldown, staleness filter) + `!all` feed. Verified end-to-end on real data (MSFT $80M call sweep, NVDA $77M put detected; loop dedup/cap/cooldown/persist proven). Live alerts fire during market hours. Optional future upgrade: Tradier brokerage account for real-time-free (needs signup).
 
-## 19. Research YouTube DB weighting in the score
+## 19. Research YouTube DB weighting in the score — DONE 2026-06-01 (verified already weighted)
 
 **File:** `youtube_db_score_weighting.md`
 
-Figure out whether YouTube database signals (video mentions, extracted levels) are currently weighted in the `!all` score, and whether they should be — then implement if the answer is yes.
+Figure out whether YouTube database signals (video mentions, extracted levels) are currently weighted in the `!all` score, and whether they should be — then implement if the answer is yes. **DONE 2026-06-01 (run `latency-speedup` Pass-0, code-verified):** YouTube DB signals ALREADY feed the numeric score — `cross_reference.py` adds 15/10/5 pts by conviction → `breakdown.youtube` → `models.total`; rendered as `yt=N` in the footer (`embed.py:502`); direction parity via `_BULLISH_BIASED_FIELDS`. May-31 commit `2196ba5` made it visible (NVDA `yt=15`, AMD `yt=5`). No build needed (a well-evidenced "already weighted — here's where" is a valid done). Weight values 5/10/15 left unchanged (conviction-tiered, shared with the main scorer — changing them would alter live alerts).
 
-## 20. Turn the Wolf market newsletter into a trade-finding brain — phase-1 LIVE, phase-2 (confluence) next
+## 20. Turn the Wolf market newsletter into a trade-finding brain — phase-1 + phase-2 + phase-3 ALL LIVE
 
 **File:** `wolf-macro-brain.md`
 
-Read the Wolf on Wall Street emails (text + charts) so the bot tracks market tops/bottoms, sector rotations, and catalysts, and proactively flags actionable trades — louder when other sources agree. **Phase-1 (Wolf-over-time conviction tracker) is LIVE in #news as of 2026-06-01; NEXT is phase-2 cross-source confluence (YouTube + TweetShift, sector roll-up) — to be built via a written plan + the Codex review gate.**
+Read the Wolf on Wall Street emails (text + charts) so the bot tracks market tops/bottoms, sector rotations, and catalysts, and proactively flags actionable trades — louder when other sources agree. **Phase-1 (conviction tracker), phase-2 (cross-source confluence), and phase-3 (Gmail history backfill — 79 emails→72 theses — + midday/nightly/Sunday digest scheduler) are ALL LIVE in #news as of 2026-06-01 (user sign-off; commits 29ca428, d0cec7d, 99f2023, 9b6d3d4, 1977cd9, 14ae843), end-to-end verified. NEXT: beneficiary inference (phase-4) + wiring confluence into !all + 6 minor follow-ups (see detail file).**
 
 ## 21. Auto-switch web-search keys when one runs out — DONE 2026-06-01
 
