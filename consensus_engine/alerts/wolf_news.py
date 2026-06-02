@@ -413,10 +413,14 @@ def format_digest(variant: str, payload: dict) -> dict:
     Empty buckets are dropped; beneficiaries are omitted until phase-4."""
     title = _DIGEST_TITLE.get(variant, "Wolf Brief")
     fields: list[dict] = []
+    max_field = int(cfg.get("wolf.digests.max_theses_per_field", 8))
 
     def _bucket(name, items, render):
         if items:
-            val = "\n".join(render(i) for i in items)
+            shown = items[:max_field]
+            val = "\n".join(render(i) for i in shown)
+            if len(items) > max_field:
+                val += "\n…and %d more" % (len(items) - max_field)
             fields.append({"name": name, "value": val[:1024], "inline": False})
 
     _bucket("🎯 Acting now", payload.get("acting"), _digest_thesis_line)

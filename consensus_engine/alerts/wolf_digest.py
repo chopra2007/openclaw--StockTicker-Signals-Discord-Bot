@@ -62,8 +62,8 @@ def _pt_epoch(pt_date, hm: str) -> float:
 
 
 async def gather_digest(variant: str) -> dict:
-    """Pull current Wolf state into a renderable payload. No posting, no side effects."""
-    max_field = int(cfg.get("wolf.digests.max_theses_per_field", 8))
+    """Pull current Wolf state into a renderable payload. No posting, no side effects.
+    Lists are passed in FULL; format_digest caps each field and adds a '+N more' line."""
     theses = await db.get_active_theses()
 
     acting, imminent, watchlist, scoreboard = [], [], [], []
@@ -111,10 +111,10 @@ async def gather_digest(variant: str) -> dict:
         "generated_at_pt": datetime.now(_PT).strftime("%a %b %-d, %-I:%M %p PT"),
         "lean": lean,
         "regime_clause": regime_clause,
-        "acting": acting[:max_field],
-        "imminent": imminent[:max_field],
-        "watchlist": watchlist[:max_field],
-        "scoreboard": scoreboard[:max_field],
+        "acting": acting,
+        "imminent": imminent,
+        "watchlist": watchlist,
+        "scoreboard": scoreboard,
     }
     if variant in ("sunday", "sunday-addon"):
         payload["outcomes"] = await wolf_outcomes.compute_outcomes(

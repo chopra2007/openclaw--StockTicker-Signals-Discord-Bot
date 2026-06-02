@@ -161,7 +161,8 @@ def is_inverse_proxy(identifier: str) -> bool:
 # symbol whose daily close proxies the thesis. The inverse of resolve_scope's INTO-canonical
 # maps. Sector/stock scope_keys are already real symbols (XLE/SMH/IGV/NVDA) -> pass through.
 _SCOPE_PROXY = {
-    "SPX": "SPY", "NDX": "QQQ", "RUT": "IWM", "DJIA": "DIA", "VIX": "^VIX",
+    "SPX": "SPY", "NDX": "QQQ", "NAS100": "QQQ", "RUT": "IWM", "DJIA": "DIA", "VIX": "^VIX",
+    "TRANSPORTS": "IYT",
     "OIL": "USO", "GOLD": "GLD", "BONDS": "TLT", "YIELDS": "^TNX", "DXY": "UUP", "BTC": "BTC-USD",
 }
 
@@ -170,14 +171,15 @@ def proxy_symbol(scope_type: str, scope_key: str) -> str | None:
     """Return a liquid tradeable symbol for a thesis scope, or None if unmapped.
 
     None means the outcome scorer leaves the thesis 'inconclusive' (never a false
-    win/loss). Market/asset keys map via _SCOPE_PROXY; sector/stock keys are already
-    real symbols and pass through.
+    win/loss). A known index/macro alias maps via _SCOPE_PROXY regardless of how the
+    parser scoped it (NAS100/TRANSPORTS sometimes land as 'stock'); other sector/stock
+    keys are already real symbols and pass through.
     """
     key = (scope_key or "").strip().upper()
     if not key:
         return None
-    if scope_type in ("market", "asset"):
-        return _SCOPE_PROXY.get(key)
+    if key in _SCOPE_PROXY:
+        return _SCOPE_PROXY[key]
     if scope_type in ("sector", "stock"):
         return key
     return None

@@ -61,6 +61,18 @@ def test_proxy_symbol_covers_scopes():
     assert wolf_scope.proxy_symbol("sector", "XLE") == "XLE"
     assert wolf_scope.proxy_symbol("stock", "NVDA") == "NVDA"
     assert wolf_scope.proxy_symbol("asset", "NOTAMAP") is None     # -> inconclusive, never scored
+    # index/macro aliases score even when the parser mis-scopes them as 'stock'
+    assert wolf_scope.proxy_symbol("stock", "NAS100") == "QQQ"
+    assert wolf_scope.proxy_symbol("stock", "TRANSPORTS") == "IYT"
+
+
+def test_format_digest_caps_long_bucket_with_more():
+    items = [{"scope_key": f"T{i}", "direction": "bull", "stage": "imminent"} for i in range(11)]
+    payload = {"variant": "midday", "imminent": items, "acting": [], "watchlist": [], "scoreboard": []}
+    e = wolf_news.format_digest("midday", payload)
+    imm = [f for f in e["fields"] if f["name"].startswith("⏳")][0]["value"]
+    assert "…and 3 more" in imm        # 11 - 8 cap = 3 hidden
+    assert "T7" in imm and "T8" not in imm   # first 8 shown, rest hidden
 
 
 # ============================================================ DB-backed fixture
