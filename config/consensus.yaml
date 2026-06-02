@@ -744,6 +744,14 @@ wolf:
   enable_critical_ping: true            # phase-2 LIVE — @-ping on critical confluence (user sign-off 2026-06-01)
   extraction_max_tokens: 4096
   extraction_timeout: 60
+  # Dedicated chain for thesis extraction (own chain, NOT the shared role="primary"
+  # chain). Leads with gpt-oss-120b: 2026-06-02 it honored the stricter "skip
+  # daily-performance mentions" prompt 4/4 (no false GOOG bull) where the weaker
+  # deepseek-v4-flash had over-extracted. deepseek/free kept as fallbacks.
+  extraction_models:
+    - "openai/gpt-oss-120b:free"
+    - "deepseek/deepseek-v4-flash"
+    - "openrouter/free"
   sprawl_caps:                          # max active theses per scope
     market: 10
     sector: 20

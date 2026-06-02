@@ -31,7 +31,7 @@ def _thesis_for(ticker: str) -> dict | None:
     try:
         row = conn.execute(
             "SELECT direction, stage, evidence_log_json FROM macro_theses "
-            "WHERE UPPER(scope_key) = ? AND source = 'wolf' "
+            "WHERE UPPER(scope_key) = ? AND source = 'wolf' AND status = 'active' "
             "ORDER BY last_updated DESC LIMIT 1",
             (ticker.upper(),),
         ).fetchone()
@@ -129,7 +129,7 @@ def main() -> int:
         except Exception as e:  # noqa: BLE001 — surface the failure plainly
             print(f"\nEMAIL {src}: could not fetch from Gmail ({type(e).__name__}: {e}).")
             continue
-        print(f'\nEMAIL: "{subject}" (gmail id {src})')
+        print(f'\nEMAIL: "{subject}"')
         excerpts = _excerpts(body, ticker)
         if excerpts:
             for ex in excerpts:

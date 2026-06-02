@@ -74,7 +74,18 @@ _EXTRACTION_USER_TMPL = (
     "THIS instrument\n"
     '  - "conviction_phrase": a <=120 char VERBATIM quote of how strongly the author holds THIS view '
     '(e.g. the author\'s own words like "<my strongest conviction this week>"), or null\n'
-    "Rules: only include instruments with a real directional view (skip pure mentions). "
+    "Rules: only include an instrument when the author expresses HIS OWN forward-looking "
+    "stance on it — where he thinks it is headed or a trade he is in or watching. A real "
+    "stance reads like: he is buying/shorting/holding it, it 'has room to run' / 'could break "
+    "out' / 'looks ready to roll over', he is watching it at certain levels, or he says it is "
+    "forming a top or bottom. "
+    "Do NOT manufacture a thesis from a market-recap or relative-strength MENTION — "
+    "reporting the day's action is NOT a directional view. Exclude pure descriptions such as "
+    "'X was the top/standout performer today', 'X +1%', 'X is near all-time highs', "
+    "'X led/lagged the sector'. CONCRETE EXAMPLE TO EXCLUDE: 'Alphabet (GOOG +1.05%) was a "
+    "mega-cap standout today, trading near new all-time highs, though it too is fading.' — that "
+    "is daily-performance description, so output NO thesis for GOOG from it. When in doubt, "
+    "leave the instrument out. "
     "For rates/yields: 'rates higher' => identifier 'yields' direction bull; 'bonds' move opposite to yields. "
     "Output JSON: {\"regime\": \"<one line on overall market regime or null>\", "
     "\"theses\": [ ... ], \"big_catalysts\": [\"<catalyst the author flags as major, or omit>\"]}\n\n"
@@ -257,9 +268,14 @@ async def _extract_theses_llm(body: str) -> dict:
         {"role": "user", "content": _EXTRACTION_USER_TMPL.replace("__BODY__", body)},
     ]
     attempts = 1 + int(cfg.get("wolf.extraction_retries", 2) or 0)
+    # Dedicated extraction chain (leads with gpt-oss-120b, which honors the
+    # "skip daily-performance mentions" rule), not the shared role="primary"
+    # chain. Falls back to role="primary" config if the key is unset.
+    extraction_chain = cfg.get("wolf.extraction_models", []) or None
     for i in range(attempts):
         raw = await call_with_fallback(
-            "primary", messages,
+            None if extraction_chain else "primary", messages,
+            chain=extraction_chain,
             max_tokens=cfg.get("wolf.extraction_max_tokens", 4096),
             temperature=0.1,
             timeout=cfg.get("wolf.extraction_timeout", 60),
