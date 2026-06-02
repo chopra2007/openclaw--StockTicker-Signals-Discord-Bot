@@ -757,8 +757,8 @@ wolf:
     outcome_lookback_days: 7            # Sunday recap scores theses actionable within this window
     max_theses_per_field: 8            # cap embed field length
   beneficiaries:                        # Inferred beneficiary LONGs per macro/sector thesis (TODO #20, phase 4 / #2)
-    enabled: false                      # master gate: runs the precompute loop + populates wolf_beneficiaries (flip ON to start the shadow-run)
-    surface_in_digest: false            # gates the digest section (flip ON only AFTER shadow-run sign-off)
+    enabled: true                       # LIVE — runs the precompute loop + populates wolf_beneficiaries (user sign-off 2026-06-02)
+    surface_in_digest: true             # LIVE — beneficiaries section posts in #news digests (user sign-off 2026-06-02, went live skipping shadow-run)
     compute_interval_sec: 900           # precompute cycle cadence
     per_thesis_throttle_sec: 3600       # recompute a given thesis at most hourly
     digest_max_age_sec: 7200            # digest omits rows older than this (engine-was-down guard)
