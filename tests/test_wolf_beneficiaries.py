@@ -51,10 +51,13 @@ async def fresh_db():
     db.DB_PATH = None
 
 
-def _rs(delta, mode="peers"):
+def _rs(delta, mode="peers", stock_pct=None):
     async def fake(ticker, window_days=None):
         d = delta(ticker) if callable(delta) else delta
-        return None if d is None else {"delta": d, "mode": mode}
+        if d is None:
+            return None
+        sp = stock_pct(ticker) if callable(stock_pct) else (d if stock_pct is None else stock_pct)
+        return {"delta": d, "mode": mode, "stock_pct": sp}
     return fake
 
 
@@ -151,6 +154,28 @@ async def test_confirmation_lifts_to_green(fresh_db, monkeypatch):
     assert rows[0]["tier"] == "green"
     sig = json.loads(rows[0]["signals_json"])
     assert sig["catalyst"] == "Earnings Beat" and sig["flow_bullish"] is True
+
+
+async def test_extended_name_capped_and_flagged(fresh_db, monkeypatch):
+    """A name already up >= extended_pct (45%) is dampened, capped at 🟡 (never 🟢 even with
+    full confirmation), and flagged as a chase risk — the anti-parabolic guard."""
+    monkeypatch.setattr(wb, "compute_relative_strength",
+                        _rs(lambda t: 96.0 if t == "MU" else 0.1,
+                            stock_pct=lambda t: 96.0 if t == "MU" else 1.0))
+
+    async def cat(ticker):
+        return types.SimpleNamespace(catalyst_type="Earnings Beat")
+    async def flow(ticker, days=7):
+        return [{"side": "CALL", "premium_usd": 1_000_000}]
+    monkeypatch.setattr(wb, "news_cascade", cat)
+    monkeypatch.setattr(db, "get_options_flow_for_ticker", flow)
+    th = {"id": 1, "scope_type": "sector", "scope_key": "SMH", "direction": "bull"}
+    rows = await wb.rank_beneficiaries(th)
+    mu = [r for r in rows if r["ticker"] == "MU"]
+    assert mu, "extended leader should still surface (dampened, not removed)"
+    assert mu[0]["tier"] == "yellow"                       # capped — never green despite cat+flow
+    assert "extended" in mu[0]["reason"]
+    assert json.loads(mu[0]["signals_json"])["extended"] is True
 
 
 async def test_mass_rs_failure_raises(fresh_db, monkeypatch):

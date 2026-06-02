@@ -183,8 +183,11 @@ async def _bullish_flow(ticker: str) -> bool:
 
 
 def _reason(delta: float, cat_dir: Optional[str], cat_type: Optional[str],
-            flow_bull: bool, signal_count: int) -> str:
+            flow_bull: bool, signal_count: int, extended: bool = False,
+            stock_pct: Optional[float] = None) -> str:
     """A terse (<=8 word) honest justification line."""
+    if extended:
+        return f"⚠ extended +{stock_pct:.0f}% — chase risk"
     if signal_count == 1:
         return "leads peers; unconfirmed"
     parts = [f"leads peers +{delta:.1f}%"]
@@ -209,6 +212,8 @@ async def rank_beneficiaries(thesis: dict) -> list[dict]:
     floor = float(cfg.get("wolf.beneficiaries.abs_rs_floor", 0.5))
     top_k = int(cfg.get("wolf.beneficiaries.top_k", 3))
     conf_floor = float(cfg.get("wolf.beneficiaries.conf_floor", 0.40))
+    extended_pct = float(cfg.get("wolf.beneficiaries.extended_pct", 45.0))
+    extended_penalty = float(cfg.get("wolf.beneficiaries.extended_penalty", 0.7))
 
     # 1. RS per candidate; keep only those clearing the absolute outperformance floor.
     eligible: list[dict] = []
@@ -222,7 +227,8 @@ async def rank_beneficiaries(thesis: dict) -> list[dict]:
             failed += 1
             continue
         if rs["delta"] > floor:
-            eligible.append({"ticker": t, "delta": rs["delta"], "mode": rs["mode"]})
+            eligible.append({"ticker": t, "delta": rs["delta"], "mode": rs["mode"],
+                             "stock_pct": rs["stock_pct"]})
 
     total = len(candidates)
     if total and failed / total > 0.60:
@@ -245,9 +251,16 @@ async def rank_beneficiaries(thesis: dict) -> list[dict]:
         data_quality = 1.0 if e["mode"] == "peers" else 0.85   # ETF-mode self-inclusion penalty
         lift = 1.0 + (0.08 if cat_dir == "bullish" else 0.0) + (0.07 if flow_bull else 0.0)
         lift = min(lift, 1.15)
-        confidence = max(0.15, min(0.95, e["rank_score"] * data_quality * confl_mult * lift))
+        confidence = e["rank_score"] * data_quality * confl_mult * lift
         signal_count = 1 + (1 if cat_dir == "bullish" else 0) + (1 if flow_bull else 0)
-        if confidence >= 0.65 and signal_count >= 2:
+        # Anti-chase guard: a name already up >= extended_pct over the window is parabolic /
+        # mean-reversion-prone. Dampen its confidence and never let it reach 🟢 (it stays a
+        # flagged 🟡 at best) — the leader is still surfaced, but honestly as a chase risk.
+        extended = e["stock_pct"] >= extended_pct
+        if extended:
+            confidence *= extended_penalty
+        confidence = max(0.15, min(0.95, confidence))
+        if not extended and confidence >= 0.65 and signal_count >= 2:
             tier = "green"
         elif confidence >= conf_floor:
             tier = "yellow"
@@ -256,9 +269,11 @@ async def rank_beneficiaries(thesis: dict) -> list[dict]:
         rows.append({
             "ticker": t, "side": "long", "score": round(e["rank_score"], 4),
             "confidence": round(confidence, 4), "tier": tier,
-            "reason": _reason(e["delta"], cat_dir, cat_type, flow_bull, signal_count),
+            "reason": _reason(e["delta"], cat_dir, cat_type, flow_bull, signal_count,
+                              extended, e["stock_pct"]),
             "signals_json": json.dumps({
-                "rs_delta": e["delta"], "rs_mode": e["mode"],
+                "rs_delta": e["delta"], "rs_mode": e["mode"], "stock_pct": e["stock_pct"],
+                "extended": extended,
                 "catalyst": cat_type if cat_dir == "bullish" else None,
                 "flow_bullish": flow_bull, "confluence_mult": confl_mult,
                 "signal_count": signal_count,
