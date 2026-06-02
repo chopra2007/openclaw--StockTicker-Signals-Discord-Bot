@@ -13,6 +13,7 @@ import json
 import logging
 import re
 import time
+import urllib.parse
 from collections import deque
 from json import JSONDecodeError
 from typing import Callable, Optional
@@ -174,6 +175,7 @@ class DiscordTweetShiftListener:
         self._feed_channel_id: str = ""
         self._commands_channel_id: str = ""
         self._briefing_channel_id: str = ""
+        self._news_channel_id: str = ""
         self._bot_user_id: str = ""  # populated from READY event
         self._allowed_webhook_ids: set[str] = set()  # populated by _load_config
 
@@ -209,6 +211,9 @@ class DiscordTweetShiftListener:
         ).strip()
         self._briefing_channel_id = str(
             cfg.get("api_keys.discord_briefing_channel_id", "") or ""
+        ).strip()
+        self._news_channel_id = str(
+            cfg.get("api_keys.discord_news_channel_id", "") or ""
         ).strip()
         # Whitelist of webhook IDs allowed to post commands (default empty).
         # Used so external test harnesses can trigger !all and other commands
@@ -360,7 +365,8 @@ class DiscordTweetShiftListener:
             # Commands / briefing channel: route messages. #8 — the filter +
             # dispatch logic moved into _filtered_out / _route_message so the
             # reconnect-replay path reuses exactly the same routing.
-            elif channel_id in (self._commands_channel_id, self._briefing_channel_id) and channel_id:
+            elif channel_id in (self._commands_channel_id, self._briefing_channel_id,
+                                self._news_channel_id) and channel_id:
                 if self._filtered_out(data):
                     return
                 await self._route_message(data)
@@ -412,25 +418,37 @@ class DiscordTweetShiftListener:
 
         from consensus_engine.alerts.commands import parse_command
         parsed = parse_command(content)
+
+        # Commands run only on the commands channel; @-mentions are answered on
+        # any listened channel (commands, briefing, news).
+        is_command = bool(
+            parsed and self._on_command and channel_id == self._commands_channel_id
+        )
+        mentioned_ids = [str(u.get("id", "")) for u in data.get("mentions", [])]
+        is_mention = bool(
+            not is_command and self._on_mention and self._bot_user_id
+            and self._bot_user_id in mentioned_ids
+        )
+
+        # Restore the "thinking" indicator: react to the triggering message while
+        # we work, remove it once the reply is sent. Only for real commands /
+        # mentions — never the bot's own posts or unrelated channel chatter.
+        acked = False
+        if is_command or is_mention:
+            acked = await self._add_ack_reaction(channel_id, message_id)
+
         callback_succeeded = False
-        if parsed and self._on_command and channel_id == self._commands_channel_id:
-            cmd, args = parsed
-            log.info("Discord command: !%s %s (user=%s)", cmd, args, author_id or "?")
-            try:
-                await self._on_command(cmd, args, channel_id, message_id, author_id)
-                callback_succeeded = True
-            except TypeError:
-                # Backward-compat for callbacks without author_id
+        try:
+            if is_command:
+                cmd, args = parsed
+                log.info("Discord command: !%s %s (user=%s)", cmd, args, author_id or "?")
                 try:
+                    await self._on_command(cmd, args, channel_id, message_id, author_id)
+                except TypeError:
+                    # Backward-compat for callbacks without author_id
                     await self._on_command(cmd, args, channel_id, message_id)
-                    callback_succeeded = True
-                except Exception as e:
-                    log.error("Command callback error: %s", e, exc_info=True)
-            except Exception as e:
-                log.error("Command callback error: %s", e, exc_info=True)
-        elif self._on_mention and self._bot_user_id:
-            mentioned_ids = [str(u.get("id", "")) for u in data.get("mentions", [])]
-            if self._bot_user_id in mentioned_ids:
+                callback_succeeded = True
+            elif is_mention:
                 clean = re.sub(r'<@!?' + re.escape(self._bot_user_id) + r'>',
                                '', content).strip()
                 log.info("Discord mention in channel=%s (user=%s): %.80s",
@@ -438,20 +456,56 @@ class DiscordTweetShiftListener:
                 log.info("mention_received", extra={
                     "channel_id": channel_id, "user_id": author_id,
                 })
-                try:
-                    await self._on_mention(clean, channel_id, message_id, author_id)
-                    callback_succeeded = True
-                except Exception as e:
-                    log.error("Mention callback error: %s", e, exc_info=True)
+                await self._on_mention(clean, channel_id, message_id, author_id)
+                callback_succeeded = True
             else:
                 # Message in channel but not a command and not a mention — mark done anyway
                 callback_succeeded = True
-        else:
-            # No handler matched (e.g. no on_command / not the right channel)
-            callback_succeeded = True
+        except Exception as e:
+            log.error("%s callback error: %s",
+                      "Command" if is_command else "Mention", e, exc_info=True)
+        finally:
+            if acked:
+                await self._remove_ack_reaction(channel_id, message_id)
+
         # mark_message_done only on callback success — leaves message claimable on error
         if callback_succeeded:
             await db.mark_message_done(message_id)
+
+    async def _add_ack_reaction(self, channel_id: str, message_id: str) -> bool:
+        """React to the triggering message with the ack emoji (the "thinking"
+        indicator). Returns True if the reaction was added, so the caller knows
+        whether to remove it later. Never raises — a failed reaction must not
+        block the actual reply."""
+        return await self._react(channel_id, message_id, "PUT")
+
+    async def _remove_ack_reaction(self, channel_id: str, message_id: str) -> None:
+        """Remove the bot's own ack emoji once the reply has been sent."""
+        await self._react(channel_id, message_id, "DELETE")
+
+    async def _react(self, channel_id: str, message_id: str, method: str) -> bool:
+        emoji = str(cfg.get("tweetshift.ack_reaction", "👀") or "").strip()
+        if not emoji or not channel_id or not message_id or not self._token:
+            return False
+        enc = urllib.parse.quote(emoji)
+        url = (f"{GATEWAY_REST}/channels/{channel_id}/messages/{message_id}"
+               f"/reactions/{enc}/@me")
+        headers = {"Authorization": f"Bot {self._token}"}
+        try:
+            session = await get_session()
+            async with session.request(
+                method, url, headers=headers,
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                if resp.status not in (200, 204):
+                    log.debug("ack reaction %s -> HTTP %d (channel=%s)",
+                              method, resp.status, channel_id)
+                    return False
+            return True
+        except Exception as e:  # noqa: BLE001 — reactions are best-effort
+            log.debug("ack reaction %s failed (channel=%s): %s",
+                      method, channel_id, e)
+            return False
 
     async def _replay_missed(self) -> None:
         """Replay commands/mentions missed during a gateway outage.
@@ -460,7 +514,8 @@ class DiscordTweetShiftListener:
         second runs after the first and finds everything already claimed.
         """
         async with self._replay_lock:
-            for channel_id in (self._commands_channel_id, self._briefing_channel_id):
+            for channel_id in (self._commands_channel_id, self._briefing_channel_id,
+                               self._news_channel_id):
                 if not channel_id:
                     continue
                 try:

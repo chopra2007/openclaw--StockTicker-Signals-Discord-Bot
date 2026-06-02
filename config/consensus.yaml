@@ -283,12 +283,16 @@ llm:
   # it). Every entry was probed end-to-end against the real agent 2026-05-19.
   # scripts/sync_gateway_models.py mirrors this into openclaw.json
   # agents.defaults.model.{primary,fallbacks}; health.py alerts on drift.
-  # 2026-05-26: !ask + @-mention on paid deepseek-v4-flash with openrouter/free
-  # (the OR free meta-router) as the single fallback. sync_gateway_models.py
+  # 2026-06-02: !ask + @-mention lead model swapped to gpt-oss-120b. Diagnosed
+  # live: deepseek-v4-flash FABRICATED file paths / a fake API key when asked
+  # "where does the options flow data come from" instead of reading the code;
+  # gpt-oss-120b read the real file correctly 3/3 (consensus_engine/scanners/
+  # options.py → yfinance). deepseek kept as first fallback. sync_gateway_models.py
   # prefixes each entry with `openrouter/` when mirroring into openclaw.json.
-  # Revert plan: .omc/notes/model-swap-2026-05-26-revert.md
-  agent_model: "deepseek/deepseek-v4-flash:free"
+  # Prior: 2026-05-26 deepseek-v4-flash primary + openrouter/free single fallback.
+  agent_model: "openai/gpt-oss-120b:free"
   agent_fallback_models:
+    - "deepseek/deepseek-v4-flash:free"
     - "free"
   vision_model: "google/gemma-4-31b-it:free"
   min_confidence: 70
@@ -787,3 +791,4 @@ commands:
 # TweetShift listener hardening (plan section 2H).
 tweetshift:
   pre_ready_buffer_cap: 100  # max messages buffered before READY fires
+  ack_reaction: "👀"  # "thinking" emoji added to a question/command while answering; "" disables

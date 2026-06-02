@@ -54,7 +54,12 @@ def _make_listener():
     listener._feed_channel_id = "100"
     listener._commands_channel_id = "200"
     listener._briefing_channel_id = "300"
+    listener._news_channel_id = "400"
     listener._bot_user_id = "999"
+    # Reactions hit the Discord REST API; stub them so routing tests stay
+    # hermetic. Real reaction behaviour is covered separately via _react.
+    listener._add_ack_reaction = AsyncMock(return_value=True)
+    listener._remove_ack_reaction = AsyncMock()
     return listener
 
 
@@ -171,7 +176,11 @@ async def test_self_bot_probe_reaches_dispatch():
         "mentions": [],
     }
 
-    await listener._handle_dispatch("MESSAGE_CREATE", payload)
+    with patch("consensus_engine.scanners.discord_tweetshift.db.claim_message",
+               new=AsyncMock(return_value=True)), \
+         patch("consensus_engine.scanners.discord_tweetshift.db.mark_message_done",
+               new=AsyncMock()):
+        await listener._handle_dispatch("MESSAGE_CREATE", payload)
 
     listener._on_command.assert_called_once()
     cmd, args, channel_id, message_id, author_id = listener._on_command.call_args[0]
@@ -242,7 +251,11 @@ async def test_allowed_webhook_id_routes_command():
         "mentions": [],
     }
 
-    await listener._handle_dispatch("MESSAGE_CREATE", payload)
+    with patch("consensus_engine.scanners.discord_tweetshift.db.claim_message",
+               new=AsyncMock(return_value=True)), \
+         patch("consensus_engine.scanners.discord_tweetshift.db.mark_message_done",
+               new=AsyncMock()):
+        await listener._handle_dispatch("MESSAGE_CREATE", payload)
 
     listener._on_command.assert_called_once()
     cmd, args, channel_id, message_id, author_id = listener._on_command.call_args.args
@@ -291,3 +304,74 @@ async def test_self_bot_reply_is_filtered():
 
     listener._on_command.assert_not_called()
     listener._on_mention.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_news_channel_mention_routes():
+    """An @-mention in the #news channel must reach `_on_mention` (questions
+    in #news were previously ignored — only feed/commands/briefing listened)."""
+    listener = _make_listener()
+    payload = {
+        "channel_id": "400",  # news channel
+        "id": "news-mention-1",
+        "author": {"id": "user-42"},
+        "content": "<@999> What does Wolf say about Google?",
+        "mentions": [{"id": "999"}],
+    }
+    with patch("consensus_engine.scanners.discord_tweetshift.db.claim_message",
+               new=AsyncMock(return_value=True)), \
+         patch("consensus_engine.scanners.discord_tweetshift.db.mark_message_done",
+               new=AsyncMock()):
+        await listener._handle_dispatch("MESSAGE_CREATE", payload)
+
+    listener._on_mention.assert_called_once()
+    clean, channel_id, message_id, author_id = listener._on_mention.call_args.args
+    assert clean == "What does Wolf say about Google?"
+    assert channel_id == "400"
+    listener._on_command.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_ack_reaction_added_and_removed_for_command():
+    """A real command gets the "thinking" reaction added while working and
+    removed after the reply."""
+    listener = _make_listener()
+    payload = {
+        "channel_id": "200",  # commands channel
+        "id": "ack-cmd-1",
+        "author": {"id": "user-7"},
+        "content": "!help",
+        "mentions": [],
+    }
+    with patch("consensus_engine.scanners.discord_tweetshift.db.claim_message",
+               new=AsyncMock(return_value=True)), \
+         patch("consensus_engine.scanners.discord_tweetshift.db.mark_message_done",
+               new=AsyncMock()):
+        await listener._handle_dispatch("MESSAGE_CREATE", payload)
+
+    listener._on_command.assert_called_once()
+    listener._add_ack_reaction.assert_called_once_with("200", "ack-cmd-1")
+    listener._remove_ack_reaction.assert_called_once_with("200", "ack-cmd-1")
+
+
+@pytest.mark.asyncio
+async def test_no_ack_reaction_for_plain_channel_message():
+    """A plain message (no command, no mention) in a listened channel must NOT
+    get a reaction — so the bot never reacts to its own #news posts."""
+    listener = _make_listener()
+    payload = {
+        "channel_id": "400",  # news channel
+        "id": "plain-1",
+        "author": {"id": "user-9"},
+        "content": "just chatting, no mention here",
+        "mentions": [],
+    }
+    with patch("consensus_engine.scanners.discord_tweetshift.db.claim_message",
+               new=AsyncMock(return_value=True)), \
+         patch("consensus_engine.scanners.discord_tweetshift.db.mark_message_done",
+               new=AsyncMock()):
+        await listener._handle_dispatch("MESSAGE_CREATE", payload)
+
+    listener._on_command.assert_not_called()
+    listener._on_mention.assert_not_called()
+    listener._add_ack_reaction.assert_not_called()
