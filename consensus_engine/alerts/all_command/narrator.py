@@ -921,6 +921,19 @@ async def _invoke_synthesis(
     # the "all 6 models timed out" symptom that looked like an outage
     # but was self-inflicted.
     timeout = max(15, min(90, int(deadline_seconds)))
+    # #6 latency-speedup: opt the !all synthesis call (and ONLY this call) into
+    # the configured strategy. Default 'serial' = unchanged. 'head_start' gives
+    # groq a short solo window, racing the fallbacks only on a stall; the window
+    # is deadline-scaled so a near-deadline retry can't spend the whole budget
+    # on groq before the fan-out starts. `accept` rejects a structurally
+    # incomplete race winner so the tail keeps quality parity.
+    from consensus_engine import config as _cfg
+    from consensus_engine.alerts.all_command import quality_bar as _qb
+    strategy = _cfg.get("llm.all_command_strategy", "serial")
+    window = min(
+        float(_cfg.get("llm.all_command_head_start_timeout", 15)),
+        max(1.0, deadline_seconds * 0.5),
+    )
     try:
         return await call_with_fallback(
             role="primary",
@@ -929,6 +942,9 @@ async def _invoke_synthesis(
             temperature=0.35,
             timeout=timeout,
             chain=_all_command_chain(),
+            strategy=strategy,
+            head_start=window,
+            accept=_qb.has_required_sections,
         )
     except Exception as exc:  # noqa: BLE001 — narrator never raises
         log.warning("narrator.synthesize: call_with_fallback raised %s", exc)

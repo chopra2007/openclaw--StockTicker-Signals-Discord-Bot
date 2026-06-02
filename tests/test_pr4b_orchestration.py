@@ -241,7 +241,7 @@ async def test_narrator_synthesize_calls_primary_with_8k_tokens():
     seen = {}
 
     async def _fake_call(role, messages, *, max_tokens, temperature, timeout,
-                         chain=None):
+                         chain=None, **_kw):
         seen.update(role=role, max_tokens=max_tokens, temperature=temperature,
                     timeout=timeout, messages=messages)
         return "Narrative paragraph 1. Bullish setup with strong catalysts."
@@ -309,7 +309,7 @@ async def test_narrator_synthesize_contradiction_retry_path():
     )
 
     async def _call(role, messages, *, max_tokens, temperature, timeout,
-                    chain=None):
+                    chain=None, **_kw):
         calls.append(messages[0]["content"])
         if len(calls) == 1:
             return "Outlook is bearish despite the bullish setup." + _sections
