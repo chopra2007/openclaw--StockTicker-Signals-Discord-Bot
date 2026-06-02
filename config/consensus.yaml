@@ -262,6 +262,14 @@ llm:
   all_command_strategy: head_start
   all_command_head_start_timeout: 15        # groq solo window (s); tune to groq P90+5
   all_command_circuit_breaker_threshold: 3  # consecutive groq stalls -> race_all
+  # #6 root-cause: the sanitize/cleanup calls run groq-free so they don't drain
+  # groq's 100k/day budget that the synthesis call above needs. These are the
+  # same free models sanitize already falls through to when groq 429s today, so
+  # output is unchanged-or-better; we just stop wasting groq tokens + 429 retries.
+  # Absent key -> role-based text chain (also groq-free) -> safe.
+  all_command_sanitize_chain:
+    - "openai/gpt-oss-120b:free"
+    - "openai/gpt-oss-20b:free"
   # Agent-path chain — !ask / @-mention via `openclaw agent --local`.
   # SEPARATE from the !all chain above, deliberately: the `main` agent's
   # full ~6-8K-token system prompt overflows gpt-oss-120b's OpenRouter free

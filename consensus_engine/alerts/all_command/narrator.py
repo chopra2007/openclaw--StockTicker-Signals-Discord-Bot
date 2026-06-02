@@ -171,6 +171,21 @@ def _all_command_chain() -> Optional[list[str]]:
     return _cfg.get("llm.all_command_chain") or None
 
 
+def _sanitize_chain() -> Optional[list[str]]:
+    """Chain for the cheap sanitize/cleanup calls — deliberately groq-free.
+
+    #6 root-cause fix: the sanitize phase (≈9 cheap cleanup calls per !all)
+    used to share the groq-first all_command_chain with the synthesis call,
+    burning ~18-25k of groq's 100k/day free-tier budget per !all. Routing
+    sanitize through a groq-free chain leaves groq's budget for the one call
+    whose quality matters — synthesis. When llm.all_command_sanitize_chain is
+    absent this returns None and call_with_fallback falls back to the
+    role-based text chain (also groq-free) — safe.
+    """
+    from consensus_engine import config as _cfg
+    return _cfg.get("llm.all_command_sanitize_chain") or None
+
+
 async def _batch_summarize(items: list[str]) -> list[str]:
     """Run one batched-summarize LLM call. Returns same-length list."""
     if not items:
@@ -182,7 +197,7 @@ async def _batch_summarize(items: list[str]) -> list[str]:
             messages=messages,
             max_tokens=_BATCH_MAX_TOKENS,
             timeout=_BATCH_TIMEOUT,
-            chain=_all_command_chain(),
+            chain=_sanitize_chain(),
         )
     except Exception as e:
         log.warning("narrator: batch summarize raised %s; using truncated originals", e)
@@ -251,7 +266,7 @@ async def vault_excerpt(prior_narrative: str) -> str:
             ],
             max_tokens=_BATCH_MAX_TOKENS,
             timeout=_BATCH_TIMEOUT,
-            chain=_all_command_chain(),
+            chain=_sanitize_chain(),
         )
     except Exception as e:
         log.warning("narrator: vault_excerpt raised %s; using truncated text", e)
