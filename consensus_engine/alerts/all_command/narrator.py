@@ -103,6 +103,12 @@ _install_sighup_handler()
 
 
 _PER_SNIPPET_CAP = 300  # chars per item before going into the batch prompt
+# 5s deliberately: cleanup shares the !all 160s budget with synthesis, and
+# synthesis needs that budget for its quality-retry loop. Raising this to 12s was
+# measured to STARVE synthesis (cleanup ate ~30s on the all-fail tail) and forced
+# every narrative down to the data-only fallback. The real reliability fix is a
+# fast primary in all_command_sanitize_chain (nemotron-nano, ~1s) — not a longer
+# wait. Keep this short so a bad cleanup batch can't blow the synthesis budget.
 _BATCH_TIMEOUT = 5
 _BATCH_MAX_TOKENS = 512
 _NUMBERED_RE = re.compile(r"^\s*(\d+)[.)]\s*(.*)$")
