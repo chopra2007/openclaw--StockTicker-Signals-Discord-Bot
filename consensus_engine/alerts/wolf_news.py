@@ -566,8 +566,19 @@ async def post_event(event: dict) -> bool:
     payload = {"event": event, "tier": tier}
     alert_id = await db.create_pending_alert(dedupe_key, thesis_id, tier, json.dumps(payload), now)
     if alert_id is None:
-        log.debug("wolf_news: already alerted for %s, skipping", dedupe_key)
-        return False
+        # Row exists. Mirror the digest retry (_post_digest_event, phase-4 #3): only skip
+        # if it actually POSTED — otherwise a prior send FAILED and we retry now, so a
+        # transient Discord blip doesn't silently drop a thesis alert forever. The status
+        # check guarantees no double-post ('posted' rows are never re-sent); the retry
+        # re-renders from the current thesis row, consistent with the digest path.
+        existing = await db.get_wolf_alert(dedupe_key)
+        if existing and existing.get("status") == "posted":
+            log.debug("wolf_news: already posted for %s, skipping", dedupe_key)
+            return False
+        alert_id = existing["id"] if existing else None
+        if alert_id is None:
+            return False
+        log.info("wolf_news: retrying previously-failed thesis alert %s", dedupe_key)
 
     # Render the clean conviction EMBED for ANY event backed by a thesis row (a first
     # sighting that's already a position deserves the same card as an escalation); the

@@ -802,6 +802,37 @@ async def test_dedupe_bucket_longer_rung_still_posts(fresh_db, monkeypatch):
     assert await wolf_news.post_event({**base, "tf": ["5m", "15m"]}) is False    # identical → deduped
 
 
+async def test_thesis_alert_retries_failed_send(fresh_db, monkeypatch):
+    """phase-4 #3: a thesis alert whose prior send FAILED is retried on the next
+    post_event for the same dedupe bucket; once it POSTS it is never re-sent (no
+    double-post). Mirrors the digest retry (_post_digest_event)."""
+    sent: list[int] = []
+
+    async def fake_send(content=None, embed=None, ping_user_id=None):
+        sent.append(1)
+        return None if len(sent) == 1 else "msg123"   # 1st send fails, 2nd succeeds
+
+    monkeypatch.setattr(wolf_news.cfg, "get",
+                        lambda k, d=None: (False if k == "wolf.dry_run" else d))
+    monkeypatch.setattr(wolf_news, "_send_news", fake_send)
+
+    await wolf_theses.ingest({"ts": 1.0, "subject": "s", "theses": [
+        {"scope_type": "sector", "scope_key": "SMH", "direction": "bear",
+         "stage": "diverging", "levels": [], "snippet": "x", "timeframes": [],
+         "position_intent": "none"}]})
+    th = (await db.get_active_theses("sector"))[0]
+    ev = {"kind": "conviction_update", "thesis_id": th["id"], "scope_type": "sector",
+          "scope_key": "SMH", "direction": "bear", "old_stage": "diverging",
+          "stage": "diverging", "has_levels": 0, "snippet": "x", "intent": "none",
+          "conv": 50, "traj": "building", "phrase": None, "tf": ["5m"]}
+
+    assert await wolf_news.post_event(ev) is False   # send failed -> row 'failed'
+    assert await wolf_news.post_event(ev) is True     # same bucket -> retried, send ok
+    assert len(sent) == 2                              # it actually re-sent (not skipped)
+    assert await wolf_news.post_event(ev) is False    # row now 'posted' -> never re-sent
+    assert len(sent) == 2                              # no double-post
+
+
 def test_normalize_timeframes_strips_placeholder_brackets():
     """The LLM sometimes echoes '<15M>' / '(daily)' placeholder wrappers — they must
     still normalize, not be silently dropped (which blanked the timeframes line)."""
