@@ -122,16 +122,35 @@ async def _ensure_processed_label(service) -> str | None:
 
 
 def _sender_allowed(from_header: str) -> bool:
-    """Check sender against allowlist (exact or *@domain.tld glob)."""
-    allowlist = cfg.get("gmail_watcher.sender_allowlist", [])
-    if not allowlist:
-        return False
+    """Check sender against the two allowlists.
+
+    Two explicit, clearly-labelled config lists (phase-4 #5):
+      gmail_watcher.allowed_emails  — exact sender addresses (case-insensitive)
+      gmail_watcher.allowed_domains — whole domains; "wolf.com" or "*@wolf.com" both accepted
+    Backward-compat: the legacy combined gmail_watcher.sender_allowlist (exact or *@domain
+    glob) is still honoured if present, so an un-migrated config keeps working.
+    """
     _, addr = parseaddr(from_header)
     addr_lower = addr.lower()
-    for pattern in allowlist:
+    if not addr_lower:
+        return False
+    addr_domain = addr_lower.rsplit("@", 1)[-1]
+
+    for e in (cfg.get("gmail_watcher.allowed_emails", []) or []):
+        if e.lower() == addr_lower:
+            return True
+
+    for d in (cfg.get("gmail_watcher.allowed_domains", []) or []):
+        dn = d.lower().lstrip("*").lstrip("@")
+        if dn and (addr_domain == dn or addr_lower.endswith("@" + dn)):
+            return True
+
+    # backward-compat: legacy combined list (exact or *@domain glob)
+    for pattern in (cfg.get("gmail_watcher.sender_allowlist", []) or []):
         p = pattern.lower()
         if p == addr_lower or fnmatch(addr_lower, p):
             return True
+
     return False
 
 

@@ -259,3 +259,29 @@ async def test_max_emails_cap(bf_env):
     conn = await db.get_db()
     cur = await conn.execute("SELECT COUNT(*) AS c FROM wolf_emails_processed")
     assert (await cur.fetchone())["c"] == 2
+
+
+# ---------------------------------------------------------------- #5 sender split
+def test_wolf_sender_reads_split_lists(monkeypatch):
+    """phase-4 #5: the Gmail query is never empty after the allowlist split.
+
+    _wolf_sender must prefer allowed_emails, then allowed_domains, then the legacy
+    list — never an empty string (which would make the Gmail `from:` query match all).
+    """
+    def mk(mapping):
+        monkeypatch.setattr(backfill_wolf.cfg, "get", lambda k, d=None: mapping.get(k, d))
+
+    mk({"gmail_watcher.allowed_emails": ["support@wolf-on-wallstreet.com"]})
+    assert backfill_wolf._wolf_sender() == "support@wolf-on-wallstreet.com"
+    assert backfill_wolf._gmail_query(None).startswith("from:")
+
+    mk({"gmail_watcher.allowed_domains": ["wolf-on-wallstreet.com"]})
+    assert backfill_wolf._wolf_sender() == "wolf-on-wallstreet.com"
+
+    # legacy combined list still honoured
+    mk({"gmail_watcher.sender_allowlist": ["legacy@wolf-on-wallstreet.com"]})
+    assert backfill_wolf._wolf_sender() == "legacy@wolf-on-wallstreet.com"
+
+    # nothing configured -> safe non-empty default (never an empty from: query)
+    mk({})
+    assert backfill_wolf._wolf_sender() == "support@wolf-on-wallstreet.com"

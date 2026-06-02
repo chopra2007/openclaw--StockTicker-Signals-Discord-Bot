@@ -46,6 +46,42 @@ def test_sender_allowed_empty_list(monkeypatch):
     assert not gmail_watcher._sender_allowed("anyone@anywhere.com")
 
 
+def _cfg_mock(monkeypatch, mod, mapping):
+    """Patch mod.cfg.get to return values from `mapping` (else the default)."""
+    monkeypatch.setattr(mod.cfg, "get", lambda k, d=None: mapping.get(k, d))
+
+
+def test_sender_allowed_emails_split(monkeypatch):
+    """phase-4 #5: the new allowed_emails list gates exact addresses."""
+    _cfg_mock(monkeypatch, gmail_watcher,
+              {"gmail_watcher.allowed_emails": ["support@wolf-on-wallstreet.com"]})
+    assert gmail_watcher._sender_allowed("Wolf <support@wolf-on-wallstreet.com>")
+    assert not gmail_watcher._sender_allowed("spam@example.com")
+
+
+def test_sender_allowed_domains_split(monkeypatch):
+    """phase-4 #5: the new allowed_domains list matches a whole domain (both forms)."""
+    _cfg_mock(monkeypatch, gmail_watcher,
+              {"gmail_watcher.allowed_domains": ["wolf-on-wallstreet.com"]})
+    assert gmail_watcher._sender_allowed("a@wolf-on-wallstreet.com")
+    assert not gmail_watcher._sender_allowed("a@evil.com")
+    # the "*@domain" form is also accepted
+    _cfg_mock(monkeypatch, gmail_watcher,
+              {"gmail_watcher.allowed_domains": ["*@wolf-on-wallstreet.com"]})
+    assert gmail_watcher._sender_allowed("b@wolf-on-wallstreet.com")
+
+
+def test_sender_allowed_both_lists_independent(monkeypatch):
+    """An address listed in either list passes; one not in either fails."""
+    _cfg_mock(monkeypatch, gmail_watcher, {
+        "gmail_watcher.allowed_emails": ["exact@a.com"],
+        "gmail_watcher.allowed_domains": ["b.com"],
+    })
+    assert gmail_watcher._sender_allowed("exact@a.com")
+    assert gmail_watcher._sender_allowed("anyone@b.com")
+    assert not gmail_watcher._sender_allowed("nope@c.com")
+
+
 def test_auth_results_all_pass():
     headers = [{"name": "Authentication-Results",
                 "value": "mx.google.com; dkim=pass header.i=@x; spf=pass; dmarc=pass"}]

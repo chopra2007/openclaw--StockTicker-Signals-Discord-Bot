@@ -715,7 +715,9 @@ gmail_watcher:
   processed_label_name: "OpenClawProcessed"
   poll_interval_seconds: 60
   scope_verify_interval_seconds: 21600
-  sender_allowlist: ["support@wolf-on-wallstreet.com"]
+  # Sender allowlist — split into two explicit lists (phase-4 #5).
+  allowed_emails: ["support@wolf-on-wallstreet.com"]   # exact sender addresses
+  allowed_domains: []                                  # whole domains, e.g. "wolf-on-wallstreet.com"
   subject_substrings: ["alert", "trade", "trigger", "signal", "$"]
   per_sender_per_hour_cap: 20
   per_day_total_cap: 200

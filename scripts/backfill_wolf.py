@@ -56,8 +56,18 @@ _REBUILD_CLEAR = [
 
 
 def _wolf_sender() -> str:
-    allow = cfg.get("gmail_watcher.sender_allowlist", []) or []
-    return allow[0] if allow else "support@wolf-on-wallstreet.com"
+    # phase-4 #5: read the split lists (allowed_emails first, then a domain),
+    # falling back to the legacy combined list, so the Gmail query is never empty.
+    emails = cfg.get("gmail_watcher.allowed_emails", []) or []
+    if emails:
+        return emails[0]
+    domains = cfg.get("gmail_watcher.allowed_domains", []) or []
+    if domains:
+        return domains[0].lstrip("*").lstrip("@")
+    legacy = cfg.get("gmail_watcher.sender_allowlist", []) or []
+    if legacy:
+        return legacy[0]
+    return "support@wolf-on-wallstreet.com"
 
 
 def _gmail_query(since: str | None) -> str:
