@@ -1,0 +1,44 @@
+{
+  "run_name": "latency-speedup",
+  "created": "2026-06-01",
+  "kickoff": "todo/kickoffs/latency-and-yt-score.md",
+  "scope": "Task A only — #6 !all slow-response fix. Task B (#19 YT-score) verified ALREADY DONE in master (skipped per user).",
+  "mode": "autonomous",
+  "execution_handoff": "review-then-build",
+  "layout": "native",
+  "agent_count": 6,
+  "worktree": "/home/openclaw/wt-latency",
+  "branch": "feat/latency",
+  "push": "OFF (commit only; push at session close)",
+  "current_pass": 5,
+  "status": "pass-5-build-complete — committed 85ac88f on feat/latency (dark), 1639 tests green 0 regressions; activation/go-live pending (outward-facing, shared bot)",
+  "build_commit": "85ac88f",
+  "degradations": ["Pass 4 ralplan not invoked separately; plan authored directly from the Pass2 analyst + Pass3 (2 critics + Codex cross-model) consensus, which covers the same Planner/Architect/Critic loop. ccg NOT degraded — Codex responded."],
+  "design_decision": "C1 head-start, scoped to synthesis via per-call strategy param, dark-shipped (default serial), time-based half-open circuit breaker (Codex), structural-valid race acceptance, deadline-scaled window. C4 2-stage embed deferred.",
+  "task_b_disposition": {
+    "verdict": "VALID DONE in current master",
+    "evidence": "cross_reference.py:248/333/364 (15/10/5 conviction pts -> breakdown.youtube); models.py:269 total includes +self.youtube; embed.py:502 youtube->yt footer; structured_fields.py:73 youtube in _BULLISH_BIASED_FIELDS (direction parity). Commit 2196ba5 live. Live: NVDA yt=15, AMD yt=5.",
+    "open_item": "weight VALUES 5/10/15 — recommend leave unchanged (conviction-tiered + shared with main alert engine)."
+  },
+  "key_findings_pass0": {
+    "serial_walk": "llm_client.py:85 `for idx, model in enumerate(chain)` — one model at a time, full timeout each.",
+    "chain": "config/consensus.yaml:251 all_command_chain = [groq/llama-3.3-70b-versatile, openai/gpt-oss-120b:free, openai/gpt-oss-20b:free]",
+    "synth_timeout": "narrator.py:923 max(15, min(90, deadline)) -> up to 90s/model; up to 3 synthesis invocations per !all (primary + missing-sections retry + contradiction retry)",
+    "measured": "MSFT 240.1s, TSLA 234.3s (fallback_data_only = chain exhausted)",
+    "candidate_fixes": ["(a) race chain concurrently first-good-wins [HIGH impact, MED risk]", "(c) 2-stage embed deterministic-first then edit narrative [LOW risk, orthogonal]", "(b) short per-model timeout [MED-HIGH risk, cuts slow-but-good]"]
+  },
+  "shared_file_tripwire": {
+    "file": "consensus_engine/llm_client.py call_with_fallback",
+    "real_callers": [
+      "alerts/all_command/narrator.py (!all — _batch_summarize x9 concurrent @180, vault_excerpt @244, _invoke_synthesis @925 up to 3x)",
+      "briefing/alfred.py:92 (morning briefing)",
+      "research/sources.py:30 (research gap-fill)",
+      "analysis/wolf_email_parser.py:261 (Wolf email thesis)",
+      "analysis/captions_llm_parser.py:192 (YouTube caption->ticker)",
+      "analysis/video_parser.py:475 (YouTube transcript)",
+      "analysis/llm_scorer.py:123 (TweetShift mention scoring)"
+    ],
+    "kickoff_correction": "Kickoff said @mention/!ask share this file. VERIFIED FALSE — commands.py mention handler does NOT call call_with_fallback (uses openclaw agent --local, separate path). But 7 OTHER consensus_engine callers do — all must be re-tested if chain logic changes."
+  },
+  "verification_hard_requirement": "Faster WITHOUT quality loss. Measure real !all wall-clock before vs after on 3 tickers (NVDA/AMD/mid-cap) AND confirm narrative equal-or-better (blind-compare vs Gemini or chain probe). Speed that degrades the writeup FAILS."
+}
