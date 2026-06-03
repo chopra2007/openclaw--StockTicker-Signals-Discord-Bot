@@ -72,6 +72,9 @@ class AsyncConnection:
 _db: AsyncConnection | None = None
 DB_PATH: str | None = None  # Override for tests; falls back to config database.path
 
+# Sentinel: "leave this column unchanged" for partial UPDATE helpers.
+_KEEP = object()
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS ticker_signals (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -761,6 +764,8 @@ async def _run_column_migrations(conn) -> None:
         ("suppression_reason",   "TEXT"),
     ]
     migrations = [
+        # Wolf trade idea (action/entry/target Wolf framed) — null when he gave only analysis.
+        ("macro_theses", "trade_setup_json", "TEXT"),
         ("youtube_signals", "run_id",         "INTEGER REFERENCES youtube_analysis_runs(id)"),
         ("youtube_signals", "source_snippet",  "TEXT"),
         ("youtube_signals", "chunk_id",        "INTEGER DEFAULT 0"),
@@ -2910,16 +2915,17 @@ async def insert_thesis(
     has_levels: int,
     evidence_log_json: str,
     created_at: float,
+    trade_setup_json: str | None = None,
 ) -> int:
     """Insert a new active Wolf thesis. Returns the new thesis id."""
     conn = await get_db()
     cur = await conn.execute(
         """INSERT INTO macro_theses
            (scope_type, scope_key, direction, stage, key_levels_json, price_at_creation,
-            created_at, last_updated, status, has_levels, evidence_log_json)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)""",
+            created_at, last_updated, status, has_levels, evidence_log_json, trade_setup_json)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)""",
         (scope_type, scope_key, direction, stage, key_levels_json, price_at_creation,
-         created_at, created_at, has_levels, evidence_log_json),
+         created_at, created_at, has_levels, evidence_log_json, trade_setup_json),
     )
     await conn.commit()
     return cur.lastrowid
@@ -2932,14 +2938,26 @@ async def update_thesis(
     has_levels: int,
     evidence_log_json: str,
     last_updated: float,
+    trade_setup_json: str | None = _KEEP,
 ) -> None:
-    """Update an existing thesis's stage/levels/evidence."""
+    """Update an existing thesis's stage/levels/evidence.
+
+    ``trade_setup_json`` left at ``_KEEP`` leaves the trade-idea column untouched;
+    pass a value (a JSON string, or None to clear it) to overwrite it."""
     conn = await get_db()
-    await conn.execute(
-        """UPDATE macro_theses SET stage = ?, key_levels_json = ?, has_levels = ?,
-           evidence_log_json = ?, last_updated = ? WHERE id = ?""",
-        (stage, key_levels_json, has_levels, evidence_log_json, last_updated, thesis_id),
-    )
+    if trade_setup_json is _KEEP:
+        await conn.execute(
+            """UPDATE macro_theses SET stage = ?, key_levels_json = ?, has_levels = ?,
+               evidence_log_json = ?, last_updated = ? WHERE id = ?""",
+            (stage, key_levels_json, has_levels, evidence_log_json, last_updated, thesis_id),
+        )
+    else:
+        await conn.execute(
+            """UPDATE macro_theses SET stage = ?, key_levels_json = ?, has_levels = ?,
+               evidence_log_json = ?, last_updated = ?, trade_setup_json = ? WHERE id = ?""",
+            (stage, key_levels_json, has_levels, evidence_log_json, last_updated,
+             trade_setup_json, thesis_id),
+        )
     await conn.commit()
 
 

@@ -132,6 +132,8 @@ def _collapse_theses(theses: list[dict]) -> list[dict]:
             "levels": levels,
             "snippet": top.get("snippet", ""),
             "conviction_phrase": top.get("conviction_phrase"),
+            # the trade setup from the top sub-thesis, else any sub-thesis that has one
+            "setup": next((t.get("setup") for t in [top, *group] if t.get("setup")), None),
         })
     return merged
 
@@ -229,8 +231,14 @@ async def ingest(extraction: dict, source_id: str | None = None) -> list[dict]:
                 entry["src"] = source_id
             evlog.append(entry)
             evlog = evlog[-20:]  # cap history
-            await db.update_thesis(existing["id"], new_stage, levels_json, has_levels,
-                                   json.dumps(evlog), now)
+            # Update the trade idea only when this email framed one (latest wins);
+            # otherwise leave the thesis's existing setup untouched.
+            new_setup = th.get("setup")
+            await db.update_thesis(
+                existing["id"], new_stage, levels_json, has_levels,
+                json.dumps(evlog), now,
+                trade_setup_json=json.dumps(new_setup) if new_setup else db._KEEP,
+            )
 
             material = conv.is_material_escalation(stage_up, stage_down, tf_widened,
                                                    intent_up, flipped)
@@ -259,9 +267,11 @@ async def ingest(extraction: dict, source_id: str | None = None) -> list[dict]:
             if source_id is not None:
                 first_entry["src"] = source_id
             evlog = json.dumps([first_entry])
+            new_setup = th.get("setup")
             tid = await db.insert_thesis(
                 scope_type, scope_key, direction, stage, levels_json,
                 None, has_levels, evlog, now,
+                trade_setup_json=json.dumps(new_setup) if new_setup else None,
             )
             events.append({
                 "kind": "new", "thesis_id": tid,

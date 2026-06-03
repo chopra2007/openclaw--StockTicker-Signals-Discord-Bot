@@ -102,6 +102,136 @@ def _can_ping(now: float) -> bool:
     return True
 
 
+def _money(x: float) -> str:
+    """'$74,192' (exact, comma-grouped; drops a .0)."""
+    return f"${int(x):,}" if float(x).is_integer() else f"${x:,.2f}"
+
+
+def _money_k(x: float) -> str:
+    """Abbreviated target, e.g. 70000 -> '$70k', 74192 -> '$74.2k'. Exact below 1000."""
+    if abs(x) < 1000:
+        return _money(x)
+    v = x / 1000.0
+    return f"${int(v)}k" if v.is_integer() else f"${v:.1f}k"
+
+
+def _round_step(price: float) -> float:
+    """A clean rounding step for a stop buffer, scaled to the price's magnitude."""
+    p = abs(price)
+    if p >= 10000:
+        return 100.0
+    if p >= 1000:
+        return 10.0
+    if p >= 100:
+        return 1.0
+    if p >= 1:
+        return 0.1
+    return 0.01
+
+
+def _stop_from_entry(entry: float, action: str) -> float:
+    """Stop just beyond the entry on the risk side (above for short, below for long),
+    rounded out to a clean step: short 74192 -> 74200, long 74192 -> 74100."""
+    import math
+    step = _round_step(entry)
+    if action == "short":
+        s = math.ceil(entry / step) * step
+        return s if s > entry else s + step   # strictly above
+    s = math.floor(entry / step) * step
+    return s if s < entry else s - step       # strictly below
+
+
+def _setup_from_row(thesis_row: dict) -> dict | None:
+    """Parse a thesis row's trade_setup_json into {action, entry, target} or None."""
+    raw = thesis_row.get("trade_setup_json") if thesis_row else None
+    if not raw:
+        return None
+    try:
+        s = json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(s, dict) or s.get("action") not in ("short", "long"):
+        return None
+    return s
+
+
+def _trade_idea_value(direction: str, setup: dict | None, levels: list[dict]) -> str | None:
+    """The two-line trade-idea block, or None if there isn't enough to state one.
+
+    Only fires when Wolf framed a trade (``setup.action`` present). Entry/target come
+    from the setup when given, else from the tracked levels by direction: a short sells
+    a re-test of the higher level down to the lower; a long buys the lower up to the
+    higher. The stop is derived just beyond the entry.
+    """
+    if not setup or setup.get("action") not in ("short", "long"):
+        return None
+    action = setup["action"]
+    prices = sorted(l["price"] for l in (levels or []) if isinstance(l, dict) and "price" in l)
+    entry = setup.get("entry")
+    target = setup.get("target")
+    if entry is None and prices:
+        entry = prices[-1] if action == "short" else prices[0]
+    if target is None and prices:
+        target = prices[0] if action == "short" else prices[-1]
+    if entry is None or target is None or entry == target:
+        return None
+    stop = _stop_from_entry(entry, action)
+    side = "above" if action == "short" else "below"
+    return (f"{action} a re-test of {_money(entry)} → {_money_k(target)}\n"
+            f"SL {side} {_money(stop)}")
+
+
+def _relabel_levels(direction: str, levels: list[dict]) -> list[dict]:
+    """For display, relabel ambiguous 'support' levels by position + direction:
+    a bear thesis' highest support is really resistance (broken), its lowest is the
+    target; a bull thesis' highest is the target. Explicit resistance/target roles
+    are kept. Single-level theses are left as-is."""
+    pts = [l for l in (levels or []) if isinstance(l, dict) and "price" in l]
+    if len(pts) < 2:
+        return levels
+    ordered = [dict(l) for l in sorted(pts, key=lambda l: l["price"])]
+
+    def _amb(l: dict) -> bool:
+        return (l.get("role") or "support") == "support"
+
+    if direction == "bear":
+        if _amb(ordered[-1]):
+            ordered[-1]["role"] = "resistance"
+        if _amb(ordered[0]):
+            ordered[0]["role"] = "target"
+    elif direction == "bull":
+        if _amb(ordered[0]):
+            ordered[0]["role"] = "support"
+        if _amb(ordered[-1]):
+            ordered[-1]["role"] = "target"
+    return ordered
+
+
+def _levels_field(direction: str, thesis_row: dict, levels: list[dict]) -> dict | None:
+    """One embed field: a 'Trade idea' when Wolf framed a trade, else relabeled
+    'Key levels'. Returns None when there's nothing to show."""
+    ti = _trade_idea_value(direction, _setup_from_row(thesis_row), levels)
+    if ti:
+        return {"name": "Trade idea", "value": ti[:1024], "inline": False}
+    relabeled = _relabel_levels(direction, levels)
+
+    def _lvl_num(x: float) -> str:
+        return f"{int(x):,}" if float(x).is_integer() else f"{x:,.2f}"
+
+    # Display high → low (resistance above, target/support below — a price ladder).
+    display = sorted(
+        (l for l in relabeled if isinstance(l, dict) and "price" in l),
+        key=lambda l: l["price"], reverse=True,
+    )[:5]
+    lvl_txt = " · ".join(
+        _lvl_num(l["price"]) + (f" ({l['role']})" if l.get("role") else "")
+        for l in display
+    )
+    if lvl_txt:
+        return {"name": "Key levels", "value": lvl_txt[:1024], "inline": True}
+    return None
+
+
 def format_message(event: dict, levels: list[dict]) -> str:
     """Build the #news message text from VALIDATED fields only (never raw email text)."""
     direction = event["direction"]
@@ -281,12 +411,9 @@ def format_conviction_update(event: dict, thesis_row: dict, backdrop: str | None
         levels = json.loads(thesis_row.get("key_levels_json") or "[]")
     except Exception:
         levels = []
-    lvl_txt = ", ".join(
-        f"{l['price']:g}" + (f" ({l['role']})" if l.get("role") else "")
-        for l in levels[:5] if "price" in l
-    )
-    if lvl_txt:
-        fields.append({"name": "Key levels", "value": lvl_txt[:1024], "inline": True})
+    lvl_field = _levels_field(direction, thesis_row, levels)
+    if lvl_field:
+        fields.append(lvl_field)
 
     # 5) Wolf's words — ONE quote (prefer the conviction phrase).
     quote = event.get("phrase") or event.get("snippet") or ""
@@ -351,12 +478,9 @@ def format_confluence_alert(thesis_row: dict, confl_row: dict | None, event: dic
         levels = json.loads(thesis_row.get("key_levels_json") or "[]")
     except Exception:
         levels = []
-    lvl_txt = ", ".join(
-        f"{l['price']:g}" + (f" ({l['role']})" if l.get("role") else "")
-        for l in levels[:5] if "price" in l
-    )
-    if lvl_txt:
-        fields.append({"name": "Key levels", "value": lvl_txt[:1024], "inline": True})
+    lvl_field = _levels_field(direction, thesis_row, levels)
+    if lvl_field:
+        fields.append(lvl_field)
 
     return {
         "title": title[:256],

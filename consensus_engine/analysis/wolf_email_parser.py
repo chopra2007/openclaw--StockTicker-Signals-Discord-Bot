@@ -74,6 +74,12 @@ _EXTRACTION_USER_TMPL = (
     "THIS instrument\n"
     '  - "conviction_phrase": a <=120 char VERBATIM quote of how strongly the author holds THIS view '
     '(e.g. the author\'s own words like "<my strongest conviction this week>"), or null\n'
+    '  - "setup": ONLY when the author lays out an actual TRADE for THIS instrument — a direction '
+    'plus an entry and/or a target (e.g. "short a re-test of 74192 toward 70k", "buying a pullback '
+    'to 200 targeting 230", "I\'d look to short into resistance"). Output '
+    '{"action":"short"|"long", "entry":<entry price number or null>, "target":<target price number or null>}. '
+    'Otherwise null. Do NOT build a setup from a directional opinion, a level, or a performance mention '
+    'alone — the author must actually frame entering a trade.\n'
     "Rules: only include an instrument when the author expresses HIS OWN forward-looking "
     "stance on it — where he thinks it is headed or a trade he is in or watching. A real "
     "stance reads like: he is buying/shorting/holding it, it 'has room to run' / 'could break "
@@ -200,6 +206,25 @@ def _coerce_thesis(raw: dict) -> dict | None:
     if phrase is not None:
         phrase = re.sub(r"[\r\n\t\x00-\x1f]", " ", str(phrase)).strip()[:120] or None
 
+    # Trade setup — only kept when the LLM returned an action that AGREES with the
+    # thesis direction and at least one concrete price (entry or target). Anything
+    # less is just analysis, not a trade Wolf framed.
+    setup = None
+    raw_setup = raw.get("setup")
+    if isinstance(raw_setup, dict):
+        act = str(raw_setup.get("action", "")).lower().strip()
+        expected = "short" if direction == "bear" else ("long" if direction == "bull" else None)
+        if act in ("short", "long") and (expected is None or act == expected):
+            def _num(v):
+                try:
+                    return float(v)
+                except (TypeError, ValueError):
+                    return None
+            entry = _num(raw_setup.get("entry"))
+            target = _num(raw_setup.get("target"))
+            if entry is not None or target is not None:
+                setup = {"action": act, "entry": entry, "target": target}
+
     return {
         "scope_type": scope_type,
         "scope_key": scope_key,
@@ -211,6 +236,7 @@ def _coerce_thesis(raw: dict) -> dict | None:
         "timeframes": timeframes,
         "position_intent": intent,
         "conviction_phrase": phrase,
+        "setup": setup,
     }
 
 
