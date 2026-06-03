@@ -113,6 +113,7 @@ Never claim complete on "service started," "code looks right," or "unit tests pa
 4. Test each distinct claim separately (commands and mentions are different code paths).
 5. Verify after every restart, not before.
 6. Before asserting what a function, flag, or config key does — grep or read the actual code. Never from memory.
+7. Judge output against the goal, not the code against the spec. A feature that runs but produces generic or unhelpful output has not met its goal. Compare the real output to why the feature was built.
 
 For multi-phase execution (discover, ralph, autopilot): run at least one real end-to-end invocation and inspect the actual output before declaring done.
 
