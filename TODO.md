@@ -137,3 +137,9 @@ Make the bot rotate to the next SerpAPI key (or provider) with credit when the c
 **File:** `all-risk-section-v2.md`
 
 Fix the quality defects a Gemini head-to-head exposed in the merged Risk Considerations: drop the weak "1.3% short interest → squeeze" noise bullet, use real positioning/overextension data instead, make the no-price rule mechanical, close a gate bug, and stop internal tags ([macro_risk], COMPUTED SIGNAL) leaking into the Discord text.
+
+## 23. Show Wolf trade ideas instead of raw levels — DONE 2026-06-03
+
+**File:** `wolf-trade-idea-display.md`
+
+When Wolf frames an actual trade, show a concise trade idea (entry → target + stop) on the #news alert instead of a confusing list of same-role price levels; otherwise relabel the levels (broken support → resistance, downside → target).
