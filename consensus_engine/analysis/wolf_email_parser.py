@@ -288,7 +288,7 @@ async def _extract_theses_llm(body: str) -> dict:
     transient free-tier timeout doesn't silently drop a whole email's theses (a missing
     beat in the over-time story). Returns the raw parsed dict, or {} after all attempts.
     """
-    body = body[:12000]  # cap prompt size
+    body = body[:cfg.get("wolf.extraction_input_cap", 40000)]  # cap prompt size
     messages = [
         {"role": "system", "content": _EXTRACTION_SYSTEM},
         {"role": "user", "content": _EXTRACTION_USER_TMPL.replace("__BODY__", body)},
@@ -348,8 +348,10 @@ async def parse_email(
             theses.append(clean)
 
     # 1b. R3: substring-verify conviction_phrase + snippet against the SAME body the
-    # LLM saw (body[:12000]); drop anything fabricated. Normalize both sides.
-    _verify_quotes_against_body(theses, body[:12000])
+    # LLM saw (body[:extraction_input_cap]); drop anything fabricated. Normalize both
+    # sides. MUST use the same cap as _extract_theses_llm or quotes from the tail of
+    # a long email get falsely rejected.
+    _verify_quotes_against_body(theses, body[:cfg.get("wolf.extraction_input_cap", 40000)])
 
     # 2. Chart reads (capped, deterministic order).
     chart_reads = []

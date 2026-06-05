@@ -760,6 +760,15 @@ wolf:
   dry_run: false                        # LIVE — posts to #news (user sign-off 2026-06-01)
   enable_critical_ping: true            # phase-2 LIVE — @-ping on critical confluence (user sign-off 2026-06-01)
   extraction_max_tokens: 4096
+  # Input cap: how many chars of the email body the extractor reads. Raised
+  # 12000 -> 40000 on 2026-06-05: 26 of 94 real emails exceeded 12000 (largest
+  # 31934), and the big "Daily Wrap" editions front-load macro text and put the
+  # actual trade calls AFTER char 12000 — at 12000 the largest email yielded 0
+  # theses, at 40000 it recovered real ideas (WTI, REMX, URA, BTC). 40000 chars
+  # ~= 10k tokens (trivial for the chain's 130k-1M context); output stays small
+  # (~700 tokens) so extraction_max_tokens=4096 is still ample. Used in BOTH the
+  # extractor and the quote-verifier (wolf_email_parser) — keep them in sync.
+  extraction_input_cap: 40000
   extraction_timeout: 60
   # Dedicated chain for thesis extraction (own chain, NOT the shared role="primary"
   # chain). Leads with gpt-oss-120b: 2026-06-02 it honored the stricter "skip
