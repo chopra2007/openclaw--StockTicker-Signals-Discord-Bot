@@ -12,8 +12,14 @@ History:
     (alfred / research / video_parser fallback) moved to paid
     deepseek-v4-flash; tweetshift signal scoring (llm_scorer.py, now
     role="text") moved to the openrouter/free meta-router with
-    gpt-oss-120b:free as the empty-content safety net. See
-    .omc/notes/model-swap-2026-05-26-revert.md.
+    gpt-oss-120b:free as the empty-content safety net.
+  - 2026-06-04 (TODO #24): 24-model live bake-off rebuilt both chains.
+    role="primary" -> gpt-oss-120b (competence 9.5/10, 0.3s, 5/5) with
+    qwen3-235b-2507 + deepseek-v4-flash + openrouter/free (credit net).
+    role="text" -> gpt-4.1-nano (non-reasoning, robust at the tight 512-tok
+    narrator budget where nemotron-nano returned empty live) with
+    mistral-nemo + nemotron-nano-9b-v2 + openrouter/free. Data:
+    .omc/research/model-bakeoff-2026-06-04/.
 """
 from __future__ import annotations
 
@@ -26,28 +32,36 @@ CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "consensus.yaml"
 
 # role="primary" chain (alfred morning brief, research/sources.py,
 # video_parser openrouter fallback path).
-EXPECTED_PRIMARY = "deepseek/deepseek-v4-flash"
-EXPECTED_FALLBACKS = ["openrouter/free"]
+EXPECTED_PRIMARY = "openai/gpt-oss-120b"
+EXPECTED_FALLBACKS = [
+    "qwen/qwen3-235b-a22b-2507",
+    "deepseek/deepseek-v4-flash",
+    "openrouter/free",
+]
 
 # role="text" chain (llm_scorer.score_confidence — tweetshift signal volume).
-EXPECTED_TEXT_PRIMARY = "openrouter/free"
-EXPECTED_TEXT_FALLBACKS = ["openai/gpt-oss-120b:free"]
+EXPECTED_TEXT_PRIMARY = "openai/gpt-4.1-nano"
+EXPECTED_TEXT_FALLBACKS = [
+    "mistralai/mistral-nemo",
+    "nvidia/nemotron-nano-9b-v2",
+    "openrouter/free",
+]
 
 
 def _llm_block() -> dict:
     return yaml.safe_load(CONFIG_PATH.read_text()).get("llm", {})
 
 
-def test_primary_model_is_deepseek_v4_flash():
-    """role=primary primary must be paid deepseek-v4-flash."""
+def test_primary_model_is_gpt_oss_120b():
+    """role=primary lead must be gpt-oss-120b (2026-06-04 bake-off winner)."""
     llm = _llm_block()
     assert llm.get("model") == EXPECTED_PRIMARY, (
         f"llm.model={llm.get('model')!r}; expected {EXPECTED_PRIMARY}"
     )
 
 
-def test_text_primary_is_openrouter_free():
-    """role=text primary is the openrouter/free meta-router (tweetshift path)."""
+def test_text_primary_is_gpt_4_1_nano():
+    """role=text lead is gpt-4.1-nano (robust at the tight narrator budget)."""
     llm = _llm_block()
     assert llm.get("text_model") == EXPECTED_TEXT_PRIMARY, (
         f"llm.text_model={llm.get('text_model')!r}; expected {EXPECTED_TEXT_PRIMARY}"

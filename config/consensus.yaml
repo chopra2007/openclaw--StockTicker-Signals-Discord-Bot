@@ -226,21 +226,32 @@ llm:
   #   - inclusionai/ling-2.6-flash — paid tier.
   #   - openrouter/owl-alpha / openrouter/free — meta-routers, not models.
   #   - minimax/minimax-m2.5:free — 84s pause + ignores max_tokens.
-  # 2026-05-26 split: morning-brief / research / !all-fallback path
-  # (role="primary") on paid deepseek-v4-flash; tweetshift scoring path
-  # (role="text", set by llm_scorer.py) on the openrouter/free meta-router.
-  # Revert plan + previous chain: .omc/notes/model-swap-2026-05-26-revert.md
-  model: "deepseek/deepseek-v4-flash"
+  # 2026-06-04 model bake-off — 24 models tested live on OpenRouter for speed +
+  # financial-analysis competence + reliability under a concurrency burst. Full
+  # data: .omc/research/model-bakeoff-2026-06-04/ (and TODO #24).
+  #   role="primary" (alfred brief / research / video_parser fallback / !all
+  #     primary-tier synthesis): gpt-oss-120b won competence (9.5/10) at top-tier
+  #     speed (0.3s warm) and $0.18/M out, 5/5 reliable. Fallbacks span 3 distinct
+  #     providers; openrouter/free is the final credit-exhaustion net (user
+  #     request 2026-06-04: free models still answer if the OpenRouter balance
+  #     runs dry) — it is a random meta-router, last resort only.
+  #   role="text" (llm_scorer tweetshift scoring @ 8000 tok / !all narrator batch
+  #     @ tight 512 tok + 5s): gpt-4.1-nano led — non-reasoning, 0.3s, clean JSON,
+  #     robust at the tight 512-token budget where nemotron-nano-9b-v2 returned
+  #     EMPTY in a live test (demoted to deep fallback; it's fine at full budget).
+  # Replaced 2026-06-04: primary deepseek-v4-flash (8/10, 7.6s cold start, still a
+  # fallback); text openrouter/free meta-router (1.0s, random routing → ~20% of
+  # calls landed on reasoning models that leave .content empty = a failure).
+  model: "openai/gpt-oss-120b"
   fallback_models:
-    - "openrouter/free"
-  text_model: "openrouter/free"
+    - "qwen/qwen3-235b-a22b-2507"      # Alibaba; 8.5/10, 0.7s, $0.10/M out
+    - "deepseek/deepseek-v4-flash"     # DeepSeek; prior primary, proven, 1M ctx
+    - "openrouter/free"                # credit-exhaustion net (random free router)
+  text_model: "openai/gpt-4.1-nano"
   text_fallback_models:
-    # openrouter/free is a meta-router; 2026-05-26 probe showed ~20% of calls
-    # land on free reasoning models that drop the answer into .reasoning and
-    # leave .content empty (llm_client.py treats empty .content as failure
-    # and walks the chain). Pin gpt-oss-120b:free as the safety net — same
-    # known-good model that was primary before this swap.
-    - "openai/gpt-oss-120b:free"
+    - "mistralai/mistral-nemo"         # Mistral; cheapest clean ($0.03/M out)
+    - "nvidia/nemotron-nano-9b-v2"     # NVIDIA; cheap ($0.16/M), fine at full budget
+    - "openrouter/free"                # credit-exhaustion net
   # !all-command synthesis chain (#12). Scoped to the !all narrator's three
   # LLM call sites only — keeps the briefing, signal scorer, research, and
   # captions on the OpenRouter chains above. `groq/`-prefixed ids route to
@@ -277,23 +288,29 @@ llm:
     - "openai/gpt-oss-120b:free"
     - "openai/gpt-oss-20b:free"
   # Agent-path chain — !ask / @-mention via `openclaw agent --local`.
-  # SEPARATE from the !all chain above, deliberately: the `main` agent's
-  # full ~6-8K-token system prompt overflows gpt-oss-120b's OpenRouter free
-  # tier, and the path sends tool_choice (nemotron-omni-reasoning 404s on
-  # it). Every entry was probed end-to-end against the real agent 2026-05-19.
-  # scripts/sync_gateway_models.py mirrors this into openclaw.json
-  # agents.defaults.model.{primary,fallbacks}; health.py alerts on drift.
-  # 2026-06-02: !ask + @-mention lead model swapped to gpt-oss-120b. Diagnosed
-  # live: deepseek-v4-flash FABRICATED file paths / a fake API key when asked
-  # "where does the options flow data come from" instead of reading the code;
-  # gpt-oss-120b read the real file correctly 3/3 (consensus_engine/scanners/
-  # options.py → yfinance). deepseek kept as first fallback. sync_gateway_models.py
-  # prefixes each entry with `openrouter/` when mirroring into openclaw.json.
-  # Prior: 2026-05-26 deepseek-v4-flash primary + openrouter/free single fallback.
-  agent_model: "openai/gpt-oss-120b:free"
+  # SEPARATE from the !all chain above, deliberately: the real agent prompt is
+  # huge (~25-50K tokens — full system prompt + tool defs + history) and sends
+  # tool_choice, so small-context and reasoning models fail here.
+  # Chain models MUST also be listed in openclaw.json agents.defaults.models
+  # (the allow-map) or openclaw rejects them. sync_gateway_models.py mirrors
+  # this into openclaw.json agents.defaults.model.{primary,fallbacks} (prefixing
+  # `openrouter/`); health.py alerts on drift.
+  # 2026-06-04 bake-off — every model run end-to-end through the REAL agent path
+  # (data: .omc/research/model-bakeoff-2026-06-04/, TODO #24):
+  #   - gpt-oss-120b PAID: 6.1s, correct — 3x faster than the old gpt-oss-120b:free
+  #     lead (18.9s; the OpenRouter free pool is congested). New lead.
+  #   - gpt-4.1-nano: 8.6s, correct, efficient (lowest token use). Fallback 1.
+  #   - qwen3-235b-a22b-2507: 12.4s, correct, decorrelated provider. Fallback 2.
+  #   - gpt-oss-120b:free: free net — proven to handle the agent prompt + tools,
+  #     unlike openrouter/free which overflows it (so the free net here is the
+  #     :free model, NOT openrouter/free).
+  #   Excluded: qwen3-235b-THINKING (context overflow — reasoning blew the budget),
+  #   minimax-m2.1 (43.9s), xiaomi-mimo (HTTP 451), gemini-2.5-flash-lite (timeout).
+  agent_model: "openai/gpt-oss-120b"
   agent_fallback_models:
-    - "deepseek/deepseek-v4-flash:free"
-    - "free"
+    - "openai/gpt-4.1-nano"
+    - "qwen/qwen3-235b-a22b-2507"
+    - "openai/gpt-oss-120b:free"
   vision_model: "google/gemma-4-31b-it:free"
   min_confidence: 70
   # Primary-tier output cap. Set to 8000 (was 4096) to match narrator's

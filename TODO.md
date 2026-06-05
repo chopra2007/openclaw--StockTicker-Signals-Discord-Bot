@@ -143,3 +143,9 @@ Fix the quality defects a Gemini head-to-head exposed in the merged Risk Conside
 **File:** `wolf-trade-idea-display.md`
 
 When Wolf frames an actual trade, show a concise trade idea (entry → target + stop) on the #news alert instead of a confusing list of same-role price levels; otherwise relabel the levels (broken support → resistance, downside → target).
+
+## 24. Pick the best/cheapest AI models for the bot — DONE 2026-06-04
+
+**File:** `model-bakeoff-2026-06-04.md`
+
+Re-tested two dozen OpenRouter models for speed, smarts, and reliability and rebuilt the primary, text, and ask/mention model chains with the best cheap picks (full rankings + raw data saved for future reference).
