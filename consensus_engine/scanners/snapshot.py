@@ -112,6 +112,10 @@ async def fetch_ticker_snapshot(ticker: str) -> Optional[dict]:
              or _num(info.get("previousClose")))
     snap["wk52_high_pct"] = (price / wk52_high - 1) * 100 if price and wk52_high and wk52_high > 0 else None
     snap["wk52_low_pct"] = (price / wk52_low - 1) * 100 if price and wk52_low and wk52_low > 0 else None
+    # full-audit smart-levels: expose RAW 52wk prices (not just % distances) for the
+    # technical-levels engine; present whenever snap is returned (before the early None below).
+    snap["wk52_high"] = wk52_high
+    snap["wk52_low"] = wk52_low
 
     has_analyst = snap["target_mean"] is not None or snap["rating"] is not None
     has_fundamentals = snap["fwd_pe"] is not None or snap["short_pct"] is not None

@@ -39,6 +39,7 @@ from consensus_engine.alerts.discord import (
 )
 from consensus_engine.utils.rate_limiter import rate_limiter
 from consensus_engine.utils.tickers import is_valid_ticker_format
+from consensus_engine.analysis import indicators  # smart-levels engine (full-audit Wave 2)
 
 log = logging.getLogger("consensus_engine.alerts.all_command.aggregator")
 

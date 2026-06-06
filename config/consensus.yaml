@@ -13,6 +13,7 @@ api_keys:
   discord_bot_token: "$DISCORD_BOT_TOKEN"
   discord_channel_id: "$DISCORD_CHANNEL_ID"
   discord_news_channel_id: "$DISCORD_NEWS_CHANNEL_ID"   # Wolf macro-brain #news lane
+  options_flow_channel_id: ""   # #5 blank => falls back to main; user #options-flow id 1512934341485924432 applied at go-live
   discord_owner_user_id: "$DISCORD_OWNER_USER_ID"       # @-ping target (phase-2, dormant)
   discord_feed_channel_id: "$DISCORD_FEED_CHANNEL_ID"  # #twitter channel — TweetShift input
   twitter_auth_token: "$TWITTER_AUTH_TOKEN"
@@ -44,6 +45,7 @@ searxng:
 
 # Scoring Model
 scoring:
+  skip_llm_below_threshold: false     # #16 skip LLM confidence call when base+cheap+llm_max can't reach the alert line
   conviction:
     high: 30
     medium: 25
@@ -272,6 +274,7 @@ llm:
   # serial-timeout 200-240s. Revert to 'serial' to disable instantly.
   all_command_strategy: head_start
   all_command_head_start_timeout: 15        # groq solo window (s); tune to groq P90+5
+  all_command_head_start_max_tokens: 12000  # #4 skip groq head-start when est prompt tokens exceed groq TPM cap
   all_command_circuit_breaker_threshold: 3  # consecutive groq stalls -> race_all
   # #6 root-cause: the sanitize/cleanup calls run groq-free so they don't drain
   # groq's 100k/day budget that the synthesis call above needs.
@@ -457,6 +460,7 @@ youtube:
     # default — flip true + restart to test (costs Gemini re-processing). When
     # off, visual rows are untagged and attribution is unchanged (top-ticker).
     per_number_ticker_tagging: false
+    tag_structured_levels: false       # #13 also route per-number tags into structured youtube_levels (not just prose)
   classifier:
     min_confidence: 0.5                # suppress candidates below this classifier_confidence
   catalyst:
@@ -562,6 +566,31 @@ all_command:
   cache:
     enabled: true          # set false to disable without code change
     ttl_seconds: 60        # hard-expire even during Groq outage
+  # ---- full-audit-2026-06-06 additions (all default-OFF / behavior-preserving) ----
+  market_cap_gate_enabled: false      # #1 reject sub-$100M / fake tickers on !all
+  sparse_banner:
+    enabled: false                    # #22 low-coverage warning banner
+    max_sources: 3
+  progressive_embed_enabled: false    # #23 interim numbers embed, edit-in-place after synthesis
+  risk_price_gate_strict: false       # #24 widen risk-section price gate beyond the stop literal
+  horizon_realized_vol: false         # #25 swing horizon uses realized vol, not raw ATR
+  wolf_confluence_field_enabled: false  # #7 surface Wolf+N-sources-agree in !all
+  levels:                             # smart technical-levels engine (default OFF, shadow-first)
+    sl_max_drawdown_pct: 0.20         # existing code default, now explicit
+    technical_engine_enabled: false   # master switch
+    technical_engine_shadow_mode: true  # compute+log only when enabled
+    candle_range: "3mo"               # keep 3mo (6mo = shared-fetch blast radius)
+    min_anchors_for_plan: 4
+    min_entry_strength: 55
+    min_reward_risk: 1.5
+    pivot_n: 2
+    pivot_k: 3
+    base_tightness_atr: 0.5
+    impulse_atr_mult: 1.0
+    vp_value_area_pct: 0.70
+    vpoc_period: "week"
+    vpoc_half_life_periods: 4         # research: 4 not 8
+    vpoc_survival_bonus: 7            # +7 past 2x half_life (overdue magnet)
 
 # Precision Scoring Engine
 precision_engine:
@@ -576,6 +605,7 @@ precision_engine:
     gemini_input_tokens: 2000000       # ~$0.30/day on Flash
     gemini_output_tokens: 500000
     gemini_video_calls: 100
+    wolf_vision_calls: 30              # #20 dedicated budget so chart reads don't starve the video pipeline
   thresholds:
     high_confidence: 80
     medium_confidence: 65
@@ -686,6 +716,17 @@ features:
     scan_window_days: 30
   options_flow:
     enabled: true                  # #18 autonomous unusual-options-flow watcher
+  youtube_score:                   # #9-#12 flag-gated YouTube-score smarts (ALL default OFF — alter which alerts fire)
+    direction_aware: false         # #9 sign boost by consensus dir (short->negative; neutral keeps positive)
+    recency_decay: false           # #10 decay stale mentions
+    channel_reliability: false     # #11 scale boost by channel trust
+    level_confluence: false        # #12 bonus when a YT level meets a technical level
+    recency_half_life_days: 3
+    recency_floor: 0.3
+    trust_floor: 0.3
+    confluence_bonus: 3
+    confluence_cap: 6
+    confluence_band_pct: 0.015
 
 intervals:
   form4_cluster_loop: 14400
@@ -703,6 +744,9 @@ options_flow:
   max_staleness_min: 60            # skip contracts whose last trade is older (no stale/closed-market alerts)
   nearest_expirations: 2           # scan the 2 nearest expiries per ticker
   max_alerts_per_cycle: 8          # flood guard
+  selection_mode: "premium"        # #17 "premium" (current) | "relative" (premium/baseline ratio)
+  relative_baseline_enabled: false # #18 also require premium >= relative_multiplier x ticker baseline
+  relative_multiplier: 3.0
   # Active watchlist (get_active_tickers) is scanned automatically; this fixed
   # liquid core is always added so big flow on a major name is caught even with
   # no other signal yet (user chose "both combined").
@@ -770,6 +814,8 @@ wolf:
   # extractor and the quote-verifier (wolf_email_parser) — keep them in sync.
   extraction_input_cap: 40000
   extraction_timeout: 60
+  vision:                               # #19 chart-read Gemini config
+    max_output_tokens: 512              # cap output; thinking disabled in code (wolf_vision.py)
   # Dedicated chain for thesis extraction (own chain, NOT the shared role="primary"
   # chain). Leads with gpt-oss-120b: 2026-06-02 it honored the stricter "skip
   # daily-performance mentions" prompt 4/4 (no false GOOG bull) where the weaker

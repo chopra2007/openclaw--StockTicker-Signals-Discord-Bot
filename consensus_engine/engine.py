@@ -56,6 +56,7 @@ class BudgetManager:
         "finnhub_calls", "brave_queries", "exa_queries",
         "serpapi_queries", "firecrawl_credits",
         "gemini_input_tokens", "gemini_output_tokens", "gemini_video_calls",
+        "wolf_vision_calls",
     )
 
     async def _today_key(self) -> str:

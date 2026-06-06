@@ -792,6 +792,7 @@ async def _run_column_migrations(conn) -> None:
         ("api_usage_daily", "gemini_input_tokens",  "INTEGER NOT NULL DEFAULT 0"),
         ("api_usage_daily", "gemini_output_tokens", "INTEGER NOT NULL DEFAULT 0"),
         ("api_usage_daily", "gemini_video_calls",   "INTEGER NOT NULL DEFAULT 0"),
+        ("api_usage_daily", "wolf_vision_calls",    "INTEGER NOT NULL DEFAULT 0"),
         ("decision_snapshots", "alert_id",  "INTEGER"),
         ("signal_events", "consumed_by_cluster_id", "INTEGER"),
         ("sec_form4_filings", "is_10b5_1", "INTEGER DEFAULT 0"),

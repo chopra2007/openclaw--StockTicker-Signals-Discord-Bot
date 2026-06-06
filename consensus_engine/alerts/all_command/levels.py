@@ -16,6 +16,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Optional
 
+from consensus_engine.analysis import indicators  # smart-levels engine (full-audit Wave 2)
+
 from consensus_engine.utils.obs_log import obs_log
 
 
