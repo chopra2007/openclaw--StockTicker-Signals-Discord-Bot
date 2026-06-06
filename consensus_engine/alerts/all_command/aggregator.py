@@ -1071,12 +1071,10 @@ async def _compute_all(ticker: str, start: float) -> dict:
     # the remaining external sources; when off they get a plain truncation.
     if cfg.get("all_command.sanitize_enabled", True):
         sanitized = await narrator.sanitize_hostile_text(
-            searxng_snippets=[],   # PR4 split: news+sec routed below
             chat_msgs=chat_msgs,
             brief_msgs=brief_msgs,
             vault_text=prior_vault,
             news_snippets=news_snippets,
-            sec_snippets=[],
             twitter_msgs=twitter_msgs,
             social_msgs=social_msgs,
             yt_evidence_msgs=yt_evidence_msgs,

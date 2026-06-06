@@ -281,30 +281,28 @@ async def vault_excerpt(prior_narrative: str) -> str:
 
 
 async def sanitize_hostile_text(
-    searxng_snippets: list[str],
     chat_msgs: list[str],
     brief_msgs: list[str],
     vault_text: str,
     news_snippets: Optional[list[str]] = None,
-    sec_snippets: Optional[list[str]] = None,
     twitter_msgs: Optional[list[str]] = None,
     social_msgs: Optional[list[str]] = None,
     yt_evidence_msgs: Optional[list[str]] = None,
 ) -> dict:
     """Run sanitize batches concurrently. Returns dict with sanitized lists.
 
-    PR4 grew from 4 to 9 concurrent calls (still bounded — 1 LLM call per
-    source type regardless of row count). The legacy `searxng_snippets`
-    param stays for back-compat with callers that haven't been split yet;
-    when news_snippets / sec_snippets are passed the legacy list is empty.
+    #27: the searxng and sec batches were dropped — both always received an
+    empty list from the aggregator (searxng is unused; the SEC block is the
+    deterministic trusted-disclosure path injected after this call), so they
+    only ever early-returned []. The return dict still carries 'searxng': []
+    and 'sec': [] so downstream consumers using direct `[...]` key access
+    don't break.
     """
     results = await asyncio.gather(
-        searxng_batch(searxng_snippets or []),
         chat_batch(chat_msgs or []),
         brief_batch(brief_msgs or []),
         vault_excerpt(vault_text or ""),
         news_batch(news_snippets or []),
-        sec_batch(sec_snippets or []),
         twitter_batch(twitter_msgs or []),
         social_batch(social_msgs or []),
         yt_evidence_batch(yt_evidence_msgs or []),
@@ -322,15 +320,15 @@ async def sanitize_hostile_text(
         return r if isinstance(r, str) else ""
 
     return {
-        "searxng": _coerce_list(results[0]),
-        "chat": _coerce_list(results[1]),
-        "brief": _coerce_list(results[2]),
-        "vault": _coerce_str(results[3]),
-        "news": _coerce_list(results[4]),
-        "sec": _coerce_list(results[5]),
-        "twitter": _coerce_list(results[6]),
-        "social": _coerce_list(results[7]),
-        "yt_evidence": _coerce_list(results[8]),
+        "searxng": [],
+        "chat": _coerce_list(results[0]),
+        "brief": _coerce_list(results[1]),
+        "vault": _coerce_str(results[2]),
+        "news": _coerce_list(results[3]),
+        "sec": [],
+        "twitter": _coerce_list(results[4]),
+        "social": _coerce_list(results[5]),
+        "yt_evidence": _coerce_list(results[6]),
     }
 
 
@@ -955,6 +953,30 @@ async def _invoke_synthesis(
         float(_cfg.get("llm.all_command_head_start_timeout", 15)),
         max(1.0, deadline_seconds * 0.5),
     )
+    # #4: on big prompts groq's synth call always 413s (returns at ~0.0s).
+    # That solo head-start window then guarantees one failing round-trip and
+    # noisy "groq stall" logs before the fan-out. When the estimated prompt is
+    # over the cap, skip groq's solo window for THIS call by overriding the
+    # strategy to "race_all" (fan all models out immediately). The 413 returns
+    # instantly so there's no latency win — the gain is one fewer
+    # guaranteed-failing call + cleaner logs. Small tickers (under the cap)
+    # keep the normal head_start behavior.
+    if strategy == "head_start":
+        # Subtract a conservative ~1000-char margin before the //4 token
+        # estimate so we don't under-count and let a borderline prompt 413.
+        est_tokens = max(0, sum(len(m.get("content", "")) for m in messages) - 1000) // 4
+        head_start_cap = int(_cfg.get("llm.all_command_head_start_max_tokens", 12000))
+        if est_tokens > head_start_cap:
+            log.info(
+                "narrator.synthesize: est_tokens=%d > cap=%d — skipping groq "
+                "head-start window (race_all)", est_tokens, head_start_cap,
+            )
+            strategy = "race_all"
+        else:
+            log.info(
+                "narrator.synthesize: est_tokens=%d <= cap=%d — keeping groq "
+                "head-start window", est_tokens, head_start_cap,
+            )
     try:
         return await call_with_fallback(
             role="primary",
@@ -1049,6 +1071,7 @@ async def synthesize_narrative(
 
     obs_log({"ts": time.time(), "event": "narrator_cache_miss", "ticker": ticker})
     raw = await _invoke_synthesis(messages, deadline_seconds)
+    obs_log({"ts": time.time(), "event": "synth_initial", "ticker": ticker})
     if not raw:
         return "", "fallback_data_only"
 
@@ -1061,6 +1084,10 @@ async def synthesize_narrative(
         log.warning(
             "narrator: missing required sections %s — re-prompting once", missing,
         )
+        obs_log({
+            "ts": time.time(), "event": "synth_retry",
+            "reason": "missing_sections", "ticker": ticker, "missing": missing,
+        })
         hardened_sections = list(messages)
         hardened_sections[-1] = dict(hardened_sections[-1])
         hardened_sections[-1]["content"] = (
@@ -1087,6 +1114,10 @@ async def synthesize_narrative(
             "narrator: risk-section violations %s — re-prompting once",
             _risk_violations,
         )
+        obs_log({
+            "ts": time.time(), "event": "synth_retry",
+            "reason": "risk_violation", "ticker": ticker,
+        })
         hardened_risk = list(messages)
         hardened_risk[-1] = dict(hardened_risk[-1])
         hardened_risk[-1]["content"] = (
@@ -1114,6 +1145,10 @@ async def synthesize_narrative(
 
     # Retry-once with hardened prompt if output_filter detects contradiction.
     async def _retry_fn() -> str:
+        obs_log({
+            "ts": time.time(), "event": "synth_retry",
+            "reason": "contradiction", "ticker": ticker,
+        })
         hardened = list(messages)
         hardened[0] = dict(hardened[0])
         hardened[0]["content"] = (

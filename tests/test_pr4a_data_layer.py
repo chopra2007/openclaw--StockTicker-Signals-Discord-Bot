@@ -402,19 +402,24 @@ def test_embed_drops_sources_line_under_pressure_moves_to_footer():
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-async def test_narrator_sanitize_hostile_text_makes_exactly_4_calls():
-    """Total = 4 LLM calls regardless of snippet count (Pass 4 critic R1)."""
+async def test_narrator_sanitize_hostile_text_makes_exactly_3_calls():
+    """Total = 3 LLM calls (chat + brief + vault) regardless of snippet count.
+
+    #27: the searxng + sec batches were dropped (always received []), so the
+    bounded call count for this minimal input dropped from 4 to 3. The return
+    dict still carries 'searxng' and 'sec' keys (set to []).
+    """
     fake_resp = "1. summary one\n2. summary two\n3. summary three"
     with patch("consensus_engine.alerts.all_command.narrator.call_with_fallback",
                new=AsyncMock(return_value=fake_resp)) as mock_llm:
         out = await narrator.sanitize_hostile_text(
-            searxng_snippets=["a", "b", "c"],
             chat_msgs=["m1", "m2"],
             brief_msgs=["b1"],
             vault_text="prior research notes",
         )
-    assert mock_llm.await_count == 4
-    assert isinstance(out["searxng"], list)
+    assert mock_llm.await_count == 3
+    assert out["searxng"] == []
+    assert out["sec"] == []
     assert isinstance(out["chat"], list)
     assert isinstance(out["brief"], list)
     assert isinstance(out["vault"], str)
@@ -422,7 +427,7 @@ async def test_narrator_sanitize_hostile_text_makes_exactly_4_calls():
 
 @pytest.mark.asyncio
 async def test_narrator_sanitize_hostile_text_concurrent_via_gather():
-    """All 4 batches dispatched concurrently — total time ~= max(individual)."""
+    """All batches dispatched concurrently — total time ~= max(individual)."""
     call_log: list[float] = []
 
     async def slow_llm(*_args, **_kwargs):
@@ -436,7 +441,8 @@ async def test_narrator_sanitize_hostile_text_concurrent_via_gather():
         loop = asyncio.get_event_loop()
         t0 = loop.time()
         await narrator.sanitize_hostile_text(
-            ["a"], ["b"], ["c"], "d"
+            chat_msgs=["a"], brief_msgs=["b"], vault_text="c",
+            news_snippets=["d"],
         )
         elapsed = loop.time() - t0
     # If sequential, would be ~0.4s. Concurrent should be ~0.1-0.2s.

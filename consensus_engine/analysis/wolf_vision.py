@@ -136,6 +136,34 @@ def _parse_json(raw: str) -> dict | None:
     return None
 
 
+def _build_vision_config(types):
+    """Build a GenerateContentConfig with thinking disabled and output capped.
+
+    Some gemini-flash variants reject thinking_budget=0 with an InvalidArgument
+    error. If that happens we fall back to the lowest accepted positive budget
+    (32 tokens) to disable extended thinking without crashing. If even that
+    fails (e.g. model has no thinking support at all) we omit thinking_config
+    entirely so the call still succeeds.
+    """
+    max_tokens = cfg.get("wolf.vision.max_output_tokens", 512)
+    for thinking_cfg in (
+        types.ThinkingConfig(thinking_budget=0),
+        types.ThinkingConfig(thinking_budget=32),
+        None,
+    ):
+        try:
+            kwargs = {
+                "max_output_tokens": max_tokens,
+                "response_mime_type": "application/json",
+            }
+            if thinking_cfg is not None:
+                kwargs["thinking_config"] = thinking_cfg
+            return types.GenerateContentConfig(**kwargs)
+        except Exception:
+            continue
+    return None
+
+
 async def _call_gemini_image(data: bytes, mime_type: str) -> dict | None:
     """Send image bytes to Gemini with key rotation + model fallback. Returns parsed dict or None."""
     try:
@@ -143,6 +171,8 @@ async def _call_gemini_image(data: bytes, mime_type: str) -> dict | None:
     except Exception as exc:
         log.error("wolf_vision: google.genai unavailable: %s", exc)
         return None
+
+    gen_config = _build_vision_config(types)
 
     loop = asyncio.get_running_loop()
     tried_labels: set[str] = set()
@@ -156,13 +186,16 @@ async def _call_gemini_image(data: bytes, mime_type: str) -> dict | None:
             await rate_limiter.acquire("gemini")
             try:
                 def _do_call():
-                    return client.models.generate_content(
+                    call_kwargs = dict(
                         model=model,
                         contents=[
                             types.Part.from_text(text=_VISION_PROMPT),
                             types.Part.from_bytes(data=data, mime_type=mime_type),
                         ],
                     )
+                    if gen_config is not None:
+                        call_kwargs["config"] = gen_config
+                    return client.models.generate_content(**call_kwargs)
                 resp = await loop.run_in_executor(None, _do_call)
                 parsed = _parse_json(resp.text or "")
                 if parsed is not None:
@@ -232,6 +265,12 @@ def _validate(parsed: dict, recent_price: float | None = None) -> dict:
 
 async def read_chart(url: str, recent_price: float | None = None) -> dict | None:
     """Fetch + read one chart image. Returns a validated ChartRead dict or None."""
+    from consensus_engine.engine import BudgetManager
+    budget = BudgetManager()
+    if not await budget.can_consume("wolf_vision_calls", 1):
+        log.warning("wolf_vision: daily budget exhausted, skipping chart read for %s", url[:120])
+        return None
+
     data = await fetch_chart_bytes(url)
     if not data:
         return None
@@ -242,4 +281,5 @@ async def read_chart(url: str, recent_price: float | None = None) -> dict | None
         return None
     result = _validate(parsed, recent_price)
     result["source_url"] = url
+    await budget.consume("wolf_vision_calls", 1)
     return result

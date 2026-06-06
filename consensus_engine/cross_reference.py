@@ -306,8 +306,36 @@ async def score_ticker(
             _with_timeout(_timed(_get_youtube_context(ticker), metrics, "youtube_ms"), 8.0, None, "youtube"),
         )
 
+    # Cheap subtotals (no LLM) are computed BEFORE the LLM guard so the
+    # flag-gated skip below can decide whether the LLM call could ever change
+    # the alert outcome. (Reorder for #16 — math is unchanged.)
+    max_analysts = cfg.get("scoring.multipliers.max_additional_analysts", 3)
+    analyst_pts = min(len(other_analysts), max_analysts) * m.get("additional_analyst", 20)
+    news_pts = _get_catalyst_score(catalyst.catalyst_type) if (catalyst and catalyst.passed) else 0
+    sec_pts = m.get("sec_filing", 15) if sec_hit else 0
+    tech_pts = compute_technical_score(technical)
+    social_breakdown = _compute_social_breakdown(social_data)
+
+    llm_max = m.get("llm_boost_max", 15)
+
+    options_pts = m.get("options_flow", 10) if (options and options.has_unusual_activity) else 0
+
+    youtube_pts = youtube.score_boost if youtube else 0
+
     llm_score, llm_reasoning = 0.0, ""
-    if technical or catalyst:
+    # Decision-safe LLM skip (#16, flag-gated, default OFF): if even the maximum
+    # possible LLM boost cannot push base + cheap subtotals up to the alert line
+    # (medium_confidence), the LLM call cannot change the WATCHLIST/IGNORE
+    # outcome, so skip it. Flag OFF → this is always False → byte-identical.
+    skip_llm = False
+    if cfg.get("scoring.skip_llm_below_threshold", False):
+        cheap_subtotal = analyst_pts + news_pts + sec_pts + tech_pts + youtube_pts + options_pts
+        medium_confidence = cfg.get("precision_engine.thresholds.medium_confidence", 65)
+        if base_score + cheap_subtotal + llm_max < medium_confidence:
+            skip_llm = True
+            log.info("skipped LLM scorer (cannot reach threshold) for $%s", ticker)
+
+    if (technical or catalyst) and not skip_llm:
         t0 = time.perf_counter()
         try:
             async with _sem_llm:
@@ -318,19 +346,7 @@ async def score_ticker(
             log.warning("LLM scorer timed out after 15s for $%s", ticker)
         metrics["llm_score_ms"] = int((time.perf_counter() - t0) * 1000)
 
-    max_analysts = cfg.get("scoring.multipliers.max_additional_analysts", 3)
-    analyst_pts = min(len(other_analysts), max_analysts) * m.get("additional_analyst", 20)
-    news_pts = _get_catalyst_score(catalyst.catalyst_type) if (catalyst and catalyst.passed) else 0
-    sec_pts = m.get("sec_filing", 15) if sec_hit else 0
-    tech_pts = compute_technical_score(technical)
-    social_breakdown = _compute_social_breakdown(social_data)
-
-    llm_max = m.get("llm_boost_max", 15)
     llm_pts = int(llm_score / 100 * llm_max)
-
-    options_pts = m.get("options_flow", 10) if (options and options.has_unusual_activity) else 0
-
-    youtube_pts = youtube.score_boost if youtube else 0
 
     # A3: Bayesian multi-source consolidation (always runs for shadow data)
     from consensus_engine.analysis.consolidation import consolidate_for_ticker
