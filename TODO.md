@@ -149,3 +149,9 @@ When Wolf frames an actual trade, show a concise trade idea (entry → target + 
 **File:** `model-bakeoff-2026-06-04.md`
 
 Re-tested two dozen OpenRouter models for speed, smarts, and reliability and rebuilt the primary, text, and ask/mention model chains with the best cheap picks (full rankings + raw data saved for future reference).
+
+## 25. Stop cutting off long Wolf newsletters — DONE 2026-06-05
+
+**File:** `wolf-extraction-input-cap.md`
+
+Raise the limit on how much of each Wolf email the bot reads (12,000 → 40,000 characters) so trade calls in the back half of the long "Daily Wrap" editions aren't silently dropped.
