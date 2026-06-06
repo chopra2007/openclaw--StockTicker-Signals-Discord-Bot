@@ -206,6 +206,7 @@ async def _gather_all_sources(ticker: str) -> dict:
         "consensus_engine.analysis.patterns",
         "fetch_daily_candles",
         ticker,
+        cfg.get("all_command.levels.candle_range", "3mo"),
     )
 
     news_task = _scanner_call("consensus_engine.scanners.news", "news_cascade", ticker)
@@ -378,6 +379,69 @@ def _swing_candles(technical_long) -> list[dict]:
         n = min(len(highs), len(lows))
         return [{"high": float(highs[i]), "low": float(lows[i])} for i in range(n)]
     return []
+
+
+def _log_smart_levels_shadow(
+    ticker: str, spot: float, atr14: Optional[float], *,
+    crowd_anchor_count: int, tech_anchor_count: int,
+    baseline_plan: dict, shadow_plan: dict,
+) -> None:
+    """Append one JSONL line per ticker to .omc/logs/smart-levels-shadow.jsonl
+    (design §8). Shadow-only; never raises into the !all path."""
+    def _entry_method(plan: dict) -> Optional[str]:
+        for lvl in (plan.get("levels") or []):
+            if lvl.get("role") == "entry":
+                return lvl.get("method")
+        return None
+
+    def _stop_method(plan: dict) -> Optional[str]:
+        for lvl in (plan.get("levels") or []):
+            if lvl.get("role") == "stop":
+                return lvl.get("method")
+        return None
+
+    def _distinct_types(plan: dict) -> int:
+        seen: set = set()
+        for lvl in (plan.get("levels") or []):
+            for s in (lvl.get("confluence_sources") or []):
+                seen.add(s)
+        return len(seen)
+
+    try:
+        rec = {
+            "ts": time.time(),
+            "ticker": ticker,
+            "spot": round(spot, 2) if spot else None,
+            "atr14": round(atr14, 4) if atr14 else None,
+            "baseline": {
+                "rung": baseline_plan.get("rung", 3),
+                "sl": baseline_plan.get("sl"),
+                "tp1": baseline_plan.get("tp1"),
+                "conf": baseline_plan.get("confidence"),
+                "rr": baseline_plan.get("risk_reward"),
+                "reason": baseline_plan.get("suppression_reason"),
+            },
+            "shadow": {
+                "rung": shadow_plan.get("rung"),
+                "sl": shadow_plan.get("sl"),
+                "tp1": shadow_plan.get("tp1"),
+                "tp2": shadow_plan.get("tp2"),
+                "tp3": shadow_plan.get("tp3"),
+                "conf": shadow_plan.get("confidence"),
+                "rr": shadow_plan.get("risk_reward"),
+                "anchor_count_crowd": crowd_anchor_count,
+                "anchor_count_after_tech": tech_anchor_count,
+                "entry_method": _entry_method(shadow_plan),
+                "stop_method": _stop_method(shadow_plan),
+                "distinct_types": _distinct_types(shadow_plan),
+            },
+        }
+        log_path = Path(".omc/logs/smart-levels-shadow.jsonl")
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with log_path.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(rec) + "\n")
+    except Exception as exc:  # noqa: BLE001 — shadow logging must never break !all
+        log.warning("aggregator._log_smart_levels_shadow failed: %s", exc)
 
 
 def _detect_chart_pattern(swing_candles: list[dict]) -> Optional[dict]:
@@ -905,12 +969,62 @@ async def _compute_all(ticker: str, start: float) -> dict:
                 _earnings_days_for_plan = _d
         except (ValueError, TypeError):
             pass
+
+    # Smart technical-levels engine (full-audit Wave 2). Flag-gated; default OFF
+    # → this whole block is skipped and behavior is byte-identical to today.
+    _engine_live = False
+    if cfg.get("all_command.levels.technical_engine_enabled", False):
+        _candles = data["daily_candles"] if isinstance(data["daily_candles"], list) else []
+        _eng_atr = _atr14_for_plan
+        if (_eng_atr is None or _eng_atr <= 0) and _candles:
+            _eng_atr = indicators.atr(
+                [c["high"] for c in _candles], [c["low"] for c in _candles],
+                [c["close"] for c in _candles], 14)
+        # 52wk boundaries: `data["snapshot"]` defaults to None, so `or {}` (NOT
+        # .get("snapshot", {})) — and read the raw wk52_high/wk52_low keys added
+        # to snapshot.py in Wave 0. Clamp to spot when snapshot is None/missing.
+        _snap = data.get("snapshot") or {}
+        tech_anchors = levels.build_technical_anchors(
+            _candles, current_price, _eng_atr or 0.0,
+            wk52_high=_snap.get("wk52_high") or current_price,
+            wk52_low=_snap.get("wk52_low") or current_price,
+        )
+        if cfg.get("all_command.levels.technical_engine_shadow_mode", True):
+            # Shadow: compute the parallel plan, log it, DON'T change the posted plan.
+            try:
+                _baseline_plan = levels.select_trade_plan(
+                    supports, resistances, spot=current_price,
+                    atr14=_atr14_for_plan, direction=_direction_for_plan,
+                    earnings_days=_earnings_days_for_plan, engine_on=False)
+                _shadow_supports, _shadow_resist = levels.rank_anchors(
+                    levels.cluster_anchors(all_anchors + tech_anchors, 0.005),
+                    current_price, ticker=ticker)
+                _shadow_plan = levels.select_trade_plan(
+                    _shadow_supports, _shadow_resist,
+                    spot=current_price, atr14=_eng_atr,
+                    direction=_direction_for_plan,
+                    earnings_days=_earnings_days_for_plan, engine_on=True)
+                _log_smart_levels_shadow(
+                    ticker, current_price, _eng_atr,
+                    crowd_anchor_count=len(supports) + len(resistances),
+                    tech_anchor_count=len(_shadow_supports) + len(_shadow_resist),
+                    baseline_plan=_baseline_plan, shadow_plan=_shadow_plan)
+            except Exception as exc:  # noqa: BLE001 — shadow must never break !all
+                log.warning("aggregator: smart-levels shadow failed: %s", exc)
+        else:
+            # Live: merge tech anchors into the pool before rank.
+            all_anchors = levels.cluster_anchors(all_anchors + tech_anchors, 0.005)
+            supports, resistances = levels.rank_anchors(
+                all_anchors, current_price, ticker=ticker)
+            _engine_live = True
+
     trade_plan = levels.select_trade_plan(
         supports, resistances,
         spot=current_price,
         atr14=_atr14_for_plan,
         direction=_direction_for_plan,
         earnings_days=_earnings_days_for_plan,
+        engine_on=_engine_live,
     )
 
     # Structured fields.

@@ -136,6 +136,37 @@ def compute_risk_reward(current_price, sl, tp1, direction,
     return round(rr, 1)
 
 
+def compute_levels_provenance(trade_plan) -> str:
+    """Wave 2 smart-levels — one-line embed footer naming the method behind each
+    level (e.g. "entry: spot; stop: tech_sr swing-S/R x3; tp1: tech_fib ext 1.272").
+
+    Reads `trade_plan["levels"]` (populated only when the technical engine is
+    live). Returns "" when there is no provenance to show, so the caller can
+    omit the footer. Never raises.
+    """
+    if not isinstance(trade_plan, dict):
+        return ""
+    levels = trade_plan.get("levels")
+    if not levels:
+        return ""
+    parts: list[str] = []
+    for lvl in levels:
+        try:
+            role = lvl.get("role")
+            method = lvl.get("method") or ""
+            label = lvl.get("label") or ""
+            if role == "entry":
+                parts.append("entry: %s" % (label or method))
+            else:
+                tag = ("%s %s" % (method, label)).strip()
+                if lvl.get("is_filler"):
+                    tag += " (filler)"
+                parts.append("%s: %s" % (role, tag))
+        except AttributeError:
+            continue
+    return "; ".join(parts)
+
+
 def compute_relative_volume(candles, lookback: int = 20) -> Optional[float]:
     """#6 — last day's volume as a multiple of the prior `lookback`-day average
     (e.g. 1.8 renders 'Rel Vol 1.8×'). Returns None — so the embed field is

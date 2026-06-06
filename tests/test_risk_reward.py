@@ -1,6 +1,6 @@
 """Tests for #6 A3 — Risk/Reward ratio of the computed trade plan."""
 from consensus_engine.alerts.all_command.structured_fields import (
-    compute_risk_reward, StructuredFields,
+    compute_risk_reward, compute_levels_provenance, StructuredFields,
 )
 from consensus_engine.alerts.all_command import embed
 
@@ -8,6 +8,30 @@ from consensus_engine.alerts.all_command import embed
 def test_bullish_happy_path():
     # spot 100, SL 90 (risk 10), TP1 124 (reward 24) -> 2.4
     assert compute_risk_reward(100.0, 90.0, 124.0, "BULLISH") == 2.4
+
+
+# --- Wave 2 smart-levels: compute_levels_provenance --------------------------
+
+def test_levels_provenance_empty_when_no_levels():
+    assert compute_levels_provenance({"sl": 90.0}) == ""
+    assert compute_levels_provenance({"levels": None}) == ""
+    assert compute_levels_provenance(None) == ""
+
+
+def test_levels_provenance_renders_methods():
+    plan = {"levels": [
+        {"role": "entry", "price": 100.0, "method": "spot", "label": "spot"},
+        {"role": "stop", "price": 95.0, "method": "tech_sr",
+         "label": "swing-S/R x3", "is_filler": False},
+        {"role": "tp1", "price": 110.0, "method": "tech_fib",
+         "label": "ext 1.272", "is_filler": False},
+        {"role": "tp2", "price": 120.0, "method": "atr", "label": "2R", "is_filler": True},
+    ]}
+    out = compute_levels_provenance(plan)
+    assert "entry: spot" in out
+    assert "stop: tech_sr swing-S/R x3" in out
+    assert "tp1: tech_fib ext 1.272" in out
+    assert "(filler)" in out  # the ATR-filled TP2 is marked
 
 
 def test_bearish_happy_path():
