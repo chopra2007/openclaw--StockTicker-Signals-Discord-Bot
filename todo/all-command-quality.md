@@ -16,7 +16,7 @@
 >
 > Full run log: `.claude/discover/gemini-quality-all-command/pass-5-execution-log.md`
 >
-> **What REMAINS open under this umbrella** (the "menu" — none are blockers, pick per-session): market-cap floor on `!all FAKEX`, data-sparseness warning banner, options-flow / max-pain integration into the trade plan, competitor / sector-context mini-block, earnings-week-aware horizon clipping, 2-stage progressive embed, `compute_pattern_strength` for chart patterns, and the external feature audit. Architecture map + lever list below stays valid for whoever picks those up.
+> **What REMAINS open under this umbrella** (the "menu" — none are blockers, pick per-session): market-cap floor on `!all FAKEX`, data-sparseness warning banner, options-flow / max-pain integration into the trade plan, competitor / sector-context mini-block, earnings-week-aware horizon clipping, `compute_pattern_strength` for chart patterns, and the external feature audit. Architecture map + lever list below stays valid for whoever picks those up.
 
 **Layperson:** The user wants to improve what `!all <TICKER>` produces. This is intentionally broad — the framing matters because most of the visible output isn't decided by the LLM. Before any session picks this up, read the architecture map below so you don't waste effort "fixing" things in the wrong place.
 
@@ -89,7 +89,7 @@ The 2026-05-16 isolation test showed all 5 chain models produce the same trade p
 - No options-flow integration in the trade plan — engine fetches options data (used in scoring) but the TPs don't incorporate max-pain or large-strike concentration.
 - No competitor-context — for big tickers like AMZN, the narrative doesn't relate to AAPL/MSFT/GOOGL moves. Could pull a "sector context" mini-block.
 - No earnings-week-aware horizon — if earnings is in 3 days, current horizon often spans the print; could clip horizon to T-1.
-- Cache is binary (hit/miss). On miss the user waits 60-180s with no intermediate progress. Could push a 2-stage embed: structured fields in 5s, narrative when ready.
+- Cache is binary (hit/miss). On miss the user waits 60-180s with no intermediate progress.
 - Chart-pattern detection runs but only feeds the LLM. Could add pattern_strength to the visible embed.
 
 ## Existing prior art
@@ -150,7 +150,7 @@ Two more levers + three correctness fixes shipped (suite 1433 green, 0 regressio
 - **R:R field** (commit `4a80547`) — `structured_fields.compute_risk_reward`: reward-per-1.0-risk from the plan's SL/TP1 vs spot, direction-aware, rendered inline `R:R 1:X`. **Omitted on ATR-fallback (low-confidence) plans** so synthetic levels can't produce an authoritative-looking but meaningless ratio. (NVDA/AMD currently hit atr_fallback → R:R correctly hidden; verified positive render via `build_embed` test.)
 - **3 fixes** (commit `6a2c5b9`): BUG-1 earnings-days tz (utcnow→local date — killed a 7h/day trade-plan-vs-embed disagreement); BUG-3 scanner-failure logs debug→warning (no more silent source drops); BUG-4 footer source count now includes youtube_visual + recent_earnings.
 
-Still OPEN — menu has more levers. Top remaining cheap/ubiquitous (yfinance, pre-flight GREEN): earnings track record (avg ±% post-ER move), 52wk-high/low distance, relative volume, P/C-OI ratio. Biggest optimization (flagged, NOT done — too risky for one session): the synth model-chain walks serially per model → 60–240s tail; race/short-timeout it or post a 2-stage embed.
+Still OPEN — menu has more levers. Top remaining cheap/ubiquitous (yfinance, pre-flight GREEN): earnings track record (avg ±% post-ER move), 52wk-high/low distance, relative volume, P/C-OI ratio. Biggest optimization (flagged, NOT done — too risky for one session): the synth model-chain walks serially per model → 60–240s tail; race/short-timeout it.
 
 ## Update 2026-06-01 (run `all-quality-cheap-levers`) — branch `feat/allcmd`, commit `a178cf7`, NOT live yet
 

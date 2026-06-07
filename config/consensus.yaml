@@ -580,7 +580,6 @@ all_command:
   sparse_banner:
     enabled: false                    # #22 low-coverage warning banner
     max_sources: 3
-  progressive_embed_enabled: false    # #23 interim numbers embed, edit-in-place after synthesis
   risk_price_gate_strict: false       # #24 widen risk-section price gate beyond the stop literal
   horizon_realized_vol: false         # #25 swing horizon uses realized vol, not raw ATR
   synthesis_prompt_trim: false        # #15 collapse repeated anti-fabrication prose (A/B before go-live)

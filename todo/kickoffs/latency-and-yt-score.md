@@ -39,8 +39,7 @@ External paths isolate correctly; **NEVER** use the Agent tool's `isolation:"wor
 
 discover should research and weigh the options in Pass 2/3, then build the best by impact × risk:
 - (a) **race** the chain models concurrently, take the first good response;
-- (b) **short per-model timeout** + fast failover;
-- (c) **2-stage embed** — post the deterministic fields (~5s), then edit in the narrative when ready.
+- (b) **short per-model timeout** + fast failover.
 
 **HARD REQUIREMENT — put this in the plan's verification checklist:** faster WITHOUT quality loss. Measure real `!all` wall-clock before vs after on 3 tickers (e.g. NVDA / AMD / a mid-cap), AND confirm the narrative is equal-or-better (Layer-C blind-compare vs Gemini, or the chain probe). Speed that degrades the writeup FAILS the task.
 

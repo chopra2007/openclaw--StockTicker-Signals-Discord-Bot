@@ -1,8 +1,11 @@
 # Duplicate `intervals:` block in config/consensus.yaml — silently drops 4 keys
 
-**Status:** OPEN — needs a one-line user decision (merge vs delete). Do NOT fix without sign-off (a merge is behavior-changing).
+**Status:** ✅ FIXED 2026-06-06 (user said "fix the bug") — commit ecdb6f4. Collapsed into ONE `intervals:`
+block. Verified the merge was behavior-NEUTRAL after all: `social_scan`/`reddit_trend`/`state_prune` are
+read NOWHERE in `consensus_engine/`, and `cross_reference_timeout`'s code default (120) already equals its
+config value — so "restoring" them changed nothing. No duplicate top-level keys remain; engine boots 6/6.
 **Created:** 2026-06-06 (Wave 8 / NF-1)
-**Pre-existing:** yes — this is in HEAD, not introduced by the audit run.
+**Pre-existing:** yes — this was in HEAD, not introduced by the audit run.
 
 ## What's wrong (plain)
 
