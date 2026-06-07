@@ -35,8 +35,19 @@ def test_max_tier(input_types, expected):
 
 
 def test_source_tier_order_is_stable():
-    """Order matters for cluster merging — guard against accidental reorder."""
-    assert SOURCE_TIER_ORDER == ("yt_curated", "swing", "yt", "web")
+    """Order matters for cluster merging — guard against accidental reorder.
+
+    full-audit Wave 2 inserted the smart-levels tech_* tiers BETWEEN swing and
+    yt (design §2.2), preserving the relative order of the pre-existing types.
+    """
+    assert SOURCE_TIER_ORDER == (
+        "yt_curated", "swing",
+        "tech_sr", "tech_vp", "tech_vpoc", "tech_zone", "tech_fib",
+        "yt", "web",
+    )
+    # the pre-existing types keep their relative order (the real invariant)
+    o = SOURCE_TIER_ORDER
+    assert o.index("yt_curated") < o.index("swing") < o.index("yt") < o.index("web")
 
 
 # ---------------------------------------------------------------------------

@@ -61,10 +61,20 @@ def test_distance_penalty_handles_zero_or_none_spot():
 # ---------------------------------------------------------------------------
 
 def test_source_tier_multiplier_table():
-    """Locked values per final-plan §2."""
+    """Locked values per final-plan §2 + full-audit Wave 2 tech_* tiers.
+
+    The pre-existing tiers keep their exact multipliers; the smart-levels tech_*
+    tiers are added (a clustered multi-touch pivot ~ a curated level; a lone fib
+    is the weakest technical).
+    """
     assert SCORE_V2_TIER_MULTIPLIERS == {
         "yt_curated": 1.0,
         "swing": 0.7,
+        "tech_sr": 0.75,
+        "tech_vpoc": 0.70,
+        "tech_vp": 0.65,
+        "tech_zone": 0.6,
+        "tech_fib": 0.55,
         "yt": 0.5,
         "web": 0.2,
     }
