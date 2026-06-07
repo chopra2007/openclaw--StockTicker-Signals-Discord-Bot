@@ -560,7 +560,22 @@ def _build_constraints_block(swing_v2: bool) -> str:
     "Risks & mitigants" sections were merged into the single
     `## Risk Considerations` section below (they overlapped, restated the stop
     price, and read as generic boilerplate).
+
+    #15 (flag `all_command.synthesis_prompt_trim`, default OFF): the full prose
+    repeats the "cite verbatim / don't invent" anti-fabrication rule ~4×. When
+    the flag is ON, return a trimmed block that states that rule ONCE (canonical)
+    and keeps every DISTINCT rule. Flag OFF → byte-identical full prompt.
+    This is A/B-able + reversible; the orchestrator runs the fabrication A/B on
+    free models BEFORE go-live (free models fabricate without this prose).
     """
+    from consensus_engine import config as _cfg
+    if bool(_cfg.get("all_command.synthesis_prompt_trim", False)):
+        return _build_constraints_block_trimmed(swing_v2)
+    return _build_constraints_block_full(swing_v2)
+
+
+def _build_constraints_block_full(swing_v2: bool) -> str:
+    """Full constraints prose (the historical, byte-identical default)."""
     trade_plan_rows = _TRADE_PLAN_V2_ROWS if swing_v2 else _TRADE_PLAN_V0_ROWS
     # Commit 17: anti-fabrication clause for the Expected Move row.
     # Gated to swing_v2 only because v0 doesn't have an Expected Move row.
@@ -726,6 +741,137 @@ def _build_constraints_block(swing_v2: bool) -> str:
         "- Do not introduce price levels not present in the COMPUTED SIGNAL block.\n"
         "- No @everyone or @here.\n"
         "- No markdown links — write source names plainly."
+    )
+
+
+# ANTI-FABRICATION (canonical) — stated ONCE and referenced by the trimmed
+# block instead of being restated ~4× as in the full prose. Keeps every
+# DISTINCT forbidden-pattern keyword so the auto-reject behavior is identical.
+_ANTI_FABRICATION_CANONICAL = (
+    "ANTI-FABRICATION (applies to EVERY section): every partner name, product "
+    "name, codename, date, dollar amount and percentage MUST appear VERBATIM "
+    "in an EVIDENCE block or COMPUTED SIGNAL — never invent or re-spell. If no "
+    "grounded specific exists, OMIT the claim and write generic language. "
+    "Auto-REJECT these FORBIDDEN patterns: 'Projected X', 'Expected "
+    "partnership with [company]', 'industry chatter indicates', 'codenamed "
+    "[made-up name]', 'estimated N% [no source]'. Copy partner names (e.g. "
+    "'Meta', 'Oracle', 'Google Cloud') and product names (e.g. 'MI450', "
+    "'Blackwell', 'Rubin') exactly as they appear.\n"
+)
+
+
+def _build_constraints_block_trimmed(swing_v2: bool) -> str:
+    """#15 trimmed constraints block (flag `all_command.synthesis_prompt_trim`).
+
+    Collapses the ~4× repeated 'cite verbatim / don't invent' restatements into
+    the single canonical `_ANTI_FABRICATION_CANONICAL` statement, referenced
+    once. Every DISTINCT rule (section order, catalyst definition + rejects,
+    risk priority + NO-PRICE-LEVELS + evidence buckets + BANNED list, trade
+    table, expected-move clause, provenance/SEC-exception rules) is preserved.
+    Targets ~30-40% off the full constraints block.
+    """
+    trade_plan_rows = _TRADE_PLAN_V2_ROWS if swing_v2 else _TRADE_PLAN_V0_ROWS
+    expected_move_clause = (
+        "    Expected Move Rationale: cite COMPUTED "
+        "SIGNAL.expected_move_band's parenthetical derivation VERBATIM (e.g. "
+        "'0.7×ATR×√5') OR say 'over the swing horizon, ATR(14)-based'. Never "
+        "'ATR × 1.5'/'≈2×ATR' — inventions.\n"
+    ) if swing_v2 else ""
+    return (
+        "CONSTRAINTS:\n"
+        + _ANTI_FABRICATION_CANONICAL +
+        "- VERY FIRST line MUST be a one-sentence thesis prefixed exactly "
+        "`**TL;DR:**` (e.g. `**TL;DR:** Long $NVDA above $920, target $980, "
+        "stop $895 — reclaim of post-ER flat base.`); downstream rendering "
+        "extracts it.\n"
+        "- After TL;DR, use these EXACT sections in order:\n"
+        "  1. Opening thesis (2-3 sentences). FIRST sentence = current price "
+        "from COMPUTED SIGNAL.current_price, then direction + headline. If a "
+        "CHART PATTERN block is present, name the pattern + its key_level ('a "
+        "bull flag with breakout above $130'). Include ONE sentence exactly: "
+        "`Market view: <consensus take>. Our view: <bot's read>. Catalyst: "
+        "<what makes the difference>.` The `Our view:` clause MUST state a "
+        "CAUSAL mechanism (`Driven by X, Y leads to Z` / `Because of X, Y → "
+        "Z`) — generic 'modest upside is possible if...' is REJECTED.\n"
+        "  2. A `## Catalysts` header + ≥2 bullets (`* …`). A CATALYST is a "
+        "specific stock-moving business event (partnership, product launch, "
+        "supply-chain deal, regulatory date FDA/NHTSA/SEC, M&A, analyst day, "
+        "contract win, earnings date, guidance). REJECTED as catalysts: (a) "
+        "options-expiry dates, (b) ATR/technical metrics, (c) past earnings "
+        "recap (goes in the opening), (d) backward-looking 'Q1 beat', (e) "
+        "generic 'momentum'/'sentiment'. Each bullet = a specific dated event "
+        "(or 'expected H2 2026'/'by EoY') + a $ or % impact where possible. "
+        "SOURCING (priority): (1) if COMPUTED SIGNAL.extracted_catalysts is "
+        "non-empty, ≥2 bullets come from it (copy the `headline` partner name "
+        "VERBATIM, paraphrase `summary` to one sentence with a stock "
+        "consequence); (2) else one numbered EXTRACTED_CATALYSTS_RESEARCH item "
+        "per bullet; (3) else NEWS/SEC, cite by ID. Surface any EXTRACTED item "
+        "contradicted by NEWS/YOUTUBE ('item #3 says X by Q3; NEWS row 2 says "
+        "delayed').\n"
+        "  3. A `## Risk Considerations` header — ONE risk section (do NOT emit "
+        "the old 'What could go wrong'/'Risks & mitigants' headings). EXACTLY "
+        "2-3 bullets (`* …`) in FIXED priority: (1) the dated `[macro_risk]` "
+        "NEWS bullet when present (always FIRST); (2) the single strongest "
+        "positioning/setup risk (prefer real put-flow or genuine overextension "
+        "over a weak squeeze); (3) OPTIONALLY a dated binary-event line ONLY "
+        "when a catalyst falls inside the trade window ('expectations stretched "
+        "→ outsized downside on any miss'). OMIT any slot with no evidence — 2 "
+        "strong bullets beat 3 padded. Each bullet = a specific, non-obvious "
+        "risk to THIS setup on THIS name in THIS window. Strict rules:\n"
+        "     (a) NO PRICE LEVELS — any price level is BANNED here. If a bullet "
+        "contains a `$`, 'stop'/'buy zone', or a standalone share-price number, "
+        "DELETE it and write a different risk ('a close below <stop> "
+        "invalidates the thesis' is BANNED — the trader sees the stop in the "
+        "Trade Plan).\n"
+        "     (b) Each bullet = a NAMED driver + a specific number/date/% + an "
+        "inline `[evidence:N]` citation to a real EVIDENCE row (news_id, "
+        "sec_id, twitter_id, yt_evidence index). Draw ONLY from these buckets, "
+        "ONLY with supporting evidence — OMIT any with none, never pad:\n"
+        "        - Macro/regulatory/geopolitical: a named rule, ban, export "
+        "restriction, or demand shift from a NEWS row + its quantified impact "
+        "(`<named action> per [evidence:N] → <impact>`). If ANY NEWS row is "
+        "`[macro_risk]`, the FIRST bullet MUST be from it — macro OUTRANKS "
+        "positioning/technical/sector.\n"
+        "        - Event/binary: a dated catalyst INSIDE the trade window from "
+        "COMPUTED SIGNAL (earnings_date / next_catalyst_days) + expected move "
+        "(`<event> on <date> (<N> days out); expected move ±<X>%`). Write "
+        "'expected move', not 'options imply', unless options-derived.\n"
+        "        - Positioning/crowding/overextension: `short interest <X>% of "
+        "float → squeeze/unwind risk` ONLY if COMPUTED SIGNAL carries "
+        "short_interest_pct. Otherwise an overextension bullet from COMPUTED "
+        "SIGNAL (recent_run_pct / rsi / rvol / wk52_high_pct): `up "
+        "<recent_run_pct>% with RSI <rsi> <N>% off the 52-wk high → pullback "
+        "risk`. Use ONLY fields present.\n"
+        "        - Sector/correlation: a peer relative-strength lag "
+        "(peer_strength) or a sector peer's dated NEWS event.\n"
+        "        - Company-specific: a named SEC/insider/options-flow fact "
+        "(Form-4 NOTABLE sell, large PUT flow) with its figure.\n"
+        "     (c) Acknowledge the COMPUTED SIGNAL direction: if BULLISH, every "
+        "risk hurts a LONG — do NOT flip bearish.\n"
+        "     (d) BANNED (auto-reject): generic macro ('a recession could hurt "
+        "the stock'), 'if they miss earnings the stock drops', unanchored "
+        "'regulatory changes could impact'/'competition is intensifying' with "
+        "no named rule/competitor/date, 'volatility/sentiment shift' with no "
+        "named driver, any disclaimer ('not financial advice'). If evidence is "
+        "thin, a SHORT 2-bullet section is CORRECT.\n"
+        "  4. A `## Trade Plan` header + a markdown TABLE with columns "
+        "`Parameter | Level | Rationale`, rows in this exact order from "
+        "COMPUTED SIGNAL:\n"
+        f"{trade_plan_rows}"
+        "    If COMPUTED SIGNAL.earnings_date is non-null, add a sentence after "
+        "the table naming the date as the binary catalyst.\n"
+        f"{expected_move_clause}"
+        "- Cite source TYPES when relevant ('news', 'twitter', 'curated "
+        "youtube call', 'options flow', 'SEC filing', 'earnings recap'). Do NOT "
+        "name analysts, channels, creators, or handles — provenance is not "
+        "proof; 'analysts are calling X'/'[N] channels are bullish' are "
+        "REJECTED. State each fact directly, not who said it.\n"
+        "- EXCEPTION: SEC Form 4 insider names ARE permitted — state by name + "
+        "title ('CEO Jane Smith bought 10,000 shares'); factual SEC "
+        "disclosures, not analyst provenance.\n"
+        "- Do not contradict the COMPUTED SIGNAL. Do not introduce price levels "
+        "not in the COMPUTED SIGNAL block. No @everyone or @here. No markdown "
+        "links — write source names plainly."
     )
 
 
@@ -1108,7 +1254,31 @@ async def synthesize_narrative(
     # the free-model chain (live NVDA restated the stop 6×), so re-prompt once if
     # the stop-loss price literal leaks into the merged risk section.
     _stop_price = getattr(structured, "sl", None)
-    _risk_violations = _qb.risk_section_violations(raw, _stop_price)
+    # #24 strict price gate (flag all_command.risk_price_gate_strict, default
+    # off). When on, the gate also catches leaked entry/target/buy-zone prices,
+    # not just the stop literal. Flag off → byte-identical to the stop-only check.
+    _risk_gate_strict = bool(
+        _cfg.get("all_command.risk_price_gate_strict", False)
+    )
+    _current_price = getattr(structured, "current_price", None)
+    _price_levels = [
+        v for v in (
+            _stop_price,
+            getattr(structured, "tp1", None),
+            getattr(structured, "tp2", None),
+            getattr(structured, "tp3", None),
+            getattr(structured, "buy_zone_low", None),
+            getattr(structured, "buy_zone_high", None),
+            _current_price,
+        )
+        if v is not None
+    ]
+    _risk_violations = _qb.risk_section_violations(
+        raw, _stop_price,
+        price_levels=_price_levels,
+        current_price=_current_price,
+        strict=_risk_gate_strict,
+    )
     if _risk_violations:
         log.warning(
             "narrator: risk-section violations %s — re-prompting once",
@@ -1136,7 +1306,12 @@ async def synthesize_narrative(
         # A stubborn free-tier model can leak the stop price twice; adopting an
         # unchecked retry let a still-bad output through. Keep the ORIGINAL raw
         # if the retry still violates (or is empty).
-        if retried_risk and not _qb.risk_section_violations(retried_risk, _stop_price):
+        if retried_risk and not _qb.risk_section_violations(
+            retried_risk, _stop_price,
+            price_levels=_price_levels,
+            current_price=_current_price,
+            strict=_risk_gate_strict,
+        ):
             raw = retried_risk
         else:
             log.warning(

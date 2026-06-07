@@ -568,12 +568,14 @@ all_command:
     ttl_seconds: 60        # hard-expire even during Groq outage
   # ---- full-audit-2026-06-06 additions (all default-OFF / behavior-preserving) ----
   market_cap_gate_enabled: false      # #1 reject sub-$100M / fake tickers on !all
+  chart_pattern_field_enabled: false  # #21 surface detected chart pattern as an embed field
   sparse_banner:
     enabled: false                    # #22 low-coverage warning banner
     max_sources: 3
   progressive_embed_enabled: false    # #23 interim numbers embed, edit-in-place after synthesis
   risk_price_gate_strict: false       # #24 widen risk-section price gate beyond the stop literal
   horizon_realized_vol: false         # #25 swing horizon uses realized vol, not raw ATR
+  synthesis_prompt_trim: false        # #15 collapse repeated anti-fabrication prose (A/B before go-live)
   wolf_confluence_field_enabled: false  # #7 surface Wolf+N-sources-agree in !all
   levels:                             # smart technical-levels engine (default OFF, shadow-first)
     sl_max_drawdown_pct: 0.20         # existing code default, now explicit

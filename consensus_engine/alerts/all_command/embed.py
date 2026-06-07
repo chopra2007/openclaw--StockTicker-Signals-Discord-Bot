@@ -623,6 +623,36 @@ def _build_youtube_links_field(yt_signals: list[dict], ticker: str = "") -> Opti
     }
 
 
+def _build_chart_pattern_field(chart_pattern: Optional[dict]) -> Optional[dict]:
+    """#21 — render the detected chart pattern (name + key level + confidence)
+    as a Discord embed field. Returns None — so the field is omitted — when
+    there is no pattern or confidence is below 0.5.
+
+    Input shape: {"pattern": "bull_flag", "confidence": 0.72, "key_level": 130.5}
+    Output value example: "Bull flag — key $130.50 (0.72)".
+    """
+    if not isinstance(chart_pattern, dict):
+        return None
+    conf = chart_pattern.get("confidence")
+    try:
+        conf_f = float(conf)
+    except (TypeError, ValueError):
+        return None
+    if conf_f < 0.5:
+        return None
+    name = chart_pattern.get("pattern")
+    if not isinstance(name, str) or not name.strip():
+        return None
+    label = name.replace("_", " ").strip().title()
+    key_level = chart_pattern.get("key_level")
+    key_str = _format_price(key_level)
+    if key_str != "—":
+        value = f"{label} — key {key_str} ({conf_f:.2f})"
+    else:
+        value = f"{label} ({conf_f:.2f})"
+    return {"name": "Pattern", "value": value, "inline": True}
+
+
 def build_embed(
     ticker: str,
     structured: StructuredFields,
@@ -631,6 +661,7 @@ def build_embed(
     sources_used: list[str],
     cache_age_seconds: Optional[int],
     yt_signals: Optional[list[dict]] = None,
+    chart_pattern: Optional[dict] = None,
 ) -> dict:
     """Return a Discord embed payload dict for the !all command."""
     direction = getattr(structured, "direction", "") or ""
@@ -654,6 +685,23 @@ def build_embed(
         if sources else ""
     )
 
+    # #22 (full-audit-2026-06-06) — low-coverage caveat. When the number of
+    # SURFACED sources is at/under the threshold, prepend a one-line warning
+    # so a thin-data answer is visibly flagged. Default-OFF flag.
+    from consensus_engine import config as _cfg_banner
+    banner_line = ""
+    if bool(_cfg_banner.get("all_command.sparse_banner.enabled", False)):
+        _max_src = _cfg_banner.get("all_command.sparse_banner.max_sources", 3)
+        try:
+            _max_src_i = int(_max_src)
+        except (TypeError, ValueError):
+            _max_src_i = 3
+        if len(sources) <= _max_src_i:
+            banner_line = (
+                f"⚠️ Low coverage — only {len(sources)} sources; "
+                f"levels may be ATR-derived."
+            )
+
     # Ship 2 M1 — pull TL;DR sentence (if narrator emitted it) for the
     # first description line; strip it from the body so it doesn't appear
     # twice. When missing, fall back to the existing direction-line header.
@@ -668,6 +716,8 @@ def build_embed(
 
     def _assemble(narrative_text: str, include_sources: bool) -> str:
         chunks: list[str] = []
+        if banner_line:
+            chunks.append(banner_line)
         if tldr_line:
             chunks.append(tldr_line)
         chunks.append(direction_line)
@@ -748,6 +798,14 @@ def build_embed(
     yt_field = _build_youtube_links_field(yt_signals or [], ticker=ticker)
     if yt_field is not None:
         fields.append(yt_field)
+
+    # #21 (full-audit-2026-06-06) — surface the detected chart pattern as its
+    # own field. Default-OFF flag; only render when confidence >= 0.5 so a
+    # weak/noisy detection doesn't crowd the embed.
+    if bool(_cfg.get("all_command.chart_pattern_field_enabled", False)):
+        cp_field = _build_chart_pattern_field(chart_pattern)
+        if cp_field is not None:
+            fields.append(cp_field)
 
     sources_count = len(sources)
     footer_chunks: list[str] = []

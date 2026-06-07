@@ -10,6 +10,7 @@ expiry, else "TBD".
 from __future__ import annotations
 
 import math
+import statistics
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Optional
@@ -199,6 +200,52 @@ def compute_relative_volume(candles, lookback: int = 20) -> Optional[float]:
     return round(last_vol / avg, 2)
 
 
+def compute_realized_daily_move(candles, lookback: int = 10) -> Optional[float]:
+    """#25 (full-audit-2026-06-06) — realized daily price move in dollars,
+    estimated from the recent close-to-close volatility.
+
+    Returns `stdev(log returns of CLOSES over the last `lookback` returns)
+    × last close` — i.e. a typical one-day dollar swing. Returns None — so the
+    caller falls back to the ATR-only horizon — when not computable:
+      * candles isn't a list,
+      * fewer than `lookback + 1` candles with a numeric, positive close,
+      * the close series has no variance (stdev == 0) or last close <= 0.
+
+    Candle dicts have NO 'open' key, so this uses 'close' only. Tolerates
+    missing/None/NaN closes by dropping them before counting.
+    """
+    if not isinstance(candles, list):
+        return None
+    closes: list[float] = []
+    for c in candles:
+        if not isinstance(c, dict):
+            continue
+        v = c.get("close")
+        try:
+            f = float(v)
+        except (TypeError, ValueError):
+            continue
+        if math.isnan(f) or math.isinf(f) or f <= 0:
+            continue
+        closes.append(f)
+    if len(closes) < lookback + 1:
+        return None
+    window = closes[-(lookback + 1):]
+    log_returns = [
+        math.log(window[i] / window[i - 1]) for i in range(1, len(window))
+    ]
+    if len(log_returns) < 2:
+        return None
+    try:
+        sigma = statistics.stdev(log_returns)
+    except statistics.StatisticsError:
+        return None
+    last_close = closes[-1]
+    if sigma <= 0 or last_close <= 0:
+        return None
+    return round(sigma * last_close, 4)
+
+
 def compute_confidence_label(
     final_score: float,
     threshold: Optional[float] = None,
@@ -332,6 +379,7 @@ def compute_swing_horizon(
     tp1: Optional[float],
     atr14: Optional[float],
     earnings_date: Optional[str] = None,
+    realized_daily_move: Optional[float] = None,
 ) -> tuple[Optional[int], Optional[tuple], Optional[str]]:
     """Estimate days-to-TP1 and a ±25% band around that estimate.
 
@@ -360,7 +408,26 @@ def compute_swing_horizon(
     if distance / spot_f < _HORIZON_GAP_UP_GUARD_PCT:
         return 0, (0, 0), "at target"
 
-    raw_days = distance / (_HORIZON_DAILY_SLIPPAGE * atr_f)
+    # #25 (full-audit-2026-06-06) — blend realized close-to-close volatility
+    # into the per-day slippage denominator. Default-OFF flag. When on AND a
+    # positive realized move is supplied, use max(realized, 0.7×ATR) so a
+    # calm tape (realized < ATR) keeps the ATR floor while a volatile tape
+    # (realized > ATR) shortens the horizon. Flag OFF or no realized move →
+    # the original ATR-only denominator (byte-identical).
+    atr_slippage = _HORIZON_DAILY_SLIPPAGE * atr_f
+    daily_slippage = atr_slippage
+    if (
+        cfg.get("all_command.horizon_realized_vol", False)
+        and realized_daily_move is not None
+    ):
+        try:
+            rdm = float(realized_daily_move)
+        except (TypeError, ValueError):
+            rdm = 0.0
+        if rdm > 0:
+            daily_slippage = max(rdm, atr_slippage)
+
+    raw_days = distance / daily_slippage
     est_days = max(1, int(round(raw_days)))
 
     # TODO #12 — apply swing floor unless the catalyst is intraday.

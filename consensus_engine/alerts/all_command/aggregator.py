@@ -38,7 +38,10 @@ from consensus_engine.alerts.discord import (
     send_command_reply,
 )
 from consensus_engine.utils.rate_limiter import rate_limiter
-from consensus_engine.utils.tickers import is_valid_ticker_format
+from consensus_engine.utils.tickers import (
+    is_valid_ticker_format,
+    validate_ticker_market_cap,
+)
 from consensus_engine.analysis import indicators  # smart-levels engine (full-audit Wave 2)
 
 log = logging.getLogger("consensus_engine.alerts.all_command.aggregator")
@@ -46,6 +49,10 @@ log = logging.getLogger("consensus_engine.alerts.all_command.aggregator")
 _DEADLINE_SECONDS = 160.0
 _GAP_FILL_BUDGET = 20.0
 _SYNTHESIS_MIN_BUDGET = 10.0
+# #1 (full-audit-2026-06-06) — index ETFs report a 0-market-cap Finnhub
+# profile, so the market-cap gate must whitelist them or it would reject
+# legitimate broad-market tickers.
+_MARKET_CAP_GATE_WHITELIST = frozenset({"SPY", "QQQ", "IWM", "DIA"})
 _PARITY_LOG_PATH = Path(
     "/home/openclaw/.openclaw/workspace"
     "/.claude/discover/discord-bot-improvements/parity-results.jsonl"
@@ -1097,9 +1104,16 @@ async def _compute_all(ticker: str, start: float) -> dict:
             earnings_iso, data["options_unusual"], extra_events=nasdaq_events,
         )
     )
+    # #25 (full-audit-2026-06-06) — realized close-to-close daily move, blended
+    # into the swing-horizon denominator when the flag is on. None (the
+    # default) keeps the ATR-only horizon.
+    _realized_daily_move = structured_fields.compute_realized_daily_move(
+        data.get("daily_candles") if isinstance(data.get("daily_candles"), list) else []
+    )
     swing_horizon_days, swing_horizon_band, _swing_note = (
         structured_fields.compute_swing_horizon(
             current_price, tp1, atr14, earnings_iso,
+            realized_daily_move=_realized_daily_move,
         )
     )
     expected_move_typical, expected_move_high_vol, magnitude_band_label = (
@@ -1266,6 +1280,7 @@ async def _compute_all(ticker: str, start: float) -> dict:
         sources_used=sources_surfaced,
         cache_age_seconds=None,
         yt_signals=data["yt_signals"] if isinstance(data["yt_signals"], list) else None,
+        chart_pattern=data.get("chart_pattern"),
     )
     anchors_used: list[levels.Anchor] = list(supports[:6]) + list(resistances[:6])
     vault_md = vault_writer.render_all_command_markdown(
@@ -1340,6 +1355,25 @@ async def handle_all(
             f"Invalid ticker `{ticker}`.",
         )
         return
+
+    # #1 (full-audit-2026-06-06) — reject fake / sub-$100M micro-cap tickers
+    # before running the pipeline. Default-OFF flag. Index ETFs report a
+    # 0-market-cap Finnhub profile, so whitelist the common ones. Note:
+    # validate_ticker_market_cap returns False when the Finnhub key is absent
+    # — that's why the gate is off by default.
+    if cfg.get("all_command.market_cap_gate_enabled", False):
+        if ticker.upper() not in _MARKET_CAP_GATE_WHITELIST:
+            if not await validate_ticker_market_cap(ticker):
+                log.info(
+                    "aggregator.handle_all: $%s rejected by market-cap gate",
+                    ticker,
+                )
+                await send_command_reply(
+                    channel_id, message_id,
+                    f"`${ticker}` isn't a tracked stock "
+                    f"(unknown or under the $100M size floor).",
+                )
+                return
 
     await send_command_reply(
         channel_id, message_id, f"Analyzing `${ticker}`...",

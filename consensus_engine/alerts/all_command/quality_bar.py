@@ -139,8 +139,27 @@ REQUIRED_SECTION_TOKENS = (
 )
 
 
+# A `$NN.NN` / `$N,NNN` dollar-magnitude token (with optional thousands commas
+# and optional decimals). Used by the strict price gate to catch ANY leaked
+# share-price level (entry / target / buy-zone), not just the stop literal.
+_DOLLAR_MAGNITUDE_RE = re.compile(r"\$\s?\d{1,3}(?:,\d{3})*(?:\.\d+)?\b")
+
+# A bare number that could be a share price: 1-4 leading digits, optional
+# thousands comma, optional decimals. Matched only after %, years, and
+# [evidence:N] tags are masked out, then proximity-tested against current_price.
+_BARE_NUMBER_RE = re.compile(r"\b\d{1,3}(?:,\d{3})*(?:\.\d+)?\b")
+
+# Strict-gate proximity band: a bare number within ±30% of current_price is
+# treated as a leaked share-price level (entry / target / buy-zone).
+_PRICE_PROXIMITY_PCT = 0.30
+
+
 def risk_section_violations(
-    narrative: str, stop_price: Optional[object] = None
+    narrative: str,
+    stop_price: Optional[object] = None,
+    price_levels: Optional[list[float]] = None,
+    current_price: Optional[float] = None,
+    strict: bool = False,
 ) -> list[str]:
     """all-risk-section (Feature B) — content-rule violations INSIDE the merged
     `## Risk Considerations` section.
@@ -152,7 +171,17 @@ def risk_section_violations(
     hard check that backs the prompt: `narrator.synthesize_narrative` re-prompts
     once when this returns a non-empty list.
 
-    Currently detects: the stop-loss price literal appearing inside the section.
+    Default mode (strict=False): detects ONLY the stop-loss price literal
+    appearing inside the section — byte-identical to the historical behavior.
+
+    Strict mode (#24, gated on `all_command.risk_price_gate_strict`): ALSO
+    flags any leaked entry / target / buy-zone share-price level inside the
+    section. A leak is either (a) a `$NN.NN` / `$N,NNN` dollar-magnitude token,
+    or (b) a bare number within ±30% of `current_price`. To avoid
+    false-positives, percentages (`12%`), 4-digit years (`2026`), and
+    `[evidence:N]` citation tags are masked out before the bare-number scan.
+    `price_levels` (sl, tp1/2/3, buy-zone bounds, current_price) is accepted
+    for context/future use; the scan keys off the regex + proximity band.
     """
     if not narrative:
         return []
@@ -184,6 +213,54 @@ def risk_section_violations(
                     f"stop-loss price {c} restated inside Risk Considerations"
                 )
                 break
+
+    if not strict:
+        return violations
+
+    # Strict gate (#24): catch any OTHER leaked share-price level (entry /
+    # target / buy-zone) — not just the stop literal already handled above.
+
+    # (a) Explicit `$NN.NN` / `$N,NNN` tokens are share prices by construction
+    # (the prompt never uses `$` for a percentage). Any one in the section is a
+    # leak, unless it's the stop literal already reported above.
+    dollar_hit = _DOLLAR_MAGNITUDE_RE.search(section)
+    if dollar_hit and not any("stop-loss price" in v for v in violations):
+        violations.append(
+            f"price level {dollar_hit.group(0).strip()} restated inside "
+            "Risk Considerations"
+        )
+
+    # (b) Bare number within ±30% of current_price. Mask out the tokens that
+    # legitimately appear in a clean risk bullet so they can't false-positive:
+    #   - percentages          12%        -> a number followed by %
+    #   - [evidence:N] tags     [evidence:3]
+    #   - 4-digit years         2024..2099
+    if (
+        current_price is not None
+        and not any("price level" in v or "stop-loss price" in v for v in violations)
+    ):
+        try:
+            cp = float(current_price)
+        except (TypeError, ValueError):
+            cp = 0.0
+        if cp > 0:
+            masked = re.sub(r"\d+(?:\.\d+)?\s?%", " ", section)        # percentages
+            masked = re.sub(r"\[evidence:\d+\]", " ", masked)          # citations
+            masked = re.sub(r"\b(?:19|20)\d{2}\b", " ", masked)        # years
+            lo = cp * (1.0 - _PRICE_PROXIMITY_PCT)
+            hi = cp * (1.0 + _PRICE_PROXIMITY_PCT)
+            for nm in _BARE_NUMBER_RE.finditer(masked):
+                try:
+                    val = float(nm.group(0).replace(",", ""))
+                except ValueError:
+                    continue
+                if lo <= val <= hi:
+                    violations.append(
+                        f"price level {nm.group(0)} (near current price "
+                        f"{cp:g}) restated inside Risk Considerations"
+                    )
+                    break
+
     return violations
 
 
