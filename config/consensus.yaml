@@ -105,11 +105,19 @@ news_cascade:
   parallel: true
 
 # Polling intervals (seconds)
+# Merged 2026-06-06: there were TWO top-level `intervals:` blocks; a duplicate top-level
+# key means YAML keeps only the LAST, so the first block was silently dropped. Collapsed
+# into this single block. No behavior change (cross_reference_timeout already defaulted to
+# 120 in code; sec_background_watchers_enabled lives under `scanners:` and was never here).
 intervals:
   social_scan: 300
   reddit_trend: 14400         # Reddit trend digest interval (4 hours)
   cross_reference_timeout: 120
   state_prune: 900
+  form4_cluster_loop: 14400
+  feature_volume_monitor: 900
+  options_flow_loop: 900           # #18 scan every 15 min (free ~15-min data)
+  options_flow_cooldown: 3600      # max one alert per ticker per hour
 
 # Scanner toggles
 scanners:
@@ -729,12 +737,6 @@ features:
     confluence_bonus: 3
     confluence_cap: 6
     confluence_band_pct: 0.015
-
-intervals:
-  form4_cluster_loop: 14400
-  feature_volume_monitor: 900
-  options_flow_loop: 900           # #18 scan every 15 min (free ~15-min data)
-  options_flow_cooldown: 3600      # max one alert per ticker per hour
 
 # #18 unusual options FLOW — free yfinance ~15-min option chains.
 # "Balanced" thresholds (user-chosen 2026-05-29): a contract must trade >=N x
