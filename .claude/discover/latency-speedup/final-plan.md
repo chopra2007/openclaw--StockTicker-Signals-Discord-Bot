@@ -94,5 +94,5 @@ Config keys (read via `cfg.get`): `llm.all_command_strategy`, `llm.all_command_h
 - [ ] `consensus-engine.service` + `openclaw-gateway.service` both `active`; no GATEWAY-drift, no LLM-health-fail alert; `/root/.openclaw` symlink intact; verified AFTER the restart.
 
 ## Out of scope (logged follow-ups)
-- C4 2-stage embed (instant deterministic fields, edit narrative in) — perceived-latency win for the typical ~36s case. Revisit if typical case stays slow.
+- C4 2-stage embed (instant deterministic fields, edit narrative in) — perceived-latency win for the typical ~36s case. Revisit if typical case stays slow. [WONTFIX 2026-06-06 — progressive/2-stage embed KILLED by user, do not build]
 - Sanitize phase ~17–25s (9 LLM calls) and gather ~12–18s — the typical-case floor; separate optimization.

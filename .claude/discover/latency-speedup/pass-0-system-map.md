@@ -43,7 +43,7 @@ for idx, model in enumerate(chain):
 
 ## Fix surface
 - `llm_client.py call_with_fallback` — the serial loop. Fix (a)/(b) live here.
-- `aggregator.handle_all` + `embed.py` + Discord post path — fix (c) 2-stage embed lives here.
+- `aggregator.handle_all` + `embed.py` + Discord post path — fix (c) 2-stage embed lives here. [WONTFIX 2026-06-06 — progressive/2-stage embed KILLED by user, do not build]
 - `narrator._invoke_synthesis` retry logic — interacts with whichever fix.
 
 ## Strengths

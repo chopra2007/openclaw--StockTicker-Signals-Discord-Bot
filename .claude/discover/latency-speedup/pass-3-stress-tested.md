@@ -6,7 +6,7 @@
 | Point | Quality critic | Correctness | Codex | Resolution |
 |---|---|---|---|---|
 | Head-start is the right default | (implicit) | (implicit) | **Agree** | Keep C1 |
-| C4 2-stage embed OUT this build | Agree | Agree | **Agree** | Defer C4 |
+| C4 2-stage embed OUT this build | Agree | Agree | **Agree** | Defer C4 | [WONTFIX 2026-06-06 — progressive/2-stage embed KILLED by user, do not build]
 | Cancellation/cleanup under-specified | flag (MED) | **flag (CRITICAL)** | flag | **MUST FIX** |
 | 15s window is a blind guess | flag (HIGH) | flag (MED) | flag | Probe-first gate |
 | Quality nondeterminism in fan-out | flag (HIGH) | flag (MED) | flag | Structural-valid acceptance |

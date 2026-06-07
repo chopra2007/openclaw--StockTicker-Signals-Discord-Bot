@@ -36,7 +36,7 @@ Fire all 3 concurrently, first-good-wins, cancel losers (`asyncio.as_completed` 
 Keep serial loop, cut per-model timeout 90s→~15-30s.
 - Simple (3 lines) but **cuts off legitimately-slow groq** (groq can take 30-80s under load) → more fallbacks → quality risk. Lower-value; useful only as a safety cap combined with C1.
 
-### C4 — 2-stage embed (ORTHOGONAL, optional) [lane 3 pro, lanes 5/6 con]
+### C4 — 2-stage embed (ORTHOGONAL, optional) [lane 3 pro, lanes 5/6 con] [WONTFIX 2026-06-06 — progressive/2-stage embed KILLED by user, do not build]
 Post deterministic embed (Direction/Confidence/Trade Plan/levels/snapshot — all computed pre-LLM) in ~2-5s, then `asyncio.create_task` the synthesis and **edit** the message to add the narrative.
 - **Improves *perceived* latency for ALL cases** (typical 36s and tail) — user sees the trade plan instantly. Does not reduce real compute.
 - Lane 3: low technical risk — `build_embed` already renders fine with `narrative=''`; `send_command_embed_reply` (`discord.py:640-665`) returns the message id; need a new PATCH `edit_command_embed_reply`. Vault write currently in `asyncio.gather` (`aggregator.py:1262-1266`).
@@ -54,4 +54,4 @@ Post deterministic embed (Direction/Confidence/Trade Plan/levels/snapshot — al
 - `.claude/discover/gemini-quality-all-command/judge-spec.md` — Layer-C blind-compare vs Gemini, 5 dimensions + hard-fail rules; exit = all 3 tickers prefer-bot OR tie.
 
 ## Recommendation into Pass 2/3
-**Primary: C1 (head-start), scoped to synthesis, config-flagged.** Consider **C4 (2-stage embed)** as a complementary perceived-latency win (separate flag) — but weigh its UX/complexity. **C2 rejected** (quota + tail-quality). **C3** only as a safety cap inside C1. The crux Pass 3 must attack: (1) does head-start ever produce a worse narrative than today? (2) is synthesis-only scoping enough speedup, or is C4 needed to move the typical 36s? (3) async-cancellation / shared-file correctness.
+**Primary: C1 (head-start), scoped to synthesis, config-flagged.** Consider **C4 (2-stage embed)** as a complementary perceived-latency win (separate flag) — but weigh its UX/complexity. **C2 rejected** (quota + tail-quality). **C3** only as a safety cap inside C1. The crux Pass 3 must attack: (1) does head-start ever produce a worse narrative than today? (2) is synthesis-only scoping enough speedup, or is C4 needed to move the typical 36s? (3) async-cancellation / shared-file correctness. [WONTFIX 2026-06-06 — progressive/2-stage embed KILLED by user, do not build]
