@@ -175,6 +175,13 @@ def _trade_idea_value(direction: str, setup: dict | None, levels: list[dict]) ->
         target = prices[0] if action == "short" else prices[-1]
     if entry is None or target is None or entry == target:
         return None
+    # Reject wrong-side ordering: a short profits going DOWN (entry must be above target);
+    # a long profits going UP (entry must be below target). A backwards pair is a parse
+    # error → fall back to plain Key levels rather than render a nonsensical trade.
+    if action == "short" and entry <= target:
+        return None
+    if action == "long" and entry >= target:
+        return None
     stop = _stop_from_entry(entry, action)
     side = "above" if action == "short" else "below"
     return (f"{action} a re-test of {_money(entry)} → {_money_k(target)}\n"

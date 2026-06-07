@@ -184,6 +184,46 @@ async def _scanner_call(module_path: str, attr: str, *args, **kwargs):
         return None
 
 
+async def _wolf_confluence_lookup(ticker: str) -> Optional[dict]:
+    """#7 (full-audit-2026-06-06) — read-only Wolf cross-source confluence for a ticker.
+
+    Maps the ticker to its Wolf scope (and its sector ETF), looks up an active thesis in
+    EITHER direction, and returns that thesis's stored confluence-check row to render one
+    embed line. Precedence: a stock-level thesis wins over a sector-level one. Returns None
+    (no line) when the flag is off, nothing maps, or no thesis/confluence exists. Never
+    raises into the gather — any error degrades to None.
+    """
+    if not cfg.get("all_command.wolf_confluence_field_enabled", False):
+        return None
+    try:
+        from consensus_engine import db
+        from consensus_engine.analysis import wolf_scope
+
+        async def _confl_for(scope_type: str, scope_key: str) -> Optional[dict]:
+            for direction in ("bull", "bear"):
+                thesis = await db.get_active_thesis(scope_type, scope_key, direction)
+                if thesis and thesis.get("id") is not None:
+                    confl = await db.get_confluence_check(thesis["id"])
+                    if confl:
+                        return confl
+            return None
+
+        # 1. Stock-level (precedence): the ticker's own scope.
+        scope_type, scope_key = wolf_scope.resolve_scope(ticker)
+        if scope_key:
+            confl = await _confl_for(scope_type, scope_key)
+            if confl:
+                return confl
+        # 2. Sector fallback: the ticker's sector ETF thesis.
+        etf = wolf_scope.stock_sector_etf(ticker)
+        if etf:
+            return await _confl_for("sector", etf)
+        return None
+    except Exception as exc:  # noqa: BLE001
+        log.warning("aggregator._wolf_confluence_lookup(%s) raised: %s", ticker, exc)
+        return None
+
+
 async def _gather_all_sources(ticker: str) -> dict:
     """Run the parallel data gather. Per-source failures degrade gracefully."""
     ticker_meta_task = _db_call("get_ticker_metadata", ticker)
@@ -236,6 +276,10 @@ async def _gather_all_sources(ticker: str) -> dict:
     apewisdom_task = _scanner_call(
         "consensus_engine.scanners.social", "get_apewisdom_for_ticker", ticker,
     )
+
+    # #7 (full-audit-2026-06-06) — read-only Wolf confluence lookup (flag-gated; no-op + no
+    # DB hit when off). Launched here so it runs alongside the rest of the gather.
+    wolf_confluence_task = asyncio.ensure_future(_wolf_confluence_lookup(ticker))
 
     name_for_filter = None
     ticker_meta = await ticker_meta_task
@@ -367,6 +411,7 @@ async def _gather_all_sources(ticker: str) -> dict:
         "peer_strength": _result_or_default(peer_strength, None),
         "snapshot": _result_or_default(snapshot, None),
         "earnings_move": _result_or_default(earnings_move, None),
+        "wolf_confluence": await wolf_confluence_task,
         "sources_surfaced": sources_surfaced,
         "source_failures": source_failures,
     }
@@ -1281,6 +1326,7 @@ async def _compute_all(ticker: str, start: float) -> dict:
         cache_age_seconds=None,
         yt_signals=data["yt_signals"] if isinstance(data["yt_signals"], list) else None,
         chart_pattern=data.get("chart_pattern"),
+        wolf_confluence=data.get("wolf_confluence"),
     )
     anchors_used: list[levels.Anchor] = list(supports[:6]) + list(resistances[:6])
     vault_md = vault_writer.render_all_command_markdown(

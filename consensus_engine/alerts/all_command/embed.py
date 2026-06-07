@@ -662,6 +662,7 @@ def build_embed(
     cache_age_seconds: Optional[int],
     yt_signals: Optional[list[dict]] = None,
     chart_pattern: Optional[dict] = None,
+    wolf_confluence: Optional[dict] = None,
 ) -> dict:
     """Return a Discord embed payload dict for the !all command."""
     direction = getattr(structured, "direction", "") or ""
@@ -806,6 +807,16 @@ def build_embed(
         cp_field = _build_chart_pattern_field(chart_pattern)
         if cp_field is not None:
             fields.append(cp_field)
+
+    # #7 (full-audit-2026-06-06) — one Wolf cross-source confluence line, rendered from a
+    # stored wolf_confluence_checks row via the same renderer the #news embed uses. The
+    # aggregator already gated the lookup on all_command.wolf_confluence_field_enabled, so a
+    # non-None row here means the flag is on AND there's something to say.
+    if wolf_confluence:
+        from consensus_engine.alerts.wolf_news import _confluence_field
+        wolf_field = _confluence_field(wolf_confluence)
+        if wolf_field is not None:
+            fields.append(wolf_field)
 
     sources_count = len(sources)
     footer_chunks: list[str] = []

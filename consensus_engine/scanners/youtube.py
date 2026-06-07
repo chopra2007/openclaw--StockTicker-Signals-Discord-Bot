@@ -456,9 +456,30 @@ async def _build_visual_levels(bundle, signals, get_live_price=_safe_live_price)
     band = float(cfg.get("youtube.visual.proximity_band_pct", 0.10))
     conf = float(cfg.get("youtube.visual.level_confidence", 0.55))
     cap = int(cfg.get("youtube.visual.max_levels", 20))
+
+    # B3 #13: when tagging the structured path, file each per-number-tagged
+    # visual row under its OWN ticker using that ticker's live-price anchor.
+    # Flag OFF -> ticker_prices stays None -> classify_visual_levels behaves
+    # exactly as before (every level under top.ticker, no extra fetches).
+    ticker_prices: dict[str, float | None] | None = None
+    if cfg.get("youtube.visual.tag_structured_levels", False):
+        tagged = {
+            (row.get("ticker") or "").strip().upper()
+            for row in visual
+            if isinstance(row, dict)
+            and (row.get("ticker") or "").strip()
+            and (row.get("ticker") or "").strip().upper() != top.ticker
+        }
+        tagged.discard("")
+        distinct = sorted(tagged)[:7]  # concurrency cap: <=7 distinct tickers
+        if distinct:
+            fetched = await asyncio.gather(*(get_live_price(t) for t in distinct))
+            ticker_prices = dict(zip(distinct, fetched))
+
     from consensus_engine.analysis.video_classifier import classify_visual_levels
     levels = classify_visual_levels(
         visual, top.ticker, price, band_pct=band, confidence=conf, max_levels=cap,
+        ticker_prices=ticker_prices,
     )
     if levels:
         log.info(

@@ -1823,6 +1823,13 @@ async def get_youtube_signals_for_ticker(ticker: str, days: int = 7) -> list[dic
     LEFT JOIN youtube_videos so each row gains video_title (str or None).
     Signals without a matching youtube_videos row still appear (title=None).
 
+    W4: also LEFT JOIN youtube_channels (display_name = channel_name) so each
+    row carries `trust_score` (float or None for unregistered channels) and
+    selects `extracted_at` so the freshness of each mention is available for
+    the flag-gated recency decay / channel-reliability scoring in
+    cross_reference._get_youtube_context. Both columns are additive — when the
+    youtube_score flags are OFF they are simply ignored.
+
     Each row also carries `evidence_spans_for_ticker` — the count of
     youtube_evidence_spans rows for the same video whose tickers_json
     explicitly tags this ticker. The display layer uses that to
@@ -1833,13 +1840,16 @@ async def get_youtube_signals_for_ticker(ticker: str, days: int = 7) -> list[dic
     cursor = await conn.execute(
         """SELECT s.video_id, s.channel_name, s.ticker, s.direction, s.conviction,
                   s.mention_count, s.macro_thesis, s.parsed_at, s.published_at,
+                  s.extracted_at,
                   v.title AS video_title,
+                  yc.trust_score AS trust_score,
                   (SELECT COUNT(*) FROM youtube_evidence_spans e
                    WHERE e.video_id = s.video_id
                      AND e.tickers_json LIKE '%"' || s.ticker || '"%')
                   AS evidence_spans_for_ticker
            FROM youtube_signals s
            LEFT JOIN youtube_videos v ON v.video_id = s.video_id
+           LEFT JOIN youtube_channels yc ON yc.display_name = s.channel_name
            WHERE s.ticker = ? AND s.extracted_at >= ?
            ORDER BY s.extracted_at DESC""",
         (ticker, cutoff),

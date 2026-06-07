@@ -12,9 +12,21 @@ import types
 
 import pytest
 
-from consensus_engine import db
+from consensus_engine import config as cfg, db
 from consensus_engine.alerts import wolf_news
 from consensus_engine.analysis import wolf_beneficiaries as wb
+
+
+def _cfg_with(key, value):
+    """A cfg.get replacement that overrides ONE key and falls through to the real config
+    for every other key (so rs_window_days/abs_rs_floor/etc. keep their real defaults)."""
+    real = cfg.get
+
+    def fake(k, default=None):
+        if k == key:
+            return value
+        return real(k, default)
+    return fake
 
 
 def _digest_payload(beneficiaries):
@@ -199,3 +211,97 @@ async def test_run_cycle_skips_stock_writes_macro(fresh_db, monkeypatch):
     assert n == 1
     assert await db.get_beneficiaries(macro)            # macro got rows
     assert await db.get_beneficiaries(stock) == []       # stock skipped
+
+
+# ───────────────────────── #6 SHORT side ─────────────────────────
+def test_resolve_short_universe_rules():
+    """The short universe mirrors the long path: curated beneficiary_shorts for macro/asset,
+    the same ETF members for a sector BEAR, and [] where there's no clean loser."""
+    assert wb.resolve_short_universe("asset", "OIL", "bull")[:1] == ["DAL"]   # airlines short
+    assert wb.resolve_short_universe("market", "SPX", "bear")[:1] == ["ARKK"]  # high-beta growth
+    assert len(wb.resolve_short_universe("sector", "SMH", "bear")) == 18       # 18 semis members
+    assert wb.resolve_short_universe("sector", "SMH", "bull") == []            # sector bull → no shorts
+    assert wb.resolve_short_universe("asset", "GOLD", "bull") == []            # no clean loser → omit
+    assert wb.resolve_short_universe("stock", "NVDA", "bear") == []            # single-stock → omit
+
+
+async def test_rank_shorts_smh_bear_picks_laggard(fresh_db, monkeypatch):
+    """A live-shaped SMH bear (sector, 18 semis members): rank_shorts keeps the
+    UNDERperformers and ranks the MOST-NEGATIVE relative-strength laggard top, side='short'.
+    The leader (positive RS) and a borderline name are NOT shorted."""
+    # NVDA leads (+5, never a short); MU is the deepest laggard; INTC a milder laggard;
+    # AMD just above the -0.5 floor (not a short). Every other member resolves with a small
+    # POSITIVE RS (leaders, not shorts) so no member trips the 60% RS-failure cap.
+    deltas = {"NVDA": 5.0, "MU": -6.0, "INTC": -2.0, "AMD": -0.2}
+    monkeypatch.setattr(wb, "compute_relative_strength",
+                        _rs(lambda t: deltas.get(t, 1.0)))
+    monkeypatch.setattr(wb, "news_cascade", _no_catalyst())
+    monkeypatch.setattr(db, "get_options_flow_for_ticker", _no_flow())
+    th = {"id": 1, "scope_type": "sector", "scope_key": "SMH", "direction": "bear"}
+    rows = await wb.rank_shorts(th)
+    tickers = [r["ticker"] for r in rows]
+    assert rows, "a sector-bear thesis should surface at least one short"
+    assert rows[0]["ticker"] == "MU"               # deepest laggard ranks top
+    assert all(r["side"] == "short" for r in rows)  # every pick is a short
+    assert "NVDA" not in tickers                    # the leader is never shorted
+    assert "AMD" not in tickers                     # within the floor → not a short
+    assert "lags peers" in rows[0]["reason"]
+
+
+async def test_rank_shorts_inverted_anti_chase(fresh_db, monkeypatch):
+    """The anti-chase guard is INVERTED for shorts: a name already DOWN >= extended_pct
+    (oversold/bounce-prone) is dampened and capped at 🟡 even with full bearish confirmation."""
+    monkeypatch.setattr(wb, "compute_relative_strength",
+                        _rs(lambda t: -60.0 if t == "MU" else -0.1,
+                            stock_pct=lambda t: -60.0 if t == "MU" else -1.0))
+
+    async def cat(ticker):
+        return types.SimpleNamespace(catalyst_type="Earnings Miss")   # bearish-aligned
+    async def flow(ticker, days=7):
+        return [{"side": "PUT", "premium_usd": 1_000_000}]            # bearish flow
+    monkeypatch.setattr(wb, "news_cascade", cat)
+    monkeypatch.setattr(db, "get_options_flow_for_ticker", flow)
+    th = {"id": 1, "scope_type": "sector", "scope_key": "SMH", "direction": "bear"}
+    rows = await wb.rank_shorts(th)
+    mu = [r for r in rows if r["ticker"] == "MU"]
+    assert mu, "an extended-down laggard should still surface (dampened, not removed)"
+    assert mu[0]["tier"] == "yellow"                            # capped — never green
+    assert "already down" in mu[0]["reason"]
+    assert json.loads(mu[0]["signals_json"])["extended"] is True
+
+
+async def test_shorts_flag_off_byte_identical_longs_only(fresh_db, monkeypatch):
+    """Flag OFF (default): run_cycle is byte-identical to longs-only. A sector-BEAR thesis
+    writes NOTHING (no long bucket), and a long thesis's rows carry only side='long'."""
+    monkeypatch.setattr(wb, "compute_relative_strength", _rs(3.0))
+    monkeypatch.setattr(wb, "news_cascade", _no_catalyst())
+    monkeypatch.setattr(db, "get_options_flow_for_ticker", _no_flow())
+    monkeypatch.setattr(cfg, "get", _cfg_with("wolf.beneficiaries.shorts_enabled", False))
+    bear = await db.insert_thesis("sector", "SMH", "bear", "acting", "[]", None, 0, "[]", 1.0)
+    longp = await db.insert_thesis("asset", "OIL", "bull", "acting", "[]", None, 0, "[]", 1.0)
+    n = await wb.run_cycle()
+    assert n == 1                                       # only the long thesis wrote
+    assert await db.get_beneficiaries(bear) == []       # sector-bear → no rows (longs-only)
+    long_rows = await db.get_beneficiaries(longp)
+    assert long_rows and all(r["side"] == "long" for r in long_rows)
+
+
+async def test_shorts_flag_on_writes_short_rows(fresh_db, monkeypatch):
+    """Flag ON: a sector-BEAR thesis (no long bucket) now writes short rows; the long thesis
+    still writes its longs. The OFF path above proves these are gated behind the flag."""
+    deltas = {"DAL": 3.0, "UAL": 2.0, "AAL": 1.0, "LUV": 0.5,       # OIL bull longs
+              "MU": -6.0, "INTC": -2.0}                              # SMH bear shorts
+    # default 1.0: unnamed SMH members resolve as leaders (not shorts) so none fail RS.
+    monkeypatch.setattr(wb, "compute_relative_strength",
+                        _rs(lambda t: deltas.get(t, 1.0)))
+    monkeypatch.setattr(wb, "news_cascade", _no_catalyst())
+    monkeypatch.setattr(db, "get_options_flow_for_ticker", _no_flow())
+    monkeypatch.setattr(cfg, "get", _cfg_with("wolf.beneficiaries.shorts_enabled", True))
+    bear = await db.insert_thesis("sector", "SMH", "bear", "acting", "[]", None, 0, "[]", 1.0)
+    longp = await db.insert_thesis("asset", "OIL", "bull", "acting", "[]", None, 0, "[]", 1.0)
+    n = await wb.run_cycle()
+    assert n == 2                                       # both wrote
+    bear_rows = await db.get_beneficiaries(bear)
+    assert bear_rows and all(r["side"] == "short" for r in bear_rows)
+    long_rows = await db.get_beneficiaries(longp)
+    assert long_rows and all(r["side"] == "long" for r in long_rows)

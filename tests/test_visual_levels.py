@@ -65,3 +65,94 @@ def test_context_prefix_identifies_visual_levels():
     levels = classify_visual_levels(_rows(["70"]), "USCI", live_price=70.0)
     assert levels[0].context.startswith("chart shows")
     assert levels[0].classifier_confidence == 0.55
+
+
+# ---------------------------------------------------------------------------
+# B3 #13 — structured-path per-number ticker tagging (gated by the caller via
+# youtube.visual.tag_structured_levels; here exercised through the optional
+# `ticker_prices` map that the gated caller passes in).
+# ---------------------------------------------------------------------------
+
+def _tagged_row(value, ticker, kind="price"):
+    return {"value": value, "kind": kind, "where_seen": "y-axis",
+            "ts_sec": 10, "ticker": ticker}
+
+
+def _untagged_row(value, kind="price"):
+    return {"value": value, "kind": kind, "where_seen": "y-axis", "ts_sec": 10}
+
+
+def test_tagged_row_filed_under_own_ticker_with_own_anchor():
+    # Top ticker = DELL (anchor 420.50). A tagged SMCI row at 510.43 is far
+    # outside DELL's ±10% band but inside SMCI's own ±10% band (anchor 505).
+    rows = [
+        _tagged_row("510.43", "SMCI"),   # tagged -> SMCI anchor
+        _untagged_row("420.50"),         # untagged -> top ticker DELL
+    ]
+    levels = classify_visual_levels(
+        rows, "DELL", live_price=420.50, band_pct=0.10,
+        ticker_prices={"SMCI": 505.0},
+    )
+    by_ticker = {(lv.ticker, lv.price) for lv in levels}
+    # SMCI level filed under SMCI using SMCI's anchor (510.43 > 505 -> resistance)
+    assert ("SMCI", 510.43) in by_ticker
+    smci = next(lv for lv in levels if lv.ticker == "SMCI")
+    assert smci.level_type == "resistance"  # 510.43 > 505 anchor
+    # Untagged stays on DELL
+    assert ("DELL", 420.50) in by_ticker
+    dell = next(lv for lv in levels if lv.ticker == "DELL")
+    assert dell.level_type == "resistance"  # 420.50 == anchor -> not below -> resistance
+    # exactly the two expected levels, no cross-attribution
+    assert by_ticker == {("SMCI", 510.43), ("DELL", 420.50)}
+
+
+def test_tagged_row_uses_tagged_band_not_top_band():
+    # Without the per-ticker anchor the SMCI 510.43 number would be dropped
+    # (outside DELL's ±10% of 420.50 = [378.45, 462.55]). Prove the tag rescues
+    # it ONLY because SMCI's own anchor is supplied.
+    rows = [_tagged_row("510.43", "SMCI")]
+    # No ticker_prices -> falls to top ticker DELL's band -> dropped.
+    none_map = classify_visual_levels(rows, "DELL", live_price=420.50, band_pct=0.10)
+    assert none_map == []
+    # With SMCI anchor -> kept under SMCI.
+    with_map = classify_visual_levels(
+        rows, "DELL", live_price=420.50, band_pct=0.10, ticker_prices={"SMCI": 505.0},
+    )
+    assert [(lv.ticker, lv.price) for lv in with_map] == [("SMCI", 510.43)]
+
+
+def test_tagged_row_without_anchor_falls_back_to_top_ticker():
+    # Tag present but no usable anchor for it in the map -> treat as untagged
+    # (top-ticker attribution + top band). 425.0 is inside DELL's band, kept.
+    rows = [_tagged_row("425.0", "SMCI")]
+    levels = classify_visual_levels(
+        rows, "DELL", live_price=420.50, band_pct=0.10, ticker_prices={"SMCI": None},
+    )
+    assert [(lv.ticker, lv.price) for lv in levels] == [("DELL", 425.0)]
+
+
+def test_flag_off_is_byte_identical_to_top_ticker_behavior():
+    # With no ticker_prices (flag OFF), tagged rows MUST behave exactly like the
+    # pre-B3 top-ticker path: identical objects to the no-tag call.
+    tagged = [_tagged_row(v, "SMCI") for v in REAL_2UUTK]
+    plain = _rows(REAL_2UUTK)
+
+    off = classify_visual_levels(tagged, "USCI", live_price=70.0, band_pct=0.10)
+    baseline = classify_visual_levels(plain, "USCI", live_price=70.0, band_pct=0.10)
+
+    def fields(levels):
+        return [(lv.ticker, lv.level_type, lv.price, lv.context,
+                 lv.classifier_confidence, lv.video_timestamp_sec) for lv in levels]
+
+    assert fields(off) == fields(baseline)
+    # every level still on the top ticker, none diverted to SMCI
+    assert all(lv.ticker == "USCI" for lv in off)
+
+
+def test_empty_ticker_prices_map_is_top_ticker_behavior():
+    # An empty (falsy) map is treated like None -> top-ticker behavior.
+    tagged = [_tagged_row("70", "SMCI"), _untagged_row("71")]
+    levels = classify_visual_levels(
+        tagged, "USCI", live_price=70.0, band_pct=0.10, ticker_prices={},
+    )
+    assert sorted((lv.ticker, lv.price) for lv in levels) == [("USCI", 70.0), ("USCI", 71.0)]

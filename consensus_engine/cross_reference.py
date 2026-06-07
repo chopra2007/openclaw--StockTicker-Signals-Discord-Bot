@@ -248,6 +248,48 @@ async def _get_youtube_context(ticker: str):
         conv_map = {"high": 15, "medium": 10, "low": 5}
         score_boost = conv_map.get(top_conviction, 10)
 
+        # --- Wave 4 flag-gated YouTube-score smarts (all default OFF) ---
+        # The unsigned, undecayed, unscaled `score_boost` above is today's
+        # behavior. Each block below is a multiplier/sign applied ONLY when its
+        # flag is ON, so with every flag OFF `score_boost` is byte-identical.
+
+        # #9 direction-aware (flag features.youtube_score.direction_aware):
+        # sign the boost by the 7-day consensus direction so a bearish YouTube
+        # consensus lowers the score instead of raising it. short -> negative,
+        # long -> positive, neutral -> KEEP today's positive (do NOT zero —
+        # zeroing could silently suppress range-bound-ticker alerts).
+        if cfg.get("features.youtube_score.direction_aware", False):
+            if consensus_dir == "short":
+                score_boost = -score_boost
+
+        # #10 recency decay (flag features.youtube_score.recency_decay):
+        # multiply by 0.5 ** (age_days / half_life) off the FRESHEST contributing
+        # mention, floored at recency_floor. Older consensus = smaller boost.
+        if cfg.get("features.youtube_score.recency_decay", False):
+            half_life = float(cfg.get("features.youtube_score.recency_half_life_days", 3))
+            floor = float(cfg.get("features.youtube_score.recency_floor", 0.3))
+            extracted_times = [m.get("extracted_at") for m in primary_mentions if m.get("extracted_at") is not None]
+            if extracted_times and half_life > 0:
+                freshest = max(extracted_times)
+                age_days = max(0.0, (time.time() - float(freshest)) / 86400.0)
+                decay = max(floor, 0.5 ** (age_days / half_life))
+                score_boost = score_boost * decay
+
+        # #11 channel-reliability (flag features.youtube_score.channel_reliability):
+        # scale by the MAX trust_score among contributing mentions, clamped to
+        # [trust_floor, 1.0]. NULL trust (unregistered channel) bootstraps to 0.5
+        # (mirrors levels.py:210). All 14 registered channels are trust=1.0 today,
+        # so this is a no-op multiplier on current data.
+        if cfg.get("features.youtube_score.channel_reliability", False):
+            trust_floor = float(cfg.get("features.youtube_score.trust_floor", 0.3))
+            trust_values = [
+                (float(m["trust_score"]) if m.get("trust_score") is not None else 0.5)
+                for m in primary_mentions
+            ]
+            if trust_values:
+                trust = max(min(max(trust_values), 1.0), trust_floor)
+                score_boost = score_boost * trust
+
         # Build deduplicated video list (order from query: extracted_at DESC)
         max_videos = cfg.get("all_command.youtube_links.max_videos", 3)
         seen_video_ids: set[str] = set()
@@ -263,6 +305,12 @@ async def _get_youtube_context(ticker: str):
                 })
                 if len(videos) >= max_videos:
                     break
+
+        # score_boost is `int` on YouTubeContext and feeds breakdown.youtube (int).
+        # When all Wave 4 flags are OFF it is still the original int (no block ran),
+        # so int(round(...)) is byte-identical; when a flag is ON it collapses the
+        # decay/trust float back to an int so total math has no float drift.
+        score_boost = int(round(score_boost))
 
         return YouTubeContext(
             mention_count=len(primary_mentions),
@@ -321,6 +369,33 @@ async def score_ticker(
     options_pts = m.get("options_flow", 10) if (options and options.has_unusual_activity) else 0
 
     youtube_pts = youtube.score_boost if youtube else 0
+
+    # #12 level-confluence (flag features.youtube_score.level_confluence, default
+    # OFF): award a small capped bonus to youtube_pts when a YouTube-cited level
+    # price sits within confluence_band_pct of the technical price ±1 ATR band.
+    # Signed to MATCH the boost direction (bearish YouTube boost is negative when
+    # #9 is also on) so confluence never flips a bear into a bull. Flag OFF -> no
+    # bonus -> byte-identical. Inside score_ticker the only technical anchor is
+    # technical.price ± atr14 (no S/R list here) — an ATR-band proximity proxy.
+    if cfg.get("features.youtube_score.level_confluence", False) and youtube and youtube_pts and technical:
+        tech_price = getattr(technical, "price", 0.0) or 0.0
+        atr = getattr(technical, "atr14", None)
+        if tech_price > 0 and atr:
+            band_pct = float(cfg.get("features.youtube_score.confluence_band_pct", 0.015))
+            bonus_unit = int(cfg.get("features.youtube_score.confluence_bonus", 3))
+            cap = int(cfg.get("features.youtube_score.confluence_cap", 6))
+            tol = max(tech_price * band_pct, float(atr))
+            hits = 0
+            for lvl in (youtube.levels or []):
+                lvl_price = lvl.get("price")
+                if lvl_price is None:
+                    continue
+                if abs(float(lvl_price) - tech_price) <= tol:
+                    hits += 1
+            if hits:
+                raw_bonus = min(hits * bonus_unit, cap)
+                sign = 1 if youtube_pts >= 0 else -1
+                youtube_pts += sign * raw_bonus
 
     llm_score, llm_reasoning = 0.0, ""
     # Decision-safe LLM skip (#16, flag-gated, default OFF): if even the maximum

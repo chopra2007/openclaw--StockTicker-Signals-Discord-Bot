@@ -110,6 +110,29 @@ def resolve_candidate_universe(scope_type: str, scope_key: str, direction: str) 
     return []
 
 
+def resolve_short_universe(scope_type: str, scope_key: str, direction: str) -> list[str]:
+    """The candidate SHORT universe for a thesis (#6). Returns [] => omit.
+
+    macro/index/asset -> curated macro_universe.yaml beneficiary_shorts for (scope_key,
+                         direction) — the clean single-name losers (no manufactured picks);
+    sector BEAR        -> the SAME ETF members as the long path, but ranked as the WEAKEST
+                         laggards (the names a sector-bear thesis would short).
+    """
+    if scope_type == "stock":
+        return []
+    key = (scope_key or "").upper()
+    dirn = (direction or "").lower()
+    umap = _load_map().get(key)
+    if umap:
+        bucket = umap.get(dirn) or {}
+        return list(bucket.get("beneficiary_shorts", []))
+    if scope_type == "sector" and dirn == "bear":
+        # A sector-bear thesis shorts the laggards of that ETF's members (same universe as
+        # the long path; rank_shorts picks the MOST-NEGATIVE relative strength).
+        return list(_peer_etf_members().get(key, []))
+    return []
+
+
 def _quantile(sorted_vals: list[float], q: float) -> float:
     """Linear-interpolation quantile of an already-sorted list."""
     if not sorted_vals:
@@ -182,6 +205,23 @@ async def _bullish_flow(ticker: str) -> bool:
     return call_prem > put_prem and call_prem > 0
 
 
+async def _bearish_flow(ticker: str) -> bool:
+    """True if recent unusual options flow leans bearish by PUT-vs-CALL premium dominance
+    (the short-side mirror of _bullish_flow)."""
+    if not cfg.get("wolf.beneficiaries.use_flow", True):
+        return False
+    try:
+        rows = await db.get_options_flow_for_ticker(ticker)
+    except Exception as e:  # noqa: BLE001
+        log.debug("wolf_beneficiaries: flow lookup failed for %s: %s", ticker, e)
+        return False
+    if not rows:
+        return False
+    call_prem = sum((r.get("premium_usd") or 0) for r in rows if r.get("side") == "CALL")
+    put_prem = sum((r.get("premium_usd") or 0) for r in rows if r.get("side") == "PUT")
+    return put_prem > call_prem and put_prem > 0
+
+
 def _reason(delta: float, cat_dir: Optional[str], cat_type: Optional[str],
             flow_bull: bool, signal_count: int, extended: bool = False,
             stock_pct: Optional[float] = None) -> str:
@@ -195,6 +235,22 @@ def _reason(delta: float, cat_dir: Optional[str], cat_type: Optional[str],
         parts.append(cat_type.lower())
     if flow_bull:
         parts.append("bullish flow")
+    return ", ".join(parts)
+
+
+def _short_reason(delta: float, cat_dir: Optional[str], cat_type: Optional[str],
+                  flow_bear: bool, signal_count: int, extended: bool = False,
+                  stock_pct: Optional[float] = None) -> str:
+    """A terse (<=8 word) honest justification line for a SHORT pick (mirror of _reason)."""
+    if extended:
+        return f"⚠ already down {stock_pct:.0f}% — bounce risk"
+    if signal_count == 1:
+        return "lags peers; unconfirmed"
+    parts = [f"lags peers {delta:.1f}%"]
+    if cat_dir == "bearish" and cat_type:
+        parts.append(cat_type.lower())
+    if flow_bear:
+        parts.append("bearish flow")
     return ", ".join(parts)
 
 
@@ -283,26 +339,120 @@ async def rank_beneficiaries(thesis: dict) -> list[dict]:
     return rows[:top_k]
 
 
+async def rank_shorts(thesis: dict) -> list[dict]:
+    """Rank the beneficiary SHORTS for one thesis (#6) — the mirror of rank_beneficiaries.
+
+    Keeps UNDERperformers (rs.delta < -floor), ranks the MOST-NEGATIVE delta first, confirms
+    with a BEARISH catalyst + put-premium flow, and INVERTS the anti-chase guard (a name
+    already DOWN a lot is bounce-prone, so it's dampened + capped at 🟡). Returns up to top_k
+    rows with side='short', or [] to omit. Raises BeneficiaryComputeError on >60% RS failure.
+    """
+    scope_type, scope_key, direction = thesis["scope_type"], thesis["scope_key"], thesis["direction"]
+    candidates = resolve_short_universe(scope_type, scope_key, direction)
+    if not candidates:
+        return []
+
+    window = int(cfg.get("wolf.beneficiaries.rs_window_days", 21))
+    floor = float(cfg.get("wolf.beneficiaries.abs_rs_floor", 0.5))
+    top_k = int(cfg.get("wolf.beneficiaries.top_k", 3))
+    conf_floor = float(cfg.get("wolf.beneficiaries.conf_floor", 0.40))
+    extended_pct = float(cfg.get("wolf.beneficiaries.extended_pct", 45.0))
+    extended_penalty = float(cfg.get("wolf.beneficiaries.extended_penalty", 0.7))
+
+    # 1. RS per candidate; keep only UNDERperformers clearing the absolute floor (delta < -floor).
+    eligible: list[dict] = []
+    failed = 0
+    rs_cache: dict[str, Optional[dict]] = {}
+    for t in candidates:
+        if t not in rs_cache:
+            rs_cache[t] = await compute_relative_strength(t, window_days=window)
+        rs = rs_cache[t]
+        if rs is None:
+            failed += 1
+            continue
+        if rs["delta"] < -floor:
+            eligible.append({"ticker": t, "delta": rs["delta"], "mode": rs["mode"],
+                             "stock_pct": rs["stock_pct"]})
+
+    total = len(candidates)
+    if total and failed / total > 0.60:
+        raise BeneficiaryComputeError(f"RS failed for {failed}/{total} candidates of {scope_key}")
+    if not eligible:
+        return []
+
+    # 2. winsorized-percentile rank_score on the NEGATED deltas, so the MOST-NEGATIVE laggard
+    #    gets the highest rank_score (the strongest short).
+    for e, p in zip(eligible, _winsorized_percentiles([-e["delta"] for e in eligible])):
+        e["rank_score"] = p
+
+    # 3-8. confirmation + confidence + tier per candidate (bearish-aligned)
+    confl = await db.get_confluence_check(thesis["id"]) if thesis.get("id") is not None else None
+    confl_mult = _confluence_mult(confl)
+    rows: list[dict] = []
+    for e in eligible:
+        t = e["ticker"]
+        cat_dir, cat_type = await _aligned_catalyst(t)
+        flow_bear = await _bearish_flow(t)
+        data_quality = 1.0 if e["mode"] == "peers" else 0.85   # ETF-mode self-inclusion penalty
+        lift = 1.0 + (0.08 if cat_dir == "bearish" else 0.0) + (0.07 if flow_bear else 0.0)
+        lift = min(lift, 1.15)
+        confidence = e["rank_score"] * data_quality * confl_mult * lift
+        signal_count = 1 + (1 if cat_dir == "bearish" else 0) + (1 if flow_bear else 0)
+        # Anti-chase guard (INVERTED for shorts): a name already DOWN >= extended_pct over the
+        # window is oversold / bounce-prone. Dampen its confidence and never let it reach 🟢.
+        extended = e["stock_pct"] <= -extended_pct
+        if extended:
+            confidence *= extended_penalty
+        confidence = max(0.15, min(0.95, confidence))
+        if not extended and confidence >= 0.65 and signal_count >= 2:
+            tier = "green"
+        elif confidence >= conf_floor:
+            tier = "yellow"
+        else:
+            continue   # below floor -> drop
+        rows.append({
+            "ticker": t, "side": "short", "score": round(e["rank_score"], 4),
+            "confidence": round(confidence, 4), "tier": tier,
+            "reason": _short_reason(e["delta"], cat_dir, cat_type, flow_bear, signal_count,
+                                    extended, e["stock_pct"]),
+            "signals_json": json.dumps({
+                "rs_delta": e["delta"], "rs_mode": e["mode"], "stock_pct": e["stock_pct"],
+                "extended": extended,
+                "catalyst": cat_type if cat_dir == "bearish" else None,
+                "flow_bearish": flow_bear, "confluence_mult": confl_mult,
+                "signal_count": signal_count,
+            }),
+        })
+    rows.sort(key=lambda r: r["confidence"], reverse=True)
+    return rows[:top_k]
+
+
 async def run_cycle() -> int:
     """Precompute beneficiaries for every active macro/sector thesis; persist to
     wolf_beneficiaries. Returns the number of theses written. Throttled per thesis by
     computed_at age. Each thesis is computed FULLY in memory, then written in one
     all-or-nothing transaction (a thin/failed compute keeps the prior rows)."""
     throttle = float(cfg.get("wolf.beneficiaries.per_thesis_throttle_sec", 3600))
+    shorts_enabled = bool(cfg.get("wolf.beneficiaries.shorts_enabled", False))
     now = time.time()
     theses = await db.get_active_theses()
     written = 0
     for th in theses:
         if th.get("scope_type") == "stock":
             continue
-        if not resolve_candidate_universe(th["scope_type"], th["scope_key"], th["direction"]):
+        has_long = bool(resolve_candidate_universe(th["scope_type"], th["scope_key"], th["direction"]))
+        has_short = shorts_enabled and bool(
+            resolve_short_universe(th["scope_type"], th["scope_key"], th["direction"]))
+        if not has_long and not has_short:
             continue
         # per-thesis throttle: skip if the existing rows are still fresh
         existing = await db.get_beneficiaries(th["id"])
         if existing and (now - float(existing[0].get("computed_at", 0) or 0)) < throttle:
             continue
         try:
-            rows = await rank_beneficiaries(th)
+            rows = await rank_beneficiaries(th) if has_long else []
+            if shorts_enabled:
+                rows = rows + await rank_shorts(th)
         except BeneficiaryComputeError as e:
             log.info("wolf_beneficiaries: skip thesis %s (keep prior rows): %s", th["id"], e)
             continue

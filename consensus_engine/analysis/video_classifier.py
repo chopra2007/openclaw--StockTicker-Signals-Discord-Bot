@@ -805,6 +805,7 @@ def classify_visual_levels(
     band_pct: float = 0.10,
     confidence: float = 0.55,
     max_levels: int = 20,
+    ticker_prices: dict[str, float | None] | None = None,
 ) -> list[CandidateLevel]:
     """Turn Gemini-read on-screen chart PRICE numbers into structured levels.
 
@@ -827,13 +828,21 @@ def classify_visual_levels(
     `level_type` is derived from the anchor: below price -> support, else
     resistance. Confidence is held below the spoken-classifier tier so a visual
     level never outranks a level the analyst actually spoke.
+
+    B3 #13 (gated by the caller via `youtube.visual.tag_structured_levels`):
+    when `ticker_prices` is provided, a row that carries its own per-number
+    `ticker` tag (`row.get("ticker")`) whose ticker has a usable anchor in the
+    map is filed under THAT ticker using THAT ticker's anchor for the proximity
+    band — not `top_ticker`/`live_price`. Untagged rows (and every row when
+    `ticker_prices` is None) keep top-ticker attribution exactly as before, so
+    with no map / no tags the output is byte-identical to pre-B3 behavior.
     """
     if not visual_rows or not top_ticker:
         return []
     if not live_price or live_price <= 0:
         return []
     out: list[CandidateLevel] = []
-    seen: set[float] = set()
+    seen: set[tuple[str, float]] = set()
     for row in visual_rows:
         if not isinstance(row, dict):
             continue
@@ -846,9 +855,21 @@ def classify_visual_levels(
             continue
         if val <= 0:
             continue
-        if abs(val / live_price - 1.0) > band_pct:
+        # Resolve the attribution ticker + its anchor. Default = top-ticker
+        # (pre-B3 behavior). A per-row tag only diverts when ticker_prices is
+        # supplied AND that ticker has a usable (>0) anchor.
+        row_ticker = top_ticker
+        anchor = live_price
+        if ticker_prices:
+            tag = (row.get("ticker") or "").strip().upper()
+            if tag and tag != top_ticker:
+                tagged_anchor = ticker_prices.get(tag)
+                if tagged_anchor and tagged_anchor > 0:
+                    row_ticker = tag
+                    anchor = tagged_anchor
+        if abs(val / anchor - 1.0) > band_pct:
             continue  # gridline / mis-scaled / wrong-ticker -> not a real level
-        key = round(val, 2)
+        key = (row_ticker, round(val, 2))
         if key in seen:
             continue
         seen.add(key)
@@ -856,8 +877,8 @@ def classify_visual_levels(
         ts = row.get("ts_sec")
         out.append(
             CandidateLevel(
-                ticker=top_ticker,
-                level_type="support" if val < live_price else "resistance",
+                ticker=row_ticker,
+                level_type="support" if val < anchor else "resistance",
                 price=val,
                 context=f"chart shows {val} ({where})",
                 evidence_span_ids=[],

@@ -222,7 +222,10 @@ def _coerce_thesis(raw: dict) -> dict | None:
                     return None
             entry = _num(raw_setup.get("entry"))
             target = _num(raw_setup.get("target"))
-            if entry is not None or target is not None:
+            # Require BOTH a concrete entry AND target, each positive (same >0 guard the
+            # levels use at ~179) — a one-sided or non-positive price is not a trade Wolf framed.
+            if (entry is not None and target is not None
+                    and entry > 0 and target > 0):
                 setup = {"action": act, "entry": entry, "target": target}
 
     return {

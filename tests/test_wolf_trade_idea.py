@@ -131,3 +131,32 @@ def test_coerce_drops_setup_conflicting_direction():
 def test_coerce_drops_setup_without_numbers():
     th = _coerce_thesis(_base_raw(setup={"action": "short", "entry": None, "target": None}))
     assert th["setup"] is None
+
+
+# ---- #26 trade-idea guards ---------------------------------------------
+
+def test_trade_idea_rejects_backwards_short():
+    # a short must have entry ABOVE target; entry<=target is a parse error → None
+    assert wn._trade_idea_value("bear", {"action": "short", "entry": 70000, "target": 74192}, []) is None
+
+
+def test_trade_idea_accepts_correct_short():
+    val = wn._trade_idea_value("bear", {"action": "short", "entry": 74192, "target": 70000}, [])
+    assert val == "short a re-test of $74,192 → $70k\nSL above $74,200"
+
+
+def test_trade_idea_rejects_backwards_long():
+    # a long must have entry BELOW target; entry>=target is a parse error → None
+    assert wn._trade_idea_value("bull", {"action": "long", "entry": 230, "target": 200}, []) is None
+
+
+def test_coerce_drops_setup_with_one_sided_price():
+    # entry present but no target → not a framed trade (require BOTH)
+    th = _coerce_thesis(_base_raw(setup={"action": "short", "entry": 74192, "target": None}))
+    assert th["setup"] is None
+
+
+def test_coerce_drops_setup_with_nonpositive_price():
+    # entry 0 is non-positive → dropped (same >0 guard the levels use)
+    th = _coerce_thesis(_base_raw(setup={"action": "short", "entry": 0, "target": 70000}))
+    assert th["setup"] is None

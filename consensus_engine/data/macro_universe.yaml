@@ -10,6 +10,13 @@
 # (e.g. VIX, and broad-market BULL — "the beneficiary of the market going up" is just the
 # index / the highest-beta trap). The feature OMITS those rather than forcing a pick.
 #
+# beneficiary_shorts (Wave 6 / #6): the mirror short bucket per (scope_key, direction),
+# read ONLY when wolf.beneficiaries.shorts_enabled is true. Added ONLY where there is a
+# clean single-name LOSER — no manufactured picks. For broad-market BEAR theses (SPX/NDX/
+# RUT/DJIA bear) the short bucket is HIGH-BETA GROWTH (ARKK-style) — the user's explicit
+# choice: the names that fall hardest in a market sell-off. GOLD/BTC bull have no clean
+# short loser, so they carry no beneficiary_shorts.
+#
 # Curated (not derived) because these macro relationships have no ETF to pull holdings from
 # and are decade-stable; reviewed quarterly alongside peer_groups.yaml. Sector scopes
 # (XLE/XLF/IGV/SMH/...) are NOT here — they derive from peer_groups.yaml at runtime.
@@ -18,26 +25,26 @@ reviewed_at: "2026-06-02"
 
 universes:
   OIL:
-    bull: {beneficiary_longs: [XOM, CVX, COP, OXY, EOG, DVN], mechanism: "producer revenue = price x volume"}
-    bear: {beneficiary_longs: [DAL, UAL, AAL, LUV], mechanism: "jet fuel is 25-30% of airline opex; cheaper oil cuts cost"}
+    bull: {beneficiary_longs: [XOM, CVX, COP, OXY, EOG, DVN], beneficiary_shorts: [DAL, UAL, AAL, LUV], mechanism: "producer revenue = price x volume; airlines pay more for jet fuel"}
+    bear: {beneficiary_longs: [DAL, UAL, AAL, LUV], beneficiary_shorts: [XOM, CVX, COP, OXY, EOG, DVN], mechanism: "jet fuel is 25-30% of airline opex; cheaper oil cuts cost; producer revenue falls"}
   YIELDS:
-    bull: {beneficiary_longs: [JPM, BAC, WFC, GS, MS], mechanism: "loans reprice up before deposits; net interest margin widens"}
-    bear: {beneficiary_longs: [CRWD, NET, ZS, SNOW, DDOG], mechanism: "lower discount rate lifts long-duration growth valuations"}
+    bull: {beneficiary_longs: [JPM, BAC, WFC, GS, MS], beneficiary_shorts: [ARKK, CRWD, NET, ZS, SNOW, DDOG], mechanism: "loans reprice up before deposits; net interest margin widens; higher discount rate hits long-duration growth"}
+    bear: {beneficiary_longs: [CRWD, NET, ZS, SNOW, DDOG], beneficiary_shorts: [JPM, BAC, WFC, GS, MS], mechanism: "lower discount rate lifts long-duration growth valuations; bank net interest margin compresses"}
   BONDS:   # inverse alias of YIELDS (bond prices up == yields down)
-    bull: {beneficiary_longs: [CRWD, NET, ZS, SNOW, DDOG], mechanism: "bond rally = falling yields lift long-duration growth"}
-    bear: {beneficiary_longs: [JPM, BAC, WFC, GS, MS], mechanism: "bond selloff = rising yields widen bank net interest margin"}
+    bull: {beneficiary_longs: [CRWD, NET, ZS, SNOW, DDOG], beneficiary_shorts: [JPM, BAC, WFC, GS, MS], mechanism: "bond rally = falling yields lift long-duration growth; bank net interest margin compresses"}
+    bear: {beneficiary_longs: [JPM, BAC, WFC, GS, MS], beneficiary_shorts: [ARKK, CRWD, NET, ZS, SNOW, DDOG], mechanism: "bond selloff = rising yields widen bank net interest margin; higher discount rate hits long-duration growth"}
   DXY:
-    bull: {beneficiary_longs: [IWM], mechanism: "strong dollar hurts foreign-revenue mega-caps; domestic small-caps relatively insulated"}
-    bear: {beneficiary_longs: [AAPL, MSFT, GOOGL, META, AMZN], mechanism: "weak dollar boosts foreign-revenue translation for mega-cap multinationals"}
+    bull: {beneficiary_longs: [IWM], beneficiary_shorts: [AAPL, MSFT, GOOGL, META, AMZN], mechanism: "strong dollar hurts foreign-revenue mega-caps; domestic small-caps relatively insulated"}
+    bear: {beneficiary_longs: [AAPL, MSFT, GOOGL, META, AMZN], beneficiary_shorts: [IWM], mechanism: "weak dollar boosts foreign-revenue translation for mega-cap multinationals; domestic small-caps relatively lag"}
   GOLD:
     bull: {beneficiary_longs: [NEM, GOLD, AEM, FNV, WPM], mechanism: "miner operating leverage: fixed cost, variable revenue"}
   BTC:
     bull: {beneficiary_longs: [MSTR, MARA, RIOT, CLSK, COIN], mechanism: "crypto-levered equities track bitcoin"}
   SPX:
-    bear: {beneficiary_longs: [WMT, COST, PG, NEE, SO, LLY, JNJ], mechanism: "risk-off rotation to inelastic-demand defensives"}
+    bear: {beneficiary_longs: [WMT, COST, PG, NEE, SO, LLY, JNJ], beneficiary_shorts: [ARKK, ARKG, COIN, PLTR, RIVN, AFRM, UPST], mechanism: "risk-off rotation to inelastic-demand defensives; high-beta growth falls hardest"}
   NDX:
-    bear: {beneficiary_longs: [WMT, COST, PG, LLY, JNJ], mechanism: "risk-off rotation to inelastic-demand defensives"}
+    bear: {beneficiary_longs: [WMT, COST, PG, LLY, JNJ], beneficiary_shorts: [ARKK, ARKG, COIN, PLTR, RIVN, AFRM, UPST], mechanism: "risk-off rotation to inelastic-demand defensives; high-beta growth falls hardest"}
   RUT:
-    bear: {beneficiary_longs: [WMT, COST, PG], mechanism: "risk-off rotation to defensives"}
+    bear: {beneficiary_longs: [WMT, COST, PG], beneficiary_shorts: [ARKK, ARKG, COIN, AFRM, UPST], mechanism: "risk-off rotation to defensives; high-beta small/mid growth falls hardest"}
   DJIA:
-    bear: {beneficiary_longs: [WMT, COST, PG], mechanism: "risk-off rotation to defensives"}
+    bear: {beneficiary_longs: [WMT, COST, PG], beneficiary_shorts: [ARKK, ARKG, COIN, PLTR, RIVN], mechanism: "risk-off rotation to defensives; high-beta growth falls hardest"}
