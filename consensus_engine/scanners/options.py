@@ -171,6 +171,7 @@ def _ts_to_epoch(ts) -> float:
 def _scan_chain_for_flow(
     ticker, chain, expiry, spot, *,
     min_vol_oi, min_volume, min_premium, max_stale_sec, now,
+    relative_baseline_enabled=False, relative_multiplier=3.0, baseline=None,
 ) -> list:
     """Pull qualifying FlowHits out of one expiry's calls+puts DataFrames.
 
@@ -178,6 +179,13 @@ def _scan_chain_for_flow(
     least min_volume contracts, and >= min_premium notional (lastPrice*vol*100).
     Contracts whose last trade is older than max_stale_sec are skipped so we
     never alert on stale / closed-market data.
+
+    #18 relative baseline gate: when relative_baseline_enabled is True, a contract
+    must ALSO clear premium >= relative_multiplier * baseline (the ticker's
+    trailing mean premium). The relative gate is SKIPPED when baseline is None
+    (<10 rows history; cold-start) so we never reject everything early on — the
+    flat absolute floor still applies. This is sync (runs in a thread executor);
+    the baseline is pre-fetched by the async caller and passed in.
     """
     hits = []
     for df, side in ((chain.calls, "CALL"), (chain.puts, "PUT")):
@@ -193,6 +201,9 @@ def _scan_chain_for_flow(
             premium = last_price * vol * 100.0
             if ratio < min_vol_oi or premium < min_premium:
                 continue
+            if (relative_baseline_enabled and baseline is not None
+                    and premium < relative_multiplier * baseline):
+                continue  # #18: below this ticker's own trailing baseline
             lt = _ts_to_epoch(row.get("lastTradeDate"))
             if max_stale_sec and lt and (now - lt) > max_stale_sec:
                 continue  # stale / closed-market data — don't alert on it
@@ -248,21 +259,45 @@ async def _fetch_flow_chains(ticker: str, executor, nearest: int):
         return 0.0, []
 
 
+def _flow_relative_ratio(hit, baselines: dict) -> float:
+    """#17: a FlowHit's premium relative to its ticker's trailing baseline.
+
+    ratio = premium / max(baseline, premium*0.1). When the baseline is None
+    (cold-start, <10 rows) it falls back to premium*0.1 so an under-sampled
+    ticker isn't artificially inflated to a huge ratio by a near-zero divisor."""
+    baseline = baselines.get(hit.ticker)
+    denom = max(baseline or 0.0, hit.premium_usd * 0.1)
+    if denom <= 0:
+        return 0.0
+    return hit.premium_usd / denom
+
+
 async def scan_options_flow(
     tickers: list[str], executor=None, *,
     min_vol_oi: float = 5.0, min_volume: int = 500,
     min_premium: float = 250_000.0, max_staleness_min: int = 60,
     nearest_expirations: int = 2,
+    selection_mode: str = "premium",
+    relative_baseline_enabled: bool = False,
+    relative_multiplier: float = 3.0,
+    baselines: dict | None = None,
 ) -> list:
     """Scan tickers for unusual options FLOW (free yfinance ~15-min data).
 
-    Returns every qualifying FlowHit across all tickers, sorted by premium
-    (largest first). The caller dedups to one alert per ticker. This revives
-    the dormant scan_unusual_options_market with premium sizing, multi-expiry
-    coverage, staleness filtering, and a structured return type.
+    Returns every qualifying FlowHit across all tickers, sorted (largest first).
+    selection_mode "premium" (default) sorts by raw premium — current behavior.
+    selection_mode "relative" (#17) sorts by premium/baseline ratio (vol_oi
+    tiebreak) so high-conviction single names outrank mega-cap ETFs.
+    relative_baseline_enabled (#18) adds a per-ticker baseline gate inside the
+    scan. baselines is a pre-fetched ticker -> trailing-mean-premium dict
+    (pre-fetched in the async caller because the db helper is async and the
+    per-chain scan is sync); None entries are cold-start (gate skipped).
+
+    The caller dedups to one alert per ticker.
     """
     now = time.time()
     max_stale_sec = max_staleness_min * 60 if max_staleness_min else 0
+    baselines = baselines or {}
     out: list = []
     for tk in tickers:
         try:
@@ -272,10 +307,17 @@ async def scan_options_flow(
                     tk, chain, expiry, spot or 0.0,
                     min_vol_oi=min_vol_oi, min_volume=min_volume,
                     min_premium=min_premium, max_stale_sec=max_stale_sec, now=now,
+                    relative_baseline_enabled=relative_baseline_enabled,
+                    relative_multiplier=relative_multiplier,
+                    baseline=baselines.get(tk),
                 ))
         except Exception as ex:
             log.debug("scan_options_flow error for %s: %s", tk, ex)
-    out.sort(key=lambda h: h.premium_usd, reverse=True)
+    if selection_mode == "relative":
+        out.sort(key=lambda h: (_flow_relative_ratio(h, baselines), h.vol_oi_ratio),
+                 reverse=True)
+    else:
+        out.sort(key=lambda h: h.premium_usd, reverse=True)
     if out:
         log.info("options_flow: %d qualifying contract(s) across %d ticker(s)",
                  len(out), len({h.ticker for h in out}))

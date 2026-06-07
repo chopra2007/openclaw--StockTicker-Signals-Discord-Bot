@@ -343,6 +343,17 @@ async def _run_options_flow_scan() -> None:
     if not tickers:
         return
 
+    # #17/#18: the per-chain scan is sync (thread executor) and cannot await an
+    # async db helper, so pre-fetch each candidate ticker's trailing premium
+    # baseline HERE (async) and pass the dict down. None => cold-start (<10 rows).
+    selection_mode = str(cfg.get("options_flow.selection_mode", "premium"))
+    relative_baseline_enabled = bool(cfg.get("options_flow.relative_baseline_enabled", False))
+    relative_multiplier = float(cfg.get("options_flow.relative_multiplier", 3.0))
+    baselines: dict[str, float | None] = {}
+    if selection_mode == "relative" or relative_baseline_enabled:
+        for tk in tickers:
+            baselines[tk] = await db.get_flow_premium_baseline(tk)
+
     hits = await scan_options_flow(
         tickers, executor=None,
         min_vol_oi=float(cfg.get("options_flow.min_vol_oi", 5.0)),
@@ -350,6 +361,10 @@ async def _run_options_flow_scan() -> None:
         min_premium=float(cfg.get("options_flow.min_premium_usd", 250000)),
         max_staleness_min=int(cfg.get("options_flow.max_staleness_min", 60)),
         nearest_expirations=int(cfg.get("options_flow.nearest_expirations", 2)),
+        selection_mode=selection_mode,
+        relative_baseline_enabled=relative_baseline_enabled,
+        relative_multiplier=relative_multiplier,
+        baselines=baselines,
     )
     if not hits:
         return
@@ -369,7 +384,7 @@ async def _run_options_flow_scan() -> None:
         last = await db.get_last_flow_alert_ts(h.ticker)
         if last and (now - last) < cooldown:
             continue  # per-ticker cooldown
-        await _post_to_alerts_channel(format_flow_alert(h))
+        await _post_to_options_channel(format_flow_alert(h))
         alerted.add(h.ticker)
         fired += 1
 
@@ -891,6 +906,34 @@ async def _post_to_alerts_channel(text: str) -> None:
                 log.warning("Discord post failed: %d", resp.status)
     except Exception as e:
         log.error("_post_to_alerts_channel error: %s", e)
+
+
+async def _post_to_options_channel(text: str) -> None:
+    """#5: post a plain text message to the dedicated #options-flow channel.
+
+    Reads api_keys.options_flow_channel_id; when blank, falls back to the main
+    alerts channel (api_keys.discord_channel_id) so behavior is unchanged until
+    the channel id is supplied at go-live. Mirrors _post_to_alerts_channel."""
+    token = cfg.get_api_key("discord_bot_token")
+    channel_id = str(cfg.get("api_keys.options_flow_channel_id", "") or "")
+    if not channel_id:
+        channel_id = str(cfg.get("api_keys.discord_channel_id", ""))
+    if not token or not channel_id or not channel_id.isdigit():
+        return
+    if cfg.dry_run:
+        log.info("[DRY-RUN] options channel: %s", text[:80])
+        return
+    try:
+        session = await get_session()
+        url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+        headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
+        async with session.post(url, headers=headers,
+                                json={"content": text[:2000]},
+                                timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            if resp.status not in (200, 201):
+                log.warning("Discord post failed: %d", resp.status)
+    except Exception as e:
+        log.error("_post_to_options_channel error: %s", e)
 
 
 async def _check_youtube_level_alerts() -> None:

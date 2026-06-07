@@ -336,3 +336,63 @@ async def test_cycle_no_pollution(fresh_db, monkeypatch):
     after_se = (await (await conn.execute("SELECT COUNT(*) c FROM signal_events")).fetchone())["c"]
     after_ts = (await (await conn.execute("SELECT COUNT(*) c FROM ticker_signals")).fetchone())["c"]
     assert after_se == before_se and after_ts == before_ts   # confluence never writes source tables
+
+
+# ── #30 regression-LOCK: the URA-shaped acting→high single-agree tier-up ──
+# This is DISTINCT from test_cycle_tier_up_then_hysteresis above (which is a FORMING
+# thesis reaching CRITICAL via TWO agrees). Here we lock the OTHER live path that has
+# actually fired (URA id=10 in prod: sector/URA/bull, ACTING, agree_count=1 → tier=high):
+# an ACTING thesis sets p1_tier="high", a SINGLE agreeing source lifts confluence to
+# "high", combined stays "high", and the strict-tier-up gate posts ONE alert from
+# surface — then suppresses the repeat (hysteresis). The premise "has it ever fired"
+# is already proven (5 posted alerts in prod) — this is the LOCK, not an investigation.
+
+async def test_cycle_acting_high_single_agree_locks_and_hysteresis(fresh_db, monkeypatch):
+    _dryrun_cfg(monkeypatch)
+    now = time.time()
+    # URA-shaped: sector/URA/bull, ACTING (→ p1_tier high), has_levels=1.
+    tid = await db.insert_thesis("sector", "URA", "bull", "acting",
+                                 '[{"price":30}]', None, 1, "[]", now)
+    # exactly ONE agreeing source (a long URA twitter row) → confluence tier "high".
+    await _ins("signal_events", ["source_type", "ticker", "direction", "recorded_at"],
+               ["twitter", "URA", "long", now])
+
+    await main._run_confluence_cycle(window_days=21, min_dom=0.6)
+    row = await db.get_confluence_check(tid)
+    assert row["combined_tier"] == "high" and row["agree_count"] == 1
+    assert row["alerted_tier"] == "high"          # the tier-up posted, advancing alerted_tier
+
+    conn = await db.get_db()
+    cur = await conn.execute("SELECT COUNT(*) c FROM wolf_news_alerts WHERE status='posted'")
+    assert (await cur.fetchone())["c"] == 1        # exactly one alert from the surface→high rise
+
+    # second cycle, unchanged state → strict gate (high not > high) → NO second alert.
+    await main._run_confluence_cycle(window_days=21, min_dom=0.6)
+    cur = await conn.execute("SELECT COUNT(*) c FROM wolf_news_alerts")
+    assert (await cur.fetchone())["c"] == 1        # hysteresis held
+
+
+async def test_score_confluence_acting_high_is_suppressed_below_alerted_tier(fresh_db, monkeypatch):
+    """The pure-scoring half of the lock: score_confluence still computes high (1 agree),
+    but when the thesis has ALREADY alerted at 'high', the main.py strict-tier-up gate
+    (comb rank must EXCEED prev_alerted) does NOT fire — combined_tier never RISES."""
+    _dryrun_cfg(monkeypatch)
+    now = time.time()
+    tid = await db.insert_thesis("sector", "URA", "bull", "acting",
+                                 '[{"price":30}]', None, 1, "[]", now)
+    await _ins("signal_events", ["source_type", "ticker", "direction", "recorded_at"],
+               ["twitter", "URA", "long", now])
+    # pre-seed the row as already-alerted at high (the hysteresis precondition).
+    await db.record_confluence_check(tid, "sector", "URA", "bull", now, 21,
+                                     1, 0, "high", "high", 0, "[]", "[]", "high")
+
+    # the scorer itself still says high / 1-agree (it is stateless)...
+    th = {"scope_type": "sector", "scope_key": "URA", "direction": "bull", "has_levels": 1}
+    r = wc.score_confluence(th, {"twitter": [{"ticker": "URA", "dir": "long"}]})
+    assert r.tier == "high" and r.agree_count == 1
+
+    # ...but the cycle posts NOTHING because comb(high) does not exceed alerted_tier(high).
+    await main._run_confluence_cycle(window_days=21, min_dom=0.6)
+    conn = await db.get_db()
+    cur = await conn.execute("SELECT COUNT(*) c FROM wolf_news_alerts")
+    assert (await cur.fetchone())["c"] == 0

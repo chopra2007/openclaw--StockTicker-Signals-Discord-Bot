@@ -8,12 +8,13 @@ and run_cycle skips single-stock theses (isolation).
 """
 import json
 import tempfile
+import time
 import types
 
 import pytest
 
 from consensus_engine import config as cfg, db
-from consensus_engine.alerts import wolf_news
+from consensus_engine.alerts import wolf_news, wolf_digest
 from consensus_engine.analysis import wolf_beneficiaries as wb
 
 
@@ -25,6 +26,18 @@ def _cfg_with(key, value):
     def fake(k, default=None):
         if k == key:
             return value
+        return real(k, default)
+    return fake
+
+
+def _cfg_with_many(overrides):
+    """cfg.get replacement that overrides a dict of keys, falling through for the rest
+    (keeps digest_max_age_sec=7200 and every other real default)."""
+    real = cfg.get
+
+    def fake(k, default=None):
+        if k in overrides:
+            return overrides[k]
         return real(k, default)
     return fake
 
@@ -305,3 +318,51 @@ async def test_shorts_flag_on_writes_short_rows(fresh_db, monkeypatch):
     assert bear_rows and all(r["side"] == "short" for r in bear_rows)
     long_rows = await db.get_beneficiaries(longp)
     assert long_rows and all(r["side"] == "long" for r in long_rows)
+
+
+# ───────────────────────── #30 beneficiary freshness gate ─────────────────────────
+async def test_digest_freshness_gate_drops_stale_rows(fresh_db, monkeypatch):
+    """The digest reads PRECOMPUTED beneficiary rows but must drop any older than
+    wolf.beneficiaries.digest_max_age_sec (7200). For one acting macro thesis we seed
+    TWO rows — one FRESH (computed_at=now) and one STALE (now-9000) — and assert only
+    the fresh ticker reaches gather_digest's payload (stale silently dropped)."""
+    # Both digest flags ON so the freshness-gated block runs (enabled=precompute gate,
+    # surface_in_digest=post gate); every other key keeps its real default (7200).
+    monkeypatch.setattr(wolf_digest.cfg, "get", _cfg_with_many({
+        "wolf.beneficiaries.enabled": True,
+        "wolf.beneficiaries.surface_in_digest": True,
+    }))
+    now = time.time()
+    tid = await db.insert_thesis("asset", "OIL", "bull", "acting", "[]", None, 0, "[]", now)
+    await db.replace_beneficiaries(tid, [
+        {"ticker": "XOM", "side": "long", "scope_type": "asset", "scope_key": "OIL",
+         "direction": "bull", "score": 0.8, "confidence": 0.7, "tier": "green",
+         "reason": "leads peers", "signals_json": "{}", "computed_at": now},          # FRESH
+        {"ticker": "CVX", "side": "long", "scope_type": "asset", "scope_key": "OIL",
+         "direction": "bull", "score": 0.6, "confidence": 0.5, "tier": "yellow",
+         "reason": "stale row", "signals_json": "{}", "computed_at": now - 9000},      # STALE
+    ])
+
+    payload = await wolf_digest.gather_digest("midday")
+    benf = payload["beneficiaries"]
+    assert len(benf) == 1                                  # the one acting thesis surfaced
+    picks = {p["ticker"] for p in benf[0]["picks"]}
+    assert picks == {"XOM"}                                # fresh kept, stale (CVX) dropped
+
+
+async def test_digest_freshness_gate_omits_thesis_when_all_stale(fresh_db, monkeypatch):
+    """If every precomputed row for a thesis is stale, the thesis contributes NOTHING
+    to the digest (the section is omitted, not rendered empty)."""
+    monkeypatch.setattr(wolf_digest.cfg, "get", _cfg_with_many({
+        "wolf.beneficiaries.enabled": True,
+        "wolf.beneficiaries.surface_in_digest": True,
+    }))
+    now = time.time()
+    tid = await db.insert_thesis("asset", "OIL", "bull", "acting", "[]", None, 0, "[]", now)
+    await db.replace_beneficiaries(tid, [
+        {"ticker": "XOM", "side": "long", "scope_type": "asset", "scope_key": "OIL",
+         "direction": "bull", "score": 0.8, "confidence": 0.7, "tier": "green",
+         "reason": "stale", "signals_json": "{}", "computed_at": now - 9000},          # STALE
+    ])
+    payload = await wolf_digest.gather_digest("midday")
+    assert payload["beneficiaries"] == []                  # all stale → thesis omitted

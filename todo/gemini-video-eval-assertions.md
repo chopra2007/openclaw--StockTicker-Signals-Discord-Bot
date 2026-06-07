@@ -1,6 +1,7 @@
 # Gemini video-eval reference assertions — 2/7 chronic failure
 
-**Status:** OPEN — chronic failure since 2026-04-23.
+**Status:** MOSTLY RESOLVED (2026-06-06, Wave 8 #34) — gating **6/6** checks pass. One OPEN A2 **info** item: `visual_price_rows=17 chart_levels_filed=0` (chart prices were read but none filed into `youtube_levels`). NOT a gating failure. (Was "OPEN — chronic failure since 2026-04-23.")
+**Evidence:** `.omc/logs/v2_assertions_20260606.log` — line 42 `SUMMARY: gemini-reading+guardrails 6/6 gating checks passed; 0/1 info checks ok, idempotency=DRIFT (informational; live-LLM)`; lines 28-29 the A2 info item.
 **Created:** 2026-05-12
 
 **Layperson:** The daily cron `scripts/run_reference_assertions_cron.sh` is a regression test that asks Gemini to extract evidence-spans from a fixed YouTube video (`4mSyMr8PGLI`) and checks ~7 assertions. It's been stuck at **2/7 passing every day since 2026-04-23** because Gemini's video-ingest times out (was 120s timeout, bumped to 240s on 2026-05-12). Even with the bump, the chance of all-7-pass is low without a deeper fix.

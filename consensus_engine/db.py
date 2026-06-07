@@ -2101,6 +2101,27 @@ async def get_last_flow_alert_ts(ticker: str) -> float | None:
     return row["ts"] if row and row["ts"] else None
 
 
+async def get_flow_premium_baseline(ticker: str, days: int = 30) -> float | None:
+    """#17/#18: trailing-N-day mean options-flow premium for a ticker.
+
+    Returns the AVG(premium_usd) over the lookback window (or all available rows,
+    whichever is less). Returns None when fewer than 10 rows exist in the window
+    — the cold-start guard: the options_flow table spans only ~5 days today, so a
+    "30-day mean" is a few-day mean for now and an under-sampled ticker has no
+    trustworthy baseline. Callers must skip the relative gate / ranking when None."""
+    conn = await get_db()
+    cutoff = time.time() - days * 86400
+    cur = await conn.execute(
+        "SELECT AVG(premium_usd) AS avg_prem, COUNT(*) AS n "
+        "FROM options_flow WHERE ticker=? AND detected_at>=?",
+        (ticker, cutoff),
+    )
+    row = await cur.fetchone()
+    if not row or row["n"] is None or row["n"] < 10 or row["avg_prem"] is None:
+        return None
+    return float(row["avg_prem"])
+
+
 async def insert_youtube_setup(
     run_id: int, video_id: str, ticker: str,
     entry_low: float | None, entry_high: float | None, stop_price: float | None,

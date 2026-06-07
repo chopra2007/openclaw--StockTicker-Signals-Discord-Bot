@@ -1,6 +1,6 @@
 # Redesign the CLAUDE.md DoD checklist to be scope-aware
 
-**Status:** DONE 2026-05-22.
+**Status:** REOPENED 2026-06-06 — marked DONE 2026-05-22 but acceptance #1 was never applied. CLAUDE.md still has the flat "What to verify" list (current lines 93-100: "Test the whole feature" / "Always-on checks" / "Shared-file tripwire"), NOT the tag-keyed buckets (`[always]`/`[gateway]`/`[discord-commands]`/`[agent-mention]`/`[infra]`/`[ingest]`) the acceptance required (verified: zero tag buckets in CLAUDE.md). The CLAUDE.md restructure is left as tracked work for the user — NOT done in this audit run.
 **Created:** 2026-05-22
 
 **Layperson:** The "Critical paths for this project" list in CLAUDE.md (lines 17-23) was built up incident-by-incident — every time a prior session declared something "done" while something else was broken, that broken thing got added to the list. The result is a "check everything every time" checklist that's mostly unrelated to whatever I'm currently working on, and it creates a perverse incentive: when one of those checks fails for reasons unrelated to my changes, the DoD rules forbid me to call it "pre-existing", so I'd be forced to fix unrelated bugs before claiming my own work is done.
