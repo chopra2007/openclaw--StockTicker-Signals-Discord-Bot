@@ -155,3 +155,9 @@ Re-tested two dozen OpenRouter models for speed, smarts, and reliability and reb
 **File:** `wolf-extraction-input-cap.md`
 
 Raise the limit on how much of each Wolf email the bot reads (12,000 → 40,000 characters) so trade calls in the back half of the long "Daily Wrap" editions aren't silently dropped.
+
+## 26. Catch Wolf's hedged direction changes + retire stale calls
+
+**File:** `wolf-hedged-stance-and-stale-theses.md`
+
+When Wolf softly changes his mind on a stock (e.g. IGV: bullish-to-target, then "now I'm looking to short") or an old call goes stale after the move already happened, the bot should update instead of keeping his old view — this session had to hand-fix a stale IGV "bull".
