@@ -114,6 +114,29 @@ def test_auth_results_missing_header():
     assert not gmail_watcher._auth_results_pass([{"name": "From", "value": "x"}])
 
 
+def test_auth_results_forwarded_arc():
+    """Gmail-forwarded mail reports arc=pass (not dmarc=pass); accept it."""
+    headers = [{"name": "Authentication-Results",
+                "value": ("mx.google.com; dkim=pass header.i=@wolf-on-wallstreet.com; "
+                          "arc=pass (i=2 spf=pass dkim=pass); spf=pass "
+                          "smtp.mailfrom=\"sub+caf_=x=gmail.com@gmail.com\"")}]
+    assert gmail_watcher._auth_results_pass(headers)
+
+
+def test_auth_results_forwarded_dara():
+    """Gmail-forwarded mail can report dara=pass (not dmarc=pass); accept it."""
+    headers = [{"name": "Authentication-Results",
+                "value": "mx.google.com; dkim=pass header.i=@x; spf=pass; dara=pass header.i=@gmail.com"}]
+    assert gmail_watcher._auth_results_pass(headers)
+
+
+def test_auth_results_no_dmarc_equiv_fails():
+    """dkim+spf pass but no dmarc/arc/dara token at all -> still rejected."""
+    headers = [{"name": "Authentication-Results",
+                "value": "mx; dkim=pass; spf=pass"}]
+    assert not gmail_watcher._auth_results_pass(headers)
+
+
 def test_decode_body_html_only():
     """Wolf emails are HTML-only: text is empty, html is returned."""
     payload = {

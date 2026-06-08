@@ -156,11 +156,18 @@ def _sender_allowed(from_header: str) -> bool:
 
 _DKIM_PASS_RE = re.compile(r"\bdkim=pass\b", re.IGNORECASE)
 _SPF_PASS_RE = re.compile(r"\bspf=pass\b", re.IGNORECASE)
-_DMARC_PASS_RE = re.compile(r"\bdmarc=pass\b", re.IGNORECASE)
+# dmarc=pass OR a forwarding-preserved equivalent. Gmail auto-forwarding (the Wolf
+# newsletter is forwarded from the subscriber's inbox to the bot's mailbox) breaks
+# DMARC alignment, so Google reports arc=pass (Authenticated Received Chain — the
+# IETF standard that carries authentication across a forwarder) or dara=pass instead
+# of dmarc=pass. dkim=pass on the author domain still proves authenticity, so any of
+# the three satisfies the DMARC leg.
+_DMARC_EQUIV_RE = re.compile(r"\b(?:dmarc|arc|dara)=pass\b", re.IGNORECASE)
 
 
 def _auth_results_pass(headers: list[dict]) -> bool:
-    """True if any Authentication-Results header shows dkim+spf+dmarc all = pass.
+    """True if any Authentication-Results header shows dkim+spf pass AND a DMARC
+    pass (dmarc=pass, or arc=/dara=pass for Gmail-forwarded mail).
 
     Evaluates ALL Authentication-Results headers (Gmail can add several) with
     word-boundary matching so 'dkim=pass' does not match inside another token.
@@ -170,7 +177,7 @@ def _auth_results_pass(headers: list[dict]) -> bool:
         if h.get("name", "").lower() == "authentication-results"
     ]
     for val in auth_values:
-        if _DKIM_PASS_RE.search(val) and _SPF_PASS_RE.search(val) and _DMARC_PASS_RE.search(val):
+        if _DKIM_PASS_RE.search(val) and _SPF_PASS_RE.search(val) and _DMARC_EQUIV_RE.search(val):
             return True
     return False
 
