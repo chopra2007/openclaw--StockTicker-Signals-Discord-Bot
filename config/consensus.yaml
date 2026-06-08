@@ -13,7 +13,7 @@ api_keys:
   discord_bot_token: "$DISCORD_BOT_TOKEN"
   discord_channel_id: "$DISCORD_CHANNEL_ID"
   discord_news_channel_id: "$DISCORD_NEWS_CHANNEL_ID"   # Wolf macro-brain #news lane
-  options_flow_channel_id: ""   # #5 blank => falls back to main; user #options-flow id 1512934341485924432 applied at go-live
+  options_flow_channel_id: "1512934341485924432"   # #options-flow room (user go 2026-06-08)
   discord_owner_user_id: "$DISCORD_OWNER_USER_ID"       # @-ping target (phase-2, dormant)
   discord_feed_channel_id: "$DISCORD_FEED_CHANNEL_ID"  # #twitter channel — TweetShift input
   twitter_auth_token: "$TWITTER_AUTH_TOKEN"
@@ -140,6 +140,7 @@ sec_watcher:
   # awards / gifts / tax-withholding are excluded.
   min_insider_dollars_buy: 100000     # $100k+ insider purchase signals conviction
   min_insider_dollars_sell: 1000000   # Sells need higher floor — execs sell for many reasons
+  named_insiders_in_alert: true       # #8 LIVE (user go 2026-06-08) — expand "Form 4 x{n}" to named insiders + roles
 
 # Stage 2: Social & Sentiment Scanner (used for cross-reference scoring)
 social:
@@ -399,6 +400,7 @@ youtube:
   channel_ids: []                      # optional extra UC... IDs; DB table is the canonical source
   poll_interval_seconds: 600
   max_videos_per_channel: 3
+  max_retries: 5                       # #7 retry failed/budget-skipped videos up to N times (0=off); drains the DB backlog
   preferred_languages: ["en"]
   export_dir: "artifacts/transcripts"
   max_concurrency: 4
@@ -575,18 +577,18 @@ all_command:
     enabled: true          # set false to disable without code change
     ttl_seconds: 60        # hard-expire even during Groq outage
   # ---- full-audit-2026-06-06 additions (all default-OFF / behavior-preserving) ----
-  market_cap_gate_enabled: false      # #1 reject sub-$100M / fake tickers on !all
+  market_cap_gate_enabled: true       # LIVE (user go 2026-06-08) — reject sub-$100M / fake tickers on !all
   chart_pattern_field_enabled: false  # #21 surface detected chart pattern as an embed field
   sparse_banner:
-    enabled: false                    # #22 low-coverage warning banner
+    enabled: true                     # #22 LIVE (user go 2026-06-08) — low-coverage warning banner
     max_sources: 3
-  risk_price_gate_strict: false       # #24 widen risk-section price gate beyond the stop literal
+  risk_price_gate_strict: true        # #24 LIVE (user go 2026-06-08) — widen risk-section price gate beyond the stop literal
   horizon_realized_vol: false         # #25 swing horizon uses realized vol, not raw ATR
   synthesis_prompt_trim: false        # #15 collapse repeated anti-fabrication prose (A/B before go-live)
   wolf_confluence_field_enabled: false  # #7 surface Wolf+N-sources-agree in !all
   levels:                             # smart technical-levels engine (default OFF, shadow-first)
     sl_max_drawdown_pct: 0.20         # existing code default, now explicit
-    technical_engine_enabled: false   # master switch
+    technical_engine_enabled: true    # #SMART-LEVELS shadow soak (user go 2026-06-08): compute+log only, no visible change
     technical_engine_shadow_mode: true  # compute+log only when enabled
     candle_range: "3mo"               # keep 3mo (6mo = shared-fetch blast radius)
     min_anchors_for_plan: 4
@@ -614,7 +616,7 @@ precision_engine:
     gemini_input_tokens: 2000000       # ~$0.30/day on Flash
     gemini_output_tokens: 500000
     gemini_video_calls: 100
-    wolf_vision_calls: 30              # #20 dedicated budget so chart reads don't starve the video pipeline
+    wolf_vision_calls: 80              # #4 raised 30->80 (vision now on free OpenRouter; cap is just a runaway guard)
   thresholds:
     high_confidence: 80
     medium_confidence: 65
@@ -668,6 +670,15 @@ health_check:
   daily_time_et: "20:30"               # 8:30pm ET — post-market, ahead of next-day briefing
   alert_only_on_failure: true
   channel_id: ""                       # blank → falls through to alfred.channel_id
+  feeds:                               # #5 silent-outage alarm thresholds (tuned to real cadence 2026-06-08)
+    wolf:
+      label: "Wolf email"
+      max_age_hours: 72                # weekends produce ~65h gaps; the real outage ran 161h
+      auth_hint: " — check the Gmail auth gate (OAuth token may have lapsed)."
+    youtube:
+      label: "YouTube"
+      max_age_hours: 120               # YouTube can go quiet for days; only flag a true multi-day drop
+      auth_hint: " — check the YouTube caption/transcript chain."
 
 # =============================================================================
 # New Signal Features (A1/A2/A3/A4/A5/D1)
@@ -817,8 +828,11 @@ wolf:
   # extractor and the quote-verifier (wolf_email_parser) — keep them in sync.
   extraction_input_cap: 40000
   extraction_timeout: 60
-  vision:                               # #19 chart-read Gemini config
+  vision:                               # #19/#4 chart-read config (now OpenRouter vision, not Gemini)
     max_output_tokens: 512              # cap output; thinking disabled in code (wolf_vision.py)
+    models:                             # #4 verified free OpenRouter vision chain (probed live 2026-06-08)
+      - "nvidia/nemotron-nano-12b-v2-vl:free"   # primary — reads charts correctly
+      - "google/gemma-4-31b-it:free"            # fallback — repo-proven
   # Dedicated chain for thesis extraction (own chain, NOT the shared role="primary"
   # chain). Leads with gpt-oss-120b: 2026-06-02 it honored the stricter "skip
   # daily-performance mentions" prompt 4/4 (no false GOOG bull) where the weaker
@@ -841,6 +855,10 @@ wolf:
     interval_sec: 900                   # re-check active theses every 15 min (cheap, no LLM)
     window_days: 21                     # "last 2-3 weeks" — agreement only counts recent calls
     min_dominance: 0.6                  # a source's net vote needs >=60% one-sided rows, else it's "mixed"
+    board_show_levelless: true          # #3A LIVE (user go 2026-06-08) — show corroborated (agree>=2) theses even with no levels
+    links_enabled: true                 # #3B LIVE (user go 2026-06-08) — clickable YouTube links by agreeing videos
+  direction_guard:                      # #1 trade-stance vs near-term-price-path extraction rule
+    enabled: true                       # LIVE (user go 2026-06-08) — fixes IGV-style bull/bear misreads
   digests:                              # Scheduled #news briefings (TODO #20, phase 3)
     enabled: true                       # LIVE — posts midday/nightly/Sunday digests to #news (user sign-off 2026-06-01)
     narrate: false                      # optional <=2-sentence LLM takeaway; OFF (templated render is the product)
@@ -864,7 +882,7 @@ wolf:
     confluence_max_age_sec: 86400       # confluence multiplier only applies if the check is this fresh
     use_catalyst: true                  # news-catalyst confidence lift (read-only news_cascade)
     use_flow: true                      # options-flow confidence lift (read-only)
-    shorts_enabled: false               # v1 is longs-only; short buckets exist in the map but are gated off
+    shorts_enabled: true                # #6 LIVE (user go 2026-06-08) — SHORT ideas on bear theses (~5 eligible index/sector bears)
 
 # Command handler concurrency limits (plan section 2G).
 commands:
