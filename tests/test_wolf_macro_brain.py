@@ -187,6 +187,47 @@ async def test_extract_theses_builds_prompt_without_crashing(monkeypatch):
     assert '{"price": number' in captured["user"]
 
 
+async def _capture_extraction_user_msg(monkeypatch, guard_on):
+    """Build the extraction user message with wolf.direction_guard.enabled forced to
+    `guard_on`, returning the captured message content."""
+    captured = {}
+
+    async def fake_llm(role, messages, **kw):
+        captured["user"] = messages[1]["content"]
+        return '{"regime": null, "theses": [], "big_catalysts": []}'
+
+    real_get = wolf_email_parser.cfg.get
+
+    def patched_get(key, default=None):
+        if key == "wolf.direction_guard.enabled":
+            return guard_on
+        return real_get(key, default)
+
+    monkeypatch.setattr(wolf_email_parser, "call_with_fallback", fake_llm)
+    monkeypatch.setattr(wolf_email_parser.cfg, "get", patched_get)
+    await wolf_email_parser._extract_theses_llm("SPX looks toppy at 7500.")
+    return captured["user"]
+
+
+async def test_direction_guard_flag_on_injects_rule(monkeypatch):
+    """Flag ON: the trade-stance direction guard is concatenated into the user message."""
+    msg = await _capture_extraction_user_msg(monkeypatch, guard_on=True)
+    assert wolf_email_parser._DIRECTION_GUARD_RULE in msg
+    assert "DIRECTION = TRADE STANCE" in msg
+
+
+async def test_direction_guard_flag_off_is_byte_identical(monkeypatch):
+    """Flag OFF (default): the rule is absent and the message equals today's template
+    with the body substituted — byte-for-byte."""
+    msg = await _capture_extraction_user_msg(monkeypatch, guard_on=False)
+    assert wolf_email_parser._DIRECTION_GUARD_RULE not in msg
+    assert "DIRECTION = TRADE STANCE" not in msg
+    expected = wolf_email_parser._EXTRACTION_USER_TMPL.replace(
+        "__BODY__", "SPX looks toppy at 7500."
+    )
+    assert msg == expected
+
+
 async def test_parse_email_end_to_end(monkeypatch):
     """Full parse_email path with a mocked LLM (no network) — proves the real
     flow (prompt build -> JSON parse -> coerce) works on an HTML-only email."""

@@ -210,6 +210,106 @@ def test_confluence_field_divided():
     assert "divided" in f["value"].lower() and "Twitter" in f["value"]
 
 
+# ───────────── #3B: clickable YouTube links (flag wolf.confluence.links_enabled) ─────────────
+
+def _force_flags(monkeypatch, module, overrides: dict):
+    """Force specific cfg flags on `module.cfg`, honoring real defaults for everything else."""
+    from consensus_engine import config as real_cfg
+    orig = real_cfg.get
+    monkeypatch.setattr(module.cfg, "get",
+                        lambda key, default=None: overrides.get(key, orig(key, default)))
+
+
+def _yt_link_row():
+    return {"agree_count": 1, "disagree_count": 0, "divided": 0, "direction": "bull",
+            "agree_sources_json": json.dumps([
+                {"source_type": "youtube", "net_dir": "BULL", "n_rows": 2, "n_channels": 2,
+                 "sample_tickers": ["NVDA", "AMD"],
+                 "sample_video_ids": ["abc123", "def456"]}]),
+            "disagree_sources_json": "[]"}
+
+
+def test_score_confluence_populates_video_ids():
+    rows = {"youtube": [{"ticker": "NVDA", "dir": "long", "channel": "TA Guy", "video_id": "vid1"},
+                        {"ticker": "NVDA", "dir": "long", "channel": "Chartist", "video_id": "vid2"},
+                        {"ticker": "NVDA", "dir": "long", "channel": "TA Guy", "video_id": "vid1"}]}
+    r = wc.score_confluence(_thesis(direction="bull"), rows)
+    yt = r.agree[0]
+    # one representative video per sampled ticker, aligned with sample_tickers
+    assert yt.sample_tickers == ["NVDA"]
+    assert yt.sample_video_ids == ["vid1"]
+
+
+def test_confluence_field_links_off_is_plain(monkeypatch):
+    _force_flags(monkeypatch, wolf_news, {"wolf.confluence.links_enabled": False})
+    f = wolf_news._confluence_field(_yt_link_row())
+    assert "youtube.com/watch?v=" not in f["value"]
+    assert "YouTube (2 ch" in f["value"] and "NVDA, AMD" in f["value"]
+
+
+def test_confluence_field_links_on_renders_markdown(monkeypatch):
+    _force_flags(monkeypatch, wolf_news, {"wolf.confluence.links_enabled": True})
+    f = wolf_news._confluence_field(_yt_link_row())
+    assert "https://www.youtube.com/watch?v=abc123" in f["value"]
+    assert "[NVDA](https://www.youtube.com/watch?v=abc123)" in f["value"]
+    # the "YouTube (N ch" prefix is preserved
+    assert "YouTube (2 ch" in f["value"]
+
+
+# ───────────── #3A: surface (level-less) rows on the digest board ─────────────
+
+async def _gather_with_one_check(monkeypatch, confl_row):
+    """Run wolf_digest.gather_digest('midday') against one stubbed thesis + confluence row."""
+    from consensus_engine.alerts import wolf_digest
+
+    async def _theses():
+        return [{"id": 1, "scope_type": "stock", "scope_key": "NVDA",
+                 "direction": "bull", "stage": "imminent"}]
+
+    async def _check(_tid):
+        return confl_row
+
+    class _Reg:
+        cold_start = True
+        label = "n/a"
+
+    async def _regime():
+        return _Reg()
+
+    monkeypatch.setattr(wolf_digest.db, "get_active_theses", _theses)
+    monkeypatch.setattr(wolf_digest.db, "get_confluence_check", _check)
+    monkeypatch.setattr(wolf_digest, "lookup_regime", _regime)
+    payload = await wolf_digest.gather_digest("midday")
+    return payload["scoreboard"]
+
+
+async def test_board_levelless_hidden_when_flag_off(monkeypatch):
+    from consensus_engine.alerts import wolf_digest
+    _force_flags(monkeypatch, wolf_digest, {"wolf.confluence.board_show_levelless": False})
+    # surface tier (level-less) with 2 agreeing sources
+    row = {"combined_tier": "surface", "agree_count": 2, "disagree_count": 0}
+    board = await _gather_with_one_check(monkeypatch, row)
+    assert board == []
+
+
+async def test_board_levelless_shown_when_flag_on(monkeypatch):
+    from consensus_engine.alerts import wolf_digest
+    _force_flags(monkeypatch, wolf_digest, {"wolf.confluence.board_show_levelless": True})
+    row = {"combined_tier": "surface", "agree_count": 2, "disagree_count": 0}
+    board = await _gather_with_one_check(monkeypatch, row)
+    assert len(board) == 1
+    assert board[0]["scope_key"] == "NVDA" and board[0]["combined_tier"] == "surface"
+
+
+async def test_board_levelless_one_agree_still_hidden_when_flag_on(monkeypatch):
+    from consensus_engine.alerts import wolf_digest
+    _force_flags(monkeypatch, wolf_digest, {"wolf.confluence.board_show_levelless": True})
+    # only 1 agreeing source → below the >=2 bar → still hidden
+    row = {"combined_tier": "surface", "agree_count": 1, "disagree_count": 0}
+    board = await _gather_with_one_check(monkeypatch, row)
+    assert board == []
+
+
 # ───────────────────────── DB: gather / upsert / prune ─────────────────────────
 
 @pytest.fixture

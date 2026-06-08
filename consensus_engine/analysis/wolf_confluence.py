@@ -170,6 +170,7 @@ class SourceVote:
     n_rows: int                       # matching directional rows
     n_channels: int = 0               # distinct YouTube channels (display only; 0 for others)
     sample_tickers: list[str] = field(default_factory=list)  # up to 3, for the alert
+    sample_video_ids: list[str] = field(default_factory=list)  # raw YouTube ids, up to 3 (no URLs)
 
 
 @dataclass
@@ -225,18 +226,22 @@ def score_confluence(thesis: dict, rows_by_source: dict[str, list[dict]],
             continue
         # only the rows on the winning side describe this vote
         winners = [r for s, r in matched if s == nv]
-        sample, seen = [], set()
+        is_yt = stype == "youtube"
+        n_channels = (len({(r.get("channel") or "") for r in winners if r.get("channel")})
+                      if is_yt else 0)
+        # Dedupe by ticker, capturing a representative video_id for each sampled
+        # ticker so the link label and the URL describe the SAME ticker.
+        sample, sample_vids, seen = [], [], set()
         for r in winners:
             tk = (r.get("ticker") or "").upper()
             if tk and tk not in seen:
                 seen.add(tk)
                 sample.append(tk)
+                if is_yt:
+                    sample_vids.append(r.get("video_id") or "")
             if len(sample) >= 3:
                 break
-        n_channels = 0
-        if stype == "youtube":
-            n_channels = len({(r.get("channel") or "") for r in winners if r.get("channel")})
-        votes.append(SourceVote(stype, nv, len(matched), n_channels, sample))
+        votes.append(SourceVote(stype, nv, len(matched), n_channels, sample, sample_vids))
 
     agree = [v for v in votes if v.net_dir == t_stance]
     disagree = [v for v in votes if v.net_dir and v.net_dir != t_stance]

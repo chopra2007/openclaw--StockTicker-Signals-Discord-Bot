@@ -600,3 +600,105 @@ async def test_init_db_survives_legacy_duplicates(tmp_path):
     )
     assert (await cur.fetchone())["c"] == 1
     await db.close_db()
+
+
+# --- ITEM #7: cross-day retry of failed/budget-skipped videos ---
+
+def _force_max_retries(monkeypatch, cap: int) -> None:
+    """Force youtube.max_retries to `cap` regardless of yaml."""
+    real_get = db.cfg.get
+
+    def fake_get(key, default=None):
+        if key == "youtube.max_retries":
+            return cap
+        return real_get(key, default)
+
+    monkeypatch.setattr(db.cfg, "get", fake_get)
+
+
+@pytest.mark.asyncio
+async def test_failed_under_cap_is_retryable(test_db, monkeypatch):
+    _force_max_retries(monkeypatch, 5)
+    await db.upsert_youtube_video("vidR1", "UCr", "T", "2026-05-01T00:00:00Z", time.time())
+    # one failed attempt (bump → attempt_count=1, < cap)
+    await db.mark_youtube_video_status("vidR1", "failed", bump_attempt=True)
+    assert await db.has_video_been_processed("vidR1") is False
+
+
+@pytest.mark.asyncio
+async def test_failed_at_cap_is_terminal(test_db, monkeypatch):
+    _force_max_retries(monkeypatch, 3)
+    await db.upsert_youtube_video("vidR2", "UCr", "T", "2026-05-01T00:00:00Z", time.time())
+    for _ in range(3):  # attempt_count reaches the cap of 3
+        await db.mark_youtube_video_status("vidR2", "failed", bump_attempt=True)
+    assert await db.has_video_been_processed("vidR2") is True
+
+
+@pytest.mark.asyncio
+async def test_missing_stays_terminal(test_db, monkeypatch):
+    _force_max_retries(monkeypatch, 5)
+    await db.upsert_youtube_video("vidR3", "UCr", "T", "2026-05-01T00:00:00Z", time.time())
+    await db.mark_youtube_video_status("vidR3", "missing")
+    assert await db.has_video_been_processed("vidR3") is True
+
+
+@pytest.mark.asyncio
+async def test_success_states_stay_terminal(test_db, monkeypatch):
+    _force_max_retries(monkeypatch, 5)
+    for i, status in enumerate(("saved", "analyzed_gemini", "analyzed_gemini_v2")):
+        vid = f"vidS{i}"
+        await db.upsert_youtube_video(vid, "UCr", "T", "2026-05-01T00:00:00Z", time.time())
+        await db.mark_youtube_video_status(vid, status)
+        assert await db.has_video_been_processed(vid) is True
+
+
+@pytest.mark.asyncio
+async def test_get_retryable_returns_rows_oldest_first(test_db, monkeypatch):
+    _force_max_retries(monkeypatch, 5)
+    # Three failed videos (retryable), published out of order.
+    await db.upsert_youtube_video("vidF_mid",  "UCr", "Mid",  "2026-05-02T00:00:00Z", time.time())
+    await db.upsert_youtube_video("vidF_old",  "UCr", "Old",  "2026-05-01T00:00:00Z", time.time())
+    await db.upsert_youtube_video("vidF_new",  "UCr", "New",  "2026-05-03T00:00:00Z", time.time())
+    for vid in ("vidF_mid", "vidF_old", "vidF_new"):
+        await db.mark_youtube_video_status(vid, "failed", bump_attempt=True)
+    # Excluded rows: a success, a missing, and a capped-out failure.
+    await db.upsert_youtube_video("vidF_done", "UCr", "Done", "2026-05-01T00:00:00Z", time.time())
+    await db.mark_youtube_video_status("vidF_done", "saved")
+    await db.upsert_youtube_video("vidF_miss", "UCr", "Miss", "2026-05-01T00:00:00Z", time.time())
+    await db.mark_youtube_video_status("vidF_miss", "missing")
+    await db.upsert_youtube_video("vidF_cap", "UCr", "Cap", "2026-05-01T00:00:00Z", time.time())
+    for _ in range(5):
+        await db.mark_youtube_video_status("vidF_cap", "failed", bump_attempt=True)
+
+    rows = await db.get_retryable_youtube_videos(5)
+    ids = [r["video_id"] for r in rows]
+    assert ids == ["vidF_old", "vidF_mid", "vidF_new"]  # oldest published_at first
+
+
+@pytest.mark.asyncio
+async def test_bump_attempt_increments_and_stamps(test_db, monkeypatch):
+    _force_max_retries(monkeypatch, 5)
+    await db.upsert_youtube_video("vidB", "UCr", "T", "2026-05-01T00:00:00Z", time.time())
+    await db.mark_youtube_video_status("vidB", "failed", bump_attempt=True)
+    await db.mark_youtube_video_status("vidB", "failed", bump_attempt=True)
+    conn = await db.get_db()
+    cur = await conn.execute(
+        "SELECT attempt_count, last_attempt_at FROM youtube_videos WHERE video_id='vidB'"
+    )
+    row = await cur.fetchone()
+    assert row["attempt_count"] == 2
+    assert row["last_attempt_at"] is not None
+
+
+@pytest.mark.asyncio
+async def test_mark_status_no_bump_leaves_counter(test_db, monkeypatch):
+    _force_max_retries(monkeypatch, 5)
+    await db.upsert_youtube_video("vidN", "UCr", "T", "2026-05-01T00:00:00Z", time.time())
+    await db.mark_youtube_video_status("vidN", "saved")  # default bump_attempt=False
+    conn = await db.get_db()
+    cur = await conn.execute(
+        "SELECT attempt_count, last_attempt_at FROM youtube_videos WHERE video_id='vidN'"
+    )
+    row = await cur.fetchone()
+    assert (row["attempt_count"] or 0) == 0
+    assert row["last_attempt_at"] is None

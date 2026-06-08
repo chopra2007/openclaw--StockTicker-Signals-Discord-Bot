@@ -338,3 +338,122 @@ async def test_get_youtube_context_all_passing_spans_unchanged():
     assert ctx.mention_count == 2
     assert len(ctx.videos) == 2
     assert ctx.direction.value == "long"
+
+
+# ── #8 — named-insider enrichment of the SEC summary (flag-gated) ──────────
+
+from consensus_engine import config as cfg
+from consensus_engine.cross_reference import _run_sec_check
+
+_FORM4_FILING = {
+    "form": "4",
+    "filing_date": "2026-06-05",
+    "cik": "0000320193",
+    "accession_number": "0000320193-26-000077",
+    "primary_document": "form4.xml",
+}
+
+
+def _flag_on(monkeypatch):
+    """Force only sec_watcher.named_insiders_in_alert ON; everything else default."""
+    real_get = cfg.get
+
+    def _get(key, default=None):
+        if key == "sec_watcher.named_insiders_in_alert":
+            return True
+        return real_get(key, default)
+
+    monkeypatch.setattr(cfg, "get", _get)
+
+
+@pytest.mark.asyncio
+async def test_named_insiders_flag_off_byte_identical(monkeypatch):
+    """Flag OFF => summary stays exactly 'Form 4 x{n}', no enrichment fetch."""
+    real_get = cfg.get
+    monkeypatch.setattr(cfg, "get",
+                        lambda k, d=None: False if k == "sec_watcher.named_insiders_in_alert"
+                        else real_get(k, d))
+
+    fetch = AsyncMock()
+    with patch("consensus_engine.scanners.sec_edgar.check_recent_filings",
+               new=AsyncMock(return_value=[_FORM4_FILING, dict(_FORM4_FILING)])), \
+         patch("consensus_engine.scanners.sec_edgar.fetch_form4_details", new=fetch):
+        has_filing, summary = await _run_sec_check("AAPL")
+
+    assert has_filing is True
+    assert summary == "Form 4 x2 (insider trading)"
+    fetch.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_named_insiders_flag_on_cfo_open_market_sell(monkeypatch):
+    """Flag ON + CFO open-market sell => summary names insider, role, 'sold', figures."""
+    _flag_on(monkeypatch)
+
+    txs = [{
+        "reporter_name": "Doe Jane",
+        "title": "CFO",
+        "security": "Common Stock",
+        "date": "2026-06-05",
+        "shares": 240000.0,
+        "price": 52.5,
+        "direction": "Sell",
+        "transaction_type": "Open Market Sale",
+    }]
+
+    with patch("consensus_engine.scanners.sec_edgar.check_recent_filings",
+               new=AsyncMock(return_value=[_FORM4_FILING])), \
+         patch("consensus_engine.scanners.sec_edgar.fetch_form4_details",
+               new=AsyncMock(return_value=txs)), \
+         patch("consensus_engine.utils.rate_limiter.rate_limiter.acquire",
+               new=AsyncMock(return_value=True)):
+        has_filing, summary = await _run_sec_check("AAPL")
+
+    assert has_filing is True
+    # Original count line preserved
+    assert "Form 4 x1 (insider trading)" in summary
+    # Named-insider enrichment present
+    assert "Jane Doe" in summary  # _fmt_insider_name reverses LAST FIRST
+    assert "CFO" in summary
+    assert "sold" in summary
+    assert "240,000 sh" in summary
+    # ~$12.6M open-market value (240000 * 52.5 = 12,600,000)
+    assert "12,600,000" in summary
+    assert "⭐" in summary  # CFO highlighted
+
+
+@pytest.mark.asyncio
+async def test_named_insiders_flag_on_routine_only_collapses(monkeypatch):
+    """Flag ON + only routine awards/exercises => collapses to a count, no names."""
+    _flag_on(monkeypatch)
+
+    txs = [
+        {
+            "reporter_name": "SMITH JOHN", "title": "Director",
+            "security": "Common Stock", "date": "2026-06-05",
+            "shares": 1000.0, "price": 0.0, "direction": "Buy",
+            "transaction_type": "Award/Grant",
+        },
+        {
+            "reporter_name": "SMITH JOHN", "title": "Director",
+            "security": "Common Stock", "date": "2026-06-05",
+            "shares": 500.0, "price": 50.0, "direction": "Sell",
+            "transaction_type": "Option Exercise",
+        },
+    ]
+
+    with patch("consensus_engine.scanners.sec_edgar.check_recent_filings",
+               new=AsyncMock(return_value=[_FORM4_FILING])), \
+         patch("consensus_engine.scanners.sec_edgar.fetch_form4_details",
+               new=AsyncMock(return_value=txs)), \
+         patch("consensus_engine.utils.rate_limiter.rate_limiter.acquire",
+               new=AsyncMock(return_value=True)):
+        has_filing, summary = await _run_sec_check("AAPL")
+
+    assert has_filing is True
+    assert "Form 4 x1 (insider trading)" in summary
+    # No open-market trades => collapse to a count, no insider name rendered
+    assert "2 routine award/exercise(s)" in summary
+    assert "John Smith" not in summary
+    assert "sold" not in summary
+    assert "bought" not in summary

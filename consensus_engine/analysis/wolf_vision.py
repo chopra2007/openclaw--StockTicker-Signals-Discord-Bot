@@ -1,17 +1,16 @@
 """Chart-image reader for the Wolf macro-brain (TODO #20).
 
-Downloads a remote chart image (SSRF-guarded) and reads it with native Gemini
-vision via `types.Part.from_bytes` (NOT `from_uri` — unreliable for arbitrary
-image URLs). Reuses the existing Gemini key rotation / exhaustion tracking from
-`gemini_video_parser` and the shared 6s rate limiter.
+Downloads a remote chart image (SSRF-guarded) and reads it via OpenRouter vision
+using the shared `models.openrouter_client.chat_completion` helper. The image is
+sent as a base64 data URL inside an OpenAI-style content array. Models are tried
+in order; an empty response falls through to the next.
 
-Proven live in Pass-3 against real Wolf charts: read QQQ + support level + the
-proprietary 3C divergence label; on a flash-latest 503 the gemini-2.5-flash
-fallback succeeded — hence the multi-model fallback list.
+Proven live against OpenRouter: nemotron-nano-12b-v2-vl reads charts correctly;
+gemma-4-31b-it is the fallback — hence the multi-model fallback list.
 """
 from __future__ import annotations
 
-import asyncio
+import base64
 import ipaddress
 import json
 import logging
@@ -22,17 +21,15 @@ from urllib.parse import urlparse
 import aiohttp
 
 from consensus_engine import config as cfg
-from consensus_engine.utils.rate_limiter import rate_limiter
-from consensus_engine.analysis.gemini_video_parser import (
-    _get_available_gemini_client,
-    _mark_key_exhausted,
-    _is_quota_error,
-)
+from models.openrouter_client import chat_completion
 
 log = logging.getLogger(__name__)
 
-# Models tried in order; 503/quota on one falls through to the next.
-_VISION_MODELS = ["gemini-flash-latest", "gemini-2.5-flash", "gemini-flash-lite-latest"]
+# Vision models tried in order; an empty response falls through to the next.
+_DEFAULT_VISION_MODELS = [
+    "nvidia/nemotron-nano-12b-v2-vl:free",
+    "google/gemma-4-31b-it:free",
+]
 
 _MAX_IMAGE_BYTES = 10 * 1024 * 1024  # 10 MB hard cap
 _FETCH_TIMEOUT = 15
@@ -136,84 +133,26 @@ def _parse_json(raw: str) -> dict | None:
     return None
 
 
-def _build_vision_config(types):
-    """Build a GenerateContentConfig with thinking disabled and output capped.
-
-    Some gemini-flash variants reject thinking_budget=0 with an InvalidArgument
-    error. If that happens we fall back to the lowest accepted positive budget
-    (32 tokens) to disable extended thinking without crashing. If even that
-    fails (e.g. model has no thinking support at all) we omit thinking_config
-    entirely so the call still succeeds.
-    """
+async def _call_vision_image(data: bytes, mime_type: str) -> dict | None:
+    """Send image bytes to OpenRouter vision with model fallback. Returns parsed dict or None."""
+    b64 = base64.b64encode(data).decode()
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": _VISION_PROMPT},
+                {"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{b64}"}},
+            ],
+        }
+    ]
     max_tokens = cfg.get("wolf.vision.max_output_tokens", 512)
-    for thinking_cfg in (
-        types.ThinkingConfig(thinking_budget=0),
-        types.ThinkingConfig(thinking_budget=32),
-        None,
-    ):
-        try:
-            kwargs = {
-                "max_output_tokens": max_tokens,
-                "response_mime_type": "application/json",
-            }
-            if thinking_cfg is not None:
-                kwargs["thinking_config"] = thinking_cfg
-            return types.GenerateContentConfig(**kwargs)
-        except Exception:
-            continue
-    return None
-
-
-async def _call_gemini_image(data: bytes, mime_type: str) -> dict | None:
-    """Send image bytes to Gemini with key rotation + model fallback. Returns parsed dict or None."""
-    try:
-        from google.genai import types
-    except Exception as exc:
-        log.error("wolf_vision: google.genai unavailable: %s", exc)
-        return None
-
-    gen_config = _build_vision_config(types)
-
-    loop = asyncio.get_running_loop()
-    tried_labels: set[str] = set()
-
-    # Try each model; for each, rotate through available (non-exhausted) keys.
-    for model in _VISION_MODELS:
-        for _ in range(3):  # up to 3 key rotations per model
-            client, label = _get_available_gemini_client(skip=tried_labels)
-            if client is None:
-                break  # no keys available at all
-            await rate_limiter.acquire("gemini")
-            try:
-                def _do_call():
-                    call_kwargs = dict(
-                        model=model,
-                        contents=[
-                            types.Part.from_text(text=_VISION_PROMPT),
-                            types.Part.from_bytes(data=data, mime_type=mime_type),
-                        ],
-                    )
-                    if gen_config is not None:
-                        call_kwargs["config"] = gen_config
-                    return client.models.generate_content(**call_kwargs)
-                resp = await loop.run_in_executor(None, _do_call)
-                parsed = _parse_json(resp.text or "")
-                if parsed is not None:
-                    return parsed
-                log.warning("wolf_vision: %s returned unparseable JSON", model)
-                break  # try next model
-            except Exception as exc:
-                if _is_quota_error(exc):
-                    log.info("wolf_vision: key %s quota-exhausted, rotating", label)
-                    _mark_key_exhausted(label)
-                    tried_labels.add(label)
-                    continue  # rotate key
-                msg = str(exc)
-                if "503" in msg or "UNAVAILABLE" in msg.upper():
-                    log.info("wolf_vision: %s 503, falling to next model", model)
-                    break  # next model
-                log.warning("wolf_vision: %s error: %s", model, msg[:200])
-                break  # next model
+    models = cfg.get("wolf.vision.models", _DEFAULT_VISION_MODELS)
+    for model in models:
+        raw = await chat_completion(model, messages, max_tokens=max_tokens, temperature=0.0)
+        parsed = _parse_json(raw)
+        if parsed is not None and _validate(parsed):
+            return parsed
+        log.warning("wolf_vision: %s returned no usable result, trying next model", model)
     return None
 
 
@@ -274,9 +213,9 @@ async def read_chart(url: str, recent_price: float | None = None) -> dict | None
     data = await fetch_chart_bytes(url)
     if not data:
         return None
-    # mime from extension; default jpeg
-    mime = "image/png" if url.lower().split("?")[0].endswith(".png") else "image/jpeg"
-    parsed = await _call_gemini_image(data, mime)
+    # sniff mime from the bytes' magic number (JPEG starts 0xFF 0xD8); else png
+    mime = "image/jpeg" if data[:2] == b"\xff\xd8" else "image/png"
+    parsed = await _call_vision_image(data, mime)
     if parsed is None:
         return None
     result = _validate(parsed, recent_price)

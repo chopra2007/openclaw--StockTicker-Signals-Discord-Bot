@@ -47,6 +47,7 @@ log = logging.getLogger("backfill_wolf")
 # Wolf-table rows cleared by --rebuild (Wolf isolation: NEVER ticker_signals etc.).
 _REBUILD_CLEAR = [
     "DELETE FROM macro_theses",
+    "DELETE FROM wolf_beneficiaries",  # else the macro_theses id-renumber orphans these rows
     "DELETE FROM wolf_confluence_checks",
     "DELETE FROM wolf_call_outcomes",
     "DELETE FROM wolf_news_alerts",

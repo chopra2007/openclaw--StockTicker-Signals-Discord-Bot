@@ -84,7 +84,9 @@ async def gather_digest(variant: str) -> dict:
             elif t["direction"] == "bear":
                 bear_mkt += 1
         confl = await db.get_confluence_check(t["id"])
-        if confl and confl.get("combined_tier") in ("high", "critical"):
+        if confl and (confl.get("combined_tier") in ("high", "critical")
+                      or (cfg.get("wolf.confluence.board_show_levelless", False)
+                          and confl.get("agree_count", 0) >= 2)):
             scoreboard.append({"scope_key": t["scope_key"], "direction": t["direction"],
                                "combined_tier": confl["combined_tier"],
                                "agree": confl.get("agree_count", 0),

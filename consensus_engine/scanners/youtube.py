@@ -762,7 +762,7 @@ async def process_video(
             except Exception as e:
                 log.warning("youtube: two-stage error for %s: %s", video_id, e)
             if not cfg.get("youtube.legacy_fallback", True):
-                await db.mark_youtube_video_status(video_id, "failed")
+                await db.mark_youtube_video_status(video_id, "failed", bump_attempt=True)
                 await _maybe_alert_chain_failure(video_id)
                 return
 
@@ -780,7 +780,7 @@ async def process_video(
                     await db.mark_youtube_video_status(video_id, "missing")
                 else:
                     log.warning("youtube: transcript failed for %s: %s", video_id, e)
-                    await db.mark_youtube_video_status(video_id, "failed")
+                    await db.mark_youtube_video_status(video_id, "failed", bump_attempt=True)
                 return
 
             h = compute_hash(text)
@@ -798,7 +798,7 @@ async def process_video(
                 )
             except Exception as e:
                 log.error("youtube: export failed for %s: %s", video_id, e)
-                await db.mark_youtube_video_status(video_id, "failed")
+                await db.mark_youtube_video_status(video_id, "failed", bump_attempt=True)
                 return
 
             await db.save_youtube_transcript(video_id, text, h)
@@ -1131,9 +1131,20 @@ async def youtube_scan_once() -> None:
 
     # Filter to unprocessed videos before launching the browser
     unprocessed = []
+    seen_ids = set()
     for v in all_videos:
         if not await db.has_video_been_processed(v["video_id"]):
             unprocessed.append(v)
+            seen_ids.add(v["video_id"])
+
+    # ITEM #7: drain the DB backlog of failed-but-retryable videos oldest-first.
+    # RSS only resurfaces the latest few per channel, so older failures would
+    # otherwise never be retried.
+    retry_cap = cfg.get("youtube.max_retries", 5)
+    for v in await db.get_retryable_youtube_videos(retry_cap):
+        if v["video_id"] not in seen_ids:
+            unprocessed.append(v)
+            seen_ids.add(v["video_id"])
 
     if not unprocessed:
         log.debug("youtube: all %d videos already processed", len(all_videos))

@@ -75,7 +75,17 @@ def _confluence_field(confl_row: dict | None) -> dict | None:
         if s.get("source_type") == "youtube" and s.get("n_channels"):
             extra += f" ({s['n_channels']} ch)"
         tickers = s.get("sample_tickers") or []
-        if tickers:
+        vids = s.get("sample_video_ids") or []
+        if (s.get("source_type") == "youtube"
+                and cfg.get("wolf.confluence.links_enabled", False) and vids):
+            # vids[i] is the representative video for tickers[i] (aligned in
+            # score_confluence); link the ticker, plain text if it has no video.
+            parts = []
+            for i, tk in enumerate(tickers[:3]):
+                vid = vids[i] if i < len(vids) else ""
+                parts.append(f"[{tk}](https://www.youtube.com/watch?v={vid})" if vid else tk)
+            extra += f": {', '.join(parts)}"
+        elif tickers:
             extra += f": {', '.join(tickers[:3])}"
         return lbl + extra
 

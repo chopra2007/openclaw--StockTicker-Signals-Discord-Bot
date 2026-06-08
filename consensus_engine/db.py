@@ -802,6 +802,9 @@ async def _run_column_migrations(conn) -> None:
         ("youtube_evidence_spans", "grounding_status", "TEXT DEFAULT 'grounded'"),
         ("youtube_evidence_spans", "caption_entropy",  "REAL"),
         ("youtube_videos", "chain_failed_alerted_at", "REAL"),
+        # ITEM #7: retry failed/budget-skipped videos across days (self-draining backlog).
+        ("youtube_videos", "attempt_count",   "INTEGER DEFAULT 0"),
+        ("youtube_videos", "last_attempt_at", "REAL"),
         ("youtube_visual_evidence", "ticker", "TEXT"),  # B3 per-number ticker tag
         # Phase-3 (TODO #20): the email's Gmail internalDate (epoch seconds). The
         # digest scheduler triggers off THIS, never processed_at, so backfilled rows
@@ -1664,16 +1667,28 @@ async def get_warm_xref_entries(ttl_seconds: int = 300) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 async def has_video_been_processed(video_id: str) -> bool:
-    """Return True if this video_id already has a non-pending status."""
+    """Return True if this video_id is in a terminal state.
+
+    Terminal: success states (analyzed_gemini_v2, analyzed_gemini, saved) and
+    "missing" (caption track truly absent — re-fetch never helps). "failed" is
+    retryable (returns False) until attempt_count reaches youtube.max_retries,
+    after which it stays terminal so a dead video does not loop forever.
+    """
     conn = await get_db()
     cursor = await conn.execute(
-        "SELECT transcript_status FROM youtube_videos WHERE video_id = ?",
+        "SELECT transcript_status, attempt_count FROM youtube_videos WHERE video_id = ?",
         (video_id,),
     )
     row = await cursor.fetchone()
     if row is None:
         return False
-    return row["transcript_status"] != "pending"
+    status = row["transcript_status"]
+    if status == "pending":
+        return False
+    if status == "failed":
+        cap = cfg.get("youtube.max_retries", 5)
+        return (row["attempt_count"] or 0) >= cap
+    return True
 
 
 async def upsert_youtube_video(
@@ -1718,19 +1733,60 @@ async def mark_youtube_video_status(
     language: str | None = None,
     is_auto_generated: bool = False,
     export_path: str | None = None,
+    bump_attempt: bool = False,
 ) -> None:
-    """Update the transcript_status (and optional metadata) for a video."""
+    """Update the transcript_status (and optional metadata) for a video.
+
+    bump_attempt=True (used on "failed" paths) increments attempt_count and
+    stamps last_attempt_at so the cross-day retry drain (ITEM #7) can cap and
+    order retries.
+    """
     conn = await get_db()
-    await conn.execute(
-        """UPDATE youtube_videos
-           SET transcript_status = ?,
-               language = COALESCE(?, language),
-               is_auto_generated = ?,
-               export_path = COALESCE(?, export_path)
-           WHERE video_id = ?""",
-        (status, language, 1 if is_auto_generated else 0, export_path, video_id),
-    )
+    if bump_attempt:
+        await conn.execute(
+            """UPDATE youtube_videos
+               SET transcript_status = ?,
+                   language = COALESCE(?, language),
+                   is_auto_generated = ?,
+                   export_path = COALESCE(?, export_path),
+                   attempt_count = COALESCE(attempt_count, 0) + 1,
+                   last_attempt_at = ?
+               WHERE video_id = ?""",
+            (status, language, 1 if is_auto_generated else 0, export_path,
+             time.time(), video_id),
+        )
+    else:
+        await conn.execute(
+            """UPDATE youtube_videos
+               SET transcript_status = ?,
+                   language = COALESCE(?, language),
+                   is_auto_generated = ?,
+                   export_path = COALESCE(?, export_path)
+               WHERE video_id = ?""",
+            (status, language, 1 if is_auto_generated else 0, export_path, video_id),
+        )
     await conn.commit()
+
+
+async def get_retryable_youtube_videos(cap: int) -> list[dict]:
+    """Return failed-but-retryable videos (status='failed' AND attempt_count<cap),
+    oldest-first by published_at, so the DB backlog drains in publish order.
+
+    Used by youtube_scan_once to merge stale failures back into each scan cycle —
+    RSS only resurfaces the latest few per channel, so the backlog must be drained
+    from the DB.
+    """
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT video_id, channel_id, title, description, published_at
+           FROM youtube_videos
+           WHERE transcript_status = 'failed'
+             AND COALESCE(attempt_count, 0) < ?
+           ORDER BY published_at ASC""",
+        (cap,),
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
 
 
 # ---------------------------------------------------------------------------
@@ -3208,12 +3264,13 @@ async def get_confluence_stances(window_days: int = 21) -> dict[str, list[dict]]
 
     # YouTube — youtube_signals.direction, dropping suppressed rows; keep channel for breadth.
     cur = await conn.execute(
-        "SELECT ticker, direction, channel_name FROM youtube_signals "
+        "SELECT ticker, direction, channel_name, video_id FROM youtube_signals "
         "WHERE direction IN ('long','short') AND COALESCE(suppressed,0)=0 AND extracted_at >= ?",
         (cutoff,),
     )
     out["youtube"] = [
-        {"ticker": r["ticker"], "dir": r["direction"], "channel": r["channel_name"]}
+        {"ticker": r["ticker"], "dir": r["direction"], "channel": r["channel_name"],
+         "video_id": r["video_id"]}
         for r in await cur.fetchall()
     ]
 

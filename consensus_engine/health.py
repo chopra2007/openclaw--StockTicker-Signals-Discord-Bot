@@ -299,6 +299,131 @@ def _clear_drift_state() -> None:
         log.warning("drift state unclearable: %s", exc)
 
 
+# --- Silent-outage alarm (item #5) ----------------------------------------
+# A feed that has ingested nothing for too long (Gmail OAuth lapsed, YouTube
+# chain dead) is silent — no error, just no new rows. Folded into the daily
+# chain_health_loop pass so there is no second loop. Each feed has its own
+# literal MAX-timestamp query (no generic table/column helper => no SQL
+# injection surface) and a sticky per-feed state entry so we ping once per
+# outage + once on recovery, not every day.
+
+# Same dir as .drift_state.json. Keyed BY feed id: {"wolf": {...}, ...}.
+_FEED_OUTAGE_STATE_FILE = Path(__file__).resolve().parent.parent / ".feed_outage_state.json"
+
+# Default feed registry. The coordinator may add a health_check.feeds map to
+# yaml; these literals are the OFF/safe defaults if it does not.
+_DEFAULT_FEEDS = {
+    "wolf": {"label": "Wolf email", "max_age_hours": 24,
+             "auth_hint": " — check the Gmail auth gate (OAuth token may have lapsed)."},
+    "youtube": {"label": "YouTube", "max_age_hours": 36,
+                "auth_hint": " — check the YouTube caption/transcript chain."},
+}
+
+# Literal MAX(<ts>) queries, one per feed id. NOT built from config strings.
+_FEED_MAX_TS_SQL = {
+    "wolf": "SELECT MAX(received_at) FROM wolf_emails_processed",
+    "youtube": "SELECT MAX(extracted_at) FROM youtube_signals",
+}
+
+
+def _read_feed_outage_state() -> dict:
+    try:
+        if _FEED_OUTAGE_STATE_FILE.exists():
+            data = json.loads(_FEED_OUTAGE_STATE_FILE.read_text())
+            if isinstance(data, dict):
+                return data
+    except Exception as exc:
+        log.warning("feed outage state unreadable: %s", exc)
+    return {}
+
+
+def _write_feed_outage_state(state: dict) -> None:
+    try:
+        _FEED_OUTAGE_STATE_FILE.write_text(json.dumps(state))
+    except Exception as exc:
+        log.warning("feed outage state unwritable: %s", exc)
+
+
+def _clear_feed_outage_state(feed_id: str) -> None:
+    state = _read_feed_outage_state()
+    if feed_id in state:
+        state.pop(feed_id, None)
+        _write_feed_outage_state(state)
+
+
+async def _latest_feed_ts(feed_id: str) -> float | None:
+    """Latest ingest timestamp (epoch seconds) for a feed, or None if the
+    table is empty / never ingested. Uses a literal per-feed query."""
+    import aiosqlite
+
+    sql = _FEED_MAX_TS_SQL.get(feed_id)
+    if not sql:
+        return None
+    db_path = cfg.get("database.path", "/root/.openclaw/workspace/consensus.db")
+    try:
+        async with aiosqlite.connect(db_path) as conn:
+            async with conn.execute(sql) as cur:
+                row = await cur.fetchone()
+        if row and row[0] is not None:
+            return float(row[0])
+    except Exception as exc:
+        log.warning("feed freshness: query for %s failed: %s", feed_id, exc)
+    return None
+
+
+async def _check_feed_freshness() -> None:
+    """Daily silent-outage check, called from chain_health_loop's daily pass.
+
+    For each configured feed: read latest ingest ts via a literal query,
+    compute age in hours. None (never ingested) is NOT armed => no alert.
+    Fire ONE Discord ping per outage and ONE on recovery, deduped via the
+    sticky per-feed state file.
+    """
+    feeds = cfg.get("health_check.feeds", _DEFAULT_FEEDS) or _DEFAULT_FEEDS
+    state = _read_feed_outage_state()
+    now = time.time()
+
+    for feed_id, spec in feeds.items():
+        if feed_id not in _FEED_MAX_TS_SQL:
+            continue  # no literal query => unknown feed, skip (no injection)
+        label = spec.get("label", feed_id)
+        max_age = float(spec.get("max_age_hours", 24))
+        auth_hint = spec.get("auth_hint", "")
+
+        latest = await _latest_feed_ts(feed_id)
+        already_alerted = feed_id in state
+
+        if latest is None:
+            # Never ingested anything — not armed; don't false-alarm a feed
+            # that has simply never run. Leave any existing state untouched.
+            continue
+
+        age_hours = (now - latest) / 3600.0
+        last_dt = datetime.fromtimestamp(latest, tz=_ET).strftime("%Y-%m-%d")
+
+        if age_hours > max_age:
+            if already_alerted:
+                continue  # already pinged this outage; stay quiet
+            days = age_hours / 24.0
+            msg = (
+                f"**⚠️ {label} feed silent — {datetime.now(tz=_ET).strftime('%Y-%m-%d %H:%M ET')}**\n\n"
+                f"No new {label} data in {days:.1f} days "
+                f"(last ingest {last_dt}, threshold {max_age:.0f}h).{auth_hint}"
+            )
+            await _post_to_discord(msg)
+            state[feed_id] = {"first_seen": datetime.now(tz=_ET).strftime("%Y-%m-%d %H:%M ET"),
+                              "last_ingest": last_dt}
+            _write_feed_outage_state(state)
+        else:
+            if already_alerted:
+                msg = (
+                    f"**✅ {label} feed recovered — {datetime.now(tz=_ET).strftime('%Y-%m-%d %H:%M ET')}**\n\n"
+                    f"New {label} data ingested again (last ingest {last_dt})."
+                )
+                await _post_to_discord(msg)
+                _clear_feed_outage_state(feed_id)
+
+
 async def _post_to_discord(content: str) -> None:
     token = cfg.get_api_key("discord_bot_token")
     channel_id = str(
@@ -371,3 +496,9 @@ async def chain_health_loop(stop_event: asyncio.Event) -> None:
                 await _post_to_discord(report)
         except Exception as exc:
             log.error("health: chain check error: %s", exc)
+
+        # Silent-outage alarm (item #5): same daily pass, no new loop.
+        try:
+            await _check_feed_freshness()
+        except Exception as exc:
+            log.error("health: feed freshness check error: %s", exc)

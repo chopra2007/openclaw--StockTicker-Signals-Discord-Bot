@@ -98,6 +98,26 @@ _EXTRACTION_USER_TMPL = (
     "NEWSLETTER TEXT:\n__BODY__"
 )
 
+# Direction guard (flag wolf.direction_guard.enabled): the "direction" must be the
+# author's TRADE STANCE — where he wants the instrument to go / how he would trade it —
+# NOT the immediate price tick. A near-term UP move he intends to FADE/SHORT is BEAR.
+_DIRECTION_GUARD_RULE = (
+    "\nDIRECTION = TRADE STANCE, NOT THE PRICE TICK: report where the author wants the "
+    "instrument to go / how he would trade it, not the immediate move. A near-term UP move "
+    "he intends to FADE or SHORT is direction=bear. A bear stance can read while price is "
+    "rising: 'appears to be peaking', 'rolling over', a short squeeze he would fade/short, "
+    "a bounce to sell/short into resistance, tagging the 200-day from below as resistance. "
+    "Do NOT treat plain upside-target language (fill the gap, back-test a level, price can "
+    "hit a number) as bear by itself — that is often a genuine bull/upside-target read. "
+    "CONCRETE BEAR EXAMPLE: '<ticker> is in a powerful short squeeze with more to go, and "
+    "I'm positioning to short it into <level>.' — the author would SHORT it, so output "
+    "direction=bear even though it is squeezing higher. "
+    "MARKET-INTERNALS OBSERVATIONS ARE NOT A STANCE: a note that one instrument is LEADING "
+    "or DRAGGING another, or has 'relative strength/weakness' versus others, is commentary, "
+    "not a directional view on it — emit NO thesis for it. Example: '<ticker>'s relative "
+    "strength is leading Tech higher' is NOT a <ticker> bull."
+)
+
 
 def decode_html(html: str) -> str:
     """Extract readable text from a marketing HTML email (block structure preserved)."""
@@ -168,6 +188,11 @@ def _coerce_thesis(raw: dict) -> dict | None:
     if scope_type == "stock" and scope_key in _NON_INSTRUMENT:
         return None  # generic style/observation word, not a tradeable instrument
 
+    # Wolf's "Most Shorted Index" (he abbreviates it "MSI") is an internal market-breadth
+    # gauge, NOT the stock MSI / Motorola Solutions. Drop it when the text reveals the jargon.
+    if scope_key == "MSI" and re.search(r"most\s+short", str(raw.get("snippet", "")), re.I):
+        return None
+
     levels = []
     for lv in (raw.get("levels") or []):
         if not isinstance(lv, dict):
@@ -183,6 +208,22 @@ def _coerce_thesis(raw: dict) -> dict | None:
             "price": price,
             "role": role if role in ("support", "resistance", "target") else None,
         })
+
+    # Cross-contamination guard: occasionally a level from one instrument (e.g. an index or
+    # the S&P at ~4,500) gets attached to an unrelated ETF priced in the tens. When >=3
+    # levels are present and one sits >20x off the median, treat it as a stray and drop it.
+    if len(levels) >= 3:
+        _ps = sorted(lv["price"] for lv in levels)
+        _med = _ps[len(_ps) // 2]
+        if _med > 0:
+            levels = [lv for lv in levels if _med / 20 <= lv["price"] <= _med * 20]
+
+    # Scale guard for the unified semis thread: Wolf charts the SOX *index* (thousands of
+    # points) and the SMH *ETF* (low hundreds) interchangeably, and both collapse to the
+    # SMH thread — so an index-scale level (e.g. 12,616) is nonsense on the ETF. Drop any
+    # level too large to be a plausible ETF price.
+    if scope_key == "SMH":
+        levels = [lv for lv in levels if lv["price"] < 1000]
 
     # Conviction-tracker fields (§2). timeframes stay RAW here (normalized in code at
     # ingest, not by the LLM); the substring guard on phrase/snippet runs in
@@ -292,9 +333,12 @@ async def _extract_theses_llm(body: str) -> dict:
     beat in the over-time story). Returns the raw parsed dict, or {} after all attempts.
     """
     body = body[:cfg.get("wolf.extraction_input_cap", 40000)]  # cap prompt size
+    user_content = _EXTRACTION_USER_TMPL.replace("__BODY__", body)
+    if cfg.get("wolf.direction_guard.enabled", False):
+        user_content += _DIRECTION_GUARD_RULE
     messages = [
         {"role": "system", "content": _EXTRACTION_SYSTEM},
-        {"role": "user", "content": _EXTRACTION_USER_TMPL.replace("__BODY__", body)},
+        {"role": "user", "content": user_content},
     ]
     attempts = 1 + int(cfg.get("wolf.extraction_retries", 2) or 0)
     # Dedicated extraction chain (leads with gpt-oss-120b, which honors the

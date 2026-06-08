@@ -1026,24 +1026,26 @@ async def _compute_all(ticker: str, start: float) -> dict:
     # → this whole block is skipped and behavior is byte-identical to today.
     _engine_live = False
     if cfg.get("all_command.levels.technical_engine_enabled", False):
-        _candles = data["daily_candles"] if isinstance(data["daily_candles"], list) else []
-        _eng_atr = _atr14_for_plan
-        if (_eng_atr is None or _eng_atr <= 0) and _candles:
-            _eng_atr = indicators.atr(
-                [c["high"] for c in _candles], [c["low"] for c in _candles],
-                [c["close"] for c in _candles], 14)
-        # 52wk boundaries: `data["snapshot"]` defaults to None, so `or {}` (NOT
-        # .get("snapshot", {})) — and read the raw wk52_high/wk52_low keys added
-        # to snapshot.py in Wave 0. Clamp to spot when snapshot is None/missing.
-        _snap = data.get("snapshot") or {}
-        tech_anchors = levels.build_technical_anchors(
-            _candles, current_price, _eng_atr or 0.0,
-            wk52_high=_snap.get("wk52_high") or current_price,
-            wk52_low=_snap.get("wk52_low") or current_price,
-        )
-        if cfg.get("all_command.levels.technical_engine_shadow_mode", True):
-            # Shadow: compute the parallel plan, log it, DON'T change the posted plan.
-            try:
+        # The whole engine (shadow OR live) must NEVER break !all — wrap it, and
+        # read daily_candles defensively (.get) since a fetch failure can omit it.
+        try:
+            _candles = data.get("daily_candles") if isinstance(data.get("daily_candles"), list) else []
+            _eng_atr = _atr14_for_plan
+            if (_eng_atr is None or _eng_atr <= 0) and _candles:
+                _eng_atr = indicators.atr(
+                    [c["high"] for c in _candles], [c["low"] for c in _candles],
+                    [c["close"] for c in _candles], 14)
+            # 52wk boundaries: `data["snapshot"]` defaults to None, so `or {}` (NOT
+            # .get("snapshot", {})) — and read the raw wk52_high/wk52_low keys added
+            # to snapshot.py in Wave 0. Clamp to spot when snapshot is None/missing.
+            _snap = data.get("snapshot") or {}
+            tech_anchors = levels.build_technical_anchors(
+                _candles, current_price, _eng_atr or 0.0,
+                wk52_high=_snap.get("wk52_high") or current_price,
+                wk52_low=_snap.get("wk52_low") or current_price,
+            )
+            if cfg.get("all_command.levels.technical_engine_shadow_mode", True):
+                # Shadow: compute the parallel plan, log it, DON'T change the posted plan.
                 _baseline_plan = levels.select_trade_plan(
                     supports, resistances, spot=current_price,
                     atr14=_atr14_for_plan, direction=_direction_for_plan,
@@ -1061,14 +1063,15 @@ async def _compute_all(ticker: str, start: float) -> dict:
                     crowd_anchor_count=len(supports) + len(resistances),
                     tech_anchor_count=len(_shadow_supports) + len(_shadow_resist),
                     baseline_plan=_baseline_plan, shadow_plan=_shadow_plan)
-            except Exception as exc:  # noqa: BLE001 — shadow must never break !all
-                log.warning("aggregator: smart-levels shadow failed: %s", exc)
-        else:
-            # Live: merge tech anchors into the pool before rank.
-            all_anchors = levels.cluster_anchors(all_anchors + tech_anchors, 0.005)
-            supports, resistances = levels.rank_anchors(
-                all_anchors, current_price, ticker=ticker)
-            _engine_live = True
+            else:
+                # Live: merge tech anchors into the pool before rank.
+                all_anchors = levels.cluster_anchors(all_anchors + tech_anchors, 0.005)
+                supports, resistances = levels.rank_anchors(
+                    all_anchors, current_price, ticker=ticker)
+                _engine_live = True
+        except Exception as exc:  # noqa: BLE001 — smart-levels must never break !all
+            log.warning("aggregator: smart-levels engine failed: %s", exc)
+            _engine_live = False
 
     trade_plan = levels.select_trade_plan(
         supports, resistances,

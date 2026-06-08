@@ -118,12 +118,134 @@ async def _run_news_cascade(ticker: str) -> Optional[CatalystResult]:
     return await news_cascade(ticker)
 
 
+# #8 — named-insider enrichment of the SEC summary. Bounded so the existing
+# 10s _with_timeout around _run_sec_check never trips: at most this many
+# Form-4 filings are fetched (mirrors aggregator._FORM4_ENRICH_LIMIT), and the
+# whole enrichment fetch is time-boxed below that wrapper.
+_NAMED_INSIDER_FETCH_LIMIT = 5
+_NAMED_INSIDER_FETCH_TIMEOUT = 7.0
+_NAMED_INSIDER_FIELD_CAP = 1024  # keep the appended block under one embed field
+
+
+def _format_named_insiders(fetched: list) -> str:
+    """Render named-insider lines for the SEC summary, reusing the
+    `commands._sec_and_reply` emoji house style (🟢/🔴 + role + buy/sell + size).
+
+    `fetched` is a list of transaction lists (one per Form-4 filing). Open-market
+    purchases/sales are shown per insider, top-N by dollar value, CEO/CFO
+    highlighted; routine awards / option exercises / tax withholding are
+    collapsed to a count. The whole block is capped under one embed field.
+    Returns "" when there is nothing to show.
+    """
+    from consensus_engine.scanners.sec_edgar import _OPEN_MARKET_TX_TYPES
+    from consensus_engine.alerts.commands import _fmt_insider_name
+
+    all_txs = [t for txs in fetched for t in (txs or [])]
+    if not all_txs:
+        return ""
+    open_market = [t for t in all_txs
+                   if t.get("transaction_type") in _OPEN_MARKET_TX_TYPES]
+    routine_count = len(all_txs) - len(open_market)
+    if not open_market:
+        return f"Form 4 detail: {routine_count} routine award/exercise(s) only."
+
+    def _dollar(t) -> float:
+        try:
+            return float(t.get("shares") or 0) * float(t.get("price") or 0)
+        except (TypeError, ValueError):
+            return 0.0
+
+    ranked = sorted(open_market, key=_dollar, reverse=True)
+    header = "Form 4 insiders:"
+    lines: list[str] = []
+    shown = 0
+    for t in ranked:
+        name = _fmt_insider_name(str(t.get("reporter_name") or "Unknown"))
+        title = str(t.get("title") or "Insider")
+        direction = t.get("direction")
+        verb = "bought" if direction == "Buy" else "sold" if direction == "Sell" else "traded"
+        icon = "🟢" if direction == "Buy" else "🔴" if direction == "Sell" else "⚪"
+        try:
+            shares = float(t.get("shares") or 0)
+        except (TypeError, ValueError):
+            shares = 0.0
+        value = _dollar(t)
+        star = "⭐ " if any(r in title.upper() for r in ("CEO", "CFO")) else ""
+        dollar_str = f" (~${value:,.0f})" if value else ""
+        line = (f"{icon} {star}{name} ({title}) {verb} "
+                f"{shares:,.0f} sh{dollar_str}")
+        tail_more = len(ranked) - shown - 1
+        tail = (f"\n  plus {tail_more} more insider(s)") if tail_more > 0 else ""
+        candidate = header + "\n" + "\n".join(lines + [line]) + tail
+        if len(candidate) > _NAMED_INSIDER_FIELD_CAP and lines:
+            break
+        lines.append(line)
+        shown += 1
+
+    block = header + "\n" + "\n".join(lines)
+    remaining = len(open_market) - shown
+    if remaining > 0:
+        block += f"\n  plus {remaining} more insider(s)"
+    if routine_count:
+        block += f"\n  (+{routine_count} routine award/exercise(s))"
+    return block
+
+
+async def _fetch_named_insiders(ticker: str, filings: list) -> str:
+    """Fetch Form-4 detail for up to _NAMED_INSIDER_FETCH_LIMIT filings and
+    render the named-insider block. Time-boxed; returns "" on no detail."""
+    from consensus_engine.scanners.sec_edgar import fetch_form4_details
+    from consensus_engine.utils.rate_limiter import rate_limiter
+
+    form4 = [f for f in filings
+             if isinstance(f, dict) and f.get("form") == "4"][:_NAMED_INSIDER_FETCH_LIMIT]
+    if not form4:
+        return ""
+
+    async def _one(f: dict) -> list:
+        try:
+            if not await rate_limiter.acquire("sec_edgar"):
+                return []
+            txs = await fetch_form4_details(
+                f.get("cik", ""),
+                f.get("accession_number", ""),
+                f.get("primary_document", ""),
+            )
+            return list(txs or [])
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 — one bad filing never voids the rest
+            log.debug("named-insider fetch error: %s", exc)
+            return []
+
+    tasks = [asyncio.create_task(_one(f)) for f in form4]
+    fetched: list = []
+    try:
+        await asyncio.wait_for(asyncio.gather(*tasks), timeout=_NAMED_INSIDER_FETCH_TIMEOUT)
+    except asyncio.TimeoutError:
+        pass
+    for t in tasks:
+        if t.done() and not t.cancelled() and t.exception() is None:
+            fetched.append(t.result())
+        else:
+            t.cancel()
+    await asyncio.gather(*tasks, return_exceptions=True)
+    return _format_named_insiders(fetched)
+
+
 async def _run_sec_check(ticker: str) -> tuple[bool, str]:
     """Check SEC EDGAR for recent filings. Returns (has_filing, summary)."""
     try:
         from consensus_engine.scanners.sec_edgar import check_recent_filings, classify_filing_significance
         filings = await check_recent_filings(ticker, hours_back=48)
-        return classify_filing_significance(filings)
+        has_filing, summary = classify_filing_significance(filings)
+        # #8 — expand "Form 4 x{n}" to named insiders (flag-gated, default OFF).
+        if cfg.get("sec_watcher.named_insiders_in_alert", False) and \
+                any(isinstance(f, dict) and f.get("form") == "4" for f in filings):
+            block = await _fetch_named_insiders(ticker, filings)
+            if block:
+                summary = f"{summary}\n{block}" if summary else block
+        return has_filing, summary
     except Exception as e:
         log.debug("SEC check error for %s: %s", ticker, e)
         return False, ""

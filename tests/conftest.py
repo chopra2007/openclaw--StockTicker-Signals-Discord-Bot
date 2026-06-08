@@ -30,6 +30,36 @@ def _reset_http_singleton():
 
 
 @pytest.fixture(autouse=True)
+def _audit_flags_default_off(monkeypatch):
+    """The 2026-06-08 go-live flipped several user-visible !all / Wolf flags ON in
+    config/consensus.yaml. The bulk of the suite was written against their documented
+    default (OFF) and reads the live config, so the flip makes those tests assert
+    against the wrong (ON) behavior. Force the flipped flags OFF here so tests stay
+    deterministic regardless of the deployed config. The dedicated feature tests force
+    their own flag in-body (that patch wins), so their ON/OFF coverage is unaffected."""
+    from consensus_engine import config as _cfg
+    _real = _cfg.get
+    _off = {
+        "all_command.market_cap_gate_enabled": False,
+        "all_command.sparse_banner.enabled": False,
+        "all_command.risk_price_gate_strict": False,
+        "all_command.levels.technical_engine_enabled": False,
+        "sec_watcher.named_insiders_in_alert": False,
+        "wolf.confluence.board_show_levelless": False,
+        "wolf.confluence.links_enabled": False,
+        "wolf.direction_guard.enabled": False,
+    }
+
+    def _patched(key, default=None):
+        if key in _off:
+            return _off[key]
+        return _real(key, default)
+
+    monkeypatch.setattr(_cfg, "get", _patched)
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _flush_narrator_cache():
     """Pass 5 Step 11 added a module-level synthesis cache to narrator.py
     (see _synthesis_cache). Without this, cached narratives leak between
