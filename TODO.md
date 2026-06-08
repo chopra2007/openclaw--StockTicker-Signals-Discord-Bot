@@ -161,3 +161,15 @@ Raise the limit on how much of each Wolf email the bot reads (12,000 → 40,000 
 **File:** `wolf-hedged-stance-and-stale-theses.md`
 
 When Wolf softly changes his mind on a stock (e.g. IGV: bullish-to-target, then "now I'm looking to short") or an old call goes stale after the move already happened, the bot should update instead of keeping his old view — this session had to hand-fix a stale IGV "bull".
+
+## 27. A/B the !all "tidy text" step, then turn it off
+
+**File:** `sanitize-ab-then-flip-off.md`
+
+You approved turning off the AI "tidy text" pass on `!all` (saves ~9 AI calls per command) once an A/B check confirms the free models don't start inventing numbers without it — held this session because the providers were flaky; sanitize is still ON.
+
+## 28. Evaluate the SMART LEVELS shadow soak, then decide go-live
+
+**File:** `smart-levels-shadow-evaluate.md`
+
+The new chart-based buy/stop/target engine for `!all` is running in shadow (logs only, no visible change) — after a day, compare its numbers to the current ones and decide whether to switch it on for real.
