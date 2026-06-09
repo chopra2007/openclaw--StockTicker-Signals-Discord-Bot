@@ -360,7 +360,7 @@ alerts:
   cooldown_hours: 6
   embed_color_long: 0x00FF00
   embed_color_short: 0xFF0000
-  min_base_score_for_alert: 20  # LOW conviction (20) now passes if direction is explicit
+  min_base_score_for_alert: 0  # DIAL OFF (user 2026-06-09): do NOT filter alerts by score — the conviction heuristic penalizes nuanced calls, which are real signal; noise handled downstream. Was 20.
   embed_color_neutral: 0xFFAA00
   suppress_when_degraded: false  # When true, skip high-confidence alerts in DEGRADED_MODE
   per_analyst_cooldown:
