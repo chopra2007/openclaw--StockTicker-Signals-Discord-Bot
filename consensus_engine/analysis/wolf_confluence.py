@@ -171,6 +171,7 @@ class SourceVote:
     n_channels: int = 0               # distinct YouTube channels (display only; 0 for others)
     sample_tickers: list[str] = field(default_factory=list)  # up to 3, for the alert
     sample_video_ids: list[str] = field(default_factory=list)  # raw YouTube ids, up to 3 (no URLs)
+    sample_links: list[str] = field(default_factory=list)  # item E: TweetShift links, up to 3 (twitter)
 
 
 @dataclass
@@ -229,9 +230,12 @@ def score_confluence(thesis: dict, rows_by_source: dict[str, list[dict]],
         is_yt = stype == "youtube"
         n_channels = (len({(r.get("channel") or "") for r in winners if r.get("channel")})
                       if is_yt else 0)
-        # Dedupe by ticker, capturing a representative video_id for each sampled
-        # ticker so the link label and the URL describe the SAME ticker.
-        sample, sample_vids, seen = [], [], set()
+        # Dedupe by ticker, capturing a representative video_id (YouTube) / source_link
+        # (Twitter) for each sampled ticker so the link label and URL describe the SAME
+        # ticker. winners preserves the DB order — twitter is newest-first, so the first
+        # winning row per ticker is the NEWEST winning-direction tweet (item E, MED-E4).
+        is_tw = stype == "twitter"
+        sample, sample_vids, sample_links, seen = [], [], [], set()
         for r in winners:
             tk = (r.get("ticker") or "").upper()
             if tk and tk not in seen:
@@ -239,9 +243,11 @@ def score_confluence(thesis: dict, rows_by_source: dict[str, list[dict]],
                 sample.append(tk)
                 if is_yt:
                     sample_vids.append(r.get("video_id") or "")
+                if is_tw:
+                    sample_links.append(r.get("link") or "")
             if len(sample) >= 3:
                 break
-        votes.append(SourceVote(stype, nv, len(matched), n_channels, sample, sample_vids))
+        votes.append(SourceVote(stype, nv, len(matched), n_channels, sample, sample_vids, sample_links))
 
     agree = [v for v in votes if v.net_dir == t_stance]
     disagree = [v for v in votes if v.net_dir and v.net_dir != t_stance]

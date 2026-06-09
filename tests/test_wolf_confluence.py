@@ -256,6 +256,43 @@ def test_confluence_field_links_on_renders_markdown(monkeypatch):
     assert "YouTube (2 ch" in f["value"]
 
 
+# ───────────── Item E: clickable TweetShift links for twitter confluence ─────────────
+
+def test_score_confluence_populates_twitter_links_newest_winner():
+    # newest-first order (as the DB returns it); NVDA's newest LONG row is link2.
+    rows = {"twitter": [
+        {"ticker": "NVDA", "dir": "long", "link": "https://discord.com/.../link2"},   # newest
+        {"ticker": "NVDA", "dir": "long", "link": "https://discord.com/.../link1"},   # older
+    ]}
+    r = wc.score_confluence(_thesis(direction="bull"), rows)
+    tw = r.agree[0]
+    assert tw.source_type == "twitter"
+    assert tw.sample_tickers == ["NVDA"]
+    assert tw.sample_links == ["https://discord.com/.../link2"]  # newest winning tweet
+
+
+def _tw_link_row():
+    return {"agree_count": 1, "disagree_count": 0, "divided": 0, "direction": "bull",
+            "agree_sources_json": json.dumps([
+                {"source_type": "twitter", "net_dir": "BULL", "n_rows": 2,
+                 "sample_tickers": ["NVDA"],
+                 "sample_links": ["https://discord.com/channels/1/2/3"]}]),
+            "disagree_sources_json": "[]"}
+
+
+def test_confluence_field_twitter_links_off_is_plain(monkeypatch):
+    _force_flags(monkeypatch, wolf_news, {"wolf.confluence.links_enabled": False})
+    f = wolf_news._confluence_field(_tw_link_row())
+    assert "discord.com/channels" not in f["value"]
+    assert "NVDA" in f["value"]
+
+
+def test_confluence_field_twitter_links_on_renders_markdown(monkeypatch):
+    _force_flags(monkeypatch, wolf_news, {"wolf.confluence.links_enabled": True})
+    f = wolf_news._confluence_field(_tw_link_row())
+    assert "[NVDA](https://discord.com/channels/1/2/3)" in f["value"]
+
+
 # ───────────── #3A: surface (level-less) rows on the digest board ─────────────
 
 async def _gather_with_one_check(monkeypatch, confl_row):

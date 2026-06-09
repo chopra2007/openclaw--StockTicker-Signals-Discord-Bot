@@ -76,14 +76,23 @@ def _confluence_field(confl_row: dict | None) -> dict | None:
             extra += f" ({s['n_channels']} ch)"
         tickers = s.get("sample_tickers") or []
         vids = s.get("sample_video_ids") or []
-        if (s.get("source_type") == "youtube"
-                and cfg.get("wolf.confluence.links_enabled", False) and vids):
+        links = s.get("sample_links") or []
+        links_on = cfg.get("wolf.confluence.links_enabled", False)
+        if s.get("source_type") == "youtube" and links_on and vids:
             # vids[i] is the representative video for tickers[i] (aligned in
             # score_confluence); link the ticker, plain text if it has no video.
             parts = []
             for i, tk in enumerate(tickers[:3]):
                 vid = vids[i] if i < len(vids) else ""
                 parts.append(f"[{tk}](https://www.youtube.com/watch?v={vid})" if vid else tk)
+            extra += f": {', '.join(parts)}"
+        elif s.get("source_type") == "twitter" and links_on and links:
+            # item E: links[i] is the newest winning-direction TweetShift message for
+            # tickers[i] (aligned in score_confluence); link the ticker, plain if no link.
+            parts = []
+            for i, tk in enumerate(tickers[:3]):
+                lk = links[i] if i < len(links) else ""
+                parts.append(f"[{tk}]({lk})" if lk else tk)
             extra += f": {', '.join(parts)}"
         elif tickers:
             extra += f": {', '.join(tickers[:3])}"

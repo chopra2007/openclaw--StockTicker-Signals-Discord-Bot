@@ -34,6 +34,9 @@ class TickerSignal:
     raw_text: str
     sentiment: Sentiment = Sentiment.NEUTRAL
     detected_at: float = field(default_factory=time.time)
+    # Item E (deep-dive-2026-06-08): the TweetShift Discord message link for a twitter signal,
+    # so #news confluence can make the source clickable. None for every non-twitter caller.
+    source_link: str | None = None
 
     @property
     def expires_at(self) -> float:

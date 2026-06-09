@@ -1129,6 +1129,7 @@ async def process_tweet(raw_tweet: dict):
                 source_detail=tweet.analyst,
                 raw_text=tweet.raw_text,
                 sentiment=_tweet_sentiment(tweet),
+                source_link=tweet.discord_source_link,  # item E: clickable TweetShift link
             ))
         return
 
@@ -1145,6 +1146,7 @@ async def process_tweet(raw_tweet: dict):
             source_detail=tweet.analyst,
             raw_text=tweet.raw_text,
             sentiment=_tweet_sentiment(tweet),
+            source_link=tweet.discord_source_link,  # item E: clickable TweetShift link
         ))
 
         # A2: analyst herding cluster detection

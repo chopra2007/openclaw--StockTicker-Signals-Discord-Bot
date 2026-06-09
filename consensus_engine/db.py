@@ -258,7 +258,8 @@ CREATE TABLE IF NOT EXISTS signal_events (
     latency_sec REAL,
     provenance TEXT,
     model_version TEXT,
-    recorded_at REAL NOT NULL
+    recorded_at REAL NOT NULL,
+    source_link TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_signal_events_ticker ON signal_events(ticker);
 CREATE INDEX IF NOT EXISTS idx_signal_events_source ON signal_events(source_type);
@@ -813,6 +814,9 @@ async def _run_column_migrations(conn) -> None:
         ("api_usage_daily", "wolf_vision_calls",    "INTEGER NOT NULL DEFAULT 0"),
         ("decision_snapshots", "alert_id",  "INTEGER"),
         ("signal_events", "consumed_by_cluster_id", "INTEGER"),
+        # Item E (deep-dive-2026-06-08): clickable TweetShift source link for twitter signals.
+        # Old rows get NULL (render plain text); only twitter rows ever populate it.
+        ("signal_events", "source_link", "TEXT"),
         ("sec_form4_filings", "is_10b5_1", "INTEGER DEFAULT 0"),
         ("youtube_videos",    "description", "TEXT"),
         ("youtube_evidence_spans", "parser_version",   "TEXT"),
@@ -973,8 +977,8 @@ async def insert_signal(signal: TickerSignal):
         await db.execute(
             """INSERT INTO signal_events
                (source_type, source_detail, ticker, direction, quality_score,
-                latency_sec, provenance, model_version, recorded_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                latency_sec, provenance, model_version, recorded_at, source_link)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 "twitter",
                 signal.source_detail,
@@ -985,6 +989,7 @@ async def insert_signal(signal: TickerSignal):
                 "tweet",
                 None,
                 signal.detected_at,
+                getattr(signal, "source_link", None),  # item E: TweetShift message link
             ),
         )
     await db.commit()
@@ -3358,12 +3363,18 @@ async def get_confluence_stances(window_days: int = 21) -> dict[str, list[dict]]
     out: dict[str, list[dict]] = {"twitter": [], "youtube": [], "options": [], "sec": []}
 
     # Twitter — signal_events.direction (long/short); youtube path there is dead.
+    # Item E: carry source_link (the TweetShift message link) + order newest-first so the
+    # confluence renderer can sample the NEWEST winning-direction tweet per ticker.
     cur = await conn.execute(
-        "SELECT ticker, direction FROM signal_events "
-        "WHERE source_type='twitter' AND direction IN ('long','short') AND recorded_at >= ?",
+        "SELECT ticker, direction, source_link FROM signal_events "
+        "WHERE source_type='twitter' AND direction IN ('long','short') AND recorded_at >= ? "
+        "ORDER BY recorded_at DESC",
         (cutoff,),
     )
-    out["twitter"] = [{"ticker": r["ticker"], "dir": r["direction"]} for r in await cur.fetchall()]
+    out["twitter"] = [
+        {"ticker": r["ticker"], "dir": r["direction"], "link": r["source_link"]}
+        for r in await cur.fetchall()
+    ]
 
     # YouTube — youtube_signals.direction, dropping suppressed rows; keep channel for breadth.
     cur = await conn.execute(
