@@ -89,3 +89,4 @@ windows_runtime/R1_AUTHED_WEB/routine_state.json
 # created only while a yaml-vs-gateway model-chain drift is active,
 # deleted when the chains realign. Pure state, never commit.
 /.drift_state.json
+tests/fixtures/charts/
