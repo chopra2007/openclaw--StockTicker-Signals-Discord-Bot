@@ -18,22 +18,32 @@ models can't yet read a full 5-chart email cleanly. This is a built-but-off feat
 - Chart loop is gated on `wolf.vision.enabled`, paced (`wolf.vision.pace_seconds`), and
   serialized by a process lock. Committed in a9d21d2.
 
-## What didn't work (why the flag is OFF)
-- The live test bar is "a PAST Wolf email's ≥5 charts ALL read with ZERO 429/502." Right now
-  ALL 5 free vision models OpenRouter serves (nemotron-nano-12b-v2-vl, gemma-4-31b-it,
-  gemma-4-26b-a4b-it, kimi-k2.6, nex-n2-pro) are returning 429 (rate limit) or 502 (provider
-  down). A 5-chart burst only got ~1/2 reads. (My own rapid probing inflated the 429s, but the
-  502s are provider-side and real.)
+## Why the flag is OFF — ROOT CAUSE (corrected 2026-06-09, user challenged "4 providers can't all fail at once")
+NOT four independent providers failing. The `:free` OpenRouter variants all draw from
+**OpenRouter's shared free upstream credentials**, which are throttled (everyone using `:free`
+competes for the same pool). The 429 raw message proves it verbatim:
+> "google/gemma-4-31b-it:free is temporarily **rate-limited upstream**. ... or **add your own
+>  key** to accumulate your rate limits" — provider Google AI Studio.
+The 502s are the same shared-backend overload. Diagnostics that settle it:
+- Account is NOT out of money: `/api/v1/key` shows limit $5/day, only $0.06 spent. Not a credit cap.
+- The PAID route works instantly: `google/gemma-4-31b-it` (no :free) returned 200 (our request,
+  image, auth all fine — only the FREE serving layer is throttled).
+- **`google/gemini-2.5-flash-lite` (PAID) READ the chart cleanly: /NQ, 2 levels.** ~a fraction of
+  a cent per chart.
 
-## How to turn it on
-1. Confirm the free pool is healthy: run a ≥5-chart past Wolf email through `wolf_vision.read_chart`
-   (see the live-test script pattern in the execution log) and confirm ALL read with zero 429/502.
-   Production pacing (≤5 charts/email, 8s apart, few emails/day) is far gentler than a probe loop,
-   so it may pass even when a rapid probe doesn't.
-2. If the free pool still can't sustain a clean burst: set `wolf.vision.paid_fallback_model` to a
-   cheap paid OpenRouter vision model (user-locked ≤10¢/day) and wire it as the last pool entry.
-3. Flip `config/consensus.yaml` `wolf.vision.enabled: true`, restart `consensus-engine`.
-   The item-F gate requires a go-live evidence file for this flag (the ≥1-level smoke read).
+## How to turn it on (two viable paths)
+1. **Paid shelf (recommended, reliable):** set `wolf.vision.paid_fallback_model:
+   "google/gemini-2.5-flash-lite"` and wire it as the final pool entry in
+   `wolf_vision._call_vision_image` (after the free pool exhausts on QUOTA_BLOCKED). Cost at ≤5
+   charts/email × few emails/day is well under the user-locked ≤10¢/day. PROVEN to read a real chart.
+2. **BYOK (free, more setup):** add our own Google AI Studio key to OpenRouter integrations so
+   `:free` gemma/gemini route through OUR rate limits instead of the shared throttled pool. We
+   already hold GEMINI_API_KEY / GEMINI_API_KEY2 — but those are also used by YouTube video
+   transcription (item G), so vision would compete for the same Gemini free quota. Paid flash-lite
+   avoids that contention.
+3. Then flip `config/consensus.yaml` `wolf.vision.enabled: true`, restart `consensus-engine`.
+   The item-F gate requires `.claude/go-live-evidence/wolf_vision_enabled.md` + the smoke test
+   (which now WILL pass via the paid reader).
 
 ## Files
 - `models/openrouter_client.py` (vision_completion)

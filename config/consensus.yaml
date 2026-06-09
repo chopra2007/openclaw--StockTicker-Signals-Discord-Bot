@@ -841,11 +841,13 @@ wolf:
     max_attempts_per_chart: 12          # item A: attempt ceiling per chart across the pool
     max_output_tokens: 512              # cap output; thinking disabled in code (wolf_vision.py)
     models:                             # item A: paced rotating free vision pool. The 5 free
-                                        #   vision models OpenRouter actually serves (queried
-                                        #   2026-06-09). nemotron-nano-12b READ a real Wolf chart
-                                        #   live; the rest rotate as alternate per-minute buckets.
-                                        #   Free providers are flaky (429/502) — keep enabled:false
-                                        #   until a ≥5-chart burst reads clean, else use paid_fallback.
+                                        #   vision models OpenRouter serves (queried 2026-06-09).
+                                        #   nemotron-nano-12b READ a real Wolf chart live. CAVEAT
+                                        #   (2026-06-09): all :free variants share OpenRouter's
+                                        #   throttled free UPSTREAM pool (429 "rate-limited upstream,
+                                        #   add your own key") — NOT 4 providers failing. enabled
+                                        #   stays false until paid_fallback is wired (the paid route
+                                        #   works: gemini-2.5-flash-lite READ the chart, 2 levels).
       - "nvidia/nemotron-nano-12b-v2-vl:free"   # primary — proven to read charts
       - "google/gemma-4-31b-it:free"
       - "google/gemma-4-26b-a4b-it:free"
