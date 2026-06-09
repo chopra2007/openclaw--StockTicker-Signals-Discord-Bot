@@ -191,3 +191,9 @@ DONE — Wolf chart-reading is LIVE. The free AI vision models proved unreliable
 **File:** `mis-attributed-yt-levels-sweep.md`
 
 A multi-stock YouTube video dumped QQQ/SPY numbers (700–760) onto NVDA, which made !all show a $700 target on a $208 stock — found and fixed for NVDA at session close, but other tickers/videos may be scrambled too; sweep the stored data and add a safety filter so a wild number can never reach the !all trade plan again.
+
+## 32. Fix conviction scoring + finish the signal-quality upgrades (Phase 2) + turn on Phase 1
+
+**File:** `signal-features-phase2.md`
+
+Fix the conviction scoring so nuanced/tentative analyst calls (the ~98% that sound like "watching... might add if it reclaims 250") aren't penalized as low-conviction; build the remaining 10 precision upgrades (contradiction warning, hard-evidence gate, fake-burst defense, short-volume + cross-asset veto, etc.); and, after a shadow window, switch on the 9 already-built Phase-1 fixes.
