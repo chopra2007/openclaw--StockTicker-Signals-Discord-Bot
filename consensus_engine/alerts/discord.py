@@ -344,6 +344,35 @@ def format_detail_followup(xref: CrossReferenceResult, precision: Optional[dict]
     b = xref.breakdown
     total = b.total
 
+    # I4-display-honesty: behind features.score_display_honesty.enabled. With the
+    # flag OFF, headline_total stays the raw additive sum (total) → byte-identical
+    # legacy headline. With it ON, render the precision-gated number (never the
+    # inflated additive sum), surface an explicit budget-degraded state when a paid
+    # source was skipped, and never show a number that contradicts the class
+    # (no STRONG with a sub-medium number).
+    honesty_on = cfg.get("features.score_display_honesty.enabled", False)
+    headline_total = total
+    budget_degraded = False
+    displayed_score = None
+    if honesty_on and precision and not precision.get("skipped"):
+        med = cfg.get("precision_engine.thresholds.medium_confidence", 65)
+        cls_obj = precision.get("classification")
+        cls_str = cls_obj.value if hasattr(cls_obj, "value") else str(cls_obj)
+        p_score = int(precision.get("total_score", 0) or 0)
+        displayed_score = p_score
+        # never show a number that contradicts the class
+        if cls_str == "STRONG_ALERT" and displayed_score < med:
+            displayed_score = med
+        budget_degraded = bool(precision.get("skipped_sources"))
+        # budget-depressed: never silently show the higher number — show the gated
+        # number with an explicit degraded state.
+        headline_total = displayed_score
+        log.info(
+            "[I4-display] $%s reconciled: additive=%d precision=%d displayed=%d class=%s budget_degraded=%s skipped=%s",
+            xref.ticker, total, p_score, displayed_score, cls_str,
+            budget_degraded, precision.get("skipped_sources"),
+        )
+
     fields = []
 
     if xref.catalyst_summary:
@@ -395,8 +424,25 @@ def format_detail_followup(xref: CrossReferenceResult, precision: Optional[dict]
             flags.append("market ❌")
         if precision.get("has_mainstream"):
             flags.append("mainstream ✅")
-        precision_text = f"{icon} **{cls_val}** | score={p_score} | {' | '.join(flags)}"
+        if honesty_on:
+            # I4-display-honesty: show the gated number, and on a budget-depressed
+            # run flag the degraded confidence explicitly (never the higher number).
+            if budget_degraded:
+                flags.append("confidence degraded: budget")
+            precision_text = f"{icon} **{cls_val}** | score={displayed_score} | {' | '.join(flags)}"
+        else:
+            precision_text = f"{icon} **{cls_val}** | score={p_score} | {' | '.join(flags)}"
         fields.append({"name": "Precision Engine", "value": precision_text, "inline": False})
+
+    # I14-display: regime risk-context line, behind features.regime_context_line.enabled.
+    # Pure-additive display. On cold-start render "warming up" (no implied protection).
+    if cfg.get("features.regime_context_line.enabled", False) and precision and precision.get("regime"):
+        regime = precision["regime"]
+        if getattr(regime, "cold_start", False):
+            regime_text = "regime: warming up"
+        else:
+            regime_text = f"Regime: {regime.label} (z={regime.z_score:.1f})"
+        fields.append({"name": "Regime", "value": regime_text, "inline": False})
 
     # Reliability + calibration fields (additive, only shown when reliability engine ran)
     if xref.reliability_decision:
@@ -441,8 +487,11 @@ def format_detail_followup(xref: CrossReferenceResult, precision: Optional[dict]
     if not xref.catalyst_summary and not xref.other_analysts and not xref.social_summary:
         fields.insert(0, {"name": "Status", "value": "No additional signals found", "inline": False})
 
+    title = f"Cross-Reference: ${xref.ticker} | Score: {headline_total}"
+    if honesty_on and budget_degraded:
+        title += " | confidence degraded: budget"
     embed = {
-        "title": f"Cross-Reference: ${xref.ticker} | Score: {total}",
+        "title": title,
         "color": 0x5865F2,
         "fields": fields,
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),

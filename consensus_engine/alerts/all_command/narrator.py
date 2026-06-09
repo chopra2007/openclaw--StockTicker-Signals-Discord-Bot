@@ -741,6 +741,7 @@ def _build_constraints_block_full(swing_v2: bool) -> str:
         "- Do not introduce price levels not present in the COMPUTED SIGNAL block.\n"
         "- No @everyone or @here.\n"
         "- No markdown links — write source names plainly."
+        + _options_framing_ban()
     )
 
 
@@ -758,6 +759,26 @@ _ANTI_FABRICATION_CANONICAL = (
     "'Meta', 'Oracle', 'Google Cloud') and product names (e.g. 'MI450', "
     "'Blackwell', 'Rubin') exactly as they appear.\n"
 )
+
+
+# I6 (signal-features-2026-06-09) — E4 framing ban for PUBLIC options flow.
+# Free yfinance ~15-min single-leg flow cannot be attributed to an informed
+# actor (the refuted Pan-Poteshman fallacy), so the narrator must NOT frame it
+# as "smart money positioning". Flag-gated so the constraints block is
+# byte-identical when `features.options_graduated_scoring.enabled` is OFF
+# (returns "").
+def _options_framing_ban() -> str:
+    from consensus_engine import config as _cfg
+    if not bool(_cfg.get("features.options_graduated_scoring.enabled", False)):
+        return ""
+    return (
+        "- OPTIONS FLOW is PUBLIC, ~15-min-delayed, single-leg data on an "
+        "INTRADAY/1-2-day horizon. Describe it ONLY as 'unusual options flow' or "
+        "'options activity'. NEVER frame it as 'smart money', 'smart-money "
+        "positioning', 'institutional positioning', 'whales', or any claim that "
+        "an informed/insider actor is behind it — the side cannot be inferred "
+        "from public single-leg prints (REJECTED).\n"
+    )
 
 
 def _build_constraints_block_trimmed(swing_v2: bool) -> str:
@@ -872,6 +893,7 @@ def _build_constraints_block_trimmed(swing_v2: bool) -> str:
         "- Do not contradict the COMPUTED SIGNAL. Do not introduce price levels "
         "not in the COMPUTED SIGNAL block. No @everyone or @here. No markdown "
         "links — write source names plainly."
+        + _options_framing_ban()
     )
 
 

@@ -48,6 +48,19 @@ def _audit_flags_default_off(monkeypatch):
         "wolf.confluence.board_show_levelless": False,
         "wolf.confluence.links_enabled": False,
         "wolf.direction_guard.enabled": False,
+        # Phase-1 signal features (signal-features-2026-06-09) — keep OFF so the
+        # baseline suite stays green; dedicated feature tests force their own flag.
+        "features.earnings_magnitude.enabled": False,
+        "features.regime_context_line.enabled": False,
+        "features.score_display_honesty.enabled": False,
+        "features.analyst_accuracy_weight.enabled": False,
+        "features.sec_graduated_scoring.enabled": False,
+        "features.options_graduated_scoring.enabled": False,
+        "features.youtube_score.direction_aware": False,
+        "features.youtube_score.recency_decay": False,
+        "features.youtube_score.channel_reliability": False,
+        "features.youtube_score.level_confluence": False,
+        "wolf.outcomes.benchmark_adjusted": False,
     }
 
     def _patched(key, default=None):

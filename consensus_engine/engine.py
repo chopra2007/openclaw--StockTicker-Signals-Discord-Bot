@@ -59,6 +59,12 @@ class BudgetManager:
         "wolf_vision_calls",
     )
 
+    def __init__(self):
+        # I4-display / I10 prerequisite: per-run set of source columns whose fetch
+        # was skipped because budget ran out (vs fetched-and-empty). Surfaced on the
+        # analyze_signal result so downstream can render "confidence degraded: budget".
+        self.skipped_sources: set[str] = set()
+
     async def _today_key(self) -> str:
         return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
@@ -93,6 +99,7 @@ class BudgetManager:
         await conn.commit()
         if cursor.rowcount == 0:
             log.warning("Budget exceeded for %s (limit=%d)", adapter_col, limit)
+            self.skipped_sources.add(adapter_col)
             return False
         return True
 
@@ -112,7 +119,10 @@ class BudgetManager:
         )
         row = await cursor.fetchone()
         current = row[adapter_col] if row else 0
-        return current + amount <= limit
+        allowed = current + amount <= limit
+        if not allowed:
+            self.skipped_sources.add(adapter_col)
+        return allowed
 
     async def pct_used(self, adapter_col: str) -> float:
         """Return percentage of daily budget used (0-100)."""
@@ -304,6 +314,7 @@ async def analyze_signal(
             "skipped": True,
             "contradiction_verdict": ContradictionVerdict(apply_penalty=False, reason="disabled"),
             "regime": _COLD_START,
+            "skipped_sources": [],
         }
 
     budget = budget or BudgetManager()
@@ -358,6 +369,7 @@ async def analyze_signal(
                 "firecrawl_pages": [],
                 "contradiction_verdict": ContradictionVerdict(apply_penalty=False, reason="disabled"),
                 "regime": _COLD_START,
+                "skipped_sources": sorted(budget.skipped_sources),
             }
 
     # --- Phase 2: Brave Search (cheap) ---
@@ -442,4 +454,5 @@ async def analyze_signal(
         "contradiction_verdict": contradiction_verdict,
         "regime": regime,
         "sector_verdict": sector_verdict,
+        "skipped_sources": sorted(budget.skipped_sources),
     }

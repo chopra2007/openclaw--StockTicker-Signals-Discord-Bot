@@ -110,8 +110,17 @@ def _build_catalyst(
     url: str,
     catalyst_type: str,
     body: str = "",
+    *,
+    eps_surprise_pct: float | None = None,
+    eps_estimate: float | None = None,
+    eps_period: str = "",
 ) -> CatalystResult:
-    """Build a CatalystResult from a single news hit."""
+    """Build a CatalystResult from a single news hit.
+
+    `eps_*` are populated only by the earnings-recap tier (I12); every other
+    caller leaves them at the defaults, so the magnitude bonus only ever sees
+    a number when the catalyst really is an earnings print.
+    """
     return CatalystResult(
         ticker=ticker,
         catalyst_summary=title[:200],
@@ -120,6 +129,9 @@ def _build_catalyst(
         source_urls=[url],
         confidence=0.8 if catalyst_type != "Market Movement" else 0.5,
         catalyst_body=(body or "")[:1000],
+        eps_surprise_pct=eps_surprise_pct,
+        eps_estimate=eps_estimate,
+        eps_period=eps_period,
     )
 
 
@@ -186,12 +198,26 @@ async def _search_recent_earnings(ticker: str) -> Optional[CatalystResult]:
 
     body = " ".join(parts)
     log.info("Recent earnings catalyst for %s: %s", ticker, period)
+
+    # I12: thread the numeric surprise % + estimate denominator + period date
+    # onto the CatalystResult so the scorer (cross_reference.py) can apply the
+    # magnitude bonus + denominator/freshness guards. Coerce to float; any
+    # non-numeric value stays None so the bonus simply doesn't fire.
+    def _as_float(v):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return None
+
     return _build_catalyst(
         ticker,
         title=f"{ticker} reported earnings for quarter ending {period}",
         url="https://finnhub.io/api/v1/stock/earnings",
         catalyst_type="Earnings Report",
         body=body,
+        eps_surprise_pct=_as_float(eps_surprise_pct),
+        eps_estimate=_as_float(eps_e),
+        eps_period=str(period or ""),
     )
 
 

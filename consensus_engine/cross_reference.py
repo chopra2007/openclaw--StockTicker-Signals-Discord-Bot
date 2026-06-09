@@ -251,6 +251,323 @@ async def _run_sec_check(ticker: str) -> tuple[bool, str]:
         return False, ""
 
 
+# ── I5 (signal-features-2026-06-09) — graduate SEC by role + open-market $ ──
+# All of this is dark until `features.sec_graduated_scoring.enabled` is ON. The
+# 2-tuple `_run_sec_check` contract above is LOAD-BEARING (every existing caller
+# and mock unpacks `(has_filing, summary)` or returns `(False, "")`), so the
+# graduation data is computed by this SEPARATE helper rather than widening that
+# tuple — adding fields to `_run_sec_check`'s return would break those mocks.
+# Flag OFF -> this helper is never called and `sec_pts` stays the flat +15.
+
+# Canonical C-suite roles eligible for the +20 tier. The keys are matched as
+# whole UPPER tokens / substrings against the Form-4 officerTitle string.
+_CSUITE_ROLE_PATTERNS = (
+    "CHIEF EXECUTIVE", "CEO", "PEO",            # principal executive
+    "CHIEF FINANCIAL", "CFO", "PFO",            # principal financial
+    "CHIEF OPERATING", "COO",
+    "PRESIDENT",
+)
+
+
+def _canonicalize_sec_role(title: str) -> str:
+    """Map a raw Form-4 officer title to 'csuite' or 'other'.
+
+    CEO/CFO/COO/President and the SEC principal-officer codes PEO/PFO map to
+    'csuite' (the only role tier that can earn +20). Anything else (Director,
+    10% Owner, VP, unknown) maps to 'other' -> +8 baseline, never +20.
+    """
+    up = (title or "").upper()
+    # "Vice President" must NOT match the PRESIDENT C-suite tier.
+    if "VICE PRESIDENT" in up or up.strip().startswith("VP") or " VP " in f" {up} ":
+        return "other"
+    for pat in _CSUITE_ROLE_PATTERNS:
+        if pat in up:
+            return "csuite"
+    return "other"
+
+
+@dataclass
+class _SecGraduation:
+    """Parsed Form-4 facts the I5 graduation tier needs. Defaults = no signal."""
+    has_form4: bool = False
+    max_buy_dollars: float = 0.0      # largest single-insider open-market BUY ($)
+    reporter_role: str = "other"      # canonicalized role of the top buyer
+    is_planned: bool = False          # 10b5-1 / pre-arranged plan footnote present
+    plan_flag_seen: bool = False      # a footnote was parseable for the top buy
+    txn_date: str = ""                # transaction date of the top buy (YYYY-MM-DD)
+    net_selling: bool = False         # open-market sells present with no qualifying buy
+
+
+def _parse_form4_for_graduation(raw_xml: str) -> Optional[dict]:
+    """Extract I5 graduation fields from one Form-4 XML.
+
+    Returns {role, is_planned, plan_flag_seen, buy_dollars, buy_date, has_sell}
+    or None on parse failure. Reuses the cluster module's role/footnote parser
+    shape but keeps BOTH buys (code 'P') and open-market sells (code 'S') so the
+    net-selling withhold can fire. Plan flag = 10b5-1 footnote detection.
+    """
+    import xml.etree.ElementTree as ET
+    from consensus_engine.scanners.sec_form4_cluster import is_10b5_1
+
+    try:
+        root = ET.fromstring(raw_xml)
+    except ET.ParseError:
+        return None
+
+    def _val(node, tag):
+        el = node.find(f".//{tag}/value")
+        if el is None:
+            el = node.find(f".//{tag}")
+        return (el.text or "").strip() if el is not None else ""
+
+    officer_title = _val(root, "officerTitle")
+    is_director = _val(root, "isDirector") == "1"
+    is_officer = _val(root, "isOfficer") == "1"
+    is_ten_pct = _val(root, "isTenPercentOwner") == "1"
+    if officer_title:
+        title = officer_title
+    elif is_director and is_officer:
+        title = "Director & Officer"
+    elif is_director:
+        title = "Director"
+    elif is_ten_pct:
+        title = "10% Owner"
+    else:
+        title = "Insider"
+
+    footnote_nodes = root.findall(".//footnote")
+    footnote_text = " ".join((fn.text or "") for fn in footnote_nodes)
+    # plan_flag_seen distinguishes "footnote absent" (cannot rule out a plan ->
+    # cap at +8) from "footnote present and clean". Any footnote node = parseable.
+    plan_flag_seen = bool(footnote_nodes)
+    is_planned = bool(footnote_text) and is_10b5_1(footnote_text)
+
+    buy_dollars = 0.0
+    buy_date = ""
+    has_sell = False
+    for tx in root.findall(".//nonDerivativeTransaction"):
+        code = _val(tx, "transactionCode")  # P=open-market buy, S=open-market sale
+        if code not in ("P", "S"):
+            continue
+        try:
+            shares = float(_val(tx, "transactionShares") or 0)
+            price = float(_val(tx, "transactionPricePerShare") or 0)
+        except ValueError:
+            continue
+        dollars = shares * price
+        if code == "P" and dollars > 0:
+            if dollars > buy_dollars:
+                buy_dollars = dollars
+                buy_date = _val(tx, "transactionDate")
+        elif code == "S" and dollars > 0:
+            has_sell = True
+
+    return {
+        "role": _canonicalize_sec_role(title),
+        "is_planned": is_planned,
+        "plan_flag_seen": plan_flag_seen,
+        "buy_dollars": buy_dollars,
+        "buy_date": buy_date,
+        "has_sell": has_sell,
+    }
+
+
+async def _run_sec_graduation(ticker: str) -> _SecGraduation:
+    """Fetch recent Form-4 filings and aggregate the I5 graduation facts.
+
+    Only called when `features.sec_graduated_scoring.enabled` is ON. Picks the
+    SINGLE largest open-market BUY across all parsed Form-4s; its role/date/plan
+    flag drive the tier. If no qualifying buy exists but an open-market sell did,
+    `net_selling` is set so the caller WITHHOLDS the buy credit (never subtracts).
+    Returns the all-default _SecGraduation on any error (graceful -> +8 if Form-4
+    present, else 0).
+    """
+    grad = _SecGraduation()
+    try:
+        from consensus_engine.scanners.sec_edgar import check_recent_filings
+        from consensus_engine.scanners.sec_form4_cluster import _fetch_form4_xml
+        from consensus_engine.utils.rate_limiter import rate_limiter
+
+        filings = await check_recent_filings(ticker, hours_back=48)
+        form4 = [f for f in filings
+                 if isinstance(f, dict) and f.get("form") == "4"][:_NAMED_INSIDER_FETCH_LIMIT]
+        if not form4:
+            return grad
+        grad.has_form4 = True
+
+        any_sell = False
+        for f in form4:
+            try:
+                if not await rate_limiter.acquire("sec_edgar"):
+                    continue
+            except Exception:  # noqa: BLE001 — rate limiter wobble never voids the rest
+                pass
+            raw = await _fetch_form4_xml(
+                f.get("cik", ""),
+                f.get("accession_number", ""),
+                f.get("primary_document", ""),
+            )
+            if not raw:
+                continue
+            parsed = _parse_form4_for_graduation(raw)
+            if not parsed:
+                continue
+            if parsed["has_sell"]:
+                any_sell = True
+            if parsed["buy_dollars"] > grad.max_buy_dollars:
+                grad.max_buy_dollars = parsed["buy_dollars"]
+                grad.reporter_role = parsed["role"]
+                grad.is_planned = parsed["is_planned"]
+                grad.plan_flag_seen = parsed["plan_flag_seen"]
+                grad.txn_date = parsed["buy_date"]
+
+        # Net selling: open-market sells present but no qualifying open-market buy.
+        grad.net_selling = any_sell and grad.max_buy_dollars <= 0.0
+        return grad
+    except Exception as e:  # noqa: BLE001 — graduation is best-effort; fall back to +8/0
+        log.debug("SEC graduation error for %s: %s", ticker, e)
+        return grad
+
+
+def _is_txn_recent(txn_date: str, recency_days: int) -> bool:
+    """True if the transaction date is within recency_days of now (UTC).
+
+    SEC Form-4 transactionDate is always `YYYY-MM-DD`. An empty or unparseable
+    date counts as NOT recent (stale -> no graduation), so an already-priced old
+    buy can't inflate a fresh alert.
+    """
+    if not txn_date:
+        return False
+    from datetime import datetime, timezone, timedelta
+    try:
+        dt = datetime.strptime(txn_date[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    except ValueError:
+        return False
+    return (datetime.now(timezone.utc) - dt) <= timedelta(days=recency_days)
+
+
+def _graduate_sec_pts(grad: _SecGraduation, flat_pts: int) -> int:
+    """Compute the I5 graduated SEC points from parsed Form-4 facts.
+
+    Tiers (all additive, never negative):
+      +base_pts (8)  any Form-4 present (the floor)
+      +large_buy_pts (15)  open-market BUY > _MIN_PURCHASE_DOLLARS ($250k)
+      +csuite_pts (20)  the same large buy by a canonical C-suite role
+
+    Safeguards:
+      - plan flag ABSENT (footnote not parseable) -> cap at +8 (no +20 tier).
+      - 10b5-1 / planned buy -> cap at +8 (a pre-arranged trade is not a signal).
+      - net selling -> withhold the buy credit (stays at +8), NEVER subtract.
+      - stale transaction date (recency gate applied by caller) -> already
+        downgraded to a non-large grad before this call.
+      - unknown role -> 'other' -> +15 max, never +20.
+    """
+    if not grad.has_form4:
+        return 0
+    base = int(cfg.get("features.sec_graduated_scoring.base_pts", 8))
+    large = int(cfg.get("features.sec_graduated_scoring.large_buy_pts", 15))
+    csuite = int(cfg.get("features.sec_graduated_scoring.csuite_pts", 20))
+
+    from consensus_engine.scanners.sec_form4_cluster import _MIN_PURCHASE_DOLLARS
+
+    qualifying_buy = (
+        grad.max_buy_dollars > _MIN_PURCHASE_DOLLARS
+        and not grad.net_selling
+    )
+    # Plan-flag safeguard: a planned (10b5-1) buy, OR a buy whose footnote we
+    # could not parse at all, cannot earn above the +8 floor.
+    plan_clean = grad.plan_flag_seen and not grad.is_planned
+    if not qualifying_buy or not plan_clean:
+        return base
+    if grad.reporter_role == "csuite":
+        return csuite
+    return large
+
+
+def _earnings_magnitude_bonus(catalyst: "CatalystResult") -> int:
+    """I12: magnitude bonus added ON TOP of the base catalyst tier.
+
+    A +40% blowout beat and an in-line print currently score the same catalyst
+    tier. This adds `+per_10pct (5) per 10% surprise, capped at cap (+15)` when
+    the catalyst is a FRESH earnings print carrying a numeric surprise %.
+
+    Safeguards (all mandatory, additive only — never subtracts):
+      - absolute-$ surprise floor: |eps_surprise_pct| must exceed `min_abs_eps`
+        (default 0.02 => 2%). A near-zero surprise earns 0.
+      - sane-denominator guard: `eps_estimate` must be a non-trivial denominator
+        (>= min_abs_eps in absolute terms). A $0.01 beat on a $0.001 estimate
+        cannot manufacture a +900%-style bonus.
+      - cap: the bonus is clamped to `cap` (default +15).
+      - freshness gate: the recap's quarter `eps_period` must be within
+        `recency_days` (default 5) of now; a stale recap earns 0 so an
+        already-priced old print can't inflate a fresh alert.
+      - missing/None surprise % -> 0 (base tier only).
+    """
+    if not catalyst:
+        return 0
+    surprise = catalyst.eps_surprise_pct
+    estimate = catalyst.eps_estimate
+    if surprise is None:
+        return 0
+    min_abs_eps = float(cfg.get("features.earnings_magnitude.min_abs_eps", 0.02))
+    # sane-denominator guard: need a real estimate to trust the % surprise.
+    if estimate is None or abs(estimate) < min_abs_eps:
+        return 0
+    # absolute-magnitude floor: a near-zero surprise % earns nothing.
+    if abs(surprise) <= min_abs_eps:
+        return 0
+    # freshness gate: only a recent post-print recap may add the bonus.
+    recency_days = int(cfg.get("features.earnings_magnitude.recency_days", 5))
+    if not _is_txn_recent(catalyst.eps_period, recency_days):
+        return 0
+    per_10pct = int(cfg.get("features.earnings_magnitude.per_10pct", 5))
+    cap = int(cfg.get("features.earnings_magnitude.cap", 15))
+    bonus = int(abs(surprise) / 10.0 * per_10pct)
+    return min(bonus, cap)
+
+
+def _graduate_options_pts(options: "OptionsResult", direction: str) -> int:
+    """I6: graduate options_pts by premium ALIGNED with the tweet direction.
+
+    Returns (SAME-DIRECTION confluence only):
+      +10  a >$250k single-strike dominant-side premium ALIGNED with `direction`
+           (long<->call, short<->put)
+      +6   aligned dominant side but premium <= $250k (the small-flow nudge)
+      0    opposing OR ambiguous dominant side, OR a stale snapshot
+
+    Safeguards (E4 — all mandatory):
+      - the opposing/negative branch is DROPPED entirely: an OPPOSING dominant
+        side (e.g. a put-wall on a long) contributes 0, NEVER a negative sign —
+        public single-leg side inference is the refuted Pan-Poteshman fallacy.
+      - an AMBIGUOUS dominant side ("" — call/put premium tie or no unusual
+        contract) contributes 0, never a sign.
+      - stale / after-hours snapshot (dominant last trade older than the #18
+        watcher's max_staleness_min, or no timestamp) -> 0.
+      - magnitude-capped low: the return is at most aligned_pts (default +10);
+        this term is a confluence nudge, never solo-STRONG.
+    """
+    unusual = int(cfg.get("features.options_graduated_scoring.unusual_pts", 6))
+    aligned = int(cfg.get("features.options_graduated_scoring.aligned_pts", 10))
+    large_premium = float(cfg.get("options_flow.min_premium_usd", 250_000.0))
+    max_staleness_min = int(cfg.get("options_flow.max_staleness_min", 60))
+
+    # Staleness gate: reuse the #18 watcher cap. A snapshot whose dominant
+    # contract last traded outside the window (e.g. a prior-session / after-hours
+    # print) contributes 0. No timestamp at all -> treat as stale -> 0.
+    if max_staleness_min:
+        ts = options.dominant_last_trade_ts
+        if not ts or (time.time() - ts) > max_staleness_min * 60:
+            return 0
+
+    # Alignment: long pairs with call flow, short pairs with put flow. An
+    # opposing or ambiguous ("") dominant side is NOT a confluence signal -> 0.
+    aligned_side = "call" if direction == "long" else "put" if direction == "short" else ""
+    if aligned_side == "" or options.dominant_side != aligned_side:
+        return 0
+    pts = aligned if options.premium_notional > large_premium else unusual
+    return min(pts, aligned)  # magnitude cap (never above the aligned ceiling)
+
+
 async def _run_social_check(ticker: str) -> dict[str, int]:
     """Get social signal counts for a ticker from the database."""
     counts = await db.get_signal_counts_by_source(ticker)
@@ -319,6 +636,36 @@ async def _run_options_check(ticker: str, executor) -> Optional[OptionsResult]:
         return None
 
 
+def _count_trusted_channels(mentions: list[dict], min_graded_n: int) -> int:
+    """I1 — count DISTINCT channels that may count toward the bearish floor.
+
+    A channel's trust counts ONLY if it has BOTH (a) channel age (a non-null
+    `channel_age_days`, i.e. the channel is registered/known long enough to have
+    a track record) AND (b) at least `min_graded_n` graded outcomes
+    (`graded_n`). Either field absent -> the channel does NOT count. In
+    production the per-mention rows do not yet carry these fields, so this
+    returns 0 -> the bearish subtraction floor is never met -> a bearish
+    consensus contributes 0, never a positive add (the I1 wrong-sign-bug fix).
+    The dedicated I1 test injects `channel_age_days` + `graded_n` to exercise
+    the trusted-multi-channel path.
+    """
+    trusted: set[str] = set()
+    for m in mentions:
+        name = m.get("channel_name")
+        if not name:
+            continue
+        age = m.get("channel_age_days")
+        graded = m.get("graded_n")
+        if age is None or graded is None:
+            continue
+        try:
+            if float(age) > 0 and int(graded) >= min_graded_n:
+                trusted.add(name)
+        except (TypeError, ValueError):
+            continue
+    return len(trusted)
+
+
 async def _get_youtube_context(ticker: str):
     """Query YouTube signals for ticker (8th source for cross-reference)."""
     try:
@@ -375,27 +722,67 @@ async def _get_youtube_context(ticker: str):
         # behavior. Each block below is a multiplier/sign applied ONLY when its
         # flag is ON, so with every flag OFF `score_boost` is byte-identical.
 
+        # Capture the unsigned legacy boost for the I1 signed-vs-unsigned shadow
+        # log (always positive here; the flag blocks below may sign/scale it).
+        unsigned_boost = score_boost
+
         # #9 direction-aware (flag features.youtube_score.direction_aware):
         # sign the boost by the 7-day consensus direction so a bearish YouTube
         # consensus lowers the score instead of raising it. short -> negative,
         # long -> positive, neutral -> KEEP today's positive (do NOT zero —
         # zeroing could silently suppress range-bound-ticker alerts).
+        #
+        # I1 Pass-3 safeguards (apply ONLY on the bearish/short branch):
+        #   (1) min-2-trusted-channel FLOOR before any bearish subtraction —
+        #       below the floor the boost becomes 0, NEVER a positive add (do
+        #       NOT re-introduce the wrong-sign bug);
+        #   (2) a channel's trust counts toward the floor only if it has
+        #       channel-age AND >= min_channel_graded_n graded outcomes
+        #       (_count_trusted_channels);
+        #   (3) cap the bearish (negative) magnitude at bearish_cap (-8) while
+        #       bullish stays up to +15.
         if cfg.get("features.youtube_score.direction_aware", False):
             if consensus_dir == "short":
-                score_boost = -score_boost
+                min_trusted = int(cfg.get("features.youtube_score.min_trusted_channels", 2))
+                min_graded_n = int(cfg.get("features.youtube_score.min_channel_graded_n", 10))
+                bearish_cap = int(cfg.get("features.youtube_score.bearish_cap", 8))
+                n_trusted = _count_trusted_channels(primary_mentions, min_graded_n)
+                if n_trusted < min_trusted:
+                    # Below the floor: NO bearish subtraction (would be unsafe),
+                    # and NEVER the legacy positive add (would be the bug). 0.
+                    score_boost = 0
+                else:
+                    # Bearish subtraction allowed; cap the negative magnitude
+                    # below the bullish ceiling (+15).
+                    score_boost = -min(abs(score_boost), bearish_cap)
 
         # #10 recency decay (flag features.youtube_score.recency_decay):
         # multiply by 0.5 ** (age_days / half_life) off the FRESHEST contributing
         # mention, floored at recency_floor. Older consensus = smaller boost.
+        #
+        # I1 safeguard (4): a null/missing `extracted_at` is treated as STALE —
+        # never fresh. If ANY contributing mention lacks a timestamp, or if NO
+        # mention carries one at all, the freshness is unknown, so the boost is
+        # down-weighted to the stale floor (`recency_floor`) instead of being
+        # left at full strength. The `half_life > 0` check guards the divide.
         if cfg.get("features.youtube_score.recency_decay", False):
             half_life = float(cfg.get("features.youtube_score.recency_half_life_days", 3))
             floor = float(cfg.get("features.youtube_score.recency_floor", 0.3))
             extracted_times = [m.get("extracted_at") for m in primary_mentions if m.get("extracted_at") is not None]
-            if extracted_times and half_life > 0:
-                freshest = max(extracted_times)
-                age_days = max(0.0, (time.time() - float(freshest)) / 86400.0)
-                decay = max(floor, 0.5 ** (age_days / half_life))
-                score_boost = score_boost * decay
+            any_missing = any(m.get("extracted_at") is None for m in primary_mentions)
+            if half_life > 0:
+                if not extracted_times:
+                    # No timestamps at all -> stale -> down-weight to the floor.
+                    score_boost = score_boost * floor
+                else:
+                    freshest = max(extracted_times)
+                    age_days = max(0.0, (time.time() - float(freshest)) / 86400.0)
+                    decay = max(floor, 0.5 ** (age_days / half_life))
+                    if any_missing:
+                        # At least one stale (null-timestamp) leg -> cannot treat
+                        # the consensus as fresh; never exceed the stale floor.
+                        decay = min(decay, floor)
+                    score_boost = score_boost * decay
 
         # #11 channel-reliability (flag features.youtube_score.channel_reliability):
         # scale by the MAX trust_score among contributing mentions, clamped to
@@ -433,6 +820,14 @@ async def _get_youtube_context(ticker: str):
         # so int(round(...)) is byte-identical; when a flag is ON it collapses the
         # decay/trust float back to an int so total math has no float drift.
         score_boost = int(round(score_boost))
+
+        # I1 shadow log — signed-vs-unsigned youtube_pts. Only emitted when the
+        # signing flag is ON (off -> signed == unsigned, nothing to compare).
+        if cfg.get("features.youtube_score.direction_aware", False):
+            log.info(
+                "[I1 shadow] $%s youtube_pts signed=%d unsigned=%d (dir=%s)",
+                ticker, score_boost, int(round(unsigned_boost)), consensus_dir,
+            )
 
         return YouTubeContext(
             mention_count=len(primary_mentions),
@@ -480,15 +875,107 @@ async def score_ticker(
     # flag-gated skip below can decide whether the LLM call could ever change
     # the alert outcome. (Reorder for #16 — math is unchanged.)
     max_analysts = cfg.get("scoring.multipliers.max_additional_analysts", 3)
-    analyst_pts = min(len(other_analysts), max_analysts) * m.get("additional_analyst", 20)
+    per_analyst = m.get("additional_analyst", 20)
+    flat_analyst_pts = min(len(other_analysts), max_analysts) * per_analyst
+    analyst_pts = flat_analyst_pts
+    # I2 (signal-features-2026-06-09, flag OFF default): weight each contributing
+    # analyst by track record. Flag OFF -> analyst_pts stays the flat
+    # min(len,3)*20 above (byte-identical). With the flag on, sum 20*weight per
+    # analyst where weight = clamp(2 * wilson_lb, discount_floor, weight_cap):
+    # a Wilson lower-bound of 0.5 -> weight 1.0 (neutral 20); sample_count<min_n
+    # (10) -> precision None -> neutral 20; a chronic loser floors at 0.5x.
+    if cfg.get("features.analyst_accuracy_weight.enabled", False) and other_analysts:
+        min_n = int(cfg.get("features.analyst_accuracy_weight.min_n", 10))
+        discount_floor = float(cfg.get("features.analyst_accuracy_weight.discount_floor", 0.5))
+        weight_cap = float(cfg.get("features.analyst_accuracy_weight.weight_cap", 1.5))
+        weighted = 0.0
+        for analyst in other_analysts[:max_analysts]:
+            lb = await db.get_analyst_precision_lb(analyst, horizon="1h", min_n=min_n)
+            if lb is None:
+                weight = 1.0  # thin/absent record -> neutral 20
+            else:
+                weight = max(discount_floor, min(weight_cap, 2.0 * lb))
+            weighted += per_analyst * weight
+        # Per-call notional cap: banked accuracy can't be fully spent on one pump.
+        # Cap the uplift above the flat baseline so a stack of high-track-record
+        # analysts can't run away (default cap = one extra analyst-unit, 20).
+        uplift_cap = float(cfg.get("features.analyst_accuracy_weight.uplift_cap", per_analyst))
+        analyst_pts = int(round(min(weighted, flat_analyst_pts + uplift_cap)))
+        log.info(
+            "[I2 shadow] $%s analyst_pts weighted=%d flat=%d (n_analysts=%d)",
+            ticker, analyst_pts, flat_analyst_pts, len(other_analysts),
+        )
     news_pts = _get_catalyst_score(catalyst.catalyst_type) if (catalyst and catalyst.passed) else 0
+    # I12 (signal-features-2026-06-09, flag OFF default): add a magnitude bonus
+    # on TOP of the base catalyst tier for a FRESH earnings print carrying a
+    # numeric surprise %. Flag OFF -> news_pts stays the base tier above
+    # (byte-identical; this block never runs). With the flag on: +5 per 10%
+    # surprise, cap +15, behind an absolute-$/denominator floor and a freshness
+    # gate (a near-zero or $0.01/$0.001 beat, or a stale recap, adds 0).
+    if (
+        cfg.get("features.earnings_magnitude.enabled", False)
+        and catalyst and catalyst.passed
+        and catalyst.catalyst_type in ("Earnings Report", "Earnings Beat")
+    ):
+        magnitude_bonus = _earnings_magnitude_bonus(catalyst)
+        if magnitude_bonus:
+            news_pts += magnitude_bonus
+            log.info(
+                "[I12 shadow] $%s news_pts=%d (+%d magnitude on %s, surprise=%.1f%% est=%s period=%s)",
+                ticker, news_pts, magnitude_bonus, catalyst.catalyst_type,
+                catalyst.eps_surprise_pct, catalyst.eps_estimate, catalyst.eps_period,
+            )
     sec_pts = m.get("sec_filing", 15) if sec_hit else 0
+    # I5 (signal-features-2026-06-09, flag OFF default): graduate sec_pts by
+    # insider role + open-market BUY $ instead of the flat +15. Flag OFF -> the
+    # flat `m.get("sec_filing",15) if sec_hit else 0` above is byte-identical
+    # (this block never runs). With the flag on: +8 any Form-4, +15 a >$250k
+    # open-market buy, +20 a C-suite buy; plan-flag absent or 10b5-1 caps at +8;
+    # net selling withholds the buy credit (never subtracts); a stale
+    # transaction date (older than recency_days) is demoted to the +8 floor.
+    if cfg.get("features.sec_graduated_scoring.enabled", False) and sec_hit:
+        grad = await _run_sec_graduation(ticker)
+        recency_days = int(cfg.get("features.sec_graduated_scoring.recency_days", 5))
+        if grad.max_buy_dollars > 0 and not _is_txn_recent(grad.txn_date, recency_days):
+            # Stale buy -> drop the large/csuite eligibility, keep the Form-4 floor.
+            grad.max_buy_dollars = 0.0
+        sec_pts = _graduate_sec_pts(grad, sec_pts)
+        log.info(
+            "[I5 shadow] $%s sec_pts graduated=%d (role=%s buy$=%.0f planned=%s "
+            "plan_seen=%s net_sell=%s date=%s)",
+            ticker, sec_pts, grad.reporter_role, grad.max_buy_dollars,
+            grad.is_planned, grad.plan_flag_seen, grad.net_selling, grad.txn_date,
+        )
     tech_pts = compute_technical_score(technical)
     social_breakdown = _compute_social_breakdown(social_data)
 
     llm_max = m.get("llm_boost_max", 15)
 
     options_pts = m.get("options_flow", 10) if (options and options.has_unusual_activity) else 0
+    # I6 (signal-features-2026-06-09, flag OFF default): graduate options_pts by
+    # premium ALIGNED with the tweet direction instead of the flat +10. Flag OFF
+    # -> the flat `m.get("options_flow",10) if has_unusual else 0` above is
+    # byte-identical (this block never runs). With the flag on:
+    #   +6  any unusual activity (the confluence-nudge floor)
+    #   +10 a >$250k single-strike premium whose dominant side is ALIGNED with
+    #       the tweet direction (long<->call, short<->put)
+    # SAFEGUARDS (E4): the opposing/negative branch is DROPPED entirely — an
+    # ambiguous or opposing dominant side contributes 0, NEVER a negative sign
+    # (public single-leg side inference is the refuted Pan-Poteshman fallacy);
+    # the term is magnitude-capped low (max +10, a confluence nudge never a
+    # solo-STRONG driver); a stale/after-hours snapshot (dominant last trade
+    # older than the #18 watcher's max_staleness_min) contributes 0. The
+    # contribution carries the intraday/1-2d horizon attribute (options.horizon).
+    if (cfg.get("features.options_graduated_scoring.enabled", False)
+            and options and options.has_unusual_activity):
+        options_pts = _graduate_options_pts(options, direction)
+        options.horizon = cfg.get("features.options_graduated_scoring.horizon", "1-2d")
+        log.info(
+            "[I6 shadow] $%s options_pts graduated=%d (dir=%s side=%s prem$=%.0f "
+            "stale_ts=%.0f horizon=%s)",
+            ticker, options_pts, direction, options.dominant_side,
+            options.premium_notional, options.dominant_last_trade_ts, options.horizon,
+        )
 
     youtube_pts = youtube.score_boost if youtube else 0
 

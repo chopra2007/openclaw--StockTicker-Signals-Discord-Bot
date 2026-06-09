@@ -47,6 +47,18 @@ def _detect_unusual_activity(chain) -> OptionsResult:
     total_call_vol = 0.0
     total_put_vol = 0.0
 
+    # I6 (signal-features-2026-06-09): track the single dominant (highest
+    # single-strike premium) UNUSUAL contract so the scorer can graduate
+    # options_pts by premium ALIGNED with the tweet direction. Premium is the
+    # same notional estimate the #18 flow watcher uses (lastPrice * vol * 100).
+    # These fields are populated unconditionally (cheap); the scoring flag
+    # decides whether they change the score. dominant_side stays "" (ambiguous)
+    # unless one side has strictly more premium than the other.
+    dom_call_premium = 0.0
+    dom_call_ts = 0.0
+    dom_put_premium = 0.0
+    dom_put_ts = 0.0
+
     if calls is not None and not calls.empty:
         for _, row in calls.iterrows():
             vol = float(row.get("volume", 0) or 0)
@@ -60,6 +72,10 @@ def _detect_unusual_activity(chain) -> OptionsResult:
                 top_contract = str(row.get("contractSymbol", ""))
             if ratio >= _UNUSUAL_RATIO_THRESHOLD:
                 unusual_calls = True
+                premium = float(row.get("lastPrice", 0) or 0) * vol * 100.0
+                if premium > dom_call_premium:
+                    dom_call_premium = premium
+                    dom_call_ts = _ts_to_epoch(row.get("lastTradeDate"))
 
     if puts is not None and not puts.empty:
         for _, row in puts.iterrows():
@@ -73,8 +89,22 @@ def _detect_unusual_activity(chain) -> OptionsResult:
                 max_put_ratio = ratio
             if ratio >= _UNUSUAL_RATIO_THRESHOLD:
                 unusual_puts = True
+                premium = float(row.get("lastPrice", 0) or 0) * vol * 100.0
+                if premium > dom_put_premium:
+                    dom_put_premium = premium
+                    dom_put_ts = _ts_to_epoch(row.get("lastTradeDate"))
 
     put_call_ratio = (total_put_vol / total_call_vol) if total_call_vol > 0 else 0.0
+
+    # Dominant side = whichever side has strictly more unusual single-strike
+    # premium. A tie (or no unusual contracts) -> "" (ambiguous), which the
+    # scorer treats as 0 graduation (never a sign — Pan-Poteshman safeguard).
+    if dom_call_premium > dom_put_premium:
+        dominant_side, premium_notional, dominant_last_trade_ts = "call", dom_call_premium, dom_call_ts
+    elif dom_put_premium > dom_call_premium:
+        dominant_side, premium_notional, dominant_last_trade_ts = "put", dom_put_premium, dom_put_ts
+    else:
+        dominant_side, premium_notional, dominant_last_trade_ts = "", 0.0, 0.0
 
     return OptionsResult(
         ticker="",  # filled in by caller
@@ -84,6 +114,9 @@ def _detect_unusual_activity(chain) -> OptionsResult:
         max_put_ratio=round(max_put_ratio, 2),
         put_call_ratio=round(put_call_ratio, 2),
         top_contract=top_contract,
+        premium_notional=round(premium_notional, 2),
+        dominant_side=dominant_side,
+        dominant_last_trade_ts=dominant_last_trade_ts,
     )
 
 

@@ -88,6 +88,9 @@ class CatalystResult:
     source_urls: list[str] = field(default_factory=list)
     confidence: float = 0.0  # 0-1
     catalyst_body: str = ""  # Q4 enrichment: article body for LLM scoring
+    eps_surprise_pct: float | None = None  # I12: numeric earnings surprise %, None when absent
+    eps_estimate: float | None = None      # I12: EPS estimate (denominator guard for the magnitude bonus)
+    eps_period: str = ""                   # I12: recap quarter period (YYYY-MM-DD) for the freshness gate
 
     @property
     def passed(self) -> bool:
@@ -323,6 +326,10 @@ class OptionsResult:
     max_put_ratio: float = 0.0    # max volume/OI ratio across puts
     put_call_ratio: float = 0.0   # total put volume / total call volume
     top_contract: str = ""        # contractSymbol with highest unusual ratio
+    premium_notional: float = 0.0 # I6: $ premium notional of the dominant contract
+    dominant_side: str = ""       # I6: "call"/"put"/"" — dominant flow side (ambiguous -> "")
+    horizon: str = ""             # I6: intraday/1-2d horizon attribute on the contribution
+    dominant_last_trade_ts: float = 0.0  # I6: epoch of dominant contract's last trade (staleness gate)
 
     @property
     def has_unusual_activity(self) -> bool:

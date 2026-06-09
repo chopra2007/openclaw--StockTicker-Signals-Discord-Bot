@@ -752,6 +752,16 @@ features:
     confluence_bonus: 3
     confluence_cap: 6
     confluence_band_pct: 0.015
+    min_trusted_channels: 2        # I1 — min trusted channels before a bearish subtraction
+    min_channel_graded_n: 10       # I1 — channel needs >=N graded outcomes before its trust counts
+    bearish_cap: 8                 # I1 — bearish magnitude capped below bullish (+15)
+  # Phase-1 signal features (signal-features-2026-06-09) — ALL default OFF / value-neutral.
+  earnings_magnitude: { enabled: false, per_10pct: 5, cap: 15, min_abs_eps: 0.02, recency_days: 5 }  # I12 — +5/10% earnings surprise, cap +15
+  regime_context_line: { enabled: false }                                                     # I14-display — regime risk line in embed
+  score_display_honesty: { enabled: false }                                                   # I4-display — show precision-gated number
+  analyst_accuracy_weight: { enabled: false, min_n: 10, discount_floor: 0.5, weight_cap: 1.5, uplift_cap: 20 } # I2 — Wilson-LB analyst weight
+  sec_graduated_scoring: { enabled: false, csuite_pts: 20, large_buy_pts: 15, base_pts: 8, recency_days: 5 } # I5 — graduate SEC by role/$
+  options_graduated_scoring: { enabled: false, aligned_pts: 10, unusual_pts: 6, horizon: "1-2d" } # I6 — same-direction premium scale
 
 # #18 unusual options FLOW — free yfinance ~15-min option chains.
 # "Balanced" thresholds (user-chosen 2026-05-29): a contract must trade >=N x
@@ -874,6 +884,8 @@ wolf:
     min_dominance: 0.6                  # a source's net vote needs >=60% one-sided rows, else it's "mixed"
     board_show_levelless: true          # #3A LIVE (user go 2026-06-08) — show corroborated (agree>=2) theses even with no levels
     links_enabled: true                 # #3B LIVE (user go 2026-06-08) — clickable YouTube links by agreeing videos
+  outcomes:                             # Wolf Sunday-recap outcome grading
+    benchmark_adjusted: false           # I16 — credit "moved_with" only when proxy beats its benchmark (raw still shown)
   direction_guard:                      # #1 trade-stance vs near-term-price-path extraction rule
     enabled: true                       # LIVE (user go 2026-06-08) — fixes IGV-style bull/bear misreads
   digests:                              # Scheduled #news briefings (TODO #20, phase 3)

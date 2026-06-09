@@ -284,12 +284,15 @@ async def _run_yt_context(rows, evidence=None, **flag_overrides):
 
 
 @pytest.mark.asyncio
-async def test_direction_aware_short_negative_when_on():
-    """#9 ON: a short consensus signs the boost negative (injected rows — all
-    live short rows are stale/out of window)."""
+async def test_direction_aware_short_below_trusted_floor_is_zero():
+    """#9 ON + I1 floor: a short consensus from a SINGLE channel with no graded
+    track record is BELOW the min-2-trusted-channel floor, so it contributes 0 —
+    NEVER a bearish subtraction (unsafe) and NEVER the legacy positive add (the
+    I1 wrong-sign bug). The full negative/capped path is covered by the dedicated
+    I1 test (test_i1_youtube_signed_score.py)."""
     rows = _signal_rows("short", conviction="high")
     ctx = await _run_yt_context(rows, **{"features.youtube_score.direction_aware": True})
-    assert ctx.score_boost == -15
+    assert ctx.score_boost == 0
 
 
 @pytest.mark.asyncio

@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import math
 import sqlite3
 import time
 
@@ -1086,6 +1087,49 @@ async def get_analyst_precision(analyst: str, horizon: str = "1h") -> float | No
     if row is None or (row["sample_count"] or 0) < 5:
         return None
     return float(row["rolling_accuracy"])
+
+
+async def get_analyst_precision_lb(
+    analyst: str, horizon: str = "1h", min_n: int = 10
+) -> float | None:
+    """Return the Wilson score interval LOWER BOUND of an analyst's accuracy.
+
+    I2 (signal-features-2026-06-09): used to weight the analyst scoring term by
+    track record without letting a thin sample swing the score. Returns the
+    pessimistic lower bound (95% confidence) of the true accuracy, NOT the raw
+    `rolling_accuracy` ratio — so a 3/5 record (raw 0.60) reports a far lower
+    bound and stays near neutral once the n-floor is applied.
+
+    Returns None when `sample_count < min_n` (default 10) so the caller can fall
+    back to a neutral weight. `sample_count` and `rolling_accuracy` live on
+    `source_performance`; successes are reconstructed as round(accuracy * n).
+
+    Known limitation: `source_performance` is only written for ALERTED artifacts,
+    so a down-weighted analyst whose subsequent calls never alert cannot recover
+    its accuracy through this read. Building an un-alerted grading pipeline is out
+    of scope (final-plan.md §2 I2 "recovery claim DROPPED").
+    """
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT rolling_accuracy, sample_count FROM source_performance
+           WHERE entity_id = ? AND horizon = ?""",
+        (analyst, horizon),
+    )
+    row = await cursor.fetchone()
+    if row is None:
+        return None
+    n = int(row["sample_count"] or 0)
+    if n < min_n:
+        return None
+    p_hat = float(row["rolling_accuracy"] or 0.0)
+    # Clamp the stored ratio to [0,1] (defensive — a corrupt row can't blow up math).
+    p_hat = max(0.0, min(1.0, p_hat))
+    z = 1.96  # 95% confidence
+    denom = 1.0 + (z * z) / n
+    centre = p_hat + (z * z) / (2 * n)
+    margin = z * math.sqrt((p_hat * (1.0 - p_hat) + (z * z) / (4 * n)) / n)
+    lb = (centre - margin) / denom
+    return max(0.0, min(1.0, lb))
 
 
 async def check_alert_cooldown(

@@ -1062,8 +1062,18 @@ def _passes_quality_gate(tweet, ticker: str) -> bool:
 
     quality_score = tweet.base_score
     if getattr(getattr(tweet, "direction", None), "value", getattr(tweet, "direction", "neutral")) == "neutral":
-        quality_score -= 5
-    return quality_score >= 20
+        quality_score -= 5  # explicit −5 neutral discount; effective neutral floor is 25
+    # I9: reconnect the documented alerts.min_base_score_for_alert knob (default 20,
+    # value-neutral). Shadow-preview: log how many evals a future raise to 25/30 would
+    # suppress, so any threshold raise has a measured volume readout first.
+    min_base = cfg.get("alerts.min_base_score_for_alert", 20)
+    passes = quality_score >= min_base
+    log.info(
+        "[I9] quality_gate $%s score=%d min_base=%d passes=%s would_suppress_at_25=%d would_suppress_at_30=%d",
+        ticker, quality_score, min_base, passes,
+        int(quality_score < 25), int(quality_score < 30),
+    )
+    return passes
 
 
 async def _fetch_price(ticker: str) -> float:
