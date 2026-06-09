@@ -78,6 +78,31 @@ def _f3_only_cfg(key, default=None):
 
 
 @pytest.mark.asyncio
+async def test_chain_propagates_gemini_quota_category():
+    """Item G (deep-dive-2026-06-08): when Gemini fails on quota and Whisper also fails,
+    the chain's returned telemetry must carry f2_failure_category='quota' so the scanner
+    marks the video 'quota_blocked' (carry over), not 'failed' (burn a retry). Regression
+    guard for the _stage_gemini propagation bug."""
+    gem_tel = RunTelemetry()
+    gem_tel.f2_failure_category = "quota"
+
+    with (
+        patch("consensus_engine.config.get", side_effect=_f3_only_cfg),
+        patch("consensus_engine.local_video_ingest.pre_flight_check", return_value=True),
+        patch("consensus_engine.local_video_ingest.cleanup_run_workspace"),
+        patch("consensus_engine.analysis.gemini_video_parser.extract_evidence_with_gemini",
+              new_callable=AsyncMock, return_value=(None, gem_tel)),
+        patch("consensus_engine.local_video_ingest._stage_whisper",
+              new_callable=AsyncMock, return_value=None),
+    ):
+        from consensus_engine.local_video_ingest import _run_chain
+        bundle, telemetry = await _run_chain("dQw4w9WgXcQ", "Test Channel", "2026-01-01T00:00:00Z")
+
+    assert bundle is None
+    assert telemetry.f2_failure_category == "quota"
+
+
+@pytest.mark.asyncio
 async def test_f3_happy_path():
     """F3 succeeds: mocked Gemini fails, Whisper returns transcript, chain_winner set."""
     transcript_text = "Today I'm buying $NVDA and $SPY for the breakout."

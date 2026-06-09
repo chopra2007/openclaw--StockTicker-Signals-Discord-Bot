@@ -540,6 +540,10 @@ class RunTelemetry:
     chain_attempts: list[str] = field(default_factory=list)
     chain_durations: dict[str, int] = field(default_factory=dict)
     f2_failure_category: str | None = None  # "timeout"|"quota"|"unavailable"|"token_limit"|"unknown"
+    # True when Gemini returned usage_metadata WITHOUT prompt_token_count (raw in_tok is None).
+    # Captured here at the boundary because input_tokens is coerced to 0 below; spans-but-NULL-input
+    # is the hallucination fingerprint the persist gate quarantines on (item B, deep-dive-2026-06-08).
+    saw_null_input_tokens: bool = False
 
 
 @dataclass

@@ -60,6 +60,21 @@ def _audit_flags_default_off(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _isolate_db(tmp_path, monkeypatch):
+    """Hard floor (item B, deep-dive-2026-06-08): no test may ever write the live
+    consensus.db. Force db.DB_PATH to a throwaway per-test file. This is separate latent
+    hardening — it would NOT have stopped the 5 hallucinated rows (those came from the live
+    engine), but it stops a future test→prod write. Tests that set db.DB_PATH in-body win
+    (monkeypatch precedence), exactly like _audit_flags_default_off coexists with feature
+    tests. Drop any cached connection so init_db re-runs on the temp path."""
+    from consensus_engine import db as _db
+    monkeypatch.setattr(_db, "DB_PATH", str(tmp_path / "test_consensus.db"))
+    _db._db = None
+    yield
+    _db._db = None
+
+
+@pytest.fixture(autouse=True)
 def _flush_narrator_cache():
     """Pass 5 Step 11 added a module-level synthesis cache to narrator.py
     (see _synthesis_cache). Without this, cached narratives leak between

@@ -132,9 +132,33 @@ def _key_is_available(label: str) -> bool:
     return time.time() >= _key_exhausted_until.get(label, 0)
 
 
-def _mark_key_exhausted(label: str) -> None:
-    _key_exhausted_until[label] = _next_quota_reset_ts()
-    log.warning("gemini_video_parser: key %s marked exhausted until next Pacific midnight", label)
+def _mark_key_exhausted(label: str, exc: Exception | None = None) -> None:
+    """Bench a key after a 429. Distinguish per-MINUTE token 429s (short bench, key
+    returns this minute) from genuine per-DAY caps (bench to Pacific midnight).
+
+    Item G fix (deep-dive-2026-06-08): the old code benched to midnight on ANY quota
+    error, so one transient per-minute 429 killed a key for the whole day and cascaded
+    into the 42-alert burst. Now: bench only the parsed retry-after when a short
+    retryDelay is present; bench to midnight only when the error names a per-day quota;
+    otherwise a conservative 60s. Always misclassify toward the LONGER bench, never
+    hammer a daily-dead key every 60s."""
+    from consensus_engine.utils.burst_retry import parse_retry_after, is_per_day_quota
+    body = str(exc) if exc is not None else ""
+    retry_after = parse_retry_after(body)
+    if is_per_day_quota(body):
+        until = _next_quota_reset_ts()
+        log.warning("gemini_video_parser: key %s per-DAY quota — benched until Pacific midnight", label)
+    elif retry_after is not None and retry_after < 120:
+        until = time.time() + retry_after + 2
+        log.warning("gemini_video_parser: key %s per-minute 429 — benched %.0fs (retry-after)", label, retry_after)
+    elif retry_after is not None:
+        # a long retryDelay (>=120s) is effectively a daily/long bench
+        until = time.time() + retry_after + 2
+        log.warning("gemini_video_parser: key %s long 429 — benched %.0fs (retry-after)", label, retry_after)
+    else:
+        until = time.time() + 60
+        log.warning("gemini_video_parser: key %s 429 w/o hint — conservative 60s bench", label)
+    _key_exhausted_until[label] = until
 
 
 def _reset_key_exhaustion() -> None:
@@ -557,6 +581,22 @@ async def extract_evidence_with_gemini(
             if bundle2 is not None and (tel2.span_count or 0) > (telemetry.span_count or 0):
                 bundle, telemetry = bundle2, tel2
 
+    # Hallucination quarantine (item B, deep-dive-2026-06-08): a Gemini response that
+    # returns evidence spans but NO prompt_token_count is physically impossible (you cannot
+    # analyze a video without feeding it in) — it is the fabricated-recap signature that
+    # poisoned the brief with NVDA 850 / MSFT 415 / SPY 500 / TSLA 175. Discard it BEFORE
+    # any persist so nothing is stored and the video stays retryable (reuses the existing
+    # Gemini-failure path; interacts cleanly with item G's quota_blocked re-queue).
+    if bundle is not None and bundle.spans and telemetry.saw_null_input_tokens:
+        log.warning(
+            "QUARANTINE %s: gemini returned %d spans but NULL prompt_token_count "
+            "(hallucination signature) — discarding, video stays retryable",
+            video_id, len(bundle.spans),
+        )
+        telemetry.f2_failure_category = "gemini_no_input_tokens"
+        telemetry.latency_ms = int((time.monotonic() - orchestrator_start) * 1000)
+        return (None, telemetry)
+
     # Persist spans exactly once — on the winner.
     if bundle is not None:
         model = cfg.get("youtube.gemini.model", "gemini-2.5-flash")
@@ -792,7 +832,7 @@ async def _extract_evidence_single_pass(
                 except Exception as e:
                     if _is_quota_error(e):
                         _log_f2_failure(video_id, "quota", e, extra=f"key={key_label} model={_m} action=rotate_key")
-                        _mark_key_exhausted(key_label)
+                        _mark_key_exhausted(key_label, e)
                         tried_labels.add(key_label)
                         key_quota_hit = True
                         break  # backoff loop
@@ -827,6 +867,9 @@ async def _extract_evidence_single_pass(
 
     telemetry.latency_ms = int((time.monotonic() - start_ts) * 1000)
     in_tok, out_tok = _extract_token_counts(response)
+    # Capture the RAW NULL signal here — input_tokens is coerced to 0 below, destroying it.
+    # spans-but-NULL-prompt_token_count is the hallucination fingerprint (item B).
+    telemetry.saw_null_input_tokens = (in_tok is None)
     if in_tok is not None:
         telemetry.input_tokens = in_tok
     if out_tok is not None:

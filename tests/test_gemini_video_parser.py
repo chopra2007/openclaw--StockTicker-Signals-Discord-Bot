@@ -169,6 +169,55 @@ async def test_extract_evidence_persists_spans():
 
 
 @pytest.mark.asyncio
+async def test_extract_evidence_quarantines_spans_with_null_input_tokens():
+    """Item B (deep-dive-2026-06-08): a Gemini response with evidence spans but NULL
+    prompt_token_count is the hallucination signature (NVDA 850 etc.). The persist gate must
+    discard it — return (None, telemetry) with f2_failure_category set, and NEVER call
+    create_analysis_run/insert_youtube_evidence_span (nothing persists; video stays retryable)."""
+    mock_client = MagicMock()
+    # spans present, but prompt_token_count is None -> the impossible combination
+    mock_client.models.generate_content.return_value = _make_mock_response(
+        _EVIDENCE_JSON, prompt_tokens=None, output_tokens=567,
+    )
+    mock_run = AsyncMock(return_value=99)
+    mock_insert = AsyncMock(return_value=None)
+    with patch("consensus_engine.analysis.gemini_video_parser._get_available_gemini_client", return_value=(mock_client, "GEMINI_API_KEY")), \
+         patch("consensus_engine.db.create_analysis_run", new=mock_run), \
+         patch("consensus_engine.db.insert_youtube_evidence_span", new=mock_insert):
+        bundle, telemetry = await extract_evidence_with_gemini(
+            "halluc_vid", "Chan", "2026-06-01T12:00:00Z",
+        )
+
+    assert bundle is None, "hallucinated bundle must be discarded"
+    assert telemetry.saw_null_input_tokens is True
+    assert telemetry.f2_failure_category == "gemini_no_input_tokens"
+    mock_run.assert_not_awaited()   # nothing persisted
+    mock_insert.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_extract_evidence_persists_normally_with_valid_input_tokens():
+    """Control: a real response with a real prompt_token_count persists as usual (guard
+    does NOT fire on the normal path)."""
+    mock_client = MagicMock()
+    mock_client.models.generate_content.return_value = _make_mock_response(
+        _EVIDENCE_JSON, prompt_tokens=1234, output_tokens=567,
+    )
+    mock_run = AsyncMock(return_value=7)
+    mock_insert = AsyncMock(return_value=None)
+    with patch("consensus_engine.analysis.gemini_video_parser._get_available_gemini_client", return_value=(mock_client, "GEMINI_API_KEY")), \
+         patch("consensus_engine.db.create_analysis_run", new=mock_run), \
+         patch("consensus_engine.db.insert_youtube_evidence_span", new=mock_insert):
+        bundle, telemetry = await extract_evidence_with_gemini(
+            "real_vid", "Chan", "2026-06-01T12:00:00Z",
+        )
+
+    assert bundle is not None
+    assert telemetry.saw_null_input_tokens is False
+    mock_run.assert_awaited()       # persisted normally
+
+
+@pytest.mark.asyncio
 async def test_extract_evidence_skips_when_budget_exhausted():
     """When BudgetManager.can_consume_gemini returns False, extractor returns (None, telemetry)."""
     mock_client = MagicMock()
@@ -385,6 +434,40 @@ def test_mark_exhausted_then_unavailable(monkeypatch, reset_keys):
     _mark_key_exhausted("GEMINI_API_KEY")
     assert not _key_is_available("GEMINI_API_KEY")
     assert _key_is_available("GEMINI_API_KEY2")
+
+
+def test_mark_exhausted_per_minute_short_bench(monkeypatch, reset_keys):
+    """Item G: a per-MINUTE 429 (retryDelay < 120s) benches the key only ~that long, so one
+    transient 429 doesn't kill the key for the whole day (the 42-alert burst cause)."""
+    import time as _t
+    from consensus_engine.analysis import gemini_video_parser as gp
+    exc = Exception("429 RESOURCE_EXHAUSTED ... retryDelay: \"54s\"")
+    _mark_key_exhausted("GEMINI_API_KEY", exc)
+    until = gp._key_exhausted_until["GEMINI_API_KEY"]
+    # benched ~54-60s, NOT until midnight (which would be thousands of seconds away)
+    assert 50 < (until - _t.time()) < 120
+
+
+def test_mark_exhausted_per_day_until_midnight(monkeypatch, reset_keys):
+    """Item G: a genuine per-DAY cap benches to Pacific midnight (long), so we don't hammer
+    a daily-dead key every 60s."""
+    import time as _t
+    from consensus_engine.analysis import gemini_video_parser as gp
+    exc = Exception("429 Quota exceeded for GenerateContentFreeTierRequestsPerDay")
+    _mark_key_exhausted("GEMINI_API_KEY", exc)
+    until = gp._key_exhausted_until["GEMINI_API_KEY"]
+    # midnight Pacific is far away (> 2 minutes at minimum, usually hours)
+    assert (until - _t.time()) > 300
+
+
+def test_mark_exhausted_no_hint_conservative_60s(monkeypatch, reset_keys):
+    """Item G: an unknown quota error with no parseable hint benches a conservative 60s
+    (fail-soft toward retrying), NOT all day."""
+    import time as _t
+    from consensus_engine.analysis import gemini_video_parser as gp
+    _mark_key_exhausted("GEMINI_API_KEY", Exception("429 rate limit"))
+    until = gp._key_exhausted_until["GEMINI_API_KEY"]
+    assert 30 < (until - _t.time()) < 120
 
 
 def test_get_available_returns_none_when_all_exhausted(monkeypatch, reset_keys):

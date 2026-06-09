@@ -228,6 +228,14 @@ async def _stage_gemini(
         telemetry.span_count = gem_tel.span_count
         telemetry.filter_drop_count = gem_tel.filter_drop_count
         telemetry.json_parse_ok = gem_tel.json_parse_ok
+        # Item G: propagate the Gemini failure category (e.g. "quota") so the chain's
+        # returned telemetry carries it. Without this, a quota-exhausted Gemini stage that
+        # falls through to a failing whisper stage loses the "quota" signal, and the
+        # scanner marks the video 'failed' (burning a retry) instead of 'quota_blocked'
+        # (carry over until quota resets). Only set when present so a later success path
+        # isn't given a stale category.
+        if gem_tel.f2_failure_category:
+            telemetry.f2_failure_category = gem_tel.f2_failure_category
         if bundle is not None:
             telemetry.chain_winner = "gemini/v2"
         return bundle

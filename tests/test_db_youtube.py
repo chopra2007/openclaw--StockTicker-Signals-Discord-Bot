@@ -552,6 +552,10 @@ async def test_init_db_survives_legacy_duplicates(tmp_path):
 
     # Build a minimal legacy DB: schema + migrations, NO unique index, with dupes.
     cfg._config["database"] = {"path": db_path, "signal_ttl_hours": 2, "alert_history_days": 90}
+    # The autouse _isolate_db fixture sets db.DB_PATH (which takes precedence over the
+    # config path) — point it at THIS test's path so init_db and the raw sqlite3 open below
+    # operate on the same file.
+    db.DB_PATH = db_path
     db._db = None
     await db.init_db()
     # Drop the fresh UNIQUE index to emulate the live DB state
@@ -702,3 +706,87 @@ async def test_mark_status_no_bump_leaves_counter(test_db, monkeypatch):
     row = await cur.fetchone()
     assert (row["attempt_count"] or 0) == 0
     assert row["last_attempt_at"] is None
+
+
+# --- Item G (deep-dive-2026-06-08): quota_blocked durable-queue state machine ---
+
+@pytest.mark.asyncio
+async def test_quota_blocked_is_not_terminal(test_db, monkeypatch):
+    _force_max_retries(monkeypatch, 5)
+    await db.upsert_youtube_video("vidQB", "UCr", "T", "2026-06-01T00:00:00Z", time.time())
+    await db.mark_youtube_video_status("vidQB", "quota_blocked")
+    # not terminal -> still re-processable
+    assert await db.has_video_been_processed("vidQB") is False
+    # no attempt bump on quota_blocked, and quota_blocked_since stamped
+    conn = await db.get_db()
+    cur = await conn.execute(
+        "SELECT attempt_count, quota_blocked_since FROM youtube_videos WHERE video_id='vidQB'"
+    )
+    row = await cur.fetchone()
+    assert (row["attempt_count"] or 0) == 0
+    assert row["quota_blocked_since"] is not None
+
+
+@pytest.mark.asyncio
+async def test_quota_blocked_since_clears_on_success(test_db, monkeypatch):
+    _force_max_retries(monkeypatch, 5)
+    await db.upsert_youtube_video("vidQC", "UCr", "T", "2026-06-01T00:00:00Z", time.time())
+    await db.mark_youtube_video_status("vidQC", "quota_blocked")
+    await db.mark_youtube_video_status("vidQC", "saved")  # recovered
+    conn = await db.get_db()
+    cur = await conn.execute(
+        "SELECT quota_blocked_since FROM youtube_videos WHERE video_id='vidQC'"
+    )
+    row = await cur.fetchone()
+    assert row["quota_blocked_since"] is None
+
+
+@pytest.mark.asyncio
+async def test_drain_includes_quota_blocked_and_pending(test_db, monkeypatch):
+    _force_max_retries(monkeypatch, 5)
+    await db.upsert_youtube_video("vidF", "UCr", "T", "2026-06-01T00:00:00Z", time.time())
+    await db.mark_youtube_video_status("vidF", "failed", bump_attempt=True)
+    await db.upsert_youtube_video("vidQ", "UCr", "T", "2026-06-02T00:00:00Z", time.time())
+    await db.mark_youtube_video_status("vidQ", "quota_blocked")
+    await db.upsert_youtube_video("vidP", "UCr", "T", "2026-06-03T00:00:00Z", time.time())
+    # vidP stays 'pending' (orphaned past RSS window)
+    await db.upsert_youtube_video("vidM", "UCr", "T", "2026-06-04T00:00:00Z", time.time())
+    await db.mark_youtube_video_status("vidM", "missing")  # terminal, must NOT drain
+    ids = {v["video_id"] for v in await db.get_retryable_youtube_videos(5)}
+    assert {"vidF", "vidQ", "vidP"} <= ids
+    assert "vidM" not in ids
+
+
+@pytest.mark.asyncio
+async def test_downgrade_stale_quota_blocked(test_db, monkeypatch):
+    _force_max_retries(monkeypatch, 5)
+    await db.upsert_youtube_video("vidOld", "UCr", "T", "2026-05-01T00:00:00Z", time.time())
+    await db.mark_youtube_video_status("vidOld", "quota_blocked")
+    # backdate quota_blocked_since to 10 days ago
+    conn = await db.get_db()
+    await conn.execute(
+        "UPDATE youtube_videos SET quota_blocked_since=? WHERE video_id='vidOld'",
+        (time.time() - 10 * 86400,),
+    )
+    await conn.commit()
+    await db.upsert_youtube_video("vidNew", "UCr", "T", "2026-06-08T00:00:00Z", time.time())
+    await db.mark_youtube_video_status("vidNew", "quota_blocked")  # fresh, stays
+    n = await db.downgrade_stale_quota_blocked(4)
+    assert n == 1
+    cur = await conn.execute("SELECT transcript_status FROM youtube_videos WHERE video_id='vidOld'")
+    assert (await cur.fetchone())["transcript_status"] == "failed"
+    cur = await conn.execute("SELECT transcript_status FROM youtube_videos WHERE video_id='vidNew'")
+    assert (await cur.fetchone())["transcript_status"] == "quota_blocked"
+
+
+@pytest.mark.asyncio
+async def test_backlog_depth_counts(test_db, monkeypatch):
+    _force_max_retries(monkeypatch, 5)
+    await db.upsert_youtube_video("b1", "UCr", "T", "2026-06-01T00:00:00Z", time.time())
+    await db.mark_youtube_video_status("b1", "quota_blocked")
+    await db.upsert_youtube_video("b2", "UCr", "T", "2026-06-02T00:00:00Z", time.time())
+    await db.mark_youtube_video_status("b2", "failed", bump_attempt=True)
+    depth = await db.get_youtube_backlog_depth(5)
+    assert depth["quota_blocked"] == 1
+    assert depth["retryable_failed"] == 1
+    assert depth["total"] == 2

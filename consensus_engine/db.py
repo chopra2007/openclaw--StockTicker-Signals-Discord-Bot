@@ -188,7 +188,8 @@ CREATE TABLE IF NOT EXISTS youtube_videos (
     transcript_status TEXT NOT NULL DEFAULT 'pending',
     language TEXT,
     is_auto_generated INTEGER DEFAULT 0,
-    export_path TEXT
+    export_path TEXT,
+    quota_blocked_since REAL
 );
 CREATE INDEX IF NOT EXISTS idx_youtube_videos_channel ON youtube_videos(channel_id);
 CREATE INDEX IF NOT EXISTS idx_youtube_videos_status ON youtube_videos(transcript_status);
@@ -805,6 +806,11 @@ async def _run_column_migrations(conn) -> None:
         # ITEM #7: retry failed/budget-skipped videos across days (self-draining backlog).
         ("youtube_videos", "attempt_count",   "INTEGER DEFAULT 0"),
         ("youtube_videos", "last_attempt_at", "REAL"),
+        # Item G (deep-dive-2026-06-08): when a video was first put in 'quota_blocked'
+        # (re-queued forever, no attempt bump). A quota_blocked row with no progress
+        # after youtube.quota_blocked_downgrade_days days downgrades to 'failed' (+alarm),
+        # bounding a quota-misclassification so a permanent error can't loop forever.
+        ("youtube_videos", "quota_blocked_since", "REAL"),
         ("youtube_visual_evidence", "ticker", "TEXT"),  # B3 per-number ticker tag
         # Phase-3 (TODO #20): the email's Gmail internalDate (epoch seconds). The
         # digest scheduler triggers off THIS, never processed_at, so backfilled rows
@@ -1685,6 +1691,10 @@ async def has_video_been_processed(video_id: str) -> bool:
     status = row["transcript_status"]
     if status == "pending":
         return False
+    # Item G (deep-dive-2026-06-08): quota_blocked = transcribable but out of quota —
+    # re-queue forever, NOT terminal (like pending). 'missing' stays terminal (no captions).
+    if status == "quota_blocked":
+        return False
     if status == "failed":
         cap = cfg.get("youtube.max_retries", 5)
         return (row["attempt_count"] or 0) >= cap
@@ -1742,28 +1752,38 @@ async def mark_youtube_video_status(
     order retries.
     """
     conn = await get_db()
+    # Item G: stamp quota_blocked_since on entry to 'quota_blocked' (keep the earliest
+    # via COALESCE so re-queues don't reset the downgrade timer); clear it on any other
+    # status so a recovered/transcribed video resets cleanly.
+    if status == "quota_blocked":
+        qbs_set = "quota_blocked_since = COALESCE(quota_blocked_since, ?)"
+    else:
+        qbs_set = "quota_blocked_since = NULL"
+    qbs_val = (time.time(),) if status == "quota_blocked" else ()
     if bump_attempt:
         await conn.execute(
-            """UPDATE youtube_videos
+            f"""UPDATE youtube_videos
                SET transcript_status = ?,
                    language = COALESCE(?, language),
                    is_auto_generated = ?,
                    export_path = COALESCE(?, export_path),
                    attempt_count = COALESCE(attempt_count, 0) + 1,
-                   last_attempt_at = ?
+                   last_attempt_at = ?,
+                   {qbs_set}
                WHERE video_id = ?""",
             (status, language, 1 if is_auto_generated else 0, export_path,
-             time.time(), video_id),
+             time.time(), *qbs_val, video_id),
         )
     else:
         await conn.execute(
-            """UPDATE youtube_videos
+            f"""UPDATE youtube_videos
                SET transcript_status = ?,
                    language = COALESCE(?, language),
                    is_auto_generated = ?,
-                   export_path = COALESCE(?, export_path)
+                   export_path = COALESCE(?, export_path),
+                   {qbs_set}
                WHERE video_id = ?""",
-            (status, language, 1 if is_auto_generated else 0, export_path, video_id),
+            (status, language, 1 if is_auto_generated else 0, export_path, *qbs_val, video_id),
         )
     await conn.commit()
 
@@ -1775,18 +1795,58 @@ async def get_retryable_youtube_videos(cap: int) -> list[dict]:
     Used by youtube_scan_once to merge stale failures back into each scan cycle —
     RSS only resurfaces the latest few per channel, so the backlog must be drained
     from the DB.
+
+    Item G (deep-dive-2026-06-08): also re-queue 'quota_blocked' (no cap — quota will
+    eventually free up) and orphaned 'pending' rows that scrolled past the RSS window so a
+    crash-mid-process video is rescued. 'missing' (no captions) stays terminal.
     """
     conn = await get_db()
     cursor = await conn.execute(
         """SELECT video_id, channel_id, title, description, published_at
            FROM youtube_videos
-           WHERE transcript_status = 'failed'
-             AND COALESCE(attempt_count, 0) < ?
+           WHERE (transcript_status = 'failed' AND COALESCE(attempt_count, 0) < ?)
+              OR transcript_status = 'quota_blocked'
+              OR transcript_status = 'pending'
            ORDER BY published_at ASC""",
         (cap,),
     )
     rows = await cursor.fetchall()
     return [dict(r) for r in rows]
+
+
+async def downgrade_stale_quota_blocked(max_age_days: float) -> int:
+    """Downgrade quota_blocked videos stuck with no progress for > max_age_days to
+    'failed' (so the attempt cap can eventually terminate a quota-misclassified permanent
+    error). Returns the number downgraded so the caller can alarm. Item G."""
+    conn = await get_db()
+    cutoff = time.time() - max_age_days * 86400
+    cursor = await conn.execute(
+        """UPDATE youtube_videos
+           SET transcript_status = 'failed', quota_blocked_since = NULL
+           WHERE transcript_status = 'quota_blocked'
+             AND quota_blocked_since IS NOT NULL
+             AND quota_blocked_since < ?""",
+        (cutoff,),
+    )
+    await conn.commit()
+    return cursor.rowcount or 0
+
+
+async def get_youtube_backlog_depth(cap: int) -> dict:
+    """Return {'quota_blocked': n, 'retryable_failed': n, 'total': n} for the throughput
+    alarm. Item G."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT
+             SUM(CASE WHEN transcript_status='quota_blocked' THEN 1 ELSE 0 END) AS qb,
+             SUM(CASE WHEN transcript_status='failed' AND COALESCE(attempt_count,0) < ? THEN 1 ELSE 0 END) AS rf
+           FROM youtube_videos""",
+        (cap,),
+    )
+    row = await cursor.fetchone()
+    qb = (row["qb"] or 0) if row else 0
+    rf = (row["rf"] or 0) if row else 0
+    return {"quota_blocked": qb, "retryable_failed": rf, "total": qb + rf}
 
 
 # ---------------------------------------------------------------------------

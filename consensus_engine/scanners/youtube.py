@@ -197,9 +197,12 @@ async def _process_video_two_stage(
     channel_id: str,
     display_name: str,
     published_at: str,
-) -> bool:
-    """Run the v2 two-stage evidence pipeline. Returns True if the video was
-    successfully analyzed and persisted (caller should skip fallback)."""
+) -> tuple[bool, str | None]:
+    """Run the v2 two-stage evidence pipeline. Returns (ok, failure_category).
+    ok=True when the video was successfully analyzed and persisted (caller should skip
+    fallback). On failure, failure_category is telemetry.f2_failure_category (e.g. "quota")
+    so the caller can mark a quota-exhausted video 'quota_blocked' (re-queue, no attempt
+    bump) vs a real failure 'failed' (bump toward the cap). Item G."""
     from consensus_engine.local_video_ingest import extract_evidence_via_chain
     from consensus_engine.analysis.video_classifier import classify_evidence
     from consensus_engine.analysis.catalyst_resolver import resolve_and_verify_catalysts
@@ -208,7 +211,7 @@ async def _process_video_two_stage(
         video_id, display_name, published_at,
     )
     if bundle is None:
-        return False
+        return (False, telemetry.f2_failure_category)
 
     result = classify_evidence(bundle)
     catalysts = await resolve_and_verify_catalysts(
@@ -419,7 +422,7 @@ async def _process_video_two_stage(
         video_id, len(bundle.spans), len(result.signals),
         len(result.levels), len(result.setups), len(catalysts),
     )
-    return True
+    return (True, None)
 
 
 async def _safe_live_price(ticker: str) -> float | None:
@@ -753,17 +756,27 @@ async def process_video(
             and cfg.get("youtube.gemini_enabled", True)
             and cfg.get("youtube.analyze", True)
         ):
+            two_stage_fcat = None
             try:
-                ok = await _process_video_two_stage(
+                ok, two_stage_fcat = await _process_video_two_stage(
                     video_id, channel_id, display_name, video_meta["published_at"],
                 )
                 if ok:
                     return
             except Exception as e:
                 log.warning("youtube: two-stage error for %s: %s", video_id, e)
+                from consensus_engine.utils.burst_retry import classify_retry, RetryClass
+                if classify_retry(exc=e) is RetryClass.QUOTA_BLOCKED:
+                    two_stage_fcat = "quota"
             if not cfg.get("youtube.legacy_fallback", True):
-                await db.mark_youtube_video_status(video_id, "failed", bump_attempt=True)
-                await _maybe_alert_chain_failure(video_id)
+                # Item G: a quota-exhausted video is transcribable later — re-queue forever
+                # (quota_blocked, NO attempt bump) instead of burning a retry toward the cap.
+                if two_stage_fcat == "quota":
+                    log.info("youtube: %s quota-blocked — re-queue (no attempt bump)", video_id)
+                    await db.mark_youtube_video_status(video_id, "quota_blocked")
+                else:
+                    await db.mark_youtube_video_status(video_id, "failed", bump_attempt=True)
+                    await _maybe_alert_chain_failure(video_id)
                 return
 
         # ── Fallback: transcript cascade + multi-pass pipeline ────────────────
@@ -1097,8 +1110,23 @@ async def process_video(
 # Scan cycle + poll loop
 # ---------------------------------------------------------------------------
 
+# Item G: reentrancy guard. The drain now re-queues 'quota_blocked' rows forever, which
+# widens the window for an overlapping --once run to double-process the same row. A module
+# lock makes youtube_scan_once non-reentrant in-process; a second concurrent call returns
+# immediately rather than racing the same backlog.
+_scan_lock = asyncio.Lock()
+
+
 async def youtube_scan_once() -> None:
     """One full poll cycle across all configured channels."""
+    if _scan_lock.locked():
+        log.debug("youtube: scan already in progress — skipping reentrant call")
+        return
+    async with _scan_lock:
+        await _youtube_scan_once_locked()
+
+
+async def _youtube_scan_once_locked() -> None:
     # Canonical source is youtube_channels DB table (seeded from sources.json).
     # YAML youtube.channel_ids is a legacy override; merge both so neither is lost.
     channel_ids = list(cfg.get("youtube.channel_ids", []))
@@ -1141,6 +1169,15 @@ async def youtube_scan_once() -> None:
     # RSS only resurfaces the latest few per channel, so older failures would
     # otherwise never be retried.
     retry_cap = cfg.get("youtube.max_retries", 5)
+    # Item G: bound a quota-misclassification — a quota_blocked video stuck with no progress
+    # past the downgrade window becomes 'failed' (so the attempt cap can terminate it).
+    downgrade_days = cfg.get("youtube.quota_blocked_downgrade_days", 4)
+    try:
+        n_dg = await db.downgrade_stale_quota_blocked(downgrade_days)
+        if n_dg:
+            log.warning("youtube: downgraded %d stale quota_blocked video(s) -> failed (>%sd no progress)", n_dg, downgrade_days)
+    except Exception as e:
+        log.debug("youtube: quota_blocked downgrade failed: %s", e)
     for v in await db.get_retryable_youtube_videos(retry_cap):
         if v["video_id"] not in seen_ids:
             unprocessed.append(v)
@@ -1152,14 +1189,22 @@ async def youtube_scan_once() -> None:
 
     log.info("youtube: %d new videos to process", len(unprocessed))
 
+    # Item G: paced SEQUENTIAL drain (~1 video/min) instead of gather-all. The Gemini
+    # chain is already single-flight (_chain_semaphore=Semaphore(1)) so concurrency buys
+    # nothing, and firing all at once is what burst-exhausted the per-minute token quota
+    # (the 42-alert incident). Speed is a non-goal (user-locked). The DB queue persists
+    # the backlog across cycles/days, so one cycle clearing only ~10 is fine.
+    pace_s = cfg.get("youtube.pace_seconds", 60)
     semaphore = asyncio.Semaphore(concurrency)
-    await asyncio.gather(*[
-        process_video(v, semaphore, preferred_languages, export_dir)
-        for v in unprocessed
-    ])
+    for i, v in enumerate(unprocessed):
+        await process_video(v, semaphore, preferred_languages, export_dir)
+        if i < len(unprocessed) - 1:
+            await asyncio.sleep(pace_s)
 
 
 _LAST_COVERAGE_DAY: str | None = None
+_LAST_BACKLOG_DEPTH: int | None = None
+_BACKLOG_RISING_DAYS: int = 0
 
 
 async def _emit_daily_coverage() -> None:
@@ -1181,6 +1226,28 @@ async def _emit_daily_coverage() -> None:
         "youtube coverage (24h): %d/%d videos got full Gemini chart read; breakdown=%s",
         gemini, total, counts,
     )
+
+    # Item G throughput alarm: track the transcription backlog (quota_blocked +
+    # retryable-failed) day-over-day. If it rises for N consecutive days, inflow is
+    # outpacing capacity — the "need a 3rd key / paid tier" signal.
+    global _BACKLOG_RISING_DAYS, _LAST_BACKLOG_DEPTH
+    try:
+        retry_cap = cfg.get("youtube.max_retries", 5)
+        depth = (await db.get_youtube_backlog_depth(retry_cap)).get("total", 0)
+        if _LAST_BACKLOG_DEPTH is not None and depth > _LAST_BACKLOG_DEPTH:
+            _BACKLOG_RISING_DAYS += 1
+        else:
+            _BACKLOG_RISING_DAYS = 0
+        _LAST_BACKLOG_DEPTH = depth
+        log.info("youtube backlog depth: %d (rising %d day(s))", depth, _BACKLOG_RISING_DAYS)
+        if _BACKLOG_RISING_DAYS >= cfg.get("youtube.backlog_alarm_days", 3):
+            log.warning(
+                "youtube backlog rising %d consecutive days (depth=%d) — transcription "
+                "inflow may be outpacing free-tier capacity; consider a 3rd Gemini key.",
+                _BACKLOG_RISING_DAYS, depth,
+            )
+    except Exception as e:
+        log.debug("youtube: backlog alarm check failed: %s", e)
 
 
 async def youtube_poll_loop(stop_event: asyncio.Event) -> None:

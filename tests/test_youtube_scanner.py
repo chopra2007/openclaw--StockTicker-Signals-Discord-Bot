@@ -399,7 +399,7 @@ async def test_off_allowlist_suppressed(monkeypatch):
     monkeypatch.setattr("consensus_engine.db.get_channel_trust", AsyncMock(return_value=0.0))
     monkeypatch.setattr(scanner, "_send_two_stage_alerts", AsyncMock(return_value=None))
 
-    ok = await scanner._process_video_two_stage(
+    ok, _fcat = await scanner._process_video_two_stage(
         "vidX1234567", "ch1", "TestChan", "2026-04-23T00:00:00Z",
     )
 
