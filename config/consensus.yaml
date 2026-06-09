@@ -472,8 +472,8 @@ youtube:
     # multi-stock video stops dumping every number on its top ticker. OFF by
     # default — flip true + restart to test (costs Gemini re-processing). When
     # off, visual rows are untagged and attribution is unchanged (top-ticker).
-    per_number_ticker_tagging: false
-    tag_structured_levels: false       # #13 also route per-number tags into structured youtube_levels (not just prose)
+    per_number_ticker_tagging: true    # B3 LIVE (user go 2026-06-09) — tag each chart number with its OWN ticker
+    tag_structured_levels: true        # #13 LIVE — route per-number tags into structured youtube_levels (not just prose)
   classifier:
     min_confidence: 0.5                # suppress candidates below this classifier_confidence
   catalyst:
@@ -561,7 +561,7 @@ all_command:
   # sources. When false, those sources are passed through a plain length
   # truncation instead. The deterministic SEC evidence block always
   # bypasses sanitize regardless of this flag.
-  sanitize_enabled: true
+  sanitize_enabled: false             # #2/#3 OFF (user go 2026-06-09) — drop the ~9 AI tidy-text calls/cmd; verified output stays coherent
   # Feature E — one recent (past-month) macro/sector/regulatory risk SerpAPI
   # query for the Risk Considerations narrative (e.g. the NVDA China export
   # ban). Disambiguated by company name + sector, trusted-source filtered,
@@ -588,11 +588,11 @@ all_command:
   risk_price_gate_strict: true        # #24 LIVE (user go 2026-06-08) — widen risk-section price gate beyond the stop literal
   horizon_realized_vol: false         # #25 swing horizon uses realized vol, not raw ATR
   synthesis_prompt_trim: false        # #15 collapse repeated anti-fabrication prose (A/B before go-live)
-  wolf_confluence_field_enabled: false  # #7 surface Wolf+N-sources-agree in !all
+  wolf_confluence_field_enabled: true   # #7 LIVE (user go 2026-06-09) — Wolf+N-sources-agree in !all
   levels:                             # smart technical-levels engine (default OFF, shadow-first)
     sl_max_drawdown_pct: 0.20         # existing code default, now explicit
-    technical_engine_enabled: true    # #SMART-LEVELS shadow soak (user go 2026-06-08): compute+log only, no visible change
-    technical_engine_shadow_mode: true  # compute+log only when enabled
+    technical_engine_enabled: true    # #SMART-LEVELS
+    technical_engine_shadow_mode: false # LIVE (user go 2026-06-09) — real chart buy/stop/target on !all (9/10 shadow soak)
     candle_range: "3mo"               # keep 3mo (6mo = shared-fetch blast radius)
     min_anchors_for_plan: 4
     min_entry_strength: 55

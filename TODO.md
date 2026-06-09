@@ -120,7 +120,7 @@ Teach the bot to read near-real-time options data and alert on unusual flow. **S
 
 Figure out whether YouTube database signals (video mentions, extracted levels) are currently weighted in the `!all` score, and whether they should be — then implement if the answer is yes. **DONE 2026-06-01 (run `latency-speedup` Pass-0, code-verified):** YouTube DB signals ALREADY feed the numeric score — `cross_reference.py` adds 15/10/5 pts by conviction → `breakdown.youtube` → `models.total`; rendered as `yt=N` in the footer (`embed.py:502`); direction parity via `_BULLISH_BIASED_FIELDS`. May-31 commit `2196ba5` made it visible (NVDA `yt=15`, AMD `yt=5`). No build needed (a well-evidenced "already weighted — here's where" is a valid done). Weight values 5/10/15 left unchanged (conviction-tiered, shared with the main scorer — changing them would alter live alerts).
 
-## 20. Turn the Wolf market newsletter into a trade-finding brain — phase-1/2/3 LIVE; phase-4 BUILT (flag-OFF)
+## 20. Turn the Wolf market newsletter into a trade-finding brain — phase-1/2/3/4 LIVE
 
 **File:** `wolf-macro-brain.md`
 
@@ -162,13 +162,13 @@ Raise the limit on how much of each Wolf email the bot reads (12,000 → 40,000 
 
 When Wolf softly changes his mind on a stock (e.g. IGV: bullish-to-target, then "now I'm looking to short") or an old call goes stale after the move already happened, the bot should update instead of keeping his old view — this session had to hand-fix a stale IGV "bull".
 
-## 27. A/B the !all "tidy text" step, then turn it off
+## 27. A/B the !all "tidy text" step, then turn it off — DONE 2026-06-09
 
 **File:** `sanitize-ab-then-flip-off.md`
 
 You approved turning off the AI "tidy text" pass on `!all` (saves ~9 AI calls per command) once an A/B check confirms the free models don't start inventing numbers without it — held this session because the providers were flaky; sanitize is still ON.
 
-## 28. Evaluate the SMART LEVELS shadow soak, then decide go-live
+## 28. Evaluate the SMART LEVELS shadow soak, then decide go-live — DONE 2026-06-09 (LIVE)
 
 **File:** `smart-levels-shadow-evaluate.md`
 
@@ -185,3 +185,9 @@ Bundle of investigated fixes — get the bot reading Wolf charts again (vision-m
 **File:** `wolf-vision-go-live.md`
 
 DONE — Wolf chart-reading is LIVE. The free AI vision models proved unreliable (they all share OpenRouter's throttled free pool — not separate provider outages), so it now reads ALL charts in every Wolf email with the cheap paid model gemini-2.5-flash-lite (about 2 cents a day). Proven 10/10 charts read with zero failures.
+
+## 31. Clean up scrambled YouTube chart numbers + guard the !all trade plan
+
+**File:** `mis-attributed-yt-levels-sweep.md`
+
+A multi-stock YouTube video dumped QQQ/SPY numbers (700–760) onto NVDA, which made !all show a $700 target on a $208 stock — found and fixed for NVDA at session close, but other tickers/videos may be scrambled too; sweep the stored data and add a safety filter so a wild number can never reach the !all trade plan again.
