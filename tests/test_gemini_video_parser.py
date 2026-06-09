@@ -449,15 +449,15 @@ def test_mark_exhausted_per_minute_short_bench(monkeypatch, reset_keys):
 
 
 def test_mark_exhausted_per_day_until_midnight(monkeypatch, reset_keys):
-    """Item G: a genuine per-DAY cap benches to Pacific midnight (long), so we don't hammer
-    a daily-dead key every 60s."""
-    import time as _t
+    """Item G: a genuine per-DAY cap benches to the next Pacific-midnight reset (NOT a short
+    per-minute bench). Compare against _next_quota_reset_ts() directly so the test is
+    deterministic regardless of time of day (asserting '> N seconds' flakes near midnight)."""
     from consensus_engine.analysis import gemini_video_parser as gp
     exc = Exception("429 Quota exceeded for GenerateContentFreeTierRequestsPerDay")
     _mark_key_exhausted("GEMINI_API_KEY", exc)
     until = gp._key_exhausted_until["GEMINI_API_KEY"]
-    # midnight Pacific is far away (> 2 minutes at minimum, usually hours)
-    assert (until - _t.time()) > 300
+    # benched to the daily reset (within a couple seconds), not the ~60s per-minute path
+    assert abs(until - gp._next_quota_reset_ts()) < 3
 
 
 def test_mark_exhausted_no_hint_conservative_60s(monkeypatch, reset_keys):

@@ -75,6 +75,22 @@ def _isolate_db(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _isolate_level_quote(monkeypatch):
+    """Item C (deep-dive-2026-06-08): the display/save level-sanity gate now fetches a live
+    Finnhub quote. Unit tests must not hit the network (and must be deterministic), so default
+    the quote to None for the whole suite — the gate then uses the _INDEX_RANGE band for index
+    scopes and fail-open (KEEP) for equities, which preserves pre-gate test behavior. Tests
+    that exercise the gate's drop logic patch the quote in-body (that wins). Also clear the
+    module's 60s quote cache so a real value can't leak between tests."""
+    from consensus_engine.analysis import level_display_sanity as _lds
+    from unittest.mock import AsyncMock
+    _lds._quote_cache.clear()
+    monkeypatch.setattr(_lds, "get_live_quote_price", AsyncMock(return_value=None))
+    yield
+    _lds._quote_cache.clear()
+
+
+@pytest.fixture(autouse=True)
 def _flush_narrator_cache():
     """Pass 5 Step 11 added a module-level synthesis cache to narrator.py
     (see _synthesis_cache). Without this, cached narratives leak between

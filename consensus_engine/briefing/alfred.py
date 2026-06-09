@@ -128,6 +128,21 @@ def _fallback_render(data: dict) -> str:
 
 async def _render_briefing(data: dict) -> str:
     """Try LLM synthesis; fall back to a template if LLM is unavailable."""
+    # Item C (deep-dive-2026-06-08): drop out-of-range levels (NVDA 850 on a $208 stock,
+    # SMH 12,616) BEFORE both the LLM prompt and the fallback read data["levels"]. Filter in
+    # place once per ticker so both paths see only sane levels; record a count for the footnote.
+    from consensus_engine.analysis.level_display_sanity import filter_levels_for_display
+    _kept, _hidden = [], 0
+    _by_ticker: dict[str, list] = {}
+    for l in data["levels"]:
+        _by_ticker.setdefault(l["ticker"], []).append(l)
+    for tk, lvls in _by_ticker.items():
+        keep, drop = await filter_levels_for_display(tk, lvls)
+        _kept.extend(keep)
+        _hidden += drop
+    data["levels"] = _kept
+    data["_levels_hidden"] = _hidden
+
     alert_lines = [
         f"- {a['ticker']} ({a['confidence_score']:.0f}/100) — {a['catalyst']}"
         for a in data["alerts"][:15]
@@ -162,9 +177,13 @@ async def _render_briefing(data: dict) -> str:
         f"## Top Tickers\n" + ("\n".join(top_lines) or "_none_")
     )
     out = await _llm_synthesize(prompt)
-    if out:
-        return out
-    return _fallback_render(data)
+    if not out:
+        out = _fallback_render(data)
+    # Item C: user-visible footnote so a wrongly-hidden real level is detectable (not buried).
+    hidden = data.get("_levels_hidden", 0)
+    if hidden:
+        out = f"{out}\n\n⚠️ {hidden} level{'s' if hidden != 1 else ''} hidden as out-of-range."
+    return out
 
 
 async def _send_discord_briefing(content: str) -> str | None:

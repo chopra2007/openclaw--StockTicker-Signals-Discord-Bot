@@ -710,11 +710,23 @@ async def post_event(event: dict) -> bool:
     # fetch the thesis row for rendering (levels + evidence_log + backdrop)
     thesis = await db.get_active_thesis(event["scope_type"], event["scope_key"], event["direction"])
     levels = []
+    levels_hidden = 0
     if thesis:
         try:
             levels = json.loads(thesis["key_levels_json"]) or []
         except Exception:
             levels = []
+        # Item C (deep-dive-2026-06-08): drop out-of-range levels (SMH 12,616, NVDA 850)
+        # ONCE here, then rewrite thesis["key_levels_json"] so BOTH the embed builders (which
+        # re-load it) and the plain-text format_message see only sane levels — no need to make
+        # the sync builders async.
+        from consensus_engine.analysis.level_display_sanity import filter_levels_for_display
+        levels, levels_hidden = await filter_levels_for_display(event["scope_key"], levels)
+        try:
+            thesis = dict(thesis)
+            thesis["key_levels_json"] = json.dumps(levels)
+        except Exception:
+            pass
 
     payload = {"event": event, "tier": tier}
     alert_id = await db.create_pending_alert(dedupe_key, thesis_id, tier, json.dumps(payload), now)
@@ -746,6 +758,14 @@ async def post_event(event: dict) -> bool:
     else:
         embed = None
         content = format_message(event, levels)
+
+    # Item C: user-visible footnote so a wrongly-hidden real level is detectable.
+    if levels_hidden:
+        note = f"⚠️ {levels_hidden} level{'s' if levels_hidden != 1 else ''} hidden as out-of-range"
+        if embed is not None:
+            embed["footer"] = {"text": note}
+        elif content is not None:
+            content = f"{content}\n_{note}_"
 
     # critical @-ping is phase-2 only (needs confluence corroborator) AND opt-in
     ping_user = None

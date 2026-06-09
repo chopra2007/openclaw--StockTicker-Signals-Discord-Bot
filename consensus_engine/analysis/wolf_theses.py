@@ -67,14 +67,23 @@ async def _enforce_sprawl_cap(scope_type: str, now: float) -> None:
                      scope_type, count, oldest["id"], oldest["scope_key"], oldest["direction"])
 
 
-def _merge_levels(existing_json: str, new_levels: list[dict]) -> tuple[str, int]:
-    """Merge new levels into existing (dedupe by rounded price). Returns (json, has_levels)."""
+async def _merge_levels(existing_json: str, new_levels: list[dict], scope_key: str) -> tuple[str, int]:
+    """Merge new levels into existing (dedupe by rounded price). Returns (json, has_levels).
+
+    Item C (deep-dive-2026-06-08): DROP an out-of-range new level at the door (NVDA 850 on a
+    $208 stock) so a poisoned level is never stored — it would re-leak on every later display
+    and feed conviction scoring. Existing stored levels are left as-is (already filtered at
+    display); only NEW appends are gated."""
+    from consensus_engine.analysis.level_display_sanity import classify_level, LevelVerdict
     try:
         existing = json.loads(existing_json) if existing_json else []
     except Exception:
         existing = []
     have = {round(float(l["price"]), 2) for l in existing if "price" in l}
     for lv in new_levels:
+        # classify_level fetches+caches the quote per ticker (60s TTL), shared with display.
+        if await classify_level(scope_key, lv["price"]) is LevelVerdict.DROP:
+            continue
         p = round(float(lv["price"]), 2)
         if p not in have:
             existing.append(lv)
@@ -192,7 +201,7 @@ async def ingest(extraction: dict, source_id: str | None = None) -> list[dict]:
         if existing:
             old_stage = existing["stage"]
             new_stage = stage  # allow forward AND downgrade (Wolf's latest read)
-            levels_json, has_levels = _merge_levels(existing["key_levels_json"], new_levels)
+            levels_json, has_levels = await _merge_levels(existing["key_levels_json"], new_levels, scope_key)
 
             try:
                 evlog = json.loads(existing["evidence_log_json"]) if existing["evidence_log_json"] else []
