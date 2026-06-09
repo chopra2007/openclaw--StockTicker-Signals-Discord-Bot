@@ -1,0 +1,2448 @@
+[
+  {
+    "model": "google/gemini-2.5-flash-lite",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 2,
+    "http": 200,
+    "latency": 1.8,
+    "cost": 0.000252,
+    "ptok": 2023,
+    "ctok": 123,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "URA",
+      "instr_ok": true,
+      "n_levels": 2,
+      "in_range": [
+        56.02,
+        52.8
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\"instrument\": \"URA\", \"timeframe\": \"daily\", \"direction\": \"bullish\", \"levels\": [{\"price\": 56.02, \"role\": \"support\", \"label\": \"56.02\", \"confidence\": 0.9}, {\"price\": 52.8, \"role\": \"support\", \"label\": null, \"confidence\": 0.7}], \"patterns\": [], \"indicators\": [], \"raw_caption\": \"Global X Uranium ETF URA price chart with 3C orange line and price history.\"}\n```"
+  },
+  {
+    "model": "google/gemini-2.5-flash-lite",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 1,
+    "http": 200,
+    "latency": 2.46,
+    "cost": 0.000342,
+    "ptok": 2023,
+    "ctok": 348,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 8,
+      "in_range": [
+        900.0,
+        889.8,
+        889.49,
+        889.19,
+        850.0,
+        750.0,
+        690.0,
+        590.0
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\"instrument\": \"CAT\", \"timeframe\": \"daily\", \"direction\": \"bullish\", \"levels\": [{\"price\": 900.00, \"role\": \"target\", \"label\": null, \"confidence\": 0.8}, {\"price\": 889.80, \"role\": \"resistance\", \"label\": null, \"confidence\": 0.9}, {\"price\": 889.49, \"role\": \"resistance\", \"label\": null, \"confidence\": 0.9}, {\"price\": 889.19, \"role\": \"resistance\", \"label\": null, \"confidence\": 0.9}, {\"price\": 850.00, \"role\": \"support\", \"label\": null, \"confidence\": 0.8}, {\"price\": 750.00, \"role\": \"support\", \"label\": null, \"confidence\": 0.7}, {\"price\": 690.00, \"role\": \"support\", \"label\": null, \"confidence\": 0.7}, {"
+  },
+  {
+    "model": "google/gemini-2.5-flash-lite",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 1,
+    "http": 200,
+    "latency": 2.72,
+    "cost": 0.000281,
+    "ptok": 2023,
+    "ctok": 196,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "URA",
+      "instr_ok": true,
+      "n_levels": 2,
+      "in_range": [
+        56.02,
+        52.8
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\n  \"instrument\": \"URA\",\n  \"timeframe\": \"daily\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\n      \"price\": 56.02,\n      \"role\": \"support\",\n      \"label\": \"56.02\",\n      \"confidence\": 0.9\n    },\n    {\n      \"price\": 52.8,\n      \"role\": \"support\",\n      \"label\": null,\n      \"confidence\": 0.7\n    }\n  ],\n  \"patterns\": [],\n  \"indicators\": [\n    {\n      \"name\": \"3C orange\",\n      \"reading\": \"Price History\"\n    }\n  ],\n  \"raw_caption\": \"Global X Uranium ETF URA price chart with 3C orange Price History indicator.\"\n}\n```"
+  },
+  {
+    "model": "google/gemini-2.5-flash-lite",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 2,
+    "http": 200,
+    "latency": 3.27,
+    "cost": 0.000369,
+    "ptok": 2023,
+    "ctok": 416,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 6,
+      "in_range": [
+        889.8,
+        889.49,
+        889.19,
+        900.0,
+        750.0,
+        690.0
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\n  \"instrument\": \"CAT\",\n  \"timeframe\": \"daily\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\n      \"price\": 889.8,\n      \"role\": \"resistance\",\n      \"label\": null,\n      \"confidence\": 0.9\n    },\n    {\n      \"price\": 889.49,\n      \"role\": \"resistance\",\n      \"label\": null,\n      \"confidence\": 0.9\n    },\n    {\n      \"price\": 889.19,\n      \"role\": \"resistance\",\n      \"label\": null,\n      \"confidence\": 0.9\n    },\n    {\n      \"price\": 900.0,\n      \"role\": \"resistance\",\n      \"label\": null,\n      \"confidence\": 0.8\n    },\n    {\n      \"price\": 750.0,\n      \"role\": \"support\",\n      \"label\": n"
+  },
+  {
+    "model": "google/gemini-2.5-flash",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 1,
+    "http": 200,
+    "latency": 3.32,
+    "cost": 0.001887,
+    "ptok": 2023,
+    "ctok": 512,
+    "ok": false,
+    "score": 0,
+    "detail": {},
+    "raw": "```json\n{\n  \"instrument\": \"CAT\",\n  \"timeframe\": \"daily\",\n  \"direction\": null,\n  \"levels\": [\n    {\n      \"price\": 889.80,\n      \"role\": null,\n      \"label\": null,\n      \"confidence\": 1.0\n    },\n    {\n      \"price\": 900.00,\n      \"role\": null,\n      \"label\": null,\n      \"confidence\": 1.0\n    },\n    {\n      \"price\": 889.49,\n      \"role\": null,\n      \"label\": null,\n      \"confidence\": 1.0\n    },\n    {\n      \"price\": 889.19,\n      \"role\": null,\n      \"label\": null,\n      \"confidence\": 1.0\n    },\n    {\n      \"price\": 850.00,\n      \"role\": null,\n      \"label\": null,\n      \"confidence\": 1.0\n    },\n   "
+  },
+  {
+    "model": "google/gemini-2.5-flash",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 2,
+    "http": 200,
+    "latency": 3.4,
+    "cost": 0.001887,
+    "ptok": 2023,
+    "ctok": 512,
+    "ok": false,
+    "score": 0,
+    "detail": {},
+    "raw": "```json\n{\n  \"instrument\": \"CAT\",\n  \"timeframe\": \"daily\",\n  \"direction\": null,\n  \"levels\": [\n    {\n      \"price\": 889.80,\n      \"role\": null,\n      \"label\": null,\n      \"confidence\": 1.0\n    },\n    {\n      \"price\": 900.00,\n      \"role\": null,\n      \"label\": null,\n      \"confidence\": 1.0\n    },\n    {\n      \"price\": 889.49,\n      \"role\": null,\n      \"label\": null,\n      \"confidence\": 1.0\n    },\n    {\n      \"price\": 889.19,\n      \"role\": null,\n      \"label\": null,\n      \"confidence\": 1.0\n    },\n    {\n      \"price\": 850.00,\n      \"role\": null,\n      \"label\": null,\n      \"confidence\": 1.0\n    },\n   "
+  },
+  {
+    "model": "google/gemini-2.5-flash",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 1,
+    "http": 200,
+    "latency": 1.92,
+    "cost": 0.000947,
+    "ptok": 2023,
+    "ctok": 136,
+    "ok": true,
+    "score": 90,
+    "detail": {
+      "instr": "URA",
+      "instr_ok": true,
+      "n_levels": 2,
+      "in_range": [
+        56.02,
+        52.8
+      ],
+      "out_range": [],
+      "dir": null
+    },
+    "raw": "```json\n{\"instrument\": \"URA\", \"timeframe\": \"intraday\", \"direction\": null, \"levels\": [{\"price\": 56.02, \"role\": null, \"label\": null, \"confidence\": 1.0}, {\"price\": 52.80, \"role\": \"support\", \"label\": null, \"confidence\": 1.0}], \"patterns\": [], \"indicators\": [{\"name\": \"3C\", \"reading\": \"orange\"}], \"raw_caption\": \"Chart of Global X Uranium ETF (URA) showing price history with an orange line indicator and a horizontal support line.\"}\n```"
+  },
+  {
+    "model": "google/gemini-2.5-flash",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 2,
+    "http": 200,
+    "latency": 1.99,
+    "cost": 0.000947,
+    "ptok": 2023,
+    "ctok": 136,
+    "ok": true,
+    "score": 90,
+    "detail": {
+      "instr": "URA",
+      "instr_ok": true,
+      "n_levels": 2,
+      "in_range": [
+        56.02,
+        52.8
+      ],
+      "out_range": [],
+      "dir": null
+    },
+    "raw": "```json\n{\"instrument\": \"URA\", \"timeframe\": \"intraday\", \"direction\": null, \"levels\": [{\"price\": 56.02, \"role\": null, \"label\": null, \"confidence\": 1.0}, {\"price\": 52.80, \"role\": \"support\", \"label\": null, \"confidence\": 1.0}], \"patterns\": [], \"indicators\": [{\"name\": \"3C\", \"reading\": \"orange\"}], \"raw_caption\": \"Chart of Global X Uranium ETF (URA) showing price history with an orange line indicator and a horizontal support line.\"}\n```"
+  },
+  {
+    "model": "google/gemma-3-12b-it",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 2,
+    "http": 200,
+    "latency": 3.28,
+    "cost": 5.1e-05,
+    "ptok": 486,
+    "ctok": 180,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "Global X Uranium ETF",
+      "instr_ok": true,
+      "n_levels": 4,
+      "in_range": [
+        61.6,
+        60.9,
+        56.02,
+        55.2
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\"instrument\": \"Global X Uranium ETF\", \"timeframe\": \"daily\", \"direction\": \"bullish\", \"levels\": [{\"price\": 61.60, \"role\": \"resistance\", \"label\": null, \"confidence\": 0.8}, {\"price\": 60.90, \"role\": \"resistance\", \"label\": null, \"confidence\": 0.8}, {\"price\": 56.02, \"role\": \"support\", \"label\": null, \"confidence\": 0.8}, {\"price\": 55.20, \"role\": \"support\", \"label\": null, \"confidence\": 0.8}], \"patterns\": [], \"indicators\": [{\"name\": \"3C\", \"reading\": null}], \"raw_caption\": \"Global X Uranium ETF Price History\"}\n```"
+  },
+  {
+    "model": "google/gemma-3-12b-it",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 1,
+    "http": 200,
+    "latency": 4.12,
+    "cost": 5.1e-05,
+    "ptok": 486,
+    "ctok": 180,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "Global X Uranium ETF",
+      "instr_ok": true,
+      "n_levels": 4,
+      "in_range": [
+        61.6,
+        60.9,
+        56.02,
+        55.2
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\"instrument\": \"Global X Uranium ETF\", \"timeframe\": \"daily\", \"direction\": \"bullish\", \"levels\": [{\"price\": 61.60, \"role\": \"resistance\", \"label\": null, \"confidence\": 0.8}, {\"price\": 60.90, \"role\": \"resistance\", \"label\": null, \"confidence\": 0.8}, {\"price\": 56.02, \"role\": \"support\", \"label\": null, \"confidence\": 0.8}, {\"price\": 55.20, \"role\": \"support\", \"label\": null, \"confidence\": 0.8}], \"patterns\": [], \"indicators\": [{\"name\": \"3C\", \"reading\": null}], \"raw_caption\": \"Global X Uranium ETF Price History\"}\n```"
+  },
+  {
+    "model": "google/gemma-3-27b-it",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 1,
+    "http": 200,
+    "latency": 5.98,
+    "cost": 5.8e-05,
+    "ptok": 486,
+    "ctok": 117,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "URA",
+      "instr_ok": true,
+      "n_levels": 2,
+      "in_range": [
+        56.02,
+        59.2
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\"instrument\": \"URA\", \"timeframe\": \"daily\", \"direction\": \"bullish\", \"levels\": [{\"price\": 56.02, \"role\": \"support\", \"label\": null, \"confidence\": 0.8}, {\"price\": 59.20, \"role\": \"resistance\", \"label\": null, \"confidence\": 0.6}], \"patterns\": [], \"indicators\": [{\"name\": \"3C\", \"reading\": null}], \"raw_caption\": \"Global X Uranium ETF\"}\n```"
+  },
+  {
+    "model": "google/gemma-3-27b-it",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 2,
+    "http": 200,
+    "latency": 8.27,
+    "cost": 8.1e-05,
+    "ptok": 486,
+    "ctok": 266,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 6,
+      "in_range": [
+        889.46,
+        850.8,
+        854.0,
+        750.0,
+        690.0,
+        590.0
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\"instrument\": \"CAT\", \"timeframe\": \"daily\", \"direction\": \"bullish\", \"levels\": [{\"price\": 889.46, \"role\": \"resistance\", \"label\": null, \"confidence\": 0.9}, {\"price\": 850.80, \"role\": \"resistance\", \"label\": null, \"confidence\": 0.9}, {\"price\": 854.00, \"role\": \"resistance\", \"label\": null, \"confidence\": 0.9}, {\"price\": 750.00, \"role\": \"support\", \"label\": null, \"confidence\": 0.7}, {\"price\": 690.00, \"role\": \"support\", \"label\": null, \"confidence\": 0.7}, {\"price\": 590.00, \"role\": \"support\", \"label\": null, \"confidence\": 0.7}], \"patterns\": [\"flag\"], \"indicators\": [{\"name\": \"Moving Average\", \"readin"
+  },
+  {
+    "model": "google/gemma-3-27b-it",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 2,
+    "http": 200,
+    "latency": 5.29,
+    "cost": 5.8e-05,
+    "ptok": 486,
+    "ctok": 117,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "URA",
+      "instr_ok": true,
+      "n_levels": 2,
+      "in_range": [
+        56.02,
+        55.2
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\"instrument\": \"URA\", \"timeframe\": \"daily\", \"direction\": \"bullish\", \"levels\": [{\"price\": 56.02, \"role\": \"support\", \"label\": null, \"confidence\": 0.8}, {\"price\": 55.20, \"role\": \"support\", \"label\": null, \"confidence\": 0.7}], \"patterns\": [], \"indicators\": [{\"name\": \"3C\", \"reading\": null}], \"raw_caption\": \"Global X Uranium ETF\"}\n```"
+  },
+  {
+    "model": "google/gemma-3-27b-it",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 1,
+    "http": 200,
+    "latency": 9.38,
+    "cost": 8.6e-05,
+    "ptok": 486,
+    "ctok": 297,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 7,
+      "in_range": [
+        894.49,
+        854.0,
+        750.0,
+        690.0,
+        630.0,
+        590.0,
+        889.46
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\"instrument\": \"CAT\", \"timeframe\": \"daily\", \"direction\": \"bullish\", \"levels\": [{\"price\": 894.49, \"role\": \"resistance\", \"label\": null, \"confidence\": 0.8}, {\"price\": 854.00, \"role\": \"support\", \"label\": null, \"confidence\": 0.8}, {\"price\": 750.00, \"role\": \"support\", \"label\": null, \"confidence\": 0.6}, {\"price\": 690.00, \"role\": \"support\", \"label\": null, \"confidence\": 0.6}, {\"price\": 630.00, \"role\": \"support\", \"label\": null, \"confidence\": 0.6}, {\"price\": 590.00, \"role\": \"support\", \"label\": null, \"confidence\": 0.6}, {\"price\": 889.46, \"role\": \"resistance\", \"label\": null, \"confidence\": 0.7}], \"p"
+  },
+  {
+    "model": "google/gemma-3-12b-it",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 2,
+    "http": 200,
+    "latency": 10.74,
+    "cost": 0.000101,
+    "ptok": 486,
+    "ctok": 512,
+    "ok": false,
+    "score": 0,
+    "detail": {},
+    "raw": "```json\n{\"instrument\": \"CAT\", \"timeframe\": \"daily\", \"direction\": \"bullish\", \"levels\": [{\"price\": 854.00, \"role\": \"support\", \"label\": \"support\", \"confidence\": 1.0}, {\"price\": 889.49, \"role\": \"resistance\", \"label\": \"resistance\", \"confidence\": 1.0}, {\"price\": 830.00, \"role\": \"support\", \"label\": \"support\", \"confidence\": 1.0}, {\"price\": 810.00, \"role\": \"support\", \"label\": \"support\", \"confidence\": 1.0}, {\"price\": 790.00, \"role\": \"support\", \"label\": \"support\", \"confidence\": 1.0}, {\"price\": 770.00, \"role\": \"support\", \"label\": \"support\", \"confidence\": 1.0}, {\"price\": 750.00, \"role\": \"support\", \"label\":"
+  },
+  {
+    "model": "google/gemma-3-12b-it",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 1,
+    "http": 200,
+    "latency": 12.56,
+    "cost": 9.9e-05,
+    "ptok": 486,
+    "ctok": 500,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 13,
+      "in_range": [
+        854.0,
+        889.49,
+        830.0,
+        810.0,
+        790.45,
+        770.0,
+        750.0,
+        730.0,
+        690.0,
+        670.0,
+        650.0,
+        630.0,
+        590.0
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\"instrument\": \"CAT\", \"timeframe\": \"daily\", \"direction\": \"bullish\", \"levels\": [{\"price\": 854.00, \"role\": \"support\", \"label\": \"support\", \"confidence\": 1.0}, {\"price\": 889.49, \"role\": \"resistance\", \"label\": \"resistance\", \"confidence\": 1.0}, {\"price\": 830.00, \"role\": \"support\", \"label\": \"support\", \"confidence\": 1.0}, {\"price\": 810.00, \"role\": \"support\", \"label\": \"support\", \"confidence\": 1.0}, {\"price\": 790.45, \"role\": \"support\", \"label\": \"support\", \"confidence\": 1.0}, {\"price\": 770.00, \"role\": \"support\", \"label\": \"support\", \"confidence\": 1.0}, {\"price\": 750.00, \"role\": \"support\", \"label\":"
+  },
+  {
+    "model": "amazon/nova-lite-v1",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 1,
+    "http": 200,
+    "latency": 3.55,
+    "cost": 0.000238,
+    "ptok": 1917,
+    "ctok": 512,
+    "ok": false,
+    "score": 0,
+    "detail": {},
+    "raw": "{\"instrument\": \"CAT\", \"timeframe\": \"daily\", \"direction\": \"bullish\", \"levels\": [{\"price\": 889.49, \"role\": \"resistance\", \"label\": null, \"confidence\": 0.95}, {\"price\": 850, \"role\": \"support\", \"label\": null, \"confidence\": 0.95}, {\"price\": 830, \"role\": \"support\", \"label\": null, \"confidence\": 0.95}, {\"price\": 810, \"role\": \"support\", \"label\": null, \"confidence\": 0.95}, {\"price\": 790, \"role\": \"support\", \"label\": null, \"confidence\": 0.95}, {\"price\": 770, \"role\": \"support\", \"label\": null, \"confidence\": 0.95}, {\"price\": 750, \"role\": \"support\", \"label\": null, \"confidence\": 0.95}, {\"price\": 730, \"role\": \"s"
+  },
+  {
+    "model": "google/gemma-4-31b-it",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 1,
+    "http": 200,
+    "latency": 6.95,
+    "cost": 0.000116,
+    "ptok": 505,
+    "ctok": 155,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "URA",
+      "instr_ok": true,
+      "n_levels": 1,
+      "in_range": [
+        56.02
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\n  \"instrument\": \"URA\",\n  \"timeframe\": \"intraday\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\n      \"price\": 56.02,\n      \"role\": \"null\",\n      \"label\": null,\n      \"confidence\": 1.0\n    }\n  ],\n  \"patterns\": [],\n  \"indicators\": [\n    {\n      \"name\": \"3C orange\",\n      \"reading\": \"visible\"\n    }\n  ],\n  \"raw_caption\": \"Price chart for Global X Uranium ETF (URA) showing an upward trend ending April 30.\"\n}\n```"
+  },
+  {
+    "model": "amazon/nova-lite-v1",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 2,
+    "http": 200,
+    "latency": 4.91,
+    "cost": 0.000233,
+    "ptok": 1917,
+    "ctok": 492,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 14,
+      "in_range": [
+        889.49,
+        850.0,
+        830.0,
+        790.0,
+        770.0,
+        750.0,
+        730.0,
+        710.0,
+        690.0,
+        670.0,
+        650.0,
+        630.0,
+        610.0,
+        590.0
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "{\"instrument\": \"CAT\", \"timeframe\": \"daily\", \"direction\": \"bullish\", \"levels\": [{\"price\": 889.49, \"role\": \"resistance\", \"label\": null, \"confidence\": 0.95}, {\"price\": 850, \"role\": \"support\", \"label\": null, \"confidence\": 0.95}, {\"price\": 830, \"role\": \"support\", \"label\": null, \"confidence\": 0.95}, {\"price\": 790, \"role\": \"support\", \"label\": null, \"confidence\": 0.95}, {\"price\": 770, \"role\": \"support\", \"label\": null, \"confidence\": 0.95}, {\"price\": 750, \"role\": \"support\", \"label\": null, \"confidence\": 0.95}, {\"price\": 730, \"role\": \"support\", \"label\": null, \"confidence\": 0.95}, {\"price\": 710, \"role\": \"s"
+  },
+  {
+    "model": "amazon/nova-lite-v1",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 1,
+    "http": 200,
+    "latency": 3.37,
+    "cost": 0.000217,
+    "ptok": 1947,
+    "ctok": 418,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "Global X Uranium ETF",
+      "instr_ok": true,
+      "n_levels": 12,
+      "in_range": [
+        56.02,
+        55.2,
+        54.4,
+        53.6,
+        52.8,
+        52.0,
+        51.2,
+        50.4,
+        49.6,
+        48.8,
+        48.0,
+        47.2
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "{\"instrument\": \"Global X Uranium ETF\", \"timeframe\": \"intraday\", \"direction\": \"bullish\", \"levels\": [{\"price\": 56.02, \"role\": \"resistance\", \"label\": null, \"confidence\": 0.95}, {\"price\": 55.2, \"role\": \"support\", \"label\": null, \"confidence\": 0.95}, {\"price\": 54.4, \"role\": \"support\", \"label\": null, \"confidence\": 0.95}, {\"price\": 53.6, \"role\": \"support\", \"label\": null, \"confidence\": 0.95}, {\"price\": 52.8, \"role\": \"support\", \"label\": null, \"confidence\": 0.95}, {\"price\": 52, \"role\": \"support\", \"label\": null, \"confidence\": 0.95}, {\"price\": 51.2, \"role\": \"support\", \"label\": null, \"confidence\": 0.95}, {\""
+  },
+  {
+    "model": "google/gemma-4-31b-it",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 1,
+    "http": 200,
+    "latency": 9.3,
+    "cost": 0.000128,
+    "ptok": 498,
+    "ctok": 189,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 1,
+      "in_range": [
+        889.49
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\n  \"instrument\": \"CAT\",\n  \"timeframe\": \"daily\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\n      \"price\": 889.49,\n      \"role\": \"target\",\n      \"label\": \"current price\",\n      \"confidence\": 1.0\n    }\n  ],\n  \"patterns\": [],\n  \"indicators\": [\n    {\n      \"name\": \"Moving Average 50\",\n      \"reading\": \"yellow line\"\n    },\n    {\n      \"name\": \"Moving Average 100\",\n      \"reading\": \"blue line\"\n    }\n  ],\n  \"raw_caption\": \"CAT daily chart showing an uptrend with price above the 50 and 100 moving averages.\"\n}\n```"
+  },
+  {
+    "model": "mistralai/mistral-small-3.2-24b-instruct",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 1,
+    "http": 200,
+    "latency": 3.54,
+    "cost": 0.00014,
+    "ptok": 1248,
+    "ctok": 232,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 3,
+      "in_range": [
+        889.49,
+        850.0,
+        790.0
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\n  \"instrument\": \"CAT\",\n  \"timeframe\": \"daily\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\"price\": 889.49, \"role\": \"resistance\", \"label\": null, \"confidence\": 0.8},\n    {\"price\": 850.00, \"role\": \"support\", \"label\": null, \"confidence\": 0.7},\n    {\"price\": 790.00, \"role\": \"support\", \"label\": null, \"confidence\": 0.6}\n  ],\n  \"patterns\": [\"ascending channel\"],\n  \"indicators\": [\n    {\"name\": \"Moving Average 50\", \"reading\": \"bullish\"},\n    {\"name\": \"Moving Average 200\", \"reading\": \"bullish\"},\n    {\"name\": \"Moving Average 100\", \"reading\": \"bullish\"}\n  ],\n  \"raw_caption\": \"Caterpillar Inc. s"
+  },
+  {
+    "model": "amazon/nova-lite-v1",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 2,
+    "http": 200,
+    "latency": 4.08,
+    "cost": 0.000216,
+    "ptok": 1947,
+    "ctok": 413,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "Global X Uranium ETF",
+      "instr_ok": true,
+      "n_levels": 12,
+      "in_range": [
+        56.02,
+        55.2,
+        54.4,
+        53.6,
+        52.8,
+        52.0,
+        51.2,
+        50.4,
+        49.6,
+        48.8,
+        48.0,
+        47.2
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "{\"instrument\": \"Global X Uranium ETF\", \"timeframe\": \"intraday\", \"direction\": \"bullish\", \"levels\": [{\"price\": 56.02, \"role\": \"resistance\", \"label\": null, \"confidence\": 0.95}, {\"price\": 55.2, \"role\": \"support\", \"label\": null, \"confidence\": 0.95}, {\"price\": 54.4, \"role\": \"support\", \"label\": null, \"confidence\": 0.95}, {\"price\": 53.6, \"role\": \"support\", \"label\": null, \"confidence\": 0.95}, {\"price\": 52.8, \"role\": \"support\", \"label\": null, \"confidence\": 0.95}, {\"price\": 52, \"role\": \"support\", \"label\": null, \"confidence\": 0.95}, {\"price\": 51.2, \"role\": \"support\", \"label\": null, \"confidence\": 0.95}, {\""
+  },
+  {
+    "model": "google/gemma-4-31b-it",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 2,
+    "http": 200,
+    "latency": 11.68,
+    "cost": 0.000116,
+    "ptok": 505,
+    "ctok": 154,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "URA",
+      "instr_ok": true,
+      "n_levels": 1,
+      "in_range": [
+        56.02
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\n  \"instrument\": \"URA\",\n  \"timeframe\": \"intraday\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\n      \"price\": 56.02,\n      \"role\": \"null\",\n      \"label\": null,\n      \"confidence\": 1.0\n    }\n  ],\n  \"patterns\": [],\n  \"indicators\": [\n    {\n      \"name\": \"3C orange\",\n      \"reading\": \"visible\"\n    }\n  ],\n  \"raw_caption\": \"Global X Uranium ETF (URA) price chart showing an upward trend ending April 30.\"\n}\n```"
+  },
+  {
+    "model": "mistralai/mistral-small-3.2-24b-instruct",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 2,
+    "http": 200,
+    "latency": 4.06,
+    "cost": 0.000141,
+    "ptok": 1248,
+    "ctok": 237,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 3,
+      "in_range": [
+        889.49,
+        850.0,
+        810.0
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\n  \"instrument\": \"CAT\",\n  \"timeframe\": \"daily\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\"price\": 889.49, \"role\": \"resistance\", \"label\": null, \"confidence\": 0.9},\n    {\"price\": 850.00, \"role\": \"support\", \"label\": null, \"confidence\": 0.8},\n    {\"price\": 810.00, \"role\": \"support\", \"label\": null, \"confidence\": 0.7}\n  ],\n  \"patterns\": [\"uptrend\"],\n  \"indicators\": [\n    {\"name\": \"Moving Average 50\", \"reading\": \"above price\"},\n    {\"name\": \"Moving Average 200\", \"reading\": \"below price\"},\n    {\"name\": \"Moving Average 100\", \"reading\": \"below price\"}\n  ],\n  \"raw_caption\": \"Caterpillar Inc."
+  },
+  {
+    "model": "qwen/qwen3-vl-8b-instruct",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 1,
+    "http": 200,
+    "latency": 2.21,
+    "cost": 0.000196,
+    "ptok": 955,
+    "ctok": 239,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 2,
+      "in_range": [
+        889.49,
+        889.1
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "{\n  \"instrument\": \"CAT\",\n  \"timeframe\": \"daily\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\n      \"price\": 889.49,\n      \"role\": \"resistance\",\n      \"label\": \"889.49\",\n      \"confidence\": 0.9\n    },\n    {\n      \"price\": 889.10,\n      \"role\": \"resistance\",\n      \"label\": \"889.10\",\n      \"confidence\": 0.9\n    }\n  ],\n  \"patterns\": [\n    \"uptrend\",\n    \"bullish candlestick pattern\"\n  ],\n  \"indicators\": [\n    {\n      \"name\": \"Moving Average 50\",\n      \"reading\": \"rising\"\n    },\n    {\n      \"name\": \"Moving Average 200\",\n      \"reading\": \"rising\"\n    },\n    {\n      \"name\": \"Moving Average 100\",\n  "
+  },
+  {
+    "model": "qwen/qwen3-vl-8b-instruct",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 1,
+    "http": 200,
+    "latency": 3.78,
+    "cost": 0.000137,
+    "ptok": 859,
+    "ctok": 136,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "URA",
+      "instr_ok": true,
+      "n_levels": 1,
+      "in_range": [
+        56.02
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "{\n  \"instrument\": \"URA\",\n  \"timeframe\": \"daily\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\n      \"price\": 56.02,\n      \"role\": \"resistance\",\n      \"label\": null,\n      \"confidence\": 0.9\n    }\n  ],\n  \"patterns\": [\n    \"uptrend\",\n    \"breakout\"\n  ],\n  \"indicators\": [\n    {\n      \"name\": \"3C\",\n      \"reading\": \"orange\"\n    }\n  ],\n  \"raw_caption\": \"URA shows bullish momentum with breakout above 56.02 resistance.\"\n}"
+  },
+  {
+    "model": "mistralai/mistral-small-3.2-24b-instruct",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 1,
+    "http": 200,
+    "latency": 6.89,
+    "cost": 0.000124,
+    "ptok": 1096,
+    "ctok": 211,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "URA",
+      "instr_ok": true,
+      "n_levels": 3,
+      "in_range": [
+        56.02,
+        55.2,
+        56.8
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\n  \"instrument\": \"URA\",\n  \"timeframe\": \"intraday\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\"price\": 56.02, \"role\": \"target\", \"label\": null, \"confidence\": 0.9},\n    {\"price\": 55.20, \"role\": \"support\", \"label\": null, \"confidence\": 0.7},\n    {\"price\": 56.80, \"role\": \"resistance\", \"label\": null, \"confidence\": 0.7}\n  ],\n  \"patterns\": [\"rising trend\"],\n  \"indicators\": [\n    {\"name\": \"3C\", \"reading\": \"orange\"},\n    {\"name\": \"Price History\", \"reading\": \"green\"}\n  ],\n  \"raw_caption\": \"Global X Uranium ETF URA showing a bullish trend with a target at 56.02\"\n}\n```"
+  },
+  {
+    "model": "qwen/qwen3-vl-8b-instruct",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 2,
+    "http": 200,
+    "latency": 4.25,
+    "cost": 0.000141,
+    "ptok": 859,
+    "ctok": 145,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "URA",
+      "instr_ok": true,
+      "n_levels": 1,
+      "in_range": [
+        56.02
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "{\n  \"instrument\": \"URA\",\n  \"timeframe\": \"daily\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\n      \"price\": 56.02,\n      \"role\": \"resistance\",\n      \"label\": null,\n      \"confidence\": 0.9\n    }\n  ],\n  \"patterns\": [\n    \"bullish trend\",\n    \"recent breakout\"\n  ],\n  \"indicators\": [\n    {\n      \"name\": \"3C\",\n      \"reading\": \"orange\"\n    }\n  ],\n  \"raw_caption\": \"Global X Uranium ETF (URA) shows bullish momentum with price breaking above 56.02 resistance.\"\n}"
+  },
+  {
+    "model": "google/gemma-4-31b-it",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 2,
+    "http": 200,
+    "latency": 18.0,
+    "cost": 0.000166,
+    "ptok": 498,
+    "ctok": 296,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 3,
+      "in_range": [
+        900.0,
+        889.49,
+        880.19
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\n  \"instrument\": \"CAT\",\n  \"timeframe\": \"daily\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\n      \"price\": 900.0,\n      \"role\": \"resistance\",\n      \"label\": null,\n      \"confidence\": 1.0\n    },\n    {\n      \"price\": 889.49,\n      \"role\": \"target\",\n      \"label\": null,\n      \"confidence\": 1.0\n    },\n    {\n      \"price\": 880.19,\n      \"role\": \"support\",\n      \"label\": null,\n      \"confidence\": 1.0\n    }\n  ],\n  \"patterns\": [],\n  \"indicators\": [\n    {\n      \"name\": \"Moving Average 50\",\n      \"reading\": \"present\"\n    },\n    {\n      \"name\": \"Moving Average 200\",\n      \"reading\": \"present\"\n"
+  },
+  {
+    "model": "mistralai/mistral-small-3.2-24b-instruct",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 2,
+    "http": 200,
+    "latency": 7.17,
+    "cost": 0.000126,
+    "ptok": 1096,
+    "ctok": 218,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "URA",
+      "instr_ok": true,
+      "n_levels": 3,
+      "in_range": [
+        56.02,
+        56.8,
+        54.4
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\n  \"instrument\": \"URA\",\n  \"timeframe\": \"intraday\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\n      \"price\": 56.02,\n      \"role\": \"target\",\n      \"label\": null,\n      \"confidence\": 0.8\n    },\n    {\n      \"price\": 56.80,\n      \"role\": \"resistance\",\n      \"label\": null,\n      \"confidence\": 0.7\n    },\n    {\n      \"price\": 54.40,\n      \"role\": \"support\",\n      \"label\": null,\n      \"confidence\": 0.6\n    }\n  ],\n  \"patterns\": [\"rising\"],\n  \"indicators\": [\n    {\n      \"name\": \"3C\",\n      \"reading\": \"orange\"\n    }\n  ],\n  \"raw_caption\": \"Global X Uranium ETF URA 3.13 % 5.92\"\n}\n```"
+  },
+  {
+    "model": "qwen/qwen3-vl-8b-instruct",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 2,
+    "http": 200,
+    "latency": 6.99,
+    "cost": 0.000194,
+    "ptok": 955,
+    "ctok": 236,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 2,
+      "in_range": [
+        889.49,
+        889.8
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "{\n  \"instrument\": \"CAT\",\n  \"timeframe\": \"daily\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\n      \"price\": 889.49,\n      \"role\": \"resistance\",\n      \"label\": \"Current Price\",\n      \"confidence\": 0.9\n    },\n    {\n      \"price\": 889.80,\n      \"role\": \"resistance\",\n      \"label\": \"Previous High\",\n      \"confidence\": 0.9\n    }\n  ],\n  \"patterns\": [\n    \"Uptrend\",\n    \"Candlestick Bullish\"\n  ],\n  \"indicators\": [\n    {\n      \"name\": \"Moving Average 50\",\n      \"reading\": \"Above Price\"\n    },\n    {\n      \"name\": \"Moving Average 200\",\n      \"reading\": \"Above Price\"\n    },\n    {\n      \"name\": \"Moving "
+  },
+  {
+    "model": "qwen/qwen3-vl-32b-instruct",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 2,
+    "http": 200,
+    "latency": 3.04,
+    "cost": 0.000173,
+    "ptok": 859,
+    "ctok": 200,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "URA",
+      "instr_ok": true,
+      "n_levels": 2,
+      "in_range": [
+        56.02,
+        52.8
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "{\n  \"instrument\": \"URA\",\n  \"timeframe\": \"daily\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\n      \"price\": 56.02,\n      \"role\": \"resistance\",\n      \"label\": null,\n      \"confidence\": 0.9\n    },\n    {\n      \"price\": 52.8,\n      \"role\": \"support\",\n      \"label\": null,\n      \"confidence\": 0.8\n    }\n  ],\n  \"patterns\": [\n    \"bullish trend\",\n    \"rising price action\"\n  ],\n  \"indicators\": [\n    {\n      \"name\": \"3C\",\n      \"reading\": \"orange\"\n    }\n  ],\n  \"raw_caption\": \"Global X Uranium ETF (URA) daily chart showing bullish price movement with recent highs near 56.02 and support around 52.80 in A"
+  },
+  {
+    "model": "qwen/qwen3-vl-32b-instruct",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 1,
+    "http": 200,
+    "latency": 4.04,
+    "cost": 0.000166,
+    "ptok": 859,
+    "ctok": 185,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "URA",
+      "instr_ok": true,
+      "n_levels": 2,
+      "in_range": [
+        56.02,
+        52.8
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "{\n  \"instrument\": \"URA\",\n  \"timeframe\": \"daily\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\n      \"price\": 56.02,\n      \"role\": \"resistance\",\n      \"label\": null,\n      \"confidence\": 0.9\n    },\n    {\n      \"price\": 52.8,\n      \"role\": \"support\",\n      \"label\": null,\n      \"confidence\": 0.8\n    }\n  ],\n  \"patterns\": [\n    \"bullish trend\",\n    \"price breakout\"\n  ],\n  \"indicators\": [\n    {\n      \"name\": \"3C\",\n      \"reading\": \"orange\"\n    }\n  ],\n  \"raw_caption\": \"Global X Uranium ETF (URA) shows strong bullish momentum with price breaking above 56.02 resistance on daily chart\"\n}"
+  },
+  {
+    "model": "qwen/qwen3-vl-32b-instruct",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 1,
+    "http": 200,
+    "latency": 7.01,
+    "cost": 0.000293,
+    "ptok": 955,
+    "ctok": 466,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 7,
+      "in_range": [
+        889.49,
+        894.1,
+        850.8,
+        854.0,
+        800.0,
+        689.8,
+        689.1
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "{\n  \"instrument\": \"CAT\",\n  \"timeframe\": \"daily\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\n      \"price\": 889.49,\n      \"role\": \"resistance\",\n      \"label\": \"Current Price\",\n      \"confidence\": 1.0\n    },\n    {\n      \"price\": 894.10,\n      \"role\": \"resistance\",\n      \"label\": \"High\",\n      \"confidence\": 1.0\n    },\n    {\n      \"price\": 850.80,\n      \"role\": \"resistance\",\n      \"label\": \"Previous High\",\n      \"confidence\": 1.0\n    },\n    {\n      \"price\": 854.00,\n      \"role\": \"resistance\",\n      \"label\": \"High\",\n      \"confidence\": 1.0\n    },\n    {\n      \"price\": 800.00,\n      \"role\": \"resis"
+  },
+  {
+    "model": "qwen/qwen3-vl-30b-a3b-instruct",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 1,
+    "http": 200,
+    "latency": 4.96,
+    "cost": 0.000368,
+    "ptok": 955,
+    "ctok": 468,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 10,
+      "in_range": [
+        889.49,
+        854.0,
+        889.49,
+        790.0,
+        750.0,
+        710.0,
+        690.0,
+        650.0,
+        630.0,
+        590.0
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "{\"instrument\": \"CAT\", \"timeframe\": \"daily\", \"direction\": \"bullish\", \"levels\": [{\"price\": 889.49, \"role\": \"resistance\", \"label\": \"900.00\", \"confidence\": 0.9}, {\"price\": 854.00, \"role\": \"support\", \"label\": \"850.00\", \"confidence\": 0.8}, {\"price\": 889.49, \"role\": \"resistance\", \"label\": \"889.49\", \"confidence\": 0.9}, {\"price\": 790.00, \"role\": \"support\", \"label\": \"790.00\", \"confidence\": 0.7}, {\"price\": 750.00, \"role\": \"support\", \"label\": \"750.00\", \"confidence\": 0.7}, {\"price\": 710.00, \"role\": \"support\", \"label\": \"710.00\", \"confidence\": 0.7}, {\"price\": 690.00, \"role\": \"support\", \"label\": \"690.00\", \"co"
+  },
+  {
+    "model": "qwen/qwen3-vl-32b-instruct",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 2,
+    "http": 200,
+    "latency": 7.28,
+    "cost": 0.000295,
+    "ptok": 955,
+    "ctok": 471,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 7,
+      "in_range": [
+        889.49,
+        894.1,
+        850.8,
+        854.0,
+        800.0,
+        689.8,
+        689.1
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "{\n  \"instrument\": \"CAT\",\n  \"timeframe\": \"daily\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\n      \"price\": 889.49,\n      \"role\": \"resistance\",\n      \"label\": \"current price\",\n      \"confidence\": 1.0\n    },\n    {\n      \"price\": 894.10,\n      \"role\": \"resistance\",\n      \"label\": \"high\",\n      \"confidence\": 1.0\n    },\n    {\n      \"price\": 850.80,\n      \"role\": \"resistance\",\n      \"label\": \"previous high\",\n      \"confidence\": 1.0\n    },\n    {\n      \"price\": 854.00,\n      \"role\": \"resistance\",\n      \"label\": \"high\",\n      \"confidence\": 1.0\n    },\n    {\n      \"price\": 800.00,\n      \"role\": \"resis"
+  },
+  {
+    "model": "qwen/qwen3-vl-30b-a3b-instruct",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 2,
+    "http": 200,
+    "latency": 4.93,
+    "cost": 0.00039,
+    "ptok": 955,
+    "ctok": 512,
+    "ok": false,
+    "score": 0,
+    "detail": {},
+    "raw": "{\"instrument\": \"CAT\", \"timeframe\": \"daily\", \"direction\": \"bullish\", \"levels\": [{\"price\": 889.49, \"role\": \"resistance\", \"label\": \"900.00\", \"confidence\": 0.9}, {\"price\": 850.00, \"role\": \"support\", \"label\": \"850.00\", \"confidence\": 0.8}, {\"price\": 790.00, \"role\": \"support\", \"label\": \"790.00\", \"confidence\": 0.7}, {\"price\": 770.00, \"role\": \"support\", \"label\": \"770.00\", \"confidence\": 0.6}, {\"price\": 750.00, \"role\": \"support\", \"label\": \"750.00\", \"confidence\": 0.7}, {\"price\": 730.00, \"role\": \"support\", \"label\": \"730.00\", \"confidence\": 0.6}, {\"price\": 710.00, \"role\": \"support\", \"label\": \"710.00\", \"confi"
+  },
+  {
+    "model": "qwen/qwen3-vl-30b-a3b-instruct",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 1,
+    "http": 200,
+    "latency": 4.83,
+    "cost": 0.00021,
+    "ptok": 859,
+    "ctok": 190,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "Global X Uranium ETF",
+      "instr_ok": true,
+      "n_levels": 3,
+      "in_range": [
+        56.02,
+        52.8,
+        47.2
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "{\"instrument\": \"Global X Uranium ETF\", \"timeframe\": \"intraday\", \"direction\": \"bullish\", \"levels\": [{\"price\": 56.02, \"role\": \"resistance\", \"label\": \"56.02\", \"confidence\": 0.9}, {\"price\": 52.80, \"role\": \"support\", \"label\": \"52.80\", \"confidence\": 0.8}, {\"price\": 47.20, \"role\": \"support\", \"label\": \"47.20\", \"confidence\": 0.7}], \"patterns\": [\"3C orange\"], \"indicators\": [{\"name\": \"3C orange\", \"reading\": \"Price History\"}], \"raw_caption\": \"Global X Uranium ETF showing bullish trend with 3C orange pattern and resistance at 56.02\"}"
+  },
+  {
+    "model": "qwen/qwen3-vl-30b-a3b-instruct",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 2,
+    "http": 200,
+    "latency": 4.67,
+    "cost": 0.000338,
+    "ptok": 859,
+    "ctok": 435,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "Global X Uranium ETF",
+      "instr_ok": true,
+      "n_levels": 10,
+      "in_range": [
+        56.02,
+        52.8,
+        50.4,
+        48.8,
+        47.2,
+        61.6,
+        60.0,
+        59.2,
+        58.4,
+        57.6
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "{\"instrument\": \"Global X Uranium ETF\", \"timeframe\": \"intraday\", \"direction\": \"bullish\", \"levels\": [{\"price\": 56.02, \"role\": \"resistance\", \"label\": \"56.02\", \"confidence\": 0.95}, {\"price\": 52.80, \"role\": \"support\", \"label\": \"52.80\", \"confidence\": 0.9}, {\"price\": 50.40, \"role\": \"support\", \"label\": \"50.40\", \"confidence\": 0.85}, {\"price\": 48.80, \"role\": \"support\", \"label\": \"48.80\", \"confidence\": 0.8}, {\"price\": 47.20, \"role\": \"support\", \"label\": \"47.20\", \"confidence\": 0.75}, {\"price\": 61.60, \"role\": \"resistance\", \"label\": \"61.60\", \"confidence\": 0.9}, {\"price\": 60.00, \"role\": \"resistance\", \"label\": "
+  },
+  {
+    "model": "qwen/qwen2.5-vl-72b-instruct",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 1,
+    "http": 200,
+    "latency": 5.0,
+    "cost": 0.000371,
+    "ptok": 1076,
+    "ctok": 136,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "URA",
+      "instr_ok": true,
+      "n_levels": 1,
+      "in_range": [
+        56.02
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\n    \"instrument\": \"URA\",\n    \"timeframe\": \"daily\",\n    \"direction\": \"bullish\",\n    \"levels\": [\n        {\n            \"price\": 56.02,\n            \"role\": \"resistance\",\n            \"label\": null,\n            \"confidence\": 1.0\n        }\n    ],\n    \"patterns\": [],\n    \"indicators\": [\n        {\n            \"name\": \"3C\",\n            \"reading\": \"orange\"\n        }\n    ],\n    \"raw_caption\": \"Global X Uranium ETF price history showing a bullish trend with a resistance level at 56.02.\"\n}\n```"
+  },
+  {
+    "model": "qwen/qwen2.5-vl-72b-instruct",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 2,
+    "http": 200,
+    "latency": 4.7,
+    "cost": 0.000371,
+    "ptok": 1076,
+    "ctok": 136,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "URA",
+      "instr_ok": true,
+      "n_levels": 1,
+      "in_range": [
+        56.02
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\n    \"instrument\": \"URA\",\n    \"timeframe\": \"daily\",\n    \"direction\": \"bullish\",\n    \"levels\": [\n        {\n            \"price\": 56.02,\n            \"role\": \"resistance\",\n            \"label\": null,\n            \"confidence\": 1.0\n        }\n    ],\n    \"patterns\": [],\n    \"indicators\": [\n        {\n            \"name\": \"3C\",\n            \"reading\": \"orange\"\n        }\n    ],\n    \"raw_caption\": \"Global X Uranium ETF URA showing a bullish trend with a resistance level at 56.02\"\n}\n```"
+  },
+  {
+    "model": "qwen/qwen2.5-vl-72b-instruct",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 2,
+    "http": 200,
+    "latency": 6.9,
+    "cost": 0.000465,
+    "ptok": 1224,
+    "ctok": 212,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 2,
+      "in_range": [
+        690.0,
+        730.0
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\n  \"instrument\": \"CAT\",\n  \"timeframe\": \"daily\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\n      \"price\": 690.00,\n      \"role\": \"support\",\n      \"label\": null,\n      \"confidence\": 1.0\n    },\n    {\n      \"price\": 730.00,\n      \"role\": \"resistance\",\n      \"label\": null,\n      \"confidence\": 1.0\n    }\n  ],\n  \"patterns\": [],\n  \"indicators\": [\n    {\n      \"name\": \"Moving Average 50\",\n      \"reading\": null\n    },\n    {\n      \"name\": \"Moving Average 100\",\n      \"reading\": null\n    },\n    {\n      \"name\": \"Moving Average 200\",\n      \"reading\": null\n    }\n  ],\n  \"raw_caption\": \"Caterpillar In"
+  },
+  {
+    "model": "qwen/qwen3-vl-235b-a22b-instruct",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 2,
+    "http": 200,
+    "latency": 5.5,
+    "cost": 0.000291,
+    "ptok": 859,
+    "ctok": 135,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "URA",
+      "instr_ok": true,
+      "n_levels": 1,
+      "in_range": [
+        56.02
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "{\n  \"instrument\": \"URA\",\n  \"timeframe\": \"daily\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\n      \"price\": 56.02,\n      \"role\": \"resistance\",\n      \"label\": \"current price\",\n      \"confidence\": 0.95\n    }\n  ],\n  \"patterns\": [],\n  \"indicators\": [\n    {\n      \"name\": \"3C\",\n      \"reading\": \"orange\"\n    }\n  ],\n  \"raw_caption\": \"Global X Uranium ETF (URA) showing strong bullish momentum with price near 56.02 resistance.\"\n}"
+  },
+  {
+    "model": "qwen/qwen3-vl-235b-a22b-instruct",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 1,
+    "http": 200,
+    "latency": 5.8,
+    "cost": 0.000329,
+    "ptok": 859,
+    "ctok": 179,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "URA",
+      "instr_ok": true,
+      "n_levels": 2,
+      "in_range": [
+        56.02,
+        52.8
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "{\n  \"instrument\": \"URA\",\n  \"timeframe\": \"daily\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\n      \"price\": 56.02,\n      \"role\": \"resistance\",\n      \"label\": null,\n      \"confidence\": 0.95\n    },\n    {\n      \"price\": 52.80,\n      \"role\": \"support\",\n      \"label\": null,\n      \"confidence\": 0.9\n    }\n  ],\n  \"patterns\": [],\n  \"indicators\": [\n    {\n      \"name\": \"3C\",\n      \"reading\": \"orange\"\n    }\n  ],\n  \"raw_caption\": \"Global X Uranium ETF (URA) showing bullish momentum with price breaking above 56.02 resistance, supported at 52.80.\"\n}"
+  },
+  {
+    "model": "qwen/qwen2.5-vl-72b-instruct",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 1,
+    "http": 200,
+    "latency": 11.62,
+    "cost": 0.000465,
+    "ptok": 1224,
+    "ctok": 212,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 2,
+      "in_range": [
+        690.0,
+        730.0
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\n  \"instrument\": \"CAT\",\n  \"timeframe\": \"daily\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\n      \"price\": 690.00,\n      \"role\": \"support\",\n      \"label\": null,\n      \"confidence\": 1.0\n    },\n    {\n      \"price\": 730.00,\n      \"role\": \"resistance\",\n      \"label\": null,\n      \"confidence\": 1.0\n    }\n  ],\n  \"patterns\": [],\n  \"indicators\": [\n    {\n      \"name\": \"Moving Average 50\",\n      \"reading\": null\n    },\n    {\n      \"name\": \"Moving Average 200\",\n      \"reading\": null\n    },\n    {\n      \"name\": \"Moving Average 100\",\n      \"reading\": null\n    }\n  ],\n  \"raw_caption\": \"Caterpillar In"
+  },
+  {
+    "model": "qwen/qwen3-vl-235b-a22b-instruct",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 1,
+    "http": 200,
+    "latency": 10.53,
+    "cost": 0.000438,
+    "ptok": 955,
+    "ctok": 281,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 3,
+      "in_range": [
+        889.49,
+        889.8,
+        889.13
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "{\n  \"instrument\": \"CAT\",\n  \"timeframe\": \"daily\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\n      \"price\": 889.49,\n      \"role\": \"target\",\n      \"label\": \"Current Price\",\n      \"confidence\": 0.95\n    },\n    {\n      \"price\": 889.80,\n      \"role\": \"resistance\",\n      \"label\": \"Recent High\",\n      \"confidence\": 0.9\n    },\n    {\n      \"price\": 889.13,\n      \"role\": \"support\",\n      \"label\": \"Recent Low\",\n      \"confidence\": 0.9\n    }\n  ],\n  \"patterns\": [],\n  \"indicators\": [\n    {\n      \"name\": \"Moving Average 50\",\n      \"reading\": \"Above price, bullish trend\"\n    },\n    {\n      \"name\": \"Moving "
+  },
+  {
+    "model": "qwen/qwen3-vl-235b-a22b-instruct",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 2,
+    "http": 200,
+    "latency": 12.12,
+    "cost": 0.000438,
+    "ptok": 955,
+    "ctok": 281,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 3,
+      "in_range": [
+        889.49,
+        889.8,
+        889.13
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "{\n  \"instrument\": \"CAT\",\n  \"timeframe\": \"daily\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\n      \"price\": 889.49,\n      \"role\": \"target\",\n      \"label\": \"Current Price\",\n      \"confidence\": 0.95\n    },\n    {\n      \"price\": 889.80,\n      \"role\": \"resistance\",\n      \"label\": \"Recent High\",\n      \"confidence\": 0.9\n    },\n    {\n      \"price\": 889.13,\n      \"role\": \"support\",\n      \"label\": \"Recent Low\",\n      \"confidence\": 0.9\n    }\n  ],\n  \"patterns\": [],\n  \"indicators\": [\n    {\n      \"name\": \"Moving Average 50\",\n      \"reading\": \"Above price, bullish trend\"\n    },\n    {\n      \"name\": \"Moving "
+  },
+  {
+    "model": "openai/gpt-4o-mini",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 1,
+    "http": 200,
+    "latency": 2.58,
+    "cost": 0.003941,
+    "ptok": 25716,
+    "ctok": 140,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 3,
+      "in_range": [
+        854.0,
+        889.49,
+        900.0
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\"instrument\":\"CAT\",\"timeframe\":\"daily\",\"direction\":\"bullish\",\"levels\":[{\"price\":854.00,\"role\":\"support\",\"label\":null,\"confidence\":1.0},{\"price\":889.49,\"role\":\"resistance\",\"label\":null,\"confidence\":1.0},{\"price\":900.00,\"role\":\"target\",\"label\":null,\"confidence\":1.0}],\"patterns\":[],\"indicators\":[{\"name\":\"Moving Average 50\",\"reading\":\"null\"},{\"name\":\"Moving Average 200\",\"reading\":\"null\"},{\"name\":\"Moving Average 100\",\"reading\":\"null\"}],\"raw_caption\":\"Caterpillar Inc showing bullish trend with key levels.\"}\n```"
+  },
+  {
+    "model": "openai/gpt-4o-mini",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 1,
+    "http": 200,
+    "latency": 2.2,
+    "cost": 0.003924,
+    "ptok": 25716,
+    "ctok": 111,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "URA",
+      "instr_ok": true,
+      "n_levels": 1,
+      "in_range": [
+        56.02
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\"instrument\":\"URA\",\"timeframe\":\"null\",\"direction\":\"bullish\",\"levels\":[{\"price\":56.02,\"role\":\"support\",\"label\":null,\"confidence\":1.0},{\"price\":null,\"role\":\"resistance\",\"label\":null,\"confidence\":0.5},{\"price\":null,\"role\":\"target\",\"label\":null,\"confidence\":0.5}],\"patterns\":[],\"indicators\":[{\"name\":\"3C\",\"reading\":\"orange\"}],\"raw_caption\":\"Global X Uranium ETF showing bullish momentum.\"}\n```"
+  },
+  {
+    "model": "openai/gpt-4o-mini",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 2,
+    "http": 200,
+    "latency": 1.92,
+    "cost": 0.003923,
+    "ptok": 25716,
+    "ctok": 110,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "URA",
+      "instr_ok": true,
+      "n_levels": 1,
+      "in_range": [
+        56.02
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\"instrument\":\"URA\",\"timeframe\":\"daily\",\"direction\":\"bullish\",\"levels\":[{\"price\":56.02,\"role\":\"support\",\"label\":null,\"confidence\":1.0},{\"price\":null,\"role\":\"resistance\",\"label\":null,\"confidence\":0.0},{\"price\":null,\"role\":\"target\",\"label\":null,\"confidence\":0.0}],\"patterns\":[],\"indicators\":[{\"name\":\"3C\",\"reading\":\"orange\"}],\"raw_caption\":\"Global X Uranium ETF showing bullish trend.\"}\n```"
+  },
+  {
+    "model": "qwen/qwen3.5-flash-02-23",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 1,
+    "http": 200,
+    "latency": 15.17,
+    "cost": 0.000298,
+    "ptok": 958,
+    "ctok": 906,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 4,
+      "in_range": [
+        889.49,
+        900.0,
+        750.0,
+        690.0
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\n  \"instrument\": \"CAT\",\n  \"timeframe\": \"daily\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\n      \"price\": 889.49,\n      \"role\": \"target\",\n      \"label\": \"Current Price\",\n      \"confidence\": 1.0\n    },\n    {\n      \"price\": 900.0,\n      \"role\": \"resistance\",\n      \"label\": \"High\",\n      \"confidence\": 0.9\n    },\n    {\n      \"price\": 750.0,\n      \"role\": \"support\",\n      \"label\": \"MA 50\",\n      \"confidence\": 0.8\n    },\n    {\n      \"price\": 690.0,\n      \"role\": \"support\",\n      \"label\": \"MA 200\",\n      \"confidence\": 0.8\n    }\n  ],\n  \"patterns\": [\n    \"Uptrend\",\n    \"Higher Highs\"\n  ],\n "
+  },
+  {
+    "model": "openai/gpt-4o-mini",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 2,
+    "http": 200,
+    "latency": 9.32,
+    "cost": 0.003941,
+    "ptok": 25716,
+    "ctok": 140,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 3,
+      "in_range": [
+        854.0,
+        889.49,
+        900.0
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\"instrument\":\"CAT\",\"timeframe\":\"daily\",\"direction\":\"bullish\",\"levels\":[{\"price\":854.00,\"role\":\"support\",\"label\":null,\"confidence\":1.0},{\"price\":889.49,\"role\":\"resistance\",\"label\":null,\"confidence\":1.0},{\"price\":900.00,\"role\":\"target\",\"label\":null,\"confidence\":1.0}],\"patterns\":[],\"indicators\":[{\"name\":\"Moving Average 50\",\"reading\":\"null\"},{\"name\":\"Moving Average 200\",\"reading\":\"null\"},{\"name\":\"Moving Average 100\",\"reading\":\"null\"}],\"raw_caption\":\"Caterpillar Inc showing bullish trend with key levels.\"}\n```"
+  },
+  {
+    "model": "openai/gpt-5-nano",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 1,
+    "http": 200,
+    "latency": 7.94,
+    "cost": 0.000273,
+    "ptok": 1366,
+    "ctok": 512,
+    "ok": false,
+    "score": 0,
+    "detail": {},
+    "raw": ""
+  },
+  {
+    "model": "qwen/qwen3.5-flash-02-23",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 2,
+    "http": 200,
+    "latency": 24.48,
+    "cost": 0.000541,
+    "ptok": 958,
+    "ctok": 1843,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 5,
+      "in_range": [
+        889.49,
+        854.0,
+        850.0,
+        750.0,
+        710.0
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\n  \"instrument\": \"CAT\",\n  \"timeframe\": \"daily\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\n      \"price\": 889.49,\n      \"role\": \"resistance\",\n      \"label\": \"Current High\",\n      \"confidence\": 1.0\n    },\n    {\n      \"price\": 854.00,\n      \"role\": \"resistance\",\n      \"label\": \"Previous High\",\n      \"confidence\": 0.9\n    },\n    {\n      \"price\": 850.00,\n      \"role\": \"resistance\",\n      \"label\": null,\n      \"confidence\": 0.8\n    },\n    {\n      \"price\": 750.00,\n      \"role\": \"support\",\n      \"label\": null,\n      \"confidence\": 0.7\n    },\n    {\n      \"price\": 710.00,\n      \"role\": \"suppo"
+  },
+  {
+    "model": "openai/gpt-5-nano",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 2,
+    "http": 200,
+    "latency": 14.37,
+    "cost": 0.000273,
+    "ptok": 1366,
+    "ctok": 512,
+    "ok": false,
+    "score": 0,
+    "detail": {},
+    "raw": ""
+  },
+  {
+    "model": "openai/gpt-4.1-nano",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 1,
+    "http": 200,
+    "latency": 1.9,
+    "cost": 0.000273,
+    "ptok": 2106,
+    "ctok": 156,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 3,
+      "in_range": [
+        900.0,
+        850.0,
+        810.0
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "{\"instrument\": \"CAT\", \"timeframe\": \"daily\", \"direction\": \"bullish\", \"levels\": [{\"price\": 900.0, \"role\": \"resistance\", \"label\": null, \"confidence\": 0.9}, {\"price\": 850.0, \"role\": \"support\", \"label\": null, \"confidence\": 0.8}, {\"price\": 810.0, \"role\": \"support\", \"label\": null, \"confidence\": 0.7}], \"patterns\": [\"uptrend\"], \"indicators\": [{\"name\": \"Moving Average 50\", \"reading\": \"above price\"}], \"raw_caption\": \"CAT stock shows a strong upward trend with recent breakout above resistance at 900.\"}"
+  },
+  {
+    "model": "openai/gpt-4.1-nano",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 2,
+    "http": 200,
+    "latency": 1.74,
+    "cost": 0.000273,
+    "ptok": 2106,
+    "ctok": 155,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 3,
+      "in_range": [
+        900.0,
+        850.0,
+        810.0
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "{\"instrument\": \"CAT\", \"timeframe\": \"daily\", \"direction\": \"bullish\", \"levels\": [{\"price\": 900.0, \"role\": \"resistance\", \"label\": null, \"confidence\": 0.9}, {\"price\": 850.0, \"role\": \"support\", \"label\": null, \"confidence\": 0.8}, {\"price\": 810.0, \"role\": \"support\", \"label\": null, \"confidence\": 0.7}], \"patterns\": [\"uptrend\"], \"indicators\": [{\"name\": \"Moving Average 50\", \"reading\": \"above price\"}], \"raw_caption\": \"Caterpillar stock shows a strong upward trend with recent breakout above resistance.\"}"
+  },
+  {
+    "model": "openai/gpt-5-nano",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 2,
+    "http": 200,
+    "latency": 11.41,
+    "cost": 0.000264,
+    "ptok": 1174,
+    "ctok": 512,
+    "ok": false,
+    "score": 0,
+    "detail": {},
+    "raw": ""
+  },
+  {
+    "model": "openai/gpt-5-nano",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 1,
+    "http": 200,
+    "latency": 15.24,
+    "cost": 0.000264,
+    "ptok": 1174,
+    "ctok": 512,
+    "ok": false,
+    "score": 0,
+    "detail": {},
+    "raw": ""
+  },
+  {
+    "model": "openai/gpt-4.1-nano",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 2,
+    "http": 200,
+    "latency": 1.95,
+    "cost": 0.000231,
+    "ptok": 1791,
+    "ctok": 129,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "Global X Uranium ETF",
+      "instr_ok": true,
+      "n_levels": 2,
+      "in_range": [
+        61.6,
+        52.8
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "{\"instrument\": \"Global X Uranium ETF\", \"timeframe\": \"daily\", \"direction\": \"bullish\", \"levels\": [{\"price\": 61.60, \"role\": \"resistance\", \"label\": null, \"confidence\": 0.8}, {\"price\": 52.80, \"role\": \"support\", \"label\": null, \"confidence\": 0.8}], \"patterns\": [\"uptrend\"], \"indicators\": [{\"name\": \"3C\", \"reading\": \"orange\"}], \"raw_caption\": \"Uranium ETF shows strong upward momentum with recent breakout above support levels.\"}"
+  },
+  {
+    "model": "openai/gpt-4.1-nano",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 1,
+    "http": 200,
+    "latency": 4.09,
+    "cost": 0.000231,
+    "ptok": 1791,
+    "ctok": 129,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "Global X Uranium ETF",
+      "instr_ok": true,
+      "n_levels": 2,
+      "in_range": [
+        61.6,
+        52.8
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "{\"instrument\": \"Global X Uranium ETF\", \"timeframe\": \"daily\", \"direction\": \"bullish\", \"levels\": [{\"price\": 61.60, \"role\": \"resistance\", \"label\": null, \"confidence\": 0.8}, {\"price\": 52.80, \"role\": \"support\", \"label\": null, \"confidence\": 0.8}], \"patterns\": [\"uptrend\"], \"indicators\": [{\"name\": \"3C\", \"reading\": \"orange\"}], \"raw_caption\": \"Uranium ETF shows strong upward momentum with recent breakout above support levels.\"}"
+  },
+  {
+    "model": "meta-llama/llama-4-scout",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 1,
+    "http": 200,
+    "latency": 1.54,
+    "cost": 0.000178,
+    "ptok": 1526,
+    "ctok": 84,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "URA",
+      "instr_ok": true,
+      "n_levels": 1,
+      "in_range": [
+        56.02
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "{\"instrument\": \"URA\", \"timeframe\": \"Daily\", \"direction\": \"bullish\", \"levels\": [{\"price\": 56.02, \"role\": \"resistance\", \"label\": null, \"confidence\": 1.0}], \"patterns\": [], \"indicators\": [{\"name\": \"3C\", \"reading\": \"orange\"}], \"raw_caption\": \"Global X Uranium ETF\"}"
+  },
+  {
+    "model": "meta-llama/llama-4-scout",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 1,
+    "http": 200,
+    "latency": 2.44,
+    "cost": 0.000259,
+    "ptok": 2106,
+    "ctok": 161,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 2,
+      "in_range": [
+        889.49,
+        850.8
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\n  \"instrument\": \"CAT\",\n  \"timeframe\": \"daily\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    { \"price\": 889.49, \"role\": \"resistance\", \"label\": null, \"confidence\": 1.0 },\n    { \"price\": 850.80, \"role\": \"support\", \"label\": null, \"confidence\": 1.0 }\n  ],\n  \"patterns\": [],\n  \"indicators\": [\n    { \"name\": \"MA 50\", \"reading\": null },\n    { \"name\": \"MA 200\", \"reading\": null },\n    { \"name\": \"MA 100\", \"reading\": null }\n  ],\n  \"raw_caption\": null\n}\n```"
+  },
+  {
+    "model": "qwen/qwen3.5-flash-02-23",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 1,
+    "http": 200,
+    "latency": 30.87,
+    "cost": 0.000601,
+    "ptok": 862,
+    "ctok": 2097,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "URA",
+      "instr_ok": true,
+      "n_levels": 2,
+      "in_range": [
+        52.8,
+        56.02
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\n  \"instrument\": \"URA\",\n  \"timeframe\": \"intraday\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\n      \"price\": 52.8,\n      \"role\": \"support\",\n      \"label\": \"Cyan line\",\n      \"confidence\": 0.9\n    },\n    {\n      \"price\": 56.02,\n      \"role\": \"target\",\n      \"label\": \"Current Price\",\n      \"confidence\": 1.0\n    }\n  ],\n  \"patterns\": [\n    \"Bullish breakout\",\n    \"Strong uptrend\"\n  ],\n  \"indicators\": [\n    {\n      \"name\": \"3C\",\n      \"reading\": \"orange line\"\n    }\n  ],\n  \"raw_caption\": \"URA Global X Uranium ETF 5m chart showing strong bullish breakout above 52.80 support, price at 56.0"
+  },
+  {
+    "model": "meta-llama/llama-4-scout",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 2,
+    "http": 200,
+    "latency": 2.69,
+    "cost": 0.000266,
+    "ptok": 2106,
+    "ctok": 185,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 3,
+      "in_range": [
+        889.49,
+        850.8,
+        894.1
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\n  \"instrument\": \"CAT\",\n  \"timeframe\": \"daily\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    { \"price\": 889.49, \"role\": \"resistance\", \"label\": null, \"confidence\": 1.0 },\n    { \"price\": 850.80, \"role\": null, \"label\": null, \"confidence\": null },\n    { \"price\": 894.10, \"role\": null, \"label\": null, \"confidence\": null }\n  ],\n  \"patterns\": [],\n  \"indicators\": [\n    { \"name\": \"Moving Average 50\", \"reading\": null },\n    { \"name\": \"Moving Average 200\", \"reading\": null },\n    { \"name\": \"Moving Average 100\", \"reading\": null }\n  ],\n  \"raw_caption\": null\n}\n```"
+  },
+  {
+    "model": "meta-llama/llama-4-scout",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 2,
+    "http": 200,
+    "latency": 1.9,
+    "cost": 0.000186,
+    "ptok": 1526,
+    "ctok": 112,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "URA",
+      "instr_ok": true,
+      "n_levels": 1,
+      "in_range": [
+        56.02
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\n  \"instrument\": \"URA\",\n  \"timeframe\": \"daily\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\n      \"price\": 56.02,\n      \"role\": \"resistance\",\n      \"label\": null,\n      \"confidence\": 1.0\n    }\n  ],\n  \"patterns\": [],\n  \"indicators\": [\n    {\n      \"name\": \"3C\",\n      \"reading\": \"orange\"\n    }\n  ],\n  \"raw_caption\": null\n}\n```"
+  },
+  {
+    "model": "meta-llama/llama-4-maverick",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 1,
+    "http": 200,
+    "latency": 2.09,
+    "cost": 0.000402,
+    "ptok": 2106,
+    "ctok": 143,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 2,
+      "in_range": [
+        889.49,
+        850.8
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "{\"instrument\": \"CAT\", \"timeframe\": \"daily\", \"direction\": \"bullish\", \"levels\": [{\"price\": 889.49, \"role\": \"resistance\", \"label\": null, \"confidence\": 1.0}, {\"price\": 850.80, \"role\": \"support\", \"label\": null, \"confidence\": 0.8}], \"patterns\": [], \"indicators\": [{\"name\": \"Moving Average 50\", \"reading\": null}, {\"name\": \"Moving Average 200\", \"reading\": null}, {\"name\": \"Moving Average 100\", \"reading\": null}], \"raw_caption\": \"CAT Daily chart showing bullish trend with moving averages\"}"
+  },
+  {
+    "model": "qwen/qwen3.5-flash-02-23",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 2,
+    "http": 200,
+    "latency": 32.45,
+    "cost": 0.00061,
+    "ptok": 862,
+    "ctok": 2131,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "URA",
+      "instr_ok": true,
+      "n_levels": 2,
+      "in_range": [
+        52.8,
+        56.02
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\n  \"instrument\": \"URA\",\n  \"timeframe\": \"intraday\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\n      \"price\": 52.80,\n      \"role\": \"support\",\n      \"label\": \"Cyan line\",\n      \"confidence\": 0.8\n    },\n    {\n      \"price\": 56.02,\n      \"role\": \"target\",\n      \"label\": \"Current Price\",\n      \"confidence\": 1.0\n    }\n  ],\n  \"patterns\": [\n    \"Bullish breakout\",\n    \"Uptrend\"\n  ],\n  \"indicators\": [\n    {\n      \"name\": \"3C\",\n      \"reading\": \"orange line\"\n    }\n  ],\n  \"raw_caption\": \"URA Global X Uranium ETF 5m chart showing strong bullish breakout above 52.80 support with price at 56.02."
+  },
+  {
+    "model": "meta-llama/llama-4-maverick",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 1,
+    "http": 200,
+    "latency": 2.34,
+    "cost": 0.000314,
+    "ptok": 1731,
+    "ctok": 90,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "URA",
+      "instr_ok": true,
+      "n_levels": 1,
+      "in_range": [
+        56.02
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "{\"instrument\": \"URA\", \"timeframe\": \"intraday\", \"direction\": \"bullish\", \"levels\": [{\"price\": 56.02, \"role\": null, \"label\": null, \"confidence\": 1.0}], \"patterns\": [], \"indicators\": [{\"name\": \"3C\", \"reading\": \"orange\"}], \"raw_caption\": \"URA ETF chart showing price history with 3C indicator\"}"
+  },
+  {
+    "model": "meta-llama/llama-4-maverick",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 2,
+    "http": 200,
+    "latency": 6.19,
+    "cost": 0.000279,
+    "ptok": 1526,
+    "ctok": 84,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "URA",
+      "instr_ok": true,
+      "n_levels": 1,
+      "in_range": [
+        56.02
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "{\"instrument\": \"URA\", \"timeframe\": \"intraday\", \"direction\": \"bullish\", \"levels\": [{\"price\": 56.02, \"role\": null, \"label\": null, \"confidence\": 1.0}], \"patterns\": [], \"indicators\": [{\"name\": \"3C\", \"reading\": \"orange\"}], \"raw_caption\": \"Global X Uranium ETF\"}"
+  },
+  {
+    "model": "meta-llama/llama-3.2-11b-vision-instruct",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 1,
+    "http": 200,
+    "latency": 5.22,
+    "cost": 0.002351,
+    "ptok": 6624,
+    "ctok": 190,
+    "ok": false,
+    "score": 0,
+    "detail": {},
+    "raw": "The image presents a stock chart for Caterpillar Inc. (CAT) on the New York Stock Exchange (NYSE), with the following key features:\n\n*   **Instrument:** CAT\n*   **Timeframe:** Daily\n*   **Direction:** Bullish\n*   **Levels:**\n    *   **Price:** 590.00\n    *   **Role:** Support\n    *   **Label:** null\n    *   **Confidence:** 0.5\n*   **Patterns:** null\n*   **Indicators:** null\n*   **Raw Caption:** null\n\nThe chart displays a bullish trend, with the stock price increasing over time. The support level is at 590.00, indicating a potential buying opportunity. The chart does not show any specific patte"
+  },
+  {
+    "model": "meta-llama/llama-3.2-11b-vision-instruct",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 2,
+    "http": 200,
+    "latency": 6.08,
+    "cost": 0.002375,
+    "ptok": 6624,
+    "ctok": 261,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "Global X Uranium ETF",
+      "instr_ok": true,
+      "n_levels": 3,
+      "in_range": [
+        56.02,
+        53.6,
+        52.8
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "The image presents a trading chart screenshot with various data points and indicators. The chart is labeled \"Global X Uranium ETF\" and features a grid pattern with a black background and white lines. The x-axis represents time, spanning from April 2026 to April 30, 2026, while the y-axis displays prices ranging from 47.20 to 61.60.\n\nHere is the extracted data in the specified JSON format:\n\n{\"instrument\": \"Global X Uranium ETF\", \"timeframe\": \"daily\", \"direction\": \"bullish\", \"levels\": [{\"price\": 56.02, \"role\": \"support\", \"label\": \"null\", \"confidence\": 0.99}, {\"price\": 53.60, \"role\": \"resistance\""
+  },
+  {
+    "model": "meta-llama/llama-3.2-11b-vision-instruct",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 2,
+    "http": 200,
+    "latency": 6.78,
+    "cost": 0.002382,
+    "ptok": 6624,
+    "ctok": 280,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 3,
+      "in_range": [
+        690.0,
+        670.0,
+        630.0
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "The image presents a stock chart for Caterpillar Inc. (CAT) with a timeframe of daily, indicating a bullish trend. The chart features several levels, including support and resistance lines, as well as a target price. The levels are accompanied by labels and confidence values, which provide additional context to the chart's message.\n\nHere is the extracted data in the specified JSON format:\n\n{\"instrument\": \"CAT\", \"timeframe\": \"daily\", \"direction\": \"bullish\", \"levels\": [{\"price\": 690.00, \"role\": \"support\", \"label\": \"null\", \"confidence\": 0.5}, {\"price\": 670.00, \"role\": \"resistance\", \"label\": \"null"
+  },
+  {
+    "model": "meta-llama/llama-3.2-11b-vision-instruct",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 1,
+    "http": 200,
+    "latency": 6.63,
+    "cost": 0.002382,
+    "ptok": 6624,
+    "ctok": 281,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "Global X Uranium ETF",
+      "instr_ok": true,
+      "n_levels": 3,
+      "in_range": [
+        52.8,
+        53.6,
+        54.4
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "The image presents a trading chart screenshot with various data points and indicators. The chart is titled \"Global X Uranium ETF\" and features a black background with white grid lines, accompanied by a color-coded legend at the top.\n\nHere is the extracted data in JSON format:\n\n{\"instrument\": \"Global X Uranium ETF\", \"timeframe\": \"daily\", \"direction\": \"bullish\", \"levels\": [{\"price\": 52.80, \"role\": \"support\", \"label\": null, \"confidence\": 0.99}, {\"price\": 53.60, \"role\": \"resistance\", \"label\": null, \"confidence\": 0.99}, {\"price\": 54.40, \"role\": \"target\", \"label\": null, \"confidence\": 0.99}], \"patter"
+  },
+  {
+    "model": "meta-llama/llama-4-maverick",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 2,
+    "http": 200,
+    "latency": 15.6,
+    "cost": 0.000402,
+    "ptok": 2106,
+    "ctok": 144,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 2,
+      "in_range": [
+        850.8,
+        889.49
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "{\"instrument\": \"CAT\", \"timeframe\": \"daily\", \"direction\": \"bullish\", \"levels\": [{\"price\": 850.80, \"role\": \"support\", \"label\": null, \"confidence\": 0.8}, {\"price\": 889.49, \"role\": \"resistance\", \"label\": null, \"confidence\": 0.8}], \"patterns\": [], \"indicators\": [{\"name\": \"Moving Average 50\", \"reading\": null}, {\"name\": \"Moving Average 200\", \"reading\": null}, {\"name\": \"Moving Average 100\", \"reading\": null}], \"raw_caption\": \"CAT Daily chart showing bullish trend with moving averages\"}"
+  },
+  {
+    "model": "minimax/minimax-01",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 1,
+    "http": 200,
+    "latency": 11.56,
+    "cost": 0.00193,
+    "ptok": 8286,
+    "ctok": 248,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 4,
+      "in_range": [
+        900.0,
+        889.49,
+        850.0,
+        790.0
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "{\n    \"instrument\": \"CAT\",\n    \"timeframe\": \"daily\",\n    \"direction\": \"bullish\",\n    \"levels\": [\n        {\"price\": 900.00, \"role\": \"target\", \"label\": \"900.00\", \"confidence\": 0.8},\n        {\"price\": 889.49, \"role\": \"current\", \"label\": \"889.49\", \"confidence\": 1.0},\n        {\"price\": 850.00, \"role\": \"resistance\", \"label\": \"850.00\", \"confidence\": 0.7},\n        {\"price\": 790.00, \"role\": \"support\", \"label\": \"790.00\", \"confidence\": 0.6}\n    ],\n    \"patterns\": [\"uptrend\"],\n    \"indicators\": [\n        {\"name\": \"Moving Average 50\", \"reading\": \"upward\"},\n        {\"name\": \"Moving Average 200\", \"reading\": "
+  },
+  {
+    "model": "minimax/minimax-01",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 2,
+    "http": 200,
+    "latency": 9.52,
+    "cost": 0.00193,
+    "ptok": 8286,
+    "ctok": 248,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 4,
+      "in_range": [
+        900.0,
+        889.49,
+        850.0,
+        790.0
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "{\n    \"instrument\": \"CAT\",\n    \"timeframe\": \"daily\",\n    \"direction\": \"bullish\",\n    \"levels\": [\n        {\"price\": 900.00, \"role\": \"target\", \"label\": \"900.00\", \"confidence\": 0.8},\n        {\"price\": 889.49, \"role\": \"current\", \"label\": \"889.49\", \"confidence\": 1.0},\n        {\"price\": 850.00, \"role\": \"resistance\", \"label\": \"850.00\", \"confidence\": 0.7},\n        {\"price\": 790.00, \"role\": \"support\", \"label\": \"790.00\", \"confidence\": 0.6}\n    ],\n    \"patterns\": [\"uptrend\"],\n    \"indicators\": [\n        {\"name\": \"Moving Average 50\", \"reading\": \"upward\"},\n        {\"name\": \"Moving Average 200\", \"reading\": "
+  },
+  {
+    "model": "minimax/minimax-01",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 1,
+    "http": 200,
+    "latency": 9.67,
+    "cost": 0.001209,
+    "ptok": 5288,
+    "ctok": 138,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "Global X Uranium ETF",
+      "instr_ok": true,
+      "n_levels": 1,
+      "in_range": [
+        56.02
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "{\n    \"instrument\": \"Global X Uranium ETF\",\n    \"timeframe\": \"intraday\",\n    \"direction\": \"bullish\",\n    \"levels\": [\n        {\n            \"price\": 56.02,\n            \"role\": \"current price\",\n            \"label\": null,\n            \"confidence\": 1.0\n        }\n    ],\n    \"patterns\": [\"3C\"],\n    \"indicators\": [\n        {\n            \"name\": \"3C\",\n            \"reading\": \"orange\"\n        }\n    ],\n    \"raw_caption\": \"Global X Uranium ETF (URA) intraday chart showing bullish trend with current price at 56.02.\"\n}"
+  },
+  {
+    "model": "minimax/minimax-01",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 2,
+    "http": 200,
+    "latency": 5.83,
+    "cost": 0.001209,
+    "ptok": 5288,
+    "ctok": 138,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "Global X Uranium ETF",
+      "instr_ok": true,
+      "n_levels": 1,
+      "in_range": [
+        56.02
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "{\n    \"instrument\": \"Global X Uranium ETF\",\n    \"timeframe\": \"intraday\",\n    \"direction\": \"bullish\",\n    \"levels\": [\n        {\n            \"price\": 56.02,\n            \"role\": \"current price\",\n            \"label\": null,\n            \"confidence\": 1.0\n        }\n    ],\n    \"patterns\": [\"3C\"],\n    \"indicators\": [\n        {\n            \"name\": \"3C\",\n            \"reading\": \"orange\"\n        }\n    ],\n    \"raw_caption\": \"Global X Uranium ETF (URA) intraday chart showing bullish trend with current price at 56.02.\"\n}"
+  },
+  {
+    "model": "nvidia/nemotron-nano-12b-v2-vl:free",
+    "tier": "free",
+    "chart": "CAT",
+    "round": 2,
+    "http": 200,
+    "latency": 6.28,
+    "cost": 0.0,
+    "ptok": 3564,
+    "ctok": 230,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 2,
+      "in_range": [
+        889.49,
+        850.0
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\n  \"instrument\": \"CAT\",\n  \"timeframe\": \"daily\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\n      \"price\": 889.49,\n      \"role\": \"resistance\",\n      \"label\": null,\n      \"confidence\": 0.9\n    },\n    {\n      \"price\": 850.00,\n      \"role\": \"support\",\n      \"label\": null,\n      \"confidence\": 0.8\n    }\n  ],\n  \"patterns\": [\"bullish trend\"],\n  \"indicators\": [\n    {\n      \"name\": \"Moving Average 50\",\n      \"reading\": \"bullish crossover\"\n    },\n    {\n      \"name\": \"Moving Average 200\",\n      \"reading\": \"bullish crossover\"\n    },\n    {\n      \"name\": \"Moving Average 100\",\n      \"reading\": \"bu"
+  },
+  {
+    "model": "nvidia/nemotron-nano-12b-v2-vl:free",
+    "tier": "free",
+    "chart": "CAT",
+    "round": 1,
+    "http": 200,
+    "latency": 9.69,
+    "cost": 0.0,
+    "ptok": 3564,
+    "ctok": 232,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 2,
+      "in_range": [
+        889.49,
+        850.0
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\n  \"instrument\": \"CAT\",\n  \"timeframe\": \"daily\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\n      \"price\": 889.49,\n      \"role\": \"resistance\",\n      \"label\": null,\n      \"confidence\": 0.95\n    },\n    {\n      \"price\": 850.00,\n      \"role\": \"support\",\n      \"label\": null,\n      \"confidence\": 0.95\n    }\n  ],\n  \"patterns\": [\"bullish trend\"],\n  \"indicators\": [\n    {\n      \"name\": \"Moving Average 50\",\n      \"reading\": \"bullish crossover\"\n    },\n    {\n      \"name\": \"Moving Average 200\",\n      \"reading\": \"bullish crossover\"\n    },\n    {\n      \"name\": \"Moving Average 100\",\n      \"reading\": \""
+  },
+  {
+    "model": "nvidia/nemotron-nano-12b-v2-vl:free",
+    "tier": "free",
+    "chart": "URA",
+    "round": 2,
+    "http": 200,
+    "latency": 5.37,
+    "cost": 0.0,
+    "ptok": 2028,
+    "ctok": 203,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "Global X Uranium ETF (URA)",
+      "instr_ok": true,
+      "n_levels": 2,
+      "in_range": [
+        56.02,
+        61.6
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\n  \"instrument\": \"Global X Uranium ETF (URA)\",\n  \"timeframe\": \"daily\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\n      \"price\": 56.02,\n      \"role\": \"support\",\n      \"label\": null,\n      \"confidence\": 0.9\n    },\n    {\n      \"price\": 61.60,\n      \"role\": \"resistance\",\n      \"label\": null,\n      \"confidence\": 0.9\n    }\n  ],\n  \"patterns\": [\"bullish trend\"],\n  \"indicators\": [\n    {\n      \"name\": \"3C orange\",\n      \"reading\": \"Price History\"\n    }\n  ],\n  \"raw_caption\": \"Global X Uranium ETF (URA) shows a bullish trend with support at 56.02 and resistance at 61.60.\"\n}\n```\n"
+  },
+  {
+    "model": "google/gemma-4-31b-it:free",
+    "tier": "free",
+    "chart": "CAT",
+    "round": 1,
+    "http": 200,
+    "latency": 10.19,
+    "cost": 0.0,
+    "ptok": 476,
+    "ctok": 253,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "CAT",
+      "instr_ok": true,
+      "n_levels": 2,
+      "in_range": [
+        900.0,
+        889.49
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\n  \"instrument\": \"CAT\",\n  \"timeframe\": \"daily\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\n      \"price\": 900.00,\n      \"role\": \"target\",\n      \"label\": null,\n      \"confidence\": 1.0\n    },\n    {\n      \"price\": 889.49,\n      \"role\": \"null\",\n      \"label\": \"current price\",\n      \"confidence\": 1.0\n    }\n  ],\n  \"patterns\": [],\n  \"indicators\": [\n    {\n      \"name\": \"Moving Average 50\",\n      \"reading\": \"present\"\n    },\n    {\n      \"name\": \"Moving Average 100\",\n      \"reading\": \"present\"\n    },\n    {\n      \"name\": \"Moving Average 200\",\n      \"reading\": \"present\"\n    }\n  ],\n  \"raw_captio"
+  },
+  {
+    "model": "google/gemma-4-31b-it:free",
+    "tier": "free",
+    "chart": "CAT",
+    "round": 2,
+    "http": 429,
+    "latency": 0.35,
+    "error": "{\"error\":{\"message\":\"Provider returned error\",\"code\":429,\"metadata\":{\"raw\":\"google/gemma-4-31b-it:free is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate you",
+    "ok": false
+  },
+  {
+    "model": "google/gemma-4-31b-it:free",
+    "tier": "free",
+    "chart": "URA",
+    "round": 1,
+    "http": 429,
+    "latency": 0.34,
+    "error": "{\"error\":{\"message\":\"Provider returned error\",\"code\":429,\"metadata\":{\"raw\":\"google/gemma-4-31b-it:free is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate you",
+    "ok": false
+  },
+  {
+    "model": "google/gemma-4-31b-it:free",
+    "tier": "free",
+    "chart": "URA",
+    "round": 2,
+    "http": 429,
+    "latency": 0.34,
+    "error": "{\"error\":{\"message\":\"Provider returned error\",\"code\":429,\"metadata\":{\"raw\":\"google/gemma-4-31b-it:free is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate you",
+    "ok": false
+  },
+  {
+    "model": "google/gemma-4-26b-a4b-it:free",
+    "tier": "free",
+    "chart": "CAT",
+    "round": 1,
+    "http": 429,
+    "latency": 0.35,
+    "error": "{\"error\":{\"message\":\"Provider returned error\",\"code\":429,\"metadata\":{\"raw\":\"google/gemma-4-26b-a4b-it:free is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate",
+    "ok": false
+  },
+  {
+    "model": "google/gemma-4-26b-a4b-it:free",
+    "tier": "free",
+    "chart": "CAT",
+    "round": 2,
+    "http": 429,
+    "latency": 0.35,
+    "error": "{\"error\":{\"message\":\"Provider returned error\",\"code\":429,\"metadata\":{\"raw\":\"google/gemma-4-26b-a4b-it:free is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate",
+    "ok": false
+  },
+  {
+    "model": "google/gemma-4-26b-a4b-it:free",
+    "tier": "free",
+    "chart": "URA",
+    "round": 1,
+    "http": 429,
+    "latency": 0.33,
+    "error": "{\"error\":{\"message\":\"Provider returned error\",\"code\":429,\"metadata\":{\"raw\":\"google/gemma-4-26b-a4b-it:free is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate",
+    "ok": false
+  },
+  {
+    "model": "google/gemma-4-26b-a4b-it:free",
+    "tier": "free",
+    "chart": "URA",
+    "round": 2,
+    "http": 429,
+    "latency": 0.32,
+    "error": "{\"error\":{\"message\":\"Provider returned error\",\"code\":429,\"metadata\":{\"raw\":\"google/gemma-4-26b-a4b-it:free is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate",
+    "ok": false
+  },
+  {
+    "model": "moonshotai/kimi-k2.6:free",
+    "tier": "free",
+    "chart": "CAT",
+    "round": 1,
+    "http": 429,
+    "latency": 0.58,
+    "error": "{\"error\":{\"message\":\"Provider returned error\",\"code\":429,\"metadata\":{\"raw\":\"moonshotai/kimi-k2.6:free is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate your",
+    "ok": false
+  },
+  {
+    "model": "moonshotai/kimi-k2.6:free",
+    "tier": "free",
+    "chart": "CAT",
+    "round": 2,
+    "http": 429,
+    "latency": 0.55,
+    "error": "{\"error\":{\"message\":\"Provider returned error\",\"code\":429,\"metadata\":{\"raw\":\"moonshotai/kimi-k2.6:free is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate your",
+    "ok": false
+  },
+  {
+    "model": "moonshotai/kimi-k2.6:free",
+    "tier": "free",
+    "chart": "URA",
+    "round": 1,
+    "http": 429,
+    "latency": 0.55,
+    "error": "{\"error\":{\"message\":\"Provider returned error\",\"code\":429,\"metadata\":{\"raw\":\"moonshotai/kimi-k2.6:free is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate your",
+    "ok": false
+  },
+  {
+    "model": "moonshotai/kimi-k2.6:free",
+    "tier": "free",
+    "chart": "URA",
+    "round": 2,
+    "http": 429,
+    "latency": 0.54,
+    "error": "{\"error\":{\"message\":\"Provider returned error\",\"code\":429,\"metadata\":{\"raw\":\"moonshotai/kimi-k2.6:free is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate your",
+    "ok": false
+  },
+  {
+    "model": "nvidia/nemotron-nano-12b-v2-vl:free",
+    "tier": "free",
+    "chart": "URA",
+    "round": 1,
+    "http": 200,
+    "latency": 26.18,
+    "cost": 0.0,
+    "ptok": 2028,
+    "ctok": 212,
+    "ok": true,
+    "score": 100,
+    "detail": {
+      "instr": "Global X Uranium ETF",
+      "instr_ok": true,
+      "n_levels": 2,
+      "in_range": [
+        56.02,
+        61.6
+      ],
+      "out_range": [],
+      "dir": "bullish"
+    },
+    "raw": "```json\n{\n  \"instrument\": \"Global X Uranium ETF\",\n  \"timeframe\": \"daily\",\n  \"direction\": \"bullish\",\n  \"levels\": [\n    {\n      \"price\": 56.02,\n      \"role\": \"support\",\n      \"label\": null,\n      \"confidence\": 0.9\n    },\n    {\n      \"price\": 61.60,\n      \"role\": \"resistance\",\n      \"label\": null,\n      \"confidence\": 0.9\n    }\n  ],\n  \"patterns\": [\"bullish trend\"],\n  \"indicators\": [\n    {\n      \"name\": \"3C orange\",\n      \"reading\": \"Price History\"\n    }\n  ],\n  \"raw_caption\": \"Global X Uranium ETF (URA) showing a bullish trend with support at 56.02 and resistance at 61.60 as of April 30, 2026.\"\n}\n`"
+  },
+  {
+    "model": "bytedance-seed/seed-1.6-flash",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 1,
+    "http": 200,
+    "latency": 60.55,
+    "cost": 0.0,
+    "ptok": 0,
+    "ctok": 0,
+    "ok": false,
+    "score": 0,
+    "detail": {},
+    "raw": ""
+  },
+  {
+    "model": "bytedance-seed/seed-1.6-flash",
+    "tier": "paid",
+    "chart": "CAT",
+    "round": 2,
+    "http": 200,
+    "latency": 61.71,
+    "cost": 0.0,
+    "ptok": 0,
+    "ctok": 0,
+    "ok": false,
+    "score": 0,
+    "detail": {},
+    "raw": ""
+  },
+  {
+    "model": "bytedance-seed/seed-1.6-flash",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 2,
+    "http": 200,
+    "latency": 60.54,
+    "cost": 0.0,
+    "ptok": 0,
+    "ctok": 0,
+    "ok": false,
+    "score": 0,
+    "detail": {},
+    "raw": ""
+  },
+  {
+    "model": "bytedance-seed/seed-1.6-flash",
+    "tier": "paid",
+    "chart": "URA",
+    "round": 1,
+    "http": 200,
+    "latency": 61.0,
+    "cost": 0.0,
+    "ptok": 0,
+    "ctok": 0,
+    "ok": false,
+    "score": 0,
+    "detail": {},
+    "raw": ""
+  },
+  {
+    "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    "tier": "free",
+    "chart": "CAT",
+    "round": 1,
+    "http": 200,
+    "latency": 3.71,
+    "cost": 0.0,
+    "ptok": 1006,
+    "ctok": 512,
+    "ok": false,
+    "score": 0,
+    "detail": {},
+    "raw": ""
+  },
+  {
+    "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    "tier": "free",
+    "chart": "URA",
+    "round": 1,
+    "http": 429,
+    "latency": 0.06,
+    "error": "{\"error\":{\"message\":\"Rate limit exceeded: free-models-per-min. \",\"code\":429,\"metadata\":{\"headers\":{\"X-RateLimit-Limit\":\"16\",\"X-RateLimit-Remaining\":\"0\",\"X-RateLimit-Reset\":\"1780969080000\"},\"provider_n",
+    "ok": false
+  },
+  {
+    "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    "tier": "free",
+    "chart": "URA",
+    "round": 2,
+    "http": 429,
+    "latency": 0.02,
+    "error": "{\"error\":{\"message\":\"Rate limit exceeded: free-models-per-min. \",\"code\":429,\"metadata\":{\"headers\":{\"X-RateLimit-Limit\":\"16\",\"X-RateLimit-Remaining\":\"0\",\"X-RateLimit-Reset\":\"1780969080000\"},\"provider_n",
+    "ok": false
+  },
+  {
+    "model": "openrouter/free",
+    "tier": "free",
+    "chart": "CAT",
+    "round": 1,
+    "http": 429,
+    "latency": 0.04,
+    "error": "{\"error\":{\"message\":\"Rate limit exceeded: free-models-per-min. \",\"code\":429,\"metadata\":{\"headers\":{\"X-RateLimit-Limit\":\"16\",\"X-RateLimit-Remaining\":\"0\",\"X-RateLimit-Reset\":\"1780969080000\"},\"provider_n",
+    "ok": false
+  },
+  {
+    "model": "openrouter/free",
+    "tier": "free",
+    "chart": "CAT",
+    "round": 2,
+    "http": 429,
+    "latency": 0.04,
+    "error": "{\"error\":{\"message\":\"Rate limit exceeded: free-models-per-min. \",\"code\":429,\"metadata\":{\"headers\":{\"X-RateLimit-Limit\":\"16\",\"X-RateLimit-Remaining\":\"0\",\"X-RateLimit-Reset\":\"1780969080000\"},\"provider_n",
+    "ok": false
+  },
+  {
+    "model": "openrouter/free",
+    "tier": "free",
+    "chart": "URA",
+    "round": 1,
+    "http": 429,
+    "latency": 0.04,
+    "error": "{\"error\":{\"message\":\"Rate limit exceeded: free-models-per-min. \",\"code\":429,\"metadata\":{\"headers\":{\"X-RateLimit-Limit\":\"16\",\"X-RateLimit-Remaining\":\"0\",\"X-RateLimit-Reset\":\"1780969080000\"},\"provider_n",
+    "ok": false
+  },
+  {
+    "model": "openrouter/free",
+    "tier": "free",
+    "chart": "URA",
+    "round": 2,
+    "http": 429,
+    "latency": 0.03,
+    "error": "{\"error\":{\"message\":\"Rate limit exceeded: free-models-per-min. \",\"code\":429,\"metadata\":{\"headers\":{\"X-RateLimit-Limit\":\"16\",\"X-RateLimit-Remaining\":\"0\",\"X-RateLimit-Reset\":\"1780969080000\"},\"provider_n",
+    "ok": false
+  },
+  {
+    "model": "nex-agi/nex-n2-pro:free",
+    "tier": "free",
+    "chart": "CAT",
+    "round": 1,
+    "http": 200,
+    "latency": 13.64,
+    "cost": 0.0,
+    "ptok": 957,
+    "ctok": 512,
+    "ok": false,
+    "score": 0,
+    "detail": {},
+    "raw": ""
+  },
+  {
+    "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    "tier": "free",
+    "chart": "CAT",
+    "round": 2,
+    "http": 200,
+    "latency": 4.2,
+    "cost": 0.0,
+    "ptok": 1006,
+    "ctok": 512,
+    "ok": false,
+    "score": 0,
+    "detail": {},
+    "raw": ""
+  },
+  {
+    "model": "nex-agi/nex-n2-pro:free",
+    "tier": "free",
+    "chart": "CAT",
+    "round": 2,
+    "http": 200,
+    "latency": 12.48,
+    "cost": 0.0,
+    "ptok": 0,
+    "ctok": 0,
+    "ok": false,
+    "score": 0,
+    "detail": {},
+    "raw": ""
+  },
+  {
+    "model": "nex-agi/nex-n2-pro:free",
+    "tier": "free",
+    "chart": "URA",
+    "round": 2,
+    "http": 200,
+    "latency": 7.31,
+    "cost": 0.0,
+    "ptok": 861,
+    "ctok": 512,
+    "ok": false,
+    "score": 0,
+    "detail": {},
+    "raw": ""
+  },
+  {
+    "model": "nex-agi/nex-n2-pro:free",
+    "tier": "free",
+    "chart": "URA",
+    "round": 1,
+    "http": 200,
+    "latency": 9.76,
+    "cost": 0.0,
+    "ptok": 861,
+    "ctok": 512,
+    "ok": false,
+    "score": 0,
+    "detail": {},
+    "raw": ""
+  }
+]
