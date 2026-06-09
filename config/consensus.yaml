@@ -619,7 +619,9 @@ precision_engine:
     gemini_input_tokens: 2000000       # ~$0.30/day on Flash
     gemini_output_tokens: 500000
     gemini_video_calls: 100
-    wolf_vision_calls: 80              # #4 raised 30->80 (vision now on free OpenRouter; cap is just a runaway guard)
+    wolf_vision_calls: 250             # cap removed per-email (user 2026-06-09); 250/day runaway guard
+                                       #   (~7.5c/day worst case at 0.03c/chart, under the 10c/day budget;
+                                       #   real volume ~60/day = ~1.8c). Paid gemini-2.5-flash-lite.
   thresholds:
     high_confidence: 80
     medium_confidence: 65
@@ -811,7 +813,9 @@ gmail_watcher:
   per_day_total_cap: 200
   tickers_per_email_cap: 5
   # Wolf macro-brain reader (TODO #20)
-  charts_per_email_cap: 5                # max chart images read via vision per email
+  charts_per_email_cap: 100              # cap removed (user 2026-06-09) — read ALL Wolf charts;
+                                         #   100 is just a runaway ceiling (Wolf's biggest email = 39).
+                                         #   Reader = paid gemini-2.5-flash-lite (~0.03c/chart).
   cdn_allowlist: ["wolfonwallstreet-trade.com"]   # SSRF guard: only fetch chart images from here
 
 # Wolf macro-brain (#news lane). Phase-1 = reader -> thesis -> #news alert.
@@ -831,30 +835,21 @@ wolf:
   # extractor and the quote-verifier (wolf_email_parser) — keep them in sync.
   extraction_input_cap: 40000
   extraction_timeout: 60
-  vision:                               # #19/#4 chart-read config (now OpenRouter vision, not Gemini)
-    enabled: false                      # item A: master gate for Wolf chart reads; flip ON only
-                                        #   after the ≥5-chart live test passes (behind item F gate)
-    rotation_helps: true                # item A: OpenRouter free limit is per-MODEL -> rotating
-                                        #   models across charts spreads the per-minute budget
-    pace_seconds: 8                     # item A: delay between charts in one email's burst
-    per_chart_budget_seconds: 600       # item A: per-chart wall-clock cap (then skip-for-now)
-    max_attempts_per_chart: 12          # item A: attempt ceiling per chart across the pool
+  vision:                               # #19/#4 chart-read config (OpenRouter vision)
+    enabled: true                       # item A LIVE (user go 2026-06-09): read Wolf charts.
+    rotation_helps: false               # single paid model — nothing to rotate.
+    pace_seconds: 8                     # delay between charts in one email's burst
+    per_chart_budget_seconds: 600       # per-chart wall-clock cap (then skip-for-now)
+    max_attempts_per_chart: 6           # attempt ceiling per chart (paid model is reliable)
     max_output_tokens: 512              # cap output; thinking disabled in code (wolf_vision.py)
-    models:                             # item A: paced rotating free vision pool. The 5 free
-                                        #   vision models OpenRouter serves (queried 2026-06-09).
-                                        #   nemotron-nano-12b READ a real Wolf chart live. CAVEAT
-                                        #   (2026-06-09): all :free variants share OpenRouter's
-                                        #   throttled free UPSTREAM pool (429 "rate-limited upstream,
-                                        #   add your own key") — NOT 4 providers failing. enabled
-                                        #   stays false until paid_fallback is wired (the paid route
-                                        #   works: gemini-2.5-flash-lite READ the chart, 2 levels).
-      - "nvidia/nemotron-nano-12b-v2-vl:free"   # primary — proven to read charts
-      - "google/gemma-4-31b-it:free"
-      - "google/gemma-4-26b-a4b-it:free"
-      - "moonshotai/kimi-k2.6:free"
-      - "nex-agi/nex-n2-pro:free"
-    # paid shelf (user-locked ≤10¢/day) — wire if the free pool can't sustain a clean burst.
-    paid_fallback_model: ""             # e.g. a cheap paid vision model; empty = free-only
+    models:                             # PAID ONLY (user 2026-06-09): the :free variants all share
+                                        #   OpenRouter's throttled free upstream (429 "rate-limited
+                                        #   upstream, add your own key") and are unreliable — do NOT
+                                        #   use them for Wolf charts. gemini-2.5-flash-lite reads a
+                                        #   real chart cleanly for ~0.03c each ($0.10/1M in, $0.40/1M
+                                        #   out; ~2k in + ~220 out per chart).
+      - "google/gemini-2.5-flash-lite"
+    paid_fallback_model: ""             # unused — the pool above is already the paid reader.
   # Dedicated chain for thesis extraction (own chain, NOT the shared role="primary"
   # chain). Leads with gpt-oss-120b: 2026-06-02 it honored the stricter "skip
   # daily-performance mentions" prompt 4/4 (no false GOOG bull) where the weaker

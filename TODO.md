@@ -174,8 +174,14 @@ You approved turning off the AI "tidy text" pass on `!all` (saves ~9 AI calls pe
 
 The new chart-based buy/stop/target engine for `!all` is running in shadow (logs only, no visible change) — after a day, compare its numbers to the current ones and decide whether to switch it on for real.
 
-## 29. Fix the issues found in the 2026-06-08 deep-dive
+## 29. Fix the issues found in the 2026-06-08 deep-dive — DONE 2026-06-09
 
 **File:** `session-findings-2026-06-08-part2.md`
 
 Bundle of investigated fixes — get the bot reading Wolf charts again (vision-model benchmark done), purge fake test data from the live database, add one shared "is this price level sane?" check before anything is shown, make the Discord outage self-heal or alert, add clickable TweetShift links to #news, stop YouTube video bursts from blowing the free Gemini quota (whole batches failing) with a durable day-to-day transcription queue, and make a feature un-markable as "done" until a live test proves it works. (The unusual-options-flow threshold 5×→10× from this batch was already applied + committed 2026-06-08.)
+
+## 30. Turn on Wolf chart-reading — DONE 2026-06-09
+
+**File:** `wolf-vision-go-live.md`
+
+DONE — Wolf chart-reading is LIVE. The free AI vision models proved unreliable (they all share OpenRouter's throttled free pool — not separate provider outages), so it now reads ALL charts in every Wolf email with the cheap paid model gemini-2.5-flash-lite (about 2 cents a day). Proven 10/10 charts read with zero failures.

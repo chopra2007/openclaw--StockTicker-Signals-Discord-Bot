@@ -76,6 +76,13 @@ async def test_call_vision_builds_data_url_and_parses(monkeypatch):
 @pytest.mark.asyncio
 async def test_call_vision_rotates_on_quota_to_second_model(monkeypatch):
     # First model 429 (quota) -> rotate to the second model, which succeeds.
+    # Force a 2-model pool in-body so this tests the rotation LOGIC regardless of the
+    # production config (prod is a single paid model since the 2026-06-09 go-live).
+    pool = ["model-a", "model-b"]
+    _real_get = wolf_vision.cfg.get
+    monkeypatch.setattr(wolf_vision.cfg, "get",
+                        lambda k, d=None: pool if k == "wolf.vision.models"
+                        else (True if k == "wolf.vision.rotation_helps" else _real_get(k, d)))
     fake_cc, calls = _make_capture([("", 429, "rate limit exceeded"), _GOOD_JSON])
     monkeypatch.setattr(wolf_vision, "vision_completion", fake_cc)
 
@@ -83,8 +90,8 @@ async def test_call_vision_rotates_on_quota_to_second_model(monkeypatch):
 
     assert parsed is not None and parsed["instrument"] == "QQQ"
     assert len(calls) == 2
-    assert calls[0]["model"] == "nvidia/nemotron-nano-12b-v2-vl:free"
-    assert calls[1]["model"] == "google/gemma-4-31b-it:free"
+    assert calls[0]["model"] == "model-a"
+    assert calls[1]["model"] == "model-b"
 
 
 @pytest.mark.asyncio

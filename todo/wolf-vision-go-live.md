@@ -1,11 +1,13 @@
-# Wolf chart-vision — built, awaiting go-live
+# Wolf chart-vision — LIVE on paid gemini-2.5-flash-lite
 
-**Status:** OPEN
+**Status:** DONE 2026-06-09
 **Created:** 2026-06-09
 
-The Wolf chart-reader (item A of the deep-dive-2026-06-08 run) is **built and the mechanism is
-proven live**, but its master flag `wolf.vision.enabled` is **OFF** because the free vision
-models can't yet read a full 5-chart email cleanly. This is a built-but-off feature.
+The Wolf chart-reader (item A of the deep-dive-2026-06-08 run) is **LIVE**. After the free
+OpenRouter vision models proved unreliable (they share OpenRouter's throttled free upstream —
+NOT 4 providers failing, see diagnosis below), the user chose the paid path: read ALL Wolf
+charts (per-email cap removed) with `google/gemini-2.5-flash-lite` only, no free models.
+Proven live 10/10 charts, zero failures; ~0.03c/chart, ~1.8c/day. `wolf.vision.enabled: true`.
 
 ## What works (proven live this session)
 - New paced, rotating, status-aware chain: `vision_completion` (returns HTTP status), retry
