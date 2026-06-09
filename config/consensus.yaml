@@ -752,7 +752,7 @@ features:
 # "Balanced" thresholds (user-chosen 2026-05-29): a contract must trade >=N x
 # its open interest, >= min_volume contracts, and >= min_premium notional.
 options_flow:
-  min_vol_oi: 5.0                  # day volume / open interest (fresh positioning)
+  min_vol_oi: 10.0                 # day volume / open interest (fresh positioning) — raised 5→10 (user: too many alerts, 2026-06-08)
   min_volume: 500                  # contracts traded today
   min_premium_usd: 250000          # notional = lastPrice * volume * 100
   max_staleness_min: 60            # skip contracts whose last trade is older (no stale/closed-market alerts)
