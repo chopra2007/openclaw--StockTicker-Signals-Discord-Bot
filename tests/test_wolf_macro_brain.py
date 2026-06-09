@@ -809,6 +809,11 @@ async def test_chart_timeframe_attached_to_thesis(monkeypatch):
     monkeypatch.setattr(wolf_email_parser, "extract_chart_urls",
                         lambda html, cap: ["https://wolfonwallstreet-trade.com/wp-content/uploads/x.jpg"])
     monkeypatch.setattr(wolf_email_parser.wolf_vision, "read_chart", fake_chart)
+    # Item A: chart reads are gated on wolf.vision.enabled (default OFF). This test exercises
+    # the chart->thesis attachment, so force the gate on (read_chart itself is mocked).
+    _real_get = wolf_email_parser.cfg.get
+    monkeypatch.setattr(wolf_email_parser.cfg, "get",
+                        lambda k, d=None: True if k == "wolf.vision.enabled" else _real_get(k, d))
     res = await wolf_email_parser.parse_email(text="semis", html="<p>x</p>", subject="s", sender="x", ts=1.0)
     assert res["theses"][0].get("chart_timeframes") == ["daily"]
 

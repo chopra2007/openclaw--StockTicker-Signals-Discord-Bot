@@ -683,6 +683,23 @@ CREATE TABLE IF NOT EXISTS wolf_emails_processed (
     processed_at REAL NOT NULL
 );
 
+-- Item A (deep-dive-2026-06-08): one row per OpenRouter vision call (success OR failure)
+-- so failures are visible (the existing api_usage_daily.wolf_vision_calls counter only
+-- counts successes). Answers "which model 429'd on chart #4". Additive, append-only.
+CREATE TABLE IF NOT EXISTS wolf_vision_calls_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts REAL NOT NULL,
+    instrument TEXT,
+    chart_url_hash TEXT,
+    model TEXT,
+    http_status INTEGER,
+    retry_class TEXT,
+    ok INTEGER NOT NULL DEFAULT 0,
+    latency_ms INTEGER,
+    attempt_no INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_wolf_vision_calls_ts ON wolf_vision_calls_log(ts);
+
 -- Phase-2 cross-source confluence (TODO #20, Type-2): ONE current-state row per
 -- thesis (UPSERT on thesis_id) so the table stays bounded by the small # of active
 -- theses. alerted_tier carries the hysteresis (only a strict tier-UP re-posts).
@@ -3150,6 +3167,32 @@ async def wolf_email_seen(message_id: str) -> bool:
         "SELECT 1 FROM wolf_emails_processed WHERE message_id = ?", (message_id,)
     )
     return await cur.fetchone() is not None
+
+
+async def log_wolf_vision_call(
+    *,
+    instrument: str | None,
+    chart_url_hash: str | None,
+    model: str | None,
+    http_status: int | None,
+    retry_class: str | None,
+    ok: bool,
+    latency_ms: int | None,
+    attempt_no: int | None,
+) -> None:
+    """Append one row per OpenRouter vision call (item A). Never raises."""
+    try:
+        conn = await get_db()
+        await conn.execute(
+            """INSERT INTO wolf_vision_calls_log
+               (ts, instrument, chart_url_hash, model, http_status, retry_class, ok, latency_ms, attempt_no)
+               VALUES (?,?,?,?,?,?,?,?,?)""",
+            (time.time(), instrument, chart_url_hash, model, http_status, retry_class,
+             1 if ok else 0, latency_ms, attempt_no),
+        )
+        await conn.commit()
+    except Exception as e:
+        log.debug("log_wolf_vision_call failed: %s", e)
 
 
 async def record_wolf_email(

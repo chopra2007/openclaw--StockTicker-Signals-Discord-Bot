@@ -832,10 +832,27 @@ wolf:
   extraction_input_cap: 40000
   extraction_timeout: 60
   vision:                               # #19/#4 chart-read config (now OpenRouter vision, not Gemini)
+    enabled: false                      # item A: master gate for Wolf chart reads; flip ON only
+                                        #   after the ≥5-chart live test passes (behind item F gate)
+    rotation_helps: true                # item A: OpenRouter free limit is per-MODEL -> rotating
+                                        #   models across charts spreads the per-minute budget
+    pace_seconds: 8                     # item A: delay between charts in one email's burst
+    per_chart_budget_seconds: 600       # item A: per-chart wall-clock cap (then skip-for-now)
+    max_attempts_per_chart: 12          # item A: attempt ceiling per chart across the pool
     max_output_tokens: 512              # cap output; thinking disabled in code (wolf_vision.py)
-    models:                             # #4 verified free OpenRouter vision chain (probed live 2026-06-08)
-      - "nvidia/nemotron-nano-12b-v2-vl:free"   # primary — reads charts correctly
-      - "google/gemma-4-31b-it:free"            # fallback — repo-proven
+    models:                             # item A: paced rotating free vision pool. The 5 free
+                                        #   vision models OpenRouter actually serves (queried
+                                        #   2026-06-09). nemotron-nano-12b READ a real Wolf chart
+                                        #   live; the rest rotate as alternate per-minute buckets.
+                                        #   Free providers are flaky (429/502) — keep enabled:false
+                                        #   until a ≥5-chart burst reads clean, else use paid_fallback.
+      - "nvidia/nemotron-nano-12b-v2-vl:free"   # primary — proven to read charts
+      - "google/gemma-4-31b-it:free"
+      - "google/gemma-4-26b-a4b-it:free"
+      - "moonshotai/kimi-k2.6:free"
+      - "nex-agi/nex-n2-pro:free"
+    # paid shelf (user-locked ≤10¢/day) — wire if the free pool can't sustain a clean burst.
+    paid_fallback_model: ""             # e.g. a cheap paid vision model; empty = free-only
   # Dedicated chain for thesis extraction (own chain, NOT the shared role="primary"
   # chain). Leads with gpt-oss-120b: 2026-06-02 it honored the stricter "skip
   # daily-performance mentions" prompt 4/4 (no false GOOG bull) where the weaker

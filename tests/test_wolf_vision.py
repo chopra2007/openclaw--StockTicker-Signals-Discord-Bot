@@ -26,22 +26,28 @@ _FAKE_PNG = b"\x89PNGfake-png-bytes"
 
 
 def _make_capture(returns):
-    """Return (fake_chat_completion, calls) where calls records each invocation."""
+    """Return (fake_vision_completion, calls). Each element of `returns` is either a
+    plain content string (treated as a 200 success/parse) or a (content, status, body)
+    tuple for failure injection. Mirrors the new vision_completion (content, status, body)."""
     seq = list(returns)
     calls = []
 
-    async def fake_chat_completion(model, messages, *, max_tokens=2048, temperature=0.1):
+    async def fake_vision_completion(model, messages, *, max_tokens=512, temperature=0.0):
         calls.append({"model": model, "messages": messages,
                       "max_tokens": max_tokens, "temperature": temperature})
-        return seq[len(calls) - 1]
+        idx = len(calls) - 1
+        item = seq[idx] if idx < len(seq) else seq[-1]  # repeat last -> pool-size agnostic
+        if isinstance(item, tuple):
+            return item
+        return (item, 200, item)  # content -> 200 success
 
-    return fake_chat_completion, calls
+    return fake_vision_completion, calls
 
 
 @pytest.mark.asyncio
 async def test_call_vision_builds_data_url_and_parses(monkeypatch):
     fake_cc, calls = _make_capture([_GOOD_JSON])
-    monkeypatch.setattr(wolf_vision, "chat_completion", fake_cc)
+    monkeypatch.setattr(wolf_vision, "vision_completion", fake_cc)
 
     parsed = await wolf_vision._call_vision_image(_FAKE_JPEG, "image/jpeg")
 
@@ -68,36 +74,35 @@ async def test_call_vision_builds_data_url_and_parses(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_call_vision_falls_through_to_second_model(monkeypatch):
-    # First model returns '' (empty) -> second model is used and succeeds.
-    fake_cc, calls = _make_capture(["", _GOOD_JSON])
-    monkeypatch.setattr(wolf_vision, "chat_completion", fake_cc)
+async def test_call_vision_rotates_on_quota_to_second_model(monkeypatch):
+    # First model 429 (quota) -> rotate to the second model, which succeeds.
+    fake_cc, calls = _make_capture([("", 429, "rate limit exceeded"), _GOOD_JSON])
+    monkeypatch.setattr(wolf_vision, "vision_completion", fake_cc)
 
     parsed = await wolf_vision._call_vision_image(_FAKE_JPEG, "image/jpeg")
 
     assert parsed is not None and parsed["instrument"] == "QQQ"
     assert len(calls) == 2
-    assert calls[0]["model"] != calls[1]["model"]
-    # the verified default chain, in order.
     assert calls[0]["model"] == "nvidia/nemotron-nano-12b-v2-vl:free"
     assert calls[1]["model"] == "google/gemma-4-31b-it:free"
 
 
 @pytest.mark.asyncio
-async def test_call_vision_all_models_fail_returns_none(monkeypatch):
-    fake_cc, calls = _make_capture(["", ""])
-    monkeypatch.setattr(wolf_vision, "chat_completion", fake_cc)
+async def test_call_vision_all_models_quota_returns_none(monkeypatch):
+    fake_cc, calls = _make_capture([("", 429, "rate limit")])  # every call -> 429 (repeat last)
+    monkeypatch.setattr(wolf_vision, "vision_completion", fake_cc)
+    n_models = len(wolf_vision.cfg.get("wolf.vision.models", wolf_vision._DEFAULT_VISION_MODELS))
 
     parsed = await wolf_vision._call_vision_image(_FAKE_PNG, "image/png")
 
     assert parsed is None
-    assert len(calls) == 2
+    assert len(calls) == n_models  # one quota attempt per pool model, then exhausted
 
 
 @pytest.mark.asyncio
 async def test_read_chart_sniffs_png_mime_and_returns_validated(monkeypatch):
     fake_cc, calls = _make_capture([_GOOD_JSON])
-    monkeypatch.setattr(wolf_vision, "chat_completion", fake_cc)
+    monkeypatch.setattr(wolf_vision, "vision_completion", fake_cc)
 
     async def fake_fetch(url):
         return _FAKE_PNG

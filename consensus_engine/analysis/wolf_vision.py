@@ -11,17 +11,19 @@ gemma-4-31b-it is the fallback — hence the multi-model fallback list.
 from __future__ import annotations
 
 import base64
+import hashlib
 import ipaddress
 import json
 import logging
 import re
 import socket
+import time
 from urllib.parse import urlparse
 
 import aiohttp
 
 from consensus_engine import config as cfg
-from models.openrouter_client import chat_completion
+from models.openrouter_client import vision_completion
 
 log = logging.getLogger(__name__)
 
@@ -133,8 +135,24 @@ def _parse_json(raw: str) -> dict | None:
     return None
 
 
-async def _call_vision_image(data: bytes, mime_type: str) -> dict | None:
-    """Send image bytes to OpenRouter vision with model fallback. Returns parsed dict or None."""
+async def _call_vision_image(data: bytes, mime_type: str, chart_hash: str = "") -> dict | None:
+    """Send image bytes to OpenRouter vision with a paced rotating free-model pool.
+
+    Item A (deep-dive-2026-06-08): replaces the fire-each-once-and-give-up loop. Uses
+    vision_completion (exposes HTTP status) + burst_retry.classify_retry:
+      QUOTA_BLOCKED -> rotate to the next pool model immediately (a different model is a
+        different per-minute bucket; wolf.vision.rotation_helps=true since the OpenRouter
+        free limit is per-MODEL).
+      TRANSIENT     -> brief backoff, retry the SAME model.
+      PERMANENT     -> log, move to the next model.
+    Bounded by a per-chart wall-clock budget (~10 min) + an attempt ceiling so a persistent
+    502 on one chart can't wedge the whole email — on exceed, give up THIS chart (the email
+    still posts with the charts that read). Never returns an empty 'final' on a transient state.
+    Each call is logged to wolf_vision_calls_log (success or failure)."""
+    from consensus_engine.utils.burst_retry import classify_retry, parse_retry_after, next_backoff, RetryClass
+    import asyncio
+    from consensus_engine import db
+
     b64 = base64.b64encode(data).decode()
     messages = [
         {
@@ -146,13 +164,60 @@ async def _call_vision_image(data: bytes, mime_type: str) -> dict | None:
         }
     ]
     max_tokens = cfg.get("wolf.vision.max_output_tokens", 512)
-    models = cfg.get("wolf.vision.models", _DEFAULT_VISION_MODELS)
-    for model in models:
-        raw = await chat_completion(model, messages, max_tokens=max_tokens, temperature=0.0)
-        parsed = _parse_json(raw)
-        if parsed is not None and _validate(parsed):
+    models = list(cfg.get("wolf.vision.models", _DEFAULT_VISION_MODELS))
+    rotation_helps = bool(cfg.get("wolf.vision.rotation_helps", True))
+    budget_s = float(cfg.get("wolf.vision.per_chart_budget_seconds", 600))
+    max_attempts = int(cfg.get("wolf.vision.max_attempts_per_chart", 12))
+    start = time.monotonic()
+
+    if not rotation_helps:
+        models = models[:1]  # per-IP limit: rotation is a no-op; pace one model with backoff
+
+    attempt = 0
+    mi = 0
+    transient_strikes = 0
+    while mi < len(models) and attempt < max_attempts and (time.monotonic() - start) < budget_s:
+        model = models[mi]
+        attempt += 1
+        t0 = time.monotonic()
+        content, status, body = await vision_completion(model, messages, max_tokens=max_tokens, temperature=0.0)
+        latency_ms = int((time.monotonic() - t0) * 1000)
+        parsed = _parse_json(content) if content else None
+        ok = parsed is not None
+        rc = None if ok else classify_retry(http_status=status, body=body)
+        await db.log_wolf_vision_call(
+            instrument=(parsed or {}).get("instrument") if parsed else None,
+            chart_url_hash=chart_hash, model=model, http_status=status,
+            retry_class=(rc.value if rc else "ok"), ok=ok, latency_ms=latency_ms, attempt_no=attempt,
+        )
+        if ok:
             return parsed
-        log.warning("wolf_vision: %s returned no usable result, trying next model", model)
+
+        if rc is RetryClass.QUOTA_BLOCKED:
+            log.warning("wolf_vision: %s quota-blocked, rotating model", model)
+            mi += 1
+            transient_strikes = 0
+            wait = parse_retry_after(body)
+            if not rotation_helps and wait:
+                await asyncio.sleep(min(wait, 60))
+                mi = 0  # single-model mode: stay on the one model, just wait
+            continue
+        if rc is RetryClass.TRANSIENT:
+            transient_strikes += 1
+            if transient_strikes >= 3:
+                log.warning("wolf_vision: %s transient x%d, moving to next model", model, transient_strikes)
+                mi += 1
+                transient_strikes = 0
+                continue
+            await asyncio.sleep(min(next_backoff(transient_strikes), max(0.0, budget_s - (time.monotonic() - start))))
+            continue
+        # PERMANENT (or unparseable usable result): try the next model
+        log.warning("wolf_vision: %s permanent/unusable (status=%s), next model", model, status)
+        mi += 1
+        transient_strikes = 0
+
+    log.warning("wolf_vision: chart unread after %d attempts / %.0fs (budget=%.0fs) — skip for now",
+                attempt, time.monotonic() - start, budget_s)
     return None
 
 
@@ -215,9 +280,22 @@ async def read_chart(url: str, recent_price: float | None = None) -> dict | None
         return None
     # sniff mime from the bytes' magic number (JPEG starts 0xFF 0xD8); else png
     mime = "image/jpeg" if data[:2] == b"\xff\xd8" else "image/png"
-    parsed = await _call_vision_image(data, mime)
+    chart_hash = hashlib.sha1(url.encode()).hexdigest()[:16]
+    parsed = await _call_vision_image(data, mime, chart_hash=chart_hash)
     if parsed is None:
         return None
+    # Item A: ARM the dead ±30% guard. recent_price was never passed by the email-parser
+    # caller, so the band never fired. Resolve the read instrument -> live quote and validate
+    # against it (equity charts only; indices -> None -> skipped, backstopped by item C's
+    # _INDEX_RANGE at display).
+    if recent_price is None:
+        instrument = parsed.get("instrument")
+        if instrument:
+            try:
+                from consensus_engine.api_adapters import get_live_quote_price
+                recent_price = await get_live_quote_price(str(instrument).upper())
+            except Exception as e:
+                log.debug("wolf_vision: recent_price lookup failed for %s: %s", instrument, e)
     result = _validate(parsed, recent_price)
     result["source_url"] = url
     await budget.consume("wolf_vision_calls", 1)

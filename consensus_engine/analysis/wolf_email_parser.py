@@ -28,6 +28,10 @@ log = logging.getLogger(__name__)
 
 _VALID_DIRECTIONS = {"bull", "bear", "neutral"}
 _VALID_STAGES = {"forming", "diverging", "imminent", "acting"}
+
+# Item A: process-level lock so two Wolf emails arriving together serialize their chart
+# bursts instead of doubling the OpenRouter free-pool burst.
+_VISION_BURST_LOCK = asyncio.Lock()
 _TICKER_RE = re.compile(r"^[A-Z\^][A-Z0-9.\-=&]{0,11}$")
 
 # Generic style/factor/observation words the LLM sometimes emits as an "identifier"
@@ -401,12 +405,22 @@ async def parse_email(
     _verify_quotes_against_body(theses, body[:cfg.get("wolf.extraction_input_cap", 40000)])
 
     # 2. Chart reads (capped, deterministic order).
+    # Item A (deep-dive-2026-06-08): gated on wolf.vision.enabled (flip ON only after the
+    # ≥5-chart live test passes, behind item F's evidence gate). Paced (pace_seconds between
+    # charts) and serialized by a process-level lock so two emails arriving together don't
+    # double the OpenRouter burst that exhausts the free per-minute pool.
     chart_reads = []
-    cap = cfg.get("gmail_watcher.charts_per_email_cap", 5)
-    for url in extract_chart_urls(html, cap):
-        cr = await wolf_vision.read_chart(url)
-        if cr:
-            chart_reads.append(cr)
+    if cfg.get("wolf.vision.enabled", False):
+        cap = cfg.get("gmail_watcher.charts_per_email_cap", 5)
+        pace_s = float(cfg.get("wolf.vision.pace_seconds", 8))
+        urls = extract_chart_urls(html, cap)
+        async with _VISION_BURST_LOCK:
+            for i, url in enumerate(urls):
+                cr = await wolf_vision.read_chart(url)
+                if cr:
+                    chart_reads.append(cr)
+                if i < len(urls) - 1:
+                    await asyncio.sleep(pace_s)
 
     # 3. Attach chart-derived data to matching theses by the FULL (scope_type, scope_key)
     #    tuple (never bare scope_key — avoids cross-scope mis-attribution): merge levels
