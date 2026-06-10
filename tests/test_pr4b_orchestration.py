@@ -234,8 +234,10 @@ def test_vault_writer_render_includes_all_sections():
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-async def test_narrator_synthesize_calls_primary_with_8k_tokens():
-    """Primary-tier call_with_fallback hit with role=primary, max_tokens=8000."""
+async def test_narrator_synthesize_calls_primary_with_configured_tokens():
+    """Primary-tier call_with_fallback hit with role=primary and max_tokens =
+    llm.all_command_synthesis_max_tokens (default 4000; was a hardcoded 8000 that
+    pushed prompt+reservation over Groq's 12k TPM cap and 413'd big tickers)."""
     structured = StructuredFields(direction="BULLISH", confidence_label="HIGH")
     breakdown = ScoreBreakdown(base=10, news_catalyst=20)
     seen = {}
@@ -264,7 +266,8 @@ async def test_narrator_synthesize_calls_primary_with_8k_tokens():
     assert status == "ok"
     assert narrative
     assert seen["role"] == "primary"
-    assert seen["max_tokens"] == 8000
+    from consensus_engine import config as _cfg
+    assert seen["max_tokens"] == int(_cfg.get("llm.all_command_synthesis_max_tokens", 4000))
     assert seen["temperature"] == 0.35
 
 

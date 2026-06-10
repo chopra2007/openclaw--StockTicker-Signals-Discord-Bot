@@ -79,10 +79,11 @@ def _f3_only_cfg(key, default=None):
 
 @pytest.mark.asyncio
 async def test_chain_propagates_gemini_quota_category():
-    """Item G (deep-dive-2026-06-08): when Gemini fails on quota and Whisper also fails,
-    the chain's returned telemetry must carry f2_failure_category='quota' so the scanner
-    marks the video 'quota_blocked' (carry over), not 'failed' (burn a retry). Regression
-    guard for the _stage_gemini propagation bug."""
+    """Item G (deep-dive-2026-06-08): when Gemini fails on quota and the captions
+    backup also fails (here: captions disabled), the chain's returned telemetry must
+    carry f2_failure_category='quota' so the scanner marks the video 'quota_blocked'
+    (carry over), not 'failed' (burn a retry). Regression guard for the _stage_gemini
+    propagation bug. (_f3_only_cfg disables captions, so nothing runs after Gemini.)"""
     gem_tel = RunTelemetry()
     gem_tel.f2_failure_category = "quota"
 
@@ -92,8 +93,6 @@ async def test_chain_propagates_gemini_quota_category():
         patch("consensus_engine.local_video_ingest.cleanup_run_workspace"),
         patch("consensus_engine.analysis.gemini_video_parser.extract_evidence_with_gemini",
               new_callable=AsyncMock, return_value=(None, gem_tel)),
-        patch("consensus_engine.local_video_ingest._stage_whisper",
-              new_callable=AsyncMock, return_value=None),
     ):
         from consensus_engine.local_video_ingest import _run_chain
         bundle, telemetry = await _run_chain("dQw4w9WgXcQ", "Test Channel", "2026-01-01T00:00:00Z")
@@ -102,73 +101,9 @@ async def test_chain_propagates_gemini_quota_category():
     assert telemetry.f2_failure_category == "quota"
 
 
-@pytest.mark.asyncio
-async def test_f3_happy_path():
-    """F3 succeeds: mocked Gemini fails, Whisper returns transcript, chain_winner set."""
-    transcript_text = "Today I'm buying $NVDA and $SPY for the breakout."
-    from consensus_engine.models import EvidenceBundle, EvidenceSpan
-
-    fake_bundle = EvidenceBundle(
-        video_id="dQw4w9WgXcQ",
-        duration_sec=60,
-        publish_ts="2026-01-01T00:00:00Z",
-        spans=[EvidenceSpan(ts_sec=0, quote="buying $NVDA", tickers=["NVDA"])],
-    )
-
-    with (
-        patch("consensus_engine.config.get", side_effect=_f3_only_cfg),
-        patch("consensus_engine.local_video_ingest.pre_flight_check", return_value=True),
-        patch("consensus_engine.local_video_ingest.cleanup_run_workspace"),
-        patch("consensus_engine.local_video_ingest._stage_gemini", new_callable=AsyncMock, return_value=None),
-        patch("consensus_engine.local_video_ingest._stage_whisper", new_callable=AsyncMock, return_value=fake_bundle),
-    ):
-        from consensus_engine.local_video_ingest import _run_chain
-        bundle, telemetry = await _run_chain("dQw4w9WgXcQ", "Test Channel", "2026-01-01T00:00:00Z")
-
-    # patch _stage_whisper but telemetry.chain_winner is set by the real _run_chain only if
-    # bundle is returned; since we mock the stage function, just check bundle returned
-    assert bundle is not None
-    assert "gemini/v2" in telemetry.chain_attempts
-    assert "whisper-groq/v1" in telemetry.chain_attempts
-
-
-@pytest.mark.asyncio
-async def test_f3_groq_429_falls_to_terminal():
-    """Both Gemini and Whisper fail: chain returns (None, telemetry) with chain_winner=None."""
-    with (
-        patch("consensus_engine.config.get", side_effect=_f3_only_cfg),
-        patch("consensus_engine.local_video_ingest.pre_flight_check", return_value=True),
-        patch("consensus_engine.local_video_ingest.cleanup_run_workspace"),
-        patch("consensus_engine.local_video_ingest._stage_gemini", new_callable=AsyncMock, return_value=None),
-        patch("consensus_engine.local_video_ingest._stage_whisper", new_callable=AsyncMock, return_value=None),
-    ):
-        from consensus_engine.local_video_ingest import _run_chain
-        bundle, telemetry = await _run_chain("dQw4w9WgXcQ", "Test Channel", "2026-01-01T00:00:00Z")
-
-    assert bundle is None
-    assert telemetry.chain_winner is None
-
-
-@pytest.mark.asyncio
-async def test_f3_grounding_rejects_all():
-    """When fetch_audio_transcript returns transcript but all tickers are ungrounded: None returned."""
-    transcript_text = "The market is broadly moving higher today."
-
-    with (
-        patch("consensus_engine.config.get", side_effect=_f3_only_cfg),
-        patch("consensus_engine.local_video_ingest.pre_flight_check", return_value=True),
-        patch("consensus_engine.local_video_ingest.cleanup_run_workspace"),
-        patch("consensus_engine.local_video_ingest._stage_gemini", new_callable=AsyncMock, return_value=None),
-        patch("consensus_engine.local_video_ingest.fetch_audio_transcript", new_callable=AsyncMock, return_value=transcript_text),
-        patch("consensus_engine.analysis.hallucination_grounding.ground_transcript_tickers",
-              return_value=[{"ticker": "FAKE", "grounding_status": "ungrounded"}]),
-        patch("consensus_engine.local_video_ingest._TICKER_RE") as mock_re,
-    ):
-        mock_re.findall.return_value = ["FAKE"]
-        from consensus_engine.local_video_ingest import _run_chain
-        bundle, telemetry = await _run_chain("dQw4w9WgXcQ", "Test Channel", "2026-01-01T00:00:00Z")
-
-    assert bundle is None
+# REMOVED 2026-06-09: test_f3_happy_path, test_f3_groq_429_falls_to_terminal,
+# test_f3_grounding_rejects_all — they tested the F3 yt-dlp+Whisper stage, which was
+# deleted (yt-dlp is IP-blocked on this VPS so the stage never worked here).
 
 
 # ─── US-VF-002: F6 pre-flight disk pressure ──────────────────────────────────
@@ -213,41 +148,22 @@ async def test_s2_short_video_id_raises():
         await extract_evidence_via_chain("tooshort", "Test", "2026-01-01T00:00:00Z")
 
 
-# ─── C2.1: Whisper prompt rework (yt-chain-fixes) ────────────────────────────
-
-def test_whisper_prompt_is_naturalistic_no_dollar_tickers():
-    """The Groq Whisper prompt must not list $XXX tickens (anti-pattern that biased Whisper
-    to invent dollar-prefixed symbols like $GOODPAL, $VYD). It should use a naturalistic
-    domain hint instead."""
-    import pathlib
-    src = pathlib.Path(__file__).parent.parent / "consensus_engine" / "local_video_ingest.py"
-    text = src.read_text()
-    # The old anti-pattern must be gone
-    assert "Finance: tickers like $SPY" not in text, "old anti-pattern Whisper prompt still present"
-    # The new naturalistic prompt must be present
-    assert "This transcript covers financial markets" in text, "new Whisper prompt not found"
-    # No $XXX-style tokens in any Whisper prompt assignment
-    import re
-    for line in text.splitlines():
-        if "prompt=" in line and "transcriptions" in text[max(0, text.find(line) - 200):text.find(line)]:
-            # crude check: no $ followed by 2+ uppercase letters
-            assert not re.search(r"\$[A-Z]{2,}", line), f"dollar-prefixed ticker in prompt line: {line!r}"
+# REMOVED 2026-06-09: test_whisper_prompt_is_naturalistic_no_dollar_tickers — it
+# asserted on the Groq Whisper prompt, which was deleted with the F3 stage.
 
 
-# ─── R3: force-whisper hook via youtube.gemini.disabled_for_test ─────────────
+# ─── R3: disabled_for_test hook via youtube.gemini.disabled_for_test ─────────
 
 @pytest.mark.asyncio
-async def test_force_whisper_hook_skips_gemini():
-    """When youtube.gemini.disabled_for_test=True, the chain skips F2 entirely and
-    only attempts F3 (whisper-groq/v1). Used by verification probes to exercise F3
-    in production-shaped traffic without changing default behavior."""
+async def test_disabled_for_test_hook_skips_gemini():
+    """When youtube.gemini.disabled_for_test=True, the chain skips F2 (Gemini). With
+    captions also disabled here, nothing runs and it returns None. (The hook used to
+    force the old F3 whisper stage; whisper is gone, so it just skips Gemini now.)"""
     def cfg_get(key, default=None):
         if key == "youtube.gemini.disabled_for_test":
             return True
         if key == "youtube.captions.enabled":
             return False
-        if key == "youtube.whisper.enabled":
-            return True
         return default
 
     with (
@@ -255,7 +171,6 @@ async def test_force_whisper_hook_skips_gemini():
         patch("consensus_engine.local_video_ingest.cleanup_run_workspace"),
         patch("consensus_engine.config.get", side_effect=cfg_get),
         patch("consensus_engine.local_video_ingest._stage_gemini", new_callable=AsyncMock, return_value=None) as gem_mock,
-        patch("consensus_engine.local_video_ingest._stage_whisper", new_callable=AsyncMock, return_value=None),
     ):
         from consensus_engine.local_video_ingest import _run_chain
         bundle, telemetry = await _run_chain("dQw4w9WgXcQ", "Test Channel", "2026-01-01T00:00:00Z")
@@ -263,7 +178,7 @@ async def test_force_whisper_hook_skips_gemini():
     # F2 must NOT have been called when the hook is set
     gem_mock.assert_not_called()
     assert "gemini/v2" not in telemetry.chain_attempts
-    assert "whisper-groq/v1" in telemetry.chain_attempts
+    assert bundle is None
 
 
 @pytest.mark.asyncio
@@ -282,27 +197,18 @@ async def test_fetch_captions_disabled_returns_none():
 
 
 @pytest.mark.asyncio
-async def test_fetch_captions_supadata_fallback_on_ytapi_failure():
-    """When youtube_transcript_api raises (e.g. IpBlocked from cloud IPs),
-    fetch_captions falls back to Supadata and returns its transcript."""
+async def test_fetch_captions_via_supadata():
+    """fetch_captions is Supadata-only now (the youtube_transcript_api tier was removed
+    2026-06-09 — IP-blocked). It returns Supadata's transcript when present."""
     def cfg_get(key, default=None):
         if key == "youtube.captions.enabled":
             return True
-        if key == "youtube.cookies_path":
-            return "/nonexistent/path"
         return default
-
-    # Mock ytapi to raise; mock _fetch_via_supadata to return content
-    class FakeYTApi:
-        def __init__(self, *a, **kw): pass
-        def fetch(self, video_id):
-            raise RuntimeError("IpBlocked: simulated cloud IP block")
 
     supadata_result = ("This is a Supadata-sourced transcript.", "en", True)
 
     with (
         patch("consensus_engine.config.get", side_effect=cfg_get),
-        patch("youtube_transcript_api.YouTubeTranscriptApi", FakeYTApi),
         patch(
             "consensus_engine.utils.transcript_fetch._fetch_via_supadata",
             new_callable=AsyncMock,
@@ -316,22 +222,16 @@ async def test_fetch_captions_supadata_fallback_on_ytapi_failure():
 
 
 @pytest.mark.asyncio
-async def test_fetch_captions_both_fail_returns_none():
-    """When both ytapi and Supadata fail, fetch_captions returns None
-    so the chain falls through to F2."""
+async def test_fetch_captions_supadata_fail_returns_none():
+    """When Supadata (the only source) fails, fetch_captions returns None so the chain
+    falls through (back to F2, or to terminal)."""
     def cfg_get(key, default=None):
         if key == "youtube.captions.enabled":
             return True
         return default
 
-    class FakeYTApi:
-        def __init__(self, *a, **kw): pass
-        def fetch(self, video_id):
-            raise RuntimeError("ytapi blocked")
-
     with (
         patch("consensus_engine.config.get", side_effect=cfg_get),
-        patch("youtube_transcript_api.YouTubeTranscriptApi", FakeYTApi),
         patch(
             "consensus_engine.utils.transcript_fetch._fetch_via_supadata",
             new_callable=AsyncMock,
@@ -355,7 +255,6 @@ async def test_force_whisper_hook_default_off():
         patch("consensus_engine.local_video_ingest.cleanup_run_workspace"),
         patch("consensus_engine.config.get", side_effect=cfg_get),
         patch("consensus_engine.local_video_ingest._stage_gemini", new_callable=AsyncMock, return_value=None) as gem_mock,
-        patch("consensus_engine.local_video_ingest._stage_whisper", new_callable=AsyncMock, return_value=None),
     ):
         from consensus_engine.local_video_ingest import _run_chain
         bundle, telemetry = await _run_chain("dQw4w9WgXcQ", "Test Channel", "2026-01-01T00:00:00Z")

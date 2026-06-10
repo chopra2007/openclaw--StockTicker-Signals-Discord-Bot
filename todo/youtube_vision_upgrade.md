@@ -1,11 +1,74 @@
 # YouTube Vision Upgrade — Status
 
-**Status:** ACTIVE (partial) — as of 2026-05-28: visual-evidence capture + dedup + out-of-range filter + new `youtube_visual_evidence` table SHIPPED; P5 phantom DB cleanup DONE (176 rows). STILL PENDING: (1) narrator per-ticker wiring so the alert LLM actually sees the chart numbers (needs video→ticker attribution — see Session notes); (2) two-trip / response_schema truncation fix (gated on an unmeasured ~2× Gemini cost decision). Full breakdown in the "Session notes — 2026-05-28" block at the bottom.
+**Status:** ACTIVE — CRITICAL (reopened 2026-06-09). The chart-number-reading work (Tasks B/C, B1/B3) shipped and is the DONE sub-part. The now-active critical goal: **every YouTube video must be transcribed in full, start to finish.** It is not — see the "⚠ REOPENED 2026-06-09" section directly below. (Older lower-priority pending items from 2026-05-28 — narrator per-ticker wiring, the OUTPUT-token two-trip fix — are in the "Session notes — 2026-05-28" block at the bottom.)
 **Created:** 2026-05-25
 
 **Goal:** give the LLM more useful data from each YouTube video so it can understand the analyst's actual evidence (chart levels, scanner numbers, gamma exposures) — not just what was said out loud.
 
 **Test video used throughout:** `https://youtu.be/F74qsOrb6t4` — "This is BIG" by Cheddar Flow, ~10 minutes long.
+
+---
+
+## ⚠ REOPENED 2026-06-09 — CRITICAL: full-video transcription (HIGH PRIORITY)
+
+### The goal (user, 2026-06-09)
+**Every YouTube video must be transcribed from start to finish.** Reading only the first few minutes is a critical failure. This is the top-priority YouTube goal now. (This session was documentation only — NOT a fix. The fix is a future session.)
+
+### The issue — Gemini silently reads only the FIRST few minutes of long videos
+The primary (and currently only reliable) path sends the YouTube URL to Gemini, which fetches the video on Google's servers (sidesteps our blocked IP — see "What worked"). But for long videos Gemini ingests only a small, **variable** slice of the start and reports `finish_reason=STOP` — i.e. it believes that slice is the whole video.
+
+**Hard evidence (live probes 2026-06-09, video `e_iCwe2yX14`, true length 6314s / 105.2 min):**
+- Default media-resolution probe → Gemini reported `observed_duration_sec=1121` (18.7 min); last line "See you guys."
+- Low media-resolution probe → `observed_duration_sec=619` (10.3 min).
+- Both `finish_reason=STOP`. So it is **input truncation**, not the output-token cut documented in the 2026-05-28 notes (all 45 recent runs logged `finish=STOP`, zero `MAX_TOKENS`).
+- The amount seen **varies between identical calls** (18.7 vs 10.3 min) and is NOT explained by resolution — a resolution hypothesis was tested and refuted (low-res saw *less*, not more). Root mechanism of the youtube_uri truncation is still unknown → needs investigation.
+
+**Scope of impact (last 128 videos, durations fetched via Invidious mirror):**
+- 97 of 128 are ≤ ~19 min → safe (Gemini reads them whole).
+- 10 of 128 are longer → at risk; the worst (105 min) was confirmed cut to ~18 min.
+- Historically only 2 of the last 291 analysed runs produced literally no output; the rest produced *something* — but "produced spans" ≠ "read the whole video." Long livestreams are the loss.
+- Separate data-quality bug spotted: Gemini sometimes invents timestamps *past the video's end* (a 55-min video had a quote stamped at 70 min). Worth fixing alongside.
+
+### Why the caption fallbacks can't save us — they're effectively DEAD from this VPS
+User suspicion confirmed. The chain is Gemini-video → captions → whisper. Both fallbacks depend on reaching YouTube from our IP, which YouTube has **blacklisted**. Live-tested 2026-06-09 on a real video (`JQCS4fv-NBI`), all four caption sources failed:
+- `youtube_transcript_api` (free, direct) → **IpBlocked**.
+- Supadata (paid, fetches via its own residential infra — IP-independent) → empty/limited. This is the ONLY caption source that *can* work here, but the free plan is ~100 credits/month and runs out (logs show "rate/plan-limited"). The recent ~46 "ytdlp-captions/v1" wins were actually this `fetch_captions` path (the label is legacy/misleading) succeeding intermittently via Supadata.
+- Invidious public mirrors → empty.
+- `yt-dlp` (also the whisper path's audio download) → **429 + "Sign in to confirm you're not a bot."**
+
+So: **Gemini server-side fetch is the only path that reliably works from this server — and it's the one that truncates.** Captions/whisper would give whole-video coverage but are blocked by the IP blacklist.
+
+### Gemini quota — what we know (the "how many minutes/videos per day" question)
+- **2 keys** (`GEMINI_API_KEY`, `GEMINI_API_KEY2`), free tier, reset at **Pacific midnight** (`_next_quota_reset_ts`). On a daily 429 the key is benched to next reset and the other key is tried.
+- **Per-video cost:** at `fps: 0.5` ≈ 144k input tokens for a standard video (1 fps ≈ 225k). `media_resolution: "auto"` (66–258 tokens/frame) scales this.
+- **Config self-cap:** `budgets.gemini_input_tokens: 2,000,000` tokens/day.
+- **Empirical daily reality** (`api_usage_daily`, recent): 1–25 video calls/day. The heaviest day (Jun 8) did 25 calls / 1.33M input tokens and **exhausted both keys** (84 "no_available_key" events). Most days 4–15 calls, no exhaustion. (Call count is inflated by retries — failed videos retry up to 5×.)
+- **Documented free-tier limits are murky:** sources put gemini-2.5-flash at anywhere from 250 to 1,500 requests/day + ~1M tokens/minute, and Google **cut free quotas 50–80% in Dec 2025**. Quota is **per-project, not per-key** — so confirm whether our 2 keys are separate Google projects (independent quota) or share one. The config comment "~$0.30/day on Flash" hints these may be billable — **confirm free vs paid.**
+- The config already states the practical ceiling: **"~3–4 FULL videos/key/day"** before 429 (so ~6–8 long videos/day across 2 keys; many more if short).
+
+### Candidate fixes (for the future session — NOT done)
+1. **Chunk long videos through Gemini** using `VideoMetadata` start/end offsets: split a 105-min video into ~N windows, analyse each, merge spans. Full coverage WITH chart-vision, but ~N× the quota/calls per long video. **First verify offset-chunking actually defeats the truncation** (unknown).
+2. **Buy Supadata credits** → full-length captions for every video (IP-independent, whole video, cheap), text-only (loses chart-number vision). Could run captions for full coverage + Gemini for the visual layer.
+3. **Gemini Files API (upload) instead of youtube_uri** — may process full length, but needs the video file downloaded first (yt-dlp is IP-blocked → needs a proxy).
+4. **Fix the VPS IP blacklist** (residential/rotating proxy, or move YouTube fetches off this host) → revives youtube_transcript_api + yt-dlp + whisper, all of which read the whole video.
+
+### Chain simplified this session (2026-06-09) — dead methods removed for good
+The transcription chain is now just **F2 Gemini → F1 Supadata captions**. Removed (with permanent code notes + a memory entry, never to be re-added — all dead on our blacklisted IP): youtube_transcript_api, yt-dlp, the F3 yt-dlp+Whisper stage, and Invidious-captions. Supadata is the limited-credit final backup. Invidious is kept ONLY for the video-duration lookup (metadata still works). So any future fix builds on Gemini (chunking) and/or Supadata (buy credits) — there is no third local path unless the IP block is solved. Tests updated; 244 in the YouTube/transcript/chain slice pass.
+
+### Already built this session (detection only — the alarm, not the fix)
+- New columns `youtube_videos.duration_sec` (true length, fetched via `fetch_youtube_duration` → Invidious) and `observed_duration_sec` (what Gemini saw). After each read the bot stores both and logs a `PARTIAL READ` warning when Gemini saw < `youtube.gemini.partial_read_coverage_floor` (0.8) of the true length. Tested (544 tests pass); **goes live on next engine restart** (migration adds the columns then). It flags the problem; it does not yet read the rest of the video.
+- Also fixed: the analysis-run bookkeeping row now closes to `status='complete'` instead of being stuck at `running`.
+
+### Open questions to answer first in the fix session
+- Does Gemini offset-chunking actually return the later parts of a long video? (probe before building)
+- Exact daily capacity in *whole videos* and *total minutes* per key — measure under controlled conditions.
+- Are the 2 keys independent-quota (separate projects) or shared? Free or paid?
+- Cheapest path to 100% coverage: all-captions (Supadata $) vs Gemini-chunking (quota) vs fixing the IP block.
+
+### Sources (quota web data, 2026-06-09)
+- [Gemini API rate limits — Google AI for Developers](https://ai.google.dev/gemini-api/docs/rate-limits)
+- [Gemini API Free Tier 2026 guide — aifreeapi](https://www.aifreeapi.com/en/posts/gemini-api-free-tier-rate-limits)
+- [Why more keys don't add quota — LaoZhang](https://blog.laozhang.ai/en/posts/gemini-api-free-tier)
 
 ---
 

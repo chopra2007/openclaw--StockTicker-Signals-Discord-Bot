@@ -1,24 +1,23 @@
-"""F2-F3-F1-F4 multi-method YouTube evidence chain.
+"""YouTube evidence chain — Gemini primary, Supadata captions as final backup.
 
-Sequential gating: F1 (captions, disabled) → F2 (Gemini) → F3 (yt-dlp + Groq Whisper, load-bearing) → F4 (FFmpeg frames, disabled).
+Order: F2 (Gemini watches the video — the only reliably-working path from this VPS,
+since Google fetches the video server-side, not via our blacklisted IP) → F1 (Supadata
+captions, limited-credit last resort). The old F3 yt-dlp+Whisper stage was REMOVED
+2026-06-09 (yt-dlp is IP-blocked here) — see the note at the bottom of this file.
 Short-circuits on first viable bundle. F6 hygiene runs at entry and in finally:.
 """
 from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import re
 import time
 import uuid
-from pathlib import Path
 
-from consensus_engine.models import EvidenceBundle, EvidenceSpan, RunTelemetry
+from consensus_engine.models import EvidenceBundle, RunTelemetry
 from consensus_engine.hygiene.disk_inode_sweep import pre_flight_check, cleanup_run_workspace
 
 log = logging.getLogger("consensus_engine.local_video_ingest")
-
-_TICKER_RE = re.compile(r"\$([A-Z]{1,5})\b")
 
 # X-1: module-scope semaphore ensures one chain per process at a time.
 # Lazy init so import works before an event loop is running.
@@ -45,27 +44,20 @@ async def extract_evidence_via_chain(
 # ─── Public helpers (isolated for testability) ────────────────────────────────
 
 async def fetch_captions(video_id: str) -> str | None:
-    """F1: fetch auto-captions. Tries youtube_transcript_api first (free, may hit
-    YouTube IP blocks from cloud providers), then falls back to Supadata
-    (paid managed API, no IP dependency). Returns None when disabled or both fail."""
+    """F1: fetch auto-captions via Supadata only. Returns None when disabled or it fails.
+
+    REMOVED 2026-06-09: the youtube_transcript_api tier that used to run first.
+    It hits YouTube directly from our IP, which YouTube has BLACKLISTED (IpBlocked /
+    "confirm you're not a bot") — it never worked from this VPS and cookies don't help.
+    DO NOT re-add it. Supadata fetches via its own residential network so it sidesteps
+    the IP block; it's a paid API with limited free credits, so it's the final backup
+    behind Gemini (the primary path that watches the video directly)."""
     from consensus_engine.config import get as cfg
     if not cfg("youtube.captions.enabled", False):
         return None
 
-    # Tier 1a: youtube_transcript_api — free, but YouTube blocks most cloud-provider IPs.
-    # Cookies not used: VPS IP is blacklisted by YouTube so cookies don't help.
-    try:
-        from youtube_transcript_api import YouTubeTranscriptApi
-        api = YouTubeTranscriptApi()
-        fetched = api.fetch(video_id)
-        text = " ".join(s.text for s in fetched)
-        if text:
-            return text
-    except Exception as exc:
-        log.info("F1 youtube_transcript_api failed for %s (%s) — trying Supadata fallback", video_id, exc)
-
-    # Tier 1b: Supadata — fetches via their own residential infra, sidesteps IP blocks.
-    # SUPADATA_API_KEY in env. Existing helper at consensus_engine/utils/transcript_fetch.py.
+    # Supadata — fetches via their own residential infra, sidesteps the IP block.
+    # SUPADATA_API_KEY in env. Helper at consensus_engine/utils/transcript_fetch.py.
     try:
         from consensus_engine.utils.transcript_fetch import _fetch_via_supadata
         result = await _fetch_via_supadata(video_id)
@@ -77,14 +69,6 @@ async def fetch_captions(video_id: str) -> str | None:
         log.warning("F1 Supadata fallback failed for %s: %s", video_id, exc)
 
     return None
-
-
-async def fetch_audio_transcript(video_id: str, run_dir: str) -> str | None:
-    """F3: download audio with yt-dlp and transcribe with Groq Whisper."""
-    audio_path = await _download_audio(video_id, run_dir)
-    if audio_path is None:
-        return None
-    return await _transcribe_with_groq(audio_path, run_dir)
 
 
 async def extract_frames(video_id: str, mode: str = "scene-change") -> list:
@@ -142,33 +126,34 @@ async def _run_chain(
             log.warning("F6 pre-flight failed — skipping chain for %s", video_id)
             return None, telemetry
 
-        # F2: Gemini video — PRIMARY. Only path that reads on-screen chart
-        # numbers (visual_evidence). Uses gemini-flash-latest @ 0.5fps with a
-        # 503 model-fallback chain (see gemini_video_parser). On 503/quota
-        # exhaustion it returns None and the chain falls through to captions.
-        # `gemini.disabled_for_test` lets verification probes skip F2. Default false.
+        # F2: Gemini video — PRIMARY. Only path that reads on-screen chart numbers
+        # (visual_evidence) AND the only path that works reliably from this VPS:
+        # Google fetches the video on its own servers, sidestepping our blacklisted
+        # IP. Uses gemini-flash-latest @ 0.5fps with a 503 model-fallback chain (see
+        # gemini_video_parser). On 503/quota exhaustion it returns None and falls
+        # through to captions. `gemini.disabled_for_test` lets probes skip F2.
         if not cfg("youtube.gemini.disabled_for_test", False):
             telemetry.chain_attempts.append("gemini/v2")
             bundle = await _stage_gemini(video_id, display_name, published_at, telemetry)
             if bundle is not None:
                 return bundle, telemetry
 
-        # F1: captions → LLM ticker extraction — FALLBACK when Gemini is
-        # unavailable / daily-quota-exhausted. Fast + cheap, but audio-only
-        # (no chart visual_evidence).
+        # F1: captions (Supadata only) → LLM ticker extraction — FINAL BACKUP when
+        # Gemini is unavailable / quota-exhausted. Audio-only (no chart visuals) and
+        # Supadata's free plan has limited monthly credits, so it's last-resort.
         if cfg("youtube.captions.enabled", False):
+            # Label kept as the legacy "ytdlp-captions/v1" for telemetry/DB continuity
+            # (matches get_youtube_coverage_counts + historical rows); it is actually
+            # Supadata now — the yt-dlp path was removed.
             telemetry.chain_attempts.append("ytdlp-captions/v1")
             bundle = await _stage_captions(video_id, telemetry, published_at)
             if bundle is not None:
                 return bundle, telemetry
 
-        # F3: yt-dlp audio + Groq Whisper (load-bearing)
-        if cfg("youtube.whisper.enabled", True):
-            telemetry.chain_attempts.append("whisper-groq/v1")
-            bundle = await _stage_whisper(video_id, display_name, published_at, run_id, telemetry)
-            if bundle is not None:
-                return bundle, telemetry
-
+        # REMOVED 2026-06-09 — the F3 yt-dlp-audio + Groq-Whisper stage. yt-dlp
+        # downloads from YouTube via our IP, which is BLACKLISTED (429 / "confirm
+        # you're not a bot") — it never worked from this VPS. DO NOT re-add a yt-dlp
+        # path. (Whisper itself was fine; it just had no way to get the audio.)
         return None, telemetry
 
     finally:
@@ -246,190 +231,11 @@ async def _stage_gemini(
         telemetry.chain_durations["gemini/v2"] = int((time.monotonic() - t0) * 1000)
 
 
-async def _stage_whisper(
-    video_id: str,
-    display_name: str,
-    published_at: str,
-    run_id: str,
-    telemetry: RunTelemetry,
-) -> EvidenceBundle | None:
-    t0 = time.monotonic()
-    from consensus_engine.config import get as cfg
-    workspace = cfg("youtube.hygiene.workspace_root", "/var/tmp/video-fallback")
-    run_dir = os.path.join(workspace, run_id)
-    os.makedirs(run_dir, mode=0o700, exist_ok=True)
-    try:
-        transcript = await fetch_audio_transcript(video_id, run_dir)
-        if transcript is None:
-            return None
-
-        await _save_transcript_and_trim(video_id, transcript)
-
-        from consensus_engine.analysis.hallucination_grounding import (
-            ground_transcript_tickers, all_ungrounded,
-        )
-        raw_tickers = list(dict.fromkeys(_TICKER_RE.findall(transcript)))
-        grounded_results = ground_transcript_tickers(raw_tickers, transcript)
-        telemetry.hallucinated_ticker_count = sum(
-            1 for r in grounded_results if r["grounding_status"] == "ungrounded"
-        )
-
-        if raw_tickers and all_ungrounded(grounded_results):
-            log.warning(
-                "F3 grounding rejected all %d tickers for %s — terminal failure",
-                len(raw_tickers), video_id,
-            )
-            return None
-
-        grounded_tickers = [r["ticker"] for r in grounded_results if r["grounding_status"] == "grounded"]
-        bundle = _transcript_to_bundle(video_id, published_at, transcript, grounded_tickers)
-        telemetry.chain_winner = "whisper-groq/v1"
-        telemetry.span_count = len(bundle.spans)
-        log.info(
-            "F3 Whisper succeeded for %s: %d spans, tickers=%s",
-            video_id, len(bundle.spans), grounded_tickers,
-        )
-        return bundle
-
-    except Exception as exc:
-        log.warning("F3 Whisper terminal failure for %s: %s", video_id, exc)
-        return None
-    finally:
-        telemetry.chain_durations["whisper-groq/v1"] = int((time.monotonic() - t0) * 1000)
-
-
-# ─── Audio download + transcription ──────────────────────────────────────────
-
-async def _download_audio(video_id: str, run_dir: str) -> str | None:
-    from consensus_engine.config import get as cfg
-    url = f"https://www.youtube.com/watch?v={video_id}"
-    out_template = os.path.join(run_dir, "audio.%(ext)s")
-    cmd = [
-        "yt-dlp",
-        "--js-runtimes", "node",
-        "--remote-components", "ejs:github",
-        url,
-        "-x", "--audio-format", "mp3", "--audio-quality", "5",
-        "-o", out_template,
-        "--no-playlist", "--quiet",
-    ]
-    # Cookies not used: VPS IP is blacklisted by YouTube so --cookies doesn't help.
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        _, stderr = await asyncio.wait_for(proc.communicate(), timeout=300)
-        if proc.returncode != 0:
-            log.warning("yt-dlp failed for %s: %s", video_id, stderr.decode(errors="replace")[:300])
-            return None
-    except asyncio.TimeoutError:
-        log.warning("yt-dlp timed out for %s", video_id)
-        return None
-    except Exception as exc:
-        log.warning("yt-dlp error for %s: %s", video_id, exc)
-        return None
-
-    for ext in ("mp3", "m4a", "opus", "webm", "ogg"):
-        candidate = os.path.join(run_dir, f"audio.{ext}")
-        if os.path.exists(candidate):
-            return candidate
-    log.warning("yt-dlp: no audio file found in %s for %s", run_dir, video_id)
-    return None
-
-
-async def _transcribe_with_groq(audio_path: str, run_dir: str) -> str | None:
-    """Transcribe audio file via Groq Whisper. Splits files > 24MB."""
-    api_key = os.environ.get("GROQ_API_KEY")
-    if not api_key:
-        log.error("GROQ_API_KEY not set — F3 unavailable")
-        return None
-
-    try:
-        import groq as _groq
-    except ImportError:
-        log.error("groq package not installed — F3 unavailable")
-        return None
-
-    max_mb = 24
-    file_size_mb = os.path.getsize(audio_path) / (1024 * 1024)
-    chunks = await _split_audio(audio_path, run_dir) if file_size_mb > max_mb else [audio_path]
-
-    client = _groq.Groq(api_key=api_key)
-    parts: list[str] = []
-    for chunk_path in chunks:
-        try:
-            with open(chunk_path, "rb") as f:
-                result = await asyncio.get_event_loop().run_in_executor(
-                    None,
-                    lambda _f=f: client.audio.transcriptions.create(
-                        model="whisper-large-v3",
-                        file=_f,
-                        response_format="text",
-                        prompt="This transcript covers financial markets, stocks, ETFs, and macroeconomic commentary.",
-                    ),
-                )
-            parts.append(str(result))
-        except _groq.RateLimitError as exc:
-            log.warning("Groq 429 for chunk %s: %s", chunk_path, exc)
-            return None
-        except Exception as exc:
-            log.warning("Groq transcription error for %s: %s", chunk_path, exc)
-            return None
-
-    return " ".join(parts) if parts else None
-
-
-async def _split_audio(audio_path: str, run_dir: str, chunk_sec: int = 600) -> list[str]:
-    """Split audio into ~10-min chunks using ffmpeg. Returns chunk paths."""
-    pattern = os.path.join(run_dir, "chunk%03d.mp3")
-    cmd = [
-        "ffmpeg", "-i", audio_path,
-        "-f", "segment", "-segment_time", str(chunk_sec),
-        "-c", "copy", pattern,
-        "-y", "-loglevel", "error",
-    ]
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        await asyncio.wait_for(proc.communicate(), timeout=120)
-    except Exception as exc:
-        log.warning("ffmpeg split failed: %s — using full file", exc)
-        return [audio_path]
-
-    chunks = sorted(str(p) for p in Path(run_dir).glob("chunk*.mp3") if p.stat().st_size > 0)
-    return chunks if chunks else [audio_path]
-
-
-# ─── Bundle builder ───────────────────────────────────────────────────────────
-
-def _transcript_to_bundle(
-    video_id: str,
-    published_at: str,
-    transcript: str,
-    grounded_tickers: list[str],
-) -> EvidenceBundle:
-    """Convert a flat transcript string into an EvidenceBundle with word-chunk spans."""
-    words = transcript.split()
-    chunk_size = 80
-    spans: list[EvidenceSpan] = []
-    ts_sec = 0
-    for i in range(0, len(words), chunk_size):
-        chunk = " ".join(words[i : i + chunk_size])
-        if not chunk.strip():
-            continue
-        tickers_here = [t for t in grounded_tickers if f"${t}" in chunk or re.search(rf"\b{re.escape(t)}\b", chunk)]
-        spans.append(EvidenceSpan(ts_sec=ts_sec, quote=chunk[:500], tickers=tickers_here))
-        ts_sec += 30
-
-    return EvidenceBundle(
-        video_id=video_id,
-        duration_sec=ts_sec,
-        publish_ts=published_at,
-        segments=[{"text": transcript[:5000]}],
-        spans=spans,
-    )
+# ─── REMOVED 2026-06-09 — F3 whisper stage (yt-dlp audio + Groq Whisper) ──────
+# Deleted: _stage_whisper, _download_audio, _transcribe_with_groq, _split_audio,
+# _transcript_to_bundle. yt-dlp downloads audio from YouTube via our IP, which is
+# BLACKLISTED (429 / "confirm you're not a bot"), so this stage NEVER worked from
+# this VPS. Groq Whisper itself was fine — it just had no way to get the audio.
+# DO NOT re-add a yt-dlp-based path. The only working YouTube transcription path
+# from this server is Gemini watching the video directly (F2); Supadata captions
+# (F1) are the limited-credit final backup. See TODO #17.

@@ -398,6 +398,34 @@ async def _process_video_two_stage(
 
     await db.mark_youtube_video_status(video_id, "analyzed_gemini_v2")
 
+    # Close the analysis-run bookkeeping row. The Gemini path records telemetry via
+    # update_analysis_run_metrics (which never sets status), so without this the run row
+    # stays 'running' forever even though the video is fully analyzed. Mark it complete
+    # only HERE — after every signal/level/setup row is persisted and the video has
+    # reached its terminal 'analyzed_gemini_v2' state — so the run is never closed early.
+    await db.update_analysis_run(run_id, status="complete")
+
+    # Partial-read detection. Gemini silently caps long videos on input (observed only
+    # 18.7min of a verified 105min video, finish_reason=STOP), so the back of a long
+    # livestream is never read even though the row is marked analyzed. Store the true
+    # length (Invidious) alongside the length Gemini reported seeing (bundle.duration_sec)
+    # and warn when Gemini saw materially less. Best-effort: a missing duration just skips
+    # the check, never blocks ingestion.
+    try:
+        from consensus_engine.utils.transcript_fetch import fetch_youtube_duration
+        true_dur = await fetch_youtube_duration(video_id)
+        observed = bundle.duration_sec
+        await db.set_youtube_video_durations(video_id, true_dur, observed)
+        cov_floor = float(cfg.get("youtube.gemini.partial_read_coverage_floor", 0.8))
+        if true_dur and observed and observed < cov_floor * true_dur:
+            log.warning(
+                "youtube PARTIAL READ %s: Gemini saw %.1fmin of a %.1fmin video "
+                "(%.0f%%) — back of video not transcribed",
+                video_id, observed / 60.0, true_dur / 60.0, 100.0 * observed / true_dur,
+            )
+    except Exception as e:
+        log.debug("youtube: duration/coverage check failed for %s: %s", video_id, e)
+
     # Standalone alerts — one per (ticker) for HIGH conviction, unsuppressed.
     if cfg.get("youtube.standalone_alerts", True):
         min_trust = cfg.get("youtube.min_trust", 0.5)

@@ -1129,27 +1129,38 @@ async def _invoke_synthesis(
     # instantly so there's no latency win — the gain is one fewer
     # guaranteed-failing call + cleaner logs. Small tickers (under the cap)
     # keep the normal head_start behavior.
+    # Groq's TPM (tokens-per-minute) limit bills a request as prompt + the reserved
+    # output room (max_tokens), NOT the prompt alone. The synthesis output is tiny
+    # (~600 tokens / 2.4k chars in practice), so an 8000 reservation was pure waste
+    # that pushed prompt+reservation over Groq's 12k TPM cap and 413'd every big
+    # ticker. Fix #1: reserve a right-sized amount (config, default 4000).
+    synth_max_tokens = int(_cfg.get("llm.all_command_synthesis_max_tokens", 4000))
     if strategy == "head_start":
-        # Subtract a conservative ~1000-char margin before the //4 token
-        # estimate so we don't under-count and let a borderline prompt 413.
-        est_tokens = max(0, sum(len(m.get("content", "")) for m in messages) - 1000) // 4
+        # Fix #2: the guard must model what Groq bills = prompt + reserved output.
+        # (The old check counted prompt only, so a ~6.5k-token prompt looked "under
+        # the 12k cap" while the real request — prompt + 8k reservation — 413'd.)
+        # The -1000-char margin keeps the prompt estimate conservative.
+        est_input = max(0, sum(len(m.get("content", "")) for m in messages) - 1000) // 4
+        est_request = est_input + synth_max_tokens
         head_start_cap = int(_cfg.get("llm.all_command_head_start_max_tokens", 12000))
-        if est_tokens > head_start_cap:
+        if est_request > head_start_cap:
             log.info(
-                "narrator.synthesize: est_tokens=%d > cap=%d — skipping groq "
-                "head-start window (race_all)", est_tokens, head_start_cap,
+                "narrator.synthesize: est_request=%d (input %d + out %d) > cap=%d — "
+                "skipping groq head-start window (race_all)",
+                est_request, est_input, synth_max_tokens, head_start_cap,
             )
             strategy = "race_all"
         else:
             log.info(
-                "narrator.synthesize: est_tokens=%d <= cap=%d — keeping groq "
-                "head-start window", est_tokens, head_start_cap,
+                "narrator.synthesize: est_request=%d (input %d + out %d) <= cap=%d — "
+                "keeping groq head-start window",
+                est_request, est_input, synth_max_tokens, head_start_cap,
             )
     try:
         return await call_with_fallback(
             role="primary",
             messages=messages,
-            max_tokens=8000,
+            max_tokens=synth_max_tokens,
             temperature=0.35,
             timeout=timeout,
             chain=_all_command_chain(),

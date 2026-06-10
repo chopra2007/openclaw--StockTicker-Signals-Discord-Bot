@@ -1,12 +1,15 @@
-"""Multi-tier YouTube transcript fetcher.
+"""YouTube transcript fetcher — Supadata only.
 
-Cascade (all free, works from datacenter IPs):
-  1. Supadata API  — 100 free credits/month, most reliable
-  2. Invidious API — public instances, no key, failover across multiple
-  3. youtube-transcript-api — direct library call
-  4. Playwright stealth — existing browser-based fallback
+From this VPS, Supadata (paid managed API, fetches via its own residential network)
+is the ONLY caption source that works. The free-tier direct sources that used to be
+in this cascade — Invidious-captions, youtube-transcript-api, Playwright — were all
+REMOVED 2026-06-09 because YouTube has blacklisted this server's IP and never served
+them captions. DO NOT re-add them (see the REMOVED note further down, and TODO #17).
+Supadata's free plan has limited monthly credits, so it is a final backup, not a
+first choice — the primary YouTube path is Gemini watching the video directly.
 
-Each tier is tried in order; first success wins.
+`fetch_youtube_duration` still uses the Invidious mirrors — but only for video
+LENGTH (metadata), which they DO still serve. That is unrelated to captions.
 """
 
 import asyncio
@@ -23,7 +26,9 @@ from consensus_engine.utils.http import get_session
 
 log = logging.getLogger("consensus_engine.utils.transcript_fetch")
 
-# Public Invidious instances with API access (tried in order)
+# Public Invidious mirrors — used ONLY by fetch_youtube_duration for video LENGTH
+# (metadata still works). NOT for captions (YouTube stopped serving caption tracks
+# to Invidious — see the REMOVED note below). Tried in order.
 _INVIDIOUS_INSTANCES = [
     "https://inv.thepixora.com",
     "https://yewtu.be",
@@ -140,104 +145,19 @@ async def _fetch_via_supadata(video_id: str, lang: str = "en") -> tuple[str, str
 
 
 # ---------------------------------------------------------------------------
-# Tier 2: Invidious API
+# REMOVED 2026-06-09 — DO NOT RE-ADD these caption sources. They never worked
+# from this VPS and only wasted time/log-noise on every video:
+#   • Invidious captions (`_fetch_via_invidious`): the public mirrors reach YouTube
+#     for video METADATA (that's why fetch_youtube_duration below still works) but
+#     YouTube no longer serves the caption/subtitle track to Invidious instances —
+#     the captions endpoint returns `{"captions":[]}` (live-confirmed 2026-06-09),
+#     or the instance's API is 403/disabled. Empty since day one.
+#   • youtube-transcript-api (`_fetch_via_yt_transcript_api`): hits YouTube directly
+#     from our IP, which YouTube has BLACKLISTED (IpBlocked / "confirm you're not a
+#     bot"). Cookies don't help — it's the datacenter IP, not auth.
+# Supadata is the ONLY caption source that works here (it fetches via its own
+# residential network), so it is the sole remaining tier. See TODO #17.
 # ---------------------------------------------------------------------------
-
-async def _fetch_via_invidious(video_id: str, lang: str = "en") -> tuple[str, str, bool] | None:
-    """Try multiple Invidious instances for captions."""
-    session = await get_session()
-
-    for instance in _INVIDIOUS_INSTANCES:
-        try:
-            # Step 1: Get available caption tracks
-            captions_url = f"{instance}/api/v1/captions/{video_id}"
-            async with session.get(
-                captions_url,
-                timeout=aiohttp.ClientTimeout(total=10),
-            ) as resp:
-                if resp.status != 200:
-                    continue
-                data = await resp.json()
-
-            tracks = data.get("captions", [])
-            if not tracks:
-                log.debug("transcript: Invidious %s has no captions for %s", instance, video_id)
-                continue
-
-            # Pick best track: prefer requested lang, then any
-            track = None
-            for t in tracks:
-                if t.get("languageCode", "").startswith(lang):
-                    track = t
-                    break
-            if not track:
-                track = tracks[0]
-
-            label = track.get("label", "")
-            lang_code = track.get("languageCode", "unknown")
-
-            # Step 2: Fetch the actual caption content (VTT format)
-            caption_url = f"{instance}/api/v1/captions/{video_id}?label={label}"
-            async with session.get(
-                caption_url,
-                timeout=aiohttp.ClientTimeout(total=10),
-            ) as resp:
-                if resp.status != 200:
-                    continue
-                vtt_text = await resp.text()
-
-            text = _vtt_to_text(vtt_text)
-            if not text:
-                continue
-
-            is_auto = "auto" in label.lower()
-            log.info(
-                "transcript: Invidious (%s) success for %s (%d chars)",
-                instance, video_id, len(text),
-            )
-            return text, lang_code, is_auto
-
-        except Exception as e:
-            log.debug("transcript: Invidious %s error for %s: %s", instance, video_id, e)
-            continue
-
-    return None
-
-
-# ---------------------------------------------------------------------------
-# Tier 3: youtube-transcript-api library
-# ---------------------------------------------------------------------------
-
-async def _fetch_via_yt_transcript_api(
-    video_id: str, lang: str = "en",
-) -> tuple[str, str, bool] | None:
-    """Fetch via youtube-transcript-api (direct to YouTube, may be blocked)."""
-    try:
-        from youtube_transcript_api import YouTubeTranscriptApi
-    except ImportError:
-        log.debug("transcript: youtube-transcript-api not installed, skipping")
-        return None
-
-    def _sync_fetch():
-        ytt = YouTubeTranscriptApi()
-        transcript = ytt.fetch(video_id, languages=[lang, "en"])
-        parts = [snippet.text for snippet in transcript.snippets]
-        text = " ".join(parts).strip()
-        detected_lang = transcript.language
-        is_auto = transcript.is_generated
-        return text, detected_lang, is_auto
-
-    try:
-        result = await asyncio.get_event_loop().run_in_executor(None, _sync_fetch)
-        if result and result[0]:
-            log.info("transcript: yt-transcript-api success for %s (%d chars)", video_id, len(result[0]))
-            return result
-        return None
-    except Exception as e:
-        log.debug("transcript: yt-transcript-api error for %s: %s", video_id, e)
-        return None
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -256,13 +176,12 @@ async def fetch_transcript_cascade(
         preferred_languages = ["en"]
     lang = preferred_languages[0] if preferred_languages else "en"
 
-    # Each entry is (name, callable, timeout_seconds).
-    # Callables are used (not pre-created coroutines) so we only invoke
-    # the next tier if all previous ones failed.
+    # Supadata is the ONLY working caption source from this VPS (see the REMOVED
+    # note above — Invidious-captions + youtube-transcript-api are dead on our
+    # blacklisted IP). It's the paid managed API (limited free credits), so treat it
+    # as the final backup, not a first choice.
     tiers: list[tuple[str, object, int]] = [
         ("Supadata", lambda: _fetch_via_supadata(video_id, lang), 20),
-        ("Invidious", lambda: _fetch_via_invidious(video_id, lang), 30),
-        ("yt-transcript-api", lambda: _fetch_via_yt_transcript_api(video_id, lang), 20),
     ]
 
     for name, factory, timeout in tiers:
@@ -280,3 +199,27 @@ async def fetch_transcript_cascade(
         f"All transcript sources failed for {video_id}. "
         "The video may have no captions, or all services are unavailable."
     )
+
+
+async def fetch_youtube_duration(video_id: str) -> int | None:
+    """Return a video's true length in seconds via an Invidious mirror, or None.
+
+    YouTube blocks this datacenter IP directly (HTTP 429 / "confirm you're not a bot"),
+    so the public Invidious instances are the working source here. Best-effort: the first
+    instance that answers wins; all-failed returns None (caller skips the coverage check).
+    """
+    session = await get_session()
+    for instance in _INVIDIOUS_INSTANCES:
+        try:
+            async with session.get(
+                f"{instance}/api/v1/videos/{video_id}?fields=lengthSeconds",
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                if resp.status != 200:
+                    continue
+                length = (await resp.json()).get("lengthSeconds")
+            if isinstance(length, int) and length > 0:
+                return length
+        except Exception as e:
+            log.debug("duration: Invidious %s failed for %s: %s", instance, video_id, e)
+    return None

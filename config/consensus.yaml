@@ -283,7 +283,12 @@ llm:
   # serial-timeout 200-240s. Revert to 'serial' to disable instantly.
   all_command_strategy: head_start
   all_command_head_start_timeout: 15        # groq solo window (s); tune to groq P90+5
-  all_command_head_start_max_tokens: 12000  # #4 skip groq head-start when est prompt tokens exceed groq TPM cap
+  all_command_head_start_max_tokens: 12000  # #4 skip groq head-start when est REQUEST tokens (prompt + synthesis_max_tokens below) exceed groq's 12k TPM cap
+  # Output-token reservation for the !all synthesis call. Groq's TPM bills prompt +
+  # this, so it's load-bearing for the 413 fix: keep prompt+this under 12000. The
+  # real narrative is ~600 tokens, so 4000 is generous headroom while leaving ~8000
+  # of prompt room before groq is skipped. Was hardcoded 8000 (caused the 413s).
+  all_command_synthesis_max_tokens: 4000
   all_command_circuit_breaker_threshold: 3  # consecutive groq stalls -> race_all
   # #6 root-cause: the sanitize/cleanup calls run groq-free so they don't drain
   # groq's 100k/day budget that the synthesis call above needs.
@@ -439,6 +444,9 @@ youtube:
     # caps ~3-4 full videos/key/day (429); captions is the overflow fallback.
     fps: 0.5
     timeout_sec: 240  # latency is fine (calls take 37-228s); kept generous for slow ingests
+    # Partial-read alarm: warn when Gemini reports seeing less than this fraction of the
+    # video's true length (it silently caps long videos on input). 0.8 = flag if >20% unseen.
+    partial_read_coverage_floor: 0.8
     # media_resolution: "auto" (recommended) | "low" | "medium" | "default".
     #   auto    = pick tier based on Gemini daily-budget utilisation (see
     #             budget_pct_for_* below). Starts cheap, bumps up when the
@@ -481,7 +489,7 @@ youtube:
   show_timestamps_in_alerts: true
   near_price_dedup_pct: 0.5
   captions:
-    enabled: true             # F1 ON — captions_llm_parser (commit d3cf2be) resolves company name→ticker via Gemini Flash; real-world probe verified 20/20 spans had tickers
+    enabled: true             # F1 ON — Supadata-only now (youtube_transcript_api tier removed 2026-06-09, IP-blocked). captions_llm_parser (commit d3cf2be) resolves company name→ticker via Gemini Flash. Supadata free plan = limited credits, so F1 is the final backup behind Gemini.
     # LLM chain for caption→ticker extraction. Real-world probe (2026-05-15)
     # on a 25k-char S&P 500 video:
     #   - google/gemini-2.5-flash      → 6.98s, 25 spans, 27 valid tickers ✅
@@ -505,11 +513,11 @@ youtube:
     min_unique_tokens_per_min: 30
     timestamp_coverage_min_pct: 90
   whisper:
-    enabled: true             # F3 kill-switch — ON for Phase 1 (load-bearing)
-    model_variant: "large-v3"
-    finance_prompt_max_tokens: 224
-    audio_chunk_max_mb: 24
-    chunk_boundary_overlap_ms: 200
+    # REMOVED 2026-06-09 — the F3 yt-dlp-audio + Groq-Whisper stage was deleted from
+    # local_video_ingest.py. yt-dlp downloads from YouTube via our IP, which is
+    # BLACKLISTED, so it never worked here. These keys are now dead/ignored. DO NOT
+    # re-enable expecting transcription — there is no yt-dlp path anymore. See TODO #17.
+    enabled: false            # dead — no whisper stage exists to read this
   vision:
     enabled: false            # F4 kill-switch — OFF for Phase 1; enable after 7 days clean
     metadata_trigger_regex: "(?i)(recap|levels|chart|support|resistance|%|\\$[0-9])"

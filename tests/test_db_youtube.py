@@ -790,3 +790,28 @@ async def test_backlog_depth_counts(test_db, monkeypatch):
     assert depth["quota_blocked"] == 1
     assert depth["retryable_failed"] == 1
     assert depth["total"] == 2
+
+
+# --- Partial-read detection: store true vs Gemini-observed duration ---
+
+@pytest.mark.asyncio
+async def test_set_durations_stores_true_and_observed(test_db):
+    await db.upsert_youtube_video("vidDur", "UCr", "T", "2026-06-09T00:00:00Z", time.time())
+    # 105-min video, Gemini only saw 18.7 min (the real truncation case)
+    await db.set_youtube_video_durations("vidDur", duration_sec=6314, observed_duration_sec=1121)
+    row = await db.get_youtube_video("vidDur")
+    assert row["duration_sec"] == 6314
+    assert row["observed_duration_sec"] == 1121
+    # observed is well under the 0.8 floor → this row would trip the partial-read warning
+    assert row["observed_duration_sec"] < 0.8 * row["duration_sec"]
+
+
+@pytest.mark.asyncio
+async def test_set_durations_coalesces_missing_value(test_db):
+    await db.upsert_youtube_video("vidDur2", "UCr", "T", "2026-06-09T00:00:00Z", time.time())
+    await db.set_youtube_video_durations("vidDur2", duration_sec=600, observed_duration_sec=590)
+    # A later call where the duration mirror was down (None) must NOT wipe the stored value
+    await db.set_youtube_video_durations("vidDur2", duration_sec=None, observed_duration_sec=595)
+    row = await db.get_youtube_video("vidDur2")
+    assert row["duration_sec"] == 600
+    assert row["observed_duration_sec"] == 595

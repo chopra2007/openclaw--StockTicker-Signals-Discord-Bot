@@ -833,6 +833,13 @@ async def _run_column_migrations(conn) -> None:
         # after youtube.quota_blocked_downgrade_days days downgrades to 'failed' (+alarm),
         # bounding a quota-misclassification so a permanent error can't loop forever.
         ("youtube_videos", "quota_blocked_since", "REAL"),
+        # Partial-read detection: duration_sec = the video's TRUE length (fetched from
+        # an Invidious mirror); observed_duration_sec = the length Gemini reported actually
+        # seeing. Gemini silently caps long videos on input (e.g. saw only 18.7min of a
+        # 105min video, finish_reason=STOP), so observed << true ⇒ the back of the video
+        # was never read even though the row is marked 'analyzed_gemini_v2'.
+        ("youtube_videos", "duration_sec",          "INTEGER"),
+        ("youtube_videos", "observed_duration_sec", "INTEGER"),
         ("youtube_visual_evidence", "ticker", "TEXT"),  # B3 per-number ticker tag
         # Phase-3 (TODO #20): the email's Gmail internalDate (epoch seconds). The
         # digest scheduler triggers off THIS, never processed_at, so backfilled rows
@@ -1854,6 +1861,25 @@ async def mark_youtube_video_status(
     await conn.commit()
 
 
+async def set_youtube_video_durations(
+    video_id: str,
+    duration_sec: int | None,
+    observed_duration_sec: int | None,
+) -> None:
+    """Record the video's true length and the length Gemini reported seeing, so a
+    partial read (observed << true) is visible per video. COALESCE keeps a previously
+    stored value when this call can't resolve one (e.g. the duration mirror was down)."""
+    conn = await get_db()
+    await conn.execute(
+        """UPDATE youtube_videos
+           SET duration_sec = COALESCE(?, duration_sec),
+               observed_duration_sec = COALESCE(?, observed_duration_sec)
+           WHERE video_id = ?""",
+        (duration_sec, observed_duration_sec, video_id),
+    )
+    await conn.commit()
+
+
 async def get_retryable_youtube_videos(cap: int) -> list[dict]:
     """Return failed-but-retryable videos (status='failed' AND attempt_count<cap),
     oldest-first by published_at, so the DB backlog drains in publish order.
@@ -1992,7 +2018,8 @@ async def get_youtube_video(video_id: str) -> dict | None:
     """Return the youtube_videos row for video_id, or None."""
     conn = await get_db()
     cur = await conn.execute(
-        "SELECT video_id, channel_id, title, description, published_at FROM youtube_videos WHERE video_id = ?",
+        "SELECT video_id, channel_id, title, description, published_at, "
+        "duration_sec, observed_duration_sec FROM youtube_videos WHERE video_id = ?",
         (video_id,),
     )
     row = await cur.fetchone()

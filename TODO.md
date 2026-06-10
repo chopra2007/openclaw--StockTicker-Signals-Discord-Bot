@@ -102,11 +102,11 @@ Stop shipping ambiguous "narrative auto-redacted" embeds to users when the LLM c
 
 Update 13 stale unit-test assertions that the `!all` refactor and critical-sources change left behind.
 
-## 17. Read precise chart numbers from YouTube videos — DONE 2026-05-29
+## 17. Transcribe every YouTube video in full, start to finish (CRITICAL)
 
 **File:** `youtube_vision_upgrade.md`
 
-Teach the video-watcher to read the precise chart numbers (gamma lines, option-flow tables) the speaker glosses over. Task B (Gemini limit/model swap) + Task C (chart numbers → `!all` narrator) shipped earlier. **B1** strips title-card/promo/bare-ticker noise; **C1** daily chart-read coverage counter; **C2** Gemini stop-reason telemetry. **2026-05-30 (run `all-levers-2026-05-29`):** **B2** demonstrated — fresh chart-heavy videos do carry both signal+visual rows; surfaced that multi-stock videos dump every number onto the top ticker. **B3** (per-number ticker tagging) BUILT but flag-gated OFF (`youtube.visual.per_number_ticker_tagging: false`, commit `7d77245`) — flip true + restart to test. All of #17 now shipped or built.
+REOPENED 2026-06-09 (high priority): long videos are only partially transcribed — Gemini silently reads just the first ~10–19 minutes of a 105-min video and thinks it ended there, and every caption fallback is dead because YouTube has blacklisted this server's IP, so long livestreams are mostly lost. The goal is full start-to-finish coverage of every video. (The earlier chart-number-reading work — Tasks B/C, B1/B3 — shipped and is the done sub-part; see the file's "⚠ REOPENED 2026-06-09" section for the new issue, the confirmed data, the Gemini quota numbers, and candidate fixes. Documentation only so far — not fixed.)
 
 ## 18. Read live options flow and alert on unusual activity — DONE 2026-05-29
 
@@ -197,3 +197,9 @@ A multi-stock YouTube video dumped QQQ/SPY numbers (700–760) onto NVDA, which 
 **File:** `signal-features-phase2.md`
 
 Fix the conviction scoring so nuanced/tentative analyst calls (the ~98% that sound like "watching... might add if it reclaims 250") aren't penalized as low-conviction; build the remaining 10 precision upgrades (contradiction warning, hard-evidence gate, fake-burst defense, short-volume + cross-asset veto, etc.); and, after a shadow window, switch on the 9 already-built Phase-1 fixes.
+
+## 33. Fix the !all Groq 400 "allowed_mentions unsupported" error
+
+**File:** `all-command-groq-400-allowed-mentions.md`
+
+The `!all` summary call to Groq's primary model is getting rejected with HTTP 400 because a stray `allowed_mentions` property (a Discord field that has no business in an AI request) is somehow in the request body — find how it gets there and strip it, so Groq actually serves `!all` instead of instantly bouncing to the slower fallback models. (Separate from the 413 size error fixed this same session.)

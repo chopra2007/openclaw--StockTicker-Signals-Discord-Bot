@@ -85,18 +85,14 @@ class TestVttToText:
 # ---------------------------------------------------------------------------
 
 class TestFetchTranscriptCascade:
+    # The cascade is Supadata-only now — the Invidious-captions and
+    # youtube-transcript-api tiers were removed 2026-06-09 (dead on this VPS's
+    # blacklisted IP). Only Supadata fetches via its own residential network.
     @pytest.fixture(autouse=True)
     def _patch_tiers(self):
         base = "consensus_engine.utils.transcript_fetch"
-        with (
-            patch(f"{base}._fetch_via_supadata") as self.mock_supadata,
-            patch(f"{base}._fetch_via_invidious") as self.mock_invidious,
-            patch(f"{base}._fetch_via_yt_transcript_api") as self.mock_ytapi,
-        ):
-            # Default: all return None (fail)
-            self.mock_supadata.return_value = None
-            self.mock_invidious.return_value = None
-            self.mock_ytapi.return_value = None
+        with patch(f"{base}._fetch_via_supadata") as self.mock_supadata:
+            self.mock_supadata.return_value = None  # default: fail
             yield
 
     async def test_supadata_wins(self):
@@ -105,26 +101,13 @@ class TestFetchTranscriptCascade:
         assert text == "hello world"
         assert lang == "en"
 
-    async def test_falls_through_to_invidious(self):
-        self.mock_supadata.return_value = None
-        self.mock_invidious.return_value = ("from invidious", "en", False)
-        text, lang, auto = await fetch_transcript_cascade("abc123")
-        assert text == "from invidious"
-        assert not auto
-
-    async def test_falls_through_to_ytapi(self):
-        self.mock_supadata.return_value = None
-        self.mock_invidious.return_value = None
-        self.mock_ytapi.return_value = ("from ytapi", "en", True)
-        text, _, _ = await fetch_transcript_cascade("abc123")
-        assert text == "from ytapi"
-
-    async def test_all_fail_raises(self):
+    async def test_supadata_none_raises(self):
+        # Supadata is the only tier; None → total failure.
         with pytest.raises(ValueError, match="All transcript sources failed"):
             await fetch_transcript_cascade("abc123")
 
-    async def test_tier_exception_continues(self):
+    async def test_supadata_exception_raises(self):
+        # An exception in the only tier is swallowed → still raises (no fallback left).
         self.mock_supadata.side_effect = RuntimeError("boom")
-        self.mock_invidious.return_value = ("fallback", "en", True)
-        text, _, _ = await fetch_transcript_cascade("abc123")
-        assert text == "fallback"
+        with pytest.raises(ValueError, match="All transcript sources failed"):
+            await fetch_transcript_cascade("abc123")

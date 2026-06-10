@@ -2,7 +2,7 @@
 
 Two layers:
 - **Mocked (default)**: cover the chain's orchestration contract — stage
-  short-circuiting, force-whisper hook, semaphore serialization, cleanup
+  short-circuiting, disabled_for_test hook, semaphore serialization, cleanup
   invariants, telemetry completeness. No network. Runs every `pytest`.
 - **Live (`@pytest.mark.live`)**: real call against real videos when
   `OMC_LIVE_TESTS=1` is set AND required keys are present in env. Skipped
@@ -90,10 +90,6 @@ async def test_chain_f1_captions_fallback_via_supadata():
             "consensus_engine.local_video_ingest._stage_gemini",
             new_callable=AsyncMock, return_value=None,
         ) as gem_mock,
-        patch(
-            "consensus_engine.local_video_ingest._stage_whisper",
-            new_callable=AsyncMock,
-        ) as whisper_mock,
     ):
         from consensus_engine.local_video_ingest import extract_evidence_via_chain
         bundle, tel = await extract_evidence_via_chain(
@@ -102,10 +98,9 @@ async def test_chain_f1_captions_fallback_via_supadata():
 
     assert bundle is fake_bundle
     assert tel.chain_winner == "ytdlp-captions/v1"
-    # Gemini (primary) is attempted first, returns None, then captions wins.
+    # Gemini (primary) is attempted first, returns None, then captions (Supadata) wins.
     assert tel.chain_attempts == ["gemini/v2", "ytdlp-captions/v1"]
     gem_mock.assert_called_once()
-    whisper_mock.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -120,8 +115,6 @@ async def test_chain_f2_wins_when_f1_disabled():
         patch("consensus_engine.local_video_ingest.cleanup_run_workspace"),
         patch("consensus_engine.local_video_ingest._stage_gemini",
               new_callable=AsyncMock, return_value=fake_bundle),
-        patch("consensus_engine.local_video_ingest._stage_whisper",
-              new_callable=AsyncMock) as whisper_mock,
     ):
         from consensus_engine.local_video_ingest import extract_evidence_via_chain
         bundle, tel = await extract_evidence_via_chain(
@@ -130,38 +123,13 @@ async def test_chain_f2_wins_when_f1_disabled():
 
     assert bundle is fake_bundle
     assert "gemini/v2" in tel.chain_attempts
-    assert "whisper-groq/v1" not in tel.chain_attempts
-    whisper_mock.assert_not_called()
+    assert "ytdlp-captions/v1" not in tel.chain_attempts  # F2 won, captions not reached
 
 
-@pytest.mark.asyncio
-async def test_chain_force_whisper_via_config_skips_gemini():
-    """`youtube.gemini.disabled_for_test=True` → F2 skipped, F3 attempted."""
-    fake_bundle = _make_bundle("dQw4w9WgXcQ", ["TSLA"])
-
-    with (
-        patch("consensus_engine.config.get",
-              side_effect=_cfg_factory(**{
-                  "youtube.captions.enabled": False,
-                  "youtube.gemini.disabled_for_test": True,
-                  "youtube.whisper.enabled": True,
-              })),
-        patch("consensus_engine.local_video_ingest.pre_flight_check", return_value=True),
-        patch("consensus_engine.local_video_ingest.cleanup_run_workspace"),
-        patch("consensus_engine.local_video_ingest._stage_gemini",
-              new_callable=AsyncMock) as gem_mock,
-        patch("consensus_engine.local_video_ingest._stage_whisper",
-              new_callable=AsyncMock, return_value=fake_bundle),
-    ):
-        from consensus_engine.local_video_ingest import extract_evidence_via_chain
-        bundle, tel = await extract_evidence_via_chain(
-            "dQw4w9WgXcQ", "Test Channel", "2026-05-15T00:00:00Z",
-        )
-
-    assert bundle is fake_bundle
-    gem_mock.assert_not_called()
-    assert "gemini/v2" not in tel.chain_attempts
-    assert "whisper-groq/v1" in tel.chain_attempts
+# REMOVED 2026-06-09: test_chain_force_whisper_via_config_skips_gemini — the
+# disabled_for_test hook used to fall to the F3 whisper stage, which was deleted.
+# The "hook skips Gemini" behavior is covered by
+# test_disabled_for_test_hook_skips_gemini in test_video_fallback_chain.py.
 
 
 @pytest.mark.asyncio
@@ -183,8 +151,6 @@ async def test_chain_semaphore_serializes_concurrent_calls():
         patch("consensus_engine.local_video_ingest.pre_flight_check", return_value=True),
         patch("consensus_engine.local_video_ingest.cleanup_run_workspace"),
         patch("consensus_engine.local_video_ingest._stage_gemini", side_effect=slow_gemini),
-        patch("consensus_engine.local_video_ingest._stage_whisper",
-              new_callable=AsyncMock),
     ):
         from consensus_engine.local_video_ingest import extract_evidence_via_chain
         await asyncio.gather(
@@ -215,8 +181,6 @@ async def test_chain_cleanup_runs_after_success():
         patch("consensus_engine.local_video_ingest.cleanup_run_workspace") as cleanup_mock,
         patch("consensus_engine.local_video_ingest._stage_gemini",
               new_callable=AsyncMock, return_value=fake_bundle),
-        patch("consensus_engine.local_video_ingest._stage_whisper",
-              new_callable=AsyncMock),
     ):
         from consensus_engine.local_video_ingest import extract_evidence_via_chain
         await extract_evidence_via_chain("dQw4w9WgXcQ", "Test", "2026-05-15T00:00:00Z")
@@ -232,8 +196,6 @@ async def test_chain_cleanup_runs_after_failure():
         patch("consensus_engine.local_video_ingest.pre_flight_check", return_value=True),
         patch("consensus_engine.local_video_ingest.cleanup_run_workspace") as cleanup_mock,
         patch("consensus_engine.local_video_ingest._stage_gemini",
-              new_callable=AsyncMock, return_value=None),
-        patch("consensus_engine.local_video_ingest._stage_whisper",
               new_callable=AsyncMock, return_value=None),
     ):
         from consensus_engine.local_video_ingest import extract_evidence_via_chain
@@ -263,8 +225,6 @@ async def test_chain_telemetry_complete_after_run():
         patch("consensus_engine.local_video_ingest.pre_flight_check", return_value=True),
         patch("consensus_engine.local_video_ingest.cleanup_run_workspace"),
         patch("consensus_engine.local_video_ingest._stage_gemini", side_effect=gemini_like),
-        patch("consensus_engine.local_video_ingest._stage_whisper",
-              new_callable=AsyncMock),
     ):
         from consensus_engine.local_video_ingest import extract_evidence_via_chain
         _, tel = await extract_evidence_via_chain(
