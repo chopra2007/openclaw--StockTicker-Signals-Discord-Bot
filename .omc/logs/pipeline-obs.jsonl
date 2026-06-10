@@ -1909,3 +1909,334 @@
 {"ts": 1780219168.378989, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
 {"ts": 1780219186.1948392, "event": "narrator_cache_miss", "ticker": "NVDA"}
 {"ts": 1780219186.1957192, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1781080194.5010755, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781080194.5015576, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781080194.5020435, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1781080194.5383873, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1781080194.5387664, "event": "synth_initial", "ticker": "AMD"}
+{"ts": 1781080194.5543957, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1781080194.5548365, "event": "synth_initial", "ticker": "AMD"}
+{"ts": 1781080199.6063037, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1781080199.6069362, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1781080199.6072087, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1781080200.4393227, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1781080200.4765344, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1781080200.49921, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1781080200.5374973, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1781080215.381026, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781080215.381456, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781080215.3818586, "event": "synth_retry", "reason": "missing_sections", "ticker": "NVDA", "missing": ["**TL;DR:**", "## Risk Considerations"]}
+{"ts": 1781080215.4125376, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1781080215.412875, "event": "synth_initial", "ticker": "AMD"}
+{"ts": 1781080215.446415, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781080215.4467366, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781080215.4471602, "event": "synth_retry", "reason": "contradiction", "ticker": "NVDA"}
+{"ts": 1781080220.655506, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1781080222.4693282, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1781080227.1784904, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1781080228.9906049, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1781080243.545839, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1781083741.2650445, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1781083741.2854633, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1781083741.2960274, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1781083741.3073492, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1781083741.3562498, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1781083742.5062432, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781083742.506727, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781083742.5072384, "event": "synth_retry", "reason": "missing_sections", "ticker": "NVDA", "missing": ["**TL;DR:**", "## Risk Considerations"]}
+{"ts": 1781083742.5361571, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781083742.5366638, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781083742.5666792, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781083742.5671494, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781083742.5676925, "event": "synth_retry", "reason": "risk_violation", "ticker": "NVDA"}
+{"ts": 1781083742.7263947, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781083742.727269, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781083742.7588024, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781083742.759619, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781083742.784531, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781083742.7852304, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781083742.8174157, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781083742.8181589, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781083742.8501458, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781083742.85064, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781083742.8774772, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781083742.8778355, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781083742.8782282, "event": "synth_retry", "reason": "risk_violation", "ticker": "NVDA"}
+{"ts": 1781083742.911793, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781083742.9122212, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781083742.9127018, "event": "synth_retry", "reason": "risk_violation", "ticker": "NVDA"}
+{"ts": 1781083747.0507371, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1781083759.8866017, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1781083771.2990496, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1781083823.243606, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1781083823.2578034, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1781083823.2581916, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1781083823.2583656, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1781083845.420332, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1781083845.4335656, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1781083845.4460273, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1781083845.478188, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1781083865.653071, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781083865.653487, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781083865.653856, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1781083865.6914701, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1781083865.6919124, "event": "synth_initial", "ticker": "AMD"}
+{"ts": 1781083865.7066135, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1781083865.7070599, "event": "synth_initial", "ticker": "AMD"}
+{"ts": 1781083870.9654288, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1781083870.9658778, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1781083870.9660523, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1781083871.7491548, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1781083871.7830107, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1781083871.8070948, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1781083871.8458476, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1781083884.7835531, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781083884.7840412, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781083884.7844648, "event": "synth_retry", "reason": "missing_sections", "ticker": "NVDA", "missing": ["**TL;DR:**", "## Risk Considerations"]}
+{"ts": 1781083884.8203423, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1781083884.820771, "event": "synth_initial", "ticker": "AMD"}
+{"ts": 1781083884.8542101, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781083884.8546681, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781083884.855228, "event": "synth_retry", "reason": "contradiction", "ticker": "NVDA"}
+{"ts": 1781083887.379513, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1781083889.1281645, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1781083892.5934827, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1781083901.6864133, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1781083916.5602524, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1781084281.7955883, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1781084281.8085382, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1781084281.8152971, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1781084281.8237371, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1781084281.8662822, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1781084283.0260427, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781084283.0265186, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781084283.0270157, "event": "synth_retry", "reason": "missing_sections", "ticker": "NVDA", "missing": ["**TL;DR:**", "## Risk Considerations"]}
+{"ts": 1781084283.064311, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781084283.06478, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781084283.1002197, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781084283.100699, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781084283.1013122, "event": "synth_retry", "reason": "risk_violation", "ticker": "NVDA"}
+{"ts": 1781084283.258008, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781084283.2586925, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781084283.2951922, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781084283.2959142, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781084283.3318958, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781084283.3326633, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781084283.3489413, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1781084283.369865, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781084283.3705716, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781084283.4078515, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781084283.4085276, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781084283.4443445, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781084283.444793, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781084283.4453514, "event": "synth_retry", "reason": "risk_violation", "ticker": "NVDA"}
+{"ts": 1781084283.482395, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781084283.4828672, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781084283.4834385, "event": "synth_retry", "reason": "risk_violation", "ticker": "NVDA"}
+{"ts": 1781084292.7763968, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1781084304.230065, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1781084344.9128897, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1781084344.92911, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1781084344.9294703, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1781084344.9298692, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1781084464.1949456, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1781084464.208798, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1781084464.2169275, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1781084464.226128, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1781084464.2648413, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1781084465.314311, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781084465.314712, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781084465.315053, "event": "synth_retry", "reason": "missing_sections", "ticker": "NVDA", "missing": ["**TL;DR:**", "## Risk Considerations"]}
+{"ts": 1781084465.3422735, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781084465.3426008, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781084465.3719735, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781084465.3724594, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781084465.3730426, "event": "synth_retry", "reason": "risk_violation", "ticker": "NVDA"}
+{"ts": 1781084465.490454, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781084465.4912229, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781084465.5163717, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781084465.5171216, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781084465.5516665, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781084465.5523956, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781084465.585507, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781084465.585993, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781084465.6066387, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781084465.6071157, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781084465.6305265, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781084465.6308668, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781084465.631277, "event": "synth_retry", "reason": "risk_violation", "ticker": "NVDA"}
+{"ts": 1781084465.6569076, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781084465.6573129, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781084465.6576781, "event": "synth_retry", "reason": "risk_violation", "ticker": "NVDA"}
+{"ts": 1781084474.427858, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1781084488.5105162, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1781084493.889431, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1781084554.1069558, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1781084554.121696, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1781084554.1219811, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1781084554.122137, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1781085056.078704, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1781085056.0884514, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1781085056.098673, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1781085056.134483, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1781085076.2518647, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781085076.252251, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781085076.2526364, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1781085076.288402, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1781085076.2888646, "event": "synth_initial", "ticker": "AMD"}
+{"ts": 1781085076.306076, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1781085076.3065228, "event": "synth_initial", "ticker": "AMD"}
+{"ts": 1781085081.422053, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1781085081.422732, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1781085081.4230177, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1781085082.266062, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1781085082.3051093, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1781085082.3269248, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1781085082.3650408, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1781085095.925216, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781085095.9255624, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781085095.9259546, "event": "synth_retry", "reason": "missing_sections", "ticker": "NVDA", "missing": ["**TL;DR:**", "## Risk Considerations"]}
+{"ts": 1781085095.9611394, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1781085095.9615405, "event": "synth_initial", "ticker": "AMD"}
+{"ts": 1781085095.9920883, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781085095.9925005, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781085095.9931667, "event": "synth_retry", "reason": "contradiction", "ticker": "NVDA"}
+{"ts": 1781085101.4914799, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1781085103.592454, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1781085108.5941381, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1781085110.6762183, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1781085124.7816472, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1781085282.6434462, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1781085282.6553075, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1781085282.662085, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1781085282.6686873, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1781085282.6990833, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1781085283.7129993, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781085283.7135246, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781085283.713945, "event": "synth_retry", "reason": "missing_sections", "ticker": "NVDA", "missing": ["**TL;DR:**", "## Risk Considerations"]}
+{"ts": 1781085283.7441049, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781085283.7444894, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781085283.770533, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781085283.7708855, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781085283.771244, "event": "synth_retry", "reason": "risk_violation", "ticker": "NVDA"}
+{"ts": 1781085283.9117422, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781085283.9125268, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781085283.9428034, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781085283.943633, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781085283.975781, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781085283.976542, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781085284.011971, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781085284.012708, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781085284.0393791, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781085284.039907, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781085284.0678437, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781085284.0682514, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781085284.068687, "event": "synth_retry", "reason": "risk_violation", "ticker": "NVDA"}
+{"ts": 1781085284.0945091, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781085284.094884, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781085284.0952256, "event": "synth_retry", "reason": "risk_violation", "ticker": "NVDA"}
+{"ts": 1781085295.6100338, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1781085309.9868042, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1781085314.9866762, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1781085374.3611894, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1781085374.3744178, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1781085374.374756, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1781085374.3749373, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1781085877.400302, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1781085877.4139006, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1781085877.4238927, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1781085877.45561, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1781085897.6205997, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781085897.6209517, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781085897.6214218, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1781085897.6580482, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1781085897.6585107, "event": "synth_initial", "ticker": "AMD"}
+{"ts": 1781085897.6726878, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1781085897.673134, "event": "synth_initial", "ticker": "AMD"}
+{"ts": 1781085902.713103, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1781085902.7137296, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1781085902.713941, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1781085903.5225284, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1781085903.5616004, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1781085903.5846677, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1781085903.6208653, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1781085916.9707656, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781085916.971276, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781085916.9718926, "event": "synth_retry", "reason": "missing_sections", "ticker": "NVDA", "missing": ["**TL;DR:**", "## Risk Considerations"]}
+{"ts": 1781085917.0144057, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1781085917.0149066, "event": "synth_initial", "ticker": "AMD"}
+{"ts": 1781085917.057219, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781085917.0577369, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781085917.0584192, "event": "synth_retry", "reason": "contradiction", "ticker": "NVDA"}
+{"ts": 1781085922.4307597, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1781085924.4597287, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1781085929.4953732, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1781085931.5906546, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1781085946.162207, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1781086238.7872107, "event": "sltp_atr_fallback", "spot": 420.0, "atr14": 10.0}
+{"ts": 1781086238.8022647, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 15.0}
+{"ts": 1781086238.8090994, "event": "sltp_atr_fallback", "spot": 400.0, "atr14": 10.0}
+{"ts": 1781086238.816567, "event": "sltp_atr_fallback", "spot": 210.0, "atr14": 4.0}
+{"ts": 1781086238.8505168, "event": "sltp_atr_fallback", "spot": 222.32, "atr14": 8.26}
+{"ts": 1781086239.8769333, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781086239.8774912, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781086239.8779771, "event": "synth_retry", "reason": "missing_sections", "ticker": "NVDA", "missing": ["**TL;DR:**", "## Risk Considerations"]}
+{"ts": 1781086239.9045706, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781086239.9050276, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781086239.9299345, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781086239.9302819, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781086239.9306152, "event": "synth_retry", "reason": "risk_violation", "ticker": "NVDA"}
+{"ts": 1781086240.03678, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781086240.0375862, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781086240.0662735, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781086240.0670233, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781086240.0955403, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781086240.096078, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781086240.122401, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781086240.123136, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781086240.150329, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781086240.1508474, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781086240.1791942, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781086240.1795278, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781086240.179932, "event": "synth_retry", "reason": "risk_violation", "ticker": "NVDA"}
+{"ts": 1781086240.2046263, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781086240.2051425, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781086240.2056742, "event": "synth_retry", "reason": "risk_violation", "ticker": "NVDA"}
+{"ts": 1781086251.4421546, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1781086264.5910816, "event": "sltp_atr_fallback", "spot": 200.0, "atr14": 4.0}
+{"ts": 1781086269.7555604, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1781086328.7310584, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1781086328.744833, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1781086328.7451234, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1781086328.7452307, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1781086833.2613287, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1781086833.275681, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 5.0}
+{"ts": 1781086833.2885442, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}
+{"ts": 1781086833.3327134, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1781086853.4515615, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781086853.4519427, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781086853.452288, "event": "narrator_cache_hit", "ticker": "NVDA"}
+{"ts": 1781086853.4852085, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1781086853.4857333, "event": "synth_initial", "ticker": "AMD"}
+{"ts": 1781086853.5065114, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1781086853.5070024, "event": "synth_initial", "ticker": "AMD"}
+{"ts": 1781086858.5330331, "event": "pre_ready_drop", "total_drops": 1, "cap": 2}
+{"ts": 1781086858.5335922, "event": "pre_ready_drop", "total_drops": 2, "cap": 2}
+{"ts": 1781086858.533792, "event": "pre_ready_drop", "total_drops": 3, "cap": 2}
+{"ts": 1781086859.3237982, "event": "safe_send", "attempts": 0, "status": "ok"}
+{"ts": 1781086859.364893, "event": "safe_send", "attempts": 1, "status": "ok"}
+{"ts": 1781086859.3879204, "event": "safe_send", "attempts": 1, "status": "exhausted"}
+{"ts": 1781086859.4297736, "event": "safe_send", "attempts": 0, "status": "error"}
+{"ts": 1781086872.869111, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781086872.8695064, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781086872.8699245, "event": "synth_retry", "reason": "missing_sections", "ticker": "NVDA", "missing": ["**TL;DR:**", "## Risk Considerations"]}
+{"ts": 1781086872.901008, "event": "narrator_cache_miss", "ticker": "AMD"}
+{"ts": 1781086872.9013588, "event": "synth_initial", "ticker": "AMD"}
+{"ts": 1781086872.933675, "event": "narrator_cache_miss", "ticker": "NVDA"}
+{"ts": 1781086872.9340305, "event": "synth_initial", "ticker": "NVDA"}
+{"ts": 1781086872.934586, "event": "synth_retry", "reason": "contradiction", "ticker": "NVDA"}
+{"ts": 1781086878.5676258, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1781086880.399902, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1781086885.463397, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1781086887.4056695, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 2.0}
+{"ts": 1781086901.5939677, "event": "sltp_atr_fallback", "spot": 100.0, "atr14": 3.0}

@@ -106,7 +106,7 @@ Update 13 stale unit-test assertions that the `!all` refactor and critical-sourc
 
 **File:** `youtube_vision_upgrade.md`
 
-REOPENED 2026-06-09 (high priority): long videos are only partially transcribed — Gemini silently reads just the first ~10–19 minutes of a 105-min video and thinks it ended there, and every caption fallback is dead because YouTube has blacklisted this server's IP, so long livestreams are mostly lost. The goal is full start-to-finish coverage of every video. (The earlier chart-number-reading work — Tasks B/C, B1/B3 — shipped and is the done sub-part; see the file's "⚠ REOPENED 2026-06-09" section for the new issue, the confirmed data, the Gemini quota numbers, and candidate fixes. Documentation only so far — not fixed.)
+LARGELY FIXED 2026-06-10: chunked reading shipped and live — long videos are now read in 15-minute windows (proven live: coverage jumped from an 18.7-minute ceiling to full window coverage on the 105-min evidence video), short videos unchanged. What remains open: videos LONGER than 90 minutes still lose their tail (the 6-window cap), and the partial-read alarm flags them — decide whether to raise the cap (more Gemini quota per video), buy Supadata caption credits, or accept the 90-min ceiling. Also watch the next few nightly runs to confirm real long videos now log full coverage.
 
 ## 18. Read live options flow and alert on unusual activity — DONE 2026-05-29
 
@@ -192,20 +192,26 @@ DONE — Wolf chart-reading is LIVE. The free AI vision models proved unreliable
 
 A multi-stock YouTube video dumped QQQ/SPY numbers (700–760) onto NVDA, which made !all show a $700 target on a $208 stock — found and fixed for NVDA at session close, but other tickers/videos may be scrambled too; sweep the stored data and add a safety filter so a wild number can never reach the !all trade plan again.
 
-## 32. Fix conviction scoring + finish the signal-quality upgrades (Phase 2) + turn on Phase 1
+## 32. Switch on the Phase-2 signal upgrades after their watch windows
 
 **File:** `signal-features-phase2.md`
 
-Fix the conviction scoring so nuanced/tentative analyst calls (the ~98% that sound like "watching... might add if it reclaims 250") aren't penalized as low-conviction; build the remaining 10 precision upgrades (contradiction warning, hard-evidence gate, fake-burst defense, short-volume + cross-asset veto, etc.); and, after a shadow window, switch on the 9 already-built Phase-1 fixes.
+2026-06-10: conviction scoring FIXED and live, all 10 Phase-2 upgrades BUILT (off, gathering measurement data in the logs), and the 9 Phase-1 fixes TURNED ON and live-tested — what remains is reading the measurement lines after ~2 weeks (contradiction warning, hard-evidence gate, market-stress veto), tuning the freshness caps from that data, and flipping the Phase-2 switches on one at a time (the Reddit-mentions gate becomes eligible ~June 24 once 14 days of baseline accumulate).
 
 ## 34. Research and wire in Apify as a new signal source
 
 **File:** `apify_research_and_integration.md`
 
-Research whether Apify actors (Reddit, Finviz, Seeking Alpha, or Google News) add meaningful signal the bot doesn't already have, run live tests to confirm data quality, then build the integration for whichever source wins.
+Research DONE 2026-06-10 (live probes, $0.19 spent): the winner is the Seeking Alpha news feed (~$1–1.50/month per ticker, real engagement counts, fits the free $5 plan at full polling speed); Reddit costs ~60x the old estimate (only 1–2 snapshots/day fit) and returns no upvote counts; Finviz needs no Apify at all (this server can fetch it directly, free). Awaiting your pick before building — suggested split: Seeking Alpha via Apify + a free direct Finviz feed + optional once-daily Reddit snapshot.
 
 ## 33. Fix the !all Groq 400 "allowed_mentions unsupported" error — DONE 2026-06-10
 
 **File:** `all-command-groq-400-allowed-mentions.md`
 
 The `!all` summary call to Groq's primary model is getting rejected with HTTP 400 because a stray `allowed_mentions` property (a Discord field that has no business in an AI request) is somehow in the request body — find how it gets there and strip it, so Groq actually serves `!all` instead of instantly bouncing to the slower fallback models. (Separate from the 413 size error fixed this same session.)
+
+## 35. Make the bot read bare tickers as stocks (WEN ≠ haircare)
+
+**File:** `mention-ticker-disambiguation.md`
+
+When you ask the bot about a ticker in chat (e.g. "tell me about WEN"), its web-search answer can latch onto the wrong meaning of the word — it described WEN haircare products instead of Wendy's stock (user caught this 2026-06-10); teach the conversational answer path to resolve ticker-shaped words to their company first, so questions about any ticker always come back about the stock.
