@@ -186,7 +186,7 @@ Bundle of investigated fixes — get the bot reading Wolf charts again (vision-m
 
 DONE — Wolf chart-reading is LIVE. The free AI vision models proved unreliable (they all share OpenRouter's throttled free pool — not separate provider outages), so it now reads ALL charts in every Wolf email with the cheap paid model gemini-2.5-flash-lite (about 2 cents a day). Proven 10/10 charts read with zero failures.
 
-## 31. Clean up scrambled YouTube chart numbers + guard the !all trade plan
+## 31. Clean up scrambled YouTube chart numbers + guard the !all trade plan — DONE 2026-06-10
 
 **File:** `mis-attributed-yt-levels-sweep.md`
 

@@ -897,6 +897,24 @@ async def _compute_all(ticker: str, start: float) -> dict:
 
     # Anchor pipeline.
     yt_levels = data["yt_levels"] if isinstance(data["yt_levels"], list) else []
+    # Level-sanity guard (item C extension, 2026-06-10): drop wild levels (>=2x or <=0.5x
+    # live price) BEFORE they become TP anchors.  Matches the always-on gate in alfred.py
+    # and wolf_news.py.  A mis-attributed stored level (NVDA 700 from a QQQ/SPY video) can
+    # still reach !all as an unsuppressed row before the DB sweep runs; this gate is the
+    # last line of defense before TP1/2/3 are emitted.
+    try:
+        from consensus_engine.analysis.level_display_sanity import (  # noqa: PLC0415
+            filter_levels_for_display as _fld,
+        )
+        _yt_levels_sane, _yt_levels_dropped = await _fld(ticker, yt_levels)
+        if _yt_levels_dropped:
+            log.warning(
+                "aggregator: dropped %d wild youtube level(s) for %s before anchor pipeline",
+                _yt_levels_dropped, ticker,
+            )
+        yt_levels = _yt_levels_sane
+    except Exception as _san_exc:  # noqa: BLE001
+        log.warning("aggregator: level sanity filter failed for %s: %s", ticker, _san_exc)
     swing_candles = _swing_candles(data["technical_long"])
     yt_anchors = levels.extract_anchors_from_youtube_levels(yt_levels)
     swing_anchors = levels.extract_swing_levels(swing_candles)

@@ -1,7 +1,20 @@
 # Sweep mis-attributed YouTube levels/setups + gate !all trade-plan targets
 
-**Status:** OPEN
+**Status:** DONE 2026-06-10
 **Created:** 2026-06-09
+
+## Resolution (2026-06-10)
+All three open items done: (1) video P5E-8qlhwws fully zeroed — its remaining
+21 QQQ levels suppressed (NVDA was done last session; video now 35/35 levels +
+setup suppressed). (2) Global sweep via new re-runnable
+`scripts/sweep_youtube_levels.py` — found + suppressed 21 more wild levels and
+2 wild setups across 9 tickers (AMD 185-vs-490, CAR 920-vs-179, GME 69-920-vs-22,
+NVDA 448-vs-208, POET, SLX, SMH/SOX/SPX index-scale rows; full audit table in
+the sweep's --apply output). DB now 148 unsuppressed levels / 15 setups, all
+sane. (3) `!all` anchor pipeline now runs `filter_levels_for_display` in
+aggregator.py (~:900) before TP anchors — a wild stored value can never reach
+TP1/2/3 even if unsuppressed. 6 dedicated tests; suppressions are live-DB flag
+flips (re-run the sweep script if the DB is ever restored from backup).
 
 ## What happened
 Turning on the !all features at session close surfaced a live bug: `!all NVDA` showed
