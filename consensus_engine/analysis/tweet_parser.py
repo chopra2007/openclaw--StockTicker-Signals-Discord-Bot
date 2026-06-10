@@ -111,11 +111,6 @@ _HIGH_CONVICTION_KEYWORDS = re.compile(
     r"backing up the truck|yolo)\b",
     re.IGNORECASE,
 )
-_LOW_CONVICTION_KEYWORDS = re.compile(
-    r"\b(watching|might|maybe|could|considering|thinking about|tentative|"
-    r"on watch|keeping an eye)\b",
-    re.IGNORECASE,
-)
 _STOP_LOSS_PATTERN = re.compile(r"\b(sl|stop|stop loss|stop-loss)\b", re.IGNORECASE)
 _TARGET_PATTERN = re.compile(r"(\btarget\b|🎯|\btp\b)", re.IGNORECASE)
 _ENTRY_PATTERN = re.compile(r"\b(at|@)\s*\$?\d", re.IGNORECASE)
@@ -124,8 +119,13 @@ _ENTRY_PATTERN = re.compile(r"\b(at|@)\s*\$?\d", re.IGNORECASE)
 def _infer_conviction(text: str, options: Optional[OptionsDetail]) -> Conviction:
     """Deterministic conviction tier from tweet text and options shape.
 
-    Returns HIGH or LOW only when the heuristic is decisive. MEDIUM is the
-    default when no rule matches — callers can fall back to LLM output.
+    Returns HIGH only when the setup structure (or an explicit conviction
+    statement) is decisive; MEDIUM otherwise. The heuristic never returns LOW:
+    ~98% of the tracked analysts' REAL calls use a tentative register
+    ("watching... might add if it reclaims 250") — that wording is their
+    normal voice, not noise, so register words must not floor the score
+    (user 2026-06-09; TODO #32). LOW is the LLM's call only, based on whether
+    the tweet has any actionable content.
     """
     if not text:
         return Conviction.MEDIUM
@@ -143,10 +143,6 @@ def _infer_conviction(text: str, options: Optional[OptionsDetail]) -> Conviction
 
     if has_entry and has_target and has_sl:
         return Conviction.HIGH
-
-    if _LOW_CONVICTION_KEYWORDS.search(text) and not (has_entry and has_target and has_sl) \
-            and not (options and options.present):
-        return Conviction.LOW
 
     return Conviction.MEDIUM
 

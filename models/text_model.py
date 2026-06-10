@@ -44,6 +44,15 @@ Rules:
 - Exclude technical indicators (RSI, EMA, MACD, VWAP, SMA, ATR, RVOL) as tickers.
 - Use vision context if provided to enrich confidence, reason, and key_levels.
 - Ensure source_types includes "image" when vision context is provided.
+- conviction reflects SETUP QUALITY, never the wording register. These analysts
+  habitually hedge ("watching", "might add if it reclaims a level") — hedged
+  wording around a concrete setup is still a real call.
+  high = complete trade plan (entry + target + stop, or options strike/expiry
+  with a target) or an explicit all-in conviction statement.
+  medium = a directional call on a specific ticker, even in hedged wording,
+  with at least one concrete level or setup element.
+  low = ONLY when there is no actionable content at all (vague market musing,
+  no ticker-specific level, entry, or plan).
 """
 
 
