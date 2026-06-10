@@ -770,6 +770,18 @@ features:
   analyst_accuracy_weight: { enabled: false, min_n: 10, discount_floor: 0.5, weight_cap: 1.5, uplift_cap: 20 } # I2 — Wilson-LB analyst weight
   sec_graduated_scoring: { enabled: false, csuite_pts: 20, large_buy_pts: 15, base_pts: 8, recency_days: 5 } # I5 — graduate SEC by role/$
   options_graduated_scoring: { enabled: false, aligned_pts: 10, unusual_pts: 6, horizon: "1-2d" } # I6 — same-direction premium scale
+  # Phase-2 signal features (signal-features-2026-06-09 Waves 3-4) — ALL default OFF.
+  contradiction_index_live: { enabled: false, min_actors: 2, downgrade_threshold: 0.5 }       # I3 — live contradiction producer
+  strong_requires_hard_evidence: { enabled: false, min_technical_filters: 2 }                 # I10 — STRONG needs a hard-evidence component
+  manufactured_agreement_gate: { enabled: false }                                             # E6 — coordinated-burst corroboration gate
+  apewisdom_zscore: { enabled: false, min_baseline_days: 14, z_threshold: 2.0 }               # I13 — mention z-surge, confirm-only
+  single_score: { enabled: false }                                                            # I4-full — single-score reconciliation
+  consensus_logodds: { enabled: false, count_floor_frac: 0.5 }                                # I7 — sigmoid(log-odds) consensus scale
+  regime_widening_graduated: { enabled: false, max_shift: 15, cutoff_ceiling: 90 }            # I14-widening — z-scaled panic shift
+  cross_asset: { enabled: false, fred_leg_enabled: false, veto_floor: 0.85, confirm_ceiling: 1.15 } # E2 — VIX-term confirm/veto multiplier
+  finra_short_volume: { enabled: false }                                                      # E1 — FINRA short-volume confluence term
+  # Cross-cutting helper (consumers above are all flag-OFF; caps are shadow-derived placeholders).
+  recency_window: { enabled: true, max_age_min: { sec: 120, tweet: 120, options: 90, youtube: 1440, apewisdom: 1440, finra_short_volume: 1440, vix: 1440 } }
 
 # #18 unusual options FLOW — free yfinance ~15-min option chains.
 # "Balanced" thresholds (user-chosen 2026-05-29): a contract must trade >=N x
@@ -892,6 +904,8 @@ wolf:
     min_dominance: 0.6                  # a source's net vote needs >=60% one-sided rows, else it's "mixed"
     board_show_levelless: true          # #3A LIVE (user go 2026-06-08) — show corroborated (agree>=2) theses even with no levels
     links_enabled: true                 # #3B LIVE (user go 2026-06-08) — clickable YouTube links by agreeing videos
+    weighted_votes_enabled: false       # I15 — age-decayed, size-scaled, actor-aware votes (Phase 2, default OFF)
+    require_nonactor_for_critical: true # I15 — critical @-ping needs >=1 non-actor-controllable source
   outcomes:                             # Wolf Sunday-recap outcome grading
     benchmark_adjusted: false           # I16 — credit "moved_with" only when proxy beats its benchmark (raw still shown)
   direction_guard:                      # #1 trade-stance vs near-term-price-path extraction rule

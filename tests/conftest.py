@@ -61,6 +61,19 @@ def _audit_flags_default_off(monkeypatch):
         "features.youtube_score.channel_reliability": False,
         "features.youtube_score.level_confluence": False,
         "wolf.outcomes.benchmark_adjusted": False,
+        # Phase-2 signal features (signal-features-2026-06-09 Waves 3-4) — keep
+        # OFF for the baseline suite; dedicated feature tests force their own flag.
+        "features.contradiction_index_live.enabled": False,
+        "features.strong_requires_hard_evidence.enabled": False,
+        "features.manufactured_agreement_gate.enabled": False,
+        "features.apewisdom_zscore.enabled": False,
+        "features.single_score.enabled": False,
+        "features.consensus_logodds.enabled": False,
+        "features.regime_widening_graduated.enabled": False,
+        "features.cross_asset.enabled": False,
+        "features.cross_asset.fred_leg_enabled": False,
+        "features.finra_short_volume.enabled": False,
+        "wolf.confluence.weighted_votes_enabled": False,
     }
 
     def _patched(key, default=None):
