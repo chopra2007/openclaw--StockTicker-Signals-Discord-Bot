@@ -247,6 +247,7 @@ def _classify(
     analyst_lb: Optional[float] = None,
     budget_skipped_sources: Optional[set] = None,
     ticker: str = "",
+    e2_multiplier: float = 1.0,
 ) -> tuple["SignalClass", "ContradictionVerdict"]:
     """Map total score + quality flags to a signal classification.
 
@@ -275,12 +276,57 @@ def _classify(
     Absent-vs-unfetched safeguard: if a confirming source column appears in
     budget_skipped_sources its absence does NOT count against hard evidence.
     Shadow line is emitted on every STRONG-threshold eval regardless of flag.
+
+    E2 + I14-widening combined cutoff adjustment (reconciled into ONE formula):
+    ``effective_high = clamp(base_high * e2_multiplier + regime_shift,
+                             base_high - 10, cutoff_ceiling=90)``
+    - regime_shift is the graduated shift from regime.py (I14-widening) —
+      except for high-conviction bypass callers (see I14 handoff item below).
+    - e2_multiplier scales base_high before adding the additive shift, so the
+      two adjustments never independently stack beyond the ceiling or below the
+      floor.  Flag OFF on either feature leaves that term at its neutral value
+      (e2_multiplier=1.0, regime_shift=0) making the formula a no-op.
+    - The clamp guarantees: veto can never raise the cutoff above ceiling (90)
+      nor can a confirm lower it below base_high - 10.
+
+    I14 handoff — high-conviction bypass exemption:
+    When bypass_market_confirmation=True AND features.regime_widening_graduated
+    is enabled, the regime_shift applied to this caller's high cutoff is capped
+    at the STATIC map value (features.regime_classifier.regime_shifts[label]),
+    NOT the graduated extra.  This prevents high-conviction calls (and
+    SEC-catalyst callers) from facing the extra graduated widening.
+    Gate: only when features.regime_widening_graduated.enabled is True; OFF ->
+    bypass callers see the full (already-static in that case) threshold_shift.
     """
-    high = cfg.get("precision_engine.thresholds.high_confidence", 80)
+    base_high = cfg.get("precision_engine.thresholds.high_confidence", 80)
     med = cfg.get("precision_engine.thresholds.medium_confidence", 65)
-    # A5: shift `high` by regime threshold_shift (regime applied first, before A1)
+    cutoff_ceiling = cfg.get("features.regime_widening_graduated.cutoff_ceiling", 90)
+
+    # Determine regime shift, applying I14 bypass exemption when applicable.
+    regime_shift: int = 0
     if regime is not None and cfg.get("features.regime_classifier.enabled", False):
-        high = high + regime.threshold_shift
+        if (
+            bypass_market_confirmation
+            and cfg.get("features.regime_widening_graduated.enabled", False)
+        ):
+            # I14 handoff: high-conviction callers exempt from graduated EXTRA
+            # widening — cap at the static map value for this label.
+            shifts = cfg.get(
+                "features.regime_classifier.regime_shifts",
+                {"calm": -5, "elevated": 5, "panic": 10},
+            )
+            regime_shift = shifts.get(regime.label, 0)
+        else:
+            regime_shift = regime.threshold_shift
+
+    # E2 + I14 reconciliation: ONE bounded cutoff adjustment.
+    # Flag OFF on either feature -> neutral value -> formula is a no-op.
+    if cfg.get("features.cross_asset.enabled", False) and e2_multiplier != 1.0:
+        raw_high = base_high * e2_multiplier + regime_shift
+    else:
+        raw_high = base_high + regime_shift
+
+    high = int(max(base_high - 10, min(cutoff_ceiling, raw_high)))
     require_mainstream = cfg.get("precision_engine.thresholds.require_mainstream_for_strong", True)
     require_market = cfg.get(
         "precision_engine.thresholds.require_market_confirmation_for_low_conviction", True
@@ -514,6 +560,16 @@ async def analyze_signal(
             except Exception as _lb_exc:
                 log.debug("[I10] analyst LB lookup failed for %s: %s", analyst, _lb_exc)
 
+    # --- E2: cross-asset regime multiplier ---
+    # Only fetched when the flag is ON; returns 1.0 (no-op) on error or flag OFF.
+    _e2_multiplier: float = 1.0
+    if cfg.get("features.cross_asset.enabled", False):
+        try:
+            from consensus_engine.analysis.cross_asset import get_multiplier as _get_e2
+            _e2_multiplier = await _get_e2()
+        except Exception as _e2_exc:
+            log.debug("[E2] multiplier fetch failed — using 1.0: %s", _e2_exc)
+
     # --- Classify ---
     classification, contradiction_verdict = _classify(
         score, has_mainstream, market_ok,
@@ -525,6 +581,7 @@ async def analyze_signal(
         analyst_lb=_resolved_analyst_lb,
         budget_skipped_sources=budget.skipped_sources,
         ticker=ticker,
+        e2_multiplier=_e2_multiplier,
     )
     log.info("[A1] $%s contradiction=%.2f → %s", ticker, contradiction_index, contradiction_verdict.reason)
     log.info("$%s precision result: %s (score=%d, mainstream=%s, market_ok=%s)",
