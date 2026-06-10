@@ -198,6 +198,12 @@ A multi-stock YouTube video dumped QQQ/SPY numbers (700–760) onto NVDA, which 
 
 Fix the conviction scoring so nuanced/tentative analyst calls (the ~98% that sound like "watching... might add if it reclaims 250") aren't penalized as low-conviction; build the remaining 10 precision upgrades (contradiction warning, hard-evidence gate, fake-burst defense, short-volume + cross-asset veto, etc.); and, after a shadow window, switch on the 9 already-built Phase-1 fixes.
 
+## 34. Research and wire in Apify as a new signal source
+
+**File:** `apify_research_and_integration.md`
+
+Research whether Apify actors (Reddit, Finviz, Seeking Alpha, or Google News) add meaningful signal the bot doesn't already have, run live tests to confirm data quality, then build the integration for whichever source wins.
+
 ## 33. Fix the !all Groq 400 "allowed_mentions unsupported" error
 
 **File:** `all-command-groq-400-allowed-mentions.md`
