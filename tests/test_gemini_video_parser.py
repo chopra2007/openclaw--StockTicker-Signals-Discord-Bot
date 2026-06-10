@@ -14,6 +14,9 @@ from consensus_engine.analysis.gemini_video_parser import (
     _key_is_available,
     _pick_media_resolution,
     _should_escalate,
+    _compute_chunk_windows,
+    _merge_chunked_bundles,
+    _extract_evidence_chunked,
 )
 from consensus_engine.models import (
     EvidenceBundle, EvidenceSpan, RunTelemetry,
@@ -865,4 +868,305 @@ def test_evidence_bundle_drops_ungrounded_nvda():
     bundle = _build_evidence_bundle(payload, "vidX", "2026-04-23T00:00:00Z")
     assert len(bundle.spans) == 1
     assert bundle.spans[0].tickers == ["AMC"]
+
+
+# ---------------------------------------------------------------------------
+# Chunked long-video path — _compute_chunk_windows / _merge_chunked_bundles /
+# _extract_evidence_chunked / extract_evidence_with_gemini (chunked route)
+# ---------------------------------------------------------------------------
+
+class TestComputeChunkWindows:
+    """Window math: verify boundaries, overlap, cap, and edge cases."""
+
+    def test_single_window_when_video_fits(self):
+        # A 900s video with 900s window → 1 window covering the whole thing
+        windows = _compute_chunk_windows(900, 900, 30, 6)
+        assert windows == [(0, 900)]
+
+    def test_two_windows_with_overlap(self):
+        # duration=1800, window=900, overlap=30, step=870
+        # → (0,900), (870,1770), (1740,1800) — 3 windows (the last is a small tail)
+        windows = _compute_chunk_windows(1800, 900, 30, 6)
+        assert len(windows) == 3
+        assert windows[0] == (0, 900)
+        assert windows[1] == (870, 1770)
+        assert windows[2] == (1740, 1800)
+
+    def test_windows_capped_at_max(self):
+        # 6314s video, window=900, overlap=30, max=6
+        windows = _compute_chunk_windows(6314, 900, 30, 6)
+        assert len(windows) == 6
+        # First window always starts at 0
+        assert windows[0][0] == 0
+        # Consecutive windows overlap by ~30s
+        for i in range(1, len(windows)):
+            gap = windows[i][0] - windows[i - 1][0]
+            assert gap == 870  # 900 - 30
+
+    def test_last_window_does_not_exceed_duration(self):
+        windows = _compute_chunk_windows(6314, 900, 30, 6)
+        # No window end should exceed the video length
+        for start, end in windows:
+            assert end <= 6314
+
+    def test_short_video_returns_one_window(self):
+        windows = _compute_chunk_windows(600, 900, 30, 6)
+        assert windows == [(0, 600)]
+
+    def test_max_windows_two(self):
+        # Override max=2 for quota-saving live tests
+        windows = _compute_chunk_windows(6314, 900, 30, 2)
+        assert len(windows) == 2
+
+
+class TestMergeChunkedBundles:
+    """Merge + dedup + clamp logic."""
+
+    def _make_bundle(self, spans, visual=None, duration=None):
+        return EvidenceBundle(
+            video_id="v",
+            duration_sec=duration,
+            publish_ts="2026-06-10T00:00:00Z",
+            spans=[EvidenceSpan(ts_sec=s["ts"], quote=s["q"], tickers=[], numbers=[], dates_mentioned=[]) for s in spans],
+            visual_evidence=visual or [],
+        )
+
+    def test_spans_merged_in_timestamp_order(self):
+        b1 = self._make_bundle([{"ts": 100, "q": "alpha"}, {"ts": 200, "q": "beta"}])
+        b2 = self._make_bundle([{"ts": 950, "q": "gamma"}, {"ts": 1050, "q": "delta"}])
+        merged = _merge_chunked_bundles(
+            [(b1, 0, 900), (b2, 870, 1770)],
+            "v", "2026-06-10T00:00:00Z", 1770,
+        )
+        ts_list = [s.ts_sec for s in merged.spans]
+        assert ts_list == sorted(ts_list)
+        assert len(merged.spans) >= 4
+
+    def test_overlap_boundary_duplicates_deduped(self):
+        # A span near the seam: window 1 sees it at clip-second 895 (real: 895+0=895).
+        # Window 2 (win_start=870) sees the same utterance at clip-second 25 (real: 25+870=895).
+        # After win_start offset both land at real-second 895 → dedup drops the second copy.
+        seam_quote = "This is the seam sentence about NVDA"
+        b1 = self._make_bundle([{"ts": 100, "q": "first"}, {"ts": 895, "q": seam_quote}])
+        # In window 2, the same seam utterance is at clip-second 25 (= real 870+25=895)
+        b2 = self._make_bundle([{"ts": 25, "q": seam_quote}, {"ts": 80, "q": "after seam"}])
+        merged = _merge_chunked_bundles(
+            [(b1, 0, 900), (b2, 870, 1770)],
+            "v", "2026-06-10T00:00:00Z", 1770,
+        )
+        # The seam span should appear exactly once (real ts=895 from both windows)
+        seam_quotes = [s for s in merged.spans if s.quote == seam_quote]
+        assert len(seam_quotes) == 1
+
+    def test_timestamps_clamped_to_duration(self):
+        # Gemini sometimes invents timestamps past video end
+        b1 = self._make_bundle([
+            {"ts": 500, "q": "normal"},
+            {"ts": 9999, "q": "invented past end"},  # beyond true_duration=1000
+        ])
+        merged = _merge_chunked_bundles(
+            [(b1, 0, 1000)],
+            "v", "2026-06-10T00:00:00Z", 1000,
+        )
+        for span in merged.spans:
+            assert span.ts_sec <= 1000
+
+    def test_visual_evidence_deduped_by_value(self):
+        vis_a = [{"ts_sec": 10, "value": "742.50", "kind": "price", "where": "chart"}]
+        vis_b = [
+            {"ts_sec": 910, "value": "742.50", "kind": "price", "where": "chart"},  # dup
+            {"ts_sec": 915, "value": "750.00", "kind": "price", "where": "chart"},  # new
+        ]
+        b1 = self._make_bundle([], visual=vis_a)
+        b2 = self._make_bundle([], visual=vis_b)
+        merged = _merge_chunked_bundles(
+            [(b1, 0, 900), (b2, 870, 1770)],
+            "v", "2026-06-10T00:00:00Z", 1770,
+        )
+        values = [v["value"] for v in merged.visual_evidence]
+        assert values.count("742.50") == 1
+        assert "750.00" in values
+
+    def test_none_windows_skipped(self):
+        b1 = self._make_bundle([{"ts": 100, "q": "alpha"}])
+        merged = _merge_chunked_bundles(
+            [(b1, 0, 900), (None, 870, 1770)],
+            "v", "2026-06-10T00:00:00Z", 1770,
+        )
+        assert len(merged.spans) == 1
+
+    def test_duration_sec_set_to_true_duration(self):
+        b1 = self._make_bundle([{"ts": 100, "q": "x"}], duration=619)  # what Gemini saw
+        merged = _merge_chunked_bundles(
+            [(b1, 0, 900)],
+            "v", "2026-06-10T00:00:00Z", 6314,  # true duration
+        )
+        assert merged.duration_sec == 6314
+
+
+@pytest.mark.asyncio
+async def test_extract_evidence_chunked_calls_per_window():
+    """Each window makes one _extract_evidence_single_pass call; results merge."""
+    win1_json = """{
+      "duration_sec": 900, "segments": [],
+      "spans": [
+        {"ts_sec": 100, "quote": "window one quote about NVDA", "tickers": ["NVDA"], "numbers": [500.0], "dates_mentioned": []}
+      ], "visual_evidence": []
+    }"""
+    win2_json = """{
+      "duration_sec": 900, "segments": [],
+      "spans": [
+        {"ts_sec": 950, "quote": "window two quote about SPY", "tickers": ["SPY"], "numbers": [], "dates_mentioned": []}
+      ], "visual_evidence": []
+    }"""
+    mock_client = MagicMock()
+    mock_client.models.generate_content.side_effect = [
+        _make_mock_response(win1_json),
+        _make_mock_response(win2_json),
+    ]
+
+    with patch("consensus_engine.analysis.gemini_video_parser._get_available_gemini_client",
+               return_value=(mock_client, "GEMINI_API_KEY")):
+        bundle, tel = await _extract_evidence_chunked(
+            "vid-chunk", "Chan", "2026-06-10T00:00:00Z",
+            media_resolution="low",
+            duration_sec=1770,
+        )
+
+    assert bundle is not None
+    assert len(bundle.spans) == 2
+    quotes = {s.quote for s in bundle.spans}
+    assert any("window one" in q for q in quotes)
+    assert any("window two" in q for q in quotes)
+    # Gemini was called twice (once per window)
+    assert mock_client.models.generate_content.call_count == 2
+    # Combined token count
+    assert tel.input_tokens == 1234 * 2  # two mock responses each with 1234 tokens
+
+
+@pytest.mark.asyncio
+async def test_extract_evidence_chunked_short_video_still_one_call():
+    """A video under the chunk threshold must use the normal single-pass path,
+    not chunking (chunking is gated by the caller; this test verifies the window
+    count logic: a 900s video with window=900 produces exactly 1 window)."""
+    windows = _compute_chunk_windows(900, 900, 30, 6)
+    assert len(windows) == 1
+
+
+@pytest.mark.asyncio
+async def test_extract_evidence_chunked_budget_abort_keeps_partial():
+    """If a budget/quota 429 hits mid-video, the merged result uses whatever
+    windows succeeded — it does not discard all results."""
+    win1_json = """{
+      "duration_sec": 900, "segments": [],
+      "spans": [{"ts_sec": 100, "quote": "early quote about SPY", "tickers": ["SPY"], "numbers": [], "dates_mentioned": []}],
+      "visual_evidence": []
+    }"""
+
+    good_response = _make_mock_response(win1_json)
+    quota_exc = Exception("429 RESOURCE_EXHAUSTED: quota exceeded")
+
+    mock_client = MagicMock()
+    mock_client.models.generate_content.side_effect = [
+        good_response,  # window 1 succeeds
+        quota_exc,      # window 2 hits quota
+    ]
+
+    with patch("consensus_engine.analysis.gemini_video_parser._get_available_gemini_client",
+               return_value=(mock_client, "GEMINI_API_KEY")):
+        bundle, tel = await _extract_evidence_chunked(
+            "vid-abort", "Chan", "2026-06-10T00:00:00Z",
+            media_resolution="low",
+            duration_sec=1770,
+        )
+
+    # Window 1 result is kept even though window 2 failed
+    assert bundle is not None
+    assert len(bundle.spans) == 1
+    assert bundle.spans[0].quote == "early quote about SPY"
+
+
+@pytest.mark.asyncio
+async def test_extract_evidence_with_gemini_uses_chunked_for_long_video():
+    """For a video over chunk_threshold_sec, the orchestrator must use the chunked
+    path (two windows) rather than a single unchunked call."""
+    win_json = """{
+      "duration_sec": 900, "segments": [],
+      "spans": [{"ts_sec": 50, "quote": "chunk test quote NVDA", "tickers": ["NVDA"], "numbers": [], "dates_mentioned": []}],
+      "visual_evidence": []
+    }"""
+    mock_client = MagicMock()
+    mock_client.models.generate_content.return_value = _make_mock_response(win_json)
+
+    import consensus_engine.config as _cfg_mod
+    _orig_get = _cfg_mod.get
+
+    def _cfg_patched(key, default=None):
+        if key == "youtube.gemini.chunked_long_videos":
+            return True
+        if key == "youtube.gemini.chunk_threshold_sec":
+            return 1200
+        if key == "youtube.gemini.chunk_window_sec":
+            return 900
+        if key == "youtube.gemini.chunk_overlap_sec":
+            return 30
+        if key == "youtube.gemini.chunk_max_windows":
+            return 2  # only 2 windows for test speed
+        if key == "youtube.gemini.auto_escalate_enabled":
+            return False
+        return _orig_get(key, default)
+
+    with patch("consensus_engine.analysis.gemini_video_parser._get_available_gemini_client",
+               return_value=(mock_client, "GEMINI_API_KEY")), \
+         patch("consensus_engine.analysis.gemini_video_parser.cfg.get", side_effect=_cfg_patched), \
+         patch("consensus_engine.utils.transcript_fetch.fetch_youtube_duration",
+               new=AsyncMock(return_value=3600)), \
+         patch("consensus_engine.db.create_analysis_run", new=AsyncMock(return_value=99)), \
+         patch("consensus_engine.db.insert_youtube_evidence_span", new=AsyncMock(return_value=None)):
+        bundle, tel = await extract_evidence_with_gemini(
+            "vid-long", "Chan", "2026-06-10T00:00:00Z",
+        )
+
+    assert bundle is not None
+    # Called twice: one per window (max_windows=2 for 3600s video with 900s windows)
+    assert mock_client.models.generate_content.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_extract_evidence_with_gemini_short_video_single_call():
+    """A video under chunk_threshold_sec makes exactly 1 unchunked Gemini call."""
+    win_json = """{
+      "duration_sec": 600, "segments": [],
+      "spans": [{"ts_sec": 30, "quote": "short video quote AAPL", "tickers": ["AAPL"], "numbers": [], "dates_mentioned": []}],
+      "visual_evidence": []
+    }"""
+    mock_client = MagicMock()
+    mock_client.models.generate_content.return_value = _make_mock_response(win_json)
+
+    import consensus_engine.config as _cfg_mod
+    _orig_get = _cfg_mod.get
+
+    def _cfg_patched(key, default=None):
+        if key == "youtube.gemini.chunked_long_videos":
+            return True
+        if key == "youtube.gemini.chunk_threshold_sec":
+            return 1200
+        if key == "youtube.gemini.auto_escalate_enabled":
+            return False
+        return _orig_get(key, default)
+
+    with patch("consensus_engine.analysis.gemini_video_parser._get_available_gemini_client",
+               return_value=(mock_client, "GEMINI_API_KEY")), \
+         patch("consensus_engine.analysis.gemini_video_parser.cfg.get", side_effect=_cfg_patched), \
+         patch("consensus_engine.utils.transcript_fetch.fetch_youtube_duration",
+               new=AsyncMock(return_value=600)), \
+         patch("consensus_engine.db.create_analysis_run", new=AsyncMock(return_value=99)), \
+         patch("consensus_engine.db.insert_youtube_evidence_span", new=AsyncMock(return_value=None)):
+        bundle, tel = await extract_evidence_with_gemini(
+            "vid-short", "Chan", "2026-06-10T00:00:00Z",
+        )
+
+    assert bundle is not None
+    # Exactly 1 call: unchunked path for short video
+    assert mock_client.models.generate_content.call_count == 1
 

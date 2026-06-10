@@ -546,12 +546,40 @@ async def extract_evidence_with_gemini(
     cfg_res = str(cfg.get("youtube.gemini.media_resolution", "auto")).strip().lower()
     initial_tier = _pick_media_resolution(cfg_res, budget_pct)
 
-    bundle, telemetry = await _extract_evidence_single_pass(
-        video_id, channel_name, published_at, media_resolution=initial_tier,
-    )
+    # Chunked long-video path: when enabled and the video exceeds the threshold,
+    # split into sequential windows rather than letting Gemini silently truncate.
+    # We fetch the true duration from Invidious (same call the partial-read alarm
+    # uses after the fact) so we can decide BEFORE sending to Gemini.
+    bundle: EvidenceBundle | None = None
+    used_chunked_path = False
+    if bool(cfg.get("youtube.gemini.chunked_long_videos", True)):
+        chunk_threshold = int(cfg.get("youtube.gemini.chunk_threshold_sec", 1200))
+        try:
+            from consensus_engine.utils.transcript_fetch import fetch_youtube_duration
+            pre_duration = await fetch_youtube_duration(video_id)
+        except Exception as _e:
+            log.debug("extract_evidence_with_gemini: pre-fetch duration failed for %s: %s", video_id, _e)
+            pre_duration = None
+        if pre_duration is not None and pre_duration > chunk_threshold:
+            log.info(
+                "extract_evidence_with_gemini: %s is %ds > threshold %ds — using chunked path",
+                video_id, pre_duration, chunk_threshold,
+            )
+            bundle, telemetry = await _extract_evidence_chunked(
+                video_id, channel_name, published_at,
+                media_resolution=initial_tier,
+                duration_sec=pre_duration,
+            )
+            used_chunked_path = True
+
+    if not used_chunked_path:
+        bundle, telemetry = await _extract_evidence_single_pass(
+            video_id, channel_name, published_at, media_resolution=initial_tier,
+        )
 
     if (
-        bundle is not None
+        not used_chunked_path
+        and bundle is not None
         and bool(cfg.get("youtube.gemini.auto_escalate_enabled", True))
     ):
         min_spans = int(cfg.get("youtube.gemini.auto_escalate_min_spans", 20))
@@ -710,13 +738,211 @@ async def _best_effort_gemini_budget_pct(budget_manager) -> float | None:
         return None
 
 
+def _compute_chunk_windows(
+    duration_sec: int,
+    chunk_window_sec: int,
+    overlap_sec: int,
+    max_windows: int,
+) -> list[tuple[int, int]]:
+    """Return a list of (start_sec, end_sec) windows covering ``duration_sec``.
+
+    Windows are ``chunk_window_sec`` wide with ``overlap_sec`` of overlap at each
+    boundary so context isn't lost at the seam. The list is capped at
+    ``max_windows`` (tail loss is logged by the caller).
+
+    Example: duration=6314, window=900, overlap=30, max=6 →
+      (0, 900), (870, 1770), (1740, 2640), (2610, 3510), (3480, 4380), (4350, 5250)
+    The last window's end may exceed duration_sec; callers should clamp.
+    """
+    if duration_sec <= 0 or chunk_window_sec <= 0:
+        return [(0, duration_sec)]
+    step = max(1, chunk_window_sec - overlap_sec)
+    windows: list[tuple[int, int]] = []
+    start = 0
+    while start < duration_sec:
+        end = min(start + chunk_window_sec, duration_sec)
+        windows.append((start, end))
+        if end >= duration_sec:
+            break
+        start += step
+        if len(windows) >= max_windows:
+            break
+    return windows
+
+
+def _merge_chunked_bundles(
+    per_window: list[tuple[EvidenceBundle | None, int, int]],
+    video_id: str,
+    published_at: str,
+    true_duration_sec: int,
+) -> EvidenceBundle:
+    """Merge per-window EvidenceBundles into one complete bundle.
+
+    ``per_window`` is a list of ``(bundle_or_None, win_start_sec, win_end_sec)``.
+    Merging rules:
+    - Spans are concatenated in window order, then deduped by (ts_sec, quote)
+      closeness (within 3 seconds AND quote prefix match) to remove overlap
+      boundary duplicates. Timestamps beyond true_duration_sec are clamped.
+    - Visual evidence is deduped by ``value`` (keep first across all windows).
+    - Segments are merged in order, deduped by ts_start_sec.
+    - duration_sec is set to true_duration_sec (the actual video length).
+    """
+    all_spans: list[EvidenceSpan] = []
+    all_visual: list[dict] = []
+    all_segments: list[dict] = []
+    seen_visual_values: set[str] = set()
+    seen_segment_starts: set[int] = set()
+
+    for bundle, win_start, win_end in per_window:
+        if bundle is None:
+            continue
+        # Gemini timestamps are relative to the clip start (0 = win_start in the
+        # real video). Add win_start so all timestamps are in real-video coordinates.
+        for span in bundle.spans:
+            ts = min(span.ts_sec + win_start, true_duration_sec)
+            all_spans.append(EvidenceSpan(
+                ts_sec=ts,
+                quote=span.quote,
+                tickers=span.tickers,
+                numbers=span.numbers,
+                dates_mentioned=span.dates_mentioned,
+            ))
+        for vis in bundle.visual_evidence:
+            val = vis.get("value", "")
+            if val and val not in seen_visual_values:
+                seen_visual_values.add(val)
+                ts = min(_parse_ts_str(vis.get("ts_sec", 0)) + win_start, true_duration_sec)
+                entry = dict(vis)
+                entry["ts_sec"] = ts
+                all_visual.append(entry)
+        for seg in (bundle.segments or []):
+            ts_start = seg.get("ts_start_sec", 0) + win_start
+            if ts_start not in seen_segment_starts:
+                seen_segment_starts.add(ts_start)
+                adjusted_seg = dict(seg)
+                adjusted_seg["ts_start_sec"] = ts_start
+                all_segments.append(adjusted_seg)
+
+    # Sort spans by timestamp
+    all_spans.sort(key=lambda s: s.ts_sec)
+
+    # Dedup overlap-boundary spans: drop a span if an earlier span within
+    # 3 seconds shares the first 40 chars of the quote.
+    deduped_spans: list[EvidenceSpan] = []
+    for span in all_spans:
+        is_dup = False
+        for prev in reversed(deduped_spans[-10:]):
+            if span.ts_sec - prev.ts_sec > 3:
+                break
+            if span.quote[:40] == prev.quote[:40]:
+                is_dup = True
+                break
+        if not is_dup:
+            deduped_spans.append(span)
+
+    all_segments.sort(key=lambda s: s.get("ts_start_sec", 0))
+
+    return EvidenceBundle(
+        video_id=video_id,
+        duration_sec=true_duration_sec,
+        publish_ts=published_at,
+        segments=all_segments,
+        spans=deduped_spans,
+        visual_evidence=all_visual[:50],  # honour the existing 50-cap
+    )
+
+
+async def _extract_evidence_chunked(
+    video_id: str,
+    channel_name: str,
+    published_at: str,
+    media_resolution: str,
+    duration_sec: int,
+) -> tuple[EvidenceBundle | None, RunTelemetry]:
+    """Chunked Gemini extraction for long videos.
+
+    Splits the video into sequential windows (config: youtube.gemini.chunk_window_sec,
+    chunk_max_windows), calls _extract_evidence_single_pass per window with start/end
+    offsets, merges the results. If the budget guard or a 429 trips mid-way, keeps
+    whatever windows succeeded and lets the partial-read alarm fire.
+
+    Returns (merged_EvidenceBundle, combined_RunTelemetry).
+    """
+    chunk_window_sec = int(cfg.get("youtube.gemini.chunk_window_sec", 900))
+    overlap_sec = int(cfg.get("youtube.gemini.chunk_overlap_sec", 30))
+    max_windows = int(cfg.get("youtube.gemini.chunk_max_windows", 6))
+
+    windows = _compute_chunk_windows(duration_sec, chunk_window_sec, overlap_sec, max_windows)
+
+    if len(windows) < len(_compute_chunk_windows(duration_sec, chunk_window_sec, overlap_sec, 999)):
+        uncapped_count = len(_compute_chunk_windows(duration_sec, chunk_window_sec, overlap_sec, 999))
+        covered_sec = windows[-1][1] if windows else 0
+        log.warning(
+            "extract_evidence_chunked: %s capped at %d/%d windows — tail from %ds lost",
+            video_id, len(windows), uncapped_count, covered_sec,
+        )
+
+    log.info(
+        "extract_evidence_chunked: %s duration=%ds → %d windows (window=%ds overlap=%ds)",
+        video_id, duration_sec, len(windows), chunk_window_sec, overlap_sec,
+    )
+
+    combined_tel = RunTelemetry()
+    combined_tel.json_parse_ok = True
+    per_window_results: list[tuple[EvidenceBundle | None, int, int]] = []
+    total_start = time.monotonic()
+
+    for idx, (win_start, win_end) in enumerate(windows):
+        log.info(
+            "extract_evidence_chunked: %s window %d/%d [%ds–%ds]",
+            video_id, idx + 1, len(windows), win_start, win_end,
+        )
+        bundle_w, tel_w = await _extract_evidence_single_pass(
+            video_id, channel_name, published_at, media_resolution,
+            start_offset_sec=win_start,
+            end_offset_sec=win_end,
+        )
+        per_window_results.append((bundle_w, win_start, win_end))
+        # Accumulate token counts
+        combined_tel.input_tokens += tel_w.input_tokens
+        combined_tel.output_tokens += tel_w.output_tokens
+        if not tel_w.json_parse_ok:
+            combined_tel.json_parse_ok = False
+        if tel_w.f2_failure_category in ("quota",):
+            # Budget/quota exhausted mid-video — stop now, keep what we have
+            log.warning(
+                "extract_evidence_chunked: %s budget/quota hit at window %d/%d — stopping early",
+                video_id, idx + 1, len(windows),
+            )
+            break
+
+    combined_tel.latency_ms = int((time.monotonic() - total_start) * 1000)
+
+    successful = [(b, s, e) for b, s, e in per_window_results if b is not None]
+    if not successful:
+        combined_tel.json_parse_ok = False
+        return (None, combined_tel)
+
+    merged = _merge_chunked_bundles(successful, video_id, published_at, duration_sec)
+    combined_tel.span_count = len(merged.spans)
+    combined_tel.json_parse_ok = True
+    return (merged, combined_tel)
+
+
 async def _extract_evidence_single_pass(
     video_id: str,
     channel_name: str,
     published_at: str,
     media_resolution: str,
+    *,
+    start_offset_sec: int | None = None,
+    end_offset_sec: int | None = None,
 ) -> tuple[EvidenceBundle | None, RunTelemetry]:
     """One Gemini extraction round at the given media_resolution.
+
+    When ``start_offset_sec`` / ``end_offset_sec`` are provided, the video part
+    is sent with VideoMetadata offsets so Gemini only ingests that window (used
+    by the chunked long-video path).
 
     Does: rate-limit acquire, budget gate, key rotation retry on 429, JSON parse,
     bundle build, token-usage accounting. Does NOT persist evidence spans — the
@@ -759,10 +985,19 @@ async def _extract_evidence_single_pass(
     def _video_part():
         # fps via VideoMetadata cuts input tokens (~225k→144k at 0.5fps, no
         # measured quality loss); plain URI part when fps is unset (=1fps).
-        if fps_cfg:
+        # When offsets are provided (chunked path), VideoMetadata is always
+        # used so start_offset/end_offset can be set alongside fps.
+        if fps_cfg or start_offset_sec is not None:
+            vm_kwargs: dict = {}
+            if fps_cfg:
+                vm_kwargs["fps"] = float(fps_cfg)
+            if start_offset_sec is not None:
+                vm_kwargs["start_offset"] = f"{start_offset_sec}s"
+            if end_offset_sec is not None:
+                vm_kwargs["end_offset"] = f"{end_offset_sec}s"
             return types.Part(
                 file_data=types.FileData(file_uri=youtube_url, mime_type="video/*"),
-                video_metadata=types.VideoMetadata(fps=float(fps_cfg)),
+                video_metadata=types.VideoMetadata(**vm_kwargs),
             )
         return types.Part.from_uri(file_uri=youtube_url, mime_type="video/*")
 

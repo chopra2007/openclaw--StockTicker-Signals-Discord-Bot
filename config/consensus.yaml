@@ -447,6 +447,17 @@ youtube:
     # Partial-read alarm: warn when Gemini reports seeing less than this fraction of the
     # video's true length (it silently caps long videos on input). 0.8 = flag if >20% unseen.
     partial_read_coverage_floor: 0.8
+    # Chunked long-video transcription (#17 fix, 2026-06-10). When enabled and the
+    # video exceeds chunk_threshold_sec, the video is split into sequential windows
+    # and each window is sent to Gemini with start/end offsets. Results are merged
+    # in timestamp order. Short videos (≤ threshold) are completely unaffected.
+    # Probe confirmed 2026-06-10: offsets defeat the silent truncation (video
+    # e_iCwe2yX14, 105min — Gemini correctly returned content from 60–65min window).
+    chunked_long_videos: true          # default ON — reliability fix for long videos
+    chunk_threshold_sec: 1200          # 20 min — only chunk if longer than this
+    chunk_window_sec: 900              # each window is 15 min
+    chunk_overlap_sec: 30              # 30s overlap at boundaries (context continuity)
+    chunk_max_windows: 6               # cap: 6 windows × 15min = 90min covered max
     # media_resolution: "auto" (recommended) | "low" | "medium" | "default".
     #   auto    = pick tier based on Gemini daily-budget utilisation (see
     #             budget_pct_for_* below). Starts cheap, bumps up when the
