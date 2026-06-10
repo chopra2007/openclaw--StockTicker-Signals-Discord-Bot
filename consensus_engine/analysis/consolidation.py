@@ -175,7 +175,25 @@ async def consolidate_for_ticker(
             reason="cold_start_passthrough",
         )
 
-    real_boost = round(effective_n * pts_per_cluster)
+    legacy_boost = round(effective_n * pts_per_cluster)
+
+    # I7: scale consensus_boost by sigmoid(combined_log_odds) when flag is ON
+    if cfg.get("features.consensus_logodds.enabled", False):
+        count_floor_frac = cfg.get("features.consensus_logodds.count_floor_frac", 0.5)
+        sigmoid = 1.0 / (1.0 + math.exp(-combined_log_odds))
+        floor_part = count_floor_frac * legacy_boost
+        sigmoid_part = (1.0 - count_floor_frac) * legacy_boost * sigmoid
+        real_boost = round(floor_part + sigmoid_part)
+        log.info(
+            "[I7 shadow] $%s consensus_boost scaled=%d legacy=%d (log_odds=%.2f)",
+            ticker,
+            real_boost,
+            legacy_boost,
+            combined_log_odds,
+        )
+    else:
+        real_boost = legacy_boost
+
     consensus_boost = real_boost if not shadow_only else 0
 
     clusters_hit_list = list(clusters_hit.keys())
