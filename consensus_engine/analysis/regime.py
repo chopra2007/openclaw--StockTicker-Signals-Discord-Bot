@@ -32,6 +32,38 @@ class RegimeContext:
 _COLD_START = RegimeContext(label="normal", z_score=0.0, threshold_shift=0, cold_start=True, as_of_date="")
 
 
+def _apply_graduated_widening(label: str, z_smooth: float, base_shift: int) -> int:
+    """I14-widening: for panic regime, scale shift with z_smooth above panic_z.
+
+    Flag features.regime_widening_graduated.enabled must be True; otherwise
+    returns base_shift unchanged (byte-identical to legacy behaviour).
+
+    Formula: shift = base_panic_shift + slope * (z_smooth - panic_z)
+    Clamped to min(max_shift, cutoff_ceiling - base_high).
+    Non-panic labels always return base_shift.
+    """
+    if not cfg.get("features.regime_widening_graduated.enabled", False):
+        return base_shift
+    if label != "panic":
+        return base_shift
+
+    panic_z = cfg.get("features.regime_classifier.panic_z", 1.5)
+    shifts = cfg.get("features.regime_classifier.regime_shifts", {"calm": -5, "elevated": 5, "panic": 10})
+    base_panic_shift = shifts.get("panic", 10)
+    slope = cfg.get("features.regime_widening_graduated.slope", 2.5)
+    max_shift = cfg.get("features.regime_widening_graduated.max_shift", 15)
+    cutoff_ceiling = cfg.get("features.regime_widening_graduated.cutoff_ceiling", 90)
+    base_high = cfg.get("precision_engine.thresholds.high_confidence", 80)
+
+    raw = base_panic_shift + slope * (z_smooth - panic_z)
+    # Cap 1: absolute shift ceiling
+    clamped = min(raw, max_shift)
+    # Cap 2: base_high + shift must not exceed cutoff_ceiling
+    ceiling_cap = cutoff_ceiling - base_high
+    shift = int(min(clamped, ceiling_cap))
+    return shift
+
+
 async def lookup_regime(now_utc: Optional[datetime] = None) -> RegimeContext:
     """Read most recent regime_daily row.
 
@@ -68,6 +100,7 @@ async def lookup_regime(now_utc: Optional[datetime] = None) -> RegimeContext:
     z = row["z_score_smoothed"]
     shifts = cfg.get("features.regime_classifier.regime_shifts", {"calm": -5, "elevated": 5, "panic": 10})
     shift = shifts.get(label, 0)
+    shift = _apply_graduated_widening(label, z, shift)
     log.info("[A5] regime=%s z=%.2f shift=%d cold_start=False", label, z, shift)
     return RegimeContext(label=label, z_score=z, threshold_shift=shift, cold_start=False, as_of_date=row["date_utc"])
 
@@ -204,6 +237,7 @@ async def compute_and_persist_regime(date_utc: date) -> RegimeContext:
 
     shifts = cfg.get("features.regime_classifier.regime_shifts", {"calm": -5, "elevated": 5, "panic": 10})
     shift = shifts.get(result["regime_label"], 0)
+    shift = _apply_graduated_widening(result["regime_label"], result["z_score_smoothed"], shift)
     log.info("[A5] persisted regime=%s z_raw=%.3f z_smooth=%.3f shift=%d for %s",
              result["regime_label"], result["z_score_raw"], result["z_score_smoothed"], shift, date_str)
     return RegimeContext(
