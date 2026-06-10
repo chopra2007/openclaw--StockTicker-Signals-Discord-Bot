@@ -133,21 +133,41 @@ def test_large_options_premium_cannot_dominate_channel_count(monkeypatch):
 
 # ── (c) stale leg outside recency-window cap is excluded entirely ─────────────
 
-def test_stale_leg_outside_recency_cap_excluded(monkeypatch):
-    """A tweet older than the recency_window.max_age_min.tweet cap is dropped entirely
-    by filter_fresh, so it contributes nothing — not even a floor-weight vote."""
-    # Cap tweet to 60 min; our row is 180 min old → excluded.
-    _flag_on(monkeypatch, extra={
-        "features.recency_window.enabled": True,
-        "features.recency_window.max_age_min.tweet": 60,
-    })
+def test_stale_leg_outside_window_excluded(monkeypatch):
+    """A leg older than the confluence WINDOW itself (wolf.confluence.window_days)
+    is dropped entirely — not even a floor-weight vote. In-window staleness is
+    handled by smooth age-decay, NOT the global minutes-scale recency caps
+    (Wolf confluence is deliberately an over-time feature — first live run
+    2026-06-10 proved the global caps deleted every vote)."""
+    _flag_on(monkeypatch)
 
-    stale_tweet = {"ticker": "NVDA", "dir": "long", "as_of": _iso(-3)}  # 3h ago
+    stale_tweet = {"ticker": "NVDA", "dir": "long",
+                   "as_of": _iso(-30 * 24)}  # 30 days ago — beyond the 21-day window
     rows = {"twitter": [stale_tweet]}
     r = wc.score_confluence(_thesis(direction="bull"), rows)
-    # The stale leg is excluded entirely — no vote cast.
+    # The beyond-window leg is excluded entirely — no vote cast.
     assert r.agree_count == 0
     assert r.tier == "surface"
+
+
+def test_null_timestamp_leg_excluded(monkeypatch):
+    """A weighted-path leg with no usable as_of is stale by the I1 rule and is
+    dropped (real producer rows always carry as_of after the 2026-06-10 fix)."""
+    _flag_on(monkeypatch)
+
+    rows = {"twitter": [{"ticker": "NVDA", "dir": "long"}]}  # no as_of
+    r = wc.score_confluence(_thesis(direction="bull"), rows)
+    assert r.agree_count == 0
+
+
+def test_in_window_stale_leg_kept_but_decayed(monkeypatch):
+    """A 3-day-old tweet is INSIDE the window: it still votes (decayed), it is
+    not hard-dropped — the regression the first live run exposed."""
+    _flag_on(monkeypatch)
+
+    rows = {"twitter": [{"ticker": "NVDA", "dir": "long", "as_of": _iso(-3 * 24)}]}
+    r = wc.score_confluence(_thesis(direction="bull"), rows)
+    assert r.agree_count == 1
 
 
 def test_fresh_leg_inside_recency_cap_kept(monkeypatch):
@@ -186,17 +206,15 @@ def test_critical_blocked_with_only_actor_controllable_sources(monkeypatch):
 def test_critical_unblocked_by_sec_leg(monkeypatch):
     """Adding one unplanned SEC (non-actor-controllable) leg on top of two actor-
     controllable agrees unblocks escalation to critical."""
-    # Disable recency_window in this test so the SEC row freshness cap doesn't interfere
-    # with the actor-controllability assertion — those are independent safeguards.
     _flag_on(monkeypatch, extra={
         "wolf.confluence.require_nonactor_for_critical": True,
-        "features.recency_window.enabled": False,
     })
 
     rows = {
-        "options": [{"ticker": "NVDA", "dir": "CALL"}],
-        "twitter": [{"ticker": "NVDA", "dir": "long"}],
-        "sec":     [{"ticker": "NVDA", "dir": "bullish", "is_planned": False}],
+        "options": [{"ticker": "NVDA", "dir": "CALL", "as_of": _iso(-1)}],
+        "twitter": [{"ticker": "NVDA", "dir": "long", "as_of": _iso(-0.5)}],
+        "sec":     [{"ticker": "NVDA", "dir": "bullish", "as_of": _iso(-2),
+                     "is_planned": False}],
     }
     r = wc.score_confluence(_thesis(direction="bull"), rows)
     # Three agrees including one non-actor-controllable → critical is now permitted.
@@ -209,13 +227,13 @@ def test_critical_still_blocked_when_sec_is_planned(monkeypatch):
     non-actor-controllable source — critical escalation stays blocked."""
     _flag_on(monkeypatch, extra={
         "wolf.confluence.require_nonactor_for_critical": True,
-        "features.recency_window.enabled": False,
     })
 
     rows = {
-        "options": [{"ticker": "NVDA", "dir": "CALL"}],
-        "twitter": [{"ticker": "NVDA", "dir": "long"}],
-        "sec":     [{"ticker": "NVDA", "dir": "bullish", "is_planned": True}],   # 10b5-1
+        "options": [{"ticker": "NVDA", "dir": "CALL", "as_of": _iso(-1)}],
+        "twitter": [{"ticker": "NVDA", "dir": "long", "as_of": _iso(-0.5)}],
+        "sec":     [{"ticker": "NVDA", "dir": "bullish", "as_of": _iso(-2),
+                     "is_planned": True}],   # 10b5-1
     }
     r = wc.score_confluence(_thesis(direction="bull"), rows)
     # Three source-type votes, but the only non-actor one is planned → still blocked.
