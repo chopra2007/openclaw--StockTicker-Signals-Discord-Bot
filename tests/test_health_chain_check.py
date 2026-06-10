@@ -138,6 +138,40 @@ async def test_run_chain_check_no_models_configured(monkeypatch):
     assert "no models configured" in report
 
 
+async def test_probe_model_does_not_send_allowed_mentions(monkeypatch):
+    """_probe_model must not inject the Discord-only allowed_mentions field into
+    the LLM chat-completions request body (regression for groq HTTP 400 bug)."""
+    captured_bodies = []
+
+    class _CapturingResp:
+        status = 200
+        async def json(self):
+            return {"choices": [{"message": {"content": "4"}}]}
+        async def text(self):
+            return ""
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+
+    class _CapturingSession:
+        def post(self, url, headers=None, json=None, timeout=None):
+            captured_bodies.append(json)
+            return _CapturingResp()
+
+    monkeypatch.setattr("consensus_engine.health.cfg.get_api_key",
+                        lambda k: "fake-key")
+    monkeypatch.setattr("consensus_engine.health.get_session",
+                        AsyncMock(return_value=_CapturingSession()))
+
+    await health._probe_model(_CapturingSession(), "groq/llama-3.3-70b-versatile")
+
+    assert captured_bodies, "probe must have sent at least one request"
+    for body in captured_bodies:
+        assert "allowed_mentions" not in body, (
+            "allowed_mentions (a Discord-only field) must never appear in an "
+            "LLM chat-completions request body"
+        )
+
+
 def test_seconds_until_next_handles_today(monkeypatch):
     """Future time today should give a small positive interval."""
     from datetime import datetime, timezone

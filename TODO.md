@@ -204,7 +204,7 @@ Fix the conviction scoring so nuanced/tentative analyst calls (the ~98% that sou
 
 Research whether Apify actors (Reddit, Finviz, Seeking Alpha, or Google News) add meaningful signal the bot doesn't already have, run live tests to confirm data quality, then build the integration for whichever source wins.
 
-## 33. Fix the !all Groq 400 "allowed_mentions unsupported" error
+## 33. Fix the !all Groq 400 "allowed_mentions unsupported" error — DONE 2026-06-10
 
 **File:** `all-command-groq-400-allowed-mentions.md`
 

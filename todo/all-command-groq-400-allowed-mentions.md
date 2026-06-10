@@ -1,7 +1,18 @@
 # !all Groq synthesis 400 — "property 'allowed_mentions' is unsupported"
 
-**Status:** OPEN
+**Status:** DONE 2026-06-10
 **Created:** 2026-06-09
+
+## Resolution (2026-06-10)
+Root cause: `health.py:_probe_model` wrapped its LLM request body in
+`_safe_send_kwargs` — a Discord-safety helper that injects
+`"allowed_mentions": {"parse": []}` into webhook payloads. Groq enforces
+strict schema and rejected it with 400; OpenRouter silently ignores unknown
+fields, which is why only `groq/`-routed probes failed. The REAL `!all`
+synthesis call (llm_client.py `_try_model`) builds its own payload and was
+never affected — only the health-check probe was failing. Fix: 1-line removal
+of the wrapper at health.py:139 (the legitimate Discord-send use at :442
+stays) + regression test `test_probe_model_does_not_send_allowed_mentions`.
 
 ## The symptom
 The `!all` synthesis call to Groq's primary model intermittently returns HTTP 400. Seen in the LLM health-check format in the journal 2026-06-09 ~17:30:

@@ -136,7 +136,7 @@ async def _probe_model(session: aiohttp.ClientSession,
     try:
         async with session.post(
             _endpoint_for(provider), headers=headers,
-            json=_safe_send_kwargs(payload),
+            json=payload,
             timeout=aiohttp.ClientTimeout(total=30),
         ) as resp:
             dt = time.time() - t0
