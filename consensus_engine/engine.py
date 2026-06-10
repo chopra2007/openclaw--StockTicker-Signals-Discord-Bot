@@ -242,6 +242,11 @@ def _classify(
     bypass_market_confirmation: bool = False,
     contradiction_index: float = 0.0,
     regime=None,
+    breakdown=None,
+    technical_filter_count: int = 0,
+    analyst_lb: Optional[float] = None,
+    budget_skipped_sources: Optional[set] = None,
+    ticker: str = "",
 ) -> tuple["SignalClass", "ContradictionVerdict"]:
     """Map total score + quality flags to a signal classification.
 
@@ -251,6 +256,25 @@ def _classify(
     ``bypass_market_confirmation`` is set by HIGH-conviction or SEC-catalyst
     callers; it lets them surface a WATCHLIST even when the flat-market gate
     would normally route them to IGNORE.
+
+    I10 optional args (all default to None/0/empty — existing callers unaffected):
+    - breakdown: ScoreBreakdown instance with per-source point totals.
+    - technical_filter_count: number of technical filters that passed this run.
+    - analyst_lb: Wilson lower-bound precision for the primary analyst (from
+      db.get_analyst_precision_lb); None when unavailable or below min_n=10.
+    - budget_skipped_sources: set of source column names whose fetch was skipped
+      for budget this run (vs fetched-and-empty); populated by BudgetManager.
+
+    I10 hard-evidence rule (flag features.strong_requires_hard_evidence.enabled):
+    STRONG requires score >= high AND at least one hard-evidence component:
+      news_catalyst > 0  OR  sec_filing > 0  OR  options_flow > 0  OR
+      technical_filter_count >= min_technical_filters (config, default 2)  OR
+      analyst Wilson-LB >= analyst_lb_threshold (config, default 0.65).
+    Before-mainstream carve-out: a high-track-record analyst (lb >= threshold)
+    counts as hard evidence — a genuine early call is not demoted.
+    Absent-vs-unfetched safeguard: if a confirming source column appears in
+    budget_skipped_sources its absence does NOT count against hard evidence.
+    Shadow line is emitted on every STRONG-threshold eval regardless of flag.
     """
     high = cfg.get("precision_engine.thresholds.high_confidence", 80)
     med = cfg.get("precision_engine.thresholds.medium_confidence", 65)
@@ -268,6 +292,43 @@ def _classify(
     _now = _dt.utcnow()
     contradiction_verdict = evaluate_contradiction(contradiction_index, _now)
 
+    # I10: compute hard-evidence verdict whenever score reaches the STRONG threshold.
+    # The shadow log fires even when the flag is OFF (compute, don't act).
+    _i10_would_demote = False
+    if total_score >= high and breakdown is not None:
+        min_tech = int(cfg.get("features.strong_requires_hard_evidence.min_technical_filters", 2))
+        lb_threshold = float(cfg.get("features.strong_requires_hard_evidence.analyst_lb_threshold", 0.65))
+        skipped = budget_skipped_sources or set()
+
+        # Absent-vs-unfetched safeguard: if ANY confirming paid source was budget-skipped
+        # this run, we can't rule out evidence we didn't fetch → do NOT demote.
+        # Confirming paid source columns: exa, serpapi, firecrawl.
+        confirming_paid_cols = {"exa_queries", "serpapi_queries", "firecrawl_credits"}
+        any_confirming_skipped = bool(skipped & confirming_paid_cols)
+
+        has_hard_evidence = (
+            (breakdown.news_catalyst > 0)
+            or (breakdown.sec_filing > 0)
+            or (technical_filter_count >= min_tech)
+            or (breakdown.options_flow > 0)
+            or (analyst_lb is not None and analyst_lb >= lb_threshold)
+            or any_confirming_skipped  # skipped paid source → indeterminate, don't demote
+        )
+        _i10_would_demote = not has_hard_evidence
+
+        log.info(
+            "[I10 shadow] $%s would_demote=%s (catalyst=%d sec=%d tech_filters=%d"
+            " options=%d analyst_lb=%s budget_skipped=%s)",
+            ticker or "?",
+            _i10_would_demote,
+            breakdown.news_catalyst,
+            breakdown.sec_filing,
+            technical_filter_count,
+            breakdown.options_flow,
+            f"{analyst_lb:.3f}" if analyst_lb is not None else "None",
+            sorted(skipped) if skipped else "[]",
+        )
+
     if total_score >= high:
         if require_mainstream and not has_mainstream:
             return SignalClass.WATCHLIST, contradiction_verdict
@@ -275,6 +336,14 @@ def _classify(
             return SignalClass.WATCHLIST, contradiction_verdict
         # A1 (last gate before STRONG): contradiction penalty
         if contradiction_verdict.apply_penalty:
+            return SignalClass.WATCHLIST, contradiction_verdict
+        # I10: crowd-only STRONG cap (flag must be ON to act; shadow fires above)
+        if (
+            _i10_would_demote
+            and breakdown is not None
+            and cfg.get("features.strong_requires_hard_evidence.enabled", False)
+        ):
+            log.info("[I10] $%s capped at WATCHLIST — no hard evidence", ticker or "?")
             return SignalClass.WATCHLIST, contradiction_verdict
         return SignalClass.STRONG_ALERT, contradiction_verdict
 
@@ -298,6 +367,10 @@ async def analyze_signal(
     catalyst_type: str = "",
     contradiction_index: float = 0.0,
     direction: str = "",
+    breakdown=None,
+    technical_filter_count: int = 0,
+    analyst: str = "",
+    analyst_lb: Optional[float] = None,
 ) -> dict:
     """Run the precision scoring pipeline for a ticker.
 
@@ -428,12 +501,30 @@ async def analyze_signal(
     )
     skip_market_gate = skip_market_gate or bypass_due_to_a4
 
+    # --- I10: resolve analyst LB for hard-evidence carve-out ---
+    # Only look up the DB when an analyst handle is provided AND the flag is ON
+    # (or the score is already at the STRONG threshold, where the shadow log fires).
+    # If analyst_lb was pre-computed by the caller, use that directly.
+    _resolved_analyst_lb = analyst_lb
+    if _resolved_analyst_lb is None and analyst:
+        high_check = cfg.get("precision_engine.thresholds.high_confidence", 80)
+        if score >= high_check or cfg.get("features.strong_requires_hard_evidence.enabled", False):
+            try:
+                _resolved_analyst_lb = await db.get_analyst_precision_lb(analyst, horizon="1h", min_n=10)
+            except Exception as _lb_exc:
+                log.debug("[I10] analyst LB lookup failed for %s: %s", analyst, _lb_exc)
+
     # --- Classify ---
     classification, contradiction_verdict = _classify(
         score, has_mainstream, market_ok,
         bypass_market_confirmation=skip_market_gate,
         contradiction_index=contradiction_index,
         regime=regime,
+        breakdown=breakdown,
+        technical_filter_count=technical_filter_count,
+        analyst_lb=_resolved_analyst_lb,
+        budget_skipped_sources=budget.skipped_sources,
+        ticker=ticker,
     )
     log.info("[A1] $%s contradiction=%.2f → %s", ticker, contradiction_index, contradiction_verdict.reason)
     log.info("$%s precision result: %s (score=%d, mainstream=%s, market_ok=%s)",

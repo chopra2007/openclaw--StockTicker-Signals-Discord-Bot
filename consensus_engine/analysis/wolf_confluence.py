@@ -23,16 +23,33 @@ opus critic + Gemini):
 - Roll-up uses ONE map per scope_key: broad SPDR sectors -> sector_map.yaml; sub-industry ETFs
   (SMH/IGV/ITA) -> peer_groups.yaml members; market -> index proxies; asset -> direct proxies only.
 
+I15 (wolf.confluence.weighted_votes_enabled):
+- Each row may carry optional `as_of` (epoch float or ISO str) and `size` (raw numeric,
+  source-specific: SEC insider $, options premium, YouTube n_channels; absent -> 1.0).
+- Age-decay: weight = max(DECAY_FLOOR, exp(-DECAY_RATE * age_hours)). Stale legs that fall
+  outside the common-recency-window (filter_fresh) are excluded entirely.
+- Size: normalised per-source to [0, 1] via a percentile cap (SIZE_CAP_PCT) so one giant
+  options print can't dominate channel counts. Final vote weight = decay * (1 + size_norm).
+- Actor controllability: only SEC filings are non-actor-controllable. Escalation to critical
+  requires >= 1 non-actor-controllable agreeing source when require_nonactor_for_critical is
+  true (default). SEC rows with is_planned=True are excluded from that count.
+- With the flag OFF, score_confluence and net_vote behave byte-identically to legacy.
+
 This module does NO database or network I/O — callers pass already-windowed rows in, so every
 function here is deterministic and unit-testable. The DB gather + the loop live elsewhere.
 """
 from __future__ import annotations
 
+import math
 import os
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from typing import Optional
 
 import yaml
 
+from consensus_engine import config as cfg
+from consensus_engine.analysis.recency_window import SourceLeg, filter_fresh
 from consensus_engine.analysis.wolf_scope import (
     resolve_scope, is_inverse_proxy, stock_sector_etf,
 )
@@ -62,6 +79,73 @@ _peer_members_cache: dict[str, set[str]] | None = None
 # Source types we read, in display order. SEC last (weakest / buys-only).
 SOURCE_TYPES = ("twitter", "youtube", "options", "sec")
 _SOURCE_LABEL = {"twitter": "Twitter", "youtube": "YouTube", "options": "Options", "sec": "SEC buys"}
+
+# I15: actor-controllable sources cannot solo-push a critical @-ping (single actor
+# can flood twitter, post a YT video, or print an options order).
+# Non-actor-controllable = SEC filing (a regulated Form-4 event, not freely manufacturable).
+_ACTOR_CONTROLLABLE = frozenset({"twitter", "youtube", "options"})
+
+# I15: age-decay parameters — decay toward DECAY_FLOOR, never to zero.
+# rate chosen so a 7-day-old row retains ~50% weight (ln2/168h ≈ 0.00413/h).
+_DECAY_RATE: float = 0.00413   # per hour
+_DECAY_FLOOR: float = 0.20     # stale but not dead — a 21-day-old row keeps 20%
+
+# I15: per-source size percentile cap (95th pct proxy): any size value above this
+# multiplier of the median is clipped so one outlier can't dominate.
+# Size is normalised -> [0, 1] within each source's own rows before weighting.
+_SIZE_CAP_PCT: float = 0.95    # top 5% clipped to 1.0
+
+
+def _coerce_as_of(v) -> Optional[datetime]:
+    """Best-effort UTC datetime from epoch float, ISO str, or datetime. None on failure."""
+    if v is None:
+        return None
+    if isinstance(v, datetime):
+        dt = v
+    elif isinstance(v, (int, float)):
+        try:
+            dt = datetime.fromtimestamp(float(v), tz=timezone.utc)
+        except (OverflowError, OSError, ValueError):
+            return None
+    elif isinstance(v, str):
+        try:
+            dt = datetime.fromisoformat(v.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    else:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def _age_decay(as_of_val, now: datetime) -> float:
+    """Compute exp-decay weight in [DECAY_FLOOR, 1.0] from a row's as_of field.
+
+    If as_of is None/unparseable the row was already excluded by filter_fresh upstream,
+    so this fallback to DECAY_FLOOR is a conservative safety net only.
+    """
+    dt = _coerce_as_of(as_of_val)
+    if dt is None:
+        return _DECAY_FLOOR
+    age_hours = max(0.0, (now - dt).total_seconds() / 3600.0)
+    return max(_DECAY_FLOOR, math.exp(-_DECAY_RATE * age_hours))
+
+
+def _size_norm(sizes: list[float]) -> list[float]:
+    """Normalise a list of raw size values to [0, 1] with a percentile cap.
+
+    Values above the SIZE_CAP_PCT quantile are clipped to 1.0; others scaled linearly
+    against that cap. A single row or all-zero list -> all 0.0 (size adds nothing).
+    """
+    if not sizes or all(s <= 0 for s in sizes):
+        return [0.0] * len(sizes)
+    sorted_s = sorted(sizes)
+    idx = max(0, int(len(sorted_s) * _SIZE_CAP_PCT) - 1)
+    cap = sorted_s[idx]
+    if cap <= 0:
+        return [0.0] * len(sizes)
+    return [min(1.0, s / cap) for s in sizes]
 
 
 def _peer_members() -> dict[str, set[str]]:
@@ -149,6 +233,9 @@ def net_vote(stances: list[str], min_dominance: float = 0.6) -> str | None:
     Returns 'BULL'/'BEAR' only when one side has >= min_dominance share; otherwise None
     (no directional rows, or too split to call). This caps each source to ONE vote and
     drops internally-mixed sources.
+
+    When I15 weighted_votes_enabled is ON, callers use net_vote_weighted instead; this
+    function is kept for the flag-OFF legacy path and external callers.
     """
     bull = sum(1 for s in stances if s == "BULL")
     bear = sum(1 for s in stances if s == "BEAR")
@@ -156,6 +243,29 @@ def net_vote(stances: list[str], min_dominance: float = 0.6) -> str | None:
     if total == 0:
         return None
     share = bull / total
+    if share >= min_dominance:
+        return "BULL"
+    if share <= 1.0 - min_dominance:
+        return "BEAR"
+    return None
+
+
+def net_vote_weighted(
+    stances_weights: list[tuple[str, float]],
+    min_dominance: float = 0.6,
+) -> str | None:
+    """I15: weighted net vote — same dominance rule but uses per-row vote weights.
+
+    `stances_weights` is [(stance, weight), ...] where weight = decay * (1 + size_norm).
+    Returns 'BULL'/'BEAR' or None (split/empty). Dominance threshold is by weight share,
+    not row count, so a high-weight fresh row outweighs many stale low-weight ones.
+    """
+    bull_w = sum(w for s, w in stances_weights if s == "BULL")
+    bear_w = sum(w for s, w in stances_weights if s == "BEAR")
+    total_w = bull_w + bear_w
+    if total_w <= 0:
+        return None
+    share = bull_w / total_w
     if share >= min_dominance:
         return "BULL"
     if share <= 1.0 - min_dominance:
@@ -204,16 +314,45 @@ def score_confluence(thesis: dict, rows_by_source: dict[str, list[dict]],
     `thesis`: dict with scope_type, scope_key, direction ('bull'/'bear'), has_levels (0/1).
     `rows_by_source`: {source_type: [{'ticker':.., 'dir':.., 'channel':..(opt)}, ...]} — the
     caller (DB gather) is responsible for the 21-day window + SEC buys-only filter.
+
+    I15 (wolf.confluence.weighted_votes_enabled): each row may additionally carry:
+      'as_of'    — epoch float or ISO str; used for age-decay weight.
+      'size'     — raw numeric (SEC insider $, options premium, YT n_channels); optional.
+      'is_planned' — bool; SEC 10b5-1 rows excluded from non-actor-controllable count.
+    With the flag OFF, these extra fields are silently ignored and behavior is byte-identical.
     """
+    weighted = cfg.get("wolf.confluence.weighted_votes_enabled", False)
+
     t_type = thesis["scope_type"]
     t_key = thesis["scope_key"]
     t_stance = _THESIS_DIR.get(thesis.get("direction"), "")
     has_levels = int(thesis.get("has_levels", 0) or 0)
 
+    now = datetime.now(timezone.utc)
+
     votes: list[SourceVote] = []
+    # I15: track agreeing sources that are non-actor-controllable (SEC non-planned buys).
+    nonactor_agree_count = 0
+
     for stype in SOURCE_TYPES:
+        raw_rows = rows_by_source.get(stype, [])
+
+        if weighted:
+            # Apply common-recency-window: build SourceLeg list and drop stale legs.
+            # The recency_window source key for wolf confluence rows maps to the source type.
+            # 'tweet' cap is used for twitter rows (matches config key).
+            rw_source = "tweet" if stype == "twitter" else stype
+            legs = [
+                SourceLeg(source=rw_source, as_of=r.get("as_of"), detail={"row": r})
+                for r in raw_rows
+            ]
+            fresh_legs = filter_fresh(legs, now=now)
+            fresh_rows = [leg.detail["row"] for leg in fresh_legs]
+        else:
+            fresh_rows = raw_rows
+
         matched: list[tuple[str, dict]] = []
-        for row in rows_by_source.get(stype, []):
+        for row in fresh_rows:
             norm = normalize_source_stance(row.get("ticker", ""), row.get("dir", ""))
             if norm is None:
                 continue
@@ -222,10 +361,24 @@ def score_confluence(thesis: dict, rows_by_source: dict[str, list[dict]],
                 matched.append((stance, row))
         if not matched:
             continue
-        nv = net_vote([s for s, _ in matched], min_dominance)
+
+        if weighted:
+            # Compute age-decay weights per row.
+            decays = [_age_decay(r.get("as_of"), now) for _, r in matched]
+            # Compute size-normalised weights per row.
+            raw_sizes = [float(r.get("size") or 0.0) for _, r in matched]
+            size_norms = _size_norm(raw_sizes)
+            # Final weight = decay * (1 + size_norm); size adds up to 1x bonus at most.
+            weights = [d * (1.0 + sn) for d, sn in zip(decays, size_norms)]
+            stances_weights = [(s, w) for (s, _), w in zip(matched, weights)]
+            nv = net_vote_weighted(stances_weights, min_dominance)
+        else:
+            nv = net_vote([s for s, _ in matched], min_dominance)
+
         if nv is None:
             continue
-        # only the rows on the winning side describe this vote
+
+        # Only the rows on the winning side describe this vote.
         winners = [r for s, r in matched if s == nv]
         is_yt = stype == "youtube"
         n_channels = (len({(r.get("channel") or "") for r in winners if r.get("channel")})
@@ -249,6 +402,13 @@ def score_confluence(thesis: dict, rows_by_source: dict[str, list[dict]],
                 break
         votes.append(SourceVote(stype, nv, len(matched), n_channels, sample, sample_vids, sample_links))
 
+        # I15: count non-actor-controllable agreeing sources for the critical-ping guard.
+        if weighted and nv == t_stance and stype not in _ACTOR_CONTROLLABLE:
+            # SEC 10b5-1 / pre-arranged buys don't qualify — a planned trade isn't a signal.
+            has_unplanned = any(not r.get("is_planned", False) for r in winners)
+            if has_unplanned:
+                nonactor_agree_count += 1
+
     agree = [v for v in votes if v.net_dir == t_stance]
     disagree = [v for v in votes if v.net_dir and v.net_dir != t_stance]
     agree_count = len(agree)
@@ -264,6 +424,17 @@ def score_confluence(thesis: dict, rows_by_source: dict[str, list[dict]],
     # A genuinely contested call must not @-ping as "critical high-conviction" — cap it to
     # a loud 'high' that still surfaces the split. (Spec: disagreement is its own signal.)
     if divided and tier == "critical":
+        tier = "high"
+
+    # I15: critical-ping safeguard — escalation to critical requires >= 1 non-actor-
+    # controllable agreeing source when require_nonactor_for_critical is true (default).
+    # This prevents a single public options print or a coordinated tweet campaign from
+    # solo-pushing an @-ping. The gate only activates inside the weighted_votes_enabled
+    # path so flag-OFF behavior is byte-identical.
+    if (weighted
+            and tier == "critical"
+            and cfg.get("wolf.confluence.require_nonactor_for_critical", True)
+            and nonactor_agree_count < 1):
         tier = "high"
 
     return ConfluenceResult(tier, agree_count, disagree_count, agree, disagree, divided)
