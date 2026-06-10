@@ -1238,12 +1238,13 @@ async def _run_cross_reference_and_followup(
         entry_price = 0.0
     try:
         xref_task = asyncio.create_task(cross_reference(ticker, tweet))
-        precision_task = asyncio.create_task(
-            analyze_signal(ticker, base_score=tweet.base_score)
-        )
 
-        # Q2a: wrap ONLY xref_task in wait_for. precision_task must survive an xref
-        # timeout so a slow xref does not cancel the fast precision engine.
+        # I10 live threading: run xref first so we can pass its ScoreBreakdown and
+        # technical filter count into analyze_signal. This makes precision sequential
+        # after xref (breaking the old parallelism), but the classification is
+        # byte-identical when features.strong_requires_hard_evidence.enabled is False
+        # (default) — only the [I10 shadow] log line gains data to fire on.
+        # When xref times out, precision falls back to base_score-only (no breakdown).
         timeout_sec = cfg.get("intervals.cross_reference_timeout", 120)
         xref_timed_out = False
         xref = None
@@ -1255,8 +1256,21 @@ async def _run_cross_reference_and_followup(
         except Exception as e:
             log.error("Phase-2 xref failed for $%s: %s", ticker, e)
 
+        # Thread I10 args from xref result when available.
+        _xref_breakdown = xref.breakdown if xref is not None else None
+        _tech_filter_count = (
+            xref.technical.passed_count
+            if xref is not None and xref.technical is not None
+            else 0
+        )
         try:
-            precision = await precision_task
+            precision = await analyze_signal(
+                ticker,
+                base_score=tweet.base_score,
+                breakdown=_xref_breakdown,
+                technical_filter_count=_tech_filter_count,
+                analyst=tweet.analyst,
+            )
         except Exception as e:
             log.warning("Precision engine failed for $%s: %s", ticker, e)
             precision = None
@@ -1299,13 +1313,56 @@ async def _run_cross_reference_and_followup(
                     log.info("[A1] $%s STRONG→WATCHLIST contradiction=%.2f reason=%s",
                              ticker, real_ci, real_verdict.reason)
 
+        # I4-full — single-score reconciliation (flag features.single_score.enabled).
+        # Precedence rule: single_score supersedes score_display_honesty when both are
+        # ON — the single_score path runs and score_display_honesty is bypassed. With
+        # single_score OFF, score_display_honesty (Phase-1 honesty flag) runs as normal.
+        #
+        # Logic: precision-gated total is the ONE number used in both headline and
+        # decision logging. Exception: budget-depressed run (precision skipped ≥1 paid
+        # source) → display falls back to xref total (no hollow-precision-cliff, no
+        # "STRONG, 58" contradiction).
+        #
+        # Never-contradict rule: if the class is STRONG but reconciled < the effective
+        # high threshold, floor reconciled to `high` (same guard as Phase-1 honesty).
+        if (
+            cfg.get("features.single_score.enabled", False)
+            and precision and not precision.get("skipped")
+            and xref is not None
+        ):
+            _xref_total = int(xref.final_score)
+            _p_total = int(precision.get("total_score", 0) or 0)
+            _skipped = precision.get("skipped_sources") or []
+            _budget_depressed = bool(_skipped)
+            if _budget_depressed:
+                _reconciled = _xref_total
+            else:
+                _reconciled = _p_total
+            # Never-contradict: STRONG class must not display a sub-high number.
+            _high = cfg.get("precision_engine.thresholds.high_confidence", 80)
+            _cls_obj = precision.get("classification")
+            _cls_str = _cls_obj.value if hasattr(_cls_obj, "value") else str(_cls_obj)
+            if _cls_str == "STRONG_ALERT" and _reconciled < _high:
+                _reconciled = _high
+            log.info(
+                "[I4-full shadow] $%s reconciled=%d xref=%d precision=%d budget_depressed=%s",
+                ticker, _reconciled, _xref_total, _p_total, _budget_depressed,
+            )
+            # Embed reconciled score and budget flag into precision dict so
+            # format_detail_followup can use them without a new function signature.
+            precision = dict(precision)
+            precision["reconciled_score"] = _reconciled
+            precision["i4_full_budget_depressed"] = _budget_depressed
+
         followup_id = await send_detail_followup(xref, instant_msg_id, precision=precision)
         await db.update_alert_message_followup(alert_message_id, followup_id, xref.final_score)
 
         # Q1 shadow-mode logging: record a decision_snapshots row and merge the
         # calibrated probability into its feature_vector_json. Never raises.
         try:
-            final_score = float(xref.final_score)
+            # I4-full: use the reconciled score for decision logging when the flag is ON.
+            _i4_reconciled = precision.get("reconciled_score") if precision else None
+            final_score = float(_i4_reconciled if _i4_reconciled is not None else xref.final_score)
             shadow_prob = calibrate(final_score, "1h")
             try:
                 sources_json = _serialize_breakdown(xref.breakdown)

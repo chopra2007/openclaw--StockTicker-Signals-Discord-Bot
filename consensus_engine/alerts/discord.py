@@ -344,17 +344,35 @@ def format_detail_followup(xref: CrossReferenceResult, precision: Optional[dict]
     b = xref.breakdown
     total = b.total
 
-    # I4-display-honesty: behind features.score_display_honesty.enabled. With the
-    # flag OFF, headline_total stays the raw additive sum (total) → byte-identical
-    # legacy headline. With it ON, render the precision-gated number (never the
-    # inflated additive sum), surface an explicit budget-degraded state when a paid
-    # source was skipped, and never show a number that contradicts the class
-    # (no STRONG with a sub-medium number).
+    # I4-full — single-score reconciliation (features.single_score.enabled).
+    # Supersedes I4-display-honesty when both flags are ON.  When single_score is
+    # ON, main.py has already computed precision["reconciled_score"] and
+    # precision["i4_full_budget_depressed"] and embedded them in the precision dict;
+    # this block reads those values directly for the headline and degraded flag.
+    # Flag OFF → falls through to the I4-display-honesty block below (or legacy).
+    #
+    # Precedence rule (comment preserved for auditors):
+    #   single_score ON  → this block runs; score_display_honesty is bypassed.
+    #   single_score OFF, score_display_honesty ON → the honesty block runs.
+    #   both OFF → legacy headline (raw additive total).
+    single_score_on = cfg.get("features.single_score.enabled", False)
     honesty_on = cfg.get("features.score_display_honesty.enabled", False)
     headline_total = total
     budget_degraded = False
     displayed_score = None
-    if honesty_on and precision and not precision.get("skipped"):
+    if single_score_on and precision and not precision.get("skipped") and "reconciled_score" in precision:
+        # I4-full path: reconciled_score was computed in main.py with the never-contradict
+        # and budget-fallback rules already applied.
+        displayed_score = int(precision["reconciled_score"])
+        budget_degraded = bool(precision.get("i4_full_budget_depressed"))
+        headline_total = displayed_score
+    elif honesty_on and precision and not precision.get("skipped"):
+        # I4-display-honesty: behind features.score_display_honesty.enabled. With the
+        # flag OFF, headline_total stays the raw additive sum (total) → byte-identical
+        # legacy headline. With it ON, render the precision-gated number (never the
+        # inflated additive sum), surface an explicit budget-degraded state when a paid
+        # source was skipped, and never show a number that contradicts the class
+        # (no STRONG with a sub-medium number).
         med = cfg.get("precision_engine.thresholds.medium_confidence", 65)
         cls_obj = precision.get("classification")
         cls_str = cls_obj.value if hasattr(cls_obj, "value") else str(cls_obj)
@@ -424,7 +442,12 @@ def format_detail_followup(xref: CrossReferenceResult, precision: Optional[dict]
             flags.append("market ❌")
         if precision.get("has_mainstream"):
             flags.append("mainstream ✅")
-        if honesty_on:
+        if single_score_on and displayed_score is not None:
+            # I4-full: show the reconciled number and flag budget-degraded state.
+            if budget_degraded:
+                flags.append("confidence degraded: budget")
+            precision_text = f"{icon} **{cls_val}** | score={displayed_score} | {' | '.join(flags)}"
+        elif honesty_on and displayed_score is not None:
             # I4-display-honesty: show the gated number, and on a budget-depressed
             # run flag the degraded confidence explicitly (never the higher number).
             if budget_degraded:
@@ -488,7 +511,8 @@ def format_detail_followup(xref: CrossReferenceResult, precision: Optional[dict]
         fields.insert(0, {"name": "Status", "value": "No additional signals found", "inline": False})
 
     title = f"Cross-Reference: ${xref.ticker} | Score: {headline_total}"
-    if honesty_on and budget_degraded:
+    # Show budget-degraded suffix when either I4-full or I4-display-honesty is active.
+    if budget_degraded and (single_score_on or honesty_on):
         title += " | confidence degraded: budget"
     embed = {
         "title": title,

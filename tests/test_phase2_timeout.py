@@ -79,7 +79,7 @@ async def test_xref_timeout_edits_phase1_message_with_skip_timeout(test_db):
         await asyncio.sleep(0.5)
         return _make_xref_result()
 
-    async def fast_precision(ticker, base_score=0, budget=None):
+    async def fast_precision(ticker, base_score=0, budget=None, **kwargs):
         return {"classification": None, "skipped": False, "total_score": 50}
 
     edit_calls: list = []
@@ -136,7 +136,7 @@ async def test_precision_task_completes_even_when_xref_times_out(test_db):
         await asyncio.sleep(0.5)
         return _make_xref_result()
 
-    async def fast_precision(ticker, base_score=0, budget=None):
+    async def fast_precision(ticker, base_score=0, budget=None, **kwargs):
         result = {"classification": None, "skipped": False, "total_score": 50, "_ran": True}
         precision_captured.append(result)
         return result
@@ -186,7 +186,7 @@ async def test_low_precision_classification_edits_skip_low_precision_message(tes
     async def instant_xref(ticker, tweet):
         return _make_xref_result(ticker="TSLA", final_score=30.0)
 
-    async def low_precision(ticker, base_score=0, budget=None):
+    async def low_precision(ticker, base_score=0, budget=None, **kwargs):
         return {"classification": SignalClass.IGNORE, "skipped": False, "total_score": 20}
 
     edit_calls: list = []
@@ -236,7 +236,7 @@ async def test_normal_path_updates_followup_msg_id_in_alert_messages(test_db):
     async def fast_xref(ticker, tweet):
         return _make_xref_result(ticker="AAPL", final_score=85.0)
 
-    async def strong_precision(ticker, base_score=0, budget=None):
+    async def strong_precision(ticker, base_score=0, budget=None, **kwargs):
         return {
             "classification": SignalClass.STRONG_ALERT,
             "skipped": False,
