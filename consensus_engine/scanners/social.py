@@ -197,6 +197,7 @@ async def scan_apewisdom() -> list[TickerSignal]:
                 ticker = item.get("ticker", "")
                 mentions = item.get("mentions", 0)
                 rank = item.get("rank", idx + 1)
+                mentions_24h_ago = item.get("mentions_24h_ago")
                 if not ticker:
                     continue
                 signals.append(TickerSignal(
@@ -207,6 +208,18 @@ async def scan_apewisdom() -> list[TickerSignal]:
                     sentiment=Sentiment.NEUTRAL,
                     detected_at=time.time(),
                 ))
+                # I13 (signal-features-2026-06-09): persist numeric mention count
+                # for the z-score baseline. Never raise on DB error — write is
+                # additive and a failure must not break the scan.
+                try:
+                    await db.upsert_apewisdom_mentions(
+                        ticker=ticker,
+                        mentions=int(mentions),
+                        rank=int(rank),
+                        mentions_24h_ago=int(mentions_24h_ago) if mentions_24h_ago is not None else None,
+                    )
+                except Exception as _db_exc:
+                    log.warning("ApeWisdom: failed to persist mention count for %s: %s", ticker, _db_exc)
             await asyncio.sleep(1)
 
         rate_limiter.report_success("apewisdom")

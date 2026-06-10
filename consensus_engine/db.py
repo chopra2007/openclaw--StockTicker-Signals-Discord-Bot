@@ -758,6 +758,25 @@ CREATE TABLE IF NOT EXISTS wolf_beneficiaries (
     PRIMARY KEY (thesis_id, ticker, side)
 );
 CREATE INDEX IF NOT EXISTS idx_benef_computed ON wolf_beneficiaries(computed_at);
+
+-- I13 (signal-features-2026-06-09): ApeWisdom mention-count time series.
+-- The producer (scan_apewisdom) writes one row per ticker per scan so the
+-- scorer (_compute_social_breakdown) can compute a per-ticker z-score baseline.
+-- mentions_24h_ago is provided directly by the API (may be NULL for older rows).
+-- The baseline accumulates FORWARD from the first scan; the z-score gate returns
+-- 0 until >= min_baseline_days (14) of distinct calendar days exist.
+-- No backfill is possible: the ApeWisdom public API has NO historical endpoint
+-- (verified 2026-06-10 — only the current trending page is served).
+CREATE TABLE IF NOT EXISTS apewisdom_mentions (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticker      TEXT NOT NULL,
+    mentions    INTEGER NOT NULL,
+    rank        INTEGER,
+    mentions_24h_ago INTEGER,
+    captured_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_aw_mentions_ticker ON apewisdom_mentions(ticker);
+CREATE INDEX IF NOT EXISTS idx_aw_mentions_ticker_at ON apewisdom_mentions(ticker, captured_at);
 """
 
 # Unique indices that reference columns added by _run_column_migrations.
@@ -926,6 +945,7 @@ async def init_db() -> AsyncConnection:
         (16, "wolf macro-brain phase-2 cross-source confluence (wolf_confluence_checks)"),
         (17, "wolf macro-brain phase-3: wolf_call_outcomes + wolf_emails_processed.received_at"),
         (18, "wolf macro-brain phase-4: wolf_beneficiaries"),
+        (19, "I13 apewisdom_mentions time series (z-score baseline)"),
     ]
     for version, note in _schema_versions:
         await _db.execute(
@@ -1137,6 +1157,108 @@ async def get_analyst_precision_lb(
     margin = z * math.sqrt((p_hat * (1.0 - p_hat) + (z * z) / (4 * n)) / n)
     lb = (centre - margin) / denom
     return max(0.0, min(1.0, lb))
+
+
+# ---------------------------------------------------------------------------
+# I13 — ApeWisdom mention-count persistence + baseline read (signal-features-2026-06-09)
+# ---------------------------------------------------------------------------
+
+async def upsert_apewisdom_mentions(
+    ticker: str,
+    mentions: int,
+    rank: int | None,
+    mentions_24h_ago: int | None,
+    captured_at: float | None = None,
+) -> None:
+    """Persist one ApeWisdom scan row per ticker (additive; never raises on error).
+
+    Called by scan_apewisdom after each successful fetch. The write path is
+    intentionally cheap: it never blocks the scan and logs + returns on any DB
+    error.  The row is always inserted (not upserted on unique key) so the
+    baseline time series accumulates a true sample per scan cycle.
+
+    captured_at defaults to time.time() when omitted.
+    """
+    if captured_at is None:
+        captured_at = time.time()
+    conn = await get_db()
+    await conn.execute(
+        """INSERT INTO apewisdom_mentions
+               (ticker, mentions, rank, mentions_24h_ago, captured_at)
+           VALUES (?, ?, ?, ?, ?)""",
+        (ticker, int(mentions), rank, mentions_24h_ago, captured_at),
+    )
+    await conn.commit()
+
+
+async def get_apewisdom_baseline(
+    ticker: str,
+    *,
+    lookback_days: int = 30,
+) -> dict:
+    """Return mean, std, and sample-day count from the apewisdom_mentions series.
+
+    Only rows within the last `lookback_days` calendar days are included.  The
+    returned dict always has keys ``mean``, ``std``, ``sample_days`` so callers
+    never need to guard for missing keys:
+      - ``sample_days``: number of DISTINCT calendar days with at least one row.
+      - ``mean``: arithmetic mean of per-day MAX(mentions) (one value per day).
+      - ``std``: population std-dev of the same per-day values.
+
+    One row per day is derived by taking MAX(mentions) within each calendar day
+    (UTC date string) — a daily high-water mark.  Using the max avoids pumping
+    the baseline with multiple scans on a high day.
+
+    Returns {"mean": 0.0, "std": 0.0, "sample_days": 0} when the table is empty
+    or has no rows for this ticker within the lookback window.
+    """
+    empty: dict = {"mean": 0.0, "std": 0.0, "sample_days": 0}
+    cutoff = time.time() - lookback_days * 86400.0
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT date(captured_at, 'unixepoch') AS day,
+                  MAX(mentions) AS daily_max
+           FROM apewisdom_mentions
+           WHERE ticker = ? AND captured_at >= ?
+           GROUP BY day""",
+        (ticker, cutoff),
+    )
+    rows = await cursor.fetchall()
+    if not rows:
+        return empty
+    vals = [float(r["daily_max"]) for r in rows]
+    n = len(vals)
+    mean = sum(vals) / n
+    variance = sum((v - mean) ** 2 for v in vals) / n  # population variance
+    std = math.sqrt(variance)
+    return {"mean": mean, "std": std, "sample_days": n}
+
+
+async def get_latest_apewisdom_mentions(ticker: str) -> dict | None:
+    """Return the most-recent apewisdom_mentions row for a ticker, or None.
+
+    Used by the z-score scorer to get the current mentions count and the
+    capture timestamp for the freshness check (recency_window "apewisdom" cap).
+    Returns None when no rows exist for this ticker.
+    """
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT mentions, rank, mentions_24h_ago, captured_at
+           FROM apewisdom_mentions
+           WHERE ticker = ?
+           ORDER BY captured_at DESC
+           LIMIT 1""",
+        (ticker,),
+    )
+    row = await cursor.fetchone()
+    if row is None:
+        return None
+    return {
+        "mentions": int(row["mentions"]),
+        "rank": row["rank"],
+        "mentions_24h_ago": row["mentions_24h_ago"],
+        "captured_at": float(row["captured_at"]),
+    }
 
 
 async def check_alert_cooldown(

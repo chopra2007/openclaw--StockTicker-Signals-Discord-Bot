@@ -83,6 +83,91 @@ def compute_technical_score(technical: Optional[TechnicalResult]) -> int:
     return min(technical.passed_count * per_filter, max_pts)
 
 
+def _compute_apewisdom_zscore_pts(
+    social_data: dict,
+    *,
+    sec_hit: bool,
+    catalyst_passed: bool,
+    technical_pts: int,
+) -> int:
+    """I13: z-score gate for the social_apewisdom term.
+
+    Called only when ``features.apewisdom_zscore.enabled`` is True.
+
+    Gate conditions (ALL must pass for +10):
+      1. Ticker has >= min_baseline_days distinct calendar days of baseline.
+      2. Current mentions > z_threshold sigma above the baseline mean.
+      3. At least one actor-independent hard corroborator agrees:
+           - SEC buy (sec_hit=True)
+           - hard news catalyst (catalyst_passed=True)
+           - technical breakout (technical_pts >= 2 filters, per I10 definition)
+      4. Mention data is fresh (recency_window "apewisdom" cap, 1440 min by default).
+         Freshness is checked against apewisdom_captured_at in social_data.
+         If not present / None -> stale -> 0.
+
+    Returns 0 when any gate fails. Never subtracts.
+    """
+    min_days = int(cfg.get("features.apewisdom_zscore.min_baseline_days", 14))
+    z_threshold = float(cfg.get("features.apewisdom_zscore.z_threshold", 2.0))
+    m = cfg.get("scoring.multipliers", {})
+    pts = m.get("social_apewisdom", 10)
+
+    # Gate 1: baseline must be mature enough to be trustworthy.
+    baseline = social_data.get("apewisdom_baseline") or {}
+    sample_days = int(baseline.get("sample_days", 0))
+    if sample_days < min_days:
+        log.debug(
+            "[I13] thin baseline (sample_days=%d < %d) -> 0", sample_days, min_days
+        )
+        return 0
+
+    # Gate 2: z-score must exceed threshold.
+    current_mentions = int(social_data.get("apewisdom_mentions", 0))
+    baseline_mean = float(baseline.get("mean", 0.0))
+    baseline_std = float(baseline.get("std", 0.0))
+    if baseline_std <= 0:
+        # Zero-variance baseline -> divide-by-zero guard -> use raw count as floor.
+        # With zero std the ticker has been perfectly flat; any positive count is
+        # "infinite sigma" — new-ticker hole: treat as stale/insufficient.
+        log.debug("[I13] zero-std baseline -> 0")
+        return 0
+    z_score = (current_mentions - baseline_mean) / baseline_std
+    if z_score <= z_threshold:
+        log.debug(
+            "[I13] z_score=%.2f <= threshold=%.2f -> 0", z_score, z_threshold
+        )
+        return 0
+
+    # Gate 3: actor-independent hard corroborator required.
+    min_tech_filters = int(cfg.get("features.strong_requires_hard_evidence.min_technical_filters", 2))
+    has_corroborator = (
+        sec_hit
+        or catalyst_passed
+        or technical_pts >= min_tech_filters
+    )
+    if not has_corroborator:
+        log.debug(
+            "[I13] z_score=%.2f but NO hard corroborator (sec=%s catalyst=%s tech_pts=%d) -> 0",
+            z_score, sec_hit, catalyst_passed, technical_pts,
+        )
+        return 0
+
+    # Gate 4: freshness check via recency_window.
+    from consensus_engine.analysis.recency_window import is_fresh  # local import: avoids circular
+    captured_at = social_data.get("apewisdom_captured_at")
+    if not is_fresh("apewisdom", captured_at):
+        log.debug("[I13] stale apewisdom data (captured_at=%s) -> 0", captured_at)
+        return 0
+
+    log.info(
+        "[I13] z_score=%.2f (mentions=%d mean=%.1f std=%.1f days=%d) + "
+        "corroborator(sec=%s cat=%s tech=%d) -> +%d",
+        z_score, current_mentions, baseline_mean, baseline_std,
+        sample_days, sec_hit, catalyst_passed, technical_pts, pts,
+    )
+    return pts
+
+
 def compute_social_score(social_data: dict[str, int]) -> int:
     """Compute social cross-reference score from platform signal counts."""
     score = 0
@@ -98,11 +183,44 @@ def compute_social_score(social_data: dict[str, int]) -> int:
     return score
 
 
-def _compute_social_breakdown(social_data: dict[str, int]) -> dict[str, int]:
-    """Return per-source social points for the ScoreBreakdown."""
+def _compute_social_breakdown(
+    social_data: dict,
+    *,
+    sec_hit: bool = False,
+    catalyst_passed: bool = False,
+    technical_pts: int = 0,
+) -> dict[str, int]:
+    """Return per-source social points for the ScoreBreakdown.
+
+    I13 (signal-features-2026-06-09, flag OFF default): when
+    ``features.apewisdom_zscore.enabled`` is True, the ``social_apewisdom``
+    term is replaced with a z-score gate that awards +10 ONLY when:
+      (a) the ticker has >= min_baseline_days (14) distinct calendar days
+          of baseline data in apewisdom_mentions,
+      (b) today's mention count is > z_threshold (2.0) sigma above the
+          per-ticker baseline mean,
+      (c) at least ONE actor-independent hard source already agrees on
+          direction: SEC buy (sec_hit), hard news catalyst (catalyst_passed),
+          or technical breakout (technical_pts >= 2 filters).
+    A pure Reddit/ApeWisdom spike with no hard corroborator earns 0.
+    Below min_baseline_days -> 0 (NOT the old presence +10).
+    Stale mention data (recency_window apewisdom cap, 1440 min) -> 0.
+    Flag OFF -> byte-identical (presence-only +10).
+    """
     m = cfg.get("scoring.multipliers", {})
+    aw_pts = m.get("social_apewisdom", 10) if social_data.get("apewisdom", 0) >= 1 else 0
+
+    # I13 z-score gate — runs ONLY when the flag is ON.
+    if cfg.get("features.apewisdom_zscore.enabled", False):
+        aw_pts = _compute_apewisdom_zscore_pts(
+            social_data,
+            sec_hit=sec_hit,
+            catalyst_passed=catalyst_passed,
+            technical_pts=technical_pts,
+        )
+
     return {
-        "social_apewisdom": m.get("social_apewisdom", 10) if social_data.get("apewisdom", 0) >= 1 else 0,
+        "social_apewisdom": aw_pts,
         "social_stocktwits": m.get("social_stocktwits", 10) if social_data.get("stocktwits", 0) >= 1 else 0,
         "social_reddit": m.get("social_reddit", 10) if social_data.get("reddit", 0) >= 2 else 0,
         "google_trends": m.get("google_trends", 5) if social_data.get("google_trends", 0) >= 1 else 0,
@@ -855,15 +973,35 @@ def _count_opposing_actors(
     return len(opposing_actors)
 
 
-async def _run_social_check(ticker: str) -> dict[str, int]:
-    """Get social signal counts for a ticker from the database."""
+async def _run_social_check(ticker: str) -> dict:
+    """Get social signal counts for a ticker from the database.
+
+    I13 (signal-features-2026-06-09): also fetches the per-ticker ApeWisdom
+    mention count + baseline from the new apewisdom_mentions series so the
+    scorer can compute a z-score.  Extra keys are only populated when the
+    flag is ON to keep the fast path cheap (flag OFF -> baseline fetch skipped).
+
+    Extra keys added when flag is ON:
+      "apewisdom_mentions"   (int)  — latest mention count from the series
+      "apewisdom_baseline"   (dict) — {"mean", "std", "sample_days"}
+      "apewisdom_captured_at" (float|None) — timestamp of the latest row
+    """
     counts = await db.get_signal_counts_by_source(ticker)
-    return {
+    result: dict = {
         "apewisdom": counts.get("apewisdom", 0),
         "stocktwits": counts.get("stocktwits", 0),
         "reddit": counts.get("reddit", 0),
         "google_trends": counts.get("google_trends", 0),
     }
+
+    if cfg.get("features.apewisdom_zscore.enabled", False):
+        baseline = await db.get_apewisdom_baseline(ticker)
+        latest = await db.get_latest_apewisdom_mentions(ticker)
+        result["apewisdom_baseline"] = baseline
+        result["apewisdom_mentions"] = latest.get("mentions", 0) if latest else 0
+        result["apewisdom_captured_at"] = latest.get("captured_at") if latest else None
+
+    return result
 
 
 async def _run_technical(ticker: str, direction: str = "long") -> Optional[TechnicalResult]:
@@ -1234,7 +1372,15 @@ async def score_ticker(
             grad.is_planned, grad.plan_flag_seen, grad.net_selling, grad.txn_date,
         )
     tech_pts = compute_technical_score(technical)
-    social_breakdown = _compute_social_breakdown(social_data)
+    # I13 (signal-features-2026-06-09): thread corroborators into the social
+    # breakdown so the z-score gate can require a hard independent source.
+    # Flag OFF -> extra kwargs are default (False/0) -> byte-identical path.
+    social_breakdown = _compute_social_breakdown(
+        social_data,
+        sec_hit=sec_hit,
+        catalyst_passed=bool(catalyst and catalyst.passed),
+        technical_pts=tech_pts,
+    )
 
     llm_max = m.get("llm_boost_max", 15)
 
