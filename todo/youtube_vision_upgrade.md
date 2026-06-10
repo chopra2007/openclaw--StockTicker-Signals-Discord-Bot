@@ -284,3 +284,22 @@ Recommended: build Conservative default, run `!all` on real tickers with recent 
 
 - **B2 (before/after chart-numbers demo):** done without spending Gemini quota — fresh chart-heavy videos already in the DB (e.g. `e2l8OJ-H1HM` DELL, `S3nZ5K1MMOQ` SPY) carry BOTH signal + visual rows, so `!all <ticker>` surfaces the Gemini-read numbers (WITH); old visual-only videos like `2UUTK-lntus` (47 rows, 0 signal) never surface (WITHOUT). Finding: multi-stock videos dump ALL on-screen numbers onto the top ticker — DELL absorbed other stocks' levels ($6.20/$10.91/$18.45), then the ±10% price-band filter dropped them → 0 usable levels. This is exactly the B3 trigger.
 - **B3 (per-number ticker tagging):** BUILT, flag-gated OFF (`youtube.visual.per_number_ticker_tagging: false`, commit `7d77245`). Adds a nullable `ticker` column to `youtube_visual_evidence`; Gemini prompt addendum + parser capture only when on (null allowed → never guesses); two-tier attribution in `get_youtube_visual_evidence_for_ticker` (tagged → own ticker; untagged → pre-B3 top-ticker). Flag-off verified identical to before. To test: flip true + restart (costs Gemini re-processing). 4 new tests; independent verifier approved.
+
+### Session notes — 2026-06-10 (chunked long-video reads SHIPPED + LIVE-VERIFIED)
+- **Worked on:** the CRITICAL full-transcription goal. The decisive probe PASSED: Gemini
+  `VideoMetadata` start/end offsets defeat the silent truncation (the 105-min evidence video
+  `e_iCwe2yX14` returned genuine 60-65-min content from a 3600-3900s window). Built chunked
+  reads: videos > 20 min split into 15-min windows (30s overlap, cap 6 windows = 90 min max),
+  per-window Gemini calls, merged in real-video timestamp order. Critical live-found bug fixed:
+  Gemini returns CLIP-relative timestamps — merge adds win_start to every span (without it all
+  window-2 spans landed on window-1 times). Past-end timestamps clamped (also fixes the
+  invented-70-min-stamp-on-a-55-min-video bug). ON by default (`youtube.gemini.chunked_long_videos:
+  true`); short videos unaffected (1 call). Quota/budget abort keeps completed windows; the
+  partial-read alarm verifies coverage. Live verify: 2-window run covered 2,620s vs the old
+  1,121s ceiling, 28 spans across both windows. 245 YouTube-slice tests pass.
+- **Decisions:** keys confirmed SEPARATE Google projects (independent quota — rotation gives real
+  headroom; each free key caps at 250k input tokens/min). 6 Gemini calls spent on probe+verify.
+- **Next:** the one open decision — videos LONGER than 90 min (cap 6 windows) still lose the tail
+  (alarm fires). Options: raise chunk_max_windows (more quota per video), buy Supadata credits
+  (full captions, no vision), or accept the 90-min ceiling. Also watch tonight's pipeline run:
+  long videos should now log full(er) coverage instead of PARTIAL READ.

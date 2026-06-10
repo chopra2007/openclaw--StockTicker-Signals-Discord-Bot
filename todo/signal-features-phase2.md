@@ -80,3 +80,24 @@ Consequences / actions:
 - E2's FRED leg: re-verify FRED API access before building that leg (kept behind its own flag).
 - I13/E1 backfill: each needs a DB migration + 14-30 day baseline backfill before the flag is
   eligible for sign-off.
+
+### Session notes — 2026-06-10
+- **Worked on:** Phase 2 BUILT COMPLETE — all 10 features + the common-recency-window
+  synchronizer committed flag-OFF: recency_window, I3+E6 (contradiction producer +
+  manufactured-agreement gate), I10 (STRONG hard evidence, shadow line fires live via the
+  I4-full main.py threading), I13 (ApeWisdom z-gate; apewisdom_mentions table schema v19;
+  live scan persisted 200 rows; baseline accumulates forward ~14 days before flag-eligible),
+  I15 (weighted Wolf confluence votes — live A/B on the real 22 theses found+fixed two
+  producer/consumer mismatches), I4-full (single score), I7 (log-odds), I14-widening,
+  E2 (VIX-term multiplier, live probe ratio 0.983; FRED leg NOT built — no key), E1 (FINRA
+  short-volume: schema v20, 4,300 rows / 205 tickers / 21 trading days backfilled live after
+  fixing 3 production-only bugs; daily systemd timer finra-short-volume.timer keeps it fresh).
+  Also shipped the TOP goal: conviction scoring fixed (tentative register no longer floors
+  real calls; LLM prompt got a setup-quality rubric) — live, no flag.
+- **Decisions:** Phase-1 flags activated this session (see TODO #32 "Next step A" — done).
+  Phase-2 flags stay OFF pending their shadow windows: [I3]/[I10] shadow lines accumulate in
+  the journal now; E2 wants ~2 weeks of [E2 shadow]; I13 needs ~14 days of baseline; E1's
+  gate can open once its z-surge + corroborator coincide (data is fresh daily via the timer).
+- **Next:** after the shadow window, read the [I3]/[I10]/[E2 shadow] journal distributions,
+  tune recency_window.max_age_min.* + the shadow-derived placeholders, then flip Phase-2
+  flags one at a time. I18 stays deferred (needs I3+I4 hardened + adversarial-input window).

@@ -1,0 +1,34 @@
+{
+  "run_name": "signal-features-2026-06-09",
+  "created": "2026-06-09T08:28:23Z",
+  "mode": "autonomous",
+  "execution_handoff": "build-now",
+  "layout": "native",
+  "agent_count": 8,
+  "current_pass": 5,
+  "greenfield": false,
+  "status": "phase2 BUILT COMPLETE 2026-06-10 (all 10 features + recency_window, flag-OFF) + Phase-1 ACTIVATED (8 flags ON, commit 451bfee) + conviction-fix live; full suite 2178 pass / 1 sanctioned baseline / 0 regressions (separate verifier found 3 I15 + 4 E2 test-side issues, all fixed); live-data tests: I16 real-13-theses, I15 real-22-theses A/B (caught producer as_of gap + window-cap mismatch), E1 real backfill 4300 rows (caught fractional-volume + first-chunk-read bugs), I13 real scan 200 rows, E2 live VIX probe; engine restarted, gateway READY; final live !all verification in progress",
+
+  "driver_spec": "/home/openclaw/.openclaw/workspace/feature-research-prompt.md",
+  "kickoff": "/home/openclaw/.openclaw/workspace/.claude/discover/signal-features-2026-06-09/KICKOFF.md",
+  "overrides": {
+    "pass1_research_engine": "deep-research (USER OVERRIDE of external-context/sciomc default) — fan-out, fetch, adversarially verify, cite; STOP if unavailable rather than substitute",
+    "research_tools_live": ["tavily", "brave-key-1", "firecrawl(~1300cr)", "serpapi(~160, main-thread-sparingly)"],
+    "research_tools_dead": ["exa(out-of-credits)", "brave-key-2(capped)"]
+  },
+  "orchestration": "Two concurrent streams per feature-research-prompt.md: Stream A = Pass 0 code grounding (background workflow), Stream B = Pass 1 external research (deep-research skill, main thread). Converge for Pass 2-4.",
+  "notes": {
+    "objective": "precision over recall; free/near-free data; catch setups before mainstream news / r/wallstreetbets",
+    "worktree_isolation": "BROKEN in this repo (/root/.openclaw symlink) — dispatch agents WITHOUT worktree isolation",
+    "regression_gate": "establish baseline before Pass 5; no passing test may start failing",
+    "ship_default": "new user-facing features land flag-OFF unless user signs off live"
+  },
+  "passes": {
+    "0": {"status": "completed", "out": "pass-0-system-map.md", "agents": 7, "note": "2 unreconciled scorers; A1 contradiction penalty dead; no reliability_engine.py; YT #9-12 flag-OFF (bearish raises score); analyst quality ignored; min_base_score knob inert"},
+    "1": {"status": "completed", "streams": {"A_internal_audit": "done (18 internal candidates)", "B_deep_research": "done (4 verified + unverified-due-to-session-limit leads)"}, "outs": ["pass-1-internal-audit.md", "pass-1-candidates.md"], "note": "deep-research hit account session limit (reset 4:30am PT) mid-verify; FINRA short-vol/short-flow/option-flow/ApeWisdom verified 3-0; FRED cross-asset + LLM-agent patterns abstained (NOT refuted) — treat as leads"},
+    "2": {"status": "completed", "out": "pass-2-filtered.md", "note": "21 survivors (E5 dropped, E4 merged into I6); 5-wave dependency plan; E1/E3/E6 flagged re-verify in Pass 3"},
+    "3": {"status": "completed", "outs": ["pass-3-adversarial.md", "pass-3-stress-tested.md"], "ccg": "Gemini+Claude (Codex auth revoked — needs user `codex login`)", "note": "14 BUILD / 1 DEFER (I18) / DROP I8+E3, DEFER I11; new ccg risk: time-basis-skew phantom confluence -> common-recency-window safeguard; E5 already dropped"},
+    "4": {"status": "completed", "out": "final-plan.md", "note": "8 sections build-ready; Phase1=Wave1+2 (I9/I12/I16/I14-display/I4-display/I1/I2/I5/I6) flag-OFF; Phase2=Wave3+4; I18 deferred"},
+    "5": {"status": "phase1-complete", "commit": "cb2729b", "result": "9 features built flag-OFF + 50+ tests; full suite 1975 pass / 1 sanctioned-baseline fail / 0 regressions; end-to-end dry-run EXIT=0; nothing activated live", "push": "deferred to session close per CLAUDE.md", "phase2": "Waves 3-4 + I18 specified in final-plan.md, tracked as TODO #32", "outs": ["final-plan.md", "pass-5-execution-log.md"]}
+  }
+}
