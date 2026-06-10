@@ -266,13 +266,15 @@ class ScoreBreakdown:
     youtube: int = 0
     options_flow: int = 0
     consensus_boost: int = 0
+    finra_short_volume: int = 0   # E1 FINRA daily short-vol z-score confluence term
 
     @property
     def total(self) -> int:
         return (self.base + self.additional_analysts + self.news_catalyst
                 + self.sec_filing + self.social_apewisdom + self.social_stocktwits
                 + self.social_reddit + self.google_trends + self.technical
-                + self.llm_boost + self.youtube + self.options_flow + self.consensus_boost)
+                + self.llm_boost + self.youtube + self.options_flow + self.consensus_boost
+                + self.finra_short_volume)
 
 
 @dataclass

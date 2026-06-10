@@ -777,6 +777,19 @@ CREATE TABLE IF NOT EXISTS apewisdom_mentions (
 );
 CREATE INDEX IF NOT EXISTS idx_aw_mentions_ticker ON apewisdom_mentions(ticker);
 CREATE INDEX IF NOT EXISTS idx_aw_mentions_ticker_at ON apewisdom_mentions(ticker, captured_at);
+CREATE TABLE IF NOT EXISTS finra_short_volume (
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticker               TEXT NOT NULL,
+    trade_date           TEXT NOT NULL,
+    total_volume         INTEGER NOT NULL,
+    short_volume         INTEGER NOT NULL,
+    short_exempt_volume  INTEGER NOT NULL,
+    short_pct            REAL NOT NULL,
+    finra_published_at   REAL NOT NULL,
+    UNIQUE(ticker, trade_date)
+);
+CREATE INDEX IF NOT EXISTS idx_finra_sv_ticker ON finra_short_volume(ticker);
+CREATE INDEX IF NOT EXISTS idx_finra_sv_ticker_date ON finra_short_volume(ticker, trade_date);
 """
 
 # Unique indices that reference columns added by _run_column_migrations.
@@ -946,6 +959,7 @@ async def init_db() -> AsyncConnection:
         (17, "wolf macro-brain phase-3: wolf_call_outcomes + wolf_emails_processed.received_at"),
         (18, "wolf macro-brain phase-4: wolf_beneficiaries"),
         (19, "I13 apewisdom_mentions time series (z-score baseline)"),
+        (20, "E1 finra_short_volume daily series (short-pct z-score baseline)"),
     ]
     for version, note in _schema_versions:
         await _db.execute(
@@ -1258,6 +1272,106 @@ async def get_latest_apewisdom_mentions(ticker: str) -> dict | None:
         "rank": row["rank"],
         "mentions_24h_ago": row["mentions_24h_ago"],
         "captured_at": float(row["captured_at"]),
+    }
+
+
+async def upsert_finra_short_volume(
+    ticker: str,
+    trade_date: str,
+    total_volume: int,
+    short_volume: int,
+    short_exempt_volume: int,
+    short_pct: float,
+    finra_published_at: float | None = None,
+) -> None:
+    """Persist one FINRA short-volume row (upsert on ticker+trade_date).
+
+    E1 (signal-features-2026-06-09): the table accumulates one row per ticker
+    per trading day from the FINRA CNMS consolidated short-sale file.
+    ``finra_published_at`` defaults to time.time() (ingestion time) and is used
+    by the recency_window freshness check.
+    """
+    if finra_published_at is None:
+        finra_published_at = time.time()
+    conn = await get_db()
+    await conn.execute(
+        """INSERT INTO finra_short_volume
+               (ticker, trade_date, total_volume, short_volume,
+                short_exempt_volume, short_pct, finra_published_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(ticker, trade_date) DO UPDATE SET
+               total_volume        = excluded.total_volume,
+               short_volume        = excluded.short_volume,
+               short_exempt_volume = excluded.short_exempt_volume,
+               short_pct           = excluded.short_pct,
+               finra_published_at  = excluded.finra_published_at""",
+        (ticker, trade_date, total_volume, short_volume,
+         short_exempt_volume, short_pct, finra_published_at),
+    )
+    await conn.commit()
+
+
+async def get_finra_short_volume_baseline(
+    ticker: str,
+    *,
+    lookback_days: int = 45,
+) -> dict:
+    """Return mean, std, and sample-day count from the finra_short_volume series.
+
+    E1 (signal-features-2026-06-09): used by the z-score confluence scorer.
+    One row per trade_date is kept (the table enforces UNIQUE(ticker, trade_date)).
+
+    Returns {"mean": 0.0, "std": 0.0, "sample_days": 0} when the table is empty
+    or has no rows for this ticker within the lookback window.
+    """
+    empty: dict = {"mean": 0.0, "std": 0.0, "sample_days": 0}
+    cutoff = time.time() - lookback_days * 86400.0
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT short_pct
+           FROM finra_short_volume
+           WHERE ticker = ? AND finra_published_at >= ?
+           ORDER BY trade_date ASC""",
+        (ticker, cutoff),
+    )
+    rows = await cursor.fetchall()
+    if not rows:
+        return empty
+    vals = [float(r["short_pct"]) for r in rows]
+    n = len(vals)
+    mean = sum(vals) / n
+    variance = sum((v - mean) ** 2 for v in vals) / n  # population variance
+    std = math.sqrt(variance)
+    return {"mean": mean, "std": std, "sample_days": n}
+
+
+async def get_latest_finra_short_volume(ticker: str) -> dict | None:
+    """Return the most-recent finra_short_volume row for a ticker, or None.
+
+    E1: used by the scorer to get short_pct and finra_published_at (for the
+    recency_window freshness check).
+    """
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT ticker, trade_date, total_volume, short_volume,
+                  short_exempt_volume, short_pct, finra_published_at
+           FROM finra_short_volume
+           WHERE ticker = ?
+           ORDER BY trade_date DESC
+           LIMIT 1""",
+        (ticker,),
+    )
+    row = await cursor.fetchone()
+    if row is None:
+        return None
+    return {
+        "ticker": row["ticker"],
+        "trade_date": row["trade_date"],
+        "total_volume": int(row["total_volume"]),
+        "short_volume": int(row["short_volume"]),
+        "short_exempt_volume": int(row["short_exempt_volume"]),
+        "short_pct": float(row["short_pct"]),
+        "finra_published_at": float(row["finra_published_at"]),
     }
 
 

@@ -227,6 +227,76 @@ def _compute_social_breakdown(
     }
 
 
+def _compute_finra_short_volume_pts(
+    short_pct: float,
+    baseline: dict,
+    finra_published_at: float | None,
+    *,
+    direction: str = "long",
+) -> int:
+    """E1: z-score confluence term for FINRA daily short-volume.
+
+    Returns a small positive term (cap from config, default +5) ONLY when:
+      1. The ticker's latest short_pct is >2 sigma above its own 30-day baseline.
+      2. The row is fresh (recency_window "finra_short_volume" cap, 1440 min default).
+      3. The direction is direction-compatible (spec: confluence-only, not standalone).
+         Short-volume spike is ambiguous w.r.t. direction — it can mean bearish
+         institutional flow OR MM hedging.  We add the term ONLY on the bullish
+         path (high short-pct can precede a short-squeeze on long signals); on a
+         short-signal it would be directionally redundant so we skip it.
+      4. baseline has >= 30 sample days (30-day baseline requirement from spec).
+
+    Flag OFF -> returns 0 without reading the DB (the DB read is skipped entirely
+    on the hot path; this function is never called when flag is OFF).
+
+    Provenance label (hard render rule, never mutate):
+        ``FINRA_SHORT_VOL_PROVENANCE = "short-volume %, MM-hedging-inflated proxy"``
+    """
+    # Freshness check via recency_window
+    from consensus_engine.analysis.recency_window import is_fresh
+    if not is_fresh("finra_short_volume", finra_published_at):
+        log.debug("[E1] stale finra row (published_at=%s) -> 0", finra_published_at)
+        return 0
+
+    # sample_days counts TRADING days (one row per trade_date). The 45-calendar-
+    # day baseline window holds ~31 trading days; require >=20 so the gate can
+    # open after a 30-trading-day backfill (a 30 floor on a 30-calendar-day
+    # window could never fire — ~21 trading days max).
+    sample_days = int(baseline.get("sample_days", 0))
+    min_days = int(cfg.get("features.finra_short_volume.min_baseline_days", 20))
+    if sample_days < min_days:
+        log.debug("[E1] thin baseline (%d days < %d) -> 0", sample_days, min_days)
+        return 0
+
+    mean = float(baseline.get("mean", 0.0))
+    std = float(baseline.get("std", 0.0))
+    if std <= 0.0:
+        log.debug("[E1] zero std baseline -> 0 (new-ticker guard)")
+        return 0
+
+    z = (short_pct - mean) / std
+    z_threshold = float(cfg.get("features.finra_short_volume.z_threshold", 2.0))
+    if z <= z_threshold:
+        log.debug("[E1] z=%.2f <= %.2f threshold -> 0", z, z_threshold)
+        return 0
+
+    # Direction-compatibility: only add on long signals (short-vol spike can
+    # indicate MM hedging / short-squeeze setup; on short it's redundant).
+    if direction.lower() != "long":
+        log.debug("[E1] non-long direction (%s) -> 0 (confluence-only)", direction)
+        return 0
+
+    cap = int(cfg.get("features.finra_short_volume.term_cap", 5))
+    log.info(
+        "[E1] $%s short_pct=%.3f z=%.2f (mean=%.3f std=%.3f sample_days=%d) -> +%d "
+        "provenance='%s'",
+        "",  # ticker logged by caller
+        short_pct, z, mean, std, sample_days, cap,
+        "short-volume %, MM-hedging-inflated proxy",
+    )
+    return cap
+
+
 def _get_catalyst_score(catalyst_type: str) -> int:
     """Look up tiered score for a catalyst type. Defaults to medium (15)."""
     tiers = cfg.get("scoring.catalyst_tiers", {})
@@ -1606,6 +1676,41 @@ async def score_ticker(
         )
 
     result_ci = computed_ci if cfg.get("features.contradiction_index_live.enabled", False) else 0.0
+
+    # -----------------------------------------------------------------
+    # E1 — FINRA daily short-volume confluence term (signal-features-2026-06-09)
+    # flag: features.finra_short_volume.enabled (default OFF)
+    #
+    # Adds a small capped term (+5 max) when the ticker's latest short_pct is
+    # >2 sigma above its own 30-day baseline AND the row is EOD-fresh (recency_window
+    # "finra_short_volume" cap, 1440 min).  Flag OFF -> ZERO DB reads on the hot
+    # path; the term contributes 0 and breakdown is byte-identical.
+    #
+    # Provenance label (hard render rule, never change):
+    #   "short-volume %, MM-hedging-inflated proxy"
+    # -----------------------------------------------------------------
+    finra_pts = 0
+    if cfg.get("features.finra_short_volume.enabled", False):
+        try:
+            latest_finra = await db.get_latest_finra_short_volume(ticker)
+            if latest_finra is not None:
+                baseline_finra = await db.get_finra_short_volume_baseline(ticker)
+                finra_pts = _compute_finra_short_volume_pts(
+                    short_pct=latest_finra["short_pct"],
+                    baseline=baseline_finra,
+                    finra_published_at=latest_finra["finra_published_at"],
+                    direction=direction,
+                )
+                if finra_pts:
+                    log.info(
+                        "[E1] $%s short_pct=%.3f finra_pts=%d "
+                        "(provenance='short-volume %%, MM-hedging-inflated proxy')",
+                        ticker, latest_finra["short_pct"], finra_pts,
+                    )
+        except Exception as _e1_exc:
+            log.warning("[E1] DB lookup failed for $%s: %s", ticker, _e1_exc)
+            finra_pts = 0
+    breakdown.finra_short_volume = finra_pts
 
     return ScoreTickerResult(
         ticker=ticker,
