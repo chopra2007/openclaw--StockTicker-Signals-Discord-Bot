@@ -761,9 +761,9 @@ features:
   options_flow:
     enabled: true                  # #18 autonomous unusual-options-flow watcher
   youtube_score:                   # #9-#12 flag-gated YouTube-score smarts (ALL default OFF — alter which alerts fire)
-    direction_aware: false         # #9 sign boost by consensus dir (short->negative; neutral keeps positive)
-    recency_decay: false           # #10 decay stale mentions
-    channel_reliability: false     # #11 scale boost by channel trust
+    direction_aware: true          # #9/I1 LIVE (user autonomous-session go 2026-06-10) — bearish YT no longer raises a long score
+    recency_decay: true            # #10/I1 LIVE 2026-06-10 — decay stale mentions
+    channel_reliability: true      # #11/I1 LIVE 2026-06-10 — scale boost by channel trust
     level_confluence: false        # #12 bonus when a YT level meets a technical level
     recency_half_life_days: 3
     recency_floor: 0.3
@@ -774,13 +774,14 @@ features:
     min_trusted_channels: 2        # I1 — min trusted channels before a bearish subtraction
     min_channel_graded_n: 10       # I1 — channel needs >=N graded outcomes before its trust counts
     bearish_cap: 8                 # I1 — bearish magnitude capped below bullish (+15)
-  # Phase-1 signal features (signal-features-2026-06-09) — ALL default OFF / value-neutral.
-  earnings_magnitude: { enabled: false, per_10pct: 5, cap: 15, min_abs_eps: 0.02, recency_days: 5 }  # I12 — +5/10% earnings surprise, cap +15
-  regime_context_line: { enabled: false }                                                     # I14-display — regime risk line in embed
-  score_display_honesty: { enabled: false }                                                   # I4-display — show precision-gated number
-  analyst_accuracy_weight: { enabled: false, min_n: 10, discount_floor: 0.5, weight_cap: 1.5, uplift_cap: 20 } # I2 — Wilson-LB analyst weight
-  sec_graduated_scoring: { enabled: false, csuite_pts: 20, large_buy_pts: 15, base_pts: 8, recency_days: 5 } # I5 — graduate SEC by role/$
-  options_graduated_scoring: { enabled: false, aligned_pts: 10, unusual_pts: 6, horizon: "1-2d" } # I6 — same-direction premium scale
+  # Phase-1 signal features (signal-features-2026-06-09) — ALL LIVE 2026-06-10
+  # (user autonomous-session go: "complete, fix, turn on, and live test").
+  earnings_magnitude: { enabled: true, per_10pct: 5, cap: 15, min_abs_eps: 0.02, recency_days: 5 }  # I12 — +5/10% earnings surprise, cap +15
+  regime_context_line: { enabled: true }                                                      # I14-display — regime risk line in embed
+  score_display_honesty: { enabled: true }                                                    # I4-display — show precision-gated number
+  analyst_accuracy_weight: { enabled: true, min_n: 10, discount_floor: 0.5, weight_cap: 1.5, uplift_cap: 20 } # I2 — Wilson-LB analyst weight
+  sec_graduated_scoring: { enabled: true, csuite_pts: 20, large_buy_pts: 15, base_pts: 8, recency_days: 5 } # I5 — graduate SEC by role/$
+  options_graduated_scoring: { enabled: true, aligned_pts: 10, unusual_pts: 6, horizon: "1-2d" } # I6 — same-direction premium scale
   # Phase-2 signal features (signal-features-2026-06-09 Waves 3-4) — ALL default OFF.
   contradiction_index_live: { enabled: false, min_actors: 2, downgrade_threshold: 0.5 }       # I3 — live contradiction producer
   strong_requires_hard_evidence: { enabled: false, min_technical_filters: 2 }                 # I10 — STRONG needs a hard-evidence component
@@ -918,7 +919,7 @@ wolf:
     weighted_votes_enabled: false       # I15 — age-decayed, size-scaled, actor-aware votes (Phase 2, default OFF)
     require_nonactor_for_critical: true # I15 — critical @-ping needs >=1 non-actor-controllable source
   outcomes:                             # Wolf Sunday-recap outcome grading
-    benchmark_adjusted: false           # I16 — credit "moved_with" only when proxy beats its benchmark (raw still shown)
+    benchmark_adjusted: true            # I16 LIVE 2026-06-10 — credit "moved_with" only when proxy beats its benchmark (raw still shown); live-tested on the real 13 theses (SMH bear: moved_against -> flat-vs-benchmark)
   direction_guard:                      # #1 trade-stance vs near-term-price-path extraction rule
     enabled: true                       # LIVE (user go 2026-06-08) — fixes IGV-style bull/bear misreads
   digests:                              # Scheduled #news briefings (TODO #20, phase 3)
