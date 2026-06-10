@@ -6,6 +6,7 @@ score from news, social, technical, other analysts, and LLM confidence.
 
 import asyncio
 import logging
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Any, Optional
@@ -43,6 +44,9 @@ class ScoreTickerResult:
     llm_reasoning: str = ""
     consolidation_result: Optional[object] = None
     metrics: dict = field(default_factory=dict)
+    # I3 producer (signal-features-2026-06-09): 0=unanimous, 1=perfectly split.
+    # Computed in score_ticker; 0.0 until features.contradiction_index_live.enabled.
+    contradiction_index: float = 0.0
 
     @property
     def final_score(self) -> int:
@@ -568,6 +572,289 @@ def _graduate_options_pts(options: "OptionsResult", direction: str) -> int:
     return min(pts, aligned)  # magnitude cap (never above the aligned ceiling)
 
 
+# ---------------------------------------------------------------------------
+# E6 — manufactured-agreement gate (signal-features-2026-06-09)
+# ---------------------------------------------------------------------------
+# Detects a near-duplicate analyst burst (near-simultaneous timing +
+# templated/near-duplicate wording + low distinct-account count). A burst does
+# NOT suppress any signal; it only gates the crowd-agreement bonus
+# (consensus_boost) until an independent non-burst source corroborates.
+# E6 runs BEFORE I3 so burst accounts collapse to ONE actor in I3's math.
+# Flag: features.manufactured_agreement_gate.enabled (default OFF).
+# Flag OFF -> byte-identical (consensus_boost unchanged, burst unused by I3).
+# ---------------------------------------------------------------------------
+
+# Config-key defaults (can be overridden via config/consensus.yaml)
+_E6_SIMILARITY_DEFAULT = 0.6    # Jaccard threshold for "same wording"
+_E6_BURST_WINDOW_SEC_DEFAULT = 300   # 5-minute window for near-simultaneous
+_E6_MIN_ACCOUNTS_DEFAULT = 2    # minimum distinct accounts to flag a burst
+
+
+def _word_set(text: str) -> frozenset:
+    """Cheap normalised word-set for Jaccard similarity (no LLM)."""
+    return frozenset(re.sub(r"[^a-z0-9$#]", " ", text.lower()).split())
+
+
+def _jaccard(a: frozenset, b: frozenset) -> float:
+    """Jaccard similarity of two word-sets."""
+    if not a or not b:
+        return 0.0
+    inter = len(a & b)
+    union = len(a | b)
+    return inter / union if union > 0 else 0.0
+
+
+async def _fetch_analyst_signals_for_burst(ticker: str, window_sec: int) -> list[dict]:
+    """Fetch recent Twitter/analyst signal rows for E6 burst detection.
+
+    Returns rows with keys: source_detail (handle), raw_text, detected_at.
+    Bounded to the given window. Returns [] on any error (graceful degradation).
+    """
+    try:
+        return await db.get_twitter_signals(ticker, window_seconds=window_sec)
+    except Exception as exc:
+        log.debug("E6 burst fetch error for $%s: %s", ticker, exc)
+        return []
+
+
+@dataclass
+class _BurstAnalysis:
+    """Result of E6 manufactured-agreement scan over analyst signal texts."""
+    burst_detected: bool = False
+    burst_actor_ids: frozenset = field(default_factory=frozenset)
+    has_independent_corroboration: bool = False
+    # True when burst detected AND no independent corroboration yet.
+    boost_gated: bool = False
+
+
+def _analyse_burst(
+    signal_rows: list[dict],
+    *,
+    similarity_threshold: float = _E6_SIMILARITY_DEFAULT,
+    burst_window_sec: float = _E6_BURST_WINDOW_SEC_DEFAULT,
+    min_accounts: int = _E6_MIN_ACCOUNTS_DEFAULT,
+) -> tuple[bool, frozenset]:
+    """Scan signal_rows for a near-simultaneous near-duplicate wording burst.
+
+    Algorithm (cheap — no LLM):
+      1. Filter rows with usable text + timestamp + account id.
+      2. Sort by detected_at.
+      3. For every pair within burst_window_sec, compute word-set Jaccard.
+      4. Collect involved accounts into a burst cluster.
+      5. A burst requires >= min_accounts distinct accounts.
+
+    Returns (burst_detected, frozenset_of_burst_account_ids).
+    """
+    if len(signal_rows) < min_accounts:
+        return False, frozenset()
+
+    valid = [
+        r for r in signal_rows
+        if r.get("raw_text") and r.get("detected_at") and r.get("source_detail")
+    ]
+    if len(valid) < min_accounts:
+        return False, frozenset()
+
+    valid.sort(key=lambda r: float(r["detected_at"]))
+    word_sets = [_word_set(str(r["raw_text"])) for r in valid]
+
+    burst_accounts: set[str] = set()
+    n = len(valid)
+    for i in range(n):
+        for j in range(i + 1, n):
+            if float(valid[j]["detected_at"]) - float(valid[i]["detected_at"]) > burst_window_sec:
+                break  # sorted: all further j are outside the window
+            if _jaccard(word_sets[i], word_sets[j]) >= similarity_threshold:
+                burst_accounts.add(str(valid[i]["source_detail"]))
+                burst_accounts.add(str(valid[j]["source_detail"]))
+
+    if len(burst_accounts) < min_accounts:
+        return False, frozenset()
+    return True, frozenset(burst_accounts)
+
+
+def _check_e6_corroboration(
+    burst_detected: bool,
+    *,
+    sec_hit: bool,
+    catalyst_passed: bool,
+    options_has_activity: bool,
+) -> bool:
+    """True when an independent non-burst source corroborates.
+
+    Independent sources: SEC filing, hard news catalyst, or options activity.
+    Any one of these lifts the E6 gate (they are actor-independent from the
+    Twitter/analyst channel).
+    """
+    if not burst_detected:
+        return True  # no gate needed
+    return sec_hit or catalyst_passed or options_has_activity
+
+
+# ---------------------------------------------------------------------------
+# I3 — live contradiction_index PRODUCER (signal-features-2026-06-09)
+# ---------------------------------------------------------------------------
+# The consumer is ALREADY LIVE: engine._classify (penalty :267-268) and
+# main.py:1276-1290 (A1 post-process). This producer sets the value on
+# ScoreTickerResult so the consumer has a non-zero index to act on.
+# Flag: features.contradiction_index_live.enabled (default OFF).
+# Flag OFF -> ScoreTickerResult.contradiction_index stays 0.0 -> consumer
+# is a verbatim no-op -> existing tests unchanged.
+# ---------------------------------------------------------------------------
+
+def _compute_contradiction_index(
+    *,
+    tweet_direction: str,
+    analyst_pts: int,
+    other_analysts: list,
+    options: Optional["OptionsResult"],
+    options_pts: int,
+    youtube: Optional["YouTubeContext"],
+    youtube_pts: int,
+    sec_hit: bool,
+    sec_pts: int,
+    burst_analysis: Optional["_BurstAnalysis"] = None,
+) -> float:
+    """Compute contradiction_index in [0,1] from SIGNED sources only.
+
+    Logic: index = min(opposing_weight, supporting_weight) / total_weight
+
+    Signed sources (only when they carry a clear direction):
+      - analyst cluster (tweet trigger + other_analysts): always SUPPORTING
+        (they cited the same ticker; analyst_pts > 0 means they contributed)
+      - youtube consensus_dir: SUPPORTING when matches tweet_direction,
+        OPPOSING when opposite; NEUTRAL -> no sign -> no contribution
+      - options dominant_side: SUPPORTING (call=long, put=short match) or
+        OPPOSING; ambiguous ("") -> no contribution (I6 safeguard preserved)
+      - SEC: SUPPORTING when sec_pts > 0 + tweet is long (a buy confirms
+        bullish); OPPOSING when tweet is short + sec is a buy signal
+
+    Actor-identity (I3 safeguard — distinct independent actors):
+      - analyst cluster = ONE actor ("analyst")
+      - youtube = ONE actor ("youtube")
+      - options = ONE actor ("options")
+      - SEC = ONE actor ("sec")
+
+    E6 reconciliation: burst accounts already collapsed to one actor by the
+    time I3 runs (E6 runs first and burst_analysis carries the collapsed set).
+
+    Safeguards:
+      - <2 fresh signed legs -> index 0 (no fabricated split)
+      - NaN/empty -> 0; abs-magnitude math; clamp [0,1]
+      - stale legs excluded via recency_window filter_fresh
+      - 0-pts contribution is unsigned -> no leg added
+    """
+    from consensus_engine.analysis.recency_window import SourceLeg, filter_fresh
+    import datetime as _dt
+
+    now = _dt.datetime.now(_dt.timezone.utc)
+    tweet_dir = tweet_direction.lower()
+    supporting_options_side = "call" if tweet_dir == "long" else "put" if tweet_dir == "short" else ""
+
+    legs: list[SourceLeg] = []
+
+    # Analyst cluster: always supporting (they corroborate the alert direction)
+    if analyst_pts > 0:
+        legs.append(SourceLeg(
+            source="tweet",
+            as_of=now,
+            weight=float(analyst_pts),
+            direction="supporting",
+            actor="analyst",
+        ))
+
+    # YouTube: only contributes a sign when direction is not neutral
+    if youtube is not None and youtube_pts != 0:
+        yt_dir = youtube.direction.value if hasattr(youtube.direction, "value") else str(youtube.direction)
+        if yt_dir != "neutral" and yt_dir != "":
+            yt_sign = "supporting" if yt_dir == tweet_dir else "opposing"
+            legs.append(SourceLeg(
+                source="youtube",
+                as_of=now,
+                weight=float(abs(youtube_pts)),
+                direction=yt_sign,
+                actor="youtube",
+            ))
+
+    # Options: only when dominant_side is unambiguous (I6 / E4 safeguard)
+    if options is not None and options_pts != 0 and supporting_options_side != "":
+        dominant = options.dominant_side
+        if dominant in ("call", "put"):
+            opt_sign = "supporting" if dominant == supporting_options_side else "opposing"
+            legs.append(SourceLeg(
+                source="options",
+                as_of=now,
+                weight=float(abs(options_pts)),
+                direction=opt_sign,
+                actor="options",
+            ))
+
+    # SEC: sec_pts > 0 = a buy signal; supporting on long, opposing on short
+    if sec_hit and sec_pts > 0 and tweet_dir in ("long", "short"):
+        sec_sign = "supporting" if tweet_dir == "long" else "opposing"
+        legs.append(SourceLeg(
+            source="sec",
+            as_of=now,
+            weight=float(sec_pts),
+            direction=sec_sign,
+            actor="sec",
+        ))
+
+    # Recency filter: drop any leg outside its source's freshness cap
+    fresh_legs = filter_fresh(legs, now=now)
+
+    # Require >= 2 signed sources to compute a meaningful index
+    if len(fresh_legs) < 2:
+        return 0.0
+
+    supporting_weight = sum(leg.weight for leg in fresh_legs if leg.direction == "supporting")
+    opposing_weight = sum(leg.weight for leg in fresh_legs if leg.direction == "opposing")
+    total_weight = supporting_weight + opposing_weight
+
+    if total_weight <= 0.0:
+        return 0.0
+
+    raw_index = min(opposing_weight, supporting_weight) / total_weight
+    return max(0.0, min(1.0, raw_index))
+
+
+def _count_opposing_actors(
+    *,
+    tweet_direction: str,
+    options: Optional["OptionsResult"],
+    options_pts: int,
+    youtube: Optional["YouTubeContext"],
+    youtube_pts: int,
+    sec_hit: bool,
+    sec_pts: int,
+    burst_analysis: Optional["_BurstAnalysis"] = None,
+) -> int:
+    """Count DISTINCT opposing actors (for the I3 downgrade-gate check).
+
+    An index >= downgrade_threshold requires >= min_actors distinct opposing
+    actors. A single injected source should not solo-trigger a downgrade.
+    Burst accounts (E6) already collapsed to one actor.
+    """
+    tweet_dir = tweet_direction.lower()
+    supporting_options_side = "call" if tweet_dir == "long" else "put" if tweet_dir == "short" else ""
+    opposing_actors: set[str] = set()
+
+    if youtube is not None and youtube_pts != 0:
+        yt_dir = youtube.direction.value if hasattr(youtube.direction, "value") else str(youtube.direction)
+        if yt_dir not in ("neutral", "", tweet_dir):
+            opposing_actors.add("youtube")
+
+    if options is not None and options_pts != 0 and supporting_options_side != "":
+        if options.dominant_side in ("call", "put") and options.dominant_side != supporting_options_side:
+            opposing_actors.add("options")
+
+    # SEC buy on a short-direction tweet = opposing actor
+    if sec_hit and sec_pts > 0 and tweet_dir == "short":
+        opposing_actors.add("sec")
+
+    return len(opposing_actors)
+
+
 async def _run_social_check(ticker: str) -> dict[str, int]:
     """Get social signal counts for a ticker from the database."""
     counts = await db.get_signal_counts_by_source(ticker)
@@ -1063,6 +1350,117 @@ async def score_ticker(
     # llm_boost merge; see _BULLISH_BIASED_FIELDS for the direction-sum parity.
     breakdown.youtube = youtube_pts
 
+    # -----------------------------------------------------------------
+    # E6 — manufactured-agreement gate (signal-features-2026-06-09)
+    # flag: features.manufactured_agreement_gate.enabled (default OFF)
+    #
+    # A near-duplicate analyst burst cannot ADD confluence points until
+    # >= 1 independent non-burst source corroborates. Flag OFF -> byte-
+    # identical (consensus_boost unchanged, burst_analysis stays None).
+    # E6 runs BEFORE I3 so burst accounts collapse to one actor in I3.
+    # -----------------------------------------------------------------
+    burst_analysis: Optional[_BurstAnalysis] = None
+    if cfg.get("features.manufactured_agreement_gate.enabled", False) and consensus_boost > 0:
+        e6_window = int(cfg.get(
+            "features.manufactured_agreement_gate.burst_window_sec",
+            _E6_BURST_WINDOW_SEC_DEFAULT,
+        ))
+        e6_thresh = float(cfg.get(
+            "features.manufactured_agreement_gate.similarity_threshold",
+            _E6_SIMILARITY_DEFAULT,
+        ))
+        e6_min_accts = int(cfg.get(
+            "features.manufactured_agreement_gate.min_accounts",
+            _E6_MIN_ACCOUNTS_DEFAULT,
+        ))
+        signal_rows = await _fetch_analyst_signals_for_burst(ticker, window_sec=e6_window)
+        burst_detected, burst_accounts = _analyse_burst(
+            signal_rows,
+            similarity_threshold=e6_thresh,
+            burst_window_sec=float(e6_window),
+            min_accounts=e6_min_accts,
+        )
+        has_corroboration = _check_e6_corroboration(
+            burst_detected,
+            sec_hit=sec_hit,
+            catalyst_passed=bool(catalyst and catalyst.passed),
+            options_has_activity=bool(options and options.has_unusual_activity),
+        )
+        boost_gated = burst_detected and not has_corroboration
+        burst_analysis = _BurstAnalysis(
+            burst_detected=burst_detected,
+            burst_actor_ids=burst_accounts,
+            has_independent_corroboration=has_corroboration,
+            boost_gated=boost_gated,
+        )
+        if boost_gated:
+            # Gate the crowd-agreement credit. Signals are NOT dropped.
+            consensus_boost = 0
+            breakdown.consensus_boost = 0
+            log.info(
+                "[E6] $%s burst detected (accounts=%d), consensus_boost gated "
+                "(no independent corroboration)",
+                ticker, len(burst_accounts),
+            )
+        elif burst_detected:
+            log.info(
+                "[E6] $%s burst detected (accounts=%d), boost KEPT "
+                "(independent corroboration present)",
+                ticker, len(burst_accounts),
+            )
+
+    # -----------------------------------------------------------------
+    # I3 — contradiction_index PRODUCER (signal-features-2026-06-09)
+    # flag: features.contradiction_index_live.enabled (default OFF)
+    #
+    # Computes the index from SIGNED sources already gathered above.
+    # Always computes for the shadow log; writes onto result ONLY when
+    # flag is ON (flag OFF -> result.contradiction_index stays 0.0 ->
+    # consumer is a verbatim no-op -> existing tests unchanged).
+    # E6 reconciliation: burst_analysis passed so burst accounts count
+    # as one actor in the opposing-actor tally.
+    # -----------------------------------------------------------------
+    computed_ci = _compute_contradiction_index(
+        tweet_direction=direction,
+        analyst_pts=analyst_pts,
+        other_analysts=other_analysts,
+        options=options,
+        options_pts=options_pts,
+        youtube=youtube,
+        youtube_pts=youtube_pts,
+        sec_hit=sec_hit,
+        sec_pts=sec_pts,
+        burst_analysis=burst_analysis,
+    )
+    n_opposing = _count_opposing_actors(
+        tweet_direction=direction,
+        options=options,
+        options_pts=options_pts,
+        youtube=youtube,
+        youtube_pts=youtube_pts,
+        sec_hit=sec_hit,
+        sec_pts=sec_pts,
+        burst_analysis=burst_analysis,
+    )
+    # Count signed legs (rough proxy for shadow log)
+    yt_dir_val = ""
+    if youtube is not None:
+        yt_dir_val = youtube.direction.value if hasattr(youtube.direction, "value") else str(youtube.direction)
+    n_signed = sum([
+        1 if analyst_pts > 0 else 0,
+        1 if (youtube is not None and youtube_pts != 0 and yt_dir_val != "neutral") else 0,
+        1 if (options is not None and options_pts != 0 and options.dominant_side in ("call", "put")) else 0,
+        1 if (sec_hit and sec_pts > 0) else 0,
+    ])
+
+    if computed_ci > 0:
+        log.info(
+            "[I3 shadow] $%s contradiction_index=%.2f (opposing_actors=%d signed_sources=%d)",
+            ticker, computed_ci, n_opposing, n_signed,
+        )
+
+    result_ci = computed_ci if cfg.get("features.contradiction_index_live.enabled", False) else 0.0
+
     return ScoreTickerResult(
         ticker=ticker,
         breakdown=breakdown,
@@ -1077,6 +1475,7 @@ async def score_ticker(
         llm_reasoning=llm_reasoning,
         consolidation_result=cons_result,
         metrics=metrics,
+        contradiction_index=result_ci,
     )
 
 
@@ -1175,6 +1574,9 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
         llm_reasoning=score_result.llm_reasoning,
         options=score_result.options,
         consolidation_result=score_result.consolidation_result,
+        # I3: propagate the produced contradiction_index to the consumer
+        # (engine._classify penalty + main.py A1 post-process use this field)
+        contradiction_index=score_result.contradiction_index,
     )
 
     log.info("Cross-reference for $%s: score=%d (base=%d + xref=%d, youtube=%d)",
