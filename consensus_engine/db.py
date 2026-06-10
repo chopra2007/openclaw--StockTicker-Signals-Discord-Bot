@@ -3673,43 +3673,56 @@ async def get_confluence_stances(window_days: int = 21) -> dict[str, list[dict]]
     # Item E: carry source_link (the TweetShift message link) + order newest-first so the
     # confluence renderer can sample the NEWEST winning-direction tweet per ticker.
     cur = await conn.execute(
-        "SELECT ticker, direction, source_link FROM signal_events "
+        "SELECT ticker, direction, source_link, source_detail, recorded_at FROM signal_events "
         "WHERE source_type='twitter' AND direction IN ('long','short') AND recorded_at >= ? "
         "ORDER BY recorded_at DESC",
         (cutoff,),
     )
+    # I15: as_of/actor feed the weighted-vote age-decay + actor-independence math
+    # (silently ignored by the legacy unweighted path).
     out["twitter"] = [
-        {"ticker": r["ticker"], "dir": r["direction"], "link": r["source_link"]}
+        {"ticker": r["ticker"], "dir": r["direction"], "link": r["source_link"],
+         "as_of": r["recorded_at"], "actor": r["source_detail"] or ""}
         for r in await cur.fetchall()
     ]
 
     # YouTube — youtube_signals.direction, dropping suppressed rows; keep channel for breadth.
     cur = await conn.execute(
-        "SELECT ticker, direction, channel_name, video_id FROM youtube_signals "
+        "SELECT ticker, direction, channel_name, video_id, extracted_at FROM youtube_signals "
         "WHERE direction IN ('long','short') AND COALESCE(suppressed,0)=0 AND extracted_at >= ?",
         (cutoff,),
     )
     out["youtube"] = [
         {"ticker": r["ticker"], "dir": r["direction"], "channel": r["channel_name"],
-         "video_id": r["video_id"]}
+         "video_id": r["video_id"], "as_of": r["extracted_at"],
+         "actor": r["channel_name"] or ""}
         for r in await cur.fetchall()
     ]
 
     # Options flow — side CALL/PUT (freshest of last_trade_ts / detected_at).
     cur = await conn.execute(
-        "SELECT ticker, side FROM options_flow "
-        "WHERE COALESCE(last_trade_ts, detected_at) >= ?",
+        "SELECT ticker, side, premium_usd, COALESCE(last_trade_ts, detected_at) AS as_of "
+        "FROM options_flow WHERE COALESCE(last_trade_ts, detected_at) >= ?",
         (cutoff,),
     )
-    out["options"] = [{"ticker": r["ticker"], "dir": r["side"]} for r in await cur.fetchall()]
+    out["options"] = [
+        {"ticker": r["ticker"], "dir": r["side"], "as_of": r["as_of"],
+         "size": r["premium_usd"] or 0.0}
+        for r in await cur.fetchall()
+    ]
 
     # SEC — insider BUYS only (sentiment='bullish'); sells excluded by design.
     cur = await conn.execute(
-        "SELECT ticker, sentiment FROM ticker_signals "
+        "SELECT ticker, sentiment, detected_at FROM ticker_signals "
         "WHERE source_type='sec_filing' AND sentiment='bullish' AND detected_at >= ?",
         (cutoff,),
     )
-    out["sec"] = [{"ticker": r["ticker"], "dir": r["sentiment"]} for r in await cur.fetchall()]
+    # Known limitation: ticker_signals carries no 10b5-1 plan flag, so is_planned
+    # stays absent here (the I15 non-actor count treats absent as not-planned).
+    out["sec"] = [
+        {"ticker": r["ticker"], "dir": r["sentiment"], "as_of": r["detected_at"]}
+        for r in await cur.fetchall()
+    ]
 
     return out
 

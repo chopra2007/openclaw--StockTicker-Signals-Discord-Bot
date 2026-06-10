@@ -26,8 +26,10 @@ opus critic + Gemini):
 I15 (wolf.confluence.weighted_votes_enabled):
 - Each row may carry optional `as_of` (epoch float or ISO str) and `size` (raw numeric,
   source-specific: SEC insider $, options premium, YouTube n_channels; absent -> 1.0).
-- Age-decay: weight = max(DECAY_FLOOR, exp(-DECAY_RATE * age_hours)). Stale legs that fall
-  outside the common-recency-window (filter_fresh) are excluded entirely.
+- Age-decay: weight = max(DECAY_FLOOR, exp(-DECAY_RATE * age_hours)). Legs with no usable
+  timestamp or older than the confluence window itself (wolf.confluence.window_days) are
+  excluded entirely; in-window staleness is handled by the smooth decay, NOT the global
+  minutes-scale recency_window caps (those are for the per-tweet scoring lane).
 - Size: normalised per-source to [0, 1] via a percentile cap (SIZE_CAP_PCT) so one giant
   options print can't dominate channel counts. Final vote weight = decay * (1 + size_norm).
 - Actor controllability: only SEC filings are non-actor-controllable. Escalation to critical
@@ -49,7 +51,6 @@ from typing import Optional
 import yaml
 
 from consensus_engine import config as cfg
-from consensus_engine.analysis.recency_window import SourceLeg, filter_fresh
 from consensus_engine.analysis.wolf_scope import (
     resolve_scope, is_inverse_proxy, stock_sector_etf,
 )
@@ -122,8 +123,8 @@ def _coerce_as_of(v) -> Optional[datetime]:
 def _age_decay(as_of_val, now: datetime) -> float:
     """Compute exp-decay weight in [DECAY_FLOOR, 1.0] from a row's as_of field.
 
-    If as_of is None/unparseable the row was already excluded by filter_fresh upstream,
-    so this fallback to DECAY_FLOOR is a conservative safety net only.
+    If as_of is None/unparseable the row was already excluded by the window
+    freshness check upstream, so this DECAY_FLOOR return is a safety net only.
     """
     dt = _coerce_as_of(as_of_val)
     if dt is None:
@@ -338,16 +339,23 @@ def score_confluence(thesis: dict, rows_by_source: dict[str, list[dict]],
         raw_rows = rows_by_source.get(stype, [])
 
         if weighted:
-            # Apply common-recency-window: build SourceLeg list and drop stale legs.
-            # The recency_window source key for wolf confluence rows maps to the source type.
-            # 'tweet' cap is used for twitter rows (matches config key).
-            rw_source = "tweet" if stype == "twitter" else stype
-            legs = [
-                SourceLeg(source=rw_source, as_of=r.get("as_of"), detail={"row": r})
-                for r in raw_rows
-            ]
-            fresh_legs = filter_fresh(legs, now=now)
-            fresh_rows = [leg.detail["row"] for leg in fresh_legs]
+            # Freshness cap = the confluence WINDOW itself (21 days by default),
+            # not the global per-tweet recency_window caps (sec=2h, tweet=2h...).
+            # Wolf confluence is deliberately an over-time feature: rows are
+            # gathered over window_days and age-DECAY (above) weights them down
+            # smoothly. Running them through the minutes-scale global caps
+            # deleted every vote in the first live test (2026-06-10). A leg only
+            # hard-drops when it has no usable timestamp or exceeds the window.
+            window_days = float(cfg.get("wolf.confluence.window_days", 21))
+            cap_min = window_days * 1440.0
+            fresh_rows = []
+            for r in raw_rows:
+                dt = _coerce_as_of(r.get("as_of"))
+                if dt is None:
+                    continue  # null/unparseable timestamp -> stale (I1 rule)
+                age_min = (now - dt).total_seconds() / 60.0
+                if -60.0 <= age_min <= cap_min:
+                    fresh_rows.append(r)
         else:
             fresh_rows = raw_rows
 
