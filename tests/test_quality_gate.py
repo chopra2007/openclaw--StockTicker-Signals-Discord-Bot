@@ -24,8 +24,15 @@ def test_quality_gate_passes_valid_signal():
     assert _passes_quality_gate(parsed, "NVDA") is True
 
 
-def test_quality_gate_blocks_low_neutral():
-    """LOW conviction + NEUTRAL direction = likely noise (life quotes)."""
+def test_quality_gate_blocks_low_neutral(monkeypatch):
+    """LOW conviction + NEUTRAL direction scores below the alert floor → blocked.
+
+    Pin the floor to its documented default (20). The live config may set it to 0
+    (alert-score dial turned off 2026-06-09), which lets everything through — this
+    test validates the gate's scoring logic, not the live dial setting.
+    """
+    from consensus_engine import config as cfg
+    monkeypatch.setitem(cfg._config.setdefault("alerts", {}), "min_base_score_for_alert", 20)
     parsed = _make_parsed(direction=Direction.NEUTRAL, conviction=Conviction.LOW)
     assert _passes_quality_gate(parsed, "NVDA") is False
 
