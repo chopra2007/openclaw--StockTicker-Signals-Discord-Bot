@@ -165,13 +165,65 @@ class TestConfirmCeiling:
 # (c) Fetch failure -> 1.0 no-op
 # ---------------------------------------------------------------------------
 
+# NOTE: these tests are native async (pytest-asyncio auto mode). The original
+# versions drove the coroutine with asyncio.get_event_loop().run_until_complete,
+# which works when the file runs alone but picks up a closed/stale global loop
+# after earlier async tests in the full suite (4 order-dependent failures,
+# found by the separate verifier 2026-06-10). Patch _fetch_vix_ratio directly
+# so the real executor path is exercised.
 class TestFetchFailure:
-    def test_yfinance_exception_returns_1_0(self):
-        """When yfinance raises an exception, get_multiplier returns 1.0."""
+    async def test_yfinance_exception_returns_1_0(self):
+        """When the VIX fetch raises, get_multiplier returns 1.0 (no-op)."""
         _ca_mod.clear_cache()
+        with patch("consensus_engine.analysis.cross_asset.cfg") as mock_cfg:
+            mock_cfg.get.side_effect = lambda k, d=None: {
+                "features.cross_asset.enabled": True,
+                "features.cross_asset.veto_floor": 0.85,
+                "features.cross_asset.confirm_ceiling": 1.15,
+                "features.recency_window.enabled": True,
+                "features.recency_window.max_age_min.vix": 1440,
+            }.get(k, d)
+            with patch(
+                "consensus_engine.analysis.cross_asset._fetch_vix_ratio",
+                side_effect=RuntimeError("network error"),
+            ):
+                result = await _ca_mod.get_multiplier()
+        _ca_mod.clear_cache()
+        assert result == pytest.approx(1.0, abs=1e-9)
 
-        def _failing_fetch():
-            raise RuntimeError("network error")
+    async def test_vix_data_none_returns_1_0(self):
+        """When _fetch_vix_ratio returns None (no data), get_multiplier returns 1.0."""
+        _ca_mod.clear_cache()
+        with patch("consensus_engine.analysis.cross_asset.cfg") as mock_cfg:
+            mock_cfg.get.side_effect = lambda k, d=None: {
+                "features.cross_asset.enabled": True,
+                "features.cross_asset.veto_floor": 0.85,
+                "features.cross_asset.confirm_ceiling": 1.15,
+                "features.recency_window.enabled": True,
+                "features.recency_window.max_age_min.vix": 1440,
+            }.get(k, d)
+            with patch(
+                "consensus_engine.analysis.cross_asset._fetch_vix_ratio",
+                return_value=None,
+            ):
+                result = await _ca_mod.get_multiplier()
+        _ca_mod.clear_cache()
+        assert result == pytest.approx(1.0, abs=1e-9)
+
+
+# ---------------------------------------------------------------------------
+# (d) Stale cached value (mock is_fresh False) -> 1.0
+# ---------------------------------------------------------------------------
+
+class TestStaleCacheDegradesTo1:
+    async def test_stale_cache_returns_1_0(self):
+        """Stale cached VIX value (is_fresh returns False) should return 1.0."""
+        # Pre-populate cache with a value that appears in-TTL but is "stale" per
+        # recency_window.is_fresh.
+        _ca_mod.clear_cache()
+        _ca_mod._cache["ratio"] = 1.20
+        _ca_mod._cache["multiplier"] = 0.85
+        _ca_mod._cache["fetched_at"] = datetime.now(timezone.utc)
 
         with patch("consensus_engine.analysis.cross_asset.cfg") as mock_cfg:
             mock_cfg.get.side_effect = lambda k, d=None: {
@@ -181,108 +233,41 @@ class TestFetchFailure:
                 "features.recency_window.enabled": True,
                 "features.recency_window.max_age_min.vix": 1440,
             }.get(k, d)
+            # is_fresh returns False -> stale cache -> 1.0. Also block a re-fetch
+            # so the test pins the stale-degrade branch, not a fresh fetch.
+            with patch(
+                "consensus_engine.analysis.cross_asset.is_fresh", return_value=False
+            ), patch(
+                "consensus_engine.analysis.cross_asset._fetch_vix_ratio",
+                return_value=None,
+            ):
+                result = await _ca_mod.get_multiplier()
 
-            with patch("consensus_engine.analysis.cross_asset._fetch_vix_ratio", side_effect=RuntimeError("boom")):
-                # run_in_executor will call the function; patch the underlying _fetch_vix_ratio
-                # and also mock run_in_executor to call it directly (synchronously)
-                async def _run_fetch():
-                    import asyncio
-                    loop = asyncio.get_event_loop()
-                    with patch.object(loop, "run_in_executor", side_effect=RuntimeError("executor error")):
-                        return await _ca_mod.get_multiplier()
-
-                result = asyncio.get_event_loop().run_until_complete(_run_fetch())
-
+        _ca_mod.clear_cache()
         assert result == pytest.approx(1.0, abs=1e-9)
 
-    def test_vix_data_none_returns_1_0(self):
-        """When _fetch_vix_ratio returns None, get_multiplier returns 1.0."""
-        _ca_mod.clear_cache()
-
-        async def _run():
-            import asyncio
-            loop = asyncio.get_event_loop()
-            # Patch run_in_executor to return None (simulating no data)
-            original_run_in_executor = loop.run_in_executor
-
-            async def _mock_executor(exc, fn, *args):
-                return None
-
-            with patch("consensus_engine.analysis.cross_asset.cfg") as mock_cfg:
-                mock_cfg.get.side_effect = lambda k, d=None: {
-                    "features.cross_asset.enabled": True,
-                    "features.cross_asset.veto_floor": 0.85,
-                    "features.cross_asset.confirm_ceiling": 1.15,
-                    "features.recency_window.enabled": True,
-                    "features.recency_window.max_age_min.vix": 1440,
-                }.get(k, d)
-
-                with patch.object(loop, "run_in_executor", side_effect=_mock_executor):
-                    return await _ca_mod.get_multiplier()
-
-        result = asyncio.get_event_loop().run_until_complete(_run())
-        assert result == pytest.approx(1.0, abs=1e-9)
-
-
-# ---------------------------------------------------------------------------
-# (d) Stale cached value (mock is_fresh False) -> 1.0
-# ---------------------------------------------------------------------------
-
-class TestStaleCacheDegradesTo1:
-    def test_stale_cache_returns_1_0(self):
-        """Stale cached VIX value (is_fresh returns False) should return 1.0."""
-        # Pre-populate cache with a value that appears in-TTL but is "stale" per
-        # recency_window.is_fresh.
-        _ca_mod.clear_cache()
-        _ca_mod._cache["ratio"] = 1.20
-        _ca_mod._cache["multiplier"] = 0.85
-        _ca_mod._cache["fetched_at"] = datetime.now(timezone.utc)
-
-        async def _run():
-            with patch("consensus_engine.analysis.cross_asset.cfg") as mock_cfg:
-                mock_cfg.get.side_effect = lambda k, d=None: {
-                    "features.cross_asset.enabled": True,
-                    "features.cross_asset.veto_floor": 0.85,
-                    "features.cross_asset.confirm_ceiling": 1.15,
-                    "features.recency_window.enabled": True,
-                    "features.recency_window.max_age_min.vix": 1440,
-                }.get(k, d)
-
-                # is_fresh returns False -> stale cache -> 1.0
-                with patch(
-                    "consensus_engine.analysis.cross_asset.is_fresh", return_value=False
-                ):
-                    return await _ca_mod.get_multiplier()
-
-        result = asyncio.get_event_loop().run_until_complete(_run())
-        assert result == pytest.approx(1.0, abs=1e-9)
-        _ca_mod.clear_cache()
-
-    def test_fresh_cache_returns_cached_multiplier(self):
+    async def test_fresh_cache_returns_cached_multiplier(self):
         """Fresh cached VIX value (is_fresh returns True) returns the cached multiplier."""
         _ca_mod.clear_cache()
         _ca_mod._cache["ratio"] = 0.90
         _ca_mod._cache["multiplier"] = 1.10
         _ca_mod._cache["fetched_at"] = datetime.now(timezone.utc)
 
-        async def _run():
-            with patch("consensus_engine.analysis.cross_asset.cfg") as mock_cfg:
-                mock_cfg.get.side_effect = lambda k, d=None: {
-                    "features.cross_asset.enabled": True,
-                    "features.cross_asset.veto_floor": 0.85,
-                    "features.cross_asset.confirm_ceiling": 1.15,
-                    "features.recency_window.enabled": True,
-                    "features.recency_window.max_age_min.vix": 1440,
-                }.get(k, d)
+        with patch("consensus_engine.analysis.cross_asset.cfg") as mock_cfg:
+            mock_cfg.get.side_effect = lambda k, d=None: {
+                "features.cross_asset.enabled": True,
+                "features.cross_asset.veto_floor": 0.85,
+                "features.cross_asset.confirm_ceiling": 1.15,
+                "features.recency_window.enabled": True,
+                "features.recency_window.max_age_min.vix": 1440,
+            }.get(k, d)
+            with patch(
+                "consensus_engine.analysis.cross_asset.is_fresh", return_value=True
+            ):
+                result = await _ca_mod.get_multiplier()
 
-                with patch(
-                    "consensus_engine.analysis.cross_asset.is_fresh", return_value=True
-                ):
-                    return await _ca_mod.get_multiplier()
-
-        result = asyncio.get_event_loop().run_until_complete(_run())
-        assert result == pytest.approx(1.10, abs=1e-9)
         _ca_mod.clear_cache()
+        assert result == pytest.approx(1.10, abs=1e-9)
 
 
 # ---------------------------------------------------------------------------
