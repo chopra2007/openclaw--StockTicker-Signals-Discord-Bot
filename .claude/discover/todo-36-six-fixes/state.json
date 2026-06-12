@@ -6,7 +6,8 @@
   "execution_handoff": "review-then-build",
   "layout": "native",
   "agent_count": 4,
-  "current_pass": 5,
+  "current_pass": "COMPLETE",
+  "status": "DONE 2026-06-11 — all 6 issues fixed+verified; committed 406722d (code) + f25eae3 (docs); NOT pushed (push at session close). Full suite 2175 pass; regression set vs baseline = empty. Gateway active/0-restarts. 0 root-owned files. Pre-existing gemini chunking test baselined + flagged as follow-up.",
   "build_progress": {
     "FIX_A_issue_2_4_1": "DONE+VERIFIED. chown -R fixed 5118 root-owned files; web-search-plus fully removed; plugin-index deadlock cleared (conflict gone); drop-in state/ chown recurrence guard added; gateway active/0-restarts/clean. Issue 1: --json + _extract_agent_reply. END-TO-END: real _handle_mention('7x6')→'42', 0 warning boxes. !ask shares path.",
     "FIX_B_issue_5": "DONE+VERIFIED. Finnhub get_live_quote_price + _us_market_open; skip on None; 'last close (market closed)' after-hours. Live: SPY 737.76, market_open=False at 21:53 ET.",

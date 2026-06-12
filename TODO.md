@@ -221,3 +221,9 @@ When you ask the bot about a ticker in chat (e.g. "tell me about WEN"), its web-
 **File:** `tweetshift-bullbear-field.md`
 
 Six issues diagnosed 2026-06-11: gateway crashes on reboot, bot @-mentions return health warnings instead of answers, Fwd P/E uses wrong EPS window, !all has no TweetShift bull/bear count, smart levels reports closing price as "current", and !help is stale and unverified.
+
+## 37. Fix the stale YouTube video-parser test (chunking)
+
+**File:** `gemini-chunking-test-stale.md`
+
+Update the video-parser unit test that broke when the #17 chunked-reads feature landed (it's parked in the test baseline; the live feature works fine) so the regression gate isn't blind there.
