@@ -177,7 +177,7 @@ All 6 issues fixed + verified live; the diagnosed approach was improved on 4 of 
 - **Issue 1:** `_handle_mention` now uses `openclaw agent --local --json` + `_extract_agent_reply` (warnings go to stderr). `!ask` shares this path. Verified end-to-end: real mention → "42", 0 warning boxes.
 - **Issue 3 (Fwd P/E):** diagnosed "sum 4 quarters" was unbuildable (yfinance gives 2). User chose current-FY EPS basis → NVDA "Fwd P/E 23" (was 16).
 - **Issue 3a (Today's Tweets):** no classifier needed — reused stored `ticker_signals.sentiment`. New `🐦 Today's Tweets` field. AMD "3 total · 3 bull · 0 bear" + example; omitted when 0.
-- **Issue 5 (smart levels):** swapped to Finnhub `get_live_quote_price`; skip on failure; "last close $X (market closed)" after-hours.
+- **Issue 5 (smart levels):** `_level_price` now shows the real current price — Finnhub real-time during market hours, **live yfinance extended-hours price (post/pre-market) when closed**, labelled "after-hours $X" / "pre-market $X" (commit `b38c8b4`, after user feedback that the close was wrong — NVDA after-hours $205.98 vs $204.87 close). Skips on failure rather than showing a stale price.
 - **Issue 6 (!help):** rewrote HELP_TEXT (+!cluster/!transcript/!readme, fixed "6 features" footer). **Bonus: fixed a real crash** — `!yt-mentions` raised NameError (`is_valid_ticker` not imported); switched to `is_valid_ticker_format`.
 
 **Verification:** full suite 2175 passed; updated 3 tests for the intentional behavior changes (snapshot fwd_pe, 2× youtube_level_alerts price source).
