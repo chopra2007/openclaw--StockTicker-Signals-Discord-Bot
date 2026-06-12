@@ -16,6 +16,7 @@ import asyncio
 import dataclasses
 import json
 import logging
+import random
 import re
 import time
 from pathlib import Path
@@ -224,6 +225,23 @@ async def _wolf_confluence_lookup(ticker: str) -> Optional[dict]:
         return None
 
 
+def _summarize_tweets_today(rows) -> Optional[dict]:
+    """Summarize today's TweetShift rows for the !all 'Today's Tweets' field.
+
+    Counts bull/bear from the ``sentiment`` the TweetShift parser already stored
+    (bullish/bearish/neutral) — no re-classification — and picks one random
+    example with non-empty text. Returns None when there are no tweets, so the
+    embed omits the field entirely rather than rendering "(0)".
+    """
+    if not isinstance(rows, list) or not rows:
+        return None
+    bull = sum(1 for r in rows if (r.get("sentiment") or "").lower() == "bullish")
+    bear = sum(1 for r in rows if (r.get("sentiment") or "").lower() == "bearish")
+    texted = [(r.get("raw_text") or "").strip() for r in rows if (r.get("raw_text") or "").strip()]
+    example = random.choice(texted) if texted else None
+    return {"total": len(rows), "bull": bull, "bear": bear, "example": example}
+
+
 async def _gather_all_sources(ticker: str) -> dict:
     """Run the parallel data gather. Per-source failures degrade gracefully."""
     ticker_meta_task = _db_call("get_ticker_metadata", ticker)
@@ -307,6 +325,17 @@ async def _gather_all_sources(ticker: str) -> dict:
     earnings_move_task = _scanner_call(
         "consensus_engine.scanners.earnings_move", "fetch_earnings_move", ticker,
     )
+    # Issue 3a — today's full-day TweetShift volume (midnight ET → now) for the
+    # "Today's Tweets" bull/bear field. Appended LAST so the positional unpack
+    # below stays stable; separate from the 30-min twitter_task fed to the narrator.
+    from datetime import datetime as _dt_now
+    from zoneinfo import ZoneInfo as _ZoneInfo
+    _day_start_epoch = (
+        _dt_now.now(_ZoneInfo("America/New_York"))
+        .replace(hour=0, minute=0, second=0, microsecond=0)
+        .timestamp()
+    )
+    twitter_today_task = _db_call("get_twitter_signals_today", ticker, _day_start_epoch)
 
     results = await asyncio.gather(
         score_task,
@@ -337,6 +366,7 @@ async def _gather_all_sources(ticker: str) -> dict:
         peer_strength_task,
         snapshot_task,
         earnings_move_task,
+        twitter_today_task,
         return_exceptions=True,
     )
     (
@@ -346,6 +376,7 @@ async def _gather_all_sources(ticker: str) -> dict:
         options_flow_recent,
         trends, apewisdom, chat_msgs, brief_msgs, prior_vault,
         max_pain, peer_strength, snapshot, earnings_move,
+        twitter_today,
     ) = results
 
     # Classify each source as surfaced (non-empty data) or failed (exception).
@@ -411,6 +442,7 @@ async def _gather_all_sources(ticker: str) -> dict:
         "peer_strength": _result_or_default(peer_strength, None),
         "snapshot": _result_or_default(snapshot, None),
         "earnings_move": _result_or_default(earnings_move, None),
+        "tweets_today": _summarize_tweets_today(_result_or_default(twitter_today, [])),
         "wolf_confluence": await wolf_confluence_task,
         "sources_surfaced": sources_surfaced,
         "source_failures": source_failures,
@@ -1210,6 +1242,7 @@ async def _compute_all(ticker: str, start: float) -> dict:
         peer_strength=data.get("peer_strength"),
         snapshot=data.get("snapshot"),
         earnings_move=data.get("earnings_move"),
+        tweets_today=data.get("tweets_today"),
         risk_reward=risk_reward,
         relative_volume=structured_fields.compute_relative_volume(
             data.get("daily_candles") if isinstance(data.get("daily_candles"), list) else []

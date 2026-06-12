@@ -76,15 +76,19 @@ async def test_fetch_snapshot_no_usable_fields_returns_none():
 
 @pytest.mark.asyncio
 async def test_fetch_snapshot_happy_path():
+    # fwd_pe is now price ÷ current-FY EPS (synthetic key _eps_cfy set by
+    # _fetch_info), NOT yfinance's forwardPE field. forwardPE is left in the
+    # input to assert it is now ignored. 200 / 8.0 = 25.0.
     info = {"recommendationKey": "strong_buy", "numberOfAnalystOpinions": 58,
             "targetMeanPrice": 215.3, "targetHighPrice": 260, "targetLowPrice": 180,
-            "forwardPE": 31.2, "shortPercentOfFloat": 0.0092, "shortRatio": 3.11}
+            "forwardPE": 31.2, "_eps_cfy": 8.0, "currentPrice": 200.0,
+            "shortPercentOfFloat": 0.0092, "shortRatio": 3.11}
     with patch.object(snap_mod, "_fetch_info", return_value=info):
         snap = await snap_mod.fetch_ticker_snapshot("NVDA")
     assert snap["rating"] == "Strong Buy"
     assert snap["n_analysts"] == 58
     assert snap["target_mean"] == 215.3
-    assert snap["fwd_pe"] == 31.2
+    assert snap["fwd_pe"] == 25.0  # 200 / 8.0 current-FY EPS, not forwardPE 31.2
     assert snap["short_pct"] == 0.0092
 
 

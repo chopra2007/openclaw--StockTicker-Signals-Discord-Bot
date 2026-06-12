@@ -58,6 +58,7 @@ class StructuredFields:
     risk_reward: Optional[float] = None   # #6 reward:risk of the computed plan (reward per 1.0 risk); embed-only
     relative_volume: Optional[float] = None  # #6 last day's volume vs prior 20-day average (e.g. 1.8 = 1.8×); embed-only
     earnings_move: Optional[dict] = None  # {"avg_pct": float, "n": int} avg abs % earnings reaction; embed-only
+    tweets_today: Optional[dict] = None   # Issue 3a — {"total", "bull", "bear", "example"} of today's TweetShift msgs; embed-only
 
 
 # Components contributing to direction scoring. Sign mapping is deferred to

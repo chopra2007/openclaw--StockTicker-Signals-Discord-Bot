@@ -796,6 +796,18 @@ def build_embed(
     if snap_val != "—":
         fields.append({"name": "📊 Snapshot", "value": snap_val, "inline": False})
 
+    # Issue 3a — today's TweetShift volume (midnight ET → now), bull/bear split
+    # from the stored sentiment, plus one random example. Omitted when no tweets.
+    _tw = getattr(structured, "tweets_today", None)
+    if isinstance(_tw, dict) and _tw.get("total"):
+        _tw_val = f"{_tw['total']} total · {_tw.get('bull', 0)} bull · {_tw.get('bear', 0)} bear"
+        _ex = (_tw.get("example") or "").replace("\n", " ").strip()
+        if _ex:
+            if len(_ex) > 140:
+                _ex = _ex[:139].rstrip() + "…"
+            _tw_val += f"\n“{_ex}”"
+        fields.append({"name": "🐦 Today's Tweets", "value": _tw_val, "inline": False})
+
     yt_field = _build_youtube_links_field(yt_signals or [], ticker=ticker)
     if yt_field is not None:
         fields.append(yt_field)

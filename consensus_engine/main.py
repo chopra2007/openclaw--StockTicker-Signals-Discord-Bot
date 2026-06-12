@@ -105,6 +105,22 @@ def _is_weekend_pause() -> bool:
     return False
 
 
+def _us_market_open() -> bool:
+    """True during US regular trading hours (Mon–Fri 9:30am–4:00pm ET).
+
+    Weekday + time-of-day only (no holiday calendar) — enough to label a Finnhub
+    quote as live "current" vs "last close": Finnhub free /quote returns the last
+    regular-session price, so outside these hours the `c` field is the prior
+    close, not a live print. On a market holiday this degrades to saying
+    "current" when the quote is actually the prior close.
+    """
+    now = datetime.now(ET)
+    if now.weekday() >= 5:  # Sat/Sun
+        return False
+    cur_min = now.hour * 60 + now.minute
+    return (9 * 60 + 30) <= cur_min < (16 * 60)
+
+
 def _seconds_until_resume() -> int:
     """Seconds until Sunday 2pm ET."""
     now = datetime.now(ET)
@@ -458,6 +474,30 @@ def _strip_secrets_preamble(text: str, max_continuation: int = 20) -> str:
     return "\n".join(out).strip() or "(agent returned no content)"
 
 
+def _extract_agent_reply(stdout_text: str) -> str:
+    """Pull the agent's answer out of `openclaw agent --local --json` stdout.
+
+    With ``--json`` openclaw emits a single JSON document
+    ({"payloads": [{"text": ...}], "meta": {...}}) and sends every doctor
+    warning box and ``[secrets]`` preamble to stderr instead — so the answer
+    can never arrive wrapped in warning boxes (the Issue 1 leak). We join the
+    text of all payloads. If stdout isn't that JSON (older openclaw, partial
+    write, crash), fall back to the legacy raw path that best-effort strips the
+    ``[secrets]`` preamble.
+    """
+    try:
+        doc = json.loads(stdout_text.strip())
+        payloads = doc.get("payloads")
+        if isinstance(payloads, list):
+            texts = [p.get("text", "") for p in payloads
+                     if isinstance(p, dict) and p.get("text")]
+            joined = "\n".join(t.strip() for t in texts).strip()
+            return joined or "(agent returned no content)"
+    except (ValueError, AttributeError):
+        pass
+    return _strip_secrets_preamble(stdout_text)
+
+
 _STEERING_TEMPLATE = (
     "[Context: It is currently {tctx}.\n"
     "You are the assistant for this Discord stock-signals bot. You run ON the host that\n"
@@ -543,7 +583,7 @@ async def _handle_mention(content: str, channel_id: str, message_id: str) -> Non
         attempt_n = attempt
         try:
             proc = await asyncio.create_subprocess_exec(
-                "openclaw", "agent", "--local",
+                "openclaw", "agent", "--local", "--json",
                 "--agent", "main",
                 "--session-id", f"channel-{channel_id}",
                 "--message", wrapped_message,
@@ -553,8 +593,7 @@ async def _handle_mention(content: str, channel_id: str, message_id: str) -> Non
             )
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=270)
             stdout_text = stdout.decode(errors="replace")
-            stdout_text = _strip_secrets_preamble(stdout_text)
-            reply = stdout_text.strip()
+            reply = _extract_agent_reply(stdout_text)
             if reply and reply != "(agent returned no content)":
                 await send_command_reply(channel_id, message_id, reply)
                 log.info("Agent reply sent (%d chars, attempt=%d) to channel=%s",
@@ -950,13 +989,16 @@ async def _check_youtube_level_alerts() -> None:
         log.debug("Level alert ticker fetch failed: %s", e)
         return
 
-    loop = asyncio.get_event_loop()
-    # Phase 1: fetch every ticker's price concurrently (yfinance is blocking,
-    # so without gather the for-loop awaits each future serially).
-    price_futures = [
-        loop.run_in_executor(None, _fetch_yfinance_price, t) for t in tickers
-    ]
-    prices = await asyncio.gather(*price_futures, return_exceptions=True)
+    # Phase 1: fetch every ticker's LIVE price concurrently via Finnhub /quote
+    # (the engine's real-time source). The old yfinance helper fell back to the
+    # previous daily close and labelled it "current"; Finnhub's `c` is the live
+    # print during market hours. On failure get_live_quote_price returns None and
+    # we skip that ticker rather than alert on a stale price.
+    from consensus_engine.api_adapters import get_live_quote_price
+    prices = await asyncio.gather(
+        *(get_live_quote_price(t) for t in tickers), return_exceptions=True
+    )
+    market_open = _us_market_open()
 
     for ticker, current_price in zip(tickers, prices):
         try:
@@ -981,9 +1023,13 @@ async def _check_youtube_level_alerts() -> None:
                                 days_ago = f" {delta} days ago"
                             except Exception:
                                 pass
+                        price_label = (
+                            f"current ${current_price:.2f}" if market_open
+                            else f"last close ${current_price:.2f} (market closed)"
+                        )
                         msg = (
                             f"🎯 ${ticker} approaching {ltype} @ ${lv_price:.2f}"
-                            f" (flagged by {channel}{days_ago}) — current ${current_price:.2f}"
+                            f" (flagged by {channel}{days_ago}) — {price_label}"
                         )
                         await _post_to_alerts_channel(msg)
                         await db.record_level_alert(ticker, ltype, lv_price, channel)

@@ -54,10 +54,27 @@ def _num(val) -> Optional[float]:
 
 
 def _fetch_info(ticker: str) -> dict:
-    """Blocking yfinance .info fetch. Returns {} on any error."""
+    """Blocking yfinance fetch: ``.info`` plus the current-fiscal-year EPS estimate.
+
+    Returns {} on any error. The current-FY consensus EPS is stashed under the
+    synthetic key ``_eps_cfy`` so the caller can build a forward P/E from
+    price ÷ current-FY EPS. yfinance's own ``forwardPE`` divides price by the
+    NEXT full fiscal year's EPS estimate, which for a Jan-fiscal-year name like
+    NVDA reads ~a year too far out (e.g. ~16 when the rolling figure is ~24).
+    """
     try:
         import yfinance as yf
-        return yf.Ticker(ticker).info or {}
+        t = yf.Ticker(ticker)
+        info = t.info or {}
+        try:
+            est = t.earnings_estimate  # separate yfinance endpoint
+            if est is not None and "0y" in est.index and "avg" in est.columns:
+                eps_cfy = _num(est.loc["0y", "avg"])
+                if eps_cfy is not None:
+                    info["_eps_cfy"] = eps_cfy
+        except Exception:  # noqa: BLE001 — sparse/missing estimate table is normal
+            pass
+        return info
     except Exception as e:  # noqa: BLE001
         log.warning("snapshot: .info fetch failed for %s: %s", ticker, e)
         return {}
@@ -98,7 +115,7 @@ async def fetch_ticker_snapshot(ticker: str) -> Optional[dict]:
         "target_low": _num(info.get("targetLowPrice")),
         "n_analysts": int(info["numberOfAnalystOpinions"]) if _num(info.get("numberOfAnalystOpinions")) else None,
         "rating": rating,
-        "fwd_pe": _num(info.get("forwardPE")),
+        "fwd_pe": None,  # set below from current-FY EPS once price is known
         "short_pct": _num(info.get("shortPercentOfFloat")),
         "short_days": _num(info.get("shortRatio")),
     }
@@ -116,6 +133,14 @@ async def fetch_ticker_snapshot(ticker: str) -> Optional[dict]:
     # technical-levels engine; present whenever snap is returned (before the early None below).
     snap["wk52_high"] = wk52_high
     snap["wk52_low"] = wk52_low
+
+    # Forward P/E on a rolling current-fiscal-year basis: price ÷ current-FY
+    # consensus EPS (yfinance earnings_estimate '0y' avg). Honest "Fwd P/E"
+    # that tracks the next ~12 months of earnings rather than the year-out
+    # figure yfinance's forwardPE field reports. Omits when EPS is missing or
+    # ≤ 0 (unprofitable → P/E meaningless).
+    eps_cfy = _num(info.get("_eps_cfy"))
+    snap["fwd_pe"] = (price / eps_cfy) if (price and eps_cfy and eps_cfy > 0) else None
 
     has_analyst = snap["target_mean"] is not None or snap["rating"] is not None
     has_fundamentals = snap["fwd_pe"] is not None or snap["short_pct"] is not None

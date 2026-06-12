@@ -1069,6 +1069,26 @@ async def get_twitter_signals(ticker: str, window_seconds: int = 1800) -> list[d
     return [dict(r) for r in rows]
 
 
+async def get_twitter_signals_today(ticker: str, day_start_epoch: float) -> list[dict]:
+    """Get all of today's Twitter signals for a ticker (since day_start_epoch).
+
+    Unlike get_twitter_signals (a 30-min rolling window fed to the narrator),
+    this returns the full trading-day set with ``sentiment`` and ``raw_text``
+    for the !all "Today's Tweets" bull/bear field. ``sentiment`` is the
+    direction the TweetShift parser already assigned at ingest
+    (bullish/neutral/bearish) — no re-classification needed.
+    """
+    db = await get_db()
+    cursor = await db.execute(
+        """SELECT sentiment, raw_text, detected_at FROM ticker_signals
+           WHERE ticker = ? AND source_type = 'twitter' AND detected_at >= ?
+           ORDER BY detected_at DESC""",
+        (ticker, day_start_epoch),
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
+
+
 async def get_social_signals(ticker: str, window_seconds: int = 3600) -> list[dict]:
     """Get social signals for a ticker within window."""
     db = await get_db()

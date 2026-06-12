@@ -139,7 +139,7 @@ async def _handle_ask(question: str, channel_id: str, message_id: str) -> None:
     await _handle_mention(content, channel_id, message_id)
 
 HELP_TEXT = """**OpenClaw Signal Engine — Commands**
-`!help` — show this message
+`!help` (alias `!readme`) — show this message
 `!status` — engine health summary (active signals, last alert)
 `!trend` — post latest Reddit trend digest
 `!scan <TICKER>` — full cross-reference on a ticker (e.g. `!scan NVDA`)
@@ -168,9 +168,11 @@ HELP_TEXT = """**OpenClaw Signal Engine — Commands**
 **Reliability & Levels**
 `!market-view <TICKER>` — current verdict from latest decision snapshot (e.g. `!market-view NVDA`)
 `!levels <TICKER>` — price levels with condition text from YouTube + signals
+`!cluster <TICKER>` — price-level cluster history for a ticker
 
 **YouTube Intelligence**
 `!yt <URL>` — on-demand analysis of a YouTube video (tickers, conviction, macro, levels)
+`!transcript <URL>` — fetch a YouTube video's transcript text
 `!yt-mentions <TICKER>` — YouTube signals for a ticker (last 7 days)
 `!macro` — macro digest across all channels (last 7 days)
 `!yt-follow <@handle or URL>` — add a YouTube channel to the follow list (e.g. `!yt-follow @FiguringOutMoney`)
@@ -178,7 +180,7 @@ HELP_TEXT = """**OpenClaw Signal Engine — Commands**
 `!yt-evidence <video_id>` — first 10 grounded evidence spans extracted from a video
 
 **Feature Flags**
-`!feature-health` — list all 6 features, enabled state, last flip
+`!feature-health` — list all features, enabled state, last flip
 `!shadow-mode-report <feature>` — KPI report from last 14d shadow data"""
 
 
@@ -392,7 +394,7 @@ async def _route_command_inner(
         raw = args[0].lstrip("$").upper() if args else ""
         if not raw:
             await send_command_reply(channel_id, message_id, "Usage: `!yt-mentions $TICKER` — e.g. `!yt-mentions $NVDA`")
-        elif not is_valid_ticker(raw):
+        elif not is_valid_ticker_format(raw):
             await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=raw))
         else:
             await _handle_yt_mentions(raw, channel_id, message_id)

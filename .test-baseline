@@ -1,1 +1,2 @@
 tests/test_wolf_digest.py::test_sunday_recap_and_addon_restart_safe
+tests/test_gemini_video_parser.py::test_extract_evidence_parses_spans
