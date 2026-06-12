@@ -1,9 +1,10 @@
 """#29: YouTube level-proximity alerts (main._check_youtube_level_alerts).
 
 The loop fetches every distinct youtube_levels ticker's live price concurrently
-(via api_adapters.get_live_quote_price, Finnhub /quote), zips ticker->price, skips
-any result that is an Exception OR falsy, and fires a '🎯' alert + dedupe record when
-the live price sits within proximity_pct of a stored level.
+(via main._level_price — Finnhub /quote during market hours, yfinance extended-hours
+price outside them), zips ticker->(price,kind), skips any result that is an Exception
+OR falsy, and fires a '🎯' alert + dedupe record when the live price sits within
+proximity_pct of a stored level.
 
 Covered here (no prior test existed):
   (a) in-band fires, out-of-band does NOT — exactly one alert (NVDA), text carries
@@ -51,9 +52,9 @@ async def test_in_band_fires_out_of_band_skips_and_dedupes(tmp_db, monkeypatch):
     # NVDA $100.20 is within 0.5% of the $100 support -> fire; TSLA $300 is far from
     # the $250 resistance -> skip.
     prices = {"NVDA": 100.2, "TSLA": 300.0}
-    async def _fake_quote(t):
-        return prices[t]
-    monkeypatch.setattr("consensus_engine.api_adapters.get_live_quote_price", _fake_quote)
+    async def _fake_level_price(t):
+        return prices[t], "current"
+    monkeypatch.setattr(main, "_level_price", _fake_level_price)
 
     posted: list[str] = []
     async def _capture(text):
@@ -81,10 +82,10 @@ async def test_error_skip_branch_swallows_exception(tmp_db, monkeypatch):
 
     async def _flaky(t):
         if t == "TSLA":
-            raise RuntimeError("finnhub blew up for TSLA")
-        return 100.2  # NVDA in-band
+            raise RuntimeError("price fetch blew up for TSLA")
+        return 100.2, "current"  # NVDA in-band
 
-    monkeypatch.setattr("consensus_engine.api_adapters.get_live_quote_price", _flaky)
+    monkeypatch.setattr(main, "_level_price", _flaky)
 
     posted: list[str] = []
     async def _capture(text):

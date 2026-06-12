@@ -121,6 +121,51 @@ def _us_market_open() -> bool:
     return (9 * 60 + 30) <= cur_min < (16 * 60)
 
 
+def _yf_extended_price(ticker: str) -> "tuple[float | None, str | None]":
+    """Current price INCLUDING pre/post-market, via yfinance .info.
+
+    Returns (price, kind) with kind in {'after-hours','pre-market','last close'},
+    or (None, None) on failure. Used outside regular hours: Finnhub free /quote
+    only returns the regular-session close, so an after-hours move ($100 close →
+    $110) would otherwise be invisible. yfinance exposes postMarketPrice /
+    preMarketPrice — the actual extended-hours print.
+    """
+    try:
+        import yfinance as yf
+        info = yf.Ticker(ticker).info or {}
+    except Exception:  # noqa: BLE001
+        return None, None
+    state = str(info.get("marketState") or "").upper()
+    post = info.get("postMarketPrice")
+    pre = info.get("preMarketPrice")
+    reg = info.get("regularMarketPrice")
+    if "PRE" in state and pre:
+        return float(pre), "pre-market"
+    if post:                      # POST / POSTPOST / CLOSED with an after-hours print
+        return float(post), "after-hours"
+    if pre:
+        return float(pre), "pre-market"
+    if reg:
+        return float(reg), "last close"
+    return None, None
+
+
+async def _level_price(ticker: str) -> "tuple[float | None, str | None]":
+    """Best current price for a level-proximity check, with a session label.
+
+    Regular hours → Finnhub /quote (real-time). Outside regular hours → yfinance
+    extended-hours price, so an after-hours move shows the live after-hours price
+    (the user wants the actual current price, not the close). Returns
+    (None, None) on failure so the caller skips rather than alerting on stale data.
+    """
+    if _us_market_open():
+        from consensus_engine.api_adapters import get_live_quote_price
+        price = await get_live_quote_price(ticker)
+        return (price, "current") if price else (None, None)
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, _yf_extended_price, ticker)
+
+
 def _seconds_until_resume() -> int:
     """Seconds until Sunday 2pm ET."""
     now = datetime.now(ET)
@@ -992,17 +1037,20 @@ async def _check_youtube_level_alerts() -> None:
     # Phase 1: fetch every ticker's LIVE price concurrently via Finnhub /quote
     # (the engine's real-time source). The old yfinance helper fell back to the
     # previous daily close and labelled it "current"; Finnhub's `c` is the live
-    # print during market hours. On failure get_live_quote_price returns None and
-    # we skip that ticker rather than alert on a stale price.
-    from consensus_engine.api_adapters import get_live_quote_price
-    prices = await asyncio.gather(
-        *(get_live_quote_price(t) for t in tickers), return_exceptions=True
+    # print during market hours and the live pre/post-market price outside them
+    # (so an after-hours move shows the real after-hours price, not the close).
+    # On failure _level_price returns (None, None) and we skip rather than alert
+    # on a stale price.
+    results = await asyncio.gather(
+        *(_level_price(t) for t in tickers), return_exceptions=True
     )
-    market_open = _us_market_open()
 
-    for ticker, current_price in zip(tickers, prices):
+    for ticker, res in zip(tickers, results):
         try:
-            if isinstance(current_price, Exception) or not current_price:
+            if isinstance(res, Exception):
+                continue
+            current_price, price_kind = res
+            if not current_price:
                 continue
             levels = await db.get_youtube_levels_for_ticker(ticker, days=14)
             for level in levels:
@@ -1023,10 +1071,12 @@ async def _check_youtube_level_alerts() -> None:
                                 days_ago = f" {delta} days ago"
                             except Exception:
                                 pass
-                        price_label = (
-                            f"current ${current_price:.2f}" if market_open
-                            else f"last close ${current_price:.2f} (market closed)"
-                        )
+                        price_label = {
+                            "current": f"current ${current_price:.2f}",
+                            "after-hours": f"after-hours ${current_price:.2f}",
+                            "pre-market": f"pre-market ${current_price:.2f}",
+                            "last close": f"last close ${current_price:.2f} (market closed)",
+                        }.get(price_kind, f"${current_price:.2f}")
                         msg = (
                             f"🎯 ${ticker} approaching {ltype} @ ${lv_price:.2f}"
                             f" (flagged by {channel}{days_ago}) — {price_label}"
