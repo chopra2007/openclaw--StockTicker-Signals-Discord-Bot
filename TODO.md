@@ -215,3 +215,9 @@ The `!all` summary call to Groq's primary model is getting rejected with HTTP 40
 **File:** `mention-ticker-disambiguation.md`
 
 When you ask the bot about a ticker in chat (e.g. "tell me about WEN"), its web-search answer can latch onto the wrong meaning of the word — it described WEN haircare products instead of Wendy's stock (user caught this 2026-06-10); teach the conversational answer path to resolve ticker-shaped words to their company first, so questions about any ticker always come back about the stock.
+
+## 36. Fix 6 issues diagnosed 2026-06-11 (gateway, bot warnings, P/E, TweetShift field, smart levels, !help) — DONE 2026-06-11
+
+**File:** `tweetshift-bullbear-field.md`
+
+Six issues diagnosed 2026-06-11: gateway crashes on reboot, bot @-mentions return health warnings instead of answers, Fwd P/E uses wrong EPS window, !all has no TweetShift bull/bear count, smart levels reports closing price as "current", and !help is stale and unverified.

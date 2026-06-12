@@ -1,0 +1,48 @@
+{
+  "run_name": "todo-36-six-fixes",
+  "source": "TODO #36 — todo/tweetshift-bullbear-field.md (6 issues + Issue 3a)",
+  "created": "2026-06-11",
+  "mode": "autonomous-1-4",
+  "execution_handoff": "review-then-build",
+  "layout": "native",
+  "agent_count": 4,
+  "current_pass": 5,
+  "build_progress": {
+    "FIX_A_issue_2_4_1": "DONE+VERIFIED. chown -R fixed 5118 root-owned files; web-search-plus fully removed; plugin-index deadlock cleared (conflict gone); drop-in state/ chown recurrence guard added; gateway active/0-restarts/clean. Issue 1: --json + _extract_agent_reply. END-TO-END: real _handle_mention('7x6')→'42', 0 warning boxes. !ask shares path.",
+    "FIX_B_issue_5": "DONE+VERIFIED. Finnhub get_live_quote_price + _us_market_open; skip on None; 'last close (market closed)' after-hours. Live: SPY 737.76, market_open=False at 21:53 ET.",
+    "FIX_C_issue_3": "DONE+VERIFIED. current-FY EPS (_eps_cfy). NVDA 22.9→'Fwd P/E 23' via real !all gather (was 16). 10 snapshot tests pass after updating 1.",
+    "FIX_D_issue_3a": "DONE+VERIFIED. get_twitter_signals_today + _summarize_tweets_today + 🐦 field. AMD '3 total·3 bull·0 bear'+example; NVDA omitted. Real volume ~3-6/day.",
+    "FIX_E_issue_6": "DONE+VERIFIED. HELP_TEXT +!cluster/!transcript/!readme, footer fixed. BONUS: fixed !yt-mentions NameError crash (is_valid_ticker->is_valid_ticker_format). 20+ commands live-tested OK.",
+    "regression_verifier": "RUNNING (agent a895118493651d05f) — full suite vs .test-baseline",
+    "cleanup": "test-issue1-* + channel-0 sessions removed; /tmp test files removed",
+    "remaining": "await verifier CLEAN -> commit locally (NOT push; CLAUDE.md push-at-close) -> mark TODO #36 DONE"
+  },
+  "pass_3_note": "ccg/cross-model degraded: Codex auth revoked (per memory); the one genuinely-debatable item (Issue 3 number-vs-label) is a user-preference decision, not resolvable by cross-model — surfaced to user in plan instead. Adversarial analysis done live by opus eval agents.",
+  "eval_findings": {
+    "issue_2": "BETTER APPROACH FOUND. Real crash cause = file OWNERSHIP (state/ + openclaw.sqlite root-owned, service runs as openclaw → 'unable to open database file'). Plugin drift secondary. Add ExecStartPre chown to prevent recurrence. Corrected fix order needs reset-failed (hit StartLimitBurst 9/10). Safe live (gateway already down, consensus-engine independent, channels.discord enabled:false).",
+    "issue_4": "Plugin STILL fully present (memory 'removed' note was wrong). Brave verdict = UPDATE not install/remove (on disk at correct version, has API key, just root-owned). Use CLI not hand-edit installs.json (policyHash).",
+    "issue_3": "SUGGESTED FIX UNBUILDABLE (yfinance gives only 2 forward quarters, never 4). ~24 target = current-FY EPS, NOT rolling-NTM (true NTM=~20). RECOMMEND current-FY EPS earnings_estimate.loc['0y','avg'] → NVDA 22.9. USER DECISION NEEDED: number(~24,current-FY) vs label(NTM,~20).",
+    "issue_3a": "Detail-file query WRONG (no source_type=tweetshift; it's 'twitter'). Direction ALREADY STORED: ticker_signals.sentiment (bullish/neutral/bearish) + raw_text. REUSE it, no classifier. tz=America/New_York via zoneinfo. Volume premise inflated (~3-6/day real). 0 tweets→skip field.",
+    "issue_1": "Confirmed+reproduced. Fixing 2&4 resolves it (true). BUT recommend defensive fix: add --json to openclaw agent --local → warnings to stderr, answer in payloads[0].text. Structurally correct, prevents recurrence.",
+    "issue_5": "Reuse get_live_quote_price (api_adapters.py:274, async, Finnhub /quote c-field) in _check_youtube_level_alerts; on None SKIP alert (no stale-close fallback under 'current' label). Add market-open guard: 'current $X' in-hours, 'last close $X (market closed)' after-hours. Rate-limit low risk (5-min cycle, few tickers).",
+    "issue_6": "Add !transcript/!cluster, note !readme alias, fix '6 features' footer. No dead docs. No !wolf/!chart to invent. Live-test in waves (DB-only->single-API->LLM->YouTube/vision last) via #chat webhook (bot 👀); confirm gateway READY first. HELP_TEXT at commands.py:141-182."
+  },
+  "issue_3_decision_pending_user": "current-FY EPS (~23, matches user's ~24 anchor) vs true rolling-NTM (~20, matches the 'NTM' label). RECOMMEND current-FY.",
+  "adaptation": "Bug-fix bundle, not feature discovery. Pass 0 compressed (root causes pre-confirmed in detail file; spot-verify only). Pass 1-2 reframed to: evaluate each suggested fix vs goal, propose better approach where debatable. Pass 3 adversarial + ccg on debatable approaches. Pass 4 plan. Pause for user approval. Pass 5 build+live-verify.",
+  "issues": {
+    "1": "Mentions return health-warning boxes (resolves once 2+4 fixed)",
+    "2": "Gateway crashes on reboot (plugin version drift + web-search-plus conflict)",
+    "3": "Fwd P/E uses next-FY EPS not rolling NTM",
+    "3a": "No visible TweetShift bull/bear count in !all",
+    "4": "Remove web-search-plus-plugin-v2 fully",
+    "5": "Smart-levels shows last close as 'current price'",
+    "6": "!help stale + unverified"
+  },
+  "agent_assignments": {
+    "agent-1": "Issue 2 + Issue 4 (gateway crash + plugin removal) — READ-ONLY investigation",
+    "agent-2": "Issue 3 (rolling NTM Fwd P/E)",
+    "agent-3": "Issue 3a (TweetShift bull/bear field) + Issue 1 (mention warnings)",
+    "agent-4": "Issue 5 (live price) + Issue 6 (!help audit)"
+  },
+  "decisions": []
+}
