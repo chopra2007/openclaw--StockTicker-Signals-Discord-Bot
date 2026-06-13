@@ -239,3 +239,9 @@ One command (run as root) to fix the brave plugin ownership warning, plus option
 **File:** `bot_chat_memory_redesign.md`
 
 Keep each channel's live chat context from growing big enough to slow the bot or starve its reply, while preserving past conversation as summaries the bot can look up later — even from a month ago.
+
+## 40. Assessment of Claude's repeated reasoning failures (2026-06-13 session)
+
+**File:** `reasoning-failures-assessment-2026-06-13.md`
+
+A diagnosis-only record of how Claude's own reasoning failed six times in one session — the core application-gap problem, the specific failures, the bottlenecks behind them, and why they matter (no fixes or suggestions, by request).
