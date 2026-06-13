@@ -55,3 +55,8 @@ These warnings cannot be eliminated without changing the server architecture:
 - `/root/.bashrc` — gateway wrapper function (lines ~131–155)
 - `/home/openclaw/.openclaw/openclaw.json` — memory search provider config
 - `/home/openclaw/.openclaw/agents/main/sessions/sessions.json` — session store (now empty `{}`)
+
+### Session notes — 2026-06-13 (discover run todo-sweep)
+- **DONE: deleted the blocked duplicate Brave plugin** — `rm -rf /home/openclaw/.openclaw/extensions/brave`. Verified safe first: the working Brave search loads from a separate npm path (`.../npm/projects/openclaw-brave-plugin-*/node_modules/@openclaw/brave-plugin`, still present after the delete) and openclaw.json references brave by name, never the deleted path. Both services still active afterward. The ownership warning clears on the next gateway reload.
+- **DEFERRED: the 142 orphan `.deleted.*.jsonl` transcripts.** #39 (chat-memory redesign) needs this archive as its recall-backtest/summarizer corpus. Copy-to-archive first, delete after #39's summarizer is built. (Command in .claude/discover/todo-sweep-2026-06-13/research/bounded.md.)
+- **Unfixable/intentional, leave:** symlink dual-path (/root/.openclaw→/home/openclaw/.openclaw), task-registry sidecar, missing OAuth dir.

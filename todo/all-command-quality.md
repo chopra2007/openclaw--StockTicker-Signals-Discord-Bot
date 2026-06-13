@@ -190,6 +190,15 @@ Two cleanup-chain changes plus a set of lessons worth keeping. ("Cleanup" = the 
 - **Guarantee the writeup a minimum slice of the 160s budget** so a slow cleanup phase can never starve its retries.
 - **Add 1–2 more independent free providers** to the cleanup chain for extra resilience.
 
-## Open item added 2026-06-10 — Smart levels alerts show closing price, not live price
+## Open item added 2026-06-10 — Smart levels alerts show closing price, not live price — DONE 2026-06-13
 
 Smart levels alerts (e.g. "$SPY approaching resistance @ $728.00 — current $725.43") label the price as "current" but it is actually the last closing price. The fix is to fetch a live quote (Finnhub `/quote` already in the codebase — same call `aggregator.py` uses) so the reported price is accurate even when the market is closed. Applies to all smart levels alert types (resistance, support, breakout).
+
+**DONE 2026-06-13 (discover run `todo-sweep-2026-06-13`):** verified ALREADY FIXED in committed code. The only producer of this alert is `_check_youtube_level_alerts()` (main.py:1023), which gets its price from `_level_price()` (main.py:153): Finnhub `/quote` (labeled "current") during market hours, else yfinance extended-hours labeled honestly ("after-hours $X" / "last close $X (market closed)"), and skips the alert on a price-fetch failure. `git status` clean — committed and live. Live proof (Sat 2026-06-13, market closed): Finnhub c=$741.77 (Friday close) vs yfinance after-hours $742.36 — the old code would have posted Friday's close as "current"; the new code labels it correctly. Residual (flag only, not requested): `_us_market_open()` has no market-holiday calendar, so on a holiday it could say "current" for a prior close.
+
+## Menu update 2026-06-13 (discover run `todo-sweep-2026-06-13`)
+
+Deep competitor audit landed at `.claude/discover/all-command-rebuild/external-feature-audit-2026-06-13.md` (14 rows, every promising source pre-flighted live from this VPS). Two new cheap, pre-flight-GREEN levers planned (build spec: `.claude/discover/todo-sweep-2026-06-13/research/all-command.md`, hardened per the Gemini review in `final-plan.md` §5):
+- **EPS-estimate-revision trend** (`yf.Ticker.eps_revisions`, rides the existing snapshot `.info` fetch, zero new latency) — embed segment `EPS rev 34↑ 3↓ (30d)`.
+- **Stocktwits retail sentiment** (public JSON API, no key) — new `💬 Retail` embed field.
+Both flag-OFF; harden with try/except + ~3s timeout + 15-min cache + yfinance schema guard. Bigger items (GEX, dark-pool, DCF, 13F) confirmed blocked/paid — excluded.

@@ -1,7 +1,9 @@
 # Fix the stale YouTube video-parser test (chunking)
 
-**Status:** OPEN
+**Status:** DONE 2026-06-13
 **Created:** 2026-06-11
+
+**DONE 2026-06-13 (discover run `todo-sweep-2026-06-13`):** one-line fix — added `patch("consensus_engine.utils.transcript_fetch.fetch_youtube_duration", new=AsyncMock(return_value=600))` to `test_extract_evidence_parses_spans` so it takes the single-pass path (the test feeds a real video id `4mSyMr8PGLI` whose live Invidious duration 2458 > 1200 was triggering the chunked path → duration 2458 not 2340). Parser was correct; test was stale. All original assertions pass unchanged; the 2 chunked-route tests still pass (3 passed in 20s). Removed from `.test-baseline`. Committed this session.
 
 A unit test fails and is currently parked in `.test-baseline` so it doesn't block pushes. It is NOT a real product bug — the live YouTube reading works fine (`!yt-health` shows ~93% parse-ok across 122 videos). The test's fake data just wasn't updated when an earlier feature landed.
 

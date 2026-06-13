@@ -128,3 +128,8 @@ the place to work them out properly later):
   (semantic recall, more moving parts)?
 - Should recall be automatic (always injected) or on-demand (a tool the agent
   calls when it needs old context)? On-demand keeps the live cue small.
+
+### Session notes — 2026-06-13 (discover run todo-sweep)
+- **Recommended architecture (b):** a per-channel rolling-summary SQLite table in consensus.db + an on-demand recall path + a 30-day cleanup cron gated on a covering summary existing first. **Recall PROVEN on real data:** a real 510KB #chat archive → 4.4KB rollup (115x), correctly answered a 2-week-old question (skeptic confirmed with 4 more Qs + a hallucination trap).
+- **Bucket-4 sub-finding:** OpenClaw's session-memory hook only fires on /new+/reset, never on the bot's restart-resets — so it saves nothing today; the memory search index is frozen (May 20) + points at a stale folder.
+- **Gemini review revisions:** summarizer = **nightly cron scan** (NOT a gateway-reconnect hook — that would be an API-cost runaway); cleanup gate by session-label not timestamp ranges; recall via **_handle_mention prepend** first (all-Python) before the OpenClaw tool path (Node build). Also turn on file rotation + repoint memorySearch.extraPaths. Model windows confirmed (primary gpt-oss-120b 131k). Full plan: .claude/discover/todo-sweep-2026-06-13/research/chat-memory.md + final-plan.md §3/§4/§5.

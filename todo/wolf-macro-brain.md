@@ -165,3 +165,7 @@ Find **actionable trades.** Turn the "Wolf on Wall Street" email feed into a mar
 - Connection + direction also in memory: `project_gmail_wolf_connected.md`, `project_wolf_macro_brain_direction.md`.
 - Sample emails + ~100 charts saved at `/tmp/wolf_charts/` during research (ephemeral; re-pull via the token if needed).
 - Kickoff for a fresh session: `todo/kickoffs/wolf-macro-brain.md`.
+
+### Session notes — 2026-06-13 (discover run todo-sweep) — #20 health + live thesis-quality bugs
+- Pipeline ALL GREEN (112 emails parsed 0 errors; macro_theses/confluence/beneficiary/digest loops all firing). The TODO header's "NEXT" items are actually SHIPPED+LIVE: confluence-in-!all (flag true, aggregator.py:188) and shorts-side beneficiaries (flag true, 9 short rows). 63d-RS is a closed decision (stays 21d). #20 = done-soak on features.
+- **BUT 3 live thesis-quality bugs found** (these surface to users via digest/confluence/beneficiaries): (1) SPX(143)+NDX(144) stored BULL but Wolf wrote bearish ("bounce to a lower high, forming an H&S top") — direction-guard carve-out over-fires; fix = the "lower-high/H&S=bear" clause (verifier tested 5/5 clean). (2) Stale IGV bull (id 140) persists as confluence-critical + drives 3 LONG beneficiary ideas though Wolf abandoned it — needs the #26 staleness sweep. (3) Orphan wolf_beneficiaries rows for invalidated theses 114/126 (clear on invalidate). All tracked under #26's plan. Full notes: .claude/discover/todo-sweep-2026-06-13/research/wolf.md.

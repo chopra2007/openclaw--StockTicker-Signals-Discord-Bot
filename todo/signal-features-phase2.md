@@ -101,3 +101,10 @@ Consequences / actions:
 - **Next:** after the shadow window, read the [I3]/[I10]/[E2 shadow] journal distributions,
   tune recency_window.max_age_min.* + the shadow-derived placeholders, then flip Phase-2
   flags one at a time. I18 stays deferred (needs I3+I4 hardened + adversarial-input window).
+
+### Session notes — 2026-06-13 (discover run todo-sweep)
+- **Backtested every Phase-2 feature against DB+journal instead of waiting for shadow windows.** Key finding: the shadow windows are **empty by design** ([I3]/[I10]/[E2]/[I7] only log when their flag is ON or on rare events) — "wait 14 days then flip" was never going to work. Backtest is the only gate.
+- **Flip now (proven, touch live paths):** E1 (FINRA short-vol; ~3% fire rate on live code) + I15 (weighted Wolf votes; only demotes 2 over-ranked theses, 0 spurious @-pings).
+- **Hold:** I3/I10/E2-VIX are bounded-safe but **inert** until the **dual-score divergence** is fixed (precision score caps ~56, never hits STRONG; alert uses a separate ≥75 path). Gemini review: do NOT flip them while inert (they'd all activate at once when I4-full lands → alert-storm). Order: E1+I15 → I4-full → then I3/I10/E2-VIX one-at-a-time.
+- **Wait:** I13 (ApeWisdom) flip-eligible ~2026-06-24 (~11 more baseline days). **Unbuildable:** E2-FRED (no key). **Keep:** I9 floor at 0.
+- 3 gaps block Phase-2 value: regime_daily empty, consolidation stuck shadow-only, dual-score divergence. Full plan: .claude/discover/todo-sweep-2026-06-13/research/signals-phase2.md + final-plan.md §3/§5.

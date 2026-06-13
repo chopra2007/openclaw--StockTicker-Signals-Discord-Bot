@@ -1,0 +1,36 @@
+{
+  "run_name": "todo-sweep-2026-06-13",
+  "created": "2026-06-13",
+  "task": "Triage every active TODO item into one of 4 buckets (1=not built, 2=built-broken, 3=built-untested, 4=built-off), backtest 'waiting-for-live-data' items with past data, write a build plan covering everything actionable, Codex-review the plan, then build (review-then-build).",
+  "mode": "research-plan-test-only",
+  "execution_handoff": "plans-only-this-session (deep research + prove ideas via smoke-tests/backtests; production build is a later session)",
+  "session_intent": "Research, planning, and TESTING plan ideas. Deep research on #6, #39, and any other item that benefits. Smoke-test every external API a plan depends on (confirm live + not rate-limited). Backtest 'waiting-for-live-data' features (#32, #39, #26) against DB history NOW instead of waiting for shadow windows. Own MD file per research-heavy item (#6, #39, #34); shared MD for bounded items (#35/#37/#38). Codex-review the plans.",
+  "layout": "native",
+  "agent_count": 5,
+  "paid_sources_policy": "Apify free $5/month tier only — find a worthwhile signal source within that budget, spend nothing extra.",
+  "codex": "authenticated (Logged in using ChatGPT, codex-cli 0.139.0); files must be pasted into prompt, not referenced by path",
+  "current_pass": "complete (research+plan+test+cross-model-review done; awaiting user go on build decisions)",
+  "greenfield": false,
+  "codex_review_status": "Codex auth REVOKED (401 refresh token) — ran cross-model review via Gemini instead; user can re-auth with `! codex login` for a Codex pass",
+  "session_actions_done": [
+    "#37 stale chunking test fixed + proven green (3 passed) + removed from .test-baseline + committed b326fe3",
+    "#38 brave duplicate deleted (extensions/brave); orphan transcripts DEFERRED (needed by #39); services verified active",
+    "#6 stale-price item verified ALREADY FIXED in committed code — marked DONE in detail file"
+  ],
+  "active_todo_items": [6, 17, 20, 26, 32, 34, 35, 37, 38, 39],
+  "health_baseline": {
+    "consensus_engine_service": "active",
+    "openclaw_gateway_service": "active",
+    "root_openclaw_symlink": "/home/openclaw/.openclaw (intact)",
+    "checked": "2026-06-13 session start"
+  },
+  "decisions": [
+    "Deep research on #6, #39, and any other item that benefits (user, 2026-06-13).",
+    "Smoke-test every external API a plan depends on; a feature on a dead/rate-limited API is a dead feature.",
+    "Backtest #32/#39/#26 against DB history NOW; do not park features for 20-day shadow windows.",
+    "Commit the 3 tiny proven fixes this session: #37 stale chunking test, #38 doctor cleanup, #6 smart-levels stale-price bug. Everything bigger = proven plans only.",
+    "File org: own MD for #6, #39, #34; shared MD for bounded items; judgment for the rest.",
+    "Ultracode ON for this session."
+  ],
+  "status": "in-progress"
+}

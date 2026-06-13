@@ -62,3 +62,9 @@ by hand this session.
   (what invalidation leaves) the honest state until Wolf actually shorts? Arguably the
   latter is correct for IGV specifically — he says he's *watching to* short, not short yet.
 - Staleness threshold (days) and whether "target reached" is detectable from stored levels.
+
+### Session notes — 2026-06-13 (discover run todo-sweep)
+- **The TODO's proposed prompt-clause fix was tested on the 3 real emails (+3 more) and it BACKFIRES** — never catches the hedged IGV bear (0/3), manufactures a WRONG IGV bull (2/3), and over-extracts/suppresses on other emails. **Do NOT ship it.** (Verified independently by a second agent.)
+- **User-decision (recommended):** "no active thesis" is the honest state for IGV — he's *watching* to short, and the next day he's still bull-to-target. Don't force a hedged bear.
+- **Real wins instead:** (a) a clean prompt clause for "bounce to a **lower high** / **H&S top** / failed breakout to fade" = BEAR (verifier tested it: fixes the live SPX/NDX mislabel 5/5, zero false positives); (b) a nightly **staleness sweep** (demote-not-delete; **tiered age caps** 90d acting/imminent + 30d forming/diverging per Gemini review; clock-reset-on-reaffirm). Also a hygiene fix: clear wolf_beneficiaries rows when a thesis is invalidated (orphan COIN-short rows exist for ids 114/126).
+- Full plan: .claude/discover/todo-sweep-2026-06-13/research/wolf.md + final-plan.md §3/§4/§5.

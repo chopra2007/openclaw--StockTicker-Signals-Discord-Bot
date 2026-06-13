@@ -222,7 +222,7 @@ When you ask the bot about a ticker in chat (e.g. "tell me about WEN"), its web-
 
 Six issues diagnosed 2026-06-11: gateway crashes on reboot, bot @-mentions return health warnings instead of answers, Fwd P/E uses wrong EPS window, !all has no TweetShift bull/bear count, smart levels reports closing price as "current", and !help is stale and unverified.
 
-## 37. Fix the stale YouTube video-parser test (chunking)
+## 37. Fix the stale YouTube video-parser test (chunking) — DONE 2026-06-13
 
 **File:** `gemini-chunking-test-stale.md`
 

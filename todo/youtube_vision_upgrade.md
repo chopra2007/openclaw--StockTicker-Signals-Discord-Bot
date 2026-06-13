@@ -303,3 +303,8 @@ Recommended: build Conservative default, run `!all` on real tickers with recent 
   (alarm fires). Options: raise chunk_max_windows (more quota per video), buy Supadata credits
   (full captions, no vision), or accept the 90-min ceiling. Also watch tonight's pipeline run:
   long videos should now log full(er) coverage instead of PARTIAL READ.
+
+### Session notes — 2026-06-13 (discover run todo-sweep) — #17 verified WORKING live
+- The CRITICAL full-transcription goal is **met**: chunked long-video reads (commit 9c8f889) verified working in production WITHOUT spending Gemini quota. Evidence: journalctl window logs show 3 recent long videos read across full-duration windows (e.g. 8Gk6rKuYCHA 1898s→3 windows; NPBxs8WS6Ek 1305s→2 windows), **zero PARTIAL READ warnings since 2026-06-10**, and span timestamps reach each video's tail (17 spans in the 1800-2100s bucket of the 31-min video). Bucket 4 (built/on/works).
+- **Caveat for future health checks:** the DB `observed_duration_sec/duration_sec` ratio is **circular for chunked videos** (both set to the Invidious length) → always 1.0, proves nothing. Use absence-of-PARTIAL-READ + max-span-timestamp instead. (Future nicety: make observed_duration_sec record the max real-video span ts.)
+- **Only gap:** videos >90 min (the 6-window cap). Zero exist in the DB. **Recommendation: accept the 90-min ceiling**; the alarm fires if one appears; raising the cap risks blowing a day's Gemini quota on one livestream. Revisit only if the alarm fires (cheapest fix then = route only the >90min tail to Supadata captions). Full notes: .claude/discover/todo-sweep-2026-06-13/research/youtube.md.
