@@ -227,3 +227,9 @@ Six issues diagnosed 2026-06-11: gateway crashes on reboot, bot @-mentions retur
 **File:** `gemini-chunking-test-stale.md`
 
 Update the video-parser unit test that broke when the #17 chunked-reads feature landed (it's parked in the test baseline; the live feature works fine) so the regression gate isn't blind there.
+
+## 38. Finish clearing openclaw doctor warnings
+
+**File:** `openclaw-doctor-warnings.md`
+
+One command (run as root) to fix the brave plugin ownership warning, plus optional cleanup of 142 archived transcript files still showing in doctor output.

@@ -189,3 +189,7 @@ Two cleanup-chain changes plus a set of lessons worth keeping. ("Cleanup" = the 
 - **Trim the writeup prompt for big tickers** so it fits groq's 12k/min cap and groq can actually do the writeup (faster, fewer hand-offs).
 - **Guarantee the writeup a minimum slice of the 160s budget** so a slow cleanup phase can never starve its retries.
 - **Add 1–2 more independent free providers** to the cleanup chain for extra resilience.
+
+## Open item added 2026-06-10 — Smart levels alerts show closing price, not live price
+
+Smart levels alerts (e.g. "$SPY approaching resistance @ $728.00 — current $725.43") label the price as "current" but it is actually the last closing price. The fix is to fetch a live quote (Finnhub `/quote` already in the codebase — same call `aggregator.py` uses) so the reported price is accurate even when the market is closed. Applies to all smart levels alert types (resistance, support, breakout).
