@@ -88,6 +88,7 @@ async def test_extract_evidence_parses_spans():
     mock_client.models.generate_content.return_value = _make_mock_response(_EVIDENCE_JSON)
 
     with patch("consensus_engine.analysis.gemini_video_parser._get_available_gemini_client", return_value=(mock_client, "GEMINI_API_KEY")), \
+         patch("consensus_engine.utils.transcript_fetch.fetch_youtube_duration", new=AsyncMock(return_value=600)), \
          patch("consensus_engine.db.create_analysis_run", new=AsyncMock(return_value=11)), \
          patch("consensus_engine.db.insert_youtube_evidence_span", new=AsyncMock(return_value=None)):
         bundle, telemetry = await extract_evidence_with_gemini(
