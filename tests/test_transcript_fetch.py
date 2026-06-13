@@ -111,3 +111,48 @@ class TestFetchTranscriptCascade:
         self.mock_supadata.side_effect = RuntimeError("boom")
         with pytest.raises(ValueError, match="All transcript sources failed"):
             await fetch_transcript_cascade("abc123")
+
+
+# ---------------------------------------------------------------------------
+# Supadata multi-key rotation
+# ---------------------------------------------------------------------------
+
+def _supadata_ctx(status=200, content="hello"):
+    resp = MagicMock()
+    resp.status = status
+    resp.json = AsyncMock(return_value={"content": content, "lang": "en"})
+    cm = MagicMock()
+    cm.__aenter__ = AsyncMock(return_value=resp)
+    cm.__aexit__ = AsyncMock(return_value=False)
+    return cm
+
+
+class TestSupadataKeyRotation:
+    @pytest.fixture(autouse=True)
+    def _three_keys(self, monkeypatch):
+        import consensus_engine.utils.transcript_fetch as T
+        monkeypatch.setenv("SUPADATA_API_KEY", "S1")
+        monkeypatch.setenv("SUPADATA_API_KEY2", "S2")
+        monkeypatch.setenv("SUPADATA_API_KEY3", "S3")
+        T._supadata_rotation_idx = 0
+
+    async def test_round_robin_across_three_keys(self):
+        import consensus_engine.utils.transcript_fetch as T
+        used = []
+        for _ in range(4):
+            session = MagicMock()
+            session.get.return_value = _supadata_ctx()
+            with patch.object(T, "get_session", AsyncMock(return_value=session)):
+                await T._fetch_via_supadata("vid")
+            used.append(session.get.call_args.kwargs["headers"]["x-api-key"])
+        assert used == ["S1", "S2", "S3", "S1"]
+
+    async def test_fails_over_on_429(self):
+        import consensus_engine.utils.transcript_fetch as T
+        session = MagicMock()
+        session.get.side_effect = [_supadata_ctx(status=429), _supadata_ctx(content="ok")]
+        with patch.object(T, "get_session", AsyncMock(return_value=session)):
+            result = await T._fetch_via_supadata("vid")
+        assert result is not None
+        assert result[0] == "ok"
+        assert session.get.call_count == 2

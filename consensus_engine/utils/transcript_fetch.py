@@ -26,6 +26,12 @@ from consensus_engine.utils.http import get_session
 
 log = logging.getLogger("consensus_engine.utils.transcript_fetch")
 
+# All configured Supadata keys, in slot order. Round-robin pointer spreads
+# traffic across every key so the limited monthly credits split evenly; on a
+# 429 (plan limit) we fail over to the next key in the rotation.
+_SUPADATA_KEY_ENV_NAMES = ("SUPADATA_API_KEY", "SUPADATA_API_KEY2", "SUPADATA_API_KEY3")
+_supadata_rotation_idx = 0
+
 # Public Invidious mirrors — used ONLY by fetch_youtube_duration for video LENGTH
 # (metadata still works). NOT for captions (YouTube stopped serving caption tracks
 # to Invidious — see the REMOVED note below). Tried in order.
@@ -91,16 +97,23 @@ def _vtt_to_text(vtt: str) -> str:
 # ---------------------------------------------------------------------------
 
 async def _fetch_via_supadata(video_id: str, lang: str = "en") -> tuple[str, str, bool] | None:
-    """Fetch transcript via Supadata API. Tries SUPADATA_API_KEY2 first (newer
-    key, allocated when KEY1 ran out), falls back to SUPADATA_API_KEY."""
-    keys = [
+    """Fetch transcript via Supadata API. Round-robins across every configured
+    key (SUPADATA_API_KEY / _KEY2 / _KEY3) to split monthly credits, then fails
+    over to the remaining keys on a 429 (plan limit)."""
+    all_keys = [
         (name, os.environ.get(name, ""))
-        for name in ("SUPADATA_API_KEY2", "SUPADATA_API_KEY")
+        for name in _SUPADATA_KEY_ENV_NAMES
     ]
-    keys = [(name, k) for name, k in keys if k]
-    if not keys:
+    all_keys = [(name, k) for name, k in all_keys if k]
+    if not all_keys:
         log.debug("transcript: no Supadata API key in env, skipping")
         return None
+
+    global _supadata_rotation_idx
+    n = len(all_keys)
+    start = _supadata_rotation_idx % n
+    _supadata_rotation_idx += 1
+    keys = [all_keys[(start + i) % n] for i in range(n)]
 
     url = f"https://api.supadata.ai/v1/youtube/transcript?videoId={video_id}&lang={lang}"
     session = await get_session()

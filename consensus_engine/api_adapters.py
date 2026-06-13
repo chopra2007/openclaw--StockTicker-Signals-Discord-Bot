@@ -98,25 +98,53 @@ class FinnhubAdapter:
 # Brave Search Adapter
 # ---------------------------------------------------------------------------
 
+# Round-robin pointer shared across BraveAdapter instances so that, over many
+# calls, traffic is spread evenly across every configured Brave subscription
+# token (lets monthly free-tier quota be split across keys).
+_brave_rotation_idx = 0
+
+
+def _collect_brave_keys() -> list[str]:
+    """Every configured non-empty Brave key, in slot order, de-duplicated."""
+    keys: list[str] = []
+    for slot in ("brave_search", "brave_search_2"):
+        k = cfg.get_api_key(slot)
+        if k and k not in keys:
+            keys.append(k)
+    return keys
+
+
 class BraveAdapter:
     def __init__(self, session: aiohttp.ClientSession, api_key: str = ""):
         self._session = session
-        self._api_key = api_key or cfg.get_api_key("brave_search")
+        # Explicit key (used by tests/callers) wins; otherwise rotate all keys.
+        self._keys = [api_key] if api_key else _collect_brave_keys()
 
     async def search(self, query: str, max_results: int = 5) -> list[SearchHit]:
-        if not self._api_key:
+        if not self._keys:
             return []
-        try:
-            async with self._session.get(
-                "https://api.search.brave.com/res/v1/web/search",
-                headers={"X-Subscription-Token": self._api_key, "Accept": "application/json"},
-                params={"q": query, "count": max_results, "freshness": "pd"},
-                timeout=_TIMEOUT,
-            ) as resp:
-                if resp.status != 200:
-                    log.debug("Brave search %d for %s", resp.status, query)
-                    return []
-                data = await resp.json()
+        global _brave_rotation_idx
+        n = len(self._keys)
+        start = _brave_rotation_idx % n
+        _brave_rotation_idx += 1
+        # Try the round-robin key first, then fail over to the rest on
+        # error/quota so a single benched key doesn't drop the query.
+        for offset in range(n):
+            api_key = self._keys[(start + offset) % n]
+            try:
+                async with self._session.get(
+                    "https://api.search.brave.com/res/v1/web/search",
+                    headers={"X-Subscription-Token": api_key, "Accept": "application/json"},
+                    params={"q": query, "count": max_results, "freshness": "pd"},
+                    timeout=_TIMEOUT,
+                ) as resp:
+                    if resp.status != 200:
+                        log.debug("Brave search %d for %s (key %d/%d)", resp.status, query, start + offset + 1, n)
+                        continue
+                    data = await resp.json()
+            except Exception as e:
+                log.debug("Brave search error: %s", e)
+                continue
 
             hits = []
             for r in (data.get("web", {}).get("results") or [])[:max_results]:
@@ -127,9 +155,7 @@ class BraveAdapter:
                     snippet=r.get("description", ""),
                 ))
             return hits
-        except Exception as e:
-            log.debug("Brave search error: %s", e)
-            return []
+        return []
 
 
 # ---------------------------------------------------------------------------

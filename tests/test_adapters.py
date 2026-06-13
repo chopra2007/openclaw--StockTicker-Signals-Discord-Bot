@@ -120,6 +120,37 @@ class TestBraveAdapter:
         hits = await adapter.search("test")
         assert hits == []
 
+    async def test_rotates_across_configured_keys(self):
+        # Two configured keys -> consecutive searches round-robin the token so
+        # monthly usage splits evenly across both subscriptions.
+        import consensus_engine.api_adapters as A
+        ok = _ctx_manager(json_data={"web": {"results": []}})
+        with patch.object(A, "_collect_brave_keys", return_value=["K1", "K2"]):
+            A._brave_rotation_idx = 0
+            tokens = []
+            for _ in range(4):
+                session = _mock_session()
+                session.get.return_value = ok
+                await BraveAdapter(session).search("q")
+                tokens.append(session.get.call_args.kwargs["headers"]["X-Subscription-Token"])
+        assert tokens == ["K1", "K2", "K1", "K2"]
+
+    async def test_fails_over_on_quota(self):
+        # First key 429 -> fail over to the second key, which succeeds.
+        import consensus_engine.api_adapters as A
+        session = _mock_session()
+        session.get.side_effect = [
+            _ctx_manager(status=429),
+            _ctx_manager(json_data={"web": {"results": [
+                {"title": "hit", "url": "u", "description": "d", "meta_url": {"hostname": "x.com"}},
+            ]}}),
+        ]
+        with patch.object(A, "_collect_brave_keys", return_value=["K1", "K2"]):
+            A._brave_rotation_idx = 0
+            hits = await BraveAdapter(session).search("q")
+        assert len(hits) == 1
+        assert session.get.call_count == 2
+
 
 # ---------------------------------------------------------------------------
 # ExaAdapter

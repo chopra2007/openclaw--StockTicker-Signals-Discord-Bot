@@ -6,7 +6,8 @@
 # =============================================================================
 
 api_keys:
-  brave_search: "$BRAVE_SEARCH_API_KEY_2"
+  brave_search: "$BRAVE_SEARCH_API_KEY"        # rotated round-robin with brave_search_2 (splits monthly usage)
+  brave_search_2: "$BRAVE_SEARCH_API_KEY_2"
   finnhub: "$FINNHUB_API_KEY"
   openrouter: "$OPENROUTER_API_KEY"
   groq: "$GROQ_API_KEY"  # bridges get_api_key's name.upper()=GROQ -> GROQ_API_KEY
