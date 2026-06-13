@@ -233,3 +233,9 @@ Update the video-parser unit test that broke when the #17 chunked-reads feature 
 **File:** `openclaw-doctor-warnings.md`
 
 One command (run as root) to fix the brave plugin ownership warning, plus optional cleanup of 142 archived transcript files still showing in doctor output.
+
+## 39. Redesign the bot's chat memory so it stays small but can recall month-old summaries
+
+**File:** `bot_chat_memory_redesign.md`
+
+Keep each channel's live chat context from growing big enough to slow the bot or starve its reply, while preserving past conversation as summaries the bot can look up later — even from a month ago.
