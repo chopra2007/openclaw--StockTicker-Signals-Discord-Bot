@@ -198,6 +198,25 @@ async def ingest(extraction: dict, source_id: str | None = None) -> list[dict]:
 
         existing = await db.get_active_thesis(scope_type, scope_key, direction)
 
+        # Revive a demoted (stale_review) thesis ONLY on an EXPLICIT same-direction
+        # reaffirmation (it reached imminent/acting, or Wolf started/added a position).
+        # A weak forming/watching mention must NOT auto-resurrect it (codex: don't trust
+        # nondeterministic auto-self-heal) — it stays dormant until a real reaffirmation
+        # or a manual override. This also reuses the original thread (no duplicate row).
+        if not existing:
+            stale = await db.get_stale_review_thesis(scope_type, scope_key, direction)
+            if stale:
+                explicit = stage in ("imminent", "acting") or intent in ("started", "adding")
+                if explicit:
+                    await db.revive_thesis(stale["id"], now, stale["evidence_log_json"])
+                    existing = await db.get_active_thesis(scope_type, scope_key, direction)
+                    log.info("wolf_theses: revived stale_review #%d %s %s (explicit reaffirmation)",
+                             stale["id"], scope_key, direction)
+                else:
+                    log.debug("wolf_theses: %s %s %s mentioned but kept stale_review (no explicit reaffirmation)",
+                              scope_type, scope_key, direction)
+                    continue
+
         if existing:
             old_stage = existing["stage"]
             new_stage = stage  # allow forward AND downgrade (Wolf's latest read)

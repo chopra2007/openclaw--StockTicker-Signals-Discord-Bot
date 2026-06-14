@@ -3469,6 +3469,55 @@ async def invalidate_thesis(thesis_id: int, when: float) -> None:
     await conn.commit()
 
 
+async def demote_thesis_stale(thesis_id: int, when: float, evidence_log_json: str) -> None:
+    """Demote (not delete) a thesis to 'stale_review' — Wolf has gone quiet on it.
+
+    Frees the active-unique slot (status != 'active') so a genuine same-direction
+    reaffirmation can revive it, while dropping it from every active-thesis consumer
+    (confluence / beneficiaries / digest / outcomes all query status='active'). The
+    row, history and levels are preserved for manual override and the evidence trail."""
+    conn = await get_db()
+    await conn.execute(
+        "UPDATE macro_theses SET status = 'stale_review', evidence_log_json = ?, "
+        "last_updated = ? WHERE id = ? AND status = 'active'",
+        (evidence_log_json, when, thesis_id),
+    )
+    await conn.commit()
+
+
+async def revive_thesis(thesis_id: int, when: float, evidence_log_json: str) -> None:
+    """Bring a 'stale_review' thesis back to 'active' (explicit reaffirmation or manual
+    override). Resets last_updated so the staleness clock restarts."""
+    conn = await get_db()
+    await conn.execute(
+        "UPDATE macro_theses SET status = 'active', evidence_log_json = ?, "
+        "last_updated = ? WHERE id = ? AND status = 'stale_review'",
+        (evidence_log_json, when, thesis_id),
+    )
+    await conn.commit()
+
+
+async def get_stale_review_thesis(scope_type: str, scope_key: str, direction: str) -> dict | None:
+    """Return a single 'stale_review' thesis matching scope+direction (revival lookup), or None."""
+    conn = await get_db()
+    cur = await conn.execute(
+        "SELECT * FROM macro_theses WHERE scope_type = ? AND scope_key = ? "
+        "AND direction = ? AND status = 'stale_review' ORDER BY last_updated DESC LIMIT 1",
+        (scope_type, scope_key, direction),
+    )
+    row = await cur.fetchone()
+    return dict(row) if row else None
+
+
+async def get_stale_review_theses() -> list[dict]:
+    """Return all theses currently demoted to 'stale_review' (admin / digest surfacing)."""
+    conn = await get_db()
+    cur = await conn.execute(
+        "SELECT * FROM macro_theses WHERE status = 'stale_review' ORDER BY last_updated DESC"
+    )
+    return [dict(r) for r in await cur.fetchall()]
+
+
 async def count_active_theses(scope_type: str) -> int:
     """Count active theses for a scope_type (sprawl-cap enforcement)."""
     conn = await get_db()

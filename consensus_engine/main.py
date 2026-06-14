@@ -947,12 +947,14 @@ async def run_all(stop_event: asyncio.Event):
     lane survives the weekend pause and a crash on either side is isolated.
     """
     from consensus_engine.alerts.wolf_digest import wolf_digest_loop
+    from consensus_engine.analysis.wolf_staleness import staleness_sweep_loop
     await asyncio.gather(
         run_live(stop_event),
         wolf_news_supervisor(stop_event),
         wolf_confluence_loop(stop_event),
         wolf_digest_loop(stop_event),
         wolf_beneficiary_loop(stop_event),
+        staleness_sweep_loop(stop_event),
     )
 
 

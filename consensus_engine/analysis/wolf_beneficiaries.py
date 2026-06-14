@@ -435,6 +435,16 @@ async def run_cycle() -> int:
     throttle = float(cfg.get("wolf.beneficiaries.per_thesis_throttle_sec", 3600))
     shorts_enabled = bool(cfg.get("wolf.beneficiaries.shorts_enabled", False))
     now = time.time()
+    # Self-heal: drop beneficiary rows whose thesis is no longer active (flipped,
+    # invalidated, or demoted to stale_review). The loop only ever WRITES for active
+    # theses, so without this prune an old thesis's rows lingered forever (the COIN-short
+    # orphans for the invalidated SPX/NDX theses). Cheap; runs once per cycle.
+    try:
+        orphans = await db.prune_beneficiary_orphans()
+        if orphans:
+            log.info("wolf_beneficiaries: pruned %d orphan row(s) from inactive theses", orphans)
+    except Exception as e:  # noqa: BLE001
+        log.debug("wolf_beneficiaries: orphan prune skipped: %s", e)
     theses = await db.get_active_theses()
     written = 0
     for th in theses:

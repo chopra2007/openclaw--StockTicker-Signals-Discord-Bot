@@ -119,6 +119,7 @@ intervals:
   feature_volume_monitor: 900
   options_flow_loop: 900           # #18 scan every 15 min (free ~15-min data)
   options_flow_cooldown: 3600      # max one alert per ticker per hour
+  wolf_staleness_loop: 86400       # #26 nightly Wolf thesis staleness sweep
 
 # Scanner toggles
 scanners:
@@ -922,7 +923,17 @@ wolf:
   outcomes:                             # Wolf Sunday-recap outcome grading
     benchmark_adjusted: true            # I16 LIVE 2026-06-10 — credit "moved_with" only when proxy beats its benchmark (raw still shown); live-tested on the real 13 theses (SMH bear: moved_against -> flat-vs-benchmark)
   direction_guard:                      # #1 trade-stance vs near-term-price-path extraction rule
-    enabled: true                       # LIVE (user go 2026-06-08) — fixes IGV-style bull/bear misreads
+    enabled: true                       # LIVE (user go 2026-06-08) — fixes IGV-style bull/bear misreads (topping-context override added 2026-06-13)
+  staleness:                            # #26 nightly sweep — DEMOTE (not delete) theses Wolf has gone quiet on
+    enabled: false                      # build OFF; validated vs live DB (dry-run), then flipped on this session
+    cap_days:                           # stage-split age caps (days since last EXPLICIT same-direction reaffirmation)
+      forming: 30
+      diverging: 30
+      imminent: 18                      # an "imminent" call gone quiet for weeks itself signals it didn't pan out
+      acting: 90                        # already in the trade -> long leash (still target/contradiction-aware)
+    target_reached_stale_days: 7        # price hit a stated target + no real reaffirm in N days -> demote
+    contradiction_enabled: true         # demote a stale thesis contradicted by a higher-conviction opposite on the same complex
+    contradiction_stale_days: 14        # ...only once it has been quiet at least this long
   digests:                              # Scheduled #news briefings (TODO #20, phase 3)
     enabled: true                       # LIVE — posts midday/nightly/Sunday digests to #news (user sign-off 2026-06-01)
     narrate: false                      # optional <=2-sentence LLM takeaway; OFF (templated render is the product)
