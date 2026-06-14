@@ -303,6 +303,10 @@ async def test_outcome_invalidated_state(digest_env, monkeypatch):
     monkeypatch.setattr(wolf_outcomes, "_fetch_proxy_series",
                         lambda s, a: {"anchor_close": 100.0, "latest_close": 130.0, "band_pct": 1.0})
     now = datetime(2026, 6, 7, 10, 0, tzinfo=PT).timestamp()
+    # Freeze the clock so compute_outcomes' 7-day lookback is relative to the seeded
+    # date, not the real wall clock (otherwise the seeded invalidated thesis ages out
+    # of the window and the test fails as real time advances past it).
+    monkeypatch.setattr(wolf_outcomes.time, "time", lambda: now)
     await _seed_thesis("stock", "META", "bull", "acting", anchor_ts=now - 86400, status="invalidated")
     outs = await wolf_outcomes.compute_outcomes()
     # even though price rose, an abandoned call is reported as invalidated (not a fake win)
