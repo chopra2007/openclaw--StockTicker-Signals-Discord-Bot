@@ -197,6 +197,35 @@ async def fetch_finra_short_volume(
     return rows
 
 
+async def finra_short_volume_loop(stop_event) -> None:
+    """Daily FINRA short-volume ingest so the E1 confluence term has FRESH data.
+
+    The E1 term requires data younger than the recency window (1440 min). Nothing was
+    keeping it fresh — the table was a one-time backfill — so E1 silently returned 0 for
+    every ticker once that data aged out. This loop ingests the most recent available
+    trading day every few hours. No-op while features.finra_short_volume.enabled is false;
+    FINRA 404s on weekends/holidays (handled gracefully -> 0 rows)."""
+    import asyncio
+    from consensus_engine import config as cfg
+    interval = int(cfg.get("intervals.finra_short_volume_loop", 21600))  # 6h
+    while not stop_event.is_set():
+        try:
+            if cfg.get("features.finra_short_volume.enabled", False):
+                today = date.today()
+                for back in range(0, 5):           # newest available trading day
+                    d = today - timedelta(days=back)
+                    if d.weekday() >= 5:           # skip Sat/Sun
+                        continue
+                    if await ingest_finra_day(d):
+                        break                       # got a day's data; done
+        except Exception as exc:
+            log.error("finra_short_volume_loop error: %s", exc, exc_info=True)
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=interval)
+        except asyncio.TimeoutError:
+            pass
+
+
 async def ingest_finra_day(
     trade_date: date,
     tickers: set[str] | None = None,

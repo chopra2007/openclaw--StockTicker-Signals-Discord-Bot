@@ -120,6 +120,7 @@ intervals:
   options_flow_loop: 900           # #18 scan every 15 min (free ~15-min data)
   options_flow_cooldown: 3600      # max one alert per ticker per hour
   wolf_staleness_loop: 86400       # #26 nightly Wolf thesis staleness sweep
+  finra_short_volume_loop: 21600   # #32 E1 — daily FINRA short-volume ingest (6h re-check; keeps E1 data fresh)
 
 # Scanner toggles
 scanners:
@@ -738,9 +739,9 @@ features:
     max_peers: 5                   # cap peer fetches (latency bound)
   snapshot:
     enabled: true                  # 📊 Snapshot field (analyst target/rating/Fwd P/E/short) — LIVE
-    eps_revisions: false           # #6 Lever 1 — EPS-estimate-revision trend; OWN-timeout lazy yfinance fetch; flip after live latency check
+    eps_revisions: true            # #6 Lever 1 LIVE 2026-06-15 — verified in real !all (NVDA 34↑3↓, TSLA 2↑1↓); runs <34s
   stocktwits_sentiment:
-    enabled: false                 # #6 Lever 2 — retail crowd bull%/5d-trend/watchers (public Stocktwits API); flip after live !all verify
+    enabled: true                  # #6 Lever 2 LIVE 2026-06-15 — verified in real !all (NVDA 74% +1/5d 650k watching) via requests (aiohttp is Cloudflare-blocked)
   regime_classifier:
     enabled: true
     regime_shifts:
@@ -798,7 +799,7 @@ features:
   consensus_logodds: { enabled: false, count_floor_frac: 0.5 }                                # I7 — sigmoid(log-odds) consensus scale
   regime_widening_graduated: { enabled: false, max_shift: 15, cutoff_ceiling: 90 }            # I14-widening — z-scaled panic shift
   cross_asset: { enabled: false, fred_leg_enabled: false, veto_floor: 0.85, confirm_ceiling: 1.15 } # E2 — VIX-term confirm/veto multiplier
-  finra_short_volume: { enabled: false }                                                      # E1 — FINRA short-volume confluence term
+  finra_short_volume: { enabled: true }                                                       # E1 LIVE 2026-06-15 — daily ingest loop built; replay bounds delta (<=177 cand, +5 cap, 0 current changes); fails safe on stale data
   # Cross-cutting helper (consumers above are all flag-OFF; caps are shadow-derived placeholders).
   recency_window: { enabled: true, max_age_min: { sec: 120, tweet: 120, options: 90, youtube: 1440, apewisdom: 1440, finra_short_volume: 1440, vix: 1440 } }
 
@@ -923,7 +924,7 @@ wolf:
     min_dominance: 0.6                  # a source's net vote needs >=60% one-sided rows, else it's "mixed"
     board_show_levelless: true          # #3A LIVE (user go 2026-06-08) — show corroborated (agree>=2) theses even with no levels
     links_enabled: true                 # #3B LIVE (user go 2026-06-08) — clickable YouTube links by agreeing videos
-    weighted_votes_enabled: false       # I15 — age-decayed, size-scaled, actor-aware votes (Phase 2, default OFF)
+    weighted_votes_enabled: true        # I15 LIVE 2026-06-15 — dry-run on current theses: 0 tier changes, 0 new criticals; non-actor-critical guard intact
     require_nonactor_for_critical: true # I15 — critical @-ping needs >=1 non-actor-controllable source
   outcomes:                             # Wolf Sunday-recap outcome grading
     benchmark_adjusted: true            # I16 LIVE 2026-06-10 — credit "moved_with" only when proxy beats its benchmark (raw still shown); live-tested on the real 13 theses (SMH bear: moved_against -> flat-vs-benchmark)
