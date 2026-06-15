@@ -141,6 +141,105 @@ def is_valid_ticker(ticker: str) -> bool:
     return True
 
 
+# ---------------------------------------------------------------------------
+# Conversational (@-mention / !ask) ticker anchoring — TODO #35.
+# The scanner BLACKLIST above is tuned for tweet/transcript EXTRACTION, where
+# index ETFs and word-homographs are mostly noise. It is WRONG for chat: it
+# blocks SPY/QQQ/GAP, which are perfectly valid chat questions. So the chat lane
+# gets its OWN, much smaller policy.
+#
+#  - GRAMMAR words ("it", "on", "all", "the", "for"...) only anchor when the user
+#    is explicit ($-prefixed) — otherwise "is that ALL" would wrongly become Allstate.
+#  - SOFT tokens (WEN="when", FED, CPI, AI, EV...) anchor SOFTLY (advisory: "if X
+#    here is a stock it's <Company>, else answer normally") and only when explicit
+#    or the message looks stock-focused.
+#  - Everything else that resolves to a real listed company (APP=Applovin,
+#    GAP=Gap, SPY, QQQ, NVDA, WEN→only soft, ...) anchors normally.
+# The Finnhub/cache non-empty-name gate is the final "is it a real company" check.
+
+_CHAT_GRAMMAR_WORDS: set[str] = {
+    "A", "I", "IT", "ON", "IN", "TO", "DO", "BE", "UP", "ALL", "OUT", "FOR", "ARE",
+    "ANY", "THE", "AND", "BUT", "NOT", "NOW", "NEW", "OUR", "HIS", "HER", "HAS", "WAS",
+    "CAN", "ONE", "TWO", "SEE", "WHO", "WHY", "HOW", "YOU", "US", "MY", "SO", "AT",
+    "NO", "GO", "OR", "AM", "ADD", "BUY", "TOP", "DAY", "USE", "GET", "GOT", "LET",
+    "PUT", "SAY", "OLD", "LOW", "HOT", "OWN", "WAY", "HAD", "HAT", "TOO", "FAR", "FEW",
+    "BIG", "MAN", "RUN", "SET", "END", "EAT", "FIT", "FLY", "SIX", "TEN", "JOB", "PAY",
+    "THIS", "THAT", "WHAT", "WHEN", "JUST", "SAVE", "HELP", "REAL", "OPEN", "LIVE",
+}
+_CHAT_SOFT_WORDS: set[str] = {
+    "WEN", "FED", "CPI", "PMI", "GDP", "ATH", "AI", "EV", "AR", "VR", "OS", "PC", "TV",
+    "WAR", "WEB", "WIN", "IPO", "CEO", "CFO", "ETF", "OIL", "GAS", "ICE", "KEY", "MAP",
+}
+_CHAT_STOCK_HINTS = re.compile(
+    r"\$|\b(stock|stocks|share|shares|ticker|price|priced|buy|bought|sell|sold|"
+    r"calls?|puts?|option|options|earnings|dividend|market|trade|trading|long|short|"
+    r"bull|bear|bullish|bearish|chart|target|moon|rally|breakout|sentiment|analyst|"
+    r"valuation|pe|p/e|eps|float|volume)\b", re.I)
+
+
+def _looks_stock_focused(text: str) -> bool:
+    return bool(_CHAT_STOCK_HINTS.search(text or ""))
+
+
+async def resolve_chat_ticker_anchors(text: str, cap: int = 5) -> list[dict]:
+    """Resolve ticker-shaped tokens in a chat message to real companies for prompt
+    anchoring. Returns up to `cap` dicts {symbol, name, exchange, soft}. Pure read —
+    only a cached lookup + (on a miss) one Finnhub profile call that also warms the cache."""
+    from consensus_engine import db
+
+    if not text:
+        return []
+    stock_focused = _looks_stock_focused(text)
+    out: list[dict] = []
+    seen: set[str] = set()
+    for dollar_match, plain_match in _TICKER_PATTERN.findall(text):
+        sym = dollar_match or plain_match
+        explicit = bool(dollar_match)
+        if not sym or sym in seen or not is_valid_ticker_format(sym):
+            continue
+        if sym in _CHAT_GRAMMAR_WORDS and not explicit:
+            continue  # "is that ALL" must not become Allstate
+        soft = sym in _CHAT_SOFT_WORDS
+        if soft and not (explicit or stock_focused):
+            continue  # "WEN moon?" without stock context — leave it
+        # resolve to a real listed company (cache first, then one Finnhub call)
+        meta = await db.get_ticker_metadata(sym, max_age_days=7)
+        if meta is None:
+            try:
+                await validate_ticker_market_cap(sym)  # warms the cache (name+exchange)
+            except Exception:
+                pass
+            meta = await db.get_ticker_metadata(sym, max_age_days=7)
+        name = (meta or {}).get("name") or ""
+        if not name:
+            continue  # not a real listed company -> don't anchor
+        seen.add(sym)
+        out.append({"symbol": sym, "name": name,
+                    "exchange": (meta or {}).get("exchange") or "", "soft": soft})
+        if len(out) >= cap:
+            break
+    return out
+
+
+def format_ticker_anchor(anchors: list[dict]) -> str:
+    """Render resolved anchors into a steering-prompt block. '' when there are none
+    (so the template is unchanged for normal questions)."""
+    if not anchors:
+        return ""
+    hard = [a for a in anchors if not a["soft"]]
+    soft = [a for a in anchors if a["soft"]]
+    lines = ["\nTicker context — uppercase tokens in the user's message that are STOCK SYMBOLS. "
+             "Answer about the company/stock, not a same-spelled brand/product/word:"]
+    for a in hard:
+        exch = f", {a['exchange']}" if a["exchange"] else ""
+        lines.append(f"  {a['symbol']} = {a['name']}{exch}")
+    for a in soft:
+        exch = f", {a['exchange']}" if a["exchange"] else ""
+        lines.append(f"  {a['symbol']} = IF the user means a stock here, it is {a['name']}{exch} "
+                     f"— otherwise answer normally.")
+    return "\n".join(lines)
+
+
 async def validate_ticker_market_cap(ticker: str) -> bool:
     """Check if a ticker has sufficient market cap ($100M+).
 
