@@ -72,6 +72,12 @@ Three options (from the TODO):
 
 **RECOMMENDATION: Option 1 (accept the 90-min ceiling) for now.** Reasoning: zero >90min videos have actually appeared since the fix; the alarm will surface it if one does; raising the cap risks blowing a whole day's Gemini quota on one livestream; Supadata's tiny free quota is better reserved as the existing emergency caption fallback than spent on the rare >90min tail. **Revisit only if the PARTIAL READ alarm fires on a real >90min video.** If/when it does, the cheapest targeted fix is to chunk ONLY the >90min tail through Supadata captions (text) rather than raising the Gemini window cap.
 
+> **[codex revision 2026-06-13]** "Accept the ceiling" is fine, but the safety net is only a *journal
+> log line* ("capped at 6/N windows — tail lost"), and the post-fix sample is thin (n=9, 3 long).
+> From a user's seat the tail is silently missing. **Make the 6-window-cap truncation an
+> operator-visible alert** (the same Discord drift/health-alert channel used elsewhere), not just a
+> log — so a real >90-min video actually surfaces the decision instead of scrolling past in journald.
+
 ### Risks / caveats for #17
 - Sample is thin (n=9 with durations). The "works live" verdict rests on 3 long videos + the journalctl window logs + span spread — strong but small. Worth re-checking after another week of traffic.
 - The DB `observed_duration_sec` coverage column is **circular for chunked videos** and should NOT be used as the health metric. The real signals are: (a) absence of `PARTIAL READ` warnings, and (b) span timestamps reaching near `duration_sec`. Consider (future, not this sweep) making `observed_duration_sec` record the max real-video span timestamp instead of `true_duration_sec`, so the coverage column becomes meaningful for chunked videos.

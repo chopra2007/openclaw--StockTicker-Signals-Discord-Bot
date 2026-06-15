@@ -152,6 +152,30 @@ Finnhub non-empty-name second gate does not help here (these resolve to real com
 BLACKLIST is the only line of defense for true word/ticker homographs — acceptable given how
 thorough it already is.
 
+> **[codex revision 2026-06-13 + user directive — do NOT reuse the scanner BLACKLIST wholesale for chat]**
+> The scanner blacklist was tuned for tweet/transcript EXTRACTION (where index ETFs are noise), and
+> reusing it verbatim in the conversational lane is wrong. Verified against the live `is_valid_ticker`:
+> - **It blocks valid chat questions.** `is_valid_ticker("SPY") = False`, `is_valid_ticker("QQQ") = False`
+>   — but "tell me about SPY" / "how's QQQ" are perfectly valid stock questions in chat. The blacklist
+>   also treats ETFs inconsistently: `SPY`/`QQQ` are blocked while `DIA`/`IWM` pass. So the anchor would
+>   silently not fire for the two most-asked ETFs.
+> - **[user correction 2026-06-13] APP and GAP are POPULAR REAL STOCKS — anchoring them is CORRECT,
+>   not a bug.** `is_valid_ticker("APP") = True` → **Applovin Corp** (NASDAQ, a popular stock);
+>   `GAP` → **Gap Inc** (NYSE). My earlier note that APP "would wrongly anchor" was WRONG — the user
+>   flagged it. These should anchor to the company (softly, since "app"/"gap" are also common words),
+>   NOT be denylisted as if the stock reading were the error.
+> **Fix: give the conversational lane its OWN policy, separate from the scanner blacklist:**
+>   1. **Allow major ETFs/indices** (SPY, QQQ, DIA, IWM, …) AND popular word-homograph stocks
+>      (APP=Applovin, GAP=Gap, …) to anchor in chat — they're valid, common questions.
+>   2. **Keep a SMALL denylist of only truly slang/grammar-dominant tokens** where the non-stock meaning
+>      almost always wins in chat: `WEN` (crypto slang "when"), `ON`, `IT`, `ALL`, `IN`, `FOR`, `ANY`,
+>      `ARE`, `FED`, `CPI`, … For *these* require an explicit `$` prefix OR clear stock context before
+>      anchoring, and even then anchor softly ("if X here is a stock, it's <Company>"). Do NOT put real
+>      popular tickers (APP/GAP/SPY/QQQ) on this denylist.
+>   3. Keep the Finnhub/cache non-empty-name gate as the "is it a real listed company" check.
+>   A deterministic "does this message look stock-focused?" check (cashtag present, other clear tickers
+>   present, finance words present) should gate bare-token anchoring for the small slang-denylist set.
+
 ### #35 — proof / verification plan for the build session (not run now)
 
 After building, the A/B test from the todo:
@@ -253,6 +277,15 @@ provider, modelId, modelApi, data`. They contain the real conversation history (
 TODO #39 is the bot chat-memory redesign, whose recall **backtest** would want exactly this
 historical chat data to test "does the new memory recall the right past conversation." Deleting all
 142 now would destroy that backtest corpus.
+
+> **[codex revision 2026-06-13 — secret-retention risk on the preserved corpus]** These full agent
+> trajectories contain `data` payloads = real conversation + tool outputs, which can include file
+> paths, Wolf Gmail email bodies, and API tokens/secrets. If #39 then summarizes them into
+> **permanent** rollups, any secret that lands in a rollup outlives the 30-day raw-archive deletion.
+> So the copy-to-archive step here is only safe as a *temporary* backtest corpus: keep it in a
+> restricted-perms dir, and make redaction (drop tool-result payloads, mask key/token/email patterns)
+> a **precondition** of #39's summarizer — see the redaction `[codex revision]` in
+> `research/chat-memory.md` §5.1. Do not let the preserved corpus become a permanent un-redacted store.
 
 **Recommendation:** defer the #38 transcript deletion until #39's design is settled. If the
 orphan-warning needs clearing sooner, **keep a copy first** rather than deleting in place:

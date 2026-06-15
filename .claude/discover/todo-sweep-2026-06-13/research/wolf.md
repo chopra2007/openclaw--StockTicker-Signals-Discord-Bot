@@ -234,27 +234,116 @@ Guardrails (must not kill valid long-running theses):
   hard INVALIDATE, so a one-off quiet week doesn't erase a real call.
 - Thresholds (N=7/14, M=45) are starting guesses — should be config keys and tuned on backfill.
 
+> **[codex revision 2026-06-13 — four corrections to the staleness design]**
+> 1. **"Reset the clock on ANY reaffirmation" is dangerous here — it rewards the exact bug we're
+>    fixing.** The IGV failure IS a bad-reaffirmation: the extractor misreads "trade up to the
+>    200-day/$100 target" as a FRESH bull. If any new evidence_log row resets the staleness clock,
+>    that misread keeps IGV's clock perpetually fresh and the sweep NEVER retires it. **Reset only on
+>    an *explicit same-direction* reaffirmation with real conviction** (e.g. stage `acting`/`imminent`
+>    or an intent like "adding"). Do **NOT** reset on: target-reached language, watchlist-only/"watching
+>    for signals" language, or evidence that is contradicted by a higher-conviction opposite thesis on
+>    the same complex. This is what actually unblocks the IGV case.
+> 2. **90d for `imminent` is semantically wrong** (the final-plan's tiered cap lumped acting+imminent
+>    at 90d). An `imminent` call that is 80 days old is stale BY DEFINITION — "imminent" means about to
+>    happen. Split the caps: **`imminent` SHORT (e.g. 14-21d), `forming`/`diverging` MEDIUM (~30d),
+>    `acting` LONGER (~90d) but still target- and contradiction-aware.** "Acting" = already in the
+>    trade, deserves a long leash; "imminent" going quiet for months is itself a signal it didn't pan out.
+> 3. **Demote-not-delete self-heal is NOT guaranteed.** "It heals on the next reaffirmation" assumes a
+>    future email arrives AND the nondeterministic extractor parses it right — the same nondeterminism
+>    that missed IGV can fail to restore a wrongly-demoted thesis. **Add an explicit `stale_review`
+>    state surfaced in the digest/admin output with a manual override + evidence trail**, rather than
+>    trusting automatic resurrection.
+> 4. **The "same complex" cross-thesis check needs explicit POLARITY, not just grouping.** Within the
+>    vol complex, VIX-bear and UVXY/VXX-bull express the SAME market view (vol down vs vol up are
+>    inverse instruments) — a naive "same complex + opposite label = contradiction" gets this exactly
+>    backwards. Levered/inverse ETFs and index proxies (SPX→SPY) need directional transforms. **Define
+>    a small explicit relationship map with a polarity sign per member** (e.g. `VIX:+1, UVXY:-1, VXX:-1`
+>    for "market-bullish-when-bear"), and compute contradiction on the polarity-normalized direction,
+>    not the raw label. Keep it small and hand-maintained (do NOT reuse the coarse `sector_map.yaml`).
+
 ---
 
-## The open USER DECISION (surface + recommendation)
+## USER DECISION — RESOLVED 2026-06-13: IGV is a BEAR thesis (NOT "no active thesis")
 
-**Question:** Should a hedged "watching to short" lean (06-05a IGV) fire as a fresh BEAR thesis,
-or is "no active thesis" the honest state until Wolf actually shorts?
+> **[user directive 2026-06-13]** The earlier recommendation ("no active thesis is the honest state
+> for IGV") was **WRONG and is overridden.** The user, who reads these emails, states: *"Wolf is
+> still reading IGV as a bullish trade [in our DB]. It is clearly a **bearish** trade waiting for the
+> counter-trend backtest of 100 to fill."* The live thesis **id 140 (IGV `bull`/forming/active) must
+> be corrected to `bear`/forming**, with entry trigger = the counter-trend backtest of the 200-day/
+> $100 area filling.
 
-**Recommendation: "no active thesis" is the honest state for IGV — do NOT force a fresh bear.**
-Evidence: in 06-05a Wolf explicitly says he is *"looking for leading signals from price, credit
-and 3C"* — i.e. watching, not short. The very next day (06-12 "War Over") he writes *"I'm still
-hopeful IGV will bounce to back-test the 200-day and/or $100 area"* — he's still describing the
-unfinished bull target, not a short. Firing a bear thesis off the soft 06-05a language would have
-been WRONG by 06-12. The A/B confirms it: when we pushed the model to fire on hedged shifts, it
-produced a wrong IGV BULL on 06-12 and suppressed valid theses elsewhere.
+**Confirmed against Wolf's actual emails (pulled live 2026-06-13, last 14 Wolf emails):**
+- **06-12 "War is Over":** *"the price action looks a lot like the Software sector (IGV) with a large
+  **toppy pattern and neckline** (trend line)"* … *"I'm still hopeful IGV will **bounce to back-test
+  the 200-day and/or $100 area from below** and we can get a better look at how credit performs then."*
+- **06-12 Afternoon:** *"I am still **looking for** Software (IGV) to **back-test the 200-day/$100 area
+  above**."*
+- **06-11 "Worm is Turning":** *"maybe get on with **back-testing the 200-day and $100 level**."*
 
-So the right outcome for the IGV problem is NOT "extract a hedged bear." It is:
-1. **Don't carry the stale bull as `critical`-confluence + inferred LONGs** — the staleness sweep
-   (rule 2/3) demotes it out of confluence/beneficiary eligibility once the sector has flipped
-   bearish and it's gone quiet, leaving "no active high-conviction IGV call" — the honest state.
-2. **Fix the separate "bounce-to-a-lower-high → bull" leak** (SPX/NDX), which is a clear
-   mislabel, not a judgment call.
+Read in context this is unambiguously **bearish**: a **topping pattern below the 200-day**, and Wolf
+wants a **counter-trend bounce UP to ~$100 (resistance) to short into** ("get a better look at how
+credit performs then" = waiting to confirm the short). He is NOT bullish; he wants one more bounce to
+a better short entry. The extractor flipped it to bull because the language ("hopeful … bounce … up to
+$100") looks bullish on the surface — and because the **existing `_DIRECTION_GUARD_RULE` carve-out
+explicitly says "back-test a level" is NOT bear.** That carve-out is the root cause.
+
+**The fix (grounded in the real phrases above) — generalize the direction-guard tightening so it
+catches IGV too, not just SPX/NDX:**
+1. **Correct the live id-140 thesis to `bear`/forming** (one-time data fix as part of the build).
+2. **Narrow the carve-out + add explicit bear triggers.** "Back-test/bounce **to a level FROM BELOW**"
+   combined with any of {**toppy pattern, neckline, lower high, head-and-shoulders / H&S top, failed
+   breakout, distribution, watching/credit-to-confirm-the-short**} → reads **BEAR** (counter-trend
+   bounce to fade). Only a plain "fill the gap / back-test a level" with NO topping/lower-high context
+   stays a bull continuation target. This is the SAME rule that fixes the SPX/NDX "bounce to a lower
+   high → bull" leak — now stated once, covering both. A/B it at N≥10 + the full backfill (must not
+   flip genuine "fill the gap" bulls), then apply.
+3. The staleness sweep still demotes stale theses, but with IGV correctly **bear** the wrong LONG
+   beneficiary ideas (FTNT/GTLB/WDAY) and the `critical` bull-confluence ping disappear at the source.
+
+### ROOT CAUSE — WHY the extractor read it as bull (evidence-backed, not "just flip it")
+
+The user is right that a manual flip isn't the fix. Here is the actual mechanism, proven from the live
+prompt + the live thesis row:
+
+**1. The smoking gun in the data.** Live `macro_theses` id 140 (IGV bull) stored these levels:
+`[{$100, "target"}, {$200, "target"}, {$90, "support"}, {$91.22, "support"}, …]`, created from the
+06-12 "War is Over" email. So the model didn't just pick "bull" — it filed **$100 and $200 as upside
+`target`s** and the $90 area as `support`. That is a textbook bull structure (buy support, target
+above). It also **turned "the 200-**day** [moving average]" into a phantom `$200` price target** — a
+second, compounding misread.
+
+**2. The cause is a self-contradiction in `_DIRECTION_GUARD_RULE`.** The guard contains BOTH:
+   - a BEAR cue: *"a bounce to sell/short into resistance, **tagging the 200-day from below as
+     resistance**"* → bear, and
+   - a CARVE-OUT: *"Do NOT treat plain upside-target language (fill the gap, **back-test a level**,
+     price can hit a number) as bear by itself — that is often a genuine bull/upside-target read."*
+   Wolf's exact words — *"bounce to **back-test the 200-day and/or $100 area from below**"* — match
+   **both rules at once**. The carve-out's literal phrase "back-test a level" wins (it's an exact
+   lexical match and the surface tone is bullish: *"I'm still hopeful IGV will bounce"*), so the model
+   reads "$100/200-day" as upside targets and emits bull. The bear cue loses because it requires the
+   word "resistance," which Wolf doesn't use — he conveys it structurally ("**large toppy pattern and
+   neckline**", price below the 200-day).
+
+**3. The missing discriminator = TOPPING CONTEXT.** The guard never tells the model that
+"back-test/bounce to a level **from below**" flips from bull-target to bear-resistance **when the
+instrument is in a topping structure** (toppy pattern / neckline / H&S / lower high / below the
+200-day). That context is exactly what's present in the IGV emails and absent from the guard.
+
+**The fix (prompt-level, then A/B-validated):**
+1. **Resolve the contradiction.** Narrow the carve-out to: "back-test/fill a level is a bull target
+   ONLY when the instrument is in an uptrend / above the level and there is no topping language."
+2. **Add an explicit override.** "When the author describes a **bounce/back-test UP to a level FROM
+   BELOW** together with any topping cue (toppy pattern, neckline, head-and-shoulders, lower high,
+   failed breakout, trading below the 200-day, or watching credit/signals to confirm a short), the
+   level is **resistance** and the stance is **bear** — emit the levels with `role:"resistance"`, not
+   `target`." Give the IGV sentence as a concrete in-prompt example.
+3. **Fix the "200-day → $200" misread.** Add: "'200-day'/'50-day' etc. are moving-average references,
+   NOT price targets — never emit a `$200` level from '200-day'."
+4. **Validate before flip:** run the live extractor A/B (current guard vs fixed guard) on the real IGV
+   emails at **N≥10** per arm (gpt-oss-120b is nondeterministic) + the full backfill; the fixed guard
+   must read IGV **bear with $100 as resistance** AND must NOT flip genuine "fill the gap" bull
+   continuations elsewhere (the conftest flag-off fixtures guard the regression set). This is the same
+   harness the SPX/NDX leak fix uses — one rule, both cases.
 
 ---
 

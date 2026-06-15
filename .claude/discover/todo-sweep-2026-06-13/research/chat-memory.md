@@ -313,19 +313,47 @@ a `CREATE INDEX`). Mirrors `briefing_runs` / `youtube_analysis_runs`:
 CREATE TABLE IF NOT EXISTS chat_memory_rollups (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     channel_id      TEXT NOT NULL,          -- Discord channel id (matches session-id channel-<id>)
-    session_label   TEXT,                   -- the archived filename / openclaw session id this covers
+    archive_path    TEXT NOT NULL,          -- [codex] full path of the EXACT raw archive this covers
+    source_sha256   TEXT NOT NULL,          -- [codex] hash of the raw archive bytes (cleanup identity)
+    session_label   TEXT,                   -- the openclaw session id (channel-<id>) for reference
+    status          TEXT NOT NULL DEFAULT 'pending',  -- [codex] pending|complete|failed — cleanup gate
     span_start_utc  REAL NOT NULL,          -- first message timestamp in the rolled-up range
     span_end_utc    REAL NOT NULL,          -- last message timestamp
     turn_count      INTEGER NOT NULL DEFAULT 0,
     source_bytes    INTEGER NOT NULL DEFAULT 0,  -- size of raw archive summarized (audit/cleanup gate)
     rollup          TEXT NOT NULL,          -- the compact summary text (the recallable artifact)
     model           TEXT,                   -- which model wrote the rollup
+    started_at      REAL,                   -- [codex] when summarization began
+    completed_at    REAL,                   -- [codex] when it finished (status='complete')
     created_at      REAL NOT NULL
 );
+CREATE UNIQUE INDEX IF NOT EXISTS idx_cmr_archive ON chat_memory_rollups(source_sha256);  -- [codex] one row per exact archive; re-runs are idempotent
 CREATE INDEX IF NOT EXISTS idx_cmr_channel ON chat_memory_rollups(channel_id, span_end_utc);
 -- Optional later, for keyword recall without embeddings:
 -- CREATE VIRTUAL TABLE chat_memory_fts USING fts5(rollup, content='chat_memory_rollups', content_rowid='id');
 ```
+
+> **[codex revision 2026-06-13 — BLOCKER fix: cleanup/summarization race]** The original schema
+> identified a covered archive only by date-range overlap (`span_end_utc`) + `source_bytes > 0`.
+> Codex correctly flagged that this can delete the WRONG file: a date-range match could point at a
+> different overlapping archive, or at an incomplete/failed summary, and a burst of restart-wipes
+> makes overlaps common. The fix above is **identity, not overlap**: every rollup row pins the exact
+> `archive_path` + `source_sha256` of the bytes it summarized, plus a `status`. **The cleanup cron
+> (§5.4) must be rewritten to: (1) compute the candidate archive's sha256, (2) delete it ONLY if a
+> row exists with that exact `source_sha256` AND `status='complete'` AND `source_bytes` == the
+> archive's real size. Never delete on a date-range/`bytes>0` match.** The `UNIQUE(source_sha256)`
+> makes re-running after a failed delete safe (the summary row is already there → skip).
+
+> **[codex revision 2026-06-13 — privacy/secret retention]** These raw `.deleted.*` JSONL archives
+> are full agent trajectories (confirmed in `bounded.md` #38: they hold model IDs + `data` payloads
+> = real conversation + tool outputs). They can contain file paths, email bodies (Wolf Gmail), API
+> tokens, and other secrets. The design deletes raw archives after 30 days but keeps the **rollups
+> permanently** — so any secret that lands in a rollup becomes a permanent artifact that survives the
+> raw-archive deletion. **Before the summarizer writes a rollup it MUST run redaction** (drop tool-result
+> payloads; mask anything matching key/token/email patterns — reuse or extend the repo's existing
+> secret-scrub if one exists). Define a retention + delete/rebuild policy for rollups too (e.g. a way
+> to purge a channel's rollups on request), not just for the raw archives. This is a build-blocking
+> requirement for #39 AND a precondition on #38's transcript-archive copy step.
 Disk cost is trivial (user has ~40 GB free; rollups are KBs). Retention of summaries =
 **permanent** (or far longer than 30 days); only the *raw archives* get the 30-day cron.
 
@@ -349,6 +377,14 @@ other pipeline code (e.g. `consensus_engine/memory/chat_rollup.py`). It:
   in `_handle_mention`'s startup path, or a cron that scans for un-summarized
   `.deleted.*` files. Most faithful to "summarize before you lose it." Robust to the
   restart-wipe that the OpenClaw hook misses.
+  > **[codex revision — backlog/catch-up throttle]** The earlier "one channel per nightly run"
+  > throttle (final-plan §3 #39) cannot drain the existing backlog (229 `.deleted` archives, plus
+  > a noted burst of 7 restarts in minutes) — at one/night that's months, during which cleanup
+  > stays blocked. **Throttle by a budget (e.g. ≤ N archives or ≤ M total bytes or a wall-clock/
+  > token cap per run), process oldest-un-summarized first, and add a one-time catch-up pass** that
+  > works through the backlog in budgeted batches. Log a backlog count each run so the drain is
+  > observable. The `UNIQUE(source_sha256)` makes every batch idempotent, so a crashed run just
+  > resumes.
 - **Pre-compaction (richer, optional):** also summarize when safeguard is about to
   compact, so within-session detail is captured before re-distillation. OpenClaw exposes
   `before_compaction` / `session_before_compact` hooks (`docs/concepts/compaction.md`
@@ -379,12 +415,15 @@ problem we're solving, and burns tokens on turns that don't need history.)
 A daily cron (use this repo's `/root/task_system/scripts/create_task.sh` + a systemd
 timer, per CLAUDE.md "Deferred Task System") that:
 1. Lists `*.deleted.*.jsonl` archives older than **30 days**.
-2. For each, checks there is a `chat_memory_rollups` row whose `span_end_utc` covers that
-   archive's date AND `source_bytes > 0` (i.e. a real summary exists). If missing, it
-   **summarizes first**, then proceeds.
+2. **[codex revision — identity gate, not date-overlap]** For each candidate, compute its
+   `sha256`, then delete it **ONLY IF** a `chat_memory_rollups` row exists with that exact
+   `source_sha256` **AND** `status='complete'` **AND** `source_bytes` == the archive's real byte
+   size. If no such row exists, **summarize it first** (write a `pending`→`complete` row), then
+   re-check. Never delete on a date-range or `bytes>0` match — that can delete the wrong/un-summarized
+   file (Codex BLOCKER).
 3. Only then deletes the raw archive + its `.trajectory.*` sidecar.
 4. Logs what it deleted; never touches `chat_memory_rollups`. Summaries are kept
-   permanently (or e.g. 1 year).
+   permanently (subject to the redaction/retention policy added under §5.1).
 This is exactly the user's rule: "cleanup only if the main stuff is summarized and still
 accessible later (even 30 days later) before raw archives are deleted."
 
@@ -473,6 +512,17 @@ Artifacts: `/tmp/chatmem/extractive_rollup.txt`, `/tmp/chatmem/recall_answer.txt
 **Conclusion:** a summary+recall layer (architecture b) demonstrably satisfies "recall a
 summary from a month ago" on this project's real chat data, at ~115x size reduction, with
 zero loss of the load-bearing identifiers.
+
+> **[codex revision — n=1 proves feasibility, not reliability]** This is ONE 510 KB transcript and
+> ONE primary Q&A (plus 4 follow-ups summarized but not shown). That is enough to justify *choosing*
+> architecture (b), but NOT enough to declare the recall *quality* proven. **Before #39 goes live,
+> build a small eval set**: ~10-20 questions across several channels and dates, each with an expected
+> answer, plus **hallucination traps** (questions whose answer is NOT in the rollup → the bot must
+> say "I don't have that") and **negative queries**. Gate go-live on that eval, not on the single
+> backtest. Also note: the §5.3 **prepend-on-intent** fallback depends on a brittle intent detector
+> (it can miss "what did we decide about that thing last month?" or over-inject into unrelated turns).
+> Prefer the real on-demand recall tool, or expose an explicit `recall …`/`!recall` command the user
+> can invoke, with conservative intent rules + tests — don't ship intent-sniffing alone.
 
 ---
 

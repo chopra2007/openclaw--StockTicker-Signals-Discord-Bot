@@ -1,5 +1,28 @@
 # TODO #34 — Apify signal source: live re-validation (2026-06-13)
 
+> ## DECISION 2026-06-13: SKIP + REMOVE the Apify keys (user directive)
+> **Did we decide Apify has no viable use? YES.** No budget-viable actor delivers reliably (the only
+> one that fit the free $5, `doesaiknow`, returns 200-empty/500 today), and the unique value (per-ticker
+> news) is **already covered for free** by the `google_rss` cascade tier + Finnhub. So: do not build #34.
+>
+> **Important safety finding — it CANNOT "accidentally trigger" today.** A full grep confirms **zero
+> Apify references in any code, config, or script** (`consensus_engine/`, `scripts/`, `config/` → 0
+> hits). Nothing reads the Apify keys; they are orphaned environment variables. (`xxxxxAPIFY2_TOKEN`
+> even carries a manual `xxxxx` disable-prefix already.) So there is no running code path that could
+> fire Apify — removing the keys is pure tidy-up, not a functional change.
+>
+> **Removal plan (a clean, safe cleanup step — execute at the start of the build phase):**
+> Delete these 3 lines from each of the 3 env files, then `chown openclaw:openclaw` the files (the
+> ownership trap: a root-edited .env crash-loops consensus-engine on next restart — see memory):
+>   - `APIFY_TOKEN`, `APIFY_PROXY_PASSWORD`, `xxxxxAPIFY2_TOKEN`
+>   - files: `/home/openclaw/.openclaw/.env`, `/home/openclaw/.openclaw/.env.service`,
+>     `/home/openclaw/.openclaw/workspace/.env`
+> No code/config edits needed (nothing references them). This research doc + TODO #34 stay as the
+> historical record; mark TODO #34 SKIPPED/closed rather than building it.
+>
+> The original research below is retained for the record.
+
+
 **Bucket: 1 (NOT BUILT).** Nothing in `consensus_engine/` calls Apify — confirmed by grep across all scanners (`grep -niE "apify" consensus_engine/` → 0 real hits). This is a research/design item, not a broken or off feature.
 
 **Bottom line up front:** The free $5 budget is healthy ($4.65 left, resets in ~1 day). But the headline recommendation from the 2026-06-10 research — "Seeking Alpha delta feed via the `doesaiknow` actor" — **failed live re-validation today.** That actor is a thin proxy to a third-party backend that is currently returning errors (500) / empty results (0 items). Finviz (the free, no-Apify option) still works but its per-ticker page is mostly sector noise, not ticker-specific news. **Recommendation flipped: do not build the Apify Seeking Alpha integration on the `doesaiknow` actor as-is. Re-probe it after the credit reset; if still broken, the cheapest viable path is the free Finviz direct scrape with a strict relevance filter.**
@@ -127,7 +150,19 @@ This is essential and the prior research did not specify it:
 ## 8. Recommendation
 
 - **Do NOT build the Seeking Alpha Apify integration right now.** Its only budget-viable actor (`doesaiknow`) failed live re-validation today. The alternatives ($0.95/run) don't fit free $5 for polling.
-- **Re-probe `doesaiknow` after the 2026-06-14 reset** with a single NVDA delta run (cost ~$0.05 if it returns ~10 items, $0 if still broken). If it returns real data two days running, the integration design in §6 is ready to build flag-OFF with the budget fail-safe. If it's still 500/empty, abandon this actor.
+- **Re-probe `doesaiknow`** with a single NVDA delta run (cost ~$0.05 if it returns ~10 items, $0 if still broken). If it returns real data two days running, the integration design in §6 is ready to build flag-OFF with the budget fail-safe. If it's still 500/empty, abandon this actor.
+  > **[codex revision 2026-06-13 — two corrections]**
+  > 1. **The "author's private backend hit a credit/rate limit" root cause is ASSERTED, not proven —
+  >    label it UNVERIFIABLE.** `200 + 0 items + credits_estimate:5` (and an intermittent 500) is also
+  >    consistent with: a changed/blocked Seeking Alpha upstream, an actor schema/regression, an auth
+  >    issue, or endpoint filtering. We cannot see inside the actor's backend, so don't write the plan
+  >    around a guessed cause. Write it around the OBSERVED symptom only: *"this actor returns 200-empty
+  >    or 500 intermittently and cannot be relied on."* (This is the same trap as the 2026-06-13
+  >    comm-check failure — don't name a provider/backend cause you didn't verify.)
+  > 2. **Re-probe timing must NOT be anchored to the 2026-06-14 Apify reset.** This doc itself says the
+  >    Apify $5 reset resets OUR budget, which is not the constraint — what has to recover is the actor's
+  >    upstream, on its own timeline. So "re-probe after 6-14" is anchored to an irrelevant event.
+  >    **Re-probe on a periodic schedule or a manual gate**, not because the Apify billing cycle rolled over.
 - **If Seeking Alpha stays dead, the only free Apify-adjacent win is the Finviz direct scrape** (no Apify, $0) — but gate it hard with the existing `_headline_relevant` filter, because its per-ticker page is ~94% off-ticker sector news. Honest value: a cheap supplementary news tier, not a high-signal source.
 - **Reddit Lite and the paid SA scrapers stay out** — both blow the free $5 for any real polling cadence.
 

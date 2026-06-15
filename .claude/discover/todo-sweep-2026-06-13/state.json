@@ -2,22 +2,39 @@
   "run_name": "todo-sweep-2026-06-13",
   "created": "2026-06-13",
   "task": "Triage every active TODO item into one of 4 buckets (1=not built, 2=built-broken, 3=built-untested, 4=built-off), backtest 'waiting-for-live-data' items with past data, write a build plan covering everything actionable, Codex-review the plan, then build (review-then-build).",
-  "mode": "research-plan-test-only",
-  "execution_handoff": "plans-only-this-session (deep research + prove ideas via smoke-tests/backtests; production build is a later session)",
+  "mode": "FINALIZED-ready-to-execute (full build THIS session per user directive 2026-06-13)",
+  "execution_handoff": "BUILD EVERYTHING this session: build each item behind a flag, validate accuracy against historical consensus.db via the alert-preview/replay harness + per-feature backtests, then FLIP ON before session end. Leave OFF only if data-blocked/unbuildable (I13, E2-FRED, #34). Regression gate at close.",
+  "user_directives_2026_06_13": [
+    "IGV is a BEAR thesis (correct live id-140 bull->bear); confirmed against live Wolf emails (toppy pattern+neckline+counter-trend backtest of 200-day/$100 from below).",
+    "APP=Applovin and GAP=Gap are real POPULAR stocks - anchor them in chat (do NOT denylist); only slang-dominant tokens (WEN='when', ON/IT/ALL...) get the soft/gated treatment.",
+    "Alert-preview/replay tool approved; but build+validate-against-historical-DB+flip-ON this session - 'needs testing' is NOT a reason to leave a feature off.",
+    "Build everything buildable, nothing deferred to a future session."
+  ],
   "session_intent": "Research, planning, and TESTING plan ideas. Deep research on #6, #39, and any other item that benefits. Smoke-test every external API a plan depends on (confirm live + not rate-limited). Backtest 'waiting-for-live-data' features (#32, #39, #26) against DB history NOW instead of waiting for shadow windows. Own MD file per research-heavy item (#6, #39, #34); shared MD for bounded items (#35/#37/#38). Codex-review the plans.",
   "layout": "native",
   "agent_count": 5,
-  "paid_sources_policy": "Apify free $5/month tier only — find a worthwhile signal source within that budget, spend nothing extra.",
-  "codex": "authenticated (Logged in using ChatGPT, codex-cli 0.139.0); files must be pasted into prompt, not referenced by path",
-  "current_pass": "complete (research+plan+test+cross-model-review done; awaiting user go on build decisions)",
+  "paid_sources_policy": "Apify free $5/month tier only \u2014 find a worthwhile signal source within that budget, spend nothing extra.",
+  "codex": "authenticated + RE-RUN 2026-06-13 (device-auth login, gpt-5.5 high-reasoning); files pasted inline into prompt (no VPS file access); review at /tmp/codex-review/review.md",
+  "current_pass": "FINALIZED \u2014 research+plan+test+BOTH cross-model reviews (Gemini \u00a75 + Codex \u00a75b) done; plan revised per Codex + user directives 2026-06-13; all \u00a74 decisions resolved into directives; READY TO EXECUTE (full build this session)",
   "greenfield": false,
-  "codex_review_status": "Codex auth REVOKED (401 refresh token) — ran cross-model review via Gemini instead; user can re-auth with `! codex login` for a Codex pass",
+  "codex_review_status": "DONE \u2014 Codex adversarial pass ran (verdict: revise, not rewrite); 3 blockers found+fixed (#32 doc contradiction, E2-VIX not flip-now, #39 cleanup race); all findings folded into final-plan \u00a75b + research files tagged [codex revision]; 2 code-level claims (#35 SPY/QQQ blacklisted, #6 eps_revisions casing) re-verified live before acting",
   "session_actions_done": [
     "#37 stale chunking test fixed + proven green (3 passed) + removed from .test-baseline + committed b326fe3",
     "#38 brave duplicate deleted (extensions/brave); orphan transcripts DEFERRED (needed by #39); services verified active",
-    "#6 stale-price item verified ALREADY FIXED in committed code — marked DONE in detail file"
+    "#6 stale-price item verified ALREADY FIXED in committed code \u2014 marked DONE in detail file"
   ],
-  "active_todo_items": [6, 17, 20, 26, 32, 34, 35, 37, 38, 39],
+  "active_todo_items": [
+    6,
+    17,
+    20,
+    26,
+    32,
+    34,
+    35,
+    37,
+    38,
+    39
+  ],
   "health_baseline": {
     "consensus_engine_service": "active",
     "openclaw_gateway_service": "active",
@@ -32,5 +49,6 @@
     "File org: own MD for #6, #39, #34; shared MD for bounded items; judgment for the rest.",
     "Ultracode ON for this session."
   ],
-  "status": "in-progress"
+  "status": "EXECUTED-COMPLETE-2026-06-15",
+  "pass_5_execution": "DONE 2026-06-15: #26 Wolf direction-guard+staleness, #35 chat tickers, #6 !all levers, #39 chat memory, #17 verified, #32 Step-1 (E1/I15+replay+FINRA loop) all LIVE+verified; #34 Apify SKIPPED (keys removed); #32 I4-full/I3/I10/E2-VIX/regime/consolidation deferred-by-design. Gate: 2219 pass, only baselined test_sunday_recap fails. Commits 1b73a2f..e4cdfb5."
 }
