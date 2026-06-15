@@ -48,20 +48,26 @@ async def test_real_etfs_and_homograph_stocks_anchor():
     assert all(not got[s]["soft"] for s in ("SPY", "QQQ", "GAP", "APP"))  # hard anchors
 
 
-async def test_wen_soft_anchors_with_stock_context():
-    got = await _syms("tell me about WEN stock")
+async def test_wen_soft_anchors_headline_case():
+    # the #35 headline: "tell me about WEN" (no finance keyword) -> Wendy's, soft/advisory
+    got = await _syms("tell me about WEN")
     assert "WEN" in got and got["WEN"]["soft"] and got["WEN"]["name"] == "Wendy's Co"
 
 
-async def test_wen_skipped_without_stock_context():
-    # "WEN moon?" — crypto "when", no stock hint -> do not anchor
-    got = await _syms("WEN lambo")
-    assert "WEN" not in got
+async def test_wen_soft_anchor_is_advisory_even_for_slang():
+    # "WEN moon?" still anchors but SOFTLY (advisory) — the phrasing handles the crypto case
+    got = await _syms("WEN moon")
+    assert "WEN" in got and got["WEN"]["soft"]
 
 
-async def test_dollar_prefix_forces_anchor():
-    got = await _syms("$WEN")           # explicit cashtag overrides the soft gate
-    assert "WEN" in got
+async def test_tech_acronym_not_anchored_as_topic_word(monkeypatch):
+    # "AI" is a topic word, not a ticker, in normal chat -> no anchor without $
+    _COMPANIES["AI"] = {"name": "C3.ai Inc", "exchange": "NYSE", "market_cap": 3e9}
+    got = await _syms("do you think AI will keep winning")
+    assert "AI" not in got
+    got2 = await _syms("what about $AI")     # explicit -> anchors
+    assert "AI" in got2
+    del _COMPANIES["AI"]
 
 
 async def test_grammar_word_not_anchored_without_dollar():

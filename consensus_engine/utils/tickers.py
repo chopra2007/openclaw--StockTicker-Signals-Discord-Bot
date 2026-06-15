@@ -157,6 +157,8 @@ def is_valid_ticker(ticker: str) -> bool:
 #    GAP=Gap, SPY, QQQ, NVDA, WEN→only soft, ...) anchors normally.
 # The Finnhub/cache non-empty-name gate is the final "is it a real company" check.
 
+# Common English / grammar words and bare tech acronyms that are almost never meant as
+# the ticker in chat — only anchor these when the user is explicit ($-prefixed).
 _CHAT_GRAMMAR_WORDS: set[str] = {
     "A", "I", "IT", "ON", "IN", "TO", "DO", "BE", "UP", "ALL", "OUT", "FOR", "ARE",
     "ANY", "THE", "AND", "BUT", "NOT", "NOW", "NEW", "OUR", "HIS", "HER", "HAS", "WAS",
@@ -165,20 +167,16 @@ _CHAT_GRAMMAR_WORDS: set[str] = {
     "PUT", "SAY", "OLD", "LOW", "HOT", "OWN", "WAY", "HAD", "HAT", "TOO", "FAR", "FEW",
     "BIG", "MAN", "RUN", "SET", "END", "EAT", "FIT", "FLY", "SIX", "TEN", "JOB", "PAY",
     "THIS", "THAT", "WHAT", "WHEN", "JUST", "SAVE", "HELP", "REAL", "OPEN", "LIVE",
+    "AI", "EV", "AR", "VR", "OS", "PC", "TV",   # bare tech acronyms — topic words, not tickers
 }
+# Tradeable but slang/ambiguous tokens (WEN="when" meme; FED/CPI/... macro acronyms).
+# Anchored SOFTLY (advisory: "if a stock, it's <Co>, else answer normally"), which is
+# safe in both "tell me about WEN" (-> Wendy's) and "WEN moon?" (crypto). The Finnhub
+# non-empty-name gate drops the acronyms that aren't real listed companies (FED, CPI...).
 _CHAT_SOFT_WORDS: set[str] = {
-    "WEN", "FED", "CPI", "PMI", "GDP", "ATH", "AI", "EV", "AR", "VR", "OS", "PC", "TV",
-    "WAR", "WEB", "WIN", "IPO", "CEO", "CFO", "ETF", "OIL", "GAS", "ICE", "KEY", "MAP",
+    "WEN", "FED", "CPI", "PMI", "GDP", "ATH", "IPO", "CEO", "CFO", "ETF",
+    "OIL", "GAS", "ICE", "KEY", "MAP", "WAR", "WEB", "WIN",
 }
-_CHAT_STOCK_HINTS = re.compile(
-    r"\$|\b(stock|stocks|share|shares|ticker|price|priced|buy|bought|sell|sold|"
-    r"calls?|puts?|option|options|earnings|dividend|market|trade|trading|long|short|"
-    r"bull|bear|bullish|bearish|chart|target|moon|rally|breakout|sentiment|analyst|"
-    r"valuation|pe|p/e|eps|float|volume)\b", re.I)
-
-
-def _looks_stock_focused(text: str) -> bool:
-    return bool(_CHAT_STOCK_HINTS.search(text or ""))
 
 
 async def resolve_chat_ticker_anchors(text: str, cap: int = 5) -> list[dict]:
@@ -189,7 +187,6 @@ async def resolve_chat_ticker_anchors(text: str, cap: int = 5) -> list[dict]:
 
     if not text:
         return []
-    stock_focused = _looks_stock_focused(text)
     out: list[dict] = []
     seen: set[str] = set()
     for dollar_match, plain_match in _TICKER_PATTERN.findall(text):
@@ -198,10 +195,10 @@ async def resolve_chat_ticker_anchors(text: str, cap: int = 5) -> list[dict]:
         if not sym or sym in seen or not is_valid_ticker_format(sym):
             continue
         if sym in _CHAT_GRAMMAR_WORDS and not explicit:
-            continue  # "is that ALL" must not become Allstate
+            continue  # "is that ALL" must not become Allstate; "AI" stays a topic word
         soft = sym in _CHAT_SOFT_WORDS
-        if soft and not (explicit or stock_focused):
-            continue  # "WEN moon?" without stock context — leave it
+        # soft tokens anchor ADVISORILY whenever they resolve (no stock-context gate —
+        # the advisory phrasing + the real-company gate below are the safety mechanism).
         # resolve to a real listed company (cache first, then one Finnhub call)
         meta = await db.get_ticker_metadata(sym, max_age_days=7)
         if meta is None:
