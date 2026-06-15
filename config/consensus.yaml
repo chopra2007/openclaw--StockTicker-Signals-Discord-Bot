@@ -925,7 +925,7 @@ wolf:
   direction_guard:                      # #1 trade-stance vs near-term-price-path extraction rule
     enabled: true                       # LIVE (user go 2026-06-08) — fixes IGV-style bull/bear misreads (topping-context override added 2026-06-13)
   staleness:                            # #26 nightly sweep — DEMOTE (not delete) theses Wolf has gone quiet on
-    enabled: false                      # build OFF; validated vs live DB (dry-run), then flipped on this session
+    enabled: true                       # LIVE 2026-06-15 — dry-run validated vs live DB (demotes 8 genuinely-stale theses, leaves fresh)
     cap_days:                           # stage-split age caps (days since last EXPLICIT same-direction reaffirmation)
       forming: 30
       diverging: 30
