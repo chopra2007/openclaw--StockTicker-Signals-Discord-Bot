@@ -102,23 +102,14 @@ async def test_stocktwits_negative_cache(monkeypatch):
     assert calls["n"] == 1  # negative-cached, not re-hit
 
 
-async def test_stocktwits_partial_success_renders(monkeypatch):
+def test_stocktwits_partial_success_renders(monkeypatch):
     # sentiment ok, watchers fail -> dict still built from what succeeded
-    async def fake_sent(ticker):
-        return 73.0, -2.7
-    async def fake_watch(ticker):
-        return None
-    monkeypatch.setattr(st, "_fetch_sentiment", fake_sent)
-    monkeypatch.setattr(st, "_fetch_watchers", fake_watch)
-    out = await st._fetch_raw("NVDA")
-    assert out == {"bull_pct": 73.0, "delta_5d": -2.7, "watchers": None}
+    monkeypatch.setattr(st, "_fetch_sentiment_sync", lambda t: (73.0, -2.7))
+    monkeypatch.setattr(st, "_fetch_watchers_sync", lambda t: None)
+    assert st._blocking_fetch("NVDA") == {"bull_pct": 73.0, "delta_5d": -2.7, "watchers": None}
 
 
-async def test_stocktwits_all_fail_returns_none(monkeypatch):
-    async def none_sent(t):
-        return None, None
-    async def none_watch(t):
-        return None
-    monkeypatch.setattr(st, "_fetch_sentiment", none_sent)
-    monkeypatch.setattr(st, "_fetch_watchers", none_watch)
-    assert await st._fetch_raw("NVDA") is None
+def test_stocktwits_all_fail_returns_none(monkeypatch):
+    monkeypatch.setattr(st, "_fetch_sentiment_sync", lambda t: (None, None))
+    monkeypatch.setattr(st, "_fetch_watchers_sync", lambda t: None)
+    assert st._blocking_fetch("NVDA") is None
