@@ -121,6 +121,7 @@ intervals:
   options_flow_cooldown: 3600      # max one alert per ticker per hour
   wolf_staleness_loop: 86400       # #26 nightly Wolf thesis staleness sweep
   finra_short_volume_loop: 21600   # #32 E1 — daily FINRA short-volume ingest (6h re-check; keeps E1 data fresh)
+  chat_memory_loop: 86400          # #39 nightly chat-memory rollup + gated cleanup
 
 # Scanner toggles
 scanners:
@@ -706,6 +707,14 @@ health_check:
       label: "YouTube"
       max_age_hours: 120               # YouTube can go quiet for days; only flag a true multi-day drop
       auth_hint: " — check the YouTube caption/transcript chain."
+
+# #39 chat memory — durable, redacted per-channel rollups of past Discord chats so the bot
+# can recall a month-old conversation after a restart wipe. Nightly summarize + gated cleanup.
+chat_memory:
+  enabled: true                    # LIVE 2026-06-15 — eval on real corpus: 47x compress, 0 leaks, correct month-old recall + hallucination-trap refusal
+  retention_days: 30               # delete a RAW archive only after a 'complete' rollup of those exact bytes exists
+  max_archives_per_run: 25         # budgeted backlog drain (229-archive backlog can't clear at one/night)
+  llm_tighten: false               # extractive rollup is proven sufficient; LLM-tighten optional (costs a call/archive)
 
 # =============================================================================
 # New Signal Features (A1/A2/A3/A4/A5/D1)

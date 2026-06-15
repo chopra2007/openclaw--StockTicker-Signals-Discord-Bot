@@ -578,6 +578,11 @@ _STEERING_TEMPLATE = (
     "   you say the quote isn't available.\n"
     " - wolf_news_alerts: Wolf alerts/confluence the bot posted. ticker_signals /\n"
     "   signal_events: ticker signal history. options_flow: options-flow records.\n"
+    " - chat_memory_rollups: redacted summaries of THIS channel's PAST conversations\n"
+    "   (your live chat resets when the bot restarts, but these persist). If the user asks\n"
+    "   about something discussed earlier / last week / 'remember when', recall it with:\n"
+    "   SELECT rollup FROM chat_memory_rollups WHERE channel_id='{channel_id}'\n"
+    "   ORDER BY span_end_utc DESC LIMIT 5;  — then answer from the matching summary.\n"
     " - consensus_engine/scanners/*.py are the data scanners (options.py = options flow\n"
     "   via yfinance); config/consensus.yaml holds thresholds and settings.\n"
     "Answer cleanly. You may name the real source of an answer when it helps (a data\n"
@@ -628,6 +633,7 @@ async def _handle_mention(content: str, channel_id: str, message_id: str) -> Non
     wrapped_message = _STEERING_TEMPLATE.format(
         tctx=build_time_context_oneliner(),
         ticker_anchor=ticker_anchor,
+        channel_id=channel_id,
         content=safe_content,
     )
 
@@ -962,6 +968,7 @@ async def run_all(stop_event: asyncio.Event):
     """
     from consensus_engine.alerts.wolf_digest import wolf_digest_loop
     from consensus_engine.analysis.wolf_staleness import staleness_sweep_loop
+    from consensus_engine.memory.chat_rollup import chat_memory_loop
     await asyncio.gather(
         run_live(stop_event),
         wolf_news_supervisor(stop_event),
@@ -969,6 +976,7 @@ async def run_all(stop_event: asyncio.Event):
         wolf_digest_loop(stop_event),
         wolf_beneficiary_loop(stop_event),
         staleness_sweep_loop(stop_event),
+        chat_memory_loop(stop_event),
     )
 
 

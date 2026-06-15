@@ -790,6 +790,30 @@ CREATE TABLE IF NOT EXISTS finra_short_volume (
 );
 CREATE INDEX IF NOT EXISTS idx_finra_sv_ticker ON finra_short_volume(ticker);
 CREATE INDEX IF NOT EXISTS idx_finra_sv_ticker_date ON finra_short_volume(ticker, trade_date);
+
+-- #39 chat-memory rollups: durable, never-overwritten per-channel summaries of the bot's
+-- Discord chat sessions, so it can recall a month-old conversation after a restart wipe.
+-- Identity is the EXACT raw archive's sha256 (NOT date overlap), so the cleanup cron can
+-- only ever delete a raw archive that has a 'complete' rollup of those exact bytes.
+CREATE TABLE IF NOT EXISTS chat_memory_rollups (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    channel_id      TEXT NOT NULL,                     -- Discord channel id (from session-id channel-<id>)
+    archive_path    TEXT NOT NULL,                     -- full path of the exact raw archive this covers
+    source_sha256   TEXT NOT NULL,                     -- hash of the raw archive bytes (cleanup identity)
+    session_label   TEXT,                              -- the openclaw session id for reference
+    status          TEXT NOT NULL DEFAULT 'pending',   -- pending | complete | failed
+    span_start_utc  REAL NOT NULL DEFAULT 0,
+    span_end_utc    REAL NOT NULL DEFAULT 0,
+    turn_count      INTEGER NOT NULL DEFAULT 0,
+    source_bytes    INTEGER NOT NULL DEFAULT 0,        -- raw archive size (cleanup gate)
+    rollup          TEXT NOT NULL DEFAULT '',          -- the compact, REDACTED summary (the recallable artifact)
+    model           TEXT,
+    started_at      REAL,
+    completed_at    REAL,
+    created_at      REAL NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_cmr_archive ON chat_memory_rollups(source_sha256);
+CREATE INDEX IF NOT EXISTS idx_cmr_channel ON chat_memory_rollups(channel_id, span_end_utc);
 """
 
 # Unique indices that reference columns added by _run_column_migrations.
@@ -3899,3 +3923,57 @@ async def prune_beneficiary_orphans() -> int:
     )
     await conn.commit()
     return cur.rowcount or 0
+
+
+# ---------------------------------------------------------------- #39 chat-memory rollups
+async def chat_rollup_exists(source_sha256: str) -> bool:
+    """True if this exact archive (by content hash) already has a rollup row."""
+    conn = await get_db()
+    cur = await conn.execute(
+        "SELECT 1 FROM chat_memory_rollups WHERE source_sha256 = ? LIMIT 1", (source_sha256,))
+    return await cur.fetchone() is not None
+
+
+async def upsert_chat_rollup(
+    *, channel_id: str, archive_path: str, source_sha256: str, session_label: str | None,
+    status: str, span_start_utc: float, span_end_utc: float, turn_count: int,
+    source_bytes: int, rollup: str, model: str | None, now: float,
+) -> None:
+    """Insert (or replace, keyed by source_sha256) one rollup row. Idempotent — re-running
+    the summarizer on the same archive bytes updates the existing row, never duplicates."""
+    conn = await get_db()
+    completed_at = now if status == "complete" else None
+    await conn.execute(
+        """INSERT INTO chat_memory_rollups
+             (channel_id, archive_path, source_sha256, session_label, status,
+              span_start_utc, span_end_utc, turn_count, source_bytes, rollup, model,
+              started_at, completed_at, created_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+           ON CONFLICT(source_sha256) DO UPDATE SET
+             status=excluded.status, span_start_utc=excluded.span_start_utc,
+             span_end_utc=excluded.span_end_utc, turn_count=excluded.turn_count,
+             source_bytes=excluded.source_bytes, rollup=excluded.rollup,
+             model=excluded.model, completed_at=excluded.completed_at""",
+        (channel_id, archive_path, source_sha256, session_label, status,
+         span_start_utc, span_end_utc, turn_count, source_bytes, rollup, model,
+         now, completed_at, now),
+    )
+    await conn.commit()
+
+
+async def get_chat_rollup_by_sha(source_sha256: str) -> dict | None:
+    """Return the rollup row for an exact archive hash, or None (cleanup-gate lookup)."""
+    conn = await get_db()
+    cur = await conn.execute(
+        "SELECT * FROM chat_memory_rollups WHERE source_sha256 = ?", (source_sha256,))
+    row = await cur.fetchone()
+    return dict(row) if row else None
+
+
+async def get_chat_rollups_for_channel(channel_id: str, limit: int = 8) -> list[dict]:
+    """Most-recent 'complete' rollups for a channel (recall), newest span first."""
+    conn = await get_db()
+    cur = await conn.execute(
+        "SELECT * FROM chat_memory_rollups WHERE channel_id = ? AND status = 'complete' "
+        "ORDER BY span_end_utc DESC LIMIT ?", (channel_id, limit))
+    return [dict(r) for r in await cur.fetchall()]

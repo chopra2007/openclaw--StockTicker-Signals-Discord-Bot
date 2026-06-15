@@ -57,6 +57,9 @@ DISCORD_CHANNEL_INFO.md
 *.png
 apify.png
 memory/
+# but DO track the chat-memory source module (the rule above is for workspace memory dirs)
+!consensus_engine/memory/
+!consensus_engine/memory/**
 .claude/*
 !.claude/commands/
 !.claude/discover/
