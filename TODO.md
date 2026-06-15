@@ -254,3 +254,9 @@ A diagnosis-only record of how Claude's own reasoning failed six times in one se
 **File:** `build-test-flip-on-same-session.md`
 
 Decide where to write down (and how to word, without bloat) the directive that every future feature must be built, proven accurate against the historical database, and switched ON before the session ends — never left off "for testing later," only if genuinely broken or data-blocked.
+
+## 42. Turn on the remaining signal switches (flip ledger)
+
+**File:** `signal-flip-status-2026-06-15.md`
+
+The one place that lists every bot switch touched in the 2026-06-15 build: what's ON now (Wolf direction guard, staleness sweep, EPS-revision + Stocktwits `!all` fields, chat memory, weighted Wolf votes, FINRA short-volume), and what's still OFF with the reason and exactly what's needed to flip each one — the four scoring switches that must go on one-at-a-time after I4-full soaks (I4-full, I3, I10, E2-VIX), the two that need an enabler built first (I7 needs consolidation un-shadowed, I14 needs the regime table seeded), ApeWisdom (data-blocked until ~June 24), and FRED (unbuildable without a key).
