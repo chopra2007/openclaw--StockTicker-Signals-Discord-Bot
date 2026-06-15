@@ -30,6 +30,10 @@ log = logging.getLogger(__name__)
 _SNAPSHOT_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="snapshot")
 
 _FETCH_TIMEOUT_S = 8.0
+# #6 Lever 1: eps_revisions is a SEPARATE lazy yfinance endpoint (its own quoteSummary
+# network call — it does NOT ride .info). Fetched under its own short timeout so a slow
+# analyst-revisions call nulls only that field and never delays/fails the main snapshot.
+_EPS_REV_TIMEOUT_S = 4.0
 
 _RATING_LABELS = {
     "strong_buy": "Strong Buy",
@@ -78,6 +82,32 @@ def _fetch_info(ticker: str) -> dict:
     except Exception as e:  # noqa: BLE001
         log.warning("snapshot: .info fetch failed for %s: %s", ticker, e)
         return {}
+
+
+def _fetch_eps_revisions(ticker: str) -> Optional[dict]:
+    """Blocking yfinance ``eps_revisions`` read for the CURRENT quarter ('0q').
+
+    Returns {"up": int, "down": int} (analysts who raised/cut their current-quarter EPS
+    estimate in the last 30 days) or None. yfinance column casing is inconsistent
+    (upLast7days / upLast30days / downLast30days / downLast7Days) — we read the two
+    *Last30days columns (both lowercase 'days') and guard for the row + columns being
+    present, since the schema drifts and sparse tickers return an empty table."""
+    try:
+        import yfinance as yf
+        rev = yf.Ticker(ticker).eps_revisions  # lazy network fetch (quoteSummary)
+        if rev is None or getattr(rev, "empty", True) or "0q" not in rev.index:
+            return None
+        cols = rev.columns
+        up = _num(rev.loc["0q", "upLast30days"]) if "upLast30days" in cols else None
+        down = _num(rev.loc["0q", "downLast30days"]) if "downLast30days" in cols else None
+        up_i = int(up) if up is not None else 0
+        down_i = int(down) if down is not None else 0
+        if up_i <= 0 and down_i <= 0:
+            return None
+        return {"up": up_i, "down": down_i}
+    except Exception as e:  # noqa: BLE001 — sparse/missing/renamed table is normal
+        log.debug("snapshot: eps_revisions fetch failed for %s: %s", ticker, e)
+        return None
 
 
 async def fetch_ticker_snapshot(ticker: str) -> Optional[dict]:
@@ -141,6 +171,19 @@ async def fetch_ticker_snapshot(ticker: str) -> Optional[dict]:
     # ≤ 0 (unprofitable → P/E meaningless).
     eps_cfy = _num(info.get("_eps_cfy"))
     snap["fwd_pe"] = (price / eps_cfy) if (price and eps_cfy and eps_cfy > 0) else None
+
+    # #6 Lever 1: EPS-estimate-revision trend (analyst conviction). Flag-gated; fetched
+    # in its OWN bounded call so a slow/hung eps_revisions endpoint nulls only this field.
+    if cfg.get("features.snapshot.eps_revisions", False):
+        try:
+            rev = await asyncio.wait_for(
+                loop.run_in_executor(_SNAPSHOT_EXECUTOR, _fetch_eps_revisions, ticker),
+                timeout=_EPS_REV_TIMEOUT_S,
+            )
+            if rev:
+                snap["eps_rev"] = rev
+        except (asyncio.TimeoutError, Exception) as e:  # noqa: BLE001
+            log.debug("snapshot: eps_revisions skipped for %s: %s", ticker, e)
 
     has_analyst = snap["target_mean"] is not None or snap["rating"] is not None
     has_fundamentals = snap["fwd_pe"] is not None or snap["short_pct"] is not None

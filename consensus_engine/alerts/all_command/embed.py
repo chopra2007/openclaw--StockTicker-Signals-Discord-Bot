@@ -459,6 +459,11 @@ def _format_snapshot(snap: Optional[dict]) -> str:
         side = "below" if hp < 0 else "above"
         segments.append(f"{abs(hp):.0f}% {side} 52wk high")
 
+    # #6 Lever 1 — EPS-estimate-revision trend (forward-looking analyst conviction).
+    rev = snap.get("eps_rev")
+    if isinstance(rev, dict) and (rev.get("up") or rev.get("down")):
+        segments.append(f"EPS rev {rev.get('up', 0)}↑ {rev.get('down', 0)}↓ (30d)")
+
     return "\n".join(segments) if segments else "—"
 
 
@@ -807,6 +812,19 @@ def build_embed(
                 _ex = _ex[:139].rstrip() + "…"
             _tw_val += f"\n“{_ex}”"
         fields.append({"name": "🐦 Today's Tweets", "value": _tw_val, "inline": False})
+
+    # #6 Lever 2 — Stocktwits retail crowd sentiment. Each part renders only if present
+    # (the two endpoints fail independently), so a missing watcher count still shows bull %.
+    _st = getattr(structured, "stocktwits", None)
+    if isinstance(_st, dict) and _st.get("bull_pct") is not None:
+        _st_val = f"{_st['bull_pct']:.0f}% bullish"
+        _d = _st.get("delta_5d")
+        if isinstance(_d, (int, float)):
+            _st_val += f" · {_d:+.0f} pts/5d"
+        _w = _st.get("watchers")
+        if isinstance(_w, (int, float)) and _w:
+            _st_val += f" · {_w / 1000:.0f}k watching"
+        fields.append({"name": "💬 Retail (Stocktwits)", "value": _st_val, "inline": False})
 
     yt_field = _build_youtube_links_field(yt_signals or [], ticker=ticker)
     if yt_field is not None:

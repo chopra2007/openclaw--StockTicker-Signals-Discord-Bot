@@ -736,6 +736,11 @@ features:
     window_days: 5                 # 5-trading-day % move
     outperform_threshold_pct: 1.0  # |delta| above this = out/under-performing
     max_peers: 5                   # cap peer fetches (latency bound)
+  snapshot:
+    enabled: true                  # 📊 Snapshot field (analyst target/rating/Fwd P/E/short) — LIVE
+    eps_revisions: false           # #6 Lever 1 — EPS-estimate-revision trend; OWN-timeout lazy yfinance fetch; flip after live latency check
+  stocktwits_sentiment:
+    enabled: false                 # #6 Lever 2 — retail crowd bull%/5d-trend/watchers (public Stocktwits API); flip after live !all verify
   regime_classifier:
     enabled: true
     regime_shifts:
