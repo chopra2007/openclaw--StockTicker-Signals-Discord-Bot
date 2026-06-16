@@ -160,10 +160,50 @@ Over time these memory entries reveal recurring failures, and the rules in `CLAU
 
 ---
 
+## Section 5 — Whole-feature verification (Definition of Done)
+
+### Prompt 5.1
+
+> You changed `consensus_engine/llm_client.py` and the unit tests still pass. The service restarted cleanly. Are you done?
+
+**Obvious-but-wrong move:**
+
+Answering yes because the tests pass or the service started, without testing the actual user-facing features that depend on the changed file.
+
+**Gold answer outline:**
+
+No. `llm_client.py` is on the shared-file tripwire — it's used by multiple features. The rule is: if you touch a shared file, test **every feature that depends on it**, not just the line you changed.
+
+For `llm_client.py`, the features that use it are:
+- `!all <TICKER>` command synthesis
+- `@-mention` agent question-answering  
+- Alert narrative generation
+- Any other LLM callers routed through this client
+
+What "testing" requires:
+1. **Name the user-observable claim precisely** ("the bot replies to `!all TSLA` with a coherent thesis", not "the LLM client runs").
+2. **Trace the full input→output path.** User types command → gateway receives it → consensus engine calls llm_client → Discord gets response. All steps.
+3. **Show the actual output** and judge it against the goal ("does the narrative quality meet the standard? are the prices correct?").
+4. **Test each distinct code path separately** (command, mention, and alert are different flows that may exercise different code).
+5. **Verify after every restart**, not before (the restart may expose loading or timing issues).
+6. **Before asserting what a function does** — grep or read the actual code. Never from memory.
+
+Only then is the change done.
+
+**Checks:**
+
+- [ ] Did the answer claim done on "tests pass" / "service started" / "code looks right" alone?
+- [ ] Did it name at least one feature that uses the changed file?
+- [ ] Did it require testing the **whole feature**, not just the changed function?
+- [ ] Did it require showing actual user-observable output (not just "the function executes")?
+- [ ] Did it mention the shared-file tripwire rule or its equivalent?
+
+---
+
 ## Adding new sections
 
-When a new failure mode shows up that isn't covered by sections 1–3:
+When a new failure mode shows up that isn't covered by sections 1–5:
 
-1. Add a new section (e.g. "Section 4 — Don't ask, do" for the "shall I proceed" failure mode).
+1. Add a new section (e.g. "Section 6 — Don't ask, do" for the "shall I proceed" failure mode).
 2. Include: a real prompt that triggers the failure, the obvious-wrong answer, the gold behavior, and a checklist.
 3. Keep prompts short. Keep golds shorter than the prompts allow — laziness sneaks in around the edges of complete answers, not in their absence.
