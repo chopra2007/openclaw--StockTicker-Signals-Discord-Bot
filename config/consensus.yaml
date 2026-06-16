@@ -265,7 +265,7 @@ llm:
   text_model: "openai/gpt-4.1-nano"
   text_fallback_models:
     - "mistralai/mistral-nemo"         # Mistral; cheapest clean ($0.03/M out)
-    - "nvidia/nemotron-nano-9b-v2"     # NVIDIA; cheap ($0.16/M), fine at full budget
+    - "google/gemini-2.5-flash-lite"   # Google; replaced dead nvidia/nemotron-nano-9b-v2 (404 No endpoints) 2026-06-15. $0.40/M out, non-reasoning, clean JSON @ tight budget (live-tested), 65k cap clears the 8k floor, decorrelated from OpenAI/Mistral above
     - "openrouter/free"                # credit-exhaustion net
   # !all-command synthesis chain (#12). Scoped to the !all narrator's three
   # LLM call sites only — keeps the briefing, signal scorer, research, and
