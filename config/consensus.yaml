@@ -801,14 +801,14 @@ features:
   options_graduated_scoring: { enabled: true, aligned_pts: 10, unusual_pts: 6, horizon: "1-2d" } # I6 — same-direction premium scale
   # Phase-2 signal features (signal-features-2026-06-09 Waves 3-4) — ALL default OFF.
   contradiction_index_live: { enabled: false, min_actors: 2, downgrade_threshold: 0.5 }       # I3 — live contradiction producer
-  strong_requires_hard_evidence: { enabled: false, min_technical_filters: 2 }                 # I10 — STRONG needs a hard-evidence component
+  strong_requires_hard_evidence: { enabled: true, min_technical_filters: 2 }                  # I10 LIVE 2026-06-16 — STRONG needs a hard-evidence component. Backtest: 0/56 historical STRONGs demote (all carry news/sec/options); 14d shadow all would_demote=False. Downgrade-only.
   manufactured_agreement_gate: { enabled: false }                                             # E6 — coordinated-burst corroboration gate
   apewisdom_zscore: { enabled: false, min_baseline_days: 14, z_threshold: 2.0 }               # I13 — mention z-surge, confirm-only
   single_score: { enabled: false }                                                            # I4-full — single-score reconciliation
-  consensus_logodds: { enabled: false, count_floor_frac: 0.5 }                                # I7 — sigmoid(log-odds) consensus scale
+  consensus_logodds: { enabled: false, count_floor_frac: 0.5 }                                # I7 — sigmoid(log-odds) consensus scale. DEFERRED 2026-06-16: no-op until source_performance has a production writer AND signal_events forms >=2 clusters/ticker (all 1963 consolidated_events are single-cluster shadow_only). Needs code, not data — not a flip.
   regime_widening_graduated: { enabled: false, max_shift: 15, cutoff_ceiling: 90 }            # I14-widening — z-scaled panic shift
   cross_asset: { enabled: false, fred_leg_enabled: true, fred_reference_swing: 0.40, veto_floor: 0.85, confirm_ceiling: 1.15 } # E2 — VIX-term + FRED HY-credit confirm/veto multiplier. master enabled:false (E2 stays dark until the one-at-a-time flip); fred leg BUILT+key-tested 2026-06-15, activates with the master
-  finra_short_volume: { enabled: true }                                                       # E1 LIVE 2026-06-15 — daily ingest loop built; replay bounds delta (<=177 cand, +5 cap, 0 current changes); fails safe on stale data
+  finra_short_volume: { enabled: true }                                                       # E1 LIVE 2026-06-15 — daily ingest loop built; replay bounds delta (<=177 cand, +5 cap, 1 current change: CRWV 76+5=81->STRONG); fails safe on stale data
   # Cross-cutting helper (consumers above are all flag-OFF; caps are shadow-derived placeholders).
   recency_window: { enabled: true, max_age_min: { sec: 120, tweet: 120, options: 90, youtube: 1440, apewisdom: 1440, finra_short_volume: 1440, vix: 1440, fred: 1440 } }
 

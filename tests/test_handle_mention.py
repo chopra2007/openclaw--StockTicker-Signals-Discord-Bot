@@ -9,7 +9,9 @@ failure branches: empty stdout, asyncio TimeoutError, generic Exception.
 2. all-fail — every attempt returns empty stdout; reply contains
    "Agent unavailable after 2 attempts" + last error.
 3. timeout — every attempt raises TimeoutError; reply contains the
-   "subprocess timed out (>270s)" last-error substring.
+   "subprocess timed out (>150s)" last-error substring.
+4. aborted-guard — a self-killed openclaw run (meta.aborted / stub text /
+   empty) is never posted as the answer.
 """
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
@@ -83,7 +85,7 @@ async def test_handle_mention_all_attempts_fail_returns_unavailable(monkeypatch)
 
 async def test_handle_mention_timeout_branch_reports_timeout(monkeypatch):
     """All attempts raise asyncio.TimeoutError inside wait_for. Reply
-    contains the "subprocess timed out (>270s)" branch's last_err."""
+    contains the "subprocess timed out (>150s)" branch's last_err."""
     factory = AsyncMock(return_value=_make_proc(b"x", b""))
     monkeypatch.setattr(main_mod.asyncio, "create_subprocess_exec", factory)
     monkeypatch.setattr(main_mod.asyncio, "sleep", AsyncMock())
@@ -102,7 +104,36 @@ async def test_handle_mention_timeout_branch_reports_timeout(monkeypatch):
     assert reply_mock.await_count == 1
     reply_text = reply_mock.call_args.args[2]
     assert "Agent unavailable after 2 attempts" in reply_text
-    assert "subprocess timed out (>270s)" in reply_text
+    assert "subprocess timed out (>150s)" in reply_text
+
+
+@pytest.mark.parametrize("stdout_bytes", [
+    b'{"payloads": [{"text": "partial work"}], "meta": {"aborted": true}}',  # meta.aborted
+    b'{"payloads": [{"text": "Request timed out before a response was generated."}]}',  # stub text
+], ids=["meta_aborted", "stub_text"])
+async def test_handle_mention_aborted_run_not_posted(monkeypatch, stdout_bytes):
+    """TODO #45: a self-killed openclaw run (meta.aborted true, or a known
+    timeout stub) must NEVER be sent to Discord as the answer — it is treated
+    as a retryable failure and ends in the 'Agent unavailable' message."""
+    factory = AsyncMock(
+        side_effect=[_make_proc(stdout_bytes, b"timeout") for _ in range(2)]
+    )
+    monkeypatch.setattr(main_mod.asyncio, "create_subprocess_exec", factory)
+    monkeypatch.setattr(main_mod.asyncio, "sleep", AsyncMock())
+
+    reply_mock = AsyncMock()
+    from consensus_engine.alerts import discord as discord_mod
+    monkeypatch.setattr(discord_mod, "send_command_reply", reply_mock)
+
+    await main_mod._handle_mention("heavy question", "chan_a", "msg_a")
+
+    assert factory.await_count == 2, "aborted run should retry, not post"
+    assert reply_mock.await_count == 1
+    reply_text = reply_mock.call_args.args[2]
+    assert "Agent unavailable after 2 attempts" in reply_text
+    # the stub / partial text must NOT have been posted as the answer
+    assert "partial work" not in reply_text
+    assert "Request timed out before a response" not in reply_text
 
 
 async def test_handle_mention_empty_content_short_circuits(monkeypatch):

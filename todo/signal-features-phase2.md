@@ -108,3 +108,9 @@ Consequences / actions:
 - **Hold:** I3/I10/E2-VIX are bounded-safe but **inert** until the **dual-score divergence** is fixed (precision score caps ~56, never hits STRONG; alert uses a separate ≥75 path). Gemini review: do NOT flip them while inert (they'd all activate at once when I4-full lands → alert-storm). Order: E1+I15 → I4-full → then I3/I10/E2-VIX one-at-a-time.
 - **Wait:** I13 (ApeWisdom) flip-eligible ~2026-06-24 (~11 more baseline days). **Unbuildable:** E2-FRED (no key). **Keep:** I9 floor at 0.
 - 3 gaps block Phase-2 value: regime_daily empty, consolidation stuck shadow-only, dual-score divergence. Full plan: .claude/discover/todo-sweep-2026-06-13/research/signals-phase2.md + final-plan.md §3/§5.
+
+### Session notes — 2026-06-16 (run todo-active-sweep-2026-06-16, Codex-reviewed)
+- **Worked on:** flipped **I10** (`strong_requires_hard_evidence`) LIVE after a 0/56-demotion backtest + 14d shadow agreement (downgrade-only); seeded `regime_daily` (247 rows) so **I14-display** is live (`Regime: normal`, shift 0, no scoring change) + installed a self-healing daily timer.
+- **Key correction (Codex + critics):** the "I4-full keystone / I3·I10·E2 inert until single_score" theory is FALSE — I4-full only rewrites a displayed number (0 tier moves) and the others gate on their own flags. So I10 was flippable on its own.
+- **Decisions:** I4-full, I3, E2, I7, I14-widening, I13 all stay OFF with named exceptions (see `signal-flip-status-2026-06-15.md` "Activation log — 2026-06-16"). I3 needs the dead-`min_actors` wired before flip; I14-widening is a config no-op (graduated==static at ceiling 90); I7 needs code enablers; I13 reminder scheduled for ~2026-06-24.
+- **Next:** (per one-at-a-time policy) I3 after a `min_actors` decision; I13 after June 24 baseline; E2 needs forward stressed data + a corrected harness + symmetric-config rethink.

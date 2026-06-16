@@ -231,7 +231,7 @@ Six issues diagnosed 2026-06-11: gateway crashes on reboot, bot @-mentions retur
 
 Update the video-parser unit test that broke when the #17 chunked-reads feature landed (it's parked in the test baseline; the live feature works fine) so the regression gate isn't blind there.
 
-## 38. Finish clearing openclaw doctor warnings
+## 38. Finish clearing openclaw doctor warnings — DONE 2026-06-16
 
 **File:** `openclaw-doctor-warnings.md`
 
@@ -249,7 +249,7 @@ Keep each channel's live chat context from growing big enough to slow the bot or
 
 A diagnosis-only record of how Claude's own reasoning failed six times in one session — the core application-gap problem, the specific failures, the bottlenecks behind them, and why they matter (no fixes or suggestions, by request).
 
-## 41. Make "build → test on the DB → switch on this session" the standing rule
+## 41. Make "build → test on the DB → switch on this session" the standing rule — DONE 2026-06-16
 
 **File:** `build-test-flip-on-same-session.md`
 
@@ -273,7 +273,7 @@ Swap out the dead NVIDIA backup model the health check flagged with a live one, 
 
 Live-test current cheap OpenRouter models against the three jobs (tweet-scoring/cleanup, big-writing, question-answering) to confirm we're using the best fit; swapped the text backup to a 4×-cheaper equal (qwen3-235b), and found the question-answering model times out on heavy questions — full results logged for future model decisions.
 
-## 45. Fix the agent tool-loop context blow-up (heavy questions can time out)
+## 45. Fix the agent tool-loop context blow-up (heavy questions can time out) — DONE 2026-06-16
 
 **File:** `agent-tool-loop-context-blowup.md`
 

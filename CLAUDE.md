@@ -90,6 +90,10 @@ A task is not done if a user-facing critical path is broken — regardless of wh
 2. Attempt a fix, surface the specific failure, ask whether to keep digging.
 3. Get explicit user permission to defer.
 
+### Built switches default to ON
+
+A feature built and tested on stored data is turned ON in the same session, not left OFF "to be safe." Leaving it OFF is a deferral — name the exception. Legitimate exceptions: it is genuinely broken; it needs an API key we don't have; it needs forward-collected data that can't be filled in for the past (e.g. ApeWisdom's 14-day history); or it depends on an unreliable outside source. One more: if it changes live user-facing alerts, a stored-data backtest is necessary but may not be enough — say what live check (shadow log, staged ramp) is still owed before real alerts change.
+
 ### What to verify
 
 1. **Test the whole feature you changed**, not just the line you touched. Changed catalyst code inside `!all`? Test all of `!all`.

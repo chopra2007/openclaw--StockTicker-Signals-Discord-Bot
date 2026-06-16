@@ -30,6 +30,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("backtest")
 
+ALERT_LABELS = {"STRONG_ALERT", "WATCHLIST"}
+
 
 # ---------------------------------------------------------------------------
 # yfinance price fetching (blocking — called via executor)
@@ -81,7 +83,7 @@ def _accuracy_stats(rows: list[dict], horizon: str) -> dict:
     # normalise to "outcome_price_1h" or "outcome_price_24h"
     price_col = "outcome_price_1h" if horizon == "1h" else "outcome_price_24h"
 
-    alert_rows = [r for r in rows if r["decision"] == "ALERT"]
+    alert_rows = [r for r in rows if r["decision"] in ALERT_LABELS]
     labeled = [
         r for r in alert_rows
         if r["outcome_price_at_alert"] and r[price_col]
@@ -142,7 +144,7 @@ def _contradiction_vs_accuracy(rows: list[dict], horizon: str, n_bins: int = 4) 
     price_col = "outcome_price_1h" if horizon == "1h" else "outcome_price_24h"
     alert_rows = [
         r for r in rows
-        if r["decision"] == "ALERT"
+        if r["decision"] in ALERT_LABELS
         and r["outcome_price_at_alert"] and r[price_col]
         and r["outcome_price_at_alert"] > 0 and r[price_col] > 0
     ]
@@ -180,6 +182,7 @@ def _build_markdown(summary: dict) -> str:
         f"**Lookback:** {summary['lookback_days']} days  ",
         f"**Snapshots loaded:** {summary['total_snapshots']}  ",
         f"**ALERT decisions:** {summary['total_alerts']}  ",
+        f"**Note:** Win = price went up (long-only / direction-blind).  ",
         f"",
         f"---",
         f"",
@@ -291,7 +294,7 @@ async def run_backtest(lookback_days: int, db_path: str, dry_run: bool) -> dict:
     executor.shutdown(wait=False)
 
     # Compute stats
-    total_alerts = sum(1 for r in rows if r["decision"] == "ALERT")
+    total_alerts = sum(1 for r in rows if r["decision"] in ALERT_LABELS)
     accuracy_stats = [_accuracy_stats(rows, "1h"), _accuracy_stats(rows, "24h")]
     calibration = {
         "1h": _calibration_data(rows, "1h"),

@@ -36,7 +36,7 @@ async def _seed_snapshots(rows: list[dict]) -> None:
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 r.get("ticker", "NVDA"),
-                r.get("decision", "ALERT"),
+                r.get("decision", "STRONG_ALERT"),
                 r.get("final_score", 70.0),
                 r.get("contradiction_index", 0.1),
                 r.get("sources_json", "[]"),
@@ -58,11 +58,11 @@ def test_accuracy_stats_correct_win_rate():
     from scripts.backtest import _accuracy_stats
 
     rows = [
-        {"decision": "ALERT", "final_score": 75, "contradiction_index": 0.1,
+        {"decision": "STRONG_ALERT", "final_score": 75, "contradiction_index": 0.1,
          "outcome_price_at_alert": 100.0, "outcome_price_1h": 105.0, "outcome_price_24h": 108.0},
-        {"decision": "ALERT", "final_score": 60, "contradiction_index": 0.2,
+        {"decision": "STRONG_ALERT", "final_score": 60, "contradiction_index": 0.2,
          "outcome_price_at_alert": 100.0, "outcome_price_1h": 98.0, "outcome_price_24h": 97.0},
-        {"decision": "ALERT", "final_score": 80, "contradiction_index": 0.05,
+        {"decision": "STRONG_ALERT", "final_score": 80, "contradiction_index": 0.05,
          "outcome_price_at_alert": 50.0, "outcome_price_1h": 52.0, "outcome_price_24h": 53.0},
         {"decision": "IGNORE", "final_score": 30, "contradiction_index": 0.5,
          "outcome_price_at_alert": 100.0, "outcome_price_1h": 103.0, "outcome_price_24h": None},
@@ -79,7 +79,7 @@ def test_accuracy_stats_no_data():
     """_accuracy_stats returns None accuracy when no labeled rows."""
     from scripts.backtest import _accuracy_stats
 
-    rows = [{"decision": "ALERT", "final_score": 70, "contradiction_index": 0.1,
+    rows = [{"decision": "STRONG_ALERT", "final_score": 70, "contradiction_index": 0.1,
              "outcome_price_at_alert": None, "outcome_price_1h": None, "outcome_price_24h": None}]
     stats = _accuracy_stats(rows, "1h")
     assert stats["n"] == 0
@@ -94,13 +94,13 @@ def test_calibration_data_buckets():
     # 10 rows with score 80 — all winners (1h)
     for _ in range(10):
         rows.append({
-            "decision": "ALERT", "final_score": 80, "contradiction_index": 0.1,
+            "decision": "STRONG_ALERT", "final_score": 80, "contradiction_index": 0.1,
             "outcome_price_at_alert": 100.0, "outcome_price_1h": 105.0, "outcome_price_24h": 106.0,
         })
     # 10 rows with score 20 — all losers (1h)
     for _ in range(10):
         rows.append({
-            "decision": "ALERT", "final_score": 20, "contradiction_index": 0.2,
+            "decision": "STRONG_ALERT", "final_score": 20, "contradiction_index": 0.2,
             "outcome_price_at_alert": 100.0, "outcome_price_1h": 95.0, "outcome_price_24h": 94.0,
         })
 
@@ -124,13 +124,13 @@ def test_contradiction_vs_accuracy_curve():
     # Low contradiction rows — winners
     for _ in range(10):
         rows.append({
-            "decision": "ALERT", "final_score": 75, "contradiction_index": 0.05,
+            "decision": "STRONG_ALERT", "final_score": 75, "contradiction_index": 0.05,
             "outcome_price_at_alert": 100.0, "outcome_price_1h": 103.0, "outcome_price_24h": 105.0,
         })
     # High contradiction rows — losers
     for _ in range(10):
         rows.append({
-            "decision": "ALERT", "final_score": 75, "contradiction_index": 0.9,
+            "decision": "STRONG_ALERT", "final_score": 75, "contradiction_index": 0.9,
             "outcome_price_at_alert": 100.0, "outcome_price_1h": 97.0, "outcome_price_24h": 96.0,
         })
 
@@ -188,7 +188,7 @@ async def test_run_backtest_synthetic(test_db, tmp_path, monkeypatch):
     rows_to_seed = []
     for i in range(7):
         rows_to_seed.append({
-            "ticker": "NVDA", "decision": "ALERT", "final_score": 75.0,
+            "ticker": "NVDA", "decision": "STRONG_ALERT", "final_score": 75.0,
             "contradiction_index": 0.1, "sources_json": "[]",
             "recorded_at": now - 3600 * (i + 1),
             "outcome_price_at_alert": 100.0,
@@ -197,7 +197,7 @@ async def test_run_backtest_synthetic(test_db, tmp_path, monkeypatch):
         })
     for i in range(3):
         rows_to_seed.append({
-            "ticker": "TSLA", "decision": "ALERT", "final_score": 60.0,
+            "ticker": "TSLA", "decision": "STRONG_ALERT", "final_score": 60.0,
             "contradiction_index": 0.4, "sources_json": "[]",
             "recorded_at": now - 3600 * (i + 8),
             "outcome_price_at_alert": 200.0,

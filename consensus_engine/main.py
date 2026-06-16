@@ -544,6 +544,31 @@ def _extract_agent_reply(stdout_text: str) -> str:
     return _strip_secrets_preamble(stdout_text)
 
 
+def _agent_run_aborted(stdout_text: str, reply: str) -> bool:
+    """TODO #45: detect a self-killed / timed-out `openclaw agent` run so its
+    stub payload is never posted to Discord as the answer.
+
+    Primary signal is the structured ``meta.aborted`` field (set true when the
+    run hits its own ``--timeout``); known timeout stub substrings are a
+    fallback for older openclaw builds. An empty/no-content reply is handled by
+    the caller's existing retry path, not here.
+    """
+    try:
+        doc = json.loads(stdout_text.strip())
+        meta = doc.get("meta")
+        if isinstance(meta, dict) and meta.get("aborted") is True:
+            return True
+    except (ValueError, AttributeError):
+        pass
+    stub_markers = (
+        "Request timed out before a response",
+        "LLM request failed.",
+    )
+    if reply and any(m in reply for m in stub_markers):
+        return True
+    return False
+
+
 _STEERING_TEMPLATE = (
     "[Context: It is currently {tctx}.\n"
     "You are the assistant for this Discord stock-signals bot. You run ON the host that\n"
@@ -558,7 +583,9 @@ _STEERING_TEMPLATE = (
     "this system. Look it up the FIRST time: never reply that you 'would need to check' or\n"
     "'I'd need to look that up' — actually check, then answer.\n"
     "Use your tools for any concrete fact about this host or for fresh external data (live\n"
-    "prices, market news, web search). Skip tools only for greetings or the current time/date.\n"
+    "prices, market news, web search), but stop searching once you have enough to answer —\n"
+    "a few targeted lookups, then answer; don't re-search the same thing or chase tangents.\n"
+    "Skip tools only for greetings or the current time/date.\n"
     "Never invent file contents, log lines, DB rows, or system state — read them with tools or\n"
     "say you don't know. Do NOT state a file path, config key, API/library name, database table,\n"
     "or schema unless you actually opened it with a tool in THIS reply — no guessing, no\n"
@@ -651,14 +678,23 @@ async def _handle_mention(content: str, channel_id: str, message_id: str) -> Non
                 "--agent", "main",
                 "--session-id", f"channel-{channel_id}",
                 "--message", wrapped_message,
-                "--timeout", "240",
+                "--timeout", "120",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=270)
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=150)
             stdout_text = stdout.decode(errors="replace")
             reply = _extract_agent_reply(stdout_text)
-            if reply and reply != "(agent returned no content)":
+            if _agent_run_aborted(stdout_text, reply):
+                # TODO #45: openclaw self-killed at its own --timeout and returned
+                # a stub payload within the wall — never post it as the answer;
+                # treat as a retryable failure so the next attempt (or the
+                # "unavailable" message) runs instead.
+                last_err = (stderr.decode().strip()[:200]
+                            or "agent run aborted before answering")
+                reason = "aborted"
+                log.warning("OpenClaw agent run aborted (attempt=%d/2): %s", attempt, last_err)
+            elif reply and reply != "(agent returned no content)":
                 await send_command_reply(channel_id, message_id, reply)
                 log.info("Agent reply sent (%d chars, attempt=%d) to channel=%s",
                          len(reply), attempt, channel_id)
@@ -673,13 +709,21 @@ async def _handle_mention(content: str, channel_id: str, message_id: str) -> Non
                     "stdout_bytes": len(stdout_text),
                 })
                 return
-            last_err = stderr.decode().strip()[:200]
-            reason = "empty"
-            log.warning("OpenClaw agent empty stdout (attempt=%d/2): %s", attempt, last_err)
+            else:
+                last_err = stderr.decode().strip()[:200]
+                reason = "empty"
+                log.warning("OpenClaw agent empty stdout (attempt=%d/2): %s", attempt, last_err)
         except asyncio.TimeoutError:
-            last_err = "subprocess timed out (>270s)"
+            last_err = "subprocess timed out (>150s)"
             reason = "timeout"
             log.warning("OpenClaw agent timed out (attempt=%d/2) for channel=%s", attempt, channel_id)
+            # TODO #45: reap the orphaned child — wait_for cancels communicate()
+            # but the openclaw subprocess keeps running until killed.
+            try:
+                proc.kill()
+                await proc.wait()
+            except Exception:
+                pass
         except Exception as exc:
             last_err = f"{type(exc).__name__}: {exc}"
             reason = "crash"

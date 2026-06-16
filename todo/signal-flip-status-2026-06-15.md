@@ -62,3 +62,23 @@ un-debuggable alert storm.
 - `!all` levers: `all-command-quality.md` (#6).
 - Chat memory: `bot_chat_memory_redesign.md` (#39).
 - Full run record: `.claude/discover/todo-sweep-2026-06-13/`.
+
+---
+
+## Activation log — 2026-06-16 (run `todo-active-sweep-2026-06-16`, Codex-reviewed)
+
+**FLIPPED LIVE this session (one scoring switch, per policy):**
+- **I10 `strong_requires_hard_evidence` → ON** (`consensus.yaml:804`). Downgrade-only (STRONG→WATCHLIST only when a STRONG lacks ALL hard evidence; never creates an alert). Gate passed: backtest `scripts/backtest_i10_hard_evidence.py` = **0/56** historical STRONGs demote (all carry news/sec/options>0); 14-day `[I10 shadow]` = 8 evals, all `would_demote=False`. Regression gate clean (2243 pass, baseline-only failure). Live-verified: real `!all NVDA` renders clean, engine healthy with flag ON.
+
+**ENABLED LIVE (pure-data, no scoring change):**
+- **I14-display via `regime_daily` seed** — `scripts/backfill_regime_daily.py` seeded 247 rows (all `normal`), z-correctness gate 10/10 vs pandas. `lookup_regime()` → `normal, shift=0, cold_start=False`. Display now renders `Regime: normal (z=0.1)` (was "warming up"); **zero cutoff change** (shift 0 verified pre-seed). DB backup `consensus.db.pre-regime-bak`. Daily self-healing timer `regime-daily.timer` installed (22:30 UTC).
+
+**STILL OFF — named exceptions (build→test→flip rule):**
+- **I4-full `single_score`** — display-cosmetic, 0 tier moves, un-backtestable on stored data (precision total unstored), NOT a keystone (verified: I3/I10/E2 don't depend on it). Low value; leave OFF.
+- **I3 `contradiction_index_live`** — inert now (30d `[I3 shadow]` = 0). Flipping arms a **dead-`min_actors` trap** (a single opposing leg ≥0.5 solo-downgrades a STRONG). EXCEPTION: needs a code decision (wire `min_actors` into `evaluate_contradiction`, or sign-off) before flipping.
+- **E2 `cross_asset`** — confirm side not backtestable (gating field unstored), veto side needs forward stressed data (legit wait), FRED dilutes VIX, `regime_widening` is a config no-op. OFF.
+- **I7 `consensus_logodds`** — needs CODE enablers (no `source_performance` writer; `signal_events` never forms a 2nd cluster), ~0 lift. OFF (defer comment added at `:808`).
+- **I13 `apewisdom_zscore`** — data-blocked until ~2026-06-24 (14-day baseline). Reminder scheduled (task `1781606545_cbbbb2`, no auto-flip).
+- **I14-widening `regime_widening_graduated`** — **config no-op**: graduated shift clamps to `cutoff_ceiling-base_high = 90-80 = 10` = static panic shift. Inert by config math, not data. OFF.
+
+**Also this session:** #45 agent tool-loop fixed (`main.py` abort-guard on `meta.aborted` + kill orphaned subprocess + `--timeout` 240→120 / outer wait 270→150 + softened steering; live-verified 26s convergence, no stub); `scripts/backtest.py` ALERT-filter fixed (total_alerts 0→1856); #38 orphan transcripts cleared 143→11 (rest = #39); #20 confluence header marked DONE+LIVE; #41 "Built switches default to ON" rule added to CLAUDE.md.
