@@ -807,10 +807,10 @@ features:
   single_score: { enabled: false }                                                            # I4-full — single-score reconciliation
   consensus_logodds: { enabled: false, count_floor_frac: 0.5 }                                # I7 — sigmoid(log-odds) consensus scale
   regime_widening_graduated: { enabled: false, max_shift: 15, cutoff_ceiling: 90 }            # I14-widening — z-scaled panic shift
-  cross_asset: { enabled: false, fred_leg_enabled: false, veto_floor: 0.85, confirm_ceiling: 1.15 } # E2 — VIX-term confirm/veto multiplier
+  cross_asset: { enabled: false, fred_leg_enabled: true, fred_reference_swing: 0.40, veto_floor: 0.85, confirm_ceiling: 1.15 } # E2 — VIX-term + FRED HY-credit confirm/veto multiplier. master enabled:false (E2 stays dark until the one-at-a-time flip); fred leg BUILT+key-tested 2026-06-15, activates with the master
   finra_short_volume: { enabled: true }                                                       # E1 LIVE 2026-06-15 — daily ingest loop built; replay bounds delta (<=177 cand, +5 cap, 0 current changes); fails safe on stale data
   # Cross-cutting helper (consumers above are all flag-OFF; caps are shadow-derived placeholders).
-  recency_window: { enabled: true, max_age_min: { sec: 120, tweet: 120, options: 90, youtube: 1440, apewisdom: 1440, finra_short_volume: 1440, vix: 1440 } }
+  recency_window: { enabled: true, max_age_min: { sec: 120, tweet: 120, options: 90, youtube: 1440, apewisdom: 1440, finra_short_volume: 1440, vix: 1440, fred: 1440 } }
 
 # #18 unusual options FLOW — free yfinance ~15-min option chains.
 # "Balanced" thresholds (user-chosen 2026-05-29): a contract must trade >=N x

@@ -28,26 +28,45 @@ On any fetch error: return 1.0 and log once.
 Flag: features.cross_asset.enabled (False by default, force-off in conftest).
 Flag OFF -> get_multiplier() returns 1.0 unconditionally (byte-identical path).
 
-FRED/HY-credit leg: NOT BUILT in this version.
-  The plan reserves `features.cross_asset.fred_leg_enabled` as a future key.
-  There is NO code behind it here. Reason: no FRED API key exists in this
-  environment (as of signal-features-2026-06-09 build), and the plan explicitly
-  forbids shipping dead data paths before access is verified. The key is a
-  config placeholder only. When a FRED key is obtained, build a second leg
-  following the same TTL-cache + recency_window + failure=1.0 pattern.
+FRED/HY-credit leg (built 2026-06-15, gated by features.cross_asset.fred_leg_enabled):
+  A second regime leg from the ICE BofA US High-Yield Option-Adjusted Spread
+  (FRED series BAMLH0A0HYM2 — the standard credit-stress gauge, daily, % pts).
+  credit ratio = latest_spread / trailing-60d baseline (excl. latest).
+    ratio > 1.0  (spreads WIDER than recent normal, credit stress) -> veto side
+    ratio < 1.0  (spreads TIGHTER, calm)                           -> confirm side
+  Same TTL-cache + recency_window + failure=no-op pattern as the VIX leg. Reads
+  FRED_API_KEY from the environment (set in .env.service). Missing key, fetch
+  error, insufficient history, or a stale latest observation -> leg is a no-op
+  (None), and get_multiplier falls back to the VIX leg alone (never dilutes a
+  live leg with a neutral placeholder).
+
+Combining the two legs (when fred_leg_enabled): average the available legs, then
+  clamp to [veto_floor, confirm_ceiling]. An unavailable leg (None) is dropped,
+  not averaged in as 1.0 — so missing credit data can never weaken a real VIX
+  veto, and vice-versa.
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
-from datetime import datetime, timezone
+import os
+import urllib.parse
+import urllib.request
+from datetime import date, datetime, timezone
 from typing import Optional
 
 from consensus_engine import config as cfg
 from consensus_engine.analysis.recency_window import is_fresh
 
 log = logging.getLogger("consensus_engine.analysis.cross_asset")
+
+# --- FRED credit-spread leg constants ---
+_FRED_SERIES = "BAMLH0A0HYM2"   # ICE BofA US High-Yield Index Option-Adjusted Spread (daily, % pts)
+_FRED_BASELINE_DAYS = 60        # trailing obs (excl. latest) defining the "recent normal" baseline
+_FRED_MIN_DAYS = 20             # need at least this many obs to form a baseline, else no-op
+_FRED_MAX_OBS_AGE_DAYS = 8      # latest FRED obs older than this -> no-op (tolerates the ~1-2 business-day publish lag)
 
 # ---------------------------------------------------------------------------
 # Module-level cache (shared across one process lifetime; TTL prevents staleness)
@@ -59,6 +78,13 @@ _cache: dict = {
     "ratio": None,          # float | None
     "multiplier": None,     # float | None
     "fetched_at": None,     # datetime (UTC) | None
+}
+
+# Separate cache for the FRED credit-spread leg (same shape/TTL as the VIX cache).
+_credit_cache: dict = {
+    "ratio": None,
+    "multiplier": None,
+    "fetched_at": None,
 }
 
 # Suppress repeated fetch-error logs within a TTL window
@@ -108,12 +134,70 @@ def _fetch_vix_ratio() -> Optional[float]:
         return None
 
 
+def _obs_recent_enough(date_str: str) -> bool:
+    """True if a FRED observation date (YYYY-MM-DD) is within the publish-lag tolerance.
+
+    FRED daily macro series lag ~1-2 business days, so on a Monday the latest obs is
+    typically the prior Friday — that is fine. A gap larger than _FRED_MAX_OBS_AGE_DAYS
+    means the series stopped updating; treat the leg as unavailable.
+    """
+    try:
+        y, m, d = (int(x) for x in date_str.split("-"))
+        return (date.today() - date(y, m, d)).days <= _FRED_MAX_OBS_AGE_DAYS
+    except Exception:
+        return False
+
+
+def _fetch_credit_ratio() -> Optional[float]:
+    """Blocking FRED fetch for HY credit-spread OAS. Returns current/baseline ratio or None.
+
+    ratio > 1.0 -> spreads WIDER than the trailing baseline (credit stress) -> veto side
+    ratio < 1.0 -> spreads TIGHTER than baseline (calm)                     -> confirm side
+    Mirrors _fetch_vix_ratio: runs in an executor, returns None on any problem
+    (missing key, HTTP error, too little history, stale series). Caller defaults
+    a None to a no-op leg.
+    """
+    key = os.environ.get("FRED_API_KEY")
+    if not key:
+        log.debug("[E2 fred] FRED_API_KEY not set — credit leg unavailable")
+        return None
+    try:
+        q = urllib.parse.urlencode({
+            "series_id": _FRED_SERIES,
+            "api_key": key,
+            "file_type": "json",
+            "sort_order": "desc",
+            "limit": str(_FRED_BASELINE_DAYS + 30),
+        })
+        url = f"https://api.stlouisfed.org/fred/series/observations?{q}"
+        with urllib.request.urlopen(url, timeout=15) as resp:
+            data = json.load(resp)
+        obs = [o for o in data.get("observations", []) if o.get("value") not in (".", "", None)]
+        if len(obs) < _FRED_MIN_DAYS + 1:
+            return None
+        if not _obs_recent_enough(obs[0].get("date", "")):
+            log.debug("[E2 fred] latest FRED obs %s too old — credit leg no-op", obs[0].get("date"))
+            return None
+        vals = [float(o["value"]) for o in obs]
+        current = vals[0]
+        window = vals[1:1 + _FRED_BASELINE_DAYS]
+        if len(window) < _FRED_MIN_DAYS:
+            return None
+        baseline = sum(window) / len(window)
+        if baseline <= 0:
+            return None
+        return current / baseline
+    except Exception as exc:
+        log.debug("[E2 fred] _fetch_credit_ratio error: %s", exc)
+        return None
+
+
 # ---------------------------------------------------------------------------
 # Multiplier math
 # ---------------------------------------------------------------------------
 
-def _ratio_to_multiplier(ratio: float) -> float:
-    """Map VIX/VIX3M ratio to a bounded confidence multiplier.
+def _ratio_to_multiplier(ratio: float, reference_swing: float = 0.15) -> float:
+    """Map a stress ratio to a bounded confidence multiplier.
 
     Design (from plan §2 Wave 4 E2):
     - ratio > 1.0 (backwardation) -> multiplier < 1.0, floor = veto_floor (0.85)
@@ -141,7 +225,9 @@ def _ratio_to_multiplier(ratio: float) -> float:
     # confirm_ceiling - 1.0 is the "upside" travel; veto side mirrors it.
     upside = confirm_ceiling - 1.0    # e.g. 0.15
     downside = 1.0 - veto_floor       # e.g. 0.15
-    reference_swing = 0.15            # ratio swing that produces the full bound
+    # reference_swing = ratio swing that produces the full bound. Caller passes the
+    # source-appropriate value: 0.15 for VIX (rarely moves >15%), wider for credit
+    # (HY spreads routinely swing further off their own baseline).
 
     # ratio < 1 (calm/contango) -> 1-ratio > 0 -> raw > 1 -> toward ceiling
     # ratio > 1 (stressed/backwardation) -> 1-ratio < 0 -> raw < 1 -> toward floor
@@ -162,20 +248,11 @@ def _ratio_to_multiplier(ratio: float) -> float:
 # Public async API
 # ---------------------------------------------------------------------------
 
-async def get_multiplier(executor=None) -> float:
-    """Return the current cross-asset confidence multiplier.
-
-    Returns 1.0 (no-op) when:
-    - features.cross_asset.enabled is False
-    - fetch fails
-    - cached value is stale per recency_window.is_fresh("vix", ...)
-    """
-    if not cfg.get("features.cross_asset.enabled", False):
-        return 1.0
-
+async def _get_vix_multiplier(executor=None) -> Optional[float]:
+    """VIX-term-structure leg. Returns the multiplier, or None when unavailable
+    (fetch error / no data / stale cache). The caller decides how a None is handled."""
     now = datetime.now(timezone.utc)
 
-    # Check cache validity
     cached_ratio = _cache["ratio"]
     cached_mul = _cache["multiplier"]
     fetched_at = _cache["fetched_at"]
@@ -188,41 +265,104 @@ async def get_multiplier(executor=None) -> float:
     )
 
     if not cache_hit:
-        # Fetch fresh ratio in executor (blocking yfinance call)
         loop = asyncio.get_running_loop()
         try:
-            if executor is not None:
-                ratio = await loop.run_in_executor(executor, _fetch_vix_ratio)
-            else:
-                ratio = await loop.run_in_executor(None, _fetch_vix_ratio)
+            ratio = await loop.run_in_executor(executor, _fetch_vix_ratio)
         except Exception as exc:
-            _log_fetch_error_once("[E2] VIX fetch error — returning multiplier 1.0 (no-op): %s", exc)
-            return 1.0
-
+            _log_fetch_error_once("[E2] VIX fetch error — leg no-op: %s", exc)
+            return None
         if ratio is None:
-            _log_fetch_error_once("[E2] VIX data unavailable — returning multiplier 1.0 (no-op)")
-            return 1.0
-
+            _log_fetch_error_once("[E2] VIX data unavailable — leg no-op")
+            return None
         multiplier = _ratio_to_multiplier(ratio)
         _cache["ratio"] = ratio
         _cache["multiplier"] = multiplier
         _cache["fetched_at"] = now
-
         log.info("[E2 shadow] vix_term ratio=%.3f multiplier=%.3f", ratio, multiplier)
         return multiplier
 
-    # Cache hit — check recency_window freshness (cap 1440 min for VIX source)
     if not is_fresh("vix", fetched_at):
-        log.debug("[E2] cached VIX value is stale per recency_window — returning 1.0")
-        return 1.0
+        log.debug("[E2] cached VIX value is stale per recency_window — leg no-op")
+        return None
 
-    # Cache is fresh — emit shadow log on each use
     log.info("[E2 shadow] vix_term ratio=%.3f multiplier=%.3f (cached)", cached_ratio, cached_mul)
     return cached_mul
 
 
+async def _get_credit_multiplier(executor=None) -> Optional[float]:
+    """FRED HY credit-spread leg. Returns the multiplier, or None when unavailable
+    (missing key / fetch error / too little history / stale series / stale cache)."""
+    swing = float(cfg.get("features.cross_asset.fred_reference_swing", 0.40))
+    now = datetime.now(timezone.utc)
+
+    cached_ratio = _credit_cache["ratio"]
+    cached_mul = _credit_cache["multiplier"]
+    fetched_at = _credit_cache["fetched_at"]
+
+    cache_hit = (
+        cached_ratio is not None
+        and cached_mul is not None
+        and fetched_at is not None
+        and (now - fetched_at).total_seconds() / 60.0 <= _TTL_MINUTES
+    )
+
+    if not cache_hit:
+        loop = asyncio.get_running_loop()
+        try:
+            ratio = await loop.run_in_executor(executor, _fetch_credit_ratio)
+        except Exception as exc:
+            _log_fetch_error_once("[E2 fred] credit fetch error — leg no-op: %s", exc)
+            return None
+        if ratio is None:
+            return None
+        multiplier = _ratio_to_multiplier(ratio, reference_swing=swing)
+        _credit_cache["ratio"] = ratio
+        _credit_cache["multiplier"] = multiplier
+        _credit_cache["fetched_at"] = now
+        log.info("[E2 shadow] credit_oas ratio=%.3f multiplier=%.3f", ratio, multiplier)
+        return multiplier
+
+    if not is_fresh("fred", fetched_at):
+        log.debug("[E2 fred] cached credit value is stale per recency_window — leg no-op")
+        return None
+
+    log.info("[E2 shadow] credit_oas ratio=%.3f multiplier=%.3f (cached)", cached_ratio, cached_mul)
+    return cached_mul
+
+
+async def get_multiplier(executor=None) -> float:
+    """Return the current cross-asset confidence multiplier (clamped to the bounds).
+
+    Returns 1.0 (no-op) when features.cross_asset.enabled is False, or when every
+    enabled leg is unavailable. With fred_leg_enabled, the VIX and credit legs are
+    averaged and re-clamped; an unavailable leg is dropped (never averaged in as a
+    neutral 1.0), so missing data on one leg can't weaken a live signal on the other.
+    """
+    if not cfg.get("features.cross_asset.enabled", False):
+        return 1.0
+
+    vix_mult = await _get_vix_multiplier(executor)
+
+    if not cfg.get("features.cross_asset.fred_leg_enabled", False):
+        return vix_mult if vix_mult is not None else 1.0
+
+    credit_mult = await _get_credit_multiplier(executor)
+    legs = [m for m in (vix_mult, credit_mult) if m is not None]
+    if not legs:
+        return 1.0
+    if len(legs) == 1:
+        return legs[0]
+
+    veto_floor = float(cfg.get("features.cross_asset.veto_floor", 0.85))
+    confirm_ceiling = float(cfg.get("features.cross_asset.confirm_ceiling", 1.15))
+    combined = max(veto_floor, min(confirm_ceiling, sum(legs) / len(legs)))
+    log.info("[E2 shadow] combined vix=%.3f credit=%.3f -> %.3f", vix_mult, credit_mult, combined)
+    return combined
+
+
 def clear_cache() -> None:
-    """Clear the module-level cache. Used in tests to reset state between cases."""
-    _cache["ratio"] = None
-    _cache["multiplier"] = None
-    _cache["fetched_at"] = None
+    """Clear both module-level caches. Used in tests to reset state between cases."""
+    for c in (_cache, _credit_cache):
+        c["ratio"] = None
+        c["multiplier"] = None
+        c["fetched_at"] = None

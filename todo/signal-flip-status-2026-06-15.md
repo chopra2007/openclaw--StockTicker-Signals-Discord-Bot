@@ -18,18 +18,20 @@ build (executed 2026-06-15). Plain-English first, exact config key in `code font
 | **Stocktwits field** `features.stocktwits_sentiment.enabled` | `!all` shows "💬 Retail 74% bullish · +1/5d · 650k watching" | Live `!all NVDA` rendered it (fetched via `requests` — Cloudflare blocks the bot's normal fetcher) |
 | **Chat memory** `chat_memory.enabled` | Saves redacted summaries of past chats so the bot can recall month-old conversations after a restart | Live: bot correctly recalled a ~May-20 conversation; 0 secret leaks; hallucination-trap refused |
 | **Weighted Wolf votes** `wolf.confluence.weighted_votes_enabled` (I15) | Down-weights stale/duplicate agreeing sources in the Wolf confluence score | Dry-run on the 17 live theses: 0 tier changes, 0 new @-ping alerts |
-| **FINRA short-volume term** `features.finra_short_volume.enabled` (E1) | Adds up to +5 confluence when short-volume spikes on a bullish call | Replay over 1873 past alerts: ≤177 candidates, +5 cap, **0 alerts change today**; fails safe on stale data. ⚠️ see caveat below |
+| **FINRA short-volume term** `features.finra_short_volume.enabled` (E1) | Adds up to +5 confluence when short-volume spikes on a bullish call | Replay over 1873 past alerts: ≤177 candidates, +5 cap, fails safe on stale data. **LIVE+firing 2026-06-15** — fresh daily data, 2 tickers (CRWV, SMH) qualify today |
+| **FRED HY-credit leg** `features.cross_asset.fred_leg_enabled` (E2-FRED) | Second regime leg: down/up-weights bullish alerts when high-yield credit spreads widen (stress) / tighten (calm) | BUILT 2026-06-15 (key provided). 24 unit tests pass; live end-to-end proven (VIX 1.15 + credit 1.023 → 1.086). Leg flag ON but **stays dark** — its master `features.cross_asset.enabled` is still false (see E2 row below) |
 
-**Also applied (config on disk, takes effect on the bot's NEXT restart):** OpenClaw transcript
+**Also applied — NOW LIVE (gateway restarted 2026-06-15 18:58):** OpenClaw transcript
 hygiene — `truncateAfterCompaction: true`, `maxActiveTranscriptBytes: "5mb"` (stop the live
 chat file ballooning), and repointed `memorySearch.extraPaths` to the live memory folder
-(was a stale May-5 copy).
+(was a stale May-5 copy). All under `agents.defaults` in `openclaw.json`. Gateway came back
+healthy on a fresh boot; a live @-mention healthcheck got a reply, so the restart was clean.
 
-### ⚠️ Caveat on E1 (FINRA)
-E1 is ON but **inert until a trading day delivers fresh data**. The short-volume data only
-refreshes on weekdays (FINRA doesn't publish weekends), and the term ignores data older than
-24h. The build added the missing daily fetch loop (`finra_short_volume_loop`), so it will start
-firing on the next trading day. No action needed — just know it does nothing over the weekend.
+### ✅ E1 (FINRA) caveat RESOLVED — now firing on fresh data
+E1 was inert over the weekend (FINRA doesn't publish Sat/Sun, term ignores data >24h old).
+As of **Mon 2026-06-15**: the daily fetch loop pulled today's file (5,558 rows, latest
+published ~3h ago), and **2 tickers (CRWV, SMH) already qualify for the +5** short-squeeze
+boost. The weekend caveat no longer applies — E1 is doing real work.
 
 ---
 
@@ -45,8 +47,8 @@ un-debuggable alert storm.
 | **I4-full** `features.single_score.enabled` | Unifies the bot's two different score numbers into one | Changes the decision score for EVERY signal (highest blast radius); it's the gate the next three depend on | Build/run an I4-full replay (old vs new score vs alert tier), review the delta, then flip it ALONE and watch a few days |
 | **I3 contradiction** `features.contradiction_index_live.enabled` | Down-grades a signal when sources flatly disagree | Must wait until AFTER I4-full (else it activates together with I10 + E2-VIX = alert storm) | After I4-full soaks: flip alone, watch |
 | **I10 hard-evidence** `features.strong_requires_hard_evidence.enabled` | A "STRONG" alert must have a hard technical component | Only meaningful after I4-full unifies the scores; same one-at-a-time rule | After I4-full soaks: flip alone, watch |
-| **E2 VIX multiplier** `features.cross_asset.enabled` | ±15% score nudge based on the volatility term structure | Turns on a LIVE multiplier + its log at once (no shadow-first), proven on only 1 data point, and ±15% can push a score across the alert line | Flip LAST, after I4-full + an offline replay across calm AND stressed VIX regimes (better: add a true shadow-only mode first) |
-| **E2 FRED leg** `features.cross_asset.fred_leg_enabled` | Credit-spread confirm/veto from Fed data | **Unbuildable** — no FRED API key and zero code behind it | Register a free FRED key, then build the leg |
+| **E2 cross-asset master** `features.cross_asset.enabled` | The ±15% confirm/veto multiplier — now combines BOTH legs: VIX term-structure + FRED HY-credit (averaged, then clamped) | Turns on a LIVE multiplier + its log at once (no shadow-first), and ±15% can push a score across the alert line. Now activates two legs at once | Flip LAST, after I4-full + an offline replay across calm AND stressed regimes covering BOTH legs (better: add a true shadow-only mode first) |
+| **E2 FRED leg** `features.cross_asset.fred_leg_enabled` | The credit-spread half of E2 — high-yield spreads widening = stress = veto; tightening = calm = confirm | **BUILT 2026-06-15** (key now in `.env.service`; was the only blocker). Leg flag is ON, but inert because the E2 master above is off | Nothing to build. It comes alive automatically when the E2 master is flipped — so include the credit leg in that one replay |
 | **I7 consensus log-odds** `features.consensus_logodds.enabled` | Scales score by how many independent sources cluster | A pure no-op today — the consolidation engine runs in shadow-only mode and every event is single-cluster | Build the enabler: take consolidation out of shadow-only so multi-cluster events occur, then flip |
 | **I14 regime widening** `features.regime_widening_graduated.enabled` | Widens alert thresholds during market panic | A pure no-op today — the `regime_daily` table is empty, so the classifier never reaches "panic" | Build the enabler: seed `regime_daily` with 252-day volatility history, then flip |
 | **I13 ApeWisdom z-surge** `features.apewisdom_zscore.enabled` | Flags unusual Reddit/Stocktwits mention spikes | **Data-blocked** — needs a 14-day baseline per ticker; only ~5 days exist (started ~June 10), and there's no historical backfill | Wait until ~**2026-06-24** for enough days to accumulate, re-check the spike distribution, then flip |
