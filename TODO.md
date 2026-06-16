@@ -272,3 +272,9 @@ Swap out the dead NVIDIA backup model the health check flagged with a live one, 
 **File:** `model-bakeoff-2026-06-15.md`
 
 Live-test current cheap OpenRouter models against the three jobs (tweet-scoring/cleanup, big-writing, question-answering) to confirm we're using the best fit; swapped the text backup to a 4×-cheaper equal (qwen3-235b), and found the question-answering model times out on heavy questions — full results logged for future model decisions.
+
+## 45. Fix the agent tool-loop context blow-up (heavy questions can time out)
+
+**File:** `agent-tool-loop-context-blowup.md`
+
+When the bot answers a heavy question that needs lots of tool calls, some AI models keep piling up search results until they run out of time and the user gets "Agent unavailable" — fix the underlying loop (likely un-trimmed tool results / no round cap) so a future model swap can't silently bring the timeouts back.
