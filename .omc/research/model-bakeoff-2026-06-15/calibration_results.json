@@ -1,0 +1,328 @@
+{
+  "summary": {
+    "openai/gpt-4.1-nano": {
+      "scores": {
+        "A": 92.0,
+        "B": 78.0,
+        "C": 42.0,
+        "D": 45.0,
+        "E": 25.0
+      },
+      "order_ok": false,
+      "inband": 4,
+      "spread": 67.0,
+      "consistency": 0.0,
+      "clean": 6,
+      "cost": 0.000344,
+      "avg_lat": 1.2
+    },
+    "mistralai/mistral-nemo": {
+      "scores": {
+        "A": 85.0,
+        "B": 75.0,
+        "C": 55.0,
+        "D": 45.0,
+        "E": 35.0
+      },
+      "order_ok": true,
+      "inband": 4,
+      "spread": 50.0,
+      "consistency": 0.0,
+      "clean": 6,
+      "cost": 6.3e-05,
+      "avg_lat": 1.63
+    },
+    "qwen/qwen3-235b-a22b-2507": {
+      "scores": {
+        "A": 95.0,
+        "B": 76.0,
+        "C": 52.0,
+        "D": 35.0,
+        "E": 25.0
+      },
+      "order_ok": true,
+      "inband": 5,
+      "spread": 70.0,
+      "consistency": 0.0,
+      "clean": 6,
+      "cost": 0.00026,
+      "avg_lat": 3.14
+    },
+    "inclusionai/ling-2.6-flash": {
+      "scores": {
+        "A": 88.0,
+        "B": 72.0,
+        "C": 45.0,
+        "D": 30.0,
+        "E": 20.0
+      },
+      "order_ok": true,
+      "inband": 4,
+      "spread": 68.0,
+      "consistency": 0.0,
+      "clean": 6,
+      "cost": 4e-05,
+      "avg_lat": 1.27
+    },
+    "google/gemma-3-27b-it": {
+      "scores": {
+        "A": 85.0,
+        "B": 72.0,
+        "C": 55.0,
+        "D": 35.0,
+        "E": 25.0
+      },
+      "order_ok": true,
+      "inband": 5,
+      "spread": 60.0,
+      "consistency": 0.0,
+      "clean": 6,
+      "cost": 0.000269,
+      "avg_lat": 2.19
+    }
+  },
+  "raw": {
+    "openai/gpt-4.1-nano": {
+      "A": {
+        "conf": 92.0,
+        "lat": 0.96,
+        "cost": 6.5e-05,
+        "clean": true,
+        "head": "{\"confidence\": 92, \"reasoning\": \"Strong multi-source signals including analyst enthusiasm, a significant insider buy, a "
+      },
+      "B": {
+        "conf": 78.0,
+        "lat": 0.75,
+        "cost": 5.6e-05,
+        "clean": true,
+        "head": "{\"confidence\": 78, \"reasoning\": \"Multiple analyst mentions, a solid upgrade catalyst with a PT above current price, and "
+      },
+      "C": {
+        "conf": 42.0,
+        "lat": 0.8,
+        "cost": 5e-05,
+        "clean": true,
+        "head": "{\"confidence\": 42, \"reasoning\": \"Mixed signals with weak technicals and an unconfirmed rumor catalyst suggest limited br"
+      },
+      "D": {
+        "conf": 45.0,
+        "lat": 1.03,
+        "cost": 5.1e-05,
+        "clean": true,
+        "head": "{\"confidence\": 45, \"reasoning\": \"Multiple analyst mentions suggest hype, but technicals show no clear breakout signals a"
+      },
+      "E": {
+        "conf": 25.0,
+        "lat": 2.71,
+        "cost": 5.7e-05,
+        "clean": true,
+        "head": "{\"confidence\": 25, \"reasoning\": \"The technicals show a sharp, unsustainable spike with overbought RSI and lack of confir"
+      },
+      "A2": {
+        "conf": 92.0,
+        "lat": 0.94,
+        "cost": 6.5e-05,
+        "clean": true,
+        "head": "{\"confidence\": 92, \"reasoning\": \"Strong multi-source analyst hype, a significant insider buy, a highly positive earnings"
+      }
+    },
+    "mistralai/mistral-nemo": {
+      "A": {
+        "conf": 85.0,
+        "lat": 1.93,
+        "cost": 1.2e-05,
+        "clean": true,
+        "head": "{\"confidence\": 85, \"reasoning\": \"Strong multi-source agreement with 6 analysts mentioning AMD within a short timeframe, "
+      },
+      "B": {
+        "conf": 75.0,
+        "lat": 1.14,
+        "cost": 1e-05,
+        "clean": true,
+        "head": "{\"confidence\": 75, \"reasoning\": \"Multiple analysts on Twitter and a recent analyst upgrade catalyst drive interest in SO"
+      },
+      "C": {
+        "conf": 55.0,
+        "lat": 2.07,
+        "cost": 1e-05,
+        "clean": true,
+        "head": "{\"confidence\": 55, \"reasoning\": \"While there's some analyst chatter and a rumor about a potential government contract, t"
+      },
+      "D": {
+        "conf": 45.0,
+        "lat": 1.48,
+        "cost": 9e-06,
+        "clean": true,
+        "head": "{\"confidence\": 45, \"reasoning\": \"While there's some hype on Twitter and above-average volume, the RSI is high, there's n"
+      },
+      "E": {
+        "conf": 35.0,
+        "lat": 1.69,
+        "cost": 1e-05,
+        "clean": true,
+        "head": "{\"confidence\": 35, \"reasoning\": \"Single mention from a paid pump alert account on Twitter, high RSI, no clear trend base"
+      },
+      "A2": {
+        "conf": 85.0,
+        "lat": 1.5,
+        "cost": 1.2e-05,
+        "clean": true,
+        "head": "{\"confidence\": 85, \"reasoning\": \"Strong multi-source agreement with positive signals from Twitter/X, SEC/EDGAR filings, "
+      }
+    },
+    "qwen/qwen3-235b-a22b-2507": {
+      "A": {
+        "conf": 95.0,
+        "lat": 5.35,
+        "cost": 4.9e-05,
+        "clean": true,
+        "head": "{\"confidence\": 95, \"reasoning\": \"Strong multi-source agreement with a high-confidence earnings beat catalyst, insider bu"
+      },
+      "B": {
+        "conf": 76.0,
+        "lat": 2.93,
+        "cost": 4.3e-05,
+        "clean": true,
+        "head": "{\"confidence\": 76, \"reasoning\": \"Strong multi-source agreement from analysts and social signals, supported by a credible"
+      },
+      "C": {
+        "conf": 52.0,
+        "lat": 2.63,
+        "cost": 4e-05,
+        "clean": true,
+        "head": "{\"confidence\": 52, \"reasoning\": \"Mixed signals with minor social mentions and unconfirmed rumor catalyst; technically we"
+      },
+      "D": {
+        "conf": 35.0,
+        "lat": 2.24,
+        "cost": 3.9e-05,
+        "clean": true,
+        "head": "{\"confidence\": 35, \"reasoning\": \"Despite elevated social sentiment and high volume, technical indicators show overbought"
+      },
+      "E": {
+        "conf": 25.0,
+        "lat": 2.6,
+        "cost": 4e-05,
+        "clean": true,
+        "head": "{\"confidence\": 25, \"reasoning\": \"Minimal social signals with only one mention from a low-credibility paid promoter, comb"
+      },
+      "A2": {
+        "conf": 95.0,
+        "lat": 3.09,
+        "cost": 4.9e-05,
+        "clean": true,
+        "head": "{\"confidence\": 95, \"reasoning\": \"Strong multi-source alignment with insider buying, earnings beat, raised guidance, and "
+      }
+    },
+    "inclusionai/ling-2.6-flash": {
+      "A": {
+        "conf": 88.0,
+        "lat": 1.28,
+        "cost": 7e-06,
+        "clean": true,
+        "head": "{\"confidence\": 88, \"reasoning\": \"Strong multi-source agreement with a clear earnings beat catalyst (8.2% EPS beat, raise"
+      },
+      "B": {
+        "conf": 72.0,
+        "lat": 1.24,
+        "cost": 7e-06,
+        "clean": true,
+        "head": "{\"confidence\": 72, \"reasoning\": \"Good multi-source agreement with an analyst upgrade (Morgan Stanley, PT $14) and positi"
+      },
+      "C": {
+        "conf": 45.0,
+        "lat": 1.22,
+        "cost": 6e-06,
+        "clean": true,
+        "head": "{\"confidence\": 45, \"reasoning\": \"Signals are weak and conflicting: social mentions are minimal and non-committal, the ca"
+      },
+      "D": {
+        "conf": 30.0,
+        "lat": 1.22,
+        "cost": 6e-06,
+        "clean": true,
+        "head": "{\"confidence\": 30, \"reasoning\": \"Social media shows high retail enthusiasm but technical indicators are mostly bearish: "
+      },
+      "E": {
+        "conf": 20.0,
+        "lat": 1.33,
+        "cost": 6e-06,
+        "clean": true,
+        "head": "{\"confidence\": 20, \"reasoning\": \"Signals are overwhelmingly bearish and noisy: technicals show a vertical spike with RSI"
+      },
+      "A2": {
+        "conf": 88.0,
+        "lat": 1.34,
+        "cost": 8e-06,
+        "clean": true,
+        "head": "{\"confidence\": 88, \"reasoning\": \"Strong multi-source agreement with a clear earnings beat catalyst (8.2% EPS beat, guida"
+      }
+    },
+    "google/gemma-3-27b-it": {
+      "A": {
+        "conf": 85.0,
+        "lat": 1.96,
+        "cost": 5.1e-05,
+        "clean": true,
+        "head": "{\"confidence\": 85, \"reasoning\": \"AMD shows strong agreement across multiple sources \u2013 positive analyst mentions followin"
+      },
+      "B": {
+        "conf": 72.0,
+        "lat": 1.37,
+        "cost": 4.6e-05,
+        "clean": true,
+        "head": "{\"confidence\": 72, \"reasoning\": \"SOFI shows a good combination of signals: a recent analyst upgrade from Morgan Stanley,"
+      },
+      "C": {
+        "conf": 55.0,
+        "lat": 1.29,
+        "cost": 4.3e-05,
+        "clean": true,
+        "head": "{\"confidence\": 55, \"reasoning\": \"While the price is above its 50-day MA and RSI is healthy, the lack of strong volume co"
+      },
+      "D": {
+        "conf": 35.0,
+        "lat": 3.21,
+        "cost": 3.9e-05,
+        "clean": true,
+        "head": "{\"confidence\": 35, \"reasoning\": \"While social media sentiment is highly bullish with multiple mentions from known meme s"
+      },
+      "E": {
+        "conf": 25.0,
+        "lat": 4.14,
+        "cost": 3.9e-05,
+        "clean": true,
+        "head": "{\"confidence\": 25, \"reasoning\": \"The signal is overwhelmingly hype-driven with a single, dubious source and failing tech"
+      },
+      "A2": {
+        "conf": 85.0,
+        "lat": 1.19,
+        "cost": 5.1e-05,
+        "clean": true,
+        "head": "{\"confidence\": 85, \"reasoning\": \"Strong agreement across social signals, a confirmed earnings beat with raised guidance,"
+      }
+    }
+  },
+  "bands": {
+    "A": [
+      80,
+      100
+    ],
+    "B": [
+      70,
+      79
+    ],
+    "C": [
+      50,
+      69
+    ],
+    "D": [
+      30,
+      49
+    ],
+    "E": [
+      0,
+      29
+    ]
+  }
+}

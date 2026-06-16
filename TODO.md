@@ -266,3 +266,9 @@ The one place that lists every bot switch touched in the 2026-06-15 build: what'
 **File:** `dead-text-model-swap-2026-06-15.md`
 
 Swap out the dead NVIDIA backup model the health check flagged with a live one, so the text model chain has a working second fallback.
+
+## 44. Bake off the best AI models for the three chains (text / primary / agent) — DONE 2026-06-15
+
+**File:** `model-bakeoff-2026-06-15.md`
+
+Live-test current cheap OpenRouter models against the three jobs (tweet-scoring/cleanup, big-writing, question-answering) to confirm we're using the best fit; swapped the text backup to a 4×-cheaper equal (qwen3-235b), and found the question-answering model times out on heavy questions — full results logged for future model decisions.

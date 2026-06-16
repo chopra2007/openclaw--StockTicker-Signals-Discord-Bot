@@ -22,8 +22,10 @@ History:
     .omc/research/model-bakeoff-2026-06-04/.
   - 2026-06-15: nvidia/nemotron-nano-9b-v2 retired by OpenRouter (daily health
     check ❌ HTTP 404 "No endpoints found"). Replaced text fallback 2 with
-    google/gemini-2.5-flash-lite (live, non-reasoning, 65k cap clears the 8k
-    floor, decorrelated from OpenAI/Mistral). Live-tested + full chain check green.
+    google/gemini-2.5-flash-lite, then with qwen/qwen3-235b-a22b-2507 after the
+    2026-06-15 bake-off (.omc/research/model-bakeoff-2026-06-15/): qwen matched
+    gemini on clean tight-512 + 3/3 reliability at $0.10/M out (4x cheaper),
+    non-reasoning, 16k cap clears the 8k floor, +Alibaba provider diversity.
 """
 from __future__ import annotations
 
@@ -47,7 +49,7 @@ EXPECTED_FALLBACKS = [
 EXPECTED_TEXT_PRIMARY = "openai/gpt-4.1-nano"
 EXPECTED_TEXT_FALLBACKS = [
     "mistralai/mistral-nemo",
-    "google/gemini-2.5-flash-lite",   # 2026-06-15: replaced nvidia/nemotron-nano-9b-v2 (OpenRouter 404 "No endpoints")
+    "qwen/qwen3-235b-a22b-2507",   # 2026-06-15 bake-off: replaced google/gemini-2.5-flash-lite — same clean tight-512 + 3/3 reliability at $0.10/M out (4x cheaper), non-reasoning, +Alibaba provider diversity
     "openrouter/free",
 ]
 
