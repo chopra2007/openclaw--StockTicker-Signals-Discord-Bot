@@ -260,3 +260,9 @@ Decide where to write down (and how to word, without bloat) the directive that e
 **File:** `signal-flip-status-2026-06-15.md`
 
 The one place that lists every bot switch touched in the 2026-06-15 build: what's ON now (Wolf direction guard, staleness sweep, EPS-revision + Stocktwits `!all` fields, chat memory, weighted Wolf votes, FINRA short-volume), and what's still OFF with the reason and exactly what's needed to flip each one — the four scoring switches that must go on one-at-a-time after I4-full soaks (I4-full, I3, I10, E2-VIX), the two that need an enabler built first (I7 needs consolidation un-shadowed, I14 needs the regime table seeded), and ApeWisdom (data-blocked until ~June 24). **Updated 2026-06-15 (later):** FRED leg is now **BUILT** (key provided) and rides inside the E2 master gate — both VIX and credit legs flip together; E1 is **live+firing** (CRWV, SMH today); and the openclaw transcript-hygiene + memory-path config is **LIVE** (gateway restarted, bot verified responsive). Only the one-at-a-time scoring flips (I4-full → I3 → I10 → E2 master) + the two enablers (I7, I14) + ApeWisdom remain.
+
+## 43. Replace the retired backup AI model in the text chain — DONE 2026-06-15
+
+**File:** `dead-text-model-swap-2026-06-15.md`
+
+Swap out the dead NVIDIA backup model the health check flagged with a live one, so the text model chain has a working second fallback.
