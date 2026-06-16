@@ -20,6 +20,10 @@ History:
     narrator budget where nemotron-nano returned empty live) with
     mistral-nemo + nemotron-nano-9b-v2 + openrouter/free. Data:
     .omc/research/model-bakeoff-2026-06-04/.
+  - 2026-06-15: nvidia/nemotron-nano-9b-v2 retired by OpenRouter (daily health
+    check ❌ HTTP 404 "No endpoints found"). Replaced text fallback 2 with
+    google/gemini-2.5-flash-lite (live, non-reasoning, 65k cap clears the 8k
+    floor, decorrelated from OpenAI/Mistral). Live-tested + full chain check green.
 """
 from __future__ import annotations
 
@@ -43,7 +47,7 @@ EXPECTED_FALLBACKS = [
 EXPECTED_TEXT_PRIMARY = "openai/gpt-4.1-nano"
 EXPECTED_TEXT_FALLBACKS = [
     "mistralai/mistral-nemo",
-    "nvidia/nemotron-nano-9b-v2",
+    "google/gemini-2.5-flash-lite",   # 2026-06-15: replaced nvidia/nemotron-nano-9b-v2 (OpenRouter 404 "No endpoints")
     "openrouter/free",
 ]
 
@@ -100,6 +104,7 @@ def test_no_known_failed_models_in_chain():
         "nvidia/nemotron-3-super-120b-a12b:free",    # 0/3 parallel
         "google/gemma-4-26b-a4b-it:free",            # 0/3 parallel (rate-limited upstream)
         "inclusionai/ring-2.6-1t:free",              # delisted
+        "nvidia/nemotron-nano-9b-v2",                # retired by OpenRouter 2026-06-15 (404 No endpoints)
         "openrouter/auto",                           # paid meta-router; we want free
     }
     leaked = [m for m in chain if m in forbidden]
