@@ -114,17 +114,57 @@ separate look.
 
 ---
 
-## CHANGES MADE THIS SESSION
-- **text chain backup: gemini-2.5-flash-lite → qwen/qwen3-235b-a22b-2507** (`config/consensus.yaml`;
-  test `tests/integration/test_all_command_chain_order.py` updated; 32 chain/llm tests green).
-  4× cheaper, same test results, +provider diversity.
+---
 
-## OPEN / NEXT (decide later, reference this file)
-1. **Agent lead:** strongly consider gpt-oss-120b → mistral-small-3.2-24b after a 3-5 heavy-question
-   confirmation. Current lead times out on heavy questions.
-2. **Investigate the agent tool-loop context blow-up** (277k–976k tokens on one NVDA question) — may
-   be a tool-result-size / loop-termination bug independent of model choice.
-3. **Front-line text scorer:** gpt-4.1-nano mis-ordered one calibration case; qwen3-235b scored
-   cleaner & cheaper. Re-test with more boundary scenarios before any swap.
-4. If adding **more than 2 backups** to any chain: the cheap clean text options ranked by value are
+## ROUND 2 (2026-06-16) — deeper tests + FINAL chain orders
+
+### RESULT 2b — expanded scorer calibration (9 scenarios, 36 ordering checks each)
+`calibration2.py` / `calibration2_results.json`. Intended strength rank S1>...>S9.
+
+| Model | mis-orderings | in-band | spread | consistency | $/M out |
+|---|---|---|---|---|---|
+| **qwen3-235b-2507** | **0/36** | **9/9** | **70** | 2.3 | 0.10 |
+| ling-2.6-flash | 1/36 | 8/9 | 67 | 4.7 | 0.03 |
+| gpt-4.1-nano (prior text lead) | 1/36 | 7/9 | 50 | 0.0 | 0.40 |
+| gemma-3-27b | 0/36 | 5/9 | 50 | 1.0 | 0.16 |
+| mistral-nemo | 0/36 | 6/9 | 50 | 3.3 | 0.03 |
+
+→ **qwen3-235b is the best scorer** (perfect ordering + band + widest spread) AND 4× cheaper than
+gpt-4.1-nano. gpt-4.1-nano under-scored the mid range and rated a 🚀-pump above a delisting lotto.
+(gpt-4.1-nano is the most deterministic — 0-pt repeat gap — kept as backup 1.)
+
+### RESULT 3b — agent real-path MATRIX (4 models × 3 heavy questions, 150s screen)
+`agent_matrix.sh` / `agent_matrix_out/`. Real `openclaw agent` path.
+
+| Model | converged? | time | tokens/turn | answered |
+|---|---|---|---|---|
+| **gpt-4.1-nano** | ✅ 3/3 | **11–13s** | **2k–21k (leanest)** | 3/3 substantive |
+| mistral-small-3.2-24b | ✅ 3/3 | 12–14s | 1.5k–84k | 2/3 (punted "market today") |
+| qwen3-235b-2507 | ✅ 3/3 | 27–68s | 173k–687k (token hog) | 2/3 (punted AMD) |
+| gpt-oss-120b (prior lead) | ❌ **0/3** | 150–178s | 233k–325k | timed out / **empty on all 3** |
+
+→ Cost driver = TOKEN EFFICIENCY (tool-loop ballooning), not the per-word rate. **gpt-4.1-nano is
+the clear winner** — fastest, leanest (so cheapest in practice despite $0.40/M), converged AND
+answered every heavy question. gpt-oss-120b failed 5/5 heavy questions across both rounds → dropped.
+
+## FINAL ORDERS SET (live 2026-06-16, engine restarted, sync verified, real `!ask` confirmed on gpt-4.1-nano)
+- **text** (scorer + `!all` cleanup): `qwen3-235b-2507` → `gpt-4.1-nano` → `mistral-nemo` → `openrouter/free`
+- **agent** (`@`/`!ask`): `gpt-4.1-nano` → `mistral-small-3.2-24b` → `qwen3-235b-2507` → `gpt-oss-120b:free`
+- **primary** (brief/`!all` writeup/research): UNCHANGED (`gpt-oss-120b` → `qwen3-235b` → `deepseek-v4-flash` → `openrouter/free`) — re-test if heavy `!all` writeups ever time out (gpt-oss-120b's tool-loop issue is agent-path-specific; primary synthesis doesn't loop tools).
+
+## CHANGES MADE
+- text backup gemini→qwen3-235b (Round 1), then text LEAD gpt-4.1-nano→qwen3-235b + agent LEAD
+  gpt-oss-120b→gpt-4.1-nano + agent fallbacks reordered (Round 2). `config/consensus.yaml` +
+  `tests/integration/test_all_command_chain_order.py` updated; agent chain synced to openclaw.json
+  via `scripts/sync_gateway_models.py`. 54 chain/sync/health/llm tests green.
+
+## OPEN / NEXT (reference this file)
+1. **Investigate the agent tool-loop context blow-up** (gpt-oss-120b 233–325k, qwen3-235b 173–687k
+   tokens on heavy questions) — likely a tool-result-size / loop-termination issue independent of
+   model. Worth a separate look; lean models (gpt-4.1-nano) sidestep it.
+2. **Soak the new orders** ~1 week; watch for any text-scorer drift (qwen 2.3-pt run-to-run variance
+   vs nano's 0) or agent regressions, then this item closes.
+3. If adding **more than 2 backups** to any chain: cheap clean text options ranked by value =
    mistral-nemo ($0.03) > ling-2.6-flash ($0.03) > qwen3-235b ($0.10) > gemma-3-27b ($0.16).
+   For the agent chain, prioritize TOKEN-EFFICIENT models (gpt-4.1-nano, mistral-small) over
+   token-hogs (qwen3-235b, gpt-oss-120b) — efficiency drives both cost and timeout-avoidance.

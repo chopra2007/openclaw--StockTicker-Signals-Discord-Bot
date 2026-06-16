@@ -26,6 +26,12 @@ History:
     2026-06-15 bake-off (.omc/research/model-bakeoff-2026-06-15/): qwen matched
     gemini on clean tight-512 + 3/3 reliability at $0.10/M out (4x cheaper),
     non-reasoning, 16k cap clears the 8k floor, +Alibaba provider diversity.
+  - 2026-06-16 calibration + agent real-path bake-off (same dir): role="text"
+    LEAD promoted gpt-4.1-nano -> qwen3-235b-2507 (best-calibrated scorer: 0/36
+    ordering inversions, 9/9 in-band, vs nano 1 inversion/7-of-9; 4x cheaper),
+    nano demoted to text fallback 1. role="agent" (in this file's sibling
+    chain, mirrored to openclaw.json) promoted gpt-4.1-nano -> lead and dropped
+    gpt-oss-120b, which timed out / returned empty on 5/5 heavy tool questions.
 """
 from __future__ import annotations
 
@@ -46,10 +52,10 @@ EXPECTED_FALLBACKS = [
 ]
 
 # role="text" chain (llm_scorer.score_confidence — tweetshift signal volume).
-EXPECTED_TEXT_PRIMARY = "openai/gpt-4.1-nano"
+EXPECTED_TEXT_PRIMARY = "qwen/qwen3-235b-a22b-2507"  # 2026-06-16 calibration bake-off: best-calibrated scorer (0/36 inversions, 9/9 in-band) + 4x cheaper than prior lead gpt-4.1-nano
 EXPECTED_TEXT_FALLBACKS = [
+    "openai/gpt-4.1-nano",            # prior text lead — deterministic, fast, proven; kept as diverse backup 1
     "mistralai/mistral-nemo",
-    "qwen/qwen3-235b-a22b-2507",   # 2026-06-15 bake-off: replaced google/gemini-2.5-flash-lite — same clean tight-512 + 3/3 reliability at $0.10/M out (4x cheaper), non-reasoning, +Alibaba provider diversity
     "openrouter/free",
 ]
 
@@ -66,8 +72,8 @@ def test_primary_model_is_gpt_oss_120b():
     )
 
 
-def test_text_primary_is_gpt_4_1_nano():
-    """role=text lead is gpt-4.1-nano (robust at the tight narrator budget)."""
+def test_text_primary_is_qwen3_235b():
+    """role=text lead is qwen3-235b-2507 (2026-06-16 best-calibrated scorer + 4x cheaper)."""
     llm = _llm_block()
     assert llm.get("text_model") == EXPECTED_TEXT_PRIMARY, (
         f"llm.text_model={llm.get('text_model')!r}; expected {EXPECTED_TEXT_PRIMARY}"

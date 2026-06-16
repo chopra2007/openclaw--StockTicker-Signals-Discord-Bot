@@ -262,10 +262,10 @@ llm:
     - "qwen/qwen3-235b-a22b-2507"      # Alibaba; 8.5/10, 0.7s, $0.10/M out
     - "deepseek/deepseek-v4-flash"     # DeepSeek; prior primary, proven, 1M ctx
     - "openrouter/free"                # credit-exhaustion net (random free router)
-  text_model: "openai/gpt-4.1-nano"
+  text_model: "qwen/qwen3-235b-a22b-2507"   # 2026-06-16 calibration bake-off: best-calibrated scorer (0/36 ordering inversions, 9/9 in guideline band, widest spread) AND $0.10/M out — 4x cheaper than the prior lead gpt-4.1-nano (1 inversion, 7/9 band, $0.40). Non-reasoning, clean tight-512 + 3/3 reliability. Data: .omc/research/model-bakeoff-2026-06-15/calibration2_results.json
   text_fallback_models:
-    - "mistralai/mistral-nemo"         # Mistral; cheapest clean ($0.03/M out)
-    - "qwen/qwen3-235b-a22b-2507"      # Alibaba; replaced google/gemini-2.5-flash-lite 2026-06-15 (bake-off .omc/research/model-bakeoff-2026-06-15/): matched gemini on clean tight-512 + 3/3 reliability + clean JSON at $0.10/M out (4x cheaper than gemini's $0.40), non-reasoning, 16k cap clears the 8k floor, provider-decorrelated (Alibaba) from OpenAI/Mistral above
+    - "openai/gpt-4.1-nano"            # OpenAI; prior text lead — deterministic (0-pt repeat gap), fast, proven; kept as diverse backup 1
+    - "mistralai/mistral-nemo"         # Mistral; cheapest clean ($0.03/M out), diverse backup 2
     - "openrouter/free"                # credit-exhaustion net
   # !all-command synthesis chain (#12). Scoped to the !all narrator's three
   # LLM call sites only — keeps the briefing, signal scorer, research, and
@@ -327,11 +327,11 @@ llm:
   #     :free model, NOT openrouter/free).
   #   Excluded: qwen3-235b-THINKING (context overflow — reasoning blew the budget),
   #   minimax-m2.1 (43.9s), xiaomi-mimo (HTTP 451), gemini-2.5-flash-lite (timeout).
-  agent_model: "openai/gpt-oss-120b"
+  agent_model: "openai/gpt-4.1-nano"        # 2026-06-16 real-path matrix (.omc/research/model-bakeoff-2026-06-15/agent_matrix_out/): fastest + leanest (11-13s, 2-21k tokens/turn) and the only model to converge AND answer all 3 heavy tool questions. Replaced gpt-oss-120b, which TIMED OUT or returned empty on 5/5 heavy questions (runaway tool-loop -> 233-325k tokens, even at the 240s prod limit).
   agent_fallback_models:
-    - "openai/gpt-4.1-nano"
-    - "qwen/qwen3-235b-a22b-2507"
-    - "openai/gpt-oss-120b:free"
+    - "mistralai/mistral-small-3.2-24b-instruct"  # Mistral; fast+lean, converged 3/3 (12-14s); provider diversity
+    - "qwen/qwen3-235b-a22b-2507"                 # Alibaba; converges (no timeout) but token-heavy/slow — deeper fallback + diversity
+    - "openai/gpt-oss-120b:free"                  # credit-exhaustion net (handles agent prompt+tools on light questions)
   vision_model: "google/gemma-4-31b-it:free"
   min_confidence: 70
   # Primary-tier output cap. Set to 8000 (was 4096) to match narrator's
