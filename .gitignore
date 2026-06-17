@@ -45,6 +45,7 @@ Thumbs.db
 .omc/sessions/
 .omc/state/
 .omc/project-memory.json
+.omc/logs/
 
 # Generated artifacts
 artifacts/
