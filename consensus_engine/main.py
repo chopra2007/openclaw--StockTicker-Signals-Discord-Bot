@@ -31,7 +31,7 @@ from consensus_engine.scanners.social import (
 from consensus_engine.scanners.discord_tweetshift import DiscordTweetShiftListener
 from consensus_engine.analysis.tweet_parser import parse_tweet
 from consensus_engine.cross_reference import cross_reference
-from consensus_engine.alerts.discord import edit_instant_ping, send_detail_followup, send_instant_ping
+from consensus_engine.alerts.discord import edit_instant_ping, send_cluster_alert, send_detail_followup, send_instant_ping
 from consensus_engine.analysis.calibration import calibrate, log_shadow_prediction
 from consensus_engine.utils.http import close_session, get_session
 from consensus_engine.utils.tickers import is_valid_ticker, validate_ticker_market_cap
@@ -1331,6 +1331,8 @@ async def process_tweet(raw_tweet: dict):
                 if _cluster.fired and _cluster.cluster_id:
                     log.info("[A2] Cluster fired for $%s: %d members (effective=%.1f)",
                              ticker, len(_cluster.members), _cluster.effective_size)
+                    _swarm_price = await _fetch_price(ticker)
+                    await send_cluster_alert(_cluster, _swarm_price)
             except Exception as _e:
                 log.warning("[A2] detect_cluster error for $%s: %s", ticker, _e)
 

@@ -570,6 +570,95 @@ async def send_instant_ping(
     return None
 
 
+def format_cluster_alert(cluster, current_price: float = 0.0, links: Optional[dict] = None) -> dict:
+    """Build the loud SWARM embed: N independent analysts on the same ticker inside the
+    herding window. Pure (no I/O) so it is unit-testable. `links` maps analyst handle ->
+    source URL (clickable handles); missing handles render as plain @handle."""
+    links = links or {}
+    members = list(getattr(cluster, "members", []) or [])
+    ticker = cluster.ticker
+    n = len(members)
+    window_min = cfg.get("features.analyst_herding.window_minutes", 60)
+
+    def _handle(m):
+        url = links.get(m.analyst)
+        return f"[@{m.analyst}]({url})" if url else f"@{m.analyst}"
+
+    handles = ", ".join(_handle(m) for m in members[:15])
+    fields = [{"name": "Analysts", "value": handles or "—", "inline": False}]
+
+    posted = sorted(m.posted_at for m in members if getattr(m, "posted_at", None))
+    if posted:
+        first = time.strftime("%H:%M", time.gmtime(posted[0]))
+        last = time.strftime("%H:%M", time.gmtime(posted[-1]))
+        fields.append({"name": "Window", "value": f"{n} posts, {first}–{last} UTC", "inline": False})
+
+    if current_price and current_price > 0:
+        fields.append({"name": "Price", "value": f"${current_price:.2f}", "inline": True})
+
+    fields.append({
+        "name": "Why this matters",
+        "value": "Multiple independent analysts are tweeting this name right now — "
+                 "something may be happening.",
+        "inline": False,
+    })
+
+    return {
+        "title": f"\U0001f6a8 SWARM: ${ticker} — {n} analysts tweeting in {window_min} min",
+        "color": 0xED4245,  # red — loud, breaking
+        "fields": fields,
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
+        "footer": {"text": "OpenClaw Signal Engine | analyst swarm"},
+    }
+
+
+async def send_cluster_alert(cluster, current_price: float = 0.0) -> Optional[str]:
+    """Post the loud SWARM alert to the instant-ping channel. Returns the message ID or
+    None. A2 herding fires this when >= min_cluster_size distinct analysts tweet the same
+    ticker inside the window."""
+    members = list(getattr(cluster, "members", []) or [])
+    if cfg.dry_run:
+        log.info("[DRY-RUN] SWARM alert: $%s %d analysts", cluster.ticker, len(members))
+        return "dry_run_msg_id"
+
+    token = cfg.get_api_key("discord_bot_token")
+    channel_id = str(cfg.get("api_keys.discord_channel_id", ""))
+    if not token or not channel_id or not channel_id.isdigit():
+        log.warning("Discord not configured for cluster alert")
+        return None
+
+    # Best-effort: clickable handles via signal_events.source_link (NULL on old rows).
+    links: dict = {}
+    try:
+        from consensus_engine import db as _db
+        ids = [getattr(m, "signal_event_id", None) for m in members]
+        ids = [i for i in ids if i]
+        if ids:
+            conn = await _db.get_db()
+            ph = ",".join("?" * len(ids))
+            cur = await conn.execute(
+                f"SELECT source_detail, source_link FROM signal_events WHERE id IN ({ph})",
+                ids,
+            )
+            for row in await cur.fetchall():
+                if row["source_link"] and row["source_detail"]:
+                    links[row["source_detail"]] = row["source_link"]
+    except Exception as e:
+        log.debug("[A2] cluster link lookup failed: %s", e)
+
+    embed = format_cluster_alert(cluster, current_price, links=links)
+    url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+    headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
+    body = _safe_send_kwargs({"embeds": [embed]})
+    data = await _safe_send(url, headers, body)
+    if data:
+        msg_id = data.get("id")
+        log.info("[A2] SWARM alert sent for $%s (%d analysts, msg_id=%s)",
+                 cluster.ticker, len(members), msg_id)
+        return msg_id
+    return None
+
+
 async def edit_instant_ping(msg_id: str, content: str) -> bool:
     """Append a short status line (e.g. 'Phase 2 skipped — timeout') to an existing
     Phase-1 Discord message via PATCH. Returns True on 200/204.

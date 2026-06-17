@@ -85,6 +85,7 @@ async def detect_cluster(
     window_minutes: int = cfg.get("features.analyst_herding.window_minutes", 30)
     min_cluster_size: int = cfg.get("features.analyst_herding.min_cluster_size", 3)
     min_trusted_accuracy: float = cfg.get("features.analyst_herding.min_trusted_accuracy", 0.5)
+    require_trusted: bool = cfg.get("features.analyst_herding.require_trusted", False)
     panic_min_cluster_size: int = cfg.get("features.analyst_herding.panic_min_cluster_size", 4)
     members_cap: int = cfg.get("features.analyst_herding.members_cap", 20)
 
@@ -141,9 +142,12 @@ async def detect_cluster(
             posted_at=row_data["recorded_at"],
         ))
 
-    # Trust floor: at least 2 members must have rolling_accuracy >= min_trusted_accuracy
+    # Trust floor (opt-in via require_trusted, default OFF): at least 2 members must have
+    # rolling_accuracy >= min_trusted_accuracy. Kept OFF because distinct-analyst VOLUME is
+    # the "breaking news" signal, and source_performance has 0 rows so trusted_count is
+    # always 0 — this floor blocked 100% of fires.
     trusted_count = sum(1 for m in members if m.rolling_accuracy >= min_trusted_accuracy)
-    if trusted_count < 2:
+    if require_trusted and trusted_count < 2:
         return ClusterResult(
             fired=False,
             cluster_id=None,
