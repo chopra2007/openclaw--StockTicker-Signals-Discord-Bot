@@ -25,9 +25,16 @@ __pycache__/
 
 # Backups
 backup*/
+consensus.db.bak*
+consensus.db.pre-*
+
+# Compressed logs
+*.gz
 
 # TODO active-task marker (session state, not committed)
 todo/.active
+todo/.omc/
+todo/kickoffs/
 
 # Node / Skills (OpenClaw bot infrastructure, not part of consensus engine)
 skills/
@@ -46,10 +53,13 @@ Thumbs.db
 .omc/state/
 .omc/project-memory.json
 .omc/logs/
+.omc/research/
+.omc/template-version.json
 
 # Generated artifacts
 artifacts/
 thumbnail.jpg
+/feature-research-prompt.md
 
 # Discord channel/server reference docs
 DISCORD_CHANNEL_INFO.md
@@ -63,7 +73,6 @@ memory/
 !consensus_engine/memory/*.py
 .claude/*
 !.claude/commands/
-!.claude/discover/
 .clawhub/
 .openclaw/
 
