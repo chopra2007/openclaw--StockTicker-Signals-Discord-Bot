@@ -278,3 +278,9 @@ Live-test current cheap OpenRouter models against the three jobs (tweet-scoring/
 **File:** `agent-tool-loop-context-blowup.md`
 
 When the bot answers a heavy question that needs lots of tool calls, some AI models keep piling up search results until they run out of time and the user gets "Agent unavailable" — fix the underlying loop (likely un-trimmed tool results / no round cap) so a future model swap can't silently bring the timeouts back.
+
+## 46. Show every score on one consistent scale (0 = low, 100 = high)
+
+**File:** `unified-display-scale.md`
+
+Every number the bot shows (alert score, !all breakdown, contradiction, market mood, LLM confidence) is on a different scale, so the user can't tell what's high or low — normalize all user-facing readings to one consistent 0–100 low→high display, without changing the underlying math.
