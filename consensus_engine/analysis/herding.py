@@ -38,6 +38,125 @@ class ClusterResult:
     reason: str                  # "below_threshold" | "trust_floor_failed" | "regime_panic_min_4" | "fired" | "disabled"
 
 
+@dataclass
+class SwarmResult:
+    """Result of one detect_swarm() evaluation for a single incoming tweet."""
+    fired: bool
+    reason: str                          # opened | joined | already_counted | below_threshold | disabled
+    ticker: str = ""
+    analysts: Optional[list] = None      # all analysts in the swarm, ordered by first tweet
+    member_times: Optional[dict] = None  # analyst -> first tweet ts (within the open window)
+    opened_at: float = 0.0
+    now_ts: float = 0.0
+    count: int = 0
+
+
+async def _swarm_members(conn, ticker: str, opened_at: float, alerted: set) -> tuple[list, dict]:
+    """First-tweet time per alerted analyst since the swarm opened (for ordering + the
+    Window field). Any alerted analyst missing a row falls back to opened_at."""
+    cur = await conn.execute(
+        """SELECT source_detail AS analyst, MIN(recorded_at) AS first_at
+           FROM signal_events
+           WHERE source_type='twitter' AND ticker=? AND recorded_at >= ? AND source_detail IS NOT NULL
+           GROUP BY source_detail""",
+        (ticker, opened_at),
+    )
+    rows = await cur.fetchall()
+    times = {r["analyst"]: r["first_at"] for r in rows if r["analyst"] in alerted}
+    for a in alerted:
+        times.setdefault(a, opened_at)
+    members = sorted(alerted, key=lambda a: times.get(a, opened_at))
+    return members, times
+
+
+async def _record_swarm_history(conn, ticker: str, opened_at: float, now_ts: float, alerted: set) -> None:
+    """Append a cluster_events row so the existing `!cluster history` command keeps working.
+    Best-effort: never block an alert on a history write."""
+    try:
+        await conn.execute(
+            """INSERT INTO cluster_events
+               (ticker, first_seen_at, last_seen_at, cluster_size, effective_size, members_json, regime_label, fired_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (ticker, opened_at, now_ts, len(alerted), float(len(alerted)),
+             json.dumps([{"analyst": a} for a in sorted(alerted)]), "", now_ts),
+        )
+        await conn.commit()
+    except Exception as e:  # pragma: no cover - defensive
+        log.debug("[A2] swarm history write failed for $%s: %s", ticker, e)
+
+
+async def detect_swarm(ticker: str, analyst: str, now_ts: float) -> SwarmResult:
+    """Stateful analyst-swarm detector (TODO #20-area, user spec 2026-06-17).
+
+    A swarm OPENS when >= min_cluster_size distinct analysts tweet the same ticker within
+    window_minutes of each other. Once open it stays live for swarm_open_hours (fixed from
+    open). Every NEW distinct analyst that tweets the ticker during the open window fires a
+    fresh alert (caller pings the user). The same analyst tweeting again does nothing.
+
+    Called once per incoming tweet AFTER the row is in signal_events. Returns a SwarmResult;
+    caller sends + pings when .fired is True.
+    """
+    if not cfg.get("features.analyst_herding.enabled", False):
+        return SwarmResult(fired=False, reason="disabled", ticker=ticker, now_ts=now_ts)
+
+    window_min = int(cfg.get("features.analyst_herding.window_minutes", 60))
+    open_hours = float(cfg.get("features.analyst_herding.swarm_open_hours", 24))
+    min_size = int(cfg.get("features.analyst_herding.min_cluster_size", 2))
+    conn = await db.get_db()
+
+    cur = await conn.execute(
+        "SELECT opened_at, alerted_analysts FROM swarm_state WHERE ticker=?", (ticker,)
+    )
+    row = await cur.fetchone()
+    is_open = bool(row) and (now_ts - row["opened_at"] < open_hours * 3600)
+
+    if is_open:
+        opened_at = row["opened_at"]
+        alerted = set(json.loads(row["alerted_analysts"] or "[]"))
+        if analyst in alerted:
+            return SwarmResult(fired=False, reason="already_counted", ticker=ticker,
+                               opened_at=opened_at, now_ts=now_ts, count=len(alerted))
+        alerted.add(analyst)
+        await conn.execute(
+            "UPDATE swarm_state SET alerted_analysts=?, last_alert_at=?, updated_at=? WHERE ticker=?",
+            (json.dumps(sorted(alerted)), now_ts, now_ts, ticker),
+        )
+        await conn.commit()
+        await _record_swarm_history(conn, ticker, opened_at, now_ts, alerted)
+        members, times = await _swarm_members(conn, ticker, opened_at, alerted)
+        log.info("[A2] SWARM joined $%s: %s -> %d analysts", ticker, analyst, len(alerted))
+        return SwarmResult(fired=True, reason="joined", ticker=ticker, analysts=members,
+                           member_times=times, opened_at=opened_at, now_ts=now_ts, count=len(alerted))
+
+    # No open swarm (new or expired): does the opening condition hold right now?
+    cutoff = now_ts - window_min * 60
+    cur2 = await conn.execute(
+        """SELECT source_detail AS analyst, MIN(recorded_at) AS first_at
+           FROM signal_events
+           WHERE source_type='twitter' AND ticker=? AND recorded_at >= ? AND source_detail IS NOT NULL
+           GROUP BY source_detail""",
+        (ticker, cutoff),
+    )
+    distinct = {r["analyst"]: r["first_at"] for r in await cur2.fetchall()}
+    if len(distinct) < min_size:
+        return SwarmResult(fired=False, reason="below_threshold", ticker=ticker, now_ts=now_ts,
+                           count=len(distinct))
+
+    opened_at = min(distinct.values())
+    alerted = set(distinct.keys())
+    await conn.execute(
+        """INSERT OR REPLACE INTO swarm_state (ticker, opened_at, alerted_analysts, last_alert_at, updated_at)
+           VALUES (?, ?, ?, ?, ?)""",
+        (ticker, opened_at, json.dumps(sorted(alerted)), now_ts, now_ts),
+    )
+    await conn.commit()
+    await _record_swarm_history(conn, ticker, opened_at, now_ts, alerted)
+    members = sorted(distinct.keys(), key=lambda a: distinct[a])
+    log.info("[A2] SWARM opened $%s: %d analysts in %dm", ticker, len(alerted), window_min)
+    return SwarmResult(fired=True, reason="opened", ticker=ticker, analysts=members,
+                       member_times=distinct, opened_at=opened_at, now_ts=now_ts, count=len(alerted))
+
+
 async def _get_correlation(analyst_a: str, analyst_b: str) -> float:
     """Query analyst_pair_correlations for canonical (a < b) pair. Returns 0.0 if no data."""
     a, b = (analyst_a, analyst_b) if analyst_a < analyst_b else (analyst_b, analyst_a)

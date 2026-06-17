@@ -726,12 +726,15 @@ features:
     macro_blackout_minutes: 30
   analyst_herding:
     enabled: true
-    min_cluster_size: 4               # I7 LIVE 2026-06-17 — 4 distinct analysts in window = SWARM alert (backtest: 18 fires / 7wk)
-    window_minutes: 60                # I7 — within 60 minutes
-    min_trusted_accuracy: 0.5
-    require_trusted: false            # I7 — distinct-analyst VOLUME is the signal; the accuracy trust-floor kept this dead (source_performance has 0 rows)
-    panic_min_cluster_size: 5         # I7 — panic regime needs 5 to fire
+    min_cluster_size: 2               # SWARM opens at 2 distinct analysts...
+    window_minutes: 60                # ...tweeting the same ticker within 60 min
+    swarm_open_hours: 24              # once open, swarm stays live 24h (fixed from open); each NEW analyst re-alerts + pings
+    ping_user_id: "615525529537216513"  # @-ping this Discord user on every swarm alert
     members_cap: 20
+    # legacy keys — old one-shot detect_cluster, superseded by detect_swarm; kept for that fn + its tests
+    min_trusted_accuracy: 0.5
+    require_trusted: false
+    panic_min_cluster_size: 5
   sector_confirmation:
     enabled: true
     bypass_on_unknown_catalyst: true

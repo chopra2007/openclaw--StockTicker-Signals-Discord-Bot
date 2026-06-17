@@ -571,6 +571,14 @@ CREATE TABLE IF NOT EXISTS cluster_events (
 CREATE INDEX IF NOT EXISTS idx_cluster_events_ticker ON cluster_events(ticker);
 CREATE INDEX IF NOT EXISTS idx_cluster_events_fired ON cluster_events(fired_at);
 
+CREATE TABLE IF NOT EXISTS swarm_state (
+    ticker TEXT PRIMARY KEY,
+    opened_at REAL NOT NULL,          -- unix ts of the first tweet that opened the swarm
+    alerted_analysts TEXT NOT NULL,   -- json list of analyst handles already alerted/counted
+    last_alert_at REAL,
+    updated_at REAL
+);
+
 CREATE TABLE IF NOT EXISTS analyst_pair_correlations (
     analyst_a TEXT NOT NULL,
     analyst_b TEXT NOT NULL,

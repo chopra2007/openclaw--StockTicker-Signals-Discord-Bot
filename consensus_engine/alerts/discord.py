@@ -570,24 +570,34 @@ async def send_instant_ping(
     return None
 
 
-def format_cluster_alert(cluster, current_price: float = 0.0, links: Optional[dict] = None) -> dict:
-    """Build the loud SWARM embed: N independent analysts on the same ticker inside the
-    herding window. Pure (no I/O) so it is unit-testable. `links` maps analyst handle ->
-    source URL (clickable handles); missing handles render as plain @handle."""
+def _human_span(seconds: float) -> str:
+    """Plain-English elapsed span for the swarm title: '40 min', '1 hour', '5 hours'."""
+    if seconds < 3600:
+        m = max(1, int(round(seconds / 60.0)))
+        return f"{m} min"
+    h = max(1, int(round(seconds / 3600.0)))
+    return f"{h} hour" + ("" if h == 1 else "s")
+
+
+def format_swarm_alert(swarm, current_price: float = 0.0, links: Optional[dict] = None) -> dict:
+    """Build the loud SWARM embed for a SwarmResult. Pure (no I/O) so it is unit-testable.
+    `links` maps analyst handle -> source URL (clickable handles); missing -> plain @handle.
+    Title time = how long the swarm has been building (first tweet -> latest)."""
     links = links or {}
-    members = list(getattr(cluster, "members", []) or [])
-    ticker = cluster.ticker
-    n = len(members)
-    window_min = cfg.get("features.analyst_herding.window_minutes", 60)
+    ticker = swarm.ticker
+    members = list(swarm.analysts or [])
+    n = swarm.count or len(members)
+    span_txt = _human_span(max(0.0, (swarm.now_ts or 0.0) - (swarm.opened_at or 0.0)))
 
-    def _handle(m):
-        url = links.get(m.analyst)
-        return f"[@{m.analyst}]({url})" if url else f"@{m.analyst}"
+    def _handle(a):
+        url = links.get(a)
+        return f"[@{a}]({url})" if url else f"@{a}"
 
-    handles = ", ".join(_handle(m) for m in members[:15])
+    handles = ", ".join(_handle(a) for a in members[:20])
     fields = [{"name": "Analysts", "value": handles or "—", "inline": False}]
 
-    posted = sorted(m.posted_at for m in members if getattr(m, "posted_at", None))
+    times = swarm.member_times or {}
+    posted = sorted(t for t in times.values() if t)
     if posted:
         first = time.strftime("%H:%M", time.gmtime(posted[0]))
         last = time.strftime("%H:%M", time.gmtime(posted[-1]))
@@ -598,13 +608,12 @@ def format_cluster_alert(cluster, current_price: float = 0.0, links: Optional[di
 
     fields.append({
         "name": "Why this matters",
-        "value": "Multiple independent analysts are tweeting this name right now — "
-                 "something may be happening.",
+        "value": "Multiple independent analysts are tweeting this name right now.",
         "inline": False,
     })
 
     return {
-        "title": f"\U0001f6a8 SWARM: ${ticker} — {n} analysts tweeting in {window_min} min",
+        "title": f"\U0001f6a8 SWARM: ${ticker} — {n} analysts tweeting in {span_txt}",
         "color": 0xED4245,  # red — loud, breaking
         "fields": fields,
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
@@ -612,49 +621,56 @@ def format_cluster_alert(cluster, current_price: float = 0.0, links: Optional[di
     }
 
 
-async def send_cluster_alert(cluster, current_price: float = 0.0) -> Optional[str]:
-    """Post the loud SWARM alert to the instant-ping channel. Returns the message ID or
-    None. A2 herding fires this when >= min_cluster_size distinct analysts tweet the same
-    ticker inside the window."""
-    members = list(getattr(cluster, "members", []) or [])
+async def send_swarm_alert(swarm, current_price: float = 0.0) -> Optional[str]:
+    """Post the loud SWARM alert + @-ping the configured user. Returns the message ID or
+    None. Fires on swarm open and on every new analyst that joins (caller decides)."""
+    members = list(swarm.analysts or [])
     if cfg.dry_run:
-        log.info("[DRY-RUN] SWARM alert: $%s %d analysts", cluster.ticker, len(members))
+        log.info("[DRY-RUN] SWARM alert: $%s %d analysts (%s)", swarm.ticker, swarm.count, swarm.reason)
         return "dry_run_msg_id"
 
     token = cfg.get_api_key("discord_bot_token")
     channel_id = str(cfg.get("api_keys.discord_channel_id", ""))
     if not token or not channel_id or not channel_id.isdigit():
-        log.warning("Discord not configured for cluster alert")
+        log.warning("Discord not configured for swarm alert")
         return None
 
     # Best-effort: clickable handles via signal_events.source_link (NULL on old rows).
     links: dict = {}
     try:
         from consensus_engine import db as _db
-        ids = [getattr(m, "signal_event_id", None) for m in members]
-        ids = [i for i in ids if i]
-        if ids:
+        if members:
             conn = await _db.get_db()
-            ph = ",".join("?" * len(ids))
+            ph = ",".join("?" * len(members))
             cur = await conn.execute(
-                f"SELECT source_detail, source_link FROM signal_events WHERE id IN ({ph})",
-                ids,
+                f"""SELECT source_detail, source_link FROM signal_events
+                    WHERE source_type='twitter' AND ticker=? AND source_detail IN ({ph})
+                      AND source_link IS NOT NULL GROUP BY source_detail""",
+                [swarm.ticker] + members,
             )
             for row in await cur.fetchall():
                 if row["source_link"] and row["source_detail"]:
                     links[row["source_detail"]] = row["source_link"]
     except Exception as e:
-        log.debug("[A2] cluster link lookup failed: %s", e)
+        log.debug("[A2] swarm link lookup failed: %s", e)
 
-    embed = format_cluster_alert(cluster, current_price, links=links)
+    embed = format_swarm_alert(swarm, current_price, links=links)
+    payload: dict = {"embeds": [embed]}
+    # Ping the configured user. allowed_mentions is set HERE (before _safe_send_kwargs's
+    # setdefault) so the bot's default parse:[] mention-block doesn't strip this one ping.
+    ping_id = str(cfg.get("features.analyst_herding.ping_user_id", "") or "")
+    if ping_id.isdigit():
+        payload["content"] = f"<@{ping_id}>"
+        payload["allowed_mentions"] = {"users": [ping_id]}
+
     url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
     headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
-    body = _safe_send_kwargs({"embeds": [embed]})
+    body = _safe_send_kwargs(payload)
     data = await _safe_send(url, headers, body)
     if data:
         msg_id = data.get("id")
-        log.info("[A2] SWARM alert sent for $%s (%d analysts, msg_id=%s)",
-                 cluster.ticker, len(members), msg_id)
+        log.info("[A2] SWARM alert sent for $%s (%d analysts, %s, msg_id=%s)",
+                 swarm.ticker, swarm.count, swarm.reason, msg_id)
         return msg_id
     return None
 

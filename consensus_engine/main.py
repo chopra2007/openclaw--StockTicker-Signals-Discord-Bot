@@ -31,7 +31,7 @@ from consensus_engine.scanners.social import (
 from consensus_engine.scanners.discord_tweetshift import DiscordTweetShiftListener
 from consensus_engine.analysis.tweet_parser import parse_tweet
 from consensus_engine.cross_reference import cross_reference
-from consensus_engine.alerts.discord import edit_instant_ping, send_cluster_alert, send_detail_followup, send_instant_ping
+from consensus_engine.alerts.discord import edit_instant_ping, send_detail_followup, send_instant_ping, send_swarm_alert
 from consensus_engine.analysis.calibration import calibrate, log_shadow_prediction
 from consensus_engine.utils.http import close_session, get_session
 from consensus_engine.utils.tickers import is_valid_ticker, validate_ticker_market_cap
@@ -43,7 +43,7 @@ from consensus_engine.briefing.alfred import alfred_loop
 from consensus_engine.health import boot_drift_check, chain_health_loop
 from consensus_engine import ingest_server
 from consensus_engine.scanners.gmail_watcher import gmail_watcher_loop
-from consensus_engine.analysis.herding import detect_cluster, ClusterResult
+from consensus_engine.analysis.herding import detect_swarm
 
 log = logging.getLogger("consensus_engine.main")
 
@@ -1323,18 +1323,19 @@ async def process_tweet(raw_tweet: dict):
             source_link=tweet.discord_source_link,  # item E: clickable TweetShift link
         ))
 
-        # A2: analyst herding cluster detection
+        # A2: analyst swarm detection. >=2 distinct analysts on a ticker within the window
+        # opens a swarm for 24h; every new analyst that joins re-alerts + pings. Runs AFTER
+        # insert_signal above so this tweet's analyst is already counted.
         if cfg.get("features.analyst_herding.enabled", False):
             try:
                 from datetime import datetime as _dt, timezone as _tz
-                _cluster = await detect_cluster(ticker, new_event_id=0, now_utc=_dt.now(_tz.utc))
-                if _cluster.fired and _cluster.cluster_id:
-                    log.info("[A2] Cluster fired for $%s: %d members (effective=%.1f)",
-                             ticker, len(_cluster.members), _cluster.effective_size)
+                _now_ts = _dt.now(_tz.utc).timestamp()
+                _swarm = await detect_swarm(ticker, tweet.analyst, _now_ts)
+                if _swarm.fired:
                     _swarm_price = await _fetch_price(ticker)
-                    await send_cluster_alert(_cluster, _swarm_price)
+                    await send_swarm_alert(_swarm, _swarm_price)
             except Exception as _e:
-                log.warning("[A2] detect_cluster error for $%s: %s", ticker, _e)
+                log.warning("[A2] detect_swarm error for $%s: %s", ticker, _e)
 
         if not await db.check_alert_cooldown(ticker, tweet.analyst, tweet.base_score):
             continue
