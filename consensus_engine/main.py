@@ -1534,6 +1534,9 @@ async def _run_cross_reference_and_followup(
                 sources_json = "{}"
             import json as _json
             fv = {}
+            # I3: persist the opposing-source count so the >=2-actor downgrade gate
+            # can be validated on stored decision_snapshots rows going forward.
+            fv["n_opposing"] = int(getattr(xref, "n_opposing", 0) or 0)
             if contradiction_verdict is not None:
                 from dataclasses import asdict as _asdict
                 fv["contradiction_verdict"] = {

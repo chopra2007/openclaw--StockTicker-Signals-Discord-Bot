@@ -325,8 +325,8 @@ async def _score_with_contradiction(
 
     opts = OptionsResult(
         ticker="NVDA",
-        unusual_calls=False,
-        unusual_puts=True,
+        unusual_calls=(options_side == "call"),
+        unusual_puts=(options_side == "put"),
         dominant_side=options_side,
         premium_notional=300_000.0,
         dominant_last_trade_ts=0.0,
@@ -398,10 +398,27 @@ async def test_flag_on_contradiction_index_propagated(monkeypatch):
     result = await _score_with_contradiction(monkeypatch, flag_enabled=True)
     # With analyst_pts=20 supporting, youtube=15 opposing, options=10 opposing:
     # supporting=20, opposing=25, total=45 -> index=min(25,20)/45=0.44
+    # Two distinct opposing sources (youtube + options) clear the >=2-actor gate.
+    assert result.n_opposing == 2, f"expected 2 opposing sources, got {result.n_opposing}"
     assert result.contradiction_index > 0.0, (
         "Flag ON: contradiction_index should be non-zero with opposing sources"
     )
     assert 0.0 <= result.contradiction_index <= 1.0
+
+
+@pytest.mark.asyncio
+async def test_flag_on_single_opposing_actor_gated_to_zero(monkeypatch):
+    """I3 gate: flag ON but only ONE distinct opposing source (youtube short,
+    options on the SAME side as the tweet) -> contradiction_index forced to 0.0,
+    so a lone opposing source can't downgrade a thinly-supported STRONG."""
+    result = await _score_with_contradiction(
+        monkeypatch, flag_enabled=True, youtube_dir="short", options_side="call",
+    )
+    # youtube short = 1 opposing; options call = supporting -> n_opposing == 1 < min_actors(2)
+    assert result.n_opposing == 1, f"expected 1 opposing source, got {result.n_opposing}"
+    assert result.contradiction_index == 0.0, (
+        "single opposing source must be gated to 0.0 (no downgrade strength)"
+    )
 
 
 @pytest.mark.asyncio

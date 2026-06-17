@@ -47,6 +47,9 @@ class ScoreTickerResult:
     # I3 producer (signal-features-2026-06-09): 0=unanimous, 1=perfectly split.
     # Computed in score_ticker; 0.0 until features.contradiction_index_live.enabled.
     contradiction_index: float = 0.0
+    # I3: distinct opposing sources (youtube/options/sec) disagreeing with the tweet
+    # direction. Persisted for forward backtesting of the >=2-actor downgrade gate.
+    n_opposing: int = 0
 
     @property
     def final_score(self) -> int:
@@ -1675,7 +1678,16 @@ async def score_ticker(
             ticker, computed_ci, n_opposing, n_signed,
         )
 
-    result_ci = computed_ci if cfg.get("features.contradiction_index_live.enabled", False) else 0.0
+    # I3 downgrade safeguard: require >= min_actors DISTINCT opposing sources before a
+    # non-zero contradiction_index reaches the consumer, so one lone opposing source can
+    # never sink a thinly-supported STRONG. n_opposing < min -> result_ci=0.0 makes both
+    # downgrade sites no-op (engine verdict on 0.0 = below_threshold; main.py A1 skips).
+    _min_opp = int(cfg.get("features.contradiction_index_live.min_actors", 2))
+    result_ci = (
+        computed_ci
+        if (cfg.get("features.contradiction_index_live.enabled", False) and n_opposing >= _min_opp)
+        else 0.0
+    )
 
     # -----------------------------------------------------------------
     # E1 — FINRA daily short-volume confluence term (signal-features-2026-06-09)
@@ -1727,6 +1739,7 @@ async def score_ticker(
         consolidation_result=cons_result,
         metrics=metrics,
         contradiction_index=result_ci,
+        n_opposing=n_opposing,
     )
 
 
@@ -1828,6 +1841,7 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
         # I3: propagate the produced contradiction_index to the consumer
         # (engine._classify penalty + main.py A1 post-process use this field)
         contradiction_index=score_result.contradiction_index,
+        n_opposing=score_result.n_opposing,
     )
 
     log.info("Cross-reference for $%s: score=%d (base=%d + xref=%d, youtube=%d)",

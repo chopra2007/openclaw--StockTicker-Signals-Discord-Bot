@@ -296,6 +296,7 @@ class CrossReferenceResult:
     # Reliability engine fields (populated by cross_reference.py, default-safe)
     reliability_decision: str = ""          # ALERT/WATCHLIST/IGNORE/UNCERTAIN/INSUFFICIENT_EVIDENCE/DEGRADED_MODE
     contradiction_index: float = 0.0        # 0=unanimous, 1=perfectly split
+    n_opposing: int = 0                      # I3: distinct opposing sources (forward backtest)
     reliability_weights: dict = field(default_factory=dict)  # per-source-type weight
     suppressed: bool = False                # True when reliability gate blocks the alert
     # A3: Bayesian source consolidation result (always populated, None if disabled/error)
