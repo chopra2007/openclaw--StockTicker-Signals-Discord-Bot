@@ -147,6 +147,48 @@ def test_a_flag_on_headline_and_precision_field_consistent(monkeypatch):
     assert "105" not in prec_field["value"]
 
 
+def test_i4_breakdown_resolves_to_headline_when_gated(monkeypatch):
+    """I4/#46 fix: when the gated headline differs from the raw additive sum, the
+    Breakdown line must RESOLVE to the same number the title shows (no two
+    disagreeing numbers in one alert). Uses the live production default path:
+    single_score OFF, score_display_honesty ON."""
+    _force(monkeypatch, {
+        "features.single_score.enabled": False,
+        "features.score_display_honesty.enabled": True,
+        "precision_engine.thresholds.medium_confidence": 65,
+    })
+    xref = _make_xref(xref_total=105)
+    precision = _make_precision(
+        classification=SignalClass.WATCHLIST,
+        total_score=72,
+        skipped_sources=[],
+    )
+    embed = format_detail_followup(xref, precision)
+    title = embed["title"]
+    breakdown = next(f for f in embed["fields"] if f["name"] == "Breakdown")["value"]
+    assert "Score: 72" in title
+    # raw additive sum preserved for transparency, but the line ends at the headline number
+    assert "105" in breakdown
+    assert breakdown.rstrip().endswith("72 after quality gates"), breakdown
+    # the OLD bug: Breakdown ended at "= 105" while the title said 72.
+    assert not breakdown.rstrip().endswith("= 105")
+
+
+def test_i4_breakdown_byte_identical_when_both_flags_off():
+    """Both flags OFF (conftest default): the Breakdown line is the legacy
+    raw-sum render, byte-identical (no 'raw → ... after quality gates' suffix)."""
+    xref = _make_xref(xref_total=105)
+    precision = _make_precision(
+        classification=SignalClass.WATCHLIST,
+        total_score=72,
+        skipped_sources=[],
+    )
+    embed = format_detail_followup(xref, precision)
+    breakdown = next(f for f in embed["fields"] if f["name"] == "Breakdown")["value"]
+    assert breakdown.endswith("= 105"), breakdown
+    assert "after quality gates" not in breakdown
+
+
 # ---------------------------------------------------------------------------
 # (b) budget-depressed run
 # ---------------------------------------------------------------------------

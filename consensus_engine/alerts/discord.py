@@ -504,7 +504,13 @@ def format_detail_followup(xref: CrossReferenceResult, precision: Optional[dict]
     if b.technical: parts.append(f"tech({b.technical})")
     if b.llm_boost: parts.append(f"llm({b.llm_boost})")
     if b.options_flow: parts.append(f"options({b.options_flow})")
-    breakdown_text = " + ".join(parts) + f" = {total}"
+    # I4/#46: when the gated headline differs from the raw additive sum, end the
+    # Breakdown line at the SAME number the title shows (no two disagreeing numbers
+    # in one alert). Both-flags-OFF path stays byte-identical to the legacy render.
+    if headline_total != total and (single_score_on or honesty_on):
+        breakdown_text = " + ".join(parts) + f" = {total} raw → {headline_total} after quality gates"
+    else:
+        breakdown_text = " + ".join(parts) + f" = {total}"
     fields.append({"name": "Breakdown", "value": breakdown_text, "inline": False})
 
     if not xref.catalyst_summary and not xref.other_analysts and not xref.social_summary:
