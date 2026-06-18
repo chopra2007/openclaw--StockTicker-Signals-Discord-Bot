@@ -57,6 +57,8 @@ FEATURES = {
     "ema_10": lambda d: U.ema(d.close, 10),
     "sma_50": lambda d: U.sma(d.close, 50),
     "updown_volume_ratio_20": lambda d: U.updown_volume_ratio(d.close, d.volume, 20),
+    "rolling_ols_residual_60": lambda d: U.rolling_ols_residual(
+        np.log(d.close), np.log(d.high), 60),
 }
 
 # t positions to probe (recompute on the prefix df[0..t] and compare value at t)

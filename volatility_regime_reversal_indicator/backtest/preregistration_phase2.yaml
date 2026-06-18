@@ -1,0 +1,182 @@
+# =============================================================================
+# PHASE-2 PRE-REGISTRATION — CONFLUENCE / TIMING DETECTOR (frozen contract)
+# =============================================================================
+# Separate from the FROZEN Phase-1 preregistration.yaml (which is untouched, as
+# are its tests). This file is the anti-overfitting anchor for Phase 2.
+#
+# HONESTY DISCLOSURE (load-bearing — read first):
+# The constructions + thresholds below were SUGGESTED by an exploratory research
+# pass that DID inspect returns over ~10+ leg/gate/threshold combinations
+# (hypothesis generation). They are therefore POST-SELECTED. This file freezes
+# that already-chosen set and subjects it to a CONFIRMATORY test battery the
+# exploration did NOT use to choose them: an OPPORTUNITY-SET null, a TEMPORAL
+# hold-out (2010-2021 discover / 2022-2026 confirm), a CROSS-ASSET transfer to
+# QQQ, and leave-one-episode-out. A frozen in-sample p-value alone is NOT trusted
+# (Texas-Sharpshooter); the out-of-sample battery is what can earn a GO.
+# Cross-model review (Codex gpt-5.5 + Gemini + internal critic) was UNANIMOUS that
+# the raw VVIX/VIX slope leg is likely a search artifact and that this will most
+# likely come back SUGGESTIVE-not-significant. A FAIL is an acceptable, honest,
+# successful outcome (it ships the tool DESCRIPTIVE-ONLY, not predictive).
+# =============================================================================
+
+meta:
+  project: volatility_regime_reversal_indicator
+  phase: 2
+  ticker: SPY                          # SPY is primary; QQQ is the cross-asset hold-out
+  frozen_before_confirmatory_run: true
+  hypotheses_are_post_selected: true   # disclosed: chosen by exploratory return-inspection
+  backtest_start: "2010-01-01"         # bound by VVIX/VIX3M/HYG/QQQE and the ABI feed (2010-01-04)
+  ground_truth_top_episodes_8pct: 12   # independent >=8% peak->trough drawdowns 2010-2026
+  ground_truth_organic_excl_newscrash: 10   # excludes 2020-02 COVID + 2025-02 tariff news-crashes
+  ground_truth_in_scope_distribution: 7     # slow weeks-long distribution tops the detector targets
+
+# 1. PRIMARY HYPOTHESIS & METRIC -------------------------------------------------
+primary:
+  outcome: precision_vs_base_rate
+  definition: >
+    PRECISION = P(a real >=8% top occurs within 60 trading days | the confluence fires),
+    scored at episode-entry positions (collapse_episodes window=20). EDGE = precision -
+    unconditional base rate. The honest headline is the RAW RATIO (e.g. "4 of 9 alerts
+    preceded a top"), never the percentage alone, because N is tiny.
+  horizon_trading_days: 20             # forward-return companion horizon (reported, not primary)
+  primary_tier_pct: 8
+  early_is_acceptable: true            # firing during the topping window ahead of the trough = credit
+
+# 2. TARGET EVENTS ---------------------------------------------------------------
+target_events:
+  top: "a >=tier peak-to-trough drawdown within the 60-trading-day event window"
+  bottom: "a >=tier trough-to-peak run-up within the 60-trading-day event window"
+  event_window_trading_days: 60
+  tiers_pct: [8, 15]                   # 8% primary; 15% secondary
+  primary_tier_pct: 8
+  episode_list_top_8pct:               # the 12 enumerated independent tops (for LOEO + recall)
+    - {peak: "2010-04-23", trough: "2010-07-02", depth: -0.157, scope: organic}
+    - {peak: "2011-04-29", trough: "2011-10-03", depth: -0.186, scope: distribution}
+    - {peak: "2012-04-02", trough: "2012-06-04", depth: -0.097, scope: distribution}
+    - {peak: "2015-07-20", trough: "2016-02-11", depth: -0.130, scope: distribution}
+    - {peak: "2018-01-26", trough: "2018-02-08", depth: -0.101, scope: fast}
+    - {peak: "2018-09-20", trough: "2018-12-24", depth: -0.193, scope: distribution}
+    - {peak: "2020-02-19", trough: "2020-03-23", depth: -0.337, scope: news_crash_excluded}
+    - {peak: "2020-09-02", trough: "2020-09-23", depth: -0.094, scope: fast}
+    - {peak: "2022-01-03", trough: "2022-10-12", depth: -0.245, scope: distribution}
+    - {peak: "2024-07-16", trough: "2024-08-05", depth: -0.084, scope: fast}
+    - {peak: "2025-02-19", trough: "2025-04-08", depth: -0.188, scope: distribution}
+    - {peak: "2026-01-27", trough: "2026-03-30", depth: -0.089, scope: distribution}
+
+# 3. MINIMUM EFFECT SIZE ---------------------------------------------------------
+min_effect_size:
+  precision_edge_pp: 20.0              # confluence precision must beat base rate by >= this
+  recall_floor_organic: 4              # must catch >= 4 of the ~10 organic tops
+  alpha: 0.05
+  note: "significance alone is insufficient; the precision edge AND raw recall both gate."
+
+# 4. CONSTRUCTIONS (frozen; thresholds are round numbers from theory/research, NOT re-tuned) -----
+constructions:
+  legs_top:                            # all point-in-time, built from src/features/utils.py
+    near_high: "SPY_close >= rolling_max(SPY_close,60)*0.97"
+    compressed: "trailing_percentile(bollinger_width(SPY_close,20),126) < 0.30"
+    obv_down: "rolling_slope(obv(SPY_close,SPY_volume),20) < 0"
+    udr_down: "rolling_slope(updown_volume_ratio(SPY_close,SPY_volume,20),20) < 0"
+    breadth_gate: "concentration_regime(panel,60) < 0   # RSP/SPY 60d change negative = narrowing"
+    support_loss: "SPY_close < sma(SPY_close,20)   # Codex: price confirmation after churn"
+    vvix_residual_high: >
+      top-decile (trailing_percentile(.,252) > 0.90) residual of a rolling-252 OLS of
+      log(VVIX_close) on log(VIX_close)   # Gemini: tail-hedge demand independent of spot VIX
+    abi_churn: "trailing_percentile(sma(ABINYSE_abi,20),252) < 0.20   # broad-US ABI proxy"
+  legs_bottom:
+    capit: "drawdown(SPY_close,60) <= -0.08  AND  trailing_percentile(VIX_close,252) > 0.90"
+    vvix_rollover: "VVIX_close < rolling_max(VVIX_close,10)*0.95   # VVIX rolling off its peak"
+    snap: "pct_change(RSP_close,5) >= 0.03  OR  (rsi(SPY_close,14)>30 AND prior<=30)"
+    vix_reversal: >
+      Gemini intraday climax: trailing_percentile(VIX_high,252) > 0.90 AND VIX_close < VIX_open
+      AND SPY_close > SPY_open   # capitulation wick that closes green
+  grid:                                # the CONFIRMATORY multiple-testing budget (frozen)
+    T1_core_gated:    {legs: [near_high, compressed, obv_down, udr_down, breadth_gate], variants: 2, vvix_slope: DROPPED}
+    T2_core_support:  {legs: [T1, support_loss], variants: 1}
+    T3_core_vvixres:  {legs: [T1, vvix_residual_high], variants: 1}
+    T4_core_abichurn: {legs: [T1, abi_churn], variants: 1}
+    B1_capitulation:  {legs: [capit, vvix_rollover, snap], variants: 2}
+    B2_capit_vixrev:  {legs: [capit, vix_reversal, snap], variants: 1}
+    standalone_for_family_count: [vvix_residual_high, abi_churn]   # 2 cells
+    total_confirmatory_cells: 11
+  report_only_zero_cells:              # NOT in the MTC budget; descriptive lanes
+    - dist_cooccur_baseline            # same-day AND control: proves gating+timing are load-bearing
+    - distribution_stress_index        # Gemini continuous DSI = geomean of leg trailing-252 percentiles
+    - price_confirmation_lane          # lead-time vs precision trade-off
+  dropped:                             # explicitly NOT built (review consensus)
+    - "raw rolling_slope(VVIX/VIX,10) hard leg  # search artifact; denominator-compression noise"
+    - "VVIX/VIX LEVEL-high top leg  # mechanically inverse to stress; anti-predictive"
+    - "VIX/VIX3M term-high, SKEW, TLT-flight top legs  # coincident/lagging or thin"
+    - "QQQE/QQQ second breadth gate  # 0.61 collinear with RSP/SPY gate"
+
+# 5. EPISODE COLLAPSING ----------------------------------------------------------
+episodes:
+  window_trading_days: 20
+  rule: "same-side alerts within 20 trading days collapse to one episode; first alert is the entry."
+  report: [episode_count, effective_n, raw_ratio]
+
+# 6. NULL MODEL — the load-bearing upgrade (Codex highest-confidence change) ------
+null_model:
+  type: opportunity_set_random_timing
+  rule: >
+    The random-timing null draws ONLY from the ELIGIBLE opportunity set (days in the
+    near-high / distribution-watch state where the signal could plausibly fire), NOT from
+    all days, AND matches the vol-regime mix. Drawing from all days is too easy because the
+    signal only fires in states where tops are inherently more likely. The confluence must
+    beat THIS harder null.
+  eligibility_top: "near_high (SPY within 3% of its 60d high)"
+  eligibility_bottom: "drawdown(SPY_close,60) <= -0.05 (already in a meaningful pullback)"
+  draws: 2000
+  seed: 1729
+  also_report: regime_matched_all_days_null   # the easier Phase-1-style null, for comparison
+
+# 7. OUT-OF-SAMPLE BATTERY (replaces Phase-1 per-fold stability) -----------------
+out_of_sample:
+  temporal_holdout:                    # Codex
+    discover_window: ["2010-01-01", "2021-12-31"]
+    confirm_window:  ["2022-01-01", "2026-06-17"]
+    rule: "edge must be present (same sign, positive) in the CONFIRM window, not only pooled."
+  cross_asset_transfer:                # Gemini
+    asset: QQQ
+    rule: >
+      Apply the frozen SPY-parameter constructions to QQQ with NO re-tuning; the edge must
+      beat QQQ's own opportunity-set null. Failure on an untouched asset => SPY edge is a noise-fit.
+    note: "IWM/European assets not in the store; QQQ + QQQE are. Documented limitation."
+  leave_one_episode_out:               # validation stream
+    rule: >
+      Drop each of the 12 enumerated tops, recompute recall on the remaining; pass only if
+      recall holds in a MAJORITY of leave-outs AND no single episode's removal collapses
+      precision below the base rate (leverage check).
+
+# 8. MULTIPLE-TESTING ------------------------------------------------------------
+multiple_testing:
+  confirmatory_grid: max_statistic_reality_check   # across the 11 frozen cells (+ tiers)
+  fdr: benjamini_hochberg
+  exploratory_disclosure: >
+    The exploration tested ~10+ combinations; the frozen 11-cell reality_p UNDERSTATES the
+    true family-wise search burden. Therefore the OOS battery (section 7), not the in-sample
+    reality_p, is the primary evidence for a GO. Report both.
+  deflated_sharpe: false
+
+# 9. KILL-GATE PHASE-2 (all 5 must hold for a GO) --------------------------------
+kill_gate:
+  conditions:
+    - "G1 precision floor: primary top precision >= base_rate + 20pp AND opportunity-set null_p < 0.05"
+    - "G2 confirmatory MTC: max-stat reality_p < 0.05 across the 11 frozen cells AND BH survivors > 0"
+    - "G3 out-of-sample: CONFIRM-window edge positive AND QQQ transfer beats QQQ null AND LOEO recall holds in a majority with no single-episode precision collapse"
+    - "G4 recall floor: catches >= 4 of the ~10 organic tops"
+    - "G5 stack beats parts: gated confluence precision > ungated watch AND > each standalone leg, at MATCHED recall/alert-count (block-bootstrap CI on the difference excludes 0)"
+  on_fail: >
+    STOP and report 'no demonstrable confluence edge' — ship DESCRIPTIVE-ONLY (show where
+    breadth/vol/compression stand today, no predictive-confidence claim). An honest, successful
+    outcome that does not flip a live alerting feature ON.
+  suggestive_band: "an opportunity-set null_p in [0.05, 0.10] is SUGGESTIVE ONLY and does NOT flip the tool ON."
+
+# 10. STRUCTURAL BOUNDARIES ------------------------------------------------------
+structural_breaks:
+  declared: {VVIX_start: "2007-01-03", VIX3M_start: "2006-07-17", ABINYSE_start: "2010-01-04", QQQE_start: "2012-03-21"}
+  rule: "no rolling window may straddle an availability boundary; the 2010 combined start clears all."
+
+reproducibility:
+  random_seed: 1729
+  data_snapshot: "ABINYSE committed as a frozen append-only Parquet; historical rows never overwritten."

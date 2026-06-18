@@ -136,3 +136,31 @@ def updown_volume_ratio(close: pd.Series, volume: pd.Series, window: int = 20) -
     up_vol = volume.where(chg > 0, 0.0).rolling(window, min_periods=window).sum()
     dn_vol = volume.where(chg < 0, 0.0).rolling(window, min_periods=window).sum()
     return up_vol / dn_vol.replace(0.0, np.nan)
+
+
+def rolling_ols_residual(y: pd.Series, x: pd.Series, window: int) -> pd.Series:
+    """Residual of a TRAILING-window OLS of y on x, evaluated at the current point.
+
+    At index t, fit ``y = a + b*x`` on the window [t-window+1, t] (data <= t only) and
+    return ``y[t] - (a + b*x[t])``. Point-in-time by construction — truncation-invariant,
+    enforced by tests/test_lookahead.py. Used for the beta-adjusted VVIX-vs-VIX residual
+    (vol-of-vol demand independent of spot VIX).
+    """
+    yv = y.to_numpy(dtype=float)
+    xv = x.to_numpy(dtype=float)
+    n = len(yv)
+    out = np.full(n, np.nan)
+    for t in range(window - 1, n):
+        ys = yv[t - window + 1:t + 1]
+        xs = xv[t - window + 1:t + 1]
+        m = np.isfinite(ys) & np.isfinite(xs)
+        if m.sum() < window:          # require a full window of valid pairs (no straddle/gaps)
+            continue
+        xm = xs.mean()
+        denom = float(((xs - xm) ** 2).sum())
+        if denom <= 0.0:
+            continue
+        b = float(((xs - xm) * (ys - ys.mean())).sum()) / denom
+        a = float(ys.mean() - b * xm)
+        out[t] = yv[t] - (a + b * xv[t])
+    return pd.Series(out, index=y.index)
