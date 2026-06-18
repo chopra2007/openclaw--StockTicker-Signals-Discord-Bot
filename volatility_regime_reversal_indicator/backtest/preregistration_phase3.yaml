@@ -1,0 +1,188 @@
+# =============================================================================
+# PHASE-3 PRE-REGISTRATION — decomposed-surface WATCH-STATE/TRIGGER (tops) +
+# capitulation->breadth-THRUST (bottoms). Frozen contract. (TODO #47)
+# =============================================================================
+# Separate from the FROZEN Phase-1 (preregistration.yaml) and Phase-2
+# (preregistration_phase2.yaml) contracts, which are untouched, as are their tests.
+#
+# HONESTY DISCLOSURE (load-bearing — read first):
+# Phase 1 (single signals) and Phase 2 (daily compression/churn confluence) both
+# came back NO-GO; the QQQ cross-asset transfer was the killer. The research mission
+# (.claude/discover/vol-indicator-accuracy/codex-research.md) concluded the real TOP
+# signal lives in DECOMPOSED option-surface + dealer-gamma + true-breadth + liquidity
+# data we do NOT have for free, and that BOTTOMS are the more evidence-backed win
+# (capitulation -> a RARE breadth thrust). Phase 3 builds the FREE, buildable-now
+# subset and judges it under the SAME honesty machinery, plus a benchmark battle and
+# a pre-registered alert budget. The constructions/thresholds were chosen by the
+# research + an exploratory inspection of fire-counts (hypotheses_are_post_selected);
+# this file freezes them before the confirmatory battery. A NO-GO is an acceptable,
+# honest outcome (ship DESCRIPTIVE-ONLY, no live alert) — VRP is still VIX-derived and
+# 10 organic tops is a tiny sample, so the honest prior is SUGGESTIVE-not-significant
+# on the top side. Track-B forward-collection (CBOE put/call, true NYSE up/down volume)
+# is what sets up the next, stronger attempt.
+# =============================================================================
+
+meta:
+  project: volatility_regime_reversal_indicator
+  phase: 3
+  builds_on: phase2_NO_GO
+  ticker: SPY                          # SPY is primary; QQQ is the cross-asset hold-out
+  frozen_before_confirmatory_run: true
+  hypotheses_are_post_selected: true   # disclosed: chosen from research + fire-count inspection
+  backtest_start: "2010-01-01"         # bound by VVIX/VIX3M/HYG/QQQE and the ABI feed (2010-01-04)
+  effective_top_start: "2012-01"       # the watch-state's VVIX-residual leg needs a 252d OLS then a
+                                       # 252d percentile, and watch_on adds a 2nd 252d percentile;
+                                       # the top detector is structurally a ~2012+ tool. Disclosed:
+                                       # the 2010-04 + 2011-04 tops fall in warmup and cannot be caught.
+  ground_truth_top_episodes_8pct: 12   # independent >=8% peak->trough drawdowns 2010-2026 (reused)
+  ground_truth_organic_excl_newscrash: 10
+  ground_truth_in_scope_distribution: 7
+
+# 1. PRIMARY HYPOTHESIS & METRIC -------------------------------------------------
+primary:
+  outcome: precision_vs_base_rate
+  definition: >
+    PRECISION = P(a real >=8% move occurs within 60 trading days | the construction fires),
+    scored at episode-entry positions (collapse_episodes window=20), vs the OPPORTUNITY-SET
+    base rate. The honest headline is always the RAW RATIO (e.g. "5 of 14 alerts preceded a
+    move"), never the percentage alone, because N is tiny.
+  horizon_trading_days: 20
+  primary_tier_pct: 8
+  early_is_acceptable: true            # firing during the turning window ahead of the move = credit
+
+# 2. TARGET EVENTS (reused verbatim from Phase-2; ground truth unchanged) --------
+target_events:
+  top: "a >=tier peak-to-trough drawdown within the 60-trading-day event window"
+  bottom: "a >=tier trough-to-peak run-up within the 60-trading-day event window"
+  event_window_trading_days: 60
+  tiers_pct: [8, 15]
+  primary_tier_pct: 8
+  episode_list_top_8pct:
+    - {peak: "2010-04-23", trough: "2010-07-02", depth: -0.157, scope: organic}
+    - {peak: "2011-04-29", trough: "2011-10-03", depth: -0.186, scope: distribution}
+    - {peak: "2012-04-02", trough: "2012-06-04", depth: -0.097, scope: distribution}
+    - {peak: "2015-07-20", trough: "2016-02-11", depth: -0.130, scope: distribution}
+    - {peak: "2018-01-26", trough: "2018-02-08", depth: -0.101, scope: fast}
+    - {peak: "2018-09-20", trough: "2018-12-24", depth: -0.193, scope: distribution}
+    - {peak: "2020-02-19", trough: "2020-03-23", depth: -0.337, scope: news_crash_excluded}
+    - {peak: "2020-09-02", trough: "2020-09-23", depth: -0.094, scope: fast}
+    - {peak: "2022-01-03", trough: "2022-10-12", depth: -0.245, scope: distribution}
+    - {peak: "2024-07-16", trough: "2024-08-05", depth: -0.084, scope: fast}
+    - {peak: "2025-02-19", trough: "2025-04-08", depth: -0.188, scope: distribution}
+    - {peak: "2026-01-27", trough: "2026-03-30", depth: -0.089, scope: distribution}
+
+# 3. MINIMUM EFFECT SIZE ---------------------------------------------------------
+min_effect_size:
+  precision_edge_pp: 20.0              # construction precision must beat the opportunity-set base by >=
+  recall_floor_organic: 4              # must catch >= 4 of the ~10 organic tops (warmup-excluded noted)
+  alpha: 0.05
+  note: "significance alone is insufficient; the precision edge AND raw recall both gate."
+
+# 4. CONSTRUCTIONS (frozen; thresholds are round numbers from theory/research, NOT re-tuned) -----
+constructions:
+  legs_top:                            # all point-in-time, src/signals/conditions_phase3.py
+    vrp_low: "1 - trailing_percentile(variance_risk_premium(VIX,SPY,21),252)  # low VRP = complacency"
+    term_stress: "trailing_percentile(VIX_close/VIX3M_close,252)              # flat/backward = stress"
+    vvix_residual: "trailing_percentile(rolling_ols_residual(log VVIX,log VIX,252),252)  # reused P2"
+    breadth_narrow: "1 - trailing_percentile(concentration_regime(panel,60),252)  # RSP/SPY narrowing"
+  watch_state: "geometric mean of the 4 legs above, HIGH = fragile/top-like (DSI machinery)"
+  legs_bottom:
+    washout: "drawdown(SPY,60) <= -0.08 AND trailing_percentile(VIX_close,252) > 0.90 (Phase-2 _capit)"
+    thrust_pct: >
+      broad-US-adapted Zweig: trailing_percentile(ema(adv/(adv+dec),10),252) crosses ABOVE 0.90
+      having been below 0.10 within 10 days (self-normalizing; our feed is broad-US, not NYSE)
+    thrust_canonical: "NYSE Zweig: ema(adv/(adv+dec),10) 0.40->0.615 within 10d (reference; rare)"
+  grid:                                # the CONFIRMATORY multiple-testing budget (frozen)
+    T_watch_break:    {legs: [watch_on>=0.80 pctile, support_break sma50], variants: 2}  # +[0.85,50],[0.80,20]
+    B_thrust:         {legs: [washout within 25d, thrust_pct], variants: 2}  # +[-0.05,0.80], canonical
+    total_confirmatory_cells: 5
+  controls:                            # NOT in the predictive budget; prove the gate is load-bearing
+    - ctl_zbt_only                     # thrust alone, no washout
+    - ctl_washout_only                 # washout alone, no thrust (the base-rate trap)
+  benchmark:                           # the late-but-robust trend-following baseline (G6)
+    bench_top_200: "SPY breaks DOWN through its 200-day MA"
+    bench_bot_200: "SPY reclaims its 200-day MA from below"
+
+# 5. EPISODE COLLAPSING ----------------------------------------------------------
+episodes:
+  window_trading_days: 20
+  rule: "same-side alerts within 20 trading days collapse to one episode; first alert is the entry."
+  report: [episode_count, effective_n, raw_ratio]
+
+# 6. ALERT BUDGET — 'earn the right to speak rarely' (research Layer 3) -----------
+alert_budget:
+  tops_per_year: {min: 2, max: 4}
+  bottoms_per_year: {min: 1, max: 3}
+  enforcement: >
+    G7 enforces the MAX cap: a construction whose mean COLLAPSED episodes/year exceeds its cap
+    FAILS regardless of precision (the research frames the budget as 'no more than N/yr'). Firing
+    BELOW the min is allowed (rarer is better) but is REPORTED as 'quiet/underpowered' because a
+    too-rare detector has too few episodes for a significant null (handled by G1, not G7).
+  rationale: "pre-registered to stop precision being bought with a flood of alerts."
+
+# 7. NULL MODEL — the load-bearing upgrade (reused from Phase-2) ------------------
+null_model:
+  type: opportunity_set_random_timing
+  rule: >
+    The random-timing null draws ONLY from the ELIGIBLE opportunity set (near-high days for
+    tops; >=5% pullback days for bottoms), regime-matched, NOT from all days. The construction
+    must beat THIS harder null.
+  eligibility_top: "near_high (SPY within 3% of its 60d high)"
+  eligibility_bottom: "drawdown(SPY_close,60) <= -0.05 (already in a meaningful pullback)"
+  draws: 2000
+  seed: 1729
+  also_report: regime_matched_all_days_null
+
+# 8. OUT-OF-SAMPLE BATTERY (reused from Phase-2) ---------------------------------
+out_of_sample:
+  temporal_holdout:
+    discover_window: ["2010-01-01", "2021-12-31"]
+    confirm_window:  ["2022-01-01", "2026-06-17"]
+    rule: "edge must be present (same sign, positive) in the CONFIRM window, not only pooled."
+  cross_asset_transfer:
+    asset: QQQ
+    rule: >
+      Apply the frozen SPY-parameter constructions to QQQ with NO re-tuning; the edge must beat
+      QQQ's own opportunity-set null. Failure on an untouched asset => SPY edge is a noise-fit.
+      This is the test that killed Phase 2 (QQQ edge -0.028).
+    note: "QQQE (the QQQ breadth proxy) starts 2012-03-21, bounding the QQQ breadth leg. Documented."
+  leave_one_episode_out:
+    rule: >
+      Drop each of the 12 enumerated tops, recompute recall on the rest; pass only if recall holds
+      in a MAJORITY of leave-outs AND no single episode's removal collapses precision below base.
+
+# 9. MULTIPLE-TESTING ------------------------------------------------------------
+multiple_testing:
+  confirmatory_grid: max_statistic_reality_check   # across the frozen cells (+ tiers)
+  fdr: benjamini_hochberg
+  exploratory_disclosure: >
+    Fire-counts were inspected to set the thrust encoding (canonical NYSE thresholds do not
+    transfer to the broad-US feed). The frozen reality_p therefore UNDERSTATES the search burden;
+    the OOS battery (section 8), not the in-sample reality_p, is the primary evidence for a GO.
+  deflated_sharpe: false
+
+# 10. KILL-GATE PHASE-3 (all 7 must hold for a GO) -------------------------------
+kill_gate:
+  conditions:
+    - "G1 precision floor: primary precision >= opportunity-set base + 20pp AND null_p < 0.05"
+    - "G2 confirmatory MTC: max-stat reality_p < 0.05 across the frozen cells AND BH survivors > 0"
+    - "G3 out-of-sample: CONFIRM-window edge positive AND QQQ transfer beats QQQ null AND LOEO recall holds with no single-episode precision collapse"
+    - "G4 recall floor: catches >= 4 of the ~10 organic tops (warmup-excluded tops noted, not counted against)"
+    - "G5 stack beats parts: gated construction precision > each control (zbt_only, washout_only) at MATCHED alert count (bootstrap CI on the difference excludes 0)"
+    - "G6 benchmark battle: the detector beats the late-but-robust 200-day trend baseline at MATCHED alert count (diff_p05 > 0), for BOTH sides"
+    - "G7 alert budget: mean collapsed episodes/year <= the pre-registered cap (tops 4, bottoms 3) for BOTH sides"
+  on_fail: >
+    STOP and report 'no demonstrable edge' — ship DESCRIPTIVE-ONLY (display where the fragility
+    watch-state / VRP / breadth thrust stand today, no predictive-confidence claim, no live alert).
+    An honest, successful outcome. The Track-B forward-collection continues regardless.
+  suggestive_band: "an opportunity-set null_p in [0.05, 0.10] is SUGGESTIVE ONLY and does NOT flip the tool ON."
+
+# 11. STRUCTURAL BOUNDARIES ------------------------------------------------------
+structural_breaks:
+  declared: {VVIX_start: "2007-01-03", VIX3M_start: "2006-07-17", ABINYSE_start: "2010-01-04", QQQE_start: "2012-03-21"}
+  rule: "no rolling window may straddle an availability boundary; the 2010 combined start clears all."
+  top_warmup: "watch_on valid ~2012 (252d OLS + two 252d percentiles); pre-2012 tops are warmup-excluded."
+
+reproducibility:
+  random_seed: 1729
+  data_snapshot: "ABINYSE committed append-only; new Track-B feeds (CBOE_PUTCALL, NYSE_BREADTH) collected forward."

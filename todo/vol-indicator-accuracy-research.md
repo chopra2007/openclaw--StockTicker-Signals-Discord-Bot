@@ -93,11 +93,60 @@ Both said the original design was a NO-GO but the goal is **buildable if restruc
 - Is true NYSE-only breadth (vs the broad-US proxy) materially better, and worth forward-collecting?
 
 ## How to pick this up cold
-Read `backtest/PHASE2-REPORT.md` (the honest verdict + the follow-up section), then this file, then
-run the research mission. The harness + honesty machinery are reusable; any new method MUST plug into
-it (point-in-time, opportunity-set null, cross-asset transfer, temporal hold-out, pre-registration).
+Read `backtest/PHASE3-REPORT.md` (latest verdict), then `backtest/PHASE2-REPORT.md`, then this file.
+The harness + honesty machinery are reusable; any new method MUST plug into it (point-in-time,
+opportunity-set null, cross-asset transfer, temporal hold-out, pre-registration).
 
 ---
+
+## Phase 3 — RAN, honest NO-GO both sides (2026-06-18)
+Built the research mission's free, buildable-now subset and judged it under the SAME honesty harness
+plus a benchmark battle + a pre-registered alert budget (7-gate kill-gate). Report:
+`backtest/PHASE3-REPORT.md`. Frozen contract: `backtest/preregistration_phase3.yaml`. Code:
+`src/features/utils.py` (new `variance_risk_premium`, `zweig_breadth_thrust`),
+`src/signals/conditions_phase3.py`, `src/backtest/phase3.py`, `src/run_phase3.py`. Tests:
+`tests/test_lookahead_phase3.py`, `tests/test_preregistration_phase3.py`. Full suite 90 green.
+
+**What we built (Track A):**
+- TOP: a 4-leg WATCH-STATE composite (low variance-risk-premium = complacency; high VIX/VIX3M term
+  stress; high VVIX-vs-VIX residual; breadth narrowing) → a 2-stage TRIGGER (watch-state in its own
+  top quintile AND SPY closes below its 50-day average). The first time we've actually tested VRP.
+- BOTTOM: capitulation washout → a RARE breadth thrust. Canonical NYSE Zweig (0.40→0.615) fires only
+  ~6x in 16y / none post-2019 on our broad-US feed, so we used a self-normalizing percentile thrust
+  (10-day adv-ratio EMA's trailing-252 percentile 0.10→0.90), gated by a washout within the prior 25d.
+
+**Result — NO-GO both sides (the anticipated, honest outcome):**
+- TOP (best T_watch_break): edge +0.090 (precision 0.310 vs eligible-base 0.221) but oppset null_p
+  0.384 — NOT significant. 9 of 29 alerts preceded a ≥8% top; recall 4/10 organic (clears the floor).
+  QQQ transfer edge +0.024 (p 0.522) — POSITIVE (Phase-2 was −0.028) but not significant. The dumb
+  200-day-break baseline had HIGHER precision (0.478) but caught 0/10 tops early (precise-but-late) →
+  detector loses the benchmark battle.
+- BOTTOM (best B_thrust): edge NEGATIVE −0.154 (precision 0.769 vs eligible-base 0.923), null_p 0.970.
+  The 92% base-rate trap CONFIRMED AGAIN: among −5% pullback days, 92.3% precede an 8% bounce within
+  60d; the rare thrust did not beat that (even underperformed — it fires late, after the bounce starts).
+  `washout_only` (0.957) beat the gated thrust (0.769) → the thrust requirement HURT.
+- Ships DESCRIPTIVE-ONLY (a fragility/complacency gauge); NO live alert flipped on. Confirms the
+  research's core finding: free VIX-derived data + broad-US breadth can't hit the exact ≥8% turn.
+
+**What shipped LIVE (Track B — forward-collection, can't be backfilled):**
+- `src/data/fetch_putcall.py` → `CBOE_PUTCALL` (total/equity/index/etp put-call ratios; free CBOE
+  daily page, backfillable to ~2019-10-15).
+- `src/data/fetch_nyse_breadth.py` → `NYSE_BREADTH` (true NYSE adv/dec ISSUES **and UP/DOWN VOLUME**
+  — the volume our ABINYSE proxy lacks; unlocks a future Lowry 90/90). Snapshot-only source, no free
+  history → forward-collected.
+- `scripts/collect_daily.sh` + `vol-collect-daily.timer/.service` (daily 22:30 UTC, runs as root, the
+  store is root-owned). Append-only + restatement guard. NOTE: `data/store/` is gitignored.
+
+## Next steps (priority-ordered)
+1. **JUDGE TRACK B IN A FEW MONTHS.** Once CBOE put/call + true NYSE up/down volume have built forward
+   history, add them as new legs: a put/call leg in `top_watch_state` and a Lowry 90/90 up/down-volume
+   confirmation in `b_thrust`. Each is a one-line append + a prereg cell + a look-ahead-test entry, then
+   re-run `python3 -m src.run_phase3`. This is the real bet for a future GO.
+2. **Acquire the richer paid inputs** the research endorses if budget allows (ORATS near-EOD SPX/QQQ
+   options for decomposed tail/jump/skew measures; dealer-gamma reconstruction; Norgate point-in-time
+   constituents). They plug into the same watch-state composite.
+3. The DSI/watch-state can still ship as an honest descriptive complacency gauge (works, transfers; a
+   different product than a crash predictor).
 
 ## APPENDIX — the research-mission prompt (self-contained; git-recoverable copy)
 

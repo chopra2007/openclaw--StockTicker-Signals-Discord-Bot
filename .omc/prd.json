@@ -1,154 +1,91 @@
 {
-  "project": "Ship 1 + Ship 2 — Format & UX Pack + Narrative Pack v1",
-  "description": "ONE PR landing Ship 1 (6 embed-format changes) and Ship 2 (4 narrative-pack changes) per plan .omc/plans/ship1-ship2-format-narrative.md. Pure rendering + LLM prompting work; no new data fetches.",
+  "project": "Volatility-Regime & Reversal Indicator \u2014 Phase 3 (decomposed-surface top watch-state + Zweig-thrust bottom; TODO #47)",
+  "description": "Build the free 'Phase 3' two-track market top/bottom detector per /root/.claude/plans/look-at-47-on-humble-raven.md, reusing the existing frozen honesty harness (NOTHING in Phase 1 or Phase 2 is touched). Track A: a new variance-risk-premium feature, a 4-leg top WATCH-STATE composite, a 2-stage watch->price-break TRIGGER, a capitulation->Zweig-breadth-thrust BOTTOM detector + controls, a trend-following benchmark battle, a frozen preregistration_phase3.yaml with a 7-gate kill-gate + alert budget, a run_phase3.py runner producing PHASE3-REPORT.md, and new look-ahead + preregistration tests. Track B: two new daily collectors (CBOE put/call ratio; true NYSE up/down volume) verified against a real free source, plus a scheduled daily job, to accumulate forward history that cannot be backfilled. Honest NO-GO is acceptable and ships descriptive-only. Working dir: volatility_regime_reversal_indicator/.",
   "stories": [
     {
-      "id": "US-S1-001",
-      "title": "Ship 1 N1+N3+N4: Cashtag, compact money, arrow icons in embed.py",
+      "id": "US-001",
+      "title": "Track A1: VRP + Zweig point-in-time features with look-ahead coverage",
       "passes": true,
       "acceptanceCriteria": [
-        "embed.py _fmt_cashtag(ticker) returns '$TICKER' for plain ticker, '$TICKER' for $TICKER (idempotent)",
-        "embed.py _fmt_money_compact(value) returns '$2.4M' for 2400000, '$437K' for 437000, '$1.2B' for 1200000000, '$120' for 120, '—' for None",
-        "embed.py _arrow_for_level(level, current) returns '↑' when level > current, '↓' when level < current, '⇄' when within 0.1% of current",
-        "embed.py build_embed title uses _fmt_cashtag (renders '$NVDA — Full Analysis')",
-        "embed.py SL/TP1/TP2/TP3 fields render with arrow icons relative to current_price",
-        "embed.py Buy Zone field includes ⇄ arrow when zone brackets current"
+        "src/features/utils.py gains variance_risk_premium(vix_close, spy_close, rv_window=21) = (vix_close/100)**2 - realized_vol(spy_close, rv_window, annualize=True)**2, reusing the existing realized_vol; trailing-only, no full-sample stats",
+        "src/features/utils.py gains zweig_breadth_thrust(adv, dec, ema_span=10) = ema(adv/(adv+dec), 10) reusing the existing causal ema",
+        "tests/test_lookahead.py registers both new functions and the truncation-invariance test passes for them (feature[t] on data[0..t] == feature[t] on full series)",
+        "python3 -m pytest tests/test_lookahead.py -q passes with the two new entries present"
       ]
     },
     {
-      "id": "US-S1-002",
-      "title": "Ship 1 N2: Direction emoji upgrade (🟢/🔴/⚪)",
+      "id": "US-002",
+      "title": "Track A2-A5: Phase-3 conditions module (watch-state, trigger, Zweig bottom, controls, benchmarks)",
       "passes": true,
       "acceptanceCriteria": [
-        "embed.py _direction_emoji returns '🟢 BULLISH' for 'BULLISH'",
-        "embed.py _direction_emoji returns '🔴 BEARISH' for 'BEARISH'",
-        "embed.py _direction_emoji returns '⚪ NEUTRAL' for 'NEUTRAL' or unknown",
-        "embed.py build_embed direction line + Direction field reflect new emoji set"
+        "NEW src/signals/conditions_phase3.py mirrors conditions_phase2.py structure (_b, _col, leg fns, @dataclass(frozen=True) P3Construction(name, side, fn, role), build_constructions())",
+        "top_watch_state(p) is a geometric mean (copy distribution_stress_index machinery) of 4 signed monotonic trailing-252-percentile legs oriented HIGH=top-like: (1) 1-pct(variance_risk_premium) [low VRP=complacency], (2) pct(VIX/VIX3M term ratio), (3) pct(_vvix_residual) reused from Phase 2, (4) 1-pct(concentration_regime(p,60))",
+        "t_watch_break(p, watch_pct=0.80, ma=50) = (trailing_percentile(top_watch_state,252) >= watch_pct) & (SPY_close < sma(SPY_close,50)); registered side='top' role='primary' + >=1 variant",
+        "zbt_fire(p, span=10, lo=0.40, hi=0.615, within=10) implements the classic Zweig trigger from ABINYSE_adv/ABINYSE_dec using only trailing ops (shift, rolling().max().shift(1)); b_thrust(p) = capitulation washout (reuse _capit dd<=-0.08 & VIX>90pct) & zbt_fire; registered side='bottom' role='primary' + a looser variant",
+        "Two bottom CONTROLS registered (zbt_only, washout_only) to prove the thrust requirement is load-bearing; benchmark constructions bench_top_200 (SPY<sma200) and bench_bot_200 (SPY>sma200) registered role='benchmark'",
+        "build_constructions() returns all of the above; importing the module and calling each fn on the real loaded panel returns a boolean Series aligned to the index (no exception, no all-NaN top_watch_state after warmup)"
       ]
     },
     {
-      "id": "US-S1-003",
-      "title": "Ship 1 N5: Plain-English one-liner under each level (per-field template)",
+      "id": "US-003",
+      "title": "Track A6: frozen preregistration_phase3.yaml + prereg & look-ahead tests",
       "passes": true,
       "acceptanceCriteria": [
-        "embed.py _level_oneliner(field_name, value, current) returns italic markdown string explaining the level",
-        "Stop-loss one-liner mentions 'exit' or 'invalidates' when level < current and direction bullish",
-        "TP1/TP2/TP3 one-liners are emitted (non-empty italic) when value is not None",
-        "Each level field's 'value' includes both the arrow+price line AND the italic one-liner separated by newline"
+        "NEW backtest/preregistration_phase3.yaml: phase:3, builds_on:phase2_NO_GO, frozen_before_confirmatory_run:true, hypotheses_are_post_selected:true; reuses the SAME 12 enumerated top episodes; declares the new constructions, an alert_budget section (tops_per_year {min:2,max:4}, bottoms_per_year {min:1,max:3}), null_model.type opportunity_set_random_timing, the OOS battery (temporal_holdout, cross_asset_transfer QQQ, leave_one_episode_out), and a kill_gate with EXACTLY 7 conditions (5 Phase-2 + G6 benchmark battle + G7 alert budget)",
+        "NEW tests/test_preregistration_phase3.py asserts: file parses, required sections present incl alert_budget + benchmark, len(kill_gate.conditions)==7, alert-budget bands exact, 12 tops, null_model.type string, honesty disclosures true",
+        "NEW tests/test_lookahead_phase3.py extends the synth panel with VIX3M_close/ABINYSE_adv/ABINYSE_dec and asserts truncation-invariance for every P3Construction fn + top_watch_state + eligibility masks",
+        "python3 -m pytest tests/test_preregistration_phase3.py tests/test_lookahead_phase3.py -q passes"
       ]
     },
     {
-      "id": "US-S1-004",
-      "title": "Ship 1 N7: Relative date phrasing for earnings_date and Next Catalyst",
+      "id": "US-004",
+      "title": "Track A7: phase3.py scorer + run_phase3.py runner producing PHASE3-REPORT.md",
       "passes": true,
       "acceptanceCriteria": [
-        "embed.py _fmt_relative_date(iso_date) returns 'today' when delta==0, 'in 1 session' when delta==1, 'in N sessions' when 0<delta<=7, 'in N days' for >7",
-        "_fmt_relative_date returns 'N days ago' for negative deltas, ISO fallback for invalid input",
-        "embed.py Next Catalyst field uses relative phrasing when next_catalyst_days is set (e.g. 'in 3 sessions')",
-        "Earnings information embedded in narrative or fields uses relative phrasing when within 7 days"
+        "NEW src/backtest/phase3.py imports phase2 and adds episodes_per_year, alert_budget_compliance(sig,index,lo,hi), and beats_benchmark(...) (matched-alert-count bootstrap copied from stack_beats_parts; detector must have diff_p05>0 vs the 200-day baseline)",
+        "NEW src/run_phase3.py mirrors run_phase2.py: loads the 14 series, forward_event_hits([8,15],60), vol_regime_labels, scores every P3Construction via the UNCHANGED score_construction, runs the OOS battery (_precision_in_window discover/confirm, qqq_view transfer, leave_one_episode_out, max_stat_reality) on the best top, plus beats_benchmark + alert_budget_compliance for best top and best bottom",
+        "Verdict = g1..g5 (reused Phase-2 gates) AND g6 (benchmark battle both sides) AND g7 (alert budget both sides); the 7-line kill-gate verdict ends GO or NO-GO",
+        "python3 -m src.run_phase3 runs without error and writes backtest/PHASE3-REPORT.md containing per-construction table, recall-over-12-tops, best-top OOS block, best-bottom block, max-stat reality, a Benchmark-battle section, an Alert-budget section, and the GO/NO-GO verdict"
       ]
     },
     {
-      "id": "US-S2-001",
-      "title": "Ship 2 M1+M2+M3+M6: Narrator prompt emits TL;DR, Bear Case, Market vs Our view, Risks & mitigants",
+      "id": "US-005",
+      "title": "Track A verify: full suite green, report read, honest per-side verdict",
       "passes": true,
       "acceptanceCriteria": [
-        "narrator.py _build_constraints_block contains literal string '**TL;DR:**' as required first-line prefix",
-        "narrator.py _build_constraints_block requires '**What could go wrong:**' section header (M2 Bear Case)",
-        "narrator.py _build_constraints_block requires 'Market view:' / 'Our view:' / 'Catalyst:' sentence pattern (M3 variant perception)",
-        "narrator.py _build_constraints_block requires '**Risks & mitigants:**' section with bulleted risk → mitigant items (M6)",
-        "narrator.py constraints include the contradiction-defense clause: 'Bear Case must acknowledge the COMPUTED SIGNAL'S direction'",
-        "narrator.py constraints include the evidence-citation clause: 'Every Bear Case sentence must cite a specific evidence row' with [evidence:N] marker convention",
-        "narrator.py _build_constraints_block emits all four new clauses regardless of swing_v2_enabled flag"
+        "python3 -m pytest tests/ -q is GREEN for the whole vol-indicator suite (Phase-1/2 baseline unchanged: no previously-passing test now fails)",
+        "backtest/PHASE3-REPORT.md exists and has been READ; the actual GO/NO-GO verdict and the raw ratios (e.g. 'N of M alerts preceded a move') are reported in plain language per side, not inferred from 'it ran'",
+        "If any side is GO it is reported with its alert budget; if NO-GO it is reported honestly as ship-descriptive-only with NO live alert flipped on (per the pre-registered on_fail)"
       ]
     },
     {
-      "id": "US-S2-002",
-      "title": "Ship 2 quality_bar.py: structural rejection of narratives missing required tokens",
+      "id": "US-006",
+      "title": "Track B1-B2: forward-collection fetchers verified against a real free source",
       "passes": true,
       "acceptanceCriteria": [
-        "quality_bar.py has_required_sections(narrative) returns True iff narrative contains '**TL;DR:**', '**What could go wrong:**', AND '**Risks & mitigants:**'",
-        "has_required_sections returns False if any of the three tokens is missing",
-        "narrator.py synthesize_narrative re-prompts (one retry) when has_required_sections returns False on first attempt",
-        "After retry, if still missing required sections, returns ('', 'fallback_data_only') to caller"
+        "A real free source is VERIFIED (a live fetch returns real numbers, shown) for (a) CBOE put/call ratio and (b) true NYSE breadth WITH up/down volume; the chosen source + any fallbacks are recorded; if a source is dead, the diagnose->fix->alternative ladder is followed before surfacing",
+        "NEW src/data/fetch_putcall.py and src/data/fetch_nyse_breadth.py model on fetch_breadth.py (append-only write, restatement guard, provenance sidecar, point-in-time); store keys e.g. CBOE_PUTCALL, NYSE_BREADTH; any free history available at setup is backfilled",
+        "Running each fetcher once lands real rows in data/store/ with a written provenance sidecar (shown via store.provenance)"
       ]
     },
     {
-      "id": "US-S2-003",
-      "title": "TL;DR extraction + display in embed",
+      "id": "US-007",
+      "title": "Track B3: daily scheduled collection job",
       "passes": true,
       "acceptanceCriteria": [
-        "embed.py _extract_tldr(narrative) returns the TL;DR sentence text (without the '**TL;DR:**' prefix) if present, else empty string",
-        "build_embed renders the extracted TL;DR as the first line of description (above direction line), bolded",
-        "When TL;DR is missing, embed falls back to the existing direction-line-only header (no error)"
+        "A daily post-close collection job for both fetchers is scheduled via the deferred-task system (systemd timer created with /root/task_system/scripts/create_task.sh), with retries + logging + cleanup",
+        "systemctl list-timers (or the task system's list) shows the timer scheduled and enabled",
+        "The job script runs the two fetchers and is idempotent (append-only; re-running same-day does not duplicate or corrupt rows)"
       ]
     },
     {
-      "id": "US-T-001",
-      "title": "Unit tests: tests/all_command/test_embed_format.py covers all new embed helpers",
+      "id": "US-008",
+      "title": "Docs: TODO #47 detail file updated with Phase-3 result + Track-B status",
       "passes": true,
       "acceptanceCriteria": [
-        "tests/all_command/__init__.py exists (empty)",
-        "tests/all_command/test_embed_format.py exists",
-        "Tests for _fmt_cashtag, _fmt_money_compact, _fmt_relative_date, _direction_emoji, _arrow_for_level, _level_oneliner, _extract_tldr",
-        "Each helper has at least 3 cases: happy path + edge (None / invalid) + boundary",
-        "python3 -m pytest tests/all_command/test_embed_format.py -v passes 100%"
-      ]
-    },
-    {
-      "id": "US-T-002",
-      "title": "Unit tests: tests/all_command/test_narrator_pack.py covers constraints + quality gate",
-      "passes": true,
-      "acceptanceCriteria": [
-        "tests/all_command/test_narrator_pack.py exists",
-        "Test verifying _build_constraints_block contains TL;DR, Bear Case, Variant Perception, Risks & mitigants markers",
-        "Test verifying has_required_sections returns True for a full narrative",
-        "Test verifying has_required_sections returns False for narratives missing each individual marker",
-        "Test verifying synthesize_narrative retries when quality_bar rejects (mocked LLM)",
-        "python3 -m pytest tests/all_command/test_narrator_pack.py -v passes 100%"
-      ]
-    },
-    {
-      "id": "US-V-001",
-      "title": "Full test suite passes — no regressions vs baseline",
-      "passes": true,
-      "acceptanceCriteria": [
-        "python3 -m pytest tests/ -q exits 0 (no new failures)",
-        "Baseline pre-PR failure list documented in progress.txt; post-PR failure list is a subset (no new red)"
-      ]
-    },
-    {
-      "id": "US-V-002",
-      "title": "Phase B real-world: live !all on NVDA, AMD, TSLA after engine restart + cache invalidation",
-      "passes": true,
-      "acceptanceCriteria": [
-        "consensus-engine service active after restart",
-        "xref_cache cleared for NVDA, AMD, TSLA so cache-miss render is forced",
-        "!all NVDA returns an embed via Discord webhook within 180s; embed text captured to .omc/plans/ship1-ship2-blind-compare/nvda-bot.txt",
-        "!all AMD returns an embed via Discord webhook within 180s; embed text captured to .omc/plans/ship1-ship2-blind-compare/amd-bot.txt",
-        "!all TSLA returns an embed via Discord webhook within 180s; embed text captured to .omc/plans/ship1-ship2-blind-compare/tsla-bot.txt",
-        "Per-ticker score out of 10 (one point per sub-change visible) recorded in progress.txt; total score ≥27/30 required"
-      ]
-    },
-    {
-      "id": "US-V-003",
-      "title": "Phase C blind-compare materials",
-      "passes": true,
-      "acceptanceCriteria": [
-        ".omc/plans/ship1-ship2-blind-compare/GEMINI-PROMPT.txt contains the exact canonical blind-compare prompt from TODO #1",
-        ".omc/plans/ship1-ship2-blind-compare/README.md contains the 3-step copy-paste flow + acceptance line (3/3 prefer-bot or tie)",
-        ".omc/plans/ship1-ship2-blind-compare/ directory has nvda-bot.txt, amd-bot.txt, tsla-bot.txt (created in US-V-002)"
-      ]
-    },
-    {
-      "id": "US-V-004",
-      "title": "Phase D local commit (NOT pushed)",
-      "passes": false,
-      "acceptanceCriteria": [
-        "git log -1 shows new commit with conventional-commit message 'feat(all): Ship 1 (format pack) + Ship 2 (narrative pack v1) per audit 2989eb7'",
-        "git status shows clean working tree (pre-existing unstaged files left untouched)",
-        "Pre-existing files .omc/prd.json, TODO.md, .omc/plans/yt-chain-next-steps-brief.md NOT included in the commit",
-        "git log shows commit is local-only (no remote push verified)"
+        "todo/vol-indicator-accuracy-research.md is updated: a new dated section records the Phase-3 per-side verdict (GO/NO-GO with raw numbers), what shipped, and the Track-B forward-collection status with a 'judge in a few months' follow-up",
+        "Any next-step or follow-up mentioned is written into the TODO file before declaring done (no chat-only follow-ups)",
+        "A memory entry is added/updated if a durable lesson emerged (e.g. Phase-3 NO-GO like the existing project_vol_indicator_phase2_nogo.md)"
       ]
     }
   ]

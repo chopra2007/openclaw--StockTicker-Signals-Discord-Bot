@@ -59,6 +59,8 @@ FEATURES = {
     "updown_volume_ratio_20": lambda d: U.updown_volume_ratio(d.close, d.volume, 20),
     "rolling_ols_residual_60": lambda d: U.rolling_ols_residual(
         np.log(d.close), np.log(d.high), 60),
+    "variance_risk_premium_21": lambda d: U.variance_risk_premium(d.close * 0.16, d.close, 21),
+    "zweig_breadth_thrust_10": lambda d: U.zweig_breadth_thrust(d.volume, d.close * 1e4, 10),
 }
 
 # t positions to probe (recompute on the prefix df[0..t] and compare value at t)

@@ -164,3 +164,37 @@ def rolling_ols_residual(y: pd.Series, x: pd.Series, window: int) -> pd.Series:
         a = float(ys.mean() - b * xm)
         out[t] = yv[t] - (a + b * xv[t])
     return pd.Series(out, index=y.index)
+
+
+def variance_risk_premium(
+    vix_close: pd.Series, spy_close: pd.Series, rv_window: int = 21
+) -> pd.Series:
+    """Variance risk premium = implied variance - realized variance (annualized).
+
+    ``iv_var = (VIX/100)**2`` is the option-implied annualized variance (VIX is a level
+    in points, 16.4 -> 0.164); ``rv_var`` is trailing realized variance over ``rv_window``
+    days (the square of ``realized_vol``). VRP > 0 is the normal state (insurance costs
+    more than realized risk); a COMPRESSED/low VRP near the highs is the complacency /
+    under-hedging signature the research flags as top-like.
+
+    Point-in-time: ``(VIX/100)**2`` is pointwise and ``realized_vol`` is a trailing rolling
+    std — neither sees beyond t. ``rv_window=21`` horizon-matches the VIX 30-calendar-day
+    window (the standard literature VRP horizon).
+    """
+    iv_var = (vix_close / 100.0) ** 2
+    rv_var = realized_vol(spy_close, rv_window, annualize=True) ** 2
+    return iv_var - rv_var
+
+
+def zweig_breadth_thrust(adv: pd.Series, dec: pd.Series, ema_span: int = 10) -> pd.Series:
+    """Zweig Breadth Thrust ratio = EMA of advancing / (advancing + declining) issues.
+
+    The classic thrust fires when this 10-day EMA surges from below ~0.40 to above ~0.615
+    within 10 trading days (a rare, broad re-accumulation that historically marks bottoms).
+    This returns only the EMA series; the cross/within-window trigger lives in the signal layer.
+
+    Point-in-time: the daily advance ratio is same-day (no shift) and ``ema`` is a causal
+    ewm(adjust=False) — removing future rows cannot change the value at t.
+    """
+    ratio = adv / (adv + dec).replace(0.0, np.nan)
+    return ema(ratio, ema_span)

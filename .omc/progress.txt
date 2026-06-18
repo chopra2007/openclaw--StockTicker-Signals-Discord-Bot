@@ -1,29 +1,81 @@
-Ship 1 + Ship 2 ralph execution — started 2026-05-16
+# Ralph progress — vol-indicator Phase 3 (TODO #47)
 
-## Plan
-.omc/plans/ship1-ship2-format-narrative.md
-- Ship 1: 6 embed.py format changes (cashtag, direction emoji upgrade, compact money, arrow icons, plain-English one-liner, relative date)
-- Ship 2: 4 narrator.py + quality_bar.py narrative additions (TL;DR, Bear Case, Market vs Our view, Risks & mitigants)
-- Tests + real-world verification on NVDA/AMD/TSLA + local commit
+## Status: Track A COMPLETE + honest NO-GO (both sides). Track B (forward-collection) in progress.
 
-## Files to touch
-- consensus_engine/alerts/all_command/embed.py (Ship 1 helpers + wiring)
-- consensus_engine/alerts/all_command/narrator.py (CONSTRAINTS block)
-- consensus_engine/alerts/all_command/quality_bar.py (has_required_sections)
-- tests/all_command/__init__.py (new)
-- tests/all_command/test_embed_format.py (new)
-- tests/all_command/test_narrator_pack.py (new)
-- .omc/plans/ship1-ship2-blind-compare/* (output capture for user)
+## Baseline
+- Pre-work baseline: full vol-indicator suite GREEN (68 tests). Post-Phase-3: 90 tests GREEN
+  (68 + 22 new). No regressions — Phase-1/2 untouched.
 
-## Out of scope
-- aggregator.py, levels.py, structured_fields.py, output_filter.py
+## Done (verified)
+- US-001 Features. variance_risk_premium(vix,spy,21)=(vix/100)^2 - realized_vol(spy,21)^2 and
+  zweig_breadth_thrust(adv,dec,10)=ema(adv/(adv+dec),10) added to src/features/utils.py; both
+  registered in test_lookahead.py (truncation-invariant). Real-data sanity: VRP mean +0.010,
+  87% positive (theory-consistent); Zweig EMA in (0.27,0.67), crosses both 0.40 & 0.615.
+- US-002 conditions_phase3.py. top_watch_state = geomean of 4 signed legs (low VRP, high
+  VIX/VIX3M term, high VVIX residual, breadth narrowing). t_watch_break = watch_on(pctile>=0.80)
+  & SPY<sma50 (2-stage gate). BOTTOM: zbt_thrust (broad-US-ADAPTED percentile thrust 0.10->0.90,
+  because canonical NYSE 0.40/0.615 fires only 6x/none post-2019 on our broad-US feed) gated by
+  a RECENT washout (within 25d — fixed the same-day-AND bug that yielded 0 fires). Controls +
+  200-day benchmarks registered. All fire within budget (top 2.1/yr, bottom 0.85/yr, 14 eps).
+- US-003 preregistration_phase3.yaml FROZEN (7-gate kill-gate, alert budget caps, reused 12
+  tops). test_preregistration_phase3.py + test_lookahead_phase3.py (extends synth panel with
+  VIX3M/adv/dec) — 20 tests pass.
+- US-004 phase3.py (episodes_per_year, alert_budget_compliance, beats_benchmark) + run_phase3.py
+  (per-side verdict; reuses all Phase-2 scorers; G6 benchmark battle + G7 budget added). Runs
+  end-to-end, writes backtest/PHASE3-REPORT.md.
+- US-005 full suite green; report READ; honest per-side verdict reported; NO live alert flipped.
 
-## Pre-PR baseline (will record before commit)
-TBD — baseline run captured in background (bvabj7zk3)
+## RESULT (the deliverable) — NO-GO, both sides (the honest, anticipated outcome)
+- TOP (best T_watch_break[0.85,50]): edge +0.090 (prec 0.310 vs elig-base 0.221) but null_p 0.384
+  (NOT significant). 9 of 29 alerts preceded a >=8% top; recall 4/10 organic (meets G4). QQQ
+  transfer edge +0.024 (p 0.522) — POSITIVE (better than Phase-2's -0.028) but not significant.
+  G6: the dumb 200-day-break baseline had HIGHER precision (0.478) but caught 0/10 tops EARLY
+  (precise-but-late) — detector loses G6. -> TOP NO-GO.
+- BOTTOM (best B_thrust[-0.08,0.90]): edge NEGATIVE -0.154 (prec 0.769 vs elig-base 0.923),
+  null_p 0.970. The base-rate trap CONFIRMED AGAIN: among -5% pullback days 92.3% precede an 8%
+  bounce; the rare thrust did NOT beat that (even underperformed). G5: washout_only precision
+  0.957 > gated b_thrust 0.769 — the thrust requirement HURT, did not help. -> BOTTOM NO-GO.
+- G2 max-stat reality_p 0.350. Overall NO-GO -> ship DESCRIPTIVE-ONLY (fragility gauge), no
+  live alert. Matches the research prior: free VIX-derived data + broad-US breadth can't hit the
+  exact >=8% turn target; the real signal needs richer data (Track B forward-collection).
 
-## Implementation notes
-- _direction_emoji currently returns "📈 BULLISH" etc; plan asks for 🟢/🔴/⚪. Replace.
-- _format_buy_zone exists; need to add arrow when bracket straddles current_price.
-- next_catalyst_days already computed in structured_fields and surfaced in embed; just reformat display.
-- earnings_date already on StructuredFields.
-- aggregator.py passes current_price and earnings_date through structured fields — no aggregator changes.
+## Track B DONE (forward-collection, LIVE)
+- US-006 fetchers built + sources VERIFIED with real numbers. CBOE put/call: cboe.com daily
+  market-stats Next.js payload (total/equity/index/etp; 33 rows landed 2026-05-01..06-17; full
+  2019+ backfill is an optional patient re-run — CBOE throttles the ~1700-req loop). NYSE breadth
+  WITH up/down VOLUME: tradingview scanner (adv/dec/unch issues + adv/dec volume; forward-only,
+  no free history; unlocks future Lowry 90/90). Dead sources documented (WSJ/Stooq/Barchart/Nasdaq).
+- US-007 collect_daily.sh (3-retry, logs, idempotent, non-zero on fail) + vol-collect-daily.timer
+  (daily 22:30 UTC, Persistent, enabled). FIXED a real bug: service was User=openclaw but the
+  store is root-owned -> would EACCES every run; changed service to run as root. Ran the wrapper
+  end-to-end: exit 0, append-only no-ops (no dup/corruption) — idempotency proven.
+- US-008 todo/vol-indicator-accuracy-research.md updated (dated Phase-3 result + Track-B status +
+  next steps); memory project_vol_indicator_phase3_nogo.md + MEMORY.md pointer added.
+
+## Verification (all done)
+- Separate reviewer (architect, opus): APPROVED. Independently re-ran suite (90->94 green),
+  reproduced PHASE3-REPORT byte-for-byte, traced the bottom negative edge to REAL episodes
+  (2020-03-26 +31.3% etc.) vs a genuine 92% base rate. Verdict: NO-GO is HONEST, no blocking bugs.
+  One LOW note: look-ahead test partly vacuous for rarely-firing composites -> hardened by asserting
+  the leak-prone primitives directly (support_break, zbt_thrust, zbt_thrust_canonical, _recent_washout).
+- Deslop pass: changed files reviewed (no unused imports, no dead code, house-style matched, PIT
+  docstrings preserved) -> no edits needed.
+- Post-deslop regression: full suite 94 GREEN; run_phase3 verdict byte-identical (NO-GO both sides).
+
+## ALL 8 STORIES PASS. Ralph complete pending commit + cancel.
+
+## Multi-agent note (lesson)
+- Fighting my own Track-B subagent's processes with `pkill -f "fetch_putcall"` SELF-MATCHED my own
+  command line (it contained the string) and killed my own shell (exit 1, no-op). When a subagent
+  owns a task, coordinate/let it finish — don't race its processes. The 33 CBOE rows it landed were
+  intact once I stopped interfering.
+
+## Learnings
+- python3 only; Bash cwd persists. Full suite ~run in seconds; run_phase3 ~1-2 min (bootstraps).
+- Canonical NYSE Zweig thresholds (0.40/0.615) DO NOT transfer to the broad-US ABI feed (fires
+  6x in 16y, none post-2019). Self-normalizing percentile thrust (0.10->0.90 of trailing-252
+  EMA percentile) is the honest adaptation — pre-registered as such.
+- A breadth thrust must be gated by a RECENT washout (within ~25d), NOT same-day (thrust is the
+  recovery surge that comes AFTER the low; same-day AND = 0 fires).
+- The 92% bottom base-rate trap is robust: even a rare, theory-backed thrust can't beat "any
+  deeply-pulled-back day" — the bottom side is base-rate-bound on free data, full stop.
