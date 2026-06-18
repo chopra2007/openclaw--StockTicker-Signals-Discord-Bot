@@ -284,3 +284,9 @@ When the bot answers a heavy question that needs lots of tool calls, some AI mod
 **File:** `unified-display-scale.md`
 
 Every number the bot shows (alert score, !all breakdown, contradiction, market mood, LLM confidence) is on a different scale, so the user can't tell what's high or low — normalize all user-facing readings to one consistent 0–100 low→high display, without changing the underlying math.
+
+## 47. Build an accurate market top/bottom detector (research how others did it)
+
+**File:** `vol-indicator-accuracy-research.md`
+
+Catch SPY/QQQ tops and bottoms early with few false alarms — the daily-data approach is exhausted (proven NO-GO with real rigor), so the next move is a research mission to find how others actually accomplish this (likely with richer data inputs we don't yet have), then a plan and an adversarial review.
