@@ -37,13 +37,14 @@ def per_tier_hit_table(res: dict) -> pd.DataFrame:
     pre_tiers = res["tiers"]
     hits, regime = res["hits"], res["regime"]
     rows = []
-    for name, pc in res["per_cond"].items():
+    for i, (name, pc) in enumerate(res["per_cond"].items()):
         ev = event_side(pc["side"])
         ep_pos = pc["ep_pos"]
         for tier in pre_tiers:
             h = hits[(ev, tier)].to_numpy()
             valid = np.isfinite(h)
-            r = edge_and_null(h, ep_pos, regime, 1.0, valid, seed_offset=0)
+            # same seed as the ablation grid hit-cells -> the two tables agree exactly
+            r = edge_and_null(h, ep_pos, regime, 1.0, valid, seed_offset=1000 * (i + 1) + tier)
             cond = r["cond_mean"]
             rows.append({
                 "name": name, "event_side": ev, "tier_pct": tier,

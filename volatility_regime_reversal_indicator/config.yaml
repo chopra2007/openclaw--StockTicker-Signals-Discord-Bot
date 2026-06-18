@@ -35,7 +35,7 @@ features:
 # Availability / structural-break boundaries (declared, never straddled by rolling windows)
 boundaries:
   VVIX_start: "2007-01-01"
-  VIX3M_start: "2006-01-01"
+  VIX3M_start: "2006-07-17"
   QQQE_start: "2012-01-01"
   HYG_start: "2007-01-01"
   LQD_start: "2002-01-01"

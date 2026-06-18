@@ -69,7 +69,9 @@ def run_full_ablation(panel: pd.DataFrame, pre: dict) -> dict:
         fe = fold_edges(fwd_arr[primary_h], ep_pos, fold_assign, sign, valid[primary_h])
         stab = directional_stability(fe, min_ep)
         hk = (evside, primary_tier)
-        rhit = edge_and_null(hit_arr[hk], ep_pos, regime, 1.0, hit_valid[hk], seed_offset=10_000 + i)
+        # same seed formula as the grid hit-cells + the per-tier report -> identical p-values
+        rhit = edge_and_null(hit_arr[hk], ep_pos, regime, 1.0, hit_valid[hk],
+                             seed_offset=1000 * (i + 1) + primary_tier)
 
         rows.append({
             "name": c.name, "family": c.family, "side": c.side, "event_side": evside,
