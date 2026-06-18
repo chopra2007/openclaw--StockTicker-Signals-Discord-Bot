@@ -1147,8 +1147,13 @@ async def _check_youtube_level_alerts() -> None:
                         }.get(price_kind, f"${current_price:.2f}")
                         msg = (
                             f"🎯 ${ticker} approaching {ltype} @ ${lv_price:.2f}"
-                            f" (flagged by {channel}{days_ago}) — {price_label}"
+                            f" (flagged by {channel} on YouTube{days_ago}) — {price_label}"
                         )
+                        vid = level.get("video_id")
+                        if vid:
+                            from consensus_engine.scanners.youtube import _youtube_timestamp_url
+                            watch_url = _youtube_timestamp_url(vid, level.get("video_timestamp_sec"))
+                            msg += f"\n▶ Watch: {watch_url}"
                         await _post_to_alerts_channel(msg)
                         await db.record_level_alert(ticker, ltype, lv_price, channel)
                         log.info("Level proximity alert fired: %s", msg)

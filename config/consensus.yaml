@@ -417,7 +417,7 @@ youtube:
   export_dir: "artifacts/transcripts"
   max_concurrency: 4
   summarize: false                     # LLM summary + Discord notification (Phase 3)
-  standalone_alerts: true              # fire Discord alert for HIGH conviction signals
+  standalone_alerts: true              # fire Discord alert for qualifying-conviction signals
   min_trust: 0.5                       # minimum channel trust_score to trigger standalone alert
   gemini_enabled: true                 # try Gemini fast-path before transcript fetch
   gemini_model: "gemini-2.5-flash-lite"   # legacy single-call path
@@ -549,6 +549,7 @@ youtube:
     file_max_age_hours: 6
     sweep_lock_path: "/var/tmp/video-fallback/.sweep.lock"
   alerts:
+    standalone_min_conviction: medium  # floor for 🎬 standalone alert: high|medium|low (medium widens beyond HIGH-only)
     video_link:
       enabled: true
       title_max_chars: 80

@@ -1544,7 +1544,7 @@ async def build_macro_digest() -> str:
     bear = counts.get("short", 0)
     neut = counts.get("neutral", 0)
     themes_str = ", ".join(top_themes) if top_themes else "none"
-    return f"📊 Macro Digest: BULLISH ({bull} channels) / BEARISH ({bear}) / NEUTRAL ({neut}) — Top themes: {themes_str}"
+    return f"📊 Macro Digest (via YouTube): BULLISH ({bull} channels) / BEARISH ({bear}) / NEUTRAL ({neut}) — Top themes: {themes_str}"
 
 
 async def _handle_macro(channel_id: str, message_id: str) -> None:

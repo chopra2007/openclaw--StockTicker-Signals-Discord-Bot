@@ -426,7 +426,7 @@ async def _process_video_two_stage(
     except Exception as e:
         log.debug("youtube: duration/coverage check failed for %s: %s", video_id, e)
 
-    # Standalone alerts — one per (ticker) for HIGH conviction, unsuppressed.
+    # Standalone alerts — one per (ticker) for qualifying-conviction, unsuppressed.
     if cfg.get("youtube.standalone_alerts", True):
         min_trust = cfg.get("youtube.min_trust", 0.5)
         trust = await db.get_channel_trust(channel_id)
@@ -598,16 +598,23 @@ async def _send_two_stage_alerts(
     video_title: str = "",
     macro_summary: str = "",
 ) -> None:
-    """Fire one Discord alert per HIGH-conviction, unsuppressed ticker."""
+    """Fire one Discord alert per qualifying-conviction (>= youtube.alerts.standalone_min_conviction), unsuppressed ticker."""
     from consensus_engine.alerts.commands import _format_ts, _format_verified
 
     from consensus_engine.analysis.price_sanity import check_price_plausible
 
     sent: set[str] = set()
+    # Standalone-alert conviction floor (configurable). Default "medium" widens
+    # the gate beyond HIGH-only so more genuine long/short calls surface.
+    _conv_rank = {"low": 0, "medium": 1, "high": 2}
+    min_conv = str(cfg.get("youtube.alerts.standalone_min_conviction", "medium")).lower()
+    min_conv_rank = _conv_rank.get(min_conv, 2)
     for sig in signals:
         if sig.suppressed or sig.ticker in sent:
             continue
-        if sig.conviction.value != "high" or sig.direction.value not in ("long", "short"):
+        if sig.direction.value not in ("long", "short"):
+            continue
+        if _conv_rank.get(sig.conviction.value, 0) < min_conv_rank:
             continue
         if sig.classifier_confidence < min_confidence:
             continue

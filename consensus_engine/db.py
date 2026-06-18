@@ -2375,6 +2375,7 @@ async def get_youtube_levels_for_ticker(ticker: str, days: int = 7) -> list[dict
         """SELECT yl.ticker, yl.level_type, yl.price, yl.condition_text,
                   yl.consequence_text, yl.confidence, yl.channel_name,
                   yl.published_at, yl.source_snippet,
+                  yl.video_id, yl.video_timestamp_sec,
                   yc.channel_id AS channel_id,
                   yc.trust_score AS trust_score,
                   yc.approved AS approved
