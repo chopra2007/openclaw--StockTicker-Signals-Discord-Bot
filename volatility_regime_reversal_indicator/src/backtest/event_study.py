@@ -89,10 +89,6 @@ def collapse_episodes(signal: pd.Series, window: int) -> pd.Series:
     return out
 
 
-def episodes_for(signal: pd.Series, window: int | None = None) -> pd.Series:
-    return collapse_episodes(signal, window or int(get("backtest.episode_window", 20)))
-
-
 def edge_sign(side: str) -> float:
     """+1 if higher forward return = the signal's intent (risk-on), -1 if lower (risk-off)."""
     return -1.0 if side in RISK_OFF_SIDES else 1.0

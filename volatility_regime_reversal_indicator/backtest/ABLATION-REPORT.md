@@ -97,6 +97,20 @@ Top conditions ranked by 8% (primary) tier edge:
 | credit_stress_rising[z_thresh=1.0] | top | 44 | 15% | 0.114 | 0.071 | 4.2 | 0.886 | 0.431 |
 | credit_stress_rising[z_thresh=1.0] | top | 44 | 20% | 0.023 | 0.016 | 0.7 | 0.977 | 0.560 |
 
+## Forward-return distribution, tails & ATR-scaling (20d)
+
+- unconditional 20d fwd return: mean=0.0112, median=0.0161, p05=-0.0594, p95=0.0667, min=-0.3077, max=0.2340
+- unconditional 20d move in ATR units: mean=0.88, p05=-5.29, p95=5.09
+- conditional tails for the 3 strongest-|edge| conditions:
+  - overextended_top[dist_pct=0.95,rsi_thresh=75.0]: n=4, mean=-0.0178, p05=-0.0342, p95=0.0087
+  - vix_capitulation[pct=0.95]: n=36, mean=0.0273, p05=-0.0435, p95=0.1275
+  - oversold_bottom[dist_pct=0.05,rsi_thresh=25.0]: n=7, mean=0.0258, p05=-0.0650, p95=0.1369
+
+## Concentration-regime check (breadth narrowing vs broadening)
+
+- breadth_break_top[ratio_drop=-0.01,near_high=0.98]: 8% hit-rate when breadth NARROWING=0.375 (n=48) vs BROADENING=0.000 (n=9)
+- breadth_break_top[ratio_drop=-0.02,near_high=0.97]: 8% hit-rate when breadth NARROWING=0.444 (n=18) vs BROADENING=0.500 (n=4)
+
 ## Collinearity / VIF (top 12)
 
 | condition | VIF |

@@ -16,9 +16,10 @@ import pandas as pd
 import yaml
 
 from .backtest.ablation import evaluate_kill_gate, run_full_ablation
-from .backtest.base_rate import edge_and_null, vol_regime_labels
-from .backtest.event_study import collapse_episodes, event_side
-from .backtest.metrics import coverage_buckets, coverage_pct
+from .backtest.base_rate import edge_and_null
+from .backtest.event_study import event_side, forward_atr_move
+from .backtest.metrics import (concentration_regime, coverage_buckets,
+                              coverage_pct, distribution_tails)
 from .config import project_root
 from .data import store
 
@@ -117,6 +118,40 @@ def main() -> None:
                 f"| {rr['name']} | {rr['event_side']} | {rr['n_episodes']} | {rr['tier_pct']}% | "
                 f"{_fmt(rr['hit_rate'],3)} | {_fmt(rr['base_rate'],3)} | {_fmt(rr['edge_pp'],1)} | "
                 f"{_fmt(rr['false_alarm_rate'],3)} | {_fmt(rr['null_p'],3)} |")
+
+    # forward-return distribution + tails + ATR-scaling (final-plan.md 6.1)
+    fwd20 = res["fwd_arr"][res["primary_h"]]
+    atr_move = forward_atr_move(panel, res["primary_h"]).to_numpy()
+    lines.append(f"\n## Forward-return distribution, tails & ATR-scaling ({res['primary_h']}d)\n")
+    ut = distribution_tails(fwd20)
+    lines.append(f"- unconditional 20d fwd return: mean={_fmt(ut.get('mean'))}, "
+                 f"median={_fmt(ut.get('median'))}, p05={_fmt(ut.get('p05'))}, "
+                 f"p95={_fmt(ut.get('p95'))}, min={_fmt(ut.get('min'))}, max={_fmt(ut.get('max'))}")
+    at = distribution_tails(atr_move)
+    lines.append(f"- unconditional 20d move in ATR units: mean={_fmt(at.get('mean'),2)}, "
+                 f"p05={_fmt(at.get('p05'),2)}, p95={_fmt(at.get('p95'),2)}")
+    lines.append("- conditional tails for the 3 strongest-|edge| conditions:")
+    top3 = res["table"].reindex(res["table"]["edge"].abs().sort_values(ascending=False).index).head(3)
+    for _, r in top3.iterrows():
+        ep = res["per_cond"][r["name"]]["ep_pos"]
+        ct = distribution_tails(fwd20[ep])
+        lines.append(f"  - {r['name']}: n={ct.get('n')}, mean={_fmt(ct.get('mean'))}, "
+                     f"p05={_fmt(ct.get('p05'))}, p95={_fmt(ct.get('p95'))}")
+
+    # concentration-regime stratification (final-plan.md 6.9) — the 2023-24 breadth trap
+    conc = concentration_regime(panel).to_numpy()
+    narrowing = conc < 0
+    lines.append("\n## Concentration-regime check (breadth narrowing vs broadening)\n")
+    for name in [n for n in res["per_cond"] if "breadth_break_top" in n]:
+        pc = res["per_cond"][name]
+        ep = pc["ep_pos"]
+        h8 = res["hits"][(event_side(pc["side"]), res["primary_tier"])].to_numpy()
+        ep_n = [p for p in ep if narrowing[p] and np.isfinite(h8[p])]
+        ep_b = [p for p in ep if (not narrowing[p]) and np.isfinite(h8[p])]
+        hn = float(np.mean([h8[p] for p in ep_n])) if ep_n else np.nan
+        hb = float(np.mean([h8[p] for p in ep_b])) if ep_b else np.nan
+        lines.append(f"- {name}: 8% hit-rate when breadth NARROWING={_fmt(hn,3)} "
+                     f"(n={len(ep_n)}) vs BROADENING={_fmt(hb,3)} (n={len(ep_b)})")
 
     lines.append("\n## Collinearity / VIF (top 12)\n")
     lines.append("| condition | VIF |")
