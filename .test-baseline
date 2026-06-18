@@ -1,1 +1,2 @@
+tests/test_i13_apewisdom_zscore.py::test_baseline_two_days_std
 tests/test_wolf_digest.py::test_sunday_recap_and_addon_restart_safe
