@@ -1,0 +1,159 @@
+# =============================================================================
+# PRE-REGISTRATION CONTRACT — FROZEN BEFORE ANY FORWARD RETURNS WERE INSPECTED.
+# =============================================================================
+# This file is the anti-overfitting anchor (final-plan.md section 6.0). It was
+# written and committed BEFORE event_study.py / base_rate.py / ablation.py were
+# authored or run. Only condition FIRING RATES (not edge, not forward returns)
+# were inspected before freezing. The ablation/kill-gate read this file; nothing
+# here may be retrofitted after seeing results.
+#
+# Universe for Phase 1: SPY only. (QQQ is Phase 2.)
+# =============================================================================
+
+meta:
+  project: volatility_regime_reversal_indicator
+  phase: 1
+  ticker: SPY
+  frozen_before_returns_inspected: true
+  backtest_start: "2010-01-01"      # youngest vol-complex + breadth input live
+  deep_history_note: >
+    Credit-only (BAA10Y, 1986+) and price+VIX-only ablations may run deeper than
+    2010; the COMBINED model is bounded by VVIX(2007)/VIX3M(2006)/QQQE(2012).
+
+# 1. PRIMARY HYPOTHESIS & HORIZON ------------------------------------------------
+primary:
+  outcome: forward_return_edge      # conditional mean fwd return minus unconditional
+  horizon_trading_days: 20          # THE go/no-go horizon
+  secondary_horizon_trading_days: 10
+  edge_sign_convention:
+    # risk-off signals (top, vol_expansion) have edge when fwd return is BELOW base:
+    risk_off_edge: "unconditional_mean - conditional_mean"
+    # risk-on signals (bottom, vol_contraction) have edge when ABOVE base:
+    risk_on_edge: "conditional_mean - unconditional_mean"
+  decision: >
+    A condition has primary edge if its 20-day forward-return edge over the
+    unconditional base rate is positive, survives the section-6.5 correction,
+    AND beats the random-episode-timing null.
+
+# 2. TARGET EVENTS (what the tool must catch) -----------------------------------
+target_events:
+  definition:
+    top: "a swing high followed by a peak-to-trough drawdown >= tier within the event window"
+    bottom: "a swing low followed by a trough-to-peak rally >= tier within the event window"
+  event_window_trading_days: 60
+  tiers_pct: [5, 8, 15, 20]
+  primary_tier_pct: 8               # intermediate swing — the user's primary target
+  scored_separately: true
+  early_is_acceptable: >
+    A signal earns credit for firing DURING the topping window ahead of the trough;
+    forward-return analytics quantify how early. Early is desired, not a false alarm.
+  worked_examples_SPY:               # must be flagged before the drop (verified 2026-06-17)
+    - {name: "Feb-2025 tariff top", peak: "2025-02-19", trough: "2025-04-08", drawdown_pct: -18.8}
+    - {name: "Jan-2026 top",        peak: "2026-01-27", trough: "2026-03-30", drawdown_pct: -8.9}
+    - {name: "2022 bear",           peak: "2022-01-03", trough: "2022-10-12", drawdown_pct: -24.5}
+
+# 3. MINIMUM EFFECT SIZE (significance alone is insufficient) --------------------
+min_effect_size:
+  hit_rate_edge_pp: 8.0             # conditional minus unconditional hit-rate, pct points
+  mean_return_edge_pct: 1.0         # 20d mean forward-return edge, percent
+  alpha: 0.05
+  note: "A tiny but 'significant' edge does NOT pass the gate."
+
+# 4. HYPOTHESIS GRID (enumerated so the multiple-testing count is honest) --------
+hypothesis_grid:
+  ticker: [SPY]
+  conditions: 16                    # base conditions (each with 2 threshold variants -> 32 cells)
+  threshold_variants_per_condition: 2
+  total_conditions_including_variants: 32
+  forward_return_outcome:
+    horizons: [1, 3, 5, 10, 20, 40]   # 6
+  target_event_outcome:
+    tiers_pct: [5, 8, 15, 20]         # 4
+  total_grid_cells: 320             # 32 conditions x (6 horizons + 4 tiers)
+  primary_gate_cells: 32            # 32 conditions x {horizon=20, forward_return} only
+  condition_families:               # the kill-gate ">=3 independent families" reads these
+    - vix_term_structure
+    - vol_of_vol
+    - realized_vol
+    - vix_level
+    - trend_extension
+    - breadth
+    - credit
+    - safe_haven
+    - mean_reversion
+    - distribution_accumulation
+    - skew                          # expected to FAIL ablation (final-plan.md D3)
+  side_fixed_per_condition: true    # a condition's side is theory-fixed, not searched
+
+# 5. EPISODE-COLLAPSING RULE (horizon-specific) ---------------------------------
+episodes:
+  window_trading_days: 20           # >= primary horizon, so counted entries don't overlap
+  rule: >
+    Within a rolling window of `window_trading_days`, multiple SAME-SIDE alert days
+    collapse to ONE episode; the FIRST alert day in the window is the entry. A new
+    episode starts only after `window_trading_days` with no alert of that side.
+  side_handling: per_side           # top / bottom / vol_expansion / vol_contraction collapsed independently
+  reported: [episode_count, effective_n]
+
+# 6. WALK-FORWARD / OOF SPLIT SCHEDULE ------------------------------------------
+walk_forward:
+  # Phase 1 thresholds are FROZEN from theory/round numbers -> nothing is fitted,
+  # so plain walk-forward (disjoint test windows) suffices (final-plan.md section 6.6).
+  # Folds are disjoint ~2-year TEST windows; edge is computed within each for the
+  # directional-fold-stability gate; pooled edge is reported alongside.
+  scheme: disjoint_test_windows
+  folds:
+    - {name: "2010-2011", start: "2010-01-01", end: "2011-12-31"}
+    - {name: "2012-2013", start: "2012-01-01", end: "2013-12-31"}
+    - {name: "2014-2015", start: "2014-01-01", end: "2015-12-31"}
+    - {name: "2016-2017", start: "2016-01-01", end: "2017-12-31"}
+    - {name: "2018-2019", start: "2018-01-01", end: "2019-12-31"}
+    - {name: "2020-2021", start: "2020-01-01", end: "2021-12-31"}
+    - {name: "2022-2023", start: "2022-01-01", end: "2023-12-31"}
+    - {name: "2024-2026", start: "2024-01-01", end: "2026-12-31"}
+  min_episodes_per_fold: 3
+  under_min_handling: "report 'untestable' for that fold; never silently dropped"
+  directional_stability_rule: >
+    A survivor's edge must be the SAME SIGN in the MAJORITY of folds that have
+    >= min_episodes_per_fold episodes (kill-gate condition 3).
+
+# 7. STRUCTURAL-BREAK / AVAILABILITY BOUNDARIES ---------------------------------
+structural_breaks:
+  declared:
+    VVIX_start: "2007-01-01"
+    VIX3M_start: "2006-07-17"
+    QQQE_start: "2012-03-21"
+    HYG_start: "2007-04-11"
+    LQD_start: "2002-07-30"
+    RSP_start: "2003-05-01"
+    TLT_start: "2002-07-30"
+  rule: "rolling windows may not straddle an availability boundary; missing inputs are coverage-normalized, never scored 0."
+  data_driven_changepoints: "allowed ONLY inside training windows; never on a test window."
+
+# 8. NULL MODEL (the comparison floor) ------------------------------------------
+null_model:
+  type: random_episode_timing
+  match: [episode_count, regime_mix]   # same number of episodes, same vol-regime mix, random dates
+  draws: 2000
+  rule: >
+    The real signal must beat this random-timing null, not merely the unconditional
+    drift. A positive base-rate edge that does NOT beat the random null is NOT an edge.
+
+# MULTIPLE-TESTING CORRECTION MAPPING (final-plan.md 6.5) -----------------------
+multiple_testing:
+  per_condition_ablation_fdr: benjamini_hochberg   # across the 32 primary-gate cells
+  selection_as_a_whole: max_statistic_reality_check # bootstrap edge dist across all 320 cells
+  deflated_sharpe: false                            # dropped (ill-suited to sparse tail events)
+
+# KILL-GATE (all 5 must hold on OOF data; final-plan.md section 2) ---------------
+kill_gate:
+  conditions:
+    - "1: >= 3 surviving INDEPENDENT condition families (not 3 same-family signals)"
+    - "2: positive edge at the primary horizon (20d) surviving the section-6.5 correction"
+    - "3: directional fold-stability (same-sign edge in the majority of testable folds)"
+    - "4: edge >= the declared minimum effect size (not merely p < alpha)"
+    - "5: equal-weight combined score beats its best single surviving condition (OOF)"
+  on_fail: "STOP and report 'no demonstrable edge' — a successful, honest outcome."
+
+reproducibility:
+  random_seed: 1729                 # frozen; all bootstrap/null draws are seeded

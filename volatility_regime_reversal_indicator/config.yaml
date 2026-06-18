@@ -1,0 +1,59 @@
+# Volatility-Regime & Reversal Indicator — Phase 1 config
+# All thresholds/windows/flags here; read via src.config.get("dot.path", default).
+# Phase 1 = SPY only, research run, no live overlays / no Discord.
+
+universe:
+  phase1_ticker: SPY          # Phase 1 is SPY only
+  tickers: [SPY, QQQ]         # QQQ deferred to Phase 2
+
+# Series fetched into the Parquet store. yfinance symbol on the left of ->.
+data:
+  store_dir: data/store
+  backtest_start: "2010-01-01"   # youngest vol-complex+breadth input (VVIX 2007 / QQQE 2012 coverage-normalized)
+  deep_history_start: "1990-01-01"  # credit-only / price+VIX-only ablations can run deeper
+  holiday_ffill_max_gap_days: 4     # ffill across exchange holidays/long weekends only; longer gaps = missing
+  etfs: [SPY, QQQ, RSP, QQQE, HYG, LQD, TLT]   # TLT = safe-haven leg (SPY vs TLT relative strength)
+  vol_indices:                      # name -> yfinance symbol
+    VIX: "^VIX"
+    VIX3M: "^VIX3M"
+    VVIX: "^VVIX"
+    VXN: "^VXN"
+    SKEW: "^SKEW"
+  fred:
+    BAA10Y: "BAA10Y"               # Moody's Baa - 10y Treasury, daily 1986+, free
+  fred_lag_days: 1                  # publication lag — BAA10Y known only T+1 (no look-ahead)
+
+features:
+  z_windows: [60, 126, 252]
+  percentile_windows: [60, 126, 252]
+  slope_windows: [5, 10, 20]
+  realized_vol_windows: [10, 20]
+  atr_window: 14
+  bollinger_window: 20
+  rsi_window: 14
+
+# Availability / structural-break boundaries (declared, never straddled by rolling windows)
+boundaries:
+  VVIX_start: "2007-01-01"
+  VIX3M_start: "2006-01-01"
+  QQQE_start: "2012-01-01"
+  HYG_start: "2007-01-01"
+  LQD_start: "2002-01-01"
+  RSP_start: "2003-01-01"
+
+backtest:
+  primary_horizon: 20          # trading days — the go/no-go horizon
+  secondary_horizon: 10
+  horizons: [1, 3, 5, 10, 20, 40]
+  episode_window: 20           # >= primary horizon — collapse same-side alerts within this window to one episode
+  bootstrap_iterations: 2000
+  bootstrap_block_size: 20     # stationary block bootstrap mean block length
+  null_iterations: 2000        # random-episode-timing null draws
+  min_coverage_pct: 0.70       # tier suppressed below this coverage
+  random_seed: 1729            # frozen for reproducibility (no Math.random anywhere)
+
+# Pre-registered min effect size (mirrors backtest/preregistration.yaml; that file is authoritative)
+effect_size:
+  min_hit_rate_edge_pp: 8.0    # conditional minus unconditional hit-rate, percentage points
+  min_mean_return_edge_pct: 1.0
+  alpha: 0.05
