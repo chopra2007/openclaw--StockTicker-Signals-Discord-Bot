@@ -68,3 +68,41 @@
 - G5 stack beats parts (T1 > ungated watch, matched): True
 
 > NO-GO = **no demonstrably-validated confluence edge**. Ship DESCRIPTIVE-ONLY (show where breadth/vol/compression stand today; no predictive-confidence claim). This is the honest, successful outcome the pre-registration anticipated — it does NOT flip a live alerting feature ON. The best constructions are logged as candidates for a future, independent confirmatory test on fresh/forward data.
+
+---
+
+## Follow-up: the two untested reviewer paths + a regime reframe (high statistical power)
+
+After the binary NO-GO, the two strongest "make it work" ideas were tested directly — this time
+with CONTINUOUS rank-correlation over ~3,800 days, so the small-sample excuse is removed:
+
+- **Gemini's continuous Distribution-Stress Index → forward 60d drawdown:** rank-IC = **-0.094**
+  on SPY (n=3,815, block-permutation p=0.85), and does NOT transfer to QQQ. With 3,800 data points
+  the test HAS the power to find a real effect — it found none (slightly the wrong sign).
+- **Codex's two-stage watch->break model:** SPY edge +8 to +10pp but never significant
+  (opportunity-set p 0.17-0.27), and the QQQ transfer is +1pp (p≈0.6). Same pattern as everything else.
+
+- **Regime reframe (DSI vs forward RETURN and forward VOLATILITY):** the one robust, transferable
+  relationship is **DSI -> LOWER forward volatility** (rank-IC -0.23 SPY / -0.25 QQQ, consistent).
+  i.e. the index is really a **CALM/low-volatility detector**, not a top detector — and calm
+  persists (volatility clustering). DSI -> lower forward return is weak (+0.14 60d SPY) and FLIPS
+  negative on QQQ near-high, so it does not survive the cross-asset + conditional test.
+
+### What this means (the honest 'does the way exist' answer)
+The thesis premise — "compression/churn near the highs precedes a top" — is, in this data,
+empirically a **calm-market signature that mostly precedes MORE CALM**, not distribution before a
+drop. That is the root cause of every failure (Phase-1 singles, the binary confluence, the
+continuous index): near-high compression is common and usually benign; the rare times it tops, there
+are too few to separate from the many times it just keeps grinding up — and the high-power continuous
+test confirms no separating signal exists in these inputs.
+
+The way is **not in these daily inputs** (price compression, broad-US breadth, ETF volume, VVIX/VIX).
+That does NOT prove the phenomenon is unreal — it means we are measuring it with the wrong
+instruments. The institutional-distribution signal the thesis describes (smart-money tail-hedging,
+churn into supply) lives in inputs we only crudely proxy: real options POSITIONING / dealer gamma,
+tick-level or true-exchange breadth, and order-flow — none of which daily OHLCV can capture. The
+credible paths to make it work are therefore about BETTER INPUTS or FORWARD evidence, not more
+arithmetic on the same coarse data:
+  1. Forward-collect options positioning / dealer-gamma (the actual mechanism) — start now, judge in months.
+  2. Forward-test the ONE real lead (the breadth-narrowing gate) live on fresh data.
+  3. Ship a vol-regime / "complacency" gauge (DSI->lower-vol IS real and transfers) — honestly labeled, not a crash call.
