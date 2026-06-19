@@ -290,3 +290,9 @@ Every number the bot shows (alert score, !all breakdown, contradiction, market m
 **File:** `vol-indicator-accuracy-research.md`
 
 Catch SPY/QQQ tops and bottoms early with few false alarms — the daily-data approach is exhausted (proven NO-GO with real rigor), so the next move is a research mission to find how others actually accomplish this (likely with richer data inputs we don't yet have), then a plan and an adversarial review.
+
+## 48. Stop the same stock double-alerting from different YouTube videos — DONE 2026-06-18
+
+**File:** `youtube_standalone_alert_cooldown.md`
+
+Optional: add a per-ticker cooldown so the "a YouTuber likes $STOCK" alert can't post twice for the same ticker when two different videos mention it in one poll cycle — build only if live use shows it's spammy.
