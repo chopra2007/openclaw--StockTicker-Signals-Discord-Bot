@@ -1,0 +1,195 @@
+# =============================================================================
+# PHASE-4 PRE-REGISTRATION — capitulation -> RARE breadth THRUST bottom detector
+# on true NYSE up/down VOLUME (Lowry 90/90, Zweig breadth thrust). Frozen contract.
+# (TODO #47)
+# =============================================================================
+# Separate from the FROZEN Phase-1/2/3 contracts, which are untouched (as are their
+# tests). This only ADDS new files.
+#
+# HONESTY DISCLOSURE (load-bearing — read first):
+# Phase 1 (single signals), Phase 2 (daily confluence) and Phase 3 (watch-state +
+# breadth thrust) all came back NO-GO. The bottom side could never be tested HONESTLY
+# before because (a) we had NO true up/down VOLUME (only issue counts / VIX-derived
+# proxies) and (b) the only window was 2010-2026, which holds too few capitulation
+# episodes for statistical power — the research said power is the binding constraint.
+# Phase 4 fixes BOTH: store key NYSE_UDVOL gives 13,867 daily rows of real NYSE
+# advancing-vs-declining share VOLUME (1965-03..2020-02), and store key GSPC gives a
+# long-history S&P 500 price (^GSPC, 1962-2026) for the rally outcome + drawdown
+# eligibility. 55 years of overlap finally gives real power.
+#
+# THE TRAP WE REFUSE TO FALL INTO AGAIN: among days already in a -5% pullback, ~90%+
+# see an 8% bounce within 60 days, so beating an ALL-days base rate is meaningless.
+# The make-or-break test is the OPPORTUNITY-SET null: random timing drawn ONLY from
+# EQUALLY-DISTRESSED eligible days. The CONTROLS (thrust_only, capitulation_only) must
+# be WEAK if the capitulation->thrust SEQUENCE — not the base rate — is what matters.
+#
+# A NO-GO is an acceptable, EXPECTED-POSSIBLE, honest outcome (ship DESCRIPTIVE-ONLY,
+# no live alert). Thresholds are the canonical Lowry 0.90 and round look-back windows
+# from theory; they are NOT tuned to manufacture a GO.
+# =============================================================================
+
+meta:
+  project: volatility_regime_reversal_indicator
+  phase: 4
+  builds_on: phase3_NO_GO
+  side_scope: bottom_only                # this phase tests ONLY the bottom (the winnable side)
+  price_ticker: GSPC                     # long-history ^GSPC for the rally outcome + drawdown
+  breadth_source: NYSE_UDVOL             # true NYSE advancing-vs-declining share VOLUME
+  frozen_before_confirmatory_run: true
+  hypotheses_are_post_selected: true     # disclosed: 0.90 is Lowry's canonical threshold;
+                                         # look-back windows {5,10,25} are round theory values;
+                                         # fire-counts were inspected once to set the alert budget.
+  window:
+    start: "1965-03-01"                  # NYSE_UDVOL start
+    end: "2020-02-10"                    # NYSE_UDVOL froze here (archive stopped updating)
+    rule: >
+      panel = GSPC INTERSECT NYSE_UDVOL (genuine UDVOL sessions only; no holiday ffill of
+      volume into a phantom 90% day). ~13,829 trading days, ~54.9 years.
+  disclosed_limitations:
+    - "Data ends 2020-02-10: cannot cover the 2020 COVID, 2022 bear, or 2025 bottoms."
+    - "QQQ / cross-asset transfer is NOT possible pre-1999 and is N/A for a single-index NYSE feed."
+    - "^GSPC is a PRICE index (no dividends); fine for an 8%/15% PRICE-move outcome over 60 days."
+
+# 1. PRIMARY HYPOTHESIS & METRIC -------------------------------------------------
+primary:
+  outcome: precision_vs_opportunity_set_base_rate
+  definition: >
+    PRECISION = P(a >=8% trough-to-peak RALLY occurs on GSPC within 60 trading days | the
+    construction fires), scored at episode-entry positions (collapse_episodes window=20), vs
+    the OPPORTUNITY-SET base rate (random timing drawn ONLY from equally-distressed eligible
+    days). The honest headline is always the RAW RATIO ("33 of 49 thrusts preceded a rally"),
+    never the percentage alone.
+  horizon_trading_days: 20               # episode-collapse window (matches Phase 2/3)
+  primary_tier_pct: 8
+  early_is_acceptable: true
+
+# 2. TARGET EVENTS ---------------------------------------------------------------
+target_events:
+  bottom: "a >=tier trough-to-peak run-up on GSPC within the 60-trading-day event window"
+  event_window_trading_days: 60
+  tiers_pct: [8, 15]
+  primary_tier_pct: 8
+  note: >
+    Bottoms are scored by precision + the opportunity-set null over the whole window, NOT by
+    an enumerated episode list (the Phase-3 bottom side also used no enumerated list).
+
+# 3. MINIMUM EFFECT SIZE ---------------------------------------------------------
+min_effect_size:
+  precision_edge_pp: 20.0                # primary precision must beat the EQUALLY-DISTRESSED base by >=
+  alpha: 0.05
+  note: >
+    significance vs the OPPORTUNITY-SET null is required; an all-days comparison is reported
+    but is NOT the gate (it is the base-rate trap). A null_p in [0.05,0.10] is SUGGESTIVE only.
+
+# 4. CONSTRUCTIONS (frozen; thresholds are Lowry canonical 0.90 + round theory windows) ----
+constructions:
+  primitives:                            # src/signals/conditions_phase4.py (each look-ahead tested)
+    up_volume_share: "adv_volume/(adv_volume+dec_volume)  # same-day, no leakage"
+    down_volume_share: "dec_volume/(adv_volume+dec_volume)  # same-day, no leakage"
+    capitulation_90: "down_volume_share >= 0.90  (a Lowry 90% DOWN day)"
+    thrust_90: "up_volume_share >= 0.90  (a Lowry 90% UP day)"
+  primary:
+    lowry_90_90: >
+      a 90% UP day occurring WITHIN `within` trading days AFTER a 90% DOWN day; fire on the
+      thrust day. The recent-capitulation check is a trailing rolling(within).max().shift(1)
+      (backward only). within=10 is primary.
+  variants:
+    - "lowry_90_90[w5]   (tighter sequence window)"
+    - "lowry_90_90[w25]  (looser sequence window)"
+    - "lowry_90_90_two[w10]  (STRICTER: a SECOND 90% up day confirms the thrust)"
+    - "zbt_volume_after_capit  (Zweig thrust on up_volume_share + recent 90% down day)"
+  controls:                              # NOT in the predictive budget; prove the SEQUENCE is load-bearing
+    - "ctl_thrust_only       (90% UP day, NO preceding capitulation)"
+    - "ctl_capitulation_only (ANY 90% DOWN day — the base-rate trap)"
+  benchmark:                             # the late-but-robust trend baseline (G6)
+    bench_bot_200: "GSPC reclaims its 200-day MA from below"
+  grid:
+    total_confirmatory_cells: 5          # 1 primary + 4 variants
+
+# 5. EPISODE COLLAPSING ----------------------------------------------------------
+episodes:
+  window_trading_days: 20
+  rule: "same-side alerts within 20 trading days collapse to one episode; first alert is the entry."
+  report: [episode_count, raw_ratio]
+
+# 6. ALERT BUDGET — 'earn the right to speak rarely' -----------------------------
+alert_budget:
+  bottoms_per_year: {min: 0.3, max: 1.5}
+  enforcement: >
+    G7 enforces the MAX cap. A 90/90 pairing is RARE: an exploratory fire-count over the
+    55-year window gave ~0.9 collapsed episodes/year for the primary lowry_90_90[w10]
+    (49 episodes / 54.9 years), ~0.35/yr for the two-thrust variant, ~1.15/yr for w25.
+    The cap 1.5 is set above the primary; firing below the 0.3 floor is allowed but flagged
+    'quiet/underpowered'. Recalibrated honestly for the long window (the Phase-3 band of 1-3
+    was for a 16-year window and does not apply).
+  rationale: "pre-registered to stop precision being bought with a flood of alerts."
+
+# 7. NULL MODEL — the load-bearing make-or-break test ----------------------------
+null_model:
+  type: opportunity_set_random_timing
+  rule: >
+    The random-timing null draws ONLY from the EQUALLY-DISTRESSED eligible set, regime-matched,
+    NOT from all days. The construction must beat THIS harder null. Beating an all-days null is
+    meaningless because distressed days are inherently followed by bounces (the trap that made
+    the Phase-2/3 bottom precision an echo of the eligible base rate).
+  eligibility_bottom_primary: "drawdown(GSPC_close,60) <= -0.05 (already in a meaningful pullback)"
+  eligibility_bottom_alt: "within 25 sessions of a 90% down day (the thrust's distressed peers)"
+  regime_matching: "trailing-252 GSPC realized-vol percentile buckets (VIX unavailable pre-1990)"
+  draws: 2000
+  seed: 1729
+  also_report: all_days_base_rate
+
+# 8. OUT-OF-SAMPLE BATTERY -------------------------------------------------------
+out_of_sample:
+  temporal_holdout:
+    discover_window: ["1965-03-01", "1994-12-31"]   # 16 primary episodes
+    confirm_window:  ["1995-01-01", "2020-02-10"]   # 33 primary episodes
+    rule: >
+      Split chosen so BOTH halves hold enough 90/90 events for a meaningful null (16 vs 33).
+      Edge must be present (same sign, positive) in the CONFIRM window, not only pooled.
+  cross_asset_transfer:
+    asset: none
+    rule: >
+      N/A for Phase 4. The breadth feed is NYSE-index-only and ends 2020-02, so a QQQ transfer
+      (QQQ starts 1999) is not possible. The 55-year temporal hold-out is the OOS evidence
+      here, in place of the cross-asset transfer that killed Phase 2/3.
+  leave_one_episode_out:
+    rule: >
+      Leave-one-EPISODE-out on the primary's collapsed episodes: drop each, recompute the
+      pooled precision on the rest; pass only if no single episode's removal collapses precision
+      to the opportunity-set base rate (no single episode carries the edge).
+
+# 9. MULTIPLE-TESTING ------------------------------------------------------------
+multiple_testing:
+  confirmatory_grid: max_statistic_reality_check   # across the 5 frozen cells, opportunity-set null
+  fdr: benjamini_hochberg
+  exploratory_disclosure: >
+    Fire-counts were inspected ONCE to set the alert budget; the 0.90 threshold is Lowry's
+    canonical value and the windows {5,10,25} are round theory values, not tuned to the
+    outcome. The OOS temporal hold-out (section 8), not the in-sample reality_p, is the
+    primary evidence for a GO.
+
+# 10. KILL-GATE PHASE-4 (all 7 must hold for a bottom GO) ------------------------
+kill_gate:
+  conditions:
+    - "G1 precision floor: primary precision >= opportunity-set base + 20pp AND null_p < 0.05"
+    - "G2 confirmatory MTC: max-stat reality_p < 0.05 across the 5 frozen cells AND BH survivors > 0"
+    - "G3 out-of-sample: CONFIRM-window edge positive AND DISCOVER-window edge positive (same sign across the 55-year split, in place of a cross-asset transfer)"
+    - "G4 leave-one-episode-out: no single episode's removal collapses pooled precision to the opportunity-set base"
+    - "G5 stack beats parts: lowry_90_90 precision > each control (thrust_only, capitulation_only) at MATCHED alert count (bootstrap CI on the difference excludes 0) — the SEQUENCE must beat both pieces"
+    - "G6 benchmark battle: the detector beats bench_bot_200 (200-day MA reclaim) at MATCHED alert count (diff_p05 > 0)"
+    - "G7 alert budget: mean collapsed episodes/year <= the cap (1.5)"
+  on_fail: >
+    STOP and report 'no demonstrable edge over equally-distressed days' — ship DESCRIPTIVE-ONLY
+    (display where the 90/90 breadth-thrust state stands today, no predictive-confidence claim,
+    no live alert). An honest, successful outcome the pre-registration anticipated.
+  suggestive_band: "an opportunity-set null_p in [0.05, 0.10] is SUGGESTIVE ONLY and does NOT flip the tool ON."
+
+# 11. STRUCTURAL BOUNDARIES ------------------------------------------------------
+structural_breaks:
+  declared: {NYSE_UDVOL_start: "1965-03-01", NYSE_UDVOL_end: "2020-02-10", GSPC_start: "1962-01-02"}
+  rule: "panel = genuine UDVOL sessions only; no rolling window straddles the 2020-02 freeze (window ends there)."
+
+reproducibility:
+  random_seed: 1729
+  data_snapshot: "NYSE_UDVOL + GSPC committed append-only; archive frozen at 2020-02-10."

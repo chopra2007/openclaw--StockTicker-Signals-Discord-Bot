@@ -198,3 +198,32 @@ def zweig_breadth_thrust(adv: pd.Series, dec: pd.Series, ema_span: int = 10) -> 
     """
     ratio = adv / (adv + dec).replace(0.0, np.nan)
     return ema(ratio, ema_span)
+
+
+def up_volume_share(adv_volume: pd.Series, dec_volume: pd.Series) -> pd.Series:
+    """Same-day NYSE upside-volume share = adv_volume / (adv_volume + dec_volume).
+
+    The exact quantity Lowry's "90% days" are defined on: the fraction of total
+    directional (advancing + declining) NYSE share VOLUME that traded in advancing
+    issues on THAT session. A value >= 0.90 is a "90% up day" (a breadth THRUST); the
+    mirror down_volume_share >= 0.90 is a "90% down day" (capitulation). Example:
+    2008-10-10 dec_volume 1.94e9 vs adv_volume 9.18e7 -> down share 0.955 (a 95.5%
+    downside day); 2008-10-13 is the mirror ~95% upside day.
+
+    Point-in-time / NO leakage by construction: this is a PURE same-day ratio of two
+    same-day columns — no rolling window, no shift, no future row. feature[t] depends
+    only on row t, so it is trivially truncation-invariant (enforced in
+    tests/test_lookahead_phase4.py). Unchanged volume is intentionally excluded from
+    the denominator (Lowry's definition uses directional volume only).
+    """
+    denom = (adv_volume + dec_volume).replace(0.0, np.nan)
+    return adv_volume / denom
+
+
+def down_volume_share(adv_volume: pd.Series, dec_volume: pd.Series) -> pd.Series:
+    """Same-day NYSE downside-volume share = dec_volume / (adv_volume + dec_volume).
+
+    The capitulation counterpart of up_volume_share; >= 0.90 is a Lowry "90% down day".
+    Point-in-time: pure same-day ratio, no window/shift/future row (see up_volume_share)."""
+    denom = (adv_volume + dec_volume).replace(0.0, np.nan)
+    return dec_volume / denom
