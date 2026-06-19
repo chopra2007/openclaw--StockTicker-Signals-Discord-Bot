@@ -200,6 +200,17 @@ def zweig_breadth_thrust(adv: pd.Series, dec: pd.Series, ema_span: int = 10) -> 
     return ema(ratio, ema_span)
 
 
+def negative_gamma_flag(gex: pd.Series) -> pd.Series:
+    """Dealer NEGATIVE-gamma flag = (gex < 0): dealers must hedge WITH the move (sell weakness,
+    buy strength), so they AMPLIFY moves = a fragile / unstable / top-like regime.
+
+    Point-in-time / NO leakage by construction: this is a PURE same-day comparison of one same-day
+    column to the constant 0 — no rolling window, no shift, no future row. feature[t] depends only
+    on row t, so it is trivially truncation-invariant (enforced in tests/test_lookahead_gamma.py).
+    NaN gex (pre-SQZ-start, before 2011-05-02) stays NaN."""
+    return gex < 0.0
+
+
 def up_volume_share(adv_volume: pd.Series, dec_volume: pd.Series) -> pd.Series:
     """Same-day NYSE upside-volume share = adv_volume / (adv_volume + dec_volume).
 
