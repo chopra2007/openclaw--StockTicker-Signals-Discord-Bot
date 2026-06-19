@@ -153,9 +153,12 @@ plus a benchmark battle + a pre-registered alert budget (7-gate kill-gate). Repo
   fragility/complacency reading (overall + 4 components, plain-English, honest "NOT a crash predictor"
   caveat). Display-only, no alerts. Refactored the 4 legs into `conditions_phase3.watch_state_components`
   (single source of truth; verdict byte-identical). Smoke test added; suite 95 green.
-- **(1) SCHEDULED the re-test:** reminder `task_1781855064_53203d.timer` fires 2026-09-19 (3mo) ->
+- **(1) SCHEDULED the re-test:** reminder `task_1781855064_53203d.timer` fires **2026-07-19 (1mo)** ->
   appends to notifications.log. Full turnkey steps in `volatility_regime_reversal_indicator/PHASE3-FOLLOWUP.md`
   (add put/call leg to watch-state + Lowry 90/90 up/down-vol leg to b_thrust, freeze prereg, re-run).
+  At the 1-month mark: CBOE put/call backfills to 2019, so its TOP watch-state leg is testable then;
+  NYSE up/down-volume is forward-only (~1 month accrued, still too thin for the Lowry bottom leg — note
+  coverage and defer that leg until 6-12 months exist).
 
 ## APPENDIX — the research-mission prompt (self-contained; git-recoverable copy)
 

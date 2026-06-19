@@ -5,13 +5,18 @@ Track-B forward-collection now running daily (`vol-collect-daily.timer`):
 - `CBOE_PUTCALL` — put/call ratios (total/equity/index/etp)
 - `NYSE_BREADTH` — true NYSE adv/dec issues **and UP/DOWN VOLUME** (what ABINYSE lacks)
 
-These can't be backfilled, so they accumulate forward. A scheduled reminder fires ~2026-09-19.
+The NYSE up/down-volume can't be backfilled, so it accumulates forward (CBOE put/call DOES backfill to
+2019). A scheduled reminder fires ~2026-07-19 (1 month). At that point the put/call TOP leg is fully
+testable; the NYSE up/down-volume Lowry bottom leg will still be too thin (~1 month) — note its coverage
+and defer it until 6-12 months of history exist.
 
 ## When enough history exists, do this (each is a small, frozen, pre-registered change):
 1. **Refresh + check coverage:** `python3 -m src.run_update` (and confirm the daily timer kept
    collecting): `python3 -c "from src.data import store; print(store.provenance('CBOE_PUTCALL')['rows']); print(store.provenance('NYSE_BREADTH')['rows'])"`.
-   Note: NYSE_BREADTH is forward-only — ~63 rows after 3 months is a FIRST LOOK, not a full
-   backtest; the up/down-volume Lowry leg likely needs 6-12 months to be testable.
+   Note: NYSE_BREADTH is forward-only — ~21 rows after 1 month (the reminder horizon) is barely a
+   sanity check, not a backtest; the up/down-volume Lowry leg likely needs 6-12 months to be testable.
+   The 1-month re-test is really about the CBOE put/call TOP leg (full 2019+ backfill) + confirming the
+   daily collector kept the NYSE feed alive.
 2. **Add a put/call leg to the TOP watch-state:** in `src/signals/conditions_phase3.py`,
    `watch_state_components()`, append e.g. `"putcall_fear": U.trailing_percentile(CBOE_PUTCALL_total, 252)`
    (high put/call = fear; decide orientation and pre-register it). Add `CBOE_PUTCALL` to `_SERIES`
