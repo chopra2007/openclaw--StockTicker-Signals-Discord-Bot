@@ -148,6 +148,15 @@ plus a benchmark battle + a pre-registered alert budget (7-gate kill-gate). Repo
 3. The DSI/watch-state can still ship as an honest descriptive complacency gauge (works, transfers; a
    different product than a crash predictor).
 
+## Update 2026-06-19 — options 1 + 3 actioned
+- **(3) SHIPPED the descriptive complacency gauge:** `python3 -m src.show_fragility` prints today's
+  fragility/complacency reading (overall + 4 components, plain-English, honest "NOT a crash predictor"
+  caveat). Display-only, no alerts. Refactored the 4 legs into `conditions_phase3.watch_state_components`
+  (single source of truth; verdict byte-identical). Smoke test added; suite 95 green.
+- **(1) SCHEDULED the re-test:** reminder `task_1781855064_53203d.timer` fires 2026-09-19 (3mo) ->
+  appends to notifications.log. Full turnkey steps in `volatility_regime_reversal_indicator/PHASE3-FOLLOWUP.md`
+  (add put/call leg to watch-state + Lowry 90/90 up/down-vol leg to b_thrust, freeze prereg, re-run).
+
 ## APPENDIX — the research-mission prompt (self-contained; git-recoverable copy)
 
 > You are a research analyst. Do NOT start coding. Your job is a fact-finding mission, then a plan,

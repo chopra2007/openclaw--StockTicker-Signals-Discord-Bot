@@ -40,23 +40,32 @@ def _vrp(p) -> pd.Series:
     return U.variance_risk_premium(_col(p, "VIX_close"), _col(p, "SPY_close"), 21)
 
 
-def top_watch_state(p) -> pd.Series:
-    """Continuous fragility score in (0,1], HIGH = top-like. Geometric mean of 4 signed,
-    monotonic trailing-252-percentile legs — the inputs the research endorses that we can
-    compute from free data:
+def watch_state_components(p) -> "dict[str, pd.Series]":
+    """The 4 signed, monotonic trailing-252-percentile legs of the fragility composite, each
+    oriented so HIGH = top-like/fragile. Single source of truth shared by top_watch_state (which
+    geomeans them) and the descriptive readout (src/show_fragility.py) so the two can't drift.
       1. LOW variance-risk-premium  (cheap crash-insurance vs realized risk = complacency)
       2. HIGH VIX/VIX3M term ratio  (flat/backwardation = near-term stress bid)
       3. HIGH VVIX-vs-VIX residual  (tail-hedge demand independent of spot VIX; reused from P2)
       4. breadth NARROWING          (RSP/SPY rolling-60 change negative)
+    """
+    return {
+        "low_vrp_complacency": 1.0 - U.trailing_percentile(_vrp(p), 252),
+        "vix_term_stress": U.trailing_percentile(_vix_term_ratio(p), 252),
+        "vvix_tail_hedge_demand": U.trailing_percentile(_vvix_residual(p), 252),
+        "breadth_narrowing": 1.0 - U.trailing_percentile(concentration_regime(p, 60), 252),
+    }
+
+
+def top_watch_state(p) -> pd.Series:
+    """Continuous fragility score in (0,1], HIGH = top-like. Geometric mean of the 4 signed,
+    monotonic trailing-252-percentile legs in watch_state_components() — the inputs the research
+    endorses that we can compute from free data.
     Same geomean-with-floor-and-all-NaN-guard machinery as Phase-2's distribution_stress_index.
     NOTE: the VVIX-residual leg needs ~504 trading days to warm up (252-day OLS then a 252-day
     percentile), so the composite is effectively a ~2012+ detector — disclosed in the prereg.
     """
-    vrp_low = 1.0 - U.trailing_percentile(_vrp(p), 252)              # low VRP = top-like
-    term_stress = U.trailing_percentile(_vix_term_ratio(p), 252)     # flat/backward = top-like
-    vvix_resid = U.trailing_percentile(_vvix_residual(p), 252)       # high resid = top-like
-    narrow = 1.0 - U.trailing_percentile(concentration_regime(p, 60), 252)  # narrowing = top-like
-    legs = [vrp_low, term_stress, vvix_resid, narrow]
+    legs = list(watch_state_components(p).values())
     stacked = np.vstack([l.to_numpy() for l in legs])
     stacked = np.clip(stacked, 1e-6, 1.0)
     all_nan = np.isnan(stacked).all(axis=0)
