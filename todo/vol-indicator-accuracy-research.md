@@ -160,6 +160,78 @@ plus a benchmark battle + a pre-registered alert budget (7-gate kill-gate). Repo
   NYSE up/down-volume is forward-only (~1 month accrued, still too thin for the Lowry bottom leg — note
   coverage and defer that leg until 6-12 months exist).
 
+## Update 2026-06-19 — "no-wait" path: tested the free data NOW instead of waiting; FREE SEARCH EXHAUSTED
+User asked how to hit the goal without waiting 1-3 months. Found + ingested 3 free, no-wait data sources
+(verified live), then ran two new pre-registered backtests + separate-architect verification. Both honest
+NO-GO. Net: the free-data search for a validated SPY/QQQ top/bottom detector is now EXHAUSTED.
+
+New free data ingested (fetchers committed; store gitignored):
+- `SQZ` = SqueezeMetrics dealer-gamma (gex) + dark-pool (dix), 2011-05..2026, 3806 rows. The one free,
+  NON-VIX-derived signal the research endorsed that we lacked. `src/data/fetch_squeeze.py`.
+- `NYSE_UDVOL` = unicorn.us.com TRUE NYSE up/down VOLUME, 1965-03-01..2020-02-10, 13867 rows (archive
+  froze 2020-02-10). This is what the Track-B forward feed collects one day at a time — but free + 55yr.
+  `src/data/fetch_updown_volume.py`. (Sanity: 2008-10-09 = 95.5% down vol; 2008-10-13 = 95% up vol.)
+- `GSPC` = ^GSPC index for the long-window price/outcome series. `src/data/fetch_gspc.py`.
+- (put/call deep backfill to 2019 also run — low-prio top sentiment leg.)
+
+**Phase 4 — Lowry 90/90 BOTTOM detector on 55yr real volume (commit 7116765): NO-GO.** `src/run_phase4.py`,
+`conditions_phase4.py`, `preregistration_phase4.yaml`, `PHASE4-BOTTOM-REPORT.md`. 49 collapsed 90/90
+episodes; primary w10 35/49 prec 0.714 vs equally-distressed base 0.704 = edge +0.011 null_p 0.538; best
+cell w5 27/37 prec 0.730 edge +0.026 null_p 0.469. Controls (thrust-only 0.636, capit-only 0.678) ~as
+strong -> the capitulation->thrust SEQUENCE adds nothing beyond "distressed days bounce anyway". Kill-gate
+4/7 fail. 55yr finally gave real power and the edge STILL isn't there -> not a data problem.
+
+**Dealer-gamma TOP+BOTTOM detector w/ QQQ transfer (commit 3ecd406): NO-GO both sides.** `src/run_gamma.py`,
+`conditions_gamma.py`, `preregistration_gamma.yaml`, `PHASE-GAMMA-REPORT.md`. TOP best lead
+G_neg_gamma_break[50] (gex<0 AND SPY<50d-MA) edge +0.128 oppset p=0.092 (suggestive). Harness max-edge
+cell clears G1+G2 in-sample (edge +0.381 p=0.016) but is a 10-fire small-sample artifact -> fails G3
+**QQQ transfer (edge +0.268 p=0.064 — the CLOSEST miss in the whole project)**, G4 recall (0 organic
+tops), G5 control, G6 trend benchmark. BOTTOM dix-capitulation edge -0.004 (washout carries it). QQQ
+cross-asset transfer is AGAIN the binding constraint (Phase 2 -0.028, Phase 3 +0.024, gamma +0.268 p=0.064).
+
+CONCLUSION: every free lever (price/vol/breadth compression, VRP, VVIX-residual, Zweig/Lowry breadth
+thrust on true volume, dealer gamma, dark-pool) is NO-GO under the honesty bar. Per the research, a
+validated TOP detector needs PAID decomposed option-surface data (ORATS ~$99/mo, free trial; full history
+on day one). The gamma top signal almost cleared the QQQ transfer (p=0.064) and is the best lead — it +
+the paid surface is the next attempt. DECISION PENDING with user: (a) try the ORATS free trial, or
+(b) stop at free and ship the gamma/90-90 readings descriptive-only. Suite 141 green.
+
+## Update 2026-06-19 (cont.) — Alpha Vantage = a cheap PAID path to the option surface; DECISION PENDING
+The free search is exhausted (above). The next attempt needs paid decomposed option-surface data, and
+Alpha Vantage turns out to be a better/cheaper source than ORATS:
+- **AV `HISTORICAL_OPTIONS`** returns the FULL historical option chain for any US symbol (SPY/QQQ incl.)
+  on any date back to **2008**, with **implied volatility + every greek (delta, gamma, theta, vega, rho)**.
+  Verified LIVE on the demo key (IBM 2017-11-15 = 998 contracts w/ greeks+IV). CSV or JSON. Also
+  `HISTORICAL_PUT_CALL_RATIO` (back to 2008). This IS the research-endorsed surface (VRP / decomposed
+  skew / tail asymmetry / gamma) — we compute the measures ourselves from the raw chains.
+- **Cost:** cheapest premium tier **$49.99/mo includes end-of-day options** (ORATS is $99/mo). We only
+  pull the history ONCE → one month, backfill SPY+QQQ 2008-2026 (~9k calls @ 75/min ≈ 2h), store, then
+  CANCEL → effectively **~$50 one-time**.
+- **User's existing key** is in `/root/.openclaw/.env.service` (+ /home/... symlink) as
+  `ALPHAVANTAGE_API_KEY`. It is **FREE-TIER** (valid — confirmed via GLOBAL_QUOTE SPY=$746.74 — but
+  options endpoints return "This is a premium endpoint"). Free tier has NOTHING useful for this detector:
+  options/put-call/vol-to-OI all premium-locked; OHLCV+technicals are redundant (we have prices);
+  Treasury/FedFunds are macro/low-relevance; NEWS_SENTIMENT is free+new but only 2022+ history and is the
+  sentiment family that already failed (note: NEWS_SENTIMENT may be useful for the consensus_engine alert
+  bot — separate task, not this one).
+- **Also done this session:** `CBOE_PUTCALL` deep-backfilled to **1678 rows, 2019-10-15..2026-06-17**
+  (was 33). The low-prio put/call TOP sentiment leg is now testable too (still expected weak — sentiment).
+
+**DECISION PENDING WITH USER (the fork):**
+- **(A) Spend ~$50 (one month AV premium), go for a real PREDICTOR.** Next-session turnkey: user upgrades
+  the AV plan (key unchanged, premium unlocks instantly) → write `src/data/fetch_av_options.py`
+  (HISTORICAL_OPTIONS per trading day, datatype=csv, append-only store of raw chains for SPY+QQQ
+  2008-2026) → compute surface legs (variance risk premium, downside-semivariance VRP, DECOMPOSED
+  negative skew, dealer-gamma exposure) → freeze a phase-5 prereg → run the full honest backtest INCL the
+  SPY→QQQ transfer (the persistent killer) + the gamma near-miss (best lead, was edge +0.268 p=0.064).
+  Odds: MEDIUM, not a sure thing.
+- **(B) Stop at the free ceiling, ship DISPLAY-ONLY.** Three plain-English readouts (no predictions, no
+  Discord alerts): the complacency gauge (already built: `python3 -m src.show_fragility`), + add a
+  dealer-gamma reading + a 90/90 panic-thrust state. Then mark #47 done at the free ceiling.
+
+User leaning unclear at session close (was asking clarifying questions about cost + what display-only
+means). Resume by re-presenting this fork. NOTHING built for either path yet — awaiting the choice.
+
 ## APPENDIX — the research-mission prompt (self-contained; git-recoverable copy)
 
 > You are a research analyst. Do NOT start coding. Your job is a fact-finding mission, then a plan,
