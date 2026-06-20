@@ -291,6 +291,12 @@ Every number the bot shows (alert score, !all breakdown, contradiction, market m
 
 Catch SPY/QQQ tops and bottoms early with few false alarms — the daily-data approach is exhausted (proven NO-GO with real rigor), so the next move is a research mission to find how others actually accomplish this (likely with richer data inputs we don't yet have), then a plan and an adversarial review.
 
+## 49. Clean up the Claude memory index file — DONE 2026-06-20
+
+**File:** `fix_claude_memory_md.md`
+
+Restructure MEMORY.md so each entry is a short one-line pointer (as designed), not a content summary — backup at `memory/MEMORY.md.backup-2026-06-20`.
+
 ## 48. Stop the same stock double-alerting from different YouTube videos — DONE 2026-06-18
 
 **File:** `youtube_standalone_alert_cooldown.md`
