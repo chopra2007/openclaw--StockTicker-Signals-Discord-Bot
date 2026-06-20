@@ -232,51 +232,20 @@ Alpha Vantage turns out to be a better/cheaper source than ORATS:
 User leaning unclear at session close (was asking clarifying questions about cost + what display-only
 means). Resume by re-presenting this fork. NOTHING built for either path yet — awaiting the choice.
 
-## APPENDIX — the research-mission prompt (self-contained; git-recoverable copy)
+## APPENDIX — the research-mission prompt (canonical location)
 
-> You are a research analyst. Do NOT start coding. Your job is a fact-finding mission, then a plan,
-> then an adversarial review of that plan. We do not want to reinvent the wheel — find how OTHERS
-> have actually achieved this, then design a better path grounded in what demonstrably works.
->
-> **GOAL:** detect SPY/QQQ tops and bottoms early (ahead of a ≥8% move within ~60 trading days) with
-> few false alarms and a real out-of-sample edge. Free/affordable data preferred. No look-ahead.
->
-> **LEADING HYPOTHESIS WE TESTED:** a real top (outside a news crash) is a multi-week distribution
-> phase — range-compression/churn near the highs, breadth narrowing, up-volume drying up, a VVIX-vs-
-> VIX shift as price rolls over — the combination + timing, not one sign. Bottoms = capitulation climax.
->
-> **WHAT WE TRIED:** 16 single signals (VIX level/term, VVIX, realized vol, RSI/trend-extension, RSP/SPY
-> & QQQE/QQQ breadth, BAA10Y credit, SKEW, TLT safe-haven, OBV/Bollinger distribution); the gated
-> confluence; a two-stage watch→price-break model; a continuous composite score; a capitulation bottom.
->
-> **DATA:** free daily 2010-2026 — SPY/QQQ/RSP/QQQE/HYG/LQD/TLT OHLCV, VIX/VIX3M/VVIX/VXN/SKEW, FRED
-> BAA10Y, a free broad-US advance/decline feed.
->
-> **HOW WE BACK-TESTED (any new plan must respect this):** point-in-time only (truncation test);
-> next-open entry; episode collapsing; only **12 independent ≥8% tops exist 2010-2026** (~10 organic);
-> edge = precision vs base rate AND vs a random-timing null; the decisive upgrades — an **opportunity-
-> set null** (draw the null only from eligible "watch" days, not all days), a **temporal hold-out**
-> (2010-21 discover / 2022-26 confirm), a **cross-asset transfer** to QQQ with no re-tuning, leave-one-
-> episode-out, a multiple-testing reality check on a frozen grid, raw counts not just %, pre-registration.
->
-> **WHAT DIDN'T WORK:** single signals — no edge; binary confluence — best top +12pp but p≈0.13;
-> **cross-asset transfer to QQQ NEGATIVE** (overfit); continuous score — rank-IC −0.09 over 3,815 days
-> (p≈0.85, near zero with full power); two-stage — +8-10pp on S&P, not significant, no transfer; bottom
-> precision was a base-rate artifact (after 5%+ down, an 8% bounce within 60d happens ~92% anyway).
->
-> **WHY WE BELIEVE IT DIDN'T WORK (verify or refute):** (1) compression-near-highs is mostly a calm-
-> market signature that precedes more calm, not a top; tops are too rare to separate from benign calm.
-> (2) the institutional-distribution fingerprint likely isn't in daily price/volume/breadth — it needs
-> richer inputs we lack (options positioning / dealer gamma, tick-level/true-exchange breadth, order flow).
->
-> **YOUR MISSION:** (1) **Fact-finding** — how do others actually do this with *demonstrated out-of-
-> sample accuracy and low false positives* (not marketing)? Survey academia, practitioners, open-source,
-> and commercial tools; for each, extract the data inputs (especially beyond daily OHLCV), the method,
-> the evidence of real edge (sample size + false-alarm rate), and data cost/availability. Name which
-> inputs carry signal and which are noise. (2) **Plan** — a concrete, testable plan (data + sources +
-> cost, method, validation protocol that reuses our honesty machinery, expected false-positive control).
-> (3) **Adversarial review** of your own plan, focused on **accuracy and limiting false positives** —
-> where it overfits, where the null is too easy, where it won't transfer, the realistic false-alarm
-> rate, survivorship/restatement/look-ahead hazards, and what would make it fail live; then state what
-> survives and what must change. Be concrete, cite sources, prefer evidence over assertion. Assume the
-> goal is achievable with the right inputs — find how.
+The full, current research-mission prompt lives in its own file:
+
+**`volatility_regime_reversal_indicator/RESEARCH-MISSION-FREE-ONLY.md`** (committed 87c0d14, 2026-06-20)
+
+That file is the authoritative version. It adds two constraints the user requested on 2026-06-20
+that the old embedded copy here did NOT have:
+1. **No paid services whatsoever.** Free trials are acceptable only if confirmed to deliver enough
+   backtestable history (a forward-only trial is useless).
+2. **Open scope — no "15+ years of daily data or nothing."** Data span, granularity (daily / intraday /
+   tick / weekly), and event definition (binary / graded / hazard) are all open to the researcher; only
+   the honesty principles (point-in-time, fair null, out-of-sample hold-out, cross-asset/regime
+   transfer, raw counts, pre-registration) are non-negotiable.
+
+The earlier inline copy of the prompt was removed from this file to avoid two versions drifting apart.
+Hand a fresh session the file above (not this TODO) when running the research mission.
