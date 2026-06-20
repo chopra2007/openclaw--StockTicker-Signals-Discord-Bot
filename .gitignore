@@ -55,6 +55,13 @@ Thumbs.db
 .omc/logs/
 .omc/research/
 .omc/template-version.json
+# Same OMC scratch state, but in any nested subproject (e.g. volatility_regime_reversal_indicator/.omc/)
+**/.omc/sessions/
+**/.omc/state/
+**/.omc/logs/
+**/.omc/research/
+**/.omc/project-memory.json
+**/.omc/template-version.json
 
 # Generated artifacts
 artifacts/
