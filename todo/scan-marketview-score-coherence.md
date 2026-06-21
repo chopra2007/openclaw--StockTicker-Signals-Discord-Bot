@@ -1,6 +1,6 @@
 # Make !scan and !market-view scores coherent (and fix the misleading help text)
 
-**Status:** OPEN
+**Status:** DONE 2026-06-21
 **Created:** 2026-06-21
 
 ## The problem (user, 2026-06-21)
@@ -71,3 +71,10 @@ What each surface shows:
 - **Issue B (Step 1) DONE + live-verified.** Reworded `commands.py:1095` (the no-snapshot `!market-view` reply). Old text falsely said "run `!scan` first" (scan never writes a snapshot). New text: "No saved verdict for `$TICKER` yet — the bot logs one only when a live signal fires for it (not from `!scan`). For an on-demand read now, try `!scan TICKER` (quick check) or `!all TICKER` (full analysis)." No test pinned the old string; compile clean.
 - **Live proof:** restarted engine, posted `!market-view ADP` (ADP has 0 snapshots) as a bot verification-probe to the commands channel, captured the bot's actual reply = the new text. Test messages deleted after.
 - **Still open:** Issue A only (make `!scan` and `!market-view` show the same number — persist scan vs relabel). Issue C is flipped+soaking. When Issue A is decided + done, this item can be marked DONE.
+
+### Session notes — 2026-06-21 (Issue A RESOLVED — items combined into !scan)
+- **User decision (supersedes the persist-vs-relabel options):** "market-view is useless… combine the two and put it in scan. 1 score, include the 🟢/🟡/🔴 dots, just give the best of both, built in !scan only."
+- **Built (`commands.py`, commit 0a002d8):** `!scan` now runs the cross-reference (evidence) AND the precision engine (`analyze_signal`) and shows **ONE** gated 0-100 score with a band dot. The dot is derived from THE score's own band (high=80→🟢, med=65→🟡, else🔴), NOT from the engine classification — so the colour can never contradict the number (the original complaint: a 🟡 sat on a low number). Dropped the separate additive-total line; cross-ref data stays as qualitative evidence (News/Options/Social/Technical). `!market-view` is now a thin **alias** to `!scan` (old `_handle_market_view` handler + its `disagreement` import removed; help text + module docstring updated).
+- **Caught + fixed mid-build:** first live `!scan NVDA` rendered `🟡 Score: 43` (dot from classification = WATCHLIST-by-bypass) — the exact incoherence #50 is about. Switched the dot to the score-band mapping; re-verified `🔴 Score: 43` (coherent).
+- **Live proof (left an example in #chat):** `!scan NVDA` → `**$NVDA Scan** 🔴 Score: 43` + evidence; `!market-view AMD` → `**$AMD Scan** 🔴 Score: 43` (alias confirmed). 19/19 `tests/test_commands.py` pass (obsolete snapshot test removed; new alias test added).
+- **Note:** weekend/neutral scans skew low (red) because the market isn't open to confirm; during market hours real movers will reach 🟡/🟢. Issue C (`single_score`) stays ON and soaking for the LIVE ALERT numbers (separate surface). All three issues now addressed → marking DONE.

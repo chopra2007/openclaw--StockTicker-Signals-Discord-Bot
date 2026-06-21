@@ -303,7 +303,7 @@ Restructure MEMORY.md so each entry is a short one-line pointer (as designed), n
 
 Optional: add a per-ticker cooldown so the "a YouTuber likes $STOCK" alert can't post twice for the same ticker when two different videos mention it in one poll cycle — build only if live use shows it's spammy.
 
-## 50. Make !scan and !market-view scores agree (and fix a wrong help message)
+## 50. Make !scan and !market-view scores agree (and fix a wrong help message) — DONE 2026-06-21
 
 **File:** `scan-marketview-score-coherence.md`
 
