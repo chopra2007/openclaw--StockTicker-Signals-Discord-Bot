@@ -302,3 +302,9 @@ Restructure MEMORY.md so each entry is a short one-line pointer (as designed), n
 **File:** `youtube_standalone_alert_cooldown.md`
 
 Optional: add a per-ticker cooldown so the "a YouTuber likes $STOCK" alert can't post twice for the same ticker when two different videos mention it in one poll cycle — build only if live use shows it's spammy.
+
+## 50. Make !scan and !market-view scores agree (and fix a wrong help message)
+
+**File:** `scan-marketview-score-coherence.md`
+
+The same stock can show two different "Score" numbers at the same moment — `!scan` runs a fresh check and saves nothing, while `!market-view` shows the last real-signal verdict (often stale or absent) on a different scale; also the bot wrongly tells users to "run !scan first" to create a verdict, which scan never does. Make the two commands coherent and fix the misleading text.
