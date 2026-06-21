@@ -5,7 +5,7 @@ Commands:
   !help               — list available commands
   !status             — engine status summary
   !trend              — last Reddit trend digest on demand
-  !scan <TICKER>      — run cross-reference on a ticker and reply with score
+  !scan <TICKER>      — full on-demand check: one score + 🟢/🟡/🔴 band + evidence
   !performance        — alert win rates and P&L stats
   !signals <TICKER>   — active signal counts by source
   !analysts <TICKER>  — analysts who recently mentioned a ticker
@@ -17,7 +17,7 @@ Commands:
   !google-trends <T>  — Google Trends spike % for a ticker
   !apewisdom          — ApeWisdom trending tickers
   !alert-history <T>  — alert history with price outcomes for a ticker
-  !market-view <T>    — current verdict from latest decision snapshot
+  !market-view <T>    — alias for !scan (folded in)
   !levels <T>         — price levels (support/resistance) from YouTube + signals
 """
 
@@ -28,7 +28,6 @@ from datetime import datetime
 from typing import Optional
 
 from consensus_engine import config as cfg, db
-from consensus_engine.alerts.display_scale import disagreement
 from consensus_engine.alerts.discord import send_command_reply
 from consensus_engine.scanners.reddit_trend import crawl_and_get_trending
 from consensus_engine.alerts.discord import send_trend_digest
@@ -143,7 +142,7 @@ HELP_TEXT = """**OpenClaw Signal Engine — Commands**
 `!help` (alias `!readme`) — show this message
 `!status` — engine health summary (active signals, last alert)
 `!trend` — post latest Reddit trend digest
-`!scan <TICKER>` — full cross-reference on a ticker (e.g. `!scan NVDA`)
+`!scan <TICKER>` — full on-demand check: one score with a 🟢/🟡/🔴 band + evidence (e.g. `!scan NVDA`)
 `!all <TICKER>` — synthesize ALL sources into a single LLM analysis (e.g. `!all AMD`)
 `!ask <question>` — full-power LLM answer (auto-splits if > 2000 chars)
 `!performance` — alert win rates and P&L stats
@@ -167,7 +166,7 @@ HELP_TEXT = """**OpenClaw Signal Engine — Commands**
 `!source-health` — data source status table (freshness, error rate)
 
 **Reliability & Levels**
-`!market-view <TICKER>` — current verdict from latest decision snapshot (e.g. `!market-view NVDA`)
+`!market-view <TICKER>` — alias for `!scan` (folded in)
 `!levels <TICKER>` — price levels with condition text from YouTube + signals
 `!cluster <TICKER>` — price-level cluster history for a ticker
 
@@ -366,14 +365,16 @@ async def _route_command_inner(
             await _handle_transcript(args[0], channel_id, message_id)
 
     elif command in ("market-view", "market_view", "marketview"):
+        # #50: folded into !scan — market-view is now an alias so old muscle memory
+        # still works, but there is only one command and one score.
         if not args:
-            await send_command_reply(channel_id, message_id, "Usage: `!market-view <TICKER>` — e.g. `!market-view NVDA`")
+            await send_command_reply(channel_id, message_id, "Usage: `!market-view <TICKER>` — now an alias for `!scan` (e.g. `!scan NVDA`)")
         else:
             ticker = args[0].upper()
             if not is_valid_ticker_format(ticker):
                 await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=ticker))
             else:
-                await _handle_market_view(ticker, channel_id, message_id)
+                await _handle_scan(ticker, channel_id, message_id)
 
     elif command == "levels":
         if not args:
@@ -543,15 +544,22 @@ async def _handle_performance(channel_id: str, message_id: str) -> None:
 
 
 async def _handle_scan(ticker: str, channel_id: str, message_id: str) -> None:
-    """Run cross-reference on a ticker and reply with results."""
+    """Run the full on-demand check and reply with one gated score + band."""
     await send_command_reply(channel_id, message_id, f"Scanning `${ticker}`...")
     await _dispatch_inner(_scan_and_reply(ticker, channel_id, message_id))
 
 
 async def _scan_and_reply(ticker: str, channel_id: str, message_id: str) -> None:
-    """Background task: run cross-reference and post results."""
+    """Background task: run the on-demand check and post ONE verdict.
+
+    #50: !scan is the single combined command. It runs the cross-reference (for
+    the supporting evidence) AND the precision engine (for the gated 0-100 score
+    plus its 🟢/🟡/🔴 band) — the SAME score the live alerts use — so there is one
+    coherent number, never a second additive total. (!market-view folds in here.)
+    """
     try:
         from consensus_engine.cross_reference import cross_reference
+        from consensus_engine.engine import analyze_signal
         from consensus_engine.models import ParsedTweet, TweetType, Direction, Conviction
         fake_tweet = ParsedTweet(
             tweet_url="command",
@@ -565,32 +573,57 @@ async def _scan_and_reply(ticker: str, channel_id: str, message_id: str) -> None
             summary=f"On-demand scan for ${ticker}",
         )
         xref = await cross_reference(ticker, fake_tweet, executor=None)
-        b = xref.breakdown
-        parts = []
-        if b.base: parts.append(f"base={b.base}")
-        if b.news_catalyst: parts.append(f"news={b.news_catalyst}")
-        if b.sec_filing: parts.append(f"sec={b.sec_filing}")
-        if b.technical: parts.append(f"tech={b.technical}")
-        if b.additional_analysts: parts.append(f"analysts={b.additional_analysts}")
-        social = b.social_apewisdom + b.social_stocktwits + b.social_reddit + b.google_trends
-        if social: parts.append(f"social={social}")
-        if b.llm_boost: parts.append(f"llm={b.llm_boost}")
-        if b.options_flow: parts.append(f"options={b.options_flow}")
 
-        score_str = " + ".join(parts) + f" = **{xref.final_score}**"
-        summary_lines = [f"**${ticker} Scan — Score: {xref.final_score}**", score_str]
+        # Precision gate — the same engine the live pipeline + alerts use, so the
+        # number here is on the one 0-100 band scale (not the raw additive sum).
+        tech_n = xref.technical.passed_count if (xref and xref.technical is not None) else 0
+        try:
+            precision = await analyze_signal(
+                ticker,
+                base_score=fake_tweet.base_score,
+                breakdown=xref.breakdown,
+                technical_filter_count=tech_n,
+                analyst="command",
+            )
+        except Exception as exc:
+            log.warning("Scan precision engine failed for $%s: %s", ticker, exc)
+            precision = None
+
+        # ONE score: the precision-gated 0-100 number. The dot is the band of THAT
+        # score (same high/med thresholds the engine uses), so the colour and the
+        # number can never disagree — that coherence is the whole point of #50.
+        _high = cfg.get("precision_engine.thresholds.high_confidence", 80)
+        _med = cfg.get("precision_engine.thresholds.medium_confidence", 65)
+        budget_skipped = False
+        if precision and not precision.get("skipped"):
+            score = int(precision.get("total_score", 0) or 0)
+            budget_skipped = bool(precision.get("skipped_sources"))
+            dot = "🟢" if score >= _high else ("🟡" if score >= _med else "🔴")
+            header = f"{dot} **Score: {score}**"
+        else:
+            header = "⚪ **Score: unavailable** — couldn't compute, try again"
+
+        lines = [f"**${ticker} Scan**", header]
         if xref.catalyst_summary:
-            summary_lines.append(f"News: {xref.catalyst_summary[:200]}")
-        if xref.social_summary:
-            summary_lines.append(f"Social: {xref.social_summary}")
+            lines.append(f"News: {xref.catalyst_summary[:200]}")
         if xref.options and xref.options.has_unusual_activity:
             opt = xref.options
             opt_parts = []
-            if opt.unusual_calls: opt_parts.append(f"unusual calls ({opt.max_call_ratio:.1f}x vol/OI)")
-            if opt.unusual_puts: opt_parts.append(f"unusual puts ({opt.max_put_ratio:.1f}x vol/OI)")
-            summary_lines.append(f"Options: {', '.join(opt_parts)}")
+            if opt.unusual_calls:
+                opt_parts.append(f"unusual calls ({opt.max_call_ratio:.1f}x vol/OI)")
+            if opt.unusual_puts:
+                opt_parts.append(f"unusual puts ({opt.max_put_ratio:.1f}x vol/OI)")
+            if opt_parts:
+                lines.append(f"Options: {', '.join(opt_parts)}")
+        if xref.social_summary:
+            lines.append(f"Social: {xref.social_summary}")
+        if xref and xref.technical is not None and xref.technical.filters:
+            passed = sum(1 for f in xref.technical.filters if f.passed)
+            lines.append(f"Technical: {passed}/{len(xref.technical.filters)} filters passed")
+        if budget_skipped:
+            lines.append("_(some data sources were unavailable this run)_")
 
-        await send_command_reply(channel_id, message_id, "\n".join(summary_lines))
+        await send_command_reply(channel_id, message_id, "\n".join(lines))
     except Exception as e:
         log.error("Scan background task error for %s: %s", ticker, e)
         await send_command_reply(channel_id, message_id, f"Scan failed for `${ticker}`.")
@@ -1082,63 +1115,6 @@ async def _transcript_and_reply(youtube_url: str, channel_id: str, message_id: s
 # ---------------------------------------------------------------------------
 # Reliability commands
 # ---------------------------------------------------------------------------
-
-async def _handle_market_view(ticker: str, channel_id: str, message_id: str) -> None:
-    """Show current verdict from the latest decision snapshot for a ticker."""
-    try:
-        from consensus_engine.analysis.calibration import calibrate
-
-        snapshots = await db.get_recent_decision_snapshots(ticker, limit=1)
-        if not snapshots:
-            await send_command_reply(
-                channel_id, message_id,
-                f"No saved verdict for `${ticker}` yet — the bot logs one only when a live "
-                f"signal fires for it (not from `!scan`). For an on-demand read now, try "
-                f"`!scan {ticker}` (quick check) or `!all {ticker}` (full analysis).",
-            )
-            return
-
-        s = snapshots[0]
-        decision = s.get("decision", "UNKNOWN")
-        score = s.get("final_score", 0.0)
-        contradiction = s.get("contradiction_index", 0.0)
-        recorded_at = s.get("recorded_at", 0.0)
-
-        import time
-        age_min = int((time.time() - recorded_at) / 60)
-
-        from consensus_engine.analysis.calibration import has_trained_model
-        p_up = calibrate(float(score), "1h")
-        p_down = round(1.0 - p_up, 3)
-        shadow_mode = cfg.get("calibration.shadow_mode.enabled", True)
-        prob_line = (
-            f"score/100 (uncalibrated): **{float(score):.0f}/100**"
-            if shadow_mode and not has_trained_model("1h")
-            else f"P(up 1h): **{p_up * 100:.1f}%** | P(down): **{p_down * 100:.1f}%**"
-        )
-
-        _ICONS = {
-            "ALERT": "🟢", "WATCHLIST": "🟡", "IGNORE": "🔴",
-            "UNCERTAIN": "⚠️", "INSUFFICIENT_EVIDENCE": "❓", "DEGRADED_MODE": "🔧",
-        }
-        icon = _ICONS.get(decision, "⚪")
-
-        lines = [
-            f"**Market View — ${ticker}** ({age_min}m ago)",
-            f"{icon} **{decision}** | Score: {score:.0f}",
-            prob_line,
-            f"Disagreement: {disagreement(contradiction)}/100",
-        ]
-
-        # Uncertainty warnings
-        if decision in ("UNCERTAIN", "DEGRADED_MODE", "INSUFFICIENT_EVIDENCE"):
-            lines.append(f"\n⚠️ State: **{decision}** — treat with caution")
-
-        await send_command_reply(channel_id, message_id, "\n".join(lines))
-    except Exception as e:
-        log.error("Market-view command error for %s: %s", ticker, e)
-        await send_command_reply(channel_id, message_id, f"Market view unavailable for `${ticker}`.")
-
 
 async def _handle_levels(ticker: str, channel_id: str, message_id: str) -> None:
     """Show price levels (support/resistance) from YouTube + signal_events."""

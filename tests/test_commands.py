@@ -114,40 +114,23 @@ async def test_route_market_view_requires_ticker():
 
 
 @pytest.mark.asyncio
-async def test_route_market_view_no_snapshot():
-    """!market-view NVDA when no snapshots exist replies gracefully."""
+async def test_route_market_view_aliases_to_scan():
+    """#50: !market-view NVDA is now an alias for !scan — sends the 'Scanning'
+    initial reply and fires the same background task (no snapshot lookup)."""
     from consensus_engine.alerts.commands import route_command
-    mock_db = MagicMock()
-    mock_db.get_recent_decision_snapshots = AsyncMock(return_value=[])
-
     with patch("consensus_engine.alerts.commands.send_command_reply", new_callable=AsyncMock) as mock_send, \
-         patch("consensus_engine.alerts.commands.db", mock_db):
+         patch("consensus_engine.alerts.commands.asyncio") as mock_asyncio:
+        captured = []
+        def _capture_task(coro):
+            captured.append(coro)
+            return MagicMock()
+        mock_asyncio.create_task = _capture_task
         await route_command("market-view", ["NVDA"], "chan123", "msg123")
         content = mock_send.call_args[0][2]
-        assert "NVDA" in content or "snapshot" in content.lower() or "scan" in content.lower()
-
-
-@pytest.mark.asyncio
-async def test_route_market_view_with_snapshot():
-    """!market-view NVDA with a snapshot shows verdict and calibrated probability."""
-    import time
-    from consensus_engine.alerts.commands import route_command
-
-    snapshot = {
-        "decision": "ALERT",
-        "final_score": 75.0,
-        "contradiction_index": 0.1,
-        "recorded_at": time.time() - 120,
-    }
-    mock_db = MagicMock()
-    mock_db.get_recent_decision_snapshots = AsyncMock(return_value=[snapshot])
-
-    with patch("consensus_engine.alerts.commands.send_command_reply", new_callable=AsyncMock) as mock_send, \
-         patch("consensus_engine.alerts.commands.db", mock_db):
-        await route_command("market-view", ["NVDA"], "chan123", "msg123")
-        content = mock_send.call_args[0][2]
-        assert "NVDA" in content
-        assert "ALERT" in content or "75" in content
+        assert "NVDA" in content and "scan" in content.lower()
+        # Same combined scan background task fires
+        assert len(captured) == 1
+        captured[0].close()
 
 
 @pytest.mark.asyncio
