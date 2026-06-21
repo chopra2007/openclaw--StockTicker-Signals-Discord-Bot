@@ -25,9 +25,17 @@ The user ran `!scan NVDA` and `!market-view NVDA` for the **same ticker within ~
 - When no snapshot exists, `!market-view` replies: *"No decision snapshots for `$TICKER` yet — run `!scan TICKER` first."* (`commands.py:1095`).
 - This is misleading: `!scan` **does not create a snapshot**, so following the instruction leaves `!market-view` still saying "none." The instruction points at a command that can't do what it claims.
 
-### Issue C — on one market-view line, the number and the dot are different scales (already tracked)
-- `!market-view` shows `Score: {final_score}` (additive) next to a 🟢/🟡/🔴 dot from `s["decision"]`, whose ALERT/WATCHLIST/IGNORE cutoffs (80 / 65, `config/consensus.yaml:650-651`) are applied to the **precision-engine gated 0-100 score** — a *different* number. So the number and the dot can look out of step.
-- This is the **same root as TODO #46 / the I4-full unification** (display-scale work). #46's display slice shipped 2026-06-21 (regime + disagreement readable); the score-family unification was explicitly deferred to the **I4-full flag** (tracked in the go-live list under #32/#36). Do NOT duplicate — fold Issue C into that.
+### Issue C — TWO scoring formulas exist; the number and the dot are different scales (a BUILT switch already collapses them — currently OFF)
+The engine runs the **same inputs** through **two different score formulas that were never merged**:
+- **Formula 1 — additive cross-reference total** (`xref.final_score` = `ScoreBreakdown.total`): every source adds raw points (news+15, tech+12, options+10, llm+15…), summed with **no ceiling**, can exceed 100. This is the original score.
+- **Formula 2 — precision-gated 0-100 score** (`engine.analyze_signal` → `precision["total_score"]`, classification via cutoffs `high_confidence 80` / `medium_confidence 65`, `config/consensus.yaml:650-651`): a separate bounded "is this actually strong?" gate added later. This produces the ALERT/WATCHLIST/IGNORE 🟢/🟡/🔴 **dot**.
+
+What each surface shows:
+- `!scan` → **Formula 1 only** (`xref.final_score`, `commands.py:580-581`); runs no precision gate, shows **no dot**.
+- `!market-view` → the **dot** = `classification` (Formula 2, written at `main.py:1583` `decision=classification.value`), but the **number** = `final_score`. So on one line the digits and the dot are from two different formulas → they can look out of step.
+
+**THE BUILT SWITCH (verified 2026-06-21, currently OFF):** `features.single_score.enabled` — reconciliation block at **`main.py:1500-1517`**. When ON, it makes `final_score` = the **precision-gated total** (`_p_total`) — "the ONE number used in both headline and decision logging" (the code comment at `main.py:1493-1496`), with a never-contradict floor (a STRONG class can't show a sub-`high` number). Budget-depressed runs (a paid source skipped) fall back to the xref total on purpose. This flag is the historical "I4-full" unification; it is **OFF by default** (`config/consensus.yaml`, single_score `enabled: false` ~L812). The partial honesty flag `score_display_honesty` (~L803) **is** ON but does NOT fully unify the two formulas.
+- Same root as TODO #46 (display-scale). #46's display slice shipped 2026-06-21 (regime + disagreement readable); the score-family unification was deferred to this `single_score`/I4-full flag (tracked in the go-live list under #32/#36, "flip one at a time after I4-full soaks"). Do NOT duplicate — Issue C = flip `single_score`.
 
 ## Possible next steps (priority-ordered)
 
@@ -35,7 +43,7 @@ The user ran `!scan NVDA` and `!market-view NVDA` for the **same ticker within ~
 2. **Decide the intended relationship (Issue A).** Two clean options — pick one with the user:
    - **(a) Make `!scan` persist** its result as a snapshot so `!market-view` reflects the most recent on-demand scan (then "run !scan first" becomes TRUE and the two agree). Caveat: a neutral synthetic scan would overwrite a real-signal verdict — decide whether that's desired.
    - **(b) Keep them separate but relabel** so it's unmistakable they're different things (e.g. `!scan` → "Fresh check (Strength N)", `!market-view` → "Last saved verdict from <age> ago"), and stop both calling it bare "Score."
-3. **Unify the score scale (Issue C)** via the existing I4-full path — one calculation, one 0-100 number, same meaning across `!scan`, `!market-view`, and auto-alerts, with the dot driven by the same scale. This is the big one; it's the I4-full go-live decision, not new work.
+3. **Unify the score scale (Issue C) — the real fix, and it's already BUILT.** Flip `features.single_score.enabled` to `true` (reconciliation at `main.py:1500-1517`, currently OFF) so `final_score` becomes the precision-gated 0-100 number everywhere (headline + decision logging), with the never-contradict floor. That makes `!market-view`'s number and dot the same scale, and — if step 2a is also done so `!scan` runs the precision gate — makes scan and market-view comparable. This is the I4-full go-live decision (flip one at a time after soak, per the #32/#36 list), not new code. NOTE: it changes live alert numbers, so do a shadow/staged check before flipping.
 
 ## Files / code involved
 - `consensus_engine/alerts/commands.py` — `_scan_and_reply` (551-596), `_handle_market_view` (1086-1128; help text :1095, Score+dot :1125, disagreement :1127).
