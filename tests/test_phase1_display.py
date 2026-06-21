@@ -204,7 +204,11 @@ def test_i14_display_cold_start_warming_up(monkeypatch):
 
 
 def test_i14_display_elevated_renders_label_and_z(monkeypatch):
-    """Flag ON + a real regime → 'Regime: elevated (z=0.8)'."""
+    """Flag ON + a real regime → '🟡 Market stress: 60/100 (elevated, z=0.8)'.
+
+    #46: the line is reframed onto a 0-100 'market stress' scale, but the label
+    and native z are kept (in parens) so existing substring asserts still hold.
+    """
     _force(monkeypatch, {"features.regime_context_line.enabled": True})
     xref = _xref()
     precision = {
@@ -223,3 +227,6 @@ def test_i14_display_elevated_renders_label_and_z(monkeypatch):
     regime_field = next(f for f in embed["fields"] if f["name"] == "Regime")
     assert "elevated" in regime_field["value"]
     assert "z=0.8" in regime_field["value"]
+    # #46: reframed onto the unified 0-100 market-stress scale.
+    assert "Market stress" in regime_field["value"]
+    assert "/100" in regime_field["value"]

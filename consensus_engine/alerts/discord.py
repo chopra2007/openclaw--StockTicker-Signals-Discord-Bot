@@ -14,6 +14,7 @@ from typing import Optional
 import aiohttp
 
 from consensus_engine import config as cfg
+from consensus_engine.alerts.display_scale import regime_stress, regime_emoji, disagreement
 from consensus_engine.utils.http import get_session
 from consensus_engine.utils.obs_log import obs_log
 from consensus_engine import db
@@ -229,8 +230,8 @@ def _invalidation_condition(xref: CrossReferenceResult) -> str:
     if decision == "INSUFFICIENT_EVIDENCE":
         return "Wait for additional source confirmation"
     if xref.contradiction_index > 0.4:
-        return f"Contradiction index {xref.contradiction_index:.2f} rising — monitor closely"
-    return "Signal valid while contradiction index stays below 0.6"
+        return f"Disagreement {disagreement(xref.contradiction_index)}/100 rising — monitor closely"
+    return "Signal valid while disagreement stays below 60/100"
 
 
 def _calibrated_section(xref: CrossReferenceResult) -> list[str]:
@@ -464,7 +465,11 @@ def format_detail_followup(xref: CrossReferenceResult, precision: Optional[dict]
         if getattr(regime, "cold_start", False):
             regime_text = "regime: warming up"
         else:
-            regime_text = f"Regime: {regime.label} (z={regime.z_score:.1f})"
+            stress = regime_stress(regime.z_score)
+            regime_text = (
+                f"{regime_emoji(regime.label)} Market stress: {stress}/100 "
+                f"({regime.label}, z={regime.z_score:.1f})"
+            )
         fields.append({"name": "Regime", "value": regime_text, "inline": False})
 
     # Reliability + calibration fields (additive, only shown when reliability engine ran)
@@ -483,7 +488,7 @@ def format_detail_followup(xref: CrossReferenceResult, precision: Optional[dict]
         freshness = _freshness_label(xref.reliability_weights)
         contra_bar = "█" * int(xref.contradiction_index * 10) + "░" * (10 - int(xref.contradiction_index * 10))
         risk_lines = [
-            f"Contradiction: `{contra_bar}` {xref.contradiction_index:.2f}",
+            f"Disagreement: `{contra_bar}` {disagreement(xref.contradiction_index)}/100",
             f"Freshness: **{freshness}**",
         ]
         reason_codes = _top_reason_codes(xref)

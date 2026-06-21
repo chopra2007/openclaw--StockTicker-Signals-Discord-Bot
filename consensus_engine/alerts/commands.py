@@ -28,6 +28,7 @@ from datetime import datetime
 from typing import Optional
 
 from consensus_engine import config as cfg, db
+from consensus_engine.alerts.display_scale import disagreement
 from consensus_engine.alerts.discord import send_command_reply
 from consensus_engine.scanners.reddit_trend import crawl_and_get_trending
 from consensus_engine.alerts.discord import send_trend_digest
@@ -1124,7 +1125,7 @@ async def _handle_market_view(ticker: str, channel_id: str, message_id: str) -> 
             f"**Market View — ${ticker}** ({age_min}m ago)",
             f"{icon} **{decision}** | Score: {score:.0f}",
             prob_line,
-            f"Contradiction index: {contradiction:.2f}",
+            f"Disagreement: {disagreement(contradiction)}/100",
         ]
 
         # Uncertainty warnings
