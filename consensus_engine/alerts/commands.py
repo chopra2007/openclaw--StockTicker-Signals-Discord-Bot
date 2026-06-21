@@ -1092,7 +1092,9 @@ async def _handle_market_view(ticker: str, channel_id: str, message_id: str) -> 
         if not snapshots:
             await send_command_reply(
                 channel_id, message_id,
-                f"No decision snapshots for `${ticker}` yet — run `!scan {ticker}` first.",
+                f"No saved verdict for `${ticker}` yet — the bot logs one only when a live "
+                f"signal fires for it (not from `!scan`). For an on-demand read now, try "
+                f"`!scan {ticker}` (quick check) or `!all {ticker}` (full analysis).",
             )
             return
 
