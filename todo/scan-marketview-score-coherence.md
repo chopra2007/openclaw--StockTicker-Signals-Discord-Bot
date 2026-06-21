@@ -60,3 +60,9 @@ What each surface shows:
 ## Anything else a cold session needs
 - Surfaced during discover run `todo-20-46` (the #20/#46 completion session). The scale-readability half of this (regime/disagreement) already shipped under #46; THIS item is the cross-surface *coherence* half that #46 did not touch.
 - Lesson logged in memory `comm-check-fail-2026-06-21-section-3` (an in-code help string is a claim, not evidence — grep the writer before explaining how commands relate).
+
+### Session notes — 2026-06-21
+- **Worked on:** Issue C only — flipped `features.single_score.enabled` false→true (consensus.yaml:813) per user "flip on the switch so we can monitor it". Engine restarted clean (active, 0 restarts, no errors, gateway up, symlink intact); flag loads True; 13/13 `test_i4_full_single_score.py` pass.
+- **Decisions:** flipped during the weekend pause on purpose — live signals resume Sun 11:00 PDT / 14:00 ET, so the first real reconciliations (and any alert-number change) start this afternoon, a clean observation window. Evidence file: `.claude/go-live-evidence/features_single_score_enabled.md`. Scheduled capture task (`task_1782039195_8cb9a9`, 11:30 PDT) writes the first `[I4-full shadow]` lines to notifications.log.
+- **Effect / limits:** this fixes Issue C's *market-view* half — `decision_snapshots.final_score` (what `!market-view` shows) is now the precision-gated 0–100 number, so its number and dot finally share a scale. It does NOT make `!scan` and `!market-view` agree (Issue A, step 2) and does NOT touch the wrong "run !scan first" help text (Issue B, step 1) — both still open.
+- **Next:** after Sun resume, watch `journalctl -u consensus-engine.service | grep 'I4-full shadow'` + a real `!market-view` on a freshly-alerted ticker (number on the 0–100 scale, no STRONG under 80). Then decide Issue B (1-line help fix) and Issue A (persist scan vs relabel) with the user.

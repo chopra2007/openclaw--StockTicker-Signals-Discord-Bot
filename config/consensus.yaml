@@ -810,7 +810,7 @@ features:
   strong_requires_hard_evidence: { enabled: true, min_technical_filters: 2 }                  # I10 LIVE 2026-06-16 — STRONG needs a hard-evidence component. Backtest: 0/56 historical STRONGs demote (all carry news/sec/options); 14d shadow all would_demote=False. Downgrade-only.
   manufactured_agreement_gate: { enabled: false }                                             # E6 — coordinated-burst corroboration gate
   apewisdom_zscore: { enabled: false, min_baseline_days: 14, z_threshold: 2.0 }               # I13 — mention z-surge, confirm-only
-  single_score: { enabled: false }                                                            # I4-full — single-score reconciliation
+  single_score: { enabled: true }                                                             # I4-full — single-score reconciliation. FLIPPED ON 2026-06-21 to monitor live (#50 Issue C)
   consensus_logodds: { enabled: false, count_floor_frac: 0.5 }                                # I7 — sigmoid(log-odds) consensus scale. DEFERRED 2026-06-16: no-op until source_performance has a production writer AND signal_events forms >=2 clusters/ticker (all 1963 consolidated_events are single-cluster shadow_only). Needs code, not data — not a flip.
   regime_widening_graduated: { enabled: false, max_shift: 15, cutoff_ceiling: 90 }            # I14-widening — z-scaled panic shift
   cross_asset: { enabled: false, fred_leg_enabled: true, fred_reference_swing: 0.40, veto_floor: 0.85, confirm_ceiling: 1.15 } # E2 — VIX-term + FRED HY-credit confirm/veto multiplier. master enabled:false (E2 stays dark until the one-at-a-time flip); fred leg BUILT+key-tested 2026-06-15, activates with the master
