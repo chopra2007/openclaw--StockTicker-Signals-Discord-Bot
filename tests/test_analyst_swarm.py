@@ -165,9 +165,7 @@ def test_format_swarm_alert_text_and_title():
     assert "SWARM: $NVDA" in embed["title"]
     assert "5 analysts tweeting in 5 hours" in embed["title"]
     assert embed["color"] == 0xED4245
-    why = next(f for f in embed["fields"] if f["name"] == "Why this matters")["value"]
-    assert why == "Multiple independent analysts are tweeting this name right now."
-    assert "something may be happening" not in why
+    assert not any(f["name"] == "Why this matters" for f in embed["fields"])  # removed: redundant boilerplate
     analysts = next(f for f in embed["fields"] if f["name"] == "Analysts")["value"]
     assert "[@a1](https://x.com/a1/1)" in analysts   # clickable when link present
     assert "@a2" in analysts                          # plain otherwise

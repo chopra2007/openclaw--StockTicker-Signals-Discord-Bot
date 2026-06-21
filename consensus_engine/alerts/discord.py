@@ -611,12 +611,6 @@ def format_swarm_alert(swarm, current_price: float = 0.0, links: Optional[dict] 
     if current_price and current_price > 0:
         fields.append({"name": "Price", "value": f"${current_price:.2f}", "inline": True})
 
-    fields.append({
-        "name": "Why this matters",
-        "value": "Multiple independent analysts are tweeting this name right now.",
-        "inline": False,
-    })
-
     return {
         "title": f"\U0001f6a8 SWARM: ${ticker} — {n} analysts tweeting in {span_txt}",
         "color": 0xED4245,  # red — loud, breaking
