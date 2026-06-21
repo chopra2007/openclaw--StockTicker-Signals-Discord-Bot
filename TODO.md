@@ -279,7 +279,7 @@ Live-test current cheap OpenRouter models against the three jobs (tweet-scoring/
 
 When the bot answers a heavy question that needs lots of tool calls, some AI models keep piling up search results until they run out of time and the user gets "Agent unavailable" — fix the underlying loop (likely un-trimmed tool results / no round cap) so a future model swap can't silently bring the timeouts back.
 
-## 46. Show every score on one consistent scale (0 = low, 100 = high)
+## 46. Show every score on one consistent scale (0 = low, 100 = high) — DONE 2026-06-21
 
 **File:** `unified-display-scale.md`
 
