@@ -15,6 +15,7 @@ api_keys:
   discord_channel_id: "$DISCORD_CHANNEL_ID"
   discord_news_channel_id: "$DISCORD_NEWS_CHANNEL_ID"   # Wolf macro-brain #news lane
   options_flow_channel_id: "1512934341485924432"   # #options-flow room (user go 2026-06-08)
+  swarm_alert_channel_id: "1518157440380702730"    # #alerts room — analyst SWARM alerts (user 2026-06-21); blank → main channel
   discord_owner_user_id: "$DISCORD_OWNER_USER_ID"       # @-ping target (phase-2, dormant)
   discord_feed_channel_id: "$DISCORD_FEED_CHANNEL_ID"  # #twitter channel — TweetShift input
   twitter_auth_token: "$TWITTER_AUTH_TOKEN"

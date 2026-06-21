@@ -635,7 +635,11 @@ async def send_swarm_alert(swarm, current_price: float = 0.0) -> Optional[str]:
         return "dry_run_msg_id"
 
     token = cfg.get_api_key("discord_bot_token")
-    channel_id = str(cfg.get("api_keys.discord_channel_id", ""))
+    # A2: SWARM alerts post to the dedicated #alerts channel; falls back to the
+    # main channel when swarm_alert_channel_id is blank.
+    channel_id = str(cfg.get("api_keys.swarm_alert_channel_id", "") or "")
+    if not channel_id:
+        channel_id = str(cfg.get("api_keys.discord_channel_id", ""))
     if not token or not channel_id or not channel_id.isdigit():
         log.warning("Discord not configured for swarm alert")
         return None
