@@ -79,3 +79,6 @@ Only after the full inventory exists do you design the single display scale. If 
 - **Left native on purpose:** prices, strikes, % moves, P/C & vol/OI ratios, analyst counts, win-rates, star bars, beneficiary dot, calibrated P(up)/P(down), and the precision score (already carries a magnitude-correct 🟢/🟡/🔴 icon). Forcing literal quantities onto 0-100 would destroy information.
 - **Tests:** new `tests/test_display_scale.py` (8 cases). `tests/test_phase1_display.py` regime test updated to the new format. Full suite: **2264 passed**, only the 2 baseline known-failing tests remain — **0 regressions**.
 - **LIVE:** engine restarted 2026-06-21 00:01 PDT, healthy (NRestarts=0, loops started, module imports clean in-process). Display-only/cosmetic change — same data, clearer presentation; no alert fires or suppresses differently, so the render-proof IS the user-visible verification.
+
+### Update — 2026-06-21
+- The "Score: 105 family" deferral noted above (line 78) is now **resolved**: **I4-full (`single_score`) was flipped ON 2026-06-21** (via #50), so the additive-score headline + the market-view Score now read the gated 0–100 number — exactly what this item said would happen "by flipping I4-full." Live soak starts Sun 11:00 PDT. Detail + evidence: `scan-marketview-score-coherence.md` and `.claude/go-live-evidence/features_single_score_enabled.md`.

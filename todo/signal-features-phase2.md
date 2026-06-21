@@ -114,3 +114,6 @@ Consequences / actions:
 - **Key correction (Codex + critics):** the "I4-full keystone / I3·I10·E2 inert until single_score" theory is FALSE — I4-full only rewrites a displayed number (0 tier moves) and the others gate on their own flags. So I10 was flippable on its own.
 - **Decisions:** I4-full, I3, E2, I7, I14-widening, I13 all stay OFF with named exceptions (see `signal-flip-status-2026-06-15.md` "Activation log — 2026-06-16"). I3 needs the dead-`min_actors` wired before flip; I14-widening is a config no-op (graduated==static at ceiling 90); I7 needs code enablers; I13 reminder scheduled for ~2026-06-24.
 - **Next:** (per one-at-a-time policy) I3 after a `min_actors` decision; I13 after June 24 baseline; E2 needs forward stressed data + a corrected harness + symmetric-config rethink.
+
+### Update — 2026-06-21
+- **I4-full (`single_score`) is now FLIPPED ON** (user "flip on the switch so we can monitor it", via #50). Supersedes the "stay OFF" notes above for I4-full only. Flipped during weekend pause; live soak starts Sun 11:00 PDT. Per the one-at-a-time order, the next switches (I3 already on; I10 already on; E2 last) are unaffected. Detail + evidence: `scan-marketview-score-coherence.md` and `.claude/go-live-evidence/features_single_score_enabled.md`.
