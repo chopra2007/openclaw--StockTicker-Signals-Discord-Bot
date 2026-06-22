@@ -143,7 +143,7 @@ def _build_help_embed() -> dict:
     return {
         "title": "🐾  OpenClaw Signal Bot — Commands",
         "description": "Real-time stock signal intelligence",
-        "color": 0x2F3136,
+        "color": 0xF1C40F,  # gold (user pick)
         "fields": [
             {
                 "name": "📊  Core",
