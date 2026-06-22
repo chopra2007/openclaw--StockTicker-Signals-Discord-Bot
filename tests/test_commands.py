@@ -6,12 +6,17 @@ from unittest.mock import AsyncMock, patch, MagicMock
 @pytest.mark.asyncio
 async def test_route_help_command():
     from consensus_engine.alerts.commands import route_command
-    with patch("consensus_engine.alerts.commands.send_command_reply", new_callable=AsyncMock) as mock_send:
+    with patch("consensus_engine.alerts.commands.send_command_embed_reply", new_callable=AsyncMock) as mock_send:
         await route_command("help", [], "chan123", "msg123")
         mock_send.assert_called_once()
-        content = mock_send.call_args[0][2]  # third positional arg is content
-        assert "!scan" in content
-        assert "!status" in content
+        embed = mock_send.call_args[0][2]  # third positional arg is the embed dict
+        blob = embed.get("title", "") + " " + " ".join(
+            f.get("value", "") for f in embed.get("fields", [])
+        )
+        assert "!scan" in blob
+        assert "!status" in blob
+        # market-view is deleted — it must not appear anywhere in help
+        assert "market-view" not in blob
 
 
 @pytest.mark.asyncio
@@ -104,33 +109,14 @@ async def test_handle_trend_empty_sends_no_results():
 
 
 @pytest.mark.asyncio
-async def test_route_market_view_requires_ticker():
-    """!market-view with no args sends usage hint."""
+async def test_route_market_view_deleted_is_unknown():
+    """#50: !market-view is deleted (folded into !scan) — it now hits the
+    unknown-command path, not any market-view handler."""
     from consensus_engine.alerts.commands import route_command
     with patch("consensus_engine.alerts.commands.send_command_reply", new_callable=AsyncMock) as mock_send:
-        await route_command("market-view", [], "chan123", "msg123")
-        content = mock_send.call_args[0][2]
-        assert "Usage" in content or "TICKER" in content.upper()
-
-
-@pytest.mark.asyncio
-async def test_route_market_view_aliases_to_scan():
-    """#50: !market-view NVDA is now an alias for !scan — sends the 'Scanning'
-    initial reply and fires the same background task (no snapshot lookup)."""
-    from consensus_engine.alerts.commands import route_command
-    with patch("consensus_engine.alerts.commands.send_command_reply", new_callable=AsyncMock) as mock_send, \
-         patch("consensus_engine.alerts.commands.asyncio") as mock_asyncio:
-        captured = []
-        def _capture_task(coro):
-            captured.append(coro)
-            return MagicMock()
-        mock_asyncio.create_task = _capture_task
         await route_command("market-view", ["NVDA"], "chan123", "msg123")
         content = mock_send.call_args[0][2]
-        assert "NVDA" in content and "scan" in content.lower()
-        # Same combined scan background task fires
-        assert len(captured) == 1
-        captured[0].close()
+        assert "Unknown command" in content and "market-view" in content
 
 
 @pytest.mark.asyncio

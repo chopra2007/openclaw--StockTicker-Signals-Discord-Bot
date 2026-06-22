@@ -17,7 +17,6 @@ Commands:
   !google-trends <T>  — Google Trends spike % for a ticker
   !apewisdom          — ApeWisdom trending tickers
   !alert-history <T>  — alert history with price outcomes for a ticker
-  !market-view <T>    — alias for !scan (folded in)
   !levels <T>         — price levels (support/resistance) from YouTube + signals
 """
 
@@ -28,7 +27,7 @@ from datetime import datetime
 from typing import Optional
 
 from consensus_engine import config as cfg, db
-from consensus_engine.alerts.discord import send_command_reply
+from consensus_engine.alerts.discord import send_command_reply, send_command_embed_reply
 from consensus_engine.scanners.reddit_trend import crawl_and_get_trending
 from consensus_engine.alerts.discord import send_trend_digest
 from consensus_engine.utils.tickers import is_valid_ticker_format
@@ -138,50 +137,49 @@ async def _handle_ask(question: str, channel_id: str, message_id: str) -> None:
     from consensus_engine.main import _handle_mention
     await _handle_mention(content, channel_id, message_id)
 
-HELP_TEXT = """**OpenClaw Signal Engine — Commands**
-`!help` (alias `!readme`) — show this message
-`!status` — engine health summary (active signals, last alert)
-`!trend` — post latest Reddit trend digest
-`!scan <TICKER>` — full on-demand check: one score with a 🟢/🟡/🔴 band + evidence (e.g. `!scan NVDA`)
-`!all <TICKER>` — synthesize ALL sources into a single LLM analysis (e.g. `!all AMD`)
-`!ask <question>` — full-power LLM answer (auto-splits if > 2000 chars)
-`!performance` — alert win rates and P&L stats
-
-**Ticker Intel**
-`!signals <TICKER>` — active signal counts by source
-`!analysts <TICKER>` — analysts who recently mentioned a ticker
-`!active-tickers` — all tickers with active signals right now
-`!news <TICKER>` — run news cascade (headline + catalyst type)
-`!sec <TICKER>` — recent SEC filings (8-K, Form 4, 13D, etc.)
-`!options <TICKER>` — unusual options activity (vol/OI ratios)
-`!technical <TICKER>` — 6 technical filters with pass/fail
-`!google-trends <TICKER>` — Google Trends interest spike %
-`!alert-history <TICKER>` — past alerts with 1h/24h price outcomes
-
-**Market Scanners**
-`!apewisdom` — ApeWisdom trending tickers
-`!leaderboard` — analyst win rate rankings
-
-**Engine Health**
-`!source-health` — data source status table (freshness, error rate)
-
-**Reliability & Levels**
-`!market-view <TICKER>` — alias for `!scan` (folded in)
-`!levels <TICKER>` — price levels with condition text from YouTube + signals
-`!cluster <TICKER>` — price-level cluster history for a ticker
-
-**YouTube Intelligence**
-`!yt <URL>` — on-demand analysis of a YouTube video (tickers, conviction, macro, levels)
-`!transcript <URL>` — fetch a YouTube video's transcript text
-`!yt-mentions <TICKER>` — YouTube signals for a ticker (last 7 days)
-`!macro` — macro digest across all channels (last 7 days)
-`!yt-follow <@handle or URL>` — add a YouTube channel to the follow list (e.g. `!yt-follow @FiguringOutMoney`)
-`!yt-health` — 7-day YouTube pipeline health + Gemini budget snapshot
-`!yt-evidence <video_id>` — first 10 grounded evidence spans extracted from a video
-
-**Feature Flags**
-`!feature-health` — list all features, enabled state, last flip
-`!shadow-mode-report <feature>` — KPI report from last 14d shadow data"""
+def _build_help_embed() -> dict:
+    """Build the !help embed — a sectioned command reference (slate accent)."""
+    return {
+        "title": "🐾  OpenClaw Signal Bot — Commands",
+        "description": "Real-time stock signal intelligence",
+        "color": 0x2F3136,
+        "fields": [
+            {
+                "name": "📊  Core",
+                "value": (
+                    "`!scan ‹T›` — one score + 🟢🟡🔴 band + evidence\n"
+                    "`!all ‹T›` — full AI analysis across every source\n"
+                    "`!ask ‹question›` — ask the bot anything\n"
+                    "`!status` · `!performance` · `!trend` · `!help`"
+                ),
+                "inline": False,
+            },
+            {
+                "name": "🎯  Ticker Intel",
+                "value": (
+                    "`!signals` `!analysts` `!active-tickers` `!news` `!sec`\n"
+                    "`!options` `!technical` `!google-trends` `!alert-history`"
+                ),
+                "inline": False,
+            },
+            {
+                "name": "📺  YouTube",
+                "value": (
+                    "`!yt ‹URL›` `!transcript ‹URL›` `!yt-mentions ‹T›` `!macro`\n"
+                    "`!yt-follow` `!yt-health` `!yt-evidence ‹id›`"
+                ),
+                "inline": False,
+            },
+            {"name": "📐  Levels", "value": "`!levels ‹T›` · `!cluster ‹T›`", "inline": False},
+            {"name": "🔥  Scanners", "value": "`!apewisdom` · `!leaderboard`", "inline": False},
+            {
+                "name": "⚙️  Engine",
+                "value": "`!source-health` · `!feature-health` · `!shadow-mode-report ‹feature›`",
+                "inline": False,
+            },
+        ],
+        "footer": {"text": "OpenClaw Signal Engine · 30 commands"},
+    }
 
 
 def parse_command(content: str) -> Optional[tuple[str, list[str]]]:
@@ -221,7 +219,7 @@ async def _route_command_inner(
     author_id: str | None = None,
 ) -> None:
     if command in ("help", "readme"):
-        await send_command_reply(channel_id, message_id, HELP_TEXT)
+        await send_command_embed_reply(channel_id, message_id, _build_help_embed())
 
     elif command == "status":
         await _handle_status(channel_id, message_id)
@@ -363,18 +361,6 @@ async def _route_command_inner(
             await send_command_reply(channel_id, message_id, "Usage: `!transcript <YOUTUBE_URL>` — e.g. `!transcript https://www.youtube.com/watch?v=xxxxx`")
         else:
             await _handle_transcript(args[0], channel_id, message_id)
-
-    elif command in ("market-view", "market_view", "marketview"):
-        # #50: folded into !scan — market-view is now an alias so old muscle memory
-        # still works, but there is only one command and one score.
-        if not args:
-            await send_command_reply(channel_id, message_id, "Usage: `!market-view <TICKER>` — now an alias for `!scan` (e.g. `!scan NVDA`)")
-        else:
-            ticker = args[0].upper()
-            if not is_valid_ticker_format(ticker):
-                await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=ticker))
-            else:
-                await _handle_scan(ticker, channel_id, message_id)
 
     elif command == "levels":
         if not args:
@@ -555,7 +541,7 @@ async def _scan_and_reply(ticker: str, channel_id: str, message_id: str) -> None
     #50: !scan is the single combined command. It runs the cross-reference (for
     the supporting evidence) AND the precision engine (for the gated 0-100 score
     plus its 🟢/🟡/🔴 band) — the SAME score the live alerts use — so there is one
-    coherent number, never a second additive total. (!market-view folds in here.)
+    coherent number, never a second additive total. (Replaces the old !market-view.)
     """
     try:
         from consensus_engine.cross_reference import cross_reference
