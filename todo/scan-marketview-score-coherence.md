@@ -78,3 +78,9 @@ What each surface shows:
 - **Caught + fixed mid-build:** first live `!scan NVDA` rendered `🟡 Score: 43` (dot from classification = WATCHLIST-by-bypass) — the exact incoherence #50 is about. Switched the dot to the score-band mapping; re-verified `🔴 Score: 43` (coherent).
 - **Live proof (left an example in #chat):** `!scan NVDA` → `**$NVDA Scan** 🔴 Score: 43` + evidence; `!market-view AMD` → `**$AMD Scan** 🔴 Score: 43` (alias confirmed). 19/19 `tests/test_commands.py` pass (obsolete snapshot test removed; new alias test added).
 - **Note:** weekend/neutral scans skew low (red) because the market isn't open to confirm; during market hours real movers will reach 🟡/🟢. Issue C (`single_score`) stays ON and soaking for the LIVE ALERT numbers (separate surface). All three issues now addressed → marking DONE.
+
+### Session notes — 2026-06-22 (follow-up: !market-view fully deleted + !help embed)
+- **User:** "delete !market-view completely… update !help… make !help look more professional, maybe an embed."
+- **`!market-view` DELETED** (commit 92ca55e): dispatcher branch removed (no longer an alias) — typing it now hits the normal unknown-command path ("Unknown command `!market-view`. Try `!help`."). Verified live.
+- **`!help` is now a Discord embed** (`_build_help_embed()`, replaced the plain `HELP_TEXT`): slate accent (0x2F3136, user-picked), six emoji-headed sections (📊 Core / 🎯 Ticker Intel / 📺 YouTube / 📐 Levels / 🔥 Scanners / ⚙️ Engine), footer "30 commands". User picked the "Sectioned" layout from 3 mockups. Sent via the existing `send_command_embed_reply`. Live-verified — embed renders in #chat (left there as the example).
+- **Tests:** help test rewritten to assert the embed fields (and that `market-view` is absent); both old market-view tests replaced by one guard that it's now unknown. 18/18 `tests/test_commands.py` pass.
