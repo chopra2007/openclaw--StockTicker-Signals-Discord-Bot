@@ -138,7 +138,8 @@ async def _handle_ask(question: str, channel_id: str, message_id: str) -> None:
     await _handle_mention(content, channel_id, message_id)
 
 def _build_help_embed() -> dict:
-    """Build the !help embed — a sectioned command reference (slate accent)."""
+    """Build the !help embed — a sectioned command reference (slate accent),
+    one short description per command."""
     return {
         "title": "🐾  OpenClaw Signal Bot — Commands",
         "description": "Real-time stock signal intelligence",
@@ -147,34 +148,67 @@ def _build_help_embed() -> dict:
             {
                 "name": "📊  Core",
                 "value": (
-                    "`!scan ‹T›` — one score + 🟢🟡🔴 band + evidence\n"
-                    "`!all ‹T›` — full AI analysis across every source\n"
-                    "`!ask ‹question›` — ask the bot anything\n"
-                    "`!status` · `!performance` · `!trend` · `!help`"
+                    "`!scan <ticker>` — full check: one score + 🟢🟡🔴 band + evidence\n"
+                    "`!all <ticker>` — synthesize every source into one AI analysis\n"
+                    "`!ask <question>` — full-power AI answer to any question\n"
+                    "`!status` — engine health (active signals, last alert)\n"
+                    "`!performance` — alert win rates and profit/loss stats\n"
+                    "`!trend` — post the latest Reddit trend digest\n"
+                    "`!help` — show this command list"
                 ),
                 "inline": False,
             },
             {
                 "name": "🎯  Ticker Intel",
                 "value": (
-                    "`!signals` `!analysts` `!active-tickers` `!news` `!sec`\n"
-                    "`!options` `!technical` `!google-trends` `!alert-history`"
+                    "`!signals <ticker>` — active signal counts by source\n"
+                    "`!analysts <ticker>` — analysts who recently mentioned it\n"
+                    "`!news <ticker>` — news cascade (headline + catalyst type)\n"
+                    "`!sec <ticker>` — recent SEC filings (8-K, Form 4, 13D…)\n"
+                    "`!options <ticker>` — unusual options activity (vol/OI ratios)\n"
+                    "`!technical <ticker>` — 6 technical filters with pass/fail\n"
+                    "`!google-trends <ticker>` — Google Trends interest spike %\n"
+                    "`!alert-history <ticker>` — past alerts with 1h/24h price outcomes\n"
+                    "`!active-tickers` — every ticker with active signals right now"
                 ),
                 "inline": False,
             },
             {
                 "name": "📺  YouTube",
                 "value": (
-                    "`!yt ‹URL›` `!transcript ‹URL›` `!yt-mentions ‹T›` `!macro`\n"
-                    "`!yt-follow` `!yt-health` `!yt-evidence ‹id›`"
+                    "`!yt <url>` — analyze a video (tickers, conviction, levels)\n"
+                    "`!transcript <url>` — fetch a video's transcript text\n"
+                    "`!yt-mentions <ticker>` — YouTube signals for a ticker (last 7 days)\n"
+                    "`!macro` — macro digest across all channels (last 7 days)\n"
+                    "`!yt-follow <channel>` — add a YouTube channel to the follow list\n"
+                    "`!yt-health` — 7-day pipeline health + Gemini budget\n"
+                    "`!yt-evidence <video id>` — first 10 grounded evidence spans from a video"
                 ),
                 "inline": False,
             },
-            {"name": "📐  Levels", "value": "`!levels ‹T›` · `!cluster ‹T›`", "inline": False},
-            {"name": "🔥  Scanners", "value": "`!apewisdom` · `!leaderboard`", "inline": False},
+            {
+                "name": "📐  Levels",
+                "value": (
+                    "`!levels <ticker>` — support/resistance from YouTube + signals\n"
+                    "`!cluster <ticker>` — price-level cluster history"
+                ),
+                "inline": False,
+            },
+            {
+                "name": "🔥  Scanners",
+                "value": (
+                    "`!apewisdom` — ApeWisdom trending tickers\n"
+                    "`!leaderboard` — analyst win-rate rankings"
+                ),
+                "inline": False,
+            },
             {
                 "name": "⚙️  Engine",
-                "value": "`!source-health` · `!feature-health` · `!shadow-mode-report ‹feature›`",
+                "value": (
+                    "`!source-health` — data-source status (freshness, error rate)\n"
+                    "`!feature-health` — all features, on/off state, last flip\n"
+                    "`!shadow-mode-report <feature>` — 14-day KPI report for a feature"
+                ),
                 "inline": False,
             },
         ],
