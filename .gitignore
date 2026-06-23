@@ -36,6 +36,9 @@ todo/.active
 todo/.omc/
 todo/kickoffs/
 
+# Runtime state written by the engine (health.py feed-outage self-heal tracker)
+.feed_outage_state.json
+
 # Node / Skills (OpenClaw bot infrastructure, not part of consensus engine)
 skills/
 node_modules/
