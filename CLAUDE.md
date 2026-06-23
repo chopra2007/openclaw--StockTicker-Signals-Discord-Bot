@@ -78,7 +78,7 @@ When the user says "add X to the to do list" (or "put that on the list", "add th
 
 When the user sends only "goodbye" or "bye":
 1. **If any item on the TODO list was worked on this session, update it first** (per `todo/CONVENTION.md`): mark finished items `— DONE YYYY-MM-DD` in `TODO.md` and the detail file's `**Status:**`, and/or append a dated session-notes block to the detail file capturing what changed. Skip this step only if no TODO item was touched this session.
-2. `git status` — commit any uncommitted changes (doc-only commits use `git push --no-verify`)
+2. `git status` — commit any uncommitted changes (do **not** push here — step 3's script does the push, automatically choosing the doc-only `--no-verify` path or the full test gate based on whether code changed)
 3. Run `nohup /root/task_system/scripts/session_close.sh > /root/task_system/logs/session_close_latest.log 2>&1 &` to kick off the gate + push in the background
 4. Tell the user: "Gate running in background — safe to close. ci-monitor will catch any CI failures."
 5. Verify MEMORY.md is up to date
@@ -173,7 +173,7 @@ Don't ask the user to do something you can do yourself. Asking is acceptable onl
 
 - **Signal-first**: tweet → instant alert → async cross-reference. No gates block the alert.
 - **Finnhub free tier**: real-time quotes only (`/quote`). Historical OHLCV via yfinance in `ThreadPoolExecutor` (blocking).
-- **Config**: all thresholds/keys in `config/consensus.yaml` via `config.get("dot.path", default)`. YouTube channels: `/root/.openclaw/sources.json`. API keys: `/root/.openclaw/.env`.
+- **Config**: all thresholds/keys in `config/consensus.yaml` via `config.get("dot.path", default)`. YouTube channels: `/root/.openclaw/sources.json`. API keys live in **two** files — `/root/.openclaw/.env` **and** `/root/.openclaw/.env.service` (the engine service reads `.env.service` and won't start without it). A new key must be added to **both**.
 - **playwright-stealth**: `from playwright_stealth import Stealth` → `Stealth().apply_stealth_async(page)` — NOT `stealth_async()`.
 - Tests: `pytest.ini` `asyncio_mode = auto`.
 
