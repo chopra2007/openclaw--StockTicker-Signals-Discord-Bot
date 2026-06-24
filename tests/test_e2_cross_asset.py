@@ -507,3 +507,111 @@ class TestI14BypassExemption:
             e2_multiplier=1.0,
         )
         assert result == SignalClass.STRONG_ALERT
+
+
+# ---------------------------------------------------------------------------
+# (h) Shadow-only mode: enabled=False, shadow=True -> computes+logs, returns 1.0
+# ---------------------------------------------------------------------------
+
+class TestShadowMode:
+    """Shadow mode: enabled=False, shadow=True -> compute the multiplier, log it,
+    but return 1.0 so the live score is unchanged. This allows the soak to accrue
+    without affecting real alerts."""
+
+    def _shadow_cfg(self, **extra) -> dict:
+        base = {
+            "features.cross_asset.enabled": False,
+            "features.cross_asset.shadow": True,
+            "features.cross_asset.fred_leg_enabled": False,
+            "features.cross_asset.veto_floor": 0.85,
+            "features.cross_asset.confirm_ceiling": 1.15,
+            "features.recency_window.enabled": True,
+            "features.recency_window.max_age_min.vix": 1440,
+            "features.recency_window.max_age_min.fred": 1440,
+            "precision_engine.thresholds.high_confidence": 80,
+        }
+        base.update(extra)
+        return base
+
+    async def test_shadow_mode_returns_1_0_not_the_computed_multiplier(self):
+        """Shadow mode: even a stressed VIX (ratio=1.30, would give 0.85) returns 1.0."""
+        _ca_mod.clear_cache()
+        cfg_map = self._shadow_cfg()
+
+        with patch("consensus_engine.analysis.cross_asset.cfg") as mock_cfg:
+            mock_cfg.get.side_effect = lambda k, d=None: cfg_map.get(k, d)
+            with patch(
+                "consensus_engine.analysis.cross_asset._fetch_vix_ratio",
+                return_value=1.30,  # strong backwardation -> would be 0.85
+            ):
+                result = await _ca_mod.get_multiplier()
+
+        _ca_mod.clear_cache()
+        assert result == pytest.approx(1.0, abs=1e-9), (
+            "Shadow mode must return 1.0 even when the computed multiplier is extreme"
+        )
+
+    async def test_shadow_mode_logs_shadow_only_line(self, caplog):
+        """Shadow mode: the '[E2 shadow-only]' log line is emitted."""
+        import logging
+        _ca_mod.clear_cache()
+        cfg_map = self._shadow_cfg()
+
+        with patch("consensus_engine.analysis.cross_asset.cfg") as mock_cfg:
+            mock_cfg.get.side_effect = lambda k, d=None: cfg_map.get(k, d)
+            with patch(
+                "consensus_engine.analysis.cross_asset._fetch_vix_ratio",
+                return_value=0.85,  # contango
+            ):
+                with caplog.at_level(logging.INFO, logger="consensus_engine.analysis.cross_asset"):
+                    result = await _ca_mod.get_multiplier()
+
+        _ca_mod.clear_cache()
+        assert result == pytest.approx(1.0, abs=1e-9)
+        assert any("[E2 shadow-only]" in r.message for r in caplog.records), (
+            "Expected '[E2 shadow-only]' log line in shadow mode"
+        )
+
+    async def test_both_false_does_nothing(self):
+        """enabled=False, shadow=False -> return 1.0 with no compute (no fetch called)."""
+        _ca_mod.clear_cache()
+        cfg_map = self._shadow_cfg(**{"features.cross_asset.shadow": False})
+
+        fetch_called = []
+
+        def _fake_fetch():
+            fetch_called.append(True)
+            return 0.80  # would be contango -> would return 1.15 if computed
+
+        with patch("consensus_engine.analysis.cross_asset.cfg") as mock_cfg:
+            mock_cfg.get.side_effect = lambda k, d=None: cfg_map.get(k, d)
+            with patch(
+                "consensus_engine.analysis.cross_asset._fetch_vix_ratio",
+                side_effect=_fake_fetch,
+            ):
+                result = await _ca_mod.get_multiplier()
+
+        _ca_mod.clear_cache()
+        assert result == pytest.approx(1.0, abs=1e-9)
+        assert not fetch_called, "No fetch should happen when both enabled=False and shadow=False"
+
+    async def test_enabled_true_shadow_true_applies_multiplier(self):
+        """When enabled=True (regardless of shadow), the multiplier IS applied."""
+        _ca_mod.clear_cache()
+        cfg_map = self._shadow_cfg(**{
+            "features.cross_asset.enabled": True,
+            "features.cross_asset.shadow": True,
+        })
+
+        with patch("consensus_engine.analysis.cross_asset.cfg") as mock_cfg:
+            mock_cfg.get.side_effect = lambda k, d=None: cfg_map.get(k, d)
+            with patch(
+                "consensus_engine.analysis.cross_asset._fetch_vix_ratio",
+                return_value=0.85,  # calm -> multiplier 1.15
+            ):
+                result = await _ca_mod.get_multiplier()
+
+        _ca_mod.clear_cache()
+        assert result == pytest.approx(1.15, abs=1e-9), (
+            "When enabled=True, the multiplier must be applied regardless of shadow setting"
+        )

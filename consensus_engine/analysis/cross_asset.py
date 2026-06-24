@@ -333,30 +333,59 @@ async def _get_credit_multiplier(executor=None) -> Optional[float]:
 async def get_multiplier(executor=None) -> float:
     """Return the current cross-asset confidence multiplier (clamped to the bounds).
 
-    Returns 1.0 (no-op) when features.cross_asset.enabled is False, or when every
-    enabled leg is unavailable. With fred_leg_enabled, the VIX and credit legs are
-    averaged and re-clamped; an unavailable leg is dropped (never averaged in as a
-    neutral 1.0), so missing data on one leg can't weaken a live signal on the other.
+    Modes controlled by features.cross_asset.{enabled, shadow}:
+      enabled=True,  shadow=any  -> apply multiplier to live score (existing behaviour)
+      enabled=False, shadow=True -> SHADOW-ONLY: compute VIX+credit, log a
+                                    '[E2 shadow]' line with ratio/multiplier/would-cross,
+                                    return 1.0 so the live score is NOT affected
+      enabled=False, shadow=False -> do nothing; return 1.0 with no compute
+
+    With fred_leg_enabled, the VIX and credit legs are averaged and re-clamped;
+    an unavailable leg is dropped (never averaged in as a neutral 1.0), so missing
+    data on one leg can't weaken a live signal on the other.
     """
-    if not cfg.get("features.cross_asset.enabled", False):
+    enabled = cfg.get("features.cross_asset.enabled", False)
+    shadow = cfg.get("features.cross_asset.shadow", True)
+
+    if not enabled and not shadow:
         return 1.0
 
     vix_mult = await _get_vix_multiplier(executor)
 
-    if not cfg.get("features.cross_asset.fred_leg_enabled", False):
-        return vix_mult if vix_mult is not None else 1.0
+    fred_enabled = cfg.get("features.cross_asset.fred_leg_enabled", False)
+    if fred_enabled:
+        credit_mult = await _get_credit_multiplier(executor)
+        legs = [m for m in (vix_mult, credit_mult) if m is not None]
+    else:
+        credit_mult = None
+        legs = [vix_mult] if vix_mult is not None else []
 
-    credit_mult = await _get_credit_multiplier(executor)
-    legs = [m for m in (vix_mult, credit_mult) if m is not None]
     if not legs:
-        return 1.0
-    if len(legs) == 1:
-        return legs[0]
+        combined = 1.0
+    elif len(legs) == 1:
+        combined = legs[0]
+    else:
+        veto_floor = float(cfg.get("features.cross_asset.veto_floor", 0.85))
+        confirm_ceiling = float(cfg.get("features.cross_asset.confirm_ceiling", 1.15))
+        combined = max(veto_floor, min(confirm_ceiling, sum(legs) / len(legs)))
+        log.info("[E2 shadow] combined vix=%.3f credit=%.3f -> %.3f", vix_mult, credit_mult, combined)
 
-    veto_floor = float(cfg.get("features.cross_asset.veto_floor", 0.85))
-    confirm_ceiling = float(cfg.get("features.cross_asset.confirm_ceiling", 1.15))
-    combined = max(veto_floor, min(confirm_ceiling, sum(legs) / len(legs)))
-    log.info("[E2 shadow] combined vix=%.3f credit=%.3f -> %.3f", vix_mult, credit_mult, combined)
+    if not enabled:
+        # Shadow-only: log the would-have-applied verdict but return 1.0
+        high = float(cfg.get("precision_engine.thresholds.high_confidence", 80))
+        # "would-cross" means the multiplier meaningfully changes classification odds;
+        # flag when it would push a score from below to above the STRONG threshold.
+        # We can't know the caller's score here, so log the threshold context only.
+        log.info(
+            "[E2 shadow-only] vix_mult=%s credit_mult=%s combined=%.3f "
+            "(would_apply=False; strong_threshold=%.0f)",
+            f"{vix_mult:.3f}" if vix_mult is not None else "N/A",
+            f"{credit_mult:.3f}" if credit_mult is not None else "N/A",
+            combined,
+            high,
+        )
+        return 1.0
+
     return combined
 
 

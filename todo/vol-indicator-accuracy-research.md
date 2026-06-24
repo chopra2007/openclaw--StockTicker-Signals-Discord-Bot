@@ -249,3 +249,45 @@ that the old embedded copy here did NOT have:
 
 The earlier inline copy of the prompt was removed from this file to avoid two versions drifting apart.
 Hand a fresh session the file above (not this TODO) when running the research mission.
+
+---
+
+## Update 2026-06-24 (run `todo-sweep-2026-06-24`) — research mission RAN; the one new free lead = NO-GO; display readouts shipped
+Ran the free-only research mission. It surfaced exactly **one** genuinely-new, free, backtestable lead not already killed:
+**cross-sectional return dispersion** (Maio & Saffi 2016, J. Financial Markets — high dispersion of constituent
+returns OOS-forecasts a LOWER forward equity premium; correct sign for a top precursor; free via yfinance constituents;
+a mechanism distinct from everything tried). Everything else the survey raised was rejected with cited reasons:
+HMM/regime-switching (lagging, detects "during the end of the crash", not early), implied/realized correlation
+(coincident base-rate trap, surges DURING selloffs), CBOE SKEW + VIX term structure (non-directional / bottom-only,
+already in our data), Google Trends (per-query renormalization breaks point-in-time reproducibility), standalone LPPLS
+(no published clean false-positive rate), hazard/survival (reframes the SAME ~12 thin events, no new data). Also noted:
+FRED now only distributes a rolling 3-yr window of HY OAS — use Treasury slope (T10Y3M/T10Y2Y) for any future credit angle.
+
+**BUILT + TESTED dispersion under the existing honesty harness** (`src/data/fetch_constituents.py`,
+`src/features/utils.py` dispersion legs, `backtest/preregistration_dispersion.yaml` frozen before scoring,
+`src/signals/conditions_dispersion.py`, `src/run_dispersion.py`, look-ahead + prereg tests; 161 suite green).
+Fetched 148/150 S&P + 97/100 Nasdaq-100 daily closes (2 delisted each), panel 2006-2026, 12 in-window tops scored.
+**HONEST VERDICT: NO-GO** (report `backtest/PHASE-DISPERSION-REPORT.md`, verified by my own run):
+- G1 precision: edge **+0.043pp** (need +8), oppset null_p **0.306** (need <0.05) — FAIL.
+- G2 MTC reality_p 0.393 — FAIL. G3 **QQQ transfer edge +0.010, null_p 0.474 — FAIL** (the persistent killer again).
+- G4 recall 11/12 organic — PASS (only gate passed). G5: the near-high gate HURT precision (gated 0.268 < dispersion-only
+  control 0.354) — the OPPOSITE of the thesis. Dispersion correlates with volatile/stressed regimes generally, not
+  distribution tops specifically. (Survivorship caveat pre-registered: precision is an upper bound, so the real result is
+  if anything weaker.)
+- **Conclusion: the FREE-data search for a validated SPY/QQQ top/bottom predictor is now TRULY exhausted** — every lever
+  (price/vol/breadth, VRP, VVIX-residual, Zweig/Lowry on true volume, dealer gamma, dark-pool, put/call, **and now
+  cross-sectional dispersion**) is NO-GO under the honesty bar. The QQQ cross-asset transfer is the consistent binding
+  constraint (best-ever near-miss stays the dealer-gamma top at p=0.064).
+
+**SHIPPED (path B — display-only, descriptive):** added two blocks to `python3 -m src.show_fragility` (verified by my own
+run): a **dealer-gamma block** (GEX trailing-252 percentile 71st, neg-gamma regime OFF, DIX 35th) and a **same-day 90/90
+state** (NYSE up/down-vol share vs the 90% line — today 49.1%/50.9% → NEITHER; explicitly notes trailing-percentile context
+is still accruing, only ~6 forward rows). Both carry the existing "descriptive only — NOT a predictor (NO-GO)" caveat. The
+complacency gauge + gamma + 90/90 readouts together complete path B.
+
+**DECISION FORK (now the only open question for #47):** the goal (an *accurate* predictor) is unreachable on free data —
+proven exhaustively. Two honest end-states: **(A)** the user reverses the no-paid directive and spends **~$50 one-time**
+(one month Alpha Vantage premium → backfill SPY+QQQ option surface 2008-26 → compute decomposed VRP/skew/gamma legs →
+re-run the harness incl. the QQQ transfer + the gamma near-miss; key already in `.env.service`, MEDIUM odds), or **(B)** accept
+the free ceiling and close #47 with the display-only product shipped. Per the 2026-06-20 "no paid" directive the current
+answer is B; surfacing A as the standing reversible decision.

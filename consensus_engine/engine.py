@@ -561,9 +561,12 @@ async def analyze_signal(
                 log.debug("[I10] analyst LB lookup failed for %s: %s", analyst, _lb_exc)
 
     # --- E2: cross-asset regime multiplier ---
-    # Only fetched when the flag is ON; returns 1.0 (no-op) on error or flag OFF.
+    # Runs when enabled=True (apply) OR when shadow=True and enabled=False (log-only).
+    # get_multiplier returns 1.0 in shadow-only mode so the live score is unaffected.
     _e2_multiplier: float = 1.0
-    if cfg.get("features.cross_asset.enabled", False):
+    _e2_enabled = cfg.get("features.cross_asset.enabled", False)
+    _e2_shadow = cfg.get("features.cross_asset.shadow", True)
+    if _e2_enabled or _e2_shadow:
         try:
             from consensus_engine.analysis.cross_asset import get_multiplier as _get_e2
             _e2_multiplier = await _get_e2()

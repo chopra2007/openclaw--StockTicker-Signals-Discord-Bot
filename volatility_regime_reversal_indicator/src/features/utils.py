@@ -238,3 +238,40 @@ def down_volume_share(adv_volume: pd.Series, dec_volume: pd.Series) -> pd.Series
     Point-in-time: pure same-day ratio, no window/shift/future row (see up_volume_share)."""
     denom = (adv_volume + dec_volume).replace(0.0, np.nan)
     return dec_volume / denom
+
+
+# ---- Cross-Sectional Return Dispersion (Maio & Saffi 2016 signal) ---------------
+
+def cross_sectional_dispersion(disp: pd.Series) -> pd.Series:
+    """Pass-through for the pre-computed daily cross-sectional std-of-returns stored
+    in the Parquet store. The dispersion is computed at fetch time from constituent
+    closes (see src/data/fetch_constituents.py).
+
+    Point-in-time: the daily cross-sectional std at day t uses only return data from
+    day t (today's close vs yesterday's close for each constituent). No forward look.
+    """
+    return disp
+
+
+def dispersion_percentile(disp: pd.Series, window: int) -> pd.Series:
+    """Trailing-window percentile of dispersion (value in (0, 1]).
+
+    At day t, computes the percentile rank of disp[t] within the trailing `window`
+    observations up to and including t. Uses the same trailing_percentile primitive
+    as every other feature (rolling().apply — never sees beyond t).
+
+    Correct sign for the signal: HIGH dispersion percentile = elevated cross-sectional
+    stress = top precursor (Maio & Saffi 2016: high dispersion -> lower forward equity
+    premium). The trigger threshold is pre-registered in preregistration_dispersion.yaml.
+    """
+    return trailing_percentile(disp, window)
+
+
+def downside_dispersion_percentile(down_disp: pd.Series, window: int) -> pd.Series:
+    """Trailing-window percentile of the downside semi-dispersion (negative-return
+    constituents only). Same point-in-time contract as dispersion_percentile.
+
+    A high downside semi-dispersion (many constituents falling hard) is an even sharper
+    stress signal than the full cross-sectional std, because it isolates the losers.
+    """
+    return trailing_percentile(down_disp, window)

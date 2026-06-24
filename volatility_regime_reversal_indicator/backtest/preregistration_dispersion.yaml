@@ -1,0 +1,184 @@
+# =============================================================================
+# DISPERSION PRE-REGISTRATION — cross-sectional return dispersion as a TOP
+# precursor (Maio & Saffi 2016 lead; the ONE genuinely-new free mechanism
+# after the dealer-gamma Phase-GAMMA NO-GO).
+#
+# Frozen before the confirmatory run. Thresholds are round, defensible, theory-
+# driven — NOT swept. A NO-GO is an honest, likely, acceptable outcome.
+#
+# HONESTY DISCLOSURES (load-bearing — read first):
+# 1. Survivorship bias: the constituent list is TODAY's S&P 500 / Nasdaq-100
+#    membership applied backward. Delisted losers are excluded, so historical
+#    dispersion is UNDERSTATED during stress. Cross-sectional dispersion near
+#    historical crashes is LOWER than it was in real time. This biases precision
+#    UP vs a survivorship-clean sample and biases the dispersion series DOWN.
+# 2. Mechanism distinct from Phases 1-4/GAMMA: not VIX-derived, not breadth,
+#    not gamma/dix. The theoretical channel (Maio & Saffi 2016) is: high cross-
+#    sectional dispersion -> capital rotation / risk-sorting by investors ->
+#    lower forward equity premium. This is a distinct, independent mechanism
+#    that has OOS evidence (the paper's post-sample tests cover 1990-2014).
+# 3. Data: free via yfinance constituent closes (pull ONCE, cache to parquet).
+#    Column names in the store: SP500_DISP (full std), SP500_DOWN_DISP (downside
+#    semi-disp), NDX_DISP, NDX_DOWN_DISP. These are daily cross-sectional series.
+# 4. Binding make-or-break test (same as Phases 2/3/GAMMA): SPY->QQQ CROSS-ASSET
+#    TRANSFER. The exact SPY dispersion thresholds are applied to NDX_DISP with NO
+#    re-tuning. If the dispersion signal is real, the SAME threshold should fire
+#    on a correlated index without any tuning. Failure here = noise fit.
+# =============================================================================
+
+meta:
+  project: volatility_regime_reversal_indicator
+  phase: 6
+  name: dispersion
+  builds_on: gamma_NO_GO
+  ticker: SPY                          # SPY is primary; QQQ is the cross-asset hold-out
+  frozen_before_confirmatory_run: true
+  hypotheses_are_post_selected: true   # disclosed: chosen from research + theory, NOT re-tuned
+  backtest_start: "2006-01-01"         # yfinance constituent history is reliable from 2006
+  backtest_end: null                   # no end bound (use all available data)
+  survivorship_bias_note: >
+    Today's S&P 500 / Nasdaq-100 membership applied backward. Delisted losers
+    are excluded. Historical dispersion is UNDERSTATED near stress events.
+    Precision estimates from this sample are UPPER-BOUND estimates — the live
+    signal would be noisier. Disclosed and pre-registered; the QQQ transfer test
+    is the binding constraint, not in-sample precision.
+  mechanism_note: >
+    Maio & Saffi (2016) OOS evidence: high constituent return dispersion predicts
+    a lower forward equity premium. Mechanism: cross-sectional dispersion rises as
+    winners and losers diverge (capital rotation, risk sorting). This is NOT
+    VIX-derived, NOT breadth-based, NOT gamma/dix — a truly independent channel.
+  ground_truth_top_episodes_8pct: 12   # reused from Phase-3 enumerated list
+  ground_truth_organic_excl_newscrash: 10
+  data_note: >
+    SP500_DISP = daily cross-sectional std of constituent log-returns (current
+    S&P 500 members, ~130 representative names across 11 sectors).
+    SP500_DOWN_DISP = same but restricted to negative-return names only.
+    NDX_DISP / NDX_DOWN_DISP = same for Nasdaq-100 current members.
+
+# 1. PRIMARY HYPOTHESIS & METRIC -------------------------------------------------
+primary:
+  outcome: precision_vs_opportunity_set_base_rate
+  definition: >
+    PRECISION = P(a real >=8% peak-to-trough drop occurs within 60 trading days |
+    the dispersion construction fires), scored at episode-entry positions
+    (collapse_episodes window=20), vs the OPPORTUNITY-SET base rate (near-high days
+    only). The honest headline is the RAW RATIO, never the percentage alone.
+  horizon_trading_days: 20
+  primary_tier_pct: 8
+  early_is_acceptable: true
+
+# 2. TARGET EVENTS (reused verbatim from Phase-3/Gamma; ground truth unchanged) ---
+target_events:
+  top: "a >=tier% peak-to-trough drawdown within the 60-trading-day event window"
+  event_window_trading_days: 60
+  tiers_pct: [8, 15]
+  primary_tier_pct: 8
+  episode_list_top_8pct:
+    - {peak: "2010-04-23", trough: "2010-07-02", depth: -0.157, scope: organic}
+    - {peak: "2011-04-29", trough: "2011-10-03", depth: -0.186, scope: distribution}
+    - {peak: "2012-04-02", trough: "2012-06-04", depth: -0.097, scope: distribution}
+    - {peak: "2015-07-20", trough: "2016-02-11", depth: -0.130, scope: distribution}
+    - {peak: "2018-01-26", trough: "2018-02-08", depth: -0.101, scope: fast}
+    - {peak: "2018-09-20", trough: "2018-12-24", depth: -0.193, scope: distribution}
+    - {peak: "2020-02-19", trough: "2020-03-23", depth: -0.337, scope: news_crash_excluded}
+    - {peak: "2020-09-02", trough: "2020-09-23", depth: -0.094, scope: fast}
+    - {peak: "2022-01-03", trough: "2022-10-12", depth: -0.245, scope: distribution}
+    - {peak: "2024-07-16", trough: "2024-08-05", depth: -0.084, scope: fast}
+    - {peak: "2025-02-19", trough: "2025-04-08", depth: -0.188, scope: distribution}
+    - {peak: "2026-01-27", trough: "2026-03-30", depth: -0.089, scope: distribution}
+
+# 3. MINIMUM EFFECT SIZE ---------------------------------------------------------
+min_effect_size:
+  precision_edge_pp: 8.0              # conservative: matches Phase-1 kill-gate floor
+  recall_floor_organic: 4             # must catch >= 4 organic in-window tops
+  alpha: 0.05
+  note: "Significance alone is insufficient; both the precision edge AND raw recall gate."
+
+# 4. CONSTRUCTIONS (frozen; thresholds from theory + pre-registration, NOT tuned) -
+constructions:
+  features:
+    sp500_disp_pct: "trailing_percentile(SP500_DISP, 252)  (annual rolling; main signal)"
+    sp500_disp_pct_126: "trailing_percentile(SP500_DISP, 126)  (6-month variant)"
+    sp500_disp_pct_60: "trailing_percentile(SP500_DISP, 60)  (3-month variant)"
+    sp500_down_disp_pct: "trailing_percentile(SP500_DOWN_DISP, 252)  (downside semi-disp)"
+  legs:
+    d_high_disp_near_high: "sp500_disp_pct >= 0.80 AND near_high(SPY,3%)  (primary)"
+    d_high_disp_only: "sp500_disp_pct >= 0.80  (control: drop near-high gate)"
+    d_high_down_disp_near_high: "sp500_down_disp_pct >= 0.80 AND near_high(SPY,3%)  (downside variant)"
+  controls:
+    - ctl_disp_only: "dispersion percentile high, no near-high gate (proves gate matters)"
+  benchmark:
+    bench_top_200: "SPY breaks DOWN through its 200-day MA (reused from Phase-3)"
+
+# 5. EPISODE COLLAPSING ----------------------------------------------------------
+episodes:
+  window_trading_days: 20
+  rule: "same-side alerts within 20 trading days collapse to one episode; first alert is the entry."
+  report: [episode_count, effective_n, raw_ratio]
+
+# 6. DISPERSION THRESHOLDS (pre-registered; round numbers, NOT tuned) -------------
+dispersion_thresholds:
+  primary_pct_trigger: 0.80           # top 20th percentile of the trailing-252 dispersion
+  near_high_gate: 0.97                # SPY within 3% of its 60-day high (same as Phase-2)
+  windows_tested: [60, 126, 252]      # variants; 252 is primary
+  downside_pct_trigger: 0.80          # same level for the downside semi-disp variant
+  sign: HIGH_dispersion_precedes_TOP  # Maio & Saffi: high disp -> lower forward premium
+
+# 7. NULL MODEL ------------------------------------------------------------------
+null_model:
+  type: opportunity_set_random_timing
+  rule: >
+    The random-timing null draws ONLY from the ELIGIBLE opportunity set (near-high
+    days: SPY within 3% of its 60-day high), regime-matched, NOT from all days.
+    The construction must beat THIS harder null (same as Phases 2/3/GAMMA).
+  eligibility_top: "near_high (SPY within 3% of its 60d high)"
+  draws: 2000
+  seed: 1729
+
+# 8. OUT-OF-SAMPLE BATTERY -------------------------------------------------------
+out_of_sample:
+  temporal_holdout:
+    discover_window: ["2006-01-01", "2021-12-31"]
+    confirm_window:  ["2022-01-01", "2026-12-31"]
+    rule: "Edge must be present (same sign, positive) in the CONFIRM window."
+  cross_asset_transfer:
+    asset: QQQ
+    rule: >
+      Apply frozen SPY dispersion thresholds (primary_pct_trigger=0.80) to NDX_DISP
+      with NO re-tuning. The SPY near-high gate is also transferred (SPY stays SPY
+      for the price gate; only the dispersion index changes from SP500_DISP to
+      NDX_DISP). The edge must beat QQQ's own opportunity-set null. Failure here
+      = the SPY edge is index-specific noise, not a cross-sectional mechanism.
+    note: "NDX_DISP uses current Nasdaq-100 members; same survivorship caveat applies."
+  leave_one_episode_out:
+    rule: >
+      Drop each enumerated top, recompute recall on the rest; pass only if no single
+      episode's removal collapses precision below the opportunity-set base rate.
+
+# 9. MULTIPLE-TESTING ------------------------------------------------------------
+multiple_testing:
+  confirmatory_grid: max_statistic_reality_check
+  fdr: benjamini_hochberg
+  exploratory_disclosure: >
+    Thresholds are round numbers (0.80 pct, near_high 0.97) from theory, NOT swept.
+    The OOS battery (section 8), especially the QQQ transfer, is the primary evidence.
+
+# 10. KILL-GATE (all 5 must hold for a GO) ----------------------------------------
+kill_gate:
+  conditions:
+    - "G1 precision floor: primary precision >= opportunity-set base + 8pp AND null_p < 0.05"
+    - "G2 confirmatory MTC: max-stat reality_p < 0.05 across the frozen cells"
+    - "G3 out-of-sample: CONFIRM-window edge positive AND QQQ transfer beats QQQ null AND LOEO no-collapse"
+    - "G4 recall floor: catches >= 4 organic in-window tops"
+    - "G5 stack beats parts: gated (near-high) construction precision > dispersion-only control at MATCHED count"
+  on_fail: >
+    STOP and report 'no demonstrable edge' — ship DESCRIPTIVE-ONLY (display the
+    current dispersion percentile reading; no predictive-confidence claim, no live
+    alert). This would mean cross-sectional dispersion, despite theory support, does
+    not survive the opportunity-set null + QQQ transfer harness under survivorship-
+    biased data. An honest, anticipated outcome.
+  suggestive_band: "null_p in [0.05,0.10] is SUGGESTIVE ONLY; does NOT flip the tool ON."
+
+reproducibility:
+  random_seed: 1729
+  data_snapshot: "SP500_DISP / NDX_DISP stored in data/store/ at fetch time; fixed snapshot."
