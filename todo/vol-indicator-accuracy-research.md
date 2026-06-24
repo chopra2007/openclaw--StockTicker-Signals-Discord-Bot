@@ -291,3 +291,9 @@ proven exhaustively. Two honest end-states: **(A)** the user reverses the no-pai
 re-run the harness incl. the QQQ transfer + the gamma near-miss; key already in `.env.service`, MEDIUM odds), or **(B)** accept
 the free ceiling and close #47 with the display-only product shipped. Per the 2026-06-20 "no paid" directive the current
 answer is B; surfacing A as the standing reversible decision.
+
+### ⏳ AWAITING USER DECISION (2026-06-24) — paid vs free ceiling
+**The free-data path is now exhausted with full rigor** (every lever incl. the last new lead, cross-sectional dispersion, is NO-GO). The honest fallback (path B: display-only complacency + dealer-gamma + 90/90 readouts) is **shipped**. The only remaining shot at a real *predictor* is:
+- **Path A — ~$50 one-time.** One month of Alpha Vantage premium → backfill SPY+QQQ decomposed option-surface history 2008-2026 → build VRP / downside-semivariance / decomposed-skew / dealer-gamma legs + the gamma near-miss (best lead was QQQ-transfer p=0.064) → honest backtest incl the SPY→QQQ transfer. MEDIUM odds, not a sure thing. Key already in `.env.service` (just needs the plan upgraded for one month, then cancel).
+- **Path B — $0.** Accept the free ceiling; #47 is effectively done with the display-only readouts already shipped.
+**User to decide later.** Current default = B (no-paid directive). Nothing built for A yet.
