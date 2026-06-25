@@ -4,7 +4,7 @@
 **Created:** 2026-06-25
 
 ## Goal
-Let a user type `!em SPY` (or any allowed ticker) in Discord and get the options
+Let a user type `!em SPY` (or any optionable ticker) in Discord and get the options
 market's implied **expected move** for the day — the up/down range the market is
 pricing in — as a clean embed plus a candlestick chart. Shows *today's* expected
 move while the market is open; once the market has closed, shows the *next
@@ -22,10 +22,10 @@ session's*.
     regular session is open (and >~30 min left), else the next listed
     expiration. Uses the holiday/early-close-aware NYSE calendar via
     `utils/time_context.nyse_open_now()` (added this session).
-  - **Allowlist + liquidity guard:** only the ETFs/large-caps in
-    `config/consensus.yaml > expected_move.allowed_tickers` (editable); the ATM
-    strike must clear an open-interest floor and a spread sanity check, else a
-    friendly "too illiquid" message.
+  - **Liquidity guard (no allowlist):** works on any optionable ticker; the ATM
+    strike must clear an open-interest floor (`expected_move.min_atm_open_interest`,
+    default 100) and a spread sanity check, else a friendly "too illiquid" / "no
+    options" message. (Allowlist removed per user, 2026-06-25.)
   - **Chart:** matplotlib/mplfinance candlesticks (5-min/5-day, falls back to
     15-min then daily), rendered to PNG **bytes** (lazy import), with EM band,
     spot line, and right-side price labels.
@@ -68,9 +68,9 @@ session's*.
   (understates vs the straddle-implied IV by ~15-17%; QQQ's put IV violated
   put-call parity by ~7 vol pts) — that's *why* the raw straddle (actual market
   price, model-free) is the headline number, not the IV figure.
-- Allowlist is curated (ETFs + ~25 large caps). Add tickers by editing
-  `expected_move.allowed_tickers` in consensus.yaml — no code change, picked up
-  on next engine restart.
+- No allowlist (user decision 2026-06-25): `!em` works on any optionable ticker;
+  the `min_atm_open_interest` floor (100) + spread check is the sole liquidity
+  gate. Non-optionable / nonsense tickers get a friendly "no options" reply.
 - `!em` is not feature-flag-gated (shipped live like `!all`/`!options`, since it
   is a read-only command that does not touch the live alert path).
 - The chart PNGs `SPY_daily_em.png` / `QQQ_daily_em.png` at repo root are sample

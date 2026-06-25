@@ -865,15 +865,11 @@ async def _options_and_reply(ticker: str, channel_id: str, message_id: str) -> N
 
 
 async def _handle_em(ticker: str, channel_id: str, message_id: str) -> None:
-    """Show the options-implied daily expected move (with chart) for a ticker."""
-    from consensus_engine.scanners.expected_move import is_allowed
-    if not is_allowed(ticker):
-        await send_command_reply(
-            channel_id, message_id,
-            f"`!em` is limited to major ETFs and large-cap stocks; `${ticker}` "
-            f"isn't on the list. Try one like `!em SPY`, `!em QQQ`, or `!em AAPL`.",
-        )
-        return
+    """Show the options-implied daily expected move (with chart) for a ticker.
+
+    Works on any optionable ticker; tickers with no listed options or with
+    options too illiquid for a reliable straddle get a friendly message from
+    compute_em (the open-interest floor is the liquidity gate)."""
     await send_command_reply(channel_id, message_id, f"Calculating expected move for `${ticker}`…")
     await _dispatch_inner(_em_and_reply(ticker, channel_id, message_id))
 

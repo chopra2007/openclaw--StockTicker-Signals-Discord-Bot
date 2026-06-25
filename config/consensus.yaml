@@ -838,58 +838,10 @@ options_flow:
 
 expected_move:
   # !em <TICKER> — options-implied daily expected move (ATM straddle + IV), with chart.
-  # Limited to deep, liquid options markets so the straddle is reliable. Edit freely.
+  # Works on ANY optionable ticker; the open-interest floor below is the sole
+  # liquidity gate — thin/illiquid options are rejected with a friendly message.
   min_atm_open_interest: 100        # liquidity floor for the chosen ATM strike
   multiplier: 0.85                  # 0.85-adjusted straddle (tastytrade heuristic; reported, not headline)
-  allowed_tickers:
-    # Index / sector ETFs
-    - SPY
-    - QQQ
-    - IWM
-    - DIA
-    - SMH
-    - XLK
-    - XLF
-    - XLE
-    - XLV
-    - XLY
-    - XLI
-    - XLU
-    - XLP
-    - XLB
-    - XLRE
-    - XLC
-    - GLD
-    - SLV
-    - TLT
-    - HYG
-    - ARKK
-    # Large-cap single names (liquid options)
-    - AAPL
-    - MSFT
-    - NVDA
-    - AMZN
-    - GOOGL
-    - GOOG
-    - META
-    - TSLA
-    - AVGO
-    - AMD
-    - NFLX
-    - JPM
-    - V
-    - MA
-    - UNH
-    - HD
-    - LLY
-    - XOM
-    - COST
-    - WMT
-    - BAC
-    - JNJ
-    - PG
-    - CRM
-    - ORCL
 
 ingest_server:
   enabled: true

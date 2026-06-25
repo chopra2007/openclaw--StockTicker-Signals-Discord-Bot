@@ -34,13 +34,6 @@ def _spy_chain():
 EDT = timezone(timedelta(hours=-4))
 
 
-# --- allowlist --------------------------------------------------------------
-def test_is_allowed():
-    assert em.is_allowed("SPY")
-    assert em.is_allowed("aapl")        # case-insensitive
-    assert not em.is_allowed("ZZZZ")
-
-
 # --- expiration selection ---------------------------------------------------
 EXPS = ["2026-06-25", "2026-06-26", "2026-06-29"]
 
@@ -162,12 +155,3 @@ def test_build_em_embed_has_no_warning_line():
 def test_build_em_embed_no_image_omits_image_key():
     embed = em.build_em_embed(_make_result(), with_image=False)
     assert "image" not in embed
-
-
-# --- compute_em guard (no network) ------------------------------------------
-@pytest.mark.asyncio
-async def test_compute_em_rejects_disallowed_ticker():
-    # The allowlist guard runs before any network call, so this must not touch
-    # the network and must raise a friendly EMUnavailable.
-    with pytest.raises(em.EMUnavailable):
-        await em.compute_em("ZZZZ")

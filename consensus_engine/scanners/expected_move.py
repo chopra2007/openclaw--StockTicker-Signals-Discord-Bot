@@ -11,7 +11,6 @@ so all network work runs in a ThreadPoolExecutor (same pattern as
 ``scanners.options``). Nothing here is presented as real-time.
 
 Public surface used by the !em command handler:
-    is_allowed(ticker)         -> bool
     compute_em(ticker, exec)   -> ExpectedMoveResult            (async; raises EMUnavailable)
     render_chart(result)       -> bytes | None                  (PNG; lazy matplotlib)
     build_em_embed(result)     -> dict                          (Discord embed)
@@ -39,16 +38,6 @@ log = logging.getLogger("consensus_engine.scanners.expected_move")
 STRADDLE_TO_1SD = math.sqrt(2.0 / math.pi)  # 0.79788...
 TRADING_DAYS_PER_YEAR = 252
 CALENDAR_DAYS_PER_YEAR = 365
-
-# Fallback allowlist if config/consensus.yaml has no expected_move.allowed_tickers.
-# Index/sector ETFs + liquid large-cap single names (deep, tight options markets).
-DEFAULT_ALLOWED = [
-    "SPY", "QQQ", "IWM", "DIA", "SMH", "XLK", "XLF", "XLE", "XLV", "XLY",
-    "XLI", "XLU", "XLP", "XLB", "XLRE", "XLC", "GLD", "SLV", "TLT", "HYG", "ARKK",
-    "AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "GOOG", "META", "TSLA", "AVGO",
-    "AMD", "NFLX", "JPM", "V", "MA", "UNH", "HD", "LLY", "XOM", "COST", "WMT",
-    "BAC", "JNJ", "PG", "CRM", "ORCL",
-]
 
 
 class EMUnavailable(Exception):
@@ -101,18 +90,6 @@ class ExpectedMoveResult:
     quote_ts: Optional[datetime]  # ATM option last-trade time (UTC)
     history: pd.DataFrame
     history_label: str
-
-
-# ---------------------------------------------------------------------------
-# Allowlist
-# ---------------------------------------------------------------------------
-def allowed_tickers() -> list[str]:
-    lst = cfg.get("expected_move.allowed_tickers", DEFAULT_ALLOWED)
-    return [str(t).upper() for t in (lst or DEFAULT_ALLOWED)]
-
-
-def is_allowed(ticker: str) -> bool:
-    return ticker.upper() in set(allowed_tickers())
 
 
 # ---------------------------------------------------------------------------
@@ -333,15 +310,10 @@ def _fetch_history(t) -> tuple[pd.DataFrame, str]:
 
 
 async def compute_em(ticker: str, executor=None) -> ExpectedMoveResult:
-    """Compute the expected move for an allowed ticker. Raises EMUnavailable
-    (user-facing message) when it can't."""
+    """Compute the expected move for any optionable ticker. Raises EMUnavailable
+    (user-facing message) when it can't — no options listed, empty chain, or
+    options too illiquid (the open-interest floor is the only liquidity gate)."""
     ticker = ticker.upper()
-    if not is_allowed(ticker):
-        raise EMUnavailable(
-            f"`!em` is limited to major ETFs and large-cap stocks; `${ticker}` "
-            f"isn't on the list. Try one like `!em SPY`, `!em QQQ`, or `!em AAPL`."
-        )
-
     now_et = now_eastern()
     loop = asyncio.get_running_loop()
     bundle = await loop.run_in_executor(executor, _fetch_bundle, ticker, now_et)
