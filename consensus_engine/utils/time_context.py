@@ -17,6 +17,23 @@ import pandas_market_calendars as mcal
 _NYSE = mcal.get_calendar("NYSE")
 
 
+def nyse_open_now(now_et: datetime | None = None) -> bool:
+    """True if the NYSE regular session is open at ``now_et`` (defaults to now).
+
+    Holiday- and early-close-aware via the shared NYSE calendar, so callers get
+    a correct open/closed answer on holidays and half-days — unlike a plain
+    weekday + 09:30–16:00 check. ``now_et`` may be any tz-aware datetime.
+    """
+    if now_et is None:
+        now_et = datetime.now(timezone.utc).astimezone(ZoneInfo("America/New_York"))
+    sched = _NYSE.schedule(now_et.date(), now_et.date())
+    if sched.empty:
+        return False
+    open_t = sched.iloc[0]["market_open"].astimezone(ZoneInfo("America/New_York"))
+    close_t = sched.iloc[0]["market_close"].astimezone(ZoneInfo("America/New_York"))
+    return open_t <= now_et < close_t
+
+
 def build_time_context() -> str:
     now_utc = datetime.now(timezone.utc)
     now_et = now_utc.astimezone(ZoneInfo("America/New_York"))

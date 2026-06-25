@@ -19,3 +19,5 @@ google-auth-httplib2>=0.2.0
 pandas_market_calendars>=4.4.0
 beautifulsoup4>=4.12.0  # Wolf email parser (analysis/wolf_email_parser.py)
 lxml>=5.0.0  # bs4 backend the Wolf parser requests explicitly
+matplotlib>=3.7.0  # !em expected-move charts (scanners/expected_move.py)
+mplfinance>=0.12.10  # candlestick rendering for !em charts

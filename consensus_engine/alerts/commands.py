@@ -12,6 +12,7 @@ Commands:
   !active-tickers     — all tickers with active signals
   !sec <TICKER>       — recent SEC filings (8-K, Form 4, 13D, etc.)
   !options <TICKER>   — unusual options activity (call/put ratios, vol/OI)
+  !em <TICKER>        — options-implied daily expected move + chart
   !technical <TICKER> — run 6 technical filters independently
   !news <TICKER>      — run news cascade standalone
   !google-trends <T>  — Google Trends spike % for a ticker
@@ -166,6 +167,7 @@ def _build_help_embed() -> dict:
                     "`!news <ticker>` — news cascade (headline + catalyst type)\n"
                     "`!sec <ticker>` — recent SEC filings (8-K, Form 4, 13D…)\n"
                     "`!options <ticker>` — unusual options activity (vol/OI ratios)\n"
+                    "`!em <ticker>` — options-implied daily expected move + chart\n"
                     "`!technical <ticker>` — 6 technical filters with pass/fail\n"
                     "`!google-trends <ticker>` — Google Trends interest spike %\n"
                     "`!alert-history <ticker>` — past alerts with 1h/24h price outcomes\n"
@@ -212,7 +214,7 @@ def _build_help_embed() -> dict:
                 "inline": False,
             },
         ],
-        "footer": {"text": "OpenClaw Signal Engine · 30 commands"},
+        "footer": {"text": "OpenClaw Signal Engine · 31 commands"},
     }
 
 
@@ -457,6 +459,16 @@ async def _route_command_inner(
                 await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=ticker))
             else:
                 await _handle_cluster_history(ticker, channel_id, message_id)
+
+    elif command == "em":
+        if not args:
+            await send_command_reply(channel_id, message_id, "Usage: `!em <TICKER>` — e.g. `!em SPY`")
+        else:
+            ticker = args[0].upper()
+            if not is_valid_ticker_format(ticker):
+                await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=ticker))
+            else:
+                await _handle_em(ticker, channel_id, message_id)
 
     else:
         await send_command_reply(channel_id, message_id, f"Unknown command `!{command}`. Try `!help`.")
@@ -850,6 +862,41 @@ async def _options_and_reply(ticker: str, channel_id: str, message_id: str) -> N
     except Exception as e:
         log.error("Options command error for %s: %s", ticker, e)
         await send_command_reply(channel_id, message_id, f"Options lookup failed for `${ticker}`.")
+
+
+async def _handle_em(ticker: str, channel_id: str, message_id: str) -> None:
+    """Show the options-implied daily expected move (with chart) for a ticker."""
+    from consensus_engine.scanners.expected_move import is_allowed
+    if not is_allowed(ticker):
+        await send_command_reply(
+            channel_id, message_id,
+            f"`!em` is limited to major ETFs and large-cap stocks; `${ticker}` "
+            f"isn't on the list. Try one like `!em SPY`, `!em QQQ`, or `!em AAPL`.",
+        )
+        return
+    await send_command_reply(channel_id, message_id, f"Calculating expected move for `${ticker}`…")
+    await _dispatch_inner(_em_and_reply(ticker, channel_id, message_id))
+
+
+async def _em_and_reply(ticker: str, channel_id: str, message_id: str) -> None:
+    from consensus_engine.scanners import expected_move as em
+    from consensus_engine.alerts.discord import send_command_embed_with_image
+    try:
+        result = await em.compute_em(ticker, executor=None)
+        embed = em.build_em_embed(result, with_image=True)
+        # Chart render is blocking (matplotlib) — run off the event loop.
+        loop = asyncio.get_running_loop()
+        image = await loop.run_in_executor(None, em.render_chart, result)
+        if image is None:
+            embed = em.build_em_embed(result, with_image=False)
+        await send_command_embed_with_image(
+            channel_id, message_id, embed, image, em.chart_filename(ticker),
+        )
+    except em.EMUnavailable as e:
+        await send_command_reply(channel_id, message_id, str(e))
+    except Exception as e:
+        log.error("EM command error for %s: %s", ticker, e)
+        await send_command_reply(channel_id, message_id, f"Expected-move lookup failed for `${ticker}`.")
 
 
 async def _handle_technical(ticker: str, direction: str, channel_id: str, message_id: str) -> None:

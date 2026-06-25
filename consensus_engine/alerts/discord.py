@@ -852,6 +852,91 @@ async def send_command_embed_reply(
     return data.get("id") if data else None
 
 
+async def send_command_embed_with_image(
+    channel_id: str,
+    reply_to_msg_id: str,
+    embed: dict,
+    image_bytes: Optional[bytes],
+    filename: str,
+) -> Optional[str]:
+    """Send an embed reply with an attached PNG (multipart upload, used by !em).
+
+    The embed should reference the image via ``{"image": {"url":
+    "attachment://<filename>"}}``. Mirrors send_command_embed_reply's
+    dry-run/token/allowed-mentions handling and retries on 429. If the image is
+    missing or the multipart upload fails, it falls back to the embed without
+    the image so the user still gets the numbers.
+    """
+    if cfg.dry_run:
+        log.info(
+            "[DRY-RUN] Embed+image reply to %s: %s (%s, %d bytes)",
+            reply_to_msg_id, embed.get("title", ""), filename,
+            len(image_bytes or b""),
+        )
+        return "dry_run_reply_id"
+
+    token = cfg.get_api_key("discord_bot_token")
+    if not token:
+        log.warning("Discord bot token not configured")
+        return None
+
+    # No chart bytes — degrade to an image-less embed rather than fail.
+    if not image_bytes:
+        embed_noimg = {k: v for k, v in embed.items() if k != "image"}
+        return await send_command_embed_reply(channel_id, reply_to_msg_id, embed_noimg)
+
+    url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+    headers = {"Authorization": f"Bot {token}"}  # aiohttp sets the multipart Content-Type
+    payload = _safe_send_kwargs({
+        "embeds": [embed],
+        "message_reference": {"message_id": reply_to_msg_id},
+        "attachments": [{"id": 0, "filename": filename}],
+    })
+
+    session = await get_session()
+    for attempt in range(4):
+        try:
+            # FormData is single-use; rebuild it each attempt.
+            form = aiohttp.FormData()
+            form.add_field("payload_json", json.dumps(payload),
+                           content_type="application/json")
+            form.add_field("files[0]", image_bytes, filename=filename,
+                           content_type="image/png")
+            async with session.post(
+                url, headers=headers, data=form,
+                timeout=aiohttp.ClientTimeout(total=20),
+            ) as resp:
+                if resp.status in (200, 201):
+                    data = await resp.json()
+                    return data.get("id")
+                if resp.status == 429 and attempt < 3:
+                    retry_after = float(resp.headers.get("Retry-After", 1.0))
+                    try:
+                        rbody = await resp.json()
+                        retry_after = float(rbody.get("retry_after", retry_after))
+                    except Exception:
+                        pass
+                    log.warning(
+                        "send_command_embed_with_image 429 — sleeping %.1fs (attempt=%d)",
+                        retry_after, attempt + 1,
+                    )
+                    await asyncio.sleep(retry_after)
+                    continue
+                error_body = await resp.text()
+                log.warning(
+                    "send_command_embed_with_image HTTP %d (attempt=%d): %s",
+                    resp.status, attempt, _redact_secrets(error_body[:300]),
+                )
+                break
+        except Exception as e:
+            log.error("send_command_embed_with_image exception (attempt=%d): %s", attempt, e)
+            break
+
+    # Multipart failed — send the embed without the image so the numbers land.
+    fallback = {k: v for k, v in embed.items() if k != "image"}
+    return await send_command_embed_reply(channel_id, reply_to_msg_id, fallback)
+
+
 async def send_detail_followup(xref: CrossReferenceResult, reply_to_msg_id: str, precision: Optional[dict] = None) -> Optional[str]:
     """Send the detail follow-up as a reply to the instant ping. Returns message ID."""
     if cfg.dry_run:
