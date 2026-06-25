@@ -94,8 +94,16 @@ un-debuggable alert storm.
 - **I7 `consensus_logodds` + I14-widening `regime_widening_graduated` — confirmed PROVEN NO-OPS, left OFF.** I7: source_performance empty + all 2601 consolidated_events single-cluster → 0 lift (needs a code writer + multi-cluster, not a flip). I14-widening: graduated clamp 90−80=10 == static panic shift 10, and zero panic days ever recorded → config no-op.
 - **I4-full / I3 / I10 / E1 / FRED-leg** — unchanged (already ON). Master E2 is the last one-at-a-time scoring flip pending; I13 is the data-blocked one (auto-reminder live).
 
-### ⏳ AWAITING USER DECISION (2026-06-24, updated 2026-06-25) — E2 master flip + an INVERSION BUG to fix first
-1. **CONFIRMED INVERSION BUG (not a philosophy choice — fix before any flip).** The code's documented intent and its math disagree:
+### ⏳ AWAITING USER DECISION — E2 master flip (2026-06-24, updated 2026-06-25)
+
+> **✅ CURRENT STATE (read THIS first — do not re-derive direction from the history below):**
+> - **The inversion bug is FIXED** (commit 135c7f5, 2026-06-25). `engine.py:325` now DIVIDES: `raw_high = base_high / e2_multiplier`.
+> - **CORRECT direction (now in code; E2 still OFF/shadow, so dormant):** market **STRESS → RAISE the STRONG bar (toward 90) → FEWER, more-cautious alerts**; market **CALM → LOWER the bar (toward 70) → MORE, more-willing alerts**. Mnemonic: veto = stress = harder; confirm = calm = easier. Matches the code's documented intent and the user's reasoning.
+> - **⚠️ DO NOT change the `/` back to `*`** — multiplying the threshold is the original bug. If a test or replay seems to say stress makes alerts *easier*, that is the OLD direction; the fixed code is the opposite.
+> - **What's LEFT before the master flip = a TUNING call only** (the calm-side boost is aggressive — see the magnitude finding below) + reading the shadow soak. The direction itself is settled.
+
+#### History (RESOLVED — context only, describes the OLD buggy behavior)
+1. **The inversion bug that WAS fixed (do not reintroduce).** The code's documented intent and its (former, now-corrected) math disagreed:
    - INTENT (cross_asset.py:8-13 + engine.py:289-290): backwardation/stress → "raise the bar (veto direction)" = be MORE cautious; contango/calm → confirm. The variable names agree (`veto_floor` on the stress side, `confirm_ceiling` on the calm side).
    - IMPLEMENTATION (engine.py:325 `raw_high = base_high * e2_multiplier`): stress mult 0.85 → 80×0.85=68→clamp 70 = LOWERS the bar (EASIER, more alerts in stress); calm mult 1.15 → 92→clamp 90 = RAISES the bar (fewer alerts in calm). **Exact opposite of the documented intent.**
    - The user's reasoning (2026-06-25) is correct: a positive catalyst in a crashing market is more likely to fail, so the bot should be MORE selective in stress — which is what the code INTENDED but does backwards. **Fix:** make stress raise the cutoff / calm lower it — minimal change is `base_high / e2_multiplier` (stress 80/0.85=94→90 harder ✓; calm 80/1.15=70 easier ✓), which also matches the engine.py:289 "veto raises the cutoff (clamped 90)" guarantee. Must also update the shadow "would_cross" calc, scripts/backtest_e2_cross_asset.py, and the E2 unit tests, then re-run the replay.
