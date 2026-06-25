@@ -321,8 +321,15 @@ def _classify(
 
     # E2 + I14 reconciliation: ONE bounded cutoff adjustment.
     # Flag OFF on either feature -> neutral value -> formula is a no-op.
+    # E2's multiplier is a SCORE-confidence multiplier (veto 0.85 = knock confidence
+    # down in stress; confirm 1.15 = boost in calm). Translating it to a THRESHOLD
+    # adjustment requires the INVERSE: (score*mult >= base_high) <=> (score >= base_high/mult).
+    # So DIVIDE — a veto (mult<1) RAISES the bar (more cautious in stress); a confirm
+    # (mult>1) LOWERS it (more willing in calm). This matches the documented intent in
+    # cross_asset.py ("backwardation -> raise the bar (veto direction)"). A prior version
+    # multiplied, which inverted the direction (fixed 2026-06-25).
     if cfg.get("features.cross_asset.enabled", False) and e2_multiplier != 1.0:
-        raw_high = base_high * e2_multiplier + regime_shift
+        raw_high = base_high / e2_multiplier + regime_shift
     else:
         raw_high = base_high + regime_shift
 

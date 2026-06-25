@@ -314,13 +314,13 @@ class TestFlagOff:
 # ---------------------------------------------------------------------------
 
 class TestCombinedCutoffBounds:
-    """E2 * base_high + regime_shift must be clamped to [base_high-10, cutoff_ceiling]."""
+    """E2 (base_high / multiplier) + regime_shift must be clamped to [base_high-10, cutoff_ceiling]."""
 
     def test_e2_veto_plus_panic_shift_never_exceeds_ceiling(self):
-        """E2 confirm (1.15) + large panic shift stays at ceiling 90.
+        """E2 veto (0.85, stress) RAISES the bar; + large panic shift stays at ceiling 90.
 
-        base_high=80, e2=1.15, regime_shift=10
-        raw = 80*1.15 + 10 = 102 -> clamp to ceiling=90.
+        base_high=80, e2=0.85 (veto), regime_shift=10
+        raw = 80/0.85 + 10 = 104.1 -> clamp to ceiling=90.
         """
         cfg_map = _base_cfg(
             e2_enabled=True,
@@ -331,7 +331,7 @@ class TestCombinedCutoffBounds:
                 "features.regime_widening_graduated.cutoff_ceiling": 90,
             },
         )
-        # Pass a regime with threshold_shift=10 (panic) and e2_multiplier=1.15
+        # Pass a regime with threshold_shift=10 (panic) and e2_multiplier=0.85 (veto/stress)
         regime = _make_regime("panic", threshold_shift=10)
         result = _classify_with_cfg(
             cfg_map,
@@ -341,18 +341,18 @@ class TestCombinedCutoffBounds:
             bypass_market_confirmation=False,
             contradiction_index=0.0,
             regime=regime,
-            e2_multiplier=1.15,
+            e2_multiplier=0.85,
         )
-        # effective_high = clamp(80*1.15 + 10, 70, 90) = clamp(102, 70, 90) = 90
+        # effective_high = clamp(80/0.85 + 10, 70, 90) = clamp(104.1, 70, 90) = 90
         # score=89 < effective_high=90 -> WATCHLIST (or IGNORE if below med)
         # 89 >= med=65 -> WATCHLIST
         assert result == SignalClass.WATCHLIST
 
-    def test_e2_veto_never_drops_below_base_minus_10(self):
-        """E2 veto (0.85) can never drop effective_high below base_high - 10 = 70.
+    def test_e2_confirm_never_drops_below_base_minus_10(self):
+        """E2 confirm (1.15, calm) LOWERS the bar but can never drop below base_high - 10 = 70.
 
-        base_high=80, e2=0.85, regime_shift=0
-        raw = 80*0.85 + 0 = 68 -> clamp(68, 70, 90) = 70.
+        base_high=80, e2=1.15 (confirm), regime_shift=0
+        raw = 80/1.15 + 0 = 69.6 -> clamp(69.6, 70, 90) = 70.
         """
         cfg_map = _base_cfg(
             e2_enabled=True,
@@ -371,9 +371,9 @@ class TestCombinedCutoffBounds:
             bypass_market_confirmation=False,
             contradiction_index=0.0,
             regime=None,
-            e2_multiplier=0.85,
+            e2_multiplier=1.15,
         )
-        # effective_high = clamp(80*0.85 + 0, 70, 90) = clamp(68, 70, 90) = 70
+        # effective_high = clamp(80/1.15 + 0, 70, 90) = clamp(69.6, 70, 90) = 70
         # score=71 >= effective_high=70 -> STRONG_ALERT (mainstream=True, market_ok=True)
         assert result == SignalClass.STRONG_ALERT
 

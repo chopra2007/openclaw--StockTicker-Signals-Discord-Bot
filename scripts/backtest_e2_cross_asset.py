@@ -285,15 +285,16 @@ def run_replay() -> str:
         else:
             combined = max(VETO_FLOOR, min(CONFIRM_CEILING, sum(legs) / len(legs)))
 
-        # Effective STRONG threshold after E2 (E2 scales the threshold, not the score)
-        # Matches engine._classify: effective_high = clamp(base_high * e2_mult, base_high-10, 90)
-        # Note direction: calm/contango (mult>1.0) RAISES the bar (harder to be STRONG);
-        #                 stressed/backwardation (mult<1.0) LOWERS the bar (easier to be STRONG).
+        # Effective STRONG threshold after E2. The multiplier is a SCORE-confidence
+        # multiplier; translating it to a threshold needs the INVERSE (base_high / mult).
+        # Matches engine._classify (fixed 2026-06-25): effective_high = clamp(base_high / e2_mult, base_high-10, 90)
+        # Direction: stressed/backwardation (mult<1.0) RAISES the bar (harder, more cautious);
+        #            calm/contango (mult>1.0) LOWERS the bar (easier, more willing).
         base_high = HIGH_CONFIDENCE
 
         def _eff_high(mult: Optional[float]) -> float:
             m = mult if mult is not None else 1.0
-            return max(base_high - 10, min(90, base_high * m))
+            return max(base_high - 10, min(90, base_high / m))
 
         stressed = _is_stressed(d)
 
@@ -332,39 +333,39 @@ def run_replay() -> str:
         vix_strong = sum(1 for r in rows_list if r["strong_vix"])
         credit_strong = sum(1 for r in rows_list if r["strong_credit"])
         combined_strong = sum(1 for r in rows_list if r["strong_combined"])
-        # Crosses (new STRONG): was NOT strong baseline, IS strong with E2 veto LOWERING bar
-        # (stressed/backwardation: mult<1.0 -> effective_high drops below baseline score)
+        # Crosses (new STRONG): was NOT strong baseline, IS strong with E2 confirm LOWERING bar
+        # (calm/contango: mult>1.0 -> effective_high = base_high/mult drops below baseline score)
         vix_cross_up = sum(
             1 for r in rows_list
             if not r["strong_baseline"] and r["strong_vix"]
-            and r["vix_mult"] is not None and r["vix_mult"] < 1.0
+            and r["vix_mult"] is not None and r["vix_mult"] > 1.0
         )
         credit_cross_up = sum(
             1 for r in rows_list
             if not r["strong_baseline"] and r["strong_credit"]
-            and r["credit_mult"] is not None and r["credit_mult"] < 1.0
+            and r["credit_mult"] is not None and r["credit_mult"] > 1.0
         )
         combined_cross_up = sum(
             1 for r in rows_list
             if not r["strong_baseline"] and r["strong_combined"]
-            and r["combined_mult"] < 1.0
+            and r["combined_mult"] > 1.0
         )
-        # Uncrosses (lost STRONG): WAS strong baseline, NOT strong after E2 calm RAISING bar
-        # (calm/contango: mult>1.0 -> effective_high raised to 90, score may fall below)
+        # Uncrosses (lost STRONG): WAS strong baseline, NOT strong after E2 veto RAISING bar
+        # (stressed/backwardation: mult<1.0 -> effective_high = base_high/mult raised toward 90)
         vix_uncross = sum(
             1 for r in rows_list
             if r["strong_baseline"] and not r["strong_vix"]
-            and r["vix_mult"] is not None and r["vix_mult"] > 1.0
+            and r["vix_mult"] is not None and r["vix_mult"] < 1.0
         )
         credit_uncross = sum(
             1 for r in rows_list
             if r["strong_baseline"] and not r["strong_credit"]
-            and r["credit_mult"] is not None and r["credit_mult"] > 1.0
+            and r["credit_mult"] is not None and r["credit_mult"] < 1.0
         )
         combined_uncross = sum(
             1 for r in rows_list
             if r["strong_baseline"] and not r["strong_combined"]
-            and r["combined_mult"] > 1.0
+            and r["combined_mult"] < 1.0
         )
         # Sample stressed dates with VIX data
         sample_dates = sorted({str(r["date"]) for r in rows_list if r["vix_ratio"] is not None})[:5]
@@ -421,7 +422,7 @@ def run_replay() -> str:
         f"",
         f"Generated: {now_str}  ",
         f"DB: {DB_PATH} ({len(rows)} rows, {unique_dates[0]} – {unique_dates[-1]})  ",
-        f"Threshold: STRONG at score >= {HIGH_CONFIDENCE} (effective_high = clamp(80 × multiplier, 70, 90))  ",
+        f"Threshold: STRONG at score >= {HIGH_CONFIDENCE} (effective_high = clamp(80 ÷ multiplier, 70, 90))  ",
         f"VIX swing: {VIX_SWING}, Credit swing: {CREDIT_SWING}  ",
         f"Bounds: veto_floor={VETO_FLOOR}, confirm_ceiling={CONFIRM_CEILING}",
         f"",
@@ -437,11 +438,11 @@ def run_replay() -> str:
         "",
         "## Interpretation",
         "",
-        "- E2 **scales the STRONG threshold** (not the score): `effective_high = clamp(80 × multiplier, 70, 90)`.",
-        "- Calm/contango (multiplier > 1.0): effective_high → 90 (ceiling) — **harder** to reach STRONG.",
-        "- Stressed/backwardation (multiplier < 1.0): effective_high → 70 (floor) — **easier** to reach STRONG.",
-        "- **Cross-up (new STRONG)**: alert below STRONG baseline whose score ≥ lowered effective_high in stressed regime.",
-        "- **Uncross (lost STRONG)**: alert above STRONG baseline whose score < raised effective_high (90) in calm regime.",
+        "- E2 adjusts the STRONG threshold by the INVERSE of the score-multiplier: `effective_high = clamp(80 ÷ multiplier, 70, 90)` (fixed 2026-06-25; a prior version multiplied, which inverted the direction).",
+        "- Stressed/backwardation (multiplier < 1.0): effective_high → 90 (ceiling) — **harder** to reach STRONG (more cautious in stress).",
+        "- Calm/contango (multiplier > 1.0): effective_high → 70 (floor) — **easier** to reach STRONG (more willing in calm).",
+        "- **Cross-up (new STRONG)**: alert below STRONG baseline whose score ≥ lowered effective_high in a CALM regime.",
+        "- **Uncross (lost STRONG)**: alert above STRONG baseline whose score < raised effective_high (90) in a STRESSED regime.",
         "- Combined leg averages VIX + credit and re-clamps, matching production logic.",
         "- A None leg (unavailable data) is dropped; it never weakens a live leg.",
     ]
