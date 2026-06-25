@@ -432,7 +432,7 @@ def _format_snapshot(snap: Optional[dict]) -> str:
         analyst_parts.append("🎯")
     n = snap.get("n_analysts")
     if isinstance(n, int) and n > 0:
-        analyst_parts.append(f"{n} anlsts")
+        analyst_parts.append(f"{n} analysts")
     if snap.get("rating"):
         analyst_parts.append(str(snap["rating"]))
     if analyst_parts:
