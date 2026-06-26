@@ -98,11 +98,12 @@ A feature built and tested on stored data is turned ON in the same session, not 
 ### What to verify
 
 1. **Test the whole feature you changed**, not just the line you touched. Changed catalyst code inside `!all`? Test all of `!all`.
-2. **Always-on checks — every time:**
+2. **Find the hidden dependents before committing.** When a change alters a function's arguments or a user-visible output string, `grep -rn` the symbol/old-string across `tests/` and run every match before committing. The breakage usually hides in *other* files — assertions on the old text, or mock/`monkeypatch.setattr` stubs with the old signature — not the file you edited.
+3. **Always-on checks — every time:**
    - `consensus-engine.service` and `openclaw-gateway.service` both `active`.
    - No `❌ GATEWAY drift` alert and no LLM-health failure alert.
    - `/root/.openclaw` still resolves to `/home/openclaw/.openclaw` (symlink intact).
-3. **Shared-file tripwire** — if your change touches any of these, test every feature that uses them:
+4. **Shared-file tripwire** — if your change touches any of these, test every feature that uses them:
    - `consensus_engine/llm_client.py`
    - `consensus_engine/config.py` + `config/consensus.yaml`
    - `consensus_engine/db.py`
