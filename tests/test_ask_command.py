@@ -31,7 +31,7 @@ async def test_ask_routes_question_through_handle_mention(monkeypatch):
     """!ask forwards the question to _handle_mention (the openclaw agent path)."""
     captured: dict = {}
 
-    async def _fake_mention(content, channel_id, message_id):
+    async def _fake_mention(content, channel_id, message_id, *, allow_intercept=True):
         captured["content"] = content
         captured["channel_id"] = channel_id
         captured["message_id"] = message_id
@@ -57,7 +57,7 @@ async def test_ask_prepends_channel_history_as_context(monkeypatch):
     agent can answer with awareness of the recent conversation."""
     captured: dict = {}
 
-    async def _fake_mention(content, channel_id, message_id):
+    async def _fake_mention(content, channel_id, message_id, *, allow_intercept=True):
         captured["content"] = content
 
     async def _fake_history(*_a, **_kw):

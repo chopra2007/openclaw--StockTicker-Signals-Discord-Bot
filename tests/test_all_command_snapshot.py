@@ -19,7 +19,7 @@ def test_format_snapshot_full():
             "short_pct": 0.0092, "short_days": 3.11}
     out = embed._format_snapshot(snap)
     assert "🎯 $215 avg ($180–$260)" in out
-    assert "58 anlsts" in out
+    assert "58 analysts" in out
     assert "Buy" in out
     assert "Fwd P/E 31" in out
     # short_pct is a FRACTION (0.0092) -> 0.9%
@@ -35,7 +35,7 @@ def test_format_snapshot_none_and_empty():
 def test_format_snapshot_analyst_only():
     out = embed._format_snapshot({"target_mean": 50.0, "n_analysts": 12, "rating": "Hold"})
     assert "🎯 $50 avg" in out
-    assert "12 anlsts" in out and "Hold" in out
+    assert "12 analysts" in out and "Hold" in out
     assert "Fwd P/E" not in out and "Short" not in out
 
 
