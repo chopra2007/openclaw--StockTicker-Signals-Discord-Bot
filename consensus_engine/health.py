@@ -25,7 +25,7 @@ from consensus_engine import config as cfg
 from consensus_engine.utils.http import get_session
 from consensus_engine.alerts.discord import _safe_send_kwargs
 
-_ET = ZoneInfo("America/New_York")
+_PT = ZoneInfo("America/Los_Angeles")  # Pacific — user's timezone; all user-facing health timestamps are PDT
 
 # Gateway agent config — read for drift detection against consensus.yaml.
 # scripts/sync_gateway_models.py is the only thing that should write here.
@@ -199,7 +199,7 @@ async def run_chain_check() -> tuple[bool, str]:
     if not all_models and not gateway_error:
         return True, "**LLM chain health:** no models configured."
 
-    header = f"**LLM chain health — {datetime.now(tz=_ET).strftime('%Y-%m-%d %H:%M ET')}**"
+    header = f"**LLM chain health — {datetime.now(tz=_PT).strftime('%Y-%m-%d %H:%M %Z')}**"
     lines = [header, ""]
     any_failed = False
 
@@ -241,7 +241,7 @@ async def boot_drift_check() -> None:
             return
         gateway_models, gateway_error = _enumerate_gateway_chain_models()
         drift_detail = _compute_drift(gateway_models)
-        when = datetime.now(tz=_ET).strftime("%Y-%m-%d %H:%M ET")
+        when = datetime.now(tz=_PT).strftime("%Y-%m-%d %H:%M %Z")
 
         if not gateway_error and not drift_detail:
             log.info("boot drift check: gateway chain matches consensus.yaml")
@@ -399,25 +399,25 @@ async def _check_feed_freshness() -> None:
             continue
 
         age_hours = (now - latest) / 3600.0
-        last_dt = datetime.fromtimestamp(latest, tz=_ET).strftime("%Y-%m-%d")
+        last_dt = datetime.fromtimestamp(latest, tz=_PT).strftime("%Y-%m-%d")
 
         if age_hours > max_age:
             if already_alerted:
                 continue  # already pinged this outage; stay quiet
             days = age_hours / 24.0
             msg = (
-                f"**⚠️ {label} feed silent — {datetime.now(tz=_ET).strftime('%Y-%m-%d %H:%M ET')}**\n\n"
+                f"**⚠️ {label} feed silent — {datetime.now(tz=_PT).strftime('%Y-%m-%d %H:%M %Z')}**\n\n"
                 f"No new {label} data in {days:.1f} days "
                 f"(last ingest {last_dt}, threshold {max_age:.0f}h).{auth_hint}"
             )
             await _post_to_discord(msg)
-            state[feed_id] = {"first_seen": datetime.now(tz=_ET).strftime("%Y-%m-%d %H:%M ET"),
+            state[feed_id] = {"first_seen": datetime.now(tz=_PT).strftime("%Y-%m-%d %H:%M ET"),
                               "last_ingest": last_dt}
             _write_feed_outage_state(state)
         else:
             if already_alerted:
                 msg = (
-                    f"**✅ {label} feed recovered — {datetime.now(tz=_ET).strftime('%Y-%m-%d %H:%M ET')}**\n\n"
+                    f"**✅ {label} feed recovered — {datetime.now(tz=_PT).strftime('%Y-%m-%d %H:%M %Z')}**\n\n"
                     f"New {label} data ingested again (last ingest {last_dt})."
                 )
                 await _post_to_discord(msg)
@@ -456,7 +456,7 @@ async def _post_to_discord(content: str) -> None:
 
 
 def _seconds_until_next(hh: int, mm: int) -> float:
-    now = datetime.now(tz=_ET)
+    now = datetime.now(tz=_PT)
     target = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
     if target <= now:
         target = target + timedelta(days=1)
@@ -464,19 +464,19 @@ def _seconds_until_next(hh: int, mm: int) -> float:
 
 
 async def chain_health_loop(stop_event: asyncio.Event) -> None:
-    """Run the chain check once per day at the configured ET time."""
+    """Run the chain check once per day at the configured PDT time."""
     if not cfg.get("health_check.enabled", True):
         log.info("health: disabled in config; loop exiting")
         return
-    daily = str(cfg.get("health_check.daily_time_et", "08:30") or "08:30")
+    daily = str(cfg.get("health_check.daily_time_pdt", "17:30") or "17:30")
     try:
         hh, mm = (int(x) for x in daily.split(":", 1))
     except Exception:
-        log.warning("health: invalid daily_time_et=%r; using 08:30", daily)
-        hh, mm = 8, 30
+        log.warning("health: invalid daily_time_pdt=%r; using 17:30", daily)
+        hh, mm = 17, 30
     alert_only = bool(cfg.get("health_check.alert_only_on_failure", True))
 
-    log.info("health: chain check enabled, fires daily at %02d:%02d ET (alert_only=%s)",
+    log.info("health: chain check enabled, fires daily at %02d:%02d PDT (alert_only=%s)",
              hh, mm, alert_only)
 
     while not stop_event.is_set():

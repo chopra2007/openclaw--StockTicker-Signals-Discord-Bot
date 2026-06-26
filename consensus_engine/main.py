@@ -7,6 +7,7 @@ import asyncio
 import concurrent.futures
 from dataclasses import asdict, replace
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 import json
 import logging
 import re
@@ -47,7 +48,7 @@ from consensus_engine.analysis.herding import detect_swarm
 
 log = logging.getLogger("consensus_engine.main")
 
-ET = timezone(timedelta(hours=-4))  # Eastern Time (EDT)
+PT = ZoneInfo("America/Los_Angeles")  # Pacific Time — the user's timezone (DST-aware). All schedule logic and user-facing times are PDT.
 
 # ---------------------------------------------------------------------------
 # Source health tracking (in-process stats, flushed to DB every poll cycle)
@@ -94,20 +95,20 @@ def _recompute_degraded_mode() -> bool:
 
 
 def _is_weekend_pause() -> bool:
-    """Check if we're in the weekend pause window (Fri 3pm ET → Sun 2pm ET)."""
-    now = datetime.now(ET)
+    """Check if we're in the weekend pause window (Fri 3pm → Sun 3pm PDT)."""
+    now = datetime.now(PT)
     wd = now.weekday()  # Mon=0 … Sun=6
-    if wd == 4 and now.hour >= 15:   # Friday 3pm+
+    if wd == 4 and now.hour >= 15:   # Friday 3pm PDT onward
         return True
     if wd == 5:                       # All Saturday
         return True
-    if wd == 6 and now.hour < 14:    # Sunday before 2pm
+    if wd == 6 and now.hour < 15:    # Sunday before 3pm PDT
         return True
     return False
 
 
 def _us_market_open() -> bool:
-    """True during US regular trading hours (Mon–Fri 9:30am–4:00pm ET).
+    """True during US regular trading hours (Mon–Fri 6:30am–1:00pm PDT).
 
     Weekday + time-of-day only (no holiday calendar) — enough to label a Finnhub
     quote as live "current" vs "last close": Finnhub free /quote returns the last
@@ -115,11 +116,11 @@ def _us_market_open() -> bool:
     close, not a live print. On a market holiday this degrades to saying
     "current" when the quote is actually the prior close.
     """
-    now = datetime.now(ET)
+    now = datetime.now(PT)
     if now.weekday() >= 5:  # Sat/Sun
         return False
     cur_min = now.hour * 60 + now.minute
-    return (9 * 60 + 30) <= cur_min < (16 * 60)
+    return (6 * 60 + 30) <= cur_min < (13 * 60)
 
 
 def _yf_extended_price(ticker: str) -> "tuple[float | None, str | None]":
@@ -168,19 +169,19 @@ async def _level_price(ticker: str) -> "tuple[float | None, str | None]":
 
 
 def _seconds_until_resume() -> int:
-    """Seconds until Sunday 2pm ET."""
-    now = datetime.now(ET)
+    """Seconds until Sunday 3pm PDT."""
+    now = datetime.now(PT)
     wd = now.weekday()
     days_ahead = (6 - wd) % 7
-    if days_ahead == 0 and now.hour >= 14:
-        days_ahead = 7  # Already past Sunday 2pm, next week
-    resume = now.replace(hour=14, minute=0, second=0, microsecond=0) + timedelta(days=days_ahead)
+    if days_ahead == 0 and now.hour >= 15:
+        days_ahead = 7  # Already past Sunday 3pm, next week
+    resume = now.replace(hour=15, minute=0, second=0, microsecond=0) + timedelta(days=days_ahead)
     return max(int((resume - now).total_seconds()), 1)
 
 
 def _seconds_until_pause() -> int:
-    """Seconds until Friday 3pm ET (next pause window)."""
-    now = datetime.now(ET)
+    """Seconds until Friday 3pm PDT (next pause window)."""
+    now = datetime.now(PT)
     wd = now.weekday()
     days_ahead = (4 - wd) % 7  # Friday=4
     if days_ahead == 0 and now.hour >= 15:
@@ -764,7 +765,7 @@ async def _handle_mention(content: str, channel_id: str, message_id: str,
 
 
 async def run_live(stop_event: asyncio.Event):
-    """Run continuous mode with all scanners. Pauses Fri 3pm–Sun 2pm ET."""
+    """Run continuous mode with all scanners. Pauses Fri 3pm–Sun 3pm PDT."""
     try:
         from consensus_engine.hygiene.disk_inode_sweep import startup_sweep
         startup_sweep()
@@ -796,7 +797,7 @@ async def run_live(stop_event: asyncio.Event):
 
             async def _resume_timer():
                 secs = _seconds_until_resume()
-                log.info("Weekend listener will exit in %d seconds (Sunday 2pm ET)", secs)
+                log.info("Weekend listener will exit in %d seconds (Sunday 3pm PDT)", secs)
                 try:
                     await asyncio.wait_for(stop_event.wait(), timeout=secs)
                 except asyncio.TimeoutError:
@@ -830,9 +831,9 @@ async def run_live(stop_event: asyncio.Event):
         pause_event = asyncio.Event()
 
         async def weekend_watchdog():
-            """Sleep exactly until Friday 3pm ET, then trigger pause."""
+            """Sleep exactly until Friday 3pm PDT, then trigger pause."""
             secs = _seconds_until_pause()
-            log.info("Weekend pause scheduled in %d seconds (Friday 3pm ET)", secs)
+            log.info("Weekend pause scheduled in %d seconds (Friday 3pm PDT)", secs)
             try:
                 await asyncio.wait_for(stop_event.wait(), timeout=secs)
             except asyncio.TimeoutError:

@@ -429,10 +429,10 @@ def _fmt_quote_time(result: ExpectedMoveResult) -> str:
         return "yfinance · delayed quotes"
     try:
         from zoneinfo import ZoneInfo
-        et = ts.astimezone(ZoneInfo("America/New_York"))
+        pt = ts.astimezone(ZoneInfo("America/Los_Angeles"))
     except Exception:
-        et = ts
-    return f"yfinance · quotes {et:%-I:%M %p ET} · delayed"
+        pt = ts
+    return f"yfinance · quotes {pt:%-I:%M %p %Z} · delayed"
 
 
 def build_em_embed(result: ExpectedMoveResult, with_image: bool = True) -> dict:
