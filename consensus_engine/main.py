@@ -591,6 +591,8 @@ _STEERING_TEMPLATE = (
     "or schema unless you actually opened it with a tool in THIS reply — no guessing, no\n"
     "plausible-sounding placeholders, and never a made-up API key or endpoint. If your tools\n"
     "don't turn it up, say you couldn't find it rather than inventing an answer.\n"
+    "If a tool, script, or function errors out or returns nothing, report that you couldn't get\n"
+    "the value — never substitute a plausible number, date, price, or result of your own.\n"
     "Where this bot's own data lives — go straight here instead of hunting around. The\n"
     "database is SQLite at consensus.db in the repo root:\n"
     " - macro_theses: newsletter/Wolf stock views. scope_key = ticker (e.g. GOOG), plus\n"
@@ -624,7 +626,8 @@ _STEERING_TEMPLATE = (
 )
 
 
-async def _handle_mention(content: str, channel_id: str, message_id: str) -> None:
+async def _handle_mention(content: str, channel_id: str, message_id: str,
+                          *, allow_intercept: bool = True) -> None:
     """Forward @-mentions / !ask to the OpenClaw agent (`openclaw agent --local`).
 
     openclaw walks the model chain in openclaw.json `agents.defaults.model`
@@ -632,6 +635,11 @@ async def _handle_mention(content: str, channel_id: str, message_id: str) -> Non
     roulette. This wrapper is the subprocess-level safety net on top: if the
     whole `openclaw agent` call fails (crash, hang, empty output), retry once
     before giving up.
+
+    `allow_intercept` lets deterministic answers (e.g. earnings-date lookups)
+    short-circuit the agent. !ask runs the intercept itself on the raw question
+    before prepending channel history, then calls us with allow_intercept=False
+    so we don't re-scan that history for a false positive.
     """
     from consensus_engine.alerts.discord import send_command_reply
 
@@ -639,6 +647,18 @@ async def _handle_mention(content: str, channel_id: str, message_id: str) -> Non
         await send_command_reply(channel_id, message_id,
             "Hi! Ask me anything or use `!help` to see available commands.")
         return
+
+    # Deterministic intercept: answer "when are earnings for X?" from yfinance's
+    # analyst-estimate calendar instead of letting the free-roaming agent run a
+    # Finnhub lookup that returns nothing for unconfirmed dates and then fabricate
+    # one (the URI bug — Discord msg 1519867430443159555).
+    if allow_intercept:
+        try:
+            from consensus_engine.alerts.earnings_answer import maybe_answer_earnings
+            if await maybe_answer_earnings(content, channel_id, message_id):
+                return
+        except Exception as e:
+            log.warning("earnings intercept errored, falling through to agent: %s", e)
 
     log.info("Mention → OpenClaw agent: channel=%s msg=%s: %.80s", channel_id, message_id, content)
 

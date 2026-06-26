@@ -125,6 +125,12 @@ async def _handle_ask(question: str, channel_id: str, message_id: str) -> None:
         )
         return
 
+    # Deterministic earnings-date answer runs on the raw question (before history
+    # is prepended) so it can't false-positive on an earnings mention in history.
+    from consensus_engine.alerts.earnings_answer import maybe_answer_earnings
+    if await maybe_answer_earnings(question, channel_id, message_id):
+        return
+
     history = await _fetch_channel_history(channel_id, limit=10)
     if history:
         content = (
@@ -136,7 +142,7 @@ async def _handle_ask(question: str, channel_id: str, message_id: str) -> None:
         content = question
 
     from consensus_engine.main import _handle_mention
-    await _handle_mention(content, channel_id, message_id)
+    await _handle_mention(content, channel_id, message_id, allow_intercept=False)
 
 def _build_help_embed() -> dict:
     """Build the !help embed — a sectioned command reference (slate accent),
