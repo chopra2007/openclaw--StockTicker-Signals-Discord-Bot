@@ -757,6 +757,8 @@ features:
     eps_revisions: true            # #6 Lever 1 LIVE 2026-06-15 — verified in real !all (NVDA 34↑3↓, TSLA 2↑1↓); runs <34s
   stocktwits_sentiment:
     enabled: true                  # #6 Lever 2 LIVE 2026-06-15 — verified in real !all (NVDA 74% +1/5d 650k watching) via requests (aiohttp is Cloudflare-blocked)
+  fundamentals_oneliner:
+    enabled: true                  # #6 LIVE 2026-06-26 — PEG/growth/margin/beta/inst one-liner in !all Snapshot, from the existing .info call; live-verified NVDA/AAPL/GEVO (microcap degrades gracefully, PEG omits)
   regime_classifier:
     enabled: true
     regime_shifts:
@@ -808,8 +810,8 @@ features:
   # Phase-2 signal features (signal-features-2026-06-09 Waves 3-4) — ALL default OFF.
   contradiction_index_live: { enabled: true, min_actors: 2, downgrade_threshold: 0.5 }        # I3 LIVE 2026-06-17 — live contradiction producer; downgrade requires >=2 distinct opposing sources
   strong_requires_hard_evidence: { enabled: true, min_technical_filters: 2 }                  # I10 LIVE 2026-06-16 — STRONG needs a hard-evidence component. Backtest: 0/56 historical STRONGs demote (all carry news/sec/options); 14d shadow all would_demote=False. Downgrade-only.
-  manufactured_agreement_gate: { enabled: false }                                             # E6 — coordinated-burst corroboration gate
-  apewisdom_zscore: { enabled: false, min_baseline_days: 14, z_threshold: 2.0 }               # I13 — mention z-surge, confirm-only
+  manufactured_agreement_gate: { enabled: false, shadow: true }                               # E6 — coordinated-burst corroboration gate. SHADOW 2026-06-26 (enabled:false=no apply): backtest found 11 bursts/4613 sigs, 3/11 would-gate UPPER BOUND (all META/NVDA mega-cap legit-consensus, news/options corroboration not event-time-reconstructable). Shadow logs full sec+catalyst+options corroboration live; live flip deferred pending soak (and likely min_accounts->3 or similarity->0.70 tune).
+  apewisdom_zscore: { enabled: true, min_baseline_days: 14, z_threshold: 2.0 }                # I13 LIVE 2026-06-26 — replaces flat presence +10 with z-surge+corroborator gate. Backtest: 0/58 STRONG demote uncorroborated; replaces flat +10 on 298 listed tickers with gated +10 on ~6. Demotion-or-neutral (can never create an alert).
   single_score: { enabled: true }                                                             # I4-full — single-score reconciliation. FLIPPED ON 2026-06-21 to monitor live (#50 Issue C)
   consensus_logodds: { enabled: false, count_floor_frac: 0.5 }                                # I7 — sigmoid(log-odds) consensus scale. DEFERRED 2026-06-16: no-op until source_performance has a production writer AND signal_events forms >=2 clusters/ticker (all 1963 consolidated_events are single-cluster shadow_only). Needs code, not data — not a flip.
   regime_widening_graduated: { enabled: false, max_shift: 15, cutoff_ceiling: 90 }            # I14-widening — z-scaled panic shift

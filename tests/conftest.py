@@ -66,6 +66,7 @@ def _audit_flags_default_off(monkeypatch):
         "features.contradiction_index_live.enabled": False,
         "features.strong_requires_hard_evidence.enabled": False,
         "features.manufactured_agreement_gate.enabled": False,
+        "features.manufactured_agreement_gate.shadow": False,
         "features.apewisdom_zscore.enabled": False,
         "features.single_score.enabled": False,
         "features.consensus_logodds.enabled": False,
@@ -73,6 +74,7 @@ def _audit_flags_default_off(monkeypatch):
         "features.cross_asset.enabled": False,
         "features.cross_asset.fred_leg_enabled": False,
         "features.finra_short_volume.enabled": False,
+        "features.fundamentals_oneliner.enabled": False,
         "wolf.confluence.weighted_votes_enabled": False,
     }
 

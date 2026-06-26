@@ -1,7 +1,12 @@
 # Assessment of the reasoning failures in the 2026-06-13 session
 
-**Status:** OPEN
+**Status:** DONE 2026-06-26 (assessment complete; see 06-26 note)
 **Created:** 2026-06-13
+
+### Session notes — 2026-06-26 (Active-TODO sweep)
+- This was a **diagnostic-only record** by design (user scoped it "no solutions, fixes, or suggestions"). The assessment IS the deliverable, and it is complete — so the task is DONE.
+- Its failure modes have since been absorbed into standing guardrails: comm-check.md Section 5 (whole-feature verification, 06-16), "Built switches default to ON" (06-16), "Find hidden dependents before committing" (06-26), plus the many `comm-check-fail-*` memory entries.
+- **Two mechanical gaps remain UNADDRESSED but NOT built** (would exceed the doc's "no solutions" scope — left as a pointer for the user to decide later): (a) passive CLAUDE.md/comm-check rules don't *interrupt* at decision time; (b) rules don't auto-propagate to spawned sub-agents. If the user later wants these enforced mechanically (a hook / a sub-agent preamble injector), open a new build item.
 
 > Scope note: this is an **assessment only** — what the core problem is, the specific failures, the bottlenecks behind them, and why they matter. By the user's explicit instruction it contains **no solutions, fixes, or suggestions** on how to address any of it.
 

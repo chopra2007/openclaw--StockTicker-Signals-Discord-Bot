@@ -113,3 +113,65 @@ def test_stocktwits_all_fail_returns_none(monkeypatch):
     monkeypatch.setattr(st, "_fetch_sentiment_sync", lambda t: (None, None))
     monkeypatch.setattr(st, "_fetch_watchers_sync", lambda t: None)
     assert st._blocking_fetch("NVDA") is None
+
+
+# ----------------------------------------------------- #6: fundamentals one-liner (C2)
+def test_format_snapshot_fundamentals_full():
+    out = embed._format_snapshot({"fundamentals": {
+        "peg": 0.6, "rev_growth_pct": 85.2, "profit_margin_pct": 63.0,
+        "beta": 2.2, "inst_pct": 70.9}})
+    assert "PEG 0.6 · Growth 85% · Margin 63% · Beta 2.2 · Inst 71%" in out
+
+
+def test_format_snapshot_fundamentals_negative_margin_renders():
+    # an unprofitable margin is honest signal — it must still render
+    out = embed._format_snapshot({"fundamentals": {
+        "peg": None, "rev_growth_pct": 47.0, "profit_margin_pct": -19.4,
+        "beta": 0.99, "inst_pct": 37.2}})
+    assert "Margin -19%" in out
+    assert "PEG" not in out          # PEG None -> silently omitted, no '—'
+    assert "Growth 47%" in out
+
+
+def test_format_snapshot_no_fundamentals_when_absent():
+    out = embed._format_snapshot({"fwd_pe": 24.0})
+    assert "PEG" not in out and "Beta" not in out and "Inst" not in out
+
+
+def test_format_snapshot_fundamentals_all_none_renders_nothing():
+    out = embed._format_snapshot({"fundamentals": {
+        "peg": None, "rev_growth_pct": None, "profit_margin_pct": None,
+        "beta": None, "inst_pct": None}})
+    assert out == "—"  # nothing else in snap, fundamentals all empty
+
+
+_FUND_INFO = {"recommendationKey": "buy", "targetMeanPrice": 200.0,
+              "numberOfAnalystOpinions": 50, "trailingPegRatio": 0.6,
+              "revenueGrowth": 0.85, "profitMargins": 0.63, "beta": 2.2,
+              "heldPercentInstitutions": 0.71, "currentPrice": 180.0}
+
+
+@pytest.mark.asyncio
+async def test_fetch_snapshot_fundamentals_gated_off_by_default(monkeypatch):
+    # flag OFF (conftest default) -> scanner does NOT populate snap["fundamentals"]
+    monkeypatch.setattr(snapshot, "_fetch_info", lambda t: dict(_FUND_INFO))
+    snap = await snapshot.fetch_ticker_snapshot("NVDA")
+    assert snap is not None
+    assert "fundamentals" not in snap  # gated OFF
+
+
+@pytest.mark.asyncio
+async def test_fetch_snapshot_fundamentals_populated_when_on(monkeypatch):
+    from consensus_engine import config as cfg
+    real_get = cfg.get
+    overrides = {
+        "features.fundamentals_oneliner.enabled": True,
+        "features.snapshot.enabled": True,
+        "features.snapshot.eps_revisions": False,
+    }
+    monkeypatch.setattr(cfg, "get", lambda k, d=None: overrides.get(k, real_get(k, d)))
+    monkeypatch.setattr(snapshot, "_fetch_info", lambda t: dict(_FUND_INFO))
+    snap = await snapshot.fetch_ticker_snapshot("NVDA")
+    assert snap["fundamentals"]["peg"] == 0.6
+    assert round(snap["fundamentals"]["rev_growth_pct"], 0) == 85.0
+    assert round(snap["fundamentals"]["profit_margin_pct"], 0) == 63.0

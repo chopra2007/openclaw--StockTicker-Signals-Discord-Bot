@@ -185,6 +185,29 @@ async def fetch_ticker_snapshot(ticker: str) -> Optional[dict]:
         except (asyncio.TimeoutError, Exception) as e:  # noqa: BLE001
             log.debug("snapshot: eps_revisions skipped for %s: %s", ticker, e)
 
+    # #6 lever — fundamentals one-liner (PEG / revenue growth / profit margin / beta /
+    # institutional %), all read from the SAME .info dict above (zero new network call).
+    # Flag-gated; each field independent and omitted when missing/NaN so sparse microcaps
+    # degrade gracefully. PEG guarded > 0 (a negative PEG is misleading); profit margin is
+    # rendered even when negative (an unprofitable margin is honest signal).
+    if cfg.get("features.fundamentals_oneliner.enabled", False):
+        peg = _num(info.get("trailingPegRatio"))
+        if peg is None:
+            peg = _num(info.get("pegRatio"))
+        rev_g = _num(info.get("revenueGrowth"))
+        margin = _num(info.get("profitMargins"))
+        beta = _num(info.get("beta"))
+        inst = _num(info.get("heldPercentInstitutions"))
+        fund = {
+            "peg": peg if (peg is not None and peg > 0) else None,
+            "rev_growth_pct": rev_g * 100 if rev_g is not None else None,
+            "profit_margin_pct": margin * 100 if margin is not None else None,
+            "beta": beta if (beta is not None and beta > 0) else None,
+            "inst_pct": inst * 100 if inst is not None else None,
+        }
+        if any(v is not None for v in fund.values()):
+            snap["fundamentals"] = fund
+
     has_analyst = snap["target_mean"] is not None or snap["rating"] is not None
     has_fundamentals = snap["fwd_pe"] is not None or snap["short_pct"] is not None
     if not has_analyst and not has_fundamentals:

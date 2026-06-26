@@ -1,7 +1,11 @@
 # Apify — Research and Integrate a New Signal Source
 
-**Status:** OPEN
+**Status:** DONE 2026-06-26 (skipped — see 06-26 note)
 **Created:** 2026-06-10
+
+### Session notes — 2026-06-26 (Active-TODO sweep)
+- **Re-confirmed the 06-15 SKIP is correct.** Only budget-viable actor (Seeking Alpha `doesaiknow`) has an unreliable upstream (200-empty / 500); per-ticker news already covered free via finnhub + google_rss; alternative actors blow the budget. No Apify reference in code/config/env (keys removed 06-15, backup at `/root/apify-keys-removed-2026-06-15.txt`).
+- **Closed.** Marked DONE. Reopen only if a reliable free/cheap actor appears.
 
 ## Goal
 

@@ -464,6 +464,29 @@ def _format_snapshot(snap: Optional[dict]) -> str:
     if isinstance(rev, dict) and (rev.get("up") or rev.get("down")):
         segments.append(f"EPS rev {rev.get('up', 0)}↑ {rev.get('down', 0)}↓ (30d)")
 
+    # #6 lever — fundamentals one-liner. Each field independent; omit when absent so sparse
+    # tickers degrade gracefully (no '—', no confidence downgrade implied by missing data).
+    fund = snap.get("fundamentals")
+    if isinstance(fund, dict):
+        f_parts: list[str] = []
+        peg = fund.get("peg")
+        if isinstance(peg, (int, float)):
+            f_parts.append(f"PEG {peg:.1f}")
+        rg = fund.get("rev_growth_pct")
+        if isinstance(rg, (int, float)):
+            f_parts.append(f"Growth {rg:.0f}%")
+        pm = fund.get("profit_margin_pct")
+        if isinstance(pm, (int, float)):
+            f_parts.append(f"Margin {pm:.0f}%")
+        bt = fund.get("beta")
+        if isinstance(bt, (int, float)):
+            f_parts.append(f"Beta {bt:.1f}")
+        inst = fund.get("inst_pct")
+        if isinstance(inst, (int, float)):
+            f_parts.append(f"Inst {inst:.0f}%")
+        if f_parts:
+            segments.append(" · ".join(f_parts))
+
     return "\n".join(segments) if segments else "—"
 
 
