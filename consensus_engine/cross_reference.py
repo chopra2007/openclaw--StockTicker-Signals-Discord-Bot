@@ -1579,14 +1579,7 @@ async def score_ticker(
     # E6 runs BEFORE I3 so burst accounts collapse to one actor in I3.
     # -----------------------------------------------------------------
     burst_analysis: Optional[_BurstAnalysis] = None
-    # E6 runs the burst computation when the gate is LIVE (enabled) OR in shadow mode.
-    # Shadow mode (enabled:false, shadow:true) computes + logs the would-gate decision with
-    # the FULL corroboration set (sec + catalyst + options) at real event time — the soak the
-    # stored-data backtest cannot reconstruct (news/options corroboration isn't event-time-stored)
-    # — but does NOT mutate consensus_boost and does NOT feed burst_analysis into I3 (truly inert).
-    _e6_enabled = cfg.get("features.manufactured_agreement_gate.enabled", False)
-    _e6_shadow = cfg.get("features.manufactured_agreement_gate.shadow", False)
-    if (_e6_enabled or _e6_shadow) and consensus_boost > 0:
+    if cfg.get("features.manufactured_agreement_gate.enabled", False) and consensus_boost > 0:
         e6_window = int(cfg.get(
             "features.manufactured_agreement_gate.burst_window_sec",
             _E6_BURST_WINDOW_SEC_DEFAULT,
@@ -1606,44 +1599,33 @@ async def score_ticker(
             burst_window_sec=float(e6_window),
             min_accounts=e6_min_accts,
         )
-        _e6_sec = sec_hit
-        _e6_cat = bool(catalyst and catalyst.passed)
-        _e6_opt = bool(options and options.has_unusual_activity)
         has_corroboration = _check_e6_corroboration(
             burst_detected,
-            sec_hit=_e6_sec,
-            catalyst_passed=_e6_cat,
-            options_has_activity=_e6_opt,
+            sec_hit=sec_hit,
+            catalyst_passed=bool(catalyst and catalyst.passed),
+            options_has_activity=bool(options and options.has_unusual_activity),
         )
         boost_gated = burst_detected and not has_corroboration
-        if _e6_enabled:
-            burst_analysis = _BurstAnalysis(
-                burst_detected=burst_detected,
-                burst_actor_ids=burst_accounts,
-                has_independent_corroboration=has_corroboration,
-                boost_gated=boost_gated,
-            )
-            if boost_gated:
-                # Gate the crowd-agreement credit. Signals are NOT dropped.
-                consensus_boost = 0
-                breakdown.consensus_boost = 0
-                log.info(
-                    "[E6] $%s burst detected (accounts=%d), consensus_boost gated "
-                    "(no independent corroboration)",
-                    ticker, len(burst_accounts),
-                )
-            elif burst_detected:
-                log.info(
-                    "[E6] $%s burst detected (accounts=%d), boost KEPT "
-                    "(independent corroboration present)",
-                    ticker, len(burst_accounts),
-                )
-        elif burst_detected:
-            # Shadow-only: log the decision WITH full corroboration, do NOT apply, do NOT feed I3.
+        burst_analysis = _BurstAnalysis(
+            burst_detected=burst_detected,
+            burst_actor_ids=burst_accounts,
+            has_independent_corroboration=has_corroboration,
+            boost_gated=boost_gated,
+        )
+        if boost_gated:
+            # Gate the crowd-agreement credit. Signals are NOT dropped.
+            consensus_boost = 0
+            breakdown.consensus_boost = 0
             log.info(
-                "[E6 shadow-only] $%s burst detected (accounts=%d) would_gate=%s "
-                "corroboration(sec=%s catalyst=%s options=%s) — consensus_boost untouched",
-                ticker, len(burst_accounts), boost_gated, _e6_sec, _e6_cat, _e6_opt,
+                "[E6] $%s burst detected (accounts=%d), consensus_boost gated "
+                "(no independent corroboration)",
+                ticker, len(burst_accounts),
+            )
+        elif burst_detected:
+            log.info(
+                "[E6] $%s burst detected (accounts=%d), boost KEPT "
+                "(independent corroboration present)",
+                ticker, len(burst_accounts),
             )
 
     # -----------------------------------------------------------------

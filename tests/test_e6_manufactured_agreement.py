@@ -303,36 +303,6 @@ async def test_burst_diverse_texts_no_gate(monkeypatch):
     assert result_diverse.breakdown.consensus_boost > 0
 
 
-def _flag_shadow(monkeypatch):
-    """Force E6 into shadow-only mode: enabled OFF, shadow ON."""
-    overrides = {
-        "features.manufactured_agreement_gate.enabled": False,
-        "features.manufactured_agreement_gate.shadow": True,
-    }
-    real_get = cfg.get
-    monkeypatch.setattr(
-        cfg, "get",
-        lambda k, d=None: overrides[k] if k in overrides else real_get(k, d),
-    )
-
-
-@pytest.mark.asyncio
-async def test_shadow_mode_does_not_gate_or_feed_i3(monkeypatch):
-    """E6 shadow-only: a burst with no corroboration is DETECTED+logged but consensus_boost
-    is left untouched (no apply) and burst_analysis is NOT fed to I3 (contradiction stays 0)."""
-    _flag_shadow(monkeypatch)
-    burst = _rows_burst(3)
-    result = await _run_score(monkeypatch, burst_rows=burst, flag_e6=False, with_sec=False)
-    # Shadow must NOT gate: consensus_boost passes through consolidation's value (40), not 0.
-    assert result.breakdown.consensus_boost == 40, (
-        "Shadow mode must NOT mutate consensus_boost (truly inert)"
-    )
-    # Shadow must NOT feed burst_analysis into I3.
-    assert result.contradiction_index == 0.0, (
-        "Shadow mode must not affect the contradiction index"
-    )
-
-
 # ---------------------------------------------------------------------------
 # Layer 4: E6 -> I3 reconciliation (burst counts as ONE actor)
 # ---------------------------------------------------------------------------
