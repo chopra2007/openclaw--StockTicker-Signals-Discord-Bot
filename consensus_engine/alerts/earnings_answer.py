@@ -98,27 +98,39 @@ async def _resolve_ticker(text: str) -> tuple[str | None, str | None]:
     return None, None
 
 
-def _sync_fetch_earnings(ticker: str) -> tuple[list[date], list[date]]:
-    """Blocking yfinance lookup → (calendar dates, get_earnings_dates dates).
+def _sync_fetch_earnings(ticker: str) -> tuple[list[date], bool | None, list[date]]:
+    """Blocking yfinance lookup → (quoteSummary dates, is_estimate, get_earnings_dates dates).
 
-    Two sources because neither is reliable alone: ``Ticker.calendar`` can hold a
-    stale *past* date (seen on TLRY), while ``get_earnings_dates`` carries the
-    real upcoming row. The caller merges them and keeps the earliest future date.
+    Yahoo's quoteSummary calendarEvents carries the next earnings date(s) AND
+    ``isEarningsDateEstimate`` — the only free signal that tells a company-confirmed
+    date (MRK) from an analyst estimate (URI). ``get_earnings_dates`` is a second
+    date source: quoteSummary sometimes holds a stale *past* date (seen on TLRY)
+    while the real upcoming row is only in get_earnings_dates.
     """
     import yfinance as yf
 
     t = yf.Ticker(ticker)
-    cal_dates: list[date] = []
+    qs_dates: list[date] = []
+    is_estimate: bool | None = None
     gd_dates: list[date] = []
 
     try:
-        cal = t.calendar
-        if isinstance(cal, dict):
-            for d in cal.get("Earnings Date") or []:
-                if isinstance(d, date):
-                    cal_dates.append(d)
-    except Exception as e:  # pragma: no cover - network/library variance
-        log.debug("yfinance .calendar failed for %s: %s", ticker, e)
+        url = f"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{ticker.upper()}"
+        params = {"modules": "calendarEvents", "corsDomain": "finance.yahoo.com"}
+        raw = t._data.get_raw_json(url, params=params)
+        earn = raw["quoteSummary"]["result"][0]["calendarEvents"]["earnings"]
+        for entry in earn.get("earningsDate", []):
+            fmt = entry.get("fmt")
+            if fmt:
+                try:
+                    qs_dates.append(date.fromisoformat(fmt))
+                except ValueError:
+                    pass
+        flag = earn.get("isEarningsDateEstimate")
+        if isinstance(flag, bool):
+            is_estimate = flag
+    except Exception as e:  # pragma: no cover - network/library/internal-api variance
+        log.debug("yahoo quoteSummary failed for %s: %s", ticker, e)
 
     try:
         df = t.get_earnings_dates(limit=8)
@@ -130,36 +142,44 @@ def _sync_fetch_earnings(ticker: str) -> tuple[list[date], list[date]]:
     except Exception as e:  # pragma: no cover - network/library variance
         log.debug("yfinance get_earnings_dates failed for %s: %s", ticker, e)
 
-    return cal_dates, gd_dates
+    return qs_dates, is_estimate, gd_dates
 
 
 async def fetch_earnings_outlook(ticker: str) -> dict | None:
-    """Return {ticker, dates, days_until} for the next earnings, else None.
+    """Return {ticker, dates, days_until, confirmed} for the next earnings, else None.
 
-    `dates` is one date, or a [start, end] window when yfinance's calendar gives
-    an explicit two-date range (an unconfirmed estimate window).
+    `dates` is one date, or a [start, end] window when Yahoo gives a two-date
+    range. `confirmed` is True only when Yahoo flags the upcoming date as
+    company-confirmed (not an analyst estimate).
     """
     loop = asyncio.get_running_loop()
     try:
-        cal_dates, gd_dates = await loop.run_in_executor(None, _sync_fetch_earnings, ticker)
+        qs_dates, is_estimate, gd_dates = await loop.run_in_executor(
+            None, _sync_fetch_earnings, ticker)
     except Exception as e:  # pragma: no cover - defensive
         log.debug("earnings outlook fetch failed for %s: %s", ticker, e)
         return None
 
     today = datetime.now(timezone.utc).date()
-    cal_future = sorted({d for d in cal_dates if d >= today})
-    all_future = sorted({d for d in (cal_dates + gd_dates) if d >= today})
+    qs_future = sorted({d for d in qs_dates if d >= today})
+    all_future = sorted({d for d in (qs_dates + gd_dates) if d >= today})
     if not all_future:
         return None
 
-    if len(cal_future) >= 2 and cal_future[0] != cal_future[1]:
-        dates = cal_future[:2]  # explicit estimate window
+    if len(qs_future) >= 2 and qs_future[0] != qs_future[1]:
+        dates = qs_future[:2]          # explicit estimate window → never "confirmed"
+        confirmed = False
+    elif qs_future:
+        dates = [qs_future[0]]         # Yahoo's next date + its confirm flag
+        confirmed = is_estimate is False
     else:
-        dates = [all_future[0]]
+        dates = [all_future[0]]        # date only from get_earnings_dates → hedge
+        confirmed = False
     return {
         "ticker": ticker.upper(),
         "dates": dates,
         "days_until": (dates[0] - today).days,
+        "confirmed": confirmed,
     }
 
 
@@ -167,11 +187,11 @@ _FMT = "%A, %b %-d, %Y"  # "Wednesday, Jul 22, 2026"
 
 
 def format_earnings_answer(outlook: dict, name: str | None = None) -> str:
-    """One short, hedged sentence answering when earnings are."""
+    """One short sentence — confident when the date is company-confirmed, hedged
+    when it's only an analyst estimate."""
     tkr = outlook["ticker"]
     label = f"{name} ({tkr})" if name else tkr
     dates = outlook["dates"]
-    days = outlook["days_until"]
 
     if len(dates) >= 2 and dates[0] != dates[1]:
         d0 = dates[0].strftime("%b %-d")
@@ -182,8 +202,8 @@ def format_earnings_answer(outlook: dict, name: str | None = None) -> str:
         )
 
     d = dates[0].strftime(_FMT)
-    if days <= 7:
-        return f"📅 **{label}** reports earnings on **{d}** (per the latest analyst calendar)."
+    if outlook.get("confirmed"):
+        return f"📅 **{label}** is scheduled to report earnings on **{d}**."
     return (
         f"📅 **{label}** hasn't officially confirmed its next earnings date yet. "
         f"Analysts expect it around **{d}**."

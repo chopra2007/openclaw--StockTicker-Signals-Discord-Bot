@@ -51,16 +51,18 @@ def test_format_unconfirmed_single_date_hedges():
     assert "\n" not in msg
 
 
-def test_format_near_term_drops_estimate_language():
-    outlook = {"ticker": "NVDA", "dates": [date(2026, 8, 27)], "days_until": 3}
-    msg = ea.format_earnings_answer(outlook, name="NVIDIA Corp")
-    assert "reports earnings on" in msg
-    assert "analyst calendar" in msg
+def test_format_confirmed_date_is_definite():
+    outlook = {"ticker": "MRK", "dates": [date(2026, 8, 4)],
+               "days_until": 40, "confirmed": True}
+    msg = ea.format_earnings_answer(outlook, name="Merck & Co Inc")
+    assert "is scheduled to report earnings on" in msg
+    assert "hasn't officially confirmed" not in msg  # not hedged — it IS confirmed
+    assert "Aug" in msg and "4" in msg and "2026" in msg
 
 
 def test_format_date_range_window():
     outlook = {"ticker": "F", "dates": [date(2026, 7, 22), date(2026, 7, 29)],
-               "days_until": 27}
+               "days_until": 27, "confirmed": False}
     msg = ea.format_earnings_answer(outlook)
     assert msg.startswith("📅 **F**")  # no name → ticker only
     assert "between" in msg
@@ -69,81 +71,102 @@ def test_format_date_range_window():
 
 # --- yfinance fetch logic (mocked) ------------------------------------------
 
-class _FakeTicker:
-    def __init__(self, calendar=None, earnings_df=None):
-        self._calendar = calendar
-        self._df = earnings_df
+class _FakeData:
+    """Stands in for yfinance Ticker._data — returns a quoteSummary-shaped dict."""
+    def __init__(self, dates_fmt, is_estimate):
+        self._dates_fmt = dates_fmt
+        self._is_estimate = is_estimate
 
-    @property
-    def calendar(self):
-        if self._calendar is None:
-            raise RuntimeError("no calendar")
-        return self._calendar
+    def get_raw_json(self, url, params=None):
+        return {"quoteSummary": {"result": [{"calendarEvents": {"earnings": {
+            "earningsDate": [{"fmt": f} for f in self._dates_fmt],
+            "isEarningsDateEstimate": self._is_estimate,
+        }}}]}}
+
+
+class _FakeTicker:
+    def __init__(self, qs=None, earnings_df=None):
+        # qs = (list_of_fmt_strings, is_estimate) or None to simulate a failure
+        self._data = _FakeData(*qs) if qs is not None else None
+        self._df = earnings_df
 
     def get_earnings_dates(self, limit=12):
         return self._df
 
 
 @pytest.mark.asyncio
-async def test_fetch_outlook_from_calendar(monkeypatch):
+async def test_fetch_outlook_confirmed(monkeypatch):
     import yfinance
-    cal = {"Earnings Date": [date(2099, 7, 22)], "Earnings Average": 11.5}
-    monkeypatch.setattr(yfinance, "Ticker", lambda t: _FakeTicker(calendar=cal))
-    out = await ea.fetch_earnings_outlook("URI")
+    monkeypatch.setattr(yfinance, "Ticker",
+                        lambda t: _FakeTicker(qs=(["2099-08-04"], False)))
+    out = await ea.fetch_earnings_outlook("MRK")
     assert out is not None
-    assert out["ticker"] == "URI"
+    assert out["dates"] == [date(2099, 8, 4)]
+    assert out["confirmed"] is True
+
+
+@pytest.mark.asyncio
+async def test_fetch_outlook_estimate(monkeypatch):
+    import yfinance
+    monkeypatch.setattr(yfinance, "Ticker",
+                        lambda t: _FakeTicker(qs=(["2099-07-22"], True)))
+    out = await ea.fetch_earnings_outlook("URI")
     assert out["dates"] == [date(2099, 7, 22)]
+    assert out["confirmed"] is False
 
 
 @pytest.mark.asyncio
 async def test_fetch_outlook_past_only_returns_none(monkeypatch):
     import yfinance
-    cal = {"Earnings Date": [date(2000, 1, 1)], "Earnings Average": 1.0}
-    monkeypatch.setattr(yfinance, "Ticker", lambda t: _FakeTicker(calendar=cal))
+    monkeypatch.setattr(yfinance, "Ticker",
+                        lambda t: _FakeTicker(qs=(["2000-01-01"], False)))
     out = await ea.fetch_earnings_outlook("URI")
     assert out is None
 
 
 @pytest.mark.asyncio
-async def test_fetch_outlook_falls_back_to_get_earnings_dates(monkeypatch):
+async def test_fetch_outlook_stale_quotesummary_uses_get_earnings_dates(monkeypatch):
+    """The TLRY case: quoteSummary holds a past confirmed date; the real upcoming
+    date is only in get_earnings_dates and must win — and stays hedged."""
     import yfinance
     import pandas as pd
-    df = pd.DataFrame(
-        {"EPS Estimate": [11.57, 8.94], "Reported EPS": [float("nan"), 9.71]},
-        index=pd.to_datetime(["2099-07-22 16:00:00", "2026-04-22 16:00:00"]),
-    )
-    # calendar=None → property raises → get_earnings_dates supplies the date
-    monkeypatch.setattr(yfinance, "Ticker", lambda t: _FakeTicker(calendar=None, earnings_df=df))
-    out = await ea.fetch_earnings_outlook("URI")
-    assert out is not None
-    assert out["dates"] == [date(2099, 7, 22)]
-
-
-@pytest.mark.asyncio
-async def test_fetch_outlook_stale_calendar_uses_get_earnings_dates(monkeypatch):
-    """The TLRY case: calendar holds a past date; the real upcoming date is in
-    get_earnings_dates and must win."""
-    import yfinance
-    import pandas as pd
-    cal = {"Earnings Date": [date(2000, 1, 1)]}  # stale past date
     df = pd.DataFrame(
         {"EPS Estimate": [float("nan")], "Reported EPS": [float("nan")]},
         index=pd.to_datetime(["2099-07-28 08:00:00"]),
     )
-    monkeypatch.setattr(yfinance, "Ticker", lambda t: _FakeTicker(calendar=cal, earnings_df=df))
+    monkeypatch.setattr(yfinance, "Ticker",
+                        lambda t: _FakeTicker(qs=(["2000-01-01"], False), earnings_df=df))
     out = await ea.fetch_earnings_outlook("TLRY")
     assert out is not None
     assert out["dates"] == [date(2099, 7, 28)]
+    assert out["confirmed"] is False  # date came from get_earnings_dates → hedge
 
 
 @pytest.mark.asyncio
-async def test_fetch_outlook_calendar_window(monkeypatch):
-    """Two future calendar dates → an estimate window."""
+async def test_fetch_outlook_quotesummary_fails_falls_back(monkeypatch):
+    """quoteSummary unavailable → date still comes from get_earnings_dates, hedged."""
     import yfinance
-    cal = {"Earnings Date": [date(2099, 7, 22), date(2099, 7, 29)]}
-    monkeypatch.setattr(yfinance, "Ticker", lambda t: _FakeTicker(calendar=cal))
+    import pandas as pd
+    df = pd.DataFrame(
+        {"EPS Estimate": [float("nan")], "Reported EPS": [float("nan")]},
+        index=pd.to_datetime(["2099-07-22 16:00:00"]),
+    )
+    monkeypatch.setattr(yfinance, "Ticker",
+                        lambda t: _FakeTicker(qs=None, earnings_df=df))
+    out = await ea.fetch_earnings_outlook("URI")
+    assert out["dates"] == [date(2099, 7, 22)]
+    assert out["confirmed"] is False
+
+
+@pytest.mark.asyncio
+async def test_fetch_outlook_window(monkeypatch):
+    """Two future quoteSummary dates → an estimate window, never confirmed."""
+    import yfinance
+    monkeypatch.setattr(yfinance, "Ticker",
+                        lambda t: _FakeTicker(qs=(["2099-07-22", "2099-07-29"], True)))
     out = await ea.fetch_earnings_outlook("X")
     assert out["dates"] == [date(2099, 7, 22), date(2099, 7, 29)]
+    assert out["confirmed"] is False
 
 
 # --- end-to-end intercept (mocked deps) -------------------------------------
