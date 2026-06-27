@@ -921,7 +921,6 @@ def _build_options_embed(ticker: str, result, top) -> dict:
             "description": "No standout single-contract activity on the latest session.",
             "color": color,
             "fields": [flow_field],
-            "footer": {"text": "Free ~15-min-delayed chain data"},
         }
 
     arrow = "🟢" if top.side == "CALL" else "🔴"
@@ -958,7 +957,7 @@ def _build_options_embed(ticker: str, result, top) -> dict:
         "description": desc,
         "color": color,
         "fields": fields,
-        "footer": {"text": "Free ~15-min-delayed chain data · vol/OI = today's volume ÷ open interest"},
+        "footer": {"text": "vol/OI = today's volume ÷ open interest"},
     }
 
 
