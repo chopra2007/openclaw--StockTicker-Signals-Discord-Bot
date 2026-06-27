@@ -225,9 +225,9 @@ def _scan_chain_for_flow(
         if df is None or getattr(df, "empty", True):
             continue
         for _, row in df.iterrows():
-            vol = float(row.get("volume", 0) or 0)
-            oi = float(row.get("openInterest", 0) or 0)
-            last_price = float(row.get("lastPrice", 0) or 0)
+            _v = row.get("volume", 0); vol = float(_v if _v == _v else 0)
+            _o = row.get("openInterest", 0); oi = float(_o if _o == _o else 0)
+            _p = row.get("lastPrice", 0); last_price = float(_p if _p == _p else 0)
             if oi <= 0 or vol < min_volume:
                 continue
             ratio = vol / oi

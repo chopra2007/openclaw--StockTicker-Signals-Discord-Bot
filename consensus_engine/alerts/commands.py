@@ -849,7 +849,7 @@ async def _handle_options(ticker: str, channel_id: str, message_id: str) -> None
 
 async def _options_and_reply(ticker: str, channel_id: str, message_id: str) -> None:
     try:
-        from consensus_engine.scanners.options import check_unusual_options
+        from consensus_engine.scanners.options import check_unusual_options, scan_options_flow
         result = await check_unusual_options(ticker, executor=None)
         if not result:
             await send_command_reply(channel_id, message_id, f"No options data available for `${ticker}`.")
@@ -862,8 +862,30 @@ async def _options_and_reply(ticker: str, channel_id: str, message_id: str) -> N
             lines.append(f"Unusual PUTS — max vol/OI ratio: **{result.max_put_ratio:.1f}x**")
         if not result.has_unusual_activity:
             lines.append("No unusual activity detected.")
-        if result.top_contract:
-            lines.append(f"Top contract: `{result.top_contract}`")
+
+        # Show the highest vol/OI contract in the same rich format as the flow alert.
+        # Use permissive thresholds (no premium floor, no staleness gate) since this
+        # is an on-demand lookup, not an autonomous alert.
+        hits = await scan_options_flow(
+            [ticker], executor=None,
+            min_vol_oi=0.01, min_volume=1, min_premium=0,
+            max_staleness_min=0, nearest_expirations=2,
+        )
+        hits.sort(key=lambda h: h.vol_oi_ratio, reverse=True)
+        if hits:
+            top = hits[0]
+            direction = "🟢 BULLISH" if top.side == "CALL" else "🔴 BEARISH"
+            prem_m = top.premium_usd / 1_000_000.0
+            spot_txt = f" | spot ${top.spot:,.2f}" if top.spot else ""
+            lines.append("")
+            lines.append("**Highest Vol/OI Contract:**")
+            lines.append(f"{direction} **{top.side}** {top.expiry} ${top.strike:g} strike{spot_txt}")
+            lines.append(
+                f"Volume **{top.volume:,}** vs OI {top.open_interest:,} "
+                f"(**{top.vol_oi_ratio:.1f}x** — fresh positioning) | "
+                f"premium **${prem_m:.2f}M**"
+            )
+
         await send_command_reply(channel_id, message_id, "\n".join(lines))
     except Exception as e:
         log.error("Options command error for %s: %s", ticker, e)
