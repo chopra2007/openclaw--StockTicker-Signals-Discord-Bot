@@ -119,6 +119,8 @@ def _detect_unusual_activity(chain) -> OptionsResult:
         premium_notional=round(premium_notional, 2),
         dominant_side=dominant_side,
         dominant_last_trade_ts=dominant_last_trade_ts,
+        total_call_vol=total_call_vol,
+        total_put_vol=total_put_vol,
     )
 
 

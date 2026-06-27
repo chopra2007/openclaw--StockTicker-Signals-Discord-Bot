@@ -881,29 +881,46 @@ def _pick_top_current_day_contract(hits: list):
     return max(pool, key=lambda h: h.vol_oi_ratio)
 
 
+def _flow_bar(call_vol: float, put_vol: float, width: int = 12) -> tuple:
+    """Call/put VOLUME split as (call_pct, put_pct, bar). Replaces the raw
+    put/call ratio with an intuitive 'which side traded more, by how much'
+    read: 50/50 = even, the filled portion = the call share."""
+    total = call_vol + put_vol
+    if total <= 0:
+        return 0, 0, ""
+    call_pct = round(call_vol / total * 100)
+    filled = max(0, min(width, round(call_vol / total * width)))
+    bar = "█" * filled + "░" * (width - filled)
+    return call_pct, 100 - call_pct, bar
+
+
 def _build_options_embed(ticker: str, result, top) -> dict:
     """Glanceable !options embed: headline = the single most unusual contract
-    (highest vol/OI on the latest session), plus the day's put/call balance."""
-    # Colour follows the day's PUT/CALL VOLUME BALANCE (a robust aggregate of
-    # all flow), NOT the single headline contract — otherwise one cheap far-OTM
-    # lotto print could paint the whole card red while the real flow is balanced.
-    pc = result.put_call_ratio
-    if pc <= 0:
-        pc_read, color = "no call volume", 0xF1C40F  # gold / neutral
-    elif pc > 1.2:
-        pc_read, color = "puts leading 🔴", 0xE74C3C  # vivid red
-    elif pc < 0.83:
-        pc_read, color = "calls leading 🟢", 0x2ECC71  # vivid green
+    (highest vol/OI on the latest session), plus the day's call-vs-put split."""
+    # Colour + headline both follow the day's CALL-vs-PUT VOLUME SPLIT (a robust
+    # aggregate of all flow), NOT the single headline contract — otherwise one
+    # cheap far-OTM lotto print could paint the whole card red while flow is even.
+    call_vol, put_vol = result.total_call_vol, result.total_put_vol
+    total_vol = call_vol + put_vol
+    call_pct, put_pct, bar = _flow_bar(call_vol, put_vol)
+    share = (call_vol / total_vol) if total_vol > 0 else 0.5
+    if total_vol <= 0:
+        color = 0xF1C40F  # gold / neutral
+        flow_field = {"name": "Call vs Put flow", "value": "No call or put volume yet today.", "inline": False}
     else:
-        pc_read, color = "balanced ⚖️", 0xF1C40F  # gold / neutral
-    pc_field = {"name": "Put / Call (volume)", "value": f"**{pc:.2f}** · {pc_read}", "inline": True}
+        color = 0x2ECC71 if share >= 0.55 else 0xE74C3C if share <= 0.45 else 0xF1C40F
+        flow_field = {
+            "name": "Call vs Put flow  (today's volume)",
+            "value": f"🟢 **Calls {call_pct}%**  `{bar}`  **{put_pct}% Puts** 🔴",
+            "inline": False,
+        }
 
     if top is None:
         return {
             "title": f"📊  ${ticker} — Unusual Options",
             "description": "No standout single-contract activity on the latest session.",
             "color": color,
-            "fields": [pc_field],
+            "fields": [flow_field],
             "footer": {"text": "Free ~15-min-delayed chain data"},
         }
 
@@ -927,7 +944,7 @@ def _build_options_embed(ticker: str, result, top) -> dict:
         f"🕒 Last trade **{_fmt_opt_pt(top.last_trade_ts)}**"
     )
 
-    fields = [pc_field]
+    fields = [flow_field]
     unusual = []
     if result.max_call_ratio >= 3:
         unusual.append(f"calls {result.max_call_ratio:.0f}×")

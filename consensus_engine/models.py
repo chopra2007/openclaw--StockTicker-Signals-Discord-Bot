@@ -333,6 +333,8 @@ class OptionsResult:
     dominant_side: str = ""       # I6: "call"/"put"/"" — dominant flow side (ambiguous -> "")
     horizon: str = ""             # I6: intraday/1-2d horizon attribute on the contribution
     dominant_last_trade_ts: float = 0.0  # I6: epoch of dominant contract's last trade (staleness gate)
+    total_call_vol: float = 0.0   # total call contracts traded (nearest expiry) — for the call/put split bar
+    total_put_vol: float = 0.0    # total put contracts traded (nearest expiry) — for the call/put split bar
 
     @property
     def has_unusual_activity(self) -> bool:
