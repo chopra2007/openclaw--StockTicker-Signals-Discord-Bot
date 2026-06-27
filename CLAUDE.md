@@ -6,12 +6,7 @@ User is not a coder. See global CLAUDE.md for the full rule. Short version: plai
 
 ## Timezone — PDT only (hard rule)
 
-The user's timezone is **PDT (Pacific)**. Absolute, every session, no exceptions:
-
-- **Never mention Eastern / "ET" to the user** — not in chat, not in explanations, not in examples. Communicate **every** time in PDT. The user has corrected this across many sessions; do not slip.
-- The bot's user-facing output and schedules are PDT too. The weekend pause runs **Friday 3 PM PDT → Sunday 3 PM PDT** (`consensus_engine/main.py`, Pacific `PT = ZoneInfo("America/Los_Angeles")`). Health alerts, the `!all` quote footer, and the `!ask` / @mention time context all display PDT.
-- Internal US-market mechanics may track the exchange's own session, but **never surface that zone to the user** — express market hours as **6:30 AM – 1:00 PM PDT** (regular session).
-- Any new time-related feature defaults to `ZoneInfo("America/Los_Angeles")` — never a hardcoded Eastern offset or `"ET"` label.
+User's timezone is **PDT (Pacific)**. Never show or mention "ET"/Eastern anywhere (chat, alerts, examples, bot output) — all times in PDT. Weekend pause = **Fri 3 PM → Sun 3 PM PDT** (`main.py`, `PT = ZoneInfo("America/Los_Angeles")`); market hours = **6:30 AM–1 PM PDT** (internal NYSE logic may stay Eastern but must never surface). New time code → `ZoneInfo("America/Los_Angeles")`, never a fixed offset or `"ET"` label.
 
 ## Communication Discipline
 
