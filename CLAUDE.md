@@ -6,7 +6,7 @@ User is not a coder. See global CLAUDE.md for the full rule. Short version: plai
 
 ## Timezone — PDT only (hard rule)
 
-User's timezone is **PDT (Pacific)**. Never show or mention "ET"/Eastern anywhere (chat, alerts, examples, bot output) — all times in PDT. Weekend pause = **Fri 3 PM → Sun 3 PM PDT** (`main.py`, `PT = ZoneInfo("America/Los_Angeles")`); market hours = **6:30 AM–1 PM PDT** (internal NYSE logic may stay Eastern but must never surface). New time code → `ZoneInfo("America/Los_Angeles")`, never a fixed offset or `"ET"` label.
+User's timezone is **PDT (Pacific)**. Never show or mention "ET"/Eastern anywhere (chat, alerts, examples, bot output) — all times in PDT. (internal NYSE logic may stay Eastern but must never surface). New time code → `ZoneInfo("America/Los_Angeles")`, never a fixed offset or `"ET"` label.
 
 ## Communication Discipline
 
