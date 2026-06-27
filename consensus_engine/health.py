@@ -411,7 +411,7 @@ async def _check_feed_freshness() -> None:
                 f"(last ingest {last_dt}, threshold {max_age:.0f}h).{auth_hint}"
             )
             await _post_to_discord(msg)
-            state[feed_id] = {"first_seen": datetime.now(tz=_PT).strftime("%Y-%m-%d %H:%M ET"),
+            state[feed_id] = {"first_seen": datetime.now(tz=_PT).strftime("%Y-%m-%d %H:%M %Z"),
                               "last_ingest": last_dt}
             _write_feed_outage_state(state)
         else:

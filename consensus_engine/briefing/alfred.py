@@ -13,7 +13,8 @@ from consensus_engine.utils.http import get_session
 from consensus_engine import db
 from consensus_engine.alerts.discord import _safe_send_kwargs
 
-_ET = ZoneInfo("America/New_York")
+_ET = ZoneInfo("America/New_York")        # internal: market-session scheduling only (never shown to the user)
+_PT = ZoneInfo("America/Los_Angeles")     # display: all user-facing timestamps are PDT
 
 log = logging.getLogger("consensus_engine.briefing.alfred")
 
@@ -106,7 +107,7 @@ async def _llm_synthesize(prompt: str) -> str:
 
 def _fallback_render(data: dict) -> str:
     lines = ["## Morning Brief",
-             f"_{datetime.now(tz=_ET).strftime('%Y-%m-%d %H:%M ET')}_", ""]
+             f"_{datetime.now(tz=_PT).strftime('%Y-%m-%d %H:%M %Z')}_", ""]
     if data["alerts"]:
         lines.append("**Overnight alerts:**")
         for a in data["alerts"][:10]:

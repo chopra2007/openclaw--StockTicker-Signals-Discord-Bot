@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 
 log = logging.getLogger("consensus_engine.research.vault")
 
-ET = ZoneInfo("America/New_York")
+PT = ZoneInfo("America/Los_Angeles")  # display-only: research-note timestamps are PDT
 _ORDER = [("analyst", "Analyst Signals (TweetShift)"),
           ("sec", "Earnings & SEC"),
           ("news", "News (last 12h)")]
@@ -27,7 +27,7 @@ def _section_body(section: dict | None) -> tuple[str, bool]:
 
 
 def render_ticker_markdown(ticker: str, sections: dict) -> str:
-    now_et = datetime.now(tz=ET).strftime("%Y-%m-%d %H:%M ET")
+    now_et = datetime.now(tz=PT).strftime("%Y-%m-%d %H:%M %Z")
     flags = []
     for key, _ in _ORDER:
         s = sections.get(key)
