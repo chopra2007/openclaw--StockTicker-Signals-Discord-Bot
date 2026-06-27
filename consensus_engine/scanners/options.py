@@ -61,8 +61,10 @@ def _detect_unusual_activity(chain) -> OptionsResult:
 
     if calls is not None and not calls.empty:
         for _, row in calls.iterrows():
-            vol = float(row.get("volume", 0) or 0)
-            oi = float(row.get("openInterest", 0) or 0)
+            # NaN guard (v == v): numpy NaN is truthy, so `nan or 0` stays NaN
+            # and poisons total_call_vol -> put_call_ratio comes out NaN -> 0.00.
+            _v = row.get("volume", 0); vol = float(_v if _v == _v else 0)
+            _o = row.get("openInterest", 0); oi = float(_o if _o == _o else 0)
             total_call_vol += vol
             if vol < _MIN_VOLUME or oi == 0:
                 continue
@@ -72,15 +74,15 @@ def _detect_unusual_activity(chain) -> OptionsResult:
                 top_contract = str(row.get("contractSymbol", ""))
             if ratio >= _UNUSUAL_RATIO_THRESHOLD:
                 unusual_calls = True
-                premium = float(row.get("lastPrice", 0) or 0) * vol * 100.0
+                _p = row.get("lastPrice", 0); premium = float(_p if _p == _p else 0) * vol * 100.0
                 if premium > dom_call_premium:
                     dom_call_premium = premium
                     dom_call_ts = _ts_to_epoch(row.get("lastTradeDate"))
 
     if puts is not None and not puts.empty:
         for _, row in puts.iterrows():
-            vol = float(row.get("volume", 0) or 0)
-            oi = float(row.get("openInterest", 0) or 0)
+            _v = row.get("volume", 0); vol = float(_v if _v == _v else 0)
+            _o = row.get("openInterest", 0); oi = float(_o if _o == _o else 0)
             total_put_vol += vol
             if vol < _MIN_VOLUME or oi == 0:
                 continue
@@ -89,7 +91,7 @@ def _detect_unusual_activity(chain) -> OptionsResult:
                 max_put_ratio = ratio
             if ratio >= _UNUSUAL_RATIO_THRESHOLD:
                 unusual_puts = True
-                premium = float(row.get("lastPrice", 0) or 0) * vol * 100.0
+                _p = row.get("lastPrice", 0); premium = float(_p if _p == _p else 0) * vol * 100.0
                 if premium > dom_put_premium:
                     dom_put_premium = premium
                     dom_put_ts = _ts_to_epoch(row.get("lastTradeDate"))

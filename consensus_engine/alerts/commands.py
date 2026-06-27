@@ -26,6 +26,7 @@ import logging
 import re
 from datetime import datetime
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from consensus_engine import config as cfg, db
 from consensus_engine.alerts.discord import send_command_reply, send_command_embed_reply
@@ -847,6 +848,103 @@ async def _handle_options(ticker: str, channel_id: str, message_id: str) -> None
     await _dispatch_inner(_options_and_reply(ticker, channel_id, message_id))
 
 
+_OPT_PT = ZoneInfo("America/Los_Angeles")
+
+
+def _fmt_opt_pt(ts: float) -> str:
+    """Epoch -> 'Fri Jun 26, 12:59 PM PDT' in Pacific time (%Z auto PDT/PST)."""
+    if not ts:
+        return "—"
+    return datetime.fromtimestamp(ts, _OPT_PT).strftime("%a %b %-d, %-I:%M %p %Z")
+
+
+def _pick_top_current_day_contract(hits: list):
+    """Pick the highest vol/OI contract from the MOST RECENT trading session.
+
+    yfinance hands back every listed contract regardless of when it last traded,
+    so we first keep only those whose last trade lands on the latest session
+    present in the data (today during market hours, the prior session otherwise),
+    then take the highest vol/OI within that day. Guarantees the highlighted
+    contract reflects current activity, not a stale high-ratio strike."""
+    dated = [h for h in hits if h.last_trade_ts]
+    pool = hits
+    if dated:
+        latest_day = max(
+            datetime.fromtimestamp(h.last_trade_ts, _OPT_PT).date() for h in dated
+        )
+        pool = [
+            h for h in dated
+            if datetime.fromtimestamp(h.last_trade_ts, _OPT_PT).date() == latest_day
+        ]
+    if not pool:
+        return None
+    return max(pool, key=lambda h: h.vol_oi_ratio)
+
+
+def _build_options_embed(ticker: str, result, top) -> dict:
+    """Glanceable !options embed: headline = the single most unusual contract
+    (highest vol/OI on the latest session), plus the day's put/call balance."""
+    # Colour follows the day's PUT/CALL VOLUME BALANCE (a robust aggregate of
+    # all flow), NOT the single headline contract — otherwise one cheap far-OTM
+    # lotto print could paint the whole card red while the real flow is balanced.
+    pc = result.put_call_ratio
+    if pc <= 0:
+        pc_read, color = "no call volume", 0xF1C40F  # gold / neutral
+    elif pc > 1.2:
+        pc_read, color = "puts leading 🔴", 0xE74C3C  # vivid red
+    elif pc < 0.83:
+        pc_read, color = "calls leading 🟢", 0x2ECC71  # vivid green
+    else:
+        pc_read, color = "balanced ⚖️", 0xF1C40F  # gold / neutral
+    pc_field = {"name": "Put / Call (volume)", "value": f"**{pc:.2f}** · {pc_read}", "inline": True}
+
+    if top is None:
+        return {
+            "title": f"📊  ${ticker} — Unusual Options",
+            "description": "No standout single-contract activity on the latest session.",
+            "color": color,
+            "fields": [pc_field],
+            "footer": {"text": "Free ~15-min-delayed chain data"},
+        }
+
+    arrow = "🟢" if top.side == "CALL" else "🔴"
+    try:
+        exp_txt = datetime.strptime(top.expiry, "%Y-%m-%d").strftime("%b %-d")
+    except ValueError:
+        exp_txt = top.expiry
+    ratio_txt = f"{top.vol_oi_ratio:.0f}×" if top.vol_oi_ratio >= 10 else f"{top.vol_oi_ratio:.1f}×"
+    if top.premium_usd >= 1_000_000:
+        prem_txt = f"~${top.premium_usd / 1_000_000:.1f}M"
+    else:
+        prem_txt = f"~${top.premium_usd / 1_000:.0f}K"
+    spot_txt = f"  ·  spot ${top.spot:,.2f}" if top.spot else ""
+
+    desc = (
+        f"**🔥 Highest vol/OI contract**\n"
+        f"{arrow}  **{top.side}** · {exp_txt} · ${top.strike:g} strike\n"
+        f"**{ratio_txt} vol/OI** — {top.volume:,} traded vs {top.open_interest:,} open\n"
+        f"💰 {prem_txt} premium{spot_txt}\n"
+        f"🕒 Last trade **{_fmt_opt_pt(top.last_trade_ts)}**"
+    )
+
+    fields = [pc_field]
+    unusual = []
+    if result.max_call_ratio >= 3:
+        unusual.append(f"calls {result.max_call_ratio:.0f}×")
+    if result.max_put_ratio >= 3:
+        unusual.append(f"puts {result.max_put_ratio:.0f}×")
+    if unusual:
+        fields.append({"name": "Unusual vol/OI", "value": " · ".join(unusual), "inline": True})
+
+    return {
+        "title": f"📊  ${ticker} — Unusual Options",
+        "description": desc,
+        "color": color,
+        "fields": fields,
+        "footer": {"text": "Free ~15-min-delayed chain data · vol/OI = today's volume ÷ open interest"},
+    }
+
+
 async def _options_and_reply(ticker: str, channel_id: str, message_id: str) -> None:
     try:
         from consensus_engine.scanners.options import check_unusual_options, scan_options_flow
@@ -854,39 +952,20 @@ async def _options_and_reply(ticker: str, channel_id: str, message_id: str) -> N
         if not result:
             await send_command_reply(channel_id, message_id, f"No options data available for `${ticker}`.")
             return
-        lines = [f"**Options Flow — ${ticker}**"]
-        lines.append(f"Put/Call ratio: **{result.put_call_ratio:.2f}**")
-        if result.unusual_calls:
-            lines.append(f"Unusual CALLS — max vol/OI ratio: **{result.max_call_ratio:.1f}x**")
-        if result.unusual_puts:
-            lines.append(f"Unusual PUTS — max vol/OI ratio: **{result.max_put_ratio:.1f}x**")
-        if not result.has_unusual_activity:
-            lines.append("No unusual activity detected.")
 
-        # Show the highest vol/OI contract in the same rich format as the flow alert.
-        # Use permissive thresholds (no premium floor, no staleness gate) since this
-        # is an on-demand lookup, not an autonomous alert.
+        # Find the highest vol/OI contract. Permissive thresholds (no premium
+        # floor, no staleness gate) since this is an on-demand lookup — the
+        # current-day filter below, not a staleness gate, picks the live session.
+        # min_volume=100 drops 1-lot noise so the highlight is real activity.
         hits = await scan_options_flow(
             [ticker], executor=None,
-            min_vol_oi=0.01, min_volume=1, min_premium=0,
+            min_vol_oi=0.01, min_volume=100, min_premium=0,
             max_staleness_min=0, nearest_expirations=2,
         )
-        hits.sort(key=lambda h: h.vol_oi_ratio, reverse=True)
-        if hits:
-            top = hits[0]
-            direction = "🟢 BULLISH" if top.side == "CALL" else "🔴 BEARISH"
-            prem_m = top.premium_usd / 1_000_000.0
-            spot_txt = f" | spot ${top.spot:,.2f}" if top.spot else ""
-            lines.append("")
-            lines.append("**Highest Vol/OI Contract:**")
-            lines.append(f"{direction} **{top.side}** {top.expiry} ${top.strike:g} strike{spot_txt}")
-            lines.append(
-                f"Volume **{top.volume:,}** vs OI {top.open_interest:,} "
-                f"(**{top.vol_oi_ratio:.1f}x** — fresh positioning) | "
-                f"premium **${prem_m:.2f}M**"
-            )
+        top = _pick_top_current_day_contract(hits)
 
-        await send_command_reply(channel_id, message_id, "\n".join(lines))
+        embed = _build_options_embed(ticker, result, top)
+        await send_command_embed_reply(channel_id, message_id, embed)
     except Exception as e:
         log.error("Options command error for %s: %s", ticker, e)
         await send_command_reply(channel_id, message_id, f"Options lookup failed for `${ticker}`.")
