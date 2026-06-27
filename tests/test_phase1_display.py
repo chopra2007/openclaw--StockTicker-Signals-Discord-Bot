@@ -203,11 +203,12 @@ def test_i14_display_cold_start_warming_up(monkeypatch):
     assert "elevated" not in regime_field["value"]
 
 
-def test_i14_display_elevated_renders_label_and_z(monkeypatch):
-    """Flag ON + a real regime → '🟡 Market stress: 60/100 (elevated, z=0.8)'.
+def test_i14_display_elevated_renders_label_no_z(monkeypatch):
+    """Flag ON + a real regime → '🟡 Market stress: 60/100 (elevated)'.
 
-    #46: the line is reframed onto a 0-100 'market stress' scale, but the label
-    and native z are kept (in parens) so existing substring asserts still hold.
+    #46: the line is reframed onto a 0-100 'market stress' scale. The native
+    z-score was trimmed (2026-06-26, user request) — it's unreadable at a glance
+    and the 0-100 stress number already conveys it. Label kept, z removed.
     """
     _force(monkeypatch, {"features.regime_context_line.enabled": True})
     xref = _xref()
@@ -226,7 +227,7 @@ def test_i14_display_elevated_renders_label_and_z(monkeypatch):
     embed = format_detail_followup(xref, precision)
     regime_field = next(f for f in embed["fields"] if f["name"] == "Regime")
     assert "elevated" in regime_field["value"]
-    assert "z=0.8" in regime_field["value"]
+    assert "z=" not in regime_field["value"]   # z trimmed 2026-06-26 (user request)
     # #46: reframed onto the unified 0-100 market-stress scale.
     assert "Market stress" in regime_field["value"]
     assert "/100" in regime_field["value"]

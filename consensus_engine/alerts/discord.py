@@ -468,7 +468,7 @@ def format_detail_followup(xref: CrossReferenceResult, precision: Optional[dict]
             stress = regime_stress(regime.z_score)
             regime_text = (
                 f"{regime_emoji(regime.label)} Market stress: {stress}/100 "
-                f"({regime.label}, z={regime.z_score:.1f})"
+                f"({regime.label})"
             )
         fields.append({"name": "Regime", "value": regime_text, "inline": False})
 
