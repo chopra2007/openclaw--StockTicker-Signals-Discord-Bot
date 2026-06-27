@@ -304,11 +304,12 @@ async def alfred_loop(stop_event) -> None:
         return
 
     while not stop_event.is_set():
-        now_et = datetime.now(tz=_ET)
-        window = list(cfg.get("alfred.post_window_et", ["08:50", "09:00"]) or [])
+        now_et = datetime.now(tz=_ET)   # internal: the trading day is the exchange's
+        now_pt = datetime.now(tz=_PT)   # the post window is configured in the user's time (PDT)
+        window = list(cfg.get("alfred.post_window_pdt", ["05:50", "06:00"]) or [])
         is_trading = now_et.weekday() < 5 and not is_market_holiday(now_et)
 
-        if is_trading and _in_post_window(now_et, window):
+        if is_trading and _in_post_window(now_pt, window):
             start, end, session_key = current_et_session(now_et)
             run = await db.get_briefing_run(session_key)
             if not run or run["status"] != "archived":

@@ -689,7 +689,7 @@ atlas:
 alfred:
   enabled: true                        # verified dry-run 2026-04-22
   channel_id: "$DISCORD_BRIEFING_CHANNEL_ID"
-  post_window_et: ["08:50", "09:00"]
+  post_window_pdt: ["05:50", "06:00"]  # 5:50–6:00am PDT — pre-market brief (same moment as the old 08:50–09:00 market-clock window)
   market_holidays: []
 
 # Daily LLM-chain health probe — checks every model in llm.fallback_models
