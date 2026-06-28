@@ -10,7 +10,48 @@
 set -e
 
 LOG=/tmp/pytest-prepush.log
-BASELINE="$(git rev-parse --show-toplevel)/.test-baseline"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+BASELINE="$REPO_ROOT/.test-baseline"
+
+# --- Clean-install resolution gate ---------------------------------------
+# The test suite below runs in an ALREADY-satisfied venv, so an unsatisfiable
+# pin (e.g. a version string that no published release matches) passes here but
+# turns CI red — CI does a fresh `pip install` from a clean index. This catches
+# that class before the push, but ONLY when a requirements file actually
+# changed, so ordinary code pushes stay fast.
+#   Real case it would have caught: `mplfinance>=0.12.10` when only pre-release
+#   builds (…b0) exist — `0.12.10b0 < 0.12.10`, so the pin matched nothing and
+#   reddened CI for two days while every local push stayed green.
+REQ_FILES="requirements.txt requirements-dev.txt"
+if git rev-parse --verify -q origin/master >/dev/null \
+   && ! git diff --quiet origin/master -- $REQ_FILES 2>/dev/null; then
+    echo "[pre-push] requirements changed — checking they resolve from a clean index..."
+    RESOLVE_LOG=/tmp/pip-resolve-prepush.log
+    RESOLVE_TMP="$(mktemp -d)"
+    # pip 22.0.2 has no --dry-run; `download --no-deps` resolves the DIRECT pins
+    # (no transitive download) and is the lightest clean-resolution probe here.
+    # `|| true` keeps pip's exit code from tripping `set -e`; we classify below.
+    python3 -m pip download --no-deps -r "$REPO_ROOT/requirements-dev.txt" \
+        -d "$RESOLVE_TMP" > "$RESOLVE_LOG" 2>&1 || true
+    rm -rf "$RESOLVE_TMP"
+    if grep -qiE 'No matching distribution|Could not find a version|ResolutionImpossible' "$RESOLVE_LOG"; then
+        echo ""
+        echo "[pre-push] BLOCKED — a requirement can't be installed from a clean index:"
+        grep -iE 'No matching distribution|Could not find a version|ResolutionImpossible' "$RESOLVE_LOG" | sed 's/^/  /'
+        echo ""
+        echo "Passes locally (your venv already has it) but reddens CI on a fresh install."
+        echo "Fix the pin in requirements*.txt — e.g. a pre-release needs an explicit b0/a0/rc1 suffix."
+        echo "Full log: $RESOLVE_LOG"
+        exit 1
+    fi
+    # Any other pip failure (network, index down) is NOT a reason to block a push.
+    if [ -s "$RESOLVE_LOG" ] && grep -qiE '^ERROR|^WARNING: Retrying' "$RESOLVE_LOG"; then
+        echo "[pre-push] WARN — couldn't fully verify resolution (network/index?); continuing. Log: $RESOLVE_LOG"
+    else
+        echo "[pre-push] OK — requirements resolve from a clean index."
+    fi
+fi
+# -------------------------------------------------------------------------
 
 echo "[pre-push] running regression suite (parallel: 2 workers)..."
 # -n 2 (pytest-xdist): ~1.75x faster (~3:33 -> ~2:00) and verified to leave the
