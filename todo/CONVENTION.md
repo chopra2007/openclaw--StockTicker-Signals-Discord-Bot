@@ -47,6 +47,12 @@ No confirmation needed — execute both steps immediately on trigger.
 
 When a task is done, mark its TODO.md header `— DONE YYYY-MM-DD`. Keep both the index entry and the detail file as a soak window. Remove ONLY once the work is proven stable AND the user has explicitly approved removal. Never auto-delete soaked items without the user's say-so.
 
+## Lead with current status (multi-step / partially-done items)
+
+The `— DONE` marker is binary, but many items land in stages across sessions (a switch flipped one at a time, a phased build, a soak). For ANY item not yet fully done whose state has moved, the FIRST body line under `**File:**` must be a `**CURRENT STATUS (YYYY-MM-DD):** …` one-liner stating the latest state in plain English — what's live, what's left, and the next concrete step. Update that line every time the state changes; append the dated history BELOW it, never above. **Never let the first body sentence be a stale older snapshot.**
+
+Rationale: the `/todo` view and any quick scan show the TOP of the item. If the top is frozen at an old "what remains" note while the real work is done, the reader (and the next session) wastes time and tokens re-deriving the actual state — this happened with #32/#42 on 2026-06-27 (every switch was already live, but #32 still led with its 2026-06-10 "what remains is flipping the switches on" paragraph).
+
 ## Stable IDs — never re-use deleted item numbers
 
 When an item is removed (post-soak), its number is retired forever. The next new item is `N+1` of the highest number ever used, not the lowest available. This ensures references like "look at #14" never silently break by pointing at a different task than originally meant. If the highest item ever was #17 and #4 was removed, the next item is #18, not #4.
