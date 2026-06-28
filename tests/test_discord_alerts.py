@@ -3,6 +3,7 @@ import pytest
 from consensus_engine.models import (
     ParsedTweet, OptionsDetail, TweetType, Direction, Conviction,
     CrossReferenceResult, ScoreBreakdown, TechnicalResult, TechnicalFilter,
+    OptionsResult,
 )
 from consensus_engine.alerts.discord import format_instant_ping, format_detail_followup
 
@@ -91,3 +92,49 @@ def test_format_detail_followup_no_signals():
     )
     embed = format_detail_followup(xref)
     assert "No additional signals" in str(embed["fields"]) or "25" in embed["title"]
+
+
+def test_format_detail_followup_options_flow_pct_split():
+    """#53: the Options Flow field shows an intuitive call/put % split (from raw
+    volumes) and a vol/OI label — not the raw P/C ratio."""
+    breakdown = ScoreBreakdown(base=30, options_flow=10)
+    opt = OptionsResult(
+        ticker="GOOGL", unusual_calls=True, unusual_puts=True,
+        max_call_ratio=17.3, max_put_ratio=10.9,
+        put_call_ratio=0.56, total_call_vol=27156.0, total_put_vol=15322.0,
+    )
+    xref = CrossReferenceResult(
+        ticker="GOOGL", breakdown=breakdown,
+        catalyst_summary="x", catalyst_type="x",
+        technical=None, other_analysts=[], social_summary="", llm_reasoning="",
+        options=opt,
+    )
+    flow = next(f for f in format_detail_followup(xref)["fields"]
+                if f["name"] == "Options Flow")
+    assert "🟢 Calls 64% / 🔴 Puts 36% (today's volume)" in flow["value"]
+    assert "vol/OI" in flow["value"]
+    assert "P/C ratio:" not in flow["value"]
+
+
+@pytest.mark.asyncio
+async def test_trend_digest_drops_momentum(monkeypatch):
+    """#53: the Reddit trend digest no longer renders the unitless momentum
+    number, but still shows mentions and authors."""
+    import consensus_engine.alerts.discord as d
+    monkeypatch.setattr(d.cfg, "dry_run", False, raising=False)
+    monkeypatch.setattr(d.cfg, "get_api_key", lambda k: "tok")
+    monkeypatch.setattr(d.cfg, "get",
+                        lambda k, default=None: "123456789012345678" if "channel" in k else default)
+    captured = {}
+
+    async def fake_send(url, headers, payload):
+        captured["payload"] = payload
+        return {"id": "x"}
+
+    monkeypatch.setattr(d, "_safe_send", fake_send)
+    trending = [{"ticker": "NVDA", "mentions": 10, "unique_authors": 5, "momentum": 2.0}]
+    await d.send_trend_digest(trending)
+    desc = captured["payload"]["embeds"][0]["description"]
+    assert "momentum" not in desc.lower()
+    assert "10 mentions" in desc
+    assert "5 authors" in desc

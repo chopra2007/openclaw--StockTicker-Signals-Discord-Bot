@@ -54,3 +54,29 @@ def disagreement(contradiction_index: float) -> int:
     where higher = more sources disagree. Clamped to [0, 100].
     """
     return int(round(max(0.0, min(100.0, contradiction_index * 100.0))))
+
+
+def call_put_split(call_total: float, put_total: float) -> "tuple[str, str] | None":
+    """The canonical LEANING converter (#53): turn two-sided option totals into a
+    0-100 call/put % split, the same intuitive unit the !options card proved.
+
+    Takes the two raw counts (volume OR open interest) — NEVER a pre-computed
+    put/call ratio, because the ratio is set to 0.0 when one side is empty, which
+    is indistinguishable from "all on the other side" and would invert the split.
+
+    Returns ``(call_pct_str, put_pct_str)`` formatted for display, or ``None`` when
+    there's no usable total. The ``total > 0`` gate also rejects NaN (``NaN > 0``
+    is False), since a NaN volume can poison the totals upstream.
+
+    A genuinely near-even split rounds both sides to 50 and reads as a suspicious
+    exact tie, so in that one case it shows one decimal (e.g. "49.6" / "50.4") so
+    the real lean stays visible — mirroring the !options near-tie rule.
+    """
+    total = call_total + put_total
+    if not (total > 0):
+        return None
+    share_pct = call_total / total * 100.0
+    call_pct = round(share_pct)
+    if call_pct == 100 - call_pct and abs(share_pct - 50) > 1e-9:
+        return (f"{share_pct:.1f}", f"{100 - share_pct:.1f}")
+    return (f"{call_pct}", f"{100 - call_pct}")

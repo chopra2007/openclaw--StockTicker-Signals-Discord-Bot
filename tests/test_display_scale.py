@@ -11,6 +11,7 @@ from consensus_engine.alerts.display_scale import (
     regime_stress,
     regime_emoji,
     disagreement,
+    call_put_split,
 )
 
 
@@ -71,3 +72,39 @@ def test_disagreement_maps_proportionally():
 def test_disagreement_clamped():
     assert disagreement(1.3) == 100
     assert disagreement(-0.2) == 0
+
+
+# --- call_put_split: two raw counts -> 0-100 call/put % split (#53) ---------
+
+def test_call_put_split_basic():
+    # 27156 calls / 15322 puts -> 63.9% -> 64% / 36% (the GOOGL demo case).
+    assert call_put_split(27156.0, 15322.0) == ("64", "36")
+
+
+def test_call_put_split_even_shows_one_decimal():
+    # A genuinely near-even split must not round into a fake exact 50/50.
+    assert call_put_split(496.0, 504.0) == ("49.6", "50.4")
+
+
+def test_call_put_split_exact_fifty_stays_whole():
+    # A true 50/50 stays whole (no spurious decimal).
+    assert call_put_split(100.0, 100.0) == ("50", "50")
+
+
+def test_call_put_split_single_sided_calls():
+    # All calls, no puts -> 100/0 (only correct because we pass counts, not a ratio).
+    assert call_put_split(500.0, 0.0) == ("100", "0")
+
+
+def test_call_put_split_single_sided_puts():
+    assert call_put_split(0.0, 800.0) == ("0", "100")
+
+
+def test_call_put_split_no_volume_returns_none():
+    assert call_put_split(0.0, 0.0) is None
+
+
+def test_call_put_split_nan_returns_none():
+    nan = float("nan")
+    assert call_put_split(nan, 100.0) is None
+    assert call_put_split(nan, nan) is None

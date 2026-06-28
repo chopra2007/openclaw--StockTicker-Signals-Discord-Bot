@@ -29,6 +29,7 @@ from typing import Optional
 from zoneinfo import ZoneInfo
 
 from consensus_engine import config as cfg, db
+from consensus_engine.alerts.display_scale import call_put_split
 from consensus_engine.alerts.discord import send_command_reply, send_command_embed_reply
 from consensus_engine.scanners.reddit_trend import crawl_and_get_trending
 from consensus_engine.alerts.discord import send_trend_digest
@@ -904,16 +905,9 @@ def _build_options_embed(ticker: str, result, top, peak_call: float, peak_put: f
     # Right column: the call/put % split + the hottest single contract on EACH
     # side (both now span the same 2 expirations as the headline, so a side's
     # peak agrees with the headline by construction).
-    if total_vol > 0:
-        share_pct = share * 100
-        call_pct = round(share_pct)
-        # A genuinely near-even split rounds both sides to 50 and reads as a
-        # suspicious exact tie — show one decimal so the real lean is visible
-        # (e.g. 49.6% / 50.4%).
-        if call_pct == 100 - call_pct and abs(share_pct - 50) > 1e-9:
-            calls_s, puts_s = f"{share_pct:.1f}", f"{100 - share_pct:.1f}"
-        else:
-            calls_s, puts_s = f"{call_pct}", f"{100 - call_pct}"
+    split = call_put_split(call_vol, put_vol)
+    if split:
+        calls_s, puts_s = split
         flow_lines = [f"🟢 Calls {calls_s}%", f"🔴 Puts {puts_s}%"]
         peak = []
         if peak_call >= 3:

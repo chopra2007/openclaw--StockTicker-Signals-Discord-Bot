@@ -1,6 +1,7 @@
 """Unit tests for the two #6 levers2 (all-quality-cheap-levers, batch 2):
-  * Lever A — put/call OPEN-INTEREST ratio: compute_max_pain exposes pc_oi_ratio
-    (additively, leaving the weekly/monthly/spot shape intact) + embed "P/C OI" field.
+  * Lever A — put/call OPEN-INTEREST: compute_max_pain exposes pc_oi_ratio +
+    call_oi_sum/put_oi_sum (additively, weekly/monthly/spot shape intact) + the
+    embed "📊 Options OI" call/put % split field (#53).
   * Lever B — earnings-move history: fetch_earnings_move reaction-day math
     (AMC -> next trading day, BMO -> report day, missing data -> None) + embed
     "Earnings" field.
@@ -120,6 +121,9 @@ async def test_compute_max_pain_returns_pc_oi_ratio(monkeypatch):
     # Existing shape unchanged: spot/weekly/monthly keys still present.
     assert set(out) >= {"spot", "weekly", "monthly", "pc_oi_ratio"}
     assert out["spot"] == 100.0
+    # #53: raw OI sums now travel in the dict for the call/put % split.
+    assert out["call_oi_sum"] == 1000.0
+    assert out["put_oi_sum"] == 1390.0
 
 
 @pytest.mark.asyncio
@@ -134,38 +138,44 @@ async def test_compute_max_pain_pc_oi_ratio_none_when_no_call_oi(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# Lever A — embed "P/C OI" field
+# Lever A + #53 — embed "📊 Options OI" call/put % split field (OI basis)
 # ---------------------------------------------------------------------------
 
-def test_build_embed_shows_pc_oi_when_present():
+def test_build_embed_shows_oi_split_when_present():
     s = _FakeStructured()
-    s.max_pain = {"spot": 100.0, "weekly": None, "monthly": None, "pc_oi_ratio": 0.42}
+    # 600 call OI / 400 put OI = 60% / 40%; total 1000 >= the 50-contract floor.
+    s.max_pain = {"spot": 100.0, "weekly": None, "monthly": None,
+                  "pc_oi_ratio": 0.67, "call_oi_sum": 600.0, "put_oi_sum": 400.0}
     payload = _build(s)
-    f = _field(payload, "P/C OI")
+    f = _field(payload, "📊 Options OI")
     assert f is not None
-    assert f["value"] == "0.42"
+    assert f["value"] == "🟢 Calls 60% / 🔴 Puts 40% (open interest)"
     assert f["inline"] is True
 
 
-def test_build_embed_omits_pc_oi_when_none():
+def test_build_embed_omits_oi_split_when_sums_missing():
+    # Legacy dict with only pc_oi_ratio (no raw sums) -> field omitted.
     s = _FakeStructured()
-    s.max_pain = {"spot": 100.0, "weekly": None, "monthly": None, "pc_oi_ratio": None}
+    s.max_pain = {"spot": 100.0, "weekly": None, "monthly": None, "pc_oi_ratio": 0.42}
     payload = _build(s)
-    assert _field(payload, "P/C OI") is None
+    assert _field(payload, "📊 Options OI") is None
 
 
-def test_build_embed_omits_pc_oi_when_zero():
-    s = _FakeStructured()
-    s.max_pain = {"spot": 100.0, "weekly": None, "monthly": None, "pc_oi_ratio": 0.0}
-    payload = _build(s)
-    assert _field(payload, "P/C OI") is None
-
-
-def test_build_embed_omits_pc_oi_when_no_max_pain():
+def test_build_embed_omits_oi_split_when_no_max_pain():
     s = _FakeStructured()
     s.max_pain = None
     payload = _build(s)
-    assert _field(payload, "P/C OI") is None
+    assert _field(payload, "📊 Options OI") is None
+
+
+def test_build_embed_omits_oi_split_when_thin_oi():
+    # Total OI below the 50-contract floor -> suppressed (a split would be noise,
+    # and !all shows no contract count to calibrate it).
+    s = _FakeStructured()
+    s.max_pain = {"spot": 100.0, "weekly": None, "monthly": None,
+                  "pc_oi_ratio": 0.82, "call_oi_sum": 11.0, "put_oi_sum": 9.0}
+    payload = _build(s)
+    assert _field(payload, "📊 Options OI") is None
 
 
 # ---------------------------------------------------------------------------

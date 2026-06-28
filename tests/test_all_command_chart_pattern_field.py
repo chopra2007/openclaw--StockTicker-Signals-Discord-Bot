@@ -75,7 +75,7 @@ def test_flag_on_renders_pattern_field():
         emb = _build(_SENTINEL)
     fields = _pattern_fields(emb)
     assert fields, "Pattern field not rendered while flag ON"
-    assert fields[0]["value"] == "Bull Flag — key $130.50 (0.72)"
+    assert fields[0]["value"] == "Bull Flag — key $130.50 (72% confidence)"
 
 
 def test_flag_on_low_confidence_omitted():
@@ -99,4 +99,4 @@ def test_flag_on_no_key_level_renders_without_level():
     with _flag_cfg(True):
         emb = _build(no_level)
     fields = _pattern_fields(emb)
-    assert fields and fields[0]["value"] == "Double Bottom (0.60)"
+    assert fields and fields[0]["value"] == "Double Bottom (60% confidence)"

@@ -590,9 +590,11 @@ async def compute_max_pain(ticker: str, executor=None) -> Optional[dict]:
     # Same call/put OI sums max-pain already aggregates; >1 = more put OI (bearish
     # positioning), <1 = more call OI. None when the nearest chain has no call OI.
     pc_oi_ratio = None
+    call_oi_sum = put_oi_sum = None
     _near = _max_pain_for_chain(chains.get(weekly_exp)) if weekly_exp else None
     if _near is not None:
         _, _, _call_oi_sum, _put_oi_sum = _near
+        call_oi_sum, put_oi_sum = _call_oi_sum, _put_oi_sum   # #53: for the call/put OI % split
         if _call_oi_sum:
             pc_oi_ratio = round(_put_oi_sum / _call_oi_sum, 2)
 
@@ -618,4 +620,5 @@ async def compute_max_pain(ticker: str, executor=None) -> Optional[dict]:
         return None
     return {"spot": round(spot, 2) if spot else None,
             "weekly": weekly_leg, "monthly": monthly_leg,
-            "pc_oi_ratio": pc_oi_ratio}
+            "pc_oi_ratio": pc_oi_ratio,
+            "call_oi_sum": call_oi_sum, "put_oi_sum": put_oi_sum}

@@ -23,6 +23,7 @@ from datetime import date, datetime, timezone
 from typing import Optional
 
 from consensus_engine.alerts.all_command.structured_fields import StructuredFields
+from consensus_engine.alerts.display_scale import call_put_split
 from consensus_engine.models import ScoreBreakdown
 
 
@@ -657,7 +658,7 @@ def _build_chart_pattern_field(chart_pattern: Optional[dict]) -> Optional[dict]:
     there is no pattern or confidence is below 0.5.
 
     Input shape: {"pattern": "bull_flag", "confidence": 0.72, "key_level": 130.5}
-    Output value example: "Bull flag — key $130.50 (0.72)".
+    Output value example: "Bull flag — key $130.50 (72% confidence)".
     """
     if not isinstance(chart_pattern, dict):
         return None
@@ -675,9 +676,9 @@ def _build_chart_pattern_field(chart_pattern: Optional[dict]) -> Optional[dict]:
     key_level = chart_pattern.get("key_level")
     key_str = _format_price(key_level)
     if key_str != "—":
-        value = f"{label} — key {key_str} ({conf_f:.2f})"
+        value = f"{label} — key {key_str} ({round(conf_f * 100)}% confidence)"
     else:
-        value = f"{label} ({conf_f:.2f})"
+        value = f"{label} ({round(conf_f * 100)}% confidence)"
     return {"name": "Pattern", "value": value, "inline": True}
 
 
@@ -805,11 +806,20 @@ def build_embed(
     mp_val = _format_max_pain(getattr(structured, "max_pain", None), current_price)
     if mp_val != "—":
         fields.append({"name": "Max Pain", "value": mp_val, "inline": True})
-    # Lever A — put/call open-interest ratio (nearest expiry), from the max_pain dict.
+    # Lever A + #53 — call/put OPEN-INTEREST lean as an intuitive % split (OI
+    # basis), from the raw OI sums in the max_pain dict. Suppressed when total OI
+    # is too thin for the split to be meaningful — unlike the !options card there
+    # is no adjacent contract count here to calibrate a "55/45".
     _mp = getattr(structured, "max_pain", None)
-    _pc = _mp.get("pc_oi_ratio") if isinstance(_mp, dict) else None
-    if isinstance(_pc, (int, float)) and _pc > 0:
-        fields.append({"name": "P/C OI", "value": f"{_pc:.2f}", "inline": True})
+    _call_oi = _mp.get("call_oi_sum") if isinstance(_mp, dict) else None
+    _put_oi = _mp.get("put_oi_sum") if isinstance(_mp, dict) else None
+    if isinstance(_call_oi, (int, float)) and isinstance(_put_oi, (int, float)) \
+            and (_call_oi + _put_oi) >= 50:
+        _oi_split = call_put_split(_call_oi, _put_oi)
+        if _oi_split:
+            fields.append({"name": "📊 Options OI",
+                           "value": f"🟢 Calls {_oi_split[0]}% / 🔴 Puts {_oi_split[1]}% (open interest)",
+                           "inline": True})
     # Lever B — avg absolute % earnings reaction over the last N reported prints.
     _em = getattr(structured, "earnings_move", None)
     if isinstance(_em, dict):

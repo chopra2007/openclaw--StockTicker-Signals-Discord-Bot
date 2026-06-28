@@ -20,9 +20,11 @@ from consensus_engine.models import (
 async def setup_db(tmp_path):
     cfg.load_config()
     cfg._config["database"] = {"path": str(tmp_path / "test.db")}
+    _orig_dry_run = cfg.dry_run
     cfg.dry_run = True
     await db.init_db()
     yield
+    cfg.dry_run = _orig_dry_run   # restore — was leaking dry_run=True into later tests
     await db.close_db()
 
 

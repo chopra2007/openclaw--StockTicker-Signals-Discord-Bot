@@ -14,7 +14,7 @@ from typing import Optional
 import aiohttp
 
 from consensus_engine import config as cfg
-from consensus_engine.alerts.display_scale import regime_stress, regime_emoji, disagreement
+from consensus_engine.alerts.display_scale import regime_stress, regime_emoji, disagreement, call_put_split
 from consensus_engine.utils.http import get_session
 from consensus_engine.utils.obs_log import obs_log
 from consensus_engine import db
@@ -417,10 +417,14 @@ def format_detail_followup(xref: CrossReferenceResult, precision: Optional[dict]
         opt = xref.options
         parts_o = []
         if opt.unusual_calls:
-            parts_o.append(f"Unusual CALLS (max ratio {opt.max_call_ratio:.1f}x)")
+            parts_o.append(f"Unusual CALLS (max ratio {opt.max_call_ratio:.1f}x vol/OI)")
         if opt.unusual_puts:
-            parts_o.append(f"Unusual PUTS (max ratio {opt.max_put_ratio:.1f}x)")
-        parts_o.append(f"P/C ratio: {opt.put_call_ratio:.2f}")
+            parts_o.append(f"Unusual PUTS (max ratio {opt.max_put_ratio:.1f}x vol/OI)")
+        # #53: show the day's call/put lean as an intuitive % split (from raw
+        # volumes, never the put_call_ratio, which is 0.0 on a one-sided day).
+        _split = call_put_split(opt.total_call_vol, opt.total_put_vol)
+        if _split:
+            parts_o.append(f"🟢 Calls {_split[0]}% / 🔴 Puts {_split[1]}% (today's volume)")
         fields.append({"name": "Options Flow", "value": "\n".join(parts_o), "inline": False})
 
     if xref.other_analysts:
@@ -729,10 +733,11 @@ async def send_trend_digest(trending: list[dict]) -> Optional[str]:
 
     lines = []
     for i, t in enumerate(trending[:15], 1):
-        momentum_str = f"{t['momentum']:.2f}".lstrip("0") if t.get("momentum", 0.0) > 0 else "—"
+        # #53: momentum (mentions ÷ 24h) was a unitless ".42" that read as noise
+        # and just restated the mention count already shown — dropped from display.
         lines.append(
             f"**{i}.** `${t['ticker']}` — {t['mentions']} mentions | "
-            f"{t['unique_authors']} authors | momentum {momentum_str}"
+            f"{t['unique_authors']} authors"
         )
 
     embed = {
