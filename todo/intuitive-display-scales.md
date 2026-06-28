@@ -1,6 +1,6 @@
 # Make every bot reading display on an intuitive, shared scale
 
-**Status:** OPEN
+**Status:** DONE 2026-06-27
 **Created:** 2026-06-27
 
 ## Goal
@@ -128,3 +128,9 @@ Commits: see master around 2026-06-27 (`Refactor !options …` through
   sentiment — decide after the survey shows how many leaning readings exist.
 - For count-multiples (×), is a word anchor enough, or should some become a
   bounded scale too?
+
+### Session notes — 2026-06-27
+- **Worked on:** SHIPPED via discover run `intuitive-display-scales` (commit 2160e5d, local). Surveyed all 71 user-facing numbers across every command/alert; only a handful were genuinely non-intuitive. Generalized the !options call/put-% fix into one canonical `display_scale.call_put_split` helper and applied it to the 3 Put/Call surfaces (auto-alert, !all, and the !options card itself). Dropped the unitless Reddit `momentum` number; chart-pattern `0.72`→`72% confidence`; vol/OI label on auto-alert.
+- **Decisions:** display-layer only (no math). Convert from RAW COUNTS, never the put_call_ratio (0.0 on a one-sided day would invert the split). Basis labels load-bearing: "(today's volume)" vs "(open interest)". Thin-OI (<50 contracts) split suppressed in !all. CUT as over-engineering: Wolf market-lean (already labelled), RSI/EMA relabel, Max-Pain distance, Stocktwits delta, confluence counts. OUT OF SCOPE: additive Score family (#I4) and standard finance metrics (PEG/Beta/PE).
+- **Verified:** 2319 pass / baseline-only failure; independent reviewer APPROVE; single-sided + thin-OI edge cases proven; live Discord before/after demo on real GOOGL approved by user; engine restarted clean (Gateway READY).
+- **Next:** auto-alert split (C1/C4) is weekend-paused — first real automatic alert renders it Sun 2026-06-28 3pm PDT when the engine resumes. Command surfaces (!options/!all/!trend) live now. At session close: mark TODO.md #53 header `— DONE 2026-06-27` and push via the gate.

@@ -327,7 +327,7 @@ Let users type `!em SPY` to get the options market's expected up/down range for 
 
 Stop giving convoluted explanations that switch reference frames mid-answer (e.g. "puts are half of calls" then "twice as many calls as puts"); hold one consistent, simple framing — and verify clarity by comparing against real Gemini and ChatGPT answers to the same prompts.
 
-## 53. Show every bot reading on an intuitive, shared scale
+## 53. Show every bot reading on an intuitive, shared scale — DONE 2026-06-27
 
 **File:** `intuitive-display-scales.md`
 
