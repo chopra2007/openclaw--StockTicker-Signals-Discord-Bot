@@ -881,19 +881,6 @@ def _pick_top_current_day_contract(hits: list):
     return max(pool, key=lambda h: h.vol_oi_ratio)
 
 
-def _flow_bar(call_vol: float, put_vol: float, width: int = 12) -> tuple:
-    """Call/put VOLUME split as (call_pct, put_pct, bar). Replaces the raw
-    put/call ratio with an intuitive 'which side traded more, by how much'
-    read: 50/50 = even, the filled portion = the call share."""
-    total = call_vol + put_vol
-    if total <= 0:
-        return 0, 0, ""
-    call_pct = round(call_vol / total * 100)
-    filled = max(0, min(width, round(call_vol / total * width)))
-    bar = "█" * filled + "░" * (width - filled)
-    return call_pct, 100 - call_pct, bar
-
-
 def _build_options_embed(ticker: str, result, top) -> dict:
     """Glanceable !options embed (layout B2): two columns — the headline
     contract on the left, the day's call-vs-put flow on the right. The dot
@@ -902,20 +889,30 @@ def _build_options_embed(ticker: str, result, top) -> dict:
     robust aggregate), so one cheap far-OTM lotto print can't mislead it."""
     call_vol, put_vol = result.total_call_vol, result.total_put_vol
     total_vol = call_vol + put_vol
-    call_pct, put_pct, _bar = _flow_bar(call_vol, put_vol)
     share = (call_vol / total_vol) if total_vol > 0 else 0.5
     color = 0x2ECC71 if share >= 0.55 else 0xE74C3C if share <= 0.45 else 0xF1C40F
 
-    # Right column: the call/put % split + the hottest single contract on the
-    # side the HEADLINE doesn't already cover (avoid repeating its ratio). With
-    # no headline, show both sides. max_call/max_put now span the same 2
-    # expirations as the headline, so they can't contradict it.
+    # Right column: the call/put % split + the hottest single contract on EACH
+    # side (both now span the same 2 expirations as the headline, so a side's
+    # peak agrees with the headline by construction).
     if total_vol > 0:
-        flow_lines = [f"🟢 Calls {call_pct}%", f"🔴 Puts {put_pct}%"]
-        if (top is None or top.side == "PUT") and result.max_call_ratio >= 3:
-            flow_lines.append(f"🟢 calls {result.max_call_ratio:.0f}×")
-        if (top is None or top.side == "CALL") and result.max_put_ratio >= 3:
-            flow_lines.append(f"🔴 puts {result.max_put_ratio:.0f}×")
+        share_pct = share * 100
+        call_pct = round(share_pct)
+        # A genuinely near-even split rounds both sides to 50 and reads as a
+        # suspicious exact tie — show one decimal so the real lean is visible
+        # (e.g. 49.6% / 50.4%).
+        if call_pct == 100 - call_pct and abs(share_pct - 50) > 1e-9:
+            calls_s, puts_s = f"{share_pct:.1f}", f"{100 - share_pct:.1f}"
+        else:
+            calls_s, puts_s = f"{call_pct}", f"{100 - call_pct}"
+        flow_lines = [f"🟢 Calls {calls_s}%", f"🔴 Puts {puts_s}%"]
+        peak = []
+        if result.max_call_ratio >= 3:
+            peak.append(f"🟢 {result.max_call_ratio:.0f}×")
+        if result.max_put_ratio >= 3:
+            peak.append(f"🔴 {result.max_put_ratio:.0f}×")
+        if peak:
+            flow_lines.append("  ".join(peak))
         flow_value = "\n".join(flow_lines)
     else:
         flow_value = "No call/put volume yet today."
