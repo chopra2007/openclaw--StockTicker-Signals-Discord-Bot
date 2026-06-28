@@ -1,10 +1,20 @@
 # Flip status — what's switched ON, what's still OFF, and how to turn the rest on
 
-**Status:** OPEN (the OFF items below are the remaining work)
+**Status:** Essentially COMPLETE — every scoring switch with a real effect is now ON (E2 was the last, flipped live 2026-06-26, commit `d346521`). The only two still OFF (I7 `consensus_logodds`, I14-widening `regime_widening_graduated`) are PROVEN NO-OPS that need new code, not a flip. See the 2026-06-27 banner below.
 **Created:** 2026-06-15
 
 Single source of truth for every switch touched or considered in the `todo-sweep-2026-06-13`
 build (executed 2026-06-15). Plain-English first, exact config key in `code font`.
+
+---
+
+## ⚠️ CURRENT STATE 2026-06-27 (read this first — supersedes the "Still OFF" E2 rows below)
+
+Verified against `config/consensus.yaml` + the running engine (PID restarted 2026-06-27 18:18 PDT) on 2026-06-27:
+- **E2 master `cross_asset.enabled` → LIVE since 2026-06-26** (commit `d346521`; calm `confirm_ceiling 1.05` / stress `veto_floor 0.85`, `shadow:false`). The "Still OFF / awaiting decision" E2 rows further down are STALE — superseded by this flip.
+- **ON + live:** I4-full, I3, I10, I13, I15, E1, FRED-leg, **E2 master**. So **nothing flippable remains** for #32/#42.
+- **Still OFF, by design (proven no-ops — a flip does nothing without new code):** I7 `consensus_logodds` (needs a `source_performance` writer + multi-cluster events) and I14-widening `regime_widening_graduated` (clamp math `90−80=10` == static panic shift; zero panic days ever recorded). I9 alert floor stays `0` (analyst-tweet-register finding).
+- **One live-check still OWED:** E2's math is affirmed (shadow soak + 3007-alert replay + 42 tests + the `135c7f5` inversion fix), but the weekend pause began right after the flip, so E2 has not yet applied to a real alert. Scheduled check `e2_first_session_check.sh` (task `1782629564_46f4e7`, Mon 2026-06-29 16:00 PDT) confirms live application via `notifications.log` — then #32/#42 can be marked fully DONE.
 
 ---
 
