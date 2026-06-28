@@ -852,10 +852,10 @@ _OPT_PT = ZoneInfo("America/Los_Angeles")
 
 
 def _fmt_opt_pt(ts: float) -> str:
-    """Epoch -> 'Fri Jun 26, 12:59 PM PDT' in Pacific time (%Z auto PDT/PST)."""
+    """Epoch -> 'Fri Jun 26' (Pacific trading day; date only, time dropped)."""
     if not ts:
         return "—"
-    return datetime.fromtimestamp(ts, _OPT_PT).strftime("%a %b %-d, %-I:%M %p %Z")
+    return datetime.fromtimestamp(ts, _OPT_PT).strftime("%a %b %-d")
 
 
 def _pick_top_current_day_contract(hits: list):
@@ -895,25 +895,31 @@ def _flow_bar(call_vol: float, put_vol: float, width: int = 12) -> tuple:
 
 
 def _build_options_embed(ticker: str, result, top) -> dict:
-    """Glanceable !options embed: headline = the single most unusual contract
-    (highest vol/OI on the latest session), plus the day's call-vs-put split."""
-    # Colour + headline both follow the day's CALL-vs-PUT VOLUME SPLIT (a robust
-    # aggregate of all flow), NOT the single headline contract — otherwise one
-    # cheap far-OTM lotto print could paint the whole card red while flow is even.
+    """Glanceable !options embed (layout B2): two columns — the headline
+    contract on the left, the day's call-vs-put flow on the right. The dot
+    before the strike is green when the biggest unusual bet is a CALL, red
+    when it's a PUT. Card colour follows the day's call/put VOLUME split (a
+    robust aggregate), so one cheap far-OTM lotto print can't mislead it."""
     call_vol, put_vol = result.total_call_vol, result.total_put_vol
     total_vol = call_vol + put_vol
-    call_pct, put_pct, bar = _flow_bar(call_vol, put_vol)
+    call_pct, put_pct, _bar = _flow_bar(call_vol, put_vol)
     share = (call_vol / total_vol) if total_vol > 0 else 0.5
-    if total_vol <= 0:
-        color = 0xF1C40F  # gold / neutral
-        flow_field = {"name": "Call vs Put flow", "value": "No call or put volume yet today.", "inline": False}
+    color = 0x2ECC71 if share >= 0.55 else 0xE74C3C if share <= 0.45 else 0xF1C40F
+
+    # Right column: the call/put % split + the hottest single contract each side.
+    if total_vol > 0:
+        flow_lines = [f"🟢 Calls {call_pct}%", f"🔴 Puts {put_pct}%"]
+        hottest = []
+        if result.max_call_ratio >= 3:
+            hottest.append(f"🟢 {result.max_call_ratio:.0f}×")
+        if result.max_put_ratio >= 3:
+            hottest.append(f"🔴 {result.max_put_ratio:.0f}×")
+        if hottest:
+            flow_lines.append("  ".join(hottest))
+        flow_value = "\n".join(flow_lines)
     else:
-        color = 0x2ECC71 if share >= 0.55 else 0xE74C3C if share <= 0.45 else 0xF1C40F
-        flow_field = {
-            "name": "Call vs Put flow  (today's volume)",
-            "value": f"🟢 **Calls {call_pct}%**  `{bar}`  **{put_pct}% Puts** 🔴",
-            "inline": False,
-        }
+        flow_value = "No call/put volume yet today."
+    flow_field = {"name": "📊 Call vs Put flow", "value": flow_value, "inline": True}
 
     if top is None:
         return {
@@ -921,8 +927,11 @@ def _build_options_embed(ticker: str, result, top) -> dict:
             "description": "No standout single-contract activity on the latest session.",
             "color": color,
             "fields": [flow_field],
+            "footer": {"text": "vol/OI = today's volume ÷ open interest"},
         }
 
+    # Dot follows the headline bet's side: 🟢 = a CALL is the biggest unusual
+    # contract (heavy call buying), 🔴 = a PUT is.
     arrow = "🟢" if top.side == "CALL" else "🔴"
     try:
         exp_txt = datetime.strptime(top.expiry, "%Y-%m-%d").strftime("%b %-d")
@@ -933,30 +942,23 @@ def _build_options_embed(ticker: str, result, top) -> dict:
         prem_txt = f"~${top.premium_usd / 1_000_000:.1f}M"
     else:
         prem_txt = f"~${top.premium_usd / 1_000:.0f}K"
-    spot_txt = f"  ·  spot ${top.spot:,.2f}" if top.spot else ""
 
-    desc = (
-        f"**🔥 Highest vol/OI contract**\n"
-        f"{arrow}  **{top.side}** · {exp_txt} · ${top.strike:g} strike\n"
-        f"**{ratio_txt} vol/OI** — {top.volume:,} traded vs {top.open_interest:,} open\n"
-        f"💰 {prem_txt} premium{spot_txt}\n"
-        f"🕒 Last trade **{_fmt_opt_pt(top.last_trade_ts)}**"
-    )
+    desc = f"{arrow}  **{exp_txt} · ${top.strike:g} strike**  ·  🗓️ {_fmt_opt_pt(top.last_trade_ts)}"
 
-    fields = [flow_field]
-    unusual = []
-    if result.max_call_ratio >= 3:
-        unusual.append(f"calls {result.max_call_ratio:.0f}×")
-    if result.max_put_ratio >= 3:
-        unusual.append(f"puts {result.max_put_ratio:.0f}×")
-    if unusual:
-        fields.append({"name": "Unusual vol/OI", "value": " · ".join(unusual), "inline": True})
+    contract_lines = [
+        f"📈 {ratio_txt} vol/OI",
+        f"🔢 {top.volume:,} vs {top.open_interest:,} open",
+        f"💰 {prem_txt} traded",
+    ]
+    if top.spot:
+        contract_lines.append(f"📍 Stock ${top.spot:,.2f}")
+    contract_field = {"name": "🔥 The contract", "value": "\n".join(contract_lines), "inline": True}
 
     return {
         "title": f"📊  ${ticker} — Unusual Options",
         "description": desc,
         "color": color,
-        "fields": fields,
+        "fields": [contract_field, flow_field],
         "footer": {"text": "vol/OI = today's volume ÷ open interest"},
     }
 
