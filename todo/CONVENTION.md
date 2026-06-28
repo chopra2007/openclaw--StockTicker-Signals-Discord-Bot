@@ -53,6 +53,18 @@ The `— DONE` marker is binary, but many items land in stages across sessions (
 
 Rationale: the `/todo` view and any quick scan show the TOP of the item. If the top is frozen at an old "what remains" note while the real work is done, the reader (and the next session) wastes time and tokens re-deriving the actual state — this happened with #32/#42 on 2026-06-27 (every switch was already live, but #32 still led with its 2026-06-10 "what remains is flipping the switches on" paragraph).
 
+## Switch-bearing items — derive live state from config, never hand-copy it
+
+The deepest version of that trap: an item that says "turn on switches X, Y, Z" holds a HAND-TYPED copy of a fact that already lives authoritatively in `config/consensus.yaml` (what the engine actually runs). Copies drift. So such items must NOT rely on prose alone — they declare the config flags they govern and let a reader resolve the real state:
+
+- Add one line to the item body, under `**File:**`:
+  `**Switches:** features.cross_asset.enabled=on; features.consensus_logodds.enabled=noop`
+  Each entry is `<dotted config key>=<expected>`, `;`-separated. `expected` is `on` (must be ON in a healthy live state — OFF means still pending) or `noop`/`off` (intentionally OFF — ON means unexpected drift).
+- `scripts/todo_switch_state.py` reads those lines and resolves each key with the same `config.get()` the engine uses, so the list can never silently disagree with the engine. `--check` prints drift only: an OPEN item whose switches are ALL in their expected state (looks done but isn't closed — the #32/#42 failure), or an unexpected-ON / typo'd key.
+- A daily timer (`todo-switch-drift-check.timer`, 06:00 PDT) runs `--check` and appends any drift to `notifications.log`, which session start surfaces — so "all live but still OPEN" is caught even if nobody opens `/todo`.
+
+When rendering `/todo` or reviewing a switch-item, run `python3 scripts/todo_switch_state.py` and trust its live read over the prose.
+
 ## Stable IDs — never re-use deleted item numbers
 
 When an item is removed (post-soak), its number is retired forever. The next new item is `N+1` of the highest number ever used, not the lowest available. This ensures references like "look at #14" never silently break by pointing at a different task than originally meant. If the highest item ever was #17 and #4 was removed, the next item is #18, not #4.
@@ -68,6 +80,8 @@ Render the backlog as a four-column **Markdown pipe table**: `#`, `Task`, `Creat
 Two-source render:
 1. `grep -nE '^## ' TODO.md` → number, title, DONE marker.
 2. `grep -h '^\*\*Created:\*\*' todo/<filename>.md` → Created date for each row. Detail filename comes from the `**File:**` line in TODO.md.
+
+3. For items carrying a `**Switches:**` line, run `python3 scripts/todo_switch_state.py` and trust its live config read over the prose — an item whose switches are all in their expected state but still `Active` is stale: flag it `⚠️ verify/close`, don't render it as plain pending work.
 
 Use `Active` for open items, `Complete` for items whose header ends `— DONE YYYY-MM-DD`. Strip the `— DONE YYYY-MM-DD` suffix from the displayed Task. Show Created on every row (active and complete). If a detail file is missing the `**Created:**` line, BACKFILL it (insert the line right after `**Status:**` in the detail file, using the DONE date as the proxy if the item is complete, otherwise the date the detail file was first added to git) — don't render `—`.
 

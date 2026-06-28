@@ -195,6 +195,7 @@ A multi-stock YouTube video dumped QQQ/SPY numbers (700–760) onto NVDA, which 
 ## 32. Switch on the Phase-2 signal upgrades after their watch windows
 
 **File:** `signal-features-phase2.md`
+**Switches:** features.single_score.enabled=on; features.contradiction_index_live.enabled=on; features.strong_requires_hard_evidence.enabled=on; features.apewisdom_zscore.enabled=on; features.cross_asset.enabled=on; features.finra_short_volume.enabled=on; features.consensus_logodds.enabled=noop; features.regime_widening_graduated.enabled=noop
 
 **CURRENT STATUS (2026-06-27):** essentially DONE — every signal switch that actually does something is now ON (E2, the last one, went live 2026-06-26). The only two still off — I7 and I14-widening — are dead switches: a flip changes nothing until new code is written, so they're correctly left off. One live-check is owed: E2 hasn't touched a real alert yet because the weekend pause began right after it went live; an automatic check runs **Mon 2026-06-29 4pm PDT** and pings `notifications.log`. If that's ✅, this item is fully done. Dated history of each flip is below.
 
@@ -260,6 +261,7 @@ Decide where to write down (and how to word, without bloat) the directive that e
 ## 42. Turn on the remaining signal switches (flip ledger)
 
 **File:** `signal-flip-status-2026-06-15.md`
+**Switches:** features.single_score.enabled=on; features.contradiction_index_live.enabled=on; features.strong_requires_hard_evidence.enabled=on; features.apewisdom_zscore.enabled=on; features.cross_asset.enabled=on; features.finra_short_volume.enabled=on; features.consensus_logodds.enabled=noop; features.regime_widening_graduated.enabled=noop
 
 **CURRENT STATUS (2026-06-27):** essentially DONE — every switch in this ledger that has a real effect is now ON, E2 included (live 2026-06-26). Only I7 and I14-widening remain off, and both are proven no-ops (a flip changes nothing without new code first). The same E2 live-check as #32 is owed (auto-check **Mon 2026-06-29 4pm PDT**). Full per-switch state is in the detail file; dated history is below.
 
