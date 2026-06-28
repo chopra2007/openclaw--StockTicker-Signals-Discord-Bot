@@ -61,13 +61,12 @@ Add new terms only after verifying their meaning from actual code, not from a fi
 
 ### Cross-session test (`comm-check.md`)
 
-The test file at `comm-check.md` (workspace root) is the grading rubric. Open it automatically on:
+`comm-check.md` (workspace root) is a **reactive** grading rubric — test cases and gold answers for the Communication Discipline rules above. Those rules already load every session and, with judgment, govern behavior. **Do NOT preload `comm-check.md` at the start of a session.** It is large; loading it proactively bloats every session, and having it in context does not by itself make answers better. Read it only when there is a concrete reason:
 
 1. **User pushback on an explanation** — any correction, contradiction, or pointing-out of a failure mode ("you used jargon," "you assumed," "you didn't check," "again you," "you're being lazy"). Read `comm-check.md`, find the section that maps to the failure (Section 1 = jargon, Section 2 = lazy/incomplete, Section 3 = verify/probe), save a feedback memory entry (template in the file's "When Claude fails a check" section), apply the fix to the next answer and the rest of the session.
-2. **Session start with prior failures** — if `MEMORY.md` lists any `comm-check-fail-*` entries, read `comm-check.md` before the first explanation.
-3. **Session close** — list any comm-check failures saved this session in the close summary.
+2. **Session close** — list any comm-check failures saved this session in the close summary (read the file then only if you need the failure template).
 
-The trigger is the user's natural pushback, not a special command.
+Read it on a concrete failure or at close — never as a fresh-session preload. `comm-check-fail-*` entries in `MEMORY.md` are NOT a reason to load it.
 
 ## Behavior
 
