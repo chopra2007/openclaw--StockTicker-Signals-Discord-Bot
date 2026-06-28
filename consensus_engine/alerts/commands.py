@@ -858,35 +858,44 @@ def _fmt_opt_pt(ts: float) -> str:
     return datetime.fromtimestamp(ts, _OPT_PT).strftime("%a %b %-d")
 
 
-def _pick_top_current_day_contract(hits: list):
-    """Pick the highest vol/OI contract from the MOST RECENT trading session.
+_OPT_OTM_MAX = 0.30   # allow OTM directional bets up to 30% from spot
+_OPT_ITM_MAX = 0.10   # past 10% ITM the option is stock-like (a hedge), not a bet
 
-    yfinance hands back every listed contract regardless of when it last traded,
-    so we first keep only those whose last trade lands on the latest session
-    present in the data (today during market hours, the prior session otherwise),
-    then take the highest vol/OI within that day. Guarantees the highlighted
-    contract reflects current activity, not a stale high-ratio strike."""
+
+def _is_directional(strike: float, spot: float, side: str) -> bool:
+    """A contract is a directional bet (vs a far-OTM lottery ticket or a deep-ITM
+    hedge/stock-replacement) when its strike sits within 30% OTM / 10% ITM of
+    spot. OTM/ITM flips by side: a CALL is OTM above spot, a PUT is OTM below
+    spot. No spot (can't classify) -> keep it."""
+    if not spot:
+        return True
+    otm = (strike > spot) if side == "CALL" else (strike < spot)
+    dist = abs(strike - spot) / spot
+    return dist <= (_OPT_OTM_MAX if otm else _OPT_ITM_MAX)
+
+
+def _current_day_pool(hits: list) -> list:
+    """Keep only contracts that last traded on the MOST RECENT session present
+    (today during market hours, the prior session otherwise), so a stale
+    high-ratio strike can't surface. Undated input is returned unchanged."""
     dated = [h for h in hits if h.last_trade_ts]
-    pool = hits
-    if dated:
-        latest_day = max(
-            datetime.fromtimestamp(h.last_trade_ts, _OPT_PT).date() for h in dated
-        )
-        pool = [
-            h for h in dated
-            if datetime.fromtimestamp(h.last_trade_ts, _OPT_PT).date() == latest_day
-        ]
-    if not pool:
-        return None
-    return max(pool, key=lambda h: h.vol_oi_ratio)
+    if not dated:
+        return list(hits)
+    latest_day = max(
+        datetime.fromtimestamp(h.last_trade_ts, _OPT_PT).date() for h in dated
+    )
+    return [h for h in dated
+            if datetime.fromtimestamp(h.last_trade_ts, _OPT_PT).date() == latest_day]
 
 
-def _build_options_embed(ticker: str, result, top) -> dict:
+def _build_options_embed(ticker: str, result, top, peak_call: float, peak_put: float) -> dict:
     """Glanceable !options embed (layout B2): two columns — the headline
     contract on the left, the day's call-vs-put flow on the right. The dot
     before the strike is green when the biggest unusual bet is a CALL, red
     when it's a PUT. Card colour follows the day's call/put VOLUME split (a
-    robust aggregate), so one cheap far-OTM lotto print can't mislead it."""
+    robust aggregate), so one cheap far-OTM lotto print can't mislead it.
+    peak_call/peak_put are the hottest vol/OI on each side among directional
+    contracts (same eligible pool as the headline)."""
     call_vol, put_vol = result.total_call_vol, result.total_put_vol
     total_vol = call_vol + put_vol
     share = (call_vol / total_vol) if total_vol > 0 else 0.5
@@ -907,10 +916,10 @@ def _build_options_embed(ticker: str, result, top) -> dict:
             calls_s, puts_s = f"{call_pct}", f"{100 - call_pct}"
         flow_lines = [f"🟢 Calls {calls_s}%", f"🔴 Puts {puts_s}%"]
         peak = []
-        if result.max_call_ratio >= 3:
-            peak.append(f"🟢 {result.max_call_ratio:.0f}×")
-        if result.max_put_ratio >= 3:
-            peak.append(f"🔴 {result.max_put_ratio:.0f}×")
+        if peak_call >= 3:
+            peak.append(f"🟢 {peak_call:.0f}×")
+        if peak_put >= 3:
+            peak.append(f"🔴 {peak_put:.0f}×")
         if peak:
             flow_lines.append("  ".join(peak))
         flow_value = "\n".join(flow_lines)
@@ -921,7 +930,7 @@ def _build_options_embed(ticker: str, result, top) -> dict:
     if top is None:
         return {
             "title": f"📊  ${ticker} — Unusual Options",
-            "description": "No standout single-contract activity on the latest session.",
+            "description": "No standout directional contract on the latest session.",
             "color": color,
             "fields": [flow_field],
         }
@@ -959,25 +968,31 @@ def _build_options_embed(ticker: str, result, top) -> dict:
 async def _options_and_reply(ticker: str, channel_id: str, message_id: str) -> None:
     try:
         from consensus_engine.scanners.options import check_unusual_options, scan_options_flow
-        # nearest=2 so the put/call split + per-side max vol/OI cover the SAME 2
-        # expirations the headline flow scan uses below (keeps them consistent).
+        # nearest=2 so the call/put % split spans the same 2 expirations the flow
+        # scan uses below. (The split counts every contract; the headline + peaks
+        # come from the directional-only pool further down.)
         result = await check_unusual_options(ticker, executor=None, nearest=2)
         if not result:
             await send_command_reply(channel_id, message_id, f"No options data available for `${ticker}`.")
             return
 
-        # Find the highest vol/OI contract. Permissive thresholds (no premium
-        # floor, no staleness gate) since this is an on-demand lookup — the
-        # current-day filter below, not a staleness gate, picks the live session.
-        # min_volume=100 drops 1-lot noise so the highlight is real activity.
+        # Permissive thresholds (no premium floor, no staleness gate) — the
+        # filters below pick the live session and the meaningful contracts.
+        # min_volume=100 drops 1-lot noise.
         hits = await scan_options_flow(
             [ticker], executor=None,
             min_vol_oi=0.01, min_volume=100, min_premium=0,
             max_staleness_min=0, nearest_expirations=2,
         )
-        top = _pick_top_current_day_contract(hits)
+        # Keep only directional bets (drop far-OTM lottos + deep-ITM hedges),
+        # then the most recent session; rank by vol/OI. Per-side peaks come from
+        # the same eligible pool so they agree with the headline.
+        pool = _current_day_pool([h for h in hits if _is_directional(h.strike, h.spot, h.side)])
+        top = max(pool, key=lambda h: h.vol_oi_ratio) if pool else None
+        peak_call = max((h.vol_oi_ratio for h in pool if h.side == "CALL"), default=0.0)
+        peak_put = max((h.vol_oi_ratio for h in pool if h.side == "PUT"), default=0.0)
 
-        embed = _build_options_embed(ticker, result, top)
+        embed = _build_options_embed(ticker, result, top, peak_call, peak_put)
         await send_command_embed_reply(channel_id, message_id, embed)
     except Exception as e:
         log.error("Options command error for %s: %s", ticker, e)
