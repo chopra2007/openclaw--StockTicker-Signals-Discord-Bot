@@ -124,11 +124,29 @@ def _detect_unusual_activity(chain) -> OptionsResult:
     )
 
 
-async def check_unusual_options(ticker: str, executor) -> Optional[OptionsResult]:
+def _combine_chains(chains):
+    """Merge several option_chain results into one calls/puts pair so aggregate
+    stats (put/call ratio, per-side max vol/OI) span multiple expirations.
+    A single chain (nearest=1, the default) round-trips unchanged."""
+    import pandas as pd
+    from types import SimpleNamespace
+    call_frames = [c.calls for c in chains
+                   if c is not None and getattr(c, "calls", None) is not None and not c.calls.empty]
+    put_frames = [c.puts for c in chains
+                  if c is not None and getattr(c, "puts", None) is not None and not c.puts.empty]
+    calls = pd.concat(call_frames, ignore_index=True) if call_frames else None
+    puts = pd.concat(put_frames, ignore_index=True) if put_frames else None
+    return SimpleNamespace(calls=calls, puts=puts)
+
+
+async def check_unusual_options(ticker: str, executor, nearest: int = 1) -> Optional[OptionsResult]:
     """Check for unusual options activity on a ticker.
 
-    Fetches nearest-expiry options chain via yfinance (blocking, runs in executor).
-    Returns None if no data or on error (including executor errors).
+    Fetches the `nearest` soonest-expiry option chains via yfinance (blocking,
+    runs in executor) and aggregates across them. nearest=1 (default) keeps the
+    original single-expiry behaviour; the !options command passes nearest=2 so
+    its put/call split and per-side max vol/OI cover the SAME 2 expirations the
+    headline flow scan uses (otherwise the two disagree). Returns None on error.
     """
     import asyncio
 
@@ -139,22 +157,27 @@ async def check_unusual_options(ticker: str, executor) -> Optional[OptionsResult
             expirations = t.options
             if not expirations:
                 return None
-            chain = t.option_chain(expirations[0])
-            return chain
+            chains = []
+            for e in expirations[:max(1, nearest)]:
+                try:
+                    chains.append(t.option_chain(e))
+                except Exception:
+                    pass
+            return chains or None
         except Exception as e:
             log.debug("yfinance options fetch error for %s: %s", ticker, e)
             return None
 
     loop = asyncio.get_running_loop()
     try:
-        chain = await loop.run_in_executor(executor, _fetch)
+        chains = await loop.run_in_executor(executor, _fetch)
     except Exception as e:
         log.debug("run_in_executor error for %s: %s", ticker, e)
         return None
-    if chain is None:
+    if not chains:
         return None
 
-    result = _detect_unusual_activity(chain)
+    result = _detect_unusual_activity(_combine_chains(chains))
     result.ticker = ticker
 
     if result.has_unusual_activity:

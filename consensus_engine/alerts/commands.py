@@ -906,16 +906,16 @@ def _build_options_embed(ticker: str, result, top) -> dict:
     share = (call_vol / total_vol) if total_vol > 0 else 0.5
     color = 0x2ECC71 if share >= 0.55 else 0xE74C3C if share <= 0.45 else 0xF1C40F
 
-    # Right column: the call/put % split + the hottest single contract each side.
+    # Right column: the call/put % split + the hottest single contract on the
+    # side the HEADLINE doesn't already cover (avoid repeating its ratio). With
+    # no headline, show both sides. max_call/max_put now span the same 2
+    # expirations as the headline, so they can't contradict it.
     if total_vol > 0:
         flow_lines = [f"🟢 Calls {call_pct}%", f"🔴 Puts {put_pct}%"]
-        hottest = []
-        if result.max_call_ratio >= 3:
-            hottest.append(f"🟢 {result.max_call_ratio:.0f}×")
-        if result.max_put_ratio >= 3:
-            hottest.append(f"🔴 {result.max_put_ratio:.0f}×")
-        if hottest:
-            flow_lines.append("  ".join(hottest))
+        if (top is None or top.side == "PUT") and result.max_call_ratio >= 3:
+            flow_lines.append(f"🟢 calls {result.max_call_ratio:.0f}×")
+        if (top is None or top.side == "CALL") and result.max_put_ratio >= 3:
+            flow_lines.append(f"🔴 puts {result.max_put_ratio:.0f}×")
         flow_value = "\n".join(flow_lines)
     else:
         flow_value = "No call/put volume yet today."
@@ -964,7 +964,9 @@ def _build_options_embed(ticker: str, result, top) -> dict:
 async def _options_and_reply(ticker: str, channel_id: str, message_id: str) -> None:
     try:
         from consensus_engine.scanners.options import check_unusual_options, scan_options_flow
-        result = await check_unusual_options(ticker, executor=None)
+        # nearest=2 so the put/call split + per-side max vol/OI cover the SAME 2
+        # expirations the headline flow scan uses below (keeps them consistent).
+        result = await check_unusual_options(ticker, executor=None, nearest=2)
         if not result:
             await send_command_reply(channel_id, message_id, f"No options data available for `${ticker}`.")
             return
