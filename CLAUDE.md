@@ -19,6 +19,7 @@ The style rules above erode without active enforcement. This section is the oper
 3. **No filler.** No "let me break this down," "there are several factors," "let me explain," "in summary." Every sentence must move the explanation forward or be cut.
 4. **Concrete example.** Did I use a real example, specific name, path, or number? If not, add one.
 5. **Completeness check.** Did I stop at the first plausible cause? Force one more pass — "what else?" — and either name everything I actually know or flag the gap.
+6. **One yardstick — consistent framing.** Explaining a scale, ratio, or two-sided thing? Hold one sentence shape across every value, whole numbers only (never "half of X" beside "twice the Y"), with a constant anchor word per line — the reader should never invert, divide, or re-orient. Show the full scale so a single value has context. Answer at the asker's level: no unrequested primer, no pointing at the code. (See `comm-check.md` Section 6.)
 
 ### Verification ladder — before claiming a fact about code, config, files, or paths
 

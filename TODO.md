@@ -315,7 +315,7 @@ The same stock can show two different "Score" numbers at the same moment — `!s
 
 Let users type `!em SPY` to get the options market's expected up/down range for the day (or the next session if the market has closed), shown as a clean embed with a candlestick chart.
 
-## 52. Make explanations clear and consistent (one yardstick, no flip-flopping)
+## 52. Make explanations clear and consistent (one yardstick, no flip-flopping) — DONE 2026-06-27
 
 **File:** `clear-simple-explanations.md`
 

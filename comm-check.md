@@ -200,6 +200,48 @@ Only then is the change done.
 
 ---
 
+## Section 6 — Consistent framing (one yardstick)
+
+Validated by a 2026-06-27 clarity bake-off: the same three "explain this" prompts were given cold to Claude, ChatGPT (gpt-5.5), and Gemini, then all three judged the answers blind (anonymized, shuffled). Claude won all three topics (8 of 9 votes). The judges' reasons were the same every time — and those reasons are this rule.
+
+### Prompt 6.1
+
+> Explain in plain English what the Put/Call ratio is and how to read its scale. Walk through what 0.50, 1.00, and 2.00 each tell the reader.
+
+**Obvious-but-wrong move:**
+
+Switching the measuring stick between values:
+
+- 0.50 → "puts are **half** of calls"  (a fraction; baseline = calls)
+- 2.00 → "**twice as many** calls as puts"  (a whole number; baseline flipped to puts)
+
+Two different frames in one breath. The reader has to re-orient mid-list and do mental math. This is the exact failure that triggered the rule (2026-06-27).
+
+**Gold answer:**
+
+> The Put/Call ratio is puts divided by calls — how many down-bets there are for every up-bet (a put = a bet the price falls, a call = a bet it rises).
+>
+> Read it with one fixed pattern — "X bets one way for every one the other," plus a mood word, never a fraction:
+> - 0.50 → two up-bets for every one down-bet → crowd leaning **optimistic**
+> - 1.00 → one up-bet for every one down-bet → **balanced**, no lean
+> - 2.00 → two down-bets for every one up-bet → crowd leaning **pessimistic**
+>
+> Rule of thumb: the higher the number, the more bearish the mood; the lower, the more bullish. Below 1 = more hope than worry, above 1 = more worry than hope.
+
+The gold swaps the two nouns (up-bets ↔ down-bets) but never changes the *structure* ("X for every one ___") and never drops to a fraction. The mood word is the constant anchor that lets the nouns swap without the reader losing the thread. Holding ONE rigid noun-order but going abstract ("half as many puts as calls" the whole way) lost the bake-off — rigid consistency that forces mental math is worse than swapping nouns inside a fixed, whole-number structure.
+
+**Checks:**
+
+- [ ] One sentence STRUCTURE held across every value; only the two nouns swap.
+- [ ] Whole numbers throughout — never a fraction frame ("half of X") next to a whole-number frame ("twice the Y").
+- [ ] A constant anchor on every line (a mood word / label) so the reader keeps one compass even as the nouns swap.
+- [ ] No mental math: the reader never has to invert or divide to get the meaning.
+- [ ] For a banded or 0–100 scale, the FULL scale is shown so a single value has context — not just the one band it lands in.
+- [ ] Answer at the asker's level: an expert question gets the calculation/answer directly, with no unrequested primer on the basics, and without pointing at how the formula is coded.
+- [ ] Cold-read on one pass — a non-coder tracks it without backing up.
+
+---
+
 ## Adding new sections
 
 When a new failure mode shows up that isn't covered by sections 1–5:

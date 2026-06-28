@@ -1,6 +1,6 @@
 # Fix convoluted, inconsistent explanations
 
-**Status:** OPEN
+**Status:** DONE 2026-06-27
 **Created:** 2026-06-27
 
 ## The problem (user's words)
@@ -29,26 +29,30 @@ The fix is to pick ONE frame and hold it across every example:
 Same structure ("X times as many ___ as ___"), only the two nouns swap. The
 reader locks onto one pattern and never re-orients.
 
-## Second example, same day (jargon explained with jargon)
+## Second example, same day (answered the wrong question, then was lazy)
 
-Asked what "vol/OI" means, Claude answered: "contracts already held from
-before... fresh money, not recycled." That uses the very terms (contract, open
-interest, position) the listener didn't know — explaining jargon with jargon,
-and assuming the reader knows what an options contract even is. User: "you're
-not explaining that vol/OI part clearly. assume i know nothing about how the
-bot is coded."
+The user understands the stock and options market at a professional level. They
+did NOT ask what vol/OI means. They asked about a **calculation**. Claude's two
+mistakes:
 
-The clear version grounds every term from zero, then anchors with the real
-numbers on screen:
-- options contract = a bet on a stock
-- open interest = bets already open from earlier days
-- volume = bets placed today
-- vol/OI = today's bets ÷ bets already open
-- NVDA: 64 open, 15,094 today → 236× = a sudden flood of brand-new bets
+1. **Answered an unasked question.** Claude explained what vol and OI *are* and
+   how they work — basics the user never asked for and already knew — before
+   getting to the actual calculation. That's talking down and padding, not
+   helping.
+2. **Lazy on the actual question.** When Claude did answer the calculation, it
+   leaned on how the formula is *coded* — it assumed the user knew the
+   implementation — instead of just stating the real computation plainly. User:
+   "your answer about the calculation was lazy. it assumed I knew how the formula
+   was coded."
 
-Rule reinforced: when a label IS jargon, don't define it with more jargon —
-define every word in plain terms and attach a concrete on-screen number. (Also
-applies to the on-card footer text itself, not just chat explanations.)
+Rules reinforced:
+- **Answer the question that was asked — only that.** Don't prepend a primer the
+  user didn't request. Gauge the asker's level from the question itself; an
+  expert-level question gets an expert-level, direct answer.
+- **Don't explain a calculation by pointing at the code.** State the actual math
+  and what each input means in real terms, grounded in the on-screen numbers —
+  e.g. NVDA: 64 contracts open from before, 15,094 traded today → 15,094 ÷ 64 =
+  236×. The reader should not need to read the source to follow it.
 
 ## The behavior to fix (general, not just this one case)
 
@@ -92,5 +96,31 @@ the same prompt, to verify Claude's version is at least as clear and simple:
 
 - Which advisor path gives the cleanest apples-to-apples Gemini/ChatGPT
   comparison from this VPS (omc ask quota is small per memory)?
-- Should the rule become a hard comm-check Section 6, or stay a memory-level
-  feedback entry? Decide after the bake-off in "How to verify."
+- **Where does this frame of thinking/answering live?** Decide between three
+  homes (after the bake-off in "How to verify"):
+  1. `comm-check.md` — a hard new Section 6 ("Consistent framing — one yardstick").
+  2. Memory files — keep it as the `feedback_consistent_framing_explanations.md`
+     entry (and any sibling feedback entries).
+  3. `CLAUDE.md` Communication Discipline — only if it needs to be load-bearing
+     every session. If CLAUDE.md, it MUST be worded tightly (one short rule line,
+     no examples in-file) so it does not bloat the file.
+  Pick one primary home; don't duplicate the full rule across all three.
+
+### Session notes — 2026-06-27
+- **Worked on:** Ran the clarity bake-off the user asked for. Same 3 "explain this"
+  prompts (Put/Call scale, vol/OI, score band) given cold to Claude, real ChatGPT
+  (gpt-5.5 via codex CLI), real Gemini (gemini CLI). Then all three judged the
+  answers blind (anonymized A/B/C, rotated). Orchestrated as a Workflow.
+- **Result:** Claude won all 3 topics, 8 of 9 votes (only ChatGPT's self-vote on the
+  minimal score-band answer dissented). Judges' reasons were identical across topics →
+  became the rule. Full data: `.omc/plans/2026-06-27-clear-explanations-bakeoff-raw.json`
+  + `-results.md`; spec at `-bakeoff.md`.
+- **Decisions:** Both open questions answered. (1) Advisor path = codex CLI + gemini CLI
+  (both live; omc ask not needed). (2) Home = `comm-check.md` **Section 6** (full rule +
+  gold + checklist) as primary, plus one trigger line in `CLAUDE.md` pre-send item 6;
+  memory stays the failure log. Sharpened the rule: target is "no mental math / no
+  re-orient," so swapping nouns inside a fixed whole-number structure (with a constant
+  anchor) is fine — mixing a fraction frame with a whole-number frame is what loses.
+- **Next:** None to build. Soak: the real test is whether live-session explanations
+  (not cold agents) actually follow Section 6. Remove from TODO only after the user
+  confirms it's holding and OKs removal.
