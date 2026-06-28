@@ -933,7 +933,6 @@ def _build_options_embed(ticker: str, result, top) -> dict:
         exp_txt = datetime.strptime(top.expiry, "%Y-%m-%d").strftime("%b %-d")
     except ValueError:
         exp_txt = top.expiry
-    ratio_txt = f"{top.vol_oi_ratio:.0f}×" if top.vol_oi_ratio >= 10 else f"{top.vol_oi_ratio:.1f}×"
     if top.premium_usd >= 1_000_000:
         prem_txt = f"~${top.premium_usd / 1_000_000:.1f}M"
     else:
@@ -942,7 +941,6 @@ def _build_options_embed(ticker: str, result, top) -> dict:
     desc = f"{arrow}  **{exp_txt} · ${top.strike:g} strike**  ·  🗓️ {_fmt_opt_pt(top.last_trade_ts)}"
 
     contract_lines = [
-        f"📈 {ratio_txt} vol/OI",
         f"🔢 {top.volume:,} vs {top.open_interest:,} open",
         f"💰 {prem_txt} traded",
     ]
