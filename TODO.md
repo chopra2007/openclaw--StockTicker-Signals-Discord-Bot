@@ -314,3 +314,15 @@ The same stock can show two different "Score" numbers at the same moment — `!s
 **File:** `em_command.md`
 
 Let users type `!em SPY` to get the options market's expected up/down range for the day (or the next session if the market has closed), shown as a clean embed with a candlestick chart.
+
+## 52. Make explanations clear and consistent (one yardstick, no flip-flopping)
+
+**File:** `clear-simple-explanations.md`
+
+Stop giving convoluted explanations that switch reference frames mid-answer (e.g. "puts are half of calls" then "twice as many calls as puts"); hold one consistent, simple framing — and verify clarity by comparing against real Gemini and ChatGPT answers to the same prompts.
+
+## 53. Show every bot reading on an intuitive, shared scale
+
+**File:** `intuitive-display-scales.md`
+
+Roll out the !options percentage idea everywhere: convert readings computed in unintuitive internal scales (ratios, z-scores, raw counts) to an intuitive display scale in Discord, and give same-type readings one shared scale so learning to read one teaches you all of them. (!options is the shipped reference — see detail file.)
