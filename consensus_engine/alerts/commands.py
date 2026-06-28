@@ -927,7 +927,6 @@ def _build_options_embed(ticker: str, result, top) -> dict:
             "description": "No standout single-contract activity on the latest session.",
             "color": color,
             "fields": [flow_field],
-            "footer": {"text": "vol/OI = today's volume ÷ open interest"},
         }
 
     # Dot follows the headline bet's side: 🟢 = a CALL is the biggest unusual
@@ -959,7 +958,6 @@ def _build_options_embed(ticker: str, result, top) -> dict:
         "description": desc,
         "color": color,
         "fields": [contract_field, flow_field],
-        "footer": {"text": "vol/OI = today's volume ÷ open interest"},
     }
 
 
