@@ -478,6 +478,9 @@ async def _route_command_inner(
             else:
                 await _handle_em(ticker, channel_id, message_id)
 
+    elif command in ("market", "rotation", "breadth", "regime"):
+        await _handle_market(channel_id, message_id)
+
     else:
         await send_command_reply(channel_id, message_id, f"Unknown command `!{command}`. Try `!help`.")
 
@@ -1726,6 +1729,193 @@ async def _handle_macro(channel_id: str, message_id: str) -> None:
     except Exception as e:
         log.error("!macro command error: %s", e)
         await send_command_reply(channel_id, message_id, "Macro digest unavailable.")
+
+
+# ---------------------------------------------------------------------------
+# !market / !rotation / !breadth / !regime — daily market-CONTEXT dashboard
+# ---------------------------------------------------------------------------
+#
+# This is DESCRIPTIVE market context (a view, not a buy/sell signal). The
+# back-tests found no tradeable edge, so nothing here gates an alert. The four
+# daily reads (sector rotation, style leadership, price-trend regime, the bot's
+# own directional breadth) are written once a day by scripts/market_daily.py and
+# read straight back from SQLite via market_panel — no live fetch at command time.
+#
+# Honest rotation wording is load-bearing: a sector that is "leading" has ALREADY
+# moved (it is late, not a fresh entry); a sector that is "improving" is early.
+
+# RRG quadrant -> (heading shown to the user, one-word plain gloss).
+_QUADRANT_LABEL = {
+    "improving": ("Improving (early)", "weak but turning up"),
+    "leading": ("Leading (already moved)", "strong, late — not a fresh entry"),
+    "weakening": ("Weakening (rolling over)", "strong but losing steam"),
+    "lagging": ("Lagging", "weak and still falling"),
+}
+# Order groups so the EARLY read is on top and the LATE read is clearly marked.
+_QUADRANT_ORDER = ("improving", "leading", "weakening", "lagging")
+
+_TREND_LABEL = {
+    "green": "🟢 uptrend (above 200-day, rising)",
+    "yellow": "🟡 mixed / transitioning",
+    "red": "🔴 downtrend (below 200-day, falling)",
+}
+
+_MARKET_DISCLAIMER = (
+    "Market CONTEXT only — a view, not a buy/sell signal. No edge was found in "
+    "back-testing; this just shows where money has been rotating."
+)
+
+
+def _pdt_now_str() -> str:
+    """Current time as a PDT label (never ET — house rule)."""
+    return datetime.now(ZoneInfo("America/Los_Angeles")).strftime("%Y-%m-%d %H:%M PDT")
+
+
+def _build_market_embed(
+    sector_rows: list[dict],
+    factor_rows: list[dict],
+    trend_row: Optional[dict],
+    breadth_row: Optional[dict],
+    breadth_note: str,
+) -> dict:
+    """Render the four persisted daily reads into one Discord embed (pure).
+
+    ``sector_rows`` / ``factor_rows`` are all rows for the latest date;
+    ``trend_row`` / ``breadth_row`` are the single newest rows (or None).
+    """
+    fields: list[dict] = []
+
+    # --- Sector rotation leaderboard, grouped by quadrant (early -> late) -----
+    as_of = ""
+    if sector_rows:
+        as_of = sector_rows[0].get("date_utc", "")
+        by_q: dict[str, list[dict]] = {q: [] for q in _QUADRANT_ORDER}
+        for r in sector_rows:
+            by_q.setdefault(r["quadrant"], []).append(r)
+        lines: list[str] = []
+        for q in _QUADRANT_ORDER:
+            group = by_q.get(q) or []
+            if not group:
+                continue
+            heading, gloss = _QUADRANT_LABEL[q]
+            # Strongest relative-strength first within each group.
+            group.sort(key=lambda x: x["rs_ratio"], reverse=True)
+            etfs = ", ".join(f"`{r['etf']}`" for r in group)
+            star = " ⭐" if any(r.get("inflection") for r in group) else ""
+            lines.append(f"__{heading}__ — _{gloss}_{star}\n{etfs}")
+        fields.append({
+            "name": "🔄  Sector rotation (13 ETFs vs SPY)",
+            "value": "\n".join(lines) or "no data",
+            "inline": False,
+        })
+
+    # --- Style / factor leadership -------------------------------------------
+    if factor_rows:
+        leaders = [r for r in factor_rows if r.get("leading")]
+        leaders.sort(key=lambda x: x["rs_vs_spy"], reverse=True)
+        if leaders:
+            top = leaders[0]
+            accel = top.get("accelerating")
+            accel_txt = ("speeding up" if accel in (1, True)
+                         else "fading" if accel in (0, False) else "flat")
+            lead_line = (f"Leading style: `{top['factor_etf']}` "
+                         f"(+{top['rs_vs_spy']:.1f} vs SPY, {accel_txt})")
+            others = ", ".join(f"`{r['factor_etf']}`" for r in leaders[1:6])
+            value = lead_line + (f"\nAlso leading: {others}" if others else "")
+        else:
+            value = "No style is beating SPY right now (broad market leads)."
+        fields.append({
+            "name": "🎚️  Style leadership (factor ETFs)",
+            "value": value,
+            "inline": False,
+        })
+
+    # --- Price-trend / direction regime --------------------------------------
+    if trend_row:
+        state = trend_row.get("trend_state", "")
+        label = _TREND_LABEL.get(state, state or "unknown")
+        sym = trend_row.get("index_symbol", "SPY")
+        close = trend_row.get("close")
+        sma200 = trend_row.get("sma_200")
+        pct = ""
+        if close and sma200:
+            pct = f" ({(close / sma200 - 1) * 100:+.1f}% vs its 200-day average)"
+        fields.append({
+            "name": "📈  Price-trend regime",
+            "value": f"`{sym}`: {label}{pct}",
+            "inline": False,
+        })
+
+    # --- Internal breadth (the bot's OWN directional stream) ------------------
+    if breadth_row:
+        net = breadth_row.get("net_bull_bear", 0)
+        nb = breadth_row.get("n_bullish", 0)
+        ns = breadth_row.get("n_bearish", 0)
+        z = breadth_row.get("osc_z", 0.0)
+        lean = "more bullish than usual" if z > 0.5 else \
+               "more bearish than usual" if z < -0.5 else "about average"
+        fields.append({
+            "name": "🐂  Our own signal breadth",
+            "value": (f"Net {net:+d} ({nb} bullish − {ns} bearish tickers), "
+                      f"trend z-score {z:+.2f} → {lean}.\n_{breadth_note}_"),
+            "inline": False,
+        })
+
+    title = "📊  Market Context"
+    if as_of:
+        title += f" — as of {as_of} (prior close)"
+    return {
+        "title": title,
+        "description": _MARKET_DISCLAIMER,
+        "color": 0x95A5A6,  # slate — neutral, not green/red, so it never reads as a call
+        "fields": fields or [{"name": "No data yet",
+                              "value": "The daily market read has not run yet.",
+                              "inline": False}],
+        "footer": {"text": f"OpenClaw market context · a view, not a signal · {_pdt_now_str()}"},
+    }
+
+
+async def _handle_market(channel_id: str, message_id: str) -> None:
+    """Reply with the daily market-CONTEXT dashboard (read-only, no edge claim).
+
+    Reads the four persisted daily tables (sector_rs_daily, factor_rs_daily,
+    trend_daily, internal_breadth_daily) through market_panel and renders one
+    embed. Gated by ``features.market_command.enabled`` (default OFF).
+    """
+    if not cfg.get("features.market_command.enabled", False):
+        await send_command_reply(
+            channel_id, message_id,
+            "`!market` is not enabled yet. It shows daily market context "
+            "(sector rotation, style leadership, trend, breadth) — a view, not a signal.",
+        )
+        return
+    try:
+        from consensus_engine.analysis import market_panel
+        from consensus_engine.analysis.internal_breadth import LONG_BIAS_NOTE
+
+        sector_latest = await market_panel.get_latest_row("sector_rs_daily")
+        sector_rows: list[dict] = []
+        if sector_latest:
+            sector_rows = await market_panel.get_recent_rows(
+                "sector_rs_daily", limit=64,
+                filters={"date_utc": sector_latest["date_utc"]})
+
+        factor_latest = await market_panel.get_latest_row("factor_rs_daily")
+        factor_rows: list[dict] = []
+        if factor_latest:
+            factor_rows = await market_panel.get_recent_rows(
+                "factor_rs_daily", limit=64,
+                filters={"date_utc": factor_latest["date_utc"]})
+
+        trend_row = await market_panel.get_latest_row("trend_daily")
+        breadth_row = await market_panel.get_latest_row("internal_breadth_daily")
+
+        embed = _build_market_embed(
+            sector_rows, factor_rows, trend_row, breadth_row, LONG_BIAS_NOTE)
+        await send_command_embed_reply(channel_id, message_id, embed)
+    except Exception as e:
+        log.error("!market command error: %s", e)
+        await send_command_reply(channel_id, message_id, "Market context unavailable.")
 
 
 # ---------------------------------------------------------------------------
