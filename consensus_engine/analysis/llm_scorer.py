@@ -17,6 +17,11 @@ from consensus_engine.models import (
 
 log = logging.getLogger("consensus_engine.analysis.llm_scorer")
 
+# C4: count of alerts where BOTH the openrouter chain and the Groq fallback were
+# exhausted, so the thesis degraded to a visible "(unavailable)" note instead of
+# a silent blank. Surfaced for shadow-logging before the flag is flipped live.
+_llm_unavailable_count = 0
+
 _SYSTEM_PROMPT = """You are a stock market analyst AI. You evaluate whether a stock ticker
 represents a high-confidence early-stage breakout opportunity.
 
@@ -120,15 +125,35 @@ async def score_confidence(ticker: str,
 
     # role="text" routes through llm.text_model (tweetshift volume path) so it
     # can be configured independently from llm.model (morning brief / research).
+    messages = [
+        {"role": "system", "content": _SYSTEM_PROMPT},
+        {"role": "user", "content": user_prompt},
+    ]
     content = await call_with_fallback(
-        role="text",
-        messages=[
-            {"role": "system", "content": _SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt},
-        ],
-        max_tokens=max_tokens,
-        temperature=0.3,
+        role="text", messages=messages, max_tokens=max_tokens, temperature=0.3,
     )
+    if not content and cfg.get("llm.score_fallback_enabled", False):
+        # C4: the configured chain is exhausted (commonly the shared openrouter
+        # account 429s every model at once). Retry once on a dedicated
+        # non-openrouter (Groq) chain — a different provider/account is unlikely
+        # to be rate-limited at the same instant. The instant alert has already
+        # fired (base_score-gated, LLM-independent); this only recovers the
+        # bonus + thesis.
+        groq_model = cfg.get("llm.groq_fallback_model", "")
+        if groq_model:
+            log.warning("LLM score: chain empty for %s — trying Groq fallback %s",
+                        ticker, groq_model)
+            content = await call_with_fallback(
+                role="text", messages=messages, max_tokens=max_tokens,
+                temperature=0.3, chain=[groq_model],
+            )
+        if not content:
+            global _llm_unavailable_count
+            _llm_unavailable_count += 1
+            log.error("LLM score+thesis UNAVAILABLE for %s after Groq fallback "
+                      "(count=%d) — alert still fires on base score; thesis degraded",
+                      ticker, _llm_unavailable_count)
+            return 0.0, "(thesis unavailable — LLM providers rate-limited)"
     if not content:
         return 0.0, "LLM scoring unavailable (all models failed)"
 
