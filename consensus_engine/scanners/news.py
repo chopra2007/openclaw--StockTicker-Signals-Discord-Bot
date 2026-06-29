@@ -28,9 +28,36 @@ from consensus_engine.utils.http import get_session
 from consensus_engine import db
 from consensus_engine.models import CatalystResult, TickerSignal, SourceType, Sentiment
 from consensus_engine.utils.rate_limiter import rate_limiter
+from consensus_engine.utils.burst_retry import classify_retry, parse_retry_after, RetryClass
 from consensus_engine.scanners.searxng import search_searxng
 
 log = logging.getLogger("consensus_engine.scanner.news")
+
+
+def _report_news_failure(source: str, *, status: int | None = None,
+                         body: str | None = None, headers=None,
+                         exc: Exception | None = None) -> None:
+    """C3: classify a news-tier failure and report it to the single backoff
+    authority (rate_limiter). Conservative + flag-gated: we only OVERRIDE the
+    normal exponential backoff when a server supplied a real Retry-After hint on
+    a QUOTA failure; otherwise this is exactly the prior plain report_failure."""
+    if not cfg.get("retry.use_classifier", False):
+        rate_limiter.report_failure(source)
+        return
+    cls = classify_retry(http_status=status, body=body, exc=exc)
+    if cls is RetryClass.QUOTA_BLOCKED:
+        text = body or ""
+        if headers is not None and hasattr(headers, "get"):
+            ra = headers.get("Retry-After")
+            if ra:
+                text = f"{text} Retry-After: {ra}"
+        parsed = parse_retry_after(text)
+        if parsed:
+            rate_limiter.report_failure(source, retry_after=min(parsed, 600.0))
+            log.info("news %s QUOTA_BLOCKED — Retry-After %.0fs", source, min(parsed, 600.0))
+            return
+    # transient / permanent / quota-without-hint: keep the normal backoff
+    rate_limiter.report_failure(source)
 
 _CATALYST_PATTERNS = [
     (["short squeeze", "squeeze", "short interest"], "Short Squeeze"),
@@ -241,7 +268,7 @@ async def _search_finnhub_news(ticker: str) -> Optional[CatalystResult]:
         async with session.get(url, params=params,
                                timeout=aiohttp.ClientTimeout(total=10)) as resp:
             if resp.status != 200:
-                rate_limiter.report_failure("finnhub_news")
+                _report_news_failure("finnhub_news", status=resp.status, headers=resp.headers)
                 return None
             articles = await resp.json()
             rate_limiter.report_success("finnhub_news")
@@ -264,7 +291,7 @@ async def _search_finnhub_news(ticker: str) -> Optional[CatalystResult]:
         return None
     except Exception as e:
         log.warning("Finnhub news error for %s: %s", ticker, e)
-        rate_limiter.report_failure("finnhub_news")
+        _report_news_failure("finnhub_news", exc=e)
         return None
 
 
@@ -286,7 +313,7 @@ async def _search_google_news_rss(ticker: str) -> Optional[CatalystResult]:
             headers={"User-Agent": "Mozilla/5.0"},
         ) as resp:
             if resp.status != 200:
-                rate_limiter.report_failure("google_news_rss")
+                _report_news_failure("google_news_rss", status=resp.status, headers=resp.headers)
                 return None
             xml_text = await resp.text()
             rate_limiter.report_success("google_news_rss")
@@ -314,7 +341,7 @@ async def _search_google_news_rss(ticker: str) -> Optional[CatalystResult]:
         return None
     except Exception as e:
         log.warning("Google News RSS error for %s: %s", ticker, e)
-        rate_limiter.report_failure("google_news_rss")
+        _report_news_failure("google_news_rss", exc=e)
         return None
 
 
@@ -398,7 +425,7 @@ async def _search_brave(ticker: str) -> Optional[CatalystResult]:
                     _brave_quota_exhausted = True
                     log.warning("Brave monthly quota exhausted (HTTP 402) — "
                                 "circuit open until restart")
-                rate_limiter.report_failure("brave_search")
+                _report_news_failure("brave_search", status=resp.status, headers=resp.headers)
                 return None
             data = await resp.json()
             rate_limiter.report_success("brave_search")
@@ -422,7 +449,7 @@ async def _search_brave(ticker: str) -> Optional[CatalystResult]:
         return None
     except Exception as e:
         log.warning("Brave search error for %s: %s", ticker, e)
-        rate_limiter.report_failure("brave_search")
+        _report_news_failure("brave_search", exc=e)
         return None
 
 

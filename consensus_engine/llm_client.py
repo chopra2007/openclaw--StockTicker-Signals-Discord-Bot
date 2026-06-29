@@ -23,8 +23,34 @@ import aiohttp
 from consensus_engine import config as cfg
 from consensus_engine.utils.http import get_session
 from consensus_engine.utils.rate_limiter import rate_limiter
+from consensus_engine.utils.burst_retry import classify_retry, parse_retry_after, RetryClass
 
 log = logging.getLogger("consensus_engine.llm_client")
+
+
+def _note_llm_retry(provider: str, status: int, body: str | None, headers) -> None:
+    """C3: when an LLM HTTP failure is a QUOTA block AND the server gave a
+    Retry-After, pace that provider bucket for the (capped) hint so the bot
+    stops hammering a hard-429ing provider. Flag-gated (retry.use_classifier,
+    default OFF); a hint-less 429 is a deliberate no-op so we never introduce
+    LLM-bucket backoff without an explicit server signal. The cap
+    (retry.llm_retry_after_cap_s, 120) prevents a per-day 86399s hint from
+    blocking the LLM bucket for hours — the blank-thesis amplifier."""
+    if not cfg.get("retry.use_classifier", False):
+        return
+    if classify_retry(http_status=status, body=body) is not RetryClass.QUOTA_BLOCKED:
+        return
+    text = body or ""
+    if headers is not None and hasattr(headers, "get"):
+        ra = headers.get("Retry-After")
+        if ra:
+            text = f"{text} Retry-After: {ra}"
+    parsed = parse_retry_after(text)
+    if not parsed:
+        return  # no server hint -> preserve current no-backoff behavior
+    cap = float(cfg.get("retry.llm_retry_after_cap_s", 120))
+    rate_limiter.report_failure(provider, retry_after=min(parsed, cap))
+    log.info("LLM %s QUOTA — pacing bucket %.0fs (capped)", provider, min(parsed, cap))
 
 _API_URL = "https://openrouter.ai/api/v1/chat/completions"
 _GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
@@ -143,6 +169,8 @@ async def _try_model(
             timeout=aiohttp.ClientTimeout(total=timeout),
         ) as resp:
             if resp.status == 200:
+                if cfg.get("retry.use_classifier", False):
+                    rate_limiter.report_success(provider)  # C3: clear any pacing
                 data = await resp.json()
                 content = (data.get("choices", [{}])[0]
                                .get("message", {})
@@ -153,6 +181,7 @@ async def _try_model(
                 return None
             body = await resp.text()
             if resp.status in (408, 429) or 500 <= resp.status < 600:
+                _note_llm_retry(provider, resp.status, body, getattr(resp, "headers", None))  # C3
                 log.warning("LLM %s HTTP %d (retryable): %.200s",
                             model, resp.status, body)
                 return None

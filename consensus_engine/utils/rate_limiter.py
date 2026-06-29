@@ -68,10 +68,23 @@ class RateLimiter:
         """Reset failure count on success."""
         self._failure_counts[source] = 0
 
-    def report_failure(self, source: str):
-        """Increment failure count and potentially trigger backoff."""
+    def report_failure(self, source: str, retry_after: float | None = None):
+        """Increment failure count and potentially trigger backoff.
+
+        C3: when a server supplies an explicit Retry-After (seconds), honor it
+        immediately (capped at 600s) instead of the count-based exponential
+        schedule — rate_limiter stays the single backoff authority, now informed
+        by the server hint. Existing callers omit ``retry_after`` and are
+        unaffected.
+        """
         self._failure_counts[source] += 1
         count = self._failure_counts[source]
+
+        if retry_after and retry_after > 0:
+            block = min(float(retry_after), 600.0)
+            self._blocked_until[source] = time.time() + block
+            log.warning("Source '%s' backing off %.0fs (server Retry-After)", source, block)
+            return
 
         if count >= 3:
             # Exponential backoff: 30s, 60s, 120s, 240s, max 600s
