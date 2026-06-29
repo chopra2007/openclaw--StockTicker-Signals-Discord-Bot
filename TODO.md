@@ -339,9 +339,11 @@ Roll out the !options percentage idea everywhere: convert readings computed in u
 
 Ship 15 reliability/efficiency fixes to the live bot (stop hangs, dead-source retries, and event-loop stalls), turn on the proven-safe ones now, and after a 7-day soak decide whether to turn on the 5 cautious switches (dead-source cutoff, junk-ticker skip, smarter retries).
 
-## 55. Start saving the data future features need to test on
+## 55. Start saving the data future features need to test on — Tier-1 Item 1 DONE 2026-06-29
 
 **File:** `forward-data-collection.md`
+
+**STATUS (2026-06-29):** The #1 unlock is LIVE — alerts are now graded at **5 and 20 days** later, not just 1h/24h. `decision_snapshots` got `outcome_price_5d`/`outcome_price_20d`; the live engine fills them forward and history was backfilled (2,154 5-day labels, 890 20-day). This starts the data clock to re-test the failed trade-edge features (sector-rotation/factor/trend) on a matching horizon in ~2-3 months. Still open: the `source_performance` producer (Tier-1 Item 2) and the point-in-time logging (Tier 2/3).
 
 Begin a cheap forward-log of the inputs and outcomes future features will need — most importantly grading every alert at 5 and 20 days later (not just 1 hour and 24 hours) — so the next time we build a slow-signal feature it already has history to prove itself on instead of failing for lack of recorded data.
 

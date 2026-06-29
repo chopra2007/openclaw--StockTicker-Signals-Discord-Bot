@@ -1,7 +1,19 @@
 # Start saving the data future features need to test on
 
-**Status:** OPEN
+**Status:** IN PROGRESS — Tier-1 Item 1 DONE + LIVE (2026-06-29)
 **Created:** 2026-06-28
+
+## CURRENT STATUS (2026-06-29)
+The #1 unlock — **+5d/+20d outcome labels** — is built, live, and backfilled.
+`decision_snapshots` now has `outcome_price_5d` / `outcome_price_20d`; the live engine
+fills them going forward, and history was backfilled: **2,154 rows have a 5-day label,
+890 have a 20-day label**. This starts the data clock the failed trade-edge features
+(sector-rotation / factor / trend) need to be re-tested on a matching horizon in ~2-3
+months. (`alert_history` 5d/20d columns were intentionally NOT added — redundant; the
+re-test and `calibration.retrain` read `decision_snapshots`.) Still open: Tier-1 Item 2
+(`source_performance` producer), Tier-2/3 logging.
+Shipped in discover run `trade-edge-features` (commit c08928f; one-off backfill via
+`scripts/backfill_decision_outcomes.py`; daily fill rides the live `price_outcome_loop`).
 
 ## The goal in one line
 Begin a cheap, append-only forward-log of the inputs and outcomes that future
@@ -27,7 +39,7 @@ the complete sweep. Source: 3-agent forward-collection audit, 2026-06-28.
 ## Next steps, priority-ordered
 
 ### TIER 1 — highest leverage, cheap, do first
-1. **Add +5d and +20d forward outcome labels to every alert.** THE #1 UNLOCK.
+1. **Add +5d and +20d forward outcome labels to every alert.** THE #1 UNLOCK. **[DONE 2026-06-29 — decision_snapshots side live + backfilled; see CURRENT STATUS.]**
    - Unblocks: the whole trade-edge family that died NO-EDGE (sector-rotation /
      factor / trend — see memory `project_market_wide_no_edge.md`, which were
      judged on a 1h/24h ruler against 1-month/2-month signals), the
