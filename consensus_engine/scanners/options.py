@@ -475,15 +475,17 @@ def _max_pain_for_chain(chain) -> Optional[tuple]:
     fine grid needed). Ties broken toward the strike nearest the mid of the
     strike range (deterministic).
     """
+    import numpy as np
+
     calls, puts = chain.calls, chain.puts
     call_oi: dict = {}
     put_oi: dict = {}
     for df, dst in ((calls, call_oi), (puts, put_oi)):
         if df is None or getattr(df, "empty", True):
             continue
-        for _, row in df.iterrows():
-            k = row.get("strike")
-            oi = row.get("openInterest")
+        for row in df.itertuples(index=False):  # C7/C8: itertuples; getattr defaults
+            k = getattr(row, "strike", None)
+            oi = getattr(row, "openInterest", None)
             try:
                 k = float(k)
                 oi = float(oi) if oi == oi else 0.0  # NaN -> 0
@@ -500,18 +502,23 @@ def _max_pain_for_chain(chain) -> Optional[tuple]:
 
     mid = strikes[len(strikes) // 2]
 
-    def _payout(S: float) -> float:
-        tot = 0.0
-        for k, oi in call_oi.items():
-            if S > k:
-                tot += (S - k) * oi
-        for k, oi in put_oi.items():
-            if k > S:
-                tot += (k - S) * oi
-        return tot
-
-    # argmin payout; deterministic tie-break toward the centre strike.
-    best = min(strikes, key=lambda S: (_payout(S), abs(S - mid)))
+    # C7: vectorized payout over all listed strikes. Payout is piecewise-linear
+    # with breakpoints only at strikes, so evaluating at the strikes is exact.
+    # payout(S_i) = sum_j call_oi[j]*max(0, S_i-K_j) + sum_j put_oi[j]*max(0, K_j-S_i).
+    # numpy's matmul/maximum are C ops that release the GIL. The dict-building
+    # above is preserved verbatim so OI aggregation (dup strikes, NaN->0, k>0,
+    # max(0,oi)) is byte-identical to the prior loop.
+    K = np.array(strikes, dtype=float)
+    call_arr = np.array([call_oi.get(k, 0.0) for k in strikes], dtype=float)
+    put_arr = np.array([put_oi.get(k, 0.0) for k in strikes], dtype=float)
+    diff = K[:, None] - K[None, :]                       # S_i - K_j
+    call_pay = (np.maximum(diff, 0.0) * call_arr[None, :]).sum(axis=1)
+    put_pay = (np.maximum(-diff, 0.0) * put_arr[None, :]).sum(axis=1)
+    payout = call_pay + put_pay
+    dist = np.abs(K - mid)
+    # Lexicographic argmin (primary payout, tiebreak dist, then lowest strike via
+    # stable order) — matches min(strikes, key=(payout, abs(S-mid))).
+    best = strikes[int(np.lexsort((dist, payout))[0])]
     return best, total_oi, sum(call_oi.values()), sum(put_oi.values())
 
 
@@ -594,9 +601,13 @@ async def compute_max_pain(ticker: str, executor=None) -> Optional[dict]:
                 except Exception:
                     failed += 1
             _note_chain_fetch("compute_max_pain", ticker, attempted, failed)
+            # C7: compute max-pain IN this executor thread (not on the event
+            # loop after the fetch returns). max_pain[e] = (strike, total_oi,
+            # call_oi_sum, put_oi_sum) | None.
+            max_pain = {e: _max_pain_for_chain(ch) for e, ch in chains.items()}
             return {"spot": spot, "weekly_exp": weekly_exp,
                     "monthly_exp": monthly_exp, "chains_present": list(chains.keys()),
-                    "_chains": chains}
+                    "max_pain": max_pain}
         except Exception as ex:
             log.debug("max-pain fetch error for %s: %s", ticker, ex)
             return None
@@ -611,14 +622,11 @@ async def compute_max_pain(ticker: str, executor=None) -> Optional[dict]:
     if not raw:
         return None
 
-    chains = raw["_chains"]
+    max_pain = raw["max_pain"]  # C7: precomputed in the executor thread
     spot = raw["spot"]
 
     def _leg(exp):
-        ch = chains.get(exp)
-        if ch is None:
-            return None
-        mp = _max_pain_for_chain(ch)
+        mp = max_pain.get(exp)
         if mp is None:
             return None
         strike, total_oi, _call_oi, _put_oi = mp
@@ -632,7 +640,7 @@ async def compute_max_pain(ticker: str, executor=None) -> Optional[dict]:
     # positioning), <1 = more call OI. None when the nearest chain has no call OI.
     pc_oi_ratio = None
     call_oi_sum = put_oi_sum = None
-    _near = _max_pain_for_chain(chains.get(weekly_exp)) if weekly_exp else None
+    _near = max_pain.get(weekly_exp) if weekly_exp else None
     if _near is not None:
         _, _, _call_oi_sum, _put_oi_sum = _near
         call_oi_sum, put_oi_sum = _call_oi_sum, _put_oi_sum   # #53: for the call/put OI % split
