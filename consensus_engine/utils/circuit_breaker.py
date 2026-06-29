@@ -1,0 +1,206 @@
+"""C2 (reliability-hardening): a canonical 3-state circuit breaker.
+
+Replaces/backs the ad-hoc in-memory breakers (Brave HTTP-402 "open until
+restart", Gemini per-key bench) with one breaker that:
+
+  * is 3-state (closed -> open -> half_open) with fail_max / reset_timeout;
+  * stores opened_at / next_probe_at as WALL-CLOCK UTC ``time.time()`` — NEVER
+    ``time.monotonic()``. A monotonic opened_at compared against a persisted
+    wall-clock value would never elapse after a restart -> stuck open forever.
+    This is the #1 adversarial defeater for the run and is pinned by a test;
+  * SELF-DRIVES recovery: every ``allow()`` re-checks the clock and grants a
+    single half-open probe once the cooldown elapses, with NO external traffic
+    needed, so a recovered source is never silently kept down;
+  * probes immediately on restart if a persisted OPEN's cooldown already passed
+    during downtime (half-open-on-restart);
+  * persists ONLY durable conditions (quota / 402 / bench) so a transient blip
+    is retried fresh after a restart (Gemini's point), while a known-exhausted
+    source is not blindly re-hammered every restart;
+  * is flag-gated default-OFF (``circuit_breaker.enabled``). When disabled it
+    NEVER gates a call (signal-first) but still records transitions so we can
+    shadow-log what it *would* do before flipping the gate on;
+  * fails toward ALLOW on any DB error — a storage hiccup can never silently
+    block a source.
+
+Design note (deviation from the plan's literal text, chosen deliberately):
+every OPEN — including durable quota/402 — re-probes within ``min(retry_after,
+hard_max_open_s)`` rather than waiting out a multi-hour quota window. The run's
+north star is availability, and the named #1 risk is *stuck-open*; bounding
+every state to <= hard_max_open_s recovery is the safest choice. A re-probe of an
+exhausted source is one cheap call that simply re-opens.
+
+The breaker only ever makes a source *absent* for a cycle (``allow()`` False ->
+caller skips it -> the aggregator already None-filters); it never raises into,
+blocks, or delays the alert path.
+"""
+import logging
+import time
+from typing import Callable, Optional
+
+from consensus_engine import config
+
+log = logging.getLogger("consensus_engine.circuit_breaker")
+
+# Reasons whose OPEN survives a restart (real, durable limits). Everything else
+# (transient 5xx/timeout, corroborated permanent) stays in-memory only.
+DURABLE_REASONS = frozenset({"quota", "402", "bench"})
+
+
+class CircuitBreaker:
+    def __init__(self, *, now_fn: Callable[[], float] = time.time):
+        self._now = now_fn
+        self._state: dict[str, dict] = {}
+        self._loaded = False
+
+    # ---- config (read live so a hot-reload of consensus.yaml takes effect) ----
+    def _enabled(self) -> bool:
+        return bool(config.get("circuit_breaker.enabled", False))
+
+    def _fail_max(self) -> int:
+        try:
+            return max(1, int(config.get("circuit_breaker.fail_max", 5)))
+        except (TypeError, ValueError):
+            return 5
+
+    def _reset_timeout(self) -> float:
+        try:
+            return float(config.get("circuit_breaker.reset_timeout_s", 120))
+        except (TypeError, ValueError):
+            return 120.0
+
+    def _hard_max(self) -> float:
+        try:
+            return float(config.get("circuit_breaker.hard_max_open_s", 1800))
+        except (TypeError, ValueError):
+            return 1800.0
+
+    @staticmethod
+    def _key(source: str, cred_version: str) -> str:
+        return f"{source}@{cred_version}"
+
+    @staticmethod
+    def _fresh() -> dict:
+        return {"state": "closed", "failure_count": 0, "opened_at": None,
+                "open_reason": None, "next_probe_at": None, "last_alerted_at": None}
+
+    def _next_probe(self, now: float, retry_after: Optional[float]) -> float:
+        base = retry_after if (retry_after and retry_after > 0) else self._reset_timeout()
+        return now + min(base, self._hard_max())
+
+    # ----------------------------- decision ---------------------------------
+    def allow(self, source: str, cred_version: str = "v1") -> bool:
+        """True if the call may proceed. Sync + pure in-memory (no DB on the hot
+        path). When the flag is OFF, always True (shadow mode) but still logs a
+        would-block so operators can see the breaker's behavior pre-flip."""
+        decision = self._decide(source, cred_version)
+        if not self._enabled():
+            if not decision:
+                log.debug("circuit_breaker[SHADOW] would block %s@%s", source, cred_version)
+            return True
+        return decision
+
+    def _decide(self, source: str, cred_version: str) -> bool:
+        key = self._key(source, cred_version)
+        st = self._state.get(key)
+        if st is None or st["state"] == "closed":
+            return True
+        now = self._now()
+        opened_at = st["opened_at"] or now
+        next_probe = st["next_probe_at"] or 0.0
+        probe_due = now >= next_probe or (now - opened_at) >= self._hard_max()
+        if probe_due:
+            # grant exactly ONE probe; re-arm so a probe that never reports back
+            # (caller crash) can't wedge the breaker in half_open forever.
+            st["state"] = "half_open"
+            st["next_probe_at"] = now + self._reset_timeout()
+            log.info("circuit_breaker %s -> half_open (probe)", key)
+            return True
+        return False
+
+    # ----------------------------- transitions ------------------------------
+    async def record_failure(self, source: str, *, reason: str = "transient",
+                             cred_version: str = "v1",
+                             retry_after: Optional[float] = None,
+                             immediate: bool = False) -> Optional[dict]:
+        key = self._key(source, cred_version)
+        now = self._now()
+        st = self._state.setdefault(key, self._fresh())
+        st["failure_count"] += 1
+        prev = st["state"]
+
+        if prev == "half_open":
+            self._open(st, now, reason, retry_after)
+            await self._persist_if_durable(key, st, reason)
+            return {"key": key, "source": source, "from": "half_open", "to": "open",
+                    "reason": reason, "failure_count": st["failure_count"]}
+
+        if prev == "closed" and (immediate or st["failure_count"] >= self._fail_max()):
+            self._open(st, now, reason, retry_after)
+            await self._persist_if_durable(key, st, reason)
+            return {"key": key, "source": source, "from": "closed", "to": "open",
+                    "reason": reason, "failure_count": st["failure_count"]}
+
+        return None  # still accumulating, or already open
+
+    async def record_success(self, source: str, cred_version: str = "v1") -> Optional[dict]:
+        key = self._key(source, cred_version)
+        st = self._state.get(key)
+        if st is None:
+            return None
+        prev = st["state"]
+        st.update(self._fresh())
+        if prev != "closed":
+            await self._unpersist(key)
+            log.info("circuit_breaker %s -> closed (recovered)", key)
+            return {"key": key, "source": source, "from": prev, "to": "closed"}
+        return None
+
+    def _open(self, st: dict, now: float, reason: str, retry_after: Optional[float]) -> None:
+        st["state"] = "open"
+        st["opened_at"] = now
+        st["open_reason"] = reason
+        st["next_probe_at"] = self._next_probe(now, retry_after)
+        log.warning("circuit_breaker OPEN (reason=%s, retry_after=%s)", reason, retry_after)
+
+    # ----------------------------- persistence ------------------------------
+    async def load_persisted(self) -> None:
+        """Reload durable OPEN rows on startup. Fails toward a clean (closed)
+        state so a DB error can never silently keep every source down."""
+        from consensus_engine import db
+        try:
+            rows = await db.cb_load_open()
+        except Exception as e:
+            log.warning("circuit_breaker: could not load persisted state (%s) — clean start", e)
+            return
+        for r in rows:
+            self._state[r["source_key"]] = {
+                "state": "open",
+                "failure_count": int(r.get("failure_count") or 0),
+                "opened_at": r.get("opened_at"),
+                "open_reason": r.get("open_reason"),
+                "next_probe_at": r.get("next_probe_at"),
+                "last_alerted_at": r.get("last_alerted_at"),
+            }
+        self._loaded = True
+        if rows:
+            log.info("circuit_breaker: reloaded %d persisted OPEN source(s)", len(rows))
+
+    async def _persist_if_durable(self, key: str, st: dict, reason: str) -> None:
+        if reason not in DURABLE_REASONS:
+            return
+        from consensus_engine import db
+        try:
+            await db.cb_save({"source_key": key, **st})
+        except Exception as e:
+            log.warning("circuit_breaker: persist failed for %s: %s", key, e)
+
+    async def _unpersist(self, key: str) -> None:
+        from consensus_engine import db
+        try:
+            await db.cb_delete(key)
+        except Exception as e:
+            log.warning("circuit_breaker: unpersist failed for %s: %s", key, e)
+
+
+# Process-wide singleton.
+circuit_breaker = CircuitBreaker()

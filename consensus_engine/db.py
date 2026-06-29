@@ -336,6 +336,22 @@ CREATE TABLE IF NOT EXISTS source_performance (
     PRIMARY KEY (entity_id, horizon)
 );
 
+-- C2 (reliability-hardening): persistent circuit-breaker state. Only durable
+-- OPENs (quota / HTTP-402 / per-key bench) are persisted here so they survive a
+-- restart and we don't blindly re-probe a known-exhausted source. opened_at /
+-- next_probe_at are WALL-CLOCK UTC epochs (time.time()) — NEVER monotonic —
+-- so a reload after downtime compares apples to apples and is never stuck open.
+CREATE TABLE IF NOT EXISTS circuit_breaker_state (
+    source_key      TEXT PRIMARY KEY,
+    state           TEXT NOT NULL DEFAULT 'closed',
+    failure_count   INTEGER NOT NULL DEFAULT 0,
+    opened_at       REAL,
+    open_reason     TEXT,
+    next_probe_at   REAL,
+    last_alerted_at REAL,
+    last_updated    REAL NOT NULL DEFAULT 0.0
+);
+
 CREATE TABLE IF NOT EXISTS youtube_level_alerts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticker TEXT NOT NULL,
@@ -1022,6 +1038,44 @@ async def close_db():
             log.warning("Error closing database: %s", e)
         finally:
             _db = None
+
+
+# ---------------------------------------------------------------------------
+# C2: circuit-breaker persistence helpers. Only durable OPENs are stored.
+# ---------------------------------------------------------------------------
+async def cb_load_open() -> list[dict]:
+    """Return all persisted OPEN circuit-breaker rows (for startup reload)."""
+    db = await get_db()
+    cur = await db.execute(
+        "SELECT source_key, state, failure_count, opened_at, open_reason, "
+        "next_probe_at, last_alerted_at FROM circuit_breaker_state WHERE state='open'"
+    )
+    return [dict(r) for r in await cur.fetchall()]
+
+
+async def cb_save(row: dict) -> None:
+    """Upsert one durable circuit-breaker row (INSERT OR REPLACE)."""
+    db = await get_db()
+    await db.execute(
+        "INSERT OR REPLACE INTO circuit_breaker_state "
+        "(source_key, state, failure_count, opened_at, open_reason, "
+        " next_probe_at, last_alerted_at, last_updated) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            row["source_key"], row.get("state", "open"),
+            int(row.get("failure_count", 0)), row.get("opened_at"),
+            row.get("open_reason"), row.get("next_probe_at"),
+            row.get("last_alerted_at"), time.time(),
+        ),
+    )
+    await db.commit()
+
+
+async def cb_delete(source_key: str) -> None:
+    """Remove a persisted circuit-breaker row (e.g. on close)."""
+    db = await get_db()
+    await db.execute("DELETE FROM circuit_breaker_state WHERE source_key=?", (source_key,))
+    await db.commit()
 
 
 async def insert_signal(signal: TickerSignal):
