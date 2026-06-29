@@ -12,6 +12,7 @@ import time
 from typing import Optional
 
 from consensus_engine.models import OptionsResult, FlowHit
+from consensus_engine.utils.yahoo_limit import get_yahoo_semaphore  # C20
 
 log = logging.getLogger("consensus_engine.scanner.options")
 
@@ -170,7 +171,10 @@ async def check_unusual_options(ticker: str, executor, nearest: int = 1) -> Opti
 
     loop = asyncio.get_running_loop()
     try:
-        chains = await loop.run_in_executor(executor, _fetch)
+        # C20: bound concurrent Yahoo hits process-wide (released the instant
+        # the fetch returns; never held across an alert decision).
+        async with get_yahoo_semaphore():
+            chains = await loop.run_in_executor(executor, _fetch)
     except Exception as e:
         log.debug("run_in_executor error for %s: %s", ticker, e)
         return None
@@ -313,7 +317,8 @@ async def _fetch_flow_chains(ticker: str, executor, nearest: int):
 
     loop = asyncio.get_running_loop()
     try:
-        return await loop.run_in_executor(executor, _f)
+        async with get_yahoo_semaphore():  # C20
+            return await loop.run_in_executor(executor, _f)
     except Exception as ex:
         log.debug("flow executor error for %s: %s", ticker, ex)
         return 0.0, []
@@ -563,7 +568,8 @@ async def compute_max_pain(ticker: str, executor=None) -> Optional[dict]:
 
     loop = asyncio.get_running_loop()
     try:
-        raw = await loop.run_in_executor(executor, _f)
+        async with get_yahoo_semaphore():  # C20
+            raw = await loop.run_in_executor(executor, _f)
     except Exception as ex:
         log.debug("max-pain executor error for %s: %s", ticker, ex)
         return None
