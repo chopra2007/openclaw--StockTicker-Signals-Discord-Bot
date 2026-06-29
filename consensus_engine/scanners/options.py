@@ -20,6 +20,30 @@ _UNUSUAL_RATIO_THRESHOLD = 3.0
 _MIN_VOLUME = 100
 _SWEEP_RATIO_THRESHOLD = 5.0
 
+# C13 (reliability-hardening): a Yahoo option-chain fetch outage used to look
+# identical to "genuinely no unusual flow" — both produced an empty result via a
+# silent `except: pass`. Count chain-fetch failures and, when EVERY attempted
+# fetch for a ticker failed, emit ONE systemic WARNING (distinct from the quiet
+# empty result of a clean scan). Returned data is unchanged (signal-first); this
+# is observability only. The counter is process-lifetime (read by the C5 health
+# surface); under C20's small concurrency cap the increment is effectively safe.
+_fetch_failure_count = 0
+
+
+def _note_chain_fetch(where: str, ticker: str, attempted: int, failed: int) -> None:
+    """Record option-chain fetch outcomes and surface a systemic outage once."""
+    global _fetch_failure_count
+    _fetch_failure_count += failed
+    if attempted and failed == attempted:
+        log.warning(
+            "%s: ALL %d option-chain fetch(es) failed for $%s "
+            "(Yahoo outage/throttle?) — distinct from 'no flow'",
+            where, attempted, ticker,
+        )
+    elif failed:
+        log.debug("%s: %d/%d option-chain fetch(es) failed for $%s",
+                  where, failed, attempted, ticker)
+
 
 def _is_sweep(vol: float, oi: float, min_ratio: float = 5.0, min_notional: float = 0) -> bool:
     """Check if volume/OI ratio qualifies as a sweep."""
@@ -61,29 +85,31 @@ def _detect_unusual_activity(chain) -> OptionsResult:
     dom_put_ts = 0.0
 
     if calls is not None and not calls.empty:
-        for _, row in calls.iterrows():
-            # NaN guard (v == v): numpy NaN is truthy, so `nan or 0` stays NaN
-            # and poisons total_call_vol -> put_call_ratio comes out NaN -> 0.00.
-            _v = row.get("volume", 0); vol = float(_v if _v == _v else 0)
-            _o = row.get("openInterest", 0); oi = float(_o if _o == _o else 0)
+        # C8: itertuples (faster than iterrows; same values). getattr replaces
+        # row.get so a missing column still falls back to a default. The NaN
+        # guard (v == v) is unchanged: numpy NaN is truthy, so `nan or 0` stays
+        # NaN and poisons total_call_vol -> put_call_ratio comes out NaN -> 0.00.
+        for row in calls.itertuples(index=False):
+            _v = getattr(row, "volume", 0); vol = float(_v if _v == _v else 0)
+            _o = getattr(row, "openInterest", 0); oi = float(_o if _o == _o else 0)
             total_call_vol += vol
             if vol < _MIN_VOLUME or oi == 0:
                 continue
             ratio = vol / oi
             if ratio > max_call_ratio:
                 max_call_ratio = ratio
-                top_contract = str(row.get("contractSymbol", ""))
+                top_contract = str(getattr(row, "contractSymbol", ""))
             if ratio >= _UNUSUAL_RATIO_THRESHOLD:
                 unusual_calls = True
-                _p = row.get("lastPrice", 0); premium = float(_p if _p == _p else 0) * vol * 100.0
+                _p = getattr(row, "lastPrice", 0); premium = float(_p if _p == _p else 0) * vol * 100.0
                 if premium > dom_call_premium:
                     dom_call_premium = premium
-                    dom_call_ts = _ts_to_epoch(row.get("lastTradeDate"))
+                    dom_call_ts = _ts_to_epoch(getattr(row, "lastTradeDate", None))
 
     if puts is not None and not puts.empty:
-        for _, row in puts.iterrows():
-            _v = row.get("volume", 0); vol = float(_v if _v == _v else 0)
-            _o = row.get("openInterest", 0); oi = float(_o if _o == _o else 0)
+        for row in puts.itertuples(index=False):
+            _v = getattr(row, "volume", 0); vol = float(_v if _v == _v else 0)
+            _o = getattr(row, "openInterest", 0); oi = float(_o if _o == _o else 0)
             total_put_vol += vol
             if vol < _MIN_VOLUME or oi == 0:
                 continue
@@ -92,10 +118,10 @@ def _detect_unusual_activity(chain) -> OptionsResult:
                 max_put_ratio = ratio
             if ratio >= _UNUSUAL_RATIO_THRESHOLD:
                 unusual_puts = True
-                _p = row.get("lastPrice", 0); premium = float(_p if _p == _p else 0) * vol * 100.0
+                _p = getattr(row, "lastPrice", 0); premium = float(_p if _p == _p else 0) * vol * 100.0
                 if premium > dom_put_premium:
                     dom_put_premium = premium
-                    dom_put_ts = _ts_to_epoch(row.get("lastTradeDate"))
+                    dom_put_ts = _ts_to_epoch(getattr(row, "lastTradeDate", None))
 
     put_call_ratio = (total_put_vol / total_call_vol) if total_call_vol > 0 else 0.0
 
@@ -159,11 +185,14 @@ async def check_unusual_options(ticker: str, executor, nearest: int = 1) -> Opti
             if not expirations:
                 return None
             chains = []
+            attempted = failed = 0
             for e in expirations[:max(1, nearest)]:
+                attempted += 1
                 try:
                     chains.append(t.option_chain(e))
                 except Exception:
-                    pass
+                    failed += 1
+            _note_chain_fetch("check_unusual_options", ticker, attempted, failed)
             return chains or None
         except Exception as e:
             log.debug("yfinance options fetch error for %s: %s", ticker, e)
@@ -255,10 +284,10 @@ def _scan_chain_for_flow(
     for df, side in ((chain.calls, "CALL"), (chain.puts, "PUT")):
         if df is None or getattr(df, "empty", True):
             continue
-        for _, row in df.iterrows():
-            _v = row.get("volume", 0); vol = float(_v if _v == _v else 0)
-            _o = row.get("openInterest", 0); oi = float(_o if _o == _o else 0)
-            _p = row.get("lastPrice", 0); last_price = float(_p if _p == _p else 0)
+        for row in df.itertuples(index=False):  # C8: itertuples; getattr defaults
+            _v = getattr(row, "volume", 0); vol = float(_v if _v == _v else 0)
+            _o = getattr(row, "openInterest", 0); oi = float(_o if _o == _o else 0)
+            _p = getattr(row, "lastPrice", 0); last_price = float(_p if _p == _p else 0)
             if oi <= 0 or vol < min_volume:
                 continue
             ratio = vol / oi
@@ -268,16 +297,16 @@ def _scan_chain_for_flow(
             if (relative_baseline_enabled and baseline is not None
                     and premium < relative_multiplier * baseline):
                 continue  # #18: below this ticker's own trailing baseline
-            lt = _ts_to_epoch(row.get("lastTradeDate"))
+            lt = _ts_to_epoch(getattr(row, "lastTradeDate", None))
             if max_stale_sec and lt and (now - lt) > max_stale_sec:
                 continue  # stale / closed-market data — don't alert on it
             hits.append(FlowHit(
                 ticker=ticker, side=side,
-                strike=float(row.get("strike", 0) or 0), expiry=expiry,
+                strike=float(getattr(row, "strike", 0) or 0), expiry=expiry,
                 volume=int(vol), open_interest=int(oi),
                 vol_oi_ratio=round(ratio, 2), premium_usd=round(premium, 2),
                 last_trade_ts=lt, spot=spot,
-                contract_symbol=str(row.get("contractSymbol", "")),
+                contract_symbol=str(getattr(row, "contractSymbol", "")),
             ))
     return hits
 
@@ -305,11 +334,14 @@ async def _fetch_flow_chains(ticker: str, executor, nearest: int):
                         spot = float(v)
                         break
             chains = []
+            attempted = failed = 0
             for e in exps[:nearest]:
+                attempted += 1
                 try:
                     chains.append((e, t.option_chain(e)))
                 except Exception:
-                    pass
+                    failed += 1
+            _note_chain_fetch("scan_options_flow", ticker, attempted, failed)
             return spot, chains
         except Exception as ex:
             log.debug("flow fetch error for %s: %s", ticker, ex)
@@ -554,11 +586,14 @@ async def compute_max_pain(ticker: str, executor=None) -> Optional[dict]:
                     want.append(e)
 
             chains = {}
+            attempted = failed = 0
             for e in want:
+                attempted += 1
                 try:
                     chains[e] = t.option_chain(e)
                 except Exception:
-                    pass
+                    failed += 1
+            _note_chain_fetch("compute_max_pain", ticker, attempted, failed)
             return {"spot": spot, "weekly_exp": weekly_exp,
                     "monthly_exp": monthly_exp, "chains_present": list(chains.keys()),
                     "_chains": chains}
