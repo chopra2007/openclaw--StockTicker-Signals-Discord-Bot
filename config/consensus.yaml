@@ -350,9 +350,11 @@ llm:
   max_tokens: 8000
   # C4 (reliability-hardening): when the whole chain 429s at once (shared
   # openrouter account quota), retry the score+thesis ONCE on this non-openrouter
-  # model so the thesis isn't blanked. Default OFF until the unavailable-rate is
-  # shadow-logged; groq_fallback_model must be a `groq/`-prefixed id.
-  score_fallback_enabled: false
+  # model so the thesis isn't blanked. groq_fallback_model must be a `groq/`-prefixed id.
+  # ON 2026-06-28: no-op when the chain is healthy (fallback only runs on an empty
+  # result), and the instant alert already fired base-score-gated, so it can never
+  # block or create an alert -- strictly better than a blank thesis.
+  score_fallback_enabled: true
   groq_fallback_model: "groq/llama-3.3-70b-versatile"
 
 
