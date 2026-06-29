@@ -1748,8 +1748,117 @@ def _fetch_yfinance_price(ticker: str) -> float:
     return 0.0
 
 
+def _fetch_yfinance_close_n_trading_days_later(
+    ticker: str, alerted_at: float, n_trading_days: int
+) -> float:
+    """Blocking helper: the close N TRADING days after the alert date.
+
+    Same source as 1h/24h (yfinance), but reads HISTORICAL daily bars and indexes
+    to the exact Nth trading day, so the fill is correct no matter which loop cycle
+    (or one-off backfill) gets to it. Bar 0 is the alert's trading day; bar N is N
+    trading sessions later (skipping weekends/holidays automatically — they are not
+    bars). Returns 0.0 when the window has not yet elapsed (fewer than N+1 bars) or
+    on error, so the caller simply leaves the column NULL and retries next time.
+    """
+    try:
+        import yfinance as yf
+
+        alert_date = datetime.fromtimestamp(alerted_at, tz=timezone.utc).date()
+        # Generous calendar pad so the Nth trading bar always lands inside the range
+        # even across holidays (yfinance `end` is exclusive).
+        end_date = alert_date + timedelta(days=n_trading_days * 2 + 10)
+        stock = yf.Ticker(ticker)
+        hist = stock.history(
+            start=alert_date.isoformat(),
+            end=end_date.isoformat(),
+            interval="1d",
+        )
+        if hist is None or hist.empty:
+            return 0.0
+        close = hist["Close"].dropna()
+        if len(close) > n_trading_days:
+            _record_source_ok("yfinance")
+            return float(close.iloc[n_trading_days])
+    except Exception as e:
+        log.debug("Outcome %dd price fetch failed for $%s: %s",
+                  n_trading_days, ticker, e)
+        _record_source_error("yfinance")
+    return 0.0
+
+
+# 5d/20d outcome horizons (decision_snapshots only). (field, n_trading_days,
+# min_age_days, max_age_days) — min/max are CALENDAR-day scan gates; the exact
+# trading-day check is the bar count inside the fetch helper. The live loop uses
+# max_age so it doesn't re-scan ancient rows; the one-off backfill passes None.
+_SLOW_OUTCOME_HORIZONS = (
+    ("outcome_price_5d", 5, 7, 30),
+    ("outcome_price_20d", 20, 28, 45),
+)
+
+
+async def _fill_slow_outcomes(loop, executor, bounded: bool, limit: int) -> dict:
+    """Fill outcome_price_5d/20d on decision_snapshots whose window has elapsed.
+
+    Shared by the live loop (`bounded=True` → use each horizon's max_age cap so it
+    doesn't re-scan ancient rows) and the one-off backfill (`bounded=False` → no
+    upper bound, fill arbitrarily old rows). Only ever fills NULLs —
+    get_snapshots_needing_outcome filters on `field IS NULL`, so it is safe to run
+    repeatedly. Returns counts per field.
+    """
+    counts = {"outcome_price_5d": 0, "outcome_price_20d": 0}
+    for field, n_td, min_age_days, max_age_days in _SLOW_OUTCOME_HORIZONS:
+        snaps = await db.get_snapshots_needing_outcome(
+            field, min_age_days=min_age_days,
+            max_age_days=(max_age_days if bounded else None), limit=limit,
+        )
+        price_futures = [
+            loop.run_in_executor(
+                executor, _fetch_yfinance_close_n_trading_days_later,
+                s["ticker"], s["recorded_at"], n_td,
+            )
+            for s in snaps
+        ]
+        fetched = await asyncio.gather(*price_futures, return_exceptions=True)
+        for snap, price in zip(snaps, fetched):
+            if isinstance(price, Exception):
+                log.debug("yfinance %s fetch error for %s: %s",
+                          field, snap["ticker"], price)
+                continue
+            if price and price > 0:
+                if field == "outcome_price_5d":
+                    await db.update_snapshot_outcomes(
+                        snap["id"], outcome_price_5d=float(price))
+                else:
+                    await db.update_snapshot_outcomes(
+                        snap["id"], outcome_price_20d=float(price))
+                counts[field] += 1
+    return counts
+
+
+async def backfill_decision_outcomes(max_rows: int | None = None) -> dict:
+    """One-off: fill outcome_price_5d/20d on EXISTING decision_snapshots whose
+    5/20-trading-day window has already elapsed (the historical prices exist).
+
+    Safe to run repeatedly — only NULL columns are touched. `max_rows` caps the
+    rows scanned per horizon (None = all). Returns {'outcome_price_5d': n,
+    'outcome_price_20d': m}. Reuses the live price source (yfinance); adds no
+    new dependency.
+    """
+    executor = concurrent.futures.ThreadPoolExecutor(
+        max_workers=8, thread_name_prefix="outcome-backfill",
+    )
+    loop = asyncio.get_running_loop()
+    try:
+        return await _fill_slow_outcomes(
+            loop, executor, bounded=False,
+            limit=(max_rows if max_rows is not None else 1_000_000),
+        )
+    finally:
+        executor.shutdown(wait=False, cancel_futures=True)
+
+
 async def price_outcome_loop(stop_event: asyncio.Event):
-    """Backfill 1h and 24h alert outcome prices."""
+    """Backfill 1h and 24h alert outcome prices (and slow 5d/20d snapshot outcomes)."""
     executor = concurrent.futures.ThreadPoolExecutor(
         max_workers=8,
         thread_name_prefix="price-outcome",
@@ -1797,6 +1906,10 @@ async def price_outcome_loop(stop_event: asyncio.Event):
                                     entry_price=entry,
                                     exit_price=float(price),
                                 )
+                # Slow 5d/20d outcomes (decision_snapshots only). Revisits snapshots
+                # up to ~20 trading days old whose 5d/20d columns are still NULL and
+                # fills them once that many trading days have elapsed.
+                await _fill_slow_outcomes(loop, executor, bounded=True, limit=50)
             except Exception as e:
                 log.error("Price outcome loop error: %s", e, exc_info=True)
 

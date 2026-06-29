@@ -278,7 +278,9 @@ CREATE TABLE IF NOT EXISTS decision_snapshots (
     recorded_at REAL NOT NULL,
     outcome_price_at_alert REAL,
     outcome_price_1h REAL,
-    outcome_price_24h REAL
+    outcome_price_24h REAL,
+    outcome_price_5d REAL,
+    outcome_price_20d REAL
 );
 CREATE INDEX IF NOT EXISTS idx_snapshots_ticker ON decision_snapshots(ticker);
 CREATE INDEX IF NOT EXISTS idx_snapshots_recorded ON decision_snapshots(recorded_at);
@@ -959,6 +961,12 @@ async def _run_column_migrations(conn) -> None:
         ("api_usage_daily", "gemini_video_calls",   "INTEGER NOT NULL DEFAULT 0"),
         ("api_usage_daily", "wolf_vision_calls",    "INTEGER NOT NULL DEFAULT 0"),
         ("decision_snapshots", "alert_id",  "INTEGER"),
+        # schema v22 (trade-edge): slow-horizon outcome tracking. 5/20 TRADING-day
+        # close after the alert, for evaluating signals on a horizon that matches
+        # slow market-wide effects (1h/24h is too fast). Idempotent: the ALTER below
+        # only fires when the column is absent (PRAGMA table_info guard).
+        ("decision_snapshots", "outcome_price_5d",  "REAL"),
+        ("decision_snapshots", "outcome_price_20d", "REAL"),
         ("signal_events", "consumed_by_cluster_id", "INTEGER"),
         # Item E (deep-dive-2026-06-08): clickable TweetShift source link for twitter signals.
         # Old rows get NULL (render plain text); only twitter rows ever populate it.
@@ -1074,6 +1082,7 @@ async def init_db() -> AsyncConnection:
         (19, "I13 apewisdom_mentions time series (z-score baseline)"),
         (20, "E1 finra_short_volume daily series (short-pct z-score baseline)"),
         (21, "trade-edge market-context layer (sector_rs_daily, factor_rs_daily, trend_daily, macro_legs_daily, internal_breadth_daily)"),
+        (22, "trade-edge 5d/20d trading-day outcome tracking on decision_snapshots"),
     ]
     for version, note in _schema_versions:
         await _db.execute(
@@ -3203,17 +3212,62 @@ async def update_snapshot_outcomes(
     snapshot_id: int,
     outcome_price_1h: float | None = None,
     outcome_price_24h: float | None = None,
+    outcome_price_5d: float | None = None,
+    outcome_price_20d: float | None = None,
 ) -> None:
-    """Backfill price outcomes on a decision snapshot."""
+    """Backfill price outcomes on a decision snapshot.
+
+    COALESCE keeps any field whose argument is None untouched, so callers that
+    only pass one horizon (e.g. 1h) leave the others byte-identical.
+    """
     conn = await get_db()
     await conn.execute(
         """UPDATE decision_snapshots
            SET outcome_price_1h = COALESCE(?, outcome_price_1h),
-               outcome_price_24h = COALESCE(?, outcome_price_24h)
+               outcome_price_24h = COALESCE(?, outcome_price_24h),
+               outcome_price_5d = COALESCE(?, outcome_price_5d),
+               outcome_price_20d = COALESCE(?, outcome_price_20d)
            WHERE id = ?""",
-        (outcome_price_1h, outcome_price_24h, snapshot_id),
+        (outcome_price_1h, outcome_price_24h, outcome_price_5d,
+         outcome_price_20d, snapshot_id),
     )
     await conn.commit()
+
+
+async def get_snapshots_needing_outcome(
+    field: str,
+    min_age_days: float,
+    max_age_days: float | None = None,
+    limit: int = 50,
+) -> list[dict]:
+    """decision_snapshots rows where `field` IS NULL and the snapshot is old enough.
+
+    `field` must be 'outcome_price_5d' or 'outcome_price_20d'. `min_age_days`/
+    `max_age_days` are CALENDAR days — a cheap, conservative lower gate (5 trading
+    days span at least 7 calendar days, 20 span at least ~28). The EXACT trading-day
+    check happens when the historical price is fetched (the Nth daily bar must exist).
+    `max_age_days=None` removes the upper bound (used by the one-off backfill so it
+    fills arbitrarily old rows); the live loop passes a bound so it doesn't re-scan
+    the whole table every cycle.
+    """
+    if field not in ("outcome_price_5d", "outcome_price_20d"):
+        return []
+    conn = await get_db()
+    now = time.time()
+    where = f"{field} IS NULL AND recorded_at <= ?"
+    params: list = [now - min_age_days * 86400]
+    if max_age_days is not None:
+        where += " AND recorded_at >= ?"
+        params.append(now - max_age_days * 86400)
+    params.append(limit)
+    cursor = await conn.execute(
+        f"""SELECT id, ticker, recorded_at FROM decision_snapshots
+            WHERE {where}
+            ORDER BY recorded_at DESC LIMIT ?""",
+        params,
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
 
 
 async def get_snapshot_id_for_alert(alert_id: int) -> int | None:
