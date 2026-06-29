@@ -791,6 +791,35 @@ def _split_for_discord(content: str, limit: int = _DISCORD_MSG_LIMIT) -> list[st
     return chunks
 
 
+async def send_message(channel_id: str, content: str) -> Optional[str]:
+    """Post a plain-text message to a channel (no reply reference).
+
+    Used for ops/health alerts (e.g. the C5 dead-source alert and the existing
+    feature-volume-drop monitor, whose import previously referenced this missing
+    function inside a bare except — silently dead until now). Splits content
+    >2000 chars; respects dry_run. Returns the last message id, or None.
+    """
+    if cfg.dry_run:
+        log.info("[DRY-RUN] ops message to %s: %s", channel_id, content[:80])
+        return "dry_run_msg_id"
+    token = cfg.get_api_key("discord_bot_token")
+    if not token:
+        log.warning("Discord bot token not configured")
+        return None
+    chunks = _split_for_discord(content)
+    if not chunks:
+        return None
+    last_id: Optional[str] = None
+    url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+    headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
+    for chunk in chunks:
+        data = await _safe_send(url, headers, _safe_send_kwargs({"content": chunk}))
+        if not data:
+            return last_id
+        last_id = data.get("id")
+    return last_id
+
+
 async def send_command_reply(channel_id: str, reply_to_msg_id: str, content: str) -> Optional[str]:
     """Send a plain-text reply, splitting into multiple messages if > 2000 chars.
 

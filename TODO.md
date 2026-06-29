@@ -332,3 +332,9 @@ Stop giving convoluted explanations that switch reference frames mid-answer (e.g
 **File:** `intuitive-display-scales.md`
 
 Roll out the !options percentage idea everywhere: convert readings computed in unintuitive internal scales (ratios, z-scores, raw counts) to an intuitive display scale in Discord, and give same-type readings one shared scale so learning to read one teaches you all of them. (!options is the shipped reference — see detail file.)
+
+## 54. Make the bot more reliable, then turn on the cautious switches
+
+**File:** `reliability-hardening-soak.md`
+
+Ship 15 reliability/efficiency fixes to the live bot (stop hangs, dead-source retries, and event-loop stalls), turn on the proven-safe ones now, and after a 7-day soak decide whether to turn on the 5 cautious switches (dead-source cutoff, junk-ticker skip, smarter retries).

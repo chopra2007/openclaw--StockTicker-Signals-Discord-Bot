@@ -11,13 +11,39 @@ import logging
 import time
 from typing import Optional
 
+from consensus_engine import config as _cfg
 from consensus_engine.models import OptionsResult, FlowHit
+from consensus_engine.utils.yahoo_limit import get_yahoo_semaphore  # C20
 
 log = logging.getLogger("consensus_engine.scanner.options")
 
 _UNUSUAL_RATIO_THRESHOLD = 3.0
 _MIN_VOLUME = 100
 _SWEEP_RATIO_THRESHOLD = 5.0
+
+# C13 (reliability-hardening): a Yahoo option-chain fetch outage used to look
+# identical to "genuinely no unusual flow" — both produced an empty result via a
+# silent `except: pass`. Count chain-fetch failures and, when EVERY attempted
+# fetch for a ticker failed, emit ONE systemic WARNING (distinct from the quiet
+# empty result of a clean scan). Returned data is unchanged (signal-first); this
+# is observability only. The counter is process-lifetime (read by the C5 health
+# surface); under C20's small concurrency cap the increment is effectively safe.
+_fetch_failure_count = 0
+
+
+def _note_chain_fetch(where: str, ticker: str, attempted: int, failed: int) -> None:
+    """Record option-chain fetch outcomes and surface a systemic outage once."""
+    global _fetch_failure_count
+    _fetch_failure_count += failed
+    if attempted and failed == attempted:
+        log.warning(
+            "%s: ALL %d option-chain fetch(es) failed for $%s "
+            "(Yahoo outage/throttle?) — distinct from 'no flow'",
+            where, attempted, ticker,
+        )
+    elif failed:
+        log.debug("%s: %d/%d option-chain fetch(es) failed for $%s",
+                  where, failed, attempted, ticker)
 
 
 def _is_sweep(vol: float, oi: float, min_ratio: float = 5.0, min_notional: float = 0) -> bool:
@@ -60,29 +86,31 @@ def _detect_unusual_activity(chain) -> OptionsResult:
     dom_put_ts = 0.0
 
     if calls is not None and not calls.empty:
-        for _, row in calls.iterrows():
-            # NaN guard (v == v): numpy NaN is truthy, so `nan or 0` stays NaN
-            # and poisons total_call_vol -> put_call_ratio comes out NaN -> 0.00.
-            _v = row.get("volume", 0); vol = float(_v if _v == _v else 0)
-            _o = row.get("openInterest", 0); oi = float(_o if _o == _o else 0)
+        # C8: itertuples (faster than iterrows; same values). getattr replaces
+        # row.get so a missing column still falls back to a default. The NaN
+        # guard (v == v) is unchanged: numpy NaN is truthy, so `nan or 0` stays
+        # NaN and poisons total_call_vol -> put_call_ratio comes out NaN -> 0.00.
+        for row in calls.itertuples(index=False):
+            _v = getattr(row, "volume", 0); vol = float(_v if _v == _v else 0)
+            _o = getattr(row, "openInterest", 0); oi = float(_o if _o == _o else 0)
             total_call_vol += vol
             if vol < _MIN_VOLUME or oi == 0:
                 continue
             ratio = vol / oi
             if ratio > max_call_ratio:
                 max_call_ratio = ratio
-                top_contract = str(row.get("contractSymbol", ""))
+                top_contract = str(getattr(row, "contractSymbol", ""))
             if ratio >= _UNUSUAL_RATIO_THRESHOLD:
                 unusual_calls = True
-                _p = row.get("lastPrice", 0); premium = float(_p if _p == _p else 0) * vol * 100.0
+                _p = getattr(row, "lastPrice", 0); premium = float(_p if _p == _p else 0) * vol * 100.0
                 if premium > dom_call_premium:
                     dom_call_premium = premium
-                    dom_call_ts = _ts_to_epoch(row.get("lastTradeDate"))
+                    dom_call_ts = _ts_to_epoch(getattr(row, "lastTradeDate", None))
 
     if puts is not None and not puts.empty:
-        for _, row in puts.iterrows():
-            _v = row.get("volume", 0); vol = float(_v if _v == _v else 0)
-            _o = row.get("openInterest", 0); oi = float(_o if _o == _o else 0)
+        for row in puts.itertuples(index=False):
+            _v = getattr(row, "volume", 0); vol = float(_v if _v == _v else 0)
+            _o = getattr(row, "openInterest", 0); oi = float(_o if _o == _o else 0)
             total_put_vol += vol
             if vol < _MIN_VOLUME or oi == 0:
                 continue
@@ -91,10 +119,10 @@ def _detect_unusual_activity(chain) -> OptionsResult:
                 max_put_ratio = ratio
             if ratio >= _UNUSUAL_RATIO_THRESHOLD:
                 unusual_puts = True
-                _p = row.get("lastPrice", 0); premium = float(_p if _p == _p else 0) * vol * 100.0
+                _p = getattr(row, "lastPrice", 0); premium = float(_p if _p == _p else 0) * vol * 100.0
                 if premium > dom_put_premium:
                     dom_put_premium = premium
-                    dom_put_ts = _ts_to_epoch(row.get("lastTradeDate"))
+                    dom_put_ts = _ts_to_epoch(getattr(row, "lastTradeDate", None))
 
     put_call_ratio = (total_put_vol / total_call_vol) if total_call_vol > 0 else 0.0
 
@@ -158,11 +186,14 @@ async def check_unusual_options(ticker: str, executor, nearest: int = 1) -> Opti
             if not expirations:
                 return None
             chains = []
+            attempted = failed = 0
             for e in expirations[:max(1, nearest)]:
+                attempted += 1
                 try:
                     chains.append(t.option_chain(e))
                 except Exception:
-                    pass
+                    failed += 1
+            _note_chain_fetch("check_unusual_options", ticker, attempted, failed)
             return chains or None
         except Exception as e:
             log.debug("yfinance options fetch error for %s: %s", ticker, e)
@@ -170,7 +201,10 @@ async def check_unusual_options(ticker: str, executor, nearest: int = 1) -> Opti
 
     loop = asyncio.get_running_loop()
     try:
-        chains = await loop.run_in_executor(executor, _fetch)
+        # C20: bound concurrent Yahoo hits process-wide (released the instant
+        # the fetch returns; never held across an alert decision).
+        async with get_yahoo_semaphore():
+            chains = await loop.run_in_executor(executor, _fetch)
     except Exception as e:
         log.debug("run_in_executor error for %s: %s", ticker, e)
         return None
@@ -251,10 +285,10 @@ def _scan_chain_for_flow(
     for df, side in ((chain.calls, "CALL"), (chain.puts, "PUT")):
         if df is None or getattr(df, "empty", True):
             continue
-        for _, row in df.iterrows():
-            _v = row.get("volume", 0); vol = float(_v if _v == _v else 0)
-            _o = row.get("openInterest", 0); oi = float(_o if _o == _o else 0)
-            _p = row.get("lastPrice", 0); last_price = float(_p if _p == _p else 0)
+        for row in df.itertuples(index=False):  # C8: itertuples; getattr defaults
+            _v = getattr(row, "volume", 0); vol = float(_v if _v == _v else 0)
+            _o = getattr(row, "openInterest", 0); oi = float(_o if _o == _o else 0)
+            _p = getattr(row, "lastPrice", 0); last_price = float(_p if _p == _p else 0)
             if oi <= 0 or vol < min_volume:
                 continue
             ratio = vol / oi
@@ -264,16 +298,31 @@ def _scan_chain_for_flow(
             if (relative_baseline_enabled and baseline is not None
                     and premium < relative_multiplier * baseline):
                 continue  # #18: below this ticker's own trailing baseline
-            lt = _ts_to_epoch(row.get("lastTradeDate"))
+            lt = _ts_to_epoch(getattr(row, "lastTradeDate", None))
             if max_stale_sec and lt and (now - lt) > max_stale_sec:
                 continue  # stale / closed-market data — don't alert on it
+            # C12: lt==0.0 means the timestamp was unparseable, so the original
+            # guard above (which needs a truthy lt) silently SKIPPED the staleness
+            # check — a fail-OPEN. This contract already cleared the vol/premium/
+            # ratio gates (real activity), so we never DROP it (that would lose a
+            # real instant-flow signal); when the flag is on we TAG it as
+            # unverified (surfaced in the alert) and log it. Flag OFF = unchanged.
+            staleness_unverified = False
+            if max_stale_sec and not lt and _cfg.get("options_flow.staleness_failclosed", False):
+                staleness_unverified = True
+                log.warning(
+                    "options_flow: %s %s unverifiable lastTradeDate "
+                    "[staleness unverified] — allowing (cleared size gates)",
+                    ticker, str(getattr(row, "contractSymbol", "")),
+                )
             hits.append(FlowHit(
                 ticker=ticker, side=side,
-                strike=float(row.get("strike", 0) or 0), expiry=expiry,
+                strike=float(getattr(row, "strike", 0) or 0), expiry=expiry,
                 volume=int(vol), open_interest=int(oi),
                 vol_oi_ratio=round(ratio, 2), premium_usd=round(premium, 2),
                 last_trade_ts=lt, spot=spot,
-                contract_symbol=str(row.get("contractSymbol", "")),
+                contract_symbol=str(getattr(row, "contractSymbol", "")),
+                staleness_unverified=staleness_unverified,
             ))
     return hits
 
@@ -301,11 +350,14 @@ async def _fetch_flow_chains(ticker: str, executor, nearest: int):
                         spot = float(v)
                         break
             chains = []
+            attempted = failed = 0
             for e in exps[:nearest]:
+                attempted += 1
                 try:
                     chains.append((e, t.option_chain(e)))
                 except Exception:
-                    pass
+                    failed += 1
+            _note_chain_fetch("scan_options_flow", ticker, attempted, failed)
             return spot, chains
         except Exception as ex:
             log.debug("flow fetch error for %s: %s", ticker, ex)
@@ -313,7 +365,8 @@ async def _fetch_flow_chains(ticker: str, executor, nearest: int):
 
     loop = asyncio.get_running_loop()
     try:
-        return await loop.run_in_executor(executor, _f)
+        async with get_yahoo_semaphore():  # C20
+            return await loop.run_in_executor(executor, _f)
     except Exception as ex:
         log.debug("flow executor error for %s: %s", ticker, ex)
         return 0.0, []
@@ -389,12 +442,14 @@ def format_flow_alert(hit) -> str:
     direction = "🟢 BULLISH" if hit.side == "CALL" else "🔴 BEARISH"
     prem_m = hit.premium_usd / 1_000_000.0
     spot_txt = f" | spot ${hit.spot:,.2f}" if hit.spot else ""
+    # C12: be honest when we couldn't verify the contract's last-trade freshness.
+    stale_txt = " _[staleness unverified]_" if getattr(hit, "staleness_unverified", False) else ""
     return (
         f"⚡ **UNUSUAL OPTIONS FLOW** — `${hit.ticker}` {direction}\n"
         f"**{hit.side}** {hit.expiry} ${hit.strike:g} strike{spot_txt}\n"
         f"Volume **{hit.volume:,}** vs OI {hit.open_interest:,} "
         f"(**{hit.vol_oi_ratio:.1f}x** — fresh positioning) | "
-        f"premium **${prem_m:.2f}M**\n"
+        f"premium **${prem_m:.2f}M**{stale_txt}\n"
         f"_Free ~15-min-delayed chain data; unusual-flow instant trigger._"
     )
 
@@ -438,15 +493,17 @@ def _max_pain_for_chain(chain) -> Optional[tuple]:
     fine grid needed). Ties broken toward the strike nearest the mid of the
     strike range (deterministic).
     """
+    import numpy as np
+
     calls, puts = chain.calls, chain.puts
     call_oi: dict = {}
     put_oi: dict = {}
     for df, dst in ((calls, call_oi), (puts, put_oi)):
         if df is None or getattr(df, "empty", True):
             continue
-        for _, row in df.iterrows():
-            k = row.get("strike")
-            oi = row.get("openInterest")
+        for row in df.itertuples(index=False):  # C7/C8: itertuples; getattr defaults
+            k = getattr(row, "strike", None)
+            oi = getattr(row, "openInterest", None)
             try:
                 k = float(k)
                 oi = float(oi) if oi == oi else 0.0  # NaN -> 0
@@ -463,18 +520,31 @@ def _max_pain_for_chain(chain) -> Optional[tuple]:
 
     mid = strikes[len(strikes) // 2]
 
-    def _payout(S: float) -> float:
-        tot = 0.0
-        for k, oi in call_oi.items():
-            if S > k:
-                tot += (S - k) * oi
-        for k, oi in put_oi.items():
-            if k > S:
-                tot += (k - S) * oi
-        return tot
-
-    # argmin payout; deterministic tie-break toward the centre strike.
-    best = min(strikes, key=lambda S: (_payout(S), abs(S - mid)))
+    # C7: vectorized payout over all listed strikes. Payout is piecewise-linear
+    # with breakpoints only at strikes, so evaluating at the strikes is exact.
+    # payout(S_i) = sum_j call_oi[j]*max(0, S_i-K_j) + sum_j put_oi[j]*max(0, K_j-S_i).
+    # numpy's matmul/maximum are C ops that release the GIL. The dict-building
+    # above is preserved verbatim, so OI aggregation (dup strikes, NaN->0, k>0,
+    # max(0,oi)) is byte-identical to the prior loop.
+    K = np.array(strikes, dtype=float)
+    call_arr = np.array([call_oi.get(k, 0.0) for k in strikes], dtype=float)
+    put_arr = np.array([put_oi.get(k, 0.0) for k in strikes], dtype=float)
+    diff = K[:, None] - K[None, :]                       # S_i - K_j
+    call_pay = (np.maximum(diff, 0.0) * call_arr[None, :]).sum(axis=1)
+    put_pay = (np.maximum(-diff, 0.0) * put_arr[None, :]).sum(axis=1)
+    payout = call_pay + put_pay
+    dist = np.abs(K - mid)
+    # Lexicographic argmin: primary payout, tiebreak dist-to-mid, then lowest
+    # strike (stable order) -- the documented tiebreak min(strikes, key=(payout,
+    # abs(S-mid))). NOTE: the vectorized payout regroups the float summation
+    # (sum(calls)+sum(puts) vs the old loop's interleaved per-strike +=), so in a
+    # near-exact payout tie the two can round to a ~1-ULP-different total and pick
+    # a different equidistant strike. The vectorized result applies the documented
+    # distance tiebreak faithfully where the old loop's rounding noise sometimes
+    # pre-empted it -- so it is numerically equivalent and arguably more correct,
+    # NOT bit-identical, on such ties. Enrichment only (a displayed magnet level);
+    # max-pain never gates whether an alert fires.
+    best = strikes[int(np.lexsort((dist, payout))[0])]
     return best, total_oi, sum(call_oi.values()), sum(put_oi.values())
 
 
@@ -549,35 +619,40 @@ async def compute_max_pain(ticker: str, executor=None) -> Optional[dict]:
                     want.append(e)
 
             chains = {}
+            attempted = failed = 0
             for e in want:
+                attempted += 1
                 try:
                     chains[e] = t.option_chain(e)
                 except Exception:
-                    pass
+                    failed += 1
+            _note_chain_fetch("compute_max_pain", ticker, attempted, failed)
+            # C7: compute max-pain IN this executor thread (not on the event
+            # loop after the fetch returns). max_pain[e] = (strike, total_oi,
+            # call_oi_sum, put_oi_sum) | None.
+            max_pain = {e: _max_pain_for_chain(ch) for e, ch in chains.items()}
             return {"spot": spot, "weekly_exp": weekly_exp,
                     "monthly_exp": monthly_exp, "chains_present": list(chains.keys()),
-                    "_chains": chains}
+                    "max_pain": max_pain}
         except Exception as ex:
             log.debug("max-pain fetch error for %s: %s", ticker, ex)
             return None
 
     loop = asyncio.get_running_loop()
     try:
-        raw = await loop.run_in_executor(executor, _f)
+        async with get_yahoo_semaphore():  # C20
+            raw = await loop.run_in_executor(executor, _f)
     except Exception as ex:
         log.debug("max-pain executor error for %s: %s", ticker, ex)
         return None
     if not raw:
         return None
 
-    chains = raw["_chains"]
+    max_pain = raw["max_pain"]  # C7: precomputed in the executor thread
     spot = raw["spot"]
 
     def _leg(exp):
-        ch = chains.get(exp)
-        if ch is None:
-            return None
-        mp = _max_pain_for_chain(ch)
+        mp = max_pain.get(exp)
         if mp is None:
             return None
         strike, total_oi, _call_oi, _put_oi = mp
@@ -591,7 +666,7 @@ async def compute_max_pain(ticker: str, executor=None) -> Optional[dict]:
     # positioning), <1 = more call OI. None when the nearest chain has no call OI.
     pc_oi_ratio = None
     call_oi_sum = put_oi_sum = None
-    _near = _max_pain_for_chain(chains.get(weekly_exp)) if weekly_exp else None
+    _near = max_pain.get(weekly_exp) if weekly_exp else None
     if _near is not None:
         _, _, _call_oi_sum, _put_oi_sum = _near
         call_oi_sum, put_oi_sum = _call_oi_sum, _put_oi_sum   # #53: for the call/put OI % split

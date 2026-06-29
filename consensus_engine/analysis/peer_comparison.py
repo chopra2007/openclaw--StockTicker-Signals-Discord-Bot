@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Optional
 
 from consensus_engine import config as cfg
+from consensus_engine.utils.yahoo_limit import get_yahoo_semaphore  # C20
 
 log = logging.getLogger(__name__)
 
@@ -118,7 +119,8 @@ async def resolve_peers(ticker: str) -> dict:
 
     if sector is None and ind is None:
         loop = asyncio.get_running_loop()
-        sector, ind = await loop.run_in_executor(_PEER_EXECUTOR, _fetch_info_sector, tk)
+        async with get_yahoo_semaphore():  # C20
+            sector, ind = await loop.run_in_executor(_PEER_EXECUTOR, _fetch_info_sector, tk)
         try:
             from consensus_engine import db
             await db.set_ticker_sector(tk, sector, ind)
@@ -169,8 +171,14 @@ def _pct_change(ticker: str, window_days: int) -> Optional[float]:
 async def _gather_pct(tickers: list[str], window_days: int) -> dict:
     """Fetch _pct_change for many tickers on the bounded pool. {ticker: pct|None}."""
     loop = asyncio.get_running_loop()
-    tasks = [loop.run_in_executor(_PEER_EXECUTOR, _pct_change, t, window_days) for t in tickers]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    async def _one(t):
+        # C20: bound peer yfinance fetches with the rest of the engine's Yahoo
+        # traffic (released the instant the fetch returns).
+        async with get_yahoo_semaphore():
+            return await loop.run_in_executor(_PEER_EXECUTOR, _pct_change, t, window_days)
+
+    results = await asyncio.gather(*[_one(t) for t in tickers], return_exceptions=True)
     out = {}
     for t, r in zip(tickers, results):
         out[t] = r if isinstance(r, (int, float)) else None
@@ -195,12 +203,15 @@ async def compute_relative_strength(
     max_peers = int(cfg.get("features.peer_comparison.max_peers", 5))
     thr = float(cfg.get("features.peer_comparison.outperform_threshold_pct", 1.0))
 
+    # C10: the old hard-coded 12s ceiling silently dropped the field under
+    # throttle. Raise it (default 22s) so a slow-but-valid peer fetch survives.
+    timeout_s = float(cfg.get("features.peer_comparison.timeout_s", 22))
     try:
         return await asyncio.wait_for(
-            _compute(ticker.upper(), window_days, max_peers, thr), timeout=12.0,
+            _compute(ticker.upper(), window_days, max_peers, thr), timeout=timeout_s,
         )
     except asyncio.TimeoutError:
-        log.warning("peer_comparison: timed out for %s", ticker)
+        log.warning("peer_comparison: timed out (>%.0fs) for %s", timeout_s, ticker)
         return None
     except Exception as e:  # noqa: BLE001
         log.debug("peer_comparison: compute failed for %s: %s", ticker, e)

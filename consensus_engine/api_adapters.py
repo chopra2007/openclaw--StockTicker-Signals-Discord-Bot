@@ -13,6 +13,7 @@ import aiohttp
 
 from consensus_engine import config as cfg
 from consensus_engine.utils.http import get_session
+from consensus_engine.utils.rate_limiter import rate_limiter
 from consensus_engine.adapter_protocols import (
     FinnhubContext,
     FirecrawlPage,
@@ -22,6 +23,31 @@ from consensus_engine.adapter_protocols import (
 log = logging.getLogger("consensus_engine.api_adapters")
 
 _TIMEOUT = aiohttp.ClientTimeout(total=10)
+
+# C14: the precision-engine adapters share source names with the polling tiers
+# ("finnhub", "finnhub_news", "brave_search", "exa", ...). They never reported
+# failures, so a dead source was retried every call and the error stayed at
+# debug. Feed the SHARED rate_limiter so a failing source actually backs off,
+# and surface a repeat at WARNING. Flag-gated (adapters.report_failure, default
+# OFF) — it changes WHEN those sources back off, so it ships dark.
+_adapter_fail_counts: dict[str, int] = {}
+
+
+def _report_adapter_failure(source: str, detail: str = "") -> None:
+    if not cfg.get("adapters.report_failure", False):
+        return
+    rate_limiter.report_failure(source)
+    _adapter_fail_counts[source] = _adapter_fail_counts.get(source, 0) + 1
+    if _adapter_fail_counts[source] >= 2:
+        log.warning("adapter source '%s' repeated failure (%dx): %s",
+                    source, _adapter_fail_counts[source], detail)
+
+
+def _report_adapter_success(source: str) -> None:
+    if not cfg.get("adapters.report_failure", False):
+        return
+    rate_limiter.report_success(source)
+    _adapter_fail_counts.pop(source, None)
 
 
 # ---------------------------------------------------------------------------
@@ -65,10 +91,13 @@ class FinnhubAdapter:
                 timeout=_TIMEOUT,
             ) as resp:
                 if resp.status != 200:
+                    _report_adapter_failure("finnhub", f"quote HTTP {resp.status}")
                     return None
+                _report_adapter_success("finnhub")
                 return await resp.json()
         except Exception as e:
             log.debug("Finnhub quote failed for %s: %s", ticker, e)
+            _report_adapter_failure("finnhub", f"quote {e}")
             return None
 
     async def _fetch_news(self, ticker: str) -> Optional[list]:
@@ -87,10 +116,13 @@ class FinnhubAdapter:
                 timeout=_TIMEOUT,
             ) as resp:
                 if resp.status != 200:
+                    _report_adapter_failure("finnhub_news", f"news HTTP {resp.status}")
                     return None
+                _report_adapter_success("finnhub_news")
                 return await resp.json()
         except Exception as e:
             log.debug("Finnhub news failed for %s: %s", ticker, e)
+            _report_adapter_failure("finnhub_news", f"news {e}")
             return None
 
 
@@ -154,7 +186,9 @@ class BraveAdapter:
                     source=r.get("meta_url", {}).get("hostname", ""),
                     snippet=r.get("description", ""),
                 ))
+            _report_adapter_success("brave_search")
             return hits
+        _report_adapter_failure("brave_search", "all keys failed")  # C14
         return []
 
 
@@ -184,8 +218,10 @@ class ExaAdapter:
             ) as resp:
                 if resp.status != 200:
                     log.debug("Exa search %d for %s", resp.status, query)
+                    _report_adapter_failure("exa", f"HTTP {resp.status}")
                     return []
                 data = await resp.json()
+                _report_adapter_success("exa")
 
             hits = []
             for r in (data.get("results") or [])[:max_results]:
@@ -200,6 +236,7 @@ class ExaAdapter:
             return hits
         except Exception as e:
             log.debug("Exa search error: %s", e)
+            _report_adapter_failure("exa", str(e))
             return []
 
 
@@ -229,8 +266,10 @@ class SerpApiAdapter:
             ) as resp:
                 if resp.status != 200:
                     log.debug("SerpApi %d for %s", resp.status, query)
+                    _report_adapter_failure("serpapi", f"HTTP {resp.status}")
                     return []
                 data = await resp.json()
+                _report_adapter_success("serpapi")
 
             hits = []
             for r in (data.get("news_results") or [])[:max_results]:
@@ -243,6 +282,7 @@ class SerpApiAdapter:
             return hits
         except Exception as e:
             log.debug("SerpApi error: %s", e)
+            _report_adapter_failure("serpapi", str(e))
             return []
 
 
@@ -278,8 +318,10 @@ class FirecrawlAdapter:
                 timeout=aiohttp.ClientTimeout(total=30),
             ) as resp:
                 if resp.status != 200:
+                    _report_adapter_failure("firecrawl", f"HTTP {resp.status}")
                     return FirecrawlPage(url=url)
                 data = await resp.json()
+                _report_adapter_success("firecrawl")
 
             fc_data = data.get("data", {})
             return FirecrawlPage(
@@ -290,6 +332,7 @@ class FirecrawlAdapter:
             )
         except Exception as e:
             log.debug("Firecrawl scrape failed for %s: %s", url, e)
+            _report_adapter_failure("firecrawl", str(e))
             return FirecrawlPage(url=url)
 
 

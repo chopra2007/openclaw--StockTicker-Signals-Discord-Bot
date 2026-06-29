@@ -26,6 +26,7 @@ from consensus_engine.utils.browser import (
     create_stealth_browser, stealth_page, safe_goto, random_delay,
 )
 from consensus_engine.utils.rate_limiter import rate_limiter
+from consensus_engine.utils.circuit_breaker import circuit_breaker  # C5
 
 
 
@@ -34,8 +35,18 @@ async def _has_market_cap(ticker: str) -> bool:
     try:
         from consensus_engine.utils.tickers import validate_ticker_market_cap
         return await validate_ticker_market_cap(ticker)
-    except Exception:
-        return True  # Fail open on errors
+    except Exception as e:
+        # C19: validate_ticker_market_cap (Finnhub) already fails closed, so a
+        # bare exception here can too -- but fail-closed can drop a corroborating
+        # social source on a transient error (e.g. a momentary DB blip in
+        # get_ticker_metadata, which sits outside that fn's own try). So gate it:
+        # default OFF = unchanged fail-open; flip ON only after the live error
+        # rate is confirmed negligible.
+        if cfg.get("social.market_cap_failclosed", False):
+            log.warning("market-cap validation errored for %s (%s); treating as invalid", ticker, e)
+            return False
+        log.warning("market-cap validation errored for %s (%s); allowing (fail-open)", ticker, e)
+        return True
 
 log = logging.getLogger("consensus_engine.scanner.social")
 
@@ -481,6 +492,11 @@ async def scan_google_trends_exa(tickers: list[str]) -> dict[str, float]:
     if not valid_tickers:
         return {}
 
+    # C5: skip the whole Exa sweep when the breaker is open (the motivating
+    # "0/10 tickers" silent-loop case) instead of hammering a dead source.
+    if not circuit_breaker.allow("exa"):
+        return {}
+
     results = {}
     session = await get_session()
     for ticker in valid_tickers:
@@ -501,6 +517,7 @@ async def scan_google_trends_exa(tickers: list[str]) -> dict[str, float]:
             ) as resp:
                 if resp.status != 200:
                     rate_limiter.report_failure("exa")
+                    await circuit_breaker.note_failure("exa", status=resp.status)  # C5
                     continue
                 data = await resp.json()
 
@@ -513,9 +530,11 @@ async def scan_google_trends_exa(tickers: list[str]) -> dict[str, float]:
                 results[ticker] = 15.0
 
             rate_limiter.report_success("exa")
+            await circuit_breaker.note_success("exa")  # C5
         except Exception as e:
             log.debug("Exa trends error for %s: %s", ticker, e)
             rate_limiter.report_failure("exa")
+            await circuit_breaker.note_failure("exa", exc=e)  # C5
 
         await asyncio.sleep(0.5)
 

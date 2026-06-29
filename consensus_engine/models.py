@@ -359,6 +359,10 @@ class FlowHit:
     last_trade_ts: float  # epoch seconds of the contract's last trade
     spot: float           # underlying price at scan time (0.0 if unknown)
     contract_symbol: str = ""
+    # C12: True when the lastTradeDate could not be parsed (lt==0.0) so freshness
+    # is unverifiable; the contract is still alerted (it cleared the size gates)
+    # but the alert is tagged so the read is honest.
+    staleness_unverified: bool = False
 
     @property
     def label(self) -> str:
