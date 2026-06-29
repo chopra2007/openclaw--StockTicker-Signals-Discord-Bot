@@ -162,6 +162,11 @@ social:
   pytrends_interval_minutes: 30     # How often to run Pytrends (requires 60s delay per ticker)
   reddit_trend_min_mentions: 3      # Min mentions to qualify as trending
   reddit_trend_min_authors: 2       # Min unique authors mentioning ticker
+  # C19 (reliability-hardening): when a market-cap validation call ERRORS,
+  # treat the ticker as not-a-real-stock and skip it (fail-closed). Default
+  # OFF = unchanged fail-open (a transient error never drops a social source).
+  # Flip ON only after the live error rate is confirmed negligible.
+  market_cap_failclosed: false
 
 # Stage 3: News & Catalyst Finder
 news:

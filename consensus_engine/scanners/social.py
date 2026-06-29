@@ -36,11 +36,17 @@ async def _has_market_cap(ticker: str) -> bool:
         from consensus_engine.utils.tickers import validate_ticker_market_cap
         return await validate_ticker_market_cap(ticker)
     except Exception as e:
-        # C19: fail CLOSED. validate_ticker_market_cap (Finnhub) already fails
-        # closed, so a bare exception here must not let an unvalidated ticker
-        # through; treat it as not-a-real-stock and skip.
-        log.warning("market-cap validation errored for %s (%s); treating as invalid", ticker, e)
-        return False
+        # C19: validate_ticker_market_cap (Finnhub) already fails closed, so a
+        # bare exception here can too -- but fail-closed can drop a corroborating
+        # social source on a transient error (e.g. a momentary DB blip in
+        # get_ticker_metadata, which sits outside that fn's own try). So gate it:
+        # default OFF = unchanged fail-open; flip ON only after the live error
+        # rate is confirmed negligible.
+        if cfg.get("social.market_cap_failclosed", False):
+            log.warning("market-cap validation errored for %s (%s); treating as invalid", ticker, e)
+            return False
+        log.warning("market-cap validation errored for %s (%s); allowing (fail-open)", ticker, e)
+        return True
 
 log = logging.getLogger("consensus_engine.scanner.social")
 

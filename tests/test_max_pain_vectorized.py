@@ -88,6 +88,20 @@ def test_numpy_equals_reference(name, chain):
         f"numpy max-pain diverged from the reference on '{name}'"
 
 
+def test_tie_resolves_to_nearest_mid_deterministically():
+    """C7: on a payout tie the strike NEAREST the mid wins, deterministically --
+    independent of input row order. The vectorized path regroups the float
+    summation vs the old per-strike loop, so on a ~1-ULP tie the two MAY pick a
+    different equidistant strike; what is guaranteed (and tested here) is that
+    the vectorized result is order-stable and applies the documented distance
+    tiebreak. Enrichment only -- max-pain never gates an alert."""
+    chain = _chain([_c(100, 1000), _c(110, 1000)], [_c(100, 1000), _c(110, 1000)])
+    # mid = strikes[2//2] = 110; payout(100) == payout(110) == 10000 -> dist wins.
+    assert options._max_pain_for_chain(chain)[0] == 110.0
+    rev = _chain([_c(110, 1000), _c(100, 1000)], [_c(110, 1000), _c(100, 1000)])
+    assert options._max_pain_for_chain(rev)[0] == 110.0, "winner must not depend on row order"
+
+
 def test_empty_and_single_strike_return_none():
     assert options._max_pain_for_chain(_chain([], [])) is None
     assert options._max_pain_for_chain(_chain([_c(100, 500)], [])) is None

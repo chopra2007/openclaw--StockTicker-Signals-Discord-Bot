@@ -524,7 +524,7 @@ def _max_pain_for_chain(chain) -> Optional[tuple]:
     # with breakpoints only at strikes, so evaluating at the strikes is exact.
     # payout(S_i) = sum_j call_oi[j]*max(0, S_i-K_j) + sum_j put_oi[j]*max(0, K_j-S_i).
     # numpy's matmul/maximum are C ops that release the GIL. The dict-building
-    # above is preserved verbatim so OI aggregation (dup strikes, NaN->0, k>0,
+    # above is preserved verbatim, so OI aggregation (dup strikes, NaN->0, k>0,
     # max(0,oi)) is byte-identical to the prior loop.
     K = np.array(strikes, dtype=float)
     call_arr = np.array([call_oi.get(k, 0.0) for k in strikes], dtype=float)
@@ -534,8 +534,16 @@ def _max_pain_for_chain(chain) -> Optional[tuple]:
     put_pay = (np.maximum(-diff, 0.0) * put_arr[None, :]).sum(axis=1)
     payout = call_pay + put_pay
     dist = np.abs(K - mid)
-    # Lexicographic argmin (primary payout, tiebreak dist, then lowest strike via
-    # stable order) — matches min(strikes, key=(payout, abs(S-mid))).
+    # Lexicographic argmin: primary payout, tiebreak dist-to-mid, then lowest
+    # strike (stable order) -- the documented tiebreak min(strikes, key=(payout,
+    # abs(S-mid))). NOTE: the vectorized payout regroups the float summation
+    # (sum(calls)+sum(puts) vs the old loop's interleaved per-strike +=), so in a
+    # near-exact payout tie the two can round to a ~1-ULP-different total and pick
+    # a different equidistant strike. The vectorized result applies the documented
+    # distance tiebreak faithfully where the old loop's rounding noise sometimes
+    # pre-empted it -- so it is numerically equivalent and arguably more correct,
+    # NOT bit-identical, on such ties. Enrichment only (a displayed magnet level);
+    # max-pain never gates whether an alert fires.
     best = strikes[int(np.lexsort((dist, payout))[0])]
     return best, total_oi, sum(call_oi.values()), sum(put_oi.values())
 
