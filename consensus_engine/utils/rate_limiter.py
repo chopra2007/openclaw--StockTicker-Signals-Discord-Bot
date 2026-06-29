@@ -2,8 +2,11 @@
 
 import asyncio
 import logging
+import random
 import time
 from collections import defaultdict
+
+from consensus_engine import config
 
 log = logging.getLogger("consensus_engine.rate_limiter")
 
@@ -49,9 +52,16 @@ class RateLimiter:
 
             # Enforce minimum interval
             min_interval = self._min_intervals.get(source, 1.0)
-            elapsed = now - self._last_request.get(source, 0)
+            last = self._last_request.get(source, 0)
+            elapsed = now - last
             if elapsed < min_interval:
                 wait_time = min_interval - elapsed
+
+            # C1: one-time per-source kickoff stagger so all sources don't fire
+            # at the very top of a poll cycle (only on a source's first request;
+            # no per-call overhead thereafter). Skipped when jitter is disabled.
+            if last == 0 and config.get("rate_limiter.jitter_mode", "equal") != "none":
+                wait_time += random.uniform(0, 0.5)
 
             # Reserve the slot now (before releasing lock).
             # Use `now` captured above, not a fresh time.time(): under
@@ -87,11 +97,20 @@ class RateLimiter:
             return
 
         if count >= 3:
-            # Exponential backoff: 30s, 60s, 120s, 240s, max 600s
-            backoff = min(30 * (2 ** (count - 3)), 600)
+            # Exponential schedule: 30s, 60s, 120s, 240s, max 600s.
+            d = min(30 * (2 ** (count - 3)), 600)
+            # C1: EQUAL jitter keeps the wait in [d/2, d] so retries across
+            # sources de-synchronize WITHOUT the full-jitter failure mode
+            # (uniform(0,d) can pick a near-zero wait -> re-probe a dead source
+            # almost immediately, halving the mean). jitter_mode="none" restores
+            # the exact prior schedule.
+            if config.get("rate_limiter.jitter_mode", "equal") != "none":
+                backoff = d / 2 + random.uniform(0, d / 2)
+            else:
+                backoff = d
             self._blocked_until[source] = time.time() + backoff
             log.warning(
-                "Source '%s' backing off for %ds after %d failures",
+                "Source '%s' backing off for %.0fs after %d failures",
                 source, backoff, count,
             )
 
