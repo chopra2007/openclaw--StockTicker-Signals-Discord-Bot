@@ -153,7 +153,8 @@ async def test_market_command_off_path(monkeypatch):
 
     from consensus_engine.alerts import commands
     monkeypatch.setattr(commands, "send_command_reply", _reply)
-    # market_command.enabled is False by default (real config) -> off path.
+    # conftest forces market_command.enabled OFF for the baseline suite -> off path
+    # (it is live ON in the deployed config; the render test forces ON in-body).
     await commands.route_command("rotation", [], "chan", "msg")
     assert "not enabled" in sent.get("content", "").lower()
 

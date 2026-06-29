@@ -86,10 +86,12 @@ async def test_schema_version_bumped(test_db):
         "features.trend_regime.enabled",
         "features.macro_legs.enabled",
         "features.internal_breadth.enabled",
-        "features.market_command.enabled",
     ],
 )
 def test_new_flags_default_off(flag):
+    # NB: market_command.enabled is intentionally LIVE ON (go-live 2026-06-29) — it
+    # is the read-only !market dashboard, not an alert gate — so it is no longer in
+    # this default-OFF list. The five edge/gate flags above stay OFF (no edge found).
     assert cfg.get(flag, None) is False, f"{flag} must default OFF"
 
 

@@ -75,6 +75,10 @@ def _audit_flags_default_off(monkeypatch):
         "features.finra_short_volume.enabled": False,
         "features.fundamentals_oneliner.enabled": False,
         "wolf.confluence.weighted_votes_enabled": False,
+        # Market-context dashboard went live ON 2026-06-29 (discover run
+        # trade-edge-features). Force OFF for the baseline suite so the
+        # off-path test is deterministic; the render test forces ON in-body.
+        "features.market_command.enabled": False,
     }
 
     def _patched(key, default=None):
