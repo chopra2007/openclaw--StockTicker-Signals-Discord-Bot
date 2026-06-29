@@ -343,6 +343,12 @@ llm:
   # at 4-8k (OpenRouter returned empty content), 4e85ff0 dropped to 4096.
   # Current chain's smallest is 8192, so 8000 is safe.
   max_tokens: 8000
+  # C4 (reliability-hardening): when the whole chain 429s at once (shared
+  # openrouter account quota), retry the score+thesis ONCE on this non-openrouter
+  # model so the thesis isn't blanked. Default OFF until the unavailable-rate is
+  # shadow-logged; groq_fallback_model must be a `groq/`-prefixed id.
+  score_fallback_enabled: false
+  groq_fallback_model: "groq/llama-3.3-70b-versatile"
 
 
 # Ticker validation
@@ -752,6 +758,7 @@ features:
     window_days: 5                 # 5-trading-day % move
     outperform_threshold_pct: 1.0  # |delta| above this = out/under-performing
     max_peers: 5                   # cap peer fetches (latency bound)
+    timeout_s: 22                  # C10: wait_for ceiling (was hard-coded 12s -> silent drops under throttle)
   snapshot:
     enabled: true                  # 📊 Snapshot field (analyst target/rating/Fwd P/E/short) — LIVE
     eps_revisions: true            # #6 Lever 1 LIVE 2026-06-15 — verified in real !all (NVDA 34↑3↓, TSLA 2↑1↓); runs <34s
@@ -833,6 +840,12 @@ options_flow:
   selection_mode: "premium"        # #17 "premium" (current) | "relative" (premium/baseline ratio)
   relative_baseline_enabled: false # #18 also require premium >= relative_multiplier x ticker baseline
   relative_multiplier: 3.0
+  # C12 (reliability-hardening): when a contract's lastTradeDate can't be parsed
+  # (lt==0.0), freshness is unverifiable. It still alerts (it cleared the size
+  # gates — never drop a real signal) but is TAGGED "[staleness unverified]"
+  # when this is on. Default OFF until the historical lt==0.0 rate is measured
+  # on the LIVE DB (the worktree DB is empty).
+  staleness_failclosed: false
   # Active watchlist (get_active_tickers) is scanned automatically; this fixed
   # liquid core is always added so big flow on a major name is caught even with
   # no other signal yet (user chose "both combined").
@@ -998,3 +1011,35 @@ commands:
 tweetshift:
   pre_ready_buffer_cap: 100  # max messages buffered before READY fires
   ack_reaction: "👀"  # "thinking" emoji added to a question/command while answering; "" disables
+
+# ---------------------------------------------------------------------------
+# Reliability-hardening run (2026-06-29). New top-level knobs. Alert-affecting
+# fixes default OFF until their owed live check is done (shadow-log first);
+# pure-internal ones (http/yahoo/jitter) carry safe defaults and are active on
+# deploy. See .claude/discover/reliability-hardening/final-plan.md.
+# ---------------------------------------------------------------------------
+http:
+  default_timeout_total_s: 30   # C11: shared aiohttp session default total timeout (sock_read was None -> hang vector)
+
+yahoo:
+  max_concurrency: 3            # C20: process-wide cap on concurrent unauth yfinance fetches
+
+rate_limiter:
+  jitter_mode: "equal"          # C1: equal jitter on backoff ("equal" | "none")
+
+circuit_breaker:
+  enabled: false                # C2/C5: gate sources via the persistent breaker (shadow-only until ON)
+  fail_max: 5                   # consecutive transient failures before OPEN
+  reset_timeout_s: 120          # cooldown before a self-driven half-open probe
+  hard_max_open_s: 1800         # absolute cap on any OPEN (recovery-first)
+
+retry:
+  use_classifier: false         # C3: classify failures + honor a (capped) server Retry-After
+  llm_retry_after_cap_s: 120    # C3: cap a Retry-After applied to an LLM provider bucket
+
+dead_source:
+  ops_alert_enabled: false      # C5: ONE throttled (30-min) ops-channel alert when a source goes dead
+  # ops_channel_id: ""          # falls back to discord.channel_id when unset
+
+adapters:
+  report_failure: false         # C14: precision adapters feed failures to the shared rate_limiter
