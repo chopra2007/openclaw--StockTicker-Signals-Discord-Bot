@@ -35,8 +35,12 @@ async def _has_market_cap(ticker: str) -> bool:
     try:
         from consensus_engine.utils.tickers import validate_ticker_market_cap
         return await validate_ticker_market_cap(ticker)
-    except Exception:
-        return True  # Fail open on errors
+    except Exception as e:
+        # C19: fail CLOSED. validate_ticker_market_cap (Finnhub) already fails
+        # closed, so a bare exception here must not let an unvalidated ticker
+        # through; treat it as not-a-real-stock and skip.
+        log.warning("market-cap validation errored for %s (%s); treating as invalid", ticker, e)
+        return False
 
 log = logging.getLogger("consensus_engine.scanner.social")
 

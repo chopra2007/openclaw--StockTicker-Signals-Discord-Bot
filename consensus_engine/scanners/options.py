@@ -11,6 +11,7 @@ import logging
 import time
 from typing import Optional
 
+from consensus_engine import config as _cfg
 from consensus_engine.models import OptionsResult, FlowHit
 from consensus_engine.utils.yahoo_limit import get_yahoo_semaphore  # C20
 
@@ -300,6 +301,20 @@ def _scan_chain_for_flow(
             lt = _ts_to_epoch(getattr(row, "lastTradeDate", None))
             if max_stale_sec and lt and (now - lt) > max_stale_sec:
                 continue  # stale / closed-market data — don't alert on it
+            # C12: lt==0.0 means the timestamp was unparseable, so the original
+            # guard above (which needs a truthy lt) silently SKIPPED the staleness
+            # check — a fail-OPEN. This contract already cleared the vol/premium/
+            # ratio gates (real activity), so we never DROP it (that would lose a
+            # real instant-flow signal); when the flag is on we TAG it as
+            # unverified (surfaced in the alert) and log it. Flag OFF = unchanged.
+            staleness_unverified = False
+            if max_stale_sec and not lt and _cfg.get("options_flow.staleness_failclosed", False):
+                staleness_unverified = True
+                log.warning(
+                    "options_flow: %s %s unverifiable lastTradeDate "
+                    "[staleness unverified] — allowing (cleared size gates)",
+                    ticker, str(getattr(row, "contractSymbol", "")),
+                )
             hits.append(FlowHit(
                 ticker=ticker, side=side,
                 strike=float(getattr(row, "strike", 0) or 0), expiry=expiry,
@@ -307,6 +322,7 @@ def _scan_chain_for_flow(
                 vol_oi_ratio=round(ratio, 2), premium_usd=round(premium, 2),
                 last_trade_ts=lt, spot=spot,
                 contract_symbol=str(getattr(row, "contractSymbol", "")),
+                staleness_unverified=staleness_unverified,
             ))
     return hits
 
@@ -426,12 +442,14 @@ def format_flow_alert(hit) -> str:
     direction = "🟢 BULLISH" if hit.side == "CALL" else "🔴 BEARISH"
     prem_m = hit.premium_usd / 1_000_000.0
     spot_txt = f" | spot ${hit.spot:,.2f}" if hit.spot else ""
+    # C12: be honest when we couldn't verify the contract's last-trade freshness.
+    stale_txt = " _[staleness unverified]_" if getattr(hit, "staleness_unverified", False) else ""
     return (
         f"⚡ **UNUSUAL OPTIONS FLOW** — `${hit.ticker}` {direction}\n"
         f"**{hit.side}** {hit.expiry} ${hit.strike:g} strike{spot_txt}\n"
         f"Volume **{hit.volume:,}** vs OI {hit.open_interest:,} "
         f"(**{hit.vol_oi_ratio:.1f}x** — fresh positioning) | "
-        f"premium **${prem_m:.2f}M**\n"
+        f"premium **${prem_m:.2f}M**{stale_txt}\n"
         f"_Free ~15-min-delayed chain data; unusual-flow instant trigger._"
     )
 
