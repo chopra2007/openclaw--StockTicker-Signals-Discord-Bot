@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily options-implied IV / expected-move snapshot (#55 Build B; persists iv_snapshots via the frozen expected_move math; fail-soft per ticker)
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=openclaw
+WorkingDirectory=/home/openclaw/.openclaw/workspace
+ExecStart=/usr/bin/python3 /home/openclaw/.openclaw/workspace/scripts/iv_snapshot_daily.py
+StandardOutput=journal
+StandardError=journal

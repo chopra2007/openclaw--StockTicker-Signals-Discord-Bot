@@ -1,7 +1,17 @@
 # Fix remaining openclaw doctor warnings
 
-**Status:** OPEN
+**Status:** RESOLVED 2026-06-29 — last actionable warning (orphan transcripts) cleared; only intentional/risky-to-touch warnings remain
 **Created:** 2026-06-12
+
+### Session note — 2026-06-29 (run `todo-55-47-research`)
+The remaining **orphan transcript** warning is CLEARED. The count had already dropped 142→**7**
+(not the 132 the old note implied). Verified the 3 real channel chat transcripts (1468/1496/1510)
+have **completed summaries** in `chat_memory_rollups` (content preserved); the other 4 are agent
+`.trajectory` logs. Archived all 7 to `/home/openclaw/.openclaw/transcript-archive-2026-06-29/`
+(restricted) then deleted; `openclaw doctor` no longer lists orphan transcripts. The leftover
+warnings — task-registry sidecar, OAuth dir, **state-dir permissions** (changing `~/.openclaw`
+perms risks the documented ownership traps), and "1/5 recent sessions missing transcripts" — are
+intentional or risky-to-touch and left as-is. #38 effectively done.
 
 ## What was done this session (2026-06-12)
 

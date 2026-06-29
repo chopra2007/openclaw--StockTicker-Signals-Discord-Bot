@@ -1875,12 +1875,104 @@ def _build_market_embed(
     }
 
 
+# #47 "better way": plain-English, HAZARD-framed translation of a market-scope
+# Wolf thesis. Bear on an index = a top / downside risk (never "SELL").
+_MKT_DIR_WORD = {"bear": "top / downside risk", "bull": "bottom / upside"}
+_MKT_STAGE_WORD = {
+    "forming": "early — forming",
+    "diverging": "building",
+    "imminent": "imminent",
+    "acting": "acting (Wolf has a position)",
+}
+
+
+async def _build_market_context_fields() -> list[dict]:
+    """#47 'better way' — surface the FRESH, engine-native market-regime signals as
+    component-first DESCRIPTIVE context (no composite score; divergence stays visible).
+
+    Leads with Wolf's market-level top/bottom theses + cross-source confluence (a
+    qualitatively different, analyst-driven signal that was never inside the quant
+    kill-gate), then the volatility-regime label. A validated free *predictor* of
+    SPY/QQQ turns was proven NO-GO across many phases, so this is strictly context —
+    never a forecast, and deliberately NOT fused into a single 'risk score'.
+    """
+    from consensus_engine import db
+    fields: list[dict] = []
+
+    # --- Wolf market-level theses + confluence (lead — the different mechanism) ---
+    try:
+        conn = await db.get_db()
+        cur = await conn.execute(
+            """SELECT m.scope_key, m.direction, m.stage,
+                      c.agree_count, c.disagree_count
+                 FROM macro_theses m
+                 LEFT JOIN wolf_confluence_checks c ON c.thesis_id = m.id
+                WHERE m.scope_type = 'market'
+                  AND COALESCE(m.status, 'active') = 'active'
+                ORDER BY m.last_updated DESC LIMIT 6"""
+        )
+        theses = await cur.fetchall()
+    except Exception:
+        theses = []
+
+    if theses:
+        lines = []
+        for t in theses:
+            side = _MKT_DIR_WORD.get(t["direction"], t["direction"])
+            stage = _MKT_STAGE_WORD.get(t["stage"], t["stage"])
+            agree = t["agree_count"] or 0
+            disagree = t["disagree_count"] or 0
+            if agree >= 1 and agree >= disagree:
+                conf = f"{agree} other source(s) agree"
+            elif disagree > agree:
+                conf = f"others lean the other way ({disagree}) — analysts divided"
+            else:
+                conf = "Wolf alone so far"
+            lines.append(f"• **{t['scope_key']}** — {side} ({stage}); {conf}")
+        fields.append({
+            "name": "🌊  Wolf's market read (analyst view, not the bot's)",
+            "value": "\n".join(lines) + (
+                "\n_Expert-newsletter theses + how the bot's other sources line up. "
+                "A view, not a forecast._"),
+            "inline": False,
+        })
+
+    # --- Volatility regime (engine-native, fresh; read regime_daily directly —
+    # market_panel.get_latest_row allowlists only the 4 RS/breadth tables) ---
+    label = None
+    try:
+        conn = await db.get_db()
+        cur = await conn.execute(
+            "SELECT regime_label FROM regime_daily ORDER BY date_utc DESC LIMIT 1"
+        )
+        rrow = await cur.fetchone()
+        if rrow:
+            label = rrow["regime_label"]
+    except Exception:
+        label = None
+    if label:
+        gloss = {
+            "calm": "quiet tape — low realized volatility",
+            "normal": "ordinary volatility",
+            "elevated": "stress building — above-normal volatility",
+            "panic": "high stress — volatility spiking",
+        }.get(label, "")
+        fields.append({
+            "name": "🌡️  Volatility regime",
+            "value": f"**{label}**{(' — ' + gloss) if gloss else ''}.",
+            "inline": False,
+        })
+
+    return fields
+
+
 async def _handle_market(channel_id: str, message_id: str) -> None:
     """Reply with the daily market-CONTEXT dashboard (read-only, no edge claim).
 
     Reads the four persisted daily tables (sector_rs_daily, factor_rs_daily,
     trend_daily, internal_breadth_daily) through market_panel and renders one
-    embed. Gated by ``features.market_command.enabled`` (default OFF).
+    embed. Leads with descriptive market-regime context (#47: Wolf market theses +
+    confluence + volatility regime). Gated by ``features.market_command.enabled``.
     """
     if not cfg.get("features.market_command.enabled", False):
         await send_command_reply(
@@ -1912,6 +2004,15 @@ async def _handle_market(channel_id: str, message_id: str) -> None:
 
         embed = _build_market_embed(
             sector_rows, factor_rows, trend_row, breadth_row, LONG_BIAS_NOTE)
+        # #47 "better way": lead with the descriptive market-regime context
+        # (Wolf market theses + confluence, then the volatility regime). Fail-soft —
+        # the existing dashboard renders unchanged if these sources are unavailable.
+        try:
+            context_fields = await _build_market_context_fields()
+            if context_fields:
+                embed["fields"] = context_fields + embed["fields"]
+        except Exception as ctx_exc:
+            log.debug("market context fields unavailable: %s", ctx_exc)
         await send_command_embed_reply(channel_id, message_id, embed)
     except Exception as e:
         log.error("!market command error: %s", e)

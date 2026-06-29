@@ -1,7 +1,24 @@
 # Build an accurate market top/bottom detector — research how others did it
 
-**Status:** OPEN
+**Status:** OPEN — free PREDICTOR exhausted (NO-GO); descriptive "better way" SHIPPED to !market; ~$50 paid path still the only open decision
 **Created:** 2026-06-17
+
+### Session note — 2026-06-29 (run `todo-55-47-research`) — the "better way" shipped (descriptive)
+User asked to look for a BETTER approach to the goal. Cross-model gate (Claude critic + Codex +
+Gemini, UNANIMOUS): a free *predictor* stays NO-GO, and a single composite "regime risk N/100"
+would **launder** the failed gauges + **invert** the one validated relationship (high complacency →
+*calmer* forward vol). So: NO composite score. Instead **surface the FRESH engine-native signals
+component-first** in the live `!market` dashboard — built (commit c2210ff, branch
+`worktree-todo-55-47-discover`, deploy pending): a "Market context — descriptive, not a forecast"
+section leading with **Wolf market-level theses + cross-source confluence** (the one qualitatively
+different mechanism, never in the quant kill-gate; today shows NDX/SPX top-forming, analysts divided)
+then the **volatility-regime** label. Hazard-framed, divergence-visible.
+- DEFERRED (stale-data): the `show_fragility` parquet gauges (complacency/dealer-gamma/90-90) are NOT
+  wired — `collect_daily.sh` only refreshes CBOE put/call + NYSE breadth, leaving SPY/VIX/VVIX/RSP
+  panels ~12 days stale (Jun 17). Follow-up: extend the daily collection to refresh those panels, THEN
+  wire the gauges behind a freshness guard.
+- The **~$50 Alpha Vantage paid path** (one real shot at a predictor, MEDIUM odds) is the only open
+  decision — user said "decide later" this round (see the fork below). Default remains free-ceiling.
 
 ## Goal
 Detect US equity-index (SPY/QQQ) **tops and bottoms early — before the move — with few false

@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the daily IV / expected-move snapshot after US market close (#55 Build B)
+
+[Timer]
+OnCalendar=*-*-* 22:35:00 UTC
+Persistent=true
+Unit=iv-snapshot-daily.service
+
+[Install]
+WantedBy=timers.target

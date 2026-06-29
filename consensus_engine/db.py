@@ -338,6 +338,49 @@ CREATE TABLE IF NOT EXISTS source_performance (
     PRIMARY KEY (entity_id, horizon)
 );
 
+-- #55 Build C (forward-data logging): SHADOW twin of source_performance, same
+-- shape. The analyst track-record producer (analysis/source_performance.py)
+-- writes ONLY here, never to the live source_performance, so the 4 live readers
+-- (get_analyst_precision/_lb, consolidation prior, herding) stay cold-start and
+-- alerts are unchanged. Promotion to live is a separate, soak-gated decision.
+CREATE TABLE IF NOT EXISTS source_performance_shadow (
+    entity_id TEXT NOT NULL,
+    horizon TEXT NOT NULL,
+    rolling_accuracy REAL DEFAULT 0.0,
+    sample_count INTEGER DEFAULT 0,
+    updated_at REAL NOT NULL DEFAULT 0.0,
+    PRIMARY KEY (entity_id, horizon)
+);
+
+-- #55 Build A (forward-data logging): persist the E2 cross-asset shadow ratios +
+-- multipliers that cross_asset.get_multiplier currently only logs ('[E2 shadow]'
+-- lines). At most one row per UTC day (idempotent via insert_cross_asset_shadow).
+-- Lets the E2 master-flip blast radius be analyzed later. Append-only, no alert impact.
+CREATE TABLE IF NOT EXISTS cross_asset_shadow (
+    recorded_at REAL PRIMARY KEY,
+    vix_term_ratio REAL,
+    vix_term_multiplier REAL,
+    credit_oas_ratio REAL,
+    credit_oas_multiplier REAL,
+    combined_multiplier REAL
+);
+
+-- #55 Build B (forward-data logging): daily snapshot of the options-implied
+-- expected-move state (ATM IV, straddle EM, IV-implied EM to expiry) per ticker,
+-- computed by scripts/iv_snapshot_daily.py from the FROZEN expected_move math.
+-- Point-in-time and un-backfillable; one row per ticker per snapshot_date.
+CREATE TABLE IF NOT EXISTS iv_snapshots (
+    snapshot_date TEXT NOT NULL,
+    ticker TEXT NOT NULL,
+    spot REAL,
+    atm_iv REAL,
+    straddle_em REAL,
+    iv_em_to_expiry REAL,
+    expiry TEXT,
+    captured_at REAL,
+    PRIMARY KEY (snapshot_date, ticker)
+);
+
 -- C2 (reliability-hardening): persistent circuit-breaker state. Only durable
 -- OPENs (quota / HTTP-402 / per-key bench) are persisted here so they survive a
 -- restart and we don't blindly re-probe a known-exhausted source. opened_at /
@@ -1083,6 +1126,7 @@ async def init_db() -> AsyncConnection:
         (20, "E1 finra_short_volume daily series (short-pct z-score baseline)"),
         (21, "trade-edge market-context layer (sector_rs_daily, factor_rs_daily, trend_daily, macro_legs_daily, internal_breadth_daily)"),
         (22, "trade-edge 5d/20d trading-day outcome tracking on decision_snapshots"),
+        (23, "#55 forward-data loggers: source_performance_shadow, cross_asset_shadow, iv_snapshots"),
     ]
     for version, note in _schema_versions:
         await _db.execute(
@@ -3358,6 +3402,51 @@ async def label_shadow_predictions_for_alert_id(
     )
     await conn.commit()
     return cursor.rowcount or 0
+
+
+# ---------------------------------------------------------------------------
+# #55 Build A — E2 cross-asset shadow logger
+# ---------------------------------------------------------------------------
+
+async def insert_cross_asset_shadow(
+    vix_term_ratio: float | None,
+    vix_term_multiplier: float | None,
+    credit_oas_ratio: float | None,
+    credit_oas_multiplier: float | None,
+    combined_multiplier: float | None,
+) -> bool:
+    """Persist the E2 cross-asset shadow ratios/multipliers — the SAME values the
+    '[E2 shadow]' log lines show — at most ONCE per UTC calendar day.
+
+    Idempotent per day: if a row already exists for today (UTC) this is a no-op
+    and returns False; otherwise it writes one row and returns True. Bounding to
+    one row/day keeps the table from growing every poll cycle.
+    """
+    from datetime import datetime, timezone
+
+    now = time.time()
+    today_start = (
+        datetime.now(timezone.utc)
+        .replace(hour=0, minute=0, second=0, microsecond=0)
+        .timestamp()
+    )
+    conn = await get_db()
+    cur = await conn.execute(
+        "SELECT 1 FROM cross_asset_shadow WHERE recorded_at >= ? LIMIT 1",
+        (today_start,),
+    )
+    if await cur.fetchone() is not None:
+        return False
+    await conn.execute(
+        """INSERT INTO cross_asset_shadow
+           (recorded_at, vix_term_ratio, vix_term_multiplier,
+            credit_oas_ratio, credit_oas_multiplier, combined_multiplier)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (now, vix_term_ratio, vix_term_multiplier,
+         credit_oas_ratio, credit_oas_multiplier, combined_multiplier),
+    )
+    await conn.commit()
+    return True
 
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the analyst track-record SHADOW producer daily (#55 Build C), staggered after the IV snapshot
+
+[Timer]
+OnCalendar=*-*-* 23:00:00 UTC
+Persistent=true
+Unit=source-performance-shadow-daily.service
+
+[Install]
+WantedBy=timers.target

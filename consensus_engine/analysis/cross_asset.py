@@ -370,6 +370,26 @@ async def get_multiplier(executor=None) -> float:
         combined = max(veto_floor, min(confirm_ceiling, sum(legs) / len(legs)))
         log.info("[E2 shadow] combined vix=%.3f credit=%.3f -> %.3f", vix_mult, credit_mult, combined)
 
+    # #55 Build A: persist the daily cross-asset ratios/multipliers (the SAME values
+    # the [E2 shadow] lines show) — once per UTC day, in BOTH live (enabled) and
+    # shadow modes. The FRED HY-credit ratio is point-in-time and CANNOT be
+    # backfilled (FRED serves only a rolling ~3yr window), so every unlogged day is
+    # gone. The DB helper is idempotent per UTC day, so this per-alert hot path
+    # writes at most one row/day. Wrapped so a DB problem can NEVER raise into the
+    # engine path. Skip when both legs are unavailable (no real data → no null row).
+    if vix_mult is not None or credit_mult is not None:
+        try:
+            from consensus_engine import db as _db
+            await _db.insert_cross_asset_shadow(
+                vix_term_ratio=_cache["ratio"],
+                vix_term_multiplier=vix_mult,
+                credit_oas_ratio=_credit_cache["ratio"],
+                credit_oas_multiplier=credit_mult,
+                combined_multiplier=combined,
+            )
+        except Exception as exc:  # never propagate into the live engine loop
+            log.debug("[E2] cross_asset_shadow persist failed: %s", exc)
+
     if not enabled:
         # Shadow-only: log the would-have-applied verdict but return 1.0
         high = float(cfg.get("precision_engine.thresholds.high_confidence", 80))

@@ -1,9 +1,31 @@
 # Start saving the data future features need to test on
 
-**Status:** IN PROGRESS — Tier-1 Item 1 DONE + LIVE (2026-06-29)
+**Status:** IN PROGRESS — Tier-1 Items 1+2 + Tier-2 #3/#5 BUILT (2026-06-29); deploy + soak pending
 **Created:** 2026-06-28
 
-## CURRENT STATUS (2026-06-29)
+## CURRENT STATUS (2026-06-29, run `todo-55-47-research`) — Tier-1 Item 2 + Tier-2 #3/#5 BUILT
+Three forward-loggers built + tested + committed on branch `worktree-todo-55-47-discover`
+(commit c2210ff); **NOT yet deployed** (merge to master + engine restart + install 2 timers).
+- **Tier-1 Item 2 — analyst track-record producer (`source_performance_shadow`):** built SAFE.
+  It writes a NEW shadow table, NOT the live `source_performance`, because 3 live flags
+  (`per_analyst_cooldown`, I2 `analyst_accuracy_weight`, I10 `strong_requires_hard_evidence`)
+  would change alerts the instant the live table fills (19 analysts cross ≥5 day one — verified).
+  Grading is sign-adjusted by `catalyst_type` (bearish set → down move = hit). Verified on a copy
+  of the live DB: 365 rows / 28 handles / 53 shadow rows, live `source_performance` stayed **0**.
+  **Live check owed before promotion:** a soak + a shadow-delta analysis (would-be cooldown/score
+  deltas vs flat). 1h is near-random — never promote on 1h alone (24h primary). `consensus_logodds`
+  I7 still OFF; do NOT flip until the shadow validates.
+- **Tier-2 #3 — `iv_snapshots`:** daily ATM-IV / expected-move logger (`scripts/iv_snapshot_daily.py`
+  reusing `expected_move.compute_em`) + `iv-snapshot-daily.timer` (22:35 UTC, not installed).
+- **Tier-2 #5 — `cross_asset_shadow`:** persist the daily E2 VIX-term + FRED HY-credit ratios. The
+  deployed config is `cross_asset.enabled=true, shadow=false`, so it now fires in the LIVE path too
+  (the FRED credit ratio is point-in-time, can't be backfilled).
+- Real coverage note: only **359/3103** labeled alerts carry a non-empty `analyst_mentions` (~28
+  handles) — the earlier "3,103 ready" was an overstatement.
+- DEPLOY STEPS (go-live): merge branch→master, restart `consensus-engine.service`, install+enable
+  `iv-snapshot-daily.timer` + `source-performance-shadow-daily.timer`. None change live alerts.
+
+### Earlier today (Tier-1 Item 1 — 5d/20d labels, run `trade-edge-features`)
 The #1 unlock — **+5d/+20d outcome labels** — is built, live, and backfilled.
 `decision_snapshots` now has `outcome_price_5d` / `outcome_price_20d`; the live engine
 fills them going forward, and history was backfilled: **2,154 rows have a 5-day label,

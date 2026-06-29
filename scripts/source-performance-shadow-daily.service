@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily analyst track-record SHADOW producer (#55 Build C; grades alert_history into source_performance_shadow ONLY, never live source_performance)
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=openclaw
+WorkingDirectory=/home/openclaw/.openclaw/workspace
+ExecStart=/usr/bin/python3 /home/openclaw/.openclaw/workspace/scripts/source_performance_shadow_daily.py
+StandardOutput=journal
+StandardError=journal
