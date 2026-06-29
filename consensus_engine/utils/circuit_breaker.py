@@ -38,8 +38,13 @@ import time
 from typing import Callable, Optional
 
 from consensus_engine import config
+from consensus_engine.utils.burst_retry import classify_retry, parse_retry_after, RetryClass
 
 log = logging.getLogger("consensus_engine.circuit_breaker")
+
+# C5: how long (seconds) to suppress a repeat ops alert for the same source so a
+# flapping source can't spam the ops channel.
+_OPS_ALERT_THROTTLE_S = 1800  # 30 min
 
 # Reasons whose OPEN survives a restart (real, durable limits). Everything else
 # (transient 5xx/timeout, corroborated permanent) stays in-memory only.
@@ -50,7 +55,12 @@ class CircuitBreaker:
     def __init__(self, *, now_fn: Callable[[], float] = time.time):
         self._now = now_fn
         self._state: dict[str, dict] = {}
+        self._health: dict[str, dict] = {}  # C5: per-source counters
         self._loaded = False
+
+    def _health_for(self, key: str) -> dict:
+        return self._health.setdefault(
+            key, {"attempts": 0, "skipped": 0, "failures": 0, "recoveries": 0})
 
     # ---- config (read live so a hot-reload of consensus.yaml takes effect) ----
     def _enabled(self) -> bool:
@@ -92,11 +102,15 @@ class CircuitBreaker:
         """True if the call may proceed. Sync + pure in-memory (no DB on the hot
         path). When the flag is OFF, always True (shadow mode) but still logs a
         would-block so operators can see the breaker's behavior pre-flip."""
+        key = self._key(source, cred_version)
+        self._health_for(key)["attempts"] += 1
         decision = self._decide(source, cred_version)
         if not self._enabled():
             if not decision:
                 log.debug("circuit_breaker[SHADOW] would block %s@%s", source, cred_version)
             return True
+        if not decision:
+            self._health_for(key)["skipped"] += 1
         return decision
 
     def _decide(self, source: str, cred_version: str) -> bool:
@@ -126,6 +140,7 @@ class CircuitBreaker:
         now = self._now()
         st = self._state.setdefault(key, self._fresh())
         st["failure_count"] += 1
+        self._health_for(key)["failures"] += 1
         prev = st["state"]
 
         if prev == "half_open":
@@ -148,8 +163,13 @@ class CircuitBreaker:
         if st is None:
             return None
         prev = st["state"]
+        # Preserve last_alerted_at across the reset so a flapping source
+        # (open -> close -> open within the throttle window) can't re-alert.
+        last_alerted = st.get("last_alerted_at")
         st.update(self._fresh())
+        st["last_alerted_at"] = last_alerted
         if prev != "closed":
+            self._health_for(key)["recoveries"] += 1
             await self._unpersist(key)
             log.info("circuit_breaker %s -> closed (recovered)", key)
             return {"key": key, "source": source, "from": prev, "to": "closed"}
@@ -186,7 +206,9 @@ class CircuitBreaker:
             log.info("circuit_breaker: reloaded %d persisted OPEN source(s)", len(rows))
 
     async def _persist_if_durable(self, key: str, st: dict, reason: str) -> None:
-        if reason not in DURABLE_REASONS:
+        # Only write the DB when the breaker is actually enabled — when OFF we
+        # shadow-track in-memory only (no side effects beyond logging).
+        if reason not in DURABLE_REASONS or not self._enabled():
             return
         from consensus_engine import db
         try:
@@ -195,11 +217,84 @@ class CircuitBreaker:
             log.warning("circuit_breaker: persist failed for %s: %s", key, e)
 
     async def _unpersist(self, key: str) -> None:
+        if not self._enabled():
+            return
         from consensus_engine import db
         try:
             await db.cb_delete(key)
         except Exception as e:
             log.warning("circuit_breaker: unpersist failed for %s: %s", key, e)
+
+    # ----------------------------- C5: dead-source ladder -------------------
+    async def note_failure(self, source: str, *, status: int | None = None,
+                           body: str | None = None, exc: Exception | None = None,
+                           cred_version: str = "v1") -> None:
+        """Classify a failure, record it, and fire a throttled ops alert if the
+        source just transitioned to OPEN. The reusable breaker entrypoint for
+        every wired source (news cascade, Exa, ...)."""
+        cls = classify_retry(http_status=status, body=body, exc=exc)
+        if status == 402:
+            reason = "402"
+        elif cls is RetryClass.QUOTA_BLOCKED:
+            reason = "quota"
+        elif cls is RetryClass.PERMANENT:
+            reason = "permanent"
+        else:
+            reason = "transient"
+        immediate = reason in ("quota", "402")  # definitive -> open at once
+        retry_after = parse_retry_after(body) if cls is RetryClass.QUOTA_BLOCKED else None
+        event = await self.record_failure(
+            source, reason=reason, immediate=immediate,
+            retry_after=retry_after, cred_version=cred_version)
+        await self.alert_if_opened(event)
+
+    async def note_success(self, source: str, cred_version: str = "v1") -> None:
+        await self.record_success(source, cred_version)
+
+    async def alert_if_opened(self, event: Optional[dict]) -> None:
+        """Send ONE ops-channel alert on a closed/half_open -> open transition,
+        throttled per source (30 min). Flag-gated (dead_source.ops_alert_enabled,
+        default OFF). Never raises into the caller."""
+        if not event or event.get("to") != "open":
+            return
+        if not config.get("dead_source.ops_alert_enabled", False):
+            return
+        key = event["key"]
+        st = self._state.get(key)
+        if st is None:
+            return
+        now = self._now()
+        last = st.get("last_alerted_at") or 0.0
+        if now - last < _OPS_ALERT_THROTTLE_S:
+            return  # throttled — a flapping source can't spam
+        channel = config.get("discord.ops_channel_id", config.get("discord.channel_id", ""))
+        if not channel:
+            return
+        st["last_alerted_at"] = now
+        if st.get("open_reason") in DURABLE_REASONS:
+            await self._persist_if_durable(key, st, st["open_reason"])
+        msg = (f"🔌 **Dead source**: `{event['source']}` circuit OPEN "
+               f"(reason: {event.get('reason', '?')}, "
+               f"{event.get('failure_count', '?')} failures). "
+               f"It will be skipped and self-probed for recovery; this is the only "
+               f"alert for ~30 min.")
+        try:
+            from consensus_engine.alerts.discord import send_message
+            await send_message(channel, msg)
+            log.warning("circuit_breaker: ops alert sent for dead source %s", event["source"])
+        except Exception as e:
+            log.warning("circuit_breaker: ops alert failed for %s: %s", event["source"], e)
+
+    def health_summary(self) -> str:
+        """Compact per-source health line for periodic logging."""
+        if not self._health:
+            return "source-health: (none)"
+        parts = []
+        for key, h in sorted(self._health.items()):
+            state = self._state.get(key, {}).get("state", "closed")
+            parts.append(f"{key}[{state}] att={h['attempts']} skip={h['skipped']} "
+                         f"fail={h['failures']} rec={h['recoveries']}")
+        return "source-health: " + " | ".join(parts)
 
 
 # Process-wide singleton.

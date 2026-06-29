@@ -26,6 +26,7 @@ from consensus_engine.utils.browser import (
     create_stealth_browser, stealth_page, safe_goto, random_delay,
 )
 from consensus_engine.utils.rate_limiter import rate_limiter
+from consensus_engine.utils.circuit_breaker import circuit_breaker  # C5
 
 
 
@@ -481,6 +482,11 @@ async def scan_google_trends_exa(tickers: list[str]) -> dict[str, float]:
     if not valid_tickers:
         return {}
 
+    # C5: skip the whole Exa sweep when the breaker is open (the motivating
+    # "0/10 tickers" silent-loop case) instead of hammering a dead source.
+    if not circuit_breaker.allow("exa"):
+        return {}
+
     results = {}
     session = await get_session()
     for ticker in valid_tickers:
@@ -501,6 +507,7 @@ async def scan_google_trends_exa(tickers: list[str]) -> dict[str, float]:
             ) as resp:
                 if resp.status != 200:
                     rate_limiter.report_failure("exa")
+                    await circuit_breaker.note_failure("exa", status=resp.status)  # C5
                     continue
                 data = await resp.json()
 
@@ -513,9 +520,11 @@ async def scan_google_trends_exa(tickers: list[str]) -> dict[str, float]:
                 results[ticker] = 15.0
 
             rate_limiter.report_success("exa")
+            await circuit_breaker.note_success("exa")  # C5
         except Exception as e:
             log.debug("Exa trends error for %s: %s", ticker, e)
             rate_limiter.report_failure("exa")
+            await circuit_breaker.note_failure("exa", exc=e)  # C5
 
         await asyncio.sleep(0.5)
 

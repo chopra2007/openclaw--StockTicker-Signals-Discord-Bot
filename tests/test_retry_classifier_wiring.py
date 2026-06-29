@@ -48,24 +48,24 @@ def _flag(monkeypatch, on):
                         lambda k, d=None: on if k == "retry.use_classifier" else real(k, d))
 
 
-def test_news_failure_flag_off_is_plain_report(monkeypatch):
+async def test_news_failure_flag_off_is_plain_report(monkeypatch):
     from consensus_engine.scanners import news
     _flag(monkeypatch, False)
     calls = []
     monkeypatch.setattr(news.rate_limiter, "report_failure",
                         lambda s, retry_after=None: calls.append((s, retry_after)))
-    news._report_news_failure("brave_search", status=429,
+    await news._report_news_failure("brave_search", status=429,
                               body='{"error":"rate limit"} Retry-After: 30')
     assert calls == [("brave_search", None)], "flag OFF must be a plain report_failure"
 
 
-def test_news_failure_quota_with_hint_paces(monkeypatch):
+async def test_news_failure_quota_with_hint_paces(monkeypatch):
     from consensus_engine.scanners import news
     _flag(monkeypatch, True)
     calls = []
     monkeypatch.setattr(news.rate_limiter, "report_failure",
                         lambda s, retry_after=None: calls.append((s, retry_after)))
-    news._report_news_failure("brave_search", status=429,
+    await news._report_news_failure("brave_search", status=429,
                               body="rate limit exceeded. Retry-After: 45")
     assert len(calls) == 1
     src, ra = calls[0]
@@ -73,13 +73,13 @@ def test_news_failure_quota_with_hint_paces(monkeypatch):
     assert ra == 45.0, f"QUOTA + hint must pass the parsed Retry-After, got {ra}"
 
 
-def test_news_failure_transient_no_override(monkeypatch):
+async def test_news_failure_transient_no_override(monkeypatch):
     from consensus_engine.scanners import news
     _flag(monkeypatch, True)
     calls = []
     monkeypatch.setattr(news.rate_limiter, "report_failure",
                         lambda s, retry_after=None: calls.append((s, retry_after)))
-    news._report_news_failure("finnhub_news", status=503, body="service unavailable")
+    await news._report_news_failure("finnhub_news", status=503, body="service unavailable")
     assert calls == [("finnhub_news", None)], "transient 5xx keeps normal backoff"
 
 
