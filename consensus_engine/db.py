@@ -517,6 +517,71 @@ CREATE TABLE IF NOT EXISTS regime_daily (
     computed_at REAL NOT NULL
 );
 
+-- trade-edge market-context layer (final-plan.md §4). Five daily cross-sectional
+-- reads computed once/day by market_daily.timer, mirroring regime_daily. All
+-- consumers ship flag-OFF (features.* in config/consensus.yaml). INSERT OR REPLACE
+-- idempotent on the date PK.
+CREATE TABLE IF NOT EXISTS sector_rs_daily (
+    date_utc      TEXT NOT NULL,
+    etf           TEXT NOT NULL,          -- XLK, XLF, ..., SMH, XBI
+    rs_ratio      REAL NOT NULL,
+    rs_momentum   REAL NOT NULL,
+    quadrant      TEXT NOT NULL CHECK(quadrant IN ('leading','weakening','lagging','improving')),
+    inflection    INTEGER NOT NULL DEFAULT 0,  -- 1 = lagging->improving fired this day
+    n_window      INTEGER NOT NULL,        -- pre-registered N (audit)
+    k_window      INTEGER NOT NULL,        -- pre-registered k (audit)
+    computed_at   REAL NOT NULL,
+    PRIMARY KEY (date_utc, etf)
+);
+CREATE INDEX IF NOT EXISTS idx_sector_rs_date ON sector_rs_daily(date_utc);
+
+CREATE TABLE IF NOT EXISTS factor_rs_daily (
+    date_utc      TEXT NOT NULL,
+    factor_etf    TEXT NOT NULL,          -- MTUM QUAL IWF IWD VLUE USMV SPLV SPHB SIZE IWM RSP
+    rs_vs_spy     REAL NOT NULL,
+    rs_momentum   REAL NOT NULL,
+    leading       INTEGER NOT NULL DEFAULT 0,
+    accelerating  INTEGER,                 -- 1 accel / 0 fade / NULL flat
+    computed_at   REAL NOT NULL,
+    PRIMARY KEY (date_utc, factor_etf)
+);
+
+CREATE TABLE IF NOT EXISTS trend_daily (
+    date_utc        TEXT PRIMARY KEY,
+    index_symbol    TEXT NOT NULL DEFAULT 'SPY',
+    close           REAL NOT NULL,
+    sma_200         REAL NOT NULL,
+    sma_50          REAL NOT NULL,
+    sma_50_slope    REAL NOT NULL,
+    tsmom_3m        REAL NOT NULL,         -- 63-trading-day total return
+    dist_200_z      REAL NOT NULL,         -- distance-to-200DMA z-score
+    trend_state     TEXT NOT NULL CHECK(trend_state IN ('green','yellow','red')),
+    computed_at     REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS macro_legs_daily (
+    date_utc          TEXT PRIMARY KEY,
+    copper_gold_roc   REAL,
+    dxy_roc           REAL,
+    semis_rs          REAL,
+    cyc_def_div       REAL,                -- XLY/XLP divergence
+    curve_t10y2y      REAL,                -- display only
+    curve_t10y3m      REAL,                -- display only
+    macro_multiplier  REAL NOT NULL,       -- separate sub-multiplier (shadow)
+    legs_used_json    TEXT,                -- which legs survived the drop-None test
+    computed_at       REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS internal_breadth_daily (
+    date_utc        TEXT PRIMARY KEY,
+    net_bull_bear   INTEGER NOT NULL,      -- distinct bullish - bearish tickers
+    n_bullish       INTEGER NOT NULL,
+    n_bearish       INTEGER NOT NULL,
+    osc_z           REAL NOT NULL,         -- EMA-smoothed z-score
+    n_signals       INTEGER NOT NULL,      -- thin-day guard (raw count)
+    computed_at     REAL NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS discord_command_user_rate (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id TEXT NOT NULL,
@@ -992,6 +1057,7 @@ async def init_db() -> AsyncConnection:
         (18, "wolf macro-brain phase-4: wolf_beneficiaries"),
         (19, "I13 apewisdom_mentions time series (z-score baseline)"),
         (20, "E1 finra_short_volume daily series (short-pct z-score baseline)"),
+        (21, "trade-edge market-context layer (sector_rs_daily, factor_rs_daily, trend_daily, macro_legs_daily, internal_breadth_daily)"),
     ]
     for version, note in _schema_versions:
         await _db.execute(

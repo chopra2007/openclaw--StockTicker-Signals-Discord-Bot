@@ -1,0 +1,135 @@
+# =============================================================================
+# PRE-REGISTRATION CONTRACT — trade-edge market-context layer (F1–F5).
+# FROZEN BEFORE ANY FORWARD RETURNS WERE INSPECTED.
+# =============================================================================
+# Anti-overfitting anchor for the trade-edge-features run (final-plan.md §2.0,
+# §4, §8). Written and committed BEFORE the F1–F5 back-tests were scored. Only
+# condition FIRING RATES (not edge, not forward returns) may be inspected before
+# freezing. The ablation / kill-gate read this file; nothing here may be
+# retrofitted after seeing results. Mirrors backtest/preregistration.yaml shape.
+# =============================================================================
+
+meta:
+  project: trade_edge_market_context
+  run: trade-edge-features
+  frozen_before_returns_inspected: true
+  backtest_start: "2012-01-01"      # XLC(2018) / SMH(2000) coverage-normalized; QQQE-free
+  random_seed: 1729                 # frozen; all bootstrap/null draws are seeded
+  data:
+    source: yfinance
+    auto_adjust: false              # RAW closes — dividend restatement guard (constraint 8)
+    store_dir: "data/market_store"
+    fred_api: true                  # FRED_API_KEY already in .env + .env.service
+
+# Universe -------------------------------------------------------------------
+universe:
+  sector_etfs: [XLK, XLF, XLV, XLY, XLP, XLE, XLI, XLB, XLU, XLRE, XLC, SMH, XBI]  # 13
+  factor_etfs: [MTUM, QUAL, IWF, IWD, VLUE, USMV, SPLV, SPHB, SIZE, IWM, RSP]
+  index_symbols: [SPY, QQQ]
+  benchmark: SPY
+
+# Forward-return horizons (shared) -------------------------------------------
+horizons:
+  trading_days: [21, 63]            # primary 21d / secondary 63d
+
+# Multiple-testing correction ------------------------------------------------
+multiple_testing:
+  method: benjamini_hochberg
+  q: 0.10                           # BH-FDR q < 0.1 across the full grid
+
+# Frozen-parameter transfer rule ---------------------------------------------
+transfer:
+  fit_on: SPY
+  confirm_on: [QQQ, SMH, XBI]       # F1 also confirms on SMH/XBI; F2/F3 on QQQ
+  rule: >
+    Parameters are frozen on SPY and applied UNCHANGED to QQQ (and SMH/XBI for
+    F1). A claim survives only if the same frozen params hold sign on transfer.
+
+# F1 — Sector Rotation RRG ---------------------------------------------------
+f1_sector_rotation:
+  n_window: 10                      # RS-Ratio SMA window (pre-registered N)
+  k_window: 5                       # RS-Momentum ROC window (pre-registered k)
+  distance: 2                       # inflection min distance past the 100 line
+  persistence: 2                    # inflection min consecutive days
+  inflection: "lagging->improving"
+  null_model: lagging_quadrant_only # opportunity-set null = lagging-quadrant entries only
+  metric: forward_sector_return     # fwd 21/63d sector return vs the lagging-only null
+  also_required:
+    - "RS-Momentum beats RS-Ratio LEVEL on the same null"
+  on_level_ties_momentum: ship_display_only
+  grid: "13 ETF x {n_window,k_window} x {21,63} horizon"
+
+# F2 — Factor / Style RS -----------------------------------------------------
+f2_factor_rotation:
+  rs_window: 21
+  mom_window: 63
+  control: subtract_spy_trailing_return   # SPY-trailing control (positive sign AFTER)
+  outcome_horizon_days: [1, 21]
+  oos: QQQ
+  sphb_splv: shadow_only            # high-beta/low-vol spread demotes to descriptive on fail
+  on_fail: keep_table_drop_lead_claim
+
+# F3 — Trend / Direction Regime ----------------------------------------------
+f3_trend_regime:
+  index_symbols: [SPY, QQQ]
+  sma_fast: 50
+  sma_slow: 200
+  tsmom_lookback_days: 63           # 3-month time-series momentum
+  trend_states: [green, yellow, red]
+  metric: forward_24h_win_rate      # above-200DMA minus below-200DMA
+  min_lift_pp: 4.0                  # pre-registered >=4pp bar
+  control: own_lagged_5d_move       # control for the ticker's own lagged 5-day move
+  direction_join:
+    window_seconds: 3600            # [recorded_at - W, recorded_at], newest non-NULL direction
+    record_loss_rate: true
+    record_ambiguity_rate: true
+    short_side: deferred            # 0 short STRONG-with-outcome rows
+
+# F4 — Intermarket / Macro Sub-Multiplier ------------------------------------
+f4_macro_legs:
+  legs:
+    copper_gold_roc: { horizon_days: [5, 10] }
+    dxy_roc:         { horizon_days: [5, 10], sign: inverse }
+    semis_rs:        { horizon_days: [5, 10] }   # SMH/SOXX vs SPY
+    cyc_def_div:     { horizon_days: [5, 10] }   # XLY/XLP divergence
+  display_only:
+    yield_curve: [T10Y2Y, T10Y3M, "^TNX"]        # 10-22mo horizon, rare-event starved
+  per_leg_test: lead_vs_contemporaneous_plus_qqq_transfer  # else DROP the leg
+  fred_vintage: true                # point-in-time FRED vintages (fred_lag_days)
+  separate_from_e2: true            # NEVER averaged into cross_asset.get_multiplier
+  ablation_required: e2_live_behavior_unchanged
+  hy_oas: already_in_e2_do_not_duplicate           # BAMLH0A0HYM2
+
+# F5 — Internal Signal-Stream Breadth (descriptive) --------------------------
+f5_internal_breadth:
+  ema_alpha: 0.4
+  min_signals: 8                    # thin-day guard
+  lag_days: 1                       # 1-day-LAGGED breadth
+  reflexivity_control: drop_same_day_price_coincident_mentions
+  exclude: [apewisdom_raw_counts, form4_sells]
+  long_bias_floor_note: "2448 long vs 784 short — structural long bias"
+  gate_this_cycle: false            # descriptive forward-collect only
+
+# Episode-collapsing ---------------------------------------------------------
+episodes:
+  window_trading_days: 21           # >= primary horizon; same-side entries collapse to one
+  side_handling: per_side
+  reported: [episode_count, effective_n]
+
+# Null model -----------------------------------------------------------------
+null_model:
+  type: lagging_quadrant_only_for_f1_else_random_episode_timing
+  draws: 2000
+  rule: >
+    F1 must beat the lagging-quadrant-ONLY opportunity-set null (not the full
+    universe). F2-F4 beat random-episode-timing matched on count.
+
+# Kill-gate ------------------------------------------------------------------
+kill_gate:
+  on_fail: "STOP — display-only or dropped; never built as a gate. An honest no-edge outcome."
+  rules:
+    - "F1: momentum beats LEVEL on the lagging-only null, BH-FDR q<0.1, SPY->QQQ/SMH-XBI transfer; else display-only."
+    - "F2: positive sign AFTER SPY-trailing control, OOS QQQ; else keep table, drop lead claim."
+    - "F3: >=4pp above- vs below-200DMA fwd-24h win-rate, after own-lagged-move control."
+    - "F4: each leg passes lead-vs-contemporaneous + QQQ transfer or is DROPPED; ablation proves E2 unchanged; curve display-only."
+    - "F5: descriptive only this cycle — no gate."

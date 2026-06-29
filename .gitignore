@@ -119,3 +119,6 @@ windows_runtime/R1_AUTHED_WEB/routine_state.json
 # deleted when the chains realign. Pure state, never commit.
 /.drift_state.json
 tests/fixtures/charts/
+
+# F1 back-test parquet store (large binary research data)
+data/market_store/

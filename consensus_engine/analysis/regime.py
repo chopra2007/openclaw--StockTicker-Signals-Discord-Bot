@@ -27,6 +27,17 @@ class RegimeContext:
     threshold_shift: int # int to add to high_confidence threshold
     cold_start: bool     # True until regime_daily has >=30 rows
     as_of_date: str      # YYYY-MM-DD
+    # --- F3 price-trend leg (final-plan.md §2.3). All default to None so the
+    # A5 vol-regime behaviour is byte-identical when features.trend_regime is OFF.
+    trend_state: Optional[str] = None        # "green" | "yellow" | "red"
+    trend_close: Optional[float] = None      # latest index close
+    sma_200: Optional[float] = None
+    sma_50: Optional[float] = None
+    sma_50_slope: Optional[float] = None     # fractional 50DMA slope over slope_window
+    tsmom_3m: Optional[float] = None         # 63-trading-day total return
+    dist_200_z: Optional[float] = None       # distance-to-200DMA z-score
+    trend_as_of_date: Optional[str] = None   # YYYY-MM-DD of the trend_daily row
+    trend_cold_start: bool = True            # True until a fresh trend_daily row exists
 
 
 _COLD_START = RegimeContext(label="normal", z_score=0.0, threshold_shift=0, cold_start=True, as_of_date="")
@@ -65,7 +76,21 @@ def _apply_graduated_widening(label: str, z_smooth: float, base_shift: int) -> i
 
 
 async def lookup_regime(now_utc: Optional[datetime] = None) -> RegimeContext:
-    """Read most recent regime_daily row.
+    """Read most recent regime_daily row, then attach the F3 trend leg.
+
+    The vol-regime portion is unchanged from A5. When features.trend_regime is
+    OFF the returned context is the exact same object the vol path produced, so
+    A5 behaviour is byte-identical. When ON, the trend fields from trend_daily
+    are layered on without touching any vol field.
+    """
+    ctx = await _lookup_vol_regime(now_utc)
+    if not cfg.get("features.trend_regime.enabled", False):
+        return ctx
+    return await _attach_trend(ctx)
+
+
+async def _lookup_vol_regime(now_utc: Optional[datetime] = None) -> RegimeContext:
+    """Read most recent regime_daily row (A5 vol regime).
 
     Cold-start (count < cold_start_min_days) -> returns _COLD_START.
     Row older than 7 days -> log WARNING, return _COLD_START.
@@ -247,6 +272,196 @@ async def compute_and_persist_regime(date_utc: date) -> RegimeContext:
         cold_start=False,
         as_of_date=date_str,
     )
+
+
+# ===========================================================================
+# F3 — price-trend / direction regime leg (final-plan.md §2.3)
+# Lives BESIDE the A5 vol z-score. Computed once/day by the market_daily cron,
+# persisted to trend_daily, and surfaced through RegimeContext's trend fields.
+# Frozen params (preregistration_trade_edge.yaml f3_trend_regime): sma_fast=50,
+# sma_slow=200, tsmom_lookback_days=63. All read via config with those defaults.
+# ===========================================================================
+
+# Need 200 closes for the 200DMA plus a window of distance points for the
+# distance-to-200DMA z-score; require enough history for a stable read.
+_TREND_MIN_CLOSES = 220
+_DIST_Z_MAX_POINTS = 252  # cap the distance-z window at ~1 trading year
+
+
+async def _attach_trend(ctx: RegimeContext) -> RegimeContext:
+    """Layer the latest trend_daily row onto a vol RegimeContext.
+
+    Returns a NEW context with trend fields populated; the vol fields are copied
+    unchanged. If there is no fresh trend_daily row (cold-start or stale >7d),
+    the trend fields stay at their None/cold-start defaults.
+    """
+    import dataclasses
+    import time
+    from consensus_engine import db
+
+    conn = await db.get_db()
+    cur = await conn.execute(
+        "SELECT * FROM trend_daily ORDER BY date_utc DESC LIMIT 1"
+    )
+    row = await cur.fetchone()
+    if not row:
+        return ctx  # no trend data yet -> defaults (trend_cold_start=True)
+
+    age_days = (time.time() - row["computed_at"]) / 86400
+    if age_days > 7:
+        log.warning("[F3] trend_daily most recent row is %.1f days old — trend cold-start", age_days)
+        return ctx
+
+    log.info("[F3] trend_state=%s close=%.2f sma200=%.2f tsmom=%.4f for %s",
+             row["trend_state"], row["close"], row["sma_200"], row["tsmom_3m"], row["date_utc"])
+    return dataclasses.replace(
+        ctx,
+        trend_state=row["trend_state"],
+        trend_close=row["close"],
+        sma_200=row["sma_200"],
+        sma_50=row["sma_50"],
+        sma_50_slope=row["sma_50_slope"],
+        tsmom_3m=row["tsmom_3m"],
+        dist_200_z=row["dist_200_z"],
+        trend_as_of_date=row["date_utc"],
+        trend_cold_start=False,
+    )
+
+
+async def _fetch_trend_closes(symbol: str = "SPY", n: int = 520) -> list[float]:
+    """Fetch last n daily closes for a trend index from Yahoo Finance (2y range).
+
+    Separate from _fetch_spy_closes (which fetches 1y for the vol z-score) so the
+    A5 fetch path is untouched; trend needs a longer history for a 200DMA + a
+    distance-to-200DMA z-score window.
+    """
+    import aiohttp
+    from consensus_engine.utils.http import get_session
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+    params = {"interval": "1d", "range": "2y"}
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+    try:
+        session = await get_session()
+        async with session.get(url, params=params, headers=headers,
+                               timeout=aiohttp.ClientTimeout(total=20)) as resp:
+            if resp.status != 200:
+                log.warning("[F3] Yahoo Finance returned %d for %s", resp.status, symbol)
+                return []
+            data = await resp.json()
+            result = data.get("chart", {}).get("result", [])
+            if not result:
+                return []
+            closes = result[0].get("indicators", {}).get("quote", [{}])[0].get("close", [])
+            closes = [c for c in closes if c is not None]
+            return closes[-n:] if len(closes) >= n else closes
+    except Exception as e:
+        log.warning("[F3] %s fetch error: %s", symbol, e)
+        return []
+
+
+def _classify_trend_state(above_200: bool, slope_up: bool, tsmom_up: bool) -> str:
+    """Three sign votes -> trend_state. All bullish = green, none = red, mixed = yellow."""
+    bull_votes = int(above_200) + int(slope_up) + int(tsmom_up)
+    if bull_votes == 3:
+        return "green"
+    if bull_votes == 0:
+        return "red"
+    return "yellow"
+
+
+def _compute_trend(closes: list[float], date_str: str, index_symbol: str = "SPY") -> Optional[dict]:
+    """Compute the trend leg from a list of closes. Returns a dict for DB insert or None.
+
+    Components (all from PRIOR closes; the cron uses the prior daily close):
+      * close vs 200DMA            -> directional vote
+      * 50DMA slope over slope_window -> directional vote
+      * 63td (3-month) momentum    -> directional vote
+      * distance-to-200DMA z-score -> persisted extension measure
+    trend_state = green (all 3 bullish) / red (all 3 bearish) / yellow (mixed).
+    """
+    sma_slow = cfg.get("features.trend_regime.sma_slow", 200)
+    sma_fast = cfg.get("features.trend_regime.sma_fast", 50)
+    tsmom_lb = cfg.get("features.trend_regime.tsmom_lookback_days", 63)
+    slope_window = cfg.get("features.trend_regime.slope_window", 10)
+
+    need = max(_TREND_MIN_CLOSES, sma_slow + 20, sma_fast + slope_window, tsmom_lb + 1)
+    if len(closes) < need:
+        log.warning("[F3] Not enough closes to compute trend (got %d, need %d)", len(closes), need)
+        return None
+
+    close = closes[-1]
+    sma_200 = sum(closes[-sma_slow:]) / sma_slow
+    sma_50 = sum(closes[-sma_fast:]) / sma_fast
+    sma_50_prev = sum(closes[-sma_fast - slope_window:-slope_window]) / sma_fast
+    sma_50_slope = (sma_50 - sma_50_prev) / sma_50_prev if sma_50_prev else 0.0
+    tsmom_3m = close / closes[-1 - tsmom_lb] - 1.0
+
+    # distance-to-200DMA z-score over the available history (each day that has
+    # sma_slow priors), capped at _DIST_Z_MAX_POINTS most-recent points.
+    dist_series = []
+    for i in range(sma_slow, len(closes) + 1):
+        window = closes[i - sma_slow:i]
+        s200 = sum(window) / sma_slow
+        dist_series.append((closes[i - 1] - s200) / s200)
+    dist_series = dist_series[-_DIST_Z_MAX_POINTS:]
+    cur_dist = dist_series[-1]
+    mean_d = sum(dist_series) / len(dist_series)
+    if len(dist_series) >= 2:
+        var_d = sum((x - mean_d) ** 2 for x in dist_series) / len(dist_series)
+        std_d = math.sqrt(var_d) if var_d > 0 else 1e-9
+    else:
+        std_d = 1e-9
+    dist_200_z = (cur_dist - mean_d) / std_d
+
+    trend_state = _classify_trend_state(close > sma_200, sma_50_slope > 0, tsmom_3m > 0)
+
+    return {
+        "date_utc": date_str,
+        "index_symbol": index_symbol,
+        "close": close,
+        "sma_200": sma_200,
+        "sma_50": sma_50,
+        "sma_50_slope": sma_50_slope,
+        "tsmom_3m": tsmom_3m,
+        "dist_200_z": dist_200_z,
+        "trend_state": trend_state,
+    }
+
+
+async def compute_and_persist_trend(date_utc: date, index_symbol: str = "SPY") -> Optional[dict]:
+    """Cron-only entry point. Fetch closes, compute the trend leg, INSERT OR REPLACE
+    into trend_daily. Returns the computed dict (or None on failure).
+
+    Note: trend_daily PK is date_utc only, so one index per date — SPY by default.
+    """
+    import time
+    from consensus_engine import db
+
+    closes = await _fetch_trend_closes(index_symbol, 520)
+    if not closes:
+        log.error("[F3] Failed to fetch %s closes for trend computation", index_symbol)
+        return None
+
+    date_str = date_utc.strftime("%Y-%m-%d")
+    result = _compute_trend(closes, date_str, index_symbol)
+    if result is None:
+        return None
+
+    conn = await db.get_db()
+    await conn.execute(
+        """INSERT OR REPLACE INTO trend_daily
+           (date_utc, index_symbol, close, sma_200, sma_50, sma_50_slope,
+            tsmom_3m, dist_200_z, trend_state, computed_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (result["date_utc"], result["index_symbol"], result["close"], result["sma_200"],
+         result["sma_50"], result["sma_50_slope"], result["tsmom_3m"], result["dist_200_z"],
+         result["trend_state"], time.time()),
+    )
+    await conn.commit()
+    log.info("[F3] persisted trend_state=%s close=%.2f sma200=%.2f tsmom=%.4f dist_z=%.3f for %s",
+             result["trend_state"], result["close"], result["sma_200"],
+             result["tsmom_3m"], result["dist_200_z"], date_str)
+    return result
 
 
 if __name__ == "__main__":
