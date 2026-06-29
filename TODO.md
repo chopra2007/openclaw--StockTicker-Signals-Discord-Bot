@@ -338,3 +338,15 @@ Roll out the !options percentage idea everywhere: convert readings computed in u
 **File:** `reliability-hardening-soak.md`
 
 Ship 15 reliability/efficiency fixes to the live bot (stop hangs, dead-source retries, and event-loop stalls), turn on the proven-safe ones now, and after a 7-day soak decide whether to turn on the 5 cautious switches (dead-source cutoff, junk-ticker skip, smarter retries).
+
+## 55. Start saving the data future features need to test on
+
+**File:** `forward-data-collection.md`
+
+Begin a cheap forward-log of the inputs and outcomes future features will need — most importantly grading every alert at 5 and 20 days later (not just 1 hour and 24 hours) — so the next time we build a slow-signal feature it already has history to prove itself on instead of failing for lack of recorded data.
+
+## 56. Buy 2 years of options history and backtest the options signals
+
+**File:** `options-history-backtest.md`
+
+Pay ~$29 once for 2 years of historical options data (massive.com) and use it to backtest the unusual-options-flow alerts and feed the market top/bottom detector — testing whether our options signals actually caught the big drops and rallies of the last 2 years.
