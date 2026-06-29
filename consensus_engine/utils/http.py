@@ -11,6 +11,8 @@ from typing import Optional
 
 import aiohttp
 
+from consensus_engine import config
+
 log = logging.getLogger("consensus_engine.utils.http")
 
 _session: Optional[aiohttp.ClientSession] = None
@@ -31,7 +33,18 @@ async def get_session() -> aiohttp.ClientSession:
     async with lock:
         if _session is None or _session.closed:
             connector = aiohttp.TCPConnector(limit=30)
-            _session = aiohttp.ClientSession(connector=connector)
+            # C11 (reliability-hardening): a default timeout so a stalled
+            # endpoint can never hang the engine. aiohttp's stock default leaves
+            # sock_read=None (no read cap) — the documented hang vector. A
+            # caller passing its own ClientTimeout per-request still overrides
+            # this floor. Only `total` is config-tunable; connect/sock_read are
+            # conservative fixed guards.
+            timeout = aiohttp.ClientTimeout(
+                total=config.get("http.default_timeout_total_s", 30),
+                connect=10,
+                sock_read=20,
+            )
+            _session = aiohttp.ClientSession(connector=connector, timeout=timeout)
             log.debug("Created shared aiohttp session")
     return _session
 
