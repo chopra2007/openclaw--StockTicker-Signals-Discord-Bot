@@ -850,9 +850,10 @@ options_flow:
   # C12 (reliability-hardening): when a contract's lastTradeDate can't be parsed
   # (lt==0.0), freshness is unverifiable. It still alerts (it cleared the size
   # gates — never drop a real signal) but is TAGGED "[staleness unverified]"
-  # when this is on. Default OFF until the historical lt==0.0 rate is measured
-  # on the LIVE DB (the worktree DB is empty).
-  staleness_failclosed: false
+  # when this is on. ON 2026-06-28: measured 0 of 92,933 historical options_flow
+  # rows had a blank/zero last_trade_ts, so this only tags a case that has never
+  # occurred and never drops a contract — zero-risk to enable.
+  staleness_failclosed: true
   # Active watchlist (get_active_tickers) is scanned automatically; this fixed
   # liquid core is always added so big flow on a major name is caught even with
   # no other signal yet (user chose "both combined").
