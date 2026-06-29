@@ -839,7 +839,7 @@ features:
   trend_regime:      { enabled: false, shadow: true, min_lift_pp: 4, shadow_max_days: 7, rollback_floor: 0.0, rollback_window: 50 }                                            # F3
   macro_legs:        { enabled: false, shadow: true, shadow_max_days: 7, rollback_floor: 0.0, rollback_window: 50 }                                                            # F4 (NEVER averaged into cross_asset)
   internal_breadth:  { enabled: false, shadow: true, ema_alpha: 0.4, min_signals: 8 }                            # F5 descriptive
-  market_command:    { enabled: false }                                                                          # F6 read-only command
+  market_command:    { enabled: true }                                                                           # F6 read-only market-context dashboard — LIVE 2026-06-29 (descriptive only, no alert impact)
   market_data:       { store_dir: "data/market_store", fred_lag_days: { T10Y2Y: 1, T10Y3M: 1, NFCI: 7 }, fallback_provider: "stooq" }
   # Cross-cutting helper (consumers above are all flag-OFF; caps are shadow-derived placeholders).
   recency_window: { enabled: true, max_age_min: { sec: 120, tweet: 120, options: 90, youtube: 1440, apewisdom: 1440, finra_short_volume: 1440, vix: 1440, fred: 1440, sector_rs: 1440, factor_rs: 1440, trend: 1440, macro_legs: 1440 } }

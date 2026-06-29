@@ -14,16 +14,22 @@ are surfaced read-only and shadow-logged. Rotation labels honestly distinguish
 'improving (early)' from 'leading (already moved)' so a finished move is never
 read as a fresh entry.
 
-Data source: the cached Parquet store (``data/market_store``) — the same point-in-
-time closes the back-tests used, NEVER a live yfinance call at run time. Every
-value at date t uses ONLY closes up to and including t (trailing windows + the
-prior close), so the value computed on the full series equals the value computed
-on the prefix to t.
+Data source: the Parquet store (``data/market_store``). By default the run first
+REFRESHES that store with the latest daily closes from yfinance (raw,
+auto_adjust=False) and MERGES them in — recent rows overwritten, the long history
+kept — so a daily cron self-updates instead of computing off frozen closes
+forever. ``--no-download`` skips the fetch and computes from the cached store only
+(offline / tests). The refresh is best-effort: a yfinance failure logs a warning
+and the run proceeds on whatever the store already has (history is never wiped).
+Every value at date t uses ONLY closes up to and including t (trailing windows +
+the prior close), so the value computed on the full series equals the value
+computed on the prefix to t.
 
 Usage:
-    python3 scripts/market_daily.py --dry-run                  # compute + gate, NO write
-    python3 scripts/market_daily.py                            # seed (full window)
-    python3 scripts/market_daily.py --days 3                   # self-heal last 3 days
+    python3 scripts/market_daily.py --dry-run                  # refresh + compute + gate, NO write
+    python3 scripts/market_daily.py                            # refresh + seed (full window)
+    python3 scripts/market_daily.py --days 3                   # refresh + self-heal last 3 days
+    python3 scripts/market_daily.py --no-download --days 3     # cached store only (no fetch)
     python3 scripts/market_daily.py --db /tmp/x.db --days 3    # target a NON-live db
     python3 scripts/market_daily.py --days 3 --dry-run
 
@@ -67,6 +73,17 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 # Union of every symbol the three reads need (sector ETFs + factor ETFs + SPY).
 _SYMBOLS: tuple[str, ...] = (sr.BENCHMARK,) + sr.SECTOR_ETFS + fr.FACTOR_ETFS
 
+# Universe the daily refresh keeps fresh: the compute universe (SPY + sector +
+# factor ETFs) plus QQQ (used by the back-test's QQQ-relative transfer). dict
+# preserves order while de-duping any accidental overlap.
+_REFRESH_SYMBOLS: tuple[str, ...] = tuple(
+    dict.fromkeys((sr.BENCHMARK, "QQQ") + sr.SECTOR_ETFS + fr.FACTOR_ETFS))
+
+# yfinance window pulled each refresh. ~1 month (>10 trading days) so a cron that
+# misses a few days (weekend pause, holidays) still overlaps the stored tail and
+# self-heals — the merge keeps everything older than this window untouched.
+_REFRESH_PERIOD = "1mo"
+
 
 # ---------------------------------------------------------------------------
 # Parquet panel (point-in-time closes from the cached store)
@@ -105,6 +122,116 @@ def _load_closes(store_dir: str | None = None) -> pd.DataFrame:
             f"benchmark {sr.BENCHMARK} not found in store {sdir}")
     panel = pd.DataFrame(cols).sort_index().dropna(how="any")
     return panel
+
+
+# ---------------------------------------------------------------------------
+# Daily refresh — merge the latest yfinance closes into the Parquet store
+# ---------------------------------------------------------------------------
+
+def _get_store(sdir):
+    """Return the shared sandbox parquet store, redirected to ``sdir``.
+
+    Mirrors ``backtest_sector_rotation._get_store``: patch the store's config
+    getter so ``store_dir()`` resolves to our market store. An absolute path in
+    ``data.store_dir`` overrides ``project_root()`` (``root / ABS == ABS``), so the
+    store reads/writes exactly the files ``_load_closes`` reads.
+    """
+    sys.path.insert(0, str(_ROOT / "volatility_regime_reversal_indicator"))
+    from src.data import store as _store  # type: ignore
+
+    sdir = Path(sdir)
+    sdir.mkdir(parents=True, exist_ok=True)
+    _orig_get = _store.get
+
+    def _patched_get(key, default=None):
+        if key == "data.store_dir":
+            return str(sdir)
+        return _orig_get(key, default)
+
+    _store.get = _patched_get
+    return _store
+
+
+def _download_recent(sym: str, period: str = _REFRESH_PERIOD):
+    """Download a recent RAW (auto_adjust=False) daily OHLCV window for one symbol.
+
+    Reuses the per-symbol fetch shape of ``backtest_sector_rotation.download_and_store``
+    but returns only the recent window (the merge keeps the long history). Columns
+    are lowercased and the index coerced to tz-naive dates so it concats cleanly
+    onto the stored (lowercase, tz-naive) series. Returns ``None`` if yfinance
+    yields nothing.
+    """
+    import yfinance as yf
+
+    raw = yf.download(sym, period=period, interval="1d", auto_adjust=False,
+                      progress=False, group_by="column", threads=False)
+    if raw is None or len(raw) == 0:
+        return None
+    if isinstance(raw.columns, pd.MultiIndex):
+        raw.columns = raw.columns.get_level_values(0)
+    cols = [c for c in ("Open", "High", "Low", "Close", "Volume") if c in raw.columns]
+    df = raw[cols].dropna(how="any")
+    if df.empty:
+        return None
+    df.columns = [str(c).lower() for c in df.columns]
+    if not isinstance(df.index, pd.DatetimeIndex):
+        df.index = pd.to_datetime(df.index)
+    if df.index.tz is not None:
+        df.index = df.index.tz_localize(None)
+    return df.sort_index()
+
+
+def _merge_series(store, name: str, fresh: pd.DataFrame) -> None:
+    """Merge a recent OHLCV window into the stored series, keeping the long history.
+
+    Fresh rows OVERWRITE stored rows on duplicate dates (``keep='last'``); every
+    older stored row is retained. Written back via the shared store's
+    ``write_series`` — no new data layer.
+    """
+    if store.series_exists(name):
+        old = store.read_series(name)
+        combined = pd.concat([old, fresh])
+        combined = combined[~combined.index.duplicated(keep="last")].sort_index()
+    else:
+        combined = fresh.sort_index()
+    store.write_series(name, combined, source="yfinance", adjusted=False)
+
+
+def refresh_store(store_dir: str | None = None,
+                  period: str = _REFRESH_PERIOD) -> int:
+    """Refresh the Parquet store with recent closes for the full ETF universe.
+
+    Best-effort and crash-proof: a per-symbol download/merge failure (or a symbol
+    returning no data) logs a warning and is skipped — the existing series is left
+    untouched, never wiped. Returns the count of symbols actually refreshed.
+    """
+    sdir = _resolve_store_dir(store_dir)
+    try:
+        store = _get_store(sdir)
+    except Exception as e:  # noqa: BLE001 — never let the refresh crash the cron
+        log.warning("[refresh] could not open store at %s (%s) — using cached data",
+                    sdir, e)
+        return 0
+    n_ok = 0
+    for sym in _REFRESH_SYMBOLS:
+        try:
+            fresh = _download_recent(sym, period)
+        except Exception as e:  # noqa: BLE001
+            log.warning("[refresh] %s download failed (%s) — keeping cached series",
+                        sym, e)
+            continue
+        if fresh is None or fresh.empty:
+            log.warning("[refresh] %s returned no data — keeping cached series", sym)
+            continue
+        try:
+            _merge_series(store, sym, fresh)
+            n_ok += 1
+        except Exception as e:  # noqa: BLE001
+            log.warning("[refresh] %s merge failed (%s) — keeping cached series",
+                        sym, e)
+    log.info("[refresh] updated %d/%d series in %s",
+             n_ok, len(_REFRESH_SYMBOLS), sdir)
+    return n_ok
 
 
 def _cutoff(days_limit: int | None) -> str | None:
@@ -396,14 +523,22 @@ def seed(conn: sqlite3.Connection, sector_rows: list[dict],
 # ---------------------------------------------------------------------------
 
 def run(db_path: str, days: int | None, dry_run: bool,
-        store_dir: str | None = None) -> dict[str, int]:
+        store_dir: str | None = None, download: bool = True) -> dict[str, int]:
     """Compute + gate + persist the daily market-context rows; return write counts.
 
     ``db_path``    target SQLite db (NON-live in tests). Ignored on dry-run.
     ``days``       self-heal window (last N calendar days); None = full backfill.
     ``dry_run``    compute + run the correctness gate but write nothing.
     ``store_dir``  override the Parquet store dir (tests point at data/market_store).
+    ``download``   True (default) refreshes the store with the latest yfinance
+                   closes BEFORE computing, so the live cron self-updates; False
+                   skips the fetch and computes from the cached store (offline /
+                   tests). A refresh failure is non-fatal — see ``refresh_store``.
     """
+    if download:
+        refresh_store(store_dir)
+    else:
+        log.info("[market_daily] --no-download: computing from the cached store only.")
     panel = _load_closes(store_dir)
     if panel.empty:
         log.error("[market_daily] empty close panel — check the store at %s",
@@ -462,13 +597,16 @@ def main() -> int:
     parser.add_argument("--store-dir", type=str, default=None, metavar="DIR",
                         help="Override the Parquet store dir "
                              "(default: features.market_data.store_dir).")
+    parser.add_argument("--no-download", action="store_true",
+                        help="Skip the yfinance refresh; compute from the cached "
+                             "Parquet store only (offline / tests).")
     args = parser.parse_args()
 
     db_path = args.db or cfg.get(
         "database.path", "/home/openclaw/.openclaw/workspace/consensus.db")
 
     summary = run(db_path=db_path, days=args.days, dry_run=args.dry_run,
-                  store_dir=args.store_dir)
+                  store_dir=args.store_dir, download=not args.no_download)
     total = sum(summary.values())
     if total == 0 and args.days is not None:
         log.info("Self-heal: no new trading days in last %d days — already current.",
