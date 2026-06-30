@@ -352,3 +352,9 @@ Begin a cheap forward-log of the inputs and outcomes future features will need �
 **File:** `options-history-backtest.md`
 
 Pay ~$29 once for 2 years of historical options data (massive.com) and use it to backtest the unusual-options-flow alerts and feed the market top/bottom detector — testing whether our options signals actually caught the big drops and rallies of the last 2 years.
+
+## 57. Move live options data onto the Schwab real-time feed
+
+**File:** `schwab-options-realtime.md`
+
+Swap the bot's live options source from the free, ~15-min-delayed, throttle-prone yfinance feed to the user's real-time Schwab Trader API — upgrading the `!options` command, the unusual-flow alerts in the options-flow channel, and the `!em` expected-move command with official real-time chains and native greeks.
