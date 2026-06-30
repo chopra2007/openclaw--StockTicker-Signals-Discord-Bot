@@ -1,6 +1,6 @@
 # Flip status — what's switched ON, what's still OFF, and how to turn the rest on
 
-**Status:** Essentially COMPLETE — every scoring switch with a real effect is now ON (E2 was the last, flipped live 2026-06-26, commit `d346521`). The only two still OFF (I7 `consensus_logodds`, I14-widening `regime_widening_graduated`) are PROVEN NO-OPS that need new code, not a flip. See the 2026-06-27 banner below.
+**Status:** DONE 2026-06-29
 **Created:** 2026-06-15
 
 Single source of truth for every switch touched or considered in the `todo-sweep-2026-06-13`

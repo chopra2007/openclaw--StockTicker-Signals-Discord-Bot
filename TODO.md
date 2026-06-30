@@ -192,7 +192,7 @@ DONE — Wolf chart-reading is LIVE. The free AI vision models proved unreliable
 
 A multi-stock YouTube video dumped QQQ/SPY numbers (700–760) onto NVDA, which made !all show a $700 target on a $208 stock — found and fixed for NVDA at session close, but other tickers/videos may be scrambled too; sweep the stored data and add a safety filter so a wild number can never reach the !all trade plan again.
 
-## 32. Switch on the Phase-2 signal upgrades after their watch windows
+## 32. Switch on the Phase-2 signal upgrades after their watch windows  — DONE 2026-06-29
 
 **File:** `signal-features-phase2.md`
 **Switches:** features.single_score.enabled=on; features.contradiction_index_live.enabled=on; features.strong_requires_hard_evidence.enabled=on; features.apewisdom_zscore.enabled=on; features.cross_asset.enabled=on; features.finra_short_volume.enabled=on; features.consensus_logodds.enabled=noop; features.regime_widening_graduated.enabled=noop
@@ -234,7 +234,7 @@ Six issues diagnosed 2026-06-11: gateway crashes on reboot, bot @-mentions retur
 
 Update the video-parser unit test that broke when the #17 chunked-reads feature landed (it's parked in the test baseline; the live feature works fine) so the regression gate isn't blind there.
 
-## 38. Finish clearing openclaw doctor warnings — DONE 2026-06-16
+## 38. Finish clearing openclaw doctor warnings — DONE 2026-06-29 (orphan transcripts cleared; only intentional warnings remain)
 
 **File:** `openclaw-doctor-warnings.md`
 
@@ -258,7 +258,7 @@ A diagnosis-only record of how Claude's own reasoning failed six times in one se
 
 Decide where to write down (and how to word, without bloat) the directive that every future feature must be built, proven accurate against the historical database, and switched ON before the session ends — never left off "for testing later," only if genuinely broken or data-blocked.
 
-## 42. Turn on the remaining signal switches (flip ledger)
+## 42. Turn on the remaining signal switches (flip ledger)  — DONE 2026-06-29
 
 **File:** `signal-flip-status-2026-06-15.md`
 **Switches:** features.single_score.enabled=on; features.contradiction_index_live.enabled=on; features.strong_requires_hard_evidence.enabled=on; features.apewisdom_zscore.enabled=on; features.cross_asset.enabled=on; features.finra_short_volume.enabled=on; features.consensus_logodds.enabled=noop; features.regime_widening_graduated.enabled=noop
@@ -291,7 +291,7 @@ When the bot answers a heavy question that needs lots of tool calls, some AI mod
 
 Every number the bot shows (alert score, !all breakdown, contradiction, market mood, LLM confidence) is on a different scale, so the user can't tell what's high or low — normalize all user-facing readings to one consistent 0–100 low→high display, without changing the underlying math.
 
-## 47. Build an accurate market top/bottom detector (research how others did it)
+## 47. Build an accurate market top/bottom detector (research how others did it) — descriptive "better way" LIVE in !market 2026-06-29 (predictor still NO-GO on free data; ~$50 paid path = open decision)
 
 **File:** `vol-indicator-accuracy-research.md`
 
@@ -339,7 +339,7 @@ Roll out the !options percentage idea everywhere: convert readings computed in u
 
 Ship 15 reliability/efficiency fixes to the live bot (stop hangs, dead-source retries, and event-loop stalls), turn on the proven-safe ones now, and after a 7-day soak decide whether to turn on the 5 cautious switches (dead-source cutoff, junk-ticker skip, smarter retries).
 
-## 55. Start saving the data future features need to test on — Tier-1 Item 1 DONE 2026-06-29
+## 55. Start saving the data future features need to test on — Tier-1 Items 1+2 + Tier-2 #3/#5 LIVE 2026-06-29 (analyst scorecard shadow-only; promotion soak-gated)
 
 **File:** `forward-data-collection.md`
 

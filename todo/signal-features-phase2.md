@@ -1,6 +1,6 @@
 # Signal-features discover — Phase 2 (Waves 3-4) + activation
 
-**Status:** OPEN
+**Status:** DONE 2026-06-29
 **Created:** 2026-06-09
 
 Follow-on work from the `signal-features-2026-06-09` discover run. Phase 1 (9 fixes) is
