@@ -368,3 +368,9 @@ Swap the bot's live options source from the free, ~15-min-delayed, throttle-pron
 **File:** `insider-display-refactor.md`
 
 Refactor `!sec`, `!all`, the alert Score card, and the AI write-up so insider (Form 4) trades show as one clean block per person — with the date and total dollar value — instead of dozens of dateless, valueless repeat rows.
+
+## 59. Fix the regression gate so a failed push doesn't just sit there
+
+**File:** `regression-gate-auto-recovery.md`
+
+When the session-close test gate fails, the push is skipped and nothing else happens — build a process that automatically checks, fixes, and re-pushes; if that's not safely possible, shorten the regression gate so failures are caught and cleared faster; if even that's not feasible, make sure Claude proactively flags the stuck push at the start of the next session instead of staying silent.
