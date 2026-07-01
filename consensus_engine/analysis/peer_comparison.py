@@ -149,10 +149,10 @@ def _pct_change(ticker: str, window_days: int) -> Optional[float]:
     halted/illiquid ticker can return sparse rows → IndexError otherwise).
     """
     try:
-        import yfinance as yf
+        from consensus_engine.utils import prices  # #57 Schwab primary, yfinance fallback
         # period covers comfortably more than window_days trading days.
         period = f"{max(window_days * 3, 10)}d"
-        h = yf.Ticker(ticker).history(period=period, interval="1d")
+        h = prices.fetch_history(ticker, period=period, interval="1d")
         if h is None or h.empty:
             return None
         closes = h["Close"].dropna()

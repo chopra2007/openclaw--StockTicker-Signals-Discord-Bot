@@ -381,6 +381,28 @@ CREATE TABLE IF NOT EXISTS iv_snapshots (
     PRIMARY KEY (snapshot_date, ticker)
 );
 
+CREATE TABLE IF NOT EXISTS schwab_options_snapshots (
+    snapshot_date      TEXT NOT NULL,   -- US-Eastern trading date YYYY-MM-DD
+    ticker             TEXT NOT NULL,
+    spot               REAL,
+    total_call_vol     REAL,
+    total_put_vol      REAL,
+    call_oi            REAL,
+    put_oi             REAL,
+    put_call_vol_ratio REAL,
+    put_call_oi_ratio  REAL,
+    max_pain           REAL,
+    atm_iv             REAL,            -- ATM implied vol as a FRACTION (e.g. 0.34)
+    top_call_contract  TEXT,
+    top_call_vol_oi    REAL,
+    top_put_contract   TEXT,
+    top_put_vol_oi     REAL,
+    nearest_expiry     TEXT,
+    is_delayed         INTEGER,         -- 0 = real-time
+    captured_at        REAL,            -- epoch seconds
+    PRIMARY KEY (snapshot_date, ticker)
+);
+
 -- C2 (reliability-hardening): persistent circuit-breaker state. Only durable
 -- OPENs (quota / HTTP-402 / per-key bench) are persisted here so they survive a
 -- restart and we don't blindly re-probe a known-exhausted source. opened_at /
@@ -1127,6 +1149,7 @@ async def init_db() -> AsyncConnection:
         (21, "trade-edge market-context layer (sector_rs_daily, factor_rs_daily, trend_daily, macro_legs_daily, internal_breadth_daily)"),
         (22, "trade-edge 5d/20d trading-day outcome tracking on decision_snapshots"),
         (23, "#55 forward-data loggers: source_performance_shadow, cross_asset_shadow, iv_snapshots"),
+        (24, "#57 schwab daily options-chain snapshot logger"),
     ]
     for version, note in _schema_versions:
         await _db.execute(

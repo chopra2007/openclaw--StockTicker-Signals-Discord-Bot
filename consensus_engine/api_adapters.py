@@ -337,26 +337,79 @@ class FirecrawlAdapter:
 
 
 # ---------------------------------------------------------------------------
-# Standalone price accessor (used by price_sanity at alert time)
+# Standalone quote accessors (used by price_sanity at alert time, and TODO #57
+# Schwab-primary quotes). Schwab real-time feed first (flag-gated), Finnhub
+# free-tier fallback so the bot never goes dark.
 # ---------------------------------------------------------------------------
 
-async def get_live_quote_price(ticker: str) -> float | None:
-    """Return current price from Finnhub, or None on any error.
-
-    Creates a short-lived aiohttp session (no shared pool needed for one-shot
-    alert-time checks). Returns None when Finnhub is unavailable or rate-limited
-    so callers can fail-open.
-    """
+async def _fetch_finnhub_quote_dict(ticker: str) -> Optional[dict]:
+    """The pre-existing Finnhub quote path, factored out for reuse as the
+    fallback behind Schwab. Uses the shared aiohttp session/adapter pool."""
     api_key = cfg.get_api_key("finnhub")
     if not api_key:
         return None
     try:
         session = await get_session()
         adapter = FinnhubAdapter(session, api_key)
-        raw = await adapter._fetch_quote(ticker)
-        if not raw:
+        return await adapter._fetch_quote(ticker)
+    except Exception as e:
+        log.debug("_fetch_finnhub_quote_dict: failed for %s: %s", ticker, e)
+        return None
+
+
+async def get_quote(symbol: str) -> Optional[dict]:
+    """Current quote for `symbol`: {c,pc,dp,o,h,l,v,t}, or None on any error.
+
+    Schwab real-time feed is tried first when features.schwab_quotes.enabled
+    (default OFF); any Schwab failure/empty result falls through to the
+    existing Finnhub path.
+    """
+    if cfg.get("features.schwab_quotes.enabled", False):
+        try:
+            from consensus_engine.scanners import schwab_client
+            q = await asyncio.to_thread(schwab_client.get_quote, symbol)
+            if q and q.get("c"):
+                return q
+        except Exception as e:
+            log.debug("get_quote: schwab failed for %s, falling back to Finnhub: %s", symbol, e)
+    return await _fetch_finnhub_quote_dict(symbol)
+
+
+async def get_quotes(symbols: list[str]) -> dict[str, dict]:
+    """Batch quotes for `symbols`. Schwab primary (flag-gated), per-symbol
+    Finnhub fallback for any symbol Schwab didn't cover."""
+    if not symbols:
+        return {}
+    out: dict[str, dict] = {}
+    missing = list(symbols)
+    if cfg.get("features.schwab_quotes.enabled", False):
+        try:
+            from consensus_engine.scanners import schwab_client
+            batch = await asyncio.to_thread(schwab_client.get_quotes, symbols)
+            for sym, q in (batch or {}).items():
+                if q and q.get("c"):
+                    out[sym] = q
+            missing = [s for s in symbols if s not in out]
+        except Exception as e:
+            log.debug("get_quotes: schwab batch failed, falling back to Finnhub: %s", e)
+    if missing:
+        results = await asyncio.gather(
+            *[_fetch_finnhub_quote_dict(s) for s in missing], return_exceptions=True
+        )
+        for sym, r in zip(missing, results):
+            if isinstance(r, dict):
+                out[sym] = r
+    return out
+
+
+async def get_live_quote_price(ticker: str) -> float | None:
+    """Return current price (Schwab-primary, Finnhub-fallback), or None on
+    any error, so callers can fail-open."""
+    try:
+        q = await get_quote(ticker)
+        if not q:
             return None
-        price = float(raw.get("c") or 0)
+        price = float(q.get("c") or 0)
         return price if price > 0 else None
     except Exception as e:
         log.debug("get_live_quote_price: failed for %s: %s", ticker, e)

@@ -417,6 +417,14 @@ async def _run_options_flow_scan() -> None:
         for tk in tickers:
             baselines[tk] = await db.get_flow_premium_baseline(tk)
 
+    # #57 (BLOCK-1): the AUTONOMOUS alert loop uses the Schwab real-time chain
+    # ONLY when BOTH the on-demand flag and the separate flow_loop_enabled gate
+    # are on. This keeps auto-alerts on the old (threshold-tuned) yfinance feed
+    # until a live shadow-compare + re-tune clears the flow loop to switch.
+    use_schwab_flow = (
+        bool(cfg.get("features.schwab_options.enabled", False))
+        and bool(cfg.get("features.schwab_options.flow_loop_enabled", False))
+    )
     hits = await scan_options_flow(
         tickers, executor=None,
         min_vol_oi=float(cfg.get("options_flow.min_vol_oi", 5.0)),
@@ -428,6 +436,7 @@ async def _run_options_flow_scan() -> None:
         relative_baseline_enabled=relative_baseline_enabled,
         relative_multiplier=relative_multiplier,
         baselines=baselines,
+        use_schwab=use_schwab_flow,
     )
     if not hits:
         return
@@ -1267,28 +1276,20 @@ def _passes_quality_gate(tweet, ticker: str) -> bool:
 
 
 async def _fetch_price(ticker: str) -> float:
-    """Fetch the current quote from Finnhub."""
-    api_key = cfg.get_api_key("finnhub")
-    if not api_key:
-        return 0.0
-
+    """Fetch the current quote — #57: Schwab real-time primary, Finnhub fallback
+    (via api_adapters.get_quote, which owns the flag gate + fallback)."""
     try:
-        session = await get_session()
-        async with session.get(
-            "https://finnhub.io/api/v1/quote",
-            params={"symbol": ticker, "token": api_key},
-            timeout=aiohttp.ClientTimeout(total=5),
-        ) as resp:
-            if resp.status != 200:
-                return 0.0
-            data = await resp.json()
-        price = float(data.get("c") or 0.0)
-        _record_source_ok("finnhub")
-        return price
+        from consensus_engine import api_adapters
+        q = await api_adapters.get_quote(ticker)
+        if q and q.get("c"):
+            # Schwab fills volume (v>0); Finnhub free tier leaves it 0 — use that
+            # to record the source that actually served the quote for C5 health.
+            _record_source_ok("schwab" if q.get("v") else "finnhub")
+            return float(q["c"])
     except Exception as e:
         log.debug("Price fetch failed for $%s: %s", ticker, e)
-        _record_source_error("finnhub")
-        return 0.0
+    _record_source_error("finnhub")
+    return 0.0
 
 
 async def process_tweet(raw_tweet: dict):

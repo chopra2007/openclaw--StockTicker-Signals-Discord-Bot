@@ -840,6 +840,10 @@ features:
   macro_legs:        { enabled: false, shadow: true, shadow_max_days: 7, rollback_floor: 0.0, rollback_window: 50 }                                                            # F4 (NEVER averaged into cross_asset)
   internal_breadth:  { enabled: false, shadow: true, ema_alpha: 0.4, min_signals: 8 }                            # F5 descriptive
   market_command:    { enabled: true }                                                                           # F6 read-only market-context dashboard — LIVE 2026-06-29 (descriptive only, no alert impact)
+  schwab_options: { enabled: true, flow_loop_enabled: false }   # #57 LIVE on-demand !options/!em/!all; flow_loop_enabled stays OFF until the market-hours shadow-compare (scripts/schwab_flow_shadow_compare.py) clears it
+  schwab_quotes: { enabled: true }         # #57 LIVE — /quotes primary, Finnhub fallback
+  schwab_ohlcv: { enabled: true }          # #57 LIVE — /pricehistory primary, yfinance fallback
+  schwab_snapshot_logger: { enabled: true }  # #57 LIVE — daily options-chain snapshot logger gate
   market_data:       { store_dir: "data/market_store", fred_lag_days: { T10Y2Y: 1, T10Y3M: 1, NFCI: 7 }, fallback_provider: "stooq" }
   # Cross-cutting helper (consumers above are all flag-OFF; caps are shadow-derived placeholders).
   recency_window: { enabled: true, max_age_min: { sec: 120, tweet: 120, options: 90, youtube: 1440, apewisdom: 1440, finra_short_volume: 1440, vix: 1440, fred: 1440, sector_rs: 1440, factor_rs: 1440, trend: 1440, macro_legs: 1440 } }
@@ -1061,3 +1065,6 @@ dead_source:
 
 adapters:
   report_failure: false         # C14: precision adapters feed failures to the shared rate_limiter
+
+schwab:
+  reauth_warn_days: 2   # #57 warn N days before the 7-day Schwab refresh-token expires

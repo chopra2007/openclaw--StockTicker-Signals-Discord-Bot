@@ -3,20 +3,30 @@
 **Status:** OPEN
 **Created:** 2026-06-29
 
-**CURRENT STATUS (2026-06-30):** Auth + feed access is DONE and PROVEN LIVE. App registered on the
-Schwab developer portal; App Key + Secret + callback (`https://127.0.0.1`) are in BOTH
-`/root/.openclaw/.env` and `.env.service` (markers `SCHWAB_APP_KEY` / `SCHWAB_APP_SECRET` /
-`SCHWAB_CALLBACK_URL` / `SCHWAB_APP_NAME`). First OAuth login done by hand (no adapter code): built the
-authorize URL from the App Key, user logged in via browser, pasted the `https://127.0.0.1/?code=…`
-redirect back, code exchanged server-side for a token. Token saved at
-`/root/.openclaw/schwab_token.json` (owner openclaw, 0600), schwab-py-compatible shape
-`{creation_timestamp, token:{access_token, refresh_token, expires_in:1800, …, scope:"api"}}`.
-**Live AAPL chain pulled OK** via `GET /marketdata/v1/chains?symbol=AAPL` → `status:SUCCESS`,
-`underlyingPrice:289.36`, **`isDelayed:False`** (real-time confirmed), 75 contracts, native
-delta/gamma/theta/vega/rho + IV per contract. Both API products (Trading + Market Data) are enabled
-on the app (the chain call would 401 otherwise). Gotcha proven: **auth codes expire in ~30s** — must
-exchange immediately after the user pastes the redirect URL (first attempt failed `invalid_grant`).
-**NEXT concrete step:** build the adapter (below) — this session only proved the pipe works.
+**CURRENT STATUS (2026-06-30 eve):** BUILT + LIVE. The adapter and the full swap shipped this session
+(discover run `schwab-options-realtime`) and the on-demand switches are ON in production
+(`consensus.yaml features.schwab_options/quotes/ohlcv.enabled: true`); engine restarted + healthy.
+- **New client** `consensus_engine/scanners/schwab_client.py` — real-time chains (native greeks/IV),
+  quotes, price-history; thread+process-safe token auto-refresh (fcntl.flock); sync token-bucket
+  rate-limiter (110/min) + 429 cooldown; SPY/QQQ full-chain 502 avoided by bounding every fetch to the
+  nearest N expirations; glitch-tick overflow guard. Live-verified end-to-end.
+- **LIVE now:** `!options`, `!em` (IV ÷100 verified → EM ±1.28% sane, not 100× off), `!all` max-pain,
+  the live-quote path (`get_quote`/`get_live_quote_price`, Finnhub fallback — now carries volume),
+  and OHLCV for peer-RS + VIX cross-asset (yfinance fallback). Daily options-chain snapshot LOGGER
+  (`schwab-options-snapshot-daily.timer`, 15:50 PDT) + weekly re-auth reminder
+  (`schwab-reauth-check.timer`) enabled. New DB table `schwab_options_snapshots` (schema v24).
+- **DELIBERATELY kept on yfinance (RISK-5):** `wolf_outcomes` 5d/20d outcome labels + `earnings_move`
+  2y — dividend-ADJUSTED historical closes feed calibration; Schwab is split-only + earnings_move is
+  coupled to yfinance `get_earnings_dates`. Zero real-time benefit there. Commented at both sites.
+- **ONLY remaining piece — the autonomous flow-loop alert switch** (`features.schwab_options.flow_loop_enabled`)
+  stays OFF. Its thresholds (`options_flow.min_vol_oi=10/min_volume=500/min_premium_usd=250k`) were tuned
+  on the delayed yfinance feed; flipping it changes messages that post on their own, and the market was
+  closed tonight so no live shadow-compare was possible. A one-shot compare is SCHEDULED for
+  2026-07-01 10:00 PDT (`scripts/schwab_flow_shadow_compare.py` via task `1782879041_08e8ad`) that posts
+  a Schwab-vs-yfinance hit-set verdict to #chat + notifications.log. **NEXT:** read that verdict, re-tune
+  if it diverges, then set `flow_loop_enabled: true` and restart.
+- Re-auth deadline: **2026-07-08 01:56 UTC ≈ 2026-07-07 18:56 PDT** (refresh does NOT extend it — the
+  reminder fires from 2 days out). Full API-capabilities/future-features research is in the section below.
 
 ## Goal
 Replace the free **yfinance** option-chain feed (unofficial, ~15-min delayed, throttle-prone)
@@ -173,3 +183,22 @@ Ordered rough easy→ambitious. User's own examples folded in (trading bot / bet
 - **Next:** Build the Schwab chain adapter in `consensus_engine/scanners/options.py` (map → OptionsResult,
   flag-gated, yfinance fallback), add the weekly re-auth reminder, then wire `!options`/flow-loop/`!em`.
   Re-run the auth-code exchange fast (codes die in ~30s).
+
+### Session notes — 2026-06-30 (build session, discover run `schwab-options-realtime`)
+- **Worked on:** Built the whole thing. `schwab_client.py` (client + token refresh + rate limiter);
+  wired Schwab-primary/yfinance-fallback into `options.py` (unusual/flow/max-pain), `expected_move.py`
+  (`!em` chain + chart), the quotes backbone (`api_adapters.get_quote`/`get_live_quote_price` +
+  `sector_confirmation`), the OHLCV backbone (`utils/prices.fetch_history` → peer_comparison + cross_asset
+  VIX), `main.py` `_fetch_price`. Daily snapshot logger + systemd timer, weekly re-auth reminder + timer,
+  DB table (schema v24), config flags + conftest guard, 13 new unit tests. Flipped on-demand flags ON,
+  restarted engine (healthy), scheduled the flow-loop shadow-compare.
+- **Live proof:** AAPL `!options` embed (top 37,949 vs 175 OI, ~$4.1M, 66/34 call/put), `!em` ±1.28%
+  (IV ÷100 correct), SPY/NVDA flow + max-pain, `get_quote` c=289.36/v=65.1M, `fetch_history` tz-aware NY;
+  logger 6/6 incl SPY/QQQ (`delayed=0`); reauth reminder 6.9d PT; regression gate 2522 pass / 0 regressions.
+- **Key decisions:** hand-rolled client (no schwab-py dep); split flag so the autonomous alert loop is
+  gated separately (`flow_loop_enabled`, still OFF); bound every chain fetch to nearest-N expirations
+  (SPY/QQQ full chain 502s from Schwab); kept wolf_outcomes+earnings_move on yfinance (RISK-5 div-adjust).
+- **Fixed a pre-existing ownership trap surfaced by the restart:** `/home/openclaw/.openclaw/openclaw.json`
+  was root:root 600 (unreadable by openclaw → `❌ GATEWAY config unreadable`); chowned back to openclaw.
+- **Next:** 2026-07-01 ~10:00 PDT the scheduled shadow-compare posts a verdict; if hit-sets align, set
+  `features.schwab_options.flow_loop_enabled: true` + restart to finish the last 5%.

@@ -167,6 +167,44 @@ def _combine_chains(chains):
     return SimpleNamespace(calls=calls, puts=puts)
 
 
+# ---------------------------------------------------------------------------
+# #57: Schwab real-time chain PRIMARY source. Each fetch below tries Schwab
+# first (flag-gated by the caller) and returns None on ANY failure so the
+# caller falls through to the UNCHANGED yfinance block — the bot never goes
+# dark. Schwab is real-time (isDelayed:False) with native greeks + IV.
+# ---------------------------------------------------------------------------
+def _schwab_chain_obj(ticker: str, *, nearest: Optional[int] = None,
+                      to_date: Optional[str] = None):
+    """Schwab Chain (all-expiry .calls/.puts DataFrames in yfinance column
+    shape + .underlying_price + .by_expiry) or None on any failure. Blocking —
+    call inside the executor thread. Pass `nearest` so high-expiration tickers
+    (SPY/QQQ) don't 502 on a full-chain fetch."""
+    try:
+        from consensus_engine.scanners import schwab_client
+        return schwab_client.get_option_chain(ticker, nearest=nearest, to_date=to_date)
+    except Exception as ex:
+        log.debug("schwab chain fetch failed for %s: %s", ticker, ex)
+        return None
+
+
+def _schwab_unusual_chains(ticker: str, nearest: int):
+    """Nearest `nearest` expirations as yfinance-shaped (.calls/.puts) chains for
+    check_unusual_options. None -> caller falls back to yfinance."""
+    ch = _schwab_chain_obj(ticker, nearest=max(1, nearest))
+    if ch is None or not ch.expirations:
+        return None
+    return [ch.by_expiry(e) for e in ch.expirations[:max(1, nearest)]] or None
+
+
+def _schwab_flow_chains(ticker: str, nearest: int):
+    """(spot, [(expiry, chain), ...]) for scan_options_flow. None -> yfinance."""
+    ch = _schwab_chain_obj(ticker, nearest=max(1, nearest))
+    if ch is None or not ch.expirations:
+        return None
+    chains = [(e, ch.by_expiry(e)) for e in ch.expirations[:max(1, nearest)]]
+    return (ch.underlying_price or 0.0), chains
+
+
 async def check_unusual_options(ticker: str, executor, nearest: int = 1) -> Optional[OptionsResult]:
     """Check for unusual options activity on a ticker.
 
@@ -200,14 +238,23 @@ async def check_unusual_options(ticker: str, executor, nearest: int = 1) -> Opti
             return None
 
     loop = asyncio.get_running_loop()
-    try:
-        # C20: bound concurrent Yahoo hits process-wide (released the instant
-        # the fetch returns; never held across an alert decision).
-        async with get_yahoo_semaphore():
-            chains = await loop.run_in_executor(executor, _fetch)
-    except Exception as e:
-        log.debug("run_in_executor error for %s: %s", ticker, e)
-        return None
+    chains = None
+    # #57: Schwab real-time chain PRIMARY (no Yahoo semaphore — not a Yahoo hit).
+    if _cfg.get("features.schwab_options.enabled", False):
+        try:
+            chains = await loop.run_in_executor(executor, _schwab_unusual_chains, ticker, nearest)
+        except Exception as e:
+            log.debug("schwab unusual fetch error for %s: %s", ticker, e)
+            chains = None
+    if not chains:
+        try:
+            # C20: bound concurrent Yahoo hits process-wide (released the instant
+            # the fetch returns; never held across an alert decision).
+            async with get_yahoo_semaphore():
+                chains = await loop.run_in_executor(executor, _fetch)
+        except Exception as e:
+            log.debug("run_in_executor error for %s: %s", ticker, e)
+            return None
     if not chains:
         return None
 
@@ -327,8 +374,13 @@ def _scan_chain_for_flow(
     return hits
 
 
-async def _fetch_flow_chains(ticker: str, executor, nearest: int):
-    """Fetch spot + the nearest `nearest` expirations' chains (blocking yf in executor)."""
+async def _fetch_flow_chains(ticker: str, executor, nearest: int, use_schwab: bool = False):
+    """Fetch spot + the nearest `nearest` expirations' chains.
+
+    #57: when use_schwab, try the Schwab real-time chain first (the caller decides
+    — on-demand !options passes features.schwab_options.enabled, the autonomous
+    flow-loop additionally requires flow_loop_enabled). Falls back to blocking yf
+    in the executor on any failure so alerts never go dark."""
     import asyncio
 
     def _f():
@@ -364,6 +416,14 @@ async def _fetch_flow_chains(ticker: str, executor, nearest: int):
             return 0.0, []
 
     loop = asyncio.get_running_loop()
+    if use_schwab:
+        try:
+            res = await loop.run_in_executor(executor, _schwab_flow_chains, ticker, nearest)
+        except Exception as ex:
+            log.debug("schwab flow fetch error for %s: %s", ticker, ex)
+            res = None
+        if res and res[1]:
+            return res
     try:
         async with get_yahoo_semaphore():  # C20
             return await loop.run_in_executor(executor, _f)
@@ -394,6 +454,7 @@ async def scan_options_flow(
     relative_baseline_enabled: bool = False,
     relative_multiplier: float = 3.0,
     baselines: dict | None = None,
+    use_schwab: bool | None = None,
 ) -> list:
     """Scan tickers for unusual options FLOW (free yfinance ~15-min data).
 
@@ -411,10 +472,15 @@ async def scan_options_flow(
     now = time.time()
     max_stale_sec = max_staleness_min * 60 if max_staleness_min else 0
     baselines = baselines or {}
+    # #57: default the Schwab source to the on-demand flag. The autonomous
+    # flow-loop caller passes use_schwab explicitly (enabled AND flow_loop_enabled)
+    # so its alerts don't switch to Schwab data until a live shadow-compare is done.
+    if use_schwab is None:
+        use_schwab = bool(_cfg.get("features.schwab_options.enabled", False))
     out: list = []
     for tk in tickers:
         try:
-            spot, chains = await _fetch_flow_chains(tk, executor, nearest_expirations)
+            spot, chains = await _fetch_flow_chains(tk, executor, nearest_expirations, use_schwab)
             for expiry, chain in chains:
                 out.extend(_scan_chain_for_flow(
                     tk, chain, expiry, spot or 0.0,
@@ -548,6 +614,57 @@ def _max_pain_for_chain(chain) -> Optional[tuple]:
     return best, total_oi, sum(call_oi.values()), sum(put_oi.values())
 
 
+def _schwab_maxpain(ticker: str):
+    """Schwab real-time version of compute_max_pain's `_f`, returning the SAME
+    raw dict shape. None -> caller falls back to yfinance. Blocking (executor).
+
+    Fetches the cheap expiration list first to locate the weekly + monthly, then
+    bounds the chain fetch to the monthly date so SPY/QQQ (34 daily expirations)
+    stay well under the full-chain 502 threshold."""
+    from datetime import date, datetime
+    try:
+        from consensus_engine.scanners import schwab_client
+        exp_list = schwab_client.get_expirations(ticker)
+    except Exception as ex:
+        log.debug("schwab expirations failed for %s: %s", ticker, ex)
+        return None
+    parsed = []
+    for e in exp_list or []:
+        try:
+            parsed.append((e, datetime.strptime(e, "%Y-%m-%d").date()))
+        except ValueError:
+            continue
+    if not parsed:
+        return None
+    today = date.today()
+    weekly_exp = parsed[0][0]
+    monthly_targets = []
+    for yr, mo in ((today.year, today.month),
+                   (today.year + (today.month == 12), (today.month % 12) + 1)):
+        tf = _third_friday(yr, mo)
+        if tf >= today:
+            monthly_targets.append(tf)
+    monthly_exp = None
+    if monthly_targets:
+        tgt = min(monthly_targets)
+        cand = min(parsed, key=lambda p: abs((p[1] - tgt).days))
+        if abs((cand[1] - tgt).days) <= 3:
+            monthly_exp = cand[0]
+
+    ch = _schwab_chain_obj(ticker, to_date=(monthly_exp or weekly_exp))
+    if ch is None or not ch.expirations:
+        return None
+    spot = ch.underlying_price or 0.0
+    want = []
+    for e in (weekly_exp, monthly_exp):
+        if e and e not in want:
+            want.append(e)
+    chains = {e: ch.by_expiry(e) for e in want}
+    max_pain = {e: _max_pain_for_chain(c) for e, c in chains.items()}
+    return {"spot": spot, "weekly_exp": weekly_exp, "monthly_exp": monthly_exp,
+            "chains_present": list(chains.keys()), "max_pain": max_pain}
+
+
 async def compute_max_pain(ticker: str, executor=None) -> Optional[dict]:
     """Compute max-pain for the nearest weekly + nearest monthly expiry.
 
@@ -639,12 +756,21 @@ async def compute_max_pain(ticker: str, executor=None) -> Optional[dict]:
             return None
 
     loop = asyncio.get_running_loop()
-    try:
-        async with get_yahoo_semaphore():  # C20
-            raw = await loop.run_in_executor(executor, _f)
-    except Exception as ex:
-        log.debug("max-pain executor error for %s: %s", ticker, ex)
-        return None
+    raw = None
+    # #57: Schwab real-time chain PRIMARY for max-pain (!all path).
+    if _cfg.get("features.schwab_options.enabled", False):
+        try:
+            raw = await loop.run_in_executor(executor, _schwab_maxpain, ticker)
+        except Exception as ex:
+            log.debug("schwab max-pain error for %s: %s", ticker, ex)
+            raw = None
+    if not raw:
+        try:
+            async with get_yahoo_semaphore():  # C20
+                raw = await loop.run_in_executor(executor, _f)
+        except Exception as ex:
+            log.debug("max-pain executor error for %s: %s", ticker, ex)
+            return None
     if not raw:
         return None
 

@@ -79,6 +79,15 @@ def _audit_flags_default_off(monkeypatch):
         # trade-edge-features). Force OFF for the baseline suite so the
         # off-path test is deterministic; the render test forces ON in-body.
         "features.market_command.enabled": False,
+        # #57 Schwab real-time feed — config default is already OFF, but force
+        # here too so a later YAML flip to ON doesn't send the baseline suite
+        # down the live-network branch. Dedicated feature tests force their
+        # own flag in-body.
+        "features.schwab_options.enabled": False,
+        "features.schwab_options.flow_loop_enabled": False,
+        "features.schwab_quotes.enabled": False,
+        "features.schwab_ohlcv.enabled": False,
+        "features.schwab_snapshot_logger.enabled": False,
     }
 
     def _patched(key, default=None):

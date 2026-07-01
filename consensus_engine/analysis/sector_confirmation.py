@@ -76,38 +76,33 @@ _CACHE_TTL = 300.0  # 5 minutes
 
 
 async def _fetch_etf_change_pct(etf: str) -> float | None:
-    """Fetch day change percent for ETF via Finnhub quote.
+    """Fetch day change percent for ETF (Schwab primary when enabled,
+    Finnhub fallback — see api_adapters.get_quote).
 
     Returns None on error. Caches result for 5 minutes.
     """
+    import math
+
     now = time.monotonic()
     if etf in _etf_cache:
         change_pct, expires_at = _etf_cache[etf]
         if now < expires_at:
             return change_pct
 
-    api_key = cfg.get_api_key("finnhub")
-    if not api_key:
-        log.warning("[A4] Finnhub API key missing — cannot fetch ETF quote")
-        return None
-
-    url = f"https://finnhub.io/api/v1/quote?symbol={etf}&token={api_key}"
     try:
-        from consensus_engine.utils.http import get_session
-        session = await get_session()
-        async with session.get(url, timeout=10) as resp:
-            if resp.status != 200:
-                log.warning("[A4] Finnhub quote for %s returned HTTP %s", etf, resp.status)
-                return None
-            data = await resp.json()
-            # Finnhub quote: dp = percent change
-            dp = data.get("dp")
-            if dp is None:
-                log.warning("[A4] Finnhub quote for %s missing 'dp' field: %s", etf, data)
-                return None
-            change_pct = float(dp)
-            _etf_cache[etf] = (change_pct, now + _CACHE_TTL)
-            return change_pct
+        from consensus_engine import api_adapters
+        quote = await api_adapters.get_quote(etf)
+        if not quote:
+            log.warning("[A4] quote fetch for %s returned nothing", etf)
+            return None
+        # dp = percent change
+        dp = quote.get("dp")
+        if dp is None or (isinstance(dp, float) and math.isnan(dp)):
+            log.warning("[A4] quote for %s missing 'dp' field: %s", etf, quote)
+            return None
+        change_pct = float(dp)
+        _etf_cache[etf] = (change_pct, now + _CACHE_TTL)
+        return change_pct
     except Exception as e:
         log.warning("[A4] Failed to fetch ETF quote for %s: %s", etf, e)
         return None

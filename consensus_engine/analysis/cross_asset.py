@@ -114,9 +114,9 @@ def _fetch_vix_ratio() -> Optional[float]:
     blocks the event loop — matching the options.py pattern.
     """
     try:
-        import yfinance as yf
-        vix_hist = yf.Ticker("^VIX").history(period="2d")
-        vix3m_hist = yf.Ticker("^VIX3M").history(period="2d")
+        from consensus_engine.utils import prices  # #57 Schwab ($VIX) primary, yfinance fallback
+        vix_hist = prices.fetch_history("^VIX", period="2d")
+        vix3m_hist = prices.fetch_history("^VIX3M", period="2d")
 
         if vix_hist.empty or vix3m_hist.empty:
             return None

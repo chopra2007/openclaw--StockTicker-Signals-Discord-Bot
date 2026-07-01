@@ -29,6 +29,9 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
+from consensus_engine import config as _cfg
+from consensus_engine.utils import prices  # #57 OHLCV choke-point (Schwab primary)
+
 from consensus_engine import config as cfg
 
 log = logging.getLogger("consensus_engine.scanners.expected_move")
@@ -253,8 +256,43 @@ def calculate_expected_moves(spot: float, call: OptionQuote, put: OptionQuote,
 # ---------------------------------------------------------------------------
 # Data fetch (blocking yfinance, runs in executor)
 # ---------------------------------------------------------------------------
+def _schwab_bundle(ticker: str, now_et: datetime) -> Optional[dict]:
+    """#57: Schwab real-time version of _fetch_bundle. Returns the SAME dict shape
+    or None on any failure (caller falls back to yfinance). The chain DataFrames
+    carry yfinance columns incl. impliedVolatility as a FRACTION (already ÷100 in
+    the client), so select_atm / _row_to_quote work unchanged."""
+    try:
+        from consensus_engine.scanners import schwab_client
+        ch = schwab_client.get_option_chain(ticker)
+    except Exception as e:
+        log.debug("em schwab chain fetch failed for %s: %s", ticker, e)
+        return None
+    if ch is None or not ch.expirations:
+        return None
+    spot = ch.underlying_price
+    if not spot or not math.isfinite(spot):
+        return None
+    exp, session_label = select_expiration(ch.expirations, now_et)
+    be = ch.by_expiry(exp)
+    calls, puts = be.calls.copy(), be.puts.copy()
+    if calls is None or puts is None or calls.empty or puts.empty:
+        return None
+    history, history_label = _fetch_history(ticker)
+    return {
+        "spot": spot, "expiration": exp, "session_label": session_label,
+        "calls": calls, "puts": puts,
+        "history": history, "history_label": history_label,
+    }
+
+
 def _fetch_bundle(ticker: str, now_et: datetime) -> dict:
     """Blocking: spot, chosen expiration, that chain, and price history."""
+    # #57: Schwab real-time chain PRIMARY (native greeks + IV); yfinance fallback.
+    if _cfg.get("features.schwab_options.enabled", False):
+        bundle = _schwab_bundle(ticker, now_et)
+        if bundle is not None:
+            return bundle
+
     import yfinance as yf
     t = yf.Ticker(ticker)
 
@@ -281,7 +319,7 @@ def _fetch_bundle(ticker: str, now_et: datetime) -> dict:
     if calls is None or puts is None or calls.empty or puts.empty:
         raise EMUnavailable(f"The option chain for `${ticker}` {exp} came back empty.")
 
-    history, history_label = _fetch_history(t)
+    history, history_label = _fetch_history(ticker)
 
     return {
         "spot": spot, "expiration": exp, "session_label": session_label,
@@ -290,8 +328,9 @@ def _fetch_bundle(ticker: str, now_et: datetime) -> dict:
     }
 
 
-def _fetch_history(t) -> tuple[pd.DataFrame, str]:
-    """Best-effort intraday candles; fall back to daily."""
+def _fetch_history(ticker: str) -> tuple[pd.DataFrame, str]:
+    """Best-effort intraday candles; fall back to daily. #57: routed through the
+    OHLCV choke-point (Schwab primary, yfinance fallback) — same shape either way."""
     attempts = [
         (dict(period="5d", interval="5m"),  "5-minute candles · last 5 sessions"),
         (dict(period="10d", interval="15m"), "15-minute candles · last 10 sessions"),
@@ -299,7 +338,7 @@ def _fetch_history(t) -> tuple[pd.DataFrame, str]:
     ]
     for kw, label in attempts:
         try:
-            h = t.history(**kw)
+            h = prices.fetch_history(ticker, **kw)
             if h is not None and len(h) >= 5:
                 h = h[["Open", "High", "Low", "Close", "Volume"]].dropna()
                 if len(h) >= 5:

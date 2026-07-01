@@ -41,6 +41,10 @@ def _compute_earnings_move(ticker: str, n: int) -> Optional[dict]:
 
         t = yf.Ticker(ticker)
         ed = t.get_earnings_dates(limit=24)
+        # #57: stays on yfinance — coupled to yfinance's get_earnings_dates() (no
+        # Schwab equivalent) and uses dividend-ADJUSTED 2y closes for earnings-
+        # reaction stats; Schwab /pricehistory is split-only (RISK-5). Historical
+        # read, no real-time benefit.
         hist = t.history(period="2y")
         if ed is None or ed.empty or hist is None or hist.empty:
             return None

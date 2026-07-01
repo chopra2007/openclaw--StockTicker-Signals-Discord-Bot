@@ -353,10 +353,12 @@ Begin a cheap forward-log of the inputs and outcomes future features will need �
 
 Pay ~$29 once for 2 years of historical options data (massive.com) and use it to backtest the unusual-options-flow alerts and feed the market top/bottom detector — testing whether our options signals actually caught the big drops and rallies of the last 2 years.
 
-## 57. Move live options data onto the Schwab real-time feed — creds + first login DONE, real-time feed PROVEN live 2026-06-30; adapter build + capabilities research pending
+## 57. Move live options data onto the Schwab real-time feed — BUILT + LIVE 2026-06-30 (on-demand ON); only the autonomous flow-loop alert switch pending tomorrow's shadow-compare
 
 **File:** `schwab-options-realtime.md`
 
-**CURRENT STATUS (2026-06-30):** App registered, App Key + Secret + callback in both env files, first OAuth login done by hand, token saved at `/root/.openclaw/schwab_token.json`. Live AAPL chain pulled successfully — `isDelayed: False` (genuine real-time), native greeks + IV present, Market Data API confirmed enabled on the app. NEXT: build the adapter (map Schwab chain → scanner shape, wire behind flag with yfinance fallback, weekly re-auth reminder) + write up the full API-capabilities/future-features research (see detail file's new research section).
+**Switches:** features.schwab_options.enabled=on; features.schwab_quotes.enabled=on; features.schwab_ohlcv.enabled=on; features.schwab_snapshot_logger.enabled=on; features.schwab_options.flow_loop_enabled=off
+
+**CURRENT STATUS (2026-06-30 eve):** BUILT + LIVE. `!options`, `!em`, `!all` max-pain, live quotes, and OHLCV (peer-RS/VIX) now run on Schwab's real-time feed with yfinance/Finnhub auto-fallback; daily options-history logger + weekly re-auth reminder timers enabled; 2522 tests pass, 0 regressions; engine restarted + healthy. ONLY the autonomous unusual-flow ALERT loop (`flow_loop_enabled`) stays OFF — its thresholds were tuned on the delayed feed and the market was closed tonight, so a Schwab-vs-yfinance shadow-compare is scheduled for 2026-07-01 10:00 PDT (posts a verdict to #chat); flip it after reading that. Re-auth (weekly Schwab re-login) due ~2026-07-07 6:56pm PT.
 
 Swap the bot's live options source from the free, ~15-min-delayed, throttle-prone yfinance feed to the user's real-time Schwab Trader API — upgrading the `!options` command, the unusual-flow alerts in the options-flow channel, and the `!em` expected-move command with official real-time chains and native greeks. Also research everything the Schwab key can do (all endpoints + streaming) and what new bot commands / future features it unlocks.

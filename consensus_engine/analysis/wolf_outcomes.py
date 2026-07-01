@@ -51,6 +51,11 @@ def _fetch_proxy_series(symbol: str, anchor_ts: float) -> dict:
         # and start the % move a day late (Codex MINOR-2).
         anchor_date = datetime.fromtimestamp(anchor_ts, tz=ZoneInfo("America/New_York")).date()
         start = (anchor_date - timedelta(days=45)).isoformat()
+        # #57: DELIBERATELY stays on yfinance (NOT the Schwab OHLCV feed). These
+        # 5d/20d outcome labels feed calibration built on yfinance's dividend-
+        # ADJUSTED daily close; Schwab /pricehistory is split-only, so mixing the
+        # two would put unadjusted rows next to historical adjusted ones (RISK-5).
+        # Purely historical read — no real-time benefit from switching.
         hist = yf.Ticker(symbol).history(start=start, interval="1d")
         if hist is None or hist.empty:
             return {}
