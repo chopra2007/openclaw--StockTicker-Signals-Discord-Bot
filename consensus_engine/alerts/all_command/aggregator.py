@@ -617,73 +617,33 @@ _FORM4_ENRICH_LIMIT = 5
 _FORM4_ENRICH_TIMEOUT = 12.0
 
 
-def _fmt_insider_shares(v) -> str:
-    """Render a share count: 240000.0 -> '240,000'."""
-    try:
-        return f"{float(v):,.0f}"
-    except (TypeError, ValueError):
-        return str(v if v is not None else "?")
-
-
-def _fmt_insider_price(v) -> str:
-    """Render a per-share price suffix: 52.5 -> ' at $52.50'; 0/None -> ''."""
-    try:
-        p = float(v)
-    except (TypeError, ValueError):
-        return ""
-    return f" at ${p:.2f}" if p else ""
-
-
 def _format_insider_section(fetched: list) -> list[str]:
-    """Render the per-insider lines per the #13 significance rule.
+    """Render the per-insider LLM-evidence lines per the #13 significance rule,
+    via the shared insider aggregator.
 
-    Open-market purchases/sales are shown in full (name, title, shares,
-    price, date), grouped per insider; routine awards / option exercises /
-    tax withholding / gifts are collapsed to a count. A filing set whose
-    aggregate open-market value clears the configured buy/sell floor is
-    flagged NOTABLE. Returns [] when no Form-4 transactions were fetched.
+    Open-market purchases/sales are aggregated into one line per insider, per
+    date, per direction (shares, avg price, value, date, fill count); routine
+    awards / option exercises / tax withholding / gifts are collapsed to a
+    count. A filing set whose aggregate open-market value clears the configured
+    buy/sell floor is flagged NOTABLE. Returns [] when no Form-4 transactions
+    were fetched.
     """
-    from consensus_engine.alerts.commands import _fmt_insider_name
-    from consensus_engine.scanners.sec_edgar import (
-        _OPEN_MARKET_TX_TYPES, compute_insider_value,
+    from consensus_engine.scanners.sec_edgar import compute_insider_value
+    from consensus_engine.alerts.insider_display import (
+        aggregate_insiders, render_evidence,
     )
 
     all_txs = [t for _f, txs in fetched for t in (txs or [])]
     if not all_txs:
         return []
-    open_market = [t for t in all_txs
-                   if t.get("transaction_type") in _OPEN_MARKET_TX_TYPES]
-    routine_count = len(all_txs) - len(open_market)
-    if not open_market:
-        return ["Recent Form 4 filings were routine awards / option "
-                "exercises / tax withholding — no open-market conviction trades."]
+    summaries, routine_count = aggregate_insiders(all_txs)
 
     buy_floor = cfg.get("sec_watcher.min_insider_dollars_buy", 100000)
     sell_floor = cfg.get("sec_watcher.min_insider_dollars_sell", 1000000)
     notable = (compute_insider_value(all_txs, "Buy") >= buy_floor
                or compute_insider_value(all_txs, "Sell") >= sell_floor)
 
-    out = [("NOTABLE — " if notable else "")
-           + "open-market insider (Form 4) transactions:"]
-    grouped: dict[str, list] = {}
-    titles: dict[str, str] = {}
-    for t in open_market:
-        name = str(t.get("reporter_name") or "Unknown")
-        grouped.setdefault(name, []).append(t)
-        titles[name] = str(t.get("title") or "Insider")
-    for raw_name, insider_txs in grouped.items():
-        display = _fmt_insider_name(raw_name)
-        for t in insider_txs:
-            out.append(
-                f"  - {display} ({titles[raw_name]}) — "
-                f"{t.get('direction', '?')} {_fmt_insider_shares(t.get('shares'))} "
-                f"shares{_fmt_insider_price(t.get('price'))} "
-                f"on {t.get('date') or '?'}."
-            )
-    if routine_count:
-        out.append(f"  plus {routine_count} routine award / option "
-                   f"transaction(s) (collapsed).")
-    return out
+    return render_evidence(summaries, routine_count, notable)
 
 
 def _format_sec_evidence_block(sec_filings: list, fetched: list,
@@ -739,11 +699,13 @@ async def _fetch_form4_safe(filing: dict) -> tuple[dict, list]:
 
 async def _enrich_form4_insiders(sec_filings: list, deadline: float) -> dict:
     """Fetch Form-4 insider detail and build the deterministic SEC evidence
-    block. Returns {"block": <str>, "partial": <bool>}.
+    block. Returns {"block": <str>, "partial": <bool>, "all_field": <str>}.
 
-    The Form-4 fetch is bounded by _FORM4_ENRICH_TIMEOUT (and never longer
-    than `deadline`); on timeout the block is built from whatever completed
-    and `partial` is True.
+    `block` is the LLM-evidence text; `all_field` is the clean bold form for
+    the `!all` card's 🏛️ Insider Activity field (empty when no open-market
+    trades). The Form-4 fetch is bounded by _FORM4_ENRICH_TIMEOUT (and never
+    longer than `deadline`); on timeout the block is built from whatever
+    completed and `partial` is True.
     """
     filings = sec_filings if isinstance(sec_filings, list) else []
     form4 = [f for f in filings
@@ -764,9 +726,19 @@ async def _enrich_form4_insiders(sec_filings: list, deadline: float) -> dict:
                 t.cancel()
         if partial:
             await asyncio.gather(*tasks, return_exceptions=True)
+
+    # Clean 🏛️ Insider Activity field for the !all card, from the same fetch.
+    from consensus_engine.alerts.insider_display import (
+        aggregate_insiders, render_all_field,
+    )
+    all_txs = [t for _f, txs in fetched for t in (txs or [])]
+    summaries, routine_count = aggregate_insiders(all_txs)
+    all_field = render_all_field(summaries, routine_count) if summaries else ""
+
     return {
         "block": _format_sec_evidence_block(filings, fetched, partial),
         "partial": partial,
+        "all_field": all_field,
     }
 
 
@@ -1396,6 +1368,7 @@ async def _compute_all(ticker: str, start: float) -> dict:
         yt_signals=data["yt_signals"] if isinstance(data["yt_signals"], list) else None,
         chart_pattern=data.get("chart_pattern"),
         wolf_confluence=data.get("wolf_confluence"),
+        insider_field=sec_evidence.get("all_field") or None,
     )
     anchors_used: list[levels.Anchor] = list(supports[:6]) + list(resistances[:6])
     vault_md = vault_writer.render_all_command_markdown(

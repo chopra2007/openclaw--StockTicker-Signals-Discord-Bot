@@ -692,6 +692,7 @@ def build_embed(
     yt_signals: Optional[list[dict]] = None,
     chart_pattern: Optional[dict] = None,
     wolf_confluence: Optional[dict] = None,
+    insider_field: Optional[str] = None,
 ) -> dict:
     """Return a Discord embed payload dict for the !all command."""
     direction = getattr(structured, "direction", "") or ""
@@ -830,6 +831,12 @@ def build_embed(
     rs_val = _format_peer_strength(getattr(structured, "peer_strength", None))
     if rs_val != "—":
         fields.append({"name": "Sector Strength", "value": rs_val, "inline": False})
+    # Insider (Form 4) activity — deterministic, aggregated one block per
+    # insider/date/side. Placed directly under Sector Strength so its top gap
+    # matches the normal field spacing. Value is pre-trimmed to the field cap.
+    if insider_field:
+        fields.append({"name": "🏛️ Insider Activity",
+                       "value": insider_field[:1024], "inline": False})
     snap_val = _format_snapshot(getattr(structured, "snapshot", None))
     if snap_val != "—":
         fields.append({"name": "📊 Snapshot", "value": snap_val, "inline": False})

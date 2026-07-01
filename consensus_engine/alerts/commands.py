@@ -777,70 +777,94 @@ def _fmt_insider_name(raw: str) -> str:
     return raw.title()
 
 
-def _fmt_security(raw: str) -> str:
-    s = raw.strip()
-    if "restricted stock unit" in s.lower():
-        return "RSUs"
-    if "common stock" in s.lower():
-        return "Common Stock"
-    return s
+def _pack_insider_blocks(summaries: list, routine: int, limit: int = 3800) -> list[str]:
+    """Split insider summaries into one or more fenced code blocks, each within
+    `limit` chars, so the whole set always fits inside embed descriptions.
+    The routine-count line rides on the last block only."""
+    from consensus_engine.alerts.insider_display import render_cards
+    groups: list[list] = []
+    cur: list = []
+    for s in summaries:
+        if cur and len(render_cards(cur + [s], 0)) > limit:
+            groups.append(cur)
+            cur = [s]
+        else:
+            cur.append(s)
+    if cur:
+        groups.append(cur)
+    return [render_cards(g, routine if i == len(groups) - 1 else 0)
+            for i, g in enumerate(groups)]
+
+
+def _pack_sec_embeds(sections: list[str], limit: int = 3800) -> list[str]:
+    """Greedily pack section strings into embed descriptions within `limit`."""
+    descs: list[str] = []
+    cur = ""
+    for sec in sections:
+        piece = sec[:limit]
+        if cur and len(cur) + 2 + len(piece) > limit:
+            descs.append(cur)
+            cur = piece
+        else:
+            cur = (cur + "\n\n" + piece) if cur else piece
+    if cur:
+        descs.append(cur)
+    return descs
 
 
 async def _sec_and_reply(ticker: str, channel_id: str, message_id: str) -> None:
     try:
         from consensus_engine.scanners.sec_edgar import (
-            check_recent_filings, classify_filing_significance, fetch_form4_details
+            check_recent_filings, fetch_form4_details,
+        )
+        from consensus_engine.alerts.insider_display import (
+            aggregate_insiders, _fmt_date,
         )
         filings = await check_recent_filings(ticker, hours_back=72)
         if not filings:
             await send_command_reply(channel_id, message_id, f"No SEC filings in the last 72h for `${ticker}`.")
             return
 
-        lines = [f"**SEC Filings — ${ticker}** (last 72h)"]
+        dict_filings = [f for f in filings if isinstance(f, dict)]
+        form4 = [f for f in dict_filings if f.get("form") == "4"]
+        other = [f for f in dict_filings if f.get("form") != "4"]
 
-        for f in filings[:8]:
-            form = f.get("form", "?")
-            filed = f.get("filing_date", "?")
+        all_txs: list = []
+        for f in form4[:8]:
+            txs = await fetch_form4_details(
+                f.get("cik", ""),
+                f.get("accession_number", ""),
+                f.get("primary_document", ""),
+            )
+            all_txs.extend(txs or [])
+        summaries, routine = aggregate_insiders(all_txs)
 
-            if form == "4":
-                txs = await fetch_form4_details(
-                    f.get("cik", ""),
-                    f.get("accession_number", ""),
-                    f.get("primary_document", ""),
-                )
-                # Group transactions by insider
-                grouped: dict[str, list] = {}
-                meta: dict[str, str] = {}
-                for tx in txs:
-                    key = tx["reporter_name"]
-                    grouped.setdefault(key, []).append(tx)
-                    meta[key] = tx["title"]
+        # Insider blocks (fenced code cards; every insider shown — no top-N cap).
+        insider_blocks = _pack_insider_blocks(summaries, routine) if summaries else []
+        if not insider_blocks and form4:
+            insider_blocks = [
+                "Recent Form 4 filings were routine awards / option exercises "
+                "— no open-market conviction trades." if routine else
+                "Recent Form 4 filings present; insider detail could not be retrieved."
+            ]
 
-                try:
-                    date_fmt = datetime.strptime(filed, "%Y-%m-%d").strftime("%b %-d")
-                except ValueError:
-                    date_fmt = filed
+        sections = list(insider_blocks)
+        if other:
+            other_lines = ["**Other filings**"]
+            for f in other[:12]:
+                other_lines.append(f"📄 **{f.get('form', '?')}** · {_fmt_date(f.get('filing_date', ''))}")
+            sections.append("\n".join(other_lines))
+        if not sections:
+            sections = ["No insider or notable filings in the last 72h."]
 
-                lines.append(f"\n📋 **Form 4 · {date_fmt}** — Insider Transactions")
-                for raw_name, insider_txs in grouped.items():
-                    display_name = _fmt_insider_name(raw_name)
-                    title = meta[raw_name]
-                    lines.append(f"👤 **{display_name}** · {title}")
-                    for tx in insider_txs:
-                        direction = tx["direction"]
-                        shares = tx["shares"]
-                        price = tx["price"]
-                        tx_type = tx["transaction_type"]
-                        security = _fmt_security(tx["security"])
-                        icon = "🟢" if direction == "Buy" else "🔴" if direction == "Sell" else "⚪"
-                        prefix = "+" if direction == "Buy" else "−" if direction == "Sell" else ""
-                        shares_fmt = f"{shares:,.0f}"
-                        price_str = f" @ **${price:.2f}**" if price else ""
-                        lines.append(f"  {icon} {prefix}{shares_fmt} {security}{price_str}  _{tx_type}_")
-            else:
-                lines.append(f"\n📄 **{form}** · {filed}")
-
-        await send_command_reply(channel_id, message_id, "\n".join(lines))
+        embeds = _pack_sec_embeds(sections)
+        for i, desc in enumerate(embeds):
+            title = (f"📄 SEC Filings — ${ticker} · last 72h" if i == 0
+                     else f"📄 SEC Filings — ${ticker} (cont.)")
+            await send_command_embed_reply(
+                channel_id, message_id,
+                {"title": title, "description": desc, "color": 0x2B6CB0},
+            )
     except Exception as e:
         log.error("SEC command error for %s: %s", ticker, e)
         await send_command_reply(channel_id, message_id, f"SEC lookup failed for `${ticker}`.")

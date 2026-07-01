@@ -387,7 +387,7 @@ async def test_named_insiders_flag_off_byte_identical(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_named_insiders_flag_on_cfo_open_market_sell(monkeypatch):
-    """Flag ON + CFO open-market sell => summary names insider, role, 'sold', figures."""
+    """Flag ON + CFO open-market sell => summary shows the aggregated insider card."""
     _flag_on(monkeypatch)
 
     txs = [{
@@ -412,14 +412,15 @@ async def test_named_insiders_flag_on_cfo_open_market_sell(monkeypatch):
     assert has_filing is True
     # Original count line preserved
     assert "Form 4 x1 (insider trading)" in summary
-    # Named-insider enrichment present
+    # Aggregated insider card present (shared insider_display renderer)
     assert "Jane Doe" in summary  # _fmt_insider_name reverses LAST FIRST
     assert "CFO" in summary
-    assert "sold" in summary
-    assert "240,000 sh" in summary
-    # ~$12.6M open-market value (240000 * 52.5 = 12,600,000)
-    assert "12,600,000" in summary
-    assert "⭐" in summary  # CFO highlighted
+    assert "🔴" in summary               # sold = red dot
+    assert "240,000" in summary
+    # 240,000 * $52.50 = $12.6M, shown compact
+    assert "~$12.6M" in summary
+    assert "Jun 5" in summary            # transaction date, not filing date
+    assert "⭐" not in summary           # CEO/CFO star marker removed in refactor
 
 
 @pytest.mark.asyncio

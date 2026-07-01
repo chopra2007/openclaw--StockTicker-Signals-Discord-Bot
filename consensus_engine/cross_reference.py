@@ -323,66 +323,33 @@ _NAMED_INSIDER_FIELD_CAP = 1024  # keep the appended block under one embed field
 
 
 def _format_named_insiders(fetched: list) -> str:
-    """Render named-insider lines for the SEC summary, reusing the
-    `commands._sec_and_reply` emoji house style (🟢/🔴 + role + buy/sell + size).
+    """Render the named-insider block for the SEC summary via the shared
+    insider renderer (one code-block card per insider, per date, per side).
 
     `fetched` is a list of transaction lists (one per Form-4 filing). Open-market
-    purchases/sales are shown per insider, top-N by dollar value, CEO/CFO
-    highlighted; routine awards / option exercises / tax withholding are
-    collapsed to a count. The whole block is capped under one embed field.
-    Returns "" when there is nothing to show.
+    purchases/sales are aggregated per insider; routine awards / option exercises
+    / tax withholding are collapsed to a count. The block is trimmed to stay
+    under one embed field. Returns "" when there is nothing to show.
     """
-    from consensus_engine.scanners.sec_edgar import _OPEN_MARKET_TX_TYPES
-    from consensus_engine.alerts.commands import _fmt_insider_name
+    from consensus_engine.alerts.insider_display import (
+        aggregate_insiders, render_cards,
+    )
 
     all_txs = [t for txs in fetched for t in (txs or [])]
     if not all_txs:
         return ""
-    open_market = [t for t in all_txs
-                   if t.get("transaction_type") in _OPEN_MARKET_TX_TYPES]
-    routine_count = len(all_txs) - len(open_market)
-    if not open_market:
-        return f"Form 4 detail: {routine_count} routine award/exercise(s) only."
+    summaries, routine_count = aggregate_insiders(all_txs)
+    if not summaries:
+        if routine_count:
+            return f"Form 4 detail: {routine_count} routine award/exercise(s) only."
+        return ""
 
-    def _dollar(t) -> float:
-        try:
-            return float(t.get("shares") or 0) * float(t.get("price") or 0)
-        except (TypeError, ValueError):
-            return 0.0
-
-    ranked = sorted(open_market, key=_dollar, reverse=True)
-    header = "Form 4 insiders:"
-    lines: list[str] = []
-    shown = 0
-    for t in ranked:
-        name = _fmt_insider_name(str(t.get("reporter_name") or "Unknown"))
-        title = str(t.get("title") or "Insider")
-        direction = t.get("direction")
-        verb = "bought" if direction == "Buy" else "sold" if direction == "Sell" else "traded"
-        icon = "🟢" if direction == "Buy" else "🔴" if direction == "Sell" else "⚪"
-        try:
-            shares = float(t.get("shares") or 0)
-        except (TypeError, ValueError):
-            shares = 0.0
-        value = _dollar(t)
-        star = "⭐ " if any(r in title.upper() for r in ("CEO", "CFO")) else ""
-        dollar_str = f" (~${value:,.0f})" if value else ""
-        line = (f"{icon} {star}{name} ({title}) {verb} "
-                f"{shares:,.0f} sh{dollar_str}")
-        tail_more = len(ranked) - shown - 1
-        tail = (f"\n  plus {tail_more} more insider(s)") if tail_more > 0 else ""
-        candidate = header + "\n" + "\n".join(lines + [line]) + tail
-        if len(candidate) > _NAMED_INSIDER_FIELD_CAP and lines:
-            break
-        lines.append(line)
-        shown += 1
-
-    block = header + "\n" + "\n".join(lines)
-    remaining = len(open_market) - shown
-    if remaining > 0:
-        block += f"\n  plus {remaining} more insider(s)"
-    if routine_count:
-        block += f"\n  (+{routine_count} routine award/exercise(s))"
+    shown = list(summaries)
+    block = render_cards(shown, routine_count)
+    while len(block) > _NAMED_INSIDER_FIELD_CAP and len(shown) > 1:
+        shown = shown[:-1]
+        note = f"+{len(summaries) - len(shown)} more insiders"
+        block = render_cards(shown, routine_count, note=note)
     return block
 
 
