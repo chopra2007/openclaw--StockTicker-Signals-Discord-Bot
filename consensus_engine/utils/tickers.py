@@ -27,6 +27,9 @@ BLACKLIST: set[str] = {
     # Reddit / WSB slang
     "YOLO", "FOMO", "LFG", "WSB", "MOON", "HOLD", "PUMP", "DUMP", "APE", "APES",
     "BULL", "BEAR", "GUH", "TEND", "DFV", "RH", "MAGA", "WIKI",
+    # Direction words — never a ticker in a tweet/transcript (bullish/bearish is
+    # a separate concept handled in analysis/technical.py, not this blacklist).
+    "SHORT", "LONG",
     # Geopolitics / general
     "USA", "UK", "EU", "UAE",
     # Geopolitics additions

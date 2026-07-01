@@ -60,6 +60,134 @@ async def _dispatch_inner(coro) -> asyncio.Task:
     return asyncio.create_task(_guarded())
 
 
+# ---------------------------------------------------------------------------
+# Multi-ticker command support
+# ---------------------------------------------------------------------------
+# One command can now name several tickers: `!all nvda amd mu` or
+# `!all nvda, amd, mu`. `_parse_ticker_args` splits the list; `_run_ticker_command`
+# runs it — light commands all at once, medium/heavy one at a time.
+# LONG / SHORT are reserved direction words (see analysis/technical.py), never
+# tickers — a tiny explicit set, NOT the full blacklist, so `!all SPY` still works.
+
+_DIRECTION_WORDS = {"LONG", "SHORT"}
+
+
+def _parse_ticker_args(
+    args: list[str], *, cap: int, takes_direction: bool = False
+) -> tuple[list[str], str, list[str], list[str]]:
+    """Split a command's args into (tickers, direction, invalid, dropped).
+
+    - Split on commas AND spaces; strip a leading '$'; uppercase.
+    - LONG / SHORT are reserved direction words, never tickers. For a command
+      that takes a direction the last one seen wins (default 'long'); for every
+      other command they are simply removed.
+    - tickers: well-formed symbols (1-5 letters), deduped, first-seen order,
+      trimmed to `cap`.
+    - invalid: tokens that fail the format check (bad length / non-alpha).
+    - dropped: valid tickers beyond the cap.
+    """
+    tokens = [t for t in re.split(r"[,\s]+", " ".join(args)) if t]
+    direction = "long"
+    valid: list[str] = []
+    invalid: list[str] = []
+    for tok in tokens:
+        sym = tok.lstrip("$").upper()
+        if not sym:
+            continue
+        if sym in _DIRECTION_WORDS:
+            if takes_direction:
+                direction = sym.lower()
+            continue  # never a ticker, for any command
+        if is_valid_ticker_format(sym):
+            valid.append(sym)
+        elif sym not in invalid:
+            invalid.append(sym)
+    valid = list(dict.fromkeys(valid))  # dedupe, preserve first-seen order
+    dropped = valid[cap:]
+    valid = valid[:cap]
+    return valid, direction, invalid, dropped
+
+
+def _batch_note(
+    tickers: list[str], invalid: list[str], dropped: list[str], cap: int
+) -> Optional[str]:
+    """One short acknowledgment line for a multi-ticker run, or None.
+
+    Returns None for a clean single-ticker run (so single-ticker output is
+    unchanged). Otherwise names what is running and what was skipped/dropped.
+    """
+    clauses = []
+    if invalid:
+        clauses.append("Skipped " + ", ".join(invalid) + " (not a ticker).")
+    if dropped:
+        clauses.append(f"Dropped {', '.join(dropped)} (max {cap}).")
+    if len(tickers) <= 1 and not clauses:
+        return None
+    head = "Running " + ", ".join(f"${t}" for t in tickers) + "."
+    return " ".join([head] + clauses)
+
+
+async def _run_ticker_command(
+    args: list[str], channel_id: str, message_id: str, *,
+    work, mode: str, cap: int, usage: str, takes_direction: bool = False,
+) -> None:
+    """Run a ticker command for one or more tickers.
+
+    work: async callable — work(ticker) normally, or work(ticker, direction)
+          when takes_direction is True. It sends its own reply(ies); a
+          medium/heavy handler returns the background task it dispatched, which
+          the sequential runner awaits before starting the next ticker.
+    mode: "parallel" (fire all at once) or "sequential" (one at a time).
+    cap:  max tickers to run; extras are dropped with a note.
+    usage: shown when no ticker is given.
+    """
+    if not args:
+        await send_command_reply(channel_id, message_id, usage)
+        return
+
+    tickers, direction, invalid, dropped = _parse_ticker_args(
+        args, cap=cap, takes_direction=takes_direction
+    )
+    if not tickers:
+        bad = (invalid or dropped or args)[0]
+        await send_command_reply(
+            channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=str(bad).upper())
+        )
+        return
+
+    note = _batch_note(tickers, invalid, dropped, cap)
+    if note:
+        await send_command_reply(channel_id, message_id, note)
+
+    def _call(t: str):
+        return work(t, direction) if takes_direction else work(t)
+
+    if mode == "sequential" and len(tickers) > 1:
+        # Run one at a time inside a single background task so route_command
+        # returns fast (never holds _OUTER_SEM for the minutes a 3x !all takes).
+        # Each handler dispatches its own inner task and returns it; we await
+        # that task before starting the next ticker.
+        async def _chain():
+            for t in tickers:
+                try:
+                    task = await _call(t)
+                    if task is not None:
+                        await task
+                except Exception as e:  # noqa: BLE001
+                    log.error("multi-ticker sequential failed for $%s: %s",
+                              t, e, exc_info=e)
+        await _dispatch_inner(_chain())
+    else:
+        # Single ticker (any mode) or parallel: fire each handler directly.
+        # Medium/heavy handlers dispatch their work to the background (true
+        # parallel); light handlers reply inline. Route returns promptly.
+        for t in tickers:
+            try:
+                await _call(t)
+            except Exception as e:  # noqa: BLE001
+                log.error("multi-ticker failed for $%s: %s", t, e, exc_info=e)
+
+
 def _parse_history_limit(content: str, default: int = 20) -> int:
     """Extract 'last N messages' from content, capped at 50."""
     m = re.search(r'last\s+(\d+)\s+messages?', content, re.IGNORECASE)
@@ -275,14 +403,11 @@ async def _route_command_inner(
         await _handle_performance(channel_id, message_id)
 
     elif command == "scan":
-        if not args:
-            await send_command_reply(channel_id, message_id, "Usage: `!scan <TICKER>` — e.g. `!scan NVDA`")
-        else:
-            ticker = args[0].upper()
-            if not is_valid_ticker_format(ticker):
-                await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=ticker))
-            else:
-                await _handle_scan(ticker, channel_id, message_id)
+        await _run_ticker_command(
+            args, channel_id, message_id,
+            work=lambda t: _handle_scan(t, channel_id, message_id),
+            mode="sequential", cap=5,
+            usage="Usage: `!scan <TICKER>` — e.g. `!scan NVDA` (or several: `!scan nvda amd mu`)")
 
     elif command == "ask":
         question = " ".join(args).strip()
@@ -294,88 +419,65 @@ async def _route_command_inner(
             await _handle_ask(question, channel_id, message_id)
 
     elif command == "all":
-        if not args:
-            await send_command_reply(channel_id, message_id, "Usage: `!all <TICKER>` — e.g. `!all AMD`")
-        else:
-            ticker = args[0].upper()
-            if not is_valid_ticker_format(ticker):
-                await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=ticker))
-            else:
-                await _handle_all(ticker, channel_id, message_id)
+        await _run_ticker_command(
+            args, channel_id, message_id,
+            work=lambda t: _handle_all(t, channel_id, message_id),
+            mode="sequential", cap=3,
+            usage="Usage: `!all <TICKER>` — e.g. `!all AMD` (or up to 3: `!all nvda amd mu`)")
 
     elif command == "signals":
-        if not args:
-            await send_command_reply(channel_id, message_id, "Usage: `!signals <TICKER>` — e.g. `!signals NVDA`")
-        else:
-            ticker = args[0].upper()
-            if not is_valid_ticker_format(ticker):
-                await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=ticker))
-            else:
-                await _handle_signals(ticker, channel_id, message_id)
+        await _run_ticker_command(
+            args, channel_id, message_id,
+            work=lambda t: _handle_signals(t, channel_id, message_id),
+            mode="parallel", cap=5,
+            usage="Usage: `!signals <TICKER>` — e.g. `!signals NVDA` (or several: `!signals nvda amd`)")
 
     elif command == "analysts":
-        if not args:
-            await send_command_reply(channel_id, message_id, "Usage: `!analysts <TICKER>` — e.g. `!analysts NVDA`")
-        else:
-            ticker = args[0].upper()
-            if not is_valid_ticker_format(ticker):
-                await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=ticker))
-            else:
-                await _handle_analysts(ticker, channel_id, message_id)
+        await _run_ticker_command(
+            args, channel_id, message_id,
+            work=lambda t: _handle_analysts(t, channel_id, message_id),
+            mode="parallel", cap=5,
+            usage="Usage: `!analysts <TICKER>` — e.g. `!analysts NVDA` (or several: `!analysts nvda amd`)")
 
     elif command in ("active-tickers", "active_tickers", "active"):
         await _handle_active_tickers(channel_id, message_id)
 
     elif command == "news":
-        if not args:
-            await send_command_reply(channel_id, message_id, "Usage: `!news <TICKER>` — e.g. `!news NVDA`")
-        else:
-            ticker = args[0].upper()
-            if not is_valid_ticker_format(ticker):
-                await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=ticker))
-            else:
-                await _handle_news(ticker, channel_id, message_id)
+        await _run_ticker_command(
+            args, channel_id, message_id,
+            work=lambda t: _handle_news(t, channel_id, message_id),
+            mode="sequential", cap=5,
+            usage="Usage: `!news <TICKER>` — e.g. `!news NVDA` (or several: `!news nvda amd mu`)")
 
     elif command == "sec":
-        if not args:
-            await send_command_reply(channel_id, message_id, "Usage: `!sec <TICKER>` — e.g. `!sec NVDA`")
-        else:
-            ticker = args[0].upper()
-            if not is_valid_ticker_format(ticker):
-                await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=ticker))
-            else:
-                await _handle_sec(ticker, channel_id, message_id)
+        await _run_ticker_command(
+            args, channel_id, message_id,
+            work=lambda t: _handle_sec(t, channel_id, message_id),
+            mode="sequential", cap=5,
+            usage="Usage: `!sec <TICKER>` — e.g. `!sec NVDA` (or several: `!sec nvda amd mu`)")
 
     elif command == "options":
-        if not args:
-            await send_command_reply(channel_id, message_id, "Usage: `!options <TICKER>` — e.g. `!options NVDA`")
-        else:
-            ticker = args[0].upper()
-            if not is_valid_ticker_format(ticker):
-                await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=ticker))
-            else:
-                await _handle_options(ticker, channel_id, message_id)
+        await _run_ticker_command(
+            args, channel_id, message_id,
+            work=lambda t: _handle_options(t, channel_id, message_id),
+            mode="sequential", cap=5,
+            usage="Usage: `!options <TICKER>` — e.g. `!options NVDA` (or several: `!options nvda amd mu`)")
 
     elif command == "technical":
-        if not args:
-            await send_command_reply(channel_id, message_id, "Usage: `!technical <TICKER>` — e.g. `!technical NVDA`")
-        else:
-            ticker = args[0].upper()
-            if not is_valid_ticker_format(ticker):
-                await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=ticker))
-            else:
-                direction = args[1].lower() if len(args) > 1 and args[1].lower() in ("long", "short") else "long"
-                await _handle_technical(ticker, direction, channel_id, message_id)
+        await _run_ticker_command(
+            args, channel_id, message_id,
+            work=lambda t, d: _handle_technical(t, d, channel_id, message_id),
+            mode="parallel", cap=5, takes_direction=True,
+            usage="Usage: `!technical <TICKER> [long|short]` — e.g. `!technical NVDA` "
+                  "(or several: `!technical nvda amd short`)")
 
     elif command in ("google-trends", "trends", "gtrends"):
-        if not args:
-            await send_command_reply(channel_id, message_id, "Usage: `!google-trends <TICKER>` — e.g. `!google-trends NVDA`")
-        else:
-            ticker = args[0].upper()
-            if not is_valid_ticker_format(ticker):
-                await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=ticker))
-            else:
-                await _handle_google_trends(ticker, channel_id, message_id)
+        await _run_ticker_command(
+            args, channel_id, message_id,
+            work=lambda t: _handle_google_trends(t, channel_id, message_id),
+            mode="sequential", cap=5,
+            usage="Usage: `!google-trends <TICKER>` — e.g. `!google-trends NVDA` "
+                  "(or several: `!google-trends nvda amd`)")
 
     elif command == "serpapi-trends":
         # Run SerpAPI Google Trends for active tickers (called via cron)
@@ -385,14 +487,12 @@ async def _route_command_inner(
         await _handle_apewisdom(channel_id, message_id)
 
     elif command in ("alert-history", "history"):
-        if not args:
-            await send_command_reply(channel_id, message_id, "Usage: `!alert-history <TICKER>` — e.g. `!alert-history NVDA`")
-        else:
-            ticker = args[0].upper()
-            if not is_valid_ticker_format(ticker):
-                await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=ticker))
-            else:
-                await _handle_alert_history(ticker, channel_id, message_id)
+        await _run_ticker_command(
+            args, channel_id, message_id,
+            work=lambda t: _handle_alert_history(t, channel_id, message_id),
+            mode="parallel", cap=5,
+            usage="Usage: `!alert-history <TICKER>` — e.g. `!alert-history NVDA` "
+                  "(or several: `!alert-history nvda amd`)")
 
     elif command == "leaderboard":
         await _handle_leaderboard(channel_id, message_id)
@@ -407,14 +507,11 @@ async def _route_command_inner(
             await _handle_transcript(args[0], channel_id, message_id)
 
     elif command == "levels":
-        if not args:
-            await send_command_reply(channel_id, message_id, "Usage: `!levels <TICKER>` — e.g. `!levels NVDA`")
-        else:
-            ticker = args[0].upper()
-            if not is_valid_ticker_format(ticker):
-                await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=ticker))
-            else:
-                await _handle_levels(ticker, channel_id, message_id)
+        await _run_ticker_command(
+            args, channel_id, message_id,
+            work=lambda t: _handle_levels(t, channel_id, message_id),
+            mode="parallel", cap=5,
+            usage="Usage: `!levels <TICKER>` — e.g. `!levels NVDA` (or several: `!levels nvda amd`)")
 
     elif command == "yt":
         if not args:
@@ -423,13 +520,12 @@ async def _route_command_inner(
             await _handle_yt(args[0], channel_id, message_id, author_id=author_id)
 
     elif command in ("yt-mentions", "yt_mentions"):
-        raw = args[0].lstrip("$").upper() if args else ""
-        if not raw:
-            await send_command_reply(channel_id, message_id, "Usage: `!yt-mentions $TICKER` — e.g. `!yt-mentions $NVDA`")
-        elif not is_valid_ticker_format(raw):
-            await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=raw))
-        else:
-            await _handle_yt_mentions(raw, channel_id, message_id)
+        await _run_ticker_command(
+            args, channel_id, message_id,
+            work=lambda t: _handle_yt_mentions(t, channel_id, message_id),
+            mode="parallel", cap=5,
+            usage="Usage: `!yt-mentions $TICKER` — e.g. `!yt-mentions $NVDA` "
+                  "(or several: `!yt-mentions nvda amd`)")
 
     elif command == "macro":
         await _handle_macro(channel_id, message_id)
@@ -459,24 +555,18 @@ async def _route_command_inner(
             await _handle_shadow_mode_report(args[0].lower().replace("-", "_"), channel_id, message_id)
 
     elif command == "cluster":
-        if not args:
-            await send_command_reply(channel_id, message_id, "Usage: `!cluster <TICKER>` — e.g. `!cluster NVDA`")
-        else:
-            ticker = args[0].upper()
-            if not is_valid_ticker_format(ticker):
-                await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=ticker))
-            else:
-                await _handle_cluster_history(ticker, channel_id, message_id)
+        await _run_ticker_command(
+            args, channel_id, message_id,
+            work=lambda t: _handle_cluster_history(t, channel_id, message_id),
+            mode="parallel", cap=5,
+            usage="Usage: `!cluster <TICKER>` — e.g. `!cluster NVDA` (or several: `!cluster nvda amd`)")
 
     elif command == "em":
-        if not args:
-            await send_command_reply(channel_id, message_id, "Usage: `!em <TICKER>` — e.g. `!em SPY`")
-        else:
-            ticker = args[0].upper()
-            if not is_valid_ticker_format(ticker):
-                await send_command_reply(channel_id, message_id, _INVALID_TICKER_MSG.format(ticker=ticker))
-            else:
-                await _handle_em(ticker, channel_id, message_id)
+        await _run_ticker_command(
+            args, channel_id, message_id,
+            work=lambda t: _handle_em(t, channel_id, message_id),
+            mode="sequential", cap=5,
+            usage="Usage: `!em <TICKER>` — e.g. `!em SPY` (or several: `!em nvda amd mu`)")
 
     elif command in ("market", "rotation", "breadth", "regime"):
         await _handle_market(channel_id, message_id)
@@ -589,7 +679,7 @@ async def _handle_performance(channel_id: str, message_id: str) -> None:
 async def _handle_scan(ticker: str, channel_id: str, message_id: str) -> None:
     """Run the full on-demand check and reply with one gated score + band."""
     await send_command_reply(channel_id, message_id, f"Scanning `${ticker}`...")
-    await _dispatch_inner(_scan_and_reply(ticker, channel_id, message_id))
+    return await _dispatch_inner(_scan_and_reply(ticker, channel_id, message_id))
 
 
 async def _scan_and_reply(ticker: str, channel_id: str, message_id: str) -> None:
@@ -685,6 +775,7 @@ async def _handle_all(ticker: str, channel_id: str, message_id: str) -> None:
             log.error("!all handler task failed for $%s: %s", ticker, exc, exc_info=exc)
 
     task.add_done_callback(_log_handle_all_exception)
+    return task
 
 
 # ---------------------------------------------------------------------------
@@ -741,7 +832,7 @@ async def _handle_active_tickers(channel_id: str, message_id: str) -> None:
 async def _handle_news(ticker: str, channel_id: str, message_id: str) -> None:
     """Run news cascade for a ticker and reply with result."""
     await send_command_reply(channel_id, message_id, f"Running news scan for `${ticker}`...")
-    await _dispatch_inner(_news_and_reply(ticker, channel_id, message_id))
+    return await _dispatch_inner(_news_and_reply(ticker, channel_id, message_id))
 
 
 async def _news_and_reply(ticker: str, channel_id: str, message_id: str) -> None:
@@ -766,7 +857,7 @@ async def _news_and_reply(ticker: str, channel_id: str, message_id: str) -> None
 async def _handle_sec(ticker: str, channel_id: str, message_id: str) -> None:
     """Show recent SEC filings for a ticker."""
     await send_command_reply(channel_id, message_id, f"Checking SEC filings for `${ticker}`...")
-    await _dispatch_inner(_sec_and_reply(ticker, channel_id, message_id))
+    return await _dispatch_inner(_sec_and_reply(ticker, channel_id, message_id))
 
 
 def _fmt_insider_name(raw: str) -> str:
@@ -873,7 +964,7 @@ async def _sec_and_reply(ticker: str, channel_id: str, message_id: str) -> None:
 async def _handle_options(ticker: str, channel_id: str, message_id: str) -> None:
     """Show unusual options activity for a ticker."""
     await send_command_reply(channel_id, message_id, f"Checking options flow for `${ticker}`...")
-    await _dispatch_inner(_options_and_reply(ticker, channel_id, message_id))
+    return await _dispatch_inner(_options_and_reply(ticker, channel_id, message_id))
 
 
 _OPT_PT = ZoneInfo("America/Los_Angeles")
@@ -1027,7 +1118,7 @@ async def _handle_em(ticker: str, channel_id: str, message_id: str) -> None:
     options too illiquid for a reliable straddle get a friendly message from
     compute_em (the open-interest floor is the liquidity gate)."""
     await send_command_reply(channel_id, message_id, f"Calculating expected move for `${ticker}`…")
-    await _dispatch_inner(_em_and_reply(ticker, channel_id, message_id))
+    return await _dispatch_inner(_em_and_reply(ticker, channel_id, message_id))
 
 
 async def _em_and_reply(ticker: str, channel_id: str, message_id: str) -> None:
@@ -1083,7 +1174,7 @@ async def _technical_and_reply(ticker: str, direction: str, channel_id: str, mes
 async def _handle_google_trends(ticker: str, channel_id: str, message_id: str) -> None:
     """Check Google Trends spike for a ticker."""
     await send_command_reply(channel_id, message_id, f"Checking Google Trends for `${ticker}`...")
-    await _dispatch_inner(_google_trends_and_reply(ticker, channel_id, message_id))
+    return await _dispatch_inner(_google_trends_and_reply(ticker, channel_id, message_id))
 
 
 async def _google_trends_and_reply(ticker: str, channel_id: str, message_id: str) -> None:
