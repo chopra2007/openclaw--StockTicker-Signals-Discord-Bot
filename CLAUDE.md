@@ -81,9 +81,9 @@ When the user says "add X to the to do list" (or "put that on the list", "add th
 ## Session Close Trigger
 
 When the user sends only "goodbye" or "bye":
-1. **If any item on the TODO list was worked on this session, update it first** (per `todo/CONVENTION.md`): mark finished items `— DONE YYYY-MM-DD` in `TODO.md` and the detail file's `**Status:**`, and/or append a dated session-notes block to the detail file capturing what changed. Skip this step only if no TODO item was touched this session.
-2. `git status` — commit any uncommitted changes (do **not** push here — step 3's script does the push, automatically choosing the doc-only `--no-verify` path or the full test gate based on whether code changed)
-3. Run `nohup /root/task_system/scripts/session_close.sh > /root/task_system/logs/session_close_latest.log 2>&1 &` to kick off the gate + push in the background
+1. **Update the TODO list FIRST — always before the regression gate (step 3), never after.** If any item on the TODO list was worked on this session, update it now (per `todo/CONVENTION.md`): mark finished items `— DONE YYYY-MM-DD` in `TODO.md` and the detail file's `**Status:**`, and/or append a dated session-notes block to the detail file capturing what changed. Skip this step only if no TODO item was touched this session.
+2. `git status` — commit any uncommitted changes, **including the step-1 TODO edits**, so the gate runs on a tree that already reflects the session's work (do **not** push here — step 3's script does the push, automatically choosing the doc-only `--no-verify` path or the full test gate based on whether code changed)
+3. Only now run `nohup /root/task_system/scripts/session_close.sh > /root/task_system/logs/session_close_latest.log 2>&1 &` to kick off the regression gate + push in the background
 4. Tell the user: "Gate running in background — safe to close. ci-monitor will catch any CI failures."
 5. Verify MEMORY.md is up to date
 6. List any `comm-check-fail-*` entries saved this session
