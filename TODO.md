@@ -353,8 +353,10 @@ Begin a cheap forward-log of the inputs and outcomes future features will need �
 
 Pay ~$29 once for 2 years of historical options data (massive.com) and use it to backtest the unusual-options-flow alerts and feed the market top/bottom detector — testing whether our options signals actually caught the big drops and rallies of the last 2 years.
 
-## 57. Move live options data onto the Schwab real-time feed
+## 57. Move live options data onto the Schwab real-time feed — creds + first login DONE, real-time feed PROVEN live 2026-06-30; adapter build + capabilities research pending
 
 **File:** `schwab-options-realtime.md`
 
-Swap the bot's live options source from the free, ~15-min-delayed, throttle-prone yfinance feed to the user's real-time Schwab Trader API — upgrading the `!options` command, the unusual-flow alerts in the options-flow channel, and the `!em` expected-move command with official real-time chains and native greeks.
+**CURRENT STATUS (2026-06-30):** App registered, App Key + Secret + callback in both env files, first OAuth login done by hand, token saved at `/root/.openclaw/schwab_token.json`. Live AAPL chain pulled successfully — `isDelayed: False` (genuine real-time), native greeks + IV present, Market Data API confirmed enabled on the app. NEXT: build the adapter (map Schwab chain → scanner shape, wire behind flag with yfinance fallback, weekly re-auth reminder) + write up the full API-capabilities/future-features research (see detail file's new research section).
+
+Swap the bot's live options source from the free, ~15-min-delayed, throttle-prone yfinance feed to the user's real-time Schwab Trader API — upgrading the `!options` command, the unusual-flow alerts in the options-flow channel, and the `!em` expected-move command with official real-time chains and native greeks. Also research everything the Schwab key can do (all endpoints + streaming) and what new bot commands / future features it unlocks.

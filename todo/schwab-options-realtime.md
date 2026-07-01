@@ -3,6 +3,21 @@
 **Status:** OPEN
 **Created:** 2026-06-29
 
+**CURRENT STATUS (2026-06-30):** Auth + feed access is DONE and PROVEN LIVE. App registered on the
+Schwab developer portal; App Key + Secret + callback (`https://127.0.0.1`) are in BOTH
+`/root/.openclaw/.env` and `.env.service` (markers `SCHWAB_APP_KEY` / `SCHWAB_APP_SECRET` /
+`SCHWAB_CALLBACK_URL` / `SCHWAB_APP_NAME`). First OAuth login done by hand (no adapter code): built the
+authorize URL from the App Key, user logged in via browser, pasted the `https://127.0.0.1/?code=…`
+redirect back, code exchanged server-side for a token. Token saved at
+`/root/.openclaw/schwab_token.json` (owner openclaw, 0600), schwab-py-compatible shape
+`{creation_timestamp, token:{access_token, refresh_token, expires_in:1800, …, scope:"api"}}`.
+**Live AAPL chain pulled OK** via `GET /marketdata/v1/chains?symbol=AAPL` → `status:SUCCESS`,
+`underlyingPrice:289.36`, **`isDelayed:False`** (real-time confirmed), 75 contracts, native
+delta/gamma/theta/vega/rho + IV per contract. Both API products (Trading + Market Data) are enabled
+on the app (the chain call would 401 otherwise). Gotcha proven: **auth codes expire in ~30s** — must
+exchange immediately after the user pastes the redirect URL (first attempt failed `invalid_grant`).
+**NEXT concrete step:** build the adapter (below) — this session only proved the pipe works.
+
 ## Goal
 Replace the free **yfinance** option-chain feed (unofficial, ~15-min delayed, throttle-prone)
 with the **Charles Schwab "Trader API – Individual"** as the live options data source for:
@@ -85,3 +100,76 @@ babysitting chore. Plan for it:
 - #47 (`vol-indicator-accuracy-research`) — why Schwab can't help THERE (needs history; Schwab is live-only).
 - #56 (`options-history-backtest`) — the history need Schwab also can't serve.
 - #52 (`!em` expected-move) — same chain source, swap together.
+
+---
+
+## API CAPABILITIES RESEARCH (2026-06-30)
+Grounded in schwab-py docs (Context7 `/websites/schwab-py_readthedocs_io_en`) + the live probe this
+session. Two API products are attached to the app; one OAuth token unlocks BOTH:
+
+### A. Market Data API  (`https://api.schwabapi.com/marketdata/v1`) — read-only quotes/history
+- **Option chains** (`/chains`) — VERIFIED LIVE. Real-time calls+puts, all strikes/expiries, greeks
+  (delta/gamma/theta/vega/rho), IV, volume, OI, bid/ask/last/mark. This is the #57 core.
+- **Option expiration list** (`/expirationchain`) — every expiration date for a symbol.
+- **Quotes** (`/quotes`, `/{symbol}/quotes`) — real-time quotes for equities, ETFs, options, indices,
+  mutual funds, futures, forex. Replaces the Finnhub free `/quote` we use now (and Finnhub's caps).
+- **Price history / OHLCV** (`/pricehistory`) — candles by minute/day/week/month. Minute granularity
+  ≈ last 48 days; daily goes back years. Replaces the yfinance-in-a-threadpool OHLCV path.
+- **Movers** (`/movers/{index}`) — top gainers/losers/most-active for $SPX/$COMPX/$DJI etc.
+- **Market hours** (`/markets`) — is the market open, session times.
+- **Instruments / search** (`/instruments`) — symbol lookup + fundamentals (CUSIP, description).
+
+### B. Trader API  (`https://api.schwabapi.com/trader/v1`) — YOUR ACCOUNT (read + TRADE)
+This is the page the user first landed on. It can **read balances/positions AND place real orders.**
+- Accounts: `/accounts/accountNumbers`, `/accounts`, `/accounts/{acct}` — balances & positions.
+- Orders: GET/POST `/accounts/{acct}/orders`, GET/PUT/DELETE `/…/orders/{id}`,
+  `/accounts/{acct}/previewOrder` — place / replace / cancel / preview real trades.
+- Transactions: `/accounts/{acct}/transactions` — full trade history.
+- User preferences: `/userPreference`.
+- ⚠️ This is live-money access. Anything trade-related must be gated behind an explicit, off-by-default
+  switch + confirmation. Not needed for #57's read-only options goal — flagged here for the roadmap.
+
+### C. Streaming API  (websocket, `StreamClient`) — PUSH real-time, not poll
+- `level_one_equity_subs`, `level_one_option_subs`, plus futures/forex — server PUSHES quote updates
+  live instead of us polling every 15 min. Also chart & order-book streams.
+- Big deal: today the options-flow loop POLLS yfinance on a timer; streaming = true tick-level
+  unusual-flow detection with no polling lag and no rate-limit dance.
+
+## FUTURE FEATURES this key unlocks (idea bank — not committed)
+Ordered rough easy→ambitious. User's own examples folded in (trading bot / better history / backtest log).
+
+1. **#57 itself** — real-time `!options`, unusual-flow alerts, `!em` on official chains + greeks. (in progress)
+2. **Better historical OHLCV backbone** — move the whole engine's price history off yfinance onto
+   `/pricehistory` (official, no throttle). Steadier RVOL/52-wk/technical signals. *(user idea: "better historical data")*
+3. **Quotes backbone swap** — real-time `/quotes` replaces Finnhub free tier → fewer rate caps, one auth.
+4. **Daily options-chain snapshot logger** → builds our OWN options history file over time. Directly
+   feeds #56's backtest need and #47's top/bottom detector — Schwab is live-only, but if WE log the live
+   chain daily, in N months we own the history nobody sells us cheaply. *(user idea: "tracking daily data to build a backtest file")*
+5. **Native greeks flow signals** — dealer-gamma / gamma-weighted unusual flow, delta-adjusted volume;
+   only possible now that greeks come free per contract.
+6. **Streaming unusual-flow** — swap the 15-min poll loop for a live websocket tick feed (Streaming API).
+7. **Real expected-move / IV-rank surfaces** — `!em`, IV-percentile, term-structure, skew — all from the
+   real-time chain + expiration list.
+8. **Portfolio-aware alerts** — read the user's ACTUAL Schwab positions (`/accounts`) so alerts can say
+   "you hold this" / P&L context. Read-only, still sensitive (personal holdings) — gate it.
+9. **Paper/automated trading bot** — the Trader API can place/preview/cancel real orders. Could auto-act
+   on high-conviction signals, or run a preview-only "what I'd trade" shadow. *(user idea: "a trading bot")*
+   HIGHEST RISK: real money, off-by-default, explicit per-trade confirm, heavy testing, start preview-only.
+
+## Open decisions for the research write-up (when #57 is built out)
+- Which of 2/3 (history + quote backbone swap) ride along with #57 vs become their own TODO items?
+- #4 daily-snapshot logger is the cheapest high-value add (turns a live-only feed into owned history) —
+  likely worth splitting into its own item so it starts collecting ASAP (same logic as #55).
+- Trading (#8/#9) is a category change (read-only intel bot → acts on the account). Own decision + its
+  own risk plan before ANY code; not to be smuggled in via #57.
+
+### Session notes — 2026-06-30
+- **Worked on:** Registered app confirmed; added `SCHWAB_*` creds to both env files (comments stripped,
+  values copied to `.env.service` without displaying); did the first OAuth login by hand and PROVED the
+  real-time feed live (AAPL chain, `isDelayed:False`, greeks present); token saved to
+  `/root/.openclaw/schwab_token.json`. Researched the full API ability set + future-feature bank (above).
+- **Decisions:** No adapter code yet — this session was creds + live proof only. yfinance stays as the
+  planned fallback. Trading endpoints exist but are out of scope for #57 and gated for the future.
+- **Next:** Build the Schwab chain adapter in `consensus_engine/scanners/options.py` (map → OptionsResult,
+  flag-gated, yfinance fallback), add the weekly re-auth reminder, then wire `!options`/flow-loop/`!em`.
+  Re-run the auth-code exchange fast (codes die in ~30s).
