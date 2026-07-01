@@ -22,9 +22,12 @@
   stays OFF. Its thresholds (`options_flow.min_vol_oi=10/min_volume=500/min_premium_usd=250k`) were tuned
   on the delayed yfinance feed; flipping it changes messages that post on their own, and the market was
   closed tonight so no live shadow-compare was possible. A one-shot compare is SCHEDULED for
-  2026-07-01 10:00 PDT (`scripts/schwab_flow_shadow_compare.py` via task `1782879041_08e8ad`) that posts
-  a Schwab-vs-yfinance hit-set verdict to #chat + notifications.log. **NEXT:** read that verdict, re-tune
-  if it diverges, then set `flow_loop_enabled: true` and restart.
+  2026-07-01 10:00 PDT (`scripts/schwab_flow_shadow_compare.py --apply` via task `1782879041_08e8ad`,
+  wrapper `scripts/run_flow_shadow.sh`). **User approved fully-autonomous completion (2026-06-30):** the
+  compare now AUTO-flips `flow_loop_enabled: true` + restarts the engine + posts "✅ now live" to #chat IF
+  both feeds agree (≥1 qualifying hit AND ≤2 exclusives per side); a 0-vs-0 quiet snapshot OR a material
+  divergence HOLDS (posts a note, no change). Verified end-to-end 2026-06-30 eve (after-hours → 0 hits →
+  correctly HELD, no flip). Shipped in commit `fcd8d71`.
 - Re-auth deadline: **2026-07-08 01:56 UTC ≈ 2026-07-07 18:56 PDT** (refresh does NOT extend it — the
   reminder fires from 2 days out). Full API-capabilities/future-features research is in the section below.
 
@@ -200,5 +203,9 @@ Ordered rough easy→ambitious. User's own examples folded in (trading bot / bet
   (SPY/QQQ full chain 502s from Schwab); kept wolf_outcomes+earnings_move on yfinance (RISK-5 div-adjust).
 - **Fixed a pre-existing ownership trap surfaced by the restart:** `/home/openclaw/.openclaw/openclaw.json`
   was root:root 600 (unreadable by openclaw → `❌ GATEWAY config unreadable`); chowned back to openclaw.
-- **Next:** 2026-07-01 ~10:00 PDT the scheduled shadow-compare posts a verdict; if hit-sets align, set
-  `features.schwab_options.flow_loop_enabled: true` + restart to finish the last 5%.
+- **Last 5% AUTOMATED + user-approved (2026-06-30):** 2026-07-01 ~10:00 PDT the scheduled shadow-compare
+  runs with `--apply` — auto-flips `flow_loop_enabled: true`, restarts the engine, posts "✅ now live" IF
+  both feeds agree (≤2 exclusives/side, ≥1 hit); holds + posts a note otherwise. Commit `fcd8d71` (pushed;
+  recovered a prior close-push that a stale `/tmp/pytest-prepush.log` had silently blocked). **After it
+  fires, next session must commit the live `consensus.yaml` flag change** (the wrapper edits + notes it in
+  notifications.log, but a scheduled task can't push).
