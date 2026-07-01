@@ -15,8 +15,10 @@ same watchlist, during market hours, and reports:
 - so a human can decide whether to re-tune before flipping the loop ON.
 
 Run during RTH (post-close data is stale and the staleness gate drops everything).
-Read-only: it does NOT alert, write, or flip anything. Posts a summary to
-notifications.log + #chat when --notify is passed.
+By default it only reports. With --apply it will flip flow_loop_enabled -> true
+ONLY when both feeds agree (>=1 qualifying hit and <=2 exclusives per side);
+otherwise it holds. It never restarts the engine itself (the wrapper does that).
+Posts a summary to notifications.log + #chat when --notify is passed.
 """
 import argparse
 import asyncio
@@ -34,10 +36,38 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s [flow-
 log = logging.getLogger("flow_shadow")
 
 NOTIF_LOG = "/root/task_system/notifications.log"
+CONFIG_PATH = "/home/openclaw/.openclaw/workspace/config/consensus.yaml"
 
 
 def _key(h) -> str:
     return f"{h.ticker} {h.expiry} {h.strike:g}{h.side[0]}"
+
+
+def _enable_flow_loop() -> tuple[bool, str]:
+    """Flip features.schwab_options.flow_loop_enabled false->true on its single
+    inline line, preserving the trailing comment. Runs as openclaw (owns the
+    file) so ownership is unchanged. Idempotent (already-true is a success)."""
+    try:
+        with open(CONFIG_PATH) as f:
+            src = f.read()
+    except Exception as e:  # noqa: BLE001
+        return False, f"read failed: {e}"
+    lines = src.splitlines(keepends=True)
+    idx = next((i for i, ln in enumerate(lines)
+                if "schwab_options:" in ln and "flow_loop_enabled:" in ln), None)
+    if idx is None:
+        return False, "flag line not found"
+    if "flow_loop_enabled: true" in lines[idx]:
+        return True, "already true"
+    if "flow_loop_enabled: false" not in lines[idx]:
+        return False, "unexpected flag format"
+    lines[idx] = lines[idx].replace("flow_loop_enabled: false", "flow_loop_enabled: true", 1)
+    try:
+        with open(CONFIG_PATH, "w") as f:
+            f.write("".join(lines))
+    except Exception as e:  # noqa: BLE001
+        return False, f"write failed: {e}"
+    return True, "ok"
 
 
 async def _scan(use_schwab: bool) -> list:
@@ -60,6 +90,8 @@ async def _scan(use_schwab: bool) -> list:
 async def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--notify", action="store_true", help="post a summary to notifications.log + #chat")
+    ap.add_argument("--apply", action="store_true",
+                    help="if the two feeds agree, flip flow_loop_enabled -> true (still needs an engine restart)")
     args = ap.parse_args()
 
     schwab_hits = await _scan(use_schwab=True)
@@ -81,12 +113,31 @@ async def main() -> None:
         lines.append("  Schwab-only (would fire NEW alerts): " + ", ".join(sorted(only_s)[:12]))
     if only_y:
         lines.append("  yfinance-only (Schwab would MISS): " + ", ".join(sorted(only_y)[:12]))
-    verdict = ("LIKELY SAFE to flip flow_loop_enabled — hit sets close"
-               if len(only_s) <= 2 and len(only_y) <= 2
-               else "RE-TUNE thresholds first — hit sets diverge materially")
+    # Decide. Require actual signal (>=1 hit somewhere) AND near-identical hit
+    # sets before we let the autonomous alert loop switch feeds. An all-quiet
+    # snapshot (0 vs 0) is NOT evidence the feeds agree, so it holds.
+    total = len(s_keys) + len(y_keys)
+    close = len(only_s) <= 2 and len(only_y) <= 2
+    if total == 0:
+        action, verdict = "HELD", "INCONCLUSIVE — no qualifying flow on either feed at check time; not flipping"
+    elif close:
+        action, verdict = "SAFE", "LIKELY SAFE to flip flow_loop_enabled — hit sets close"
+    else:
+        action, verdict = "HELD", "RE-TUNE thresholds first — hit sets diverge materially"
     lines.append(f"  VERDICT: {verdict}")
+
+    if args.apply and action == "SAFE":
+        ok, msg = _enable_flow_loop()
+        if ok:
+            action = "FLIPPED"
+            lines.append("  APPLIED: flow_loop_enabled -> true (engine restart pending to pick it up)")
+        else:
+            action = "HELD"
+            lines.append(f"  APPLY FAILED ({msg}) — left OFF")
+
     report = "\n".join(lines)
     print(report)
+    print(f"SHADOW_ACTION={action}")  # machine-readable marker for the wrapper (not posted to #chat)
 
     if args.notify:
         try:
