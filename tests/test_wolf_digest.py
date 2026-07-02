@@ -240,10 +240,18 @@ async def test_quiet_day_no_digest(digest_env):
     assert digest_env == []
 
 
-async def test_sunday_recap_and_addon_restart_safe(digest_env):
+async def test_sunday_recap_and_addon_restart_safe(digest_env, monkeypatch):
     """Sunday >=10am with week activity -> recap. recap_fired_today reads the persistent
     outbox (survives 'restart'). A later Sunday email -> a single add-on."""
     sunday = datetime(2026, 6, 7, 10, 30, tzinfo=PT)          # 2026-06-07 is a Sunday
+
+    # post_event()/mark_alert_posted() stamp posted_at via time.time(), which is the
+    # REAL wall clock — not the now_pt/now_epoch this test injects into _digest_tick.
+    # Freeze it to the simulated clock so posted_at never drifts past a later "now_epoch"
+    # just because the real test run happens weeks after the simulated Sunday.
+    clock = {"now": sunday.timestamp()}
+    monkeypatch.setattr(wolf_news.time, "time", lambda: clock["now"])
+
     await _seed_email("wk1", datetime(2026, 6, 5, 12, 0, tzinfo=PT).timestamp())  # within last 7d
     await _seed_thesis("stock", "NVDA", "bull", "acting", anchor_ts=sunday.timestamp() - 86400)
 
@@ -256,6 +264,7 @@ async def test_sunday_recap_and_addon_restart_safe(digest_env):
     # a fresh Sunday email lands AFTER the recap -> add-on fires once
     await _seed_email("sun_late", datetime(2026, 6, 7, 11, 0, tzinfo=PT).timestamp())
     later = datetime(2026, 6, 7, 11, 5, tzinfo=PT)
+    clock["now"] = later.timestamp()
     await wolf_digest._digest_tick(now_pt=later, now_epoch=later.timestamp())
     await wolf_digest._digest_tick(now_pt=later, now_epoch=later.timestamp())  # dedup add-on
     assert await db.get_wolf_alert(f"digest|sunday-addon|{date(2026,6,7)}") is not None
