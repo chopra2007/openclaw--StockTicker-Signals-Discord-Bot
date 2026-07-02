@@ -1,17 +1,23 @@
 """F6 — the read-only !market / !rotation / !breadth / !regime dashboard.
 
-End-to-end on a TEMP db seeded from the cached parquet store + real signal_events
-copied read-only from the live db. Proves the handler renders all four daily reads
-(sector rotation, style leadership, price-trend regime, internal breadth) into one
-embed with HONEST market-CONTEXT labels (a view, not a buy/sell signal), the early
-vs already-moved rotation wording, and a PDT timestamp.
+End-to-end on a TEMP db seeded from a frozen parquet fixture (real historical
+closes, checked into git) + synthetic signal_events. Proves the handler renders
+all four daily reads (sector rotation, style leadership, price-trend regime,
+internal breadth) into one embed with HONEST market-CONTEXT labels (a view, not
+a buy/sell signal), the early vs already-moved rotation wording, and a PDT
+timestamp.
 
-Never touches the live consensus.db: writes go to the per-test temp db forced by the
-autouse `_isolate_db` fixture; signal_events are read from the live db read-only.
+Hermetic by design (see todo/regression-gate-auto-recovery.md "Concrete
+flaky-test example"): this used to seed from the LIVE parquet cache + a live
+yfinance refresh + the live consensus.db, which only exists on this VPS and
+depends on a network fetch that GitHub's runners get throttled on — the fixture
++ `download=False` removes both dependencies so the test can't flake on CI.
+
+Never touches the live consensus.db: writes go to the per-test temp db forced by
+the autouse `_isolate_db` fixture.
 """
-import os
-import sqlite3
 import sys
+import time
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -25,8 +31,7 @@ from consensus_engine import config as cfg
 from consensus_engine import db
 import market_daily
 
-_STORE_DIR = str(_ROOT / "data" / "market_store")
-_LIVE_DB = "/home/openclaw/.openclaw/workspace/consensus.db"
+_STORE_DIR = str(_ROOT / "tests" / "fixtures" / "market_store")
 
 
 def _embed_text(embed: dict) -> str:
@@ -39,23 +44,29 @@ def _embed_text(embed: dict) -> str:
     return "\n".join(parts)
 
 
-def _copy_signal_events(dst_path: str) -> int:
-    """Copy real signal_events from the live db (READ-ONLY) into the temp db.
+def _seed_signal_events(dst_path: str) -> int:
+    """Insert a small synthetic informed directional stream into the temp db.
 
-    Gives the internal-breadth read real directional data. Returns the row count.
+    Gives the internal-breadth read something to compute over, without depending
+    on the live consensus.db (which doesn't exist off this VPS). Deliberately
+    long-biased (matches the real bot's structural bias) across several tickers
+    and days so the rolling window + z-score have real variation.
     """
-    if not os.path.exists(_LIVE_DB):
-        return 0
-    src = sqlite3.connect(f"file:{_LIVE_DB}?mode=ro", uri=True)
-    src.row_factory = sqlite3.Row
-    try:
-        rows = src.execute(
-            "SELECT source_type, source_detail, ticker, direction, quality_score, "
-            "latency_sec, provenance, model_version, recorded_at, source_link "
-            "FROM signal_events"
-        ).fetchall()
-    finally:
-        src.close()
+    import sqlite3
+
+    rows = []
+    now = time.time()
+    tickers_long = ["AAPL", "MSFT", "NVDA", "META", "GOOGL"]
+    tickers_short = ["TSLA", "SNAP"]
+    for day_offset in range(10):
+        recorded_at = now - day_offset * 86400
+        for ticker in tickers_long:
+            rows.append(("twitter", "fixture", ticker, "long", 0.7, None, None, None,
+                        recorded_at, None))
+        for ticker in tickers_short:
+            rows.append(("twitter", "fixture", ticker, "short", 0.7, None, None, None,
+                        recorded_at, None))
+
     dst = sqlite3.connect(dst_path)
     try:
         from consensus_engine.db import SCHEMA
@@ -64,7 +75,7 @@ def _copy_signal_events(dst_path: str) -> int:
             "INSERT INTO signal_events (source_type, source_detail, ticker, direction, "
             "quality_score, latency_sec, provenance, model_version, recorded_at, source_link) "
             "VALUES (?,?,?,?,?,?,?,?,?,?)",
-            [tuple(r) for r in rows],
+            rows,
         )
         dst.commit()
     finally:
@@ -75,9 +86,9 @@ def _copy_signal_events(dst_path: str) -> int:
 async def _seed_temp_db() -> dict:
     """Seed all 4 daily tables into the isolated temp db; return market_daily counts."""
     db_path = db.DB_PATH
-    _copy_signal_events(db_path)
+    _seed_signal_events(db_path)
     summary = market_daily.run(db_path=db_path, days=None, dry_run=False,
-                               store_dir=_STORE_DIR)
+                               store_dir=_STORE_DIR, download=False)
     return summary
 
 

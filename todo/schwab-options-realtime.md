@@ -3,6 +3,10 @@
 **Status:** OPEN
 **Created:** 2026-06-29
 
+**CURRENT STATUS (2026-07-02):** BUILT + LIVE for everything except the autonomous flow-loop alert
+switch, which is now DEFERRED (not just "pending") — see the dated update below for the real
+shadow-compare result and why it's parked.
+
 **CURRENT STATUS (2026-06-30 eve):** BUILT + LIVE. The adapter and the full swap shipped this session
 (discover run `schwab-options-realtime`) and the on-demand switches are ON in production
 (`consensus.yaml features.schwab_options/quotes/ohlcv.enabled: true`); engine restarted + healthy.
@@ -30,6 +34,37 @@
   correctly HELD, no flip). Shipped in commit `fcd8d71`.
 - Re-auth deadline: **2026-07-08 01:56 UTC ≈ 2026-07-07 18:56 PDT** (refresh does NOT extend it — the
   reminder fires from 2 days out). Full API-capabilities/future-features research is in the section below.
+
+### Session note — 2026-07-02 — the scheduled shadow-compare ran, held OFF, DEFERRED (user decision)
+
+The 2026-07-01 10:00 PDT auto-compare (task `1782879041_08e8ad`) ran on schedule during real market
+hours and worked correctly — it just didn't like what it saw, so it correctly declined to flip
+`flow_loop_enabled`. Result (`scripts/schwab_flow_shadow_compare.py --apply`, log
+`/root/task_system/logs/1782879041_08e8ad.log`):
+
+- Schwab found **201** qualifying unusual-options-activity hits across 31 tickers.
+- The old yfinance feed found **182** hits across 27 tickers.
+- **178 overlapped.** But **23 tickers were Schwab-only** (would fire a NEW alert Schwab sees and
+  yfinance doesn't — e.g. AAPL, GOOGL, META, CRWV, IWM, HOOD), and **4 were yfinance-only** (Schwab
+  would MISS an alert the old feed catches — CRWV, META, QQQ, SPY).
+- Verdict written to the log: `RE-TUNE thresholds first — hit sets diverge materially`. `SHADOW_ACTION=HELD`.
+  This is the correct behavior per the auto-flip rule (only flip if ≤2 exclusives/side; 23 and 4 are both
+  well over that bar) — nothing broke, the switch is just not ready.
+- (Note: systemd's own wrapper for that task shows as `failed (timeout)` in `systemctl status` — that's
+  cosmetic, the task's own log confirms `SUCCESS after attempt 1` at the same timestamp; the outer
+  service unit just doesn't consider "printed a HELD verdict" a clean exit. Not a real failure, don't
+  chase it.)
+
+**Decision (user, 2026-07-02): leave `flow_loop_enabled` OFF for now, park this for a later session.**
+Why it needs work before it's a quick flip: the alert thresholds
+(`options_flow.min_vol_oi` / `min_volume` / `min_premium_usd`) were tuned against the old,
+~15-minute-delayed yfinance feed. Schwab's real-time feed sees things faster and more completely, so at
+today's thresholds it fires on 23 tickers the delayed feed would never catch in time anyway — that's not
+necessarily wrong, but it's a big enough behavior change (more alerts, different tickers) that it
+shouldn't happen via an unattended auto-flip. Re-running the compare script again won't fix this by
+itself (the divergence is structural, not a one-off noisy day) — next time this is picked up, start by
+re-tuning the three thresholds specifically for Schwab's speed/completeness before re-testing, not by
+just re-running `schwab_flow_shadow_compare.py --apply` and hoping for a closer match.
 
 ## Goal
 Replace the free **yfinance** option-chain feed (unofficial, ~15-min delayed, throttle-prone)
