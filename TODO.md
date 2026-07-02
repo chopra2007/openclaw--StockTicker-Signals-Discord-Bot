@@ -374,3 +374,9 @@ Refactor `!sec`, `!all`, the alert Score card, and the AI write-up so insider (F
 **File:** `regression-gate-auto-recovery.md`
 
 When the session-close test gate fails, the push is skipped and nothing else happens — build a process that automatically checks, fixes, and re-pushes; if that's not safely possible, shorten the regression gate so failures are caught and cleared faster; if even that's not feasible, make sure Claude proactively flags the stuck push at the start of the next session instead of staying silent.
+
+## 60. Rebuild the discover plugin on the built-in Workflow engine
+
+**File:** `discover_rebuild_build.md`
+
+Build the approved redesign of the /discover plugin — passes 0-4 on Claude Code's Workflow engine with evidence-rule kill-testing and a plan tournament — and ship it as v1.0.0; design and step-by-step plan are complete, no code written yet.
