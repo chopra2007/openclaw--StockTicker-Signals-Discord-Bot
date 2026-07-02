@@ -2,9 +2,11 @@
 
 **Status:** OPEN
 **Created:** 2026-07-01
+**CURRENT STATUS (2026-07-02):** The concrete example test is FIXED (option (b) below — made deterministic), but the general auto-recovery process this item is actually about (a mechanism that checks/fixes/re-pushes ANY future gate failure, not just this one test) is still not built. Also found and fixed a second, unrelated pre-existing gate failure the same session (`test_sunday_recap_and_addon_restart_safe` — a frozen-date test whose posted-at timestamp used the real wall clock instead of the simulated one, so it silently started failing as real time passed the simulated date). Both fixes are commits `9557ca8` and `db47044`; `.test-baseline` is back to just the one unrelated ApeWisdom test. Next concrete step for the item itself: still need to decide/build the general auto-recovery mechanism (see "What the user wants" below) — today's fixes closed the two known instances, not the underlying process gap.
+
 **CURRENT STATUS (2026-07-01):** Active/open, no fix built yet. Now has a live, reproducible instance — the flaky `test_market_command_renders_all_four_reads` (see "Concrete flaky-test example" below). Next concrete step: decide per that example whether the general fix is (a) a scoped "re-run the failed test once before blocking" retry in the gate, or (b) making these live-data tests deterministic (mock the fetch) so they can't flake at all.
 
-## Concrete flaky-test example (2026-07-01) — the market-command test
+## Concrete flaky-test example (2026-07-01, FIXED 2026-07-02) — the market-command test
 
 **Test:** `tests/test_market_command.py::test_market_command_renders_all_four_reads`
 
