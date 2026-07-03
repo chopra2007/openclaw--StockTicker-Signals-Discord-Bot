@@ -1,6 +1,6 @@
 # Buy 2 years of options history (~$29) and backtest the options signals
 
-**Status:** OPEN
+**Status:** PARKED (2026-07-03) — nothing built. The buy-2yr-history route needs paid data the user has deferred (no spend now). Free alternative already accruing via #55's forward-loggers (`options_flow` 110k+ rows + 5d/20d outcome grading); the same unusual-flow backtest can run on collected data for $0 in ~a few months. No action now.
 **Created:** 2026-06-28
 
 ## The goal in one line

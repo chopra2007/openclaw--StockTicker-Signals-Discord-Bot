@@ -1,6 +1,6 @@
 # Start saving the data future features need to test on
 
-**Status:** IN PROGRESS — Tier-1 Items 1+2 + Tier-2 #3/#5 BUILT (2026-06-29); deploy + soak pending
+**Status:** LIVE (2026-06-29, commit 8e28f23) — Tier-1 Items 1+2 + Tier-2 #3/#5 deployed; both daily timers running and all four tables filling forward. Analyst scorecard (Tier-1 Item 2) runs SHADOW-only in `source_performance_shadow` (live `source_performance` intentionally empty); promotion to live is a manual soak-gated decision (would fire 3 scoring flags) — shadow-delta analysis run 2026-07-03, see notes below. STILL UNBUILT (①): Tier-2 #4 realized-vs-implied + Tier-3 #6 stocktwits / #7 EPS-revision loggers. (Prior "deploy + soak pending" was written pre-deploy — stale.)
 **Created:** 2026-06-28
 
 ## CURRENT STATUS (2026-06-29, run `todo-55-47-research`) — Tier-1 Item 2 + Tier-2 #3/#5 BUILT
@@ -162,3 +162,10 @@ today so the 2–3 month data clock begins.
 - #56 (buy 2yr options history) — the paid-data companion to this forward-logging.
 - #18 (options flow) — backtestable via #56, not via forward-logging.
 - #32 / #42 (signal switches) — Tier-1 #2 unblocks the OFF "I7" switch.
+
+### Session notes — 2026-07-03 (scorecard shadow-delta analysis)
+- **Worked on:** the promotion decision-support the 2026-07-02 audit asked for — quantify the blast radius of promoting the analyst scorecard SHADOW→LIVE (read-only DB analysis; nothing changed).
+- **Verdict: HOLD.** Framing correction: `per_analyst_cooldown`, I2 `analyst_accuracy_weight`, and I10 are ALREADY `enabled:true`; they no-op only because the live `source_performance` table is empty (0 rows), so "promotion" = populating that table (copy shadow→live / repoint readers), NOT flipping a switch.
+- **Why HOLD:** at the **1h** horizon all three flags read, no analyst beats a coin flip at 95% confidence — max Wilson lower-bound **0.484 < 0.50** (unusual_whales, n=48). Replaying the last ~2.7 months (3,126 snapshots, 67 STRONG): I2 is downside-only (all 18 eligible analysts weight < 1.0) → **4 STRONG demotions (QCOM ×1, META ×2), ~1.5/month**; `per_analyst_cooldown` = **0** suppressions; I10 = **0** (all 67 STRONGs already carry hard evidence, and no analyst LB reaches the 0.65 rescue bar); I7 stays OFF (needs code + ≥2 clusters, not a data decision). So promoting today = pure downside, no upside.
+- **Two cheap prep steps before any future promotion:** (a) repoint `get_analyst_precision`/`_lb` from `'1h'` (the producer's own docstring calls it "near-random") to the honest `'24h'` — no effect today (table empty) but the correct base to grade on; (b) gate promotion on a real stat threshold (≥1 analyst Wilson-LB > 0.50 at the used horizon — the current leader needs ~n≈120 1h samples vs 48 today, ~2.5×), then a ~2-week shadow-compare soak on the demotion set.
+- **Next:** let the 3 live loggers accrue; revisit promotion only after the stat gate clears. The horizon-mismatch repoint (a) is the highest-value cheap follow-up if/when promotion is on the table.

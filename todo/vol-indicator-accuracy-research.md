@@ -1,6 +1,6 @@
 # Build an accurate market top/bottom detector — research how others did it
 
-**Status:** OPEN — free PREDICTOR exhausted (NO-GO); descriptive "better way" SHIPPED to !market; ~$50 paid path still the only open decision
+**Status:** OPEN — free PREDICTOR exhausted (NO-GO); descriptive "better way" SHIPPED to !market. Predictor PARKED (2026-07-03): the ~$50 paid path is deferred (user: no spend now), and there is no free way to build the predictor — so it is NOT an open decision, just parked. Free path accrues in the background (vol-collect timers + #55 5d/20d grading) for a possible $0 re-test in ~a few months. Dashboard is the live answer.
 **Created:** 2026-06-17
 
 ### Session note — 2026-06-29 (run `todo-55-47-research`) — the "better way" shipped (descriptive)
