@@ -9,7 +9,9 @@
 #
 set -e
 
-LOG=/tmp/pytest-prepush.log
+LOG="/tmp/pytest-prepush-$(id -u).log"   # per-user path: a fixed /tmp path root-owned by a
+                                         # prior run made `tee` permission-denied → set -e aborted
+                                         # the hook → push rejected silently (2026-07-02, #59).
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 BASELINE="$REPO_ROOT/.test-baseline"
 
@@ -26,7 +28,7 @@ REQ_FILES="requirements.txt requirements-dev.txt"
 if git rev-parse --verify -q origin/master >/dev/null \
    && ! git diff --quiet origin/master -- $REQ_FILES 2>/dev/null; then
     echo "[pre-push] requirements changed — checking they resolve from a clean index..."
-    RESOLVE_LOG=/tmp/pip-resolve-prepush.log
+    RESOLVE_LOG="/tmp/pip-resolve-prepush-$(id -u).log"  # per-user (same cross-user /tmp trap as LOG above)
     RESOLVE_TMP="$(mktemp -d)"
     # pip 22.0.2 has no --dry-run; `download --no-deps` resolves the DIRECT pins
     # (no transitive download) and is the lightest clean-resolution probe here.
