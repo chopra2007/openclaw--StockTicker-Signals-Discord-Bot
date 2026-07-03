@@ -43,6 +43,67 @@ def _key(h) -> str:
     return f"{h.ticker} {h.expiry} {h.strike:g}{h.side[0]}"
 
 
+def _fmt_hit(h) -> str:
+    """Compact 'vol / OI / ratio / premium' for one contract."""
+    prem = h.premium_usd
+    prem_txt = f"${prem / 1e6:.2f}M" if prem >= 1e6 else f"${prem / 1e3:.0f}k"
+    return f"vol {h.volume:,} / OI {h.open_interest:,} ({h.vol_oi_ratio:.1f}x) / prem {prem_txt}"
+
+
+def _detail_block(only_s, only_y, both, s_by_key, y_by_key, *, cap_excl, cap_overlap):
+    """Per-contract numbers for the disagreements (and, when cap_overlap>0, the
+    agreed contracts side-by-side) so a human can judge whether each disagreed
+    contract was a real big bet or a marginal near-miss. Largest premium first."""
+    out = []
+    if only_s:
+        out.append(f"  -- Schwab-only ({len(only_s)}) -- contracts flipping WOULD newly alert on:")
+        for k in sorted(only_s, key=lambda k: s_by_key[k].premium_usd, reverse=True)[:cap_excl]:
+            out.append(f"    {k:<26} {_fmt_hit(s_by_key[k])}")
+        if len(only_s) > cap_excl:
+            out.append(f"    ...+{len(only_s) - cap_excl} more (full list in CSV)")
+    if only_y:
+        out.append(f"  -- yfinance-only ({len(only_y)}) -- contracts Schwab would DROP:")
+        for k in sorted(only_y, key=lambda k: y_by_key[k].premium_usd, reverse=True)[:cap_excl]:
+            out.append(f"    {k:<26} {_fmt_hit(y_by_key[k])}")
+        if len(only_y) > cap_excl:
+            out.append(f"    ...+{len(only_y) - cap_excl} more (full list in CSV)")
+    if both and cap_overlap:
+        out.append(f"  -- Overlap ({len(both)}) -- same contract, both feeds' numbers (top {cap_overlap} by premium):")
+        for k in sorted(both, key=lambda k: max(s_by_key[k].premium_usd, y_by_key[k].premium_usd),
+                        reverse=True)[:cap_overlap]:
+            out.append(f"    {k:<26} Schwab {_fmt_hit(s_by_key[k])}  ||  yfinance {_fmt_hit(y_by_key[k])}")
+    return out
+
+
+def _write_detail_csv(schwab_hits, yahoo_hits, both) -> str:
+    """Persist every qualifying contract from both feeds (with numbers) to a
+    timestamped CSV under the workspace, so the raw side-by-side survives the run."""
+    import csv
+    import os
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    d = "/home/openclaw/.openclaw/workspace/.claude/flow-shadow"
+    os.makedirs(d, exist_ok=True)
+    stamp = datetime.now(ZoneInfo("America/Los_Angeles")).strftime("%Y%m%d_%H%M")
+    path = f"{d}/detail_{stamp}.csv"
+    cols = ["feed", "ticker", "side", "strike", "expiry", "volume",
+            "open_interest", "vol_oi_ratio", "premium_usd", "spot", "in_both"]
+    with open(path, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=cols)
+        w.writeheader()
+        for feed, hits in (("schwab", schwab_hits), ("yfinance", yahoo_hits)):
+            for h in hits:
+                w.writerow({
+                    "feed": feed, "ticker": h.ticker, "side": h.side,
+                    "strike": f"{h.strike:g}", "expiry": h.expiry,
+                    "volume": h.volume, "open_interest": h.open_interest,
+                    "vol_oi_ratio": h.vol_oi_ratio,
+                    "premium_usd": round(h.premium_usd, 2),
+                    "spot": round(h.spot, 2), "in_both": _key(h) in both,
+                })
+    return path
+
+
 def _enable_flow_loop() -> tuple[bool, str]:
     """Flip features.schwab_options.flow_loop_enabled false->true on its single
     inline line, preserving the trailing comment. Runs as openclaw (owns the
@@ -97,22 +158,19 @@ async def main() -> None:
     schwab_hits = await _scan(use_schwab=True)
     yahoo_hits = await _scan(use_schwab=False)
 
-    s_keys = {_key(h) for h in schwab_hits}
-    y_keys = {_key(h) for h in yahoo_hits}
+    s_by_key = {_key(h): h for h in schwab_hits}
+    y_by_key = {_key(h): h for h in yahoo_hits}
+    s_keys, y_keys = set(s_by_key), set(y_by_key)
     both = s_keys & y_keys
     only_s = s_keys - y_keys
     only_y = y_keys - s_keys
 
-    lines = [
+    summary = [
         "Schwab vs yfinance flow-loop shadow compare (current live thresholds):",
         f"  Schwab qualifying hits : {len(schwab_hits)} ({len({h.ticker for h in schwab_hits})} tickers)",
         f"  yfinance qualifying hits: {len(yahoo_hits)} ({len({h.ticker for h in yahoo_hits})} tickers)",
         f"  overlap: {len(both)} | Schwab-only: {len(only_s)} | yfinance-only: {len(only_y)}",
     ]
-    if only_s:
-        lines.append("  Schwab-only (would fire NEW alerts): " + ", ".join(sorted(only_s)[:12]))
-    if only_y:
-        lines.append("  yfinance-only (Schwab would MISS): " + ", ".join(sorted(only_y)[:12]))
     # Decide. Require actual signal (>=1 hit somewhere) AND near-identical hit
     # sets before we let the autonomous alert loop switch feeds. An all-quiet
     # snapshot (0 vs 0) is NOT evidence the feeds agree, so it holds.
@@ -124,32 +182,54 @@ async def main() -> None:
         action, verdict = "SAFE", "LIKELY SAFE to flip flow_loop_enabled — hit sets close"
     else:
         action, verdict = "HELD", "RE-TUNE thresholds first — hit sets diverge materially"
-    lines.append(f"  VERDICT: {verdict}")
+    summary.append(f"  VERDICT: {verdict}")
 
     if args.apply and action == "SAFE":
         ok, msg = _enable_flow_loop()
         if ok:
             action = "FLIPPED"
-            lines.append("  APPLIED: flow_loop_enabled -> true (engine restart pending to pick it up)")
+            summary.append("  APPLIED: flow_loop_enabled -> true (engine restart pending to pick it up)")
         else:
             action = "HELD"
-            lines.append(f"  APPLY FAILED ({msg}) — left OFF")
+            summary.append(f"  APPLY FAILED ({msg}) — left OFF")
 
-    report = "\n".join(lines)
+    # Per-contract numbers (volume / OI / vol-OI ratio / premium) so a human can
+    # judge whether each DISAGREED contract was a real big bet or a marginal
+    # near-miss — the summary only says which side flagged it, not how big.
+    detail = _detail_block(only_s, only_y, both, s_by_key, y_by_key,
+                           cap_excl=100, cap_overlap=15)
+
+    if schwab_hits or yahoo_hits:
+        try:
+            csv_path = _write_detail_csv(schwab_hits, yahoo_hits, both)
+            summary.append(f"  per-contract numbers saved: {csv_path}")
+        except Exception as e:  # noqa: BLE001
+            log.debug("detail csv write failed: %s", e)
+
+    report = "\n".join(summary + detail)
     print(report)
     print(f"SHADOW_ACTION={action}")  # machine-readable marker for the wrapper (not posted to #chat)
 
     if args.notify:
+        # notifications.log: compact one-liner (summary only, incl. CSV pointer)
+        # so session-start review isn't buried under the full per-contract block.
         try:
             with open(NOTIF_LOG, "a") as f:
-                f.write("\n[schwab-flow-shadow] " + report.replace("\n", " | ") + "\n")
+                f.write("\n[schwab-flow-shadow] " + " | ".join(summary) + "\n")
         except Exception as e:  # noqa: BLE001
             log.debug("notif log write failed: %s", e)
+        # #chat: summary + top-5 of each disagreed side WITH numbers, kept under
+        # Discord's 2000-char cap; the full list lives in the task log + CSV.
         hook = os.environ.get("CLAUDECODE_WEBHOOK")
         if hook:
+            chat = _detail_block(only_s, only_y, both, s_by_key, y_by_key,
+                                 cap_excl=5, cap_overlap=0)
+            body = "\n".join(summary + chat)
+            if len(body) > 1850:
+                body = body[:1850].rsplit("\n", 1)[0] + "\n  ...(trimmed — full numbers in the task log + CSV)"
             try:
                 import requests
-                requests.post(hook, json={"content": "```\n" + report + "\n```"}, timeout=10)
+                requests.post(hook, json={"content": "```\n" + body + "\n```"}, timeout=10)
             except Exception as e:  # noqa: BLE001
                 log.debug("webhook post failed: %s", e)
 
