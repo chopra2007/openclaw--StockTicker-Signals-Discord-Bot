@@ -21,3 +21,4 @@ beautifulsoup4>=4.12.0  # Wolf email parser (analysis/wolf_email_parser.py)
 lxml>=5.0.0  # bs4 backend the Wolf parser requests explicitly
 matplotlib>=3.7.0  # !em expected-move charts (scanners/expected_move.py)
 mplfinance>=0.12.10b0  # candlestick rendering for !em charts (only pre-release builds exist; >=0.12.10 final matches nothing)
+pyarrow>=14.0.0  # parquet engine for market_daily.py read_parquet (!market dashboard + daily market tables); was undeclared, failed CI + would break a clean install
