@@ -30,7 +30,7 @@
 | 54 | Reliability cautious switches | ④ built, switched off | **Soak timer — 2026-07-05** | Read the July 5 report, flip safe flags | None now, then trivial |
 | 55 | Save data for future tests | MIXED: 4 live · 1 shadow ③ · 2 unbuilt ① | Judgment call + build time | Run the scorecard shadow-delta analysis | Small (+med build) |
 | 56 | Buy 2yr options history + backtest | ① parked (paid path deferred) | Needs paid 2yr history — deferred | Free path: keep forward-loggers running, backtest later | None now |
-| 57 | Schwab real-time options | ④ built, one switch off | **Your call: tune or watched-flip** | Tune thresholds at market open, or a watched flip | Small |
+| 57 | Schwab real-time options | ✅ FLIPPED ON 2026-07-02 | Decided — watched flip; soak till Mon 07-06 | Verify Monday's live alerts, then mark DONE | Done (verify) |
 | 59 | Fix the stuck test gate | ① not built (live symptom fixed above) | Engineering + scope choice | Ship the cheap alert now; design the recovery | Small win + large build |
 
 ---
@@ -38,7 +38,7 @@
 ## Decisions only you can make (cross-item)
 
 1. **Paid data — decided: not now.** You've chosen not to buy data at the moment, so both #47's predictor and #56 are **parked**, not open decisions. The free-data ceiling on the #47 predictor is already proven (5+ research phases, no edge), so there is no free way to build it. The only free path for #56's backtest is to keep the forward-loggers running (already live under #55) and replay them once enough has accrued (~a few months). The one remaining question is bookkeeping: leave both parked, or close #47's predictor half outright and keep only its live dashboard.
-2. **#57 flip approach.** Either **(A) carefully re-tune** the shared alert thresholds during market hours until the Schwab and yfinance hit-sets nearly match, or **(B) a watched staged flip** — turn it on, watch the first market day's alerts, revert if wrong. (B) is legitimate because flood caps mean only ≤8 alerts/cycle fire regardless (see #57).
+2. **#57 flip approach — DECIDED 2026-07-02: watched flip, executed.** `flow_loop_enabled` flipped ON; engine restarted + verified healthy; the misleading "~15-min-delayed" alert footer removed. No real alerts fire until Mon 2026-07-06 open (market was closed at flip time). Ongoing: a Mon 10:00 PDT numbers-collection run is scheduled and the live alerts will be reviewed to tune thresholds from real data. Nothing left to decide here — just verify Monday's output. **(Related, still open: the `!em` command's footer has the same stale "yfinance · delayed" label on now-real-time Schwab data — see #57 detail; needs a yes/no to fix.)**
 3. **#59 scope.** Priority-3 (a loud session-start alert when the gate fails — near-free) / Priority-1 (a real auto-check-fix-repush mechanism — needs design) / just fix the two ci-monitor bugs. These are alternatives; pick the scope.
 4. **#20 — close it?** The named remaining work turned out to be shipped back on 2026-06-02. It's effectively done; only a stale headline remains.
 5. **#55 scorecard promotion.** Run the shadow-delta analysis, then decide whether to promote the analyst scorecard from shadow to live (it would flip 3 live alert-scoring flags).
@@ -107,16 +107,17 @@
 - **Dependencies:** independent of #57 (Schwab's snapshot logger only has ~2–3 days of *derived summaries*, not raw chains). Shares its data goal with #47's predictor — both are waiting on the same accrual.
 - **Fastest unblock (free):** nothing to buy or build now — let #55's loggers accrue, then build the replay harness against collected data later.
 
-### #57 — Schwab real-time options · ④ built, one switch off
+### #57 — Schwab real-time options · ✅ FLIPPED ON 2026-07-02 (soak → Mon 07-06)
 **Where it stands (plain):** everything runs on Schwab's real-time feed already — `!options`, `!em`, `!all` max-pain, quotes, price history — except the one autonomous "unusual flow" **alert loop**, which is held off pending a threshold decision.
 **Specifics for the plan:**
-- Switches: `schwab_options {enabled:true, flow_loop_enabled:false}` (L843), `schwab_quotes` (L844), `schwab_ohlcv` (L845), `schwab_snapshot_logger` (L846) all on. `schwab_options_snapshots` = 211 rows, latest 2026-07-01.
+- Switches: `schwab_options {enabled:true, flow_loop_enabled:true ✅ flipped 07-02}` (L843), `schwab_quotes` (L844), `schwab_ohlcv` (L845), `schwab_snapshot_logger` (L846) all on. `schwab_options_snapshots` = 211 rows, latest 2026-07-01.
 - **Important:** the flow loop is NOT dormant — `features.options_flow.enabled:true` (L800-801) is firing on yfinance today ("343 hits… 8 alerts fired" @13:47, 4 @14:05 on 07-02). Flipping `flow_loop_enabled` **switches the data source** yfinance → Schwab (gate `main.py:424-427`); it does not wake a stopped loop.
 - **Shadow-compare verdict (2026-07-01 10:00–10:13 PDT, log `/root/task_system/logs/1782879041_08e8ad.log`):** Schwab 201 qualifying contracts / 31 tickers vs yfinance 182 / 27; overlap 178; **Schwab-only 23, yfinance-only 4** (these are *contracts*, not tickers — detail L48 mislabels). `VERDICT: RE-TUNE`, `SHADOW_ACTION=HELD` — correct, since auto-flip requires ≤ 2 exclusives/side. Schwab-only new names include AAPL/GOOGL/META/HOOD/IWM/CRWV; yfinance-only misses: CRWV 89C, META 632.5C, QQQ 736C, SPY 753C.
 - **Re-tune specifics:** thresholds are **shared across both feeds** — `scan_options_flow` (`options.py:448-457`); `use_schwab` picks only the *data source*, not the thresholds. Three keys, `config` L855-857: `min_vol_oi: 10.0`, `min_volume: 500`, `min_premium_usd: 250000` (read at `main.py:430-433`). Schwab fires more, so re-tune = **raise** `min_premium_usd` and/or `min_vol_oi` until Schwab's set converges to ≤ 2 exclusives/side. Because the keys are shared, raising throttles *both* feeds — the structural tension. Exact values need live market-hours iteration; a starting estimate is ~$450k / ~15.
 - **Flood-cap nuance (makes the flip safer than it looks):** `max_alerts_per_cycle=8` (L860) + `options_flow_cooldown=3600` (1/ticker/hr, L122) + dedup to 1 alert/ticker (`main.py:450-461`). Journal: "50 tickers qualifying, capped at 8." So 343 contracts → only 8 alerts; the extra Schwab contracts mostly sit in the tail *below* the 8-alert cap. Real user-facing change = "same ≤ 8/cycle, possibly a different top-8 by premium." → a **monitored/staged flip** (flip, watch the first market day's fired-alert lines, revert if wrong) is a legitimate faster alternative to full re-tuning.
 - **Re-auth gotcha:** Schwab token (`/root/.openclaw/schwab_token.json`) 7-day wall = **2026-07-07 18:56 PDT**; `schwab-reauth-check.timer` active. Does NOT block the flip — the loop has an automatic yfinance fallback (`options.py:377-383`), so a lapsed token just reverts to the current feed.
-- **Fastest unblock:** during market hours, either raise thresholds and re-run `python3 scripts/schwab_flow_shadow_compare.py` (report-only) until both exclusives ≤ 2 then set `flow_loop_enabled:true` + restart — **or** do the watched staged flip. Ideally before the 2026-07-07 re-auth week.
+- **DONE 2026-07-02 (watched flip):** `flow_loop_enabled` flipped ON (config L843), engine restarted + verified (active/running, gate `main.py:424-427` now routes the loop to Schwab, 27 flow tests pass). Alert footer fixed — the false "~15-min-delayed chain data" line removed → `_Unusual-flow instant trigger._`. Go-live evidence: `.claude/go-live-evidence/features_schwab_options_flow_loop_enabled.md`. Real alerts start Mon 2026-07-06 open (off-hours = 0 hits); the Mon 10:00 PDT numbers run (`task_1783053334_aadb62`) + a live-alert review will tune thresholds from real data. Verify Monday, then mark the item DONE.
+- **Related finding (still open, needs a yes/no):** the `!em` command also migrated to Schwab real-time (`expected_move.py:291`), but its footer `_fmt_quote_time` (`expected_move.py:463-474`) still hardcodes "yfinance · delayed" — so it mislabels real-time data the same way the flow footer did. Small fix, but needs a source field threaded into `ExpectedMoveResult` (not done — flagged, not silently expanded).
 - Cosmetic: systemd shows the shadow task unit as `failed(timeout)` but the log says `SUCCESS` — known cosmetic; don't chase.
 
 ### #59 — Fix the stuck test gate · ① not built (live symptom fixed this session)
@@ -148,8 +149,8 @@
 **Wait (soak-gated — no action until the date):**
 - #54 — read the 2026-07-05 09:00 PDT report, flip the safe flags one at a time.
 
-**Your flip decision (small):**
-- #57 — re-tune during market hours or do a watched staged flip → turn on `flow_loop_enabled`.
+**Done this session:**
+- #57 — `flow_loop_enabled` flipped ON (watched flip); alert footer fixed; verified healthy. Verify Monday's live alerts to close it.
 
 **Bigger build (needs design):**
 - #59 Priority-1 — the real auto-check-fix-repush mechanism.

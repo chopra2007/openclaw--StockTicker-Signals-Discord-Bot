@@ -516,7 +516,7 @@ def format_flow_alert(hit) -> str:
         f"Volume **{hit.volume:,}** vs OI {hit.open_interest:,} "
         f"(**{hit.vol_oi_ratio:.1f}x** — fresh positioning) | "
         f"premium **${prem_m:.2f}M**{stale_txt}\n"
-        f"_Free ~15-min-delayed chain data; unusual-flow instant trigger._"
+        f"_Unusual-flow instant trigger._"
     )
 
 

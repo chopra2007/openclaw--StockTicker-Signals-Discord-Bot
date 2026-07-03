@@ -353,11 +353,13 @@ Begin a cheap forward-log of the inputs and outcomes future features will need �
 
 Pay ~$29 once for 2 years of historical options data (massive.com) and use it to backtest the unusual-options-flow alerts and feed the market top/bottom detector — testing whether our options signals actually caught the big drops and rallies of the last 2 years.
 
-## 57. Move live options data onto the Schwab real-time feed — BUILT + LIVE 2026-06-30 (on-demand ON); autonomous flow-loop alert switch DEFERRED 2026-07-02 (shadow-compare ran, held OFF — thresholds need re-tuning for Schwab's real-time feed, see detail file)
+## 57. Move live options data onto the Schwab real-time feed — BUILT + LIVE 2026-06-30 (on-demand ON); autonomous flow-loop alert switch FLIPPED ON 2026-07-02 (watched flip; alert footer fixed; soak → verify live alerts Mon 07-06, then DONE)
 
 **File:** `schwab-options-realtime.md`
 
-**Switches:** features.schwab_options.enabled=on; features.schwab_quotes.enabled=on; features.schwab_ohlcv.enabled=on; features.schwab_snapshot_logger.enabled=on; features.schwab_options.flow_loop_enabled=off
+**Switches:** features.schwab_options.enabled=on; features.schwab_quotes.enabled=on; features.schwab_ohlcv.enabled=on; features.schwab_snapshot_logger.enabled=on; features.schwab_options.flow_loop_enabled=on
+
+**CURRENT STATUS (2026-07-02 eve):** `flow_loop_enabled` FLIPPED ON (watched flip). Engine restarted + healthy; the misleading "~15-min-delayed" alert footer removed. Real alerts start Mon 2026-07-06 open (market was closed at flip); the Mon 10:00 PDT numbers run + a live-alert review will tune thresholds from real data. Verify Monday, then mark DONE. Evidence: `.claude/go-live-evidence/features_schwab_options_flow_loop_enabled.md`.
 
 **CURRENT STATUS (2026-06-30 eve):** BUILT + LIVE. `!options`, `!em`, `!all` max-pain, live quotes, and OHLCV (peer-RS/VIX) now run on Schwab's real-time feed with yfinance/Finnhub auto-fallback; daily options-history logger + weekly re-auth reminder timers enabled; 2522 tests pass, 0 regressions; engine restarted + healthy. ONLY the autonomous unusual-flow ALERT loop (`flow_loop_enabled`) stays OFF — its thresholds were tuned on the delayed feed and the market was closed tonight, so a Schwab-vs-yfinance shadow-compare is scheduled for 2026-07-01 10:00 PDT (posts a verdict to #chat); flip it after reading that. Re-auth (weekly Schwab re-login) due ~2026-07-07 6:56pm PT.
 

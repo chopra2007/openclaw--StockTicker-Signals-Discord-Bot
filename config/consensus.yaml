@@ -840,7 +840,7 @@ features:
   macro_legs:        { enabled: false, shadow: true, shadow_max_days: 7, rollback_floor: 0.0, rollback_window: 50 }                                                            # F4 (NEVER averaged into cross_asset)
   internal_breadth:  { enabled: false, shadow: true, ema_alpha: 0.4, min_signals: 8 }                            # F5 descriptive
   market_command:    { enabled: true }                                                                           # F6 read-only market-context dashboard — LIVE 2026-06-29 (descriptive only, no alert impact)
-  schwab_options: { enabled: true, flow_loop_enabled: false }   # #57 LIVE on-demand !options/!em/!all; flow_loop_enabled stays OFF until the market-hours shadow-compare (scripts/schwab_flow_shadow_compare.py) clears it
+  schwab_options: { enabled: true, flow_loop_enabled: true }   # #57 LIVE: on-demand !options/!em/!all + the autonomous flow-loop alert now run on the Schwab real-time feed. flow_loop flipped ON 2026-07-02 (watched flip; tuning thresholds from live data). Evidence: .claude/go-live-evidence/features_schwab_options_flow_loop_enabled.md
   schwab_quotes: { enabled: true }         # #57 LIVE — /quotes primary, Finnhub fallback
   schwab_ohlcv: { enabled: true }          # #57 LIVE — /pricehistory primary, yfinance fallback
   schwab_snapshot_logger: { enabled: true }  # #57 LIVE — daily options-chain snapshot logger gate

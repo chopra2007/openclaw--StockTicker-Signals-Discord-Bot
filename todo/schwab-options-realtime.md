@@ -3,15 +3,22 @@
 **Status:** OPEN
 **Created:** 2026-06-29
 
-**CURRENT STATUS (2026-07-02):** BUILT + LIVE for everything except the autonomous flow-loop alert
-switch, which is DEFERRED pending a flip decision. A REPORT-ONLY data-collection run is now scheduled
-for Mon 2026-07-06 10:00 PDT (`task_1783053334_aadb62.timer` → `scripts/run_flow_shadow_report.sh`):
-it re-runs the Schwab-vs-yfinance shadow-compare, now enhanced (commit `fb9ff57`) to record
-per-contract volume / OI / vol-OI ratio / premium for every DISAGREED contract — posted to #chat and
-saved to `.claude/flow-shadow/detail_*.csv` — so the flip can be judged on the actual size of each bet,
-not just which feed flagged it. It uses `--notify` only (NO `--apply`), so it never auto-flips. Next
-session: read Monday's `#chat` post / CSV, then decide re-tune vs watched-flip. See the dated updates
-below for the 2026-07-01 shadow result and why it's parked.
+**CURRENT STATUS (2026-07-02 eve):** BUILT + LIVE — and the last piece, the autonomous flow-loop alert
+switch, is now **FLIPPED ON** (watched flip, user-approved). `flow_loop_enabled: true`; engine restarted
++ verified healthy (active/running, DEGRADED_MODE was a 60s post-restart transient; gate `main.py:424-427`
+now routes the loop to Schwab; 27 flow tests pass). The misleading "~15-min-delayed" alert footer was
+removed → `_Unusual-flow instant trigger._`. Go-live evidence:
+`.claude/go-live-evidence/features_schwab_options_flow_loop_enabled.md`. Because the market was closed at
+flip time, no real alert fires until **Mon 2026-07-06 open**. To tune from live data while it runs, a
+REPORT-ONLY numbers run is scheduled Mon 10:00 PDT (`task_1783053334_aadb62.timer` →
+`scripts/run_flow_shadow_report.sh`): it records per-contract volume / OI / vol-OI ratio / premium for
+every disagreed contract (commit `fb9ff57`), posted to #chat + saved to `.claude/flow-shadow/detail_*.csv`.
+Next session: read Monday's live alerts + numbers, confirm sane, tune thresholds if needed, then mark
+this item DONE. See the dated updates below for the 2026-07-01 shadow result.
+
+**Related follow-up (open):** `!em` also runs on Schwab now but its footer (`expected_move.py:463-474`)
+still hardcodes "yfinance · delayed" — same mislabel the flow footer had. Flagged for a yes/no; not
+fixed (needs a source field on `ExpectedMoveResult`).
 
 **CURRENT STATUS (2026-06-30 eve):** BUILT + LIVE. The adapter and the full swap shipped this session
 (discover run `schwab-options-realtime`) and the on-demand switches are ON in production
