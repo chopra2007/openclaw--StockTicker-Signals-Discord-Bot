@@ -465,6 +465,21 @@ def _format_snapshot(snap: Optional[dict]) -> str:
     if isinstance(rev, dict) and (rev.get("up") or rev.get("down")):
         segments.append(f"EPS rev {rev.get('up', 0)}↑ {rev.get('down', 0)}↓ (30d)")
 
+    # #6 lever — analyst-consensus momentum (rating trend vs. ~3 months ago). Arrow gives
+    # direction; the 1–5 score is StrongBuy=5 … StrongSell=1 (higher = more bullish).
+    mom = snap.get("analyst_momentum")
+    if isinstance(mom, dict) and isinstance(mom.get("shift"), (int, float)):
+        now_s, prior_s = mom.get("now"), mom.get("prior")
+        if isinstance(now_s, (int, float)) and isinstance(prior_s, (int, float)):
+            shift = mom["shift"]
+            win = mom.get("window", "3mo")
+            if shift >= 0.02:
+                segments.append(f"Rating trend ▲ {prior_s:.2f}→{now_s:.2f} ({win})")
+            elif shift <= -0.02:
+                segments.append(f"Rating trend ▼ {prior_s:.2f}→{now_s:.2f} ({win})")
+            else:
+                segments.append(f"Rating trend → {now_s:.2f} ({win} flat)")
+
     # #6 lever — fundamentals one-liner. Each field independent; omit when absent so sparse
     # tickers degrade gracefully (no '—', no confidence downgrade implied by missing data).
     fund = snap.get("fundamentals")

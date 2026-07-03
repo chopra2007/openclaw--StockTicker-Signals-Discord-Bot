@@ -43,6 +43,12 @@ _RATING_LABELS = {
     "strong_sell": "Strong Sell",
 }
 
+# #6 analyst-consensus momentum: weight each .recommendations bucket so a higher
+# score = more bullish (StrongBuy=5 … StrongSell=1). This is the INTUITIVE direction;
+# note yfinance's own recommendationMean uses the inverse (1=StrongBuy), which we
+# deliberately do NOT use here. Pre-flight (2026-06-13): AMD 0m 5SB/37B/9H → 3.92.
+_RATING_WEIGHTS = {"strongBuy": 5, "buy": 4, "hold": 3, "sell": 2, "strongSell": 1}
+
 
 def _num(val) -> Optional[float]:
     """Coerce to float, dropping None / NaN / non-numeric."""
@@ -107,6 +113,64 @@ def _fetch_eps_revisions(ticker: str) -> Optional[dict]:
         return {"up": up_i, "down": down_i}
     except Exception as e:  # noqa: BLE001 — sparse/missing/renamed table is normal
         log.debug("snapshot: eps_revisions fetch failed for %s: %s", ticker, e)
+        return None
+
+
+def _reco_score(row) -> tuple[Optional[float], int]:
+    """Weighted mean rating (StrongBuy=5 … StrongSell=1) for one .recommendations
+    row, plus the analyst count. Returns (None, 0) when the row has no analysts."""
+    total = 0
+    weighted = 0.0
+    for col, w in _RATING_WEIGHTS.items():
+        c = _num(row.get(col))
+        n = int(c) if c is not None and c > 0 else 0
+        total += n
+        weighted += n * w
+    if total <= 0:
+        return None, 0
+    return weighted / total, total
+
+
+def _fetch_analyst_momentum(ticker: str) -> Optional[dict]:
+    """Blocking yfinance ``.recommendations`` read → analyst-consensus momentum:
+    the weighted rating NOW ('0m') vs. the oldest available prior period.
+
+    Returns {"now","prior","shift","n_now","window"} or None. ``.recommendations``
+    is a rolling window yfinance returns with only 1–4 rows, so a '-3m' baseline is
+    NOT guaranteed (AMD often has just 0m/-1m/-2m); we take the oldest row present as
+    the baseline and report the real window ('2mo'/'3mo') so the label never lies."""
+    try:
+        import yfinance as yf
+        rec = yf.Ticker(ticker).recommendations  # lazy network fetch (quoteSummary)
+        if rec is None or getattr(rec, "empty", True) or "period" not in getattr(rec, "columns", []):
+            return None
+
+        def _months(p: str) -> int:
+            try:
+                return int(str(p).rstrip("m"))  # '-3m' -> -3, '0m' -> 0
+            except ValueError:
+                return 0
+
+        periods = {str(p): i for i, p in zip(rec.index, rec["period"])}
+        if "0m" not in periods:
+            return None
+        oldest = min(periods, key=_months)  # most-negative month offset present
+        if oldest == "0m":
+            return None  # only the current month is present — no trend to show
+
+        now_score, n_now = _reco_score(rec.loc[periods["0m"]])
+        prior_score, _ = _reco_score(rec.loc[periods[oldest]])
+        if now_score is None or prior_score is None:
+            return None
+        return {
+            "now": round(now_score, 2),
+            "prior": round(prior_score, 2),
+            "shift": round(now_score - prior_score, 2),
+            "n_now": n_now,
+            "window": f"{abs(_months(oldest))}mo",
+        }
+    except Exception as e:  # noqa: BLE001 — sparse/missing/renamed table is normal
+        log.debug("snapshot: analyst_momentum fetch failed for %s: %s", ticker, e)
         return None
 
 
@@ -184,6 +248,20 @@ async def fetch_ticker_snapshot(ticker: str) -> Optional[dict]:
                 snap["eps_rev"] = rev
         except (asyncio.TimeoutError, Exception) as e:  # noqa: BLE001
             log.debug("snapshot: eps_revisions skipped for %s: %s", ticker, e)
+
+    # #6 lever — analyst-consensus momentum (rating now vs. ~3 months ago), from the
+    # SEPARATE .recommendations endpoint. Its own bounded call so a slow/hung fetch nulls
+    # only this field and never delays the main snapshot. Flag-gated.
+    if cfg.get("features.snapshot.analyst_momentum", False):
+        try:
+            mom = await asyncio.wait_for(
+                loop.run_in_executor(_SNAPSHOT_EXECUTOR, _fetch_analyst_momentum, ticker),
+                timeout=_EPS_REV_TIMEOUT_S,
+            )
+            if mom:
+                snap["analyst_momentum"] = mom
+        except (asyncio.TimeoutError, Exception) as e:  # noqa: BLE001
+            log.debug("snapshot: analyst_momentum skipped for %s: %s", ticker, e)
 
     # #6 lever — fundamentals one-liner (PEG / revenue growth / profit margin / beta /
     # institutional %), all read from the SAME .info dict above (zero new network call).

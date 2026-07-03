@@ -769,6 +769,7 @@ features:
   snapshot:
     enabled: true                  # 📊 Snapshot field (analyst target/rating/Fwd P/E/short) — LIVE
     eps_revisions: true            # #6 Lever 1 LIVE 2026-06-15 — verified in real !all (NVDA 34↑3↓, TSLA 2↑1↓); runs <34s
+    analyst_momentum: true         # #6 lever LIVE 2026-07-03 — rating trend now vs oldest available period (.recommendations); live-verified AMD ▲3.82→3.92, AAPL ▼3.75→3.62, TSLA 3mo/others 2mo rolling window; evidence in .claude/go-live-evidence/
   stocktwits_sentiment:
     enabled: true                  # #6 Lever 2 LIVE 2026-06-15 — verified in real !all (NVDA 74% +1/5d 650k watching) via requests (aiohttp is Cloudflare-blocked)
   fundamentals_oneliner:
