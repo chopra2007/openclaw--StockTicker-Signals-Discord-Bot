@@ -4,8 +4,14 @@
 **Created:** 2026-06-29
 
 **CURRENT STATUS (2026-07-02):** BUILT + LIVE for everything except the autonomous flow-loop alert
-switch, which is now DEFERRED (not just "pending") — see the dated update below for the real
-shadow-compare result and why it's parked.
+switch, which is DEFERRED pending a flip decision. A REPORT-ONLY data-collection run is now scheduled
+for Mon 2026-07-06 10:00 PDT (`task_1783053334_aadb62.timer` → `scripts/run_flow_shadow_report.sh`):
+it re-runs the Schwab-vs-yfinance shadow-compare, now enhanced (commit `fb9ff57`) to record
+per-contract volume / OI / vol-OI ratio / premium for every DISAGREED contract — posted to #chat and
+saved to `.claude/flow-shadow/detail_*.csv` — so the flip can be judged on the actual size of each bet,
+not just which feed flagged it. It uses `--notify` only (NO `--apply`), so it never auto-flips. Next
+session: read Monday's `#chat` post / CSV, then decide re-tune vs watched-flip. See the dated updates
+below for the 2026-07-01 shadow result and why it's parked.
 
 **CURRENT STATUS (2026-06-30 eve):** BUILT + LIVE. The adapter and the full swap shipped this session
 (discover run `schwab-options-realtime`) and the on-demand switches are ON in production
