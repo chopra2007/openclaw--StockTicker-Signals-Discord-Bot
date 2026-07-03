@@ -155,3 +155,23 @@ def test_build_em_embed_has_no_warning_line():
 def test_build_em_embed_no_image_omits_image_key():
     embed = em.build_em_embed(_make_result(), with_image=False)
     assert "image" not in embed
+
+
+def test_footer_labels_schwab_realtime_not_delayed():
+    """#57: a Schwab-sourced result must be labelled real-time, NEVER 'delayed'."""
+    r = _make_result()
+    r.source = "schwab"
+    footer = em.build_em_embed(r, with_image=False)["footer"]["text"]
+    assert "Schwab" in footer
+    assert "real-time" in footer.lower()
+    assert "delayed" not in footer.lower()
+    assert "yfinance" not in footer.lower()
+
+
+def test_footer_defaults_to_yfinance_delayed():
+    """Default/absent source keeps the honest yfinance 'delayed' label (regression)."""
+    r = _make_result()
+    assert r.source == "yfinance"
+    footer = em.build_em_embed(r, with_image=False)["footer"]["text"]
+    assert "yfinance" in footer.lower()
+    assert "delayed" in footer.lower()

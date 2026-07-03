@@ -93,6 +93,7 @@ class ExpectedMoveResult:
     quote_ts: Optional[datetime]  # ATM option last-trade time (UTC)
     history: pd.DataFrame
     history_label: str
+    source: str = "yfinance"      # #57: feed that served this chain — "schwab" (real-time) or "yfinance" (delayed)
 
 
 # ---------------------------------------------------------------------------
@@ -282,6 +283,7 @@ def _schwab_bundle(ticker: str, now_et: datetime) -> Optional[dict]:
         "spot": spot, "expiration": exp, "session_label": session_label,
         "calls": calls, "puts": puts,
         "history": history, "history_label": history_label,
+        "source": "schwab",
     }
 
 
@@ -325,6 +327,7 @@ def _fetch_bundle(ticker: str, now_et: datetime) -> dict:
         "spot": spot, "expiration": exp, "session_label": session_label,
         "calls": calls, "puts": puts,
         "history": history, "history_label": history_label,
+        "source": "yfinance",
     }
 
 
@@ -379,6 +382,7 @@ async def compute_em(ticker: str, executor=None) -> ExpectedMoveResult:
         iv_band_lower=spot - iv252 if math.isfinite(iv252) else spot - primary,
         tte=tte, quote_ts=call.last_trade,
         history=bundle["history"], history_label=bundle["history_label"],
+        source=bundle.get("source", "yfinance"),
     )
 
 
@@ -462,15 +466,20 @@ def render_chart(result: ExpectedMoveResult) -> Optional[bytes]:
 # Embed
 # ---------------------------------------------------------------------------
 def _fmt_quote_time(result: ExpectedMoveResult) -> str:
-    """Quiet, factual provenance for the footer (no warning icon)."""
+    """Quiet, factual provenance for the footer (no warning icon). #57: the Schwab
+    feed is real-time and yfinance is ~15-min delayed — label whichever actually
+    served THIS result's chain, so real-time data is never mislabelled 'delayed'."""
     ts = result.quote_ts
+    schwab = getattr(result, "source", "yfinance") == "schwab"
     if not ts:
-        return "yfinance · delayed quotes"
+        return "Schwab · real-time quotes" if schwab else "yfinance · delayed quotes"
     try:
         from zoneinfo import ZoneInfo
         pt = ts.astimezone(ZoneInfo("America/Los_Angeles"))
     except Exception:
         pt = ts
+    if schwab:
+        return f"Schwab · real-time · quote {pt:%-I:%M %p %Z}"
     return f"yfinance · quotes {pt:%-I:%M %p %Z} · delayed"
 
 
