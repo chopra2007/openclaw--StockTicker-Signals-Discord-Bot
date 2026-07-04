@@ -88,6 +88,15 @@ def _audit_flags_default_off(monkeypatch):
         "features.schwab_quotes.enabled": False,
         "features.schwab_ohlcv.enabled": False,
         "features.schwab_snapshot_logger.enabled": False,
+        # Reliability-hardening cautious switches — flipped ON in config 2026-07-04 after the
+        # soak (TODO #54). Force OFF for the baseline suite so tests that read the live config
+        # (e.g. the circuit-breaker "disabled never gates" test) stay deterministic; dedicated
+        # tests force their own flag in-body (the `enabled` fixture wins by monkeypatch order).
+        "circuit_breaker.enabled": False,
+        "dead_source.ops_alert_enabled": False,
+        "retry.use_classifier": False,
+        "adapters.report_failure": False,
+        "social.market_cap_failclosed": False,
     }
 
     def _patched(key, default=None):
