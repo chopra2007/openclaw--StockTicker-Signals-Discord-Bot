@@ -1,6 +1,6 @@
 # Reliability-hardening deploy + 7-day soak
 
-**Status:** OPEN
+**Status:** DONE 2026-07-04 — all 7 switches ON. The 5 cautious ones were flipped after the soak was evaluated early (markets closed Fri–Sun gather no source-health data → 4 trading days Jun 29–Jul 2 was the real window). Data cleared all 5 (market_cap_failclosed 0 errors; retry/adapters internal-only; breaker: only exa dead=1296, healthy sources=0, none instant-alert). Flipped in 3 risk-tiered cycles, engine verified clean between each; go-live evidence in .claude/go-live-evidence/; Sunday soak timer retired. Live watch owed: eyeball the breaker opening exa (not a healthy source) next trading day.
 **Created:** 2026-06-28
 **Switches:** llm.score_fallback_enabled=on; options_flow.staleness_failclosed=on; circuit_breaker.enabled=on; dead_source.ops_alert_enabled=on; retry.use_classifier=on; adapters.report_failure=on; social.market_cap_failclosed=on
 
