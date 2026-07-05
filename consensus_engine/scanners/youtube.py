@@ -150,7 +150,15 @@ def _suppress_off_allowlist(items, allowlist: set[str], reason: str) -> int:
     return n
 
 
-async def _maybe_alert_chain_failure(video_id: str) -> None:
+_F2_FAILURE_REASONS = {
+    "timeout": "Gemini timed out",
+    "quota": "Gemini quota exhausted",
+    "unavailable": "Gemini unavailable (503)",
+    "token_limit": "Gemini hit its token limit",
+}
+
+
+async def _maybe_alert_chain_failure(video_id: str, failure_category: str | None = None) -> None:
     """Send one Discord #chat alert per video per 24h when all ingest methods fail."""
     import time as _time
     # Guard: real YouTube IDs are 11 chars (letters/digits/_/-). Anything else
@@ -176,7 +184,8 @@ async def _maybe_alert_chain_failure(video_id: str) -> None:
         session = await get_session()
         url = f"https://discord.com/api/v10/channels/{channel_id_str}/messages"
         headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
-        body = _safe_send_kwargs({"content": f"⚠️ All ingest methods failed for video `{video_id}` — Gemini timeout + Groq Whisper terminal failure. No evidence spans extracted."})
+        reason = _F2_FAILURE_REASONS.get(failure_category, "Gemini failed")
+        body = _safe_send_kwargs({"content": f"⚠️ All ingest methods failed for video `{video_id}` — {reason}, caption fallback produced no transcript. No evidence spans extracted."})
         async with session.post(url, headers=headers, json=body, timeout=_aiohttp.ClientTimeout(total=10)) as resp:
             if resp.status in (200, 201):
                 conn = await db.get_db()
@@ -811,7 +820,7 @@ async def process_video(
                     await db.mark_youtube_video_status(video_id, "quota_blocked")
                 else:
                     await db.mark_youtube_video_status(video_id, "failed", bump_attempt=True)
-                    await _maybe_alert_chain_failure(video_id)
+                    await _maybe_alert_chain_failure(video_id, two_stage_fcat)
                 return
 
         # ── Fallback: transcript cascade + multi-pass pipeline ────────────────
