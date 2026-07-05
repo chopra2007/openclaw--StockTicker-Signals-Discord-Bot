@@ -108,6 +108,13 @@ async def run_once(db_path: str) -> dict:
     cfg._config["youtube"].setdefault("captions", {})["enabled"] = False
     cfg._config["youtube"].setdefault("whisper", {})["enabled"] = False
     cfg._config["database"]["path"] = db_path
+    # This harness runs against a throwaway DB but calls the real process_video(),
+    # which posts a live Discord alert on failure. Without this, a transient Gemini
+    # hiccup on this nightly cron fires a false "all ingest methods failed" alert
+    # into production #chat for a video that's already safely processed (incident
+    # 2026-07-04: 4mSyMr8PGLI). dry_run suppresses that alert; pass/fail is reported
+    # via this script's own exit code + log file instead.
+    cfg.dry_run = True
 
     await db.init_db()
     await _seed_channel(CHANNEL_ID, trust=1.0)

@@ -161,6 +161,9 @@ _F2_FAILURE_REASONS = {
 async def _maybe_alert_chain_failure(video_id: str, failure_category: str | None = None) -> None:
     """Send one Discord #chat alert per video per 24h when all ingest methods fail."""
     import time as _time
+    if cfg.dry_run:
+        log.info("[DRY-RUN] Chain-failure alert suppressed for %s", video_id)
+        return
     # Guard: real YouTube IDs are 11 chars (letters/digits/_/-). Anything else
     # is a test fixture or malformed input — skip silently so tests can never
     # leak alerts to production #chat.
