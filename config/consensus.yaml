@@ -991,7 +991,11 @@ wolf:
       - "google/gemini-2.5-flash-lite"
     max_tokens: 1500
     timeout: 60
-    min_agreement: 0.5                    # a thesis in < this fraction of samples needs a positive ENTAIL to survive
+    # Curated-source gate: the judge ONLY drops a call it flags as wrong-direction (contradict)
+    # or as a recap mention — a hedged/tentative Wolf call is never dropped (he posts only
+    # quality). min_agreement is now just a PHASE-confidence threshold: below this sample-vote
+    # fraction a plain view is capped at phase=pending (never marked 'active'), never dropped.
+    min_agreement: 0.5
   sprawl_caps:                          # max active theses per scope
     market: 10
     sector: 20

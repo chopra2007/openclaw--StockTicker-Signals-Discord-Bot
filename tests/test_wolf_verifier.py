@@ -63,12 +63,14 @@ def test_gate_recap_mention_vetoed():
     assert keep is False
 
 
-def test_gate_unstable_and_unentailed_abstains():
-    keep, _ = wv._gate(
-        _cand("X", "bull", 0.34),
+def test_gate_hedged_noncontradicted_call_survives_as_pending():
+    # Curated source (Wolf): a shaky, only-weakly-supported but NON-contradicted call is kept
+    # (as pending), not dropped — we don't silence Wolf for being tentative.
+    keep, phase = wv._gate(
+        _cand("X", "bear", 0.34),
         {"verdict": "neutral", "assertion": "planned",
          "is_expected_bounce_to_fade": False, "is_explicit_reversal": False}, 0.5)
-    assert keep is False
+    assert keep is True and phase == "pending"
 
 
 def test_gate_emits_pending_bear_as_counter_trend_bounce():
@@ -103,10 +105,12 @@ def test_gate_stable_view_emits_pending():
     assert keep is True and phase == "pending"
 
 
-def test_gate_missing_verdict_keeps_only_stable():
-    # judge returned verdicts but not for this id -> keep only if the extractor was stable
-    assert wv._gate(_cand("A", "bear", 0.67), None, 0.5)[0] is True
-    assert wv._gate(_cand("B", "bear", 0.34), None, 0.5)[0] is False
+def test_gate_missing_verdict_keeps_curated_call():
+    # judge returned no verdict for this id -> trust the curated extractor, keep it;
+    # a stable vote keeps its intent phase, a shaky one is capped at pending. Never dropped.
+    assert wv._gate(_cand("A", "bear", 0.67), None, 0.5) == (True, "pending")
+    assert wv._gate(_cand("B", "bear", 0.34), None, 0.5) == (True, "pending")
+    assert wv._gate(_cand("C", "bear", 1.0, intent="started"), None, 0.5) == (True, "active")
 
 
 # ───────────────────────── verify_and_gate (mocked judge) ─────────────────────────

@@ -207,26 +207,28 @@ def _phase_from_intent(c: dict) -> str:
 
 
 def _gate(c: dict, v: dict | None, min_agreement: float) -> tuple[bool, str]:
-    """Deterministic confidence gate. Returns (keep, phase).
+    """Curated-source gate. Returns (keep, phase).
 
-    Discriminative-only: this can drop a candidate or downgrade its phase; it never adds one.
+    Wolf's newsletter is a trusted, high-signal source — he doesn't post junk — so the gate
+    only REMOVES a call the judge actively flags as wrong-direction (contradict, the anti-trap
+    veto) or as a non-stance recap mention ("GOOG +1% led the sector", never a trade). A hedged
+    or weakly-supported but non-contradicted call SURVIVES (as pending) — we don't silence Wolf
+    for being tentative. The sample-vote `_agreement` only decides phase confidence, never
+    whether to drop. Still discriminative-only: it can drop or downgrade, never add.
     """
-    agree = c.get("_agreement", 1.0)
+    stable = c.get("_agreement", 1.0) >= min_agreement
     if v is None:
-        # Judge produced verdicts but not for this id → treat as neutral: keep only if the
-        # extractor itself was stable about it (high agreement). Never up-rank on silence.
-        keep = agree >= min_agreement
-        return keep, (_phase_from_intent(c) if keep else "neutral_context")
+        # Judge returned no verdict for this id (partial response) → trust the curated
+        # extractor and keep it, lower-committed (pending) if the sample vote was shaky.
+        return True, (_phase_from_intent(c) if stable else "pending")
 
     if v["verdict"] == "contradict":
-        return False, "neutral_context"          # the anti-trap veto
+        return False, "neutral_context"          # the anti-trap veto (wrong direction)
     if v["assertion"] == "recap_or_none":
-        return False, "neutral_context"          # a mention, not a stance
+        return False, "neutral_context"          # a recap mention, not a stance
 
-    emit_ok = (agree >= min_agreement) or (v["verdict"] == "entail")
-    if not emit_ok:
-        return False, "neutral_context"          # unstable AND not positively entailed → abstain
-
+    # Keep. Phase from the lifecycle cues; a shaky vote caps a plain view at pending (so an
+    # unstable read can't be marked 'active' and cross a bear<->bull flip on its own).
     if v["is_explicit_reversal"]:
         phase = "reversal"                       # entailed view-flip → may cross bear<->bull at ingest
     elif v["assertion"] == "active" or c.get("position_intent") in ("started", "adding"):

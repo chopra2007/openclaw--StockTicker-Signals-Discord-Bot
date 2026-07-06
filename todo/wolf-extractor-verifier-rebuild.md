@@ -73,3 +73,13 @@ the IGV case literally hard-coded in `_DIRECTION_GUARD_RULE:108`. Replace with:
   (vetoes hedged/weak calls); rollback = `wolf.verifier.enabled: false`.
 - **Next:** confirm real Wolf emails over the next few days aren't over-vetoed; if too strict, raise
   `wolf.verifier.min_agreement` tuning or soften the gate's "unstable+unentailed→abstain" branch.
+
+### Session notes — 2026-07-05 (loosened for curated source)
+- **User feedback:** Wolf only posts quality — the confidence threshold shouldn't silence his
+  hedged calls. **Loosened the gate:** it now drops a call ONLY when the judge flags it
+  wrong-direction (contradict, the anti-trap veto) or a recap mention; a hedged/tentative
+  non-contradicted call survives as `phase=pending` (removed the "unstable+not-entailed→abstain"
+  branch). `min_agreement` is now only a phase-confidence knob (caps a shaky read at pending,
+  never drops). Unit test updated; engine restarted clean; trap invariants re-verified on the eval
+  (0 IGV false bulls, IGV bear recovered 3/3). Note: the eval's thesis COUNT is noisy run-to-run
+  because the free extractor was 429-rate-limited today — that's extractor availability, not the gate.
