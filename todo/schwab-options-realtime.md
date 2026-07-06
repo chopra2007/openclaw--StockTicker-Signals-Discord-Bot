@@ -48,6 +48,32 @@ fixed (needs a source field on `ExpectedMoveResult`).
 - Re-auth deadline: **2026-07-08 01:56 UTC ≈ 2026-07-07 18:56 PDT** (refresh does NOT extend it — the
   reminder fires from 2 days out). Full API-capabilities/future-features research is in the section below.
 
+### Session note — 2026-07-06 — second shadow-compare, still HELD (2nd data point)
+
+Monday 10:00 PDT's live shadow-compare (`detail_20260706_1009.csv`, 363 rows logged) ran during real
+market hours: Schwab **186** qualifying hits (28 tickers) vs yfinance **176** (26 tickers), **172**
+overlap, **14 Schwab-only**, **4 yfinance-only**. Verdict logged: `RE-TUNE thresholds first`.
+
+Read the actual per-contract rows (not just the summary counts) this time:
+- **Schwab-only (14 rows):** 7 of the 14 are AMZN puts/calls across 7 different strikes (215–270), all
+  expiring 2026-07-08 — almost certainly one multi-leg trade Schwab's real-time feed caught mid-execution
+  that yfinance's ~15-min-delayed snapshot mostly missed. Also QQQ and SPY sit right at the `min_vol_oi`
+  boundary (10.3, 10.6 vs the 10.0 cutoff) — real-time vs. delayed timing can flip a borderline contract
+  in/out, expected noise not a bug.
+- **yfinance-only (4 rows):** DDOG, MSFT, AMZN, T — **none of these match 07-01's yfinance-only list**
+  (CRWV, META, QQQ, SPY), so this is NOT a repeating/systematic gap in Schwab's feed — ruled out the
+  nearest-N-expirations-bounding theory (2 of the 4 misses, MSFT and AMZN, are same-day 0DTE contracts,
+  which would be inside any expiration window; the misses look like ordinary poll-timing noise on
+  fast-moving contracts, not a structural hole).
+
+Comparing the two runs: 07-01 was 23 Schwab-only / 4 yfinance-only; today is 14 Schwab-only / 4
+yfinance-only — narrower, but the system's own auto-flip rule (≤2 exclusives/side) is still far from met,
+so it correctly HELD again rather than flipping to "feeds equivalent." Two data points now agree this is
+structural (Schwab genuinely sees more, faster) rather than a one-off noisy day. Still not re-tuned —
+next session should adjust `options_flow.min_vol_oi`/`min_volume`/`min_premium_usd` for Schwab's speed
+(or add a short confirmation-delay debounce before firing on a Schwab-exclusive hit) rather than just
+re-running the compare again.
+
 ### Session note — 2026-07-02 — the scheduled shadow-compare ran, held OFF, DEFERRED (user decision)
 
 The 2026-07-01 10:00 PDT auto-compare (task `1782879041_08e8ad`) ran on schedule during real market
