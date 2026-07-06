@@ -26,6 +26,8 @@ log = logging.getLogger(__name__)
 
 _STAGE_ORDER = ["forming", "diverging", "imminent", "acting"]
 _INTENT_ORDER = ["none", "watching", "looking", "started", "adding"]
+# #64 phase lifecycle rank (higher = more committed / harder evidence).
+_PHASE_ORDER = ["neutral_context", "pending", "counter_trend_bounce", "active", "reversal"]
 
 # Per-scope active-thesis sprawl caps.
 _DEFAULT_CAPS = {"market": 10, "sector": 20, "stock": 30, "asset": 12}
@@ -39,6 +41,10 @@ def _stage_rank(stage: str) -> int:
 
 def _intent_rank(intent: str) -> int:
     return _INTENT_ORDER.index(intent) if intent in _INTENT_ORDER else 0
+
+
+def _phase_rank(phase: str) -> int:
+    return _PHASE_ORDER.index(phase) if phase in _PHASE_ORDER else 1
 
 
 def _caps() -> dict:
@@ -114,6 +120,8 @@ def _collapse_theses(theses: list[dict]) -> list[dict]:
         top = max(group, key=lambda t: _stage_rank(t.get("stage", "forming")))
         best_stage = max(_stage_rank(t.get("stage", "forming")) for t in group)
         best_intent = max(_intent_rank(t.get("position_intent", "none")) for t in group)
+        # #64 phase (lifecycle): keep the most-committed phase in the thread.
+        best_phase = max((t.get("phase", "pending") for t in group), key=_phase_rank)
         tf_raw: list[str] = []
         chart_tf_raw: list[str] = []
         for t in group:
@@ -135,6 +143,7 @@ def _collapse_theses(theses: list[dict]) -> list[dict]:
             "scope_key": key[1],
             "direction": key[2],
             "stage": _STAGE_ORDER[best_stage],
+            "phase": best_phase,
             "position_intent": _INTENT_ORDER[best_intent],
             "timeframes": tf_raw,
             "chart_timeframes": chart_tf_raw,
@@ -182,6 +191,7 @@ async def ingest(extraction: dict, source_id: str | None = None) -> list[dict]:
         direction = th["direction"]
         stage = th["stage"]
         intent = th.get("position_intent", "none")
+        phase = th.get("phase", "pending")
         new_levels = th.get("levels", [])
         snippet = th.get("snippet", "")
         phrase = th.get("conviction_phrase")
@@ -190,6 +200,22 @@ async def ingest(extraction: dict, source_id: str | None = None) -> list[dict]:
         # 1. Opposite-direction active thesis on the same instrument => flip (invalidate old).
         opposite = "bear" if direction == "bull" else "bull"
         opp = await db.get_active_thesis(scope_type, scope_key, opposite)
+
+        # #64 evidence-guarded transition (only when the trap-proof pipeline is on): a
+        # stored BEAR must not silently flip to BULL on an up-tick. The IGV trap is always a
+        # false BULL born from a bounce inside an unchanged bearish view — so a bear->bull
+        # flip requires the new bull to carry an EXPLICIT reversal cue (phase="reversal") or
+        # a real entered long (phase="active"). A plain/pending/bounce bull cannot invalidate
+        # the bear; it is dropped (abstain), the bear stands. bull->bear flips are unrestricted
+        # (a topping bull rolling over is the normal, desired case, e.g. the 06-05a IGV fix).
+        if (opp is not None and direction == "bull"
+                and cfg.get("wolf.verifier.enabled", False)
+                and phase not in ("reversal", "active")):
+            log.info("wolf_theses: BLOCKED unconfirmed bull flip of %s %s bear (#%d) — "
+                     "new bull phase=%s lacks a reversal cue; keeping the bear",
+                     scope_type, scope_key, opp["id"], phase)
+            continue
+
         flipped = opp is not None
         if opp:
             await db.invalidate_thesis(opp["id"], now)

@@ -1,0 +1,40 @@
+{
+  "_about": "Gold labels for the #64 trap-proof Wolf-reader eval. The HARD GATE (lens3 §3.3): zero IGV false bulls across every email, recover the IGV bear on the incident + 06-05a, and no net increase in invented theses vs the current shipped extractor. IGV is bear (waiting to short a bounce into resistance) in every email it carries a stance; it is NEVER a bull. `trap_tickers` are recap/performance mentions that must produce NO thesis.",
+  "emails": {
+    "19e7291f1b217a3c": {
+      "label": "IGV-incident (trade up to $97 then backtest 200-day from below)",
+      "igv": "bear",
+      "must_not_bull": ["IGV"],
+      "expect_bear": ["IGV"],
+      "trap_tickers": ["SNOW", "MSFT", "LLY", "GOOG"]
+    },
+    "19e96023b60514d2": {
+      "label": "06-05a Rotation into Laggards (the missed IGV bear)",
+      "igv": "bear",
+      "must_not_bull": ["IGV"],
+      "expect_bear": ["IGV"],
+      "trap_tickers": ["AVGO", "CIEN", "CRWD", "HUM", "UNH", "BX", "GOOG", "META"]
+    },
+    "19e991ef58f54757": {
+      "label": "06-05b Long Duration / Higher Rates (bear thesis playing out)",
+      "igv": "bear",
+      "must_not_bull": ["IGV"],
+      "expect_bear": [],
+      "trap_tickers": ["COIN", "HOOD", "MSTR", "TSLA", "NVDA", "META", "ORCL", "AMD", "MU", "LULU"]
+    },
+    "19eb9ee20e403188": {
+      "label": "06-12 War Over (IGV bull-trap: bounce to fade)",
+      "igv": "bear",
+      "must_not_bull": ["IGV"],
+      "expect_bear": [],
+      "trap_tickers": ["UAL", "ORCL", "GOOG", "TSLA", "OWL"]
+    },
+    "19e93fa7362eb2d4": {
+      "label": "06-04 Semis Show Cracks (IGV prior bull target merely completing — not a fresh bull)",
+      "igv": "absent_or_bear",
+      "must_not_bull": ["IGV"],
+      "expect_bear": [],
+      "trap_tickers": ["AVGO", "CIEN", "CRWD", "LLY", "UNH", "MRK", "BX", "ARES"]
+    }
+  }
+}

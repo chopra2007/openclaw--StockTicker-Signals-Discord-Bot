@@ -160,6 +160,16 @@ def test_coerce_thesis_canonicalizes():
         ("market", "SPX", "bear", "acting")
 
 
+def test_coerce_thesis_sets_phase_from_intent():
+    # #64: phase is always present; defaults from the commitment ladder (verifier overrides it).
+    started = wolf_email_parser._coerce_thesis(
+        {"identifier": "SMH", "direction": "bear", "position_intent": "started"})
+    assert started["phase"] == "active"
+    watching = wolf_email_parser._coerce_thesis(
+        {"identifier": "IGV", "direction": "bear", "position_intent": "watching"})
+    assert watching["phase"] == "pending"
+
+
 def test_coerce_thesis_drops_neutral_and_directionless():
     assert wolf_email_parser._coerce_thesis({"identifier": "X", "direction": "neutral"}) is None
     assert wolf_email_parser._coerce_thesis({"identifier": "X"}) is None
@@ -315,6 +325,30 @@ async def test_flip_invalidates_opposite(fresh_db):
         {"scope_type": "market", "scope_key": "SPX", "direction": "bull",
          "stage": "acting", "levels": [], "snippet": "flipped"}]})
     active = await db.get_active_theses("market")
+    assert len(active) == 1 and active[0]["direction"] == "bull"
+
+
+async def test_bear_to_bull_flip_blocked_without_reversal_cue(fresh_db, monkeypatch):
+    """#64: with the trap-proof pipeline ON, a stored BEAR cannot silently flip to BULL on a
+    plain/pending bull (the up-tick / expected-bounce trap). It flips only on an explicit
+    reversal cue (or a real entered long). bull->bear flips stay unrestricted."""
+    real_get = wolf_theses.cfg.get
+    monkeypatch.setattr(wolf_theses.cfg, "get",
+                        lambda k, d=None: True if k == "wolf.verifier.enabled" else real_get(k, d))
+    await wolf_theses.ingest({"ts": 1.0, "theses": [
+        {"scope_type": "sector", "scope_key": "IGV", "direction": "bear",
+         "stage": "forming", "phase": "pending", "levels": [], "snippet": "waiting to short the bounce"}]})
+    # a pending bull (a bounce) must NOT flip the bear
+    await wolf_theses.ingest({"ts": 2.0, "theses": [
+        {"scope_type": "sector", "scope_key": "IGV", "direction": "bull",
+         "stage": "forming", "phase": "pending", "levels": [], "snippet": "bounce to $100"}]})
+    active = await db.get_active_theses("sector")
+    assert len(active) == 1 and active[0]["direction"] == "bear"   # bear stands, no bull minted
+    # an explicit reversal DOES flip it
+    await wolf_theses.ingest({"ts": 3.0, "theses": [
+        {"scope_type": "sector", "scope_key": "IGV", "direction": "bull",
+         "stage": "acting", "phase": "reversal", "levels": [], "snippet": "now favors the long side"}]})
+    active = await db.get_active_theses("sector")
     assert len(active) == 1 and active[0]["direction"] == "bull"
 
 

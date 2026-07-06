@@ -1,6 +1,6 @@
 # Rebuild the Wolf newsletter reader as a trap-proof extractor→verifier
 
-**Status:** OPEN
+**Status:** DONE 2026-07-05 (LIVE — `wolf.verifier.enabled: true`)
 **Created:** 2026-07-05
 
 ## What this is
@@ -48,3 +48,28 @@ the IGV case literally hard-coded in `_DIRECTION_GUARD_RULE:108`. Replace with:
   uncorrelated errors)?
 - Re-fetch the 2 unpinned A/B emails ("06-12 Afternoon", "06-11 Worm Turning") for a fuller eval set
   (Gmail OAuth token is 7-day; snapshot early).
+
+### Session notes — 2026-07-05
+- **Worked on:** Built + shipped the trap-proof extractor→verifier rebuild.
+  - New `consensus_engine/analysis/wolf_verifier.py`: `consolidate()` (3-sample self-consistency
+    vote with an agreement score), `verify_and_gate()` (discriminative cross-family judge —
+    `google/gemini-2.5-flash`, veto/downgrade-only), deterministic confidence gate.
+  - `wolf_email_parser.py`: `_produce_theses()` orchestrates single-shot (flag off) vs the pipeline
+    (flag on); `_coerce_thesis` now always sets `phase`; extraction temp is a param for sampling.
+  - `wolf_theses.py`: `phase` threaded through `_collapse_theses`; bear→bull ingest flip now
+    requires `phase in (reversal, active)` when the flag is on (the up-tick guard).
+  - Config: new `wolf.verifier.*` block (`enabled`, `samples: 3`, `models`, `min_agreement: 0.5`).
+- **Decisions:**
+  - NLI judge = a hosted cross-family model, NOT local torch/DeBERTa (box has no torch, OOM risk —
+    matches the constraint in this file). GLM-free went 404/paid 2026-07-05, so the judge chain is
+    `[gemini-2.5-flash, gemini-2.5-flash-lite]` (both cross-family from the gpt-oss/deepseek extractor).
+  - Flipped ON same session (built-switches-default-ON): eval gate passed, blast radius LOW.
+  - The eval ran with `--reliable-extractor` (paid gpt-oss-120b lead) because the free extractor
+    chain was 429/timeout all session; same family, so the extraction error profile is unchanged.
+- **HARD GATE PASSED** (`scripts/eval_wolf_extractor.py`, 5 real emails): baseline STILL emits the
+  IGV incident as a $100 BULL (1 false bull, incident not recovered); new = bear/counter_trend_bounce,
+  IGV bear recovered 3/3, **0 false bulls, 0 net-new invented theses** (total 23→11, stricter).
+- **Owed live check:** watch the next few real Wolf #news posts — the pipeline is more conservative
+  (vetoes hedged/weak calls); rollback = `wolf.verifier.enabled: false`.
+- **Next:** confirm real Wolf emails over the next few days aren't over-vetoed; if too strict, raise
+  `wolf.verifier.min_agreement` tuning or soften the gate's "unstable+unentailed→abstain" branch.

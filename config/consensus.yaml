@@ -968,6 +968,30 @@ wolf:
     - "openai/gpt-oss-120b:free"
     - "deepseek/deepseek-v4-flash"
     - "openrouter/free"
+  extraction_retries: 2                   # in-code default was 2; made explicit here
+  # #64 extractor->verifier rebuild (trap-proof reader). The extractor is now sampled
+  # N times (self-consistency vote) and each surviving thesis is checked by a
+  # DISCRIMINATIVE cross-family verifier that can only VETO/DOWNGRADE a thesis, never
+  # mint one. Gated behind wolf.verifier.enabled. See todo/wolf-extractor-verifier-rebuild.md.
+  verifier:
+    enabled: true                         # LIVE 2026-07-05 — eval-corpus gate PASSED: fixes the IGV
+                                          #   incident false-bull the shipped extractor STILL gets wrong
+                                          #   (bull->bear), recovers the IGV bear 3/3, zero false bulls,
+                                          #   no net-new invented theses. Owed live check: watch the next
+                                          #   few real Wolf emails — the pipeline is stricter (drops
+                                          #   hedged/weak calls); flip back to false to roll back.
+    samples: 3                            # extractor sample count for the consistency vote
+    sample_temperature: 0.4               # temp for samples 2..N (sample 1 stays at 0.1)
+    # Cross-family judge: Gemini is a DIFFERENT family from the gpt-oss/deepseek
+    # extractor, so its errors are uncorrelated (the veto is the anti-trap). GLM-free
+    # went 404/paid 2026-07-05; flash-lite (already the paid Wolf-vision reader) is the
+    # reliable same-family-but-cheap fallback.
+    models:
+      - "google/gemini-2.5-flash"
+      - "google/gemini-2.5-flash-lite"
+    max_tokens: 1500
+    timeout: 60
+    min_agreement: 0.5                    # a thesis in < this fraction of samples needs a positive ENTAIL to survive
   sprawl_caps:                          # max active theses per scope
     market: 10
     sector: 20

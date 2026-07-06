@@ -413,11 +413,13 @@ Log the 5 display signals into decision_snapshots and fill the per-analyst outco
 
 Merge the 3-messages-per-spike into one self-updating alert that says ACT vs WATCH, shows a real stop price, replaces the misleading "83" with a plain confidence word, and stays quiet on weak signals (needs a live shadow check first).
 
-## 64. Rebuild the Wolf newsletter reader (trap-proof extractor→verifier)
+## 64. Rebuild the Wolf newsletter reader (trap-proof extractor→verifier) — DONE 2026-07-05 (LIVE)
 
 **File:** `wolf-extractor-verifier-rebuild.md`
 
-Rebuild the newsletter reader so it can tell "I'm waiting to SHORT this bounce" from "this is going up" (the IGV mistake), using a verifier that can only reject bad readings — hard-gated on the saved eval emails so it can't repeat the false-bull failure.
+**Switches:** wolf.verifier.enabled=on
+
+Rebuild the newsletter reader so it can tell "I'm waiting to SHORT this bounce" from "this is going up" (the IGV mistake), using a verifier that can only reject bad readings — hard-gated on the saved eval emails so it can't repeat the false-bull failure. **DONE 2026-07-05 + LIVE:** new `wolf_verifier.py` — the extractor is sampled 3× (self-consistency vote) and every thesis is checked by a discriminative cross-family judge (`google/gemini-2.5-flash`, a different family from the gpt-oss/deepseek extractor) that can only VETO/DOWNGRADE, never mint — so it's trap-proof by construction. Added a first-class `phase` axis (pending/active/counter_trend_bounce/reversal) and a bear→bull ingest flip-guard (an up-tick can't silently become a bull). **HARD GATE PASSED** on the 5 eval emails: the current shipped extractor STILL reads the IGV incident email as a $100-target BULL (1 false bull, incident not recovered); the new pipeline reads it as bear/counter_trend_bounce, recovers the IGV bear 3/3, **zero false bulls, no net-new invented theses** (`scripts/eval_wolf_extractor.py`). Flag `wolf.verifier.enabled: true`; engine restarted clean; 210 wolf tests pass + new `tests/test_wolf_verifier.py` (12). Evidence: `.claude/go-live-evidence/wolf_verifier_enabled.md`. **Owed live check:** watch the next few real Wolf #news posts — the pipeline is stricter (drops hedged/weak calls, 23→11 on the corpus); rollback = flip the flag off.
 
 ## 65. Two small live-path fixes: social de-dup + alert idempotency
 
