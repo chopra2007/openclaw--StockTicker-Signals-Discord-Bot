@@ -1,7 +1,21 @@
 # Two small live-path fixes: social-source de-dup + alert idempotency
 
-**Status:** OPEN
+**Status:** DONE 2026-07-05
 **Created:** 2026-07-05
+
+**CURRENT STATUS (2026-07-05):** Both SHIPPED.
+- **Fix 1 (idempotency) — LIVE.** Reordered `main.py`: `insert_alert` now write-ahead-arms the
+  `alert_history` cooldown row BEFORE `send_instant_ping`, and a new `db.delete_alert()` rolls the
+  row back if the send returns None. The UNIQUE-hash alternative was rejected — the bug is a
+  *missing* insert (crash before write), which a UNIQUE key can't fix. Correctness fix in the safe
+  direction (a rare missed ping instead of a lost cooldown). Test added; 13 related tests green.
+- **Fix 2 (social family de-dup) — BUILT flag-OFF, intentionally not flipped.** Same-crowd social
+  sources (ApeWisdom/StockTwits/Reddit) collapse to one independent vote in `_compute_social_breakdown`,
+  behind `features.social_family_dedup.enabled` (default false, demotion-only). Blast radius measured
+  on `decision_snapshots`: **0 of 3,134 past alerts would change** (1,706 had one retail-crowd term,
+  none ever had two at once — StockTwits scanner is off, Reddit needs ≥2). So it's correct + safe but
+  a no-op on current data → stays OFF, answering the item's own "is it worth the risk?" (no, defer the
+  flip until source mix changes).
 
 ## What this is
 Two small, related refinements from the #61 research run that both touch the LIVE alert path, so

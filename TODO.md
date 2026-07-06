@@ -407,7 +407,7 @@ Build the approved redesign of the /discover plugin — passes 0-4 on Claude Cod
 
 Log the 5 display signals into decision_snapshots and fill the per-analyst outcome table, so the autonomous auto-flip engine can validate and switch on "fold signals into the score" and "analyst accuracy" by itself once the data proves them.
 
-## 63. Make the bot's alerts honest and decision-first
+## 63. Make the bot's alerts honest and decision-first — BUILT (flag-OFF) 2026-07-05, live flip owed
 
 **File:** `honest-decision-first-alerts.md`
 
@@ -419,13 +419,13 @@ Merge the 3-messages-per-spike into one self-updating alert that says ACT vs WAT
 
 Rebuild the newsletter reader so it can tell "I'm waiting to SHORT this bounce" from "this is going up" (the IGV mistake), using a verifier that can only reject bad readings — hard-gated on the saved eval emails so it can't repeat the false-bull failure.
 
-## 65. Two small live-path fixes: social de-dup + alert idempotency
+## 65. Two small live-path fixes: social de-dup + alert idempotency — DONE 2026-07-05
 
 **File:** `social-dedup-and-alert-idempotency.md`
 
 Stop two social crowds (StockTwits + Reddit) from counting as two independent votes, and make a crash unable to double-send or lose the throttle on an alert (both touch live alerts, so each needs a shadow check).
 
-## 66. Shrink the database by pruning old signal records — but verify they're useless first
+## 66. Shrink the database by pruning old signal records — but verify they're useless first — DONE 2026-07-05
 
 **File:** `prune-old-ticker-signals.md`
 

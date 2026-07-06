@@ -1,7 +1,32 @@
 # Make the bot's alerts honest and decision-first (one clear alert, ACT vs WATCH)
 
-**Status:** OPEN
+**Status:** BUILT (flag-OFF) 2026-07-05 — live flip owed
 **Created:** 2026-07-05
+
+**CURRENT STATUS (2026-07-05):** Built behind `alerts.decision_first.enabled` (default OFF);
+legacy render byte-identical when OFF. What's LEFT before it goes live: a real shadow soak
+(flip `alerts.decision_first.shadow: true` on the live config, watch `[decision-first shadow]`
+log lines against real alerts for a day), then flip `enabled: true`. Do NOT flip blind.
+Built: `format_decision_card` + `edit_instant_ping_embed` + `send_decision_followup` in
+`discord.py`, flag branch in `main.py`. Delivers items 2-5 and the ping→detail half of item 1
+(the ping now EDITS itself in place into the decision card — kills the 25-vs-83 contradiction).
+- **ACT/WATCH + bucket are keyed off catalyst + independent corroboration, NOT the score** — the
+  eval proved the score has ~nil edge (AUC ~0.50), so most alerts honestly default to WATCH.
+  Strong = STRONG_ALERT + a hard corroborator (SEC/options/news); ACT = Strong AND a real stop.
+- **Price stop** is computed from `technical.atr14` via `_compute_atr_fallback` (lens5's "already
+  computed" was WRONG for the alert path — only `!all` had levels). Presented at an honest 1:1 R:R
+  (2×ATR symmetric), direction-correct (SHORT stops ABOVE spot — verified).
+- **Kill-list applied**: no Breakdown arithmetic, Precision green-checks, Regime, Freshness codes,
+  or repeated raw score on the card face (raw score still persists to DB/vault, unchanged).
+- Shadow before/after rendered on 3 representative cases (MU long, GME social-only watch, NVDA short).
+
+**Two items deliberately NOT built (raise as decisions, not silent drops):**
+1. **SWARM-into-card merge** — the SWARM alert fires on a *different trigger* (2+ analysts) to a
+   *different channel* and doesn't share the ping's message id. Merging it is a bigger refactor with
+   a channel mismatch. Left standalone; only the ping+detail were merged. Decide if the SWARM should
+   also fold in.
+2. **R6 spot-price sanity gate** (from lens5) — NOT built: its premise ("$1154 MU = 10× bug") is
+   FALSE; MU really traded ~$1150, so a sanity gate would reject real prices. Do not build as specced.
 
 ## What this is
 From the #61 research run (UX lens + user pick "one clear alert, not three"). The bot's alert

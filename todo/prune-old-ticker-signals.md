@@ -1,7 +1,22 @@
 # Prune old ticker_signals to shrink the DB + backups — ONLY if the old rows are truly useless
 
-**Status:** OPEN
+**Status:** DONE 2026-07-05
 **Created:** 2026-07-05
+
+**CURRENT STATUS (2026-07-05):** SHIPPED. Investigated first (as required): the naive
+`expires_at < now` cut the ticket implied would have BROKEN live consumers — signals expire 2h
+after ingest, but three live readers scan up to 30 days of history (`research/sources.py`
+30d analyst window, `get_confluence_stances` 21d SEC, `get_top_tickers_session` 24h). Verified
+the eval module (which reads `decision_snapshots`/`shadow_predictions`, NOT `ticker_signals`)
+is unaffected. Safe cut = **delete by `detected_at` age, 35-day floor** (30d deepest read + 5d
+slack). Executed: archived a pristine pre-prune copy (`db-backups/pre-prune-archive-20260705-2114.db`),
+chunk-deleted **1,954,096 rows** (table 3.35M → 1.40M), live working set (3,803 rows) + all
+history consumers intact, engine stayed healthy. Wired a nightly `detected_at`-based retention
+step into `/root/task_system/scripts/db_maintenance.sh` (openclaw-run, retry-guarded, disable via
+`DB_MAINT_SIGNAL_GRACE_DAYS=0`). ~327 MB of freed pages reclaim on the next `VACUUM INTO` backup
+(645 MB → ~318 MB; 7-backup rotation ~4.5 GB → ~2.2 GB). NOTE: the *live* `consensus.db` file
+stays 674 MB until an offline `VACUUM` (needs a brief engine pause) or natural page-reuse — left
+as an optional follow-up rather than fighting the live engine; backups shrink automatically.
 
 ## ⚠️ HARD REQUIREMENT — investigate before deleting (user directive)
 Do NOT delete anything until you have PROVEN the old signals have no use. This deletes a lot of
