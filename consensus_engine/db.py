@@ -1717,6 +1717,18 @@ async def insert_alert(ticker: str, confidence: float, catalyst: str, catalyst_t
     return cursor.lastrowid
 
 
+async def delete_alert(alert_row_id: int):
+    """Delete an alert_history row by id.
+
+    Used to roll back a write-ahead cooldown row when the Discord send fails,
+    so a never-sent alert can't leave a phantom row that both suppresses a
+    future real alert and corrupts hit-rate/precision stats.
+    """
+    db = await get_db()
+    await db.execute("DELETE FROM alert_history WHERE id = ?", (alert_row_id,))
+    await db.commit()
+
+
 async def prune_expired():
     """Remove expired signals from the database."""
     db = await get_db()

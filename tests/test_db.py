@@ -58,6 +58,21 @@ async def test_alert_message_insert_and_get(test_db):
 
 
 @pytest.mark.asyncio
+async def test_delete_alert_rolls_back_cooldown(test_db):
+    # Write-ahead an alert row; the blanket cooldown must now block a re-alert.
+    row_id = await db.insert_alert(
+        ticker="ABC", confidence=50.0, catalyst="", catalyst_type="",
+        consensus_json="{}", technical_json="{}", analysts_json="[]", price=10.0,
+    )
+    assert row_id is not None
+    assert await db.check_alert_cooldown("ABC") is False  # in cooldown
+
+    # Rolling back the phantom row (failed send) must re-open the window.
+    await db.delete_alert(row_id)
+    assert await db.check_alert_cooldown("ABC") is True   # allowed again
+
+
+@pytest.mark.asyncio
 async def test_alert_message_update_followup(test_db):
     msg_id = await db.insert_alert_message(
         ticker="NVDA", analyst="CheddarFlow",

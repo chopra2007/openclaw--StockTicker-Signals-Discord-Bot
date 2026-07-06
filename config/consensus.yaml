@@ -391,6 +391,7 @@ alerts:
     floor_minutes: 30               # even 100%-precision analyst can't fire faster than this
     high_conviction_bypass: true    # base_score >= high_conviction_threshold skips cooldown entirely
     max_cooldown_hours: 24          # upper bound; clamps low-precision analysts (weight=0.5 → 12 h)
+  decision_first: { enabled: false, shadow: false }   # #63 — decision-first alert render (ACT/WATCH + bucket + price stop, one self-editing card). OFF by default; changes LIVE alerts. shadow:true logs new-vs-old render without sending.
 
 # Confidence calibration
 calibration:
@@ -827,6 +828,7 @@ features:
   strong_requires_hard_evidence: { enabled: true, min_technical_filters: 2 }                  # I10 LIVE 2026-06-16 — STRONG needs a hard-evidence component. Backtest: 0/56 historical STRONGs demote (all carry news/sec/options); 14d shadow all would_demote=False. Downgrade-only.
   manufactured_agreement_gate: { enabled: false }                                             # E6 — coordinated-burst corroboration gate. OFF — user declined 2026-06-26 ("analysts are trustworthy, no coordinated hype"). Dormant no-op; do not re-enable without explicit user request.
   apewisdom_zscore: { enabled: true, min_baseline_days: 14, z_threshold: 2.0 }                # I13 LIVE 2026-06-26 — replaces flat presence +10 with z-surge+corroborator gate. Backtest: 0/58 STRONG demote uncorroborated; replaces flat +10 on 298 listed tickers with gated +10 on ~6. Demotion-or-neutral (can never create an alert).
+  social_family_dedup: { enabled: false, families: { social_apewisdom: retail_crowd, social_stocktwits: retail_crowd, social_reddit: retail_crowd, google_trends: search } }  # #65 Fix2 — collapse same-crowd social sources (ApeWisdom/StockTwits/Reddit) to ONE independent vote. Flag OFF; demotion-only (can never create an alert). Measure blast radius on decision_snapshots before flipping.
   single_score: { enabled: true }                                                             # I4-full — single-score reconciliation. FLIPPED ON 2026-06-21 to monitor live (#50 Issue C)
   consensus_logodds: { enabled: false, count_floor_frac: 0.5 }                                # I7 — sigmoid(log-odds) consensus scale. DEFERRED 2026-06-16: no-op until source_performance has a production writer AND signal_events forms >=2 clusters/ticker (all 1963 consolidated_events are single-cluster shadow_only). Needs code, not data — not a flip.
   regime_widening_graduated: { enabled: false, max_shift: 15, cutoff_ceiling: 90 }            # I14-widening — z-scaled panic shift

@@ -733,3 +733,53 @@ async def test_score_ticker_flag_off_legacy_presence(monkeypatch):
         result = await score_ticker("NVDA", base_score=30, direction="long")
 
     assert result.breakdown.social_apewisdom == 10
+
+
+# ---------------------------------------------------------------------------
+# #65 Fix 2 — social-family de-dup (flag OFF default)
+# ---------------------------------------------------------------------------
+
+def _dedup_get(monkeypatch, *, dedup_on: bool):
+    """Control only the flags the family-dedup path reads; real_get for the rest."""
+    overrides = {
+        "scoring.multipliers": {
+            "social_apewisdom": 10, "social_stocktwits": 10,
+            "social_reddit": 10, "google_trends": 5,
+        },
+        "features.apewisdom_zscore.enabled": False,
+        "features.social_family_dedup.enabled": dedup_on,
+        "features.social_family_dedup.families": {
+            "social_apewisdom": "retail_crowd", "social_stocktwits": "retail_crowd",
+            "social_reddit": "retail_crowd", "google_trends": "search",
+        },
+    }
+    real_get = cfg.get
+    monkeypatch.setattr(
+        cfg, "get",
+        lambda k, d=None: overrides[k] if k in overrides else real_get(k, d),
+    )
+
+
+def test_social_family_dedup_off_counts_all_three(monkeypatch):
+    """Flag OFF -> byte-identical: all three retail sources score independently."""
+    _dedup_get(monkeypatch, dedup_on=False)
+    b = _compute_social_breakdown(
+        {"apewisdom": 1, "stocktwits": 1, "reddit": 2, "google_trends": 1}
+    )
+    assert b == {
+        "social_apewisdom": 10, "social_stocktwits": 10,
+        "social_reddit": 10, "google_trends": 5,
+    }
+
+
+def test_social_family_dedup_on_collapses_retail_crowd(monkeypatch):
+    """Flag ON -> retail crowd collapses to ONE vote; other families untouched."""
+    _dedup_get(monkeypatch, dedup_on=True)
+    b = _compute_social_breakdown(
+        {"apewisdom": 1, "stocktwits": 1, "reddit": 2, "google_trends": 1}
+    )
+    # google_trends is a family of one -> keeps its points.
+    assert b["google_trends"] == 5
+    crowd = [b["social_apewisdom"], b["social_stocktwits"], b["social_reddit"]]
+    assert sum(1 for x in crowd if x > 0) == 1   # exactly one survivor
+    assert sum(crowd) == 10                        # one vote, not three

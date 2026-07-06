@@ -32,7 +32,7 @@ from consensus_engine.scanners.social import (
 from consensus_engine.scanners.discord_tweetshift import DiscordTweetShiftListener
 from consensus_engine.analysis.tweet_parser import parse_tweet
 from consensus_engine.cross_reference import cross_reference
-from consensus_engine.alerts.discord import edit_instant_ping, send_detail_followup, send_instant_ping, send_swarm_alert
+from consensus_engine.alerts.discord import edit_instant_ping, send_detail_followup, send_decision_followup, format_decision_card, send_instant_ping, send_swarm_alert
 from consensus_engine.analysis.calibration import calibrate, log_shadow_prediction
 from consensus_engine.utils.http import close_session, get_session
 from consensus_engine.utils.tickers import is_valid_ticker, validate_ticker_market_cap
@@ -1394,10 +1394,10 @@ async def process_tweet(raw_tweet: dict):
 
         alert_tweet = replace(tweet, tickers=[ticker])
         price = await _fetch_price(ticker)
-        instant_msg_id = await send_instant_ping(alert_tweet, price, degraded=DEGRADED_MODE)
-        if instant_msg_id is None:
-            continue
-
+        # Write-ahead the cooldown row BEFORE sending the ping (crash-safe idempotency).
+        # If the process dies between the send and the insert, a sent alert with no
+        # cooldown row would let the next different tweet on this ticker re-alert. Arming
+        # the cooldown first flips the failure to the safe direction (a rare missed ping).
         alert_row_id = await db.insert_alert(
             ticker=ticker,
             confidence=float(alert_tweet.base_score),
@@ -1408,6 +1408,12 @@ async def process_tweet(raw_tweet: dict):
             analysts_json=json.dumps([]),
             price=price,
         )
+        instant_msg_id = await send_instant_ping(alert_tweet, price, degraded=DEGRADED_MODE)
+        if instant_msg_id is None:
+            # Send failed — roll back the phantom cooldown row so stats and the
+            # cooldown window aren't corrupted by an alert that never went out.
+            await db.delete_alert(alert_row_id)
+            continue
         alert_message_id = await db.insert_alert_message(
             ticker=ticker,
             analyst=tweet.analyst,
@@ -1563,7 +1569,22 @@ async def _run_cross_reference_and_followup(
             precision["reconciled_score"] = _reconciled
             precision["i4_full_budget_depressed"] = _budget_depressed
 
-        followup_id = await send_detail_followup(xref, instant_msg_id, precision=precision)
+        # #63 decision-first: when ON, edit the instant ping into one ACT/WATCH
+        # decision card in place (no second message). Flag OFF → byte-identical
+        # legacy detail follow-up; shadow ON logs the new render without sending.
+        if cfg.get("alerts.decision_first.enabled", False):
+            followup_id = await send_decision_followup(
+                xref, instant_msg_id, precision=precision, direction=tweet.direction,
+            )
+        else:
+            followup_id = await send_detail_followup(xref, instant_msg_id, precision=precision)
+            if cfg.get("alerts.decision_first.shadow", False):
+                try:
+                    import json as _j
+                    log.info("[decision-first shadow] $%s new_card=%s",
+                             ticker, _j.dumps(format_decision_card(xref, precision, direction=tweet.direction))[:800])
+                except Exception:
+                    pass
         await db.update_alert_message_followup(alert_message_id, followup_id, xref.final_score)
 
         # Q1 shadow-mode logging: record a decision_snapshots row and merge the

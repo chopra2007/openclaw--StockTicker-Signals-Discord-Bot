@@ -222,12 +222,37 @@ def _compute_social_breakdown(
             technical_pts=technical_pts,
         )
 
-    return {
+    breakdown = {
         "social_apewisdom": aw_pts,
         "social_stocktwits": m.get("social_stocktwits", 10) if social_data.get("stocktwits", 0) >= 1 else 0,
         "social_reddit": m.get("social_reddit", 10) if social_data.get("reddit", 0) >= 2 else 0,
         "google_trends": m.get("google_trends", 5) if social_data.get("google_trends", 0) >= 1 else 0,
     }
+
+    # #65 Fix 2 (social-family de-dup, flag OFF default): ApeWisdom, StockTwits and
+    # Reddit are the SAME retail crowd, so counting all three inflates "independent"
+    # agreement. When the flag is ON, each source family collapses to ONE vote — keep
+    # the single highest-scoring member of a family, zero the rest. Demotion-only: it
+    # can never create an alert, only shrink an over-counted one. Flag OFF -> byte-identical.
+    if cfg.get("features.social_family_dedup.enabled", False):
+        families = cfg.get("features.social_family_dedup.families", {
+            "social_apewisdom": "retail_crowd",
+            "social_stocktwits": "retail_crowd",
+            "social_reddit": "retail_crowd",
+            "google_trends": "search",
+        })
+        # For each family, keep the single highest-scoring member; zero the rest.
+        best_in_family: dict[str, tuple[str, int]] = {}  # fam -> (key, score)
+        for key, fam in families.items():
+            score = breakdown.get(key, 0)
+            if fam not in best_in_family or score > best_in_family[fam][1]:
+                best_in_family[fam] = (key, score)
+        winners = {k for (k, _s) in best_in_family.values()}
+        for key in families:
+            if key not in winners:
+                breakdown[key] = 0
+
+    return breakdown
 
 
 def _compute_finra_short_volume_pts(
