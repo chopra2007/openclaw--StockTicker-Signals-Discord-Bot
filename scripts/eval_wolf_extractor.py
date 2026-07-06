@@ -60,11 +60,12 @@ def _load_body(path: Path) -> tuple[str, str]:
 async def _run_version(label: str, verifier_on: bool, reliable_extractor: bool = False) -> dict:
     overrides = {"wolf.verifier.enabled": verifier_on}
     if reliable_extractor:
-        # Free-tier gpt-oss-120b:free 429s heavily; the eval isolates PIPELINE LOGIC from
-        # free-tier availability by leading with the PAID same-family gpt-oss (same model
-        # family as live, so the extractor's error profile is unchanged — only availability).
+        # The whole OpenRouter :free pool is shared + throttled (all :free models 429/empty
+        # together), so no free model gives a clean eval. Lead with PAID deepseek-v4-flash
+        # (reliable, and a DIFFERENT family from the Gemini verifier so errors stay
+        # uncorrelated) to isolate PIPELINE LOGIC from free-tier availability.
         overrides["wolf.extraction_models"] = [
-            "openai/gpt-oss-120b", "deepseek/deepseek-v4-flash", "openrouter/free"]
+            "deepseek/deepseek-v4-flash", "openai/gpt-oss-120b", "openrouter/free"]
     cfg.get = _patched_get(overrides)
     try:
         results = {}
