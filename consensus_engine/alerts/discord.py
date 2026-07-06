@@ -303,9 +303,17 @@ def format_instant_ping(tweet: ParsedTweet, current_price: float = 0.0) -> dict:
                 "inline": False,
             })
 
+    # #63: when the merged-detail card is ON, the instant ping is later edited in
+    # place into the full detailed card. Showing the raw base_score here (e.g. "25")
+    # would briefly contradict the reconciled score the edit lands (e.g. "83"), so
+    # suppress the number and show a neutral "cross-referencing" status instead.
+    if cfg.get("alerts.merged_detail_card.enabled", False):
+        score_value = "⏳ cross-referencing sources…"
+    else:
+        score_value = f"{tweet.base_score} (cross-references pending...)"
     fields.append({
         "name": "Score",
-        "value": f"{tweet.base_score} (cross-references pending...)",
+        "value": score_value,
         "inline": True,
     })
 
@@ -340,7 +348,30 @@ def format_instant_ping(tweet: ParsedTweet, current_price: float = 0.0) -> dict:
     return embed
 
 
-def format_detail_followup(xref: CrossReferenceResult, precision: Optional[dict] = None) -> dict:
+def _trade_levels_field(xref, direction=None):
+    """Return a '📐 Trade Levels' embed field from ATR, or None if no atr14."""
+    t = xref.technical
+    if not (t is not None and t.atr14 and t.price > 0):
+        return None
+    from consensus_engine.alerts.all_command.levels import _compute_atr_fallback
+    d = direction.value if hasattr(direction, "value") else (direction or "long")
+    bull_bear = "BEARISH" if str(d).lower() == "short" else "BULLISH"
+    spot, atr14 = t.price, t.atr14
+    stop, tps = _compute_atr_fallback(spot, atr14, bull_bear)
+    risk = abs(spot - stop)
+    target = next((x for x in tps if abs(x - spot) >= risk), tps[-1])
+    sp = (stop - spot) / spot * 100.0
+    tp = (target - spot) / spot * 100.0
+    rr = round(abs(target - spot) / risk, 1) if risk else 0.0
+    side = "below" if bull_bear == "BULLISH" else "above"
+    return {"name": "📐 Trade Levels",
+            "value": (f"Enter ~**${spot:.2f}** · Stop **${stop:.2f}** ({sp:+.1f}%) · "
+                      f"Target **${target:.2f}** ({tp:+.1f}%) · R:R 1:{rr}\n"
+                      f"_Invalidation: exit {side} **${stop:.2f}** (2×ATR)_"),
+            "inline": False}
+
+
+def format_detail_followup(xref: CrossReferenceResult, precision: Optional[dict] = None, *, direction=None) -> dict:
     """Build Discord embed for the detail follow-up (Phase 2)."""
     b = xref.breakdown
     total = b.total
@@ -525,6 +556,13 @@ def format_detail_followup(xref: CrossReferenceResult, precision: Optional[dict]
     if not xref.catalyst_summary and not xref.other_analysts and not xref.social_summary:
         fields.insert(0, {"name": "Status", "value": "No additional signals found", "inline": False})
 
+    # #63: merged-detail card adds a concrete price-based Trade Levels field right
+    # after the first field. Flag OFF → fields unchanged (byte-identical).
+    if cfg.get("alerts.merged_detail_card.enabled", False):
+        _tl = _trade_levels_field(xref, direction)
+        if _tl is not None:
+            fields.insert(1, _tl)
+
     title = f"Cross-Reference: ${xref.ticker} | Score: {headline_total}"
     # Show budget-degraded suffix when either I4-full or I4-display-honesty is active.
     if budget_degraded and (single_score_on or honesty_on):
@@ -537,152 +575,6 @@ def format_detail_followup(xref: CrossReferenceResult, precision: Optional[dict]
         "footer": {"text": "OpenClaw Signal Engine"},
     }
 
-    return embed
-
-
-# --- #63 decision-first render ------------------------------------------------
-# One self-editing card that answers "act or watch?" first. Deliberately hides the
-# additive-score arithmetic, the Precision-Engine green-checks, the Regime line, the
-# raw score number, and SNAKE_CASE driver codes — the numeric score has ~no
-# predictive edge (AUC ~0.50), so ACT/WATCH keys off CATALYST + independent
-# corroboration, never the number. Most alerts default to WATCH (honest abstention).
-
-_DECISION_FRESHNESS_WORDS = {
-    "FRESH": "news is fresh",
-    "MODERATE": "news is hours old",
-    "STALE": "news is stale",
-}
-
-
-def _decision_direction(xref: CrossReferenceResult, override=None) -> str:
-    """Resolve LONG/SHORT for the card. CrossReferenceResult carries no direction
-    field, so production threads the real `tweet.direction` in via `override` (the
-    price stop's side depends on it — a SHORT stops ABOVE spot, a LONG below).
-    Falls back to any `xref.direction` if later threaded, else LONG."""
-    d = override if override is not None else getattr(xref, "direction", None)
-    if d is None:
-        return "LONG"
-    val = d.value if hasattr(d, "value") else str(d)
-    return "SHORT" if str(val).lower() == "short" else "LONG"
-
-
-def format_decision_card(
-    xref: CrossReferenceResult, precision: Optional[dict] = None, *, direction=None,
-) -> dict:
-    """Build the decision-first Discord embed (#63): ACT/WATCH + Strong/Lean/Watch
-    bucket + a concrete price stop, in one card. Pure (no I/O). `direction` is the
-    signal's Direction enum (or "long"/"short"); when omitted, defaults to LONG."""
-    from consensus_engine.alerts.all_command.levels import _compute_atr_fallback
-
-    ticker = xref.ticker
-
-    # Precision classification string, only when precision ran.
-    cls = None
-    if precision and not precision.get("skipped"):
-        c = precision.get("classification")
-        cls = c.value if hasattr(c, "value") else (str(c) if c is not None else None)
-
-    has_options = bool(xref.options and xref.options.has_unusual_activity)
-    hard_corroborator = bool(xref.sec_summary or has_options or xref.catalyst_summary)
-    stop_available = bool(
-        xref.technical is not None and xref.technical.atr14 and xref.technical.price > 0
-    )
-
-    if cls == "STRONG_ALERT" and hard_corroborator:
-        bucket = "Strong"
-    elif cls == "STRONG_ALERT" or (cls == "WATCHLIST" and hard_corroborator):
-        bucket = "Lean"
-    else:
-        bucket = "Watch"
-    act = bucket == "Strong" and stop_available
-
-    long_short = _decision_direction(xref, direction)
-    bull_bear = "BEARISH" if long_short == "SHORT" else "BULLISH"
-
-    # Description: bucket + plain-English reason naming the corroborators.
-    corr = []
-    if has_options:
-        corr.append("unusual options activity")
-    if xref.sec_summary:
-        corr.append("an SEC filing")
-    if xref.catalyst_summary:
-        corr.append("a news catalyst")
-    if corr:
-        reason = " — " + " + ".join(corr)
-    else:
-        reason = " — no confirmed catalyst — monitor"
-    description = f"**{bucket}**{reason}"
-
-    fields = []
-    stop = None
-
-    # Trade — only when a real ATR stop is computable.
-    if stop_available:
-        spot = xref.technical.price
-        atr14 = xref.technical.atr14
-        # _compute_atr_fallback puts the stop at 2×ATR and returns a 1/2/3×ATR target
-        # ladder. Advertising the 1×ATR rung as "Target" would show R:R 1:0.5 (risk 2
-        # to make 1) — misleading on a card that says ACT. Use the 2×ATR rung so the
-        # primary target is at least as far as the stop (honest 1:1 or better).
-        stop, tps = _compute_atr_fallback(spot, atr14, bull_bear)
-        risk = abs(spot - stop)
-        target = next((t for t in tps if abs(t - spot) >= risk), tps[-1])
-        stop_pct = (stop - spot) / spot * 100.0
-        tp_pct = (target - spot) / spot * 100.0
-        reward = abs(target - spot)
-        rr = round(reward / risk, 1) if risk else 0.0
-        fields.append({
-            "name": "Trade",
-            "value": (
-                f"Enter ~${spot:.2f} · Stop ${stop:.2f} ({stop_pct:+.1f}%) · "
-                f"Target ${target:.2f} ({tp_pct:+.1f}%) · R:R 1:{rr}"
-            ),
-            "inline": False,
-        })
-
-    # Why — plain-English catalyst.
-    if xref.catalyst_summary:
-        why = xref.catalyst_summary[:180]
-        if xref.catalyst_type:
-            why = f"{xref.catalyst_type}: {why}"
-    elif has_options:
-        sides = []
-        if xref.options.unusual_calls:
-            sides.append("calls")
-        if xref.options.unusual_puts:
-            sides.append("puts")
-        why = "Unusual options flow" + (f" ({' & '.join(sides)})" if sides else "")
-    elif xref.social_summary:
-        why = xref.social_summary[:180]
-    else:
-        why = "No hard catalyst; social/technical only."
-    fields.append({"name": "Why", "value": why, "inline": False})
-
-    # Watch — invalidation, disagreement, freshness; ends with a subtle vault pointer.
-    dis = disagreement(xref.contradiction_index)
-    fresh_word = _DECISION_FRESHNESS_WORDS.get(
-        _freshness_label(xref.reliability_weights), "freshness unknown"
-    )
-    if stop_available:
-        watch_value = (
-            f"Invalid below ${stop:.2f}. Disagreement {dis}/100. {fresh_word}. "
-            f"Full breakdown in vault."
-        )
-    else:
-        watch_value = (
-            f"No price level yet — monitor, not actionable. "
-            f"Disagreement {dis}/100. {fresh_word}. Full breakdown in vault."
-        )
-    fields.append({"name": "Watch", "value": watch_value, "inline": False})
-
-    embed = {
-        "title": f"{'🟢 ACT' if act else '🟡 WATCH'} — ${ticker} {long_short}",
-        "description": description,
-        "color": 0x00C853 if act else 0xFFB300,
-        "fields": fields,
-        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
-        "footer": {"text": "OpenClaw Signal Engine"},
-    }
     return embed
 
 
@@ -863,12 +755,12 @@ async def edit_instant_ping(msg_id: str, content: str) -> bool:
 
 
 async def edit_instant_ping_embed(msg_id: str, embed: dict) -> bool:
-    """Replace an existing Phase-1 message's EMBED via PATCH (#63 decision-first).
+    """Replace an existing Phase-1 message's EMBED via PATCH (#63 merged card).
 
     Same token/channel guards and dry_run behaviour as edit_instant_ping, but the
     PATCH body carries {"embeds": [embed]} instead of text content, so the instant
-    ping is rewritten in place into the decision card (no second message). Returns
-    True on 200/204.
+    ping is rewritten in place into the merged detailed card (no second message).
+    Returns True on 200/204.
     """
     if cfg.dry_run:
         log.info("[DRY-RUN] Edit ping embed %s: %s", msg_id, embed.get("title", "")[:120])
@@ -897,20 +789,41 @@ async def edit_instant_ping_embed(msg_id: str, embed: dict) -> bool:
         return False
 
 
-async def send_decision_followup(
-    xref: CrossReferenceResult, instant_msg_id: str, precision: Optional[dict] = None,
-    *, direction=None,
-) -> Optional[str]:
-    """Decision-first follow-up (#63): EDIT the instant ping in place into the
-    decision card — no new message. Returns instant_msg_id on success (so the
-    caller's followup bookkeeping still gets a message id), None on failure."""
-    if cfg.dry_run:
-        log.info("[DRY-RUN] Decision card (edit-in-place) for $%s", xref.ticker)
-        return "dry_run_decision_id"
+def format_merged_card(xref, tweet, precision=None):
+    """Build the #63 merged card: the full detailed follow-up embed, enriched with
+    the instant ping's unique context (analyst identity/avatar, the tweet text, the
+    tweet link, and the TweetShift source link) so nothing is lost when the ping is
+    edited in place into this one card. Pure (no I/O)."""
+    embed = format_detail_followup(xref, precision, direction=getattr(tweet, "direction", None))
+    name = getattr(tweet, "display_name", None) or f"@{tweet.analyst}"
+    author = {"name": name, "url": f"https://twitter.com/{tweet.analyst}"}
+    if getattr(tweet, "avatar_url", None):
+        author["icon_url"] = tweet.avatar_url
+    embed["author"] = author
+    if getattr(tweet, "raw_text", None):
+        embed["description"] = f"💬 {tweet.raw_text[:300]}"
+    if getattr(tweet, "tweet_url", None):
+        embed["url"] = tweet.tweet_url
+    if getattr(tweet, "discord_source_link", None):
+        embed["fields"].append({"name": "Source",
+            "value": f"[View TweetShift message]({tweet.discord_source_link})", "inline": False})
+    return embed
 
-    embed = format_decision_card(xref, precision, direction=direction)
+
+async def send_merged_followup(xref, tweet, instant_msg_id, precision=None):
+    """#63: EDIT the instant ping in place into the one merged detailed card — no
+    second message. Returns the message id used. If the in-place edit fails, falls
+    back to the separate detail follow-up so the alert's detail is never dropped."""
+    if cfg.dry_run:
+        log.info("[DRY-RUN] Merged card (edit-in-place) for $%s", xref.ticker)
+        return "dry_run_merged_id"
+
+    embed = format_merged_card(xref, tweet, precision)
     ok = await edit_instant_ping_embed(instant_msg_id, embed)
-    return instant_msg_id if ok else None
+    if ok:
+        return instant_msg_id
+    # Edit failed — never lose the detail; send it as a separate reply instead.
+    return await send_detail_followup(xref, instant_msg_id, precision)
 
 
 async def send_trend_digest(trending: list[dict]) -> Optional[str]:

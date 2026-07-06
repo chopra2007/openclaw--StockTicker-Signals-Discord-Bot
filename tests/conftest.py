@@ -40,6 +40,7 @@ def _audit_flags_default_off(monkeypatch):
     from consensus_engine import config as _cfg
     _real = _cfg.get
     _off = {
+        "alerts.merged_detail_card.enabled": False,
         "all_command.market_cap_gate_enabled": False,
         "all_command.sparse_banner.enabled": False,
         "all_command.risk_price_gate_strict": False,

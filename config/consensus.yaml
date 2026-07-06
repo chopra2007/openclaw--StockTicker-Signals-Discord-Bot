@@ -391,7 +391,7 @@ alerts:
     floor_minutes: 30               # even 100%-precision analyst can't fire faster than this
     high_conviction_bypass: true    # base_score >= high_conviction_threshold skips cooldown entirely
     max_cooldown_hours: 24          # upper bound; clamps low-precision analysts (weight=0.5 → 12 h)
-  decision_first: { enabled: false, shadow: false }   # #63 — decision-first alert render (ACT/WATCH + bucket + price stop, one self-editing card). OFF by default; changes LIVE alerts. shadow:true logs new-vs-old render without sending.
+  merged_detail_card: { enabled: true }   # #63 — merge instant-ping into ONE self-editing detailed card + add Trade Levels (stop = 2×ATR). Revert: set enabled:false to restore the separate ping + detail messages.
 
 # Confidence calibration
 calibration:

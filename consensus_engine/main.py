@@ -32,7 +32,7 @@ from consensus_engine.scanners.social import (
 from consensus_engine.scanners.discord_tweetshift import DiscordTweetShiftListener
 from consensus_engine.analysis.tweet_parser import parse_tweet
 from consensus_engine.cross_reference import cross_reference
-from consensus_engine.alerts.discord import edit_instant_ping, send_detail_followup, send_decision_followup, format_decision_card, send_instant_ping, send_swarm_alert
+from consensus_engine.alerts.discord import edit_instant_ping, send_detail_followup, send_merged_followup, send_instant_ping, send_swarm_alert
 from consensus_engine.analysis.calibration import calibrate, log_shadow_prediction
 from consensus_engine.utils.http import close_session, get_session
 from consensus_engine.utils.tickers import is_valid_ticker, validate_ticker_market_cap
@@ -1569,22 +1569,13 @@ async def _run_cross_reference_and_followup(
             precision["reconciled_score"] = _reconciled
             precision["i4_full_budget_depressed"] = _budget_depressed
 
-        # #63 decision-first: when ON, edit the instant ping into one ACT/WATCH
-        # decision card in place (no second message). Flag OFF → byte-identical
-        # legacy detail follow-up; shadow ON logs the new render without sending.
-        if cfg.get("alerts.decision_first.enabled", False):
-            followup_id = await send_decision_followup(
-                xref, instant_msg_id, precision=precision, direction=tweet.direction,
-            )
+        # #63 merged card: when ON (default), edit the instant ping in place into
+        # one merged detailed card (full detail + Trade Levels, tweet preserved) —
+        # no second message. Flag OFF → separate ping + detail follow-up (legacy).
+        if cfg.get("alerts.merged_detail_card.enabled", True):
+            followup_id = await send_merged_followup(xref, tweet, instant_msg_id, precision=precision)
         else:
             followup_id = await send_detail_followup(xref, instant_msg_id, precision=precision)
-            if cfg.get("alerts.decision_first.shadow", False):
-                try:
-                    import json as _j
-                    log.info("[decision-first shadow] $%s new_card=%s",
-                             ticker, _j.dumps(format_decision_card(xref, precision, direction=tweet.direction))[:800])
-                except Exception:
-                    pass
         await db.update_alert_message_followup(alert_message_id, followup_id, xref.final_score)
 
         # Q1 shadow-mode logging: record a decision_snapshots row and merge the

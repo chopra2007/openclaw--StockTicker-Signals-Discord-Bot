@@ -1,24 +1,32 @@
-# Make the bot's alerts honest and decision-first (one clear alert, ACT vs WATCH)
+# Make the bot's alerts honest and decision-first (detailed card + trade levels + one merged message)
 
-**Status:** BUILT (flag-OFF) 2026-07-05 — live flip owed
+**Status:** BUILT (flag ON) 2026-07-05 — deploy pending (merge PR #15 + restart engine)
 **Created:** 2026-07-05
 
-**CURRENT STATUS (2026-07-05):** Built behind `alerts.decision_first.enabled` (default OFF);
-legacy render byte-identical when OFF. What's LEFT before it goes live: a real shadow soak
-(flip `alerts.decision_first.shadow: true` on the live config, watch `[decision-first shadow]`
-log lines against real alerts for a day), then flip `enabled: true`. Do NOT flip blind.
-Built: `format_decision_card` + `edit_instant_ping_embed` + `send_decision_followup` in
-`discord.py`, flag branch in `main.py`. Delivers items 2-5 and the ping→detail half of item 1
-(the ping now EDITS itself in place into the decision card — kills the 25-vs-83 contradiction).
-- **ACT/WATCH + bucket are keyed off catalyst + independent corroboration, NOT the score** — the
-  eval proved the score has ~nil edge (AUC ~0.50), so most alerts honestly default to WATCH.
-  Strong = STRONG_ALERT + a hard corroborator (SEC/options/news); ACT = Strong AND a real stop.
-- **Price stop** is computed from `technical.atr14` via `_compute_atr_fallback` (lens5's "already
-  computed" was WRONG for the alert path — only `!all` had levels). Presented at an honest 1:1 R:R
-  (2×ATR symmetric), direction-correct (SHORT stops ABOVE spot — verified).
-- **Kill-list applied**: no Breakdown arithmetic, Precision green-checks, Regime, Freshness codes,
-  or repeated raw score on the card face (raw score still persists to DB/vault, unchanged).
-- Shadow before/after rendered on 3 representative cases (MU long, GME social-only watch, NVDA short).
+**CURRENT STATUS (2026-07-05):** DIRECTION CHANGED after the user reviewed live renders in Discord
+#chat. The user REJECTED the stripped-down "decision-first ACT/WATCH card" — they want the FULL
+DETAILED card KEPT ("I like having more info and detail"). Final approved design = keep the detailed
+card, add two things, behind ONE revertible flag `alerts.merged_detail_card.enabled` (default **ON**):
+1. **📐 Trade Levels field** on the detailed card — Enter / Stop / Target / R:R computed from
+   `technical.atr14` (`_compute_atr_fallback`, 2×ATR symmetric, direction-aware). Fixes the old gap
+   where the card only showed a process condition ("disagreement below 60/100"), never a stop price.
+2. **Merge the instant ping INTO one self-editing detailed card** — the ping now EDITS itself in
+   place into the full detail card when cross-ref lands (no separate 2nd message, no "25 vs 83"
+   contradiction). The merge PRESERVES the ping's unique content the user called out: the analyst's
+   **tweet text** (embed description), the **analyst identity** (author), and the **TweetShift link**
+   (Source field). A failed in-place edit falls back to posting the detail as a new message (never
+   drops the alert). The ping's pre-merge score line shows "⏳ cross-referencing sources…" (no number).
+Built in `discord.py` (`format_merged_card`, `send_merged_followup`, `_trade_levels_field`, trade-levels
+insert in `format_detail_followup`, neutral ping score) + `main.py` flag branch. Flag is forced OFF in
+tests (`tests/conftest.py`) so existing renders stay byte-identical; new tests cover the ON behavior.
+The earlier stripped `format_decision_card` / `alerts.decision_first` was REMOVED.
+
+**➡️ HOW TO REVERT (if the new format isn't wanted later):** set
+`alerts.merged_detail_card.enabled: false` in `config/consensus.yaml` (it's in the `alerts:` section),
+then restart `consensus-engine.service`. That immediately restores the OLD behavior — the separate
+instant-ping message + a separate detail follow-up message (2 cards), and removes the 📐 Trade Levels
+field. No code change or redeploy needed; it's a pure config flip. To re-enable, set it back to `true`
+and restart. (The DB/vault raw score was never on the card and is unaffected either way.)
 
 **Two items deliberately NOT built (raise as decisions, not silent drops):**
 1. **SWARM-into-card merge** — the SWARM alert fires on a *different trigger* (2+ analysts) to a

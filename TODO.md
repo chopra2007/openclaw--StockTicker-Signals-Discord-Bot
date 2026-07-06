@@ -407,11 +407,11 @@ Build the approved redesign of the /discover plugin — passes 0-4 on Claude Cod
 
 Log the 5 display signals into decision_snapshots and fill the per-analyst outcome table, so the autonomous auto-flip engine can validate and switch on "fold signals into the score" and "analyst accuracy" by itself once the data proves them.
 
-## 63. Make the bot's alerts honest and decision-first — BUILT (flag-OFF) 2026-07-05, live flip owed
+## 63. Make the bot's alerts honest and decision-first — BUILT (flag ON) 2026-07-05, deploy pending
 
 **File:** `honest-decision-first-alerts.md`
 
-Merge the 3-messages-per-spike into one self-updating alert that says ACT vs WATCH, shows a real stop price, replaces the misleading "83" with a plain confidence word, and stays quiet on weak signals (needs a live shadow check first).
+Keep the detailed alert card the user prefers, but add a real Trade Levels / stop-price line and merge the quick ping into one self-updating message (preserving the tweet text + analyst + TweetShift link) so there's no "25 vs 83" contradiction. Behind a revertible flag (`alerts.merged_detail_card`); revert steps in the detail file.
 
 ## 64. Rebuild the Wolf newsletter reader (trap-proof extractor→verifier)
 
