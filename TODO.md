@@ -394,3 +394,9 @@ When the session-close test gate fails, the push is skipped and nothing else hap
 **File:** `discover_rebuild_build.md`
 
 Build the approved redesign of the /discover plugin — passes 0-4 on Claude Code's Workflow engine with evidence-rule kill-testing and a plan tournament — and ship it as v1.0.0; design and step-by-step plan are complete, no code written yet.
+
+## 61. Run the research-and-build prompt for new bot features and fixes
+
+**File:** `bot-deep-research-prompt.md`
+
+CURRENT STATUS: prompt v2 ready to run — paste `ultracode — read todo/kickoffs/bot-research-and-build.md and execute it end to end` into a fresh session. One run does everything: verifies the bot's real code first, deep-researches improvements across six expert angles (with citations), gets its draft attacked by a second AI before ranking, pauses to let the user pick what gets built in plain English, then builds and verifies the picks. Replaces the older paste-into-an-outside-model prompt (kept as a variant).
