@@ -126,7 +126,9 @@ def is_valid_ticker_format(ticker: str) -> bool:
     directly, that ambiguity doesn't exist — accept it."""
     if not ticker or len(ticker) < 1 or len(ticker) > 5:
         return False
-    if not ticker.isalpha() or not ticker.isupper():
+    # #61: require ASCII — isalpha()/isupper() are True for accented letters,
+    # so "FAKÈ" would otherwise pass as a 4-letter ticker.
+    if not ticker.isascii() or not ticker.isalpha() or not ticker.isupper():
         return False
     return True
 

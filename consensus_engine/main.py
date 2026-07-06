@@ -160,7 +160,12 @@ async def _level_price(ticker: str) -> "tuple[float | None, str | None]":
     (the user wants the actual current price, not the close). Returns
     (None, None) on failure so the caller skips rather than alerting on stale data.
     """
-    if _us_market_open():
+    # #61: use the holiday/half-day-aware NYSE calendar, not the weekday-only
+    # _us_market_open() — otherwise on a market holiday the prior close gets
+    # labeled "current" for ~3 hours. When closed we fall to the yfinance
+    # extended path, which labels the price honestly ("last close").
+    from consensus_engine.utils.time_context import nyse_open_now
+    if nyse_open_now():
         from consensus_engine.api_adapters import get_live_quote_price
         price = await get_live_quote_price(ticker)
         return (price, "current") if price else (None, None)
