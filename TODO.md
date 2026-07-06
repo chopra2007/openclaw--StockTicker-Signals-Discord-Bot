@@ -424,3 +424,9 @@ Rebuild the newsletter reader so it can tell "I'm waiting to SHORT this bounce" 
 **File:** `social-dedup-and-alert-idempotency.md`
 
 Stop two social crowds (StockTwits + Reddit) from counting as two independent votes, and make a crash unable to double-send or lose the throttle on an alert (both touch live alerts, so each needs a shadow check).
+
+## 66. Shrink the database by pruning old signal records — but verify they're useless first
+
+**File:** `prune-old-ticker-signals.md`
+
+Most of the 644 MB database is one table of expired "a source mentioned a ticker" records (99.88% past expiry); pruning/archiving them could halve the DB and every nightly backup — but ONLY after proving nothing (live queries, backtests, the eval tool, future features) still needs that history.
