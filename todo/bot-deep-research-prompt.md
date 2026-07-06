@@ -82,3 +82,29 @@ the run is answering the mid-run questions. No obligation to pick everything it 
   `consensus_engine/alerts/all_command/` (13 files), flag-count claim "~89" is unverified (a quick
   grep found 61 `*enabled*` keys — v2 makes the run recount), and `GO-LIVE-LIST.md` no longer
   exists at the workspace root (v2 doesn't reference it).
+
+## Session notes — 2026-07-05 (v2 RUN EXECUTED end to end)
+
+Ran the full research→pick→build. Report: `plans/bot-research-build-2026-07.md`. Per-lens cited
+research + verified facts + the Wolf eval corpus: `.omc/plans/bot-research-build/`.
+
+**Headline finding (measured on the bot's own DB, adversarially re-verified):** the score has ~no
+predictive edge — score→prob map is at the base-rate Brier floor, `final_score` AUC ~0.507 at 24h,
+per-signal |IC|<0.03. Fired alerts (`alert_history`) go up 52.7% at 24h (barely above coin flip;
+the "43.8% below coin flip" a reviewer reported was a NULL-as-failure artifact I corrected). 20d
+score is anti-predictive (AUC 0.41). The 5 display signals + per-analyst outcomes are logged
+NOWHERE, so "fold signals in" / "analyst retest" are forward-collection-blocked (→ #62).
+
+**SHIPPED + LIVE this session:** (1) DB backup/integrity timer; (2) circuit-breaker persisted-OPEN
+reload on startup (verified live); (3) `consensus_engine/eval/` measurement module (30 tests);
+(4) holiday-aware price label + non-ASCII ticker reject; (5) `!all` loud-on-degraded banner;
+(6) autonomous readiness-and-flip engine (`auto_flip_check.py` + timer every 2 days, next Tue
+07-07 09:00 PDT; guardrails + verified flip round-trip). Commits 57f8179/3b65180/fbd3ae6/c9e3fbd
++ infra in /root/task_system.
+
+**User decisions:** picked all Groups 1-3; parked market top/bottom predictor; stop multi-day score
+use; kept "add more !all fields". Corrections after user pushback: MU really ~$1,150 (the "$1154
+bug" pick dropped); social-dedup smaller than pitched.
+
+**DEFERRED (new TODOs):** #62 forward-loggers, #63 honest decision-first alerts, #64 Wolf rebuild,
+#65 social-dedup + idempotency. #61 stays OPEN until these land.

@@ -399,4 +399,28 @@ Build the approved redesign of the /discover plugin — passes 0-4 on Claude Cod
 
 **File:** `bot-deep-research-prompt.md`
 
-CURRENT STATUS: prompt v2 ready to run — paste `ultracode — read todo/kickoffs/bot-research-and-build.md and execute it end to end` into a fresh session. One run does everything: verifies the bot's real code first, deep-researches improvements across six expert angles (with citations), gets its draft attacked by a second AI before ranking, pauses to let the user pick what gets built in plain English, then builds and verifies the picks. Replaces the older paste-into-an-outside-model prompt (kept as a variant).
+**CURRENT STATUS (2026-07-05) — RUN EXECUTED.** Full six-lens research → adversarial review → user picks → build. Report committed to `plans/bot-research-build-2026-07.md`. **Headline (measured + adversarially re-verified): the bot's score has ~no predictive edge on stored data** (score→prob at the base-rate Brier floor, final_score AUC ~0.507 at 24h, per-signal |IC|<0.03; fired alerts up 52.7% at 24h — a hair above coin flip; 20d anti-predictive). **SHIPPED + LIVE:** (1) nightly DB backup + integrity timer; (2) circuit-breaker persisted-OPEN reload on startup (verified live); (3) read-only `consensus_engine/eval/` measurement module (the honesty spine); (4) holiday-aware price label + non-ASCII ticker reject; (5) `!all` loud-on-degraded banner; (6) **autonomous readiness-and-flip engine** (user directive — tracks data, re-tests every 2 days, auto-flips when confident; `/root/task_system/auto_flip_check.py` + timer). Corrections after user pushback: MU $1154 was REAL (not a bug — pick dropped); fired-alert 52.7% not 43.8%. **DEFERRED to #62-#65** (need dedicated sessions / live shadow checks). Stays OPEN until those land.
+
+## 62. Feed the auto-flip engine — build the two forward-loggers
+
+**File:** `forward-loggers-for-autoflip.md`
+
+Log the 5 display signals into decision_snapshots and fill the per-analyst outcome table, so the autonomous auto-flip engine can validate and switch on "fold signals into the score" and "analyst accuracy" by itself once the data proves them.
+
+## 63. Make the bot's alerts honest and decision-first
+
+**File:** `honest-decision-first-alerts.md`
+
+Merge the 3-messages-per-spike into one self-updating alert that says ACT vs WATCH, shows a real stop price, replaces the misleading "83" with a plain confidence word, and stays quiet on weak signals (needs a live shadow check first).
+
+## 64. Rebuild the Wolf newsletter reader (trap-proof extractor→verifier)
+
+**File:** `wolf-extractor-verifier-rebuild.md`
+
+Rebuild the newsletter reader so it can tell "I'm waiting to SHORT this bounce" from "this is going up" (the IGV mistake), using a verifier that can only reject bad readings — hard-gated on the saved eval emails so it can't repeat the false-bull failure.
+
+## 65. Two small live-path fixes: social de-dup + alert idempotency
+
+**File:** `social-dedup-and-alert-idempotency.md`
+
+Stop two social crowds (StockTwits + Reddit) from counting as two independent votes, and make a crash unable to double-send or lose the throttle on an alert (both touch live alerts, so each needs a shadow check).
