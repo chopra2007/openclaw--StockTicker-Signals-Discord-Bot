@@ -870,6 +870,16 @@ async def run_live(stop_event: asyncio.Event):
             except Exception as exc:
                 log.warning("Calibration startup retrain failed (continuing): %s", exc)
 
+        # #61 reliability: reload the circuit-breaker's persisted OPEN state so a
+        # durable outage (quota/402/bench) learned before a restart is not forgotten
+        # and re-hammered on every boot. The breaker still self-heals via a half-open
+        # probe once the cooldown elapses; this just avoids re-learning it the hard way.
+        try:
+            from consensus_engine.utils.circuit_breaker import circuit_breaker
+            await circuit_breaker.load_persisted()
+        except Exception as exc:
+            log.warning("circuit_breaker.load_persisted failed (continuing): %s", exc)
+
         tasks = [
             asyncio.create_task(stop_watcher()),
             asyncio.create_task(weekend_watchdog()),
