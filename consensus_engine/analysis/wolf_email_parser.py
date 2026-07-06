@@ -22,6 +22,7 @@ from bs4 import BeautifulSoup
 from consensus_engine import config as cfg
 from consensus_engine.llm_client import call_with_fallback
 from consensus_engine.analysis import wolf_vision
+from consensus_engine.analysis import wolf_verifier
 from consensus_engine.analysis.wolf_scope import resolve_scope, is_inverse_proxy
 
 log = logging.getLogger(__name__)
@@ -288,11 +289,17 @@ def _coerce_thesis(raw: dict) -> dict | None:
                     and entry > 0 and target > 0):
                 setup = {"action": act, "entry": entry, "target": target}
 
+    # #64 phase axis (lifecycle, orthogonal to direction). Default here from the
+    # commitment ladder; the verifier overrides it (pending / counter_trend_bounce /
+    # reversal) when the trap-proof pipeline is on. Always present for schema stability.
+    phase = "active" if intent in ("started", "adding") else "pending"
+
     return {
         "scope_type": scope_type,
         "scope_key": scope_key,
         "direction": direction,
         "stage": stage,
+        "phase": phase,
         "levels": levels,
         "snippet": str(raw.get("snippet", ""))[:160],
         "identifier_raw": identifier[:32],
@@ -346,10 +353,13 @@ def _parse_json(raw: str) -> dict | None:
     return None
 
 
-async def _extract_theses_llm(body: str) -> dict:
+async def _extract_theses_llm(body: str, temperature: float = 0.1) -> dict:
     """Run the LLM structured extraction over the email text, with a small retry so a
     transient free-tier timeout doesn't silently drop a whole email's theses (a missing
     beat in the over-time story). Returns the raw parsed dict, or {} after all attempts.
+
+    `temperature` is a param so the #64 verifier pipeline can draw diverse samples (an
+    unstable call disagrees with itself across samples — the SelfCheckGPT signal).
     """
     body = body[:cfg.get("wolf.extraction_input_cap", 40000)]  # cap prompt size
     user_content = _EXTRACTION_USER_TMPL.replace("__BODY__", body)
@@ -369,7 +379,7 @@ async def _extract_theses_llm(body: str) -> dict:
             None if extraction_chain else "primary", messages,
             chain=extraction_chain,
             max_tokens=cfg.get("wolf.extraction_max_tokens", 4096),
-            temperature=0.1,
+            temperature=temperature,
             timeout=cfg.get("wolf.extraction_timeout", 60),
         )
         parsed = _parse_json(raw)
@@ -381,6 +391,52 @@ async def _extract_theses_llm(body: str) -> dict:
             await asyncio.sleep(1)
     log.error("wolf_email_parser: extraction failed after %d attempts — email yields no theses", attempts)
     return {}
+
+
+def _coerce_run(raw: dict) -> list[dict]:
+    """Coerce one raw extraction dict into a list of clean thesis dicts."""
+    out = []
+    for t in (raw.get("theses") or []):
+        clean = _coerce_thesis(t)
+        if clean:
+            out.append(clean)
+    return out
+
+
+async def _produce_theses(body: str) -> tuple[list[dict], dict]:
+    """Produce the email's theses and the run-level meta (regime, big_catalysts).
+
+    Flag OFF (default): today's single-shot extraction — one call, guard rule applied.
+    Flag ON (#64): the trap-proof extractor->verifier pipeline — sample the extractor N
+    times (self-consistency), consolidate with a vote-agreement score, then a discriminative
+    cross-family judge VETOES/DOWNGRADES each candidate (it can never mint one). On a total
+    judge outage it degrades to the safe single-shot baseline, so Wolf never goes dark.
+
+    Returns (theses, raw0) where raw0 is the first extraction dict — regime / big_catalysts
+    are read from it (they are stable, non-directional summary fields, not trap-prone).
+    """
+    if not cfg.get("wolf.verifier.enabled", False):
+        raw0 = await _extract_theses_llm(body)
+        return _coerce_run(raw0), raw0
+
+    n = max(1, int(cfg.get("wolf.verifier.samples", 3) or 1))
+    sample_temp = float(cfg.get("wolf.verifier.sample_temperature", 0.4))
+    runs = []
+    raw0: dict = {}
+    for i in range(n):
+        raw = await _extract_theses_llm(body, temperature=0.1 if i == 0 else sample_temp)
+        if i == 0:
+            raw0 = raw
+        runs.append(_coerce_run(raw))
+    if not any(runs):
+        return [], raw0
+
+    candidates = wolf_verifier.consolidate(runs)
+    gated = await wolf_verifier.verify_and_gate(candidates, body)
+    if gated is None:
+        log.warning("wolf_email_parser: verifier outage — using single-shot baseline theses")
+        return runs[0], raw0
+    return gated, raw0
 
 
 async def parse_email(
@@ -405,13 +461,8 @@ async def parse_email(
     if not body.strip() and html:
         body = decode_html(html)
 
-    # 1. LLM thesis extraction over the text.
-    raw = await _extract_theses_llm(body)
-    theses = []
-    for t in (raw.get("theses") or []):
-        clean = _coerce_thesis(t)
-        if clean:
-            theses.append(clean)
+    # 1. Thesis production (single-shot, or the #64 extractor->verifier pipeline).
+    theses, raw = await _produce_theses(body)
 
     # 1b. R3: substring-verify conviction_phrase + snippet against the SAME body the
     # LLM saw (body[:extraction_input_cap]); drop anything fabricated. Normalize both

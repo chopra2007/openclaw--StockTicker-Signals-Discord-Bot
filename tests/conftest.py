@@ -49,6 +49,10 @@ def _audit_flags_default_off(monkeypatch):
         "wolf.confluence.board_show_levelless": False,
         "wolf.confluence.links_enabled": False,
         "wolf.direction_guard.enabled": False,
+        # #64 trap-proof extractor->verifier pipeline is LIVE in config; force OFF here so
+        # parse_email tests use the single-shot path (their LLM mock patches only the
+        # parser, not the verifier's own network call). Verifier tests opt in in-body.
+        "wolf.verifier.enabled": False,
         # Phase-1 signal features (signal-features-2026-06-09) — keep OFF so the
         # baseline suite stays green; dedicated feature tests force their own flag.
         "features.earnings_magnitude.enabled": False,
