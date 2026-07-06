@@ -1,7 +1,15 @@
 # Make the bot's alerts honest and decision-first (detailed card + trade levels + one merged message)
 
-**Status:** BUILT (flag ON) 2026-07-05 — deploy pending (merge PR #15 + restart engine)
+**Status:** DONE 2026-07-05 (LIVE)
 **Created:** 2026-07-05
+
+**DEPLOYED 2026-07-05:** merged to master (merge commit da42a51, combined with the concurrent #64
+Wolf-verifier work) and `consensus-engine.service` restarted clean (active, 0 restarts, all loops up).
+`alerts.merged_detail_card.enabled` is ON in the live config. Full suite 2624 passed on the merged
+tree. Render verified via the real builder in #chat (Step 1 ping → Step 2 self-editing detailed card).
+**Live check still owed (cheap):** eyeball the FIRST real merged alert when a tweet next fires — confirm
+the ping edits itself into the detailed card in place, the 📐 Trade Levels line renders, and the tweet
+text + TweetShift link are preserved. Revert instructions below if anything looks wrong.
 
 **CURRENT STATUS (2026-07-05):** DIRECTION CHANGED after the user reviewed live renders in Discord
 #chat. The user REJECTED the stripped-down "decision-first ACT/WATCH card" — they want the FULL

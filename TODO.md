@@ -407,7 +407,7 @@ Build the approved redesign of the /discover plugin — passes 0-4 on Claude Cod
 
 Log the 5 display signals into decision_snapshots and fill the per-analyst outcome table, so the autonomous auto-flip engine can validate and switch on "fold signals into the score" and "analyst accuracy" by itself once the data proves them.
 
-## 63. Make the bot's alerts honest and decision-first — BUILT (flag ON) 2026-07-05, deploy pending
+## 63. Make the bot's alerts honest and decision-first — DONE 2026-07-05 (LIVE)
 
 **File:** `honest-decision-first-alerts.md`
 
