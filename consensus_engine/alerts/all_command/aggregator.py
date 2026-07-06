@@ -78,16 +78,70 @@ def _is_exc(x: Any) -> bool:
     return isinstance(x, BaseException)
 
 
+class _Failed:
+    """R1 sentinel: a source's `_*_safe` wrapper CAUGHT a real exception, as
+    opposed to legitimately returning empty data. Falsy so every downstream
+    `is None` / `if not x` check still treats it as "no data" (the happy path
+    is unchanged), but `_is_failed` can single it out so `_classify_sources`
+    counts a genuine failure instead of an innocent empty result."""
+
+    __slots__ = ()
+
+    def __bool__(self) -> bool:
+        return False
+
+    def __repr__(self) -> str:
+        return "FAILED"
+
+
+# Module-level singleton — identity-checked via `is`.
+FAILED = _Failed()
+
+
+def _is_failed(x: Any) -> bool:
+    return x is FAILED
+
+
+# R4 operator note — CORE `!all` sources whose silent failure is worth telling
+# an operator about (they drive the score/card; the rest are enrichment).
+_CORE_ALL_SOURCES = frozenset({"score", "technical_long", "technical_short", "news", "options"})
+_OPS_NOTE_PATH = "/root/task_system/notifications.log"
+_OPS_NOTE_THROTTLE_S = 1800  # 30 min — same window as the C5 dead-source alert
+_ops_note_last: dict[str, float] = {}
+
+
+def _ops_note(source: str, reason: str = "") -> None:
+    """Best-effort: append ONE throttled line to notifications.log (the surface
+    shown at session start) when a CORE `!all` source genuinely failed. Throttled
+    ~30 min per source like the C5 dead-source alert. NEVER raises into the alert
+    path — any error is swallowed."""
+    try:
+        now = time.time()
+        if now - _ops_note_last.get(source, 0.0) < _OPS_NOTE_THROTTLE_S:
+            return
+        _ops_note_last[source] = now
+        from datetime import datetime as _dt
+        from zoneinfo import ZoneInfo as _ZI
+        ts = _dt.now(_ZI("America/Los_Angeles")).strftime("%Y-%m-%d %H:%M PDT")
+        line = f"[{ts}] !all core source unavailable: {source}"
+        if reason:
+            line += f" ({reason})"
+        with open(_OPS_NOTE_PATH, "a", encoding="utf-8") as fh:
+            fh.write(line + "\n")
+    except Exception:  # noqa: BLE001 — best-effort, must never break !all
+        pass
+
+
 def _result_or_default(x: Any, default: Any) -> Any:
-    """Treat exceptions as missing data; otherwise return as-is."""
-    if _is_exc(x) or x is None:
+    """Treat exceptions AND the FAILED sentinel as missing data; else return as-is."""
+    if _is_exc(x) or _is_failed(x) or x is None:
         return default
     return x
 
 
 def _has_value(val: Any) -> bool:
     """A source contributed if it returned non-None, non-exception, non-empty."""
-    if val is None or _is_exc(val):
+    if val is None or _is_exc(val) or _is_failed(val):
         return False
     if isinstance(val, (list, dict, str, tuple, set)) and not val:
         return False
@@ -116,8 +170,9 @@ def _classify_sources(items: list[tuple[str, Any]]) -> tuple[list[str], list[str
 
 
 def _source_label(name: str, raw: Any) -> Optional[str]:
-    """Render `<source>: unavailable` if the gather slot raised."""
-    if _is_exc(raw):
+    """Render `<source>: unavailable` if the gather slot raised OR its
+    `_*_safe` wrapper caught an exception and returned the FAILED sentinel."""
+    if _is_exc(raw) or _is_failed(raw):
         return f"{name}: unavailable"
     return None
 
@@ -138,7 +193,7 @@ async def _score_ticker_safe(ticker: str):
         return await score_ticker(ticker)
     except Exception as exc:  # noqa: BLE001
         log.warning("aggregator._score_ticker_safe: $%s failed: %s", ticker, exc)
-        return None
+        return FAILED
 
 
 async def _verify_technical_safe(ticker: str, direction: str):
@@ -146,8 +201,8 @@ async def _verify_technical_safe(ticker: str, direction: str):
         from consensus_engine.analysis.technical import verify_technical
         return await verify_technical(ticker, direction)
     except Exception as exc:  # noqa: BLE001
-        log.debug("aggregator._verify_technical_safe: %s", exc)
-        return None
+        log.warning("aggregator._verify_technical_safe: %s", exc)
+        return FAILED
 
 
 async def _db_call(name: str, *args, **kwargs):
@@ -161,11 +216,11 @@ async def _db_call(name: str, *args, **kwargs):
         from consensus_engine import db
         fn = getattr(db, name, None)
         if fn is None:
-            return None
+            return None  # feature absent on this deployment — not a failure
         return await fn(*args, **kwargs)
     except Exception as exc:  # noqa: BLE001
         log.warning("aggregator._db_call(%s) raised: %s", name, exc)
-        return None
+        return FAILED
 
 
 async def _scanner_call(module_path: str, attr: str, *args, **kwargs):
@@ -175,14 +230,14 @@ async def _scanner_call(module_path: str, attr: str, *args, **kwargs):
         mod = importlib.import_module(module_path)
         fn = getattr(mod, attr, None)
         if fn is None:
-            return None
+            return None  # feature absent on this deployment — not a failure
         result = fn(*args, **kwargs)
         if asyncio.iscoroutine(result):
             return await result
         return result
     except Exception as exc:  # noqa: BLE001
         log.warning("aggregator._scanner_call(%s.%s) raised: %s", module_path, attr, exc)
-        return None
+        return FAILED
 
 
 async def _wolf_confluence_lookup(ticker: str) -> Optional[dict]:
@@ -392,8 +447,9 @@ async def _gather_all_sources(ticker: str) -> dict:
         twitter_today, stocktwits,
     ) = results
 
-    # Classify each source as surfaced (non-empty data) or failed (exception).
-    sources_surfaced, source_failures = _classify_sources([
+    # Classify each source as surfaced (non-empty data) or failed (exception /
+    # FAILED sentinel from a `_*_safe` wrapper).
+    _classify_items = [
         ("score", score_result),
         ("technical_long", tech_long),
         ("technical_short", tech_short),
@@ -421,7 +477,13 @@ async def _gather_all_sources(ticker: str) -> dict:
         ("peer_strength", peer_strength),
         ("snapshot_db", snapshot),
         ("earnings_move", earnings_move),
-    ])
+    ]
+    sources_surfaced, source_failures = _classify_sources(_classify_items)
+
+    # R4 — tell an operator when a CORE source genuinely failed (not merely empty).
+    for _lbl, _val in _classify_items:
+        if _lbl in _CORE_ALL_SOURCES and (_is_failed(_val) or _is_exc(_val)):
+            _ops_note(_lbl)
 
     return {
         "ticker_meta": ticker_meta if isinstance(ticker_meta, dict) else {},
@@ -1364,6 +1426,7 @@ async def _compute_all(ticker: str, start: float) -> dict:
         score_breakdown=score_breakdown,
         narrative=narrative,
         sources_used=sources_surfaced,
+        source_failures=source_failures,
         cache_age_seconds=None,
         yt_signals=data["yt_signals"] if isinstance(data["yt_signals"], list) else None,
         chart_pattern=data.get("chart_pattern"),

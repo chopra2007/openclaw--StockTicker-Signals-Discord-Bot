@@ -697,6 +697,41 @@ def _build_chart_pattern_field(chart_pattern: Optional[dict]) -> Optional[dict]:
     return {"name": "Pattern", "value": value, "inline": True}
 
 
+# R1 — plain-English names for the internal source labels, so the "unavailable"
+# banner reads for a user. Several internal labels collapse to one name
+# (technical_long + technical_short -> "technicals"); duplicates are deduped.
+_FRIENDLY_SOURCE = {
+    "score": "scoring",
+    "technical_long": "technicals",
+    "technical_short": "technicals",
+    "news": "news",
+    "sec": "SEC",
+    "options": "options",
+    "options_flow_recent": "options flow",
+    "max_pain": "options",
+    "earnings_calendar": "earnings",
+    "recent_earnings": "earnings",
+    "earnings_move": "earnings",
+    "peer_strength": "sector strength",
+    "snapshot_db": "snapshot",
+    "apewisdom": "retail (ApeWisdom)",
+    "trends": "Google Trends",
+    "prior_vault": "research memory",
+}
+
+
+def _friendly_failed_names(source_failures: Optional[list[str]]) -> list[str]:
+    """Turn `['options: unavailable', 'technical_long: unavailable']` into a
+    deduped, human-readable list like `['options', 'technicals']`."""
+    seen: list[str] = []
+    for f in source_failures or []:
+        raw = str(f).split(":", 1)[0].strip()
+        name = _FRIENDLY_SOURCE.get(raw, raw)
+        if name and name not in seen:
+            seen.append(name)
+    return seen
+
+
 def build_embed(
     ticker: str,
     structured: StructuredFields,
@@ -704,6 +739,7 @@ def build_embed(
     narrative: str,
     sources_used: list[str],
     cache_age_seconds: Optional[int],
+    source_failures: Optional[list[str]] = None,
     yt_signals: Optional[list[dict]] = None,
     chart_pattern: Optional[dict] = None,
     wolf_confluence: Optional[dict] = None,
@@ -731,12 +767,36 @@ def build_embed(
         if sources else ""
     )
 
-    # #22 (full-audit-2026-06-06) — low-coverage caveat. When the number of
-    # SURFACED sources is at/under the threshold, prepend a one-line warning
-    # so a thin-data answer is visibly flagged. Default-OFF flag.
+    # R1 (lens6-reliability) — honest-failure banner. Precedence, most severe first:
+    #   1. Nothing surfaced at all -> say the analysis is on NO live data.
+    #   2. Some sources genuinely FAILED (caught an exception) -> name them.
+    # Both ship ON (no flag) — pure additive honesty, no scoring change. Only the
+    # legacy low-coverage caveat (case 3) stays behind all_command.sparse_banner.enabled.
     from consensus_engine import config as _cfg_banner
     banner_line = ""
-    if bool(_cfg_banner.get("all_command.sparse_banner.enabled", False)):
+    _failed_names = _friendly_failed_names(source_failures)
+    if not sources:
+        if _failed_names:
+            banner_line = (
+                f"⚠️ No live data — {len(_failed_names)} sources unavailable "
+                f"({', '.join(_failed_names)}). This analysis is based on no "
+                f"fresh data; treat it as unreliable."
+            )
+        else:
+            banner_line = (
+                "⚠️ No live data — no sources returned anything for this ticker. "
+                "This analysis is based on no fresh data; treat it as unreliable."
+            )
+    elif _failed_names:
+        _n = len(_failed_names)
+        banner_line = (
+            f"⚠️ {_n} source{'s' if _n != 1 else ''} unavailable "
+            f"({', '.join(_failed_names)}) — analysis is partial."
+        )
+    elif bool(_cfg_banner.get("all_command.sparse_banner.enabled", False)):
+        # #22 (full-audit-2026-06-06) — low-coverage caveat. When the number of
+        # SURFACED sources is at/under the threshold, prepend a one-line warning
+        # so a thin-data answer is visibly flagged. Default-OFF flag.
         _max_src = _cfg_banner.get("all_command.sparse_banner.max_sources", 3)
         try:
             _max_src_i = int(_max_src)

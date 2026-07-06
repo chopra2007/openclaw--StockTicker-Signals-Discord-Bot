@@ -234,7 +234,7 @@ async def check_unusual_options(ticker: str, executor, nearest: int = 1) -> Opti
             _note_chain_fetch("check_unusual_options", ticker, attempted, failed)
             return chains or None
         except Exception as e:
-            log.debug("yfinance options fetch error for %s: %s", ticker, e)
+            log.warning("yfinance options fetch error for %s: %s", ticker, e)
             return None
 
     loop = asyncio.get_running_loop()
@@ -244,7 +244,7 @@ async def check_unusual_options(ticker: str, executor, nearest: int = 1) -> Opti
         try:
             chains = await loop.run_in_executor(executor, _schwab_unusual_chains, ticker, nearest)
         except Exception as e:
-            log.debug("schwab unusual fetch error for %s: %s", ticker, e)
+            log.warning("schwab unusual fetch error for %s: %s", ticker, e)
             chains = None
     if not chains:
         try:
@@ -253,7 +253,7 @@ async def check_unusual_options(ticker: str, executor, nearest: int = 1) -> Opti
             async with get_yahoo_semaphore():
                 chains = await loop.run_in_executor(executor, _fetch)
         except Exception as e:
-            log.debug("run_in_executor error for %s: %s", ticker, e)
+            log.warning("run_in_executor error for %s: %s", ticker, e)
             return None
     if not chains:
         return None
@@ -626,7 +626,7 @@ def _schwab_maxpain(ticker: str):
         from consensus_engine.scanners import schwab_client
         exp_list = schwab_client.get_expirations(ticker)
     except Exception as ex:
-        log.debug("schwab expirations failed for %s: %s", ticker, ex)
+        log.warning("schwab expirations failed for %s: %s", ticker, ex)
         return None
     parsed = []
     for e in exp_list or []:

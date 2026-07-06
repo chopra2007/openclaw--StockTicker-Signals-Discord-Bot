@@ -409,7 +409,7 @@ async def _run_sec_check(ticker: str) -> tuple[bool, str]:
                 summary = f"{summary}\n{block}" if summary else block
         return has_filing, summary
     except Exception as e:
-        log.debug("SEC check error for %s: %s", ticker, e)
+        log.warning("SEC check error for %s: %s", ticker, e)
         return False, ""
 
 
