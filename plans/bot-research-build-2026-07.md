@@ -15,14 +15,16 @@ positives — not a screener. **Hard constraint:** free data/tools only.
 
 ## Executive summary (blunt)
 
-1. **The bot's confidence is measurably wrong, and — worse — the alerts it actually fires are
-   near-random.** The score→probability map scores Brier 0.253/0.256 (1h/24h) — worse than always
-   guessing the base rate (independently re-verified). And the alerts that reach users
-   (`alert_history`, n=3,741) go *up* 24h later only **43.8%** of the time — below a coin flip;
-   even the highest-conviction fired alerts (avg confidence 86/100) hit just 51%. The firing gate
-   is not selecting a better slice. *(Caveat: the up=hit test assumes mostly-long alerts; a
-   direction-aware version is owed before over-claiming — but the product framing and real cards
-   are long-biased.)*
+1. **The bot's confidence carries very little measurable edge, and its calibration is slightly
+   off.** The score→probability map scores Brier 0.253/0.256 (1h/24h) — marginally *worse* than
+   always guessing the base rate (independently re-verified), i.e. it adds ~no resolution and is
+   mildly overconfident. Rank-discrimination is a coin flip: 24h AUC 0.507. **CORRECTION
+   (user-prompted re-verify 2026-07-05):** an earlier draft (and the adversarial critic) claimed
+   fired alerts "go up only 43.8% at 24h — below a coin flip." That was a NULL-as-failure artifact
+   (counting unresolved alerts as "didn't go up"). Filtered to resolved rows, the real 24h up-rate
+   is **52.7%** (n=3,110), STRONG_ALERTs 55.6% (n=54, thin). So the alerts are ~a coin flip,
+   *marginally positive*, NOT below random. The honest problem is weak-and-unmeasured edge +
+   overstated confidence, not a broken-below-50% system.
 
 2. **The core job is not "add signals" — it's to measure which ideas work, find the pocket of
    edge, and abstain on the rest.** Pooled rank-discrimination is a coin flip (AUC ~0.507 at 24h),
@@ -42,11 +44,14 @@ positives — not a screener. **Hard constraint:** free data/tools only.
    weights. Given AUC ~0.507, expect several to earn nothing.
 
 5. **The output lies with a straight face.** One $MU spike fired **three Discord embeds in one
-   second** with two disagreeing scores (25 vs 83). A real `!all` card showed Micron at **$1154
-   spot / $1645 target — ~10× off reality** (verbatim-verified), quoted to the cent, tagged "LOW
-   confidence" yet written as a full "Long above $1132" order. "83" reads as 83% when the engine
-   itself prints "uncalibrated". The one decision-relevant line — invalidation — is a process
-   index, not a stop price.
+   second** with two disagreeing scores (25 vs 83). "83" reads as 83% when the engine itself prints
+   "uncalibrated". The one decision-relevant line — invalidation — is a process index, not a stop
+   price. A real `!all` card carried a LOW-confidence rating yet was written as a full "Long above
+   $X" order, and quoted stop/target to the cent — false precision + pending-vs-active confusion.
+   **CORRECTION (user-verified 2026-07-05):** the earlier draft flagged that MU card's $1,154 spot
+   as "~10× off reality" — that was WRONG. MU genuinely traded ~$1,132–$1,154 in late June 2026
+   (verified live: 06-30 close $1,154.29, then $1,032 / $975). The price was accurate, not a bug.
+   The "spot-price sanity gate" is therefore demoted from a live-bug fix to an optional guardrail.
 
 6. **`!all` renders a confident card even when every source silently failed** — `source_failures`
    is computed and never shown; the safety wrappers swallow exceptions to `None` so the classifier
@@ -107,11 +112,13 @@ held-out Brier improves). Wire the CLI into the pre-push gate as a **non-blockin
 - *Adversarial note:* keep metrics simple first pass (skip SmoothECE/Spiegelhalter until the basic
   decision metrics are actually used); use ticker/time-grouped splits with embargo, not random.
 
-### #3 — Spot-price sanity gate (quarantine, don't blind-reject) — S
-When `!all`/level rendering produces a spot >N× off the yfinance last close (the $1154-Micron
-bug), **quarantine/degrade** — flag "price data suspect, levels withheld" rather than printing a
-confident $1132-entry order — instead of blindly rejecting (premarket/news/splits are real).
-Kills a live, verbatim-confirmed, trust-destroying bug. Highest value-per-hour in the report.
+### #3 — Optional price-sanity guardrail (demoted — NOT a live bug) — S
+The MU $1,154 render turned out to be a real price (user-verified), not a 10× glitch — so there is
+no urgent bug here. A guardrail that quarantines/degrades a spot that disagrees sharply with an
+independent source (yfinance vs Schwab vs Finnhub) — flagging "price data suspect" rather than
+rejecting — would still catch genuinely-scrambled numbers (the historical NVDA $700-target-on-a-
+$208-stock class), but it is now a nice-to-have, not top-3. Build only if you want the belt-and-
+suspenders guard.
 
 ### #4 — Honest, decision-first output + abstention — M (live-risk: shadow check owed)
 One embed per event (ping edits in place when cross-ref lands — kills the 25-vs-83 contradiction
@@ -133,12 +140,15 @@ Call `circuit_breaker.load_persisted()` at engine startup (1 line + test) so the
 OpenRouter-402 OPEN state survives restarts; classify 402≠429 and trim reserved `max_tokens` so
 the 402 fires less. Improves thesis *quality* (the product's real currency) for near-zero effort.
 
-### #7 — Fix duplicate/correlated "confidence manufacturing" — M
-Two parts both adversaries flagged: (a) the one-embed-per-event merge (in #4) removes duplicate
-alerts; (b) the "2 independent sources" rule counts correlated echoes (StockTwits≈Reddit; a news
-item and the flow it caused) as two votes — **start with deterministic source-family rules** (same
-family ≠ second confirmation), then measure with a nested-logistic LR test once more history
-accrues. Do NOT cluster on ~1 month of data.
+### #7 — Fix duplicate/correlated "confidence manufacturing" — M (smaller than pitched)
+Two parts: (a) the one-embed-per-event merge (in #4) removes duplicate alerts — verified real
+(Jul-05 $MU fired SWARM+ping+detail in 8s). (b) the "2 independent sources" concern: on
+re-verify, `cross_reference.py:890` ALREADY enforces actor-independence + distinct-actor
+safeguards (I3) and requires an actor-independent hard corroborator (SEC/news/options) — so the
+crude "any 2 sources" double-count is largely already handled. The residual gap is narrower:
+correlated *social* echoes (StockTwits≈Reddit/ApeWisdom) within the same family. Fix with a
+deterministic source-family rule (same family ≠ a second independent vote); measure later. This is
+a refinement, not a hole — downgraded accordingly.
 
 ### #8 — Analyst-track-record scorer: fair retrial at the right horizon — S + accrual
 Repoint outcome measurement to argmax-IC over {24h, 5d, 20d}; gate ON only with Wilson
