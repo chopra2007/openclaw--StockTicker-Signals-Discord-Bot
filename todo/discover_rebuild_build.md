@@ -2,6 +2,7 @@
 
 **Status:** SHIPPED — v1.1.0 LIVE on `chopra2007/claude-discover` (pushed 2026-07-02, commit e975d23)
 **Created:** 2026-07-02
+**→ Living record:** the plugin's ongoing version log + insights + next-version spec are consolidated into TODO #68 (`discover-plugin-logbook.md`). This file stays as the detailed v1.1.0 build record.
 
 **CURRENT STATUS (2026-07-02) — SHIPPED & LIVE:** The rebuilt discover plugin (**v1.1.0**) is pushed to the public repo and is being beta-tested from real projects. Tasks 1–10 built the whole plugin (Workflow-engine script with all 6 passes, stub harness 4/4 green, SKILL.md + references + README rewritten, tmux fully removed). Validated by THREE real runs through the actual Workflow engine on a toy project: (1) full Light 0→4 hands-off — 21 agents, 794k tokens, 18→3 survivors, high-quality artifacts (Pass-0 names real files, drops-log coded+evidenced, kill report labels single-family, final-plan has all 8 sections + a live_probe per feature); (2) budget-cap — clean partial-return at pass boundary + resumable on-disk state; (3) disk-resume `from_pass:4` — reparse-from-markdown + Pass-4 re-run works. Total test spend ~1.47M tokens, zero bugs beyond the one fixed. **One load-bearing bug caught & fixed:** the engine delivers `args` as a JSON string, so the plan's verbatim `const A = args` crashed instantly — fixed with a parse-guard (`typeof args==='string'?JSON.parse:args`). Evidence log: `tests/e2e-evidence.md` in the plugin repo.
 

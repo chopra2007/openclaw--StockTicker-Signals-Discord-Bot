@@ -1,0 +1,226 @@
+# Discover plugin — living record (versions, insights, next changes)
+
+**Status:** LIVING RECORD — v1.1.0 live; v1.2 (per-seat model/effort + AskUserQuestion UI) designed, not built
+**Created:** 2026-07-06
+
+**CURRENT STATUS (2026-07-06):** v1.1.0 is live on `chopra2007/claude-discover`. Next up = **v1.2**:
+per-seat model + effort allocation, a Quick/Balanced/Max ceiling, and an AskUserQuestion-based
+setup with multi-select review points. Design fully agreed this session (no code yet) — the v1.2
+spec below is build-ready. On release: append a v1.2 changelog entry, add the missing CHANGELOG.md
++ git tag, and update the repo README (see "Repo docs & release checklist").
+
+**What this item is:** the single home for the discover plugin's evolution — every version, what
+changed, what worked / didn't and why, the reusable facts, and the spec for the next version.
+Update it on every release. Consolidates the history previously split across #7 (old tmux-era
+skill mods, DONE) and #60 (the v1.1.0 rebuild, DONE) — those two remain as detailed build records;
+this is the canonical ongoing log.
+
+---
+
+## Where the code + docs live
+
+- **Source of truth (edit here):** `/root/work/claude-discover-publish/repo/` (branch `main`).
+  - Pipeline script (every agent seat is spawned here): `skills/discover/workflows/discover-pipeline.js`
+  - Front-of-house: `skills/discover/SKILL.md` · artifact inventory: `skills/discover/references/pass-templates.md`
+  - README: `README.md` (+ mirror `/root/work/claude-discover-publish/extracted/discover-plugin/README.md`)
+  - Version: `.claude-plugin/plugin.json` (currently `1.1.0`) + `.claude-plugin/marketplace.json`
+  - Test rig: `tests/run-harness.mjs` (stub harness, keep green) · `tests/e2e-evidence.md`
+- **Installed/live copy (read to compare, do NOT edit):** `/root/.claude/plugins/cache/discover/discover/1.1.0/skills/discover/`
+- **Design docs (in the WORKSPACE, not the plugin repo):**
+  - Plan (14 tasks + code): `docs/superpowers/plans/2026-07-02-discover-rebuild.md`
+  - Spec (authority on ambiguity): `docs/superpowers/specs/2026-07-02-discover-rebuild-design.md`
+  - Why-decisions history: `todo/kickoffs/discover-rebuild.md` · pressure-test: `.omc/research/discover-rebuild-pressure-test-2026-07-01.json`
+- **Toy test project:** `/root/work/discover-toy/`
+- Remote: `chopra2007/claude-discover` (public, user-owned). Publish flow: edit repo → re-run stub
+  harness → bump `plugin.json` version → commit + push (push only with user OK).
+
+---
+
+## Version history / changelog (newest first)
+
+### v1.2 — PLANNED (design 2026-07-06, no code yet)
+Per-seat model + effort allocation instead of every agent inheriting the session model; a
+Quick/Balanced/Max ceiling with auto-fill from measured complexity + optional per-seat pins; all
+fixed-choice setup questions moved to AskUserQuestion; run-style reworked into a multi-select of
+review points. **Full spec in the "v1.2 spec" section below.**
+
+### v1.1.0 — 2026-07-02 (commit `e975d23`) — the Workflow-engine rebuild
+Complete rewrite so passes 0–4 run on Claude Code's built-in Workflow engine (clean context,
+reliable hand-offs, crash-proof disk-resume). Added evidence-rule kill-test, plan tournament,
+Pass-5 probe gate, and cross-run outcome memory. **tmux removed entirely.** No required
+dependencies (OMC/superpowers/Codex/Gemini optional). Key commits: `5ef8380` retire tmux + scaffold ·
+`e14b9b0` passes 0–2 · `745cd1b` pass 3 · `c5ee298` pass 4 + burst dispatcher · `af64551` pass-5
+probe gate + outcome memory · `5cc70aa` SKILL.md rewrite · `7e49b41` stub harness · `56550c3` README
+rewrite (transient bump to 1.0.0) · `0e80f06` args parse-guard fix · `a68a026` e2e evidence +
+measured budget · `e975d23` bump to 1.1.0. (Design + build recorded in #60.)
+
+### v0.1.x — original tmux-based skill (superseded by v1.1.0)
+The pre-rebuild skill: composed OMC + superpowers via tmux multi-agent panes. Later got 3 QoL
+upgrades (commit `86b2383`, = TODO #7): verification-before-completion gate in Pass 5, a non-tmux
+native parallel-agent option + free-form agent count, and the one-line kickoff prompt; plus
+`53b7cbc` same-session Pass-5 build-now/review-then-build handoff. All of this was then absorbed or
+replaced by the v1.1.0 engine rebuild.
+
+---
+
+## Insights ledger — what worked / what didn't and why
+
+### What worked (keep doing)
+- **Running passes on the built-in Workflow engine.** Clean per-agent context, reliable hand-offs,
+  crash-proof resume; disk artifacts under `.claude/discover/<run>/` are the source of truth, engine
+  journal is a throwaway cache. Validated by 3 real runs (full Light 0→4, budget-cap partial-return,
+  disk-resume from_pass:4).
+- **Evidence-rule kill-test.** An objection only kills if it cites an artifact inspected THIS run
+  (file:line / command output / fetched URL); otherwise it auto-downgrades to a "concern." One
+  proven fatal objection kills — no majority vote. Kept kills honest.
+- **Symmetric, labeled reporting.** Kill report labels a single-AI-family panel prominently ("unanimity
+  counts for less"); survivors show their strongest near-miss objection. Prevents false confidence.
+- **Light dial is well-behaved:** 21 agents, ~794k output tokens, 18→3 survivors, high-quality
+  artifacts (Pass-0 names real files; drops-log coded + evidenced; final-plan has all 8 sections +
+  a live_probe per feature).
+
+### What didn't work / gotchas (avoid / carry the fix forward)
+- **`const A = args` crashed instantly.** The Workflow engine delivers `args` as a JSON *string*,
+  not an object. Fixed with a parse-guard: `const A = typeof args === 'string' ? JSON.parse(args) : args`.
+  Any NEW arg (v1.2's model tier, per-seat pins, review-point list) rides the same channel — keep the guard.
+- **Budget metering mismatch.** `budget.spent()` meters OUTPUT tokens, but `passEst` was sized against
+  TOTAL spend — mechanism is correct, exact trip point is a calibration nicety. Standard/Deep budgets
+  are still EXTRAPOLATED (only Light measured). Changing models (v1.2) shifts per-pass spend → re-measure.
+- **tmux as a hard prerequisite (v0.1.x) was a barrier.** Removed in v1.1.0. Lesson: don't hard-require
+  an environment tool when a native path exists.
+- **Pasting EXECUTE.md contents inline as a kickoff prompt** violated the one-line-kickoff preference.
+  Fixed to a single trigger line (`discover: build <name>`); details are read from disk. Keep this.
+- **Not yet exercised in real beta (deferred, run if a bug shows):** B1 checkpoint-edit override, B2
+  kill+override, B4 mid-burst crash-resume, B5 broken booster, B6 vanilla-user (no boosters), B7
+  outcome read-back, B8 old-run-dir message, B9 per-pass budget calibration. Windows untested.
+
+### Design principles established this session (drive v1.2, carry forward)
+- **Model fit is per-SEAT, not per-run** — one run contains mechanical, execution, reasoning, and
+  judgment work simultaneously, so a single global model choice is the wrong shape.
+- **Model and effort are independent dials:** model = the *kind* of thinking (stable per seat);
+  effort = *how hard this run is* (varies). For simple-vs-complex, **effort moves first, model second.**
+- **Fable only where a single wrong call silently poisons everything** — the two judges.
+- **Coarse control = a ceiling filled by measured complexity, not a static level** (see v1.2 spec).
+
+---
+
+## Repo docs & release checklist (per the user: document each version + update README)
+
+Current repo state (2026-07-06): `plugin.json` = **1.1.0**; **no `CHANGELOG.md`**; **no git tags**;
+README (150 lines) is accurate for v1.1.0 but says nothing about model/effort or the v1.2 setup UI.
+
+On the v1.2 release (and every release after), do all of:
+1. **Add/maintain `CHANGELOG.md`** in the repo root (it doesn't exist yet). Seed it from the version
+   history above (v0.1.x → v1.1.0 → v1.2), then add one dated entry per release. Keep-a-Changelog style.
+2. **Tag the release in git** (`git tag v1.2.0`) — there are currently no tags, so versions are only
+   discoverable from commit messages + plugin.json. Tagging makes history navigable.
+3. **Bump `plugin.json` + `marketplace.json`** version.
+4. **Update `README.md`** (both the repo copy and the `extracted/` mirror) for what v1.2 changes:
+   - **Setup questions** section — document the new Model tier (Quick/Balanced/Max) dial and the
+     multi-select review points; clarify Thoroughness (breadth) vs Model tier (depth) so they don't blur.
+   - **"How it works"** — a short note that discover picks a model + thinking-depth per step (cheap for
+     busywork, strongest only for the make-or-break judge calls), auto-tuned to run complexity.
+   - **Usage / power-user** — the optional per-seat pin (`judge=fable:max`) alongside the existing `budget=N`.
+5. Re-run the stub harness + one real Light 0→4 on the toy project before pushing (spend shifts with
+   the new model mix). Push only with user OK.
+
+---
+
+## v1.2 spec — per-seat model/effort + cleaner setup UI (build-ready)
+
+### How the engine picks a model today (starting point)
+`agent()` **inherits the session model** when no `model:` is given. The script pins only 6 calls to
+`haiku` (`dry-judge-r{round}`, `approach-enum`, `reparse-map`, `reparse-filtered`, `reparse-kill`,
+`burst-summary`); everything else floats on whatever model launched the session. Realizing v1.2 =
+add `model:` + `effort:` to each `agent()` call, resolved from the 3-layer control below. `agent()`
+already accepts both (`opts.model`, `opts.effort` ∈ low|medium|high|xhigh|max).
+
+### CHANGE 1 — Per-seat model allocation
+Rule: match the model to (a) the *kind* of thinking and (b) how badly a wrong answer hurts if
+nothing downstream catches it. Fable only where both peak.
+
+| Agent label | Model | Why |
+|---|---|---|
+| `bootstrap`, `reparse-*` | Haiku | Read files / markdown→data. Mechanical. *(reparse already haiku)* |
+| `mapper-{i}` (×2/3/5) | Sonnet | Reads real code, faithful inventory; many run at once. |
+| `architect-merge` (×1) | Opus | The one foundational map; nothing re-checks it whole. *(Fable-upgrade candidate)* |
+| `researcher-{i}-r{round}` (×up to 4/9/20) | Sonnet | Web research + source grading; biggest, cost-sensitive pool. |
+| `dry-judge-r{round}` | Haiku | Cheap dedup by design *(already haiku; bump to Sonnet if lists come out thin — it decides when research STOPS)*. |
+| `filter-analyst` (×1) | Opus | Ranks the shortlist + sets the cut. **#1 Fable-upgrade candidate** (silently drops below-cut ideas). |
+| `redundancy:{name}` (×N) | Sonnet | Reads code to confirm "already exists"; bounded, is itself a safeguard. |
+| `skeptic:{lens}` (×2/3/5) | Opus | The flaw-finding muscle; the Fable judge backstops it. |
+| `advocate` (×1) | Opus | Must match skeptic strength. |
+| `judge` (×1) | **Fable** | One UPHELD silently kills an idea — no vote, no appeal. |
+| `xmodel:{fam}` (×0–2) | Sonnet | Claude part only composes a prompt + shells to Codex/Gemini + parses (Haiku ok). |
+| `approach-enum` (×0–1) | **Opus** | **Currently haiku — real mis-fit:** it gates whether the plan tournament runs at all. Biggest quality-per-dollar fix. |
+| `plan:{stance}` (×1/2/3) | Opus | The actual architecture work. |
+| `tournament-judge` (×0–1) | **Fable** | Picks the winning plan; greps code to check claims. Decides what gets built. |
+| `plan-reviser` (×0–1) | Opus | Rebuilds the winner into one coherent final spec. |
+| `coherence-check` (×0–1) | Opus | Last guard on the deliverable (Sonnet acceptable). |
+| all `synth:*`, `burst-summary` | Haiku | Render decided data → markdown. *(burst-summary already haiku)* |
+
+Cost shape: Fable ≤ 2 single calls/run (both judges; Light runs no tournament so ≤1). Opus = a few
+single calls + small skeptic/plan pools. Sonnet = the big parallel pools. Haiku = all ~10
+formatting/parse calls. Cheapest model on the most calls, dearest on the fewest highest-stakes.
+
+### CHANGE 2 — Effort as a second, independent dial
+Effort is primary for simple-vs-complex; model secondary. Effort only pays off on Opus/Fable
+reasoning seats — mechanical Haiku seats run `low` always.
+
+| Seat | Simple refactor | Complex / creative |
+|---|---|---|
+| Tournament judge | Opus·high — or Fable·low | Fable·max |
+| Kill judge | Opus·high | Fable·high–max |
+| Skeptics | Opus·medium | Opus·high |
+| Rival planners | Opus·medium | Opus·high (Fable·high if truly novel) |
+| Filter-analyst | Opus·medium | Opus·high |
+| Mappers / researchers / all formatting | unchanged · low | unchanged · low |
+
+### CHANGE 3 — The 3-layer control (resolves model + effort)
+- **Layer 1 — Automatic (default):** set judge-seat effort from the run's OWN measured complexity —
+  tournament judge ← `approach-enum` distinct-architecture count (narrow→medium, wide→max); kill
+  judge ← number of kill-eligible objections (one clean→medium, many contested→max).
+- **Layer 2 — Coarse control = Quick / Balanced / Max preset (a CEILING, not a level):** how high the
+  judgment seats may climb; Layer 1 fills underneath. Quick = cap Opus·high (never Fable); Balanced =
+  Opus default, reaches Fable·high only when complex; Max = Fable·max. **Mechanical seats stay
+  Haiku·low at every preset** (the invariant — why a single global model question is wrong).
+- **Layer 3 — Optional per-seat pin (power user):** typed like `budget=N` → `discover: <name> judge=fable:max`;
+  or a guided follow-up AskUserQuestion exposing just the two judges, each defaulting to Auto.
+- **Precedence:** pin (L3) > preset ceiling (L2) > auto-from-complexity (L1).
+- User-facing: never type an effort number; optionally pick Quick/Balanced/Max; run auto-tunes underneath.
+
+### CHANGE 4 — AskUserQuestion for all fixed-choice selections
+Every fixed 2–4-option decision uses AskUserQuestion. Free-text stays prose: the run **Name** (tool
+needs ≥2 real options → keep Name a text confirm) and open-ended checkpoint edits ("reword X").
+**Batch the setup into ONE call** (≤4 questions): Thoroughness, Model tier, Reviews, After-the-plan.
+
+Setup mock (one call):
+```
+Thoroughness (single) — how WIDE (how many agents): Light / ●Standard / Deep
+Model tier   (single) — how STRONG (a ceiling): Quick / ●Balanced / Max
+                        (Quick = cheaper models; distinct from Light = fewer agents)
+Reviews  (MULTI-select) — where to pause; tick none = hands-off:
+   ☐ After the map (0, usually skip) ☐ After research (1, usually skip)
+   ☑ After the shortlist (2)         ☐ After the kill-test (3, auto-pauses if something dies)
+After the plan (single) — ●Build it now / Stop at the plan (build later)
+```
+Fine-override mock (only if user asks to hand-tune): one question per judge —
+`Kill judge` / `Plan judge`, options ●Auto / Opus·high / Fable·high / Fable·max.
+
+Run-style rework details:
+- Old rigid 3-way (Hands-off/Checkpoints/Plan-only) → multi-select review points + a build-now/stop
+  binary. Preserves all three: none-ticked+build = Hands-off; some ticks+build = Checkpoints; build→stop = Plan-only.
+- **Label reviews in plain English, NOT "pass N."**
+- **Plan review is ALWAYS-ON** (even Hands-off shows the plan for one OK before any code) → not a checkbox.
+- **Don't lose Plan-only** — it's the build-later path (writes EXECUTE.md + `discover: build <name>`; keep the one-line kickoff, #7's 7c rule).
+- Steps 0/1 are low-value AND each extra stop splits the bundled 0→2 burst (reparse round-trips). Pre-check only "After the shortlist."
+- Keep the smart default: kill review auto-fires only if `counts.kills>0` or `decisions_needed` non-empty; honor an explicit tick on top.
+- Other AskUserQuestion points: booster-health (pause/proceed), existing-run (resume/restart), shortlist drops (multi-select over the live list). Preset names settled: **Quick / Balanced / Max**.
+
+---
+
+## Open questions for the build session
+- Exact Layer-1 effort thresholds (architecture-count / objection-count → medium vs high vs max). Pick + note in script.
+- Whether to expose `plan writers` / `skeptics` in the fine-override picker (recommendation: no — stop at the two judges).
+- Where the resolved (seat → model, effort) table is assembled (a small resolver from preset + pins + Layer-1 signals) and threaded into `agent()` calls.
+- Re-measure `passEst`/breaker after wiring models (spend shifts) and re-run the stub harness + one real Light 0→4.

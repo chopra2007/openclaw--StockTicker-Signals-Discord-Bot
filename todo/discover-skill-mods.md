@@ -2,6 +2,7 @@
 
 **Status:** DONE.
 **Created:** 2026-05-25
+**→ Living record:** this tmux-era work was superseded by the v1.1.0 rebuild; the plugin's ongoing history is consolidated into TODO #68 (`discover-plugin-logbook.md`).
 
 **Layperson:** Three quality-of-life upgrades to the `discover` skill (installed at `/root/.claude/plugins/cache/discover/discover/0.1.0/skills/discover/SKILL.md`, source-of-truth at `/root/work/claude-discover-publish/repo/skills/discover/SKILL.md`). Today discover only composes `superpowers:brainstorming`; the rest is OMC agents. Verification is enforced by `ralph` + the `verifier` agent looping on Pass 4's checklist, not by the dedicated superpowers gate skill.
 

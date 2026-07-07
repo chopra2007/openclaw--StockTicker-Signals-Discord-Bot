@@ -441,8 +441,8 @@ Most of the 644 MB database is one table of expired "a source mentioned a ticker
 
 Generate the broad 10-30-idea feature menu for the bot by finishing the `next-features-jul2026` discover run, reusing the codebase map that's already saved to disk instead of re-scanning everything — needs the discover tool to first gain a way to skip straight to that step, which doesn't exist yet.
 
-## 68. Refactor the discover plugin — smarter model choices and a cleaner setup screen
+## 68. Discover plugin — living record (versions, insights, and next changes)
 
-**File:** `discover-model-effort-refactor.md`
+**File:** `discover-plugin-logbook.md`
 
-Make the discover tool pick the right AI model and thinking-depth for each step (cheap models for busywork, the strongest one only for the make-or-break calls), let the user set a simple Quick/Balanced/Max dial plus optional fine-tuning, and move all its setup questions onto clean click-to-choose menus.
+The single ongoing home for the discover plugin's evolution — its version history, what worked/didn't and why, reusable facts, and the build-ready spec for the next version (v1.2: per-step model/thinking-depth choice, a Quick/Balanced/Max dial, and a cleaner click-to-choose setup).
