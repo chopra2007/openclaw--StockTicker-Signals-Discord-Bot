@@ -9,10 +9,16 @@ all 2-medium + low findings fixed). Ships: the **systemic** silent-corruption gu
 git, closing the old deployment gap and superseding the Pass-0-only band-aid), per-seat model+effort
 via a 3-layer resolver (Quick/Balanced/Max ceiling + optional per-judge pins; Fable only on the two
 judges), the batched-AskUserQuestion setup + review-point rework, CHANGELOG.md, README updates, and the
-version bump to 1.2.0. **Owed before publish (the only remaining steps):** (1) one real Light 0→4 run on
-the toy project to re-measure spend with the new Opus/Fable mix (stub harness done; real run not yet —
-costs ~1M tokens), (2) merge the branch to `main` + `git tag v1.2.0`, (3) push (needs user OK), (4)
-re-install/update the LIVE plugin copy (still v1.1.0). Nothing is pushed or live yet.
+version bump to 1.2.0. **Real end-to-end run DONE (2026-07-07):** a full Light 0→4 hands-off run on the
+expense-tracker toy (`v12-smoke`, model_tier=balanced, 400k output-cap) completed ALL 5 passes — 21
+agents, 0 errors / 0 empty results, ~786k tokens / ~17 min — the Fable judges + every per-seat model
+ran live, and the artifacts are real + evidence-grounded (a coherent minimal-diff CSV-export build plan
+that read the actual cli.py/store.py; kill-report correctly single-family-labeled; 5 scope-creep drops,
+3 survivors). A separate model-id check confirmed haiku/sonnet/opus/fable are all valid engine ids incl.
+fable:max. (The 400k cap never tripped — real output stayed under it, so the "smoke" run became a full
+validation.) **Owed before publish (the only remaining steps):** (1) merge the branch to `main` +
+`git tag v1.2.0`, (2) push (needs user OK), (3) re-install/update the LIVE plugin copy (still v1.1.0).
+Nothing is pushed or live yet.
 
 **What this item is:** the single home for the discover plugin's evolution — every version, what
 changed, what worked / didn't and why, the reusable facts, and the spec for the next version.
