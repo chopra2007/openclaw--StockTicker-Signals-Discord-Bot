@@ -7,7 +7,9 @@
 per-seat model + effort allocation, a Quick/Balanced/Max ceiling, and an AskUserQuestion-based
 setup with multi-select review points. Design fully agreed this session (no code yet) — the v1.2
 spec below is build-ready. On release: append a v1.2 changelog entry, add the missing CHANGELOG.md
-+ git tag, and update the repo README (see "Repo docs & release checklist").
++ git tag, and update the repo README (see "Repo docs & release checklist"). ⚠️ Also carry over the
+critical **silent-corruption fix** that currently lives ONLY in the installed copy, not the repo/git
+(bug + exact fix + deployment gap in the insights ledger — this is the highest-priority pre-v1.2 action).
 
 **What this item is:** the single home for the discover plugin's evolution — every version, what
 changed, what worked / didn't and why, the reusable facts, and the spec for the next version.
@@ -80,6 +82,25 @@ replaced by the v1.1.0 engine rebuild.
   a live_probe per feature).
 
 ### What didn't work / gotchas (avoid / carry the fix forward)
+- **⚠️ CRITICAL — silent corruption on an API error (the run that burned ~3.9M tokens, 2026-07-06).**
+  During a real run, the `architect-merge` step (Pass 0) hit an API *server_error*. Its retry did real
+  work, but the result never fed back into the pipeline's internal `map` variable, so `map` came back
+  empty/null. Nothing checked for that, so the run continued: every research-agent thunk threw on the
+  empty map and was silently swallowed to `null` (0 of 20 ever ran a web search), and the `dry-judge`
+  dedup helper — handed nothing — **fabricated candidates out of thin air**, snowballing across all 5
+  rounds. The run reported "COMPLETE — 143 ideas, all verified" with ZERO flags; the corruption only
+  surfaced at the very end. (Root cause = API error; compounded by the assistant wrongly reassuring
+  "nothing was lost" mid-retry instead of verifying — see memory `feedback_dont_reassure_on_inflight_retry`.)
+  **Two-part fix (one-line core + a prompt hardening):**
+  1. Guard right after `map = await passMap(); completed.push(0)` — **`if (!map) return partialReturn(completed, 'Pass 0 did not return a usable system map (the merge step failed - likely a transient API error) - cannot safely continue into Pass 1 with no map…')`** — fail loud instead of silently continuing.
+  2. Harden the `dry-judge` prompt to "cheap dedup — **NOT a generator**": `new_candidates` MUST be a subset of what's literally in "New this round," never invent/rename/synthesize (even if the list is empty), and empty-in ⇒ `new_candidates=[]` + `dry=true`, no exceptions.
+  **DEPLOYMENT GAP (verified 2026-07-06, ~3h after the fix session):** both fixes are PRESENT in the
+  LIVE installed copies — `…/cache/discover/discover/1.1.0/…` (guard at line 292, dry-judge at line 145)
+  and the `…/marketplaces/discover/…` copy (both mtime 07-06 18:00 PT) — but **ABSENT from the
+  source-of-truth repo** (`/root/work/claude-discover-publish/repo/`, still the 07-02 v1.1.0 state) and
+  **not in git history** (`git log -S "if (!map) return partialReturn"` → nothing; tree clean). So the
+  fix will be LOST on the next publish/plugin-update from the repo, and a v1.2 build editing the repo
+  starts from an unfixed base. **→ Port both fixes into the repo and commit BEFORE / as the first step of v1.2.**
 - **`const A = args` crashed instantly.** The Workflow engine delivers `args` as a JSON *string*,
   not an object. Fixed with a parse-guard: `const A = typeof args === 'string' ? JSON.parse(args) : args`.
   Any NEW arg (v1.2's model tier, per-seat pins, review-point list) rides the same channel — keep the guard.
@@ -110,6 +131,10 @@ Current repo state (2026-07-06): `plugin.json` = **1.1.0**; **no `CHANGELOG.md`*
 README (150 lines) is accurate for v1.1.0 but says nothing about model/effort or the v1.2 setup UI.
 
 On the v1.2 release (and every release after), do all of:
+0. **Port the live-only bug fix into the repo FIRST** — the map-guard + dry-judge hardening (see the
+   ⚠️ CRITICAL gotcha above) exist in the installed copy but are ABSENT from git; commit them to
+   `/root/work/claude-discover-publish/repo/` or the next publish re-introduces the silent-corruption
+   bug. Re-verify live-vs-repo before starting the build.
 1. **Add/maintain `CHANGELOG.md`** in the repo root (it doesn't exist yet). Seed it from the version
    history above (v0.1.x → v1.1.0 → v1.2), then add one dated entry per release. Keep-a-Changelog style.
 2. **Tag the release in git** (`git tag v1.2.0`) — there are currently no tags, so versions are only
