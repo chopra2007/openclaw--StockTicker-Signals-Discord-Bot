@@ -1,6 +1,6 @@
 # Discover plugin — living record (versions, insights, next changes)
 
-**Status:** LIVING RECORD — v1.2 BUILT + committed on branch `v1.2-per-seat-model-effort` (24 harness tests green, adversarially reviewed); NOT yet pushed/published. v1.1.0 is still the live/installed version.
+**Status:** LIVING RECORD — v1.2.0 PUBLISHED + LIVE (2026-07-07) on `chopra2007/claude-discover` (main `9dca67e`, tag `v1.2.0`); local install refreshed to the 1.2.0 cache. v1.2 is now the live/installed version.
 **Created:** 2026-07-06
 
 **CURRENT STATUS (2026-07-07):** v1.2 is fully built + committed on branch `v1.2-per-seat-model-effort`
@@ -16,9 +16,12 @@ ran live, and the artifacts are real + evidence-grounded (a coherent minimal-dif
 that read the actual cli.py/store.py; kill-report correctly single-family-labeled; 5 scope-creep drops,
 3 survivors). A separate model-id check confirmed haiku/sonnet/opus/fable are all valid engine ids incl.
 fable:max. (The 400k cap never tripped — real output stayed under it, so the "smoke" run became a full
-validation.) **Owed before publish (the only remaining steps):** (1) merge the branch to `main` +
-`git tag v1.2.0`, (2) push (needs user OK), (3) re-install/update the LIVE plugin copy (still v1.1.0).
-Nothing is pushed or live yet.
+validation.) **PUBLISHED + LIVE (2026-07-07):** merged to `main` (`9dca67e`, via `-s ours` over two
+band-aid commits that had landed on remote main — `1fe2dd8` gemini flags + `300da7e` null-map/dry-judge
+— which v1.2 fully subsumes: gemini flags + dry-judge verbatim, `if(!map)` superseded by the systemic
+guard), tagged `v1.2.0`, pushed to origin. Live install refreshed: registry `discover@discover` → new
+`.../cache/discover/discover/1.2.0` dir + marketplace clone pulled to v1.2 (24-test harness green on the
+live copy). Takes effect in the next session (plugins load at startup). **Nothing owed — v1.2 is live.**
 
 **What this item is:** the single home for the discover plugin's evolution — every version, what
 changed, what worked / didn't and why, the reusable facts, and the spec for the next version.
@@ -49,7 +52,7 @@ this is the canonical ongoing log.
 
 ## Version history / changelog (newest first)
 
-### v1.2 — BUILT on branch (2026-07-07; commits 891f109→4657655; not yet pushed/published)
+### v1.2.0 — SHIPPED + LIVE (2026-07-07; main `9dca67e`, tag `v1.2.0` on chopra2007/claude-discover)
 Per-seat model + effort via a resolver (L1 auto-from-complexity < L2 Quick/Balanced/Max ceiling < L3
 per-seat pin; Fable only on the two judges; approach-enum upgraded haiku→Opus); the **systemic**
 dead-agent guard (run-level `failed[]` + boundary halt at every pass, subsuming the Pass-0-only
@@ -60,8 +63,9 @@ booster-health probe. **24 stub-harness tests** (topology + 12 death-halt/floor 
 Adversarial review: 0 crit / 0 high; the 2 medium + lows all fixed (F1 researcher-wipeout floor,
 F2 primary-synth cross-burst hand-off, F3 from_pass:4 reparse guard). Commits: `891f109` systemic
 guard · `3085d1f` resolver · `5193bd7` setup UI · `02248a0` release docs · `4657655` review fixes.
-Owed before publish: real Light 0→4 run + merge-to-main + `git tag v1.2.0` + push + refresh the live
-install (see CURRENT STATUS). **Full spec in the "v1.2 spec" section below.**
+All release steps DONE (2026-07-07): real Light 0→4 validation passed, merged to `main` (`9dca67e`),
+tagged `v1.2.0`, pushed, live install refreshed to the 1.2.0 cache. **Nothing owed.** **Full spec in
+the "v1.2 spec" section below.**
 
 ### v1.1.0 — 2026-07-02 (commit `e975d23`) — the Workflow-engine rebuild
 Complete rewrite so passes 0–4 run on Claude Code's built-in Workflow engine (clean context,

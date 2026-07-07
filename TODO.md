@@ -445,7 +445,7 @@ Generate the broad 10-30-idea feature menu for the bot by finishing the `next-fe
 
 **File:** `discover-plugin-logbook.md`
 
-**CURRENT STATUS (2026-07-07):** v1.2 BUILT + committed on branch `v1.2-per-seat-model-effort` (5 commits, 24 harness tests green, reviewed 0 crit/0 high) AND validated with a real full Light 0→4 run (all 5 passes, 21 agents, 0 errors, ~786k tok/~17min; Fable judges + per-seat models ran live, artifacts real). NOT pushed/published — v1.1.0 still the live version. Owed before publish: merge-to-main + `git tag v1.2.0`, push (needs OK), refresh the live install.
+**CURRENT STATUS (2026-07-07):** v1.2.0 SHIPPED + LIVE on `chopra2007/claude-discover` (main `9dca67e`, tag `v1.2.0`). Built (systemic corruption guard + per-seat model/effort resolver + AskUserQuestion setup), verified 3 ways (24-test harness, adversarial review 0 crit/0 high, a real full Light 0→4 run with the Fable judges live), merged + tagged + pushed, and the local install was refreshed to the 1.2.0 cache. Nothing owed. Living record continues for the next version.
 
 The single ongoing home for the discover plugin's evolution — its version history, what worked/didn't and why, reusable facts, and the build-ready spec for the next version (per-step model/thinking-depth, a Quick/Balanced/Max dial, and a cleaner click-to-choose setup).
 
