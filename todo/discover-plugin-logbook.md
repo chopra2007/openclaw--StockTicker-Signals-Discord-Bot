@@ -1,15 +1,18 @@
 # Discover plugin — living record (versions, insights, next changes)
 
-**Status:** LIVING RECORD — v1.1.0 live; v1.2 (per-seat model/effort + AskUserQuestion UI) designed, not built
+**Status:** LIVING RECORD — v1.2 BUILT + committed on branch `v1.2-per-seat-model-effort` (24 harness tests green, adversarially reviewed); NOT yet pushed/published. v1.1.0 is still the live/installed version.
 **Created:** 2026-07-06
 
-**CURRENT STATUS (2026-07-06):** v1.1.0 is live on `chopra2007/claude-discover`. Next up = **v1.2**:
-per-seat model + effort allocation, a Quick/Balanced/Max ceiling, and an AskUserQuestion-based
-setup with multi-select review points. Design fully agreed this session (no code yet) — the v1.2
-spec below is build-ready. On release: append a v1.2 changelog entry, add the missing CHANGELOG.md
-+ git tag, and update the repo README (see "Repo docs & release checklist"). ⚠️ Also carry over the
-critical **silent-corruption fix** that currently lives ONLY in the installed copy, not the repo/git
-(bug + exact fix + deployment gap in the insights ledger — this is the highest-priority pre-v1.2 action).
+**CURRENT STATUS (2026-07-07):** v1.2 is fully built + committed on branch `v1.2-per-seat-model-effort`
+in the repo — 5 commits, 24 stub-harness tests green, adversarial code-review done (0 crit / 0 high;
+all 2-medium + low findings fixed). Ships: the **systemic** silent-corruption guard (now IN the repo +
+git, closing the old deployment gap and superseding the Pass-0-only band-aid), per-seat model+effort
+via a 3-layer resolver (Quick/Balanced/Max ceiling + optional per-judge pins; Fable only on the two
+judges), the batched-AskUserQuestion setup + review-point rework, CHANGELOG.md, README updates, and the
+version bump to 1.2.0. **Owed before publish (the only remaining steps):** (1) one real Light 0→4 run on
+the toy project to re-measure spend with the new Opus/Fable mix (stub harness done; real run not yet —
+costs ~1M tokens), (2) merge the branch to `main` + `git tag v1.2.0`, (3) push (needs user OK), (4)
+re-install/update the LIVE plugin copy (still v1.1.0). Nothing is pushed or live yet.
 
 **What this item is:** the single home for the discover plugin's evolution — every version, what
 changed, what worked / didn't and why, the reusable facts, and the spec for the next version.
@@ -40,11 +43,19 @@ this is the canonical ongoing log.
 
 ## Version history / changelog (newest first)
 
-### v1.2 — PLANNED (design 2026-07-06, no code yet)
-Per-seat model + effort allocation instead of every agent inheriting the session model; a
-Quick/Balanced/Max ceiling with auto-fill from measured complexity + optional per-seat pins; all
-fixed-choice setup questions moved to AskUserQuestion; run-style reworked into a multi-select of
-review points. **Full spec in the "v1.2 spec" section below.**
+### v1.2 — BUILT on branch (2026-07-07; commits 891f109→4657655; not yet pushed/published)
+Per-seat model + effort via a resolver (L1 auto-from-complexity < L2 Quick/Balanced/Max ceiling < L3
+per-seat pin; Fable only on the two judges; approach-enum upgraded haiku→Opus); the **systemic**
+dead-agent guard (run-level `failed[]` + boundary halt at every pass, subsuming the Pass-0-only
+band-aid); batched-AskUserQuestion setup + review-point rework (run_style derived from the ticks);
+CHANGELOG.md, README + version bump to 1.2.0. Also ported the 2 other live-only fixes (dry-judge
+"NOT a generator" hardening, Gemini `--skip-trust -y -m gemini-flash-latest`) and fixed the Gemini
+booster-health probe. **24 stub-harness tests** (topology + 12 death-halt/floor + 6 resolver).
+Adversarial review: 0 crit / 0 high; the 2 medium + lows all fixed (F1 researcher-wipeout floor,
+F2 primary-synth cross-burst hand-off, F3 from_pass:4 reparse guard). Commits: `891f109` systemic
+guard · `3085d1f` resolver · `5193bd7` setup UI · `02248a0` release docs · `4657655` review fixes.
+Owed before publish: real Light 0→4 run + merge-to-main + `git tag v1.2.0` + push + refresh the live
+install (see CURRENT STATUS). **Full spec in the "v1.2 spec" section below.**
 
 ### v1.1.0 — 2026-07-02 (commit `e975d23`) — the Workflow-engine rebuild
 Complete rewrite so passes 0–4 run on Claude Code's built-in Workflow engine (clean context,
@@ -110,6 +121,13 @@ replaced by the v1.1.0 engine rebuild.
       else abort; LOG any partial losses" — so a total wipeout can never fabricate from nothing;
   (d) mark genuinely-advisory calls (`xmodel` cross-model auditor, `coherence-check`) `optional:true` so
       they don't trip the flag. The dry-judge hardening then becomes belt-and-suspenders.
+  **✅ DEPLOYMENT GAP — RESOLVED 2026-07-07 (in the v1.2 branch, commit `891f109`).** The v1.2 build
+  implemented the SYSTEMIC guard in the repo — a run-level `failed[]` + boundary halt at every pass that
+  subsumes the live Pass-0-only `if (!map)` band-aid — and ported the dry-judge hardening + Gemini CLI
+  flags. All three live-only fixes are now IN the repo + git on branch `v1.2-per-seat-model-effort`, so a
+  publish from the repo no longer re-introduces the bug. It also closed 3 edges the band-aid never had
+  (researcher total-wipeout, primary-synth cross-burst hand-off, redundancy-verifier crash). Residual:
+  the LIVE installed copy is still v1.1.0 (band-aid only) until v1.2 is published. (Original gap below, for history.)
   **DEPLOYMENT GAP (verified 2026-07-06, ~3h after the fix session):** both fixes are PRESENT in the
   LIVE installed copies — `…/cache/discover/discover/1.1.0/…` (guard at line 292, dry-judge at line 145)
   and the `…/marketplaces/discover/…` copy (both mtime 07-06 18:00 PT) — but **ABSENT from the
