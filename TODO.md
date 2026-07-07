@@ -446,3 +446,9 @@ Generate the broad 10-30-idea feature menu for the bot by finishing the `next-fe
 **File:** `discover-plugin-logbook.md`
 
 The single ongoing home for the discover plugin's evolution — its version history, what worked/didn't and why, reusable facts, and the build-ready spec for the next version (v1.2: per-step model/thinking-depth choice, a Quick/Balanced/Max dial, and a cleaner click-to-choose setup).
+
+## 69. Auto-run a separate verifier when work is claimed done
+
+**File:** `verifier-stop-hook.md`
+
+Build a rule (a Claude Code "hook") that automatically brings in a separate read-only reviewer whenever an agent says its work is done — so an agent can't sloppily sign off on its own work — but first research how experienced LLM developers write these hooks so it's fast, targeted, and doesn't slow down every response.
