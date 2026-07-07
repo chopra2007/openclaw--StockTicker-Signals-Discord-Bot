@@ -3,6 +3,32 @@
 **Status:** OPEN
 **Created:** 2026-07-06
 
+**CURRENT STATUS (2026-07-07) — ACTIVE. The idea sweep is done, but that's PROGRESS, not the goal.**
+The GOAL of #67 is to actually BUILD new features and optimize existing ones — the 40-idea menu is the
+*input* to that work, not the finish line (user correction 2026-07-07). This session generated the menu
+(grounded, code-verified: the top-7 build-ready shortlist is in `pass-2-filtered.md`, the full 40 in
+`feature-ideas-list.txt` + `discovery-sweep-work.md`, the VVIX study in `VVIX-RESEARCH-FINDINGS.md`) and
+the user reviewed it and chose to pick which to build LATER (nothing built this session). **#67 stays
+OPEN until real features from this menu are built + shipped.** When the user picks one, build it into the
+live bot through the full regression gate + a shadow check (bot DoD). `state.json` has model_tier=max +
+after_plan=build saved if a discover kill-test→plan→build continuation is wanted
+(`discover: build next-features-jul2026` or a `from_pass:3` burst). NOTE: the `from_pass=1` "skip to
+research" discover tweak used for this run was a one-run-only edit, since reverted from the plugin (kept
+at clean v1.2.0); the recipe to make it permanent is documented in #68. Earlier status notes below.
+
+**CURRENT STATUS (2026-07-07) — sweep DONE, awaiting the user's build pick.** The prerequisite was
+built this session: discover **1.2.1** adds the missing `from_pass=1` resume path (reuse the saved
+Pass-0 map, then run Research+Filter fresh) — committed locally at `e010f53` on
+`/root/work/claude-discover-publish/repo`, push/tag/cache-refresh **pending user OK**. The Deep
+`from_pass:1→2` sweep then ran clean on the reused map (run `wf_637ddefe-a4a`, 39 agents, 0 errors,
+~2.05M tokens, ~54 min) and produced the deliverable: **40 viable, code-grounded ideas** + ~106
+screened-out (with reasons) + a full VVIX/VIX feasibility study. Artifacts in the run dir:
+`pass-2-filtered.md` (top-7 build-ready shortlist), `feature-ideas-list.txt` + `discovery-sweep-work.md`
+(full 40-idea menu), `VVIX-RESEARCH-FINDINGS.md`, `drops-log.md`. User-chosen continuation settings
+(saved in `state.json`): model_tier=**max**, after_plan=**build**, pause after the shortlist. Next:
+user reviews the menu and says which idea(s) to carry into kill-test → plan → build (or stop with the
+menu as the deliverable). Menu presented at the checkpoint 2026-07-07.
+
 ## Goal
 
 Complete the discover feature-idea-sweep run named `next-features-jul2026` — generating a broad,

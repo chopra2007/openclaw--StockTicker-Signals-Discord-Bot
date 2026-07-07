@@ -3,6 +3,15 @@
 **Status:** LIVING RECORD — v1.2.0 PUBLISHED + LIVE (2026-07-07) on `chopra2007/claude-discover` (main `9dca67e`, tag `v1.2.0`); local install refreshed to the 1.2.0 cache. v1.2 is now the live/installed version.
 **Created:** 2026-07-06
 
+**CURRENT STATUS (2026-07-07, later — `from_pass=1` was a ONE-RUN-ONLY edit, now reverted):** To finish
+TODO #67 the plugin needed a "skip straight to the research pass" resume (reuse a saved Pass-0 map,
+skip the codebase re-scan). That path didn't exist, so it was added + used for that single run
+(validated live: Deep `from_pass:1→2` → `[1,2]`, 39 agents, 0 errors, 40 grounded ideas), then — per
+the user — **reverted from the repo** because it was wanted for that run only, NOT as a permanent
+feature. The plugin repo is back at **clean v1.2.0** (`9dca67e`; nothing pushed, no v1.2.1). The exact,
+build-ready recipe to make it permanent later is in **"Optional future change — `from_pass=1` resume"**
+below — if the user ever decides they want it, that section is copy-paste-able.
+
 **CURRENT STATUS (2026-07-07):** v1.2 is fully built + committed on branch `v1.2-per-seat-model-effort`
 in the repo — 5 commits, 24 stub-harness tests green, adversarial code-review done (0 crit / 0 high;
 all 2-medium + low findings fixed). Ships: the **systemic** silent-corruption guard (now IN the repo +
@@ -103,6 +112,19 @@ replaced by the v1.1.0 engine rebuild.
   a live_probe per feature).
 
 ### What didn't work / gotchas (avoid / carry the fix forward)
+- **⚠️ PROCESS SLIP (2026-07-07, running #67 via discover on the bot repo) — skipped the mandatory
+  setup questions on a resume.** Two specific misses, both against the skill's own rule that "setup
+  answers are parameter inputs, never silently defaulted":
+  1. The #67 TODO pre-set Thoroughness / review-style / stop-point but did **not** specify the **model
+     tier** — I silently defaulted it to Balanced instead of surfacing it for the user to choose.
+  2. The **Gemini booster was down** (transient 503). The skill says to ask the user "pause & fix /
+     proceed without it" — I decided to proceed on my own instead of asking.
+  Mitigating fact (why the in-flight run wasn't actually harmed, but this is luck not process): a
+  `from_pass:1→2` burst runs only research + filter, and neither the model tier (tunes the Pass-3/4
+  judges) nor the boosters (Pass-4 cross-model only) touch those passes. **Lesson: present the batched
+  setup question — and the booster pause/proceed question — even on a RESUME and even under a global
+  "no-confirmation" rule. They are parameter inputs, not yes/no gates; an unspecified one (model tier)
+  must be asked, never defaulted.**
 - **⚠️ CRITICAL — silent corruption on an API error (the run that burned ~3.9M tokens, 2026-07-06).**
   During a real run, the `architect-merge` step (Pass 0) hit an API *server_error*. Its retry did real
   work, but the result never fed back into the pipeline's internal `map` variable, so `map` came back
@@ -290,6 +312,66 @@ Run-style rework details:
 - Other AskUserQuestion points: booster-health (pause/proceed), existing-run (resume/restart), shortlist drops (multi-select over the live list). Preset names settled: **Quick / Balanced / Max**.
 
 ---
+
+## Optional future change — `from_pass=1` resume (documented, NOT shipped)
+
+**Why this is here (user request 2026-07-07):** TODO #67 needed to resume a discover run at the
+*research* pass — reuse an already-saved `pass-0-system-map.md` and run Research + Filter fresh,
+skipping the codebase re-scan. The installed plugin can't do that: the burst dispatcher's `else` branch
+(any `from_pass>0`) only reparses saved artifacts and jumps to kill/plan, so a `from_pass:1` burst
+reparses the map and then runs *nothing*. This capability was added + used for the single #67 run
+(validated: Deep `from_pass:1→2` → completed `[1,2]`, 39 agents, 0 errors, 40 grounded ideas) and then
+**reverted** — wanted for that run only, not permanent. This is the copy-paste recipe to make it
+permanent if ever wanted.
+
+**The change — one spot:** `skills/discover/workflows/discover-pipeline.js`, the `else` branch of the
+burst dispatcher (~line 397, right after `if (reparse) map = reparse`). Replace:
+
+```js
+    if (A.from_pass <= 3) { // filtered.kept only feeds passKill (from_pass<=3); a from_pass:4 resume never uses it, so don't halt on its reparse
+      const refilter = await call(`${PRE}\nParse the saved pass-2 artifact back into {kept, drops} structured form. HUMAN CHECKPOINT EDITS OVERRIDE the artifact - apply them (drop = remove from kept; note rewordings): edits=${JSON.stringify(boot.user_edits)}\nARTIFACT:\n${boot.artifacts.filtered}`, { label: 'reparse-filtered', phase: 'Bootstrap', schema: S_FILTER })
+      filtered = refilter || { kept: [], drops: [] }
+    }
+    if (failed.length) return partialReturn(completed, deathMsg())
+```
+
+with (move the death-halt guard to fire right after the map reparse, add a `from_pass===1` branch that
+runs the same research→filter tail as a fresh `from_pass:0` run minus `passMap()`, and add a guard after
+the filtered reparse):
+
+```js
+    if (failed.length) return partialReturn(completed, deathMsg())
+    if (A.from_pass === 1) {
+      // Resume with the saved Pass-0 map: run Research + Filter fresh (the from_pass:0 tail, minus passMap).
+      if (!gate(1)) return partialReturn(completed, 'Budget exhausted before Pass 1.')
+      candidates = await passResearch(map)
+      if (failed.length) return partialReturn(completed, deathMsg())
+      completed.push(1)
+      if (!gate(2)) return partialReturn(completed, 'Budget exhausted after Pass 1.')
+      filtered = await passFilter(map, candidates, boot.artifacts.outcomes_prior, boot.user_edits)
+      if (failed.length) return partialReturn(completed, deathMsg())
+      completed.push(2)
+    } else if (A.from_pass <= 3) { // filtered.kept only feeds passKill (from_pass<=3); a from_pass:4 resume never uses it, so don't halt on its reparse
+      const refilter = await call(`${PRE}\nParse the saved pass-2 artifact back into {kept, drops} structured form. HUMAN CHECKPOINT EDITS OVERRIDE the artifact - apply them (drop = remove from kept; note rewordings): edits=${JSON.stringify(boot.user_edits)}\nARTIFACT:\n${boot.artifacts.filtered}`, { label: 'reparse-filtered', phase: 'Bootstrap', schema: S_FILTER })
+      filtered = refilter || { kept: [], drops: [] }
+      if (failed.length) return partialReturn(completed, deathMsg())
+    }
+```
+
+Passes 0/3/4 behave exactly as before. `from_pass:2` (reuse a saved *candidate* list) is still NOT
+handled — it falls through to the reparse-filtered branch; add it symmetrically only if needed (reparse
+`pass-1-candidates.md`, re-assign `c{i}` ids, then run `passFilter`).
+
+**Tests (`tests/run-harness.mjs`, +2 → 26 total):** a `savedMapBoot` responder returning
+`{ found:true, artifacts:{ map:'…', candidates:'', filtered:'', … } }`, then
+`from-pass-1-resume-runs-research-and-filter` (assert `completed_passes===[1,2]`, no mapper/architect
+ran, researcher + filter-analyst ran, `reparse-map` ran, no skeptic) and `from-pass-1-research-death-halts`
+(researcher returns null → run halts, Pass 1 not marked complete).
+
+**Ship steps if adopted:** bump `plugin.json` + `marketplace.json` (→ e.g. 1.2.1), add a CHANGELOG entry,
+re-run the harness (26 green), commit + tag + push (user OK), refresh the installed cache. The full patch
++ tests were validated live 2026-07-07 (local commit `e010f53`, since reverted — recoverable from this
+recipe or `git reflog` on `/root/work/claude-discover-publish/repo`).
 
 ## Open questions for the build session
 - Exact Layer-1 effort thresholds (architecture-count / objection-count → medium vs high vs max). Pick + note in script.
