@@ -434,3 +434,9 @@ Stop two social crowds (StockTwits + Reddit) from counting as two independent vo
 **File:** `prune-old-ticker-signals.md`
 
 Most of the 644 MB database is one table of expired "a source mentioned a ticker" records (99.88% past expiry); pruning/archiving them could halve the DB and every nightly backup — but ONLY after proving nothing (live queries, backtests, the eval tool, future features) still needs that history.
+
+## 67. Finish the feature-idea sweep, reusing the already-saved codebase map
+
+**File:** `next-features-jul2026-resume.md`
+
+Generate the broad 10-30-idea feature menu for the bot by finishing the `next-features-jul2026` discover run, reusing the codebase map that's already saved to disk instead of re-scanning everything — needs the discover tool to first gain a way to skip straight to that step, which doesn't exist yet.
