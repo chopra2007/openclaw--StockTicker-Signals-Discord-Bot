@@ -447,7 +447,7 @@ Generate the broad 10-30-idea feature menu for the bot by finishing the `next-fe
 
 The single ongoing home for the discover plugin's evolution — its version history, what worked/didn't and why, reusable facts, and the build-ready spec for the next version (v1.2: per-step model/thinking-depth choice, a Quick/Balanced/Max dial, and a cleaner click-to-choose setup).
 
-## 69. Auto-run a separate verifier when work is claimed done
+## 69. Auto-run a separate verifier when work is claimed done — DONE 2026-07-07
 
 **File:** `verifier-stop-hook.md`
 
