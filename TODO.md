@@ -454,3 +454,9 @@ The single ongoing home for the discover plugin's evolution — its version hist
 **File:** `verifier-stop-hook.md`
 
 Build a rule (a Claude Code "hook") that automatically brings in a separate read-only reviewer whenever an agent says its work is done — so an agent can't sloppily sign off on its own work — but first research how experienced LLM developers write these hooks so it's fast, targeted, and doesn't slow down every response.
+
+## 70. Trim the memory index before it stops loading
+
+**File:** `memory-index-trim.md`
+
+Carefully shrink Claude's memory index (MEMORY.md) — merging related lines, not blindly cutting — before it grows past the size where it silently stops loading at session start and Claude loses all its saved recall.
