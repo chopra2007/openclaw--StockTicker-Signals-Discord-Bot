@@ -94,6 +94,22 @@ replaced by the v1.1.0 engine rebuild.
   **Two-part fix (one-line core + a prompt hardening):**
   1. Guard right after `map = await passMap(); completed.push(0)` — **`if (!map) return partialReturn(completed, 'Pass 0 did not return a usable system map (the merge step failed - likely a transient API error) - cannot safely continue into Pass 1 with no map…')`** — fail loud instead of silently continuing.
   2. Harden the `dry-judge` prompt to "cheap dedup — **NOT a generator**": `new_candidates` MUST be a subset of what's literally in "New this round," never invent/rename/synthesize (even if the list is empty), and empty-in ⇒ `new_candidates=[]` + `dry=true`, no exceptions.
+  **⚠️ The live fix is a per-STEP band-aid — the correct fix is SYSTEMIC (implement in v1.2).** The
+  `if (!map)` guard only catches a death in Pass 0; an API error in Pass 1/2/3/4 corrupts the run the
+  same way. Root cause is general: the engine returns `null` when an agent dies on a terminal API error
+  (a *real* empty result is still a schema object, so **`null` ALWAYS means "died," never "nothing found"**),
+  and the pipeline swallows nulls everywhere via bare `.filter(Boolean)` / unchecked assignments (sites:
+  `views` in passMap, `found` in passResearch, `verified` in passFilter, `panel` in passKill, `plans` +
+  `xnotes` in passPlan). **Single systemic fix, applied regardless of which step fails:**
+  (a) route every `agent()` call through ONE wrapper that pushes to a run-level `failed[]` list when a
+      NON-optional call returns null (record the label);
+  (b) check `failed.length` at each pass boundary by folding it into the existing
+      `if (!gate(n)) return partialReturn(...)` guards → a death at ANY step halts loud + resumable at the
+      next boundary (subsumes the `if (!map)` guard);
+  (c) for parallel pools, replace silent `.filter(Boolean)` with "require ≥ a floor of survivors (≥1),
+      else abort; LOG any partial losses" — so a total wipeout can never fabricate from nothing;
+  (d) mark genuinely-advisory calls (`xmodel` cross-model auditor, `coherence-check`) `optional:true` so
+      they don't trip the flag. The dry-judge hardening then becomes belt-and-suspenders.
   **DEPLOYMENT GAP (verified 2026-07-06, ~3h after the fix session):** both fixes are PRESENT in the
   LIVE installed copies — `…/cache/discover/discover/1.1.0/…` (guard at line 292, dry-judge at line 145)
   and the `…/marketplaces/discover/…` copy (both mtime 07-06 18:00 PT) — but **ABSENT from the
@@ -131,10 +147,13 @@ Current repo state (2026-07-06): `plugin.json` = **1.1.0**; **no `CHANGELOG.md`*
 README (150 lines) is accurate for v1.1.0 but says nothing about model/effort or the v1.2 setup UI.
 
 On the v1.2 release (and every release after), do all of:
-0. **Port the live-only bug fix into the repo FIRST** — the map-guard + dry-judge hardening (see the
-   ⚠️ CRITICAL gotcha above) exist in the installed copy but are ABSENT from git; commit them to
-   `/root/work/claude-discover-publish/repo/` or the next publish re-introduces the silent-corruption
-   bug. Re-verify live-vs-repo before starting the build.
+0. **Fix the silent-corruption bug in the repo FIRST** — two levels (see the ⚠️ CRITICAL gotcha above):
+   at minimum port the live band-aid (map-guard + dry-judge hardening) into
+   `/root/work/claude-discover-publish/repo/` so the repo isn't worse than production; **better, implement
+   the SYSTEMIC dead-agent guard** (one wrapper + a run-level `failed[]` flag checked at every pass
+   boundary + parallel-pool survivor floor) so an API death at ANY step halts loud instead of only Pass 0.
+   The live fix is absent from git, so without this the next publish re-introduces the bug. Re-verify
+   live-vs-repo before starting.
 1. **Add/maintain `CHANGELOG.md`** in the repo root (it doesn't exist yet). Seed it from the version
    history above (v0.1.x → v1.1.0 → v1.2), then add one dated entry per release. Keep-a-Changelog style.
 2. **Tag the release in git** (`git tag v1.2.0`) — there are currently no tags, so versions are only
