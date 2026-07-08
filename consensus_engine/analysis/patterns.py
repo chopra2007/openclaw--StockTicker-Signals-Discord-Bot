@@ -15,10 +15,12 @@ Detectors return either None (pattern absent) or
 from __future__ import annotations
 
 import logging
+import math
 from typing import Optional
 
 import aiohttp
 
+from consensus_engine.analysis import indicators
 from consensus_engine.utils.http import get_session
 
 log = logging.getLogger("consensus_engine.analysis.patterns")
@@ -192,3 +194,72 @@ def detect_all(candles: list[dict]) -> Optional[dict]:
         return None
     hits.sort(key=lambda r: r["confidence"], reverse=True)
     return hits[0]
+
+
+def compute_squeeze(
+    candles: list[dict],
+    period: int = 20,
+    bb_mult: float = 2.0,
+    kc_mult: float = 1.5,
+) -> Optional[dict]:
+    """r9 (vol-context) — Bollinger-inside-Keltner volatility squeeze.
+
+    Bollinger = sma(closes, period) ± bb_mult · population-stdev(closes, period);
+    Keltner   = ema(closes, period) ± kc_mult · atr(highs, lows, closes, period).
+    Squeeze is ON when BOTH Bollinger bands sit inside the Keltner channel
+    (upper_BB < upper_KC AND lower_BB > lower_KC) — the classic low-volatility
+    'coiling' compression. A CONTEXT read only, never a buy/sell direction.
+
+    Reuses the existing indicators.sma/ema/atr; only the population stdev is
+    added inline (no stdev helper in indicators.py). Deterministic on a fixed
+    candle list. Returns {squeeze, bb_width, kc_width}, or None (field omitted)
+    when fewer than period+1 candles have numeric high/low/close.
+    """
+    if not isinstance(candles, list) or len(candles) < period + 1:
+        return None
+    highs: list[float] = []
+    lows: list[float] = []
+    closes: list[float] = []
+    for c in candles:
+        if not isinstance(c, dict):
+            continue
+        try:
+            h = float(c["high"])
+            l = float(c["low"])
+        except (TypeError, ValueError, KeyError):
+            continue
+        cl = c.get("close")
+        try:
+            clf = float(cl)
+        except (TypeError, ValueError):
+            continue
+        if any(math.isnan(x) or math.isinf(x) for x in (h, l, clf)):
+            continue
+        highs.append(h)
+        lows.append(l)
+        closes.append(clf)
+    if len(closes) < period + 1:
+        return None
+
+    mid_bb = indicators.sma(closes, period)[-1]
+    mid_kc = indicators.ema(closes, period)[-1]
+    atr_val = indicators.atr(highs, lows, closes, period)
+    if atr_val is None:
+        return None
+
+    # Population stdev of the last `period` closes (no stdev in indicators.py).
+    window = closes[-period:]
+    mean_c = sum(window) / period
+    std = math.sqrt(sum((x - mean_c) ** 2 for x in window) / period)
+
+    upper_bb = mid_bb + bb_mult * std
+    lower_bb = mid_bb - bb_mult * std
+    upper_kc = mid_kc + kc_mult * atr_val
+    lower_kc = mid_kc - kc_mult * atr_val
+
+    squeeze = (upper_bb < upper_kc) and (lower_bb > lower_kc)
+    return {
+        "squeeze": bool(squeeze),
+        "bb_width": upper_bb - lower_bb,
+        "kc_width": upper_kc - lower_kc,
+    }

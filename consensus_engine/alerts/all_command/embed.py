@@ -461,6 +461,31 @@ def _format_skew_index(si: Optional[dict]) -> str:
     return f"{head}{val:g} — {band_txt}"
 
 
+def _format_vol_read(tag: Optional[dict]) -> str:
+    """k7 (vol-context) — 'Rich/Fair/Cheap (IV X% vs RV Y%)'. Compares option-
+    implied ATM vol against the ticker's own 20-day realized vol, both annualized.
+    Descriptive context on how expensive options are — NOT a price direction.
+    Returns '—' when unavailable."""
+    if not isinstance(tag, dict):
+        return "—"
+    t = tag.get("tag")
+    iv = tag.get("atm_iv")
+    rv = tag.get("realized_vol")
+    if not t or not isinstance(iv, (int, float)) or not isinstance(rv, (int, float)):
+        return "—"
+    label = {"rich": "Rich", "cheap": "Cheap", "fair": "Fair"}.get(t, str(t).title())
+    return f"{label} (IV {iv * 100:.0f}% vs RV {rv * 100:.0f}%)"
+
+
+def _format_squeeze(sq: Optional[dict]) -> str:
+    """r9 (vol-context) — 'coiling' when the Bollinger bands sit inside Keltner (a
+    low-volatility compression), else 'expanded'. Context only, NOT a buy/sell
+    direction. Returns '—' when unavailable so the field is omitted."""
+    if not isinstance(sq, dict) or "squeeze" not in sq:
+        return "—"
+    return "🟡 coiling (low-vol compression)" if sq.get("squeeze") else "expanded (no squeeze)"
+
+
 _RS_EMOJI = {"outperforming": "🟢", "underperforming": "🔴", "in-line": "⚪"}
 
 
@@ -980,6 +1005,17 @@ def build_embed(
             fields.append({"name": "📊 Options OI",
                            "value": f"🟢 Calls {_oi_split[0]}% / 🔴 Puts {_oi_split[1]}% (open interest)",
                            "inline": True})
+    # Stage-4 vol-context (k7 IV-vs-RV vol read, r9 volatility squeeze). Descriptive
+    # context beside Rel Vol / Max Pain; each appears ONLY when its config flag is ON
+    # — flag-OFF renders are byte-identical to before.
+    if bool(_cfg.get("features.iv_rv_tag.enabled", False)):
+        _vr_val = _format_vol_read(getattr(structured, "iv_rv_tag", None))
+        if _vr_val != "—":
+            fields.append({"name": "Vol Read", "value": _vr_val, "inline": True})
+    if bool(_cfg.get("features.vol_squeeze.enabled", False)):
+        _sq_val = _format_squeeze(getattr(structured, "squeeze_state", None))
+        if _sq_val != "—":
+            fields.append({"name": "Squeeze", "value": _sq_val, "inline": True})
     # Stage-3 options-chain legs (k4/k5 dealer gamma, r10 IV skew, r16 OI pinning,
     # r8 CBOE ^SKEW). Each is EMBED-ONLY (not fed to narrator) and appears ONLY
     # when its config flag is ON — flag-OFF renders are byte-identical to before.

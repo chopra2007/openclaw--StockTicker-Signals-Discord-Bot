@@ -97,6 +97,12 @@ def _audit_flags_default_off(monkeypatch):
         "features.dealer_gamma.enabled": False,
         "features.iv_skew.enabled": False,
         "features.oi_pinning.enabled": False,
+        # Stage-4 vol-context (discover next-features-jul2026) — flag-default-OFF.
+        # Force OFF so a future YAML flip can't add the Vol Read / Squeeze embed
+        # fields, run the compute_em option-chain fetch, or change the narrator
+        # during the baseline suite; dedicated feature tests force their own flag.
+        "features.iv_rv_tag.enabled": False,
+        "features.vol_squeeze.enabled": False,
         "features.fundamentals_oneliner.enabled": False,
         "wolf.confluence.weighted_votes_enabled": False,
         # Market-context dashboard went live ON 2026-06-29 (discover run

@@ -844,6 +844,12 @@ features:
   dealer_gamma: { enabled: false, nearest_expirations: 2 }                                     # k4 dealer GEX map + k5 gamma-flip level
   iv_skew:      { enabled: false }                                                             # r10 put-minus-call IV skew (25-delta on Schwab / moneyness-matched on yfinance)
   oi_pinning:   { enabled: false }                                                             # r16 OI-pinning HHI concentration (opex-only descriptor, not a probability)
+  # Stage-4 vol-context (discover next-features-jul2026). Descriptive-only !all display tags —
+  # NEVER score/trigger/direction; the ONLY new legs fed to the narrator (as coiling/vol context).
+  # k7 adds a compute_em option-chain fetch (~1-2s, gated OFF, runs in the existing parallel gather);
+  # r9 reuses already-fetched daily_candles at zero network cost. Both default OFF (shadow-first).
+  iv_rv_tag:   { enabled: false, rich_threshold: 1.25, cheap_threshold: 0.85 }                 # k7 — IV-vs-RV cheap/rich vol tag (both annualized, apples-to-apples)
+  vol_squeeze: { enabled: false, period: 20, bb_mult: 2.0, kc_mult: 1.5 }                       # r9 — Bollinger-inside-Keltner volatility squeeze (coiling context, not a direction)
   # trade-edge market-context layer (final-plan.md §4) — daily cross-sectional reads
   # computed by market_daily.timer. ALL default OFF; shadow-validate + historical
   # back-test before any flip. F4 macro_legs is NEVER averaged into cross_asset (E2).
