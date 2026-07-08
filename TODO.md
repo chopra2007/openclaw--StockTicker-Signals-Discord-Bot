@@ -439,7 +439,9 @@ Most of the 644 MB database is one table of expired "a source mentioned a ticker
 
 **File:** `next-features-jul2026-resume.md`
 
-Generate the broad 10-30-idea feature menu for the bot by finishing the `next-features-jul2026` discover run, reusing the codebase map that's already saved to disk instead of re-scanning everything — needs the discover tool to first gain a way to skip straight to that step, which doesn't exist yet.
+**CURRENT STATUS (2026-07-07):** Ran the FULL discover pipeline, well past "just the menu". Passes 1–4 done: 113 ideas → triaged to 34 with merit → kill-tested the strong 27 (24 survived, 3 killed, 0 Codex-disputed) → planned the top 16 into a 6-stage build. **Stage 1 of 6 SHIPPED** — commit `f2b0b7d` (local, not pushed until this close): r14 trading-halt tripwire + r8 ^SKEW module, both config-flag **OFF**; a live-probe caught+fixed a redirect bug the green unit tests missed; full suite 2655 pass. **Stages 2–6 (14 features) set to run AUTONOMOUSLY** next session via the one-line trigger `discover: build next-features-jul2026` (everything ships OFF; go-live stays a separate user decision). Both former data-blockers SOLVED this session: House congress trades via `disclosures-clerk.house.gov` (index + machine-readable PTR PDFs), and market breadth via an RSP/SPY equal-weight proxy (2 tickers, no 500-name fan-out); only the Senate half of congress remains deferred. Resume brief with exact recipes: `todo/kickoffs/discover-next-features-resume.md`; run state: `.claude/discover/next-features-jul2026/`.
+
+Original goal: generate the broad 10-30-idea feature menu for the bot by finishing the `next-features-jul2026` discover run, reusing the saved codebase map instead of re-scanning — the from-pass resume capability it needed now exists and was used.
 
 ## 68. Discover plugin — living record (versions, insights, and next changes)
 

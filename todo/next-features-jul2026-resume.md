@@ -118,3 +118,15 @@ matters more here than usual.
 ## Open questions
 
 - None — this item is fully specified and ready to execute once the prerequisite is confirmed.
+
+---
+
+## Session notes — 2026-07-07 (pipeline complete through Stage 1; Stages 2-6 queued autonomous)
+
+Resumed the run and took it all the way through the plan + first build stage.
+
+- **Passes 1-4 done.** Pass 1-2 (fresh, uncontaminated) yielded 113 candidates → 7 kept + 76 below-cut + 6 already-built. User wanted them ALL considered, so I triaged the full 113 to **34 with merit** (`merit-triage.md`), and user picked the **strong 27** for a custom batched kill-test (`killtest-27.workflow.js`, 4 waves × 2 skeptics + advocate/judge + Codex audit): **24 survived, 3 killed** (max-pain-label [was in the original top-7 — Pass-2 misread the code], dark-pool [2-5wk stale], 0DTE-directional [needs aggressor data free feeds lack]). Report: `pass-3-killtest-report.md`.
+- **Plan:** user chose the **16 strongest** survivors → clustered by integration point, planned against real code by 5 parallel planners + a sequencer → `final-plan.md` (6-stage build order, shared-file tripwires, byte-identical rules). Planners caught the GEX "reuse the chain" premise was false and corrected the design.
+- **Stage 1 SHIPPED + committed** (`f2b0b7d`, local): r14 trading-halt tripwire (full) + r8 ^SKEW module (module only), both flags OFF. Independent verification caught a real redirect bug (http→https feed URL the hardened fetch refused) that green unit tests missed — fixed, re-proven live (60 halts). Full suite 2655 pass, 0 regressions. Ownership trap handled (root→openclaw chown). Log: `pass-5-stage1.md`.
+- **Stages 2-6 (14 features) queued to run AUTONOMOUSLY** next session: same one-line trigger `discover: build next-features-jul2026`. Mode + rules + confirmed data recipes in `todo/kickoffs/discover-next-features-resume.md`. Everything ships OFF; go-live is a separate later decision.
+- **Both deferrals solved this session** (user pushed to go to primary sources): House congress via `disclosures-clerk.house.gov` (PTR PDFs machine-readable via pdfplumber), market breadth via RSP/SPY equal-weight proxy. Only **Senate congress** remains deferred (efdsearch.senate.gov gated).
