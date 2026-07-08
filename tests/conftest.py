@@ -90,6 +90,13 @@ def _audit_flags_default_off(monkeypatch):
         # path; the dedicated feature tests exercise the logic directly.
         "features.trading_halts.enabled": False,
         "features.skew_index.enabled": False,
+        # Stage-3 options-chain legs (discover next-features-jul2026) — flag-default-OFF.
+        # Force OFF so a future YAML flip can't add the new !all embed fields (or run the
+        # in-thread GEX/IV-skew/pinning compute) during the baseline suite; dedicated
+        # feature tests force their own flag in-body.
+        "features.dealer_gamma.enabled": False,
+        "features.iv_skew.enabled": False,
+        "features.oi_pinning.enabled": False,
         "features.fundamentals_oneliner.enabled": False,
         "wolf.confluence.weighted_votes_enabled": False,
         # Market-context dashboard went live ON 2026-06-29 (discover run

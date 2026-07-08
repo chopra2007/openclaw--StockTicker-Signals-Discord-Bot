@@ -404,6 +404,19 @@ async def _gather_all_sources(ticker: str) -> dict:
             return None
         stocktwits_task = _stocktwits_off()
 
+    # r8 — CBOE ^SKEW tail-risk reading. Independent of the option chain; runs in
+    # the same parallel gather so it never blocks it. Flag-gated (default OFF): a
+    # no-op coroutine keeps the slot when off, so the OFF path adds no ^SKEW fetch.
+    # None -> renders '—', never errors. Appended LAST so the unpack stays stable.
+    if cfg.get("features.skew_index.enabled", False):
+        skew_index_task = _scanner_call(
+            "consensus_engine.analysis.skew_index", "compute_skew_index",
+        )
+    else:
+        async def _skew_off():
+            return None
+        skew_index_task = _skew_off()
+
     results = await asyncio.gather(
         score_task,
         tech_long_task,
@@ -435,6 +448,7 @@ async def _gather_all_sources(ticker: str) -> dict:
         earnings_move_task,
         twitter_today_task,
         stocktwits_task,
+        skew_index_task,
         return_exceptions=True,
     )
     (
@@ -444,7 +458,7 @@ async def _gather_all_sources(ticker: str) -> dict:
         options_flow_recent,
         trends, apewisdom, chat_msgs, brief_msgs, prior_vault,
         max_pain, peer_strength, snapshot, earnings_move,
-        twitter_today, stocktwits,
+        twitter_today, stocktwits, skew_index,
     ) = results
 
     # Classify each source as surfaced (non-empty data) or failed (exception /
@@ -519,6 +533,7 @@ async def _gather_all_sources(ticker: str) -> dict:
         "earnings_move": _result_or_default(earnings_move, None),
         "tweets_today": _summarize_tweets_today(_result_or_default(twitter_today, [])),
         "stocktwits": _result_or_default(stocktwits, None),
+        "skew_index": _result_or_default(skew_index, None),
         "wolf_confluence": await wolf_confluence_task,
         "sources_surfaced": sources_surfaced,
         "source_failures": source_failures,
@@ -1268,6 +1283,11 @@ async def _compute_all(ticker: str, start: float) -> dict:
         )
     )
 
+    # Stage-3 — the options-chain legs ride along on compute_max_pain's dict
+    # (gex/iv_skew/oi_pinning as ADDITIVE keys); split them onto their own
+    # StructuredFields attrs here. Existing max_pain consumers are unaffected.
+    _mp_dict = data.get("max_pain") if isinstance(data.get("max_pain"), dict) else {}
+
     structured = structured_fields.StructuredFields(
         direction=direction,
         confidence_label=confidence,
@@ -1287,6 +1307,10 @@ async def _compute_all(ticker: str, start: float) -> dict:
         next_catalyst_kind=next_catalyst_kind,
         next_catalyst_mechanism=next_catalyst_mechanism,
         max_pain=data.get("max_pain"),
+        gex=_mp_dict.get("gex"),
+        iv_skew=_mp_dict.get("iv_skew"),
+        oi_pinning=_mp_dict.get("oi_pinning"),
+        skew_index=data.get("skew_index"),
         peer_strength=data.get("peer_strength"),
         snapshot=data.get("snapshot"),
         earnings_move=data.get("earnings_move"),

@@ -53,6 +53,12 @@ class StructuredFields:
     # #6 !all levers — code-derived, embed-only (peer_strength also feeds the
     # narrator when its mode is the clean curated-peer mean; see narrator.py).
     max_pain: Optional[dict] = None       # {"spot", "weekly": {...}|None, "monthly": {...}|None}
+    # Stage-3 options-chain legs — descriptive, embed-only (NOT fed to narrator),
+    # each behind a config flag default OFF.
+    gex: Optional[dict] = None            # k4/k5 — front-N-exp dealer GEX + gamma-flip
+    iv_skew: Optional[dict] = None        # r10 — put-minus-call IV skew (basis-labelled)
+    oi_pinning: Optional[dict] = None     # r16 — OI-pinning HHI concentration near opex
+    skew_index: Optional[dict] = None     # r8 — CBOE ^SKEW tail-risk reading {value, band}
     peer_strength: Optional[dict] = None  # {stock_pct, benchmark_pct, delta, verdict, benchmark_label, mode, narrator_ok, ...}
     snapshot: Optional[dict] = None       # #6 analyst target + rating + fwd P/E + short interest (yfinance .info); embed-only
     risk_reward: Optional[float] = None   # #6 reward:risk of the computed plan (reward per 1.0 risk); embed-only

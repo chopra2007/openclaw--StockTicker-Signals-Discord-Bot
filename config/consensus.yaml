@@ -836,7 +836,14 @@ features:
   cross_asset: { enabled: true, shadow: false, fred_leg_enabled: true, fred_reference_swing: 0.40, veto_floor: 0.85, confirm_ceiling: 1.05, nfci_leg_enabled: false, nfci_reference_swing: 1.0 } # E2 — LIVE 2026-06-26; r21 NFCI shadow leg: nfci_leg_enabled OFF (computed/logged/persisted but NEVER in the live `legs`; flip only after shadow proves distinct edge). nfci_reference_swing=1.0: an NFCI level of ±1.0 reaches the full veto/confirm bound (NFCI std ~0.5-1.0). (user: "flip E2 on and live"). VIX-term + FRED HY-credit confirm/veto multiplier. confirm_ceiling 1.05 = calm market LOWERS the STRONG bar toward ~76-79 (a few MORE alerts in calm — reverses the prior calm-no-op pref, changed per explicit user request 2026-06-26). veto_floor 0.85 = stressed market RAISES the bar to 90 (fewer alerts when market falling). Math: effective STRONG cutoff = clamp(80/multiplier, 70, 90). enabled:true=apply live; shadow:false=not log-only. Takes effect when scanners resume (Sun 2pm ET; weekend pause active).
   finra_short_volume: { enabled: true }                                                       # E1 LIVE 2026-06-15 — daily ingest loop built; replay bounds delta (<=177 cand, +5 cap, 1 current change: CRWV 76+5=81->STRONG); fails safe on stale data
   trading_halts: { enabled: false }                                                           # r14 — Nasdaq/NYSE trade-halt tripwire (instant alert on tracked-ticker halt). Default OFF; loop dormant until flipped
-  skew_index: { enabled: false }                                                              # r8 — CBOE ^SKEW tail-risk reader (standalone module; not yet surfaced). Default OFF
+  skew_index: { enabled: false }                                                              # r8 — CBOE ^SKEW tail-risk reader. Standalone module; now surfaced as an embed-only !all field. Default OFF
+  # Stage-3 options-chain legs (discover next-features-jul2026). Computed IN-THREAD from
+  # compute_max_pain's already-fetched front weekly+monthly chains (no extra fetch);
+  # embed-only, never in narrator/score. ALL default OFF (shadow-first). nearest_expirations
+  # bounds GEX to the front N already-held chains (2 = free; higher costs a fetch later).
+  dealer_gamma: { enabled: false, nearest_expirations: 2 }                                     # k4 dealer GEX map + k5 gamma-flip level
+  iv_skew:      { enabled: false }                                                             # r10 put-minus-call IV skew (25-delta on Schwab / moneyness-matched on yfinance)
+  oi_pinning:   { enabled: false }                                                             # r16 OI-pinning HHI concentration (opex-only descriptor, not a probability)
   # trade-edge market-context layer (final-plan.md §4) — daily cross-sectional reads
   # computed by market_daily.timer. ALL default OFF; shadow-validate + historical
   # back-test before any flip. F4 macro_legs is NEVER averaged into cross_asset (E2).

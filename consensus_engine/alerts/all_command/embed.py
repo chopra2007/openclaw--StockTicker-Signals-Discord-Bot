@@ -377,6 +377,90 @@ def _format_max_pain(mp: Optional[dict], current: Optional[float]) -> str:
     return "\n".join(lines) if lines else "—"
 
 
+def _format_gex(gex: Optional[dict], current: Optional[float]) -> str:
+    """k4/k5 — 'Dealer Gamma' (front-N-exp only). Net long/short-gamma sign, the
+    gamma-flip level, and the top crowded strikes. Descriptive, embed-only.
+    Labelled 'front-N-exp dealer gamma' — does NOT claim total-market gamma.
+    Returns '—' when unavailable."""
+    if not isinstance(gex, dict):
+        return "—"
+    net_list = gex.get("net_gex")
+    if not isinstance(net_list, list) or not net_list:
+        return "—"
+    lines = []
+    if gex.get("net_sign") == "long":
+        lines.append("net long γ (dealers dampen moves)")
+    else:
+        lines.append("net short γ (dealers amplify moves)")
+    flip = gex.get("gamma_flip")
+    if isinstance(flip, (int, float)):
+        arrow = _arrow_for_level(float(flip), current)
+        head = f"{arrow} " if arrow else ""
+        lines.append(f"flip {head}~${float(flip):g}")
+    tops = []
+    for item in (gex.get("top") or [])[:3]:
+        try:
+            tops.append(f"${float(item.get('strike')):g}")
+        except (TypeError, ValueError):
+            continue
+    if tops:
+        lines.append("crowded: " + ", ".join(tops))
+    n_exp = gex.get("n_expiries") or 2
+    lines.append(f"(front-{n_exp}-exp dealer gamma)")
+    return "\n".join(lines)
+
+
+def _format_iv_skew(sk: Optional[dict]) -> str:
+    """r10 — put minus call IV in vol points, with the direction and the honest
+    measurement basis ('25-delta' on Schwab vs 'moneyness-matched' on yfinance —
+    never silently mixed). Positive = downside demand. '—' when unavailable."""
+    if not isinstance(sk, dict):
+        return "—"
+    val = sk.get("value")
+    if not isinstance(val, (int, float)):
+        return "—"
+    basis = sk.get("basis") or "?"
+    lean = ("put-skew (downside bid)" if val > 0
+            else "call-skew (upside bid)" if val < 0 else "flat")
+    piv, civ = sk.get("put_iv"), sk.get("call_iv")
+    tail = ""
+    if isinstance(piv, (int, float)) and isinstance(civ, (int, float)):
+        tail = f" (put {piv * 100:.0f}% vs call {civ * 100:.0f}%)"
+    return f"{val * 100:+.1f} vol pts — {lean}{tail} [{basis}]"
+
+
+def _format_pinning(p: Optional[dict]) -> str:
+    """r16 — open-interest pinning pressure as a plain-language concentration
+    descriptor + dominant strike (NOT a fabricated probability). '—' when far
+    from opex or unavailable."""
+    if not isinstance(p, dict):
+        return "—"
+    hhi, desc = p.get("hhi"), p.get("descriptor")
+    if not isinstance(hhi, (int, float)) or not desc:
+        return "—"
+    k = p.get("dominant_strike")
+    near = f" near ${float(k):g}" if isinstance(k, (int, float)) else ""
+    dte = p.get("dte")
+    dte_txt = f", {dte}d to exp" if isinstance(dte, int) else ""
+    return f"{desc} pinning pressure{near} (HHI {hhi:.2f}{dte_txt})"
+
+
+def _format_skew_index(si: Optional[dict]) -> str:
+    """r8 — CBOE ^SKEW tail-risk reading + plain-language band. Descriptive
+    regime leg, embed-only (never in the alert score). '—' when unavailable."""
+    if not isinstance(si, dict):
+        return "—"
+    val, band = si.get("value"), si.get("band")
+    if not isinstance(val, (int, float)) or not band:
+        return "—"
+    emoji = {"elevated": "🔴", "normal": "⚪", "low": "🟢"}.get(band, "")
+    head = f"{emoji} " if emoji else ""
+    band_txt = {"elevated": "elevated tail-hedging",
+                "normal": "normal",
+                "low": "low (complacent)"}.get(band, band)
+    return f"{head}{val:g} — {band_txt}"
+
+
 _RS_EMOJI = {"outperforming": "🟢", "underperforming": "🔴", "in-line": "⚪"}
 
 
@@ -896,6 +980,25 @@ def build_embed(
             fields.append({"name": "📊 Options OI",
                            "value": f"🟢 Calls {_oi_split[0]}% / 🔴 Puts {_oi_split[1]}% (open interest)",
                            "inline": True})
+    # Stage-3 options-chain legs (k4/k5 dealer gamma, r10 IV skew, r16 OI pinning,
+    # r8 CBOE ^SKEW). Each is EMBED-ONLY (not fed to narrator) and appears ONLY
+    # when its config flag is ON — flag-OFF renders are byte-identical to before.
+    if bool(_cfg.get("features.dealer_gamma.enabled", False)):
+        _gex_val = _format_gex(getattr(structured, "gex", None), current_price)
+        if _gex_val != "—":
+            fields.append({"name": "🎯 Dealer Gamma", "value": _gex_val, "inline": True})
+    if bool(_cfg.get("features.iv_skew.enabled", False)):
+        _skew_val = _format_iv_skew(getattr(structured, "iv_skew", None))
+        if _skew_val != "—":
+            fields.append({"name": "IV Skew", "value": _skew_val, "inline": True})
+    if bool(_cfg.get("features.oi_pinning.enabled", False)):
+        _pin_val = _format_pinning(getattr(structured, "oi_pinning", None))
+        if _pin_val != "—":
+            fields.append({"name": "OI Pinning", "value": _pin_val, "inline": True})
+    if bool(_cfg.get("features.skew_index.enabled", False)):
+        _si_val = _format_skew_index(getattr(structured, "skew_index", None))
+        if _si_val != "—":
+            fields.append({"name": "SKEW", "value": _si_val, "inline": True})
     # Lever B — avg absolute % earnings reaction over the last N reported prints.
     _em = getattr(structured, "earnings_move", None)
     if isinstance(_em, dict):
