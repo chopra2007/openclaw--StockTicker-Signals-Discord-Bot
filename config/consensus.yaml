@@ -122,6 +122,7 @@ intervals:
   options_flow_cooldown: 3600      # max one alert per ticker per hour
   wolf_staleness_loop: 86400       # #26 nightly Wolf thesis staleness sweep
   finra_short_volume_loop: 21600   # #32 E1 — daily FINRA short-volume ingest (6h re-check; keeps E1 data fresh)
+  finra_short_interest_loop: 43200 # r12 — FINRA twice-monthly settlement short-interest ingest (12h re-check; data updates ~2x/mo)
   chat_memory_loop: 86400          # #39 nightly chat-memory rollup + gated cleanup
   trading_halts_loop: 60           # r14 — poll Nasdaq/NYSE trade-halt feed every 60s (halts matter only live; tight tunable cadence)
 
@@ -837,6 +838,10 @@ features:
   finra_short_volume: { enabled: true }                                                       # E1 LIVE 2026-06-15 — daily ingest loop built; replay bounds delta (<=177 cand, +5 cap, 1 current change: CRWV 76+5=81->STRONG); fails safe on stale data
   trading_halts: { enabled: false }                                                           # r14 — Nasdaq/NYSE trade-halt tripwire (instant alert on tracked-ticker halt). Default OFF; loop dormant until flipped
   skew_index: { enabled: false }                                                              # r8 — CBOE ^SKEW tail-risk reader. Standalone module; now surfaced as an embed-only !all field. Default OFF
+  # Stage-5 standalone-scanners (discover next-features-jul2026). ALL default OFF (shadow-first).
+  short_interest: { enabled: false, min_days_to_cover: 3.0, require_rising: true, term_cap: 3 } # r12 — FINRA settlement short-interest days-to-cover confluence leg + !short trend (loop dormant when OFF)
+  pead:           { enabled: false, min_days_after: 5, max_days_after: 45, min_surprise_pct: 2.0, faded_threshold_pct: 2.0, term_cap: 3 } # r17 — post-earnings drift (descriptive !all field + small capped confluence leg; silent inside earnings_magnitude's 5-day window)
+  market_breadth: { enabled: false, window_days: 20, trend_threshold_pct: 0.5 }                # r20 — RSP/SPY participation proxy in !market (descriptive-only; NEVER wired into score_ticker)
   # Stage-3 options-chain legs (discover next-features-jul2026). Computed IN-THREAD from
   # compute_max_pain's already-fetched front weekly+monthly chains (no extra fetch);
   # embed-only, never in narrator/score. ALL default OFF (shadow-first). nearest_expirations
@@ -865,7 +870,7 @@ features:
   schwab_snapshot_logger: { enabled: true }  # #57 LIVE — daily options-chain snapshot logger gate
   market_data:       { store_dir: "data/market_store", fred_lag_days: { T10Y2Y: 1, T10Y3M: 1, NFCI: 7 }, fallback_provider: "stooq" }
   # Cross-cutting helper (consumers above are all flag-OFF; caps are shadow-derived placeholders).
-  recency_window: { enabled: true, max_age_min: { sec: 120, tweet: 120, options: 90, youtube: 1440, apewisdom: 1440, finra_short_volume: 1440, vix: 1440, fred: 1440, nfci: 1440, sector_rs: 1440, factor_rs: 1440, trend: 1440, macro_legs: 1440, skew: 1440 } }
+  recency_window: { enabled: true, max_age_min: { sec: 120, tweet: 120, options: 90, youtube: 1440, apewisdom: 1440, finra_short_volume: 1440, short_interest: 43200, pead: 43200, vix: 1440, fred: 1440, nfci: 1440, sector_rs: 1440, factor_rs: 1440, trend: 1440, macro_legs: 1440, skew: 1440 } }
 
 # #18 unusual options FLOW — free yfinance ~15-min option chains.
 # "Balanced" thresholds (user-chosen 2026-05-29): a contract must trade >=N x

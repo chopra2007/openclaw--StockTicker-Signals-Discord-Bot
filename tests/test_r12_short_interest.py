@@ -1,0 +1,232 @@
+"""r12 (standalone-scanners) — FINRA settlement short-interest + days-to-cover.
+
+Tests:
+  1. PARSER — good CSV, malformed rows skipped, ticker filter, dtype-pin.
+  2. Domain / URL validation (api.finra.org only).
+  3. days-to-cover score-leg math — elevated+rising -> cap; below-min -> 0;
+     not-rising -> 0; short direction -> 0; stale row -> 0.
+  4. DB round-trip — upsert / get_latest / history.
+  5. score_ticker integration: flag OFF -> no DB read + days_to_cover=0 +
+     byte-identical breakdown (no new key); flag ON -> days_to_cover=cap.
+"""
+from __future__ import annotations
+
+import contextlib
+import time
+from unittest.mock import AsyncMock, patch
+
+import pytest
+
+from consensus_engine import config as cfg
+from consensus_engine.scanners.finra_short_interest import (
+    _parse_short_interest_csv,
+    _validate_url,
+    FINRA_SHORT_INTEREST_PROVENANCE,
+)
+from consensus_engine.cross_reference import _compute_days_to_cover_pts, score_ticker
+from consensus_engine.utils.xref_cache import clear_xref_cache
+
+
+@pytest.fixture(autouse=True)
+def _clear_cache():
+    clear_xref_cache()
+    yield
+    clear_xref_cache()
+
+
+_HEADER = ('"accountingYearMonthNumber","symbolCode","issueName",'
+           '"issuerServicesGroupExchangeCode","marketClassCode",'
+           '"currentShortPositionQuantity","previousShortPositionQuantity",'
+           '"stockSplitFlag","averageDailyVolumeQuantity","daysToCoverQuantity",'
+           '"revisionFlag","changePercent","changePreviousNumber","settlementDate"')
+
+_SAMPLE = _HEADER + "\n" + "\n".join([
+    '"20260615","NVDA","NVIDIA","R","NNM","299666309","284722716",,"167960279","1.78",,"5.25","14943593","2026-06-15"',
+    '"20260615","AMD","AMD","R","NNM","40000000","38000000",,"20000000","2.00",,"5.26","2000000","2026-06-15"',
+])
+
+_MALFORMED = _HEADER + "\n" + "\n".join([
+    '"20260615","NVDA","NVIDIA","R","NNM","299666309","284722716",,"167960279","1.78",,"5.25","14943593","2026-06-15"',
+    '"20260615","BAD","Bad Co","R","NNM","not_a_number","1",,"1","1.0",,"0","0","2026-06-15"',
+])
+
+
+# --------------------------------------------------------------------------- #
+# 1. PARSER
+# --------------------------------------------------------------------------- #
+
+def test_parser_good_csv():
+    rows = _parse_short_interest_csv(_SAMPLE)
+    assert len(rows) == 2
+    nvda = next(r for r in rows if r["symbol"] == "NVDA")
+    assert nvda["short_interest"] == 299_666_309
+    assert nvda["avg_daily_volume"] == 167_960_279
+    assert nvda["days_to_cover"] == 1.78
+    assert nvda["prev_short_interest"] == 284_722_716
+    assert nvda["pct_change"] == 5.25
+    assert nvda["settlement_date"] == "2026-06-15"
+
+
+def test_parser_malformed_short_interest_skipped():
+    rows = _parse_short_interest_csv(_MALFORMED)
+    syms = {r["symbol"] for r in rows}
+    assert "NVDA" in syms
+    assert "BAD" not in syms  # non-numeric required column skipped
+
+
+def test_parser_ticker_filter():
+    rows = _parse_short_interest_csv(_SAMPLE, tickers={"NVDA"})
+    assert [r["symbol"] for r in rows] == ["NVDA"]
+
+
+def test_parser_empty():
+    assert _parse_short_interest_csv("") == []
+
+
+def test_provenance_label_constant():
+    assert FINRA_SHORT_INTEREST_PROVENANCE == "settlement short interest (FINRA, twice-monthly)"
+
+
+# --------------------------------------------------------------------------- #
+# 2. Domain validation
+# --------------------------------------------------------------------------- #
+
+def test_validate_url_good():
+    assert _validate_url("https://api.finra.org/data/group/otcMarket/name/consolidatedShortInterest") is True
+
+
+def test_validate_url_wrong_domain():
+    assert _validate_url("https://evil.com/x") is False
+    assert _validate_url("https://cdn.finra.org/x") is False  # different host than the API
+
+
+# --------------------------------------------------------------------------- #
+# 3. days-to-cover score-leg math
+# --------------------------------------------------------------------------- #
+
+def _row(**kw):
+    base = {"days_to_cover": 4.0, "pct_change": 5.0, "published_at": time.time()}
+    base.update(kw)
+    return base
+
+
+def test_dtc_elevated_and_rising_gives_cap():
+    pts = _compute_days_to_cover_pts(_row(), direction="long")
+    assert pts == 3  # default term_cap
+
+
+def test_dtc_below_min_gives_zero():
+    pts = _compute_days_to_cover_pts(_row(days_to_cover=1.0), direction="long")
+    assert pts == 0
+
+
+def test_dtc_not_rising_gives_zero():
+    pts = _compute_days_to_cover_pts(_row(pct_change=-1.0), direction="long")
+    assert pts == 0
+
+
+def test_dtc_short_direction_gives_zero():
+    pts = _compute_days_to_cover_pts(_row(), direction="short")
+    assert pts == 0
+
+
+def test_dtc_stale_row_gives_zero():
+    stale = _row(published_at=time.time() - 40 * 86400)  # 40d > 30d cap
+    assert _compute_days_to_cover_pts(stale, direction="long") == 0
+
+
+def test_dtc_missing_dtc_gives_zero():
+    assert _compute_days_to_cover_pts(_row(days_to_cover=None), direction="long") == 0
+
+
+# --------------------------------------------------------------------------- #
+# 4. DB round-trip
+# --------------------------------------------------------------------------- #
+
+@pytest.mark.asyncio
+async def test_db_roundtrip():
+    import consensus_engine.db as db_mod
+    db_mod.DB_PATH = ":memory:"
+    db_mod._db = None
+    await db_mod.init_db()
+
+    await db_mod.upsert_finra_short_interest("NVDA", "2026-06-15", 299_666_309, 167_960_279, 1.78, 284_722_716, 5.25)
+    await db_mod.upsert_finra_short_interest("NVDA", "2026-05-29", 284_722_716, 180_147_142, 1.58, 296_966_425, -4.12)
+
+    latest = await db_mod.get_latest_finra_short_interest("NVDA")
+    assert latest["settlement_date"] == "2026-06-15"
+    assert latest["days_to_cover"] == 1.78
+
+    hist = await db_mod.get_finra_short_interest_history("NVDA")
+    assert len(hist) == 2
+    assert hist[0]["settlement_date"] == "2026-06-15"  # newest first
+
+    assert await db_mod.get_latest_finra_short_interest("ZZZZ") is None
+    db_mod._db = None
+    db_mod.DB_PATH = None
+
+
+# --------------------------------------------------------------------------- #
+# 5. score_ticker integration
+# --------------------------------------------------------------------------- #
+
+from consensus_engine.analysis.consolidation import ConsolidationResult as _CR
+from consensus_engine.models import CatalystResult
+
+_FAKE_CONS = _CR(fired=False, consolidated_id=None, effective_n_clusters=0,
+                 combined_log_odds=0.0, consensus_boost=0, sources_seen=[], reason="disabled")
+
+
+def _patch_fetchers():
+    cat = CatalystResult(ticker="NVDA", catalyst_summary="", catalyst_type="", news_sources=[], catalyst_body="")
+    return (
+        patch("consensus_engine.cross_reference._run_news_cascade", new=AsyncMock(return_value=cat)),
+        patch("consensus_engine.cross_reference._run_sec_check", new=AsyncMock(return_value=(False, ""))),
+        patch("consensus_engine.cross_reference._run_social_check", new=AsyncMock(return_value={"apewisdom": 0, "stocktwits": 0, "reddit": 0, "google_trends": 0})),
+        patch("consensus_engine.cross_reference._run_technical", new=AsyncMock(return_value=None)),
+        patch("consensus_engine.cross_reference._run_other_analysts", new=AsyncMock(return_value=[])),
+        patch("consensus_engine.cross_reference._run_options_check", new=AsyncMock(return_value=None)),
+        patch("consensus_engine.cross_reference._get_youtube_context", new=AsyncMock(return_value=None)),
+    )
+
+
+def _flag(monkeypatch, overrides):
+    real = cfg.get
+    monkeypatch.setattr(cfg, "get", lambda k, d=None: overrides[k] if k in overrides else real(k, d))
+
+
+@pytest.mark.asyncio
+async def test_score_ticker_flag_off_no_db_read(monkeypatch):
+    _flag(monkeypatch, {"features.short_interest.enabled": False})
+    calls: list[str] = []
+    with contextlib.ExitStack() as stack:
+        for p in _patch_fetchers():
+            stack.enter_context(p)
+        mdb = stack.enter_context(patch("consensus_engine.cross_reference.db"))
+        stack.enter_context(patch("consensus_engine.analysis.consolidation.consolidate_for_ticker", new=AsyncMock(return_value=_FAKE_CONS)))
+        stack.enter_context(patch("consensus_engine.cross_reference._run_llm_score", new_callable=AsyncMock, return_value=(0, "")))
+        mdb.get_signal_counts_by_source = AsyncMock(return_value={})
+        mdb.get_analyst_precision_lb = AsyncMock(return_value=None)
+        mdb.get_latest_finra_short_interest = AsyncMock(side_effect=lambda t: calls.append("si") or None)
+        result = await score_ticker("NVDA", base_score=30, direction="long")
+    assert result.breakdown.days_to_cover == 0
+    assert not calls, "Flag OFF -> no short-interest DB read on the hot path"
+
+
+@pytest.mark.asyncio
+async def test_score_ticker_flag_on_elevated(monkeypatch):
+    _flag(monkeypatch, {"features.short_interest.enabled": True})
+    with contextlib.ExitStack() as stack:
+        for p in _patch_fetchers():
+            stack.enter_context(p)
+        mdb = stack.enter_context(patch("consensus_engine.cross_reference.db"))
+        stack.enter_context(patch("consensus_engine.analysis.consolidation.consolidate_for_ticker", new=AsyncMock(return_value=_FAKE_CONS)))
+        stack.enter_context(patch("consensus_engine.cross_reference._run_llm_score", new_callable=AsyncMock, return_value=(0, "")))
+        mdb.get_signal_counts_by_source = AsyncMock(return_value={})
+        mdb.get_analyst_precision_lb = AsyncMock(return_value=None)
+        mdb.get_latest_finra_short_interest = AsyncMock(return_value={
+            "ticker": "NVDA", "settlement_date": "2026-06-15", "short_interest": 3, "avg_daily_volume": 1,
+            "days_to_cover": 4.5, "prev_short_interest": 2, "pct_change": 5.0, "published_at": time.time(),
+        })
+        result = await score_ticker("NVDA", base_score=30, direction="long")
+    assert result.breakdown.days_to_cover == 3

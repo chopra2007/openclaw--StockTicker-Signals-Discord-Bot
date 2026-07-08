@@ -1350,6 +1350,24 @@ async def _compute_all(ticker: str, start: float) -> dict:
             bb_mult=cfg.get("features.vol_squeeze.bb_mult", 2.0),
             kc_mult=cfg.get("features.vol_squeeze.kc_mult", 1.5),
         )
+    # r17 PEAD — descriptive post-earnings-drift read (embed-only, NOT narrator).
+    # Reuses the already-fetched earnings recap; fetches its own dated price series
+    # (daily_candles carry no dates). Gated OFF -> no compute/fetch, field absent.
+    _pead = None
+    if cfg.get("features.pead.enabled", False):
+        try:
+            from consensus_engine.analysis import pead as _pead_mod
+            _pead = await _pead_mod.compute_pead(
+                ticker,
+                recap=data.get("recent_earnings_recap"),
+                min_days_after=int(cfg.get("features.pead.min_days_after", 5)),
+                max_days_after=int(cfg.get("features.pead.max_days_after", 45)),
+                min_surprise_pct=float(cfg.get("features.pead.min_surprise_pct", 2.0)),
+                faded_threshold_pct=float(cfg.get("features.pead.faded_threshold_pct", 2.0)),
+            )
+        except Exception as _pead_exc:  # noqa: BLE001 — never break !all
+            log.debug("pead compute failed for %s: %s", ticker, _pead_exc)
+            _pead = None
 
     structured = structured_fields.StructuredFields(
         direction=direction,
@@ -1376,6 +1394,7 @@ async def _compute_all(ticker: str, start: float) -> dict:
         skew_index=data.get("skew_index"),
         iv_rv_tag=_iv_rv_tag,
         squeeze_state=_squeeze_state,
+        pead=_pead,
         peer_strength=data.get("peer_strength"),
         snapshot=data.get("snapshot"),
         earnings_move=data.get("earnings_move"),

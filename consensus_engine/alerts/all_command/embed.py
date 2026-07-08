@@ -486,6 +486,24 @@ def _format_squeeze(sq: Optional[dict]) -> str:
     return "🟡 coiling (low-vol compression)" if sq.get("squeeze") else "expanded (no squeeze)"
 
 
+def _format_pead(p: Optional[dict]) -> str:
+    """r17 (standalone-scanners) — post-earnings drift read: the realized price
+    move since the last print, tagged against the surprise sign. Descriptive
+    context (continuation / faded / reversed), NOT a buy/sell call. Returns '—'
+    when unavailable so the field is omitted."""
+    if not isinstance(p, dict):
+        return "—"
+    cls = p.get("classification")
+    drift = p.get("drift_pct")
+    days = p.get("days_since")
+    if not cls or not isinstance(drift, (int, float)) or not isinstance(days, int):
+        return "—"
+    label = {"drift-consistent": "📈 drifting with the surprise",
+             "faded": "⚪ faded (drift stalled)",
+             "reversed": "🔻 reversed (gave back the move)"}.get(cls, cls)
+    return f"{label}: {drift:+.1f}% since print ({days}d ago)"
+
+
 _RS_EMOJI = {"outperforming": "🟢", "underperforming": "🔴", "in-line": "⚪"}
 
 
@@ -1035,6 +1053,12 @@ def build_embed(
         _si_val = _format_skew_index(getattr(structured, "skew_index", None))
         if _si_val != "—":
             fields.append({"name": "SKEW", "value": _si_val, "inline": True})
+    # r17 PEAD — post-earnings drift context (descriptive, embed-only, NOT narrator);
+    # only when its flag is ON and a drift read is present.
+    if bool(_cfg.get("features.pead.enabled", False)):
+        _pead_val = _format_pead(getattr(structured, "pead", None))
+        if _pead_val != "—":
+            fields.append({"name": "Post-Earnings Drift", "value": _pead_val, "inline": True})
     # Lever B — avg absolute % earnings reaction over the last N reported prints.
     _em = getattr(structured, "earnings_move", None)
     if isinstance(_em, dict):

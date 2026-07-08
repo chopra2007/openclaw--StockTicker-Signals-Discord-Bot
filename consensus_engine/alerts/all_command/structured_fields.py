@@ -63,6 +63,7 @@ class StructuredFields:
     # (the ONLY new narrator inputs this stage adds), each behind a config flag default OFF.
     iv_rv_tag: Optional[dict] = None      # k7 — {tag, atm_iv, realized_vol, ratio} cheap/rich vol read
     squeeze_state: Optional[dict] = None  # r9 — {squeeze, bb_width, kc_width} Bollinger-in-Keltner coiling
+    pead: Optional[dict] = None           # r17 — {classification, drift_pct, days_since, ...} post-earnings drift (embed-only, NOT narrator)
     peer_strength: Optional[dict] = None  # {stock_pct, benchmark_pct, delta, verdict, benchmark_label, mode, narrator_ok, ...}
     snapshot: Optional[dict] = None       # #6 analyst target + rating + fwd P/E + short interest (yfinance .info); embed-only
     risk_reward: Optional[float] = None   # #6 reward:risk of the computed plan (reward per 1.0 risk); embed-only

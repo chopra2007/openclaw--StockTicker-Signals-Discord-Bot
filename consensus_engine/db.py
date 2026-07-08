@@ -668,6 +668,22 @@ CREATE TABLE IF NOT EXISTS internal_breadth_daily (
     computed_at     REAL NOT NULL
 );
 
+-- r20 (standalone-scanners) true-market-breadth participation proxy. DISTINCT data
+-- from internal_breadth_daily (which is the bot's OWN signal-stream net): this is
+-- whole-market participation from the RSP/SPY (equal-weight vs cap-weight) ratio trend
+-- (+ optional IWM/SPY small-vs-large). Descriptive-only, forward-logged for later
+-- edge-testing; NEVER wired into cross_reference.score_ticker.
+CREATE TABLE IF NOT EXISTS market_breadth_daily (
+    date_utc        TEXT PRIMARY KEY,
+    rsp_spy_ratio   REAL,                  -- RSP/SPY (equal-weight ÷ cap-weight) latest
+    rsp_spy_trend   REAL,                  -- % change of that ratio over the window
+    iwm_spy_ratio   REAL,                  -- IWM/SPY (small ÷ large) latest, optional
+    iwm_spy_trend   REAL,                  -- % change of IWM/SPY over the window, optional
+    breadth_state   TEXT NOT NULL,         -- 'broadening' | 'narrowing' | 'flat'
+    window_days     INTEGER NOT NULL,      -- lookback used for the trend read
+    computed_at     REAL NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS discord_command_user_rate (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id TEXT NOT NULL,
@@ -950,6 +966,27 @@ CREATE TABLE IF NOT EXISTS finra_short_volume (
 CREATE INDEX IF NOT EXISTS idx_finra_sv_ticker ON finra_short_volume(ticker);
 CREATE INDEX IF NOT EXISTS idx_finra_sv_ticker_date ON finra_short_volume(ticker, trade_date);
 
+-- r12 (standalone-scanners) FINRA twice-monthly SETTLEMENT short-INTEREST.
+-- DISTINCT product from finra_short_volume above (daily short-VOLUME proxy): this is
+-- the official settlement short interest (shares short as of the settlement date),
+-- published ~2x/month, carrying FINRA's own averageDailyVolumeQuantity + days-to-cover
+-- + bi-monthly change. UNIQUE(ticker, settlement_date) makes re-ingest idempotent.
+-- published_at = ingestion time (recency_window "short_interest" freshness check).
+CREATE TABLE IF NOT EXISTS finra_short_interest (
+    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticker             TEXT NOT NULL,
+    settlement_date    TEXT NOT NULL,
+    short_interest     INTEGER NOT NULL,      -- currentShortPositionQuantity (shares short)
+    avg_daily_volume   INTEGER,               -- averageDailyVolumeQuantity (FINRA native)
+    days_to_cover      REAL,                  -- daysToCoverQuantity (FINRA native)
+    prev_short_interest INTEGER,              -- previousShortPositionQuantity (prior settlement)
+    pct_change         REAL,                  -- changePercent vs prior settlement
+    published_at       REAL NOT NULL,
+    UNIQUE(ticker, settlement_date)
+);
+CREATE INDEX IF NOT EXISTS idx_finra_si_ticker ON finra_short_interest(ticker);
+CREATE INDEX IF NOT EXISTS idx_finra_si_ticker_date ON finra_short_interest(ticker, settlement_date);
+
 -- r14 trading-halt tripwire: one row per DISTINCT halt (symbol+halt_ts+reason_code)
 -- the moment it is alerted. The UNIQUE key makes re-polling the same Nasdaq/NYSE
 -- halt feed idempotent so the same halt is NEVER re-alerted. halt_ts / resumption_ts
@@ -1178,6 +1215,8 @@ async def init_db() -> AsyncConnection:
         (24, "#57 schwab daily options-chain snapshot logger"),
         (25, "r14 trading_halts tripwire dedup table"),
         (26, "r21 NFCI shadow cols + r22 macro_legs real_yield"),
+        (27, "r12 finra_short_interest settlement series (days-to-cover trend)"),
+        (28, "r20 market_breadth_daily RSP/SPY participation proxy (descriptive)"),
     ]
     for version, note in _schema_versions:
         await _db.execute(
@@ -1649,6 +1688,141 @@ async def get_latest_finra_short_volume(ticker: str) -> dict | None:
         "short_pct": float(row["short_pct"]),
         "finra_published_at": float(row["finra_published_at"]),
     }
+
+
+async def upsert_finra_short_interest(
+    ticker: str,
+    settlement_date: str,
+    short_interest: int,
+    avg_daily_volume: int | None = None,
+    days_to_cover: float | None = None,
+    prev_short_interest: int | None = None,
+    pct_change: float | None = None,
+    published_at: float | None = None,
+) -> None:
+    """Persist one FINRA settlement short-interest row (upsert on ticker+settlement_date).
+
+    r12 (standalone-scanners): the table accumulates one row per ticker per
+    settlement date from FINRA's twice-monthly consolidated short-interest file.
+    ``published_at`` defaults to time.time() (ingestion time) and is used by the
+    recency_window "short_interest" freshness check.
+    """
+    if published_at is None:
+        published_at = time.time()
+    conn = await get_db()
+    await conn.execute(
+        """INSERT INTO finra_short_interest
+               (ticker, settlement_date, short_interest, avg_daily_volume,
+                days_to_cover, prev_short_interest, pct_change, published_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(ticker, settlement_date) DO UPDATE SET
+               short_interest      = excluded.short_interest,
+               avg_daily_volume    = excluded.avg_daily_volume,
+               days_to_cover       = excluded.days_to_cover,
+               prev_short_interest = excluded.prev_short_interest,
+               pct_change          = excluded.pct_change,
+               published_at        = excluded.published_at""",
+        (ticker, settlement_date, short_interest, avg_daily_volume,
+         days_to_cover, prev_short_interest, pct_change, published_at),
+    )
+    await conn.commit()
+
+
+async def get_latest_finra_short_interest(ticker: str) -> dict | None:
+    """Return the most-recent finra_short_interest row for a ticker, or None.
+
+    r12: used by the scorer (days-to-cover confluence leg) and the !short render.
+    """
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT ticker, settlement_date, short_interest, avg_daily_volume,
+                  days_to_cover, prev_short_interest, pct_change, published_at
+           FROM finra_short_interest
+           WHERE ticker = ?
+           ORDER BY settlement_date DESC
+           LIMIT 1""",
+        (ticker,),
+    )
+    row = await cursor.fetchone()
+    if row is None:
+        return None
+    return {
+        "ticker": row["ticker"],
+        "settlement_date": row["settlement_date"],
+        "short_interest": int(row["short_interest"]),
+        "avg_daily_volume": int(row["avg_daily_volume"]) if row["avg_daily_volume"] is not None else None,
+        "days_to_cover": float(row["days_to_cover"]) if row["days_to_cover"] is not None else None,
+        "prev_short_interest": int(row["prev_short_interest"]) if row["prev_short_interest"] is not None else None,
+        "pct_change": float(row["pct_change"]) if row["pct_change"] is not None else None,
+        "published_at": float(row["published_at"]),
+    }
+
+
+async def get_finra_short_interest_history(ticker: str, limit: int = 6) -> list[dict]:
+    """Return up to ``limit`` most-recent settlement rows (newest first) for a ticker.
+
+    r12: powers the days-to-cover TREND render (a series, not a single point — the
+    yfinance snapshot already shows the single-point value).
+    """
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT settlement_date, short_interest, avg_daily_volume,
+                  days_to_cover, prev_short_interest, pct_change
+           FROM finra_short_interest
+           WHERE ticker = ?
+           ORDER BY settlement_date DESC
+           LIMIT ?""",
+        (ticker, limit),
+    )
+    rows = await cursor.fetchall()
+    return [
+        {
+            "settlement_date": r["settlement_date"],
+            "short_interest": int(r["short_interest"]),
+            "avg_daily_volume": int(r["avg_daily_volume"]) if r["avg_daily_volume"] is not None else None,
+            "days_to_cover": float(r["days_to_cover"]) if r["days_to_cover"] is not None else None,
+            "prev_short_interest": int(r["prev_short_interest"]) if r["prev_short_interest"] is not None else None,
+            "pct_change": float(r["pct_change"]) if r["pct_change"] is not None else None,
+        }
+        for r in rows
+    ]
+
+
+async def upsert_market_breadth_daily(
+    date_utc: str,
+    rsp_spy_ratio: float | None,
+    rsp_spy_trend: float | None,
+    iwm_spy_ratio: float | None,
+    iwm_spy_trend: float | None,
+    breadth_state: str,
+    window_days: int,
+    computed_at: float | None = None,
+) -> None:
+    """Forward-log one r20 market-breadth row (upsert on date_utc).
+
+    r20 (standalone-scanners): descriptive-only participation proxy, accumulated for
+    later edge-testing. NEVER read by cross_reference.score_ticker.
+    """
+    if computed_at is None:
+        computed_at = time.time()
+    conn = await get_db()
+    await conn.execute(
+        """INSERT INTO market_breadth_daily
+               (date_utc, rsp_spy_ratio, rsp_spy_trend, iwm_spy_ratio,
+                iwm_spy_trend, breadth_state, window_days, computed_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(date_utc) DO UPDATE SET
+               rsp_spy_ratio = excluded.rsp_spy_ratio,
+               rsp_spy_trend = excluded.rsp_spy_trend,
+               iwm_spy_ratio = excluded.iwm_spy_ratio,
+               iwm_spy_trend = excluded.iwm_spy_trend,
+               breadth_state = excluded.breadth_state,
+               window_days   = excluded.window_days,
+               computed_at   = excluded.computed_at""",
+        (date_utc, rsp_spy_ratio, rsp_spy_trend, iwm_spy_ratio,
+         iwm_spy_trend, breadth_state, window_days, computed_at),
+    )
+    await conn.commit()
 
 
 async def upsert_trading_halt(

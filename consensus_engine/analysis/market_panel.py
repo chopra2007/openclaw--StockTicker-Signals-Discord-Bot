@@ -28,6 +28,7 @@ MARKET_TABLES = frozenset(
         "trend_daily",
         "macro_legs_daily",
         "internal_breadth_daily",
+        "market_breadth_daily",
     }
 )
 

@@ -38,6 +38,7 @@ from consensus_engine.utils.http import close_session, get_session
 from consensus_engine.utils.tickers import is_valid_ticker, validate_ticker_market_cap
 from consensus_engine.scanners.youtube import youtube_poll_loop
 from consensus_engine.scanners.finra_short_volume import finra_short_volume_loop
+from consensus_engine.scanners.finra_short_interest import finra_short_interest_loop
 from consensus_engine.scanners.trading_halts import fetch_trading_halts, process_new_halts
 from consensus_engine.engine import analyze_signal, SignalClass
 from consensus_engine.research.atlas import atlas_worker_loop, atlas_sweep_loop
@@ -942,6 +943,7 @@ async def run_live(stop_event: asyncio.Event):
             asyncio.create_task(feature_volume_monitor_loop()),
             asyncio.create_task(options_flow_loop(combined_stop)),
             asyncio.create_task(finra_short_volume_loop(combined_stop)),
+            asyncio.create_task(finra_short_interest_loop(combined_stop)),
             asyncio.create_task(trading_halts_loop(combined_stop)),
         ])
         tasks.extend([

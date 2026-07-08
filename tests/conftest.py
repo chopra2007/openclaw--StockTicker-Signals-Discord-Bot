@@ -103,6 +103,13 @@ def _audit_flags_default_off(monkeypatch):
         # during the baseline suite; dedicated feature tests force their own flag.
         "features.iv_rv_tag.enabled": False,
         "features.vol_squeeze.enabled": False,
+        # Stage-5 standalone-scanners (discover next-features-jul2026) — flag-default-OFF.
+        # Force OFF so a future YAML flip can't add the r12 days-to-cover / r17 PEAD score
+        # legs, the PEAD !all embed field, or the r20 !market breadth panel during the
+        # baseline suite; dedicated feature tests force their own flag in-body.
+        "features.short_interest.enabled": False,
+        "features.pead.enabled": False,
+        "features.market_breadth.enabled": False,
         "features.fundamentals_oneliner.enabled": False,
         "wolf.confluence.weighted_votes_enabled": False,
         # Market-context dashboard went live ON 2026-06-29 (discover run

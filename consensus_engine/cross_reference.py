@@ -325,6 +325,67 @@ def _compute_finra_short_volume_pts(
     return cap
 
 
+def _compute_days_to_cover_pts(
+    si_row: dict,
+    *,
+    direction: str = "long",
+) -> int:
+    """r12: settlement short-interest days-to-cover confluence term.
+
+    Returns a small capped positive term (config, default +3) ONLY when:
+      1. The row is fresh (recency_window "short_interest" cap).
+      2. days_to_cover >= min_days_to_cover (real squeeze fuel, default 3.0).
+      3. Short interest is RISING vs the prior settlement (pct_change > 0) when
+         require_rising is set — a growing crowded short is the squeeze setup.
+      4. The direction is long (confluence-only; on a short signal a crowded short
+         is directionally redundant, so we skip it — mirrors the E1 short-vol leg).
+
+    Flag OFF -> this function is never called (no DB read on the hot path).
+    Distinct from snapshot.py's single yfinance short-interest point: this keys off
+    the official FINRA settlement series + its bi-monthly change.
+    """
+    from consensus_engine.analysis.recency_window import is_fresh
+    if not is_fresh("short_interest", si_row.get("published_at")):
+        return 0
+    dtc = si_row.get("days_to_cover")
+    if dtc is None:
+        return 0
+    min_dtc = float(cfg.get("features.short_interest.min_days_to_cover", 3.0))
+    if float(dtc) < min_dtc:
+        return 0
+    if cfg.get("features.short_interest.require_rising", True):
+        pct = si_row.get("pct_change")
+        if pct is None or float(pct) <= 0.0:
+            return 0
+    if direction.lower() != "long":
+        return 0
+    return int(cfg.get("features.short_interest.term_cap", 3))
+
+
+def _compute_pead_pts(
+    pead_result: Optional[dict],
+    *,
+    direction: str = "long",
+) -> int:
+    """r17: post-earnings-drift confluence term.
+
+    Returns a small capped positive term (config, default +3) ONLY when the PEAD
+    read is drift-CONSISTENT (post-print continuation) AND its continuation
+    direction matches the signal direction. Faded/reversed drift -> 0. Confluence
+    LIFT only on an already-triggered signal — never a standalone trigger.
+
+    pead_result is computed only AFTER earnings_magnitude's 5-day window (enforced
+    in pead.classify_pead), so this leg can never double-count that bonus.
+    """
+    if not pead_result:
+        return 0
+    if pead_result.get("classification") != "drift-consistent":
+        return 0
+    if (pead_result.get("direction") or "").lower() != direction.lower():
+        return 0
+    return int(cfg.get("features.pead.term_cap", 3))
+
+
 def _get_catalyst_score(catalyst_type: str) -> int:
     """Look up tiered score for a catalyst type. Defaults to medium (15)."""
     tiers = cfg.get("scoring.catalyst_tiers", {})
@@ -1715,6 +1776,66 @@ async def score_ticker(
             log.warning("[E1] DB lookup failed for $%s: %s", ticker, _e1_exc)
             finra_pts = 0
     breakdown.finra_short_volume = finra_pts
+
+    # -----------------------------------------------------------------
+    # r12 — FINRA settlement short-interest days-to-cover confluence leg
+    # flag: features.short_interest.enabled (default OFF)
+    #
+    # Adds a small capped term (+3 max) when the ticker's latest FINRA settlement
+    # shows elevated days-to-cover AND a rising crowded short, on a LONG signal
+    # (squeeze-fuel confluence). Flag OFF -> ZERO DB reads on the hot path; the
+    # term is 0 and the breakdown is byte-identical. Confluence-only, never a trigger.
+    # -----------------------------------------------------------------
+    dtc_pts = 0
+    if cfg.get("features.short_interest.enabled", False):
+        try:
+            latest_si = await db.get_latest_finra_short_interest(ticker)
+            if latest_si is not None:
+                dtc_pts = _compute_days_to_cover_pts(latest_si, direction=direction)
+                if dtc_pts:
+                    log.info(
+                        "[r12] $%s days_to_cover=%.2f pct_change=%s -> +%d "
+                        "(settlement short interest, %s)",
+                        ticker, latest_si.get("days_to_cover") or 0.0,
+                        latest_si.get("pct_change"), dtc_pts, latest_si.get("settlement_date"),
+                    )
+        except Exception as _r12_exc:
+            log.warning("[r12] DB lookup failed for $%s: %s", ticker, _r12_exc)
+            dtc_pts = 0
+    breakdown.days_to_cover = dtc_pts
+
+    # -----------------------------------------------------------------
+    # r17 — post-earnings-announcement drift (PEAD) confluence leg
+    # flag: features.pead.enabled (default OFF)
+    #
+    # Adds a small capped term (+3 max) when realized post-print drift is
+    # drift-CONSISTENT and its continuation direction matches the signal, ONLY after
+    # earnings_magnitude's 5-day window (no double-count). Flag OFF -> no earnings/
+    # price fetch on the hot path; term 0; breakdown byte-identical.
+    # -----------------------------------------------------------------
+    pead_pts = 0
+    if cfg.get("features.pead.enabled", False):
+        try:
+            from consensus_engine.analysis import pead as _pead
+            pead_res = await _pead.compute_pead(
+                ticker,
+                min_days_after=int(cfg.get("features.pead.min_days_after", 5)),
+                max_days_after=int(cfg.get("features.pead.max_days_after", 45)),
+                min_surprise_pct=float(cfg.get("features.pead.min_surprise_pct", 2.0)),
+                faded_threshold_pct=float(cfg.get("features.pead.faded_threshold_pct", 2.0)),
+                executor=executor,
+            )
+            pead_pts = _compute_pead_pts(pead_res, direction=direction)
+            if pead_pts:
+                log.info(
+                    "[r17] $%s pead=%s drift=%.2f%% days_since=%d -> +%d",
+                    ticker, pead_res.get("classification"), pead_res.get("drift_pct"),
+                    pead_res.get("days_since"), pead_pts,
+                )
+        except Exception as _r17_exc:
+            log.warning("[r17] PEAD compute failed for $%s: %s", ticker, _r17_exc)
+            pead_pts = 0
+    breakdown.pead = pead_pts
 
     return ScoreTickerResult(
         ticker=ticker,
