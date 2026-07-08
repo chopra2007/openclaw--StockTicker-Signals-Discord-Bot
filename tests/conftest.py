@@ -77,6 +77,13 @@ def _audit_flags_default_off(monkeypatch):
         "features.regime_widening_graduated.enabled": False,
         "features.cross_asset.enabled": False,
         "features.cross_asset.fred_leg_enabled": False,
+        # r21 (macro-fred): NFCI leg stays shadow-isolated. Force the flip flag OFF so a
+        # future YAML flip can't make the baseline suite append NFCI into E2's live legs.
+        "features.cross_asset.nfci_leg_enabled": False,
+        # r22 (macro-fred): the FRED macro producer runs on shadow:true in prod, but must
+        # NOT hit the FRED network in the baseline suite — force both OFF so run() skips it.
+        "features.macro_legs.enabled": False,
+        "features.macro_legs.shadow": False,
         "features.finra_short_volume.enabled": False,
         # r14/r8 net-new features ship flag-default-OFF (dormant/shadow). Force OFF
         # here too so a future YAML flip can't send the baseline suite down a live
@@ -131,6 +138,19 @@ def _isolate_db(tmp_path, monkeypatch):
     _db._db = None
     yield
     _db._db = None
+
+
+@pytest.fixture(autouse=True)
+def _isolate_nfci_fred(monkeypatch):
+    """r21 (macro-fred): cross_asset.get_multiplier now computes a shadow NFCI leg on every
+    compute-path call, which would hit the live FRED endpoint. FRED_API_KEY is set in this
+    environment, so default the NFCI fetch to None (no network, deterministic) for the whole
+    suite — exactly like _isolate_level_quote defaults the live quote. NFCI stays shadow-
+    isolated (nfci_leg_enabled OFF), so a None leg leaves get_multiplier byte-identical. The
+    dedicated NFCI tests patch _fetch_nfci_index in-body (that wins) to exercise the mapping."""
+    from consensus_engine.analysis import cross_asset as _ca
+    monkeypatch.setattr(_ca, "_fetch_nfci_index", lambda: None)
+    yield
 
 
 @pytest.fixture(autouse=True)

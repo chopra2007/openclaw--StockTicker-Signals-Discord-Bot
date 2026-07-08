@@ -362,7 +362,9 @@ CREATE TABLE IF NOT EXISTS cross_asset_shadow (
     vix_term_multiplier REAL,
     credit_oas_ratio REAL,
     credit_oas_multiplier REAL,
-    combined_multiplier REAL
+    combined_multiplier REAL,
+    nfci_index REAL,           -- r21: raw FRED NFCI level (shadow-only; NOT in E2's live legs)
+    nfci_multiplier REAL       -- r21: NFCI-mapped multiplier (shadow-isolated, never combined)
 );
 
 -- #55 Build B (forward-data logging): daily snapshot of the options-implied
@@ -652,6 +654,7 @@ CREATE TABLE IF NOT EXISTS macro_legs_daily (
     curve_t10y3m      REAL,                -- display only
     macro_multiplier  REAL NOT NULL,       -- separate sub-multiplier (shadow)
     legs_used_json    TEXT,                -- which legs survived the drop-None test
+    real_yield_10y    REAL,                -- r22: latest DFII10 10Y TIPS real yield (descriptive)
     computed_at       REAL NOT NULL
 );
 
@@ -1079,6 +1082,13 @@ async def _run_column_migrations(conn) -> None:
         # digest scheduler triggers off THIS, never processed_at, so backfilled rows
         # (old received_at) can never fire a "fresh" digest. NULL on legacy rows.
         ("wolf_emails_processed", "received_at", "REAL"),
+        # schema v26 (r21 macro-fred): NFCI shadow-isolated leg persistence. Computed /
+        # logged / persisted for the soak but NEVER appended to E2's live `legs`.
+        ("cross_asset_shadow", "nfci_index",      "REAL"),
+        ("cross_asset_shadow", "nfci_multiplier", "REAL"),
+        # schema v26 (r22 macro-fred): DFII10 10Y TIPS real yield for the descriptive F4
+        # macro producer (market_daily build_macro_rows). NEVER averaged into cross_asset.
+        ("macro_legs_daily", "real_yield_10y", "REAL"),
     ]
     for table in ("youtube_signals", "youtube_levels", "youtube_setups", "youtube_options"):
         for col, defn in v2_span_cols:
@@ -1167,6 +1177,7 @@ async def init_db() -> AsyncConnection:
         (23, "#55 forward-data loggers: source_performance_shadow, cross_asset_shadow, iv_snapshots"),
         (24, "#57 schwab daily options-chain snapshot logger"),
         (25, "r14 trading_halts tripwire dedup table"),
+        (26, "r21 NFCI shadow cols + r22 macro_legs real_yield"),
     ]
     for version, note in _schema_versions:
         await _db.execute(
@@ -3525,6 +3536,8 @@ async def insert_cross_asset_shadow(
     credit_oas_ratio: float | None,
     credit_oas_multiplier: float | None,
     combined_multiplier: float | None,
+    nfci_index: float | None = None,
+    nfci_multiplier: float | None = None,
 ) -> bool:
     """Persist the E2 cross-asset shadow ratios/multipliers — the SAME values the
     '[E2 shadow]' log lines show — at most ONCE per UTC calendar day.
@@ -3551,10 +3564,12 @@ async def insert_cross_asset_shadow(
     await conn.execute(
         """INSERT INTO cross_asset_shadow
            (recorded_at, vix_term_ratio, vix_term_multiplier,
-            credit_oas_ratio, credit_oas_multiplier, combined_multiplier)
-           VALUES (?, ?, ?, ?, ?, ?)""",
+            credit_oas_ratio, credit_oas_multiplier, combined_multiplier,
+            nfci_index, nfci_multiplier)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
         (now, vix_term_ratio, vix_term_multiplier,
-         credit_oas_ratio, credit_oas_multiplier, combined_multiplier),
+         credit_oas_ratio, credit_oas_multiplier, combined_multiplier,
+         nfci_index, nfci_multiplier),
     )
     await conn.commit()
     return True
