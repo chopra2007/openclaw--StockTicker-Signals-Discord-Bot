@@ -78,6 +78,11 @@ def _audit_flags_default_off(monkeypatch):
         "features.cross_asset.enabled": False,
         "features.cross_asset.fred_leg_enabled": False,
         "features.finra_short_volume.enabled": False,
+        # r14/r8 net-new features ship flag-default-OFF (dormant/shadow). Force OFF
+        # here too so a future YAML flip can't send the baseline suite down a live
+        # path; the dedicated feature tests exercise the logic directly.
+        "features.trading_halts.enabled": False,
+        "features.skew_index.enabled": False,
         "features.fundamentals_oneliner.enabled": False,
         "wolf.confluence.weighted_votes_enabled": False,
         # Market-context dashboard went live ON 2026-06-29 (discover run

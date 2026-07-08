@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:ndaq="http://www.nasdaqtrader.com/">
+  <channel>
+    <title>NASDAQTrader.com</title>
+    <item><item>
+      <title>PHOE</title>
+      <pubDate>Tue, 07 Jul 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>07/07/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>13:07:57.466</ndaq:HaltTime>
+      <ndaq:IssueSymbol>PHOE</ndaq:IssueSymbol>
+      <ndaq:IssueName>Phoenix Asia Holdings Limited</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>LUDP</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate>07/07/2026</ndaq:ResumptionDate>
+      <ndaq:ResumptionQuoteTime>13:07:57</ndaq:ResumptionQuoteTime>
+      <ndaq:ResumptionTradeTime>13:17:57</ndaq:ResumptionTradeTime>
+      <description><![CDATA[<table width="100%" cellpadding="5"><tr><th align="left">Halt Date</th><th align="left">Halt Time</th><th align="left">Issue Symbol</th><th align="left">Issue Name</th><th align="left">Market</th><th align="left">Reason Code</th><th align="left">Pause Threshold Price</th><th align="left">Resumption Date</th><th align="left">Resumption Quote Time</th><th align="left">Resumption Trade Time</th></tr><tr><td valign="top">07/07/2026                    </td><td valign="top">13:07:57.466</td><td valign="top">PHOE</td><td valign="top">Phoenix Asia Holdings Limited</td><td valign="top">NASDAQ</td><td valign="top">LUDP</td><td valign="top"></td><td valign="top">07/07/2026                    </td><td valign="top">13:07:57                      </td><td valign="top">13:17:57                      </td></tr></table>]]></description>
+    </item></item>
+    <item><item>
+      <title>BSAAU</title>
+      <pubDate>Tue, 07 Jul 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>07/07/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>12:58:49.530</ndaq:HaltTime>
+      <ndaq:IssueSymbol>BSAAU</ndaq:IssueSymbol>
+      <ndaq:IssueName>BEST SPAC I Acquisition Corp U</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>LUDP</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate>07/07/2026</ndaq:ResumptionDate>
+      <ndaq:ResumptionQuoteTime>12:58:49</ndaq:ResumptionQuoteTime>
+      <ndaq:ResumptionTradeTime>13:08:49</ndaq:ResumptionTradeTime>
+      <description><![CDATA[<table width="100%" cellpadding="5"><tr><th align="left">Halt Date</th><th align="left">Halt Time</th><th align="left">Issue Symbol</th><th align="left">Issue Name</th><th align="left">Market</th><th align="left">Reason Code</th><th align="left">Pause Threshold Price</th><th align="left">Resumption Date</th><th align="left">Resumption Quote Time</th><th align="left">Resumption Trade Time</th></tr><tr><td valign="top">07/07/2026                    </td><td valign="top">12:58:49.530</td><td valign="top">BSAAU</td><td valign="top">BEST SPAC I Acquisition Corp U</td><td valign="top">NASDAQ</td><td valign="top">LUDP</td><td valign="top"></td><td valign="top">07/07/2026                    </td><td valign="top">12:58:49                      </td><td valign="top">13:08:49                      </td></tr></table>]]></description>
+    </item></item>
+    <item><item>
+      <title>CLRO</title>
+      <pubDate>Tue, 07 Jul 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>07/07/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>12:38:28.820</ndaq:HaltTime>
+      <ndaq:IssueSymbol>CLRO</ndaq:IssueSymbol>
+      <ndaq:IssueName>CLEARONE INC. Cmn Stk</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>LUDP</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate>07/07/2026</ndaq:ResumptionDate>
+      <ndaq:ResumptionQuoteTime>12:38:28</ndaq:ResumptionQuoteTime>
+      <ndaq:ResumptionTradeTime>12:43:28</ndaq:ResumptionTradeTime>
+      <description><![CDATA[<table width="100%" cellpadding="5"><tr><th align="left">Halt Date</th><th align="left">Halt Time</th><th align="left">Issue Symbol</th><th align="left">Issue Name</th><th align="left">Market</th><th align="left">Reason Code</th><th align="left">Pause Threshold Price</th><th align="left">Resumption Date</th><th align="left">Resumption Quote Time</th><th align="left">Resumption Trade Time</th></tr><tr><td valign="top">07/07/2026                    </td><td valign="top">12:38:28.820</td><td valign="top">CLRO</td><td valign="top">CLEARONE INC. Cmn Stk</td><td valign="top">NASDAQ</td><td valign="top">LUDP</td><td valign="top"></td><td valign="top">07/07/2026                    </td><td valign="top">12:38:28                      </td><td valign="top">12:43:28                      </td></tr></table>]]></description>
+    </item></item>
+    <item><item>
+      <title>NCT</title>
+      <pubDate>Tue, 07 Jul 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>07/07/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>12:09:45.720</ndaq:HaltTime>
+      <ndaq:IssueSymbol>NCT</ndaq:IssueSymbol>
+      <ndaq:IssueName>Intercont Cayman Cl A Ord Shs</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>LUDP</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate>07/07/2026</ndaq:ResumptionDate>
+      <ndaq:ResumptionQuoteTime>12:09:45</ndaq:ResumptionQuoteTime>
+      <ndaq:ResumptionTradeTime>12:14:45</ndaq:ResumptionTradeTime>
+      <description><![CDATA[<table width="100%" cellpadding="5"><tr><th align="left">Halt Date</th><th align="left">Halt Time</th><th align="left">Issue Symbol</th><th align="left">Issue Name</th><th align="left">Market</th><th align="left">Reason Code</th><th align="left">Pause Threshold Price</th><th align="left">Resumption Date</th><th align="left">Resumption Quote Time</th><th align="left">Resumption Trade Time</th></tr><tr><td valign="top">07/07/2026                    </td><td valign="top">12:09:45.720</td><td valign="top">NCT</td><td valign="top">Intercont Cayman Cl A Ord Shs</td><td valign="top">NASDAQ</td><td valign="top">LUDP</td><td valign="top"></td><td valign="top">07/07/2026                    </td><td valign="top">12:09:45                      </td><td valign="top">12:14:45                      </td></tr></table>]]></description>
+    </item></item>
+    <item><item>
+      <title>SVACU</title>
+      <pubDate>Tue, 07 Jul 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>07/07/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>11:11:17.686</ndaq:HaltTime>
+      <ndaq:IssueSymbol>SVACU</ndaq:IssueSymbol>
+      <ndaq:IssueName>Spring Valley Acquisition Unit</ndaq:IssueName>
+      <ndaq:Market>NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>LUDP</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate>07/07/2026</ndaq:ResumptionDate>
+      <ndaq:ResumptionQuoteTime>11:11:17</ndaq:ResumptionQuoteTime>
+      <ndaq:ResumptionTradeTime>11:16:17</ndaq:ResumptionTradeTime>
+      <description><![CDATA[<table width="100%" cellpadding="5"><tr><th align="left">Halt Date</th><th align="left">Halt Time</th><th align="left">Issue Symbol</th><th align="left">Issue Name</th><th align="left">Market</th><th align="left">Reason Code</th><th align="left">Pause Threshold Price</th><th align="left">Resumption Date</th><th align="left">Resumption Quote Time</th><th align="left">Resumption Trade Time</th></tr><tr><td valign="top">07/07/2026                    </td><td valign="top">11:11:17.686</td><td valign="top">SVACU</td><td valign="top">Spring Valley Acquisition Unit</td><td valign="top">NASDAQ</td><td valign="top">LUDP</td><td valign="top"></td><td valign="top">07/07/2026                    </td><td valign="top">11:11:17                      </td><td valign="top">11:16:17                      </td></tr></table>]]></description>
+    </item></item>
+    <item><item>
+      <title>APMI</title>
+      <pubDate>Tue, 07 Jul 2026 04:00:00 GMT</pubDate>
+      <ndaq:HaltDate>07/07/2026</ndaq:HaltDate>
+      <ndaq:HaltTime>10:52:40.653</ndaq:HaltTime>
+      <ndaq:IssueSymbol>APMI</ndaq:IssueSymbol>
+      <ndaq:IssueName>Corgi AMAT 2x Daily ETF</ndaq:IssueName>
+      <ndaq:Market>Non NASDAQ</ndaq:Market>
+      <ndaq:ReasonCode>M</ndaq:ReasonCode>
+      <ndaq:PauseThresholdPrice />
+      <ndaq:ResumptionDate>07/07/2026</ndaq:ResumptionDate>
+      <ndaq:ResumptionQuoteTime>10:57:40</ndaq:ResumptionQuoteTime>
+      <ndaq:ResumptionTradeTime>10:57:40</ndaq:ResumptionTradeTime>
+      <description><![CDATA[<table width="100%" cellpadding="5"><tr><th align="left">Halt Date</th><th align="left">Halt Time</th><th align="left">Issue Symbol</th><th align="left">Issue Name</th><th align="left">Market</th><th align="left">Reason Code</th><th align="left">Pause Threshold Price</th><th align="left">Resumption Date</th><th align="left">Resumption Quote Time</th><th align="left">Resumption Trade Time</th></tr><tr><td valign="top">07/07/2026                    </td><td valign="top">10:52:40.653</td><td valign="top">APMI</td><td valign="top">Corgi AMAT 2x Daily ETF</td><td valign="top">Non NASDAQ</td><td valign="top">M</td><td valign="top"></td><td valign="top">07/07/2026                    </td><td valign="top">10:57:40                      </td><td valign="top">10:57:40                      </td></tr></table>]]></description>
+    </item></item>
+  </channel>
+</rss>

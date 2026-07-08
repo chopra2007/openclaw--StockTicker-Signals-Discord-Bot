@@ -947,6 +947,22 @@ CREATE TABLE IF NOT EXISTS finra_short_volume (
 CREATE INDEX IF NOT EXISTS idx_finra_sv_ticker ON finra_short_volume(ticker);
 CREATE INDEX IF NOT EXISTS idx_finra_sv_ticker_date ON finra_short_volume(ticker, trade_date);
 
+-- r14 trading-halt tripwire: one row per DISTINCT halt (symbol+halt_ts+reason_code)
+-- the moment it is alerted. The UNIQUE key makes re-polling the same Nasdaq/NYSE
+-- halt feed idempotent so the same halt is NEVER re-alerted. halt_ts / resumption_ts
+-- are stored as the feed's raw canonical strings (identity only); the alert renders
+-- their PDT form. reason_code defaults '' so the UNIQUE key never sees a NULL.
+CREATE TABLE IF NOT EXISTS trading_halts (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    symbol        TEXT NOT NULL,
+    halt_ts       TEXT NOT NULL,
+    reason_code   TEXT NOT NULL DEFAULT '',
+    resumption_ts TEXT,
+    alerted_at    REAL NOT NULL,
+    UNIQUE(symbol, halt_ts, reason_code)
+);
+CREATE INDEX IF NOT EXISTS idx_trading_halts_symbol ON trading_halts(symbol);
+
 -- #39 chat-memory rollups: durable, never-overwritten per-channel summaries of the bot's
 -- Discord chat sessions, so it can recall a month-old conversation after a restart wipe.
 -- Identity is the EXACT raw archive's sha256 (NOT date overlap), so the cleanup cron can
@@ -1150,6 +1166,7 @@ async def init_db() -> AsyncConnection:
         (22, "trade-edge 5d/20d trading-day outcome tracking on decision_snapshots"),
         (23, "#55 forward-data loggers: source_performance_shadow, cross_asset_shadow, iv_snapshots"),
         (24, "#57 schwab daily options-chain snapshot logger"),
+        (25, "r14 trading_halts tripwire dedup table"),
     ]
     for version, note in _schema_versions:
         await _db.execute(
@@ -1620,6 +1637,65 @@ async def get_latest_finra_short_volume(ticker: str) -> dict | None:
         "short_exempt_volume": int(row["short_exempt_volume"]),
         "short_pct": float(row["short_pct"]),
         "finra_published_at": float(row["finra_published_at"]),
+    }
+
+
+async def upsert_trading_halt(
+    symbol: str,
+    halt_ts: str,
+    reason_code: str,
+    resumption_ts: str | None = None,
+    alerted_at: float | None = None,
+) -> bool:
+    """Record one trading-halt alert; idempotent on (symbol, halt_ts, reason_code).
+
+    r14: called right after an instant halt alert is posted so re-polling the same
+    Nasdaq/NYSE feed NEVER re-alerts the same halt. Uses ON CONFLICT DO NOTHING —
+    the first insert wins and a repeat is a silent no-op. Returns True when a NEW
+    row was inserted (this was a fresh halt), False when it already existed.
+    ``reason_code`` is coerced to '' so the UNIQUE key never carries a NULL.
+    """
+    if alerted_at is None:
+        alerted_at = time.time()
+    conn = await get_db()
+    cursor = await conn.execute(
+        """INSERT INTO trading_halts
+               (symbol, halt_ts, reason_code, resumption_ts, alerted_at)
+           VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(symbol, halt_ts, reason_code) DO NOTHING""",
+        (symbol, halt_ts, reason_code or "", resumption_ts, alerted_at),
+    )
+    await conn.commit()
+    return (cursor.rowcount or 0) > 0
+
+
+async def get_trading_halt(
+    symbol: str,
+    halt_ts: str,
+    reason_code: str,
+) -> dict | None:
+    """Return the recorded trading-halt row for (symbol, halt_ts, reason_code), or None.
+
+    r14: the halt loop uses this as the primary dedup check before alerting so a
+    halt already alerted in an earlier poll is skipped.
+    """
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT symbol, halt_ts, reason_code, resumption_ts, alerted_at
+           FROM trading_halts
+           WHERE symbol = ? AND halt_ts = ? AND reason_code = ?
+           LIMIT 1""",
+        (symbol, halt_ts, reason_code or ""),
+    )
+    row = await cursor.fetchone()
+    if row is None:
+        return None
+    return {
+        "symbol": row["symbol"],
+        "halt_ts": row["halt_ts"],
+        "reason_code": row["reason_code"],
+        "resumption_ts": row["resumption_ts"],
+        "alerted_at": float(row["alerted_at"]),
     }
 
 

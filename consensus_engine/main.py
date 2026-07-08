@@ -38,6 +38,7 @@ from consensus_engine.utils.http import close_session, get_session
 from consensus_engine.utils.tickers import is_valid_ticker, validate_ticker_market_cap
 from consensus_engine.scanners.youtube import youtube_poll_loop
 from consensus_engine.scanners.finra_short_volume import finra_short_volume_loop
+from consensus_engine.scanners.trading_halts import fetch_trading_halts, process_new_halts
 from consensus_engine.engine import analyze_signal, SignalClass
 from consensus_engine.research.atlas import atlas_worker_loop, atlas_sweep_loop
 from consensus_engine.briefing.alfred import alfred_loop
@@ -489,6 +490,37 @@ async def options_flow_loop(stop_event: asyncio.Event) -> None:
             continue
 
 
+async def _run_trading_halts_scan() -> None:
+    """r14: one trade-halt scan — fetch the Nasdaq halt feed, and for any halt on a
+    tracked ticker fire an INSTANT alert (halts are an explicit instant-trigger
+    exception per CLAUDE.md). Dedup + cooldown are enforced in process_new_halts, so
+    re-polling the same feed never re-alerts the same halt."""
+    tickers = await db.get_active_tickers(min_signals=1)
+    if not tickers:
+        return
+    halts = await fetch_trading_halts(tickers=set(tickers))
+    if not halts:
+        return
+    await process_new_halts(halts, tickers, _post_to_alerts_channel)
+
+
+async def trading_halts_loop(stop_event: asyncio.Event) -> None:
+    """r14: background watcher — poll the Nasdaq/NYSE trade-halt feed on a tight
+    cadence and alert on halts for tracked tickers. Gated by
+    features.trading_halts.enabled (default OFF)."""
+    while not stop_event.is_set():
+        if cfg.get("features.trading_halts.enabled", False):
+            try:
+                await _run_trading_halts_scan()
+            except Exception as e:
+                log.error("trading_halts_loop error: %s", e, exc_info=True)
+        interval = cfg.get("intervals.trading_halts_loop", 60)
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=interval)
+        except asyncio.TimeoutError:
+            continue
+
+
 # =============================================================================
 # Run Modes
 # =============================================================================
@@ -910,6 +942,7 @@ async def run_live(stop_event: asyncio.Event):
             asyncio.create_task(feature_volume_monitor_loop()),
             asyncio.create_task(options_flow_loop(combined_stop)),
             asyncio.create_task(finra_short_volume_loop(combined_stop)),
+            asyncio.create_task(trading_halts_loop(combined_stop)),
         ])
         tasks.extend([
             asyncio.create_task(ingest_server.serve(combined_stop, _record_source_ok, _record_source_error)),
