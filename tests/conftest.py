@@ -110,6 +110,13 @@ def _audit_flags_default_off(monkeypatch):
         "features.short_interest.enabled": False,
         "features.pead.enabled": False,
         "features.market_breadth.enabled": False,
+        # Stage-6 insider-disclosure (discover next-features-jul2026) — flag-default-OFF.
+        # Force OFF so a future YAML flip can't run the r27 Form-144 / r28 10b5-1 /
+        # r13 congress background loops or add an insider_display context line during
+        # the baseline suite; dedicated feature tests force their own flag in-body.
+        "features.form144.enabled": False,
+        "features.insider_10b5_plans.enabled": False,
+        "features.congress_trades.enabled": False,
         "features.fundamentals_oneliner.enabled": False,
         "wolf.confluence.weighted_votes_enabled": False,
         # Market-context dashboard went live ON 2026-06-29 (discover run

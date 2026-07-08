@@ -125,6 +125,9 @@ intervals:
   finra_short_interest_loop: 43200 # r12 — FINRA twice-monthly settlement short-interest ingest (12h re-check; data updates ~2x/mo)
   chat_memory_loop: 86400          # #39 nightly chat-memory rollup + gated cleanup
   trading_halts_loop: 60           # r14 — poll Nasdaq/NYSE trade-halt feed every 60s (halts matter only live; tight tunable cadence)
+  form144_loop: 21600              # r27 — Form 144 intent-to-sell scan (6h; staggered wide from form4 cluster/graduation — shared 'sec_edgar' rate limiter)
+  insider_10b5_plans_loop: 28800   # r28 — 10b5-1 plan-state scan (8h; staggered off the other SEC loops)
+  congress_trades_loop: 86400      # r13 — House STOCK-Act PTR scan (daily; reports lag ~45d, no value in polling faster)
 
 # Scanner toggles
 scanners:
@@ -148,6 +151,10 @@ sec_watcher:
   min_insider_dollars_buy: 100000     # $100k+ insider purchase signals conviction
   min_insider_dollars_sell: 1000000   # Sells need higher floor — execs sell for many reasons
   named_insiders_in_alert: true       # #8 LIVE (user go 2026-06-08) — expand "Form 4 x{n}" to named insiders + roles
+  # r27 Form 144 (intent-to-sell) materiality gate — a context leg only surfaces when
+  # aggregate intended-sale value >= min_form144_dollars AND >= min_form144_unique insiders.
+  min_form144_dollars: 1000000        # $1M+ aggregate intended sale (mirrors min_insider_dollars_sell)
+  min_form144_unique: 2               # >= 2 distinct insiders before it's user-visible
 
 # Stage 2: Social & Sentiment Scanner (used for cross-reference scoring)
 social:
@@ -842,6 +849,13 @@ features:
   short_interest: { enabled: false, min_days_to_cover: 3.0, require_rising: true, term_cap: 3 } # r12 — FINRA settlement short-interest days-to-cover confluence leg + !short trend (loop dormant when OFF)
   pead:           { enabled: false, min_days_after: 5, max_days_after: 45, min_surprise_pct: 2.0, faded_threshold_pct: 2.0, term_cap: 3 } # r17 — post-earnings drift (descriptive !all field + small capped confluence leg; silent inside earnings_magnitude's 5-day window)
   market_breadth: { enabled: false, window_days: 20, trend_threshold_pct: 0.5 }                # r20 — RSP/SPY participation proxy in !market (descriptive-only; NEVER wired into score_ticker)
+  # Stage-6 insider-disclosure (discover next-features-jul2026). ALL default OFF (shadow-first).
+  # CONTEXT legs only — never a standalone alert, never the score. Loops shadow-log to their
+  # tables (form144_filings / insider_10b5_plans / congress_trades) until go-live justifies
+  # wiring the insider_display context line onto the live !sec/!all/Score-card surfaces.
+  form144:            { enabled: false }                                                        # r27 — SEC Form 144 intent-to-sell (materiality gate in sec_watcher.min_form144_*)
+  insider_10b5_plans: { enabled: false }                                                        # r28 — Rule 10b5-1 plan adoption/termination state (structured aff10b5One flag; cold-start emits nothing)
+  congress_trades:    { enabled: false, freshness_days: 45, max_pdfs_per_cycle: 40 }            # r13 — House STOCK-Act PTR tracker (free House Clerk PDFs via pdfplumber; Senate deferred)
   # Stage-3 options-chain legs (discover next-features-jul2026). Computed IN-THREAD from
   # compute_max_pain's already-fetched front weekly+monthly chains (no extra fetch);
   # embed-only, never in narrator/score. ALL default OFF (shadow-first). nearest_expirations

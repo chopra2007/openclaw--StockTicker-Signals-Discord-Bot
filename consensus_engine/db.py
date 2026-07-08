@@ -1003,6 +1003,67 @@ CREATE TABLE IF NOT EXISTS trading_halts (
 );
 CREATE INDEX IF NOT EXISTS idx_trading_halts_symbol ON trading_halts(symbol);
 
+-- ── Stage-6 insider-disclosure shadow tables (discover next-features-jul2026) ──
+-- All three feed CONTEXT legs only (never a standalone alert, never the score);
+-- default-OFF features shadow-log here first. UNIQUE keys make every re-scan
+-- idempotent so re-polling the same SEC/House feed never double-logs a filing.
+
+-- r27 Form 144 (insider intent-to-sell). One row per parsed 144 notice. Identity
+-- is the SEC accession_number (a 144 filing is unique by accession). is_planned
+-- (0/1) tags 10b5-1 plan sales (planAdoptionDate present) vs discretionary.
+CREATE TABLE IF NOT EXISTS form144_filings (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticker              TEXT NOT NULL,
+    cik                 TEXT,
+    accession_number    TEXT NOT NULL,
+    person              TEXT,
+    relationship        TEXT,
+    units_sold          REAL,
+    aggregate_value     REAL,
+    approx_sale_date    TEXT,           -- feed raw MM/DD/YYYY (identity only)
+    plan_adoption_date  TEXT,           -- 10b5-1 plan adoption date if present
+    is_planned          INTEGER NOT NULL DEFAULT 0,
+    filed_at            TEXT,           -- SEC filingDate (YYYY-MM-DD)
+    logged_at           REAL NOT NULL,
+    UNIQUE(accession_number)
+);
+CREATE INDEX IF NOT EXISTS idx_form144_ticker ON form144_filings(ticker, logged_at);
+
+-- r28 Rule 10b5-1 plan STATE per (ticker, insider_cik). first-seen = seed silently
+-- (no event); a plan_active 0->1 transition = ADOPTION, 1->0 = TERMINATION (best-
+-- effort, lower confidence). A cold-start empty table therefore emits NO events.
+CREATE TABLE IF NOT EXISTS insider_10b5_plans (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticker         TEXT NOT NULL,
+    insider_cik    TEXT NOT NULL,
+    insider_name   TEXT,
+    plan_active    INTEGER NOT NULL DEFAULT 0,   -- last-observed 10b5-1 plan flag
+    last_txn_date  TEXT,                          -- transactionDate of the last Form 4 seen
+    first_seen_at  REAL NOT NULL,
+    last_seen_at   REAL NOT NULL,
+    terminated_at  REAL,                          -- when a 1->0 transition was inferred
+    UNIQUE(ticker, insider_cik)
+);
+CREATE INDEX IF NOT EXISTS idx_insider_10b5_ticker ON insider_10b5_plans(ticker);
+
+-- r13 Congressional (STOCK Act) trades — NON-EDGAR, free House Clerk PTR PDFs.
+-- One row per distinct (doc_id, ticker, txn_type, txn_date) transaction line.
+CREATE TABLE IF NOT EXISTS congress_trades (
+    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    doc_id             TEXT NOT NULL,
+    ticker             TEXT NOT NULL,
+    member_name        TEXT,
+    txn_type           TEXT,            -- P (purchase) | S (sale) | E (exchange)
+    txn_date           TEXT,            -- MM/DD/YYYY from the PTR
+    notification_date  TEXT,
+    amount_range       TEXT,            -- e.g. "$1,001 - $15,000"
+    amount_low         REAL,            -- parsed lower bound (for a rough size sort)
+    filed_date         TEXT,            -- index FilingDate (disclosure date)
+    logged_at          REAL NOT NULL,
+    UNIQUE(doc_id, ticker, txn_type, txn_date)
+);
+CREATE INDEX IF NOT EXISTS idx_congress_ticker ON congress_trades(ticker, logged_at);
+
 -- #39 chat-memory rollups: durable, never-overwritten per-channel summaries of the bot's
 -- Discord chat sessions, so it can recall a month-old conversation after a restart wipe.
 -- Identity is the EXACT raw archive's sha256 (NOT date overlap), so the cleanup cron can
@@ -1217,6 +1278,9 @@ async def init_db() -> AsyncConnection:
         (26, "r21 NFCI shadow cols + r22 macro_legs real_yield"),
         (27, "r12 finra_short_interest settlement series (days-to-cover trend)"),
         (28, "r20 market_breadth_daily RSP/SPY participation proxy (descriptive)"),
+        (29, "r27 form144_filings intent-to-sell shadow log"),
+        (30, "r28 insider_10b5_plans plan-state (adoption/termination)"),
+        (31, "r13 congress_trades House STOCK-Act PTR shadow log"),
     ]
     for version, note in _schema_versions:
         await _db.execute(
@@ -1882,6 +1946,212 @@ async def get_trading_halt(
         "resumption_ts": row["resumption_ts"],
         "alerted_at": float(row["alerted_at"]),
     }
+
+
+# ── Stage-6 insider-disclosure accessors (r27 / r28 / r13). Shadow-only: written
+#    by the gated background loops, read by the (future) insider_display context
+#    legs. All INSERT-OR-IGNORE / upsert so a re-scan of the same feed is idempotent.
+
+async def upsert_form144_filing(
+    ticker: str,
+    accession_number: str,
+    cik: str | None = None,
+    person: str | None = None,
+    relationship: str | None = None,
+    units_sold: float | None = None,
+    aggregate_value: float | None = None,
+    approx_sale_date: str | None = None,
+    plan_adoption_date: str | None = None,
+    is_planned: bool = False,
+    filed_at: str | None = None,
+    logged_at: float | None = None,
+) -> bool:
+    """Shadow-log one parsed Form 144 (r27). Idempotent on accession_number.
+
+    Returns True when a NEW row was inserted, False when the 144 was already logged.
+    """
+    if logged_at is None:
+        logged_at = time.time()
+    conn = await get_db()
+    cursor = await conn.execute(
+        """INSERT INTO form144_filings
+               (ticker, cik, accession_number, person, relationship, units_sold,
+                aggregate_value, approx_sale_date, plan_adoption_date, is_planned,
+                filed_at, logged_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(accession_number) DO NOTHING""",
+        (ticker, cik, accession_number, person, relationship, units_sold,
+         aggregate_value, approx_sale_date, plan_adoption_date, 1 if is_planned else 0,
+         filed_at, logged_at),
+    )
+    await conn.commit()
+    return (cursor.rowcount or 0) > 0
+
+
+async def get_form144_recent(ticker: str, since_ts: float) -> list[dict]:
+    """Return Form 144 rows for a ticker logged at/after ``since_ts`` (newest first).
+
+    r27: powers the intent-to-sell context leg (materiality gate is applied by the
+    caller). Empty list on no rows / missing table.
+    """
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT ticker, cik, accession_number, person, relationship, units_sold,
+                  aggregate_value, approx_sale_date, plan_adoption_date, is_planned,
+                  filed_at, logged_at
+           FROM form144_filings
+           WHERE ticker = ? AND logged_at >= ?
+           ORDER BY logged_at DESC""",
+        (ticker, since_ts),
+    )
+    rows = await cursor.fetchall()
+    return [
+        {
+            "ticker": r["ticker"],
+            "cik": r["cik"],
+            "accession_number": r["accession_number"],
+            "person": r["person"],
+            "relationship": r["relationship"],
+            "units_sold": r["units_sold"],
+            "aggregate_value": r["aggregate_value"],
+            "approx_sale_date": r["approx_sale_date"],
+            "plan_adoption_date": r["plan_adoption_date"],
+            "is_planned": bool(r["is_planned"]),
+            "filed_at": r["filed_at"],
+            "logged_at": float(r["logged_at"]),
+        }
+        for r in rows
+    ]
+
+
+async def get_insider_10b5_plan(ticker: str, insider_cik: str) -> dict | None:
+    """Return the stored 10b5-1 plan-state row for (ticker, insider_cik), or None.
+
+    r28: None means this insider has never been seen -> the caller SEEDS state
+    silently (no adoption/termination event on first sight).
+    """
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT ticker, insider_cik, insider_name, plan_active, last_txn_date,
+                  first_seen_at, last_seen_at, terminated_at
+           FROM insider_10b5_plans
+           WHERE ticker = ? AND insider_cik = ?
+           LIMIT 1""",
+        (ticker, insider_cik),
+    )
+    row = await cursor.fetchone()
+    if row is None:
+        return None
+    return {
+        "ticker": row["ticker"],
+        "insider_cik": row["insider_cik"],
+        "insider_name": row["insider_name"],
+        "plan_active": int(row["plan_active"]),
+        "last_txn_date": row["last_txn_date"],
+        "first_seen_at": float(row["first_seen_at"]),
+        "last_seen_at": float(row["last_seen_at"]),
+        "terminated_at": float(row["terminated_at"]) if row["terminated_at"] is not None else None,
+    }
+
+
+async def upsert_insider_10b5_plan(
+    ticker: str,
+    insider_cik: str,
+    insider_name: str | None,
+    plan_active: bool,
+    last_txn_date: str | None,
+    terminated_at: float | None = None,
+) -> None:
+    """Persist 10b5-1 plan-state for (ticker, insider_cik). r28.
+
+    first_seen_at is set once (on the seeding insert); last_seen_at + plan_active
+    are refreshed each scan. terminated_at is stamped only when a 1->0 transition
+    is inferred by the caller.
+    """
+    now = time.time()
+    conn = await get_db()
+    await conn.execute(
+        """INSERT INTO insider_10b5_plans
+               (ticker, insider_cik, insider_name, plan_active, last_txn_date,
+                first_seen_at, last_seen_at, terminated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(ticker, insider_cik) DO UPDATE SET
+               insider_name  = excluded.insider_name,
+               plan_active   = excluded.plan_active,
+               last_txn_date = excluded.last_txn_date,
+               last_seen_at  = excluded.last_seen_at,
+               terminated_at = excluded.terminated_at""",
+        (ticker, insider_cik, insider_name, 1 if plan_active else 0, last_txn_date,
+         now, now, terminated_at),
+    )
+    await conn.commit()
+
+
+async def insider_10b5_plans_count() -> int:
+    """Total rows in insider_10b5_plans. r28: a 0 count == cold-start (seed silently)."""
+    conn = await get_db()
+    cursor = await conn.execute("SELECT COUNT(*) AS n FROM insider_10b5_plans")
+    row = await cursor.fetchone()
+    return int(row["n"]) if row else 0
+
+
+async def insert_congress_trade(
+    doc_id: str,
+    ticker: str,
+    member_name: str | None = None,
+    txn_type: str | None = None,
+    txn_date: str | None = None,
+    notification_date: str | None = None,
+    amount_range: str | None = None,
+    amount_low: float | None = None,
+    filed_date: str | None = None,
+    logged_at: float | None = None,
+) -> bool:
+    """Shadow-log one Congressional PTR transaction line (r13). Idempotent on
+    (doc_id, ticker, txn_type, txn_date). Returns True on a NEW row."""
+    if logged_at is None:
+        logged_at = time.time()
+    conn = await get_db()
+    cursor = await conn.execute(
+        """INSERT INTO congress_trades
+               (doc_id, ticker, member_name, txn_type, txn_date, notification_date,
+                amount_range, amount_low, filed_date, logged_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(doc_id, ticker, txn_type, txn_date) DO NOTHING""",
+        (doc_id, ticker, member_name, txn_type, txn_date, notification_date,
+         amount_range, amount_low, filed_date, logged_at),
+    )
+    await conn.commit()
+    return (cursor.rowcount or 0) > 0
+
+
+async def get_congress_trades(ticker: str, since_ts: float) -> list[dict]:
+    """Return congress_trades rows for a ticker logged at/after ``since_ts``. r13."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT doc_id, ticker, member_name, txn_type, txn_date, notification_date,
+                  amount_range, amount_low, filed_date, logged_at
+           FROM congress_trades
+           WHERE ticker = ? AND logged_at >= ?
+           ORDER BY logged_at DESC""",
+        (ticker, since_ts),
+    )
+    rows = await cursor.fetchall()
+    return [
+        {
+            "doc_id": r["doc_id"],
+            "ticker": r["ticker"],
+            "member_name": r["member_name"],
+            "txn_type": r["txn_type"],
+            "txn_date": r["txn_date"],
+            "notification_date": r["notification_date"],
+            "amount_range": r["amount_range"],
+            "amount_low": r["amount_low"],
+            "filed_date": r["filed_date"],
+            "logged_at": float(r["logged_at"]),
+        }
+        for r in rows
+    ]
 
 
 async def check_alert_cooldown(

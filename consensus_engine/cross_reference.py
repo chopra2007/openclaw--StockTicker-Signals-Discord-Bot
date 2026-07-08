@@ -590,6 +590,16 @@ def _parse_form4_for_graduation(raw_xml: str) -> Optional[dict]:
     plan_flag_seen = bool(footnote_nodes)
     is_planned = bool(footnote_text) and is_10b5_1(footnote_text)
 
+    # r28: the STRUCTURED 10b5-1 checkbox the 2023 amendments added to Form 4/5.
+    # <aff10b5One>1</aff10b5One> (a top-level flag; value "1" = the transaction was
+    # made under a Rule 10b5-1(c) plan). Pinned live against NVDA Form 4s. This is
+    # more reliable than the footnote matcher, which stays the guaranteed fallback.
+    aff_node = root.find(".//aff10b5One")
+    structured_plan_flag_seen = aff_node is not None
+    is_10b5_1_structured = structured_plan_flag_seen and (aff_node.text or "").strip() == "1"
+    reporter_cik = _val(root, "rptOwnerCik")
+    reporter_name = _val(root, "rptOwnerName") or "Unknown"
+
     buy_dollars = 0.0
     buy_date = ""
     has_sell = False
@@ -617,6 +627,13 @@ def _parse_form4_for_graduation(raw_xml: str) -> Optional[dict]:
         "buy_dollars": buy_dollars,
         "buy_date": buy_date,
         "has_sell": has_sell,
+        # r28 additive fields (existing I5 consumers ignore them; the 2-tuple
+        # _run_sec_check contract and _SecGraduation are untouched):
+        "is_10b5_1_structured": is_10b5_1_structured,
+        "structured_plan_flag_seen": structured_plan_flag_seen,
+        "reporter_cik": reporter_cik,
+        "reporter_name": reporter_name,
+        "txn_date": buy_date or "",
     }
 
 

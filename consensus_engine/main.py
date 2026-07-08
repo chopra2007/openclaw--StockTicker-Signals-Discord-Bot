@@ -401,6 +401,76 @@ async def sec_form4_cluster_loop(stop_event: asyncio.Event) -> None:
             continue
 
 
+async def sec_form144_loop(stop_event: asyncio.Event) -> None:
+    """r27: background loop — scan recent Form 144 (intent-to-sell) notices and
+    shadow-log every parsed 144 to form144_filings. CONTEXT ONLY: no standalone
+    Discord alert. Gated by features.form144.enabled (default OFF) and
+    scanners.sec_background_watchers_enabled (checked at call site). Interval is
+    staggered wide from the form4 cluster / graduation paths — they share the
+    'sec_edgar' rate limiter — so the live cluster/enrichment paths aren't throttled.
+    """
+    while not stop_event.is_set():
+        if cfg.get("features.form144.enabled", False):
+            try:
+                from consensus_engine.scanners.sec_form144 import scan_form144_filings
+                results = await scan_form144_filings()
+                material = sum(1 for r in results if r.passes_materiality)
+                if results:
+                    log.info("[r27] form144 scan: %d ticker(s) with 144s, %d material",
+                             len(results), material)
+            except Exception as e:
+                log.error("sec_form144_loop error: %s", e, exc_info=True)
+        interval = cfg.get("intervals.form144_loop", 21600)
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=interval)
+        except asyncio.TimeoutError:
+            continue
+
+
+async def insider_10b5_plans_loop(stop_event: asyncio.Event) -> None:
+    """r28: background loop — track 10b5-1 plan adoption/termination state per
+    (ticker, insider) from the structured Form 4 <aff10b5One> flag. CONTEXT ONLY;
+    cold-start empty table emits NO events (first sight seeds silently). Gated by
+    features.insider_10b5_plans.enabled (default OFF) + sec_background_watchers_enabled.
+    """
+    while not stop_event.is_set():
+        if cfg.get("features.insider_10b5_plans.enabled", False):
+            try:
+                from consensus_engine.scanners.insider_10b5 import scan_10b5_plan_events
+                events = await scan_10b5_plan_events()
+                if events:
+                    log.info("[r28] 10b5-1 plan events: %d", len(events))
+            except Exception as e:
+                log.error("insider_10b5_plans_loop error: %s", e, exc_info=True)
+        interval = cfg.get("intervals.insider_10b5_plans_loop", 28800)
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=interval)
+        except asyncio.TimeoutError:
+            continue
+
+
+async def congress_trades_loop(stop_event: asyncio.Event) -> None:
+    """r13: background loop — scan the free House Clerk PTR feed for trades touching
+    tracked tickers and shadow-log them to congress_trades. CONTEXT ONLY (STOCK-Act
+    reports lag ~45 days); no standalone alert. Gated by
+    features.congress_trades.enabled (default OFF)."""
+    while not stop_event.is_set():
+        if cfg.get("features.congress_trades.enabled", False):
+            try:
+                from consensus_engine.scanners.congress_trades import scan_congress_trades
+                results = await scan_congress_trades()
+                if results:
+                    log.info("[r13] congress scan: %d ticker(s) with disclosed trades",
+                             len(results))
+            except Exception as e:
+                log.error("congress_trades_loop error: %s", e, exc_info=True)
+        interval = cfg.get("intervals.congress_trades_loop", 86400)
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=interval)
+        except asyncio.TimeoutError:
+            continue
+
+
 async def _run_options_flow_scan() -> None:
     """#18: one options-flow scan cycle — detect unusual flow on the watchlist,
     fire an instant alert per ticker (top contract, cooldown-gated), and persist
@@ -933,6 +1003,8 @@ async def run_live(stop_event: asyncio.Event):
                 asyncio.create_task(sec_8k_watcher_loop(combined_stop)),
                 asyncio.create_task(sec_edgar_polling_loop(combined_stop)),
                 asyncio.create_task(sec_form4_cluster_loop(combined_stop)),
+                asyncio.create_task(sec_form144_loop(combined_stop)),          # r27 (flag OFF)
+                asyncio.create_task(insider_10b5_plans_loop(combined_stop)),   # r28 (flag OFF)
             ])
         tasks.extend([
             asyncio.create_task(atlas_worker_loop(combined_stop)),
@@ -945,6 +1017,7 @@ async def run_live(stop_event: asyncio.Event):
             asyncio.create_task(finra_short_volume_loop(combined_stop)),
             asyncio.create_task(finra_short_interest_loop(combined_stop)),
             asyncio.create_task(trading_halts_loop(combined_stop)),
+            asyncio.create_task(congress_trades_loop(combined_stop)),         # r13 (flag OFF)
         ])
         tasks.extend([
             asyncio.create_task(ingest_server.serve(combined_stop, _record_source_ok, _record_source_error)),

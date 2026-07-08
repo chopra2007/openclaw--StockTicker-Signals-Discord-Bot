@@ -21,8 +21,11 @@ log = logging.getLogger("consensus_engine.scanner.sec_edgar")
 
 _USER_AGENT = "OpenClaw Signal Engine (ak@openclaw.dev)"
 
-# Forms we care about and their significance
-_RELEVANT_FORMS = {"8-K", "10-K", "10-Q", "4", "SC 13D", "SC 13G"}
+# Forms we care about and their significance.
+# NOTE (r27): '144' (insider intent-to-sell) is surfaced so sec_form144.py can read
+# it from the same CIK submissions JSON. It is CONTEXT-ONLY — classify_filing_significance
+# never scores it and every existing form=='4' filter is unaffected (144 != 4).
+_RELEVANT_FORMS = {"8-K", "10-K", "10-Q", "4", "144", "SC 13D", "SC 13G"}
 
 # Cache: ticker → CIK (loaded once from SEC's company_tickers.json)
 _ticker_to_cik: dict[str, str] = {}
