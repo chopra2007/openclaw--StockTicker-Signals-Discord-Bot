@@ -36,7 +36,7 @@ Stop the gateway-model sync script from breaking the gateway when run as root by
 
 Rewrite the done-checklist so each item is tagged by code surface and only the relevant tags run for a given change, instead of forcing every session to verify every check every time.
 
-## 6. Improve what the !all command shows
+## 6. Improve what the !all command shows — ONGOING
 
 **File:** `all-command-quality.md`
 
@@ -120,7 +120,7 @@ Teach the bot to read near-real-time options data and alert on unusual flow. **S
 
 Figure out whether YouTube database signals (video mentions, extracted levels) are currently weighted in the `!all` score, and whether they should be — then implement if the answer is yes. **DONE 2026-06-01 (run `latency-speedup` Pass-0, code-verified):** YouTube DB signals ALREADY feed the numeric score — `cross_reference.py` adds 15/10/5 pts by conviction → `breakdown.youtube` → `models.total`; rendered as `yt=N` in the footer (`embed.py:502`); direction parity via `_BULLISH_BIASED_FIELDS`. May-31 commit `2196ba5` made it visible (NVDA `yt=15`, AMD `yt=5`). No build needed (a well-evidenced "already weighted — here's where" is a valid done). Weight values 5/10/15 left unchanged (conviction-tiered, shared with the main scorer — changing them would alter live alerts).
 
-## 20. Turn the Wolf market newsletter into a trade-finding brain — phase-1/2/3/4 LIVE
+## 20. Turn the Wolf market newsletter into a trade-finding brain — phase-1/2/3/4 LIVE — ONGOING
 
 **File:** `wolf-macro-brain.md`
 
@@ -291,7 +291,7 @@ When the bot answers a heavy question that needs lots of tool calls, some AI mod
 
 Every number the bot shows (alert score, !all breakdown, contradiction, market mood, LLM confidence) is on a different scale, so the user can't tell what's high or low — normalize all user-facing readings to one consistent 0–100 low→high display, without changing the underlying math.
 
-## 47. Build an accurate market top/bottom detector (research how others did it) — !market dashboard LIVE 2026-06-29; predictor PARKED (paid data deferred, no free path)
+## 47. Build an accurate market top/bottom detector (research how others did it) — !market dashboard LIVE 2026-06-29 — PARKED: predictor needs paid data (deferred); free re-test path accruing
 
 **File:** `vol-indicator-accuracy-research.md`
 
@@ -353,7 +353,7 @@ Ship 15 reliability/efficiency fixes to the live bot (stop hangs, dead-source re
 
 Begin a cheap forward-log of the inputs and outcomes future features will need — most importantly grading every alert at 5 and 20 days later (not just 1 hour and 24 hours) — so the next time we build a slow-signal feature it already has history to prove itself on instead of failing for lack of recorded data.
 
-## 56. Buy 2 years of options history and backtest the options signals — PARKED (paid data deferred; free forward-log path accruing via #55)
+## 56. Buy 2 years of options history and backtest the options signals — PARKED: needs paid options history (~$29, deferred); free forward-log accruing via #55
 
 **File:** `options-history-backtest.md`
 
@@ -437,7 +437,7 @@ Stop two social crowds (StockTwits + Reddit) from counting as two independent vo
 
 Most of the 644 MB database is one table of expired "a source mentioned a ticker" records (99.88% past expiry); pruning/archiving them could halve the DB and every nightly backup — but ONLY after proving nothing (live queries, backtests, the eval tool, future features) still needs that history.
 
-## 67. Finish the feature-idea sweep, reusing the already-saved codebase map — BUILD COMPLETE + SHADOW SOAK LIVE (16 features shipped flag-OFF 2026-07-08; data now accruing); go-live pending
+## 67. Finish the feature-idea sweep, reusing the already-saved codebase map — BUILD COMPLETE; 16 features shipped flag-OFF 2026-07-08, go-live pending — SOAKING until 2026-07-15
 
 **SHADOW SOAK (2026-07-08, added after user pushback "are you sure you're collecting all the pertinent shadow data?"):** The build shipped everything flag-OFF, but I discovered NOTHING was actually accruing — (a) the live engine had been running July-5 code the whole time (never restarted onto the new code), and (b) 5 data-collecting features gated their DATA-WRITING behind the same off-switch (dormant, not shadow-logging). FIXED + PROVEN LIVE: restarted `consensus-engine.service` (new PID, schema 31, healthy); flipped the 3 write-only collectors ON (form144/insider_10b5_plans/congress_trades — verified no alert code); added a `collect` sub-flag for short-interest (fills table, score leg still OFF → byte-identical) + a daily breadth snapshot in market_daily (commit `dcb81e1`, full gate passed). VERIFIED real rows in the live DB: finra_short_interest 1317, form144_filings 30, insider_10b5_plans 12, congress_trades 8, market_breadth_daily 1, macro_legs_daily 1; NFCI write path proven on a scratch DB (nfci_index=-0.515; today's live row caught a cold-start transient=None, self-heals tomorrow). Loops re-run on their intervals (SI 12h / 144 6h / 10b5 8h / congress 24h / breadth+macro+NFCI daily). The 7 options-card readouts need no soak (validate by eye once). NO live alert/score changed. Go-live (flag flips) is still a separate per-feature user decision.
 
@@ -450,7 +450,7 @@ Most of the 644 MB database is one table of expired "a source mentioned a ticker
 
 Original goal: generate the broad 10-30-idea feature menu for the bot by finishing the `next-features-jul2026` discover run, reusing the saved codebase map instead of re-scanning — the from-pass resume capability it needed now exists and was used.
 
-## 68. Discover plugin — living record (versions, insights, and next changes)
+## 68. Discover plugin — living record (versions, insights, and next changes) — ONGOING
 
 **File:** `discover-plugin-logbook.md`
 
@@ -458,7 +458,7 @@ Original goal: generate the broad 10-30-idea feature menu for the bot by finishi
 
 The single ongoing home for the discover plugin's evolution — its version history, what worked/didn't and why, reusable facts, and the build-ready spec for the next version (per-step model/thinking-depth, a Quick/Balanced/Max dial, and a cleaner click-to-choose setup).
 
-## 69. Auto-run a separate verifier when work is claimed done
+## 69. Auto-run a separate verifier when work is claimed done — DONE 2026-07-07
 
 **File:** `verifier-stop-hook.md`
 

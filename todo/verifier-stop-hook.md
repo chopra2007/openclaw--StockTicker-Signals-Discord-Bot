@@ -1,6 +1,6 @@
 # Auto-run a separate verifier when work is claimed done (Stop hook)
 
-**Status:** OPEN
+**Status:** DONE 2026-07-07 — hook LIVE at `/root/.claude/hooks/verify-on-done.py`, wired into `/root/.claude/settings.json`
 **Created:** 2026-07-06
 
 **CURRENT STATUS (2026-07-06):** Idea agreed, nothing built. Goal = a Claude Code **Stop hook** that

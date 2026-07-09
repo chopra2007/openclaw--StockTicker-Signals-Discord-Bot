@@ -43,6 +43,39 @@ No confirmation needed — execute both steps immediately on trigger.
 - ✅ Good: `## 14. Fix missing direction on manual !all alerts`
 - ❌ Bad: `## 14. Cross-ref scorer's breakdown.direction is None on manual !all`
 
+## Status markers
+
+An item's status lives in a marker at the END of its `## N. ...` header. Five statuses; the marker
+grammar is strict so `scripts/todo_switch_state.py` can parse it. A trailing parenthetical after the
+marker is allowed (`— DONE 2026-06-15 (verified working)`).
+
+| Status | Header marker | Means | Shows in "what's left?" |
+|---|---|---|---|
+| Active | *(no marker)* | Real work you can pick up today | ✅ yes |
+| Soaking | `— SOAKING until YYYY-MM-DD` | Built and live; waiting on time (a shadow soak, a live-alert watch) | only once the date passes |
+| Parked | `— PARKED: <reason>` | Blocked on something outside our control (money, an upstream API). Nothing accrues; nothing changes on its own | ❌ no |
+| Ongoing | `— ONGOING` | A feature that is never "finished" — a living record, or a menu you pick one item from per session | ❌ no |
+| Complete | `— DONE YYYY-MM-DD` | Finished | ❌ no (shows in the full list) |
+
+Rules that keep the statuses honest:
+
+- **Soaking must name a date.** No date = no marker; it stays Active. When the date passes the item
+  becomes work again: `--check` prints a `soak window ended` line and the list renders it
+  `Soaking (due)` in the Status column and includes it in "what's left". At that point either close it
+  (`— DONE`) or drop it back to Active with a reason.
+- **Parked must name the blocker** in the marker itself, in a few plain words — `— PARKED: needs paid
+  options history (~$29)`. If the blocker is something we could clear ourselves, it is Active, not Parked.
+- **Ongoing items still need a current-status line.** They're hidden from "what's left", not from
+  maintenance. An Ongoing item with a stale body is worse than an Active one, because nothing nags it.
+- Parked and Ongoing never appear in "what's left", but ALWAYS appear in the full list — otherwise
+  they rot unseen.
+
+Why this exists (2026-07-08): the two-status system (Active / Complete) forced everything unfinished
+into Active, so "what's left on the todo list?" returned 13 items of which ~5 weren't workable — a
+shadow soak, two money-blocked research items, and two never-ending feature menus. Statuses that
+answer *"can I work on it, is it waiting on the clock, is it waiting on me to spend, or does it never
+end?"* make that question return only real work.
+
 ## Completion marker
 
 When a task is done, mark its TODO.md header `— DONE YYYY-MM-DD`. Keep both the index entry and the detail file as a soak window. Remove ONLY once the work is proven stable AND the user has explicitly approved removal. Never auto-delete soaked items without the user's say-so.
@@ -73,25 +106,28 @@ When an item is removed (post-soak), its number is retired forever. The next new
 
 Render the backlog as a four-column **Markdown pipe table**: `#`, `Task`, `Created`, `Status`. Use real pipe-table syntax (`| ... |`) so the chat UI renders it as an actual table — NOT a fenced code block. The phrasing the user uses determines which rows to include.
 
-**Open items only** — when the user asks for what's *remaining* or *outstanding*. Triggers include: "what's left on the to do list?", "what's remaining?", "what's open?", "what's pending?", "what still needs doing?", "what's outstanding?". Include only rows whose header has no `— DONE` marker.
+**Open items only** — when the user asks for what's *remaining* or *outstanding*. Triggers include: "what's left on the to do list?", "what's remaining?", "what's open?", "what's pending?", "what still needs doing?", "what's outstanding?". Include only `Active` rows plus `Soaking (due)` rows (soak date passed). Exclude `Complete`, `Parked`, `Ongoing`, and in-window `Soaking`.
 
-**Everything (open + completed)** — when the user asks for the full list. Triggers include: "what's on the to do list?", "the whole todo list", "the entire todo list", "show me all todos", "everything on the list", a bare `/todo` with no args. Include every row.
+**Everything (open + completed)** — when the user asks for the full list. Triggers include: "what's on the to do list?", "the whole todo list", "the entire todo list", "show me all todos", "everything on the list", a bare `/todo` with no args. Include every row, every status.
 
 Two-source render:
 1. `grep -nE '^## ' TODO.md` → number, title, DONE marker.
 2. `grep -h '^\*\*Created:\*\*' todo/<filename>.md` → Created date for each row. Detail filename comes from the `**File:**` line in TODO.md.
 
-3. For items carrying a `**Switches:**` line, run `python3 scripts/todo_switch_state.py` and trust its live config read over the prose — an item whose switches are all in their expected state but still `Active` is stale: flag it `⚠️ verify/close`, don't render it as plain pending work.
+3. For items carrying a `**Switches:**` line, run `python3 scripts/todo_switch_state.py` and trust its live config read over the prose — an **Active** item whose switches are all in their expected state is stale: flag it `⚠️ verify/close`, don't render it as plain pending work. (Soaking/Parked/Ongoing items are NOT nagged — all-switches-live is their normal state.)
 
-Use `Active` for open items, `Complete` for items whose header ends `— DONE YYYY-MM-DD`. Strip the `— DONE YYYY-MM-DD` suffix from the displayed Task. Show Created on every row (active and complete). If a detail file is missing the `**Created:**` line, BACKFILL it (insert the line right after `**Status:**` in the detail file, using the DONE date as the proxy if the item is complete, otherwise the date the detail file was first added to git) — don't render `—`.
+Status column values: `Active`, `Soaking` (in window — append the date, e.g. `Soaking → 07-15`), `Soaking (due)` (date passed), `Parked`, `Ongoing`, `Complete`. Strip the status marker from the displayed Task. Show Created on every row, whatever the status. If a detail file is missing the `**Created:**` line, BACKFILL it (insert the line right after `**Status:**` in the detail file, using the DONE date as the proxy if the item is complete, otherwise the date the detail file was first added to git) — don't render `—`.
 
 Output format (verbatim — keep the header + separator row exactly so the renderer recognises it as a table):
 
 ```
-| #  | Task                              | Created    | Status   |
-|----|-----------------------------------|------------|----------|
-| 1  | Plain-English summary of the task | 2026-05-09 | Active   |
-| 4  | Another task                      | 2026-05-22 | Complete |
+| #  | Task                              | Created    | Status         |
+|----|-----------------------------------|------------|----------------|
+| 1  | Plain-English summary of the task | 2026-05-09 | Active         |
+| 4  | Another task                      | 2026-05-22 | Complete       |
+| 6  | A never-ending feature menu       | 2026-05-12 | Ongoing        |
+| 47 | Blocked on money                  | 2026-06-18 | Parked         |
+| 67 | Built, live, watching             | 2026-07-06 | Soaking → 07-15 |
 ```
 
 The Task column is the `## N. <title>` from TODO.md verbatim (minus any `— DONE …` suffix). Don't use angle-bracket placeholders like `<TICKER>` in titles — they may be parsed as HTML by the table renderer; write `the !all command` or use square brackets.
