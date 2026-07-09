@@ -3,6 +3,8 @@
 **Status:** OPEN
 **Created:** 2026-06-29
 
+**CURRENT STATUS (2026-07-08):** LIVE end-to-end (all 5 switches ON, login renewed 07-08, token expires ~07-15). One thing keeps this OPEN: the Schwab-vs-yfinance flow-loop shadow-compare has now diverged **4 runs in a row** (07-08: 173 vs 164 hits, 14 Schwab-only / 5 yfinance-only, `detail_20260708_1008.csv`; prior: 07-01 23/4, 07-06 14/4, 07-07 19/2) — the owed fix is tuning `options_flow.min_vol_oi`/`min_volume`/`min_premium_usd` (or a short confirmation delay) for Schwab's real-time speed. Full running history in the TODO.md #57 entry. Next: re-tune thresholds → then close.
+
 **CURRENT STATUS (2026-07-02 eve):** BUILT + LIVE — and the last piece, the autonomous flow-loop alert
 switch, is now **FLIPPED ON** (watched flip, user-approved). `flow_loop_enabled: true`; engine restarted
 + verified healthy (active/running, DEGRADED_MODE was a 60s post-restart transient; gate `main.py:424-427`
