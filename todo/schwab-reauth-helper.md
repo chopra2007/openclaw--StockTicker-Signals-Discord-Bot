@@ -28,6 +28,35 @@ races a 30-second timer and failed twice before working.
   exits instantly) fixed it; the 3rd attempt succeeded (HTTP 200, 7-day token, verified
   live SPY quote).
 
+## Requested addition — alert to #errors when Schwab is unreachable (user, 2026-07-08)
+
+**Not built yet. Scope this with the helper.**
+
+- **What the user wants:** any time Schwab is unreachable, post an alert to the new Discord
+  **`#errors`** channel (id `1521022584072831057`) that **@-mentions the user**
+  (id `615525529537216513`, the same id the analyst-swarm alert pings).
+- **"Unreachable" covers at least three distinct failures** — decide whether each fires, and
+  keep them distinguishable in the alert text:
+  1. **Token lapsed** (the weekly re-login is overdue) → the feed has silently fallen back to
+     free ~15-min yfinance data. This is the failure that motivated this whole item.
+  2. **Auth rejected** (`invalid_grant` / `invalid_client` on refresh) → creds or token broken.
+  3. **API down / network error / HTTP 5xx / timeout** on a live call.
+- **Design cautions (learn from the drift-alert and dead-source work):**
+  - **Throttle it.** Schwab being down for an hour must not post 60 alerts. One alert per distinct
+    failure state, then silence until the state changes (mirror the per-ticker cooldown pattern, or
+    the `wolf_confluence_dark_watch` "only fire on transition" approach).
+  - **Fire on transition, and again on recovery** ("Schwab feed restored") so a resolved outage
+    doesn't leave a scary unanswered @-mention.
+  - **@-mentions must survive the anti-ping guard** — the swarm alert proved the user id gets
+    through; reuse that path rather than inventing a new one.
+  - A `#errors` channel is a new alert *destination*. Check whether other error classes should
+    route there too, or whether this stays Schwab-only, before generalizing.
+- **Files likely involved:** `consensus_engine/scanners/schwab_client.py` (where the failures are
+  actually observed), `scripts/schwab_reauth_check.py` (already knows about lapsed tokens, warns
+  only), and whatever sends to a channel id today (the drift alert uses
+  `$DISCORD_BRIEFING_CHANNEL_ID`, so a `DISCORD_ERRORS_CHANNEL_ID` env var in **both**
+  `.env` and `.env.service` is the likely shape).
+
 ## Possible next steps (priority-ordered)
 1. **`scripts/schwab_login.py`** — one command that (a) prints/opens the authorize URL
    built from `SCHWAB_APP_KEY` + `SCHWAB_CALLBACK_URL`, (b) accepts the pasted redirect
