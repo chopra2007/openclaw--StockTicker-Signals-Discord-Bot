@@ -846,16 +846,16 @@ features:
   trading_halts: { enabled: false }                                                           # r14 — Nasdaq/NYSE trade-halt tripwire (instant alert on tracked-ticker halt). Default OFF; loop dormant until flipped
   skew_index: { enabled: false }                                                              # r8 — CBOE ^SKEW tail-risk reader. Standalone module; now surfaced as an embed-only !all field. Default OFF
   # Stage-5 standalone-scanners (discover next-features-jul2026). ALL default OFF (shadow-first).
-  short_interest: { enabled: false, min_days_to_cover: 3.0, require_rising: true, term_cap: 3 } # r12 — FINRA settlement short-interest days-to-cover confluence leg + !short trend (loop dormant when OFF)
+  short_interest: { enabled: false, collect: true, min_days_to_cover: 3.0, require_rising: true, term_cap: 3 } # r12 — collect:true (SHADOW SOAK 2026-07-08) fills finra_short_interest via the loop; enabled:false keeps the days-to-cover SCORE leg OFF (breakdown byte-identical). !short trend + confluence leg both stay gated on .enabled ONLY.
   pead:           { enabled: false, min_days_after: 5, max_days_after: 45, min_surprise_pct: 2.0, faded_threshold_pct: 2.0, term_cap: 3 } # r17 — post-earnings drift (descriptive !all field + small capped confluence leg; silent inside earnings_magnitude's 5-day window)
-  market_breadth: { enabled: false, window_days: 20, trend_threshold_pct: 0.5 }                # r20 — RSP/SPY participation proxy in !market (descriptive-only; NEVER wired into score_ticker)
+  market_breadth: { enabled: false, shadow: true, window_days: 20, trend_threshold_pct: 0.5 }   # r20 — shadow:true (SHADOW SOAK 2026-07-08) makes market_daily write ONE market_breadth_daily row/run; enabled:false keeps the !market panel unchanged. Descriptive-only; NEVER wired into score_ticker.
   # Stage-6 insider-disclosure (discover next-features-jul2026). ALL default OFF (shadow-first).
   # CONTEXT legs only — never a standalone alert, never the score. Loops shadow-log to their
   # tables (form144_filings / insider_10b5_plans / congress_trades) until go-live justifies
   # wiring the insider_display context line onto the live !sec/!all/Score-card surfaces.
-  form144:            { enabled: false }                                                        # r27 — SEC Form 144 intent-to-sell (materiality gate in sec_watcher.min_form144_*)
-  insider_10b5_plans: { enabled: false }                                                        # r28 — Rule 10b5-1 plan adoption/termination state (structured aff10b5One flag; cold-start emits nothing)
-  congress_trades:    { enabled: false, freshness_days: 45, max_pdfs_per_cycle: 40 }            # r13 — House STOCK-Act PTR tracker (free House Clerk PDFs via pdfplumber; Senate deferred)
+  form144:            { enabled: true }                                                         # r27 — SHADOW-COLLECT ON 2026-07-08: write-only loop shadow-logs to form144_filings (no alert, no score). SEC Form 144 intent-to-sell (materiality gate in sec_watcher.min_form144_*)
+  insider_10b5_plans: { enabled: true }                                                         # r28 — SHADOW-COLLECT ON 2026-07-08: write-only loop shadow-logs to insider_10b5_plans (no alert, no score). Rule 10b5-1 plan adoption/termination state (structured aff10b5One flag; cold-start emits nothing)
+  congress_trades:    { enabled: true, freshness_days: 45, max_pdfs_per_cycle: 40 }             # r13 — SHADOW-COLLECT ON 2026-07-08: write-only PDF loop shadow-logs to congress_trades (no alert, no score). House STOCK-Act PTR tracker (free House Clerk PDFs via pdfplumber; Senate deferred)
   # Stage-3 options-chain legs (discover next-features-jul2026). Computed IN-THREAD from
   # compute_max_pain's already-fetched front weekly+monthly chains (no extra fetch);
   # embed-only, never in narrator/score. ALL default OFF (shadow-first). nearest_expirations

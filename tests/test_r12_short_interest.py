@@ -11,6 +11,7 @@ Tests:
 """
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import time
 from unittest.mock import AsyncMock, patch
@@ -18,6 +19,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from consensus_engine import config as cfg
+from consensus_engine.scanners import finra_short_interest as fsi
 from consensus_engine.scanners.finra_short_interest import (
     _parse_short_interest_csv,
     _validate_url,
@@ -230,3 +232,95 @@ async def test_score_ticker_flag_on_elevated(monkeypatch):
         })
         result = await score_ticker("NVDA", base_score=30, direction="long")
     assert result.breakdown.days_to_cover == 3
+
+
+# --------------------------------------------------------------------------- #
+# 6. SHADOW-SOAK split: collect (loop ingests) vs enabled (score leg)
+# --------------------------------------------------------------------------- #
+
+class _OneShotStop:
+    """Stop-event stub that lets finra_short_interest_loop run EXACTLY one iteration:
+    the while-guard is False on the first check, then True. wait() returns at once so
+    the loop never blocks on the real interval."""
+    def __init__(self):
+        self._checks = 0
+
+    def is_set(self) -> bool:
+        self._checks += 1
+        return self._checks > 1
+
+    async def wait(self) -> bool:
+        return True
+
+
+@pytest.mark.asyncio
+async def test_loop_ingests_when_collect_true_enabled_off(monkeypatch):
+    """collect:true, enabled:false -> the loop condition is TRUE, so ingest runs
+    (shadow-fills the table) even though the score leg stays OFF."""
+    _flag(monkeypatch, {"features.short_interest.enabled": False,
+                        "features.short_interest.collect": True})
+    calls = {"n": 0}
+
+    async def _fake_ingest(*a, **k):
+        calls["n"] += 1
+        return 0
+
+    monkeypatch.setattr(fsi, "ingest_short_interest", _fake_ingest)
+    await fsi.finra_short_interest_loop(_OneShotStop())
+    assert calls["n"] == 1, "collect:true must make the loop ingest"
+
+
+@pytest.mark.asyncio
+async def test_loop_skips_when_collect_and_enabled_both_off(monkeypatch):
+    """collect:false, enabled:false -> the loop condition is FALSE, so ingest is
+    never called (dormant, no table writes)."""
+    _flag(monkeypatch, {"features.short_interest.enabled": False,
+                        "features.short_interest.collect": False})
+    calls = {"n": 0}
+
+    async def _fake_ingest(*a, **k):
+        calls["n"] += 1
+        return 0
+
+    monkeypatch.setattr(fsi, "ingest_short_interest", _fake_ingest)
+    await fsi.finra_short_interest_loop(_OneShotStop())
+    assert calls["n"] == 0, "both flags off must keep the loop dormant"
+
+
+@pytest.mark.asyncio
+async def test_collect_on_enabled_off_breakdown_byte_identical(monkeypatch):
+    """SCORE leg stays gated on .enabled ONLY: with enabled:false, flipping collect on
+    must NOT read the short-interest table on the hot path and must leave the FULL
+    ScoreBreakdown byte-identical vs collect:false. Proves the soak changes no live score."""
+    async def _run(overrides):
+        calls: list[str] = []
+        with contextlib.ExitStack() as stack:
+            for p in _patch_fetchers():
+                stack.enter_context(p)
+            real = cfg.get
+            stack.enter_context(patch.object(
+                cfg, "get",
+                lambda k, d=None: overrides[k] if k in overrides else real(k, d)))
+            mdb = stack.enter_context(patch("consensus_engine.cross_reference.db"))
+            stack.enter_context(patch(
+                "consensus_engine.analysis.consolidation.consolidate_for_ticker",
+                new=AsyncMock(return_value=_FAKE_CONS)))
+            stack.enter_context(patch(
+                "consensus_engine.cross_reference._run_llm_score",
+                new_callable=AsyncMock, return_value=(0, "")))
+            mdb.get_signal_counts_by_source = AsyncMock(return_value={})
+            mdb.get_analyst_precision_lb = AsyncMock(return_value=None)
+            mdb.get_latest_finra_short_interest = AsyncMock(
+                side_effect=lambda t: calls.append("si") or None)
+            result = await score_ticker("NVDA", base_score=30, direction="long")
+        return result.breakdown, calls
+
+    bd_off, calls_off = await _run({"features.short_interest.enabled": False,
+                                    "features.short_interest.collect": False})
+    bd_collect, calls_collect = await _run({"features.short_interest.enabled": False,
+                                            "features.short_interest.collect": True})
+
+    assert bd_collect.days_to_cover == 0
+    assert not calls_collect, "collect-on/enabled-off must still skip the score-path DB read"
+    assert not calls_off
+    assert bd_off == bd_collect, "collect flag must leave the breakdown byte-identical"

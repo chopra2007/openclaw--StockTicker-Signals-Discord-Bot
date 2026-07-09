@@ -283,14 +283,17 @@ async def finra_short_interest_loop(stop_event) -> None:
     """Twice-daily FINRA settlement short-interest ingest so the r12 days-to-cover
     confluence leg has FRESH data.
 
-    No-op while features.short_interest.enabled is false. FINRA short interest
+    Ingests when features.short_interest.enabled OR features.short_interest.collect
+    is true (collect:true shadow-fills the table without turning on the r12 score
+    leg, which stays gated on .enabled ONLY in cross_reference). FINRA short interest
     updates only ~2x/month (published ~8 days after settlement), so a twice-daily
     re-check is ample; the upsert is idempotent."""
     from consensus_engine import config as cfg
     interval = int(cfg.get("intervals.finra_short_interest_loop", 43200))  # 12h
     while not stop_event.is_set():
         try:
-            if cfg.get("features.short_interest.enabled", False):
+            if (cfg.get("features.short_interest.enabled", False)
+                    or cfg.get("features.short_interest.collect", False)):
                 await ingest_short_interest()
         except Exception as exc:
             log.error("finra_short_interest_loop error: %s", exc, exc_info=True)

@@ -108,8 +108,13 @@ def _audit_flags_default_off(monkeypatch):
         # legs, the PEAD !all embed field, or the r20 !market breadth panel during the
         # baseline suite; dedicated feature tests force their own flag in-body.
         "features.short_interest.enabled": False,
+        # r12/r20 shadow-SOAK flags (collect-on/shadow-on in prod YAML 2026-07-08). Force
+        # OFF so the soak's write-path doesn't leak into the baseline suite (the loop-ingest
+        # and market_daily breadth-row tests force their own flag in-body).
+        "features.short_interest.collect": False,
         "features.pead.enabled": False,
         "features.market_breadth.enabled": False,
+        "features.market_breadth.shadow": False,
         # Stage-6 insider-disclosure (discover next-features-jul2026) — flag-default-OFF.
         # Force OFF so a future YAML flip can't run the r27 Form-144 / r28 10b5-1 /
         # r13 congress background loops or add an insider_display context line during

@@ -46,6 +46,7 @@ stop the timer or use --dry-run first.
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import logging
 import math
@@ -56,7 +57,7 @@ import sys
 import time
 import urllib.parse
 import urllib.request
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -352,6 +353,42 @@ def build_breadth_rows(db_path: str | None, days_limit: int | None) -> list[dict
 
 
 # ---------------------------------------------------------------------------
+# r20 (standalone-scanners): RSP/SPY(+IWM) participation-proxy — one shadow row.
+# Runs when features.market_breadth is enabled OR shadow (shadow:true in prod ->
+# collect forward data without touching the !market panel, which stays gated on
+# .enabled). DESCRIPTIVE-ONLY: the row accrues in market_breadth_daily and is
+# NEVER read by cross_reference.score_ticker.
+# ---------------------------------------------------------------------------
+
+def build_market_breadth_rows(days_limit: int | None = None) -> list[dict]:
+    """Build the r20 breadth snapshot row by REUSING the frozen market_breadth compute.
+
+    Calls ``market_breadth.compute_market_breadth`` (same ``_ratio_trend`` math + the
+    same ``prices.fetch_history`` RSP/SPY/IWM fetch) via ``asyncio.run`` — no ratio
+    math is re-implemented here. Returns a single-element list (today's UTC snapshot,
+    keyed like the forward-log) or [] when RSP/SPY is unavailable or the fetch fails.
+    ``days_limit`` is accepted for call-site symmetry but does not window a
+    point-in-time snapshot. Best-effort: a fetch failure logs and yields no row.
+    """
+    del days_limit  # snapshot is point-in-time; no windowing
+    from consensus_engine.analysis import market_breadth as mb
+    window_days = int(cfg.get("features.market_breadth.window_days", 20))
+    trend_threshold_pct = float(cfg.get("features.market_breadth.trend_threshold_pct", 0.5))
+    try:
+        read = asyncio.run(mb.compute_market_breadth(
+            window_days=window_days, trend_threshold_pct=trend_threshold_pct))
+    except Exception as e:  # noqa: BLE001 — a breadth-fetch failure must not crash the cron
+        log.warning("[breadth] compute failed (%s) — skipping market_breadth_daily row", e)
+        return []
+    if read is None:
+        log.warning("[breadth] RSP/SPY unavailable — skipping market_breadth_daily row")
+        return []
+    row = dict(read)
+    row["date_utc"] = datetime.now(timezone.utc).date().isoformat()
+    return [row]
+
+
+# ---------------------------------------------------------------------------
 # r22 (macro-fred): FRED macro-leg producer — fills the descriptive F4 shell
 # (macro_legs_daily). DESCRIPTIVE/shadow ONLY — never wired into cross_asset
 # (E2). Honors the pre-existing '# F4 (NEVER averaged into cross_asset)' decision.
@@ -622,7 +659,8 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
 def seed(conn: sqlite3.Connection, sector_rows: list[dict],
          factor_rows: list[dict], trend_rows: list[dict],
          breadth_rows: list[dict] | None = None,
-         macro_rows: list[dict] | None = None) -> None:
+         macro_rows: list[dict] | None = None,
+         market_breadth_rows: list[dict] | None = None) -> None:
     now_ts = time.time()
     for r in sector_rows:
         conn.execute(
@@ -671,6 +709,16 @@ def seed(conn: sqlite3.Connection, sector_rows: list[dict],
              r["cyc_def_div"], r["curve_t10y2y"], r["curve_t10y3m"],
              r["macro_multiplier"], r["legs_used_json"], r["real_yield_10y"], now_ts),
         )
+    for r in (market_breadth_rows or []):
+        conn.execute(
+            """INSERT OR REPLACE INTO market_breadth_daily
+               (date_utc, rsp_spy_ratio, rsp_spy_trend, iwm_spy_ratio,
+                iwm_spy_trend, breadth_state, window_days, computed_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (r["date_utc"], r["rsp_spy_ratio"], r["rsp_spy_trend"],
+             r["iwm_spy_ratio"], r["iwm_spy_trend"], r["breadth_state"],
+             r["window_days"], now_ts),
+        )
     conn.commit()
 
 
@@ -700,7 +748,8 @@ def run(db_path: str, days: int | None, dry_run: bool,
         log.error("[market_daily] empty close panel — check the store at %s",
                   _resolve_store_dir(store_dir))
         return {"sector_rs_daily": 0, "factor_rs_daily": 0, "trend_daily": 0,
-                "internal_breadth_daily": 0, "macro_legs_daily": 0}
+                "internal_breadth_daily": 0, "macro_legs_daily": 0,
+                "market_breadth_daily": 0}
     log.info("[market_daily] panel %d rows, %s -> %s (%d symbols)",
              len(panel), str(panel.index[0])[:10], str(panel.index[-1])[:10],
              panel.shape[1])
@@ -718,6 +767,13 @@ def run(db_path: str, days: int | None, dry_run: bool,
     macro_on = bool(cfg.get("features.macro_legs.enabled", False)
                     or cfg.get("features.macro_legs.shadow", False))
     macro_rows = build_macro_rows(days) if macro_on else []
+    # r20 (standalone-scanners): RSP/SPY participation proxy. Runs when market_breadth
+    # is enabled OR shadow (shadow:true in prod -> collect forward data without touching
+    # the !market panel); the baseline test suite forces both OFF (conftest) so it never
+    # fetches. Descriptive-only — the row is NEVER read by cross_reference.score_ticker.
+    breadth_on = bool(cfg.get("features.market_breadth.enabled", False)
+                      or cfg.get("features.market_breadth.shadow", False))
+    market_breadth_rows = build_market_breadth_rows(days) if breadth_on else []
 
     # Correctness gate BEFORE any write (independent pandas recompute).
     checked = (_gate_sector(sector_rows, panel)
@@ -732,6 +788,7 @@ def run(db_path: str, days: int | None, dry_run: bool,
         "trend_daily": len(trend_rows),
         "internal_breadth_daily": len(breadth_rows),
         "macro_legs_daily": len(macro_rows),
+        "market_breadth_daily": len(market_breadth_rows),
     }
     if dry_run:
         log.info("[dry-run] computed %s — NO writes performed.", summary)
@@ -740,7 +797,8 @@ def run(db_path: str, days: int | None, dry_run: bool,
     conn = _connect(db_path)
     try:
         _ensure_schema(conn)
-        seed(conn, sector_rows, factor_rows, trend_rows, breadth_rows, macro_rows)
+        seed(conn, sector_rows, factor_rows, trend_rows, breadth_rows, macro_rows,
+             market_breadth_rows)
     finally:
         conn.close()
     log.info("[market_daily] seeded %s into %s", summary, db_path)

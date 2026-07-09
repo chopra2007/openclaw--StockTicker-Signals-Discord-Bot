@@ -12,12 +12,22 @@ Tests:
 from __future__ import annotations
 
 import dataclasses
+import sqlite3
+import sys
+from pathlib import Path
 
 import pandas as pd
 import pytest
 
 from consensus_engine.analysis import market_breadth as mb
 from consensus_engine.analysis.market_breadth import _ratio_trend, compute_market_breadth
+
+# Project root on sys.path so ``import scripts.market_daily`` resolves.
+_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_ROOT))
+import scripts.market_daily as md  # noqa: E402
+
+_STORE = _ROOT / "data" / "market_store"
 
 
 def _df(closes: list[float]) -> pd.DataFrame:
@@ -147,3 +157,74 @@ async def test_forward_log_roundtrip(monkeypatch):
     assert r["window_days"] == 20
     db_mod._db = None
     db_mod.DB_PATH = None
+
+
+# --------------------------------------------------------------------------- #
+# 6. SHADOW-SOAK: market_daily writes a daily row on shadow:true, none when off
+# --------------------------------------------------------------------------- #
+
+def _override(monkeypatch, overrides):
+    """Layer feature overrides on top of the conftest-patched cfg.get."""
+    from consensus_engine import config as cfg
+    real = cfg.get
+    monkeypatch.setattr(
+        cfg, "get", lambda k, d=None: overrides[k] if k in overrides else real(k, d))
+
+
+_MD_SKIP = pytest.mark.skipif(
+    not (_STORE / "SPY.parquet").exists(),
+    reason="cached parquet store (data/market_store) not present",
+)
+
+
+@_MD_SKIP
+def test_market_daily_shadow_writes_breadth_row(tmp_path, monkeypatch):
+    """shadow:true, enabled:false -> market_daily's producer computes the RSP/SPY
+    proxy and writes ONE market_breadth_daily row (soak fills the table)."""
+    _override(monkeypatch, {"features.market_breadth.shadow": True,
+                            "features.market_breadth.enabled": False})
+    import consensus_engine.utils.prices as prices
+    fake = {"RSP": _df([100.0] * 21), "SPY": _df([100.0 - 0.5 * i for i in range(21)]),
+            "IWM": _df([50.0] * 21)}
+    monkeypatch.setattr(prices, "fetch_history", lambda sym, **kw: fake[sym])
+
+    db_path = str(tmp_path / "market.db")
+    summary = md.run(db_path=db_path, days=20, dry_run=False,
+                     store_dir=str(_STORE), download=False)
+    assert summary["market_breadth_daily"] == 1
+
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute("SELECT * FROM market_breadth_daily").fetchall()
+    finally:
+        conn.close()
+    assert len(rows) == 1
+    assert rows[0]["breadth_state"] == "broadening"
+    assert rows[0]["window_days"] == 20
+
+
+@_MD_SKIP
+def test_market_daily_no_breadth_row_when_both_off(tmp_path, monkeypatch):
+    """shadow:false, enabled:false -> the producer is skipped (no RSP/SPY fetch) and
+    NO market_breadth_daily row is written."""
+    _override(monkeypatch, {"features.market_breadth.shadow": False,
+                            "features.market_breadth.enabled": False})
+    import consensus_engine.utils.prices as prices
+
+    def _boom(*a, **k):
+        raise AssertionError("fetch_history must not run when breadth is off")
+
+    monkeypatch.setattr(prices, "fetch_history", _boom)
+
+    db_path = str(tmp_path / "market.db")
+    summary = md.run(db_path=db_path, days=20, dry_run=False,
+                     store_dir=str(_STORE), download=False)
+    assert summary["market_breadth_daily"] == 0
+
+    conn = sqlite3.connect(db_path)
+    try:
+        n = conn.execute("SELECT COUNT(*) FROM market_breadth_daily").fetchone()[0]
+    finally:
+        conn.close()
+    assert n == 0
