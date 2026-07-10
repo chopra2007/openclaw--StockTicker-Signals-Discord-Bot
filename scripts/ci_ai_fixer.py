@@ -305,8 +305,43 @@ def call_model(model: str, prompt: str, temperature: float = 0.0,
 
     text = "".join(chunks)
     if not text.strip():
+        # OpenRouter load-balances across upstream providers per call, and some of
+        # them deliver a reasoning model's answer in a way the SSE `delta.content`
+        # path never sees. The same request without `stream` returns it intact.
+        # Retry once, inside whatever is left of the deadline, before giving up.
+        left = deadline - time.time()
+        if left > 5:
+            return _call_unstreamed(model, prompt, temperature, left, t0)
         raise FixerError(f"{model}: empty reply")
     return {"text": text, "usage": usage, "latency_s": time.time() - t0}
+
+
+def _call_unstreamed(model: str, prompt: str, temperature: float,
+                     timeout_s: float, t0: float) -> dict[str, Any]:
+    """Non-streaming fallback. Safe here: with no SSE keepalive comments arriving, a
+    plain read timeout does measure the silence, so it cannot hang the way #59's
+    25-minute stall did."""
+    import requests
+
+    resp = requests.post(
+        OPENROUTER_URL,
+        headers={"Authorization": f"Bearer {_api_key()}",
+                 "Content-Type": "application/json"},
+        json={"model": model, "temperature": temperature, "max_tokens": MAX_TOKENS,
+              "messages": [{"role": "system", "content": SYSTEM},
+                           {"role": "user", "content": prompt}]},
+        timeout=(CONNECT_TIMEOUT_S, timeout_s),
+    )
+    if resp.status_code != 200:
+        raise FixerError(f"{model}: HTTP {resp.status_code}: {resp.text[:300]}")
+    body = resp.json()
+    choice = (body.get("choices") or [{}])[0]
+    text = (choice.get("message") or {}).get("content") or ""
+    if not text.strip():
+        if choice.get("finish_reason") == "length":
+            raise FixerError(f"{model}: reply truncated at max_tokens={MAX_TOKENS}")
+        raise FixerError(f"{model}: empty reply")
+    return {"text": text, "usage": body.get("usage") or {}, "latency_s": time.time() - t0}
 
 
 def parse_response(text: str) -> dict:

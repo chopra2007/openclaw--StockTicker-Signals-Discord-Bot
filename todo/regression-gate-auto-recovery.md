@@ -1,7 +1,41 @@
 # Fix the regression gate so a failed push doesn't just sit there
 
-**Status:** DONE 2026-07-09
+**Status:** ACTIVE — reopened 2026-07-10 (AI fixer model race must be redone with a strong field)
 **Created:** 2026-07-01
+
+---
+
+## REOPENED 2026-07-10 — the model choice is wrong; redo the race
+
+**What still stands (do not touch):** detection + safety net (Part 1), and the deterministic missing-package auto-fixer (Part 2). Those are done and correct.
+
+**What's wrong:** the AI logic-bug fixer is pinned to `qwen/qwen3-coder-next` at 1-in-5, and that number comes from a **badly chosen field.** I raced mostly cheap/fast/small models — the same "default to cheap" mistake the user has now corrected three times in this task. The user's rule (2026-07-08, in this file): **capability is a GATE, cost is not the constraint.** 10c/month is fine; every strong coding model is under 40c/month.
+
+**Full 10-model race, 2026-07-10 (audited harness — each patch verified by running the test; a "pass" now requires a SOURCE fix, not a test edit):**
+
+| model | passes | notes |
+|---|---|---|
+| `codex/gpt-5.5` (via logged-in Codex CLI, $0 on the $20 Plus plan) | **5 / 5** — all real source fixes, 18s each | the only model that cleared the bar |
+| `deepseek/deepseek-v4-pro` | 1 / 5 (pre-audit; rerun killed at session close) | the strongest OpenRouter model I bothered to include; a signal I under-weighted |
+| everything else (gpt-oss-120b, glm-4.7-flash, qwen3-coder-30b, qwen3-235b, deepseek-v4-flash, qwen3-coder-next, qwen3-coder, gemini-2.5-flash) | 0 / 5 | a weak/fast field — of course they failed |
+
+So the race did NOT prove "only Codex can do this." It proved "one frontier model beats a bench of flash/mini models," which is meaningless. **The open question is untested: among the STRONG coding models, how many clear 70%, and which is cheapest?**
+
+**NEXT STEPS (in order):**
+1. **Redo the race with a strong-coding field**, 5 tries each, then 10 tries on survivors, target ≥70% source-only pass. Candidate slugs already priced (all < 40c/month at 6 attempts): `openai/gpt-5.1-codex`, `deepseek/deepseek-v4-pro`, `qwen/qwen3-max`, `qwen/qwen3-coder-plus`, `moonshotai/kimi-k2.7-code`, `z-ai/glm-5`, `x-ai/grok-4.3`, `mistralai/codestral-2508`, `deepseek/deepseek-v3.2`. Exclude `anthropic/*` (cross-family rule) and `google/gemini-3.1-pro` (user). Harness ready: `scripts/ci_fixer_trials.py` (takes `--models`, `--trials`; Codex routes through the CLI via `call_codex`, $0). **Get the user to pick the exact field before launching** (the AskUserQuestion was pending at close).
+2. **Decide Codex-vs-cheap-strong.** Codex gpt-5.5 is $0 on the user's subscription and went 5/5 handicapped (empty cwd, same prompt). If the goal is "cheapest that clears the gate," Codex is unbeatable on price ($0) IF the CLI integration is acceptable in production (`ci_autofix.sh` would shell out to `codex exec` instead of an HTTP POST; Codex auth is root-only, CLI must stay logged in, else the fixer escalates — the safe default). If a per-token model is preferred for simplicity, pick the cheapest strong one that clears 70%.
+3. **Re-pin** the winner in `scripts/ci_ai_fixer.py` `DEFAULT_MODEL` (or wire the Codex path) and update `reference_ci_fixer_model.md`.
+
+**Two on-disk fixes from this session — UNSTAGED, keep them (both real production bugs):**
+- `scripts/ci_ai_fixer.py` — **streaming fallback** (`_call_unstreamed`). OpenRouter load-balances providers per call; some deliver a reasoning model's answer in a way the SSE `delta.content` path never sees → silent "empty reply." Would have unfairly failed EVERY reasoning model. Falls back to a non-streaming call inside the remaining deadline; also flags `finish_reason=length` truncation (that's how `glm-4.7-flash` was caught burning 16k tokens on hidden reasoning).
+- `/root/task_system/scripts/ci_autofix.sh` (not repo-tracked) — **fake-green guard** (user-approved 2026-07-10). A patch that makes a red test green by editing ONLY `tests/` is a fake green (it may have weakened the assertion). `tests/` isn't a forbidden path (a test asserting a changed output string is a legit fix), so it can't be banned outright — instead a test-only patch now posts its diff to `#errors` and escalates, never commits. Source-touching patches commit as before. **Note the benchmark bug this exposed:** the one real-logic-bug case's reference fix (`db47044`) edits the TEST file — so scoring "any passing patch" would reward the exact fake-green behavior production must forbid. The harness now scores source-only.
+- `scripts/ci_fixer_trials.py` — the audited multi-trial race harness (new). Also `.omc/trials/*.json` raw results (gitignored).
+
+**Harness lessons re-confirmed (third time in this task):** (a) all-candidates-fail → suspect the harness, not the models (the streaming bug); (b) nondeterministic at temp 0 → never trust a single sample (qwen was 1/5 then 0/5 on rerun); (c) I keep defaulting to cheap when told capability is the gate.
+
+---
+
+_Historical (2026-07-09 — SUPERSEDED by the reopen above; the qwen pin is wrong):_
 
 **CURRENT STATUS (2026-07-09) — DONE.** The AI layer is raced, pinned, wired, and deliberately weak-but-safe.
 
