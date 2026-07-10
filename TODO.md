@@ -385,7 +385,7 @@ Swap the bot's live options source from the free, ~15-min-delayed, throttle-pron
 
 Refactor `!sec`, `!all`, the alert Score card, and the AI write-up so insider (Form 4) trades show as one clean block per person — with the date and total dollar value — instead of dozens of dateless, valueless repeat rows.
 
-## 59. Fix the regression gate so a failed push doesn't just sit there
+## 59. Fix the regression gate so a failed push doesn't just sit there — DONE 2026-07-09 (AI fixer raced, pinned, wired fix-and-hold; never pushes)
 
 **File:** `regression-gate-auto-recovery.md`
 

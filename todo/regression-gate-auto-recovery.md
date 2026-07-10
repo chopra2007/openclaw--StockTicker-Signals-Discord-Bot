@@ -1,10 +1,37 @@
 # Fix the regression gate so a failed push doesn't just sit there
 
-**Status:** LARGELY DONE (2026-07-03) — Part 1 SHIPPED; Part 2 deterministic auto-fixer LIVE (no AI); AI upgrade opt-in/deferred.
+**Status:** DONE 2026-07-09
+**Created:** 2026-07-01
+
+**CURRENT STATUS (2026-07-09) — DONE.** The AI layer is raced, pinned, wired, and deliberately weak-but-safe.
+
+**How often this even matters (measured, 64 session_close logs).** 13 red gates in 64 sessions — but **7 of those 13 were the same persistent frozen-date test**, a time bomb unrelated to that session's work. Since it was fixed on 07-02: **1 red gate in 17 sessions (~6%)**. The `undeclared_dependency` class the deterministic layer handles has happened **once, ever**, and in CI rather than at session close. So a genuine logic bug reddens the gate roughly **once a month**.
+
+**The race (3 cheap OpenRouter models, real corpus, cross-family from Claude).** A single attempt each said `qwen/qwen3-coder-next` won. Re-running its exact case by hand did **not** reproduce the pass — these models are nondeterministic at `temperature=0`. So each was run **5 times** against the reproduced bug, verifying every patch:
+
+| model | working patch | bad patch | no usable patch |
+|---|---|---|---|
+| `qwen/qwen3-coder-next` | **1 / 5** | 4 | 0 |
+| `deepseek/deepseek-chat-v3.1` | 0 / 5 | 5 | 0 |
+| `z-ai/glm-4.5-air` | 0 / 5 | 2 | 3 |
+
+`qwen/qwen3-coder-next` is the only model that ever fixes it, and the cheapest. Pinned — at one attempt in five, not the "it works" the single sample implied. The branch therefore **retries 3×**, verifying and reverting between attempts: ~49% per red gate, ~1.5 cents. Full evidence: `plans/ci-fixer-model-race-2026-07-09.md`.
+
+**Two bugs the first race exposed, both mine:**
+- The models never saw the code under test — context came only from files named in the traceback, and the bug's cause (`wolf_news.post_event` stamping `time.time()`) appears nowhere in it. `relevant_files()` now follows the failing test's imports two hops deep. **This single change flipped the winner from "can't fix it" to "can."**
+- A hung model call could hang forever: `requests`' read timeout measures the gap *between* bytes, and OpenRouter's SSE keepalives reset it indefinitely. One call blocked 25 minutes under a 240s timeout. The fixer now streams under a hard wall-clock deadline; `glm-4.5-air` tripped it during the re-race.
+
+**Fix + HOLD, as decided.** `scripts/ci_ai_fixer.py` classifies and patches; `ci_autofix.sh` verifies the failing tests pass, then runs the **full suite diffed against `.test-baseline`**, then **commits locally and stops**. It posts to `#errors` with an @-mention telling you a fix is waiting. It never pushes. Missing-package fixes still auto-push — those are mechanical. All old guardrails intact: retry cap, forbidden-path gate (config/CI/flags/go-live), clean-tree freshness skip, `git checkout` never `stash`.
+
+A wrong patch is harmless by construction: it must make the failing tests pass **and** leave the suite clean, or it is reverted and you are paged — exactly today's behaviour. `claude` is gone from the script; it was never needed.
+
+---
+_Original notes below._
+
+**Status (historical):** LARGELY DONE (2026-07-03) — Part 1 SHIPPED; Part 2 deterministic auto-fixer LIVE (no AI); AI upgrade opt-in/deferred.
   - **Part 1 LIVE:** `ci-monitor.sh` now extracts REAL failing test ids from the FULL CI log (proven on the 07-02 pyarrow run — old `--log-failed` returned nothing); `session_close.sh` captures push exit + writes a loud `notifications.log` line on rejection; `openclaw-digest.sh` SessionStart hook banners any GATE/CI/PUSH alert; `scripts/pre-push` uses a per-user `/tmp` log (fixes the 07-02 stale-root-owned-tmp reject) synced to `.git/hooks/pre-push`; `notifications.log` made openclaw-writable. pyarrow live symptom fixed (ed143c9).
   - **Part 2 LIVE (deterministic, no AI, no login):** `/root/task_system/scripts/ci_autofix.sh` runs as openclaw when the gate is red and: (1) auto-declares an undeclared dependency — extracts the missing module from the CI error (incl. pandas' "Missing optional dependency 'X'" phrasing = the real 07-02 pyarrow signature), adds it to requirements.txt, verifies import + tests pass, commits + pushes; (2) detects flaky (local pass ×2 → no-op); (3) escalates a real logic bug to a human. Guardrails proven end-to-end (2026-07-03): retry cap fires at 2; clean-tree freshness skip; HARD forbidden-path gate (never auto-pushes config/flag/vision/go-live/CI); local re-verify; `git checkout` never stash. Full chain ci-monitor→fixer verified on the real pyarrow run (extracts 'pyarrow', skipped safely under unpushed work). ci-monitor delegates whenever the fixer exists (no AI precondition). State files (`ci-autofix.log`, `ci-autofix-attempts.txt`) pre-created openclaw-writable.
   - **Part 2 AI upgrade (deferred, opt-in):** a guarded `claude` branch in the same script fixes genuine LOGIC bugs unattended — was believed dormant until claude is installed+authed for the openclaw user (root-only auth today; Codex has the same hurdle). **Premise corrected 2026-07-08:** it never needed claude — Gemini, Groq, and OpenRouter all answer live as the `openclaw` user with keys already in `.env`. Next step is the cheap-model race below, NOT provisioning claude.
-**Created:** 2026-07-01
 **CURRENT STATUS (2026-07-02):** The concrete example test is FIXED (option (b) below — made deterministic), but the general auto-recovery process this item is actually about (a mechanism that checks/fixes/re-pushes ANY future gate failure, not just this one test) is still not built. Also found and fixed a second, unrelated pre-existing gate failure the same session (`test_sunday_recap_and_addon_restart_safe` — a frozen-date test whose posted-at timestamp used the real wall clock instead of the simulated one, so it silently started failing as real time passed the simulated date). Both fixes are commits `9557ca8` and `db47044`; `.test-baseline` is back to just the one unrelated ApeWisdom test. Next concrete step for the item itself: still need to decide/build the general auto-recovery mechanism (see "What the user wants" below) — today's fixes closed the two known instances, not the underlying process gap.
 
 **CURRENT STATUS (2026-07-01):** Active/open, no fix built yet. Now has a live, reproducible instance — the flaky `test_market_command_renders_all_four_reads` (see "Concrete flaky-test example" below). Next concrete step: decide per that example whether the general fix is (a) a scoped "re-run the failed test once before blocking" retry in the gate, or (b) making these live-data tests deterministic (mock the fetch) so they can't flake at all.
