@@ -369,10 +369,27 @@ async def get_quote(symbol: str) -> Optional[dict]:
             from consensus_engine.scanners import schwab_client
             q = await asyncio.to_thread(schwab_client.get_quote, symbol)
             if q and q.get("c"):
+                await _note_schwab(ok=True)
                 return q
         except Exception as e:
+            # #71: this fallback used to be a log.debug — the feed could be down for
+            # a week and the only symptom was quietly stale prices.
             log.debug("get_quote: schwab failed for %s, falling back to Finnhub: %s", symbol, e)
+            await _note_schwab(ok=False, exc=e)
     return await _fetch_finnhub_quote_dict(symbol)
+
+
+async def _note_schwab(ok: bool, exc: BaseException | None = None) -> None:
+    """Tell the #errors alerter what Schwab just did. Never raises, never blocks
+    the quote path — the alerter itself stays silent unless the state changed."""
+    try:
+        from consensus_engine.scanners import schwab_health
+        if ok:
+            await schwab_health.note_schwab_ok()
+        elif exc is not None:
+            await schwab_health.note_schwab_failure(exc)
+    except Exception as e:
+        log.debug("schwab health report failed: %s", e)
 
 
 async def get_quotes(symbols: list[str]) -> dict[str, dict]:
@@ -390,8 +407,11 @@ async def get_quotes(symbols: list[str]) -> dict[str, dict]:
                 if q and q.get("c"):
                     out[sym] = q
             missing = [s for s in symbols if s not in out]
+            if out:
+                await _note_schwab(ok=True)
         except Exception as e:
             log.debug("get_quotes: schwab batch failed, falling back to Finnhub: %s", e)
+            await _note_schwab(ok=False, exc=e)
     if missing:
         results = await asyncio.gather(
             *[_fetch_finnhub_quote_dict(s) for s in missing], return_exceptions=True

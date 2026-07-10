@@ -753,6 +753,19 @@ CREATE TABLE IF NOT EXISTS form4_clusters (
 );
 CREATE INDEX IF NOT EXISTS idx_form4_clusters_alerted ON form4_clusters(alerted_at);
 
+-- #71: one row per thing that can be "down" (schwab_token, schwab_api, llm_health,
+-- source:reddit, …). Alerts fire on a STATE TRANSITION only — down→alert once,
+-- silence while it stays down, then a "restored" note when it recovers. Persisting
+-- this means an engine restart during an outage does not re-ping the user.
+CREATE TABLE IF NOT EXISTS ops_alert_state (
+    alert_key TEXT PRIMARY KEY,
+    state TEXT NOT NULL,            -- 'up' | 'down'
+    failure_class TEXT,             -- distinguishes token-lapsed vs auth-rejected vs api-down
+    since REAL NOT NULL,            -- when the current state began
+    last_alerted_at REAL,
+    last_detail TEXT
+);
+
 CREATE TABLE IF NOT EXISTS schema_version (
     version INTEGER PRIMARY KEY,
     applied_at REAL NOT NULL,
@@ -3496,6 +3509,46 @@ async def upsert_flow_outcome(
          entry_spot, close_0d, close_1d, close_5d,
          bench_close_0d, bench_close_1d, bench_close_5d,
          ret_1d, ret_5d, win_1d, win_5d, time.time()),
+    )
+    await conn.commit()
+
+
+# --- #71: ops-alert transition state --------------------------------------
+
+async def get_ops_alert_state(alert_key: str) -> dict | None:
+    """Current row for one ops-alert key, or None if never seen."""
+    conn = await get_db()
+    cur = await conn.execute(
+        "SELECT * FROM ops_alert_state WHERE alert_key=?", (alert_key,))
+    row = await cur.fetchone()
+    return dict(row) if row else None
+
+
+async def set_ops_alert_state(alert_key: str, state: str,
+                              failure_class: str | None = None,
+                              detail: str | None = None,
+                              alerted: bool = False) -> None:
+    """Record the new state. `alerted=True` stamps last_alerted_at.
+
+    `since` only moves when the state actually changes, so a long outage keeps its
+    original start time and the recovery note can say how long it lasted.
+    """
+    now = time.time()
+    prior = await get_ops_alert_state(alert_key)
+    since = now if (prior is None or prior["state"] != state) else prior["since"]
+    last_alerted = now if alerted else (prior or {}).get("last_alerted_at")
+    conn = await get_db()
+    await conn.execute(
+        """INSERT INTO ops_alert_state
+             (alert_key, state, failure_class, since, last_alerted_at, last_detail)
+           VALUES (?,?,?,?,?,?)
+           ON CONFLICT(alert_key) DO UPDATE SET
+             state=excluded.state,
+             failure_class=excluded.failure_class,
+             since=excluded.since,
+             last_alerted_at=excluded.last_alerted_at,
+             last_detail=excluded.last_detail""",
+        (alert_key, state, failure_class, since, last_alerted, detail),
     )
     await conn.commit()
 

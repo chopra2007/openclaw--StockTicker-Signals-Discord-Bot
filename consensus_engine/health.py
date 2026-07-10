@@ -371,6 +371,15 @@ async def _latest_feed_ts(feed_id: str) -> float | None:
     return None
 
 
+def _errors_channel() -> str:
+    """#71: the #errors room, or "" to fall back to the briefing channel."""
+    try:
+        from consensus_engine.alerts.ops_alert import errors_channel_id
+        return errors_channel_id()
+    except Exception:
+        return ""
+
+
 async def _check_feed_freshness() -> None:
     """Daily silent-outage check, called from chain_health_loop's daily pass.
 
@@ -410,7 +419,7 @@ async def _check_feed_freshness() -> None:
                 f"No new {label} data in {days:.1f} days "
                 f"(last ingest {last_dt}, threshold {max_age:.0f}h).{auth_hint}"
             )
-            await _post_to_discord(msg)
+            await _post_to_discord(msg, channel_id=_errors_channel())
             state[feed_id] = {"first_seen": datetime.now(tz=_PT).strftime("%Y-%m-%d %H:%M %Z"),
                               "last_ingest": last_dt}
             _write_feed_outage_state(state)
@@ -420,13 +429,18 @@ async def _check_feed_freshness() -> None:
                     f"**✅ {label} feed recovered — {datetime.now(tz=_PT).strftime('%Y-%m-%d %H:%M %Z')}**\n\n"
                     f"New {label} data ingested again (last ingest {last_dt})."
                 )
-                await _post_to_discord(msg)
+                await _post_to_discord(msg, channel_id=_errors_channel())
                 _clear_feed_outage_state(feed_id)
 
 
-async def _post_to_discord(content: str) -> None:
+async def _post_to_discord(content: str, channel_id: str | None = None) -> None:
+    """Post a health message. Defaults to the briefing channel.
+
+    #71: outage-class messages (a feed gone silent) pass the #errors channel instead,
+    so 'something is broken' and 'here is your daily report' stop sharing a room.
+    """
     token = cfg.get_api_key("discord_bot_token")
-    channel_id = str(
+    channel_id = str(channel_id or "") or str(
         cfg.get("health_check.channel_id", "")
         or cfg.get("alfred.channel_id", "")
         or cfg.get("api_keys.discord_briefing_channel_id", "")
@@ -494,6 +508,19 @@ async def chain_health_loop(stop_event: asyncio.Event) -> None:
                      "FAILED" if failed else "OK", report)
             if failed or not alert_only:
                 await _post_to_discord(report)
+            # #71: a broken LLM chain means no alert text gets written at all —
+            # user-facing-critical, so it also goes to #errors with an @-mention,
+            # once per transition. The full report stays in the briefing channel.
+            from consensus_engine.alerts.ops_alert import report_ops_state
+            await report_ops_state(
+                "llm_health", down=bool(failed), failure_class="llm_health",
+                title="The AI models that write the alerts are failing",
+                detail=("Every model in the chain failed its daily health probe. "
+                        "Alerts may go out with no written analysis, or not at all. "
+                        "The full report is in the briefing channel."),
+                fix="Check the OpenRouter key and quota, then `systemctl restart "
+                    "consensus-engine.service`.",
+            )
         except Exception as exc:
             log.error("health: chain check error: %s", exc)
 

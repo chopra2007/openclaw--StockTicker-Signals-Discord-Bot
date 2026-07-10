@@ -470,7 +470,7 @@ Build a rule (a Claude Code "hook") that automatically brings in a separate read
 
 Carefully shrink Claude's memory index (MEMORY.md) — merging related lines, not blindly cutting — before it grows past the size where it silently stops loading at session start and Claude loses all its saved recall.
 
-## 71. Make the weekly Schwab re-login a one-command job
+## 71. Make the weekly Schwab re-login a one-command job — DONE 2026-07-09 (plus #errors outage alerts; fixed 2 alerts that never fired)
 
 **File:** `schwab-reauth-helper.md`
 

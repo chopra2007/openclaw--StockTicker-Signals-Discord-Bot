@@ -1,7 +1,32 @@
 # One-command Schwab weekly re-login helper
 
-**Status:** OPEN
+**Status:** DONE 2026-07-09
 **Created:** 2026-07-08
+
+**CURRENT STATUS (2026-07-09) — DONE.** Both halves shipped and verified live.
+
+**1. One-command re-login.** `python3 scripts/schwab_login.py` prints the Schwab login URL, takes the pasted redirect address, trades the code for a fresh 7-day token, writes it in the exact shape `get_access_token()` reads, hands the file back to `openclaw` with 600 permissions, clears the re-login marker, and proves it worked with a live quote. Accepts `--redirect-url` or stdin so nothing has to be typed under the 30-second clock. The header documents the clean-tree rule (a dirty git tree lets the ~80s verify-on-done Stop hook eat the code — the actual cause of the two failures on 07-08). 20 tests, including the real Schwab redirect shape (the `code` ends in `@` and is not url-encoded).
+
+**2. `#errors` outage alerts — wider than Schwab, as decided.** New shared sender `consensus_engine/alerts/ops_alert.py`. Alerts fire on a state **transition** (broken → one message; silence; recovered → one message), persisted in the new `ops_alert_state` table so an engine restart mid-outage cannot re-ping. A 30-minute flap window stops a source that dies and revives every few seconds from spamming, and a recovery note is only sent if its matching "broken" alert actually went out. Four classes route there now:
+
+| class | @-mentions you? | notes |
+|---|---|---|
+| Schwab feed down | yes | three distinguishable causes: token lapsed / credentials rejected / Schwab's servers down — each with its own fix line |
+| LLM chain health failed | yes | means alerts may go out with no written analysis |
+| Data source dead (circuit breaker) | no | informational |
+| Alert volume collapsed after a feature flip | no | informational |
+| A data feed went silent (Wolf/YouTube) | no | moved off the briefing channel |
+
+**Two alerts were found to have never worked.** The dead-source alert (`dead_source.ops_alert_enabled: true`, marked "LIVE 2026-07-04") and the feature-volume-drop monitor both resolved their channel from `discord.ops_channel_id`, falling back to `discord.channel_id` — **neither key has ever existed in `config/consensus.yaml`**, so `if not channel: return` swallowed every one of them since the day they shipped. Both are now on the `#errors` sender and actually fire.
+
+**Live evidence (2026-07-09):** posted a real down + recovery pair to `#errors`; read them back from the Discord API and confirmed the `mentions` array contains the owner id (the anti-ping guard does not strip it). Then drove a genuine `SchwabRefreshTokenExpired` through the real `api_adapters.get_quote()` path: classified `schwab_token`, alerted with the ping, and the quote still returned $316.22 from the Finnhub fallback; the next real call posted the recovery. A clarifying note was posted so the test messages aren't mistaken for a real outage.
+
+**Gotcha found while testing:** patching `schwab_client.TOKEN_PATH` does *not* redirect `note_reauth_needed()`, which writes the marker to a fixed path — a token test wrote a real "re-login needed" marker. It was cleared and the token verified healthy (5.2 days left, live SPY quote $751.71).
+
+**Not moved:** the boot-time gateway drift check stays in the briefing channel. It is a config-drift warning at startup, not an outage, and it already has its own working transition state.
+
+---
+_Original notes below._
 
 ## Goal
 Make the weekly Schwab OAuth re-login painless. Today it's a manual scramble that

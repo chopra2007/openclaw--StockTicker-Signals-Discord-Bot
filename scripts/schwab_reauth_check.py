@@ -83,6 +83,39 @@ def _post_to_discord(message: str) -> None:
         print(f"Discord post failed: {e}", file=sys.stderr)
 
 
+def _report_errors_channel(lapsed: bool, days_left: float) -> None:
+    """#71: a LAPSED token (not merely 'expiring soon') is an outage — the options
+    feed has silently dropped to 15-minute-delayed data. Post it to #errors with an
+    @-mention, once, and post the recovery once. `report_ops_state` owns the
+    fire-on-transition logic, so calling this every day is safe.
+    """
+    import asyncio
+
+    from consensus_engine import db
+    from consensus_engine.scanners import schwab_health
+
+    async def _run() -> None:
+        await db.init_db()
+        try:
+            if lapsed:
+                title, detail, fix = schwab_health.describe(schwab_health.TOKEN_LAPSED)
+                from consensus_engine.alerts.ops_alert import report_ops_state
+                await report_ops_state(
+                    schwab_health.ALERT_KEY, down=True,
+                    failure_class=schwab_health.TOKEN_LAPSED,
+                    title=title, detail=detail, fix=fix,
+                )
+            else:
+                await schwab_health.note_schwab_ok()
+        finally:
+            await db.close_db()
+
+    try:
+        asyncio.run(_run())
+    except Exception as e:   # an alerting failure must never break the reminder
+        print(f"#errors alert failed: {e}", file=sys.stderr)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Schwab weekly re-auth reminder (TODO #57)")
     parser.add_argument("--dry-run", action="store_true",
@@ -96,19 +129,28 @@ def main() -> None:
     warn_days = config.get("schwab.reauth_warn_days", 2)
 
     should_alert = args.force or marker_present or days_left <= warn_days
+    # "Expiring in 2 days" is a reminder. "Expired" is an outage: the real-time feed
+    # is already gone. Only the second one earns an @-mention in #errors.
+    lapsed = marker_present or days_left <= 0
 
     if not should_alert:
         print(f"Schwab re-auth OK ({days_left:.1f} days left)")
+        if not args.dry_run:
+            _report_errors_channel(lapsed=False, days_left=days_left)
         return
 
     message = _build_message(days_left, marker_present)
 
     if args.dry_run:
         print("[DRY RUN] would send:\n" + message)
+        if lapsed:
+            print("[DRY RUN] would also post a LAPSED outage alert to #errors (@-mention)")
         return
 
     _append_notification(message)
     _post_to_discord(message)
+    if lapsed:
+        _report_errors_channel(lapsed=True, days_left=days_left)
     print(message)
 
 

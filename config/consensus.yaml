@@ -16,7 +16,8 @@ api_keys:
   discord_news_channel_id: "$DISCORD_NEWS_CHANNEL_ID"   # Wolf macro-brain #news lane
   options_flow_channel_id: "1512934341485924432"   # #options-flow room (user go 2026-06-08)
   swarm_alert_channel_id: "1518157440380702730"    # #alerts room — analyst SWARM alerts (user 2026-06-21); blank → main channel
-  discord_owner_user_id: "$DISCORD_OWNER_USER_ID"       # @-ping target (phase-2, dormant)
+  discord_owner_user_id: "$DISCORD_OWNER_USER_ID"       # @-ping target — used by #71 outage alerts
+  discord_errors_channel_id: "$DISCORD_ERRORS_CHANNEL_ID"  # #71 #errors room — outage alerts only
   discord_feed_channel_id: "$DISCORD_FEED_CHANNEL_ID"  # #twitter channel — TweetShift input
   twitter_auth_token: "$TWITTER_AUTH_TOKEN"
   twitter_ct0: "$TWITTER_CT0"
@@ -1151,8 +1152,20 @@ retry:
   llm_retry_after_cap_s: 120    # C3: cap a Retry-After applied to an LLM provider bucket
 
 dead_source:
-  ops_alert_enabled: true       # C5 LIVE 2026-07-04 (throttled 30-min ops alert on a dead source; informational, cannot block an alert)
-  # ops_channel_id: ""          # falls back to discord.channel_id when unset
+  ops_alert_enabled: true       # C5 LIVE 2026-07-04 (ops alert on a dead source; informational, cannot block an alert)
+  # ops_channel_id: ""          # #71: unused now — the alert routes to discord.errors_channel_id
+
+# #71: outage/error alerts. NOT stock signals — these say something is broken.
+# Fire on a state TRANSITION only (down -> one alert, silence, recovery -> one note),
+# with the state persisted in `ops_alert_state` so a restart mid-outage cannot re-ping.
+# Classes in ops_alert.MENTION_CLASSES (schwab_*, llm_health) @-mention the owner;
+# everything else posts quietly.
+ops_alerts:
+  enabled: true                 # master switch for every #errors post
+  min_interval_s: 1800          # flap guard: after an alert, the same thing can't
+                                # re-raise a "broken" for 30 min. A changed failure
+                                # class bypasses it. A "recovered" note is only sent
+                                # when its matching "broken" alert actually went out.
 
 adapters:
   report_failure: true          # C14: precision adapters feed failures to the shared rate_limiter — LIVE 2026-07-04 (7-day soak: internal-only)

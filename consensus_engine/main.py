@@ -1811,17 +1811,28 @@ async def feature_volume_monitor_loop() -> None:
                         "[FEATURE-MONITOR] 50%% volume drop after enabling %s: baseline=%d recent=%d",
                         flip_row["feature"], baseline, recent_count,
                     )
-                    try:
-                        from consensus_engine.alerts.discord import send_message
-                        ops_channel = cfg.get("discord.ops_channel_id", cfg.get("discord.channel_id", ""))
-                        if ops_channel:
-                            await send_message(
-                                ops_channel,
-                                f"⚠️ **Volume drop alert**: 24h alert count dropped >50% after enabling `{flip_row['feature']}`. "
-                                f"Baseline: {baseline}, recent: {recent_count}. Consider `!disable-feature` via YAML.",
-                            )
-                    except Exception:
-                        pass
+                    # #71: was posting to `discord.ops_channel_id` — a config key that
+                    # has never existed, so this alert silently returned for its whole
+                    # life. Now it goes to #errors, once per transition.
+                    from consensus_engine.alerts.ops_alert import report_ops_state
+                    await report_ops_state(
+                        f"feature_volume_drop:{flip_row['feature']}",
+                        down=True, failure_class="feature_volume_drop",
+                        title="Alerts dropped by more than half after a feature was switched on",
+                        detail=(f"Turning on `{flip_row['feature']}` was followed by a big drop "
+                                f"in alerts: {baseline} in the day before, {recent_count} since. "
+                                f"The feature may be filtering out real signals."),
+                        fix=f"Set `{flip_row['feature']}` back to off in `config/consensus.yaml`, "
+                            f"then restart the engine.",
+                    )
+                elif baseline > 0:
+                    # Volume recovered (or never really dropped) — clear the alert.
+                    from consensus_engine.alerts.ops_alert import report_ops_state
+                    await report_ops_state(
+                        f"feature_volume_drop:{flip_row['feature']}",
+                        down=False, failure_class="feature_volume_drop",
+                        title="Alert volume back to normal",
+                    )
         except Exception as e:
             log.warning("feature_volume_monitor_loop error: %s", e)
 
