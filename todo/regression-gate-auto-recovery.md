@@ -88,6 +88,12 @@ both cheap AND actually capable of the job. Cheap alone is worthless if it can't
   patch that makes the failing test pass **without breaking any test in `.test-baseline`**.
 - **Score on:** correct classification rate, patch-passes-the-gate rate, $/attempt, latency. A model
   that is 3× cheaper but escalates everything to a human has not done the job.
+- **Selection rule (user, 2026-07-08): paid is fine — cheap AND capable, in that order of constraint.**
+  Capability is a **gate**, not a score to trade away: any model that can't clear the bar is out at
+  any price. Among those that DO clear it, take the cheapest — "don't spend 50 cents if a capable
+  30-cent model exists." Do **not** buy the most capable model on the board; the extra ability is
+  wasted on a job this narrow. Free is not a requirement and not a tiebreaker — a free model that
+  escalates a real bug costs a human's whole session, which dwarfs the cents saved.
 - **Use a real corpus, not toy cases.** The 2026-07-02 pyarrow run is a known-good
   `undeclared-dependency` case; the 2026-07-01 market-command flake (documented above) is a known-good
   `flaky` case. Need at least one real logic-bug case — mine `logs/session_close_*.log` history.
@@ -96,9 +102,15 @@ both cheap AND actually capable of the job. Cheap alone is worthless if it can't
 - **Rate the incumbent too:** the deterministic fixer already handles the common case (a missing
   package) with zero AI. The AI layer only earns its place on the **real-logic-bug** class. Measure
   how often that class actually occurs before spending on it.
-- **Free-model caution:** the `:free` OpenRouter slugs churn — `deepseek-chat-v3.1:free` 404'd on
-  2026-07-08 ("paid version available now"). Whatever wins, pin it and expect to re-race. See
-  [[reference_model_bakeoff_2026-06-15]] and `reference_glm_air_free_dead` for prior results.
+- **Don't restrict the field to `:free` slugs.** They churn (`deepseek-chat-v3.1:free` 404'd on
+  2026-07-08 — "paid version available now") and they rate-limit under load, which is exactly when a
+  red gate needs fixing. Cheap paid models are in scope and probably win. Whatever wins, **pin the
+  exact slug** and expect to re-race when it's retired. See [[reference_model_bakeoff_2026-06-15]]
+  and `reference_glm_air_free_dead` for prior results.
+- **Budget the job, then shop.** The fixer runs only when the gate is red — a handful of times a
+  month, one-to-three attempts each. Even a "pricey" cheap model is pennies per month at that volume,
+  so the real risk is picking something too weak, not something too dear. Price the candidates against
+  that expected volume before ruling any out on cost.
 
 ## Open questions
 
