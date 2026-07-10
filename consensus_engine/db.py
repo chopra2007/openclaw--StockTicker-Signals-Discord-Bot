@@ -523,6 +523,41 @@ CREATE TABLE IF NOT EXISTS options_flow (
 CREATE INDEX IF NOT EXISTS idx_options_flow_ticker ON options_flow(ticker);
 CREATE INDEX IF NOT EXISTS idx_options_flow_detected ON options_flow(detected_at);
 
+-- #57: did the flow hit actually predict the move? One row per FLOW EVENT, where
+-- an event is (contract_symbol, market_date) — the SAME contract is re-detected
+-- every poll cycle, so grading raw options_flow rows would let SPY/QQQ swamp the
+-- sample (123k rows collapse to ~10.7k events). flow_id points at the earliest
+-- row of that event; entry_spot is that row's spot. win_* grades DIRECTION:
+-- CALL wins when price rose, PUT wins when it fell. NULL close_*/win_* = the
+-- horizon has not elapsed yet (or the price fetch failed) — refill later.
+-- The raw win_* columns are CONFOUNDED BY MARKET DRIFT: in a falling month every
+-- PUT "wins". close_0d + bench_close_* let a reader compute the market-adjusted
+-- move (ticker close-to-close minus SPY close-to-close), which is the number that
+-- actually says whether the flow predicted anything. Both are stored; the report
+-- leads with the adjusted one.
+CREATE TABLE IF NOT EXISTS options_flow_outcomes (
+    flow_id INTEGER PRIMARY KEY,
+    ticker TEXT NOT NULL,
+    side TEXT NOT NULL,
+    contract_symbol TEXT,
+    market_date TEXT NOT NULL,
+    detected_at REAL NOT NULL,
+    entry_spot REAL NOT NULL,
+    close_0d REAL,
+    close_1d REAL,
+    close_5d REAL,
+    bench_close_0d REAL,
+    bench_close_1d REAL,
+    bench_close_5d REAL,
+    ret_1d REAL,
+    ret_5d REAL,
+    win_1d INTEGER,
+    win_5d INTEGER,
+    graded_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_flow_outcomes_date ON options_flow_outcomes(market_date);
+CREATE INDEX IF NOT EXISTS idx_flow_outcomes_ticker ON options_flow_outcomes(ticker);
+
 CREATE TABLE IF NOT EXISTS youtube_setups (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     run_id INTEGER NOT NULL REFERENCES youtube_analysis_runs(id),
@@ -3357,6 +3392,112 @@ async def get_flow_premium_baseline(ticker: str, days: int = 30) -> float | None
     if not row or row["n"] is None or row["n"] < 10 or row["avg_prem"] is None:
         return None
     return float(row["avg_prem"])
+
+
+# --- #57: flow-hit outcome grading -----------------------------------------
+# A flow EVENT is (contract_symbol, market_date). The scanner re-detects the
+# same contract on every poll cycle, so raw rows over-count long-lived hits by
+# ~12x. `_FLOW_EVENTS_SQL` collapses each event to its EARLIEST row: that row's
+# `spot` is the entry price a trader could actually have paid on the signal.
+
+_FLOW_EVENTS_SQL = """
+SELECT f.id AS flow_id, f.ticker, f.side, f.contract_symbol, f.strike, f.expiry,
+       f.volume, f.open_interest, f.vol_oi_ratio, f.premium_usd, f.spot,
+       f.alerted, f.detected_at,
+       date(f.detected_at, 'unixepoch', '-5 hours') AS market_date
+FROM options_flow f
+JOIN (
+    SELECT contract_symbol,
+           date(detected_at, 'unixepoch', '-5 hours') AS md,
+           MIN(detected_at) AS first_ts
+    FROM options_flow
+    GROUP BY contract_symbol, md
+) first ON f.contract_symbol = first.contract_symbol
+       AND f.detected_at = first.first_ts
+WHERE f.spot > 0
+"""
+
+
+async def get_flow_events(
+    ungraded_only: bool = False,
+    max_detected_at: float | None = None,
+    limit: int | None = None,
+) -> list[dict]:
+    """#57: one row per (contract_symbol, market_date) flow event, earliest first.
+
+    `ungraded_only` skips events already fully graded (both horizons filled).
+    `max_detected_at` caps the window (used to skip rows younger than the horizon).
+    """
+    sql = _FLOW_EVENTS_SQL
+    params: list = []
+    if max_detected_at is not None:
+        sql += " AND f.detected_at <= ?"
+        params.append(max_detected_at)
+    if ungraded_only:
+        sql += (" AND (f.id NOT IN (SELECT flow_id FROM options_flow_outcomes"
+                "      WHERE close_1d IS NOT NULL AND close_5d IS NOT NULL))")
+    sql += " ORDER BY f.detected_at ASC"
+    if limit is not None:
+        sql += f" LIMIT {int(limit)}"
+    conn = await get_db()
+    cur = await conn.execute(sql, params)
+    return [dict(r) for r in await cur.fetchall()]
+
+
+async def upsert_flow_outcome(
+    flow_id: int, ticker: str, side: str, contract_symbol: str | None,
+    market_date: str, detected_at: float, entry_spot: float,
+    close_0d: float | None, close_1d: float | None, close_5d: float | None,
+    bench_close_0d: float | None = None, bench_close_1d: float | None = None,
+    bench_close_5d: float | None = None,
+) -> None:
+    """#57: write (or refresh) one graded flow event.
+
+    `win_*` grades DIRECTION against the entry spot: a CALL wins when the close
+    is higher, a PUT wins when it is lower. A flat close is a loss for both (no
+    move = the flow predicted nothing). NULL closes leave ret/win NULL so a later
+    run can fill them once the horizon elapses.
+
+    These raw wins say as much about the month's market direction as about the
+    flow. The bench_close_* columns carry SPY over the identical trading window so
+    a reader can subtract that drift out; see `scripts/grade_options_flow.py`.
+    """
+    def _grade(close: float | None) -> tuple[float | None, int | None]:
+        if not close or close <= 0 or entry_spot <= 0:
+            return None, None
+        ret = (close - entry_spot) / entry_spot
+        win = 1 if ((side.upper() == "CALL" and ret > 0)
+                    or (side.upper() == "PUT" and ret < 0)) else 0
+        return ret, win
+
+    ret_1d, win_1d = _grade(close_1d)
+    ret_5d, win_5d = _grade(close_5d)
+    conn = await get_db()
+    await conn.execute(
+        """INSERT INTO options_flow_outcomes
+           (flow_id, ticker, side, contract_symbol, market_date, detected_at,
+            entry_spot, close_0d, close_1d, close_5d,
+            bench_close_0d, bench_close_1d, bench_close_5d,
+            ret_1d, ret_5d, win_1d, win_5d, graded_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+           ON CONFLICT(flow_id) DO UPDATE SET
+             close_0d=COALESCE(excluded.close_0d, options_flow_outcomes.close_0d),
+             close_1d=COALESCE(excluded.close_1d, options_flow_outcomes.close_1d),
+             close_5d=COALESCE(excluded.close_5d, options_flow_outcomes.close_5d),
+             bench_close_0d=COALESCE(excluded.bench_close_0d, options_flow_outcomes.bench_close_0d),
+             bench_close_1d=COALESCE(excluded.bench_close_1d, options_flow_outcomes.bench_close_1d),
+             bench_close_5d=COALESCE(excluded.bench_close_5d, options_flow_outcomes.bench_close_5d),
+             ret_1d=COALESCE(excluded.ret_1d, options_flow_outcomes.ret_1d),
+             ret_5d=COALESCE(excluded.ret_5d, options_flow_outcomes.ret_5d),
+             win_1d=COALESCE(excluded.win_1d, options_flow_outcomes.win_1d),
+             win_5d=COALESCE(excluded.win_5d, options_flow_outcomes.win_5d),
+             graded_at=excluded.graded_at""",
+        (flow_id, ticker, side, contract_symbol, market_date, detected_at,
+         entry_spot, close_0d, close_1d, close_5d,
+         bench_close_0d, bench_close_1d, bench_close_5d,
+         ret_1d, ret_5d, win_1d, win_5d, time.time()),
+    )
+    await conn.commit()
 
 
 async def insert_youtube_setup(

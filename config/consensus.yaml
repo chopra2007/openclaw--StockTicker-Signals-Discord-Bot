@@ -890,14 +890,39 @@ features:
 # "Balanced" thresholds (user-chosen 2026-05-29): a contract must trade >=N x
 # its open interest, >= min_volume contracts, and >= min_premium notional.
 options_flow:
-  min_vol_oi: 10.0                 # day volume / open interest (fresh positioning) — raised 5→10 (user: too many alerts, 2026-06-08)
-  min_volume: 500                  # contracts traded today
-  min_premium_usd: 250000          # notional = lastPrice * volume * 100
+  # #57 (2026-07-09): thresholds set from MEASURED outcomes, not taste.
+  # `scripts/grade_options_flow.py` graded 8,681 stored flow events (2026-06-01 →
+  # 06-30) on whether the stock beat SPY over the same 5 trading days. Raw win rates
+  # are worthless here — June fell ~2%, so every PUT "won" and every CALL "lost".
+  # The honest measure is the GAP: how much more often the stock beat SPY after a
+  # CALL hit than after a PUT hit. Zero gap = the flow knew nothing.
+  # Counting one event per ticker-day-side (so a dozen contracts on one name can't
+  # vote twelve times) and dropping index ETFs (SPY vs SPY is a definitional zero),
+  # 1,302 independent events say only vol/OI separates signal from noise:
+  #   vol/OI >= 10:  +1.3pp (z=0.42), keeps 83%   <- the old bar: no edge at all
+  #   vol/OI >= 20:  +8.7pp (z=2.04), keeps 41%   <- set here
+  #   vol/OI >= 30: +11.9pp (z=2.46), keeps 32%
+  #   vol/OI >= 50: +14.2pp (z=2.50), keeps 23%
+  # Premium size and contract volume showed NO edge in ANY bucket ($1M+ graded no
+  # better than $250k; 5000+ contracts graded slightly WORSE). They are not levers —
+  # leave them alone. The `relative_baseline` idea below was tested the same way and
+  # is also dead: premium >= 2x/3x/5x the ticker's own trailing-30d mean gave gaps of
+  # +7.1 / -6.7 / (n=17, too thin), never significant.
+  # Raised 10 -> 20, not straight to 50: this is ONE month (June 2026) in ONE regime,
+  # and 2 of its 5 weeks show a negative gap (+18.8 / -0.3 / +3.7 / +12.0 / -7.4), which
+  # cannot justify a 5x cut in alert volume. 20 keeps ~41% of the old alerts and moves
+  # the edge from nothing to real. `flow-grading.timer` now grades every night; revisit
+  # -> 30 or 50 once a second month is in. Full evidence: plans/flow-grading-2026-07-09.md
+  # and todo/schwab-options-realtime.md.
+  min_vol_oi: 20.0                 # day volume / open interest (fresh positioning) — 5→10 (2026-06-08, too many alerts), 10→20 (2026-07-09, measured)
+  min_volume: 500                  # contracts traded today — measured: NOT a lever, do not raise
+  min_premium_usd: 250000          # notional = lastPrice * volume * 100 — measured: NOT a lever, $1M+ graded no better
   max_staleness_min: 60            # skip contracts whose last trade is older (no stale/closed-market alerts)
   nearest_expirations: 2           # scan the 2 nearest expiries per ticker
   max_alerts_per_cycle: 8          # flood guard
   selection_mode: "premium"        # #17 "premium" (current) | "relative" (premium/baseline ratio)
   relative_baseline_enabled: false # #18 also require premium >= relative_multiplier x ticker baseline
+                                   # #57 (2026-07-09): STAYS OFF — measured, no edge at 1x/2x/3x (see min_vol_oi note)
   relative_multiplier: 3.0
   # C12 (reliability-hardening): when a contract's lastTradeDate can't be parsed
   # (lt==0.0), freshness is unverifiable. It still alerts (it cleared the size

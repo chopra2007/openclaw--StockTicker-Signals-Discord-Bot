@@ -361,7 +361,7 @@ Begin a cheap forward-log of the inputs and outcomes future features will need �
 
 Pay ~$29 once for 2 years of historical options data (massive.com) and use it to backtest the unusual-options-flow alerts and feed the market top/bottom detector — testing whether our options signals actually caught the big drops and rallies of the last 2 years.
 
-## 57. Move live options data onto the Schwab real-time feed — BUILT + LIVE 2026-06-30 (on-demand ON); autonomous flow-loop alert switch FLIPPED ON 2026-07-02; 07-08 shadow-compare = 4th straight divergence → still re-tune thresholds; Schwab login RENEWED 2026-07-08 (fresh 7-day token, expires ~07-15)
+## 57. Move live options data onto the Schwab real-time feed — DONE 2026-07-09 (thresholds tuned from measured outcomes; nightly grading live)
 
 **File:** `schwab-options-realtime.md`
 
