@@ -3,7 +3,7 @@
 **Status:** LARGELY DONE (2026-07-03) — Part 1 SHIPPED; Part 2 deterministic auto-fixer LIVE (no AI); AI upgrade opt-in/deferred.
   - **Part 1 LIVE:** `ci-monitor.sh` now extracts REAL failing test ids from the FULL CI log (proven on the 07-02 pyarrow run — old `--log-failed` returned nothing); `session_close.sh` captures push exit + writes a loud `notifications.log` line on rejection; `openclaw-digest.sh` SessionStart hook banners any GATE/CI/PUSH alert; `scripts/pre-push` uses a per-user `/tmp` log (fixes the 07-02 stale-root-owned-tmp reject) synced to `.git/hooks/pre-push`; `notifications.log` made openclaw-writable. pyarrow live symptom fixed (ed143c9).
   - **Part 2 LIVE (deterministic, no AI, no login):** `/root/task_system/scripts/ci_autofix.sh` runs as openclaw when the gate is red and: (1) auto-declares an undeclared dependency — extracts the missing module from the CI error (incl. pandas' "Missing optional dependency 'X'" phrasing = the real 07-02 pyarrow signature), adds it to requirements.txt, verifies import + tests pass, commits + pushes; (2) detects flaky (local pass ×2 → no-op); (3) escalates a real logic bug to a human. Guardrails proven end-to-end (2026-07-03): retry cap fires at 2; clean-tree freshness skip; HARD forbidden-path gate (never auto-pushes config/flag/vision/go-live/CI); local re-verify; `git checkout` never stash. Full chain ci-monitor→fixer verified on the real pyarrow run (extracts 'pyarrow', skipped safely under unpushed work). ci-monitor delegates whenever the fixer exists (no AI precondition). State files (`ci-autofix.log`, `ci-autofix-attempts.txt`) pre-created openclaw-writable.
-  - **Part 2 AI upgrade (deferred, opt-in):** a guarded `claude` branch in the same script fixes genuine LOGIC bugs unattended — dormant until claude is installed+authed for the openclaw user (root-only auth today; Codex has the same hurdle). User was away 2026-07-03 → deterministic layer shipped as the safe default; AI layer is a drop-in (provision openclaw-claude and it activates).
+  - **Part 2 AI upgrade (deferred, opt-in):** a guarded `claude` branch in the same script fixes genuine LOGIC bugs unattended — was believed dormant until claude is installed+authed for the openclaw user (root-only auth today; Codex has the same hurdle). **Premise corrected 2026-07-08:** it never needed claude — Gemini, Groq, and OpenRouter all answer live as the `openclaw` user with keys already in `.env`. Next step is the cheap-model race below, NOT provisioning claude.
 **Created:** 2026-07-01
 **CURRENT STATUS (2026-07-02):** The concrete example test is FIXED (option (b) below — made deterministic), but the general auto-recovery process this item is actually about (a mechanism that checks/fixes/re-pushes ANY future gate failure, not just this one test) is still not built. Also found and fixed a second, unrelated pre-existing gate failure the same session (`test_sunday_recap_and_addon_restart_safe` — a frozen-date test whose posted-at timestamp used the real wall clock instead of the simulated one, so it silently started failing as real time passed the simulated date). Both fixes are commits `9557ca8` and `db47044`; `.test-baseline` is back to just the one unrelated ApeWisdom test. Next concrete step for the item itself: still need to decide/build the general auto-recovery mechanism (see "What the user wants" below) — today's fixes closed the two known instances, not the underlying process gap.
 
@@ -63,7 +63,45 @@ Auto-fixing a failing test is not mechanical — a naive "retry" or "auto-commit
 - `/root/task_system/notifications.log` — where gate failures currently get logged (and nothing else happens)
 - `/root/task_system/logs/session_close_*.log` — history of past gate runs; useful for measuring current gate runtime and failure frequency
 
+## Next step for the AI layer — race 3 cheap OpenRouter models (user, 2026-07-08)
+
+**Not started. Do this before writing any AI branch.**
+
+The "AI upgrade" was parked on the wrong premise — that it needed `claude`, which is installed
+root-only. **It never needed Claude.** Probed 2026-07-08 as the `openclaw` user (the user the fixer
+actually runs as):
+
+| Option | Works as `openclaw`? | Note |
+|---|---|---|
+| Gemini API key | ✅ live completion | key already in `.env`; free tier; hit one transient 503 |
+| Groq API key | ✅ live completion | key already in `.env` |
+| OpenRouter key | ✅ live completion (paid, has credit) | `/api/v1/key` authenticates; opens the whole model catalog |
+| Codex CLI | ❌ | binary on PATH but auth is root-only (`/root/.codex/auth.json`) — same hurdle as claude |
+| Claude CLI | ❌ | `/root/.local/bin/claude`, root-only |
+
+**The task:** pick the **top 3 cheap OpenRouter models**, then run a **quick race** to find which is
+both cheap AND actually capable of the job. Cheap alone is worthless if it can't fix a test.
+
+- **The job to race them on** is narrow and checkable, which is what makes a race meaningful:
+  given a failing test id + the CI error + the diff, either (a) correctly classify it as
+  `undeclared-dependency` / `flaky` / `real-logic-bug`, and (b) for a real logic bug, produce a
+  patch that makes the failing test pass **without breaking any test in `.test-baseline`**.
+- **Score on:** correct classification rate, patch-passes-the-gate rate, $/attempt, latency. A model
+  that is 3× cheaper but escalates everything to a human has not done the job.
+- **Use a real corpus, not toy cases.** The 2026-07-02 pyarrow run is a known-good
+  `undeclared-dependency` case; the 2026-07-01 market-command flake (documented above) is a known-good
+  `flaky` case. Need at least one real logic-bug case — mine `logs/session_close_*.log` history.
+- **Pick a different model family from the one that wrote the code** for the review/fix step, on the
+  same "cross-family judge can't rubber-stamp its own work" reasoning as the Wolf verifier (#64).
+- **Rate the incumbent too:** the deterministic fixer already handles the common case (a missing
+  package) with zero AI. The AI layer only earns its place on the **real-logic-bug** class. Measure
+  how often that class actually occurs before spending on it.
+- **Free-model caution:** the `:free` OpenRouter slugs churn — `deepseek-chat-v3.1:free` 404'd on
+  2026-07-08 ("paid version available now"). Whatever wins, pin it and expect to re-race. See
+  [[reference_model_bakeoff_2026-06-15]] and `reference_glm_air_free_dead` for prior results.
+
 ## Open questions
 
 - Is there an existing task_system agent/cron mechanism this could hook into for "wake up, diagnose, fix, retry" automatically? (`/root/task_system/scripts/create_task.sh` + systemd timers is the existing pattern for deferred tasks — worth checking if it fits here.)
 - What's an acceptable number of auto-retry attempts before giving up and falling back to manual, so this doesn't turn into an infinite fix-loop?
+- How often does a genuine logic bug actually redden the gate? If it's rare, the AI layer may not be worth its complexity — the race should answer this before it's built.
