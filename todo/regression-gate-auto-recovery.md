@@ -22,9 +22,9 @@
 So the race did NOT prove "only Codex can do this." It proved "one frontier model beats a bench of flash/mini models," which is meaningless. **The open question is untested: among the STRONG coding models, how many clear 70%, and which is cheapest?**
 
 **NEXT STEPS (in order):**
-1. **Redo the race with a strong-coding field**, 5 tries each, then 10 tries on survivors, target ≥70% source-only pass. Candidate slugs already priced (all < 40c/month at 6 attempts): `openai/gpt-5.1-codex`, `deepseek/deepseek-v4-pro`, `qwen/qwen3-max`, `qwen/qwen3-coder-plus`, `moonshotai/kimi-k2.7-code`, `z-ai/glm-5`, `x-ai/grok-4.3`, `mistralai/codestral-2508`, `deepseek/deepseek-v3.2`. Exclude `anthropic/*` (cross-family rule) and `google/gemini-3.1-pro` (user). Harness ready: `scripts/ci_fixer_trials.py` (takes `--models`, `--trials`; Codex routes through the CLI via `call_codex`, $0). **Get the user to pick the exact field before launching** (the AskUserQuestion was pending at close).
-2. **Decide Codex-vs-cheap-strong.** Codex gpt-5.5 is $0 on the user's subscription and went 5/5 handicapped (empty cwd, same prompt). If the goal is "cheapest that clears the gate," Codex is unbeatable on price ($0) IF the CLI integration is acceptable in production (`ci_autofix.sh` would shell out to `codex exec` instead of an HTTP POST; Codex auth is root-only, CLI must stay logged in, else the fixer escalates — the safe default). If a per-token model is preferred for simplicity, pick the cheapest strong one that clears 70%.
-3. **Re-pin** the winner in `scripts/ci_ai_fixer.py` `DEFAULT_MODEL` (or wire the Codex path) and update `reference_ci_fixer_model.md`.
+1. **Redo the race with the ≤10¢/month strong-coding field** (see goal 5 below for the list + the exclusions), 5 tries each, then 10 tries on survivors, target ≥70% source-only pass. Exclude `anthropic/*` (cross-family), `google/gemini-3.1-pro` (user), **and Codex** (control only — see below). Harness ready: `scripts/ci_fixer_trials.py` (`--models`, `--trials`). **Get the user to confirm the field before launching** (the AskUserQuestion was pending at close).
+2. **Pick the cheapest per-token model that clears ≥70%.** If NONE of the ≤10¢ models clear 70%, that's a real result — surface it and ask the user whether to lift the 10¢ cap or keep escalating logic bugs to a human (today's safe default). Codex proved the job is doable; it does NOT get wired in.
+3. **Re-pin** the winner in `scripts/ci_ai_fixer.py` `DEFAULT_MODEL` and update `reference_ci_fixer_model.md`.
 
 **Two on-disk fixes from this session — UNSTAGED, keep them (both real production bugs):**
 - `scripts/ci_ai_fixer.py` — **streaming fallback** (`_call_unstreamed`). OpenRouter load-balances providers per call; some deliver a reasoning model's answer in a way the SSE `delta.content` path never sees → silent "empty reply." Would have unfairly failed EVERY reasoning model. Falls back to a non-streaming call inside the remaining deadline; also flags `finish_reason=length` truncation (that's how `glm-4.7-flash` was caught burning 16k tokens on hidden reasoning).
@@ -94,6 +94,17 @@ At session close ("bye"), `session_close.sh` runs the test suite and, if code ch
 1. **A process that checks, fixes, and re-pushes automatically** when the gate fails — so a failed session-close gate doesn't require the user to notice, open a new session, and push manually.
 2. **If #1 turns out to not be safely automatable, shorten the regression gate** (currently the full `pytest tests/ -n 2` suite, ~1270+ tests) so failures are cheaper/faster to catch and clear, reducing how long a broken push sits unpushed.
 3. **If #1 isn't feasible, Claude must proactively tell the user at the start of every new session** that a gate failure is sitting unpushed — not wait to be asked.
+
+**Two more goals for the AI-fixer part of #1 (user, stated across 2026-07-08 → 2026-07-10):**
+4. **Compare candidate models head-to-head to find the best success rate** — actually race them on a real failing test and measure, don't pick one and hope. **Bar: a model must hit ≥70% success to qualify** (user, 2026-07-10).
+5. **Hard cost cap: ≤ 10 cents / month** (user, 2026-07-10: "I don't want to spend more than 10 cents per month"). Real ceiling, not a comfort level.
+
+**CODEX IS NOT A PRODUCTION CANDIDATE (user, 2026-07-10, explicit).** The Codex subscription was used ONLY as a *control* — to prove a capable model can go 5/5, i.e. that the task is solvable and ≥70% is achievable, so the hunt for a cheap model is worth continuing. Codex has done that one job and is **retired from the running.** Do NOT propose wiring Codex / `codex exec` into production. The deliverable is a **pay-per-token model** that clears goal 4 AND goal 5.
+
+**The redo-race field (strong coding models that FIT under 10¢/month, ~6 runs/mo):**
+- `deepseek/deepseek-v3.2` ~6¢ · `qwen/qwen3-coder-flash` ~6¢ · `deepseek/deepseek-v3.1-terminus` ~8¢ · `mistralai/codestral-2508` ~9¢ · `qwen/qwen3.7-plus` ~9¢ (add any other strong coder priced ≤ ~$0.017/attempt).
+- **OVER the wall — excluded:** `deepseek-v4-pro` ~12¢, `glm-5` ~17¢, `qwen3-coder-plus` ~19¢, `qwen3-max` ~23¢, `kimi-k2.7-code` ~22¢, `gpt-5.1-codex` ~34¢, `grok-4.3` ~35¢.
+- The "under 40c/month" framing in the REOPENED notes above is WRONG against this cap; this ≤10¢ list supersedes it.
    - **Note (user, 2026-07-01):** this may be as simple as making the existing session-start check alert specifically when it sees a "gate failed" line — CLAUDE.md already has a "check `notifications.log` at session start, summarize if non-empty" rule, and `session_close.sh` already writes a line there on every gate failure (`GATE FAILED`/`FLAG-FLIP GATE BLOCKED`/`VISION SMOKE FAILED`). So #3 may not need new code — just confirming/tightening that the session-start check reliably flags those specific lines every time (not just when a gate happened to fail right before the last session ended), rather than treating it as a generic notification to summarize quietly. Worth explicitly testing before assuming it's "done."
 
 ## Why #1 is hard (needs real design, not a quick patch)
