@@ -52,3 +52,6 @@ auto-flip engine flips each switch on its own (no further human step).
 ## Open questions
 - Hot-path latency budget for (1a) vs building the batch backfill (1b)?
 - Does `fold_display_signals` need the scoring consumer built at the same time, or log-first-then-consume?
+
+### Session notes — 2026-07-09
+- **Planned:** build order + design choices in `.omc/plans/active-items-completion-2026-07-09.md` Phase C (lazy per-signal timeouts, log-only flag ON, scoring consumer built but OFF, analyst outcomes at 24h/5d not 1h). Completing this item also closes #61.

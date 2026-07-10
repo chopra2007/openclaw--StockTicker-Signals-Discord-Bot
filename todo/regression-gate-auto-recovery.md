@@ -117,3 +117,6 @@ both cheap AND actually capable of the job. Cheap alone is worthless if it can't
 - Is there an existing task_system agent/cron mechanism this could hook into for "wake up, diagnose, fix, retry" automatically? (`/root/task_system/scripts/create_task.sh` + systemd timers is the existing pattern for deferred tasks — worth checking if it fits here.)
 - What's an acceptable number of auto-retry attempts before giving up and falling back to manual, so this doesn't turn into an infinite fix-loop?
 - How often does a genuine logic bug actually redden the gate? If it's rare, the AI layer may not be worth its complexity — the race should answer this before it's built.
+
+### Session notes — 2026-07-09
+- **Decision (user):** AI fixer autonomy = fix + HOLD — it may commit a logic-bug fix locally + notify loudly, but a human pushes; missing-package fixes keep auto-pushing. Race plan: `.omc/plans/active-items-completion-2026-07-09.md` Phase D (includes measuring how often real logic bugs actually redden the gate before wiring anything).

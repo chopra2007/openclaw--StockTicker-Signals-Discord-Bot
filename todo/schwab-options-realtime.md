@@ -285,3 +285,6 @@ Ordered rough easy→ambitious. User's own examples folded in (trading bot / bet
   recovered a prior close-push that a stale `/tmp/pytest-prepush.log` had silently blocked). **After it
   fires, next session must commit the live `consensus.yaml` flag change** (the wrapper edits + notes it in
   notifications.log, but a scheduled task can't push).
+
+### Session notes — 2026-07-09
+- **Decision (user):** tune thresholds by GRADING the 123,794 stored options_flow hits first (did the stock move the flow's direction 1d/5d later?), then set thresholds from measured win rates — and make flow-alert grading permanent (nightly). Plan: `.omc/plans/active-items-completion-2026-07-09.md` Phase A.

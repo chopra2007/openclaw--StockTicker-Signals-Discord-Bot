@@ -83,3 +83,6 @@ races a 30-second timer and failed twice before working.
 - Should the helper open the URL in a browser automatically, or just print it? (VPS has
   no browser; the user is on their own machine — printing is probably right.)
 - Add a systemd path/timer to nudge exactly at expiry rather than daily?
+
+### Session notes — 2026-07-09
+- **Decision (user):** #errors channel is NOT Schwab-only — route other outage classes there too (dead source, LLM-health, etc.), throttled, with recovery follow-ups. Full scope: `.omc/plans/active-items-completion-2026-07-09.md` Phase B. Deadline note: token expires ~07-15 — build the helper before the next renewal.
