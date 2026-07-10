@@ -399,13 +399,13 @@ When the session-close test gate fails, the push is skipped and nothing else hap
 
 Build the approved redesign of the /discover plugin — passes 0-4 on Claude Code's Workflow engine with evidence-rule kill-testing and a plan tournament — and ship it as v1.0.0; design and step-by-step plan are complete, no code written yet.
 
-## 61. Run the research-and-build prompt for new bot features and fixes
+## 61. Run the research-and-build prompt for new bot features and fixes — DONE 2026-07-09 (last dependency #62 landed)
 
 **File:** `bot-deep-research-prompt.md`
 
 **CURRENT STATUS (2026-07-05) — RUN EXECUTED.** Full six-lens research → adversarial review → user picks → build. Report committed to `plans/bot-research-build-2026-07.md`. **Headline (measured + adversarially re-verified): the bot's score has ~no predictive edge on stored data** (score→prob at the base-rate Brier floor, final_score AUC ~0.507 at 24h, per-signal |IC|<0.03; fired alerts up 52.7% at 24h — a hair above coin flip; 20d anti-predictive). **SHIPPED + LIVE:** (1) nightly DB backup + integrity timer; (2) circuit-breaker persisted-OPEN reload on startup (verified live); (3) read-only `consensus_engine/eval/` measurement module (the honesty spine); (4) holiday-aware price label + non-ASCII ticker reject; (5) `!all` loud-on-degraded banner; (6) **autonomous readiness-and-flip engine** (user directive — tracks data, re-tests every 2 days, auto-flips when confident; `/root/task_system/auto_flip_check.py` + timer). Corrections after user pushback: MU $1154 was REAL (not a bug — pick dropped); fired-alert 52.7% not 43.8%. **DEFERRED to #62-#65** (need dedicated sessions / live shadow checks). Stays OPEN until those land.
 
-## 62. Feed the auto-flip engine — build the two forward-loggers
+## 62. Feed the auto-flip engine — build the two forward-loggers — DONE 2026-07-09 (both live, zero alert change; fixed a latent consensus-boost hazard)
 
 **File:** `forward-loggers-for-autoflip.md`
 

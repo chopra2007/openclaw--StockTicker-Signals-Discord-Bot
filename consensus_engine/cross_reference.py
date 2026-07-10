@@ -1458,7 +1458,9 @@ async def score_ticker(
         weight_cap = float(cfg.get("features.analyst_accuracy_weight.weight_cap", 1.5))
         weighted = 0.0
         for analyst in other_analysts[:max_analysts]:
-            lb = await db.get_analyst_precision_lb(analyst, horizon="1h", min_n=min_n)
+            # #62: horizon resolves via db.analyst_horizon() — '1h' (no rows, so
+            # neutral) until scoring.analyst_accuracy_weight.enabled flips it to 24h.
+            lb = await db.get_analyst_precision_lb(analyst, min_n=min_n)
             if lb is None:
                 weight = 1.0  # thin/absent record -> neutral 20
             else:

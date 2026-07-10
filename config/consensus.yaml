@@ -49,6 +49,22 @@ searxng:
 # Scoring Model
 scoring:
   skip_llm_below_threshold: false     # #16 skip LLM confidence call when base+cheap+llm_max can't reach the alert line
+  # --- #62: the two switches the autonomous auto-flip engine owns -------------
+  # Both OFF. The forward-loggers fill their tables regardless; these flags are the
+  # only thing that turns logged data into changed alerts. Do not flip by hand —
+  # /root/task_system/scripts/auto_flip_check.py flips them when the evidence earns it.
+  fold_display_signals:
+    # Fold the 5 rich display signals (max-pain, analyst momentum, EPS revisions,
+    # peer relative-strength, chart patterns) INTO the score. Flipped only when each
+    # signal beats the incumbent held-out Brier at 24h, n>=90, Wilson-LB > 0.50.
+    enabled: false
+    max_points: 8               # hard cap on the total score adjustment, both directions
+  analyst_accuracy_weight:
+    # Promote per-analyst track record into scoring. This ALSO switches every live
+    # reader of `source_performance` from horizon '1h' (never written -> cold-start,
+    # alerts unchanged) to '24h' (where the forward-logger is filling it).
+    enabled: false
+    horizon: "24h"              # '24h' or '5d' once flipped
   conviction:
     high: 30
     medium: 25
@@ -746,6 +762,13 @@ chat_memory:
 # New Signal Features (A1/A2/A3/A4/A5/D1)
 # =============================================================================
 features:
+  # #62 forward-logger 1. ON, and safe to be ON: it runs OFF the alert path.
+  # main.py writes the decision snapshot, THEN schedules this collector, which
+  # merges the 5 signals into the already-written row. Alerts gain zero latency.
+  # Purely a recorder — `scoring.fold_display_signals.enabled` is what would ever
+  # let these numbers touch a score.
+  forward_log_display_signals:
+    enabled: true
   contradiction_penalty:
     enabled: true               # A1 default-on; manual rollback via YAML flip
     contradiction_max: 0.5

@@ -1,17 +1,25 @@
-"""#55 Build C — daily analyst track-record SHADOW producer (isolated timer).
+"""#55/#62 — daily analyst track-record producers (isolated timer).
 
-ONE cron entrypoint that grades analyst handles from labeled `alert_history` and
-writes the result to `source_performance_shadow` by calling the FROZEN producer
-`consensus_engine.analysis.source_performance.compute_source_performance_shadow`.
-It does not re-implement the grading math.
+ONE cron entrypoint that grades analyst handles from labeled `alert_history`:
 
-SAFETY: the producer writes ONLY to `source_performance_shadow`, never to the
-live `source_performance` table, so this run changes ZERO live alerts. It is NOT
-wired into the live engine loop — it runs from its own daily timer.
+- `compute_source_performance_shadow` -> `source_performance_shadow` at 1h/24h (#55)
+- `compute_source_performance_live`   -> `source_performance` at 24h/5d (#62)
+
+It does not re-implement the grading math; both producers live in
+`consensus_engine.analysis.source_performance`.
+
+SAFETY — why writing the LIVE table changes zero alerts today:
+every live reader resolves its horizon through `db.analyst_horizon()`, which
+returns '1h' until `scoring.analyst_accuracy_weight.enabled` is flipped. The live
+producer never writes a '1h' row. So the table accumulates 24h/5d track records
+while every reader keeps missing and staying cold-start. The auto-flip engine
+flips that flag only once an analyst clears n>=90, Wilson-LB>0.50 and BH-FDR
+q<=0.10 — that flip, not this producer, is what puts the data to work.
 
 Usage:
-    python3 scripts/source_performance_shadow_daily.py            # grade + upsert shadow table
-    python3 scripts/source_performance_shadow_daily.py --db /tmp/x.db   # target a NON-live db
+    python3 scripts/source_performance_shadow_daily.py            # both producers
+    python3 scripts/source_performance_shadow_daily.py --shadow-only
+    python3 scripts/source_performance_shadow_daily.py --db /tmp/x.db   # NON-live db
 """
 from __future__ import annotations
 
@@ -31,24 +39,32 @@ log = logging.getLogger("source_performance_shadow_daily")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 
-async def _run_async() -> dict:
+async def _run_async(shadow_only: bool) -> dict:
     from consensus_engine import db as db_module
     from consensus_engine.analysis.source_performance import (
+        compute_source_performance_live,
         compute_source_performance_shadow,
     )
     await db_module.init_db()
     try:
-        return await compute_source_performance_shadow()
+        out = {"shadow": await compute_source_performance_shadow()}
+        if not shadow_only:
+            out["live"] = await compute_source_performance_live()
+            out["reader_horizon"] = db_module.analyst_horizon()
+        return out
     finally:
         await db_module.close_db()
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Daily analyst track-record SHADOW producer — grades "
-                    "alert_history into source_performance_shadow (never live).")
+        description="Daily analyst track-record producers — grade alert_history "
+                    "into source_performance_shadow (1h/24h) and source_performance "
+                    "(24h/5d).")
     parser.add_argument("--db", type=str, default=None, metavar="PATH",
                         help="Target SQLite db (default: database.path from config).")
+    parser.add_argument("--shadow-only", action="store_true",
+                        help="Skip the #62 live-table producer.")
     args = parser.parse_args()
 
     import consensus_engine.db as db_module
@@ -56,9 +72,13 @@ def main() -> int:
         "database.path", "/home/openclaw/.openclaw/workspace/consensus.db")
     db_module._db = None
 
-    summary = asyncio.run(_run_async())
+    summary = asyncio.run(_run_async(args.shadow_only))
     print()
-    print(f"source_performance_shadow updated: {summary}")
+    print(f"source_performance_shadow updated: {summary['shadow']}")
+    if "live" in summary:
+        print(f"source_performance (live)  updated: {summary['live']}")
+        print(f"live readers currently consult horizon '{summary['reader_horizon']}' "
+              f"({'COLD-START — alerts unchanged' if summary['reader_horizon'] == '1h' else 'ACTIVE'})")
     return 0
 
 

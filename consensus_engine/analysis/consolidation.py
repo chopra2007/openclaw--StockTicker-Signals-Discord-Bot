@@ -127,10 +127,18 @@ async def consolidate_for_ticker(
     unique_sources = list(set(sources_seen))
     cold_start = False
     source_accuracies: dict[str, float] = {}
+    # #62: this read had NO horizon filter, so the moment `source_performance`
+    # gained any row for a source — at any horizon — this prior would silently go
+    # warm and start adding consensus_boost to live alerts. The forward-logger
+    # fills the table at 24h/5d, so the filter is what keeps that logging inert.
+    # analyst_horizon() returns '1h' (never written) until the promote flag flips.
+    from consensus_engine.db import analyst_horizon
+    _horizon = analyst_horizon()
     for src in unique_sources:
         perf_cur = await conn.execute(
-            "SELECT rolling_accuracy FROM source_performance WHERE entity_id = ? LIMIT 1",
-            (src,),
+            "SELECT rolling_accuracy FROM source_performance "
+            "WHERE entity_id = ? AND horizon = ? LIMIT 1",
+            (src, _horizon),
         )
         perf_row = await perf_cur.fetchone()
         if perf_row is None:

@@ -1197,6 +1197,10 @@ async def _run_column_migrations(conn) -> None:
         # only fires when the column is absent (PRAGMA table_info guard).
         ("decision_snapshots", "outcome_price_5d",  "REAL"),
         ("decision_snapshots", "outcome_price_20d", "REAL"),
+        # #62: the 5-TRADING-day close after an alert. An analyst call is a slow
+        # signal — grading it at 1h measures noise. alert_history only carried 1h
+        # and 24h, so the 5d horizon the auto-flip engine wants had nowhere to live.
+        ("alert_history", "price_5d_later", "REAL"),
         ("signal_events", "consumed_by_cluster_id", "INTEGER"),
         # Item E (deep-dive-2026-06-08): clickable TweetShift source link for twitter signals.
         # Old rows get NULL (render plain text); only twitter rows ever populate it.
@@ -1543,8 +1547,31 @@ async def get_active_tickers(min_signals: int = 1) -> list[str]:
     return [r["ticker"] for r in rows]
 
 
-async def get_analyst_precision(analyst: str, horizon: str = "1h") -> float | None:
-    """Return rolling_accuracy for analyst at horizon, or None if sample_count < 5."""
+def analyst_horizon() -> str:
+    """#62: which horizon the LIVE analyst-accuracy readers should consult.
+
+    The producer writes `source_performance` at '24h' and '5d' only — never '1h',
+    because an analyst call graded one hour later is measuring noise. So while
+    `scoring.analyst_accuracy_weight.enabled` is OFF every reader asks for '1h',
+    finds no rows, and stays cold-start: alerts are byte-for-byte unchanged while
+    the table fills. When the auto-flip engine flips that flag (after >=1 analyst
+    clears n>=90, Wilson-LB>0.50, BH-FDR q<=0.10), the readers switch to '24h' and
+    the accumulated track record goes live in one step.
+
+    This flag is therefore the ONLY thing standing between logged data and changed
+    alerts. It must stay OFF until the readiness check passes.
+    """
+    if cfg.get("scoring.analyst_accuracy_weight.enabled", False):
+        return str(cfg.get("scoring.analyst_accuracy_weight.horizon", "24h"))
+    return "1h"
+
+
+async def get_analyst_precision(analyst: str, horizon: str | None = None) -> float | None:
+    """Return rolling_accuracy for analyst at horizon, or None if sample_count < 5.
+
+    `horizon=None` resolves via `analyst_horizon()` (the flag-gated live horizon).
+    """
+    horizon = horizon or analyst_horizon()
     conn = await get_db()
     cursor = await conn.execute(
         """SELECT rolling_accuracy, sample_count FROM source_performance
@@ -1558,9 +1585,11 @@ async def get_analyst_precision(analyst: str, horizon: str = "1h") -> float | No
 
 
 async def get_analyst_precision_lb(
-    analyst: str, horizon: str = "1h", min_n: int = 10
+    analyst: str, horizon: str | None = None, min_n: int = 10
 ) -> float | None:
     """Return the Wilson score interval LOWER BOUND of an analyst's accuracy.
+
+    `horizon=None` resolves via `analyst_horizon()` (the flag-gated live horizon).
 
     I2 (signal-features-2026-06-09): used to weight the analyst scoring term by
     track record without letting a thin sample swing the score. Returns the
@@ -1577,6 +1606,7 @@ async def get_analyst_precision_lb(
     its accuracy through this read. Building an un-alerted grading pipeline is out
     of scope (final-plan.md §2 I2 "recovery claim DROPPED").
     """
+    horizon = horizon or analyst_horizon()
     conn = await get_db()
     cursor = await conn.execute(
         """SELECT rolling_accuracy, sample_count FROM source_performance
@@ -2259,7 +2289,9 @@ async def check_alert_cooldown(
     # cooldown_h = min(max_cap, base / weight); 50%-precision = baseline 6 h.
     # Cold-start AND sample_count<5 both arrive as precision=None -> weight=1.0 (= base 6 h).
     max_cooldown_hours = cfg.get("alerts.per_analyst_cooldown.max_cooldown_hours", 24)
-    precision = await get_analyst_precision(analyst, horizon="1h")
+    # #62: horizon resolves via analyst_horizon() — '1h' (no rows -> blanket
+    # cooldown) until scoring.analyst_accuracy_weight.enabled flips it to 24h.
+    precision = await get_analyst_precision(analyst)
     if precision is None:
         weight = 1.0
     else:
@@ -2538,10 +2570,17 @@ async def get_recent_analysts_for_ticker(ticker: str, window_seconds: int = 3600
     return [r["source_detail"] for r in rows]
 
 
-async def get_alerts_needing_price_update(field: str) -> list[dict]:
+async def get_alerts_needing_price_update(
+    field: str, limit: int = 20, ignore_max_age: bool = False,
+) -> list[dict]:
     """Get alerts where a price follow-up field is NULL and enough time has passed.
 
-    field must be 'price_1h_later' or 'price_24h_later'.
+    field must be 'price_1h_later', 'price_24h_later' or 'price_5d_later'.
+
+    `ignore_max_age` (#62) drops the upper age bound, for the one-off 5d backfill:
+    1h/24h read a LIVE spot price so an ancient row is unfillable, but the 5d fill
+    indexes historical daily bars, which are still there years later. Without this
+    the 268 analyst-bearing alerts older than 30 days could never be graded.
     """
     conn = await get_db()
     now = time.time()
@@ -2551,23 +2590,37 @@ async def get_alerts_needing_price_update(field: str) -> list[dict]:
     elif field == "price_24h_later":
         min_age = 86400      # at least 24 hours old
         max_age = 172800     # no older than 48 hours
+    elif field == "price_5d_later":
+        # #62: 5 TRADING days is 7 calendar days at worst (a weekend plus a holiday).
+        # The wide upper bound lets the loop catch up after downtime — the exact
+        # trading-day check is the bar count in the fetch helper.
+        min_age = 7 * 86400
+        max_age = 30 * 86400
     else:
         return []
 
-    cursor = await conn.execute(
-        f"""SELECT id, ticker, price_at_alert, alerted_at FROM alert_history
-            WHERE {field} IS NULL
-            AND alerted_at <= ? AND alerted_at >= ?
-            ORDER BY alerted_at DESC LIMIT 20""",
-        (now - min_age, now - max_age),
-    )
+    if ignore_max_age:
+        cursor = await conn.execute(
+            f"""SELECT id, ticker, price_at_alert, alerted_at FROM alert_history
+                WHERE {field} IS NULL AND alerted_at <= ?
+                ORDER BY alerted_at DESC LIMIT ?""",
+            (now - min_age, int(limit)),
+        )
+    else:
+        cursor = await conn.execute(
+            f"""SELECT id, ticker, price_at_alert, alerted_at FROM alert_history
+                WHERE {field} IS NULL
+                AND alerted_at <= ? AND alerted_at >= ?
+                ORDER BY alerted_at DESC LIMIT ?""",
+            (now - min_age, now - max_age, int(limit)),
+        )
     rows = await cursor.fetchall()
     return [dict(r) for r in rows]
 
 
 async def update_alert_price(alert_id: int, field: str, price: float):
     """Update a price follow-up field on an alert."""
-    if field not in ("price_1h_later", "price_24h_later"):
+    if field not in ("price_1h_later", "price_24h_later", "price_5d_later"):
         return
     conn = await get_db()
     await conn.execute(
@@ -3994,6 +4047,43 @@ async def record_decision_snapshot(
     )
     await conn.commit()
     return cursor.lastrowid
+
+
+async def merge_snapshot_feature_vector(snapshot_id: int, extra: dict) -> bool:
+    """#62: merge extra keys into an existing row's feature_vector_json.
+
+    The display signals are computed AFTER the snapshot is written (they are far too
+    slow for the alert path), so they are merged in rather than passed at insert.
+    Read-modify-write on one row by primary key; existing keys are preserved unless
+    `extra` overwrites them. Returns False if the row vanished or the stored JSON is
+    unparseable — a logging failure must never raise into the alert path.
+    """
+    if not extra:
+        return False
+    import json as _json
+
+    conn = await get_db()
+    cur = await conn.execute(
+        "SELECT feature_vector_json FROM decision_snapshots WHERE id=?", (snapshot_id,))
+    row = await cur.fetchone()
+    if row is None:
+        log.warning("merge_snapshot_feature_vector: snapshot %s not found", snapshot_id)
+        return False
+    try:
+        current = _json.loads(row["feature_vector_json"]) if row["feature_vector_json"] else {}
+        if not isinstance(current, dict):
+            current = {}
+    except (ValueError, TypeError):
+        log.warning("merge_snapshot_feature_vector: snapshot %s has unreadable JSON",
+                    snapshot_id)
+        current = {}
+    current.update(extra)
+    await conn.execute(
+        "UPDATE decision_snapshots SET feature_vector_json=? WHERE id=?",
+        (_json.dumps(current), snapshot_id),
+    )
+    await conn.commit()
+    return True
 
 
 async def get_recent_decision_snapshots(ticker: str, limit: int = 10) -> list[dict]:

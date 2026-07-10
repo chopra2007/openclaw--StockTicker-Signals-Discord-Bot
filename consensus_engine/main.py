@@ -1745,6 +1745,12 @@ async def _run_cross_reference_and_followup(
                 alert_id=alert_row_id,
                 feature_vector_json=_json.dumps(fv) if fv else None,
             )
+            # #62: record the 5 rich display signals against this decision. They cost
+            # up to ~25s of network, so they run AFTER the row is written and merge
+            # themselves in — the alert path gains exactly zero latency. Log-only:
+            # nothing here can change a score or a message.
+            _schedule_display_signal_log(snapshot_id, ticker)
+
             await log_shadow_prediction(snapshot_id, score=final_score, calibrated_prob=shadow_prob)
 
             # Milestone-0 Spec 03: emit per-horizon shadow predictions.
@@ -1933,6 +1939,37 @@ def _fetch_yfinance_close_n_trading_days_later(
     return 0.0
 
 
+# #62: strong refs to the fire-and-forget display-signal loggers. asyncio only
+# holds a WEAK reference to a running task, so without this set a logger can be
+# garbage-collected mid-flight and the row silently never gets its signals.
+_display_signal_tasks: set[asyncio.Task] = set()
+
+
+def _schedule_display_signal_log(snapshot_id: int, ticker: str) -> None:
+    """Fire-and-forget the display-signal logger for one decision snapshot.
+
+    Deliberately not awaited: the five signals take up to ~25 seconds of network
+    and the caller is on the alert path. Failures are logged and dropped — a
+    missing training row is never worth delaying or breaking an alert.
+    """
+    if not cfg.get("features.forward_log_display_signals.enabled", True):
+        return
+
+    async def _run() -> None:
+        try:
+            from consensus_engine.analysis.display_signals import log_display_signals
+            await log_display_signals(snapshot_id, ticker)
+        except Exception as e:   # noqa: BLE001
+            log.debug("display-signal logging failed for $%s: %s", ticker, e)
+
+    try:
+        task = asyncio.create_task(_run())
+    except RuntimeError:
+        return   # no running loop (unit tests / sync callers)
+    _display_signal_tasks.add(task)
+    task.add_done_callback(_display_signal_tasks.discard)
+
+
 # 5d/20d outcome horizons (decision_snapshots only). (field, n_trading_days,
 # min_age_days, max_age_days) — min/max are CALENDAR-day scan gates; the exact
 # trading-day check is the bar count inside the fetch helper. The live loop uses
@@ -1980,6 +2017,44 @@ async def _fill_slow_outcomes(loop, executor, bounded: bool, limit: int) -> dict
                         snap["id"], outcome_price_20d=float(price))
                 counts[field] += 1
     return counts
+
+
+async def _fill_alert_5d_outcomes(loop, executor, limit: int = 50,
+                                  ignore_max_age: bool = False) -> int:
+    """#62: fill `alert_history.price_5d_later` for alerts whose window has elapsed.
+
+    Reads the close on the 5th TRADING day after the alert (weekends and holidays
+    skipped automatically — they are not bars), so a fill that runs late is still
+    the right number. Only NULLs are touched; returns how many were filled.
+
+    This is what gives the analyst track record a horizon slow enough to mean
+    anything: an analyst's call graded one hour later is measuring noise.
+
+    `ignore_max_age=True` is the one-off backfill over the whole back-catalogue.
+    """
+    alerts = await db.get_alerts_needing_price_update(
+        "price_5d_later", limit=limit, ignore_max_age=ignore_max_age)
+    if not alerts:
+        return 0
+    futures = [
+        loop.run_in_executor(
+            executor, _fetch_yfinance_close_n_trading_days_later,
+            a["ticker"], a["alerted_at"], 5,
+        )
+        for a in alerts
+    ]
+    fetched = await asyncio.gather(*futures, return_exceptions=True)
+    filled = 0
+    for alert, price in zip(alerts, fetched):
+        if isinstance(price, Exception):
+            log.debug("5d outcome fetch error for %s: %s", alert["ticker"], price)
+            continue
+        if price and price > 0:
+            await db.update_alert_price(alert["id"], "price_5d_later", float(price))
+            filled += 1
+    if filled:
+        log.info("filled price_5d_later on %d alerts", filled)
+    return filled
 
 
 async def backfill_decision_outcomes(max_rows: int | None = None) -> dict:
@@ -2057,6 +2132,10 @@ async def price_outcome_loop(stop_event: asyncio.Event):
                 # up to ~20 trading days old whose 5d/20d columns are still NULL and
                 # fills them once that many trading days have elapsed.
                 await _fill_slow_outcomes(loop, executor, bounded=True, limit=50)
+                # #62: 5-trading-day alert outcomes — the horizon the analyst
+                # track record is graded on. Unlike 1h/24h (a live spot read) this
+                # indexes historical daily bars, so a late fill is still correct.
+                await _fill_alert_5d_outcomes(loop, executor)
             except Exception as e:
                 log.error("Price outcome loop error: %s", e, exc_info=True)
 
