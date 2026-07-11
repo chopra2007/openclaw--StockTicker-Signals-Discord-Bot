@@ -37,10 +37,15 @@ from typing import Any
 
 _ROOT = Path(__file__).resolve().parent.parent
 
-# Pinned by the 2026-07-09 race (scripts/ci_fixer_race.py). Cheap AND capable, in
-# that order of constraint: capability is a gate, not a score to trade away. Expect
-# to re-race when this slug is retired — they churn.
-DEFAULT_MODEL = "qwen/qwen3-coder-next"
+# Pinned by the 2026-07-11 v3 race (.omc/plans/ci-fixer-race-v3-2026-07-10.md; harness
+# scripts/ci_fixer_trials.py, corpus .omc/trials/corpus_v3.json). Capability is a GATE,
+# not a score: this model cleared ≥70% per-incident success (production retries 3×) on a
+# 4-case real-source-bug corpus, and among all qualifiers it is the cheapest — the whole
+# strong-coder field now prices under 25¢/mo once the prompt is trimmed, so price stopped
+# being the constraint and the cheapest capable model wins. Measured: SCORE 0.86 (deep,
+# 5 trials/case), 4/4 cases, 0 timeouts, ~$0.007/mo; confirm run 8/8. Expect to re-race
+# when this slug is retired — they churn; the harness + corpus re-run for ~$1-2.
+DEFAULT_MODEL = "deepseek/deepseek-v4-flash"
 
 # A different model FAMILY from the one that wrote most of this code (Claude), on the
 # same reasoning as the Wolf verifier (#64): a model cannot rubber-stamp its own work.
@@ -53,9 +58,23 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 # wall-clock deadline ourselves. A CI fixer that hangs is worse than one that gives up.
 CONNECT_TIMEOUT_S = 15
 READ_TIMEOUT_S = 90
-HARD_DEADLINE_S = 210
-MAX_TOKENS = 8000        # bound generation; the reply is one small JSON object
-MAX_FILE_CHARS = 60_000
+# 600s, not 210: this is a background job run ~monthly, nobody waits on it, and a
+# reasoning model needs room to finish. A hung call still surfaces — the deadline is a
+# hard wall-clock cap, it just gives a slow-but-working model the time it needs.
+HARD_DEADLINE_S = 600
+# 16000, not 8000: this is a CAP, not a spend — it costs nothing unless used, and 8000
+# demonstrably truncated reasoning models mid-thought (they emit hidden reasoning tokens
+# before the JSON). The reply itself is still one small JSON object.
+MAX_TOKENS = 16000
+# 20k, not 60k: input tokens dominate every attempt's cost, so trimming each context
+# file roughly halves the cost of the race AND of production per incident.
+MAX_FILE_CHARS = 20_000
+# Total prompt budget. Files past this are dropped/truncated deepest-import first; the
+# failing test file and any traceback-named file are protected and never dropped.
+MAX_PROMPT_CHARS = 80_000
+# Reasoning control, e.g. {"max_tokens": 3000} or {"effort": "low"}. Left None in
+# production; the race sets it as a cost arm on models that burn reasoning tokens.
+REASONING: dict | None = None
 
 CLASSES = ("undeclared_dependency", "flaky", "real_logic_bug")
 
@@ -162,9 +181,9 @@ MAX_CONTEXT_FILES = 8
 IMPORT_DEPTH = 2
 
 
-def relevant_files(failing: str, error_text: str, root: Path) -> dict[str, str]:
-    """Everything the model needs to see: the failing test files, any repo file named
-    in the traceback, and the repo modules those tests import (the code under test)."""
+def named_paths(failing: str, error_text: str) -> list[str]:
+    """The failing test files + any repo source file named in the traceback. These are
+    the files the model most needs, so they are protected from prompt trimming."""
     paths: list[str] = []
     for tid in failing.split():
         if "::" in tid:
@@ -173,6 +192,13 @@ def relevant_files(failing: str, error_text: str, root: Path) -> dict[str, str]:
             paths.append(tid)
     for m in re.finditer(r"((?:tests|consensus_engine|scripts)/[\w/]+\.py)", error_text):
         paths.append(m.group(1))
+    return [p for p in dict.fromkeys(paths) if not FORBIDDEN_RE.match(p)]
+
+
+def relevant_files(failing: str, error_text: str, root: Path) -> dict[str, str]:
+    """Everything the model needs to see: the failing test files, any repo file named
+    in the traceback, and the repo modules those tests import (the code under test)."""
+    paths = named_paths(failing, error_text)
 
     out: dict[str, str] = {}
     for p in dict.fromkeys(paths):
@@ -204,15 +230,30 @@ def relevant_files(failing: str, error_text: str, root: Path) -> dict[str, str]:
     return out
 
 
-def build_prompt(failing: str, error_text: str, files: dict[str, str]) -> str:
-    parts = [
-        f"The regression gate is red. These tests fail:\n{failing}\n",
-        "Local pytest output (tail):\n```\n" + error_text.strip()[-6000:] + "\n```\n",
-    ]
+def build_prompt(failing: str, error_text: str, files: dict[str, str],
+                 protected: set[str] | None = None) -> str:
+    """Assemble the prompt under a total-char budget. `files` is in priority order
+    (named files first, then import-followed). Protected files are always included
+    (capped per-file); non-protected files are dropped once the budget is spent — so
+    the deepest-import files go first and the failing test never does."""
+    protected = protected or set()
+    header = f"The regression gate is red. These tests fail:\n{failing}\n"
+    err = "Local pytest output (tail):\n```\n" + error_text.strip()[-6000:] + "\n```\n"
+    tail = ("Classify the failure and, if it is a real logic bug, return the "
+            "minimal edits that make exactly these tests pass.")
+    parts = [header, err]
+    used = len(header) + len(err) + len(tail)
     for path, content in files.items():
-        parts.append(f"--- FILE: {path} ---\n```python\n{content}\n```\n")
-    parts.append("Classify the failure and, if it is a real logic bug, return the "
-                 "minimal edits that make exactly these tests pass.")
+        wrap = len(f"--- FILE: {path} ---\n```python\n") + len("\n```\n")
+        room = MAX_PROMPT_CHARS - used - wrap
+        body = content
+        if len(body) > room:
+            if path not in protected and room < 500:
+                continue                       # no room for a non-essential file — drop it
+            body = body[:max(room, 0)] + "\n# ...(truncated)...\n"
+        parts.append(f"--- FILE: {path} ---\n```python\n{body}\n```\n")
+        used += wrap + len(body)
+    parts.append(tail)
     return "\n".join(parts)
 
 
@@ -234,18 +275,77 @@ def _api_key() -> str:
     return key
 
 
+_MODEL_META: dict[str, dict] = {}
+
+
+def model_meta(slug: str) -> dict:
+    """OpenRouter's `context_length` and `supported_parameters` for a slug, fetched once
+    and cached. Empty dict if the catalog can't be read — callers degrade gracefully."""
+    if not _MODEL_META:
+        try:
+            import requests
+            r = requests.get("https://openrouter.ai/api/v1/models",
+                             headers={"Authorization": f"Bearer {_api_key()}"}, timeout=20)
+            for m in (r.json().get("data") or []):
+                _MODEL_META[m.get("id", "")] = {
+                    "context_length": m.get("context_length") or 0,
+                    "supported_parameters": set(m.get("supported_parameters") or []),
+                    "pricing": m.get("pricing") or {},
+                }
+        except Exception:  # noqa: BLE001 — no catalog just means no JSON enforcement
+            pass
+        _MODEL_META.setdefault("__loaded__", {})
+    return _MODEL_META.get(slug, {})
+
+
+def _request_body(model: str, messages: list, temperature: float,
+                  stream: bool, response_format: bool) -> dict:
+    body: dict[str, Any] = {"model": model, "temperature": temperature,
+                            "max_tokens": MAX_TOKENS, "messages": messages}
+    if stream:
+        body["stream"] = True
+        body["stream_options"] = {"include_usage": True}
+    if response_format:
+        body["response_format"] = {"type": "json_object"}
+    if REASONING is not None:
+        body["reasoning"] = REASONING
+    return body
+
+
 def call_model(model: str, prompt: str, temperature: float = 0.0,
                deadline_s: float = HARD_DEADLINE_S) -> dict[str, Any]:
-    """One completion, streamed under a hard wall-clock deadline.
+    """Backwards-compatible single-prompt entry point (system + one user message)."""
+    messages = [{"role": "system", "content": SYSTEM},
+                {"role": "user", "content": prompt}]
+    return call_messages(model, messages, temperature, deadline_s)
 
-    Returns {text, usage, latency_s}. Raises FixerError on any failure, including
-    running past `deadline_s` — which is the point: a hung model call must surface as
-    "escalate to a human", never as an indefinite wait.
+
+def call_messages(model: str, messages: list, temperature: float = 0.0,
+                  deadline_s: float = HARD_DEADLINE_S) -> dict[str, Any]:
+    """One completion for a full message list, streamed under a hard wall-clock deadline.
+
+    Returns {text, usage, latency_s, finish_reason, provider}. Raises FixerError on any
+    failure, including running past `deadline_s` — a hung model call must surface as
+    "escalate to a human", never as an indefinite wait. Sends OpenRouter's JSON-object
+    response_format when the model advertises support for it, and drops it on a 4xx that
+    complains about that param.
     """
     if model.startswith(FORBIDDEN_FAMILIES):
         raise FixerError(
             f"{model} is the same family that wrote this code — a cross-family "
             f"reviewer cannot rubber-stamp its own work (see #64)")
+    use_json = "response_format" in model_meta(model).get("supported_parameters", set())
+    try:
+        return _stream_call(model, messages, temperature, deadline_s, use_json)
+    except FixerError as e:
+        low = str(e).lower()
+        if use_json and "http 4" in low and ("response_format" in low or "json" in low):
+            return _stream_call(model, messages, temperature, deadline_s, False)
+        raise
+
+
+def _stream_call(model: str, messages: list, temperature: float, deadline_s: float,
+                 response_format: bool) -> dict[str, Any]:
     import requests
 
     t0 = time.time()
@@ -253,15 +353,7 @@ def call_model(model: str, prompt: str, temperature: float = 0.0,
         OPENROUTER_URL,
         headers={"Authorization": f"Bearer {_api_key()}",
                  "Content-Type": "application/json"},
-        json={
-            "model": model,
-            "temperature": temperature,
-            "max_tokens": MAX_TOKENS,
-            "stream": True,
-            "stream_options": {"include_usage": True},
-            "messages": [{"role": "system", "content": SYSTEM},
-                         {"role": "user", "content": prompt}],
-        },
+        json=_request_body(model, messages, temperature, True, response_format),
         stream=True,
         timeout=(CONNECT_TIMEOUT_S, READ_TIMEOUT_S),
     )
@@ -272,6 +364,8 @@ def call_model(model: str, prompt: str, temperature: float = 0.0,
 
     chunks: list[str] = []
     usage: dict = {}
+    provider = None
+    finish_reason = None
     deadline = t0 + deadline_s
     try:
         for raw in resp.iter_lines(decode_unicode=False):
@@ -294,7 +388,11 @@ def call_model(model: str, prompt: str, temperature: float = 0.0,
                 continue
             if obj.get("usage"):
                 usage = obj["usage"]
+            if obj.get("provider"):
+                provider = obj["provider"]
             for choice in obj.get("choices") or []:
+                if choice.get("finish_reason"):
+                    finish_reason = choice["finish_reason"]
                 piece = (choice.get("delta") or {}).get("content")
                 if piece:
                     chunks.append(piece)
@@ -311,13 +409,15 @@ def call_model(model: str, prompt: str, temperature: float = 0.0,
         # Retry once, inside whatever is left of the deadline, before giving up.
         left = deadline - time.time()
         if left > 5:
-            return _call_unstreamed(model, prompt, temperature, left, t0)
+            return _call_unstreamed(model, messages, temperature, left, t0, response_format)
         raise FixerError(f"{model}: empty reply")
-    return {"text": text, "usage": usage, "latency_s": time.time() - t0}
+    return {"text": text, "usage": usage, "latency_s": time.time() - t0,
+            "finish_reason": finish_reason, "provider": provider}
 
 
-def _call_unstreamed(model: str, prompt: str, temperature: float,
-                     timeout_s: float, t0: float) -> dict[str, Any]:
+def _call_unstreamed(model: str, messages: list, temperature: float,
+                     timeout_s: float, t0: float,
+                     response_format: bool) -> dict[str, Any]:
     """Non-streaming fallback. Safe here: with no SSE keepalive comments arriving, a
     plain read timeout does measure the silence, so it cannot hang the way #59's
     25-minute stall did."""
@@ -327,9 +427,7 @@ def _call_unstreamed(model: str, prompt: str, temperature: float,
         OPENROUTER_URL,
         headers={"Authorization": f"Bearer {_api_key()}",
                  "Content-Type": "application/json"},
-        json={"model": model, "temperature": temperature, "max_tokens": MAX_TOKENS,
-              "messages": [{"role": "system", "content": SYSTEM},
-                           {"role": "user", "content": prompt}]},
+        json=_request_body(model, messages, temperature, False, response_format),
         timeout=(CONNECT_TIMEOUT_S, timeout_s),
     )
     if resp.status_code != 200:
@@ -341,7 +439,9 @@ def _call_unstreamed(model: str, prompt: str, temperature: float,
         if choice.get("finish_reason") == "length":
             raise FixerError(f"{model}: reply truncated at max_tokens={MAX_TOKENS}")
         raise FixerError(f"{model}: empty reply")
-    return {"text": text, "usage": body.get("usage") or {}, "latency_s": time.time() - t0}
+    return {"text": text, "usage": body.get("usage") or {},
+            "latency_s": time.time() - t0,
+            "finish_reason": choice.get("finish_reason"), "provider": body.get("provider")}
 
 
 def parse_response(text: str) -> dict:
@@ -412,23 +512,80 @@ def apply_edits(edits: list[dict], root: Path) -> list[str]:
 
 # --------------------------------------------------------------------------
 
+def _attempt_meta(reply: dict) -> dict:
+    u = reply.get("usage") or {}
+    det = u.get("completion_tokens_details") or {}
+    return {"provider": reply.get("provider"), "finish_reason": reply.get("finish_reason"),
+            "prompt_tokens": u.get("prompt_tokens"), "completion_tokens": u.get("completion_tokens"),
+            "reasoning_tokens": det.get("reasoning_tokens"), "latency_s": reply.get("latency_s")}
+
+
+def _merge_usage(a: dict, b: dict) -> dict:
+    out = dict(a or {})
+    for k in ("prompt_tokens", "completion_tokens", "total_tokens"):
+        out[k] = (a.get(k) or 0) + (b.get(k) or 0)
+    return out
+
+
+def _repair_message(err: Exception) -> str:
+    return ("Your previous reply could not be used: " + str(err) +
+            "\nRe-emit the FULL corrected JSON object and nothing else — no prose, no "
+            "markdown fence. Every \"search\" string must appear character-for-character "
+            "exactly once in the file content shown above.")
+
+
 def run(failing: str, error_text: str, model: str, root: Path,
         dry_run: bool = False) -> dict:
     files = relevant_files(failing, error_text, root)
     if not files:
         raise FixerError("could not locate any source file for the failing tests")
-    prompt = build_prompt(failing, error_text, files)
-    reply = call_model(model, prompt)
-    parsed = parse_response(reply["text"])
-    parsed["usage"] = reply["usage"]
-    parsed["latency_s"] = reply["latency_s"]
-    parsed["model"] = model
+    protected = set(named_paths(failing, error_text))
+    prompt = build_prompt(failing, error_text, files, protected)
 
-    if parsed["classification"] != "real_logic_bug" or dry_run:
-        parsed["touched"] = []
+    # Context guard: a model whose window can't hold prompt + reply can't do the job;
+    # skip it loudly rather than let it truncate and silently fail.
+    ctx = model_meta(model).get("context_length") or 0
+    est_tokens = len(prompt) // 4 + MAX_TOKENS
+    if ctx and ctx < est_tokens:
+        raise FixerError(f"{model}: context_length {ctx} < needed ~{est_tokens} "
+                         f"(prompt+max_tokens) — skipping")
+
+    messages = [{"role": "system", "content": SYSTEM},
+                {"role": "user", "content": prompt}]
+    reply = call_messages(model, messages)
+    usage = dict(reply["usage"] or {})
+    attempts = [_attempt_meta(reply)]
+
+    def _finish(parsed: dict) -> dict:
+        parsed["usage"] = usage
+        parsed["latency_s"] = sum(a.get("latency_s") or 0 for a in attempts)
+        parsed["model"] = model
+        parsed["attempts"] = attempts
         return parsed
-    parsed["touched"] = apply_edits(parsed["edits"], root)
-    return parsed
+
+    try:
+        parsed = parse_response(reply["text"])
+        if parsed["classification"] != "real_logic_bug" or dry_run:
+            parsed["touched"] = []
+            return _finish(parsed)
+        parsed["touched"] = apply_edits(parsed["edits"], root)
+        return _finish(parsed)
+    except FixerError as first_err:
+        # ONE repair round: show the model its own reply and the exact error, and ask
+        # for a corrected JSON object. Mirrors what production would do; the tokens
+        # count into this incident's cost. apply_edits is all-or-nothing, so a rejected
+        # patch left the tree clean — safe to retry.
+        messages.append({"role": "assistant", "content": reply["text"]})
+        messages.append({"role": "user", "content": _repair_message(first_err)})
+        reply2 = call_messages(model, messages)
+        usage = _merge_usage(usage, reply2["usage"] or {})
+        attempts.append(_attempt_meta(reply2))
+        parsed = parse_response(reply2["text"])          # a 2nd failure propagates out
+        if parsed["classification"] != "real_logic_bug" or dry_run:
+            parsed["touched"] = []
+            return _finish(parsed)
+        parsed["touched"] = apply_edits(parsed["edits"], root)
+        return _finish(parsed)
 
 
 def main() -> int:

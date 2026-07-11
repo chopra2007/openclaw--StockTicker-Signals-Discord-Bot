@@ -385,7 +385,7 @@ Swap the bot's live options source from the free, ~15-min-delayed, throttle-pron
 
 Refactor `!sec`, `!all`, the alert Score card, and the AI write-up so insider (Form 4) trades show as one clean block per person — with the date and total dollar value — instead of dozens of dateless, valueless repeat rows.
 
-## 59. Fix the regression gate so a failed push doesn't just sit there — ACTIVE (reopened 2026-07-10 — model race redo)
+## 59. Fix the regression gate so a failed push doesn't just sit there — SOAKING until 2026-07-25 (v3 race done 2026-07-11; pinned deepseek-v4-flash)
 
 **File:** `regression-gate-auto-recovery.md`
 

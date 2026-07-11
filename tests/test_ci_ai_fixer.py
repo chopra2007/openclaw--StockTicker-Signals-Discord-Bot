@@ -194,3 +194,95 @@ def test_prompt_carries_the_failing_ids_the_error_and_the_files():
 def test_the_system_prompt_pins_the_three_classes():
     for cls in fixer.CLASSES:
         assert cls in fixer.SYSTEM
+
+
+# --- prompt trimming (Phase 1 v3) -------------------------------------------
+
+def test_trim_drops_a_deep_file_but_keeps_the_protected_one(monkeypatch):
+    monkeypatch.setattr(fixer, "MAX_PROMPT_CHARS", 2000)
+    big = "P" * 5000          # protected file, over budget alone
+    deep = "D" * 5000         # import-followed file, should be dropped
+    prompt = fixer.build_prompt(
+        "tests/t.py::x", "boom",
+        {"tests/t.py": big, "consensus_engine/deep.py": deep},
+        protected={"tests/t.py"})
+    assert "tests/t.py" in prompt          # protected file is present (truncated)
+    assert "consensus_engine/deep.py" not in prompt   # deep file dropped for budget
+    assert "truncated" in prompt
+
+
+# --- context guard (Phase 1 v3) ---------------------------------------------
+
+def test_run_skips_a_model_whose_window_is_too_small(tmp_path, monkeypatch):
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_a.py").write_text("def test_x():\n    assert False\n")
+    monkeypatch.setattr(fixer, "model_meta", lambda slug: {"context_length": 100})
+    with pytest.raises(fixer.FixerError, match="context_length"):
+        fixer.run("tests/test_a.py::test_x", "AssertionError", "vendor/tiny", tmp_path)
+
+
+# --- the one repair round (Phase 1 v3) --------------------------------------
+
+def _repo_with_bug(tmp_path):
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "consensus_engine").mkdir()
+    (tmp_path / "tests" / "test_a.py").write_text(
+        "from consensus_engine import m\ndef test_x():\n    assert m.val() == 2\n")
+    (tmp_path / "consensus_engine" / "__init__.py").write_text("")
+    (tmp_path / "consensus_engine" / "m.py").write_text("def val():\n    return 1\n")
+    return tmp_path
+
+
+def _replies(monkeypatch, *texts):
+    """Feed run() a scripted sequence of model replies with no network."""
+    seq = list(texts)
+    monkeypatch.setattr(fixer, "model_meta", lambda slug: {})   # no context guard, no json
+
+    def fake(model, messages, temperature=0.0, deadline_s=0.0):
+        return {"text": seq.pop(0), "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+                "latency_s": 0.1, "finish_reason": "stop", "provider": "test"}
+    monkeypatch.setattr(fixer, "call_messages", fake)
+
+
+def test_repair_round_recovers_from_unparseable_first_reply(tmp_path, monkeypatch):
+    repo = _repo_with_bug(tmp_path)
+    good = json.dumps({"classification": "real_logic_bug", "reason": "off by one",
+                       "edits": [{"file": "consensus_engine/m.py",
+                                  "search": "return 1", "replace": "return 2"}]})
+    _replies(monkeypatch, "I think the bug is subtle, let me...", good)
+    out = fixer.run("tests/test_a.py::test_x", "AssertionError", "vendor/x", repo)
+    assert out["touched"] == ["consensus_engine/m.py"]
+    assert len(out["attempts"]) == 2                       # first + repair
+    assert out["usage"]["completion_tokens"] == 10         # summed across both calls
+    assert (repo / "consensus_engine" / "m.py").read_text() == "def val():\n    return 2\n"
+
+
+def test_repair_round_recovers_from_a_search_string_miss(tmp_path, monkeypatch):
+    repo = _repo_with_bug(tmp_path)
+    miss = json.dumps({"classification": "real_logic_bug", "reason": "x",
+                       "edits": [{"file": "consensus_engine/m.py",
+                                  "search": "return 999", "replace": "return 2"}]})
+    good = json.dumps({"classification": "real_logic_bug", "reason": "x",
+                       "edits": [{"file": "consensus_engine/m.py",
+                                  "search": "return 1", "replace": "return 2"}]})
+    _replies(monkeypatch, miss, good)
+    out = fixer.run("tests/test_a.py::test_x", "AssertionError", "vendor/x", repo)
+    assert out["touched"] == ["consensus_engine/m.py"]
+    assert len(out["attempts"]) == 2
+
+
+def test_no_repair_round_when_the_first_reply_is_clean(tmp_path, monkeypatch):
+    repo = _repo_with_bug(tmp_path)
+    good = json.dumps({"classification": "real_logic_bug", "reason": "x",
+                       "edits": [{"file": "consensus_engine/m.py",
+                                  "search": "return 1", "replace": "return 2"}]})
+    _replies(monkeypatch, good, "SHOULD NOT BE CALLED")
+    out = fixer.run("tests/test_a.py::test_x", "AssertionError", "vendor/x", repo)
+    assert len(out["attempts"]) == 1
+
+
+def test_a_second_failure_after_repair_gives_up(tmp_path, monkeypatch):
+    repo = _repo_with_bug(tmp_path)
+    _replies(monkeypatch, "garbage one", "garbage two")
+    with pytest.raises(fixer.FixerError):
+        fixer.run("tests/test_a.py::test_x", "AssertionError", "vendor/x", repo)
