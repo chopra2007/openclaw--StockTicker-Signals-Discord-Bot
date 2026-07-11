@@ -308,7 +308,7 @@ llm:
   # the narrator falls back to the role-based chains above.
   all_command_chain:
     - "groq/llama-3.3-70b-versatile"
-    - "openai/gpt-oss-120b:free"
+    - "openai/gpt-oss-120b"          # 2026-07-10: was :free — rate-limited 429 daily upstream (congested free pool); paid returns 200, negligible cost as a deep fallback
     - "openai/gpt-oss-20b:free"
   # #6 latency-speedup: how the !all synthesis call walks all_command_chain.
   #   serial     = original one-model-at-a-time (DEFAULT; unchanged behavior)
@@ -363,7 +363,7 @@ llm:
   agent_fallback_models:
     - "mistralai/mistral-small-3.2-24b-instruct"  # Mistral; fast+lean, converged 3/3 (12-14s); provider diversity
     - "qwen/qwen3-235b-a22b-2507"                 # Alibaba; converges (no timeout) but token-heavy/slow — deeper fallback + diversity
-    - "openai/gpt-oss-120b:free"                  # credit-exhaustion net (handles agent prompt+tools on light questions)
+    - "openai/gpt-oss-120b"                       # 2026-07-10: was :free — free pool 429s daily upstream; paid (already in openclaw.json allow-map) is 3x faster on the agent path and actually responds
   vision_model: "google/gemma-4-31b-it:free"
   min_confidence: 70
   # Primary-tier output cap. Set to 8000 (was 4096) to match narrator's

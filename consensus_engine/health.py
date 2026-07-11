@@ -507,17 +507,19 @@ async def chain_health_loop(stop_event: asyncio.Event) -> None:
             log.info("health: chain check %s\n%s",
                      "FAILED" if failed else "OK", report)
             if failed or not alert_only:
-                await _post_to_discord(report)
+                # 2026-07-10 (user): LLM chain-health reports belong in #errors, not
+                # the #brief channel. Falls back to briefing if #errors is unavailable.
+                await _post_to_discord(report, channel_id=_errors_channel())
             # #71: a broken LLM chain means no alert text gets written at all —
             # user-facing-critical, so it also goes to #errors with an @-mention,
-            # once per transition. The full report stays in the briefing channel.
+            # once per transition. The full report is in #errors too now.
             from consensus_engine.alerts.ops_alert import report_ops_state
             await report_ops_state(
                 "llm_health", down=bool(failed), failure_class="llm_health",
                 title="The AI models that write the alerts are failing",
                 detail=("Every model in the chain failed its daily health probe. "
                         "Alerts may go out with no written analysis, or not at all. "
-                        "The full report is in the briefing channel."),
+                        "The full report is in the #errors channel."),
                 fix="Check the OpenRouter key and quota, then `systemctl restart "
                     "consensus-engine.service`.",
             )
