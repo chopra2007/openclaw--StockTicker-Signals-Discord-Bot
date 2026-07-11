@@ -250,3 +250,8 @@ both cheap AND actually capable of the job. Cheap alone is worthless if it can't
 
 ### Session notes — 2026-07-09
 - **Decision (user):** AI fixer autonomy = fix + HOLD — it may commit a logic-bug fix locally + notify loudly, but a human pushes; missing-package fixes keep auto-pushing. Race plan: `.omc/plans/active-items-completion-2026-07-09.md` Phase D (includes measuring how often real logic bugs actually redden the gate before wiring anything).
+
+### Session notes — 2026-07-10 (late session)
+- **Worked on:** audited the 07-10 race per user's suspicion — found 4 flaws (single benchmark bug is a TEST-file bug scored source-only; single-try bar vs production's 3 retries; 10/30 trials lost to harness artifacts; field/price gaps incl. coder-large not fitting the prompt). Wrote the v3 test plan: `.omc/plans/ci-fixer-race-v3-2026-07-10.md`.
+- **Decisions:** user capped race test spend at $3 HARD (must undercut ~$4-6/yr of just using a frontier model); plan uses a trimmed prompt (~45k→~20k tokens) + price-banded cheapest-first race that stops at the first qualifier. ROUND 2 section superseded — do not run as-is.
+- **Next:** execute the v3 plan, Phase 0 first (build the 4-case source-bug corpus from git history).
