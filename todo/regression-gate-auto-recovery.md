@@ -1,7 +1,65 @@
 # Fix the regression gate so a failed push doesn't just sit there
 
-**Status:** ACTIVE — reopened 2026-07-10 (AI fixer model race must be redone with a strong field)
+**Status:** ACTIVE — round 1 + retest done 2026-07-10, but the field was INCOMPLETE. **NEXT SESSION: run ROUND 2** (see the "ROUND 2" section below) — the round-1 field was the stale pre-written list, not a catalog sweep, so ~27 under-cap coders went unraced, INCLUDING cheaper cousins of kimi-k2.7-code (the only round-1 winner, 3/3). Round 2 races those cousins + glm-5.2 + dedicated coders, all under the 25¢ cap. It's pre-loaded in the harness (`CANDIDATES_ROUND2`); the exact command is in the ROUND 2 section. Only if round 2 also finds no under-cap winner does the A/B fork below (lift cap ~40¢ for kimi vs keep human-escalation) become live. Raw so far: `.omc/ci_fixer_trials_raw.json` + `.omc/ci_fixer_trials_timeout_retest.json`.
+
+## ROUND 2 — the missed under-cap field (RUN THIS NEXT, 2026-07-10)
+
+**Why this exists:** round 1 raced a 10-model list copied from an earlier session, not a fresh scan of OpenRouter. When the catalog was actually swept (the user asked "did you test glm-5.2?" — no, I'd tested the older, pricier glm-5), ~27 coding-capable models UNDER the 25¢ cap turned out to be unraced. The important ones are cheaper **cousins of `moonshotai/kimi-k2.7-code`** — the ONLY round-1 model to clear the 70% bar (3/3). If the kimi family (not that one version) is what's good at this job, a cheaper cousin could clear the bar AND fit the cap — solving the whole thing without lifting the budget.
+
+**The round-2 field (all ≤25¢/mo, verified live 2026-07-10, pre-loaded as `CANDIDATES_ROUND2` in `scripts/ci_fixer_trials.py`):**
+
+| model | ~$/mo | why |
+|---|---|---|
+| `moonshotai/kimi-k2.5` | 11¢ | kimi cousin — best-value shot |
+| `moonshotai/kimi-k2` | 17¢ | kimi cousin |
+| `moonshotai/kimi-k2.6` | 20¢ | kimi cousin |
+| `z-ai/glm-5.2` | 12¢ | newer + cheaper than glm-5 (which went 1/3) |
+| `mistralai/devstral-2512` | 12¢ | Mistral coding model (distinct from codestral, 0/3) |
+| `kwaipilot/kat-coder-pro-v2` | 9¢ | dedicated coder |
+| `arcee-ai/coder-large` | 14¢ | dedicated coder |
+
+**Exact command (pre-create worktrees serially first to dodge the git-lock race, as in round 1):**
+```
+cd /home/openclaw/.openclaw/workspace
+sudo -u openclaw python3 -c "import sys; sys.path.insert(0,'scripts'); import ci_fixer_trials as t
+for s,_,_,_ in t.CANDIDATES_ROUND2: print('ready:', t.make_worktree(s).name)"
+sudo -u openclaw python3 scripts/ci_fixer_trials.py --trials 3 --workers 7 \
+  --models moonshotai/kimi-k2.5 moonshotai/kimi-k2 moonshotai/kimi-k2.6 \
+  z-ai/glm-5.2 mistralai/devstral-2512 kwaipilot/kat-coder-pro-v2 arcee-ai/coder-large \
+  --out .omc/ci_fixer_trials_round2.json
+```
+Scoring reminder: only `passes_source_only` counts (a test-only edit is a FAKE green). Bar ≥70% = need ≥3/3 clean here (or run 10 trials on any that look promising). **Decision after round 2:** if a model clears ≥70% AND is under 25¢ → pin the cheapest such (update `scripts/ci_ai_fixer.py` `DEFAULT_MODEL` + `reference_ci_fixer_model.md`), done. If NONE do → the A/B fork below is the real decision.
+
+_Round-2 candidate catalog also had (under cap, lower priority — qwen/deepseek families already went ~0/3 in round 1): qwen3.6-plus ~10¢, qwen3.5-397b ~12¢, kimi-k2-thinking ~18¢, kimi-k2.5 already listed, deepseek-v3.2-exp ~8¢. Add if round 2's shortlist comes up empty._
 **Created:** 2026-07-01
+
+## RACE RESULT — 2026-07-10 (10-model strong field, 3 trials each, production-audited scoring)
+
+Ran the confirmed ≤25¢ field, workers=10, `--trials 3 --max-tokens 16000 --deadline 300`. **Cost below is MEASURED per attempt × 6 runs/mo — the real number, which for reasoning models runs well above the pre-race sticker estimate.** Production caps output at `MAX_TOKENS=8000` (half the race's 16k), so the winner still needs a production-settings re-verify.
+
+| model | fixed (real source) | $/mo measured | vs 25¢ cap | note |
+|---|---|---|---|---|
+| `moonshotai/kimi-k2.7-code` | **3 / 3** | ~38¢ | **OVER** | only model that cleared the bar; burned ~9k output tokens reasoning — may truncate at production 8k |
+| `qwen/qwen3-max` | 1 / 3 | ~21¢ | under | fails 70% bar |
+| `qwen/qwen3-coder-plus` | 0 / 3 | ~11¢ | under | one trial emitted unparseable JSON |
+| `deepseek/deepseek-v3.1-terminus` | 0 / 3 | ~8¢ | under | |
+| `deepseek/deepseek-v3.2` | 0 / 3 | ~6¢ | under | |
+| `mistralai/codestral-2508` | 0 / 3 | ~6¢ | under | one trial bad edit-format |
+| `qwen/qwen3-coder-flash` | 0 / 3 | ~5¢ | under | |
+| `deepseek/deepseek-v4-pro` | 0 / 3 | ~5¢ | under | its lone "pass" was a FAKE green (test-only edit); other 2 timed out / truncated — consistent with prior 1/5 skepticism |
+| `z-ai/glm-5` | no verdict | — | — | timed out all 3 at 300s (no reply) |
+| `qwen/qwen3.7-plus` | no verdict | — | — | timed out all 3 at 300s (no reply) |
+
+**Read:** the job IS solvable cheaply-ish by one model (kimi, 3/3) — but kimi is over the 25¢ cap at measured cost, and every model that stayed under the cap failed the 70% bar (best under-cap = qwen3-max at 1/3). Two cheaper models (`glm-5` ~17¢, `qwen3.7-plus` ~9¢) never answered inside 300s, so they had NO verdict — retested below.
+
+### Timed-out retest — 2026-07-10 (glm-5 + qwen3.7-plus, deadline raised 300→600s, `.omc/ci_fixer_trials_timeout_retest.json`)
+
+| model | fixed (real source) | note |
+|---|---|---|
+| `qwen/qwen3.7-plus` | 1 / 3 | 2 of 3 STILL timed out even at 600s (never finished generating); the one that finished (84s) fixed it correctly. Too slow/hangs to be a gate fixer. |
+| `z-ai/glm-5` | 1 / 3 | finished all 3 this time (no timeouts), but 2 of 3 produced malformed edits (pointed at text not in the file). Fast enough, unreliable at valid patches. |
+
+**VERDICT — no ≤25¢ model is reliable.** kimi (3/3, ~38¢/mo) is the ONLY model that clears the 70% bar, and it's over the cap. Under the cap it's a three-way tie at 1/3 (qwen3-max, qwen3.7-plus, glm-5) — all 33%, all fail. Deeper trials on them aren't worth it: qwen3.7-plus can't finish in time, glm-5 can't emit valid patches. This is the goal-2 contingency exactly. **Decision now a true fork:** (A) lift cap to ~40¢ so kimi qualifies — but kimi needs a production-settings confirm run first (it passed only with 16k token room; production caps at 8k and kimi burned ~9k reasoning, so it may truncate/fail at 8k), then 10 trials to confirm ≥70%; or (B) keep the 25¢ cap and keep escalating logic bugs to a human (today's safe default) — auto-fixer stays limited to the mechanical missing-package case. Pending user pick.
 
 ---
 
@@ -22,8 +80,8 @@
 So the race did NOT prove "only Codex can do this." It proved "one frontier model beats a bench of flash/mini models," which is meaningless. **The open question is untested: among the STRONG coding models, how many clear 70%, and which is cheapest?**
 
 **NEXT STEPS (in order):**
-1. **Redo the race with the ≤10¢/month strong-coding field** (see goal 5 below for the list + the exclusions), 5 tries each, then 10 tries on survivors, target ≥70% source-only pass. Exclude `anthropic/*` (cross-family), `google/gemini-3.1-pro` (user), **and Codex** (control only — see below). Harness ready: `scripts/ci_fixer_trials.py` (`--models`, `--trials`). **Get the user to confirm the field before launching** (the AskUserQuestion was pending at close).
-2. **Pick the cheapest per-token model that clears ≥70%.** If NONE of the ≤10¢ models clear 70%, that's a real result — surface it and ask the user whether to lift the 10¢ cap or keep escalating logic bugs to a human (today's safe default). Codex proved the job is doable; it does NOT get wired in.
+1. **Redo the race with the ≤25¢/month strong-coding field** (see goal 5 below for the list + the exclusions), 5 tries each, then 10 tries on survivors, target ≥70% source-only pass. Exclude `anthropic/*` (cross-family), `google/gemini-3.1-pro` (user), **and Codex** (control only — see below). Harness ready: `scripts/ci_fixer_trials.py` (`--models`, `--trials`). **Get the user to confirm the field before launching** (the AskUserQuestion was pending at close).
+2. **Pick the cheapest per-token model that clears ≥70%.** If NONE of the ≤25¢ models clear 70%, that's a real result — surface it and ask the user whether to lift the 25¢ cap or keep escalating logic bugs to a human (today's safe default). Codex proved the job is doable; it does NOT get wired in.
 3. **Re-pin** the winner in `scripts/ci_ai_fixer.py` `DEFAULT_MODEL` and update `reference_ci_fixer_model.md`.
 
 **Two on-disk fixes from this session — UNSTAGED, keep them (both real production bugs):**
@@ -97,14 +155,14 @@ At session close ("bye"), `session_close.sh` runs the test suite and, if code ch
 
 **Two more goals for the AI-fixer part of #1 (user, stated across 2026-07-08 → 2026-07-10):**
 4. **Compare candidate models head-to-head to find the best success rate** — actually race them on a real failing test and measure, don't pick one and hope. **Bar: a model must hit ≥70% success to qualify** (user, 2026-07-10).
-5. **Hard cost cap: ≤ 10 cents / month** (user, 2026-07-10: "I don't want to spend more than 10 cents per month"). Real ceiling, not a comfort level.
+5. **Hard cost cap: ≤ 25 cents / month** (user, 2026-07-10 — revised up from 10¢ the same day). Real ceiling, not a comfort level.
 
 **CODEX IS NOT A PRODUCTION CANDIDATE (user, 2026-07-10, explicit).** The Codex subscription was used ONLY as a *control* — to prove a capable model can go 5/5, i.e. that the task is solvable and ≥70% is achievable, so the hunt for a cheap model is worth continuing. Codex has done that one job and is **retired from the running.** Do NOT propose wiring Codex / `codex exec` into production. The deliverable is a **pay-per-token model** that clears goal 4 AND goal 5.
 
-**The redo-race field (strong coding models that FIT under 10¢/month, ~6 runs/mo):**
-- `deepseek/deepseek-v3.2` ~6¢ · `qwen/qwen3-coder-flash` ~6¢ · `deepseek/deepseek-v3.1-terminus` ~8¢ · `mistralai/codestral-2508` ~9¢ · `qwen/qwen3.7-plus` ~9¢ (add any other strong coder priced ≤ ~$0.017/attempt).
-- **OVER the wall — excluded:** `deepseek-v4-pro` ~12¢, `glm-5` ~17¢, `qwen3-coder-plus` ~19¢, `qwen3-max` ~23¢, `kimi-k2.7-code` ~22¢, `gpt-5.1-codex` ~34¢, `grok-4.3` ~35¢.
-- The "under 40c/month" framing in the REOPENED notes above is WRONG against this cap; this ≤10¢ list supersedes it.
+**The redo-race field (strong coding models that FIT under 25¢/month, ~6 runs/mo) — re-bucketed 2026-07-10 when the cap rose from 10¢ to 25¢:**
+- `deepseek/deepseek-v3.2` ~6¢ · `qwen/qwen3-coder-flash` ~6¢ · `deepseek/deepseek-v3.1-terminus` ~8¢ · `mistralai/codestral-2508` ~9¢ · `qwen/qwen3.7-plus` ~9¢ · `deepseek-v4-pro` ~12¢ · `glm-5` ~17¢ · `qwen3-coder-plus` ~19¢ · `kimi-k2.7-code` ~22¢ · `qwen3-max` ~23¢ (add any other strong coder priced ≤ ~$0.042/attempt). The five 12–23¢ models were excluded under the old 10¢ cap and now qualify. **Caveat on `deepseek-v4-pro`:** it is the ONLY model in this list already tested, and it scored **1/5 (20%)** — far below the 70% bar. That run was pre-audit AND before the streaming-fallback fix (which was unfairly failing reasoning models), so a fair retest could be higher, but do NOT treat it as a favourite — a 1/5 model rarely jumps to passing. Retest it once with the fixed harness; deprioritize if it doesn't clearly improve.
+- **OVER the wall — excluded:** `gpt-5.1-codex` ~34¢, `grok-4.3` ~35¢.
+- The "under 40c/month" framing in the REOPENED notes above is WRONG against this cap; this ≤25¢ list supersedes it.
    - **Note (user, 2026-07-01):** this may be as simple as making the existing session-start check alert specifically when it sees a "gate failed" line — CLAUDE.md already has a "check `notifications.log` at session start, summarize if non-empty" rule, and `session_close.sh` already writes a line there on every gate failure (`GATE FAILED`/`FLAG-FLIP GATE BLOCKED`/`VISION SMOKE FAILED`). So #3 may not need new code — just confirming/tightening that the session-start check reliably flags those specific lines every time (not just when a gate happened to fail right before the last session ended), rather than treating it as a generic notification to summarize quietly. Worth explicitly testing before assuming it's "done."
 
 ## Why #1 is hard (needs real design, not a quick patch)

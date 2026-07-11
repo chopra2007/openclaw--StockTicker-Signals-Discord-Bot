@@ -52,18 +52,45 @@ from ci_fixer_race import (  # noqa: E402
 #
 # `codex/gpt-5.5` is not billed per token: it runs through the logged-in Codex CLI on
 # the user's $20 ChatGPT Plus plan. It is the strongest model that plan exposes.
+# Re-race field, 2026-07-10: the STRONG coders that fit under the 25¢/mo cap (raised
+# from 10¢ by the user same day). Live OpenRouter prices verified against the /models
+# catalog on 2026-07-10 — every slug exists, every one ≤25¢/mo at 6 attempts/month.
+# Codex and the old cheap/weak field are gone: Codex was a control (retired), and the
+# 0/5 bargain models don't belong in a capability race. $/mo comment = 6 * (0.045*in +
+# 0.001*out), the ~45k-in / ~1k-out shape this job actually has.
 CANDIDATES = [
-    ("openai/gpt-oss-120b",                0.036,  0.180, "cheap"),   # 1.1c/mo
-    ("z-ai/glm-4.7-flash",                 0.060,  0.400, "cheap"),   # 1.9c/mo
-    ("qwen/qwen3-coder-30b-a3b-instruct",  0.070,  0.270, "cheap"),   # 2.0c/mo
-    ("qwen/qwen3-235b-a22b-2507",          0.090,  0.100, "cheap"),   # 2.5c/mo
-    ("deepseek/deepseek-v4-flash",         0.090,  0.180, "cheap"),   # 2.5c/mo
-    ("qwen/qwen3-coder-next",              0.110,  0.800, "cheap"),   # 3.4c/mo — incumbent
-    ("qwen/qwen3-coder",                   0.220,  1.800, "mid"),     # 7.0c/mo
-    ("google/gemini-2.5-flash",            0.300,  2.500, "mid"),     # 8.9c/mo — cross-family
-    ("deepseek/deepseek-v4-pro",           0.435,  0.870, "strong"),  # 12.3c/mo — ceiling probe
-    ("codex/gpt-5.5",                      0.000,  0.000, "subscription"),
+    ("deepseek/deepseek-v3.2",             0.214,  0.322, "cheap"),   # ~6c/mo
+    ("qwen/qwen3-coder-flash",             0.195,  0.975, "cheap"),   # ~6c/mo
+    ("deepseek/deepseek-v3.1-terminus",    0.270,  0.950, "cheap"),   # ~8c/mo
+    ("mistralai/codestral-2508",           0.300,  0.900, "cheap"),   # ~9c/mo
+    ("qwen/qwen3.7-plus",                  0.320,  1.280, "cheap"),   # ~9c/mo
+    ("deepseek/deepseek-v4-pro",           0.435,  0.870, "strong"),  # ~12c/mo — already 1/5 pre-audit
+    ("z-ai/glm-5",                         0.600,  1.920, "strong"),  # ~17c/mo
+    ("qwen/qwen3-coder-plus",              0.650,  3.250, "strong"),  # ~19c/mo
+    ("moonshotai/kimi-k2.7-code",          0.720,  3.490, "strong"),  # ~22c/mo
+    ("qwen/qwen3-max",                     0.780,  3.900, "strong"),  # ~23c/mo
 ]
+
+# ROUND 2 (2026-07-10): under-cap coders MISSED in round 1 — round-1 field was the
+# stale pre-written TODO list, not a catalog sweep. Highest-value bets first: cheaper
+# COUSINS of kimi-k2.7-code (the only round-1 model to clear the bar, 3/3), which are
+# all under the 25c cap. Then glm-5.2 (newer+cheaper than the glm-5 that went 1/3),
+# Mistral's devstral, and two dedicated coder models. Live OpenRouter prices 2026-07-10.
+# Run these EXPLICITLY so round 1 isn't re-burned:
+#   sudo -u openclaw python3 scripts/ci_fixer_trials.py --trials 3 --workers 7 \
+#     --models moonshotai/kimi-k2.5 moonshotai/kimi-k2 moonshotai/kimi-k2.6 \
+#     z-ai/glm-5.2 mistralai/devstral-2512 kwaipilot/kat-coder-pro-v2 arcee-ai/coder-large \
+#     --out .omc/ci_fixer_trials_round2.json
+CANDIDATES_ROUND2 = [
+    ("moonshotai/kimi-k2.5",               0.375,  2.025, "strong"),  # ~11c/mo — kimi cousin
+    ("moonshotai/kimi-k2",                 0.570,  2.300, "strong"),  # ~17c/mo — kimi cousin
+    ("moonshotai/kimi-k2.6",               0.660,  3.410, "strong"),  # ~20c/mo — kimi cousin
+    ("z-ai/glm-5.2",                       0.420,  1.320, "strong"),  # ~12c/mo — newer/cheaper than glm-5 (1/3)
+    ("mistralai/devstral-2512",            0.400,  2.000, "strong"),  # ~12c/mo — Mistral coder
+    ("kwaipilot/kat-coder-pro-v2",         0.300,  1.200, "strong"),  # ~9c/mo — dedicated coder
+    ("arcee-ai/coder-large",               0.500,  0.800, "strong"),  # ~14c/mo — dedicated coder
+]
+CANDIDATES += CANDIDATES_ROUND2
 
 CODEX_DEADLINE_S = 400.0
 
