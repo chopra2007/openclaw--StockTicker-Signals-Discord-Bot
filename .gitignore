@@ -66,6 +66,9 @@ Thumbs.db
 **/.omc/research/
 **/.omc/project-memory.json
 **/.omc/template-version.json
+# Raw per-model trial output from the CI-fixer model race (#59) — scratch evidence, kept on disk
+.omc/trials/
+.omc/ci_fixer_*.json
 
 # Generated artifacts
 artifacts/
