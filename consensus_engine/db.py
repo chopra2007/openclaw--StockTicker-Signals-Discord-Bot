@@ -352,6 +352,48 @@ CREATE TABLE IF NOT EXISTS source_performance_shadow (
     PRIMARY KEY (entity_id, horizon)
 );
 
+-- #55 catalyst scorecard (SHADOW): one row per analyst post that carried a real
+-- SHORT-term directional catalyst. The win column is benchmark-relative — the
+-- stock's 21-session move MINUS its sector/peer ETF's over the same sessions
+-- (analysis/benchmark_grading.py) — so "NVDA ran because semis ran" is not a win.
+-- Written only by scripts/grade_analyst_catalysts.py. No live reader; promotion
+-- into live scoring is a separate soak-gated decision (mirrors source_performance_shadow).
+CREATE TABLE IF NOT EXISTS analyst_catalyst_scores (
+    tweet_url TEXT NOT NULL,
+    ticker TEXT NOT NULL,
+    handle TEXT,
+    direction TEXT,                -- long | short (the analyst's call)
+    catalyst_kind TEXT,            -- options|M&A|release|lawsuit|scandal|moat|guidance|product-far
+    benchmark_etf TEXT,            -- what it was graded against (SMH, XLK, ...)
+    entry_date TEXT,               -- YYYY-MM-DD, bar 0
+    bhar_5d REAL, bhar_10d REAL, bhar_15d REAL, bhar_20d REAL, bhar_21d REAL,
+    win INTEGER,                   -- NULL until the 21-session window elapses
+    bonus REAL,                    -- margin-scaled credit, capped
+    graded_at REAL NOT NULL DEFAULT 0.0,
+    PRIMARY KEY (tweet_url, ticker)
+);
+
+-- #55 long-horizon bets (SHADOW): a "moat widens" / "guidance keeps rising" call is
+-- not a 30-day trade, so it is checked at SPARSE checkpoints (30/60/90 sessions),
+-- never compounded daily. A bet is opened ONLY when the classifier's likelihood
+-- clears the cutoff — vague musings never open a bet (they'd just burn quota).
+CREATE TABLE IF NOT EXISTS long_term_catalyst_bets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tweet_url TEXT,
+    handle TEXT,
+    ticker TEXT NOT NULL,
+    direction TEXT,
+    catalyst_kind TEXT,
+    likelihood REAL,
+    benchmark_etf TEXT,
+    entry_date TEXT,
+    opened_at REAL NOT NULL DEFAULT 0.0,
+    excess_30d REAL, excess_60d REAL, excess_90d REAL,
+    checkpoint_status TEXT DEFAULT 'open',   -- open | partial | closed
+    last_checked REAL DEFAULT 0.0,
+    UNIQUE (tweet_url, ticker)
+);
+
 -- #55 Build A (forward-data logging): persist the E2 cross-asset shadow ratios +
 -- multipliers that cross_asset.get_multiplier currently only logs ('[E2 shadow]'
 -- lines). At most one row per UTC day (idempotent via insert_cross_asset_shadow).
@@ -1239,6 +1281,15 @@ async def _run_column_migrations(conn) -> None:
         # schema v26 (r22 macro-fred): DFII10 10Y TIPS real yield for the descriptive F4
         # macro producer (market_daily build_macro_rows). NEVER averaged into cross_asset.
         ("macro_legs_daily", "real_yield_10y", "REAL"),
+        # #20 timing (SHADOW): how many INDEPENDENT source families now agree with a
+        # standing Wolf thesis, and whether any of them is a fast mover. Written on
+        # every confluence cycle when wolf.confluence.timing.collect is on; it changes
+        # NOTHING about tiers or alerts until wolf.confluence.timing.enabled flips.
+        ("wolf_confluence_checks", "timing_verdict",       "TEXT"),      # act | wait | none
+        ("wolf_confluence_checks", "timing_bucket_agree",  "INTEGER DEFAULT 0"),
+        ("wolf_confluence_checks", "timing_fast_agree",    "INTEGER DEFAULT 0"),
+        ("wolf_confluence_checks", "timing_buckets_json",  "TEXT DEFAULT '[]'"),
+        ("wolf_confluence_checks", "timing_first_act_at",  "REAL"),      # when it FIRST said act
     ]
     for table in ("youtube_signals", "youtube_levels", "youtube_setups", "youtube_options"):
         for col, defn in v2_span_cols:
@@ -1628,6 +1679,67 @@ async def get_analyst_precision_lb(
     margin = z * math.sqrt((p_hat * (1.0 - p_hat) + (z * z) / (4 * n)) / n)
     lb = (centre - margin) / denom
     return max(0.0, min(1.0, lb))
+
+
+# ---------------------------------------------------------------------------
+# #55 — Empirical-Bayes shrinkage for DISPLAYED analyst win rates
+# ---------------------------------------------------------------------------
+
+def eb_shrink(wins: int, n: int, pooled_mean: float, pooled_var: float) -> float:
+    """Beta-Binomial posterior mean: (wins + a) / (n + a + b).
+
+    Plain version: a 3-out-of-5 analyst reads as "60%", which is mostly luck. This
+    pulls a thin record toward what the average analyst does, and leaves a fat
+    record almost exactly where it is. Method-of-moments fits (a, b) from the pooled
+    hit-rate distribution across analysts.
+
+    DISPLAY ONLY. It never feeds the promotion gate — see eb_shrunk_precision().
+    """
+    m = max(1e-6, min(1.0 - 1e-6, pooled_mean))
+    max_var = m * (1.0 - m)
+    v = max(1e-9, min(pooled_var, max_var - 1e-9))
+    strength = m * (1.0 - m) / v - 1.0      # a + b
+    strength = max(1e-6, strength)
+    a = m * strength
+    b = (1.0 - m) * strength
+    return (wins + a) / (n + a + b)
+
+
+async def eb_shrunk_precision(analyst: str, horizon: str | None = None) -> float | None:
+    """An analyst's win rate, shrunk toward the pooled analyst mean. Display-only.
+
+    Read at DISPLAY time, AFTER the existing promotion gate has already decided who
+    is live. The gate itself (`analyst_horizon()` + the auto-flip readiness check:
+    n>=90, Wilson-LB>0.50, BH-FDR q<=0.10) still reads the RAW Wilson lower bound and
+    is untouched by this function — shrinkage only reshapes the number shown for an
+    analyst that is already past the gate. That ordering is the whole safeguard.
+
+    Returns None when the analyst has no row or the pool is too thin to fit a prior.
+    """
+    horizon = horizon or analyst_horizon()
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT entity_id, rolling_accuracy, sample_count FROM source_performance
+           WHERE horizon = ? AND sample_count > 0""",
+        (horizon,),
+    )
+    rows = [dict(r) for r in await cursor.fetchall()]
+    mine = next((r for r in rows if r["entity_id"] == analyst), None)
+    if mine is None:
+        return None
+
+    rates = [max(0.0, min(1.0, float(r["rolling_accuracy"] or 0.0))) for r in rows]
+    if len(rates) < 2:
+        return None
+    pooled_mean = sum(rates) / len(rates)
+    pooled_var = sum((x - pooled_mean) ** 2 for x in rates) / (len(rates) - 1)
+    if pooled_var <= 0.0:
+        return pooled_mean
+
+    n = int(mine["sample_count"] or 0)
+    p_hat = max(0.0, min(1.0, float(mine["rolling_accuracy"] or 0.0)))
+    wins = round(p_hat * n)
+    return eb_shrink(wins, n, pooled_mean, pooled_var)
 
 
 # ---------------------------------------------------------------------------
@@ -4877,13 +4989,20 @@ async def mark_alert_failed(alert_id: int) -> None:
 
 # ───────────── Phase-2 cross-source confluence (TODO #20, Type-2) ─────────────
 
-async def get_confluence_stances(window_days: int = 21) -> dict[str, list[dict]]:
-    """Gather recent directional stances from the four confluence sources, within the
+async def get_confluence_stances(window_days: int = 21,
+                                 wide: bool | None = None) -> dict[str, list[dict]]:
+    """Gather recent directional stances from the confluence sources, within the
     trailing window. Returns {source_type: [{'ticker','dir','channel'?}, ...]}.
 
-    Reads ONLY (no writes). SEC is buys-only (sells are routine pay events). Excludes
-    apewisdom/google_trends/reddit (not on the user's confluence source list).
+    Reads ONLY (no writes). SEC is buys-only (sells are routine pay events).
+
+    `wide` (#20 timing): also gather the extra source families used by the independence
+    buckets (schwab chain snapshots, insider cluster buys, sector RS). Defaults to the
+    `wolf.confluence.timing.collect` flag. The four original keys are returned unchanged
+    either way, so a caller that ignores the new keys behaves exactly as before.
     """
+    if wide is None:
+        wide = bool(cfg.get("wolf.confluence.timing.collect", False))
     conn = await get_db()
     cutoff = time.time() - window_days * 86400
     out: dict[str, list[dict]] = {"twitter": [], "youtube": [], "options": [], "sec": []}
@@ -4943,6 +5062,64 @@ async def get_confluence_stances(window_days: int = 21) -> dict[str, list[dict]]
         for r in await cur.fetchall()
     ]
 
+    # ── #20 timing: the WIDENED roster (shadow) ───────────────────────────────
+    # Extra source families, gathered only when wolf.confluence.timing.collect is on.
+    # They land under NEW keys, so score_confluence's legacy loop (SOURCE_TYPES = the
+    # four above) never sees them and the flag-OFF vote is byte-identical.
+    #
+    # Only sources that carry BOTH a ticker and a direction can vote. Deliberately NOT
+    # here, with reasons (verified against the live schema, 2026-07-12):
+    #   reddit_posts       — no ticker column and no sentiment (title text only)
+    #   apewisdom_mentions — ticker + mention COUNT, but no direction; attention is not a side
+    #   youtube_macro      — direction but no ticker (macro themes), so it cannot match a scope
+    # Inventing a direction for these would manufacture agreement, which is the exact
+    # failure mode this feature exists to prevent.
+    if not wide:
+        return out
+
+    # Schwab daily chain snapshot -> a directional read from the put/call VOLUME ratio.
+    # Call-heavy tape (< 0.9) is bullish, put-heavy (> 1.1) bearish; the middle is mixed
+    # and votes for nobody.
+    cur = await conn.execute(
+        "SELECT ticker, put_call_vol_ratio, captured_at FROM schwab_options_snapshots "
+        "WHERE captured_at >= ?",
+        (cutoff,),
+    )
+    schwab = []
+    for r in await cur.fetchall():
+        pcr = r["put_call_vol_ratio"]
+        if pcr is None:
+            continue
+        side = "long" if pcr < 0.9 else ("short" if pcr > 1.1 else None)
+        if side:
+            schwab.append({"ticker": r["ticker"], "dir": side, "as_of": r["captured_at"]})
+    out["schwab_options"] = schwab
+
+    # Insider CLUSTER buys (several insiders buying the same name in one window) — a
+    # stronger, rarer form of the SEC signal. Same independence family as `sec`.
+    cur = await conn.execute(
+        "SELECT ticker, alerted_at FROM form4_clusters WHERE alerted_at >= ?", (cutoff,)
+    )
+    out["form4"] = [
+        {"ticker": r["ticker"], "dir": "bullish", "as_of": r["alerted_at"]}
+        for r in await cur.fetchall()
+    ]
+
+    # Sector relative-strength quadrant — the market's own verdict on a sector, and the
+    # only roster member that is not a person with an opinion. Newest row per ETF.
+    cur = await conn.execute(
+        "SELECT etf, quadrant, computed_at FROM sector_rs_daily WHERE computed_at >= ? "
+        "AND date_utc = (SELECT MAX(date_utc) FROM sector_rs_daily)",
+        (cutoff,),
+    )
+    rs = []
+    for r in await cur.fetchall():
+        q = (r["quadrant"] or "").lower()
+        side = "long" if q in ("leading", "improving") else ("short" if q in ("lagging", "weakening") else None)
+        if side:
+            rs.append({"ticker": r["etf"], "dir": side, "as_of": r["computed_at"]})
+    out["sector_rs"] = rs
+
     return out
 
 
@@ -4961,15 +5138,29 @@ async def record_confluence_check(
     checked_at: float, window_days: int, agree_count: int, disagree_count: int,
     tier: str, combined_tier: str, divided: int,
     agree_sources_json: str, disagree_sources_json: str, alerted_tier: str,
+    timing_verdict: str = "none", timing_bucket_agree: int = 0,
+    timing_fast_agree: int = 0, timing_buckets_json: str = "[]",
 ) -> None:
-    """Upsert the single current-state confluence row for a thesis (bounded: one per thesis)."""
+    """Upsert the single current-state confluence row for a thesis (bounded: one per thesis).
+
+    The timing_* columns are #20 SHADOW state (see wolf_confluence.score_timing). They
+    default to 'no verdict', so every existing caller keeps working unchanged.
+
+    `timing_first_act_at` is written ONCE — the first cycle this thesis's independent
+    buckets said 'act' — and never overwritten. That timestamp IS the gated entry price
+    the #20 backtest compares against Wolf's raw call, so re-stamping it later would
+    quietly rewrite history in the feature's own favour.
+    """
     conn = await get_db()
     await conn.execute(
         """INSERT INTO wolf_confluence_checks
             (thesis_id, scope_type, scope_key, direction, checked_at, window_days,
              agree_count, disagree_count, tier, combined_tier, divided,
-             agree_sources_json, disagree_sources_json, alerted_tier)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             agree_sources_json, disagree_sources_json, alerted_tier,
+             timing_verdict, timing_bucket_agree, timing_fast_agree, timing_buckets_json,
+             timing_first_act_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                   CASE WHEN ? = 'act' THEN ? ELSE NULL END)
            ON CONFLICT(thesis_id) DO UPDATE SET
              scope_type=excluded.scope_type, scope_key=excluded.scope_key,
              direction=excluded.direction, checked_at=excluded.checked_at,
@@ -4978,10 +5169,18 @@ async def record_confluence_check(
              combined_tier=excluded.combined_tier, divided=excluded.divided,
              agree_sources_json=excluded.agree_sources_json,
              disagree_sources_json=excluded.disagree_sources_json,
-             alerted_tier=excluded.alerted_tier""",
+             alerted_tier=excluded.alerted_tier,
+             timing_verdict=excluded.timing_verdict,
+             timing_bucket_agree=excluded.timing_bucket_agree,
+             timing_fast_agree=excluded.timing_fast_agree,
+             timing_buckets_json=excluded.timing_buckets_json,
+             timing_first_act_at=COALESCE(wolf_confluence_checks.timing_first_act_at,
+                                          excluded.timing_first_act_at)""",
         (thesis_id, scope_type, scope_key, direction, checked_at, window_days,
          agree_count, disagree_count, tier, combined_tier, divided,
-         agree_sources_json, disagree_sources_json, alerted_tier),
+         agree_sources_json, disagree_sources_json, alerted_tier,
+         timing_verdict, timing_bucket_agree, timing_fast_agree, timing_buckets_json,
+         timing_verdict, checked_at),
     )
     await conn.commit()
 

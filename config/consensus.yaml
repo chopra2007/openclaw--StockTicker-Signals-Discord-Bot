@@ -1100,6 +1100,12 @@ wolf:
     links_enabled: true                 # #3B LIVE (user go 2026-06-08) — clickable YouTube links by agreeing videos
     weighted_votes_enabled: true        # I15 LIVE 2026-06-15 — dry-run on current theses: 0 tier changes, 0 new criticals; non-actor-critical guard intact
     require_nonactor_for_critical: true # I15 — critical @-ping needs >=1 non-actor-controllable source
+    timing:                             # #20 timing gate: WHEN a standing thesis becomes a trade
+      collect: true                     # SHADOW — widen the roster + store the verdict. Changes nothing a user sees.
+      enabled: false                    # OFF — an 'act' verdict may NOT raise the alert tier. Flip only after
+                                        # scripts/wolf_timing_backtest.py shows gated entry beats raw-Wolf entry on the
+                                        # decision_snapshots 5d/20d labels. If it does not, this stays OFF permanently
+                                        # (honest-negative clause — no re-tuning the threshold until it passes).
   outcomes:                             # Wolf Sunday-recap outcome grading
     benchmark_adjusted: true            # I16 LIVE 2026-06-10 — credit "moved_with" only when proxy beats its benchmark (raw still shown); live-tested on the real 13 theses (SMH bear: moved_against -> flat-vs-benchmark)
   direction_guard:                      # #1 trade-stance vs near-term-price-path extraction rule

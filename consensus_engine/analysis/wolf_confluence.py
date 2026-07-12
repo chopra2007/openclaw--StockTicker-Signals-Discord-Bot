@@ -81,6 +81,32 @@ _peer_members_cache: dict[str, set[str]] | None = None
 SOURCE_TYPES = ("twitter", "youtube", "options", "sec")
 _SOURCE_LABEL = {"twitter": "Twitter", "youtube": "YouTube", "options": "Options", "sec": "SEC buys"}
 
+# ── #20 timing: independence buckets ─────────────────────────────────────────
+# "Four sources agree" is worthless if two of them are the same crowd wearing different
+# hats. Options flow and the Schwab chain snapshot read the SAME order book; an SEC Form 4
+# and an insider cluster-buy are the SAME filings. So every source is tagged with an
+# INDEPENDENCE BUCKET and each bucket casts at most ONE net vote, no matter how many rows
+# or sources it holds. Agreement is counted in buckets, never in rows.
+_BUCKET_OF = {
+    "twitter": "twitter",
+    "youtube": "youtube",
+    "options": "options",          # unusual flow
+    "schwab_options": "options",   # ...and the chain snapshot: same order book, one vote
+    "sec": "insider",              # Form 4 buys
+    "form4": "insider",            # ...and cluster buys: same filings, one vote
+    "sector_rs": "macro",          # the market's own verdict on the sector
+}
+TIMING_BUCKETS = ("twitter", "youtube", "options", "insider", "macro")
+
+# FAST buckets move within hours/days; SLOW ones take days/weeks to show up. A thesis that
+# only slow sources agree with may be right but is not yet a TRADE — the timing gate needs
+# at least one fast mover to say "now", which is the whole point of #20.
+_FAST_BUCKETS = frozenset({"twitter", "options"})
+
+# The gate: at least this many INDEPENDENT buckets agreeing, at least one of them fast.
+_TIMING_MIN_BUCKETS = 2
+_TIMING_MIN_FAST = 1
+
 # I15: actor-controllable sources cannot solo-push a critical @-ping (single actor
 # can flood twitter, post a YT video, or print an options order).
 # Non-actor-controllable = SEC filing (a regulated Form-4 event, not freely manufacturable).
@@ -286,6 +312,16 @@ class SourceVote:
 
 
 @dataclass
+class BucketVote:
+    """One independence bucket's single net vote (however many sources fed it)."""
+    bucket: str
+    net_dir: str                      # BULL | BEAR
+    fast: bool
+    n_rows: int
+    sources: list[str] = field(default_factory=list)
+
+
+@dataclass
 class ConfluenceResult:
     tier: str                         # surface | high | critical (confluence component)
     agree_count: int
@@ -293,6 +329,11 @@ class ConfluenceResult:
     agree: list[SourceVote] = field(default_factory=list)
     disagree: list[SourceVote] = field(default_factory=list)
     divided: bool = False
+    # #20 timing (SHADOW unless wolf.confluence.timing.enabled): independent-bucket view.
+    timing_verdict: str = "none"      # act | wait | none
+    timing_bucket_agree: int = 0      # how many INDEPENDENT buckets agree
+    timing_fast_agree: int = 0        # ...of which are fast movers
+    timing_buckets: list[BucketVote] = field(default_factory=list)
 
 
 _TIER_RANK = {"surface": 0, "high": 1, "critical": 2}
@@ -306,6 +347,60 @@ def combined_tier(phase1_tier: str, confluence_tier: str) -> str:
         if rank == max(a, b):
             return name
     return "surface"
+
+
+def score_timing(thesis: dict, rows_by_source: dict[str, list[dict]],
+                 min_dominance: float = 0.6) -> tuple[str, int, int, list[BucketVote]]:
+    """#20: is the thesis's moment NOW? Returns (verdict, bucket_agree, fast_agree, buckets).
+
+    Counts agreement in INDEPENDENT buckets, not rows and not sources. Four bullish
+    options rows plus two bullish Schwab snapshots are ONE options vote — the same order
+    book cannot corroborate itself. Then:
+
+      act  — at least 2 independent buckets agree AND at least 1 of them is a fast mover
+             (twitter / options). Slow-only agreement is a thesis, not a trade.
+      wait — someone agrees, but not enough independent families, or nobody fast.
+      none — no bucket agrees at all.
+
+    Pure function of the rows handed in; it writes nothing and, on its own, alerts nothing.
+    """
+    t_type = thesis["scope_type"]
+    t_key = thesis["scope_key"]
+    t_stance = _THESIS_DIR.get(thesis.get("direction"), "")
+
+    # Collect every matching row per bucket, remembering which source fed it.
+    per_bucket: dict[str, list[tuple[str, str]]] = {}   # bucket -> [(stance, source_key)]
+    for skey, rows in rows_by_source.items():
+        bucket = _BUCKET_OF.get(skey)
+        if not bucket:
+            continue
+        for row in rows or []:
+            norm = normalize_source_stance(row.get("ticker", ""), row.get("dir", ""))
+            if norm is None:
+                continue
+            s_type, s_key, stance = norm
+            if scope_matches(t_type, t_key, s_type, s_key, row.get("ticker", "")):
+                per_bucket.setdefault(bucket, []).append((stance, skey))
+
+    buckets: list[BucketVote] = []
+    for bucket, entries in per_bucket.items():
+        nv = net_vote([s for s, _ in entries], min_dominance)   # ONE net vote per bucket
+        if nv is None:
+            continue                                            # internally mixed -> abstains
+        buckets.append(BucketVote(
+            bucket=bucket, net_dir=nv, fast=bucket in _FAST_BUCKETS,
+            n_rows=len(entries), sources=sorted({k for _, k in entries}),
+        ))
+
+    agreeing = [b for b in buckets if b.net_dir == t_stance]
+    fast_agree = sum(1 for b in agreeing if b.fast)
+    if not agreeing:
+        verdict = "none"
+    elif len(agreeing) >= _TIMING_MIN_BUCKETS and fast_agree >= _TIMING_MIN_FAST:
+        verdict = "act"
+    else:
+        verdict = "wait"
+    return verdict, len(agreeing), fast_agree, buckets
 
 
 def score_confluence(thesis: dict, rows_by_source: dict[str, list[dict]],
@@ -445,4 +540,21 @@ def score_confluence(thesis: dict, rows_by_source: dict[str, list[dict]],
             and nonactor_agree_count < 1):
         tier = "high"
 
-    return ConfluenceResult(tier, agree_count, disagree_count, agree, disagree, divided)
+    # ── #20 timing verdict ───────────────────────────────────────────────────
+    # Two independent flags, on purpose:
+    #   timing.collect — compute + store the verdict (SHADOW). Changes nothing a user sees.
+    #   timing.enabled — let an 'act' verdict actually push the alert tier UP.
+    # With collect ON and enabled OFF (the shipped default) every field below is recorded
+    # but `tier` is untouched, so the live @-ping behaviour is byte-identical to today's.
+    verdict, bucket_agree, fast_agree, buckets = "none", 0, 0, []
+    if cfg.get("wolf.confluence.timing.collect", False):
+        verdict, bucket_agree, fast_agree, buckets = score_timing(
+            thesis, rows_by_source, min_dominance)
+        if cfg.get("wolf.confluence.timing.enabled", False) and verdict == "act":
+            # An 'act' moment escalates ONE notch; it can never skip straight to critical
+            # from nothing, and main.py's alerted_tier hysteresis still gates the post.
+            tier = {"surface": "high", "high": "critical"}.get(tier, tier)
+
+    return ConfluenceResult(tier, agree_count, disagree_count, agree, disagree, divided,
+                            timing_verdict=verdict, timing_bucket_agree=bucket_agree,
+                            timing_fast_agree=fast_agree, timing_buckets=buckets)

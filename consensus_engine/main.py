@@ -1091,11 +1091,19 @@ async def _run_confluence_cycle(window_days: int, min_dom: float) -> None:
         prev_alerted = (prev or {}).get("alerted_tier", "surface")
         agree_json = json.dumps([_asdict(v) for v in confl.agree])
         disagree_json = json.dumps([_asdict(v) for v in confl.disagree])
+        # #20: the independent-bucket timing verdict rides along as SHADOW state.
+        buckets_json = json.dumps([_asdict(b) for b in confl.timing_buckets])
+        timing = dict(
+            timing_verdict=confl.timing_verdict,
+            timing_bucket_agree=confl.timing_bucket_agree,
+            timing_fast_agree=confl.timing_fast_agree,
+            timing_buckets_json=buckets_json,
+        )
         # store fresh state BEFORE any post, so the embed's confluence field reads it.
         await db.record_confluence_check(
             th["id"], th["scope_type"], th["scope_key"], th["direction"], now,
             window_days, confl.agree_count, confl.disagree_count, confl.tier, comb,
-            int(confl.divided), agree_json, disagree_json, prev_alerted,
+            int(confl.divided), agree_json, disagree_json, prev_alerted, **timing,
         )
         # alert only on a STRICT tier-UP past what we've already posted (hysteresis).
         if comb in ("high", "critical") and _CONFL_RANK[comb] > _CONFL_RANK.get(prev_alerted, 0):
@@ -1105,6 +1113,7 @@ async def _run_confluence_cycle(window_days: int, min_dom: float) -> None:
                     th["id"], th["scope_type"], th["scope_key"], th["direction"], now,
                     window_days, confl.agree_count, confl.disagree_count, confl.tier, comb,
                     int(confl.divided), agree_json, disagree_json, comb,  # advance alerted_tier
+                    **timing,
                 )
 
 

@@ -23,6 +23,9 @@ Given tweet text and optional vision analysis JSON, return ONLY valid JSON with 
     "profit_target_pct": null
   },
   "conviction": "high|medium|low",
+  "catalyst_horizon": "short|long|none",
+  "catalyst_kind": "options|M&A|release|lawsuit|scandal|moat|guidance|product-far|none",
+  "catalyst_likelihood": 0.0,
   "summary": "",
   "final_signal": {
     "ticker": "",
@@ -53,6 +56,20 @@ Rules:
   with at least one concrete level or setup element.
   low = ONLY when there is no actionable content at all (vague market musing,
   no ticker-specific level, entry, or plan).
+
+Catalyst classification (#55) — answer "is there a real, datable reason this
+stock should move, and when?":
+- catalyst_horizon "short": a discrete event that resolves within ~30 days —
+  options expiry play, earnings/guidance print, M&A/buyout news, product launch
+  or release date, lawsuit ruling, scandal, FDA/regulatory decision.
+- catalyst_horizon "long": a structural thesis with no near date — widening moat,
+  multi-year guidance ramp, a product still years out, secular share gain.
+- catalyst_horizon "none": no bet at all — pure news recap, chart commentary with
+  no reason, market musing, or you cannot tell. Default to "none" when unsure.
+  A post with NO directional catalyst must be "none", even if it names a ticker.
+- catalyst_kind: which of the listed kinds it is, else "none".
+- catalyst_likelihood: 0.0-1.0, how likely the catalyst actually happens as stated
+  (a rumor is low; a scheduled earnings date is high). Use 0.0 when horizon="none".
 """
 
 
@@ -70,6 +87,11 @@ def _default_payload() -> dict[str, Any]:
             "profit_target_pct": None,
         },
         "conviction": "medium",
+        # #55: fail-closed. A parse failure yields horizon='none', so an
+        # unreadable post is SKIPPED by the catalyst scorer, never scored wrong.
+        "catalyst_horizon": "none",
+        "catalyst_kind": "none",
+        "catalyst_likelihood": 0.0,
         "summary": "",
         "final_signal": {
             "ticker": "",

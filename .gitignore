@@ -127,3 +127,4 @@ data/market_store/
 # #64 Wolf eval corpus — third-party paid-newsletter bodies, keep private (public repo)
 tests/fixtures/wolf_eval/*.txt
 data/flow_grading_prices.json
+data/catalyst_classifications.json
