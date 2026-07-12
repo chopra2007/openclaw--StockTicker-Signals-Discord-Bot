@@ -466,7 +466,7 @@ Original goal: generate the broad 10-30-idea feature menu for the bot by finishi
 
 **CURRENT STATUS (2026-07-07):** v1.2.0 SHIPPED + LIVE on `chopra2007/claude-discover` (main `9dca67e`, tag `v1.2.0`). Built (systemic corruption guard + per-seat model/effort resolver + AskUserQuestion setup), verified 3 ways (24-test harness, adversarial review 0 crit/0 high, a real full Light 0→4 run with the Fable judges live), merged + tagged + pushed, and the local install was refreshed to the 1.2.0 cache. Nothing owed. Living record continues for the next version.
 
-The single ongoing home for the discover plugin's evolution — its version history, what worked/didn't and why, reusable facts, and the build-ready spec for the next version (per-step model/thinking-depth, a Quick/Balanced/Max dial, and a cleaner click-to-choose setup).
+The single ongoing home for the discover plugin's evolution — its version history, what worked/didn't and why, reusable facts, and the spec for whatever change is queued next (currently: nothing queued; latest shipped is v1.3.0, the reusable codebase map).
 
 ## 69. Auto-run a separate verifier when work is claimed done — DONE 2026-07-07
 
