@@ -483,3 +483,9 @@ Carefully shrink Claude's memory index (MEMORY.md) — merging related lines, no
 **File:** `schwab-reauth-helper.md`
 
 Build a simple "renew Schwab login" helper so the real-time options feed's weekly re-authorization stops being a manual, error-prone scramble against a 30-second timer.
+
+## 72. Fix the todo list's status-update step so it stops contradicting itself
+
+**File:** `todo-index-refresh-contradiction-bug.md`
+
+The step that refreshes an item's `CURRENT STATUS` line in `TODO.md` sometimes writes a new sentence that contradicts what the detail file already says (found on item #20, 2026-07-12 — a brand-new line claimed an idea was "unchanged" the same session it was closed), and sometimes leaves an old sentence in place under a header that already says the item is done (found on item #57 — the first body line still says "keep this OPEN," blocking on work that was actually finished the day before). This is a confirmed recurrence of a bug `todo/CONVENTION.md`'s "Lead with current status" rule was already written to prevent (first seen on #32/#42, 2026-06-27). Full evidence — commit hashes, timestamps, exact quoted text from both cases — is in the detail file. No fix proposed yet; a stronger model will design the fix next session.
