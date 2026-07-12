@@ -223,3 +223,22 @@ is a later, separately-gated decision (same HOLD pattern as `source_performance_
 **Owed:** shadow-delta analysis before promotion · `eb_shrunk_precision()` is built + unit-tested but
 has **no caller** (no live catalyst display yet) · no nightly timer yet (runs on demand).
 Full log: `.claude/discover/todo-55-20-plan/pass-5-execution-log.md`.
+
+### Session notes — 2026-07-12 later (#55 three leftover gaps CLOSED, same day)
+
+1. **Display wired.** New `!catalysts` Discord command (catalyst scorecard: raw "X of N" +
+   EB-shrunk "adjusted" % + `eb_shrunk_precision` "all calls" contrast column) and an
+   "adj 24h" column on `!leaderboard`. Display-only; the Wilson-LB promotion gate is
+   untouched. Proven live: real `!catalysts` / `!leaderboard` messages answered in #chat.
+2. **Nightly timer live.** `catalyst-grading.{service,timer}` (repo copies in `scripts/`),
+   23:30 UTC nightly, `Persistent=true`, `OnFailure=alert@%n` → #errors-style Discord alert.
+   Two grader bugs fixed en route: (a) classification cache key used salted `hash()` — the
+   disk cache could NEVER match across runs, so every nightly would re-buy the same LLM calls
+   and the oldest-first cap would starve new posts (now sha1, content-only); (b) an LLM outage
+   was cached as "no catalyst" forever (now retried next run; wholesale failure exits non-zero).
+3. **Benchmark fallback live.** `resolve_benchmark_dynamic()`: curated tables → shared 30-day
+   sector cache → one Yahoo lookup → sub-industry group (RKLB→ITA) or sector ETF (HIMS→XLV);
+   still never guesses SPY. Backfill re-run: unresolvable 38→2 (CRBL dead, SOXL leveraged ETF —
+   correct skips), 52 posts graded via the fallback, scorecard 43→112 rows (57 graded).
+
+**Still owed (unchanged):** shadow-delta analysis before any promotion into live scoring.

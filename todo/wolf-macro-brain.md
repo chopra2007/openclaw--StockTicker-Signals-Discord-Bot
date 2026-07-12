@@ -231,3 +231,9 @@ needs a definition of 'wider'". The definition landed: **independence buckets**.
 accrues `timing_first_act_at` forward). It changes overnight @-ping behaviour, so a live shadow soak
 is owed too. No threshold re-tuning to force a pass.
 Full log: `.claude/discover/todo-55-20-plan/pass-5-execution-log.md`.
+
+### Session notes — 2026-07-12 later (#20 side effect of the gap fixes)
+
+`wolf_timing_backtest.py` now uses `resolve_benchmark_dynamic()` for thesis proxies (a
+stock-scoped thesis on a long-tail name gets its real sector ETF instead of the SPY default).
+No change to the timing gate itself; the paired-n≥10 re-run condition is unchanged.
