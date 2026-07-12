@@ -20,10 +20,13 @@ instead of silently shipping.
 
 from __future__ import annotations
 
+import logging
 import os
 from bisect import bisect_left
 
 import yaml
+
+log = logging.getLogger(__name__)
 
 _DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 _PEER_GROUPS_PATH = os.path.join(_DATA_DIR, "peer_groups.yaml")
@@ -74,6 +77,34 @@ def resolve_benchmark(ticker: str) -> str | None:
     if not ticker:
         return None
     return _load_benchmarks().get(ticker.strip().upper())
+
+
+async def resolve_benchmark_dynamic(ticker: str) -> str | None:
+    """resolve_benchmark() plus a dynamic tail for long-tail tickers (RKLB, HIMS...).
+
+    Ladder: curated tables (peer_groups -> sector_map, via resolve_benchmark) ->
+    peer_comparison.resolve_peers(), which already owns the rest: 30-day DB sector
+    cache -> ONE yfinance .info lookup (bounded executor + Yahoo semaphore) ->
+    curated group matched by industry (sub-industry ETF, e.g. SMH) -> sector-name
+    ETF from peer_groups.yaml `sector_etf_fallback` (e.g. Industrials -> XLI).
+
+    Still returns None rather than guessing SPY when even Yahoo has no sector for
+    the ticker — the caller keeps skipping those rows. Async because a cache miss
+    may fetch over the network; sync callers keep using resolve_benchmark().
+    """
+    static = resolve_benchmark(ticker)
+    if static:
+        return static
+    if not ticker:
+        return None
+    try:
+        from consensus_engine.analysis.peer_comparison import resolve_peers
+        resolved = await resolve_peers(ticker.strip().upper())
+    except Exception as e:  # noqa: BLE001 — a broken fallback must degrade to "skip", never crash a grading run
+        log.warning("benchmark_grading: dynamic resolve failed for %s: %s", ticker, e)
+        return None
+    etf = resolved.get("benchmark_etf")
+    return str(etf).upper() if etf else None
 
 
 def close_n_trading_days_later(bars: dict[str, float], entry_date: str,

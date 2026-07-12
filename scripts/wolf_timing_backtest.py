@@ -197,7 +197,7 @@ async def run(out_path: str | None) -> int:
         proxy = proxy_symbol(th["scope_type"], th["scope_key"])
         if not proxy:
             continue
-        bench = bg.resolve_benchmark(proxy) or "SPY"
+        bench = await bg.resolve_benchmark_dynamic(proxy) or "SPY"
         if bench == proxy:
             bench = "SPY"          # an ETF thesis is graded against the market
         if proxy == "SPY":

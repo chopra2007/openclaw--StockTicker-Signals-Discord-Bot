@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
 import logging
 import sys
@@ -73,6 +74,26 @@ def _save_classifications(blob: dict[str, dict]) -> None:
     CACHE_PATH.write_text(json.dumps(blob, indent=0))
 
 
+def _class_key(handle: str | None, ticker: str, raw_text: str) -> str:
+    """Content-only cache key. NEVER the built-in hash(): string hashing is salted
+    per process (PYTHONHASHSEED), so hash()-based keys can never match across runs —
+    each nightly would re-buy the same classifications, and with oldest-first
+    ordering the backlog would eat the cap so NEW posts never get classified."""
+    digest = hashlib.sha1(f"{handle}|{ticker}|{raw_text}".encode()).hexdigest()[:16]
+    return f"{handle}|{ticker}|{digest}"
+
+
+def _looks_unanswered(payload: dict) -> bool:
+    """True when the LLM never really answered (outage / empty / unparseable).
+
+    chat_completion returns "" on failure and the parser then yields the fail-closed
+    default: horizon 'none' AND an empty summary. A genuine "no catalyst" reading
+    still writes a summary sentence. The empty shell must never be cached — caching
+    it would permanently mislabel the post as catalyst-free."""
+    return (payload.get("catalyst_horizon", "none") == "none"
+            and not str(payload.get("summary") or "").strip())
+
+
 # ─────────────────────────────── post loading ───────────────────────────────
 
 async def load_posts(nightly: bool = False) -> list[dict]:
@@ -113,19 +134,23 @@ async def load_posts(nightly: bool = False) -> list[dict]:
     return posts
 
 
-async def classify(posts: list[dict], cap: int, use_cache: bool = True) -> tuple[list[dict], int]:
-    """Attach catalyst_horizon/kind/likelihood/direction to each post. Returns (posts, n_llm_calls).
+async def classify(posts: list[dict], cap: int, use_cache: bool = True) -> tuple[list[dict], int, int]:
+    """Attach catalyst_horizon/kind/likelihood/direction to each post.
+    Returns (posts, n_llm_calls, n_unanswered).
 
     Cached by (handle, ticker, text) so a re-run is free for posts already read. `cap`
     bounds how many NEW posts one run will send to the LLM — the one-time backfill cost
-    is therefore bounded and visible, not open-ended.
+    is therefore bounded and visible, not open-ended. An unanswered call (LLM outage)
+    is NOT cached: the post stays 'uncached' and is retried on the next run.
     """
     from models.text_model import analyze_tweet
 
     cache = _load_classifications() if use_cache else {}
     calls = 0
+    unanswered = 0
+    dirty = False
     for p in posts:
-        key = f"{p['handle']}|{p['ticker']}|{hash(p['raw_text']) & 0xffffffff}"
+        key = _class_key(p["handle"], p["ticker"], p["raw_text"])
         hit = cache.get(key)
         if hit is None:
             if calls >= cap:
@@ -133,10 +158,14 @@ async def classify(posts: list[dict], cap: int, use_cache: bool = True) -> tuple
                 continue
             try:
                 payload = await analyze_tweet(p["raw_text"], p["handle"] or "")
-            except Exception as e:                    # LLM down -> fail closed, never crash
+            except Exception as e:                    # LLM down -> retry next run, never crash
                 log.warning("classify failed for %s (%s): %s", p["ticker"], p["handle"], e)
-                payload = {}
+                payload = None
             calls += 1
+            if payload is None or _looks_unanswered(payload):
+                unanswered += 1
+                p["catalyst_horizon"] = "uncached"
+                continue
             hit = {
                 "catalyst_horizon": payload.get("catalyst_horizon", "none"),
                 "catalyst_kind": payload.get("catalyst_kind", "none"),
@@ -144,11 +173,12 @@ async def classify(posts: list[dict], cap: int, use_cache: bool = True) -> tuple
                 "direction": payload.get("direction", "neutral"),
             }
             cache[key] = hit
+            dirty = True
         p.update(hit)
 
-    if use_cache and calls:
+    if use_cache and dirty:
         _save_classifications(cache)
-    return posts, calls
+    return posts, calls, unanswered
 
 
 # ──────────────────────────────── grading ────────────────────────────────
@@ -167,10 +197,14 @@ async def grade(posts: list[dict], limit: int | None = None) -> dict:
         "short": 0, "long_bets": 0, "graded": 0, "window_open": 0,
         "skipped_unresolvable": 0, "skipped_unclassifiable": 0,
         "skipped_no_catalyst": 0, "skipped_vague_long": 0, "unclassified": 0,
-        "unresolvable_tickers": set(),
+        "fallback_benchmark": 0, "unresolvable_tickers": set(),
     }
 
     scorable: list[dict] = []
+    # Resolve each DISTINCT ticker once per run: the dynamic tail can hit Yahoo,
+    # and 30 posts on the same dead ticker must not mean 30 lookups every night.
+    resolved: dict[str, str | None] = {}
+    via_fallback: set[str] = set()
     for p in posts:
         horizon = p.get("catalyst_horizon", "none")
         if horizon == "uncached":
@@ -189,11 +223,23 @@ async def grade(posts: list[dict], limit: int | None = None) -> dict:
         if direction not in ("long", "short"):
             counters["skipped_no_catalyst"] += 1
             continue
-        etf = bg.resolve_benchmark(p["ticker"])
+        tk = p["ticker"]
+        if tk not in resolved:
+            etf = bg.resolve_benchmark(tk)
+            if not etf:
+                # Long-tail ticker (RKLB, HIMS...): one cached Yahoo sector lookup ->
+                # sector ETF. Was ~15% of classified posts before the fallback existed.
+                etf = await bg.resolve_benchmark_dynamic(tk)
+                if etf:
+                    via_fallback.add(tk)
+            resolved[tk] = etf
+        etf = resolved[tk]
         if not etf:
             counters["skipped_unresolvable"] += 1
-            counters["unresolvable_tickers"].add(p["ticker"])
+            counters["unresolvable_tickers"].add(tk)
             continue
+        if tk in via_fallback:
+            counters["fallback_benchmark"] += 1
         p["benchmark_etf"] = etf
         scorable.append(p)
         if limit and len(scorable) >= limit:
@@ -338,7 +384,13 @@ async def run(args) -> int:
     if args.count:
         cut = time.time() - ELAPSED_PAD_DAYS * 86400
         elapsed = [p for p in posts if p["detected_at"] < cut]
-        resolvable = [p for p in elapsed if bg.resolve_benchmark(p["ticker"])]
+        # Resolve each DISTINCT ticker once (the dynamic tail may do one network
+        # lookup per unknown ticker; it writes only the sector cache, no scores).
+        ok: set[str] = set()
+        for t in sorted({p["ticker"] for p in elapsed}):
+            if await bg.resolve_benchmark_dynamic(t):
+                ok.add(t)
+        resolvable = [p for p in elapsed if p["ticker"] in ok]
         print(f"stored analyst posts with raw text : {len(posts)}")
         print(f"  ...30-day window fully elapsed   : {len(elapsed)}")
         print(f"  ...and ticker has a benchmark    : {len(resolvable)}  <- classifiable + gradeable now")
@@ -358,18 +410,32 @@ async def run(args) -> int:
         print("nothing to do: pass --count, --backfill or --report")
         return 1
 
-    posts, calls = await classify(posts, cap=args.classify_cap, use_cache=not args.no_cache)
+    # The nightly timer must never silently no-op: with no key every "call" would
+    # come back empty and every post would be mislabeled. Refuse loudly instead —
+    # a non-zero exit trips the unit's OnFailure alert.
+    from models.model_config import OPENROUTER_API_KEY
+    if not OPENROUTER_API_KEY:
+        print("ERROR: OPENROUTER_API_KEY is empty — cannot classify; refusing to no-op.")
+        return 2
+
+    posts, calls, unanswered = await classify(posts, cap=args.classify_cap,
+                                              use_cache=not args.no_cache)
     counters = await grade(posts, limit=args.limit)
 
     bad = sorted(counters.pop("unresolvable_tickers"))
     log.info("LLM classification calls this run: %d (cap %d)", calls, args.classify_cap)
     print(f"LLM classification calls this run : {calls} (cap {args.classify_cap})")
+    print(f"{'unanswered (retry next run)':26s}: {unanswered}")
     for k, v in counters.items():
         print(f"{k:26s}: {v}")
     if bad:
         # Silent skips are the danger: surface exactly what got dropped, every run.
         print(f"unresolvable tickers ({len(bad)}) : {', '.join(bad[:40])}"
               + (" ..." if len(bad) > 40 else ""))
+    if calls and unanswered == calls:
+        print(f"ERROR: all {calls} classification calls went unanswered (LLM outage?) — "
+              f"nothing was cached; exiting non-zero so the timer alert fires.")
+        return 2
     return 0
 
 
@@ -377,7 +443,9 @@ def main() -> int:
     p = argparse.ArgumentParser(description="Grade analyst catalyst calls, benchmark-relative (#55).")
     p.add_argument("--backfill", action="store_true", help="classify + grade everything eligible")
     p.add_argument("--nightly", action="store_true", help="only look back NIGHTLY_LOOKBACK_D days")
-    p.add_argument("--count", action="store_true", help="report eligibility, no writes, no LLM")
+    p.add_argument("--count", action="store_true",
+                   help="report eligibility — no LLM calls, no score writes "
+                        "(may fetch + cache sector info for unknown tickers)")
     p.add_argument("--report", action="store_true", help="print the win-rate table")
     p.add_argument("--limit", type=int, default=None, help="cap posts graded")
     p.add_argument("--classify-cap", type=int, default=DEFAULT_CLASSIFY_CAP,

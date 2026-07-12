@@ -1742,6 +1742,50 @@ async def eb_shrunk_precision(analyst: str, horizon: str | None = None) -> float
     return eb_shrink(wins, n, pooled_mean, pooled_var)
 
 
+async def get_catalyst_scorecard() -> dict:
+    """Read-only aggregates of the #55 shadow catalyst tables, for display.
+
+    Powers `!catalysts`. Reads analyst_catalyst_scores + long_term_catalyst_bets
+    only — never source_performance, never the promotion gate. Shape:
+      {"analysts": [{handle, n, wins, mean_bhar}], "kinds": [{kind, n, wins, mean_bhar}],
+       "bets": {status: count}, "total_rows": int, "open_short": int,
+       "last_graded_at": float}
+    """
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT COALESCE(handle, '?') AS handle, COUNT(*) AS n, SUM(win) AS wins,
+                  AVG(bhar_21d) AS mean_bhar
+           FROM analyst_catalyst_scores WHERE win IS NOT NULL
+           GROUP BY COALESCE(handle, '?') ORDER BY n DESC, wins DESC"""
+    )
+    analysts = [dict(r) for r in await cursor.fetchall()]
+    cursor = await conn.execute(
+        """SELECT COALESCE(catalyst_kind, '?') AS kind, COUNT(*) AS n, SUM(win) AS wins,
+                  AVG(bhar_21d) AS mean_bhar
+           FROM analyst_catalyst_scores WHERE win IS NOT NULL
+           GROUP BY COALESCE(catalyst_kind, '?') ORDER BY n DESC, wins DESC"""
+    )
+    kinds = [dict(r) for r in await cursor.fetchall()]
+    cursor = await conn.execute(
+        "SELECT COUNT(*) AS c, SUM(win IS NULL) AS open, MAX(graded_at) AS last "
+        "FROM analyst_catalyst_scores"
+    )
+    tot = dict(await cursor.fetchone())
+    cursor = await conn.execute(
+        "SELECT checkpoint_status, COUNT(*) AS c FROM long_term_catalyst_bets "
+        "GROUP BY checkpoint_status"
+    )
+    bets = {r["checkpoint_status"]: r["c"] for r in await cursor.fetchall()}
+    return {
+        "analysts": analysts,
+        "kinds": kinds,
+        "bets": bets,
+        "total_rows": int(tot["c"] or 0),
+        "open_short": int(tot["open"] or 0),
+        "last_graded_at": float(tot["last"] or 0.0),
+    }
+
+
 # ---------------------------------------------------------------------------
 # I13 — ApeWisdom mention-count persistence + baseline read (signal-features-2026-06-09)
 # ---------------------------------------------------------------------------
