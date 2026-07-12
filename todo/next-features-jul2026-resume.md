@@ -1,20 +1,9 @@
 # Finish the feature-idea sweep, reusing the already-saved codebase map
 
-**Status:** OPEN
+**Status:** SOAKING until 2026-07-15 — 16 features shipped flag-OFF 2026-07-08; shadow-data soak live (see TODO.md #67 lead line).
 **Created:** 2026-07-06
 
-**CURRENT STATUS (2026-07-07) — ACTIVE. The idea sweep is done, but that's PROGRESS, not the goal.**
-The GOAL of #67 is to actually BUILD new features and optimize existing ones — the 40-idea menu is the
-*input* to that work, not the finish line (user correction 2026-07-07). This session generated the menu
-(grounded, code-verified: the top-7 build-ready shortlist is in `pass-2-filtered.md`, the full 40 in
-`feature-ideas-list.txt` + `discovery-sweep-work.md`, the VVIX study in `VVIX-RESEARCH-FINDINGS.md`) and
-the user reviewed it and chose to pick which to build LATER (nothing built this session). **#67 stays
-OPEN until real features from this menu are built + shipped.** When the user picks one, build it into the
-live bot through the full regression gate + a shadow check (bot DoD). `state.json` has model_tier=max +
-after_plan=build saved if a discover kill-test→plan→build continuation is wanted
-(`discover: build next-features-jul2026` or a `from_pass:3` burst). NOTE: the `from_pass=1` "skip to
-research" discover tweak used for this run was a one-run-only edit, since reverted from the plugin (kept
-at clean v1.2.0); the recipe to make it permanent is documented in #68. Earlier status notes below.
+**CURRENT STATUS (2026-07-08):** **All 6 stages BUILT + VERIFIED + COMMITTED** (Stages 2–6 ran autonomously this session). 16 features shipped, every one behind a config flag **DEFAULT OFF** (shadow) — **no live alert, score, or !all/!market/!sec output changed** (proven byte-identical on both live-scoring surfaces: E2 `cross_asset.get_multiplier` and `cross_reference.score_ticker`). Stage commits (local, unpushed until this close): S2 `e74eb19` (NFCI + FRED macro legs), S3 `f057e23` (dealer-GEX/gamma-flip/IV-skew/OI-pinning + ^SKEW), S4 `1023bdf` (IV-vs-RV + squeeze), S5 `d240257` (short-interest/PEAD/breadth), S6 `931e272` (Form 144/10b5-1/House congress). Each stage: live-probe on real data + full regression (final **2785 passed, 0 regressions**) + ownership fix + per-stage commit; implementer (executor agents) separate from verifier (me). **Go-live NOT done — that's a separate, explicit, per-feature user decision gated on shadow evidence.** Owed follow-ups (in `.claude/discover/next-features-jul2026/outcome.json`): r13-Senate congress (efdsearch gated), r20 true advancers/decliners upgrade (shipped RSP/SPY proxy), and wiring the Stage-6 insider context lines onto the live !sec/!all surfaces (a go-live step after shadow data accrues). 3 ideas killed (max-pain-label/dark-pool/0DTE-directional); 8 kept ideas not built this run (VVIX/VIX, 0-100 score, crowding guard, market put/call, CFTC, GDELT, analyst-PT-disagreement, !scan) remain future candidates.
 
 **CURRENT STATUS (2026-07-07) — sweep DONE, awaiting the user's build pick.** The prerequisite was
 built this session: discover **1.2.1** adds the missing `from_pass=1` resume path (reuse the saved

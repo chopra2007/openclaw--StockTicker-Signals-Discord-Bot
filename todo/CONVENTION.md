@@ -82,9 +82,17 @@ When a task is done, mark its TODO.md header `— DONE YYYY-MM-DD`. Keep both th
 
 ## Lead with current status (multi-step / partially-done items)
 
-The `— DONE` marker is binary, but many items land in stages across sessions (a switch flipped one at a time, a phased build, a soak). For ANY item not yet fully done whose state has moved, the FIRST body line under `**File:**` must be a `**CURRENT STATUS (YYYY-MM-DD):** …` one-liner stating the latest state in plain English — what's live, what's left, and the next concrete step. Update that line every time the state changes; append the dated history BELOW it, never above. **Never let the first body sentence be a stale older snapshot.**
+The `— DONE` marker is binary, but many items land in stages across sessions (a switch flipped one at a time, a phased build, a soak). For ANY item not yet fully done whose state has moved, the item must lead with a `**CURRENT STATUS (YYYY-MM-DD):** …` paragraph stating the latest state in plain English — what's live, what's left, and the next concrete step.
 
-Rationale: the `/todo` view and any quick scan show the TOP of the item. If the top is frozen at an old "what remains" note while the real work is done, the reader (and the next session) wastes time and tokens re-deriving the actual state — this happened with #32/#42 on 2026-06-27 (every switch was already live, but #32 still led with its 2026-06-10 "what remains is flipping the switches on" paragraph).
+**Where it gets written (changed 2026-07-12, TODO #72): the DETAIL file only.** The CURRENT STATUS paragraph is written and rewritten in the detail file (first body paragraph, dated; history stays below it). `TODO.md`'s copy is machine-made — **never hand-edit a CURRENT STATUS paragraph in TODO.md**:
+
+- `python3 scripts/todo_status_sync.py --fix` mirrors each detail file's lead paragraph into its TODO.md entry (replaces the existing lead paragraph; inserts one for non-DONE items; DONE items get no new insertion — the header marker is enough).
+- `python3 scripts/todo_status_sync.py --check` flags drift: header marker vs detail `**Status:**` kind mismatch; an index lead out of sync with the detail file (run `--fix`); a DONE item whose lead line predates its DONE date; a DONE item whose status prose still contains forward-looking work ("Next:", "owed", "stays OPEN", "eyeball it"…); and a CURRENT STATUS line older than the newest `### Session notes` block below it.
+- The daily drift timer (`todo-switch-drift-check.timer`, 06:00 PDT) runs `--check` and appends any drift to `notifications.log`, which session start surfaces.
+
+**Before writing or refreshing a CURRENT STATUS line, re-read the session-notes blocks at the bottom of the same file.** The status line's date must be ≥ the newest session note's date (`--check` enforces this). This rule exists because a status line written from session memory instead of from the file produced a sentence that was false the moment it was committed (#20, 2026-07-12) — the correct fact was already sitting in the same file's session notes, written two hours earlier.
+
+Rationale: the `/todo` view and any quick scan show the TOP of the item. If the top is frozen at an old "what remains" note while the real work is done, the reader (and the next session) wastes time and tokens re-deriving the actual state — this happened with #32/#42 on 2026-06-27, and again (despite this rule) with #20/#57 on 2026-07-12, which is why the mirror + checker now exist (full post-mortem: `todo/todo-index-refresh-contradiction-bug.md`, TODO #72). Rules in prose don't execute; the script does.
 
 ## Switch-bearing items — derive live state from config, never hand-copy it
 

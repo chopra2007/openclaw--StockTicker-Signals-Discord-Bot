@@ -1,6 +1,6 @@
 # YouTube Vision Upgrade — Status
 
-**Status:** ACTIVE — CRITICAL (reopened 2026-06-09). The chart-number-reading work (Tasks B/C, B1/B3) shipped and is the DONE sub-part. The now-active critical goal: **every YouTube video must be transcribed in full, start to finish.** It is not — see the "⚠ REOPENED 2026-06-09" section directly below. (Older lower-priority pending items from 2026-05-28 — narrator per-ticker wiring, the OUTPUT-token two-trip fix — are in the "Session notes — 2026-05-28" block at the bottom.)
+**Status:** DONE 2026-06-15 (verified working) — the CRITICAL full-transcription goal was verified met; see 'Session notes — 2026-06-13' below (zero PARTIAL READ warnings since 06-10, full-duration windows on long videos; >90-min ceiling accepted, alarm covers it). Status line backfilled 2026-07-12 (TODO #72 cleanup). Earlier text said ACTIVE—CRITICAL (reopened 2026-06-09); that reopen was resolved by commit 9c8f889.
 **Created:** 2026-05-25
 
 **Goal:** give the LLM more useful data from each YouTube video so it can understand the analyst's actual evidence (chart levels, scanner numbers, gamma exposures) — not just what was said out loud.

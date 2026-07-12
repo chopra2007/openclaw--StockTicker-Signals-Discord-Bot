@@ -3,12 +3,7 @@
 **Status:** DONE 2026-07-07 — hook LIVE at `/root/.claude/hooks/verify-on-done.py`, wired into `/root/.claude/settings.json`
 **Created:** 2026-07-06
 
-**CURRENT STATUS (2026-07-06):** Idea agreed, nothing built. Goal = a Claude Code **Stop hook** that
-automatically hands work to a *separate* read-only verifier agent whenever an agent claims it's done,
-so verification isn't left to the same agent that did the work (which does it poorly). **Do web
-research FIRST** (Phase 1 below) on how experienced LLM-agent developers write hooks well, THEN code
-it thoughtfully. User's explicit ask: coded "very thoughtfully and carefully" — fast, targeted, and
-not slowing every turn.
+**CURRENT STATUS (2026-07-07) — DONE.** Hook LIVE at /root/.claude/hooks/verify-on-done.py, wired into /root/.claude/settings.json; free/no-LLM, re-runs affected tests on a 'done' claim and blocks regressions.
 
 ## Why (context from the 2026-07-06 session)
 - Repeated problem: when asked to verify, the SAME agent that did the work also verifies it, and does

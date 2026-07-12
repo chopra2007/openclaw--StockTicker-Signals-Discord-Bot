@@ -1,6 +1,6 @@
 # Near-real-time unusual options flow
 
-**Status:** OPEN
+**Status:** DONE 2026-05-29 — status line backfilled 2026-07-12 (TODO #72 cleanup; the header and session notes had already recorded completion).
 **Created:** 2026-05-29
 
 **Goal (plain):** the bot should read live-ish options data — the options chain, open interest, and volume — and alert on *unusual* options activity, **close to real-time, not 24-hour-old data.** Both the research AND the build happen in a fresh session (user's instruction).

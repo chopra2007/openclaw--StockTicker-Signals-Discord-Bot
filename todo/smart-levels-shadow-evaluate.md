@@ -1,6 +1,6 @@
 # Evaluate the SMART LEVELS shadow soak, then decide go-live
 
-**Status:** OPEN
+**Status:** DONE 2026-06-09 — status line backfilled 2026-07-12 (TODO #72 cleanup; the header and session notes had already recorded completion).
 **Created:** 2026-06-08
 
 ## The goal (plain English)

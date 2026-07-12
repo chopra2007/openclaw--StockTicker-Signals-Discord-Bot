@@ -3,6 +3,8 @@
 **Status:** DONE 2026-06-29
 **Created:** 2026-06-09
 
+**CURRENT STATUS (2026-07-12):** Fully DONE — the long-unrecorded Monday live-check RAN on schedule (2026-06-29 16:00 PDT, e2_first_session_check.log: combined=78, shadow_only=0, errors=0, strongs=0, mults 1.011–1.017) and its notice went to notifications.log; the item was closed the same day but the outcome was never written back here until the TODO #72 cleanup. No conditions remain.
+
 Follow-on work from the `signal-features-2026-06-09` discover run. Phase 1 (9 fixes) is
 built, tested, and committed flag-OFF (commit `cb2729b`). This tracks what's left.
 
