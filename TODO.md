@@ -462,6 +462,8 @@ Original goal: generate the broad 10-30-idea feature menu for the bot by finishi
 
 **File:** `discover-plugin-logbook.md`
 
+**CURRENT STATUS (2026-07-12, later):** v1.3.0 SHIPPED + LIVE (main `f42e784`, tag `v1.3.0`; installed cache refreshed — active next session). Discover now saves the codebase map per repo with the git commit it was built from: unchanged repo → map reused as-is, zero re-reading; a few changed files → one small agent re-reads only those; full re-scan only when the map is missing, the repo drifted a lot (>100 files), or `remap=fresh` is typed. Same-run restarts also reuse the run's own saved map (the hole that made the Jul-6 run pay for its map 3×). Proven live on the toy repo (all 4 paths) + 32/32 harness tests. Nothing owed.
+
 **CURRENT STATUS (2026-07-07):** v1.2.0 SHIPPED + LIVE on `chopra2007/claude-discover` (main `9dca67e`, tag `v1.2.0`). Built (systemic corruption guard + per-seat model/effort resolver + AskUserQuestion setup), verified 3 ways (24-test harness, adversarial review 0 crit/0 high, a real full Light 0→4 run with the Fable judges live), merged + tagged + pushed, and the local install was refreshed to the 1.2.0 cache. Nothing owed. Living record continues for the next version.
 
 The single ongoing home for the discover plugin's evolution — its version history, what worked/didn't and why, reusable facts, and the build-ready spec for the next version (per-step model/thinking-depth, a Quick/Balanced/Max dial, and a cleaner click-to-choose setup).
