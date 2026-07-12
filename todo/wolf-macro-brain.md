@@ -206,3 +206,28 @@ The user reframed what #20's "widen confluence" is really for. A new session sho
 - How to weight fast vs slow signals for a *timing* read.
 - What threshold flips a standing-but-early Wolf thesis into an actionable louder alert.
 - How to measure whether confluence-gated timing actually beats acting on Wolf's raw call (needs the 5d/20d outcome grading from #55 to backtest).
+
+### Session notes — 2026-07-12 (#20 confluence WIDENED + timing gate, commit 7edf7a4)
+
+This closes the one thing the item was being kept open for — "widen the confluence inputs,
+needs a definition of 'wider'". The definition landed: **independence buckets**.
+
+- Roster widened from 4 sources to **7 sources across 5 independence buckets** (twitter, youtube,
+  options, insider, macro). Each bucket casts **at most one net vote**, so options-flow + the Schwab
+  chain snapshot (the same order book) can no longer corroborate each other. Same for SEC + form4.
+- New `wolf_confluence.score_timing()`: says **"act"** only when 2+ independent families agree AND at
+  least one is a **fast** mover (twitter/options). Slow-only agreement is a thesis, not a trade.
+- Shipped **OFF**: `wolf.confluence.timing.collect: true` (compute + store), `timing.enabled: false`
+  (an "act" verdict may NOT raise a tier). Live proof: thesis 174 (RUT) scored `act` and its tier
+  stayed `surface`, `alerted_tier` unchanged.
+- **Retail bucket dropped, deliberately:** `reddit_posts` has no ticker and no sentiment;
+  `apewisdom_mentions` has a ticker but no direction. Attention is not a side — inventing one would
+  manufacture the agreement this feature exists to detect.
+- **Backtest (`scripts/wolf_timing_backtest.py`): INCONCLUSIVE.** 46 actionable theses, the gate would
+  have fired on only 9 → paired n=6 (5d) / n=5 (20d), under the pre-registered n≥10 bar. NOT the
+  honest-negative case (gated proven worse) — just underpowered.
+
+**Owed before `timing.enabled` ever flips:** re-run the backtest when paired n≥10 (the shadow soak
+accrues `timing_first_act_at` forward). It changes overnight @-ping behaviour, so a live shadow soak
+is owed too. No threshold re-tuning to force a pass.
+Full log: `.claude/discover/todo-55-20-plan/pass-5-execution-log.md`.

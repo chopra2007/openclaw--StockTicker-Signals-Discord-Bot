@@ -203,3 +203,23 @@ After reading the analyst's post, decide what kind of price-mover it is:
 - How this new per-post catalyst score relates to the existing (near-random 1h/24h) analyst-precision tables — replace, or run alongside.
 
 This supersedes the "just repoint 1h→24h" framing as the *goal*; that repoint may still be a cheap sub-step, but the real design is the catalyst-classified, sector-relative scoring above.
+
+### Session notes — 2026-07-12 (#55 catalyst scorecard BUILT, commit 7edf7a4)
+
+Built the catalyst-relative analyst scorecard (discover run `todo-55-20-plan`). It runs
+**alongside** the near-random 1h/24h `source_performance`, not instead of it — promotion
+is a later, separately-gated decision (same HOLD pattern as `source_performance_shadow`).
+
+- New: `consensus_engine/analysis/benchmark_grading.py` (shared spine), `scripts/grade_analyst_catalysts.py`.
+- New SHADOW tables: `analyst_catalyst_scores`, `long_term_catalyst_bets`.
+- `models/text_model.py` now labels each post's `catalyst_horizon` / `catalyst_kind` / `catalyst_likelihood`.
+- A win = the stock **beat its sector/peer ETF** over the same 21 sessions. Rising with the sector is not a win.
+- First real run (260 LLM calls): 43 short rows, 28 graded, 14 long-term bets opened.
+  **152 of 260 posts (58%) carry no directional catalyst at all** — the existing scorecard grades
+  all of those, which is the mechanical reason it reads near-random. Premise now measured, not asserted.
+- Coverage limit: 38 of 260 posts skipped, no benchmark (34 tickers: RKLB, HIMS, IREN, LULU…).
+  yfinance `.info['industry']` fallback deferred to v1.1 (plan graft 6).
+
+**Owed:** shadow-delta analysis before promotion · `eb_shrunk_precision()` is built + unit-tested but
+has **no caller** (no live catalyst display yet) · no nightly timer yet (runs on demand).
+Full log: `.claude/discover/todo-55-20-plan/pass-5-execution-log.md`.
