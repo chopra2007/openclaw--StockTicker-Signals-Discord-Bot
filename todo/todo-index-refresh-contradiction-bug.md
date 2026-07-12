@@ -33,6 +33,31 @@ Immediately under that header, the **first line of the body** — the exact posi
 
 This paragraph is dated one day before the header's own `DONE 2026-07-09` resolution and says the opposite of the header two lines above it — that the item is still open and blocked on a specific piece of work (threshold tuning) that, per the detail file `todo/schwab-options-realtime.md`, was in fact completed and closed out on 2026-07-09 (real data graded 8,681 stored flow events, `min_vol_oi` moved 10→20, a nightly grading timer made permanent). No commit ever added a fresh `CURRENT STATUS (2026-07-09)` paragraph above this one; the header title was updated to say DONE, but the leading body paragraph — the part a quick scan actually reads — was left exactly as it was on 07-08.
 
+## Sweep of the rest of the list (2026-07-12) — 11 more items checked
+
+Following the two cases above, a targeted sweep checked every other item in `TODO.md` that carries a non-plain-DONE marker or a `CURRENT STATUS` line (the only items where this defect is possible): #6, #32, #42, #47, #54, #55, #56, #59, #61, #67, #68. Results below, split by confidence.
+
+### Confirmed — same mechanism as Case 2 (#57): header updated, first body line never replaced
+
+- **#59** (regression-gate auto-fixer). Header: `SOAKING until 2026-07-25 (v3 race done 2026-07-11; pinned deepseek-v4-flash)`. First body line: `**CURRENT STATUS (2026-07-10 late) — REOPENED; NEW TEST PLAN READY, EXECUTE IT NEXT.**` — describes the state *before* the race ran. The detail file's own top line, `todo/regression-gate-auto-recovery.md`, is dated one day later: `**CURRENT STATUS (2026-07-11) — v3 RACE DONE. Pinned deepseek/deepseek-v4-flash.** Executed .omc/plans/ci-fixer-race-v3-2026-07-10.md end to end... SOAKING until 2026-07-25...` TODO.md's header reflects the 07-11 resolution; its first body paragraph does not.
+- **#61** (research-and-build run). Header: `DONE 2026-07-09 (last dependency #62 landed)`. First body line: `**CURRENT STATUS (2026-07-05) — RUN EXECUTED.**` ... ending `**DEFERRED to #62-#65** (need dedicated sessions / live shadow checks). Stays OPEN until those land.` The detail file's top line, `todo/bot-deep-research-prompt.md`, is dated 2026-07-09: `**CURRENT STATUS (2026-07-09) — DONE.** The last open dependency, #62's two forward-loggers, landed today... Nothing further for a human to do.` Same pattern: header updated, first body paragraph frozen at an earlier, superseded state.
+
+### Related — a DONE item whose body still contains an unresolved, never-dated-closed loose end
+
+- **#32** and **#42** (same underlying signal-flip work, two separate index entries). Both headers: `DONE 2026-06-29`; both detail files' `**Status:**` lines also say `DONE 2026-06-29` — headers agree with each other. But both entries' first `CURRENT STATUS` body line is still dated **2026-06-27** and reads conditionally: *"One live-check is owed: E2 hasn't touched a real alert yet... an automatic check runs Mon 2026-06-29 4pm PDT and pings notifications.log. If that's ✅, this item is fully done."* Neither `TODO.md` nor either detail file contains any dated sentence recording that Monday's check actually ran or what it found. The `DONE` marker was applied, but the specific evidence the marker depends on was never written down anywhere. Note: #32 and #42 are the exact two items `todo/CONVENTION.md`'s "Lead with current status" rule already cites as the reason the rule exists — meaning even the fix for the original incident left this particular loose thread (the Monday check's outcome) unresolved.
+- **#54** (reliability hardening soak). Header: `DONE 2026-07-04`. Body (matching the detail file `todo/reliability-hardening-soak.md` verbatim) ends: *"One live watch owed: confirm the breaker opens `exa`... eyeball it next trading day."* `git log` on the detail file shows exactly 2 commits, both from 2026-07-04 — untouched since. No record anywhere that this eyeball check ever happened. Same shape as #32/#42: a DONE item with an explicit, still-open, undated verification step inside it.
+
+### Reverse-direction case — the short index is correct, the detail file is what's stale
+
+- **#67** (feature-idea sweep). `TODO.md`'s own summary (dated 2026-07-08) correctly states all 6 build stages shipped, 16 features live-behind-flags. But the detail file, `todo/next-features-jul2026-resume.md`, has not been touched since 2026-07-07 — its `**Status:**` line still says `OPEN`, and its latest dated section describes the state as "sweep done, awaiting the user's build pick," a decision that (per `TODO.md` itself) was made and acted on the very next day. Anyone reading the detail file alone gets the stale, pre-build picture while the short index has the correct one — the same class of defect as Cases 1/2, just with staleness on the opposite file.
+
+### Minor / unconfirmed — flagged, not established as instances of the bug
+
+- **#6** (`!all` quality menu). No contradiction; `TODO.md`'s own running log is *ahead* of its detail file, `todo/all-command-quality.md`, by about three weeks (detail file's newest section is 2026-06-13; TODO.md has a 2026-07-03 entry not yet mirrored into the detail file).
+- **#47** (market top/bottom detector). Content agrees between `TODO.md` and `todo/vol-indicator-accuracy-research.md`, but the two files use different status vocabulary for the same fact: `TODO.md`'s header says `PARKED`, while the detail file's own `**Status:**` line opens with the word `OPEN` before going on to describe the same parked-on-paid-data state in the same sentence.
+- **#55** (forward-data collection). `TODO.md` states "169 scored calls, 60 fully graded"; the detail file `todo/forward-data-collection.md`'s last recorded count is "43→112 rows (57 graded)." Could be a later nightly-timer run that added rows after the detail file's last note but before TODO.md's line was written — not confirmed as wrong, just an unreconciled number.
+- **#56, #68** — checked, no contradiction found; both files agree with each other on content, date, and status marker.
+
 ## Why this matters
 
 A person or model scanning `TODO.md` for "what's left to do" reads the first body line of an item, not the full commit history or the detail file. In both cases above, that first line gave an actively wrong answer:
@@ -47,14 +72,21 @@ Anyone (human or agent) relying on `TODO.md` at face value — without independe
 
 ## Scope of what has and hasn't been checked
 
-Only items #20 and #57 have been verified against their detail files and git history for this specific defect. No systematic sweep of the other ~70 items in `TODO.md` has been done, so it is unknown whether this is isolated to these two items or a broader pattern across the file. The mechanism by which `TODO.md`'s index lines get refreshed (whether it is invoked mid-session, at the "bye"/session-close trigger, both, manually, or by an automated step) has not been conclusively identified — commit `030bf46`'s timing (~4 hours after the build work, matching the wording of the session-close protocol's TODO-update instruction) is suggestive but not confirmed as the mechanism.
+As of the 2026-07-12 sweep, 13 of the ~72 items in `TODO.md` have been checked against their detail files and git history: #20, #57 (original two cases), plus #6, #32, #42, #47, #54, #55, #56, #59, #61, #67, #68 (the sweep). The sweep targeted every item that carries a non-plain-DONE status marker (`ONGOING`, `SOAKING`, `PARKED`) or a `CURRENT STATUS` line, since those are the only items where this defect is structurally possible — a plain `DONE YYYY-MM-DD` item with no such line has nothing to contradict. Of those 13: 4 are confirmed instances of the defect (#20, #57, #59, #61), 3 more show a related but distinct symptom — a DONE item containing an explicit, still-open verification step with no dated record it was ever resolved (#32, #42, #54), 1 is the reverse case where the detail file is stale and the index is correct (#67), and 3 are minor/unconfirmed or clean (#6, #47, #55 minor; #56, #68 clean).
+
+The remaining ~59 items in `TODO.md` are plain `DONE YYYY-MM-DD` with no `CURRENT STATUS` line and were not individually re-verified against their detail files or git history — they were excluded from the sweep by construction (no live status line to contradict), not confirmed clean. The mechanism by which `TODO.md`'s index lines get refreshed (whether it is invoked mid-session, at the "bye"/session-close trigger, both, manually, or by an automated step) has not been conclusively identified — commit `030bf46`'s timing (~4 hours after the build work, matching the wording of the session-close protocol's TODO-update instruction) is suggestive but not confirmed as the mechanism.
 
 ## Files / code involved
 
-- `TODO.md` — the index file where both contradictions live (entries for #20 and #57).
+- `TODO.md` — the index file; contains confirmed contradictions in the entries for #20, #57, #59, #61, plus the related DONE-with-unresolved-loose-end symptom in #32, #42, #54, plus the reverse (stale detail file) case for #67.
 - `todo/CONVENTION.md` — "Lead with current status" section, the existing rule this defect violates; also documents the prior #32/#42 incident this is a recurrence of.
 - `todo/wolf-macro-brain.md` — #20's detail file; contains the correct, non-contradictory account ("this closes...").
 - `todo/schwab-options-realtime.md` — #57's detail file; contains the correct, non-contradictory account (DONE 2026-07-09, three numbered findings, permanent nightly grading job).
+- `todo/regression-gate-auto-recovery.md` — #59's detail file; correct, dated 2026-07-11.
+- `todo/bot-deep-research-prompt.md` — #61's detail file; correct, dated 2026-07-09.
+- `todo/signal-features-phase2.md` / `todo/signal-flip-status-2026-06-15.md` — #32 / #42's detail files; both `Status: DONE 2026-06-29` but contain the same unresolved 2026-06-27 conditional check as TODO.md.
+- `todo/reliability-hardening-soak.md` — #54's detail file; contains the same unresolved "eyeball it" line, untouched since 2026-07-04.
+- `todo/next-features-jul2026-resume.md` — #67's detail file; the stale side of that item's contradiction (still says OPEN, untouched since 2026-07-07).
 - Relevant commits: `7edf7a4`, `99f6f1d`, `030bf46` (item #20 case); `0ad17f1` and the 2026-07-09 session-notes commits in `todo/schwab-options-realtime.md`'s own history (item #57 case).
 - CLAUDE.md's "Session Close Trigger" step 1 ("Update the TODO list FIRST...") — the closest documented instruction to whatever produced `030bf46`; not confirmed as the actual trigger.
 
@@ -62,5 +94,7 @@ Only items #20 and #57 have been verified against their detail files and git his
 
 - Is the update step that writes/refreshes `CURRENT STATUS` lines in `TODO.md` invoked automatically (e.g. at session close), manually, or both?
 - Is it a human-only edit, an AI-assisted edit, or fully automated? (`030bf46` is co-authored by "Claude Fable 5.")
-- Does the same defect exist on other items beyond #20 and #57? No sweep has been performed.
-- Why did the existing "Lead with current status" rule, written specifically to prevent this class of bug, fail to prevent it here?
+- Does the same defect exist among the ~59 plain-DONE items not covered by this sweep (excluded only because they carry no `CURRENT STATUS` line to check — not verified clean)?
+- Why did the existing "Lead with current status" rule, written specifically to prevent this class of bug, fail to prevent it here — and fail again on #32/#42, the very items it was written about, in the form of an unresolved verification step inside an item already marked DONE?
+- What should happen to a DONE item (#32, #42, #54) whose closure depends on a specific check that has no dated record of ever running — is the check itself missing, or did it run somewhere not reflected in either file?
+- Should the reverse case (#67: index correct, detail file stale) be treated as the same bug class, or a separate one — a detail file that stops being updated once an item is effectively finished, rather than an index line that gets the summary wrong?
