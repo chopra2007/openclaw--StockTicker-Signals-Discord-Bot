@@ -12,7 +12,7 @@ This is the **index**. Each entry points to a detail file in `todo/<name>.md` th
 
 Rip out the dormant old YouTube-parsing fallback code now that the 30-day soak window has passed.
 
-## 2. Finish making alerts arrive faster — DONE 2026-05-29
+## 2. Finish making alerts arrive faster — DONE 2026-07-12 (re-audit closed the last 3 leftovers: built elsewhere or moot)
 
 **File:** `speed-accuracy-optimization.md`
 
@@ -30,7 +30,7 @@ Make the daily Gemini regression cron stop failing every day. Root cause (fixed 
 
 Stop the gateway-model sync script from breaking the gateway when run as root by flipping the config file's ownership from openclaw to root.
 
-## 5. Make the done-checklist scope-aware — DONE 2026-05-22
+## 5. Make the done-checklist scope-aware — DONE 2026-07-12 (CLAUDE.md restructured; acceptance test passed on baf879e)
 
 **File:** `dod-checklist-scope-aware.md`
 
@@ -493,10 +493,10 @@ Carefully shrink Claude's memory index (MEMORY.md) — merging related lines, no
 
 Build a simple "renew Schwab login" helper so the real-time options feed's weekly re-authorization stops being a manual, error-prone scramble against a 30-second timer.
 
-## 72. Fix the todo list's status-update step so it stops contradicting itself
+## 72. Fix the todo list's status-update step so it stops contradicting itself — DONE 2026-07-12 (mirror+checker live; list fully clean)
 
 **File:** `todo-index-refresh-contradiction-bug.md`
 
-**CURRENT STATUS (2026-07-12):** Diagnosed AND the fix is BUILT + LIVE. New `scripts/todo_status_sync.py`: `--fix` mirrors each detail file's CURRENT STATUS paragraph into TODO.md (detail file = only writing spot), `--check` flags 6 drift shapes incl. a status line older than the session notes below it; wired into the daily 06:00 PDT drift timer + the "bye" close protocol (CLAUDE.md step 1, CONVENTION.md rewritten). One-time cleanup done: 29 detail files repaired, both owed checks resolved with log evidence (#32/#42 Monday E2 check RAN 06-29 16:00 PDT and passed; #54 exa breaker confirmed cycling in journalctl). Remaining: user call on #2 and #5 — the only two entries where header (DONE) and detail file (OPEN/REOPENED) genuinely disagree; the daily check nags them until decided.
+**CURRENT STATUS (2026-07-12, later):** DONE. The fix is built + live (mirror `--fix`, 6-rule checker `--check`, daily 06:00 PDT timer, rewritten close protocol) and the whole-list cleanup is complete. The two entries left flagged for a user call were resolved the same day (user go): #2 closed after a code re-audit showed all leftovers built elsewhere or moot; #5 closed by applying the scope-aware CLAUDE.md redesign (acceptance test passed). `--check` reports zero drift across the entire list.
 
 The step that refreshes an item's `CURRENT STATUS` line in `TODO.md` sometimes writes a new sentence that contradicts what the detail file already says (found on #20 — a brand-new line claimed an idea was "unchanged" the same session it was closed), and sometimes leaves an old sentence in place under a header that already says the item is done (found on #57, #59, #61 — the first body line still describes blocking work that was actually finished days earlier). A 2026-07-12 sweep of the other 11 non-plain-DONE items found 2 more confirmed instances (#59, #61), a related symptom on 3 DONE items whose closure depends on a verification step with no dated record it ran (#32, #42, #54), and one reverse case where the short index is right but the item's own detail file is the stale one (#67). This is a confirmed recurrence of a bug `todo/CONVENTION.md`'s "Lead with current status" rule was already written to prevent (first seen on #32/#42, 2026-06-27) — and #32/#42 show it recurring in the very items that rule was written about. The ~59 plain-DONE items with no status line were not checked (excluded by construction, not confirmed clean). Full evidence — commit hashes, timestamps, exact quoted text — is in the detail file. No fix proposed yet; a stronger model will design the fix next session.

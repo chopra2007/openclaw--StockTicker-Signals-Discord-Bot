@@ -90,10 +90,12 @@ When the user sends only "goodbye" or "bye":
 
 ## Definition of Done
 
-A task is not done if a user-facing critical path is broken — regardless of who broke it, when, or whether it's "in scope". "Pre-existing," "out of scope," "not my regression" are NOT valid exemptions. Only three responses when verification surfaces a broken path:
+A task is not done if an **in-scope** user-facing critical path is broken. In scope = the `[always]` bucket plus every bucket your changed file paths trigger (table in "What to verify" #3). Within those buckets, "pre-existing," "out of scope," "not my regression" are NOT valid exemptions — regardless of who broke it or when. Only three responses when verification surfaces a broken in-scope path:
 1. Fix it.
 2. Attempt a fix, surface the specific failure, ask whether to keep digging.
 3. Get explicit user permission to defer.
+
+A broken check in a bucket your change did NOT touch doesn't block done — but you must report it in one sentence and make sure it lands on the TODO list (reported, never silently dropped). (Scope-aware since 2026-07-12, TODO #5 — before that, one flaky unrelated check could block honest completion of unrelated work.)
 
 ### Built switches default to ON
 
@@ -103,10 +105,18 @@ A feature built and tested on stored data is turned ON in the same session, not 
 
 1. **Test the whole feature you changed**, not just the line you touched. Changed catalyst code inside `!all`? Test all of `!all`.
 2. **Find the hidden dependents before committing.** When a change alters a function's arguments or a user-visible output string, `grep -rn` the symbol/old-string across `tests/` and run every match before committing. The breakage usually hides in *other* files — assertions on the old text, or mock/`monkeypatch.setattr` stubs with the old signature — not the file you edited.
-3. **Always-on checks — every time:**
-   - `consensus-engine.service` and `openclaw-gateway.service` both `active`.
-   - No `❌ GATEWAY drift` alert and no LLM-health failure alert.
-   - `/root/.openclaw` still resolves to `/home/openclaw/.openclaw` (symlink intact).
+3. **Scoped critical-path checks.** Decide which buckets apply from the changed file paths (`git diff --name-only` for the session; an explicit `surfaces:` list in a kickoff file overrides). Run `[always]` plus every triggered bucket:
+
+   | Bucket | Triggered when the diff touches | Checks |
+   |---|---|---|
+   | `[always]` | anything — every session | `consensus-engine.service` + `openclaw-gateway.service` both `active`; no `❌ GATEWAY drift` and no LLM-health failure alert; `/root/.openclaw` still resolves to `/home/openclaw/.openclaw` |
+   | `[discord-commands]` | `consensus_engine/alerts/**`, command routing in `main.py` | the touched command (or `!all <ticker>` if several) returns a coherent reply in Discord |
+   | `[agent-mention]` | `_handle_mention` in `main.py`, agent config in `openclaw.json` | `@-mention` of the bot (or `!ask`) returns a coherent reply |
+   | `[gateway]` | LLM chains in `openclaw.json` or the `llm:` section of `config/consensus.yaml` | engine boot log shows the gateway/consensus chain drift check passing |
+   | `[infra]` | systemd units, `/root/task_system/**`, cron/timer scripts, VPS paths | touched timers/scripts run clean under systemd as `openclaw`; file ownership unchanged |
+   | `[ingest]` | `consensus_engine/scanners/**`, `local_video_ingest.py`, ingest parsers | one real poll/ingest of the touched source lands sane rows/log lines |
+
+   Shared files (#4's tripwire list, incl. `config/consensus.yaml`) cut across buckets — touching one triggers every bucket that uses it.
 4. **Shared-file tripwire** — if your change touches any of these, test every feature that uses them:
    - `consensus_engine/llm_client.py`
    - `consensus_engine/config.py` + `config/consensus.yaml`

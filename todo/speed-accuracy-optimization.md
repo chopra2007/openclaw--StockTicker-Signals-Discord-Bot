@@ -1,7 +1,9 @@
 # Speed-accuracy optimization plan — partially unimplemented
 
-**Status:** OPEN — 9 of 13 items complete (plus 1 WON'T-DO), 3 remaining.
+**Status:** DONE 2026-07-12 — re-audit against today's code closed the last 3 leftovers: each was built later by other work or is moot (see CURRENT STATUS).
 **Created:** 2026-05-10
+
+**CURRENT STATUS (2026-07-12):** CLOSED after a line-by-line re-audit of the "3 remaining" against today's code (TODO #72 follow-up, user go). Phase-4 leftovers: Discord 429 retry — BUILT (`alerts/discord.py` `_safe_send`: reads Retry-After, sleeps, retries, loud truncation notice on exhaustion); social signal dedup — BUILT via TODO #65 (DONE 2026-07-05); configurable cascade strategy — BUILT (`news_cascade.tiers` list + `news_cascade.parallel` in consensus.yaml drive order and racing); Exa.ai tier — MOOT (provider removed; its circuit breaker confirmed locking it out 2026-07-06, reason=402). Phase 3.3's event-driven scheduler — OBSOLETE BY DESIGN: the only true event source (tweets) already alerts instantly (signal-first core design); all other sources are polled, so there is no event to schedule on. Nothing buildable remains.
 
 **Layperson:** The speed-accuracy optimization plan (`plans/speed-accuracy-optimization.md`, dated 2026-03-30) was marked complete in a prior session but was not. A prior Claude session created the infrastructure in one commit (87f4478, 2026-03-31) and stopped, without verifying the acceptance criteria.
 
@@ -43,3 +45,9 @@ Phase 2.1 is the high-value item and requires the most care (Brave budget implic
 ---
 
 **Verified 2026-05-29** — Status cross-checked against live code. Phases 1.1, 2.1, 2.3, 3.3 (query), 1.2, 3.2 confirmed done with line-level anchors. Commit hashes corrected from non-existent `0a0309e`/`2cc59ee` to real `b1e85f1`. Phase 2.2 recorded as WON'T-DO with rationale. Dead Brave-budget-config note resolved (cap now enforced at `news.py:328-337`).
+
+### Session notes — 2026-07-12
+
+- **Worked on:** Re-audit of the 3 "remaining" items against live code (verification detail in CURRENT STATUS above). No code changed — everything was already built by later work or moot.
+- **Decisions:** Phase 3.3's event-driven scheduler declared obsolete (polled sources have no events; tweet path already instant). Phase 2.2 stays WON'T-DO as recorded.
+- **Next:** none — item closed.

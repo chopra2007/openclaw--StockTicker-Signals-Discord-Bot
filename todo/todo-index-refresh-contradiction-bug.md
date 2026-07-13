@@ -1,9 +1,9 @@
 # Fix the todo list's status-update step so it stops contradicting itself
 
-**Status:** OPEN
+**Status:** DONE 2026-07-12 — mirror+checker built, wired (daily timer + close protocol), full-list cleanup done, and the last two contested items (#2, #5) resolved by user decision the same day.
 **Created:** 2026-07-12
 
-**CURRENT STATUS (2026-07-12):** Diagnosed AND the fix is BUILT + LIVE. New `scripts/todo_status_sync.py`: `--fix` mirrors each detail file's CURRENT STATUS paragraph into TODO.md (detail file = only writing spot), `--check` flags 6 drift shapes incl. a status line older than the session notes below it; wired into the daily 06:00 PDT drift timer + the "bye" close protocol (CLAUDE.md step 1, CONVENTION.md rewritten). One-time cleanup done: 29 detail files repaired, both owed checks resolved with log evidence (#32/#42 Monday E2 check RAN 06-29 16:00 PDT and passed; #54 exa breaker confirmed cycling in journalctl). Remaining: user call on #2 and #5 — the only two entries where header (DONE) and detail file (OPEN/REOPENED) genuinely disagree; the daily check nags them until decided.
+**CURRENT STATUS (2026-07-12, later):** DONE. The fix is built + live (mirror `--fix`, 6-rule checker `--check`, daily 06:00 PDT timer, rewritten close protocol) and the whole-list cleanup is complete. The two entries left flagged for a user call were resolved the same day (user go): #2 closed after a code re-audit showed all leftovers built elsewhere or moot; #5 closed by applying the scope-aware CLAUDE.md redesign (acceptance test passed). `--check` reports zero drift across the entire list.
 
 **Possible next steps: intentionally not written here.** The user asked for the problem to be recorded in full, with no proposed fix and no opinion on the cause — a stronger model will design the fix in a future session. Everything below is verified fact (commit hashes, timestamps, exact file text), not speculation.
 
@@ -121,3 +121,9 @@ The remaining ~59 items in `TODO.md` are plain `DONE YYYY-MM-DD` with no `CURREN
 - **Worked on:** Built and shipped the fix designed earlier today. `scripts/todo_status_sync.py` (mirror + 6-rule checker, 13 tests in `tests/test_todo_status_sync.py`); wired into `/root/task_system/scripts/todo_switch_drift_check.sh` (daily 06:00 PDT timer, proven end-to-end against scratch files) and the session-close protocol; rewrote CONVENTION.md's "Lead with current status" section; one-time cleanup of 29 detail files (13 plain-OPEN backfills, 5 status rewords with evidence, 5 index→detail lead migrations, 4 fresh evidence-based leads) + 10 TODO.md lead paragraphs re-mirrored via --fix.
 - **Decisions:** DONE items get no *new* index lead paragraph (keeps the index lean; only stale existing ones are replaced). Checker phrase-hunt got word boundaries after "showed" matched "owed" (real false positive on #63). #2/#5 deliberately NOT auto-aligned — real disagreements needing a user call, left flagged.
 - **Next:** user decides #2 (header DONE 2026-05-29, detail says 3 of 13 sub-items remaining) and #5 (header DONE 2026-05-22, detail REOPENED 2026-06-06 — the CLAUDE.md verify-section restructure was never applied; still absent today). Then this item can close.
+
+### Session notes — 2026-07-12 (closure)
+
+- **Worked on:** Resolved the final two flagged items on user go — #2 (re-audit: nothing buildable left) and #5 (CLAUDE.md scope-aware restructure applied, acceptance test on `baf879e` passed). Checker now fully clean.
+- **Decisions:** none new.
+- **Next:** none — the daily timer and the "bye" protocol carry the mechanism forward.
