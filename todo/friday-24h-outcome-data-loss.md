@@ -252,7 +252,11 @@ trusts it.
 - Option A or Option B for Friday grading? (blocks everything else)
 - Are the already-lost Friday rows worth retroactively backfilling, or start clean from the fix date?
 - `trading_halts`: are instant halt pings wanted at all? (it can never earn evidence while OFF)
-- Should TODO #67's `SOAKING until 2026-07-15` date be dropped for the 7 switches it cannot possibly help?
+- ~~Should TODO #67's `SOAKING until 2026-07-15` date be dropped for the 7 switches it cannot possibly
+  help?~~ **ANSWERED 2026-07-13 (user): yes — dropped.** #67 is now `AWAITING APPROVAL: 8 switches need
+  a yes/no`. A new sixth TODO status (`AWAITING APPROVAL`) was added to `todo/CONVENTION.md` and both
+  parsers for exactly this case: built, nothing accruing, waiting only on the user. Unlike Parked, it
+  DOES show in "what's left" — an item waiting on the user must stay visible.
 
 ### Session notes — 2026-07-13
 - **Worked on:** implemented Option A end-to-end (catch-up fill in `db.py`/`main.py`, completed-session

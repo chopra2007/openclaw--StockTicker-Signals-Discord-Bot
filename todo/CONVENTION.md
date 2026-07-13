@@ -45,13 +45,14 @@ No confirmation needed — execute both steps immediately on trigger.
 
 ## Status markers
 
-An item's status lives in a marker at the END of its `## N. ...` header. Five statuses; the marker
+An item's status lives in a marker at the END of its `## N. ...` header. Six statuses; the marker
 grammar is strict so `scripts/todo_switch_state.py` can parse it. A trailing parenthetical after the
 marker is allowed (`— DONE 2026-06-15 (verified working)`).
 
 | Status | Header marker | Means | Shows in "what's left?" |
 |---|---|---|---|
 | Active | *(no marker)* | Real work you can pick up today | ✅ yes |
+| Awaiting approval | `— AWAITING APPROVAL: <what needs a yes/no>` | Built and tested; the only thing left is the user's decision. No evidence is accruing — waiting longer changes nothing | ✅ yes |
 | Soaking | `— SOAKING until YYYY-MM-DD` | Built and live; waiting on time (a shadow soak, a live-alert watch) | only once the date passes |
 | Parked | `— PARKED: <reason>` | Blocked on something outside our control (money, an upstream API). Nothing accrues; nothing changes on its own | ❌ no |
 | Ongoing | `— ONGOING` | A feature that is never "finished" — a living record, or a menu you pick one item from per session | ❌ no |
@@ -59,6 +60,16 @@ marker is allowed (`— DONE 2026-06-15 (verified working)`).
 
 Rules that keep the statuses honest:
 
+- **A soak must actually accrue something.** Before marking an item SOAKING, name what the extra days
+  buy: rows landing in a table, alerts to watch. If the answer is "nothing" — the feature is off and
+  collecting nothing, or the data is already in hand — it is NOT soaking, it is AWAITING APPROVAL.
+  A soak clock on an item that gathers no evidence is a fake deadline; it reads as progress and
+  produces none. (Learned on #67, 2026-07-13: 7 display-only switches sat under a `SOAKING until
+  2026-07-15` clock that could not possibly help them — they compute on demand and store nothing
+  while off.)
+- **Awaiting approval must name the question.** `— AWAITING APPROVAL: 8 switches need a yes/no`, not a
+  bare marker. If the thing blocking it is work we could do ourselves (a measurement, a test), it is
+  Active, not Awaiting approval.
 - **Soaking must name a date.** No date = no marker; it stays Active. When the date passes the item
   becomes work again: `--check` prints a `soak window ended` line and the list renders it
   `Soaking (due)` in the Status column and includes it in "what's left". At that point either close it
@@ -68,7 +79,8 @@ Rules that keep the statuses honest:
 - **Ongoing items still need a current-status line.** They're hidden from "what's left", not from
   maintenance. An Ongoing item with a stale body is worse than an Active one, because nothing nags it.
 - Parked and Ongoing never appear in "what's left", but ALWAYS appear in the full list — otherwise
-  they rot unseen.
+  they rot unseen. Awaiting-approval items DO appear in "what's left" — they are waiting on the user,
+  and burying them is how a built feature stays dark for weeks.
 
 Why this exists (2026-07-08): the two-status system (Active / Complete) forced everything unfinished
 into Active, so "what's left on the todo list?" returned 13 items of which ~5 weren't workable — a
@@ -124,7 +136,7 @@ Two-source render:
 
 3. For items carrying a `**Switches:**` line, run `python3 scripts/todo_switch_state.py` and trust its live config read over the prose — an **Active** item whose switches are all in their expected state is stale: flag it `⚠️ verify/close`, don't render it as plain pending work. (Soaking/Parked/Ongoing items are NOT nagged — all-switches-live is their normal state.)
 
-Status column values: `Active`, `Soaking` (in window — append the date, e.g. `Soaking → 07-15`), `Soaking (due)` (date passed), `Parked`, `Ongoing`, `Complete`. Strip the status marker from the displayed Task. Show Created on every row, whatever the status. If a detail file is missing the `**Created:**` line, BACKFILL it (insert the line right after `**Status:**` in the detail file, using the DONE date as the proxy if the item is complete, otherwise the date the detail file was first added to git) — don't render `—`.
+Status column values: `Active`, `Awaiting approval`, `Soaking` (in window — append the date, e.g. `Soaking → 07-15`), `Soaking (due)` (date passed), `Parked`, `Ongoing`, `Complete`. Strip the status marker from the displayed Task. Show Created on every row, whatever the status. If a detail file is missing the `**Created:**` line, BACKFILL it (insert the line right after `**Status:**` in the detail file, using the DONE date as the proxy if the item is complete, otherwise the date the detail file was first added to git) — don't render `—`.
 
 Output format (verbatim — keep the header + separator row exactly so the renderer recognises it as a table):
 
@@ -135,7 +147,7 @@ Output format (verbatim — keep the header + separator row exactly so the rende
 | 4  | Another task                      | 2026-05-22 | Complete       |
 | 6  | A never-ending feature menu       | 2026-05-12 | Ongoing        |
 | 47 | Blocked on money                  | 2026-06-18 | Parked         |
-| 67 | Built, live, watching             | 2026-07-06 | Soaking → 07-15 |
+| 67 | Built; needs your yes/no          | 2026-07-06 | Awaiting approval |
 ```
 
 The Task column is the `## N. <title>` from TODO.md verbatim (minus any `— DONE …` suffix). Don't use angle-bracket placeholders like `<TICKER>` in titles — they may be parsed as HTML by the table renderer; write `the !all command` or use square brackets.
