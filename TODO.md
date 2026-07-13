@@ -505,12 +505,23 @@ The step that refreshes an item's `CURRENT STATUS` line in `TODO.md` sometimes w
 
 **File:** `friday-24h-outcome-data-loss.md`
 
-**CURRENT STATUS (2026-07-13):** Found during a live audit of what's soaking (market open, data flowing).
-Two separate things are true and both need action: (1) a **confirmed data-loss bug** — every Friday's
-decision snapshots permanently lose their 24-hour outcome, which is why the `fold_display_signals`
-auto-flip switch has been stuck at **n=0 of 90** on every check (Jul 7, 9, 11) and would stay stuck
-forever; and (2) a **soak-clock finding** — 7 of TODO #67's OFF switches accrue *nothing* while OFF, so
-waiting for the 2026-07-15 soak date buys them literally zero evidence. One design decision is needed
-before the fix can be written (see "The decision needed"). Nothing here changes which alerts fire.
+**CURRENT STATUS (2026-07-13, second session):** **Fixed and mostly backfilled; waiting on merge + one
+scheduled task.** Option A was chosen (grade a lost row from stored daily prices at the next trading
+day's close — the file's own recommendation). Shipped on branch `worktree-todo-friday-outcome-gap`:
+a catch-up fill (`_fill_alert_24h_catchup` + a 24h entry in `_SLOW_OUTCOME_HORIZONS`) that grades any
+row older than the 48-hour live window from historical daily bars, writing all three tables the live
+path writes (alert_history, decision_snapshots, shadow label); a **completed-session guard** so a
+still-forming "today" bar is never used as a close (this also closed a latent hole in the 5d/20d
+fill); regression tests (`tests/test_friday_24h_catchup.py`); and a one-off backfill script
+(`scripts/backfill_alert_24h_outcomes.py`) already **run against the live DB: 637 of 729 lost rows
+recovered**. The 88 remaining recent rows are all Friday 2026-07-10 — they grade at Monday's close,
+final ~13:00 PDT, and deferred task `1783959133_5bea2a` re-runs the backfill at **13:20 PDT today**
+(4 ancient rows are delisted tickers, genuinely unfillable). The soak counter already moved n=0→2.
+**What's left:** (a) merge the PR + `systemctl restart consensus-engine.service` so the engine-side
+fix goes live — until then next Friday's rows again miss their live window, but the 30-day catch-up
+recovers them at any merge date; (b) verify the 13:20 task filled the 88 (check
+`/root/task_system/logs/1783959133_5bea2a.log`); (c) the Part-3 switch decisions (Group A flips,
+blast-radius measurements, trading_halts yes/no, #67 soak-date question) were NOT done here —
+they are #67 go-live work, deferred deliberately.
 
 Stop the bot from throwing away every Friday's follow-up price data, which is silently starving the switch that decides whether five extra signals get folded into the score — and settle which of the 16 shadow-built features can be turned on now versus which genuinely need more time.

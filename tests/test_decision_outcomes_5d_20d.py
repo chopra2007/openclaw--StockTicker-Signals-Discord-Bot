@@ -212,7 +212,8 @@ async def test_backfill_only_fills_nulls(fresh_db, monkeypatch):
     )
 
     filled = await engine_main.backfill_decision_outcomes()
-    assert filled == {"outcome_price_5d": 1, "outcome_price_20d": 2}
+    # _insert_snapshot pre-sets outcome_price_24h, so the #73 horizon fills 0 here.
+    assert filled == {"outcome_price_24h": 0, "outcome_price_5d": 1, "outcome_price_20d": 2}
 
     async def _vals(snap_id):
         cur = await conn.execute(
@@ -228,7 +229,7 @@ async def test_backfill_only_fills_nulls(fresh_db, monkeypatch):
 
     # Re-run: nothing is NULL+eligible anymore -> no further writes.
     filled2 = await engine_main.backfill_decision_outcomes()
-    assert filled2 == {"outcome_price_5d": 0, "outcome_price_20d": 0}
+    assert filled2 == {"outcome_price_24h": 0, "outcome_price_5d": 0, "outcome_price_20d": 0}
     assert await _vals(a) == (123.45, 123.45)
     assert await _vals(b) == (99.0, 123.45)
     await db.close_db()
