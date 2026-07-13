@@ -61,12 +61,7 @@ Add new terms only after verifying their meaning from actual code, not from a fi
 
 ### Cross-session test (`comm-check.md`)
 
-`comm-check.md` (workspace root) is a **reactive** grading rubric — test cases and gold answers for the Communication Discipline rules above. Those rules already load every session and, with judgment, govern behavior. **Do NOT preload `comm-check.md` at the start of a session.** It is large; loading it proactively bloats every session, and having it in context does not by itself make answers better. Read it only when there is a concrete reason:
-
-1. **User pushback on an explanation** — any correction, contradiction, or pointing-out of a failure mode ("you used jargon," "you assumed," "you didn't check," "again you," "you're being lazy"). Read `comm-check.md`, find the section that maps to the failure (Section 1 = jargon, Section 2 = lazy/incomplete, Section 3 = verify/probe, Section 4 = unflagged deferred scope, Section 5 = whole-feature verification, Section 6 = inconsistent framing), save a feedback memory entry (template in the file's "When Claude fails a check" section), apply the fix to the next answer and the rest of the session.
-2. **Session close** — list any comm-check failures saved this session in the close summary (read the file then only if you need the failure template).
-
-Read it on a concrete failure or at close — never as a fresh-session preload. `comm-check-fail-*` entries in `MEMORY.md` are NOT a reason to load it.
+`comm-check.md` (workspace root) is a **reactive** grading rubric for the rules above — never preload it (`comm-check-fail-*` entries in `MEMORY.md` are NOT a reason to load it). Read it only on: (1) **user pushback on an explanation** — any correction or pointed-out failure mode; find the matching section (1 = jargon, 2 = lazy/incomplete, 3 = verify/probe, 4 = unflagged deferred scope, 5 = whole-feature verification, 6 = inconsistent framing), save a feedback memory entry (template in the file's "When Claude fails a check" section), apply the fix for the rest of the session; (2) **session close** — list any comm-check failures saved this session (open the file then only if you need the failure template).
 
 ## Behavior
 
@@ -80,13 +75,7 @@ When the user says "add X to the to do list" (or "put that on the list", "add th
 
 ## Session Close Trigger
 
-When the user sends only "goodbye" or "bye":
-1. **Update the TODO list FIRST — always before the regression gate (step 3), never after.** If any item on the TODO list was worked on this session, update it now (per `todo/CONVENTION.md`), in this order: (a) append a dated session-notes block to the detail file; (b) refresh the detail file's `**Status:**` line and `CURRENT STATUS` paragraph — re-read the session notes below it first; its date must not be older than the newest note; (c) mark finished items `— DONE YYYY-MM-DD` in the `TODO.md` header; (d) run `python3 scripts/todo_status_sync.py --fix` to mirror the detail files' status into `TODO.md`, then `python3 scripts/todo_status_sync.py --check` — it must report nothing new. Never hand-edit `TODO.md`'s `CURRENT STATUS` paragraphs (TODO #72: hand-written close-time refreshes produced false status lines). Skip this step only if no TODO item was touched this session.
-2. `git status` — commit any uncommitted changes, **including the step-1 TODO edits**, so the gate runs on a tree that already reflects the session's work (do **not** push here — step 3's script does the push, automatically choosing the doc-only `--no-verify` path or the full test gate based on whether code changed)
-3. Only now run `nohup /root/task_system/scripts/session_close.sh > /root/task_system/logs/session_close_latest.log 2>&1 &` to kick off the regression gate + push in the background
-4. Tell the user: "Gate running in background — safe to close. ci-monitor will catch any CI failures."
-5. Verify MEMORY.md is up to date
-6. List any `comm-check-fail-*` entries saved this session
+When the user sends only "goodbye" or "bye": read `todo/SESSION_CLOSE.md` and follow it exactly, in order (TODO updates → commit → background gate → close summary).
 
 ## Definition of Done
 
@@ -137,6 +126,8 @@ Never claim complete on "service started," "code looks right," or "unit tests pa
 
 For multi-phase execution (discover, ralph, autopilot): run at least one real end-to-end invocation and inspect the actual output before declaring done.
 
+Do real-world testing whenever the user-observable outcome can be checked from this environment — before deferring a test, probe what's actually accessible (and check memory) rather than assuming a tool is unavailable. When a real-world test errors: diagnose the real cause → attempt a fix → try alternative paths to the same outcome → only then surface to the user, with what was tried and a specific recommendation. Never ask the user to do something you can do yourself.
+
 ## Regression Gate
 
 Before feature work — especially a `discover` run or any multi-commit change — establish a test baseline.
@@ -172,18 +163,6 @@ python3 -m pytest tests/ -v          # test suite
 docker compose up -d                 # SearXNG (8888)
 ```
 
-## Real-World Testing
-
-Don't stop at code-functional. Do real-world testing whenever the user-observable outcome can be checked from this environment. "Unit tests pass" or "service started" does NOT discharge the verification standard if end-to-end behavior can be probed. Before deferring a test, actively check memory and probe what's accessible in the environment rather than assuming a tool is unavailable.
-
-When real-world tests hit errors, follow this ladder before asking the user:
-1. **Diagnose** — error strings often mask the real cause (a 429 may be IP-wide; "cookies invalid" may be downstream).
-2. **Attempt to fix** — change request parameters, swap auth modes, retry with backoff, different endpoint.
-3. **Explore alternative paths** — same outcome via different mechanism (yt-dlp dead → try `youtube_transcript_api`; provider down → try another).
-4. **Only then surface to the user** — with what failed, what you tried, why each alternative did or didn't work, and a specific recommendation.
-
-Don't ask the user to do something you can do yourself. Asking is acceptable only when the next step genuinely requires their access, their decision, or information not derivable from logs/code/docs.
-
 ## Key Design Decisions
 
 - **Signal-first**: tweet → instant alert → async cross-reference. No gates block the alert.
@@ -200,9 +179,7 @@ At session start: check `/root/task_system/notifications.log`. If it has entries
 
 ## GitHub & Documentation Automation
 
-- After every functional change: commit locally. Do NOT push mid-session.
-- Push and regression gate testing happen only at session close (the "bye"/"goodbye" trigger).
-- **Doc-only commits** (only `*.md`, `todo/**`, `TODO.md`, comments changed) push with `git push --no-verify` at close — no test gate needed. **Code changes** (anything under `consensus_engine/`, `scripts/*.py`, `tests/`, config) must go through the full gate (`scripts/pre-push`, `pytest -n 2`) before pushing at close — never `--no-verify` those.
+- After every functional change: commit locally. Do NOT push mid-session — push + regression gate happen only at session close (rules in `todo/SESSION_CLOSE.md`).
 - Commit style: imperative (e.g., "Add multi-agent logic").
 - Remote: `chopra2007/openclaw--StockTicker-Signals-Discord-Bot` (public).
 - Keep `README.md` current with architecture, setup, and features.
