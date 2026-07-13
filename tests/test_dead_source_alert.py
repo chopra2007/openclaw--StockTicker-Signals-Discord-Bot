@@ -56,7 +56,6 @@ def _capture_send(monkeypatch):
 
     monkeypatch.setattr(discord, "send_message", fake_send)
     monkeypatch.setattr(ops_alert, "errors_channel_id", lambda: "999")
-    monkeypatch.setattr(ops_alert, "owner_user_id", lambda: "615525529537216513")
     return sent
 
 
@@ -72,7 +71,7 @@ async def test_note_failure_quota_opens_and_alerts_once(cb_on, monkeypatch):
 
 
 async def test_dead_source_alert_does_not_ping_the_owner(cb_on, monkeypatch):
-    """A flaky scraper is informational; only Schwab/LLM outages @-mention."""
+    """Nothing in #errors @-mentions the user (2026-07-12)."""
     await db.init_db()
     sent = _capture_send(monkeypatch)
     cb = CircuitBreaker(now_fn=_Clock())

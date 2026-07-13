@@ -1191,10 +1191,14 @@ dead_source:
 # everything else posts quietly.
 ops_alerts:
   enabled: true                 # master switch for every #errors post
-  min_interval_s: 1800          # flap guard: after an alert, the same thing can't
-                                # re-raise a "broken" for 30 min. A changed failure
-                                # class bypasses it. A "recovered" note is only sent
-                                # when its matching "broken" alert actually went out.
+  min_interval_s: 3600          # quiet window: after an alert, the same thing can't
+                                # re-raise a "broken" for 1 hour. So Schwab breaking
+                                # every 10 min all afternoon costs one broken + one
+                                # recovered message per hour, not one per bounce.
+                                # A changed failure class bypasses it. A "recovered"
+                                # note is only sent when its matching "broken" alert
+                                # actually went out.
+                                # No #errors post ever @-mentions the user (2026-07-12).
 
 adapters:
   report_failure: true          # C14: precision adapters feed failures to the shared rate_limiter — LIVE 2026-07-04 (7-day soak: internal-only)

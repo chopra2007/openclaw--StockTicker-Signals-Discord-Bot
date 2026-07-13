@@ -1,4 +1,6 @@
-"""#71: #errors outage alerts — transition-only, persisted, @-mention policy."""
+"""#71: #errors outage alerts — transition-only, persisted, never @-mentions."""
+import asyncio
+
 import pytest
 
 from consensus_engine import db
@@ -13,12 +15,15 @@ def sent(monkeypatch):
     calls = []
 
     async def _fake_send(channel_id, content, ping_user_id=None):
+        # Yield like a real Discord POST does. Without this the send never suspends,
+        # concurrent callers can't interleave, and the duplicate-message race below
+        # is invisible to the test.
+        await asyncio.sleep(0)
         calls.append({"channel": channel_id, "content": content, "ping": ping_user_id})
         return "msg_1"
 
     monkeypatch.setattr("consensus_engine.alerts.discord.send_message", _fake_send)
     monkeypatch.setattr(ops_alert, "errors_channel_id", lambda: "999")
-    monkeypatch.setattr(ops_alert, "owner_user_id", lambda: "615525529537216513")
     return calls
 
 
@@ -135,17 +140,26 @@ async def test_down_since_is_preserved_across_repeats(sent):
     await db.close_db()
 
 
-# --- mention policy ---------------------------------------------------------
+# --- mention policy: nothing in #errors ever @-mentions ----------------------
 
-async def test_schwab_outage_pings_the_owner(sent):
+async def test_schwab_outage_does_not_ping(sent):
+    """2026-07-12 (user): no @-mentions in #errors at all — not even for Schwab."""
     await db.init_db()
     await schwab_health.note_schwab_failure(SchwabRefreshTokenExpired("7-day wall"))
-    assert sent[0]["ping"] == "615525529537216513"
+    assert sent[0]["ping"] is None
+    assert "<@" not in sent[0]["content"]
+    await db.close_db()
+
+
+async def test_schwab_recovery_does_not_ping(sent):
+    await db.init_db()
+    await schwab_health.note_schwab_failure(SchwabRefreshTokenExpired("wall"))
+    await schwab_health.note_schwab_ok()
+    assert [c["ping"] for c in sent] == [None, None]
     await db.close_db()
 
 
 async def test_dead_source_does_not_ping(sent):
-    """A flaky scraper is not worth pulling the user out of dinner."""
     await db.init_db()
     await ops_alert.report_ops_state("source:reddit", down=True,
                                      failure_class="dead_source", title="reddit died")
@@ -153,11 +167,25 @@ async def test_dead_source_does_not_ping(sent):
     await db.close_db()
 
 
-async def test_mention_can_be_forced(sent):
+# --- the duplicate-message race ----------------------------------------------
+
+async def test_concurrent_recoveries_post_exactly_one_message(sent):
+    """2026-07-12: a batch of quotes fans out over asyncio.gather, so seven
+    coroutines called note_schwab_ok() at once. All seven read state='down' before
+    any wrote 'up', and the user got seven identical 'Recovered' messages."""
     await db.init_db()
-    await ops_alert.report_ops_state("x", down=True, failure_class="dead_source",
-                                     title="t", mention=True)
-    assert sent[0]["ping"] == "615525529537216513"
+    await schwab_health.note_schwab_failure(SchwabError("500 from Schwab"))
+    sent.clear()
+    await asyncio.gather(*(schwab_health.note_schwab_ok() for _ in range(7)))
+    assert len(sent) == 1, [c["content"][:40] for c in sent]
+    await db.close_db()
+
+
+async def test_concurrent_failures_post_exactly_one_message(sent):
+    await db.init_db()
+    await asyncio.gather(*(schwab_health.note_schwab_failure(SchwabError("500"))
+                           for _ in range(7)))
+    assert len(sent) == 1, [c["content"][:40] for c in sent]
     await db.close_db()
 
 
@@ -230,13 +258,27 @@ async def test_a_long_outage_still_reports_its_recovery(sent, monkeypatch):
     await db.close_db()
 
 
-async def test_recovery_of_a_pinged_class_also_pings(sent):
-    """Don't leave the @-mention hanging unanswered."""
+async def test_recovery_always_answers_its_outage(sent):
+    """Don't leave a scary message hanging unanswered."""
     await db.init_db()
     await schwab_health.note_schwab_failure(SchwabRefreshTokenExpired("wall"))
     await schwab_health.note_schwab_ok()
     assert len(sent) == 2
-    assert sent[1]["ping"] == "615525529537216513"
+    assert "Recovered" in sent[1]["content"]
+    await db.close_db()
+
+
+async def test_schwab_breaking_every_10_min_for_2_hours_stays_quiet(sent):
+    """The #errors flood the user actually saw. Schwab bounces every 10 minutes for
+    two hours; the quiet window must hold it to roughly one report per hour, not one
+    per bounce."""
+    await db.init_db()
+    for _ in range(12):          # 12 bounces = 2 hours at one every 10 minutes
+        await schwab_health.note_schwab_failure(SchwabError("500 from Schwab"))
+        await schwab_health.note_schwab_ok()
+    # Only the first bounce speaks; the other 11 are inside the 1-hour window. (No
+    # clock is advanced here, so this is the worst case: 24 transitions -> 2 messages.)
+    assert len(sent) == 2, [c["content"][:40] for c in sent]
     await db.close_db()
 
 
