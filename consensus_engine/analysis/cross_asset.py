@@ -68,6 +68,15 @@ _FRED_BASELINE_DAYS = 60        # trailing obs (excl. latest) defining the "rece
 _FRED_MIN_DAYS = 20             # need at least this many obs to form a baseline, else no-op
 _FRED_MAX_OBS_AGE_DAYS = 8      # latest FRED obs older than this -> no-op (tolerates the ~1-2 business-day publish lag)
 
+# --- FRED NFCI leg constants (r21 macro-fred, shadow-isolated third leg) ---
+_NFCI_SERIES = "NFCI"           # Chicago Fed National Financial Conditions Index (standardized, centered at 0)
+# NFCI is WEEKLY: each obs is a week-ending FRIDAY, released the following Wednesday (~5-6d
+# lag). Verified against live FRED (2026-07-08 latest obs = 2026-06-26): the freshest obs
+# date oscillates ~5-13 days behind "today" (widest just before the Wednesday release, and
+# a US holiday week can add slack). 16d tolerates that normal cadence while still no-opping
+# a series that has missed 2+ weekly updates (genuinely stalled).
+_NFCI_MAX_OBS_AGE_DAYS = 16
+
 # ---------------------------------------------------------------------------
 # Module-level cache (shared across one process lifetime; TTL prevents staleness)
 # ---------------------------------------------------------------------------
@@ -82,6 +91,15 @@ _cache: dict = {
 
 # Separate cache for the FRED credit-spread leg (same shape/TTL as the VIX cache).
 _credit_cache: dict = {
+    "ratio": None,
+    "multiplier": None,
+    "fetched_at": None,
+}
+
+# Separate cache for the FRED NFCI leg (r21, same shape/TTL as the credit cache).
+# NOTE: for NFCI the "ratio" slot holds the RAW index level (centered at 0), not a
+# baseline ratio — the level is mapped to a ratio-equivalent in _get_nfci_multiplier.
+_nfci_cache: dict = {
     "ratio": None,
     "multiplier": None,
     "fetched_at": None,
@@ -189,6 +207,57 @@ def _fetch_credit_ratio() -> Optional[float]:
         return current / baseline
     except Exception as exc:
         log.debug("[E2 fred] _fetch_credit_ratio error: %s", exc)
+        return None
+
+
+def _nfci_obs_recent_enough(date_str: str) -> bool:
+    """True if a FRED NFCI observation date (YYYY-MM-DD) is within the WEEKLY tolerance.
+
+    NFCI publishes weekly (Wednesdays), so a ~7-day gap is normal — a wider window than
+    the daily credit leg's _FRED_MAX_OBS_AGE_DAYS. Older than _NFCI_MAX_OBS_AGE_DAYS means
+    the series stopped updating; treat the leg as unavailable.
+    """
+    try:
+        y, m, d = (int(x) for x in date_str.split("-"))
+        return (date.today() - date(y, m, d)).days <= _NFCI_MAX_OBS_AGE_DAYS
+    except Exception:
+        return False
+
+
+def _fetch_nfci_index() -> Optional[float]:
+    """Blocking FRED fetch for the latest NFCI level. Returns the raw index or None.
+
+    NFCI is a standardized index centered at 0: positive = tighter/stressed financial
+    conditions, negative = looser/calm. Unlike the credit leg this is NOT ratioed against
+    a trailing baseline — the raw latest level is returned and mapped in
+    _get_nfci_multiplier. Mirrors _fetch_credit_ratio: same api.stlouisfed.org endpoint,
+    same FRED_API_KEY env read, None on any problem (missing key, HTTP error, stale
+    series). Weekly cadence tolerated via _nfci_obs_recent_enough.
+    """
+    key = os.environ.get("FRED_API_KEY")
+    if not key:
+        log.debug("[E2 nfci] FRED_API_KEY not set — NFCI leg unavailable")
+        return None
+    try:
+        q = urllib.parse.urlencode({
+            "series_id": _NFCI_SERIES,
+            "api_key": key,
+            "file_type": "json",
+            "sort_order": "desc",
+            "limit": "10",
+        })
+        url = f"https://api.stlouisfed.org/fred/series/observations?{q}"
+        with urllib.request.urlopen(url, timeout=15) as resp:
+            data = json.load(resp)
+        obs = [o for o in data.get("observations", []) if o.get("value") not in (".", "", None)]
+        if not obs:
+            return None
+        if not _nfci_obs_recent_enough(obs[0].get("date", "")):
+            log.debug("[E2 nfci] latest NFCI obs %s too old — NFCI leg no-op", obs[0].get("date"))
+            return None
+        return float(obs[0]["value"])
+    except Exception as exc:
+        log.debug("[E2 nfci] _fetch_nfci_index error: %s", exc)
         return None
 
 
@@ -330,6 +399,54 @@ async def _get_credit_multiplier(executor=None) -> Optional[float]:
     return cached_mul
 
 
+async def _get_nfci_multiplier(executor=None) -> Optional[float]:
+    """FRED NFCI leg (r21, shadow-isolated). Returns the multiplier, or None when
+    unavailable (missing key / fetch error / stale series / stale cache).
+
+    NFCI is a standardized index centered at 0, NOT a baseline ratio — so the raw level
+    is mapped to a ratio-equivalent (1.0 + level) and fed through _ratio_to_multiplier
+    with the NFCI reference swing: level 0 -> neutral 1.0, positive (stress) -> veto side,
+    negative (calm) -> confirm side. The reference_swing (NFCI level that reaches the full
+    bound) folds in the level->ratio scale, so no separate k constant is needed.
+    """
+    swing = float(cfg.get("features.cross_asset.nfci_reference_swing", 1.0))
+    now = datetime.now(timezone.utc)
+
+    cached_index = _nfci_cache["ratio"]
+    cached_mul = _nfci_cache["multiplier"]
+    fetched_at = _nfci_cache["fetched_at"]
+
+    cache_hit = (
+        cached_index is not None
+        and cached_mul is not None
+        and fetched_at is not None
+        and (now - fetched_at).total_seconds() / 60.0 <= _TTL_MINUTES
+    )
+
+    if not cache_hit:
+        loop = asyncio.get_running_loop()
+        try:
+            level = await loop.run_in_executor(executor, _fetch_nfci_index)
+        except Exception as exc:
+            _log_fetch_error_once("[E2 nfci] NFCI fetch error — leg no-op: %s", exc)
+            return None
+        if level is None:
+            return None
+        multiplier = _ratio_to_multiplier(1.0 + level, reference_swing=swing)
+        _nfci_cache["ratio"] = level
+        _nfci_cache["multiplier"] = multiplier
+        _nfci_cache["fetched_at"] = now
+        log.info("[E2 nfci shadow] nfci_index=%.3f multiplier=%.3f", level, multiplier)
+        return multiplier
+
+    if not is_fresh("nfci", fetched_at):
+        log.debug("[E2 nfci] cached NFCI value is stale per recency_window — leg no-op")
+        return None
+
+    log.info("[E2 nfci shadow] nfci_index=%.3f multiplier=%.3f (cached)", cached_index, cached_mul)
+    return cached_mul
+
+
 async def get_multiplier(executor=None) -> float:
     """Return the current cross-asset confidence multiplier (clamped to the bounds).
 
@@ -360,6 +477,17 @@ async def get_multiplier(executor=None) -> float:
         credit_mult = None
         legs = [vix_mult] if vix_mult is not None else []
 
+    # r21 NFCI shadow-isolated leg (macro-fred Stage 2): compute whenever the E2 compute
+    # path runs, so it is logged ('[E2 nfci shadow]') + persisted for the shadow soak.
+    # It is deliberately kept OUT of `legs` here so the live combined multiplier and this
+    # function's return stay byte-identical to the VIX(+credit) path. `nfci_leg_enabled`
+    # (default False) is the soak-gated future flip that would let NFCI enter the live
+    # combine; it STAYS False in this build, so the append below is a no-op and NFCI never
+    # touches `legs`. Do NOT flip it without shadow evidence of distinct incremental edge.
+    nfci_mult = await _get_nfci_multiplier(executor)
+    if cfg.get("features.cross_asset.nfci_leg_enabled", False) and nfci_mult is not None:
+        legs.append(nfci_mult)
+
     if not legs:
         combined = 1.0
     elif len(legs) == 1:
@@ -377,7 +505,7 @@ async def get_multiplier(executor=None) -> float:
     # gone. The DB helper is idempotent per UTC day, so this per-alert hot path
     # writes at most one row/day. Wrapped so a DB problem can NEVER raise into the
     # engine path. Skip when both legs are unavailable (no real data → no null row).
-    if vix_mult is not None or credit_mult is not None:
+    if vix_mult is not None or credit_mult is not None or nfci_mult is not None:
         try:
             from consensus_engine import db as _db
             await _db.insert_cross_asset_shadow(
@@ -386,6 +514,8 @@ async def get_multiplier(executor=None) -> float:
                 credit_oas_ratio=_credit_cache["ratio"],
                 credit_oas_multiplier=credit_mult,
                 combined_multiplier=combined,
+                nfci_index=_nfci_cache["ratio"],   # r21: raw NFCI level (shadow-only)
+                nfci_multiplier=nfci_mult,          # r21: NFCI multiplier (NOT in `legs`)
             )
         except Exception as exc:  # never propagate into the live engine loop
             log.debug("[E2] cross_asset_shadow persist failed: %s", exc)
@@ -410,8 +540,8 @@ async def get_multiplier(executor=None) -> float:
 
 
 def clear_cache() -> None:
-    """Clear both module-level caches. Used in tests to reset state between cases."""
-    for c in (_cache, _credit_cache):
+    """Clear the module-level caches. Used in tests to reset state between cases."""
+    for c in (_cache, _credit_cache, _nfci_cache):
         c["ratio"] = None
         c["multiplier"] = None
         c["fetched_at"] = None

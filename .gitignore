@@ -66,6 +66,9 @@ Thumbs.db
 **/.omc/research/
 **/.omc/project-memory.json
 **/.omc/template-version.json
+# Raw per-model trial output from the CI-fixer model race (#59) — scratch evidence, kept on disk
+.omc/trials/
+.omc/ci_fixer_*.json
 
 # Generated artifacts
 artifacts/
@@ -126,3 +129,5 @@ data/market_store/
 
 # #64 Wolf eval corpus — third-party paid-newsletter bodies, keep private (public repo)
 tests/fixtures/wolf_eval/*.txt
+data/flow_grading_prices.json
+data/catalyst_classifications.json

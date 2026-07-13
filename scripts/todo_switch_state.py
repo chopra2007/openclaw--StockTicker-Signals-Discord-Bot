@@ -21,16 +21,21 @@ Usage:
   python3 scripts/todo_switch_state.py            # full per-item report (human)
   python3 scripts/todo_switch_state.py --check    # only drift lines (for notifications.log)
 
---check flags TWO things, never normal pending work:
-  * an OPEN item whose switches are ALL in their expected state (looks done but
-    isn't closed — the #32/#42 failure), and
+--check flags THREE things, never normal pending work:
+  * an ACTIVE item whose switches are ALL in their expected state (looks done but
+    isn't closed — the #32/#42 failure),
+  * a SOAKING item whose soak window has ended (time's up: close it or re-open it), and
   * any unexpected-ON or MISSING (typo'd) key.
+
+Only ACTIVE items are nagged for the "all live but open" case. Soaking / Parked /
+Ongoing items are SUPPOSED to sit with their switches live, so nagging them would
+train the reader to ignore the alarm.
 """
 from __future__ import annotations
 
 import re
 import sys
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -42,18 +47,53 @@ from consensus_engine import config  # noqa: E402
 HEADER_RE = re.compile(r"^##\s+(\d+)\.\s+(.*?)\s*$")
 SWITCHES_RE = re.compile(r"^\*\*Switches:\*\*\s*(.+?)\s*$")
 
+# Status marker at the end of a header (a trailing parenthetical is allowed after it).
+# See todo/CONVENTION.md "Status markers".
+STATUS_RE = re.compile(
+    r"[—-]+\s*(?P<kind>DONE|SOAKING|PARKED|ONGOING)\b"
+    r"(?:\s+until\s+(?P<soak>\d{4}-\d{2}-\d{2}))?",
+    re.IGNORECASE,
+)
 
-def parse_items(text: str) -> list[dict]:
+
+def parse_status(title: str, today: date) -> tuple[str, str, date | None]:
+    """-> (clean_title, status, soak_until).
+
+    status is one of: active | soaking | soaking_due | parked | ongoing | complete
+    """
+    matches = list(STATUS_RE.finditer(title))
+    if not matches:
+        return title.strip(), "active", None
+    m = matches[-1]  # the LAST marker wins — prose may mention an earlier one
+    clean = title[: m.start()].strip().rstrip("—-").strip()
+    kind = m.group("kind").upper()
+    if kind == "DONE":
+        return clean, "complete", None
+    if kind == "PARKED":
+        return clean, "parked", None
+    if kind == "ONGOING":
+        return clean, "ongoing", None
+    # SOAKING — a soak with no date is not a soak; it is still real work. Keep the
+    # malformed marker in the title so the mistake is visible in the rendered list.
+    raw = m.group("soak")
+    if not raw:
+        return title.strip(), "active", None
+    soak_until = date.fromisoformat(raw)
+    return clean, ("soaking_due" if today > soak_until else "soaking"), soak_until
+
+
+def parse_items(text: str, today: date) -> list[dict]:
     items: list[dict] = []
     cur: dict | None = None
     for line in text.splitlines():
         m = HEADER_RE.match(line)
         if m:
-            title = m.group(2)
+            clean, status, soak_until = parse_status(m.group(2), today)
             cur = {
                 "num": int(m.group(1)),
-                "title": re.sub(r"\s*[—-]+\s*DONE.*$", "", title).strip(),
-                "done": "DONE" in title.upper(),
+                "title": clean,
+                "status": status,
+                "soak_until": soak_until,
                 "switches": None,
             }
             items.append(cur)
@@ -62,7 +102,7 @@ def parse_items(text: str) -> list[dict]:
             sm = SWITCHES_RE.match(line)
             if sm:
                 cur["switches"] = sm.group(1)
-    return [it for it in items if it["switches"]]
+    return items
 
 
 def parse_switches(spec: str) -> list[tuple[str, str]]:
@@ -77,8 +117,15 @@ def parse_switches(spec: str) -> list[tuple[str, str]]:
 
 
 def evaluate(items: list[dict]) -> list[dict]:
+    """Resolve switch state for switch-bearing items. Items with no **Switches:**
+    line pass through with empty state (they still carry a status, so the soak-window
+    check below reaches them)."""
     rows = []
     for it in items:
+        if not it["switches"]:
+            rows.append({**it, "states": [], "pending": [], "unexpected": [],
+                         "missing": [], "stale": False})
+            continue
         states, pending, unexpected, missing = [], [], [], []
         has_on = False
         for key, exp in parse_switches(it["switches"]):
@@ -101,8 +148,10 @@ def evaluate(items: list[dict]) -> list[dict]:
                     states.append((key, exp, "UNEXPECTED-ON ⚠️"))
                 else:
                     states.append((key, exp, "off ➖"))
+        # Only ACTIVE items can be "stale". Soaking/Parked/Ongoing/Complete items are
+        # meant to sit with their switches live — nagging them would be noise.
         stale = (
-            not it["done"]
+            it["status"] == "active"
             and has_on
             and not pending
             and not unexpected
@@ -118,15 +167,20 @@ def main() -> int:
     if not TODO_PATH.exists():
         print(f"TODO.md not found at {TODO_PATH}", file=sys.stderr)
         return 1
-    rows = evaluate(parse_items(TODO_PATH.read_text()))
+    tz_today = datetime.now(ZoneInfo("America/Los_Angeles")).date()
+    rows = evaluate(parse_items(TODO_PATH.read_text(), tz_today))
 
     if check:
         now = datetime.now(ZoneInfo("America/Los_Angeles")).strftime("%Y-%m-%d %H:%M %Z")
         for r in rows:
             if r["stale"]:
                 print(f"[{now}] ⚠️ TODO #{r['num']} '{r['title']}' — all governed switches "
-                      f"are in their expected live state but the item is still OPEN. "
+                      f"are in their expected live state but the item is still ACTIVE. "
                       f"Verify and mark DONE, or update its CURRENT STATUS line.")
+            if r["status"] == "soaking_due":
+                print(f"[{now}] ⚠️ TODO #{r['num']} '{r['title']}' — soak window ended "
+                      f"{r['soak_until']}. Read the shadow data, then mark DONE or return it "
+                      f"to ACTIVE with a reason.")
             if r["unexpected"]:
                 print(f"[{now}] ⚠️ TODO #{r['num']} — config keys ON but marked intentionally-off: "
                       f"{', '.join(r['unexpected'])}.")
@@ -135,11 +189,12 @@ def main() -> int:
                       f"(typo?): {', '.join(r['missing'])}.")
         return 0
 
-    if not rows:
+    switch_rows = [r for r in rows if r["switches"]]
+    if not switch_rows:
         print("No TODO items carry a **Switches:** line yet.")
         return 0
-    for r in rows:
-        flag = "DONE" if r["done"] else ("STALE? (all live but OPEN)" if r["stale"] else "OPEN")
+    for r in switch_rows:
+        flag = "STALE? (all live but ACTIVE)" if r["stale"] else r["status"].upper()
         print(f"#{r['num']} {r['title']}  [{flag}]")
         for key, exp, state in r["states"]:
             print(f"    {state:<18} {key}  (want={exp})")

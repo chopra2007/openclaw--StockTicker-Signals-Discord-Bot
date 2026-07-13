@@ -1,0 +1,15 @@
+[Unit]
+Description=#55 nightly grading of analyst catalyst calls (benchmark-relative BHAR)
+After=network-online.target
+OnFailure=alert@%n.service
+
+[Service]
+Type=oneshot
+User=openclaw
+WorkingDirectory=/home/openclaw/.openclaw/workspace
+# Classification needs OPENROUTER_API_KEY; the script exits non-zero (tripping
+# OnFailure) when the key is missing or every LLM call goes unanswered.
+EnvironmentFile=-/home/openclaw/.openclaw/.env.service
+ExecStart=/usr/bin/python3 /home/openclaw/.openclaw/workspace/scripts/grade_analyst_catalysts.py --backfill --nightly
+StandardOutput=journal
+StandardError=journal

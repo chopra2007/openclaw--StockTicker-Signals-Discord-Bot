@@ -352,6 +352,48 @@ CREATE TABLE IF NOT EXISTS source_performance_shadow (
     PRIMARY KEY (entity_id, horizon)
 );
 
+-- #55 catalyst scorecard (SHADOW): one row per analyst post that carried a real
+-- SHORT-term directional catalyst. The win column is benchmark-relative — the
+-- stock's 21-session move MINUS its sector/peer ETF's over the same sessions
+-- (analysis/benchmark_grading.py) — so "NVDA ran because semis ran" is not a win.
+-- Written only by scripts/grade_analyst_catalysts.py. No live reader; promotion
+-- into live scoring is a separate soak-gated decision (mirrors source_performance_shadow).
+CREATE TABLE IF NOT EXISTS analyst_catalyst_scores (
+    tweet_url TEXT NOT NULL,
+    ticker TEXT NOT NULL,
+    handle TEXT,
+    direction TEXT,                -- long | short (the analyst's call)
+    catalyst_kind TEXT,            -- options|M&A|release|lawsuit|scandal|moat|guidance|product-far
+    benchmark_etf TEXT,            -- what it was graded against (SMH, XLK, ...)
+    entry_date TEXT,               -- YYYY-MM-DD, bar 0
+    bhar_5d REAL, bhar_10d REAL, bhar_15d REAL, bhar_20d REAL, bhar_21d REAL,
+    win INTEGER,                   -- NULL until the 21-session window elapses
+    bonus REAL,                    -- margin-scaled credit, capped
+    graded_at REAL NOT NULL DEFAULT 0.0,
+    PRIMARY KEY (tweet_url, ticker)
+);
+
+-- #55 long-horizon bets (SHADOW): a "moat widens" / "guidance keeps rising" call is
+-- not a 30-day trade, so it is checked at SPARSE checkpoints (30/60/90 sessions),
+-- never compounded daily. A bet is opened ONLY when the classifier's likelihood
+-- clears the cutoff — vague musings never open a bet (they'd just burn quota).
+CREATE TABLE IF NOT EXISTS long_term_catalyst_bets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tweet_url TEXT,
+    handle TEXT,
+    ticker TEXT NOT NULL,
+    direction TEXT,
+    catalyst_kind TEXT,
+    likelihood REAL,
+    benchmark_etf TEXT,
+    entry_date TEXT,
+    opened_at REAL NOT NULL DEFAULT 0.0,
+    excess_30d REAL, excess_60d REAL, excess_90d REAL,
+    checkpoint_status TEXT DEFAULT 'open',   -- open | partial | closed
+    last_checked REAL DEFAULT 0.0,
+    UNIQUE (tweet_url, ticker)
+);
+
 -- #55 Build A (forward-data logging): persist the E2 cross-asset shadow ratios +
 -- multipliers that cross_asset.get_multiplier currently only logs ('[E2 shadow]'
 -- lines). At most one row per UTC day (idempotent via insert_cross_asset_shadow).
@@ -362,7 +404,9 @@ CREATE TABLE IF NOT EXISTS cross_asset_shadow (
     vix_term_multiplier REAL,
     credit_oas_ratio REAL,
     credit_oas_multiplier REAL,
-    combined_multiplier REAL
+    combined_multiplier REAL,
+    nfci_index REAL,           -- r21: raw FRED NFCI level (shadow-only; NOT in E2's live legs)
+    nfci_multiplier REAL       -- r21: NFCI-mapped multiplier (shadow-isolated, never combined)
 );
 
 -- #55 Build B (forward-data logging): daily snapshot of the options-implied
@@ -521,6 +565,41 @@ CREATE TABLE IF NOT EXISTS options_flow (
 CREATE INDEX IF NOT EXISTS idx_options_flow_ticker ON options_flow(ticker);
 CREATE INDEX IF NOT EXISTS idx_options_flow_detected ON options_flow(detected_at);
 
+-- #57: did the flow hit actually predict the move? One row per FLOW EVENT, where
+-- an event is (contract_symbol, market_date) — the SAME contract is re-detected
+-- every poll cycle, so grading raw options_flow rows would let SPY/QQQ swamp the
+-- sample (123k rows collapse to ~10.7k events). flow_id points at the earliest
+-- row of that event; entry_spot is that row's spot. win_* grades DIRECTION:
+-- CALL wins when price rose, PUT wins when it fell. NULL close_*/win_* = the
+-- horizon has not elapsed yet (or the price fetch failed) — refill later.
+-- The raw win_* columns are CONFOUNDED BY MARKET DRIFT: in a falling month every
+-- PUT "wins". close_0d + bench_close_* let a reader compute the market-adjusted
+-- move (ticker close-to-close minus SPY close-to-close), which is the number that
+-- actually says whether the flow predicted anything. Both are stored; the report
+-- leads with the adjusted one.
+CREATE TABLE IF NOT EXISTS options_flow_outcomes (
+    flow_id INTEGER PRIMARY KEY,
+    ticker TEXT NOT NULL,
+    side TEXT NOT NULL,
+    contract_symbol TEXT,
+    market_date TEXT NOT NULL,
+    detected_at REAL NOT NULL,
+    entry_spot REAL NOT NULL,
+    close_0d REAL,
+    close_1d REAL,
+    close_5d REAL,
+    bench_close_0d REAL,
+    bench_close_1d REAL,
+    bench_close_5d REAL,
+    ret_1d REAL,
+    ret_5d REAL,
+    win_1d INTEGER,
+    win_5d INTEGER,
+    graded_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_flow_outcomes_date ON options_flow_outcomes(market_date);
+CREATE INDEX IF NOT EXISTS idx_flow_outcomes_ticker ON options_flow_outcomes(ticker);
+
 CREATE TABLE IF NOT EXISTS youtube_setups (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     run_id INTEGER NOT NULL REFERENCES youtube_analysis_runs(id),
@@ -652,6 +731,7 @@ CREATE TABLE IF NOT EXISTS macro_legs_daily (
     curve_t10y3m      REAL,                -- display only
     macro_multiplier  REAL NOT NULL,       -- separate sub-multiplier (shadow)
     legs_used_json    TEXT,                -- which legs survived the drop-None test
+    real_yield_10y    REAL,                -- r22: latest DFII10 10Y TIPS real yield (descriptive)
     computed_at       REAL NOT NULL
 );
 
@@ -662,6 +742,22 @@ CREATE TABLE IF NOT EXISTS internal_breadth_daily (
     n_bearish       INTEGER NOT NULL,
     osc_z           REAL NOT NULL,         -- EMA-smoothed z-score
     n_signals       INTEGER NOT NULL,      -- thin-day guard (raw count)
+    computed_at     REAL NOT NULL
+);
+
+-- r20 (standalone-scanners) true-market-breadth participation proxy. DISTINCT data
+-- from internal_breadth_daily (which is the bot's OWN signal-stream net): this is
+-- whole-market participation from the RSP/SPY (equal-weight vs cap-weight) ratio trend
+-- (+ optional IWM/SPY small-vs-large). Descriptive-only, forward-logged for later
+-- edge-testing; NEVER wired into cross_reference.score_ticker.
+CREATE TABLE IF NOT EXISTS market_breadth_daily (
+    date_utc        TEXT PRIMARY KEY,
+    rsp_spy_ratio   REAL,                  -- RSP/SPY (equal-weight ÷ cap-weight) latest
+    rsp_spy_trend   REAL,                  -- % change of that ratio over the window
+    iwm_spy_ratio   REAL,                  -- IWM/SPY (small ÷ large) latest, optional
+    iwm_spy_trend   REAL,                  -- % change of IWM/SPY over the window, optional
+    breadth_state   TEXT NOT NULL,         -- 'broadening' | 'narrowing' | 'flat'
+    window_days     INTEGER NOT NULL,      -- lookback used for the trend read
     computed_at     REAL NOT NULL
 );
 
@@ -698,6 +794,19 @@ CREATE TABLE IF NOT EXISTS form4_clusters (
     UNIQUE(ticker, window_end)
 );
 CREATE INDEX IF NOT EXISTS idx_form4_clusters_alerted ON form4_clusters(alerted_at);
+
+-- #71: one row per thing that can be "down" (schwab_token, schwab_api, llm_health,
+-- source:reddit, …). Alerts fire on a STATE TRANSITION only — down→alert once,
+-- silence while it stays down, then a "restored" note when it recovers. Persisting
+-- this means an engine restart during an outage does not re-ping the user.
+CREATE TABLE IF NOT EXISTS ops_alert_state (
+    alert_key TEXT PRIMARY KEY,
+    state TEXT NOT NULL,            -- 'up' | 'down'
+    failure_class TEXT,             -- distinguishes token-lapsed vs auth-rejected vs api-down
+    since REAL NOT NULL,            -- when the current state began
+    last_alerted_at REAL,
+    last_detail TEXT
+);
 
 CREATE TABLE IF NOT EXISTS schema_version (
     version INTEGER PRIMARY KEY,
@@ -947,6 +1056,104 @@ CREATE TABLE IF NOT EXISTS finra_short_volume (
 CREATE INDEX IF NOT EXISTS idx_finra_sv_ticker ON finra_short_volume(ticker);
 CREATE INDEX IF NOT EXISTS idx_finra_sv_ticker_date ON finra_short_volume(ticker, trade_date);
 
+-- r12 (standalone-scanners) FINRA twice-monthly SETTLEMENT short-INTEREST.
+-- DISTINCT product from finra_short_volume above (daily short-VOLUME proxy): this is
+-- the official settlement short interest (shares short as of the settlement date),
+-- published ~2x/month, carrying FINRA's own averageDailyVolumeQuantity + days-to-cover
+-- + bi-monthly change. UNIQUE(ticker, settlement_date) makes re-ingest idempotent.
+-- published_at = ingestion time (recency_window "short_interest" freshness check).
+CREATE TABLE IF NOT EXISTS finra_short_interest (
+    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticker             TEXT NOT NULL,
+    settlement_date    TEXT NOT NULL,
+    short_interest     INTEGER NOT NULL,      -- currentShortPositionQuantity (shares short)
+    avg_daily_volume   INTEGER,               -- averageDailyVolumeQuantity (FINRA native)
+    days_to_cover      REAL,                  -- daysToCoverQuantity (FINRA native)
+    prev_short_interest INTEGER,              -- previousShortPositionQuantity (prior settlement)
+    pct_change         REAL,                  -- changePercent vs prior settlement
+    published_at       REAL NOT NULL,
+    UNIQUE(ticker, settlement_date)
+);
+CREATE INDEX IF NOT EXISTS idx_finra_si_ticker ON finra_short_interest(ticker);
+CREATE INDEX IF NOT EXISTS idx_finra_si_ticker_date ON finra_short_interest(ticker, settlement_date);
+
+-- r14 trading-halt tripwire: one row per DISTINCT halt (symbol+halt_ts+reason_code)
+-- the moment it is alerted. The UNIQUE key makes re-polling the same Nasdaq/NYSE
+-- halt feed idempotent so the same halt is NEVER re-alerted. halt_ts / resumption_ts
+-- are stored as the feed's raw canonical strings (identity only); the alert renders
+-- their PDT form. reason_code defaults '' so the UNIQUE key never sees a NULL.
+CREATE TABLE IF NOT EXISTS trading_halts (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    symbol        TEXT NOT NULL,
+    halt_ts       TEXT NOT NULL,
+    reason_code   TEXT NOT NULL DEFAULT '',
+    resumption_ts TEXT,
+    alerted_at    REAL NOT NULL,
+    UNIQUE(symbol, halt_ts, reason_code)
+);
+CREATE INDEX IF NOT EXISTS idx_trading_halts_symbol ON trading_halts(symbol);
+
+-- ── Stage-6 insider-disclosure shadow tables (discover next-features-jul2026) ──
+-- All three feed CONTEXT legs only (never a standalone alert, never the score);
+-- default-OFF features shadow-log here first. UNIQUE keys make every re-scan
+-- idempotent so re-polling the same SEC/House feed never double-logs a filing.
+
+-- r27 Form 144 (insider intent-to-sell). One row per parsed 144 notice. Identity
+-- is the SEC accession_number (a 144 filing is unique by accession). is_planned
+-- (0/1) tags 10b5-1 plan sales (planAdoptionDate present) vs discretionary.
+CREATE TABLE IF NOT EXISTS form144_filings (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticker              TEXT NOT NULL,
+    cik                 TEXT,
+    accession_number    TEXT NOT NULL,
+    person              TEXT,
+    relationship        TEXT,
+    units_sold          REAL,
+    aggregate_value     REAL,
+    approx_sale_date    TEXT,           -- feed raw MM/DD/YYYY (identity only)
+    plan_adoption_date  TEXT,           -- 10b5-1 plan adoption date if present
+    is_planned          INTEGER NOT NULL DEFAULT 0,
+    filed_at            TEXT,           -- SEC filingDate (YYYY-MM-DD)
+    logged_at           REAL NOT NULL,
+    UNIQUE(accession_number)
+);
+CREATE INDEX IF NOT EXISTS idx_form144_ticker ON form144_filings(ticker, logged_at);
+
+-- r28 Rule 10b5-1 plan STATE per (ticker, insider_cik). first-seen = seed silently
+-- (no event); a plan_active 0->1 transition = ADOPTION, 1->0 = TERMINATION (best-
+-- effort, lower confidence). A cold-start empty table therefore emits NO events.
+CREATE TABLE IF NOT EXISTS insider_10b5_plans (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticker         TEXT NOT NULL,
+    insider_cik    TEXT NOT NULL,
+    insider_name   TEXT,
+    plan_active    INTEGER NOT NULL DEFAULT 0,   -- last-observed 10b5-1 plan flag
+    last_txn_date  TEXT,                          -- transactionDate of the last Form 4 seen
+    first_seen_at  REAL NOT NULL,
+    last_seen_at   REAL NOT NULL,
+    terminated_at  REAL,                          -- when a 1->0 transition was inferred
+    UNIQUE(ticker, insider_cik)
+);
+CREATE INDEX IF NOT EXISTS idx_insider_10b5_ticker ON insider_10b5_plans(ticker);
+
+-- r13 Congressional (STOCK Act) trades — NON-EDGAR, free House Clerk PTR PDFs.
+-- One row per distinct (doc_id, ticker, txn_type, txn_date) transaction line.
+CREATE TABLE IF NOT EXISTS congress_trades (
+    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    doc_id             TEXT NOT NULL,
+    ticker             TEXT NOT NULL,
+    member_name        TEXT,
+    txn_type           TEXT,            -- P (purchase) | S (sale) | E (exchange)
+    txn_date           TEXT,            -- MM/DD/YYYY from the PTR
+    notification_date  TEXT,
+    amount_range       TEXT,            -- e.g. "$1,001 - $15,000"
+    amount_low         REAL,            -- parsed lower bound (for a rough size sort)
+    filed_date         TEXT,            -- index FilingDate (disclosure date)
+    logged_at          REAL NOT NULL,
+    UNIQUE(doc_id, ticker, txn_type, txn_date)
+);
+CREATE INDEX IF NOT EXISTS idx_congress_ticker ON congress_trades(ticker, logged_at);
+
 -- #39 chat-memory rollups: durable, never-overwritten per-channel summaries of the bot's
 -- Discord chat sessions, so it can recall a month-old conversation after a restart wipe.
 -- Identity is the EXACT raw archive's sha256 (NOT date overlap), so the cleanup cron can
@@ -1032,6 +1239,10 @@ async def _run_column_migrations(conn) -> None:
         # only fires when the column is absent (PRAGMA table_info guard).
         ("decision_snapshots", "outcome_price_5d",  "REAL"),
         ("decision_snapshots", "outcome_price_20d", "REAL"),
+        # #62: the 5-TRADING-day close after an alert. An analyst call is a slow
+        # signal — grading it at 1h measures noise. alert_history only carried 1h
+        # and 24h, so the 5d horizon the auto-flip engine wants had nowhere to live.
+        ("alert_history", "price_5d_later", "REAL"),
         ("signal_events", "consumed_by_cluster_id", "INTEGER"),
         # Item E (deep-dive-2026-06-08): clickable TweetShift source link for twitter signals.
         # Old rows get NULL (render plain text); only twitter rows ever populate it.
@@ -1063,6 +1274,22 @@ async def _run_column_migrations(conn) -> None:
         # digest scheduler triggers off THIS, never processed_at, so backfilled rows
         # (old received_at) can never fire a "fresh" digest. NULL on legacy rows.
         ("wolf_emails_processed", "received_at", "REAL"),
+        # schema v26 (r21 macro-fred): NFCI shadow-isolated leg persistence. Computed /
+        # logged / persisted for the soak but NEVER appended to E2's live `legs`.
+        ("cross_asset_shadow", "nfci_index",      "REAL"),
+        ("cross_asset_shadow", "nfci_multiplier", "REAL"),
+        # schema v26 (r22 macro-fred): DFII10 10Y TIPS real yield for the descriptive F4
+        # macro producer (market_daily build_macro_rows). NEVER averaged into cross_asset.
+        ("macro_legs_daily", "real_yield_10y", "REAL"),
+        # #20 timing (SHADOW): how many INDEPENDENT source families now agree with a
+        # standing Wolf thesis, and whether any of them is a fast mover. Written on
+        # every confluence cycle when wolf.confluence.timing.collect is on; it changes
+        # NOTHING about tiers or alerts until wolf.confluence.timing.enabled flips.
+        ("wolf_confluence_checks", "timing_verdict",       "TEXT"),      # act | wait | none
+        ("wolf_confluence_checks", "timing_bucket_agree",  "INTEGER DEFAULT 0"),
+        ("wolf_confluence_checks", "timing_fast_agree",    "INTEGER DEFAULT 0"),
+        ("wolf_confluence_checks", "timing_buckets_json",  "TEXT DEFAULT '[]'"),
+        ("wolf_confluence_checks", "timing_first_act_at",  "REAL"),      # when it FIRST said act
     ]
     for table in ("youtube_signals", "youtube_levels", "youtube_setups", "youtube_options"):
         for col, defn in v2_span_cols:
@@ -1150,6 +1377,13 @@ async def init_db() -> AsyncConnection:
         (22, "trade-edge 5d/20d trading-day outcome tracking on decision_snapshots"),
         (23, "#55 forward-data loggers: source_performance_shadow, cross_asset_shadow, iv_snapshots"),
         (24, "#57 schwab daily options-chain snapshot logger"),
+        (25, "r14 trading_halts tripwire dedup table"),
+        (26, "r21 NFCI shadow cols + r22 macro_legs real_yield"),
+        (27, "r12 finra_short_interest settlement series (days-to-cover trend)"),
+        (28, "r20 market_breadth_daily RSP/SPY participation proxy (descriptive)"),
+        (29, "r27 form144_filings intent-to-sell shadow log"),
+        (30, "r28 insider_10b5_plans plan-state (adoption/termination)"),
+        (31, "r13 congress_trades House STOCK-Act PTR shadow log"),
     ]
     for version, note in _schema_versions:
         await _db.execute(
@@ -1364,8 +1598,31 @@ async def get_active_tickers(min_signals: int = 1) -> list[str]:
     return [r["ticker"] for r in rows]
 
 
-async def get_analyst_precision(analyst: str, horizon: str = "1h") -> float | None:
-    """Return rolling_accuracy for analyst at horizon, or None if sample_count < 5."""
+def analyst_horizon() -> str:
+    """#62: which horizon the LIVE analyst-accuracy readers should consult.
+
+    The producer writes `source_performance` at '24h' and '5d' only — never '1h',
+    because an analyst call graded one hour later is measuring noise. So while
+    `scoring.analyst_accuracy_weight.enabled` is OFF every reader asks for '1h',
+    finds no rows, and stays cold-start: alerts are byte-for-byte unchanged while
+    the table fills. When the auto-flip engine flips that flag (after >=1 analyst
+    clears n>=90, Wilson-LB>0.50, BH-FDR q<=0.10), the readers switch to '24h' and
+    the accumulated track record goes live in one step.
+
+    This flag is therefore the ONLY thing standing between logged data and changed
+    alerts. It must stay OFF until the readiness check passes.
+    """
+    if cfg.get("scoring.analyst_accuracy_weight.enabled", False):
+        return str(cfg.get("scoring.analyst_accuracy_weight.horizon", "24h"))
+    return "1h"
+
+
+async def get_analyst_precision(analyst: str, horizon: str | None = None) -> float | None:
+    """Return rolling_accuracy for analyst at horizon, or None if sample_count < 5.
+
+    `horizon=None` resolves via `analyst_horizon()` (the flag-gated live horizon).
+    """
+    horizon = horizon or analyst_horizon()
     conn = await get_db()
     cursor = await conn.execute(
         """SELECT rolling_accuracy, sample_count FROM source_performance
@@ -1379,9 +1636,11 @@ async def get_analyst_precision(analyst: str, horizon: str = "1h") -> float | No
 
 
 async def get_analyst_precision_lb(
-    analyst: str, horizon: str = "1h", min_n: int = 10
+    analyst: str, horizon: str | None = None, min_n: int = 10
 ) -> float | None:
     """Return the Wilson score interval LOWER BOUND of an analyst's accuracy.
+
+    `horizon=None` resolves via `analyst_horizon()` (the flag-gated live horizon).
 
     I2 (signal-features-2026-06-09): used to weight the analyst scoring term by
     track record without letting a thin sample swing the score. Returns the
@@ -1398,6 +1657,7 @@ async def get_analyst_precision_lb(
     its accuracy through this read. Building an un-alerted grading pipeline is out
     of scope (final-plan.md §2 I2 "recovery claim DROPPED").
     """
+    horizon = horizon or analyst_horizon()
     conn = await get_db()
     cursor = await conn.execute(
         """SELECT rolling_accuracy, sample_count FROM source_performance
@@ -1419,6 +1679,111 @@ async def get_analyst_precision_lb(
     margin = z * math.sqrt((p_hat * (1.0 - p_hat) + (z * z) / (4 * n)) / n)
     lb = (centre - margin) / denom
     return max(0.0, min(1.0, lb))
+
+
+# ---------------------------------------------------------------------------
+# #55 — Empirical-Bayes shrinkage for DISPLAYED analyst win rates
+# ---------------------------------------------------------------------------
+
+def eb_shrink(wins: int, n: int, pooled_mean: float, pooled_var: float) -> float:
+    """Beta-Binomial posterior mean: (wins + a) / (n + a + b).
+
+    Plain version: a 3-out-of-5 analyst reads as "60%", which is mostly luck. This
+    pulls a thin record toward what the average analyst does, and leaves a fat
+    record almost exactly where it is. Method-of-moments fits (a, b) from the pooled
+    hit-rate distribution across analysts.
+
+    DISPLAY ONLY. It never feeds the promotion gate — see eb_shrunk_precision().
+    """
+    m = max(1e-6, min(1.0 - 1e-6, pooled_mean))
+    max_var = m * (1.0 - m)
+    v = max(1e-9, min(pooled_var, max_var - 1e-9))
+    strength = m * (1.0 - m) / v - 1.0      # a + b
+    strength = max(1e-6, strength)
+    a = m * strength
+    b = (1.0 - m) * strength
+    return (wins + a) / (n + a + b)
+
+
+async def eb_shrunk_precision(analyst: str, horizon: str | None = None) -> float | None:
+    """An analyst's win rate, shrunk toward the pooled analyst mean. Display-only.
+
+    Read at DISPLAY time, AFTER the existing promotion gate has already decided who
+    is live. The gate itself (`analyst_horizon()` + the auto-flip readiness check:
+    n>=90, Wilson-LB>0.50, BH-FDR q<=0.10) still reads the RAW Wilson lower bound and
+    is untouched by this function — shrinkage only reshapes the number shown for an
+    analyst that is already past the gate. That ordering is the whole safeguard.
+
+    Returns None when the analyst has no row or the pool is too thin to fit a prior.
+    """
+    horizon = horizon or analyst_horizon()
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT entity_id, rolling_accuracy, sample_count FROM source_performance
+           WHERE horizon = ? AND sample_count > 0""",
+        (horizon,),
+    )
+    rows = [dict(r) for r in await cursor.fetchall()]
+    mine = next((r for r in rows if r["entity_id"] == analyst), None)
+    if mine is None:
+        return None
+
+    rates = [max(0.0, min(1.0, float(r["rolling_accuracy"] or 0.0))) for r in rows]
+    if len(rates) < 2:
+        return None
+    pooled_mean = sum(rates) / len(rates)
+    pooled_var = sum((x - pooled_mean) ** 2 for x in rates) / (len(rates) - 1)
+    if pooled_var <= 0.0:
+        return pooled_mean
+
+    n = int(mine["sample_count"] or 0)
+    p_hat = max(0.0, min(1.0, float(mine["rolling_accuracy"] or 0.0)))
+    wins = round(p_hat * n)
+    return eb_shrink(wins, n, pooled_mean, pooled_var)
+
+
+async def get_catalyst_scorecard() -> dict:
+    """Read-only aggregates of the #55 shadow catalyst tables, for display.
+
+    Powers `!catalysts`. Reads analyst_catalyst_scores + long_term_catalyst_bets
+    only — never source_performance, never the promotion gate. Shape:
+      {"analysts": [{handle, n, wins, mean_bhar}], "kinds": [{kind, n, wins, mean_bhar}],
+       "bets": {status: count}, "total_rows": int, "open_short": int,
+       "last_graded_at": float}
+    """
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT COALESCE(handle, '?') AS handle, COUNT(*) AS n, SUM(win) AS wins,
+                  AVG(bhar_21d) AS mean_bhar
+           FROM analyst_catalyst_scores WHERE win IS NOT NULL
+           GROUP BY COALESCE(handle, '?') ORDER BY n DESC, wins DESC"""
+    )
+    analysts = [dict(r) for r in await cursor.fetchall()]
+    cursor = await conn.execute(
+        """SELECT COALESCE(catalyst_kind, '?') AS kind, COUNT(*) AS n, SUM(win) AS wins,
+                  AVG(bhar_21d) AS mean_bhar
+           FROM analyst_catalyst_scores WHERE win IS NOT NULL
+           GROUP BY COALESCE(catalyst_kind, '?') ORDER BY n DESC, wins DESC"""
+    )
+    kinds = [dict(r) for r in await cursor.fetchall()]
+    cursor = await conn.execute(
+        "SELECT COUNT(*) AS c, SUM(win IS NULL) AS open, MAX(graded_at) AS last "
+        "FROM analyst_catalyst_scores"
+    )
+    tot = dict(await cursor.fetchone())
+    cursor = await conn.execute(
+        "SELECT checkpoint_status, COUNT(*) AS c FROM long_term_catalyst_bets "
+        "GROUP BY checkpoint_status"
+    )
+    bets = {r["checkpoint_status"]: r["c"] for r in await cursor.fetchall()}
+    return {
+        "analysts": analysts,
+        "kinds": kinds,
+        "bets": bets,
+        "total_rows": int(tot["c"] or 0),
+        "open_short": int(tot["open"] or 0),
+        "last_graded_at": float(tot["last"] or 0.0),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -1623,6 +1988,406 @@ async def get_latest_finra_short_volume(ticker: str) -> dict | None:
     }
 
 
+async def upsert_finra_short_interest(
+    ticker: str,
+    settlement_date: str,
+    short_interest: int,
+    avg_daily_volume: int | None = None,
+    days_to_cover: float | None = None,
+    prev_short_interest: int | None = None,
+    pct_change: float | None = None,
+    published_at: float | None = None,
+) -> None:
+    """Persist one FINRA settlement short-interest row (upsert on ticker+settlement_date).
+
+    r12 (standalone-scanners): the table accumulates one row per ticker per
+    settlement date from FINRA's twice-monthly consolidated short-interest file.
+    ``published_at`` defaults to time.time() (ingestion time) and is used by the
+    recency_window "short_interest" freshness check.
+    """
+    if published_at is None:
+        published_at = time.time()
+    conn = await get_db()
+    await conn.execute(
+        """INSERT INTO finra_short_interest
+               (ticker, settlement_date, short_interest, avg_daily_volume,
+                days_to_cover, prev_short_interest, pct_change, published_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(ticker, settlement_date) DO UPDATE SET
+               short_interest      = excluded.short_interest,
+               avg_daily_volume    = excluded.avg_daily_volume,
+               days_to_cover       = excluded.days_to_cover,
+               prev_short_interest = excluded.prev_short_interest,
+               pct_change          = excluded.pct_change,
+               published_at        = excluded.published_at""",
+        (ticker, settlement_date, short_interest, avg_daily_volume,
+         days_to_cover, prev_short_interest, pct_change, published_at),
+    )
+    await conn.commit()
+
+
+async def get_latest_finra_short_interest(ticker: str) -> dict | None:
+    """Return the most-recent finra_short_interest row for a ticker, or None.
+
+    r12: used by the scorer (days-to-cover confluence leg) and the !short render.
+    """
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT ticker, settlement_date, short_interest, avg_daily_volume,
+                  days_to_cover, prev_short_interest, pct_change, published_at
+           FROM finra_short_interest
+           WHERE ticker = ?
+           ORDER BY settlement_date DESC
+           LIMIT 1""",
+        (ticker,),
+    )
+    row = await cursor.fetchone()
+    if row is None:
+        return None
+    return {
+        "ticker": row["ticker"],
+        "settlement_date": row["settlement_date"],
+        "short_interest": int(row["short_interest"]),
+        "avg_daily_volume": int(row["avg_daily_volume"]) if row["avg_daily_volume"] is not None else None,
+        "days_to_cover": float(row["days_to_cover"]) if row["days_to_cover"] is not None else None,
+        "prev_short_interest": int(row["prev_short_interest"]) if row["prev_short_interest"] is not None else None,
+        "pct_change": float(row["pct_change"]) if row["pct_change"] is not None else None,
+        "published_at": float(row["published_at"]),
+    }
+
+
+async def get_finra_short_interest_history(ticker: str, limit: int = 6) -> list[dict]:
+    """Return up to ``limit`` most-recent settlement rows (newest first) for a ticker.
+
+    r12: powers the days-to-cover TREND render (a series, not a single point — the
+    yfinance snapshot already shows the single-point value).
+    """
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT settlement_date, short_interest, avg_daily_volume,
+                  days_to_cover, prev_short_interest, pct_change
+           FROM finra_short_interest
+           WHERE ticker = ?
+           ORDER BY settlement_date DESC
+           LIMIT ?""",
+        (ticker, limit),
+    )
+    rows = await cursor.fetchall()
+    return [
+        {
+            "settlement_date": r["settlement_date"],
+            "short_interest": int(r["short_interest"]),
+            "avg_daily_volume": int(r["avg_daily_volume"]) if r["avg_daily_volume"] is not None else None,
+            "days_to_cover": float(r["days_to_cover"]) if r["days_to_cover"] is not None else None,
+            "prev_short_interest": int(r["prev_short_interest"]) if r["prev_short_interest"] is not None else None,
+            "pct_change": float(r["pct_change"]) if r["pct_change"] is not None else None,
+        }
+        for r in rows
+    ]
+
+
+async def upsert_market_breadth_daily(
+    date_utc: str,
+    rsp_spy_ratio: float | None,
+    rsp_spy_trend: float | None,
+    iwm_spy_ratio: float | None,
+    iwm_spy_trend: float | None,
+    breadth_state: str,
+    window_days: int,
+    computed_at: float | None = None,
+) -> None:
+    """Forward-log one r20 market-breadth row (upsert on date_utc).
+
+    r20 (standalone-scanners): descriptive-only participation proxy, accumulated for
+    later edge-testing. NEVER read by cross_reference.score_ticker.
+    """
+    if computed_at is None:
+        computed_at = time.time()
+    conn = await get_db()
+    await conn.execute(
+        """INSERT INTO market_breadth_daily
+               (date_utc, rsp_spy_ratio, rsp_spy_trend, iwm_spy_ratio,
+                iwm_spy_trend, breadth_state, window_days, computed_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(date_utc) DO UPDATE SET
+               rsp_spy_ratio = excluded.rsp_spy_ratio,
+               rsp_spy_trend = excluded.rsp_spy_trend,
+               iwm_spy_ratio = excluded.iwm_spy_ratio,
+               iwm_spy_trend = excluded.iwm_spy_trend,
+               breadth_state = excluded.breadth_state,
+               window_days   = excluded.window_days,
+               computed_at   = excluded.computed_at""",
+        (date_utc, rsp_spy_ratio, rsp_spy_trend, iwm_spy_ratio,
+         iwm_spy_trend, breadth_state, window_days, computed_at),
+    )
+    await conn.commit()
+
+
+async def upsert_trading_halt(
+    symbol: str,
+    halt_ts: str,
+    reason_code: str,
+    resumption_ts: str | None = None,
+    alerted_at: float | None = None,
+) -> bool:
+    """Record one trading-halt alert; idempotent on (symbol, halt_ts, reason_code).
+
+    r14: called right after an instant halt alert is posted so re-polling the same
+    Nasdaq/NYSE feed NEVER re-alerts the same halt. Uses ON CONFLICT DO NOTHING —
+    the first insert wins and a repeat is a silent no-op. Returns True when a NEW
+    row was inserted (this was a fresh halt), False when it already existed.
+    ``reason_code`` is coerced to '' so the UNIQUE key never carries a NULL.
+    """
+    if alerted_at is None:
+        alerted_at = time.time()
+    conn = await get_db()
+    cursor = await conn.execute(
+        """INSERT INTO trading_halts
+               (symbol, halt_ts, reason_code, resumption_ts, alerted_at)
+           VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(symbol, halt_ts, reason_code) DO NOTHING""",
+        (symbol, halt_ts, reason_code or "", resumption_ts, alerted_at),
+    )
+    await conn.commit()
+    return (cursor.rowcount or 0) > 0
+
+
+async def get_trading_halt(
+    symbol: str,
+    halt_ts: str,
+    reason_code: str,
+) -> dict | None:
+    """Return the recorded trading-halt row for (symbol, halt_ts, reason_code), or None.
+
+    r14: the halt loop uses this as the primary dedup check before alerting so a
+    halt already alerted in an earlier poll is skipped.
+    """
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT symbol, halt_ts, reason_code, resumption_ts, alerted_at
+           FROM trading_halts
+           WHERE symbol = ? AND halt_ts = ? AND reason_code = ?
+           LIMIT 1""",
+        (symbol, halt_ts, reason_code or ""),
+    )
+    row = await cursor.fetchone()
+    if row is None:
+        return None
+    return {
+        "symbol": row["symbol"],
+        "halt_ts": row["halt_ts"],
+        "reason_code": row["reason_code"],
+        "resumption_ts": row["resumption_ts"],
+        "alerted_at": float(row["alerted_at"]),
+    }
+
+
+# ── Stage-6 insider-disclosure accessors (r27 / r28 / r13). Shadow-only: written
+#    by the gated background loops, read by the (future) insider_display context
+#    legs. All INSERT-OR-IGNORE / upsert so a re-scan of the same feed is idempotent.
+
+async def upsert_form144_filing(
+    ticker: str,
+    accession_number: str,
+    cik: str | None = None,
+    person: str | None = None,
+    relationship: str | None = None,
+    units_sold: float | None = None,
+    aggregate_value: float | None = None,
+    approx_sale_date: str | None = None,
+    plan_adoption_date: str | None = None,
+    is_planned: bool = False,
+    filed_at: str | None = None,
+    logged_at: float | None = None,
+) -> bool:
+    """Shadow-log one parsed Form 144 (r27). Idempotent on accession_number.
+
+    Returns True when a NEW row was inserted, False when the 144 was already logged.
+    """
+    if logged_at is None:
+        logged_at = time.time()
+    conn = await get_db()
+    cursor = await conn.execute(
+        """INSERT INTO form144_filings
+               (ticker, cik, accession_number, person, relationship, units_sold,
+                aggregate_value, approx_sale_date, plan_adoption_date, is_planned,
+                filed_at, logged_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(accession_number) DO NOTHING""",
+        (ticker, cik, accession_number, person, relationship, units_sold,
+         aggregate_value, approx_sale_date, plan_adoption_date, 1 if is_planned else 0,
+         filed_at, logged_at),
+    )
+    await conn.commit()
+    return (cursor.rowcount or 0) > 0
+
+
+async def get_form144_recent(ticker: str, since_ts: float) -> list[dict]:
+    """Return Form 144 rows for a ticker logged at/after ``since_ts`` (newest first).
+
+    r27: powers the intent-to-sell context leg (materiality gate is applied by the
+    caller). Empty list on no rows / missing table.
+    """
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT ticker, cik, accession_number, person, relationship, units_sold,
+                  aggregate_value, approx_sale_date, plan_adoption_date, is_planned,
+                  filed_at, logged_at
+           FROM form144_filings
+           WHERE ticker = ? AND logged_at >= ?
+           ORDER BY logged_at DESC""",
+        (ticker, since_ts),
+    )
+    rows = await cursor.fetchall()
+    return [
+        {
+            "ticker": r["ticker"],
+            "cik": r["cik"],
+            "accession_number": r["accession_number"],
+            "person": r["person"],
+            "relationship": r["relationship"],
+            "units_sold": r["units_sold"],
+            "aggregate_value": r["aggregate_value"],
+            "approx_sale_date": r["approx_sale_date"],
+            "plan_adoption_date": r["plan_adoption_date"],
+            "is_planned": bool(r["is_planned"]),
+            "filed_at": r["filed_at"],
+            "logged_at": float(r["logged_at"]),
+        }
+        for r in rows
+    ]
+
+
+async def get_insider_10b5_plan(ticker: str, insider_cik: str) -> dict | None:
+    """Return the stored 10b5-1 plan-state row for (ticker, insider_cik), or None.
+
+    r28: None means this insider has never been seen -> the caller SEEDS state
+    silently (no adoption/termination event on first sight).
+    """
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT ticker, insider_cik, insider_name, plan_active, last_txn_date,
+                  first_seen_at, last_seen_at, terminated_at
+           FROM insider_10b5_plans
+           WHERE ticker = ? AND insider_cik = ?
+           LIMIT 1""",
+        (ticker, insider_cik),
+    )
+    row = await cursor.fetchone()
+    if row is None:
+        return None
+    return {
+        "ticker": row["ticker"],
+        "insider_cik": row["insider_cik"],
+        "insider_name": row["insider_name"],
+        "plan_active": int(row["plan_active"]),
+        "last_txn_date": row["last_txn_date"],
+        "first_seen_at": float(row["first_seen_at"]),
+        "last_seen_at": float(row["last_seen_at"]),
+        "terminated_at": float(row["terminated_at"]) if row["terminated_at"] is not None else None,
+    }
+
+
+async def upsert_insider_10b5_plan(
+    ticker: str,
+    insider_cik: str,
+    insider_name: str | None,
+    plan_active: bool,
+    last_txn_date: str | None,
+    terminated_at: float | None = None,
+) -> None:
+    """Persist 10b5-1 plan-state for (ticker, insider_cik). r28.
+
+    first_seen_at is set once (on the seeding insert); last_seen_at + plan_active
+    are refreshed each scan. terminated_at is stamped only when a 1->0 transition
+    is inferred by the caller.
+    """
+    now = time.time()
+    conn = await get_db()
+    await conn.execute(
+        """INSERT INTO insider_10b5_plans
+               (ticker, insider_cik, insider_name, plan_active, last_txn_date,
+                first_seen_at, last_seen_at, terminated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(ticker, insider_cik) DO UPDATE SET
+               insider_name  = excluded.insider_name,
+               plan_active   = excluded.plan_active,
+               last_txn_date = excluded.last_txn_date,
+               last_seen_at  = excluded.last_seen_at,
+               terminated_at = excluded.terminated_at""",
+        (ticker, insider_cik, insider_name, 1 if plan_active else 0, last_txn_date,
+         now, now, terminated_at),
+    )
+    await conn.commit()
+
+
+async def insider_10b5_plans_count() -> int:
+    """Total rows in insider_10b5_plans. r28: a 0 count == cold-start (seed silently)."""
+    conn = await get_db()
+    cursor = await conn.execute("SELECT COUNT(*) AS n FROM insider_10b5_plans")
+    row = await cursor.fetchone()
+    return int(row["n"]) if row else 0
+
+
+async def insert_congress_trade(
+    doc_id: str,
+    ticker: str,
+    member_name: str | None = None,
+    txn_type: str | None = None,
+    txn_date: str | None = None,
+    notification_date: str | None = None,
+    amount_range: str | None = None,
+    amount_low: float | None = None,
+    filed_date: str | None = None,
+    logged_at: float | None = None,
+) -> bool:
+    """Shadow-log one Congressional PTR transaction line (r13). Idempotent on
+    (doc_id, ticker, txn_type, txn_date). Returns True on a NEW row."""
+    if logged_at is None:
+        logged_at = time.time()
+    conn = await get_db()
+    cursor = await conn.execute(
+        """INSERT INTO congress_trades
+               (doc_id, ticker, member_name, txn_type, txn_date, notification_date,
+                amount_range, amount_low, filed_date, logged_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(doc_id, ticker, txn_type, txn_date) DO NOTHING""",
+        (doc_id, ticker, member_name, txn_type, txn_date, notification_date,
+         amount_range, amount_low, filed_date, logged_at),
+    )
+    await conn.commit()
+    return (cursor.rowcount or 0) > 0
+
+
+async def get_congress_trades(ticker: str, since_ts: float) -> list[dict]:
+    """Return congress_trades rows for a ticker logged at/after ``since_ts``. r13."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT doc_id, ticker, member_name, txn_type, txn_date, notification_date,
+                  amount_range, amount_low, filed_date, logged_at
+           FROM congress_trades
+           WHERE ticker = ? AND logged_at >= ?
+           ORDER BY logged_at DESC""",
+        (ticker, since_ts),
+    )
+    rows = await cursor.fetchall()
+    return [
+        {
+            "doc_id": r["doc_id"],
+            "ticker": r["ticker"],
+            "member_name": r["member_name"],
+            "txn_type": r["txn_type"],
+            "txn_date": r["txn_date"],
+            "notification_date": r["notification_date"],
+            "amount_range": r["amount_range"],
+            "amount_low": r["amount_low"],
+            "filed_date": r["filed_date"],
+            "logged_at": float(r["logged_at"]),
+        }
+        for r in rows
+    ]
+
+
 async def check_alert_cooldown(
     ticker: str,
     analyst: str | None = None,
@@ -1680,7 +2445,9 @@ async def check_alert_cooldown(
     # cooldown_h = min(max_cap, base / weight); 50%-precision = baseline 6 h.
     # Cold-start AND sample_count<5 both arrive as precision=None -> weight=1.0 (= base 6 h).
     max_cooldown_hours = cfg.get("alerts.per_analyst_cooldown.max_cooldown_hours", 24)
-    precision = await get_analyst_precision(analyst, horizon="1h")
+    # #62: horizon resolves via analyst_horizon() — '1h' (no rows -> blanket
+    # cooldown) until scoring.analyst_accuracy_weight.enabled flips it to 24h.
+    precision = await get_analyst_precision(analyst)
     if precision is None:
         weight = 1.0
     else:
@@ -1959,36 +2726,68 @@ async def get_recent_analysts_for_ticker(ticker: str, window_seconds: int = 3600
     return [r["source_detail"] for r in rows]
 
 
-async def get_alerts_needing_price_update(field: str) -> list[dict]:
+async def get_alerts_needing_price_update(
+    field: str, limit: int = 20, ignore_max_age: bool = False,
+) -> list[dict]:
     """Get alerts where a price follow-up field is NULL and enough time has passed.
 
-    field must be 'price_1h_later' or 'price_24h_later'.
+    field must be 'price_1h_later', 'price_24h_later', 'price_24h_catchup'
+    or 'price_5d_later'. 'price_24h_catchup' (#73) selects the SAME column as
+    'price_24h_later' but the opposite age band — rows that aged past the 48h
+    live-spot window (the engine sleeps through it every weekend, so every
+    Friday's rows used to age out unfillable). Those are graded from historical
+    daily bars instead, which stay available for years.
+
+    `ignore_max_age` (#62) drops the upper age bound, for the one-off backfills:
+    1h (and the live 24h path) read a LIVE spot price so an ancient row is
+    unfillable, but the 5d and 24h-catchup fills index historical daily bars,
+    which are still there years later. Without this the 268 analyst-bearing
+    alerts older than 30 days could never be graded.
     """
     conn = await get_db()
     now = time.time()
+    column = field
     if field == "price_1h_later":
         min_age = 3600       # at least 1 hour old
         max_age = 7200       # no older than 2 hours (don't backfill ancient alerts)
     elif field == "price_24h_later":
         min_age = 86400      # at least 24 hours old
         max_age = 172800     # no older than 48 hours
+    elif field == "price_24h_catchup":
+        column = "price_24h_later"
+        min_age = 172800     # only rows the live-spot fill can no longer reach
+        max_age = 30 * 86400
+    elif field == "price_5d_later":
+        # #62: 5 TRADING days is 7 calendar days at worst (a weekend plus a holiday).
+        # The wide upper bound lets the loop catch up after downtime — the exact
+        # trading-day check is the bar count in the fetch helper.
+        min_age = 7 * 86400
+        max_age = 30 * 86400
     else:
         return []
 
-    cursor = await conn.execute(
-        f"""SELECT id, ticker, price_at_alert, alerted_at FROM alert_history
-            WHERE {field} IS NULL
-            AND alerted_at <= ? AND alerted_at >= ?
-            ORDER BY alerted_at DESC LIMIT 20""",
-        (now - min_age, now - max_age),
-    )
+    if ignore_max_age:
+        cursor = await conn.execute(
+            f"""SELECT id, ticker, price_at_alert, alerted_at FROM alert_history
+                WHERE {column} IS NULL AND alerted_at <= ?
+                ORDER BY alerted_at DESC LIMIT ?""",
+            (now - min_age, int(limit)),
+        )
+    else:
+        cursor = await conn.execute(
+            f"""SELECT id, ticker, price_at_alert, alerted_at FROM alert_history
+                WHERE {column} IS NULL
+                AND alerted_at <= ? AND alerted_at >= ?
+                ORDER BY alerted_at DESC LIMIT ?""",
+            (now - min_age, now - max_age, int(limit)),
+        )
     rows = await cursor.fetchall()
     return [dict(r) for r in rows]
 
 
 async def update_alert_price(alert_id: int, field: str, price: float):
     """Update a price follow-up field on an alert."""
-    if field not in ("price_1h_later", "price_24h_later"):
+    if field not in ("price_1h_later", "price_24h_later", "price_5d_later"):
         return
     conn = await get_db()
     await conn.execute(
@@ -2828,6 +3627,152 @@ async def get_flow_premium_baseline(ticker: str, days: int = 30) -> float | None
     return float(row["avg_prem"])
 
 
+# --- #57: flow-hit outcome grading -----------------------------------------
+# A flow EVENT is (contract_symbol, market_date). The scanner re-detects the
+# same contract on every poll cycle, so raw rows over-count long-lived hits by
+# ~12x. `_FLOW_EVENTS_SQL` collapses each event to its EARLIEST row: that row's
+# `spot` is the entry price a trader could actually have paid on the signal.
+
+_FLOW_EVENTS_SQL = """
+SELECT f.id AS flow_id, f.ticker, f.side, f.contract_symbol, f.strike, f.expiry,
+       f.volume, f.open_interest, f.vol_oi_ratio, f.premium_usd, f.spot,
+       f.alerted, f.detected_at,
+       date(f.detected_at, 'unixepoch', '-5 hours') AS market_date
+FROM options_flow f
+JOIN (
+    SELECT contract_symbol,
+           date(detected_at, 'unixepoch', '-5 hours') AS md,
+           MIN(detected_at) AS first_ts
+    FROM options_flow
+    GROUP BY contract_symbol, md
+) first ON f.contract_symbol = first.contract_symbol
+       AND f.detected_at = first.first_ts
+WHERE f.spot > 0
+"""
+
+
+async def get_flow_events(
+    ungraded_only: bool = False,
+    max_detected_at: float | None = None,
+    limit: int | None = None,
+) -> list[dict]:
+    """#57: one row per (contract_symbol, market_date) flow event, earliest first.
+
+    `ungraded_only` skips events already fully graded (both horizons filled).
+    `max_detected_at` caps the window (used to skip rows younger than the horizon).
+    """
+    sql = _FLOW_EVENTS_SQL
+    params: list = []
+    if max_detected_at is not None:
+        sql += " AND f.detected_at <= ?"
+        params.append(max_detected_at)
+    if ungraded_only:
+        sql += (" AND (f.id NOT IN (SELECT flow_id FROM options_flow_outcomes"
+                "      WHERE close_1d IS NOT NULL AND close_5d IS NOT NULL))")
+    sql += " ORDER BY f.detected_at ASC"
+    if limit is not None:
+        sql += f" LIMIT {int(limit)}"
+    conn = await get_db()
+    cur = await conn.execute(sql, params)
+    return [dict(r) for r in await cur.fetchall()]
+
+
+async def upsert_flow_outcome(
+    flow_id: int, ticker: str, side: str, contract_symbol: str | None,
+    market_date: str, detected_at: float, entry_spot: float,
+    close_0d: float | None, close_1d: float | None, close_5d: float | None,
+    bench_close_0d: float | None = None, bench_close_1d: float | None = None,
+    bench_close_5d: float | None = None,
+) -> None:
+    """#57: write (or refresh) one graded flow event.
+
+    `win_*` grades DIRECTION against the entry spot: a CALL wins when the close
+    is higher, a PUT wins when it is lower. A flat close is a loss for both (no
+    move = the flow predicted nothing). NULL closes leave ret/win NULL so a later
+    run can fill them once the horizon elapses.
+
+    These raw wins say as much about the month's market direction as about the
+    flow. The bench_close_* columns carry SPY over the identical trading window so
+    a reader can subtract that drift out; see `scripts/grade_options_flow.py`.
+    """
+    def _grade(close: float | None) -> tuple[float | None, int | None]:
+        if not close or close <= 0 or entry_spot <= 0:
+            return None, None
+        ret = (close - entry_spot) / entry_spot
+        win = 1 if ((side.upper() == "CALL" and ret > 0)
+                    or (side.upper() == "PUT" and ret < 0)) else 0
+        return ret, win
+
+    ret_1d, win_1d = _grade(close_1d)
+    ret_5d, win_5d = _grade(close_5d)
+    conn = await get_db()
+    await conn.execute(
+        """INSERT INTO options_flow_outcomes
+           (flow_id, ticker, side, contract_symbol, market_date, detected_at,
+            entry_spot, close_0d, close_1d, close_5d,
+            bench_close_0d, bench_close_1d, bench_close_5d,
+            ret_1d, ret_5d, win_1d, win_5d, graded_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+           ON CONFLICT(flow_id) DO UPDATE SET
+             close_0d=COALESCE(excluded.close_0d, options_flow_outcomes.close_0d),
+             close_1d=COALESCE(excluded.close_1d, options_flow_outcomes.close_1d),
+             close_5d=COALESCE(excluded.close_5d, options_flow_outcomes.close_5d),
+             bench_close_0d=COALESCE(excluded.bench_close_0d, options_flow_outcomes.bench_close_0d),
+             bench_close_1d=COALESCE(excluded.bench_close_1d, options_flow_outcomes.bench_close_1d),
+             bench_close_5d=COALESCE(excluded.bench_close_5d, options_flow_outcomes.bench_close_5d),
+             ret_1d=COALESCE(excluded.ret_1d, options_flow_outcomes.ret_1d),
+             ret_5d=COALESCE(excluded.ret_5d, options_flow_outcomes.ret_5d),
+             win_1d=COALESCE(excluded.win_1d, options_flow_outcomes.win_1d),
+             win_5d=COALESCE(excluded.win_5d, options_flow_outcomes.win_5d),
+             graded_at=excluded.graded_at""",
+        (flow_id, ticker, side, contract_symbol, market_date, detected_at,
+         entry_spot, close_0d, close_1d, close_5d,
+         bench_close_0d, bench_close_1d, bench_close_5d,
+         ret_1d, ret_5d, win_1d, win_5d, time.time()),
+    )
+    await conn.commit()
+
+
+# --- #71: ops-alert transition state --------------------------------------
+
+async def get_ops_alert_state(alert_key: str) -> dict | None:
+    """Current row for one ops-alert key, or None if never seen."""
+    conn = await get_db()
+    cur = await conn.execute(
+        "SELECT * FROM ops_alert_state WHERE alert_key=?", (alert_key,))
+    row = await cur.fetchone()
+    return dict(row) if row else None
+
+
+async def set_ops_alert_state(alert_key: str, state: str,
+                              failure_class: str | None = None,
+                              detail: str | None = None,
+                              alerted: bool = False) -> None:
+    """Record the new state. `alerted=True` stamps last_alerted_at.
+
+    `since` only moves when the state actually changes, so a long outage keeps its
+    original start time and the recovery note can say how long it lasted.
+    """
+    now = time.time()
+    prior = await get_ops_alert_state(alert_key)
+    since = now if (prior is None or prior["state"] != state) else prior["since"]
+    last_alerted = now if alerted else (prior or {}).get("last_alerted_at")
+    conn = await get_db()
+    await conn.execute(
+        """INSERT INTO ops_alert_state
+             (alert_key, state, failure_class, since, last_alerted_at, last_detail)
+           VALUES (?,?,?,?,?,?)
+           ON CONFLICT(alert_key) DO UPDATE SET
+             state=excluded.state,
+             failure_class=excluded.failure_class,
+             since=excluded.since,
+             last_alerted_at=excluded.last_alerted_at,
+             last_detail=excluded.last_detail""",
+        (alert_key, state, failure_class, since, last_alerted, detail),
+    )
+    await conn.commit()
+
+
 async def insert_youtube_setup(
     run_id: int, video_id: str, ticker: str,
     entry_low: float | None, entry_high: float | None, stop_price: float | None,
@@ -3271,6 +4216,43 @@ async def record_decision_snapshot(
     return cursor.lastrowid
 
 
+async def merge_snapshot_feature_vector(snapshot_id: int, extra: dict) -> bool:
+    """#62: merge extra keys into an existing row's feature_vector_json.
+
+    The display signals are computed AFTER the snapshot is written (they are far too
+    slow for the alert path), so they are merged in rather than passed at insert.
+    Read-modify-write on one row by primary key; existing keys are preserved unless
+    `extra` overwrites them. Returns False if the row vanished or the stored JSON is
+    unparseable — a logging failure must never raise into the alert path.
+    """
+    if not extra:
+        return False
+    import json as _json
+
+    conn = await get_db()
+    cur = await conn.execute(
+        "SELECT feature_vector_json FROM decision_snapshots WHERE id=?", (snapshot_id,))
+    row = await cur.fetchone()
+    if row is None:
+        log.warning("merge_snapshot_feature_vector: snapshot %s not found", snapshot_id)
+        return False
+    try:
+        current = _json.loads(row["feature_vector_json"]) if row["feature_vector_json"] else {}
+        if not isinstance(current, dict):
+            current = {}
+    except (ValueError, TypeError):
+        log.warning("merge_snapshot_feature_vector: snapshot %s has unreadable JSON",
+                    snapshot_id)
+        current = {}
+    current.update(extra)
+    await conn.execute(
+        "UPDATE decision_snapshots SET feature_vector_json=? WHERE id=?",
+        (_json.dumps(current), snapshot_id),
+    )
+    await conn.commit()
+    return True
+
+
 async def get_recent_decision_snapshots(ticker: str, limit: int = 10) -> list[dict]:
     """Get the most recent decision snapshots for a ticker."""
     conn = await get_db()
@@ -3321,15 +4303,16 @@ async def get_snapshots_needing_outcome(
 ) -> list[dict]:
     """decision_snapshots rows where `field` IS NULL and the snapshot is old enough.
 
-    `field` must be 'outcome_price_5d' or 'outcome_price_20d'. `min_age_days`/
-    `max_age_days` are CALENDAR days — a cheap, conservative lower gate (5 trading
-    days span at least 7 calendar days, 20 span at least ~28). The EXACT trading-day
-    check happens when the historical price is fetched (the Nth daily bar must exist).
-    `max_age_days=None` removes the upper bound (used by the one-off backfill so it
-    fills arbitrarily old rows); the live loop passes a bound so it doesn't re-scan
-    the whole table every cycle.
+    `field` must be 'outcome_price_24h', 'outcome_price_5d' or 'outcome_price_20d'.
+    `min_age_days`/`max_age_days` are CALENDAR days — a cheap, conservative lower
+    gate (5 trading days span at least 7 calendar days, 20 span at least ~28; the
+    24h catch-up (#73) starts at 2 so it only sees rows the live-spot fill can no
+    longer reach). The EXACT trading-day check happens when the historical price is
+    fetched (the Nth daily bar must exist). `max_age_days=None` removes the upper
+    bound (used by the one-off backfill so it fills arbitrarily old rows); the live
+    loop passes a bound so it doesn't re-scan the whole table every cycle.
     """
-    if field not in ("outcome_price_5d", "outcome_price_20d"):
+    if field not in ("outcome_price_24h", "outcome_price_5d", "outcome_price_20d"):
         return []
     conn = await get_db()
     now = time.time()
@@ -3449,6 +4432,8 @@ async def insert_cross_asset_shadow(
     credit_oas_ratio: float | None,
     credit_oas_multiplier: float | None,
     combined_multiplier: float | None,
+    nfci_index: float | None = None,
+    nfci_multiplier: float | None = None,
 ) -> bool:
     """Persist the E2 cross-asset shadow ratios/multipliers — the SAME values the
     '[E2 shadow]' log lines show — at most ONCE per UTC calendar day.
@@ -3475,10 +4460,12 @@ async def insert_cross_asset_shadow(
     await conn.execute(
         """INSERT INTO cross_asset_shadow
            (recorded_at, vix_term_ratio, vix_term_multiplier,
-            credit_oas_ratio, credit_oas_multiplier, combined_multiplier)
-           VALUES (?, ?, ?, ?, ?, ?)""",
+            credit_oas_ratio, credit_oas_multiplier, combined_multiplier,
+            nfci_index, nfci_multiplier)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
         (now, vix_term_ratio, vix_term_multiplier,
-         credit_oas_ratio, credit_oas_multiplier, combined_multiplier),
+         credit_oas_ratio, credit_oas_multiplier, combined_multiplier,
+         nfci_index, nfci_multiplier),
     )
     await conn.commit()
     return True
@@ -4058,13 +5045,20 @@ async def mark_alert_failed(alert_id: int) -> None:
 
 # ───────────── Phase-2 cross-source confluence (TODO #20, Type-2) ─────────────
 
-async def get_confluence_stances(window_days: int = 21) -> dict[str, list[dict]]:
-    """Gather recent directional stances from the four confluence sources, within the
+async def get_confluence_stances(window_days: int = 21,
+                                 wide: bool | None = None) -> dict[str, list[dict]]:
+    """Gather recent directional stances from the confluence sources, within the
     trailing window. Returns {source_type: [{'ticker','dir','channel'?}, ...]}.
 
-    Reads ONLY (no writes). SEC is buys-only (sells are routine pay events). Excludes
-    apewisdom/google_trends/reddit (not on the user's confluence source list).
+    Reads ONLY (no writes). SEC is buys-only (sells are routine pay events).
+
+    `wide` (#20 timing): also gather the extra source families used by the independence
+    buckets (schwab chain snapshots, insider cluster buys, sector RS). Defaults to the
+    `wolf.confluence.timing.collect` flag. The four original keys are returned unchanged
+    either way, so a caller that ignores the new keys behaves exactly as before.
     """
+    if wide is None:
+        wide = bool(cfg.get("wolf.confluence.timing.collect", False))
     conn = await get_db()
     cutoff = time.time() - window_days * 86400
     out: dict[str, list[dict]] = {"twitter": [], "youtube": [], "options": [], "sec": []}
@@ -4124,6 +5118,64 @@ async def get_confluence_stances(window_days: int = 21) -> dict[str, list[dict]]
         for r in await cur.fetchall()
     ]
 
+    # ── #20 timing: the WIDENED roster (shadow) ───────────────────────────────
+    # Extra source families, gathered only when wolf.confluence.timing.collect is on.
+    # They land under NEW keys, so score_confluence's legacy loop (SOURCE_TYPES = the
+    # four above) never sees them and the flag-OFF vote is byte-identical.
+    #
+    # Only sources that carry BOTH a ticker and a direction can vote. Deliberately NOT
+    # here, with reasons (verified against the live schema, 2026-07-12):
+    #   reddit_posts       — no ticker column and no sentiment (title text only)
+    #   apewisdom_mentions — ticker + mention COUNT, but no direction; attention is not a side
+    #   youtube_macro      — direction but no ticker (macro themes), so it cannot match a scope
+    # Inventing a direction for these would manufacture agreement, which is the exact
+    # failure mode this feature exists to prevent.
+    if not wide:
+        return out
+
+    # Schwab daily chain snapshot -> a directional read from the put/call VOLUME ratio.
+    # Call-heavy tape (< 0.9) is bullish, put-heavy (> 1.1) bearish; the middle is mixed
+    # and votes for nobody.
+    cur = await conn.execute(
+        "SELECT ticker, put_call_vol_ratio, captured_at FROM schwab_options_snapshots "
+        "WHERE captured_at >= ?",
+        (cutoff,),
+    )
+    schwab = []
+    for r in await cur.fetchall():
+        pcr = r["put_call_vol_ratio"]
+        if pcr is None:
+            continue
+        side = "long" if pcr < 0.9 else ("short" if pcr > 1.1 else None)
+        if side:
+            schwab.append({"ticker": r["ticker"], "dir": side, "as_of": r["captured_at"]})
+    out["schwab_options"] = schwab
+
+    # Insider CLUSTER buys (several insiders buying the same name in one window) — a
+    # stronger, rarer form of the SEC signal. Same independence family as `sec`.
+    cur = await conn.execute(
+        "SELECT ticker, alerted_at FROM form4_clusters WHERE alerted_at >= ?", (cutoff,)
+    )
+    out["form4"] = [
+        {"ticker": r["ticker"], "dir": "bullish", "as_of": r["alerted_at"]}
+        for r in await cur.fetchall()
+    ]
+
+    # Sector relative-strength quadrant — the market's own verdict on a sector, and the
+    # only roster member that is not a person with an opinion. Newest row per ETF.
+    cur = await conn.execute(
+        "SELECT etf, quadrant, computed_at FROM sector_rs_daily WHERE computed_at >= ? "
+        "AND date_utc = (SELECT MAX(date_utc) FROM sector_rs_daily)",
+        (cutoff,),
+    )
+    rs = []
+    for r in await cur.fetchall():
+        q = (r["quadrant"] or "").lower()
+        side = "long" if q in ("leading", "improving") else ("short" if q in ("lagging", "weakening") else None)
+        if side:
+            rs.append({"ticker": r["etf"], "dir": side, "as_of": r["computed_at"]})
+    out["sector_rs"] = rs
+
     return out
 
 
@@ -4142,15 +5194,29 @@ async def record_confluence_check(
     checked_at: float, window_days: int, agree_count: int, disagree_count: int,
     tier: str, combined_tier: str, divided: int,
     agree_sources_json: str, disagree_sources_json: str, alerted_tier: str,
+    timing_verdict: str = "none", timing_bucket_agree: int = 0,
+    timing_fast_agree: int = 0, timing_buckets_json: str = "[]",
 ) -> None:
-    """Upsert the single current-state confluence row for a thesis (bounded: one per thesis)."""
+    """Upsert the single current-state confluence row for a thesis (bounded: one per thesis).
+
+    The timing_* columns are #20 SHADOW state (see wolf_confluence.score_timing). They
+    default to 'no verdict', so every existing caller keeps working unchanged.
+
+    `timing_first_act_at` is written ONCE — the first cycle this thesis's independent
+    buckets said 'act' — and never overwritten. That timestamp IS the gated entry price
+    the #20 backtest compares against Wolf's raw call, so re-stamping it later would
+    quietly rewrite history in the feature's own favour.
+    """
     conn = await get_db()
     await conn.execute(
         """INSERT INTO wolf_confluence_checks
             (thesis_id, scope_type, scope_key, direction, checked_at, window_days,
              agree_count, disagree_count, tier, combined_tier, divided,
-             agree_sources_json, disagree_sources_json, alerted_tier)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             agree_sources_json, disagree_sources_json, alerted_tier,
+             timing_verdict, timing_bucket_agree, timing_fast_agree, timing_buckets_json,
+             timing_first_act_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                   CASE WHEN ? = 'act' THEN ? ELSE NULL END)
            ON CONFLICT(thesis_id) DO UPDATE SET
              scope_type=excluded.scope_type, scope_key=excluded.scope_key,
              direction=excluded.direction, checked_at=excluded.checked_at,
@@ -4159,10 +5225,18 @@ async def record_confluence_check(
              combined_tier=excluded.combined_tier, divided=excluded.divided,
              agree_sources_json=excluded.agree_sources_json,
              disagree_sources_json=excluded.disagree_sources_json,
-             alerted_tier=excluded.alerted_tier""",
+             alerted_tier=excluded.alerted_tier,
+             timing_verdict=excluded.timing_verdict,
+             timing_bucket_agree=excluded.timing_bucket_agree,
+             timing_fast_agree=excluded.timing_fast_agree,
+             timing_buckets_json=excluded.timing_buckets_json,
+             timing_first_act_at=COALESCE(wolf_confluence_checks.timing_first_act_at,
+                                          excluded.timing_first_act_at)""",
         (thesis_id, scope_type, scope_key, direction, checked_at, window_days,
          agree_count, disagree_count, tier, combined_tier, divided,
-         agree_sources_json, disagree_sources_json, alerted_tier),
+         agree_sources_json, disagree_sources_json, alerted_tier,
+         timing_verdict, timing_bucket_agree, timing_fast_agree, timing_buckets_json,
+         timing_verdict, checked_at),
     )
     await conn.commit()
 

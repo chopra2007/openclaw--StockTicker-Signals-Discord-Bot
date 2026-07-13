@@ -3,6 +3,8 @@
 **Status:** PARKED (2026-07-03) — nothing built. The buy-2yr-history route needs paid data the user has deferred (no spend now). Free alternative already accruing via #55's forward-loggers (`options_flow` 110k+ rows + 5d/20d outcome grading); the same unusual-flow backtest can run on collected data for $0 in ~a few months. No action now.
 **Created:** 2026-06-28
 
+**CURRENT STATUS (2026-07-03):** Nothing built. The buy-2yr-history route is **PARKED** — it needs paid data the user has deferred (no spend now). A **free alternative is already accruing**: #55's forward-loggers (`options_flow` 110k+ rows and growing, plus 5d/20d outcome grading) capture the same fields going forward, so the same backtest (did the vol/OI≥5, vol≥500, premium≥$250k unusual-flow rule actually predict the move?) can run on collected data for $0 in ~a few months. No action now — let #55 accrue, then build the replay harness. Independent of #57 (Schwab's snapshot logger only holds ~days of derived summaries, not raw chains).
+
 ## The goal in one line
 Pay ~$29 once for 2 years of historical US options chains, then use it to (a)
 backtest the unusual-options-flow alerts (built & live but never tested against

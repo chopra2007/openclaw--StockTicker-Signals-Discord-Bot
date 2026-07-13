@@ -1,7 +1,23 @@
 # Build the two forward-loggers that feed the autonomous auto-flip engine
 
-**Status:** OPEN
+**Status:** DONE 2026-07-09
 **Created:** 2026-07-05
+
+**CURRENT STATUS (2026-07-09) — DONE.** Both loggers are live, both auto-flip switches are unblocked, and **zero live alerts changed**.
+
+**Logger 1 — the 5 display signals.** `consensus_engine/analysis/display_signals.py` computes max-pain, analyst momentum, EPS revisions, peer relative-strength and chart patterns, and merges them into `decision_snapshots.feature_vector_json`. It runs **off the alert path**: `main.py` writes the snapshot row, then schedules the collector, which merges into the already-written row (`db.merge_snapshot_feature_vector`). The alert path gains **zero** latency — better than the planned "measure it and hope", because there is nothing to measure. Collection takes 1–3s wall-clock, all five in parallel, each independently timed out and failure-safe.
+
+Two integration traps found and fixed:
+- The readiness check (`auto_flip_check.py::check_display_signals_lift`) reads **top-level numeric** keys named exactly `max_pain`, `analyst_momentum`, `eps_revision`, `peer_rs`, `chart_pattern`. Nested values, or the string pattern label, would have been silently skipped — the switch would have looked "logged" forever while `n` stayed 0. The logger now writes those five flat numbers (chart pattern encoded as a signed confidence) alongside the rich `display_signals` sub-dict.
+- The subagent's report on `compute_max_pain`'s return shape was wrong (it returns `weekly`/`monthly` legs, not `weekly_exp`/`max_pain`). Verified against the live function before use.
+
+**Logger 2 — per-analyst outcomes.** `compute_source_performance_live` grades analysts at **24h and 5d, never 1h** (an analyst call graded one hour later is measuring noise — that is the wrong horizon #55 benched at). Runs daily off the existing `source-performance-shadow-daily.timer`. Needed a new `alert_history.price_5d_later` column plus a fill in `price_outcome_loop`; `scripts/backfill_alert_5d_outcomes.py` filled the back-catalogue (2,909 rows; 422 of 550 analyst-bearing alerts now have a 5-day outcome, up from 73 — a per-row yfinance loop got rate-limited, so it batches bars per ticker like `grade_options_flow.py`).
+
+**Why writing the LIVE table is safe.** Every live reader now resolves its horizon through `db.analyst_horizon()`, which returns `'1h'` until `scoring.analyst_accuracy_weight.enabled` flips it to `'24h'`. The producer never writes a 1h row, so all four readers keep missing and stay cold-start. **A latent hazard was found and fixed here:** the consolidation prior (`analysis/consolidation.py`) read `source_performance` with **no horizon filter at all** — the moment any row landed, at any horizon, it would have gone warm and started adding `consensus_boost` to live alerts. Proven in a live probe: filtered read returns `None` (cold), unfiltered returns `0.515` (warm). Also fixed: `get_analyst_precision_lb` had its default changed to `None` without resolving it, which would have made the analyst weighting silently dead *after* the flip.
+
+**Live evidence (2026-07-09):** live table holds 28 analysts / 54 rows / 0 rows at 1h. With the flag OFF every reader returns `None`. With it simulated ON, `The_RockTrading` reads accuracy 0.515, Wilson-LB 0.418. `auto_flip_check.py` now sees the data and reports **`analyst_accuracy_promote: NOT ready — n=99/need 90, metric=0.418 (need >0.5)`** — over the sample bar, under the accuracy bar, correctly declining to promote. That is the engine working, not failing.
+
+**Owed:** `fold_display_signals` needs ≥90 resolved 24h outcomes on snapshots written *after* this went live; it will report `not_ready` until then and re-test itself every 2 days. Nothing further for a human to do.
 
 ## What this is
 The 2026-07-05 research run (#61) built an autonomous "test every 2 days, flip when
@@ -52,3 +68,6 @@ auto-flip engine flips each switch on its own (no further human step).
 ## Open questions
 - Hot-path latency budget for (1a) vs building the batch backfill (1b)?
 - Does `fold_display_signals` need the scoring consumer built at the same time, or log-first-then-consume?
+
+### Session notes — 2026-07-09
+- **Planned:** build order + design choices in `.omc/plans/active-items-completion-2026-07-09.md` Phase C (lazy per-signal timeouts, log-only flag ON, scoring consumer built but OFF, analyst outcomes at 24h/5d not 1h). Completing this item also closes #61.

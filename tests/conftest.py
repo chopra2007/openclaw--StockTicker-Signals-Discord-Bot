@@ -77,7 +77,51 @@ def _audit_flags_default_off(monkeypatch):
         "features.regime_widening_graduated.enabled": False,
         "features.cross_asset.enabled": False,
         "features.cross_asset.fred_leg_enabled": False,
+        # r21 (macro-fred): NFCI leg stays shadow-isolated. Force the flip flag OFF so a
+        # future YAML flip can't make the baseline suite append NFCI into E2's live legs.
+        "features.cross_asset.nfci_leg_enabled": False,
+        # r22 (macro-fred): the FRED macro producer runs on shadow:true in prod, but must
+        # NOT hit the FRED network in the baseline suite — force both OFF so run() skips it.
+        "features.macro_legs.enabled": False,
+        "features.macro_legs.shadow": False,
         "features.finra_short_volume.enabled": False,
+        # r14/r8 net-new features ship flag-default-OFF (dormant/shadow). Force OFF
+        # here too so a future YAML flip can't send the baseline suite down a live
+        # path; the dedicated feature tests exercise the logic directly.
+        "features.trading_halts.enabled": False,
+        "features.skew_index.enabled": False,
+        # Stage-3 options-chain legs (discover next-features-jul2026) — flag-default-OFF.
+        # Force OFF so a future YAML flip can't add the new !all embed fields (or run the
+        # in-thread GEX/IV-skew/pinning compute) during the baseline suite; dedicated
+        # feature tests force their own flag in-body.
+        "features.dealer_gamma.enabled": False,
+        "features.iv_skew.enabled": False,
+        "features.oi_pinning.enabled": False,
+        # Stage-4 vol-context (discover next-features-jul2026) — flag-default-OFF.
+        # Force OFF so a future YAML flip can't add the Vol Read / Squeeze embed
+        # fields, run the compute_em option-chain fetch, or change the narrator
+        # during the baseline suite; dedicated feature tests force their own flag.
+        "features.iv_rv_tag.enabled": False,
+        "features.vol_squeeze.enabled": False,
+        # Stage-5 standalone-scanners (discover next-features-jul2026) — flag-default-OFF.
+        # Force OFF so a future YAML flip can't add the r12 days-to-cover / r17 PEAD score
+        # legs, the PEAD !all embed field, or the r20 !market breadth panel during the
+        # baseline suite; dedicated feature tests force their own flag in-body.
+        "features.short_interest.enabled": False,
+        # r12/r20 shadow-SOAK flags (collect-on/shadow-on in prod YAML 2026-07-08). Force
+        # OFF so the soak's write-path doesn't leak into the baseline suite (the loop-ingest
+        # and market_daily breadth-row tests force their own flag in-body).
+        "features.short_interest.collect": False,
+        "features.pead.enabled": False,
+        "features.market_breadth.enabled": False,
+        "features.market_breadth.shadow": False,
+        # Stage-6 insider-disclosure (discover next-features-jul2026) — flag-default-OFF.
+        # Force OFF so a future YAML flip can't run the r27 Form-144 / r28 10b5-1 /
+        # r13 congress background loops or add an insider_display context line during
+        # the baseline suite; dedicated feature tests force their own flag in-body.
+        "features.form144.enabled": False,
+        "features.insider_10b5_plans.enabled": False,
+        "features.congress_trades.enabled": False,
         "features.fundamentals_oneliner.enabled": False,
         "wolf.confluence.weighted_votes_enabled": False,
         # Market-context dashboard went live ON 2026-06-29 (discover run
@@ -126,6 +170,19 @@ def _isolate_db(tmp_path, monkeypatch):
     _db._db = None
     yield
     _db._db = None
+
+
+@pytest.fixture(autouse=True)
+def _isolate_nfci_fred(monkeypatch):
+    """r21 (macro-fred): cross_asset.get_multiplier now computes a shadow NFCI leg on every
+    compute-path call, which would hit the live FRED endpoint. FRED_API_KEY is set in this
+    environment, so default the NFCI fetch to None (no network, deterministic) for the whole
+    suite — exactly like _isolate_level_quote defaults the live quote. NFCI stays shadow-
+    isolated (nfci_leg_enabled OFF), so a None leg leaves get_multiplier byte-identical. The
+    dedicated NFCI tests patch _fetch_nfci_index in-body (that wins) to exercise the mapping."""
+    from consensus_engine.analysis import cross_asset as _ca
+    monkeypatch.setattr(_ca, "_fetch_nfci_index", lambda: None)
+    yield
 
 
 @pytest.fixture(autouse=True)

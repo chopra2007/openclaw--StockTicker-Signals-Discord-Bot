@@ -61,12 +61,7 @@ Add new terms only after verifying their meaning from actual code, not from a fi
 
 ### Cross-session test (`comm-check.md`)
 
-`comm-check.md` (workspace root) is a **reactive** grading rubric — test cases and gold answers for the Communication Discipline rules above. Those rules already load every session and, with judgment, govern behavior. **Do NOT preload `comm-check.md` at the start of a session.** It is large; loading it proactively bloats every session, and having it in context does not by itself make answers better. Read it only when there is a concrete reason:
-
-1. **User pushback on an explanation** — any correction, contradiction, or pointing-out of a failure mode ("you used jargon," "you assumed," "you didn't check," "again you," "you're being lazy"). Read `comm-check.md`, find the section that maps to the failure (Section 1 = jargon, Section 2 = lazy/incomplete, Section 3 = verify/probe, Section 4 = unflagged deferred scope, Section 5 = whole-feature verification, Section 6 = inconsistent framing), save a feedback memory entry (template in the file's "When Claude fails a check" section), apply the fix to the next answer and the rest of the session.
-2. **Session close** — list any comm-check failures saved this session in the close summary (read the file then only if you need the failure template).
-
-Read it on a concrete failure or at close — never as a fresh-session preload. `comm-check-fail-*` entries in `MEMORY.md` are NOT a reason to load it.
+`comm-check.md` (workspace root) is a **reactive** grading rubric for the rules above — never preload it (`comm-check-fail-*` entries in `MEMORY.md` are NOT a reason to load it). Read it only on: (1) **user pushback on an explanation** — any correction or pointed-out failure mode; find the matching section (1 = jargon, 2 = lazy/incomplete, 3 = verify/probe, 4 = unflagged deferred scope, 5 = whole-feature verification, 6 = inconsistent framing), save a feedback memory entry (template in the file's "When Claude fails a check" section), apply the fix for the rest of the session; (2) **session close** — list any comm-check failures saved this session (open the file then only if you need the failure template).
 
 ## Behavior
 
@@ -80,20 +75,16 @@ When the user says "add X to the to do list" (or "put that on the list", "add th
 
 ## Session Close Trigger
 
-When the user sends only "goodbye" or "bye":
-1. **Update the TODO list FIRST — always before the regression gate (step 3), never after.** If any item on the TODO list was worked on this session, update it now (per `todo/CONVENTION.md`): mark finished items `— DONE YYYY-MM-DD` in `TODO.md` and the detail file's `**Status:**`, and/or append a dated session-notes block to the detail file capturing what changed. Skip this step only if no TODO item was touched this session.
-2. `git status` — commit any uncommitted changes, **including the step-1 TODO edits**, so the gate runs on a tree that already reflects the session's work (do **not** push here — step 3's script does the push, automatically choosing the doc-only `--no-verify` path or the full test gate based on whether code changed)
-3. Only now run `nohup /root/task_system/scripts/session_close.sh > /root/task_system/logs/session_close_latest.log 2>&1 &` to kick off the regression gate + push in the background
-4. Tell the user: "Gate running in background — safe to close. ci-monitor will catch any CI failures."
-5. Verify MEMORY.md is up to date
-6. List any `comm-check-fail-*` entries saved this session
+When the user sends only "goodbye" or "bye": read `todo/SESSION_CLOSE.md` and follow it exactly, in order (TODO updates → commit → background gate → close summary).
 
 ## Definition of Done
 
-A task is not done if a user-facing critical path is broken — regardless of who broke it, when, or whether it's "in scope". "Pre-existing," "out of scope," "not my regression" are NOT valid exemptions. Only three responses when verification surfaces a broken path:
+A task is not done if an **in-scope** user-facing critical path is broken. In scope = the `[always]` bucket plus every bucket your changed file paths trigger (table in "What to verify" #3). Within those buckets, "pre-existing," "out of scope," "not my regression" are NOT valid exemptions — regardless of who broke it or when. Only three responses when verification surfaces a broken in-scope path:
 1. Fix it.
 2. Attempt a fix, surface the specific failure, ask whether to keep digging.
 3. Get explicit user permission to defer.
+
+A broken check in a bucket your change did NOT touch doesn't block done — but you must report it in one sentence and make sure it lands on the TODO list (reported, never silently dropped). (Scope-aware since 2026-07-12, TODO #5 — before that, one flaky unrelated check could block honest completion of unrelated work.)
 
 ### Built switches default to ON
 
@@ -103,10 +94,18 @@ A feature built and tested on stored data is turned ON in the same session, not 
 
 1. **Test the whole feature you changed**, not just the line you touched. Changed catalyst code inside `!all`? Test all of `!all`.
 2. **Find the hidden dependents before committing.** When a change alters a function's arguments or a user-visible output string, `grep -rn` the symbol/old-string across `tests/` and run every match before committing. The breakage usually hides in *other* files — assertions on the old text, or mock/`monkeypatch.setattr` stubs with the old signature — not the file you edited.
-3. **Always-on checks — every time:**
-   - `consensus-engine.service` and `openclaw-gateway.service` both `active`.
-   - No `❌ GATEWAY drift` alert and no LLM-health failure alert.
-   - `/root/.openclaw` still resolves to `/home/openclaw/.openclaw` (symlink intact).
+3. **Scoped critical-path checks.** Decide which buckets apply from the changed file paths (`git diff --name-only` for the session; an explicit `surfaces:` list in a kickoff file overrides). Run `[always]` plus every triggered bucket:
+
+   | Bucket | Triggered when the diff touches | Checks |
+   |---|---|---|
+   | `[always]` | anything — every session | `consensus-engine.service` + `openclaw-gateway.service` both `active`; no `❌ GATEWAY drift` and no LLM-health failure alert; `/root/.openclaw` still resolves to `/home/openclaw/.openclaw` |
+   | `[discord-commands]` | `consensus_engine/alerts/**`, command routing in `main.py` | the touched command (or `!all <ticker>` if several) returns a coherent reply in Discord |
+   | `[agent-mention]` | `_handle_mention` in `main.py`, agent config in `openclaw.json` | `@-mention` of the bot (or `!ask`) returns a coherent reply |
+   | `[gateway]` | LLM chains in `openclaw.json` or the `llm:` section of `config/consensus.yaml` | engine boot log shows the gateway/consensus chain drift check passing |
+   | `[infra]` | systemd units, `/root/task_system/**`, cron/timer scripts, VPS paths | touched timers/scripts run clean under systemd as `openclaw`; file ownership unchanged |
+   | `[ingest]` | `consensus_engine/scanners/**`, `local_video_ingest.py`, ingest parsers | one real poll/ingest of the touched source lands sane rows/log lines |
+
+   Shared files (#4's tripwire list, incl. `config/consensus.yaml`) cut across buckets — touching one triggers every bucket that uses it.
 4. **Shared-file tripwire** — if your change touches any of these, test every feature that uses them:
    - `consensus_engine/llm_client.py`
    - `consensus_engine/config.py` + `config/consensus.yaml`
@@ -126,6 +125,8 @@ Never claim complete on "service started," "code looks right," or "unit tests pa
 7. Judge output against the goal, not the code against the spec. A feature that runs but produces generic or unhelpful output has not met its goal. Compare the real output to why the feature was built.
 
 For multi-phase execution (discover, ralph, autopilot): run at least one real end-to-end invocation and inspect the actual output before declaring done.
+
+Do real-world testing whenever the user-observable outcome can be checked from this environment — before deferring a test, probe what's actually accessible (and check memory) rather than assuming a tool is unavailable. When a real-world test errors: diagnose the real cause → attempt a fix → try alternative paths to the same outcome → only then surface to the user, with what was tried and a specific recommendation. Never ask the user to do something you can do yourself.
 
 ## Regression Gate
 
@@ -162,18 +163,6 @@ python3 -m pytest tests/ -v          # test suite
 docker compose up -d                 # SearXNG (8888)
 ```
 
-## Real-World Testing
-
-Don't stop at code-functional. Do real-world testing whenever the user-observable outcome can be checked from this environment. "Unit tests pass" or "service started" does NOT discharge the verification standard if end-to-end behavior can be probed. Before deferring a test, actively check memory and probe what's accessible in the environment rather than assuming a tool is unavailable.
-
-When real-world tests hit errors, follow this ladder before asking the user:
-1. **Diagnose** — error strings often mask the real cause (a 429 may be IP-wide; "cookies invalid" may be downstream).
-2. **Attempt to fix** — change request parameters, swap auth modes, retry with backoff, different endpoint.
-3. **Explore alternative paths** — same outcome via different mechanism (yt-dlp dead → try `youtube_transcript_api`; provider down → try another).
-4. **Only then surface to the user** — with what failed, what you tried, why each alternative did or didn't work, and a specific recommendation.
-
-Don't ask the user to do something you can do yourself. Asking is acceptable only when the next step genuinely requires their access, their decision, or information not derivable from logs/code/docs.
-
 ## Key Design Decisions
 
 - **Signal-first**: tweet → instant alert → async cross-reference. No gates block the alert.
@@ -190,9 +179,7 @@ At session start: check `/root/task_system/notifications.log`. If it has entries
 
 ## GitHub & Documentation Automation
 
-- After every functional change: commit locally. Do NOT push mid-session.
-- Push and regression gate testing happen only at session close (the "bye"/"goodbye" trigger).
-- **Doc-only commits** (only `*.md`, `todo/**`, `TODO.md`, comments changed) push with `git push --no-verify` at close — no test gate needed. **Code changes** (anything under `consensus_engine/`, `scripts/*.py`, `tests/`, config) must go through the full gate (`scripts/pre-push`, `pytest -n 2`) before pushing at close — never `--no-verify` those.
+- After every functional change: commit locally. Do NOT push mid-session — push + regression gate happen only at session close (rules in `todo/SESSION_CLOSE.md`).
 - Commit style: imperative (e.g., "Add multi-agent logic").
 - Remote: `chopra2007/openclaw--StockTicker-Signals-Discord-Bot` (public).
 - Keep `README.md` current with architecture, setup, and features.

@@ -44,7 +44,10 @@ log = logging.getLogger("consensus_engine.circuit_breaker")
 
 # C5: how long (seconds) to suppress a repeat ops alert for the same source so a
 # flapping source can't spam the ops channel.
-_OPS_ALERT_THROTTLE_S = 1800  # 30 min
+# #71: the alert throttle now lives in consensus_engine/alerts/ops_alert.py, which
+# fires on state transitions and persists them. `last_alerted_at` is still tracked
+# in _state so a flapping source's history stays inspectable via health_summary().
+_OPS_ALERT_THROTTLE_S = 1800  # 30 min (retained: still read by the flap tests)
 
 # Reasons whose OPEN survives a restart (real, durable limits). Everything else
 # (transient 5xx/timeout, corroborated permanent) stays in-memory only.
@@ -249,12 +252,26 @@ class CircuitBreaker:
         await self.alert_if_opened(event)
 
     async def note_success(self, source: str, cred_version: str = "v1") -> None:
-        await self.record_success(source, cred_version)
+        # record_success returns a dict ONLY on a real not-closed -> closed
+        # transition, and None on the (overwhelmingly common) already-healthy call.
+        # Gate the recovery alert on that so the steady-state success path stays
+        # free of a DB read.
+        event = await self.record_success(source, cred_version)
+        if event:
+            await self.alert_if_recovered(source)
 
     async def alert_if_opened(self, event: Optional[dict]) -> None:
-        """Send ONE ops-channel alert on a closed/half_open -> open transition,
-        throttled per source (30 min). Flag-gated (dead_source.ops_alert_enabled,
-        default OFF). Never raises into the caller."""
+        """Send ONE #errors alert on a closed/half_open -> open transition.
+
+        Flag-gated (dead_source.ops_alert_enabled). Never raises into the caller.
+
+        #71: this used to resolve its channel from `discord.ops_channel_id`, falling
+        back to `discord.channel_id` — NEITHER key has ever existed in
+        config/consensus.yaml, so `channel` was always "" and the function returned
+        before sending. This alert was dead from the day it shipped. It now goes
+        through the shared #errors sender, which owns the fire-on-transition logic
+        (and persists it, so an engine restart mid-outage doesn't re-alert).
+        """
         if not event or event.get("to") != "open":
             return
         if not config.get("dead_source.ops_alert_enabled", False):
@@ -263,27 +280,32 @@ class CircuitBreaker:
         st = self._state.get(key)
         if st is None:
             return
-        now = self._now()
-        last = st.get("last_alerted_at") or 0.0
-        if now - last < _OPS_ALERT_THROTTLE_S:
-            return  # throttled — a flapping source can't spam
-        channel = config.get("discord.ops_channel_id", config.get("discord.channel_id", ""))
-        if not channel:
-            return
-        st["last_alerted_at"] = now
+        st["last_alerted_at"] = self._now()
         if st.get("open_reason") in DURABLE_REASONS:
             await self._persist_if_durable(key, st, st["open_reason"])
-        msg = (f"🔌 **Dead source**: `{event['source']}` circuit OPEN "
-               f"(reason: {event.get('reason', '?')}, "
-               f"{event.get('failure_count', '?')} failures). "
-               f"It will be skipped and self-probed for recovery; this is the only "
-               f"alert for ~30 min.")
-        try:
-            from consensus_engine.alerts.discord import send_message
-            await send_message(channel, msg)
-            log.warning("circuit_breaker: ops alert sent for dead source %s", event["source"])
-        except Exception as e:
-            log.warning("circuit_breaker: ops alert failed for %s: %s", event["source"], e)
+        from consensus_engine.alerts.ops_alert import report_ops_state
+        await report_ops_state(
+            f"source:{event['source']}",
+            down=True, failure_class="dead_source",
+            title=f"Data source `{event['source']}` has stopped responding",
+            detail=(f"It failed {event.get('failure_count', '?')} times in a row "
+                    f"(reason: {event.get('reason', '?')}). The bot will skip it and "
+                    f"keep quietly retrying until it comes back."),
+            fix="Usually none — it recovers on its own. If this keeps happening, the "
+                "source's API key or quota is the place to look.",
+        )
+
+    async def alert_if_recovered(self, source: str) -> None:
+        """#71: post the 'source is back' follow-up so a dead-source @-mention never
+        sits unanswered. Safe to call on every success — the shared sender stays
+        silent unless the state actually changed."""
+        if not config.get("dead_source.ops_alert_enabled", False):
+            return
+        from consensus_engine.alerts.ops_alert import report_ops_state
+        await report_ops_state(
+            f"source:{source}", down=False, failure_class="dead_source",
+            title=f"Data source `{source}` is responding again",
+        )
 
     def health_summary(self) -> str:
         """Compact per-source health line for periodic logging."""

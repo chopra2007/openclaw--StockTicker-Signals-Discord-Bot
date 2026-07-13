@@ -1,15 +1,53 @@
 # Discover plugin — living record (versions, insights, next changes)
 
-**Status:** LIVING RECORD — v1.1.0 live; v1.2 (per-seat model/effort + AskUserQuestion UI) designed, not built
+**Status:** LIVING RECORD — v1.3.0 PUBLISHED + LIVE (2026-07-12) on `chopra2007/claude-discover` (main `f42e784`, tag `v1.3.0`); local install refreshed to the 1.3.0 cache. v1.3 is now the live/installed version.
 **Created:** 2026-07-06
 
-**CURRENT STATUS (2026-07-06):** v1.1.0 is live on `chopra2007/claude-discover`. Next up = **v1.2**:
-per-seat model + effort allocation, a Quick/Balanced/Max ceiling, and an AskUserQuestion-based
-setup with multi-select review points. Design fully agreed this session (no code yet) — the v1.2
-spec below is build-ready. On release: append a v1.2 changelog entry, add the missing CHANGELOG.md
-+ git tag, and update the repo README (see "Repo docs & release checklist"). ⚠️ Also carry over the
-critical **silent-corruption fix** that currently lives ONLY in the installed copy, not the repo/git
-(bug + exact fix + deployment gap in the insights ledger — this is the highest-priority pre-v1.2 action).
+**CURRENT STATUS (2026-07-12, later — v1.3.0 SHIPPED + LIVE):** the reusable-codebase-map change is
+built, tested, published (main `f42e784`, tag `v1.3.0`), and the installed copy refreshed to the 1.3.0
+cache (32/32 harness tests green on the live copy; takes effect next session). All four paths were
+proven with real engine runs on the toy repo: full scan writes the per-repo map cache with the true git
+commit; an unchanged repo reused the map verbatim with ZERO mapper agents; a 1-file change ran exactly
+one delta mapper that correctly picked up the new function; a same-run restart reparsed the run's own
+saved map instead of re-paying the fan-out. **Nothing owed — v1.3 is live.** Details in the v1.3.0
+changelog entry below; original spec kept below for history.
+
+**CURRENT STATUS (2026-07-12, superseded same day):** v1.2.0 is live and nothing is owed on it. **Next change queued for a
+fresh session: v1.3 — stop re-mapping the codebase from scratch on every run.** Measured on the last two
+real runs: the map phase (Pass 0) ate ~23% of the tokens of the Jul-11 run (`todo-55-20-plan`, 3 mappers,
+~4.6M of ~20M) and ~50% of the Jul-6/7 run (`next-features-jul2026`, 5 mappers, ~100M of ~200M — because
+the map was rebuilt from zero **three times** across that run's restarts). Build-ready spec below:
+**"v1.3 spec — reusable codebase map"**. Straightforward change (~30–50 lines in one file); no need for a
+stronger model. Sized/scoped 2026-07-12; SHIPPED later the same day (see block above).
+
+**CURRENT STATUS (2026-07-07, later — `from_pass=1` was a ONE-RUN-ONLY edit, now reverted):** To finish
+TODO #67 the plugin needed a "skip straight to the research pass" resume (reuse a saved Pass-0 map,
+skip the codebase re-scan). That path didn't exist, so it was added + used for that single run
+(validated live: Deep `from_pass:1→2` → `[1,2]`, 39 agents, 0 errors, 40 grounded ideas), then — per
+the user — **reverted from the repo** because it was wanted for that run only, NOT as a permanent
+feature. The plugin repo is back at **clean v1.2.0** (`9dca67e`; nothing pushed, no v1.2.1). The exact,
+build-ready recipe to make it permanent later is in **"Optional future change — `from_pass=1` resume"**
+below — if the user ever decides they want it, that section is copy-paste-able.
+
+**CURRENT STATUS (2026-07-07):** v1.2 is fully built + committed on branch `v1.2-per-seat-model-effort`
+in the repo — 5 commits, 24 stub-harness tests green, adversarial code-review done (0 crit / 0 high;
+all 2-medium + low findings fixed). Ships: the **systemic** silent-corruption guard (now IN the repo +
+git, closing the old deployment gap and superseding the Pass-0-only band-aid), per-seat model+effort
+via a 3-layer resolver (Quick/Balanced/Max ceiling + optional per-judge pins; Fable only on the two
+judges), the batched-AskUserQuestion setup + review-point rework, CHANGELOG.md, README updates, and the
+version bump to 1.2.0. **Real end-to-end run DONE (2026-07-07):** a full Light 0→4 hands-off run on the
+expense-tracker toy (`v12-smoke`, model_tier=balanced, 400k output-cap) completed ALL 5 passes — 21
+agents, 0 errors / 0 empty results, ~786k tokens / ~17 min — the Fable judges + every per-seat model
+ran live, and the artifacts are real + evidence-grounded (a coherent minimal-diff CSV-export build plan
+that read the actual cli.py/store.py; kill-report correctly single-family-labeled; 5 scope-creep drops,
+3 survivors). A separate model-id check confirmed haiku/sonnet/opus/fable are all valid engine ids incl.
+fable:max. (The 400k cap never tripped — real output stayed under it, so the "smoke" run became a full
+validation.) **PUBLISHED + LIVE (2026-07-07):** merged to `main` (`9dca67e`, via `-s ours` over two
+band-aid commits that had landed on remote main — `1fe2dd8` gemini flags + `300da7e` null-map/dry-judge
+— which v1.2 fully subsumes: gemini flags + dry-judge verbatim, `if(!map)` superseded by the systemic
+guard), tagged `v1.2.0`, pushed to origin. Live install refreshed: registry `discover@discover` → new
+`.../cache/discover/discover/1.2.0` dir + marketplace clone pulled to v1.2 (24-test harness green on the
+live copy). Takes effect in the next session (plugins load at startup). **Nothing owed — v1.2 is live.**
 
 **What this item is:** the single home for the discover plugin's evolution — every version, what
 changed, what worked / didn't and why, the reusable facts, and the spec for the next version.
@@ -25,9 +63,9 @@ this is the canonical ongoing log.
   - Pipeline script (every agent seat is spawned here): `skills/discover/workflows/discover-pipeline.js`
   - Front-of-house: `skills/discover/SKILL.md` · artifact inventory: `skills/discover/references/pass-templates.md`
   - README: `README.md` (+ mirror `/root/work/claude-discover-publish/extracted/discover-plugin/README.md`)
-  - Version: `.claude-plugin/plugin.json` (currently `1.1.0`) + `.claude-plugin/marketplace.json`
+  - Version: `.claude-plugin/plugin.json` (currently `1.3.0`) + `.claude-plugin/marketplace.json`
   - Test rig: `tests/run-harness.mjs` (stub harness, keep green) · `tests/e2e-evidence.md`
-- **Installed/live copy (read to compare, do NOT edit):** `/root/.claude/plugins/cache/discover/discover/1.1.0/skills/discover/`
+- **Installed/live copy (read to compare, do NOT edit):** `/root/.claude/plugins/cache/discover/discover/1.3.0/skills/discover/`
 - **Design docs (in the WORKSPACE, not the plugin repo):**
   - Plan (14 tasks + code): `docs/superpowers/plans/2026-07-02-discover-rebuild.md`
   - Spec (authority on ambiguity): `docs/superpowers/specs/2026-07-02-discover-rebuild-design.md`
@@ -40,11 +78,37 @@ this is the canonical ongoing log.
 
 ## Version history / changelog (newest first)
 
-### v1.2 — PLANNED (design 2026-07-06, no code yet)
-Per-seat model + effort allocation instead of every agent inheriting the session model; a
-Quick/Balanced/Max ceiling with auto-fill from measured complexity + optional per-seat pins; all
-fixed-choice setup questions moved to AskUserQuestion; run-style reworked into a multi-select of
-review points. **Full spec in the "v1.2 spec" section below.**
+### v1.3.0 — SHIPPED + LIVE (2026-07-12; main `f42e784`, tag `v1.3.0` on chopra2007/claude-discover)
+Reusable codebase map. The last FULL scan is cached per repo at `<project>/.claude/discover/_map/`
+(system-map.md + meta.json with the git commit it was built from). Next run auto-decides: nothing
+changed → reuse verbatim, zero mappers; ≤100 changed files → ONE sonnet `delta-mapper` re-reads only
+those and patches the map; else (missing cache / too stale / git unknown / `remap=fresh`) → full
+fan-out, which is the only thing that rolls the cache forward (delta-patch errors can never compound).
+Also fixed the same-run-restart hole: a `from_pass:0` relaunch whose run dir already holds
+`pass-0-system-map.md` reparses it instead of re-running mappers (the Jul-6 run had paid for its map 3×).
+Inline overrides `remap=fresh` / `remap=reuse`. Implementation notes vs the spec: the pipeline script
+can't touch disk/git itself, so the cache probe (read `_map/` + `git diff --name-only sha..HEAD` +
+`git status --porcelain`) rides the existing haiku `bootstrap` agent (new S_BOOT fields: map_cache,
+map_cache_sha, git_diff_ok, changed_since_cache); noise paths (`.claude/`, `.omc/`, `.git/`) are
+filtered in-script so artifact churn never defeats the cache; the reuse path copies the cached file
+verbatim (no lossy re-render). +8 harness tests (32 total). Live-validated on the toy repo: full→cache
+(real sha `f412635`), reuse (2 agents, ~62k tokens vs ~216k full), delta (picked up the new `count()`
+function), restart-reuse. Commit `f42e784`.
+
+### v1.2.0 — SHIPPED + LIVE (2026-07-07; main `9dca67e`, tag `v1.2.0` on chopra2007/claude-discover)
+Per-seat model + effort via a resolver (L1 auto-from-complexity < L2 Quick/Balanced/Max ceiling < L3
+per-seat pin; Fable only on the two judges; approach-enum upgraded haiku→Opus); the **systemic**
+dead-agent guard (run-level `failed[]` + boundary halt at every pass, subsuming the Pass-0-only
+band-aid); batched-AskUserQuestion setup + review-point rework (run_style derived from the ticks);
+CHANGELOG.md, README + version bump to 1.2.0. Also ported the 2 other live-only fixes (dry-judge
+"NOT a generator" hardening, Gemini `--skip-trust -y -m gemini-flash-latest`) and fixed the Gemini
+booster-health probe. **24 stub-harness tests** (topology + 12 death-halt/floor + 6 resolver).
+Adversarial review: 0 crit / 0 high; the 2 medium + lows all fixed (F1 researcher-wipeout floor,
+F2 primary-synth cross-burst hand-off, F3 from_pass:4 reparse guard). Commits: `891f109` systemic
+guard · `3085d1f` resolver · `5193bd7` setup UI · `02248a0` release docs · `4657655` review fixes.
+All release steps DONE (2026-07-07): real Light 0→4 validation passed, merged to `main` (`9dca67e`),
+tagged `v1.2.0`, pushed, live install refreshed to the 1.2.0 cache. **Nothing owed.** **Full spec in
+the "v1.2 spec" section below.**
 
 ### v1.1.0 — 2026-07-02 (commit `e975d23`) — the Workflow-engine rebuild
 Complete rewrite so passes 0–4 run on Claude Code's built-in Workflow engine (clean context,
@@ -82,6 +146,19 @@ replaced by the v1.1.0 engine rebuild.
   a live_probe per feature).
 
 ### What didn't work / gotchas (avoid / carry the fix forward)
+- **⚠️ PROCESS SLIP (2026-07-07, running #67 via discover on the bot repo) — skipped the mandatory
+  setup questions on a resume.** Two specific misses, both against the skill's own rule that "setup
+  answers are parameter inputs, never silently defaulted":
+  1. The #67 TODO pre-set Thoroughness / review-style / stop-point but did **not** specify the **model
+     tier** — I silently defaulted it to Balanced instead of surfacing it for the user to choose.
+  2. The **Gemini booster was down** (transient 503). The skill says to ask the user "pause & fix /
+     proceed without it" — I decided to proceed on my own instead of asking.
+  Mitigating fact (why the in-flight run wasn't actually harmed, but this is luck not process): a
+  `from_pass:1→2` burst runs only research + filter, and neither the model tier (tunes the Pass-3/4
+  judges) nor the boosters (Pass-4 cross-model only) touch those passes. **Lesson: present the batched
+  setup question — and the booster pause/proceed question — even on a RESUME and even under a global
+  "no-confirmation" rule. They are parameter inputs, not yes/no gates; an unspecified one (model tier)
+  must be asked, never defaulted.**
 - **⚠️ CRITICAL — silent corruption on an API error (the run that burned ~3.9M tokens, 2026-07-06).**
   During a real run, the `architect-merge` step (Pass 0) hit an API *server_error*. Its retry did real
   work, but the result never fed back into the pipeline's internal `map` variable, so `map` came back
@@ -110,6 +187,13 @@ replaced by the v1.1.0 engine rebuild.
       else abort; LOG any partial losses" — so a total wipeout can never fabricate from nothing;
   (d) mark genuinely-advisory calls (`xmodel` cross-model auditor, `coherence-check`) `optional:true` so
       they don't trip the flag. The dry-judge hardening then becomes belt-and-suspenders.
+  **✅ DEPLOYMENT GAP — RESOLVED 2026-07-07 (in the v1.2 branch, commit `891f109`).** The v1.2 build
+  implemented the SYSTEMIC guard in the repo — a run-level `failed[]` + boundary halt at every pass that
+  subsumes the live Pass-0-only `if (!map)` band-aid — and ported the dry-judge hardening + Gemini CLI
+  flags. All three live-only fixes are now IN the repo + git on branch `v1.2-per-seat-model-effort`, so a
+  publish from the repo no longer re-introduces the bug. It also closed 3 edges the band-aid never had
+  (researcher total-wipeout, primary-synth cross-burst hand-off, redundancy-verifier crash). Residual:
+  the LIVE installed copy is still v1.1.0 (band-aid only) until v1.2 is published. (Original gap below, for history.)
   **DEPLOYMENT GAP (verified 2026-07-06, ~3h after the fix session):** both fixes are PRESENT in the
   LIVE installed copies — `…/cache/discover/discover/1.1.0/…` (guard at line 292, dry-judge at line 145)
   and the `…/marketplaces/discover/…` copy (both mtime 07-06 18:00 PT) — but **ABSENT from the
@@ -263,8 +347,133 @@ Run-style rework details:
 
 ---
 
+## Optional future change — `from_pass=1` resume (documented, NOT shipped)
+
+**Why this is here (user request 2026-07-07):** TODO #67 needed to resume a discover run at the
+*research* pass — reuse an already-saved `pass-0-system-map.md` and run Research + Filter fresh,
+skipping the codebase re-scan. The installed plugin can't do that: the burst dispatcher's `else` branch
+(any `from_pass>0`) only reparses saved artifacts and jumps to kill/plan, so a `from_pass:1` burst
+reparses the map and then runs *nothing*. This capability was added + used for the single #67 run
+(validated: Deep `from_pass:1→2` → completed `[1,2]`, 39 agents, 0 errors, 40 grounded ideas) and then
+**reverted** — wanted for that run only, not permanent. This is the copy-paste recipe to make it
+permanent if ever wanted.
+
+**The change — one spot:** `skills/discover/workflows/discover-pipeline.js`, the `else` branch of the
+burst dispatcher (~line 397, right after `if (reparse) map = reparse`). Replace:
+
+```js
+    if (A.from_pass <= 3) { // filtered.kept only feeds passKill (from_pass<=3); a from_pass:4 resume never uses it, so don't halt on its reparse
+      const refilter = await call(`${PRE}\nParse the saved pass-2 artifact back into {kept, drops} structured form. HUMAN CHECKPOINT EDITS OVERRIDE the artifact - apply them (drop = remove from kept; note rewordings): edits=${JSON.stringify(boot.user_edits)}\nARTIFACT:\n${boot.artifacts.filtered}`, { label: 'reparse-filtered', phase: 'Bootstrap', schema: S_FILTER })
+      filtered = refilter || { kept: [], drops: [] }
+    }
+    if (failed.length) return partialReturn(completed, deathMsg())
+```
+
+with (move the death-halt guard to fire right after the map reparse, add a `from_pass===1` branch that
+runs the same research→filter tail as a fresh `from_pass:0` run minus `passMap()`, and add a guard after
+the filtered reparse):
+
+```js
+    if (failed.length) return partialReturn(completed, deathMsg())
+    if (A.from_pass === 1) {
+      // Resume with the saved Pass-0 map: run Research + Filter fresh (the from_pass:0 tail, minus passMap).
+      if (!gate(1)) return partialReturn(completed, 'Budget exhausted before Pass 1.')
+      candidates = await passResearch(map)
+      if (failed.length) return partialReturn(completed, deathMsg())
+      completed.push(1)
+      if (!gate(2)) return partialReturn(completed, 'Budget exhausted after Pass 1.')
+      filtered = await passFilter(map, candidates, boot.artifacts.outcomes_prior, boot.user_edits)
+      if (failed.length) return partialReturn(completed, deathMsg())
+      completed.push(2)
+    } else if (A.from_pass <= 3) { // filtered.kept only feeds passKill (from_pass<=3); a from_pass:4 resume never uses it, so don't halt on its reparse
+      const refilter = await call(`${PRE}\nParse the saved pass-2 artifact back into {kept, drops} structured form. HUMAN CHECKPOINT EDITS OVERRIDE the artifact - apply them (drop = remove from kept; note rewordings): edits=${JSON.stringify(boot.user_edits)}\nARTIFACT:\n${boot.artifacts.filtered}`, { label: 'reparse-filtered', phase: 'Bootstrap', schema: S_FILTER })
+      filtered = refilter || { kept: [], drops: [] }
+      if (failed.length) return partialReturn(completed, deathMsg())
+    }
+```
+
+Passes 0/3/4 behave exactly as before. `from_pass:2` (reuse a saved *candidate* list) is still NOT
+handled — it falls through to the reparse-filtered branch; add it symmetrically only if needed (reparse
+`pass-1-candidates.md`, re-assign `c{i}` ids, then run `passFilter`).
+
+**Tests (`tests/run-harness.mjs`, +2 → 26 total):** a `savedMapBoot` responder returning
+`{ found:true, artifacts:{ map:'…', candidates:'', filtered:'', … } }`, then
+`from-pass-1-resume-runs-research-and-filter` (assert `completed_passes===[1,2]`, no mapper/architect
+ran, researcher + filter-analyst ran, `reparse-map` ran, no skeptic) and `from-pass-1-research-death-halts`
+(researcher returns null → run halts, Pass 1 not marked complete).
+
+**Ship steps if adopted:** bump `plugin.json` + `marketplace.json` (→ e.g. 1.2.1), add a CHANGELOG entry,
+re-run the harness (26 green), commit + tag + push (user OK), refresh the installed cache. The full patch
++ tests were validated live 2026-07-07 (local commit `e010f53`, since reverted — recoverable from this
+recipe or `git reflog` on `/root/work/claude-discover-publish/repo`).
+
+## v1.3 spec — reusable codebase map (SHIPPED 2026-07-12 — kept for history; see the v1.3.0 changelog entry above for what actually landed)
+
+**Goal:** a discover run should never re-read the whole repo when a fresh-enough map already exists.
+Reuse the saved map, and only re-read the files that changed since it was built.
+
+**Evidence (measured 2026-07-12 from the real agent transcripts under
+`/root/.claude/projects/-home-openclaw--openclaw-workspace/*/subagents/workflows/`):**
+
+| Run | Mappers | Tokens in the map phase | Share of that run |
+|---|---|---|---|
+| `todo-55-20-plan` (Jul 11, standard) | 3 + architect | ~4.6M (fresh-read portion ~0.8M) | ~23% |
+| `next-features-jul2026` (Jul 6–7, deep) | 5 + architect, **run 3×** | ~100M (fresh ~5M) | ~50% |
+
+Most of the volume is cached context re-reads (billed ~10%), but the fresh reading is real and repeats
+every run for a repo that barely changes week to week.
+
+**Two holes in `skills/discover/workflows/discover-pipeline.js` (v1.2.0):**
+
+1. **No reuse across runs.** `passMap()` (~line 196) always fans out `DIAL.mappers` agents that read the
+   repo from scratch. Prior runs' `pass-0-system-map.md` files are never consulted — `bootstrap()` only
+   reads the *current* run dir (plus other runs' `outcome.json`).
+2. **No reuse within a run.** The burst dispatcher (~line 385) does `if (A.from_pass === 0) { map = await
+   passMap() }` **unconditionally** — even when `boot.artifacts.map` is already on disk from an earlier
+   attempt at the same run. This is what paid for the Jul-6 map three times.
+
+**The change:**
+
+- **Repo-level map cache:** `<project_root>/.claude/discover/_map/system-map.md` + `_map/meta.json`
+  (`{git_sha, built_at, files_hashed_count, dial}`). `passMap()` writes it on every full map.
+- **Delta path.** At the start of `passMap()`: if the cache exists, get the changed files with
+  `git diff --name-only <cached_sha>..HEAD` (plus `git status --porcelain` for uncommitted work).
+  - 0 changed source files → reuse the cached map verbatim, **zero mapper agents**; log it.
+  - 1..N changed (N ≈ 100, tunable — this is the one judgment call) → **one** `delta-mapper` agent that
+    reads ONLY those files plus the cached map, and returns the patched map. Then the usual `synth` to
+    `pass-0-system-map.md`.
+  - more than N changed, cache missing, or `remap=fresh` typed by the user → full `DIAL.mappers` fan-out
+    exactly as today.
+- **Plug hole 2:** in the dispatcher, `if (A.from_pass === 0)` → reuse `boot.artifacts.map` (reparse it,
+  same as the `else` branch does) instead of calling `passMap()` when the current run dir already has a
+  map, unless the user forced a fresh map.
+- **User control:** honour a typed `remap=fresh` (force full) / `remap=reuse` (force cache, skip the git
+  check) in the setup step; default = auto (the rules above). Mention the choice in the burst summary
+  ("reused the map from commit abc1234, 12 files changed since — re-read only those").
+
+**Expected saving:** on a typical week-later run (~20 changed files) the map phase drops from
+3–5 whole-repo readers to one small delta reader — roughly 90% off Pass 0, which is 20–50% of the run.
+
+**Tests (`tests/run-harness.mjs`):** (a) cache present + no diff → `completed_passes` still includes 0,
+zero `mapper-*` agents ran, map artifact written from cache; (b) cache present + small diff → exactly one
+`delta-mapper` ran, no full mappers; (c) cache present + huge diff → full fan-out; (d) no cache → full
+fan-out (today's behaviour, unchanged); (e) same-run restart with `pass-0-system-map.md` on disk → no
+mapper agents.
+
+**Ship steps:** edit in `/root/work/claude-discover-publish/repo/`, bump to 1.3.0 (`plugin.json` +
+`marketplace.json`), CHANGELOG entry, harness green, one real Light 0→4 run to prove the delta path,
+commit + tag + push, refresh the installed cache at `/root/.claude/plugins/cache/discover/discover/`.
+
+**Open decision for the build session:** the "too stale, just re-map" threshold (files changed, and/or
+commits behind). Start at 100 changed source files; note whatever is picked in the script.
+
 ## Open questions for the build session
 - Exact Layer-1 effort thresholds (architecture-count / objection-count → medium vs high vs max). Pick + note in script.
 - Whether to expose `plan writers` / `skeptics` in the fine-override picker (recommendation: no — stop at the two judges).
 - Where the resolved (seat → model, effort) table is assembled (a small resolver from preset + pins + Layer-1 signals) and threaded into `agent()` calls.
 - Re-measure `passEst`/breaker after wiring models (spend shifts) and re-run the stub harness + one real Light 0→4.
+
+### Session notes — 2026-07-12
+- **Worked on:** Built, tested, and shipped v1.3.0 (reusable codebase map) end-to-end: pipeline change (~60 lines), 8 new harness tests (32 green), CHANGELOG/README/SKILL.md/version bumps, 4 real engine runs on the toy repo proving all paths, pushed main `f42e784` + tag `v1.3.0`, refreshed the installed 1.3.0 cache.
+- **Decisions:** kept the spec's cache-only-rolls-forward-on-full-scan rule (self-limits patch drift); cache probe rides the existing bootstrap agent (script can't run git itself); reuse path copies the cached file verbatim instead of re-rendering; staleness cap left at 100 changed files; noise paths (.claude/.omc/.git) filtered so artifact churn can't defeat the cache.
+- **Next:** nothing owed on v1.3. Next real discover run on the bot repo will build its cache on the first full scan, then get the savings.

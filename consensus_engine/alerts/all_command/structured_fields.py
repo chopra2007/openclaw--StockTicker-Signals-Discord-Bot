@@ -53,6 +53,17 @@ class StructuredFields:
     # #6 !all levers — code-derived, embed-only (peer_strength also feeds the
     # narrator when its mode is the clean curated-peer mean; see narrator.py).
     max_pain: Optional[dict] = None       # {"spot", "weekly": {...}|None, "monthly": {...}|None}
+    # Stage-3 options-chain legs — descriptive, embed-only (NOT fed to narrator),
+    # each behind a config flag default OFF.
+    gex: Optional[dict] = None            # k4/k5 — front-N-exp dealer GEX + gamma-flip
+    iv_skew: Optional[dict] = None        # r10 — put-minus-call IV skew (basis-labelled)
+    oi_pinning: Optional[dict] = None     # r16 — OI-pinning HHI concentration near opex
+    skew_index: Optional[dict] = None     # r8 — CBOE ^SKEW tail-risk reading {value, band}
+    # Stage-4 vol-context legs — descriptive context, fed to embed AND narrator
+    # (the ONLY new narrator inputs this stage adds), each behind a config flag default OFF.
+    iv_rv_tag: Optional[dict] = None      # k7 — {tag, atm_iv, realized_vol, ratio} cheap/rich vol read
+    squeeze_state: Optional[dict] = None  # r9 — {squeeze, bb_width, kc_width} Bollinger-in-Keltner coiling
+    pead: Optional[dict] = None           # r17 — {classification, drift_pct, days_since, ...} post-earnings drift (embed-only, NOT narrator)
     peer_strength: Optional[dict] = None  # {stock_pct, benchmark_pct, delta, verdict, benchmark_label, mode, narrator_ok, ...}
     snapshot: Optional[dict] = None       # #6 analyst target + rating + fwd P/E + short interest (yfinance .info); embed-only
     risk_reward: Optional[float] = None   # #6 reward:risk of the computed plan (reward per 1.0 risk); embed-only
@@ -246,6 +257,77 @@ def compute_realized_daily_move(candles, lookback: int = 10) -> Optional[float]:
     if sigma <= 0 or last_close <= 0:
         return None
     return round(sigma * last_close, 4)
+
+
+def compute_iv_rv_tag(
+    atm_iv,
+    daily_candles,
+    rich_threshold: float = 1.25,
+    cheap_threshold: float = 0.85,
+) -> Optional[dict]:
+    """k7 (vol-context) — cheap-vs-rich vol tag from IV minus RV.
+
+    Compares the option-implied ATM vol (`atm_iv`, annualized decimal from
+    expected_move.compute_em) against the ticker's OWN 20-day annualized realized
+    vol, computed with the SAME method as regime.py:_compute_regime (population
+    std of daily log returns × sqrt(252)) so IV and RV are apples-to-apples.
+
+    Tag on the ratio IV/RV: 'rich' when ratio >= rich_threshold, 'cheap' when
+    ratio <= cheap_threshold, else 'fair'. Returns
+    {tag, atm_iv, realized_vol, ratio} — or None (no field, never a fabricated
+    'fair') when atm_iv is NaN/non-finite/<=0, there are fewer than 21 numeric
+    positive closes, or the realized vol is non-positive.
+
+    Descriptive-only: never enters score_breakdown, confidence, or any trigger.
+    """
+    # IV leg — NaN/non-finite guard (expected_move sets atm_iv to NaN when the
+    # chain has no finite IV; expected_move.py:240).
+    try:
+        iv = float(atm_iv)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(iv) or iv <= 0:
+        return None
+
+    # RV leg — the ticker's own closes, mirroring regime.py:_compute_regime.
+    if not isinstance(daily_candles, list):
+        return None
+    closes: list[float] = []
+    for c in daily_candles:
+        if not isinstance(c, dict):
+            continue
+        v = c.get("close")
+        try:
+            f = float(v)
+        except (TypeError, ValueError):
+            continue
+        if math.isnan(f) or math.isinf(f) or f <= 0:
+            continue
+        closes.append(f)
+    # 20 log returns need >= 21 closes.
+    if len(closes) < 21:
+        return None
+    returns = [math.log(closes[i] / closes[i - 1]) for i in range(1, len(closes))]
+    recent_20 = returns[-20:]
+    mean_ret = sum(recent_20) / len(recent_20)
+    var_20 = sum((r - mean_ret) ** 2 for r in recent_20) / len(recent_20)
+    realized_vol = math.sqrt(var_20 * 252)  # annualized — matches regime.py
+    if realized_vol <= 0:
+        return None
+
+    ratio = iv / realized_vol
+    if ratio >= rich_threshold:
+        tag = "rich"
+    elif ratio <= cheap_threshold:
+        tag = "cheap"
+    else:
+        tag = "fair"
+    return {
+        "tag": tag,
+        "atm_iv": iv,
+        "realized_vol": realized_vol,
+        "ratio": round(ratio, 3),
+    }
 
 
 def compute_confidence_label(

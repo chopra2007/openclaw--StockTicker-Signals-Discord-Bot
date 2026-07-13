@@ -563,7 +563,8 @@ async def analyze_signal(
         high_check = cfg.get("precision_engine.thresholds.high_confidence", 80)
         if score >= high_check or cfg.get("features.strong_requires_hard_evidence.enabled", False):
             try:
-                _resolved_analyst_lb = await db.get_analyst_precision_lb(analyst, horizon="1h", min_n=10)
+                # #62: horizon resolves via db.analyst_horizon() (flag-gated).
+                _resolved_analyst_lb = await db.get_analyst_precision_lb(analyst, min_n=10)
             except Exception as _lb_exc:
                 log.debug("[I10] analyst LB lookup failed for %s: %s", analyst, _lb_exc)
 

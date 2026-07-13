@@ -1,7 +1,9 @@
 # Redesign the CLAUDE.md DoD checklist to be scope-aware
 
-**Status:** REOPENED 2026-06-06 — marked DONE 2026-05-22 but acceptance #1 was never applied. CLAUDE.md still has the flat "What to verify" list (current lines 93-100: "Test the whole feature" / "Always-on checks" / "Shared-file tripwire"), NOT the tag-keyed buckets (`[always]`/`[gateway]`/`[discord-commands]`/`[agent-mention]`/`[infra]`/`[ingest]`) the acceptance required (verified: zero tag buckets in CLAUDE.md). The CLAUDE.md restructure is left as tracked work for the user — NOT done in this audit run.
+**Status:** DONE 2026-07-12 — CLAUDE.md restructured into scope-aware buckets; all 4 acceptance criteria met (acceptance test: yt-only commit `baf879e` triggers `[always]`+`[ingest]` only).
 **Created:** 2026-05-22
+
+**CURRENT STATUS (2026-07-12):** DONE — the redesign is applied to CLAUDE.md (user go, this session). (1) "What to verify" #3 is now a 6-bucket scope table (`[always]`/`[discord-commands]`/`[agent-mention]`/`[gateway]`/`[infra]`/`[ingest]`) with per-bucket checks; (2) buckets are chosen automatically from `git diff --name-only` (kickoff `surfaces:` list overrides — zero per-session ceremony); (3) the Definition of Done "no exemptions" rule now applies only within triggered buckets, and an untouched-bucket failure must be reported in one sentence + put on the TODO list instead of blocking done; (4) acceptance test passed: `baf879e` (yt-chain-fixes, only `local_video_ingest.py`) triggers `[always]`+`[ingest]`, NOT `[discord-commands]`/`[agent-mention]`. Safety nets that made the scoping acceptable: shared-file tripwire kept (cross-bucket files trigger every user), verifier Stop hook (#69), daily drift checks.
 
 **Layperson:** The "Critical paths for this project" list in CLAUDE.md (lines 17-23) was built up incident-by-incident — every time a prior session declared something "done" while something else was broken, that broken thing got added to the list. The result is a "check everything every time" checklist that's mostly unrelated to whatever I'm currently working on, and it creates a perverse incentive: when one of those checks fails for reasons unrelated to my changes, the DoD rules forbid me to call it "pre-existing", so I'd be forced to fix unrelated bugs before claiming my own work is done.
 
@@ -66,3 +68,9 @@ A feature batch declares its surfaces in the kickoff prompt / discover state.jso
 ## Out of scope
 - Tagging every existing memory entry / past commit. Just the forward-looking DoD.
 - Re-running historical DoD checks against past sessions.
+
+### Session notes — 2026-07-12
+
+- **Worked on:** Applied the 2026-05-22 redesign (reconciled with today's CLAUDE.md, which had since grown the always-on list and shared-file tripwire — both kept). Two surgical CLAUDE.md edits: DoD intro scoped to triggered buckets + report-don't-block rule for untouched buckets; "Always-on checks" item replaced by the 6-bucket table with path triggers.
+- **Decisions:** Implicit path-pattern detection chosen over per-batch declarations (nothing to remember or forget); explicit `surfaces:` override still honored. Shared files remain cross-cutting via the tripwire.
+- **Next:** none — item closed. If the bucket table drifts from the real layout, fix the table (it names concrete paths on purpose).

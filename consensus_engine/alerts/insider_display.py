@@ -192,11 +192,14 @@ def aggregate_insiders(transactions: list) -> tuple[list[InsiderSummary], int]:
 # ── renderers ──────────────────────────────────────────────────────────────
 
 def render_cards(summaries: list[InsiderSummary], routine_count: int,
-                 note: str = "") -> str:
+                 note: str = "", context_lines: list[str] | None = None) -> str:
     """Fenced code-block labeled stack — used by `!sec` and the Score card.
 
     Returns a ```-fenced string; `note` (e.g. '+3 more insiders') is appended
-    inside the fence when a caller has trimmed the list to fit a cap.
+    inside the fence when a caller has trimmed the list to fit a cap. `context_lines`
+    (Stage-6 insider-disclosure legs: Form 144 intent-to-sell / 10b5-1 plan state /
+    Congress trades) are appended inside the fence when present; when None/empty the
+    output is byte-identical to before, so every OFF-flag surface is unchanged.
     """
     blocks: list[str] = []
     for s in summaries:
@@ -215,15 +218,21 @@ def render_cards(summaries: list[InsiderSummary], routine_count: int,
         body += f"\n\n+{routine_count} routine award / option transactions"
     if note:
         body += f"\n{note}"
+    for line in (context_lines or []):
+        if line:
+            body += f"\n{line}"
     return f"```\n{body}\n```"
 
 
 def render_all_field(summaries: list[InsiderSummary], routine_count: int,
-                     max_chars: int = 1024) -> str:
+                     max_chars: int = 1024,
+                     context_lines: list[str] | None = None) -> str:
     """Clean bold plain-text form for the `!all` card (no code block).
 
     Two lines per insider; bold name and numbers. Trimmed to `max_chars`
     (Discord's embed-field limit) with a '+N more insider(s)' tail if needed.
+    `context_lines` (Stage-6 insider-disclosure legs) are appended when present;
+    when None/empty the output is byte-identical to before.
     """
     lines: list[str] = []
     shown = 0
@@ -243,18 +252,30 @@ def render_all_field(summaries: list[InsiderSummary], routine_count: int,
         lines.append(f"+{remaining} more insider(s)")
     if routine_count:
         lines.append(f"*+{routine_count} routine award / option transactions*")
+    for line in (context_lines or []):
+        if line:
+            lines.append(line)
     return "\n".join(lines)
 
 
 def render_evidence(summaries: list[InsiderSummary], routine_count: int,
-                    notable: bool) -> list[str]:
+                    notable: bool,
+                    context_lines: list[str] | None = None) -> list[str]:
     """Plain-text lines fed to the `!all` write-up LLM. `notable` marks a set
-    whose aggregate open-market value cleared the configured buy/sell floor."""
+    whose aggregate open-market value cleared the configured buy/sell floor.
+
+    `context_lines` (Stage-6 insider-disclosure legs) are appended as extra evidence
+    lines when present — including when there are no open-market Form 4 trades (e.g.
+    a Form 144 intent-to-sell on a ticker with no recent buys). When None/empty the
+    output is byte-identical to before.
+    """
+    ctx = [l for l in (context_lines or []) if l]
     if not summaries:
         if routine_count:
-            return ["Recent Form 4 filings were routine awards / option "
+            base = ["Recent Form 4 filings were routine awards / option "
                     "exercises / tax withholding — no open-market conviction trades."]
-        return []
+            return base + ctx
+        return list(ctx)
     out = [("NOTABLE — " if notable else "")
            + "open-market insider (Form 4) transactions:"]
     for s in summaries:
@@ -266,4 +287,5 @@ def render_evidence(summaries: list[InsiderSummary], routine_count: int,
     if routine_count:
         out.append(f"  plus {routine_count} routine award / option "
                    f"transaction(s) (collapsed).")
+    out.extend(ctx)
     return out

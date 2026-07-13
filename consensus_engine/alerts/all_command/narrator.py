@@ -952,6 +952,27 @@ def _build_synthesis_prompt(
         "earnings_date": getattr(structured, "earnings_date", None),
         "final_score": final_score,
     }
+    # Stage-4 vol-context (k7 IV-vs-RV vol read, r9 squeeze) — DESCRIPTIVE CONTEXT
+    # only, framed explicitly as vol/coiling context and NOT a directional buy/sell
+    # call, never a score input. Added ONLY when present (flags ON + data), so a
+    # flag-OFF narrative is byte-identical. No Stage-3 options leg is ever fed here.
+    _iv_rv = getattr(structured, "iv_rv_tag", None)
+    if isinstance(_iv_rv, dict) and _iv_rv.get("tag"):
+        _iv = _iv_rv.get("atm_iv")
+        _rv = _iv_rv.get("realized_vol")
+        if isinstance(_iv, (int, float)) and isinstance(_rv, (int, float)):
+            computed_signal["vol_read"] = (
+                f"options are pricing {_iv_rv['tag']} volatility "
+                f"(implied {_iv * 100:.0f}% vs realized {_rv * 100:.0f}%) — "
+                f"context on how expensive options are, NOT a price direction"
+            )
+    _sq = getattr(structured, "squeeze_state", None)
+    if isinstance(_sq, dict) and _sq.get("squeeze"):
+        computed_signal["volatility_squeeze"] = (
+            "price is coiling in a low-volatility squeeze (Bollinger bands inside "
+            "Keltner) — a compression/context read that a range may be resolving, "
+            "NOT a bullish or bearish signal by itself"
+        )
     # #6 peer relative strength — directional, so feed the thesis. UNCONDITIONAL
     # block (survives the swing_v2 emergency-revert). Only the clean curated-peer
     # mean is fed (narrator_ok); the ETF-fallback benchmark includes the stock

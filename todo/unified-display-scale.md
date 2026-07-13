@@ -1,6 +1,6 @@
 # Show every score on one consistent scale (e.g. 0 = low, 100 = high)
 
-**Status:** OPEN
+**Status:** DONE 2026-06-21 — status line backfilled 2026-07-12 (TODO #72 cleanup; the header and session notes had already recorded completion).
 **Created:** 2026-06-17
 
 ## The problem (user, 2026-06-17)

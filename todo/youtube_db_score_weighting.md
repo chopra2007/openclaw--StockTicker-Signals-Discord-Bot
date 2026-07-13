@@ -1,6 +1,6 @@
 # YouTube DB Score Weighting Research
 
-**Status:** OPEN
+**Status:** DONE 2026-06-01 — status line backfilled 2026-07-12 (TODO #72 cleanup; the header and session notes had already recorded completion).
 **Created:** 2026-05-30
 
 ## Goal

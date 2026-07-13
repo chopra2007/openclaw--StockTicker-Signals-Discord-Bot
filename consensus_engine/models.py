@@ -267,6 +267,8 @@ class ScoreBreakdown:
     options_flow: int = 0
     consensus_boost: int = 0
     finra_short_volume: int = 0   # E1 FINRA daily short-vol z-score confluence term
+    days_to_cover: int = 0        # r12 FINRA settlement short-interest days-to-cover confluence term (flag OFF default)
+    pead: int = 0                 # r17 post-earnings-drift confluence term (flag OFF default)
 
     @property
     def total(self) -> int:
@@ -274,7 +276,7 @@ class ScoreBreakdown:
                 + self.sec_filing + self.social_apewisdom + self.social_stocktwits
                 + self.social_reddit + self.google_trends + self.technical
                 + self.llm_boost + self.youtube + self.options_flow + self.consensus_boost
-                + self.finra_short_volume)
+                + self.finra_short_volume + self.days_to_cover + self.pead)
 
 
 @dataclass

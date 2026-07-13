@@ -336,7 +336,8 @@ def _build_help_embed() -> dict:
                 "name": "🔥  Scanners",
                 "value": (
                     "`!apewisdom` — ApeWisdom trending tickers\n"
-                    "`!leaderboard` — analyst win-rate rankings"
+                    "`!leaderboard` — analyst win-rate rankings\n"
+                    "`!catalysts` — catalyst calls graded against their own sector"
                 ),
                 "inline": False,
             },
@@ -350,7 +351,7 @@ def _build_help_embed() -> dict:
                 "inline": False,
             },
         ],
-        "footer": {"text": "OpenClaw Signal Engine · 31 commands"},
+        "footer": {"text": "OpenClaw Signal Engine · 32 commands"},
     }
 
 
@@ -497,6 +498,9 @@ async def _route_command_inner(
     elif command == "leaderboard":
         await _handle_leaderboard(channel_id, message_id)
 
+    elif command in ("catalysts", "catalyst"):
+        await _handle_catalysts(channel_id, message_id)
+
     elif command in ("source-health", "source_health"):
         await _handle_source_health(channel_id, message_id)
 
@@ -570,6 +574,13 @@ async def _route_command_inner(
 
     elif command in ("market", "rotation", "breadth", "regime"):
         await _handle_market(channel_id, message_id)
+
+    elif command == "short":
+        await _run_ticker_command(
+            args, channel_id, message_id,
+            work=lambda t: _handle_short(t, channel_id, message_id),
+            mode="sequential", cap=5,
+            usage="Usage: `!short <TICKER>` — e.g. `!short NVDA` (FINRA settlement short-interest + days-to-cover trend)")
 
     else:
         await send_command_reply(channel_id, message_id, f"Unknown command `!{command}`. Try `!help`.")
@@ -1317,6 +1328,17 @@ async def _handle_alert_history(ticker: str, channel_id: str, message_id: str) -
         await send_command_reply(channel_id, message_id, f"Alert history unavailable for `${ticker}`.")
 
 
+def _pooled_prior(pairs: list[tuple[int, int]]) -> tuple[float, float]:
+    """(pooled_mean, pooled_var) of win rates across (wins, n) pairs — the prior
+    db.eb_shrink() pulls thin records toward. (0, 0) when under 2 usable rows."""
+    rates = [w / n for w, n in pairs if n > 0]
+    if len(rates) < 2:
+        return 0.0, 0.0
+    m = sum(rates) / len(rates)
+    v = sum((x - m) ** 2 for x in rates) / (len(rates) - 1)
+    return m, v
+
+
 async def _handle_leaderboard(channel_id: str, message_id: str) -> None:
     """Show analyst performance leaderboard."""
     try:
@@ -1325,19 +1347,81 @@ async def _handle_leaderboard(channel_id: str, message_id: str) -> None:
         if not stats:
             await send_command_reply(channel_id, message_id, "No analyst performance data yet.")
             return
-        lines = ["**Analyst Leaderboard**"]
+        # Small-sample adjustment (#55 EB shrinkage) on the same 24h stats shown:
+        # a 3-of-5 no longer reads as a flat 60% next to a 200-alert veteran.
+        m, v = _pooled_prior([(s["wins_24h"], s["total_alerts"]) for s in stats])
+        lines = ["**Analyst Leaderboard**",
+                 "_adj = small-sample adjusted: thin records get pulled toward the group average_"]
         for i, s in enumerate(stats[:15], 1):
             sign = "+" if s["avg_pnl_1h"] >= 0 else ""
+            adj = ""
+            if v > 0 and s["total_alerts"]:
+                shrunk = db.eb_shrink(s["wins_24h"], s["total_alerts"], m, v)
+                adj = f" | adj 24h: {100 * shrunk:.0f}%"
             lines.append(
                 f"**{i}.** `@{s['analyst']}` -- "
                 f"{s['total_alerts']} alerts | "
                 f"1h: {s['win_rate_1h']:.0f}% ({sign}{s['avg_pnl_1h']:.1f}%) | "
-                f"24h: {s['win_rate_24h']:.0f}%"
+                f"24h: {s['win_rate_24h']:.0f}%{adj}"
             )
         await send_command_reply(channel_id, message_id, "\n".join(lines))
     except Exception as e:
         log.error("Leaderboard command error: %s", e)
         await send_command_reply(channel_id, message_id, "Leaderboard unavailable.")
+
+
+async def _handle_catalysts(channel_id: str, message_id: str) -> None:
+    """#55 catalyst scorecard — SHADOW data, display-only; feeds no alert tier."""
+    try:
+        from consensus_engine import db
+        card = await db.get_catalyst_scorecard()
+        if not card["total_rows"]:
+            await send_command_reply(
+                channel_id, message_id,
+                "No catalyst-graded calls yet — the nightly grader fills this in.")
+            return
+
+        lines = [
+            "**Catalyst Scorecard** — analyst calls that named a real catalyst, graded "
+            "against the stock's own sector over the ~month after the call.",
+            "_a win = beat the sector ETF in the called direction · adjusted = small "
+            "samples pulled toward the group average_",
+            "",
+        ]
+        m, v = _pooled_prior([(int(a["wins"] or 0), int(a["n"])) for a in card["analysts"]])
+        for a in card["analysts"][:15]:
+            wins, n = int(a["wins"] or 0), int(a["n"])
+            seg = f"`@{a['handle']}` — {wins} of {n} beat their sector"
+            if v > 0 and n:
+                seg += f" | adjusted: {100 * db.eb_shrink(wins, n, m, v):.0f}%"
+            # Contrast column: the analyst's overall alerted track record (every
+            # call, catalyst or not), same shrinkage, 24h horizon. Display-only —
+            # the promotion gate still reads the raw Wilson bound, untouched.
+            track = await db.eb_shrunk_precision(a["handle"], horizon="24h")
+            if track is not None:
+                seg += f" | all calls: {100 * track:.0f}%"
+            lines.append(seg)
+
+        if card["kinds"]:
+            lines += ["", "**By catalyst type**"]
+            for k in card["kinds"]:
+                wins, n = int(k["wins"] or 0), int(k["n"])
+                margin = 100 * float(k["mean_bhar"] or 0.0)
+                lines.append(f"`{k['kind']}` — {wins} of {n} | beat sector by {margin:+.1f} points on average")
+
+        tail = []
+        if card["open_short"]:
+            tail.append(f"{card['open_short']} calls still inside their 30-day window")
+        if card["bets"]:
+            status = ", ".join(f"{s}: {c}" for s, c in sorted(card["bets"].items()))
+            tail.append(f"{sum(card['bets'].values())} long-horizon bets ({status})")
+        if card["last_graded_at"]:
+            tail.append(f"last graded {_fmt_opt_pt(card['last_graded_at'])} (PT)")
+        lines += ["", "_" + " · ".join(tail + ["research view — does not change alerts"]) + "_"]
+        await send_command_reply(channel_id, message_id, "\n".join(lines))
+    except Exception as e:
+        log.error("Catalysts command error: %s", e)
+        await send_command_reply(channel_id, message_id, "Catalyst scorecard unavailable.")
 
 
 async def _handle_source_health(channel_id: str, message_id: str) -> None:
@@ -1892,6 +1976,7 @@ def _build_market_embed(
     trend_row: Optional[dict],
     breadth_row: Optional[dict],
     breadth_note: str,
+    market_breadth_row: Optional[dict] = None,
 ) -> dict:
     """Render the four persisted daily reads into one Discord embed (pure).
 
@@ -1973,6 +2058,31 @@ def _build_market_embed(
             "name": "🐂  Our own signal breadth",
             "value": (f"Net {net:+d} ({nb} bullish − {ns} bearish tickers), "
                       f"trend z-score {z:+.2f} → {lean}.\n_{breadth_note}_"),
+            "inline": False,
+        })
+
+    # --- r20 whole-market participation (RSP/SPY equal-vs-cap-weight proxy) -----
+    # DISTINCT data from the bot's own signal breadth above: is the AVERAGE stock
+    # keeping up, or are a few mega-caps carrying the tape? Descriptive only.
+    if market_breadth_row:
+        state = market_breadth_row.get("breadth_state", "flat")
+        rsp_trend = market_breadth_row.get("rsp_spy_trend")
+        win = market_breadth_row.get("window_days", 20)
+        state_txt = {
+            "broadening": "Broadening — the average stock is keeping up with the mega-caps",
+            "narrowing": "Narrowing — a few mega-caps are carrying the tape",
+            "flat": "Flat — participation is roughly steady",
+        }.get(state, state)
+        line = state_txt
+        if isinstance(rsp_trend, (int, float)):
+            line += (f" (equal-weight S&P vs cap-weight {rsp_trend:+.1f}% over ~{win} days)")
+        iwm_trend = market_breadth_row.get("iwm_spy_trend")
+        if isinstance(iwm_trend, (int, float)):
+            small = ("leading" if iwm_trend > 0 else "lagging")
+            line += f"\nSmall-caps vs large-caps: {iwm_trend:+.1f}% ({small})."
+        fields.append({
+            "name": "🌐  Market breadth (participation)",
+            "value": line,
             "inline": False,
         })
 
@@ -2117,8 +2227,22 @@ async def _handle_market(channel_id: str, message_id: str) -> None:
         trend_row = await market_panel.get_latest_row("trend_daily")
         breadth_row = await market_panel.get_latest_row("internal_breadth_daily")
 
+        # r20 whole-market participation proxy (RSP/SPY). Descriptive-only, gated
+        # OFF by default; computes live + forward-logs when the flag is ON.
+        market_breadth_row = None
+        if cfg.get("features.market_breadth.enabled", False):
+            try:
+                from consensus_engine.analysis import market_breadth as _mb
+                market_breadth_row = await _mb.forward_log_market_breadth(
+                    window_days=int(cfg.get("features.market_breadth.window_days", 20)),
+                    trend_threshold_pct=float(cfg.get("features.market_breadth.trend_threshold_pct", 0.5)),
+                )
+            except Exception as _mb_exc:
+                log.debug("market breadth unavailable: %s", _mb_exc)
+
         embed = _build_market_embed(
-            sector_rows, factor_rows, trend_row, breadth_row, LONG_BIAS_NOTE)
+            sector_rows, factor_rows, trend_row, breadth_row, LONG_BIAS_NOTE,
+            market_breadth_row=market_breadth_row)
         # #47 "better way": lead with the descriptive market-regime context
         # (Wolf market theses + confluence, then the volatility regime). Fail-soft —
         # the existing dashboard renders unchanged if these sources are unavailable.
@@ -2132,6 +2256,48 @@ async def _handle_market(channel_id: str, message_id: str) -> None:
     except Exception as e:
         log.error("!market command error: %s", e)
         await send_command_reply(channel_id, message_id, "Market context unavailable.")
+
+
+async def _handle_short(ticker: str, channel_id: str, message_id: str) -> None:
+    """!short — FINRA settlement short-interest + days-to-cover TREND (r12).
+
+    Reads the twice-monthly settlement series (distinct from the single yfinance
+    short-interest point). Read-only; shows 'no data yet' when the table is empty.
+    """
+    ticker = ticker.upper()
+    try:
+        hist = await db.get_finra_short_interest_history(ticker, limit=6)
+    except Exception as e:
+        log.error("!short DB error for %s: %s", ticker, e)
+        await send_command_reply(channel_id, message_id, "Short-interest data unavailable.")
+        return
+    if not hist:
+        await send_command_reply(
+            channel_id, message_id,
+            f"No FINRA settlement short-interest for `{ticker}` yet "
+            f"(twice-monthly feed; run the backfill or enable the loop).")
+        return
+    latest = hist[0]
+    lines = [f"**{ticker} — settlement short interest** (FINRA, twice-monthly)"]
+    si = latest.get("short_interest")
+    dtc = latest.get("days_to_cover")
+    pct = latest.get("pct_change")
+    when = latest.get("settlement_date")
+    head = f"Latest ({when}): "
+    parts = []
+    if si is not None:
+        parts.append(f"{si:,} shares short")
+    if dtc is not None:
+        parts.append(f"{dtc:.1f} days to cover")
+    if pct is not None:
+        parts.append(f"{pct:+.1f}% vs prior settlement")
+    lines.append(head + ", ".join(parts) + ".")
+    # Days-to-cover trend (oldest -> newest) so the reader sees the direction.
+    trend = [h for h in reversed(hist) if h.get("days_to_cover") is not None]
+    if len(trend) >= 2:
+        seq = " → ".join(f"{h['days_to_cover']:.1f}" for h in trend)
+        lines.append(f"Days-to-cover trend: {seq}")
+    await send_command_reply(channel_id, message_id, "\n".join(lines))
 
 
 # ---------------------------------------------------------------------------

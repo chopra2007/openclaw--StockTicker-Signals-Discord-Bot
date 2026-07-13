@@ -38,6 +38,8 @@ from consensus_engine.utils.http import close_session, get_session
 from consensus_engine.utils.tickers import is_valid_ticker, validate_ticker_market_cap
 from consensus_engine.scanners.youtube import youtube_poll_loop
 from consensus_engine.scanners.finra_short_volume import finra_short_volume_loop
+from consensus_engine.scanners.finra_short_interest import finra_short_interest_loop
+from consensus_engine.scanners.trading_halts import fetch_trading_halts, process_new_halts
 from consensus_engine.engine import analyze_signal, SignalClass
 from consensus_engine.research.atlas import atlas_worker_loop, atlas_sweep_loop
 from consensus_engine.briefing.alfred import alfred_loop
@@ -399,6 +401,76 @@ async def sec_form4_cluster_loop(stop_event: asyncio.Event) -> None:
             continue
 
 
+async def sec_form144_loop(stop_event: asyncio.Event) -> None:
+    """r27: background loop — scan recent Form 144 (intent-to-sell) notices and
+    shadow-log every parsed 144 to form144_filings. CONTEXT ONLY: no standalone
+    Discord alert. Gated by features.form144.enabled (default OFF) and
+    scanners.sec_background_watchers_enabled (checked at call site). Interval is
+    staggered wide from the form4 cluster / graduation paths — they share the
+    'sec_edgar' rate limiter — so the live cluster/enrichment paths aren't throttled.
+    """
+    while not stop_event.is_set():
+        if cfg.get("features.form144.enabled", False):
+            try:
+                from consensus_engine.scanners.sec_form144 import scan_form144_filings
+                results = await scan_form144_filings()
+                material = sum(1 for r in results if r.passes_materiality)
+                if results:
+                    log.info("[r27] form144 scan: %d ticker(s) with 144s, %d material",
+                             len(results), material)
+            except Exception as e:
+                log.error("sec_form144_loop error: %s", e, exc_info=True)
+        interval = cfg.get("intervals.form144_loop", 21600)
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=interval)
+        except asyncio.TimeoutError:
+            continue
+
+
+async def insider_10b5_plans_loop(stop_event: asyncio.Event) -> None:
+    """r28: background loop — track 10b5-1 plan adoption/termination state per
+    (ticker, insider) from the structured Form 4 <aff10b5One> flag. CONTEXT ONLY;
+    cold-start empty table emits NO events (first sight seeds silently). Gated by
+    features.insider_10b5_plans.enabled (default OFF) + sec_background_watchers_enabled.
+    """
+    while not stop_event.is_set():
+        if cfg.get("features.insider_10b5_plans.enabled", False):
+            try:
+                from consensus_engine.scanners.insider_10b5 import scan_10b5_plan_events
+                events = await scan_10b5_plan_events()
+                if events:
+                    log.info("[r28] 10b5-1 plan events: %d", len(events))
+            except Exception as e:
+                log.error("insider_10b5_plans_loop error: %s", e, exc_info=True)
+        interval = cfg.get("intervals.insider_10b5_plans_loop", 28800)
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=interval)
+        except asyncio.TimeoutError:
+            continue
+
+
+async def congress_trades_loop(stop_event: asyncio.Event) -> None:
+    """r13: background loop — scan the free House Clerk PTR feed for trades touching
+    tracked tickers and shadow-log them to congress_trades. CONTEXT ONLY (STOCK-Act
+    reports lag ~45 days); no standalone alert. Gated by
+    features.congress_trades.enabled (default OFF)."""
+    while not stop_event.is_set():
+        if cfg.get("features.congress_trades.enabled", False):
+            try:
+                from consensus_engine.scanners.congress_trades import scan_congress_trades
+                results = await scan_congress_trades()
+                if results:
+                    log.info("[r13] congress scan: %d ticker(s) with disclosed trades",
+                             len(results))
+            except Exception as e:
+                log.error("congress_trades_loop error: %s", e, exc_info=True)
+        interval = cfg.get("intervals.congress_trades_loop", 86400)
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=interval)
+        except asyncio.TimeoutError:
+            continue
+
+
 async def _run_options_flow_scan() -> None:
     """#18: one options-flow scan cycle — detect unusual flow on the watchlist,
     fire an instant alert per ticker (top contract, cooldown-gated), and persist
@@ -483,6 +555,37 @@ async def options_flow_loop(stop_event: asyncio.Event) -> None:
             except Exception as e:
                 log.error("options_flow_loop error: %s", e, exc_info=True)
         interval = cfg.get("intervals.options_flow_loop", 900)
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=interval)
+        except asyncio.TimeoutError:
+            continue
+
+
+async def _run_trading_halts_scan() -> None:
+    """r14: one trade-halt scan — fetch the Nasdaq halt feed, and for any halt on a
+    tracked ticker fire an INSTANT alert (halts are an explicit instant-trigger
+    exception per CLAUDE.md). Dedup + cooldown are enforced in process_new_halts, so
+    re-polling the same feed never re-alerts the same halt."""
+    tickers = await db.get_active_tickers(min_signals=1)
+    if not tickers:
+        return
+    halts = await fetch_trading_halts(tickers=set(tickers))
+    if not halts:
+        return
+    await process_new_halts(halts, tickers, _post_to_alerts_channel)
+
+
+async def trading_halts_loop(stop_event: asyncio.Event) -> None:
+    """r14: background watcher — poll the Nasdaq/NYSE trade-halt feed on a tight
+    cadence and alert on halts for tracked tickers. Gated by
+    features.trading_halts.enabled (default OFF)."""
+    while not stop_event.is_set():
+        if cfg.get("features.trading_halts.enabled", False):
+            try:
+                await _run_trading_halts_scan()
+            except Exception as e:
+                log.error("trading_halts_loop error: %s", e, exc_info=True)
+        interval = cfg.get("intervals.trading_halts_loop", 60)
         try:
             await asyncio.wait_for(stop_event.wait(), timeout=interval)
         except asyncio.TimeoutError:
@@ -900,6 +1003,8 @@ async def run_live(stop_event: asyncio.Event):
                 asyncio.create_task(sec_8k_watcher_loop(combined_stop)),
                 asyncio.create_task(sec_edgar_polling_loop(combined_stop)),
                 asyncio.create_task(sec_form4_cluster_loop(combined_stop)),
+                asyncio.create_task(sec_form144_loop(combined_stop)),          # r27 (flag OFF)
+                asyncio.create_task(insider_10b5_plans_loop(combined_stop)),   # r28 (flag OFF)
             ])
         tasks.extend([
             asyncio.create_task(atlas_worker_loop(combined_stop)),
@@ -910,6 +1015,9 @@ async def run_live(stop_event: asyncio.Event):
             asyncio.create_task(feature_volume_monitor_loop()),
             asyncio.create_task(options_flow_loop(combined_stop)),
             asyncio.create_task(finra_short_volume_loop(combined_stop)),
+            asyncio.create_task(finra_short_interest_loop(combined_stop)),
+            asyncio.create_task(trading_halts_loop(combined_stop)),
+            asyncio.create_task(congress_trades_loop(combined_stop)),         # r13 (flag OFF)
         ])
         tasks.extend([
             asyncio.create_task(ingest_server.serve(combined_stop, _record_source_ok, _record_source_error)),
@@ -983,11 +1091,19 @@ async def _run_confluence_cycle(window_days: int, min_dom: float) -> None:
         prev_alerted = (prev or {}).get("alerted_tier", "surface")
         agree_json = json.dumps([_asdict(v) for v in confl.agree])
         disagree_json = json.dumps([_asdict(v) for v in confl.disagree])
+        # #20: the independent-bucket timing verdict rides along as SHADOW state.
+        buckets_json = json.dumps([_asdict(b) for b in confl.timing_buckets])
+        timing = dict(
+            timing_verdict=confl.timing_verdict,
+            timing_bucket_agree=confl.timing_bucket_agree,
+            timing_fast_agree=confl.timing_fast_agree,
+            timing_buckets_json=buckets_json,
+        )
         # store fresh state BEFORE any post, so the embed's confluence field reads it.
         await db.record_confluence_check(
             th["id"], th["scope_type"], th["scope_key"], th["direction"], now,
             window_days, confl.agree_count, confl.disagree_count, confl.tier, comb,
-            int(confl.divided), agree_json, disagree_json, prev_alerted,
+            int(confl.divided), agree_json, disagree_json, prev_alerted, **timing,
         )
         # alert only on a STRICT tier-UP past what we've already posted (hysteresis).
         if comb in ("high", "critical") and _CONFL_RANK[comb] > _CONFL_RANK.get(prev_alerted, 0):
@@ -997,6 +1113,7 @@ async def _run_confluence_cycle(window_days: int, min_dom: float) -> None:
                     th["id"], th["scope_type"], th["scope_key"], th["direction"], now,
                     window_days, confl.agree_count, confl.disagree_count, confl.tier, comb,
                     int(confl.divided), agree_json, disagree_json, comb,  # advance alerted_tier
+                    **timing,
                 )
 
 
@@ -1637,6 +1754,12 @@ async def _run_cross_reference_and_followup(
                 alert_id=alert_row_id,
                 feature_vector_json=_json.dumps(fv) if fv else None,
             )
+            # #62: record the 5 rich display signals against this decision. They cost
+            # up to ~25s of network, so they run AFTER the row is written and merge
+            # themselves in — the alert path gains exactly zero latency. Log-only:
+            # nothing here can change a score or a message.
+            _schedule_display_signal_log(snapshot_id, ticker)
+
             await log_shadow_prediction(snapshot_id, score=final_score, calibrated_prob=shadow_prob)
 
             # Milestone-0 Spec 03: emit per-horizon shadow predictions.
@@ -1703,17 +1826,28 @@ async def feature_volume_monitor_loop() -> None:
                         "[FEATURE-MONITOR] 50%% volume drop after enabling %s: baseline=%d recent=%d",
                         flip_row["feature"], baseline, recent_count,
                     )
-                    try:
-                        from consensus_engine.alerts.discord import send_message
-                        ops_channel = cfg.get("discord.ops_channel_id", cfg.get("discord.channel_id", ""))
-                        if ops_channel:
-                            await send_message(
-                                ops_channel,
-                                f"⚠️ **Volume drop alert**: 24h alert count dropped >50% after enabling `{flip_row['feature']}`. "
-                                f"Baseline: {baseline}, recent: {recent_count}. Consider `!disable-feature` via YAML.",
-                            )
-                    except Exception:
-                        pass
+                    # #71: was posting to `discord.ops_channel_id` — a config key that
+                    # has never existed, so this alert silently returned for its whole
+                    # life. Now it goes to #errors, once per transition.
+                    from consensus_engine.alerts.ops_alert import report_ops_state
+                    await report_ops_state(
+                        f"feature_volume_drop:{flip_row['feature']}",
+                        down=True, failure_class="feature_volume_drop",
+                        title="Alerts dropped by more than half after a feature was switched on",
+                        detail=(f"Turning on `{flip_row['feature']}` was followed by a big drop "
+                                f"in alerts: {baseline} in the day before, {recent_count} since. "
+                                f"The feature may be filtering out real signals."),
+                        fix=f"Set `{flip_row['feature']}` back to off in `config/consensus.yaml`, "
+                            f"then restart the engine.",
+                    )
+                elif baseline > 0:
+                    # Volume recovered (or never really dropped) — clear the alert.
+                    from consensus_engine.alerts.ops_alert import report_ops_state
+                    await report_ops_state(
+                        f"feature_volume_drop:{flip_row['feature']}",
+                        down=False, failure_class="feature_volume_drop",
+                        title="Alert volume back to normal",
+                    )
         except Exception as e:
             log.warning("feature_volume_monitor_loop error: %s", e)
 
@@ -1805,6 +1939,15 @@ def _fetch_yfinance_close_n_trading_days_later(
             return 0.0
         close = hist["Close"].dropna()
         if len(close) > n_trading_days:
+            # #73 guard: during market hours yfinance's last daily bar is the
+            # LIVE session still forming — its "Close" is the current spot, not
+            # a close. Only grade with a bar whose session has ended (4pm ET;
+            # internal NYSE logic, never surfaced). Return 0.0 → retried later.
+            bar_ts = close.index[n_trading_days]
+            if hasattr(bar_ts, "date"):
+                now_et = datetime.now(ZoneInfo("America/New_York"))
+                if bar_ts.date() >= now_et.date() and now_et.hour < 16:
+                    return 0.0
             _record_source_ok("yfinance")
             return float(close.iloc[n_trading_days])
     except Exception as e:
@@ -1814,18 +1957,53 @@ def _fetch_yfinance_close_n_trading_days_later(
     return 0.0
 
 
-# 5d/20d outcome horizons (decision_snapshots only). (field, n_trading_days,
+# #62: strong refs to the fire-and-forget display-signal loggers. asyncio only
+# holds a WEAK reference to a running task, so without this set a logger can be
+# garbage-collected mid-flight and the row silently never gets its signals.
+_display_signal_tasks: set[asyncio.Task] = set()
+
+
+def _schedule_display_signal_log(snapshot_id: int, ticker: str) -> None:
+    """Fire-and-forget the display-signal logger for one decision snapshot.
+
+    Deliberately not awaited: the five signals take up to ~25 seconds of network
+    and the caller is on the alert path. Failures are logged and dropped — a
+    missing training row is never worth delaying or breaking an alert.
+    """
+    if not cfg.get("features.forward_log_display_signals.enabled", True):
+        return
+
+    async def _run() -> None:
+        try:
+            from consensus_engine.analysis.display_signals import log_display_signals
+            await log_display_signals(snapshot_id, ticker)
+        except Exception as e:   # noqa: BLE001
+            log.debug("display-signal logging failed for $%s: %s", ticker, e)
+
+    try:
+        task = asyncio.create_task(_run())
+    except RuntimeError:
+        return   # no running loop (unit tests / sync callers)
+    _display_signal_tasks.add(task)
+    task.add_done_callback(_display_signal_tasks.discard)
+
+
+# Bar-graded outcome horizons (decision_snapshots only). (field, n_trading_days,
 # min_age_days, max_age_days) — min/max are CALENDAR-day scan gates; the exact
 # trading-day check is the bar count inside the fetch helper. The live loop uses
 # max_age so it doesn't re-scan ancient rows; the one-off backfill passes None.
+# The 24h entry (#73) is a CATCH-UP: the live-spot fill handles rows 24–48h old,
+# and this picks up whatever it slept through (weekend pause / downtime) at the
+# next trading day's close — a Friday snapshot grades at Monday's close.
 _SLOW_OUTCOME_HORIZONS = (
+    ("outcome_price_24h", 1, 2, 30),
     ("outcome_price_5d", 5, 7, 30),
     ("outcome_price_20d", 20, 28, 45),
 )
 
 
 async def _fill_slow_outcomes(loop, executor, bounded: bool, limit: int) -> dict:
-    """Fill outcome_price_5d/20d on decision_snapshots whose window has elapsed.
+    """Fill outcome_price_24h/5d/20d on decision_snapshots whose window has elapsed.
 
     Shared by the live loop (`bounded=True` → use each horizon's max_age cap so it
     doesn't re-scan ancient rows) and the one-off backfill (`bounded=False` → no
@@ -1833,7 +2011,7 @@ async def _fill_slow_outcomes(loop, executor, bounded: bool, limit: int) -> dict
     get_snapshots_needing_outcome filters on `field IS NULL`, so it is safe to run
     repeatedly. Returns counts per field.
     """
-    counts = {"outcome_price_5d": 0, "outcome_price_20d": 0}
+    counts = {field: 0 for field, *_ in _SLOW_OUTCOME_HORIZONS}
     for field, n_td, min_age_days, max_age_days in _SLOW_OUTCOME_HORIZONS:
         snaps = await db.get_snapshots_needing_outcome(
             field, min_age_days=min_age_days,
@@ -1853,24 +2031,106 @@ async def _fill_slow_outcomes(loop, executor, bounded: bool, limit: int) -> dict
                           field, snap["ticker"], price)
                 continue
             if price and price > 0:
-                if field == "outcome_price_5d":
-                    await db.update_snapshot_outcomes(
-                        snap["id"], outcome_price_5d=float(price))
-                else:
-                    await db.update_snapshot_outcomes(
-                        snap["id"], outcome_price_20d=float(price))
+                await db.update_snapshot_outcomes(snap["id"], **{field: float(price)})
                 counts[field] += 1
     return counts
 
 
+async def _fill_alert_5d_outcomes(loop, executor, limit: int = 50,
+                                  ignore_max_age: bool = False) -> int:
+    """#62: fill `alert_history.price_5d_later` for alerts whose window has elapsed.
+
+    Reads the close on the 5th TRADING day after the alert (weekends and holidays
+    skipped automatically — they are not bars), so a fill that runs late is still
+    the right number. Only NULLs are touched; returns how many were filled.
+
+    This is what gives the analyst track record a horizon slow enough to mean
+    anything: an analyst's call graded one hour later is measuring noise.
+
+    `ignore_max_age=True` is the one-off backfill over the whole back-catalogue.
+    """
+    alerts = await db.get_alerts_needing_price_update(
+        "price_5d_later", limit=limit, ignore_max_age=ignore_max_age)
+    if not alerts:
+        return 0
+    futures = [
+        loop.run_in_executor(
+            executor, _fetch_yfinance_close_n_trading_days_later,
+            a["ticker"], a["alerted_at"], 5,
+        )
+        for a in alerts
+    ]
+    fetched = await asyncio.gather(*futures, return_exceptions=True)
+    filled = 0
+    for alert, price in zip(alerts, fetched):
+        if isinstance(price, Exception):
+            log.debug("5d outcome fetch error for %s: %s", alert["ticker"], price)
+            continue
+        if price and price > 0:
+            await db.update_alert_price(alert["id"], "price_5d_later", float(price))
+            filled += 1
+    if filled:
+        log.info("filled price_5d_later on %d alerts", filled)
+    return filled
+
+
+async def _fill_alert_24h_catchup(loop, executor, limit: int = 50,
+                                  ignore_max_age: bool = False) -> int:
+    """#73: fill `price_24h_later` for alerts the live-spot loop slept through.
+
+    The live 24h fill reads a spot price inside a 24–48h window. The engine
+    pauses every weekend (Fri 3pm → Sun 3pm PDT), so for anything scored on
+    Friday that window falls entirely inside the pause and the row used to age
+    out permanently unfillable — 4% of Friday rows ever got a 24h outcome vs
+    ~100% Mon–Wed. This catch-up grades aged-out rows from historical daily
+    bars at the next TRADING day's close (a Friday alert grades at Monday's
+    close), which stays available for years. Mirrors the live path's three
+    writes: alert_history, the linked decision_snapshot, and the
+    shadow-prediction label. Only NULLs are touched; returns how many filled.
+    """
+    alerts = await db.get_alerts_needing_price_update(
+        "price_24h_catchup", limit=limit, ignore_max_age=ignore_max_age)
+    if not alerts:
+        return 0
+    futures = [
+        loop.run_in_executor(
+            executor, _fetch_yfinance_close_n_trading_days_later,
+            a["ticker"], a["alerted_at"], 1,
+        )
+        for a in alerts
+    ]
+    fetched = await asyncio.gather(*futures, return_exceptions=True)
+    filled = 0
+    for alert, price in zip(alerts, fetched):
+        if isinstance(price, Exception):
+            log.debug("24h catch-up fetch error for %s: %s", alert["ticker"], price)
+            continue
+        if price and price > 0:
+            await db.update_alert_price(alert["id"], "price_24h_later", float(price))
+            snapshot_id = await db.get_snapshot_id_for_alert(alert["id"])
+            if snapshot_id is not None:
+                await db.update_snapshot_outcomes(
+                    snapshot_id, outcome_price_24h=float(price))
+            entry = float(alert.get("price_at_alert") or 0.0)
+            if entry > 0:
+                await db.label_shadow_predictions_for_alert_id(
+                    alert_history_id=alert["id"], horizon="24h",
+                    entry_price=entry, exit_price=float(price),
+                )
+            filled += 1
+    if filled:
+        log.info("24h catch-up: filled price_24h_later on %d aged-out alerts", filled)
+    return filled
+
+
 async def backfill_decision_outcomes(max_rows: int | None = None) -> dict:
-    """One-off: fill outcome_price_5d/20d on EXISTING decision_snapshots whose
-    5/20-trading-day window has already elapsed (the historical prices exist).
+    """One-off: fill outcome_price_24h/5d/20d on EXISTING decision_snapshots
+    whose trading-day window has already elapsed (the historical prices exist).
 
     Safe to run repeatedly — only NULL columns are touched. `max_rows` caps the
-    rows scanned per horizon (None = all). Returns {'outcome_price_5d': n,
-    'outcome_price_20d': m}. Reuses the live price source (yfinance); adds no
-    new dependency.
+    rows scanned per horizon (None = all). Returns a per-field count, e.g.
+    {'outcome_price_24h': k, 'outcome_price_5d': n, 'outcome_price_20d': m}.
+    Reuses the live price source (yfinance); adds no new dependency.
     """
     executor = concurrent.futures.ThreadPoolExecutor(
         max_workers=8, thread_name_prefix="outcome-backfill",
@@ -1938,6 +2198,15 @@ async def price_outcome_loop(stop_event: asyncio.Event):
                 # up to ~20 trading days old whose 5d/20d columns are still NULL and
                 # fills them once that many trading days have elapsed.
                 await _fill_slow_outcomes(loop, executor, bounded=True, limit=50)
+                # #62: 5-trading-day alert outcomes — the horizon the analyst
+                # track record is graded on. Unlike 1h/24h (a live spot read) this
+                # indexes historical daily bars, so a late fill is still correct.
+                await _fill_alert_5d_outcomes(loop, executor)
+                # #73: 24h catch-up for alerts the live-spot fill slept through
+                # (weekend pause / downtime) — graded at the next trading day's
+                # close from daily bars, so Friday's rows fill on Monday instead
+                # of aging out forever.
+                await _fill_alert_24h_catchup(loop, executor)
             except Exception as e:
                 log.error("Price outcome loop error: %s", e, exc_info=True)
 

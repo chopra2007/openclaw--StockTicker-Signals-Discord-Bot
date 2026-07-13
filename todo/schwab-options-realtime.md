@@ -1,7 +1,23 @@
 # Move live options data onto the Schwab Trader API (real-time, official)
 
-**Status:** OPEN
+**Status:** DONE 2026-07-09
 **Created:** 2026-06-29
+
+**CURRENT STATUS (2026-07-09) — DONE.** Thresholds are now set from measured outcomes, and flow hits are graded forever after. Three things landed:
+
+1. **Every stored flow hit was graded.** `scripts/grade_options_flow.py` scored 8,681 flow events (2026-06-01 → 06-30) on whether the stock actually moved the way the flow pointed. Two corrections were needed before the numbers meant anything: June was a falling market (average stock −2.08% over 5 days), so raw win rates just measured the market — every PUT "won". And the same contract is re-detected every poll cycle, so 123,794 rows are really ~10.7k events. Measuring each stock **against SPY over the same trading days**, one event per ticker-day-side, index ETFs dropped, leaves **1,302 independent single-stock events**. Full report: `plans/flow-grading-2026-07-09.md`.
+
+2. **Only vol/OI predicts anything.** The "gap" = how much more often a stock beat SPY after a CALL hit than after a PUT hit (zero = the flow knew nothing):
+   - `min_vol_oi ≥ 10` (the old bar): **+1.3pp, z=0.42 — no edge at all**
+   - `≥ 20`: **+8.7pp, z=2.04** ← now live
+   - `≥ 30`: +11.9pp, z=2.46 · `≥ 50`: +14.2pp, z=2.50
+   Premium size and contract volume showed **no edge in any bucket** ($1M+ graded no better than $250k) — left alone, they are not levers. `relative_baseline_enabled` was tested the same way and **stays OFF** (gaps +7.1 / −6.7 / too-thin at 2×/3×/5×). `min_vol_oi` raised **10 → 20**; not straight to 50, because this is one month in one regime and 2 of its 5 weeks had a negative gap (+18.8 / −0.3 / +3.7 / +12.0 / −7.4).
+
+3. **This also closes the 4-run shadow-compare divergence.** The Schwab-only extra hits sat at vol/OI 10.0–11.x — barely over the old bar. The new bar removes 26 of those 47 borderline hits across the three detail CSVs while keeping the genuinely large ones (50×, 327×, 1055×). Schwab's real-time feed was catching contracts that only just cleared a threshold with no predictive value. No confirmation delay needed.
+
+**Made permanent:** `flow-grading.timer` (23:15 UTC nightly) runs `grade_options_flow.py --backfill --nightly`, so "did the trade make money" now answers itself. No AI/LLM involved — free daily prices + arithmetic. Verified: the service ran as `openclaw`, regraded 1,308 deleted rows, rewrote its cache.
+
+**Owed live check:** the backtest is on stored data. The new bar was proven to bite on chains fetched 2026-07-09 (NVDA 2→0, TSLA 19→4, SPY 10→2 hits), but the first real market-hours alert volume under `min_vol_oi=20` should be eyeballed on **Fri 2026-07-10**. Revisit `→ 30 or 50` once the nightly grader has a second month.
 
 **CURRENT STATUS (2026-07-02 eve):** BUILT + LIVE — and the last piece, the autonomous flow-loop alert
 switch, is now **FLIPPED ON** (watched flip, user-approved). `flow_loop_enabled: true`; engine restarted
@@ -283,3 +299,6 @@ Ordered rough easy→ambitious. User's own examples folded in (trading bot / bet
   recovered a prior close-push that a stale `/tmp/pytest-prepush.log` had silently blocked). **After it
   fires, next session must commit the live `consensus.yaml` flag change** (the wrapper edits + notes it in
   notifications.log, but a scheduled task can't push).
+
+### Session notes — 2026-07-09
+- **Decision (user):** tune thresholds by GRADING the 123,794 stored options_flow hits first (did the stock move the flow's direction 1d/5d later?), then set thresholds from measured win rates — and make flow-alert grading permanent (nightly). Plan: `.omc/plans/active-items-completion-2026-07-09.md` Phase A.

@@ -1,7 +1,22 @@
 # Finish the feature-idea sweep, reusing the already-saved codebase map
 
-**Status:** OPEN
+**Status:** SOAKING until 2026-07-15 — 16 features shipped flag-OFF 2026-07-08; shadow-data soak live (see TODO.md #67 lead line).
 **Created:** 2026-07-06
+
+**CURRENT STATUS (2026-07-08):** **All 6 stages BUILT + VERIFIED + COMMITTED** (Stages 2–6 ran autonomously this session). 16 features shipped, every one behind a config flag **DEFAULT OFF** (shadow) — **no live alert, score, or !all/!market/!sec output changed** (proven byte-identical on both live-scoring surfaces: E2 `cross_asset.get_multiplier` and `cross_reference.score_ticker`). Stage commits (local, unpushed until this close): S2 `e74eb19` (NFCI + FRED macro legs), S3 `f057e23` (dealer-GEX/gamma-flip/IV-skew/OI-pinning + ^SKEW), S4 `1023bdf` (IV-vs-RV + squeeze), S5 `d240257` (short-interest/PEAD/breadth), S6 `931e272` (Form 144/10b5-1/House congress). Each stage: live-probe on real data + full regression (final **2785 passed, 0 regressions**) + ownership fix + per-stage commit; implementer (executor agents) separate from verifier (me). **Go-live NOT done — that's a separate, explicit, per-feature user decision gated on shadow evidence.** Owed follow-ups (in `.claude/discover/next-features-jul2026/outcome.json`): r13-Senate congress (efdsearch gated), r20 true advancers/decliners upgrade (shipped RSP/SPY proxy), and wiring the Stage-6 insider context lines onto the live !sec/!all surfaces (a go-live step after shadow data accrues). 3 ideas killed (max-pain-label/dark-pool/0DTE-directional); 8 kept ideas not built this run (VVIX/VIX, 0-100 score, crowding guard, market put/call, CFTC, GDELT, analyst-PT-disagreement, !scan) remain future candidates.
+
+**CURRENT STATUS (2026-07-07) — sweep DONE, awaiting the user's build pick.** The prerequisite was
+built this session: discover **1.2.1** adds the missing `from_pass=1` resume path (reuse the saved
+Pass-0 map, then run Research+Filter fresh) — committed locally at `e010f53` on
+`/root/work/claude-discover-publish/repo`, push/tag/cache-refresh **pending user OK**. The Deep
+`from_pass:1→2` sweep then ran clean on the reused map (run `wf_637ddefe-a4a`, 39 agents, 0 errors,
+~2.05M tokens, ~54 min) and produced the deliverable: **40 viable, code-grounded ideas** + ~106
+screened-out (with reasons) + a full VVIX/VIX feasibility study. Artifacts in the run dir:
+`pass-2-filtered.md` (top-7 build-ready shortlist), `feature-ideas-list.txt` + `discovery-sweep-work.md`
+(full 40-idea menu), `VVIX-RESEARCH-FINDINGS.md`, `drops-log.md`. User-chosen continuation settings
+(saved in `state.json`): model_tier=**max**, after_plan=**build**, pause after the shortlist. Next:
+user reviews the menu and says which idea(s) to carry into kill-test → plan → build (or stop with the
+menu as the deliverable). Menu presented at the checkpoint 2026-07-07.
 
 ## Goal
 
@@ -92,3 +107,15 @@ matters more here than usual.
 ## Open questions
 
 - None — this item is fully specified and ready to execute once the prerequisite is confirmed.
+
+---
+
+## Session notes — 2026-07-07 (pipeline complete through Stage 1; Stages 2-6 queued autonomous)
+
+Resumed the run and took it all the way through the plan + first build stage.
+
+- **Passes 1-4 done.** Pass 1-2 (fresh, uncontaminated) yielded 113 candidates → 7 kept + 76 below-cut + 6 already-built. User wanted them ALL considered, so I triaged the full 113 to **34 with merit** (`merit-triage.md`), and user picked the **strong 27** for a custom batched kill-test (`killtest-27.workflow.js`, 4 waves × 2 skeptics + advocate/judge + Codex audit): **24 survived, 3 killed** (max-pain-label [was in the original top-7 — Pass-2 misread the code], dark-pool [2-5wk stale], 0DTE-directional [needs aggressor data free feeds lack]). Report: `pass-3-killtest-report.md`.
+- **Plan:** user chose the **16 strongest** survivors → clustered by integration point, planned against real code by 5 parallel planners + a sequencer → `final-plan.md` (6-stage build order, shared-file tripwires, byte-identical rules). Planners caught the GEX "reuse the chain" premise was false and corrected the design.
+- **Stage 1 SHIPPED + committed** (`f2b0b7d`, local): r14 trading-halt tripwire (full) + r8 ^SKEW module (module only), both flags OFF. Independent verification caught a real redirect bug (http→https feed URL the hardened fetch refused) that green unit tests missed — fixed, re-proven live (60 halts). Full suite 2655 pass, 0 regressions. Ownership trap handled (root→openclaw chown). Log: `pass-5-stage1.md`.
+- **Stages 2-6 (14 features) queued to run AUTONOMOUSLY** next session: same one-line trigger `discover: build next-features-jul2026`. Mode + rules + confirmed data recipes in `todo/kickoffs/discover-next-features-resume.md`. Everything ships OFF; go-live is a separate later decision.
+- **Both deferrals solved this session** (user pushed to go to primary sources): House congress via `disclosures-clerk.house.gov` (PTR PDFs machine-readable via pdfplumber), market breadth via RSP/SPY equal-weight proxy. Only **Senate congress** remains deferred (efdsearch.senate.gov gated).

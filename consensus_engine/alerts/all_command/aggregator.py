@@ -297,6 +297,23 @@ def _summarize_tweets_today(rows) -> Optional[dict]:
     return {"total": len(rows), "bull": bull, "bear": bear, "example": example}
 
 
+def _em_atm_iv(em_result) -> Optional[float]:
+    """k7 — pull the annualized ATM IV (decimal) out of a compute_em result.
+
+    Returns None on any miss (result is None/FAILED, no `.em` dict, or no
+    atm_iv). atm_iv may be NaN (all-illiquid chain); passed through as-is so
+    compute_iv_rv_tag's own finite-guard handles it.
+    """
+    try:
+        em = getattr(em_result, "em", None)
+        if not isinstance(em, dict):
+            return None
+        iv = em.get("atm_iv")
+        return float(iv) if iv is not None else None
+    except (AttributeError, TypeError, ValueError):
+        return None
+
+
 async def _gather_all_sources(ticker: str) -> dict:
     """Run the parallel data gather. Per-source failures degrade gracefully."""
     ticker_meta_task = _db_call("get_ticker_metadata", ticker)
@@ -404,6 +421,36 @@ async def _gather_all_sources(ticker: str) -> dict:
             return None
         stocktwits_task = _stocktwits_off()
 
+    # r8 — CBOE ^SKEW tail-risk reading. Independent of the option chain; runs in
+    # the same parallel gather so it never blocks it. Flag-gated (default OFF): a
+    # no-op coroutine keeps the slot when off, so the OFF path adds no ^SKEW fetch.
+    # None -> renders '—', never errors. Appended LAST so the unpack stays stable.
+    if cfg.get("features.skew_index.enabled", False):
+        skew_index_task = _scanner_call(
+            "consensus_engine.analysis.skew_index", "compute_skew_index",
+        )
+    else:
+        async def _skew_off():
+            return None
+        skew_index_task = _skew_off()
+
+    # k7 (vol-context) — ATM implied vol for the cheap-vs-rich vol tag. compute_em
+    # is a fresh option-chain fetch (~1-2s), so it is FLAG-GATED (default OFF): a
+    # no-op coroutine keeps the slot when off, so the OFF path adds NO fetch and NO
+    # serial latency. When ON it rides in the SAME parallel gather below (never
+    # sequential). Routed through _scanner_call so an EMUnavailable / fetch error
+    # degrades to FAILED/None (guarded by _result_or_default) — a non-optionable
+    # ticker keeps working, the tag is simply absent. Appended LAST so the unpack
+    # below stays stable.
+    if cfg.get("features.iv_rv_tag.enabled", False):
+        expected_move_task = _scanner_call(
+            "consensus_engine.scanners.expected_move", "compute_em", ticker,
+        )
+    else:
+        async def _em_off():
+            return None
+        expected_move_task = _em_off()
+
     results = await asyncio.gather(
         score_task,
         tech_long_task,
@@ -435,6 +482,8 @@ async def _gather_all_sources(ticker: str) -> dict:
         earnings_move_task,
         twitter_today_task,
         stocktwits_task,
+        skew_index_task,
+        expected_move_task,
         return_exceptions=True,
     )
     (
@@ -444,7 +493,7 @@ async def _gather_all_sources(ticker: str) -> dict:
         options_flow_recent,
         trends, apewisdom, chat_msgs, brief_msgs, prior_vault,
         max_pain, peer_strength, snapshot, earnings_move,
-        twitter_today, stocktwits,
+        twitter_today, stocktwits, skew_index, expected_move,
     ) = results
 
     # Classify each source as surfaced (non-empty data) or failed (exception /
@@ -519,6 +568,10 @@ async def _gather_all_sources(ticker: str) -> dict:
         "earnings_move": _result_or_default(earnings_move, None),
         "tweets_today": _summarize_tweets_today(_result_or_default(twitter_today, [])),
         "stocktwits": _result_or_default(stocktwits, None),
+        "skew_index": _result_or_default(skew_index, None),
+        # k7 (vol-context) — annualized ATM IV (decimal) from compute_em, or None
+        # when the flag is OFF / the ticker is non-optionable. Feeds compute_iv_rv_tag.
+        "iv_rv_atm_iv": _em_atm_iv(_result_or_default(expected_move, None)),
         "wolf_confluence": await wolf_confluence_task,
         "sources_surfaced": sources_surfaced,
         "source_failures": source_failures,
@@ -1268,6 +1321,54 @@ async def _compute_all(ticker: str, start: float) -> dict:
         )
     )
 
+    # Stage-3 — the options-chain legs ride along on compute_max_pain's dict
+    # (gex/iv_skew/oi_pinning as ADDITIVE keys); split them onto their own
+    # StructuredFields attrs here. Existing max_pain consumers are unaffected.
+    _mp_dict = data.get("max_pain") if isinstance(data.get("max_pain"), dict) else {}
+
+    # Stage-4 vol-context (k7 IV-vs-RV tag, r9 squeeze) — descriptive-only, each
+    # gated behind its flag so the OFF path is byte-identical (no field, and for
+    # k7 no compute_em fetch upstream). Both reuse already-gathered data; never
+    # touch score_breakdown / confidence / direction / any trigger.
+    _candles_for_vol = (
+        data.get("daily_candles") if isinstance(data.get("daily_candles"), list) else []
+    )
+    _iv_rv_tag = None
+    if cfg.get("features.iv_rv_tag.enabled", False):
+        _iv_rv_tag = structured_fields.compute_iv_rv_tag(
+            data.get("iv_rv_atm_iv"),
+            _candles_for_vol,
+            rich_threshold=cfg.get("features.iv_rv_tag.rich_threshold", 1.25),
+            cheap_threshold=cfg.get("features.iv_rv_tag.cheap_threshold", 0.85),
+        )
+    _squeeze_state = None
+    if cfg.get("features.vol_squeeze.enabled", False):
+        from consensus_engine.analysis import patterns as _patterns
+        _squeeze_state = _patterns.compute_squeeze(
+            _candles_for_vol,
+            period=cfg.get("features.vol_squeeze.period", 20),
+            bb_mult=cfg.get("features.vol_squeeze.bb_mult", 2.0),
+            kc_mult=cfg.get("features.vol_squeeze.kc_mult", 1.5),
+        )
+    # r17 PEAD — descriptive post-earnings-drift read (embed-only, NOT narrator).
+    # Reuses the already-fetched earnings recap; fetches its own dated price series
+    # (daily_candles carry no dates). Gated OFF -> no compute/fetch, field absent.
+    _pead = None
+    if cfg.get("features.pead.enabled", False):
+        try:
+            from consensus_engine.analysis import pead as _pead_mod
+            _pead = await _pead_mod.compute_pead(
+                ticker,
+                recap=data.get("recent_earnings_recap"),
+                min_days_after=int(cfg.get("features.pead.min_days_after", 5)),
+                max_days_after=int(cfg.get("features.pead.max_days_after", 45)),
+                min_surprise_pct=float(cfg.get("features.pead.min_surprise_pct", 2.0)),
+                faded_threshold_pct=float(cfg.get("features.pead.faded_threshold_pct", 2.0)),
+            )
+        except Exception as _pead_exc:  # noqa: BLE001 — never break !all
+            log.debug("pead compute failed for %s: %s", ticker, _pead_exc)
+            _pead = None
+
     structured = structured_fields.StructuredFields(
         direction=direction,
         confidence_label=confidence,
@@ -1287,6 +1388,13 @@ async def _compute_all(ticker: str, start: float) -> dict:
         next_catalyst_kind=next_catalyst_kind,
         next_catalyst_mechanism=next_catalyst_mechanism,
         max_pain=data.get("max_pain"),
+        gex=_mp_dict.get("gex"),
+        iv_skew=_mp_dict.get("iv_skew"),
+        oi_pinning=_mp_dict.get("oi_pinning"),
+        skew_index=data.get("skew_index"),
+        iv_rv_tag=_iv_rv_tag,
+        squeeze_state=_squeeze_state,
+        pead=_pead,
         peer_strength=data.get("peer_strength"),
         snapshot=data.get("snapshot"),
         earnings_move=data.get("earnings_move"),

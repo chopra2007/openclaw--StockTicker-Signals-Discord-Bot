@@ -662,7 +662,310 @@ def _schwab_maxpain(ticker: str):
     chains = {e: ch.by_expiry(e) for e in want}
     max_pain = {e: _max_pain_for_chain(c) for e, c in chains.items()}
     return {"spot": spot, "weekly_exp": weekly_exp, "monthly_exp": monthly_exp,
-            "chains_present": list(chains.keys()), "max_pain": max_pain}
+            "chains_present": list(chains.keys()), "max_pain": max_pain,
+            **_chain_legs(chains, spot)}
+
+
+# ---------------------------------------------------------------------------
+# Stage-3 options-chain legs (k4 GEX + k5 gamma-flip, r10 IV-skew, r16 pinning).
+# All computed IN compute_max_pain's executor thread from the ALREADY-FETCHED
+# front weekly+monthly chains, BEFORE they are discarded — one fetch, no extra
+# round-trip. Every helper is fully guarded (never raises into compute_max_pain)
+# and every leg is ADDITIVE (existing max-pain keys stay byte-identical).
+# Descriptive, embed-only, each behind a config flag default OFF.
+# ---------------------------------------------------------------------------
+
+# Flat annualized risk-free rate for Black-Scholes gamma on the yfinance path
+# (yfinance chains carry IV but no greeks). Gamma is nearly insensitive to r, so
+# a single constant is adequate; native Schwab gamma is used when present.
+_BS_RISK_FREE_RATE = 0.04
+# OI-pinning HHI is only an opex phenomenon — only meaningful within ~2 weeks of
+# the front expiry (a 30-day-out chain must NOT be labelled "strong pin").
+_PINNING_MAX_DTE_DAYS = 10
+
+
+def _side_rows(df):
+    """Extract [(strike, oi, iv, delta, gamma)] from one chain-side DataFrame.
+
+    Mirrors _max_pain_for_chain's row hygiene (itertuples, getattr defaults,
+    NaN->0 OI, k>0). iv/delta/gamma are None when the column is absent (yfinance
+    has no greeks) or the value is NaN / a Schwab -999 sentinel (already mapped
+    to NaN upstream). Returns [] on an empty/None frame."""
+    out = []
+    if df is None or getattr(df, "empty", True):
+        return out
+    for row in df.itertuples(index=False):
+        k = getattr(row, "strike", None)
+        oi = getattr(row, "openInterest", None)
+        try:
+            k = float(k)
+            oi = float(oi) if oi == oi else 0.0  # NaN -> 0
+        except (TypeError, ValueError):
+            continue
+        if k <= 0:
+            continue
+
+        def _clean(attr):
+            v = getattr(row, attr, None)
+            try:
+                f = float(v)
+            except (TypeError, ValueError):
+                return None
+            return None if f != f else f  # NaN -> None
+
+        iv = _clean("impliedVolatility")
+        if iv is not None and iv <= 0:
+            iv = None
+        out.append((k, max(0.0, oi), iv, _clean("delta"), _clean("gamma")))
+    return out
+
+
+def _bs_gamma(spot, K, t, iv, r=_BS_RISK_FREE_RATE):
+    """Black-Scholes gamma (identical for calls and puts by parity). None on bad
+    inputs. `t` is calendar time-to-expiry in YEARS (calendar days / 365 — IV is
+    quoted on a calendar-year basis, so t must match)."""
+    import math
+    try:
+        S, Kf, tf, sigma = float(spot), float(K), float(t), float(iv)
+    except (TypeError, ValueError):
+        return None
+    if S <= 0 or Kf <= 0 or tf <= 0 or sigma <= 0:
+        return None
+    try:
+        sqrt_t = math.sqrt(tf)
+        d1 = (math.log(S / Kf) + (r + 0.5 * sigma * sigma) * tf) / (sigma * sqrt_t)
+        pdf = math.exp(-0.5 * d1 * d1) / math.sqrt(2.0 * math.pi)
+        gamma = pdf / (S * sigma * sqrt_t)
+    except (ValueError, ZeroDivisionError, OverflowError):
+        return None
+    if gamma != gamma or gamma in (float("inf"), float("-inf")):
+        return None
+    return gamma
+
+
+def _sorted_front_exps(chains, nearest):
+    """Front `nearest` expiries of the fetched chains, sorted chronologically."""
+    from datetime import datetime
+    dated = []
+    for e in chains:
+        try:
+            dated.append((datetime.strptime(e, "%Y-%m-%d").date(), e))
+        except (ValueError, TypeError):
+            continue
+    dated.sort()
+    return [e for _, e in dated[:max(1, int(nearest))]]
+
+
+def _gex_for_chain(chains, spot, nearest=2):
+    """k4 + k5. Per-strike net dealer GEX over the front `nearest` expiries.
+
+    net_gex(K) = spot^2 * 0.01 * 100 * (call_oi*gamma_call - put_oi*gamma_put)
+    (dealers long gamma from calls, short from puts). Gamma is native on the
+    Schwab path; Black-Scholes from IV on the yfinance path. k5 gamma_flip is the
+    cumulative-net-GEX zero-crossing (linear-interpolated; None if no sign change,
+    never extrapolated). Returns a dict or None."""
+    from datetime import date, datetime
+    if not chains:
+        return None
+    exps = _sorted_front_exps(chains, nearest)
+    if not exps:
+        return None
+    today = date.today()
+    net_by_strike: dict = {}
+    native_n = bs_n = 0
+    for exp in exps:
+        ch = chains.get(exp)
+        if ch is None:
+            continue
+        try:
+            exp_d = datetime.strptime(exp, "%Y-%m-%d").date()
+            dte = max((exp_d - today).days, 1)
+        except (ValueError, TypeError):
+            dte = 1
+        t = dte / 365.0
+        for df, sgn in ((getattr(ch, "calls", None), 1.0),
+                        (getattr(ch, "puts", None), -1.0)):
+            for (k, oi, iv, _dlt, gma) in _side_rows(df):
+                if oi <= 0:
+                    continue
+                if gma is not None and gma > 0:
+                    g = gma
+                    native_n += 1
+                else:
+                    g = _bs_gamma(spot, k, t, iv)
+                    if g is not None and g > 0:
+                        bs_n += 1
+                if g is None or g <= 0:
+                    continue
+                net_by_strike[k] = net_by_strike.get(k, 0.0) + sgn * oi * g
+    if not net_by_strike:
+        return None
+    # Honest basis label: whichever gamma source dominated (Schwab native greeks
+    # vs Black-Scholes-from-IV), noting a mix when both contributed. Illiquid
+    # Schwab strikes with a 0/sentinel gamma fall back to BS, so a Schwab chain
+    # can legitimately read "schwab-native (+BS fill)".
+    if native_n and bs_n:
+        basis = "schwab-native (+BS fill)"
+    elif native_n:
+        basis = "schwab-native"
+    else:
+        basis = "black-scholes"
+    scale = (float(spot) ** 2) * 0.01 * 100.0 if spot and spot > 0 else 1.0
+    strikes = sorted(net_by_strike)
+    net_list = [{"strike": round(k, 2), "net_gex": net_by_strike[k] * scale}
+                for k in strikes]
+    total = sum(it["net_gex"] for it in net_list)
+
+    # k5 — cumulative-sum zero-crossing(s); pick the crossing nearest spot.
+    crossings = []
+    cum = 0.0
+    prev_k = prev_cum = None
+    for it in net_list:
+        cum += it["net_gex"]
+        if prev_cum is not None and prev_cum != cum and (
+            (prev_cum < 0 <= cum) or (prev_cum > 0 >= cum)
+        ):
+            frac = (0.0 - prev_cum) / (cum - prev_cum)
+            crossings.append(prev_k + frac * (it["strike"] - prev_k))
+        prev_k, prev_cum = it["strike"], cum
+    flip = None
+    if crossings:
+        flip = (min(crossings, key=lambda x: abs(x - spot))
+                if spot and spot > 0 else crossings[0])
+
+    top = sorted(net_list, key=lambda it: abs(it["net_gex"]), reverse=True)[:3]
+    return {
+        "net_gex": net_list,
+        "top": top,
+        "total_net_gex": total,
+        "net_sign": "long" if total >= 0 else "short",
+        "gamma_flip": round(flip, 2) if flip is not None else None,
+        "basis": basis,
+        "n_expiries": len(exps),
+    }
+
+
+def _iv_skew_for_chain(chains, spot):
+    """r10. put IV minus call IV at comparable deltas on the front expiry.
+
+    Schwab path (native delta): ~25-delta put vs ~25-delta call. yfinance path
+    (no delta): ~5%-OTM moneyness-matched put vs call. Basis is labelled honestly
+    (never silently mixed). Positive = puts bid over calls = downside demand.
+    Skips NaN/sentinel IV; None if no valid pair."""
+    if not chains:
+        return None
+    exps = _sorted_front_exps(chains, 1)
+    if not exps:
+        return None
+    front = exps[0]
+    ch = chains.get(front)
+    if ch is None:
+        return None
+    calls = [(k, iv, dlt) for (k, _oi, iv, dlt, _g)
+             in _side_rows(getattr(ch, "calls", None)) if iv is not None]
+    puts = [(k, iv, dlt) for (k, _oi, iv, dlt, _g)
+            in _side_rows(getattr(ch, "puts", None)) if iv is not None]
+    if not calls or not puts:
+        return None
+    has_delta = (any(d is not None for (_, _, d) in calls)
+                 and any(d is not None for (_, _, d) in puts))
+    if has_delta:
+        basis = "25-delta"
+        call_pick = min((r for r in calls if r[2] is not None),
+                        key=lambda r: abs(abs(r[2]) - 0.25), default=None)
+        put_pick = min((r for r in puts if r[2] is not None),
+                       key=lambda r: abs(abs(r[2]) - 0.25), default=None)
+    else:
+        if not spot or spot <= 0:
+            return None
+        basis = "moneyness-matched"
+        call_pick = min(calls, key=lambda r: abs(r[0] - spot * 1.05), default=None)
+        put_pick = min(puts, key=lambda r: abs(r[0] - spot * 0.95), default=None)
+    if not call_pick or not put_pick:
+        return None
+    value = put_pick[1] - call_pick[1]
+    return {
+        "value": round(value, 4),
+        "basis": basis,
+        "put_iv": round(put_pick[1], 4),
+        "call_iv": round(call_pick[1], 4),
+        "put_strike": round(put_pick[0], 2),
+        "call_strike": round(call_pick[0], 2),
+        "expiry": front,
+    }
+
+
+def _pinning_herfindahl(chains, spot, band_pct=0.05):
+    """r16. Herfindahl (sum of squared OI shares) of combined call+put OI within
+    band_pct of spot on the front expiry. Descriptive concentration, NOT a
+    probability. Gated to the front expiry only when it is within
+    _PINNING_MAX_DTE_DAYS (opex-only). None when far-out / too thin."""
+    from datetime import date, datetime
+    if not chains or not spot or spot <= 0:
+        return None
+    exps = _sorted_front_exps(chains, 1)
+    if not exps:
+        return None
+    front = exps[0]
+    try:
+        dte = (datetime.strptime(front, "%Y-%m-%d").date() - date.today()).days
+    except (ValueError, TypeError):
+        return None
+    if dte < 0 or dte > _PINNING_MAX_DTE_DAYS:
+        return None
+    ch = chains.get(front)
+    if ch is None:
+        return None
+    oi_by_strike: dict = {}
+    for df in (getattr(ch, "calls", None), getattr(ch, "puts", None)):
+        for (k, oi, _iv, _dlt, _g) in _side_rows(df):
+            if oi > 0:
+                oi_by_strike[k] = oi_by_strike.get(k, 0.0) + oi
+    lo, hi = spot * (1 - band_pct), spot * (1 + band_pct)
+    in_band = {k: v for k, v in oi_by_strike.items() if lo <= k <= hi and v > 0}
+    total = sum(in_band.values())
+    if total <= 0 or len(in_band) < 2:
+        return None
+    hhi = sum((v / total) ** 2 for v in in_band.values())
+    dominant = max(in_band, key=in_band.get)
+    descriptor = "high" if hhi >= 0.25 else ("moderate" if hhi >= 0.12 else "low")
+    return {
+        "hhi": round(hhi, 4),
+        "descriptor": descriptor,
+        "dominant_strike": round(dominant, 2),
+        "dte": dte,
+        "band_pct": band_pct,
+    }
+
+
+def _chain_legs(chains, spot) -> dict:
+    """Compute the additive options-chain legs from the already-fetched front
+    chains, in the same executor thread as max-pain. Each leg is gated by its
+    config flag (OFF -> not computed, zero added latency) and fully guarded so a
+    failure NEVER breaks compute_max_pain. Returns {gex, iv_skew, oi_pinning}."""
+    out = {"gex": None, "iv_skew": None, "oi_pinning": None}
+    if not chains:
+        return out
+    if _cfg.get("features.dealer_gamma.enabled", False):
+        try:
+            nearest = int(_cfg.get("features.dealer_gamma.nearest_expirations", 2) or 2)
+        except (TypeError, ValueError):
+            nearest = 2
+        try:
+            out["gex"] = _gex_for_chain(chains, spot, nearest)
+        except Exception as ex:
+            log.debug("gex compute error: %s", ex)
+    if _cfg.get("features.iv_skew.enabled", False):
+        try:
+            out["iv_skew"] = _iv_skew_for_chain(chains, spot)
+        except Exception as ex:
+            log.debug("iv_skew compute error: %s", ex)
+    if _cfg.get("features.oi_pinning.enabled", False):
+        try:
+            out["oi_pinning"] = _pinning_herfindahl(chains, spot)
+        except Exception as ex:
+            log.debug("oi_pinning compute error: %s", ex)
+    return out
 
 
 async def compute_max_pain(ticker: str, executor=None) -> Optional[dict]:
@@ -750,7 +1053,7 @@ async def compute_max_pain(ticker: str, executor=None) -> Optional[dict]:
             max_pain = {e: _max_pain_for_chain(ch) for e, ch in chains.items()}
             return {"spot": spot, "weekly_exp": weekly_exp,
                     "monthly_exp": monthly_exp, "chains_present": list(chains.keys()),
-                    "max_pain": max_pain}
+                    "max_pain": max_pain, **_chain_legs(chains, spot)}
         except Exception as ex:
             log.debug("max-pain fetch error for %s: %s", ticker, ex)
             return None
@@ -819,7 +1122,13 @@ async def compute_max_pain(ticker: str, executor=None) -> Optional[dict]:
 
     if weekly_leg is None and monthly_leg is None:
         return None
+    # Existing keys BELOW are byte-unchanged (#6 max-pain + #53 OI-split depend
+    # on them). Stage-3 gex/iv_skew/oi_pinning are ADDITIVE, computed in-thread
+    # (raw already carries them from _f/_schwab_maxpain); None when their flag is
+    # OFF or the leg had no valid data.
     return {"spot": round(spot, 2) if spot else None,
             "weekly": weekly_leg, "monthly": monthly_leg,
             "pc_oi_ratio": pc_oi_ratio,
-            "call_oi_sum": call_oi_sum, "put_oi_sum": put_oi_sum}
+            "call_oi_sum": call_oi_sum, "put_oi_sum": put_oi_sum,
+            "gex": raw.get("gex"), "iv_skew": raw.get("iv_skew"),
+            "oi_pinning": raw.get("oi_pinning")}

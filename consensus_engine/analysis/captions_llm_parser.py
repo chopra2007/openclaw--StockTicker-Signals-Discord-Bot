@@ -12,8 +12,7 @@ need no changes.
 
 Default model chain (configured under `youtube.captions.llm`):
   google/gemini-2.5-flash  (primary — paid but cheap & reliable)
-  → inclusionai/ring-2.6-1t:free
-  → openai/gpt-oss-120b:free
+  → openai/gpt-oss-120b   (paid; the :free tier 429s on transcript-sized payloads)
   → z-ai/glm-4.5-air:free
 """
 from __future__ import annotations

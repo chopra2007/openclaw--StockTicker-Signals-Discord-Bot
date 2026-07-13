@@ -3,6 +3,10 @@
 **Status:** phase-1 + phase-2 + phase-3 + **phase-4 ALL LIVE in #news** (phase-4 went live 2026-06-02, user "go fully live"). Phase-4 = beneficiary inference (#2) + fixes #3/#4/#5. Confluence-into-!all: DONE+LIVE (flag wolf_confluence_field_enabled: true config:614, chain aggregator.py:188, 8 tests pass, live-verified — see line ~170). Phase-3/4 RS follow-ups (1-month RS horizon `rs_window_days:21`, large-RS anti-chase guard `extended_pct:45`/`extended_penalty:0.7`): CONFIRMED SHIPPED 2026-06-02 (commit 98e0de9, `wolf_beneficiaries.py:267,312-317,355,401-405`, 2 tests) — NOT outstanding (audit 2026-07-03). Shorts side is LIVE too (10 short rows today), so any "shorts deferred to v1.1" note is stale. Item kept OPEN (user 2026-07-03) only for one unscoped idea: WIDEN the confluence/flow inputs (today just 2 signals feed confluence — news catalyst + options-flow direction); needs a definition of "wider" before it's buildable. Asset-direction convention: DONE (verified 2026-06-05; RE-VERIFIED accurate 2026-06-06 Wave 8 — macro_universe.yaml has `reviewed_at: "2026-06-02"`, the header comments state the convention explicitly (OIL bull = oil rising; YIELDS bull = yields rising; DXY bull = dollar strengthening), and the BONDS block is an explicit inverse alias of YIELDS — claim stands).
 **Created:** 2026-05-31
 
+**CURRENT STATUS (2026-07-12):** All named phases live. New since 07-12 (commit `7edf7a4`): the "widen confluence inputs" idea is now CLOSED — roster widened from 2 to 7 sources across 5 independence buckets (twitter, youtube, options, insider, macro), so correlated sources (e.g. options-flow + the Schwab order book) can't double-vote. Built on top of that: a confluence TIMING gate ("act only when 2+ independent source families agree, one of them fast-moving") — BUILT and logging verdicts in shadow (`timing.collect` on, `timing.enabled` off — an "act" verdict cannot raise an alert tier yet). Its backtest was inconclusive (only 6 paired samples vs the pre-registered n≥10 bar); the decision is re-taken when paired n≥10 accrues. No open idea remains — only the data-accrual wait on `timing.enabled`.
+
+**➡️ 2026-07-11: user reframed #20 — confluence is a TIMING tool (Wolf is right but early). Build from "User direction — 2026-07-11" at the bottom of this file: inventory ALL available bot data, score confluence to pinpoint when Wolf's call is actionable. That's the design goal a fresh session should plan from.**
+
 ## Phase-4 — beneficiary inference (#2) + fixes #3/#4/#5 — LIVE, 2026-06-02
 Built via `discover` run `wolf-phase4` (artifacts `.claude/discover/wolf-phase4/`). Regression gate CLEAN (1686 pass, 0 regressions).
 - **#2 beneficiary inference (headline, commit 94ec4f7):** precompute loop infers ranked beneficiary LONGs per active macro/sector thesis → NEW `wolf_beneficiaries` table (schema **v18**) → digest reads it → renders a clearly-labeled "🤖 Bot's read — inferred, not Wolf's picks" section. Ranking = peer-relative **1-month** RS (user choice) with an absolute outperformance floor (no manufactured winners); catalyst (direction-aligned) + options flow (premium dominance) lift confidence; confluence = thesis-level multiplier; pure-RS caps 🟡, 🟢 needs ≥2 signals. Longs-only v1. Universe: curated `consensus_engine/data/macro_universe.yaml` (macro/index/asset) or derived from `peer_groups.yaml` (sector bull-only). New: `consensus_engine/analysis/wolf_beneficiaries.py`, `main.wolf_beneficiary_loop` (independent sibling, self-gated), `db.get/replace_beneficiaries`. **Codex cross-model gate PASSED** (folded: no sign-flip, abs floor, aligned catalyst, premium flow, ETF-mode penalty); Gemini unavailable. **Two flags default OFF** (`wolf.beneficiaries.enabled`=precompute, `surface_in_digest`=post; OFF window = shadow-run). Live shadow render verified vs 38 seeded theses (YIELDS bull→GS, OIL bull→CVX/XOM, IGV bull→SNOW/DDOG/TEAM); real-test caught+fixed a sector-bear direction bug. **WENT LIVE 2026-06-02 (commit e6487db, user "go fully live", skipped shadow-run):** both flags true, engine restarted + verified (loop started, 9 picks/5 theses precomputed, live render confirms the section). First real #news post on the next scheduled digest window.
@@ -186,3 +190,52 @@ Find **actionable trades.** Turn the "Wolf on Wall Street" email feed into a mar
 ### Session note — 2026-06-29 (run `todo-55-47-research`) — re-verified live; Wolf market read now surfaced in !market
 - **Re-verified LIVE + healthy** (did not trust the file): confluence/beneficiary/digest loops all wired + flags ON, gmail watcher ON; 78 macro_theses (18 active), 18 confluence rows, 16 beneficiary rows, newest Wolf email recent. Done-soak holds; nothing to build for #20.
 - **NEW cross-link (#47):** the `!market` dashboard now LEADS with Wolf's **market-level** theses + cross-source confluence (built commit c2210ff, deploy pending). So Wolf's top/bottom calls (currently NDX/SPX top-forming, analysts divided) are now visible on-demand in `!market`, not only pushed to #news. Pure read of `macro_theses`/`wolf_confluence_checks`; no change to the Wolf pipeline itself.
+
+### User direction — 2026-07-11 (how to think about confluence + timing — plan from this)
+
+The user reframed what #20's "widen confluence" is really for. A new session should design from this, not just add one more input.
+
+**The real problem:** Wolf is **often right, but frequently early** — sometimes days, sometimes months ahead of the move. Being right but early is still a losing trade if you act on his timing alone.
+
+**What confluence is for:** confluence (other signals agreeing with Wolf) can **pinpoint the timing** — it tells us *when* Wolf's call is finally lining up with what the rest of the market/data is showing, so we flag it when it's actionable, not when Wolf first says it.
+
+**The task for the planning session:**
+- Look at **all** the data the bot already has access to — **not just the already-built features** (news catalysts + options-flow direction, the current two inputs). Inventory everything available: options data (Schwab real-time), insider/Form-4, social/retail sentiment, analyst swarm, technicals/levels, breadth/macro legs, YouTube mentions, etc.
+- **Decide a smart way to track and score confluence** as a *timing* signal — i.e. score how many independent data sources are now agreeing with a standing Wolf thesis, and surface the thesis louder only when that agreement crosses a threshold (the "party has arrived" moment), rather than when Wolf is still early and alone.
+
+**Design questions to resolve in the plan:**
+- Which of the available signals are genuinely *independent* of each other (don't double-count StockTwits+Reddit as two votes — see #65).
+- How to weight fast vs slow signals for a *timing* read.
+- What threshold flips a standing-but-early Wolf thesis into an actionable louder alert.
+- How to measure whether confluence-gated timing actually beats acting on Wolf's raw call (needs the 5d/20d outcome grading from #55 to backtest).
+
+### Session notes — 2026-07-12 (#20 confluence WIDENED + timing gate, commit 7edf7a4)
+
+This closes the one thing the item was being kept open for — "widen the confluence inputs,
+needs a definition of 'wider'". The definition landed: **independence buckets**.
+
+- Roster widened from 4 sources to **7 sources across 5 independence buckets** (twitter, youtube,
+  options, insider, macro). Each bucket casts **at most one net vote**, so options-flow + the Schwab
+  chain snapshot (the same order book) can no longer corroborate each other. Same for SEC + form4.
+- New `wolf_confluence.score_timing()`: says **"act"** only when 2+ independent families agree AND at
+  least one is a **fast** mover (twitter/options). Slow-only agreement is a thesis, not a trade.
+- Shipped **OFF**: `wolf.confluence.timing.collect: true` (compute + store), `timing.enabled: false`
+  (an "act" verdict may NOT raise a tier). Live proof: thesis 174 (RUT) scored `act` and its tier
+  stayed `surface`, `alerted_tier` unchanged.
+- **Retail bucket dropped, deliberately:** `reddit_posts` has no ticker and no sentiment;
+  `apewisdom_mentions` has a ticker but no direction. Attention is not a side — inventing one would
+  manufacture the agreement this feature exists to detect.
+- **Backtest (`scripts/wolf_timing_backtest.py`): INCONCLUSIVE.** 46 actionable theses, the gate would
+  have fired on only 9 → paired n=6 (5d) / n=5 (20d), under the pre-registered n≥10 bar. NOT the
+  honest-negative case (gated proven worse) — just underpowered.
+
+**Owed before `timing.enabled` ever flips:** re-run the backtest when paired n≥10 (the shadow soak
+accrues `timing_first_act_at` forward). It changes overnight @-ping behaviour, so a live shadow soak
+is owed too. No threshold re-tuning to force a pass.
+Full log: `.claude/discover/todo-55-20-plan/pass-5-execution-log.md`.
+
+### Session notes — 2026-07-12 later (#20 side effect of the gap fixes)
+
+`wolf_timing_backtest.py` now uses `resolve_benchmark_dynamic()` for thesis proxies (a
+stock-scoped thesis on a long-tail name gets its real sector ETF instead of the SPY default).
+No change to the timing gate itself; the paired-n≥10 re-run condition is unchanged.

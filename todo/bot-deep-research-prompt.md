@@ -1,7 +1,9 @@
 # Run the deep-research prompt for new bot features and fixes
 
-**Status:** OPEN
+**Status:** DONE 2026-07-09
 **Created:** 2026-07-05
+
+**CURRENT STATUS (2026-07-09) — DONE.** The last open dependency, #62's two forward-loggers, landed today. #63/#64/#65 were already done. The autonomous readiness-and-flip engine now has real data on both of its registered switches and re-tests itself every 2 days; `analyst_accuracy_promote` currently reports n=99, Wilson-LB 0.418 (not ready — correctly). Nothing further for a human to do.
 
 ## What this is
 

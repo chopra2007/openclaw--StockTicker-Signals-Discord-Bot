@@ -1,6 +1,6 @@
 # A/B the !all "tidy text" step, then turn it off
 
-**Status:** OPEN
+**Status:** DONE 2026-06-09 — status line backfilled 2026-07-12 (TODO #72 cleanup; the header and session notes had already recorded completion).
 **Created:** 2026-06-08
 
 ## The goal (plain English)

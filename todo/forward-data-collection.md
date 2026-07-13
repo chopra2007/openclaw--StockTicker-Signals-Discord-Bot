@@ -1,7 +1,11 @@
 # Start saving the data future features need to test on
 
-**Status:** LIVE (2026-06-29, commit 8e28f23) — Tier-1 Items 1+2 + Tier-2 #3/#5 deployed; both daily timers running and all four tables filling forward. Analyst scorecard (Tier-1 Item 2) runs SHADOW-only in `source_performance_shadow` (live `source_performance` intentionally empty); promotion to live is a manual soak-gated decision (would fire 3 scoring flags) — shadow-delta analysis run 2026-07-03, see notes below. STILL UNBUILT (①): Tier-2 #4 realized-vs-implied + Tier-3 #6 stocktwits / #7 EPS-revision loggers. (Prior "deploy + soak pending" was written pre-deploy — stale.)
+**Status:** OPEN — loggers LIVE (2026-06-29, commit 8e28f23) — Tier-1 Items 1+2 + Tier-2 #3/#5 deployed; both daily timers running and all four tables filling forward. Analyst scorecard (Tier-1 Item 2) runs SHADOW-only in `source_performance_shadow` (live `source_performance` intentionally empty); promotion to live is a manual soak-gated decision (would fire 3 scoring flags) — shadow-delta analysis run 2026-07-03, see notes below. STILL UNBUILT (①): Tier-2 #4 realized-vs-implied + Tier-3 #6 stocktwits / #7 EPS-revision loggers. (Prior "deploy + soak pending" was written pre-deploy — stale.)
 **Created:** 2026-06-28
+
+**CURRENT STATUS (2026-07-12):** The catalyst scorecard (#55 rebuild) is BUILT and fully plumbed: posts with a real catalyst are graded against their own sector (169 scored calls, 60 fully graded), a nightly timer re-grades automatically at 4:30pm PT (`catalyst-grading.timer`, failure → Discord alert), long-tail tickers resolve via a Yahoo sector fallback (skips 38→2), and the scores display live in Discord (`!catalysts`, plus small-sample-adjusted rates on `!leaderboard`). Display-only — nothing feeds live alert scoring yet. Next concrete step: re-run the shadow-delta/promotion analysis once the catalyst table accrues enough graded rows (the 2026-07-03 HOLD below still stands).
+
+**➡️ 2026-07-11: user gave the scoring framework to BUILD from — see "User direction — 2026-07-11" at the bottom of this file. That is now the design goal (catalyst-classified, sector-relative scoring), superseding the earlier "just repoint 1h→24h / HOLD" framing. A fresh session should plan from it.**
 
 ## CURRENT STATUS (2026-06-29, run `todo-55-47-research`) — Tier-1 Item 2 + Tier-2 #3/#5 BUILT
 Three forward-loggers built + tested + committed on branch `worktree-todo-55-47-discover`
@@ -169,3 +173,74 @@ today so the 2–3 month data clock begins.
 - **Why HOLD:** at the **1h** horizon all three flags read, no analyst beats a coin flip at 95% confidence — max Wilson lower-bound **0.484 < 0.50** (unusual_whales, n=48). Replaying the last ~2.7 months (3,126 snapshots, 67 STRONG): I2 is downside-only (all 18 eligible analysts weight < 1.0) → **4 STRONG demotions (QCOM ×1, META ×2), ~1.5/month**; `per_analyst_cooldown` = **0** suppressions; I10 = **0** (all 67 STRONGs already carry hard evidence, and no analyst LB reaches the 0.65 rescue bar); I7 stays OFF (needs code + ≥2 clusters, not a data decision). So promoting today = pure downside, no upside.
 - **Two cheap prep steps before any future promotion:** (a) repoint `get_analyst_precision`/`_lb` from `'1h'` (the producer's own docstring calls it "near-random") to the honest `'24h'` — no effect today (table empty) but the correct base to grade on; (b) gate promotion on a real stat threshold (≥1 analyst Wilson-LB > 0.50 at the used horizon — the current leader needs ~n≈120 1h samples vs 48 today, ~2.5×), then a ~2-week shadow-compare soak on the demotion set.
 - **Next:** let the 3 live loggers accrue; revisit promotion only after the stat gate clears. The horizon-mismatch repoint (a) is the highest-value cheap follow-up if/when promotion is on the table.
+
+### User direction — 2026-07-11 (how to build the analyst scorecard — plan from this)
+
+The user gave the scoring framework. A new session should turn this into a plan (design + adversarial review) before building.
+
+**Core idea:** don't score every analyst post. Only score posts that carry a real, directional catalyst, and score short-term vs long-term catalysts differently.
+
+**Step 1 — classify the post first (is there anything to score?).**
+After reading the analyst's post, decide what kind of price-mover it is:
+- **Short-term catalyst** (should move the price soon): unusual options activity, merger/acquisition, new product *release*, lawsuit, company scandal.
+- **Long-term catalyst** (moves the price slowly): solidifying competitive moat, a pattern of rising forward guidance, a new product not shipping for 1+ years.
+- **Neither / can't tell:** it's just news, not a catalyst or a directional bet → **nothing to score on that post.** Skip it.
+
+**Step 2 — scoring a SHORT-TERM catalyst.**
+- Look at the stock's **daily and weekly % change over the next 30 days.**
+- If the stock moves **in the analyst's direction more than its sector does**, it's a **win.**
+- The **wider the margin vs the sector, the bigger the bonus** on that win. (So beating the sector by a lot > beating it by a little.)
+- (Sector = measure against the stock's sector/peer benchmark, not the raw move — a stock rising because the whole sector rose is not the analyst being right.)
+
+**Step 3 — scoring a LONG-TERM catalyst.**
+- Track it over a **longer period.** Decide *smartly* how — the session designs this:
+  - Daily stats probably don't need to be recorded for these (too noisy over a long horizon).
+  - If the catalyst is **too vague or too unlikely**, it may not be worth tracking at all — **don't** open a scoring "bet" on it. Save resources for higher-probability bets.
+
+**Open design questions for the planning session:**
+- What classifies a post as short vs long vs no-catalyst? (Likely an LLM classification step on the post text — the bot already extracts structured fields from tweets.)
+- Exactly which sector/peer benchmark to compare against (there's a coarse sector map and a finer peer-group file already).
+- How to size the sector-margin bonus (linear? capped?).
+- Long-term: what horizon, what checkpoints, and the vague/unlikely cutoff that means "don't track."
+- How this new per-post catalyst score relates to the existing (near-random 1h/24h) analyst-precision tables — replace, or run alongside.
+
+This supersedes the "just repoint 1h→24h" framing as the *goal*; that repoint may still be a cheap sub-step, but the real design is the catalyst-classified, sector-relative scoring above.
+
+### Session notes — 2026-07-12 (#55 catalyst scorecard BUILT, commit 7edf7a4)
+
+Built the catalyst-relative analyst scorecard (discover run `todo-55-20-plan`). It runs
+**alongside** the near-random 1h/24h `source_performance`, not instead of it — promotion
+is a later, separately-gated decision (same HOLD pattern as `source_performance_shadow`).
+
+- New: `consensus_engine/analysis/benchmark_grading.py` (shared spine), `scripts/grade_analyst_catalysts.py`.
+- New SHADOW tables: `analyst_catalyst_scores`, `long_term_catalyst_bets`.
+- `models/text_model.py` now labels each post's `catalyst_horizon` / `catalyst_kind` / `catalyst_likelihood`.
+- A win = the stock **beat its sector/peer ETF** over the same 21 sessions. Rising with the sector is not a win.
+- First real run (260 LLM calls): 43 short rows, 28 graded, 14 long-term bets opened.
+  **152 of 260 posts (58%) carry no directional catalyst at all** — the existing scorecard grades
+  all of those, which is the mechanical reason it reads near-random. Premise now measured, not asserted.
+- Coverage limit: 38 of 260 posts skipped, no benchmark (34 tickers: RKLB, HIMS, IREN, LULU…).
+  yfinance `.info['industry']` fallback deferred to v1.1 (plan graft 6).
+
+**Owed:** shadow-delta analysis before promotion · `eb_shrunk_precision()` is built + unit-tested but
+has **no caller** (no live catalyst display yet) · no nightly timer yet (runs on demand).
+Full log: `.claude/discover/todo-55-20-plan/pass-5-execution-log.md`.
+
+### Session notes — 2026-07-12 later (#55 three leftover gaps CLOSED, same day)
+
+1. **Display wired.** New `!catalysts` Discord command (catalyst scorecard: raw "X of N" +
+   EB-shrunk "adjusted" % + `eb_shrunk_precision` "all calls" contrast column) and an
+   "adj 24h" column on `!leaderboard`. Display-only; the Wilson-LB promotion gate is
+   untouched. Proven live: real `!catalysts` / `!leaderboard` messages answered in #chat.
+2. **Nightly timer live.** `catalyst-grading.{service,timer}` (repo copies in `scripts/`),
+   23:30 UTC nightly, `Persistent=true`, `OnFailure=alert@%n` → #errors-style Discord alert.
+   Two grader bugs fixed en route: (a) classification cache key used salted `hash()` — the
+   disk cache could NEVER match across runs, so every nightly would re-buy the same LLM calls
+   and the oldest-first cap would starve new posts (now sha1, content-only); (b) an LLM outage
+   was cached as "no catalyst" forever (now retried next run; wholesale failure exits non-zero).
+3. **Benchmark fallback live.** `resolve_benchmark_dynamic()`: curated tables → shared 30-day
+   sector cache → one Yahoo lookup → sub-industry group (RKLB→ITA) or sector ETF (HIMS→XLV);
+   still never guesses SPY. Backfill re-run: unresolvable 38→2 (CRBL dead, SOXL leveraged ETF —
+   correct skips), 52 posts graded via the fallback, scorecard 43→112 rows (57 graded).
+
+**Still owed (unchanged):** shadow-delta analysis before any promotion into live scoring.

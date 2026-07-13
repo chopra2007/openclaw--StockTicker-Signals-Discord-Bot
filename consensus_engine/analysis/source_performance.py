@@ -149,3 +149,100 @@ async def compute_source_performance_shadow(conn=None) -> dict:
         rows_scanned, handles_total, len(agg), by_horizon,
     )
     return summary
+
+
+# ---------------------------------------------------------------------------
+# #62: the LIVE producer
+# ---------------------------------------------------------------------------
+# Horizons written to the live `source_performance` table. Deliberately NOT '1h':
+# an analyst call graded one hour later measures market noise, and #55 benched the
+# scorer at exactly that wrong horizon. 5d needs `alert_history.price_5d_later`,
+# added in the same change and filled by the price-outcome loop.
+_LIVE_HORIZONS: tuple[tuple[str, str], ...] = (
+    ("24h", "price_24h_later"),
+    ("5d", "price_5d_later"),
+)
+
+
+async def compute_source_performance_live(conn=None) -> dict:
+    """#62: grade analysts at 24h and 5d into the LIVE `source_performance` table.
+
+    Why this is safe to run while alerts are on:
+
+    Every live reader of this table asks for the horizon returned by
+    `db.analyst_horizon()`, which is '1h' until `scoring.analyst_accuracy_weight
+    .enabled` is flipped. This producer never writes a '1h' row. So the table fills
+    with 24h/5d track records while every reader keeps missing and staying
+    cold-start — alerts are byte-for-byte unchanged. Flipping that one flag (which
+    the auto-flip engine does only after >=1 analyst clears n>=90, Wilson-LB>0.50
+    and BH-FDR q<=0.10) is what puts the data to work.
+
+    Same grading rule as the shadow producer: a handle is right when the price moved
+    the way its catalyst implied.
+
+    Returns {"rows_scanned", "handles", "rows_written", "by_horizon"}.
+    """
+    from consensus_engine.db import get_db
+
+    if conn is None:
+        conn = await get_db()
+
+    cur = await conn.execute(
+        """SELECT analyst_mentions, catalyst_type, price_at_alert,
+                  price_24h_later, price_5d_later
+             FROM alert_history
+            WHERE analyst_mentions IS NOT NULL
+              AND analyst_mentions != ''
+              AND analyst_mentions != '[]'
+              AND price_at_alert IS NOT NULL
+              AND price_at_alert > 0"""
+    )
+    rows = await cur.fetchall()
+
+    agg: dict[tuple[str, str], list[int]] = {}
+    rows_scanned = 0
+    for row in rows:
+        handles = _parse_handles(row["analyst_mentions"])
+        if not handles:
+            continue
+        entry = row["price_at_alert"]
+        if entry is None or entry <= 0:
+            continue
+        rows_scanned += 1
+        bearish = (row["catalyst_type"] or "") in BEARISH_CATALYSTS
+        for horizon, col in _LIVE_HORIZONS:
+            later = row[col]
+            if later is None or later <= 0:
+                continue
+            hit = 1 if _is_hit(float(entry), float(later), bearish) else 0
+            for handle in handles:
+                slot = agg.setdefault((handle, horizon), [0, 0])
+                slot[0] += hit
+                slot[1] += 1
+
+    now = time.time()
+    by_horizon: dict[str, int] = {}
+    for (handle, horizon), (hits, count) in agg.items():
+        if count <= 0:
+            continue
+        assert horizon != "1h", "the live table must never carry a 1h row"
+        await conn.execute(
+            """INSERT OR REPLACE INTO source_performance
+               (entity_id, horizon, rolling_accuracy, sample_count, updated_at)
+               VALUES (?, ?, ?, ?, ?)""",
+            (handle, horizon, hits / count, count, now),
+        )
+        by_horizon[horizon] = by_horizon.get(horizon, 0) + 1
+    await conn.commit()
+
+    handles_total = len({h for (h, _) in agg})
+    log.info(
+        "[#62 source_performance LIVE] scanned=%d handles=%d rows=%d by_horizon=%s",
+        rows_scanned, handles_total, len(agg), by_horizon,
+    )
+    return {
+        "rows_scanned": rows_scanned,
+        "handles": handles_total,
+        "rows_written": len(agg),
+        "by_horizon": by_horizon,
+    }

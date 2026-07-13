@@ -16,7 +16,8 @@ api_keys:
   discord_news_channel_id: "$DISCORD_NEWS_CHANNEL_ID"   # Wolf macro-brain #news lane
   options_flow_channel_id: "1512934341485924432"   # #options-flow room (user go 2026-06-08)
   swarm_alert_channel_id: "1518157440380702730"    # #alerts room — analyst SWARM alerts (user 2026-06-21); blank → main channel
-  discord_owner_user_id: "$DISCORD_OWNER_USER_ID"       # @-ping target (phase-2, dormant)
+  discord_owner_user_id: "$DISCORD_OWNER_USER_ID"       # @-ping target — used by #71 outage alerts
+  discord_errors_channel_id: "$DISCORD_ERRORS_CHANNEL_ID"  # #71 #errors room — outage alerts only
   discord_feed_channel_id: "$DISCORD_FEED_CHANNEL_ID"  # #twitter channel — TweetShift input
   twitter_auth_token: "$TWITTER_AUTH_TOKEN"
   twitter_ct0: "$TWITTER_CT0"
@@ -48,6 +49,22 @@ searxng:
 # Scoring Model
 scoring:
   skip_llm_below_threshold: false     # #16 skip LLM confidence call when base+cheap+llm_max can't reach the alert line
+  # --- #62: the two switches the autonomous auto-flip engine owns -------------
+  # Both OFF. The forward-loggers fill their tables regardless; these flags are the
+  # only thing that turns logged data into changed alerts. Do not flip by hand —
+  # /root/task_system/scripts/auto_flip_check.py flips them when the evidence earns it.
+  fold_display_signals:
+    # Fold the 5 rich display signals (max-pain, analyst momentum, EPS revisions,
+    # peer relative-strength, chart patterns) INTO the score. Flipped only when each
+    # signal beats the incumbent held-out Brier at 24h, n>=90, Wilson-LB > 0.50.
+    enabled: false
+    max_points: 8               # hard cap on the total score adjustment, both directions
+  analyst_accuracy_weight:
+    # Promote per-analyst track record into scoring. This ALSO switches every live
+    # reader of `source_performance` from horizon '1h' (never written -> cold-start,
+    # alerts unchanged) to '24h' (where the forward-logger is filling it).
+    enabled: false
+    horizon: "24h"              # '24h' or '5d' once flipped
   conviction:
     high: 30
     medium: 25
@@ -122,7 +139,12 @@ intervals:
   options_flow_cooldown: 3600      # max one alert per ticker per hour
   wolf_staleness_loop: 86400       # #26 nightly Wolf thesis staleness sweep
   finra_short_volume_loop: 21600   # #32 E1 — daily FINRA short-volume ingest (6h re-check; keeps E1 data fresh)
+  finra_short_interest_loop: 43200 # r12 — FINRA twice-monthly settlement short-interest ingest (12h re-check; data updates ~2x/mo)
   chat_memory_loop: 86400          # #39 nightly chat-memory rollup + gated cleanup
+  trading_halts_loop: 60           # r14 — poll Nasdaq/NYSE trade-halt feed every 60s (halts matter only live; tight tunable cadence)
+  form144_loop: 21600              # r27 — Form 144 intent-to-sell scan (6h; staggered wide from form4 cluster/graduation — shared 'sec_edgar' rate limiter)
+  insider_10b5_plans_loop: 28800   # r28 — 10b5-1 plan-state scan (8h; staggered off the other SEC loops)
+  congress_trades_loop: 86400      # r13 — House STOCK-Act PTR scan (daily; reports lag ~45d, no value in polling faster)
 
 # Scanner toggles
 scanners:
@@ -146,6 +168,10 @@ sec_watcher:
   min_insider_dollars_buy: 100000     # $100k+ insider purchase signals conviction
   min_insider_dollars_sell: 1000000   # Sells need higher floor — execs sell for many reasons
   named_insiders_in_alert: true       # #8 LIVE (user go 2026-06-08) — expand "Form 4 x{n}" to named insiders + roles
+  # r27 Form 144 (intent-to-sell) materiality gate — a context leg only surfaces when
+  # aggregate intended-sale value >= min_form144_dollars AND >= min_form144_unique insiders.
+  min_form144_dollars: 1000000        # $1M+ aggregate intended sale (mirrors min_insider_dollars_sell)
+  min_form144_unique: 2               # >= 2 distinct insiders before it's user-visible
 
 # Stage 2: Social & Sentiment Scanner (used for cross-reference scoring)
 social:
@@ -282,7 +308,7 @@ llm:
   # the narrator falls back to the role-based chains above.
   all_command_chain:
     - "groq/llama-3.3-70b-versatile"
-    - "openai/gpt-oss-120b:free"
+    - "openai/gpt-oss-120b"          # 2026-07-10: was :free — rate-limited 429 daily upstream (congested free pool); paid returns 200, negligible cost as a deep fallback
     - "openai/gpt-oss-20b:free"
   # #6 latency-speedup: how the !all synthesis call walks all_command_chain.
   #   serial     = original one-model-at-a-time (DEFAULT; unchanged behavior)
@@ -303,16 +329,19 @@ llm:
   # #6 root-cause: the sanitize/cleanup calls run groq-free so they don't drain
   # groq's 100k/day budget that the synthesis call above needs.
   # NOTE: this free pool is unreliable (gpt-oss-20b 429s ~half the time on the
-  # OpenRouter shared free pool; gpt-oss-120b swings 2-11s vs the 5s _BATCH_TIMEOUT),
-  # so cleanup OFTEN falls back to trimmed raw text. That's acceptable: the
-  # synthesis writeup is robust to trimmed evidence (every test produced a valid
-  # narrative regardless of cleanup outcome). Do NOT add a reasoning model here
-  # (tried nvidia/nemotron-3-nano-30b-a3b:free 2026-06-02 — its hidden reasoning
-  # eats the 512-token budget on real 20-source batches and returns BLANK). If
-  # reliable cleanup is ever wanted, route to a cheap PAID non-reasoning model.
+  # OpenRouter shared free pool), so cleanup can still fall back to trimmed raw
+  # text. That's acceptable: the synthesis writeup is robust to trimmed evidence
+  # (every test produced a valid narrative regardless of cleanup outcome). Do NOT
+  # add a reasoning model here (tried nvidia/nemotron-3-nano-30b-a3b:free
+  # 2026-06-02 — its hidden reasoning eats the 512-token budget on real 20-source
+  # batches and returns BLANK).
+  # 2026-07-12: lead is now PAID gpt-oss-120b — this is the "route to a cheap PAID
+  # non-reasoning model" the old note asked for. :free 429d 2/4 on a real 33k-char
+  # payload and 188x vs 1 success in the 07-05..07-10 logs. Cost is negligible here
+  # (sanitize prompts are small).
   # Absent key -> role-based text chain (also groq-free) -> safe.
   all_command_sanitize_chain:
-    - "openai/gpt-oss-120b:free"
+    - "openai/gpt-oss-120b"
     - "openai/gpt-oss-20b:free"
   # Agent-path chain — !ask / @-mention via `openclaw agent --local`.
   # SEPARATE from the !all chain above, deliberately: the real agent prompt is
@@ -337,7 +366,7 @@ llm:
   agent_fallback_models:
     - "mistralai/mistral-small-3.2-24b-instruct"  # Mistral; fast+lean, converged 3/3 (12-14s); provider diversity
     - "qwen/qwen3-235b-a22b-2507"                 # Alibaba; converges (no timeout) but token-heavy/slow — deeper fallback + diversity
-    - "openai/gpt-oss-120b:free"                  # credit-exhaustion net (handles agent prompt+tools on light questions)
+    - "openai/gpt-oss-120b"                       # 2026-07-10: was :free — free pool 429s daily upstream; paid (already in openclaw.json allow-map) is 3x faster on the agent path and actually responds
   vision_model: "google/gemma-4-31b-it:free"
   min_confidence: 70
   # Primary-tier output cap. Set to 8000 (was 4096) to match narrator's
@@ -525,12 +554,15 @@ youtube:
     #   - google/gemini-2.5-flash      → 6.98s, 25 spans, 27 valid tickers ✅
     #   - inclusionai/ring-2.6-1t:free → 404 "transitioned to paid" — dropped
     #   - z-ai/glm-4.5-air:free        → 45s timeout on 25k chars (works on small payloads)
-    #   - openai/gpt-oss-120b:free     → known-good from broader llm.fallback_models chain
-    # Timeout bumped to 90s so free-tier fallbacks get headroom on long transcripts.
+    #   - openai/gpt-oss-120b (PAID)   → 12.3s, correct JSON on a 33k-char payload (2026-07-12)
+    # 2026-07-12: was gpt-oss-120b:free — it 429d 2/4 on that same 33k-char payload
+    # (and 188x vs 1 success in the 07-05..07-10 logs). Transcripts are exactly the
+    # big-payload case the free pool refuses, so this backup was mostly a no-op.
+    # Timeout stays 90s so the remaining free fallback has headroom on long transcripts.
     llm:
       model: "google/gemini-2.5-flash"
       fallback_models:
-        - "openai/gpt-oss-120b:free"
+        - "openai/gpt-oss-120b"
         - "z-ai/glm-4.5-air:free"
       max_tokens: 4096
       temperature: 0.2
@@ -736,6 +768,13 @@ chat_memory:
 # New Signal Features (A1/A2/A3/A4/A5/D1)
 # =============================================================================
 features:
+  # #62 forward-logger 1. ON, and safe to be ON: it runs OFF the alert path.
+  # main.py writes the decision snapshot, THEN schedules this collector, which
+  # merges the 5 signals into the already-written row. Alerts gain zero latency.
+  # Purely a recorder — `scoring.fold_display_signals.enabled` is what would ever
+  # let these numbers touch a score.
+  forward_log_display_signals:
+    enabled: true
   contradiction_penalty:
     enabled: true               # A1 default-on; manual rollback via YAML flip
     contradiction_max: 0.5
@@ -832,8 +871,34 @@ features:
   single_score: { enabled: true }                                                             # I4-full — single-score reconciliation. FLIPPED ON 2026-06-21 to monitor live (#50 Issue C)
   consensus_logodds: { enabled: false, count_floor_frac: 0.5 }                                # I7 — sigmoid(log-odds) consensus scale. DEFERRED 2026-06-16: no-op until source_performance has a production writer AND signal_events forms >=2 clusters/ticker (all 1963 consolidated_events are single-cluster shadow_only). Needs code, not data — not a flip.
   regime_widening_graduated: { enabled: false, max_shift: 15, cutoff_ceiling: 90 }            # I14-widening — z-scaled panic shift
-  cross_asset: { enabled: true, shadow: false, fred_leg_enabled: true, fred_reference_swing: 0.40, veto_floor: 0.85, confirm_ceiling: 1.05 } # E2 — LIVE 2026-06-26 (user: "flip E2 on and live"). VIX-term + FRED HY-credit confirm/veto multiplier. confirm_ceiling 1.05 = calm market LOWERS the STRONG bar toward ~76-79 (a few MORE alerts in calm — reverses the prior calm-no-op pref, changed per explicit user request 2026-06-26). veto_floor 0.85 = stressed market RAISES the bar to 90 (fewer alerts when market falling). Math: effective STRONG cutoff = clamp(80/multiplier, 70, 90). enabled:true=apply live; shadow:false=not log-only. Takes effect when scanners resume (Sun 2pm ET; weekend pause active).
+  cross_asset: { enabled: true, shadow: false, fred_leg_enabled: true, fred_reference_swing: 0.40, veto_floor: 0.85, confirm_ceiling: 1.05, nfci_leg_enabled: false, nfci_reference_swing: 1.0 } # E2 — LIVE 2026-06-26; r21 NFCI shadow leg: nfci_leg_enabled OFF (computed/logged/persisted but NEVER in the live `legs`; flip only after shadow proves distinct edge). nfci_reference_swing=1.0: an NFCI level of ±1.0 reaches the full veto/confirm bound (NFCI std ~0.5-1.0). (user: "flip E2 on and live"). VIX-term + FRED HY-credit confirm/veto multiplier. confirm_ceiling 1.05 = calm market LOWERS the STRONG bar toward ~76-79 (a few MORE alerts in calm — reverses the prior calm-no-op pref, changed per explicit user request 2026-06-26). veto_floor 0.85 = stressed market RAISES the bar to 90 (fewer alerts when market falling). Math: effective STRONG cutoff = clamp(80/multiplier, 70, 90). enabled:true=apply live; shadow:false=not log-only. Takes effect when scanners resume (Sun 2pm ET; weekend pause active).
   finra_short_volume: { enabled: true }                                                       # E1 LIVE 2026-06-15 — daily ingest loop built; replay bounds delta (<=177 cand, +5 cap, 1 current change: CRWV 76+5=81->STRONG); fails safe on stale data
+  trading_halts: { enabled: false }                                                           # r14 — Nasdaq/NYSE trade-halt tripwire (instant alert on tracked-ticker halt). Default OFF; loop dormant until flipped
+  skew_index: { enabled: false }                                                              # r8 — CBOE ^SKEW tail-risk reader. Standalone module; now surfaced as an embed-only !all field. Default OFF
+  # Stage-5 standalone-scanners (discover next-features-jul2026). ALL default OFF (shadow-first).
+  short_interest: { enabled: false, collect: true, min_days_to_cover: 3.0, require_rising: true, term_cap: 3 } # r12 — collect:true (SHADOW SOAK 2026-07-08) fills finra_short_interest via the loop; enabled:false keeps the days-to-cover SCORE leg OFF (breakdown byte-identical). Only that score leg (cross_reference.py) is gated on .enabled — the !short command reads the collected history with NO flag check and already works today (#73 comment fix; was wrongly claiming !short is gated too).
+  pead:           { enabled: false, min_days_after: 5, max_days_after: 45, min_surprise_pct: 2.0, faded_threshold_pct: 2.0, term_cap: 3 } # r17 — post-earnings drift (descriptive !all field + small capped confluence leg; silent inside earnings_magnitude's 5-day window)
+  market_breadth: { enabled: false, shadow: true, window_days: 20, trend_threshold_pct: 0.5 }   # r20 — shadow:true (SHADOW SOAK 2026-07-08) makes market_daily write ONE market_breadth_daily row/run; enabled:false keeps the !market panel unchanged. Descriptive-only; NEVER wired into score_ticker.
+  # Stage-6 insider-disclosure (discover next-features-jul2026). ALL default OFF (shadow-first).
+  # CONTEXT legs only — never a standalone alert, never the score. Loops shadow-log to their
+  # tables (form144_filings / insider_10b5_plans / congress_trades) until go-live justifies
+  # wiring the insider_display context line onto the live !sec/!all/Score-card surfaces.
+  form144:            { enabled: true }                                                         # r27 — SHADOW-COLLECT ON 2026-07-08: write-only loop shadow-logs to form144_filings (no alert, no score). SEC Form 144 intent-to-sell (materiality gate in sec_watcher.min_form144_*)
+  insider_10b5_plans: { enabled: true }                                                         # r28 — SHADOW-COLLECT ON 2026-07-08: write-only loop shadow-logs to insider_10b5_plans (no alert, no score). Rule 10b5-1 plan adoption/termination state (structured aff10b5One flag; cold-start emits nothing)
+  congress_trades:    { enabled: true, freshness_days: 45, max_pdfs_per_cycle: 40 }             # r13 — SHADOW-COLLECT ON 2026-07-08: write-only PDF loop shadow-logs to congress_trades (no alert, no score). House STOCK-Act PTR tracker (free House Clerk PDFs via pdfplumber; Senate deferred)
+  # Stage-3 options-chain legs (discover next-features-jul2026). Computed IN-THREAD from
+  # compute_max_pain's already-fetched front weekly+monthly chains (no extra fetch);
+  # embed-only, never in narrator/score. ALL default OFF (shadow-first). nearest_expirations
+  # bounds GEX to the front N already-held chains (2 = free; higher costs a fetch later).
+  dealer_gamma: { enabled: false, nearest_expirations: 2 }                                     # k4 dealer GEX map + k5 gamma-flip level
+  iv_skew:      { enabled: false }                                                             # r10 put-minus-call IV skew (25-delta on Schwab / moneyness-matched on yfinance)
+  oi_pinning:   { enabled: false }                                                             # r16 OI-pinning HHI concentration (opex-only descriptor, not a probability)
+  # Stage-4 vol-context (discover next-features-jul2026). Descriptive-only !all display tags —
+  # NEVER score/trigger/direction; the ONLY new legs fed to the narrator (as coiling/vol context).
+  # k7 adds a compute_em option-chain fetch (~1-2s, gated OFF, runs in the existing parallel gather);
+  # r9 reuses already-fetched daily_candles at zero network cost. Both default OFF (shadow-first).
+  iv_rv_tag:   { enabled: false, rich_threshold: 1.25, cheap_threshold: 0.85 }                 # k7 — IV-vs-RV cheap/rich vol tag (both annualized, apples-to-apples)
+  vol_squeeze: { enabled: false, period: 20, bb_mult: 2.0, kc_mult: 1.5 }                       # r9 — Bollinger-inside-Keltner volatility squeeze (coiling context, not a direction)
   # trade-edge market-context layer (final-plan.md §4) — daily cross-sectional reads
   # computed by market_daily.timer. ALL default OFF; shadow-validate + historical
   # back-test before any flip. F4 macro_legs is NEVER averaged into cross_asset (E2).
@@ -849,20 +914,45 @@ features:
   schwab_snapshot_logger: { enabled: true }  # #57 LIVE — daily options-chain snapshot logger gate
   market_data:       { store_dir: "data/market_store", fred_lag_days: { T10Y2Y: 1, T10Y3M: 1, NFCI: 7 }, fallback_provider: "stooq" }
   # Cross-cutting helper (consumers above are all flag-OFF; caps are shadow-derived placeholders).
-  recency_window: { enabled: true, max_age_min: { sec: 120, tweet: 120, options: 90, youtube: 1440, apewisdom: 1440, finra_short_volume: 1440, vix: 1440, fred: 1440, sector_rs: 1440, factor_rs: 1440, trend: 1440, macro_legs: 1440 } }
+  recency_window: { enabled: true, max_age_min: { sec: 120, tweet: 120, options: 90, youtube: 1440, apewisdom: 1440, finra_short_volume: 1440, short_interest: 43200, pead: 43200, vix: 1440, fred: 1440, nfci: 1440, sector_rs: 1440, factor_rs: 1440, trend: 1440, macro_legs: 1440, skew: 1440 } }
 
 # #18 unusual options FLOW — free yfinance ~15-min option chains.
 # "Balanced" thresholds (user-chosen 2026-05-29): a contract must trade >=N x
 # its open interest, >= min_volume contracts, and >= min_premium notional.
 options_flow:
-  min_vol_oi: 10.0                 # day volume / open interest (fresh positioning) — raised 5→10 (user: too many alerts, 2026-06-08)
-  min_volume: 500                  # contracts traded today
-  min_premium_usd: 250000          # notional = lastPrice * volume * 100
+  # #57 (2026-07-09): thresholds set from MEASURED outcomes, not taste.
+  # `scripts/grade_options_flow.py` graded 8,681 stored flow events (2026-06-01 →
+  # 06-30) on whether the stock beat SPY over the same 5 trading days. Raw win rates
+  # are worthless here — June fell ~2%, so every PUT "won" and every CALL "lost".
+  # The honest measure is the GAP: how much more often the stock beat SPY after a
+  # CALL hit than after a PUT hit. Zero gap = the flow knew nothing.
+  # Counting one event per ticker-day-side (so a dozen contracts on one name can't
+  # vote twelve times) and dropping index ETFs (SPY vs SPY is a definitional zero),
+  # 1,302 independent events say only vol/OI separates signal from noise:
+  #   vol/OI >= 10:  +1.3pp (z=0.42), keeps 83%   <- the old bar: no edge at all
+  #   vol/OI >= 20:  +8.7pp (z=2.04), keeps 41%   <- set here
+  #   vol/OI >= 30: +11.9pp (z=2.46), keeps 32%
+  #   vol/OI >= 50: +14.2pp (z=2.50), keeps 23%
+  # Premium size and contract volume showed NO edge in ANY bucket ($1M+ graded no
+  # better than $250k; 5000+ contracts graded slightly WORSE). They are not levers —
+  # leave them alone. The `relative_baseline` idea below was tested the same way and
+  # is also dead: premium >= 2x/3x/5x the ticker's own trailing-30d mean gave gaps of
+  # +7.1 / -6.7 / (n=17, too thin), never significant.
+  # Raised 10 -> 20, not straight to 50: this is ONE month (June 2026) in ONE regime,
+  # and 2 of its 5 weeks show a negative gap (+18.8 / -0.3 / +3.7 / +12.0 / -7.4), which
+  # cannot justify a 5x cut in alert volume. 20 keeps ~41% of the old alerts and moves
+  # the edge from nothing to real. `flow-grading.timer` now grades every night; revisit
+  # -> 30 or 50 once a second month is in. Full evidence: plans/flow-grading-2026-07-09.md
+  # and todo/schwab-options-realtime.md.
+  min_vol_oi: 20.0                 # day volume / open interest (fresh positioning) — 5→10 (2026-06-08, too many alerts), 10→20 (2026-07-09, measured)
+  min_volume: 500                  # contracts traded today — measured: NOT a lever, do not raise
+  min_premium_usd: 250000          # notional = lastPrice * volume * 100 — measured: NOT a lever, $1M+ graded no better
   max_staleness_min: 60            # skip contracts whose last trade is older (no stale/closed-market alerts)
   nearest_expirations: 2           # scan the 2 nearest expiries per ticker
   max_alerts_per_cycle: 8          # flood guard
   selection_mode: "premium"        # #17 "premium" (current) | "relative" (premium/baseline ratio)
   relative_baseline_enabled: false # #18 also require premium >= relative_multiplier x ticker baseline
+                                   # #57 (2026-07-09): STAYS OFF — measured, no edge at 1x/2x/3x (see min_vol_oi note)
   relative_multiplier: 3.0
   # C12 (reliability-hardening): when a contract's lastTradeDate can't be parsed
   # (lt==0.0), freshness is unverifiable. It still alerts (it cleared the size
@@ -966,8 +1056,12 @@ wolf:
   # chain). Leads with gpt-oss-120b: 2026-06-02 it honored the stricter "skip
   # daily-performance mentions" prompt 4/4 (no false GOOG bull) where the weaker
   # deepseek-v4-flash had over-extracted. deepseek/free kept as fallbacks.
+  # 2026-07-12: same model, PAID tier. The :free tier 429d 2/4 on a real 33k-char
+  # transcript (188 failures vs 1 success in the 07-05..07-10 logs), so extraction
+  # was silently demoting to deepseek — the very model this chain leads with
+  # gpt-oss-120b to avoid.
   extraction_models:
-    - "openai/gpt-oss-120b:free"
+    - "openai/gpt-oss-120b"
     - "deepseek/deepseek-v4-flash"
     - "openrouter/free"
   extraction_retries: 2                   # in-code default was 2; made explicit here
@@ -1016,6 +1110,12 @@ wolf:
     links_enabled: true                 # #3B LIVE (user go 2026-06-08) — clickable YouTube links by agreeing videos
     weighted_votes_enabled: true        # I15 LIVE 2026-06-15 — dry-run on current theses: 0 tier changes, 0 new criticals; non-actor-critical guard intact
     require_nonactor_for_critical: true # I15 — critical @-ping needs >=1 non-actor-controllable source
+    timing:                             # #20 timing gate: WHEN a standing thesis becomes a trade
+      collect: true                     # SHADOW — widen the roster + store the verdict. Changes nothing a user sees.
+      enabled: false                    # OFF — an 'act' verdict may NOT raise the alert tier. Flip only after
+                                        # scripts/wolf_timing_backtest.py shows gated entry beats raw-Wolf entry on the
+                                        # decision_snapshots 5d/20d labels. If it does not, this stays OFF permanently
+                                        # (honest-negative clause — no re-tuning the threshold until it passes).
   outcomes:                             # Wolf Sunday-recap outcome grading
     benchmark_adjusted: true            # I16 LIVE 2026-06-10 — credit "moved_with" only when proxy beats its benchmark (raw still shown); live-tested on the real 13 theses (SMH bear: moved_against -> flat-vs-benchmark)
   direction_guard:                      # #1 trade-stance vs near-term-price-path extraction rule
@@ -1091,8 +1191,24 @@ retry:
   llm_retry_after_cap_s: 120    # C3: cap a Retry-After applied to an LLM provider bucket
 
 dead_source:
-  ops_alert_enabled: true       # C5 LIVE 2026-07-04 (throttled 30-min ops alert on a dead source; informational, cannot block an alert)
-  # ops_channel_id: ""          # falls back to discord.channel_id when unset
+  ops_alert_enabled: true       # C5 LIVE 2026-07-04 (ops alert on a dead source; informational, cannot block an alert)
+  # ops_channel_id: ""          # #71: unused now — the alert routes to discord.errors_channel_id
+
+# #71: outage/error alerts. NOT stock signals — these say something is broken.
+# Fire on a state TRANSITION only (down -> one alert, silence, recovery -> one note),
+# with the state persisted in `ops_alert_state` so a restart mid-outage cannot re-ping.
+# Classes in ops_alert.MENTION_CLASSES (schwab_*, llm_health) @-mention the owner;
+# everything else posts quietly.
+ops_alerts:
+  enabled: true                 # master switch for every #errors post
+  min_interval_s: 3600          # quiet window: after an alert, the same thing can't
+                                # re-raise a "broken" for 1 hour. So Schwab breaking
+                                # every 10 min all afternoon costs one broken + one
+                                # recovered message per hour, not one per bounce.
+                                # A changed failure class bypasses it. A "recovered"
+                                # note is only sent when its matching "broken" alert
+                                # actually went out.
+                                # No #errors post ever @-mentions the user (2026-07-12).
 
 adapters:
   report_failure: true          # C14: precision adapters feed failures to the shared rate_limiter — LIVE 2026-07-04 (7-day soak: internal-only)
