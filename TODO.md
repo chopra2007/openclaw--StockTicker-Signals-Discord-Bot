@@ -500,3 +500,17 @@ Build a simple "renew Schwab login" helper so the real-time options feed's weekl
 **CURRENT STATUS (2026-07-12, later):** DONE. The fix is built + live (mirror `--fix`, 6-rule checker `--check`, daily 06:00 PDT timer, rewritten close protocol) and the whole-list cleanup is complete. The two entries left flagged for a user call were resolved the same day (user go): #2 closed after a code re-audit showed all leftovers built elsewhere or moot; #5 closed by applying the scope-aware CLAUDE.md redesign (acceptance test passed). `--check` reports zero drift across the entire list.
 
 The step that refreshes an item's `CURRENT STATUS` line in `TODO.md` sometimes writes a new sentence that contradicts what the detail file already says (found on #20 — a brand-new line claimed an idea was "unchanged" the same session it was closed), and sometimes leaves an old sentence in place under a header that already says the item is done (found on #57, #59, #61 — the first body line still describes blocking work that was actually finished days earlier). A 2026-07-12 sweep of the other 11 non-plain-DONE items found 2 more confirmed instances (#59, #61), a related symptom on 3 DONE items whose closure depends on a verification step with no dated record it ran (#32, #42, #54), and one reverse case where the short index is right but the item's own detail file is the stale one (#67). This is a confirmed recurrence of a bug `todo/CONVENTION.md`'s "Lead with current status" rule was already written to prevent (first seen on #32/#42, 2026-06-27) — and #32/#42 show it recurring in the very items that rule was written about. The ~59 plain-DONE items with no status line were not checked (excluded by construction, not confirmed clean). Full evidence — commit hashes, timestamps, exact quoted text — is in the detail file. No fix proposed yet; a stronger model will design the fix next session.
+
+## 73. Friday's scored tickers never get their next-day result, so a soak is stuck at zero
+
+**File:** `friday-24h-outcome-data-loss.md`
+
+**CURRENT STATUS (2026-07-13):** Found during a live audit of what's soaking (market open, data flowing).
+Two separate things are true and both need action: (1) a **confirmed data-loss bug** — every Friday's
+decision snapshots permanently lose their 24-hour outcome, which is why the `fold_display_signals`
+auto-flip switch has been stuck at **n=0 of 90** on every check (Jul 7, 9, 11) and would stay stuck
+forever; and (2) a **soak-clock finding** — 7 of TODO #67's OFF switches accrue *nothing* while OFF, so
+waiting for the 2026-07-15 soak date buys them literally zero evidence. One design decision is needed
+before the fix can be written (see "The decision needed"). Nothing here changes which alerts fire.
+
+Stop the bot from throwing away every Friday's follow-up price data, which is silently starving the switch that decides whether five extra signals get folded into the score — and settle which of the 16 shadow-built features can be turned on now versus which genuinely need more time.
