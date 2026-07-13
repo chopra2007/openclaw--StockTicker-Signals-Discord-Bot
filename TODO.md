@@ -524,3 +524,9 @@ switch decisions (Group A flips, blast-radius measurements, trading_halts yes/no
 question) were deliberately deferred to #67 go-live work.
 
 Stop the bot from throwing away every Friday's follow-up price data, which is silently starving the switch that decides whether five extra signals get folded into the score — and settle which of the 16 shadow-built features can be turned on now versus which genuinely need more time.
+
+## 74. Fix the merge-permission check so a "denied" action can't have already happened
+
+**File:** `merge-permission-denial-race.md`
+
+Merging PR #17 (2026-07-12) surfaced a real permission-check bug: the safety gate that's supposed to block converting a draft PR to ready and merging it in the same breath (no visible human review in between) reported the merge as "denied" — but the merge had already actually gone through on GitHub 2 seconds after the ready-for-review step (verified directly against GitHub's own API/timeline: `merged_at` real, `merge_commit_sha` real, now on `master`). The denial message also attached to the wrong tool call — a later, unrelated status check — instead of the merge command itself. So a "Permission ... was denied" message from this system is not reliable evidence the named action didn't happen; here it happened in full despite being labeled denied. Full evidence (exact denial text, GitHub timeline timestamps, the triggering commands) is in the detail file. No fix proposed — problem statement only, for a future session to diagnose and fix.
