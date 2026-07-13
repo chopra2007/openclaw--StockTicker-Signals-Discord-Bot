@@ -1,9 +1,75 @@
 # Auto-run a separate verifier when work is claimed done (Stop hook)
 
-**Status:** DONE 2026-07-07 — hook LIVE at `/root/.claude/hooks/verify-on-done.py`, wired into `/root/.claude/settings.json`
+**Status:** DONE 2026-07-07
+
 **Created:** 2026-07-06
 
-**CURRENT STATUS (2026-07-07) — DONE.** Hook LIVE at /root/.claude/hooks/verify-on-done.py, wired into /root/.claude/settings.json; free/no-LLM, re-runs affected tests on a 'done' claim and blocks regressions.
+**CURRENT STATUS (2026-07-07):** SHIPPED + LIVE. A deterministic Stop hook is installed globally
+(gated to this project + its worktrees) that re-runs the *affected* tests whenever a turn leaves
+uncommitted code changes and blocks the stop on a regression. No LLM / no per-turn cost (user chose
+"free test-checker only"). Proven with a 9/9 behavior harness + a live end-to-end block on a real
+worktree regression. See **SHIPPED (2026-07-07)** below. The original 3-phase plan is kept as history.
+
+---
+
+## SHIPPED (2026-07-07)
+
+**What went live**
+- `/root/.claude/hooks/verify-on-done.py` — the hook (Python). On each turn end it exits in
+  milliseconds unless the turn left **uncommitted changes to code paths** (`consensus_engine/ scripts/
+  tests/ config/`) inside this project; then it re-runs only the **affected** tests and, if a test that
+  was green before now fails (a regression vs `.test-baseline`), blocks the stop with a short,
+  cooperative `{"decision":"block","reason":...}`. Otherwise silent.
+- `/root/.claude/settings.json` → `hooks.Stop` runs `python3 $HOME/.claude/hooks/verify-on-done.py`
+  (timeout 240). Prior settings backed up in `/root/.claude/backups/settings.json.pre-verify-hook.*`.
+- The hook is **global user config** (like `openclaw-digest.sh`), intentionally NOT in this repo. The
+  user's Claude Code runs as ROOT using `/root/.claude/` (confirmed `/home/openclaw/.claude/` doesn't
+  exist; auth via OAuth in `.credentials.json`).
+
+**Decisions made (resolving the Open questions below)**
+- *Scope:* global install **gated to this project + all worktrees** via the shared git dir
+  (`realpath(git rev-parse --git-common-dir) == /home/openclaw/.openclaw/workspace/.git`). Chosen over
+  pure project-level because the git-ignored `.claude/settings.json` doesn't reach worktrees, where a
+  lot of coding happens. Silent in every other repo.
+- *Blocking vs advisory:* **blocking**, but only on real regressions vs baseline (fast, deterministic,
+  low-flake — the research's bar for a hard block). Message worded cooperatively (models ignore hostile
+  hook text).
+- *Which verifier:* **deterministic affected-test run, no LLM.** The lean LLM path (`claude -p --bare`)
+  can't authenticate here (bare mode never reads OAuth); the authenticated non-bare path costs ~$0.076
+  + ~4s/call (loads ~70k ctx), which fights the "don't slow every turn" requirement. User chose the
+  free test-checker.
+- *No duplication of pre-push:* this runs the **affected subset at COMPLETION time**; `scripts/pre-push`
+  still runs the **full suite at PUSH time**.
+
+**Safety / robustness**
+- Loop guard (`stop_hook_active`) + Claude's built-in 8-block cap + a `VERIFY_ON_DONE_ACTIVE` recursion
+  sentinel. Fails **open** on any error/timeout (never traps the agent). Runs pytest with scratch routed
+  to /tmp (`PYTHONDONTWRITEBYTECODE=1`, `--basetemp`, `no:cacheprovider`) so a root-run hook can't leave
+  root-owned cache files in the repo (verified: zero pollution).
+- Affected-test mapping: module name as a whole word-token of the test filename (`db`→`test_db.py`, not
+  `test_feedback.py`), else a whole-word content grep; capped at 40 files.
+
+**Proof:** 9/9 behavior harness (real pytest + real git worktree) covering silent-on-clean,
+silent-on-docs-only, block-on-regression (main + worktree), loop guard, sentinel, baseline, and
+cross-repo gating; plus a live end-to-end block on a real-repo worktree regression, cleaned up with no
+`.git` ownership residue. Latency: ~6s typical (narrator), ~28s for db.py (52 tests).
+
+**To enable the optional AI-review layer later** (user declined for now): add a second stage that runs
+ONLY after the free tests pass — non-bare `claude -p --model haiku --disallowedTools "Edit Write"
+--output-format json` on the diff, with `VERIFY_ON_DONE_ACTIVE=1` set so it can't recurse. Cost ~$0.10
++ several seconds per clean code-turn.
+
+**To change/remove:** edit or delete `/root/.claude/hooks/verify-on-done.py`; remove the `Stop` block
+from `/root/.claude/settings.json` (or restore the backup) to turn it off entirely.
+
+---
+
+## Original plan (history — 2026-07-06)
+
+**Goal** = a Claude Code **Stop hook** that automatically hands work to a *separate* read-only verifier
+whenever an agent claims it's done, so verification isn't left to the same agent that did the work
+(which does it poorly). Web research first, then code it thoughtfully. User's explicit ask: coded "very
+thoughtfully and carefully" — fast, targeted, and not slowing every turn.
 
 ## Why (context from the 2026-07-06 session)
 - Repeated problem: when asked to verify, the SAME agent that did the work also verifies it, and does
