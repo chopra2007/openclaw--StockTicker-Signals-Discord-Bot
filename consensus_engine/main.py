@@ -1939,6 +1939,15 @@ def _fetch_yfinance_close_n_trading_days_later(
             return 0.0
         close = hist["Close"].dropna()
         if len(close) > n_trading_days:
+            # #73 guard: during market hours yfinance's last daily bar is the
+            # LIVE session still forming — its "Close" is the current spot, not
+            # a close. Only grade with a bar whose session has ended (4pm ET;
+            # internal NYSE logic, never surfaced). Return 0.0 → retried later.
+            bar_ts = close.index[n_trading_days]
+            if hasattr(bar_ts, "date"):
+                now_et = datetime.now(ZoneInfo("America/New_York"))
+                if bar_ts.date() >= now_et.date() and now_et.hour < 16:
+                    return 0.0
             _record_source_ok("yfinance")
             return float(close.iloc[n_trading_days])
     except Exception as e:
@@ -1979,18 +1988,22 @@ def _schedule_display_signal_log(snapshot_id: int, ticker: str) -> None:
     task.add_done_callback(_display_signal_tasks.discard)
 
 
-# 5d/20d outcome horizons (decision_snapshots only). (field, n_trading_days,
+# Bar-graded outcome horizons (decision_snapshots only). (field, n_trading_days,
 # min_age_days, max_age_days) — min/max are CALENDAR-day scan gates; the exact
 # trading-day check is the bar count inside the fetch helper. The live loop uses
 # max_age so it doesn't re-scan ancient rows; the one-off backfill passes None.
+# The 24h entry (#73) is a CATCH-UP: the live-spot fill handles rows 24–48h old,
+# and this picks up whatever it slept through (weekend pause / downtime) at the
+# next trading day's close — a Friday snapshot grades at Monday's close.
 _SLOW_OUTCOME_HORIZONS = (
+    ("outcome_price_24h", 1, 2, 30),
     ("outcome_price_5d", 5, 7, 30),
     ("outcome_price_20d", 20, 28, 45),
 )
 
 
 async def _fill_slow_outcomes(loop, executor, bounded: bool, limit: int) -> dict:
-    """Fill outcome_price_5d/20d on decision_snapshots whose window has elapsed.
+    """Fill outcome_price_24h/5d/20d on decision_snapshots whose window has elapsed.
 
     Shared by the live loop (`bounded=True` → use each horizon's max_age cap so it
     doesn't re-scan ancient rows) and the one-off backfill (`bounded=False` → no
@@ -1998,7 +2011,7 @@ async def _fill_slow_outcomes(loop, executor, bounded: bool, limit: int) -> dict
     get_snapshots_needing_outcome filters on `field IS NULL`, so it is safe to run
     repeatedly. Returns counts per field.
     """
-    counts = {"outcome_price_5d": 0, "outcome_price_20d": 0}
+    counts = {field: 0 for field, *_ in _SLOW_OUTCOME_HORIZONS}
     for field, n_td, min_age_days, max_age_days in _SLOW_OUTCOME_HORIZONS:
         snaps = await db.get_snapshots_needing_outcome(
             field, min_age_days=min_age_days,
@@ -2018,12 +2031,7 @@ async def _fill_slow_outcomes(loop, executor, bounded: bool, limit: int) -> dict
                           field, snap["ticker"], price)
                 continue
             if price and price > 0:
-                if field == "outcome_price_5d":
-                    await db.update_snapshot_outcomes(
-                        snap["id"], outcome_price_5d=float(price))
-                else:
-                    await db.update_snapshot_outcomes(
-                        snap["id"], outcome_price_20d=float(price))
+                await db.update_snapshot_outcomes(snap["id"], **{field: float(price)})
                 counts[field] += 1
     return counts
 
@@ -2066,14 +2074,63 @@ async def _fill_alert_5d_outcomes(loop, executor, limit: int = 50,
     return filled
 
 
+async def _fill_alert_24h_catchup(loop, executor, limit: int = 50,
+                                  ignore_max_age: bool = False) -> int:
+    """#73: fill `price_24h_later` for alerts the live-spot loop slept through.
+
+    The live 24h fill reads a spot price inside a 24–48h window. The engine
+    pauses every weekend (Fri 3pm → Sun 3pm PDT), so for anything scored on
+    Friday that window falls entirely inside the pause and the row used to age
+    out permanently unfillable — 4% of Friday rows ever got a 24h outcome vs
+    ~100% Mon–Wed. This catch-up grades aged-out rows from historical daily
+    bars at the next TRADING day's close (a Friday alert grades at Monday's
+    close), which stays available for years. Mirrors the live path's three
+    writes: alert_history, the linked decision_snapshot, and the
+    shadow-prediction label. Only NULLs are touched; returns how many filled.
+    """
+    alerts = await db.get_alerts_needing_price_update(
+        "price_24h_catchup", limit=limit, ignore_max_age=ignore_max_age)
+    if not alerts:
+        return 0
+    futures = [
+        loop.run_in_executor(
+            executor, _fetch_yfinance_close_n_trading_days_later,
+            a["ticker"], a["alerted_at"], 1,
+        )
+        for a in alerts
+    ]
+    fetched = await asyncio.gather(*futures, return_exceptions=True)
+    filled = 0
+    for alert, price in zip(alerts, fetched):
+        if isinstance(price, Exception):
+            log.debug("24h catch-up fetch error for %s: %s", alert["ticker"], price)
+            continue
+        if price and price > 0:
+            await db.update_alert_price(alert["id"], "price_24h_later", float(price))
+            snapshot_id = await db.get_snapshot_id_for_alert(alert["id"])
+            if snapshot_id is not None:
+                await db.update_snapshot_outcomes(
+                    snapshot_id, outcome_price_24h=float(price))
+            entry = float(alert.get("price_at_alert") or 0.0)
+            if entry > 0:
+                await db.label_shadow_predictions_for_alert_id(
+                    alert_history_id=alert["id"], horizon="24h",
+                    entry_price=entry, exit_price=float(price),
+                )
+            filled += 1
+    if filled:
+        log.info("24h catch-up: filled price_24h_later on %d aged-out alerts", filled)
+    return filled
+
+
 async def backfill_decision_outcomes(max_rows: int | None = None) -> dict:
-    """One-off: fill outcome_price_5d/20d on EXISTING decision_snapshots whose
-    5/20-trading-day window has already elapsed (the historical prices exist).
+    """One-off: fill outcome_price_24h/5d/20d on EXISTING decision_snapshots
+    whose trading-day window has already elapsed (the historical prices exist).
 
     Safe to run repeatedly — only NULL columns are touched. `max_rows` caps the
-    rows scanned per horizon (None = all). Returns {'outcome_price_5d': n,
-    'outcome_price_20d': m}. Reuses the live price source (yfinance); adds no
-    new dependency.
+    rows scanned per horizon (None = all). Returns a per-field count, e.g.
+    {'outcome_price_24h': k, 'outcome_price_5d': n, 'outcome_price_20d': m}.
+    Reuses the live price source (yfinance); adds no new dependency.
     """
     executor = concurrent.futures.ThreadPoolExecutor(
         max_workers=8, thread_name_prefix="outcome-backfill",
@@ -2145,6 +2202,11 @@ async def price_outcome_loop(stop_event: asyncio.Event):
                 # track record is graded on. Unlike 1h/24h (a live spot read) this
                 # indexes historical daily bars, so a late fill is still correct.
                 await _fill_alert_5d_outcomes(loop, executor)
+                # #73: 24h catch-up for alerts the live-spot fill slept through
+                # (weekend pause / downtime) — graded at the next trading day's
+                # close from daily bars, so Friday's rows fill on Monday instead
+                # of aging out forever.
+                await _fill_alert_24h_catchup(loop, executor)
             except Exception as e:
                 log.error("Price outcome loop error: %s", e, exc_info=True)
 

@@ -500,3 +500,28 @@ Build a simple "renew Schwab login" helper so the real-time options feed's weekl
 **CURRENT STATUS (2026-07-12, later):** DONE. The fix is built + live (mirror `--fix`, 6-rule checker `--check`, daily 06:00 PDT timer, rewritten close protocol) and the whole-list cleanup is complete. The two entries left flagged for a user call were resolved the same day (user go): #2 closed after a code re-audit showed all leftovers built elsewhere or moot; #5 closed by applying the scope-aware CLAUDE.md redesign (acceptance test passed). `--check` reports zero drift across the entire list.
 
 The step that refreshes an item's `CURRENT STATUS` line in `TODO.md` sometimes writes a new sentence that contradicts what the detail file already says (found on #20 — a brand-new line claimed an idea was "unchanged" the same session it was closed), and sometimes leaves an old sentence in place under a header that already says the item is done (found on #57, #59, #61 — the first body line still describes blocking work that was actually finished days earlier). A 2026-07-12 sweep of the other 11 non-plain-DONE items found 2 more confirmed instances (#59, #61), a related symptom on 3 DONE items whose closure depends on a verification step with no dated record it ran (#32, #42, #54), and one reverse case where the short index is right but the item's own detail file is the stale one (#67). This is a confirmed recurrence of a bug `todo/CONVENTION.md`'s "Lead with current status" rule was already written to prevent (first seen on #32/#42, 2026-06-27) — and #32/#42 show it recurring in the very items that rule was written about. The ~59 plain-DONE items with no status line were not checked (excluded by construction, not confirmed clean). Full evidence — commit hashes, timestamps, exact quoted text — is in the detail file. No fix proposed yet; a stronger model will design the fix next session.
+
+## 73. Friday's scored tickers never get their next-day result, so a soak is stuck at zero
+
+**File:** `friday-24h-outcome-data-loss.md`
+
+**CURRENT STATUS (2026-07-13, second session):** **Fixed and mostly backfilled; waiting on merge + one
+scheduled task.** Option A was chosen (grade a lost row from stored daily prices at the next trading
+day's close — the file's own recommendation). Shipped on branch `worktree-todo-friday-outcome-gap`:
+a catch-up fill (`_fill_alert_24h_catchup` + a 24h entry in `_SLOW_OUTCOME_HORIZONS`) that grades any
+row older than the 48-hour live window from historical daily bars, writing all three tables the live
+path writes (alert_history, decision_snapshots, shadow label); a **completed-session guard** so a
+still-forming "today" bar is never used as a close (this also closed a latent hole in the 5d/20d
+fill); regression tests (`tests/test_friday_24h_catchup.py`); and a one-off backfill script
+(`scripts/backfill_alert_24h_outcomes.py`) already **run against the live DB: 637 of 729 lost rows
+recovered**. The 88 remaining recent rows are all Friday 2026-07-10 — they grade at Monday's close,
+final ~13:00 PDT, and deferred task `1783959133_5bea2a` re-runs the backfill at **13:20 PDT today**
+(4 ancient rows are delisted tickers, genuinely unfillable). The soak counter already moved n=0→2.
+**What's left:** (a) merge the PR + `systemctl restart consensus-engine.service` so the engine-side
+fix goes live — until then next Friday's rows again miss their live window, but the 30-day catch-up
+recovers them at any merge date; (b) verify the 13:20 task filled the 88 (check
+`/root/task_system/logs/1783959133_5bea2a.log`); (c) the Part-3 switch decisions (Group A flips,
+blast-radius measurements, trading_halts yes/no, #67 soak-date question) were NOT done here —
+they are #67 go-live work, deferred deliberately.
+
+Stop the bot from throwing away every Friday's follow-up price data, which is silently starving the switch that decides whether five extra signals get folded into the score — and settle which of the 16 shadow-built features can be turned on now versus which genuinely need more time.
