@@ -329,16 +329,19 @@ llm:
   # #6 root-cause: the sanitize/cleanup calls run groq-free so they don't drain
   # groq's 100k/day budget that the synthesis call above needs.
   # NOTE: this free pool is unreliable (gpt-oss-20b 429s ~half the time on the
-  # OpenRouter shared free pool; gpt-oss-120b swings 2-11s vs the 5s _BATCH_TIMEOUT),
-  # so cleanup OFTEN falls back to trimmed raw text. That's acceptable: the
-  # synthesis writeup is robust to trimmed evidence (every test produced a valid
-  # narrative regardless of cleanup outcome). Do NOT add a reasoning model here
-  # (tried nvidia/nemotron-3-nano-30b-a3b:free 2026-06-02 — its hidden reasoning
-  # eats the 512-token budget on real 20-source batches and returns BLANK). If
-  # reliable cleanup is ever wanted, route to a cheap PAID non-reasoning model.
+  # OpenRouter shared free pool), so cleanup can still fall back to trimmed raw
+  # text. That's acceptable: the synthesis writeup is robust to trimmed evidence
+  # (every test produced a valid narrative regardless of cleanup outcome). Do NOT
+  # add a reasoning model here (tried nvidia/nemotron-3-nano-30b-a3b:free
+  # 2026-06-02 — its hidden reasoning eats the 512-token budget on real 20-source
+  # batches and returns BLANK).
+  # 2026-07-12: lead is now PAID gpt-oss-120b — this is the "route to a cheap PAID
+  # non-reasoning model" the old note asked for. :free 429d 2/4 on a real 33k-char
+  # payload and 188x vs 1 success in the 07-05..07-10 logs. Cost is negligible here
+  # (sanitize prompts are small).
   # Absent key -> role-based text chain (also groq-free) -> safe.
   all_command_sanitize_chain:
-    - "openai/gpt-oss-120b:free"
+    - "openai/gpt-oss-120b"
     - "openai/gpt-oss-20b:free"
   # Agent-path chain — !ask / @-mention via `openclaw agent --local`.
   # SEPARATE from the !all chain above, deliberately: the real agent prompt is
@@ -551,12 +554,15 @@ youtube:
     #   - google/gemini-2.5-flash      → 6.98s, 25 spans, 27 valid tickers ✅
     #   - inclusionai/ring-2.6-1t:free → 404 "transitioned to paid" — dropped
     #   - z-ai/glm-4.5-air:free        → 45s timeout on 25k chars (works on small payloads)
-    #   - openai/gpt-oss-120b:free     → known-good from broader llm.fallback_models chain
-    # Timeout bumped to 90s so free-tier fallbacks get headroom on long transcripts.
+    #   - openai/gpt-oss-120b (PAID)   → 12.3s, correct JSON on a 33k-char payload (2026-07-12)
+    # 2026-07-12: was gpt-oss-120b:free — it 429d 2/4 on that same 33k-char payload
+    # (and 188x vs 1 success in the 07-05..07-10 logs). Transcripts are exactly the
+    # big-payload case the free pool refuses, so this backup was mostly a no-op.
+    # Timeout stays 90s so the remaining free fallback has headroom on long transcripts.
     llm:
       model: "google/gemini-2.5-flash"
       fallback_models:
-        - "openai/gpt-oss-120b:free"
+        - "openai/gpt-oss-120b"
         - "z-ai/glm-4.5-air:free"
       max_tokens: 4096
       temperature: 0.2
@@ -1050,8 +1056,12 @@ wolf:
   # chain). Leads with gpt-oss-120b: 2026-06-02 it honored the stricter "skip
   # daily-performance mentions" prompt 4/4 (no false GOOG bull) where the weaker
   # deepseek-v4-flash had over-extracted. deepseek/free kept as fallbacks.
+  # 2026-07-12: same model, PAID tier. The :free tier 429d 2/4 on a real 33k-char
+  # transcript (188 failures vs 1 success in the 07-05..07-10 logs), so extraction
+  # was silently demoting to deepseek — the very model this chain leads with
+  # gpt-oss-120b to avoid.
   extraction_models:
-    - "openai/gpt-oss-120b:free"
+    - "openai/gpt-oss-120b"
     - "deepseek/deepseek-v4-flash"
     - "openrouter/free"
   extraction_retries: 2                   # in-code default was 2; made explicit here
