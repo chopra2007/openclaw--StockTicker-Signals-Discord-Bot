@@ -1,9 +1,14 @@
 # One-command Schwab weekly re-login helper
 
-**Status:** DONE 2026-07-09
+**Status:** DONE 2026-07-09 (#errors alert defects fixed 2026-07-12)
 **Created:** 2026-07-08
 
-**CURRENT STATUS (2026-07-09) — DONE.** Both halves shipped and verified live.
+**CURRENT STATUS (2026-07-12) — DONE.** Both halves shipped and verified live (detail below, from
+07-09). Still DONE; nothing re-opened. On 07-12 the user reported three defects in the #errors
+alerts this item built, all now fixed and live (commit `5ee2d4c`, see the 07-12 session notes):
+#errors no longer @-mentions at all, a per-key lock stops the duplicate-message race that posted 7
+identical "Recovered" notes, and the quiet window is 1 hour so a flapping outage can't flood the
+channel. Verified end-to-end on the real channel.
 
 **1. One-command re-login.** `python3 scripts/schwab_login.py` prints the Schwab login URL, takes the pasted redirect address, trades the code for a fresh 7-day token, writes it in the exact shape `get_access_token()` reads, hands the file back to `openclaw` with 600 permissions, clears the re-login marker, and proves it worked with a live quote. Accepts `--redirect-url` or stdin so nothing has to be typed under the 30-second clock. The header documents the clean-tree rule (a dirty git tree lets the ~80s verify-on-done Stop hook eat the code — the actual cause of the two failures on 07-08). 20 tests, including the real Schwab redirect shape (the `code` ends in `@` and is not url-encoded).
 
@@ -111,3 +116,28 @@ races a 30-second timer and failed twice before working.
 
 ### Session notes — 2026-07-09
 - **Decision (user):** #errors channel is NOT Schwab-only — route other outage classes there too (dead source, LLM-health, etc.), throttled, with recovery follow-ups. Full scope: `.omc/plans/active-items-completion-2026-07-09.md` Phase B. Deadline note: token expires ~07-15 — build the helper before the next renewal.
+
+### Session notes — 2026-07-12 (three user-reported #errors defects; all fixed, commit `5ee2d4c`)
+The alerting built here worked, but the user's real #errors channel showed three problems. All three
+are now fixed in `consensus_engine/alerts/ops_alert.py`:
+
+1. **No @-mentions, ever.** `MENTION_CLASSES`, `owner_user_id()` and the `mention=` kwarg are
+   **deleted** — do not reintroduce. Every #errors post is now quiet. (Schwab + `llm_health` used
+   to ping.) The user's other @-mentions are untouched: swarm alerts (#alerts) and Wolf critical
+   calls (#news) still ping.
+2. **Duplicate messages (the headline bug).** `report_ops_state()` read the state, `await`ed the
+   Discord send, then wrote the state. Quote batches fan out over `asyncio.gather`, so N coroutines
+   all read `down` before any wrote `up` and each posted its own "Recovered" — the user got **7
+   identical messages** at 23:33 on 07-12. The read-decide-send-write section now runs under a
+   per-key `asyncio.Lock` (`_locks`). Measured: 7 concurrent recoveries → 7 messages without the
+   lock, 1 with it.
+   **Testing trap:** a fake `send_message` that never awaits cannot reproduce this — the coroutines
+   never interleave and the test passes even with the lock removed. The fake send must
+   `await asyncio.sleep(0)`. My first version of the test was green against the *broken* code.
+3. **Flood window.** `ops_alerts.min_interval_s` 1800 → **3600**, so Schwab breaking every 10
+   minutes for two hours costs one "broken" + one "recovered" per hour, not one per bounce.
+
+Verified live, not just in tests: fired a real outage alert into #errors, hit it with 7 simultaneous
+recoveries → exactly one 🔴 + one 🟢, neither @-mentioning anyone (test messages deleted after).
+Full suite 2979 passed. Also cleaned the channel at the user's request: 107 Schwab messages deleted
+from #errors, 52 LLM-chain-health messages from #brief.

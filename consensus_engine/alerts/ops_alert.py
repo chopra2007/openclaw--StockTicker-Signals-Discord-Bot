@@ -1,19 +1,22 @@
 """#71: the one place that tells the user something is BROKEN.
 
 Not stock signals — outages. Schwab unreachable, a data source dead, the LLM chain
-failing. These go to the `#errors` Discord channel, and the user-facing-critical ones
-@-mention the owner.
+failing. These go to the `#errors` Discord channel, quietly: nothing here ever
+@-mentions anyone (2026-07-12, user).
 
-Three rules, learned from the drift-alert and dead-source work:
+Four rules, learned from the drift-alert and dead-source work:
 
 1. **Fire on the transition, not the state.** Schwab down for an hour must post ONE
    alert, not sixty. Every caller reports its current state on every check; this
    module posts only when the state actually flips.
-2. **Always follow up on recovery.** A resolved outage must not leave a scary
-   unanswered @-mention. Coming back up posts a "restored" note with how long it was
-   out.
+2. **Always follow up on recovery.** Coming back up posts a "restored" note with how
+   long it was out, so a scary message never sits there unanswered.
 3. **The state is persisted.** An engine restart in the middle of an outage must not
-   re-ping. It lives in the `ops_alert_state` table, not memory.
+   re-alert. It lives in the `ops_alert_state` table, not memory.
+4. **One reporter at a time.** Callers run concurrently (a batch of quotes fans out
+   over `asyncio.gather`), so the read-decide-send-write below is serialized per key.
+   Without that, N coroutines all read "down", all send, and the user gets N copies
+   of the same message.
 
 Callers do not decide whether to send. They call `report_ops_state()` on every check
 and this module stays silent unless something changed.
@@ -29,9 +32,11 @@ and this module stays silent unless something changed.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import time
+from collections import defaultdict
 from typing import Optional
 
 from consensus_engine import config as cfg
@@ -39,17 +44,16 @@ from consensus_engine import db
 
 log = logging.getLogger(__name__)
 
-# Outage classes that @-mention the user. Everything else posts quietly.
-# The bar: would the user want to be pulled out of dinner for this? Schwab dying
-# silently degrades every options number the bot prints, and the LLM chain dying
-# means no alert gets written at all. A single flaky scraper does not qualify.
-MENTION_CLASSES = frozenset({"schwab_token", "schwab_auth", "schwab_api", "llm_health"})
+# A source that dies and revives every 10 minutes would otherwise post a "broken"
+# and a "recovered" message every 10 minutes. After an alert goes out, the same key
+# cannot raise another DOWN alert for this long, so a thing that keeps breaking all
+# afternoon costs at most one broken + one recovered message an hour. A change of
+# failure class bypasses it (the user's next action differs, so it's worth the noise).
+_DEFAULT_MIN_INTERVAL_S = 3600.0   # 1 hour
 
-# A source that dies and revives every 30 seconds would otherwise post a "broken"
-# and a "recovered" message every 30 seconds. After an alert goes out, the same key
-# cannot raise another DOWN alert for this long. A change of failure class bypasses
-# it (the user's next action differs, so the message is worth the noise).
-_DEFAULT_MIN_INTERVAL_S = 1800.0   # 30 min
+# One lock per alert key. Serializes the read-decide-send-write below so concurrent
+# callers cannot each decide, independently, that they are the one to announce.
+_locks: dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
 
 
 def errors_channel_id() -> str:
@@ -63,11 +67,6 @@ def errors_channel_id() -> str:
         or cfg.get_api_key("discord_channel_id")
         or ""
     )
-
-
-def owner_user_id() -> str:
-    return str(cfg.get_api_key("discord_owner_user_id")
-               or cfg.get("features.analyst_herding.ping_user_id", "") or "")
 
 
 def _humanize_duration(seconds: float) -> str:
@@ -102,7 +101,6 @@ async def report_ops_state(
     detail: str = "",
     failure_class: Optional[str] = None,
     fix: str = "",
-    mention: Optional[bool] = None,
 ) -> bool:
     """Report the CURRENT state of one thing. Posts only on a change.
 
@@ -116,70 +114,72 @@ async def report_ops_state(
         if not cfg.get("ops_alerts.enabled", True):
             return False
 
-        state = "down" if down else "up"
-        prior = await db.get_ops_alert_state(alert_key)
-        prior_state = (prior or {}).get("state", "up")
-        prior_class = (prior or {}).get("failure_class")
-        # On recovery the caller has no failure class to give — inherit the one that
-        # broke. Without this, a Schwab outage @-mentions the user going down and
-        # then answers itself silently, leaving the ping hanging.
-        klass = failure_class or (prior_class if not down else None) or alert_key
+        # Everything from reading the prior state to writing the new one runs under
+        # this key's lock. Concurrent callers queue; the first one flips the state,
+        # and the rest fall out at the "steady state" check below instead of each
+        # posting their own copy of the same message.
+        async with _locks[alert_key]:
+            state = "down" if down else "up"
+            prior = await db.get_ops_alert_state(alert_key)
+            prior_state = (prior or {}).get("state", "up")
+            prior_class = (prior or {}).get("failure_class")
+            # On recovery the caller has no failure class to give — inherit the one
+            # that broke, so the recovery is judged against the outage it answers.
+            klass = failure_class or (prior_class if not down else None) or alert_key
 
-        class_changed = down and prior_state == "down" and prior_class != klass
-        changed = (prior_state != state) or class_changed
-        if not changed:
-            return False   # steady state — say nothing
+            class_changed = down and prior_state == "down" and prior_class != klass
+            changed = (prior_state != state) or class_changed
+            if not changed:
+                return False   # steady state — say nothing
 
-        # Never announce a recovery for something we never announced as broken.
-        if not down and prior_state != "down":
-            await db.set_ops_alert_state(alert_key, "up", klass, detail)
-            return False
-
-        now = time.time()
-        last_alerted = (prior or {}).get("last_alerted_at") or 0.0
-        since = float((prior or {}).get("since") or now)
-        min_interval = float(cfg.get("ops_alerts.min_interval_s", _DEFAULT_MIN_INTERVAL_S))
-
-        if down:
-            # Flap guard. A class change is worth breaking it for; a plain re-open
-            # of a source that just bounced is not.
-            if last_alerted and not class_changed and (now - last_alerted) < min_interval:
-                await db.set_ops_alert_state(alert_key, "down", klass, detail)
-                log.info("ops_alert: %s re-opened within the flap window — staying quiet",
-                         alert_key)
-                return False
-        else:
-            # Only answer a ping we actually sent. If the DOWN alert for this episode
-            # was swallowed by the flap guard, its "recovered" note would be a reply
-            # to a message the user never saw.
-            if last_alerted < since:
+            # Never announce a recovery for something we never announced as broken.
+            if not down and prior_state != "down":
                 await db.set_ops_alert_state(alert_key, "up", klass, detail)
                 return False
 
-        channel = errors_channel_id()
-        if not channel:
-            log.warning("ops_alert: no #errors channel configured; %s -> %s not sent",
-                        alert_key, state)
-            await db.set_ops_alert_state(alert_key, state, klass, detail)
-            return False
+            now = time.time()
+            last_alerted = (prior or {}).get("last_alerted_at") or 0.0
+            since = float((prior or {}).get("since") or now)
+            min_interval = float(
+                cfg.get("ops_alerts.min_interval_s", _DEFAULT_MIN_INTERVAL_S))
 
-        if down:
-            content = format_down(title, detail, fix)
-        else:
-            content = format_restored(title, now - since)
+            if down:
+                # Flap guard. A class change is worth breaking it for; a plain re-open
+                # of a source that just bounced is not.
+                if last_alerted and not class_changed and (now - last_alerted) < min_interval:
+                    await db.set_ops_alert_state(alert_key, "down", klass, detail)
+                    log.info("ops_alert: %s re-opened within the quiet window — staying quiet",
+                             alert_key)
+                    return False
+            else:
+                # Only answer a message we actually sent. If the DOWN alert for this
+                # episode was swallowed by the flap guard, its "recovered" note would
+                # reply to a message the user never saw.
+                if last_alerted < since:
+                    await db.set_ops_alert_state(alert_key, "up", klass, detail)
+                    return False
 
-        should_ping = (klass in MENTION_CLASSES) if mention is None else mention
-        ping = owner_user_id() if should_ping else None
+            channel = errors_channel_id()
+            if not channel:
+                log.warning("ops_alert: no #errors channel configured; %s -> %s not sent",
+                            alert_key, state)
+                await db.set_ops_alert_state(alert_key, state, klass, detail)
+                return False
 
-        from consensus_engine.alerts.discord import send_message
-        msg_id = await send_message(channel, content, ping_user_id=ping)
-        sent = bool(msg_id)
-        await db.set_ops_alert_state(alert_key, state, klass, detail, alerted=sent)
-        if sent:
-            log.warning("ops_alert: %s -> %s (class=%s, pinged=%s)",
-                        alert_key, state, klass, bool(ping))
-        else:
-            log.warning("ops_alert: %s -> %s but Discord send failed", alert_key, state)
+            if down:
+                content = format_down(title, detail, fix)
+            else:
+                content = format_restored(title, now - since)
+
+            # No @-mentions in #errors, ever (2026-07-12, user).
+            from consensus_engine.alerts.discord import send_message
+            msg_id = await send_message(channel, content, ping_user_id=None)
+            sent = bool(msg_id)
+            await db.set_ops_alert_state(alert_key, state, klass, detail, alerted=sent)
+            if sent:
+                log.warning("ops_alert: %s -> %s (class=%s)", alert_key, state, klass)
+            else:
+                log.warning("ops_alert: %s -> %s but Discord send failed", alert_key, state)
         return sent
     except Exception as e:   # alerting must never break the caller
         log.warning("ops_alert: report_ops_state(%s) failed: %s", alert_key, e)

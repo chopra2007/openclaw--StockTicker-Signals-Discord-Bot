@@ -3,6 +3,8 @@
 **Status:** DONE 2026-06-29
 **Created:** 2026-06-15
 
+**CURRENT STATUS (2026-07-12):** Fully DONE — same resolution as #32: the Monday live-check ran 2026-06-29 16:00 PDT (combined=78, shadow_only=0, errors=0) and passed; outcome recorded here during the TODO #72 cleanup. No conditions remain.
+
 Single source of truth for every switch touched or considered in the `todo-sweep-2026-06-13`
 build (executed 2026-06-15). Plain-English first, exact config key in `code font`.
 

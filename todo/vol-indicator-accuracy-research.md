@@ -1,7 +1,9 @@
 # Build an accurate market top/bottom detector — research how others did it
 
-**Status:** OPEN — free PREDICTOR exhausted (NO-GO); descriptive "better way" SHIPPED to !market. Predictor PARKED (2026-07-03): the ~$50 paid path is deferred (user: no spend now), and there is no free way to build the predictor — so it is NOT an open decision, just parked. Free path accrues in the background (vol-collect timers + #55 5d/20d grading) for a possible $0 re-test in ~a few months. Dashboard is the live answer.
+**Status:** PARKED (2026-07-03) — free PREDICTOR exhausted (NO-GO); descriptive "better way" SHIPPED to !market. Predictor PARKED (2026-07-03): the ~$50 paid path is deferred (user: no spend now), and there is no free way to build the predictor — so it is NOT an open decision, just parked. Free path accrues in the background (vol-collect timers + #55 5d/20d grading) for a possible $0 re-test in ~a few months. Dashboard is the live answer.
 **Created:** 2026-06-17
+
+**CURRENT STATUS (2026-07-03):** Two halves. The **descriptive** half (the `!market` dashboard — Wolf's market theses + a volatility-regime label) is **LIVE**. The **predictor** half (actually calling tops/bottoms) is **PARKED**: proven NO-GO on free daily data across 5+ rigorous phases, and the only build path needs paid data the user has deferred (no spend now) — so there is no open decision here, nothing to do. Free path still accruing in the background: `vol-collect-daily.timer` keeps logging CBOE put/call + NYSE breadth, and #55's 5d/20d outcome grading builds the matching horizon, so a $0 re-test becomes possible in a few months. (Supersedes the old "~$50 AlphaVantage = the only open decision" line — that framing is retired.)
 
 ### Session note — 2026-06-29 (run `todo-55-47-research`) — the "better way" shipped (descriptive)
 User asked to look for a BETTER approach to the goal. Cross-model gate (Claude critic + Codex +

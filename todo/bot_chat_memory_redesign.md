@@ -1,6 +1,6 @@
 # Bot chat memory — keep context small but recall summaries from a month ago
 
-**Status:** OPEN
+**Status:** DONE 2026-06-15 — status line backfilled 2026-07-12 (TODO #72 cleanup; the header and session notes had already recorded completion).
 **Created:** 2026-06-13
 
 ## The goal (what the user actually wants)

@@ -1,6 +1,6 @@
 # Fix 6 issues diagnosed 2026-06-11
 
-**Status:** OPEN
+**Status:** DONE 2026-06-11 — status line backfilled 2026-07-12 (TODO #72 cleanup; the header and session notes had already recorded completion).
 **Created:** 2026-06-11
 
 Six issues were fully diagnosed in the 2026-06-11 session. All root causes are confirmed — no guesses. The new session's job is to plan and execute fixes in a sensible order.

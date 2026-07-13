@@ -2731,21 +2731,32 @@ async def get_alerts_needing_price_update(
 ) -> list[dict]:
     """Get alerts where a price follow-up field is NULL and enough time has passed.
 
-    field must be 'price_1h_later', 'price_24h_later' or 'price_5d_later'.
+    field must be 'price_1h_later', 'price_24h_later', 'price_24h_catchup'
+    or 'price_5d_later'. 'price_24h_catchup' (#73) selects the SAME column as
+    'price_24h_later' but the opposite age band — rows that aged past the 48h
+    live-spot window (the engine sleeps through it every weekend, so every
+    Friday's rows used to age out unfillable). Those are graded from historical
+    daily bars instead, which stay available for years.
 
-    `ignore_max_age` (#62) drops the upper age bound, for the one-off 5d backfill:
-    1h/24h read a LIVE spot price so an ancient row is unfillable, but the 5d fill
-    indexes historical daily bars, which are still there years later. Without this
-    the 268 analyst-bearing alerts older than 30 days could never be graded.
+    `ignore_max_age` (#62) drops the upper age bound, for the one-off backfills:
+    1h (and the live 24h path) read a LIVE spot price so an ancient row is
+    unfillable, but the 5d and 24h-catchup fills index historical daily bars,
+    which are still there years later. Without this the 268 analyst-bearing
+    alerts older than 30 days could never be graded.
     """
     conn = await get_db()
     now = time.time()
+    column = field
     if field == "price_1h_later":
         min_age = 3600       # at least 1 hour old
         max_age = 7200       # no older than 2 hours (don't backfill ancient alerts)
     elif field == "price_24h_later":
         min_age = 86400      # at least 24 hours old
         max_age = 172800     # no older than 48 hours
+    elif field == "price_24h_catchup":
+        column = "price_24h_later"
+        min_age = 172800     # only rows the live-spot fill can no longer reach
+        max_age = 30 * 86400
     elif field == "price_5d_later":
         # #62: 5 TRADING days is 7 calendar days at worst (a weekend plus a holiday).
         # The wide upper bound lets the loop catch up after downtime — the exact
@@ -2758,14 +2769,14 @@ async def get_alerts_needing_price_update(
     if ignore_max_age:
         cursor = await conn.execute(
             f"""SELECT id, ticker, price_at_alert, alerted_at FROM alert_history
-                WHERE {field} IS NULL AND alerted_at <= ?
+                WHERE {column} IS NULL AND alerted_at <= ?
                 ORDER BY alerted_at DESC LIMIT ?""",
             (now - min_age, int(limit)),
         )
     else:
         cursor = await conn.execute(
             f"""SELECT id, ticker, price_at_alert, alerted_at FROM alert_history
-                WHERE {field} IS NULL
+                WHERE {column} IS NULL
                 AND alerted_at <= ? AND alerted_at >= ?
                 ORDER BY alerted_at DESC LIMIT ?""",
             (now - min_age, now - max_age, int(limit)),
@@ -4292,15 +4303,16 @@ async def get_snapshots_needing_outcome(
 ) -> list[dict]:
     """decision_snapshots rows where `field` IS NULL and the snapshot is old enough.
 
-    `field` must be 'outcome_price_5d' or 'outcome_price_20d'. `min_age_days`/
-    `max_age_days` are CALENDAR days — a cheap, conservative lower gate (5 trading
-    days span at least 7 calendar days, 20 span at least ~28). The EXACT trading-day
-    check happens when the historical price is fetched (the Nth daily bar must exist).
-    `max_age_days=None` removes the upper bound (used by the one-off backfill so it
-    fills arbitrarily old rows); the live loop passes a bound so it doesn't re-scan
-    the whole table every cycle.
+    `field` must be 'outcome_price_24h', 'outcome_price_5d' or 'outcome_price_20d'.
+    `min_age_days`/`max_age_days` are CALENDAR days — a cheap, conservative lower
+    gate (5 trading days span at least 7 calendar days, 20 span at least ~28; the
+    24h catch-up (#73) starts at 2 so it only sees rows the live-spot fill can no
+    longer reach). The EXACT trading-day check happens when the historical price is
+    fetched (the Nth daily bar must exist). `max_age_days=None` removes the upper
+    bound (used by the one-off backfill so it fills arbitrarily old rows); the live
+    loop passes a bound so it doesn't re-scan the whole table every cycle.
     """
-    if field not in ("outcome_price_5d", "outcome_price_20d"):
+    if field not in ("outcome_price_24h", "outcome_price_5d", "outcome_price_20d"):
         return []
     conn = await get_db()
     now = time.time()
