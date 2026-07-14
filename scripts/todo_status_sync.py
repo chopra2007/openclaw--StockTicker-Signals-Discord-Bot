@@ -52,7 +52,7 @@ SESSION_NOTE_RE = re.compile(r"^###\s+Session notes\s+[—-]+\s+(\d{4}-\d{2}-\d{
 
 # Same marker grammar as scripts/todo_switch_state.py.
 MARKER_RE = re.compile(
-    r"[—-]+\s*(?P<kind>DONE|SOAKING|PARKED|ONGOING)\b"
+    r"[—-]+\s*(?P<kind>DONE|SOAKING|PARKED|ONGOING|AWAITING APPROVAL)\b"
     r"(?:\s+(?:until\s+)?(?P<mdate>\d{4}-\d{2}-\d{2}))?",
     re.IGNORECASE,
 )
@@ -66,6 +66,7 @@ STATUS_WORDS = {
     "parked": "parked",
     "ongoing": "ongoing", "living": "ongoing",
     "soaking": "soaking",
+    "awaiting": "approval",
 }
 
 # Which detail-status kinds are fine under each header kind. A soaking item is
@@ -76,6 +77,7 @@ COMPATIBLE = {
     "parked": {"parked"},
     "ongoing": {"ongoing"},
     "soaking": {"soaking", "complete"},
+    "approval": {"approval", "complete"},
 }
 
 # Forward-looking phrases that contradict a DONE marker when they appear in the
@@ -93,7 +95,7 @@ def classify_detail_status(status_line: str) -> str | None:
 
 
 def parse_header(title: str) -> tuple[str, str | None]:
-    """-> (kind, marker_date). kind: complete|soaking|parked|ongoing|active."""
+    """-> (kind, marker_date). kind: complete|soaking|parked|ongoing|approval|active."""
     matches = list(MARKER_RE.finditer(title))
     if not matches:
         return "active", None
@@ -102,6 +104,8 @@ def parse_header(title: str) -> tuple[str, str | None]:
     mdate = m.group("mdate")
     if kind == "DONE":
         return "complete", mdate
+    if kind == "AWAITING APPROVAL":
+        return "approval", None
     if kind == "SOAKING":
         # A soak with no date is not a soak (see todo_switch_state.parse_status).
         return ("soaking", mdate) if mdate else ("active", None)

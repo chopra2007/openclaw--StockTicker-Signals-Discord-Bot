@@ -50,7 +50,7 @@ SWITCHES_RE = re.compile(r"^\*\*Switches:\*\*\s*(.+?)\s*$")
 # Status marker at the end of a header (a trailing parenthetical is allowed after it).
 # See todo/CONVENTION.md "Status markers".
 STATUS_RE = re.compile(
-    r"[—-]+\s*(?P<kind>DONE|SOAKING|PARKED|ONGOING)\b"
+    r"[—-]+\s*(?P<kind>DONE|SOAKING|PARKED|ONGOING|AWAITING APPROVAL)\b"
     r"(?:\s+until\s+(?P<soak>\d{4}-\d{2}-\d{2}))?",
     re.IGNORECASE,
 )
@@ -59,7 +59,8 @@ STATUS_RE = re.compile(
 def parse_status(title: str, today: date) -> tuple[str, str, date | None]:
     """-> (clean_title, status, soak_until).
 
-    status is one of: active | soaking | soaking_due | parked | ongoing | complete
+    status is one of: active | soaking | soaking_due | parked | ongoing |
+    approval | complete
     """
     matches = list(STATUS_RE.finditer(title))
     if not matches:
@@ -73,6 +74,8 @@ def parse_status(title: str, today: date) -> tuple[str, str, date | None]:
         return clean, "parked", None
     if kind == "ONGOING":
         return clean, "ongoing", None
+    if kind == "AWAITING APPROVAL":
+        return clean, "approval", None
     # SOAKING — a soak with no date is not a soak; it is still real work. Keep the
     # malformed marker in the title so the mistake is visible in the rendered list.
     raw = m.group("soak")
@@ -148,8 +151,8 @@ def evaluate(items: list[dict]) -> list[dict]:
                     states.append((key, exp, "UNEXPECTED-ON ⚠️"))
                 else:
                     states.append((key, exp, "off ➖"))
-        # Only ACTIVE items can be "stale". Soaking/Parked/Ongoing/Complete items are
-        # meant to sit with their switches live — nagging them would be noise.
+        # Only ACTIVE items can be "stale". Soaking/Parked/Ongoing/Awaiting-approval/
+        # Complete items are meant to sit as they are — nagging them would be noise.
         stale = (
             it["status"] == "active"
             and has_on

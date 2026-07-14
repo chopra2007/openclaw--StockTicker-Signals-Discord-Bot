@@ -51,6 +51,8 @@ def test_parse_header_kinds():
     assert tds.parse_header("Soak — SOAKING until whenever") == ("active", None)
     assert tds.parse_header("Blocked — PARKED: needs money") == ("parked", None)
     assert tds.parse_header("Menu — ONGOING") == ("ongoing", None)
+    assert tds.parse_header(
+        "Built — AWAITING APPROVAL: 8 switches need a yes/no") == ("approval", None)
 
 
 def test_classify_detail_status_conservative():
@@ -59,6 +61,7 @@ def test_classify_detail_status_conservative():
     assert tds.classify_detail_status("SHIPPED — v1.1.0 LIVE") == "complete"
     assert tds.classify_detail_status("LIVING RECORD — v1.3.0") == "ongoing"
     assert tds.classify_detail_status("REOPENED 2026-06-06 — was DONE") == "active"
+    assert tds.classify_detail_status("AWAITING APPROVAL — 8 switches") == "approval"
     # unknown vocabulary must NOT guess
     assert tds.classify_detail_status("MOSTLY RESOLVED (2026-06-06)") is None
     assert tds.classify_detail_status("E2 shadow mode is ON") is None
