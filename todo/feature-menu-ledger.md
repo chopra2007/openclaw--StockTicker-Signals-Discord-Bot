@@ -16,6 +16,20 @@ run's artifacts.
 *(Arithmetic: 17 + 6 + 3 + 74 + 14 = 114 = the 113 numbered ideas + the one killed idea that was never
 given a number. Checks out — see the roster's footnotes.)*
 
+**Were the 74 rejected on merit, or did we just run out of build budget? Verified 2026-07-14 — MERIT,
+not resources.** A capacity cap *did* exist (pass-2 kept only the **top 7** and logged 24 ideas as
+"filtered due to capacity"), **but the later merit pass rescued all 24** — they are now **13 BUILT,
+9 OPEN, 2 KILLED, and 0 PASSED**. Nothing was dropped for lack of resources and left there. **However,
+the 74 are not equally dead: 48 are firm** (13 hard-no — the data doesn't exist / is proven no-edge /
+fights the project's own rules; 30 redundant; 5 out of scope) **and 26 are SOFT** — 22 are "low
+value / secondary" **judgment calls that were never proven unworkable**, and **4 were dropped with no
+reason ever written down** (c31 Hidden Markov regime · c41 institutional-vs-retail put/call · c47
+signal-to-noise dashboard · c95 EIA oil & gas). **Those 26 are the reserve pool** if the 14 open
+candidates run out — cheaper to reopen than to pay for a fresh research run. **And one PASSED idea's
+reason has already expired: c102 (short-alert squeeze-risk guard)** was rejected *only* because it
+needed the short-interest leg, **which has since shipped** — it is the most promotable idea in the
+PASSED bucket.
+
 **One idea was removed from the candidate list this pass:** *EPS-estimate revisions momentum* was
 listed as an open candidate. **It is already built and live** (`features.snapshot.eps_revisions: true`,
 `consensus.yaml:811` — it prints `EPS rev 34↑ 3↓ (30d)` on the `!all` card). Moved to BUILT. Building
