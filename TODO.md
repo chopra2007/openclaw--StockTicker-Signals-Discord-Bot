@@ -553,22 +553,8 @@ The standing way to go find NEW ideas: verify ground truth against the real code
 
 **File:** `feature-menu-ledger.md`
 
-**CURRENT STATUS (2026-07-14):** **All 113 ideas from the July run are now individually listed in the
-ledger, by name, each with its verdict** (FULL ROSTER section — previously the 79 rejected ones lived
-only in the discover artifacts, summarized as clusters). The split: **17 BUILT · 6 ALREADY LIVE ·
-3 KILLED · 74 PASSED · 14 OPEN.** **Only the 14 OPEN ones are candidates**, sorted **strongest first
-into 4 tiers** so a session starts at the top and works down. The other 99 are closed and must never
-be re-proposed. Verified: 113 unique IDs, the two known gaps (c58/c82) explained, no idea in two
-places. **TIER 1 (build first):** the `Sources: 4 of 9` footer (~20 lines — the 0-100 score itself is
-already live and ON, so do NOT build a second score); the VVIX fear-of-fear gauge (port the working
-one from the sibling vol project; descriptive only, never a gate); an on-demand watchlist-wide sweep
-command (**must NOT be named `!scan` — that would clobber a live command**). **TIER 2:**
-hedge-vs-directional flow discount; generalize the crowding guard + flip `social_family_dedup` on;
-Brier/calibration automation; analyst price-target spread. **TIER 3 (heavy/gated):** SEC XBRL
-fundamentals; FOMC hawk/dove reader; backtest-to-live decay tracker; learned continuous signal
-weights. **TIER 4 (weak — recommend PASS):** market-wide put/call (**its free CBOE source has been
-dead since Oct 2020**); CFTC COT (weekly, lagged, futures-only); GDELT (the repo's own research
-already scored it bottom-30%). **Caught this pass:** EPS-estimate revisions momentum was sitting in
-the candidate list and is in fact **already built and live** — moved to BUILT.
+**CURRENT STATUS (2026-07-14):** **All 113 ideas from the July run are now individually accounted for
+in this file** (see **FULL ROSTER** at the bottom — every idea, by name, with its verdict). The split:
+**17 BUILT · 6 ALREADY LIVE · 3 KILLED · 74 PASSED · 14 OPEN.**
 
 The standing menu of already-researched ideas, with every verdict written down so no session redoes settled work. All 113 rostered individually; the 14 open ones sorted strongest-to-weakest in 4 tiers; work them top-down. **The trap this file exists to prevent: "not built in that run" ≠ "the bot lacks it" — always grep the live code before promoting an idea to ready-to-build.** (It caught one on 2026-07-14: EPS-revisions was listed as a candidate and is in fact live.) Build a pick under the normal rules, then write `BUILT` or `PASSED` (with the reason) back into the ledger and move the row into the closed section — a rejected idea is PASSED, never deleted, because the reason is what stops it being re-proposed, and **a row must never sit in two places**. Also records the 3 killed ideas, the 6 already-live ones, and the 79 rejected with reasons (the run generated **113** distinct ideas, not 115 — the IDs run to c115 but c58/c82 were never written and c97 is duplicated). Closes only when all four tiers are empty. Turning ON the 16 already-built features is **#67**, not this item.
