@@ -236,7 +236,50 @@ short-volume · analyst-rating momentum · 13D/13G activist-filing scanner.
 | 19 | Dark-pool / off-exchange volume | FINRA publishes it **2–5 weeks late** (probed live). Useless for a 1h/24h alert |
 | 13 | 0DTE directional flow imbalance | Signed/aggressor-side flow **does not exist in any free feed**. The buildable version is just the put/call ratio already shipped |
 
-## PASSED — 79 rejected in the July run, with reasons
+## Were the 74 rejected on merit, or did we just run out of build budget?
+
+**Answered by reading the artifacts on 2026-07-14 — not assumed.** The short answer: **merit, not
+resources.** But there is a real wrinkle worth knowing.
+
+**There WAS a capacity cap.** The run's pass-2 ranked the ideas and kept only the **top 7**, logging 24
+of them as *"ranked but filtered due to capacity (top 7 cap)"* (`drops-log.md:181`). So at one point
+the list really was cut for want of build budget, not merit.
+
+**But a later merit pass rescued every one of them.** `merit-triage.md` ("read every idea, drop
+redundant/useless") re-reviewed all 113 and restored the capacity-cut ideas — it even labels 20 of them
+*"New free-data signals that just missed the cap"*. Where those 24 stand today:
+
+| Capacity-cut in pass-2 | Where they are now |
+|---|---|
+| 24 ideas | **13 BUILT · 9 OPEN (in the tiers above) · 2 KILLED on evidence · 0 PASSED** |
+
+**Not one capacity-cut idea sits in the PASSED bucket.** Nothing was dropped for lack of resources and
+left there. (Verify: the 24 are c81 c111 c4 c113 c9 c19 c44 c8 c25 c28 c42 c20 c66 c65 c7 c59 c46 c88
+c92 c86 c12 c91 c32, plus the un-numbered 0DTE idea.)
+
+### But the 74 are not all equally dead
+
+They were rejected for four different strengths of reason. **Two of these buckets are soft** — if you
+ever want more candidates, reopen them there, not by running a new research pass.
+
+| Bucket | Count | Firmness |
+|---|---|---|
+| **A. Hard no** — the data doesn't exist, is proven no-edge, or it fights your own rules (e.g. Google Trends = fragile scraper + ToS risk; 13F = 45-day lag; sector rotation = already proven no-edge; confirmation-only gates conflict with the instant-trigger philosophy) | 13 | **Firm. Don't reopen.** |
+| **B. Redundant** — already covered by something built or by a kept idea (e.g. c70 hedge-flow classifier is a duplicate of the open c12; c24 RV/IV spread *is* the cheap/rich-vol flag) | 30 | **Firm** — but only as long as the thing that covers it stays. |
+| **C. Out of scope** — the bot is alert-only (position sizing, portfolio P&L, per-user subscriptions), or an ops/governance nicety | 5 | **Firm** unless the bot's scope changes. |
+| **D. Judgment call** — "low value", "secondary", "marginal", "premature". **Nothing here was proven unworkable — a human just ranked it below the others.** | **22** | **SOFT. Reopen freely.** |
+| **E. No reason was ever written down** — the artifacts record the drop but not why: c31 Hidden Markov regime detector · c41 institutional-vs-retail put/call divergence · c47 signal-to-noise dashboard · c95 EIA oil & gas inventories | **4** | **SOFT — and unverified.** These were never actually justified. |
+
+**So: 48 of the 74 are firmly dead (A+B+C). 26 are soft (D+E)** — judgment calls and four ideas nobody
+ever gave a reason for. That is your real reserve pool if the 14 open candidates run out.
+
+**One PASSED idea's reason has already expired:** **c102 (short-alert squeeze-risk guard)** was rejected
+only because it *"depends on the short-interest leg landing first"* — and that leg has since **shipped**
+(c9). Its blocker is gone. It is the single most promotable idea in the PASSED bucket.
+
+---
+
+## PASSED — 74 rejected in the July run, with reasons
 
 Clustered as: overlaps a kept idea; conflicts with the project's own rules (confirm-gates fight the
 instant-trigger philosophy; 8-Ks never trigger standalone); out of scope (position sizing, portfolio
