@@ -1,7 +1,31 @@
 # Fix the merge-permission check so a "denied" action can't have already happened
 
-**Status:** OPEN
+**Status:** OPEN — NOT REPRODUCIBLE 2026-07-13 (3/3 live trials behaved correctly)
 **Created:** 2026-07-12
+
+**CURRENT STATUS (2026-07-13):** **The defect did not reproduce.** Nothing was built — there is nothing
+in this repo to build; the gate lives in Claude Code itself, not our code. But the same command shape
+was exercised live three times today and behaved correctly every time:
+
+| Trial | Command shape | Gate said | What actually happened |
+|---|---|---|---|
+| PR #16 | `gh pr ready 16` + `gh pr merge 16`, one Bash call | allowed | both ran ✅ |
+| PR #18 | `gh pr ready 18` + `gh pr merge 18`, one Bash call | allowed | both ran ✅ |
+| PR #21 | `gh pr ready 21` + `gh pr merge 21`, one Bash call | **denied** | **neither ran** ✅ |
+| *PR #17 (2026-07-12 — the bug)* | *same shape* | *denied* | *both ran anyway* ❌ |
+
+The PR #21 trial is the exact repro: identical two-command shape, a draft PR, and a denial. Verified
+against GitHub's own API afterwards — `draft: true`, `merged: false`, and the issue timeline has **no**
+`ready_for_review` and **no** `merged` event. So the denial arrived *before* dispatch and blocked the
+whole call, which is the correct behaviour and the opposite of what happened on #17.
+
+**Recommendation: close this.** Caveat kept honest — a race that fails to reproduce 3 times is not
+*proven* fixed, and the "not checked" list below still stands (other compound shapes, ordering effects).
+The standing mitigation is free and already habit: **after any denied action, verify the real state
+against the source of truth before believing the denial.** That check is what caught the original bug
+and what confirmed today's trials.
+
+---
 
 **Possible next steps: intentionally not written here**, matching the sibling item #72 — this is a problem statement only, for a future session (with a stronger model) to design the fix. Everything below is verified fact, not speculation.
 
