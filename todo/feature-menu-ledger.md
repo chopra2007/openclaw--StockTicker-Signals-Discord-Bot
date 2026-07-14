@@ -474,3 +474,10 @@ is #67) · `LIVE` = already in the bot before the run · `KILLED` = premise disp
 - **#75** — the loop that generates NEW ideas. Run it when all four tiers are empty.
 - **#67** — turning ON the 16 already built. Different job: those need a yes/no, not a build.
 - **#6** — the `!all` command's own quality-lever menu (a separate, narrower list).
+
+---
+
+### Session notes — 2026-07-14
+- **Worked on:** Regrouped the open ideas strongest-to-weakest into 4 tiers; rostered **all 113** ideas individually (previously the 79 rejected lived only in the discover artifacts as clusters); re-verified every open idea against the LIVE CODE with two search agents.
+- **Decisions:** (a) **EPS-estimate revisions momentum was removed from the candidate pool — it is already BUILT and LIVE** (`features.snapshot.eps_revisions: true`); it was the exact trap this file exists to prevent. (b) Verified the **74 were rejected on MERIT, not build budget** — a top-7 capacity cap did exist in pass-2 and cut 24 ideas, but the later merit pass rescued all 24 (now 13 BUILT / 9 OPEN / 2 KILLED / **0 PASSED**). (c) Graded the 74: **48 firm, 26 SOFT** (22 "low value" judgment calls never proven unworkable + 4 dropped with **no reason ever written**: c31, c41, c47, c95) — the 26 are the reserve pool, cheaper to reopen than a fresh #75 run. (d) **c102's rejection has expired** — it was blocked only on the short-interest leg, which has since shipped.
+- **Next:** Build **T1-a — the `Sources: 4 of 9` footer** (~20 lines; the 0-100 score is already live and ON, so do NOT build a second score). Then T1-b (VVIX, port from the sibling vol project) and T1-c (watchlist sweep command — **must NOT be named `!scan`**).
