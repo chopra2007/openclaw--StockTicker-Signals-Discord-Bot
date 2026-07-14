@@ -61,7 +61,12 @@ echo "[pre-push] running regression suite (parallel: 2 workers)..."
 #   consensus-engine/gateway keep headroom during a push.
 # -rf: guarantee the "FAILED <id>" summary lines the regression parser below
 #   relies on, regardless of xdist output ordering.
-python3 -m pytest tests/ -n 2 --tb=line -q -rf 2>&1 | tee "$LOG"
+# --color=no is LOAD-BEARING: Claude Code sets FORCE_COLOR=3, which makes pytest
+#   colourize even into a file, so the summary line becomes
+#   "\x1b[31mFAILED\x1b[0m tests/..." and the `^FAILED ` parser below matches
+#   NOTHING. Every push from a Claude session then passed a gate that could not
+#   see red tests. Verified 2026-07-13 with a deliberately failing test.
+python3 -m pytest tests/ -n 2 --tb=line -q -rf --color=no 2>&1 | tee "$LOG"
 
 # Extract current failures (sorted, unique)
 CURRENT_FAILS=$(grep -E '^FAILED ' "$LOG" | awk '{print $2}' | sort -u)
