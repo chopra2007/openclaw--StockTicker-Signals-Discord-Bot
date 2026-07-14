@@ -536,3 +536,27 @@ in this repo to build; the gate lives in Claude Code itself, not our code. But t
 was exercised live three times today and behaved correctly every time:
 
 Merging PR #17 (2026-07-12) surfaced a real permission-check bug: the safety gate that's supposed to block converting a draft PR to ready and merging it in the same breath (no visible human review in between) reported the merge as "denied" — but the merge had already actually gone through on GitHub 2 seconds after the ready-for-review step (verified directly against GitHub's own API/timeline: `merged_at` real, `merge_commit_sha` real, now on `master`). The denial message also attached to the wrong tool call — a later, unrelated status check — instead of the merge command itself. So a "Permission ... was denied" message from this system is not reliable evidence the named action didn't happen; here it happened in full despite being labeled denied. Full evidence (exact denial text, GitHub timeline timestamps, the triggering commands) is in the detail file. No fix proposed — problem statement only, for a future session to diagnose and fix.
+
+## 75. Research, plan, and build new features — the repeatable loop — ONGOING
+
+**File:** `feature-research-loop.md`
+
+**CURRENT STATUS (2026-07-14):** Set up and ready to run. This is the **generator** — it goes out and
+finds NEW ideas. Its output feeds the **menu** in #76, which is the ledger of ideas already found.
+Run this when #76's menu is exhausted, or when enough has changed (new data source, new API key, a
+market regime shift) that a fresh look is worth the tokens. Last full run: **2026-07-08**
+(`next-features-jul2026`), which produced the 113-idea list #76 now tracks.
+
+The standing way to go find NEW ideas: verify ground truth against the real code, run six-lens deep research with citations, adversarially kill-test the survivors, stop and let the user pick, then build the picks flag-OFF under the normal rules. Covers both brand-new features and optimizing/updating existing ones. Run it with `ultracode — read todo/kickoffs/bot-research-and-build.md and execute it end to end` (the prompt written for #61). **Check #76 first** — if the existing menu still has good un-picked ideas, building one of those is cheaper than generating a new list. Every verdict a run produces must land in #76, so no idea is ever researched twice. Last run: 2026-07-08 (`next-features-jul2026`) → 113 ideas → 16 built.
+
+## 76. Feature menu — the researched ideas, and what happened to each — ONGOING
+
+**File:** `feature-menu-ledger.md`
+
+**CURRENT STATUS (2026-07-14):** **34 ideas tracked. Every open idea re-verified against the LIVE CODE
+on 2026-07-14** — and the discover run's "not built" list turned out to be misleading. Of its 8
+"survived but not built" ideas, **only 3 are genuinely absent from the codebase** (market-wide
+put/call, CFTC, GDELT). Two are effectively already built and live, one would have clobbered an
+existing command, and two are half-built.
+
+The standing menu of already-researched ideas, with every verdict written down so no session redoes settled work. **34 tracked, and every open idea re-verified against the LIVE CODE on 2026-07-14.** The discover run's "survived but not built" list proved misleading: of its 8 ideas, only **3 are genuinely absent** from the codebase (market-wide put/call, CFTC, GDELT). Two are effectively **already built and live** (the 0-100 score is live behind a flag that's already on; analyst price targets are already rendered on `!all`), one (`!scan`) **would have clobbered an existing live command**, and two are half-built (a crowding guard already runs in `wolf_confluence.py` + `herding.py`; VVIX has a working implementation in the sibling vol project to port). **The trap: "not built in that run" ≠ "the bot lacks it" — always grep the live code before promoting an idea to ready-to-build.** Pick one per session, build it, then write `BUILT` or `PASSED` (with the reason) back into the ledger — a rejected idea is PASSED, never deleted, because the reason is what stops it being re-proposed. Also records the 3 killed ideas, the 6 already-live ones, and the 79 rejected with reasons (the run generated **113** distinct ideas, not 115 — the IDs run to c115 but c58/c82 were never written and c97 is duplicated). Closes only when every idea is BUILT or PASSED. Turning ON the 16 already-built features is **#67**, not this item.
