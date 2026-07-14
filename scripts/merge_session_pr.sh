@@ -35,12 +35,32 @@ if [ "$BRANCH" = "master" ]; then
     exit 0
 fi
 
+# Push the branch from HERE, not from the session. `git push` fires the pre-push hook,
+# which runs the WHOLE test suite (~7-8 min). Doing that in the session at close time
+# made "bye" block for 12 minutes — the exact opposite of what "bye" is for. Everything
+# slow belongs in this background script so the session can be closed immediately.
+if [ -n "$(git log "origin/$BRANCH..$BRANCH" --oneline 2>/dev/null || echo push)" ]; then
+    log "Pushing '$BRANCH' (runs the pre-push test gate — minutes, but nobody is waiting)"
+    if ! git push origin "$BRANCH" >>"$LOG" 2>&1; then
+        log "Push of '$BRANCH' was REJECTED — not merging"
+        notify "🚨 SESSION-CLOSE PUSH FAILED — branch '$BRANCH' would not push (the pre-push test gate failed, or the branch is behind). Nothing was merged. See $LOG"
+        exit 1
+    fi
+fi
+
 PR=$(gh api "repos/$REPO/pulls?state=open&head=chopra2007:$BRANCH" --jq '.[0].number // empty' 2>>"$LOG")
 if [ -z "$PR" ]; then
-    log "No open PR for branch '$BRANCH' — nothing to merge"
-    exit 0
+    # Opening the PR is also slow-ish and used to sit in the session's foreground. Do it here.
+    log "No open PR for '$BRANCH' — opening one"
+    gh pr create --repo "$REPO" --base master --head "$BRANCH" --fill >>"$LOG" 2>&1 || true
+    PR=$(gh api "repos/$REPO/pulls?state=open&head=chopra2007:$BRANCH" --jq '.[0].number // empty' 2>>"$LOG")
 fi
-log "Found PR #$PR for branch '$BRANCH'"
+if [ -z "$PR" ]; then
+    log "No PR for branch '$BRANCH' and one could not be opened — nothing to merge"
+    notify "⚠️ SESSION-CLOSE — branch '$BRANCH' was pushed but no PR could be opened, so nothing was merged. See $LOG"
+    exit 1
+fi
+log "Using PR #$PR for branch '$BRANCH'"
 
 if [ "$(gh api "repos/$REPO/pulls/$PR" --jq '.draft')" = "true" ]; then
     log "PR #$PR is a draft — marking it ready for review"
