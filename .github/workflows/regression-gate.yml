@@ -3,6 +3,10 @@ name: Regression Gate
 on:
   push:
     branches: [master]
+  # Also run on every pull request, so a PR has a real pass/fail check to gate on.
+  # Session close (todo/SESSION_CLOSE.md) waits for this check and merges only if it passes.
+  pull_request:
+    branches: [master]
 
 jobs:
   test:
