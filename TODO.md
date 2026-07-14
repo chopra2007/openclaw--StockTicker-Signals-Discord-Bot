@@ -553,9 +553,10 @@ The standing way to go find NEW ideas: verify ground truth against the real code
 
 **File:** `feature-menu-ledger.md`
 
-**CURRENT STATUS (2026-07-14):** **34 ideas tracked. 16 BUILT, 3 KILLED, 15 still open** (8 ready to
-build now, 7 conditional). This is the standing menu — pick one per session. Every idea already has a
-verdict written next to it, so no session ever re-researches settled ground. Nothing here needs new
-research; the research is done (#75 is the loop that generates *new* ideas when this list runs thin).
+**CURRENT STATUS (2026-07-14):** **34 ideas tracked. Every open idea re-verified against the LIVE CODE
+on 2026-07-14** — and the discover run's "not built" list turned out to be misleading. Of its 8
+"survived but not built" ideas, **only 3 are genuinely absent from the codebase** (market-wide
+put/call, CFTC, GDELT). Two are effectively already built and live, one would have clobbered an
+existing command, and two are half-built.
 
-The standing menu of already-researched ideas, with every verdict written down so no session redoes settled work. **34 tracked: 16 BUILT, 3 KILLED, 15 open (8 ready to build now, 7 conditional).** Pick one per session, build it, then write `BUILT` or `PASSED` (with the reason) back into the ledger — a rejected idea is PASSED, never deleted, because the reason is what stops it being re-proposed. Cheapest open idea: **#25 analyst price-target disagreement** (data already flows through `snapshot.py` — a computed field on `!all`, no new integration). Also records the 3 killed ideas, the 6 already-live ones, and the 79 rejected with reasons. Closes only when every idea is BUILT or PASSED. Turning ON the 16 already-built features is **#67**, not this item.
+The standing menu of already-researched ideas, with every verdict written down so no session redoes settled work. **34 tracked, and every open idea re-verified against the LIVE CODE on 2026-07-14.** The discover run's "survived but not built" list proved misleading: of its 8 ideas, only **3 are genuinely absent** from the codebase (market-wide put/call, CFTC, GDELT). Two are effectively **already built and live** (the 0-100 score is live behind a flag that's already on; analyst price targets are already rendered on `!all`), one (`!scan`) **would have clobbered an existing live command**, and two are half-built (a crowding guard already runs in `wolf_confluence.py` + `herding.py`; VVIX has a working implementation in the sibling vol project to port). **The trap: "not built in that run" ≠ "the bot lacks it" — always grep the live code before promoting an idea to ready-to-build.** Pick one per session, build it, then write `BUILT` or `PASSED` (with the reason) back into the ledger — a rejected idea is PASSED, never deleted, because the reason is what stops it being re-proposed. Also records the 3 killed ideas, the 6 already-live ones, and the 79 rejected with reasons (the run generated **113** distinct ideas, not 115 — the IDs run to c115 but c58/c82 were never written and c97 is duplicated). Closes only when every idea is BUILT or PASSED. Turning ON the 16 already-built features is **#67**, not this item.
