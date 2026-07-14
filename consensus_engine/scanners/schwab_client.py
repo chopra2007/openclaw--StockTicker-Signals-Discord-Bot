@@ -25,6 +25,7 @@ Personal-use license: callers render DERIVED SUMMARIES only (vol/OI, premium,
 max-pain, expected-move). Never post/store the raw per-strike chain.
 """
 
+import datetime
 import fcntl
 import gzip
 import json
@@ -35,6 +36,7 @@ import time
 from dataclasses import dataclass, field
 from types import SimpleNamespace
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 import requests
 
@@ -406,6 +408,12 @@ def get_option_chain(symbol: str, *, nearest: Optional[int] = None,
             exps = get_expirations(symbol)
         except Exception:
             exps = []
+        # Schwab keeps listing today's expiry after the Eastern day has rolled over
+        # (any time past midnight ET), but /chains then 400s on that date as being in
+        # the past. Dropping already-past expirations keeps nearest=1 (the default in
+        # scanners/options.py) working overnight instead of erroring the whole fetch.
+        today_et = datetime.datetime.now(ZoneInfo("America/New_York")).date().isoformat()
+        exps = [e for e in exps if e >= today_et]
         if exps:
             to_date = exps[min(int(nearest), len(exps)) - 1]
     params = {"symbol": to_schwab_symbol(symbol), "contractType": contract_type}

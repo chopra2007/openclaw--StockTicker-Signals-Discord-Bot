@@ -553,10 +553,37 @@ The standing way to go find NEW ideas: verify ground truth against the real code
 
 **File:** `feature-menu-ledger.md`
 
-**CURRENT STATUS (2026-07-14):** **34 ideas tracked. Every open idea re-verified against the LIVE CODE
-on 2026-07-14** — and the discover run's "not built" list turned out to be misleading. Of its 8
-"survived but not built" ideas, **only 3 are genuinely absent from the codebase** (market-wide
-put/call, CFTC, GDELT). Two are effectively already built and live, one would have clobbered an
-existing command, and two are half-built.
+**CURRENT STATUS (2026-07-14):** **All 113 ideas from the July run are now individually accounted for
+in this file** (see **FULL ROSTER** at the bottom — every idea, by name, with its verdict). The split:
+**17 BUILT · 6 ALREADY LIVE · 3 KILLED · 74 PASSED · 14 OPEN.**
 
-The standing menu of already-researched ideas, with every verdict written down so no session redoes settled work. **34 tracked, and every open idea re-verified against the LIVE CODE on 2026-07-14.** The discover run's "survived but not built" list proved misleading: of its 8 ideas, only **3 are genuinely absent** from the codebase (market-wide put/call, CFTC, GDELT). Two are effectively **already built and live** (the 0-100 score is live behind a flag that's already on; analyst price targets are already rendered on `!all`), one (`!scan`) **would have clobbered an existing live command**, and two are half-built (a crowding guard already runs in `wolf_confluence.py` + `herding.py`; VVIX has a working implementation in the sibling vol project to port). **The trap: "not built in that run" ≠ "the bot lacks it" — always grep the live code before promoting an idea to ready-to-build.** Pick one per session, build it, then write `BUILT` or `PASSED` (with the reason) back into the ledger — a rejected idea is PASSED, never deleted, because the reason is what stops it being re-proposed. Also records the 3 killed ideas, the 6 already-live ones, and the 79 rejected with reasons (the run generated **113** distinct ideas, not 115 — the IDs run to c115 but c58/c82 were never written and c97 is duplicated). Closes only when every idea is BUILT or PASSED. Turning ON the 16 already-built features is **#67**, not this item.
+**Only the 14 OPEN ideas are candidates**, sorted **strongest-first into 4 tiers** — work them
+top-down. **TIER 1 (build first):** the `Sources: 4 of 9` footer (~20 lines; the 0-100 score is already
+live and ON — do NOT build a second one) · the VVIX fear-of-fear gauge (port the working one from the
+sibling vol project; descriptive only, never a gate) · an on-demand watchlist-wide sweep command
+(**must NOT be named `!scan`** — that would clobber a live command). **TIER 2:** hedge-vs-directional
+flow discount · generalize the crowding guard + flip `social_family_dedup` on · Brier/calibration
+automation · analyst price-target spread. **TIER 3 (heavy/gated):** SEC XBRL fundamentals · FOMC
+hawk/dove reader · backtest-to-live decay tracker · learned continuous signal weights. **TIER 4 (weak —
+recommend PASS):** market-wide put/call (**its free CBOE source has been dead since Oct 2020**) · CFTC
+COT (weekly, lagged, futures-only) · GDELT (the repo's own research already scored it bottom-30%).
+
+**Caught 2026-07-14:** *EPS-estimate revisions momentum* was sitting in the candidate list and is in
+fact **already built and live** (`features.snapshot.eps_revisions: true` — the `EPS rev 34↑ 3↓ (30d)`
+line on `!all`). Moved to BUILT. This is why the rule is **grep the live code before promoting any idea
+to ready-to-build** — "not built in that run" ≠ "the bot lacks it".
+
+**Were the 74 rejected on merit, or for lack of build budget? Verified 2026-07-14 — MERIT, not
+resources.** A capacity cap *did* exist (the run's pass-2 kept only the **top 7** and logged 24 ideas as
+"filtered due to capacity"), **but the later merit pass rescued all 24** — they are now **13 BUILT,
+9 OPEN, 2 KILLED, 0 PASSED**. Nothing was cut for resources and left cut. **But the 74 are not equally
+dead: 48 are firm** (13 hard-no — data doesn't exist / proven no-edge / fights the project's own rules;
+30 redundant; 5 out of scope) **and 26 are SOFT** — 22 are "low value / secondary" **judgment calls
+never proven unworkable**, and **4 were dropped with no reason ever written down** (c31 Hidden Markov
+regime · c41 institutional-vs-retail put/call · c47 signal-to-noise dashboard · c95 EIA oil & gas).
+**Those 26 are the reserve pool** when the 14 open candidates run out — far cheaper to reopen than to
+pay for a fresh research run (#75). **One PASSED idea's reason has already expired: c102 (short-alert
+squeeze-risk guard)** was rejected *only* because it needed the short-interest leg — **which has since
+shipped**. It is the most promotable idea in the PASSED bucket.
+
+The standing menu of already-researched ideas, with every verdict written down so no session redoes settled work. All 113 rostered individually; the 14 open ones sorted strongest-to-weakest in 4 tiers; work them top-down. **The trap this file exists to prevent: "not built in that run" ≠ "the bot lacks it" — always grep the live code before promoting an idea to ready-to-build.** (It caught one on 2026-07-14: EPS-revisions was listed as a candidate and is in fact live.) Build a pick under the normal rules, then write `BUILT` or `PASSED` (with the reason) back into the ledger and move the row into the closed section — a rejected idea is PASSED, never deleted, because the reason is what stops it being re-proposed, and **a row must never sit in two places**. Also records the 3 killed ideas, the 6 already-live ones, and the 74 rejected with reasons — each graded firm vs soft, so the soft ones can be reopened instead of paying for a new research run (the run generated **113** distinct ideas, not 115 — the IDs run to c115 but c58/c82 were never written and c97 is duplicated). Closes only when all four tiers are empty. Turning ON the 16 already-built features is **#67**, not this item.
