@@ -119,6 +119,33 @@ def test_get_option_chain_empty_returns_none(monkeypatch):
     assert sc.get_option_chain("AAPL", to_date="2026-07-01") is None
 
 
+def test_nearest_skips_expirations_already_past_in_eastern(monkeypatch):
+    """Schwab still lists today's expiry after midnight ET but 400s on it as a past
+    date, so `nearest` must resolve to the first expiry that is not already gone."""
+    import datetime as _dt
+    from zoneinfo import ZoneInfo
+
+    today_et = _dt.datetime.now(ZoneInfo("America/New_York")).date()
+    stale = (today_et - _dt.timedelta(days=1)).isoformat()
+    expirations = [stale, today_et.isoformat(), (today_et + _dt.timedelta(days=2)).isoformat()]
+
+    seen = {}
+
+    def fake_get(path, params=None):
+        if path == "/chains":
+            seen.update(params or {})
+        return {"status": "SUCCESS", "numberOfContracts": 0}
+
+    monkeypatch.setattr(sc, "get_expirations", lambda symbol: expirations)
+    monkeypatch.setattr(sc, "_get", fake_get)
+
+    sc.get_option_chain("AAPL", nearest=1)
+    assert seen["toDate"] == today_et.isoformat(), "nearest=1 must skip the past expiry"
+
+    sc.get_option_chain("AAPL", nearest=2)
+    assert seen["toDate"] == expirations[2], "nearest=2 counts from the first live expiry"
+
+
 def test_get_price_history_reshape(monkeypatch):
     candles = [
         {"open": 311.7, "high": 315.0, "low": 309.5, "close": 312.0, "volume": 70026752, "datetime": 1780030800000},
