@@ -4,10 +4,17 @@
 **Created:** 2026-07-14
 **Last full code re-verification:** 2026-07-14 (every open idea grepped against the live code)
 
-**CURRENT STATUS (2026-07-14):** **34 ideas tracked — 17 BUILT, 3 KILLED, 14 OPEN.** The 14 open
-ideas are now sorted **strongest first, in four tiers**, so a session can start at the top and work
-down. Nothing already built or already passed on appears in the candidate tiers — re-verified against
-the live code, not against the discover run's artifacts.
+**CURRENT STATUS (2026-07-14):** **All 113 ideas from the July run are now individually accounted for
+in this file** (see **FULL ROSTER** at the bottom — every idea, by name, with its verdict). The split:
+**17 BUILT · 6 ALREADY LIVE · 3 KILLED · 74 PASSED · 14 OPEN.**
+
+**Only the 14 OPEN ones are candidates**, and they are sorted **strongest first, in four tiers**, so a
+session starts at the top and works down. The other 99 are closed — nothing already built or already
+passed on appears in the candidate tiers. Re-verified against the live code, not against the discover
+run's artifacts.
+
+*(Arithmetic: 17 + 6 + 3 + 74 + 14 = 114 = the 113 numbered ideas + the one killed idea that was never
+given a number. Checks out — see the roster's footnotes.)*
 
 **One idea was removed from the candidate list this pass:** *EPS-estimate revisions momentum* was
 listed as an open candidate. **It is already built and live** (`features.snapshot.eps_revisions: true`,
@@ -263,6 +270,147 @@ And `merit-triage.md`'s own arithmetic checks out: 27 + 7 + 79 = 113.
   holdings, per-alert paper-trade P&L, alert-volume circuit breaker, `!health` dashboard)
 - `.claude/discover/next-features-jul2026/pass-3-killtest-report.md` — the kill-test verdicts
 - `.claude/discover/next-features-jul2026/outcome.json` — the machine ledger of the run
+
+---
+
+# FULL ROSTER — all 113 ideas, one line each
+
+Every idea the July 2026 run produced, by name, with what happened to it. **This is the master list.**
+The clusters above are the working view; this is the audit trail. Extracted from `merit-triage.md`,
+`drops-log.md` and `pass-2-filtered.md` on 2026-07-14.
+
+**Status key:** `OPEN` = a candidate, tier shown · `BUILT` = shipped (flag off unless noted; turning on
+is #67) · `LIVE` = already in the bot before the run · `KILLED` = premise disproven, never re-propose ·
+`PASSED` = rejected with the reason given.
+
+| ID | Idea | Status | Verdict / reason |
+|---|---|---|---|
+| c1 | VVIX "fear-of-fear" gauge | **OPEN — T1-b** | Is the market nervous about its own nervousness |
+| c2 | VIX/VIX3M calm-vs-panic term structure | LIVE | Already in the cross-asset regime code |
+| c3 | Dealer gamma (GEX) map | BUILT | `features.dealer_gamma.enabled` |
+| c4 | IV skew: puts vs calls | BUILT | `features.iv_skew.enabled` |
+| c5 | Machine-readable buy/sell tags on alerts | PASSED | Overlaps shipped decision-first alerts; nothing downstream would use the tags |
+| c6 | Short-end VIX9D term-structure leg | PASSED | Minor extension of existing term structure; marginal once VVIX covers vol-of-vol |
+| c7 | Yield curve, dollar, real yields | BUILT | `features.cross_asset.macro_legs` |
+| c8 | Market-wide put/call ratio | **OPEN — T4** | Recommend PASS: its free CBOE source has been dead since Oct 2020 |
+| c9 | FINRA short interest + days-to-cover | BUILT | `features.short_interest.enabled` |
+| c10 | Treasury/FOMC event-risk overlay | PASSED | FOMC and CPI dates already ingested; the staleness add-on is thin |
+| c11 | Max-pain reliability label | **KILLED** | Premise false — max-pain is already shown unconditionally |
+| c12 | Hedge-vs-directional flow discount | **OPEN — T2-a** | Tell a protective hedge apart from a real bet |
+| c13 | Monthly alert hit-rate self-audit | PASSED | Hit-rate and false-positive tables already exist; only the schedule is new |
+| c14 | Three-tier alert severity | PASSED | Decision-first alerts already prioritize; delivery tiers are secondary |
+| c15 | Cool-down before high-severity alerts | PASSED | Conflicts with the instant-trigger rule for insider and flow alerts |
+| c16 | Backtest-overfitting guard checklist | PASSED | Subsumed by the decay tracker and walk-forward; a checklist, not code |
+| c17 | Options flow as confirmation only | PASSED | Directly conflicts with the unusual-flow instant-trigger exception |
+| c18 | Retire ignored alert types | PASSED | Near-duplicate of the alert-monitoring cluster; secondary ops |
+| c19 | Congressional trading tracker | BUILT | `features.congress_trades.enabled` *(House only — Senate site is gated)* |
+| c20 | Dark-pool / off-exchange volume | **KILLED** | FINRA publishes it 2–5 weeks late — useless for a 1h/24h alert |
+| c21 | Cheap-vs-rich volatility flag | BUILT | `features.iv_rv_tag.enabled` |
+| c22 | ETF fund-flow anomaly detector | PASSED | No confirmed free flow source; re-approaches the sector-rotation dead end |
+| c23 | Explicit 0–100 score | **OPEN — T1-a** | **The score itself is already LIVE and ON.** Only the "N of M sources" footer is left |
+| c24 | Realized-vs-implied vol as move-confidence weight | PASSED | Subsumed by the cheap/rich-vol flag — same implied-minus-realized spread |
+| c25 | Options pinning probability | BUILT | `features.oi_pinning.enabled` |
+| c26 | Kelly position-size suggestion | PASSED | Position sizing is outside the alert-only scope; edge estimates too noisy |
+| c27 | Cross-ticker correlation-break detector | PASSED | Secondary; peer relative-strength already separates stock-specific moves |
+| c28 | Post-earnings drift (PEAD) | BUILT | `features.pead.enabled` |
+| c29 | 12-1 month momentum rank | PASSED | Factor work already proven no-edge on free daily data |
+| c30 | Amihud illiquidity confidence discount | PASSED | Minor confidence tweak; overlaps the liquidity-gate family |
+| c31 | Hidden Markov regime detector | PASSED | Reason not recorded in the artifacts |
+| c32 | Automated Brier calibration report | **OPEN — T2-c** | The maths already exists; nobody ever sees the numbers |
+| c33 | GARCH volatility cross-check | PASSED | Heavy model for marginal gain over the cheap/rich-vol leg |
+| c34 | Social message-volume spike detector | PASSED | Incremental attention proxy; StockTwits and ApeWisdom trending already ingested |
+| c35 | Overnight gap-fill probability model | PASSED | Niche swing heuristic; lower priority than the options legs |
+| c36 | AAII weekly sentiment survey | PASSED | Weekly contrarian survey; secondary low-cadence source |
+| c37 | NAAIM manager exposure index | PASSED | Same weekly-survey class as AAII; secondary |
+| c38 | Wikipedia pageview attention spike | PASSED | Weak standalone attention proxy |
+| c39 | EDGAR full-text 8-K keyword scanner | PASSED | 8-K detection already ships; 8-Ks never trigger standalone alerts |
+| c40 | Full VIX-futures term-structure curve | PASSED | Richer than the front curve but heavy to ingest; marginal gain |
+| c41 | Institutional vs retail put/call divergence | PASSED | Reason not recorded in the artifacts |
+| c42 | CFTC Commitments of Traders | **OPEN — T4** | Recommend PASS: weekly, lagged, futures-only — wrong speed for this bot |
+| c43 | Economic Policy Uncertainty index | PASSED | Monthly cadence and noisy; secondary macro source |
+| c44 | Trading-halt tripwire | BUILT | `features.trading_halts.enabled` |
+| c45 | 13F institutional-holdings change | PASSED | 45-day lag; slower and less valuable than Form 144 or Congress |
+| c46 | Backtest-to-live decay tracker | **OPEN — T3-c** | Value grows as outcome data accrues (#73's soak) |
+| c47 | Signal-to-noise dashboard per alert type | PASSED | Reason not recorded in the artifacts |
+| c48 | Kill-switch auto-pause on divergence | PASSED | Overlaps the decay tracker and per-ticker cooldown; ops layer |
+| c49 | Frame alerts as hypotheses | PASSED | A wording tweak; low source quality |
+| c50 | Anchored VWAP bands | LIVE | Already in the smart-levels engine |
+| c51 | Volume-profile levels | LIVE | Already in the smart-levels engine |
+| c52 | Per-alert paper-trade P&L tracker | PASSED | Overlaps the decay tracker and the existing evaluation harness |
+| c53 | Daily-vs-weekly trend alignment gate | PASSED | Incremental confluence weight; lower value than the new data legs |
+| c54 | VPIN flow-toxicity leg | PASSED | Needs intraday trade data; predictive value disputed; heavy build |
+| c55 | Conformal-prediction confidence bands | PASSED | Advanced calibration wrapper; premature |
+| c56 | CUSUM change-point detector | PASSED | Complements a regime model that isn't shipped; premature |
+| c57 | Turn-of-month / day-of-week seasonality | PASSED | Descriptive footnote; low impact |
+| c59 | Learned signal weights | **OPEN — T3-d** | Its old gate (needs the 0–100 score) is **gone** — the score is live. Real gate is outcome-data volume |
+| c60 | EPS-estimate revision momentum | **BUILT** | **Found already LIVE 2026-07-14** — `features.snapshot.eps_revisions: true`. Was wrongly listed as a candidate |
+| c61 | Implied-vs-realized correlation (dispersion) | PASSED | Needs component-vol aggregation; heavy build for a niche regime tag |
+| c62 | Headline-vs-filing sentiment divergence | PASSED | Requires both text pipelines to be mature; secondary |
+| c63 | FINRA daily short-sale volume | LIVE | Already built |
+| c64 | Finnhub earnings beat-streak | PASSED | Overlaps post-earnings drift; secondary |
+| c65 | Financial Conditions Index (NFCI) | BUILT | `features.cross_asset.nfci_leg_enabled` |
+| c66 | Market breadth (advance/decline) | BUILT | `features.market_breadth.enabled` *(RSP/SPY proxy)* |
+| c67 | Crypto risk-on/off leg | PASSED | Crypto-equity link decouples for long stretches; low source quality |
+| c68 | Analyst rating momentum | LIVE | Already built (`Rating trend ▲ 3.82→3.92`) |
+| c69 | 13D/13G activist-stake scanner | LIVE | Already built |
+| c70 | Hedge-vs-directional flow classifier | PASSED | **Duplicate of c12** (which is OPEN at T2-a) |
+| c71 | Signal half-life / decay monitor | PASSED | Overlaps c46, the decay tracker |
+| c72 | Signal-crowding guard | **OPEN — T2-b** | Two narrow guards already live; job is generalize + switch on |
+| c73 | Favorable-regime-only backtest guard | PASSED | Subsumed by walk-forward validation |
+| c74 | Flow-specific 2% sizing note | PASSED | Sizing is outside the alert-only scope |
+| c75 | Dynamic performance-based reweighting | PASSED | Premature before static and learned weights exist |
+| c76 | Walk-forward validation discipline | PASSED | Methodology folded into c59, learned weights |
+| c77 | Standard shadow-mode framework | PASSED | Shadow patterns already exist; generalizing them is an ops refactor |
+| c78 | `!health` latency dashboard command | PASSED | Existing drift/health alerts plus `--status` cover the core |
+| c79 | Per-user watchlist subscriptions | PASSED | Personalization feature; secondary to signal work |
+| c80 | Premium-size-tiered flow classification | PASSED | The sweep detector already carries a size threshold |
+| c81 | CBOE SKEW crash-insurance index | BUILT | `features.skew_index.enabled` |
+| c83 | Gamma-flip price level | BUILT | `features.dealer_gamma.enabled` |
+| c84 | Relative Rotation Graph sector momentum | PASSED | Sector rotation already proven no-edge on free daily data |
+| c85 | Realized-vol percentile cone | PASSED | Expected-move footnote; overlaps the cheap/rich-vol context |
+| c86 | Rule 10b5-1 plan scanner | BUILT | `features.insider_10b5_plans.enabled` |
+| c87 | FOMC hawk/dove statement reader | **OPEN — T3-b** | High potential, but a heavy language-model build |
+| c88 | Analyst price-target disagreement | **OPEN — T2-d** | Targets already on screen; needs spread history logged first |
+| c89 | Quad-witching / OpEx-week overlay | PASSED | Narrower variant of seasonality; low impact |
+| c90 | Options bid-ask spread deterioration gate | PASSED | Data-quality gate; overlaps the liquidity family |
+| c91 | GDELT global news tone | **OPEN — T4** | Recommend PASS: the repo's own research already scored it bottom-30% |
+| c92 | SEC Form 144 intent-to-sell | BUILT | `features.form144.enabled` |
+| c93 | Google Trends search-volume leg | PASSED | Fragile unofficial scraper; terms-of-service risk |
+| c94 | SEC XBRL fundamentals feed | **OPEN — T3-a** | Strong new data class, but a large build |
+| c95 | EIA weekly oil and gas inventories | PASSED | Reason not recorded in the artifacts |
+| c96 | Census advance retail-sales leg | PASSED | Sector-narrow; the release dates are already tracked |
+| c97 | OpenSecrets lobbying-spend leg | PASSED | Noisy leading indicator; low source quality. *(This ID is duplicated in the artifacts — counted once.)* |
+| c98 | USASpending federal contract awards | PASSED | Narrow to government-contractor names; secondary |
+| c99 | BLS JOLTS labor-market leg | PASSED | Monthly macro; NFCI and yield/dollar legs already cover the backdrop |
+| c100 | FINRA TRACE corporate-bond credit leg | PASSED | Single-name bond data is sparse and heavy to integrate |
+| c101 | Crowded-trade monitor across tickers | PASSED | Overlaps c72, the crowding guard |
+| c102 | Short-alert squeeze-risk guard | PASSED | Useful, but depended on the short-interest leg — which has since shipped (c9). **Worth a re-look if you ever want a 15th candidate** |
+| c103 | Co-pilot human-confirm toggle | PASSED | Workflow change; secondary to signal features |
+| c104 | Daily alert-volume circuit breaker | PASSED | Overlaps the alert-fatigue control cluster |
+| c105 | Regime-shift disclaimer banner | PASSED | Low source quality; overlaps the decay tracker's surfacing |
+| c106 | Backfilled-data provenance tag | PASSED | Data-governance nicety; low impact |
+| c107 | Pre-deploy drawdown-simulation gate | PASSED | Overlaps the decay tracker and walk-forward guards |
+| c108 | Single-ticker error blast-radius cap | PASSED | The poll loop likely already isolates per-ticker faults; a hardening task |
+| c109 | Score-version pinning and rollback | PASSED | Config/ops versioning, not a signal |
+| c110 | Social-engagement scoring firewall | PASSED | Defensive check; reactions very likely don't feed scoring |
+| c111 | Volatility squeeze (Bollinger/Keltner) | BUILT | `features.vol_squeeze.enabled` |
+| c112 | Per-ticker alert cooldown | PASSED | Overlaps the fatigue-guard cluster; needs mature outcome data |
+| c113 | Universe screener across the watchlist | **OPEN — T1-c** | **Must NOT be named `!scan`** — that is a live command |
+| c114 | Repeat/stacking sweep detector | PASSED | Incremental refinement of unusual flow |
+| c115 | Risk-adjusted snapshot command | PASSED | Reporting nicety; secondary to signal work |
+| *(none)* | 0DTE directional flow imbalance | **KILLED** | Signed/aggressor-side flow does not exist in any free feed. Never got an ID — it lived only in the triage file |
+
+### Roster footnotes — the ID gaps are real, not lost ideas
+
+- **`c58` and `c82` have no write-up.** `c82` is referenced nowhere at all. `c58` appears only inside
+  `drops-log.md` as *"Kyle's-lambda liquidity sizing gate"*, dropped for *"overlaps the c30/c90
+  liquidity family; marginal"* — so it is **PASSED**, and nothing is missing.
+- **`c97` is duplicated** in the source artifacts (same OpenSecrets idea listed twice). Counted once.
+- **The 0DTE idea never got a number** — it exists only in `merit-triage.md` / the kill-test report.
+  That is why the roster has 113 numbered rows but 114 verdicts.
+- **Tally:** 17 BUILT + 6 LIVE + 3 KILLED + 74 PASSED + 14 OPEN = **114 verdicts over 113 IDs.**
+
+---
 
 ## Related
 
