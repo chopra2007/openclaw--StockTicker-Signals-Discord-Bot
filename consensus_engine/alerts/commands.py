@@ -286,6 +286,7 @@ def _build_help_embed() -> dict:
                 "name": "📊  Core",
                 "value": (
                     "`!scan <ticker>` — full check: one score + 🟢🟡🔴 band + evidence\n"
+                    "`!sweep` — score the whole watchlist now and rank it (no ticker needed)\n"
                     "`!all <ticker>` — synthesize every source into one AI analysis\n"
                     "`!ask <question>` — full-power AI answer to any question\n"
                     "`!status` — engine health (active signals, last alert)\n"
@@ -409,6 +410,11 @@ async def _route_command_inner(
             work=lambda t: _handle_scan(t, channel_id, message_id),
             mode="sequential", cap=5,
             usage="Usage: `!scan <TICKER>` — e.g. `!scan NVDA` (or several: `!scan nvda amd mu`)")
+
+    # T1-c (#76 menu) — whole-watchlist sweep. Deliberately NOT named `!scan`: that is
+    # a live command above (explicit tickers, capped at 5) and renaming it would break it.
+    elif command in ("sweep", "universe"):
+        await _handle_sweep(channel_id, message_id)
 
     elif command == "ask":
         question = " ".join(args).strip()
@@ -1977,6 +1983,7 @@ def _build_market_embed(
     breadth_row: Optional[dict],
     breadth_note: str,
     market_breadth_row: Optional[dict] = None,
+    vvix_row: Optional[dict] = None,
 ) -> dict:
     """Render the four persisted daily reads into one Discord embed (pure).
 
@@ -2086,6 +2093,39 @@ def _build_market_embed(
             "inline": False,
         })
 
+    # T1-b (#76 menu) — VVIX "fear-of-fear": what vol-of-vol costs AFTER stripping out
+    # whatever today's VIX already explains. DESCRIPTIVE ONLY — never a score term,
+    # never a gate (that would re-create the VIX predictor rejected in #47).
+    if vvix_row:
+        pct = vvix_row.get("residual_pct")
+        if isinstance(pct, (int, float)):
+            rank = int(round(float(pct) * 100))
+            if rank >= 90:
+                label, gloss = ("Unusually high", "traders are paying up for protection against "
+                                                  "volatility itself, well beyond what today's VIX explains")
+            elif rank >= 70:
+                label, gloss = ("Elevated", "a bit more demand for protection against volatility "
+                                            "than the VIX alone explains")
+            elif rank <= 10:
+                label, gloss = ("Unusually calm", "protection against volatility is cheaper than "
+                                                  "the VIX alone would explain")
+            elif rank <= 30:
+                label, gloss = ("Subdued", "slightly less demand for protection against volatility "
+                                           "than the VIX explains")
+            else:
+                label, gloss = ("Normal", "protection against volatility costs about what the VIX explains")
+            line = (f"{label} — {gloss}.\n"
+                    f"Today's reading is higher than {rank}% of the past year's readings.")
+            vvix_v, vix_v = vvix_row.get("vvix"), vvix_row.get("vix")
+            if isinstance(vvix_v, (int, float)) and isinstance(vix_v, (int, float)):
+                line += f"\nVVIX {vvix_v:.1f} vs VIX {vix_v:.1f} ({vvix_row.get('date_utc', '')} close)."
+            line += "\n_Descriptive only — it never moves a score or fires an alert._"
+            fields.append({
+                "name": "😰  Fear of fear (VVIX vs VIX)",
+                "value": line,
+                "inline": False,
+            })
+
     title = "📊  Market Context"
     if as_of:
         title += f" — as of {as_of} (prior close)"
@@ -2191,6 +2231,153 @@ async def _build_market_context_fields() -> list[dict]:
     return fields
 
 
+async def _handle_sweep(channel_id: str, message_id: str) -> None:
+    """!sweep — score the WHOLE watchlist on demand and rank it (T1-c, #76 menu).
+
+    The autonomous poll only ever tells you about tickers that trip a threshold. This
+    is the "show me everything, including the quiet names" view. NOT `!scan`: `!scan`
+    takes explicit tickers and is capped at 5. Read-only — a sweep never fires an alert.
+    """
+    if not cfg.get("features.sweep.enabled", False):
+        await send_command_reply(
+            channel_id, message_id,
+            "`!sweep` is not enabled yet. It scores the whole watchlist on demand and "
+            "ranks it — a view, not a signal.")
+        return
+    return await _dispatch_inner(_sweep_and_reply(channel_id, message_id))
+
+
+async def _sweep_universe() -> list[str]:
+    """The sweep universe: tickers with live signals + the fixed core, deduped, capped.
+
+    Same union the autonomous options-flow scan uses (main.py), so a sweep covers what
+    the bot actually watches rather than a second, divergent list.
+    """
+    active = await db.get_active_tickers(min_signals=1)
+    core = list(cfg.get("options_flow.fixed_core", []) or [])
+    universe: list[str] = []
+    for t in list(active) + core:
+        t = (t or "").upper()
+        if t and t not in universe:
+            universe.append(t)
+    cap = int(cfg.get("features.sweep.max_tickers", 15))
+    return universe[:cap]
+
+
+async def _sweep_score_one(ticker: str) -> Optional[dict]:
+    """Score ONE ticker through the EXACT path `!scan` uses, so the numbers agree.
+
+    #50's rule is that there is only ever one 0-100 score. `!scan` reports the
+    precision-gated number (``analyze_signal``), NOT the raw additive
+    ``breakdown.total`` — so a sweep that ranked on breakdown.total would print a
+    different number for the same ticker and re-create the very incoherence #50 was
+    built to remove. Same fake tweet + same precision gate ⇒ a sweep row always
+    matches what `!scan <ticker>` would say.
+    """
+    from consensus_engine.cross_reference import cross_reference
+    from consensus_engine.engine import analyze_signal
+    from consensus_engine.models import ParsedTweet, TweetType, Direction, Conviction
+
+    fake_tweet = ParsedTweet(
+        tweet_url="command",
+        analyst="command",
+        raw_text=f"!sweep {ticker}",
+        tweet_type=TweetType.TICKER_CALLOUT,
+        tickers=[ticker],
+        direction=Direction.NEUTRAL,
+        options=None,
+        conviction=Conviction.MEDIUM,
+        summary=f"On-demand sweep for ${ticker}",
+    )
+    xref = await cross_reference(ticker, fake_tweet, executor=None)
+    tech_n = xref.technical.passed_count if (xref and xref.technical is not None) else 0
+    precision = await analyze_signal(
+        ticker,
+        base_score=fake_tweet.base_score,
+        breakdown=xref.breakdown,
+        technical_filter_count=tech_n,
+        analyst="command",
+    )
+    if not precision or precision.get("skipped"):
+        return None
+    return {
+        "ticker": ticker,
+        "score": int(precision.get("total_score", 0) or 0),
+        "catalyst": _short_catalyst(getattr(xref, "catalyst_summary", "") or ""),
+    }
+
+
+def _short_catalyst(text: str, limit: int = 70) -> str:
+    """One-line catalyst for a sweep row, cut at a word boundary (never mid-word)."""
+    text = " ".join(text.split())
+    if len(text) <= limit:
+        return text
+    return text[:limit].rsplit(" ", 1)[0] + "…"
+
+
+async def _sweep_and_reply(channel_id: str, message_id: str) -> None:
+    """Background task: score the universe with bounded concurrency, post ONE ranking."""
+    try:
+        tickers = await _sweep_universe()
+        if not tickers:
+            await send_command_reply(
+                channel_id, message_id,
+                "Nothing to sweep — no tickers have live signals right now.")
+            return
+        await send_command_reply(
+            channel_id, message_id,
+            f"Sweeping {len(tickers)} tickers — this takes a minute.")
+
+        # Bounded: each ticker runs the full precision path, which consumes the same
+        # API budget the live alerts use. Concurrency and the ticker cap keep an
+        # on-demand sweep from starving the autonomous path.
+        sem = asyncio.Semaphore(int(cfg.get("features.sweep.concurrency", 3)))
+
+        async def _one(t: str) -> Optional[dict]:
+            async with sem:
+                try:
+                    return await _sweep_score_one(t)
+                except Exception as exc:  # one bad ticker must not sink the sweep
+                    log.warning("!sweep: $%s failed (%s) — skipped", t, exc)
+                    return None
+
+        scored = [r for r in await asyncio.gather(*(_one(t) for t in tickers)) if r]
+        if not scored:
+            await send_command_reply(
+                channel_id, message_id,
+                "Swept the watchlist but couldn't score anything — sources look down.")
+            return
+
+        scored.sort(key=lambda r: r["score"], reverse=True)
+        top_n = int(cfg.get("features.sweep.top_n", 10))
+        _high = cfg.get("precision_engine.thresholds.high_confidence", 80)
+        _med = cfg.get("precision_engine.thresholds.medium_confidence", 65)
+
+        lines = []
+        for i, r in enumerate(scored[:top_n], start=1):
+            dot = "🟢" if r["score"] >= _high else ("🟡" if r["score"] >= _med else "🔴")
+            line = f"`{i:>2}.` {dot} **{r['score']}** — `${r['ticker']}`"
+            if r["catalyst"]:
+                line += f" · {r['catalyst']}"
+            lines.append(line)
+
+        skipped = len(tickers) - len(scored)
+        desc = (f"Scored {len(scored)} of {len(tickers)} watched tickers just now. "
+                f"Same 0-100 score `!scan` gives — a view, never an alert.")
+        if skipped:
+            desc += f"\n{skipped} skipped (a source was unavailable)."
+
+        await send_command_embed_reply(channel_id, message_id, {
+            "title": f"🧹  Watchlist sweep — top {min(top_n, len(scored))}",
+            "description": desc,
+            "color": 0x95A5A6,  # slate — a view, not a green/red call
+            "fields": [{"name": "Ranked now", "value": "\n".join(lines), "inline": False}],
+        })
+    except Exception as e:
+        log.error("!sweep command error: %s", e)
+        await send_command_reply(channel_id, message_id, "Sweep unavailable.")
+
+
 async def _handle_market(channel_id: str, message_id: str) -> None:
     """Reply with the daily market-CONTEXT dashboard (read-only, no edge claim).
 
@@ -2240,9 +2427,23 @@ async def _handle_market(channel_id: str, message_id: str) -> None:
             except Exception as _mb_exc:
                 log.debug("market breadth unavailable: %s", _mb_exc)
 
+        # T1-b VVIX fear-of-fear. Read-only: the daily writer (market_daily) computes and
+        # persists the row; the panel renders the newest one when the display flag is ON.
+        # get_latest_row does NOT apply staleness (by design — the caller decides), so
+        # drop a stale row here: if the daily writer stopped, showing a weeks-old reading
+        # as today's fear gauge is worse than showing nothing.
+        vvix_row = None
+        if cfg.get("features.vvix_residual.enabled", False):
+            _vvix = await market_panel.get_latest_row("vol_of_vol_daily")
+            if _vvix and not market_panel.is_stale(_vvix.get("computed_at", 0.0)):
+                vvix_row = _vvix
+            elif _vvix:
+                log.debug("vvix row stale (computed_at=%s) — omitting the field",
+                          _vvix.get("computed_at"))
+
         embed = _build_market_embed(
             sector_rows, factor_rows, trend_row, breadth_row, LONG_BIAS_NOTE,
-            market_breadth_row=market_breadth_row)
+            market_breadth_row=market_breadth_row, vvix_row=vvix_row)
         # #47 "better way": lead with the descriptive market-regime context
         # (Wolf market theses + confluence, then the volatility regime). Fail-soft —
         # the existing dashboard renders unchanged if these sources are unavailable.

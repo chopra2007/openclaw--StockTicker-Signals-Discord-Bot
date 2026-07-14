@@ -4,16 +4,29 @@
 **Created:** 2026-07-14
 **Last full code re-verification:** 2026-07-14 (every open idea grepped against the live code)
 
-**CURRENT STATUS (2026-07-14):** **All 113 ideas from the July run are now individually accounted for
-in this file** (see **FULL ROSTER** at the bottom — every idea, by name, with its verdict). The split:
-**17 BUILT · 6 ALREADY LIVE · 3 KILLED · 74 PASSED · 14 OPEN.**
+**CURRENT STATUS (2026-07-14, run `menu-top10`):** **TIER 1 is DONE — all three shipped flag-OFF, each
+proved on real data.** The split is now **20 BUILT · 6 ALREADY LIVE · 3 KILLED · 75 PASSED · 10 OPEN**
+(114 total ✓). **Built:** the `Sources: 21 of 27 attempted` footer · the VVIX fear-of-fear gauge · the
+`!sweep` watchlist command. **Passed (user accepted both drops):** the FOMC hawk/dove reader and learned
+continuous signal weights. **Promoted PASSED → OPEN:** c102, the short-alert squeeze-risk guard — its
+only blocker (the short-interest feed) has shipped. **Start at TIER 2; TIER 1 is empty.** Seven of the
+ten open ideas are already PLANNED, not merely listed — `.claude/discover/menu-top10/final-plan.md` has
+a build plan with a real probe for each (F4–F10); read it instead of re-planning.
 
-**Only the 14 OPEN ones are candidates**, and they are sorted **strongest first, in four tiers**, so a
-session starts at the top and works down. The other 99 are closed — nothing already built or already
-passed on appears in the candidate tiers. Re-verified against the live code, not against the discover
-run's artifacts.
+**Only the 10 OPEN ones are candidates**, sorted **strongest first, in tiers**, so a session starts at
+the top and works down. **TIER 1 IS NOW EMPTY — start at TIER 2.** The other 104 are closed — nothing
+already built or already passed on appears in the candidate tiers. Re-verified against the live code,
+not against the discover run's artifacts.
 
-*(Arithmetic: 17 + 6 + 3 + 74 + 14 = 114 = the 113 numbered ideas + the one killed idea that was never
+**What changed on 2026-07-14 (run `menu-top10`, TODO #76):** a 12-candidate pool (the 11 tiered ideas
++ c102) was cut to 10 by kill-test, then the user chose to build **TIER 1 only** this session. So:
+**3 BUILT** (T1-a footer denominator, T1-b VVIX gauge, T1-c `!sweep`) · **2 PASSED** (T3-b FOMC reader,
+T3-d learned weights — user accepted both drops) · **c102 promoted PASSED → OPEN** (its blocker shipped).
+**The other 7 are already PLANNED, not just listed** — a full build plan with per-feature probes exists
+at `.claude/discover/menu-top10/final-plan.md` (F4-F10). A session picking one of them should read that
+plan first instead of re-planning: it has verified line numbers, risk callouts, and a probe each.
+
+*(Arithmetic: 20 + 6 + 3 + 75 + 10 = 114 = the 113 numbered ideas + the one killed idea that was never
 given a number. Checks out — see the roster's footnotes.)*
 
 **Were the 74 rejected on merit, or did we just run out of build budget? Verified 2026-07-14 — MERIT,
@@ -24,11 +37,11 @@ the 74 are not equally dead: 48 are firm** (13 hard-no — the data doesn't exis
 fights the project's own rules; 30 redundant; 5 out of scope) **and 26 are SOFT** — 22 are "low
 value / secondary" **judgment calls that were never proven unworkable**, and **4 were dropped with no
 reason ever written down** (c31 Hidden Markov regime · c41 institutional-vs-retail put/call · c47
-signal-to-noise dashboard · c95 EIA oil & gas). **Those 26 are the reserve pool** if the 14 open
-candidates run out — cheaper to reopen than to pay for a fresh research run. **And one PASSED idea's
-reason has already expired: c102 (short-alert squeeze-risk guard)** was rejected *only* because it
-needed the short-interest leg, **which has since shipped** — it is the most promotable idea in the
-PASSED bucket.
+signal-to-noise dashboard · c95 EIA oil & gas). **Those 26 are the reserve pool** if the open
+candidates run out — cheaper to reopen than to pay for a fresh research run. *(c102, the short-alert
+squeeze-risk guard, WAS the most promotable of these — its expired reason was confirmed on 2026-07-14
+and it has been **promoted out of PASSED into the open candidates**, with a build plan already written.
+The reserve pool is now 25.)*
 
 **One idea was removed from the candidate list this pass:** *EPS-estimate revisions momentum* was
 listed as an open candidate. **It is already built and live** (`features.snapshot.eps_revisions: true`,
@@ -57,46 +70,30 @@ promote an idea to "ready to build" from the artifacts alone. Grep the live code
 
 ---
 
-# TIER 1 — STRONG. Build these first. (3 open)
+# TIER 1 — EMPTY. All three were BUILT on 2026-07-14 (run `menu-top10`). ✅
 
-Cheap, the groundwork already exists, and the user sees the result.
-
-### T1-a · "N of M sources" footer  *(what's left of idea #2)*
-- **What the user would see:** the footer changes from `Sources: 4` to `Sources: 4 of 9` — you finally
-  know whether 4 sources agreed out of 5 that looked, or out of 30.
-- **Already live:** the 0–100 score itself. `features.single_score.enabled: true`
-  (`consensus.yaml:871`), rendered in every alert (`alerts/discord.py:390-402`). **Do NOT build a
-  second score.**
-- **The actual job:** the footer prints a bare count — `f"Sources: {sources_count}"`
-  (`alerts/all_command/embed.py:1129-1134`). Add the denominator (sources *attempted*, not just the
-  ones that fired). **~20 lines.** Cheapest win on the whole menu.
-
-### T1-b · VVIX "fear-of-fear" gauge  *(idea #1)*
-- **What the user would see:** a read on whether the market is nervous *about its own nervousness* —
-  an early-warning line, descriptive only.
-- **Already live:** the VIX/VIX3M term-structure leg (`analysis/cross_asset.py:15`), whose yfinance
-  fetcher (`cross_asset.py:129-148`) is a **drop-in template** — adding `^VVIX` is a small extension of
-  code that already works. Zero `vvix` hits repo-wide, so the gauge itself is genuinely absent.
-- **Don't invent it — port it.** A working VVIX-residual implementation already exists in the sibling
-  project `volatility_regime_reversal_indicator/` (`backtest/phase2.py`, `leg_vvix_residual_high`).
-- **Hard constraint:** it must be the *residual* vs the existing VIX leg, and **descriptive only —
-  never an alert gate.** Gating on it re-creates the VIX predictor already rejected in #47.
-- Study: `.claude/discover/next-features-jul2026/VVIX-RESEARCH-FINDINGS.md`
-
-### T1-c · Watchlist-wide sweep command  *(idea #27, renamed)*
-- **What the user would see:** one command that scans the *whole* watchlist on demand and surfaces the
-  quiet names the poll never mentions.
-- **⚠️ DO NOT name it `!scan`.** `!scan` is **already a live, documented command**
-  (`alerts/commands.py:406-411`) — it takes explicit tickers, capped at 5. Naming this `!scan` would
-  silently clobber it. **Call it `!sweep` or `!universe`.**
-- **The real gap:** a watchlist-wide sweep exists only as a **background loop** (`main.py:474-481`),
-  never as something you can ask for. No on-demand whole-watchlist command exists in the dispatch table
-  (`commands.py:397-578`).
-- **Reusable skeleton:** the enqueue-all-tickers loop in `research/atlas.py:131-163`.
+T1-a ("N of M sources" footer), T1-b (VVIX fear-of-fear gauge) and T1-c (`!sweep` watchlist command) are
+shipped flag-OFF, each proved on real data — see the **BUILT** table below for the flags and the actual
+output each one produced. Nothing to pick here. **Start at TIER 2.**
 
 ---
 
-# TIER 2 — SOLID. Real work, real payoff. (4 open)
+
+# TIER 2 — SOLID. Real work, real payoff. (5 open)
+
+### T2-e · Short-alert squeeze-risk guard  *(c102 — PROMOTED out of PASSED, 2026-07-14)*
+- **What the user would see:** the bot stops shouting SHORT on a name that is primed to squeeze.
+- **Why it was dead, and why it isn't any more:** it was PASSED in the July run for ONE reason — it
+  needed a short-interest feed. **That feed has since shipped** (`features.short_interest`, with
+  `collect: true` already filling `finra_short_interest`). The reason expired; the idea didn't.
+- **Verified absent (2026-07-14):** `cross_reference.py:1799-1812` uses `days_to_cover` ONLY as a
+  *bullish* +3 term (it returns 0 unless direction == 'long'), so **no short-side guard exists**;
+  `models.py:254 ScoreBreakdown` has no `squeeze_risk` field.
+- **Already planned — do NOT re-plan it.** Full build plan with a probe:
+  `.claude/discover/menu-top10/final-plan.md` (feature **F7**), including the single-DB-read risk
+  callout (widen the ONE existing `get_latest_finra_short_interest` read rather than adding a second,
+  which would double hot-path DB traffic and could disagree with the row the bullish leg just used).
+- **Class C — score-touching:** it demotes SHORT alerts, so it needs a shadow comparison before ON.
 
 ### T2-a · Hedge-vs-directional options-flow discount
 - **What the user would see:** the bot stops treating a protective hedge as a real directional bet.
@@ -152,7 +149,10 @@ Cheap, the groundwork already exists, and the user sees the result.
 
 ---
 
-# TIER 3 — HEAVY or GATED. Strong ideas, big builds. (4 open)
+# TIER 3 — HEAVY or GATED. Strong ideas, big builds. (2 open)
+
+*(T3-b FOMC reader and T3-d learned signal weights were PASSED on 2026-07-14 — user
+accepted both drops. Reasons are in the PASSED section; do not re-propose them.)*
 
 ### T3-a · SEC XBRL fundamentals feed
 - Real company financials (`data.sec.gov/api/xbrl/companyfacts`) as a **new data class**. Free.
@@ -163,12 +163,6 @@ Cheap, the groundwork already exists, and the user sees the result.
 - **Why heavy:** needs a client, a normalized model + table, persistence, and a consumer. Strong idea —
   size it honestly.
 
-### T3-b · FOMC hawk/dove statement reader
-- Read the Fed statement and say whether it turned hawkish. Rated "high potential", but a heavy LLM build.
-- **Verified absent:** FOMC exists only as a **static date list** used for an alert blackout
-  (`data/macro_events.yaml:5-11` → `analysis/contradiction.py:24-72`). Zero hits for `hawkish` /
-  `dovish` / statement-reading anywhere.
-
 ### T3-c · Backtest-to-live decay tracker
 - Warn when a signal that backtested well starts failing live.
 - **Verified absent:** per-signal live grading exists (nightly `flow-grading.timer`, analyst/Wolf
@@ -177,18 +171,6 @@ Cheap, the groundwork already exists, and the user sees the result.
   auto-flip engine is **one-directional**: it flips flags *on* when evidence earns it; there is no
   un-flip path.
 - **Gate:** value grows with outcome data — worth more once #73's soak fills in.
-
-### T3-d · Learned (continuous) signal weights
-- Let the bot learn which signals deserve more weight.
-- **Its old gate is gone:** this was listed as "needs the 0–100 score first" — **the score is already
-  live and ON.** That blocker no longer applies.
-- **What already exists:** a per-analyst learned weight (Wilson-LB on track record, `db.py:1643-1673`,
-  fed nightly) — but it changes **zero alerts today** because `scoring.analyst_accuracy_weight.enabled:
-  false` (`consensus.yaml:62-68`). An offline `logistic_challenger` already fits real coefficients with
-  a ticker embargo (`eval/report.py:286-366`) — but **they are never persisted or used at inference.**
-  The 2-daily auto-flip tuner only flips booleans on/off; it never writes a continuous weight.
-- **The real job:** persist the challenger's coefficients and let them re-weight the score. **The real
-  gate is outcome-data volume**, not the score.
 
 ---
 
@@ -229,6 +211,23 @@ these just because it is on the list.
 | 22 | Financial Conditions Index (NFCI) | `features.cross_asset.nfci_leg_enabled` |
 | 23 | Yield curve + dollar + real yields | `features.cross_asset.macro_legs` |
 | 26 | Post-earnings drift (PEAD) | `features.pead.enabled` |
+
+**+3 built 2026-07-14 (run `menu-top10`, TODO #76)** — all of TIER 1, shipped flag-OFF, each proved on
+real data before commit. TIER 1 is now EMPTY.
+
+| Idea | Flag | Proof it works (real output, not "code looks right") |
+|---|---|---|
+| **T1-a · "N of M sources" footer** | `features.sources_denominator.enabled` | Real `!all NVDA`: flag ON → footer `Sources: 21 of 27 attempted`; OFF → `Sources: 21` (byte-identical to the old string). M is `len(_classify_items)` at runtime — the literal 27 appears nowhere in the diff. |
+| **T1-b · VVIX fear-of-fear gauge** | `features.vvix_residual.enabled` (+ `collect: true` fills `vol_of_vol_daily` from the daily writer) | Real row written: `2026-07-14, VVIX 93.28, VIX 16.50, residual −0.0257, pct 0.373`. Residual + percentile independently recomputed with `numpy.polyfit` — matched to 4 dp. Renders on `!market` as *"Normal — protection against volatility costs about what the VIX explains."* **Descriptive only**; a test asserts `cross_reference.py` contains neither `vvix` nor `vol_of_vol`, so it can never become the #47 predictor. |
+| **T1-c · `!sweep` watchlist command** | `features.sweep.enabled` (max_tickers 15, concurrency 3) | Real sweep of 3: `IBM 82 🟢 · META 55 🔴 · JPM 49 🔴`. **Coherence proved live, twice: `!sweep IBM` = 82 = `!scan IBM` (build session), and an independent verifier re-ran both paths later and got 65 = 65.** The number moves with the market — the point is that the two paths always agree at the same moment. Named `!sweep`/`!universe` — `!scan` is untouched (a test locks both). |
+
+**A trap the plan itself walked into, caught during the build:** the build plan said to rank `!sweep` on
+`breakdown.total`. That is the RAW ADDITIVE sum — but `!scan` reports the **precision-gated** score
+(`analyze_signal`), and the code says why: *"the one 0-100 band scale (not the raw additive sum) … that
+coherence is the whole point of #50."* Ranking on `breakdown.total` would have made `!sweep NVDA` and
+`!scan NVDA` print **different numbers for the same ticker** — re-creating the exact bug TODO #50 was
+built to remove. `!sweep` now runs the identical path `!scan` runs. Cost of that correctness: a sweep
+spends the same API budget the live alerts use, hence the ticker cap.
 
 **+1 found already-live during the 2026-07-14 re-verification** — it had been sitting in the candidate
 list by mistake:
@@ -293,6 +292,17 @@ only because it *"depends on the short-interest leg landing first"* — and that
 
 ---
 
+## PASSED — 2 more on 2026-07-14 (run `menu-top10`, user accepted both drops)
+
+These two entered the 12-candidate pool for the "10 strongest" selection and were dropped on the
+kill-test. **Neither was dropped as "already built" — both are genuinely unbuilt.** They were dropped
+because building them now buys little:
+
+| Idea | Why it was PASSED (2026-07-14) |
+|---|---|
+| **T3-b · FOMC hawk/dove statement reader** | **Worst payoff per line on the menu.** Only **8 statements a year**, and a Fed statement carries **zero per-ticker attribution** — it says nothing about whether NVDA is a buy. Building it needs a new fetcher + an LLM stance parser + a stance-persistence table. FOMC dates *already* do the one job that matters here: they drive an alert blackout (`data/macro_events.yaml:5-11` → `analysis/contradiction.py:24-72`). **Re-open only if** the bot ever needs a macro-regime input that the existing cross-asset legs can't supply. |
+| **T3-d · Learned (continuous) signal weights** | **The blocker is data, not code — so more code today changes nothing.** Its old gate ("needs the 0-100 score") is genuinely gone: the score is live. But the real gate is **outcome-data volume**, and that is owned by #67/#73 (the Friday-outcome backfill + the shadow soak). The offline `logistic_challenger` (`eval/report.py:286-366`) already fits real coefficients with a ticker embargo — they are simply never persisted or served at inference, and persisting them is a **score-touching blast-radius change** that belongs with the auto-flip engine, not a side build. **Re-open when** the graded-outcome table is rich enough for the auto-flip engine to trust a continuous weight — i.e. after #73's soak fills in. This is the strongest re-open candidate in the PASSED bucket once the data lands. |
+
 ## PASSED — 74 rejected in the July run, with reasons
 
 Clustered as: overlaps a kept idea; conflicts with the project's own rules (confirm-gates fight the
@@ -342,7 +352,7 @@ is #67) · `LIVE` = already in the bot before the run · `KILLED` = premise disp
 
 | ID | Idea | Status | Verdict / reason |
 |---|---|---|---|
-| c1 | VVIX "fear-of-fear" gauge | **OPEN — T1-b** | Is the market nervous about its own nervousness |
+| c1 | VVIX "fear-of-fear" gauge | **BUILT 2026-07-14** | `features.vvix_residual.enabled` — residual vs the VIX, descriptive only. Real row: VVIX 93.28 / VIX 16.50, pct 0.373 |
 | c2 | VIX/VIX3M calm-vs-panic term structure | LIVE | Already in the cross-asset regime code |
 | c3 | Dealer gamma (GEX) map | BUILT | `features.dealer_gamma.enabled` |
 | c4 | IV skew: puts vs calls | BUILT | `features.iv_skew.enabled` |
@@ -364,7 +374,7 @@ is #67) · `LIVE` = already in the bot before the run · `KILLED` = premise disp
 | c20 | Dark-pool / off-exchange volume | **KILLED** | FINRA publishes it 2–5 weeks late — useless for a 1h/24h alert |
 | c21 | Cheap-vs-rich volatility flag | BUILT | `features.iv_rv_tag.enabled` |
 | c22 | ETF fund-flow anomaly detector | PASSED | No confirmed free flow source; re-approaches the sector-rotation dead end |
-| c23 | Explicit 0–100 score | **OPEN — T1-a** | **The score itself is already LIVE and ON.** Only the "N of M sources" footer is left |
+| c23 | Explicit 0–100 score | **BUILT 2026-07-14** (footer half) | Score was already LIVE. The footer half shipped: `features.sources_denominator.enabled` → real `!all NVDA`: `Sources: 21 of 27 attempted` |
 | c24 | Realized-vs-implied vol as move-confidence weight | PASSED | Subsumed by the cheap/rich-vol flag — same implied-minus-realized spread |
 | c25 | Options pinning probability | BUILT | `features.oi_pinning.enabled` |
 | c26 | Kelly position-size suggestion | PASSED | Position sizing is outside the alert-only scope; edge estimates too noisy |
@@ -399,7 +409,7 @@ is #67) · `LIVE` = already in the bot before the run · `KILLED` = premise disp
 | c55 | Conformal-prediction confidence bands | PASSED | Advanced calibration wrapper; premature |
 | c56 | CUSUM change-point detector | PASSED | Complements a regime model that isn't shipped; premature |
 | c57 | Turn-of-month / day-of-week seasonality | PASSED | Descriptive footnote; low impact |
-| c59 | Learned signal weights | **OPEN — T3-d** | Its old gate (needs the 0–100 score) is **gone** — the score is live. Real gate is outcome-data volume |
+| c59 | Learned signal weights | **PASSED 2026-07-14** | Blocker is DATA not code: outcome-data volume, owned by #67/#73. Coefficients already fit offline; persisting them is a score-touching change for the auto-flip engine. **Strongest re-open once #73 soak fills in** |
 | c60 | EPS-estimate revision momentum | **BUILT** | **Found already LIVE 2026-07-14** — `features.snapshot.eps_revisions: true`. Was wrongly listed as a candidate |
 | c61 | Implied-vs-realized correlation (dispersion) | PASSED | Needs component-vol aggregation; heavy build for a niche regime tag |
 | c62 | Headline-vs-filing sentiment divergence | PASSED | Requires both text pipelines to be mature; secondary |
@@ -426,7 +436,7 @@ is #67) · `LIVE` = already in the bot before the run · `KILLED` = premise disp
 | c84 | Relative Rotation Graph sector momentum | PASSED | Sector rotation already proven no-edge on free daily data |
 | c85 | Realized-vol percentile cone | PASSED | Expected-move footnote; overlaps the cheap/rich-vol context |
 | c86 | Rule 10b5-1 plan scanner | BUILT | `features.insider_10b5_plans.enabled` |
-| c87 | FOMC hawk/dove statement reader | **OPEN — T3-b** | High potential, but a heavy language-model build |
+| c87 | FOMC hawk/dove statement reader | **PASSED 2026-07-14** | 8 statements/year, zero per-ticker attribution, needs a new fetcher + LLM stance parser. FOMC dates already drive the alert blackout. Worst payoff per line on the menu |
 | c88 | Analyst price-target disagreement | **OPEN — T2-d** | Targets already on screen; needs spread history logged first |
 | c89 | Quad-witching / OpEx-week overlay | PASSED | Narrower variant of seasonality; low impact |
 | c90 | Options bid-ask spread deterioration gate | PASSED | Data-quality gate; overlaps the liquidity family |
@@ -441,7 +451,7 @@ is #67) · `LIVE` = already in the bot before the run · `KILLED` = premise disp
 | c99 | BLS JOLTS labor-market leg | PASSED | Monthly macro; NFCI and yield/dollar legs already cover the backdrop |
 | c100 | FINRA TRACE corporate-bond credit leg | PASSED | Single-name bond data is sparse and heavy to integrate |
 | c101 | Crowded-trade monitor across tickers | PASSED | Overlaps c72, the crowding guard |
-| c102 | Short-alert squeeze-risk guard | PASSED | Useful, but depended on the short-interest leg — which has since shipped (c9). **Worth a re-look if you ever want a 15th candidate** |
+| c102 | Short-alert squeeze-risk guard | **OPEN — promoted 2026-07-14** | Its only blocker (the short-interest leg) HAS SHIPPED. Planned but not built this run (user built TIER 1 only). Plan ready: `.claude/discover/menu-top10/final-plan.md` (F7) |
 | c103 | Co-pilot human-confirm toggle | PASSED | Workflow change; secondary to signal features |
 | c104 | Daily alert-volume circuit breaker | PASSED | Overlaps the alert-fatigue control cluster |
 | c105 | Regime-shift disclaimer banner | PASSED | Low source quality; overlaps the decay tracker's surfacing |
@@ -452,7 +462,7 @@ is #67) · `LIVE` = already in the bot before the run · `KILLED` = premise disp
 | c110 | Social-engagement scoring firewall | PASSED | Defensive check; reactions very likely don't feed scoring |
 | c111 | Volatility squeeze (Bollinger/Keltner) | BUILT | `features.vol_squeeze.enabled` |
 | c112 | Per-ticker alert cooldown | PASSED | Overlaps the fatigue-guard cluster; needs mature outcome data |
-| c113 | Universe screener across the watchlist | **OPEN — T1-c** | **Must NOT be named `!scan`** — that is a live command |
+| c113 | Universe screener across the watchlist | **BUILT 2026-07-14** | `features.sweep.enabled` → `!sweep` / `!universe` (NOT `!scan`, which is untouched). Real sweep: IBM 82 / META 55 / JPM 49; `!sweep IBM` == `!scan IBM` == 82 |
 | c114 | Repeat/stacking sweep detector | PASSED | Incremental refinement of unusual flow |
 | c115 | Risk-adjusted snapshot command | PASSED | Reporting nicety; secondary to signal work |
 | *(none)* | 0DTE directional flow imbalance | **KILLED** | Signed/aggressor-side flow does not exist in any free feed. Never got an ID — it lived only in the triage file |

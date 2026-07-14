@@ -871,6 +871,7 @@ def build_embed(
     chart_pattern: Optional[dict] = None,
     wolf_confluence: Optional[dict] = None,
     insider_field: Optional[str] = None,
+    sources_total: Optional[int] = None,
 ) -> dict:
     """Return a Discord embed payload dict for the !all command."""
     direction = getattr(structured, "direction", "") or ""
@@ -1127,11 +1128,19 @@ def build_embed(
             fields.append(wolf_field)
 
     sources_count = len(sources)
+    # The numerator counts sources that RETURNED data; the denominator counts sources
+    # ATTEMPTED, hence "attempted" — the footer must never imply all M sources looked
+    # and disagreed. M is passed in from the aggregator (len of its classify list).
+    sources_text = f"Sources: {sources_count}"
+    if sources_total:
+        from consensus_engine import config as _cfg_sources
+        if _cfg_sources.get("features.sources_denominator.enabled", False):
+            sources_text = f"Sources: {sources_count} of {sources_total} attempted"
     footer_chunks: list[str] = []
     if description_dropped_sources:
-        footer_chunks.append(f"Sources: {sources_count} (see vault)")
+        footer_chunks.append(f"{sources_text} (see vault)")
     else:
-        footer_chunks.append(f"Sources: {sources_count}")
+        footer_chunks.append(sources_text)
 
     return {
         "title": f"{_fmt_cashtag(ticker)} — Full Analysis",

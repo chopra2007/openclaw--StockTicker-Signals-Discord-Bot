@@ -575,6 +575,9 @@ async def _gather_all_sources(ticker: str) -> dict:
         "wolf_confluence": await wolf_confluence_task,
         "sources_surfaced": sources_surfaced,
         "source_failures": source_failures,
+        # Denominator for the footer's "N of M attempted" — every source we tried,
+        # derived from the classify list so it can never drift from reality.
+        "sources_total": len(_classify_items),
     }
 
 
@@ -1540,6 +1543,7 @@ async def _compute_all(ticker: str, start: float) -> dict:
         chart_pattern=data.get("chart_pattern"),
         wolf_confluence=data.get("wolf_confluence"),
         insider_field=sec_evidence.get("all_field") or None,
+        sources_total=data.get("sources_total"),
     )
     anchors_used: list[levels.Anchor] = list(supports[:6]) + list(resistances[:6])
     vault_md = vault_writer.render_all_command_markdown(

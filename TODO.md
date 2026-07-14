@@ -464,14 +464,19 @@ Original goal: generate the broad 10-30-idea feature menu for the bot by finishi
 
 **File:** `discover-plugin-logbook.md`
 
-**CURRENT STATUS (2026-07-12, later — v1.3.0 SHIPPED + LIVE):** the reusable-codebase-map change is
-built, tested, published (main `f42e784`, tag `v1.3.0`), and the installed copy refreshed to the 1.3.0
-cache (32/32 harness tests green on the live copy; takes effect next session). All four paths were
-proven with real engine runs on the toy repo: full scan writes the per-repo map cache with the true git
-commit; an unchanged repo reused the map verbatim with ZERO mapper agents; a 1-file change ran exactly
-one delta mapper that correctly picked up the new function; a same-run restart reparsed the run's own
-saved map instead of re-paying the fan-out. **Nothing owed — v1.3 is live.** Details in the v1.3.0
-changelog entry below; original spec kept below for history.
+**CURRENT STATUS (2026-07-14 — v1.3.0 LIVE; first real run on the bot repo exposed 2 gaps, NOT yet
+fixed):** v1.3 works as designed — run `menu-top10` (TODO #76) found no cache on this repo, so it paid
+for one full scan and wrote the cache; future runs get the savings. But trying to seed the cache by
+hand from an older run's map surfaced two real weaknesses, both written up in the 2026-07-14 session
+notes at the bottom of this file: **(1)** the 100-file staleness cap counts **documentation** — 41 of
+the 126 changed files on this repo were markdown the map never inventoried, so doc churn expires the
+cache far sooner than the code justifies; **(2) the dangerous one** — the cache stores whatever Pass 0
+produced, and **Pass 0 is feature-flavoured**. The Jul-11 map is a legitimate full scan whose output
+covers ONLY #55/#20 and has zero coverage of `options.py` / `embed.py` / `cross_asset.py` /
+`commands.py`. It predates v1.3 by a day, so it never became the cache — **had it done so, the next run
+would have silently delta-patched a map that is blank exactly where the new work lives** ("keep
+everything else verbatim"), and nothing would have flagged it. Fix (a): cache a NEUTRAL repo inventory,
+separate from the run's feature-scoped map. **Owed: both fixes.**
 
 **CURRENT STATUS (2026-07-07):** v1.2.0 SHIPPED + LIVE on `chopra2007/claude-discover` (main `9dca67e`, tag `v1.2.0`). Built (systemic corruption guard + per-seat model/effort resolver + AskUserQuestion setup), verified 3 ways (24-test harness, adversarial review 0 crit/0 high, a real full Light 0→4 run with the Fable judges live), merged + tagged + pushed, and the local install was refreshed to the 1.2.0 cache. Nothing owed. Living record continues for the next version.
 
@@ -553,20 +558,41 @@ The standing way to go find NEW ideas: verify ground truth against the real code
 
 **File:** `feature-menu-ledger.md`
 
-**CURRENT STATUS (2026-07-14):** **All 113 ideas from the July run are now individually accounted for
-in this file** (see **FULL ROSTER** at the bottom — every idea, by name, with its verdict). The split:
-**17 BUILT · 6 ALREADY LIVE · 3 KILLED · 74 PASSED · 14 OPEN.**
+**CURRENT STATUS (2026-07-14, run `menu-top10`):** **TIER 1 is DONE — all three shipped flag-OFF, each
+proved on real data.** The split is now **20 BUILT · 6 ALREADY LIVE · 3 KILLED · 75 PASSED · 10 OPEN**
+(114 total ✓). **Built:** the `Sources: 21 of 27 attempted` footer · the VVIX fear-of-fear gauge · the
+`!sweep` watchlist command. **Passed (user accepted both drops):** the FOMC hawk/dove reader and learned
+continuous signal weights. **Promoted PASSED → OPEN:** c102, the short-alert squeeze-risk guard — its
+only blocker (the short-interest feed) has shipped. **Start at TIER 2; TIER 1 is empty.** Seven of the
+ten open ideas are already PLANNED, not merely listed — `.claude/discover/menu-top10/final-plan.md` has
+a build plan with a real probe for each (F4–F10); read it instead of re-planning.
 
-**Only the 14 OPEN ideas are candidates**, sorted **strongest-first into 4 tiers** — work them
-top-down. **TIER 1 (build first):** the `Sources: 4 of 9` footer (~20 lines; the 0-100 score is already
-live and ON — do NOT build a second one) · the VVIX fear-of-fear gauge (port the working one from the
-sibling vol project; descriptive only, never a gate) · an on-demand watchlist-wide sweep command
-(**must NOT be named `!scan`** — that would clobber a live command). **TIER 2:** hedge-vs-directional
-flow discount · generalize the crowding guard + flip `social_family_dedup` on · Brier/calibration
-automation · analyst price-target spread. **TIER 3 (heavy/gated):** SEC XBRL fundamentals · FOMC
-hawk/dove reader · backtest-to-live decay tracker · learned continuous signal weights. **TIER 4 (weak —
-recommend PASS):** market-wide put/call (**its free CBOE source has been dead since Oct 2020**) · CFTC
-COT (weekly, lagged, futures-only) · GDELT (the repo's own research already scored it bottom-30%).
+**Built this session (3):** the **`Sources: 21 of 27 attempted` footer** (`features.sources_denominator`
+— real `!all NVDA`; OFF is byte-identical) · the **VVIX fear-of-fear gauge** (`features.vvix_residual`;
+real row VVIX 93.28 / VIX 16.50, residual independently re-checked with numpy; descriptive only, a test
+forbids the scorer from ever reading it) · **`!sweep`** (`features.sweep` — real sweep IBM 82 / META 55
+/ JPM 49; **`!sweep IBM` == `!scan IBM`** (82 at build time; an independent verifier later re-ran both paths and got 65 = 65 — the score is time-varying, the agreement is the invariant), and `!scan` is untouched). **Caught during the build:**
+the plan wanted `!sweep` ranked on the raw additive `breakdown.total`, which would have printed a
+DIFFERENT number than `!scan` for the same ticker — re-creating the exact bug #50 fixed. It now runs the
+identical precision path `!scan` runs.
+
+**Passed this session (2, user accepted both):** the **FOMC hawk/dove reader** (8 statements a year,
+zero per-ticker attribution, needs a new fetcher + LLM stance parser; FOMC dates already drive the alert
+blackout — worst payoff per line on the menu) and **learned continuous signal weights** (the blocker is
+DATA, not code: outcome-data volume owned by #67/#73, so building it now just leaves it idle — the
+strongest re-open once #73's soak fills in).
+
+**What's left — 10 OPEN, start at TIER 2** (TIER 1 is empty): hedge-vs-directional flow discount ·
+generalize the crowding guard + flip `social_family_dedup` on · Brier/calibration automation · analyst
+price-target spread (a logger first — no spread history exists) · **short-alert squeeze-risk guard
+(c102, PROMOTED out of PASSED — its only blocker, the short-interest feed, has shipped)**. **TIER 3
+(heavy):** SEC XBRL fundamentals · backtest-to-live decay tracker. **TIER 4 (weak — recommend PASS):**
+market-wide put/call (**its free CBOE source has been dead since Oct 2020**) · CFTC COT (weekly, lagged,
+futures-only) · GDELT (the repo's own research already scored it bottom-30%).
+
+**7 of those are already PLANNED, not merely listed** — `.claude/discover/menu-top10/final-plan.md` has
+a full build plan for F4–F10 (verified line numbers, risk callouts, a probe each). A session picking one
+should read that plan instead of re-planning it.
 
 **Caught 2026-07-14:** *EPS-estimate revisions momentum* was sitting in the candidate list and is in
 fact **already built and live** (`features.snapshot.eps_revisions: true` — the `EPS rev 34↑ 3↓ (30d)`

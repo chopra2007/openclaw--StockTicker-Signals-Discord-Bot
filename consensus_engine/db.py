@@ -761,6 +761,21 @@ CREATE TABLE IF NOT EXISTS market_breadth_daily (
     computed_at     REAL NOT NULL
 );
 
+-- T1-b (#76 menu) — VVIX "fear-of-fear" residual. How expensive vol-of-vol is
+-- AFTER stripping out whatever the spot VIX already explains, so it reads the
+-- market's nervousness about its OWN nervousness rather than re-reading the VIX.
+-- DESCRIPTIVE ONLY: never a term in score_ticker, never an alert gate (gating on
+-- it re-creates the VIX predictor already rejected in TODO #47).
+CREATE TABLE IF NOT EXISTS vol_of_vol_daily (
+    date_utc        TEXT PRIMARY KEY,      -- date of the closing bar the read came from
+    vvix            REAL NOT NULL,         -- ^VVIX close
+    vix             REAL NOT NULL,         -- ^VIX close
+    residual        REAL NOT NULL,         -- rolling-252 OLS residual of log(VVIX) on log(VIX)
+    residual_pct    REAL NOT NULL,         -- percentile of that residual in its trailing 252 obs (0-1]
+    window_days     INTEGER NOT NULL,      -- OLS + percentile window (252)
+    computed_at     REAL NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS discord_command_user_rate (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id TEXT NOT NULL,
