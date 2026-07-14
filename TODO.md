@@ -445,16 +445,18 @@ Stop two social crowds (StockTwits + Reddit) from counting as two independent vo
 
 Most of the 644 MB database is one table of expired "a source mentioned a ticker" records (99.88% past expiry); pruning/archiving them could halve the DB and every nightly backup — but ONLY after proving nothing (live queries, backtests, the eval tool, future features) still needs that history.
 
-## 67. Finish the feature-idea sweep, reusing the already-saved codebase map — BUILD COMPLETE; 16 features shipped flag-OFF 2026-07-08 — AWAITING APPROVAL: 8 switches need a yes/no (7 display-only + trading-halt pings)
+## 67. Finish the feature-idea sweep, reusing the already-saved codebase map — BUILD COMPLETE; 19 features shipped flag-OFF (16 on 2026-07-08 + 3 on 2026-07-14) — AWAITING APPROVAL: 14 switches need a yes/no (this is the ONE place every built-but-off switch is listed — run `python3 scripts/todo_switch_state.py` to see live state)
 
 **SHADOW SOAK (2026-07-08, added after user pushback "are you sure you're collecting all the pertinent shadow data?"):** The build shipped everything flag-OFF, but I discovered NOTHING was actually accruing — (a) the live engine had been running July-5 code the whole time (never restarted onto the new code), and (b) 5 data-collecting features gated their DATA-WRITING behind the same off-switch (dormant, not shadow-logging). FIXED + PROVEN LIVE: restarted `consensus-engine.service` (new PID, schema 31, healthy); flipped the 3 write-only collectors ON (form144/insider_10b5_plans/congress_trades — verified no alert code); added a `collect` sub-flag for short-interest (fills table, score leg still OFF → byte-identical) + a daily breadth snapshot in market_daily (commit `dcb81e1`, full gate passed). VERIFIED real rows in the live DB: finra_short_interest 1317, form144_filings 30, insider_10b5_plans 12, congress_trades 8, market_breadth_daily 1, macro_legs_daily 1; NFCI write path proven on a scratch DB (nfci_index=-0.515; today's live row caught a cold-start transient=None, self-heals tomorrow). Loops re-run on their intervals (SI 12h / 144 6h / 10b5 8h / congress 24h / breadth+macro+NFCI daily). The 7 options-card readouts need no soak (validate by eye once). NO live alert/score changed. Go-live (flag flips) is still a separate per-feature user decision.
 
 
 **File:** `next-features-jul2026-resume.md`
 
-**Switches:** features.trading_halts.enabled=on; features.skew_index.enabled=on; features.dealer_gamma.enabled=on; features.iv_skew.enabled=on; features.oi_pinning.enabled=on; features.iv_rv_tag.enabled=on; features.vol_squeeze.enabled=on; features.market_breadth.enabled=on; features.market_breadth.shadow=on; features.short_interest.enabled=on; features.short_interest.collect=on; features.pead.enabled=on; features.form144.enabled=on; features.insider_10b5_plans.enabled=on; features.congress_trades.enabled=on; features.cross_asset.nfci_leg_enabled=on
+**Switches:** features.trading_halts.enabled=on; features.skew_index.enabled=on; features.dealer_gamma.enabled=on; features.iv_skew.enabled=on; features.oi_pinning.enabled=on; features.iv_rv_tag.enabled=on; features.vol_squeeze.enabled=on; features.market_breadth.enabled=on; features.market_breadth.shadow=on; features.short_interest.enabled=on; features.short_interest.collect=on; features.pead.enabled=on; features.form144.enabled=on; features.insider_10b5_plans.enabled=on; features.congress_trades.enabled=on; features.cross_asset.nfci_leg_enabled=on; features.sources_denominator.enabled=on; features.vvix_residual.enabled=on; features.vvix_residual.collect=on; features.sweep.enabled=on
 
-**CURRENT STATUS (2026-07-08):** **All 6 stages BUILT + VERIFIED + COMMITTED** (Stages 2–6 ran autonomously this session). 16 features shipped, every one behind a config flag **DEFAULT OFF** (shadow) — **no live alert, score, or !all/!market/!sec output changed** (proven byte-identical on both live-scoring surfaces: E2 `cross_asset.get_multiplier` and `cross_reference.score_ticker`). Stage commits (local, unpushed until this close): S2 `e74eb19` (NFCI + FRED macro legs), S3 `f057e23` (dealer-GEX/gamma-flip/IV-skew/OI-pinning + ^SKEW), S4 `1023bdf` (IV-vs-RV + squeeze), S5 `d240257` (short-interest/PEAD/breadth), S6 `931e272` (Form 144/10b5-1/House congress). Each stage: live-probe on real data + full regression (final **2785 passed, 0 regressions**) + ownership fix + per-stage commit; implementer (executor agents) separate from verifier (me). **Go-live NOT done — that's a separate, explicit, per-feature user decision gated on shadow evidence.** Owed follow-ups (in `.claude/discover/next-features-jul2026/outcome.json`): r13-Senate congress (efdsearch gated), r20 true advancers/decliners upgrade (shipped RSP/SPY proxy), and wiring the Stage-6 insider context lines onto the live !sec/!all surfaces (a go-live step after shadow data accrues). 3 ideas killed (max-pain-label/dark-pool/0DTE-directional); 8 kept ideas not built this run (VVIX/VIX, 0-100 score, crowding guard, market put/call, CFTC, GDELT, analyst-PT-disagreement, !scan) remain future candidates.
+**CURRENT STATUS (2026-07-14):** **3 more switches added to this list, from the #76 feature-menu build
+(run `menu-top10`).** They are display-only, cannot touch an alert or a score, and each was proved on
+real data before commit — so they are the *safest* flips on the whole list:
 
 **CURRENT STATUS (2026-07-07):** Ran the FULL discover pipeline, well past "just the menu". Passes 1–4 done: 113 ideas → triaged to 34 with merit → kill-tested the strong 27 (24 survived, 3 killed, 0 Codex-disputed) → planned the top 16 into a 6-stage build. **Stage 1 of 6 SHIPPED** — commit `f2b0b7d` (local, not pushed until this close): r14 trading-halt tripwire + r8 ^SKEW module, both config-flag **OFF**; a live-probe caught+fixed a redirect bug the green unit tests missed; full suite 2655 pass. **Stages 2–6 (14 features) set to run AUTONOMOUSLY** next session via the one-line trigger `discover: build next-features-jul2026` (everything ships OFF; go-live stays a separate user decision). Both former data-blockers SOLVED this session: House congress trades via `disclosures-clerk.house.gov` (index + machine-readable PTR PDFs), and market breadth via an RSP/SPY equal-weight proxy (2 tickers, no 500-name fan-out); only the Senate half of congress remains deferred. Resume brief with exact recipes: `todo/kickoffs/discover-next-features-resume.md`; run state: `.claude/discover/next-features-jul2026/`.
 
@@ -564,7 +566,7 @@ proved on real data.** The split is now **20 BUILT · 6 ALREADY LIVE · 3 KILLED
 `!sweep` watchlist command. **Passed (user accepted both drops):** the FOMC hawk/dove reader and learned
 continuous signal weights. **Promoted PASSED → OPEN:** c102, the short-alert squeeze-risk guard — its
 only blocker (the short-interest feed) has shipped. **Start at TIER 2; TIER 1 is empty.** Seven of the
-ten open ideas are already PLANNED, not merely listed — `.claude/discover/menu-top10/final-plan.md` has
+ten open ideas are already PLANNED, not merely listed — `todo/feature-menu-build-plans.md` has
 a build plan with a real probe for each (F4–F10); read it instead of re-planning.
 
 **Built this session (3):** the **`Sources: 21 of 27 attempted` footer** (`features.sources_denominator`
@@ -590,7 +592,7 @@ price-target spread (a logger first — no spread history exists) · **short-ale
 market-wide put/call (**its free CBOE source has been dead since Oct 2020**) · CFTC COT (weekly, lagged,
 futures-only) · GDELT (the repo's own research already scored it bottom-30%).
 
-**7 of those are already PLANNED, not merely listed** — `.claude/discover/menu-top10/final-plan.md` has
+**7 of those are already PLANNED, not merely listed** — `todo/feature-menu-build-plans.md` has
 a full build plan for F4–F10 (verified line numbers, risk callouts, a probe each). A session picking one
 should read that plan instead of re-planning it.
 

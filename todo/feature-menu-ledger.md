@@ -10,7 +10,7 @@ proved on real data.** The split is now **20 BUILT · 6 ALREADY LIVE · 3 KILLED
 `!sweep` watchlist command. **Passed (user accepted both drops):** the FOMC hawk/dove reader and learned
 continuous signal weights. **Promoted PASSED → OPEN:** c102, the short-alert squeeze-risk guard — its
 only blocker (the short-interest feed) has shipped. **Start at TIER 2; TIER 1 is empty.** Seven of the
-ten open ideas are already PLANNED, not merely listed — `.claude/discover/menu-top10/final-plan.md` has
+ten open ideas are already PLANNED, not merely listed — `todo/feature-menu-build-plans.md` has
 a build plan with a real probe for each (F4–F10); read it instead of re-planning.
 
 **Only the 10 OPEN ones are candidates**, sorted **strongest first, in tiers**, so a session starts at
@@ -23,7 +23,7 @@ not against the discover run's artifacts.
 **3 BUILT** (T1-a footer denominator, T1-b VVIX gauge, T1-c `!sweep`) · **2 PASSED** (T3-b FOMC reader,
 T3-d learned weights — user accepted both drops) · **c102 promoted PASSED → OPEN** (its blocker shipped).
 **The other 7 are already PLANNED, not just listed** — a full build plan with per-feature probes exists
-at `.claude/discover/menu-top10/final-plan.md` (F4-F10). A session picking one of them should read that
+at `todo/feature-menu-build-plans.md` (F4-F10). A session picking one of them should read that
 plan first instead of re-planning: it has verified line numbers, risk callouts, and a probe each.
 
 *(Arithmetic: 20 + 6 + 3 + 75 + 10 = 114 = the 113 numbered ideas + the one killed idea that was never
@@ -90,7 +90,7 @@ output each one produced. Nothing to pick here. **Start at TIER 2.**
   *bullish* +3 term (it returns 0 unless direction == 'long'), so **no short-side guard exists**;
   `models.py:254 ScoreBreakdown` has no `squeeze_risk` field.
 - **Already planned — do NOT re-plan it.** Full build plan with a probe:
-  `.claude/discover/menu-top10/final-plan.md` (feature **F7**), including the single-DB-read risk
+  `todo/feature-menu-build-plans.md` (feature **F7**), including the single-DB-read risk
   callout (widen the ONE existing `get_latest_finra_short_interest` read rather than adding a second,
   which would double hot-path DB traffic and could disagree with the row the bullish leg just used).
 - **Class C — score-touching:** it demotes SHORT alerts, so it needs a shadow comparison before ON.
@@ -451,7 +451,7 @@ is #67) · `LIVE` = already in the bot before the run · `KILLED` = premise disp
 | c99 | BLS JOLTS labor-market leg | PASSED | Monthly macro; NFCI and yield/dollar legs already cover the backdrop |
 | c100 | FINRA TRACE corporate-bond credit leg | PASSED | Single-name bond data is sparse and heavy to integrate |
 | c101 | Crowded-trade monitor across tickers | PASSED | Overlaps c72, the crowding guard |
-| c102 | Short-alert squeeze-risk guard | **OPEN — promoted 2026-07-14** | Its only blocker (the short-interest leg) HAS SHIPPED. Planned but not built this run (user built TIER 1 only). Plan ready: `.claude/discover/menu-top10/final-plan.md` (F7) |
+| c102 | Short-alert squeeze-risk guard | **OPEN — promoted 2026-07-14** | Its only blocker (the short-interest leg) HAS SHIPPED. Planned but not built this run (user built TIER 1 only). Plan ready: `todo/feature-menu-build-plans.md` (F7) |
 | c103 | Co-pilot human-confirm toggle | PASSED | Workflow change; secondary to signal features |
 | c104 | Daily alert-volume circuit breaker | PASSED | Overlaps the alert-fatigue control cluster |
 | c105 | Regime-shift disclaimer banner | PASSED | Low source quality; overlaps the decay tracker's surfacing |
@@ -491,3 +491,20 @@ is #67) · `LIVE` = already in the bot before the run · `KILLED` = premise disp
 - **Worked on:** Regrouped the open ideas strongest-to-weakest into 4 tiers; rostered **all 113** ideas individually (previously the 79 rejected lived only in the discover artifacts as clusters); re-verified every open idea against the LIVE CODE with two search agents.
 - **Decisions:** (a) **EPS-estimate revisions momentum was removed from the candidate pool — it is already BUILT and LIVE** (`features.snapshot.eps_revisions: true`); it was the exact trap this file exists to prevent. (b) Verified the **74 were rejected on MERIT, not build budget** — a top-7 capacity cap did exist in pass-2 and cut 24 ideas, but the later merit pass rescued all 24 (now 13 BUILT / 9 OPEN / 2 KILLED / **0 PASSED**). (c) Graded the 74: **48 firm, 26 SOFT** (22 "low value" judgment calls never proven unworkable + 4 dropped with **no reason ever written**: c31, c41, c47, c95) — the 26 are the reserve pool, cheaper to reopen than a fresh #75 run. (d) **c102's rejection has expired** — it was blocked only on the short-interest leg, which has since shipped.
 - **Next:** Build **T1-a — the `Sources: 4 of 9` footer** (~20 lines; the 0-100 score is already live and ON, so do NOT build a second score). Then T1-b (VVIX, port from the sibling vol project) and T1-c (watchlist sweep command — **must NOT be named `!scan`**).
+
+### Session notes — 2026-07-14 (run `menu-top10` — TIER 1 built)
+- **Worked on:** picked the 10 strongest of 12 candidates (kill-test dropped 2), then — on the user's
+  call — built **TIER 1 only**: T1-a footer denominator, T1-b VVIX gauge, T1-c `!sweep`. All flag-OFF,
+  all proved on real data, 2991 tests pass with zero regressions, checked by a separate verifier agent.
+- **Verdicts written back:** 3 BUILT · 2 PASSED (FOMC reader, learned weights — user accepted both) ·
+  c102 PROMOTED PASSED → OPEN (its short-interest blocker has shipped). TIER 1 is now empty.
+- **The other 7 are PLANNED, not just listed** — full plans (verified line numbers, risk callouts, a
+  probe each) are in `todo/feature-menu-build-plans.md`. **Read that before re-planning any of them.**
+  It was copied out of the discover run's artifacts on purpose: those live under `.claude/`, which is
+  git-ignored and sat in a throwaway worktree — the plans would have been deleted with it.
+- **Two plan errors caught while building** (recorded at the top of the plans file): it wanted `!sweep`
+  ranked on the raw additive `breakdown.total` (would have disagreed with `!scan` — the #50 bug), and it
+  under-specified the VVIX fetch (yfinance returns ^VVIX in New York time and ^VIX in Chicago time, so a
+  naive join silently matches zero bars). **A plan is a hypothesis; verify it against live code.**
+- **Switches:** the 3 new flags are registered on **TODO #67**, the single list of built-but-off
+  switches awaiting the user's yes/no — not here.
