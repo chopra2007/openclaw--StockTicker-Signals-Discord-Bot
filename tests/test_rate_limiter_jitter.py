@@ -44,7 +44,11 @@ def test_equal_jitter_never_near_zero(monkeypatch):
         for _ in range(3):
             rl.report_failure("s")
         mins.append(rl._blocked_until["s"] - time.time())
-    assert min(mins) >= 15.0, f"equal jitter must never drop below d/2=15, got {min(mins)}"
+    # 10ms slack: `_blocked_until` is stamped from time.time() inside report_failure and
+    # we subtract a LATER time.time() here, so the few microseconds that elapse in between
+    # make an exact 15.0 read back as 14.99999... That is measurement drift, not a source
+    # being re-probed early. Without the slack this test fails at random (2026-07-13).
+    assert min(mins) >= 15.0 - 0.01, f"equal jitter must never drop below d/2=15, got {min(mins)}"
 
 
 def test_jitter_none_is_exact_schedule(monkeypatch):
