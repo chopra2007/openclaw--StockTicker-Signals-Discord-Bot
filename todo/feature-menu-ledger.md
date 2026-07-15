@@ -25,9 +25,12 @@ not against the discover run's artifacts.
 + c102) was cut to 10 by kill-test, then the user chose to build **TIER 1 only** this session. So:
 **3 BUILT** (T1-a footer denominator, T1-b VVIX gauge, T1-c `!sweep`) · **2 PASSED** (T3-b FOMC reader,
 T3-d learned weights — user accepted both drops) · **c102 promoted PASSED → OPEN** (its blocker shipped).
-**The other 7 are already PLANNED, not just listed** — a full build plan with per-feature probes exists
-at `todo/feature-menu-build-plans.md` (F4-F10). A session picking one of them should read that
-plan first instead of re-planning: it has verified line numbers, risk callouts, and a probe each.
+**The user then dropped two more of the open ideas (2026-07-14):** F5/c72 (crowding-guard generalization
+— independent YouTube channels agreeing is confluence, not crowding) and F8/c88 (analyst target-spread
+logger — a daily logger that mostly re-writes the same numbers, shows nothing for months). That leaves
+**5 of the 8 open ideas already PLANNED, not just listed** — a full build plan with per-feature probes
+exists at `todo/feature-menu-build-plans.md` (F4, F6, F7, F9, F10). A session picking one of them should
+read that plan first instead of re-planning: it has verified line numbers, risk callouts, and a probe each.
 
 *(Arithmetic: 20 + 6 + 3 + 77 + 8 = 114 = the 113 numbered ideas + the one killed idea that was never
 given a number. Checks out — see the roster's footnotes.)*
@@ -35,7 +38,8 @@ given a number. Checks out — see the roster's footnotes.)*
 **Were the 74 rejected on merit, or did we just run out of build budget? Verified 2026-07-14 — MERIT,
 not resources.** A capacity cap *did* exist (pass-2 kept only the **top 7** and logged 24 ideas as
 "filtered due to capacity"), **but the later merit pass rescued all 24** — they are now **13 BUILT,
-9 OPEN, 2 KILLED, and 0 PASSED**. Nothing was dropped for lack of resources and left there. **However,
+8 OPEN, 2 KILLED, and 1 PASSED** (c88, dropped by the user on merit 2026-07-14 — not a resource cut).
+Nothing was dropped for lack of resources and left there. **However,
 the 74 are not equally dead: 48 are firm** (13 hard-no — the data doesn't exist / is proven no-edge /
 fights the project's own rules; 30 redundant; 5 out of scope) **and 26 are SOFT** — 22 are "low
 value / secondary" **judgment calls that were never proven unworkable**, and **4 were dropped with no
@@ -248,7 +252,7 @@ redundant/useless") re-reviewed all 113 and restored the capacity-cut ideas — 
 
 | Capacity-cut in pass-2 | Where they are now |
 |---|---|
-| 24 ideas | **13 BUILT · 9 OPEN (in the tiers above) · 2 KILLED on evidence · 0 PASSED** |
+| 24 ideas | **13 BUILT · 8 OPEN (in the tiers above) · 2 KILLED on evidence · 1 PASSED** (c88, dropped by the user on merit 2026-07-14 — not a resource cut) |
 
 **Not one capacity-cut idea sits in the PASSED bucket.** Nothing was dropped for lack of resources and
 left there. (Verify: the 24 are c81 c111 c4 c113 c9 c19 c44 c8 c25 c28 c42 c20 c66 c65 c7 c59 c46 c88
@@ -268,7 +272,7 @@ ever want more candidates, reopen them there, not by running a new research pass
 | **E. No reason was ever written down** — the artifacts record the drop but not why: c31 Hidden Markov regime detector · c41 institutional-vs-retail put/call divergence · c47 signal-to-noise dashboard · c95 EIA oil & gas inventories | **4** | **SOFT — and unverified.** These were never actually justified. |
 
 **So: 48 of the 74 are firmly dead (A+B+C). 26 are soft (D+E)** — judgment calls and four ideas nobody
-ever gave a reason for. That is your real reserve pool if the 14 open candidates run out.
+ever gave a reason for. That is your real reserve pool if the 8 open candidates run out.
 
 **One PASSED idea's reason has already expired:** **c102 (short-alert squeeze-risk guard)** was rejected
 only because it *"depends on the short-interest leg landing first"* — and that leg has since **shipped**

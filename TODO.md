@@ -561,13 +561,16 @@ The standing way to go find NEW ideas: verify ground truth against the real code
 **File:** `feature-menu-ledger.md`
 
 **CURRENT STATUS (2026-07-14, run `menu-top10`):** **TIER 1 is DONE — all three shipped flag-OFF, each
-proved on real data.** The split is now **20 BUILT · 6 ALREADY LIVE · 3 KILLED · 75 PASSED · 10 OPEN**
+proved on real data.** The split is now **20 BUILT · 6 ALREADY LIVE · 3 KILLED · 77 PASSED · 8 OPEN**
 (114 total ✓). **Built:** the `Sources: 21 of 27 attempted` footer · the VVIX fear-of-fear gauge · the
-`!sweep` watchlist command. **Passed (user accepted both drops):** the FOMC hawk/dove reader and learned
-continuous signal weights. **Promoted PASSED → OPEN:** c102, the short-alert squeeze-risk guard — its
-only blocker (the short-interest feed) has shipped. **Start at TIER 2; TIER 1 is empty.** Seven of the
-ten open ideas are already PLANNED, not merely listed — `todo/feature-menu-build-plans.md` has
-a build plan with a real probe for each (F4–F10); read it instead of re-planning.
+`!sweep` watchlist command. **Passed (user accepted the drops):** the FOMC hawk/dove reader, learned
+continuous signal weights, and — on 2026-07-14 — the crowding-guard generalization (c72/F5: independent
+YouTube channels agreeing is confluence, not crowding) and the analyst target-spread logger (c88/F8: a
+daily logger that mostly re-writes the same numbers and shows nothing for months). **Promoted PASSED →
+OPEN:** c102, the short-alert squeeze-risk guard — its only blocker (the short-interest feed) has shipped.
+**Start at TIER 2; TIER 1 is empty.** Five of the eight open ideas are already PLANNED, not merely listed —
+`todo/feature-menu-build-plans.md` has a build plan with a real probe for each (F4, F6, F7, F9, F10);
+read it instead of re-planning.
 
 **Built this session (3):** the **`Sources: 21 of 27 attempted` footer** (`features.sources_denominator`
 — real `!all NVDA`; OFF is byte-identical) · the **VVIX fear-of-fear gauge** (`features.vvix_residual`;
@@ -584,17 +587,18 @@ blackout — worst payoff per line on the menu) and **learned continuous signal 
 DATA, not code: outcome-data volume owned by #67/#73, so building it now just leaves it idle — the
 strongest re-open once #73's soak fills in).
 
-**What's left — 10 OPEN, start at TIER 2** (TIER 1 is empty): hedge-vs-directional flow discount ·
-generalize the crowding guard + flip `social_family_dedup` on · Brier/calibration automation · analyst
-price-target spread (a logger first — no spread history exists) · **short-alert squeeze-risk guard
+**What's left — 8 OPEN, start at TIER 2** (TIER 1 is empty): hedge-vs-directional flow discount ·
+Brier/calibration automation · **short-alert squeeze-risk guard
 (c102, PROMOTED out of PASSED — its only blocker, the short-interest feed, has shipped)**. **TIER 3
 (heavy):** SEC XBRL fundamentals · backtest-to-live decay tracker. **TIER 4 (weak — recommend PASS):**
 market-wide put/call (**its free CBOE source has been dead since Oct 2020**) · CFTC COT (weekly, lagged,
-futures-only) · GDELT (the repo's own research already scored it bottom-30%).
+futures-only) · GDELT (the repo's own research already scored it bottom-30%). *(Two more were dropped by
+the user on 2026-07-14: the crowding-guard generalization — YouTube confluence isn't crowding — and the
+analyst target-spread logger — a daily logger that mostly re-writes the same numbers.)*
 
-**7 of those are already PLANNED, not merely listed** — `todo/feature-menu-build-plans.md` has
-a full build plan for F4–F10 (verified line numbers, risk callouts, a probe each). A session picking one
-should read that plan instead of re-planning it.
+**5 of those are already PLANNED, not merely listed** — `todo/feature-menu-build-plans.md` has
+a full build plan for F4, F6, F7, F9, F10 (verified line numbers, risk callouts, a probe each). A session
+picking one should read that plan instead of re-planning it.
 
 **Caught 2026-07-14:** *EPS-estimate revisions momentum* was sitting in the candidate list and is in
 fact **already built and live** (`features.snapshot.eps_revisions: true` — the `EPS rev 34↑ 3↓ (30d)`
@@ -604,14 +608,15 @@ to ready-to-build** — "not built in that run" ≠ "the bot lacks it".
 **Were the 74 rejected on merit, or for lack of build budget? Verified 2026-07-14 — MERIT, not
 resources.** A capacity cap *did* exist (the run's pass-2 kept only the **top 7** and logged 24 ideas as
 "filtered due to capacity"), **but the later merit pass rescued all 24** — they are now **13 BUILT,
-9 OPEN, 2 KILLED, 0 PASSED**. Nothing was cut for resources and left cut. **But the 74 are not equally
+8 OPEN, 2 KILLED, 1 PASSED** (c88, dropped by the user on merit 2026-07-14 — not a resource cut).
+Nothing was cut for resources and left cut. **But the 74 are not equally
 dead: 48 are firm** (13 hard-no — data doesn't exist / proven no-edge / fights the project's own rules;
 30 redundant; 5 out of scope) **and 26 are SOFT** — 22 are "low value / secondary" **judgment calls
 never proven unworkable**, and **4 were dropped with no reason ever written down** (c31 Hidden Markov
 regime · c41 institutional-vs-retail put/call · c47 signal-to-noise dashboard · c95 EIA oil & gas).
-**Those 26 are the reserve pool** when the 14 open candidates run out — far cheaper to reopen than to
+**Those 26 are the reserve pool** when the 8 open candidates run out — far cheaper to reopen than to
 pay for a fresh research run (#75). **One PASSED idea's reason has already expired: c102 (short-alert
 squeeze-risk guard)** was rejected *only* because it needed the short-interest leg — **which has since
 shipped**. It is the most promotable idea in the PASSED bucket.
 
-The standing menu of already-researched ideas, with every verdict written down so no session redoes settled work. All 113 rostered individually; the 14 open ones sorted strongest-to-weakest in 4 tiers; work them top-down. **The trap this file exists to prevent: "not built in that run" ≠ "the bot lacks it" — always grep the live code before promoting an idea to ready-to-build.** (It caught one on 2026-07-14: EPS-revisions was listed as a candidate and is in fact live.) Build a pick under the normal rules, then write `BUILT` or `PASSED` (with the reason) back into the ledger and move the row into the closed section — a rejected idea is PASSED, never deleted, because the reason is what stops it being re-proposed, and **a row must never sit in two places**. Also records the 3 killed ideas, the 6 already-live ones, and the 74 rejected with reasons — each graded firm vs soft, so the soft ones can be reopened instead of paying for a new research run (the run generated **113** distinct ideas, not 115 — the IDs run to c115 but c58/c82 were never written and c97 is duplicated). Closes only when all four tiers are empty. Turning ON the 16 already-built features is **#67**, not this item.
+The standing menu of already-researched ideas, with every verdict written down so no session redoes settled work. All 113 rostered individually; the open ones sorted strongest-to-weakest in 4 tiers; work them top-down. **The trap this file exists to prevent: "not built in that run" ≠ "the bot lacks it" — always grep the live code before promoting an idea to ready-to-build.** (It caught one on 2026-07-14: EPS-revisions was listed as a candidate and is in fact live.) Build a pick under the normal rules, then write `BUILT` or `PASSED` (with the reason) back into the ledger and move the row into the closed section — a rejected idea is PASSED, never deleted, because the reason is what stops it being re-proposed, and **a row must never sit in two places**. Also records the 3 killed ideas, the 6 already-live ones, and the 74 rejected with reasons — each graded firm vs soft, so the soft ones can be reopened instead of paying for a new research run (the run generated **113** distinct ideas, not 115 — the IDs run to c115 but c58/c82 were never written and c97 is duplicated). Closes only when all four tiers are empty. Turning ON the 16 already-built features is **#67**, not this item.
