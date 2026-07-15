@@ -17,7 +17,7 @@ why); this file is the HOW-TO for the ones still open.
 | **F5** | Crowding-guard generalization | ❌ **DROPPED 2026-07-14 (user)** — do NOT build. Its whole job was to treat several YouTube channels saying the same thing as "crowding" and discount them. The user's call: independent channels agreeing is **confluence, not crowding** — the exact signal we want, not noise to suppress. |
 | **F6** | Brier/calibration report — timer + Discord sink | ⬜ TO BUILD (small; the maths already exists, nobody ever sees it) |
 | **F7** | Short-alert squeeze-risk guard (c102) | ⬜ TO BUILD (its short-interest blocker HAS shipped) |
-| **F8** | Analyst target-spread logger | ⬜ TO BUILD (a LOGGER, not a signal — no spread history exists yet) |
+| **F8** | Analyst target-spread logger | ❌ **DROPPED 2026-07-14 (user)** — do NOT build. It logs the high-vs-low analyst target gap **daily**, but analysts rarely change targets, so it mostly writes the same three numbers over and over. Shows the user nothing for months (no history to compare against). Not worth it as planned. |
 | **F9** | SEC XBRL fundamentals feed | ⬜ TO BUILD (heavy: new client + table + display) |
 | **F10** | Backtest-to-live decay tracker | ⬜ TO BUILD (medium-heavy; grows in value as #73's outcome data fills in) |
 

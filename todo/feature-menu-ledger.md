@@ -5,17 +5,18 @@
 **Last full code re-verification:** 2026-07-14 (every open idea grepped against the live code)
 
 **CURRENT STATUS (2026-07-14, run `menu-top10`):** **TIER 1 is DONE — all three shipped flag-OFF, each
-proved on real data.** The split is now **20 BUILT · 6 ALREADY LIVE · 3 KILLED · 76 PASSED · 9 OPEN**
+proved on real data.** The split is now **20 BUILT · 6 ALREADY LIVE · 3 KILLED · 77 PASSED · 8 OPEN**
 (114 total ✓). **Built:** the `Sources: 21 of 27 attempted` footer · the VVIX fear-of-fear gauge · the
 `!sweep` watchlist command. **Passed (user accepted the drops):** the FOMC hawk/dove reader, learned
-continuous signal weights, and — on 2026-07-14 — the crowding-guard generalization (c72/F5): the user's
-rule is that independent YouTube channels agreeing is confluence, not crowding. **Promoted PASSED → OPEN:**
-c102, the short-alert squeeze-risk guard — its only blocker (the short-interest feed) has shipped.
-**Start at TIER 2; TIER 1 is empty.** Six of the nine open ideas are already PLANNED, not merely listed —
-`todo/feature-menu-build-plans.md` has a build plan with a real probe for each (F4, F6, F7, F8, F9, F10);
+continuous signal weights, and — on 2026-07-14 — the crowding-guard generalization (c72/F5: independent
+YouTube channels agreeing is confluence, not crowding) and the analyst target-spread logger (c88/F8: a
+daily logger that mostly re-writes the same numbers and shows nothing for months). **Promoted PASSED →
+OPEN:** c102, the short-alert squeeze-risk guard — its only blocker (the short-interest feed) has shipped.
+**Start at TIER 2; TIER 1 is empty.** Five of the eight open ideas are already PLANNED, not merely listed —
+`todo/feature-menu-build-plans.md` has a build plan with a real probe for each (F4, F6, F7, F9, F10);
 read it instead of re-planning.
 
-**Only the 9 OPEN ones are candidates**, sorted **strongest first, in tiers**, so a session starts at
+**Only the 8 OPEN ones are candidates**, sorted **strongest first, in tiers**, so a session starts at
 the top and works down. **TIER 1 IS NOW EMPTY — start at TIER 2.** The other 104 are closed — nothing
 already built or already passed on appears in the candidate tiers. Re-verified against the live code,
 not against the discover run's artifacts.
@@ -28,7 +29,7 @@ T3-d learned weights — user accepted both drops) · **c102 promoted PASSED →
 at `todo/feature-menu-build-plans.md` (F4-F10). A session picking one of them should read that
 plan first instead of re-planning: it has verified line numbers, risk callouts, and a probe each.
 
-*(Arithmetic: 20 + 6 + 3 + 76 + 9 = 114 = the 113 numbered ideas + the one killed idea that was never
+*(Arithmetic: 20 + 6 + 3 + 77 + 8 = 114 = the 113 numbered ideas + the one killed idea that was never
 given a number. Checks out — see the roster's footnotes.)*
 
 **Were the 74 rejected on merit, or did we just run out of build budget? Verified 2026-07-14 — MERIT,
@@ -81,7 +82,7 @@ output each one produced. Nothing to pick here. **Start at TIER 2.**
 ---
 
 
-# TIER 2 — SOLID. Real work, real payoff. (4 open)
+# TIER 2 — SOLID. Real work, real payoff. (3 open)
 
 *(T2-b · generalize the crowding guard was DROPPED on 2026-07-14 — the user's call. Its plan was to
 treat several YouTube channels saying the same thing as "crowding" and discount them; the user's rule is
@@ -126,15 +127,9 @@ not re-propose it.)*
   cron, no systemd timer, no Discord surface.
 - **The job:** schedule it and give it somewhere to land. Small.
 
-### T2-d · Analyst price-target disagreement (spread)
-- **What the user would see:** "analysts are unusually split on this name."
-- **Already live:** the targets themselves. `scanners/snapshot.py:207-209` fetches mean/high/low, and
-  `all_command/embed.py:551-555` already renders `🎯 $215 avg ($180–$260) · 58 analysts`.
-- **Genuinely absent:** the derived statistic — zero hits for `target_spread` / `pt_dispersion` / any
-  `(high−low)/mean`.
-- **The honest catch:** to say a spread is *unusually* wide you need a **stored history of spreads,
-  which does not exist**. So this is **"start logging now, build the signal later"** — not a quick win.
-  (An earlier note in this file wrongly called it "the cheapest thing to build". It isn't — T1-a is.)
+*(T2-d · analyst price-target spread was DROPPED on 2026-07-14 — the user's call. Its build (F8) was a
+daily logger that mostly re-writes the same three numbers, since analysts rarely change targets, and
+shows the user nothing for months. Reason is in the PASSED section; do not re-propose it.)*
 
 ---
 
@@ -291,6 +286,7 @@ because building them now buys little:
 |---|---|
 | **T3-b · FOMC hawk/dove statement reader** | **Worst payoff per line on the menu.** Only **8 statements a year**, and a Fed statement carries **zero per-ticker attribution** — it says nothing about whether NVDA is a buy. Building it needs a new fetcher + an LLM stance parser + a stance-persistence table. FOMC dates *already* do the one job that matters here: they drive an alert blackout (`data/macro_events.yaml:5-11` → `analysis/contradiction.py:24-72`). **Re-open only if** the bot ever needs a macro-regime input that the existing cross-asset legs can't supply. |
 | **T2-b · Generalize the crowding guard (c72)** | **DROPPED on the user's call, 2026-07-14.** The build (F5) would have added `youtube_* → 'video_crowd'` dedup — treating several YouTube channels saying the same thing as one crowded vote and discounting them. The user rejects the premise: **independent channels agreeing is confluence, not crowding** — that's the signal we want, not noise to suppress. The two narrow guards already live (`wolf_confluence.py`, `herding.py`) and the OFF `social_family_dedup` flag (#67's decision) are untouched — only the YouTube generalization is killed. **Do not re-propose.** |
+| **T2-d · Analyst price-target spread logger (c88)** | **DROPPED on the user's call, 2026-07-14.** The build (F8) logged the high-vs-low analyst target gap **daily**, but analysts rarely move targets, so it mostly re-writes the same three numbers, and shows the user nothing for months (no history to compare against). Not worth the plumbing as planned. The targets themselves stay on the `!all` card (`🎯 $215 avg ($180–$260)`) — only the daily spread-logger is killed. **Do not re-propose** unless it's redesigned to log only on change. |
 | **T3-d · Learned (continuous) signal weights** | **The blocker is data, not code — so more code today changes nothing.** Its old gate ("needs the 0-100 score") is genuinely gone: the score is live. But the real gate is **outcome-data volume**, and that is owned by #67/#73 (the Friday-outcome backfill + the shadow soak). The offline `logistic_challenger` (`eval/report.py:286-366`) already fits real coefficients with a ticker embargo — they are simply never persisted or served at inference, and persisting them is a **score-touching blast-radius change** that belongs with the auto-flip engine, not a side build. **Re-open when** the graded-outcome table is rich enough for the auto-flip engine to trust a continuous weight — i.e. after #73's soak fills in. This is the strongest re-open candidate in the PASSED bucket once the data lands. |
 
 ## PASSED — 74 rejected in the July run, with reasons
@@ -427,7 +423,7 @@ is #67) · `LIVE` = already in the bot before the run · `KILLED` = premise disp
 | c85 | Realized-vol percentile cone | PASSED | Expected-move footnote; overlaps the cheap/rich-vol context |
 | c86 | Rule 10b5-1 plan scanner | BUILT | `features.insider_10b5_plans.enabled` |
 | c87 | FOMC hawk/dove statement reader | **PASSED 2026-07-14** | 8 statements/year, zero per-ticker attribution, needs a new fetcher + LLM stance parser. FOMC dates already drive the alert blackout. Worst payoff per line on the menu |
-| c88 | Analyst price-target disagreement | **OPEN — T2-d** | Targets already on screen; needs spread history logged first |
+| c88 | Analyst price-target disagreement | **PASSED 2026-07-14 (user)** | DROPPED by the user: its build (F8) logged the target spread daily but mostly re-writes the same numbers (analysts rarely move targets) and shows nothing for months. Targets stay on the `!all` card |
 | c89 | Quad-witching / OpEx-week overlay | PASSED | Narrower variant of seasonality; low impact |
 | c90 | Options bid-ask spread deterioration gate | PASSED | Data-quality gate; overlaps the liquidity family |
 | c91 | GDELT global news tone | **OPEN — T4** | Recommend PASS: the repo's own research already scored it bottom-30% |
@@ -465,9 +461,9 @@ is #67) · `LIVE` = already in the bot before the run · `KILLED` = premise disp
 - **`c97` is duplicated** in the source artifacts (same OpenSecrets idea listed twice). Counted once.
 - **The 0DTE idea never got a number** — it exists only in `merit-triage.md` / the kill-test report.
   That is why the roster has 113 numbered rows but 114 verdicts.
-- **Tally:** 17 BUILT + 6 LIVE + 3 KILLED + 75 PASSED + 13 OPEN = **114 verdicts over 113 IDs.**
-  *(This roster tally counts the 17 pre-menu-top10 builds; the header's "20 BUILT / 9 OPEN" folds in
-  the 3 TIER-1 builds and c102's promotion. Both include c72's 2026-07-14 drop.)*
+- **Tally:** 17 BUILT + 6 LIVE + 3 KILLED + 76 PASSED + 12 OPEN = **114 verdicts over 113 IDs.**
+  *(This roster tally counts the 17 pre-menu-top10 builds; the header's "20 BUILT / 8 OPEN" folds in
+  the 3 TIER-1 builds and c102's promotion. Both include c72's and c88's 2026-07-14 drops.)*
 
 ---
 
@@ -501,14 +497,15 @@ is #67) · `LIVE` = already in the bot before the run · `KILLED` = premise disp
 - **Switches:** the 3 new flags are registered on **TODO #67**, the single list of built-but-off
   switches awaiting the user's yes/no — not here.
 
-### Session notes — 2026-07-14 (F5 dropped)
-- **Worked on:** the user reviewed the 9 open ideas and **killed F5 / T2-b (c72), the crowding-guard
-  generalization.** Reason: its build would treat several independent YouTube channels saying the same
-  thing as "crowding" and discount them — but independent channels agreeing is **confluence, not
-  crowding**. Moved c72 OPEN → PASSED in the tiers, the roster, and both tallies; marked F5 DROPPED in
-  the build-plans file. Open count 10 → 9. The two already-live narrow guards and the OFF
-  `social_family_dedup` flag (#67) are untouched — only the YouTube generalization is dead.
-- **Also:** explained F8 (analyst target-spread logger) to the user — it's a pure recorder with no
-  user-facing output today; it logs each stock's high-vs-low analyst price-target gap daily so a future
-  "analysts are unusually split" signal has history to compare against.
-- **Next:** open tiers now hold F4, F6, F7, F8, F9, F10 (planned) + the T3/T4 ideas.
+### Session notes — 2026-07-14 (F5 + F8 dropped)
+- **Worked on:** the user reviewed the open ideas and **killed two — F5/T2-b (c72) the crowding-guard
+  generalization, and F8/T2-d (c88) the analyst target-spread logger.**
+  - **F5:** its build would treat several independent YouTube channels saying the same thing as
+    "crowding" and discount them — but independent channels agreeing is **confluence, not crowding**.
+  - **F8:** it logged the high-vs-low analyst target gap **daily**, but analysts rarely move targets, so
+    it mostly re-writes the same numbers and shows the user nothing for months. Not worth it as planned
+    (a redesign that logs only on change might revive it).
+  - Moved both OPEN → PASSED in the tiers, the roster (c72, c88), and both tallies; marked F5 and F8
+    DROPPED in the build-plans file. Open count 10 → 8. The two already-live narrow crowding guards, the
+    OFF `social_family_dedup` flag (#67), and the analyst targets on the `!all` card are all untouched.
+- **Next:** open tiers now hold F4, F6, F7, F9, F10 (planned) + the T3/T4 ideas.
