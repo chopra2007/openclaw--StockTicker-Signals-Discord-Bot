@@ -269,6 +269,7 @@ class ScoreBreakdown:
     finra_short_volume: int = 0   # E1 FINRA daily short-vol z-score confluence term
     days_to_cover: int = 0        # r12 FINRA settlement short-interest days-to-cover confluence term (flag OFF default)
     pead: int = 0                 # r17 post-earnings-drift confluence term (flag OFF default)
+    squeeze_risk: int = 0         # F7/c102 short-alert squeeze-risk guard — NEGATIVE demotion on SHORT signals (flag OFF default)
 
     @property
     def total(self) -> int:
@@ -276,7 +277,8 @@ class ScoreBreakdown:
                 + self.sec_filing + self.social_apewisdom + self.social_stocktwits
                 + self.social_reddit + self.google_trends + self.technical
                 + self.llm_boost + self.youtube + self.options_flow + self.consensus_boost
-                + self.finra_short_volume + self.days_to_cover + self.pead)
+                + self.finra_short_volume + self.days_to_cover + self.pead
+                + self.squeeze_risk)
 
 
 @dataclass
@@ -365,6 +367,10 @@ class FlowHit:
     # is unverifiable; the contract is still alerted (it cleared the size gates)
     # but the alert is tagged so the read is honest.
     staleness_unverified: bool = False
+    # F4: per-leg option delta (Schwab real-time chain only; None on the yfinance
+    # path, which carries no greeks). Feeds the hedge-vs-directional shadow
+    # classifier — NEVER the live alert (format_flow_alert ignores it).
+    delta: Optional[float] = None
 
     @property
     def label(self) -> str:

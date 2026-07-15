@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the signal decay tracker daily (after grading has updated outcomes)
+
+[Timer]
+OnCalendar=*-*-* 23:55:00 UTC
+Persistent=true
+Unit=signal-decay.service
+
+[Install]
+WantedBy=timers.target

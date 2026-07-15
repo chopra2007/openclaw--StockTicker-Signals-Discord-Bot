@@ -1,0 +1,10 @@
+[Unit]
+Description=Fetch SEC XBRL fundamentals daily (early UTC, off the !all hot path)
+
+[Timer]
+OnCalendar=*-*-* 09:20:00 UTC
+Persistent=true
+Unit=sec-xbrl-daily.service
+
+[Install]
+WantedBy=timers.target

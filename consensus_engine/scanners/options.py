@@ -362,6 +362,15 @@ def _scan_chain_for_flow(
                     "[staleness unverified] — allowing (cleared size gates)",
                     ticker, str(getattr(row, "contractSymbol", "")),
                 )
+            # F4: capture per-leg delta when the chain carries greeks (Schwab
+            # real-time). yfinance rows have no delta column -> None. NaN -> None.
+            _dlt = getattr(row, "delta", None)
+            try:
+                delta = float(_dlt)
+                if delta != delta:  # NaN
+                    delta = None
+            except (TypeError, ValueError):
+                delta = None
             hits.append(FlowHit(
                 ticker=ticker, side=side,
                 strike=float(getattr(row, "strike", 0) or 0), expiry=expiry,
@@ -370,6 +379,7 @@ def _scan_chain_for_flow(
                 last_trade_ts=lt, spot=spot,
                 contract_symbol=str(getattr(row, "contractSymbol", "")),
                 staleness_unverified=staleness_unverified,
+                delta=delta,
             ))
     return hits
 

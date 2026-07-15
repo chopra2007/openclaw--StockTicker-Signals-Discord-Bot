@@ -25,7 +25,11 @@ from consensus_engine.scanners.finra_short_interest import (
     _validate_url,
     FINRA_SHORT_INTEREST_PROVENANCE,
 )
-from consensus_engine.cross_reference import _compute_days_to_cover_pts, score_ticker
+from consensus_engine.cross_reference import (
+    _compute_days_to_cover_pts,
+    _compute_squeeze_risk_pts,
+    score_ticker,
+)
 from consensus_engine.utils.xref_cache import clear_xref_cache
 
 
@@ -232,6 +236,113 @@ async def test_score_ticker_flag_on_elevated(monkeypatch):
         })
         result = await score_ticker("NVDA", base_score=30, direction="long")
     assert result.breakdown.days_to_cover == 3
+
+
+# --------------------------------------------------------------------------- #
+# 7. F7 (c102) — short-alert squeeze-risk guard
+# --------------------------------------------------------------------------- #
+
+def test_squeeze_short_elevated_rising_gives_negative_cap():
+    # SHORT signal + crowded, rising short -> DEMOTE (negative penalty_cap)
+    assert _compute_squeeze_risk_pts(_row(), direction="short") == -4
+
+
+def test_squeeze_long_direction_gives_zero():
+    # A crowded short is confluence FOR a long (r12), never the guard
+    assert _compute_squeeze_risk_pts(_row(), direction="long") == 0
+
+
+def test_squeeze_below_min_gives_zero():
+    assert _compute_squeeze_risk_pts(_row(days_to_cover=1.0), direction="short") == 0
+
+
+def test_squeeze_not_rising_gives_zero():
+    assert _compute_squeeze_risk_pts(_row(pct_change=-1.0), direction="short") == 0
+
+
+def test_squeeze_stale_row_gives_zero():
+    stale = _row(published_at=time.time() - 40 * 86400)
+    assert _compute_squeeze_risk_pts(stale, direction="short") == 0
+
+
+def test_squeeze_missing_dtc_gives_zero():
+    assert _compute_squeeze_risk_pts(_row(days_to_cover=None), direction="short") == 0
+
+
+async def _score_with_flags(overrides, direction, si_row):
+    """Run score_ticker with the short-interest DB read mocked; return
+    (breakdown, list-of-DB-read-calls)."""
+    calls: list[str] = []
+    with contextlib.ExitStack() as stack:
+        for p in _patch_fetchers():
+            stack.enter_context(p)
+        real = cfg.get
+        stack.enter_context(patch.object(
+            cfg, "get",
+            lambda k, d=None: overrides[k] if k in overrides else real(k, d)))
+        mdb = stack.enter_context(patch("consensus_engine.cross_reference.db"))
+        stack.enter_context(patch(
+            "consensus_engine.analysis.consolidation.consolidate_for_ticker",
+            new=AsyncMock(return_value=_FAKE_CONS)))
+        stack.enter_context(patch(
+            "consensus_engine.cross_reference._run_llm_score",
+            new_callable=AsyncMock, return_value=(0, "")))
+        mdb.get_signal_counts_by_source = AsyncMock(return_value={})
+        mdb.get_analyst_precision_lb = AsyncMock(return_value=None)
+
+        def _read(t):
+            calls.append("si")
+            return si_row
+
+        mdb.get_latest_finra_short_interest = AsyncMock(side_effect=_read)
+        result = await score_ticker("NVDA", base_score=30, direction=direction)
+    return result.breakdown, calls
+
+
+_CROWDED_RISING = {
+    "ticker": "NVDA", "settlement_date": "2026-06-15", "short_interest": 3, "avg_daily_volume": 1,
+    "days_to_cover": 4.5, "prev_short_interest": 2, "pct_change": 5.0,
+}
+
+
+@pytest.mark.asyncio
+async def test_guard_on_short_demotes(monkeypatch):
+    bd, calls = await _score_with_flags(
+        {"features.short_interest.enabled": False, "features.short_squeeze_guard.enabled": True},
+        direction="short", si_row=dict(_CROWDED_RISING, published_at=time.time()))
+    assert bd.squeeze_risk == -4
+    assert bd.days_to_cover == 0, "bullish r12 leg stays 0 when only the guard flag is on"
+    assert calls == ["si"], "exactly ONE short-interest DB read is shared between both legs"
+
+
+@pytest.mark.asyncio
+async def test_guard_on_long_is_zero(monkeypatch):
+    bd, _ = await _score_with_flags(
+        {"features.short_interest.enabled": False, "features.short_squeeze_guard.enabled": True},
+        direction="long", si_row=dict(_CROWDED_RISING, published_at=time.time()))
+    assert bd.squeeze_risk == 0, "guard never fires on a long signal"
+
+
+@pytest.mark.asyncio
+async def test_guard_off_no_extra_read_and_byte_identical(monkeypatch):
+    # Both flags OFF -> zero DB reads, squeeze_risk 0 (byte-identical to today).
+    bd, calls = await _score_with_flags(
+        {"features.short_interest.enabled": False, "features.short_squeeze_guard.enabled": False},
+        direction="short", si_row=dict(_CROWDED_RISING, published_at=time.time()))
+    assert bd.squeeze_risk == 0
+    assert bd.days_to_cover == 0
+    assert not calls, "both flags off -> no short-interest read on the hot path"
+
+
+@pytest.mark.asyncio
+async def test_guard_and_r12_both_on_share_one_read(monkeypatch):
+    # LONG signal, both flags on: r12 adds +3, guard stays 0 (long), ONE read.
+    bd, calls = await _score_with_flags(
+        {"features.short_interest.enabled": True, "features.short_squeeze_guard.enabled": True},
+        direction="long", si_row=dict(_CROWDED_RISING, published_at=time.time()))
+    assert bd.days_to_cover == 3
+    assert bd.squeeze_risk == 0
+    assert calls == ["si"], "both legs read the SAME row via one DB call"
 
 
 # --------------------------------------------------------------------------- #

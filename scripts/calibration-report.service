@@ -1,0 +1,15 @@
+[Unit]
+Description=Weekly calibration report -> #errors (F6, #76 menu; posts Brier/AUC "how well-calibrated is the bot" summary)
+After=network-online.target
+OnFailure=alert@%n.service
+
+[Service]
+Type=oneshot
+User=openclaw
+WorkingDirectory=/home/openclaw/.openclaw/workspace
+# Needs the Discord bot token to post; exits non-zero (tripping OnFailure) if
+# eval.report.run() raises or the post fails, so a vanished report is never silent.
+EnvironmentFile=-/home/openclaw/.openclaw/.env.service
+ExecStart=/usr/bin/python3 /home/openclaw/.openclaw/workspace/scripts/calibration_report.py
+StandardOutput=journal
+StandardError=journal

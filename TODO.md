@@ -445,18 +445,33 @@ Stop two social crowds (StockTwits + Reddit) from counting as two independent vo
 
 Most of the 644 MB database is one table of expired "a source mentioned a ticker" records (99.88% past expiry); pruning/archiving them could halve the DB and every nightly backup — but ONLY after proving nothing (live queries, backtests, the eval tool, future features) still needs that history.
 
-## 67. Finish the feature-idea sweep, reusing the already-saved codebase map — BUILD COMPLETE; 19 features shipped flag-OFF (16 on 2026-07-08 + 3 on 2026-07-14) — AWAITING APPROVAL: 14 switches need a yes/no (this is the ONE place every built-but-off switch is listed — run `python3 scripts/todo_switch_state.py` to see live state)
+## 67. Finish the feature-idea sweep, reusing the already-saved codebase map — BUILD COMPLETE; 24 features shipped flag-OFF (16 on 2026-07-08 + 3 TIER-1 + 5 final on 2026-07-14) — AWAITING APPROVAL: 19 switches still pending a yes/no (this is the ONE place every built-but-off switch is listed — run `python3 scripts/todo_switch_state.py` to see live state)
 
 **SHADOW SOAK (2026-07-08, added after user pushback "are you sure you're collecting all the pertinent shadow data?"):** The build shipped everything flag-OFF, but I discovered NOTHING was actually accruing — (a) the live engine had been running July-5 code the whole time (never restarted onto the new code), and (b) 5 data-collecting features gated their DATA-WRITING behind the same off-switch (dormant, not shadow-logging). FIXED + PROVEN LIVE: restarted `consensus-engine.service` (new PID, schema 31, healthy); flipped the 3 write-only collectors ON (form144/insider_10b5_plans/congress_trades — verified no alert code); added a `collect` sub-flag for short-interest (fills table, score leg still OFF → byte-identical) + a daily breadth snapshot in market_daily (commit `dcb81e1`, full gate passed). VERIFIED real rows in the live DB: finra_short_interest 1317, form144_filings 30, insider_10b5_plans 12, congress_trades 8, market_breadth_daily 1, macro_legs_daily 1; NFCI write path proven on a scratch DB (nfci_index=-0.515; today's live row caught a cold-start transient=None, self-heals tomorrow). Loops re-run on their intervals (SI 12h / 144 6h / 10b5 8h / congress 24h / breadth+macro+NFCI daily). The 7 options-card readouts need no soak (validate by eye once). NO live alert/score changed. Go-live (flag flips) is still a separate per-feature user decision.
 
 
 **File:** `next-features-jul2026-resume.md`
 
-**Switches:** features.trading_halts.enabled=on; features.skew_index.enabled=on; features.dealer_gamma.enabled=on; features.iv_skew.enabled=on; features.oi_pinning.enabled=on; features.iv_rv_tag.enabled=on; features.vol_squeeze.enabled=on; features.market_breadth.enabled=on; features.market_breadth.shadow=on; features.short_interest.enabled=on; features.short_interest.collect=on; features.pead.enabled=on; features.form144.enabled=on; features.insider_10b5_plans.enabled=on; features.congress_trades.enabled=on; features.cross_asset.nfci_leg_enabled=on; features.sources_denominator.enabled=on; features.vvix_residual.enabled=on; features.vvix_residual.collect=on; features.sweep.enabled=on
+**Switches:** features.trading_halts.enabled=on; features.skew_index.enabled=on; features.dealer_gamma.enabled=on; features.iv_skew.enabled=on; features.oi_pinning.enabled=on; features.iv_rv_tag.enabled=on; features.vol_squeeze.enabled=on; features.market_breadth.enabled=on; features.market_breadth.shadow=on; features.short_interest.enabled=on; features.short_interest.collect=on; features.pead.enabled=on; features.form144.enabled=on; features.insider_10b5_plans.enabled=on; features.congress_trades.enabled=on; features.cross_asset.nfci_leg_enabled=on; features.sources_denominator.enabled=on; features.vvix_residual.enabled=on; features.vvix_residual.collect=on; features.sweep.enabled=on; features.calibration_report.enabled=on; features.sec_xbrl.enabled=on; features.flow_hedge_discount.collect=on; features.decay_tracker.enabled=on; features.short_squeeze_guard.enabled=on
 
-**CURRENT STATUS (2026-07-14):** **3 more switches added to this list, from the #76 feature-menu build
-(run `menu-top10`).** They are display-only, cannot touch an alert or a score, and each was proved on
-real data before commit — so they are the *safest* flips on the whole list:
+**CURRENT STATUS (2026-07-14 — the FINAL 5 #76 builds added; the menu is now exhausted):** the last 5
+`menu-top10` features are registered here for the yes/no. **They are NOT all safe display-only flips —
+read the class before flipping:**
+- **`sec_xbrl.enabled` (F9)** — Class A, display-only `!all` line, never scored. Safe to flip once
+  `sec_xbrl_daily.timer` has filled `company_fundamentals` (real NVDA/AAPL/MU rows proved at build).
+- **`calibration_report.enabled` (F6)** — Class A, posts a weekly Brier/AUC summary to #errors. Safe;
+  changes no alert. (Real dry-run showed the score barely beats a coin — expect that message.)
+- **`flow_hedge_discount.collect` (F4)** — Class B, turns on a SHADOW LOG only (no alert change). Flip
+  at merge + engine restart to start accruing. **BLOCKED on Schwab**: delta only comes from the Schwab
+  chain, which is expired — until re-login, hits log `delta_unknown`. `.enabled` stays OFF until
+  `flow_hedge_shadow_review.py` shows the discount would help.
+- **`decay_tracker.enabled` (F10)** — reports only, never un-flips a flag. Safe after baselines are
+  frozen (`--freeze-baselines`) and a few dry-runs look sane.
+- **`short_squeeze_guard.enabled` (F7)** — **Class C, score-touching: it DEMOTES SHORT alerts.** Do NOT
+  flip on a whim — needs a shadow comparison of scored short signals first, like any score change.
+
+**Earlier this run: 3 display-only switches added** (sources_denominator, vvix_residual, sweep) — those
+ARE the safest flips on the list (cannot touch an alert or a score, each proved on real data):
 
 **CURRENT STATUS (2026-07-07):** Ran the FULL discover pipeline, well past "just the menu". Passes 1–4 done: 113 ideas → triaged to 34 with merit → kill-tested the strong 27 (24 survived, 3 killed, 0 Codex-disputed) → planned the top 16 into a 6-stage build. **Stage 1 of 6 SHIPPED** — commit `f2b0b7d` (local, not pushed until this close): r14 trading-halt tripwire + r8 ^SKEW module, both config-flag **OFF**; a live-probe caught+fixed a redirect bug the green unit tests missed; full suite 2655 pass. **Stages 2–6 (14 features) set to run AUTONOMOUSLY** next session via the one-line trigger `discover: build next-features-jul2026` (everything ships OFF; go-live stays a separate user decision). Both former data-blockers SOLVED this session: House congress trades via `disclosures-clerk.house.gov` (index + machine-readable PTR PDFs), and market breadth via an RSP/SPY equal-weight proxy (2 tickers, no 500-name fan-out); only the Senate half of congress remains deferred. Resume brief with exact recipes: `todo/kickoffs/discover-next-features-resume.md`; run state: `.claude/discover/next-features-jul2026/`.
 
@@ -560,41 +575,26 @@ The standing way to go find NEW ideas: verify ground truth against the real code
 
 **File:** `feature-menu-ledger.md`
 
-**CURRENT STATUS (2026-07-14, run `menu-top10`):** **TIER 1 is DONE — all three shipped flag-OFF, each
-proved on real data.** The split is now **20 BUILT · 6 ALREADY LIVE · 3 KILLED · 75 PASSED · 10 OPEN**
-(114 total ✓). **Built:** the `Sources: 21 of 27 attempted` footer · the VVIX fear-of-fear gauge · the
-`!sweep` watchlist command. **Passed (user accepted both drops):** the FOMC hawk/dove reader and learned
-continuous signal weights. **Promoted PASSED → OPEN:** c102, the short-alert squeeze-risk guard — its
-only blocker (the short-interest feed) has shipped. **Start at TIER 2; TIER 1 is empty.** Seven of the
-ten open ideas are already PLANNED, not merely listed — `todo/feature-menu-build-plans.md` has
-a build plan with a real probe for each (F4–F10); read it instead of re-planning.
+**CURRENT STATUS (2026-07-14, run `menu-top10`): the MENU IS EXHAUSTED — 0 OPEN.** Every one of the 114
+ideas is now BUILT, LIVE, KILLED, or PASSED. The split is **25 BUILT · 6 ALREADY LIVE · 3 KILLED · 80
+PASSED · 0 OPEN** (114 total ✓). **The final 5 were built this run** (all flag-OFF, each proved on real
+data — full detail in `feature-menu-ledger.md`'s BUILT table + final session note):
+- **F7** short-alert squeeze-risk guard (`features.short_squeeze_guard.enabled`) — demotes a SHORT on a
+  crowded, RISING short; shares the r12 DB read (no 2nd call); breakdown byte-identical OFF. 10 tests.
+- **F4** hedge-vs-directional flow classifier (`features.flow_hedge_discount.collect`) — SHADOW LOG only;
+  `format_flow_alert` byte-identical (test-locked). Delta comes from Schwab (currently expired).
+- **F6** weekly Brier/calibration report (`features.calibration_report.enabled`) → #errors. Real dry-run:
+  24h Brier 0.250 vs base-rate 0.248 — honestly shows the score barely beats a coin.
+- **F9** SEC XBRL fundamentals (`features.sec_xbrl.enabled`) — display-only `!all` line; real NVDA
+  $44.06B/+69% YoY, AAPL $95.4B, MU $9.3B; embed byte-identical OFF.
+- **F10** backtest-to-live decay tracker (`features.decay_tracker.enabled`) — daily; real run froze 14
+  baselines, flagged 3 decay/6 OK/5 insufficient; alerts #errors transition-only; never un-flips.
 
-**Built this session (3):** the **`Sources: 21 of 27 attempted` footer** (`features.sources_denominator`
-— real `!all NVDA`; OFF is byte-identical) · the **VVIX fear-of-fear gauge** (`features.vvix_residual`;
-real row VVIX 93.28 / VIX 16.50, residual independently re-checked with numpy; descriptive only, a test
-forbids the scorer from ever reading it) · **`!sweep`** (`features.sweep` — real sweep IBM 82 / META 55
-/ JPM 49; **`!sweep IBM` == `!scan IBM`** (82 at build time; an independent verifier later re-ran both paths and got 65 = 65 — the score is time-varying, the agreement is the invariant), and `!scan` is untouched). **Caught during the build:**
-the plan wanted `!sweep` ranked on the raw additive `breakdown.total`, which would have printed a
-DIFFERENT number than `!scan` for the same ticker — re-creating the exact bug #50 fixed. It now runs the
-identical precision path `!scan` runs.
-
-**Passed this session (2, user accepted both):** the **FOMC hawk/dove reader** (8 statements a year,
-zero per-ticker attribution, needs a new fetcher + LLM stance parser; FOMC dates already drive the alert
-blackout — worst payoff per line on the menu) and **learned continuous signal weights** (the blocker is
-DATA, not code: outcome-data volume owned by #67/#73, so building it now just leaves it idle — the
-strongest re-open once #73's soak fills in).
-
-**What's left — 10 OPEN, start at TIER 2** (TIER 1 is empty): hedge-vs-directional flow discount ·
-generalize the crowding guard + flip `social_family_dedup` on · Brier/calibration automation · analyst
-price-target spread (a logger first — no spread history exists) · **short-alert squeeze-risk guard
-(c102, PROMOTED out of PASSED — its only blocker, the short-interest feed, has shipped)**. **TIER 3
-(heavy):** SEC XBRL fundamentals · backtest-to-live decay tracker. **TIER 4 (weak — recommend PASS):**
-market-wide put/call (**its free CBOE source has been dead since Oct 2020**) · CFTC COT (weekly, lagged,
-futures-only) · GDELT (the repo's own research already scored it bottom-30%).
-
-**7 of those are already PLANNED, not merely listed** — `todo/feature-menu-build-plans.md` has
-a full build plan for F4–F10 (verified line numbers, risk callouts, a probe each). A session picking one
-should read that plan instead of re-planning it.
+**All 5 flags are registered on #67** (with activation classes — F7 is score-touching Class C, not a safe
+flip). **Nothing is open.** To find NEW ideas, run **#75**; the SOFT reserve pool (25 judgment-call /
+no-reason drops in the ledger) is the cheaper first stop. Earlier this run: the 3 TIER-1 builds
+(sources_denominator, vvix_residual, sweep) + the user's drops (FOMC reader, learned weights, c72/F5,
+c88/F8, all 3 TIER-4).
 
 **Caught 2026-07-14:** *EPS-estimate revisions momentum* was sitting in the candidate list and is in
 fact **already built and live** (`features.snapshot.eps_revisions: true` — the `EPS rev 34↑ 3↓ (30d)`
@@ -604,14 +604,15 @@ to ready-to-build** — "not built in that run" ≠ "the bot lacks it".
 **Were the 74 rejected on merit, or for lack of build budget? Verified 2026-07-14 — MERIT, not
 resources.** A capacity cap *did* exist (the run's pass-2 kept only the **top 7** and logged 24 ideas as
 "filtered due to capacity"), **but the later merit pass rescued all 24** — they are now **13 BUILT,
-9 OPEN, 2 KILLED, 0 PASSED**. Nothing was cut for resources and left cut. **But the 74 are not equally
+5 OPEN, 2 KILLED, 4 PASSED** (c88/c8/c42/c91, all dropped by the user on merit 2026-07-14 — not
+resource cuts). Nothing was cut for resources and left cut. **But the 74 are not equally
 dead: 48 are firm** (13 hard-no — data doesn't exist / proven no-edge / fights the project's own rules;
 30 redundant; 5 out of scope) **and 26 are SOFT** — 22 are "low value / secondary" **judgment calls
 never proven unworkable**, and **4 were dropped with no reason ever written down** (c31 Hidden Markov
 regime · c41 institutional-vs-retail put/call · c47 signal-to-noise dashboard · c95 EIA oil & gas).
-**Those 26 are the reserve pool** when the 14 open candidates run out — far cheaper to reopen than to
+**Those 26 are the reserve pool** when the 5 open candidates run out — far cheaper to reopen than to
 pay for a fresh research run (#75). **One PASSED idea's reason has already expired: c102 (short-alert
 squeeze-risk guard)** was rejected *only* because it needed the short-interest leg — **which has since
 shipped**. It is the most promotable idea in the PASSED bucket.
 
-The standing menu of already-researched ideas, with every verdict written down so no session redoes settled work. All 113 rostered individually; the 14 open ones sorted strongest-to-weakest in 4 tiers; work them top-down. **The trap this file exists to prevent: "not built in that run" ≠ "the bot lacks it" — always grep the live code before promoting an idea to ready-to-build.** (It caught one on 2026-07-14: EPS-revisions was listed as a candidate and is in fact live.) Build a pick under the normal rules, then write `BUILT` or `PASSED` (with the reason) back into the ledger and move the row into the closed section — a rejected idea is PASSED, never deleted, because the reason is what stops it being re-proposed, and **a row must never sit in two places**. Also records the 3 killed ideas, the 6 already-live ones, and the 74 rejected with reasons — each graded firm vs soft, so the soft ones can be reopened instead of paying for a new research run (the run generated **113** distinct ideas, not 115 — the IDs run to c115 but c58/c82 were never written and c97 is duplicated). Closes only when all four tiers are empty. Turning ON the 16 already-built features is **#67**, not this item.
+The standing menu of already-researched ideas, with every verdict written down so no session redoes settled work. All 113 rostered individually; the open ones sorted strongest-to-weakest in 4 tiers; work them top-down. **The trap this file exists to prevent: "not built in that run" ≠ "the bot lacks it" — always grep the live code before promoting an idea to ready-to-build.** (It caught one on 2026-07-14: EPS-revisions was listed as a candidate and is in fact live.) Build a pick under the normal rules, then write `BUILT` or `PASSED` (with the reason) back into the ledger and move the row into the closed section — a rejected idea is PASSED, never deleted, because the reason is what stops it being re-proposed, and **a row must never sit in two places**. Also records the 3 killed ideas, the 6 already-live ones, and the 74 rejected with reasons — each graded firm vs soft, so the soft ones can be reopened instead of paying for a new research run (the run generated **113** distinct ideas, not 115 — the IDs run to c115 but c58/c82 were never written and c97 is duplicated). Closes only when all four tiers are empty. Turning ON the 16 already-built features is **#67**, not this item.

@@ -13,13 +13,13 @@ why); this file is the HOW-TO for the ones still open.
 | **F1** | "Sources: N of M attempted" footer | ✅ **BUILT 2026-07-14** — `features.sources_denominator.enabled` |
 | **F2** | VVIX fear-of-fear gauge | ✅ **BUILT 2026-07-14** — `features.vvix_residual.enabled` |
 | **F3** | `!sweep` watchlist command | ✅ **BUILT 2026-07-14** — `features.sweep.enabled` |
-| **F4** | Hedge-vs-directional options-flow classifier | ⬜ TO BUILD (ships as a shadow log — it touches a live alert) |
-| **F5** | Crowding-guard generalization | ⬜ TO BUILD (config-map extension; the FLIP belongs to #67, don't duplicate) |
-| **F6** | Brier/calibration report — timer + Discord sink | ⬜ TO BUILD (small; the maths already exists, nobody ever sees it) |
-| **F7** | Short-alert squeeze-risk guard (c102) | ⬜ TO BUILD (its short-interest blocker HAS shipped) |
-| **F8** | Analyst target-spread logger | ⬜ TO BUILD (a LOGGER, not a signal — no spread history exists yet) |
-| **F9** | SEC XBRL fundamentals feed | ⬜ TO BUILD (heavy: new client + table + display) |
-| **F10** | Backtest-to-live decay tracker | ⬜ TO BUILD (medium-heavy; grows in value as #73's outcome data fills in) |
+| **F4** | Hedge-vs-directional options-flow classifier | ✅ **BUILT 2026-07-14** — `features.flow_hedge_discount.collect` (shadow log only; live alert byte-identical) |
+| **F5** | Crowding-guard generalization | ❌ **DROPPED 2026-07-14 (user)** — do NOT build. Its whole job was to treat several YouTube channels saying the same thing as "crowding" and discount them. The user's call: independent channels agreeing is **confluence, not crowding** — the exact signal we want, not noise to suppress. |
+| **F6** | Brier/calibration report — timer + Discord sink | ✅ **BUILT 2026-07-14** — `features.calibration_report.enabled` (weekly timer → #errors) |
+| **F7** | Short-alert squeeze-risk guard (c102) | ✅ **BUILT 2026-07-14** — `features.short_squeeze_guard.enabled` (shares the r12 DB read; breakdown byte-identical OFF) |
+| **F8** | Analyst target-spread logger | ❌ **DROPPED 2026-07-14 (user)** — do NOT build. It logs the high-vs-low analyst target gap **daily**, but analysts rarely change targets, so it mostly writes the same three numbers over and over. Shows the user nothing for months (no history to compare against). Not worth it as planned. |
+| **F9** | SEC XBRL fundamentals feed | ✅ **BUILT 2026-07-14** — `features.sec_xbrl.enabled` (display-only !all line; !all embed byte-identical OFF) |
+| **F10** | Backtest-to-live decay tracker | ✅ **BUILT 2026-07-14** — `features.decay_tracker.enabled` (daily tracker → #errors, transition-only; never un-flips) |
 
 **Two things this plan got WRONG, found during the F1–F3 build — do not trust it blindly:**
 1. It said to rank `!sweep` on `breakdown.total`. That is the RAW ADDITIVE sum, but `!scan` reports the

@@ -872,6 +872,7 @@ def build_embed(
     wolf_confluence: Optional[dict] = None,
     insider_field: Optional[str] = None,
     sources_total: Optional[int] = None,
+    fundamentals: Optional[dict] = None,
 ) -> dict:
     """Return a Discord embed payload dict for the !all command."""
     direction = getattr(structured, "direction", "") or ""
@@ -1079,6 +1080,14 @@ def build_embed(
     snap_val = _format_snapshot(getattr(structured, "snapshot", None))
     if snap_val != "—":
         fields.append({"name": "📊 Snapshot", "value": snap_val, "inline": False})
+
+    # F9 (#76 menu) — SEC XBRL fundamentals, DISPLAY ONLY. None unless
+    # features.sec_xbrl.enabled, so the field is absent (byte-identical) when OFF.
+    if isinstance(fundamentals, dict) and fundamentals.get("revenue") is not None:
+        from consensus_engine.scanners.sec_xbrl import format_fundamentals_line
+        fields.append({"name": "🏢 Fundamentals",
+                       "value": format_fundamentals_line(fundamentals)[:1024],
+                       "inline": False})
 
     # Issue 3a — today's TweetShift volume (midnight ET → now), bull/bear split
     # from the stored sentiment, plus one random example. Omitted when no tweets.

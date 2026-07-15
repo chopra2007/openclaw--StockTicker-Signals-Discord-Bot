@@ -1,19 +1,24 @@
 # Finish the feature-idea sweep, reusing the already-saved codebase map
 
-**Status:** AWAITING APPROVAL — **14 switches need a yes/no.** 19 features are built and sitting OFF: 16 from the July sweep (2026-07-08) + 3 from the #76 menu build (2026-07-14). **This item is the ONE place every built-but-switched-off feature is listed** — whatever session builds it, its switch is registered here, so the user has a single list to approve from. Live state: `python3 scripts/todo_switch_state.py`. The old `SOAKING until 2026-07-15` clock was dropped 2026-07-13: the display-only ones collect nothing while off, so waiting bought them zero evidence. Of the rest, short-interest + PEAD need a blast-radius measurement (our work, not a wait), and only the NFCI leg genuinely needs more calendar time (3 readings so far, all identical). See TODO #73's switch inventory.
+**Status:** AWAITING APPROVAL — switches need a yes/no. 24 features are built and sitting OFF: 16 from the July sweep (2026-07-08) + 3 TIER-1 + 5 final from the #76 menu build (both 2026-07-14). **This item is the ONE place every built-but-switched-off feature is listed** — whatever session builds it, its switch is registered here, so the user has a single list to approve from. Live state: `python3 scripts/todo_switch_state.py`. The old `SOAKING until 2026-07-15` clock was dropped 2026-07-13: the display-only ones collect nothing while off, so waiting bought them zero evidence. Of the rest, short-interest + PEAD need a blast-radius measurement (our work, not a wait), and only the NFCI leg genuinely needs more calendar time (3 readings so far, all identical). See TODO #73's switch inventory.
 **Created:** 2026-07-06
 
-**CURRENT STATUS (2026-07-14):** **3 more switches added to this list, from the #76 feature-menu build
-(run `menu-top10`).** They are display-only, cannot touch an alert or a score, and each was proved on
-real data before commit — so they are the *safest* flips on the whole list:
+**CURRENT STATUS (2026-07-14):** **8 switches added from the #76 feature-menu build (run `menu-top10`).**
+The first 3 (TIER-1) are display-only and the *safest* flips on the whole list; the final 5 vary — read
+the "How to see it / Risk" column before flipping, because two of them are NOT simple display toggles.
 
-| Switch | What flipping it does, in one line | Risk |
+| Switch | What flipping it does, in one line | How to see it / Risk |
 |---|---|---|
-| `features.sources_denominator.enabled` | The `!all` footer stops saying `Sources: 21` and starts saying **`Sources: 21 of 27 attempted`** — you can finally tell "4 of 5 sources agreed" from "4 of 27". | None. Display text only. OFF is byte-identical to today. |
-| `features.vvix_residual.enabled` | Adds one line to `!market`: the **VVIX "fear-of-fear"** read — is the market nervous about its own nervousness, beyond what the VIX already explains. (`collect: true` is ALREADY ON and quietly filling `vol_of_vol_daily`, so the history is there the day you flip this.) | None to alerts. A test forbids the scorer from ever reading it, so it cannot become the VIX predictor rejected in #47. |
-| `features.sweep.enabled` | Turns on the **`!sweep`** command (alias `!universe`): scores your whole watchlist on demand and posts one ranked list. Does not change any existing command. | Low. It is read-only and never alerts. Note it spends the same API budget the live alerts use (it runs the real `!scan` path per ticker), hence the 15-ticker / 3-at-a-time caps. |
+| `features.sources_denominator.enabled` | The `!all` footer stops saying `Sources: 21` and starts saying **`Sources: 21 of 27 attempted`** — you can finally tell "4 of 5 sources agreed" from "4 of 27". | Run `!all NVDA`. None. Display text only, OFF byte-identical. |
+| `features.vvix_residual.enabled` | Adds one line to `!market`: the **VVIX "fear-of-fear"** read — is the market nervous about its own nervousness, beyond what the VIX already explains. (`collect: true` is ALREADY ON filling `vol_of_vol_daily`.) | Run `!market`. None to alerts — a test forbids the scorer from ever reading it. |
+| `features.sweep.enabled` | Turns on the **`!sweep`** command (alias `!universe`): scores your whole watchlist on demand and posts one ranked list. Does not change any existing command. | Run `!sweep`. Low — read-only, never alerts (15-ticker / 3-at-a-time caps). |
+| `features.sec_xbrl.enabled` **(F9)** | Adds a **🏢 Fundamentals** line to `!all`: real revenue / margin / EPS + YoY straight from SEC filings (e.g. NVDA $44.06B, +69% YoY). | Run `!all NVDA` — but FIRST let `sec-xbrl-daily.timer` fill `company_fundamentals` (or run `scripts/sec_xbrl_daily.py --tickers NVDA` once). Display-only, never scored. |
+| `features.calibration_report.enabled` **(F6)** | Posts a **weekly plain-English "how honest are the bot's odds"** note (Brier / AUC) to #errors. | See it NOW without flipping: `python3 scripts/calibration_report.py --dry-run`. None — changes no alert. |
+| `features.decay_tracker.enabled` **(F10)** | Daily watch that pings #errors **only when a signal that used to work starts failing**. | See it NOW: `python3 scripts/signal_decay_check.py --freeze-baselines` then `--dry-run`. Reports only, never un-flips a flag. |
+| `features.flow_hedge_discount.collect` **(F4)** | **NOT a display toggle** — turns on a silent SHADOW LOG that records whether unusual flow looks like a hedge vs a real bet. Nothing shows in Discord. | Needs the Schwab real-time chain for its delta data; while Schwab is logged out it records `delta_unknown`. Live flow alert unchanged. |
+| `features.short_squeeze_guard.enabled` **(F7)** | **NOT a "view" toggle — it CHANGES a SHORT alert's score**, demoting SHORT signals on a crowded, rising short. | ⚠️ Score-touching (Class C). Do NOT flip casually — needs a shadow comparison of scored shorts first, like any score change. |
 
-**Flipping any of these needs an engine restart to take effect** (`systemctl restart consensus-engine.service`) — the engine reads config at startup.
+**Flipping any of these needs an engine restart to take effect** (`systemctl restart consensus-engine.service`) — the engine reads config at startup. (Exception: the F6/F10 scripts above run standalone, so you can preview them without a restart.)
 
 **CURRENT STATUS (2026-07-08):** **All 6 stages BUILT + VERIFIED + COMMITTED** (Stages 2–6 ran autonomously this session). 16 features shipped, every one behind a config flag **DEFAULT OFF** (shadow) — **no live alert, score, or !all/!market/!sec output changed** (proven byte-identical on both live-scoring surfaces: E2 `cross_asset.get_multiplier` and `cross_reference.score_ticker`). Stage commits (local, unpushed until this close): S2 `e74eb19` (NFCI + FRED macro legs), S3 `f057e23` (dealer-GEX/gamma-flip/IV-skew/OI-pinning + ^SKEW), S4 `1023bdf` (IV-vs-RV + squeeze), S5 `d240257` (short-interest/PEAD/breadth), S6 `931e272` (Form 144/10b5-1/House congress). Each stage: live-probe on real data + full regression (final **2785 passed, 0 regressions**) + ownership fix + per-stage commit; implementer (executor agents) separate from verifier (me). **Go-live NOT done — that's a separate, explicit, per-feature user decision gated on shadow evidence.** Owed follow-ups (in `.claude/discover/next-features-jul2026/outcome.json`): r13-Senate congress (efdsearch gated), r20 true advancers/decliners upgrade (shipped RSP/SPY proxy), and wiring the Stage-6 insider context lines onto the live !sec/!all surfaces (a go-live step after shadow data accrues). 3 ideas killed (max-pain-label/dark-pool/0DTE-directional); 8 kept ideas not built this run (VVIX/VIX, 0-100 score, crowding guard, market put/call, CFTC, GDELT, analyst-PT-disagreement, !scan) remain future candidates.
 
@@ -132,14 +137,20 @@ Resumed the run and took it all the way through the plan + first build stage.
 - **Stages 2-6 (14 features) queued to run AUTONOMOUSLY** next session: same one-line trigger `discover: build next-features-jul2026`. Mode + rules + confirmed data recipes in `todo/kickoffs/discover-next-features-resume.md`. Everything ships OFF; go-live is a separate later decision.
 - **Both deferrals solved this session** (user pushed to go to primary sources): House congress via `disclosures-clerk.house.gov` (PTR PDFs machine-readable via pdfplumber), market breadth via RSP/SPY equal-weight proxy. Only **Senate congress** remains deferred (efdsearch.senate.gov gated).
 
-### Session notes — 2026-07-14 (3 switches added from the #76 build)
+### Session notes — 2026-07-14 (3 TIER-1 + 5 final switches added from the #76 build)
 - **Why here:** the user asked that every built-but-off switch live in ONE place they can approve from.
-  This item already held the July sweep's 16; the `menu-top10` run's 3 were added to the same
+  This item already held the July sweep's 16; the `menu-top10` run's switches were added to the same
   `**Switches:**` line rather than starting a second list. **Any future session that builds a flag-OFF
   feature registers its switch HERE, whatever item it was built under.**
-- **Added:** `features.sources_denominator.enabled` · `features.vvix_residual.enabled` ·
-  `features.sweep.enabled` (plus `features.vvix_residual.collect`, already ON and collecting).
-- **Count is now 14 pending** (was 11 live-resolved; the header had said a stale "8").
-  `python3 scripts/todo_switch_state.py` is the source of truth, not the prose.
+- **Added (TIER-1, display-only):** `features.sources_denominator.enabled` ·
+  `features.vvix_residual.enabled` · `features.sweep.enabled` (plus `features.vvix_residual.collect`,
+  already ON and collecting).
+- **Added (the final 5, #76 exhausted):** `features.sec_xbrl.enabled` (F9, display-only !all line) ·
+  `features.calibration_report.enabled` (F6, weekly #errors report) · `features.decay_tracker.enabled`
+  (F10, reports-only) · `features.flow_hedge_discount.collect` (F4, SHADOW LOG — not a display toggle) ·
+  `features.short_squeeze_guard.enabled` (F7, **score-touching Class C — not a casual flip**). See the
+  table at the top for how to view each and its risk.
+- **`todo_switch_state.py` is the source of truth, not the prose** — it resolves every key against the
+  live `config/consensus.yaml` the engine reads, so a future session gets the real ON/OFF state from it.
 - **Nothing was flipped this session.** All 3 are display-only and were proved on real data, so they are
   the lowest-risk flips on the list — but the flip is the user's call, and it needs an engine restart.
