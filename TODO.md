@@ -561,14 +561,15 @@ The standing way to go find NEW ideas: verify ground truth against the real code
 **File:** `feature-menu-ledger.md`
 
 **CURRENT STATUS (2026-07-14, run `menu-top10`):** **TIER 1 is DONE — all three shipped flag-OFF, each
-proved on real data.** The split is now **20 BUILT · 6 ALREADY LIVE · 3 KILLED · 77 PASSED · 8 OPEN**
+proved on real data.** The split is now **20 BUILT · 6 ALREADY LIVE · 3 KILLED · 80 PASSED · 5 OPEN**
 (114 total ✓). **Built:** the `Sources: 21 of 27 attempted` footer · the VVIX fear-of-fear gauge · the
 `!sweep` watchlist command. **Passed (user accepted the drops):** the FOMC hawk/dove reader, learned
 continuous signal weights, and — on 2026-07-14 — the crowding-guard generalization (c72/F5: independent
-YouTube channels agreeing is confluence, not crowding) and the analyst target-spread logger (c88/F8: a
-daily logger that mostly re-writes the same numbers and shows nothing for months). **Promoted PASSED →
-OPEN:** c102, the short-alert squeeze-risk guard — its only blocker (the short-interest feed) has shipped.
-**Start at TIER 2; TIER 1 is empty.** Five of the eight open ideas are already PLANNED, not merely listed —
+YouTube channels agreeing is confluence, not crowding), the analyst target-spread logger (c88/F8: a
+daily logger that mostly re-writes the same numbers), and all three TIER-4 ideas (market-wide put/call,
+CFTC COT, GDELT — the user passed on the whole weak tier). **Promoted PASSED → OPEN:** c102, the
+short-alert squeeze-risk guard — its only blocker (the short-interest feed) has shipped. **Start at TIER
+2; TIER 4 is now empty too.** All five remaining open ideas are already PLANNED, not merely listed —
 `todo/feature-menu-build-plans.md` has a build plan with a real probe for each (F4, F6, F7, F9, F10);
 read it instead of re-planning.
 
@@ -587,16 +588,15 @@ blackout — worst payoff per line on the menu) and **learned continuous signal 
 DATA, not code: outcome-data volume owned by #67/#73, so building it now just leaves it idle — the
 strongest re-open once #73's soak fills in).
 
-**What's left — 8 OPEN, start at TIER 2** (TIER 1 is empty): hedge-vs-directional flow discount ·
-Brier/calibration automation · **short-alert squeeze-risk guard
-(c102, PROMOTED out of PASSED — its only blocker, the short-interest feed, has shipped)**. **TIER 3
-(heavy):** SEC XBRL fundamentals · backtest-to-live decay tracker. **TIER 4 (weak — recommend PASS):**
-market-wide put/call (**its free CBOE source has been dead since Oct 2020**) · CFTC COT (weekly, lagged,
-futures-only) · GDELT (the repo's own research already scored it bottom-30%). *(Two more were dropped by
-the user on 2026-07-14: the crowding-guard generalization — YouTube confluence isn't crowding — and the
-analyst target-spread logger — a daily logger that mostly re-writes the same numbers.)*
+**What's left — 5 OPEN, all planned** (TIER 1 and TIER 4 are both empty). **TIER 2:** hedge-vs-directional
+flow discount · Brier/calibration automation · **short-alert squeeze-risk guard (c102, PROMOTED out of
+PASSED — its only blocker, the short-interest feed, has shipped)**. **TIER 3 (heavy):** SEC XBRL
+fundamentals · backtest-to-live decay tracker. *(Five ideas were dropped by the user on 2026-07-14: the
+crowding-guard generalization — YouTube confluence isn't crowding — the analyst target-spread logger — a
+daily logger that mostly re-writes the same numbers — and all three weak TIER-4 ideas: market-wide
+put/call, CFTC COT, and GDELT.)*
 
-**5 of those are already PLANNED, not merely listed** — `todo/feature-menu-build-plans.md` has
+**All 5 are already PLANNED, not merely listed** — `todo/feature-menu-build-plans.md` has
 a full build plan for F4, F6, F7, F9, F10 (verified line numbers, risk callouts, a probe each). A session
 picking one should read that plan instead of re-planning it.
 
@@ -608,13 +608,13 @@ to ready-to-build** — "not built in that run" ≠ "the bot lacks it".
 **Were the 74 rejected on merit, or for lack of build budget? Verified 2026-07-14 — MERIT, not
 resources.** A capacity cap *did* exist (the run's pass-2 kept only the **top 7** and logged 24 ideas as
 "filtered due to capacity"), **but the later merit pass rescued all 24** — they are now **13 BUILT,
-8 OPEN, 2 KILLED, 1 PASSED** (c88, dropped by the user on merit 2026-07-14 — not a resource cut).
-Nothing was cut for resources and left cut. **But the 74 are not equally
+5 OPEN, 2 KILLED, 4 PASSED** (c88/c8/c42/c91, all dropped by the user on merit 2026-07-14 — not
+resource cuts). Nothing was cut for resources and left cut. **But the 74 are not equally
 dead: 48 are firm** (13 hard-no — data doesn't exist / proven no-edge / fights the project's own rules;
 30 redundant; 5 out of scope) **and 26 are SOFT** — 22 are "low value / secondary" **judgment calls
 never proven unworkable**, and **4 were dropped with no reason ever written down** (c31 Hidden Markov
 regime · c41 institutional-vs-retail put/call · c47 signal-to-noise dashboard · c95 EIA oil & gas).
-**Those 26 are the reserve pool** when the 8 open candidates run out — far cheaper to reopen than to
+**Those 26 are the reserve pool** when the 5 open candidates run out — far cheaper to reopen than to
 pay for a fresh research run (#75). **One PASSED idea's reason has already expired: c102 (short-alert
 squeeze-risk guard)** was rejected *only* because it needed the short-interest leg — **which has since
 shipped**. It is the most promotable idea in the PASSED bucket.

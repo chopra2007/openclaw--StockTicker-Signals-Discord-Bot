@@ -5,18 +5,19 @@
 **Last full code re-verification:** 2026-07-14 (every open idea grepped against the live code)
 
 **CURRENT STATUS (2026-07-14, run `menu-top10`):** **TIER 1 is DONE — all three shipped flag-OFF, each
-proved on real data.** The split is now **20 BUILT · 6 ALREADY LIVE · 3 KILLED · 77 PASSED · 8 OPEN**
+proved on real data.** The split is now **20 BUILT · 6 ALREADY LIVE · 3 KILLED · 80 PASSED · 5 OPEN**
 (114 total ✓). **Built:** the `Sources: 21 of 27 attempted` footer · the VVIX fear-of-fear gauge · the
 `!sweep` watchlist command. **Passed (user accepted the drops):** the FOMC hawk/dove reader, learned
 continuous signal weights, and — on 2026-07-14 — the crowding-guard generalization (c72/F5: independent
-YouTube channels agreeing is confluence, not crowding) and the analyst target-spread logger (c88/F8: a
-daily logger that mostly re-writes the same numbers and shows nothing for months). **Promoted PASSED →
-OPEN:** c102, the short-alert squeeze-risk guard — its only blocker (the short-interest feed) has shipped.
-**Start at TIER 2; TIER 1 is empty.** Five of the eight open ideas are already PLANNED, not merely listed —
+YouTube channels agreeing is confluence, not crowding), the analyst target-spread logger (c88/F8: a
+daily logger that mostly re-writes the same numbers), and all three TIER-4 ideas (market-wide put/call,
+CFTC COT, GDELT — the user passed on the whole weak tier). **Promoted PASSED → OPEN:** c102, the
+short-alert squeeze-risk guard — its only blocker (the short-interest feed) has shipped. **Start at TIER
+2; TIER 4 is now empty too.** All five remaining open ideas are already PLANNED, not merely listed —
 `todo/feature-menu-build-plans.md` has a build plan with a real probe for each (F4, F6, F7, F9, F10);
 read it instead of re-planning.
 
-**Only the 8 OPEN ones are candidates**, sorted **strongest first, in tiers**, so a session starts at
+**Only the 5 OPEN ones are candidates**, sorted **strongest first, in tiers**, so a session starts at
 the top and works down. **TIER 1 IS NOW EMPTY — start at TIER 2.** The other 104 are closed — nothing
 already built or already passed on appears in the candidate tiers. Re-verified against the live code,
 not against the discover run's artifacts.
@@ -25,21 +26,22 @@ not against the discover run's artifacts.
 + c102) was cut to 10 by kill-test, then the user chose to build **TIER 1 only** this session. So:
 **3 BUILT** (T1-a footer denominator, T1-b VVIX gauge, T1-c `!sweep`) · **2 PASSED** (T3-b FOMC reader,
 T3-d learned weights — user accepted both drops) · **c102 promoted PASSED → OPEN** (its blocker shipped).
-**The user then dropped two more of the open ideas (2026-07-14):** F5/c72 (crowding-guard generalization
-— independent YouTube channels agreeing is confluence, not crowding) and F8/c88 (analyst target-spread
-logger — a daily logger that mostly re-writes the same numbers, shows nothing for months). That leaves
-**5 of the 8 open ideas already PLANNED, not just listed** — a full build plan with per-feature probes
-exists at `todo/feature-menu-build-plans.md` (F4, F6, F7, F9, F10). A session picking one of them should
-read that plan first instead of re-planning: it has verified line numbers, risk callouts, and a probe each.
+**The user then dropped five more of the open ideas (2026-07-14):** F5/c72 (crowding-guard generalization
+— independent YouTube channels agreeing is confluence, not crowding), F8/c88 (analyst target-spread
+logger — a daily logger that mostly re-writes the same numbers), and all three TIER-4 ideas (c8 market-wide
+put/call, c42 CFTC COT, c91 GDELT — the user passed on the whole weak tier). That leaves **all 5 remaining
+open ideas already PLANNED, not just listed** — a full build plan with per-feature probes exists at
+`todo/feature-menu-build-plans.md` (F4, F6, F7, F9, F10). A session picking one of them should read that
+plan first instead of re-planning: it has verified line numbers, risk callouts, and a probe each.
 
-*(Arithmetic: 20 + 6 + 3 + 77 + 8 = 114 = the 113 numbered ideas + the one killed idea that was never
+*(Arithmetic: 20 + 6 + 3 + 80 + 5 = 114 = the 113 numbered ideas + the one killed idea that was never
 given a number. Checks out — see the roster's footnotes.)*
 
 **Were the 74 rejected on merit, or did we just run out of build budget? Verified 2026-07-14 — MERIT,
 not resources.** A capacity cap *did* exist (pass-2 kept only the **top 7** and logged 24 ideas as
 "filtered due to capacity"), **but the later merit pass rescued all 24** — they are now **13 BUILT,
-8 OPEN, 2 KILLED, and 1 PASSED** (c88, dropped by the user on merit 2026-07-14 — not a resource cut).
-Nothing was dropped for lack of resources and left there. **However,
+5 OPEN, 2 KILLED, and 4 PASSED** (c88/c8/c42/c91, all dropped by the user on merit 2026-07-14 — not
+resource cuts). Nothing was dropped for lack of resources and left there. **However,
 the 74 are not equally dead: 48 are firm** (13 hard-no — the data doesn't exist / is proven no-edge /
 fights the project's own rules; 30 redundant; 5 out of scope) **and 26 are SOFT** — 22 are "low
 value / secondary" **judgment calls that were never proven unworkable**, and **4 were dropped with no
@@ -162,16 +164,16 @@ accepted both drops. Reasons are in the PASSED section; do not re-propose them.)
 
 ---
 
-# TIER 4 — WEAK. Recommend PASS. (3 open)
+# TIER 4 — EMPTY. All three PASSED on the user's call, 2026-07-14. ✅
 
-Read the catch, then either PASS it with that reason or overrule me deliberately. Do not build one of
-these just because it is on the list.
+The user reviewed the three weak ideas and passed on all of them. Reasons are in the PASSED section
+below; do not re-propose them.
 
-| Idea | The catch that makes it weak |
-|---|---|
-| **Market-wide put/call ratio** (#11) | **The obvious free source is dead.** The CBOE equity put/call CSV has been **stale since Oct 2020** (recorded in `plans/discovery-2026-04-24/31-critique-feasibility.md:222`). Per-ticker put/call already exists (`scanners/options.py:127`). It also overlaps E2's market-regime multiplier. **Beware a stale doc:** `TODO.md:302` claims a timer "keeps logging CBOE put/call" — that collector lives in a **different project** and feeds nothing here. No proven free source ⇒ no build. |
-| **CFTC Commitments of Traders** (#21) | Free, but **weekly and lagged, and futures-only** — awkward for a 15-minute per-stock bot. Codex dissented ("too slow/macro"). Descriptive view at best. |
-| **GDELT global news tone** (#24) | **The repo's own research already shelved it** — scored **bottom-30%** in `plans/discovery-2026-04-24/20-candidate-features.md:554`. Very noisy, weak per-ticker attribution, big filtering build. The curated SerpAPI/RSS/Brave news already in the bot is sharper. |
+*(For the record, the catches that made them weak: **Market-wide put/call ratio** — its free CBOE source
+has been stale since Oct 2020, and per-ticker put/call already exists. **CFTC Commitments of Traders** —
+free but weekly, lagged, and futures-only, wrong speed for a 15-minute per-stock bot. **GDELT global
+news tone** — very noisy, can't reliably tell which company an article is about, and the repo's own
+research already scored it bottom-30%; the curated SerpAPI/RSS/Brave news already in the bot is sharper.)*
 
 ---
 
@@ -252,7 +254,7 @@ redundant/useless") re-reviewed all 113 and restored the capacity-cut ideas — 
 
 | Capacity-cut in pass-2 | Where they are now |
 |---|---|
-| 24 ideas | **13 BUILT · 8 OPEN (in the tiers above) · 2 KILLED on evidence · 1 PASSED** (c88, dropped by the user on merit 2026-07-14 — not a resource cut) |
+| 24 ideas | **13 BUILT · 5 OPEN (in the tiers above) · 2 KILLED on evidence · 4 PASSED** (c88/c8/c42/c91, all dropped by the user on merit 2026-07-14 — not resource cuts) |
 
 **Not one capacity-cut idea sits in the PASSED bucket.** Nothing was dropped for lack of resources and
 left there. (Verify: the 24 are c81 c111 c4 c113 c9 c19 c44 c8 c25 c28 c42 c20 c66 c65 c7 c59 c46 c88
@@ -272,7 +274,7 @@ ever want more candidates, reopen them there, not by running a new research pass
 | **E. No reason was ever written down** — the artifacts record the drop but not why: c31 Hidden Markov regime detector · c41 institutional-vs-retail put/call divergence · c47 signal-to-noise dashboard · c95 EIA oil & gas inventories | **4** | **SOFT — and unverified.** These were never actually justified. |
 
 **So: 48 of the 74 are firmly dead (A+B+C). 26 are soft (D+E)** — judgment calls and four ideas nobody
-ever gave a reason for. That is your real reserve pool if the 8 open candidates run out.
+ever gave a reason for. That is your real reserve pool if the 5 open candidates run out.
 
 **One PASSED idea's reason has already expired:** **c102 (short-alert squeeze-risk guard)** was rejected
 only because it *"depends on the short-interest leg landing first"* — and that leg has since **shipped**
@@ -349,7 +351,7 @@ is #67) · `LIVE` = already in the bot before the run · `KILLED` = premise disp
 | c5 | Machine-readable buy/sell tags on alerts | PASSED | Overlaps shipped decision-first alerts; nothing downstream would use the tags |
 | c6 | Short-end VIX9D term-structure leg | PASSED | Minor extension of existing term structure; marginal once VVIX covers vol-of-vol |
 | c7 | Yield curve, dollar, real yields | BUILT | `features.cross_asset.macro_legs` |
-| c8 | Market-wide put/call ratio | **OPEN — T4** | Recommend PASS: its free CBOE source has been dead since Oct 2020 |
+| c8 | Market-wide put/call ratio | **PASSED 2026-07-14 (user)** | Passed by the user: its free CBOE source has been dead since Oct 2020; per-ticker put/call already exists |
 | c9 | FINRA short interest + days-to-cover | BUILT | `features.short_interest.enabled` |
 | c10 | Treasury/FOMC event-risk overlay | PASSED | FOMC and CPI dates already ingested; the staleness add-on is thin |
 | c11 | Max-pain reliability label | **KILLED** | Premise false — max-pain is already shown unconditionally |
@@ -383,7 +385,7 @@ is #67) · `LIVE` = already in the bot before the run · `KILLED` = premise disp
 | c39 | EDGAR full-text 8-K keyword scanner | PASSED | 8-K detection already ships; 8-Ks never trigger standalone alerts |
 | c40 | Full VIX-futures term-structure curve | PASSED | Richer than the front curve but heavy to ingest; marginal gain |
 | c41 | Institutional vs retail put/call divergence | PASSED | Reason not recorded in the artifacts |
-| c42 | CFTC Commitments of Traders | **OPEN — T4** | Recommend PASS: weekly, lagged, futures-only — wrong speed for this bot |
+| c42 | CFTC Commitments of Traders | **PASSED 2026-07-14 (user)** | Passed by the user: weekly, lagged, futures-only — wrong speed for a 15-minute per-stock bot |
 | c43 | Economic Policy Uncertainty index | PASSED | Monthly cadence and noisy; secondary macro source |
 | c44 | Trading-halt tripwire | BUILT | `features.trading_halts.enabled` |
 | c45 | 13F institutional-holdings change | PASSED | 45-day lag; slower and less valuable than Form 144 or Congress |
@@ -430,7 +432,7 @@ is #67) · `LIVE` = already in the bot before the run · `KILLED` = premise disp
 | c88 | Analyst price-target disagreement | **PASSED 2026-07-14 (user)** | DROPPED by the user: its build (F8) logged the target spread daily but mostly re-writes the same numbers (analysts rarely move targets) and shows nothing for months. Targets stay on the `!all` card |
 | c89 | Quad-witching / OpEx-week overlay | PASSED | Narrower variant of seasonality; low impact |
 | c90 | Options bid-ask spread deterioration gate | PASSED | Data-quality gate; overlaps the liquidity family |
-| c91 | GDELT global news tone | **OPEN — T4** | Recommend PASS: the repo's own research already scored it bottom-30% |
+| c91 | GDELT global news tone | **PASSED 2026-07-14 (user)** | Passed by the user: noisy, weak per-ticker attribution; the repo's own research already scored it bottom-30% |
 | c92 | SEC Form 144 intent-to-sell | BUILT | `features.form144.enabled` |
 | c93 | Google Trends search-volume leg | PASSED | Fragile unofficial scraper; terms-of-service risk |
 | c94 | SEC XBRL fundamentals feed | **OPEN — T3-a** | Strong new data class, but a large build |
@@ -465,9 +467,10 @@ is #67) · `LIVE` = already in the bot before the run · `KILLED` = premise disp
 - **`c97` is duplicated** in the source artifacts (same OpenSecrets idea listed twice). Counted once.
 - **The 0DTE idea never got a number** — it exists only in `merit-triage.md` / the kill-test report.
   That is why the roster has 113 numbered rows but 114 verdicts.
-- **Tally:** 17 BUILT + 6 LIVE + 3 KILLED + 76 PASSED + 12 OPEN = **114 verdicts over 113 IDs.**
-  *(This roster tally counts the 17 pre-menu-top10 builds; the header's "20 BUILT / 8 OPEN" folds in
-  the 3 TIER-1 builds and c102's promotion. Both include c72's and c88's 2026-07-14 drops.)*
+- **Tally:** 17 BUILT + 6 LIVE + 3 KILLED + 79 PASSED + 9 OPEN = **114 verdicts over 113 IDs.**
+  *(This roster tally counts the 17 pre-menu-top10 builds; the header's "20 BUILT / 5 OPEN" folds in
+  the 3 TIER-1 builds and c102's promotion. Both include the 2026-07-14 user drops of c72, c88, c8,
+  c42, c91.)*
 
 ---
 
@@ -513,3 +516,13 @@ is #67) · `LIVE` = already in the bot before the run · `KILLED` = premise disp
     DROPPED in the build-plans file. Open count 10 → 8. The two already-live narrow crowding guards, the
     OFF `social_family_dedup` flag (#67), and the analyst targets on the `!all` card are all untouched.
 - **Next:** open tiers now hold F4, F6, F7, F9, F10 (planned) + the T3/T4 ideas.
+
+### Session notes — 2026-07-14 (TIER 4 passed)
+- **Worked on:** the user **passed on all three TIER-4 ideas** — c8 market-wide put/call (free CBOE
+  source dead since Oct 2020), c42 CFTC COT (weekly, lagged, futures-only), c91 GDELT news tone (noisy,
+  weak per-ticker attribution, repo's own research scored it bottom-30%). Moved all three OPEN → PASSED
+  in the tiers, roster, and every tally. TIER 4 is now empty. Open count 8 → 5.
+- **Result:** the 5 remaining open ideas are exactly the 5 with full build plans (F4, F6, F7, F9, F10):
+  hedge-vs-directional flow discount, Brier/calibration report, short-alert squeeze-risk guard, SEC XBRL
+  fundamentals, backtest-to-live decay tracker. Nothing left on the menu is unplanned.
+- **Next:** build from F4/F6/F7 (Tier 2, lighter) before F9/F10 (Tier 3, heavy).
