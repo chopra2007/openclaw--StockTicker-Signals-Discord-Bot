@@ -615,3 +615,13 @@ squeeze-risk guard)** was rejected *only* because it needed the short-interest l
 shipped**. It is the most promotable idea in the PASSED bucket.
 
 The standing menu of already-researched ideas, with every verdict written down so no session redoes settled work. All 113 rostered individually; the 14 open ones sorted strongest-to-weakest in 4 tiers; work them top-down. **The trap this file exists to prevent: "not built in that run" ≠ "the bot lacks it" — always grep the live code before promoting an idea to ready-to-build.** (It caught one on 2026-07-14: EPS-revisions was listed as a candidate and is in fact live.) Build a pick under the normal rules, then write `BUILT` or `PASSED` (with the reason) back into the ledger and move the row into the closed section — a rejected idea is PASSED, never deleted, because the reason is what stops it being re-proposed, and **a row must never sit in two places**. Also records the 3 killed ideas, the 6 already-live ones, and the 74 rejected with reasons — each graded firm vs soft, so the soft ones can be reopened instead of paying for a new research run (the run generated **113** distinct ideas, not 115 — the IDs run to c115 but c58/c82 were never written and c97 is duplicated). Closes only when all four tiers are empty. Turning ON the 16 already-built features is **#67**, not this item.
+
+## 77. Make the bot verify facts before stating them, without being prompted
+
+**File:** `verify-default-not-firing.md`
+
+**CURRENT STATUS (2026-07-14):** Newly opened. This is the *build* item that #40
+(diagnosis-only) explicitly deferred: "if the user later wants these enforced mechanically
+(a hook / a sub-agent preamble injector), open a new build item." Nothing built yet.
+
+Stop Claude from stating unchecked status/alerts as fact — it assumes, the user has to question it, and the claim turns out wrong; build a decision-time gate that fires the "verify first" reflex without bloating context (the failure mode of every past fix).
