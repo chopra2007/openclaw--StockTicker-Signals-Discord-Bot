@@ -5,15 +5,17 @@
 **Last full code re-verification:** 2026-07-14 (every open idea grepped against the live code)
 
 **CURRENT STATUS (2026-07-14, run `menu-top10`):** **TIER 1 is DONE — all three shipped flag-OFF, each
-proved on real data.** The split is now **20 BUILT · 6 ALREADY LIVE · 3 KILLED · 75 PASSED · 10 OPEN**
+proved on real data.** The split is now **20 BUILT · 6 ALREADY LIVE · 3 KILLED · 76 PASSED · 9 OPEN**
 (114 total ✓). **Built:** the `Sources: 21 of 27 attempted` footer · the VVIX fear-of-fear gauge · the
-`!sweep` watchlist command. **Passed (user accepted both drops):** the FOMC hawk/dove reader and learned
-continuous signal weights. **Promoted PASSED → OPEN:** c102, the short-alert squeeze-risk guard — its
-only blocker (the short-interest feed) has shipped. **Start at TIER 2; TIER 1 is empty.** Seven of the
-ten open ideas are already PLANNED, not merely listed — `todo/feature-menu-build-plans.md` has
-a build plan with a real probe for each (F4–F10); read it instead of re-planning.
+`!sweep` watchlist command. **Passed (user accepted the drops):** the FOMC hawk/dove reader, learned
+continuous signal weights, and — on 2026-07-14 — the crowding-guard generalization (c72/F5): the user's
+rule is that independent YouTube channels agreeing is confluence, not crowding. **Promoted PASSED → OPEN:**
+c102, the short-alert squeeze-risk guard — its only blocker (the short-interest feed) has shipped.
+**Start at TIER 2; TIER 1 is empty.** Six of the nine open ideas are already PLANNED, not merely listed —
+`todo/feature-menu-build-plans.md` has a build plan with a real probe for each (F4, F6, F7, F8, F9, F10);
+read it instead of re-planning.
 
-**Only the 10 OPEN ones are candidates**, sorted **strongest first, in tiers**, so a session starts at
+**Only the 9 OPEN ones are candidates**, sorted **strongest first, in tiers**, so a session starts at
 the top and works down. **TIER 1 IS NOW EMPTY — start at TIER 2.** The other 104 are closed — nothing
 already built or already passed on appears in the candidate tiers. Re-verified against the live code,
 not against the discover run's artifacts.
@@ -26,7 +28,7 @@ T3-d learned weights — user accepted both drops) · **c102 promoted PASSED →
 at `todo/feature-menu-build-plans.md` (F4-F10). A session picking one of them should read that
 plan first instead of re-planning: it has verified line numbers, risk callouts, and a probe each.
 
-*(Arithmetic: 20 + 6 + 3 + 75 + 10 = 114 = the 113 numbered ideas + the one killed idea that was never
+*(Arithmetic: 20 + 6 + 3 + 76 + 9 = 114 = the 113 numbered ideas + the one killed idea that was never
 given a number. Checks out — see the roster's footnotes.)*
 
 **Were the 74 rejected on merit, or did we just run out of build budget? Verified 2026-07-14 — MERIT,
@@ -79,7 +81,12 @@ output each one produced. Nothing to pick here. **Start at TIER 2.**
 ---
 
 
-# TIER 2 — SOLID. Real work, real payoff. (5 open)
+# TIER 2 — SOLID. Real work, real payoff. (4 open)
+
+*(T2-b · generalize the crowding guard was DROPPED on 2026-07-14 — the user's call. Its plan was to
+treat several YouTube channels saying the same thing as "crowding" and discount them; the user's rule is
+that independent channels agreeing is **confluence, not crowding**. Reason is in the PASSED section; do
+not re-propose it.)*
 
 ### T2-e · Short-alert squeeze-risk guard  *(c102 — PROMOTED out of PASSED, 2026-07-14)*
 - **What the user would see:** the bot stops shouting SHORT on a name that is primed to squeeze.
@@ -107,24 +114,6 @@ output each one produced. Nothing to pick here. **Start at TIER 2.**
 - **The job:** leg-pairing / multi-leg detection, delta-weighted notional, then a discount applied to
   `options_pts`. This touches a **live instant-trigger** signal, so it needs a shadow log before it
   changes real alerts.
-
-### T2-b · Generalize the crowding guard + flip `social_family_dedup` on
-- **What the user would see:** three retail sources shouting the same thing stop counting as three
-  independent votes.
-- **Already live (two narrow guards):** `analysis/wolf_confluence.py:516-518` (each independence bucket
-  casts one net vote) and `analysis/herding.py` (a **real measured pair-correlation discount** on
-  analyst clusters — `effective_size = raw_count − Σ co_post_rate`, proven by
-  `tests/test_analyst_herding.py::test_correlation_discount_reduces_effective_size`).
-- **Built but switched OFF:** `social_family_dedup` (`consensus.yaml:870`) collapses
-  ApeWisdom/StockTwits/Reddit into one `retail_crowd` vote (`cross_reference.py:237-253`). Demotion-only
-  and byte-identical when off.
-- **The job is "generalize + switch on", not "build".** Independence is enforced in three disconnected
-  places, and the only one touching the general score breakdown is off. Flipping it needs the
-  blast-radius measurement on `decision_snapshots` that the config comment itself demands (that flip is
-  #67 work — **coordinate, don't duplicate**).
-- *(A previous verification pass wrongly called the correlation discount a never-applied stub — it had
-  misread `_record_swarm_history`, a separate logging function. The discount is real. Verify before
-  believing a claim like that, including one of mine.)*
 
 ### T2-c · Brier-score / calibration automation
 - **What the user would see:** a regular, readable "how well-calibrated was the bot?" report — today
@@ -301,6 +290,7 @@ because building them now buys little:
 | Idea | Why it was PASSED (2026-07-14) |
 |---|---|
 | **T3-b · FOMC hawk/dove statement reader** | **Worst payoff per line on the menu.** Only **8 statements a year**, and a Fed statement carries **zero per-ticker attribution** — it says nothing about whether NVDA is a buy. Building it needs a new fetcher + an LLM stance parser + a stance-persistence table. FOMC dates *already* do the one job that matters here: they drive an alert blackout (`data/macro_events.yaml:5-11` → `analysis/contradiction.py:24-72`). **Re-open only if** the bot ever needs a macro-regime input that the existing cross-asset legs can't supply. |
+| **T2-b · Generalize the crowding guard (c72)** | **DROPPED on the user's call, 2026-07-14.** The build (F5) would have added `youtube_* → 'video_crowd'` dedup — treating several YouTube channels saying the same thing as one crowded vote and discounting them. The user rejects the premise: **independent channels agreeing is confluence, not crowding** — that's the signal we want, not noise to suppress. The two narrow guards already live (`wolf_confluence.py`, `herding.py`) and the OFF `social_family_dedup` flag (#67's decision) are untouched — only the YouTube generalization is killed. **Do not re-propose.** |
 | **T3-d · Learned (continuous) signal weights** | **The blocker is data, not code — so more code today changes nothing.** Its old gate ("needs the 0-100 score") is genuinely gone: the score is live. But the real gate is **outcome-data volume**, and that is owned by #67/#73 (the Friday-outcome backfill + the shadow soak). The offline `logistic_challenger` (`eval/report.py:286-366`) already fits real coefficients with a ticker embargo — they are simply never persisted or served at inference, and persisting them is a **score-touching blast-radius change** that belongs with the auto-flip engine, not a side build. **Re-open when** the graded-outcome table is rich enough for the auto-flip engine to trust a continuous weight — i.e. after #73's soak fills in. This is the strongest re-open candidate in the PASSED bucket once the data lands. |
 
 ## PASSED — 74 rejected in the July run, with reasons
@@ -422,7 +412,7 @@ is #67) · `LIVE` = already in the bot before the run · `KILLED` = premise disp
 | c69 | 13D/13G activist-stake scanner | LIVE | Already built |
 | c70 | Hedge-vs-directional flow classifier | PASSED | **Duplicate of c12** (which is OPEN at T2-a) |
 | c71 | Signal half-life / decay monitor | PASSED | Overlaps c46, the decay tracker |
-| c72 | Signal-crowding guard | **OPEN — T2-b** | Two narrow guards already live; job is generalize + switch on |
+| c72 | Signal-crowding guard | **PASSED 2026-07-14 (user)** | DROPPED by the user: its build (F5) would treat independent YouTube channels agreeing as "crowding" and discount them — but that is **confluence, not crowding**. The two live narrow guards are untouched |
 | c73 | Favorable-regime-only backtest guard | PASSED | Subsumed by walk-forward validation |
 | c74 | Flow-specific 2% sizing note | PASSED | Sizing is outside the alert-only scope |
 | c75 | Dynamic performance-based reweighting | PASSED | Premature before static and learned weights exist |
@@ -475,7 +465,9 @@ is #67) · `LIVE` = already in the bot before the run · `KILLED` = premise disp
 - **`c97` is duplicated** in the source artifacts (same OpenSecrets idea listed twice). Counted once.
 - **The 0DTE idea never got a number** — it exists only in `merit-triage.md` / the kill-test report.
   That is why the roster has 113 numbered rows but 114 verdicts.
-- **Tally:** 17 BUILT + 6 LIVE + 3 KILLED + 74 PASSED + 14 OPEN = **114 verdicts over 113 IDs.**
+- **Tally:** 17 BUILT + 6 LIVE + 3 KILLED + 75 PASSED + 13 OPEN = **114 verdicts over 113 IDs.**
+  *(This roster tally counts the 17 pre-menu-top10 builds; the header's "20 BUILT / 9 OPEN" folds in
+  the 3 TIER-1 builds and c102's promotion. Both include c72's 2026-07-14 drop.)*
 
 ---
 
@@ -508,3 +500,15 @@ is #67) · `LIVE` = already in the bot before the run · `KILLED` = premise disp
   naive join silently matches zero bars). **A plan is a hypothesis; verify it against live code.**
 - **Switches:** the 3 new flags are registered on **TODO #67**, the single list of built-but-off
   switches awaiting the user's yes/no — not here.
+
+### Session notes — 2026-07-14 (F5 dropped)
+- **Worked on:** the user reviewed the 9 open ideas and **killed F5 / T2-b (c72), the crowding-guard
+  generalization.** Reason: its build would treat several independent YouTube channels saying the same
+  thing as "crowding" and discount them — but independent channels agreeing is **confluence, not
+  crowding**. Moved c72 OPEN → PASSED in the tiers, the roster, and both tallies; marked F5 DROPPED in
+  the build-plans file. Open count 10 → 9. The two already-live narrow guards and the OFF
+  `social_family_dedup` flag (#67) are untouched — only the YouTube generalization is dead.
+- **Also:** explained F8 (analyst target-spread logger) to the user — it's a pure recorder with no
+  user-facing output today; it logs each stock's high-vs-low analyst price-target gap daily so a future
+  "analysts are unusually split" signal has history to compare against.
+- **Next:** open tiers now hold F4, F6, F7, F8, F9, F10 (planned) + the T3/T4 ideas.

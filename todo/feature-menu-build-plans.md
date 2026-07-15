@@ -14,7 +14,7 @@ why); this file is the HOW-TO for the ones still open.
 | **F2** | VVIX fear-of-fear gauge | ✅ **BUILT 2026-07-14** — `features.vvix_residual.enabled` |
 | **F3** | `!sweep` watchlist command | ✅ **BUILT 2026-07-14** — `features.sweep.enabled` |
 | **F4** | Hedge-vs-directional options-flow classifier | ⬜ TO BUILD (ships as a shadow log — it touches a live alert) |
-| **F5** | Crowding-guard generalization | ⬜ TO BUILD (config-map extension; the FLIP belongs to #67, don't duplicate) |
+| **F5** | Crowding-guard generalization | ❌ **DROPPED 2026-07-14 (user)** — do NOT build. Its whole job was to treat several YouTube channels saying the same thing as "crowding" and discount them. The user's call: independent channels agreeing is **confluence, not crowding** — the exact signal we want, not noise to suppress. |
 | **F6** | Brier/calibration report — timer + Discord sink | ⬜ TO BUILD (small; the maths already exists, nobody ever sees it) |
 | **F7** | Short-alert squeeze-risk guard (c102) | ⬜ TO BUILD (its short-interest blocker HAS shipped) |
 | **F8** | Analyst target-spread logger | ⬜ TO BUILD (a LOGGER, not a signal — no spread history exists yet) |
