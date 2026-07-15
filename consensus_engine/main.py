@@ -518,6 +518,16 @@ async def _run_options_flow_scan() -> None:
     if not hits:
         return
 
+    # F4 (SHADOW ONLY): when the collect flag is on, run the hedge-vs-directional
+    # classifier purely for its shadow log. It reads the SAME hits and never
+    # touches the alert path below — the live flow alert is emitted unchanged.
+    if cfg.get("features.flow_hedge_discount.collect", False):
+        try:
+            from consensus_engine.scanners import flow_hedge
+            flow_hedge.classify(hits)
+        except Exception as _fh_exc:
+            log.debug("flow_hedge shadow classify failed: %s", _fh_exc)
+
     cooldown = float(cfg.get("intervals.options_flow_cooldown", 3600))
     cap = int(cfg.get("options_flow.max_alerts_per_cycle", 8))
     now = time.time()

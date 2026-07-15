@@ -1,0 +1,13 @@
+[Unit]
+Description=Daily SEC XBRL company-facts fundamentals fetch (F9, #76 menu; fills company_fundamentals for the !all card)
+After=network-online.target
+OnFailure=alert@%n.service
+
+[Service]
+Type=oneshot
+User=openclaw
+WorkingDirectory=/home/openclaw/.openclaw/workspace
+EnvironmentFile=-/home/openclaw/.openclaw/.env.service
+ExecStart=/usr/bin/python3 /home/openclaw/.openclaw/workspace/scripts/sec_xbrl_daily.py
+StandardOutput=journal
+StandardError=journal

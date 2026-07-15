@@ -534,6 +534,13 @@ async def _gather_all_sources(ticker: str) -> dict:
         if _lbl in _CORE_ALL_SOURCES and (_is_failed(_val) or _is_exc(_val)):
             _ops_note(_lbl)
 
+    # F9 (#76 menu) — latest SEC XBRL fundamentals row, DISPLAY ONLY. Flag OFF ->
+    # no DB read, stays None, and build_embed adds no field (byte-identical).
+    fundamentals = None
+    if cfg.get("features.sec_xbrl.enabled", False):
+        fundamentals = _result_or_default(
+            await _db_call("get_latest_company_fundamentals", ticker), None)
+
     return {
         "ticker_meta": ticker_meta if isinstance(ticker_meta, dict) else {},
         "company_name": name_for_filter,
@@ -578,6 +585,8 @@ async def _gather_all_sources(ticker: str) -> dict:
         # Denominator for the footer's "N of M attempted" — every source we tried,
         # derived from the classify list so it can never drift from reality.
         "sources_total": len(_classify_items),
+        # F9 — latest SEC XBRL fundamentals (None unless features.sec_xbrl.enabled).
+        "fundamentals": fundamentals,
     }
 
 
@@ -1544,6 +1553,7 @@ async def _compute_all(ticker: str, start: float) -> dict:
         wolf_confluence=data.get("wolf_confluence"),
         insider_field=sec_evidence.get("all_field") or None,
         sources_total=data.get("sources_total"),
+        fundamentals=data.get("fundamentals"),
     )
     anchors_used: list[levels.Anchor] = list(supports[:6]) + list(resistances[:6])
     vault_md = vault_writer.render_all_command_markdown(

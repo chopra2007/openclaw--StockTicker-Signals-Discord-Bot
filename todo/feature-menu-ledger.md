@@ -4,22 +4,19 @@
 **Created:** 2026-07-14
 **Last full code re-verification:** 2026-07-14 (every open idea grepped against the live code)
 
-**CURRENT STATUS (2026-07-14, run `menu-top10`):** **TIER 1 is DONE — all three shipped flag-OFF, each
-proved on real data.** The split is now **20 BUILT · 6 ALREADY LIVE · 3 KILLED · 80 PASSED · 5 OPEN**
-(114 total ✓). **Built:** the `Sources: 21 of 27 attempted` footer · the VVIX fear-of-fear gauge · the
-`!sweep` watchlist command. **Passed (user accepted the drops):** the FOMC hawk/dove reader, learned
-continuous signal weights, and — on 2026-07-14 — the crowding-guard generalization (c72/F5: independent
-YouTube channels agreeing is confluence, not crowding), the analyst target-spread logger (c88/F8: a
-daily logger that mostly re-writes the same numbers), and all three TIER-4 ideas (market-wide put/call,
-CFTC COT, GDELT — the user passed on the whole weak tier). **Promoted PASSED → OPEN:** c102, the
-short-alert squeeze-risk guard — its only blocker (the short-interest feed) has shipped. **Start at TIER
-2; TIER 4 is now empty too.** All five remaining open ideas are already PLANNED, not merely listed —
-`todo/feature-menu-build-plans.md` has a build plan with a real probe for each (F4, F6, F7, F9, F10);
-read it instead of re-planning.
+**CURRENT STATUS (2026-07-14, run `menu-top10`): ALL FOUR TIERS ARE EMPTY — the menu is EXHAUSTED.**
+Every open idea is now either BUILT or PASSED. The split is **25 BUILT · 6 ALREADY LIVE · 3 KILLED ·
+80 PASSED · 0 OPEN** (114 total ✓). **The final 5 were built 2026-07-14 (this run), all flag-OFF, each
+proved on real data:** F7 short-alert squeeze-risk guard (`short_squeeze_guard.enabled`), F4
+hedge-vs-directional flow shadow log (`flow_hedge_discount.collect`), F6 weekly Brier/calibration report
+to #errors (`calibration_report.enabled`), F9 SEC XBRL fundamentals on the `!all` card
+(`sec_xbrl.enabled`), F10 backtest-to-live decay tracker (`decay_tracker.enabled`). See the BUILT table
+for the real output each produced. **Earlier this run:** the 3 TIER-1 builds + the user's drops (FOMC
+reader, learned weights, c72/F5 crowding-guard, c88/F8 target-spread, all 3 TIER-4). **Nothing is open.**
+To generate NEW ideas, run **#75**; to turn the built-but-off switches ON, that's **#67**.
 
-**Only the 5 OPEN ones are candidates**, sorted **strongest first, in tiers**, so a session starts at
-the top and works down. **TIER 1 IS NOW EMPTY — start at TIER 2.** The other 104 are closed — nothing
-already built or already passed on appears in the candidate tiers. Re-verified against the live code,
+**There are no candidates left — all 114 are closed** (BUILT / LIVE / KILLED / PASSED). If you need more,
+reopen from the SOFT reserve pool (25 ideas, see below) or run #75. Re-verified against the live code,
 not against the discover run's artifacts.
 
 **What changed on 2026-07-14 (run `menu-top10`, TODO #76):** a 12-candidate pool (the 11 tiered ideas
@@ -29,12 +26,12 @@ T3-d learned weights — user accepted both drops) · **c102 promoted PASSED →
 **The user then dropped five more of the open ideas (2026-07-14):** F5/c72 (crowding-guard generalization
 — independent YouTube channels agreeing is confluence, not crowding), F8/c88 (analyst target-spread
 logger — a daily logger that mostly re-writes the same numbers), and all three TIER-4 ideas (c8 market-wide
-put/call, c42 CFTC COT, c91 GDELT — the user passed on the whole weak tier). That leaves **all 5 remaining
-open ideas already PLANNED, not just listed** — a full build plan with per-feature probes exists at
-`todo/feature-menu-build-plans.md` (F4, F6, F7, F9, F10). A session picking one of them should read that
-plan first instead of re-planning: it has verified line numbers, risk callouts, and a probe each.
+put/call, c42 CFTC COT, c91 GDELT — the user passed on the whole weak tier). **Then, in the same run, the
+last 5 open ideas were BUILT** (F7 squeeze-risk guard, F4 flow shadow log, F6 calibration report, F9 SEC
+XBRL, F10 decay tracker — all flag-OFF, proved on real data; see the BUILT table + the final session
+note). **The menu is now exhausted: 0 OPEN.**
 
-*(Arithmetic: 20 + 6 + 3 + 80 + 5 = 114 = the 113 numbered ideas + the one killed idea that was never
+*(Arithmetic: 25 + 6 + 3 + 80 + 0 = 114 = the 113 numbered ideas + the one killed idea that was never
 given a number. Checks out — see the roster's footnotes.)*
 
 **Were the 74 rejected on merit, or did we just run out of build budget? Verified 2026-07-14 — MERIT,
@@ -88,79 +85,22 @@ output each one produced. Nothing to pick here. **Start at TIER 2.**
 ---
 
 
-# TIER 2 — SOLID. Real work, real payoff. (3 open)
+# TIER 2 — EMPTY. All were built or dropped on 2026-07-14 (run `menu-top10`). ✅
 
-*(T2-b · generalize the crowding guard was DROPPED on 2026-07-14 — the user's call. Its plan was to
-treat several YouTube channels saying the same thing as "crowding" and discount them; the user's rule is
-that independent channels agreeing is **confluence, not crowding**. Reason is in the PASSED section; do
-not re-propose it.)*
-
-### T2-e · Short-alert squeeze-risk guard  *(c102 — PROMOTED out of PASSED, 2026-07-14)*
-- **What the user would see:** the bot stops shouting SHORT on a name that is primed to squeeze.
-- **Why it was dead, and why it isn't any more:** it was PASSED in the July run for ONE reason — it
-  needed a short-interest feed. **That feed has since shipped** (`features.short_interest`, with
-  `collect: true` already filling `finra_short_interest`). The reason expired; the idea didn't.
-- **Verified absent (2026-07-14):** `cross_reference.py:1799-1812` uses `days_to_cover` ONLY as a
-  *bullish* +3 term (it returns 0 unless direction == 'long'), so **no short-side guard exists**;
-  `models.py:254 ScoreBreakdown` has no `squeeze_risk` field.
-- **Already planned — do NOT re-plan it.** Full build plan with a probe:
-  `todo/feature-menu-build-plans.md` (feature **F7**), including the single-DB-read risk
-  callout (widen the ONE existing `get_latest_finra_short_interest` read rather than adding a second,
-  which would double hot-path DB traffic and could disagree with the row the bullish leg just used).
-- **Class C — score-touching:** it demotes SHORT alerts, so it needs a shadow comparison before ON.
-
-### T2-a · Hedge-vs-directional options-flow discount
-- **What the user would see:** the bot stops treating a protective hedge as a real directional bet.
-- **Verified absent:** zero hits for `hedge` / `protective` / `collar` / `covered` anywhere. Flow is
-  classified only by **side and size** — sweep = volume/OI ≥ 5 (`scanners/options.py:22,49-53`),
-  dominant side by premium (`options.py:83-137`). A protective put on a long book and an outright
-  bearish bet are **indistinguishable to the current code**.
-- **Head start:** the Greeks are *already fetched* from Schwab (delta/gamma/theta/vega,
-  `scanners/schwab_client.py:329,339`) — but delta is used only for the 25-delta skew basis
-  (`options.py:849-873`), never to judge direction.
-- **The job:** leg-pairing / multi-leg detection, delta-weighted notional, then a discount applied to
-  `options_pts`. This touches a **live instant-trigger** signal, so it needs a shadow log before it
-  changes real alerts.
-
-### T2-c · Brier-score / calibration automation
-- **What the user would see:** a regular, readable "how well-calibrated was the bot?" report — today
-  **nobody ever sees these numbers** unless a human runs a CLI by hand.
-- **Already live:** the metrics library (`eval/metrics.py:28` `brier_score`, `:40` `base_rate_brier`,
-  `:64-74` reliability bins); the live calibration model retrains on every engine start
-  (`analysis/calibration.py`, `main.py:971-979`); and the 2-daily auto-flip gate already *consumes*
-  Brier (`/root/task_system/scripts/auto_flip_check.py:310-311`).
-- **The gap is only the report + the sink:** `python -m consensus_engine.eval` is **manual-only** — no
-  cron, no systemd timer, no Discord surface.
-- **The job:** schedule it and give it somewhere to land. Small.
-
-*(T2-d · analyst price-target spread was DROPPED on 2026-07-14 — the user's call. Its build (F8) was a
-daily logger that mostly re-writes the same three numbers, since analysts rarely change targets, and
-shows the user nothing for months. Reason is in the PASSED section; do not re-propose it.)*
+All three TIER-2 open ideas are now BUILT (flag-OFF, proved on real data — see the **BUILT** table):
+**T2-e / F7** short-alert squeeze-risk guard (`short_squeeze_guard.enabled`), **T2-a / F4**
+hedge-vs-directional flow shadow log (`flow_hedge_discount.collect`), **T2-c / F6** weekly
+Brier/calibration report (`calibration_report.enabled`). *(T2-b crowding-guard and T2-d target-spread
+were DROPPED by the user — reasons in the PASSED section; do not re-propose.)*
 
 ---
 
-# TIER 3 — HEAVY or GATED. Strong ideas, big builds. (2 open)
+# TIER 3 — EMPTY. Both open ideas built 2026-07-14; the rest PASSED. ✅
 
-*(T3-b FOMC reader and T3-d learned signal weights were PASSED on 2026-07-14 — user
-accepted both drops. Reasons are in the PASSED section; do not re-propose them.)*
-
-### T3-a · SEC XBRL fundamentals feed
-- Real company financials (`data.sec.gov/api/xbrl/companyfacts`) as a **new data class**. Free.
-- **Verified absent:** SEC code touches only the filings/submissions JSON (`scanners/sec_edgar.py:85`);
-  zero hits for `xbrl` / `companyfacts` / `frames`. Today's fundamentals are a thin **yfinance**
-  one-liner (PEG / revenue growth / margin / beta — `snapshot.py:266-291`), **not persisted, not
-  scored**. No financials table exists in the schema.
-- **Why heavy:** needs a client, a normalized model + table, persistence, and a consumer. Strong idea —
-  size it honestly.
-
-### T3-c · Backtest-to-live decay tracker
-- Warn when a signal that backtested well starts failing live.
-- **Verified absent:** per-signal live grading exists (nightly `flow-grading.timer`, analyst/Wolf
-  graders, shared BHAR spine `analysis/benchmark_grading.py`) and backtests exist as one-shot scripts —
-  but **nothing stores a baseline, compares it to a rolling live number, or alerts on decay.** The
-  auto-flip engine is **one-directional**: it flips flags *on* when evidence earns it; there is no
-  un-flip path.
-- **Gate:** value grows with outcome data — worth more once #73's soak fills in.
+Both TIER-3 open ideas are now BUILT (flag-OFF, proved on real data): **T3-a / F9** SEC XBRL
+fundamentals feed (`sec_xbrl.enabled`), **T3-c / F10** backtest-to-live decay tracker
+(`decay_tracker.enabled`). *(T3-b FOMC reader and T3-d learned weights were PASSED — reasons in the
+PASSED section; do not re-propose.)*
 
 ---
 
@@ -179,7 +119,7 @@ research already scored it bottom-30%; the curated SerpAPI/RSS/Brave news alread
 
 # CLOSED — not candidates. Do not propose these.
 
-## BUILT — 17
+## BUILT — 25
 
 **16 from the July 2026 run, all shipped flag-OFF.** Turning them on is **#67**, not this item.
 
@@ -210,6 +150,17 @@ real data before commit. TIER 1 is now EMPTY.
 | **T1-a · "N of M sources" footer** | `features.sources_denominator.enabled` | Real `!all NVDA`: flag ON → footer `Sources: 21 of 27 attempted`; OFF → `Sources: 21` (byte-identical to the old string). M is `len(_classify_items)` at runtime — the literal 27 appears nowhere in the diff. |
 | **T1-b · VVIX fear-of-fear gauge** | `features.vvix_residual.enabled` (+ `collect: true` fills `vol_of_vol_daily` from the daily writer) | Real row written: `2026-07-14, VVIX 93.28, VIX 16.50, residual −0.0257, pct 0.373`. Residual + percentile independently recomputed with `numpy.polyfit` — matched to 4 dp. Renders on `!market` as *"Normal — protection against volatility costs about what the VIX explains."* **Descriptive only**; a test asserts `cross_reference.py` contains neither `vvix` nor `vol_of_vol`, so it can never become the #47 predictor. |
 | **T1-c · `!sweep` watchlist command** | `features.sweep.enabled` (max_tickers 15, concurrency 3) | Real sweep of 3: `IBM 82 🟢 · META 55 🔴 · JPM 49 🔴`. **Coherence proved live, twice: `!sweep IBM` = 82 = `!scan IBM` (build session), and an independent verifier re-ran both paths later and got 65 = 65.** The number moves with the market — the point is that the two paths always agree at the same moment. Named `!sweep`/`!universe` — `!scan` is untouched (a test locks both). |
+
+**+5 built 2026-07-14 (run `menu-top10`, TODO #76) — the FINAL five, emptying the menu.** All flag-OFF,
+each proved on real data before commit.
+
+| Idea | Flag | Proof it works (real output, not "code looks right") |
+|---|---|---|
+| **T2-e / F7 · Short-alert squeeze-risk guard** (c102) | `features.short_squeeze_guard.enabled` (data from `short_interest.collect:true`) | New `_compute_squeeze_risk_pts` returns a NEGATIVE capped term (default −4) ONLY on a SHORT signal with a crowded, RISING short (days_to_cover ≥ 3 AND pct_change > 0); on LONG / falling / stale / thin it returns 0. Shares the ONE existing `get_latest_finra_short_interest` read (test asserts exactly one DB call feeds both the r12 bullish leg and this guard). Flag OFF → function never called, breakdown byte-identical. 10 unit tests. **Class C — demotes SHORT alerts, needs a shadow compare of scored shorts before ON.** |
+| **T2-a / F4 · Hedge-vs-directional flow classifier** | `features.flow_hedge_discount.collect` (`.enabled` reserved) | SHADOW LOG only. `FlowHit` gained `delta` (Schwab greeks; None on yfinance). New `scanners/flow_hedge.py` `classify()` computes delta-weighted notional + pairs comparable opposite-side legs → `directional` / `paired` / `delta_unknown`, logging one `flow_shadow` line per hit. `scripts/flow_hedge_shadow_review.py` summarizes them. **`format_flow_alert` is byte-identical — a test locks the exact string with and without delta.** Wired into the flow loop only when `collect:true`. |
+| **T2-c / F6 · Brier/calibration report** | `features.calibration_report.enabled` | Real run on the live 644 MB DB posted (dry-run) a plain-English summary to #errors: *"24h: Brier 0.250 vs base-rate 0.248 … AUC 0.505"* — i.e. it honestly shows the score barely beats a coin. New `format_discord()` in `eval/report.py`; `scripts/calibration_report.py` (read-only, `--dry-run`); weekly `calibration-report.timer`. Corrupt DB → exit 1 (systemd OnFailure), no post. Thin sample (n<10) → raw ratio, never a Brier. 6 unit tests. |
+| **T3-a / F9 · SEC XBRL fundamentals feed** | `features.sec_xbrl.enabled` (display-only) | Real SEC fetch: **NVDA** latest quarter revenue **$44.06B, +69% YoY**, net margin 43%, EPS $0.76; **AAPL** $95.4B via the `RevenueFromContractWithCustomer*` tag (the revenue-tag fallback the plan flagged); **MU** $9.3B +37%. New `scanners/sec_xbrl.py` REUSES `sec_edgar`'s CIK map + UA (test asserts the import). `company_fundamentals` table + `scripts/sec_xbrl_daily.py` + daily timer. ONE `🏢 Fundamentals` line on `!all`; flag OFF → the field is absent, `!all` embed byte-identical (test). Never scored. |
+| **T3-c / F10 · Backtest-to-live decay tracker** | `features.decay_tracker.enabled` | Real run on the live DB froze **14 baselines** (per decision tier, catalyst type, and flow side) and flagged **3 decays / 6 OK / 5 insufficient** with Wilson lower bounds. New `signal_baselines` table + `scripts/signal_decay_check.py` (`--freeze-baselines`, `--dry-run`, `--force-alert`) + daily timer. Alerts #errors via `ops_alert` (transition-only + flap guard, verified). Thin sample (n<30) → INSUFFICIENT, raw ratio. **NEVER un-flips a flag — reports only.** 4 unit tests. |
 
 **A trap the plan itself walked into, caught during the build:** the build plan said to rank `!sweep` on
 `breakdown.total`. That is the RAW ADDITIVE sum — but `!scan` reports the **precision-gated** score
@@ -355,7 +306,7 @@ is #67) · `LIVE` = already in the bot before the run · `KILLED` = premise disp
 | c9 | FINRA short interest + days-to-cover | BUILT | `features.short_interest.enabled` |
 | c10 | Treasury/FOMC event-risk overlay | PASSED | FOMC and CPI dates already ingested; the staleness add-on is thin |
 | c11 | Max-pain reliability label | **KILLED** | Premise false — max-pain is already shown unconditionally |
-| c12 | Hedge-vs-directional flow discount | **OPEN — T2-a** | Tell a protective hedge apart from a real bet |
+| c12 | Hedge-vs-directional flow discount | **BUILT 2026-07-14** (F4) | `features.flow_hedge_discount.collect` — SHADOW LOG only (delta-weighted notional + leg-pairing); live flow alert byte-identical |
 | c13 | Monthly alert hit-rate self-audit | PASSED | Hit-rate and false-positive tables already exist; only the schedule is new |
 | c14 | Three-tier alert severity | PASSED | Decision-first alerts already prioritize; delivery tiers are secondary |
 | c15 | Cool-down before high-severity alerts | PASSED | Conflicts with the instant-trigger rule for insider and flow alerts |
@@ -375,7 +326,7 @@ is #67) · `LIVE` = already in the bot before the run · `KILLED` = premise disp
 | c29 | 12-1 month momentum rank | PASSED | Factor work already proven no-edge on free daily data |
 | c30 | Amihud illiquidity confidence discount | PASSED | Minor confidence tweak; overlaps the liquidity-gate family |
 | c31 | Hidden Markov regime detector | PASSED | Reason not recorded in the artifacts |
-| c32 | Automated Brier calibration report | **OPEN — T2-c** | The maths already exists; nobody ever sees the numbers |
+| c32 | Automated Brier calibration report | **BUILT 2026-07-14** (F6) | `features.calibration_report.enabled` — weekly timer posts the Brier/AUC summary to #errors |
 | c33 | GARCH volatility cross-check | PASSED | Heavy model for marginal gain over the cheap/rich-vol leg |
 | c34 | Social message-volume spike detector | PASSED | Incremental attention proxy; StockTwits and ApeWisdom trending already ingested |
 | c35 | Overnight gap-fill probability model | PASSED | Niche swing heuristic; lower priority than the options legs |
@@ -389,7 +340,7 @@ is #67) · `LIVE` = already in the bot before the run · `KILLED` = premise disp
 | c43 | Economic Policy Uncertainty index | PASSED | Monthly cadence and noisy; secondary macro source |
 | c44 | Trading-halt tripwire | BUILT | `features.trading_halts.enabled` |
 | c45 | 13F institutional-holdings change | PASSED | 45-day lag; slower and less valuable than Form 144 or Congress |
-| c46 | Backtest-to-live decay tracker | **OPEN — T3-c** | Value grows as outcome data accrues (#73's soak) |
+| c46 | Backtest-to-live decay tracker | **BUILT 2026-07-14** (F10) | `features.decay_tracker.enabled` — daily; froze 14 baselines, alerts #errors on decay (transition-only); never un-flips |
 | c47 | Signal-to-noise dashboard per alert type | PASSED | Reason not recorded in the artifacts |
 | c48 | Kill-switch auto-pause on divergence | PASSED | Overlaps the decay tracker and per-ticker cooldown; ops layer |
 | c49 | Frame alerts as hypotheses | PASSED | A wording tweak; low source quality |
@@ -435,7 +386,7 @@ is #67) · `LIVE` = already in the bot before the run · `KILLED` = premise disp
 | c91 | GDELT global news tone | **PASSED 2026-07-14 (user)** | Passed by the user: noisy, weak per-ticker attribution; the repo's own research already scored it bottom-30% |
 | c92 | SEC Form 144 intent-to-sell | BUILT | `features.form144.enabled` |
 | c93 | Google Trends search-volume leg | PASSED | Fragile unofficial scraper; terms-of-service risk |
-| c94 | SEC XBRL fundamentals feed | **OPEN — T3-a** | Strong new data class, but a large build |
+| c94 | SEC XBRL fundamentals feed | **BUILT 2026-07-14** (F9) | `features.sec_xbrl.enabled` — display-only `!all` line; real NVDA $44.06B/+69% YoY; !all embed byte-identical OFF |
 | c95 | EIA weekly oil and gas inventories | PASSED | Reason not recorded in the artifacts |
 | c96 | Census advance retail-sales leg | PASSED | Sector-narrow; the release dates are already tracked |
 | c97 | OpenSecrets lobbying-spend leg | PASSED | Noisy leading indicator; low source quality. *(This ID is duplicated in the artifacts — counted once.)* |
@@ -443,7 +394,7 @@ is #67) · `LIVE` = already in the bot before the run · `KILLED` = premise disp
 | c99 | BLS JOLTS labor-market leg | PASSED | Monthly macro; NFCI and yield/dollar legs already cover the backdrop |
 | c100 | FINRA TRACE corporate-bond credit leg | PASSED | Single-name bond data is sparse and heavy to integrate |
 | c101 | Crowded-trade monitor across tickers | PASSED | Overlaps c72, the crowding guard |
-| c102 | Short-alert squeeze-risk guard | **OPEN — promoted 2026-07-14** | Its only blocker (the short-interest leg) HAS SHIPPED. Planned but not built this run (user built TIER 1 only). Plan ready: `todo/feature-menu-build-plans.md` (F7) |
+| c102 | Short-alert squeeze-risk guard | **BUILT 2026-07-14** (F7) | `features.short_squeeze_guard.enabled` — negative squeeze_risk term demotes a SHORT on a crowded, rising short; shares the r12 DB read; breakdown byte-identical OFF |
 | c103 | Co-pilot human-confirm toggle | PASSED | Workflow change; secondary to signal features |
 | c104 | Daily alert-volume circuit breaker | PASSED | Overlaps the alert-fatigue control cluster |
 | c105 | Regime-shift disclaimer banner | PASSED | Low source quality; overlaps the decay tracker's surfacing |
@@ -467,10 +418,10 @@ is #67) · `LIVE` = already in the bot before the run · `KILLED` = premise disp
 - **`c97` is duplicated** in the source artifacts (same OpenSecrets idea listed twice). Counted once.
 - **The 0DTE idea never got a number** — it exists only in `merit-triage.md` / the kill-test report.
   That is why the roster has 113 numbered rows but 114 verdicts.
-- **Tally:** 17 BUILT + 6 LIVE + 3 KILLED + 79 PASSED + 9 OPEN = **114 verdicts over 113 IDs.**
-  *(This roster tally counts the 17 pre-menu-top10 builds; the header's "20 BUILT / 5 OPEN" folds in
-  the 3 TIER-1 builds and c102's promotion. Both include the 2026-07-14 user drops of c72, c88, c8,
-  c42, c91.)*
+- **Tally (final, 2026-07-14):** 25 BUILT + 6 LIVE + 3 KILLED + 80 PASSED + 0 OPEN = **114 verdicts
+  over 113 IDs.** The 25 BUILT = 16 July-run + 1 found-already-live (c60 EPS revisions) + 3 TIER-1
+  (menu-top10) + 5 final (F4/F6/F7/F9/F10, this run: c12, c32, c46, c94, c102). **OPEN is now 0 — the
+  menu is exhausted.**
 
 ---
 
@@ -526,3 +477,30 @@ is #67) · `LIVE` = already in the bot before the run · `KILLED` = premise disp
   hedge-vs-directional flow discount, Brier/calibration report, short-alert squeeze-risk guard, SEC XBRL
   fundamentals, backtest-to-live decay tracker. Nothing left on the menu is unplanned.
 - **Next:** build from F4/F6/F7 (Tier 2, lighter) before F9/F10 (Tier 3, heavy).
+
+### Session notes — 2026-07-14 (run `menu-top10` — the FINAL 5 built; menu EXHAUSTED)
+- **Worked on:** built the last 5 open ideas, all flag-OFF, each proved on real data:
+  - **F7** short-alert squeeze-risk guard (`short_squeeze_guard.enabled`) — `_compute_squeeze_risk_pts`
+    demotes a SHORT on a crowded, RISING short. Shares the ONE existing `get_latest_finra_short_interest`
+    read the r12 bullish leg uses (no 2nd DB call); each leg gated by its OWN flag so r12 stays
+    byte-identical. 10 tests.
+  - **F4** hedge-vs-directional flow classifier (`flow_hedge_discount.collect`) — SHADOW LOG only.
+    `FlowHit.delta` (Schwab greeks) → `scanners/flow_hedge.py` classify (delta-weighted notional + leg
+    pairing) → `flow_shadow` log lines → `scripts/flow_hedge_shadow_review.py`. `format_flow_alert`
+    byte-identical (test locks the string). **Note: delta only comes from the Schwab chain, which is
+    currently expired — until re-login, collected hits log `delta_unknown`.**
+  - **F6** Brier/calibration report (`calibration_report.enabled`) — `format_discord()` + weekly
+    `calibration-report.timer` → #errors. Real dry-run on the 644 MB live DB: 24h Brier 0.250 vs
+    base-rate 0.248, AUC 0.505 — the report honestly shows the score barely beats a coin. Corrupt DB →
+    exit 1 (OnFailure), no post.
+  - **F9** SEC XBRL fundamentals (`sec_xbrl.enabled`) — `scanners/sec_xbrl.py` REUSES `sec_edgar`'s CIK
+    map + UA. Real fetch: NVDA $44.06B/+69% YoY, AAPL $95.4B (via RevenueFromContractWithCustomer*), MU
+    $9.3B/+37%. `company_fundamentals` table + daily timer + ONE `!all` line; embed byte-identical OFF.
+  - **F10** backtest-to-live decay tracker (`decay_tracker.enabled`) — `signal_baselines` table +
+    `scripts/signal_decay_check.py` + daily timer. Real run: froze 14 baselines, flagged 3 decay / 6 OK
+    / 5 insufficient with Wilson LBs. Alerts #errors transition-only (flap-guarded). **Never un-flips.**
+- **Result:** **all four tiers are EMPTY; the menu is exhausted.** 25 BUILT · 6 LIVE · 3 KILLED · 80
+  PASSED · 0 OPEN. The 5 new flags are registered on **#67** (the built-but-off switch list). To generate
+  NEW ideas run **#75**; the SOFT reserve pool (25 judgment-call/no-reason drops) is the cheaper first stop.
+- **Verification:** all 5 have unit tests (byte-identical OFF paths locked); flag_flip_gate clean (no
+  OFF→ON); a separate verifier agent re-ran the full suite vs `.test-baseline`.

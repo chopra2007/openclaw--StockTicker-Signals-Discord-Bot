@@ -1192,6 +1192,39 @@ CREATE TABLE IF NOT EXISTS chat_memory_rollups (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_cmr_archive ON chat_memory_rollups(source_sha256);
 CREATE INDEX IF NOT EXISTS idx_cmr_channel ON chat_memory_rollups(channel_id, span_end_utc);
+
+-- F10 (#76 menu) backtest-to-live decay tracker: one frozen reference hit-rate
+-- per signal_key. The daily tracker compares each signal's trailing live rate
+-- against its baseline_rate and alerts when it decays. Reports only; never a flag.
+CREATE TABLE IF NOT EXISTS signal_baselines (
+    signal_key   TEXT PRIMARY KEY,          -- e.g. 'tier=ALERT', 'catalyst=insider', 'flow:side=CALL'
+    baseline_rate REAL NOT NULL,            -- reference hit rate (0..1)
+    baseline_n   INTEGER NOT NULL,          -- rows the baseline was frozen from
+    horizon      TEXT NOT NULL,             -- '24h' | '5d' | 'win_1d' ...
+    source       TEXT NOT NULL,             -- 'stored-history' | 'backtest' | 'first-90d-live'
+    frozen_at    REAL NOT NULL
+);
+
+-- F9 (#76 menu) SEC XBRL company-facts fundamentals: latest few quarterly points
+-- per ticker. Display-only on the !all card; never folded into the score.
+CREATE TABLE IF NOT EXISTS company_fundamentals (
+    ticker       TEXT NOT NULL,
+    cik          TEXT,
+    period_end   TEXT NOT NULL,             -- fiscal period end date (YYYY-MM-DD)
+    fiscal_period TEXT,                     -- e.g. Q3, FY
+    revenue      REAL,
+    revenue_tag  TEXT,                      -- which us-gaap tag revenue came from
+    net_income   REAL,
+    eps_diluted  REAL,
+    assets       REAL,
+    liabilities  REAL,
+    revenue_yoy  REAL,                      -- YoY revenue growth (fraction)
+    net_margin   REAL,                      -- net_income / revenue
+    source       TEXT DEFAULT 'sec_xbrl',
+    fetched_at   REAL NOT NULL,
+    PRIMARY KEY (ticker, period_end)
+);
+CREATE INDEX IF NOT EXISTS idx_company_fundamentals_ticker ON company_fundamentals(ticker, period_end);
 """
 
 # Unique indices that reference columns added by _run_column_migrations.
@@ -2136,6 +2169,54 @@ async def upsert_market_breadth_daily(
          iwm_spy_trend, breadth_state, window_days, computed_at),
     )
     await conn.commit()
+
+
+async def upsert_company_fundamentals(ticker: str, rows: list[dict]) -> int:
+    """F9: upsert parsed SEC XBRL fundamentals rows (one per fiscal period).
+
+    Display-only; never read by cross_reference.score_ticker. Returns rows written.
+    """
+    if not rows:
+        return 0
+    conn = await get_db()
+    now = time.time()
+    for r in rows:
+        await conn.execute(
+            """INSERT INTO company_fundamentals
+                   (ticker, cik, period_end, fiscal_period, revenue, revenue_tag,
+                    net_income, eps_diluted, assets, liabilities, revenue_yoy,
+                    net_margin, source, fetched_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(ticker, period_end) DO UPDATE SET
+                   cik = excluded.cik, fiscal_period = excluded.fiscal_period,
+                   revenue = excluded.revenue, revenue_tag = excluded.revenue_tag,
+                   net_income = excluded.net_income, eps_diluted = excluded.eps_diluted,
+                   assets = excluded.assets, liabilities = excluded.liabilities,
+                   revenue_yoy = excluded.revenue_yoy, net_margin = excluded.net_margin,
+                   source = excluded.source, fetched_at = excluded.fetched_at""",
+            (ticker.upper(), r.get("cik"), r.get("period_end"), r.get("fiscal_period"),
+             r.get("revenue"), r.get("revenue_tag"), r.get("net_income"),
+             r.get("eps_diluted"), r.get("assets"), r.get("liabilities"),
+             r.get("revenue_yoy"), r.get("net_margin"), r.get("source", "sec_xbrl"), now),
+        )
+    await conn.commit()
+    return len(rows)
+
+
+async def get_latest_company_fundamentals(ticker: str) -> dict | None:
+    """F9: the most recent stored fundamentals row for a ticker (by period_end)."""
+    conn = await get_db()
+    cursor = await conn.execute(
+        """SELECT ticker, cik, period_end, fiscal_period, revenue, revenue_tag,
+                  net_income, eps_diluted, assets, liabilities, revenue_yoy, net_margin
+           FROM company_fundamentals WHERE ticker = ?
+           ORDER BY period_end DESC LIMIT 1""",
+        (ticker.upper(),),
+    )
+    row = await cursor.fetchone()
+    if row is None:
+        return None
+    return {k: row[k] for k in row.keys()}
 
 
 async def upsert_trading_halt(

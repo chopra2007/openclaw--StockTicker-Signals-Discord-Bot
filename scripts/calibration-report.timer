@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the calibration report weekly (Monday, after US market close)
+
+[Timer]
+OnCalendar=Mon *-*-* 22:45:00 UTC
+Persistent=true
+Unit=calibration-report.service
+
+[Install]
+WantedBy=timers.target

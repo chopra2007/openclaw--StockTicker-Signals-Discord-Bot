@@ -681,6 +681,70 @@ def build_report(sections: dict) -> str:
 
 
 # ===========================================================================
+# DISCORD SINK (F6 — weekly calibration report)
+# ===========================================================================
+
+def _fmt_num(x, nd: int = 3) -> str:
+    """Format a float, guarding NaN/None -> 'n/a' so a missing metric never
+    prints as 'nan' in the Discord message."""
+    try:
+        if x is None or x != x:  # NaN
+            return "n/a"
+        return f"{float(x):.{nd}f}"
+    except (TypeError, ValueError):
+        return "n/a"
+
+
+def format_discord(sections: dict, *, min_n_number: int = 10) -> str:
+    """Turn the eval sections dict into a short, plain-English Discord message.
+
+    Surfaces the two questions a human actually asks: (1) are the bot's
+    probabilities honest (calibration Brier vs the base-rate Brier), and (2)
+    does a higher score really mean a higher hit rate (discrimination AUC /
+    precision). When a horizon has fewer than `min_n_number` resolved rows we
+    print the raw count instead of any Brier/AUC number — a metric on <10 rows
+    is noise, per the project's thin-sample rule.
+    """
+    L: list[str] = ["📊 **Weekly calibration report** — how well the bot's scores match reality.\n"]
+
+    cal = (sections.get("calibration") or {}).get("horizons", {})
+    L.append("**Are the predicted odds honest?** (Brier score — lower is better; "
+             "beating the base-rate number means the score adds real information)")
+    if not cal:
+        L.append("- no calibration data yet")
+    for h, d in cal.items():
+        n = d.get("n", 0)
+        if "raw" not in d or n < min_n_number:
+            L.append(f"- {h}: {n} resolved — too few to score yet")
+            continue
+        raw = d["raw"]
+        L.append(
+            f"- {h}: Brier {_fmt_num(raw.get('brier'))} vs base-rate "
+            f"{_fmt_num(raw.get('base_rate_brier'))} "
+            f"(after recalibration: isotonic {_fmt_num(d.get('isotonic_test_brier'))}, "
+            f"beta {_fmt_num(d.get('beta_test_brier'))}; n={n})"
+        )
+
+    disc = (sections.get("discrimination") or {}).get("horizons", {})
+    L.append("\n**Does a higher score mean a higher hit rate?** (AUC 0.50 = coin flip, "
+             "1.0 = perfect ranking)")
+    if not disc:
+        L.append("- no discrimination data yet")
+    for h, d in disc.items():
+        n = d.get("n", 0)
+        if "auc" not in d or n < min_n_number:
+            L.append(f"- {h}: {n} resolved — too few to score yet")
+            continue
+        L.append(
+            f"- {h}: AUC {_fmt_num(d.get('auc'))}, base rate {_fmt_num(d.get('base_rate'), 2)}, "
+            f"precision@top-10% {_fmt_num(d.get('p_at_10'), 2)}, "
+            f"top-decile lift {_fmt_num(d.get('top_decile_lift'), 2)} (n={n})"
+        )
+
+    return "\n".join(L)
+
+
+# ===========================================================================
 # ENTRY
 # ===========================================================================
 

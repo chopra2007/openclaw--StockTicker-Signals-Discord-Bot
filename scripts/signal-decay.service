@@ -1,0 +1,13 @@
+[Unit]
+Description=Daily backtest-to-live signal decay tracker (F10, #76 menu; alerts #errors when a signal's live hit rate decays below its frozen baseline)
+After=network-online.target
+OnFailure=alert@%n.service
+
+[Service]
+Type=oneshot
+User=openclaw
+WorkingDirectory=/home/openclaw/.openclaw/workspace
+EnvironmentFile=-/home/openclaw/.openclaw/.env.service
+ExecStart=/usr/bin/python3 /home/openclaw/.openclaw/workspace/scripts/signal_decay_check.py
+StandardOutput=journal
+StandardError=journal

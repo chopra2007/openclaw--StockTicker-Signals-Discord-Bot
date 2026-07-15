@@ -362,6 +362,44 @@ def _compute_days_to_cover_pts(
     return int(cfg.get("features.short_interest.term_cap", 3))
 
 
+def _compute_squeeze_risk_pts(
+    si_row: dict,
+    *,
+    direction: str = "long",
+) -> int:
+    """F7 (c102): short-alert squeeze-risk guard.
+
+    Returns a small NEGATIVE capped term (config, default -4) ONLY when:
+      1. The signal direction is SHORT (a crowded short is squeeze fuel AGAINST
+         a short bet — the mirror of _compute_days_to_cover_pts, which adds the
+         same fuel as confluence FOR a long).
+      2. The row is fresh (recency_window "short_interest" cap).
+      3. days_to_cover >= min_days_to_cover (real squeeze fuel, default 3.0).
+      4. Short interest is RISING (pct_change > 0) when require_rising is set — a
+         growing crowded short is the setup that can squeeze a short trade.
+
+    The guard DEMOTES (never boosts) — it can only subtract, so the bot stops
+    shouting SHORT on a name primed to squeeze. Flag OFF -> never called (the
+    r12 block below shares its single DB read, so no extra hot-path traffic).
+    """
+    from consensus_engine.analysis.recency_window import is_fresh
+    if direction.lower() != "short":
+        return 0
+    if not is_fresh("short_interest", si_row.get("published_at")):
+        return 0
+    dtc = si_row.get("days_to_cover")
+    if dtc is None:
+        return 0
+    min_dtc = float(cfg.get("features.short_squeeze_guard.min_days_to_cover", 3.0))
+    if float(dtc) < min_dtc:
+        return 0
+    if cfg.get("features.short_squeeze_guard.require_rising", True):
+        pct = si_row.get("pct_change")
+        if pct is None or float(pct) <= 0.0:
+            return 0
+    return -int(cfg.get("features.short_squeeze_guard.penalty_cap", 4))
+
+
 def _compute_pead_pts(
     pead_result: Optional[dict],
     *,
@@ -1805,23 +1843,46 @@ async def score_ticker(
     # (squeeze-fuel confluence). Flag OFF -> ZERO DB reads on the hot path; the
     # term is 0 and the breakdown is byte-identical. Confluence-only, never a trigger.
     # -----------------------------------------------------------------
+    #
+    # F7 (c102) shares this SAME single DB read: the short-alert squeeze-risk
+    # guard reads the identical latest_si row to demote a SHORT signal on a
+    # crowded, rising short. We widen the read's condition to either flag but
+    # compute each leg only when ITS own flag is on, so the r12 bullish term
+    # stays byte-identical whenever short_squeeze_guard is the only flag set,
+    # and a SECOND get_latest_finra_short_interest read is never issued.
     dtc_pts = 0
-    if cfg.get("features.short_interest.enabled", False):
+    squeeze_pts = 0
+    _si_enabled = cfg.get("features.short_interest.enabled", False)
+    _guard_enabled = cfg.get("features.short_squeeze_guard.enabled", False)
+    if _si_enabled or _guard_enabled:
         try:
             latest_si = await db.get_latest_finra_short_interest(ticker)
             if latest_si is not None:
-                dtc_pts = _compute_days_to_cover_pts(latest_si, direction=direction)
-                if dtc_pts:
-                    log.info(
-                        "[r12] $%s days_to_cover=%.2f pct_change=%s -> +%d "
-                        "(settlement short interest, %s)",
-                        ticker, latest_si.get("days_to_cover") or 0.0,
-                        latest_si.get("pct_change"), dtc_pts, latest_si.get("settlement_date"),
-                    )
+                if _si_enabled:
+                    dtc_pts = _compute_days_to_cover_pts(latest_si, direction=direction)
+                    if dtc_pts:
+                        log.info(
+                            "[r12] $%s days_to_cover=%.2f pct_change=%s -> +%d "
+                            "(settlement short interest, %s)",
+                            ticker, latest_si.get("days_to_cover") or 0.0,
+                            latest_si.get("pct_change"), dtc_pts, latest_si.get("settlement_date"),
+                        )
+                if _guard_enabled:
+                    squeeze_pts = _compute_squeeze_risk_pts(latest_si, direction=direction)
+                    if squeeze_pts:
+                        log.info(
+                            "[F7] $%s SHORT squeeze-risk guard days_to_cover=%.2f "
+                            "pct_change=%s -> %d (crowded rising short, %s)",
+                            ticker, latest_si.get("days_to_cover") or 0.0,
+                            latest_si.get("pct_change"), squeeze_pts,
+                            latest_si.get("settlement_date"),
+                        )
         except Exception as _r12_exc:
             log.warning("[r12] DB lookup failed for $%s: %s", ticker, _r12_exc)
             dtc_pts = 0
+            squeeze_pts = 0
     breakdown.days_to_cover = dtc_pts
+    breakdown.squeeze_risk = squeeze_pts
 
     # -----------------------------------------------------------------
     # r17 — post-earnings-announcement drift (PEAD) confluence leg
