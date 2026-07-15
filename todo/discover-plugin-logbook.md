@@ -3,6 +3,20 @@
 **Status:** LIVING RECORD — v1.3.0 PUBLISHED + LIVE (2026-07-12) on `chopra2007/claude-discover` (main `f42e784`, tag `v1.3.0`); local install refreshed to the 1.3.0 cache. v1.3 is now the live/installed version.
 **Created:** 2026-07-06
 
+**CURRENT STATUS (2026-07-14 — v1.3.0 LIVE; first real run on the bot repo exposed 2 gaps, NOT yet
+fixed):** v1.3 works as designed — run `menu-top10` (TODO #76) found no cache on this repo, so it paid
+for one full scan and wrote the cache; future runs get the savings. But trying to seed the cache by
+hand from an older run's map surfaced two real weaknesses, both written up in the 2026-07-14 session
+notes at the bottom of this file: **(1)** the 100-file staleness cap counts **documentation** — 41 of
+the 126 changed files on this repo were markdown the map never inventoried, so doc churn expires the
+cache far sooner than the code justifies; **(2) the dangerous one** — the cache stores whatever Pass 0
+produced, and **Pass 0 is feature-flavoured**. The Jul-11 map is a legitimate full scan whose output
+covers ONLY #55/#20 and has zero coverage of `options.py` / `embed.py` / `cross_asset.py` /
+`commands.py`. It predates v1.3 by a day, so it never became the cache — **had it done so, the next run
+would have silently delta-patched a map that is blank exactly where the new work lives** ("keep
+everything else verbatim"), and nothing would have flagged it. Fix (a): cache a NEUTRAL repo inventory,
+separate from the run's feature-scoped map. **Owed: both fixes.**
+
 **CURRENT STATUS (2026-07-12, later — v1.3.0 SHIPPED + LIVE):** the reusable-codebase-map change is
 built, tested, published (main `f42e784`, tag `v1.3.0`), and the installed copy refreshed to the 1.3.0
 cache (32/32 harness tests green on the live copy; takes effect next session). All four paths were
@@ -477,3 +491,35 @@ commits behind). Start at 100 changed source files; note whatever is picked in t
 - **Worked on:** Built, tested, and shipped v1.3.0 (reusable codebase map) end-to-end: pipeline change (~60 lines), 8 new harness tests (32 green), CHANGELOG/README/SKILL.md/version bumps, 4 real engine runs on the toy repo proving all paths, pushed main `f42e784` + tag `v1.3.0`, refreshed the installed 1.3.0 cache.
 - **Decisions:** kept the spec's cache-only-rolls-forward-on-full-scan rule (self-limits patch drift); cache probe rides the existing bootstrap agent (script can't run git itself); reuse path copies the cached file verbatim instead of re-rendering; staleness cap left at 100 changed files; noise paths (.claude/.omc/.git) filtered so artifact churn can't defeat the cache.
 - **Next:** nothing owed on v1.3. Next real discover run on the bot repo will build its cache on the first full scan, then get the savings.
+
+### Session notes — 2026-07-14 (first real v1.3 run on the bot repo — 2 weaknesses found)
+Run `menu-top10` (TODO #76, pick + build the 10 strongest menu candidates) was the first discover run
+on this repo since v1.3 shipped. It behaved exactly as designed — no cache existed, so it paid for one
+full scan and wrote the cache — but attempting to seed the cache by hand from an older run's map
+surfaced two real gaps. **Neither is fixed yet.**
+
+**GAP 1 — the staleness cap counts files the map does not model.** The `changed_since_cache` filter
+drops only `.claude/` `.omc/` `.git/`; everything else counts toward `MAP_DELTA_CAP = 100`. On this
+repo, of the 126 files changed since the Jul-6 map, **41 were markdown** (`TODO.md` + `todo/*.md`
+churn — this project rewrites those every session). Documentation the map never inventoried burned a
+third of the staleness budget and helped push the run over the cap into a needless full re-scan.
+**Fix:** count only what the map actually models (source + config), or weight docs at zero. On a
+doc-heavy repo the cache will otherwise expire far sooner than the code justifies.
+
+**GAP 2 — the cache stores whatever Pass 0 produced, and Pass 0 is feature-flavoured. This one can
+silently poison a run.** Evidence: run `todo-55-20-plan` (2026-07-11) did a legitimate full scan, but
+its `pass-0-system-map.md` is titled *"System Map — #55 Catalyst-Classified Analyst Scorecard + #20
+Wolf Confluence Timing"* and contains **zero mentions of `options.py`, `embed.py`, `cross_asset.py`,
+`sec_edgar.py` or `commands.py`** — it mapped only the two features that run was about. It predates
+v1.3 so it never became the cache. **Had it run one day later, it would have.** The next run (this one
+— 10 features living in precisely those un-mapped files) would then have hit the delta path, which
+instructs the mapper to *"start from the saved map … keep everything else verbatim"* — i.e. inherit a
+map that is blank exactly where the new work lives, and never notice. I caught it only because I
+opened the file before trusting it; the pipeline would not have.
+**Fix (pick one):** (a) have Pass 0 write a *neutral repo inventory* to the cache, separate from the
+feature-scoped map the run itself consumes; or (b) record in `meta.json` which areas the scan actually
+verified, and force a full re-scan when the new feature ask touches areas the cache never covered.
+Option (a) is cleaner — a repo-level cache should not carry one run's framing.
+
+**Also worth knowing:** the "reuse verbatim, nothing changed" path is safe — the risk is concentrated
+entirely in the delta path, because that is the one that presents a stale/narrow map as complete.

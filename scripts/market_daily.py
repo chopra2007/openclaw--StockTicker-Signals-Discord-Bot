@@ -455,6 +455,114 @@ def _roc(obs: list[tuple[str, float]], window: int) -> float | None:
     return latest / prior - 1.0
 
 
+# ---------------------------------------------------------------------------
+# T1-b (#76 menu): VVIX "fear-of-fear" residual producer -> vol_of_vol_daily.
+# DESCRIPTIVE ONLY — never a term in score_ticker, never an alert gate (a gate
+# re-creates the VIX predictor already rejected in TODO #47).
+#
+# The maths is PORTED, not re-derived, from the sibling volatility project
+# (volatility_regime_reversal_indicator: src/signals/conditions_phase2.py
+# `_vvix_residual` + src/features/utils.py `rolling_ols_residual` /
+# `trailing_percentile`), where it is lookahead-tested. Reading raw VVIX would
+# just re-read the VIX; the residual is what the VIX does NOT already explain.
+# ---------------------------------------------------------------------------
+
+_VVIX_WINDOW = 252   # trading days for BOTH the rolling OLS and the percentile rank
+
+
+def _rolling_ols_residual(y: pd.Series, x: pd.Series, window: int) -> pd.Series:
+    """Residual of a TRAILING-window OLS of y on x, evaluated at the current point.
+
+    At index t, fit ``y = a + b*x`` on [t-window+1, t] (data <= t only) and return
+    ``y[t] - (a + b*x[t])``. Point-in-time by construction — no lookahead.
+    Ported verbatim from the sibling project's features/utils.py.
+    """
+    yv = y.to_numpy(dtype=float)
+    xv = x.to_numpy(dtype=float)
+    n = len(yv)
+    out = [float("nan")] * n
+    for t in range(window - 1, n):
+        ys = yv[t - window + 1:t + 1]
+        xs = xv[t - window + 1:t + 1]
+        if not all(math.isfinite(v) for v in ys) or not all(math.isfinite(v) for v in xs):
+            continue                      # require a full window of valid pairs (no gaps)
+        xm = sum(xs) / len(xs)
+        ym = sum(ys) / len(ys)
+        denom = float(sum((v - xm) ** 2 for v in xs))
+        if denom <= 0.0:
+            continue
+        b = float(sum((xs[i] - xm) * (ys[i] - ym) for i in range(len(xs)))) / denom
+        a = float(ym - b * xm)
+        out[t] = yv[t] - (a + b * xv[t])
+    return pd.Series(out, index=y.index)
+
+
+def _trailing_percentile(s: pd.Series, window: int) -> pd.Series:
+    """Percentile rank of the current obs within its trailing window, in (0, 1].
+
+    Fraction of the trailing ``window`` observations (t included) that are <= the
+    value at t. Ported verbatim from the sibling project's features/utils.py.
+    """
+    def _rank(x) -> float:
+        return float((x <= x[-1]).sum()) / float(len(x))
+
+    return s.rolling(window, min_periods=window).apply(_rank, raw=True)
+
+
+def build_vvix_rows(days_limit: int | None = None) -> list[dict]:
+    """Build today's descriptive VVIX-residual row (T1-b). [] on any data problem.
+
+    Fetches ^VVIX and ^VIX from yfinance DIRECTLY (3y) rather than through
+    utils.prices.fetch_history, because the Schwab path rewrites ``^VIX`` -> ``$VIX``
+    and Schwab's index symbology for VVIX is unverified. Needs ~504 clean bars to warm
+    up (252 for the OLS, then 252 residuals for the percentile), which is why this
+    lives in the DAILY writer with a 3-year pull and never on a request path.
+    ``days_limit`` is accepted for call-site symmetry; a point-in-time snapshot has
+    no window to trim.
+    """
+    del days_limit  # snapshot is point-in-time; no windowing
+    # Honour the config knob rather than the module default — a `window:` in
+    # consensus.yaml that silently did nothing would be worse than no knob at all.
+    window = int(cfg.get("features.vvix_residual.window", _VVIX_WINDOW))
+    import yfinance as yf
+    try:
+        vvix = yf.Ticker("^VVIX").history(period="3y")["Close"].dropna()
+        vix = yf.Ticker("^VIX").history(period="3y")["Close"].dropna()
+    except Exception as e:  # noqa: BLE001 — a fetch failure must not crash the cron
+        log.warning("[vvix] fetch failed (%s) — skipping vol_of_vol_daily row", e)
+        return []
+    # yfinance hands back ^VVIX indexed in America/New_York but ^VIX in America/Chicago
+    # (CBOE). Both are midnight-stamped daily bars, so the timestamps NEVER match and a
+    # naive join yields ZERO aligned rows. Align on each bar's calendar date instead.
+    vvix.index = pd.to_datetime(vvix.index.date)
+    vix.index = pd.to_datetime(vix.index.date)
+    df = pd.concat([vvix.rename("vvix"), vix.rename("vix")], axis=1).dropna()
+    need = window * 2
+    if len(df) < need:
+        log.warning("[vvix] only %d aligned bars, need %d to warm up — skipping row",
+                    len(df), need)
+        return []
+    log_vvix = df["vvix"].apply(math.log)
+    log_vix = df["vix"].apply(math.log)
+    residual = _rolling_ols_residual(log_vvix, log_vix, window)
+    pct = _trailing_percentile(residual, window)
+    r_last = residual.iloc[-1]
+    p_last = pct.iloc[-1]
+    if not (math.isfinite(r_last) and math.isfinite(p_last)):
+        log.warning("[vvix] residual/percentile not finite at the last bar — skipping row")
+        return []
+    return [{
+        # The bar's own date, not "today": this is a closing read, and on a weekend
+        # or holiday the newest bar is the last session, not the calendar day.
+        "date_utc": df.index[-1].date().isoformat(),
+        "vvix": float(df["vvix"].iloc[-1]),
+        "vix": float(df["vix"].iloc[-1]),
+        "residual": float(r_last),
+        "residual_pct": float(p_last),
+        "window_days": window,
+    }]
+
+
 def build_macro_rows(days_limit: int | None = None) -> list[dict]:
     """Build the descriptive F4 macro row from FRED daily series (r22).
 
@@ -660,7 +768,8 @@ def seed(conn: sqlite3.Connection, sector_rows: list[dict],
          factor_rows: list[dict], trend_rows: list[dict],
          breadth_rows: list[dict] | None = None,
          macro_rows: list[dict] | None = None,
-         market_breadth_rows: list[dict] | None = None) -> None:
+         market_breadth_rows: list[dict] | None = None,
+         vvix_rows: list[dict] | None = None) -> None:
     now_ts = time.time()
     for r in sector_rows:
         conn.execute(
@@ -719,6 +828,14 @@ def seed(conn: sqlite3.Connection, sector_rows: list[dict],
              r["iwm_spy_ratio"], r["iwm_spy_trend"], r["breadth_state"],
              r["window_days"], now_ts),
         )
+    for r in (vvix_rows or []):
+        conn.execute(
+            """INSERT OR REPLACE INTO vol_of_vol_daily
+               (date_utc, vvix, vix, residual, residual_pct, window_days, computed_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (r["date_utc"], r["vvix"], r["vix"], r["residual"], r["residual_pct"],
+             r["window_days"], now_ts),
+        )
     conn.commit()
 
 
@@ -749,7 +866,7 @@ def run(db_path: str, days: int | None, dry_run: bool,
                   _resolve_store_dir(store_dir))
         return {"sector_rs_daily": 0, "factor_rs_daily": 0, "trend_daily": 0,
                 "internal_breadth_daily": 0, "macro_legs_daily": 0,
-                "market_breadth_daily": 0}
+                "market_breadth_daily": 0, "vol_of_vol_daily": 0}
     log.info("[market_daily] panel %d rows, %s -> %s (%d symbols)",
              len(panel), str(panel.index[0])[:10], str(panel.index[-1])[:10],
              panel.shape[1])
@@ -774,6 +891,13 @@ def run(db_path: str, days: int | None, dry_run: bool,
     breadth_on = bool(cfg.get("features.market_breadth.enabled", False)
                       or cfg.get("features.market_breadth.shadow", False))
     market_breadth_rows = build_market_breadth_rows(days) if breadth_on else []
+    # T1-b (#76 menu): VVIX fear-of-fear residual. Same collect-vs-display split as
+    # r20 above — collect:true fills vol_of_vol_daily so the history is there the day
+    # the display flag flips; enabled:false leaves the !market panel unchanged. The
+    # row is DESCRIPTIVE and is never read by cross_reference.score_ticker.
+    vvix_on = bool(cfg.get("features.vvix_residual.enabled", False)
+                   or cfg.get("features.vvix_residual.collect", False))
+    vvix_rows = build_vvix_rows(days) if vvix_on else []
 
     # Correctness gate BEFORE any write (independent pandas recompute).
     checked = (_gate_sector(sector_rows, panel)
@@ -789,6 +913,7 @@ def run(db_path: str, days: int | None, dry_run: bool,
         "internal_breadth_daily": len(breadth_rows),
         "macro_legs_daily": len(macro_rows),
         "market_breadth_daily": len(market_breadth_rows),
+        "vol_of_vol_daily": len(vvix_rows),
     }
     if dry_run:
         log.info("[dry-run] computed %s — NO writes performed.", summary)
@@ -798,7 +923,7 @@ def run(db_path: str, days: int | None, dry_run: bool,
     try:
         _ensure_schema(conn)
         seed(conn, sector_rows, factor_rows, trend_rows, breadth_rows, macro_rows,
-             market_breadth_rows)
+             market_breadth_rows, vvix_rows)
     finally:
         conn.close()
     log.info("[market_daily] seeded %s into %s", summary, db_path)
