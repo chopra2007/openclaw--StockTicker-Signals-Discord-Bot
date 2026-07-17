@@ -1,0 +1,19 @@
+# Dedup Pass 2: Feasibility & Design Refinement Analysis
+
+Research completed 2026-07-15. All candidates against hard constraints (decision-time gating, zero standing context cost).
+
+---
+
+- **PreToolUse/PostToolUse citation-enforcer + answer-validator (ariff-claude-plugins)** [pass-2 / dry-round-dedup] Its only viable core is the Stop-hook variant, which is exactly c9; the PostToolUse 'scan outbound text' framing is unbuildable because PostToolUse sees tool output, not the assistant's composed message. - evidence: Docs /en/hooks PostToolUseHookInput schema shows `tool_input`, `tool_response`, `tool_use_id` but NO `last_assistant_message`; only Stop hook receives last_assistant_message per /en/hooks Stop Input Hook Example.
+
+- **Post-LLM hallucination guardrail with same-turn self-correction feedback loop** [pass-2 / dry-round-dedup] The 'flag then feed back into the same turn for self-correction' mechanism is precisely what a Stop hook's {decision:block, reason} already does (feeds reason back, Claude continues) — it is c9, not a distinct build. - evidence: verify-on-done.py lines 54-57 emit {'decision':'block','reason':...} with sys.exit(0), which forces continuation; docs /en/hooks confirm Stop 'block' 'Prevents Claude from stopping; continues the conversation'.
+
+- **Deterministic pre-execution policy gate (arxiv 2607.07405)** [pass-2 / dry-round-dedup] High-quality peer validation of hard-constraint #1, but its transferable content — key the gate on the checkable fact 'was a probe tool called this turn' rather than regex-parsing claim text — is a design refinement folded into c9's safeguards, not a separate system. - evidence: c9 as scoped already ANDs claim-shape with 'no matching probe tool-call in the same turn'; the paper's steer strengthens that condition rather than proposing a new mechanism.
+
+- **NeMo Guardrails self-check-facts output rail (AlignScore / Patronus Lynx judge)** [pass-2 / below-cut] The rail's mechanism is an NLI/LLM judge scoring every claim against retrieved evidence — heavier than the explicit 'no per-message LLM cost' constraint; its cheap-deterministic residue is just c9/c4. - evidence: Its own docs note accuracy is 'strongly dependent on the capability of the LLM' judge; TODO #77 rejects standing per-message cost. Deterministic tag-tracking equivalent already covered by c9.
+
+- **Provenance/trust tagging of ingested content (spotlighting / CaMeL)** [pass-2 / dry-round-dedup] Same direction as c3 (candidate b) at the security-pattern level; its distinct contribution — tagging must be enforced by a wrapper outside the model — is folded into c3's safeguard of pairing with the c9 enforcer. - evidence: Source states 'the model still sees everything' and can drop the label, so enforcement must be external; that caveat is captured in c3's failure_modes/safeguards.
+
+- **Regex/pattern-based output scanning as a fast pre-filter (LLM Guard / TrueFoundry)** [pass-2 / dry-round-dedup] The regex-scan-then-block mechanism IS c9's mechanism; its actual load-bearing content is a safeguard (keep the verb list narrow, don't widen), folded into c9. - evidence: Cited incident: an over-grown filter list (~45 patterns) blocked a legitimate 'Ignore the previous order' message — captured as c9's 'keep verb list narrow, never widen' safeguard.
+
+- **PreToolUse gate on the message-send/response step** [pass-2 / infeasible-early] Rests on a non-existent mechanism: there is no tool Claude Code uses to 'deliver final text to the user', and the one event that touches outbound text (MessageDisplay) is display-only and cannot block. - evidence: Docs /en/hooks: 'To actually block or modify assistant output before Claude generates it, no hook event exists'; MessageDisplay only sets displayContent, 'doesn't affect transcript or Claude's view', 10s timeout, no block capability per /websites/code_claude MessageDisplay Hook Input Example.

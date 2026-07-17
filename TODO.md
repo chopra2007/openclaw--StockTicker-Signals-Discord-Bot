@@ -615,3 +615,23 @@ squeeze-risk guard)** was rejected *only* because it needed the short-interest l
 shipped**. It is the most promotable idea in the PASSED bucket.
 
 The standing menu of already-researched ideas, with every verdict written down so no session redoes settled work. All 113 rostered individually; the 14 open ones sorted strongest-to-weakest in 4 tiers; work them top-down. **The trap this file exists to prevent: "not built in that run" ≠ "the bot lacks it" — always grep the live code before promoting an idea to ready-to-build.** (It caught one on 2026-07-14: EPS-revisions was listed as a candidate and is in fact live.) Build a pick under the normal rules, then write `BUILT` or `PASSED` (with the reason) back into the ledger and move the row into the closed section — a rejected idea is PASSED, never deleted, because the reason is what stops it being re-proposed, and **a row must never sit in two places**. Also records the 3 killed ideas, the 6 already-live ones, and the 74 rejected with reasons — each graded firm vs soft, so the soft ones can be reopened instead of paying for a new research run (the run generated **113** distinct ideas, not 115 — the IDs run to c115 but c58/c82 were never written and c97 is duplicated). Closes only when all four tiers are empty. Turning ON the 16 already-built features is **#67**, not this item.
+
+## 77. Make the bot verify facts before stating them, without being prompted — SOAKING until 2026-07-31
+
+**File:** `verify-default-not-firing.md`
+
+**CURRENT STATUS (2026-07-17):** BUILT AND LIVE (discover run `verify-gate`, ultracode session).
+Two mechanical layers shipped and switched ON, zero standing context cost:
+1. **Claim tripwire** — `/root/.claude/hooks/verify-claim-gate.py`, registered on both Stop and
+   SubagentStop in `/root/.claude/settings.json`. Blocks a turn-final message only when it is
+   claim-shaped (narrow subject+verb list with hedge/negation guards) AND no verification tool ran
+   that turn AND no citation is present. Fail-open everywhere; scoped to this project only; 15/15
+   tests green; verified live (real Stop + 3 real SubagentStop ledger records on 2026-07-17).
+2. **Banner relabel** — `openclaw-digest.sh` now stamps every notifications.log line
+   "UNVERIFIED as of [its timestamp] — machine snapshot; probe the primary source before repeating".
+Every gate decision lands in `/root/.claude/hooks/logs/claim-gate-YYYYMMDD.log`. **Soak (to
+2026-07-31): that ledger accrues the C4 go/no-go** — if >5% of blocks are false-fires, build the
+deferred Haiku escalation layer (C4, designed in `final-plan.md`, not built); otherwise close.
+Full build evidence: `.claude/discover/verify-gate/pass-5-execution-log.md`.
+
+Stop Claude from stating unchecked status/alerts as fact — it assumes, the user has to question it, and the claim turns out wrong; build a decision-time gate that fires the "verify first" reflex without bloating context (the failure mode of every past fix).

@@ -1,0 +1,27 @@
+{
+  "run": "verify-gate",
+  "feature_ask": "TODO #77 — make 'verify before stating' fire mechanically (todo/verify-default-not-firing.md)",
+  "date": "2026-07-17",
+  "branch": "worktree-todo-77-verify-default",
+  "note": "Shipped files live OUTSIDE the repo (/root/.claude/hooks/, /root/.claude/settings.json); this repo commit carries the run artifacts + TODO updates.",
+  "candidates": [
+    {
+      "id": "c9",
+      "name": "Deterministic Stop-hook claim-shape gate",
+      "verdict": "shipped",
+      "detail": "/root/.claude/hooks/verify-claim-gate.py, registered on Stop + SubagentStop in /root/.claude/settings.json; 15/15 tests; 6/6 probes; live Stop + SubagentStop ledger records 2026-07-17; decision ledger at /root/.claude/hooks/logs/claim-gate-YYYYMMDD.log"
+    },
+    {
+      "id": "c3",
+      "name": "Source-tag the SessionStart digest",
+      "verdict": "shipped",
+      "detail": "/root/.claude/hooks/openclaw-digest.sh Block 1 now emits each notifications.log line under 'UNVERIFIED as of <ts> — machine snapshot; probe the primary source before repeating'; both timestamp formats probed; empty-log case clean"
+    },
+    {
+      "id": "c4",
+      "name": "Selective LLM escalation (Haiku judge over claim-shaped subset)",
+      "verdict": "deferred",
+      "detail": "forward_data: go/no-go needs C9's LIVE false-fire rate. Ledger is the instrument; decision ~2026-07-31 — build only if false-fire >5% of blocks. Spec preserved in final-plan.md."
+    }
+  ]
+}
