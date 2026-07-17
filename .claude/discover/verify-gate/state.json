@@ -18,7 +18,10 @@
     { "from": 4, "to": 4, "ok": false, "partial": true, "run_id": "wf_60ff38c5-a89", "note": "attempt 1: tournament-judge died on transient 529; second same-class security flag on plan:minimal-diff reviewed (transcript clean), user chose resume + ask-only-if-novel" },
     { "from": 4, "to": 4, "ok": true, "partial": false, "run_id": "wf_60ff38c5-a89", "note": "resume: judge ran clean, minimal-diff won 8.7 vs 8.3, 8 grafts + SubagentStop structural revision, final-plan.md written" }
   ],
-  "current_pass_done": 4,
+  "current_pass_done": 5,
+  "status": "complete",
+  "shipped_commit": "631d198",
+  "pr": "https://github.com/chopra2007/openclaw--StockTicker-Signals-Discord-Bot/pull/29",
   "last_run_id": "wf_79d48bdc-09b",
   "booster_status": { "omc": true, "superpowers": true, "codex": "healthy", "gemini": "healthy" }
 }
