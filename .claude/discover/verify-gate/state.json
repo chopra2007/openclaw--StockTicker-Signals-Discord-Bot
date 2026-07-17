@@ -1,0 +1,24 @@
+{
+  "format_version": 2,
+  "name": "verify-gate",
+  "dial": "light",
+  "dial_patch": "custom 2/2/2/2 per user: light preset patched rivals 1->2, crossModel false->true",
+  "pipeline_script": "/home/openclaw/.openclaw/workspace/.claude/worktrees/todo-77-verify-default/.claude/discover/verify-gate/discover-pipeline-patched.js",
+  "run_style": "checkpoints",
+  "reviews_ticked": ["shortlist"],
+  "model_tier": "max",
+  "pins": {},
+  "after_plan": "build",
+  "feature_source": "TODO #77 — todo/verify-default-not-firing.md",
+  "created": "2026-07-15",
+  "current_pass": 3,
+  "bursts": [
+    { "from": 0, "to": 2, "ok": true, "partial": false, "run_id": "wf_79d48bdc-09b", "note": "map-cache synth agent failed (prompt too long); map cache saved manually by main session" },
+    { "from": 3, "to": 3, "ok": true, "partial": false, "run_id": "wf_57911187-a7f", "note": "0 kills, 3 survivors (C9 first ship, C3 concurrent, C4 contingent fallback); harness security classifier flagged skeptic:code-reality — surfaced to user for adjudication before Pass 4" },
+    { "from": 4, "to": 4, "ok": false, "partial": true, "run_id": "wf_60ff38c5-a89", "note": "attempt 1: tournament-judge died on transient 529; second same-class security flag on plan:minimal-diff reviewed (transcript clean), user chose resume + ask-only-if-novel" },
+    { "from": 4, "to": 4, "ok": true, "partial": false, "run_id": "wf_60ff38c5-a89", "note": "resume: judge ran clean, minimal-diff won 8.7 vs 8.3, 8 grafts + SubagentStop structural revision, final-plan.md written" }
+  ],
+  "current_pass_done": 4,
+  "last_run_id": "wf_79d48bdc-09b",
+  "booster_status": { "omc": true, "superpowers": true, "codex": "healthy", "gemini": "healthy" }
+}

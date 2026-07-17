@@ -1,11 +1,21 @@
 # Make "verify before stating" actually fire without the user prompting
 
-**Status:** OPEN
+**Status:** SOAKING until 2026-07-31 — built & live; decision ledger accruing false-fire data
 **Created:** 2026-07-14
 
-**CURRENT STATUS (2026-07-14):** Newly opened. This is the *build* item that #40
-(diagnosis-only) explicitly deferred: "if the user later wants these enforced mechanically
-(a hook / a sub-agent preamble injector), open a new build item." Nothing built yet.
+**CURRENT STATUS (2026-07-17):** BUILT AND LIVE (discover run `verify-gate`, ultracode session).
+Two mechanical layers shipped and switched ON, zero standing context cost:
+1. **Claim tripwire** — `/root/.claude/hooks/verify-claim-gate.py`, registered on both Stop and
+   SubagentStop in `/root/.claude/settings.json`. Blocks a turn-final message only when it is
+   claim-shaped (narrow subject+verb list with hedge/negation guards) AND no verification tool ran
+   that turn AND no citation is present. Fail-open everywhere; scoped to this project only; 15/15
+   tests green; verified live (real Stop + 3 real SubagentStop ledger records on 2026-07-17).
+2. **Banner relabel** — `openclaw-digest.sh` now stamps every notifications.log line
+   "UNVERIFIED as of [its timestamp] — machine snapshot; probe the primary source before repeating".
+Every gate decision lands in `/root/.claude/hooks/logs/claim-gate-YYYYMMDD.log`. **Soak (to
+2026-07-31): that ledger accrues the C4 go/no-go** — if >5% of blocks are false-fires, build the
+deferred Haiku escalation layer (C4, designed in `final-plan.md`, not built); otherwise close.
+Full build evidence: `.claude/discover/verify-gate/pass-5-execution-log.md`.
 
 ## The problem (in the user's words)
 
@@ -69,3 +79,8 @@ When you next run this (you mentioned opus/ultracode), do you want to start with
 narrowest** win — source-tagging startup alerts as UNVERIFIED — and only escalate to a general
 claim-detecting gate if that isn't enough? That keeps context cost near zero and targets the
 most common real failure (relaying a notification as fact).
+
+### Session notes — 2026-07-17
+- **Worked on:** Full discover run `verify-gate` (map → research → filter → kill-test → plan tournament → build). Shipped C9 claim tripwire (Stop+SubagentStop hook) + C3 banner relabel; C4 LLM escalation deferred pending ledger data. All 15 checklist items verified; full suite 2992 passed, 0 new vs baseline.
+- **Decisions:** User kept all 3 shortlist candidates; adjudicated 2 security-classifier false alarms (subject-matter pattern: agents studying block mechanics); approved minimal-diff plan (won 8.7 vs 8.3); both features ON per built-switches-ON.
+- **Next:** ~2026-07-31 read `/root/.claude/hooks/logs/claim-gate-*.log`: if false-fire rate of `block` records >5%, build C4 (Haiku escalation, spec in final-plan.md); else mark DONE.
