@@ -174,7 +174,7 @@ section 1.
 | Codex starts and its hooks fire | Pass — verified with a real `codex exec` run |
 | `sec-edgar` MCP server | Pass — real handshake, "SEC EDGAR MCP" v1.26.0 |
 | `exa` MCP server | Pass — key resolved at run time and the server connected |
-| `github` MCP server | Blocked — token not on this machine outside Claude's config |
+| `github` MCP server | Pass — reads the existing `GITHUB_TOKEN`; authenticated and fetched its scopes back from GitHub |
 | Full test suite vs `.test-baseline` | See "Test results" below |
 
 Commands used:
@@ -232,15 +232,28 @@ changed now, to keep this pass non-destructive.
 
 ## 9. Manual setup you may still want
 
-**1. Add the GitHub token so the third tool server works.** The GitHub MCP server is
-configured and its container image is already downloaded, but the token only exists inside
-Claude's config file as plain text. It was not copied. To finish it, add a line naming
-`GITHUB_PERSONAL_ACCESS_TOKEN` to `/root/.openclaw/.env.service`. **Rotate that token
-first** — it has been sitting in a plain-text config file.
+**1. The GitHub tool server — done, and no copying was needed.** The token was already in
+`/root/.openclaw/.env.service` under the name `GITHUB_TOKEN`, and it is the same value
+held in Claude's config. Codex's `github` server was pointed at that name and verified end
+to end: it started, authenticated, and read its own permissions back from GitHub
+(`gist read:user repo workflow`).
 
-**2. Let Codex work directly in the live workspace.** Today Codex works in a copy under
-`/root` because it cannot reach the real folder. To change that, run these as root — they
-grant only the `root` user passage, and change nothing for anyone else:
+An earlier draft of this report said the token still had to be copied across. That was
+wrong. It came from searching only for the longer name `GITHUB_PERSONAL_ACCESS_TOKEN` and
+never checking the shorter one.
+
+Worth doing when convenient: that token is a classic one with `repo` and `workflow`
+rights, so it can write to every repository on the account and change CI files, and it
+does not expire. A fine-grained token limited to this repository, with an expiry date,
+would carry far less risk for the same result. Swapping it is a one-line change in
+`.env.service` — nothing else needs to change.
+
+**2. Let Codex work directly in the live workspace — already applied.** Until this was
+done, Codex could only work in a copy under `/root`, because it could not reach the real
+folder at all. These four commands fixed that. They have been run and verified: Codex was
+started in the live workspace afterwards and read files there successfully. They are kept
+here as the record of what changed and how to undo it. They grant passage to the `root`
+user only, and change nothing for any other user:
 
 ```bash
 setfacl -m u:root:x /home/openclaw

@@ -36,19 +36,20 @@ Full detail: [`docs/migration/MIGRATION_REPORT.md`](docs/migration/MIGRATION_REP
 
 ## Blocked
 
-- **The `github` tool server needs a token.** It is configured and its container image is
-  downloaded, but the token exists only as plain text inside Claude's config and was not
-  copied. See "Manual" below.
+Nothing.
 
 ## Manual — needs a person
 
-1. **Add the GitHub token** to `/root/.openclaw/.env.service` as
-   `GITHUB_PERSONAL_ACCESS_TOKEN`. The value currently lives in one root-only file
-   (`/root/.claude.json`, permissions 600) and was deliberately not copied by an
-   automated step. It is a classic token with `repo` and `workflow` rights, meaning full
-   write access to every repository on the account and the ability to change CI files.
-   Better than copying it: create a fine-grained token limited to this one repository,
-   with an expiry date, and use that instead.
+1. ~~Add the GitHub token~~ — **done, and it needed no copying.** The token was already in
+   `/root/.openclaw/.env.service` under the name `GITHUB_TOKEN`, and it is the same value
+   that sits in Claude's config. Codex's `github` server now reads that name. Verified
+   working: the server authenticated and fetched its permissions back from GitHub.
+
+   Still worth doing when convenient: this is a classic token with `repo` and `workflow`
+   rights — full write access to every repository on the account, plus the ability to
+   change CI files, and no expiry date. A fine-grained token limited to this one
+   repository, with an expiry, would do the same job with far less at stake. Swapping it
+   means changing one line in `.env.service`; nothing else needs to change.
 2. ~~Run four `setfacl` commands~~ — **done.** Codex can now work directly in the live
    workspace. Verified by running Codex there and having it read files.
 3. **Merge this branch** to remove the stray `.codex` file for good. It is not urgent:
