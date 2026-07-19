@@ -42,13 +42,18 @@ Full detail: [`docs/migration/MIGRATION_REPORT.md`](docs/migration/MIGRATION_REP
 
 ## Manual — needs a person
 
-1. **Rotate the GitHub token, then add it** to `/root/.openclaw/.env.service` as
-   `GITHUB_PERSONAL_ACCESS_TOKEN`. Rotate first: it has been sitting in a plain-text file.
-2. **Run four `setfacl` commands** (report section 9) to let Codex work directly in the
-   live workspace instead of a copy under `/root`. The permission system blocked these
-   from being run automatically.
-3. **Merge this branch.** Until then the live workspace still has the `.codex` file, so
-   Codex started from the real folder keeps failing.
+1. **Add the GitHub token** to `/root/.openclaw/.env.service` as
+   `GITHUB_PERSONAL_ACCESS_TOKEN`. The value currently lives in one root-only file
+   (`/root/.claude.json`, permissions 600) and was deliberately not copied by an
+   automated step. It is a classic token with `repo` and `workflow` rights, meaning full
+   write access to every repository on the account and the ability to change CI files.
+   Better than copying it: create a fine-grained token limited to this one repository,
+   with an expiry date, and use that instead.
+2. ~~Run four `setfacl` commands~~ — **done.** Codex can now work directly in the live
+   workspace. Verified by running Codex there and having it read files.
+3. **Merge this branch** to remove the stray `.codex` file for good. It is not urgent:
+   Codex works from the live workspace even with the file present. It only breaks when
+   Codex is started from the linked copy under `/root`. See the report for detail.
 4. **Try `/todo open` once in Codex.** How Codex passes command arguments could not be
    confirmed from the docs on this machine. If it misbehaves it is a one-line fix.
 

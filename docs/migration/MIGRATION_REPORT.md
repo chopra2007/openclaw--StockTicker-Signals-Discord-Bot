@@ -262,8 +262,21 @@ The blunt fallback, if you would rather not use the commands above, is
 `codex exec -s danger-full-access "<task>"`. That turns the sandbox off completely, so
 Codex could reach the secret files and anything else on the machine. Prefer the ACL route.
 
-**3. Merge this branch.** Until it merges, the live workspace still contains the
-zero-byte `.codex` file, so Codex started from the real folder will keep failing.
+**3. Merge this branch** to remove the `.codex` file for good.
+
+Correcting an earlier claim in this report: it previously said Codex would keep failing
+from the live workspace until this branch merged. That is **not true**, and was tested
+afterwards. The blocker depends on where Codex is started from:
+
+- Started from the **linked copy** at `/root/codex-migration-work`: still fails. Codex
+  works out the project root from git, lands on the live workspace, finds the `.codex`
+  file and stops.
+- Started from the **live workspace** itself: works. Both `codex exec` and
+  `codex mcp list` succeed there with the file still present.
+
+This could not have been checked earlier, because before the ACL commands above were run
+Codex could not enter the live workspace at all. So the merge is worth doing to clear the
+file, but it is not blocking day-to-day use from the live workspace.
 
 **4. Check the `/todo` command once by hand.** How Codex fills in a command's arguments
 could not be confirmed from the documentation on this machine. Run `/todo open` in a Codex
