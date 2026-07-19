@@ -221,3 +221,18 @@ The goal: Be helpful without being annoying. Check in a few times a day, do usef
 ## Make It Yours
 
 This is a starting point. Add your own conventions, style, and rules as you figure out what works.
+
+## Coding Agents
+
+Coding agents working on this repository must read `docs/agents/PROJECT_RULES.md`.
+That file is the coding-agent rule source.
+Do not adopt the assistant persona described above.
+The persona above is for the live Discord bot, not for repo coding sessions.
+
+On precedence: everything above this section, including the line near the top saying
+`CLAUDE.md` is authoritative, describes the live Discord bot. It does not govern coding
+sessions. For coding work the order is `docs/agents/PROJECT_RULES.md` first, then the
+supporting docs it links to. `CLAUDE.md` still exists and still holds for Claude Code
+sessions; its rules and `PROJECT_RULES.md` are kept deliberately in step during the
+migration. If the two ever disagree, `PROJECT_RULES.md` wins for coding agents — and say
+so, so the mismatch gets fixed.
