@@ -91,6 +91,9 @@ memory/
 # but DO track the chat-memory source module (the rule above is for workspace memory dirs)
 !consensus_engine/memory/
 !consensus_engine/memory/*.py
+# and DO track the agent memory-routing docs (same reason: not a workspace memory dir)
+!docs/agents/memory/
+!docs/agents/memory/*.md
 .claude/*
 !.claude/commands/
 .clawhub/
