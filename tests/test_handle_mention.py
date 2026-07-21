@@ -1,17 +1,25 @@
 """Tests for the @-mention retry path in consensus_engine.main._handle_mention.
 
-The handler runs 2 attempts of the `openclaw agent` subprocess with a single
-2s backoff between them — openclaw itself walks the model chain inside each
-invocation, so this wrapper is only a subprocess-level safety net. Three
-failure branches: empty stdout, asyncio TimeoutError, generic Exception.
+Each attempt is one `openclaw agent` subprocess. openclaw's own model chain
+only fires on a model *error*, so it does nothing when the model answers fine
+but the run burns its time budget — this wrapper is the layer that handles
+that. Retry policy (2026-07-21 incident):
+
+* every retry moves to the NEXT model down the chain AND to a wiped scratch
+  session, so it can never reproduce the previous attempt's failure;
+* cheap failures (empty stdout, crash) walk the whole chain — a dead model
+  fails in seconds, so trying the next one costs nothing;
+* expensive failures (aborted / timed-out runs) stop after
+  `_MAX_AGENT_TIMEOUTS`, because each one costs the user a full 120s wall.
 
 1. retry-then-success — empty stdout on attempt 1, real reply on attempt 2.
-2. all-fail — every attempt returns empty stdout; reply contains
-   "Agent unavailable after 2 attempts" + last error.
-3. timeout — every attempt raises TimeoutError; reply contains the
-   "subprocess timed out (>150s)" last-error substring.
-4. aborted-guard — a self-killed openclaw run (meta.aborted / stub text /
-   empty) is never posted as the answer.
+2. all-fail — every attempt empty; walks the chain, then a plain-English
+   failure message.
+3. timeout — every attempt raises TimeoutError; stops at the timeout budget.
+4. aborted-guard — a self-killed openclaw run (meta.aborted / stub text) is
+   never posted as the answer.
+5. retry-differs — attempt 2's argv uses a different model and session id.
+6. channel-mention expansion — `<#id>` reaches the agent as `#name`.
 """
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
@@ -21,11 +29,33 @@ import pytest
 from consensus_engine import main as main_mod
 
 
+_FALLBACKS = ["fallback/model-a", "fallback/model-b", "fallback/model-c"]
+
+
+@pytest.fixture(autouse=True)
+def pinned_agent_chain(monkeypatch):
+    """Pin the fallback chain so attempt counts don't drift with consensus.yaml."""
+    real_get = main_mod.cfg.get
+
+    def _fake_get(key, default=None):
+        if key == "llm.agent_fallback_models":
+            return list(_FALLBACKS)
+        return real_get(key, default)
+
+    monkeypatch.setattr(main_mod.cfg, "get", _fake_get)
+    return list(_FALLBACKS)
+
+
 def _make_proc(stdout: bytes, stderr: bytes) -> MagicMock:
     """Build a fake subprocess whose communicate() returns (stdout, stderr)."""
     proc = MagicMock()
     proc.communicate = AsyncMock(return_value=(stdout, stderr))
     return proc
+
+
+def _argv_of(factory, call_index: int) -> list:
+    """The positional argv `create_subprocess_exec` was called with."""
+    return list(factory.await_args_list[call_index].args)
 
 
 async def test_handle_mention_retry_then_success_on_second_attempt(monkeypatch):
@@ -61,10 +91,14 @@ async def test_handle_mention_retry_then_success_on_second_attempt(monkeypatch):
     assert sleep_calls == [2], f"expected backoff [2]; got {sleep_calls!r}"
 
 
-async def test_handle_mention_all_attempts_fail_returns_unavailable(monkeypatch):
-    """Every attempt yields empty stdout. Reply text reports the failure."""
+async def test_handle_mention_cheap_failures_walk_the_whole_chain(monkeypatch):
+    """Empty stdout is a cheap failure — try every model before giving up.
+
+    A model that is down errors out in seconds, so walking the chain costs the
+    user nothing and is the only thing that routes around a dead primary.
+    """
     factory = AsyncMock(
-        side_effect=[_make_proc(b"", b"upstream 503") for _ in range(2)]
+        side_effect=[_make_proc(b"", b"upstream 503") for _ in range(4)]
     )
     monkeypatch.setattr(main_mod.asyncio, "create_subprocess_exec", factory)
     monkeypatch.setattr(main_mod.asyncio, "sleep", AsyncMock())
@@ -75,17 +109,21 @@ async def test_handle_mention_all_attempts_fail_returns_unavailable(monkeypatch)
 
     await main_mod._handle_mention("hello", "chan_xyz", "msg_abc")
 
-    assert factory.await_count == 2
+    assert factory.await_count == main_mod._MAX_AGENT_ATTEMPTS == 3
     assert reply_mock.await_count == 1
     reply_text = reply_mock.call_args.args[2]
-    assert "Agent unavailable after 2 attempts" in reply_text
-    assert "Last error:" in reply_text
-    assert "upstream 503" in reply_text
+    assert "I couldn't answer that" in reply_text
+    assert "3×" in reply_text
+    # Raw upstream error text is for the logs, not for a non-technical reader.
+    assert "upstream 503" not in reply_text
 
 
-async def test_handle_mention_timeout_branch_reports_timeout(monkeypatch):
-    """All attempts raise asyncio.TimeoutError inside wait_for. Reply
-    contains the "subprocess timed out (>150s)" branch's last_err."""
+async def test_handle_mention_timeouts_stop_at_the_timeout_budget(monkeypatch):
+    """Timed-out runs are expensive — stop early instead of walking the chain.
+
+    Each one costs a full wall-clock timeout. Two already means minutes of
+    silence for the user (the 2026-07-21 incident); a third rarely converges.
+    """
     factory = AsyncMock(return_value=_make_proc(b"x", b""))
     monkeypatch.setattr(main_mod.asyncio, "create_subprocess_exec", factory)
     monkeypatch.setattr(main_mod.asyncio, "sleep", AsyncMock())
@@ -100,11 +138,11 @@ async def test_handle_mention_timeout_branch_reports_timeout(monkeypatch):
 
     await main_mod._handle_mention("ping", "chan_t", "msg_t")
 
-    assert factory.await_count == 2
+    assert factory.await_count == main_mod._MAX_AGENT_TIMEOUTS == 2
     assert reply_mock.await_count == 1
     reply_text = reply_mock.call_args.args[2]
-    assert "Agent unavailable after 2 attempts" in reply_text
-    assert "subprocess timed out (>150s)" in reply_text
+    assert "I couldn't answer that" in reply_text
+    assert "ran out of time" in reply_text
 
 
 @pytest.mark.parametrize("stdout_bytes", [
@@ -130,10 +168,238 @@ async def test_handle_mention_aborted_run_not_posted(monkeypatch, stdout_bytes):
     assert factory.await_count == 2, "aborted run should retry, not post"
     assert reply_mock.await_count == 1
     reply_text = reply_mock.call_args.args[2]
-    assert "Agent unavailable after 2 attempts" in reply_text
+    assert "I couldn't answer that" in reply_text
     # the stub / partial text must NOT have been posted as the answer
     assert "partial work" not in reply_text
     assert "Request timed out before a response" not in reply_text
+
+
+async def test_retry_changes_both_model_and_session(monkeypatch):
+    """The 2026-07-21 regression guard.
+
+    A retry that reuses the same model AND the same session just replays the
+    failure — that day attempt 2 inherited attempt 1's runaway tool-loop
+    transcript and died the same way, 117k -> 336k prompt tokens. Every retry
+    must move to the next model down the chain and to a wiped scratch session.
+    """
+    factory = AsyncMock(side_effect=[_make_proc(b"", b"boom") for _ in range(3)])
+    monkeypatch.setattr(main_mod.asyncio, "create_subprocess_exec", factory)
+    monkeypatch.setattr(main_mod.asyncio, "sleep", AsyncMock())
+    wiped = []
+    monkeypatch.setattr(main_mod, "_reset_agent_session", wiped.append)
+
+    from consensus_engine.alerts import discord as discord_mod
+    monkeypatch.setattr(discord_mod, "send_command_reply", AsyncMock())
+
+    await main_mod._handle_mention("hello", "chan_1", "msg_1")
+
+    first, second, third = (_argv_of(factory, i) for i in range(3))
+
+    # Attempt 1: the live channel session, no model override (chain primary).
+    assert "--model" not in first
+    assert first[first.index("--session-id") + 1] == "channel-chan_1"
+
+    # Retries: scratch session, and a different model each time.
+    for argv in (second, third):
+        assert argv[argv.index("--session-id") + 1] != "channel-chan_1"
+    assert second[second.index("--model") + 1] == _FALLBACKS[0]
+    assert third[third.index("--model") + 1] == _FALLBACKS[1]
+    assert second[second.index("--model") + 1] != third[third.index("--model") + 1]
+
+    # The scratch session is wiped before each retry, so no transcript carries over.
+    assert wiped, "retry must wipe the scratch session before reusing it"
+    assert all(s == "channel-chan_1-retry" for s in wiped)
+
+
+def test_agent_attempt_target_never_reuses_the_live_session_on_retry():
+    """Unit-level guard: only attempt 1 may touch the live channel session."""
+    live, model = main_mod._agent_attempt_target("c1", 1)
+    assert live == "channel-c1" and model == ""
+    for attempt in (2, 3):
+        session, model = main_mod._agent_attempt_target("c1", attempt)
+        assert session == "channel-c1-retry", "retries must not write the live session"
+        assert model == _FALLBACKS[attempt - 2]
+
+
+def test_reset_agent_session_refuses_path_traversal(tmp_path, monkeypatch):
+    """_reset_agent_session deletes files — it must never accept a path."""
+    monkeypatch.setattr(main_mod, "_AGENT_SESSION_DIR", str(tmp_path))
+    victim = tmp_path / "channel-keepme.jsonl"
+    victim.write_text("live session")
+
+    main_mod._reset_agent_session("../../etc/channel-keepme")
+    main_mod._reset_agent_session("")
+    assert victim.exists(), "traversal / empty ids must be refused"
+
+    main_mod._reset_agent_session("channel-keepme")
+    assert not victim.exists(), "a plain session id should be wiped"
+
+
+@pytest.mark.parametrize("raw, expected", [
+    ("look in <#111> please", "look in #errors please"),
+    ("<#111> and <#222>", "#errors and #chat"),
+    ("what about <#999>", "what about #unknown-channel (id 999)"),
+    ("no mentions here", "no mentions here"),
+])
+def test_channel_mentions_are_named_not_left_as_ids(monkeypatch, raw, expected):
+    """`<#id>` must reach the agent as a NAME.
+
+    Left raw, the agent read the id as a *message* id it was supposed to fetch,
+    could not, and looped on the same failing lookup 39 times until its budget
+    ran out (2026-07-21).
+    """
+    monkeypatch.setattr(main_mod.cfg, "get_api_key", lambda k: {
+        "discord_errors_channel_id": "111",
+        "discord_channel_id": "222",
+    }.get(k, ""))
+    assert main_mod._expand_channel_mentions(raw) == expected
+
+
+def test_oversized_live_session_is_rolled(tmp_path, monkeypatch):
+    """A channel transcript must not grow without bound.
+
+    The #chat session had been accumulating since 2026-06-15 — 1.2MB, and
+    prompts of 117k then 336k tokens. That much context cannot finish inside
+    the 120s run budget on its own, which is what turns any hiccup into a
+    timeout. Durable memory lives in chat_memory_rollups, so rolling is safe.
+    """
+    monkeypatch.setattr(main_mod, "_AGENT_SESSION_DIR", str(tmp_path))
+    transcript = tmp_path / "channel-c1.jsonl"
+    trajectory = tmp_path / "channel-c1.trajectory.jsonl"
+
+    transcript.write_text("x" * (main_mod._MAX_SESSION_TRANSCRIPT_BYTES + 1))
+    trajectory.write_text("trace")
+    main_mod._roll_oversized_session("channel-c1")
+    assert not transcript.exists() and not trajectory.exists()
+
+    # A transcript inside the budget is left alone — this must not wipe
+    # working conversation memory on every single question.
+    transcript.write_text("y" * 100)
+    main_mod._roll_oversized_session("channel-c1")
+    assert transcript.exists()
+
+
+async def test_live_session_is_size_checked_before_the_first_attempt(monkeypatch):
+    """Wire check: the roll runs against the live session, before attempt 1."""
+    checked = []
+    monkeypatch.setattr(main_mod, "_roll_oversized_session", checked.append)
+    monkeypatch.setattr(main_mod.asyncio, "create_subprocess_exec",
+                        AsyncMock(return_value=_make_proc(b"ok", b"")))
+    monkeypatch.setattr(main_mod.asyncio, "sleep", AsyncMock())
+    from consensus_engine.alerts import discord as discord_mod
+    monkeypatch.setattr(discord_mod, "send_command_reply", AsyncMock())
+
+    await main_mod._handle_mention("hi", "chan_9", "msg_9")
+
+    assert checked == ["channel-chan_9"]
+
+
+async def _room_context(monkeypatch, question, *, current="222", fetched=None,
+                        fail=False):
+    """Run _referenced_room_context against a stubbed channel reader."""
+    from consensus_engine.tools import read_channel as rc
+
+    monkeypatch.setattr(rc, "_resolve", lambda name: {
+        "errors": "111", "chat": "222", "news": "333",
+    }.get(name.lstrip("#"), ""))
+
+    def _fake_fetch(channel_id, limit):
+        if fail:
+            raise OSError("discord unreachable")
+        return fetched if fetched is not None else [{"id": channel_id}]
+
+    monkeypatch.setattr(rc, "_fetch", _fake_fetch)
+    monkeypatch.setattr(rc, "_format", lambda m: f"line from {m['id']}")
+    return await main_mod._referenced_room_context(question, current)
+
+
+async def test_named_room_is_read_and_handed_over(monkeypatch):
+    """Naming another room must put that room's messages into the prompt.
+
+    Advertising a tool is not enough — on 2026-07-21 the model had the tool and
+    answered from chat history anyway. The data has to be in front of it.
+    """
+    ctx = await _room_context(monkeypatch, "why no recovery note in #errors?")
+
+    assert "#errors" in ctx
+    assert "line from 111" in ctx, "the room's actual messages must be included"
+    assert "authoritative" in ctx.lower(), "must be framed as the record to answer from"
+
+
+async def test_which_message_is_newest_is_stated_outright(monkeypatch):
+    """Ordering must be impossible to misread.
+
+    Handed a bare oldest-first list, the model answered "the most recent alert"
+    with the second-to-last one (2026-07-21) — right data, wrong end. So the
+    newest message is called out explicitly as well as being last.
+    """
+    ctx = await _room_context(monkeypatch, "newest alert in #errors?", fetched=[
+        {"id": "oldest"}, {"id": "middle"}, {"id": "newest"},
+    ])
+
+    assert "OLDEST FIRST" in ctx
+    assert "MOST RECENT" in ctx
+    # The newest must be named BEFORE the bulk log. Stated only at the end, it
+    # sat behind ~10k chars of near-identical alerts and the model ignored it.
+    assert ctx.index("MOST RECENT") < ctx.index("Full recent history"), (
+        "the newest message must be called out before the wall of history"
+    )
+    callout = ctx.split("MOST RECENT")[1].split("Full recent history")[0]
+    assert "line from newest" in callout
+    assert "line from oldest" not in callout
+
+
+async def test_the_current_room_is_not_re_read(monkeypatch):
+    """The caller already supplies this room's history — don't duplicate it."""
+    ctx = await _room_context(monkeypatch, "what did I say in #chat?", current="222")
+    assert ctx == ""
+
+
+async def test_unknown_and_absent_rooms_inject_nothing(monkeypatch):
+    """A stray '#' word must not trigger a fetch."""
+    assert await _room_context(monkeypatch, "is $NVDA #1 today?") == ""
+    assert await _room_context(monkeypatch, "no rooms named here") == ""
+
+
+async def test_a_failed_room_read_says_so_instead_of_going_silent(monkeypatch):
+    """A silent gap is what the model fills with a guess — name the failure."""
+    ctx = await _room_context(monkeypatch, "check #errors", fail=True)
+
+    assert "could not read this room" in ctx
+    assert "discord unreachable" in ctx
+
+
+async def test_room_context_outranks_the_chat_history_block(monkeypatch):
+    """Injected room data must be stated to beat the recent-chat block.
+
+    The chat block carries the bot's own earlier replies. When those disagreed
+    with the live room record, the model copied them — three identical wrong
+    answers in a row (2026-07-21).
+    """
+    ctx = await _room_context(monkeypatch, "latest in #errors?")
+
+    lowered = ctx.lower()
+    assert "this is correct" in lowered
+    assert "not evidence" in lowered, "must say prior replies aren't evidence"
+
+
+async def test_room_context_is_placed_after_the_user_message(monkeypatch):
+    """Position is the mechanical half of the fix, not just the wording.
+
+    Authoritative data must be the LAST thing before the model answers; ahead of
+    the user block it lost to the stale chat text sitting next to the question.
+    """
+    template = main_mod._STEERING_TEMPLATE
+    assert template.index("{content}") < template.index("{room_context}"), (
+        "room context must come after the user message block"
+    )
+
+
+async def test_room_context_is_capped(monkeypatch):
+    """Bounded prompt: at most _ROOM_CONTEXT_MAX_ROOMS rooms are pulled in."""
+    ctx = await _room_context(monkeypatch, "compare #errors #news #chat")
+
+    assert ctx.count("authoritative") <= main_mod._ROOM_CONTEXT_MAX_ROOMS
 
 
 async def test_handle_mention_empty_content_short_circuits(monkeypatch):

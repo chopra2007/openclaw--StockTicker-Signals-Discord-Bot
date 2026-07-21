@@ -48,6 +48,13 @@ _DISCORD_EPOCH_MS = 1420070400000   # Discord snowflake epoch (2015-01-01)
 _REPLAY_PAGE_LIMIT = 100            # Discord REST /messages max per page
 _REPLAY_MAX_MESSAGES = 50           # most-recent N replayed per channel
 _REPLAY_STALENESS_SECONDS = 900.0   # skip messages older than 15 minutes
+_RECONNECT_BACKOFF_START = 5        # seconds; also the value reset to after a READY
+_RECONNECT_BACKOFF_MAX = 30         # ceiling — the bot is deaf for this long per drop
+# A normal reconnect (drop + failed resume) costs at most two ceiling waits, so
+# anything past this means the listener is genuinely stuck rather than cycling.
+# Being deaf is invisible from the outside — the user only finds out by asking
+# the bot something and getting nothing back — so say it out loud in #errors.
+_DEAF_ALERT_AFTER_SECONDS = 180.0
 
 
 def _normalize_handle(raw: str) -> str:
@@ -196,6 +203,13 @@ class DiscordTweetShiftListener:
         self._pre_ready_buffer: deque = deque(maxlen=_pre_ready_cap)
         self._pre_ready_drops: int = 0
         self._ready_received: bool = False
+        # Set on every READY, cleared by run() once it has reset the reconnect
+        # backoff. Without this the backoff in run() only ever grows, so a
+        # long-lived listener sits pinned at the ceiling and goes deaf for
+        # minutes on each routine Discord reconnect.
+        self._reached_ready_since_backoff_reset: bool = False
+        # When the listener was last actually able to hear Discord.
+        self._last_ready_monotonic: float = 0.0
 
         # Malformed-frame rate-limiting: log at most once per minute
         self._malformed_frame_count: int = 0
@@ -267,6 +281,8 @@ class DiscordTweetShiftListener:
             self._session_id = data.get("session_id")
             self._reconnect_count = 0  # Reset on successful connect
             self._tweet_count = 0  # Reset tweet counter on connect
+            self._reached_ready_since_backoff_reset = True  # let run() reset backoff
+            self._last_ready_monotonic = time.monotonic()
             self._bot_user_id = str((data.get("user") or {}).get("id") or "")
             log.info("Discord Gateway READY (session=%s, bot_id=%s)", self._session_id, self._bot_user_id)
             # Drain pre-READY buffer in arrival order before marking ready.
@@ -282,6 +298,9 @@ class DiscordTweetShiftListener:
                     except Exception as e:
                         log.error("Pre-READY replay error: %s", e, exc_info=True)
             self._ready_received = True
+            # Clear any standing "bot is deaf" alert. Runs last, so every piece
+            # of READY state is already in place before we yield to the loop.
+            await self._report_listening(deaf=False)
             # #8: READY (not RESUMED) means a fresh session with no Discord-side
             # event replay — re-drive commands/mentions missed during the gap.
             asyncio.create_task(self._replay_missed(), name="discord-replay")
@@ -674,6 +693,28 @@ class DiscordTweetShiftListener:
                 if hb_task:
                     hb_task.cancel()
 
+    async def _report_listening(self, *, deaf: bool) -> None:
+        """Tell #errors whether the bot can currently hear Discord.
+
+        Transition-only and self-throttling (ops_alert handles that), so a
+        normal reconnect cycle stays silent and a genuine stall gets exactly one
+        message plus one recovery note.
+        """
+        try:
+            from consensus_engine.alerts.ops_alert import report_ops_state
+            await report_ops_state(
+                "discord_gateway_listener",
+                down=deaf,
+                title="The bot has stopped hearing Discord",
+                detail=("Its live connection to Discord dropped and has not come "
+                        "back, so commands and @-mentions in chat are not reaching "
+                        "it. Alerts the bot posts on its own are unaffected."),
+                fix="Nothing yet — it retries on its own. If this persists, "
+                    "restart: systemctl restart consensus-engine.service",
+            )
+        except Exception as exc:      # never let alerting break the listener
+            log.debug("gateway listening-state report skipped: %s", exc)
+
     async def run(self, stop_event: asyncio.Event):
         """Main loop: connect, reconnect on drop. Stops when stop_event is set."""
         self._load_config()
@@ -687,7 +728,7 @@ class DiscordTweetShiftListener:
 
         log.info("TweetShift listener starting (channel=%s)", self._feed_channel_id)
 
-        backoff = 5
+        backoff = _RECONNECT_BACKOFF_START
         while not stop_event.is_set() and not self._stop:
             try:
                 await self._connect_once()
@@ -700,12 +741,26 @@ class DiscordTweetShiftListener:
             if self._stop:
                 break
 
+            # The connection we just lost had reached READY, so Discord is
+            # healthy and this is a routine reconnect (op:7 / INVALID_SESSION).
+            # Restart the escalation instead of inheriting the previous drop's
+            # wait — otherwise backoff only ever grows and a long-lived listener
+            # sits pinned at the ceiling, deaf for minutes on every reconnect.
+            if self._reached_ready_since_backoff_reset:
+                self._reached_ready_since_backoff_reset = False
+                backoff = _RECONNECT_BACKOFF_START
+
+            deaf_for = time.monotonic() - self._last_ready_monotonic
+            if self._last_ready_monotonic and deaf_for > _DEAF_ALERT_AFTER_SECONDS:
+                log.error("Gateway has not reached READY for %.0fs — bot is deaf", deaf_for)
+                await self._report_listening(deaf=True)
+
             log.info("Reconnecting to Discord Gateway in %ds...", backoff)
             try:
                 await asyncio.wait_for(stop_event.wait(), timeout=backoff)
             except asyncio.TimeoutError:
                 pass
-            backoff = min(backoff * 2, 120)
+            backoff = min(backoff * 2, _RECONNECT_BACKOFF_MAX)
 
         log.info("TweetShift listener stopped.")
 

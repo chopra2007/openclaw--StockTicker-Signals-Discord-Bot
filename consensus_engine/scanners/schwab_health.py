@@ -8,9 +8,19 @@ told.
 This module classifies a Schwab failure into the three cases that need DIFFERENT
 actions from the user, and hands them to the shared #errors alerter:
 
-  token_lapsed  — the weekly browser login expired. Run `scripts/schwab_login.py`.
-  auth_rejected — the app key/secret is wrong or the app was revoked. Check `.env`.
-  api_down      — Schwab's servers are 5xx/timing out. Wait; nothing to do.
+  token_lapsed    — the weekly browser login expired. Run `scripts/schwab_login.py`.
+  auth_rejected   — the app key/secret is wrong or the app was revoked. Check `.env`.
+  token_unreadable— the token file exists but this process can't open it (an edit
+                    made as root leaves it root-owned). One chown fixes it.
+  api_down        — Schwab's servers are 5xx/timing out. Wait; nothing to do.
+
+`token_unreadable` earns its own class because it is the one failure that looks
+exactly like an outage and is the opposite of one. On 2026-07-14 the token file
+was left root-owned; the engine (running as openclaw) got EACCES on every call,
+which fell through to `api_down`. The user was told five times over six days
+that "Schwab's servers are not responding — nothing to do, it fixes itself".
+It could not fix itself, and no recovery note ever came, because nothing was
+wrong at Schwab.
 
 Callers report on every attempt (`note_schwab_failure` / `note_schwab_ok`); the
 alerter is the thing that stays silent unless the state actually changed.
@@ -25,6 +35,7 @@ log = logging.getLogger(__name__)
 
 TOKEN_LAPSED = "schwab_token"
 AUTH_REJECTED = "schwab_auth"
+TOKEN_UNREADABLE = "schwab_token_file"
 API_DOWN = "schwab_api"
 
 ALERT_KEY = "schwab_feed"
@@ -32,6 +43,7 @@ ALERT_KEY = "schwab_feed"
 _TITLES = {
     TOKEN_LAPSED: "Schwab real-time data has stopped — the weekly login expired",
     AUTH_REJECTED: "Schwab is refusing our app's credentials",
+    TOKEN_UNREADABLE: "The bot can't open its own Schwab login file",
     API_DOWN: "Schwab's servers are not responding",
 }
 
@@ -46,6 +58,12 @@ _DETAILS = {
         "expiring; the credentials themselves are wrong or the app was switched off. "
         "Options prices have fallen back to the free 15-minute-delayed feed."
     ),
+    TOKEN_UNREADABLE: (
+        "Nothing is wrong at Schwab. The saved login file on this machine is owned by "
+        "another user, so the bot is denied access to it and every Schwab call fails. "
+        "Options prices have fallen back to the free 15-minute-delayed feed. This one "
+        "will NOT clear on its own — it needs the one command below."
+    ),
     API_DOWN: (
         "Schwab's own servers are erroring or timing out. Options prices have fallen "
         "back to the free 15-minute-delayed feed until they recover."
@@ -56,20 +74,28 @@ _FIXES = {
     TOKEN_LAPSED: "Run `python3 scripts/schwab_login.py` and follow the two steps it prints.",
     AUTH_REJECTED: "Check SCHWAB_APP_KEY and SCHWAB_APP_SECRET in ~/.openclaw/.env "
                    "(and .env.service), and that the app is still approved at Schwab.",
+    TOKEN_UNREADABLE: "Run: sudo chown openclaw:openclaw ~/.openclaw/schwab_token.json",
     API_DOWN: "Nothing — this one fixes itself. You'll get a note here when it does.",
 }
 
 
 def classify_failure(exc: BaseException) -> str:
-    """Which of the three Schwab failures is this?
+    """Which Schwab failure is this?
 
-    Order matters: a refresh that comes back `invalid_client` is a credentials
-    problem even though it surfaces as a token error, and re-logging in will not
-    fix it. Check the credential signature before the token signature.
+    Order matters:
+
+    * a permission error is checked FIRST — it is a local file problem, and
+      letting it fall through to `api_down` tells the user to wait for a
+      recovery that can never come (2026-07-14, six days of wrong alerts);
+    * a refresh that comes back `invalid_client` is a credentials problem even
+      though it surfaces as a token error, and re-logging in will not fix it,
+      so check the credential signature before the token signature.
     """
     from consensus_engine.scanners.schwab_client import SchwabRefreshTokenExpired
 
     text = str(exc).lower()
+    if isinstance(exc, PermissionError) or "permission denied" in text:
+        return TOKEN_UNREADABLE
     if "invalid_client" in text or "unauthorized_client" in text:
         return AUTH_REJECTED
     if isinstance(exc, SchwabRefreshTokenExpired):

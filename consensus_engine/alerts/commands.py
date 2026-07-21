@@ -196,6 +196,49 @@ def _parse_history_limit(content: str, default: int = 20) -> int:
     return default
 
 
+# The bot's own failure talk must never re-enter the agent's context.
+#
+# 2026-07-21, and it recurred once after the first fix: the bot posts a failure
+# notice, that notice lands in the next question's history block, and the agent
+# reads its own words back as a live system status — "the agent encountered an
+# error after multiple attempts" — then answers the user with that instead of
+# their actual question. Each bad answer becomes context for the next one, so
+# the channel poisons itself and stays poisoned.
+#
+# Two shapes to catch, both only ever authored by the bot itself:
+#   1. the structured notices this code posts, and
+#   2. the free prose a model writes when it decides it cannot do something.
+_BOT_FAILURE_MARKERS = (
+    "i couldn't answer that. i tried",
+    "agent unavailable after",
+    "exec failed:",
+)
+_BOT_SELF_REFERENCE_RE = re.compile(
+    r"\b(?:"
+    r"i (?:can ?not|cannot|can't|couldn't|am unable to|lack) "
+    r"(?:access|retrieve|see|read|review|answer|find)"
+    r"|agent (?:error|failure|was unavailable|is unavailable|unavailable)"
+    r"|unavailable after (?:multiple|2|two|\d+) attempts"
+    r"|(?:internal|temporary) (?:system|agent|internal) (?:or agent )?(?:problem|issue|error)"
+    r")\b",
+    re.I,
+)
+
+
+def _is_bot_self_talk(author_is_bot: bool, text: str) -> bool:
+    """Is this the bot talking about its own broken state?
+
+    Scoped to bot-authored messages on purpose: a USER writing "I can't access
+    the dashboard" is a real question and must survive.
+    """
+    if not author_is_bot or not text:
+        return False
+    lowered = text.lower()
+    if any(marker in lowered for marker in _BOT_FAILURE_MARKERS):
+        return True
+    return bool(_BOT_SELF_REFERENCE_RE.search(text))
+
+
 async def _fetch_channel_history(channel_id: str, limit: int = 20) -> str:
     """Fetch recent messages from a Discord channel and format them as context."""
     import aiohttp
@@ -217,13 +260,15 @@ async def _fetch_channel_history(channel_id: str, limit: int = 20) -> str:
         lines = []
         for m in reversed(msgs):
             author = m.get("author", {}).get("username", "unknown")
+            author_is_bot = bool(m.get("author", {}).get("bot"))
             parts = []
             body = m.get("content", "").strip()
             if body:
                 # Defensive: strip any residual `[secrets]` preamble from prior
                 # bot replies so it never re-enters the LLM context window.
                 cleaned = _strip_secrets_preamble(body)
-                if cleaned and cleaned != "(agent returned no content)":
+                if (cleaned and cleaned != "(agent returned no content)"
+                        and not _is_bot_self_talk(author_is_bot, cleaned)):
                     parts.append(cleaned)
             for embed in m.get("embeds", []):
                 if embed.get("title"):

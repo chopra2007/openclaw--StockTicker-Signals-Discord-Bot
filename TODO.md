@@ -635,3 +635,9 @@ deferred Haiku escalation layer (C4, designed in `final-plan.md`, not built); ot
 Full build evidence: `.claude/discover/verify-gate/pass-5-execution-log.md`.
 
 Stop Claude from stating unchecked status/alerts as fact — it assumes, the user has to question it, and the claim turns out wrong; build a decision-time gate that fires the "verify first" reflex without bloating context (the failure mode of every past fix).
+
+## 78. Turn Schwab real-time prices back on (one browser login)
+
+**File:** `schwab-relogin-after-permission-fix.md`
+
+Schwab real-time data has been dead for 7 days and the bot kept blaming Schwab's servers; the cause (a login file the bot couldn't open) is fixed, and all that's left is one browser login to get live prices back.

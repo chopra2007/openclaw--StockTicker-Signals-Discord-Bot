@@ -8,8 +8,10 @@ import concurrent.futures
 from dataclasses import asdict, replace
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
+import glob
 import json
 import logging
+import os
 import re
 import time
 
@@ -687,6 +689,212 @@ def _agent_run_aborted(stdout_text: str, reply: str) -> bool:
     return False
 
 
+_AGENT_SESSION_DIR = "/home/openclaw/.openclaw/agents/main/sessions"
+
+# Config key -> the room's human name, for rewriting Discord channel mentions.
+_KNOWN_CHANNEL_NAMES = (
+    ("discord_channel_id", "chat"),
+    ("discord_errors_channel_id", "errors"),
+    ("discord_feed_channel_id", "twitter"),
+    ("discord_news_channel_id", "news"),
+    ("discord_briefing_channel_id", "briefing"),
+    ("options_flow_channel_id", "options-flow"),
+    ("swarm_alert_channel_id", "alerts"),
+)
+_CHANNEL_MENTION_RE = re.compile(r"<#(\d+)>")
+
+
+def _expand_channel_mentions(text: str) -> str:
+    """Rewrite Discord channel mentions ``<#123>`` into readable ``#name`` form.
+
+    Discord delivers channel links as raw ``<#id>`` markup. The agent read that
+    id as a *message* id it was meant to fetch, could not fetch it, and then
+    looped on the same failing lookup until its run budget expired (2026-07-21:
+    39 identical `exec` calls asking for a message that was never a message).
+    Naming the room removes the misreading at its source.
+    """
+    names = {}
+    for key, name in _KNOWN_CHANNEL_NAMES:
+        cid = str(cfg.get_api_key(key) or "").strip()
+        if cid:
+            names[cid] = name
+
+    def _name_for(match: "re.Match") -> str:
+        cid = match.group(1)
+        known = names.get(cid)
+        return f"#{known}" if known else f"#unknown-channel (id {cid})"
+
+    return _CHANNEL_MENTION_RE.sub(_name_for, text)
+
+
+_ROOM_REF_RE = re.compile(r"#([a-z][a-z0-9-]{2,})", re.I)
+_ROOM_CONTEXT_MESSAGES = 30      # per referenced room
+_ROOM_CONTEXT_MAX_ROOMS = 2      # keep the prompt bounded
+
+
+async def _referenced_room_context(content: str, current_channel_id: str) -> str:
+    """Recent messages from any OTHER room the question names, as plain data.
+
+    Advertising a tool only helps if the model chooses to call it. On
+    2026-07-21 it did not: asked about #errors it answered from the chat
+    history instead, and got it wrong — twice, before and after the tool
+    existed. Reading the room up front removes the choice. The messages are
+    simply in front of it, the same way the channel history already is.
+
+    Best-effort: a failure here must never block the reply.
+    """
+    try:
+        from consensus_engine.tools import read_channel as rc
+    except Exception:
+        return ""
+
+    wanted, seen = [], set()
+    for name in _ROOM_REF_RE.findall(content):
+        room = name.lower()
+        if room in seen or room not in rc.CHANNELS:
+            continue
+        room_id = rc._resolve(room)
+        # The current room's history is already supplied by the caller.
+        if not room_id or room_id == str(current_channel_id):
+            continue
+        seen.add(room)
+        wanted.append((room, room_id))
+        if len(wanted) >= _ROOM_CONTEXT_MAX_ROOMS:
+            break
+
+    blocks = []
+    for room, room_id in wanted:
+        try:
+            messages = await asyncio.to_thread(
+                rc._fetch, room_id, _ROOM_CONTEXT_MESSAGES)
+            body = "\n".join(rc._format(m) for m in messages)
+            log.info("room context: read %d message(s) from #%s", len(messages), room)
+        except Exception as exc:
+            # Say the read failed rather than leaving a silent gap the model
+            # will fill with a guess.
+            body = f"(could not read this room: {exc})"
+            log.warning("room context: reading #%s failed: %s", room, exc)
+        # Lead with the newest message, then the log. These alerts repeat almost
+        # verbatim for weeks, so a model scanning a long oldest-first list
+        # pattern-matches instead of tracking recency: asked for the most recent
+        # #errors alert it twice named the second-to-last one, even with the
+        # correct answer stated at the bottom of the block. Stating it FIRST —
+        # before the wall of near-identical text — is what actually landed.
+        newest = ""
+        try:
+            if messages:
+                newest = (f"The single MOST RECENT message in #{room} is:\n"
+                          f"{rc._format(messages[-1])}\n\n"
+                          f"If the question is about the latest/most recent/last "
+                          f"thing in #{room}, the message above IS the answer.\n\n")
+        except Exception:
+            pass
+        blocks.append(
+            f"\nAuthoritative record of #{room}, read live just now. Answer the\n"
+            f"question from THIS. Where it disagrees with the 'recent channel\n"
+            f"messages' block above, THIS is correct — that block can contain\n"
+            f"your own earlier replies, which are not evidence of anything.\n\n"
+            f"{newest}"
+            f"Full recent history, OLDEST FIRST (so the newest is the LAST one):\n"
+            f"{body or '(no messages)'}\n"
+        )
+    return "".join(blocks)
+
+
+_MAX_AGENT_ATTEMPTS = 3   # primary + up to 2 fallback models
+_MAX_AGENT_TIMEOUTS = 2   # stop early — each timeout burns a full 120s wall
+
+
+def _agent_attempt_target(channel_id: str, attempt: int) -> tuple[str, str]:
+    """Session id + model override for one `openclaw agent` attempt.
+
+    Attempt 1 runs on the live channel session with the configured primary
+    model. Every later attempt changes BOTH, because retrying under identical
+    conditions only reproduces the failure:
+
+    * a scratch session (wiped before use), so the retry cannot inherit the
+      failed attempt's transcript — a runaway tool-loop otherwise replays into
+      the retry and burns the budget again. 2026-07-21: 39 identical ``exec``
+      calls, then the same loop on the retry, 117k -> 336k prompt tokens.
+    * the next model down the configured chain, so a model that is genuinely
+      down is routed around rather than re-tried.
+    """
+    if attempt <= 1:
+        return f"channel-{channel_id}", ""
+    fallbacks = cfg.get("llm.agent_fallback_models", []) or []
+    idx = attempt - 2
+    return f"channel-{channel_id}-retry", (fallbacks[idx] if idx < len(fallbacks) else "")
+
+
+def _agent_attempt_budget() -> int:
+    """Attempts available: the primary plus each configured fallback model."""
+    fallbacks = cfg.get("llm.agent_fallback_models", []) or []
+    return 1 + min(len(fallbacks), _MAX_AGENT_ATTEMPTS - 1)
+
+
+_AGENT_FAILURE_CAUSE = {
+    "aborted": "each try got stuck repeating the same lookup until it ran out of time",
+    "timeout": "each try ran out of time before finishing",
+    "empty": "the model kept coming back empty",
+    "crash": "the agent crashed before it could answer",
+}
+
+
+def _agent_failure_message(attempts: int, reason: str) -> str:
+    """User-facing text once every attempt has failed.
+
+    Names the cause in plain words and gives the user a next step — the bare
+    "unavailable after N attempts" this replaced told them nothing actionable.
+    """
+    cause = _AGENT_FAILURE_CAUSE.get(reason, "the agent failed before answering")
+    how = "a different model each time" if attempts > 1 else "the primary model"
+    return (
+        f"⚠️ I couldn't answer that. I tried {attempts}× ({how}) and {cause}.\n"
+        "Ask again a bit narrower — naming the ticker, channel, or file you mean "
+        "usually gets it through."
+    )
+
+
+def _reset_agent_session(session_id: str) -> None:
+    """Delete a session's transcript files so the next run starts empty.
+
+    Safe to call on a live channel session: the durable conversation memory is
+    `chat_memory_rollups` in the DB, not this transcript, and the agent already
+    expects the live transcript to reset (it resets on every bot restart).
+    """
+    if not session_id or "/" in session_id:
+        return
+    for path in glob.glob(os.path.join(_AGENT_SESSION_DIR, f"{session_id}.*")):
+        try:
+            os.unlink(path)
+        except OSError as exc:
+            log.debug("could not clear session file %s: %s", path, exc)
+
+
+# A channel session accumulates forever otherwise. By 2026-07-21 the #chat
+# session had been growing since 2026-06-15 — 190 messages, a 1.2MB transcript,
+# and prompts of 117k then 336k tokens. That much context alone can't finish
+# inside the 120s run budget, which is what turns any hiccup into a timeout.
+# Roll it well before it gets there; the durable memory lives in the DB.
+_MAX_SESSION_TRANSCRIPT_BYTES = 400_000
+
+
+def _roll_oversized_session(session_id: str) -> None:
+    """Wipe a channel transcript once it grows past the size budget."""
+    if not session_id or "/" in session_id:
+        return
+    path = os.path.join(_AGENT_SESSION_DIR, f"{session_id}.jsonl")
+    try:
+        size = os.path.getsize(path)
+    except OSError:
+        return
+    if size <= _MAX_SESSION_TRANSCRIPT_BYTES:
+        return
+    log.warning("Rolling oversized agent session %s (%d bytes > %d budget)",
+                session_id, size, _MAX_SESSION_TRANSCRIPT_BYTES)
+    _reset_agent_session(session_id)
+
+
 _STEERING_TEMPLATE = (
     "[Context: It is currently {tctx}.\n"
     "You are the assistant for this Discord stock-signals bot. You run ON the host that\n"
@@ -730,6 +938,20 @@ _STEERING_TEMPLATE = (
     "   about something discussed earlier / last week / 'remember when', recall it with:\n"
     "   SELECT rollup FROM chat_memory_rollups WHERE channel_id='{channel_id}'\n"
     "   ORDER BY span_end_utc DESC LIMIT 5;  — then answer from the matching summary.\n"
+    "   Run that query AT MOST ONCE per question. If the summaries don't cover what was\n"
+    "   asked, say so plainly and answer from what you do have — re-running it cannot\n"
+    "   return anything new.\n"
+    "To read what was POSTED IN ANOTHER ROOM (the user will name it like #errors or\n"
+    "#options-flow), don't guess and don't look in the database — read the room:\n"
+    "   `python3 -m consensus_engine.tools.read_channel --channel errors --limit 50`\n"
+    "   add `--contains schwab` to filter, or `--list` to see the rooms you can read.\n"
+    "That tool is the ONLY way to see another room's messages, and it is authoritative:\n"
+    "if it prints nothing, the messages genuinely aren't there — say that and move on.\n"
+    "NEVER run the same command twice with the same arguments. A command that returned\n"
+    "nothing useful will return exactly the same nothing the second time; repeating it\n"
+    "burns the clock and gets the user no answer at all. If two or three lookups haven't\n"
+    "answered the question, stop and reply with what you found plus what you couldn't\n"
+    "determine — a partial, honest answer always beats running out of time.\n"
     " - consensus_engine/scanners/*.py are the data scanners (options.py = options flow\n"
     "   via yfinance); config/consensus.yaml holds thresholds and settings.\n"
     "Answer cleanly. You may name the real source of an answer when it helps (a data\n"
@@ -741,6 +963,13 @@ _STEERING_TEMPLATE = (
     "\n"
     "User message:\n"
     "```\n{content}\n```\n"
+    # Authoritative data goes AFTER the user block, so it is the last thing read
+    # before answering. Placed before it, the model copied the "recent channel
+    # messages" block instead — including its own earlier wrong answers sitting
+    # in that block (2026-07-21, three identical misses). The same model, same
+    # data, answered correctly the moment the stale chat block wasn't adjacent
+    # to the question.
+    "{room_context}"
 )
 
 
@@ -750,9 +979,10 @@ async def _handle_mention(content: str, channel_id: str, message_id: str,
 
     openclaw walks the model chain in openclaw.json `agents.defaults.model`
     ({primary, fallbacks}) within a single invocation — that is the model
-    roulette. This wrapper is the subprocess-level safety net on top: if the
-    whole `openclaw agent` call fails (crash, hang, empty output), retry once
-    before giving up.
+    roulette, and it only fires on a model *error*. It does nothing when the
+    model answers fine but the run exhausts its time budget, so this wrapper is
+    the safety net on top: on failure, retry on the next model down the chain
+    and on a wiped session (see `_agent_attempt_target`).
 
     `allow_intercept` lets deterministic answers (e.g. earnings-date lookups)
     short-circuit the agent. !ask runs the intercept itself on the raw question
@@ -783,7 +1013,7 @@ async def _handle_mention(content: str, channel_id: str, message_id: str,
     # Fix D: steer the agent away from spurious tool calls + give it current time.
     # Replace any literal ``` in user content with triple-prime to keep the
     # fenced block uninjectable from user-supplied text.
-    safe_content = content.replace("```", "′′′")
+    safe_content = _expand_channel_mentions(content.replace("```", "′′′"))
     # TODO #35: anchor ticker-shaped tokens (WEN -> Wendy's) so the agent answers about the
     # stock, not a same-spelled brand. Best-effort; never block the reply on resolution.
     ticker_anchor = ""
@@ -795,10 +1025,18 @@ async def _handle_mention(content: str, channel_id: str, message_id: str,
             log.info("mention ticker anchors: %s", [a["symbol"] for a in anchors])
     except Exception as e:
         log.debug("ticker anchor resolution skipped: %s", e)
+    # Hand over any other room the question names, rather than trusting the
+    # model to go and fetch it (see _referenced_room_context).
+    room_context = ""
+    try:
+        room_context = await _referenced_room_context(safe_content, channel_id)
+    except Exception as e:
+        log.debug("room context skipped: %s", e)
     wrapped_message = _STEERING_TEMPLATE.format(
         tctx=build_time_context_oneliner(),
         ticker_anchor=ticker_anchor,
         channel_id=channel_id,
+        room_context=room_context,
         content=safe_content,
     )
 
@@ -808,15 +1046,31 @@ async def _handle_mention(content: str, channel_id: str, message_id: str,
     reason = "crash"
     stdout_text = ""
     attempt_n = 0
-    for attempt in range(1, 3):
+    retry_session_id = ""
+    max_attempts = _agent_attempt_budget()
+    timeout_failures = 0
+    for attempt in range(1, max_attempts + 1):
         attempt_n = attempt
+        session_id, retry_model = _agent_attempt_target(channel_id, attempt)
+        if attempt == 1:
+            _roll_oversized_session(session_id)  # keep the live transcript answerable
+        if attempt > 1:
+            retry_session_id = session_id
+            _reset_agent_session(session_id)  # start the retry from an empty transcript
+            log.info("Agent retry on fresh session=%s model=%s",
+                     session_id, retry_model or "(chain default)")
         try:
-            proc = await asyncio.create_subprocess_exec(
+            argv = [
                 "openclaw", "agent", "--local", "--json",
                 "--agent", "main",
-                "--session-id", f"channel-{channel_id}",
+                "--session-id", session_id,
                 "--message", wrapped_message,
                 "--timeout", "120",
+            ]
+            if retry_model:
+                argv += ["--model", retry_model]
+            proc = await asyncio.create_subprocess_exec(
+                *argv,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -831,11 +1085,13 @@ async def _handle_mention(content: str, channel_id: str, message_id: str,
                 last_err = (stderr.decode().strip()[:200]
                             or "agent run aborted before answering")
                 reason = "aborted"
-                log.warning("OpenClaw agent run aborted (attempt=%d/2): %s", attempt, last_err)
+                log.warning("OpenClaw agent run aborted (attempt=%d/%d): %s",
+                            attempt, max_attempts, last_err)
             elif reply and reply != "(agent returned no content)":
                 await send_command_reply(channel_id, message_id, reply)
                 log.info("Agent reply sent (%d chars, attempt=%d) to channel=%s",
                          len(reply), attempt, channel_id)
+                _reset_agent_session(retry_session_id)  # scratch session served its purpose
                 success = True
                 reason = "ok"
                 log.info("mention_reply", extra={
@@ -850,11 +1106,13 @@ async def _handle_mention(content: str, channel_id: str, message_id: str,
             else:
                 last_err = stderr.decode().strip()[:200]
                 reason = "empty"
-                log.warning("OpenClaw agent empty stdout (attempt=%d/2): %s", attempt, last_err)
+                log.warning("OpenClaw agent empty stdout (attempt=%d/%d): %s",
+                            attempt, max_attempts, last_err)
         except asyncio.TimeoutError:
             last_err = "subprocess timed out (>150s)"
             reason = "timeout"
-            log.warning("OpenClaw agent timed out (attempt=%d/2) for channel=%s", attempt, channel_id)
+            log.warning("OpenClaw agent timed out (attempt=%d/%d) for channel=%s",
+                        attempt, max_attempts, channel_id)
             # TODO #45: reap the orphaned child — wait_for cancels communicate()
             # but the openclaw subprocess keeps running until killed.
             try:
@@ -865,10 +1123,22 @@ async def _handle_mention(content: str, channel_id: str, message_id: str,
         except Exception as exc:
             last_err = f"{type(exc).__name__}: {exc}"
             reason = "crash"
-            log.error("OpenClaw agent error (attempt=%d/2): %s", attempt, exc)
-        if attempt < 2:
-            await asyncio.sleep(2 ** attempt)  # 2s
-    log.error("OpenClaw agent failed after 2 attempts (channel=%s): %s", channel_id, last_err)
+            log.error("OpenClaw agent error (attempt=%d/%d): %s", attempt, max_attempts, exc)
+        # A model that errors out fails in seconds, so walking the rest of the
+        # chain is cheap and worth it. A run that burns its whole 120s wall is
+        # not: two of those already cost the user 4+ minutes of silence, and a
+        # third rarely converges when the first two didn't.
+        if reason in ("aborted", "timeout"):
+            timeout_failures += 1
+            if timeout_failures >= _MAX_AGENT_TIMEOUTS:
+                log.error("Stopping agent retries after %d timed-out runs (channel=%s)",
+                          timeout_failures, channel_id)
+                break
+        if attempt < max_attempts:
+            await asyncio.sleep(2)
+    log.error("OpenClaw agent failed after %d attempt(s) (channel=%s): %s",
+              attempt_n, channel_id, last_err)
+    _reset_agent_session(retry_session_id)  # don't leave the failed transcript behind
     log.info("mention_reply", extra={
         "channel_id": channel_id,
         "success": success,
@@ -877,8 +1147,7 @@ async def _handle_mention(content: str, channel_id: str, message_id: str,
         "reason": reason,
         "stdout_bytes": len(stdout_text) if stdout_text else 0,
     })
-    await send_command_reply(channel_id, message_id,
-        f"⚠️ Agent unavailable after 2 attempts. Last error: {last_err[:120]}")
+    await send_command_reply(channel_id, message_id, _agent_failure_message(attempt_n, reason))
 
 
 async def run_live(stop_event: asyncio.Event):
