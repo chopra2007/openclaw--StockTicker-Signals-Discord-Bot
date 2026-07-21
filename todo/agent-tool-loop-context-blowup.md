@@ -1,7 +1,60 @@
 # Agent tool-loop context blow-up (runaway token accumulation on heavy questions)
 
-**Status:** DONE 2026-06-16 — status line backfilled 2026-07-12 (TODO #72 cleanup; the header and session notes had already recorded completion).
+**Status:** REOPENED 2026-07-21 — was marked DONE 2026-06-16, but it had only been
+**worked around**, never fixed. It recurred and hit the user.
 **Created:** 2026-06-16
+
+**CURRENT STATUS (2026-07-21):** The loop happened again, on the very model that was
+supposed to be immune, and cost the user 4.5 minutes of silence plus a manual gateway
+restart. The blast radius is now contained (below), but **the underlying loop guard —
+steps 1-4 of "Next steps" — is still not built.**
+
+What closed this item in June was the workaround from #44: make gpt-4.1-nano the agent
+lead, because in the bake-off it converged in 11-13s and used 2k-21k tokens/turn. The
+file itself flagged that as insufficient — *"This item is to fix the underlying loop, so
+a future model swap doesn't silently reintroduce timeouts."* It was then marked DONE
+anyway during the #72 status backfill. **No model swap was even needed for it to come
+back.**
+
+### The 2026-07-21 recurrence
+The user asked about the `#errors` channel. Their message contained `<#1521022584072831057>`,
+which the agent read as a *message* id it should fetch. It could not, so it fell back to
+the `chat_memory_rollups` query the steering prompt recommends — and ran **that identical
+query 39 times**, same arguments, same stale result each time, until `timedOutByRunBudget`
+killed the run at 120s. The retry reused the same session, inherited the loop transcript,
+and did it again: 117k -> 336k prompt tokens. The user got
+"⚠️ Agent unavailable after 2 attempts" — the exact string this item exists to prevent.
+
+So the June conclusion was wrong in two ways:
+1. It is **not purely model-dependent**. A lean, fast, "converging" model loops just as
+   hard when the loop is driven by a question it cannot resolve rather than by verbose
+   tool output.
+2. The trigger was not a "heavy question" at all. It was one unresolvable reference.
+
+### What was fixed 2026-07-21 (committed, tested — blast radius only)
+These stop the loop from reaching the user; they do not stop the loop itself.
+- **Trigger removed:** `<#id>` is rewritten to `#name` before the prompt is built, and a
+  named room's real messages are injected (`consensus_engine/tools/read_channel.py`), so
+  the unresolvable-reference case that started this no longer exists.
+- **Retry can no longer inherit a loop:** every retry uses a wiped scratch session AND the
+  next model down the chain. Cheap failures walk the chain; timed-out runs stop at 2.
+- **Session growth capped:** the live transcript is rolled past 400KB (it had been
+  accumulating since 2026-06-15 — that bloat is what made the prompts 117k/336k).
+- **Prompt-level stop rule** on the exact query that looped ("run at most once per
+  question; re-running cannot return anything new") — advisory, not a guarantee.
+- Tests: `tests/test_handle_mention.py` (retry-differs, session-roll, channel expansion).
+
+### What is still NOT fixed (the actual item)
+There is still **no mechanical cap on repeated identical tool calls** and no max-tool-round
+guard. Nothing stops a model from calling the same command 39 times; we only survive it
+better. The guard belongs in the openclaw agent runtime, which is an npm package — patches
+there are lost on reinstall ([[reference_plugin_cache_wiped]] pattern), so it needs either
+an upstream change or a wrapper-level detector.
+
+Wrapper-level option worth costing: parse the live trajectory file mid-run and kill the
+subprocess when the same (tool, args) pair repeats N times. Everything needed is already
+on disk — `/home/openclaw/.openclaw/agents/main/sessions/<id>.trajectory.jsonl` recorded
+all 39 calls with identical `input.command`.
 
 ## The problem
 When the `@`-mention / `!ask` agent answers a heavy, tool-triggering question (e.g. "give me a

@@ -283,11 +283,11 @@ Swap out the dead NVIDIA backup model the health check flagged with a live one, 
 
 Live-test current cheap OpenRouter models against the three jobs (tweet-scoring/cleanup, big-writing, question-answering) to confirm we're using the best fit; swapped the text backup to a 4×-cheaper equal (qwen3-235b), and found the question-answering model times out on heavy questions — full results logged for future model decisions.
 
-## 45. Fix the agent tool-loop context blow-up (heavy questions can time out) — DONE 2026-06-16
+## 45. Stop the bot repeating one command until it runs out of time
 
 **File:** `agent-tool-loop-context-blowup.md`
 
-When the bot answers a heavy question that needs lots of tool calls, some AI models keep piling up search results until they run out of time and the user gets "Agent unavailable" — fix the underlying loop (likely un-trimmed tool results / no round cap) so a future model swap can't silently bring the timeouts back.
+REOPENED 2026-07-21: this was closed in June on a workaround (pick a lean model), and it came back anyway — the bot ran one identical database command 39 times and left the user with "Agent unavailable" after 4.5 minutes. The trigger and the fallout are now fixed, but nothing still stops a model repeating the same command forever; that guard is the remaining work.
 
 ## 46. Show every score on one consistent scale (0 = low, 100 = high) — DONE 2026-06-21
 
@@ -641,3 +641,9 @@ Stop Claude from stating unchecked status/alerts as fact — it assumes, the use
 **File:** `schwab-relogin-after-permission-fix.md`
 
 Schwab real-time data has been dead for 7 days and the bot kept blaming Schwab's servers; the cause (a login file the bot couldn't open) is fixed, and all that's left is one browser login to get live prices back.
+
+## 79. Bot went unreachable and answered from its own mistakes — DONE 2026-07-21
+
+**File:** `discord-agent-reliability-2026-07-21.md`
+
+The bot stopped responding for minutes at a time, gave up with "2 attempts failed", and then answered questions by quoting its own error messages back as facts — four separate bugs, all fixed and verified live in Discord.

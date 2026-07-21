@@ -9,6 +9,11 @@ quotes run on the free 15-minute-delayed feed. Everything still works — it is 
 
 **The single action:** run `python3 scripts/schwab_login.py` and follow the two steps it prints.
 
+**Related items from the same session:** this was found while investigating why the bot
+hung and could not answer — see **#79** (the four Discord reliability bugs, all fixed) and
+**#45** (the repeated-command loop, reopened; still needs a real guard). This item is only
+the Schwab half.
+
 ## What happened
 
 Discovered while investigating why the bot never posted a "Schwab is back" note (user's
