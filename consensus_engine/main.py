@@ -835,6 +835,7 @@ def _agent_attempt_budget() -> int:
 _AGENT_FAILURE_CAUSE = {
     "aborted": "each try got stuck repeating the same lookup until it ran out of time",
     "timeout": "each try ran out of time before finishing",
+    "tool_loop": "each try got stuck repeating the same lookup, so I stopped it early",
     "empty": "the model kept coming back empty",
     "crash": "the agent crashed before it could answer",
 }
@@ -893,6 +894,19 @@ def _roll_oversized_session(session_id: str) -> None:
     log.warning("Rolling oversized agent session %s (%d bytes > %d budget)",
                 session_id, size, _MAX_SESSION_TRANSCRIPT_BYTES)
     _reset_agent_session(session_id)
+
+
+def _build_agent_watchdog(session_id: str):
+    """Watchdog for one agent run, with the limits config allows tuning."""
+    from consensus_engine.tools.agent_watchdog import (
+        AgentWatchdog, DEFAULT_MAX_ROUNDS, DEFAULT_POLL_SECONDS, DEFAULT_REPEAT_LIMIT,
+    )
+    return AgentWatchdog(
+        session_id,
+        repeat_limit=int(cfg.get("llm.agent_repeat_tool_limit", DEFAULT_REPEAT_LIMIT)),
+        max_rounds=int(cfg.get("llm.agent_max_tool_rounds", DEFAULT_MAX_ROUNDS)),
+        poll_seconds=float(cfg.get("llm.agent_watchdog_poll_seconds", DEFAULT_POLL_SECONDS)),
+    )
 
 
 _STEERING_TEMPLATE = (
@@ -1069,15 +1083,37 @@ async def _handle_mention(content: str, channel_id: str, message_id: str,
             ]
             if retry_model:
                 argv += ["--model", retry_model]
+            # Built before the spawn: it baselines the transcript as this run
+            # finds it, so earlier questions' tool calls are never counted.
+            watchdog = _build_agent_watchdog(session_id)
             proc = await asyncio.create_subprocess_exec(
                 *argv,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                # Its own process group, so killing the run kills the shell
+                # children its tools spawn too. Without this they outlive the
+                # kill still holding the output pipe, and communicate() waits
+                # on a dead run — 9 seconds of it, measured 2026-07-21.
+                start_new_session=True,
             )
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=150)
+            watchdog.start(proc)
+            try:
+                stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=150)
+            finally:
+                await watchdog.stop()
             stdout_text = stdout.decode(errors="replace")
             reply = _extract_agent_reply(stdout_text)
-            if _agent_run_aborted(stdout_text, reply):
+            if watchdog.triggered and not (reply and reply != "(agent returned no content)"):
+                # TODO #45: killed mid-loop, so whatever it managed to print is
+                # a fragment of a run that was going nowhere. Checked only when
+                # there is no usable reply: a run that answered before the kill
+                # landed still answered, and throwing that away would turn the
+                # guard into the very failure it exists to prevent.
+                last_err = f"tool loop: {watchdog.reason}"[:200]
+                reason = "tool_loop"
+                log.warning("Agent tool loop killed (attempt=%d/%d): %s",
+                            attempt, max_attempts, watchdog.reason)
+            elif _agent_run_aborted(stdout_text, reply):
                 # TODO #45: openclaw self-killed at its own --timeout and returned
                 # a stub payload within the wall — never post it as the answer;
                 # treat as a retryable failure so the next attempt (or the
@@ -1114,9 +1150,11 @@ async def _handle_mention(content: str, channel_id: str, message_id: str,
             log.warning("OpenClaw agent timed out (attempt=%d/%d) for channel=%s",
                         attempt, max_attempts, channel_id)
             # TODO #45: reap the orphaned child — wait_for cancels communicate()
-            # but the openclaw subprocess keeps running until killed.
+            # but the openclaw subprocess keeps running until killed. Group kill,
+            # because its tools' shell children outlive a plain proc.kill().
             try:
-                proc.kill()
+                from consensus_engine.tools.agent_watchdog import kill_run
+                kill_run(proc)
                 await proc.wait()
             except Exception:
                 pass
