@@ -5,6 +5,8 @@ both tools work side by side until you decide to retire one.
 
 Full detail: [`docs/migration/MIGRATION_REPORT.md`](docs/migration/MIGRATION_REPORT.md).
 
+Updated 2026-07-25 after the native Codex plugin and safety-check setup.
+
 ## Completed
 
 - Shared rule book in the repo: `docs/agents/PROJECT_RULES.md`, plus `WORKFLOWS.md`,
@@ -15,22 +17,28 @@ Full detail: [`docs/migration/MIGRATION_REPORT.md`](docs/migration/MIGRATION_REP
   starting in this project at all — the single biggest blocker found.
 - Codex's own instruction file gained the plain-language rule, the Pacific-time rule and
   the private machine facts. The plain-language rule — the top priority — had been missing.
-- `/todo` and session-close commands added for Codex.
-- Fixed Codex's start-up hook, which had been silently dropping the unresolved-alerts
-  banner.
-- All 208 memory files copied to `/root/.codex/openclaw-memory/`, with a README covering
-  layout and upkeep. Link health measured before and after: identical.
-- Two tool servers working under Codex: `sec-edgar` and `exa`. Keys are read at run time,
-  never copied into config.
+- Native OpenClaw workflow skills added for Codex. Use `$todo open` for the TODO list and
+  `$session-close` for the close routine. `/todo` is only a compatibility phrase inside a
+  normal prompt, not a real slash command.
+- Fixed Codex's start-up hook. It keeps the unresolved-alert banner, but no longer injects
+  raw conversation text; it points Codex to the private memory router instead.
+- The private memory copy now has 208 topic files. Four newer Claude topics were synced
+  after the original migration, with concise links added to the private router.
+- Four tool servers are configured under Codex: `sec-edgar`, `exa`, GitHub and Context7.
+  Keys are read at run time, never copied into config.
+- The official `oh-my-codex` 0.20.3 package is installed and enabled. Firecrawl and
+  Superpowers are also installed and enabled. The native `openclaw-workflows` plugin,
+  version `0.1.0+codex.20260725212304`, provides the two workflow skills above.
+- The project-specific Discover workflow now has a native Codex plugin. Version
+  `0.1.0+codex.20260725205158` is installed and enabled; its implementation checks pass.
+- The affected-test and unverified-claim scripts are configured at both `Stop` and
+  `SubagentStop`. All 9 synthetic tests pass, live `Stop` enforcement passed after trust
+  was saved, and independent verification passed.
 - **Unrelated fix:** the `openclaw-gateway` service, which powers the bot's `@mention`
   replies, had been dead for 19 hours before this work began. Diagnosed, fixed, running.
 
 ## Partial
 
-- **Turn-end safety checks are weaker.** Claude ran two scripts at the end of every reply:
-  one re-ran affected tests when work was claimed done, one blocked unverified claims.
-  Codex has no equivalent event. The rules are written down, but nothing enforces them
-  automatically now. Push-time and CI checks are unaffected.
 - The same rules now live in both `CLAUDE.md` and `docs/agents/PROJECT_RULES.md`. That is
   deliberate for the transition. Retire `CLAUDE.md` only once Codex has proven itself.
 
@@ -38,7 +46,7 @@ Full detail: [`docs/migration/MIGRATION_REPORT.md`](docs/migration/MIGRATION_REP
 
 Nothing.
 
-## Manual — needs a person
+## Manual setup record
 
 1. ~~Add the GitHub token~~ — **done, and it needed no copying.** The token was already in
    `/root/.openclaw/.env.service` under the name `GITHUB_TOKEN`, and it is the same value
@@ -52,12 +60,6 @@ Nothing.
    means changing one line in `.env.service`; nothing else needs to change.
 2. ~~Run four `setfacl` commands~~ — **done.** Codex can now work directly in the live
    workspace. Verified by running Codex there and having it read files.
-3. **Merge this branch** to remove the stray `.codex` file for good. It is not urgent:
-   Codex works from the live workspace even with the file present. It only breaks when
-   Codex is started from the linked copy under `/root`. See the report for detail.
-4. **Try `/todo open` once in Codex.** How Codex passes command arguments could not be
-   confirmed from the docs on this machine. If it misbehaves it is a one-line fix.
-
 ## Safe to remove once you have confirmed Codex works for you
 
 Not yet — keep all of it until real Codex sessions have proven themselves.

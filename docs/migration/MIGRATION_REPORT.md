@@ -1,6 +1,6 @@
 # Migration Report — Claude Code ➜ Codex
 
-Date: 2026-07-19. Branch: `migration/claude-to-codex`.
+Started 2026-07-19. Updated 2026-07-25. The migration changes are now on `master`.
 
 ## 1. Executive summary
 
@@ -15,11 +15,13 @@ Three things made this possible:
    still works; for now the same rules exist in both places on purpose.
 2. **A private Codex setup on this machine.** `/root/.codex/AGENTS.md` gained the
    plain-language communication rule, the Pacific-time rule, and the private facts that
-   must never go in the public repo. Codex also got the `/todo` and session-close
-   commands, a fixed startup alert hook, and two working MCP tool servers.
-3. **A copy of the knowledge base.** All 208 memory files were copied to
-   `/root/.codex/openclaw-memory/`. Link health was measured before and after and is
-   identical, so nothing was lost or broken.
+   must never go in the public repo. Codex also got native TODO and session-close skills,
+   a safe startup alert hook, four configured tool servers, native plugins and turn-end
+   safety checks with live `Stop` enforcement verified.
+3. **A copy of the knowledge base.** The private copy now contains 208 topic files. Four
+   topics added after the original migration were synced on 2026-07-25, with concise
+   private-router links. The startup hook points to that router instead of injecting raw
+   conversation text.
 
 **The single most important finding:** a zero-byte file named `.codex` at the repository
 root stopped Codex from starting in this project at all. Every Codex command aimed at the
@@ -34,7 +36,7 @@ replies. It is fixed and running again. Details in section 8.
 
 ## 2. Codex access — what was tested and what works
 
-Codex CLI 0.144.6 at `/usr/bin/codex`, model `gpt-5.5`, already logged in.
+Codex CLI 0.144.6 at `/usr/bin/codex`, model `gpt-5.6-sol`, already logged in.
 
 | Check | Result |
 |---|---|
@@ -43,24 +45,18 @@ Codex CLI 0.144.6 at `/usr/bin/codex`, model `gpt-5.5`, already logged in.
 | Run shell commands | Works |
 | Read files outside the project | Works |
 | Write access with `--write` (sandbox `workspace-write`) | Works |
-| Approval prompts | Set to `never`; it does not stop to ask |
+| Approval prompts | Asks only when an action needs extra approval (`OnRequest`) |
 | Network access while in write mode | Off by default |
-| `git` | Does **not** work from inside the sandbox — see below |
-| Startup hooks (`SessionStart`, `UserPromptSubmit`) | Fire correctly |
-| MCP tool servers | 2 of 3 working, 1 needs a token — section 9 |
+| `git` | Works from the live workspace; a managed sandbox may require approval to reach its metadata |
+| Startup and tool hooks | `SessionStart`, `UserPromptSubmit`, `PreToolUse` and `PostToolUse` are configured |
+| Turn-end hooks | Both safety scripts are configured; 9 synthetic tests and live `Stop` enforcement pass after trust is saved |
+| MCP tool servers | Four configured: `sec-edgar`, `exa`, GitHub and Context7 |
+| Native Codex plugins | Official `oh-my-codex` 0.20.3, Firecrawl, Superpowers, Discover and OpenClaw Workflows enabled |
 
-**Codex cannot run git here, by design.** The work area is a linked copy (a git
-"worktree") whose real git folder lives under the owner's home directory, which the
-sandbox cannot reach. So Codex edits files and a supervising session runs every git
-command. That split worked fine.
-
-**Codex cannot work directly in the live workspace.** Codex's Linux sandbox builds a
-private user namespace where only the root user is mapped. Inside it, root loses its
-usual override powers over files owned by the `openclaw` user, and
-`/home/openclaw` (permissions 750) plus `/home/openclaw/.openclaw` (700) become
-impassable — the exact error is `bwrap: Can't find source path ... Permission denied`.
-The fix is in section 9. As a side effect, the secret files under `/home/openclaw` are
-unreachable from Codex, which is a good thing.
+**The original linked work area could not run git inside the sandbox.** Its real git
+folder was outside the sandbox's reach. Codex now works from the live workspace instead.
+The access change in section 9 was applied and verified. Managed runs can request approval
+when the sandbox itself blocks git metadata or another required private path.
 
 ## 3. What was found
 
@@ -73,9 +69,10 @@ unreachable from Codex, which is a good thing.
 - `.claude/` inside the repository is a **data folder**, not tool config. Live code reads
   it: the feature go-live evidence gate, four backtests, the options flow shadow logs and
   the `!all` command's comparison log. It must never be renamed.
-- Memory: 208 markdown files plus 2 old backups, in three tiers.
-- Claude-only machinery with no Codex equivalent: two turn-end hooks, the plugin system,
-  and automatic memory loading.
+- Memory: 208 topic files, 2 indexes and 1 archived snapshot, in three tiers.
+- The first pass found no Codex equivalent for turn-end hooks or Claude plugins. That is
+  no longer true: native `Stop` hook entries and Codex plugins are installed now, and live
+  `Stop` enforcement passed after trust was saved.
 - A Codex setup already existed but was out of date.
 - **No Anthropic SDK or API is used anywhere in the code.** Claims in `USER.md` and
   `CHANGES.md` that an Anthropic API does the text parsing are simply stale; the engine
@@ -90,11 +87,14 @@ unreachable from Codex, which is a good thing.
 | Memory design | `docs/agents/MEMORY_GUIDE.md`, `docs/agents/memory/INDEX.md` | How to use and maintain the knowledge base. Categories only, no private facts. |
 | `AGENTS.md` | same file | 7 lines appended at the end. No existing line touched. Bot behaviour unchanged. |
 | Global Claude rules | `/root/.codex/AGENTS.md` | Added the missing plain-language rule, the Pacific-time rule, working-style rules, and private facts. |
-| `.claude/commands/todo.md` | `/root/.codex/prompts/todo.md` | Ported as a Codex `/todo` command. |
-| `todo/SESSION_CLOSE.md` | `/root/.codex/prompts/session-close.md` | New Codex command for the `bye` routine. |
-| `/root/.claude/hooks/openclaw-digest.sh` | `/root/.codex/hooks/openclaw-digest.sh` | Replaced the stale copy. The old one silently dropped the unresolved-alerts banner. |
+| `.claude/commands/todo.md` | Native OpenClaw Workflows `$todo` skill | Use `$todo open`. `/todo` is only a compatibility phrase inside a normal prompt, not a real slash command. |
+| `todo/SESSION_CLOSE.md` | Native OpenClaw Workflows `$session-close` skill | Use `$session-close` for the close routine. |
+| `/root/.claude/hooks/openclaw-digest.sh` | `/root/.codex/hooks/openclaw-digest.sh` | Preserves unresolved alerts and prints a private-router pointer; raw conversation injection was removed. |
+| Claude turn-end safety scripts | Codex `Stop` and `SubagentStop` hooks | Both checks are configured; 9 synthetic tests pass, and a production run proved live `Stop` enforcement after trust was saved. |
+| Claude orchestration workflow | Official `oh-my-codex` 0.20.3 | Native Codex package installed and enabled. |
+| Claude research helpers | Codex plugins | Firecrawl and Superpowers installed; the project Discover workflow was ported natively. |
 | MCP servers in Claude's config | Codex global config | Recreated. Keys are read at run time, never copied. |
-| 208 memory files | `/root/.codex/openclaw-memory/` | Copied, not moved. Structure and links preserved exactly. |
+| Private memory topics | `/root/.codex/openclaw-memory/` | Copied, not moved; four newer topics were synchronized on 2026-07-25. |
 
 ## 5. Files created, changed, and left alone
 
@@ -115,32 +115,35 @@ section 1.
 
 **Created outside the repository (private to this machine):**
 
-- `/root/.codex/prompts/todo.md`, `/root/.codex/prompts/session-close.md`
-- `/root/.codex/openclaw-memory/` — 205 topic files, 2 indexes, 3 archived snapshots, plus
+- Native `openclaw-workflows` plugin with `$todo` and `$session-close` skills
+- `/root/.codex/openclaw-memory/` — 208 topic files, 2 indexes, 1 archived snapshot, plus
   a new `README.md` explaining the layout and how to keep it up to date
 - Additions to `/root/.codex/AGENTS.md`; MCP entries in `/root/.codex/config.toml`;
-  refreshed `/root/.codex/hooks/openclaw-digest.sh`
+  refreshed `/root/.codex/hooks/openclaw-digest.sh`; native Codex plugins and turn-end
+  safety hooks
 
 **Deliberately left exactly as they were:** `CLAUDE.md`, `comm-check.md`, everything under
 `.claude/`, all global Claude files, and the whole Claude plugin setup.
 
-**Backups** of every file changed outside the repository are in
-`/root/codex-migration-handoff/`, ending in `.bak`.
+**Backups:** the original migration backups are in `/root/codex-migration-handoff/`,
+ending in `.bak`. The 2026-07-25 parity-work backups are under
+`/root/codex-migration-backups/`.
 
-## 6. What could not be migrated
+## 6. Remaining differences
 
-- **Turn-end checks.** Claude runs two scripts when a reply finishes: one re-runs affected
-  tests when you claim work is done, one blocks unverified claims like "X is expired".
-  Codex has no equivalent event — it only has session-start, prompt-submit and
-  before-tool-use. The rules were written into `PROJECT_RULES.md`, but they are now a
-  habit rather than something enforced automatically. **This is a real reduction in
-  safety.** The push-time regression gate and CI still run and are unaffected.
-- **Plugins.** The plugin marketplace, the `discover` research tool, and the orchestration
-  layer are Claude-specific. Keep Claude installed while you still want them.
-- **Automatic memory loading.** Claude loads the memory index every session by itself.
-  Codex will not. It is told where to look instead, which depends on it choosing to read.
-- **Windows desktop routines** under `windows_runtime/` are a separate product and out of
-  scope.
+- **Turn-end checks are live.** Both scripts pass 9 synthetic tests. After trust was
+  saved, a production run forced an unsupported first draft to be corrected before the
+  turn completed. Independent verification passed. Push-time and CI checks remain
+  unchanged.
+- **Native plugins are installed.** The official `oh-my-codex` 0.20.3 package supplies
+  Codex orchestration. Firecrawl and Superpowers are enabled. Discover was rebuilt as a
+  native Codex plugin; implementation and independent verification passed. OpenClaw
+  Workflows supplies the reliable `$todo open` and `$session-close` triggers.
+- **Private memory starts from a pointer.** The startup hook deliberately avoids raw
+  conversation text. It points Codex to the private router, where it follows only the
+  topic links needed for the current task.
+- **Windows desktop routines** under `windows_runtime/` are a separate product and remain
+  out of scope.
 
 ## 7. Deliberately excluded, and why
 
@@ -169,9 +172,14 @@ section 1.
 | `/root/.openclaw` still points to `/home/openclaw/.openclaw` | Pass |
 | Broken links in the new docs | 0 broken out of all relative links checked |
 | Secret scan of every new or changed public file | 0 findings (webhooks, keys, tokens, emails, Discord IDs) |
-| Memory corpus copied completely | Pass — 205 + 2 + 3 files, none dropped |
+| Memory corpus synchronized | Pass — 208 topics, 2 indexes and 1 archived snapshot |
 | Memory link health, before vs after | Identical: 315 links, same 142 unresolved, same 33 loose `[[links]]` — all pre-existing |
-| Codex starts and its hooks fire | Pass — verified with a real `codex exec` run |
+| Codex starts and its startup hook runs | Pass — verified with a real `codex exec` run |
+| Turn-end safety hooks | Pass — 9 synthetic tests, live `Stop` enforcement after trust was saved, and independent verification |
+| Official `oh-my-codex` | Pass — version 0.20.3 installed and enabled |
+| Firecrawl and Superpowers | Installed and enabled |
+| Discover native port | Implementation validation passed |
+| OpenClaw Workflows | Pass — version `0.1.0+codex.20260725212304`; both skills valid; read-only `$todo open` smoke returned `TODO-SKILL-OK` and left the worktree unchanged |
 | `sec-edgar` MCP server | Pass — real handshake, "SEC EDGAR MCP" v1.26.0 |
 | `exa` MCP server | Pass — key resolved at run time and the server connected |
 | `github` MCP server | Pass — reads the existing `GITHUB_TOKEN`; authenticated and fetched its scopes back from GitHub |
@@ -262,8 +270,7 @@ setfacl -R -m u:root:rwX /home/openclaw/.openclaw/workspace
 setfacl -R -d -m u:root:rwX /home/openclaw/.openclaw/workspace
 ```
 
-These could not be run automatically — the permission system blocked them twice, so they
-are left for you to run deliberately. Afterwards:
+The commands above are already applied. Codex can now start in the live workspace:
 
 ```bash
 cd /home/openclaw/.openclaw/workspace
@@ -271,56 +278,29 @@ codex                                    # interactive
 codex exec -s workspace-write "<task>"   # one-shot
 ```
 
-The blunt fallback, if you would rather not use the commands above, is
-`codex exec -s danger-full-access "<task>"`. That turns the sandbox off completely, so
-Codex could reach the secret files and anything else on the machine. Prefer the ACL route.
-
-**3. Merge this branch** to remove the `.codex` file for good.
-
-Correcting an earlier claim in this report: it previously said Codex would keep failing
-from the live workspace until this branch merged. That is **not true**, and was tested
-afterwards. The blocker depends on where Codex is started from:
-
-- Started from the **linked copy** at `/root/codex-migration-work`: still fails. Codex
-  works out the project root from git, lands on the live workspace, finds the `.codex`
-  file and stops.
-- Started from the **live workspace** itself: works. Both `codex exec` and
-  `codex mcp list` succeed there with the file still present.
-
-This could not have been checked earlier, because before the ACL commands above were run
-Codex could not enter the live workspace at all. So the merge is worth doing to clear the
-file, but it is not blocking day-to-day use from the live workspace.
-
-**4. Check the `/todo` command once by hand.** How Codex fills in a command's arguments
-could not be confirmed from the documentation on this machine. Run `/todo open` in a Codex
-session; if the arguments do not come through, the fix is a one-line edit to
-`/root/.codex/prompts/todo.md`.
-
 **If the plugin route is ever unavailable**, this is the direct command that does the same
 job, with no plugin involved:
 
 ```bash
-codex exec -s workspace-write -C /root/codex-migration-work --add-dir /root/.codex "<task>"
+codex exec -s workspace-write -C /home/openclaw/.openclaw/workspace --add-dir /root/.codex "<task>"
 ```
 
 ## 10. How to undo all of this
 
-Nothing here is hard to reverse.
+The repository changes are already on `master`, so the old migration-branch removal
+commands no longer apply. Reverse repository changes through normal git history. The
+private machine changes can still be restored from their backups:
 
 ```bash
-# 1. Drop the branch and the work area
-git worktree remove /root/codex-migration-work --force
-git branch -D migration/claude-to-codex
-
-# 2. Restore the private Codex files from their backups
+# 1. Restore the private Codex files from their backups
 cp /root/codex-migration-handoff/AGENTS.md.codex-original.bak        /root/.codex/AGENTS.md
 cp /root/codex-migration-handoff/config.toml.codex-original.bak      /root/.codex/config.toml
 cp /root/codex-migration-handoff/openclaw-digest.sh.codex-original.bak /root/.codex/hooks/openclaw-digest.sh
 
-# 3. Remove what was added
+# 2. Remove what was added
 rm -rf /root/.codex/openclaw-memory /root/.codex/prompts
 
-# 4. If the ACLs in section 9 were applied and you want them gone
+# 3. If you want the workspace access rules removed
 setfacl -b /home/openclaw
 setfacl -b /home/openclaw/.openclaw
 setfacl -R -b /home/openclaw/.openclaw/workspace
