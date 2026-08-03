@@ -16,7 +16,9 @@ These pin the guard that now ends such a run at the repeat:
 import asyncio
 import json
 import os
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from consensus_engine import main as main_mod
 from consensus_engine.tools import agent_watchdog as wd
@@ -184,17 +186,105 @@ def test_kill_run_never_signals_our_own_process_group(monkeypatch):
 def test_kill_run_kills_the_whole_group_when_the_run_has_its_own(monkeypatch):
     """The normal case: the run is its own group leader, so take the group."""
     signalled, killed = [], []
-    monkeypatch.setattr(wd.os, "getpgid", lambda pid: 4242 if pid else os.getpgid(0))
+    monkeypatch.setattr(wd.os, "getpgid", lambda pid: 99999)
     monkeypatch.setattr(wd.os, "killpg", lambda *a: signalled.append(a))
 
     class _Proc:
-        pid = 99999
+        pid = 99999  # leads its own group: pgid == pid
 
         def kill(self):  # pragma: no cover - group kill should have won
             killed.append(True)
 
     wd.kill_run(_Proc())
-    assert signalled == [(4242, wd.signal.SIGKILL)]
+    assert signalled == [(99999, wd.signal.SIGKILL)]
+    assert killed == []
+
+
+# A fake pid of 1 makes os.killpg(1, SIGKILL) mean kill(-1, 9): "kill every
+# process this user owns". Run as root that takes down the bot, SSH, tmux and
+# Claude itself. These tests pin every route to that call shut.
+
+_NO_PID = object()
+
+
+def _record_kills(monkeypatch):
+    """Replace both signal calls with recorders. No real signal is ever sent."""
+    signalled, killed = [], []
+    monkeypatch.setattr(wd.os, "killpg", lambda *a: signalled.append(a))
+    return signalled, killed
+
+
+def _proc_with_pid(pid, killed):
+    class _Proc:
+        def kill(self):
+            killed.append(True)
+
+    p = _Proc()
+    if pid is not _NO_PID:
+        p.pid = pid
+    return p
+
+
+@pytest.mark.parametrize(
+    "pid, label",
+    [
+        (MagicMock().pid, "a MagicMock pid (converts to 1)"),
+        (None, "no pid at all"),
+        (True, "True, which is integer 1"),
+        (0, "pid 0, meaning our own group"),
+        (1, "pid 1, meaning every process we own"),
+        (_NO_PID, "an object with no pid attribute"),
+    ],
+)
+def test_kill_run_never_group_kills_on_an_unusable_pid(pid, label, monkeypatch):
+    signalled, killed = _record_kills(monkeypatch)
+    # If the guard leaks, getpgid must not be the thing that saves us.
+    monkeypatch.setattr(wd.os, "getpgid", lambda p: 1)
+
+    wd.kill_run(_proc_with_pid(pid, killed))
+
+    assert signalled == [], f"group-killed on {label}"
+    assert killed == [True], f"should still kill the single process for {label}"
+
+
+def test_kill_run_falls_back_when_the_pid_does_not_lead_its_group(monkeypatch):
+    """pgid != pid means the run is in somebody else's group. Never signal it."""
+    signalled, killed = _record_kills(monkeypatch)
+    monkeypatch.setattr(wd.os, "getpgid", lambda pid: 4242)
+
+    wd.kill_run(_proc_with_pid(99999, killed))
+
+    assert signalled == []
+    assert killed == [True]
+
+
+def test_kill_run_falls_back_when_the_group_lookup_fails(monkeypatch):
+    """An unknown group is an unsafe group."""
+    signalled, killed = _record_kills(monkeypatch)
+
+    def _boom(pid):
+        raise OSError("no such process group")
+
+    monkeypatch.setattr(wd.os, "getpgid", _boom)
+
+    wd.kill_run(_proc_with_pid(99999, killed))
+
+    assert signalled == []
+    assert killed == [True]
+
+
+def test_kill_run_is_quiet_when_the_run_already_exited(monkeypatch):
+    """A run that died on its own is not an error and needs no signal."""
+    signalled, killed = _record_kills(monkeypatch)
+
+    def _gone(pid):
+        raise ProcessLookupError
+
+    monkeypatch.setattr(wd.os, "getpgid", _gone)
+
+    wd.kill_run(_proc_with_pid(99999, killed))
+
+    assert signalled == []
     assert killed == []
 
 

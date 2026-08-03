@@ -287,6 +287,17 @@ Live-test current cheap OpenRouter models against the three jobs (tweet-scoring/
 
 **File:** `agent-tool-loop-context-blowup.md`
 
+**CURRENT STATUS (2026-08-03):** The watchdog's `kill_run()` was calling
+`os.killpg(1, SIGKILL)` whenever a test handed it a fake process — which Linux reads as
+"kill every process this user owns". Run as root, that repeatedly killed Claude, SSH,
+tmux, the bot and Docker (50 kernel-audit records between 13:05 and 14:18 PDT on
+2026-08-03). **Fixed and verified this session** (full suite 3084 passed / 0 failed in
+an isolated PID namespace, zero new kill records), and the Stop hook that kept firing it
+can no longer run tests as root, stack two suites, or instantly retry. See the
+2026-08-03 section below. **The underlying loop guard — steps 1-4 of "Next steps" — is
+still not built**, and the Stop hook is currently DISABLED pending the owner restoring
+it (command in the session summary).
+
 REOPENED 2026-07-21: this was closed in June on a workaround (pick a lean model), and it came back anyway — the bot ran one identical database command 39 times and left the user with "Agent unavailable" after 4.5 minutes. The trigger and the fallout are now fixed, but nothing still stops a model repeating the same command forever; that guard is the remaining work.
 
 ## 46. Show every score on one consistent scale (0 = low, 100 = high) — DONE 2026-06-21
@@ -639,6 +650,10 @@ Stop Claude from stating unchecked status/alerts as fact — it assumes, the use
 ## 78. Turn Schwab real-time prices back on (one browser login)
 
 **File:** `schwab-relogin-after-permission-fix.md`
+
+**CURRENT STATUS (2026-07-21):** The blocking BUG is fixed and committed. What remains is the
+one manual step only the user can do: a browser login. Until it is done, options prices and
+quotes run on the free 15-minute-delayed feed. Everything still works — it is just stale.
 
 Schwab real-time data has been dead for 7 days and the bot kept blaming Schwab's servers; the cause (a login file the bot couldn't open) is fixed, and all that's left is one browser login to get live prices back.
 

@@ -44,18 +44,27 @@ def kill_run(proc) -> None:
     group leader. If it somehow is not, this falls back to killing the single
     process: signalling a group we share would take down the engine itself.
     """
-    try:
-        pgid = os.getpgid(proc.pid)
-    except Exception:
-        pgid = None
-    try:
-        if pgid is not None and pgid != os.getpgid(0):
-            os.killpg(pgid, signal.SIGKILL)
-            return
-    except ProcessLookupError:
-        return  # already gone
-    except Exception as exc:
-        log.debug("process-group kill failed, falling back: %s", exc)
+    pid = getattr(proc, "pid", None)
+    # `type(pid) is int` on purpose. isinstance() also accepts True, and True *is*
+    # integer 1 — os.killpg(1, SIGKILL) becomes kill(-1, 9), which kills every
+    # process this user owns. A mock pid converts to 1 the same way.
+    if type(pid) is int and pid > 1:
+        try:
+            pgid = os.getpgid(pid)
+        except ProcessLookupError:
+            return  # already gone
+        except Exception:
+            pgid = None
+        # pgid == pid proves the child really leads its own group, as
+        # start_new_session=True promises. Anything else may be a group we share.
+        if pgid is not None and pgid > 1 and pgid == pid and pgid != os.getpgrp():
+            try:
+                os.killpg(pgid, signal.SIGKILL)
+                return
+            except ProcessLookupError:
+                return  # already gone
+            except Exception as exc:
+                log.debug("process-group kill failed, falling back: %s", exc)
     try:
         proc.kill()
     except Exception as exc:

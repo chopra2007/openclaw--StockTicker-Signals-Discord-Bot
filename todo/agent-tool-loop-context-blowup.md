@@ -1,13 +1,19 @@
 # Agent tool-loop context blow-up (runaway token accumulation on heavy questions)
 
-**Status:** REOPENED 2026-07-21 — was marked DONE 2026-06-16, but it had only been
-**worked around**, never fixed. It recurred and hit the user.
+**Status:** ACTIVE 2026-08-03 — the watchdog built for this item was killing the whole
+server; that is fixed. The loop guard itself is still not built.
 **Created:** 2026-06-16
 
-**CURRENT STATUS (2026-07-21):** The loop happened again, on the very model that was
-supposed to be immune, and cost the user 4.5 minutes of silence plus a manual gateway
-restart. The blast radius is now contained (below), but **the underlying loop guard —
-steps 1-4 of "Next steps" — is still not built.**
+**CURRENT STATUS (2026-08-03):** The watchdog's `kill_run()` was calling
+`os.killpg(1, SIGKILL)` whenever a test handed it a fake process — which Linux reads as
+"kill every process this user owns". Run as root, that repeatedly killed Claude, SSH,
+tmux, the bot and Docker (50 kernel-audit records between 13:05 and 14:18 PDT on
+2026-08-03). **Fixed and verified this session** (full suite 3084 passed / 0 failed in
+an isolated PID namespace, zero new kill records), and the Stop hook that kept firing it
+can no longer run tests as root, stack two suites, or instantly retry. See the
+2026-08-03 section below. **The underlying loop guard — steps 1-4 of "Next steps" — is
+still not built**, and the Stop hook is currently DISABLED pending the owner restoring
+it (command in the session summary).
 
 What closed this item in June was the workaround from #44: make gpt-4.1-nano the agent
 lead, because in the bake-off it converged in 11-13s and used 2k-21k tokens/turn. The
@@ -90,6 +96,51 @@ on a single NVDA question points at un-trimmed tool results more than model choi
 - Mention handler (the subprocess + timeout): `consensus_engine/main.py:600` (`_handle_mention`), `--timeout 240`.
 - Agent chain config: `config/consensus.yaml` `llm.agent_model` / `agent_fallback_models`; mirrored to openclaw.json by `scripts/sync_gateway_models.py`.
 - Full bake-off context: `todo/model-bakeoff-2026-06-15.md` (TODO #44).
+
+## 2026-08-03 — the watchdog's kill was killing the whole server
+
+The loop guard shipped for this item (`consensus_engine/tools/agent_watchdog.py`,
+commit `9fe9979`) had a fatal flaw in `kill_run()`. It called
+`os.getpgid(proc.pid)` and then `os.killpg(pgid, SIGKILL)` with no check on what
+`proc.pid` actually was.
+
+`tests/test_handle_mention.py::test_handle_mention_timeouts_stop_at_the_timeout_budget`
+drives that path with a `MagicMock` subprocess. A `MagicMock` attribute converts to
+integer **1**, so the call became `os.killpg(1, SIGKILL)` — which Linux turns into
+`kill(-1, 9)`, "kill every process this user owns". Tests were running as root, so
+each time that test ran it killed Claude, tmux, SSH, the bot, Docker and the logging
+services. Proven live this session: replaying the old logic with a `MagicMock` reaches
+`killpg(1, SIGKILL)`. Kernel audit confirms **50** `syscall=62 a0=ffffffff a1=9`
+records between 13:05 and 14:18 PDT on 2026-08-03, and the engine's restart at 14:18
+lines up with the last one.
+
+The `verify-on-done.py` Stop hook was the delivery mechanism: it re-runs affected
+tests whenever Claude finishes a message, so it reached the deadly test over and over
+with no human in the loop.
+
+**Fixed.** `kill_run()` now reads `proc.pid` once and group-kills only when every
+check passes: `type(pid) is int` (not `isinstance` — `True` is integer 1), `pid > 1`,
+`pgid > 1`, `pgid == pid` (proving the child leads its own group as
+`start_new_session=True` promises), and `pgid != os.getpgrp()`. Anything else falls
+back to `proc.kill()` on the single process. An already-exited run stays a quiet no-op.
+
+Verified: 11 focused `kill_run` tests (every signal call mocked — no test sends a real
+signal), covering `MagicMock().pid`, `None`, `True`, `0`, `1`, a missing `pid`
+attribute, a child sharing our group, `pgid != pid`, and group-lookup failure, plus a
+positive test that a real `pid == pgid > 1` produces exactly one group kill.
+`tests/test_handle_mention.py` 23/23 and the full suite **3084 passed, 1 skipped, 0
+failed** — both inside a PID namespace as non-root. Zero new `kill(-1, 9)` audit
+records during either run; all services stayed up.
+
+Hardening in `/root/.claude/hooks/verify-on-done.py`: it now refuses to run tests as
+root (drops to `openclaw` via `setpriv`, or skips the run entirely if no unprivileged
+account exists), takes a non-blocking `flock` so two suites can never stack, and
+refuses to start within 60s of a previous start so an interrupted run cannot retry
+into a loop. Scratch dirs are per-user. Proven: the hook's basetemp is now
+`openclaw`-owned where the old one was `root`-owned.
+
+**Still open on this item:** the underlying loop guard, "Next steps" 1-4 below, is
+unchanged. This session fixed the watchdog's kill, not the loop it was built to catch.
 
 ## Caveat
 n=1 question class (NVDA-style heavy reads, run repeatedly). Confirm it generalizes (it did across
