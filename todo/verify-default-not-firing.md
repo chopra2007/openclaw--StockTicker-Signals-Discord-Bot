@@ -1,21 +1,14 @@
 # Make "verify before stating" actually fire without the user prompting
 
-**Status:** SOAKING until 2026-07-31 — built & live; decision ledger accruing false-fire data
+**Status:** DONE 2026-08-03 — built, live, and the false-alarm soak passed
 **Created:** 2026-07-14
 
-**CURRENT STATUS (2026-07-17):** BUILT AND LIVE (discover run `verify-gate`, ultracode session).
-Two mechanical layers shipped and switched ON, zero standing context cost:
-1. **Claim tripwire** — `/root/.claude/hooks/verify-claim-gate.py`, registered on both Stop and
-   SubagentStop in `/root/.claude/settings.json`. Blocks a turn-final message only when it is
-   claim-shaped (narrow subject+verb list with hedge/negation guards) AND no verification tool ran
-   that turn AND no citation is present. Fail-open everywhere; scoped to this project only; 15/15
-   tests green; verified live (real Stop + 3 real SubagentStop ledger records on 2026-07-17).
-2. **Banner relabel** — `openclaw-digest.sh` now stamps every notifications.log line
-   "UNVERIFIED as of [its timestamp] — machine snapshot; probe the primary source before repeating".
-Every gate decision lands in `/root/.claude/hooks/logs/claim-gate-YYYYMMDD.log`. **Soak (to
-2026-07-31): that ledger accrues the C4 go/no-go** — if >5% of blocks are false-fires, build the
-deferred Haiku escalation layer (C4, designed in `final-plan.md`, not built); otherwise close.
-Full build evidence: `.claude/discover/verify-gate/pass-5-execution-log.md`.
+**CURRENT STATUS (2026-08-03) — DONE.** The live decision ledger contains 158
+decisions: 121 ordinary no-claim allows, 22 escaped/hedged allows, 13 verified-claim
+allows, and 2 blocks. Both blocks were the deliberate test sentences used when the
+feature went live; neither was a false alarm. That is below the 5% false-block bar, so
+the deferred AI escalation layer is not needed. The claim check and startup-banner
+warning remain live.
 
 ## The problem (in the user's words)
 

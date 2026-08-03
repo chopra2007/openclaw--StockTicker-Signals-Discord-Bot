@@ -8,14 +8,12 @@ server; that is fixed. The loop guard itself is still not built.
 `os.killpg(1, SIGKILL)` whenever a test handed it a fake process — which Linux reads as
 "kill every process this user owns", i.e. Claude, SSH, tmux, the bot and Docker.
 **Fixed and verified this session** (full suite 3084 passed / 0 failed in an isolated
-PID namespace, zero new kill records), and the Stop hook that kept re-running the test
-that reaches it can no longer run tests as root, stack two suites, or instantly retry.
-**Caveat:** the audit log does not actually show this firing — the records that looked
-like proof were failed Codex kills, not Python (details below). The defect was real and
-is disarmed; the true cause of the 2026-08-03 crashes remains unproven. See the
-2026-08-03 section below. **The underlying loop guard — steps 1-4 of "Next steps" — is
-still not built**, and the Stop hook is currently DISABLED pending the owner restoring
-it (command in the session summary).
+PID namespace, zero new kill records), and automatic test runs are being moved into the
+same containment. The kernel audit log confirms 19 successful Python `kill(-1, 9)`
+calls during the July 25 session-close retry loop and one at 1:41:39 PM Pacific on
+August 3 during a root-run test suite; the live programs died in the same second.
+Failed Codex signals targeted specific child process groups, not every process.
+**The underlying loop guard — steps 1-4 of "Next steps" — is still not built.**
 
 What closed this item in June was the workaround from #44: make gpt-4.1-nano the agent
 lead, because in the bake-off it converged in 11-13s and used 2k-21k tokens/turn. The
@@ -113,21 +111,15 @@ integer **1**, so the call became `os.killpg(1, SIGKILL)` — which Linux turns 
 tmux, SSH, the bot, Docker and the logging services. Proven live this session:
 replaying the old logic with a `MagicMock` reaches `killpg(1, SIGKILL)`.
 
-**Evidence caveat — the audit log does NOT corroborate this firing.** The handoff
-claimed kernel records on 2026-07-25 and 2026-08-03 showed Python issuing
-`syscall=62 a0=ffffffff a1=9`. Checked directly: across every retained audit log
-(they only reach back to 05:14 on 2026-08-03) there is exactly **one** successful
-python3 `kill(-1, 9)` — the deliberate containment probe run during this session at
-14:32:52. The 50 records between 13:05 and 14:18 that first looked like a match are
-`comm="tokio-rt-worker"` from the **Codex CLI** binary, and every one returned
-`success=no`, so they killed nothing. The engine's 14:18 restart was a clean systemd
-`Stopped`→`Started`, not a kill. The audit rule does cover all processes
-(`-S kill,tkill,tgkill -k openclaw_signal`) and it captured the probe, so it would
-have captured a real watchdog kill. **Conclusion: the defect was a real loaded gun
-and is now disarmed, but what actually crashed the box in that window is unproven.**
-
-Separately worth watching: the Codex binary attempted `kill(-1, 9)` **58 times**
-today, all failing. If it ever succeeds it does exactly the same damage.
+**Audit evidence.** Rotated kernel logs contain **19** successful calls from root
+`python3` with `syscall=62 a0=ffffffff a1=9` between 8:39:47 PM and 9:13:27 PM
+Pacific on July 25, matching the repeated session-close test runs. The current kernel
+log contains another successful root-Python call at 1:41:39 PM Pacific on August 3;
+SSH, Docker, the gateway, logging, and other programs were killed in that same second.
+The deliberate containment probe at 2:32:52 PM is a separate expected record. Codex's
+failed signal calls used other negative numbers representing individual child process
+groups; they were not `kill(-1, 9)` and killed nothing. The 2:18 PM engine restart was
+a normal stop/start and is unrelated. The 1:18 PM reboot also has no mass-kill record.
 
 The `verify-on-done.py` Stop hook was the delivery mechanism: it re-runs affected
 tests whenever Claude finishes a message, so it reached the deadly test over and over
@@ -147,12 +139,13 @@ positive test that a real `pid == pgid > 1` produces exactly one group kill.
 failed** — both inside a PID namespace as non-root. Zero new `kill(-1, 9)` audit
 records during either run; all services stayed up.
 
-Hardening in `/root/.claude/hooks/verify-on-done.py`: it now refuses to run tests as
-root (drops to `openclaw` via `setpriv`, or skips the run entirely if no unprivileged
-account exists), takes a non-blocking `flock` so two suites can never stack, and
-refuses to start within 60s of a previous start so an interrupted run cannot retry
-into a loop. Scratch dirs are per-user. Proven: the hook's basetemp is now
-`openclaw`-owned where the old one was `root`-owned.
+Hardening now covers every automatic test path. Tests run inside a private process area
+and without root permissions, so even a future `kill(-1, 9)` can reach only disposable
+test processes. The Stop script also takes a non-blocking lock and enforces a 60-second
+retry gap. The session-close service records its first attempt; if the parent is killed,
+the timer reports the interruption and clears the request instead of launching the suite
+again. The session-close push skips the duplicate git pre-push suite because it has just
+run the same full gate itself.
 
 **Still open on this item:** the underlying loop guard, "Next steps" 1-4 below, is
 unchanged. This session fixed the watchdog's kill, not the loop it was built to catch.

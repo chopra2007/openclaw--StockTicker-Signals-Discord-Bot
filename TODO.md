@@ -291,14 +291,12 @@ Live-test current cheap OpenRouter models against the three jobs (tweet-scoring/
 `os.killpg(1, SIGKILL)` whenever a test handed it a fake process — which Linux reads as
 "kill every process this user owns", i.e. Claude, SSH, tmux, the bot and Docker.
 **Fixed and verified this session** (full suite 3084 passed / 0 failed in an isolated
-PID namespace, zero new kill records), and the Stop hook that kept re-running the test
-that reaches it can no longer run tests as root, stack two suites, or instantly retry.
-**Caveat:** the audit log does not actually show this firing — the records that looked
-like proof were failed Codex kills, not Python (details below). The defect was real and
-is disarmed; the true cause of the 2026-08-03 crashes remains unproven. See the
-2026-08-03 section below. **The underlying loop guard — steps 1-4 of "Next steps" — is
-still not built**, and the Stop hook is currently DISABLED pending the owner restoring
-it (command in the session summary).
+PID namespace, zero new kill records), and automatic test runs are being moved into the
+same containment. The kernel audit log confirms 19 successful Python `kill(-1, 9)`
+calls during the July 25 session-close retry loop and one at 1:41:39 PM Pacific on
+August 3 during a root-run test suite; the live programs died in the same second.
+Failed Codex signals targeted specific child process groups, not every process.
+**The underlying loop guard — steps 1-4 of "Next steps" — is still not built.**
 
 REOPENED 2026-07-21: this was closed in June on a workaround (pick a lean model), and it came back anyway — the bot ran one identical database command 39 times and left the user with "Agent unavailable" after 4.5 minutes. The trigger and the fallout are now fixed, but nothing still stops a model repeating the same command forever; that guard is the remaining work.
 
@@ -404,11 +402,11 @@ Swap the bot's live options source from the free, ~15-min-delayed, throttle-pron
 
 Refactor `!sec`, `!all`, the alert Score card, and the AI write-up so insider (Form 4) trades show as one clean block per person — with the date and total dollar value — instead of dozens of dateless, valueless repeat rows.
 
-## 59. Fix the regression gate so a failed push doesn't just sit there — SOAKING until 2026-07-25 (v3 race done 2026-07-11; pinned deepseek-v4-flash)
+## 59. Fix the regression gate so a failed push doesn't just sit there — ACTIVE (live proof still pending)
 
 **File:** `regression-gate-auto-recovery.md`
 
-**CURRENT STATUS (2026-07-11) — v3 RACE DONE. Pinned `deepseek/deepseek-v4-flash`.** Executed `.omc/plans/ci-fixer-race-v3-2026-07-10.md` end to end. The prompt trim (~45k→~20k tokens) dropped the WHOLE strong-coder field under 25¢/mo, so the race became capability-only (exactly the user's rule). Winner **`deepseek/deepseek-v4-flash`** — the CHEAPEST model in the field AND it cleared the bar, so it wins outright: SCORE **0.86** (per-incident, deep 5 trials/case), **4/4** cases, **0** timeouts, **~$0.007/mo**; independent confirm run **8/8**. Wired: `DEFAULT_MODEL` in `scripts/ci_ai_fixer.py` (verified end-to-end through the production entry point — classifies, patches source, test goes green). **Backup model added 2026-07-11 (user):** `stepfun/step-3.7-flash` in `/root/task_system/scripts/ci_autofix.sh` (`try_model` primary→backup — backup gets 3 attempts if the primary strikes out, before paging a human; forbidden-path + fake-green still escalate immediately for either model; control flow tested with a stubbed fixer). Total race spend ~**$0.30** (cap $3). Corpus `.omc/trials/corpus_v3.json` (4 real source-bug cases); raw results `.omc/trials/{anchor_probe,band_a_screen,deep_v4flash,confirm_v4flash}.json`. One mined case (e2/engine.py) was DROPPED as unfair — its buggy file was never surfaced to the model. SOAKING until 2026-07-25 to watch for a real red gate the fixer handles live; then close. Full detail in memory `reference_ci_fixer_model.md`. _(Below: the v3 plan pointer and superseded ROUND 2 — historical now.)_
+**CURRENT STATUS (2026-08-03) — ACTIVE; built, but the required live proof has not happened.** The soak ended with zero real CI failures reaching `/root/task_system/logs/ci-autofix.log` (the file is still empty). The test corpus and confirmation run passed, but this item explicitly required one real red CI run to prove the monitor, fixer, verification, and re-push chain together. Keep the existing monitor live and close this item only after that first real event succeeds; a real event that fails returns here for repair.
 
 **HISTORICAL STATUS (2026-07-03):** Both parts done. **Part 1 SHIPPED** (detection + safety net): (1) `ci-monitor.sh` extracts the REAL failing test ids from the FULL CI log — proven on the 07-02 pyarrow run it names `tests/test_market_command.py::…`, where the old `--log-failed` returned nothing; (2) `session_close.sh` captures the push exit code and writes a loud `notifications.log` line when a push is rejected (the silent hole that stranded 6 commits); (3) a SessionStart banner (`openclaw-digest.sh`) surfaces any GATE/CI/PUSH alert loudly; (4) 07-02 root cause fixed — `scripts/pre-push` per-user `/tmp` log (a stale root-owned one permission-denied `tee` → aborted the hook → silent reject), synced to `.git/hooks/pre-push`; `notifications.log` openclaw-writable. **Part 2 LIVE — deterministic, NO AI, no login:** `/root/task_system/scripts/ci_autofix.sh` runs as openclaw when the gate is red and: (1) **auto-declares an undeclared dependency** — the exact pyarrow class: extracts the missing module from the CI error (incl. pandas' "Missing optional dependency 'X'" phrasing, the real 07-02 signature), adds it to requirements.txt, verifies import + tests pass, commits + pushes; (2) detects **flaky** (passes locally ×2 → no-op); (3) **escalates a real logic bug** to a human. Guardrails proven end-to-end: capped retries (fires at 2), clean-tree freshness skip (won't touch a session's unpushed work), HARD forbidden-path gate (never auto-pushes a config/flag/vision/go-live/CI change), local re-verify, `git checkout` (never stash). Verified on the real pyarrow run (extracts 'pyarrow', would add+push; correctly skipped while unpushed work present). **Opt-in AI upgrade (deferred):** a guarded `claude` branch fixes genuine logic bugs unattended — dormant until claude is provisioned for the openclaw user (user away 2026-07-03; deterministic layer chosen as the safe default; Codex has the same root-only-auth hurdle). Note: `ci-monitor.sh`/`ci_autofix.sh` live in `/root/task_system` (not repo-tracked). (pyarrow live symptom already fixed, `ed143c9`.)
 
@@ -629,23 +627,16 @@ shipped**. It is the most promotable idea in the PASSED bucket.
 
 The standing menu of already-researched ideas, with every verdict written down so no session redoes settled work. All 113 rostered individually; the 14 open ones sorted strongest-to-weakest in 4 tiers; work them top-down. **The trap this file exists to prevent: "not built in that run" ≠ "the bot lacks it" — always grep the live code before promoting an idea to ready-to-build.** (It caught one on 2026-07-14: EPS-revisions was listed as a candidate and is in fact live.) Build a pick under the normal rules, then write `BUILT` or `PASSED` (with the reason) back into the ledger and move the row into the closed section — a rejected idea is PASSED, never deleted, because the reason is what stops it being re-proposed, and **a row must never sit in two places**. Also records the 3 killed ideas, the 6 already-live ones, and the 74 rejected with reasons — each graded firm vs soft, so the soft ones can be reopened instead of paying for a new research run (the run generated **113** distinct ideas, not 115 — the IDs run to c115 but c58/c82 were never written and c97 is duplicated). Closes only when all four tiers are empty. Turning ON the 16 already-built features is **#67**, not this item.
 
-## 77. Make the bot verify facts before stating them, without being prompted — SOAKING until 2026-07-31
+## 77. Make the bot verify facts before stating them, without being prompted — DONE 2026-08-03
 
 **File:** `verify-default-not-firing.md`
 
-**CURRENT STATUS (2026-07-17):** BUILT AND LIVE (discover run `verify-gate`, ultracode session).
-Two mechanical layers shipped and switched ON, zero standing context cost:
-1. **Claim tripwire** — `/root/.claude/hooks/verify-claim-gate.py`, registered on both Stop and
-   SubagentStop in `/root/.claude/settings.json`. Blocks a turn-final message only when it is
-   claim-shaped (narrow subject+verb list with hedge/negation guards) AND no verification tool ran
-   that turn AND no citation is present. Fail-open everywhere; scoped to this project only; 15/15
-   tests green; verified live (real Stop + 3 real SubagentStop ledger records on 2026-07-17).
-2. **Banner relabel** — `openclaw-digest.sh` now stamps every notifications.log line
-   "UNVERIFIED as of [its timestamp] — machine snapshot; probe the primary source before repeating".
-Every gate decision lands in `/root/.claude/hooks/logs/claim-gate-YYYYMMDD.log`. **Soak (to
-2026-07-31): that ledger accrues the C4 go/no-go** — if >5% of blocks are false-fires, build the
-deferred Haiku escalation layer (C4, designed in `final-plan.md`, not built); otherwise close.
-Full build evidence: `.claude/discover/verify-gate/pass-5-execution-log.md`.
+**CURRENT STATUS (2026-08-03) — DONE.** The live decision ledger contains 158
+decisions: 121 ordinary no-claim allows, 22 escaped/hedged allows, 13 verified-claim
+allows, and 2 blocks. Both blocks were the deliberate test sentences used when the
+feature went live; neither was a false alarm. That is below the 5% false-block bar, so
+the deferred AI escalation layer is not needed. The claim check and startup-banner
+warning remain live.
 
 Stop Claude from stating unchecked status/alerts as fact — it assumes, the user has to question it, and the claim turns out wrong; build a decision-time gate that fires the "verify first" reflex without bloating context (the failure mode of every past fix).
 

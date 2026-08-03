@@ -55,7 +55,7 @@ if git rev-parse --verify -q origin/master >/dev/null \
 fi
 # -------------------------------------------------------------------------
 
-echo "[pre-push] running regression suite (parallel: 2 workers)..."
+echo "[pre-push] running regression suite in a sealed process area (parallel: 2 workers)..."
 # -n 2 (pytest-xdist): ~1.75x faster (~3:33 -> ~2:00) and verified to leave the
 #   suite all-green (no worker collisions). Capped at 2 of 4 cores so the live
 #   consensus-engine/gateway keep headroom during a push.
@@ -66,7 +66,8 @@ echo "[pre-push] running regression suite (parallel: 2 workers)..."
 #   "\x1b[31mFAILED\x1b[0m tests/..." and the `^FAILED ` parser below matches
 #   NOTHING. Every push from a Claude session then passed a gate that could not
 #   see red tests. Verified 2026-07-13 with a deliberately failing test.
-python3 -m pytest tests/ -n 2 --tb=line -q -rf --color=no 2>&1 | tee "$LOG"
+"$REPO_ROOT/scripts/run_pytest_isolated.sh" \
+    tests/ -n 2 --tb=line -q -rf --color=no 2>&1 | tee "$LOG"
 
 # Extract current failures (sorted, unique)
 CURRENT_FAILS=$(grep -E '^FAILED ' "$LOG" | awk '{print $2}' | sort -u)
