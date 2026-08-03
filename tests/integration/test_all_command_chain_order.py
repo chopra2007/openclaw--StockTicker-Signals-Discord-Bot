@@ -58,6 +58,11 @@ EXPECTED_TEXT_FALLBACKS = [
     "mistralai/mistral-nemo",
     "openrouter/free",
 ]
+EXPECTED_ALL_COMMAND_CHAIN = [
+    "groq/llama-3.3-70b-versatile",
+    "openai/gpt-oss-120b",
+    "openai/gpt-oss-20b",
+]
 
 
 def _llm_block() -> dict:
@@ -93,6 +98,13 @@ def test_text_fallback_chain_matches_expected():
         f"got {llm.get('text_fallback_models')!r}; "
         f"expected {EXPECTED_TEXT_FALLBACKS!r}"
     )
+
+
+def test_all_command_chain_uses_reliable_paid_fallbacks():
+    llm = _llm_block()
+    assert llm.get("all_command_chain") == EXPECTED_ALL_COMMAND_CHAIN
+    assert not any(str(model).endswith(":free")
+                   for model in llm.get("all_command_chain", []))
 
 
 def test_no_known_failed_models_in_chain():

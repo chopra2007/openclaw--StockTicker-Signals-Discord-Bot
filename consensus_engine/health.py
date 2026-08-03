@@ -27,6 +27,13 @@ from consensus_engine.alerts.discord import _safe_send_kwargs
 
 _PT = ZoneInfo("America/Los_Angeles")  # Pacific — user's timezone; all user-facing health timestamps are PDT
 
+_LLM_HEALTH_ALERT_TITLE = "One or more configured AI models failed a health check"
+_LLM_HEALTH_ALERT_DETAIL = (
+    "At least one configured model failed its daily test. Other models may still "
+    "be working, so alerts can continue through the remaining chain. The full "
+    "report in #errors shows exactly which model failed."
+)
+
 # Gateway agent config — read for drift detection against consensus.yaml.
 # scripts/sync_gateway_models.py is the only thing that should write here.
 # Use the real path, not the /root/.openclaw symlink: the engine runs as
@@ -510,18 +517,16 @@ async def chain_health_loop(stop_event: asyncio.Event) -> None:
                 # 2026-07-10 (user): LLM chain-health reports belong in #errors, not
                 # the #brief channel. Falls back to briefing if #errors is unavailable.
                 await _post_to_discord(report, channel_id=_errors_channel())
-            # #71: a broken LLM chain means no alert text gets written at all —
-            # user-facing-critical, so it also goes to #errors with an @-mention,
-            # once per transition. The full report is in #errors too now.
+            # Track a red daily probe as one transition-based ops event. A single
+            # failed fallback does not mean the entire chain is unavailable; the
+            # full report above shows the exact working and failed models.
             from consensus_engine.alerts.ops_alert import report_ops_state
             await report_ops_state(
                 "llm_health", down=bool(failed), failure_class="llm_health",
-                title="The AI models that write the alerts are failing",
-                detail=("Every model in the chain failed its daily health probe. "
-                        "Alerts may go out with no written analysis, or not at all. "
-                        "The full report is in the #errors channel."),
-                fix="Check the OpenRouter key and quota, then `systemctl restart "
-                    "consensus-engine.service`.",
+                title=_LLM_HEALTH_ALERT_TITLE,
+                detail=_LLM_HEALTH_ALERT_DETAIL,
+                fix=("Read the failed line in the report. Check that model's provider "
+                     "only if it stays red on the next daily test."),
             )
         except Exception as exc:
             log.error("health: chain check error: %s", exc)

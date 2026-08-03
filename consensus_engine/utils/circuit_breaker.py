@@ -60,6 +60,10 @@ class CircuitBreaker:
         self._state: dict[str, dict] = {}
         self._health: dict[str, dict] = {}  # C5: per-source counters
         self._loaded = False
+        # Transient breaker state intentionally does not survive a restart, but
+        # the matching #errors state does. Check each source once after boot so a
+        # successful first call can clear an outage that ended during the restart.
+        self._recovery_synced: set[str] = set()
 
     def _health_for(self, key: str) -> dict:
         return self._health.setdefault(
@@ -252,13 +256,16 @@ class CircuitBreaker:
         await self.alert_if_opened(event)
 
     async def note_success(self, source: str, cred_version: str = "v1") -> None:
-        # record_success returns a dict ONLY on a real not-closed -> closed
-        # transition, and None on the (overwhelmingly common) already-healthy call.
-        # Gate the recovery alert on that so the steady-state success path stays
-        # free of a DB read.
+        key = self._key(source, cred_version)
         event = await self.record_success(source, cred_version)
-        if event:
+        # A transient OPEN is memory-only, while report_ops_state persists its
+        # DOWN row. After a process restart record_success() therefore sees no
+        # local transition. Reconcile once per source after boot, then retain the
+        # old zero-DB-read steady-state path. Real in-process recoveries still
+        # reconcile immediately through `event`.
+        if event or key not in self._recovery_synced:
             await self.alert_if_recovered(source)
+            self._recovery_synced.add(key)
 
     async def alert_if_opened(self, event: Optional[dict]) -> None:
         """Send ONE #errors alert on a closed/half_open -> open transition.

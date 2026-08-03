@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -96,7 +97,9 @@ async def _llm_synthesize(prompt: str) -> str:
             {"role": "system", "content":
                 "You are a pre-market briefing writer. Produce concise, "
                 "actionable markdown. Lead with the most important story. "
-                "Keep under 1500 characters."},
+                "Keep under 1500 characters. All user-facing times must use "
+                "America/Los_Angeles and be labeled PST or PDT. Never write "
+                "Eastern, Eastern Time, ET, EST, or EDT."},
             {"role": "user", "content": prompt},
         ],
         max_tokens=cfg.get("llm.max_tokens", 1024),
@@ -125,6 +128,15 @@ def _fallback_render(data: dict) -> str:
     if len(lines) <= 3:
         lines.append("_No material overnight activity._")
     return "\n".join(lines)
+
+
+def _has_forbidden_timezone_label(content: str) -> bool:
+    """Detect exchange-time labels while preserving the unrelated `$ET` ticker."""
+    return bool(
+        re.search(r"\bEastern(?:\s+Time)?\b", content, flags=re.IGNORECASE)
+        or re.search(r"\b(?:EST|EDT)\b", content)
+        or re.search(r"(?<!\$)\bET\b", content)
+    )
 
 
 async def _render_briefing(data: dict) -> str:
@@ -179,6 +191,12 @@ async def _render_briefing(data: dict) -> str:
     )
     out = await _llm_synthesize(prompt)
     if not out:
+        out = _fallback_render(data)
+    elif _has_forbidden_timezone_label(out):
+        # Relabeling an invented "9:30 ET" as Pacific would make the clock time
+        # wrong. Reject the AI text instead and use the deterministic Pacific
+        # fallback, which is safer than showing a mislabeled time.
+        log.warning("Alfred rejected AI text containing a forbidden timezone label")
         out = _fallback_render(data)
     # Item C: user-visible footnote so a wrongly-hidden real level is detectable (not buried).
     hidden = data.get("_levels_hidden", 0)

@@ -309,7 +309,7 @@ llm:
   all_command_chain:
     - "groq/llama-3.3-70b-versatile"
     - "openai/gpt-oss-120b"          # 2026-07-10: was :free — rate-limited 429 daily upstream (congested free pool); paid returns 200, negligible cost as a deep fallback
-    - "openai/gpt-oss-20b:free"
+    - "openai/gpt-oss-20b"           # 2026-08-03: was :free — caused the 07-29 false red health report; paid model live-probed HTTP 200 with usable content
   # #6 latency-speedup: how the !all synthesis call walks all_command_chain.
   #   serial     = original one-model-at-a-time (DEFAULT; unchanged behavior)
   #   head_start = groq solo for head_start_timeout s, race fallbacks on stall

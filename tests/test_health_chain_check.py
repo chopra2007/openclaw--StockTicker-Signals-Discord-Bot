@@ -13,6 +13,12 @@ CHAIN_CFG = {
 }
 
 
+def test_partial_model_failure_alert_is_accurate():
+    assert "Every model" not in health._LLM_HEALTH_ALERT_DETAIL
+    assert "At least one configured model failed" in health._LLM_HEALTH_ALERT_DETAIL
+    assert "Other models may still be working" in health._LLM_HEALTH_ALERT_DETAIL
+
+
 def test_enumerate_chain_models_in_order(monkeypatch):
     monkeypatch.setattr("consensus_engine.health.cfg.get",
                         lambda k, default=None: CHAIN_CFG.get(k, default))

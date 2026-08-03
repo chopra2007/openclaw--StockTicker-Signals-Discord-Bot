@@ -32,3 +32,36 @@ async def test_render_briefing_falls_back_when_llm_empty(monkeypatch):
     out = await alfred._render_briefing(data)
     # Fallback still produces a valid non-empty brief
     assert "Morning Brief" in out
+
+
+async def test_render_briefing_removes_forbidden_timezone_labels(monkeypatch):
+    data = {
+        "session_start_utc": 0, "session_end_utc": 1,
+        "alerts": [], "levels": [], "yt_signals": [], "macro": None,
+        "top_tickers": [],
+    }
+
+    async def wrong_timezone(prompt):
+        return "All times EST. Energy Transfer ($ET) is unchanged."
+
+    monkeypatch.setattr(alfred, "_llm_synthesize", wrong_timezone)
+    out = await alfred._render_briefing(data)
+
+    assert "EST" not in out
+    assert "Morning Brief" in out
+
+
+async def test_render_briefing_preserves_et_stock_ticker(monkeypatch):
+    data = {
+        "session_start_utc": 0, "session_end_utc": 1,
+        "alerts": [], "levels": [], "yt_signals": [], "macro": None,
+        "top_tickers": [],
+    }
+
+    async def ticker_not_timezone(prompt):
+        return "Energy Transfer ($ET) is unchanged."
+
+    monkeypatch.setattr(alfred, "_llm_synthesize", ticker_not_timezone)
+    out = await alfred._render_briefing(data)
+
+    assert "$ET" in out

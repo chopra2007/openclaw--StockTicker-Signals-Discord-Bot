@@ -87,6 +87,45 @@ async def test_half_open_success_closes(enabled):
     assert cb._state["brave@v1"]["state"] == "closed"
 
 
+async def test_first_success_after_restart_reconciles_persisted_ops_alert(
+        enabled, monkeypatch):
+    """The breaker forgets transient state on restart, but #errors does not.
+    The first healthy call must still clear that saved DOWN row, exactly once."""
+    cb = CircuitBreaker(now_fn=_Clock())
+    recovered = []
+
+    async def fake_recovered(source):
+        recovered.append(source)
+
+    monkeypatch.setattr(cb, "alert_if_recovered", fake_recovered)
+
+    await cb.note_success("finnhub_news")
+    await cb.note_success("finnhub_news")
+
+    assert recovered == ["finnhub_news"]
+
+
+async def test_real_recovery_still_reconciles_after_boot_sync(enabled, monkeypatch):
+    cb = CircuitBreaker(now_fn=_Clock())
+    recovered = []
+
+    async def fake_recovered(source):
+        recovered.append(source)
+
+    async def no_down_alert(event):
+        return None
+
+    monkeypatch.setattr(cb, "alert_if_recovered", fake_recovered)
+    monkeypatch.setattr(cb, "alert_if_opened", no_down_alert)
+
+    await cb.note_success("finnhub_news")  # one-time boot reconciliation
+    for _ in range(5):
+        await cb.note_failure("finnhub_news", status=503)
+    await cb.note_success("finnhub_news")  # real open -> closed transition
+
+    assert recovered == ["finnhub_news", "finnhub_news"]
+
+
 async def test_half_open_failure_reopens(enabled):
     clk = _Clock()
     cb = CircuitBreaker(now_fn=clk)
