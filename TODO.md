@@ -287,13 +287,15 @@ Live-test current cheap OpenRouter models against the three jobs (tweet-scoring/
 
 **File:** `agent-tool-loop-context-blowup.md`
 
-**CURRENT STATUS (2026-08-03):** The watchdog's `kill_run()` was calling
+**CURRENT STATUS (2026-08-03):** The watchdog's `kill_run()` would call
 `os.killpg(1, SIGKILL)` whenever a test handed it a fake process — which Linux reads as
-"kill every process this user owns". Run as root, that repeatedly killed Claude, SSH,
-tmux, the bot and Docker (50 kernel-audit records between 13:05 and 14:18 PDT on
-2026-08-03). **Fixed and verified this session** (full suite 3084 passed / 0 failed in
-an isolated PID namespace, zero new kill records), and the Stop hook that kept firing it
-can no longer run tests as root, stack two suites, or instantly retry. See the
+"kill every process this user owns", i.e. Claude, SSH, tmux, the bot and Docker.
+**Fixed and verified this session** (full suite 3084 passed / 0 failed in an isolated
+PID namespace, zero new kill records), and the Stop hook that kept re-running the test
+that reaches it can no longer run tests as root, stack two suites, or instantly retry.
+**Caveat:** the audit log does not actually show this firing — the records that looked
+like proof were failed Codex kills, not Python (details below). The defect was real and
+is disarmed; the true cause of the 2026-08-03 crashes remains unproven. See the
 2026-08-03 section below. **The underlying loop guard — steps 1-4 of "Next steps" — is
 still not built**, and the Stop hook is currently DISABLED pending the owner restoring
 it (command in the session summary).

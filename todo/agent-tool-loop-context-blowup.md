@@ -4,13 +4,15 @@
 server; that is fixed. The loop guard itself is still not built.
 **Created:** 2026-06-16
 
-**CURRENT STATUS (2026-08-03):** The watchdog's `kill_run()` was calling
+**CURRENT STATUS (2026-08-03):** The watchdog's `kill_run()` would call
 `os.killpg(1, SIGKILL)` whenever a test handed it a fake process — which Linux reads as
-"kill every process this user owns". Run as root, that repeatedly killed Claude, SSH,
-tmux, the bot and Docker (50 kernel-audit records between 13:05 and 14:18 PDT on
-2026-08-03). **Fixed and verified this session** (full suite 3084 passed / 0 failed in
-an isolated PID namespace, zero new kill records), and the Stop hook that kept firing it
-can no longer run tests as root, stack two suites, or instantly retry. See the
+"kill every process this user owns", i.e. Claude, SSH, tmux, the bot and Docker.
+**Fixed and verified this session** (full suite 3084 passed / 0 failed in an isolated
+PID namespace, zero new kill records), and the Stop hook that kept re-running the test
+that reaches it can no longer run tests as root, stack two suites, or instantly retry.
+**Caveat:** the audit log does not actually show this firing — the records that looked
+like proof were failed Codex kills, not Python (details below). The defect was real and
+is disarmed; the true cause of the 2026-08-03 crashes remains unproven. See the
 2026-08-03 section below. **The underlying loop guard — steps 1-4 of "Next steps" — is
 still not built**, and the Stop hook is currently DISABLED pending the owner restoring
 it (command in the session summary).
@@ -107,12 +109,25 @@ commit `9fe9979`) had a fatal flaw in `kill_run()`. It called
 `tests/test_handle_mention.py::test_handle_mention_timeouts_stop_at_the_timeout_budget`
 drives that path with a `MagicMock` subprocess. A `MagicMock` attribute converts to
 integer **1**, so the call became `os.killpg(1, SIGKILL)` — which Linux turns into
-`kill(-1, 9)`, "kill every process this user owns". Tests were running as root, so
-each time that test ran it killed Claude, tmux, SSH, the bot, Docker and the logging
-services. Proven live this session: replaying the old logic with a `MagicMock` reaches
-`killpg(1, SIGKILL)`. Kernel audit confirms **50** `syscall=62 a0=ffffffff a1=9`
-records between 13:05 and 14:18 PDT on 2026-08-03, and the engine's restart at 14:18
-lines up with the last one.
+`kill(-1, 9)`, "kill every process this user owns". Run as root that kills Claude,
+tmux, SSH, the bot, Docker and the logging services. Proven live this session:
+replaying the old logic with a `MagicMock` reaches `killpg(1, SIGKILL)`.
+
+**Evidence caveat — the audit log does NOT corroborate this firing.** The handoff
+claimed kernel records on 2026-07-25 and 2026-08-03 showed Python issuing
+`syscall=62 a0=ffffffff a1=9`. Checked directly: across every retained audit log
+(they only reach back to 05:14 on 2026-08-03) there is exactly **one** successful
+python3 `kill(-1, 9)` — the deliberate containment probe run during this session at
+14:32:52. The 50 records between 13:05 and 14:18 that first looked like a match are
+`comm="tokio-rt-worker"` from the **Codex CLI** binary, and every one returned
+`success=no`, so they killed nothing. The engine's 14:18 restart was a clean systemd
+`Stopped`→`Started`, not a kill. The audit rule does cover all processes
+(`-S kill,tkill,tgkill -k openclaw_signal`) and it captured the probe, so it would
+have captured a real watchdog kill. **Conclusion: the defect was a real loaded gun
+and is now disarmed, but what actually crashed the box in that window is unproven.**
+
+Separately worth watching: the Codex binary attempted `kill(-1, 9)` **58 times**
+today, all failing. If it ever succeeds it does exactly the same damage.
 
 The `verify-on-done.py` Stop hook was the delivery mechanism: it re-runs affected
 tests whenever Claude finishes a message, so it reached the deadly test over and over
