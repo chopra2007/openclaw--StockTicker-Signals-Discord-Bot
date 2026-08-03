@@ -1,13 +1,11 @@
 # Restore Schwab real-time data (browser re-login)
 
-**Status:** OPEN
+**Status:** DONE 2026-08-03 — browser login completed; live feed recovered
 **Created:** 2026-07-21
 
-**CURRENT STATUS (2026-07-21):** The blocking BUG is fixed and committed. What remains is the
-one manual step only the user can do: a browser login. Until it is done, options prices and
-quotes run on the free 15-minute-delayed feed. Everything still works — it is just stale.
-
-**The single action:** run `python3 scripts/schwab_login.py` and follow the two steps it prints.
+**CURRENT STATUS (2026-08-03):** DONE. The browser login was completed. The engine is
+refreshing its Schwab token, the saved `schwab_feed` state is `up`, and the recovery
+message appeared in `#errors`. Real-time prices are active again.
 
 **Related items from the same session:** this was found while investigating why the bot
 hung and could not answer — see **#79** (the four Discord reliability bugs, all fixed) and

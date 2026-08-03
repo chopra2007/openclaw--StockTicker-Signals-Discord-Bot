@@ -640,15 +640,15 @@ warning remain live.
 
 Stop Claude from stating unchecked status/alerts as fact — it assumes, the user has to question it, and the claim turns out wrong; build a decision-time gate that fires the "verify first" reflex without bloating context (the failure mode of every past fix).
 
-## 78. Turn Schwab real-time prices back on (one browser login)
+## 78. Turn Schwab real-time prices back on (one browser login) — DONE 2026-08-03
 
 **File:** `schwab-relogin-after-permission-fix.md`
 
-**CURRENT STATUS (2026-07-21):** The blocking BUG is fixed and committed. What remains is the
-one manual step only the user can do: a browser login. Until it is done, options prices and
-quotes run on the free 15-minute-delayed feed. Everything still works — it is just stale.
+**CURRENT STATUS (2026-08-03):** DONE. The browser login was completed. The engine is
+refreshing its Schwab token, the saved `schwab_feed` state is `up`, and the recovery
+message appeared in `#errors`. Real-time prices are active again.
 
-Schwab real-time data has been dead for 7 days and the bot kept blaming Schwab's servers; the cause (a login file the bot couldn't open) is fixed, and all that's left is one browser login to get live prices back.
+Restore Schwab real-time prices after fixing the unreadable login file and completing the required browser login.
 
 ## 79. Bot went unreachable and answered from its own mistakes — DONE 2026-07-21
 
