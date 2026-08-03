@@ -113,14 +113,22 @@ def describe(failure_class: str) -> Tuple[str, str, str]:
 
 
 async def note_schwab_failure(exc: BaseException) -> bool:
-    """Report a failed Schwab call. Alerts only on a state/class change."""
+    """Report a failed Schwab call. Alerts only on a state/class change.
+
+    One blown call is not an outage. Schwab drops the odd request all day, and
+    announcing each one had #errors carrying a "servers are not responding" plus a
+    "recovered — down for 0 seconds" every hour for a week (2026-07-27 → 08-03).
+    A real outage still lands, five minutes later.
+    """
     from consensus_engine.alerts.ops_alert import report_ops_state
+    from consensus_engine import config as cfg
 
     klass = classify_failure(exc)
     title, detail, fix = describe(klass)
     return await report_ops_state(
         ALERT_KEY, down=True, failure_class=klass,
         title=title, detail=detail, fix=fix,
+        confirm_after_s=float(cfg.get("ops_alerts.schwab_confirm_after_s", 300.0)),
     )
 
 

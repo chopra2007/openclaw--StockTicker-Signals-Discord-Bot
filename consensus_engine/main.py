@@ -1319,7 +1319,7 @@ async def run_live(stop_event: asyncio.Event):
             asyncio.create_task(alfred_loop(combined_stop)),
             asyncio.create_task(chain_health_loop(combined_stop)),
             asyncio.create_task(boot_drift_check()),
-            asyncio.create_task(feature_volume_monitor_loop()),
+            asyncio.create_task(feature_volume_monitor_loop(combined_stop)),
             asyncio.create_task(options_flow_loop(combined_stop)),
             asyncio.create_task(finra_short_volume_loop(combined_stop)),
             asyncio.create_task(finra_short_interest_loop(combined_stop)),
@@ -1334,10 +1334,30 @@ async def run_live(stop_event: asyncio.Event):
         # the weekend pause — Wolf is a 7-day feed and its overnight/Sunday
         # outputs must fire even while the live scanners are paused.
 
+        # Hand control back as soon as combined_stop fires, instead of waiting for
+        # every task to return. gather() alone waits for the slowest one, so a single
+        # loop that ignores its stop event wedges the whole restart cycle: on
+        # 2026-07-31 the Friday-3pm pause set combined_stop, feature_volume_monitor_loop
+        # (then stop-less) kept running, gather() never returned, and the scanners,
+        # the Discord listener and the morning brief stayed dead until a hand restart
+        # on 2026-08-03. Racing the two keeps the old crash-restart behaviour: if a
+        # task raises, gather completes first and we loop round and rebuild everything.
+        stop_wait = asyncio.create_task(combined_stop.wait())
+        gather_task = asyncio.ensure_future(asyncio.gather(*tasks))
         try:
-            await asyncio.gather(*tasks)
+            await asyncio.wait({gather_task, stop_wait},
+                               return_when=asyncio.FIRST_COMPLETED)
         except asyncio.CancelledError:
             log.info("Live mode cancelled")
+        finally:
+            stop_wait.cancel()
+            if gather_task.done() and not gather_task.cancelled():
+                exc = gather_task.exception()
+                if exc:
+                    log.error("Live mode task crashed; rebuilding scanners: %s", exc,
+                              exc_info=exc)
+            else:
+                gather_task.cancel()
 
         # Cancel any lingering tasks
         for t in tasks:
@@ -2096,13 +2116,17 @@ async def _run_cross_reference_and_followup(
         log.error("Cross-reference follow-up failed for $%s: %s", ticker, e, exc_info=True)
 
 
-async def feature_volume_monitor_loop() -> None:
+async def feature_volume_monitor_loop(stop_event: asyncio.Event) -> None:
     """Monitor 24h alert volume for 50% drops after feature flips."""
     import time as _time
-    while True:
+    while not stop_event.is_set():
         try:
             interval = cfg.get("intervals.feature_volume_monitor", 900)
-            await asyncio.sleep(interval)
+            try:
+                await asyncio.wait_for(stop_event.wait(), timeout=interval)
+                return
+            except asyncio.TimeoutError:
+                pass
             conn = await db.get_db()
             now = _time.time()
             window = 86400

@@ -51,6 +51,14 @@ log = logging.getLogger(__name__)
 # failure class bypasses it (the user's next action differs, so it's worth the noise).
 _DEFAULT_MIN_INTERVAL_S = 3600.0   # 1 hour
 
+# Some things fail one call and are fine on the next. For those, the caller passes
+# `confirm_after_s`: the thing has to still be down that many seconds later before a
+# word is said. Schwab spent 2026-07-27 → 2026-08-03 posting a "servers are not
+# responding" and a "recovered — down for 0 seconds" every hour, all day, off single
+# blown calls. Default 0 = announce on the first failure, which is right for anything
+# already checked on a slow cadence (the daily LLM probe would otherwise wait a day).
+_DEFAULT_CONFIRM_AFTER_S = 0.0
+
 # One lock per alert key. Serializes the read-decide-send-write below so concurrent
 # callers cannot each decide, independently, that they are the one to announce.
 _locks: dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
@@ -101,6 +109,7 @@ async def report_ops_state(
     detail: str = "",
     failure_class: Optional[str] = None,
     fix: str = "",
+    confirm_after_s: Optional[float] = None,
 ) -> bool:
     """Report the CURRENT state of one thing. Posts only on a change.
 
@@ -109,6 +118,10 @@ async def report_ops_state(
     A change of `failure_class` while still down (e.g. the token lapsed, and now the
     API is 500ing too) re-alerts, because the user's next action differs. Never
     raises — an alerting bug must not take down the caller.
+
+    `confirm_after_s` holds a DOWN alert until the thing has been continuously down
+    that long, so a single blown call never reaches the user. Recovering inside the
+    window is silent on both sides. Only pass it for something checked often.
     """
     try:
         if not cfg.get("ops_alerts.enabled", True):
@@ -128,22 +141,28 @@ async def report_ops_state(
             klass = failure_class or (prior_class if not down else None) or alert_key
 
             class_changed = down and prior_state == "down" and prior_class != klass
-            changed = (prior_state != state) or class_changed
-            if not changed:
-                return False   # steady state — say nothing
-
-            # Never announce a recovery for something we never announced as broken.
-            if not down and prior_state != "down":
-                await db.set_ops_alert_state(alert_key, "up", klass, detail)
-                return False
 
             now = time.time()
-            last_alerted = (prior or {}).get("last_alerted_at") or 0.0
+            last_alerted = float((prior or {}).get("last_alerted_at") or 0.0)
             since = float((prior or {}).get("since") or now)
             min_interval = float(
                 cfg.get("ops_alerts.min_interval_s", _DEFAULT_MIN_INTERVAL_S))
+            confirm_after = float(
+                _DEFAULT_CONFIRM_AFTER_S if confirm_after_s is None else confirm_after_s)
 
             if down:
+                if prior_state != "down" and confirm_after > 0:
+                    # First failure of this episode. Start the clock; whether it is
+                    # worth telling anyone about depends on it still being down when
+                    # the next check comes round.
+                    await db.set_ops_alert_state(alert_key, "down", klass, detail)
+                    return False
+                elif prior_state == "down" and last_alerted >= since and not class_changed:
+                    return False   # steady state — already announced this episode
+                elif not class_changed and (now - since) < confirm_after:
+                    await db.set_ops_alert_state(alert_key, "down", klass, detail)
+                    return False   # still inside the confirmation window
+
                 # Flap guard. A class change is worth breaking it for; a plain re-open
                 # of a source that just bounced is not.
                 if last_alerted and not class_changed and (now - last_alerted) < min_interval:
@@ -152,9 +171,12 @@ async def report_ops_state(
                              alert_key)
                     return False
             else:
-                # Only answer a message we actually sent. If the DOWN alert for this
-                # episode was swallowed by the flap guard, its "recovered" note would
-                # reply to a message the user never saw.
+                # Never announce a recovery for something we never announced as broken,
+                # and only answer a message we actually sent. If this episode's DOWN
+                # alert was swallowed by the confirmation window or the flap guard, its
+                # "recovered" note would reply to a message the user never saw.
+                if prior_state != "down":
+                    return False   # steady state — say nothing, write nothing
                 if last_alerted < since:
                     await db.set_ops_alert_state(alert_key, "up", klass, detail)
                     return False

@@ -145,7 +145,72 @@ async def test_ready_sets_the_backoff_reset_flag(monkeypatch):
 
     assert listener._reached_ready_since_backoff_reset is True
     assert listener._last_ready_monotonic > 0
+    assert listener._disconnected_since == 0.0, "READY means we can hear again"
     assert reports == [False], "READY must clear any standing deaf alert"
+
+
+async def test_resume_also_clears_the_deaf_clock(monkeypatch):
+    """A resumed session is a live session.
+
+    Discord answers most reconnects with RESUMED, not READY. While only READY
+    moved the clock, the gap was measured from the process's first connect, so
+    after a few days of ordinary resumes every blip reported days of deafness
+    (false alerts, 2026-07-26 → 2026-08-03).
+    """
+    listener = DiscordTweetShiftListener(on_tweet=lambda _: None)
+    reports = []
+
+    async def _fake_report(*, deaf):
+        reports.append(deaf)
+
+    monkeypatch.setattr(listener, "_report_listening", _fake_report)
+    listener._disconnected_since = 1.0
+    listener._reached_ready_since_backoff_reset = False
+
+    await listener._handle_dispatch("RESUMED", {})
+
+    assert listener._disconnected_since == 0.0
+    assert listener._reached_ready_since_backoff_reset is True
+    assert reports == [False], "RESUMED must clear any standing deaf alert"
+
+
+async def test_long_healthy_connection_does_not_report_stale_deafness(monkeypatch):
+    """The bug this replaced: uptime reported as downtime.
+
+    Connected for four days, then one routine drop. The gap is seconds, so the
+    listener must stay quiet — even though the last connect was days ago.
+    """
+    listener = DiscordTweetShiftListener(on_tweet=lambda _: None)
+    monkeypatch.setattr(listener, "_load_config", lambda: None)
+    listener._token = "token"
+    listener._feed_channel_id = "123"
+    # Connected four days ago, and still connected as of the drop.
+    listener._last_ready_monotonic = 1.0
+    listener._disconnected_since = 0.0
+
+    reports = []
+
+    async def _fake_report(*, deaf):
+        reports.append(deaf)
+
+    async def _fake_connect_once():
+        return None
+
+    monkeypatch.setattr(listener, "_report_listening", _fake_report)
+    monkeypatch.setattr(listener, "_connect_once", _fake_connect_once)
+
+    async def _fake_wait_for(awaitable, timeout=None):
+        if asyncio.iscoroutine(awaitable):
+            awaitable.close()
+        listener._stop = True
+        raise asyncio.TimeoutError()
+
+    monkeypatch.setattr(mod.asyncio, "wait_for", _fake_wait_for)
+    monkeypatch.setattr(mod.time, "monotonic", lambda: 1.0 + 4 * 86400)
+
+    await listener.run(asyncio.Event())
+
+    assert reports == [], "four days of uptime is not four days of deafness"
 
 
 async def test_prolonged_deafness_raises_an_alert(monkeypatch):
@@ -159,8 +224,8 @@ async def test_prolonged_deafness_raises_an_alert(monkeypatch):
     monkeypatch.setattr(listener, "_load_config", lambda: None)
     listener._token = "token"
     listener._feed_channel_id = "123"
-    # Last heard from Discord well past the alert threshold.
-    listener._last_ready_monotonic = 1.0
+    # The session dropped well past the alert threshold ago and never came back.
+    listener._disconnected_since = 1.0
 
     reports = []
 
@@ -198,7 +263,7 @@ async def test_routine_reconnect_does_not_cry_wolf(monkeypatch):
     monkeypatch.setattr(listener, "_load_config", lambda: None)
     listener._token = "token"
     listener._feed_channel_id = "123"
-    listener._last_ready_monotonic = 1.0
+    listener._disconnected_since = 1.0
 
     reports = []
 
@@ -218,7 +283,7 @@ async def test_routine_reconnect_does_not_cry_wolf(monkeypatch):
         raise asyncio.TimeoutError()
 
     monkeypatch.setattr(mod.asyncio, "wait_for", _fake_wait_for)
-    # Only a few seconds since the last READY — a routine drop.
+    # Only a few seconds since the drop — a routine reconnect.
     monkeypatch.setattr(mod.time, "monotonic", lambda: 6.0)
 
     await listener.run(asyncio.Event())

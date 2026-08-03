@@ -210,6 +210,10 @@ class DiscordTweetShiftListener:
         self._reached_ready_since_backoff_reset: bool = False
         # When the listener was last actually able to hear Discord.
         self._last_ready_monotonic: float = 0.0
+        # When the CURRENT gap in hearing Discord began; 0.0 while connected.
+        # The deaf alert is measured from here, never from the last connect —
+        # see the note in run().
+        self._disconnected_since: float = 0.0
 
         # Malformed-frame rate-limiting: log at most once per minute
         self._malformed_frame_count: int = 0
@@ -283,6 +287,7 @@ class DiscordTweetShiftListener:
             self._tweet_count = 0  # Reset tweet counter on connect
             self._reached_ready_since_backoff_reset = True  # let run() reset backoff
             self._last_ready_monotonic = time.monotonic()
+            self._disconnected_since = 0.0
             self._bot_user_id = str((data.get("user") or {}).get("id") or "")
             log.info("Discord Gateway READY (session=%s, bot_id=%s)", self._session_id, self._bot_user_id)
             # Drain pre-READY buffer in arrival order before marking ready.
@@ -304,6 +309,18 @@ class DiscordTweetShiftListener:
             # #8: READY (not RESUMED) means a fresh session with no Discord-side
             # event replay — re-drive commands/mentions missed during the gap.
             asyncio.create_task(self._replay_missed(), name="discord-replay")
+
+        elif event == "RESUMED":
+            # A resumed session is a live session. Without this the deaf clock only
+            # ever moved on a full READY, so after a few days of routine op:7 resumes
+            # every ordinary reconnect reported "bot is deaf for 397287s" — which was
+            # just process uptime, not an outage (2026-07-26 → 2026-08-03, false).
+            self._last_ready_monotonic = time.monotonic()
+            self._disconnected_since = 0.0
+            self._reached_ready_since_backoff_reset = True
+            self._ready_received = True
+            log.info("Discord Gateway RESUMED (session=%s)", self._session_id)
+            await self._report_listening(deaf=False)
 
         elif event == "MESSAGE_CREATE":
             # Buffer messages that arrive before READY — replay once READY fires.
@@ -750,8 +767,15 @@ class DiscordTweetShiftListener:
                 self._reached_ready_since_backoff_reset = False
                 backoff = _RECONNECT_BACKOFF_START
 
-            deaf_for = time.monotonic() - self._last_ready_monotonic
-            if self._last_ready_monotonic and deaf_for > _DEAF_ALERT_AFTER_SECONDS:
+            # Measure the gap from when the session DROPPED, not from when it was
+            # last established. Measuring from the last connect meant a listener that
+            # had been happily connected for four days reported "deaf for 397287s" on
+            # its first routine blip — that number was process uptime, and it fired a
+            # false #errors alert on every reconnect from 2026-07-26 to 2026-08-03.
+            if not self._disconnected_since:
+                self._disconnected_since = time.monotonic()
+            deaf_for = time.monotonic() - self._disconnected_since
+            if deaf_for > _DEAF_ALERT_AFTER_SECONDS:
                 log.error("Gateway has not reached READY for %.0fs — bot is deaf", deaf_for)
                 await self._report_listening(deaf=True)
 

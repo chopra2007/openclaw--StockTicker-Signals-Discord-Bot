@@ -27,6 +27,22 @@ def sent(monkeypatch):
     return calls
 
 
+async def _schwab_down_confirmed(exc):
+    """Report a Schwab failure that outlives the confirmation window.
+
+    Schwab holds a DOWN alert for 5 minutes so a single blown call is never
+    announced. The engine gets there by checking again; a test gets there by
+    reporting once, winding the episode's start back, and reporting again.
+    """
+    await schwab_health.note_schwab_failure(exc)
+    conn = await db.get_db()
+    await conn.execute(
+        "UPDATE ops_alert_state SET since = since - 600 WHERE alert_key = ?",
+        (schwab_health.ALERT_KEY,))
+    await conn.commit()
+    return await schwab_health.note_schwab_failure(exc)
+
+
 # --- failure classification -------------------------------------------------
 
 @pytest.mark.parametrize("exc,expected", [
@@ -145,7 +161,7 @@ async def test_down_since_is_preserved_across_repeats(sent):
 async def test_schwab_outage_does_not_ping(sent):
     """2026-07-12 (user): no @-mentions in #errors at all — not even for Schwab."""
     await db.init_db()
-    await schwab_health.note_schwab_failure(SchwabRefreshTokenExpired("7-day wall"))
+    await _schwab_down_confirmed(SchwabRefreshTokenExpired("7-day wall"))
     assert sent[0]["ping"] is None
     assert "<@" not in sent[0]["content"]
     await db.close_db()
@@ -153,7 +169,7 @@ async def test_schwab_outage_does_not_ping(sent):
 
 async def test_schwab_recovery_does_not_ping(sent):
     await db.init_db()
-    await schwab_health.note_schwab_failure(SchwabRefreshTokenExpired("wall"))
+    await _schwab_down_confirmed(SchwabRefreshTokenExpired("wall"))
     await schwab_health.note_schwab_ok()
     assert [c["ping"] for c in sent] == [None, None]
     await db.close_db()
@@ -174,7 +190,7 @@ async def test_concurrent_recoveries_post_exactly_one_message(sent):
     coroutines called note_schwab_ok() at once. All seven read state='down' before
     any wrote 'up', and the user got seven identical 'Recovered' messages."""
     await db.init_db()
-    await schwab_health.note_schwab_failure(SchwabError("500 from Schwab"))
+    await _schwab_down_confirmed(SchwabError("500 from Schwab"))
     sent.clear()
     await asyncio.gather(*(schwab_health.note_schwab_ok() for _ in range(7)))
     assert len(sent) == 1, [c["content"][:40] for c in sent]
@@ -183,6 +199,17 @@ async def test_concurrent_recoveries_post_exactly_one_message(sent):
 
 async def test_concurrent_failures_post_exactly_one_message(sent):
     await db.init_db()
+    # First round: seven callers all see the very first failure. Nothing is said yet —
+    # the confirmation window has not run out.
+    await asyncio.gather(*(schwab_health.note_schwab_failure(SchwabError("500"))
+                           for _ in range(7)))
+    assert sent == [], [c["content"][:40] for c in sent]
+    conn = await db.get_db()
+    await conn.execute(
+        "UPDATE ops_alert_state SET since = since - 600 WHERE alert_key = ?",
+        (schwab_health.ALERT_KEY,))
+    await conn.commit()
+    # Second round, past the window: still exactly one message, not seven.
     await asyncio.gather(*(schwab_health.note_schwab_failure(SchwabError("500"))
                            for _ in range(7)))
     assert len(sent) == 1, [c["content"][:40] for c in sent]
@@ -261,7 +288,7 @@ async def test_a_long_outage_still_reports_its_recovery(sent, monkeypatch):
 async def test_recovery_always_answers_its_outage(sent):
     """Don't leave a scary message hanging unanswered."""
     await db.init_db()
-    await schwab_health.note_schwab_failure(SchwabRefreshTokenExpired("wall"))
+    await _schwab_down_confirmed(SchwabRefreshTokenExpired("wall"))
     await schwab_health.note_schwab_ok()
     assert len(sent) == 2
     assert "Recovered" in sent[1]["content"]
@@ -269,16 +296,30 @@ async def test_recovery_always_answers_its_outage(sent):
 
 
 async def test_schwab_breaking_every_10_min_for_2_hours_stays_quiet(sent):
-    """The #errors flood the user actually saw. Schwab bounces every 10 minutes for
-    two hours; the quiet window must hold it to roughly one report per hour, not one
-    per bounce."""
+    """The #errors flood the user actually saw, 2026-07-27 → 2026-08-03.
+
+    Schwab drops one call and the next one works. That is not an outage, and it
+    was posting a "servers are not responding" plus a "recovered — down for 0
+    seconds" every hour, for a week. Nothing here survives the confirmation
+    window, so nothing here is worth a word.
+    """
     await db.init_db()
     for _ in range(12):          # 12 bounces = 2 hours at one every 10 minutes
         await schwab_health.note_schwab_failure(SchwabError("500 from Schwab"))
         await schwab_health.note_schwab_ok()
-    # Only the first bounce speaks; the other 11 are inside the 1-hour window. (No
-    # clock is advanced here, so this is the worst case: 24 transitions -> 2 messages.)
-    assert len(sent) == 2, [c["content"][:40] for c in sent]
+    assert sent == [], [c["content"][:40] for c in sent]
+    await db.close_db()
+
+
+async def test_a_real_schwab_outage_still_gets_announced(sent):
+    """The other half of the confirmation window: five minutes of continuous
+    failure is a real outage and must reach the user."""
+    await db.init_db()
+    assert await _schwab_down_confirmed(SchwabError("schwab GET /quotes HTTP 503")) is True
+    assert len(sent) == 1
+    assert "not responding" in sent[0]["content"]
+    assert await schwab_health.note_schwab_ok() is True
+    assert "Recovered" in sent[1]["content"]
     await db.close_db()
 
 

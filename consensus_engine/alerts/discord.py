@@ -26,6 +26,39 @@ from consensus_engine.models import (
 log = logging.getLogger("consensus_engine.alerts.discord")
 
 
+# Discord's hard per-part caps on an embed. Going one character over is a flat
+# 400 for the whole message, and _safe_send answers a 400 by throwing the embed
+# away and re-posting bare text — so one long field costs the user the entire
+# alert card. $AMZN alerts lost theirs four times on 2026-07-31 that way.
+_EMBED_LIMITS = {"title": 256, "description": 4096}
+_FIELD_LIMITS = {"name": 256, "value": 1024}
+_EMBED_MAX_FIELDS = 25
+
+
+def _clip(text: str, limit: int) -> str:
+    return text if len(text) <= limit else text[:limit - 1] + "…"
+
+
+def _clamp_embeds(payload: dict) -> None:
+    """Trim embed parts to Discord's limits, in place. A trimmed card beats none."""
+    for embed in payload.get("embeds", []) or []:
+        if not isinstance(embed, dict):
+            continue
+        for key, limit in _EMBED_LIMITS.items():
+            if isinstance(embed.get(key), str):
+                embed[key] = _clip(embed[key], limit)
+        fields = embed.get("fields")
+        if isinstance(fields, list):
+            if len(fields) > _EMBED_MAX_FIELDS:
+                del fields[_EMBED_MAX_FIELDS:]
+            for field in fields:
+                if not isinstance(field, dict):
+                    continue
+                for key, limit in _FIELD_LIMITS.items():
+                    if isinstance(field.get(key), str):
+                        field[key] = _clip(field[key], limit)
+
+
 def _safe_send_kwargs(payload: dict) -> dict:
     """Add allowed_mentions safety to any Discord POST payload.
 
@@ -34,8 +67,12 @@ def _safe_send_kwargs(payload: dict) -> dict:
     accidentally-rendered string from an LLM, scraped page, or contributor
     text. The caller's payload is mutated in-place AND returned so it can be
     used inline (e.g. ``json=_safe_send_kwargs({...})``).
+
+    It is also the one place every Discord-bound POST passes through, so embed
+    parts get trimmed to Discord's limits here rather than at each call site.
     """
     payload.setdefault("allowed_mentions", {"parse": []})
+    _clamp_embeds(payload)
     return payload
 
 
@@ -776,7 +813,8 @@ async def edit_instant_ping_embed(msg_id: str, embed: dict) -> bool:
         session = await get_session()
         url = f"https://discord.com/api/v10/channels/{channel_id}/messages/{msg_id}"
         headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
-        async with session.patch(url, headers=headers, json={"embeds": [embed]},
+        edit_payload = _safe_send_kwargs({"embeds": [embed]})
+        async with session.patch(url, headers=headers, json=edit_payload,
                                  timeout=aiohttp.ClientTimeout(total=10)) as resp:
             if resp.status in (200, 204):
                 return True
