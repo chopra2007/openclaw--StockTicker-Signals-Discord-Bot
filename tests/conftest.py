@@ -1,4 +1,6 @@
 """Shared pytest fixtures for the consensus_engine test suite."""
+import inspect
+
 import pytest
 from unittest.mock import AsyncMock, patch
 
@@ -14,7 +16,7 @@ def no_discord_alerts():
 
 
 @pytest.fixture(autouse=True)
-def _reset_http_singleton():
+async def _reset_http_singleton():
     """Reset the shared aiohttp session globals between tests.
 
     Some tests patch `aiohttp.ClientSession` globally to intercept the
@@ -25,6 +27,12 @@ def _reset_http_singleton():
     """
     yield
     from consensus_engine.utils import http as _http
+    session = _http._session
+    close = getattr(session, "close", None)
+    if close is not None:
+        result = close()
+        if inspect.isawaitable(result):
+            await result
     _http._session = None
     _http._lock = None
 

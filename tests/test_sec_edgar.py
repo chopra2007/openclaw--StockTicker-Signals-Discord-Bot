@@ -1,5 +1,6 @@
 """Tests for SEC EDGAR filing checker."""
 
+import asyncio
 import time
 from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock, patch, MagicMock
@@ -114,3 +115,66 @@ async def test_check_recent_filings_filters_old():
 
     assert len(results) == 1
     assert results[0]["form"] == "8-K"
+
+
+@pytest.mark.asyncio
+async def test_ticker_map_retries_once_and_recovers(monkeypatch):
+    import consensus_engine.scanners.sec_edgar as sec_mod
+
+    sec_mod._ticker_to_cik = {}
+    sec_mod._ticker_map_retry_after = 0.0
+
+    failed = MagicMock()
+    failed.__aenter__ = AsyncMock(side_effect=asyncio.TimeoutError())
+    failed.__aexit__ = AsyncMock(return_value=False)
+
+    recovered_resp = AsyncMock()
+    recovered_resp.status = 200
+    recovered_resp.json = AsyncMock(return_value={
+        "0": {"ticker": "TEST", "cik_str": 1},
+    })
+    recovered = MagicMock()
+    recovered.__aenter__ = AsyncMock(return_value=recovered_resp)
+    recovered.__aexit__ = AsyncMock(return_value=False)
+
+    session = MagicMock()
+    session.get = MagicMock(side_effect=[failed, recovered])
+    sleep = AsyncMock()
+    report = AsyncMock()
+    monkeypatch.setattr(sec_mod, "get_session", AsyncMock(return_value=session))
+    monkeypatch.setattr(sec_mod.asyncio, "sleep", sleep)
+    monkeypatch.setattr(sec_mod.rate_limiter, "report_success", MagicMock())
+    monkeypatch.setattr("consensus_engine.alerts.ops_alert.report_ops_state", report)
+
+    assert await sec_mod._load_ticker_map() is True
+    assert sec_mod._ticker_to_cik == {"TEST": "0000000001"}
+    assert session.get.call_count == 2
+    sleep.assert_awaited_once_with(1.0)
+    report.assert_awaited_once()
+    assert report.await_args.kwargs["down"] is False
+
+
+@pytest.mark.asyncio
+async def test_ticker_map_reports_outage_after_all_retries_fail(monkeypatch):
+    import consensus_engine.scanners.sec_edgar as sec_mod
+
+    sec_mod._ticker_to_cik = {}
+    sec_mod._ticker_map_retry_after = 0.0
+
+    failed = MagicMock()
+    failed.__aenter__ = AsyncMock(side_effect=asyncio.TimeoutError())
+    failed.__aexit__ = AsyncMock(return_value=False)
+    session = MagicMock()
+    session.get = MagicMock(return_value=failed)
+    report = AsyncMock()
+    failure = MagicMock()
+    monkeypatch.setattr(sec_mod, "get_session", AsyncMock(return_value=session))
+    monkeypatch.setattr(sec_mod.asyncio, "sleep", AsyncMock())
+    monkeypatch.setattr(sec_mod.rate_limiter, "report_failure", failure)
+    monkeypatch.setattr("consensus_engine.alerts.ops_alert.report_ops_state", report)
+
+    assert await sec_mod._load_ticker_map() is False
+    assert session.get.call_count == 3
+    failure.assert_called_once_with("sec_edgar")
+    report.assert_awaited_once()
+    assert report.await_args.kwargs["down"] is True

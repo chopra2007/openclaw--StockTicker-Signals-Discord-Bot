@@ -283,20 +283,14 @@ Swap out the dead NVIDIA backup model the health check flagged with a live one, 
 
 Live-test current cheap OpenRouter models against the three jobs (tweet-scoring/cleanup, big-writing, question-answering) to confirm we're using the best fit; swapped the text backup to a 4×-cheaper equal (qwen3-235b), and found the question-answering model times out on heavy questions — full results logged for future model decisions.
 
-## 45. Stop the bot repeating one command until it runs out of time
+## 45. Stop the bot repeating one command until it runs out of time — DONE 2026-08-03
 
 **File:** `agent-tool-loop-context-blowup.md`
 
-**CURRENT STATUS (2026-08-03):** The watchdog's `kill_run()` would call
-`os.killpg(1, SIGKILL)` whenever a test handed it a fake process — which Linux reads as
-"kill every process this user owns", i.e. Claude, SSH, tmux, the bot and Docker.
-**Fixed and verified this session** (full suite 3084 passed / 0 failed in an isolated
-PID namespace, zero new kill records), and automatic test runs are being moved into the
-same containment. The kernel audit log confirms 19 successful Python `kill(-1, 9)`
-calls during the July 25 session-close retry loop and one at 1:41:39 PM Pacific on
-August 3 during a root-run test suite; the live programs died in the same second.
-Failed Codex signals targeted specific child process groups, not every process.
-**The underlying loop guard — steps 1-4 of "Next steps" — is still not built.**
+**CURRENT STATUS (2026-08-03):** DONE. The bot stops an agent run at the fourth
+identical command round or at 25 total command rounds. The guard ignores older session
+history, leaves completed answers alone, and uses the safe process-group checks added
+earlier today. The full suite passed: 3094 passed, 1 skipped, 0 failed.
 
 REOPENED 2026-07-21: this was closed in June on a workaround (pick a lean model), and it came back anyway — the bot ran one identical database command 39 times and left the user with "Agent unavailable" after 4.5 minutes. The trigger and the fallout are now fixed, but nothing still stops a model repeating the same command forever; that guard is the remaining work.
 

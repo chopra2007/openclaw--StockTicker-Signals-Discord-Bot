@@ -32,7 +32,8 @@ async def setup_db(tmp_path):
 
 def _mock_flat_market_session():
     """Return an aiohttp session mock that reports a flat/no-move market."""
-    session = AsyncMock()
+    # aiohttp's get() returns an async context manager directly; it is not awaited.
+    session = MagicMock()
 
     quote_resp = AsyncMock()
     quote_resp.status = 200

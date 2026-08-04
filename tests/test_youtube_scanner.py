@@ -107,6 +107,51 @@ async def test_rss_http_error_returns_empty():
 
 
 @pytest.mark.asyncio
+async def test_rss_retries_a_startup_timeout_then_recovers(monkeypatch):
+    failed = MagicMock()
+    failed.__aenter__ = AsyncMock(side_effect=asyncio.TimeoutError())
+    failed.__aexit__ = AsyncMock(return_value=False)
+
+    recovered = AsyncMock()
+    recovered.status = 200
+    recovered.text = AsyncMock(return_value=VALID_RSS)
+    recovered.__aenter__ = AsyncMock(return_value=recovered)
+    recovered.__aexit__ = AsyncMock(return_value=False)
+
+    session = MagicMock()
+    session.get = MagicMock(side_effect=[failed, recovered])
+    sleep = AsyncMock()
+    monkeypatch.setattr("consensus_engine.scanners.youtube.asyncio.sleep", sleep)
+
+    videos = await fetch_channel_videos_rss(session, "UCtest", limit=5)
+
+    assert len(videos) == 2
+    assert session.get.call_count == 2
+    sleep.assert_awaited_once_with(1.0)
+
+
+@pytest.mark.asyncio
+async def test_scan_reports_a_feed_that_still_fails_after_retries(monkeypatch):
+    import consensus_engine.scanners.youtube as youtube_mod
+
+    monkeypatch.setitem(cfg._config["youtube"], "channel_ids", ["UC1", "UC2"])
+    monkeypatch.setattr(db, "get_approved_youtube_channels", AsyncMock(return_value=[]))
+    monkeypatch.setattr(youtube_mod, "get_session", AsyncMock(return_value=MagicMock()))
+    monkeypatch.setattr(
+        youtube_mod, "_fetch_channel_videos_rss_result",
+        AsyncMock(side_effect=[([], False, "TimeoutError"), ([], True, "")]),
+    )
+    report = AsyncMock()
+    monkeypatch.setattr("consensus_engine.alerts.ops_alert.report_ops_state", report)
+
+    await youtube_mod._youtube_scan_once_locked()
+
+    report.assert_awaited_once()
+    assert report.await_args.kwargs["down"] is True
+    assert "1 of 2" in report.await_args.kwargs["detail"]
+
+
+@pytest.mark.asyncio
 async def test_process_video_dedup(test_db, tmp_path):
     """Second call for same video_id after save should be a no-op."""
     semaphore = asyncio.Semaphore(1)

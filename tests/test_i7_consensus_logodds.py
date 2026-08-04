@@ -192,7 +192,7 @@ async def test_i7_cold_start_boost_exactly_zero():
 
     with patch("consensus_engine.analysis.consolidation.db") as mock_db, \
          patch("consensus_engine.analysis.consolidation.cfg") as mock_cfg, \
-         patch("asyncio.ensure_future"):  # suppress background write
+         patch("consensus_engine.analysis.consolidation._maybe_write_consolidated"):
 
         mock_cfg.get = lambda key, default=None: {
             "features.consensus_logodds.enabled": True,

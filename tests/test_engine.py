@@ -257,7 +257,9 @@ class TestAnalyzeSignal:
         mock_cfg.get.side_effect = cfg_side_effect
         mock_cfg.get_api_key.return_value = "fake-key"
 
-        session = AsyncMock()
+        # aiohttp's get() returns an async context manager directly; it is not
+        # itself awaited. MagicMock matches that contract.
+        session = MagicMock()
         mock_session.return_value = session
 
         # Mock Finnhub returning flat market

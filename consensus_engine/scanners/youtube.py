@@ -32,41 +32,55 @@ log = logging.getLogger("consensus_engine.scanner.youtube")
 _ATOM_NS = "http://www.w3.org/2005/Atom"
 _YT_NS = "http://www.youtube.com/xml/schemas/2015"
 _MEDIA_NS = "http://search.yahoo.com/mrss/"
+_RSS_ATTEMPTS = 3
 
 
 # ---------------------------------------------------------------------------
 # RSS feed polling
 # ---------------------------------------------------------------------------
 
-async def fetch_channel_videos_rss(
+async def _fetch_channel_videos_rss_result(
     session: aiohttp.ClientSession,
     channel_id: str,
     limit: int = 3,
-) -> list[dict]:
-    """Fetch latest video metadata from YouTube Atom RSS feed (free, no auth).
+) -> tuple[list[dict], bool, str]:
+    """Fetch one feed, retrying short startup/network failures.
 
-    Returns list of dicts: {video_id, channel_id, title, published_at}.
+    The boolean separates a healthy empty feed from a failed request. Without
+    that distinction a network outage looked exactly like "no new videos".
     """
     url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
-    try:
-        async with session.get(
-            url,
-            headers={"User-Agent": "OpenClaw/1.0 (youtube-rss-scanner)"},
-            timeout=aiohttp.ClientTimeout(total=15),
-        ) as resp:
-            if resp.status != 200:
-                log.warning("youtube: RSS %s returned HTTP %d", channel_id, resp.status)
-                return []
-            text = await resp.text()
-    except Exception as e:
-        log.warning("youtube: RSS fetch error for %s: %s", channel_id, e)
-        return []
+    last_error = "unknown failure"
+    for attempt in range(1, _RSS_ATTEMPTS + 1):
+        retryable = True
+        try:
+            async with session.get(
+                url,
+                headers={"User-Agent": "OpenClaw/1.0 (youtube-rss-scanner)"},
+                timeout=aiohttp.ClientTimeout(total=15),
+            ) as resp:
+                if resp.status == 200:
+                    text = await resp.text()
+                    break
+                last_error = f"HTTP {resp.status}"
+                retryable = resp.status == 429 or resp.status >= 500
+        except Exception as exc:
+            last_error = f"{type(exc).__name__}: {exc or 'no detail'}"
+
+        if not retryable or attempt == _RSS_ATTEMPTS:
+            log.warning("youtube: RSS %s failed after %d attempt(s): %s",
+                        channel_id, attempt, last_error)
+            return [], False, last_error
+        delay = float(2 ** (attempt - 1))
+        log.warning("youtube: RSS %s failed (%s); retrying in %.0fs (%d/%d)",
+                    channel_id, last_error, delay, attempt, _RSS_ATTEMPTS)
+        await asyncio.sleep(delay)
 
     try:
         root = ET.fromstring(text)
     except ET.ParseError as e:
         log.warning("youtube: RSS parse error for %s: %s", channel_id, e)
-        return []
+        return [], False, f"invalid RSS: {e}"
 
     videos = []
     for entry in root.findall(f"{{{_ATOM_NS}}}entry"):
@@ -91,6 +105,17 @@ async def fetch_channel_videos_rss(
         if len(videos) >= limit:
             break
 
+    return videos, True, ""
+
+
+async def fetch_channel_videos_rss(
+    session: aiohttp.ClientSession,
+    channel_id: str,
+    limit: int = 3,
+) -> list[dict]:
+    """Fetch latest video metadata from YouTube Atom RSS feed (free, no auth)."""
+    videos, _ok, _detail = await _fetch_channel_videos_rss_result(
+        session, channel_id, limit)
     return videos
 
 
@@ -1193,13 +1218,34 @@ async def _youtube_scan_once_locked() -> None:
     # Collect new videos via RSS (lightweight, no browser)
     session = await get_session()
     all_videos: list[dict] = []
+    failed_feeds: list[str] = []
     for channel_id in channel_ids:
         try:
-            videos = await fetch_channel_videos_rss(session, channel_id, limit)
+            videos, ok, detail = await _fetch_channel_videos_rss_result(
+                session, channel_id, limit)
             log.debug("youtube: channel %s → %d videos", channel_id, len(videos))
             all_videos.extend(videos)
+            if not ok:
+                failed_feeds.append(detail)
         except Exception as e:
             log.warning("youtube: channel %s RSS error: %s", channel_id, e)
+            failed_feeds.append(f"{type(e).__name__}: {e or 'no detail'}")
+
+    try:
+        from consensus_engine.alerts.ops_alert import report_ops_state
+        failed_count = len(failed_feeds)
+        await report_ops_state(
+            "youtube_rss",
+            down=failed_count > 0,
+            failure_class="youtube_rss",
+            title="YouTube feed access",
+            detail=(f"{failed_count} of {len(channel_ids)} channel feeds still failed "
+                    f"after {_RSS_ATTEMPTS} tries. The bot may miss new videos until "
+                    "the next 10-minute check." if failed_count else ""),
+            fix="If it stays down, check this server's access to youtube.com.",
+        )
+    except Exception as exc:
+        log.warning("youtube: could not update outage state: %s", exc)
 
     if not all_videos:
         return

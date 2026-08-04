@@ -234,7 +234,7 @@ async def test_cold_start_returns_passthrough_reason():
     conn = _make_mock_conn(signal_rows=rows, perf_rows={})
     with patch("consensus_engine.analysis.consolidation.db") as mock_db:
         mock_db.get_db = AsyncMock(return_value=conn)
-        with patch("asyncio.ensure_future"):  # suppress background write
+        with patch("consensus_engine.analysis.consolidation._maybe_write_consolidated"):
             result = await consolidate_for_ticker("NVDA", window_minutes=15, shadow_only=False)
 
     assert result.fired is False

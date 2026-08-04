@@ -1,19 +1,12 @@
 # Agent tool-loop context blow-up (runaway token accumulation on heavy questions)
 
-**Status:** ACTIVE 2026-08-03 — the watchdog built for this item was killing the whole
-server; that is fixed. The loop guard itself is still not built.
+**Status:** DONE 2026-08-03
 **Created:** 2026-06-16
 
-**CURRENT STATUS (2026-08-03):** The watchdog's `kill_run()` would call
-`os.killpg(1, SIGKILL)` whenever a test handed it a fake process — which Linux reads as
-"kill every process this user owns", i.e. Claude, SSH, tmux, the bot and Docker.
-**Fixed and verified this session** (full suite 3084 passed / 0 failed in an isolated
-PID namespace, zero new kill records), and automatic test runs are being moved into the
-same containment. The kernel audit log confirms 19 successful Python `kill(-1, 9)`
-calls during the July 25 session-close retry loop and one at 1:41:39 PM Pacific on
-August 3 during a root-run test suite; the live programs died in the same second.
-Failed Codex signals targeted specific child process groups, not every process.
-**The underlying loop guard — steps 1-4 of "Next steps" — is still not built.**
+**CURRENT STATUS (2026-08-03):** DONE. The bot stops an agent run at the fourth
+identical command round or at 25 total command rounds. The guard ignores older session
+history, leaves completed answers alone, and uses the safe process-group checks added
+earlier today. The full suite passed: 3094 passed, 1 skipped, 0 failed.
 
 What closed this item in June was the workaround from #44: make gpt-4.1-nano the agent
 lead, because in the bake-off it converged in 11-13s and used 2k-21k tokens/turn. The
@@ -147,8 +140,15 @@ the timer reports the interruption and clears the request instead of launching t
 again. The session-close push skips the duplicate git pre-push suite because it has just
 run the same full gate itself.
 
-**Still open on this item:** the underlying loop guard, "Next steps" 1-4 below, is
-unchanged. This session fixed the watchdog's kill, not the loop it was built to catch.
+**Resolved 2026-08-03:** the underlying loop guard is now wired into every agent attempt
+and stops both identical-command loops and overlong command sequences.
+
+### Session notes — 2026-08-03
+
+- **Worked on:** Verified the repeated-command hard stop, its overall 25-round ceiling,
+  its old-history handling, and its safe stop behavior.
+- **Decision:** Stop on the fourth identical command round; also stop at 25 total rounds.
+- **Next:** None — complete.
 
 ## Caveat
 n=1 question class (NVDA-style heavy reads, run repeatedly). Confirm it generalizes (it did across

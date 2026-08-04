@@ -167,6 +167,10 @@ async def test_process_tweet_allows_low_confidence_when_degraded():
     )
     # base_score for LOW conviction = 20, below 80 high_confidence threshold
 
+    def _close_background(coro, **_kwargs):
+        coro.close()
+        return MagicMock()
+
     with patch("consensus_engine.main.db.check_seen_tweet", new_callable=AsyncMock, return_value=False), \
          patch("consensus_engine.main.db.mark_tweet_seen", new_callable=AsyncMock), \
          patch("consensus_engine.main.db.insert_signal", new_callable=AsyncMock), \
@@ -174,8 +178,9 @@ async def test_process_tweet_allows_low_confidence_when_degraded():
          patch("consensus_engine.main.validate_ticker_market_cap", new_callable=AsyncMock, return_value=True), \
          patch("consensus_engine.main.db.insert_alert", new_callable=AsyncMock, return_value=1), \
          patch("consensus_engine.main.db.insert_alert_message", new_callable=AsyncMock, return_value=1), \
+         patch("consensus_engine.main._fetch_price", new_callable=AsyncMock, return_value=100.0), \
          patch("consensus_engine.main.send_instant_ping", new_callable=AsyncMock, return_value="msg123") as mock_ping, \
-         patch("consensus_engine.main.asyncio.create_task"), \
+         patch("consensus_engine.main.asyncio.create_task", side_effect=_close_background), \
          patch("consensus_engine.main.parse_tweet", new_callable=AsyncMock, return_value=fake_tweet), \
          patch("consensus_engine.main._passes_quality_gate", return_value=True):
 

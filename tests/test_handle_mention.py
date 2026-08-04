@@ -129,6 +129,7 @@ async def test_handle_mention_timeouts_stop_at_the_timeout_budget(monkeypatch):
     monkeypatch.setattr(main_mod.asyncio, "sleep", AsyncMock())
 
     async def _always_timeout(*_args, **_kwargs):
+        _args[0].close()
         raise asyncio.TimeoutError()
     monkeypatch.setattr(main_mod.asyncio, "wait_for", _always_timeout)
 

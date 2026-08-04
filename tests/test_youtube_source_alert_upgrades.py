@@ -51,7 +51,7 @@ class TestEscapeMdLinkText:
         assert "\\\\B" in result or result.startswith("A\\\\")
 
     def test_title_with_special_chars_forms_valid_link(self):
-        """Title containing ]B(C)\ renders as one valid markdown link — item #57."""
+        r"""Title containing ]B(C)\ renders as one valid markdown link — item #57."""
         raw = "]B(C)\\"
         escaped = _escape_md_link_text(raw)
         link = f"[{escaped}](https://www.youtube.com/watch?v=X)"

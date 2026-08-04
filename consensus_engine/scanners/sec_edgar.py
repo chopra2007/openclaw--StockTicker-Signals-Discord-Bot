@@ -4,6 +4,7 @@ Uses the SEC EDGAR REST API (data.sec.gov) which requires a User-Agent header.
 CIK lookups are cached in the ticker_metadata table.
 """
 
+import asyncio
 import logging
 import time
 import xml.etree.ElementTree as ET
@@ -29,34 +30,90 @@ _RELEVANT_FORMS = {"8-K", "10-K", "10-Q", "4", "144", "SC 13D", "SC 13G"}
 
 # Cache: ticker → CIK (loaded once from SEC's company_tickers.json)
 _ticker_to_cik: dict[str, str] = {}
+_ticker_map_lock = asyncio.Lock()
+_ticker_map_retry_after = 0.0
+_TICKER_MAP_ATTEMPTS = 3
 
 
 async def _load_ticker_map():
     """Load the full ticker → CIK mapping from SEC. Cached in memory."""
-    global _ticker_to_cik
+    global _ticker_to_cik, _ticker_map_retry_after
     if _ticker_to_cik:
-        return
+        return True
 
-    try:
+    async with _ticker_map_lock:
+        if _ticker_to_cik:
+            return True
+        if time.monotonic() < _ticker_map_retry_after:
+            return False
+
         session = await get_session()
         headers = {"User-Agent": _USER_AGENT}
         url = "https://www.sec.gov/files/company_tickers.json"
-        async with session.get(url, headers=headers,
-                               timeout=aiohttp.ClientTimeout(total=15)) as resp:
-            if resp.status != 200:
-                log.warning("SEC ticker map fetch failed: %d", resp.status)
-                return
-            data = await resp.json(content_type=None)
+        last_error = "unknown failure"
+        for attempt in range(1, _TICKER_MAP_ATTEMPTS + 1):
+            retryable = True
+            try:
+                async with session.get(
+                    url, headers=headers, timeout=aiohttp.ClientTimeout(total=15)
+                ) as resp:
+                    if resp.status == 200:
+                        data = await resp.json(content_type=None)
+                        mapping = {}
+                        for entry in data.values():
+                            ticker = entry.get("ticker", "").upper()
+                            cik = str(entry.get("cik_str", ""))
+                            if ticker and cik:
+                                mapping[ticker] = cik.zfill(10)
+                        if not mapping:
+                            last_error = "SEC returned an empty ticker map"
+                        else:
+                            _ticker_to_cik = mapping
+                            _ticker_map_retry_after = 0.0
+                            rate_limiter.report_success("sec_edgar")
+                            log.info("SEC EDGAR: loaded %d ticker→CIK mappings",
+                                     len(_ticker_to_cik))
+                            try:
+                                from consensus_engine.alerts.ops_alert import report_ops_state
+                                await report_ops_state(
+                                    "sec_ticker_map", down=False,
+                                    failure_class="sec_ticker_map",
+                                    title="SEC ticker lookup",
+                                )
+                            except Exception as exc:
+                                log.warning("SEC ticker map: could not update outage state: %s",
+                                            exc)
+                            return True
+                    else:
+                        last_error = f"HTTP {resp.status}"
+                        retryable = resp.status == 429 or resp.status >= 500
+            except Exception as exc:
+                last_error = f"{type(exc).__name__}: {exc or 'no detail'}"
 
-        for entry in data.values():
-            ticker = entry.get("ticker", "").upper()
-            cik = str(entry.get("cik_str", ""))
-            if ticker and cik:
-                _ticker_to_cik[ticker] = cik.zfill(10)
+            if not retryable or attempt == _TICKER_MAP_ATTEMPTS:
+                break
+            delay = float(2 ** (attempt - 1))
+            log.warning("SEC ticker map failed (%s); retrying in %.0fs (%d/%d)",
+                        last_error, delay, attempt, _TICKER_MAP_ATTEMPTS)
+            await asyncio.sleep(delay)
 
-        log.info("SEC EDGAR: loaded %d ticker→CIK mappings", len(_ticker_to_cik))
-    except Exception as e:
-        log.warning("Failed to load SEC ticker map: %s", e)
+        rate_limiter.report_failure("sec_edgar")
+        _ticker_map_retry_after = time.monotonic() + 30.0
+        log.warning("Failed to load SEC ticker map after %d attempts: %s",
+                    _TICKER_MAP_ATTEMPTS, last_error)
+        try:
+            from consensus_engine.alerts.ops_alert import report_ops_state
+            await report_ops_state(
+                "sec_ticker_map", down=True,
+                failure_class="sec_ticker_map",
+                title="SEC ticker lookup",
+                detail=("The ticker list still could not be downloaded after three tries. "
+                        "SEC filing checks cannot match stock symbols until it recovers."),
+                fix="If it stays down, check this server's access to sec.gov.",
+            )
+        except Exception as exc:
+            log.warning("SEC ticker map: could not update outage state: %s", exc)
+        return False
 
 
 async def _get_cik(ticker: str) -> Optional[str]:
