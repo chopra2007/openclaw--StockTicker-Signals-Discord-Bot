@@ -44,6 +44,11 @@ old call/put-only guess.
 - A real production DB row landing with non-null `flow_side`/`bid`/`ask`
   from the engine's own autonomous scan loop (not a manual script).
 
+**The 2-week grading check is scheduled, not manual.** `scripts/grade_options_flow_side.py`
+(new this session) plus a systemd timer (`task_1786293326_e1bc93`, confirmed
+`enabled`/`active (waiting)`) fire on 2026-08-23 09:00 PDT and write the
+verdict to `notifications.log` — no session needs to remember to check.
+
 ## Next steps
 
 1. **Monday market open:** confirm a real live alert posts with the side tag
@@ -85,3 +90,17 @@ approaches, rather than blindly trusting it fires.
 - `config/consensus.yaml` — `options_flow.side_collect`,
   `options_flow.side_labels_live`, `options_flow.sweep_vol_oi`
 - `tests/test_options_flow.py` — full coverage of the above
+
+### Session notes — 2026-08-09
+- **Worked on:** Built and shipped the whole options-flow buy/sell-side +
+  SWEEP-tier feature (TDD, full regression gate, engine restart, real-data
+  verification). Then built and scheduled the autonomous 2-week grading check
+  after the user asked whether it would happen without them remembering.
+- **Decisions:** User chose to ship `side_labels_live: true` immediately
+  rather than wait for grading (told plainly this means the label is live
+  ungraded). User chose "🔥 SWEEP" as the tier label, no disclaimer footer.
+  25% of the bid-ask spread confirmed as the buy/sell threshold.
+- **Next:** Nothing to do manually — `task_1786293326_e1bc93` fires
+  2026-08-23 09:00 PDT and writes its verdict to `notifications.log`. A future
+  session should just read that when it shows up. Also worth re-checking the
+  timer is still armed as that date nears (see reliability caveat above).

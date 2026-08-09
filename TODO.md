@@ -653,5 +653,6 @@ The bot stopped responding for minutes at a time, gave up with "2 attempts faile
 ## 80. Grade the options-flow buy/sell-side tag against real outcomes — SOAKING until 2026-08-23
 
 **File:** `options-flow-side-detection-grading.md`
+**Switches:** options_flow.side_collect=on; options_flow.side_labels_live=on
 
-Shipped LIVE 2026-08-09 (user chose to skip the original 2-week grading gate): `#options-flow` alerts now tag each trade BUY/SELL/AMBIGUOUS and derive BULLISH/BEARISH from that instead of guessing from call/put alone, plus a real "🔥 SWEEP" tier for the rare highest-conviction case. Confirm it fires correctly during real Monday market hours, then grade after ~2 weeks of live data to check whether the side-aware label actually calls direction better than the old guess.
+Shipped LIVE 2026-08-09 (user chose to skip the original 2-week grading gate): `#options-flow` alerts now tag each trade BUY/SELL/AMBIGUOUS and derive BULLISH/BEARISH from that instead of guessing from call/put alone, plus a real "🔥 SWEEP" tier for the rare highest-conviction case. Confirm it fires correctly during real Monday market hours, then grade after ~2 weeks of live data to check whether the side-aware label actually calls direction better than the old guess — already scheduled to check itself autonomously (systemd timer, 2026-08-23).
