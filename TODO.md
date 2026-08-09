@@ -649,3 +649,9 @@ Restore Schwab real-time prices after fixing the unreadable login file and compl
 **File:** `discord-agent-reliability-2026-07-21.md`
 
 The bot stopped responding for minutes at a time, gave up with "2 attempts failed", and then answered questions by quoting its own error messages back as facts — four separate bugs, all fixed and verified live in Discord.
+
+## 80. Grade the options-flow buy/sell-side tag against real outcomes — SOAKING until 2026-08-23
+
+**File:** `options-flow-side-detection-grading.md`
+
+Shipped LIVE 2026-08-09 (user chose to skip the original 2-week grading gate): `#options-flow` alerts now tag each trade BUY/SELL/AMBIGUOUS and derive BULLISH/BEARISH from that instead of guessing from call/put alone, plus a real "🔥 SWEEP" tier for the rare highest-conviction case. Confirm it fires correctly during real Monday market hours, then grade after ~2 weeks of live data to check whether the side-aware label actually calls direction better than the old guess.
