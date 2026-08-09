@@ -48,14 +48,32 @@ old call/put-only guess.
 
 1. **Monday market open:** confirm a real live alert posts with the side tag
    and the DB is collecting real `flow_side`/`bid`/`ask` rows organically.
-2. **After ~2 weeks of live data:** grade with `scripts/grade_options_flow.py`
-   methodology — cluster to 1 event per ticker-day-side (raw win rates lie
-   from market drift, same trap as the original #57 grading). Check: does
-   side-aware bullish/bearish call the direction right more often than the
-   old call/put-only guess would have?
+2. **Autonomous 2-week check — already scheduled, no action needed:** a
+   systemd timer (`task_1786293326_e1bc93`, created 2026-08-09) fires
+   `/root/task_system/scripts/notify_options_flow_side_grading.sh` on
+   **2026-08-23 09:00 PDT**. It runs the new `scripts/grade_options_flow_side.py
+   --report` and writes the verdict to `/root/task_system/notifications.log`,
+   which surfaces automatically the next time a session starts (existing
+   convention, CLAUDE.md). Verified armed at creation time:
+   `systemctl status task_1786293326_e1bc93.timer` showed `enabled` /
+   `active (waiting)`.
+   - Methodology: cluster to 1 event per ticker-day-side (same anti-drift
+     trick as #57's original grading), then look ONLY at events where the new
+     side-aware call disagrees with the old call/put-only guess — that's the
+     one number that actually says whether the tag helped or hurt.
 3. If the grading says side-aware is WORSE, that's a real finding worth
    acting on — the label is live now, so a bad call has been showing up in
    real alerts since 2026-08-09, not just sitting in shadow data.
+
+## Reliability caveat (found while setting this up — separate issue, not fixed)
+
+The deferred-task system has at least one stale entry: task `1782704382_12c893`
+(scheduled 2026-07-05, `notify_reliability_soak.sh`) is still `pending` in
+`/root/task_system/tasks.db`, its timer now shows `disabled`/`inactive`, and
+there's no log file — meaning it likely never actually fired. Root cause not
+investigated (out of scope for this session). Worth checking
+`systemctl status task_1786293326_e1bc93.timer` again as 2026-08-23
+approaches, rather than blindly trusting it fires.
 
 ## Files involved
 
