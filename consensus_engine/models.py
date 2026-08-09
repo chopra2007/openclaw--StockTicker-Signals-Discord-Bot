@@ -365,6 +365,15 @@ class FlowHit:
     # is unverifiable; the contract is still alerted (it cleared the size gates)
     # but the alert is tagged so the read is honest.
     staleness_unverified: bool = False
+    # buy/sell-side plumbing (options-flow-buyresell-sweeps): raw quote at scan
+    # time, stored so classify_flow_side can be re-run/re-graded under a
+    # different threshold later without recollecting. 0.0 = missing/unknown.
+    bid: float = 0.0
+    ask: float = 0.0
+    # classify_flow_side(last_price, bid, ask) output, computed once at scan
+    # time (exact last_price is only in scope there). "" = not yet classified.
+    flow_side: str = ""
+    flow_side_note: str = ""
 
     @property
     def label(self) -> str:

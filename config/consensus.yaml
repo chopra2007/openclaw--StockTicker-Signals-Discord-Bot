@@ -965,6 +965,20 @@ options_flow:
   # rows had a blank/zero last_trade_ts, so this only tags a case that has never
   # occurred and never drops a contract — zero-risk to enable.
   staleness_failclosed: true
+  # options-flow-buyresell-sweeps (2026-08-09): buy/sell-side tag from trade
+  # price vs. same-snapshot bid/ask. side_collect writes flow_side+bid+ask to
+  # every options_flow row. side_labels_live gates whether BULLISH/BEARISH
+  # actually USES the side tag — user chose to ship it LIVE immediately
+  # (2026-08-09) rather than gate behind the ~2-week grading step the spec
+  # originally proposed; the side tag has NOT been graded against outcomes yet.
+  side_collect: true
+  side_labels_live: true
+  # SWEEP tier: rare, higher-conviction alert on top of the base gates above.
+  # Reuses the SAME measured ladder as min_vol_oi (grade_options_flow.py,
+  # 8,681 events) rather than an arbitrary multiplier: the >=50x bucket
+  # measured +14.2pp (z=2.50), the strongest of the tested buckets. Also
+  # requires an aggressive (through-the-quote) fill — see _flow_tier.
+  sweep_vol_oi: 50.0
   # Active watchlist (get_active_tickers) is scanned automatically; this fixed
   # liquid core is always added so big flow on a major name is caught even with
   # no other signal yet (user chose "both combined").

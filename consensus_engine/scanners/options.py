@@ -46,11 +46,20 @@ def _note_chain_fetch(where: str, ticker: str, attempted: int, failed: int) -> N
                   where, failed, attempted, ticker)
 
 
-def _is_sweep(vol: float, oi: float, min_ratio: float = 5.0, min_notional: float = 0) -> bool:
-    """Check if volume/OI ratio qualifies as a sweep."""
-    if oi == 0:
-        return False
-    return (vol / oi) >= min_ratio
+def _flow_tier(hit) -> str:
+    """"sweep" | "base" — the rare, higher-conviction alert tier
+    (options-flow-buyresell-sweeps). Not a real multi-exchange sweep (we only
+    have one chain snapshot, no tick/venue data) — "sweep" here means the
+    print cleared 2 dimensions we DO have: a distinctly higher vol/OI bar (the
+    measured >= options_flow.sweep_vol_oi bucket) AND an aggressive,
+    through-the-quote fill (classify_flow_side's AA/BB, not just at-ask/at-bid).
+    Either alone stays "base"."""
+    sweep_vol_oi = _cfg.get("options_flow.sweep_vol_oi", 50.0)
+    if (hit.vol_oi_ratio >= sweep_vol_oi
+            and getattr(hit, "flow_side", "") in ("BUY", "SELL")
+            and getattr(hit, "flow_side_note", "") in ("AA", "BB")):
+        return "sweep"
+    return "base"
 
 
 def _detect_unusual_activity(chain) -> OptionsResult:
@@ -309,6 +318,38 @@ def _ts_to_epoch(ts) -> float:
         return 0.0
 
 
+def classify_flow_side(last_price: float, bid: float, ask: float) -> tuple:
+    """Classify a trade as buyer- or seller-initiated from its price vs. the
+    same-snapshot bid/ask (options-flow-buyresell-sweeps).
+
+    This is a SNAPSHOT PROXY, not tick-based: our bid/ask come from a chain
+    snapshot, and the trade may be up to `max_staleness_min` old, so it is a
+    probability call (same as real flow tools), one notch weaker since it
+    isn't tick-level. Every degenerate input (missing/zero/NaN bid or ask,
+    crossed/zero-spread quote, missing/NaN last_price) fails CLOSED to
+    AMBIGUOUS rather than guess.
+
+    Returns (side, note):
+      side: "BUY" | "SELL" | "AMBIGUOUS"
+      note: "AA" (aggressive, print above ask) | "at-ask" (within 25% of the
+            spread from the ask) | "at-bid" | "BB" (aggressive, print below
+            bid) | "" (AMBIGUOUS)
+    """
+    if (not bid or bid != bid or not ask or ask != ask
+            or ask <= bid or not last_price or last_price != last_price):
+        return "AMBIGUOUS", ""
+    if last_price > ask:
+        return "BUY", "AA"
+    if last_price < bid:
+        return "SELL", "BB"
+    band = 0.25 * (ask - bid)
+    if last_price >= ask - band:
+        return "BUY", "at-ask"
+    if last_price <= bid + band:
+        return "SELL", "at-bid"
+    return "AMBIGUOUS", ""
+
+
 def _scan_chain_for_flow(
     ticker, chain, expiry, spot, *,
     min_vol_oi, min_volume, min_premium, max_stale_sec, now,
@@ -336,6 +377,8 @@ def _scan_chain_for_flow(
             _v = getattr(row, "volume", 0); vol = float(_v if _v == _v else 0)
             _o = getattr(row, "openInterest", 0); oi = float(_o if _o == _o else 0)
             _p = getattr(row, "lastPrice", 0); last_price = float(_p if _p == _p else 0)
+            _bid = getattr(row, "bid", 0); bid = float(_bid if _bid == _bid else 0)
+            _ask = getattr(row, "ask", 0); ask = float(_ask if _ask == _ask else 0)
             if oi <= 0 or vol < min_volume:
                 continue
             ratio = vol / oi
@@ -362,6 +405,7 @@ def _scan_chain_for_flow(
                     "[staleness unverified] — allowing (cleared size gates)",
                     ticker, str(getattr(row, "contractSymbol", "")),
                 )
+            flow_side, flow_side_note = classify_flow_side(last_price, bid, ask)
             hits.append(FlowHit(
                 ticker=ticker, side=side,
                 strike=float(getattr(row, "strike", 0) or 0), expiry=expiry,
@@ -370,6 +414,8 @@ def _scan_chain_for_flow(
                 last_trade_ts=lt, spot=spot,
                 contract_symbol=str(getattr(row, "contractSymbol", "")),
                 staleness_unverified=staleness_unverified,
+                bid=bid, ask=ask,
+                flow_side=flow_side, flow_side_note=flow_side_note,
             ))
     return hits
 
@@ -504,33 +550,45 @@ async def scan_options_flow(
 
 
 def format_flow_alert(hit) -> str:
-    """Render a FlowHit as an instant-trigger Discord alert (Alert Philosophy)."""
-    direction = "🟢 BULLISH" if hit.side == "CALL" else "🔴 BEARISH"
+    """Render a FlowHit as an instant-trigger Discord alert (Alert Philosophy).
+
+    options-flow-buyresell-sweeps: when options_flow.side_labels_live is on,
+    BULLISH/BEARISH derives from buy/sell-side x call/put instead of guessing
+    from call/put alone (a big SELLER of calls is bearish, not bullish); an
+    AMBIGUOUS side says so explicitly rather than silently falling back to the
+    old guess. When options_flow.side_collect is on, an additive side info tag
+    is appended either way (mirrors the [staleness unverified] tag idiom).
+    The rare "sweep" tier (_flow_tier) gets a distinct 🔥 SWEEP header so the
+    two tiers are visually distinguishable at a glance.
+    """
+    flow_side = getattr(hit, "flow_side", "") or ""
+    if _cfg.get("options_flow.side_labels_live", False):
+        if flow_side == "AMBIGUOUS" or not flow_side:
+            direction = "⚪ AMBIGUOUS (side unclear)"
+        elif (hit.side == "CALL") == (flow_side == "BUY"):
+            direction = "🟢 BULLISH"
+        else:
+            direction = "🔴 BEARISH"
+    else:
+        direction = "🟢 BULLISH" if hit.side == "CALL" else "🔴 BEARISH"
     prem_m = hit.premium_usd / 1_000_000.0
     spot_txt = f" | spot ${hit.spot:,.2f}" if hit.spot else ""
     # C12: be honest when we couldn't verify the contract's last-trade freshness.
     stale_txt = " _[staleness unverified]_" if getattr(hit, "staleness_unverified", False) else ""
+    side_txt = ""
+    if _cfg.get("options_flow.side_collect", False) and flow_side:
+        note = f" ({hit.flow_side_note})" if getattr(hit, "flow_side_note", "") else ""
+        side_txt = f" _[side: {flow_side}{note}]_"
+    # User's call (2026-08-09): keep the header "SWEEP", no disclaimer footer.
+    header = "🔥 **SWEEP**" if _flow_tier(hit) == "sweep" else "⚡ **UNUSUAL OPTIONS FLOW**"
     return (
-        f"⚡ **UNUSUAL OPTIONS FLOW** — `${hit.ticker}` {direction}\n"
+        f"{header} — `${hit.ticker}` {direction}\n"
         f"**{hit.side}** {hit.expiry} ${hit.strike:g} strike{spot_txt}\n"
         f"Volume **{hit.volume:,}** vs OI {hit.open_interest:,} "
         f"(**{hit.vol_oi_ratio:.1f}x** — fresh positioning) | "
-        f"premium **${prem_m:.2f}M**{stale_txt}\n"
+        f"premium **${prem_m:.2f}M**{stale_txt}{side_txt}\n"
         f"_Unusual-flow instant trigger._"
     )
-
-
-def format_options_sweep_digest(sweeps: list[dict]) -> str:
-    """Format sweep results as Discord message."""
-    if not sweeps:
-        return "No unusual options sweeps detected."
-    lines = ["**Options Sweep Scanner**"]
-    for s in sweeps[:10]:
-        lines.append(
-            f"`${s['ticker']}` **{s['direction']}** sweep -- "
-            f"{s['max_ratio']:.1f}x vol/OI | P/C: {s['put_call_ratio']:.2f}"
-        )
-    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------

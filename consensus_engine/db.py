@@ -1305,6 +1305,13 @@ async def _run_column_migrations(conn) -> None:
         ("wolf_confluence_checks", "timing_fast_agree",    "INTEGER DEFAULT 0"),
         ("wolf_confluence_checks", "timing_buckets_json",  "TEXT DEFAULT '[]'"),
         ("wolf_confluence_checks", "timing_first_act_at",  "REAL"),      # when it FIRST said act
+        # options-flow-buyresell-sweeps: buy/sell-side shadow log. Written when
+        # options_flow.side_collect is on; NULL on legacy rows and while off.
+        # Raw bid/ask stored (not just the label) so a future session can regrade
+        # under a different threshold without recollecting.
+        ("options_flow", "flow_side", "TEXT"),
+        ("options_flow", "bid",       "REAL"),
+        ("options_flow", "ask",       "REAL"),
     ]
     for table in ("youtube_signals", "youtube_levels", "youtube_setups", "youtube_options"):
         for col, defn in v2_span_cols:
@@ -3578,21 +3585,31 @@ async def get_youtube_options_for_ticker(ticker: str, days: int = 7) -> list[dic
 async def insert_options_flow(hits: list, alerted_tickers: set | None = None) -> None:
     """#18: persist detected options-flow hits (FlowHit objects). Rows whose
     ticker is in alerted_tickers are marked alerted=1, which drives the
-    per-ticker alert cooldown (get_last_flow_alert_ts)."""
+    per-ticker alert cooldown (get_last_flow_alert_ts).
+
+    options-flow-buyresell-sweeps: flow_side/bid/ask are shadow-logged (written
+    as NULL when options_flow.side_collect is off) so grading can happen before
+    any live label changes."""
     if not hits:
         return
     alerted = alerted_tickers or set()
+    side_collect = cfg.get("options_flow.side_collect", True)
     conn = await get_db()
     now = time.time()
     for h in hits:
+        flow_side = h.flow_side if side_collect else None
+        bid = h.bid if side_collect else None
+        ask = h.ask if side_collect else None
         await conn.execute(
             """INSERT INTO options_flow
                (ticker, side, strike, expiry, volume, open_interest, vol_oi_ratio,
-                premium_usd, last_trade_ts, spot, contract_symbol, alerted, detected_at)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                premium_usd, last_trade_ts, spot, contract_symbol, alerted, detected_at,
+                flow_side, bid, ask)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (h.ticker, h.side, h.strike, h.expiry, h.volume, h.open_interest,
              h.vol_oi_ratio, h.premium_usd, h.last_trade_ts, h.spot,
-             h.contract_symbol, 1 if h.ticker in alerted else 0, now),
+             h.contract_symbol, 1 if h.ticker in alerted else 0, now,
+             flow_side, bid, ask),
         )
     await conn.commit()
 
