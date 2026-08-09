@@ -177,14 +177,21 @@ def _chown_to_openclaw(path: str) -> None:
 
 
 def verify_live() -> tuple[bool, str]:
-    """Prove the new token actually works: pull one real quote."""
+    """Prove the new token actually works: pull one real quote.
+
+    schwab_client.get_quote() already normalizes Schwab's response into the
+    Finnhub-shaped {c, pc, dp, ...} dict used elsewhere in the codebase — it
+    is not the raw Schwab payload, so the price lives at "c", not
+    ["quote"]["lastPrice"] (that nested shape was never what this function
+    returns; checking for it made every successful login report as failed).
+    """
     try:
         quote_data = schwab_client.get_quote("SPY")
     except Exception as e:
         return False, f"live quote failed: {e}"
     if not quote_data:
         return False, "live quote returned nothing"
-    price = (quote_data.get("quote") or {}).get("lastPrice")
+    price = quote_data.get("c")
     if price is None:
         return False, f"live quote had no price: {str(quote_data)[:120]}"
     return True, f"SPY = ${price}"
