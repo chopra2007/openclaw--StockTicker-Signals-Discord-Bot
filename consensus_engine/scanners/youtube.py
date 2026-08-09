@@ -1219,7 +1219,12 @@ async def _youtube_scan_once_locked() -> None:
     session = await get_session()
     all_videos: list[dict] = []
     failed_feeds: list[str] = []
-    for channel_id in channel_ids:
+    # 2026-08-09: firing all 14 feed requests back-to-back in under 2s produced hours-long
+    # outages (8-11 of 14 channels returning HTTP 404/500, recovering on their own once the
+    # burst stopped) — YouTube soft-blocking bursty same-IP RSS traffic. A small pace between
+    # requests keeps the request rate under whatever threshold triggers that.
+    rss_pace_s = cfg.get("youtube.rss_pace_seconds", 0.75)
+    for i, channel_id in enumerate(channel_ids):
         try:
             videos, ok, detail = await _fetch_channel_videos_rss_result(
                 session, channel_id, limit)
@@ -1230,6 +1235,8 @@ async def _youtube_scan_once_locked() -> None:
         except Exception as e:
             log.warning("youtube: channel %s RSS error: %s", channel_id, e)
             failed_feeds.append(f"{type(e).__name__}: {e or 'no detail'}")
+        if i < len(channel_ids) - 1:
+            await asyncio.sleep(rss_pace_s)
 
     try:
         from consensus_engine.alerts.ops_alert import report_ops_state

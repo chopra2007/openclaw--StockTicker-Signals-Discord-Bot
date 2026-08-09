@@ -22,8 +22,6 @@ from zoneinfo import ZoneInfo
 _WORKSPACE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _WORKSPACE)
 
-import requests
-
 from consensus_engine import config
 from consensus_engine.scanners import schwab_client
 
@@ -69,17 +67,20 @@ def _append_notification(message: str) -> None:
 
 
 def _post_to_discord(message: str) -> None:
-    webhook = os.environ.get("CLAUDECODE_WEBHOOK")
-    if not webhook:
-        print("no CLAUDECODE_WEBHOOK in env — cannot post to Discord", file=sys.stderr)
+    """Reminders like this are system status, not chat — they belong in #errors,
+    not #chat (2026-08-09, user)."""
+    import asyncio
+
+    from consensus_engine.alerts import ops_alert
+    from consensus_engine.alerts.discord import send_message
+
+    channel = ops_alert.errors_channel_id()
+    if not channel:
+        print("no #errors channel configured — cannot post to Discord", file=sys.stderr)
         return
     try:
-        requests.post(
-            webhook,
-            json={"content": message, "username": "ClaudeCode"},
-            timeout=10,
-        )
-    except requests.RequestException as e:
+        asyncio.run(send_message(channel, message, ping_user_id=None))
+    except Exception as e:
         print(f"Discord post failed: {e}", file=sys.stderr)
 
 

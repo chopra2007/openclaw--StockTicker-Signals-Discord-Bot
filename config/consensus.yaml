@@ -455,6 +455,7 @@ youtube:
   max_videos_per_channel: 3
   max_retries: 5                       # #7 retry failed/budget-skipped videos up to N times (0=off); drains the DB backlog
   pace_seconds: 60                     # item G: ~1 video/min paced sequential drain (burst-429 fix); speed is a non-goal
+  rss_pace_seconds: 0.75               # 2026-08-09: delay between per-channel RSS feed fetches (burst 404/500 fix)
   quota_blocked_downgrade_days: 4      # item G: a quota_blocked video stuck this long -> 'failed' (bounds misclassification)
   backlog_alarm_days: 3                # item G: warn if transcription backlog rises this many consecutive days
   preferred_languages: ["en"]
