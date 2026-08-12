@@ -6,6 +6,8 @@ import logging
 import math
 import sqlite3
 import time
+import uuid
+from typing import Iterable
 
 from consensus_engine import config as cfg
 from consensus_engine.models import TickerSignal, SourceType, Sentiment
@@ -64,6 +66,58 @@ class AsyncConnection:
     async def commit(self):
         async with self._lock:
             self._conn.commit()
+
+    async def rollback(self):
+        async with self._lock:
+            self._conn.rollback()
+
+    async def execute_transaction(self, statements: Iterable[tuple[str, tuple]]):
+        """Execute a prepared group as one indivisible database write."""
+        async with self._lock:
+            try:
+                self._conn.execute("BEGIN IMMEDIATE")
+                cursors = [self._conn.execute(sql, params) for sql, params in statements]
+                self._conn.commit()
+                return cursors
+            except Exception:
+                self._conn.rollback()
+                raise
+
+    async def insert_alert_measurement_bundle(
+        self, alert_params: tuple, alert_event: tuple, delivery_events: list[tuple],
+        outcome_event: tuple,
+    ) -> int:
+        """Insert the old alert row and initial new lifecycle facts together."""
+        async with self._lock:
+            try:
+                self._conn.execute("BEGIN IMMEDIATE")
+                cursor = self._conn.execute(
+                    """INSERT INTO alert_history
+                       (ticker, confidence_score, catalyst, catalyst_type,
+                        consensus_breakdown, technical_data, analyst_mentions,
+                        alerted_at, price_at_alert)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    alert_params,
+                )
+                legacy_alert_id = cursor.lastrowid
+                self._conn.execute(
+                    "INSERT INTO measurement_alert_events_v1 VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    (*alert_event[:6], legacy_alert_id, alert_event[6]),
+                )
+                for row in delivery_events:
+                    self._conn.execute(
+                        "INSERT INTO measurement_delivery_events_v1 "
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", row,
+                    )
+                self._conn.execute(
+                    "INSERT INTO measurement_outcome_events_v1 "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", outcome_event,
+                )
+                self._conn.commit()
+                return legacy_alert_id
+            except Exception:
+                self._conn.rollback()
+                raise
 
     async def close(self):
         async with self._lock:
@@ -285,6 +339,120 @@ CREATE TABLE IF NOT EXISTS decision_snapshots (
 CREATE INDEX IF NOT EXISTS idx_snapshots_ticker ON decision_snapshots(ticker);
 CREATE INDEX IF NOT EXISTS idx_snapshots_recorded ON decision_snapshots(recorded_at);
 CREATE INDEX IF NOT EXISTS idx_snapshots_decision ON decision_snapshots(decision);
+
+-- Batch 1 measurement ledger. These versioned source rows are append-only;
+-- corrections are separate linked events rather than UPDATEs.
+CREATE TABLE IF NOT EXISTS measurement_candidates_v1 (
+    candidate_id TEXT PRIMARY KEY,
+    ticker TEXT NOT NULL,
+    direction TEXT NOT NULL CHECK(direction IN ('long', 'short')),
+    analyst TEXT NOT NULL DEFAULT '',
+    catalyst TEXT NOT NULL DEFAULT '',
+    base_score REAL NOT NULL DEFAULT 0,
+    rule_version TEXT NOT NULL,
+    input_fingerprint TEXT NOT NULL,
+    created_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_measurement_candidates_created_v1
+    ON measurement_candidates_v1(created_at);
+
+CREATE TABLE IF NOT EXISTS measurement_decision_events_v1 (
+    event_id TEXT PRIMARY KEY,
+    decision_id TEXT NOT NULL,
+    candidate_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    reason TEXT NOT NULL DEFAULT '',
+    owner_visible_score REAL,
+    scorer_version TEXT NOT NULL DEFAULT '',
+    rule_version TEXT NOT NULL,
+    input_fingerprint TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    FOREIGN KEY(candidate_id) REFERENCES measurement_candidates_v1(candidate_id)
+);
+CREATE INDEX IF NOT EXISTS idx_measurement_decisions_candidate_v1
+    ON measurement_decision_events_v1(candidate_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_measurement_decisions_id_v1
+    ON measurement_decision_events_v1(decision_id, created_at);
+
+CREATE TABLE IF NOT EXISTS measurement_alert_events_v1 (
+    event_id TEXT PRIMARY KEY,
+    alert_id TEXT NOT NULL,
+    decision_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    reason TEXT NOT NULL DEFAULT '',
+    displayed_score REAL,
+    legacy_alert_id INTEGER,
+    created_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_measurement_alerts_decision_v1
+    ON measurement_alert_events_v1(decision_id, created_at);
+
+CREATE TABLE IF NOT EXISTS measurement_delivery_events_v1 (
+    event_id TEXT PRIMARY KEY,
+    delivery_id TEXT NOT NULL,
+    decision_id TEXT NOT NULL,
+    attempt_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    reason TEXT NOT NULL DEFAULT '',
+    external_message_id TEXT,
+    confirmed_at REAL,
+    created_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_measurement_deliveries_decision_v1
+    ON measurement_delivery_events_v1(decision_id, created_at);
+
+CREATE TABLE IF NOT EXISTS measurement_outcome_events_v1 (
+    event_id TEXT PRIMARY KEY,
+    outcome_id TEXT NOT NULL,
+    decision_id TEXT NOT NULL,
+    direction TEXT NOT NULL CHECK(direction IN ('long', 'short')),
+    horizon TEXT NOT NULL,
+    status TEXT NOT NULL,
+    value REAL,
+    error_reason TEXT NOT NULL DEFAULT '',
+    analyst TEXT NOT NULL DEFAULT '',
+    created_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_measurement_outcomes_decision_v1
+    ON measurement_outcome_events_v1(decision_id, created_at);
+
+CREATE TABLE IF NOT EXISTS measurement_corrections_v1 (
+    correction_id TEXT PRIMARY KEY,
+    entity_type TEXT NOT NULL,
+    entity_id TEXT NOT NULL,
+    prior_event_id TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    corrected_fields_json TEXT NOT NULL,
+    actor_version TEXT NOT NULL,
+    created_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_measurement_corrections_entity_v1
+    ON measurement_corrections_v1(entity_type, entity_id, created_at);
+
+CREATE TRIGGER IF NOT EXISTS measurement_candidates_v1_no_update
+BEFORE UPDATE ON measurement_candidates_v1 BEGIN SELECT RAISE(ABORT, 'append-only table'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_candidates_v1_no_delete
+BEFORE DELETE ON measurement_candidates_v1 BEGIN SELECT RAISE(ABORT, 'append-only table'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_decisions_v1_no_update
+BEFORE UPDATE ON measurement_decision_events_v1 BEGIN SELECT RAISE(ABORT, 'append-only table'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_decisions_v1_no_delete
+BEFORE DELETE ON measurement_decision_events_v1 BEGIN SELECT RAISE(ABORT, 'append-only table'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_alerts_v1_no_update
+BEFORE UPDATE ON measurement_alert_events_v1 BEGIN SELECT RAISE(ABORT, 'append-only table'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_alerts_v1_no_delete
+BEFORE DELETE ON measurement_alert_events_v1 BEGIN SELECT RAISE(ABORT, 'append-only table'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_deliveries_v1_no_update
+BEFORE UPDATE ON measurement_delivery_events_v1 BEGIN SELECT RAISE(ABORT, 'append-only table'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_deliveries_v1_no_delete
+BEFORE DELETE ON measurement_delivery_events_v1 BEGIN SELECT RAISE(ABORT, 'append-only table'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_outcomes_v1_no_update
+BEFORE UPDATE ON measurement_outcome_events_v1 BEGIN SELECT RAISE(ABORT, 'append-only table'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_outcomes_v1_no_delete
+BEFORE DELETE ON measurement_outcome_events_v1 BEGIN SELECT RAISE(ABORT, 'append-only table'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_corrections_v1_no_update
+BEFORE UPDATE ON measurement_corrections_v1 BEGIN SELECT RAISE(ABORT, 'append-only table'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_corrections_v1_no_delete
+BEFORE DELETE ON measurement_corrections_v1 BEGIN SELECT RAISE(ABORT, 'append-only table'); END;
 
 CREATE TABLE IF NOT EXISTS shadow_predictions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1406,6 +1574,7 @@ async def init_db() -> AsyncConnection:
         (29, "r27 form144_filings intent-to-sell shadow log"),
         (30, "r28 insider_10b5_plans plan-state (adoption/termination)"),
         (31, "r13 congress_trades House STOCK-Act PTR shadow log"),
+        (32, "Batch 1 append-only trade measurement ledger v1"),
     ]
     for version, note in _schema_versions:
         await _db.execute(
@@ -2506,6 +2675,57 @@ async def insert_alert(ticker: str, confidence: float, catalyst: str, catalyst_t
     return cursor.lastrowid
 
 
+async def insert_alert_with_measurement(
+    *, ticker: str, confidence: float, catalyst: str, catalyst_type: str,
+    consensus_json: str, technical_json: str, analysts_json: str, price: float,
+    decision_id: str, direction: str, analyst: str,
+) -> dict[str, str | int]:
+    """Atomically create the legacy alert plus initial append-only lifecycle."""
+    conn = await get_db()
+    created_at = time.time()
+    alert_id = f"alert_{uuid.uuid4().hex}"
+    delivery_id = f"delivery_{uuid.uuid4().hex}"
+    outcome_id = f"outcome_{uuid.uuid4().hex}"
+    decision_cur = await conn.execute(
+        "SELECT 1 FROM measurement_decision_events_v1 WHERE decision_id=? LIMIT 1",
+        (decision_id,),
+    )
+    if await decision_cur.fetchone() is None:
+        raise ValueError(f"unknown decision_id: {decision_id}")
+    if direction not in ("long", "short"):
+        raise ValueError("trade direction must be 'long' or 'short'")
+    alert_event = (
+        f"alert_event_{uuid.uuid4().hex}", alert_id, decision_id,
+        "attempt_created", "", confidence, created_at,
+    )
+    delivery_events = [
+        (f"delivery_event_{uuid.uuid4().hex}", delivery_id, decision_id, delivery_id,
+         status, "", None, None, created_at)
+        for status in ("attempt_created", "send_started")
+    ]
+    outcome_event = (
+        f"outcome_event_{uuid.uuid4().hex}", outcome_id, decision_id, direction,
+        "primary", "pending", None, "", analyst, created_at,
+    )
+    legacy_id = await conn.insert_alert_measurement_bundle(
+        (ticker, confidence, catalyst, catalyst_type, consensus_json, technical_json,
+         analysts_json, created_at, price),
+        alert_event,
+        delivery_events,
+        outcome_event,
+    )
+    log.info("Alert and Batch 1 attempt recorded: %s (confidence=%.1f)", ticker, confidence)
+    try:
+        if cfg.get("atlas.enabled", False):
+            await enqueue_atlas_job(ticker, "alert")
+    except Exception as exc:
+        log.warning("Atlas alert-enqueue failed: %s", exc)
+    return {
+        "legacy_alert_id": legacy_id, "alert_id": alert_id,
+        "delivery_id": delivery_id, "outcome_id": outcome_id,
+    }
+
+
 async def delete_alert(alert_row_id: int):
     """Delete an alert_history row by id.
 
@@ -2748,6 +2968,37 @@ async def get_recent_analysts_for_ticker(ticker: str, window_seconds: int = 3600
     return [r["source_detail"] for r in rows]
 
 
+async def get_recent_analyst_signals_for_ticker(
+    ticker: str, window_seconds: int = 3600,
+) -> list[dict]:
+    """Return each analyst's latest signed view, marking tied conflicts ambiguous."""
+    conn = await get_db()
+    cutoff = time.time() - window_seconds
+    cursor = await conn.execute(
+        """WITH signed AS (
+               SELECT source_detail AS analyst,
+                      CASE sentiment WHEN 'bullish' THEN 'long' ELSE 'short' END AS direction,
+                      detected_at
+               FROM ticker_signals
+               WHERE ticker = ? AND source_type = 'twitter' AND detected_at >= ?
+                 AND sentiment IN ('bullish', 'bearish')
+           ), latest AS (
+               SELECT analyst, MAX(detected_at) AS detected_at
+               FROM signed GROUP BY analyst
+           )
+           SELECT s.analyst,
+                  CASE WHEN COUNT(DISTINCT s.direction) = 1 THEN MAX(s.direction)
+                       ELSE 'ambiguous' END AS direction,
+                  l.detected_at
+           FROM latest l
+           JOIN signed s ON s.analyst=l.analyst AND s.detected_at=l.detected_at
+           GROUP BY s.analyst, l.detected_at
+           ORDER BY l.detected_at DESC""",
+        (ticker, cutoff),
+    )
+    return [dict(row) for row in await cursor.fetchall()]
+
+
 async def get_alerts_needing_price_update(
     field: str, limit: int = 20, ignore_max_age: bool = False,
 ) -> list[dict]:
@@ -2817,6 +3068,115 @@ async def update_alert_price(alert_id: int, field: str, price: float):
         (price, alert_id),
     )
     await conn.commit()
+
+
+async def write_linked_alert_outcome(
+    *, alert_id: int, field: str, price: float, horizon: str,
+) -> None:
+    """Save the old labels and new linked outcome as one complete write."""
+    if field not in ("price_1h_later", "price_24h_later", "price_5d_later"):
+        raise ValueError(f"unsupported alert outcome field: {field}")
+    conn = await get_db()
+    snapshot_cur = await conn.execute(
+        "SELECT id FROM decision_snapshots WHERE alert_id=? LIMIT 1", (alert_id,))
+    snapshot = await snapshot_cur.fetchone()
+    alert_cur = await conn.execute(
+        "SELECT price_at_alert FROM alert_history WHERE id=?", (alert_id,))
+    alert = await alert_cur.fetchone()
+    measurement_cur = await conn.execute(
+        """SELECT a.decision_id, c.direction, c.analyst
+           FROM measurement_alert_events_v1 a
+           JOIN measurement_decision_events_v1 d ON d.decision_id=a.decision_id
+           JOIN measurement_candidates_v1 c ON c.candidate_id=d.candidate_id
+           WHERE a.legacy_alert_id=? ORDER BY a.created_at LIMIT 1""",
+        (alert_id,),
+    )
+    measured = await measurement_cur.fetchone()
+    statements: list[tuple[str, tuple]] = [
+        (f"UPDATE alert_history SET {field}=? WHERE id=?", (price, alert_id)),
+    ]
+    snapshot_field = {
+        "price_1h_later": "outcome_price_1h",
+        "price_24h_later": "outcome_price_24h",
+        "price_5d_later": "outcome_price_5d",
+    }[field]
+    if snapshot:
+        statements.append((
+            f"UPDATE decision_snapshots SET {snapshot_field}=? WHERE id=?",
+            (price, snapshot["id"]),
+        ))
+    entry = float(alert["price_at_alert"] or 0) if alert else 0
+    if entry > 0 and measured and measured["direction"] in ("long", "short"):
+        actual_hit = int(
+            price > entry if measured["direction"] == "long" else price < entry
+        )
+        statements.append((
+            "UPDATE shadow_predictions SET actual_hit=? "
+            "WHERE actual_hit IS NULL AND alert_id=? AND horizon=?",
+            (actual_hit, alert_id, horizon),
+        ))
+    if measured:
+        pending_cur = await conn.execute(
+            """SELECT outcome_id FROM measurement_outcome_events_v1 p
+               WHERE p.decision_id=? AND p.status='pending' AND p.horizon='primary'
+                 AND NOT EXISTS (
+                     SELECT 1 FROM measurement_outcome_events_v1 r
+                     WHERE r.outcome_id=p.outcome_id AND r.status='resolved'
+                 )
+               ORDER BY p.created_at LIMIT 1""",
+            (measured["decision_id"],),
+        )
+        pending = await pending_cur.fetchone()
+        stable_id = pending["outcome_id"] if pending else f"outcome_{uuid.uuid4().hex}"
+        statements.append((
+            "INSERT INTO measurement_outcome_events_v1 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (f"outcome_event_{uuid.uuid4().hex}", stable_id, measured["decision_id"],
+             measured["direction"], horizon, "resolved", price, "",
+             measured["analyst"], time.time()),
+        ))
+    await conn.execute_transaction(statements)
+
+
+async def write_linked_snapshot_outcome(
+    *, snapshot_id: int, field: str, price: float, horizon: str,
+) -> None:
+    """Atomically save a snapshot-only horizon and its new ledger event."""
+    if field not in ("outcome_price_24h", "outcome_price_5d", "outcome_price_20d"):
+        raise ValueError(f"unsupported snapshot outcome field: {field}")
+    conn = await get_db()
+    measured_cur = await conn.execute(
+        """SELECT a.decision_id, c.direction, c.analyst
+           FROM decision_snapshots s
+           JOIN measurement_alert_events_v1 a ON a.legacy_alert_id=s.alert_id
+           JOIN measurement_decision_events_v1 d ON d.decision_id=a.decision_id
+           JOIN measurement_candidates_v1 c ON c.candidate_id=d.candidate_id
+           WHERE s.id=? ORDER BY a.created_at LIMIT 1""",
+        (snapshot_id,),
+    )
+    measured = await measured_cur.fetchone()
+    statements: list[tuple[str, tuple]] = [
+        (f"UPDATE decision_snapshots SET {field}=? WHERE id=?", (price, snapshot_id)),
+    ]
+    if measured:
+        pending_cur = await conn.execute(
+            """SELECT outcome_id FROM measurement_outcome_events_v1 p
+               WHERE p.decision_id=? AND p.status='pending' AND p.horizon='primary'
+                 AND NOT EXISTS (
+                     SELECT 1 FROM measurement_outcome_events_v1 r
+                     WHERE r.outcome_id=p.outcome_id AND r.status='resolved'
+                 )
+               ORDER BY p.created_at LIMIT 1""",
+            (measured["decision_id"],),
+        )
+        pending = await pending_cur.fetchone()
+        outcome_id = pending["outcome_id"] if pending else f"outcome_{uuid.uuid4().hex}"
+        statements.append((
+            "INSERT INTO measurement_outcome_events_v1 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (f"outcome_event_{uuid.uuid4().hex}", outcome_id,
+             measured["decision_id"], measured["direction"], horizon, "resolved",
+             price, "", measured["analyst"], time.time()),
+        ))
+    await conn.execute_transaction(statements)
 
 
 async def insert_reddit_posts(posts: list[dict]) -> int:
@@ -4355,7 +4715,7 @@ async def get_snapshots_needing_outcome(
         params.append(now - max_age_days * 86400)
     params.append(limit)
     cursor = await conn.execute(
-        f"""SELECT id, ticker, recorded_at FROM decision_snapshots
+        f"""SELECT id, ticker, recorded_at, alert_id FROM decision_snapshots
             WHERE {where}
             ORDER BY recorded_at DESC LIMIT ?""",
         params,

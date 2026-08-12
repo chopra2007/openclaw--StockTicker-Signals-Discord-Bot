@@ -91,7 +91,25 @@ async def test_friday_alert_resolves_after_weekend(fresh_db, monkeypatch):
     its 24h outcome — on alert_history, its decision_snapshot, and the shadow
     label — graded at the NEXT trading day's close (n_trading_days=1)."""
     conn = await db.init_db()
-    alert_id = await _insert_alert(conn, "FRI", age_days=3, price_at_alert=100.0)
+    from consensus_engine.measurement import record_candidate, transition_decision
+
+    alerted_at = time.time() - 3 * 86400
+    candidate_id = await record_candidate(
+        ticker="FRI", direction="long", analyst="test", created_at=alerted_at
+    )
+    decision_id = await transition_decision(
+        candidate_id=candidate_id, status="scored", owner_visible_score=80,
+        created_at=alerted_at,
+    )
+    linked = await db.insert_alert_with_measurement(
+        ticker="FRI", confidence=80, catalyst="", catalyst_type="",
+        consensus_json="{}", technical_json="{}", analysts_json='["test"]',
+        price=100, decision_id=decision_id, direction="long", analyst="test",
+    )
+    alert_id = linked["legacy_alert_id"]
+    await conn.execute(
+        "UPDATE alert_history SET alerted_at=? WHERE id=?", (alerted_at, alert_id)
+    )
     await conn.execute(
         """INSERT INTO decision_snapshots
            (ticker, decision, final_score, sources_json, recorded_at,
@@ -138,6 +156,12 @@ async def test_friday_alert_resolves_after_weekend(fresh_db, monkeypatch):
     cur = await conn.execute(
         "SELECT actual_hit FROM shadow_predictions WHERE alert_id = ?", (alert_id,))
     assert (await cur.fetchone())["actual_hit"] == 1  # 104 > 100 → hit
+    cur = await conn.execute(
+        """SELECT direction, status, value FROM measurement_outcome_events_v1
+           WHERE decision_id=? AND status='resolved' AND horizon='24h'""",
+        (decision_id,),
+    )
+    assert dict(await cur.fetchone()) == {"direction": "long", "status": "resolved", "value": 104.0}
 
     # Re-run: the row is no longer NULL → nothing selected, nothing rewritten.
     executor2 = concurrent.futures.ThreadPoolExecutor(max_workers=2)

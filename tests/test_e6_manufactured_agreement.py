@@ -220,7 +220,9 @@ async def _run_score(monkeypatch, *, burst_rows, flag_e6: bool, with_sec: bool =
          patch("consensus_engine.cross_reference._run_technical",
                new=AsyncMock(return_value=None)), \
          patch("consensus_engine.cross_reference._run_other_analysts",
-               new=AsyncMock(return_value=["@acct0", "@acct1", "@acct2"])), \
+               new=AsyncMock(return_value={
+                   "aligned": ["@acct0", "@acct1", "@acct2"], "opposing": [],
+               })), \
          patch("consensus_engine.cross_reference._run_options_check",
                new=AsyncMock(return_value=None)), \
          patch("consensus_engine.cross_reference._get_youtube_context",

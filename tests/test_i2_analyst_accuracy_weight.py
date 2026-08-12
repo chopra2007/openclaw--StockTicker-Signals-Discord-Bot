@@ -137,7 +137,9 @@ async def _score_with_analysts(analysts, lb_map):
 async def test_flag_on_thin_record_stays_neutral_20(monkeypatch):
     """A 3/5 record is below min_n -> helper returns None -> neutral weight 1.0 -> 20."""
     _force_flag_on(monkeypatch)
-    result = await _score_with_analysts(["thin"], {"thin": None})
+    result = await _score_with_analysts(
+        {"aligned": ["thin"], "opposing": []}, {"thin": None}
+    )
     assert result.breakdown.additional_analysts == 20
 
 
@@ -145,7 +147,9 @@ async def test_flag_on_thin_record_stays_neutral_20(monkeypatch):
 async def test_flag_on_high_record_lifted(monkeypatch):
     """A 30/40 high record (Wilson LB ~0.598) lifts above the flat 20."""
     _force_flag_on(monkeypatch)
-    result = await _score_with_analysts(["good"], {"good": 0.598})
+    result = await _score_with_analysts(
+        {"aligned": ["good"], "opposing": []}, {"good": 0.598}
+    )
     # 20 * clamp(2*0.598, 0.5, 1.5) = 20 * 1.196 = 23.9 -> round 24
     assert result.breakdown.additional_analysts == 24
     assert result.breakdown.additional_analysts > 20
@@ -155,7 +159,9 @@ async def test_flag_on_high_record_lifted(monkeypatch):
 async def test_flag_on_chronic_loser_floored(monkeypatch):
     """A 5/40 chronic loser (Wilson LB ~0.055) floors the weight at 0.5x -> 10."""
     _force_flag_on(monkeypatch)
-    result = await _score_with_analysts(["loser"], {"loser": 0.055})
+    result = await _score_with_analysts(
+        {"aligned": ["loser"], "opposing": []}, {"loser": 0.055}
+    )
     # 20 * clamp(2*0.055, 0.5, 1.5) = 20 * 0.5 = 10
     assert result.breakdown.additional_analysts == 10
 
@@ -166,7 +172,8 @@ async def test_flag_on_uplift_notional_cap(monkeypatch):
     _force_flag_on(monkeypatch)
     # 3 analysts each weight 1.5 -> 90 raw, but capped to 60 + 20 = 80
     result = await _score_with_analysts(
-        ["a", "b", "c"], {"a": 0.9, "b": 0.9, "c": 0.9}
+        {"aligned": ["a", "b", "c"], "opposing": []},
+        {"a": 0.9, "b": 0.9, "c": 0.9},
     )
     assert result.breakdown.additional_analysts == 80
 
@@ -176,6 +183,30 @@ async def test_flag_off_flat_60_for_three(monkeypatch):
     """Flag OFF (conftest force-off) -> 3 analysts score the flat 3*20 = 60."""
     # No _force_flag_on: conftest keeps features.analyst_accuracy_weight.enabled False.
     result = await _score_with_analysts(
-        ["a", "b", "c"], {"a": 0.9, "b": 0.9, "c": 0.9}
+        {"aligned": ["a", "b", "c"], "opposing": []},
+        {"a": 0.9, "b": 0.9, "c": 0.9},
     )
     assert result.breakdown.additional_analysts == 60
+
+
+@pytest.mark.asyncio
+async def test_unsigned_legacy_analyst_list_adds_zero_agreement(monkeypatch):
+    _force_flag_on(monkeypatch)
+
+    result = await _score_with_analysts(["unsigned"], {"unsigned": 0.9})
+
+    assert result.breakdown.additional_analysts == 0
+    assert result.other_analysts == []
+
+
+@pytest.mark.asyncio
+async def test_same_analyst_conflicting_directions_has_no_net_agreement_when_weighted(monkeypatch):
+    _force_flag_on(monkeypatch)
+
+    result = await _score_with_analysts(
+        {"aligned": [], "opposing": ["conflicted"]},
+        {"conflicted": 0.9},
+    )
+
+    assert result.breakdown.additional_analysts <= 0
+    assert result.n_opposing >= 1

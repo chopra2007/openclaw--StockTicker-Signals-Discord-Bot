@@ -765,6 +765,16 @@ chat_memory:
   max_archives_per_run: 25         # budgeted backlog drain (229-archive backlog can't clear at one/night)
   llm_tighten: false               # extractive rollup is proven sufficient; LLM-tighten optional (costs a call/archive)
 
+# Batch 1 measurement ledger. Collection is independent from reader cutover so
+# rollback keeps old behavior while preserving newly collected facts.
+measurement:
+  batch1:
+    collect_enabled: true
+    reader_enabled: false
+    rule_version: "batch1-v1"
+    scorer_version: "consensus-v1"
+    score_cache_bucket_seconds: 300
+
 # =============================================================================
 # New Signal Features (A1/A2/A3/A4/A5/D1)
 # =============================================================================

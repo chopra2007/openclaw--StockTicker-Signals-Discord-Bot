@@ -350,7 +350,7 @@ async def _score_with_contradiction(
          patch("consensus_engine.cross_reference._run_technical",
                new=AsyncMock(return_value=None)), \
          patch("consensus_engine.cross_reference._run_other_analysts",
-               new=AsyncMock(return_value=["@analyst_a"])), \
+               new=AsyncMock(return_value={"aligned": ["@analyst_a"], "opposing": []})), \
          patch("consensus_engine.cross_reference._run_options_check",
                new=AsyncMock(return_value=opts)), \
          patch("consensus_engine.cross_reference._get_youtube_context",

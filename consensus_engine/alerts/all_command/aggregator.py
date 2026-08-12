@@ -1669,8 +1669,17 @@ async def handle_all(
     vault_md = payload.get("vault_md", "")
     vault_path = cfg.get("vault.path", "")
 
-    await asyncio.gather(
+    delivery_result, vault_result = await asyncio.gather(
         send_command_embed_reply(channel_id, message_id, embed_payload),
         vault_writer.write_all_command_vault(ticker, vault_md, vault_path),
         return_exceptions=True,
     )
+    if isinstance(vault_result, Exception):
+        log.error("aggregator.handle_all: $%s vault write failed: %s", ticker, vault_result)
+    if isinstance(delivery_result, Exception) or delivery_result is None:
+        detail = delivery_result if isinstance(delivery_result, Exception) else "no message id"
+        log.error("aggregator.handle_all: $%s Discord delivery failed: %s", ticker, detail)
+        await send_command_reply(
+            channel_id, message_id,
+            f"`!all {ticker}` finished, but the result card could not be delivered.",
+        )

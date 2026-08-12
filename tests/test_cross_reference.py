@@ -8,7 +8,7 @@ from consensus_engine.models import (
 )
 from consensus_engine.cross_reference import (
     compute_technical_score, compute_social_score, cross_reference,
-    _get_catalyst_score,
+    _get_catalyst_score, score_ticker,
 )
 from consensus_engine.utils.xref_cache import clear_xref_cache
 
@@ -121,7 +121,8 @@ async def test_cross_reference_with_mocked_sources():
          patch("consensus_engine.cross_reference._run_technical",
                new_callable=AsyncMock, return_value=None), \
          patch("consensus_engine.cross_reference._run_other_analysts",
-               new_callable=AsyncMock, return_value=["CheddarFlow"]), \
+               new_callable=AsyncMock,
+               return_value={"aligned": ["CheddarFlow"], "opposing": []}), \
          patch("consensus_engine.cross_reference._run_llm_score",
                new_callable=AsyncMock, return_value=(75.0, "Strong setup")):
         result = await cross_reference("NVDA", tweet)
@@ -175,7 +176,7 @@ async def test_llm_called_once_with_real_data():
          patch("consensus_engine.cross_reference._run_technical",
                new_callable=AsyncMock, return_value=mock_technical), \
          patch("consensus_engine.cross_reference._run_other_analysts",
-               new_callable=AsyncMock, return_value=[]), \
+               new_callable=AsyncMock, return_value={"aligned": [], "opposing": []}), \
          patch("consensus_engine.cross_reference._run_llm_score", llm_mock), \
          patch("consensus_engine.cross_reference._run_options_check",
                new_callable=AsyncMock, return_value=None):
@@ -217,7 +218,8 @@ async def test_analyst_multiplier_capped():
          patch("consensus_engine.cross_reference._run_technical",
                new_callable=AsyncMock, return_value=None), \
          patch("consensus_engine.cross_reference._run_other_analysts",
-               new_callable=AsyncMock, return_value=ten_analysts), \
+               new_callable=AsyncMock,
+               return_value={"aligned": ten_analysts, "opposing": []}), \
          patch("consensus_engine.cross_reference._run_llm_score",
                new_callable=AsyncMock, return_value=(0.0, "")), \
          patch("consensus_engine.cross_reference._run_options_check",
@@ -226,6 +228,30 @@ async def test_analyst_multiplier_capped():
 
     # 3 (cap) * 20 = 60, NOT 10 * 20 = 200
     assert result.breakdown.additional_analysts == 60
+
+
+@pytest.mark.asyncio
+async def test_unsigned_legacy_analyst_list_adds_zero_agreement():
+    with patch("consensus_engine.cross_reference._run_news_cascade",
+               new=AsyncMock(return_value=None)), \
+         patch("consensus_engine.cross_reference._run_sec_check",
+               new=AsyncMock(return_value=(False, ""))), \
+         patch("consensus_engine.cross_reference._run_social_check",
+               new=AsyncMock(return_value={})), \
+         patch("consensus_engine.cross_reference._run_technical",
+               new=AsyncMock(return_value=None)), \
+         patch("consensus_engine.cross_reference._run_other_analysts",
+               new=AsyncMock(return_value=["legacy_without_direction"])), \
+         patch("consensus_engine.cross_reference._run_options_check",
+               new=AsyncMock(return_value=None)), \
+         patch("consensus_engine.cross_reference._get_youtube_context",
+               new=AsyncMock(return_value=None)), \
+         patch("consensus_engine.cross_reference._run_llm_score",
+               new=AsyncMock(return_value=(0.0, ""))):
+        result = await score_ticker("NVDA", base_score=30, direction="long")
+
+    assert result.breakdown.additional_analysts == 0
+    assert result.other_analysts == []
 
 
 @pytest.mark.asyncio

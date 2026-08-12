@@ -408,11 +408,9 @@ def _trade_levels_field(xref, direction=None):
             "inline": False}
 
 
-def format_detail_followup(xref: CrossReferenceResult, precision: Optional[dict] = None, *, direction=None) -> dict:
-    """Build Discord embed for the detail follow-up (Phase 2)."""
-    b = xref.breakdown
-    total = b.total
-
+def owner_visible_score(xref: CrossReferenceResult, precision: Optional[dict] = None) -> int:
+    """Return the exact score that the detail card title will show."""
+    total = xref.breakdown.total
     # I4-full — single-score reconciliation (features.single_score.enabled).
     # Supersedes I4-display-honesty when both flags are ON.  When single_score is
     # ON, main.py has already computed precision["reconciled_score"] and
@@ -427,14 +425,10 @@ def format_detail_followup(xref: CrossReferenceResult, precision: Optional[dict]
     single_score_on = cfg.get("features.single_score.enabled", False)
     honesty_on = cfg.get("features.score_display_honesty.enabled", False)
     headline_total = total
-    budget_degraded = False
-    displayed_score = None
     if single_score_on and precision and not precision.get("skipped") and "reconciled_score" in precision:
         # I4-full path: reconciled_score was computed in main.py with the never-contradict
         # and budget-fallback rules already applied.
-        displayed_score = int(precision["reconciled_score"])
-        budget_degraded = bool(precision.get("i4_full_budget_depressed"))
-        headline_total = displayed_score
+        headline_total = int(precision["reconciled_score"])
     elif honesty_on and precision and not precision.get("skipped"):
         # I4-display-honesty: behind features.score_display_honesty.enabled. With the
         # flag OFF, headline_total stays the raw additive sum (total) → byte-identical
@@ -446,19 +440,36 @@ def format_detail_followup(xref: CrossReferenceResult, precision: Optional[dict]
         cls_obj = precision.get("classification")
         cls_str = cls_obj.value if hasattr(cls_obj, "value") else str(cls_obj)
         p_score = int(precision.get("total_score", 0) or 0)
-        displayed_score = p_score
+        headline_total = p_score
         # never show a number that contradicts the class
-        if cls_str == "STRONG_ALERT" and displayed_score < med:
-            displayed_score = med
+        if cls_str == "STRONG_ALERT" and headline_total < med:
+            headline_total = med
         budget_degraded = bool(precision.get("skipped_sources"))
         # budget-depressed: never silently show the higher number — show the gated
         # number with an explicit degraded state.
-        headline_total = displayed_score
         log.info(
             "[I4-display] $%s reconciled: additive=%d precision=%d displayed=%d class=%s budget_degraded=%s skipped=%s",
-            xref.ticker, total, p_score, displayed_score, cls_str,
+            xref.ticker, total, p_score, headline_total, cls_str,
             budget_degraded, precision.get("skipped_sources"),
         )
+
+    return int(headline_total)
+
+
+def format_detail_followup(xref: CrossReferenceResult, precision: Optional[dict] = None, *, direction=None) -> dict:
+    """Build Discord embed for the detail follow-up (Phase 2)."""
+    b = xref.breakdown
+    total = b.total
+    single_score_on = cfg.get("features.single_score.enabled", False)
+    honesty_on = cfg.get("features.score_display_honesty.enabled", False)
+    headline_total = owner_visible_score(xref, precision)
+    budget_degraded = bool(
+        precision
+        and (
+            precision.get("i4_full_budget_depressed")
+            if single_score_on else precision.get("skipped_sources")
+        )
+    )
 
     fields = []
 
@@ -515,19 +526,19 @@ def format_detail_followup(xref: CrossReferenceResult, precision: Optional[dict]
             flags.append("market ❌")
         if precision.get("has_mainstream"):
             flags.append("mainstream ✅")
-        if single_score_on and displayed_score is not None:
+        if single_score_on:
             # I4-full: show the reconciled number and flag budget-degraded state.
             if budget_degraded:
                 flags.append("confidence degraded: budget")
-            precision_text = f"{icon} **{cls_val}** | score={displayed_score} | {' | '.join(flags)}"
-        elif honesty_on and displayed_score is not None:
+            precision_text = f"{icon} **{cls_val}** | score={headline_total} | {' | '.join(flags)}"
+        elif honesty_on:
             # I4-display-honesty: show the gated number, and on a budget-depressed
             # run flag the degraded confidence explicitly (never the higher number).
             if budget_degraded:
                 flags.append("confidence degraded: budget")
-            precision_text = f"{icon} **{cls_val}** | score={displayed_score} | {' | '.join(flags)}"
+            precision_text = f"{icon} **{cls_val}** | score={headline_total} | {' | '.join(flags)}"
         else:
-            precision_text = f"{icon} **{cls_val}** | score={p_score} | {' | '.join(flags)}"
+            precision_text = f"{icon} **{cls_val}** | score={headline_total} | {' | '.join(flags)}"
         fields.append({"name": "Precision Engine", "value": precision_text, "inline": False})
 
     # I14-display: regime risk-context line, behind features.regime_context_line.enabled.

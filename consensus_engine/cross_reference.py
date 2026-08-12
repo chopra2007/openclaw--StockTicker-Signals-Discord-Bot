@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from consensus_engine.utils.xref_cache import get_cached_xref, cache_xref
+from consensus_engine.measurement import build_score_cache_key, classify_analyst_alignment
 
 from consensus_engine import config as cfg
 from consensus_engine import db
@@ -1151,10 +1152,35 @@ async def _run_technical(ticker: str, direction: str = "long") -> Optional[Techn
     return await verify_technical(ticker, direction=direction)
 
 
-async def _run_other_analysts(ticker: str, exclude_analyst: str = "") -> list[str]:
-    """Get other analysts who recently mentioned this ticker."""
-    analysts = await db.get_recent_analysts_for_ticker(ticker, window_seconds=3600)
-    return [a for a in analysts if a != exclude_analyst]
+async def _run_other_analysts(
+    ticker: str, direction: str, exclude_analyst: str = "",
+) -> dict[str, list[str]]:
+    """Split recent analysts into same-direction and opposing groups."""
+    rows = await db.get_recent_analyst_signals_for_ticker(ticker, window_seconds=3600)
+    latest: dict[str, tuple[float | None, set[str]]] = {}
+    for row in rows:
+        analyst = row["analyst"]
+        if analyst == exclude_analyst:
+            continue
+        detected_at = row.get("detected_at")
+        state = latest.get(analyst)
+        if state is None or (detected_at is not None and
+                             (state[0] is None or detected_at > state[0])):
+            latest[analyst] = (detected_at, {str(row.get("direction", "")).lower()})
+        elif detected_at == state[0]:
+            state[1].add(str(row.get("direction", "")).lower())
+    aligned: list[str] = []
+    opposing: list[str] = []
+    for analyst, (_, directions) in latest.items():
+        if len(directions) != 1 or "ambiguous" in directions:
+            opposing.append(analyst)
+            continue
+        alignment = classify_analyst_alignment(direction, next(iter(directions)))
+        if alignment == "agreement":
+            aligned.append(analyst)
+        elif alignment == "disagreement":
+            opposing.append(analyst)
+    return {"aligned": aligned, "opposing": opposing}
 
 
 async def _run_llm_score(ticker: str, catalyst: Optional[CatalystResult],
@@ -1428,13 +1454,13 @@ async def score_ticker(
     m = cfg.get("scoring.multipliers", {})
 
     metrics: dict[str, int] = {}
-    catalyst, (sec_hit, sec_summary), social_data, technical, other_analysts, options, youtube = \
+    catalyst, (sec_hit, sec_summary), social_data, technical, analyst_groups, options, youtube = \
         await asyncio.gather(
             _with_timeout(_timed(_run_news_cascade(ticker), metrics, "news_cascade_ms"), 15.0, None, "news", sem=_sem_news),
             _with_timeout(_timed(_run_sec_check(ticker), metrics, "sec_check_ms"), 10.0, (False, ""), "sec", sem=_sem_news),
             _with_timeout(_timed(_run_social_check(ticker), metrics, "social_ms"), 5.0, {}, "social", sem=_sem_social),
             _with_timeout(_timed(_run_technical(ticker, direction=direction), metrics, "technical_ms"), 20.0, None, "technical", sem=_sem_technical),
-            _with_timeout(_timed(_run_other_analysts(ticker, exclude_analyst=exclude_analyst), metrics, "analyst_check_ms"), 5.0, [], "analysts"),
+            _with_timeout(_timed(_run_other_analysts(ticker, direction, exclude_analyst=exclude_analyst), metrics, "analyst_check_ms"), 5.0, {"aligned": [], "opposing": []}, "analysts"),
             _with_timeout(_timed(_run_options_check(ticker, executor), metrics, "options_check_ms"), 15.0, None, "options", sem=_sem_technical),
             _with_timeout(_timed(_get_youtube_context(ticker), metrics, "youtube_ms"), 8.0, None, "youtube"),
         )
@@ -1442,6 +1468,17 @@ async def score_ticker(
     # Cheap subtotals (no LLM) are computed BEFORE the LLM guard so the
     # flag-gated skip below can decide whether the LLM call could ever change
     # the alert outcome. (Reorder for #16 — math is unchanged.)
+    if isinstance(analyst_groups, dict):
+        opposing_analysts = list(dict.fromkeys(analyst_groups.get("opposing", [])))
+        opposing_set = set(opposing_analysts)
+        other_analysts = [
+            analyst for analyst in dict.fromkeys(analyst_groups.get("aligned", []))
+            if analyst not in opposing_set
+        ]
+    else:
+        # Identity-only rows carry no direction and cannot count as agreement.
+        other_analysts = []
+        opposing_analysts = []
     max_analysts = cfg.get("scoring.multipliers.max_additional_analysts", 3)
     per_analyst = m.get("additional_analyst", 20)
     flat_analyst_pts = min(len(other_analysts), max_analysts) * per_analyst
@@ -1475,6 +1512,9 @@ async def score_ticker(
             "[I2 shadow] $%s analyst_pts weighted=%d flat=%d (n_analysts=%d)",
             ticker, analyst_pts, flat_analyst_pts, len(other_analysts),
         )
+    # Opposing signed calls are disagreement, never agreement. Apply the same
+    # per-analyst magnitude as a subtraction, capped by the existing analyst cap.
+    analyst_pts -= min(len(opposing_analysts), max_analysts) * per_analyst
     news_pts = _get_catalyst_score(catalyst.catalyst_type) if (catalyst and catalyst.passed) else 0
     # I12 (signal-features-2026-06-09, flag OFF default): add a magnitude bonus
     # on TOP of the base catalyst tier for a FRESH earnings print carrying a
@@ -1733,6 +1773,8 @@ async def score_ticker(
         sec_pts=sec_pts,
         burst_analysis=burst_analysis,
     )
+    if opposing_analysts:
+        n_opposing += 1
     # Count signed legs (rough proxy for shadow log)
     yt_dir_val = ""
     if youtube is not None:
@@ -1930,8 +1972,20 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
     """
     direction = tweet.direction.value if hasattr(tweet.direction, 'value') else "long"
 
-    # Check xref cache (prevents redundant API calls for same ticker within 5 min)
-    cached = await get_cached_xref(ticker)
+    bucket_seconds = int(cfg.get("measurement.batch1.score_cache_bucket_seconds", 300))
+    cache_key = build_score_cache_key(
+        ticker=ticker,
+        direction=direction,
+        analyst=tweet.analyst,
+        source="twitter",
+        catalyst=getattr(tweet.tweet_type, "value", str(tweet.tweet_type)),
+        base_score=tweet.base_score,
+        rule_version=cfg.get("measurement.batch1.rule_version", "batch1-v1"),
+        time_bucket=int(time.time() // bucket_seconds),
+        input_fingerprint=getattr(tweet, "tweet_url", ""),
+    )
+    # A final score is reusable only for the exact same signed input situation.
+    cached = await get_cached_xref(ticker, key_prefix=cache_key)
     if cached is not None:
         log.info("Cross-reference cache HIT for $%s", ticker)
         return cached
@@ -1980,7 +2034,7 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
              ticker, result.final_score, tweet.base_score,
              result.final_score - tweet.base_score, youtube_pts)
 
-    await cache_xref(ticker, result)
+    await cache_xref(ticker, result, key_prefix=cache_key)
 
     # Record per-component latency metrics
     for metric_key, ms_value in score_result.metrics.items():

@@ -329,10 +329,12 @@ def test_d_flag_off_snapshot_is_identical_to_baseline():
     # Baseline: title starts with "Cross-Reference:" and shows the raw additive total.
     assert embed["title"].startswith("Cross-Reference:"), embed["title"]
     assert "105" in embed["title"]
-    # Precision Engine field is present with the raw precision score.
+    # The permanent rule is one visible score. With both flags off, preserve
+    # the legacy title number and use that same number in the detail field.
     prec_field = next((f for f in embed["fields"] if f["name"] == "Precision Engine"), None)
     assert prec_field is not None
-    assert "72" in prec_field["value"]
+    assert "105" in prec_field["value"]
+    assert "72" not in prec_field["value"]
 
 
 def test_d_single_score_off_honesty_on_still_works(monkeypatch):

@@ -17,7 +17,7 @@ import time
 
 import aiohttp
 
-from consensus_engine import config as cfg, db
+from consensus_engine import config as cfg, db, measurement
 from consensus_engine.utils.time_context import build_time_context_oneliner
 from consensus_engine.models import (
     ScoreBreakdown,
@@ -34,7 +34,7 @@ from consensus_engine.scanners.social import (
 from consensus_engine.scanners.discord_tweetshift import DiscordTweetShiftListener
 from consensus_engine.analysis.tweet_parser import parse_tweet
 from consensus_engine.cross_reference import cross_reference
-from consensus_engine.alerts.discord import edit_instant_ping, send_detail_followup, send_merged_followup, send_instant_ping, send_swarm_alert
+from consensus_engine.alerts.discord import edit_instant_ping, owner_visible_score, send_detail_followup, send_merged_followup, send_instant_ping, send_swarm_alert
 from consensus_engine.analysis.calibration import calibrate, log_shadow_prediction
 from consensus_engine.utils.http import close_session, get_session
 from consensus_engine.utils.tickers import is_valid_ticker, validate_ticker_market_cap
@@ -1701,6 +1701,17 @@ def _serialize_breakdown(breakdown: ScoreBreakdown) -> str:
     })
 
 
+def _measurement_enabled() -> bool:
+    return bool(cfg.get("measurement.batch1.collect_enabled", False))
+
+
+async def _measurement_transition_quiet(**values) -> None:
+    """Append a decision fact; collection failures must be visible to the caller."""
+    if not _measurement_enabled() or not values.get("candidate_id"):
+        return
+    await measurement.transition_decision(**values)
+
+
 def _passes_quality_gate(tweet, ticker: str) -> bool:
     """Cheap pre-alert filter for obvious parser noise."""
     if not ticker or len(ticker) < 2 or not is_valid_ticker(ticker):
@@ -1794,10 +1805,50 @@ async def process_tweet(raw_tweet: dict):
         return
 
     for ticker in tweet.tickers:
+        candidate_id = None
+        decision_id = None
+        trade_direction = getattr(tweet.direction, "value", str(tweet.direction)).lower()
+        if _measurement_enabled() and trade_direction not in ("long", "short"):
+            log.error("Batch 1 rejected $%s: actionable trade has no long/short direction", ticker)
+            continue
+        if _measurement_enabled():
+            try:
+                ids = await measurement.write_initial_trade_bundle(
+                    candidate={
+                        "ticker": ticker,
+                        "direction": trade_direction,
+                        "analyst": tweet.analyst,
+                        "catalyst": getattr(tweet.tweet_type, "value", str(tweet.tweet_type)),
+                        "base_score": tweet.base_score,
+                        "rule_version": cfg.get("measurement.batch1.rule_version", "batch1-v1"),
+                        "input_fingerprint": tweet.tweet_url,
+                    },
+                    decision={
+                        "status": "pending",
+                        "rule_version": cfg.get("measurement.batch1.rule_version", "batch1-v1"),
+                        "scorer_version": cfg.get("measurement.batch1.scorer_version", "consensus-v1"),
+                        "input_fingerprint": tweet.tweet_url,
+                    },
+                )
+                candidate_id = ids["candidate_id"]
+                decision_id = ids["decision_id"]
+            except Exception as exc:
+                log.error("Batch 1 initial measurement failed for $%s: %s", ticker, exc)
+                continue
         if not _passes_quality_gate(tweet, ticker):
+            await _measurement_transition_quiet(
+                candidate_id=candidate_id, decision_id=decision_id,
+                status="rejected_before_send", reason="quality_gate",
+                rule_version=cfg.get("measurement.batch1.rule_version", "batch1-v1"),
+            )
             continue
         if not await validate_ticker_market_cap(ticker):
             log.info("Skipping $%s from @%s due to market-cap filter", ticker, tweet.analyst)
+            await _measurement_transition_quiet(
+                candidate_id=candidate_id, decision_id=decision_id,
+                status="rejected_before_send", reason="market_cap_filter",
+                rule_version=cfg.get("measurement.batch1.rule_version", "batch1-v1"),
+            )
             continue
 
         await db.insert_signal(TickerSignal(
@@ -1824,6 +1875,11 @@ async def process_tweet(raw_tweet: dict):
                 log.warning("[A2] detect_swarm error for $%s: %s", ticker, _e)
 
         if not await db.check_alert_cooldown(ticker, tweet.analyst, tweet.base_score):
+            await _measurement_transition_quiet(
+                candidate_id=candidate_id, decision_id=decision_id,
+                status="suppressed", reason="cooldown",
+                rule_version=cfg.get("measurement.batch1.rule_version", "batch1-v1"),
+            )
             continue
 
         # Degraded-mode suppression: skip high-confidence alerts when data is unreliable
@@ -1834,6 +1890,11 @@ async def process_tweet(raw_tweet: dict):
                 "DEGRADED_MODE: suppressing high-confidence alert for $%s (score=%d)",
                 ticker, tweet.base_score,
             )
+            await _measurement_transition_quiet(
+                candidate_id=candidate_id, decision_id=decision_id,
+                status="suppressed", reason="degraded_mode",
+                rule_version=cfg.get("measurement.batch1.rule_version", "batch1-v1"),
+            )
             continue
 
         alert_tweet = replace(tweet, tickers=[ticker])
@@ -1842,22 +1903,66 @@ async def process_tweet(raw_tweet: dict):
         # If the process dies between the send and the insert, a sent alert with no
         # cooldown row would let the next different tweet on this ticker re-alert. Arming
         # the cooldown first flips the failure to the safe direction (a rare missed ping).
-        alert_row_id = await db.insert_alert(
-            ticker=ticker,
-            confidence=float(alert_tweet.base_score),
-            catalyst="",
-            catalyst_type="",
-            consensus_json=_serialize_breakdown(ScoreBreakdown(base=alert_tweet.base_score)),
-            technical_json=json.dumps({}),
-            analysts_json=json.dumps([]),
-            price=price,
-        )
+        alert_measurement_id = None
+        delivery_id = None
+        if _measurement_enabled():
+            try:
+                measurement_ids = await db.insert_alert_with_measurement(
+                    ticker=ticker,
+                    confidence=float(alert_tweet.base_score),
+                    catalyst="",
+                    catalyst_type="",
+                    consensus_json=_serialize_breakdown(ScoreBreakdown(base=alert_tweet.base_score)),
+                    technical_json=json.dumps({}),
+                    analysts_json=json.dumps([]),
+                    price=price,
+                    decision_id=decision_id,
+                    direction=trade_direction,
+                    analyst=tweet.analyst,
+                )
+                alert_row_id = int(measurement_ids["legacy_alert_id"])
+                alert_measurement_id = measurement_ids["alert_id"]
+                delivery_id = measurement_ids["delivery_id"]
+            except Exception as exc:
+                log.error("Batch 1 delivery measurement failed for $%s: %s", ticker, exc)
+                await _measurement_transition_quiet(
+                    candidate_id=candidate_id, decision_id=decision_id,
+                    status="failed", reason="measurement_write_failed",
+                    rule_version=cfg.get("measurement.batch1.rule_version", "batch1-v1"),
+                )
+                continue
+        else:
+            alert_row_id = await db.insert_alert(
+                ticker=ticker,
+                confidence=float(alert_tweet.base_score),
+                catalyst="",
+                catalyst_type="",
+                consensus_json=_serialize_breakdown(ScoreBreakdown(base=alert_tweet.base_score)),
+                technical_json=json.dumps({}),
+                analysts_json=json.dumps([]),
+                price=price,
+            )
         instant_msg_id = await send_instant_ping(alert_tweet, price, degraded=DEGRADED_MODE)
         if instant_msg_id is None:
             # Send failed — roll back the phantom cooldown row so stats and the
             # cooldown window aren't corrupted by an alert that never went out.
             await db.delete_alert(alert_row_id)
+            if delivery_id:
+                await measurement.record_delivery(
+                    decision_id=decision_id, delivery_id=delivery_id,
+                    attempt_id=delivery_id, status="failed", reason="discord_send_failed")
+            await _measurement_transition_quiet(
+                candidate_id=candidate_id, decision_id=decision_id,
+                status="failed", reason="discord_send_failed",
+                rule_version=cfg.get("measurement.batch1.rule_version", "batch1-v1"),
+            )
             continue
+        if delivery_id:
+            await measurement.record_delivery(
+                decision_id=decision_id, delivery_id=delivery_id,
+                attempt_id=delivery_id, status="confirmed_delivered",
+                external_message_id=instant_msg_id,
+            )
         alert_message_id = await db.insert_alert_message(
             ticker=ticker,
             analyst=tweet.analyst,
@@ -1872,6 +1977,9 @@ async def process_tweet(raw_tweet: dict):
                 alert_message_id,
                 alert_row_id,
                 entry_price=price,
+                measurement_candidate_id=candidate_id,
+                measurement_decision_id=decision_id,
+                measurement_alert_id=alert_measurement_id,
             ),
             name=f"xref-{ticker}-{instant_msg_id}",
         )
@@ -1885,6 +1993,9 @@ async def _run_cross_reference_and_followup(
     alert_row_id: int,
     *,
     entry_price: float | None = None,
+    measurement_candidate_id: str | None = None,
+    measurement_decision_id: str | None = None,
+    measurement_alert_id: str | None = None,
 ):
     """Run slow xref work after the instant alert has already been persisted."""
     # Optional kwarg for back-compat with legacy 5-arg positional callers (e.g.
@@ -1929,6 +2040,8 @@ async def _run_cross_reference_and_followup(
                 breakdown=_xref_breakdown,
                 technical_filter_count=_tech_filter_count,
                 analyst=tweet.analyst,
+                direction=getattr(tweet.direction, "value", str(tweet.direction)),
+                catalyst_type=(xref.catalyst_type if xref is not None else ""),
             )
         except Exception as e:
             log.warning("Precision engine failed for $%s: %s", ticker, e)
@@ -1941,12 +2054,27 @@ async def _run_cross_reference_and_followup(
         # Silent failure is the worst failure: surface the skip reason on the Phase-1 msg.
         if xref_timed_out:
             await edit_instant_ping(instant_msg_id, "Phase 2 skipped — timeout")
+            await _measurement_transition_quiet(
+                candidate_id=measurement_candidate_id, decision_id=measurement_decision_id,
+                status="timed_out", reason="cross_reference_timeout",
+                rule_version=cfg.get("measurement.batch1.rule_version", "batch1-v1"),
+            )
             return
         if classification == SignalClass.IGNORE:
             await edit_instant_ping(instant_msg_id, "Phase 2 skipped — low precision")
+            await _measurement_transition_quiet(
+                candidate_id=measurement_candidate_id, decision_id=measurement_decision_id,
+                status="suppressed", reason="low_precision",
+                rule_version=cfg.get("measurement.batch1.rule_version", "batch1-v1"),
+            )
             return
         if xref is None:
             # xref raised a non-timeout exception; nothing to follow up with
+            await _measurement_transition_quiet(
+                candidate_id=measurement_candidate_id, decision_id=measurement_decision_id,
+                status="failed", reason="cross_reference_failed",
+                rule_version=cfg.get("measurement.batch1.rule_version", "batch1-v1"),
+            )
             return
 
         if classification is not None:
@@ -2013,21 +2141,91 @@ async def _run_cross_reference_and_followup(
             precision["reconciled_score"] = _reconciled
             precision["i4_full_budget_depressed"] = _budget_depressed
 
+        displayed_score = float(owner_visible_score(xref, precision))
+
+        phase2_delivery_id = None
+        if _measurement_enabled() and measurement_decision_id:
+            phase2_delivery_id = await measurement.record_delivery(
+                decision_id=measurement_decision_id,
+                status="attempt_created",
+            )
+            await measurement.record_delivery(
+                decision_id=measurement_decision_id,
+                delivery_id=phase2_delivery_id,
+                attempt_id=phase2_delivery_id,
+                status="send_started",
+            )
+
         # #63 merged card: when ON (default), edit the instant ping in place into
         # one merged detailed card (full detail + Trade Levels, tweet preserved) —
         # no second message. Flag OFF → separate ping + detail follow-up (legacy).
-        if cfg.get("alerts.merged_detail_card.enabled", True):
-            followup_id = await send_merged_followup(xref, tweet, instant_msg_id, precision=precision)
-        else:
-            followup_id = await send_detail_followup(xref, instant_msg_id, precision=precision)
-        await db.update_alert_message_followup(alert_message_id, followup_id, xref.final_score)
+        phase2_failure_reason = "phase2_delivery_failed"
+        try:
+            if cfg.get("alerts.merged_detail_card.enabled", True):
+                followup_id = await send_merged_followup(
+                    xref, tweet, instant_msg_id, precision=precision)
+            else:
+                followup_id = await send_detail_followup(
+                    xref, instant_msg_id, precision=precision)
+        except Exception as exc:
+            followup_id = None
+            phase2_failure_reason = "phase2_delivery_exception"
+            log.error("Phase-2 Discord delivery raised for $%s: %s", ticker, type(exc).__name__)
+        if not followup_id:
+            if phase2_delivery_id:
+                await measurement.record_delivery(
+                    decision_id=measurement_decision_id,
+                    delivery_id=phase2_delivery_id,
+                    attempt_id=phase2_delivery_id,
+                    status="failed",
+                    reason=phase2_failure_reason,
+                )
+                await measurement.record_alert(
+                    decision_id=measurement_decision_id,
+                    alert_id=measurement_alert_id,
+                    status="failed",
+                    reason=phase2_failure_reason,
+                    legacy_alert_id=alert_row_id,
+                )
+                await _measurement_transition_quiet(
+                    candidate_id=measurement_candidate_id,
+                    decision_id=measurement_decision_id,
+                    status="failed",
+                    reason=phase2_failure_reason,
+                    rule_version=cfg.get("measurement.batch1.rule_version", "batch1-v1"),
+                )
+            log.error("Phase-2 Discord delivery failed for $%s", ticker)
+            return
+        if phase2_delivery_id:
+            await measurement.record_delivery(
+                decision_id=measurement_decision_id,
+                delivery_id=phase2_delivery_id,
+                attempt_id=phase2_delivery_id,
+                status="confirmed_delivered",
+                external_message_id=followup_id,
+            )
+        await db.update_alert_message_followup(
+            alert_message_id, followup_id, displayed_score)
+        await _measurement_transition_quiet(
+            candidate_id=measurement_candidate_id, decision_id=measurement_decision_id,
+            status="scored", owner_visible_score=displayed_score,
+            scorer_version=cfg.get("measurement.batch1.scorer_version", "consensus-v1"),
+            rule_version=cfg.get("measurement.batch1.rule_version", "batch1-v1"),
+        )
+        if _measurement_enabled() and measurement_alert_id and measurement_decision_id:
+            await measurement.record_alert(
+                decision_id=measurement_decision_id,
+                alert_id=measurement_alert_id,
+                status="scored",
+                owner_visible_score=displayed_score,
+                legacy_alert_id=alert_row_id,
+            )
 
         # Q1 shadow-mode logging: record a decision_snapshots row and merge the
         # calibrated probability into its feature_vector_json. Never raises.
         try:
             # I4-full: use the reconciled score for decision logging when the flag is ON.
-            _i4_reconciled = precision.get("reconciled_score") if precision else None
-            final_score = float(_i4_reconciled if _i4_reconciled is not None else xref.final_score)
+            final_score = displayed_score
             shadow_prob = calibrate(final_score, "1h")
             try:
                 sources_json = _serialize_breakdown(xref.breakdown)
@@ -2108,7 +2306,7 @@ async def _run_cross_reference_and_followup(
             json.dumps(breakdown_dict),
             json.dumps(asdict(xref.technical)) if xref.technical else json.dumps({}),
             json.dumps(xref.other_analysts),
-            confidence=float(xref.final_score),
+            confidence=displayed_score,
             catalyst=xref.catalyst_summary,
             catalyst_type=xref.catalyst_type,
         )
@@ -2362,7 +2560,21 @@ async def _fill_slow_outcomes(loop, executor, bounded: bool, limit: int) -> dict
                           field, snap["ticker"], price)
                 continue
             if price and price > 0:
-                await db.update_snapshot_outcomes(snap["id"], **{field: float(price)})
+                if _measurement_enabled():
+                    # Linked 24h/5d rows are completed by the alert-specific
+                    # atomic paths below. The 20d horizon is snapshot-only.
+                    if snap.get("alert_id") and field in ("outcome_price_24h", "outcome_price_5d"):
+                        continue
+                    await db.write_linked_snapshot_outcome(
+                        snapshot_id=snap["id"], field=field, price=float(price),
+                        horizon={
+                            "outcome_price_24h": "24h",
+                            "outcome_price_5d": "5d",
+                            "outcome_price_20d": "20d",
+                        }[field],
+                    )
+                else:
+                    await db.update_snapshot_outcomes(snap["id"], **{field: float(price)})
                 counts[field] += 1
     return counts
 
@@ -2398,7 +2610,13 @@ async def _fill_alert_5d_outcomes(loop, executor, limit: int = 50,
             log.debug("5d outcome fetch error for %s: %s", alert["ticker"], price)
             continue
         if price and price > 0:
-            await db.update_alert_price(alert["id"], "price_5d_later", float(price))
+            if _measurement_enabled():
+                await db.write_linked_alert_outcome(
+                    alert_id=alert["id"], field="price_5d_later",
+                    price=float(price), horizon="5d",
+                )
+            else:
+                await db.update_alert_price(alert["id"], "price_5d_later", float(price))
             filled += 1
     if filled:
         log.info("filled price_5d_later on %d alerts", filled)
@@ -2437,6 +2655,13 @@ async def _fill_alert_24h_catchup(loop, executor, limit: int = 50,
             log.debug("24h catch-up fetch error for %s: %s", alert["ticker"], price)
             continue
         if price and price > 0:
+            if _measurement_enabled():
+                await db.write_linked_alert_outcome(
+                    alert_id=alert["id"], field="price_24h_later",
+                    price=float(price), horizon="24h",
+                )
+                filled += 1
+                continue
             await db.update_alert_price(alert["id"], "price_24h_later", float(price))
             snapshot_id = await db.get_snapshot_id_for_alert(alert["id"])
             if snapshot_id is not None:
@@ -2504,6 +2729,12 @@ async def price_outcome_loop(stop_event: asyncio.Event):
                                       alert["ticker"], price)
                             continue
                         if price > 0:
+                            if _measurement_enabled():
+                                await db.write_linked_alert_outcome(
+                                    alert_id=alert["id"], field=field,
+                                    price=float(price), horizon=horizon,
+                                )
+                                continue
                             await db.update_alert_price(alert["id"], field, price)
                             # Codex fix #3: update decision_snapshots.outcome_price_{1h,24h}
                             # so calibration.retrain() can read labelled rows.
