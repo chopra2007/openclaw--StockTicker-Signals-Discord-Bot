@@ -10,11 +10,36 @@ answers time/market-hours questions correctly instead of hallucinating
 from stale training data.
 """
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo
 import pandas_market_calendars as mcal
 
 _NYSE = mcal.get_calendar("NYSE")
+_NY = ZoneInfo("America/New_York")
+
+
+def session_dates(start: date, end: date) -> list[date]:
+    """NYSE trading-session dates from ``start`` to ``end``, inclusive.
+
+    Holiday-aware (skips closures), so callers can count real market sessions
+    instead of weekdays. Returns [] when the range is empty or has no sessions.
+    """
+    if end < start:
+        return []
+    sched = _NYSE.schedule(start, end)
+    if sched.empty:
+        return []
+    return [ts.date() for ts in sched.index]
+
+
+def session_bounds(day: date) -> tuple[datetime, datetime] | None:
+    """(open, close) in New York time for ``day``, or None if it is not a
+    trading session. Early-close aware — a half-day returns its real close."""
+    sched = _NYSE.schedule(day, day)
+    if sched.empty:
+        return None
+    return (sched.iloc[0]["market_open"].astimezone(_NY),
+            sched.iloc[0]["market_close"].astimezone(_NY))
 
 
 def nyse_open_now(now_et: datetime | None = None) -> bool:

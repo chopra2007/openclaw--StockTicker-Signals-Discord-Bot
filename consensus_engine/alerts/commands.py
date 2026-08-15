@@ -12,7 +12,7 @@ Commands:
   !active-tickers     — all tickers with active signals
   !sec <TICKER>       — recent SEC filings (8-K, Form 4, 13D, etc.)
   !options <TICKER>   — unusual options activity (call/put ratios, vol/OI)
-  !em <TICKER>        — options-implied daily expected move + chart
+  !em <TICKER> [daily|weekly] — options-implied expected move + chart
   !technical <TICKER> — run 6 technical filters independently
   !news <TICKER>      — run news cascade standalone
   !google-trends <T>  — Google Trends spike % for a ticker
@@ -70,6 +70,36 @@ async def _dispatch_inner(coro) -> asyncio.Task:
 # tickers — a tiny explicit set, NOT the full blacklist, so `!all SPY` still works.
 
 _DIRECTION_WORDS = {"LONG", "SHORT"}
+
+# !em takes an optional horizon word alongside its tickers: `!em SPY weekly`.
+# Same idea as _DIRECTION_WORDS — a tiny explicit set that is never a ticker.
+_HORIZON_WORDS = {"DAILY": "daily", "WEEKLY": "weekly"}
+_EM_USAGE = ("Usage: `!em <TICKER> [daily|weekly]` — e.g. `!em SPY`, "
+             "`!em SPY weekly` (or several: `!em nvda amd mu weekly`). "
+             "Daily is the default.")
+
+
+def _extract_horizon(args: list[str]) -> tuple[list[str], Optional[str]]:
+    """Split a horizon word out of !em's args.
+
+    Returns (args without the horizon word, horizon) — horizon is "daily" when
+    none was given, or None when two different horizons were asked for at once
+    (the caller then shows the usage line). The word may come before or after
+    the tickers.
+    """
+    tokens = [t for t in re.split(r"[,\s]+", " ".join(args)) if t]
+    kept: list[str] = []
+    seen: list[str] = []
+    for tok in tokens:
+        word = tok.lstrip("$").upper()
+        if word in _HORIZON_WORDS:
+            if word not in seen:
+                seen.append(word)
+        else:
+            kept.append(tok)
+    if len(seen) > 1:
+        return kept, None
+    return kept, (_HORIZON_WORDS[seen[0]] if seen else "daily")
 
 
 def _parse_ticker_args(
@@ -349,7 +379,7 @@ def _build_help_embed() -> dict:
                     "`!news <ticker>` — news cascade (headline + catalyst type)\n"
                     "`!sec <ticker>` — recent SEC filings (8-K, Form 4, 13D…)\n"
                     "`!options <ticker>` — unusual options activity (vol/OI ratios)\n"
-                    "`!em <ticker>` — options-implied daily expected move + chart\n"
+                    "`!em <ticker> [daily|weekly]` — options-implied expected move + chart (daily by default)\n"
                     "`!technical <ticker>` — 6 technical filters with pass/fail\n"
                     "`!google-trends <ticker>` — Google Trends interest spike %\n"
                     "`!alert-history <ticker>` — past alerts with 1h/24h price outcomes\n"
@@ -617,11 +647,15 @@ async def _route_command_inner(
             usage="Usage: `!cluster <TICKER>` — e.g. `!cluster NVDA` (or several: `!cluster nvda amd`)")
 
     elif command == "em":
-        await _run_ticker_command(
-            args, channel_id, message_id,
-            work=lambda t: _handle_em(t, channel_id, message_id),
-            mode="sequential", cap=5,
-            usage="Usage: `!em <TICKER>` — e.g. `!em SPY` (or several: `!em nvda amd mu`)")
+        em_args, horizon = _extract_horizon(args)
+        if horizon is None or (args and not em_args):
+            # two horizons at once, or a horizon with no ticker
+            await send_command_reply(channel_id, message_id, _EM_USAGE)
+        else:
+            await _run_ticker_command(
+                em_args, channel_id, message_id,
+                work=lambda t: _handle_em(t, channel_id, message_id, horizon),
+                mode="sequential", cap=5, usage=_EM_USAGE)
 
     elif command in ("market", "rotation", "breadth", "regime"):
         await _handle_market(channel_id, message_id)
@@ -1173,21 +1207,27 @@ async def _options_and_reply(ticker: str, channel_id: str, message_id: str) -> N
         await send_command_reply(channel_id, message_id, f"Options lookup failed for `${ticker}`.")
 
 
-async def _handle_em(ticker: str, channel_id: str, message_id: str) -> None:
-    """Show the options-implied daily expected move (with chart) for a ticker.
+async def _handle_em(ticker: str, channel_id: str, message_id: str,
+                     horizon: str = "daily") -> None:
+    """Show the options-implied expected move (with chart) for a ticker.
 
-    Works on any optionable ticker; tickers with no listed options or with
-    options too illiquid for a reliable straddle get a friendly message from
-    compute_em (the open-interest floor is the liquidity gate)."""
-    await send_command_reply(channel_id, message_id, f"Calculating expected move for `${ticker}`…")
-    return await _dispatch_inner(_em_and_reply(ticker, channel_id, message_id))
+    horizon is "daily" (the default, next-session expiry) or "weekly" (the
+    listed expiry closest to one trading week out). Works on any optionable
+    ticker; tickers with no listed options or with quotes too poor for a
+    reliable straddle get a friendly message from compute_em."""
+    word = "weekly" if horizon == "weekly" else "daily"
+    await send_command_reply(
+        channel_id, message_id,
+        f"Calculating {word} expected move for `${ticker}`…")
+    return await _dispatch_inner(_em_and_reply(ticker, channel_id, message_id, horizon))
 
 
-async def _em_and_reply(ticker: str, channel_id: str, message_id: str) -> None:
+async def _em_and_reply(ticker: str, channel_id: str, message_id: str,
+                        horizon: str = "daily") -> None:
     from consensus_engine.scanners import expected_move as em
     from consensus_engine.alerts.discord import send_command_embed_with_image
     try:
-        result = await em.compute_em(ticker, executor=None)
+        result = await em.compute_em(ticker, executor=None, horizon=horizon)
         embed = em.build_em_embed(result, with_image=True)
         # Chart render is blocking (matplotlib) — run off the event loop.
         loop = asyncio.get_running_loop()
