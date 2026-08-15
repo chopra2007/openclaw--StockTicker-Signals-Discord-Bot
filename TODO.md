@@ -326,11 +326,11 @@ Optional: add a per-ticker cooldown so the "a YouTuber likes $STOCK" alert can't
 
 The same stock can show two different "Score" numbers at the same moment — `!scan` runs a fresh check and saves nothing, while `!market-view` shows the last real-signal verdict (often stale or absent) on a different scale; also the bot wrongly tells users to "run !scan first" to create a verdict, which scan never does. Make the two commands coherent and fix the misleading text.
 
-## 51. Add a !em command that shows a stock's expected daily move — DONE 2026-06-25
+## 51. Show a stock's expected move for the day or the week — DONE 2026-08-15
 
 **File:** `em_command.md`
 
-Let users type `!em SPY` to get the options market's expected up/down range for the day (or the next session if the market has closed), shown as a clean embed with a candlestick chart.
+Let users type `!em SPY` for the options market's expected up/down range for the day (or the next session if the market has closed) and `!emw SPY` for the week ahead, shown as a detailed embed with a candlestick chart.
 
 ## 52. Make explanations clear and consistent (one yardstick, no flip-flopping) — DONE 2026-06-27
 
