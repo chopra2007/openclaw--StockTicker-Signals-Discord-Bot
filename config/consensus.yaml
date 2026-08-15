@@ -1025,8 +1025,8 @@ options_flow:
   fixed_core: ["AAPL", "NVDA", "TSLA", "SPY", "QQQ", "AMD", "MSFT", "META", "AMZN", "GOOGL"]
 
 expected_move:
-  # !em <TICKER> [daily|weekly] — options-implied expected move (ATM straddle + IV),
-  # with chart. Daily is the default; weekly picks the listed expiry closest to one
+  # !em <TICKER> (daily) and !emw <TICKER> (weekly) — options-implied expected move
+  # (ATM straddle + IV), with chart. Weekly picks the listed expiry closest to one
   # trading week out. Works on ANY optionable ticker; the quote-quality gates below
   # reject thin/illiquid options with a friendly message.
   min_atm_open_interest: 100        # liquidity floor for the chosen ATM strike

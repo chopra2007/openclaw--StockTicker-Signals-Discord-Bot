@@ -1,4 +1,4 @@
-"""Expected Move (!em command) — daily or weekly.
+"""Expected Move — !em (daily) and !emw (weekly).
 
 Computes the options-implied expected move for a ticker from the ATM straddle
 and ATM implied volatility, picks the right expiration for the wanted horizon
@@ -14,7 +14,7 @@ yfinance (~15 min delayed, unofficial) as the fallback; the footer names
 whichever actually served the chain. Both are blocking, so all network work
 runs in a ThreadPoolExecutor (same pattern as ``scanners.options``).
 
-Public surface used by the !em command handler:
+Public surface used by the !em / !emw command handler:
     compute_em(ticker, exec, horizon="daily"|"weekly")
                                -> ExpectedMoveResult            (async; raises EMUnavailable)
     render_chart(result)       -> bytes | None                  (PNG; lazy matplotlib)
@@ -47,8 +47,9 @@ STRADDLE_TO_1SD = math.sqrt(2.0 / math.pi)  # 0.79788...
 TRADING_DAYS_PER_YEAR = 252
 CALENDAR_DAYS_PER_YEAR = 365
 
-# Horizons the !em command supports. "daily" is the default everywhere so the
-# !all aggregator and scripts/iv_snapshot_daily.py keep their old behaviour.
+# Horizons the commands support: !em -> daily, !emw -> weekly. "daily" is the
+# default everywhere so the !all aggregator and scripts/iv_snapshot_daily.py
+# keep their old behaviour.
 HORIZONS = ("daily", "weekly")
 WEEKLY_TARGET_SESSIONS = 5  # ~one trading week; the closest LISTED expiry wins
 

@@ -1,8 +1,8 @@
-"""`!em <TICKER> [daily|weekly]` — horizon parsing and routing.
+"""One command per horizon: `!em` is daily, `!emw` is weekly.
 
-Covers the old default (`!em SPY` is still daily), the horizon word in either
-position, multi-ticker plus one shared horizon, and the conflicting/incomplete
-cases that must answer with the usage line instead of guessing a ticker.
+Both take several tickers at once and share the horizon across them. Typing the
+old horizon word ("!em spy weekly") points at the other command instead of
+looking up a stock called WEEKLY.
 """
 
 from unittest.mock import AsyncMock
@@ -11,59 +11,6 @@ import pytest
 
 from consensus_engine.alerts import commands
 
-
-# ---------------------------------------------------------------------------
-# _extract_horizon
-# ---------------------------------------------------------------------------
-
-def test_no_horizon_word_means_daily():
-    args, horizon = commands._extract_horizon(["spy"])
-    assert args == ["spy"] and horizon == "daily"
-
-
-def test_horizon_after_the_ticker():
-    args, horizon = commands._extract_horizon(["spy", "weekly"])
-    assert args == ["spy"] and horizon == "weekly"
-
-
-def test_horizon_before_the_ticker():
-    args, horizon = commands._extract_horizon(["weekly", "spy"])
-    assert args == ["spy"] and horizon == "weekly"
-
-
-def test_horizon_is_case_insensitive_and_dollar_tolerant():
-    assert commands._extract_horizon(["SPY", "WeeKLY"])[1] == "weekly"
-    assert commands._extract_horizon(["spy", "$daily"])[1] == "daily"
-
-
-def test_explicit_daily_word():
-    args, horizon = commands._extract_horizon(["spy", "daily"])
-    assert args == ["spy"] and horizon == "daily"
-
-
-def test_multi_ticker_with_one_shared_horizon():
-    args, horizon = commands._extract_horizon(["nvda", "amd", "weekly"])
-    assert args == ["nvda", "amd"] and horizon == "weekly"
-
-
-def test_comma_separated_multi_ticker_with_horizon():
-    args, horizon = commands._extract_horizon(["nvda,amd,mu", "weekly"])
-    assert args == ["nvda", "amd", "mu"] and horizon == "weekly"
-
-
-def test_repeating_the_same_horizon_is_fine():
-    args, horizon = commands._extract_horizon(["spy", "weekly", "weekly"])
-    assert args == ["spy"] and horizon == "weekly"
-
-
-def test_two_different_horizons_is_a_conflict():
-    args, horizon = commands._extract_horizon(["spy", "daily", "weekly"])
-    assert horizon is None
-
-
-# ---------------------------------------------------------------------------
-# route_command("em", ...)
-# ---------------------------------------------------------------------------
 
 def _patch_em(monkeypatch):
     calls = []
@@ -82,69 +29,105 @@ def _patch_em(monkeypatch):
     return calls, reply
 
 
+# ---------------------------------------------------------------------------
+# !em — daily
+# ---------------------------------------------------------------------------
+
 @pytest.mark.asyncio
-async def test_route_em_plain_is_still_daily(monkeypatch):
-    """Regression: `!em SPY` keeps working exactly as before."""
+async def test_em_is_daily(monkeypatch):
     calls, _ = _patch_em(monkeypatch)
     await commands.route_command("em", ["spy"], "ch", "mid")
     assert calls == [("SPY", "daily")]
 
 
 @pytest.mark.asyncio
-async def test_route_em_daily_word(monkeypatch):
+async def test_em_several_tickers_all_daily(monkeypatch):
     calls, _ = _patch_em(monkeypatch)
-    await commands.route_command("em", ["spy", "daily"], "ch", "mid")
-    assert calls == [("SPY", "daily")]
+    await commands.route_command("em", ["spy", "qqq"], "ch", "mid")
+    assert calls == [("SPY", "daily"), ("QQQ", "daily")]
 
 
 @pytest.mark.asyncio
-async def test_route_em_weekly_word(monkeypatch):
+async def test_em_comma_separated_tickers(monkeypatch):
     calls, _ = _patch_em(monkeypatch)
-    await commands.route_command("em", ["spy", "weekly"], "ch", "mid")
+    await commands.route_command("em", ["nvda,amd,mu"], "ch", "mid")
+    assert calls == [("NVDA", "daily"), ("AMD", "daily"), ("MU", "daily")]
+
+
+# ---------------------------------------------------------------------------
+# !emw — weekly
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_emw_is_weekly(monkeypatch):
+    calls, _ = _patch_em(monkeypatch)
+    await commands.route_command("emw", ["spy"], "ch", "mid")
     assert calls == [("SPY", "weekly")]
 
 
 @pytest.mark.asyncio
-async def test_route_em_horizon_first(monkeypatch):
+async def test_emw_several_tickers_share_the_weekly_horizon(monkeypatch):
     calls, _ = _patch_em(monkeypatch)
-    await commands.route_command("em", ["weekly", "spy"], "ch", "mid")
-    assert calls == [("SPY", "weekly")]
+    await commands.route_command("emw", ["spy", "qqq"], "ch", "mid")
+    assert calls == [("SPY", "weekly"), ("QQQ", "weekly")]
 
 
 @pytest.mark.asyncio
-async def test_route_em_multi_ticker_shares_the_horizon(monkeypatch):
-    calls, _ = _patch_em(monkeypatch)
-    await commands.route_command("em", ["nvda", "amd", "weekly"], "ch", "mid")
-    assert calls == [("NVDA", "weekly"), ("AMD", "weekly")]
-
-
-@pytest.mark.asyncio
-async def test_route_em_conflicting_horizons_shows_usage(monkeypatch):
+async def test_emw_respects_the_five_ticker_cap(monkeypatch):
     calls, reply = _patch_em(monkeypatch)
-    await commands.route_command("em", ["spy", "daily", "weekly"], "ch", "mid")
-    assert calls == []
-    sent = reply.call_args.args[2]
-    assert "daily|weekly" in sent
+    await commands.route_command(
+        "emw", ["a", "b", "c", "d", "e", "f"], "ch", "mid")
+    assert [t for t, _ in calls] == ["A", "B", "C", "D", "E"]
+    assert all(h == "weekly" for _, h in calls)
 
 
-@pytest.mark.asyncio
-async def test_route_em_horizon_with_no_ticker_shows_usage(monkeypatch):
-    calls, reply = _patch_em(monkeypatch)
-    await commands.route_command("em", ["weekly"], "ch", "mid")
-    assert calls == []
-    assert "daily|weekly" in reply.call_args.args[2]
-
+# ---------------------------------------------------------------------------
+# Usage and the old horizon-word syntax
+# ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-async def test_route_em_no_args_shows_usage(monkeypatch):
+async def test_em_with_no_ticker_shows_daily_usage(monkeypatch):
     calls, reply = _patch_em(monkeypatch)
     await commands.route_command("em", [], "ch", "mid")
     assert calls == []
-    assert "daily|weekly" in reply.call_args.args[2]
+    assert "`!em <TICKER>`" in reply.call_args.args[2]
 
 
 @pytest.mark.asyncio
-async def test_help_text_shows_the_one_documented_format(monkeypatch):
-    embed = commands._build_help_embed()
-    blob = str(embed)
-    assert "`!em <ticker> [daily|weekly]`" in blob
+async def test_emw_with_no_ticker_shows_weekly_usage(monkeypatch):
+    calls, reply = _patch_em(monkeypatch)
+    await commands.route_command("emw", [], "ch", "mid")
+    assert calls == []
+    assert "`!emw <TICKER>`" in reply.call_args.args[2]
+
+
+@pytest.mark.asyncio
+async def test_weekly_as_a_word_points_at_emw(monkeypatch):
+    """`!em spy weekly` must not look up a stock called WEEKLY."""
+    calls, reply = _patch_em(monkeypatch)
+    await commands.route_command("em", ["spy", "weekly"], "ch", "mid")
+    assert calls == []
+    assert "`!emw <TICKER>`" in reply.call_args.args[2]
+
+
+@pytest.mark.asyncio
+async def test_daily_as_a_word_points_at_em(monkeypatch):
+    """DAILY is a valid ticker shape — it must never be treated as one."""
+    calls, reply = _patch_em(monkeypatch)
+    await commands.route_command("em", ["spy", "daily"], "ch", "mid")
+    assert calls == []
+    assert "`!em <TICKER>`" in reply.call_args.args[2]
+
+
+@pytest.mark.asyncio
+async def test_horizon_word_hint_is_case_and_dollar_tolerant(monkeypatch):
+    calls, reply = _patch_em(monkeypatch)
+    await commands.route_command("emw", ["$WeeKLY", "spy"], "ch", "mid")
+    assert calls == []
+    assert "`!emw <TICKER>`" in reply.call_args.args[2]
+
+
+def test_help_lists_both_commands():
+    blob = str(commands._build_help_embed())
+    assert "`!em <ticker>`" in blob
+    assert "`!emw <ticker>`" in blob

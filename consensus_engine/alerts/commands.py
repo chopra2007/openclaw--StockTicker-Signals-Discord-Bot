@@ -12,7 +12,8 @@ Commands:
   !active-tickers     — all tickers with active signals
   !sec <TICKER>       — recent SEC filings (8-K, Form 4, 13D, etc.)
   !options <TICKER>   — unusual options activity (call/put ratios, vol/OI)
-  !em <TICKER> [daily|weekly] — options-implied expected move + chart
+  !em <TICKER>        — options-implied daily expected move + chart
+  !emw <TICKER>       — the same for the week ahead
   !technical <TICKER> — run 6 technical filters independently
   !news <TICKER>      — run news cascade standalone
   !google-trends <T>  — Google Trends spike % for a ticker
@@ -71,35 +72,24 @@ async def _dispatch_inner(coro) -> asyncio.Task:
 
 _DIRECTION_WORDS = {"LONG", "SHORT"}
 
-# !em takes an optional horizon word alongside its tickers: `!em SPY weekly`.
-# Same idea as _DIRECTION_WORDS — a tiny explicit set that is never a ticker.
-_HORIZON_WORDS = {"DAILY": "daily", "WEEKLY": "weekly"}
-_EM_USAGE = ("Usage: `!em <TICKER> [daily|weekly]` — e.g. `!em SPY`, "
-             "`!em SPY weekly` (or several: `!em nvda amd mu weekly`). "
-             "Daily is the default.")
+# The expected move has one command per horizon: !em is daily, !emw is weekly.
+_EM_USAGE = ("Usage: `!em <TICKER>` — daily expected move, e.g. `!em SPY` "
+             "(or several: `!em spy qqq`). Use `!emw` for the weekly one.")
+_EMW_USAGE = ("Usage: `!emw <TICKER>` — weekly expected move, e.g. `!emw SPY` "
+              "(or several: `!emw spy qqq`). Use `!em` for the daily one.")
+
+# Typing the horizon as a word is the old syntax. DAILY is a valid ticker shape,
+# so without this `!em spy daily` would go look up a stock called DAILY.
+_HORIZON_WORDS = {"DAILY": _EM_USAGE, "WEEKLY": _EMW_USAGE}
 
 
-def _extract_horizon(args: list[str]) -> tuple[list[str], Optional[str]]:
-    """Split a horizon word out of !em's args.
-
-    Returns (args without the horizon word, horizon) — horizon is "daily" when
-    none was given, or None when two different horizons were asked for at once
-    (the caller then shows the usage line). The word may come before or after
-    the tickers.
-    """
-    tokens = [t for t in re.split(r"[,\s]+", " ".join(args)) if t]
-    kept: list[str] = []
-    seen: list[str] = []
-    for tok in tokens:
-        word = tok.lstrip("$").upper()
-        if word in _HORIZON_WORDS:
-            if word not in seen:
-                seen.append(word)
-        else:
-            kept.append(tok)
-    if len(seen) > 1:
-        return kept, None
-    return kept, (_HORIZON_WORDS[seen[0]] if seen else "daily")
+def _horizon_word_hint(args: list[str]) -> Optional[str]:
+    """Point at the right command when someone types the horizon as a word."""
+    for tok in re.split(r"[,\s]+", " ".join(args)):
+        hint = _HORIZON_WORDS.get(tok.lstrip("$").upper())
+        if hint:
+            return hint
+    return None
 
 
 def _parse_ticker_args(
@@ -379,7 +369,8 @@ def _build_help_embed() -> dict:
                     "`!news <ticker>` — news cascade (headline + catalyst type)\n"
                     "`!sec <ticker>` — recent SEC filings (8-K, Form 4, 13D…)\n"
                     "`!options <ticker>` — unusual options activity (vol/OI ratios)\n"
-                    "`!em <ticker> [daily|weekly]` — options-implied expected move + chart (daily by default)\n"
+                    "`!em <ticker>` — options-implied daily expected move + chart\n"
+                    "`!emw <ticker>` — the same for the week ahead\n"
                     "`!technical <ticker>` — 6 technical filters with pass/fail\n"
                     "`!google-trends <ticker>` — Google Trends interest spike %\n"
                     "`!alert-history <ticker>` — past alerts with 1h/24h price outcomes\n"
@@ -646,16 +637,18 @@ async def _route_command_inner(
             mode="parallel", cap=5,
             usage="Usage: `!cluster <TICKER>` — e.g. `!cluster NVDA` (or several: `!cluster nvda amd`)")
 
-    elif command == "em":
-        em_args, horizon = _extract_horizon(args)
-        if horizon is None or (args and not em_args):
-            # two horizons at once, or a horizon with no ticker
-            await send_command_reply(channel_id, message_id, _EM_USAGE)
+    elif command in ("em", "emw"):
+        weekly = command == "emw"
+        hint = _horizon_word_hint(args)
+        if hint:
+            await send_command_reply(channel_id, message_id, hint)
         else:
             await _run_ticker_command(
-                em_args, channel_id, message_id,
-                work=lambda t: _handle_em(t, channel_id, message_id, horizon),
-                mode="sequential", cap=5, usage=_EM_USAGE)
+                args, channel_id, message_id,
+                work=lambda t: _handle_em(
+                    t, channel_id, message_id, "weekly" if weekly else "daily"),
+                mode="sequential", cap=5,
+                usage=_EMW_USAGE if weekly else _EM_USAGE)
 
     elif command in ("market", "rotation", "breadth", "regime"):
         await _handle_market(channel_id, message_id)
