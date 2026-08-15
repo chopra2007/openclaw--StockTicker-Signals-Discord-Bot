@@ -147,3 +147,21 @@ honest illiquidity refusal (its $4 call really was quoted 0.05 / 0.10);
 observations over seven weeks), and intraday behaviour (every stored snapshot is
 captured after the close, so the new fraction-of-session maths is backed by tests
 and derivation, not stored outcomes).
+
+### Session notes — 2026-08-15 (evening, `!help` formatting polish)
+- **Worked on:** the `!emw` multi-ticker note in `!help` looked broken — it sat on
+  its own line with a `↳` arrow and manual leading spaces, which Discord's
+  renderer doesn't preserve (it collapses plain ASCII spaces like HTML does).
+  Iterated with the user live in #chat to a clean result: the note on its own
+  line, italicized, indented with 6 non-breaking spaces (`\xa0`) — those survive
+  Discord's renderer where plain spaces don't.
+- **Commits:** `7e40ff3` (fold arrow-line into one line) → `aea2809` (split back
+  to its own line) → `bf153c1` (switch to NBSP so the indent actually shows) →
+  `31eafcc` (double the indent to 6 NBSP). All on `master`, all live-verified by
+  posting `!help` in #chat via the bot API and reading the real reply back.
+- **Gotcha for next time:** a couple of Edit-tool passes silently substituted a
+  typed leading space for a lookalike Unicode space (EN SPACE / EM SPACE)
+  instead of the literal character requested — caught by `cat -A` on the raw
+  file, not by re-reading the file normally. When precise whitespace bytes
+  matter, write a small Python script that builds the bytes explicitly
+  (`chr(0xA0).encode()`) rather than trusting a pasted/typed space character.
