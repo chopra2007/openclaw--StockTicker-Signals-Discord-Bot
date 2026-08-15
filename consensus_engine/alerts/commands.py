@@ -371,7 +371,7 @@ def _build_help_embed() -> dict:
                     "`!options <ticker>` — unusual options activity (vol/OI ratios)\n"
                     "`!em <ticker>` — options-implied daily expected move + chart\n"
                     "`!emw <ticker>` — the same for the week ahead\n"
-                    "   *(both take several tickers: `!em spy qqq`)*\n"
+                    "      *(both take several tickers: `!em spy qqq`)*\n"
                     "`!technical <ticker>` — 6 technical filters with pass/fail\n"
                     "`!google-trends <ticker>` — Google Trends interest spike %\n"
                     "`!alert-history <ticker>` — past alerts with 1h/24h price outcomes\n"
