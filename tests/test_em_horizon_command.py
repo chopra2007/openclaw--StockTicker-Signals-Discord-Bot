@@ -131,3 +131,5 @@ def test_help_lists_both_commands():
     blob = str(commands._build_help_embed())
     assert "`!em <ticker>`" in blob
     assert "`!emw <ticker>`" in blob
+    # the help must say the two commands accept more than one ticker
+    assert "several tickers" in blob and "`!em spy qqq`" in blob
