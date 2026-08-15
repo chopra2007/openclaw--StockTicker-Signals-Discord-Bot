@@ -216,6 +216,9 @@ class OptionsDetail:
     strike: Optional[float] = None
     expiry: Optional[str] = None
     option_type: Optional[str] = None  # "call" or "put"
+    action: Optional[str] = None  # "buy_to_open", "sell_to_open", or "other"
+    strategy: Optional[str] = None  # "single_leg" or a named multi-leg strategy
+    leg_count: Optional[int] = None
     target_price: Optional[float] = None
     profit_target_pct: Optional[float] = None
 

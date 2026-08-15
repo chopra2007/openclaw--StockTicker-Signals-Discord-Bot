@@ -17,7 +17,7 @@ import time
 
 import aiohttp
 
-from consensus_engine import config as cfg, db, measurement
+from consensus_engine import config as cfg, db, measurement, trade_collector
 from consensus_engine.utils.time_context import build_time_context_oneliner
 from consensus_engine.models import (
     ScoreBreakdown,
@@ -1301,6 +1301,7 @@ async def run_live(stop_event: asyncio.Event):
             asyncio.create_task(tweetshift_listener.run(combined_stop)),
             asyncio.create_task(fetch_loop(combined_stop, interval=300)),
             asyncio.create_task(price_outcome_loop(combined_stop)),
+            asyncio.create_task(trade_collector.run(combined_stop)),
             asyncio.create_task(youtube_poll_loop(combined_stop)),
             asyncio.create_task(source_health_updater_loop(combined_stop)),
             asyncio.create_task(macro_digest_loop(combined_stop)),
@@ -1905,6 +1906,7 @@ async def process_tweet(raw_tweet: dict):
         # the cooldown first flips the failure to the safe direction (a rare missed ping).
         alert_measurement_id = None
         delivery_id = None
+        outcome_id = None
         if _measurement_enabled():
             try:
                 measurement_ids = await db.insert_alert_with_measurement(
@@ -1923,6 +1925,7 @@ async def process_tweet(raw_tweet: dict):
                 alert_row_id = int(measurement_ids["legacy_alert_id"])
                 alert_measurement_id = measurement_ids["alert_id"]
                 delivery_id = measurement_ids["delivery_id"]
+                outcome_id = measurement_ids["outcome_id"]
             except Exception as exc:
                 log.error("Batch 1 delivery measurement failed for $%s: %s", ticker, exc)
                 await _measurement_transition_quiet(
@@ -1958,11 +1961,46 @@ async def process_tweet(raw_tweet: dict):
             )
             continue
         if delivery_id:
-            await measurement.record_delivery(
-                decision_id=decision_id, delivery_id=delivery_id,
-                attempt_id=delivery_id, status="confirmed_delivered",
-                external_message_id=instant_msg_id,
-            )
+            confirmed_delivery_at = time.time()
+            batch2_confirmed = False
+            if outcome_id and trade_collector.collection_enabled():
+                for confirmation_attempt in range(3):
+                    try:
+                        await trade_collector.confirm_delivery_registration(
+                            decision_id=decision_id,
+                            delivery_id=delivery_id,
+                            confirmed_delivery_at=confirmed_delivery_at,
+                            external_message_id=instant_msg_id,
+                            registration={
+                                "candidate_id": candidate_id,
+                                "outcome_id": outcome_id,
+                                "ticker": ticker,
+                                "direction": trade_direction,
+                                "options": alert_tweet.options,
+                                "source_fingerprint": alert_tweet.tweet_url,
+                                "scorer_version": cfg.get(
+                                    "measurement.batch1.scorer_version",
+                                    "consensus-v1",
+                                ),
+                            },
+                        )
+                        batch2_confirmed = True
+                        break
+                    except Exception as exc:
+                        if confirmation_attempt == 2:
+                            log.error(
+                                "Delivery confirmation recording failed for $%s after 3 attempts (%s)",
+                                ticker,
+                                type(exc).__name__,
+                            )
+            if not batch2_confirmed:
+                await measurement.record_delivery(
+                    decision_id=decision_id, delivery_id=delivery_id,
+                    attempt_id=delivery_id, status="confirmed_delivered",
+                    external_message_id=instant_msg_id,
+                    confirmed_at=confirmed_delivery_at,
+                    created_at=confirmed_delivery_at,
+                )
         alert_message_id = await db.insert_alert_message(
             ticker=ticker,
             analyst=tweet.analyst,

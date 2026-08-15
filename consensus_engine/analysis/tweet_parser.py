@@ -69,6 +69,9 @@ def _parse_model_payload(payload: dict, url: str, analyst: str, original_text: s
             strike=_to_float(options_data.get("strike")),
             expiry=options_data.get("expiry"),
             option_type=options_data.get("type"),
+            action=options_data.get("action"),
+            strategy=options_data.get("strategy"),
+            leg_count=_to_int(options_data.get("leg_count")),
             target_price=_to_float(options_data.get("target_price")),
             profit_target_pct=_to_float(options_data.get("profit_target_pct")),
         )
@@ -190,6 +193,17 @@ def _to_float(val) -> Optional[float]:
         return float(val)
     except (ValueError, TypeError):
         return None
+
+
+def _to_int(val) -> Optional[int]:
+    """Safely convert a whole-number value to int."""
+    if val is None:
+        return None
+    try:
+        number = float(val)
+    except (ValueError, TypeError):
+        return None
+    return int(number) if number.is_integer() else None
 
 
 async def parse_tweet(

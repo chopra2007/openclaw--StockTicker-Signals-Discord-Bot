@@ -19,6 +19,9 @@ Given tweet text and optional vision analysis JSON, return ONLY valid JSON with 
     "strike": null,
     "expiry": null,
     "type": null,
+    "action": null,
+    "strategy": null,
+    "leg_count": null,
     "target_price": null,
     "profit_target_pct": null
   },
@@ -43,6 +46,13 @@ Given tweet text and optional vision analysis JSON, return ONLY valid JSON with 
 
 Rules:
 - If options details exist (strike/expiry/call/put), classify type C.
+- For options action, use "buy_to_open" only when buying or going long the
+  contract is explicit, "sell_to_open" only when opening a short option is
+  explicit, "other" for spreads or closing trades, and null when ambiguous.
+- Set strategy to "single_leg" and leg_count to 1 only when exactly one contract
+  leg is stated. Name spreads or other multi-leg structures and count their legs.
+- For options expiry, use YYYY-MM-DD only when the year is explicit. Otherwise
+  return null; never guess the year.
 - If no specific ticker, type D and empty tickers.
 - Exclude technical indicators (RSI, EMA, MACD, VWAP, SMA, ATR, RVOL) as tickers.
 - Use vision context if provided to enrich confidence, reason, and key_levels.
@@ -83,6 +93,9 @@ def _default_payload() -> dict[str, Any]:
             "strike": None,
             "expiry": None,
             "type": None,
+            "action": None,
+            "strategy": None,
+            "leg_count": None,
             "target_price": None,
             "profit_target_pct": None,
         },

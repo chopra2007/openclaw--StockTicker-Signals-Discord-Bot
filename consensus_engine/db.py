@@ -454,6 +454,337 @@ BEFORE UPDATE ON measurement_corrections_v1 BEGIN SELECT RAISE(ABORT, 'append-on
 CREATE TRIGGER IF NOT EXISTS measurement_corrections_v1_no_delete
 BEFORE DELETE ON measurement_corrections_v1 BEGIN SELECT RAISE(ABORT, 'append-only table'); END;
 
+-- Batch 2 exact trade tracking. Money is stored as integer microdollars so
+-- historical results never change because of floating-point rounding.
+CREATE TABLE IF NOT EXISTS measurement_trade_rule_sets_v1 (
+    rule_set_id TEXT PRIMARY KEY,
+    rule_version TEXT NOT NULL UNIQUE,
+    fee_per_contract_transaction_micros INTEGER NOT NULL CHECK(fee_per_contract_transaction_micros = 450000),
+    max_quote_age_seconds REAL NOT NULL CHECK(max_quote_age_seconds > 0),
+    max_delivery_entry_delay_seconds REAL NOT NULL CHECK(max_delivery_entry_delay_seconds > 0),
+    liquidity_rule_json TEXT NOT NULL,
+    exit_rule_json TEXT NOT NULL,
+    share_rule_json TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    rule_json TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS measurement_trade_plan_events_v1 (
+    event_id TEXT PRIMARY KEY,
+    trade_id TEXT NOT NULL,
+    status TEXT NOT NULL CHECK(status IN ('registered', 'pending', 'eligible', 'research_only', 'ineligible')),
+    candidate_id TEXT NOT NULL,
+    decision_id TEXT NOT NULL,
+    outcome_id TEXT NOT NULL,
+    delivery_id TEXT NOT NULL,
+    rule_set_id TEXT NOT NULL,
+    instrument_type TEXT NOT NULL CHECK(instrument_type IN ('option', 'share')),
+    ticker TEXT NOT NULL,
+    direction TEXT NOT NULL CHECK(direction IN ('long', 'short')),
+    classification TEXT NOT NULL,
+    confirmed_delivery_at REAL,
+    primary_horizon_seconds REAL,
+    reason TEXT NOT NULL DEFAULT '',
+    scorer_version TEXT NOT NULL DEFAULT '',
+    selection_rule_version TEXT NOT NULL DEFAULT '',
+    quantity INTEGER NOT NULL CHECK(quantity > 0),
+    contract_count INTEGER CHECK(contract_count IS NULL OR contract_count > 0),
+    entry_rule TEXT NOT NULL,
+    exit_rule TEXT NOT NULL,
+    stop_price_micros INTEGER,
+    target_price_micros INTEGER,
+    planned_risk_micros INTEGER,
+    fee_rule_version TEXT NOT NULL,
+    result_rule_version TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    plan_json TEXT NOT NULL,
+    FOREIGN KEY(candidate_id) REFERENCES measurement_candidates_v1(candidate_id),
+    FOREIGN KEY(rule_set_id) REFERENCES measurement_trade_rule_sets_v1(rule_set_id)
+);
+CREATE INDEX IF NOT EXISTS idx_trade_plans_decision_v1
+    ON measurement_trade_plan_events_v1(decision_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_trade_plans_trade_v1
+    ON measurement_trade_plan_events_v1(trade_id, created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_trade_plans_one_registration_v1
+    ON measurement_trade_plan_events_v1(delivery_id, trade_id)
+    WHERE status = 'registered';
+
+CREATE TABLE IF NOT EXISTS measurement_contract_selection_events_v1 (
+    event_id TEXT PRIMARY KEY,
+    selection_id TEXT NOT NULL,
+    trade_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    contract_symbol TEXT NOT NULL,
+    underlying TEXT NOT NULL,
+    option_type TEXT NOT NULL CHECK(option_type IN ('call', 'put')),
+    action TEXT NOT NULL,
+    strategy TEXT NOT NULL,
+    strike_micros INTEGER NOT NULL CHECK(strike_micros > 0),
+    expiration TEXT NOT NULL,
+    multiplier INTEGER NOT NULL CHECK(multiplier > 0),
+    quote_source TEXT NOT NULL,
+    selection_rule_version TEXT NOT NULL,
+    scorer_version TEXT NOT NULL,
+    selected_at REAL NOT NULL,
+    contract_json TEXT NOT NULL,
+    UNIQUE(event_id, selection_id, trade_id)
+);
+CREATE INDEX IF NOT EXISTS idx_contract_selections_trade_v1
+    ON measurement_contract_selection_events_v1(trade_id, selected_at);
+CREATE INDEX IF NOT EXISTS idx_contract_selections_id_v1
+    ON measurement_contract_selection_events_v1(selection_id, selected_at);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_contract_selections_one_trade_v1
+    ON measurement_contract_selection_events_v1(trade_id)
+    WHERE status = 'selected';
+
+CREATE TABLE IF NOT EXISTS measurement_market_observations_v1 (
+    observation_id TEXT PRIMARY KEY,
+    trade_id TEXT NOT NULL,
+    contract_selection_id TEXT,
+    purpose TEXT NOT NULL CHECK(purpose IN ('selection', 'entry', 'exit')),
+    status TEXT NOT NULL CHECK(status IN ('observed', 'missing_data')),
+    provider_timestamp REAL,
+    received_timestamp REAL,
+    observed_at REAL NOT NULL,
+    quote_age_seconds REAL,
+    bid_micros INTEGER,
+    ask_micros INTEGER,
+    underlying_price_micros INTEGER,
+    average_daily_dollar_volume_micros INTEGER,
+    executable_price_micros INTEGER,
+    selection_to_delivery_seconds REAL,
+    delivery_to_quote_seconds REAL,
+    midpoint_micros INTEGER,
+    spread_micros INTEGER,
+    spread_pct REAL,
+    volume INTEGER,
+    open_interest INTEGER,
+    is_delayed INTEGER NOT NULL DEFAULT 0 CHECK(is_delayed IN (0, 1)),
+    halt_status TEXT NOT NULL DEFAULT '',
+    usable INTEGER NOT NULL CHECK(usable IN (0, 1)),
+    unusable_reason TEXT NOT NULL DEFAULT '',
+    missing_data_reason TEXT NOT NULL DEFAULT '',
+    market_session TEXT NOT NULL DEFAULT '',
+    quote_source TEXT NOT NULL DEFAULT '',
+    result_rule_version TEXT NOT NULL DEFAULT '',
+    observation_json TEXT NOT NULL,
+    UNIQUE(observation_id, trade_id),
+    CHECK(status = 'missing_data' OR
+          (provider_timestamp IS NOT NULL AND received_timestamp IS NOT NULL
+           AND provider_timestamp <= received_timestamp)),
+    CHECK(status != 'missing_data' OR missing_data_reason != '')
+);
+CREATE INDEX IF NOT EXISTS idx_market_observations_trade_v1
+    ON measurement_market_observations_v1(trade_id, purpose, observed_at);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_market_observations_one_entry_v1
+    ON measurement_market_observations_v1(trade_id)
+    WHERE purpose = 'entry' AND usable = 1;
+
+CREATE TABLE IF NOT EXISTS measurement_trade_result_events_v1 (
+    event_id TEXT PRIMARY KEY,
+    result_id TEXT NOT NULL,
+    trade_id TEXT NOT NULL,
+    outcome_id TEXT NOT NULL,
+    contract_selection_id TEXT,
+    entry_observation_id TEXT,
+    exit_observation_id TEXT,
+    status TEXT NOT NULL,
+    is_primary INTEGER NOT NULL DEFAULT 1 CHECK(is_primary IN (0, 1)),
+    gross_micros INTEGER,
+    net_micros INTEGER,
+    planned_risk_micros INTEGER,
+    entry_spread_micros INTEGER,
+    exit_spread_micros INTEGER,
+    contract_fees_micros INTEGER,
+    extra_fees_micros INTEGER,
+    fee_rule_version TEXT NOT NULL,
+    result_rule_version TEXT NOT NULL,
+    resolved_at REAL,
+    created_at REAL NOT NULL,
+    result_json TEXT NOT NULL,
+    UNIQUE(event_id, result_id, trade_id),
+    FOREIGN KEY(entry_observation_id, trade_id)
+        REFERENCES measurement_market_observations_v1(observation_id, trade_id),
+    FOREIGN KEY(exit_observation_id, trade_id)
+        REFERENCES measurement_market_observations_v1(observation_id, trade_id)
+);
+CREATE INDEX IF NOT EXISTS idx_trade_results_trade_v1
+    ON measurement_trade_result_events_v1(trade_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_trade_results_id_v1
+    ON measurement_trade_result_events_v1(result_id, created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_trade_results_one_resolved_primary_v1
+    ON measurement_trade_result_events_v1(trade_id)
+    WHERE is_primary = 1 AND status = 'resolved';
+CREATE UNIQUE INDEX IF NOT EXISTS idx_trade_results_one_terminal_primary_v1
+    ON measurement_trade_result_events_v1(trade_id)
+    WHERE is_primary = 1 AND status IN (
+        'resolved', 'adjusted_contract', 'expired', 'early_assignment_risk',
+        'halted', 'gap', 'cannot_close'
+    );
+
+CREATE TRIGGER IF NOT EXISTS measurement_trade_plan_events_v1_require_decision
+BEFORE INSERT ON measurement_trade_plan_events_v1
+WHEN NOT EXISTS (
+    SELECT 1 FROM measurement_decision_events_v1
+    WHERE decision_id = NEW.decision_id AND candidate_id = NEW.candidate_id
+)
+BEGIN SELECT RAISE(ABORT, 'decision must belong to candidate'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_trade_plan_events_v1_require_outcome
+BEFORE INSERT ON measurement_trade_plan_events_v1
+WHEN NOT EXISTS (
+    SELECT 1 FROM measurement_outcome_events_v1
+    WHERE outcome_id = NEW.outcome_id AND decision_id = NEW.decision_id
+)
+BEGIN SELECT RAISE(ABORT, 'unknown outcome_id'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_trade_plan_events_v1_require_delivery
+BEFORE INSERT ON measurement_trade_plan_events_v1
+WHEN NOT EXISTS (
+    SELECT 1 FROM measurement_delivery_events_v1
+    WHERE delivery_id = NEW.delivery_id
+      AND decision_id = NEW.decision_id
+      AND (
+          (
+              NEW.status = 'registered'
+              AND NEW.confirmed_delivery_at IS NULL
+              AND status = 'send_started'
+          )
+          OR (
+              NEW.status <> 'registered'
+              AND
+              NEW.confirmed_delivery_at IS NOT NULL
+              AND status = 'confirmed_delivered'
+              AND confirmed_at = NEW.confirmed_delivery_at
+          )
+      )
+)
+BEGIN SELECT RAISE(ABORT, 'trade plan requires a started or confirmed delivery'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_trade_plan_events_v1_require_rule_set
+BEFORE INSERT ON measurement_trade_plan_events_v1
+WHEN NOT EXISTS (
+    SELECT 1 FROM measurement_trade_rule_sets_v1
+    WHERE rule_set_id = NEW.rule_set_id
+)
+BEGIN SELECT RAISE(ABORT, 'unknown rule_set_id'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_contract_selection_events_v1_require_trade
+BEFORE INSERT ON measurement_contract_selection_events_v1
+WHEN NOT EXISTS (
+    SELECT 1 FROM measurement_trade_plan_events_v1 WHERE trade_id = NEW.trade_id
+)
+BEGIN SELECT RAISE(ABORT, 'unknown trade_id'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_market_observations_v1_require_trade
+BEFORE INSERT ON measurement_market_observations_v1
+WHEN NOT EXISTS (
+    SELECT 1 FROM measurement_trade_plan_events_v1 WHERE trade_id = NEW.trade_id
+)
+BEGIN SELECT RAISE(ABORT, 'unknown trade_id'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_market_observations_v1_same_trade_contract
+BEFORE INSERT ON measurement_market_observations_v1
+WHEN NEW.contract_selection_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM measurement_contract_selection_events_v1
+    WHERE selection_id = NEW.contract_selection_id AND trade_id = NEW.trade_id
+)
+BEGIN SELECT RAISE(ABORT, 'contract selection must belong to trade'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_market_observations_v1_entry_after_delivery
+BEFORE INSERT ON measurement_market_observations_v1
+WHEN NEW.purpose = 'entry' AND NEW.usable = 1 AND NOT EXISTS (
+    SELECT 1
+    FROM measurement_trade_plan_events_v1 p
+    JOIN measurement_delivery_events_v1 d
+      ON d.delivery_id = p.delivery_id
+     AND d.decision_id = p.decision_id
+     AND d.status = 'confirmed_delivered'
+    JOIN measurement_trade_rule_sets_v1 r
+      ON r.rule_set_id = p.rule_set_id
+    WHERE p.trade_id = NEW.trade_id
+      AND NEW.received_timestamp >= d.confirmed_at
+      AND NEW.received_timestamp <=
+          d.confirmed_at + r.max_delivery_entry_delay_seconds
+)
+BEGIN SELECT RAISE(ABORT, 'usable entry requires confirmed delivery within delay'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_trade_result_events_v1_require_trade
+BEFORE INSERT ON measurement_trade_result_events_v1
+WHEN NOT EXISTS (
+    SELECT 1 FROM measurement_trade_plan_events_v1 WHERE trade_id = NEW.trade_id
+)
+BEGIN SELECT RAISE(ABORT, 'unknown trade_id'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_trade_result_events_v1_same_trade_outcome
+BEFORE INSERT ON measurement_trade_result_events_v1
+WHEN NOT EXISTS (
+    SELECT 1 FROM measurement_trade_plan_events_v1
+    WHERE trade_id = NEW.trade_id AND outcome_id = NEW.outcome_id
+)
+BEGIN SELECT RAISE(ABORT, 'outcome must belong to trade'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_trade_result_events_v1_option_requires_contract
+BEFORE INSERT ON measurement_trade_result_events_v1
+WHEN EXISTS (
+    SELECT 1 FROM measurement_trade_plan_events_v1
+    WHERE trade_id = NEW.trade_id AND instrument_type = 'option'
+) AND NEW.contract_selection_id IS NULL
+BEGIN SELECT RAISE(ABORT, 'option result requires exact contract'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_trade_result_events_v1_same_trade_contract
+BEFORE INSERT ON measurement_trade_result_events_v1
+WHEN NEW.contract_selection_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM measurement_contract_selection_events_v1
+    WHERE selection_id = NEW.contract_selection_id AND trade_id = NEW.trade_id
+)
+BEGIN SELECT RAISE(ABORT, 'contract selection must belong to trade'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_trade_result_events_v1_same_trade_entry
+BEFORE INSERT ON measurement_trade_result_events_v1
+WHEN NEW.entry_observation_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM measurement_market_observations_v1
+    WHERE observation_id = NEW.entry_observation_id AND trade_id = NEW.trade_id
+)
+BEGIN SELECT RAISE(ABORT, 'entry observation must belong to trade'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_trade_result_events_v1_entry_contract
+BEFORE INSERT ON measurement_trade_result_events_v1
+WHEN NEW.contract_selection_id IS NOT NULL
+ AND NEW.entry_observation_id IS NOT NULL
+ AND NOT EXISTS (
+    SELECT 1 FROM measurement_market_observations_v1
+    WHERE observation_id = NEW.entry_observation_id
+      AND trade_id = NEW.trade_id
+      AND contract_selection_id = NEW.contract_selection_id
+)
+BEGIN SELECT RAISE(ABORT, 'entry observation must use result contract'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_trade_result_events_v1_same_trade_exit
+BEFORE INSERT ON measurement_trade_result_events_v1
+WHEN NEW.exit_observation_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM measurement_market_observations_v1
+    WHERE observation_id = NEW.exit_observation_id AND trade_id = NEW.trade_id
+)
+BEGIN SELECT RAISE(ABORT, 'exit observation must belong to trade'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_trade_result_events_v1_exit_contract
+BEFORE INSERT ON measurement_trade_result_events_v1
+WHEN NEW.contract_selection_id IS NOT NULL
+ AND NEW.exit_observation_id IS NOT NULL
+ AND NOT EXISTS (
+    SELECT 1 FROM measurement_market_observations_v1
+    WHERE observation_id = NEW.exit_observation_id
+      AND trade_id = NEW.trade_id
+      AND contract_selection_id = NEW.contract_selection_id
+)
+BEGIN SELECT RAISE(ABORT, 'exit observation must use result contract'); END;
+
+CREATE TRIGGER IF NOT EXISTS measurement_trade_rule_sets_v1_no_update
+BEFORE UPDATE ON measurement_trade_rule_sets_v1 BEGIN SELECT RAISE(ABORT, 'append-only table'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_trade_rule_sets_v1_no_delete
+BEFORE DELETE ON measurement_trade_rule_sets_v1 BEGIN SELECT RAISE(ABORT, 'append-only table'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_trade_plan_events_v1_no_update
+BEFORE UPDATE ON measurement_trade_plan_events_v1 BEGIN SELECT RAISE(ABORT, 'append-only table'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_trade_plan_events_v1_no_delete
+BEFORE DELETE ON measurement_trade_plan_events_v1 BEGIN SELECT RAISE(ABORT, 'append-only table'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_contract_selection_events_v1_no_update
+BEFORE UPDATE ON measurement_contract_selection_events_v1 BEGIN SELECT RAISE(ABORT, 'append-only table'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_contract_selection_events_v1_no_delete
+BEFORE DELETE ON measurement_contract_selection_events_v1 BEGIN SELECT RAISE(ABORT, 'append-only table'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_market_observations_v1_no_update
+BEFORE UPDATE ON measurement_market_observations_v1 BEGIN SELECT RAISE(ABORT, 'append-only table'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_market_observations_v1_no_delete
+BEFORE DELETE ON measurement_market_observations_v1 BEGIN SELECT RAISE(ABORT, 'append-only table'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_trade_result_events_v1_no_update
+BEFORE UPDATE ON measurement_trade_result_events_v1 BEGIN SELECT RAISE(ABORT, 'append-only table'); END;
+CREATE TRIGGER IF NOT EXISTS measurement_trade_result_events_v1_no_delete
+BEFORE DELETE ON measurement_trade_result_events_v1 BEGIN SELECT RAISE(ABORT, 'append-only table'); END;
 CREATE TABLE IF NOT EXISTS shadow_predictions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     alert_id INTEGER NOT NULL,
@@ -1575,6 +1906,7 @@ async def init_db() -> AsyncConnection:
         (30, "r28 insider_10b5_plans plan-state (adoption/termination)"),
         (31, "r13 congress_trades House STOCK-Act PTR shadow log"),
         (32, "Batch 1 append-only trade measurement ledger v1"),
+        (33, "Batch 2 append-only exact trade tracking v1"),
     ]
     for version, note in _schema_versions:
         await _db.execute(

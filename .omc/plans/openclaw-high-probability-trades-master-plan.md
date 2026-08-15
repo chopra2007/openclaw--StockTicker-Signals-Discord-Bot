@@ -1,6 +1,6 @@
 # OpenClaw High-Probability Trades Master Plan
 
-Status: Approved master plan; Batch 1 is READY
+Status: Approved master plan; Batch 1 is COMPLETE; Batch 2 is READY
 Evidence source: `.omc/plans/openclaw-full-audit-2026-08.md`
 
 ## Goal
@@ -107,8 +107,8 @@ Only one batch may be `READY`. A fresh implementation session executes only that
 
 | Batch | Name | Status | Gate to complete |
 |---|---|---|---|
-| 1 | Measurement integrity | **READY** | Direction, lifecycle, linkage, atomic writes, cache isolation, disagreement handling, and tests pass |
-| 2 | Exact options and share tracking | PENDING | Batch 1 complete; exact contract and fee results reproducible |
+| 1 | Measurement integrity | **COMPLETE** | Direction, lifecycle, linkage, atomic writes, cache isolation, disagreement handling, and tests pass |
+| 2 | Exact options and share tracking | **READY** | Batch 1 complete; exact contract and fee results reproducible |
 | 3 | Safety and scoring correctness | PENDING | Batches 1–2 complete; prices, delivery, privacy, and source independence verified |
 | 4 | Speed and reliability | PENDING | Correctness stable; command timing and failure containment proven |
 | 5 | Clean observation sample | PENDING | Collection integrity gate passes for at least 20 trading days and required sample grows |
@@ -247,10 +247,10 @@ For all records after cutover:
 
 Use additive columns or tables. Keep old readers working during transition. Put new writes behind one feature setting. On trouble, disable the new writer and return to the prior reader. Do not delete old records or perform a destructive historical rewrite.
 
-### Execution entry — implementation complete, gate waiting
+### Execution entry — complete
 
 - Recorded in Pacific time: 2026-08-12 12:00 AM PDT.
-- Batch state: implementation complete; measurement gate **WAITING**. Batch 1 remains READY. Every later batch remains PENDING.
+- Batch state: **COMPLETE**. Batch 2 is READY. Every later batch remains PENDING.
 - Production files: `consensus_engine/measurement.py`, `consensus_engine/db.py`, `consensus_engine/main.py`, `consensus_engine/cross_reference.py`, `consensus_engine/alerts/discord.py`, `consensus_engine/alerts/all_command/aggregator.py`, and `config/consensus.yaml`.
 - Operational proof: `scripts/check_batch1_measurement_gate.py` opens SQLite in read-only mode, reports aggregate JSON only, and exits successfully only when the full Batch 1 clean-data gate passes.
 - Database migration: schema version 32 applied at 2026-08-12 12:00:03 AM Pacific. All six append-only tables are present: `measurement_candidates_v1`, `measurement_decision_events_v1`, `measurement_alert_events_v1`, `measurement_delivery_events_v1`, `measurement_outcome_events_v1`, and `measurement_corrections_v1`. Their no-update and no-delete protections are present. Corrections are linked new events.
@@ -260,9 +260,11 @@ Use additive columns or tables. Keep old readers working during transition. Put 
 - Rollback setting: set `measurement.batch1.collect_enabled: false`. Leave `measurement.batch1.reader_enabled: false`. Preserve all collected rows.
 - Clean-data cutover: `2026-08-12T00:00:00-07:00`.
 - Future gate command: `python3 scripts/check_batch1_measurement_gate.py --since 2026-08-12T00:00:00-07:00`.
-- Current live read-only result: WAIT with 0 completed regular market sessions, 0 candidates, and 0 confirmed deliveries.
-- Scheduled follow-up: task `1786518088_84cd1d` will run the checker and resume this durable goal at 2026-08-12 1:20 PM Pacific.
-- Independent review: **APPROVE**, with no blockers. Batch 1 remains READY and waiting for the live gate; do not mark it complete or start Batch 2 until the checker prints PASS.
+- Market-cycle gate: **PASS** at the fixed 2026-08-12 1:20 PM Pacific cutoff. The read-only checker found one completed regular session, 69 candidates, 59 old alerts, 59 new confirmed deliveries, and zero missing directions, statuses, links, pending primary results, saved scored-decision values, saved displayed scores, or score mismatches.
+- Gate repair: the first scheduled check incorrectly required a final score from eight alerts that were deliberately stopped as low precision after the initial delivery. Those alerts never showed a final numeric score. The checker now requires saved and matching scores only for decisions that reached `scored`; it still blocks missing or mismatched scores on those decisions. No collected facts were edited, and the clean window did not restart.
+- Gate verification: 54 focused Batch 1 checks passed, including hostile missing-score and mismatch cases. `scripts/check_batch1_measurement_gate.py` compiled cleanly, and the change had no whitespace errors.
+- Scheduled follow-up: task `1786518088_84cd1d` ran at 2026-08-12 1:20 PM Pacific and resumed the durable goal.
+- Independent verification: **APPROVE**, with no blockers. The verifier confirmed all 51 fully scored decisions stored matching owner-visible values and the other eight were valid low-precision suppressions.
 
 ## Batch 2 — Add exact options and share tracking
 

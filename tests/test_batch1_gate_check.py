@@ -20,7 +20,8 @@ def _database(path):
             decision_id TEXT, candidate_id TEXT, status TEXT,
             owner_visible_score REAL, created_at REAL);
         CREATE TABLE measurement_alert_events_v1 (
-            decision_id TEXT, legacy_alert_id INTEGER, created_at REAL);
+            decision_id TEXT, status TEXT, displayed_score REAL,
+            legacy_alert_id INTEGER, created_at REAL);
         CREATE TABLE measurement_delivery_events_v1 (
             decision_id TEXT, status TEXT, created_at REAL);
         CREATE TABLE measurement_outcome_events_v1 (
@@ -39,7 +40,10 @@ def _passing_rows(conn):
         "INSERT INTO measurement_decision_events_v1 VALUES ('d1','c1','scored',81,?)",
         (created,),
     )
-    conn.execute("INSERT INTO measurement_alert_events_v1 VALUES ('d1',1,?)", (created,))
+    conn.execute(
+        "INSERT INTO measurement_alert_events_v1 VALUES ('d1','scored',81,1,?)",
+        (created,),
+    )
     conn.execute(
         "INSERT INTO measurement_delivery_events_v1 VALUES ('d1','confirmed_delivered',?)",
         (created,),
@@ -105,6 +109,60 @@ def test_gate_waits_when_confirmed_delivery_lacks_pending_primary_outcome(tmp_pa
     assert result["status"] == "WAIT"
     assert result["missing_pending_outcome"] == 1
     assert "1 confirmed delivery decision(s) lack a pending primary outcome" in result["reasons"]
+
+
+def test_gate_does_not_require_visible_score_for_confirmed_suppressed_decision(tmp_path):
+    conn = _database(tmp_path / "gate.db")
+    since = _passing_rows(conn)
+    conn.execute(
+        "UPDATE measurement_decision_events_v1 SET status='suppressed', owner_visible_score=NULL"
+    )
+    conn.commit()
+
+    result = evaluate_gate(conn, since, parse_cutoff("2026-08-11T14:00:00"))
+    conn.close()
+
+    assert result["missing_score"] == 0
+
+
+def test_gate_requires_visible_score_for_confirmed_scored_decision(tmp_path):
+    conn = _database(tmp_path / "gate.db")
+    since = _passing_rows(conn)
+    conn.execute("UPDATE measurement_decision_events_v1 SET owner_visible_score=NULL")
+    conn.commit()
+
+    result = evaluate_gate(conn, since, parse_cutoff("2026-08-11T14:00:00"))
+    conn.close()
+
+    assert result["missing_score"] == 1
+
+
+def test_gate_waits_when_confirmed_scored_alert_lacks_displayed_score(tmp_path):
+    conn = _database(tmp_path / "gate.db")
+    since = _passing_rows(conn)
+    conn.execute("UPDATE measurement_alert_events_v1 SET displayed_score=NULL")
+    conn.commit()
+
+    result = evaluate_gate(conn, since, parse_cutoff("2026-08-11T14:00:00"))
+    conn.close()
+
+    assert result["status"] == "WAIT"
+    assert result["missing_displayed_score"] == 1
+    assert "1 confirmed scored alert(s) lack a displayed score" in result["reasons"]
+
+
+def test_gate_waits_when_confirmed_scored_alert_differs_from_decision_score(tmp_path):
+    conn = _database(tmp_path / "gate.db")
+    since = _passing_rows(conn)
+    conn.execute("UPDATE measurement_alert_events_v1 SET displayed_score=79")
+    conn.commit()
+
+    result = evaluate_gate(conn, since, parse_cutoff("2026-08-11T14:00:00"))
+    conn.close()
+
+    assert result["status"] == "WAIT"
+    assert result["score_mismatch"] == 1
+    assert "1 confirmed scored alert(s) differ from the stored visible score" in result["reasons"]
 
 
 def test_cli_is_read_only_and_prints_sanitized_json(tmp_path, capsys):

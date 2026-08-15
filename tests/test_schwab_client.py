@@ -50,6 +50,7 @@ def test_map_quote_uses_regular_last_and_ms_to_sec():
     entry = {
         "quote": {"lastPrice": 289.0, "closePrice": 281.74, "netPercentChange": 2.57,
                   "openPrice": 281.17, "highPrice": 289.94, "lowPrice": 280.695,
+                  "bidPrice": 289.20, "askPrice": 289.40,
                   "totalVolume": 65100155, "quoteTime": 1782863991793,
                   "tradeTime": 1782863991793},
         "regular": {"regularMarketLastPrice": 289.36, "regularMarketPercentChange": 2.70},
@@ -60,6 +61,8 @@ def test_map_quote_uses_regular_last_and_ms_to_sec():
     assert q["dp"] == pytest.approx(2.70)
     assert q["v"] == 65100155             # Finnhub free tier always left this 0
     assert q["t"] == 1782863991           # epoch-ms → epoch-seconds
+    assert q["quote_time"] == 1782863991
+    assert q["bid"] == 289.20 and q["ask"] == 289.40
 
 
 # --- chain mapping ---------------------------------------------------------
@@ -67,6 +70,7 @@ _SAMPLE_CONTRACT = {
     "symbol": "AAPL  260701C00285000", "strikePrice": 285.0, "last": 4.85,
     "bid": 4.5, "ask": 5.0, "totalVolume": 39590, "openInterest": 3923,
     "volatility": 34.066, "tradeTimeInLong": 1782849591734, "putCall": "CALL",
+    "quoteTimeInLong": 1782849592000, "multiplier": 100,
     "delta": 0.814, "gamma": 0.057, "theta": -0.427, "vega": 0.039, "rho": 0.005,
 }
 
@@ -84,9 +88,33 @@ def test_chain_map_to_df_columns_and_conversions():
     assert row["volume"] == 39590
     assert row["impliedVolatility"] == pytest.approx(0.34066)   # ÷100, not 34
     assert row["expiry"] == "2026-07-01"
+    assert row["providerQuoteTime"] == 1782849592000
+    assert row["multiplier"] == 100
     # lastTradeDate: epoch-ms → tz-aware America/New_York
     assert isinstance(row["lastTradeDate"], pd.Timestamp)
     assert str(row["lastTradeDate"].tz) == "America/New_York"
+
+
+def test_chain_map_does_not_invent_quote_time_or_multiplier():
+    contract = dict(_SAMPLE_CONTRACT)
+    contract.pop("quoteTimeInLong")
+    contract.pop("multiplier")
+    row = sc._chain_map_to_df(
+        {"2026-07-01:1": {"285.0": [contract]}},
+    ).iloc[0]
+
+    assert row["providerQuoteTime"] == 0
+    assert math.isnan(row["multiplier"])
+
+
+def test_map_quote_does_not_relabel_trade_time_as_quote_time():
+    mapped = sc._map_quote({
+        "quote": {"tradeTime": 1_782_863_991_793, "lastPrice": 289.0},
+        "regular": {},
+    })
+
+    assert mapped["t"] == 1_782_863_991
+    assert mapped["quote_time"] == 0
 
 
 def test_chain_map_to_df_empty():

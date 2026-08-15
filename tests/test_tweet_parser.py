@@ -40,6 +40,9 @@ def test_parse_llm_response_type_c_options():
             "strike": 500,
             "expiry": "2026-03-28",
             "type": "call",
+            "action": "buy_to_open",
+            "strategy": "single_leg",
+            "leg_count": 1,
             "target_price": 510,
             "profit_target_pct": 100
         },
@@ -51,6 +54,7 @@ def test_parse_llm_response_type_c_options():
     assert tweet.options is not None
     assert tweet.options.strike == 500.0
     assert tweet.options.option_type == "call"
+    assert tweet.options.action == "buy_to_open"
     assert tweet.options.target_price == 510.0
     assert tweet.is_actionable is True
     assert tweet.base_score == 30

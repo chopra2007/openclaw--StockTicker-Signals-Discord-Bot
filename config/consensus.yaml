@@ -774,6 +774,36 @@ measurement:
     rule_version: "batch1-v1"
     scorer_version: "consensus-v1"
     score_cache_bucket_seconds: 300
+  # Batch 2 is collection-only. It records exact post-delivery trade evidence
+  # but does not change alerts, scores, or owner-visible rankings.
+  batch2:
+    collect_enabled: true
+    collect_quotes_enabled: true
+    exit_collect_enabled: true
+    reader_enabled: false
+    delivery_journal_path: "/home/openclaw/.openclaw/batch2-delivery-journal.jsonl"
+    rule_version: "batch2-v1"
+    selection_rule_version: "exact-contract-v1"
+    fee_rule_version: "owner-contract-fee-v1"
+    result_rule_version: "batch2-result-v1"
+    option_fee_per_contract_per_transaction: 0.45
+    max_quote_age_seconds: 30
+    max_delivery_to_entry_seconds: 60
+    entry_retry_seconds: 5
+    entry_retry_attempts: 12
+    min_option_midpoint: 0.20
+    max_option_spread_pct: 20
+    min_option_open_interest: 100
+    share_slippage_bps: 10
+    min_share_price: 2
+    max_share_spread_pct: 0.5
+    min_share_average_daily_dollar_volume: 10000000
+    primary_horizon_seconds: 3600
+    option_stop_loss_pct: 25
+    option_target_gain_pct: 50
+    share_stop_loss_pct: 2
+    share_target_gain_pct: 4
+    share_gap_special_pct: 2
 
 # =============================================================================
 # New Signal Features (A1/A2/A3/A4/A5/D1)

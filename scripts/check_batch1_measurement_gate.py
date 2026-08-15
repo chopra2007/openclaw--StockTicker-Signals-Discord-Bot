@@ -114,10 +114,47 @@ def evaluate_gate(conn: sqlite3.Connection, since: float, until: float) -> dict:
         """SELECT COUNT(DISTINCT de.decision_id)
            FROM measurement_delivery_events_v1 de
            WHERE de.created_at>=? AND de.created_at<? AND de.status='confirmed_delivered'
+             AND EXISTS (
+                 SELECT 1 FROM measurement_decision_events_v1 scored
+                 WHERE scored.decision_id=de.decision_id AND scored.status='scored'
+             )
              AND NOT EXISTS (
                  SELECT 1 FROM measurement_decision_events_v1 d
                  WHERE d.decision_id=de.decision_id
                    AND d.status='scored' AND d.owner_visible_score IS NOT NULL
+             )""",
+        window,
+    )
+    missing_displayed_score = _scalar(
+        conn,
+        """SELECT COUNT(DISTINCT de.decision_id)
+           FROM measurement_delivery_events_v1 de
+           WHERE de.created_at>=? AND de.created_at<? AND de.status='confirmed_delivered'
+             AND EXISTS (
+                 SELECT 1 FROM measurement_decision_events_v1 d
+                 WHERE d.decision_id=de.decision_id AND d.status='scored'
+             )
+             AND NOT EXISTS (
+                 SELECT 1 FROM measurement_alert_events_v1 a
+                 WHERE a.decision_id=de.decision_id AND a.status='scored'
+                   AND a.displayed_score IS NOT NULL
+             )""",
+        window,
+    )
+    score_mismatch = _scalar(
+        conn,
+        """SELECT COUNT(DISTINCT de.decision_id)
+           FROM measurement_delivery_events_v1 de
+           WHERE de.created_at>=? AND de.created_at<? AND de.status='confirmed_delivered'
+             AND EXISTS (
+                 SELECT 1
+                 FROM measurement_decision_events_v1 d
+                 JOIN measurement_alert_events_v1 a ON a.decision_id=d.decision_id
+                 WHERE d.decision_id=de.decision_id
+                   AND d.status='scored' AND a.status='scored'
+                   AND d.owner_visible_score IS NOT NULL
+                   AND a.displayed_score IS NOT NULL
+                   AND d.owner_visible_score<>a.displayed_score
              )""",
         window,
     )
@@ -151,6 +188,14 @@ def evaluate_gate(conn: sqlite3.Connection, since: float, until: float) -> dict:
         reasons.append(f"{missing_delivery_link} confirmed delivery row(s) lack a decision link")
     if missing_score:
         reasons.append(f"{missing_score} confirmed delivery decision(s) lack the stored visible score")
+    if missing_displayed_score:
+        reasons.append(
+            f"{missing_displayed_score} confirmed scored alert(s) lack a displayed score"
+        )
+    if score_mismatch:
+        reasons.append(
+            f"{score_mismatch} confirmed scored alert(s) differ from the stored visible score"
+        )
     if missing_pending_outcome:
         reasons.append(
             f"{missing_pending_outcome} confirmed delivery decision(s) lack a pending primary outcome"
@@ -168,6 +213,8 @@ def evaluate_gate(conn: sqlite3.Connection, since: float, until: float) -> dict:
         "missing_status": missing_status,
         "missing_delivery_link": missing_delivery_link,
         "missing_score": missing_score,
+        "missing_displayed_score": missing_displayed_score,
+        "score_mismatch": score_mismatch,
         "missing_pending_outcome": missing_pending_outcome,
         "reasons": reasons,
     }

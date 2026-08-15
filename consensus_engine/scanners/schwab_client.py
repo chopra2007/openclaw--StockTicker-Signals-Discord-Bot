@@ -317,6 +317,7 @@ def _chain_map_to_df(exp_map: dict):
         for _strike, contracts in (strikes or {}).items():
             for c in contracts:
                 tt = c.get("tradeTimeInLong") or 0
+                qt = c.get("quoteTimeInLong") or 0
                 rows.append({
                     "contractSymbol": c.get("symbol", ""),
                     "strike": _num(c.get("strikePrice")),
@@ -327,6 +328,10 @@ def _chain_map_to_df(exp_map: dict):
                     "openInterest": _num(c.get("openInterest")),
                     "impliedVolatility": _iv_from_pct(c.get("volatility")),
                     "tradeTimeInLong": tt,
+                    "providerQuoteTime": qt,
+                    "multiplier": _num(c.get("multiplier")),
+                    "nonStandard": bool(c.get("nonStandard", False)),
+                    "deliverableNote": str(c.get("deliverableNote", "") or ""),
                     "expiry": exp,
                     "delta": _num(c.get("delta")),
                     "gamma": _num(c.get("gamma")),
@@ -338,6 +343,7 @@ def _chain_map_to_df(exp_map: dict):
         return pd.DataFrame(columns=[
             "contractSymbol", "strike", "lastPrice", "bid", "ask", "volume",
             "openInterest", "impliedVolatility", "lastTradeDate", "expiry",
+            "providerQuoteTime", "multiplier", "nonStandard", "deliverableNote",
             "delta", "gamma", "theta", "vega", "rho",
         ])
     df = pd.DataFrame(rows)
@@ -456,16 +462,21 @@ def _map_quote(entry: dict) -> dict:
     # and after-hours. Fall back to quote.lastPrice.
     c = reg.get("regularMarketLastPrice", q.get("lastPrice"))
     dp = reg.get("regularMarketPercentChange", q.get("netPercentChange"))
-    qt = q.get("tradeTime") or q.get("quoteTime") or 0
+    trade_time = q.get("tradeTime") or 0
+    quote_time = q.get("quoteTime") or 0
     return {
         "c": _num(c),
+        "bid": _num(q.get("bidPrice")),
+        "ask": _num(q.get("askPrice")),
         "pc": _num(q.get("closePrice")),
         "dp": _num(dp),
         "o": _num(q.get("openPrice")),
         "h": _num(q.get("highPrice")),
         "l": _num(q.get("lowPrice")),
         "v": _num(q.get("totalVolume")),          # Finnhub free tier always left this 0
-        "t": int((qt or 0) / 1000),               # epoch-ms -> epoch-seconds
+        "t": int(trade_time / 1000),              # epoch-ms -> epoch-seconds
+        "quote_time": int(quote_time / 1000),
+        "halt_status": str(q.get("securityStatus") or "unknown").lower(),
     }
 
 
