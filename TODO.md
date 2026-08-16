@@ -474,9 +474,21 @@ short_interest.enabled.
 
 **Switches:** features.trading_halts.enabled=on; features.skew_index.enabled=on; features.dealer_gamma.enabled=on; features.iv_skew.enabled=on; features.oi_pinning.enabled=on; features.iv_rv_tag.enabled=on; features.vol_squeeze.enabled=on; features.market_breadth.enabled=on; features.market_breadth.shadow=on; features.short_interest.enabled=on; features.short_interest.collect=on; features.pead.enabled=on; features.form144.enabled=on; features.insider_10b5_plans.enabled=on; features.congress_trades.enabled=on; features.cross_asset.nfci_leg_enabled=on; features.sources_denominator.enabled=on; features.vvix_residual.enabled=on; features.vvix_residual.collect=on; features.sweep.enabled=on
 
-**CURRENT STATUS (2026-07-14):** **3 more switches added to this list, from the #76 feature-menu build
-(run `menu-top10`).** They are display-only, cannot touch an alert or a score, and each was proved on
-real data before commit — so they are the *safest* flips on the whole list:
+**CURRENT STATUS (2026-08-16):** **User: "flip all switches live except for 11 and 14."** Flipped 12 of the
+14 pending switches ON in `config/consensus.yaml`: `sources_denominator`, `trading_halts`, `skew_index`,
+`pead`, `market_breadth`, `sweep`, `vvix_residual`, `dealer_gamma`, `iv_skew`, `oi_pinning`, `iv_rv_tag`,
+`vol_squeeze`. Held back `cross_asset.nfci_leg_enabled` and `short_interest.enabled` per the explicit
+exception — both are score-touching, not display-only. Full regression suite against the flipped config:
+**3318 passed, 10 skipped, 0 failed.** Deployed to the live checkout (file-copy, since this session can't
+`git pull` the shared checkout directly) and restarted `consensus-engine.service`. **Verified live on the
+real bot, not just tests:** `!all NVDA` renders Vol Read, Squeeze, Dealer Gamma, IV Skew, OI Pinning,
+SKEW, and the "Sources: N of M attempted" footer; `!market` renders Market breadth and the VVIX
+fear-of-fear gauge; `!sweep` returned a real ranked list across 10 tickers (this also confirms the
+`!scan`/`!sweep` crash fix from the same session holds under load — see below). **Two caveats flagged
+for the record, not silently rolled in:** `pead.enabled`'s own config comment says it feeds "a small
+capped confluence leg", not pure display like the other 11 — flipped anyway per the broad instruction.
+`trading_halts.enabled` is a genuinely new live alert type (fires to the alerts channel on a real
+Nasdaq/NYSE halt), not just a card addition. PR: `worktree-federated-humming-pnueli` → master (#33).
 
 **CURRENT STATUS (2026-07-07):** Ran the FULL discover pipeline, well past "just the menu". Passes 1–4 done: 113 ideas → triaged to 34 with merit → kill-tested the strong 27 (24 survived, 3 killed, 0 Codex-disputed) → planned the top 16 into a 6-stage build. **Stage 1 of 6 SHIPPED** — commit `f2b0b7d` (local, not pushed until this close): r14 trading-halt tripwire + r8 ^SKEW module, both config-flag **OFF**; a live-probe caught+fixed a redirect bug the green unit tests missed; full suite 2655 pass. **Stages 2–6 (14 features) set to run AUTONOMOUSLY** next session via the one-line trigger `discover: build next-features-jul2026` (everything ships OFF; go-live stays a separate user decision). Both former data-blockers SOLVED this session: House congress trades via `disclosures-clerk.house.gov` (index + machine-readable PTR PDFs), and market breadth via an RSP/SPY equal-weight proxy (2 tickers, no 500-name fan-out); only the Senate half of congress remains deferred. Resume brief with exact recipes: `todo/kickoffs/discover-next-features-resume.md`; run state: `.claude/discover/next-features-jul2026/`.
 
