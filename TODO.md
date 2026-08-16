@@ -450,18 +450,45 @@ Stop two social crowds (StockTwits + Reddit) from counting as two independent vo
 
 Most of the 644 MB database is one table of expired "a source mentioned a ticker" records (99.88% past expiry); pruning/archiving them could halve the DB and every nightly backup — but ONLY after proving nothing (live queries, backtests, the eval tool, future features) still needs that history.
 
-## 67. Finish the feature-idea sweep, reusing the already-saved codebase map — BUILD COMPLETE; 19 features shipped flag-OFF (16 on 2026-07-08 + 3 on 2026-07-14) — AWAITING APPROVAL: 14 switches need a yes/no (this is the ONE place every built-but-off switch is listed — run `python3 scripts/todo_switch_state.py` to see live state)
+## 67. Finish the feature-idea sweep, reusing the already-saved codebase map — 12 of 14 switches flipped ON 2026-08-16 — AWAITING APPROVAL: 2 switches still need a yes/no (NFCI leg, short-interest score bump — both score-touching, held back on purpose; this is the ONE place every built-but-off switch is listed — run `python3 scripts/todo_switch_state.py` to see live state)
 
 **SHADOW SOAK (2026-07-08, added after user pushback "are you sure you're collecting all the pertinent shadow data?"):** The build shipped everything flag-OFF, but I discovered NOTHING was actually accruing — (a) the live engine had been running July-5 code the whole time (never restarted onto the new code), and (b) 5 data-collecting features gated their DATA-WRITING behind the same off-switch (dormant, not shadow-logging). FIXED + PROVEN LIVE: restarted `consensus-engine.service` (new PID, schema 31, healthy); flipped the 3 write-only collectors ON (form144/insider_10b5_plans/congress_trades — verified no alert code); added a `collect` sub-flag for short-interest (fills table, score leg still OFF → byte-identical) + a daily breadth snapshot in market_daily (commit `dcb81e1`, full gate passed). VERIFIED real rows in the live DB: finra_short_interest 1317, form144_filings 30, insider_10b5_plans 12, congress_trades 8, market_breadth_daily 1, macro_legs_daily 1; NFCI write path proven on a scratch DB (nfci_index=-0.515; today's live row caught a cold-start transient=None, self-heals tomorrow). Loops re-run on their intervals (SI 12h / 144 6h / 10b5 8h / congress 24h / breadth+macro+NFCI daily). The 7 options-card readouts need no soak (validate by eye once). NO live alert/score changed. Go-live (flag flips) is still a separate per-feature user decision.
 
+
+**GO-LIVE (2026-08-16, user request "flip all switches live except 11 and 14"):** Flipped 12 of the 14
+pending switches ON in `config/consensus.yaml` — every one except `cross_asset.nfci_leg_enabled` and
+`short_interest.enabled`, both held back on purpose because they're score-touching, not display-only.
+Full regression suite run against the flipped config: **3318 passed, 10 skipped, 0 failed** — no
+regressions. Deployed to the live checkout and restarted `consensus-engine.service`; confirmed healthy.
+**One flag needs a caveat the user should know:** `pead.enabled`'s own comment says it's "descriptive
+!all field **+ small capped confluence leg**" — unlike the other 11 (which are pure display, byte-
+identical when off), PEAD does feed a small capped score term. Flipped anyway per the broad instruction,
+but flagging it here since it wasn't called out as an exception at the time. `trading_halts.enabled` is
+also worth knowing apart from the rest: it's not a display tweak, it's a genuinely new alert type (fires
+to the alerts channel on a real Nasdaq/NYSE halt) — rare, but real, not just a card addition.
+Now ON: sources_denominator, trading_halts, skew_index, pead, market_breadth, sweep, vvix_residual,
+dealer_gamma, iv_skew, oi_pinning, iv_rv_tag, vol_squeeze. Still OFF (unchanged): cross_asset.nfci_leg_enabled,
+short_interest.enabled.
 
 **File:** `next-features-jul2026-resume.md`
 
 **Switches:** features.trading_halts.enabled=on; features.skew_index.enabled=on; features.dealer_gamma.enabled=on; features.iv_skew.enabled=on; features.oi_pinning.enabled=on; features.iv_rv_tag.enabled=on; features.vol_squeeze.enabled=on; features.market_breadth.enabled=on; features.market_breadth.shadow=on; features.short_interest.enabled=on; features.short_interest.collect=on; features.pead.enabled=on; features.form144.enabled=on; features.insider_10b5_plans.enabled=on; features.congress_trades.enabled=on; features.cross_asset.nfci_leg_enabled=on; features.sources_denominator.enabled=on; features.vvix_residual.enabled=on; features.vvix_residual.collect=on; features.sweep.enabled=on
 
-**CURRENT STATUS (2026-07-14):** **3 more switches added to this list, from the #76 feature-menu build
-(run `menu-top10`).** They are display-only, cannot touch an alert or a score, and each was proved on
-real data before commit — so they are the *safest* flips on the whole list:
+**CURRENT STATUS (2026-08-16):** **User: "flip all switches live except for 11 and 14."** Flipped 12 of the
+14 pending switches ON in `config/consensus.yaml`: `sources_denominator`, `trading_halts`, `skew_index`,
+`pead`, `market_breadth`, `sweep`, `vvix_residual`, `dealer_gamma`, `iv_skew`, `oi_pinning`, `iv_rv_tag`,
+`vol_squeeze`. Held back `cross_asset.nfci_leg_enabled` and `short_interest.enabled` per the explicit
+exception — both are score-touching, not display-only. Full regression suite against the flipped config:
+**3318 passed, 10 skipped, 0 failed.** Deployed to the live checkout (file-copy, since this session can't
+`git pull` the shared checkout directly) and restarted `consensus-engine.service`. **Verified live on the
+real bot, not just tests:** `!all NVDA` renders Vol Read, Squeeze, Dealer Gamma, IV Skew, OI Pinning,
+SKEW, and the "Sources: N of M attempted" footer; `!market` renders Market breadth and the VVIX
+fear-of-fear gauge; `!sweep` returned a real ranked list across 10 tickers (this also confirms the
+`!scan`/`!sweep` crash fix from the same session holds under load — see below). **Two caveats flagged
+for the record, not silently rolled in:** `pead.enabled`'s own config comment says it feeds "a small
+capped confluence leg", not pure display like the other 11 — flipped anyway per the broad instruction.
+`trading_halts.enabled` is a genuinely new live alert type (fires to the alerts channel on a real
+Nasdaq/NYSE halt), not just a card addition. PR: `worktree-federated-humming-pnueli` → master (#33).
 
 **CURRENT STATUS (2026-07-07):** Ran the FULL discover pipeline, well past "just the menu". Passes 1–4 done: 113 ideas → triaged to 34 with merit → kill-tested the strong 27 (24 survived, 3 killed, 0 Codex-disputed) → planned the top 16 into a 6-stage build. **Stage 1 of 6 SHIPPED** — commit `f2b0b7d` (local, not pushed until this close): r14 trading-halt tripwire + r8 ^SKEW module, both config-flag **OFF**; a live-probe caught+fixed a redirect bug the green unit tests missed; full suite 2655 pass. **Stages 2–6 (14 features) set to run AUTONOMOUSLY** next session via the one-line trigger `discover: build next-features-jul2026` (everything ships OFF; go-live stays a separate user decision). Both former data-blockers SOLVED this session: House congress trades via `disclosures-clerk.house.gov` (index + machine-readable PTR PDFs), and market breadth via an RSP/SPY equal-weight proxy (2 tickers, no 500-name fan-out); only the Senate half of congress remains deferred. Resume brief with exact recipes: `todo/kickoffs/discover-next-features-resume.md`; run state: `.claude/discover/next-features-jul2026/`.
 
@@ -662,3 +689,9 @@ Shipped LIVE 2026-08-09 (user chose to skip the original 2-week grading gate): `
 **File:** `vvix-vix-daily-change.md`
 
 Add VVIX and VIX's percent change from yesterday to the `!market` fear-of-fear gauge, so a reader can see when fear-of-fear is rising faster than fear itself (an early volatility-pickup signal) — the daily history already exists in the database, this is a display-only addition.
+
+## 82. Fix `!scan`'s news section: stale earnings block fresh news, and upcoming earnings never show
+
+**File:** `scan-news-stale-earnings-no-upcoming.md`
+
+`!scan NVDA` showed a 7-week-old earnings recap instead of real recent news, because the earnings check runs first with no age limit and blocks every other news source from ever being tried — and separately, the bot has no idea an earnings report is coming up soon because it only ever looks at past prints, never a forward-looking calendar.

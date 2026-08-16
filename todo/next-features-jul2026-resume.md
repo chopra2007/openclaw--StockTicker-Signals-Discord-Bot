@@ -1,7 +1,33 @@
 # Finish the feature-idea sweep, reusing the already-saved codebase map
 
-**Status:** AWAITING APPROVAL — **14 switches need a yes/no.** 19 features are built and sitting OFF: 16 from the July sweep (2026-07-08) + 3 from the #76 menu build (2026-07-14). **This item is the ONE place every built-but-switched-off feature is listed** — whatever session builds it, its switch is registered here, so the user has a single list to approve from. Live state: `python3 scripts/todo_switch_state.py`. The old `SOAKING until 2026-07-15` clock was dropped 2026-07-13: the display-only ones collect nothing while off, so waiting bought them zero evidence. Of the rest, short-interest + PEAD need a blast-radius measurement (our work, not a wait), and only the NFCI leg genuinely needs more calendar time (3 readings so far, all identical). See TODO #73's switch inventory.
+**Status:** AWAITING APPROVAL — **2 switches still need a yes/no** (down from 14): `cross_asset.nfci_leg_enabled` and `short_interest.enabled`, both score-touching, held back on purpose 2026-08-16. The other 12 are flipped ON and verified live. Live state: `python3 scripts/todo_switch_state.py`.
 **Created:** 2026-07-06
+
+**CURRENT STATUS (2026-08-16):** **User: "flip all switches live except for 11 and 14."** Flipped 12 of the
+14 pending switches ON in `config/consensus.yaml`: `sources_denominator`, `trading_halts`, `skew_index`,
+`pead`, `market_breadth`, `sweep`, `vvix_residual`, `dealer_gamma`, `iv_skew`, `oi_pinning`, `iv_rv_tag`,
+`vol_squeeze`. Held back `cross_asset.nfci_leg_enabled` and `short_interest.enabled` per the explicit
+exception — both are score-touching, not display-only. Full regression suite against the flipped config:
+**3318 passed, 10 skipped, 0 failed.** Deployed to the live checkout (file-copy, since this session can't
+`git pull` the shared checkout directly) and restarted `consensus-engine.service`. **Verified live on the
+real bot, not just tests:** `!all NVDA` renders Vol Read, Squeeze, Dealer Gamma, IV Skew, OI Pinning,
+SKEW, and the "Sources: N of M attempted" footer; `!market` renders Market breadth and the VVIX
+fear-of-fear gauge; `!sweep` returned a real ranked list across 10 tickers (this also confirms the
+`!scan`/`!sweep` crash fix from the same session holds under load — see below). **Two caveats flagged
+for the record, not silently rolled in:** `pead.enabled`'s own config comment says it feeds "a small
+capped confluence leg", not pure display like the other 11 — flipped anyway per the broad instruction.
+`trading_halts.enabled` is a genuinely new live alert type (fires to the alerts channel on a real
+Nasdaq/NYSE halt), not just a card addition. PR: `worktree-federated-humming-pnueli` → master (#33).
+
+**Separate same-session finding, not part of this item but affecting it:** discovered and fixed a
+LIVE PRODUCTION BUG — `!scan` and `!sweep` were both crashing on every call (`trade direction must be
+'long' or 'short'`), broken since 2026-08-11 by an unrelated measurement-ledger change that never
+accounted for the NEUTRAL-direction fake tweet `!scan`/`!sweep` both use by design. Confirmed crashing
+live in the engine log before the fix, confirmed working after. Root cause + fix:
+`consensus_engine/cross_reference.py`'s `build_score_cache_key` call now normalizes any non-long/short
+direction to "long" for the cache-key only — the real `direction` passed to scoring is untouched. Merged
+via PR #32 and deployed live the same way (file-copy + restart) before any switch was flipped, since
+`!sweep` couldn't have been verified while it was broken.
 
 **CURRENT STATUS (2026-07-14):** **3 more switches added to this list, from the #76 feature-menu build
 (run `menu-top10`).** They are display-only, cannot touch an alert or a score, and each was proved on
