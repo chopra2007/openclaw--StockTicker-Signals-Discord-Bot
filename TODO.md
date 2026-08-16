@@ -450,10 +450,25 @@ Stop two social crowds (StockTwits + Reddit) from counting as two independent vo
 
 Most of the 644 MB database is one table of expired "a source mentioned a ticker" records (99.88% past expiry); pruning/archiving them could halve the DB and every nightly backup — but ONLY after proving nothing (live queries, backtests, the eval tool, future features) still needs that history.
 
-## 67. Finish the feature-idea sweep, reusing the already-saved codebase map — BUILD COMPLETE; 19 features shipped flag-OFF (16 on 2026-07-08 + 3 on 2026-07-14) — AWAITING APPROVAL: 14 switches need a yes/no (this is the ONE place every built-but-off switch is listed — run `python3 scripts/todo_switch_state.py` to see live state)
+## 67. Finish the feature-idea sweep, reusing the already-saved codebase map — 12 of 14 switches flipped ON 2026-08-16 — AWAITING APPROVAL: 2 switches still need a yes/no (NFCI leg, short-interest score bump — both score-touching, held back on purpose; this is the ONE place every built-but-off switch is listed — run `python3 scripts/todo_switch_state.py` to see live state)
 
 **SHADOW SOAK (2026-07-08, added after user pushback "are you sure you're collecting all the pertinent shadow data?"):** The build shipped everything flag-OFF, but I discovered NOTHING was actually accruing — (a) the live engine had been running July-5 code the whole time (never restarted onto the new code), and (b) 5 data-collecting features gated their DATA-WRITING behind the same off-switch (dormant, not shadow-logging). FIXED + PROVEN LIVE: restarted `consensus-engine.service` (new PID, schema 31, healthy); flipped the 3 write-only collectors ON (form144/insider_10b5_plans/congress_trades — verified no alert code); added a `collect` sub-flag for short-interest (fills table, score leg still OFF → byte-identical) + a daily breadth snapshot in market_daily (commit `dcb81e1`, full gate passed). VERIFIED real rows in the live DB: finra_short_interest 1317, form144_filings 30, insider_10b5_plans 12, congress_trades 8, market_breadth_daily 1, macro_legs_daily 1; NFCI write path proven on a scratch DB (nfci_index=-0.515; today's live row caught a cold-start transient=None, self-heals tomorrow). Loops re-run on their intervals (SI 12h / 144 6h / 10b5 8h / congress 24h / breadth+macro+NFCI daily). The 7 options-card readouts need no soak (validate by eye once). NO live alert/score changed. Go-live (flag flips) is still a separate per-feature user decision.
 
+
+**GO-LIVE (2026-08-16, user request "flip all switches live except 11 and 14"):** Flipped 12 of the 14
+pending switches ON in `config/consensus.yaml` — every one except `cross_asset.nfci_leg_enabled` and
+`short_interest.enabled`, both held back on purpose because they're score-touching, not display-only.
+Full regression suite run against the flipped config: **3318 passed, 10 skipped, 0 failed** — no
+regressions. Deployed to the live checkout and restarted `consensus-engine.service`; confirmed healthy.
+**One flag needs a caveat the user should know:** `pead.enabled`'s own comment says it's "descriptive
+!all field **+ small capped confluence leg**" — unlike the other 11 (which are pure display, byte-
+identical when off), PEAD does feed a small capped score term. Flipped anyway per the broad instruction,
+but flagging it here since it wasn't called out as an exception at the time. `trading_halts.enabled` is
+also worth knowing apart from the rest: it's not a display tweak, it's a genuinely new alert type (fires
+to the alerts channel on a real Nasdaq/NYSE halt) — rare, but real, not just a card addition.
+Now ON: sources_denominator, trading_halts, skew_index, pead, market_breadth, sweep, vvix_residual,
+dealer_gamma, iv_skew, oi_pinning, iv_rv_tag, vol_squeeze. Still OFF (unchanged): cross_asset.nfci_leg_enabled,
+short_interest.enabled.
 
 **File:** `next-features-jul2026-resume.md`
 
