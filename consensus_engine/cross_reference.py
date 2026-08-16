@@ -1973,9 +1973,16 @@ async def cross_reference(ticker: str, tweet: ParsedTweet, executor=None) -> Cro
     direction = tweet.direction.value if hasattr(tweet.direction, 'value') else "long"
 
     bucket_seconds = int(cfg.get("measurement.batch1.score_cache_bucket_seconds", 300))
+    # `!scan`/`!sweep` build a NEUTRAL fake tweet on purpose (the real direction is
+    # decided later from the score breakdown) — build_score_cache_key's validator only
+    # accepts long/short, so NEUTRAL crashed cross_reference() outright. The cache key
+    # is a dedup key, not a real trade record, so any non-long/short direction is safe
+    # to normalize to "long" here; `direction` itself (passed to score_ticker below)
+    # is untouched, so real scoring behavior for NEUTRAL callers doesn't change.
+    cache_key_direction = direction if direction in ("long", "short") else "long"
     cache_key = build_score_cache_key(
         ticker=ticker,
-        direction=direction,
+        direction=cache_key_direction,
         analyst=tweet.analyst,
         source="twitter",
         catalyst=getattr(tweet.tweet_type, "value", str(tweet.tweet_type)),
