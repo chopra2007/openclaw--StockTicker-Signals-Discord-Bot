@@ -656,3 +656,9 @@ The bot stopped responding for minutes at a time, gave up with "2 attempts faile
 **Switches:** options_flow.side_collect=on; options_flow.side_labels_live=on
 
 Shipped LIVE 2026-08-09 (user chose to skip the original 2-week grading gate): `#options-flow` alerts now tag each trade BUY/SELL/AMBIGUOUS and derive BULLISH/BEARISH from that instead of guessing from call/put alone, plus a real "🔥 SWEEP" tier for the rare highest-conviction case. Confirm it fires correctly during real Monday market hours, then grade after ~2 weeks of live data to check whether the side-aware label actually calls direction better than the old guess — already scheduled to check itself autonomously (systemd timer, 2026-08-23).
+
+## 81. Show the day-to-day change of the VVIX fear-of-fear gauge, not just the level
+
+**File:** `vvix-vix-daily-change.md`
+
+Add VVIX and VIX's percent change from yesterday to the `!market` fear-of-fear gauge, so a reader can see when fear-of-fear is rising faster than fear itself (an early volatility-pickup signal) — the daily history already exists in the database, this is a display-only addition.
