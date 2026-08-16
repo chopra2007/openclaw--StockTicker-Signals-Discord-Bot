@@ -662,3 +662,9 @@ Shipped LIVE 2026-08-09 (user chose to skip the original 2-week grading gate): `
 **File:** `vvix-vix-daily-change.md`
 
 Add VVIX and VIX's percent change from yesterday to the `!market` fear-of-fear gauge, so a reader can see when fear-of-fear is rising faster than fear itself (an early volatility-pickup signal) — the daily history already exists in the database, this is a display-only addition.
+
+## 82. Fix `!scan`'s news section: stale earnings block fresh news, and upcoming earnings never show
+
+**File:** `scan-news-stale-earnings-no-upcoming.md`
+
+`!scan NVDA` showed a 7-week-old earnings recap instead of real recent news, because the earnings check runs first with no age limit and blocks every other news source from ever being tried — and separately, the bot has no idea an earnings report is coming up soon because it only ever looks at past prints, never a forward-looking calendar.
