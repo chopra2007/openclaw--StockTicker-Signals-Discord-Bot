@@ -723,16 +723,19 @@ results rather than adding more permissions.
 
 Make the Discord bot read the live code and give accurate plain-English answers about its own features, including recognizing when a question assumes a ticker list that does not exist.
 
-## 86. Make VVIX leadership and streaks obvious
+## 86. Make VVIX leadership and streaks obvious — DONE 2026-08-17
 
 **File:** `vvix-vix-relative-lead-streak.md`
 
-**CURRENT STATUS (2026-08-17):** Not started. TODO #81 already added the daily percentage change for
-VVIX and VIX, and the live card now shows both numbers. The comparison still requires mental math and
-does not show whether the same relationship has lasted across several market days. The owner added a
-historical-proof requirement for every feature; 23 saved VVIX/VIX market-day rows are currently
-available. Next: build the lead/streak calculation, replay every saved row, and separately measure
-whether a three-day lead actually preceded higher volatility before using predictive wording.
+**CURRENT STATUS (2026-08-17):** DONE. The `!market` fear-of-fear card now leads with the
+comparison — e.g. `VVIX leading higher by 2.0 pts today · ↑ 3 market days`, or
+`No same-direction VVIX lead today` — above the raw levels, which are unchanged. Verified
+against all 23 stored market days (22 dates replayed, 0 mismatches) and read back off a real
+Discord `!market` card. The wording is a plain fact only: the real data contains ZERO three-day
+upward lead streaks (longest streak of any kind is 1 day), so no foreshadowing language was
+added. An adversarial review caught a floating-point bug where two identical percentage moves
+off different price scales scored as a lead of 0.0 pts; fixed with a tolerance, and the test
+that had passed for the wrong reason was rebuilt.
 
 Show how strongly VVIX is leading VIX today and whether that lead has continued for several market days, without changing scores or firing a new alert.
 

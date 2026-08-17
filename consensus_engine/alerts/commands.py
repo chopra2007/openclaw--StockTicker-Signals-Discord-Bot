@@ -2087,6 +2087,77 @@ def _attach_vvix_daily_changes(
     return result
 
 
+# Two moves of the same percentage computed off different price levels differ by
+# ~1e-15 in binary; anything at or below this is a tie, not a lead.
+_LEAD_EPSILON = 1e-9
+
+
+def compute_vvix_lead_streak(rows: list[dict]) -> dict:
+    """How many consecutive market days VVIX has out-moved VIX in the same direction.
+
+    ``rows`` is vol_of_vol_daily rows NEWEST FIRST (as returned by get_recent_rows).
+    Descriptive only — walks backwards from the newest day, stopping at the first
+    day that isn't a same-direction lead, a bad/missing value, or a calendar gap
+    outside 1..5 days (a real data hole, not a weekend/holiday).
+    """
+    result: dict = {"lead_pts": None, "direction": None, "streak_days": 0}
+    if len(rows) < 2:
+        return result
+
+    def _day_lead(newer: dict, older: dict) -> Optional[tuple[float, float, float]]:
+        try:
+            gap_days = (
+                date.fromisoformat(str(newer["date_utc"]))
+                - date.fromisoformat(str(older["date_utc"]))
+            ).days
+        except (KeyError, TypeError, ValueError):
+            return None
+        if gap_days < 1 or gap_days > 5:
+            return None
+        vvix_old, vvix_new = older.get("vvix"), newer.get("vvix")
+        vix_old, vix_new = older.get("vix"), newer.get("vix")
+        if vvix_old in (None, 0) or vix_old in (None, 0) or vvix_new is None or vix_new is None:
+            return None
+        vvix_pct = (float(vvix_new) - float(vvix_old)) / float(vvix_old) * 100.0
+        vix_pct = (float(vix_new) - float(vix_old)) / float(vix_old) * 100.0
+        return vvix_pct, vix_pct, gap_days
+
+    def _direction(vvix_pct: float, vix_pct: float) -> Optional[str]:
+        """'up' / 'down' / None for one day. The tolerance matters: two moves that
+        are the same percentage but computed from different price scales (VVIX ~90,
+        VIX ~14) land ~1e-15 apart in binary, and a bare `>` would call that a lead
+        and render "leading higher by 0.0 pts". A tie is not a lead."""
+        lead = vvix_pct - vix_pct
+        if vvix_pct > 0 and vix_pct > 0 and lead > _LEAD_EPSILON:
+            return "up"
+        if vvix_pct < 0 and vix_pct < 0 and lead < -_LEAD_EPSILON:
+            return "down"
+        return None
+
+    today = _day_lead(rows[0], rows[1])
+    if today is None:
+        return result
+    vvix_pct, vix_pct, _ = today
+    result["lead_pts"] = vvix_pct - vix_pct
+
+    direction = _direction(vvix_pct, vix_pct)
+    if direction is None:
+        return result
+
+    result["direction"] = direction
+    streak = 1
+    for i in range(1, len(rows) - 1):
+        day = _day_lead(rows[i], rows[i + 1])
+        if day is None:
+            break
+        v_pct, x_pct, _ = day
+        if _direction(v_pct, x_pct) != direction:
+            break
+        streak += 1
+    result["streak_days"] = streak
+    return result
+
+
 def _fmt_daily_change(value: object) -> str:
     if not isinstance(value, (int, float)):
         return ""
@@ -2241,8 +2312,23 @@ def _build_market_embed(
                                            "than the VIX explains")
             else:
                 label, gloss = ("Normal", "protection against volatility costs about what the VIX explains")
-            line = (f"{label} — {gloss}.\n"
-                    f"Today's reading is higher than {rank}% of the past year's readings.")
+            line = f"{label} — {gloss}."
+            lead_pts = vvix_row.get("lead_pts")
+            if isinstance(lead_pts, (int, float)):
+                direction = vvix_row.get("direction")
+                streak_days = vvix_row.get("streak_days") or 0
+                if direction == "up" and streak_days > 0:
+                    day_word = "market day" if streak_days == 1 else "market days"
+                    line += (f"\nVVIX leading higher by {abs(lead_pts):.1f} pts today · "
+                              f"↑ {streak_days} {day_word}")
+                elif direction == "down" and streak_days > 0:
+                    day_word = "market day" if streak_days == 1 else "market days"
+                    line += (f"\nVVIX leading lower by {abs(lead_pts):.1f} pts today · "
+                              f"↓ {streak_days} {day_word}")
+                else:
+                    line += "\nNo same-direction VVIX lead today"
+            line += ("\nToday's reading is higher than "
+                     f"{rank}% of the past year's readings.")
             vvix_v, vix_v = vvix_row.get("vvix"), vvix_row.get("vix")
             if isinstance(vvix_v, (int, float)) and isinstance(vix_v, (int, float)):
                 vvix_change = _fmt_daily_change(vvix_row.get("vvix_change_pct"))
@@ -2585,12 +2671,13 @@ async def _handle_market(channel_id: str, message_id: str) -> None:
         vvix_row = None
         if cfg.get("features.vvix_residual.enabled", False):
             _vvix_rows = await market_panel.get_recent_rows(
-                "vol_of_vol_daily", limit=2
+                "vol_of_vol_daily", limit=30
             )
             _vvix = _vvix_rows[0] if _vvix_rows else None
             if _vvix and not market_panel.is_stale(_vvix.get("computed_at", 0.0)):
                 _previous_vvix = _vvix_rows[1] if len(_vvix_rows) > 1 else None
                 vvix_row = _attach_vvix_daily_changes(_vvix, _previous_vvix)
+                vvix_row.update(compute_vvix_lead_streak(_vvix_rows))
             elif _vvix:
                 log.debug("vvix row stale (computed_at=%s) — omitting the field",
                           _vvix.get("computed_at"))

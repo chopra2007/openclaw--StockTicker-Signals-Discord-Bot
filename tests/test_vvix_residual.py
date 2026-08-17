@@ -208,6 +208,152 @@ def test_daily_change_omitted_when_gap_exceeds_seven_days():
     assert "% today" not in _fear_line(row)
 
 
+def test_lead_streak_up_three_days():
+    rows = [
+        _vvix_row("2026-08-14", 110.0, 100.0),  # +10% vvix vs +5% vix -> up lead, day 3
+        _vvix_row("2026-08-13", 100.0, 95.24),  # +5% vvix vs +2% vix -> up lead, day 2
+        _vvix_row("2026-08-12", 95.24, 93.37),  # +3% vvix vs +1% vix -> up lead, day 1
+        _vvix_row("2026-08-11", 92.47, 92.45),
+    ]
+    result = commands.compute_vvix_lead_streak(rows)
+    assert result["direction"] == "up"
+    assert result["streak_days"] == 3
+    assert result["lead_pts"] == pytest.approx(5.0, abs=0.05)
+
+
+def test_lead_streak_down_two_days():
+    rows = [
+        _vvix_row("2026-08-14", 90.0, 97.0),   # -10% vvix vs -3% vix -> down lead, day 2
+        _vvix_row("2026-08-13", 100.0, 100.0),  # -5% vvix vs -2% vix -> down lead, day 1
+        _vvix_row("2026-08-12", 105.26, 102.04),
+    ]
+    result = commands.compute_vvix_lead_streak(rows)
+    assert result["direction"] == "down"
+    assert result["streak_days"] == 2
+    assert result["lead_pts"] == pytest.approx(-7.0, abs=0.05)
+
+
+def test_lead_streak_mixed_direction_does_not_extend():
+    rows = [
+        _vvix_row("2026-08-14", 110.0, 100.0),  # up lead today
+        _vvix_row("2026-08-13", 100.0, 99.0),   # yesterday was a down move for vvix -> no streak carried
+        _vvix_row("2026-08-12", 105.0, 95.0),
+    ]
+    result = commands.compute_vvix_lead_streak(rows)
+    assert result["direction"] == "up"
+    assert result["streak_days"] == 1
+
+
+def test_lead_streak_exact_tie_is_no_lead():
+    # Deliberately built off DIFFERENT price scales (VVIX ~100, VIX ~10), the way
+    # the real indexes sit. Both move +1%, but the two percentages land ~1e-15
+    # apart in binary — a bare `>` calls that an up-lead and renders the
+    # self-contradicting "leading higher by 0.0 pts". A same-scale tie (100->105
+    # vs 100->105) computes to exactly 0.0 and would pass either way, so it does
+    # not test what it looks like it tests.
+    rows = [
+        _vvix_row("2026-08-14", 101.0, 10.10),  # both exactly +1% -> tie, no lead
+        _vvix_row("2026-08-13", 100.0, 10.00),
+    ]
+    result = commands.compute_vvix_lead_streak(rows)
+    assert result["direction"] is None
+    assert result["streak_days"] == 0
+    assert result["lead_pts"] == pytest.approx(0.0)
+
+    down = [
+        _vvix_row("2026-08-14", 99.0, 19.8),   # both exactly -1% -> tie, no lead
+        _vvix_row("2026-08-13", 100.0, 20.0),
+    ]
+    down_result = commands.compute_vvix_lead_streak(down)
+    assert down_result["direction"] is None
+    assert down_result["streak_days"] == 0
+
+
+def test_lead_streak_tie_mid_streak_stops_it():
+    """A floating-point tie must break a streak, not silently extend it."""
+    rows = [
+        _vvix_row("2026-08-14", 110.0, 100.0),  # +10% vs +5% -> real up lead today
+        _vvix_row("2026-08-13", 100.0, 95.2381),  # tie day (both +1%) off different scales
+        _vvix_row("2026-08-12", 99.0099, 94.2951),
+    ]
+    result = commands.compute_vvix_lead_streak(rows)
+    assert result["direction"] == "up"
+    assert result["streak_days"] == 1
+
+
+def test_lead_streak_weekend_gap_continues_streak():
+    rows = [
+        _vvix_row("2026-08-17", 121.0, 105.0),  # Monday, +10% vvix vs +5% vix over Fri->Mon
+        _vvix_row("2026-08-14", 110.0, 100.0),  # Friday, +10% vvix vs +5% vix
+        _vvix_row("2026-08-13", 100.0, 95.24),
+    ]
+    result = commands.compute_vvix_lead_streak(rows)
+    assert result["direction"] == "up"
+    assert result["streak_days"] == 2
+
+
+def test_lead_streak_holiday_gap_continues_streak():
+    rows = [
+        _vvix_row("2026-08-18", 121.0, 105.0),  # 4 calendar days after the prior row
+        _vvix_row("2026-08-14", 110.0, 100.0),
+        _vvix_row("2026-08-13", 100.0, 95.24),
+    ]
+    result = commands.compute_vvix_lead_streak(rows)
+    assert result["direction"] == "up"
+    assert result["streak_days"] == 2
+
+
+def test_lead_streak_stops_at_a_six_day_data_hole():
+    rows = [
+        _vvix_row("2026-08-14", 110.0, 100.0),
+        _vvix_row("2026-08-13", 100.0, 95.24),
+        _vvix_row("2026-08-07", 95.24, 93.37),  # 6 calendar days back -> real data hole
+    ]
+    result = commands.compute_vvix_lead_streak(rows)
+    assert result["direction"] == "up"
+    assert result["streak_days"] == 1
+
+
+def test_lead_streak_needs_two_rows():
+    assert commands.compute_vvix_lead_streak([]) == {
+        "lead_pts": None, "direction": None, "streak_days": 0,
+    }
+    assert commands.compute_vvix_lead_streak([_vvix_row("2026-08-14", 90.0, 15.0)]) == {
+        "lead_pts": None, "direction": None, "streak_days": 0,
+    }
+
+
+def test_lead_streak_zero_or_none_prior_value_no_crash():
+    rows = [
+        _vvix_row("2026-08-14", 90.0, 15.0),
+        _vvix_row("2026-08-13", 0.0, 15.0),
+    ]
+    result = commands.compute_vvix_lead_streak(rows)
+    assert result == {"lead_pts": None, "direction": None, "streak_days": 0}
+
+    rows2 = [
+        _vvix_row("2026-08-14", 90.0, 15.0),
+        {"date_utc": "2026-08-13", "vvix": None, "vix": 15.0},
+    ]
+    assert commands.compute_vvix_lead_streak(rows2) == {
+        "lead_pts": None, "direction": None, "streak_days": 0,
+    }
+
+
+def test_lead_line_has_no_predictive_wording():
+    rows = [
+        _vvix_row("2026-08-14", 110.0, 100.0),
+        _vvix_row("2026-08-13", 100.0, 95.24),
+        _vvix_row("2026-08-12", 95.24, 93.37),
+    ]
+    row = commands._attach_vvix_daily_changes(rows[0], rows[1])
+    row.update(commands.compute_vvix_lead_streak(rows))
+    line = _fear_line(row)
+    assert "VVIX leading higher by" in line
+    for word in ("foreshadow", "signal", "expect", "suggest"):
+        assert word not in line.lower()
+
+
 def test_gauge_is_never_read_by_the_scorer():
     """Hard constraint (#47): descriptive only. If the scorer ever learns the word
     'vvix' or reads vol_of_vol_daily, this feature has become the VIX predictor the
