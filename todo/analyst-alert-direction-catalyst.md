@@ -1,14 +1,12 @@
 # Show analyst direction and catalyst inside the alert
 
-**Status:** OPEN
+**Status:** DONE 2026-08-17
 **Created:** 2026-08-17
 
-**CURRENT STATUS (2026-08-17):** Not started. The last 10 live `#alerts` messages were checked. They
-show analyst names, the time window, and a price, but not whether the group is bullish, bearish, mixed,
-or unclear, and not why they are talking about the stock. The owner expanded the job: Codex must review
-every tweet used in a full historical group replay, compare the proposed direction/catalyst readout to
-the original post, and examine where the stock went from the first tweet. Next: build that replay and
-accuracy report before choosing the final card wording.
+**CURRENT STATUS (2026-08-17):** DONE in commit `c764b59`. Each analyst-group card now shows the safe
+group bias plus each analyst's independently validated direction and exact source-grounded reason.
+Missing, ambiguous, neutral, generic, malformed, and unsided-option evidence fails closed as unclear or
+reason not stated. The historical audit, live schema, and real Discord readback all passed.
 
 ## What the user wants
 
@@ -144,9 +142,12 @@ This is a hard completion gate, not an optional quality pass.
 
 ## Open questions
 
-- Whether the existing parsed summary is consistently short and factual enough to store and display.
-  Answer this with real recent tweets before choosing a new database field.
-- When several analysts repeat the same catalyst, show one shared `Main reason` plus short analyst
-  lines rather than repeating the same sentence four times.
-- How much exact intraday price history is recoverable for the oldest group events. The plan above
-  already defines the honest fallback: separate and label daily-price approximations.
+None. The final design stores exact ticker-specific source spans instead of trusting a post-wide
+summary, keeps per-analyst lines, and labels exact intraday versus daily-price evidence separately.
+
+### Session notes — 2026-08-17
+
+- **Shipped:** Commit `c764b59` added durable ticker-specific analyst views, nullable `signal_events` links, strict source-span validation, independent direction/reason handling, event-claim attribution, and fail-closed unsafe cases without a send-time AI call.
+- **Tests:** 75 focused tests, 40 additional affected alert tests, and 102 Batch 2 checks passed; compile and changed-file checks also passed.
+- **Historical proof:** The saved immutable audit covered 756 group events, 586 unique posts, and 410 fully recoverable groups with 0 bullish/bearish reversals, 0 unsupported displayed reasons, and 0 card fact failures.
+- **Live proof:** Schema v34 was live after the 3:49 AM Pacific engine restart. The approved AAPL `#chat` card showed Bullish bias, 2 bullish/0 bearish/0 unclear, and price `$305.93`. `@DeItaone` was Bullish with `Analyst says: APPLE UPGRADED TO BUY — $400 TARGET`; `@OMillionaires` was Bullish with `Analyst says: upgraded to Buy from Neutral`. Both source links and the owner ping were present; no non-Pacific clock label or repeated `SWARM` wording appeared.

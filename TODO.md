@@ -688,28 +688,25 @@ Add VVIX and VIX's percent change from yesterday to the `!market` fear-of-fear g
 
 `!scan NVDA` showed a 7-week-old earnings recap instead of real recent news, because the earnings check runs first with no age limit and blocks every other news source from ever being tried — and separately, the bot has no idea an earnings report is coming up soon because it only ever looks at past prints, never a forward-looking calendar.
 
-## 83. Remove the repeated SWARM label from analyst alerts
+## 83. Remove the repeated SWARM label from analyst alerts — DONE 2026-08-17
 
 **File:** `analyst-alert-remove-swarm-label.md`
 
-**CURRENT STATUS (2026-08-17):** Not started. The live `#alerts` room and its sender were checked:
-this room currently receives only analyst-group alerts, and all of its last 10 messages repeated
-`SWARM` in the title. The owner added a historical-proof requirement for every feature in this batch.
-Next: simplify the title/footer, then replay saved analyst groups and prove that every other card fact
-is unchanged before checking the real Discord card.
+**CURRENT STATUS (2026-08-17):** DONE in commit `c764b59`. Analyst-group cards now lead with ticker,
+analyst count, and elapsed time; the repeated `SWARM` title/footer wording is gone. The immutable full
+replay and the real AAPL Discord readback both passed while links, price, elapsed time, and owner ping
+stayed intact.
 
 Since `#alerts` contains only analyst-group alerts, remove the repeated `SWARM` label and put the ticker, analyst count, and elapsed time first.
 
-## 84. Show analyst direction and catalyst inside the alert
+## 84. Show analyst direction and catalyst inside the alert — DONE 2026-08-17
 
 **File:** `analyst-alert-direction-catalyst.md`
 
-**CURRENT STATUS (2026-08-17):** Not started. The last 10 live `#alerts` messages were checked. They
-show analyst names, the time window, and a price, but not whether the group is bullish, bearish, mixed,
-or unclear, and not why they are talking about the stock. The owner expanded the job: Codex must review
-every tweet used in a full historical group replay, compare the proposed direction/catalyst readout to
-the original post, and examine where the stock went from the first tweet. Next: build that replay and
-accuracy report before choosing the final card wording.
+**CURRENT STATUS (2026-08-17):** DONE in commit `c764b59`. Each analyst-group card now shows the safe
+group bias plus each analyst's independently validated direction and exact source-grounded reason.
+Missing, ambiguous, neutral, generic, malformed, and unsided-option evidence fails closed as unclear or
+reason not stated. The historical audit, live schema, and real Discord readback all passed.
 
 Make each analyst-group alert show bullish, bearish, mixed, or unclear plus the catalyst or setup, then have Codex verify every historical group against its source tweets and the stock's move from the first tweet.
 

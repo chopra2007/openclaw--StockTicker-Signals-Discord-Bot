@@ -1,13 +1,12 @@
 # Remove the repeated SWARM label from analyst alerts
 
-**Status:** OPEN
+**Status:** DONE 2026-08-17
 **Created:** 2026-08-17
 
-**CURRENT STATUS (2026-08-17):** Not started. The live `#alerts` room and its sender were checked:
-this room currently receives only analyst-group alerts, and all of its last 10 messages repeated
-`SWARM` in the title. The owner added a historical-proof requirement for every feature in this batch.
-Next: simplify the title/footer, then replay saved analyst groups and prove that every other card fact
-is unchanged before checking the real Discord card.
+**CURRENT STATUS (2026-08-17):** DONE in commit `c764b59`. Analyst-group cards now lead with ticker,
+analyst count, and elapsed time; the repeated `SWARM` title/footer wording is gone. The immutable full
+replay and the real AAPL Discord readback both passed while links, price, elapsed time, and owner ping
+stayed intact.
 
 ## What the user wants
 
@@ -69,3 +68,10 @@ Those labels repeat the room's only purpose instead of helping the owner read th
 ## Open questions
 
 None. The room and code both show that `SWARM` is the only current alert type there.
+
+### Session notes — 2026-08-17
+
+- **Shipped:** Commit `c764b59` removed the user-visible `SWARM` title/footer wording without renaming working internals.
+- **Tests:** 75 focused tests, 40 additional affected alert tests, and 102 Batch 2 checks passed; compile and changed-file checks also passed.
+- **Historical proof:** The saved immutable audit covered 756 group events, 586 unique posts, and 410 fully recoverable groups with 0 bullish/bearish reversals, 0 unsupported displayed reasons, and 0 card fact failures.
+- **Live proof:** Schema v34 was live after the 3:49 AM Pacific engine restart. The approved `#chat` test read back as `🚨 $AAPL — 2 analysts tweeting in 41 min`, footer `OpenClaw Signal Engine`, price `$305.93`, two clickable analyst links, and the owner ping. No non-Pacific clock label or `SWARM` wording appeared.
