@@ -1,0 +1,104 @@
+# EVIDENCE COPY — TODO #86
+# Original path: consensus_engine/db.py
+# Copied: 2026-08-17
+
+===== LINES 1292-1307: vol_of_vol_daily table definition =====
+-- T1-b (#76 menu) — VVIX "fear-of-fear" residual. How expensive vol-of-vol is
+-- AFTER stripping out whatever the spot VIX already explains, so it reads the
+-- market's nervousness about its OWN nervousness rather than re-reading the VIX.
+-- DESCRIPTIVE ONLY: never a term in score_ticker, never an alert gate (gating on
+-- it re-creates the VIX predictor already rejected in TODO #47).
+CREATE TABLE IF NOT EXISTS vol_of_vol_daily (
+    date_utc        TEXT PRIMARY KEY,      -- date of the closing bar the read came from
+    vvix            REAL NOT NULL,         -- ^VVIX close
+    vix             REAL NOT NULL,         -- ^VIX close
+    residual        REAL NOT NULL,         -- rolling-252 OLS residual of log(VVIX) on log(VIX)
+    residual_pct    REAL NOT NULL,         -- percentile of that residual in its trailing 252 obs (0-1]
+    window_days     INTEGER NOT NULL,      -- OLS + percentile window (252)
+    computed_at     REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS discord_command_user_rate (
+
+===== NOTE: db.py has NO reader/writer functions for this table. =====
+# Only the CREATE TABLE lives in db.py. Actual access:
+#   WRITE: scripts/market_daily.py lines ~459-540 (fetch) and ~833 (INSERT OR REPLACE)
+#   READ:  consensus_engine/analysis/market_panel.py (table allow-list, line 32)
+#          via market_panel.get_recent_rows('vol_of_vol_daily', limit=2)
+#          called from consensus_engine/alerts/commands.py line 2587-2588
+
+===== scripts/market_daily.py LINES 825-845: the INSERT =====
+                iwm_spy_trend, breadth_state, window_days, computed_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (r["date_utc"], r["rsp_spy_ratio"], r["rsp_spy_trend"],
+             r["iwm_spy_ratio"], r["iwm_spy_trend"], r["breadth_state"],
+             r["window_days"], now_ts),
+        )
+    for r in (vvix_rows or []):
+        conn.execute(
+            """INSERT OR REPLACE INTO vol_of_vol_daily
+               (date_utc, vvix, vix, residual, residual_pct, window_days, computed_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (r["date_utc"], r["vvix"], r["vix"], r["residual"], r["residual_pct"],
+             r["window_days"], now_ts),
+        )
+    conn.commit()
+
+
+# ---------------------------------------------------------------------------
+# Orchestrator
+# ---------------------------------------------------------------------------
+
+
+===== consensus_engine/analysis/market_panel.py LINES 20-70: reader =====
+
+# Allowlist of the daily market tables this accessor may read. Table names are
+# never user-supplied (callers pass these constants), but the allowlist keeps the
+# interpolated identifier safe by construction.
+MARKET_TABLES = frozenset(
+    {
+        "sector_rs_daily",
+        "factor_rs_daily",
+        "trend_daily",
+        "macro_legs_daily",
+        "internal_breadth_daily",
+        "market_breadth_daily",
+        "vol_of_vol_daily",
+    }
+)
+
+# Default staleness horizon (days). Mirrors regime.py's 7-day fallback: a daily
+# read more than a week old means the cron stopped running, so degrade to no-op.
+DEFAULT_MAX_AGE_DAYS = 7
+
+
+def row_age_days(computed_at: float, now: Optional[float] = None) -> float:
+    """Age in days of a row given its ``computed_at`` unix timestamp."""
+    now = time.time() if now is None else now
+    return (now - computed_at) / 86400.0
+
+
+def is_stale(computed_at: float, max_age_days: float = DEFAULT_MAX_AGE_DAYS,
+             now: Optional[float] = None) -> bool:
+    """True when the row is older than ``max_age_days`` (→ caller no-ops)."""
+    return row_age_days(computed_at, now) > max_age_days
+
+
+def _filter_clause(filters: Optional[dict]) -> tuple[str, list]:
+    """Build a parameterised ``WHERE`` clause from {column: value} (values bound)."""
+    if not filters:
+        return "", []
+    cols = sorted(filters)  # deterministic ordering
+    clause = " WHERE " + " AND ".join(f"{c} = ?" for c in cols)
+    params = [filters[c] for c in cols]
+    return clause, params
+
+
+async def get_latest_row(table: str, filters: Optional[dict] = None) -> Optional[dict]:
+    """Return the newest row of ``table`` (by date_utc) as a dict, or None.
+
+    ``filters`` is an optional {column: value} equality filter (e.g. {"etf": "XLK"}).
+    Does NOT apply staleness — the caller decides via ``is_stale`` so it can log /
+    cold-start on its own terms (mirroring regime.lookup_regime).
+    """
+    if table not in MARKET_TABLES:

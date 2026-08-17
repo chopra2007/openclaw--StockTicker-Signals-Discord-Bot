@@ -1,0 +1,22 @@
+# EVIDENCE SNAPSHOT — TODO #85 — captured 2026-08-17
+# Original path: /home/openclaw/.openclaw/openclaw.json
+# Excerpt: agents.defaults (model chain + workspace + models allow-map only).
+# No API keys / tokens / secrets appear in this section; a scrubber was applied anyway.
+
+{
+  "model": {
+    "primary": "openrouter/openai/gpt-4.1-nano",
+    "fallbacks": [
+      "openrouter/mistralai/mistral-small-3.2-24b-instruct",
+      "openrouter/qwen/qwen3-235b-a22b-2507",
+      "openrouter/openai/gpt-oss-120b"
+    ]
+  },
+  "workspace": "/root/.openclaw/workspace",
+  "models": {
+    "openrouter/openai/gpt-oss-120b": {},
+    "openrouter/openai/gpt-4.1-nano": {},
+    "openrouter/qwen/qwen3-235b-a22b-2507": {},
+    "openrouter/mistralai/mistral-small-3.2-24b-instruct": {}
+  }
+}

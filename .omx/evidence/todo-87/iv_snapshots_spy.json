@@ -1,0 +1,472 @@
+[
+  {
+    "snapshot_date": "2026-06-29",
+    "ticker": "SPY",
+    "spot": 741.0,
+    "atm_iv": 0.10553872985839843,
+    "straddle_em": 4.609999999999999,
+    "iv_em_to_expiry": 4.926401466004606,
+    "expiry": "2026-06-30",
+    "captured_at": 1782777390.1297126
+  },
+  {
+    "snapshot_date": "2026-06-30",
+    "ticker": "SPY",
+    "spot": 746.77001953125,
+    "atm_iv": 0.08628233062744141,
+    "straddle_em": 3.7899999999999996,
+    "iv_em_to_expiry": 4.058901118080381,
+    "expiry": "2026-07-01",
+    "captured_at": 1782858914.441177
+  },
+  {
+    "snapshot_date": "2026-07-01",
+    "ticker": "SPY",
+    "spot": 745.76,
+    "atm_iv": 0.14984999999999998,
+    "straddle_em": 4.435,
+    "iv_em_to_expiry": 7.0397228651492485,
+    "expiry": "2026-07-02",
+    "captured_at": 1782945315.136376
+  },
+  {
+    "snapshot_date": "2026-07-02",
+    "ticker": "SPY",
+    "spot": 744.78,
+    "atm_iv": 0.07532,
+    "straddle_em": 4.41,
+    "iv_em_to_expiry": 4.997502782081883,
+    "expiry": "2026-07-06",
+    "captured_at": 1783031720.9601257
+  },
+  {
+    "snapshot_date": "2026-07-03",
+    "ticker": "SPY",
+    "spot": 744.78,
+    "atm_iv": 0.07532,
+    "straddle_em": 4.41,
+    "iv_em_to_expiry": 3.5337681062087367,
+    "expiry": "2026-07-06",
+    "captured_at": 1783118118.5936408
+  },
+  {
+    "snapshot_date": "2026-07-04",
+    "ticker": "SPY",
+    "spot": 744.78,
+    "atm_iv": 0.07532,
+    "straddle_em": 4.41,
+    "iv_em_to_expiry": 3.5337681062087367,
+    "expiry": "2026-07-06",
+    "captured_at": 1783204519.2935581
+  },
+  {
+    "snapshot_date": "2026-07-05",
+    "ticker": "SPY",
+    "spot": 744.78,
+    "atm_iv": 0.07532,
+    "straddle_em": 4.41,
+    "iv_em_to_expiry": 3.5337681062087367,
+    "expiry": "2026-07-06",
+    "captured_at": 1783290919.788098
+  },
+  {
+    "snapshot_date": "2026-07-06",
+    "ticker": "SPY",
+    "spot": 751.28,
+    "atm_iv": 0.09832,
+    "straddle_em": 3.11,
+    "iv_em_to_expiry": 4.65311115290714,
+    "expiry": "2026-07-07",
+    "captured_at": 1783377309.5799875
+  },
+  {
+    "snapshot_date": "2026-07-07",
+    "ticker": "SPY",
+    "spot": 747.71,
+    "atm_iv": 0.12364000000000001,
+    "straddle_em": 3.66,
+    "iv_em_to_expiry": 5.823605064050249,
+    "expiry": "2026-07-08",
+    "captured_at": 1783463711.124065
+  },
+  {
+    "snapshot_date": "2026-07-08",
+    "ticker": "SPY",
+    "spot": 745.4,
+    "atm_iv": 0.14869,
+    "straddle_em": 4.505,
+    "iv_em_to_expiry": 6.981855874390748,
+    "expiry": "2026-07-09",
+    "captured_at": 1783550110.3322897
+  },
+  {
+    "snapshot_date": "2026-07-09",
+    "ticker": "SPY",
+    "spot": 751.71,
+    "atm_iv": 0.11567,
+    "straddle_em": 3.42,
+    "iv_em_to_expiry": 5.477353782041163,
+    "expiry": "2026-07-10",
+    "captured_at": 1783636511.3052683
+  },
+  {
+    "snapshot_date": "2026-07-10",
+    "ticker": "SPY",
+    "spot": 754.95,
+    "atm_iv": 0.05667,
+    "straddle_em": 3.2750000000000004,
+    "iv_em_to_expiry": 2.6950767141945957,
+    "expiry": "2026-07-13",
+    "captured_at": 1783722914.0558786
+  },
+  {
+    "snapshot_date": "2026-07-11",
+    "ticker": "SPY",
+    "spot": 754.95,
+    "atm_iv": 0.05667,
+    "straddle_em": 3.2750000000000004,
+    "iv_em_to_expiry": 2.6950767141945957,
+    "expiry": "2026-07-13",
+    "captured_at": 1783809310.1032236
+  },
+  {
+    "snapshot_date": "2026-07-12",
+    "ticker": "SPY",
+    "spot": 754.95,
+    "atm_iv": 0.05667,
+    "straddle_em": 3.2750000000000004,
+    "iv_em_to_expiry": 2.6950767141945957,
+    "expiry": "2026-07-13",
+    "captured_at": 1783895711.5554204
+  },
+  {
+    "snapshot_date": "2026-07-13",
+    "ticker": "SPY",
+    "spot": 749.17,
+    "atm_iv": 0.17522,
+    "straddle_em": 5.199999999999999,
+    "iv_em_to_expiry": 8.269205477415039,
+    "expiry": "2026-07-14",
+    "captured_at": 1783982110.797325
+  },
+  {
+    "snapshot_date": "2026-07-14",
+    "ticker": "SPY",
+    "spot": 751.8300170898438,
+    "atm_iv": 0.08304749969482422,
+    "straddle_em": 3.675,
+    "iv_em_to_expiry": 3.9331992928759063,
+    "expiry": "2026-07-15",
+    "captured_at": 1784068508.5612712
+  },
+  {
+    "snapshot_date": "2026-07-15",
+    "ticker": "SPY",
+    "spot": 754.8099975585938,
+    "atm_iv": 0.07505197418212892,
+    "straddle_em": 3.3249999999999997,
+    "iv_em_to_expiry": 3.568613334409581,
+    "expiry": "2026-07-16",
+    "captured_at": 1784154908.8089347
+  },
+  {
+    "snapshot_date": "2026-07-16",
+    "ticker": "SPY",
+    "spot": 750.719970703125,
+    "atm_iv": 0.09955734436035156,
+    "straddle_em": 4.4,
+    "iv_em_to_expiry": 4.708157712387218,
+    "expiry": "2026-07-17",
+    "captured_at": 1784241308.5325153
+  },
+  {
+    "snapshot_date": "2026-07-17",
+    "ticker": "SPY",
+    "spot": 743.2899780273438,
+    "atm_iv": 0.09140923248291016,
+    "straddle_em": 5.654999999999999,
+    "iv_em_to_expiry": 4.28004237835816,
+    "expiry": "2026-07-20",
+    "captured_at": 1784327708.9306383
+  },
+  {
+    "snapshot_date": "2026-07-18",
+    "ticker": "SPY",
+    "spot": 743.2899780273438,
+    "atm_iv": 0.10556924713134766,
+    "straddle_em": 5.654999999999999,
+    "iv_em_to_expiry": 4.94305486765803,
+    "expiry": "2026-07-20",
+    "captured_at": 1784414112.5269146
+  },
+  {
+    "snapshot_date": "2026-07-19",
+    "ticker": "SPY",
+    "spot": 743.2899780273438,
+    "atm_iv": 0.12928116821289062,
+    "straddle_em": 5.654999999999999,
+    "iv_em_to_expiry": 6.053315005989924,
+    "expiry": "2026-07-20",
+    "captured_at": 1784500510.9521525
+  },
+  {
+    "snapshot_date": "2026-07-20",
+    "ticker": "SPY",
+    "spot": 742.0900268554688,
+    "atm_iv": 0.11112339080810547,
+    "straddle_em": 4.84,
+    "iv_em_to_expiry": 5.19471600399436,
+    "expiry": "2026-07-21",
+    "captured_at": 1784586909.1103616
+  },
+  {
+    "snapshot_date": "2026-07-21",
+    "ticker": "SPY",
+    "spot": 748.280029296875,
+    "atm_iv": 0.09223319885253906,
+    "straddle_em": 4.07,
+    "iv_em_to_expiry": 4.347615769913502,
+    "expiry": "2026-07-22",
+    "captured_at": 1784673309.221657
+  },
+  {
+    "snapshot_date": "2026-07-22",
+    "ticker": "SPY",
+    "spot": 747.41,
+    "atm_iv": 0.13319,
+    "straddle_em": 4.555,
+    "iv_em_to_expiry": 6.270905450289929,
+    "expiry": "2026-07-23",
+    "captured_at": 1784759710.1318758
+  },
+  {
+    "snapshot_date": "2026-07-23",
+    "ticker": "SPY",
+    "spot": 738.18,
+    "atm_iv": 0.17486999999999997,
+    "straddle_em": 5.4799999999999995,
+    "iv_em_to_expiry": 8.13162446902205,
+    "expiry": "2026-07-24",
+    "captured_at": 1784846113.573302
+  },
+  {
+    "snapshot_date": "2026-07-24",
+    "ticker": "SPY",
+    "spot": 738.93,
+    "atm_iv": 0.10296,
+    "straddle_em": 5.245,
+    "iv_em_to_expiry": 4.792604182778554,
+    "expiry": "2026-07-27",
+    "captured_at": 1784932510.954583
+  },
+  {
+    "snapshot_date": "2026-07-25",
+    "ticker": "SPY",
+    "spot": 738.93,
+    "atm_iv": 0.10296,
+    "straddle_em": 5.245,
+    "iv_em_to_expiry": 4.792604182778554,
+    "expiry": "2026-07-27",
+    "captured_at": 1785018912.6170802
+  },
+  {
+    "snapshot_date": "2026-07-26",
+    "ticker": "SPY",
+    "spot": 738.93,
+    "atm_iv": 0.10296,
+    "straddle_em": 5.245,
+    "iv_em_to_expiry": 4.792604182778554,
+    "expiry": "2026-07-27",
+    "captured_at": 1785105310.1216762
+  },
+  {
+    "snapshot_date": "2026-07-27",
+    "ticker": "SPY",
+    "spot": 739.09,
+    "atm_iv": 0.15811999999999998,
+    "straddle_em": 4.75,
+    "iv_em_to_expiry": 7.361797403965391,
+    "expiry": "2026-07-28",
+    "captured_at": 1785191713.1462877
+  },
+  {
+    "snapshot_date": "2026-07-28",
+    "ticker": "SPY",
+    "spot": 740.86,
+    "atm_iv": 0.20157,
+    "straddle_em": 6.055,
+    "iv_em_to_expiry": 9.407230224516134,
+    "expiry": "2026-07-29",
+    "captured_at": 1785278109.8717895
+  },
+  {
+    "snapshot_date": "2026-07-29",
+    "ticker": "SPY",
+    "spot": 729.4600219726562,
+    "atm_iv": 0.17093724578857422,
+    "straddle_em": 7.2749999999999995,
+    "iv_em_to_expiry": 7.854850564085803,
+    "expiry": "2026-07-30",
+    "captured_at": 1785364509.4362159
+  },
+  {
+    "snapshot_date": "2026-07-30",
+    "ticker": "SPY",
+    "spot": 741.6900024414062,
+    "atm_iv": 0.1205837454223633,
+    "straddle_em": 5.225,
+    "iv_em_to_expiry": 5.63392321761839,
+    "expiry": "2026-07-31",
+    "captured_at": 1785450909.2485602
+  },
+  {
+    "snapshot_date": "2026-07-31",
+    "ticker": "SPY",
+    "spot": 747.030029296875,
+    "atm_iv": 0.06714800048828126,
+    "straddle_em": 4.16,
+    "iv_em_to_expiry": 3.159882069679699,
+    "expiry": "2026-08-03",
+    "captured_at": 1785537308.8623555
+  },
+  {
+    "snapshot_date": "2026-08-01",
+    "ticker": "SPY",
+    "spot": 747.030029296875,
+    "atm_iv": 0.07752387329101564,
+    "straddle_em": 4.16,
+    "iv_em_to_expiry": 3.648154753724245,
+    "expiry": "2026-08-03",
+    "captured_at": 1785623708.349185
+  },
+  {
+    "snapshot_date": "2026-08-02",
+    "ticker": "SPY",
+    "spot": 747.030029296875,
+    "atm_iv": 0.09494923614501954,
+    "straddle_em": 4.16,
+    "iv_em_to_expiry": 4.468165643693174,
+    "expiry": "2026-08-03",
+    "captured_at": 1785710108.8636546
+  },
+  {
+    "snapshot_date": "2026-08-05",
+    "ticker": "SPY",
+    "spot": 769.79,
+    "atm_iv": 0.13752,
+    "straddle_em": 4.49,
+    "iv_em_to_expiry": 6.668648986854558,
+    "expiry": "2026-08-06",
+    "captured_at": 1785969313.2456598
+  },
+  {
+    "snapshot_date": "2026-08-06",
+    "ticker": "SPY",
+    "spot": 768.56,
+    "atm_iv": 0.14241,
+    "straddle_em": 4.48,
+    "iv_em_to_expiry": 6.894741589548688,
+    "expiry": "2026-08-07",
+    "captured_at": 1786055714.1012306
+  },
+  {
+    "snapshot_date": "2026-08-07",
+    "ticker": "SPY",
+    "spot": 773.26,
+    "atm_iv": 0.07629,
+    "straddle_em": 4.039999999999999,
+    "iv_em_to_expiry": 3.7161470387947477,
+    "expiry": "2026-08-10",
+    "captured_at": 1786142109.7306619
+  },
+  {
+    "snapshot_date": "2026-08-08",
+    "ticker": "SPY",
+    "spot": 773.26,
+    "atm_iv": 0.07629,
+    "straddle_em": 4.039999999999999,
+    "iv_em_to_expiry": 3.7161470387947477,
+    "expiry": "2026-08-10",
+    "captured_at": 1786228512.2811081
+  },
+  {
+    "snapshot_date": "2026-08-09",
+    "ticker": "SPY",
+    "spot": 773.26,
+    "atm_iv": 0.07629,
+    "straddle_em": 4.039999999999999,
+    "iv_em_to_expiry": 3.7161470387947477,
+    "expiry": "2026-08-10",
+    "captured_at": 1786314916.3226933
+  },
+  {
+    "snapshot_date": "2026-08-10",
+    "ticker": "SPY",
+    "spot": 773.03,
+    "atm_iv": 0.10707000000000001,
+    "straddle_em": 3.255,
+    "iv_em_to_expiry": 5.213914207397413,
+    "expiry": "2026-08-11",
+    "captured_at": 1786401311.2143402
+  },
+  {
+    "snapshot_date": "2026-08-11",
+    "ticker": "SPY",
+    "spot": 770.56,
+    "atm_iv": 0.14953,
+    "straddle_em": 4.55,
+    "iv_em_to_expiry": 7.258293470877864,
+    "expiry": "2026-08-12",
+    "captured_at": 1786487711.027755
+  },
+  {
+    "snapshot_date": "2026-08-12",
+    "ticker": "SPY",
+    "spot": 772.49,
+    "atm_iv": 0.10920999999999999,
+    "straddle_em": 3.515,
+    "iv_em_to_expiry": 5.314409341698734,
+    "expiry": "2026-08-13",
+    "captured_at": 1786574111.0624814
+  },
+  {
+    "snapshot_date": "2026-08-13",
+    "ticker": "SPY",
+    "spot": 777.88,
+    "atm_iv": 0.10654,
+    "straddle_em": 3.25,
+    "iv_em_to_expiry": 5.220655399055176,
+    "expiry": "2026-08-14",
+    "captured_at": 1786660511.1005733
+  },
+  {
+    "snapshot_date": "2026-08-14",
+    "ticker": "SPY",
+    "spot": 776.34,
+    "atm_iv": 0.058440000000000006,
+    "straddle_em": 3.08,
+    "iv_em_to_expiry": 2.85799786562608,
+    "expiry": "2026-08-17",
+    "captured_at": 1786746911.8162088
+  },
+  {
+    "snapshot_date": "2026-08-15",
+    "ticker": "SPY",
+    "spot": 776.34,
+    "atm_iv": 0.058440000000000006,
+    "straddle_em": 3.08,
+    "iv_em_to_expiry": 2.85799786562608,
+    "expiry": "2026-08-17",
+    "captured_at": 1786833312.0898592
+  },
+  {
+    "snapshot_date": "2026-08-16",
+    "ticker": "SPY",
+    "spot": 776.34,
+    "atm_iv": 0.058440000000000006,
+    "straddle_em": 3.08,
+    "iv_em_to_expiry": 2.85799786562608,
+    "expiry": "2026-08-17",
+    "captured_at": 1786919714.229341
+  }
+]

@@ -1,0 +1,41 @@
+TODO #86 — Discord #chat search for VVIX / 'Fear of fear' output
+Collected: 2026-08-17 (PDT)
+Commands run (from repo root):
+  python3 -m consensus_engine.tools.read_channel --channel chat --limit 100 --contains vvix
+  python3 -m consensus_engine.tools.read_channel --channel chat --limit 100 --contains "fear of fear"
+RESULT: exactly ONE message in the last 100 #chat messages matched (both searches returned the same message).
+----------------------------------------------------------------------
+=== read_channel --channel chat --limit 100 --contains vvix ===
+2026-08-17 02:03 AM PDT  API: [📊  Market Context — as of 2026-08-14 (prior close)] | Market CONTEXT only — a view, not a buy/sell signal. No edge was found in back-testing; this just shows where money has been rotating. | 🌊  Wolf's market read (analyst view, not the bot's): • **SPX** — top / downside risk (early — forming); others lean the other way (2) — analysts divided
+• **TRANSPORTS** — top / downside risk (early — forming); Wolf alone so far
+• **DJIA** — top / downs | 🌡️  Volatility regime: **normal** — ordinary volatility. | 🔄  Sector rotation (13 ETFs vs SPY): __Improving (early)__ — _weak but turning up_
+`XLI`, `XLB`, `XLY`
+__Leading (already moved)__ — _strong, late — not a fresh entry_
+`XLE`, `XLC`, `XLP`, `XLU`, `XBI`, `XLRE`
+__Weakening (rolling over)_ | 🎚️  Style leadership (factor ETFs): Leading style: `VLUE` (+3.9 vs SPY, speeding up)
+Also leading: `SPHB`, `MTUM`, `USMV`, `SIZE`, `IWD` | 📈  Price-trend regime: `SPY`: 🟢 uptrend (above 200-day, rising) (+10.0% vs its 200-day average) | 🐂  Our own signal breadth: Net +72 (153 bullish − 81 bearish tickers), trend z-score +1.04 → more bullish than usual.
+_Market context only (a view, not a buy/sell signal). The bot's directional stream is structurally long-biase | 🌐  Market breadth (participation): Flat — participation is roughly steady (equal-weight S&P vs cap-weight -0.0% over ~20 days)
+Small-caps vs large-caps: -0.7% (lagging). | 😰  Fear of fear (VVIX vs VIX): Normal — protection against volatility costs about what the VIX explains.
+Today's reading is higher than 42% of the past year's readings.
+VVIX 87.5 (−2.2% today) vs VIX 14.2 (−2.6% today) (2026-08-14  | 🏦  Economy-wide financial conditions: NFCI -0.549 — financial conditions normal: borrowing conditions are near their long-run range. Reading for 2026-08-07.
+
+=== read_channel --channel chat --limit 100 --contains 'fear of fear' ===
+2026-08-17 02:03 AM PDT  API: [📊  Market Context — as of 2026-08-14 (prior close)] | Market CONTEXT only — a view, not a buy/sell signal. No edge was found in back-testing; this just shows where money has been rotating. | 🌊  Wolf's market read (analyst view, not the bot's): • **SPX** — top / downside risk (early — forming); others lean the other way (2) — analysts divided
+• **TRANSPORTS** — top / downside risk (early — forming); Wolf alone so far
+• **DJIA** — top / downs | 🌡️  Volatility regime: **normal** — ordinary volatility. | 🔄  Sector rotation (13 ETFs vs SPY): __Improving (early)__ — _weak but turning up_
+`XLI`, `XLB`, `XLY`
+__Leading (already moved)__ — _strong, late — not a fresh entry_
+`XLE`, `XLC`, `XLP`, `XLU`, `XBI`, `XLRE`
+__Weakening (rolling over)_ | 🎚️  Style leadership (factor ETFs): Leading style: `VLUE` (+3.9 vs SPY, speeding up)
+Also leading: `SPHB`, `MTUM`, `USMV`, `SIZE`, `IWD` | 📈  Price-trend regime: `SPY`: 🟢 uptrend (above 200-day, rising) (+10.0% vs its 200-day average) | 🐂  Our own signal breadth: Net +72 (153 bullish − 81 bearish tickers), trend z-score +1.04 → more bullish than usual.
+_Market context only (a view, not a buy/sell signal). The bot's directional stream is structurally long-biase | 🌐  Market breadth (participation): Flat — participation is roughly steady (equal-weight S&P vs cap-weight -0.0% over ~20 days)
+Small-caps vs large-caps: -0.7% (lagging). | 😰  Fear of fear (VVIX vs VIX): Normal — protection against volatility costs about what the VIX explains.
+Today's reading is higher than 42% of the past year's readings.
+VVIX 87.5 (−2.2% today) vs VIX 14.2 (−2.6% today) (2026-08-14  | 🏦  Economy-wide financial conditions: NFCI -0.549 — financial conditions normal: borrowing conditions are near their long-run range. Reading for 2026-08-07.
+----------------------------------------------------------------------
+CROSS-CHECK vs database row 2026-08-14:
+  DB: vvix=87.4800033569336  vix=14.25   (prior 2026-08-13: vvix=89.41999816894531 vix=14.630000114440918)
+  DB-derived daily change: VVIX -2.1695%  VIX -2.5974%
+  Card printed:            VVIX 87.5 (-2.2% today) vs VIX 14.2 (-2.6% today) (2026-08-14 close)
+  VERDICT: MATCH. Date correct, signs correct, both rounded values correct.
+  Card also printed residual percentile 42% ; DB residual_pct=0.42063 -> MATCH.

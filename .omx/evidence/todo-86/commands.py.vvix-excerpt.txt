@@ -1,0 +1,155 @@
+# EVIDENCE COPY — TODO #86
+# Original path: consensus_engine/alerts/commands.py
+# Copied: 2026-08-17 (git master @ d60f30d)
+# Excerpts only. Line ranges from the original file are marked below.
+
+===== LINES 2055-2110: _attach_vvix_daily_changes + _fmt_daily_change =====
+_MARKET_DISCLAIMER = (
+    "Market CONTEXT only — a view, not a buy/sell signal. No edge was found in "
+    "back-testing; this just shows where money has been rotating."
+)
+
+
+def _attach_vvix_daily_changes(
+    current: Optional[dict], previous: Optional[dict]
+) -> Optional[dict]:
+    """Add VVIX/VIX changes from the immediately prior available market row."""
+    if current is None:
+        return None
+    result = dict(current)
+    result["vvix_change_pct"] = None
+    result["vix_change_pct"] = None
+    if previous is None:
+        return result
+    try:
+        gap_days = (
+            date.fromisoformat(str(current["date_utc"]))
+            - date.fromisoformat(str(previous["date_utc"]))
+        ).days
+    except (KeyError, TypeError, ValueError):
+        return result
+    if gap_days < 1 or gap_days > 7:
+        return result
+    for key in ("vvix", "vix"):
+        old = previous.get(key)
+        new = current.get(key)
+        if old in (None, 0) or new is None:
+            continue
+        result[f"{key}_change_pct"] = (float(new) - float(old)) / float(old) * 100.0
+    return result
+
+
+def _fmt_daily_change(value: object) -> str:
+    if not isinstance(value, (int, float)):
+        return ""
+    if value > 0:
+        return f" (+{value:.1f}% today)"
+    if value < 0:
+        return f" (−{abs(value):.1f}% today)"
+    return " (0.0% today)"
+
+
+def _pdt_now_str() -> str:
+    """Current time as a PDT label (never ET — house rule)."""
+    return datetime.now(ZoneInfo("America/Los_Angeles")).strftime("%Y-%m-%d %H:%M PDT")
+
+
+def _build_market_embed(
+    sector_rows: list[dict],
+    factor_rows: list[dict],
+    trend_row: Optional[dict],
+    breadth_row: Optional[dict],
+    breadth_note: str,
+
+===== LINES 2218-2270: 'Fear of fear' field rendering inside _build_market_embed =====
+            "name": "🌐  Market breadth (participation)",
+            "value": line,
+            "inline": False,
+        })
+
+    # T1-b (#76 menu) — VVIX "fear-of-fear": what vol-of-vol costs AFTER stripping out
+    # whatever today's VIX already explains. DESCRIPTIVE ONLY — never a score term,
+    # never a gate (that would re-create the VIX predictor rejected in #47).
+    if vvix_row:
+        pct = vvix_row.get("residual_pct")
+        if isinstance(pct, (int, float)):
+            rank = int(round(float(pct) * 100))
+            if rank >= 90:
+                label, gloss = ("Unusually high", "traders are paying up for protection against "
+                                                  "volatility itself, well beyond what today's VIX explains")
+            elif rank >= 70:
+                label, gloss = ("Elevated", "a bit more demand for protection against volatility "
+                                            "than the VIX alone explains")
+            elif rank <= 10:
+                label, gloss = ("Unusually calm", "protection against volatility is cheaper than "
+                                                  "the VIX alone would explain")
+            elif rank <= 30:
+                label, gloss = ("Subdued", "slightly less demand for protection against volatility "
+                                           "than the VIX explains")
+            else:
+                label, gloss = ("Normal", "protection against volatility costs about what the VIX explains")
+            line = (f"{label} — {gloss}.\n"
+                    f"Today's reading is higher than {rank}% of the past year's readings.")
+            vvix_v, vix_v = vvix_row.get("vvix"), vvix_row.get("vix")
+            if isinstance(vvix_v, (int, float)) and isinstance(vix_v, (int, float)):
+                vvix_change = _fmt_daily_change(vvix_row.get("vvix_change_pct"))
+                vix_change = _fmt_daily_change(vvix_row.get("vix_change_pct"))
+                line += (
+                    f"\nVVIX {vvix_v:.1f}{vvix_change} vs "
+                    f"VIX {vix_v:.1f}{vix_change} "
+                    f"({vvix_row.get('date_utc', '')} close)."
+                )
+            line += "\n_Descriptive only — it never moves a score or fires an alert._"
+            fields.append({
+                "name": "😰  Fear of fear (VVIX vs VIX)",
+                "value": line,
+                "inline": False,
+            })
+
+    if nfci_row:
+        from consensus_engine.alerts.nfci_display import render_nfci_note
+        nfci_line = render_nfci_note(
+            nfci_row,
+            datetime.now(ZoneInfo("America/Los_Angeles")),
+            int(cfg.get("features.cross_asset.nfci_max_observation_age_days", 16)),
+            float(cfg.get("features.cross_asset.nfci_loose_cutoff", -0.706)),
+            float(cfg.get("features.cross_asset.nfci_tight_cutoff", 1.402)),
+            unusual_only=False,
+
+===== LINES 2575,2610: !market handler fetch of vol_of_vol_daily =====
+                    trend_threshold_pct=float(cfg.get("features.market_breadth.trend_threshold_pct", 0.5)),
+                )
+            except Exception as _mb_exc:
+                log.debug("market breadth unavailable: %s", _mb_exc)
+
+        # T1-b VVIX fear-of-fear. Read-only: the daily writer (market_daily) computes and
+        # persists the row; the panel renders the newest one when the display flag is ON.
+        # get_latest_row does NOT apply staleness (by design — the caller decides), so
+        # drop a stale row here: if the daily writer stopped, showing a weeks-old reading
+        # as today's fear gauge is worse than showing nothing.
+        vvix_row = None
+        if cfg.get("features.vvix_residual.enabled", False):
+            _vvix_rows = await market_panel.get_recent_rows(
+                "vol_of_vol_daily", limit=2
+            )
+            _vvix = _vvix_rows[0] if _vvix_rows else None
+            if _vvix and not market_panel.is_stale(_vvix.get("computed_at", 0.0)):
+                _previous_vvix = _vvix_rows[1] if len(_vvix_rows) > 1 else None
+                vvix_row = _attach_vvix_daily_changes(_vvix, _previous_vvix)
+            elif _vvix:
+                log.debug("vvix row stale (computed_at=%s) — omitting the field",
+                          _vvix.get("computed_at"))
+
+        nfci_row = None
+        if cfg.get("features.cross_asset.nfci_note", False):
+            nfci_row = await db.get_latest_nfci_display()
+
+        embed = _build_market_embed(
+            sector_rows, factor_rows, trend_row, breadth_row, LONG_BIAS_NOTE,
+            market_breadth_row=market_breadth_row, vvix_row=vvix_row,
+            nfci_row=nfci_row)
+        # #47 "better way": lead with the descriptive market-regime context
+        # (Wolf market theses + confluence, then the volatility regime). Fail-soft —
+        # the existing dashboard renders unchanged if these sources are unavailable.
+        try:
+            context_fields = await _build_market_context_fields()

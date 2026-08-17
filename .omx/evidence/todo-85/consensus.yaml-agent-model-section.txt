@@ -1,0 +1,25 @@
+# EVIDENCE SNAPSHOT — TODO #85 — captured 2026-08-17
+# Original path: config/consensus.yaml
+# Excerpt: llm.agent_model / llm.agent_fallback_models (lines 360-380)
+
+  #   - gpt-oss-120b:free: free net — proven to handle the agent prompt + tools,
+  #     unlike openrouter/free which overflows it (so the free net here is the
+  #     :free model, NOT openrouter/free).
+  #   Excluded: qwen3-235b-THINKING (context overflow — reasoning blew the budget),
+  #   minimax-m2.1 (43.9s), xiaomi-mimo (HTTP 451), gemini-2.5-flash-lite (timeout).
+  agent_model: "openai/gpt-4.1-nano"        # 2026-06-16 real-path matrix (.omc/research/model-bakeoff-2026-06-15/agent_matrix_out/): fastest + leanest (11-13s, 2-21k tokens/turn) and the only model to converge AND answer all 3 heavy tool questions. Replaced gpt-oss-120b, which TIMED OUT or returned empty on 5/5 heavy questions (runaway tool-loop -> 233-325k tokens, even at the 240s prod limit).
+  agent_fallback_models:
+    - "mistralai/mistral-small-3.2-24b-instruct"  # Mistral; fast+lean, converged 3/3 (12-14s); provider diversity
+    - "qwen/qwen3-235b-a22b-2507"                 # Alibaba; converges (no timeout) but token-heavy/slow — deeper fallback + diversity
+    - "openai/gpt-oss-120b"                       # 2026-07-10: was :free — free pool 429s daily upstream; paid (already in openclaw.json allow-map) is 3x faster on the agent path and actually responds
+  vision_model: "google/gemma-4-31b-it:free"
+  min_confidence: 70
+  # Primary-tier output cap. Set to 8000 (was 4096) to match narrator's
+  # hardcoded synthesis ceiling and give other callers headroom. Floor is
+  # gpt-oss-20b:free at 8,192 max output tokens — 192-token margin.
+  # If you add a model to the chain with a lower cap, drop this back to fit.
+  # Earlier history: 32000 (c6b7328) broke calls on free models that capped
+  # at 4-8k (OpenRouter returned empty content), 4e85ff0 dropped to 4096.
+  # Current chain's smallest is 8192, so 8000 is safe.
+  max_tokens: 8000
+  # C4 (reliability-hardening): when the whole chain 429s at once (shared
