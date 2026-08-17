@@ -1,6 +1,7 @@
 """Alfred: morning Discord briefing with a transactional outbox."""
 from __future__ import annotations
 
+import json
 import logging
 import re
 import time
@@ -18,6 +19,38 @@ _ET = ZoneInfo("America/New_York")        # internal: market-session scheduling 
 _PT = ZoneInfo("America/Los_Angeles")     # display: all user-facing timestamps are PDT
 
 log = logging.getLogger("consensus_engine.briefing.alfred")
+
+# The five sections are the card's fixed spine: same order every morning, and an
+# empty one renders a placeholder rather than vanishing, so "nothing happened"
+# is distinguishable from "the brief broke".
+_SECTION_KEYS = ("overnight", "levels", "calls", "macro", "top_tickers")
+# Emoji match the owner's 2026-07-30 reference brief, which used them as visual
+# anchors so the five sections can be found at a glance on a phone.
+_SECTION_TITLES = {
+    "overnight": "🌙  Overnight",
+    "levels": "📊  Levels to Watch (SPY)",
+    "calls": "🚀  High-Conviction Calls",
+    "macro": "📈  Macro",
+    "top_tickers": "🔝  Top Tickers",
+}
+_SECTION_EMPTY = {
+    "overnight": "_Nothing overnight._",
+    "levels": "_No levels in range._",
+    "calls": "_No high-conviction calls._",
+    "macro": "_No recent regime update._",
+    "top_tickers": "_No tickers stood out._",
+}
+_MAX_SECTION_CHARS = 3000     # AI output longer than this is treated as malformed
+
+# Discord hard limits.
+_MAX_FIELD_VALUE = 1024
+_MAX_DESCRIPTION = 4096
+_MAX_EMBED_TOTAL = 6000
+
+_BRIEF_COLOR = 0x5865F2
+SPY_EM_DAILY_FILE = "SPY_em_daily.png"
+SPY_EM_WEEKLY_FILE = "SPY_em_weekly.png"
+_MAX_ATTACHMENT_BYTES = 7 * 1024 * 1024   # well under Discord's cap; guards the weekly extra
 
 
 async def build_briefing_data(session_start_utc: float,
@@ -95,10 +128,17 @@ async def _llm_synthesize(prompt: str) -> str:
         role="primary",
         messages=[
             {"role": "system", "content":
-                "You are a pre-market briefing writer. Produce concise, "
-                "actionable markdown. Lead with the most important story. "
-                "Keep under 1500 characters. All user-facing times must use "
-                "America/Los_Angeles and be labeled PST or PDT. Never write "
+                "You are a pre-market briefing writer. Reply with ONE JSON object "
+                "and nothing else — no prose, no code fences. Keys: "
+                '"overnight", "levels", "calls", "macro", "top_tickers" '
+                '(all five required, each a markdown string, "" when there is '
+                'nothing to say), and optional "top_story" (one short sentence, '
+                "only when something genuinely matters). Keep each section under "
+                "900 characters. Write COMPACT PROSE, not a copy of every input "
+                "line: group related tickers into a sentence and name why each "
+                "matters, e.g. 'MSFT (up to 91/100) beat; focus on cloud and AI "
+                "strength. AAPL, AMZN, META also reported.' Drop entries that "
+                "carry no information. Never write a clock time or a timezone: no "
                 "Eastern, Eastern Time, ET, EST, or EDT."},
             {"role": "user", "content": prompt},
         ],
@@ -108,26 +148,169 @@ async def _llm_synthesize(prompt: str) -> str:
     )
 
 
+def _trim_to_limit(text: str, limit: int) -> str:
+    """Cut `text` to `limit` chars at a line/sentence/word boundary, marking the
+    cut with a trailing ellipsis. Never truncates silently mid-sentence."""
+    if len(text) <= limit:
+        return text
+    budget = limit - 1                       # room for the "…"
+    head = text[:budget]
+    floor = budget // 2                      # don't throw away more than half
+    nl = head.rfind("\n")
+    if nl >= floor:
+        return head[:nl].rstrip() + "…"
+    dot = head.rfind(". ")
+    if dot >= floor:
+        return head[:dot + 1].rstrip() + "…"
+    sp = head.rfind(" ")
+    if sp >= floor:
+        return head[:sp].rstrip() + "…"
+    return head.rstrip() + "…"
+
+
+def _clock_line() -> str:
+    """The card's date/time — always computed here, never supplied by the AI."""
+    return datetime.now(tz=_PT).strftime("%A, %B %-d %Y · %-I:%M %p %Z")
+
+
+def _fallback_sections(data: dict) -> dict:
+    """Deterministic five-section brief straight from `data`. An AI failure must
+    still produce a complete, useful card — not three sections."""
+    # Same caps the AI prompt uses. Without them a quiet-market day is fine but a
+    # busy one hands the card 72 alerts (~8k chars), and every section but the
+    # first ends up as a trimmed stub — an outage would produce a worse card than
+    # it has to.
+    alerts = "\n".join(
+        f"• **{a['ticker']}** ({a['confidence_score']:.0f}/100) — {a['catalyst']}".rstrip(" —")
+        for a in (data.get("alerts") or [])[:15]
+    )
+    levels = "\n".join(
+        f"• **{l['ticker']}** {l['level_type']} ${l['price']} — {l.get('condition_text', '') or ''}".rstrip(" —")
+        for l in (data.get("levels") or [])[:10]
+    )
+    calls = "\n".join(
+        f"• **{s['ticker']}** {s['direction']} ({s['channel_name']}) — {(s.get('macro_thesis') or '')[:140]}".rstrip(" —")
+        for s in (data.get("yt_signals") or [])[:10]
+    )
+    macro_row = data.get("macro")
+    macro = (f"**{macro_row['direction']}** — {(macro_row.get('summary') or '')[:400]}"
+             if macro_row else "")
+    tops = []
+    for t in (data.get("top_tickers") or [])[:5]:
+        secs = t.get("sections") or {}
+        analyst = (secs.get("analyst") or {}).get("content") or \
+                  (secs.get("analyst") or {}).get("last_good_content") or ""
+        tops.append(f"• **{t['ticker']}** — {analyst[:200]}".rstrip(" —"))
+    return {
+        "overnight": alerts,
+        "levels": levels,
+        "calls": calls,
+        "macro": macro,
+        "top_tickers": "\n".join(tops),
+    }
+
+
 def _fallback_render(data: dict) -> str:
-    lines = ["## Morning Brief",
-             f"_{datetime.now(tz=_PT).strftime('%Y-%m-%d %H:%M %Z')}_", ""]
-    if data["alerts"]:
-        lines.append("**Overnight alerts:**")
-        for a in data["alerts"][:10]:
-            lines.append(
-                f"- {a['ticker']} ({a['confidence_score']:.0f}) — {a['catalyst']}"
-            )
-        lines.append("")
-    if data["top_tickers"]:
-        lines.append("**Top tickers last 24h:**")
-        for t in data["top_tickers"]:
-            lines.append(f"- {t['ticker']}")
-        lines.append("")
-    if data["macro"]:
-        lines.append(f"**Macro:** {data['macro']['direction']} — {data['macro'].get('summary', '')[:160]}")
-    if len(lines) <= 3:
-        lines.append("_No material overnight activity._")
-    return "\n".join(lines)
+    """Readable brief text from the deterministic sections (no AI involved)."""
+    return _sections_to_text(_fallback_sections(data), "")
+
+
+def _parse_sections(raw: str) -> dict | None:
+    """Validate the AI's JSON reply. Returns the five sections plus an optional
+    top story, or None when the reply is missing/malformed/absurdly long."""
+    if not raw or not raw.strip():
+        return None
+    match = re.search(r"\{.*\}", raw, flags=re.S)
+    if not match:
+        return None
+    try:
+        obj = json.loads(match.group(0))
+    except Exception:
+        return None
+    if not isinstance(obj, dict):
+        return None
+    out: dict = {}
+    for key in _SECTION_KEYS:
+        val = obj.get(key)
+        if not isinstance(val, str) or len(val) > _MAX_SECTION_CHARS:
+            return None
+        out[key] = val.strip()
+    story = obj.get("top_story")
+    out["_top_story"] = story.strip() if isinstance(story, str) else ""
+    return out
+
+
+def _sections_to_text(sections: dict, top_story: str = "") -> str:
+    """Render the sections to the readable brief text that is archived, stored as
+    rendered_content, and parsed back when a retry rebuilds the embed."""
+    lines = ["## Morning Brief", f"_{_clock_line()}_", ""]
+    if top_story:
+        lines += [f"> {top_story}", ""]
+    for key in _SECTION_KEYS:
+        body = (sections.get(key) or "").strip() or _SECTION_EMPTY[key]
+        lines += [f"### {_SECTION_TITLES[key]}", body, ""]
+    return "\n".join(lines).rstrip() + "\n"
+
+
+# Heading -> section key, matched on the words alone. The archived briefs carry a
+# dozen different spellings of these five headings ("🌙 Overnight", "**Overnight
+# Highlights**", "Top Tickers (quick glance)", "Macro Pulse"), and a pending brief
+# retried across a code change would otherwise reparse to an EMPTY card.
+_SECTION_ALIASES = (
+    ("overnight",   ("overnight",)),
+    ("levels",      ("levels to watch", "levels")),
+    ("calls",       ("high conviction", "highconviction", "analyst calls")),
+    ("macro",       ("macro",)),
+    ("top_tickers", ("top tickers",)),
+)
+
+
+def _section_key_for_heading(heading: str) -> str | None:
+    """Which of the five sections this heading names, ignoring emoji, markdown
+    emphasis, punctuation and trailing qualifiers. None when it names none."""
+    text = re.sub(r"[^a-z0-9 ]+", " ", (heading or "").lower())
+    text = re.sub(r"\s+", " ", text).strip()
+    if not text:
+        return None
+    for key, aliases in _SECTION_ALIASES:
+        for alias in aliases:
+            if text.startswith(alias):
+                return key
+    return None
+
+
+def _sections_from_text(content: str) -> tuple[dict, str, str]:
+    """Inverse of _sections_to_text. Returns (sections, top_story, footnote).
+    Tolerant of whitespace and case so an edited archive still parses."""
+    sections: dict = {k: "" for k in _SECTION_KEYS}
+    top_story, footnote = "", ""
+    current = None
+    preamble: list[str] = []
+    buf: dict = {k: [] for k in _SECTION_KEYS}
+    for line in (content or "").splitlines():
+        head = re.match(r"^\s*#{2,4}\s*(.+?)\s*$", line)
+        if head:
+            key = _section_key_for_heading(head.group(1))
+            if key:
+                current = key
+                continue
+        if current is None:
+            preamble.append(line)
+        else:
+            buf[current].append(line)
+    for key in _SECTION_KEYS:
+        sections[key] = "\n".join(buf[key]).strip()
+    for line in preamble:
+        stripped = line.strip()
+        if stripped.startswith(">"):
+            top_story = stripped.lstrip("> ").strip()
+    # The out-of-range-levels warning is appended after the last section.
+    tail = sections["top_tickers"]
+    warn = re.search(r"^⚠️ .*$", tail, flags=re.M)
+    if warn:
+        footnote = warn.group(0)
+        sections["top_tickers"] = tail.replace(footnote, "").strip()
+    return sections, top_story, footnote
 
 
 def _has_forbidden_timezone_label(content: str) -> bool:
@@ -156,8 +339,10 @@ async def _render_briefing(data: dict) -> str:
     data["levels"] = _kept
     data["_levels_hidden"] = _hidden
 
+    # Drop the trailing dash when there is no catalyst: feeding the model bare
+    # "- SNDK (82/100) — " lines got it echoed straight onto the card.
     alert_lines = [
-        f"- {a['ticker']} ({a['confidence_score']:.0f}/100) — {a['catalyst']}"
+        f"- {a['ticker']} ({a['confidence_score']:.0f}/100) — {a['catalyst']}".rstrip(" —")
         for a in data["alerts"][:15]
     ]
     level_lines = [
@@ -180,33 +365,173 @@ async def _render_briefing(data: dict) -> str:
         top_lines.append(f"- **{t['ticker']}** — {analyst[:300]}")
 
     prompt = (
-        "Build a morning Discord briefing from the data below. "
-        "Sections: Overnight, Levels to Watch, High-Conviction Analyst Calls, "
-        "Macro, Top Tickers. Keep under 1500 characters total. Markdown.\n\n"
+        "Build a morning briefing from the data below. Reply with the JSON object "
+        "described in the system message — the five section keys, markdown inside "
+        "each. No clock times, no timezone labels.\n\n"
         f"## Overnight alerts\n" + ("\n".join(alert_lines) or "_none_") + "\n\n"
         f"## Levels\n" + ("\n".join(level_lines) or "_none_") + "\n\n"
         f"## YT Signals\n" + ("\n".join(yt_lines) or "_none_") + "\n\n"
         f"## {macro_block}\n\n"
         f"## Top Tickers\n" + ("\n".join(top_lines) or "_none_")
     )
-    out = await _llm_synthesize(prompt)
-    if not out:
-        out = _fallback_render(data)
-    elif _has_forbidden_timezone_label(out):
+    try:
+        raw = await _llm_synthesize(prompt)
+    except Exception as exc:
+        log.warning("Alfred LLM synthesis failed (%s); using deterministic fallback", exc)
+        raw = ""
+
+    sections = _parse_sections(raw)
+    if sections is None:
+        if raw:
+            log.warning("Alfred rejected AI reply that failed the JSON section contract")
+        sections, top_story = _fallback_sections(data), ""
+    elif _has_forbidden_timezone_label(raw):
         # Relabeling an invented "9:30 ET" as Pacific would make the clock time
         # wrong. Reject the AI text instead and use the deterministic Pacific
         # fallback, which is safer than showing a mislabeled time.
         log.warning("Alfred rejected AI text containing a forbidden timezone label")
-        out = _fallback_render(data)
+        sections, top_story = _fallback_sections(data), ""
+    else:
+        top_story = sections.pop("_top_story", "")
+
+    out = _sections_to_text(sections, top_story)
     # Item C: user-visible footnote so a wrongly-hidden real level is detectable (not buried).
     hidden = data.get("_levels_hidden", 0)
     if hidden:
-        out = f"{out}\n\n⚠️ {hidden} level{'s' if hidden != 1 else ''} hidden as out-of-range."
+        out = f"{out}\n⚠️ {hidden} level{'s' if hidden != 1 else ''} hidden as out-of-range.\n"
     return out
 
 
-async def _send_discord_briefing(content: str) -> str | None:
-    """POST a briefing to the dedicated channel. Returns Discord message id."""
+# ---------------------------------------------------------------------------
+# SPY expected move + the card
+# ---------------------------------------------------------------------------
+async def _spy_expected_move(horizon: str) -> tuple[object | None, bytes | None]:
+    """Reuse the !em engine for SPY. Never raises — a failure just means no
+    numbers and no chart for that horizon."""
+    from consensus_engine.scanners.expected_move import compute_em, render_chart
+    try:
+        result = await compute_em("SPY", horizon=horizon)
+    except Exception as exc:
+        log.warning("Alfred SPY %s expected move unavailable: %s", horizon, exc)
+        return None, None
+    try:
+        png = render_chart(result)
+    except Exception as exc:
+        log.warning("Alfred SPY %s chart render failed: %s", horizon, exc)
+        png = None
+    if png is None:
+        log.info("Alfred SPY %s chart not rendered; posting numbers only", horizon)
+    return result, png
+
+
+def _em_summary_line(result) -> str:
+    pct = result.em.get("raw_straddle_em_pct")
+    pct_txt = f" ({pct * 100:.2f}%)" if isinstance(pct, (int, float)) else ""
+    word = "Weekly" if result.horizon == "weekly" else "Daily"
+    return (f"**SPY {word} expected move ±${result.primary_em:,.2f}{pct_txt}**\n"
+            f"🔴 {result.upper:,.2f} · 🔵 {result.spot:,.2f} now · 🟢 {result.lower:,.2f}"
+            f" · expires `{result.expiration}`")
+
+
+def _em_meta(result, rendered: bool) -> dict:
+    return {
+        "spot": round(result.spot, 4),
+        "expected_move": round(result.primary_em, 4),
+        "expected_move_pct": result.em.get("raw_straddle_em_pct"),
+        "upper": round(result.upper, 4),
+        "lower": round(result.lower, 4),
+        "expiration": result.expiration,
+        "chart": rendered,
+    }
+
+
+def _build_briefing_embed(sections: dict, top_story: str, footnote: str) -> dict:
+    """The main card: fixed five fields, every value inside Discord's limits."""
+    description = f"_{_clock_line()}_"
+    if top_story:
+        description += f"\n\n**{top_story}**"
+    embed = {
+        "title": "☀️  Morning Brief",
+        "description": _trim_to_limit(description, _MAX_DESCRIPTION),
+        "color": _BRIEF_COLOR,
+        "fields": [
+            {"name": _SECTION_TITLES[k],
+             "value": _trim_to_limit((sections.get(k) or "").strip() or _SECTION_EMPTY[k],
+                                     _MAX_FIELD_VALUE),
+             "inline": False}
+            for k in _SECTION_KEYS
+        ],
+    }
+    if footnote:
+        embed["footer"] = {"text": _trim_to_limit(footnote, 2048)}
+    return _fit_embed(embed)
+
+
+def _fit_embed(embed: dict) -> dict:
+    """Keep the whole embed under Discord's 6000-char total by trimming the
+    longest field first — visibly, never silently."""
+    def total(e: dict) -> int:
+        return (len(e.get("title", "")) + len(e.get("description", ""))
+                + len((e.get("footer") or {}).get("text", ""))
+                + sum(len(f["name"]) + len(f["value"]) for f in e.get("fields", [])))
+
+    while total(embed) > _MAX_EMBED_TOTAL:
+        over = total(embed) - _MAX_EMBED_TOTAL
+        biggest = max(embed["fields"], key=lambda f: len(f["value"]))
+        target = max(60, len(biggest["value"]) - over)
+        if target >= len(biggest["value"]):
+            break
+        biggest["value"] = _trim_to_limit(biggest["value"], target)
+    return embed
+
+
+async def _build_briefing_payload(content: str) -> tuple[list[dict], list[tuple[str, bytes]], str]:
+    """Turn the archived brief text into (embeds, attachments, em_metadata JSON).
+    The daily SPY chart is expected; the weekly one is strictly best-effort and
+    can never delay or block the post."""
+    sections, top_story, footnote = _sections_from_text(content)
+    meta: dict = {}
+
+    daily, daily_png = await _spy_expected_move("daily")
+    if daily is not None:
+        meta["daily"] = _em_meta(daily, daily_png is not None)
+        sections["levels"] = (_em_summary_line(daily) + "\n" + (sections["levels"] or "")).strip()
+    else:
+        meta["daily"] = {"error": "unavailable"}
+
+    weekly, weekly_png = await _spy_expected_move("weekly")
+    if weekly is not None:
+        meta["weekly"] = _em_meta(weekly, weekly_png is not None)
+    else:
+        meta["weekly"] = {"error": "unavailable"}
+
+    main = _build_briefing_embed(sections, top_story, footnote)
+    embeds = [main]
+    attachments: list[tuple[str, bytes]] = []
+
+    if daily_png and len(daily_png) <= _MAX_ATTACHMENT_BYTES:
+        main["image"] = {"url": f"attachment://{SPY_EM_DAILY_FILE}"}
+        attachments.append((SPY_EM_DAILY_FILE, daily_png))
+    # A Discord embed holds one image, so the weekly chart rides in a second
+    # embed inside the SAME message.
+    if weekly_png and len(weekly_png) <= _MAX_ATTACHMENT_BYTES:
+        embeds.append({
+            "title": "SPY — Weekly Expected Move",
+            "description": _trim_to_limit(_em_summary_line(weekly), _MAX_DESCRIPTION),
+            "color": _BRIEF_COLOR,
+            "image": {"url": f"attachment://{SPY_EM_WEEKLY_FILE}"},
+        })
+        attachments.append((SPY_EM_WEEKLY_FILE, weekly_png))
+    elif weekly_png:
+        log.info("Alfred skipped the weekly SPY chart: %d bytes is too large", len(weekly_png))
+
+    return embeds, attachments, json.dumps(meta, separators=(",", ":"))
+
+
+async def send_briefing_message(embeds: list[dict],
+                                attachments: list[tuple[str, bytes]] | None = None) -> str | None:
+    """POST one non-reply message with the brief embed(s) and up to two PNGs.
+    Returns the Discord message id, or None so the run stays retryable."""
     token = cfg.get_api_key("discord_bot_token")
     channel_id = str(cfg.get("alfred.channel_id", "") or
                      cfg.get("api_keys.discord_briefing_channel_id", "") or "")
@@ -214,29 +539,65 @@ async def _send_discord_briefing(content: str) -> str | None:
         log.warning("Alfred Discord: missing bot token or briefing channel id")
         return None
     if getattr(cfg, "dry_run", False):
-        log.info("[DRY-RUN] Alfred would post to %s: %s", channel_id, content[:80])
+        log.info("[DRY-RUN] Alfred would post to %s: %s (%d embeds, %d files)",
+                 channel_id, (embeds[0].get("title") if embeds else ""),
+                 len(embeds), len(attachments or []))
         return "dry-run"
 
     url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
-    # Discord hard limit is 2000 chars.
-    payload = _safe_send_kwargs({"content": content[:1990]})
+    files = list(attachments or [])
+    payload = _safe_send_kwargs({"embeds": embeds})
+    if files:
+        payload["attachments"] = [{"id": i, "filename": name}
+                                  for i, (name, _) in enumerate(files)]
+
+    session = await get_session()
     try:
-        session = await get_session()
-        async with session.post(
-            url,
-            headers={"Authorization": f"Bot {token}",
-                     "Content-Type": "application/json"},
-            json=payload,
-            timeout=aiohttp.ClientTimeout(total=15),
-        ) as resp:
-            if resp.status not in (200, 201):
-                log.warning("Alfred Discord post failed: %d", resp.status)
-                return None
-            data = await resp.json()
-            return str(data.get("id", ""))
+        if files:
+            form = aiohttp.FormData()
+            form.add_field("payload_json", json.dumps(payload),
+                           content_type="application/json")
+            for i, (name, blob) in enumerate(files):
+                form.add_field(f"files[{i}]", blob, filename=name,
+                               content_type="image/png")
+            async with session.post(
+                url, headers={"Authorization": f"Bot {token}"}, data=form,
+                timeout=aiohttp.ClientTimeout(total=30),
+            ) as resp:
+                if resp.status in (200, 201):
+                    return str((await resp.json()).get("id", ""))
+                log.warning("Alfred multipart post failed: %d; retrying without images",
+                            resp.status)
+        else:
+            return await _post_briefing_json(url, token, {"embeds": embeds})
     except Exception as exc:
         log.error("Alfred Discord send error: %s", exc)
+        if not files:
+            return None
+
+    # Multipart failed — post the embeds without images so the numbers still land.
+    plain = [{k: v for k, v in e.items() if k != "image"} for e in embeds]
+    plain = [e for e in plain if e.get("fields") or e.get("description")]
+    try:
+        return await _post_briefing_json(url, token, {"embeds": plain})
+    except Exception as exc:
+        log.error("Alfred Discord fallback send error: %s", exc)
         return None
+
+
+async def _post_briefing_json(url: str, token: str, body: dict) -> str | None:
+    session = await get_session()
+    async with session.post(
+        url,
+        headers={"Authorization": f"Bot {token}",
+                 "Content-Type": "application/json"},
+        json=_safe_send_kwargs(body),
+        timeout=aiohttp.ClientTimeout(total=20),
+    ) as resp:
+        if resp.status not in (200, 201):
+            log.warning("Alfred Discord post failed: %d", resp.status)
+            return None
+        return str((await resp.json()).get("id", ""))
 
 
 import asyncio as _asyncio
@@ -289,11 +650,14 @@ async def post_briefing(session_key: str, data: dict) -> None:
 
     # Stage 2: post to Discord (only if pending)
     if run["status"] == "pending":
-        msg_id = await _send_discord_briefing(run["rendered_content"] or "")
+        embeds, attachments, em_metadata = await _build_briefing_payload(
+            run["rendered_content"] or "")
+        msg_id = await send_briefing_message(embeds, attachments)
         if not msg_id:
             log.warning("Alfred %s Discord post failed; leaving pending for retry", session_key)
             return
-        await db.upsert_briefing_run(session_key, discord_message_id=msg_id, status="posted")
+        await db.upsert_briefing_run(session_key, discord_message_id=msg_id,
+                                     status="posted", em_metadata=em_metadata)
         run = await db.get_briefing_run(session_key)
 
     # Stage 3: archive to vault

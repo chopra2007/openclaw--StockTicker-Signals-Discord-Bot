@@ -1036,7 +1036,8 @@ CREATE TABLE IF NOT EXISTS briefing_runs (
     status TEXT NOT NULL DEFAULT 'pending',
     created_at REAL NOT NULL,
     posted_at REAL,
-    archived_at REAL
+    archived_at REAL,
+    em_metadata TEXT
 );
 CREATE TABLE IF NOT EXISTS youtube_analysis_runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1845,6 +1846,10 @@ async def _run_column_migrations(conn) -> None:
         ("options_flow", "flow_side", "TEXT"),
         ("options_flow", "bid",       "REAL"),
         ("options_flow", "ask",       "REAL"),
+        # TODO #87: SPY expected-move numbers + chart-render flags for the morning
+        # brief card, as compact JSON. Kept OUT of rendered_content so a retry
+        # re-posts clean readable text, not metadata. NULL on legacy rows.
+        ("briefing_runs", "em_metadata", "TEXT"),
     ]
     for table in ("youtube_signals", "youtube_levels", "youtube_setups", "youtube_options"):
         for col, defn in v2_span_cols:
@@ -5583,18 +5588,21 @@ async def upsert_briefing_run(session_key: str, **fields) -> None:
             "created_at": now,
             "posted_at": fields.get("posted_at"),
             "archived_at": fields.get("archived_at"),
+            "em_metadata": fields.get("em_metadata"),
         }
         await conn.execute(
             """INSERT INTO briefing_runs
                (session_key, session_start_utc, session_end_utc, rendered_content,
-                discord_message_id, status, created_at, posted_at, archived_at)
+                discord_message_id, status, created_at, posted_at, archived_at, em_metadata)
                VALUES (:session_key, :session_start_utc, :session_end_utc, :rendered_content,
-                       :discord_message_id, :status, :created_at, :posted_at, :archived_at)""",
+                       :discord_message_id, :status, :created_at, :posted_at, :archived_at,
+                       :em_metadata)""",
             row,
         )
     else:
         allowed = {"session_start_utc", "session_end_utc", "rendered_content",
-                   "discord_message_id", "status", "posted_at", "archived_at"}
+                   "discord_message_id", "status", "posted_at", "archived_at",
+                   "em_metadata"}
         sets = {k: v for k, v in fields.items() if k in allowed}
         if sets:
             cols = ", ".join(f"{k}=?" for k in sets)
