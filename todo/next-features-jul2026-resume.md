@@ -1,19 +1,15 @@
 # Finish the feature-idea sweep, reusing the already-saved codebase map
 
-**Status:** AWAITING APPROVAL — **14 switches need a yes/no.** 19 features are built and sitting OFF: 16 from the July sweep (2026-07-08) + 3 from the #76 menu build (2026-07-14). **This item is the ONE place every built-but-switched-off feature is listed** — whatever session builds it, its switch is registered here, so the user has a single list to approve from. Live state: `python3 scripts/todo_switch_state.py`. The old `SOAKING until 2026-07-15` clock was dropped 2026-07-13: the display-only ones collect nothing while off, so waiting bought them zero evidence. Of the rest, short-interest + PEAD need a blast-radius measurement (our work, not a wait), and only the NFCI leg genuinely needs more calendar time (3 readings so far, all identical). See TODO #73's switch inventory.
+**Status:** OPEN — 13 of 14 switch decisions are resolved; only the NFCI score decision remains.
 **Created:** 2026-07-06
 
-**CURRENT STATUS (2026-07-14):** **3 more switches added to this list, from the #76 feature-menu build
-(run `menu-top10`).** They are display-only, cannot touch an alert or a score, and each was proved on
-real data before commit — so they are the *safest* flips on the whole list:
-
-| Switch | What flipping it does, in one line | Risk |
-|---|---|---|
-| `features.sources_denominator.enabled` | The `!all` footer stops saying `Sources: 21` and starts saying **`Sources: 21 of 27 attempted`** — you can finally tell "4 of 5 sources agreed" from "4 of 27". | None. Display text only. OFF is byte-identical to today. |
-| `features.vvix_residual.enabled` | Adds one line to `!market`: the **VVIX "fear-of-fear"** read — is the market nervous about its own nervousness, beyond what the VIX already explains. (`collect: true` is ALREADY ON and quietly filling `vol_of_vol_daily`, so the history is there the day you flip this.) | None to alerts. A test forbids the scorer from ever reading it, so it cannot become the VIX predictor rejected in #47. |
-| `features.sweep.enabled` | Turns on the **`!sweep`** command (alias `!universe`): scores your whole watchlist on demand and posts one ranked list. Does not change any existing command. | Low. It is read-only and never alerts. Note it spends the same API budget the live alerts use (it runs the real `!scan` path per ticker), hence the 15-ticker / 3-at-a-time caps. |
-
-**Flipping any of these needs an engine restart to take effect** (`systemctl restart consensus-engine.service`) — the engine reads config at startup.
+**CURRENT STATUS (2026-08-17):** 13 of 14 decisions are resolved and live. The short-interest score
+bump is intentionally off for good; a display-only squeeze tag is on instead. NFCI now appears in
+plain language in `!market` and on unusual detail cards, while its score multiplier remains off.
+The stored records cannot support a valid NFCI score replay because they lack each candidate's
+effective cutoff, complete inputs and weights, and point-in-time NFCI value and date. The remaining
+work is to record those fields for every candidate, then collect at least 12 weekly NFCI readings and
+100 candidates within five points of the cutoff before making the final NFCI score decision.
 
 **CURRENT STATUS (2026-07-08):** **All 6 stages BUILT + VERIFIED + COMMITTED** (Stages 2–6 ran autonomously this session). 16 features shipped, every one behind a config flag **DEFAULT OFF** (shadow) — **no live alert, score, or !all/!market/!sec output changed** (proven byte-identical on both live-scoring surfaces: E2 `cross_asset.get_multiplier` and `cross_reference.score_ticker`). Stage commits (local, unpushed until this close): S2 `e74eb19` (NFCI + FRED macro legs), S3 `f057e23` (dealer-GEX/gamma-flip/IV-skew/OI-pinning + ^SKEW), S4 `1023bdf` (IV-vs-RV + squeeze), S5 `d240257` (short-interest/PEAD/breadth), S6 `931e272` (Form 144/10b5-1/House congress). Each stage: live-probe on real data + full regression (final **2785 passed, 0 regressions**) + ownership fix + per-stage commit; implementer (executor agents) separate from verifier (me). **Go-live NOT done — that's a separate, explicit, per-feature user decision gated on shadow evidence.** Owed follow-ups (in `.claude/discover/next-features-jul2026/outcome.json`): r13-Senate congress (efdsearch gated), r20 true advancers/decliners upgrade (shipped RSP/SPY proxy), and wiring the Stage-6 insider context lines onto the live !sec/!all surfaces (a go-live step after shadow data accrues). 3 ideas killed (max-pain-label/dark-pool/0DTE-directional); 8 kept ideas not built this run (VVIX/VIX, 0-100 score, crowding guard, market put/call, CFTC, GDELT, analyst-PT-disagreement, !scan) remain future candidates.
 
@@ -143,3 +139,8 @@ Resumed the run and took it all the way through the plan + first build stage.
   `python3 scripts/todo_switch_state.py` is the source of truth, not the prose.
 - **Nothing was flipped this session.** All 3 are display-only and were proved on real data, so they are
   the lowest-risk flips on the list — but the flip is the user's call, and it needs an engine restart.
+
+### Session notes — 2026-08-17
+- **Worked on:** Replaced the short-interest score proposal with a live squeeze tag, added the live NFCI note, measured the stored decision history, and verified both displays in Discord.
+- **Decisions:** The short-interest score bump stays off for good. The NFCI score multiplier stays off because the stored records cannot reproduce a valid before-and-after decision.
+- **Next:** Record complete per-candidate score inputs, weights, cutoff, timestamp, and NFCI value/date; then collect at least 12 weekly readings and 100 near-cutoff candidates before deciding the NFCI score multiplier.
