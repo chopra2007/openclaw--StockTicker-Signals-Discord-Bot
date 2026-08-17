@@ -301,8 +301,8 @@ def select_atm(calls: pd.DataFrame, puts: pd.DataFrame, spot: float,
 
     # Nothing clean — surface the closest strike's problem rather than guessing.
     raise EMUnavailable(
-        "Options for this ticker/expiration are too illiquid for a reliable "
-        "expected move (zero bids, wide spreads, or thin open interest)."
+        "The selected expiration does not have reliable two-sided quotes right "
+        "now (missing bids/asks, wide spreads, or low open interest)."
     )
 
 
@@ -435,11 +435,16 @@ def _yfinance_bundle(ticker: str, now_et: datetime,
 def _fetch_bundle(ticker: str, now_et: datetime, horizon: str = "daily") -> dict:
     """Blocking: spot, chosen expiration, that chain, and price history."""
     # #57: Schwab real-time chain PRIMARY (native greeks + IV); yfinance fallback.
+    schwab_unavailable = False
     if _cfg.get("features.schwab_options.enabled", False):
         bundle = _schwab_bundle(ticker, now_et, horizon)
         if bundle is not None:
             return bundle
-    return _yfinance_bundle(ticker, now_et, horizon)
+        schwab_unavailable = True
+    bundle = _yfinance_bundle(ticker, now_et, horizon)
+    if schwab_unavailable:
+        bundle["_schwab_unavailable"] = True
+    return bundle
 
 
 def _fetch_history(ticker: str, horizon: str = "daily") -> tuple[pd.DataFrame, str]:
@@ -506,6 +511,11 @@ async def compute_em(ticker: str, executor=None,
         # fallback as an empty/failed Schwab chain instead of falsely calling a
         # liquid ticker illiquid. Preserve the original error if the fallback
         # is unavailable or also fails its quote-quality checks.
+        if bundle.get("_schwab_unavailable"):
+            raise EMUnavailable(
+                "Live option quotes are temporarily unavailable. Try again in "
+                "a minute."
+            ) from schwab_error
         if bundle.get("source") != "schwab":
             raise
         try:

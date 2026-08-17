@@ -306,6 +306,36 @@ async def test_compute_em_falls_back_when_schwab_quotes_fail_quality(monkeypatch
     assert result.primary_em == pytest.approx(5.635, abs=1e-3)
 
 
+@pytest.mark.asyncio
+async def test_compute_em_does_not_call_ticker_illiquid_when_schwab_is_down(
+        monkeypatch):
+    """If live data failed and delayed quotes are zeros, name the temporary
+    data problem instead of falsely labelling SPY or TSLA illiquid."""
+    calls, puts = _spy_chain()
+    calls[["bid", "ask"]] = 0.0
+    puts[["bid", "ask"]] = 0.0
+    now = datetime(2026, 6, 25, 17, 36, tzinfo=EDT)
+    bundle = {
+        "spot": 734.30,
+        "expiration": "2026-06-26",
+        "session_label": "Next session (market closed)",
+        "calls": calls,
+        "puts": puts,
+        "history": pd.DataFrame(),
+        "history_label": "no price history",
+        "source": "yfinance",
+        "_schwab_unavailable": True,
+    }
+    monkeypatch.setattr(em, "now_eastern", lambda: now)
+    monkeypatch.setattr(em, "_fetch_bundle",
+                        lambda ticker, now_et, horizon: bundle)
+
+    with pytest.raises(em.EMUnavailable, match="temporarily unavailable") as exc:
+        await em.compute_em("SPY")
+
+    assert "illiquid" not in str(exc.value).lower()
+
+
 # --- expected-move math -----------------------------------------------------
 def test_calculate_expected_moves_matches_reference():
     calls, puts = _spy_chain()
