@@ -11,6 +11,44 @@ effective cutoff, complete inputs and weights, and point-in-time NFCI value and 
 work is to record those fields for every candidate, then collect at least 12 weekly NFCI readings and
 100 candidates within five points of the cutoff before making the final NFCI score decision.
 
+**PREVIOUS STATUS (2026-08-16):** **User: "flip all switches live except for 11 and 14."** Flipped 12 of the
+14 pending switches ON in `config/consensus.yaml`: `sources_denominator`, `trading_halts`, `skew_index`,
+`pead`, `market_breadth`, `sweep`, `vvix_residual`, `dealer_gamma`, `iv_skew`, `oi_pinning`, `iv_rv_tag`,
+`vol_squeeze`. Held back `cross_asset.nfci_leg_enabled` and `short_interest.enabled` per the explicit
+exception — both are score-touching, not display-only. Full regression suite against the flipped config:
+**3318 passed, 10 skipped, 0 failed.** Deployed to the live checkout (file-copy, since this session can't
+`git pull` the shared checkout directly) and restarted `consensus-engine.service`. **Verified live on the
+real bot, not just tests:** `!all NVDA` renders Vol Read, Squeeze, Dealer Gamma, IV Skew, OI Pinning,
+SKEW, and the "Sources: N of M attempted" footer; `!market` renders Market breadth and the VVIX
+fear-of-fear gauge; `!sweep` returned a real ranked list across 10 tickers (this also confirms the
+`!scan`/`!sweep` crash fix from the same session holds under load — see below). **Two caveats flagged
+for the record, not silently rolled in:** `pead.enabled`'s own config comment says it feeds "a small
+capped confluence leg", not pure display like the other 11 — flipped anyway per the broad instruction.
+`trading_halts.enabled` is a genuinely new live alert type (fires to the alerts channel on a real
+Nasdaq/NYSE halt), not just a card addition. PR: `worktree-federated-humming-pnueli` → master (#33).
+
+**Separate same-session finding, not part of this item but affecting it:** discovered and fixed a
+LIVE PRODUCTION BUG — `!scan` and `!sweep` were both crashing on every call (`trade direction must be
+'long' or 'short'`), broken since 2026-08-11 by an unrelated measurement-ledger change that never
+accounted for the NEUTRAL-direction fake tweet `!scan`/`!sweep` both use by design. Confirmed crashing
+live in the engine log before the fix, confirmed working after. Root cause + fix:
+`consensus_engine/cross_reference.py`'s `build_score_cache_key` call now normalizes any non-long/short
+direction to "long" for the cache-key only — the real `direction` passed to scoring is untouched. Merged
+via PR #32 and deployed live the same way (file-copy + restart) before any switch was flipped, since
+`!sweep` couldn't have been verified while it was broken.
+
+**PREVIOUS STATUS (2026-07-14):** **3 more switches added to this list, from the #76 feature-menu build
+(run `menu-top10`).** They are display-only, cannot touch an alert or a score, and each was proved on
+real data before commit — so they are the *safest* flips on the whole list:
+
+| Switch | What flipping it does, in one line | Risk |
+|---|---|---|
+| `features.sources_denominator.enabled` | The `!all` footer stops saying `Sources: 21` and starts saying **`Sources: 21 of 27 attempted`** — you can finally tell "4 of 5 sources agreed" from "4 of 27". | None. Display text only. OFF is byte-identical to today. |
+| `features.vvix_residual.enabled` | Adds one line to `!market`: the **VVIX "fear-of-fear"** read — is the market nervous about its own nervousness, beyond what the VIX already explains. (`collect: true` is ALREADY ON and quietly filling `vol_of_vol_daily`, so the history is there the day you flip this.) | None to alerts. A test forbids the scorer from ever reading it, so it cannot become the VIX predictor rejected in #47. |
+| `features.sweep.enabled` | Turns on the **`!sweep`** command (alias `!universe`): scores your whole watchlist on demand and posts one ranked list. Does not change any existing command. | Low. It is read-only and never alerts. Note it spends the same API budget the live alerts use (it runs the real `!scan` path per ticker), hence the 15-ticker / 3-at-a-time caps. |
+
+**Flipping any of these needs an engine restart to take effect** (`systemctl restart consensus-engine.service`) — the engine reads config at startup.
+
 **CURRENT STATUS (2026-07-08):** **All 6 stages BUILT + VERIFIED + COMMITTED** (Stages 2–6 ran autonomously this session). 16 features shipped, every one behind a config flag **DEFAULT OFF** (shadow) — **no live alert, score, or !all/!market/!sec output changed** (proven byte-identical on both live-scoring surfaces: E2 `cross_asset.get_multiplier` and `cross_reference.score_ticker`). Stage commits (local, unpushed until this close): S2 `e74eb19` (NFCI + FRED macro legs), S3 `f057e23` (dealer-GEX/gamma-flip/IV-skew/OI-pinning + ^SKEW), S4 `1023bdf` (IV-vs-RV + squeeze), S5 `d240257` (short-interest/PEAD/breadth), S6 `931e272` (Form 144/10b5-1/House congress). Each stage: live-probe on real data + full regression (final **2785 passed, 0 regressions**) + ownership fix + per-stage commit; implementer (executor agents) separate from verifier (me). **Go-live NOT done — that's a separate, explicit, per-feature user decision gated on shadow evidence.** Owed follow-ups (in `.claude/discover/next-features-jul2026/outcome.json`): r13-Senate congress (efdsearch gated), r20 true advancers/decliners upgrade (shipped RSP/SPY proxy), and wiring the Stage-6 insider context lines onto the live !sec/!all surfaces (a go-live step after shadow data accrues). 3 ideas killed (max-pain-label/dark-pool/0DTE-directional); 8 kept ideas not built this run (VVIX/VIX, 0-100 score, crowding guard, market put/call, CFTC, GDELT, analyst-PT-disagreement, !scan) remain future candidates.
 
 **CURRENT STATUS (2026-07-07) — sweep DONE, awaiting the user's build pick.** The prerequisite was
