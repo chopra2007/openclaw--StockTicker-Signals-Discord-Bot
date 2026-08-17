@@ -9,12 +9,14 @@ import json
 import logging
 import re
 import time
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import aiohttp
 
 from consensus_engine import config as cfg
 from consensus_engine.alerts.display_scale import regime_stress, regime_emoji, disagreement, call_put_split
+from consensus_engine.alerts.short_interest_display import render_squeeze_candidate
 from consensus_engine.utils.http import get_session
 from consensus_engine.utils.obs_log import obs_log
 from consensus_engine import db
@@ -513,6 +515,24 @@ def format_detail_followup(xref: CrossReferenceResult, precision: Optional[dict]
 
     if xref.llm_reasoning:
         fields.append({"name": "LLM Analysis", "value": f"+{b.llm_boost} pts — {xref.llm_reasoning[:150]}", "inline": False})
+
+    if cfg.get("features.short_interest.squeeze_tag", False):
+        max_age_min = float(cfg.get(
+            "features.recency_window.max_age_min.short_interest", 43200
+        ))
+        squeeze_line = render_squeeze_candidate(
+            xref.short_interest_row,
+            datetime.now(timezone.utc),
+            timedelta(minutes=max_age_min),
+            float(cfg.get("features.short_interest.min_days_to_cover", 3.0)),
+            bool(cfg.get("features.short_interest.require_rising", True)),
+        )
+        if squeeze_line:
+            fields.append({
+                "name": "Short-interest setup",
+                "value": squeeze_line,
+                "inline": False,
+            })
 
     if precision and not precision.get("skipped"):
         cls = precision.get("classification")

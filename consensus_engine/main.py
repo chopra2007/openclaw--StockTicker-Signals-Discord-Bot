@@ -2181,6 +2181,15 @@ async def _run_cross_reference_and_followup(
 
         displayed_score = float(owner_visible_score(xref, precision))
 
+        # Display-only squeeze context is fetched after the decision is final and
+        # after the instant alert has already fired. It cannot change the score,
+        # threshold, alert count, or fast first message.
+        if cfg.get("features.short_interest.squeeze_tag", False):
+            try:
+                xref.short_interest_row = await db.get_latest_finra_short_interest(ticker)
+            except Exception as display_exc:
+                log.debug("squeeze display unavailable for $%s: %s", ticker, display_exc)
+
         phase2_delivery_id = None
         if _measurement_enabled() and measurement_decision_id:
             phase2_delivery_id = await measurement.record_delivery(

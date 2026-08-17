@@ -306,6 +306,8 @@ class CrossReferenceResult:
     suppressed: bool = False                # True when reliability gate blocks the alert
     # A3: Bayesian source consolidation result (always populated, None if disabled/error)
     consolidation_result: Optional[object] = None
+    # Display-only context fetched after the alert decision. Never scored.
+    short_interest_row: Optional[dict] = None
 
     @property
     def final_score(self) -> int:
