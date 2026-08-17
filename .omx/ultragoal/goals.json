@@ -1,86 +1,53 @@
 {
   "version": 1,
-  "createdAt": "2026-08-12T05:37:32.525Z",
-  "updatedAt": "2026-08-12T05:37:43.493Z",
+  "createdAt": "2026-08-17T08:49:14.127Z",
+  "updatedAt": "2026-08-17T10:56:01.013Z",
   "briefPath": ".omx/ultragoal/brief.md",
   "goalsPath": ".omx/ultragoal/goals.json",
   "ledgerPath": ".omx/ultragoal/ledger.jsonl",
   "codexGoalMode": "aggregate",
   "goals": [
     {
-      "id": "G001-batch-1-measurement-integrity",
-      "title": "Batch 1 - Measurement integrity",
-      "objective": "Implement only the Batch 1 scope from the master plan, prove every immediate acceptance criterion, start additive dual-write collection, schedule the full-market-cycle reconciliation check, and do not mark complete until that later gate is proved.",
+      "id": "G001-analyst-group-alerts-83-and-84",
+      "title": "Analyst-group alerts (#83 and #84)",
+      "objective": "Remove the repeated SWARM wording, add faithful per-analyst direction and catalyst details, replay every recoverable group and price path, inspect real Discord output, and satisfy both TODO detail files without weakening existing card facts.",
+      "status": "complete",
+      "attempt": 1,
+      "createdAt": "2026-08-17T08:49:14.127Z",
+      "updatedAt": "2026-08-17T10:56:00.527Z",
+      "startedAt": "2026-08-17T08:49:20.375Z",
+      "completedAt": "2026-08-17T10:56:00.527Z",
+      "evidence": "Commits c764b59 and 72e77e9; 84 focused checks passed in root rerun; independent focused 85 passed and affected 98 passed/1 skipped; saved immutable audit covered 756 events, 586 posts, 410 recoverable groups, 0 reversals, 0 unsupported reasons, 0 card failures; schema v34 live after one 3:49 AM Pacific restart; approved AAPL Discord card read back with 2 bullish analysts, source links, exact price, ping, no repeated SWARM wording, and Pacific-safe timing; both TODO checks passed."
+    },
+    {
+      "id": "G002-grounded-discord-feature-answers-85",
+      "title": "Grounded Discord feature answers (#85)",
+      "objective": "Build the recoverable real-question corpus, independently ground answers in current code and data, race capable agent models when needed, prove multi-turn false-premise handling through the real Discord path, and satisfy TODO #85.",
       "status": "in_progress",
       "attempt": 1,
-      "createdAt": "2026-08-12T05:37:32.525Z",
-      "updatedAt": "2026-08-12T05:37:43.493Z",
-      "startedAt": "2026-08-12T05:37:43.493Z"
+      "createdAt": "2026-08-17T08:49:14.127Z",
+      "updatedAt": "2026-08-17T10:56:01.013Z",
+      "startedAt": "2026-08-17T10:56:01.013Z"
     },
     {
-      "id": "G002-batch-2-exact-trade-tracking",
-      "title": "Batch 2 - Exact trade tracking",
-      "objective": "After Batch 1 is complete, implement exact options-contract and share tracking, prove reproducible quotes, costs, fees, missing-data states, and rollback as defined in the master plan.",
+      "id": "G003-vvix-vix-leadership-and-streaks-86",
+      "title": "VVIX/VIX leadership and streaks (#86)",
+      "objective": "Add descriptive lead and market-day streak output, replay every stored row, separately measure predictive usefulness, inspect the real market card, and keep the feature out of scores and alerts.",
       "status": "pending",
       "attempt": 0,
-      "createdAt": "2026-08-12T05:37:32.525Z",
-      "updatedAt": "2026-08-12T05:37:32.525Z"
+      "createdAt": "2026-08-17T08:49:14.127Z",
+      "updatedAt": "2026-08-17T08:49:14.127Z"
     },
     {
-      "id": "G003-batch-3-safety-and-scoring-correctne",
-      "title": "Batch 3 - Safety and scoring correctness",
-      "objective": "After Batches 1 and 2 are complete, prove structured prices, delivery truth, public privacy, source independence, contribution totals, and safe rollback.",
+      "id": "G004-morning-brief-card-and-expected-move",
+      "title": "Morning brief card and expected-move charts (#87)",
+      "objective": "Build the stable compact card, reuse daily and weekly expected-move calculations and images, replay all archived briefs and saved daily snapshots, preserve retry and no-duplicate delivery behavior, inspect real Discord output, then complete the final Ultragoal quality gate.",
       "status": "pending",
       "attempt": 0,
-      "createdAt": "2026-08-12T05:37:32.525Z",
-      "updatedAt": "2026-08-12T05:37:32.525Z"
-    },
-    {
-      "id": "G004-batch-4-speed-and-reliability",
-      "title": "Batch 4 - Speed and reliability",
-      "objective": "After correctness is stable, measure and improve the named command and data paths without weakening evidence, then prove time limits and failure containment.",
-      "status": "pending",
-      "attempt": 0,
-      "createdAt": "2026-08-12T05:37:32.525Z",
-      "updatedAt": "2026-08-12T05:37:32.525Z"
-    },
-    {
-      "id": "G005-batch-5-clean-observation-sample",
-      "title": "Batch 5 - Clean observation sample",
-      "objective": "Collect and report at least 20 trading days and 100 independent resolved recommendations, prove every integrity threshold, and restart any contaminated clean window.",
-      "status": "pending",
-      "attempt": 0,
-      "createdAt": "2026-08-12T05:37:32.525Z",
-      "updatedAt": "2026-08-12T05:37:32.525Z"
-    },
-    {
-      "id": "G006-batch-6-ranking-experiments",
-      "title": "Batch 6 - Ranking experiments",
-      "objective": "After a clean sample exists, preregister and test simple ranking methods chronologically with the latest 30 percent untouched and every promotion metric reported.",
-      "status": "pending",
-      "attempt": 0,
-      "createdAt": "2026-08-12T05:37:32.525Z",
-      "updatedAt": "2026-08-12T05:37:32.525Z"
-    },
-    {
-      "id": "G007-batch-7-shadow-daily-ranking",
-      "title": "Batch 7 - Shadow daily ranking",
-      "objective": "After a ranking passes internal gates, run and verify silent daily ranking without changing owner-visible output, including safe rollback.",
-      "status": "pending",
-      "attempt": 0,
-      "createdAt": "2026-08-12T05:37:32.525Z",
-      "updatedAt": "2026-08-12T05:37:32.525Z"
-    },
-    {
-      "id": "G008-batch-8-controlled-release",
-      "title": "Batch 8 - Controlled release",
-      "objective": "After every promotion gate passes, stage the owner-visible digest, prove automatic safety stops and saved-delivery agreement, never automate orders, and schedule the 20-trading-day review.",
-      "status": "pending",
-      "attempt": 0,
-      "createdAt": "2026-08-12T05:37:32.525Z",
-      "updatedAt": "2026-08-12T05:37:32.525Z"
+      "createdAt": "2026-08-17T08:49:14.127Z",
+      "updatedAt": "2026-08-17T08:49:14.127Z"
     }
   ],
   "codexObjective": "Complete the durable ultragoal plan in .omx/ultragoal/goals.json, including later accepted/appended stories, under the original brief constraints; use .omx/ultragoal/ledger.jsonl as the audit trail.",
-  "activeGoalId": "G001-batch-1-measurement-integrity"
+  "activeGoalId": "G002-grounded-discord-feature-answers-85"
 }
