@@ -126,6 +126,88 @@ def test_market_embed_field_only_with_a_row():
     assert not any("Fear of fear" in f["name"] for f in off["fields"])
 
 
+def _vvix_row(date_utc, vvix, vix):
+    return {
+        "date_utc": date_utc,
+        "vvix": vvix,
+        "vix": vix,
+        "residual": 0.0,
+        "residual_pct": 0.5,
+        "window_days": 252,
+        "computed_at": 1.0,
+    }
+
+
+def _fear_line(row):
+    embed = commands._build_market_embed([], [], None, None, "note", vvix_row=row)
+    return next(f["value"] for f in embed["fields"] if "Fear of fear" in f["name"])
+
+
+def test_daily_change_positive_sign_and_rounding():
+    row = commands._attach_vvix_daily_changes(
+        _vvix_row("2026-08-14", 104.0, 20.4),
+        _vvix_row("2026-08-13", 100.0, 20.0),
+    )
+    line = _fear_line(row)
+    assert "VVIX 104.0 (+4.0% today)" in line
+    assert "VIX 20.4 (+2.0% today)" in line
+
+
+def test_daily_change_negative_sign_and_rounding():
+    row = commands._attach_vvix_daily_changes(
+        _vvix_row("2026-08-14", 87.48, 14.25),
+        _vvix_row("2026-08-13", 89.42, 14.63),
+    )
+    line = _fear_line(row)
+    assert "VVIX 87.5 (−2.2% today)" in line
+    assert "VIX 14.2 (−2.6% today)" in line
+
+
+def test_daily_change_unchanged_value():
+    row = commands._attach_vvix_daily_changes(
+        _vvix_row("2026-08-14", 90.0, 15.0),
+        _vvix_row("2026-08-13", 90.0, 15.0),
+    )
+    line = _fear_line(row)
+    assert "VVIX 90.0 (0.0% today)" in line
+    assert "VIX 15.0 (0.0% today)" in line
+
+
+def test_daily_change_omitted_without_previous_row():
+    row = commands._attach_vvix_daily_changes(
+        _vvix_row("2026-08-14", 90.0, 15.0), None
+    )
+    assert "% today" not in _fear_line(row)
+
+
+def test_daily_change_omits_only_zero_previous_value():
+    row = commands._attach_vvix_daily_changes(
+        _vvix_row("2026-08-14", 90.0, 15.0),
+        _vvix_row("2026-08-13", 0.0, 10.0),
+    )
+    line = _fear_line(row)
+    assert "VVIX 90.0 vs" in line
+    assert "VIX 15.0 (+50.0% today)" in line
+
+
+def test_daily_change_accepts_weekend_gap():
+    row = commands._attach_vvix_daily_changes(
+        _vvix_row("2026-08-17", 99.0, 18.0),
+        _vvix_row("2026-08-14", 90.0, 15.0),
+    )
+    line = _fear_line(row)
+    assert "VVIX 99.0 (+10.0% today)" in line
+    assert "VIX 18.0 (+20.0% today)" in line
+
+
+def test_daily_change_omitted_when_gap_exceeds_seven_days():
+    row = commands._attach_vvix_daily_changes(
+        _vvix_row("2026-08-14", 99.0, 18.0),
+        _vvix_row("2026-08-06", 90.0, 15.0),
+    )
+    assert "% today" not in _fear_line(row)
+
+
 def test_gauge_is_never_read_by_the_scorer():
     """Hard constraint (#47): descriptive only. If the scorer ever learns the word
     'vvix' or reads vol_of_vol_daily, this feature has become the VIX predictor the

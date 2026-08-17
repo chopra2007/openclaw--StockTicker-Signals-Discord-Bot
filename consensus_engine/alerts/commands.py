@@ -25,7 +25,7 @@ Commands:
 import asyncio
 import logging
 import re
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 from zoneinfo import ZoneInfo
 
@@ -2050,6 +2050,45 @@ _MARKET_DISCLAIMER = (
 )
 
 
+def _attach_vvix_daily_changes(
+    current: Optional[dict], previous: Optional[dict]
+) -> Optional[dict]:
+    """Add VVIX/VIX changes from the immediately prior available market row."""
+    if current is None:
+        return None
+    result = dict(current)
+    result["vvix_change_pct"] = None
+    result["vix_change_pct"] = None
+    if previous is None:
+        return result
+    try:
+        gap_days = (
+            date.fromisoformat(str(current["date_utc"]))
+            - date.fromisoformat(str(previous["date_utc"]))
+        ).days
+    except (KeyError, TypeError, ValueError):
+        return result
+    if gap_days < 1 or gap_days > 7:
+        return result
+    for key in ("vvix", "vix"):
+        old = previous.get(key)
+        new = current.get(key)
+        if old in (None, 0) or new is None:
+            continue
+        result[f"{key}_change_pct"] = (float(new) - float(old)) / float(old) * 100.0
+    return result
+
+
+def _fmt_daily_change(value: object) -> str:
+    if not isinstance(value, (int, float)):
+        return ""
+    if value > 0:
+        return f" (+{value:.1f}% today)"
+    if value < 0:
+        return f" (−{abs(value):.1f}% today)"
+    return " (0.0% today)"
+
+
 def _pdt_now_str() -> str:
     """Current time as a PDT label (never ET — house rule)."""
     return datetime.now(ZoneInfo("America/Los_Angeles")).strftime("%Y-%m-%d %H:%M PDT")
@@ -2198,7 +2237,13 @@ def _build_market_embed(
                     f"Today's reading is higher than {rank}% of the past year's readings.")
             vvix_v, vix_v = vvix_row.get("vvix"), vvix_row.get("vix")
             if isinstance(vvix_v, (int, float)) and isinstance(vix_v, (int, float)):
-                line += f"\nVVIX {vvix_v:.1f} vs VIX {vix_v:.1f} ({vvix_row.get('date_utc', '')} close)."
+                vvix_change = _fmt_daily_change(vvix_row.get("vvix_change_pct"))
+                vix_change = _fmt_daily_change(vvix_row.get("vix_change_pct"))
+                line += (
+                    f"\nVVIX {vvix_v:.1f}{vvix_change} vs "
+                    f"VIX {vix_v:.1f}{vix_change} "
+                    f"({vvix_row.get('date_utc', '')} close)."
+                )
             line += "\n_Descriptive only — it never moves a score or fires an alert._"
             fields.append({
                 "name": "😰  Fear of fear (VVIX vs VIX)",
@@ -2531,9 +2576,13 @@ async def _handle_market(channel_id: str, message_id: str) -> None:
         # as today's fear gauge is worse than showing nothing.
         vvix_row = None
         if cfg.get("features.vvix_residual.enabled", False):
-            _vvix = await market_panel.get_latest_row("vol_of_vol_daily")
+            _vvix_rows = await market_panel.get_recent_rows(
+                "vol_of_vol_daily", limit=2
+            )
+            _vvix = _vvix_rows[0] if _vvix_rows else None
             if _vvix and not market_panel.is_stale(_vvix.get("computed_at", 0.0)):
-                vvix_row = _vvix
+                _previous_vvix = _vvix_rows[1] if len(_vvix_rows) > 1 else None
+                vvix_row = _attach_vvix_daily_changes(_vvix, _previous_vvix)
             elif _vvix:
                 log.debug("vvix row stale (computed_at=%s) — omitting the field",
                           _vvix.get("computed_at"))
