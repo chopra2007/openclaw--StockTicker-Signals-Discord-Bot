@@ -17,6 +17,7 @@ import aiohttp
 from consensus_engine import config as cfg
 from consensus_engine.alerts.display_scale import regime_stress, regime_emoji, disagreement, call_put_split
 from consensus_engine.alerts.short_interest_display import render_squeeze_candidate
+from consensus_engine.alerts.nfci_display import render_nfci_note
 from consensus_engine.utils.http import get_session
 from consensus_engine.utils.obs_log import obs_log
 from consensus_engine import db
@@ -531,6 +532,22 @@ def format_detail_followup(xref: CrossReferenceResult, precision: Optional[dict]
             fields.append({
                 "name": "Short-interest setup",
                 "value": squeeze_line,
+                "inline": False,
+            })
+
+    if cfg.get("features.cross_asset.nfci_note", False):
+        nfci_line = render_nfci_note(
+            xref.nfci_row,
+            datetime.now(timezone.utc),
+            int(cfg.get("features.cross_asset.nfci_max_observation_age_days", 16)),
+            float(cfg.get("features.cross_asset.nfci_loose_cutoff", -0.706)),
+            float(cfg.get("features.cross_asset.nfci_tight_cutoff", 1.402)),
+            unusual_only=True,
+        )
+        if nfci_line:
+            fields.append({
+                "name": "Economy-wide financial stress",
+                "value": nfci_line,
                 "inline": False,
             })
 

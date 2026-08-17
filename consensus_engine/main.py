@@ -2189,6 +2189,11 @@ async def _run_cross_reference_and_followup(
                 xref.short_interest_row = await db.get_latest_finra_short_interest(ticker)
             except Exception as display_exc:
                 log.debug("squeeze display unavailable for $%s: %s", ticker, display_exc)
+        if cfg.get("features.cross_asset.nfci_note", False):
+            try:
+                xref.nfci_row = await db.get_latest_nfci_display()
+            except Exception as display_exc:
+                log.debug("NFCI display unavailable for $%s: %s", ticker, display_exc)
 
         phase2_delivery_id = None
         if _measurement_enabled() and measurement_decision_id:
