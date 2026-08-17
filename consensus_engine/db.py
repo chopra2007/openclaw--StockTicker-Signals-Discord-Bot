@@ -905,7 +905,8 @@ CREATE TABLE IF NOT EXISTS cross_asset_shadow (
     credit_oas_multiplier REAL,
     combined_multiplier REAL,
     nfci_index REAL,           -- r21: raw FRED NFCI level (shadow-only; NOT in E2's live legs)
-    nfci_multiplier REAL       -- r21: NFCI-mapped multiplier (shadow-isolated, never combined)
+    nfci_multiplier REAL,      -- r21: NFCI-mapped multiplier (shadow-isolated, never combined)
+    nfci_observation_date TEXT -- FRED observation date, not our fetch time
 );
 
 -- #55 Build B (forward-data logging): daily snapshot of the options-implied
@@ -1792,6 +1793,7 @@ async def _run_column_migrations(conn) -> None:
         # logged / persisted for the soak but NEVER appended to E2's live `legs`.
         ("cross_asset_shadow", "nfci_index",      "REAL"),
         ("cross_asset_shadow", "nfci_multiplier", "REAL"),
+        ("cross_asset_shadow", "nfci_observation_date", "TEXT"),
         # schema v26 (r22 macro-fred): DFII10 10Y TIPS real yield for the descriptive F4
         # macro producer (market_daily build_macro_rows). NEVER averaged into cross_asset.
         ("macro_legs_daily", "real_yield_10y", "REAL"),
@@ -5158,6 +5160,7 @@ async def insert_cross_asset_shadow(
     combined_multiplier: float | None,
     nfci_index: float | None = None,
     nfci_multiplier: float | None = None,
+    nfci_observation_date: str | None = None,
 ) -> bool:
     """Persist the E2 cross-asset shadow ratios/multipliers — the SAME values the
     '[E2 shadow]' log lines show — at most ONCE per UTC calendar day.
@@ -5176,23 +5179,49 @@ async def insert_cross_asset_shadow(
     )
     conn = await get_db()
     cur = await conn.execute(
-        "SELECT 1 FROM cross_asset_shadow WHERE recorded_at >= ? LIMIT 1",
+        """SELECT recorded_at, nfci_index, nfci_observation_date
+             FROM cross_asset_shadow WHERE recorded_at >= ? LIMIT 1""",
         (today_start,),
     )
-    if await cur.fetchone() is not None:
+    existing = await cur.fetchone()
+    if existing is not None:
+        if (
+            nfci_observation_date
+            and existing["nfci_observation_date"] is None
+            and existing["nfci_index"] == nfci_index
+        ):
+            await conn.execute(
+                """UPDATE cross_asset_shadow SET nfci_observation_date = ?
+                     WHERE recorded_at = ?""",
+                (nfci_observation_date, existing["recorded_at"]),
+            )
+            await conn.commit()
         return False
     await conn.execute(
         """INSERT INTO cross_asset_shadow
            (recorded_at, vix_term_ratio, vix_term_multiplier,
             credit_oas_ratio, credit_oas_multiplier, combined_multiplier,
-            nfci_index, nfci_multiplier)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            nfci_index, nfci_multiplier, nfci_observation_date)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (now, vix_term_ratio, vix_term_multiplier,
          credit_oas_ratio, credit_oas_multiplier, combined_multiplier,
-         nfci_index, nfci_multiplier),
+         nfci_index, nfci_multiplier, nfci_observation_date),
     )
     await conn.commit()
     return True
+
+
+async def get_latest_nfci_display() -> dict | None:
+    """Return the newest stored NFCI reading with its real FRED date."""
+    conn = await get_db()
+    cur = await conn.execute(
+        """SELECT nfci_index, nfci_multiplier, nfci_observation_date, recorded_at
+             FROM cross_asset_shadow
+            WHERE nfci_index IS NOT NULL AND nfci_observation_date IS NOT NULL
+            ORDER BY recorded_at DESC LIMIT 1"""
+    )
+    row = await cur.fetchone()
+    return dict(row) if row else None
 
 
 # ---------------------------------------------------------------------------

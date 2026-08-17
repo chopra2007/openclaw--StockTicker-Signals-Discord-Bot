@@ -103,7 +103,10 @@ _nfci_cache: dict = {
     "ratio": None,
     "multiplier": None,
     "fetched_at": None,
+    "observation_date": None,
 }
+
+_nfci_fetch_context: dict = {"observation_date": None}
 
 # Suppress repeated fetch-error logs within a TTL window
 _last_error_logged_at: Optional[datetime] = None
@@ -255,6 +258,7 @@ def _fetch_nfci_index() -> Optional[float]:
         if not _nfci_obs_recent_enough(obs[0].get("date", "")):
             log.debug("[E2 nfci] latest NFCI obs %s too old — NFCI leg no-op", obs[0].get("date"))
             return None
+        _nfci_fetch_context["observation_date"] = obs[0].get("date")
         return float(obs[0]["value"])
     except Exception as exc:
         log.debug("[E2 nfci] _fetch_nfci_index error: %s", exc)
@@ -426,6 +430,7 @@ async def _get_nfci_multiplier(executor=None) -> Optional[float]:
     if not cache_hit:
         loop = asyncio.get_running_loop()
         try:
+            _nfci_fetch_context["observation_date"] = None
             level = await loop.run_in_executor(executor, _fetch_nfci_index)
         except Exception as exc:
             _log_fetch_error_once("[E2 nfci] NFCI fetch error — leg no-op: %s", exc)
@@ -436,6 +441,7 @@ async def _get_nfci_multiplier(executor=None) -> Optional[float]:
         _nfci_cache["ratio"] = level
         _nfci_cache["multiplier"] = multiplier
         _nfci_cache["fetched_at"] = now
+        _nfci_cache["observation_date"] = _nfci_fetch_context["observation_date"]
         log.info("[E2 nfci shadow] nfci_index=%.3f multiplier=%.3f", level, multiplier)
         return multiplier
 
@@ -516,6 +522,7 @@ async def get_multiplier(executor=None) -> float:
                 combined_multiplier=combined,
                 nfci_index=_nfci_cache["ratio"],   # r21: raw NFCI level (shadow-only)
                 nfci_multiplier=nfci_mult,          # r21: NFCI multiplier (NOT in `legs`)
+                nfci_observation_date=_nfci_cache["observation_date"],
             )
         except Exception as exc:  # never propagate into the live engine loop
             log.debug("[E2] cross_asset_shadow persist failed: %s", exc)

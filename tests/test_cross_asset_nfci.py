@@ -131,6 +131,7 @@ class TestFetchNfciIndex:
         with patch("consensus_engine.analysis.cross_asset.urllib.request.urlopen",
                    return_value=_FakeResp(payload)):
             assert _REAL_FETCH_NFCI() == pytest.approx(-0.35, abs=1e-9)
+        assert _ca._nfci_fetch_context["observation_date"] == today
 
     def test_weekly_stale_returns_none(self, monkeypatch):
         monkeypatch.setenv("FRED_API_KEY", "dummy")
@@ -231,6 +232,9 @@ class TestShadowIsolation:
         assert rows[0]["combined_multiplier"] == pytest.approx(1.15, abs=1e-9)
         assert rows[0]["nfci_index"] == pytest.approx(1.0, abs=1e-9)
         assert rows[0]["nfci_multiplier"] == pytest.approx(0.85, abs=1e-9)
+
+        cols = await conn.execute("PRAGMA table_info(cross_asset_shadow)")
+        assert "nfci_observation_date" in {r["name"] for r in await cols.fetchall()}
 
     async def test_flag_on_lets_nfci_enter_the_combine(self, fresh_db):
         """(e) The flag is a real switch: nfci_leg_enabled ON appends NFCI into `legs`,

@@ -2063,6 +2063,7 @@ def _build_market_embed(
     breadth_note: str,
     market_breadth_row: Optional[dict] = None,
     vvix_row: Optional[dict] = None,
+    nfci_row: Optional[dict] = None,
 ) -> dict:
     """Render the four persisted daily reads into one Discord embed (pure).
 
@@ -2202,6 +2203,23 @@ def _build_market_embed(
             fields.append({
                 "name": "😰  Fear of fear (VVIX vs VIX)",
                 "value": line,
+                "inline": False,
+            })
+
+    if nfci_row:
+        from consensus_engine.alerts.nfci_display import render_nfci_note
+        nfci_line = render_nfci_note(
+            nfci_row,
+            datetime.now(ZoneInfo("America/Los_Angeles")),
+            int(cfg.get("features.cross_asset.nfci_max_observation_age_days", 16)),
+            float(cfg.get("features.cross_asset.nfci_loose_cutoff", -0.706)),
+            float(cfg.get("features.cross_asset.nfci_tight_cutoff", 1.402)),
+            unusual_only=False,
+        )
+        if nfci_line:
+            fields.append({
+                "name": "🏦  Economy-wide financial conditions",
+                "value": nfci_line,
                 "inline": False,
             })
 
@@ -2520,9 +2538,14 @@ async def _handle_market(channel_id: str, message_id: str) -> None:
                 log.debug("vvix row stale (computed_at=%s) — omitting the field",
                           _vvix.get("computed_at"))
 
+        nfci_row = None
+        if cfg.get("features.cross_asset.nfci_note", False):
+            nfci_row = await db.get_latest_nfci_display()
+
         embed = _build_market_embed(
             sector_rows, factor_rows, trend_row, breadth_row, LONG_BIAS_NOTE,
-            market_breadth_row=market_breadth_row, vvix_row=vvix_row)
+            market_breadth_row=market_breadth_row, vvix_row=vvix_row,
+            nfci_row=nfci_row)
         # #47 "better way": lead with the descriptive market-regime context
         # (Wolf market theses + confluence, then the volatility regime). Fail-soft —
         # the existing dashboard renders unchanged if these sources are unavailable.

@@ -308,6 +308,7 @@ class CrossReferenceResult:
     consolidation_result: Optional[object] = None
     # Display-only context fetched after the alert decision. Never scored.
     short_interest_row: Optional[dict] = None
+    nfci_row: Optional[dict] = None
 
     @property
     def final_score(self) -> int:
