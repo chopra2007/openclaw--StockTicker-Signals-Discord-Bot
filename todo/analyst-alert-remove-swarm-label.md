@@ -5,8 +5,9 @@
 
 **CURRENT STATUS (2026-08-17):** Not started. The live `#alerts` room and its sender were checked:
 this room currently receives only analyst-group alerts, and all of its last 10 messages repeated
-`SWARM` in the title. Next: simplify the user-visible title and footer without renaming the working
-detector, database table, or config keys underneath it.
+`SWARM` in the title. The owner added a historical-proof requirement for every feature in this batch.
+Next: simplify the title/footer, then replay saved analyst groups and prove that every other card fact
+is unchanged before checking the real Discord card.
 
 ## What the user wants
 
@@ -47,6 +48,16 @@ Those labels repeat the room's only purpose instead of helping the owner read th
 4. Render a sample with 2 analysts and one with 4 analysts. Confirm the ticker, count, elapsed span,
    links, price, and ping behavior are unchanged.
 5. Read the real Discord test card before marking this done.
+
+## Historical verification required before DONE
+
+- Rebuild every recoverable analyst-group alert from the stored group and tweet rows, not only one
+  hand-written fixture.
+- Compare the old and new cards. Apart from the requested title/footer wording, the ticker, analyst
+  count, elapsed span, analyst links, price, and ping behavior must stay the same.
+- Have Codex inspect the replay mismatches and explain each one. No unexplained mismatch can be waved
+  through as “formatting only.”
+- Finally read a real test card in Discord. Unit tests and a local dictionary are not enough.
 
 ## Files / code involved
 

@@ -5,9 +5,11 @@
 
 **CURRENT STATUS (2026-08-17):** Not started. The requested July 30 brief and the latest live briefs
 were read from Discord. The reference message has the preferred compact sections, but Discord stored
-it as plain text rather than a real card. The current sender also posts plain text and clips it at
-1,990 characters. Next: preserve the reference's compact visual order in a real Discord embed and add
-the existing SPY expected-move chart, with the weekly chart as a best-effort second image.
+it as plain text rather than a real card. The owner added a historical-proof requirement for every
+feature; the database currently holds 78 archived briefing runs and 3,355 expected-move snapshots,
+including 47 nearest-expiration SPY snapshots. Next: use those records to prove section completeness
+and daily chart-number accuracy, then verify the weekly chart from a real current chain before checking
+the final Discord card.
 
 ## What the user wants
 
@@ -66,6 +68,24 @@ it, include the weekly `!emw SPY` image too.
    the plain fallback.
 9. Post a clearly labeled test in `#chat`, inspect the actual mobile/desktop card, and compare it to
    the July 30 reference. After deployment, inspect the next real `#brief` post before marking done.
+
+## Historical verification required before DONE
+
+- Use all 78 archived briefing texts as the formatting and size corpus for the new card builder.
+  Confirm every recoverable requested section survives, no text is silently cut off, and empty
+  sections degrade clearly rather than disappear. The run table saved rendered text, not a full copy
+  of every input, so do not claim an exact historical source replay where the old source rows are gone.
+- Have Codex compare the replayed section text to stored source records for every date that can be
+  reconstructed, covering busy, quiet, missing-data, and fallback days. Any invented catalyst, wrong
+  direction, stale level, or missing major item must be explained and fixed.
+- Independently check the daily SPY chart numbers against the 47 saved nearest-expiration SPY
+  snapshots. The table does not preserve a full weekly option chain, so it cannot honestly backtest
+  old weekly charts. Verify weekly output against the same live chain used by `!emw`, and add weekly
+  snapshot storage first if a multi-date weekly replay is required. Never fabricate missing history.
+- Compare recoverable old Discord briefs to the new renders, including the owner's July 30 reference.
+  The new card must be at least as quick to scan while preserving the underlying facts.
+- After historical replay passes, inspect a real current `#chat` test and the next scheduled brief in
+  Discord. Local image files and unit tests alone do not close this task.
 
 ## Files / code involved
 

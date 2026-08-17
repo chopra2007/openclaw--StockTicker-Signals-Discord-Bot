@@ -694,8 +694,9 @@ Add VVIX and VIX's percent change from yesterday to the `!market` fear-of-fear g
 
 **CURRENT STATUS (2026-08-17):** Not started. The live `#alerts` room and its sender were checked:
 this room currently receives only analyst-group alerts, and all of its last 10 messages repeated
-`SWARM` in the title. Next: simplify the user-visible title and footer without renaming the working
-detector, database table, or config keys underneath it.
+`SWARM` in the title. The owner added a historical-proof requirement for every feature in this batch.
+Next: simplify the title/footer, then replay saved analyst groups and prove that every other card fact
+is unchanged before checking the real Discord card.
 
 Since `#alerts` contains only analyst-group alerts, remove the repeated `SWARM` label and put the ticker, analyst count, and elapsed time first.
 
@@ -705,11 +706,12 @@ Since `#alerts` contains only analyst-group alerts, remove the repeated `SWARM` 
 
 **CURRENT STATUS (2026-08-17):** Not started. The last 10 live `#alerts` messages were checked. They
 show analyst names, the time window, and a price, but not whether the group is bullish, bearish, mixed,
-or unclear, and not why they are talking about the stock. The needed direction and original tweet text
-already exist in the database. Next: design one compact card that shows the group view and each
-analyst's reason without adding a second AI call to the instant-alert path.
+or unclear, and not why they are talking about the stock. The owner expanded the job: Codex must review
+every tweet used in a full historical group replay, compare the proposed direction/catalyst readout to
+the original post, and examine where the stock went from the first tweet. Next: build that replay and
+accuracy report before choosing the final card wording.
 
-Make each analyst-group alert show bullish, bearish, mixed, or unclear plus the catalyst or setup each analyst is reacting to, so the owner does not have to open every source link.
+Make each analyst-group alert show bullish, bearish, mixed, or unclear plus the catalyst or setup, then have Codex verify every historical group against its source tweets and the stock's move from the first tweet.
 
 ## 85. Make feature questions get grounded, smart answers
 
@@ -717,9 +719,10 @@ Make each analyst-group alert show bullish, bearish, mixed, or unclear plus the 
 
 **CURRENT STATUS (2026-08-17):** Not started. The live Discord agent already has the repository as its
 workspace, full file and shell tools, and a prompt that tells it to read code before answering. The
-missing proof is answer quality: the current lead model is `gpt-4.1-nano`, chosen for speed on an older
-test set. Next: grade the exact feature-question examples against the live path, then choose a stronger
-model or tighter prompt from measured results rather than adding more permissions.
+owner added a historical-proof requirement for every feature in this batch, and the latest 100
+`#chat` messages are readable for real examples. Next: build the feature-question set from actual
+owner questions, then grade the live path and choose a stronger model or tighter prompt from measured
+results rather than adding more permissions.
 
 Make the Discord bot read the live code and give accurate plain-English answers about its own features, including recognizing when a question assumes a ticker list that does not exist.
 
@@ -729,8 +732,10 @@ Make the Discord bot read the live code and give accurate plain-English answers 
 
 **CURRENT STATUS (2026-08-17):** Not started. TODO #81 already added the daily percentage change for
 VVIX and VIX, and the live card now shows both numbers. The comparison still requires mental math and
-does not show whether the same relationship has lasted across several market days. Next: add a clear
-lead line and a consecutive-market-day streak using the existing `vol_of_vol_daily` history.
+does not show whether the same relationship has lasted across several market days. The owner added a
+historical-proof requirement for every feature; 23 saved VVIX/VIX market-day rows are currently
+available. Next: build the lead/streak calculation, replay every saved row, and separately measure
+whether a three-day lead actually preceded higher volatility before using predictive wording.
 
 Show how strongly VVIX is leading VIX today and whether that lead has continued for several market days, without changing scores or firing a new alert.
 
@@ -740,8 +745,10 @@ Show how strongly VVIX is leading VIX today and whether that lead has continued 
 
 **CURRENT STATUS (2026-08-17):** Not started. The requested July 30 brief and the latest live briefs
 were read from Discord. The reference message has the preferred compact sections, but Discord stored
-it as plain text rather than a real card. The current sender also posts plain text and clips it at
-1,990 characters. Next: preserve the reference's compact visual order in a real Discord embed and add
-the existing SPY expected-move chart, with the weekly chart as a best-effort second image.
+it as plain text rather than a real card. The owner added a historical-proof requirement for every
+feature; the database currently holds 78 archived briefing runs and 3,355 expected-move snapshots,
+including 47 nearest-expiration SPY snapshots. Next: use those records to prove section completeness
+and daily chart-number accuracy, then verify the weekly chart from a real current chain before checking
+the final Discord card.
 
 Turn the morning brief into a clean Discord embed using the preferred compact section style, with the daily SPY expected-move chart and the weekly chart when it fits and valid data is available.

@@ -5,8 +5,10 @@
 
 **CURRENT STATUS (2026-08-17):** Not started. TODO #81 already added the daily percentage change for
 VVIX and VIX, and the live card now shows both numbers. The comparison still requires mental math and
-does not show whether the same relationship has lasted across several market days. Next: add a clear
-lead line and a consecutive-market-day streak using the existing `vol_of_vol_daily` history.
+does not show whether the same relationship has lasted across several market days. The owner added a
+historical-proof requirement for every feature; 23 saved VVIX/VIX market-day rows are currently
+available. Next: build the lead/streak calculation, replay every saved row, and separately measure
+whether a three-day lead actually preceded higher volatility before using predictive wording.
 
 ## What the user wants
 
@@ -57,6 +59,20 @@ or missing data gap should stop the streak rather than guess.
 4. Add tests for a 3-day upward lead, a 2-day downward lead, mixed directions, equal moves, a weekend,
    missing rows, zero prior values, and stale data.
 5. Render real current data and inspect the actual Discord card before marking this done.
+
+## Historical verification required before DONE
+
+- Replay the calculation over every row in `vol_of_vol_daily`. For each date, independently recompute
+  both daily changes, the percentage-point lead, and the streak length from raw values.
+- Compare any recoverable historical `!market` cards in `#chat` to the matching database row. A stale
+  date, wrong sign, broken weekend streak, or disagreement between card and data is a failure.
+- Because the owner specifically cares about a three-day VVIX lead foreshadowing volatility, measure
+  what VIX did over the next 1 and 5 market sessions after every qualifying streak. Show raw counts
+  before rates and do not claim predictive value from fewer than 10 resolved cases.
+- Keep calculation accuracy separate from predictive usefulness. The display may be correct even if
+  the historical signal has no edge; in that case the card must stay descriptive and must not imply a
+  proven forecast.
+- Have Codex inspect the replay rows and the final real Discord render before closing.
 
 ## Files / code involved
 

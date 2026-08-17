@@ -5,9 +5,10 @@
 
 **CURRENT STATUS (2026-08-17):** Not started. The live Discord agent already has the repository as its
 workspace, full file and shell tools, and a prompt that tells it to read code before answering. The
-missing proof is answer quality: the current lead model is `gpt-4.1-nano`, chosen for speed on an older
-test set. Next: grade the exact feature-question examples against the live path, then choose a stronger
-model or tighter prompt from measured results rather than adding more permissions.
+owner added a historical-proof requirement for every feature in this batch, and the latest 100
+`#chat` messages are readable for real examples. Next: build the feature-question set from actual
+owner questions, then grade the live path and choose a stronger model or tighter prompt from measured
+results rather than adding more permissions.
 
 ## What the user wants
 
@@ -55,8 +56,9 @@ internal implementation detail at the owner.
 
 ## Next steps, in order
 
-1. Build a small real test set of 8–12 feature questions. Include `Our own signal breadth`, VVIX vs
-   VIX, expected move, alert scores, analyst groups, and one question whose premise is wrong.
+1. Build a real test set from recoverable owner questions in `#chat`, then add any missing coverage for
+   `Our own signal breadth`, VVIX vs VIX, expected move, alert scores, analyst groups, and a question
+   whose premise is wrong. Do not rely on invented easy questions alone.
 2. Run the questions through the same `!ask` / mention path the owner uses. Grade factual correctness,
    whether the right files were read, plain English, completion time, and cost.
 3. Use the current lead model as the control. Race capable current models from the live provider
@@ -70,6 +72,19 @@ internal implementation detail at the owner.
    the “ticker list” premise rather than agreeing blindly.
 7. Restart the gateway if the model config changes. Ask the exact example in `#chat`, read the real
    answer, and compare it to the code before marking this done.
+
+## Historical verification required before DONE
+
+- Replay every recoverable feature question from the selected `#chat` history through the candidate
+  agent path. Preserve multi-turn pairs so follow-up understanding is actually tested.
+- Have Codex independently open the relevant current files and write the expected plain-English facts
+  before seeing the candidate bot answer.
+- Compare each live-path answer to that grounded answer. Track wrong facts, missed parts, invented
+  files/settings, false claims that a change was made, and language that a non-coder cannot follow.
+- No question may pass because it “sounds reasonable.” Every concrete claim must match the current
+  code or database.
+- After the replay passes, ask the exact breadth example and at least two other real feature questions
+  in Discord. Read the returned messages before closing the task.
 
 ## Files / code involved
 
