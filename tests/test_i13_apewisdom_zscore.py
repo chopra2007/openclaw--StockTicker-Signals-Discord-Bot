@@ -294,10 +294,15 @@ async def test_baseline_two_days_std():
     db_mod._db = None
     await db_mod.init_db()
 
-    now = time.time()
-    # Day 1 max: 200; Day 2 max: 100 (> 1 day ago)
-    await db_mod.upsert_apewisdom_mentions("NVDA", 200, 1, None, captured_at=now - 86400)
-    await db_mod.upsert_apewisdom_mentions("NVDA", 100, 1, None, captured_at=now - 3600)
+    # Anchor to today's UTC midnight (not "now - 86400") so the two rows always
+    # land on different calendar days — "now - 86400" vs "now - 3600" can both
+    # fall on the same UTC date when "now" is within an hour of UTC midnight.
+    today_utc_midnight = datetime.now(timezone.utc).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    ).timestamp()
+    # Day 1 max: 200 (yesterday); Day 2 max: 100 (today)
+    await db_mod.upsert_apewisdom_mentions("NVDA", 200, 1, None, captured_at=today_utc_midnight - 3600)
+    await db_mod.upsert_apewisdom_mentions("NVDA", 100, 1, None, captured_at=today_utc_midnight + 3600)
 
     result = await db_mod.get_apewisdom_baseline("NVDA")
     assert result["sample_days"] == 2
