@@ -393,14 +393,9 @@ def _schwab_bundle(ticker: str, now_et: datetime, horizon: str = "daily") -> Opt
     }
 
 
-def _fetch_bundle(ticker: str, now_et: datetime, horizon: str = "daily") -> dict:
-    """Blocking: spot, chosen expiration, that chain, and price history."""
-    # #57: Schwab real-time chain PRIMARY (native greeks + IV); yfinance fallback.
-    if _cfg.get("features.schwab_options.enabled", False):
-        bundle = _schwab_bundle(ticker, now_et, horizon)
-        if bundle is not None:
-            return bundle
-
+def _yfinance_bundle(ticker: str, now_et: datetime,
+                     horizon: str = "daily") -> dict:
+    """Blocking delayed-data fallback with the same shape as _schwab_bundle."""
     import yfinance as yf
     t = yf.Ticker(ticker)
 
@@ -435,6 +430,16 @@ def _fetch_bundle(ticker: str, now_et: datetime, horizon: str = "daily") -> dict
         "history": history, "history_label": history_label,
         "source": "yfinance",
     }
+
+
+def _fetch_bundle(ticker: str, now_et: datetime, horizon: str = "daily") -> dict:
+    """Blocking: spot, chosen expiration, that chain, and price history."""
+    # #57: Schwab real-time chain PRIMARY (native greeks + IV); yfinance fallback.
+    if _cfg.get("features.schwab_options.enabled", False):
+        bundle = _schwab_bundle(ticker, now_et, horizon)
+        if bundle is not None:
+            return bundle
+    return _yfinance_bundle(ticker, now_et, horizon)
 
 
 def _fetch_history(ticker: str, horizon: str = "daily") -> tuple[pd.DataFrame, str]:
@@ -490,10 +495,36 @@ async def compute_em(ticker: str, executor=None,
     max_spread = float(cfg.get("expected_move.max_atm_spread_pct", 0.25))
     max_dist = float(cfg.get("expected_move.max_atm_strike_distance_pct", 0.05))
 
-    call, put = select_atm(bundle["calls"], bundle["puts"], spot,
-                           max_spread_pct=max_spread,
-                           min_open_interest=min_oi,
-                           max_strike_distance_pct=max_dist)
+    try:
+        call, put = select_atm(bundle["calls"], bundle["puts"], spot,
+                               max_spread_pct=max_spread,
+                               min_open_interest=min_oi,
+                               max_strike_distance_pct=max_dist)
+    except EMUnavailable as schwab_error:
+        # A provider can return a structurally valid chain while some quote
+        # fields are temporarily unusable. That must trigger the same delayed
+        # fallback as an empty/failed Schwab chain instead of falsely calling a
+        # liquid ticker illiquid. Preserve the original error if the fallback
+        # is unavailable or also fails its quote-quality checks.
+        if bundle.get("source") != "schwab":
+            raise
+        try:
+            fallback = await loop.run_in_executor(
+                executor, _yfinance_bundle, ticker, now_et, horizon)
+            fallback_spot = fallback["spot"]
+            fallback_call, fallback_put = select_atm(
+                fallback["calls"], fallback["puts"], fallback_spot,
+                max_spread_pct=max_spread,
+                min_open_interest=min_oi,
+                max_strike_distance_pct=max_dist,
+            )
+        except Exception as fallback_error:
+            log.debug("em quote-quality fallback failed for %s: %s",
+                      ticker, fallback_error)
+            raise schwab_error
+        bundle = fallback
+        spot = fallback_spot
+        call, put = fallback_call, fallback_put
     tte = time_to_expiration(bundle["expiration"], now_et)
     em = calculate_expected_moves(spot, call, put, tte, multiplier)
 

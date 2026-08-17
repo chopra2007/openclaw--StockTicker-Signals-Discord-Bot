@@ -266,6 +266,46 @@ def test_select_atm_mid_never_falls_back_to_a_stale_last_trade():
     assert p.mid == pytest.approx((p.bid + p.ask) / 2)
 
 
+@pytest.mark.asyncio
+async def test_compute_em_falls_back_when_schwab_quotes_fail_quality(monkeypatch):
+    """A bad Schwab quote snapshot must try the delayed fallback before the
+    command tells the user that a liquid ticker is illiquid."""
+    calls, puts = _spy_chain()
+    schwab_calls, schwab_puts = calls.copy(), puts.copy()
+    schwab_calls[["bid", "ask"]] = 0.0
+    schwab_puts[["bid", "ask"]] = 0.0
+    now = datetime(2026, 6, 25, 17, 36, tzinfo=EDT)
+
+    def bundle(source, bundle_calls, bundle_puts):
+        return {
+            "spot": 734.30,
+            "expiration": "2026-06-26",
+            "session_label": "Next session (market closed)",
+            "calls": bundle_calls,
+            "puts": bundle_puts,
+            "history": pd.DataFrame(),
+            "history_label": "no price history",
+            "source": source,
+        }
+
+    monkeypatch.setattr(em, "now_eastern", lambda: now)
+    monkeypatch.setattr(
+        em, "_fetch_bundle",
+        lambda ticker, now_et, horizon: bundle(
+            "schwab", schwab_calls, schwab_puts),
+    )
+    monkeypatch.setattr(
+        em, "_yfinance_bundle",
+        lambda ticker, now_et, horizon: bundle("yfinance", calls, puts),
+    )
+
+    result = await em.compute_em("SPY")
+
+    assert result.source == "yfinance"
+    assert result.atm_strike == 734.0
+    assert result.primary_em == pytest.approx(5.635, abs=1e-3)
+
+
 # --- expected-move math -----------------------------------------------------
 def test_calculate_expected_moves_matches_reference():
     calls, puts = _spy_chain()
