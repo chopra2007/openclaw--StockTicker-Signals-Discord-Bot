@@ -1,8 +1,13 @@
 # `!scan`'s news section shows stale earnings and never mentions an upcoming report
 
-**Status:** OPEN
+**Status:** DONE 2026-08-16
 **Created:** 2026-08-16
 
+**CURRENT STATUS (2026-08-17):** DONE. Recent earnings can win the news search only for seven calendar
+days after the company actually reported. The quarter-end date is never used as a substitute. `!scan`
+now checks a ticker-filtered 90-day Finnhub calendar and shows the earliest non-past report date on its
+own line. Live Discord checks showed NVDA's next report on 2026-08-26 and correctly omitted the line
+for SPY.
 ## What the user saw
 
 Ran `!scan NVDA` on 2026-08-16. The news section showed "Recent earnings catalyst for NVDA: 2026-06-30"
@@ -49,8 +54,12 @@ surfacing "next earnings expected around DATE" as a catalyst of its own.
 - `consensus_engine/scanners/earnings_calendar.py:96` — `fetch_recent_earnings_for_ticker()`, backward-only
 - Finnhub `/calendar/earnings` — not currently called anywhere; needed for the forward-looking date
 
-## Open questions
+## Decisions made
 
-- What staleness cutoff counts as "too old" for the earnings tier to still win the cascade?
-- Should the upcoming-earnings line always show (a few days out) or only inside some window before the
-  print (e.g. within 2 weeks)?
+- A recent earnings result is usable for seven calendar days after the actual report date.
+- Show the next report date whenever Finnhub returns one within the 90-day lookahead.
+
+### Session notes — 2026-08-17
+- **Worked on:** Added the seven-day actual-report freshness rule, stale-news fallback, Pacific-date filtering, ticker-filtered calendar lookup, and the separate next-earnings line.
+- **Decisions:** Use a 90-day lookahead; never substitute a quarter-end date for the actual report date; omit the line when no future date is available.
+- **Next:** none — built, tested, deployed, and verified with real NVDA and SPY scans in Discord.

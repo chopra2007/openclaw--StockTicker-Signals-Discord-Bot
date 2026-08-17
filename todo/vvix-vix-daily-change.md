@@ -1,8 +1,12 @@
 # Add day-over-day % change to the VVIX fear-of-fear gauge
 
-**Status:** OPEN
+**Status:** DONE 2026-08-16
 **Created:** 2026-08-16
 
+**CURRENT STATUS (2026-08-17):** DONE. `!market` now shows the daily VVIX and VIX percentage changes
+from the immediately previous stored market day. Missing, zero, or more-than-seven-day-old comparison
+rows are safely omitted. The change is display-only, passed the full test set, and was verified live
+in Discord with VVIX −2.2% and VIX −2.6%.
 ## What the user wants
 
 Right now the `!market` VVIX fear-of-fear gauge (`features.vvix_residual.enabled`, TODO #67 switch 10)
@@ -48,12 +52,16 @@ addition, not a new signal or scoring change.
 - `consensus_engine/alerts/commands.py:2513-2521` — where `vvix_row` is fetched for `!market`
 - `consensus_engine/alerts/commands.py` — market embed builder that renders the VVIX line
 
-## Open questions
+## Decisions made
 
-- Threshold for the "rising faster" interpretive note — needs a reasonable default (e.g. VVIX change
-  minus VIX change > some vol-points gap), not user-specified yet.
+- Show the two measured percentage changes without adding a subjective "rising faster" threshold.
 
 ## Related
 
 - [[feature-menu-ledger.md]] — T1-b, the original VVIX gauge build (2026-07-14)
-- TODO #67 — the switch ledger; `features.vvix_residual.enabled` is switch 10 there, still pending go-live
+- TODO #67 — the switch ledger; `features.vvix_residual.enabled` is live.
+
+### Session notes — 2026-08-17
+- **Worked on:** Added daily VVIX and VIX percentage changes to `!market`, including normal weekend gaps and safe omission rules.
+- **Decisions:** Keep the change display-only; do not feed either percentage into scores.
+- **Next:** none — built, tested, deployed, and verified in Discord.

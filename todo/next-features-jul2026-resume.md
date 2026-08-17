@@ -1,9 +1,17 @@
 # Finish the feature-idea sweep, reusing the already-saved codebase map
 
-**Status:** AWAITING APPROVAL — **2 switches still need a yes/no** (down from 14): `cross_asset.nfci_leg_enabled` and `short_interest.enabled`, both score-touching, held back on purpose 2026-08-16. The other 12 are flipped ON and verified live. Live state: `python3 scripts/todo_switch_state.py`.
+**Status:** OPEN — 13 of 14 switch decisions are resolved; only the NFCI score decision remains.
 **Created:** 2026-07-06
 
-**CURRENT STATUS (2026-08-16):** **User: "flip all switches live except for 11 and 14."** Flipped 12 of the
+**CURRENT STATUS (2026-08-17):** 13 of 14 decisions are resolved and live. The short-interest score
+bump is intentionally off for good; a display-only squeeze tag is on instead. NFCI now appears in
+plain language in `!market` and on unusual detail cards, while its score multiplier remains off.
+The stored records cannot support a valid NFCI score replay because they lack each candidate's
+effective cutoff, complete inputs and weights, and point-in-time NFCI value and date. The remaining
+work is to record those fields for every candidate, then collect at least 12 weekly NFCI readings and
+100 candidates within five points of the cutoff before making the final NFCI score decision.
+
+**PREVIOUS STATUS (2026-08-16):** **User: "flip all switches live except for 11 and 14."** Flipped 12 of the
 14 pending switches ON in `config/consensus.yaml`: `sources_denominator`, `trading_halts`, `skew_index`,
 `pead`, `market_breadth`, `sweep`, `vvix_residual`, `dealer_gamma`, `iv_skew`, `oi_pinning`, `iv_rv_tag`,
 `vol_squeeze`. Held back `cross_asset.nfci_leg_enabled` and `short_interest.enabled` per the explicit
@@ -29,7 +37,7 @@ direction to "long" for the cache-key only — the real `direction` passed to sc
 via PR #32 and deployed live the same way (file-copy + restart) before any switch was flipped, since
 `!sweep` couldn't have been verified while it was broken.
 
-**CURRENT STATUS (2026-07-14):** **3 more switches added to this list, from the #76 feature-menu build
+**PREVIOUS STATUS (2026-07-14):** **3 more switches added to this list, from the #76 feature-menu build
 (run `menu-top10`).** They are display-only, cannot touch an alert or a score, and each was proved on
 real data before commit — so they are the *safest* flips on the whole list:
 
@@ -169,3 +177,8 @@ Resumed the run and took it all the way through the plan + first build stage.
   `python3 scripts/todo_switch_state.py` is the source of truth, not the prose.
 - **Nothing was flipped this session.** All 3 are display-only and were proved on real data, so they are
   the lowest-risk flips on the list — but the flip is the user's call, and it needs an engine restart.
+
+### Session notes — 2026-08-17
+- **Worked on:** Replaced the short-interest score proposal with a live squeeze tag, added the live NFCI note, measured the stored decision history, and verified both displays in Discord.
+- **Decisions:** The short-interest score bump stays off for good. The NFCI score multiplier stays off because the stored records cannot reproduce a valid before-and-after decision.
+- **Next:** Record complete per-candidate score inputs, weights, cutoff, timestamp, and NFCI value/date; then collect at least 12 weekly readings and 100 near-cutoff candidates before deciding the NFCI score multiplier.
