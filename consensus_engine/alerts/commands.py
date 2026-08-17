@@ -784,6 +784,7 @@ async def _scan_and_reply(ticker: str, channel_id: str, message_id: str) -> None
         from consensus_engine.cross_reference import cross_reference
         from consensus_engine.engine import analyze_signal
         from consensus_engine.models import ParsedTweet, TweetType, Direction, Conviction
+        from consensus_engine.scanners.earnings_calendar import fetch_next_earnings_for_ticker
         fake_tweet = ParsedTweet(
             tweet_url="command",
             analyst="command",
@@ -796,6 +797,11 @@ async def _scan_and_reply(ticker: str, channel_id: str, message_id: str) -> None
             summary=f"On-demand scan for ${ticker}",
         )
         xref = await cross_reference(ticker, fake_tweet, executor=None)
+        try:
+            next_earnings = await fetch_next_earnings_for_ticker(ticker, days_ahead=90)
+        except Exception as exc:
+            log.warning("Next earnings lookup failed for $%s: %s", ticker, exc)
+            next_earnings = None
 
         # Precision gate — the same engine the live pipeline + alerts use, so the
         # number here is on the one 0-100 band scale (not the raw additive sum).
@@ -829,6 +835,8 @@ async def _scan_and_reply(ticker: str, channel_id: str, message_id: str) -> None
         lines = [f"**${ticker} Scan**", header]
         if xref.catalyst_summary:
             lines.append(f"News: {xref.catalyst_summary[:200]}")
+        if next_earnings:
+            lines.append(f"Next earnings: {next_earnings}")
         if xref.options and xref.options.has_unusual_activity:
             opt = xref.options
             opt_parts = []

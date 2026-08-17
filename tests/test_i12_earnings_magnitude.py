@@ -18,7 +18,7 @@ The wiring prerequisite is also covered: the recap's numeric surprise % +
 estimate + period are threaded onto CatalystResult by news._search_recent_earnings
 and reach the scorer at cross_reference.py.
 """
-from datetime import datetime, timezone, timedelta
+from datetime import date, datetime, timezone, timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -79,11 +79,12 @@ async def test_recap_threads_numeric_fields_onto_catalyst(monkeypatch):
     async def _stub(*_a, **_kw):
         return {
             "period": "2026-01-31",
+            "report_date": "2026-08-15",
             "eps_actual": 5.16, "eps_estimate": 4.60, "eps_surprise_pct": 12.17,
             "revenue_actual": 68132000000, "revenue_yoy_pct": 73.2,
         }
     monkeypatch.setattr(earnings_calendar, "fetch_recent_earnings_for_ticker", _stub)
-    result = await news._search_recent_earnings("NVDA")
+    result = await news._search_recent_earnings("NVDA", as_of=date(2026, 8, 16))
     assert result is not None
     assert result.eps_surprise_pct == pytest.approx(12.17)
     assert result.eps_estimate == pytest.approx(4.60)
