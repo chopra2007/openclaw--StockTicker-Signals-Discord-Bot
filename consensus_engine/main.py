@@ -1795,14 +1795,19 @@ async def process_tweet(raw_tweet: dict):
 
     if not tweet.is_actionable:
         for ticker in tweet.tickers:
-            await db.insert_signal(TickerSignal(
-                ticker=ticker,
-                source_type=SourceType.TWITTER,
-                source_detail=tweet.analyst,
-                raw_text=tweet.raw_text,
-                sentiment=_tweet_sentiment(tweet),
-                source_link=tweet.discord_source_link,  # item E: clickable TweetShift link
-            ))
+            await db.insert_signal(
+                TickerSignal(
+                    ticker=ticker,
+                    source_type=SourceType.TWITTER,
+                    source_detail=tweet.analyst,
+                    raw_text=tweet.raw_text,
+                    sentiment=_tweet_sentiment(tweet),
+                    source_link=tweet.discord_source_link,  # item E: clickable TweetShift link
+                ),
+                ticker_view=tweet.view_for_ticker(ticker),
+                source_url=tweet.tweet_url,
+                parsed_summary=tweet.summary,
+            )
         return
 
     for ticker in tweet.tickers:
@@ -1852,14 +1857,19 @@ async def process_tweet(raw_tweet: dict):
             )
             continue
 
-        await db.insert_signal(TickerSignal(
-            ticker=ticker,
-            source_type=SourceType.TWITTER,
-            source_detail=tweet.analyst,
-            raw_text=tweet.raw_text,
-            sentiment=_tweet_sentiment(tweet),
-            source_link=tweet.discord_source_link,  # item E: clickable TweetShift link
-        ))
+        await db.insert_signal(
+            TickerSignal(
+                ticker=ticker,
+                source_type=SourceType.TWITTER,
+                source_detail=tweet.analyst,
+                raw_text=tweet.raw_text,
+                sentiment=_tweet_sentiment(tweet),
+                source_link=tweet.discord_source_link,  # item E: clickable TweetShift link
+            ),
+            ticker_view=tweet.view_for_ticker(ticker),
+            source_url=tweet.tweet_url,
+            parsed_summary=tweet.summary,
+        )
 
         # A2: analyst swarm detection. >=2 distinct analysts on a ticker within the window
         # opens a swarm for 24h; every new analyst that joins re-alerts + pings. Runs AFTER

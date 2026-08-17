@@ -1,16 +1,20 @@
 """SQLite database layer with an async-compatible sqlite3 wrapper."""
 
 import asyncio
+import hashlib
 import json
 import logging
 import math
+import re
 import sqlite3
 import time
 import uuid
 from typing import Iterable
 
 from consensus_engine import config as cfg
-from consensus_engine.models import TickerSignal, SourceType, Sentiment
+from consensus_engine.models import (
+    TickerPostView, TickerSignal, SourceType, Sentiment, locate_unique_source_span,
+)
 
 log = logging.getLogger("consensus_engine.db")
 
@@ -303,6 +307,29 @@ CREATE TABLE IF NOT EXISTS youtube_levels (
 CREATE INDEX IF NOT EXISTS idx_youtube_levels_ticker ON youtube_levels(ticker);
 CREATE INDEX IF NOT EXISTS idx_youtube_levels_extracted ON youtube_levels(extracted_at);
 
+CREATE TABLE IF NOT EXISTS analyst_post_views (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_post_key TEXT NOT NULL,
+    source_url TEXT,
+    analyst TEXT NOT NULL,
+    ticker TEXT NOT NULL,
+    detected_at REAL NOT NULL,
+    raw_text TEXT NOT NULL,
+    raw_text_sha256 TEXT NOT NULL,
+    parsed_summary TEXT,
+    display_direction TEXT NOT NULL CHECK(display_direction IN ('long','short','unclear')),
+    reason_text TEXT,
+    reason_start INTEGER,
+    reason_end INTEGER,
+    reason_kind TEXT NOT NULL,
+    decision_code TEXT NOT NULL,
+    parser_version TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    UNIQUE(source_post_key, ticker, parser_version)
+);
+CREATE INDEX IF NOT EXISTS idx_analyst_post_views_source_ticker
+    ON analyst_post_views(source_post_key, ticker);
+
 CREATE TABLE IF NOT EXISTS signal_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     source_type TEXT NOT NULL,
@@ -314,7 +341,8 @@ CREATE TABLE IF NOT EXISTS signal_events (
     provenance TEXT,
     model_version TEXT,
     recorded_at REAL NOT NULL,
-    source_link TEXT
+    source_link TEXT,
+    analyst_post_view_id INTEGER REFERENCES analyst_post_views(id)
 );
 CREATE INDEX IF NOT EXISTS idx_signal_events_ticker ON signal_events(ticker);
 CREATE INDEX IF NOT EXISTS idx_signal_events_source ON signal_events(source_type);
@@ -1705,6 +1733,8 @@ POST_MIGRATION_INDICES = [
     "ON youtube_setups(run_id, ticker, entry_low, entry_high)",
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_youtube_options_uniq "
     "ON youtube_options(run_id, ticker, option_type, strike, expiry)",
+    "CREATE INDEX IF NOT EXISTS idx_signal_events_analyst_post_view "
+    "ON signal_events(analyst_post_view_id)",
 ]
 
 
@@ -1762,6 +1792,8 @@ async def _run_column_migrations(conn) -> None:
         # Item E (deep-dive-2026-06-08): clickable TweetShift source link for twitter signals.
         # Old rows get NULL (render plain text); only twitter rows ever populate it.
         ("signal_events", "source_link", "TEXT"),
+        # schema v34: durable, ticker-specific analyst group-card evidence.
+        ("signal_events", "analyst_post_view_id", "INTEGER REFERENCES analyst_post_views(id)"),
         ("sec_form4_filings", "is_10b5_1", "INTEGER DEFAULT 0"),
         ("youtube_videos",    "description", "TEXT"),
         ("youtube_evidence_spans", "parser_version",   "TEXT"),
@@ -1909,6 +1941,7 @@ async def init_db() -> AsyncConnection:
         (31, "r13 congress_trades House STOCK-Act PTR shadow log"),
         (32, "Batch 1 append-only trade measurement ledger v1"),
         (33, "Batch 2 append-only exact trade tracking v1"),
+        (34, "durable ticker-specific analyst post views"),
     ]
     for version, note in _schema_versions:
         await _db.execute(
@@ -1979,20 +2012,139 @@ async def cb_delete(source_key: str) -> None:
     await db.commit()
 
 
-async def insert_signal(signal: TickerSignal):
+def _source_post_key(signal: TickerSignal, source_url: str | None) -> str:
+    identity = source_url or (
+        f"{signal.source_detail}\0{signal.detected_at:.6f}\0{signal.raw_text}"
+    )
+    return hashlib.sha256(identity.encode("utf-8")).hexdigest()
+
+
+_VIEW_OPTION_RE = re.compile(r"\b(?:calls?|puts?|\d+(?:\.\d+)?\s*[cp])\b", re.IGNORECASE)
+_VIEW_OPTION_SIDE_RE = re.compile(
+    r"\b(?:buy|buying|bought|long|sell|selling|sold|short|write|writing|wrote)\b",
+    re.IGNORECASE,
+)
+_VIEW_LONG_RE = re.compile(
+    r"\b(?:long|buy|buying|bought|bullish|add|adding|added|breakout|broke|"
+    r"reclaim|reclaimed|reclaiming|upside|bounce|bouncing|above)\b",
+    re.IGNORECASE,
+)
+_VIEW_SHORT_RE = re.compile(
+    r"\b(?:short|sell|selling|sold|bearish|fade|fading|breakdown|"
+    r"lost support|downside|below|reject|rejected|rejecting)\b",
+    re.IGNORECASE,
+)
+_VIEW_TICKER_RE = re.compile(r"(?<![A-Za-z0-9])\$([A-Za-z]{1,10})(?![A-Za-z0-9])")
+
+
+def _view_ticker_is_attributable(signal: TickerSignal, reason_text: str) -> bool:
+    source_tickers = {match.upper() for match in _VIEW_TICKER_RE.findall(signal.raw_text)}
+    if len(source_tickers) <= 1:
+        return True
+    reason_tickers = {match.upper() for match in _VIEW_TICKER_RE.findall(reason_text)}
+    return reason_tickers == {signal.ticker.upper()}
+
+
+def _view_direction_is_supported(direction: str, source_text: str) -> bool:
+    evidence_re = _VIEW_LONG_RE if direction == "long" else _VIEW_SHORT_RE
+    return bool(evidence_re.search(source_text))
+
+
+def _storage_safe_ticker_view(signal: TickerSignal, view: TickerPostView) -> TickerPostView:
+    """Recheck direction and exact source evidence independently before storage."""
+    if view.ticker.upper() != signal.ticker.upper():
+        return TickerPostView(
+            ticker=signal.ticker, direction="unclear", reason_kind="none",
+            decision_code="invalid_span", parser_version=view.parser_version,
+        )
+
+    code = view.decision_code
+    if code not in {"explicit_clause", "reason_only", "direction_only"}:
+        return TickerPostView(
+            ticker=signal.ticker, direction="unclear", reason_kind="none",
+            decision_code=code, parser_version=view.parser_version,
+        )
+    if _VIEW_OPTION_RE.search(signal.raw_text) and not _VIEW_OPTION_SIDE_RE.search(signal.raw_text):
+        return TickerPostView(
+            ticker=signal.ticker, direction="unclear", reason_kind="none",
+            decision_code="unsided_option", parser_version=view.parser_version,
+        )
+
+    reason_requested = code in {"explicit_clause", "reason_only"}
+    span = locate_unique_source_span(signal.raw_text, view.reason_text) if reason_requested else None
+    source_reason = signal.raw_text[span[0]:span[1]] if span is not None else None
+    reason_is_safe = (
+        span is not None
+        and view.reason_kind in {"position", "setup", "event_claim"}
+        and isinstance(source_reason, str)
+        and _view_ticker_is_attributable(signal, source_reason)
+        and not (
+            _VIEW_OPTION_RE.search(source_reason)
+            and not _VIEW_OPTION_SIDE_RE.search(source_reason)
+        )
+    )
+    if reason_requested and not reason_is_safe:
+        return TickerPostView(
+            ticker=signal.ticker, direction="unclear", reason_kind="none",
+            decision_code="invalid_span", parser_version=view.parser_version,
+        )
+
+    direction_is_safe = False
+    if code in {"explicit_clause", "direction_only"} and view.direction in {"long", "short"}:
+        source_tickers = {match.upper() for match in _VIEW_TICKER_RE.findall(signal.raw_text)}
+        evidence_text = signal.raw_text if len(source_tickers) <= 1 else source_reason or ""
+        direction_is_safe = (
+            _view_direction_is_supported(view.direction, evidence_text)
+            and not (
+                _VIEW_OPTION_RE.search(evidence_text)
+                and not _VIEW_OPTION_SIDE_RE.search(evidence_text)
+            )
+        )
+
+    if reason_is_safe:
+        assert span is not None and isinstance(source_reason, str)
+        start, end = span
+        return TickerPostView(
+            ticker=signal.ticker,
+            direction=view.direction if direction_is_safe else "unclear",
+            reason_text=source_reason,
+            reason_start=start,
+            reason_end=end,
+            reason_kind=view.reason_kind,
+            decision_code="explicit_clause" if direction_is_safe else "reason_only",
+            parser_version=view.parser_version,
+        )
+    if direction_is_safe:
+        return TickerPostView(
+            ticker=signal.ticker, direction=view.direction, reason_kind="none",
+            decision_code="direction_only", parser_version=view.parser_version,
+        )
+    return TickerPostView(
+        ticker=signal.ticker,
+        direction="unclear",
+        reason_kind="none",
+        decision_code="invalid_span",
+        parser_version=view.parser_version,
+    )
+
+
+async def insert_signal(
+    signal: TickerSignal,
+    *,
+    ticker_view: TickerPostView | None = None,
+    source_url: str | None = None,
+    parsed_summary: str | None = None,
+):
     """Insert a ticker signal into the database."""
     db = await get_db()
-    await db.execute(
-        """INSERT INTO ticker_signals (ticker, source_type, source_detail, raw_text, sentiment, detected_at, expires_at)
+    ticker_signal_stmt = (
+        """INSERT INTO ticker_signals
+           (ticker, source_type, source_detail, raw_text, sentiment, detected_at, expires_at)
            VALUES (?, ?, ?, ?, ?, ?, ?)""",
         (
-            signal.ticker,
-            signal.source_type.value,
-            signal.source_detail,
-            signal.raw_text[:2000],  # Truncate long texts
-            signal.sentiment.value,
-            signal.detected_at,
-            signal.expires_at,
+            signal.ticker, signal.source_type.value, signal.source_detail,
+            signal.raw_text[:2000], signal.sentiment.value,
+            signal.detected_at, signal.expires_at,
         ),
     )
     # Q2b: route tweet signals into signal_events so cross_reference scoring can see them.
@@ -2003,24 +2155,48 @@ async def insert_signal(signal: TickerSignal):
             else "short" if signal.sentiment == Sentiment.BEARISH
             else None
         )
-        await db.execute(
-            """INSERT INTO signal_events
-               (source_type, source_detail, ticker, direction, quality_score,
-                latency_sec, provenance, model_version, recorded_at, source_link)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        statements = [ticker_signal_stmt]
+        view_lookup_sql = "NULL"
+        view_lookup_params: tuple = ()
+        if ticker_view is not None:
+            safe_view = _storage_safe_ticker_view(signal, ticker_view)
+            post_key = _source_post_key(signal, source_url)
+            statements.append((
+                """INSERT OR IGNORE INTO analyst_post_views
+                   (source_post_key, source_url, analyst, ticker, detected_at, raw_text,
+                    raw_text_sha256, parsed_summary, display_direction, reason_text,
+                    reason_start, reason_end, reason_kind, decision_code, parser_version, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    post_key, source_url, signal.source_detail, signal.ticker,
+                    signal.detected_at, signal.raw_text,
+                    hashlib.sha256(signal.raw_text.encode("utf-8")).hexdigest(),
+                    parsed_summary, safe_view.direction, safe_view.reason_text,
+                    safe_view.reason_start, safe_view.reason_end, safe_view.reason_kind,
+                    safe_view.decision_code, safe_view.parser_version, time.time(),
+                ),
+            ))
+            view_lookup_sql = (
+                "(SELECT id FROM analyst_post_views "
+                "WHERE source_post_key=? AND ticker=? AND parser_version=?)"
+            )
+            view_lookup_params = (post_key, signal.ticker, safe_view.parser_version)
+        statements.append((
+            f"""INSERT INTO signal_events
+                (source_type, source_detail, ticker, direction, quality_score,
+                 latency_sec, provenance, model_version, recorded_at, source_link,
+                 analyst_post_view_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, {view_lookup_sql})""",
             (
-                "twitter",
-                signal.source_detail,
-                signal.ticker,
-                direction,
-                0.5,
-                None,
-                "tweet",
-                None,
-                signal.detected_at,
-                getattr(signal, "source_link", None),  # item E: TweetShift message link
+                "twitter", signal.source_detail, signal.ticker, direction, 0.5,
+                None, "tweet", None, signal.detected_at,
+                getattr(signal, "source_link", None), *view_lookup_params,
             ),
-        )
+        ))
+        await db.execute_transaction(statements)
+        return
+
+    await db.execute(*ticker_signal_stmt)
     await db.commit()
 
 

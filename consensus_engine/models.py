@@ -209,6 +209,41 @@ _CONVICTION_SCORES = {
 }
 
 
+def locate_unique_source_span(source_text: str, proposed_text: object) -> tuple[int, int] | None:
+    """Find one source span, allowing whitespace runs to differ but nothing else."""
+    if not isinstance(proposed_text, str) or not proposed_text:
+        return None
+
+    normalized_proposal = " ".join(proposed_text.split())
+    if not normalized_proposal:
+        return None
+
+    normalized_source: list[str] = []
+    source_ranges: list[tuple[int, int]] = []
+    index = 0
+    while index < len(source_text):
+        if source_text[index].isspace():
+            run_start = index
+            while index < len(source_text) and source_text[index].isspace():
+                index += 1
+            normalized_source.append(" ")
+            source_ranges.append((run_start, index))
+        else:
+            normalized_source.append(source_text[index])
+            source_ranges.append((index, index + 1))
+            index += 1
+
+    normalized_source_text = "".join(normalized_source)
+    normalized_start = normalized_source_text.find(normalized_proposal)
+    if (
+        normalized_start < 0
+        or normalized_source_text.find(normalized_proposal, normalized_start + 1) >= 0
+    ):
+        return None
+    normalized_end = normalized_start + len(normalized_proposal)
+    return source_ranges[normalized_start][0], source_ranges[normalized_end - 1][1]
+
+
 @dataclass
 class OptionsDetail:
     """Options trade details extracted from a tweet."""
@@ -221,6 +256,19 @@ class OptionsDetail:
     leg_count: Optional[int] = None
     target_price: Optional[float] = None
     profit_target_pct: Optional[float] = None
+
+
+@dataclass
+class TickerPostView:
+    """Conservative, source-grounded group-card view for one ticker in a post."""
+    ticker: str
+    direction: str
+    reason_text: Optional[str] = None
+    reason_start: Optional[int] = None
+    reason_end: Optional[int] = None
+    reason_kind: str = "none"
+    decision_code: str = "missing"
+    parser_version: str = "analyst-view-v1"
 
 
 @dataclass
@@ -243,6 +291,7 @@ class ParsedTweet:
     display_name: Optional[str] = None
     discord_source_link: Optional[str] = None
     parsed_at: float = field(default_factory=time.time)
+    ticker_views: list[TickerPostView] = field(default_factory=list)
 
     @property
     def is_actionable(self) -> bool:
@@ -251,6 +300,10 @@ class ParsedTweet:
     @property
     def base_score(self) -> int:
         return _CONVICTION_SCORES.get(self.conviction, 25)
+
+    def view_for_ticker(self, ticker: str) -> Optional[TickerPostView]:
+        wanted = (ticker or "").upper()
+        return next((view for view in self.ticker_views if view.ticker.upper() == wanted), None)
 
 
 @dataclass

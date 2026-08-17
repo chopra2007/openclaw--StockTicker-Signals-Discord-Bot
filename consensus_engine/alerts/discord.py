@@ -712,38 +712,101 @@ def _human_span(seconds: float) -> str:
 
 
 def format_swarm_alert(swarm, current_price: float = 0.0, links: Optional[dict] = None) -> dict:
-    """Build the loud SWARM embed for a SwarmResult. Pure (no I/O) so it is unit-testable.
-    `links` maps analyst handle -> source URL (clickable handles); missing -> plain @handle.
-    Title time = how long the swarm has been building (first tweet -> latest)."""
+    """Build the analyst-group embed without making a send-time AI call."""
     links = links or {}
     ticker = swarm.ticker
     members = list(swarm.analysts or [])
     n = swarm.count or len(members)
     span_txt = _human_span(max(0.0, (swarm.now_ts or 0.0) - (swarm.opened_at or 0.0)))
 
-    def _handle(a):
-        url = links.get(a)
-        return f"[@{a}]({url})" if url else f"@{a}"
+    details = list(getattr(swarm, "member_details", None) or [])
+    if not details:
+        from consensus_engine.analysis.herding import SwarmMemberDetail
+        times = swarm.member_times or {}
+        details = [
+            SwarmMemberDetail(
+                analyst=analyst,
+                direction="unclear",
+                reason="reason not stated",
+                source_link=links.get(analyst),
+                posted_at=times.get(analyst, swarm.opened_at),
+            )
+            for analyst in members[:20]
+        ]
 
-    handles = ", ".join(_handle(a) for a in members[:20])
-    fields = [{"name": "Analysts", "value": handles or "—", "inline": False}]
+    normalized = []
+    for detail in details:
+        direction = detail.direction if detail.direction in {"long", "short"} else "unclear"
+        normalized.append((detail, direction))
 
-    times = swarm.member_times or {}
-    posted = sorted(t for t in times.values() if t)
-    if posted:
-        first = time.strftime("%H:%M", time.gmtime(posted[0]))
-        last = time.strftime("%H:%M", time.gmtime(posted[-1]))
-        fields.append({"name": "Window", "value": f"{n} posts, {first}–{last} UTC", "inline": False})
+    bullish = sum(direction == "long" for _, direction in normalized)
+    bearish = sum(direction == "short" for _, direction in normalized)
+    unclear = len(normalized) - bullish - bearish
+    if bullish and not bearish and not unclear:
+        bias, bias_icon = "Bullish", "🟢"
+    elif bearish and not bullish and not unclear:
+        bias, bias_icon = "Bearish", "🔴"
+    elif bullish and bearish:
+        bias, bias_icon = "Mixed", "🟡"
+    else:
+        bias, bias_icon = "Unclear", "⚪"
+
+    fields = [{
+        "name": "Group bias",
+        "value": (
+            f"{bias_icon} **{bias}** · {bullish} bullish · "
+            f"{bearish} bearish · {unclear} unclear"
+        ),
+        "inline": False,
+    }]
+
+    direction_display = {
+        "long": ("🟢", "Bullish"),
+        "short": ("🔴", "Bearish"),
+        "unclear": ("⚪", "Unclear"),
+    }
+    lines = []
+    for detail, direction in normalized[:20]:
+        url = detail.source_link or links.get(detail.analyst)
+        handle = f"[@{detail.analyst}]({url})" if url and len(url) <= 180 else f"@{detail.analyst}"
+        icon, label = direction_display[direction]
+        prefix = f"{handle} — {icon} {label} — "
+        if len(prefix) > 220:
+            handle = f"@{detail.analyst}"
+            prefix = f"{handle} — {icon} {label} — "
+        reason = " ".join((detail.reason or "").split()) or "reason not stated"
+        if getattr(detail, "reason_kind", "none") == "event_claim" and reason != "reason not stated":
+            reason = f"Analyst says: {reason}"
+        reason = _clip(reason, max(20, 250 - len(prefix)))
+        lines.append(prefix + reason)
+
+    chunks = []
+    current = ""
+    for line in lines:
+        candidate = line if not current else f"{current}\n{line}"
+        if len(candidate) <= _FIELD_LIMITS["value"]:
+            current = candidate
+        else:
+            chunks.append(current)
+            current = line
+    if current:
+        chunks.append(current)
+    for index, chunk in enumerate(chunks):
+        fields.append({
+            "name": "Analyst views" if index == 0 else "Analyst views (continued)",
+            "value": chunk,
+            "inline": False,
+        })
 
     if current_price and current_price > 0:
         fields.append({"name": "Price", "value": f"${current_price:.2f}", "inline": True})
 
     return {
-        "title": f"\U0001f6a8 SWARM: ${ticker} — {n} analysts tweeting in {span_txt}",
+        "title": f"\U0001f6a8 ${ticker} — {n} analysts tweeting in {span_txt}",
         "color": 0xED4245,  # red — loud, breaking
         "fields": fields,
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
-        "footer": {"text": "OpenClaw Signal Engine | analyst swarm"},
+        "footer": {"text": "OpenClaw Signal Engine"},
     }
 
 
@@ -765,11 +828,11 @@ async def send_swarm_alert(swarm, current_price: float = 0.0) -> Optional[str]:
         log.warning("Discord not configured for swarm alert")
         return None
 
-    # Best-effort: clickable handles via signal_events.source_link (NULL on old rows).
+    # Backward compatibility for callers that construct SwarmResult without exact post details.
     links: dict = {}
     try:
         from consensus_engine import db as _db
-        if members:
+        if members and not getattr(swarm, "member_details", None):
             conn = await _db.get_db()
             ph = ",".join("?" * len(members))
             cur = await conn.execute(

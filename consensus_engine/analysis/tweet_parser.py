@@ -15,12 +15,147 @@ from typing import Optional
 import aiohttp
 
 from consensus_engine.models import (
-    ParsedTweet, OptionsDetail, TweetType, Direction, Conviction,
+    ParsedTweet, TickerPostView, OptionsDetail, TweetType, Direction, Conviction,
+    locate_unique_source_span,
 )
 from consensus_engine.utils.tickers import extract_tickers
 from models.router import process_tweet as process_multimodal_tweet
 
 log = logging.getLogger("consensus_engine.analysis.tweet_parser")
+
+ANALYST_VIEW_PARSER_VERSION = "analyst-view-v1"
+_UNSAFE_VIEW_CODES = {
+    "generic_activity", "neutral", "unsided_option", "multi_ticker_ambiguous",
+    "missing", "invalid_span",
+}
+_SAFE_VIEW_CODES = {"explicit_clause", "reason_only", "direction_only"}
+_SOURCE_TICKER_RE = re.compile(r"(?<![A-Za-z0-9])\$([A-Za-z]{1,10})(?![A-Za-z0-9])")
+_OPTION_MENTION_RE = re.compile(r"\b(?:calls?|puts?|\d+(?:\.\d+)?\s*[cp])\b", re.IGNORECASE)
+_OPTION_SIDE_RE = re.compile(
+    r"\b(?:buy|buying|bought|long|sell|selling|sold|short|write|writing|wrote)\b",
+    re.IGNORECASE,
+)
+_LONG_EVIDENCE_RE = re.compile(
+    r"\b(?:long|buy|buying|bought|bullish|add|adding|added|breakout|broke|"
+    r"reclaim|reclaimed|reclaiming|upside|bounce|bouncing|above)\b",
+    re.IGNORECASE,
+)
+_SHORT_EVIDENCE_RE = re.compile(
+    r"\b(?:short|sell|selling|sold|bearish|fade|fading|breakdown|"
+    r"lost support|downside|below|reject|rejected|rejecting)\b",
+    re.IGNORECASE,
+)
+
+
+def _unclear_view(ticker: str, decision_code: str = "missing") -> TickerPostView:
+    return TickerPostView(
+        ticker=ticker.upper(),
+        direction="unclear",
+        reason_kind="none",
+        decision_code=decision_code if decision_code in _UNSAFE_VIEW_CODES else "invalid_span",
+        parser_version=ANALYST_VIEW_PARSER_VERSION,
+    )
+
+
+def _ticker_in_span(ticker: str, span: str) -> bool:
+    symbol = re.escape(ticker.lstrip("$"))
+    return bool(re.search(rf"(?<![A-Za-z0-9])\$?{symbol}(?![A-Za-z0-9])", span, re.IGNORECASE))
+
+
+def _validate_ticker_view(
+    item: object,
+    ticker: str,
+    all_tickers: list[str],
+    original_text: str,
+) -> TickerPostView:
+    if not isinstance(item, dict):
+        return _unclear_view(ticker)
+
+    decision_code = str(item.get("decision_code", "missing")).lower()
+    if decision_code not in _SAFE_VIEW_CODES:
+        return _unclear_view(ticker, decision_code)
+    if _OPTION_MENTION_RE.search(original_text) and not _OPTION_SIDE_RE.search(original_text):
+        return _unclear_view(ticker, "unsided_option")
+
+    direction = str(item.get("direction", "unclear")).lower()
+    reason_kind = str(item.get("reason_kind", "none")).lower()
+    reason_text = item.get("reason_text")
+    reason_requested = decision_code in {"explicit_clause", "reason_only"}
+    direction_requested = decision_code in {"explicit_clause", "direction_only"}
+
+    span = locate_unique_source_span(original_text, reason_text) if reason_requested else None
+    if reason_requested and (
+        span is None or reason_kind not in {"position", "setup", "event_claim"}
+    ):
+        return _unclear_view(ticker, "invalid_span")
+
+    if span is not None:
+        start, end = span
+        reason_text = original_text[start:end]
+        if len(all_tickers) > 1 and not _ticker_in_span(ticker, reason_text):
+            return _unclear_view(ticker, "multi_ticker_ambiguous")
+        for other in all_tickers:
+            if other != ticker and _ticker_in_span(other, reason_text):
+                return _unclear_view(ticker, "multi_ticker_ambiguous")
+        if _OPTION_MENTION_RE.search(reason_text) and not _OPTION_SIDE_RE.search(reason_text):
+            return _unclear_view(ticker, "unsided_option")
+    else:
+        start = end = None
+        reason_text = None
+        reason_kind = "none"
+
+    direction_is_safe = False
+    if direction_requested and direction in {"long", "short"}:
+        evidence_text = original_text if len(all_tickers) == 1 else reason_text or ""
+        evidence_re = _LONG_EVIDENCE_RE if direction == "long" else _SHORT_EVIDENCE_RE
+        direction_is_safe = bool(evidence_re.search(evidence_text))
+        if _OPTION_MENTION_RE.search(evidence_text) and not _OPTION_SIDE_RE.search(evidence_text):
+            return _unclear_view(ticker, "unsided_option")
+
+    reason_is_safe = span is not None
+    if direction_is_safe and reason_is_safe:
+        final_code = "explicit_clause"
+    elif reason_is_safe:
+        direction = "unclear"
+        final_code = "reason_only"
+    elif direction_is_safe:
+        reason_kind = "none"
+        final_code = "direction_only"
+    else:
+        return _unclear_view(ticker, "generic_activity")
+
+    return TickerPostView(
+        ticker=ticker,
+        direction=direction,
+        reason_text=reason_text,
+        reason_start=start,
+        reason_end=end,
+        reason_kind=reason_kind,
+        decision_code=final_code,
+        parser_version=ANALYST_VIEW_PARSER_VERSION,
+    )
+
+
+def _parse_ticker_views(payload: dict, tickers: list[str], original_text: str) -> list[TickerPostView]:
+    raw_views = payload.get("ticker_views", [])
+    raw_views = raw_views if isinstance(raw_views, list) else []
+    normalized_tickers = list(dict.fromkeys(ticker.upper() for ticker in tickers))
+    source_tickers = list(dict.fromkeys([
+        *normalized_tickers,
+        *(match.upper() for match in _SOURCE_TICKER_RE.findall(original_text)),
+    ]))
+    views = []
+    for ticker in normalized_tickers:
+        candidates = [
+            item for item in raw_views
+            if isinstance(item, dict) and str(item.get("ticker", "")).upper() == ticker
+        ]
+        if len(candidates) != 1:
+            code = "multi_ticker_ambiguous" if len(candidates) > 1 else "missing"
+            views.append(_unclear_view(ticker, code))
+        else:
+            views.append(_validate_ticker_view(candidates[0], ticker, source_tickers, original_text))
+    return views
 
 
 def _build_parser_prompt(analyst: str, text: str) -> str:
@@ -90,6 +225,7 @@ def _parse_model_payload(payload: dict, url: str, analyst: str, original_text: s
         options=options,
         conviction=conviction,
         summary=summary or original_text[:100],
+        ticker_views=_parse_ticker_views(payload, tickers, original_text),
     )
     parsed.final_signal = payload.get("final_signal") if isinstance(payload.get("final_signal"), dict) else None
     vision_outputs = payload.get("vision_outputs")
@@ -172,7 +308,7 @@ def _fallback_parse(url: str, analyst: str, text: str) -> ParsedTweet:
     else:
         direction = Direction.NEUTRAL
 
-    return ParsedTweet(
+    parsed = ParsedTweet(
         tweet_url=url,
         analyst=analyst,
         raw_text=text,
@@ -183,6 +319,8 @@ def _fallback_parse(url: str, analyst: str, text: str) -> ParsedTweet:
         conviction=_infer_conviction(text, None),
         summary=text[:100],
     )
+    parsed.ticker_views = [_unclear_view(ticker) for ticker in tickers]
+    return parsed
 
 
 def _to_float(val) -> Optional[float]:

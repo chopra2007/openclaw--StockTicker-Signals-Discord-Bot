@@ -39,6 +39,20 @@ class ClusterResult:
 
 
 @dataclass
+class SwarmMemberDetail:
+    """The exact stored post represented by one analyst in a swarm alert."""
+    analyst: str
+    direction: str
+    reason: str
+    source_link: Optional[str]
+    posted_at: float
+    reason_kind: str = "none"
+    decision_code: str = "missing"
+    signal_event_id: Optional[int] = None
+    analyst_post_view_id: Optional[int] = None
+
+
+@dataclass
 class SwarmResult:
     """Result of one detect_swarm() evaluation for a single incoming tweet."""
     fired: bool
@@ -49,36 +63,89 @@ class SwarmResult:
     opened_at: float = 0.0
     now_ts: float = 0.0
     count: int = 0
+    member_details: Optional[list[SwarmMemberDetail]] = None
 
 
-async def _swarm_members(conn, ticker: str, opened_at: float, alerted: set) -> tuple[list, dict]:
-    """First-tweet time per alerted analyst since the swarm opened (for ordering + the
-    Window field). Any alerted analyst missing a row falls back to opened_at."""
+async def _swarm_members(
+    conn,
+    ticker: str,
+    opened_at: float,
+    now_ts: float,
+    alerted: set,
+) -> tuple[list, dict, list[SwarmMemberDetail]]:
+    """Return each alerted analyst's exact first stored post in the group window."""
     cur = await conn.execute(
-        """SELECT source_detail AS analyst, MIN(recorded_at) AS first_at
-           FROM signal_events
-           WHERE source_type='twitter' AND ticker=? AND recorded_at >= ? AND source_detail IS NOT NULL
-           GROUP BY source_detail""",
-        (ticker, opened_at),
+        """SELECT se.id AS signal_event_id, se.source_detail AS analyst,
+                  se.recorded_at AS first_at, se.source_link,
+                  se.analyst_post_view_id, apv.display_direction,
+                  apv.reason_text, apv.reason_kind, apv.decision_code
+             FROM signal_events se
+             LEFT JOIN analyst_post_views apv
+               ON apv.id=se.analyst_post_view_id AND apv.ticker=se.ticker
+            WHERE se.source_type='twitter' AND se.ticker=?
+              AND se.recorded_at >= ? AND se.recorded_at <= ?
+              AND se.source_detail IS NOT NULL
+            ORDER BY se.recorded_at, se.id""",
+        (ticker, opened_at, now_ts),
     )
     rows = await cur.fetchall()
-    times = {r["analyst"]: r["first_at"] for r in rows if r["analyst"] in alerted}
+    first_rows = {}
+    for row in rows:
+        analyst = row["analyst"]
+        if analyst in alerted and analyst not in first_rows:
+            first_rows[analyst] = row
+
+    times = {analyst: row["first_at"] for analyst, row in first_rows.items()}
     for a in alerted:
         times.setdefault(a, opened_at)
     members = sorted(alerted, key=lambda a: times.get(a, opened_at))
-    return members, times
+    details = []
+    for analyst in members:
+        row = first_rows.get(analyst)
+        raw_direction = (row["display_direction"] if row else None) or ""
+        direction = raw_direction if raw_direction in {"long", "short"} else "unclear"
+        stored_reason = (row["reason_text"] if row else None) or ""
+        reason = " ".join(stored_reason.split()) or "reason not stated"
+        details.append(SwarmMemberDetail(
+            analyst=analyst,
+            direction=direction,
+            reason=reason,
+            source_link=row["source_link"] if row else None,
+            posted_at=times[analyst],
+            reason_kind=(row["reason_kind"] if row else None) or "none",
+            decision_code=(row["decision_code"] if row else None) or "missing",
+            signal_event_id=row["signal_event_id"] if row else None,
+            analyst_post_view_id=row["analyst_post_view_id"] if row else None,
+        ))
+    return members, times, details
 
 
-async def _record_swarm_history(conn, ticker: str, opened_at: float, now_ts: float, alerted: set) -> None:
+async def _record_swarm_history(
+    conn,
+    ticker: str,
+    opened_at: float,
+    now_ts: float,
+    alerted: set,
+    details: Optional[list[SwarmMemberDetail]] = None,
+) -> None:
     """Append a cluster_events row so the existing `!cluster history` command keeps working.
     Best-effort: never block an alert on a history write."""
     try:
+        detail_by_analyst = {detail.analyst: detail for detail in details or []}
+        members_json = []
+        for analyst in sorted(alerted):
+            member = {"analyst": analyst}
+            detail = detail_by_analyst.get(analyst)
+            if detail:
+                member["signal_event_id"] = detail.signal_event_id
+                member["analyst_post_view_id"] = detail.analyst_post_view_id
+            members_json.append(member)
         await conn.execute(
             """INSERT INTO cluster_events
                (ticker, first_seen_at, last_seen_at, cluster_size, effective_size, members_json, regime_label, fired_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (ticker, opened_at, now_ts, len(alerted), float(len(alerted)),
-             json.dumps([{"analyst": a} for a in sorted(alerted)]), "", now_ts),
+             json.dumps(members_json), "", now_ts),
         )
         await conn.commit()
     except Exception as e:  # pragma: no cover - defensive
@@ -122,20 +189,22 @@ async def detect_swarm(ticker: str, analyst: str, now_ts: float) -> SwarmResult:
             (json.dumps(sorted(alerted)), now_ts, now_ts, ticker),
         )
         await conn.commit()
-        await _record_swarm_history(conn, ticker, opened_at, now_ts, alerted)
-        members, times = await _swarm_members(conn, ticker, opened_at, alerted)
+        members, times, details = await _swarm_members(conn, ticker, opened_at, now_ts, alerted)
+        await _record_swarm_history(conn, ticker, opened_at, now_ts, alerted, details)
         log.info("[A2] SWARM joined $%s: %s -> %d analysts", ticker, analyst, len(alerted))
         return SwarmResult(fired=True, reason="joined", ticker=ticker, analysts=members,
-                           member_times=times, opened_at=opened_at, now_ts=now_ts, count=len(alerted))
+                           member_times=times, member_details=details,
+                           opened_at=opened_at, now_ts=now_ts, count=len(alerted))
 
     # No open swarm (new or expired): does the opening condition hold right now?
     cutoff = now_ts - window_min * 60
     cur2 = await conn.execute(
         """SELECT source_detail AS analyst, MIN(recorded_at) AS first_at
            FROM signal_events
-           WHERE source_type='twitter' AND ticker=? AND recorded_at >= ? AND source_detail IS NOT NULL
+           WHERE source_type='twitter' AND ticker=? AND recorded_at >= ? AND recorded_at <= ?
+             AND source_detail IS NOT NULL
            GROUP BY source_detail""",
-        (ticker, cutoff),
+        (ticker, cutoff, now_ts),
     )
     distinct = {r["analyst"]: r["first_at"] for r in await cur2.fetchall()}
     if len(distinct) < min_size:
@@ -150,11 +219,12 @@ async def detect_swarm(ticker: str, analyst: str, now_ts: float) -> SwarmResult:
         (ticker, opened_at, json.dumps(sorted(alerted)), now_ts, now_ts),
     )
     await conn.commit()
-    await _record_swarm_history(conn, ticker, opened_at, now_ts, alerted)
-    members = sorted(distinct.keys(), key=lambda a: distinct[a])
+    members, times, details = await _swarm_members(conn, ticker, opened_at, now_ts, alerted)
+    await _record_swarm_history(conn, ticker, opened_at, now_ts, alerted, details)
     log.info("[A2] SWARM opened $%s: %d analysts in %dm", ticker, len(alerted), window_min)
     return SwarmResult(fired=True, reason="opened", ticker=ticker, analysts=members,
-                       member_times=distinct, opened_at=opened_at, now_ts=now_ts, count=len(alerted))
+                       member_times=times, member_details=details,
+                       opened_at=opened_at, now_ts=now_ts, count=len(alerted))
 
 
 async def _get_correlation(analyst_a: str, analyst_b: str) -> float:

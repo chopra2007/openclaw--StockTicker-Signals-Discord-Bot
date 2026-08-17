@@ -30,6 +30,17 @@ Given tweet text and optional vision analysis JSON, return ONLY valid JSON with 
   "catalyst_kind": "options|M&A|release|lawsuit|scandal|moat|guidance|product-far|none",
   "catalyst_likelihood": 0.0,
   "summary": "",
+  "ticker_views": [
+    {
+      "ticker": "TICKER1",
+      "direction": "long|short|unclear",
+      "reason_text": "exact continuous quote from tweet_text",
+      "reason_start": 0,
+      "reason_end": 0,
+      "reason_kind": "position|setup|event_claim|none",
+      "decision_code": "explicit_clause|reason_only|direction_only|generic_activity|neutral|unsided_option|multi_ticker_ambiguous|missing"
+    }
+  ],
   "final_signal": {
     "ticker": "",
     "signal": "bullish | bearish | neutral",
@@ -57,6 +68,23 @@ Rules:
 - Exclude technical indicators (RSI, EMA, MACD, VWAP, SMA, ATR, RVOL) as tickers.
 - Use vision context if provided to enrich confidence, reason, and key_levels.
 - Ensure source_types includes "image" when vision context is provided.
+- ticker_views is optional and is ONLY for later analyst-group cards. Return one
+  item per ticker. Do not copy one post-wide direction or reason across tickers.
+- reason_text must be an exact, continuous quote from tweet_text. reason_start is
+  its zero-based first character and reason_end is the first character after it.
+  Never paraphrase. The server will correct offsets only when reason_text appears
+  once, allowing whitespace formatting differences only. Punctuation and wording
+  must match. Image-only evidence cannot be a source-text reason.
+- Use explicit_clause only when that ticker has its own clearly attributable
+  directional position, setup, or event claim in the quoted span.
+- Use reason_only when the exact ticker-specific reason is clear but long versus
+  short is not. Use direction_only when long versus short is clearly stated but
+  the post gives no exact ticker-specific reason. Check these two fields separately.
+- Generic activity, neutral/watch-list mentions, option contracts with no stated
+  buy/sell side, and ambiguous multi-ticker clauses must use direction unclear,
+  reason_kind none, no reason span, and the matching decision_code.
+- reason_kind event_claim means the analyst states an outside event. The display
+  will attribute that claim to the analyst; do not present it as verified fact.
 - conviction reflects SETUP QUALITY, never the wording register. These analysts
   habitually hedge ("watching", "might add if it reclaims a level") — hedged
   wording around a concrete setup is still a real call.
@@ -106,6 +134,7 @@ def _default_payload() -> dict[str, Any]:
         "catalyst_kind": "none",
         "catalyst_likelihood": 0.0,
         "summary": "",
+        "ticker_views": [],
         "final_signal": {
             "ticker": "",
             "signal": "neutral",
