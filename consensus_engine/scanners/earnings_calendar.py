@@ -6,7 +6,8 @@ Uses Finnhub /calendar/earnings endpoint (free tier).
 
 import logging
 import time
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import aiohttp
 
@@ -16,6 +17,11 @@ from consensus_engine import db
 from consensus_engine.utils.rate_limiter import rate_limiter
 
 log = logging.getLogger("consensus_engine.scanner.earnings")
+
+
+def _pacific_today() -> date:
+    """Return today's date for the user-visible Pacific timezone."""
+    return datetime.now(ZoneInfo("America/Los_Angeles")).date()
 
 
 def _filter_upcoming_earnings(earnings: list[dict], tracked_tickers: set[str]) -> list[dict]:
@@ -112,7 +118,7 @@ async def fetch_recent_earnings_for_ticker(ticker: str) -> dict | None:
     if not eps_quarters:
         return None
 
-    today = datetime.utcnow().date()
+    today = _pacific_today()
     reported_quarters: list[dict] = []
     pending_quarters: list[dict] = []
     for q in eps_quarters:
@@ -144,6 +150,26 @@ async def fetch_recent_earnings_for_ticker(ticker: str) -> dict | None:
     latest = eps_quarters_sorted[0]
     period = str(latest.get("period", "")) or None
 
+    # `/stock/earnings` identifies the quarter but does not provide the day the
+    # company reported it.  Look only across the seven-day freshness window in
+    # Finnhub's earnings calendar and carry that real report date separately.
+    calendar_start = today - timedelta(days=7)
+    calendar_rows = await fetch_earnings_calendar(
+        calendar_start.isoformat(), today.isoformat(), symbol=ticker,
+    )
+    target = ticker.upper()
+    report_dates: list[date] = []
+    for row in calendar_rows:
+        if str(row.get("symbol", "")).upper() != target:
+            continue
+        try:
+            report_date = date.fromisoformat(str(row.get("date", "")))
+        except ValueError:
+            continue
+        if calendar_start <= report_date <= today:
+            report_dates.append(report_date)
+    report_date = max(report_dates).isoformat() if report_dates else None
+
     revenue_actual: float | None = None
     revenue_yoy_pct: float | None = None
     if revenue_history:
@@ -163,6 +189,7 @@ async def fetch_recent_earnings_for_ticker(ticker: str) -> dict | None:
 
     return {
         "period": period,
+        "report_date": report_date,
         "eps_actual": latest.get("actual"),
         "eps_estimate": latest.get("estimate"),
         "eps_surprise_pct": latest.get("surprisePercent"),
@@ -171,7 +198,12 @@ async def fetch_recent_earnings_for_ticker(ticker: str) -> dict | None:
     }
 
 
-async def fetch_next_earnings_for_ticker(ticker: str, days_ahead: int = 60) -> str | None:
+async def fetch_next_earnings_for_ticker(
+    ticker: str,
+    days_ahead: int = 60,
+    *,
+    as_of: date | None = None,
+) -> str | None:
     """Return the next earnings ISO date for `ticker` within `days_ahead`, else None.
 
     Used by the !all command to populate `compute_breakout_timeframe` when the
@@ -181,18 +213,31 @@ async def fetch_next_earnings_for_ticker(ticker: str, days_ahead: int = 60) -> s
     """
     if not ticker:
         return None
-    today = datetime.utcnow().date()
+    today = as_of or _pacific_today()
     horizon = today + timedelta(days=days_ahead)
-    rows = await fetch_earnings_calendar(today.isoformat(), horizon.isoformat())
+    rows = await fetch_earnings_calendar(
+        today.isoformat(), horizon.isoformat(), symbol=ticker,
+    )
     target = ticker.upper()
-    matches = [r for r in rows if str(r.get("symbol", "")).upper() == target]
-    if not matches:
-        return None
-    matches.sort(key=lambda r: r.get("date", ""))
-    return str(matches[0].get("date") or "") or None
+    matches: list[date] = []
+    for row in rows:
+        if str(row.get("symbol", "")).upper() != target:
+            continue
+        try:
+            report_date = date.fromisoformat(str(row.get("date", "")))
+        except ValueError:
+            continue
+        if today <= report_date <= horizon:
+            matches.append(report_date)
+    return min(matches).isoformat() if matches else None
 
 
-async def fetch_earnings_calendar(from_date: str, to_date: str) -> list[dict]:
+async def fetch_earnings_calendar(
+    from_date: str,
+    to_date: str,
+    *,
+    symbol: str | None = None,
+) -> list[dict]:
     """Fetch earnings calendar from Finnhub."""
     api_key = cfg.get_api_key("finnhub")
     if not api_key:
@@ -202,8 +247,13 @@ async def fetch_earnings_calendar(from_date: str, to_date: str) -> list[dict]:
 
     try:
         session = await get_session()
-        url = f"https://finnhub.io/api/v1/calendar/earnings?from={from_date}&to={to_date}&token={api_key}"
-        async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+        url = "https://finnhub.io/api/v1/calendar/earnings"
+        params = {"from": from_date, "to": to_date, "token": api_key}
+        if symbol:
+            params["symbol"] = symbol.upper()
+        async with session.get(
+            url, params=params, timeout=aiohttp.ClientTimeout(total=15),
+        ) as resp:
             if resp.status != 200:
                 log.warning("Finnhub earnings calendar returned %d", resp.status)
                 rate_limiter.report_failure("finnhub")

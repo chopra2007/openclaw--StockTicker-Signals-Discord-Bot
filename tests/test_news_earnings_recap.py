@@ -17,6 +17,8 @@ Acceptance per `RESUME-after-compact.md`:
 """
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 
 from consensus_engine.scanners import earnings_calendar, news
@@ -45,16 +47,23 @@ async def test_fetch_recent_earnings_returns_latest_print(monkeypatch):
     async def _stub_yfinance(_t):
         return yfinance_revenue_history
 
+    async def _stub_calendar(_from_date, _to_date, *, symbol=None):
+        assert symbol == "NVDA"
+        return [{"symbol": "NVDA", "date": "2026-08-15"}]
+
     monkeypatch.setattr(
         earnings_calendar, "_fetch_finnhub_company_earnings", _stub_finnhub,
     )
     monkeypatch.setattr(
         earnings_calendar, "_fetch_yfinance_revenue_history", _stub_yfinance,
     )
+    monkeypatch.setattr(earnings_calendar, "_pacific_today", lambda: date(2026, 8, 16))
+    monkeypatch.setattr(earnings_calendar, "fetch_earnings_calendar", _stub_calendar)
 
     out = await earnings_calendar.fetch_recent_earnings_for_ticker("NVDA")
     assert out is not None, "should return a recap dict"
     assert out["period"] == "2026-01-31"
+    assert out["report_date"] == "2026-08-15"
     assert out["eps_actual"] == 5.16
     assert out["eps_estimate"] == 4.60
     assert out["revenue_actual"] == 68132000000
@@ -138,8 +147,13 @@ async def test_fetch_recent_earnings_ignores_future_period_quarters(monkeypatch)
     async def _stub_yfinance(_t):
         return []
 
+    async def _stub_calendar(_from_date, _to_date, *, symbol=None):
+        assert symbol == "NVDA"
+        return [{"symbol": "NVDA", "date": date.today().isoformat()}]
+
     monkeypatch.setattr(ec, "_fetch_finnhub_company_earnings", _stub_finnhub)
     monkeypatch.setattr(ec, "_fetch_yfinance_revenue_history", _stub_yfinance)
+    monkeypatch.setattr(ec, "fetch_earnings_calendar", _stub_calendar)
 
     out = await ec.fetch_recent_earnings_for_ticker("NVDA")
     # future-period quarter is dropped; past reported quarter has no pending
@@ -155,6 +169,7 @@ async def test_search_recent_earnings_builds_catalyst_with_revenue(monkeypatch):
     async def _stub(*_a, **_kw):
         return {
             "period": "2026-01-31",
+            "report_date": "2026-08-15",
             "eps_actual": 5.16, "eps_estimate": 4.60, "eps_surprise_pct": 12.17,
             "revenue_actual": 68132000000, "revenue_yoy_pct": 73.2,
         }
@@ -162,13 +177,108 @@ async def test_search_recent_earnings_builds_catalyst_with_revenue(monkeypatch):
         earnings_calendar, "fetch_recent_earnings_for_ticker", _stub,
     )
 
-    result = await news._search_recent_earnings("NVDA")
+    result = await news._search_recent_earnings("NVDA", as_of=date(2026, 8, 16))
     assert result is not None, "recent earnings present → CatalystResult expected"
     assert result.catalyst_type == "Earnings Report"
     body = result.catalyst_body or ""
     assert "$68" in body, f"revenue actual must appear; got {body!r}"
     assert "73" in body, f"YoY % must appear; got {body!r}"
     assert "5.16" in body or "EPS" in body
+
+
+@pytest.mark.asyncio
+async def test_search_recent_earnings_skips_stale_report(monkeypatch):
+    async def _stub(*_a, **_kw):
+        return {"period": "2026-06-30", "report_date": "2026-08-08"}
+
+    monkeypatch.setattr(
+        earnings_calendar, "fetch_recent_earnings_for_ticker", _stub,
+    )
+
+    result = await news._search_recent_earnings("NVDA", as_of=date(2026, 8, 16))
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_search_recent_earnings_keeps_seven_day_old_report(monkeypatch):
+    async def _stub(*_a, **_kw):
+        return {
+            "period": "2026-06-30",
+            "report_date": "2026-08-09",
+            "eps_actual": 1.87,
+        }
+
+    monkeypatch.setattr(
+        earnings_calendar, "fetch_recent_earnings_for_ticker", _stub,
+    )
+
+    result = await news._search_recent_earnings("NVDA", as_of=date(2026, 8, 16))
+    assert result is not None
+
+
+@pytest.mark.asyncio
+async def test_search_recent_earnings_rejects_missing_report_date(monkeypatch):
+    async def _stub(*_a, **_kw):
+        return {"period": "2026-06-30", "eps_actual": 1.87}
+
+    monkeypatch.setattr(
+        earnings_calendar, "fetch_recent_earnings_for_ticker", _stub,
+    )
+
+    result = await news._search_recent_earnings("NVDA", as_of=date(2026, 8, 16))
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_old_quarter_reported_yesterday_is_fresh(monkeypatch):
+    async def _stub(*_a, **_kw):
+        return {
+            "period": "2026-01-31",
+            "report_date": "2026-08-15",
+            "eps_actual": 5.16,
+        }
+
+    monkeypatch.setattr(
+        earnings_calendar, "fetch_recent_earnings_for_ticker", _stub,
+    )
+
+    result = await news._search_recent_earnings("NVDA", as_of=date(2026, 8, 16))
+    assert result is not None
+    assert result.eps_period == "2026-01-31"
+
+
+@pytest.mark.asyncio
+async def test_news_cascade_uses_next_tier_after_stale_earnings(monkeypatch):
+    async def _stale_recap(*_a, **_kw):
+        return {"period": "2026-06-30", "report_date": "2026-07-01"}
+
+    async def _fresh_news(ticker):
+        return news._build_catalyst(
+            ticker,
+            "NVDA launches a new product",
+            "https://www.reuters.com/example",
+            "Product Launch",
+        )
+
+    async def _none(_ticker):
+        return None
+
+    monkeypatch.setattr(
+        earnings_calendar, "fetch_recent_earnings_for_ticker", _stale_recap,
+    )
+    monkeypatch.setattr(news, "_search_finnhub_news", _fresh_news)
+    monkeypatch.setattr(news, "_search_google_news_rss", _none)
+    monkeypatch.setattr(news, "_search_brave", _none)
+    monkeypatch.setattr(news, "_search_searxng", _none)
+    monkeypatch.setattr(
+        news.cfg,
+        "get",
+        lambda key, default=None: False if key == "news_cascade.parallel" else default,
+    )
+
+    result = await news.news_cascade("NVDA")
+    assert result is not None
+    assert result.catalyst_type == "Product Launch"
 
 
 @pytest.mark.asyncio

@@ -1,7 +1,9 @@
 """Tests for Discord command routing."""
 import asyncio
-import pytest
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch, MagicMock
+
+import pytest
 
 
 @pytest.mark.asyncio
@@ -69,6 +71,39 @@ async def test_route_scan_with_ticker_dispatches_task():
         assert "NVDA" in content or "Scanning" in content
         # Should fire a background task
         mock_scan.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_scan_shows_next_earnings_as_its_own_line():
+    from consensus_engine.alerts import commands
+
+    xref = SimpleNamespace(
+        breakdown=MagicMock(),
+        catalyst_summary="Fresh company news",
+        options=None,
+        social_summary="",
+        technical=None,
+    )
+    with patch(
+        "consensus_engine.cross_reference.cross_reference",
+        new_callable=AsyncMock,
+        return_value=xref,
+    ), patch(
+        "consensus_engine.engine.analyze_signal",
+        new_callable=AsyncMock,
+        return_value={"total_score": 72, "skipped_sources": []},
+    ), patch(
+        "consensus_engine.scanners.earnings_calendar.fetch_next_earnings_for_ticker",
+        new_callable=AsyncMock,
+        return_value="2026-08-27",
+    ) as mock_next, patch.object(
+        commands, "send_command_reply", new_callable=AsyncMock,
+    ) as mock_send:
+        await commands._scan_and_reply("NVDA", "chan123", "msg123")
+
+    content = mock_send.call_args.args[2]
+    assert content.splitlines()[-1] == "Next earnings: 2026-08-27"
+    mock_next.assert_awaited_once_with("NVDA", days_ahead=90)
 
 
 @pytest.mark.asyncio

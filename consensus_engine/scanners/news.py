@@ -17,9 +17,10 @@ import json
 import logging
 import time
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 import aiohttp
 
@@ -186,7 +187,26 @@ def _format_money(amount) -> str:
     return f"${n:,.0f}"
 
 
-async def _search_recent_earnings(ticker: str) -> Optional[CatalystResult]:
+def _fresh_earnings_report_date(
+    report_date: object,
+    *,
+    as_of: date | None = None,
+) -> bool:
+    """True only for a real report date from today through seven days ago."""
+    try:
+        reported = date.fromisoformat(str(report_date))
+    except (TypeError, ValueError):
+        return False
+    today = as_of or datetime.now(ZoneInfo("America/Los_Angeles")).date()
+    age_days = (today - reported).days
+    return 0 <= age_days <= 7
+
+
+async def _search_recent_earnings(
+    ticker: str,
+    *,
+    as_of: date | None = None,
+) -> Optional[CatalystResult]:
     """Highest-priority tier: synthesize a catalyst from the most recent print.
 
     Finnhub /calendar/earnings carries revenueActual + epsActual which the
@@ -201,7 +221,11 @@ async def _search_recent_earnings(ticker: str) -> Optional[CatalystResult]:
     except Exception as e:
         log.debug("recent_earnings tier error for %s: %s", ticker, e)
         return None
-    if not recap or not recap.get("period"):
+    if (
+        not recap
+        or not recap.get("period")
+        or not _fresh_earnings_report_date(recap.get("report_date"), as_of=as_of)
+    ):
         return None
 
     period = recap["period"]
