@@ -710,16 +710,31 @@ reason not stated. The historical audit, live schema, and real Discord readback 
 
 Make each analyst-group alert show bullish, bearish, mixed, or unclear plus the catalyst or setup, then have Codex verify every historical group against its source tweets and the stock's move from the first tweet.
 
-## 85. Make feature questions get grounded, smart answers
+## 85. Make feature questions get grounded, smart answers — DONE 2026-08-18
 
 **File:** `discord-feature-questions-from-code.md`
 
-**CURRENT STATUS (2026-08-17):** Not started. The live Discord agent already has the repository as its
-workspace, full file and shell tools, and a prompt that tells it to read code before answering. The
-owner added a historical-proof requirement for every feature in this batch, and the latest 100
-`#chat` messages are readable for real examples. Next: build the feature-question set from actual
-owner questions, then grade the live path and choose a stronger model or tighter prompt from measured
-results rather than adding more permissions.
+**CURRENT STATUS (2026-08-18):** DONE and live. The bot's chat model changed from
+`gpt-4.1-nano` to `gemini-3.7-flash`, and two prompt problems were fixed. Measured on 9 real
+questions taken from the owner's own past `#chat` messages, graded against a blind answer key: the
+old model got **0 of 9** — it answered from memory, barely opening a file. The new one gets **6 of 9**.
+
+What changed, in plain terms:
+- The instructions told every model "options flow comes from yfinance". That stopped being true on
+  2026-07-02 when the feed moved to Schwab, so the bot was being taught the wrong answer. Fixed.
+- The bot used to play along with a question that assumes something exists. Asked "can you add 2
+  more tickers to the list?", it said yes — there is no such list. It now checks first and says so.
+- Racing the models cost **$0.39** this time instead of $3.00: screen every model on 3 cheap
+  questions, only run the full set on the survivors, and the test harness now meters its own spend
+  and stops at a budget (it cut one expensive model off after two questions).
+
+Proven live in `#chat`, replies read back off Discord: the options-flow question now gets the
+correct Schwab answer with the real file path, and the fake-ticker-list question gets a clean "no,
+that list does not exist" plus what actually happens instead.
+
+Still open: the "why is it giving false signals" question is unanswered by every model raced — it
+needs a longer investigation than the ~2-minute live budget allows. Evidence:
+`.omx/evidence/todo-85/model-race-and-live-proof.md`.
 
 Make the Discord bot read the live code and give accurate plain-English answers about its own features, including recognizing when a question assumes a ticker list that does not exist.
 
