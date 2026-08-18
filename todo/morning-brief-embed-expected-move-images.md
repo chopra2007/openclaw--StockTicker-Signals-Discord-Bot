@@ -1,15 +1,27 @@
 # Make the morning brief a compact card with expected-move charts
 
-**Status:** OPEN
+**Status:** DONE
 **Created:** 2026-08-17
+**Completed:** 2026-08-18
 
-**CURRENT STATUS (2026-08-17):** Not started. The requested July 30 brief and the latest live briefs
-were read from Discord. The reference message has the preferred compact sections, but Discord stored
-it as plain text rather than a real card. The owner added a historical-proof requirement for every
-feature; the database currently holds 78 archived briefing runs and 3,355 expected-move snapshots,
-including 47 nearest-expiration SPY snapshots. Next: use those records to prove section completeness
-and daily chart-number accuracy, then verify the weekly chart from a real current chain before checking
-the final Discord card.
+**CURRENT STATUS (2026-08-18):** DONE and live. The morning brief is now a real Discord card:
+one embed with the five fixed sections (Overnight, Levels to Watch (SPY), High-Conviction Calls,
+Macro, Top Tickers), the SPY daily expected-move chart attached under Levels, and the weekly chart
+in a second embed in the same message. The date/time on the card is always Pacific and is computed
+by the code, never written by the AI.
+
+Proof, not just tests:
+- **The old brief was cutting itself off.** 27 of 79 archived briefs were longer than the old
+  1,990-character slice, so roughly 1 in 3 real briefs silently lost Macro and Top Tickers. All 79
+  replayed through the new builder lose nothing: 0 over the limit, all 5 sections present.
+- **Live check:** posted to Discord and read back off the API (messages 1539043951812542464 and
+  1539044550272614492) — 2 embeds, both charts served from Discord's CDN, all 5 sections.
+- **Independent adversarial review** found 7 defects; all 7 are fixed (see
+  `.omx/evidence/todo-87/independent-verification.md`). The important one: an Eastern-time label
+  could reach the card through the no-AI fallback path — 4 real archived briefs literally say
+  "All times EST". The card now strips the label while leaving the time itself untouched.
+- **Next scheduled post** (05:50 PDT) is checked automatically by
+  `scripts/check_morning_brief_card.py`, which writes its verdict to the task-system notification log.
 
 ## What the user wants
 

@@ -212,3 +212,32 @@ A, B, D, F, H and I pass. C passes on the AI path and fails on the fallback path
 data and over-matches on constructed input. Nothing here contradicts the core claim that the new card
 removes the `content[:1990]` silent-truncation failure — that part reproduces exactly, 27 of 79
 briefs were being cut before and 0 are now.
+
+
+---
+
+## Fixes applied (2026-08-17, same session)
+
+All 7 discrepancies addressed in `consensus_engine/briefing/alfred.py`:
+
+- **D-1** `_scrub_timezone_labels()` now runs on the FINAL rendered text and again on any
+  stored brief before it is turned into a card. Only the label token is removed, so
+  "Cash opens 9:30 ET" becomes "Cash opens 9:30" (never relabelled as Pacific) and the
+  `$ET` ticker survives. Test built from the 4 real archived strings.
+- **D-2** `top_story` capped at 600 chars, and `_fit_embed` now trims the description once
+  the fields are at their floor, so the card can never exceed the budget and retry forever.
+- **D-3** the 6,000-char budget is now applied ACROSS the message: the weekly embed is sized
+  first and the main card is built with the remainder.
+- **D-4** `_posted_id()` returns a sentinel when Discord answers 200 without an id, so a
+  successful post always leaves `pending`; a failed status write now logs the message id and
+  an explicit do-not-retry line.
+- **D-5** the card reuses the clock line stored with the brief (`_clock_from_text`), so a
+  retry shows when the brief was BUILT, matching the archive.
+- **D-6** `_section_key_for_heading` matches whole words — "Macrohard Inc" no longer maps to
+  the macro section.
+- **D-7** the "nothing is cut silently" claim in `corpus-replay.md` now states the preamble
+  caveat explicitly.
+
+**Re-verified over the real corpus** (all 79 archived `briefing_runs` rows, replayed through the
+fixed builder): `tz_label_leaks=0  over_limit=0  missing_fields=0`, with 4 briefs scrubbed
+(the 4 that carry "All times EST"). Alfred tests: 40 passed.

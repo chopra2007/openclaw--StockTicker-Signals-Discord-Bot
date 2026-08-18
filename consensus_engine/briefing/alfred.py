@@ -45,7 +45,8 @@ _MAX_SECTION_CHARS = 3000     # AI output longer than this is treated as malform
 # Discord hard limits.
 _MAX_FIELD_VALUE = 1024
 _MAX_DESCRIPTION = 4096
-_MAX_EMBED_TOTAL = 6000
+_MAX_EMBED_TOTAL = 6000       # Discord counts this across ALL embeds in one message
+_MAX_TOP_STORY = 600
 
 _BRIEF_COLOR = 0x5865F2
 SPY_EM_DAILY_FILE = "SPY_em_daily.png"
@@ -274,7 +275,8 @@ def _section_key_for_heading(heading: str) -> str | None:
         return None
     for key, aliases in _SECTION_ALIASES:
         for alias in aliases:
-            if text.startswith(alias):
+            # Whole words only: "Macrohard Inc" is a company, not the macro section.
+            if text == alias or text.startswith(alias + " "):
                 return key
     return None
 
@@ -313,6 +315,18 @@ def _sections_from_text(content: str) -> tuple[dict, str, str]:
     return sections, top_story, footnote
 
 
+def _clock_from_text(content: str) -> str:
+    """The clock line stored with the brief. A retry must show the moment the
+    brief was BUILT, not the moment it was re-sent, so it agrees with the archive."""
+    for line in (content or "").splitlines():
+        stripped = line.strip()
+        if stripped.startswith("###"):
+            break
+        if stripped.startswith("_") and stripped.endswith("_") and len(stripped) > 2:
+            return stripped.strip("_").strip()
+    return ""
+
+
 def _has_forbidden_timezone_label(content: str) -> bool:
     """Detect exchange-time labels while preserving the unrelated `$ET` ticker."""
     return bool(
@@ -320,6 +334,23 @@ def _has_forbidden_timezone_label(content: str) -> bool:
         or re.search(r"\b(?:EST|EDT)\b", content)
         or re.search(r"(?<!\$)\bET\b", content)
     )
+
+
+def _scrub_timezone_labels(content: str) -> str:
+    """Strip an exchange-time label while leaving the time itself alone.
+
+    The AI reply is rejected outright when it carries one, but the deterministic
+    fallback builds its sections straight from stored text (alert catalysts, level
+    conditions, analyst notes) — 4 of the 79 archived briefs carry "All times EST"
+    from that path. Relabeling "9:30 ET" as Pacific would make the clock wrong, and
+    dropping the whole card leaves nothing, so only the label token goes.
+    """
+    out = re.sub(r"\bEastern(?:\s+Time)?\b", "", content, flags=re.IGNORECASE)
+    out = re.sub(r"\b(?:EST|EDT)\b", "", out)
+    out = re.sub(r"(?<!\$)\bET\b", "", out)
+    out = re.sub(r"[ \t]{2,}", " ", out)
+    out = re.sub(r"[ \t]+([,.;:!?])", r"\1", out)
+    return re.sub(r"[ \t]+$", "", out, flags=re.M)
 
 
 async def _render_briefing(data: dict) -> str:
@@ -399,6 +430,9 @@ async def _render_briefing(data: dict) -> str:
     hidden = data.get("_levels_hidden", 0)
     if hidden:
         out = f"{out}\n⚠️ {hidden} level{'s' if hidden != 1 else ''} hidden as out-of-range.\n"
+    if _has_forbidden_timezone_label(out):
+        log.warning("Alfred scrubbed an exchange-time label from the rendered brief")
+        out = _scrub_timezone_labels(out)
     return out
 
 
@@ -445,11 +479,14 @@ def _em_meta(result, rendered: bool) -> dict:
     }
 
 
-def _build_briefing_embed(sections: dict, top_story: str, footnote: str) -> dict:
+def _build_briefing_embed(sections: dict, top_story: str, footnote: str,
+                          clock: str = "", budget: int = _MAX_EMBED_TOTAL) -> dict:
     """The main card: fixed five fields, every value inside Discord's limits."""
-    description = f"_{_clock_line()}_"
+    description = f"_{clock or _clock_line()}_"
     if top_story:
-        description += f"\n\n**{top_story}**"
+        # Capped: an uncapped top story alone can push the card past Discord's
+        # 6000-char message limit, and the retry would be byte-identical forever.
+        description += f"\n\n**{_trim_to_limit(top_story, _MAX_TOP_STORY)}**"
     embed = {
         "title": "☀️  Morning Brief",
         "description": _trim_to_limit(description, _MAX_DESCRIPTION),
@@ -464,24 +501,31 @@ def _build_briefing_embed(sections: dict, top_story: str, footnote: str) -> dict
     }
     if footnote:
         embed["footer"] = {"text": _trim_to_limit(footnote, 2048)}
-    return _fit_embed(embed)
+    return _fit_embed(embed, budget)
 
 
-def _fit_embed(embed: dict) -> dict:
-    """Keep the whole embed under Discord's 6000-char total by trimming the
-    longest field first — visibly, never silently."""
-    def total(e: dict) -> int:
-        return (len(e.get("title", "")) + len(e.get("description", ""))
-                + len((e.get("footer") or {}).get("text", ""))
-                + sum(len(f["name"]) + len(f["value"]) for f in e.get("fields", [])))
+def _embed_len(embed: dict) -> int:
+    """Discord counts title + description + footer + every field name and value."""
+    return (len(embed.get("title", "")) + len(embed.get("description", ""))
+            + len((embed.get("footer") or {}).get("text", ""))
+            + sum(len(f["name"]) + len(f["value"]) for f in embed.get("fields", [])))
 
-    while total(embed) > _MAX_EMBED_TOTAL:
-        over = total(embed) - _MAX_EMBED_TOTAL
+
+def _fit_embed(embed: dict, budget: int = _MAX_EMBED_TOTAL) -> dict:
+    """Keep the embed inside `budget` by trimming the longest field first, then
+    the description — visibly, never silently, and never above the budget."""
+    while _embed_len(embed) > budget and embed.get("fields"):
+        over = _embed_len(embed) - budget
         biggest = max(embed["fields"], key=lambda f: len(f["value"]))
         target = max(60, len(biggest["value"]) - over)
         if target >= len(biggest["value"]):
             break
         biggest["value"] = _trim_to_limit(biggest["value"], target)
+    if _embed_len(embed) > budget:
+        # Fields are down to their floor; the description is the only slack left.
+        over = _embed_len(embed) - budget
+        embed["description"] = _trim_to_limit(embed.get("description", ""),
+                                              max(1, len(embed.get("description", "")) - over))
     return embed
 
 
@@ -489,7 +533,12 @@ async def _build_briefing_payload(content: str) -> tuple[list[dict], list[tuple[
     """Turn the archived brief text into (embeds, attachments, em_metadata JSON).
     The daily SPY chart is expected; the weekly one is strictly best-effort and
     can never delay or block the post."""
+    if _has_forbidden_timezone_label(content):
+        # Covers a brief rendered and stored before this guard existed.
+        log.warning("Alfred scrubbed an exchange-time label from a stored brief")
+        content = _scrub_timezone_labels(content)
     sections, top_story, footnote = _sections_from_text(content)
+    clock = _clock_from_text(content)
     meta: dict = {}
 
     daily, daily_png = await _spy_expected_move("daily")
@@ -505,22 +554,30 @@ async def _build_briefing_payload(content: str) -> tuple[list[dict], list[tuple[
     else:
         meta["weekly"] = {"error": "unavailable"}
 
-    main = _build_briefing_embed(sections, top_story, footnote)
+    # A Discord embed holds one image, so the weekly chart rides in a second
+    # embed inside the SAME message — and the 6000-char limit applies to the
+    # message, not to each embed, so the weekly card is sized first and the main
+    # card gets whatever is left.
+    weekly_embed = None
+    if weekly_png and len(weekly_png) <= _MAX_ATTACHMENT_BYTES:
+        weekly_embed = {
+            "title": "SPY — Weekly Expected Move",
+            "description": _trim_to_limit(_em_summary_line(weekly), _MAX_DESCRIPTION),
+            "color": _BRIEF_COLOR,
+            "image": {"url": f"attachment://{SPY_EM_WEEKLY_FILE}"},
+        }
+
+    main = _build_briefing_embed(
+        sections, top_story, footnote, clock=clock,
+        budget=_MAX_EMBED_TOTAL - (_embed_len(weekly_embed) if weekly_embed else 0))
     embeds = [main]
     attachments: list[tuple[str, bytes]] = []
 
     if daily_png and len(daily_png) <= _MAX_ATTACHMENT_BYTES:
         main["image"] = {"url": f"attachment://{SPY_EM_DAILY_FILE}"}
         attachments.append((SPY_EM_DAILY_FILE, daily_png))
-    # A Discord embed holds one image, so the weekly chart rides in a second
-    # embed inside the SAME message.
-    if weekly_png and len(weekly_png) <= _MAX_ATTACHMENT_BYTES:
-        embeds.append({
-            "title": "SPY — Weekly Expected Move",
-            "description": _trim_to_limit(_em_summary_line(weekly), _MAX_DESCRIPTION),
-            "color": _BRIEF_COLOR,
-            "image": {"url": f"attachment://{SPY_EM_WEEKLY_FILE}"},
-        })
+    if weekly_embed is not None:
+        embeds.append(weekly_embed)
         attachments.append((SPY_EM_WEEKLY_FILE, weekly_png))
     elif weekly_png:
         log.info("Alfred skipped the weekly SPY chart: %d bytes is too large", len(weekly_png))
@@ -565,7 +622,7 @@ async def send_briefing_message(embeds: list[dict],
                 timeout=aiohttp.ClientTimeout(total=30),
             ) as resp:
                 if resp.status in (200, 201):
-                    return str((await resp.json()).get("id", ""))
+                    return _posted_id(await resp.json())
                 log.warning("Alfred multipart post failed: %d; retrying without images",
                             resp.status)
         else:
@@ -597,7 +654,14 @@ async def _post_briefing_json(url: str, token: str, body: dict) -> str | None:
         if resp.status not in (200, 201):
             log.warning("Alfred Discord post failed: %d", resp.status)
             return None
-        return str((await resp.json()).get("id", ""))
+        return _posted_id(await resp.json())
+
+
+def _posted_id(body: dict) -> str:
+    """Discord accepted the post, so the run must move off `pending` even if the
+    reply carries no id — an empty id used to read as "send failed" and the retry
+    posted the brief a second time."""
+    return str((body or {}).get("id") or "posted-unknown-id")
 
 
 import asyncio as _asyncio
@@ -656,8 +720,14 @@ async def post_briefing(session_key: str, data: dict) -> None:
         if not msg_id:
             log.warning("Alfred %s Discord post failed; leaving pending for retry", session_key)
             return
-        await db.upsert_briefing_run(session_key, discord_message_id=msg_id,
-                                     status="posted", em_metadata=em_metadata)
+        try:
+            await db.upsert_briefing_run(session_key, discord_message_id=msg_id,
+                                         status="posted", em_metadata=em_metadata)
+        except Exception as exc:
+            # The brief IS on Discord. Say so loudly: a retry would post it twice.
+            log.error("Alfred %s POSTED as message %s but the status write failed (%s); "
+                      "do not retry this session", session_key, msg_id, exc)
+            raise
         run = await db.get_briefing_run(session_key)
 
     # Stage 3: archive to vault

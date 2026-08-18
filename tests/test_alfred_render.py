@@ -283,3 +283,82 @@ def test_undecorated_headings_still_parse_into_all_five_sections():
     sections, _top, _foot = alfred._sections_from_text(content)
     assert sections == {"overnight": "alpha", "levels": "bravo", "calls": "charlie",
                         "macro": "delta", "top_tickers": "echo"}
+
+
+# --- review fixes (adversarial pass, 2026-08-17) ---------------------------
+
+REAL_ARCHIVED_TIMEZONE_LINES = [
+    "*All times EST – keep it short, stay sharp.*",
+    "*(All times EST. Keep it short – under 1 500 characters",
+    "*All times EST. Keep trades tight.*",
+    "Cash opens 9:30 ET. Watch the tape.",
+]
+
+
+async def test_fallback_card_never_carries_an_exchange_timezone(monkeypatch):
+    """The deterministic fallback builds sections from stored text, and 4 real
+    archived briefs carry "All times EST" from exactly that path."""
+    async def no_ai(prompt): return ""
+    monkeypatch.setattr(alfred, "_llm_synthesize", no_ai)
+
+    for line in REAL_ARCHIVED_TIMEZONE_LINES:
+        data = dict(DATA)
+        data["macro"] = {"direction": "risk-on", "themes": "AI", "summary": line}
+        out = await alfred._render_briefing(data)
+        _assert_no_exchange_timezone(out)
+        assert "9:30" in out or "All times" in out   # the time itself survives
+
+
+def test_scrub_keeps_the_et_ticker_and_the_clock():
+    text = "Energy Transfer ($ET) flat. Cash opens 9:30 ET. All times EST."
+    out = alfred._scrub_timezone_labels(text)
+    assert "$ET" in out
+    assert "9:30" in out
+    assert not alfred._has_forbidden_timezone_label(out)
+
+
+async def test_payload_scrubs_a_brief_stored_before_the_guard(monkeypatch):
+    async def fake_em(horizon): return (None, None)
+    monkeypatch.setattr(alfred, "_spy_expected_move", fake_em)
+    stored = alfred._sections_to_text(
+        {"overnight": "Cash opens 9:30 ET.", "levels": "b", "calls": "c",
+         "macro": "d", "top_tickers": "e"}, "")
+    embeds, _files, _meta = await alfred._build_briefing_payload(stored)
+    _assert_no_exchange_timezone(json.dumps(embeds, ensure_ascii=False))
+
+
+def test_huge_top_story_cannot_push_the_card_over_the_limit():
+    sections = {k: "line of text.\n" * 100 for k in alfred._SECTION_KEYS}
+    embed = alfred._build_briefing_embed(sections, "S" * 5000, "")
+    assert alfred._embed_len(embed) <= alfred._MAX_EMBED_TOTAL
+
+
+def test_message_budget_covers_both_embeds():
+    sections = {k: "line of text.\n" * 200 for k in alfred._SECTION_KEYS}
+    weekly = {"title": "SPY — Weekly Expected Move", "description": "d" * 400,
+              "color": 1, "image": {"url": "attachment://x.png"}}
+    main = alfred._build_briefing_embed(
+        sections, "story", "", budget=alfred._MAX_EMBED_TOTAL - alfred._embed_len(weekly))
+    assert alfred._embed_len(main) + alfred._embed_len(weekly) <= alfred._MAX_EMBED_TOTAL
+
+
+async def test_retry_shows_the_time_the_brief_was_built(monkeypatch):
+    async def fake_em(horizon): return (None, None)
+    monkeypatch.setattr(alfred, "_spy_expected_move", fake_em)
+    stored = alfred._sections_to_text({k: "x" for k in alfred._SECTION_KEYS}, "")
+    monkeypatch.setattr(alfred, "_clock_line", lambda: "Tuesday, January 1 2030 · 9:00 AM PST")
+    embeds, _f, _m = await alfred._build_briefing_payload(stored)
+    assert "2030" not in embeds[0]["description"]
+    assert alfred._clock_from_text(stored) in embeds[0]["description"]
+
+
+def test_a_company_name_is_not_the_macro_section():
+    assert alfred._section_key_for_heading("Macrohard Inc") is None
+    assert alfred._section_key_for_heading("Levelset Update") is None
+    assert alfred._section_key_for_heading("Macro") == "macro"
+
+
+def test_posted_id_falls_back_so_a_brief_is_never_posted_twice():
+    assert alfred._posted_id({"id": "123"}) == "123"
+    assert alfred._posted_id({}) == "posted-unknown-id"
+    assert alfred._posted_id(None) == "posted-unknown-id"

@@ -739,16 +739,16 @@ that had passed for the wrong reason was rebuilt.
 
 Show how strongly VVIX is leading VIX today and whether that lead has continued for several market days, without changing scores or firing a new alert.
 
-## 87. Make the morning brief a compact card with expected-move charts
+## 87. Make the morning brief a compact card with expected-move charts — DONE 2026-08-18
 
 **File:** `morning-brief-embed-expected-move-images.md`
 
-**CURRENT STATUS (2026-08-17):** Not started. The requested July 30 brief and the latest live briefs
-were read from Discord. The reference message has the preferred compact sections, but Discord stored
-it as plain text rather than a real card. The owner added a historical-proof requirement for every
-feature; the database currently holds 78 archived briefing runs and 3,355 expected-move snapshots,
-including 47 nearest-expiration SPY snapshots. Next: use those records to prove section completeness
-and daily chart-number accuracy, then verify the weekly chart from a real current chain before checking
-the final Discord card.
+**CURRENT STATUS (2026-08-18):** DONE and live. The brief is a real Discord card with the five fixed
+sections, the SPY daily expected-move chart under Levels and the weekly chart beside it. Proven on
+real data, not just tests: 27 of 79 past briefs were silently cutting off Macro and Top Tickers, and
+all 79 now replay with nothing lost. An adversarial review found 7 defects and all 7 are fixed —
+including an Eastern-time label that could reach the card (4 real archived briefs say "All times
+EST"); the label is now stripped without changing the time. The next scheduled 05:50 PDT post is
+checked automatically by `scripts/check_morning_brief_card.py`.
 
 Turn the morning brief into a clean Discord embed using the preferred compact section style, with the daily SPY expected-move chart and the weekly chart when it fits and valid data is available.

@@ -21,7 +21,12 @@ Fixed by matching on the heading's words with emoji, markdown and punctuation st
 - embed total: min **254**, median **1201**, max **2690** (Discord limit 6000)
 - cards over the 6000 embed limit: **0**
 - fields over the 1024 field limit: **0**
-- fields trimmed, each ending in a visible `…`: **0** — nothing is cut silently
+- fields trimmed, each ending in a visible `…`: **0** — no SECTION text is cut silently.
+  Caveat (found by the adversarial review, 2026-08-17): text that sits BEFORE the first
+  section heading — the old free-form preamble, up to 2,230 chars on one archived brief —
+  is dropped without a marker. Only the clock line and the `>` top-story line are carried
+  over. Every brief the current code renders puts its content inside the five sections, so
+  this affects replayed old briefs only, not new ones.
 - genuinely empty sections shown with an explicit placeholder: **133**
 
 **Why 53 and not 79:** the other 26 briefs predate structured rendering entirely and use no
