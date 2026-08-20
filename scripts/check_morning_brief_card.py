@@ -25,6 +25,29 @@ NOTIFY = "/root/task_system/notifications.log"
 API = "https://discord.com/api/v10"
 
 
+def verdict_for(msgs: list) -> str:
+    """Build the one-line verdict from the messages Discord returned.
+
+    Split out from main() so it can be tested without the network. TODO #88
+    check 4: this is the code that once reported "0 charts" on a card carrying
+    two, because it counted attachments — and Discord empties the attachment
+    list once an embed points at the image. Charts are counted on the EMBEDS.
+    """
+    brief = next((m for m in msgs
+                  if any("Morning Brief" in (e.get("title") or "") for e in m.get("embeds", []))),
+                 None)
+    if brief is None:
+        return "MORNING BRIEF CHECK: no brief card found in the last 25 messages"
+    embeds = brief["embeds"]
+    fields = embeds[0].get("fields", [])
+    blob = json.dumps(embeds, ensure_ascii=False)
+    return (
+        f"MORNING BRIEF CHECK (msg {brief['id']}): embeds={len(embeds)} "
+        f"sections={len(fields)}/5 charts={sum(1 for e in embeds if e.get('image'))} "
+        f"chars={sum(alfred._embed_len(e) for e in embeds)}/6000 "
+        f"eastern_label={'YES — BUG' if alfred._has_forbidden_timezone_label(blob) else 'no'}")
+
+
 def main() -> int:
     token = cfg.get_api_key("discord_bot_token")
     channel = str(cfg.get("alfred.channel_id", "") or
@@ -35,20 +58,7 @@ def main() -> int:
                  "User-Agent": "DiscordBot (https://github.com/chopra2007, 1.0)"})
     msgs = json.load(urllib.request.urlopen(req, timeout=20))
 
-    brief = next((m for m in msgs
-                  if any("Morning Brief" in (e.get("title") or "") for e in m.get("embeds", []))),
-                 None)
-    if brief is None:
-        verdict = "MORNING BRIEF CHECK: no brief card found in the last 25 messages"
-    else:
-        embeds = brief["embeds"]
-        fields = embeds[0].get("fields", [])
-        blob = json.dumps(embeds, ensure_ascii=False)
-        verdict = (
-            f"MORNING BRIEF CHECK (msg {brief['id']}): embeds={len(embeds)} "
-            f"sections={len(fields)}/5 charts={sum(1 for e in embeds if e.get('image'))} "
-            f"chars={sum(alfred._embed_len(e) for e in embeds)}/6000 "
-            f"eastern_label={'YES — BUG' if alfred._has_forbidden_timezone_label(blob) else 'no'}")
+    verdict = verdict_for(msgs)
     print(verdict)
     with open(NOTIFY, "a") as fh:
         fh.write(verdict + "\n")

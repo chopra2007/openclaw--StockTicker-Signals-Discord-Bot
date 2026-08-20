@@ -56,6 +56,25 @@ def _build_message(days_left: float, marker_present: bool) -> str:
     return f"{status}\n\n{REAUTH_STEPS}"
 
 
+def _token_unreadable() -> bool:
+    """True when the login file is there but this user cannot open it.
+
+    That is a local permission problem — someone ran something as root and the file
+    changed owner — not an expired login. `reauth_days_left()` cannot tell the two
+    apart: it returns -1 for any failure to read the file, which made one cause fire
+    two alerts, one of them wrong ("login has EXPIRED"). The engine's own health
+    check already posts the correct "can't open its own login file" alert.
+    """
+    path = schwab_client.TOKEN_PATH
+    if not os.path.exists(path):
+        return False   # genuinely absent -> never logged in, which IS a login problem
+    try:
+        with open(path):
+            return False
+    except OSError:
+        return True
+
+
 def _append_notification(message: str) -> None:
     ts = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     headline = message.splitlines()[0]
@@ -124,6 +143,13 @@ def main() -> None:
     parser.add_argument("--force", action="store_true",
                          help="send the alert even if not near expiry (for testing)")
     args = parser.parse_args()
+
+    if _token_unreadable():
+        # Do not claim the login expired — we cannot even read the file to know.
+        print("Schwab login file is there but this user cannot read it — a file-owner "
+              "problem, not an expired login. #errors already carries the right alert.\n"
+              f"Fix: sudo chown openclaw:openclaw {schwab_client.TOKEN_PATH}")
+        return
 
     days_left = schwab_client.reauth_days_left()
     marker_present = os.path.exists(schwab_client.REAUTH_MARKER)
