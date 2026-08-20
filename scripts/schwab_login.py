@@ -172,7 +172,12 @@ def _chown_to_openclaw(path: str) -> None:
     except KeyError:
         print(f"  ! user {TOKEN_OWNER} not found; leaving owner as-is", file=sys.stderr)
         return
-    shutil.chown(path, user=entry.pw_uid, group=entry.pw_gid)
+    try:
+        shutil.chown(path, user=entry.pw_uid, group=entry.pw_gid)
+    except OSError as exc:
+        # Inside a user namespace (the isolated test runner) euid is 0 but only
+        # one id is mapped, so chowning to openclaw's real uid is rejected.
+        print(f"  ! could not hand {path} to {TOKEN_OWNER}: {exc}", file=sys.stderr)
     os.chmod(path, 0o600)
 
 
