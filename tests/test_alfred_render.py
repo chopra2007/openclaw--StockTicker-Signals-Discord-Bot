@@ -204,12 +204,17 @@ async def test_payload_attaches_both_charts(monkeypatch):
         "weekly": (_FakeEM("weekly"), b"png-b"),
     })
     assert [name for name, _ in files] == [alfred.SPY_EM_DAILY_FILE, alfred.SPY_EM_WEEKLY_FILE]
-    assert embeds[0]["image"]["url"] == f"attachment://{alfred.SPY_EM_DAILY_FILE}"
-    assert embeds[1]["image"]["url"] == f"attachment://{alfred.SPY_EM_WEEKLY_FILE}"
+    assert "image" not in embeds[0]        # the main card carries no chart
+    assert embeds[1]["title"] == "SPY — Daily Expected Move"
+    assert embeds[1]["image"]["url"] == f"attachment://{alfred.SPY_EM_DAILY_FILE}"
+    assert embeds[2]["title"] == "SPY — Weekly Expected Move"
+    assert embeds[2]["image"]["url"] == f"attachment://{alfred.SPY_EM_WEEKLY_FILE}"
     assert json.loads(meta)["daily"]["chart"] is True
+    # The expected-move numbers sit with their own chart, not inside Levels.
+    assert "631.20" in embeds[1]["description"]
     levels = [f["value"] for f in embeds[0]["fields"]
               if f["name"] == alfred._SECTION_TITLES["levels"]][0]
-    assert "631.20" in levels
+    assert "631.20" not in levels
 
 
 async def test_payload_posts_without_charts_when_render_returns_none(monkeypatch):
@@ -217,7 +222,9 @@ async def test_payload_posts_without_charts_when_render_returns_none(monkeypatch
         "daily": (_FakeEM("daily"), None), "weekly": (_FakeEM("weekly"), None),
     })
     assert files == []
-    assert "image" not in embeds[0]
+    assert all("image" not in e for e in embeds)
+    # No chart rendered, but the numbers still reach the card.
+    assert "631.20" in embeds[1]["description"]
     assert json.loads(meta)["daily"]["chart"] is False
     _assert_all_sections("\n".join(f"### {f['name']}" for f in embeds[0]["fields"]))
 
@@ -228,6 +235,8 @@ async def test_payload_survives_daily_expected_move_failure(monkeypatch):
     })
     assert json.loads(meta)["daily"] == {"error": "unavailable"}
     assert len(embeds[0]["fields"]) == len(alfred._SECTION_KEYS)
+    assert [e.get("title") for e in embeds] == ["☀️  Morning Brief",
+                                                "SPY — Weekly Expected Move"]
     assert [name for name, _ in files] == [alfred.SPY_EM_WEEKLY_FILE]
 
 
@@ -236,7 +245,8 @@ async def test_payload_survives_weekly_expected_move_failure(monkeypatch):
         "daily": (_FakeEM("daily"), b"png-a"), "weekly": (None, None),
     })
     assert json.loads(meta)["weekly"] == {"error": "unavailable"}
-    assert len(embeds) == 1
+    assert [e.get("title") for e in embeds] == ["☀️  Morning Brief",
+                                                "SPY — Daily Expected Move"]
     assert [name for name, _ in files] == [alfred.SPY_EM_DAILY_FILE]
 
 

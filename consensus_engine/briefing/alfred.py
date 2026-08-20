@@ -541,48 +541,37 @@ async def _build_briefing_payload(content: str) -> tuple[list[dict], list[tuple[
     clock = _clock_from_text(content)
     meta: dict = {}
 
-    daily, daily_png = await _spy_expected_move("daily")
-    if daily is not None:
-        meta["daily"] = _em_meta(daily, daily_png is not None)
-        sections["levels"] = (_em_summary_line(daily) + "\n" + (sections["levels"] or "")).strip()
-    else:
-        meta["daily"] = {"error": "unavailable"}
-
-    weekly, weekly_png = await _spy_expected_move("weekly")
-    if weekly is not None:
-        meta["weekly"] = _em_meta(weekly, weekly_png is not None)
-    else:
-        meta["weekly"] = {"error": "unavailable"}
-
-    # A Discord embed holds one image, so the weekly chart rides in a second
-    # embed inside the SAME message — and the 6000-char limit applies to the
-    # message, not to each embed, so the weekly card is sized first and the main
-    # card gets whatever is left.
-    weekly_embed = None
-    if weekly_png and len(weekly_png) <= _MAX_ATTACHMENT_BYTES:
-        weekly_embed = {
-            "title": "SPY — Weekly Expected Move",
-            "description": _trim_to_limit(_em_summary_line(weekly), _MAX_DESCRIPTION),
+    em_embeds: list[dict] = []
+    em_files: list[tuple[str, bytes]] = []
+    # A Discord embed holds one image, so each expected move gets its own embed
+    # inside the SAME message, with its numbers sitting directly above the chart
+    # they describe. The 6000-char limit applies to the message, not to each
+    # embed, so these are sized first and the main card gets whatever is left.
+    for horizon, filename in (("daily", SPY_EM_DAILY_FILE),
+                              ("weekly", SPY_EM_WEEKLY_FILE)):
+        result, png = await _spy_expected_move(horizon)
+        if result is None:
+            meta[horizon] = {"error": "unavailable"}
+            continue
+        meta[horizon] = _em_meta(result, png is not None)
+        embed = {
+            "title": f"SPY — {horizon.capitalize()} Expected Move",
+            "description": _trim_to_limit(_em_summary_line(result), _MAX_DESCRIPTION),
             "color": _BRIEF_COLOR,
-            "image": {"url": f"attachment://{SPY_EM_WEEKLY_FILE}"},
         }
+        if png and len(png) <= _MAX_ATTACHMENT_BYTES:
+            embed["image"] = {"url": f"attachment://{filename}"}
+            em_files.append((filename, png))
+        elif png:
+            log.info("Alfred skipped the %s SPY chart: %d bytes is too large",
+                     horizon, len(png))
+        em_embeds.append(embed)
 
     main = _build_briefing_embed(
         sections, top_story, footnote, clock=clock,
-        budget=_MAX_EMBED_TOTAL - (_embed_len(weekly_embed) if weekly_embed else 0))
-    embeds = [main]
-    attachments: list[tuple[str, bytes]] = []
+        budget=_MAX_EMBED_TOTAL - sum(_embed_len(e) for e in em_embeds))
 
-    if daily_png and len(daily_png) <= _MAX_ATTACHMENT_BYTES:
-        main["image"] = {"url": f"attachment://{SPY_EM_DAILY_FILE}"}
-        attachments.append((SPY_EM_DAILY_FILE, daily_png))
-    if weekly_embed is not None:
-        embeds.append(weekly_embed)
-        attachments.append((SPY_EM_WEEKLY_FILE, weekly_png))
-    elif weekly_png:
-        log.info("Alfred skipped the weekly SPY chart: %d bytes is too large", len(weekly_png))
-
-    return embeds, attachments, json.dumps(meta, separators=(",", ":"))
+    return [main] + em_embeds, em_files, json.dumps(meta, separators=(",", ":"))
 
 
 async def send_briefing_message(embeds: list[dict],
