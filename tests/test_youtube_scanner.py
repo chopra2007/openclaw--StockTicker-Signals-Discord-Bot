@@ -148,7 +148,7 @@ async def test_scan_reports_a_feed_that_still_fails_after_retries(monkeypatch):
 
     report.assert_awaited_once()
     assert report.await_args.kwargs["down"] is True
-    assert "1 of 2" in report.await_args.kwargs["detail"]
+    assert "1 of the 2" in report.await_args.kwargs["detail"]
 
 
 @pytest.mark.asyncio

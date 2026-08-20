@@ -451,11 +451,18 @@ logging:
 youtube:
   enabled: true                        # channels come from youtube_channels DB (seeded from sources.json)
   channel_ids: []                      # optional extra UC... IDs; DB table is the canonical source
-  poll_interval_seconds: 600
+  poll_interval_seconds: 900             # 2026-08-20: YouTube's own feed response says
+                                         # "cache-control: max-age=900", so polling every
+                                         # 600s asked for the same cached bytes 1.5x per
+                                         # refresh. 900s loses zero freshness and cuts
+                                         # ~670 requests/day off the daily per-IP budget.
   max_videos_per_channel: 3
   max_retries: 5                       # #7 retry failed/budget-skipped videos up to N times (0=off); drains the DB backlog
   pace_seconds: 60                     # item G: ~1 video/min paced sequential drain (burst-429 fix); speed is a non-goal
   rss_pace_seconds: 5                  # 2026-08-09: delay between per-channel RSS feed fetches (burst 404/500 fix)
+  rss_block_ratio: 0.5                 # 2026-08-20: this share of feeds failing in one cycle = YouTube blocking us, not channels breaking; abandon the cycle
+  rss_block_backoff_seconds: 1800      # first pause after a blocked cycle (doubles per consecutive block)
+  rss_block_backoff_max_seconds: 7200  # backoff ceiling; the block always clears at midnight PDT anyway
   quota_blocked_downgrade_days: 4      # item G: a quota_blocked video stuck this long -> 'failed' (bounds misclassification)
   backlog_alarm_days: 3                # item G: warn if transcription backlog rises this many consecutive days
   preferred_languages: ["en"]

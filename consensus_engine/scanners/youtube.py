@@ -34,6 +34,15 @@ _YT_NS = "http://www.youtube.com/xml/schemas/2015"
 _MEDIA_NS = "http://search.yahoo.com/mrss/"
 _RSS_ATTEMPTS = 3
 
+# 2026-08-20 (TODO #89): every one of the 3,100 RSS 404s in 15 days of journal
+# logs landed between 19:00 and 23:59 PDT and stopped dead at midnight Pacific —
+# a per-IP daily budget resetting on Google's PT day boundary, not dead channels
+# (all 14 feeds answer 200 outside the window). Once the budget is spent, polling
+# on regardless buys nothing and keeps spending, so a majority-failure cycle trips
+# this breaker: abandon the rest of the cycle and stop polling until it expires.
+_rss_block_until = 0.0    # time.monotonic() deadline; 0 = not blocked
+_rss_block_streak = 0     # consecutive blocked cycles, drives the backoff
+
 
 # ---------------------------------------------------------------------------
 # RSS feed polling
@@ -63,7 +72,12 @@ async def _fetch_channel_videos_rss_result(
                     text = await resp.text()
                     break
                 last_error = f"HTTP {resp.status}"
-                retryable = resp.status == 429 or resp.status >= 500
+                # 2026-08-20: a 404 here is NOT "channel deleted" — it is transient.
+                # Probed live: the same channel_id returned 404, then 200, then 404
+                # seconds apart, and all 14 configured feeds returned 200 on 10
+                # consecutive tries once the nightly block window ended. Treating it
+                # as fatal made most channels give up after a single attempt.
+                retryable = resp.status in (404, 429) or resp.status >= 500
         except Exception as exc:
             last_error = f"{type(exc).__name__}: {exc or 'no detail'}"
 
@@ -1189,6 +1203,14 @@ async def process_video(
 _scan_lock = asyncio.Lock()
 
 
+def _block_detail(failed_count: int, attempted: int) -> str:
+    """User-facing wording for a cycle the breaker judged to be a block on us."""
+    return (f"{failed_count} of the {attempted} channel feeds checked were refused. "
+            "YouTube limits how many times a day this server may read feeds; it has cut "
+            "us off for now and always lets us back in at midnight PDT. Checking pauses "
+            "until then, so videos posted meanwhile arrive late rather than being lost.")
+
+
 async def youtube_scan_once() -> None:
     """One full poll cycle across all configured channels."""
     if _scan_lock.locked():
@@ -1224,38 +1246,78 @@ async def _youtube_scan_once_locked() -> None:
     # burst stopped) — YouTube soft-blocking bursty same-IP RSS traffic. A small pace between
     # requests keeps the request rate under whatever threshold triggers that.
     rss_pace_s = cfg.get("youtube.rss_pace_seconds", 5)
-    for i, channel_id in enumerate(channel_ids):
+
+    # Breaker: while YouTube is refusing this IP, skip RSS entirely. The backlog
+    # drain below still runs — it reads transcripts through Gemini/Supadata, not
+    # youtube.com, so it costs nothing against the blocked budget.
+    global _rss_block_until, _rss_block_streak
+    attempted = 0
+    blocked = False
+    if _rss_block_until and time.monotonic() < _rss_block_until:
+        log.info("youtube: RSS backoff active for another %.0fs — skipping feed poll",
+                 _rss_block_until - time.monotonic())
+    else:
+        _rss_block_until = 0.0
+        # Half the feeds failing is a block on us, not N channels breaking at once.
+        block_ratio = cfg.get("youtube.rss_block_ratio", 0.5)
+        block_threshold = max(3, int(len(channel_ids) * block_ratio))
+        for i, channel_id in enumerate(channel_ids):
+            try:
+                videos, ok, detail = await _fetch_channel_videos_rss_result(
+                    session, channel_id, limit)
+                log.debug("youtube: channel %s → %d videos", channel_id, len(videos))
+                all_videos.extend(videos)
+                if not ok:
+                    failed_feeds.append(detail)
+            except Exception as e:
+                log.warning("youtube: channel %s RSS error: %s", channel_id, e)
+                failed_feeds.append(f"{type(e).__name__}: {e or 'no detail'}")
+            attempted += 1
+            if len(failed_feeds) >= block_threshold:
+                blocked = True
+                break
+            if i < len(channel_ids) - 1:
+                await asyncio.sleep(rss_pace_s)
+
+        if blocked:
+            _rss_block_streak += 1
+            base = cfg.get("youtube.rss_block_backoff_seconds", 1800)
+            cap = cfg.get("youtube.rss_block_backoff_max_seconds", 7200)
+            delay = min(base * (2 ** (_rss_block_streak - 1)), cap)
+            _rss_block_until = time.monotonic() + delay
+            log.warning(
+                "youtube: %d of %d feeds refused — abandoning cycle, pausing RSS "
+                "for %.0f min (streak %d)",
+                len(failed_feeds), attempted, delay / 60, _rss_block_streak)
+        else:
+            # Reset on success, or the backoff pins at the ceiling forever.
+            _rss_block_streak = 0
+            _rss_block_until = 0.0
+
+    if attempted:
         try:
-            videos, ok, detail = await _fetch_channel_videos_rss_result(
-                session, channel_id, limit)
-            log.debug("youtube: channel %s → %d videos", channel_id, len(videos))
-            all_videos.extend(videos)
-            if not ok:
-                failed_feeds.append(detail)
-        except Exception as e:
-            log.warning("youtube: channel %s RSS error: %s", channel_id, e)
-            failed_feeds.append(f"{type(e).__name__}: {e or 'no detail'}")
-        if i < len(channel_ids) - 1:
-            await asyncio.sleep(rss_pace_s)
+            from consensus_engine.alerts.ops_alert import report_ops_state
+            failed_count = len(failed_feeds)
+            await report_ops_state(
+                "youtube_rss",
+                down=failed_count > 0,
+                failure_class="youtube_rss",
+                title="YouTube feed access",
+                # Only blame the nightly limit when the breaker actually tripped —
+                # a stray one-feed failure is not evidence of a block.
+                detail=(_block_detail(failed_count, attempted) if blocked
+                        else f"{failed_count} of the {attempted} channel feeds checked "
+                             "were refused, and retrying did not help. The next check "
+                             "picks up anything missed."
+                        ) if failed_count else "",
+                fix=("Nothing to do — it clears itself at midnight PDT." if blocked
+                     else "Nothing to do unless this keeps repeating."),
+            )
+        except Exception as exc:
+            log.warning("youtube: could not update outage state: %s", exc)
 
-    try:
-        from consensus_engine.alerts.ops_alert import report_ops_state
-        failed_count = len(failed_feeds)
-        await report_ops_state(
-            "youtube_rss",
-            down=failed_count > 0,
-            failure_class="youtube_rss",
-            title="YouTube feed access",
-            detail=(f"{failed_count} of {len(channel_ids)} channel feeds still failed "
-                    f"after {_RSS_ATTEMPTS} tries. The bot may miss new videos until "
-                    "the next 10-minute check." if failed_count else ""),
-            fix="If it stays down, check this server's access to youtube.com.",
-        )
-    except Exception as exc:
-        log.warning("youtube: could not update outage state: %s", exc)
-
-    if not all_videos:
-        return
+    # No early return on an empty feed harvest: when the breaker above skips RSS,
+    # the stored backlog below is exactly the work still worth doing.
 
     # Filter to unprocessed videos before launching the browser
     unprocessed = []

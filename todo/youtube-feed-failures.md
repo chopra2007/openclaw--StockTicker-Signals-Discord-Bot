@@ -3,44 +3,92 @@
 **Status:** OPEN
 **Created:** 2026-08-19
 
-**CURRENT STATUS (2026-08-19):** Noticed, not investigated. The #errors channel posted
-"🔴 YouTube feed access — 9 of 14 channel feeds still failed after 3 tries" at 20:01 PDT
-on 2026-08-19, and an earlier one that recovered by itself at 00:06 the same day. Nobody
-has looked into why. Surfaced while building #88's guardrails; out of scope for that
-session, so it is parked here rather than dropped.
+**CURRENT STATUS (2026-08-20):** Diagnosed and fixed in code; awaiting one live proof
+tonight. Root cause is a **nightly per-IP limit on YouTube's side**, not broken channels
+and not our blacklist problem. Three fixes are in (retry the 404, stop hammering a block,
+poll less often). The normal path is verified live; the breaker itself can only be proven
+during the block window (~20:00–24:00 PDT), so a check is scheduled for tonight.
 
-## What is happening
+## What is actually happening — evidence, not theory
 
-The bot checks 14 YouTube channels for new videos every 10 minutes. On the 2026-08-19
-evening check, 9 of the 14 failed three times in a row and the bot posted an outage alert
-saying it may miss new videos until the next check. One earlier instance the same day
-cleared on its own after 4.3 hours, which suggests something intermittent rather than a
-permanent block — but "it fixed itself" is not a diagnosis.
+Across the whole journal (2026-07-29 → 2026-08-20), **every single one of the 3,100 feed
+404s landed between 19:00 and 23:59 PDT.** Exactly one fell outside that window. Zero in
+the other nineteen hours of the day:
 
-## What we already know that may explain it
+```
+19:00 →   98      20:00 →  431      21:00 →  709
+22:00 →  866      23:00 →  995      00:00 →    1
+```
 
-- This server's IP address is blacklisted by YouTube. Only two ways of reading videos
-  still work from here: Gemini and Supadata. (Memory: `youtube_ip_blacklist_dead_methods`.)
-- The failure counts the **feed** — the list of new videos per channel — not the
-  transcript step, so it may be a different path from the blacklist problem above.
+The block **starts at a drifting time** (19:47, 20:00, 20:32, 23:31 on four sample days)
+but **always ends exactly at midnight Pacific**. A drifting start with a fixed midnight
+end is a counter that fills up during the day and resets on Google's Pacific day boundary
+— not a scheduled job, and not channels breaking.
 
-## Next steps, in order
+Confirmed directly, outside the window: all 14 channel IDs returned HTTP 200 on 10
+consecutive tries each (140/140), on both our own user-agent and a browser one. During a
+probe inside the window the *same* channel returned 404, then 200, then 404 seconds apart.
 
-1. Read the alert's own code to find which call is failing and what error it returns —
-   do not guess from the message text.
-2. Check whether the same 9 channels fail every time or the set moves around. A fixed set
-   points at those channels; a moving set points at rate limiting.
-3. If it is rate limiting, space the checks out or stagger the channels.
+**So a 404 here does not mean "channel deleted". It means "not right now".**
+
+## The three things that made it worse than it had to be
+
+1. **The retry gave up instantly on a 404.** `_fetch_channel_videos_rss_result` had
+   `retryable = resp.status == 429 or resp.status >= 500`, so 404 was treated as fatal.
+   The logs show `failed after 1 attempt(s)` for most channels while the alert claimed
+   "still failed after 3 tries" — the alert text was wrong.
+2. **We kept polling straight through the block.** ~22 cycles × 14 feeds over a 4-hour
+   block ≈ 460 wasted requests, all of them spending against the very budget that was
+   already exhausted.
+3. **We polled faster than the feed can change.** YouTube's own response header says
+   `cache-control: public, max-age=900`, and we polled every 600s — asking for identical
+   cached bytes 1.5× per refresh, ~670 needless requests a day.
+
+Also checked and ruled out: the feed offers **no ETag and no Last-Modified**, so
+conditional requests (`If-None-Match` / `If-Modified-Since`) are impossible — both return
+a full 200. The 5-second pacing added on 2026-08-09 was not the fix: failures dropped for
+one day, then returned to ~250/day.
+
+## What was changed (2026-08-20)
+
+- `consensus_engine/scanners/youtube.py`
+  - 404 is now retryable alongside 429/5xx, so a transient refusal recovers on retry.
+  - **Circuit breaker:** when half the feeds in one cycle are refused, the rest of the
+    cycle is abandoned and feed polling pauses — 30 min, doubling per consecutive blocked
+    cycle, capped at 2 h — and **resets to zero on any clean cycle**.
+  - The stored-video backlog now still drains while feeds are blocked (it reads through
+    Gemini/Supadata, not youtube.com, so it costs nothing against the budget). Previously
+    an empty feed harvest returned early and stalled that too.
+  - The #errors alert now reports the true number attempted and says, in plain words, that
+    it clears itself at midnight PDT.
+- `config/consensus.yaml` — `poll_interval_seconds` 600 → 900 (matches YouTube's own
+  15-minute cache), plus `rss_block_ratio`, `rss_block_backoff_seconds`,
+  `rss_block_backoff_max_seconds`.
+- `tests/scanners/test_youtube_rss_block.py` — 5 new tests. `tests/test_youtube_scanner.py`
+  — one assertion updated for the new alert wording.
+
+Net effect on daily requests: ~2,100 → ~1,350 in normal running, and a 4-hour block now
+costs ~4 probe cycles instead of ~22.
+
+## Answers to the original open questions
+
+- **Direct or via the two working methods?** Direct. The feed check is a plain HTTPS GET
+  to `youtube.com/feeds/videos.xml`. It is a *different* path from the transcript
+  blacklist, and it is not permanently blocked — only nightly.
+- **Does a missed check lose a video?** **No — it delays it.** The feed returns the latest
+  3 per channel and `has_video_been_processed` de-duplicates, so once the block clears at
+  midnight the next cycle picks up anything posted during it. Real loss needs a channel to
+  post 4+ videos inside one block window.
+
+## What is still owed
+
+One live confirmation during tonight's block window (~21:00 PDT) that the breaker actually
+trips, pauses, and then recovers on real traffic — a deferred task is scheduled to check
+the logs and report. Verified so far: the normal (unblocked) path on the live engine, and
+all five behaviours under test.
 
 ## Files involved
 
-- `consensus_engine/scanners/` — the YouTube feed scanner and its retry/alert path
-- `/root/.openclaw/sources.json` — the list of 14 channels
-- `consensus_engine/alerts/ops_alert.py` — what posted the alert to #errors
-
-## Open questions
-
-- Is the 14-channel feed check hitting YouTube directly, or through one of the two
-  methods that still work from this IP?
-- Does a missed feed check actually lose a video, or does the next successful check pick
-  it up? The alert says "may miss new videos", which is not the same as proven loss.
+- `consensus_engine/scanners/youtube.py` — feed scanner, retry, breaker, alert
+- `config/consensus.yaml` — `youtube:` section
+- `consensus_engine/alerts/ops_alert.py` — posts to #errors

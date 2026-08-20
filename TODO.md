@@ -779,9 +779,9 @@ Keep a short, honest record of what went wrong building #85–#87 — the file-o
 
 **File:** `youtube-feed-failures.md`
 
-**CURRENT STATUS (2026-08-19):** Noticed, not investigated. The #errors channel posted
-"🔴 YouTube feed access — 9 of 14 channel feeds still failed after 3 tries" at 20:01 PDT
-on 2026-08-19, and an earlier one that recovered by itself at 00:06 the same day. Nobody
+**CURRENT STATUS (2026-08-20):** Diagnosed and fixed; one live proof owed tonight.
+YouTube caps how many feed reads it accepts from this server per day — all 3,100 failures
+in three weeks of logs fell between 19:00 and midnight PDT and cleared at midnight. Nobody
 has looked into why. Surfaced while building #88's guardrails; out of scope for that
 session, so it is parked here rather than dropped.
 
