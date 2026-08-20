@@ -774,3 +774,15 @@ Build** block at the top of `CLAUDE.md`. See "How each check is enforced now" be
 Still a living record — read it at the START of a build, not after.
 
 Keep a short, honest record of what went wrong building #85–#87 — the file-ownership flip that killed the real-time options feed for two days, the automatic check that failed silently, the budget burned in one sitting — so the next feature build starts by reading five prevention checks instead of rediscovering the same traps.
+
+## 89. Find out why most YouTube channel feeds keep failing
+
+**File:** `youtube-feed-failures.md`
+
+**CURRENT STATUS (2026-08-19):** Noticed, not investigated. The #errors channel posted
+"🔴 YouTube feed access — 9 of 14 channel feeds still failed after 3 tries" at 20:01 PDT
+on 2026-08-19, and an earlier one that recovered by itself at 00:06 the same day. Nobody
+has looked into why. Surfaced while building #88's guardrails; out of scope for that
+session, so it is parked here rather than dropped.
+
+Work out why 9 of the bot's 14 YouTube channel feeds fail every check, and fix it, so the bot stops missing new videos.
