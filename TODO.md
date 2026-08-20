@@ -742,15 +742,11 @@ Make the Discord bot read the live code and give accurate plain-English answers 
 
 **File:** `vvix-vix-relative-lead-streak.md`
 
-**CURRENT STATUS (2026-08-17):** DONE. The `!market` fear-of-fear card now leads with the
-comparison — e.g. `VVIX leading higher by 2.0 pts today · ↑ 3 market days`, or
-`No same-direction VVIX lead today` — above the raw levels, which are unchanged. Verified
-against all 23 stored market days (22 dates replayed, 0 mismatches) and read back off a real
-Discord `!market` card. The wording is a plain fact only: the real data contains ZERO three-day
-upward lead streaks (longest streak of any kind is 1 day), so no foreshadowing language was
-added. An adversarial review caught a floating-point bug where two identical percentage moves
-off different price scales scored as a lead of 0.0 pts; fixed with a tolerance, and the test
-that had passed for the wrong reason was rebuilt.
+**CURRENT STATUS (2026-08-17):** DONE and live. `compute_vvix_lead_streak()` in
+`consensus_engine/alerts/commands.py` computes each day's VVIX and VIX percentage change, the
+percentage-POINT lead between them, and the consecutive same-direction streak; the `!market`
+fear-of-fear card now shows that comparison ABOVE the raw levels. The trailing-year percentile line
+and the descriptive-only warning are unchanged, and nothing new feeds a score or fires an alert.
 
 Show how strongly VVIX is leading VIX today and whether that lead has continued for several market days, without changing scores or firing a new alert.
 
@@ -758,12 +754,10 @@ Show how strongly VVIX is leading VIX today and whether that lead has continued 
 
 **File:** `morning-brief-embed-expected-move-images.md`
 
-**CURRENT STATUS (2026-08-18):** DONE and live. The brief is a real Discord card with the five fixed
-sections, the SPY daily expected-move chart under Levels and the weekly chart beside it. Proven on
-real data, not just tests: 27 of 79 past briefs were silently cutting off Macro and Top Tickers, and
-all 79 now replay with nothing lost. An adversarial review found 7 defects and all 7 are fixed —
-including an Eastern-time label that could reach the card (4 real archived briefs say "All times
-EST"); the label is now stripped without changing the time. The next scheduled 05:50 PDT post is
-checked automatically by `scripts/check_morning_brief_card.py`.
+**CURRENT STATUS (2026-08-18):** DONE and live. The morning brief is now a real Discord card:
+one embed with the five fixed sections (Overnight, Levels to Watch (SPY), High-Conviction Calls,
+Macro, Top Tickers), the SPY daily expected-move chart attached under Levels, and the weekly chart
+in a second embed in the same message. The date/time on the card is always Pacific and is computed
+by the code, never written by the AI.
 
 Turn the morning brief into a clean Discord embed using the preferred compact section style, with the daily SPY expected-move chart and the weekly chart when it fits and valid data is available.

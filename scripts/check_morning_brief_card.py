@@ -10,11 +10,14 @@ log so the next session sees it.
 from __future__ import annotations
 
 import json
+import os
 import sys
 import urllib.request
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_ROOT))
+os.chdir(_ROOT)  # config/ paths are read relative to the repo root
 from consensus_engine import config as cfg               # noqa: E402
 from consensus_engine.briefing import alfred             # noqa: E402
 
