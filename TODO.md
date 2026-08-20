@@ -754,10 +754,21 @@ Show how strongly VVIX is leading VIX today and whether that lead has continued 
 
 **File:** `morning-brief-embed-expected-move-images.md`
 
-**CURRENT STATUS (2026-08-18):** DONE and live. The morning brief is now a real Discord card:
-one embed with the five fixed sections (Overnight, Levels to Watch (SPY), High-Conviction Calls,
-Macro, Top Tickers), the SPY daily expected-move chart attached under Levels, and the weekly chart
-in a second embed in the same message. The date/time on the card is always Pacific and is computed
-by the code, never written by the AI.
+**CURRENT STATUS (2026-08-19):** DONE and live, with the charts finally proven on a real card.
+The message carries three cards: the brief itself (Overnight, Levels to Watch (SPY),
+High-Conviction Calls, Macro, Top Tickers), then a SPY Daily Expected Move card and a SPY Weekly
+Expected Move card, each with its numbers directly above its own chart. The date/time is always
+Pacific and is computed by the code, never written by the AI.
 
 Turn the morning brief into a clean Discord embed using the preferred compact section style, with the daily SPY expected-move chart and the weekly chart when it fits and valid data is available.
+
+## 88. Stop repeating the mistakes that broke the last three builds — ONGOING
+
+**File:** `build-session-failure-patterns.md`
+
+**CURRENT STATUS (2026-08-19):** A record, not a task. Everything listed here is already
+fixed. It exists so the next feature build starts by reading the five checks at the
+bottom instead of rediscovering the same traps. Read it at the START of a build, not
+after.
+
+Keep a short, honest record of what went wrong building #85–#87 — the file-ownership flip that killed the real-time options feed for two days, the automatic check that failed silently, the budget burned in one sitting — so the next feature build starts by reading five prevention checks instead of rediscovering the same traps.

@@ -4,11 +4,16 @@
 **Created:** 2026-08-17
 **Completed:** 2026-08-18
 
-**CURRENT STATUS (2026-08-18):** DONE and live. The morning brief is now a real Discord card:
-one embed with the five fixed sections (Overnight, Levels to Watch (SPY), High-Conviction Calls,
-Macro, Top Tickers), the SPY daily expected-move chart attached under Levels, and the weekly chart
-in a second embed in the same message. The date/time on the card is always Pacific and is computed
-by the code, never written by the AI.
+**CURRENT STATUS (2026-08-19):** DONE and live, with the charts finally proven on a real card.
+The message carries three cards: the brief itself (Overnight, Levels to Watch (SPY),
+High-Conviction Calls, Macro, Top Tickers), then a SPY Daily Expected Move card and a SPY Weekly
+Expected Move card, each with its numbers directly above its own chart. The date/time is always
+Pacific and is computed by the code, never written by the AI.
+
+Two fixes on 2026-08-19 after the first live look: the SPY real-time login file had gone
+root-owned on 2026-08-17, so no chart had ever rendered on a real brief (2.1-day outage, now
+fixed); and the daily numbers were sitting inside "Levels to Watch" instead of with their chart.
+Post-mortem of everything that went wrong across this build: #88.
 
 Proof, not just tests:
 - **The old brief was cutting itself off.** 27 of 79 archived briefs were longer than the old
