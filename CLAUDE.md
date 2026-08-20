@@ -77,6 +77,15 @@ When the user says "add X to the to do list" (or "put that on the list", "add th
 
 When the user sends only "goodbye" or "bye": read `todo/SESSION_CLOSE.md` and follow it exactly, in order (TODO updates → commit → background gate → close summary).
 
+## Start of Build
+
+Run these before writing code, not after (TODO #88 — the checks that judgement, not a script, has to carry):
+
+- Read the actual code before writing a probe or a test. Never from memory.
+- Before calling a scheduled feature done, read its real posted output, from a real run, at the real time. A replay of stored data is not proof.
+- Run `python3 scripts/when_does_it_run.py` on the changed paths — a market feature scheduled before the market opens is a different feature.
+- Run `python3 scripts/check_ownership.py` before committing.
+
 ## Definition of Done
 
 A task is not done if an **in-scope** user-facing critical path is broken. In scope = the `[always]` bucket plus every bucket your changed file paths trigger (table in "What to verify" #3). Within those buckets, "pre-existing," "out of scope," "not my regression" are NOT valid exemptions — regardless of who broke it or when. Only three responses when verification surfaces a broken in-scope path:

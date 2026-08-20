@@ -766,9 +766,11 @@ Turn the morning brief into a clean Discord embed using the preferred compact se
 
 **File:** `build-session-failure-patterns.md`
 
-**CURRENT STATUS (2026-08-19):** A record, not a task. Everything listed here is already
-fixed. It exists so the next feature build starts by reading the five checks at the
-bottom instead of rediscovering the same traps. Read it at the START of a build, not
-after.
+**CURRENT STATUS (2026-08-19):** The five checks are no longer prose. Three of them now
+run on their own (an ownership sweep on a daily timer and at the end of every session, a
+#errors read-out at session start, a "when does this actually run" reporter), the fourth
+is tests on the checkers themselves, and the two that need judgement are a **Start of
+Build** block at the top of `CLAUDE.md`. See "How each check is enforced now" below.
+Still a living record — read it at the START of a build, not after.
 
 Keep a short, honest record of what went wrong building #85–#87 — the file-ownership flip that killed the real-time options feed for two days, the automatic check that failed silently, the budget burned in one sitting — so the next feature build starts by reading five prevention checks instead of rediscovering the same traps.

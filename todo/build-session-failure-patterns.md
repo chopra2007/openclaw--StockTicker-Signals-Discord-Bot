@@ -3,10 +3,12 @@
 **Status:** ONGOING
 **Created:** 2026-08-19
 
-**CURRENT STATUS (2026-08-19):** A record, not a task. Everything listed here is already
-fixed. It exists so the next feature build starts by reading the five checks at the
-bottom instead of rediscovering the same traps. Read it at the START of a build, not
-after.
+**CURRENT STATUS (2026-08-19):** The five checks are no longer prose. Three of them now
+run on their own (an ownership sweep on a daily timer and at the end of every session, a
+#errors read-out at session start, a "when does this actually run" reporter), the fourth
+is tests on the checkers themselves, and the two that need judgement are a **Start of
+Build** block at the top of `CLAUDE.md`. See "How each check is enforced now" below.
+Still a living record — read it at the START of a build, not after.
 
 ---
 
@@ -70,10 +72,13 @@ Memory: `reference_schwab_token_ownership_trap.md`.
 
 ## Loose ends left standing (not blocking anything)
 
-- Schwab going down fires **two** alerts for one cause: "login has EXPIRED" (wrong) and
-  "can't open its own login file" (right).
-- A dead scheduled task from 2026-08-12 (`1786518088_84cd1d`) still sits in the task list;
-  it tried to resume a Codex session and Codex is out of quota until 2026-08-22.
+- ~~Schwab going down fires **two** alerts for one cause.~~ CLOSED 2026-08-19: the weekly
+  reminder now checks whether it can actually read the login file, and says it is a
+  file-owner problem instead of claiming the login expired.
+- ~~A dead scheduled task from 2026-08-12 (`1786518088_84cd1d`).~~ CLOSED 2026-08-19: its
+  timer is stopped and disabled, so it can never fire. Two cleanup commands still need the
+  owner to run them by hand (removing the row from `tasks.db` and the two unit files under
+  `/etc/systemd/system/`) — both were blocked for the assistant.
 - Exa and Brave web search are out of credits, so the engine runs in degraded mode —
   tracked separately as #67.
 - One question from the #85 test set is still unanswered by every model tried: why the
@@ -81,6 +86,27 @@ Memory: `reference_schwab_token_ownership_trap.md`.
   reply allows.
 
 ---
+
+---
+
+## How each check is enforced now (2026-08-19)
+
+| The check | What carries it now |
+|---|---|
+| 1. Watch it work in the wild | **Judgement only.** First line of the **Start of Build** block in `CLAUDE.md`. Nothing can detect "you looked at a replay instead of the real card". |
+| 2. Check the time of day it runs | `scripts/when_does_it_run.py`. Give it changed files; it prints every timer, scheduled task, and engine posting window that ends up running them, in PDT, and says what the market is doing then. It follows one import hop — that is what catches #87: no timer names `expected_move.py`, but the brief imports it and posts at 5:50 AM, 40 minutes before options trade. |
+| 3. Hand files back after running as root | `scripts/check_ownership.py`, wired twice: the `ownership-sweep.timer` at 06:05 PDT daily appends findings to `notifications.log` (which session start shouts), and the Stop hook `/root/.claude/hooks/ownership-on-done.py` blocks a session from ending with root-owned files behind it. `--fix` hands them back. |
+| 4. Test the checker as hard as the feature | `tests/test_check_morning_brief_card.py` (charts in embeds, no charts, and the exact false-zero shape) and `tests/test_schwab_reauth_check.py`. `check_batch1_measurement_gate.py` and `check_batch2_trade_gate.py` already had pass and fail cases in `tests/test_batch1_gate_check.py` and `tests/test_batch2_gate_check.py`. |
+| 5a. Read the code before writing the probe | **Judgement only.** Second line of the **Start of Build** block in `CLAUDE.md`. |
+| 5b. Read `#errors` before assuming things are healthy | `scripts/errors_channel_digest.py`, called by the session-start hook `/root/.claude/hooks/openclaw-digest.sh`. The last 24 hours of `#errors` prints before anything else. Silent when the channel is quiet. |
+
+**What still rests on judgement alone:** checks 1 and 5a. No script can tell whether the
+output you read was real or replayed, or whether you opened the file before writing the
+probe. Both are now the first thing the next build reads, which is the most a rule can do.
+
+**One built-in blind spot:** the ownership sweep only reports what is wrong *now*. A file
+that root takes over and hands back inside the same session leaves no trace — the daily
+timer and the Stop hook both look at the current state, not the history.
 
 ## The five checks to run on the next feature build
 
