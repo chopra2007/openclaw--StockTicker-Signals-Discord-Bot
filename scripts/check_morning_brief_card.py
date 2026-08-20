@@ -46,7 +46,7 @@ def main() -> int:
         blob = json.dumps(embeds, ensure_ascii=False)
         verdict = (
             f"MORNING BRIEF CHECK (msg {brief['id']}): embeds={len(embeds)} "
-            f"sections={len(fields)}/5 images={len(brief.get('attachments', []))} "
+            f"sections={len(fields)}/5 charts={sum(1 for e in embeds if e.get('image'))} "
             f"chars={sum(alfred._embed_len(e) for e in embeds)}/6000 "
             f"eastern_label={'YES — BUG' if alfred._has_forbidden_timezone_label(blob) else 'no'}")
     print(verdict)
