@@ -143,8 +143,12 @@ async def score_confidence(ticker: str,
         if groq_model:
             log.warning("LLM score: chain empty for %s — trying Groq fallback %s",
                         ticker, groq_model)
+            # Groq bills prompt + reserved output against one TPM budget, so
+            # llm.max_tokens (8000) is a guaranteed 413 there. Reserve less.
+            groq_max_tokens = min(
+                max_tokens, int(cfg.get("llm.groq_fallback_max_tokens", 4000)))
             content = await call_with_fallback(
-                role="text", messages=messages, max_tokens=max_tokens,
+                role="text", messages=messages, max_tokens=groq_max_tokens,
                 temperature=0.3, chain=[groq_model],
             )
         if not content:

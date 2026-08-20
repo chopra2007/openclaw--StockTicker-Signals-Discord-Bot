@@ -59,7 +59,7 @@ EXPECTED_TEXT_FALLBACKS = [
     "openrouter/free",
 ]
 EXPECTED_ALL_COMMAND_CHAIN = [
-    "groq/llama-3.3-70b-versatile",
+    "groq/openai/gpt-oss-120b",
     "openai/gpt-oss-120b",
     "openai/gpt-oss-20b",
 ]

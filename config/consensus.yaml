@@ -302,12 +302,15 @@ llm:
   # !all-command synthesis chain (#12). Scoped to the !all narrator's three
   # LLM call sites only — keeps the briefing, signal scorer, research, and
   # captions on the OpenRouter chains above. `groq/`-prefixed ids route to
-  # Groq (api.groq.com); every other id to OpenRouter. Groq's
-  # llama-3.3-70b-versatile caps at 32,768 completion tokens, clearing the
-  # narrator's hardcoded synthesis max_tokens=8000. If this key is absent
-  # the narrator falls back to the role-based chains above.
+  # Groq (api.groq.com); every other id to OpenRouter.
+  # 2026-08-20: was groq/llama-3.3-70b-versatile — Groq retired the model, so
+  # every head-start call returned HTTP 404 ("model does not exist") and the
+  # daily chain-health report flagged it red. Groq's live catalog was re-listed
+  # and openai/gpt-oss-120b picked: clean non-reasoning output (qwen3.6-27b
+  # leaks <think> blocks) and live-probed 200 at max_tokens=4000. If this key
+  # is absent the narrator falls back to the role-based chains above.
   all_command_chain:
-    - "groq/llama-3.3-70b-versatile"
+    - "groq/openai/gpt-oss-120b"
     - "openai/gpt-oss-120b"          # 2026-07-10: was :free — rate-limited 429 daily upstream (congested free pool); paid returns 200, negligible cost as a deep fallback
     - "openai/gpt-oss-20b"           # 2026-08-03: was :free — caused the 07-29 false red health report; paid model live-probed HTTP 200 with usable content
   # #6 latency-speedup: how the !all synthesis call walks all_command_chain.
@@ -319,7 +322,7 @@ llm:
   # serial-timeout 200-240s. Revert to 'serial' to disable instantly.
   all_command_strategy: head_start
   all_command_head_start_timeout: 15        # groq solo window (s); tune to groq P90+5
-  all_command_head_start_max_tokens: 12000  # #4 skip groq head-start when est REQUEST tokens (prompt + synthesis_max_tokens below) exceed groq's 12k TPM cap
+  all_command_head_start_max_tokens: 8000   # #4 skip groq head-start when est REQUEST tokens (prompt + synthesis_max_tokens below) exceed groq's TPM cap (measured 8000 on this account 2026-08-20, was 12k)
   # Output-token reservation for the !all synthesis call. Groq's TPM bills prompt +
   # this, so it's load-bearing for the 413 fix: keep prompt+this under 12000. The
   # real narrative is ~600 tokens, so 4000 is generous headroom while leaving ~8000
@@ -380,11 +383,17 @@ llm:
   # C4 (reliability-hardening): when the whole chain 429s at once (shared
   # openrouter account quota), retry the score+thesis ONCE on this non-openrouter
   # model so the thesis isn't blanked. groq_fallback_model must be a `groq/`-prefixed id.
+  # groq_fallback_max_tokens is separate from llm.max_tokens above because Groq bills
+  # prompt + reserved output against one 8000 TPM budget: an 8000 reservation is a
+  # guaranteed HTTP 413 ("Request too large ... Limit 8000") no matter how short the
+  # prompt. 4000 leaves ~4000 tokens of prompt room; the scorer's real output is a
+  # small JSON score + one thesis paragraph.
   # ON 2026-06-28: no-op when the chain is healthy (fallback only runs on an empty
   # result), and the instant alert already fired base-score-gated, so it can never
   # block or create an alert -- strictly better than a blank thesis.
   score_fallback_enabled: true
-  groq_fallback_model: "groq/llama-3.3-70b-versatile"
+  groq_fallback_model: "groq/openai/gpt-oss-120b"
+  groq_fallback_max_tokens: 4000
 
 
 # Ticker validation

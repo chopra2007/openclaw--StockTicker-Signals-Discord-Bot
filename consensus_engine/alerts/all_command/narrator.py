@@ -1156,6 +1156,7 @@ async def _invoke_synthesis(
     # that pushed prompt+reservation over Groq's 12k TPM cap and 413'd every big
     # ticker. Fix #1: reserve a right-sized amount (config, default 4000).
     synth_max_tokens = int(_cfg.get("llm.all_command_synthesis_max_tokens", 4000))
+    chain = _all_command_chain()
     if strategy == "head_start":
         # Fix #2: the guard must model what Groq bills = prompt + reserved output.
         # (The old check counted prompt only, so a ~6.5k-token prompt looked "under
@@ -1171,6 +1172,20 @@ async def _invoke_synthesis(
                 est_request, est_input, synth_max_tokens, head_start_cap,
             )
             strategy = "race_all"
+            # 2026-08-20: skipping the head-start window is not enough — race_all
+            # still fires groq, and a request over the TPM cap is a guaranteed 413
+            # whichever way it is sent. Each one also trips a ~54s rate-limiter
+            # backoff on the shared 'groq' source, which is what the llm_scorer C4
+            # emergency fallback needs. Drop groq from the chain for this call.
+            if chain:
+                pruned = [m for m in chain if not m.startswith("groq/")]
+                if pruned and len(pruned) != len(chain):
+                    log.info(
+                        "narrator.synthesize: dropping %d groq model(s) from the "
+                        "chain — request exceeds groq's TPM cap",
+                        len(chain) - len(pruned),
+                    )
+                    chain = pruned
         else:
             log.info(
                 "narrator.synthesize: est_request=%d (input %d + out %d) <= cap=%d — "
@@ -1184,7 +1199,7 @@ async def _invoke_synthesis(
             max_tokens=synth_max_tokens,
             temperature=0.35,
             timeout=timeout,
-            chain=_all_command_chain(),
+            chain=chain,
             strategy=strategy,
             head_start=window,
             accept=_qb.has_required_sections,
