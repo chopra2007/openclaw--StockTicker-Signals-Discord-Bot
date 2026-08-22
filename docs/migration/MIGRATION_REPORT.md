@@ -106,7 +106,7 @@ when the sandbox itself blocks git metadata or another required private path.
 - `docs/agents/memory/INDEX.md`
 - `docs/migration/codex-plan.md` (Codex's own plan, kept as a record)
 - `docs/migration/MIGRATION_REPORT.md` (this file)
-- `MIGRATION_STATUS.md`
+- `docs/migration/STATUS.md`
 
 **Changed in the repository:** `AGENTS.md` (7 lines appended at the end).
 

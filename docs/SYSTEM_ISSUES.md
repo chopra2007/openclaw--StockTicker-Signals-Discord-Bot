@@ -76,7 +76,7 @@ The analyst tweet explicitly identifies a specific, actionable trade setup:
 
 ### 2. Command Updates
 - Added `!serpapi-trends` command for manual SerpAPI runs
-- Updated `COMMANDS.md` and `README.md`
+- Updated `docs/reference/DISCORD_COMMANDS.md` and `README.md`
 
 ### 3. Cross-Reference Timeout Fix (commit b520a4b)
 - Added `_with_timeout()` helper wrapping each source in `asyncio.gather()`

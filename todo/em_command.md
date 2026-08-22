@@ -31,7 +31,7 @@ session's*.
   - Async option-chain fetch via `run_in_executor` (yfinance is blocking), same
     pattern as `scanners/options.py`.
   - Expected-move math ported from the standalone exemplar
-    `daily_expected_move_spy_qqq.py`: raw ATM straddle (headline), 0.85-adjusted
+    `scripts/daily_expected_move_spy_qqq.py`: raw ATM straddle (headline), 0.85-adjusted
     straddle, IV×√(1/252) 1-SD band, straddle-implied-IV cross-check.
   - **Expiration selection** is market-hours aware: today's expiry if the NYSE
     regular session is open (and >~30 min left), else the next listed
@@ -62,7 +62,7 @@ session's*.
   engine's `/usr/bin/python3`).
 - **`tests/test_expected_move.py`** — 14 tests (allowlist, expiration selection,
   ATM selection incl. illiquid step-out, EM math, embed shape, disallowed guard).
-- **`daily_expected_move_spy_qqq.py`** (repo root) — the original standalone
+- **`scripts/daily_expected_move_spy_qqq.py`** — the original standalone
   research script / exemplar the engine module was ported from.
 
 ## Verification done

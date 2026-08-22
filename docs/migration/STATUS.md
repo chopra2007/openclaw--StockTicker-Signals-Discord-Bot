@@ -3,7 +3,7 @@
 Short version: the project works from Codex now. Nothing Claude-related was deleted, so
 both tools work side by side until you decide to retire one.
 
-Full detail: [`docs/migration/MIGRATION_REPORT.md`](docs/migration/MIGRATION_REPORT.md).
+Full detail: [`MIGRATION_REPORT.md`](MIGRATION_REPORT.md).
 
 Updated 2026-07-25 after the native Codex plugin and safety-check setup.
 

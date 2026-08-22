@@ -6,14 +6,14 @@ Measures false positive reduction by running tweets through:
   3. _passes_quality_gate() — pre-alert quality check
 
 Usage:
-    python3 backtest.py
+    python3 scripts/tweet_quality_backtest.py
 """
 
 import sys
 import os
 
-# Ensure the workspace is on sys.path so consensus_engine imports work
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Ensure the repository root is on sys.path so consensus_engine imports work.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from consensus_engine.utils.tickers import extract_tickers, is_valid_ticker
 from consensus_engine.analysis.tweet_parser import _fallback_parse

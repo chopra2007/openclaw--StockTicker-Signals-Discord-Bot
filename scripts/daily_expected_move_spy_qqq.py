@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-daily_expected_move_spy_qqq.py
+scripts/daily_expected_move_spy_qqq.py
 ==============================================================================
 Daily Expected Move (Daily EM) calculator + charts for SPY and QQQ (or any
 optionable ticker), built on options-implied volatility.
@@ -39,10 +39,10 @@ IMPORTANT
   what is missing. It never invents prices, IVs, strikes, or expirations.
 
 Usage:
-    python3 daily_expected_move_spy_qqq.py
-    python3 daily_expected_move_spy_qqq.py --tickers SPY QQQ --outdir ./charts
-    python3 daily_expected_move_spy_qqq.py --expiration 2026-06-26
-    python3 daily_expected_move_spy_qqq.py --primary iv_252
+    python3 scripts/daily_expected_move_spy_qqq.py
+    python3 scripts/daily_expected_move_spy_qqq.py --tickers SPY QQQ --outdir ./charts
+    python3 scripts/daily_expected_move_spy_qqq.py --expiration 2026-06-26
+    python3 scripts/daily_expected_move_spy_qqq.py --primary iv_252
 ==============================================================================
 """
 
@@ -668,9 +668,12 @@ def run(tickers: list[str], outdir: str = ".", provider: Optional[OptionDataProv
                   f"Install it (`pip install yfinance`) or pass a provider. ({e})")
             sys.exit(2)
 
+    from zoneinfo import ZoneInfo
+
     now_et = now_eastern()
+    now_pt = now_et.astimezone(ZoneInfo("America/Los_Angeles"))
     print("#" * 78)
-    print(f"# Daily Expected Move  |  now (ET) = {now_et:%Y-%m-%d %H:%M %Z}  "
+    print(f"# Daily Expected Move  |  now (Pacific) = {now_pt:%Y-%m-%d %H:%M %Z}  "
           f"|  market {'OPEN' if market_is_open(now_et) else 'CLOSED'}")
     print(f"# DATA IS DELAYED / UNOFFICIAL (yfinance / Yahoo). Not for execution.")
     print("#" * 78)

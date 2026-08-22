@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import asyncio, os, sys
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if "SERPAPI2_API_KEY" in os.environ and not os.environ.get("SERPAPI_API_KEY"):
     os.environ["SERPAPI_API_KEY"] = os.environ["SERPAPI2_API_KEY"]
 
