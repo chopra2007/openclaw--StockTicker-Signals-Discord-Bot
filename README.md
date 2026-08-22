@@ -1,16 +1,14 @@
-# OpenClaw Stock Signals
+# Stock Signals
 
-OpenClaw is a self-hosted stock-research and Discord alert system. It watches independent market sources, sends fast analyst-call alerts, adds supporting evidence, and measures what happened after each call.
+Stock Signals is a self-hosted stock-research and Discord alert system. It watches independent market sources, sends fast analyst-call alerts, adds supporting evidence, and measures what happened after each call.
 
 **Python 3.10+ · Discord · SQLite · self-hosted**
 
 [Features](#features) · [Signal sources](#signal-sources) · [How it works](#how-it-works) · [Quick start](#quick-start) · [Commands](#discord-commands) · [Project map](#project-map)
 
-> OpenClaw is a research tool, not financial advice. Review every signal before acting on it.
-
 ## Features
 
-| Area | What OpenClaw does |
+| Area | What Stock Signals does |
 |---|---|
 | **Fast alerts** | Turns an analyst call into an immediate Discord alert, then adds the deeper cross-check when it is ready. |
 | **Whole-market research** | Combines news, SEC filings, options, technical levels, social activity, and video evidence. |
