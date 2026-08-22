@@ -1,13 +1,16 @@
 # 9 of 14 YouTube channel feeds fail on every check
 
-**Status:** OPEN
+**Status:** DONE 2026-08-22
 **Created:** 2026-08-19
 
-**CURRENT STATUS (2026-08-20):** Diagnosed and fixed in code; awaiting one live proof
-tonight. Root cause is a **nightly per-IP limit on YouTube's side**, not broken channels
-and not our blacklist problem. Three fixes are in (retry the 404, stop hammering a block,
-poll less often). The normal path is verified live; the breaker itself can only be proven
-during the block window (~20:00–24:00 PDT), so a check is scheduled for tonight.
+**CURRENT STATUS (2026-08-22):** Done — the fix is proven live. Root cause is a
+**nightly per-IP limit on YouTube's side**, not broken channels and not our blacklist
+problem. Three fixes are in (retry the 404, stop hammering a block, poll less often),
+and the block window of 2026-08-20 exercised all of them on real traffic: the breaker
+tripped at 20:10 PDT ("7 of 14 feeds refused"), escalated its pause 30 → 60 → 120 min
+across three streaks, held through the night, expired ~01:44 PDT, and the scanner was
+back to processing new videos normally by 05:33 PDT (23 spans / 10 signals on one
+video at 06:41). The fix is complete and proven.
 
 ## What is actually happening — evidence, not theory
 
@@ -80,12 +83,25 @@ costs ~4 probe cycles instead of ~22.
   midnight the next cycle picks up anything posted during it. Real loss needs a channel to
   post 4+ videos inside one block window.
 
-## What is still owed
+## What was still owed — now settled (2026-08-22)
 
-One live confirmation during tonight's block window (~21:00 PDT) that the breaker actually
-trips, pauses, and then recovers on real traffic — a deferred task is scheduled to check
-the logs and report. Verified so far: the normal (unblocked) path on the live engine, and
-all five behaviours under test.
+One live confirmation that the breaker actually trips, pauses, and then recovers on real
+traffic. **Confirmed** from the engine journal for the night of 2026-08-20 → 08-21:
+
+```
+20:10:03  7 of 14 feeds refused — abandoning cycle, pausing RSS for 30 min (streak 1)
+20:41:20  7 of 11 feeds refused — abandoning cycle, pausing RSS for 60 min (streak 2)
+21:43:05  7 of 12 feeds refused — abandoning cycle, pausing RSS for 120 min (streak 3)
+01:29:40  RSS backoff active for another 896s — skipping feed poll   (last pause)
+05:33:14  youtube: 1 new videos to process                            (recovered)
+```
+
+Also verified earlier: the normal (unblocked) path on the live engine, and all five
+behaviours under test.
+
+Note: no deferred systemd task for this check exists on the box today — the proof above
+was read directly from the journal instead. If one was created on 08-20 it did not
+survive, which matches the known stale-deferred-task trap.
 
 ## Files involved
 

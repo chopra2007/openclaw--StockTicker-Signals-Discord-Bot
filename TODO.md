@@ -775,14 +775,17 @@ Still a living record — read it at the START of a build, not after.
 
 Keep a short, honest record of what went wrong building #85–#87 — the file-ownership flip that killed the real-time options feed for two days, the automatic check that failed silently, the budget burned in one sitting — so the next feature build starts by reading five prevention checks instead of rediscovering the same traps.
 
-## 89. Find out why most YouTube channel feeds keep failing
+## 89. Find out why most YouTube channel feeds keep failing — DONE 2026-08-22
 
 **File:** `youtube-feed-failures.md`
 
-**CURRENT STATUS (2026-08-20):** Diagnosed and fixed in code; awaiting one live proof
-tonight. Root cause is a **nightly per-IP limit on YouTube's side**, not broken channels
-and not our blacklist problem. Three fixes are in (retry the 404, stop hammering a block,
-poll less often). The normal path is verified live; the breaker itself can only be proven
-during the block window (~20:00–24:00 PDT), so a check is scheduled for tonight.
+**CURRENT STATUS (2026-08-22):** Done — the fix is proven live. Root cause is a
+**nightly per-IP limit on YouTube's side**, not broken channels and not our blacklist
+problem. Three fixes are in (retry the 404, stop hammering a block, poll less often),
+and the block window of 2026-08-20 exercised all of them on real traffic: the breaker
+tripped at 20:10 PDT ("7 of 14 feeds refused"), escalated its pause 30 → 60 → 120 min
+across three streaks, held through the night, expired ~01:44 PDT, and the scanner was
+back to processing new videos normally by 05:33 PDT (23 spans / 10 signals on one
+video at 06:41). The fix is complete and proven.
 
 Work out why 9 of the bot's 14 YouTube channel feeds fail every check, and fix it, so the bot stops missing new videos.
