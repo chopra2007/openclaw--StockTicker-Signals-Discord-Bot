@@ -779,10 +779,10 @@ Keep a short, honest record of what went wrong building #85–#87 — the file-o
 
 **File:** `youtube-feed-failures.md`
 
-**CURRENT STATUS (2026-08-20):** Diagnosed and fixed; one live proof owed tonight.
-YouTube caps how many feed reads it accepts from this server per day — all 3,100 failures
-in three weeks of logs fell between 19:00 and midnight PDT and cleared at midnight. Nobody
-has looked into why. Surfaced while building #88's guardrails; out of scope for that
-session, so it is parked here rather than dropped.
+**CURRENT STATUS (2026-08-20):** Diagnosed and fixed in code; awaiting one live proof
+tonight. Root cause is a **nightly per-IP limit on YouTube's side**, not broken channels
+and not our blacklist problem. Three fixes are in (retry the 404, stop hammering a block,
+poll less often). The normal path is verified live; the breaker itself can only be proven
+during the block window (~20:00–24:00 PDT), so a check is scheduled for tonight.
 
 Work out why 9 of the bot's 14 YouTube channel feeds fail every check, and fix it, so the bot stops missing new videos.
