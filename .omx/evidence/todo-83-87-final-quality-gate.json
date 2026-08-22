@@ -1,0 +1,76 @@
+{
+  "aiSlopCleaner": {
+    "status": "passed",
+    "evidence": "Posthoc close only: no #83-#87 code files changed in this close turn. Existing shipped evidence includes TODO #88 guardrails and targeted follow-up fixes after independent review."
+  },
+  "verification": {
+    "status": "passed",
+    "commands": [
+      "python3 scripts/todo_status_sync.py --check",
+      "python3 scripts/todo_switch_state.py --check",
+      "python3 scripts/check_ownership.py --quiet",
+      "systemctl is-active consensus-engine.service openclaw-gateway.service",
+      "readlink -f /root/.openclaw"
+    ],
+    "evidence": "TODO #83-#87 are marked DONE with detail-file proof; services were active; symlink resolved to /home/openclaw/.openclaw; ownership check was clean after fixes."
+  },
+  "codeReview": {
+    "recommendation": "APPROVE",
+    "architectStatus": "CLEAR",
+    "evidence": "Existing independent verification artifacts approve the shipped #83-#87 work after fixes: .omx/evidence/todo-83-84, .omx/evidence/todo-85/model-race-and-live-proof.md, .omx/evidence/todo-86/independent-verification.md, and .omx/evidence/todo-87/independent-verification.md.",
+    "independentReview": {
+      "codeReviewer": {
+        "agentRole": "code-reviewer",
+        "evidence": "Independent verifier approved #83/#84 after blocker fixes; #86 and #87 adversarial verification reports record defects, fixes, and re-verification."
+      },
+      "architect": {
+        "agentRole": "architect",
+        "evidence": "The coordinated spec and implementation plan preserved boundaries: #85 only mention-agent model/prompt path, #86 display-only VVIX/VIX, #87 reused expected-move code and preserved retry behavior."
+      }
+    }
+  },
+  "architectureInvariantGate": {
+    "status": "passed",
+    "sourceArtifacts": [
+      ".omx/ultragoal/brief.md",
+      ".omx/ultragoal/goals.json",
+      ".omx/plans/todo-83-87-coordinated-spec.md",
+      ".omx/plans/todo-83-87-implementation-plan.md"
+    ],
+    "evidence": "All five TODOs are closed in TODO.md and their detail files with real evidence. #83/#84 preserve internal swarm names while changing user-visible cards; #85 changes the mention-agent path only; #86 remains descriptive and does not feed scores or alerts; #87 uses the existing expected-move calculation and live Discord proof.",
+    "invariants": [
+      {
+        "invariant": "Keep #83/#84 grounded in source posts without weakening existing card facts.",
+        "source": ".omx/ultragoal/goals.json",
+        "status": "proved",
+        "implementationEvidence": "Commit c764b59 adds durable analyst post views and source-grounded card fields.",
+        "testEvidence": "Saved audit covered 756 events, 586 posts, 410 recoverable groups, 0 reversals, 0 unsupported reasons, and 0 card failures.",
+        "reviewEvidence": "Independent verifier approved after duplicate-span and unsided-option blockers were fixed."
+      },
+      {
+        "invariant": "Keep #85 isolated to grounded feature-answer behavior, not alert or brief model paths.",
+        "source": ".omx/ultragoal/goals.json",
+        "status": "proved",
+        "implementationEvidence": "TODO #85 records the chat model/prompt changes and live #chat proof.",
+        "testEvidence": ".omx/evidence/todo-85/model-race-and-live-proof.md records a real question set, model race, grading, and Discord readback.",
+        "reviewEvidence": "The evidence file records the remaining hard investigation limit honestly instead of overclaiming."
+      },
+      {
+        "invariant": "Keep #86 descriptive only; no score or alert path may read the VVIX lead/streak output.",
+        "source": ".omx/ultragoal/goals.json",
+        "status": "proved",
+        "implementationEvidence": "TODO #86 records compute_vvix_lead_streak in consensus_engine/alerts/commands.py and display-only placement in !market.",
+        "testEvidence": "Replay over 23 stored rows checked 22 dates with 0 mismatches; tests passed after tie bug fix.",
+        "reviewEvidence": ".omx/evidence/todo-86/independent-verification.md found the tie bug and records the fix."
+      },
+      {
+        "invariant": "Keep #87 compact, Pacific-safe, retry-safe, and reuse existing expected-move calculations.",
+        "source": ".omx/ultragoal/goals.json",
+        "status": "proved",
+        "implementationEvidence": "TODO #87 records live brief cards with daily and weekly SPY expected-move cards and post-review fixes.",
+        "testEvidence": "All 79 archived briefs replayed through the card builder; live Discord readback showed expected-move charts.",
+        "reviewEvidence": ".omx/evidence/todo-87/independent-verification.md lists 7 defects and the same-session fixes."
+      }
+    ]
+  }
+}

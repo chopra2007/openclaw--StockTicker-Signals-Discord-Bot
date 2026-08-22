@@ -1,7 +1,7 @@
 {
   "version": 1,
   "createdAt": "2026-08-17T08:49:14.127Z",
-  "updatedAt": "2026-08-17T10:56:01.013Z",
+  "updatedAt": "2026-08-22T11:38:06.288Z",
   "briefPath": ".omx/ultragoal/brief.md",
   "goalsPath": ".omx/ultragoal/goals.json",
   "ledgerPath": ".omx/ultragoal/ledger.jsonl",
@@ -23,31 +23,36 @@
       "id": "G002-grounded-discord-feature-answers-85",
       "title": "Grounded Discord feature answers (#85)",
       "objective": "Build the recoverable real-question corpus, independently ground answers in current code and data, race capable agent models when needed, prove multi-turn false-premise handling through the real Discord path, and satisfy TODO #85.",
-      "status": "in_progress",
+      "status": "complete",
       "attempt": 1,
       "createdAt": "2026-08-17T08:49:14.127Z",
-      "updatedAt": "2026-08-17T10:56:01.013Z",
-      "startedAt": "2026-08-17T10:56:01.013Z"
+      "updatedAt": "2026-08-22T11:37:37.893Z",
+      "startedAt": "2026-08-17T10:56:01.013Z",
+      "completedAt": "2026-08-22T11:37:37.893Z",
+      "evidence": "G002-grounded-discord-feature-answers-85 complete for .omx/ultragoal/goals.json and .omx/ultragoal/ledger.jsonl: TODO #85 DONE and live; real question set, blind answer key, model race, prompt fixes, and real #chat readback are saved in .omx/evidence/todo-85/model-race-and-live-proof.md; TODO detail file is closed."
     },
     {
       "id": "G003-vvix-vix-leadership-and-streaks-86",
       "title": "VVIX/VIX leadership and streaks (#86)",
       "objective": "Add descriptive lead and market-day streak output, replay every stored row, separately measure predictive usefulness, inspect the real market card, and keep the feature out of scores and alerts.",
-      "status": "pending",
+      "status": "complete",
       "attempt": 0,
       "createdAt": "2026-08-17T08:49:14.127Z",
-      "updatedAt": "2026-08-17T08:49:14.127Z"
+      "updatedAt": "2026-08-22T11:37:49.599Z",
+      "completedAt": "2026-08-22T11:37:49.599Z",
+      "evidence": "G003-vvix-vix-leadership-and-streaks-86 complete for .omx/ultragoal/goals.json and .omx/ultragoal/ledger.jsonl: TODO #86 DONE and live; VVIX/VIX lead and streak display replayed over 23 stored rows/22 computable dates with 0 mismatches, real Discord !market readback inspected, display-only isolation preserved, independent verifier found tie bug and the fix was re-verified in .omx/evidence/todo-86/independent-verification.md."
     },
     {
       "id": "G004-morning-brief-card-and-expected-move",
       "title": "Morning brief card and expected-move charts (#87)",
       "objective": "Build the stable compact card, reuse daily and weekly expected-move calculations and images, replay all archived briefs and saved daily snapshots, preserve retry and no-duplicate delivery behavior, inspect real Discord output, then complete the final Ultragoal quality gate.",
-      "status": "pending",
+      "status": "complete",
       "attempt": 0,
       "createdAt": "2026-08-17T08:49:14.127Z",
-      "updatedAt": "2026-08-17T08:49:14.127Z"
+      "updatedAt": "2026-08-22T11:38:06.288Z",
+      "evidence": "G004-morning-brief-card-and-expected-move complete for .omx/ultragoal/goals.json and .omx/ultragoal/ledger.jsonl: TODO #87 DONE and live; all 79 archived briefs replayed through the compact card builder, expected-move calculations reuse existing code, daily/weekly SPY charts proven on real Discord card, 7 independent-review defects fixed and documented in .omx/evidence/todo-87/independent-verification.md, TODO detail file closed.",
+      "completedAt": "2026-08-22T11:38:06.288Z"
     }
   ],
-  "codexObjective": "Complete the durable ultragoal plan in .omx/ultragoal/goals.json, including later accepted/appended stories, under the original brief constraints; use .omx/ultragoal/ledger.jsonl as the audit trail.",
-  "activeGoalId": "G002-grounded-discord-feature-answers-85"
+  "codexObjective": "Complete the durable ultragoal plan in .omx/ultragoal/goals.json, including later accepted/appended stories, under the original brief constraints; use .omx/ultragoal/ledger.jsonl as the audit trail."
 }
