@@ -789,3 +789,17 @@ back to processing new videos normally by 05:33 PDT (23 spans / 10 signals on on
 video at 06:41). The fix is complete and proven.
 
 Work out why 9 of the bot's 14 YouTube channel feeds fail every check, and fix it, so the bot stops missing new videos.
+
+## 90. Stop the ownership guard crying wolf every turn
+
+**File:** `ownership-guard-false-alarms.md`
+
+**CURRENT STATUS (2026-08-22):** Root cause found and proven, no fix applied yet. A background
+add-on called `persistent-mode` rewrites one scratch file as root at the end of every Claude Code
+turn. The ownership guard then blocks the turn and demands a fix. The fix is applied, the next turn
+ends, the file flips back to root, and the guard fires again. This happened five times in one
+session. Nothing real is broken — the file holds no bot data — but the guard that protects the live
+options feed is now firing constantly for a harmless reason, which is exactly how a real alert gets
+ignored. Next concrete step: decide between the two options below and apply it.
+
+Stop a harmless scratch file from tripping the ownership alarm five times a session, so the alarm still gets read when it points at something that matters.
