@@ -794,12 +794,23 @@ Work out why 9 of the bot's 14 YouTube channel feeds fail every check, and fix i
 
 **File:** `ownership-guard-false-alarms.md`
 
-**CURRENT STATUS (2026-08-22):** Root cause found and proven, no fix applied yet. A background
-add-on called `persistent-mode` rewrites one scratch file as root at the end of every Claude Code
-turn. The ownership guard then blocks the turn and demands a fix. The fix is applied, the next turn
-ends, the file flips back to root, and the guard fires again. This happened five times in one
-session. Nothing real is broken — the file holds no bot data — but the guard that protects the live
-options feed is now firing constantly for a harmless reason, which is exactly how a real alert gets
-ignored. Next concrete step: decide between the two options below and apply it.
+**CURRENT STATUS (2026-08-22):** Part A done and verified. `scripts/check_ownership.py` now has a
+`SKIP_PATHS` list holding exactly one path — `.omc/state/idle-notif-cooldown.json`, the scratch
+timestamp the `persistent-mode` add-on rewrites as root at the end of every turn. Verified live: with
+that file deliberately root-owned, the guard reports "clean"; with a throwaway root-owned file next to
+it, the guard still reports the throwaway. The directory stays guarded.
 
 Stop a harmless scratch file from tripping the ownership alarm five times a session, so the alarm still gets read when it points at something that matters.
+
+## 91. Stop root sessions from leaving files the bot cannot write
+
+**File:** `root-session-ownership-flip.md`
+
+**CURRENT STATUS (2026-08-22):** Not started — this is the follow-up split out of #90 (Part B).
+Proven on 2026-08-22: the root-ownership flip happens *only* because the Claude Code session runs
+as `root`. Every file the session or its add-ons write in the bot's tree lands root-owned, and the
+bot (which runs as `openclaw`) then cannot write it. One turn of this session left **53** such
+files behind. Next concrete step: work out what breaks if the session runs as `openclaw` (plugin
+cache under `/root/.claude`, hooks, git credentials) and try it.
+
+Run the Claude Code session as `openclaw` instead of root, so the bot's own files stop turning root-owned every turn and quietly breaking things like pushes and the options feed.

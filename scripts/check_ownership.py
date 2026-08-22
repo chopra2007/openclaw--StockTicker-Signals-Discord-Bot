@@ -43,6 +43,16 @@ SKIP_DIRS = {
     "site-packages",
 }
 
+# Single files that are rewritten as root by tooling outside the bot and hold no
+# bot data. TODO #90: the OMC `persistent-mode` Stop hook rewrites the cooldown
+# clock below at the end of every turn, so the guard fired every turn for a
+# throwaway timestamp. Only ever ignore an exact path here — never a directory
+# under .omc/state, which holds real bot data (calibration_model.pkl,
+# news_cascade_brave_counter.json, searxng_health.json).
+SKIP_PATHS = {
+    "/home/openclaw/.openclaw/workspace/.omc/state/idle-notif-cooldown.json",
+}
+
 # The ones that have actually broken something. Reported first, in plain words.
 KNOWN_VICTIMS = {
     "/home/openclaw/.openclaw/schwab_token.json": "the Schwab login token — the live options feed dies without it",
@@ -107,7 +117,7 @@ def scan() -> list[tuple[str, str]]:
     paths.extend(EXTRA_PATHS)
 
     for path in paths:
-        if path in seen:
+        if path in seen or path in SKIP_PATHS:
             continue
         seen.add(path)
         try:

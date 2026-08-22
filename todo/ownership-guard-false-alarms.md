@@ -3,13 +3,23 @@
 **Status:** OPEN
 **Created:** 2026-08-22
 
-**CURRENT STATUS (2026-08-22):** Root cause found and proven, no fix applied yet. A background
-add-on called `persistent-mode` rewrites one scratch file as root at the end of every Claude Code
-turn. The ownership guard then blocks the turn and demands a fix. The fix is applied, the next turn
-ends, the file flips back to root, and the guard fires again. This happened five times in one
-session. Nothing real is broken — the file holds no bot data — but the guard that protects the live
-options feed is now firing constantly for a harmless reason, which is exactly how a real alert gets
-ignored. Next concrete step: decide between the two options below and apply it.
+**CURRENT STATUS (2026-08-22):** Part A done and verified. `scripts/check_ownership.py` now has a
+`SKIP_PATHS` list holding exactly one path — `.omc/state/idle-notif-cooldown.json`, the scratch
+timestamp the `persistent-mode` add-on rewrites as root at the end of every turn. Verified live: with
+that file deliberately root-owned, the guard reports "clean"; with a throwaway root-owned file next to
+it, the guard still reports the throwaway. The directory stays guarded.
+
+But the item's own goal — the guard stops crying wolf every turn — is NOT met, so this stays OPEN.
+The cooldown file was never the only one. A single turn of this session left **53** root-owned files
+in the bot's tree: `.omc/state/hud-stdin-cache.json`, `.omc/sessions/*.json`, the whole
+`.omc/state/session-end-jobs/**` tree, and `identity/device-auth.json`. They all trip the guard, and
+ignoring them one by one would blind it.
+
+Part B is answered, and it settles the argument: the flip happens **only because the session runs as
+root**. Proof — in the same directory in the same minute, a file written by an `openclaw` process
+came out `openclaw`-owned while one written by this root session came out `root`-owned. So option 3
+(run the session as `openclaw`) is the real fix and Part A is a patch. That work is now **TODO #91**
+(`root-session-ownership-flip.md`). Next concrete step: pick up #91.
 
 ## The file
 
@@ -92,5 +102,15 @@ at a real token file, it gets slapped away too.
 - ~~What else lives under `.omc/state/`?~~ Answered 2026-08-22: real bot data lives there
   (calibration model, news counter, SearXNG health). Ignore the single filename only, never the
   directory.
-- Does the same flip happen in sessions that are not run as root? If not, option 3 is the real fix
-  and options 1 and 2 are just papering over it.
+- ~~Does the same flip happen in sessions that are not run as root?~~ Answered 2026-08-22: **no.**
+  A file written by an `openclaw` process in the same directory came out `openclaw`-owned. The flip
+  is caused by the session running as root, so option 3 is the real fix — now TODO #91
+  (`root-session-ownership-flip.md`).
+
+### Session notes 2026-08-22
+
+- Applied option 1: `SKIP_PATHS` in `scripts/check_ownership.py`, one exact path only.
+- Verified: root-owned cooldown file present -> guard "clean"; root-owned throwaway
+  `.omc/state/zzz-ownership-probe.json` -> guard reports it. Throwaway deleted.
+- No tests reference `check_ownership` (grepped the repo).
+- Handed 53 root-owned files back to `openclaw` with `--fix` while testing.
