@@ -65,11 +65,13 @@ at a real token file, it gets slapped away too.
 
 ## Possible fixes, priority-ordered
 
-1. **Tell the guard to skip this path.** Add `.omc/state/` to the ignore list in
-   `scripts/check_ownership.py`. Smallest change. Correct because nothing under `.omc/state/` is bot
-   data — it is Claude Code session scratch, not part of the trading bot. Risk: if anything the bot
-   DOES need ever lands under `.omc/`, the guard would go quiet on it. Worth checking what else is
-   in that directory before widening the pattern; consider ignoring only the one filename.
+1. **Tell the guard to skip this ONE filename.** Add `idle-notif-cooldown.json` to an ignore list
+   in `scripts/check_ownership.py` (the file currently has `SKIP_DIRS` at line 35 but no
+   per-file ignore, so a small addition is needed). Smallest change.
+   **Do NOT ignore the whole `.omc/state/` directory** — checked on 2026-08-22 and it holds real bot
+   data: `calibration_model.pkl` (read by `consensus_engine/analysis/calibration.py`) and
+   `news_cascade_brave_counter.json` (read by `consensus_engine/scanners/news.py`). Silencing the
+   directory would blind the guard to both.
 2. **Make the add-on write as `openclaw`.** Cleaner in principle, but the add-on lives in
    `/root/.claude/plugins/cache/` and is overwritten on every plugin update, so any edit there is
    temporary. Would need to be re-applied after each update — that is the same trap that wiped the
@@ -87,6 +89,8 @@ at a real token file, it gets slapped away too.
 
 ## Open questions
 
-- What else lives under `.omc/state/`? Decide whether to ignore the one filename or the directory.
+- ~~What else lives under `.omc/state/`?~~ Answered 2026-08-22: real bot data lives there
+  (calibration model, news counter, SearXNG health). Ignore the single filename only, never the
+  directory.
 - Does the same flip happen in sessions that are not run as root? If not, option 3 is the real fix
   and options 1 and 2 are just papering over it.
