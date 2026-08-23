@@ -802,14 +802,35 @@ it, the guard still reports the throwaway. The directory stays guarded.
 
 Stop a harmless scratch file from tripping the ownership alarm five times a session, so the alarm still gets read when it points at something that matters.
 
-## 91. Stop root sessions from leaving files the bot cannot write — DONE 2026-08-22
+## 91. Stop root sessions from leaving files the bot cannot write
 
 **File:** `root-session-ownership-flip.md`
 
-**CURRENT STATUS (2026-08-22):** DONE. Root joined the bot's user group and the bot's folders
-were marked so new files inherit that group, which covers most files. For the handful of secret
-files that always lock themselves to owner-only, the end-of-session check now repairs ownership
-itself instead of stopping the session to ask — verified live on both a normal file and a
-secret-shaped one.
+**CURRENT STATUS (2026-08-23):** Reopened — the per-turn auto-heal from 2026-08-22 does not
+cover a long multi-agent session. During a ~7-hour event-reaction research session
+(2026-08-23) that ran 3 builder agents and 3 audit agents as separate background teammate
+processes (each its own root process, writing files independently of the orchestrator's own
+turns), 31 files were found root-owned mid-session by a manual `check_ownership.py` run —
+including 3 `.git/objects/*` files and a chunk of `.omc/state/session-end-jobs/**`. The
+auto-heal Stop hook is turn-scoped to the *orchestrator's own* session; it has no way to catch
+files written by a teammate/background process between the orchestrator's turns, and several of
+those teammates ran disowned `nohup` Python jobs that kept writing files for 20+ minutes at a
+stretch with no orchestrator turn boundary in between. The 2026-08-22 fix is real and still
+correct for the single-session case it was built and verified against — it just doesn't reach
+multi-agent/background-heavy sessions, which is exactly the shape of session this bot now runs
+regularly (team/ultrawork/swarm-style work). This instance was cleaned up manually
+(`check_ownership.py --fix`, then `git add`/commit proceeded normally) — the open item is
+making the *automatic* repair reach this case too, not this specific mess.
 
 Run the Claude Code session as `openclaw` instead of root, so the bot's own files stop turning root-owned every turn and quietly breaking things like pushes and the options feed.
+
+## 92. Fix the price-history helper that silently drops premarket data
+
+**File:** `fetch_history_extended_hours_gap.md`
+
+**CURRENT STATUS (2026-08-23):** Found during the event-reaction research session
+(`.omc/plans/event-reaction-short-duration-scanner-research-prompt.md`), confirmed by reading
+the actual code, not fixed (research-only session, no production changes allowed). Not yet
+prioritized against other work.
+
+Make the shared price-history helper actually return premarket/after-hours bars when asked, instead of quietly handing back regular-session-only data with no error.

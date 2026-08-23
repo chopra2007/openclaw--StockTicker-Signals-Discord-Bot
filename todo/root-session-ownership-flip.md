@@ -1,7 +1,29 @@
 # Stop root sessions from leaving files the bot cannot write
 
-**Status:** DONE
+**Status:** OPEN
 **Created:** 2026-08-22
+
+**CURRENT STATUS (2026-08-23):** Reopened — the per-turn auto-heal from 2026-08-22 does not
+cover a long multi-agent session. During a ~7-hour event-reaction research session
+(2026-08-23) that ran 3 builder agents and 3 audit agents as separate background teammate
+processes (each its own root process, writing files independently of the orchestrator's own
+turns), 31 files were found root-owned mid-session by a manual `check_ownership.py` run —
+including 3 `.git/objects/*` files and a chunk of `.omc/state/session-end-jobs/**`. The
+auto-heal Stop hook is turn-scoped to the *orchestrator's own* session; it has no way to catch
+files written by a teammate/background process between the orchestrator's turns, and several of
+those teammates ran disowned `nohup` Python jobs that kept writing files for 20+ minutes at a
+stretch with no orchestrator turn boundary in between. The 2026-08-22 fix is real and still
+correct for the single-session case it was built and verified against — it just doesn't reach
+multi-agent/background-heavy sessions, which is exactly the shape of session this bot now runs
+regularly (team/ultrawork/swarm-style work). This instance was cleaned up manually
+(`check_ownership.py --fix`, then `git add`/commit proceeded normally) — the open item is
+making the *automatic* repair reach this case too, not this specific mess.
+
+**Likely direction:** either (a) also run `check_ownership.py --fix` from each teammate/background
+agent's own Stop hook (if teammate processes get Claude Code hooks at all — needs checking), or
+(b) add a time-based sweep (a short interval, e.g. every 2–5 minutes) that isn't tied to any
+single process's turn boundary, since (a) may not be reachable for detached `nohup` jobs that
+outlive their spawning agent's own turns.
 
 **CURRENT STATUS (2026-08-22):** DONE — fixed without the risky full switch (running the
 session as `openclaw`) that this file originally proposed. Two things are live now:
@@ -52,6 +74,10 @@ per-file ignore list (what #90 did) only hides one symptom.
 - On 2026-08-22 the same cause left seven git files root-owned after a commit, including
   `.git/index` and `.git/refs/heads/master`. That one genuinely breaks pushes.
 - It killed the Schwab options feed for 2.1 days on 2026-08-17 (`reference_schwab_token_ownership_trap`).
+- 2026-08-23: 31 files root-owned mid-session (3 `.git/objects/*`, `.omc/project-memory.json`,
+  most of `.omc/state/session-end-jobs/**`) during a 3-builder + 3-auditor multi-agent research
+  session — see the 2026-08-23 status above. Caught manually before any commit or push was
+  attempted; no actual breakage this time, but the automatic fix from 2026-08-22 did not catch it.
 
 ## Why it is not a quick fix
 
@@ -78,3 +104,8 @@ switch, and a half-done switch is worse than today (files owned by a third mix o
 - Does the Claude Code CLI support running as a non-root user here without losing the plugin cache
   and hooks under `/root/.claude`?
 - Would the setgid-group option (partial option 1) be enough on its own?
+- Do teammate/background agent processes (spawned via the Agent tool, running in their own tmux
+  pane as a separate `--agent-id` process) fire the same Stop hooks as the main session? If yes,
+  why didn't they catch the 2026-08-23 mess — worth instrumenting the hook's log line with which
+  process ran it, to see whether teammates are firing it at all. If no, the fix needs a
+  process-boundary-independent trigger (see "Likely direction" above).
