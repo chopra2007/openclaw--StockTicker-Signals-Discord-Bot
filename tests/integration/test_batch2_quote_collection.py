@@ -466,7 +466,7 @@ async def test_restart_promotes_only_frozen_registration_and_keeps_unregistered_
         options={
             "present": True,
             "strike": 150.0,
-            "expiry": "2026-08-21",
+            "expiry": "2030-08-21",
             "option_type": "put",
             "action": "buy_to_open",
             "strategy": "single_leg",
@@ -523,7 +523,7 @@ async def test_atomic_confirm_failure_leaves_no_confirmed_delivery_or_plan(colle
         options={
             "present": True,
             "strike": 150.0,
-            "expiry": "2026-08-21",
+            "expiry": "2030-08-21",
             "option_type": "put",
             "action": "buy_to_open",
             "strategy": "single_leg",
@@ -816,7 +816,7 @@ async def test_post_send_confirmation_journal_replays_after_restart(collector_db
         options={
             "present": True,
             "strike": 150.0,
-            "expiry": "2026-08-21",
+            "expiry": "2030-08-21",
             "option_type": "put",
             "action": "buy_to_open",
             "strategy": "single_leg",
@@ -865,7 +865,7 @@ async def test_first_confirmation_journal_failure_is_recoverable_after_restart(
         "options": {
             "present": True,
             "strike": 150.0,
-            "expiry": "2026-08-21",
+            "expiry": "2030-08-21",
             "option_type": "put",
             "action": "buy_to_open",
             "strategy": "single_leg",

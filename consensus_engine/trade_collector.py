@@ -283,18 +283,40 @@ def _valid_iso_date(value: Any) -> bool:
         return False
 
 
+def _option_contract_fields_complete(options: dict) -> bool:
+    """True when strike/expiry/option_type/action are all set and expiry parses."""
+    required = (
+        options.get("strike"), options.get("expiry"),
+        options.get("option_type"), options.get("action"),
+    )
+    return not any(value in (None, "") for value in required) and _valid_iso_date(
+        options.get("expiry")
+    )
+
+
+def _expiry_already_past(expiry: Any, reference: float | None) -> bool:
+    """True when a format-valid expiry date is already behind the alert.
+
+    An upstream source (an LLM-parsed tweet) can name a real-looking but
+    stale or hallucinated expiration. Batch 2 can only track a contract that
+    could actually be bought at delivery time, so a same-or-earlier expiry
+    is treated the same as a missing one rather than being sent to Schwab.
+    """
+    try:
+        expiry_date = datetime.strptime(str(expiry), "%Y-%m-%d").date()
+    except (TypeError, ValueError):
+        return False
+    at = reference if reference is not None else time.time()
+    today = datetime.fromtimestamp(at, ZoneInfo("America/New_York")).date()
+    return expiry_date < today
+
+
 def _initial_classification(direction: str, options: dict) -> tuple[str, str]:
     if not options:
         if direction == "short":
             return "research_only", "missing_short_borrow_facts"
         return "pending", ""
-    required = (
-        options.get("strike"), options.get("expiry"),
-        options.get("option_type"), options.get("action"),
-    )
-    if any(value in (None, "") for value in required) or not _valid_iso_date(
-        options.get("expiry")
-    ):
+    if not _option_contract_fields_complete(options):
         return "research_only", "missing_exact_contract_fields"
     option_type = str(options.get("option_type")).lower()
     action = str(options.get("action")).lower()
@@ -364,6 +386,16 @@ async def register_confirmed_delivery(
             "strategy": contract.get("strategy"),
             "leg_count": contract.get("leg_count"),
         }
+    elif option_values and (
+        not _option_contract_fields_complete(option_values)
+        or _expiry_already_past(option_values.get("expiry"), confirmed_delivery_at)
+    ):
+        # options= here came from an LLM-parsed tweet, not a verified live
+        # contract pick (that only happens via the `contract=` kwarg above).
+        # "present: true" with no real strike/expiry/type/action, or an
+        # already-past expiry, is not a chosen contract -- track the idea
+        # honestly as a share idea instead of an unresolvable option idea.
+        option_values = {}
     instrument = "option" if option_values else "share"
     status, reason = _initial_classification(direction, option_values)
     if contract is not None and status == "pending":
