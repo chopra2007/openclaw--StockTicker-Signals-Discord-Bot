@@ -544,16 +544,21 @@ def _period_to_calendar_days(period: Optional[str]) -> int:
 
 
 def get_price_history(symbol: str, *, period: Optional[str] = None,
-                      interval: str = "1d", start=None, end=None) -> Optional["object"]:
+                      interval: str = "1d", start=None, end=None,
+                      extended_hours: bool = False) -> Optional["object"]:
     """OHLCV bars as a yfinance-compatible DataFrame:
-    columns [Open, High, Low, Close, Volume], tz-aware America/New_York index."""
+    columns [Open, High, Low, Close, Volume], tz-aware America/New_York index.
+
+    extended_hours: when True, includes premarket/after-hours bars (only
+    meaningful for intraday `interval`s -- Schwab ignores it for daily+).
+    Default False preserves the prior regular-session-only behavior."""
     import pandas as pd
     from datetime import datetime, timedelta, timezone
 
     freq_type, freq = _FREQ_MAP.get(interval, ("daily", 1))
     params = {"symbol": to_schwab_symbol(symbol),
               "frequencyType": freq_type, "frequency": freq,
-              "needExtendedHoursData": "false"}
+              "needExtendedHoursData": "true" if extended_hours else "false"}
     start_ms, end_ms = _to_ms(start), _to_ms(end)
 
     if freq_type in ("daily", "weekly", "monthly"):
