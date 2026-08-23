@@ -802,15 +802,14 @@ it, the guard still reports the throwaway. The directory stays guarded.
 
 Stop a harmless scratch file from tripping the ownership alarm five times a session, so the alarm still gets read when it points at something that matters.
 
-## 91. Stop root sessions from leaving files the bot cannot write
+## 91. Stop root sessions from leaving files the bot cannot write — DONE 2026-08-22
 
 **File:** `root-session-ownership-flip.md`
 
-**CURRENT STATUS (2026-08-22):** Not started — this is the follow-up split out of #90 (Part B).
-Proven on 2026-08-22: the root-ownership flip happens *only* because the Claude Code session runs
-as `root`. Every file the session or its add-ons write in the bot's tree lands root-owned, and the
-bot (which runs as `openclaw`) then cannot write it. One turn of this session left **53** such
-files behind. Next concrete step: work out what breaks if the session runs as `openclaw` (plugin
-cache under `/root/.claude`, hooks, git credentials) and try it.
+**CURRENT STATUS (2026-08-22):** DONE. Root joined the bot's user group and the bot's folders
+were marked so new files inherit that group, which covers most files. For the handful of secret
+files that always lock themselves to owner-only, the end-of-session check now repairs ownership
+itself instead of stopping the session to ask — verified live on both a normal file and a
+secret-shaped one.
 
 Run the Claude Code session as `openclaw` instead of root, so the bot's own files stop turning root-owned every turn and quietly breaking things like pushes and the options feed.

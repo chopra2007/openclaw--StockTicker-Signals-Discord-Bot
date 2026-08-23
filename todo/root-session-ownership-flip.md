@@ -1,14 +1,37 @@
-# Run the Claude Code session as `openclaw` so it stops leaving root-owned files
+# Stop root sessions from leaving files the bot cannot write
 
-**Status:** OPEN
+**Status:** DONE
 **Created:** 2026-08-22
 
-**CURRENT STATUS (2026-08-22):** Not started — this is the follow-up split out of #90 (Part B).
-Proven on 2026-08-22: the root-ownership flip happens *only* because the Claude Code session runs
-as `root`. Every file the session or its add-ons write in the bot's tree lands root-owned, and the
-bot (which runs as `openclaw`) then cannot write it. One turn of this session left **53** such
-files behind. Next concrete step: work out what breaks if the session runs as `openclaw` (plugin
-cache under `/root/.claude`, hooks, git credentials) and try it.
+**CURRENT STATUS (2026-08-22):** DONE — fixed without the risky full switch (running the
+session as `openclaw`) that this file originally proposed. Two things are live now:
+
+1. **Prevention, partial.** `root` was added to the bot's `openclaw` group, and every directory
+   under `/home/openclaw/.openclaw` now carries the setgid bit (new files/folders inherit the
+   `openclaw` group automatically). This alone was proven **not enough** for the worst files —
+   `schwab_token.json`, `.env`, `.env.service`, and the reauth marker are hard-coded to
+   `chmod 0600` by `schwab_client.py` / `schwab_login.py` on every write, which locks out the
+   group entirely no matter what the directory allows. So this step helps the general case
+   (`.omc/state/*`, `.git/*`) but does not fully solve it on its own.
+2. **The real fix: auto-heal.** `/root/.claude/hooks/ownership-on-done.py` (the Stop hook) no
+   longer just reports and blocks — it now runs `check_ownership.py --fix` itself (it already
+   runs as root, so it can) and lets the session end silently when the repair succeeds. It only
+   still blocks if a file genuinely can't be handed back. A repair line is appended to
+   `/root/task_system/logs/ownership_sweep.log` each time so the trail stays visible without
+   interrupting the session. Verified live with two real cases: a plain root-owned `.omc/state`
+   file, and a `chmod 600 root:root` secret file matching the exact `schwab_token.json` failure
+   shape — both were silently handed back to `openclaw` and the hook exited clean (no block).
+
+The daily `ownership-sweep.timer` was left as a report-only monitor on purpose (it says so in its
+own comment) — this fix only changed the interactive Stop hook, which is what was firing "every
+session."
+
+**Answers to this file's original open questions:**
+- Running the session as `openclaw` was not attempted — the auto-heal hook makes it unnecessary
+  for the actual complaint (the every-session interruption).
+- The setgid-group option (partial option 1) is **not** enough on its own — the hard-coded
+  `chmod 0600` calls on secrets defeat it. It is still worth keeping as it reduces how much the
+  auto-heal step has to do on the common (non-secret) files.
 
 ## The proof
 
