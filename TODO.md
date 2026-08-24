@@ -826,7 +826,7 @@ Make the shared price-history helper actually return premarket/after-hours bars 
 
 **File:** `opening-auction-high-conviction-edge.md`
 
-**CURRENT STATUS (2026-08-23):** The earlier price-pattern and event-reaction searches did not beat chance, but the next test is no longer blocked on historical data. A verified 2.1 GB Databento collection now holds 85,592,212 opening-auction imbalance and one-minute price records for 60 liquid New York Stock Exchange names. The next step is to run a point-in-time, time-split test of predeclared auction-imbalance ideas and reject the lane unless it survives costs, the five-minute reaction delay, market controls, and an untouched final test period.
+**CURRENT STATUS (2026-08-24):** Killed at feasibility probe [2026-08-24], decile spread top=-6.88bps / bottom=-0.07bps vs the +/-15bps threshold; fillable share 64.8% vs 60% threshold (passed but moot since decile condition failed). No clean monotonic pattern in the decile table — looks like noise. Overall status: this research direction (opening-auction imbalance) does not show a viable edge on the development-period-only probe; do not resume without a genuinely new angle. Full write-up: `.omc/research/opening-auction-imbalance/final-research-verdict.md`.
 
 Find and independently prove an opening-auction signal that can produce zero to four strong stock setups during 6:15–6:45 a.m. Pacific and still work after a five-minute reaction delay and realistic costs.
 
