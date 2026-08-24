@@ -821,3 +821,22 @@ yfinance's `prepost` flag. Verified with unit tests for both paths, a real Schwa
 the full pytest suite, and a live `!all SPY` in Discord after restarting the engine.
 
 Make the shared price-history helper actually return premarket/after-hours bars when asked, instead of quietly handing back regular-session-only data with no error.
+
+## 93. Prove a high-conviction opening-auction trading edge
+
+**File:** `opening-auction-high-conviction-edge.md`
+
+**CURRENT STATUS (2026-08-23):** The earlier price-pattern and event-reaction searches did not beat chance, but the next test is no longer blocked on historical data. A verified 2.1 GB Databento collection now holds 85,592,212 opening-auction imbalance and one-minute price records for 60 liquid New York Stock Exchange names. The next step is to run a point-in-time, time-split test of predeclared auction-imbalance ideas and reject the lane unless it survives costs, the five-minute reaction delay, market controls, and an untouched final test period.
+
+Find and independently prove an opening-auction signal that can produce zero to four strong stock setups during 6:15–6:45 a.m. Pacific and still work after a five-minute reaction delay and realistic costs.
+
+## 94. Fix the NFCI market-context test that fails once too many days pass
+
+**File:** `nfci_display_test_time_bomb.md`
+
+**CURRENT STATUS (2026-08-24):** Root-caused, not fixed. Found while running the full test
+suite for an unrelated session (TODO #91/#92) — confirmed unrelated to that work (no shared
+code touched) and failing in isolation, so it's a pre-existing bug, not a regression from
+that session.
+
+Fix a test for the `!market` command's economic-conditions display that hardcodes a fixed date, so it silently starts failing once real time drifts more than 16 days past that date rather than reflecting anything actually broken in the code.
