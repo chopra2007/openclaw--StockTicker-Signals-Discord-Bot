@@ -4,8 +4,8 @@ These fail if a research script could spend money, read a paid-data API key,
 reach the network, or write outside the allowed research paths.
 """
 
+import ast
 import re
-import socket
 from pathlib import Path
 
 import pytest
@@ -92,17 +92,40 @@ def test_script_paths_stay_inside_allowed_roots(script):
 
 
 @pytest.mark.parametrize("script", research_scripts(), ids=lambda p: p.name)
-def test_script_imports_without_touching_the_network(script, monkeypatch):
-    """Importing a research script must not open a socket."""
+def test_script_never_names_a_network_or_spend_capable_symbol(script):
+    """Scan the parsed code for any name that could reach the network or spend
+    money. This reads the code rather than running it: these scripts do real
+    work at module level, and a test must never regenerate research evidence.
+    """
+    tree = ast.parse(script.read_text(), filename=str(script))
+    banned = {
+        "socket", "create_connection", "urlopen", "Request", "Session",
+        "Historical", "Live", "timeseries", "submit_job", "get_cost",
+        "from_dbn_url", "environ", "getenv", "putenv",
+    }
+    hits = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name) and node.id in banned:
+            hits.add(node.id)
+        elif isinstance(node, ast.Attribute) and node.attr in banned:
+            hits.add(node.attr)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            mod = getattr(node, "module", None) or ""
+            names = [a.name for a in node.names]
+            for candidate in [mod] + names:
+                root = candidate.split(".")[0]
+                if root in banned:
+                    hits.add(root)
+    assert not hits, f"{script.name} references {sorted(hits)}"
 
-    def blocked(*args, **kwargs):
-        raise AssertionError(f"{script.name} opened a network socket on import")
 
-    monkeypatch.setattr(socket, "socket", blocked)
-    monkeypatch.setattr(socket, "create_connection", blocked)
-
-    import importlib.util
-
-    spec = importlib.util.spec_from_file_location(f"_probe_{script.stem}", script)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+@pytest.mark.parametrize("script", research_scripts(), ids=lambda p: p.name)
+def test_script_reads_dbn_only_from_a_local_file(script):
+    """Every Databento read must be DBNStore.from_file against a local path."""
+    tree = ast.parse(script.read_text(), filename=str(script))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            if node.func.attr.startswith("from_") and "DBN" in ast.dump(node.func):
+                assert node.func.attr == "from_file", (
+                    f"{script.name} opens DBN data with {node.func.attr}, not from_file"
+                )
