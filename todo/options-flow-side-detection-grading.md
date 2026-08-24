@@ -1,15 +1,16 @@
 # Grade the options-flow buy/sell-side tag against real outcomes
 
-**Status:** SOAKING
+**Status:** OPEN
 **Created:** 2026-08-09
 
-## CURRENT STATUS (2026-08-23)
+## CURRENT STATUS (2026-08-24)
 
-The scheduled grading ran. A fresh rerun against the live database found 78
+Returned to active after the soak ended. A fresh rerun against the live database found 78
 cases where the side-aware direction changed the old call/put-only guess. It
 was correct on 57.7% (`z=1.36`), which is encouraging but still could be luck.
 Keep collection and the current live label unchanged. Do not call this a proven
-trading edge. Re-grade after the disagreement sample grows materially.
+trading edge. The next concrete check is when the disagreement sample reaches
+at least 165 cases, roughly double today's sample.
 
 ## Earlier status (2026-08-09)
 

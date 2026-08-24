@@ -1,9 +1,9 @@
 # Prove a high-conviction opening-auction trading edge
 
-**Status:** OPEN
+**Status:** DONE — rejected
 **Created:** 2026-08-23
 
-**CURRENT STATUS (2026-08-24):** Killed at feasibility probe [2026-08-24], decile spread top=-6.88bps / bottom=-0.07bps vs the +/-15bps threshold; fillable share 64.8% vs 60% threshold (passed but moot since decile condition failed). No clean monotonic pattern in the decile table — looks like noise. Overall status: this research direction (opening-auction imbalance) does not show a viable edge on the development-period-only probe; do not resume without a genuinely new angle. Full write-up: `.omc/research/opening-auction-imbalance/final-research-verdict.md`.
+**CURRENT STATUS (2026-08-24):** CLOSED — no edge found, three ideas tested and all rejected. The final bounded pass tested the two genuinely new mechanisms (auction pressure versus the actual price response, and prior-close-to-next-open pressure transfer) as six rules frozen before any result existed. All six lost money. The ranked strategy produced 25 trades where 200 were required and lost 29.7 basis points each; nine of ten pass/fail gates failed. Before trading costs the best rule earned +10 basis points against the roughly +35 needed. An independent reviewer rebuilt every headline number and 50 individual trades from the raw exchange files with their own code, matched them exactly, and found no timing, direction, join or cost error. The 182 held-out evaluation dates were never read and stay sealed. Nothing was spent; no live scanner was built. Do not buy more auction data for this idea. Full write-up: `.omc/research/opening-auction-pressure-response/final-research-verdict.md`.
 
 ## Goal
 
@@ -27,17 +27,16 @@ Find and independently prove a real, tradeable signal that can produce zero to f
 - None of those failed lanes should be mixed into this auction test to manufacture a passing result.
 - The opening-auction imbalance test itself was killed at its pre-registered feasibility gate on 2026-08-24, before any idea was frozen and before the held-out final period was touched. Sorting 34,588 development-period ticker-days into ten buckets by signed imbalance ratio (buy imbalance vs sell imbalance at the 09:30 ET print) and measuring the market-adjusted 60-minute return from 09:35 ET produced no usable spread: the biggest-buy bucket came in 6.88bps BELOW the middle bucket when the idea predicted at least 15bps above, and the biggest-sell bucket was flat at 0.07bps below. The bucket table zig-zags with no trend, and the strongest buy-imbalance bucket had the most negative return of all ten — the opposite of what was predicted. That is noise, not a faint edge.
 - The held-out evaluation period (dates after 2025-11-28, 182 of 912 trading dates) was never read, so it stays clean for a genuinely different question.
+- The final pass — auction pressure versus price response (lane A) and prior-close-to-next-open pressure transfer (lane B) — was rejected on 2026-08-24 at the internal validation gate, 9 of 10 gates failed. Six rules were frozen before any result existed and all six lost money: A1 -7.9, A2 -11.1, A3 -13.2, B1 -25.3, B2 -8.9, B3 -9.9 basis points per trade after the 15 basis-point cost. Before costs the best was +10.0 and the worst -18.0, against roughly +35 needed to clear the gate. Across 2,792 candidates the average was -12.3 basis points; the 25 trades the ranked model actually selected did worse still at -29.7, and were beaten by both the middle-ranked candidates and matched no-signal stocks on the same days. Independently reproduced from the raw exchange files. Full write-up: `.omc/research/opening-auction-pressure-response/final-research-verdict.md`.
 
-## Priority next steps
+## The plan that was executed (kept as history — all six rules were rejected on 2026-08-24)
 
-1. Read the Databento files without changing live scanner behavior. Resolve symbols as they were known on each date and exclude the degraded or unavailable dates recorded in the manifest.
-2. Before looking at results, write down a small set of auction ideas. Test imbalance size relative to paired quantity and normal daily liquidity; imbalance growth, persistence, and reversal; and the indicated clearing price versus the prior close and premarket price. Add minimum-liquidity and spread rules.
-3. Use an honest clock. Every input must exist before the alert time. Simulate the owner's 6:15–6:45 a.m. Pacific window, then wait five minutes before entry.
-4. Split the dates in order. Use the earlier dates to develop the rule and leave the final 20% untouched until the rule and thresholds are frozen.
-5. Compare each result with the broad market and matched no-signal days. Count one event per ticker, date, and direction. Include costs and reject any result driven by one ticker or one day.
-6. Require useful trade frequency, not just a high percentage on a tiny sample. The live design may issue no trade; it should normally surface only one to four strong setups.
-7. Have a separate review reproduce the headline numbers from the saved records before building production code.
-8. If and only if the result passes, verify the price and license for a live New York Stock Exchange imbalance feed before spending money or connecting it to the bot.
+1. Freeze at most six rules before reading new results. Lane A measures how imbalance grows, persists, cancels, or flips between 6:15 and 6:30 a.m. Pacific, then compares that pressure with the actual opening-price response through the realistic 6:35 entry. Lane B compares the prior day's closing-auction pressure with the current opening-auction path, including fixed month-end and quarter-end groups.
+2. Split the existing 730 development dates again in time order into training and internal validation. Use a small constrained ranking model and a plain-rule comparison. Allow zero picks and cap selection at the best four stocks per day. Do not read the untouched final 182 dates during this work.
+3. Use only information available by the simulated alert, wait five minutes, enter no earlier than 6:35 a.m. Pacific, and keep the 60-minute outcome as the primary result. Apply realistic costs, market adjustment, matched no-signal days, and one event per ticker and date.
+4. Require at least 200 independent internal-validation trades, at least a 60% win rate under the frozen definition, positive average return after costs with its 95% confidence range above zero, positive results in at least three of four time blocks, and no single ticker producing more than 10% of total profit. The top-ranked group must also clearly beat the middle-ranked and no-signal groups.
+5. Only if those gates pass, freeze the complete rule and run it once on the untouched final 182 dates. A separate reviewer must reproduce the results directly from the saved records.
+6. Build nothing live unless the final test passes. If either lane fails internal validation, record the honest negative result and close #93. Do not buy more data or mine more versions of these same auction fields.
 
 ## Historical data location
 
@@ -51,6 +50,7 @@ Find and independently prove a real, tradeable signal that can produce zero to f
 
 ## Previous prompts and findings
 
+- Execution-ready next plan: `.omx/plans/todo-93-auction-pressure-response-research.md`
 - Original execution prompt: `.omc/plans/high-conviction-short-duration-scanner-prompt.md`
 - Original prompt backup: `.omc/plans/high-conviction-short-duration-scanner-prompt-v1-backup.md`
 - First attempt findings: `.omc/plans/high-conviction-short-duration-scanner-phaseA-retrospective.md`
@@ -59,11 +59,11 @@ Find and independently prove a real, tradeable signal that can produce zero to f
 - Independent final verdict: `.omc/research/event-reaction-short-duration/final-research-verdict.md`
 - Full event-reaction evidence, raw tables, frozen ideas, builder reports, and independent audits: `.omc/research/event-reaction-short-duration/`
 
-## Open questions
+## Open questions — all three now answered
 
-- Which auction fields are consistently present early enough to support a 6:15 a.m. Pacific alert rather than only a near-open alert?
-- Does the advantage predict continuation, reversal, or different behavior under different market conditions?
-- Is the surviving effect large enough after costs to justify paying for live imbalance data?
+- *Which auction fields are present early enough for a 6:15 a.m. Pacific alert?* Answered: `total_imbalance_qty`, `paired_qty` and `side` are populated from 5:00 a.m. Pacific onward. The four price-like auction fields are empty on this feed and were never usable.
+- *Does the advantage predict continuation, reversal, or something conditional?* Answered: none of the three. Rules betting with the pressure, against it, and conditionally on the calendar all landed near zero before costs.
+- *Is the effect large enough after costs to justify paying for a live feed?* Answered: no. There is no effect to pay for.
 
 ## Guardrails
 
@@ -76,3 +76,21 @@ Find and independently prove a real, tradeable signal that can produce zero to f
 - **Worked on:** Phase 1c feasibility probe of opening-auction imbalance deciles on the development period only, then the early-kill close-out (Phase 5b).
 - **Decisions:** Killed the lane at the pre-registered gate — mechanical, not a judgment call, and independently re-checked by `scripts/check_gate.py`. Phases 2–5a (hypothesis freeze, builder, audit, eval test) were never run. Evaluation period left untouched.
 - **Next:** Do not resume this direction without a genuinely new angle. The Databento data, confirmed field meanings, and the beta-scaled cross-sectional return code are all reusable at no new data cost if one appears.
+
+### Session notes — 2026-08-24 (next-action decision)
+- **Worked on:** Re-read #93, both failed research retrospectives, the final auction verdict, and the confirmed fields and timing in the paid Databento records.
+- **Decisions:** One final no-cost research pass is justified, but only on two genuinely different mechanisms: pressure-versus-price mismatch and prior-close-to-current-open pressure transfer. Static imbalance direction will not be retested.
+- **Next:** Write a short frozen research specification for the two lanes and their six-rule maximum, then run only the development/internal-validation work. Keep the final 182 dates sealed unless every gate passes.
+
+### Session notes — 2026-08-24 (plan written)
+- **Worked on:** Wrote the execution-ready, no-new-spending plan at `.omx/plans/todo-93-auction-pressure-response-research.md`.
+- **Decisions:** Fixed six hypotheses, four walk-forward validation blocks, hard statistical gates, one-time final evaluation, independent audits, and an automatic stop if the existing data cannot prove the edge.
+- **Next:** Execute the plan with `$autoresearch-goal`; do not run another planning or discovery pass first.
+
+### Session notes — 2026-08-24 (execution and close)
+- **Worked on:** Executed `.omx/plans/todo-93-auction-pressure-response-research.md` end to end, phases 0 through 5.
+- **What ran:** Streamed all 45,313,852 auction messages and 19,653,306 one-minute bars from the local files; built a 43,453-row development panel over the 730 dates ending 2025-11-28; froze the six rules; ran the four-block walk-forward; had an independent reviewer reproduce it from raw records.
+- **Result:** REJECTED at the Phase 5 internal gate, 9 of 10 gates failed. Plain-rule averages after costs: A1 -7.9, A2 -11.1, A3 -13.2, B1 -25.3, B2 -8.9, B3 -9.9 basis points. Before costs the best was +10.0 (B2) against roughly +35 needed.
+- **Honest weaknesses recorded, not hidden:** the direction-shuffle control was vacuous (never more than one trade per day, so shuffling within a day does nothing); only validation block 1 selected any trades, so gate 6 is undecidable rather than cleanly failed; and one wording ambiguity about the trailing-60-session window was found by the reviewer, measured, and shown not to change the verdict (`threshold-sensitivity.json`).
+- **Not done, deliberately:** phases 6, 7 and 8 (one-time evaluation run, final audit, production decision) were never started, because the plan stops on a failed internal gate. The evaluation period is untouched.
+- **Next:** Nothing. Do not retune, do not widen the window, do not buy more data. The reusable assets are the paid Databento collection, the panel builder (`scripts/research/auction_pressure_build_dev.py`), and the mechanical gate checker (`scripts/research/check_auction_pressure_gate.py`).

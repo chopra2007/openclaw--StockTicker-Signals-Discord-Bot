@@ -669,10 +669,9 @@ Restore Schwab real-time prices after fixing the unreadable login file and compl
 
 The bot stopped responding for minutes at a time, gave up with "2 attempts failed", and then answered questions by quoting its own error messages back as facts — four separate bugs, all fixed and verified live in Discord.
 
-## 80. Grade the options-flow buy/sell-side tag against real outcomes — SOAKING until 2026-08-23
+## 80. Grade the options-flow buy/sell-side tag against real outcomes
 
 **File:** `options-flow-side-detection-grading.md`
-**Switches:** options_flow.side_collect=on; options_flow.side_labels_live=on
 
 Shipped LIVE 2026-08-09 (user chose to skip the original 2-week grading gate): `#options-flow` alerts now tag each trade BUY/SELL/AMBIGUOUS and derive BULLISH/BEARISH from that instead of guessing from call/put alone, plus a real "🔥 SWEEP" tier for the rare highest-conviction case. Confirm it fires correctly during real Monday market hours, then grade after ~2 weeks of live data to check whether the side-aware label actually calls direction better than the old guess — already scheduled to check itself autonomously (systemd timer, 2026-08-23).
 
@@ -802,7 +801,7 @@ it, the guard still reports the throwaway. The directory stays guarded.
 
 Stop a harmless scratch file from tripping the ownership alarm five times a session, so the alarm still gets read when it points at something that matters.
 
-## 91. Stop root sessions from leaving files the bot cannot write
+## 91. Stop root sessions from leaving files the bot cannot write — DONE 2026-08-23
 
 **File:** `root-session-ownership-flip.md`
 
@@ -810,7 +809,7 @@ Stop a harmless scratch file from tripping the ownership alarm five times a sess
 
 Run the Claude Code session as `openclaw` instead of root, so the bot's own files stop turning root-owned every turn and quietly breaking things like pushes and the options feed.
 
-## 92. Fix the price-history helper that silently drops premarket data
+## 92. Fix the price-history helper that silently drops premarket data — DONE 2026-08-23
 
 **File:** `fetch_history_extended_hours_gap.md`
 
@@ -822,11 +821,11 @@ the full pytest suite, and a live `!all SPY` in Discord after restarting the eng
 
 Make the shared price-history helper actually return premarket/after-hours bars when asked, instead of quietly handing back regular-session-only data with no error.
 
-## 93. Prove a high-conviction opening-auction trading edge
+## 93. Prove a high-conviction opening-auction trading edge — DONE 2026-08-24 (rejected: no edge found)
 
 **File:** `opening-auction-high-conviction-edge.md`
 
-**CURRENT STATUS (2026-08-24):** Killed at feasibility probe [2026-08-24], decile spread top=-6.88bps / bottom=-0.07bps vs the +/-15bps threshold; fillable share 64.8% vs 60% threshold (passed but moot since decile condition failed). No clean monotonic pattern in the decile table — looks like noise. Overall status: this research direction (opening-auction imbalance) does not show a viable edge on the development-period-only probe; do not resume without a genuinely new angle. Full write-up: `.omc/research/opening-auction-imbalance/final-research-verdict.md`.
+**CURRENT STATUS (2026-08-24):** CLOSED — no edge found, three ideas tested and all rejected. The final bounded pass tested the two genuinely new mechanisms (auction pressure versus the actual price response, and prior-close-to-next-open pressure transfer) as six rules frozen before any result existed. All six lost money. The ranked strategy produced 25 trades where 200 were required and lost 29.7 basis points each; nine of ten pass/fail gates failed. Before trading costs the best rule earned +10 basis points against the roughly +35 needed. An independent reviewer rebuilt every headline number and 50 individual trades from the raw exchange files with their own code, matched them exactly, and found no timing, direction, join or cost error. The 182 held-out evaluation dates were never read and stay sealed. Nothing was spent; no live scanner was built. Do not buy more auction data for this idea. Full write-up: `.omc/research/opening-auction-pressure-response/final-research-verdict.md`.
 
 Find and independently prove an opening-auction signal that can produce zero to four strong stock setups during 6:15–6:45 a.m. Pacific and still work after a five-minute reaction delay and realistic costs.
 
