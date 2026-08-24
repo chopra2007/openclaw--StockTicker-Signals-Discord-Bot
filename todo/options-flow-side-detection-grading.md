@@ -3,7 +3,15 @@
 **Status:** SOAKING
 **Created:** 2026-08-09
 
-## CURRENT STATUS (2026-08-09)
+## CURRENT STATUS (2026-08-23)
+
+The scheduled grading ran. A fresh rerun against the live database found 78
+cases where the side-aware direction changed the old call/put-only guess. It
+was correct on 57.7% (`z=1.36`), which is encouraging but still could be luck.
+Keep collection and the current live label unchanged. Do not call this a proven
+trading edge. Re-grade after the disagreement sample grows materially.
+
+## Earlier status (2026-08-09)
 
 Built and shipped LIVE this session — not gated behind a grading step. Full
 detail in `.omc/plans/options-flow-buyresell-sweeps-spec.md`.
@@ -104,3 +112,13 @@ approaches, rather than blindly trusting it fires.
   2026-08-23 09:00 PDT and writes its verdict to `notifications.log`. A future
   session should just read that when it shows up. Also worth re-checking the
   timer is still armed as that date nears (see reliability caveat above).
+
+### Grading result — 2026-08-23 Pacific
+
+- Re-ran `python3 scripts/grade_options_flow_side.py --report` against the live
+  database rather than trusting the scheduled notice. The current sample is
+  78 disagreement events, and the side-aware direction was correct on 57.7%.
+- This is encouraging but still not clearly better than chance (`z=1.36`).
+  Keep collection and the current live label unchanged. Do not promote this
+  result as a proven trading edge. Re-grade after the disagreement sample has
+  grown materially.
