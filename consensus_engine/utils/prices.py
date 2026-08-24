@@ -29,17 +29,22 @@ def _schwab_ohlcv_enabled() -> bool:
     return bool(config.get("features.schwab_ohlcv.enabled", False))
 
 
-def fetch_history(ticker: str, *, period=None, start=None, end=None, interval: str = "1d"):
+def fetch_history(ticker: str, *, period=None, start=None, end=None, interval: str = "1d",
+                   extended_hours: bool = False):
     """Daily/intraday OHLCV as a yfinance-compatible DataFrame.
 
     Schwab PRIMARY (when the flag is on) → yfinance FALLBACK. Same shape either
     way: columns [Open, High, Low, Close, Volume], tz-aware America/New_York index.
+
+    extended_hours: when True, includes premarket/after-hours bars (intraday
+    intervals only). Default False preserves prior regular-session-only behavior.
     """
     if _schwab_ohlcv_enabled():
         try:
             from consensus_engine.scanners import schwab_client
             df = schwab_client.get_price_history(
-                ticker, period=period, interval=interval, start=start, end=end
+                ticker, period=period, interval=interval, start=start, end=end,
+                extended_hours=extended_hours,
             )
             if df is not None and not df.empty:
                 return df
@@ -49,7 +54,7 @@ def fetch_history(ticker: str, *, period=None, start=None, end=None, interval: s
     # yfinance fallback — the pre-#57 behaviour, unchanged.
     import yfinance as yf
     t = yf.Ticker(ticker)
-    kwargs = {"interval": interval}
+    kwargs = {"interval": interval, "prepost": extended_hours}
     if period is not None:
         kwargs["period"] = period
     if start is not None:
