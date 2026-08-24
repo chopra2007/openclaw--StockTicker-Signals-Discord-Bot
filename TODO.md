@@ -806,21 +806,7 @@ Stop a harmless scratch file from tripping the ownership alarm five times a sess
 
 **File:** `root-session-ownership-flip.md`
 
-**CURRENT STATUS (2026-08-23):** Reopened — the per-turn auto-heal from 2026-08-22 does not
-cover a long multi-agent session. During a ~7-hour event-reaction research session
-(2026-08-23) that ran 3 builder agents and 3 audit agents as separate background teammate
-processes (each its own root process, writing files independently of the orchestrator's own
-turns), 31 files were found root-owned mid-session by a manual `check_ownership.py` run —
-including 3 `.git/objects/*` files and a chunk of `.omc/state/session-end-jobs/**`. The
-auto-heal Stop hook is turn-scoped to the *orchestrator's own* session; it has no way to catch
-files written by a teammate/background process between the orchestrator's turns, and several of
-those teammates ran disowned `nohup` Python jobs that kept writing files for 20+ minutes at a
-stretch with no orchestrator turn boundary in between. The 2026-08-22 fix is real and still
-correct for the single-session case it was built and verified against — it just doesn't reach
-multi-agent/background-heavy sessions, which is exactly the shape of session this bot now runs
-regularly (team/ultrawork/swarm-style work). This instance was cleaned up manually
-(`check_ownership.py --fix`, then `git add`/commit proceeded normally) — the open item is
-making the *automatic* repair reach this case too, not this specific mess.
+**CURRENT STATUS (2026-08-23, later same day):** Closed. Four pieces landed:
 
 Run the Claude Code session as `openclaw` instead of root, so the bot's own files stop turning root-owned every turn and quietly breaking things like pushes and the options feed.
 
@@ -828,9 +814,10 @@ Run the Claude Code session as `openclaw` instead of root, so the bot's own file
 
 **File:** `fetch_history_extended_hours_gap.md`
 
-**CURRENT STATUS (2026-08-23):** Found during the event-reaction research session
-(`.omc/plans/event-reaction-short-duration-scanner-research-prompt.md`), confirmed by reading
-the actual code, not fixed (research-only session, no production changes allowed). Not yet
-prioritized against other work.
+**CURRENT STATUS (2026-08-23):** Fixed and committed (671e3df). `fetch_history()` now takes
+`extended_hours: bool = False` and forwards it to `schwab_client.get_price_history()` and to
+yfinance's `prepost` flag. Verified with unit tests for both paths, a real Schwab call (SPY
+5d/5m: 1306 bars extended vs 390 regular, extended run starting hours before the 9:30am open),
+the full pytest suite, and a live `!all SPY` in Discord after restarting the engine.
 
 Make the shared price-history helper actually return premarket/after-hours bars when asked, instead of quietly handing back regular-session-only data with no error.

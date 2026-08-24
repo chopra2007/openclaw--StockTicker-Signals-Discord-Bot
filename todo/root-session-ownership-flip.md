@@ -1,7 +1,45 @@
 # Stop root sessions from leaving files the bot cannot write
 
-**Status:** OPEN
+**Status:** DONE
 **Created:** 2026-08-22
+
+**CURRENT STATUS (2026-08-23, later same day):** Closed. Four pieces landed:
+
+1. **B0 — fixed a second, worse bug found while building this: the ownership guard itself
+   was blind to a class of failure.** A July 2026 migration left a default ACL on the whole
+   workspace tree (`setfacl -R -d -m u:root:rwX`, `docs/migration/MIGRATION_REPORT.md:270`).
+   That ACL makes the permission bits `check_ownership.py` was reading lie — `ls -l` shows the
+   ACL *mask* in the group-permission slot, not the group's real permission, so a root-written
+   file could read as group-writable while the bot was genuinely denied. Reproduced live before
+   the fix (guard said "clean", `su openclaw -c 'echo x >> file'` said Permission denied) and
+   confirmed fixed after (both agree). Fix: `writable_by_bot()` now runs a real
+   `os.access(path, W_OK)` test as the bot (one subprocess, privileges dropped once, not per
+   file — full-tree scan of ~30k files still ~0.5s) instead of reading stat bits; `setfacl -R -m
+   g::rwX` + `-d -m g::rwX` on the tree gives the bot's own group real write, which the
+   2026-08-22 setgid fix was supposed to provide but the leftover ACL silently blocked. This
+   alone closes most of the exposure window: most root-written files are now writable by the
+   bot via the group *immediately*, without waiting for any repair.
+2. **B1 — a repair that isn't tied to any Claude Code process.** New `ownership-heal.timer`
+   (systemd, every 2 minutes, `python3 scripts/check_ownership.py --fix --quiet` as root,
+   `Persistent=true`) closes the gap the per-turn Stop hook can't reach: a detached background
+   job or a teammate process writing root-owned files with no turn boundary in between. Silent
+   when a run finds nothing (confirmed: at least one 2-minute cycle during testing wrote zero
+   log lines); logs a line when it fixes something.
+3. **B2 — the ownership hook now also fires on `SubagentStop`,** not just `Stop`, so an
+   in-process subagent gets repaired the moment it finishes instead of waiting up to 2 minutes.
+4. **B3 — answered this file's own open question.** Every log line now says which trigger ran
+   it (`stop` / `subagent-stop` / `timer`) and the session id. Verified live: a real subagent
+   spawn produced `source=subagent-stop session=<real session id>` in the log within seconds of
+   the subagent finishing — **teammate/subagent processes do fire the hook**, closing the
+   question this file had been carrying since 2026-08-22.
+
+Verified end-to-end, not just "the timer is enabled": reproduced the original bug (a detached
+`nohup` writer left a file `root:root` with nothing repairing it), then reproduced the exact
+`schwab_token.json` failure shape (`chmod 600 root:root`) and watched the timer hand it back in
+51 seconds with mode preserved; confirmed the healer touches nothing outside
+`/home/openclaw/.openclaw` (`/root/task_system/scripts/`, `/etc/systemd/system/` unchanged
+before/after); confirmed `git add`/`git commit` still works cleanly with the timer live (one of
+the 2026-08-23 incident's file types was `.git/objects/*`).
 
 **CURRENT STATUS (2026-08-23):** Reopened — the per-turn auto-heal from 2026-08-22 does not
 cover a long multi-agent session. During a ~7-hour event-reaction research session
