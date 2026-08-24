@@ -82,13 +82,57 @@ def bot_ids() -> tuple[int, int]:
     return entry.pw_uid, entry.pw_gid
 
 
-def writable_by_bot(st: os.stat_result, uid: int, gid: int) -> bool:
-    """Can user `openclaw` write this, by owner/group/other bits?"""
-    mode = st.st_mode
+def _os_access_batch(paths: list[str]) -> dict[str, bool]:
+    """Real write-access test for BOT_USER, run in one subprocess with privileges
+    dropped to the bot (TODO #91 B0). A July 2026 migration left a default ACL on
+    the tree that makes `st_mode`'s group bits lie: `ls -l` shows the ACL mask in
+    that position, not the group's actual permission, so bit arithmetic can say
+    "writable" while the bot is denied. os.access(), run as the bot, is correct
+    under ACLs because the kernel resolves the real effective permission.
+
+    Requires root (to drop into the bot's uid/gid). Returns {} if not root --
+    caller falls back to the old (ACL-blind) bit arithmetic in that case.
+    """
+    if not paths or os.geteuid() != 0:
+        return {}
+    import json
+    import subprocess
+    uid, gid = bot_ids()
+
+    def _drop_to_bot():
+        os.setgroups([])
+        os.setgid(gid)
+        os.setuid(uid)
+
+    script = (
+        "import json, os, sys\n"
+        "paths = json.load(sys.stdin)\n"
+        "print(json.dumps({p: os.access(p, os.W_OK) for p in paths}))\n"
+    )
+    try:
+        proc = subprocess.run(
+            [sys.executable, "-c", script],
+            input=json.dumps(paths), capture_output=True, text=True,
+            preexec_fn=_drop_to_bot, timeout=30,
+        )
+        return json.loads(proc.stdout)
+    except Exception:
+        return {}
+
+
+def writable_by_bot(st: os.stat_result, uid: int, gid: int,
+                     path: str | None = None,
+                     access_results: dict[str, bool] | None = None) -> bool:
+    """Can user `openclaw` write this?"""
     if st.st_uid == uid:
         # The bot owns it, so it can always give itself write access again.
         # Deliberately read-only files (git pack files, for one) are not a problem.
         return True
+    if access_results is not None and path in access_results:
+        return access_results[path]
+    # Not root (or the batch call failed) -- best-effort bit check. Wrong under
+    # ACLs (TODO #91), kept only so a non-root manual run still reports something.
+    mode = st.st_mode
     if st.st_gid == gid:
         return bool(mode & stat.S_IWGRP)
     return bool(mode & stat.S_IWOTH)
@@ -110,6 +154,7 @@ def scan() -> list[tuple[str, str]]:
     uid, gid = bot_ids()
     bad: list[tuple[str, str]] = []
     seen: set[str] = set()
+    stats: dict[str, os.stat_result] = {}
 
     paths = []
     for root in SCAN_ROOTS:
@@ -126,7 +171,15 @@ def scan() -> list[tuple[str, str]]:
             continue
         if stat.S_ISLNK(st.st_mode):
             continue
-        if writable_by_bot(st, uid, gid):
+        stats[path] = st
+
+    # Real access test as the bot for everything it doesn't already own (bit
+    # arithmetic is wrong under the tree's default ACL -- see writable_by_bot).
+    candidates = [p for p, st in stats.items() if st.st_uid != uid]
+    access_results = _os_access_batch(candidates)
+
+    for path, st in stats.items():
+        if writable_by_bot(st, uid, gid, path, access_results):
             continue
         try:
             owner = pwd.getpwuid(st.st_uid).pw_name
