@@ -830,13 +830,20 @@ Make the shared price-history helper actually return premarket/after-hours bars 
 
 Find and independently prove an opening-auction signal that can produce zero to four strong stock setups during 6:15–6:45 a.m. Pacific and still work after a five-minute reaction delay and realistic costs.
 
-## 94. Fix the NFCI market-context test that fails once too many days pass
+## 94. Fix the NFCI market-context test that fails once too many days pass — DONE 2026-08-24
 
 **File:** `nfci_display_test_time_bomb.md`
 
-**CURRENT STATUS (2026-08-24):** Root-caused, not fixed. Found while running the full test
-suite for an unrelated session (TODO #91/#92) — confirmed unrelated to that work (no shared
-code touched) and failing in isolation, so it's a pre-existing bug, not a regression from
-that session.
+**CURRENT STATUS (2026-08-24):** Fixed. `test_market_handler_uses_cached_nfci_row_only` now
+patches `consensus_engine.alerts.commands.datetime` and freezes "today" to 2026-08-16 (the
+same pattern the sibling test `test_market_always_renders_usable_normal_reading` in this same
+file already used), so the fake reading's date no longer ages past the 16-day staleness cutoff
+as real calendar time moves. Verified: the test and the other 8 in its file all pass; the 3
+other files that touch `_build_market_embed`/`_handle_market`
+(`test_vvix_residual.py`, `test_market_command.py`, `test_r20_market_breadth.py`) still pass —
+51 tests total, all green. Checked the open question below — no other fixed-date time bombs in
+this file; the other hardcoded `"2026-08-07"` occurrences are either already inside the frozen
+test or plain string round-trip assertions that don't go through the staleness check. Removed
+from `.test-baseline`.
 
 Fix a test for the `!market` command's economic-conditions display that hardcodes a fixed date, so it silently starts failing once real time drifts more than 16 days past that date rather than reflecting anything actually broken in the code.

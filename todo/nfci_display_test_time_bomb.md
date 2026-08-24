@@ -1,12 +1,19 @@
 # Fix the NFCI market-context test that fails once too many days pass
 
-**Status:** OPEN
+**Status:** DONE
 **Created:** 2026-08-24
 
-**CURRENT STATUS (2026-08-24):** Root-caused, not fixed. Found while running the full test
-suite for an unrelated session (TODO #91/#92) — confirmed unrelated to that work (no shared
-code touched) and failing in isolation, so it's a pre-existing bug, not a regression from
-that session.
+**CURRENT STATUS (2026-08-24):** Fixed. `test_market_handler_uses_cached_nfci_row_only` now
+patches `consensus_engine.alerts.commands.datetime` and freezes "today" to 2026-08-16 (the
+same pattern the sibling test `test_market_always_renders_usable_normal_reading` in this same
+file already used), so the fake reading's date no longer ages past the 16-day staleness cutoff
+as real calendar time moves. Verified: the test and the other 8 in its file all pass; the 3
+other files that touch `_build_market_embed`/`_handle_market`
+(`test_vvix_residual.py`, `test_market_command.py`, `test_r20_market_breadth.py`) still pass —
+51 tests total, all green. Checked the open question below — no other fixed-date time bombs in
+this file; the other hardcoded `"2026-08-07"` occurrences are either already inside the frozen
+test or plain string round-trip assertions that don't go through the staleness check. Removed
+from `.test-baseline`.
 
 ## What's wrong
 

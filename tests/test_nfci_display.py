@@ -179,7 +179,12 @@ async def test_market_handler_uses_cached_nfci_row_only(monkeypatch):
     monkeypatch.setattr(commands.db, "get_latest_nfci_display", lambda: _async_value(_row()))
     monkeypatch.setattr(commands, "_build_market_context_fields", lambda: _async_value([]))
     monkeypatch.setattr(commands, "send_command_embed_reply", capture)
-    with patch("urllib.request.urlopen", side_effect=AssertionError("network called")):
+    with patch("urllib.request.urlopen", side_effect=AssertionError("network called")), \
+         patch("consensus_engine.alerts.commands.datetime") as clock:
+        # Freeze "today" close to the fake row's 2026-08-07 reading so the
+        # 16-day staleness check in render_nfci_note() doesn't age it out as
+        # real calendar time moves past the fixed reading date (TODO #94).
+        clock.now.return_value = __import__("datetime").datetime(2026, 8, 16)
         await commands._handle_market("local", "local")
     assert "NFCI -0.549" in str(captured["embed"])
 
