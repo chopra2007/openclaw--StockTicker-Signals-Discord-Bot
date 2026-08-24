@@ -69,6 +69,18 @@ Always proceed without asking for confirmation. Never ask "shall I proceed?", "d
 
 Don't assume you can't access, research, or figure something out — assume you can, and work from there.
 
+### Close subagents when you're done with them
+
+When a subagent's work is accepted, stop it (`TaskStop`) instead of leaving it
+idle. This session runs with `teammateMode: "tmux"` (forced by
+`/root/.openclaw/teams.sh`), so every subagent gets its own tmux pane, and that
+pane stays open for as long as the process lives. An idle agent is not
+finished — it is holding its memory of the work, waiting for a follow-up.
+
+Keep one alive only when you still owe it something: a correction to re-check,
+a question you have not asked yet. Otherwise stop it in the same turn you
+accept its result, and say so in one short line.
+
 ## TODO List
 
 When the user says "add X to the to do list" (or "put that on the list", "add this to the todo", "save that as a todo"), asks "what's on the to do list?", references a TODO by number (e.g. "look at #14"), says "resume #N" / "/todo-resume N" / "work on #N" / "pick up #N", or says "pause" / "/todo-pause" / "save progress": read `todo/CONVENTION.md` and follow its instructions.
