@@ -1,12 +1,13 @@
 # fetch_history() silently drops the extended-hours flag
 
-**Status:** OPEN
+**Status:** DONE
 **Created:** 2026-08-23
 
-**CURRENT STATUS (2026-08-23):** Found during the event-reaction research session
-(`.omc/plans/event-reaction-short-duration-scanner-research-prompt.md`), confirmed by reading
-the actual code, not fixed (research-only session, no production changes allowed). Not yet
-prioritized against other work.
+**CURRENT STATUS (2026-08-23):** Fixed and committed (671e3df). `fetch_history()` now takes
+`extended_hours: bool = False` and forwards it to `schwab_client.get_price_history()` and to
+yfinance's `prepost` flag. Verified with unit tests for both paths, a real Schwab call (SPY
+5d/5m: 1306 bars extended vs 390 regular, extended run starting hours before the 9:30am open),
+the full pytest suite, and a live `!all SPY` in Discord after restarting the engine.
 
 ## What's wrong
 
