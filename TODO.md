@@ -862,3 +862,9 @@ close.
 
 Get `MEMORY.md` back under its own 17KB working limit so the notes loaded into every session keep a safety margin before the size where they would silently stop loading.
 
+
+## 96. Watch yesterday's biggest bearish options bets each morning — SOAKING until 2026-09-26
+
+**File:** `extreme-put-flow-morning-shortlist.md`
+
+Turn yesterday's most extreme PUT buying into zero to four stocks to short against SPY each morning, entered 6:35am Pacific and closed four trading days later.

@@ -135,3 +135,7 @@ data/market_store/
 tests/fixtures/wolf_eval/*.txt
 data/flow_grading_prices.json
 data/catalyst_classifications.json
+
+# TODO #96: cached 5-minute and daily bars for the PUT-flow shortlist test.
+# Re-downloadable from Schwab at no cost; not repo content.
+data/put_flow_bars/

@@ -1293,3 +1293,21 @@ adapters:
 
 schwab:
   reauth_warn_days: 2   # #57 warn N days before the 7-day Schwab refresh-token expires
+
+# TODO #96: extreme-PUT-flow morning shortlist — owner-only measurement feature.
+# Yesterday's biggest PUT-buying bursts become at most four names to watch this
+# morning. The trade is a PAIR: equal dollars short the stock and long SPY,
+# entered 6:35 a.m. Pacific and closed 6:35 a.m. Pacific four sessions later.
+# Measured on stored data 2026-06-01 -> 2026-08-14: 181 trades, +1.83% average
+# after a 0.25% round-trip cost, 65.2% winners, profit factor 2.01. All eight
+# frozen gates passed. Evidence and the frozen candidate list:
+# .omc/research/extreme-put-flow-morning-shortlist/
+# The numbers below are FROZEN to match that test. Changing one invalidates it —
+# the thresholds live in consensus_engine/analysis/put_flow_shortlist.py and are
+# deliberately NOT config keys, so no future session can quietly retune them.
+put_flow_shortlist:
+  enabled: true          # ON in owner-only mode from 2026-08-24
+  owner_only: true       # posts to the owner's private briefing room, @-mentions the owner
+  channel_id: ""         # blank -> api_keys.discord_briefing_channel_id
+  max_per_date: 4        # a maximum, never a target; zero names is a normal day
+  quote_max_age_sec: 300 # a price older than this at 6:35 is rejected, not traded

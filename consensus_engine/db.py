@@ -1129,6 +1129,56 @@ CREATE TABLE IF NOT EXISTS options_flow_outcomes (
 CREATE INDEX IF NOT EXISTS idx_flow_outcomes_date ON options_flow_outcomes(market_date);
 CREATE INDEX IF NOT EXISTS idx_flow_outcomes_ticker ON options_flow_outcomes(ticker);
 
+-- TODO #96: the extreme-PUT-flow morning shortlist. One row per (signal_date,
+-- ticker) — the stock picked from YESTERDAY's extreme PUT flow, and everything
+-- needed to reproduce why it was picked and what the trade did.
+-- The trade is a PAIR: equal dollars short the stock, long SPY. `net_pct` is
+-- SPY's move minus the stock's move, less the round-trip cost.
+-- status: WATCH (posted, not entered) | ENTERED | REJECTED (bad quote at 6:35)
+--         | CLOSED (exit filled) | EXPIRED (never entered, window passed)
+-- The *_msg_id columns are the duplicate-post guard: a set id means that card
+-- has already been posted, so a rerun updates instead of posting again.
+CREATE TABLE IF NOT EXISTS put_flow_shortlist (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    signal_date TEXT NOT NULL,
+    entry_session TEXT NOT NULL,
+    ticker TEXT NOT NULL,
+    rank INTEGER NOT NULL,
+    flow_id INTEGER,
+    contract_symbol TEXT,
+    vol_oi_ratio REAL,
+    volume INTEGER,
+    premium_usd REAL,
+    strike REAL,
+    expiry TEXT,
+    detected_at REAL,
+    signal_spot REAL,
+    planned_entry_pt TEXT,
+    entry_at REAL,
+    entry_stock_px REAL,
+    entry_spy_px REAL,
+    reject_reason TEXT,
+    planned_exit_session TEXT,
+    planned_exit_pt TEXT,
+    exit_at REAL,
+    exit_stock_px REAL,
+    exit_spy_px REAL,
+    stock_ret_pct REAL,
+    spy_ret_pct REAL,
+    cost_pct REAL,
+    net_pct REAL,
+    status TEXT NOT NULL DEFAULT 'WATCH',
+    watch_msg_id TEXT,
+    entry_msg_id TEXT,
+    result_msg_id TEXT,
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL,
+    UNIQUE(signal_date, ticker)
+);
+CREATE INDEX IF NOT EXISTS idx_pfs_signal_date ON put_flow_shortlist(signal_date);
+CREATE INDEX IF NOT EXISTS idx_pfs_status ON put_flow_shortlist(status);
+CREATE INDEX IF NOT EXISTS idx_pfs_exit ON put_flow_shortlist(planned_exit_session);
+
 CREATE TABLE IF NOT EXISTS youtube_setups (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     run_id INTEGER NOT NULL REFERENCES youtube_analysis_runs(id),
