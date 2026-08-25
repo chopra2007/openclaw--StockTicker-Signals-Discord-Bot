@@ -70,6 +70,10 @@ Thumbs.db
 # Raw per-model trial output from the CI-fixer model race (#59) — scratch evidence, kept on disk
 .omc/trials/
 .omc/ci_fixer_*.json
+# Same idea, different tool: OMX scratch working files (interview notes, specs,
+# gathered context). Local to one machine, never part of the build.
+.omx/
+**/.omx/
 
 # Generated artifacts
 artifacts/

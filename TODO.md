@@ -863,21 +863,15 @@ close.
 Get `MEMORY.md` back under its own 17KB working limit so the notes loaded into every session keep a safety margin before the size where they would silently stop loading.
 
 
-## 96. Track extreme PUT activity each morning
+## 96. Track extreme PUT activity each morning — SOAKING until 2026-09-26
 
 **File:** `extreme-put-flow-morning-shortlist.md`
 
-**CURRENT STATUS (2026-08-24, late evening):** SOAKING until 2026-09-26.
-Pre-open hardening is done and proven. The morning card no longer claims every
-PUT was bought — it says "extreme PUT activity" and shows the real option-side
-label per name, copied from the existing #options-flow classifier and frozen
-into the row so it cannot be rewritten later. The selection rule did not move:
-the live selector still reproduces the frozen 188 picks exactly. Schwab really
-does report short availability, so it is now stored, shown, and a stock Schwab
-says cannot be shorted is refused before entry. Four timers are armed, all
-Pacific: 6:10 readiness, 6:15 watch card, 6:35 entry, 6:40 entry proof — the two
-new checks stay silent unless something is actually wrong. **Next: check the
-2026-08-25 entries after 6:40 a.m. Pacific (AMZN, GOOGL, META, BMNR), then the
-2026-08-31 exit card.**
+**CURRENT STATUS (2026-08-24, late evening):** Pre-open hardening is DONE and
+proven. The card no longer claims every PUT was bought — it says "extreme PUT
+activity" and shows the real option-side label per name, taken from the existing
+#options-flow classifier. The frozen rule did not move: the live selector still
+reproduces the frozen 188 picks exactly. Four timers are armed for the morning
+(6:10 readiness, 6:15 watch card, 6:35 entry, 6:40 entry proof), all Pacific.
 
 Turn yesterday's most extreme PUT activity into zero to four stocks to short against SPY each morning, while displaying the existing BUY/SELL classification honestly.
