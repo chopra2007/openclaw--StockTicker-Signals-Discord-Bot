@@ -118,3 +118,71 @@ is for.
   This is a different mechanism on different data and does not reopen it.
 - TODO #57 built the options-flow grading this rests on.
 - TODO #80 (grade the BUY/SELL tag) is untouched — this feature does not use it.
+
+---
+
+## Session notes — 2026-08-24
+
+Built end to end in one session, from the build prompt at
+`.omc/plans/extreme-put-flow-morning-shortlist-build-prompt.md`.
+
+**What happened, in order:**
+
+1. Reproduced every number in the build prompt from `consensus.db` before
+   touching code. All matched: 2,680 events, 349 extreme PUT events at 33.5%,
+   188 picks over 53 mornings and 88 stocks, +1.795% average. The only
+   differences were in the resampled 95% range and the early/late split, both
+   from a different random seed and a one-day difference in where an odd number
+   of dates splits. Neither changes a conclusion.
+2. Froze the candidate list and its fingerprint
+   (`5b7cfcc12ec454113bb7b5bdb7713938d8f129f21977e252b175d2db9ab98427`), then
+   wrote down the hard-to-borrow rule, both **before** fetching a single price.
+3. Found that Schwab `/pricehistory` serves 5-minute bars back about six months.
+   That covered the whole window, so **nothing was bought** — the Databento
+   credit is untouched at $8.471612 and no auction data was purchased. All 89
+   tickers returned complete bars; zero trades were unpriceable.
+4. Ran the exact 6:35 a.m. Pacific test. **All eight gates passed.**
+5. One real methodology fix along the way: the first version of gate 8 compared
+   the 53-morning selected average against a 26-morning control. A "same-date
+   comparison" has to be date-matched or it compares different markets. Fixed to
+   re-average the selected group over exactly the control's mornings. This was
+   correcting a bug in the gate, not loosening it — and it is worth knowing that
+   the ranked-5th-to-8th names earn nearly as much as the top four, so the edge
+   is in the extreme-PUT filter, not in the ranking.
+6. Built the feature, then **replayed the live selector over all 53 signal
+   dates**: it produced the frozen 188 picks exactly — same stocks, mornings and
+   ranks, zero differences. That is the proof the morning job uses the same rule
+   as the test, rather than an assertion that it does.
+7. Turned it ON owner-only in the same session and posted a real card, read back
+   from Discord.
+
+**Proof run:**
+
+- 29 focused tests pass; full suite 3,579 passed, 0 failed (`.test-baseline` is
+  empty, so zero regressions).
+- `db.py` and `config/consensus.yaml` are both tripwire files, so `!all NVDA`
+  and an @-mention were both re-checked in Discord — both answer correctly.
+- Real Schwab quotes exercised both entry branches on a scratch copy of the
+  database: the freshness guard refused all four names at 8pm ("quote is 11714s
+  old"), and with the window widened it stored real entries (GOOGL $348.06,
+  BMNR $24.14, SPY $763.47) while the halt guard correctly rejected AMZN and
+  META as "closed". The exit path produced +1.71% from a -1.96% stock move
+  against a flat SPY, less the 0.25% cost.
+- Services active, symlink correct, no drift or AI-health failures, ownership
+  clean.
+
+**An independent agent** rebuilt the whole pipeline with its own code, forbidden
+to import any of the builder's scripts. Verdict CONFIRMED: every headline number
+matched to the decimal, all 12 hand-checked trades matched, and seven specific
+error checks (look-ahead, exit spacing, cost sign, trade direction,
+forward-looking selection columns, duplicate candidates, off-calendar prices)
+came back clean. One sentence in its report described the trade as buying rather
+than shorting — its numbers were computed correctly, only the prose slipped, and
+that sentence is now corrected in the report.
+
+**First live card** posted 2026-08-24 evening for signal date 2026-08-24, so the
+6:15 job on 2026-08-25 will correctly skip re-posting (duplicate guard) and the
+6:35 job will enter AMZN, GOOGL, META and BMNR.
+
+**What to look at first next session:** whether the 6:35 entries actually filled
+on 2026-08-25, and the result card due 2026-08-31.

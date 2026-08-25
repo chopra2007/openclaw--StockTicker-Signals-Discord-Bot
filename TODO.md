@@ -867,4 +867,12 @@ Get `MEMORY.md` back under its own 17KB working limit so the notes loaded into e
 
 **File:** `extreme-put-flow-morning-shortlist.md`
 
+**CURRENT STATUS (2026-08-24):** Built, tested, and turned ON in owner-only mode
+the same session. All eight frozen gates passed on stored data and an
+independent verifier reproduced every headline number from scratch. The two
+timers are armed. What the soak buys: real posted cards and real 6:35 a.m.
+entries and exits accruing in `put_flow_shortlist`, which is the only thing that
+can tell us whether the live feature behaves like the historical test. First
+real card fires 6:15 a.m. Pacific on 2026-08-25.
+
 Turn yesterday's most extreme PUT buying into zero to four stocks to short against SPY each morning, entered 6:35am Pacific and closed four trading days later.
