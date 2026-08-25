@@ -1896,6 +1896,24 @@ async def _run_column_migrations(conn) -> None:
         ("options_flow", "flow_side", "TEXT"),
         ("options_flow", "bid",       "REAL"),
         ("options_flow", "ask",       "REAL"),
+        # TODO #96: the classifier's short reason for the label ("at-ask", "AA",
+        # "at-bid", "BB", "" for AMBIGUOUS). It was computed but never stored, so
+        # rows written before this column exists keep it NULL forever — that is a
+        # missing note, never a reason to re-guess the label.
+        ("options_flow", "flow_side_note", "TEXT"),
+        # TODO #96: a FROZEN snapshot of the source row's buy/sell label, copied
+        # once when the shortlist row is created. Kept here so a later change to
+        # the options_flow row can never rewrite what the card said. DISPLAY AND
+        # MEASUREMENT ONLY — it never affects which stocks are picked.
+        # NULL flow_side = the source row predates the label ("not recorded").
+        ("put_flow_shortlist", "flow_side", "TEXT"),
+        ("put_flow_shortlist", "flow_side_note", "TEXT"),
+        # TODO #96: Schwab's point-in-time short availability, taken at 6:35 with
+        # the entry quote. 1/0/NULL = shortable / not shortable / Schwab did not
+        # say. Only an explicit 0 rejects an entry; NULL never does.
+        ("put_flow_shortlist", "shortable", "INTEGER"),
+        ("put_flow_shortlist", "hard_to_borrow", "INTEGER"),
+        ("put_flow_shortlist", "htb_rate", "REAL"),
         # TODO #87: SPY expected-move numbers + chart-render flags for the morning
         # brief card, as compact JSON. Kept OUT of rendered_content so a retry
         # re-posts clean readable text, not metadata. NULL on legacy rows.
@@ -4523,18 +4541,19 @@ async def insert_options_flow(hits: list, alerted_tickers: set | None = None) ->
     now = time.time()
     for h in hits:
         flow_side = h.flow_side if side_collect else None
+        note = (getattr(h, "flow_side_note", None) or None) if side_collect else None
         bid = h.bid if side_collect else None
         ask = h.ask if side_collect else None
         await conn.execute(
             """INSERT INTO options_flow
                (ticker, side, strike, expiry, volume, open_interest, vol_oi_ratio,
                 premium_usd, last_trade_ts, spot, contract_symbol, alerted, detected_at,
-                flow_side, bid, ask)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                flow_side, bid, ask, flow_side_note)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (h.ticker, h.side, h.strike, h.expiry, h.volume, h.open_interest,
              h.vol_oi_ratio, h.premium_usd, h.last_trade_ts, h.spot,
              h.contract_symbol, 1 if h.ticker in alerted else 0, now,
-             flow_side, bid, ask),
+             flow_side, bid, ask, note),
         )
     await conn.commit()
 

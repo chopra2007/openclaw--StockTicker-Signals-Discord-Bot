@@ -253,7 +253,8 @@ def test_empty_day_card_says_so_plainly():
 def test_every_card_fits_one_discord_message():
     """Discord refuses anything over 2000 characters."""
     four = [dict(_rows()[0], rank=i, ticker=f"TICK{i}") for i in range(1, 5)]
-    assert len(job.render_watch_card("2026-08-14", "2026-08-17", four)) <= 2000
+    # 1950, not 2000: the real post carries an "@owner " prefix in front of this.
+    assert len(job.render_watch_card("2026-08-14", "2026-08-17", four)) <= 1950
     entered = [{"ticker": f"T{i}", "entry_stock_px": 100.0 + i,
                 "entry_spy_px": 600.0, "planned_exit_session": "2026-08-21"}
                for i in range(4)]
@@ -335,3 +336,333 @@ def test_frozen_numbers_are_the_tested_ones():
     assert pfs.MAX_PER_DATE == 4
     assert pfs.HOLD_SESSIONS == 4
     assert pfs.ENTRY_TIME_PT == "06:35"
+
+
+# ─────────── the buy/sell label: shown, stored, never used to select ───────
+#
+# The measured edge is extreme PUT ACTIVITY. Whether one print was bought or
+# sold is descriptive. These tests are the guard rail against a future session
+# quietly promoting the label into a filter, or quietly guessing a missing one.
+
+def test_selection_is_identical_whatever_the_option_side_says():
+    """Every label, and no label at all, must produce the same four names."""
+    base = [ev("AAA", 900, flow_id=1), ev("BBB", 800, flow_id=2),
+            ev("CCC", 700, flow_id=3), ev("DDD", 600, flow_id=4),
+            ev("EEE", 500, flow_id=5)]
+    expected = [(r["ticker"], r["rank"]) for r in pfs.select(base)]
+    assert expected == [("AAA", 1), ("BBB", 2), ("CCC", 3), ("DDD", 4)]
+    for label in ("BUY", "SELL", "AMBIGUOUS", None, "", "nonsense"):
+        tagged = [dict(e, flow_side=label) for e in base]
+        assert [(r["ticker"], r["rank"]) for r in pfs.select(tagged)] == expected
+    # Mixed labels must not reorder anything either.
+    mixed = [dict(e, flow_side=s) for e, s in
+             zip(base, ["SELL", "BUY", None, "AMBIGUOUS", "BUY"])]
+    assert [(r["ticker"], r["rank"]) for r in pfs.select(mixed)] == expected
+
+
+def test_a_missing_label_stays_missing():
+    """A row collected before the label existed is never re-guessed."""
+    for empty in (None, "", "   "):
+        assert pfs.side_bucket(empty) == "MISSING"
+        assert "not recorded" in pfs.side_label(empty)
+    # An unrecognised value is also not evidence of a side.
+    assert pfs.side_bucket("PROBABLY_BUY") == "MISSING"
+
+
+def test_each_label_reads_as_itself():
+    assert pfs.side_bucket("BUY") == "BUY"
+    assert pfs.side_bucket("sell") == "SELL"
+    assert pfs.side_bucket("AMBIGUOUS") == "AMBIGUOUS"
+    assert "PUT BUY" in pfs.side_label("BUY")
+    assert "PUT SELL" in pfs.side_label("SELL")
+    assert "unclear" in pfs.side_label("AMBIGUOUS")
+    assert "(at-ask)" in pfs.side_label("BUY", "at-ask")
+
+
+def test_put_sell_is_never_called_a_bearish_bet():
+    """The card may call the PAIR bearish. It must never call a PUT SELL one."""
+    rows = [dict(_rows()[0], flow_side="SELL")]
+    for card in (job.render_watch_card("2026-08-14", "2026-08-17", rows),
+                 job.render_entry_card("2026-08-17",
+                                       [dict(rows[0], entry_stock_px=100.0,
+                                             entry_spy_px=600.0)], [])):
+        assert "PUT SELL" in card
+        lowered = card.lower()
+        assert "bearish options bet" not in lowered
+        assert "put buying" not in lowered
+        assert "heavy put buying" not in lowered
+        # and it must say out loud that the label is not the selector
+        assert "does not pick or rank" in lowered
+        assert "put sell is not a bearish bet" in lowered
+
+
+def test_the_card_no_longer_claims_every_put_was_bought():
+    card = job.render_watch_card("2026-08-14", "2026-08-17", _rows())
+    assert "extreme PUT activity" in card
+    assert "PUT buying" not in card
+
+
+def test_a_card_with_no_recorded_label_says_so_honestly():
+    rows = [dict(_rows()[0], flow_side=None)]
+    card = job.render_watch_card("2026-08-14", "2026-08-17", rows)
+    assert "not recorded" in card
+    # The per-name line must not claim a side. (The closing note explains what
+    # the labels mean, so it names them on purpose — check the name line only.)
+    side_lines = [ln for ln in card.splitlines() if "Option side:" in ln]
+    assert side_lines
+    for line in side_lines:
+        assert "PUT BUY" not in line and "PUT SELL" not in line
+
+
+# ─────────────────────── real short availability ───────────────────────
+
+def test_only_an_explicit_no_from_schwab_blocks_a_short():
+    assert pfs.short_problem({"shortable": False}) != ""
+    assert pfs.short_problem({"shortable": True}) == ""
+    # Schwab not answering is not a No.
+    assert pfs.short_problem({}) == ""
+    assert pfs.short_problem({"shortable": None}) == ""
+    assert pfs.short_problem(None) == ""
+
+
+def test_borrow_note_stays_quiet_when_schwab_did_not_say():
+    assert job._borrow_note({}) == ""
+    assert job._borrow_note({"hard_to_borrow": None}) == ""
+    assert "easy to borrow" in job._borrow_note({"hard_to_borrow": False})
+    hard = job._borrow_note({"hard_to_borrow": True, "htb_rate": 12.5})
+    assert "hard to borrow" in hard and "12.5%" in hard
+
+
+# ─────────────────────── the label survives storage ───────────────────────
+
+async def test_the_stored_label_is_a_frozen_snapshot(tmp_db, monkeypatch):
+    """Re-running prepare must not rewrite what the posted card already said."""
+    async def fake_post(content, dry_run):
+        return None
+
+    async def shortlist(signal_date, max_per_date=None):
+        return [{"flow_id": 7, "ticker": "NVDA", "rank": 1, "contract_symbol": "C",
+                 "vol_oi_ratio": 537.0, "volume": 537, "premium_usd": 791000.0,
+                 "strike": 240.0, "expiry": "2026-08-17", "detected_at": 1.0,
+                 "spot": 240.0, "flow_side": "BUY", "flow_side_note": "at-ask"}]
+
+    monkeypatch.setattr(job, "_post", fake_post)
+    monkeypatch.setattr(job.pfs, "shortlist_for_date", shortlist)
+    await job.prepare(signal_date="2026-08-14", dry_run=True)
+
+    conn = await db.get_db()
+    cur = await conn.execute("SELECT flow_side, flow_side_note FROM put_flow_shortlist")
+    row = await cur.fetchone()
+    assert (row["flow_side"], row["flow_side_note"]) == ("BUY", "at-ask")
+
+    # The source row is regraded to SELL. The stored snapshot must not move.
+    async def regraded(signal_date, max_per_date=None):
+        out = await shortlist(signal_date, max_per_date)
+        out[0]["flow_side"] = "SELL"
+        return out
+
+    monkeypatch.setattr(job.pfs, "shortlist_for_date", regraded)
+    await job.prepare(signal_date="2026-08-14", dry_run=True)
+    cur = await conn.execute("SELECT flow_side FROM put_flow_shortlist")
+    assert (await cur.fetchone())["flow_side"] == "BUY"
+
+
+async def test_the_migration_keeps_existing_shortlist_rows(tmp_db):
+    """Adding the new columns must not drop or blank an existing row."""
+    await _seed(ticker="AMZN", signal_date="2026-08-24")
+    conn = await db.get_db()
+    cur = await conn.execute("SELECT ticker, rank, status FROM put_flow_shortlist")
+    before = [tuple(r) for r in await cur.fetchall()]
+    await db._run_column_migrations(conn)      # idempotent, runs again
+    cur = await conn.execute("SELECT ticker, rank, status FROM put_flow_shortlist")
+    assert [tuple(r) for r in await cur.fetchall()] == before
+    cur = await conn.execute("PRAGMA table_info(put_flow_shortlist)")
+    cols = {r["name"] for r in await cur.fetchall()}
+    assert {"flow_side", "flow_side_note", "shortable",
+            "hard_to_borrow", "htb_rate"} <= cols
+
+
+async def test_results_are_counted_separately_for_each_option_side(tmp_db):
+    conn = await db.get_db()
+    now = time.time()
+    for i, (ticker, side, net) in enumerate([
+            ("AAA", "BUY", 2.0), ("BBB", "BUY", -1.0), ("CCC", "SELL", 3.0),
+            ("DDD", "AMBIGUOUS", 0.5), ("EEE", None, -2.0)]):
+        await conn.execute(
+            "INSERT INTO put_flow_shortlist (signal_date, entry_session, ticker, "
+            "rank, status, flow_side, net_pct, created_at, updated_at) "
+            "VALUES (?,?,?,?, 'CLOSED', ?,?,?,?)",
+            (f"2026-08-0{i+1}", "2026-08-20", ticker, i + 1, side, net, now, now))
+    await conn.commit()
+    rep = await job.side_report()
+    assert rep["BUY"] == {"trades": 2, "won": 1, "avg_pct": 0.5}
+    assert rep["SELL"] == {"trades": 1, "won": 1, "avg_pct": 3.0}
+    assert rep["AMBIGUOUS"]["trades"] == 1
+    assert rep["MISSING"] == {"trades": 1, "won": 0, "avg_pct": -2.0}
+
+
+# ──────────────────── the 6:10 and 6:40 morning checks ────────────────────
+
+async def test_preflight_is_silent_when_everything_is_ready(tmp_db, monkeypatch):
+    await _seed(ticker="AMZN", signal_date="2026-08-24")
+    conn = await db.get_db()
+    await conn.execute("UPDATE put_flow_shortlist SET entry_session='2026-08-25', "
+                       "planned_exit_session=?", (pfs.session_plus("2026-08-25"),))
+    await conn.commit()
+    monkeypatch.setattr(job.cfg, "get", _cfg_on)
+    monkeypatch.setattr(job, "_timer_ready", _timers_fine)
+    out = await job.preflight(session="2026-08-25", dry_run=True)
+    assert out["ok"] is True
+    assert out["failed"] == []
+    assert out["posted"] is False
+
+
+async def test_preflight_names_the_exact_failed_check(tmp_db, monkeypatch):
+    await _seed(ticker="AMZN", signal_date="2026-08-24")
+    conn = await db.get_db()
+    # already entered before the market opened — that is the failure
+    await conn.execute("UPDATE put_flow_shortlist SET entry_session='2026-08-25', "
+                       "status='ENTERED', planned_exit_session=?",
+                       (pfs.session_plus("2026-08-25"),))
+    await conn.commit()
+    monkeypatch.setattr(job.cfg, "get", _cfg_on)
+    monkeypatch.setattr(job, "_timer_ready", _timers_fine)
+    out = await job.preflight(session="2026-08-25", dry_run=True)
+    assert out["ok"] is False
+    assert "already_traded" in out["failed"]
+    assert "AMZN" in " ".join(out["detail"])
+
+
+async def test_preflight_catches_a_wrong_exit_day(tmp_db, monkeypatch):
+    await _seed(ticker="AMZN", signal_date="2026-08-24")
+    conn = await db.get_db()
+    await conn.execute("UPDATE put_flow_shortlist SET entry_session='2026-08-25', "
+                       "planned_exit_session='2026-09-30'")
+    await conn.commit()
+    monkeypatch.setattr(job.cfg, "get", _cfg_on)
+    monkeypatch.setattr(job, "_timer_ready", _timers_fine)
+    out = await job.preflight(session="2026-08-25", dry_run=True)
+    assert "wrong_exit_day" in out["failed"]
+
+
+async def test_entry_proof_is_silent_when_the_morning_went_right(tmp_db, monkeypatch):
+    await _seed(ticker="AMZN", signal_date="2026-08-24")
+    conn = await db.get_db()
+    await conn.execute(
+        "UPDATE put_flow_shortlist SET entry_session='2026-08-25', status='ENTERED', "
+        "entry_at=?, entry_stock_px=200.0, entry_spy_px=600.0, entry_msg_id='42'",
+        (time.time() - 300,))                  # taken five minutes ago, at 6:35
+    await conn.commit()
+    monkeypatch.setattr(job.cfg, "get", _cfg_on)
+    out = await job.entry_proof(session="2026-08-25", dry_run=True)
+    assert out["ok"] is True and out["posted"] is False
+
+
+async def test_entry_proof_catches_a_name_the_635_job_never_touched(tmp_db, monkeypatch):
+    await _seed(ticker="AMZN", signal_date="2026-08-24")
+    conn = await db.get_db()
+    await conn.execute("UPDATE put_flow_shortlist SET entry_session='2026-08-25'")
+    await conn.commit()
+    monkeypatch.setattr(job.cfg, "get", _cfg_on)
+    out = await job.entry_proof(session="2026-08-25", dry_run=True)
+    assert out["ok"] is False
+    assert "not_processed" in out["failed"]
+    assert "AMZN" in " ".join(out["detail"])
+
+
+async def test_entry_proof_catches_an_entry_with_no_price(tmp_db, monkeypatch):
+    await _seed(ticker="AMZN", signal_date="2026-08-24")
+    conn = await db.get_db()
+    await conn.execute(
+        "UPDATE put_flow_shortlist SET entry_session='2026-08-25', status='ENTERED', "
+        "entry_at=1.0, entry_stock_px=NULL, entry_spy_px=600.0, entry_msg_id='42'")
+    await conn.commit()
+    monkeypatch.setattr(job.cfg, "get", _cfg_on)
+    out = await job.entry_proof(session="2026-08-25", dry_run=True)
+    assert "no_entry_price" in out["failed"]
+
+
+async def test_entry_proof_catches_a_skip_with_no_reason(tmp_db, monkeypatch):
+    await _seed(ticker="AMZN", signal_date="2026-08-24")
+    conn = await db.get_db()
+    await conn.execute(
+        "UPDATE put_flow_shortlist SET entry_session='2026-08-25', "
+        "status='REJECTED', reject_reason='', entry_msg_id='42'")
+    await conn.commit()
+    monkeypatch.setattr(job.cfg, "get", _cfg_on)
+    out = await job.entry_proof(session="2026-08-25", dry_run=True)
+    assert "no_reason" in out["failed"]
+
+
+async def test_one_problem_produces_one_message_not_many(tmp_db, monkeypatch):
+    """The dedup rule: the same failure, checked twice, speaks once."""
+    sent = []
+
+    async def fake_report(alert_key, **kw):
+        # mirror ops_alert: post only when the state actually changes
+        prev = fake_report.state.get(alert_key)
+        now = (kw["down"], kw.get("failure_class"))
+        fake_report.state[alert_key] = now
+        if prev == now:
+            return False
+        sent.append((alert_key, kw["down"], kw.get("failure_class")))
+        return True
+    fake_report.state = {}
+
+    import consensus_engine.alerts.ops_alert as oa
+    monkeypatch.setattr(oa, "report_ops_state", fake_report)
+    monkeypatch.setattr(job.cfg, "get", _cfg_on)
+
+    await _seed(ticker="AMZN", signal_date="2026-08-24")
+    conn = await db.get_db()
+    await conn.execute("UPDATE put_flow_shortlist SET entry_session='2026-08-25'")
+    await conn.commit()
+    for _ in range(3):
+        await job.entry_proof(session="2026-08-25", dry_run=False)
+    assert len(sent) == 1, f"one problem produced {len(sent)} messages"
+
+
+# ───────────────── the four live rows waiting for 2026-08-25 ─────────────────
+
+def test_owner_visible_times_are_pacific():
+    """Never Eastern, and never a fixed offset that breaks twice a year."""
+    import inspect
+    src = inspect.getsource(job)
+    assert 'ZoneInfo("America/Los_Angeles")' in src
+    assert "US/Eastern" not in src and "America/New_York" not in src
+    assert job.PT.key == "America/Los_Angeles"
+    for card in (job.render_watch_card("2026-08-14", "2026-08-17", _rows()),
+                 job.render_entry_card("2026-08-17", [], [])):
+        assert " ET" not in card and "Eastern" not in card
+
+
+# ──────────────────────────── shared test helpers ────────────────────────────
+
+def _cfg_on(key, default=None):
+    """Config with the feature on, owner-only, and no Discord channel — so a
+    check under test never tries to reach the network."""
+    return {"put_flow_shortlist.enabled": True,
+            "put_flow_shortlist.owner_only": True,
+            "put_flow_shortlist.channel_id": "",
+            "ops_alerts.enabled": True}.get(key, default)
+
+
+async def _timers_fine(unit, session):
+    return True, ""
+
+
+async def test_entry_proof_catches_a_price_that_was_not_taken_this_morning(
+        tmp_db, monkeypatch):
+    """A back-filled or replayed entry price must not pass as a 6:35 fill."""
+    await _seed(ticker="AMZN", signal_date="2026-08-24")
+    conn = await db.get_db()
+    yesterday = time.time() - 26 * 3600
+    await conn.execute(
+        "UPDATE put_flow_shortlist SET entry_session='2026-08-25', status='ENTERED', "
+        "entry_at=?, entry_stock_px=200.0, entry_spy_px=600.0, entry_msg_id='42'",
+        (yesterday,))
+    await conn.commit()
+    monkeypatch.setattr(job.cfg, "get", _cfg_on)
+    out = await job.entry_proof(session="2026-08-25", dry_run=True)
+    assert "stale_entry" in out["failed"]
+    assert "hours ago" in " ".join(out["detail"])

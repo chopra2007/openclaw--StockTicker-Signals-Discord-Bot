@@ -454,9 +454,19 @@ def get_expirations(symbol: str) -> list[str]:
 # ---------------------------------------------------------------------------
 # Quotes -> Finnhub-shaped dict {c,pc,dp,o,h,l,v,t}
 # ---------------------------------------------------------------------------
+def _bool_or_none(v):
+    """True/False only when Schwab actually said so. Anything else is None.
+
+    A missing field means "Schwab did not tell us", which is not the same as
+    "you cannot short it". Callers must never treat None as a No.
+    """
+    return v if isinstance(v, bool) else None
+
+
 def _map_quote(entry: dict) -> dict:
     q = entry.get("quote", {}) or {}
     reg = entry.get("regular", {}) or {}
+    ref = entry.get("reference", {}) or {}
     # `c` = current/last regular price (matches yfinance fast_info lastPrice and
     # the chain's underlyingPrice); regularMarketLastPrice is stable across RTH
     # and after-hours. Fall back to quote.lastPrice.
@@ -477,6 +487,13 @@ def _map_quote(entry: dict) -> dict:
         "t": int(trade_time / 1000),              # epoch-ms -> epoch-seconds
         "quote_time": int(quote_time / 1000),
         "halt_status": str(q.get("securityStatus") or "unknown").lower(),
+        # TODO #96: Schwab's own point-in-time short availability, from the
+        # quote's `reference` block. `shortable` False means Schwab says you
+        # cannot short it right now; None means Schwab did not say. `htb_rate`
+        # is the hard-to-borrow annual rate Schwab quotes, 0.0 when easy.
+        "shortable": _bool_or_none(ref.get("isShortable")),
+        "hard_to_borrow": _bool_or_none(ref.get("isHardToBorrow")),
+        "htb_rate": _num(ref.get("htbRate")) if ref.get("htbRate") is not None else None,
     }
 
 

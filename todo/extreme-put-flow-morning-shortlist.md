@@ -3,20 +3,81 @@
 **Status:** SOAKING until 2026-09-26
 **Created:** 2026-08-24
 
-**CURRENT STATUS (2026-08-24):** Built, tested, and turned ON in owner-only mode
-the same session. All eight frozen gates passed on stored data and an
-independent verifier reproduced every headline number from scratch. The two
-timers are armed. What the soak buys: real posted cards and real 6:35 a.m.
-entries and exits accruing in `put_flow_shortlist`, which is the only thing that
-can tell us whether the live feature behaves like the historical test. First
-real card fires 6:15 a.m. Pacific on 2026-08-25.
+**CURRENT STATUS (2026-08-24, late evening):** Pre-open hardening is DONE and
+proven. The card no longer claims every PUT was bought — it says "extreme PUT
+activity" and shows the real option-side label per name, taken from the existing
+#options-flow classifier. The frozen rule did not move: the live selector still
+reproduces the frozen 188 picks exactly. Four timers are armed for the morning
+(6:10 readiness, 6:15 watch card, 6:35 entry, 6:40 entry proof), all Pacific.
+
+**Next two things to look at, in order:**
+
+1. **2026-08-25 after 6:40 a.m. Pacific — the entry check.** The 6:35 job should
+   enter AMZN, GOOGL, META and BMNR. Silence from the 6:10 and 6:40 checks means
+   it went right. Any message in the #errors room names the exact failed check.
+2. **2026-08-31 — the exit check.** Those four close at 6:35 a.m. Pacific and a
+   result card is posted.
+
+## Pre-open hardening — DONE 2026-08-24
+
+Execution contract: `.omc/plans/todo-96-preopen-hardening-prompt.md`.
+
+1. **The option side is shown, not invented.** Each shortlist row now copies the
+   `flow_side` already stored by the #options-flow scanner. No second classifier
+   was written. A row collected before that label existed reads "side not
+   recorded — older than the label" and stays that way.
+2. **The label cannot pick or rank a name.** Proved two ways: the selection code
+   never reads it, and the live selector replayed over all 53 signal dates still
+   produces the frozen 188 picks with zero differences.
+3. **The false wording is gone.** "heavy PUT buying" became "extreme PUT
+   activity" on the card, in the module, in this file and in the independent
+   verification write-up. The card now says in plain words that the pair is
+   bearish because of the SIZE of the PUT trading, and that the option-side
+   label describes one print and does not choose the names.
+4. **The label is frozen at pick time.** `put_flow_shortlist` stores its own copy
+   (`flow_side`, `flow_side_note`), so re-grading a source row later cannot
+   rewrite what a posted card said. `--side-report` counts closed results
+   separately for PUT BUY, PUT SELL, side-unclear and not-recorded.
+5. **Two new checks, both silent when things are fine.** 6:10 a.m. readiness and
+   6:40 a.m. entry proof. A real failure posts ONE message naming the exact
+   check, through the existing #errors machinery, which fires on the change
+   rather than the state.
+6. **Short availability is real, not guessed.** Schwab's quote does carry it —
+   `isShortable`, `isHardToBorrow` and `htbRate` in the response's `reference`
+   block. All three are stored with the entry and shown on the entry card. Only
+   an explicit "not shortable" rejects a name; a missing field is never read as
+   a No. All four names for 2026-08-25 came back shortable, not hard to borrow,
+   borrow rate 0.0.
+7. **The whole morning was rehearsed on a separate database** — 42 checks, all
+   passed, covering all four labels, zero and four candidates, stale stock
+   price, stale SPY price, halted stock, unshortable stock, a duplicate run, a
+   Discord failure, a valid entry, a valid four-session exit, a readiness
+   failure, an entry-proof failure, and weekend/holiday dates. Plus one real
+   Schwab request to prove live access and the response shape.
+
+**Known limit of the 6:10 check:** the 6:15 job is what creates each day's
+rows, so on a normal morning the 6:10 check runs before they exist. On those
+days it proves ACCESS — the switch is on, the three other timers are armed, the
+private room answers, Schwab answers for SPY — but it has no rows to inspect.
+It does check the rows whenever they already exist, which is the case for
+2026-08-25 because the card went out the previous evening. The rows are always
+fully checked after entry, at 6:40. If a row-shape check before entry turns out
+to matter, the place for it is the start of the 6:35 entry job, not here.
+
+**The other limitation worth knowing:** `flow_side_note` (the short reason like
+"at-ask") was computed by the scanner but never saved to the database until now.
+The column exists from tonight, so notes accumulate from here — but the four
+names waiting for 2026-08-25 have no note, only the label. Nothing was
+back-filled, because deriving the note after the fact would mean re-running the
+classifier on old numbers, and that is the guessing this ticket forbids.
 
 ## What this is, in plain words
 
-Yesterday the options scanner sometimes sees a burst of PUT buying in a stock
+Yesterday the options scanner sometimes sees a burst of PUT trading in a stock
 that is enormous compared with how many of those contracts were already open —
 50 times bigger or more. That burst turns out to carry real information about
-the next few days.
+the next few days. What was measured is the SIZE of the PUT activity, not proof
+that anyone was buying: the rule never looked at who started the trade.
 
 Each morning this feature turns yesterday's biggest bursts into **zero to four**
 stocks to watch. The trade it supports is a **pair**: put equal dollars into
@@ -117,7 +178,9 @@ is for.
 - TODO #93 (opening-auction edge) is **closed and rejected** and stays closed.
   This is a different mechanism on different data and does not reopen it.
 - TODO #57 built the options-flow grading this rests on.
-- TODO #80 (grade the BUY/SELL tag) is untouched — this feature does not use it.
+- TODO #80 still owns the statistical BUY/SELL grading decision. This feature
+  may display and store the existing tag now, but it must not use the tag as a
+  selection filter until that evidence exists.
 
 ---
 

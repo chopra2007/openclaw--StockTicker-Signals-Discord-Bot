@@ -1,9 +1,13 @@
 """Extreme PUT-flow morning shortlist (TODO #96) — the frozen selection rule.
 
 What this is, in plain words: yesterday the options scanner saw a burst of PUT
-buying in some stocks that was huge compared with how many of those contracts
-were already open. That burst has measured predictive value. This module turns
-yesterday's bursts into at most four names to watch this morning.
+trading in some stocks that was huge compared with how many of those contracts
+were already open. That burst — extreme PUT ACTIVITY, whoever was on which side
+of it — has measured predictive value. This module turns yesterday's bursts into
+at most four names to watch this morning.
+
+The measured edge is activity, NOT proven PUT buying. Whether a particular print
+was bought or sold is recorded and shown, but it does not pick the candidates.
 
 The trade it supports is a PAIR: equal dollars SHORT the stock and LONG SPY,
 entered at the first print at or after 6:35 a.m. Pacific and closed at the first
@@ -54,7 +58,7 @@ BENCHMARK = "SPY"
 _EVENTS_SQL = """
 SELECT f.id AS flow_id, f.ticker, f.side, f.contract_symbol, f.strike, f.expiry,
        f.volume, f.open_interest, f.vol_oi_ratio, f.premium_usd, f.spot,
-       f.detected_at,
+       f.detected_at, f.flow_side, f.flow_side_note,
        date(f.detected_at, 'unixepoch', '-5 hours') AS market_date
 FROM options_flow f
 JOIN (
@@ -90,6 +94,56 @@ def qualifies(row: dict) -> bool:
             and (row.get("vol_oi_ratio") or 0.0) >= MIN_VOL_OI
             and (row.get("volume") or 0) >= MIN_VOLUME
             and (row.get("premium_usd") or 0.0) >= MIN_PREMIUM_USD)
+
+
+# --- the buy/sell label (display and measurement only) ---------------------
+# These are the four values the shortlist ever stores. They come straight from
+# the #options-flow scanner's classify_flow_side(), which is the ONLY classifier
+# in this project. Nothing here re-decides a side.
+SIDE_BUCKETS = ("BUY", "SELL", "AMBIGUOUS", "MISSING")
+
+
+def side_bucket(flow_side: str | None) -> str:
+    """Which of the four reporting buckets a stored label belongs to.
+
+    A row collected before the label existed has no label. It is MISSING, and it
+    stays MISSING — it is never turned into BUY, SELL, or AMBIGUOUS by guessing.
+    """
+    v = (flow_side or "").strip().upper()
+    return v if v in ("BUY", "SELL", "AMBIGUOUS") else "MISSING"
+
+
+def side_label(flow_side: str | None, flow_side_note: str | None = None) -> str:
+    """The plain-words option-side label shown on a card.
+
+    BUY  = the trade printed at or near the ask, or above it.
+    SELL = the trade printed at or near the bid, or below it.
+    AMBIGUOUS = the price did not clearly identify a side.
+    MISSING   = this burst was recorded before the label existed.
+    """
+    bucket = side_bucket(flow_side)
+    note = (flow_side_note or "").strip()
+    tail = f" ({note})" if note else ""
+    if bucket == "BUY":
+        return f"PUT BUY — printed at or above the ask{tail}"
+    if bucket == "SELL":
+        return f"PUT SELL — printed at or below the bid{tail}"
+    if bucket == "AMBIGUOUS":
+        return "side unclear — the price did not say which"
+    return "side not recorded — older than the label"
+
+
+def short_problem(q: dict | None) -> str:
+    """Why this stock must not be shorted — or "" when Schwab raised no objection.
+
+    Only an explicit "no" from Schwab rejects. A missing field means Schwab did
+    not answer, and an unanswered question is never treated as a No.
+    """
+    if not q:
+        return ""
+    if q.get("shortable") is False:
+        return "Schwab says the stock is not shortable"
+    return ""
 
 
 def select(events: list[dict], max_per_date: int = MAX_PER_DATE) -> list[dict]:

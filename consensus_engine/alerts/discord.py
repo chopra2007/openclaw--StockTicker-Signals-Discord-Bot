@@ -902,6 +902,86 @@ async def edit_instant_ping(msg_id: str, content: str) -> bool:
         return False
 
 
+async def edit_message(channel_id: str, msg_id: str, content: str) -> bool:
+    """Rewrite an existing message in ANY channel. Returns True on 200/204.
+
+    `edit_instant_ping` can only ever edit the public alert channel — it reads
+    the channel id from config. TODO #96 needs to correct a card already posted
+    in the owner's private room, so the channel comes in as an argument here.
+    Content over one Discord message cannot be edited in place, so this refuses
+    rather than silently truncating the card.
+    """
+    if cfg.dry_run:
+        log.info("[DRY-RUN] Edit %s/%s: %s", channel_id, msg_id, content[:120])
+        return True
+
+    token = cfg.get_api_key("discord_bot_token")
+    channel_id = str(channel_id or "")
+    if not token or not channel_id.isdigit() or not msg_id:
+        log.warning("Discord not configured for edit_message")
+        return False
+    if len(content) > _DISCORD_MSG_LIMIT:
+        log.warning("edit_message: %d chars is over the %d limit — not edited",
+                    len(content), _DISCORD_MSG_LIMIT)
+        return False
+
+    try:
+        session = await get_session()
+        url = f"https://discord.com/api/v10/channels/{channel_id}/messages/{msg_id}"
+        headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
+        async with session.patch(url, headers=headers, json={"content": content},
+                                 timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            if resp.status in (200, 204):
+                return True
+            log.warning("Discord edit error (%d) for msg %s: %s",
+                        resp.status, msg_id, (await resp.text())[:200])
+            return False
+    except Exception as e:
+        log.error("Failed to edit message %s: %s", msg_id, e)
+        return False
+
+
+async def fetch_channel(channel_id: str) -> Optional[dict]:
+    """Confirm a channel exists and the bot can see it, WITHOUT posting to it.
+    Used by health checks that must stay silent on a normal day."""
+    token = cfg.get_api_key("discord_bot_token")
+    channel_id = str(channel_id or "")
+    if not token or not channel_id.isdigit():
+        return None
+    try:
+        session = await get_session()
+        url = f"https://discord.com/api/v10/channels/{channel_id}"
+        headers = {"Authorization": f"Bot {token}"}
+        async with session.get(url, headers=headers,
+                               timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            return await resp.json() if resp.status == 200 else None
+    except Exception as e:
+        log.error("Failed to fetch channel %s: %s", channel_id, e)
+        return None
+
+
+async def fetch_message(channel_id: str, msg_id: str) -> Optional[dict]:
+    """Read one message back from Discord, so a check can compare what the user
+    actually sees against what the database says. None on any failure."""
+    token = cfg.get_api_key("discord_bot_token")
+    channel_id = str(channel_id or "")
+    if not token or not channel_id.isdigit() or not msg_id:
+        return None
+    try:
+        session = await get_session()
+        url = f"https://discord.com/api/v10/channels/{channel_id}/messages/{msg_id}"
+        headers = {"Authorization": f"Bot {token}"}
+        async with session.get(url, headers=headers,
+                               timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            if resp.status == 200:
+                return await resp.json()
+            log.warning("Discord fetch error (%d) for msg %s", resp.status, msg_id)
+            return None
+    except Exception as e:
+        log.error("Failed to fetch message %s: %s", msg_id, e)
+        return None
+
+
 async def edit_instant_ping_embed(msg_id: str, embed: dict) -> bool:
     """Replace an existing Phase-1 message's EMBED via PATCH (#63 merged card).
 
