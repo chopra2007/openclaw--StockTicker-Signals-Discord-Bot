@@ -24,6 +24,16 @@ which is the point of running them:
   on about a fifth of liquid tickers, NVDA and META among them — the whole card
   died instead of falling back. Fixed in commit `edaeb5c`.
 
+**Tests:** the full repository suite passed on the exact final code —
+3,652 passed, 0 failed, 2 skipped. `.test-baseline` is empty, so that is zero
+regressions.
+
+**Live output re-read after the last code change:** the engine was restarted and
+`!em NVDA` was posted to Discord and read back. Headline is the raw straddle
+(±$12.60), the tighter 0.85 band is labelled beneath it (±$10.71), the
+calibration line is present, there is no 68% claim, and every time is Pacific.
+An @-mention answers.
+
 **The one thing still owed** is a real production row, which lands at 6:35 a.m.
 Pacific this morning. A 6:50 a.m. check and a 6:55 a.m. report are scheduled.
 
