@@ -49,6 +49,8 @@ significant even **before** costs were charged.
 
 - Pointed at the known-good TODO #96 method, the same harness found a real edge
   (205 trades, +0.92%, profit factor 1.38). It can see an edge when one exists.
+  Note that rebuild's profit-factor gate passes on its own; it is the win rate
+  and the profit range that fail, so it is unproven rather than worthless.
 - A negative-control card, pre-registered to fail, failed. It is not
   manufacturing edges from noise.
 - An independent agent rebuilt the numbers from raw records without being
@@ -60,12 +62,13 @@ significant even **before** costs were charged.
 ## What to do next — three things, in order
 
 **1. The expected-move number shown to the owner is over-confident.**
-Measured over 3,024 observations: the raw option-implied move contains the
-actual move 61.5% of the time, and **the 0.85-adjusted figure the bot actually
+Measured over 3,721 observations: the raw option-implied move contains the
+actual move 61.6% of the time, and **the 0.85-adjusted figure the bot actually
 displays contains it only 55.0%** of the time. The commonly assumed figure is
-about 68%. Breaches skew downward (20.9% down vs 17.7% up). This is a
-display-honesty fix, not a trading method, and it is cheap. Independently
-reproduced digit-for-digit.
+about 68%. Breaches skew downward (20.1% down vs 18.3% up). This is a
+display-honesty fix, not a trading method, and it is cheap. Reproduced by two
+independent verifiers; adding 23% more data moved every figure by under one
+percentage point, so it is not an artefact of which stocks were sampled.
 
 **2. Decide what to do about the live options-flow threshold.**
 The `min_vol_oi: 20` threshold in `config/consensus.yaml` was set by grading
