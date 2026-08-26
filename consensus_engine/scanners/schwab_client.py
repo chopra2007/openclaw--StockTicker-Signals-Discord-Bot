@@ -324,6 +324,13 @@ def _chain_map_to_df(exp_map: dict):
                     "lastPrice": _num(c.get("last")),
                     "bid": _num(c.get("bid")),
                     "ask": _num(c.get("ask")),
+                    # TODO #98: Schwab's own mark and the two quote sizes. Kept
+                    # so a stored option snapshot can be audited against what
+                    # the provider actually sent, instead of only a midpoint we
+                    # computed ourselves. Additive: no existing caller reads them.
+                    "mark": _num(c.get("mark")),
+                    "bidSize": _num(c.get("bidSize")),
+                    "askSize": _num(c.get("askSize")),
                     "volume": _num(c.get("totalVolume")),
                     "openInterest": _num(c.get("openInterest")),
                     "impliedVolatility": _iv_from_pct(c.get("volatility")),
@@ -341,7 +348,8 @@ def _chain_map_to_df(exp_map: dict):
                 })
     if not rows:
         return pd.DataFrame(columns=[
-            "contractSymbol", "strike", "lastPrice", "bid", "ask", "volume",
+            "contractSymbol", "strike", "lastPrice", "bid", "ask", "mark",
+            "bidSize", "askSize", "volume",
             "openInterest", "impliedVolatility", "lastTradeDate", "expiry",
             "providerQuoteTime", "multiplier", "nonStandard", "deliverableNote",
             "delta", "gamma", "theta", "vega", "rho",

@@ -1029,6 +1029,11 @@ options_flow:
   # (2026-08-09) rather than gate behind the ~2-week grading step the spec
   # originally proposed; the side tag has NOT been graded against outcomes yet.
   side_collect: true
+  # TODO #98 (2026-08-25): no production code reads this any more. The alert
+  # used to turn the BUY/SELL tag plus call/put into a BULLISH/BEARISH stock
+  # call; that claim was removed because the signal measured profit factor 1.03
+  # and a 47.4% win rate at the next tradeable open. The real transaction-side
+  # tag is still shown on every alert. Only research scripts read this key now.
   side_labels_live: true
   # SWEEP tier: rare, higher-conviction alert on top of the base gates above.
   # Reuses the SAME measured ladder as min_vol_oi (grade_options_flow.py,
@@ -1311,3 +1316,20 @@ put_flow_shortlist:
   channel_id: ""         # blank -> api_keys.discord_briefing_channel_id
   max_per_date: 4        # a maximum, never a target; zero names is a normal day
   quote_max_age_sec: 300 # a price older than this at 6:35 is rejected, not traded
+
+  # TODO #98 — forward option-chain and borrow collection for each position.
+  # This exists because TODO #97 proved every option question about this project
+  # comes back UNKNOWN forever: no past session ever saved the option chain at
+  # the moment of a trade, and nothing here has ever stored a borrow cost. This
+  # starts saving both, from the next trade onward. It stores data only; it
+  # never picks, ranks or rejects a name, and it never places an order.
+  option_capture:
+    enabled: true              # ON from 2026-08-25
+    # The bounded PUT slice to save at each capture, so a later evaluator can
+    # freeze a long-put or put-spread rule using only what was known at entry.
+    min_days_after_stock_exit: 7   # earliest expiration = stock exit + 7 calendar days
+    max_days_after_entry: 45       # latest expiration = entry + 45 calendar days
+    strike_low_pct: 0.70           # keep PUT strikes from 70% ...
+    strike_high_pct: 1.10          # ... through 110% of the stock price at capture
+    quote_max_age_sec: 900         # older than this is stored and LABELLED stale, never dropped
+    max_contracts_per_capture: 400 # a hard ceiling so one wide chain cannot run away

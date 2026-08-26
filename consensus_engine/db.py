@@ -1179,6 +1179,107 @@ CREATE INDEX IF NOT EXISTS idx_pfs_signal_date ON put_flow_shortlist(signal_date
 CREATE INDEX IF NOT EXISTS idx_pfs_status ON put_flow_shortlist(status);
 CREATE INDEX IF NOT EXISTS idx_pfs_exit ON put_flow_shortlist(planned_exit_session);
 
+-- TODO #98: FORWARD option-quote collection for TODO #96 positions.
+-- Why this exists: TODO #97 proved every option question about this project
+-- comes back UNKNOWN forever, because no session at a past moment ever saved
+-- the option chain. This table starts saving it, from the next trade onward.
+-- One row per (shortlist row, capture stage, capture session, contract). The
+-- WHOLE bounded PUT slice is stored, never a "best" contract chosen later —
+-- picking the contract after the fact is exactly the cheating this prevents.
+-- stage: ENTRY (the 6:35 entry) | MARK (a 6:35 mark while the pair is open)
+--        | EXIT (the 6:35 pair exit)
+-- quote_quality: OK | STALE | NO_TWO_SIDED | MISSING. A missing or stale quote
+-- STAYS missing. It is never back-filled from last price or a later snapshot.
+-- Stored in the LOCAL database only, never posted or published — the Schwab
+-- personal-use terms in scanners/schwab_client.py forbid publishing raw chains.
+CREATE TABLE IF NOT EXISTS put_flow_option_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shortlist_id INTEGER NOT NULL,
+    ticker TEXT NOT NULL,
+    stage TEXT NOT NULL,
+    capture_session TEXT NOT NULL,          -- Pacific date, YYYY-MM-DD
+    captured_at REAL NOT NULL,              -- epoch seconds, when we asked
+    contract_symbol TEXT NOT NULL,
+    expiry TEXT,
+    strike REAL,
+    option_type TEXT NOT NULL DEFAULT 'PUT',
+    bid REAL,
+    ask REAL,
+    last REAL,
+    mark REAL,
+    provider_quote_time REAL,               -- epoch seconds from Schwab
+    quote_age_sec REAL,
+    volume REAL,
+    open_interest REAL,
+    implied_vol REAL,
+    delta REAL,
+    gamma REAL,
+    theta REAL,
+    vega REAL,
+    rho REAL,
+    multiplier REAL,
+    non_standard INTEGER,
+    deliverable_note TEXT,
+    underlying_px REAL,                     -- the stock price known at capture
+    spy_px REAL,
+    chain_underlying_px REAL,               -- Schwab's own underlyingPrice
+    chain_is_delayed INTEGER,
+    quote_quality TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    UNIQUE(shortlist_id, stage, capture_session, contract_symbol)
+);
+CREATE INDEX IF NOT EXISTS idx_pfos_shortlist ON put_flow_option_snapshots(shortlist_id);
+CREATE INDEX IF NOT EXISTS idx_pfos_session ON put_flow_option_snapshots(capture_session);
+CREATE INDEX IF NOT EXISTS idx_pfos_contract ON put_flow_option_snapshots(contract_symbol);
+
+-- TODO #98: FORWARD borrow-cost collection for TODO #96 short legs.
+-- Schwab's /quotes `reference` block carries isShortable, isHardToBorrow and
+-- htbRate. The UNITS of htbRate are not proven, so `rate_units` stays
+-- 'UNKNOWN' and any money figure derived from it is labelled UNKNOWN until the
+-- units are confirmed from official Schwab material. The RAW rate is always
+-- stored so a later session can convert it without recollecting.
+-- One row per (shortlist row, stage, capture session).
+CREATE TABLE IF NOT EXISTS put_flow_borrow_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shortlist_id INTEGER NOT NULL,
+    ticker TEXT NOT NULL,
+    stage TEXT NOT NULL,                    -- ENTRY | MARK | EXIT
+    capture_session TEXT NOT NULL,          -- Pacific date, YYYY-MM-DD
+    captured_at REAL NOT NULL,
+    shortable INTEGER,                      -- 1/0/NULL; NULL = Schwab did not say
+    hard_to_borrow INTEGER,
+    htb_rate REAL,                          -- raw, exactly as Schwab sent it
+    rate_units TEXT NOT NULL DEFAULT 'UNKNOWN',
+    stock_px REAL,
+    quote_time REAL,
+    quote_age_sec REAL,
+    quote_quality TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    UNIQUE(shortlist_id, stage, capture_session)
+);
+CREATE INDEX IF NOT EXISTS idx_pfbs_shortlist ON put_flow_borrow_snapshots(shortlist_id);
+CREATE INDEX IF NOT EXISTS idx_pfbs_session ON put_flow_borrow_snapshots(capture_session);
+
+-- TODO #98: one audit row per collection run, so "did the collector really run
+-- and land rows?" is answerable without re-deriving it. A repeated run for the
+-- same session UPDATES this row rather than adding a second one.
+CREATE TABLE IF NOT EXISTS put_flow_capture_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    capture_session TEXT NOT NULL,          -- Pacific date, YYYY-MM-DD
+    stage TEXT NOT NULL,                    -- ENTRY | MARK | EXIT | MIXED
+    started_at REAL NOT NULL,
+    finished_at REAL,
+    positions_expected INTEGER NOT NULL DEFAULT 0,
+    positions_captured INTEGER NOT NULL DEFAULT 0,
+    contracts_captured INTEGER NOT NULL DEFAULT 0,
+    usable_quotes INTEGER NOT NULL DEFAULT 0,
+    stale_quotes INTEGER NOT NULL DEFAULT 0,
+    missing_quotes INTEGER NOT NULL DEFAULT 0,
+    borrow_rows INTEGER NOT NULL DEFAULT 0,
+    errors_json TEXT,
+    UNIQUE(capture_session, stage)
+);
+
 CREATE TABLE IF NOT EXISTS youtube_setups (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     run_id INTEGER NOT NULL REFERENCES youtube_analysis_runs(id),

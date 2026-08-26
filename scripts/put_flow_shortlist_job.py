@@ -41,7 +41,8 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from consensus_engine import config as cfg, db  # noqa: E402
-from consensus_engine.analysis import put_flow_shortlist as pfs  # noqa: E402
+from consensus_engine.analysis import put_flow_shortlist as pfs
+from consensus_engine.analysis import put_flow_option_capture as pfoc  # noqa: E402
 from consensus_engine.utils.time_context import session_dates  # noqa: E402
 
 PT = ZoneInfo("America/Los_Angeles")
@@ -270,6 +271,29 @@ async def prepare(signal_date: str | None = None, dry_run: bool = False) -> dict
 
 
 # --------------------------------------------------------------------------
+# TODO #98 — forward option and borrow collection
+#
+# This is an OBSERVER hung off the existing 6:35 job. It stores what the option
+# chain and the borrow fields looked like at the moment of a fill, a daily mark
+# and the close. It never picks, ranks, rejects or prices a name, and a failure
+# here must never stop a trade being recorded — hence the swallow-everything
+# wrapper below.
+# --------------------------------------------------------------------------
+
+async def _capture_safe(what: str, ticker: str, fn, row: dict, **kw) -> None:
+    try:
+        out = await fn(row, **kw)
+        if out.get("error"):
+            log.warning("option capture (%s) %s: %s", what, ticker, out["error"])
+        else:
+            log.info("option capture (%s) %s: %d contract(s), %d usable",
+                     what, ticker, out.get("contracts_captured", 0),
+                     out.get("usable", 0))
+    except Exception as e:                      # noqa: BLE001 - never block a trade
+        log.warning("option capture (%s) failed for %s: %s", what, ticker, e)
+
+
+# --------------------------------------------------------------------------
 # enter
 # --------------------------------------------------------------------------
 
@@ -329,6 +353,12 @@ async def enter(dry_run: bool = False, entry_session: str | None = None) -> dict
         entered.append({**r, "entry_stock_px": q["c"], "entry_spy_px": spy_q["c"],
                         "shortable": q.get("shortable"), "hard_to_borrow": htb,
                         "htb_rate": q.get("htb_rate")})
+        # TODO #98 — save the option chain and borrow fields for this position,
+        # using the SAME quote the fill used. This only OBSERVES: if it fails,
+        # the trade above is already recorded and stands.
+        await _capture_safe("entry", r["ticker"], pfoc.capture_entry,
+                            {**r, "entry_stock_px": q["c"]},
+                            stock_quote=q, spy_quote=spy_q, now=now)
     await conn.commit()
 
     cur = await conn.execute(
@@ -398,6 +428,10 @@ async def close_due(dry_run: bool = False, exit_session: str | None = None) -> d
         closed.append({**r, "exit_stock_px": q["c"], "exit_spy_px": spy_q["c"],
                        "stock_ret_pct": stock_ret, "spy_ret_pct": spy_ret,
                        "net_pct": net})
+        # TODO #98 — the closing option quote, taken with the SAME quote that
+        # priced the exit. Observer only; a failure never blocks the close.
+        await _capture_safe("exit", r["ticker"], pfoc.capture_exit, r,
+                            stock_quote=q, spy_quote=spy_q, now=now)
     await conn.commit()
     if not closed:
         return {"exit_session": exit_session, "closed": 0,
@@ -718,6 +752,94 @@ async def side_report() -> dict:
 
 
 # --------------------------------------------------------------------------
+# TODO #98 — the daily mark, the status report, and the silent proof check
+# --------------------------------------------------------------------------
+
+CAPTURE_PROOF_KEY = "put_flow_option_capture_proof"
+
+
+async def capture_marks(session: str | None = None, dry_run: bool = False) -> dict:
+    """Re-price the stored contracts for every position that is open and is
+    neither entering nor exiting today. Runs after --exit and --enter in the
+    same 6:35 job, so a position gets exactly one row per stage per day."""
+    return await pfoc.capture_open_positions(session=session, stage="MARK",
+                                             dry_run=dry_run)
+
+
+async def capture_report(session: str | None = None) -> dict:
+    out = await pfoc.report(session)
+    print(out.pop("text", ""))
+    return out
+
+
+async def capture_proof(session: str | None = None, dry_run: bool = False) -> dict:
+    """6:50 a.m. Pacific — did this morning's collection actually store rows?
+
+    Silent when it did. This is the answer to "a switch that is off or a timer
+    that writes no rows is not progress": it reads the real table, not the log.
+    """
+    session = session or today_pt()
+    conn = await db.get_db()
+    fails: list[tuple[str, str]] = []
+
+    if not pfoc.enabled():
+        fails.append(("switch_off",
+                      "the option and borrow collection switch is off, so "
+                      "nothing was saved this morning"))
+
+    cur = await conn.execute(
+        "SELECT COUNT(*) AS n FROM put_flow_shortlist WHERE status='ENTERED' "
+        "AND entry_session <= ? AND planned_exit_session >= ?", (session, session))
+    open_positions = int((await cur.fetchone())["n"])
+
+    cur = await conn.execute(
+        "SELECT stage, COUNT(*) AS n FROM put_flow_capture_runs "
+        "WHERE capture_session=? GROUP BY stage", (session,))
+    runs = {r["stage"]: r["n"] for r in await cur.fetchall()}
+
+    cur = await conn.execute(
+        "SELECT COUNT(*) AS n, COUNT(DISTINCT shortlist_id) AS pos "
+        "FROM put_flow_option_snapshots WHERE capture_session=?", (session,))
+    got = await cur.fetchone()
+    contracts, positions_with_rows = int(got["n"]), int(got["pos"])
+
+    cur = await conn.execute(
+        "SELECT COUNT(*) AS n FROM put_flow_borrow_snapshots WHERE capture_session=?",
+        (session,))
+    borrow_rows = int((await cur.fetchone())["n"])
+
+    if open_positions:
+        if not runs:
+            fails.append(("no_run",
+                          "the option and borrow collection never ran this "
+                          "morning, even though "
+                          f"{open_positions} position(s) were open"))
+        if positions_with_rows < open_positions:
+            fails.append(("missing_positions",
+                          f"{open_positions - positions_with_rows} of "
+                          f"{open_positions} open position(s) saved no option "
+                          "prices this morning"))
+        if borrow_rows < open_positions:
+            fails.append(("missing_borrow",
+                          f"{open_positions - borrow_rows} of {open_positions} "
+                          "open position(s) saved no borrow-cost fields"))
+
+    result = await _announce(
+        CAPTURE_PROOF_KEY, fails,
+        title="Morning option and borrow collection saved nothing",
+        fix=("Check the put-flow-shortlist-trade timer's log for 'option "
+             "capture' lines. The trade itself is unaffected — only the "
+             "measurement data is missing, and a missing morning cannot be "
+             "filled in later."),
+        dry_run=dry_run)
+    result.update({"session": session, "open_positions": open_positions,
+                   "positions_with_rows": positions_with_rows,
+                   "contracts": contracts, "borrow_rows": borrow_rows,
+                   "runs": runs})
+    return result
+
+
+# --------------------------------------------------------------------------
 
 async def run(args) -> int:
     if not enabled() and not args.force:
@@ -739,6 +861,12 @@ async def run(args) -> int:
             print(json.dumps(await entry_proof(args.session, args.dry_run), indent=2))
         if args.side_report:
             print(json.dumps(await side_report(), indent=2))
+        if args.capture:
+            print(json.dumps(await capture_marks(args.session, args.dry_run), indent=2))
+        if args.capture_report:
+            print(json.dumps(await capture_report(args.session), indent=2, default=str))
+        if args.capture_proof:
+            print(json.dumps(await capture_proof(args.session, args.dry_run), indent=2))
     finally:
         await db.close_db()
         # These jobs are one-shot. The Discord helpers open a shared HTTP
@@ -763,6 +891,13 @@ def main() -> int:
                    help="6:40 a.m. entry proof; silent unless something is wrong")
     p.add_argument("--side-report", action="store_true",
                    help="closed results split by PUT BUY / PUT SELL / unclear / not recorded")
+    p.add_argument("--capture", action="store_true",
+                   help="6:35 a.m. daily mark of the stored option contracts (TODO #98)")
+    p.add_argument("--capture-report", action="store_true",
+                   help="what the option and borrow collection has stored so far")
+    p.add_argument("--capture-proof", action="store_true",
+                   help="6:50 a.m. proof that this morning's collection stored rows; "
+                        "silent unless something is wrong")
     p.add_argument("--dry-run", action="store_true", help="print the card, post nothing")
     p.add_argument("--force", action="store_true", help="run even when the switch is off")
     p.add_argument("--signal-date", default=None, help="override the prior session")
@@ -770,7 +905,8 @@ def main() -> int:
     args = p.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     if not (args.prepare or args.enter or args.exit
-            or args.preflight or args.proof or args.side_report):
+            or args.preflight or args.proof or args.side_report
+            or args.capture or args.capture_report or args.capture_proof):
         p.print_help()
         return 0
     return asyncio.run(run(args))
