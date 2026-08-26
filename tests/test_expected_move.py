@@ -453,19 +453,25 @@ def test_one_sd_band_uses_the_same_clock_as_the_quoted_iv():
 
 
 def test_reference_band_omitted_when_iv_unusable():
-    """No 1-sigma band -> say so; never relabel the straddle range as 68%."""
+    """No IV band -> say so; never claim a 68%/1-standard-deviation boundary."""
     embed = em.build_em_embed(_make_result(band=False), with_image=False)
     ref = [f for f in embed["fields"] if f["name"] == "Reference"][0]["value"]
-    assert "68" not in ref
+    assert "68% of the time" not in ref
+    assert "1 standard deviation —" not in ref  # the old positive-claim phrasing
     assert "No usable implied volatility" in ref
 
 
-def test_reference_band_labels_68_percent_only_with_the_1sd_band():
+def test_reference_band_never_claims_68_percent_or_1sd():
+    # TODO #97/#98: measured containment is 61.6% (raw) / 55.0% (adjusted),
+    # not 68% / 1 standard deviation -- that claim must never appear as fact.
     embed = em.build_em_embed(_make_result(), with_image=False)
     ref = [f for f in embed["fields"] if f["name"] == "Reference"][0]["value"]
-    assert "68% of the time" in ref
+    assert "68% of the time" not in ref
+    assert "1 standard deviation —" not in ref  # the old positive-claim phrasing
     r = _make_result()
     assert f"{r.iv_band_lower:,.2f}" in ref and f"{r.iv_band_upper:,.2f}" in ref
+    assert "Implied-volatility band" in ref
+    assert "61.6%" in ref and "55.0%" in ref
 
 
 def test_build_em_embed_has_no_warning_line():

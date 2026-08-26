@@ -54,14 +54,15 @@ def test_staleness_filter_skips_old_trades():
 
 
 def test_format_flow_alert_contents():
-    # flow_side="BUY" matches real scanner output (every FlowHit is classified
-    # in _scan_chain_for_flow) -- BUY call = BULLISH under side_labels_live.
+    # TODO #98: direction now names the option SIDE (CALL/PUT), not a
+    # BULLISH/BEARISH stock-direction call -- see format_flow_alert docstring.
     hit = FlowHit(ticker="TSLA", side="CALL", strike=435.0, expiry="2026-05-29",
                   volume=201399, open_interest=11760, vol_oi_ratio=17.1,
                   premium_usd=8_260_000.0, last_trade_ts=time.time(), spot=430.0,
                   flow_side="BUY", flow_side_note="at-ask")
     txt = format_flow_alert(hit)
-    assert "TSLA" in txt and "BULLISH" in txt and "17.1x" in txt and "$8.26M" in txt
+    assert "TSLA" in txt and "CALL-side" in txt and "17.1x" in txt and "$8.26M" in txt
+    assert "BULLISH" not in txt and "BEARISH" not in txt
 
 
 @pytest.fixture
@@ -184,29 +185,35 @@ def test_format_flow_alert_no_side_tag_when_collect_off(monkeypatch):
 
 
 def test_format_flow_alert_direction_unchanged_when_labels_live_off(monkeypatch):
-    # Regression: even a SELL on a CALL (would flip bearish if labels were
-    # live) must NOT change the ship-state BULLISH/BEARISH call/put-only label.
+    # TODO #98: the direction word now always names the option SIDE
+    # (CALL/PUT) regardless of side_labels_live -- a SELL on a CALL must
+    # still read "CALL-side activity", never a BULLISH/BEARISH stock call.
     _side_flags(monkeypatch, collect=True, labels_live=False)
     txt = format_flow_alert(_hit("CALL", "SELL", "at-bid"))
-    assert "BULLISH" in txt and "BEARISH" not in txt
+    assert "CALL-side" in txt
+    assert "BULLISH" not in txt and "BEARISH" not in txt
 
 
 @pytest.mark.parametrize("side,flow_side,expect", [
-    ("CALL", "BUY",  "BULLISH"),   # buy a call = bullish
-    ("PUT",  "SELL", "BULLISH"),   # sell a put = bullish
-    ("CALL", "SELL", "BEARISH"),   # sell a call = bearish
-    ("PUT",  "BUY",  "BEARISH"),   # buy a put = bearish
+    ("CALL", "BUY",  "CALL-side"),
+    ("PUT",  "SELL", "PUT-side"),
+    ("CALL", "SELL", "CALL-side"),
+    ("PUT",  "BUY",  "PUT-side"),
 ])
 def test_format_flow_alert_direction_from_side_flags_live(monkeypatch, side, flow_side, expect):
+    # TODO #98: options_flow.side_labels_live no longer changes the direction
+    # word -- it always names the option side. The real BUY/SELL transaction
+    # side still comes through the separate [side: ...] tag (tested below).
     _side_flags(monkeypatch, collect=True, labels_live=True)
     txt = format_flow_alert(_hit(side, flow_side, "at-ask"))
     assert expect in txt
+    assert "BULLISH" not in txt and "BEARISH" not in txt
 
 
 def test_format_flow_alert_ambiguous_direction_when_labels_live(monkeypatch):
     _side_flags(monkeypatch, collect=True, labels_live=True)
     txt = format_flow_alert(_hit("CALL", "AMBIGUOUS"))
-    assert "AMBIGUOUS" in txt
+    assert "CALL-side" in txt
     assert "BULLISH" not in txt and "BEARISH" not in txt
 
 

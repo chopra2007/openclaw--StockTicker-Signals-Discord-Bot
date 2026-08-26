@@ -54,6 +54,44 @@ HORIZONS = ("daily", "weekly")
 WEEKLY_TARGET_SESSIONS = 5  # ~one trading week; the closest LISTED expiry wins
 
 
+# TODO #97/#98 calibration measurement — 3,721 stored expected-move
+# observations checked through the 2026-08-25 TODO #97 run. Neither the raw
+# nor the 0.85-adjusted band earns the commonly assumed "~68%, 1 standard
+# deviation" label; this is the honest number to show instead.
+CALIBRATION_RAW_PCT = 61.6
+CALIBRATION_ADJUSTED_PCT = 55.0
+CALIBRATION_SAMPLE_N = 3721
+CALIBRATION_DATE = "2026-08-25"
+CALIBRATION_DATE_LABEL = "25 Aug 2026"   # what a person reads; the ISO one is for records
+
+
+def calibration_note(short: bool = True) -> str:
+    """One shared, honest line about how often these bands were actually right.
+
+    Every surface calls this instead of repeating the explanation, so the
+    numbers can never drift apart between cards. ``short=True`` is the one-line
+    version for a card; ``short=False`` is the fuller wording for a help or
+    reference surface.
+    """
+    if short:
+        return (f"How often these were right, over {CALIBRATION_SAMPLE_N:,} "
+                f"past checks to {CALIBRATION_DATE_LABEL}: wider band "
+                f"{CALIBRATION_RAW_PCT:.1f}%, tighter 0.85 band "
+                f"{CALIBRATION_ADJUSTED_PCT:.1f}%. Neither is a 68% or "
+                f"one-standard-deviation promise.")
+    return (
+        f"**How often this band was actually right** "
+        f"({CALIBRATION_SAMPLE_N:,} stored checks through "
+        f"{CALIBRATION_DATE_LABEL}): the wider band above — the straddle "
+        f"price, what the options market is really charging — contained the "
+        f"next move {CALIBRATION_RAW_PCT:.1f}% of the time. The tighter "
+        f"0.85-adjusted band contained it only "
+        f"{CALIBRATION_ADJUSTED_PCT:.1f}% of the time. The figure people "
+        f"usually assume — about 68%, sometimes called one standard "
+        f"deviation — is not what either band actually did."
+    )
+
+
 class EMUnavailable(Exception):
     """Raised when the expected move cannot be computed. The message is
     user-facing (already friendly) and gets sent straight to Discord."""
@@ -708,9 +746,14 @@ def build_em_embed(result: ExpectedMoveResult, with_image: bool = True) -> dict:
     sess_txt = (f"{sessions} trading session{'' if sessions == 1 else 's'} left"
                 if isinstance(sessions, int) else result.session_label)
 
+    # The raw straddle price is the headline. The 0.85-adjusted figure stays
+    # only as a clearly labelled, tighter secondary band — it is the one that
+    # was right least often (see calibration_note), so it must never lead.
     move_val = (f"**±${result.primary_em:,.2f}**\n"
                 f"±{em['raw_straddle_em_pct'] * 100:.2f}%\n"
-                f"ATM straddle price")
+                f"ATM straddle price\n"
+                f"tighter 0.85 band ±${em['adjusted_straddle_em']:,.2f} "
+                f"(±{em['adjusted_straddle_em_pct'] * 100:.2f}%)")
     range_val = (f"🔴 **{result.upper:,.2f}** upper\n"
                  f"🔵 {result.spot:,.2f} now\n"
                  f"🟢 **{result.lower:,.2f}** lower")
@@ -720,17 +763,15 @@ def build_em_embed(result: ExpectedMoveResult, with_image: bool = True) -> dict:
     exp_val = f"`{result.expiration}`\n{sess_txt}\n{result.session_label}"
 
     if result.iv_band_upper is not None and result.iv_band_lower is not None:
-        ref = (f"**1 standard deviation — about 68% of the time — "
+        ref = (f"**Implied-volatility band — "
                f"{result.iv_band_lower:,.2f} to {result.iv_band_upper:,.2f}**")
         if math.isfinite(em.get("atm_iv", float("nan"))):
             ref += f"\nATM implied volatility {em['atm_iv'] * 100:.1f}% a year."
-        ref += ("\nAn at-the-money straddle prices about 0.8 of one standard "
-                "deviation, so the straddle range above is normally the tighter "
-                "of the two.")
     else:
-        ref = ("No usable implied volatility in this chain, so no 1-standard-"
-               "deviation band is shown. The straddle range above still stands "
-               "— it is a traded price, not a model output.")
+        ref = ("No usable implied volatility in this chain, so no "
+               "implied-volatility band is shown. The straddle range above "
+               "still stands — it is a traded price, not a model output.")
+    ref += f"\n\n{calibration_note(short=True)}"
 
     embed = {
         "title": f"📊  {result.ticker} — {horizon_word} Expected Move",

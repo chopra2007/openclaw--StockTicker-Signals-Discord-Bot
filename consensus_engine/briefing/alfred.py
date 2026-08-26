@@ -459,12 +459,14 @@ async def _spy_expected_move(horizon: str) -> tuple[object | None, bytes | None]
 
 
 def _em_summary_line(result) -> str:
+    from consensus_engine.scanners.expected_move import calibration_note
     pct = result.em.get("raw_straddle_em_pct")
     pct_txt = f" ({pct * 100:.2f}%)" if isinstance(pct, (int, float)) else ""
     word = "Weekly" if result.horizon == "weekly" else "Daily"
     return (f"**SPY {word} expected move ±${result.primary_em:,.2f}{pct_txt}**\n"
             f"🔴 {result.upper:,.2f} · 🔵 {result.spot:,.2f} now · 🟢 {result.lower:,.2f}"
-            f" · expires `{result.expiration}`")
+            f" · expires `{result.expiration}`\n"
+            f"-# {calibration_note(short=True)}")
 
 
 def _em_meta(result, rendered: bool) -> dict:

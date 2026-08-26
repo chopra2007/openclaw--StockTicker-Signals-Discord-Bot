@@ -51,6 +51,7 @@ from __future__ import annotations
 import argparse
 import math
 import sys
+from pathlib import Path
 from dataclasses import dataclass, field
 from datetime import datetime, date, time, timedelta, timezone
 from typing import Optional
@@ -62,6 +63,12 @@ import pandas as pd
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
+
+# The project root, so the shared calibration line has ONE home. Both the !em
+# card and this script must quote the same measured numbers; copying them here
+# would let the two drift apart silently.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from consensus_engine.scanners.expected_move import calibration_note  # noqa: E402
 
 try:
     import mplfinance as mpf
@@ -576,6 +583,8 @@ def print_summary(ticker: str, chain: Chain, atm_strike: float, call: OptionQuot
     print(" " + "-" * 60)
     for c in checks:
         print(f"   {c}")
+
+    print(f"\n {calibration_note(short=True)}")
 
     return {"ticker": ticker, "spot": chain.spot, "primary_name": pname,
             "primary_em": pval, "upper": up, "lower": lo, "exp": exp,
