@@ -3,12 +3,29 @@
 **Status:** OPEN — collection is live; first real production rows land 2026-08-26
 **Created:** 2026-08-25
 
-**CURRENT STATUS (2026-08-25, late evening):** All three jobs are BUILT, TESTED
-and ON. The portfolio verdict is in and independently confirmed. The two display
-fixes are live and were read back from real output. The forward collection is
-armed and proven against real Schwab data in a scratch database — the one thing
-still owed is a real PRODUCTION row, which lands at 6:35 a.m. Pacific tomorrow,
-2026-08-26. A 6:50 a.m. check and a 6:55 a.m. report are both scheduled.
+**CURRENT STATUS (2026-08-26, early morning):** All three jobs are BUILT,
+TESTED, INDEPENDENTLY VERIFIED and ON. The portfolio verdict is in and was
+confirmed by a separate agent that rebuilt it from scratch. The two display
+fixes are live and were read back from real Discord output. The forward
+collection is armed and proven against real Schwab data.
+
+**Two independent verification passes ran, and both found real problems** —
+which is the point of running them:
+
+- The portfolio rebuild came back CONFIRMED with no defect, across 12
+  hand-checked positions and eight different random seeds.
+- The code verification passed 16 of its 17 checks and **found one genuine
+  bug**: the "write nothing" flag used during a rehearsal run could get stuck
+  on if anything failed mid-run, so a later real collection would report rows
+  it had silently not written. Fixed in commit `ffd401b` with a guard that
+  cannot leak, and re-proved against the verifier's own attack.
+- It also surfaced a **pre-existing crash** in the `!em` card: when an option
+  chain came back with no trade timestamps — which Schwab's own client causes
+  on about a fifth of liquid tickers, NVDA and META among them — the whole card
+  died instead of falling back. Fixed in commit `edaeb5c`.
+
+**The one thing still owed** is a real production row, which lands at 6:35 a.m.
+Pacific this morning. A 6:50 a.m. check and a 6:55 a.m. report are scheduled.
 
 ## 1. Does the morning trade work as a PORTFOLIO? — answered: NOT a clean pass
 
@@ -168,6 +185,61 @@ Changed, wording only:
 Side effect worth knowing: `options_flow.side_labels_live` in
 `config/consensus.yaml` is now read by no production code — only by research
 scripts. It is left in place with a comment, not deleted.
+
+## What the independent checks actually covered
+
+Two separate agents, neither of which wrote the code they checked.
+
+**The portfolio rebuild** was forbidden to read the builder's script. It worked
+only from the hashed rule sheet and the raw price files. Verdict CONFIRMED:
+every headline number matched, the fingerprint matched, and 12 positions it
+chose itself were worked out by hand — including two pairs where the same stock
+had overlapping trades open and a six-deep chain on Amazon. It checked the short
+leg's direction explicitly, because getting that sign backwards is a mistake
+this project has made before. It re-ran the one failing check with eight
+different random starting numbers: all eight failed at 20% borrow, all eight
+passed at 0%, and the two groups never came close to swapping. So the failure is
+real, not luck.
+
+**The code check** made real Schwab calls and rendered real Discord cards. What
+it proved:
+
+- Nothing is quietly dropped: a real chain returned 354 puts, 114 fell inside
+  the strike window, and exactly 114 rows were stored.
+- It cannot invent a price. A contract with no bid or ask but a last price of
+  $5.55 stored the last price and left bid, ask and mark empty. A contract that
+  vanished between captures stored as missing with everything empty — not
+  filled in from the earlier real prices.
+- A broken collection cannot break a trade. With the chain fetch forced to fail
+  every time, the entry and exit still recorded correctly.
+- The frozen rule file has zero changes across every commit, and the
+  options-flow selection and scoring code has zero changes — only wording moved.
+- The expected-move formula is byte-identical, proven by diffing the function.
+- Repeat runs cannot duplicate a row, even with a different clock, a different
+  Schwab answer, or a failure part-way through.
+
+## Fixed along the way (found by verification, not by tests)
+
+Both were found by running real code and attacking the claims, not by reading
+the code and agreeing with it. Neither would have been caught by the test suite
+as it stood.
+
+1. **The rehearsal flag could get stuck on** (`ffd401b`). A "write nothing"
+   rehearsal run set a flag at the start and cleared it at the end, with nothing
+   protecting the middle. Any error in between left it stuck on for the rest of
+   that run of the program, and a later real collection would then report
+   contracts it had silently not written. It was hidden in practice because the
+   only caller passes a fixed value and each morning is a fresh run, but the
+   promise as written was false. Now the flag is always put back, even when
+   something fails.
+2. **`!em` crashed on a chain with no trade timestamps** (`edaeb5c`).
+   Pre-existing, not from this work. The check for "no timestamp" missed the
+   value pandas actually uses, and formatting it threw an error that took the
+   whole card down. This was a live path: Schwab's own client sets exactly that
+   value whenever its date conversion overflows, which it does on roughly a
+   fifth of liquid tickers — NVDA, AMD, META, GOOGL, MSFT and QQQ are named in
+   its own code comment. Fixed here rather than filed away, because it is a
+   file this session already changed and it breaks a command the owner uses.
 
 ## Open questions
 
