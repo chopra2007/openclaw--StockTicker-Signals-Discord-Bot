@@ -863,7 +863,7 @@ close.
 Get `MEMORY.md` back under its own 17KB working limit so the notes loaded into every session keep a safety margin before the size where they would silently stop loading.
 
 
-## 96. Track extreme PUT activity each morning — SOAKING until 2026-09-26
+## 96. Track extreme PUT activity each morning — SOAKING until 2026-09-26 (single trades passed; run as a portfolio it fails one of seven checks once borrow cost is charged)
 
 **File:** `extreme-put-flow-morning-shortlist.md`
 
@@ -886,3 +886,9 @@ recommended for a build. Two findings about features that are ALREADY LIVE came
 out of the run and are the main value delivered — see "What to do next".
 
 Find genuinely new ways to pick zero to four high-probability trades each morning, and honestly report that none of the six tested methods worked.
+
+## 98. Prove the morning trade works as a portfolio, start saving option and borrow data, and fix two overstated displays
+
+**File:** `live-edge-portfolio-and-data-gap-closure.md`
+
+Measure what an account actually does when up to four of the morning PUT-flow trades overlap, begin saving the option prices and borrow costs that no past session ever stored, and correct the expected-move and options-flow wording the bot currently overstates.

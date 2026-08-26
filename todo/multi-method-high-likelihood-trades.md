@@ -3,7 +3,13 @@
 **Status:** DONE (research complete — no method passed)
 **Created:** 2026-08-25
 
-**CURRENT STATUS (2026-08-25):** Research run complete. Six trading methods were
+**CURRENT STATUS (2026-08-25, late evening):** Research complete AND all three
+follow-ups shipped the same day under TODO #98 — the expected-move wording is
+fixed and live, the options-flow alert no longer claims a proven trade, and
+option and borrow data now accumulates from every new TODO #96 position.
+See "All three follow-ups are now DONE" below.
+
+Research run complete. Six trading methods were
 frozen in advance and tested honestly. **All six were rejected.** Nothing is
 recommended for a build. Two findings about features that are ALREADY LIVE came
 out of the run and are the main value delivered — see "What to do next".
@@ -59,7 +65,31 @@ significant even **before** costs were charged.
   2,283 events). Fixed, re-run on the complete universe, re-verified. Verdicts
   unchanged.
 
-## What to do next — three things, in order
+## All three follow-ups are now DONE — 2026-08-25 (TODO #98)
+
+Everything in the list below was acted on the same day, under
+`todo/live-edge-portfolio-and-data-gap-closure.md`:
+
+1. **Expected-move honesty — FIXED and live.** The `!em` and `!emw` cards no
+   longer claim "1 standard deviation — about 68% of the time". The raw
+   option-implied band is the headline, the 0.85-adjusted figure is shown
+   underneath as a clearly labelled tighter band, and every surface carries one
+   shared line: "How often these were right, over 3,721 past checks to 25 Aug
+   2026: wider band 61.6%, tighter 0.85 band 55.0%. Neither is a 68% or
+   one-standard-deviation promise." No formula changed — the raw and adjusted
+   numbers are byte-identical.
+2. **The 20x options-flow threshold — kept, re-worded.** No score, threshold or
+   selection behaviour changed. The alert no longer says "BULLISH"/"BEARISH"
+   (a stock-direction call) or "fresh positioning"; it says which option side
+   traded and closes with "Unusual option activity — not a confirmed trade
+   signal." The real BUY/SELL/AMBIGUOUS transaction-side tag is untouched, and
+   the separate 50x SWEEP tier keeps its own header.
+3. **Forward option and borrow collection — BUILT, ON, and proven on real
+   Schwab data.** From the 6:35 a.m. Pacific job onward, every TODO #96
+   position saves its whole bounded PUT slice, and its short-availability and
+   borrow fields, at entry, at every daily mark and at exit.
+
+## The original list — three things, in order
 
 **1. The expected-move number shown to the owner is over-confident.**
 Measured over 3,721 observations: the raw option-implied move contains the
@@ -97,6 +127,15 @@ factor from 2.01 to 1.38, and the range on average profit comes to include zero.
 headline is more sensitive to convention than a robust edge usually is. Let the
 soak finish before trusting the published figures, and remember borrow cost is
 still not charged.
+
+**Update 2026-08-25:** a portfolio-level test of #96 (TODO #98) landed on the
+same conclusion from a different direction. Run as a real overlapping account
+rather than as isolated trades, #96 clears six of seven frozen checks but fails
+the seventh once a harsh 20%-a-year borrowing fee is charged — the 95% range
+for the typical day's return becomes −0.038% to +0.565%, which includes zero.
+An independent rebuild confirmed it across eight different random seeds. This
+reinforces the caution above rather than replacing it, and it is the reason the
+borrow-rate collection in follow-up 3 matters.
 
 ## Files involved
 

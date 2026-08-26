@@ -3,20 +3,36 @@
 **Status:** SOAKING until 2026-09-26
 **Created:** 2026-08-24
 
-**CURRENT STATUS (2026-08-24, late evening):** Pre-open hardening is DONE and
-proven. The card no longer claims every PUT was bought — it says "extreme PUT
-activity" and shows the real option-side label per name, taken from the existing
-#options-flow classifier. The frozen rule did not move: the live selector still
-reproduces the frozen 188 picks exactly. Four timers are armed for the morning
-(6:10 readiness, 6:15 watch card, 6:35 entry, 6:40 entry proof), all Pacific.
+**CURRENT STATUS (2026-08-25, late evening):** Two things happened today.
+
+**1. The entries filled.** AMZN, GOOGL, META and BMNR all entered at 6:35 a.m.
+Pacific this morning, all four shortable and not hard to borrow, borrow rate
+0.0. The 6:10 readiness check and the 6:40 entry proof were both silent, which
+is what a clean morning looks like. They close 2026-08-31.
+
+**2. The portfolio test says this is NOT a clean pass.** The published +1.83%
+is an average of trades looked at one at a time. Run as a real account — up to
+four new trades a morning, four days each, several open at once, SPY legs
+stacking — it clears six of seven frozen checks but **fails the seventh once a
+harsh 20%-a-year stock-borrowing fee is charged**. So the honest sentence is:
+**the isolated-trade test passed; portfolio viability did not.** Details below
+under "The portfolio test". The signal rule was NOT changed and nothing was
+retuned. #96 stays owner-only and stays soaking.
+
+**Also new (TODO #98):** from tomorrow morning the system starts SAVING the
+option chain and the borrow fields at every entry, every daily mark and every
+exit. That is the only route to ever answering "would buying a put have made
+money?" and "what did borrowing actually cost?", both of which are permanently
+UNKNOWN for every trade before today.
 
 **Next two things to look at, in order:**
 
-1. **2026-08-25 after 6:40 a.m. Pacific — the entry check.** The 6:35 job should
-   enter AMZN, GOOGL, META and BMNR. Silence from the 6:10 and 6:40 checks means
-   it went right. Any message in the #errors room names the exact failed check.
-2. **2026-08-31 — the exit check.** Those four close at 6:35 a.m. Pacific and a
-   result card is posted.
+1. **2026-08-26 after 6:50 a.m. Pacific.** Did the new option and borrow saving
+   actually store rows for the four open positions? Silence from the 6:50 check
+   means yes; the report is written to the deferred-task notifications file.
+2. **2026-08-31 — the exit check.** Those four close at 6:35 a.m. Pacific, a
+   result card is posted, and it will be the first trade with a closing option
+   quote saved beside it.
 
 ## Pre-open hardening — DONE 2026-08-24
 
@@ -84,6 +100,48 @@ stocks to watch. The trade it supports is a **pair**: put equal dollars into
 shorting the stock and into buying SPY. That hedge matters — it is what makes
 the result about the stock rather than about the market.
 
+## The portfolio test — six of seven checks pass, one fails
+
+Full report: `.omc/research/put-flow-portfolio-audit/RESULT.md`. Independently
+rebuilt from scratch by a second agent that was forbidden to read the builder's
+code: **CONFIRMED**, every number matched, 12 trades hand-checked, no defect
+found (`independent-verification.md`).
+
+Every rule was written down and fingerprinted **before** a single number was
+computed (`frozen-portfolio-policy.sha256`, fingerprint
+`24a94ad3f8faadfb9e028f6bd6b680fe6e23416d27731e8e1e7ed2e4b9a4918a`).
+
+A pretend $100,000 account, $6,250 per leg, at most 16 pairs open at once,
+priced every trading day at 6:35 a.m. Pacific — the same clock the live rule
+uses. Borrow cost does not exist in this project's records, so four rates were
+tried rather than one flattering guess.
+
+| | 0% borrow | 20% borrow |
+|---|---:|---:|
+| Total over 12 weeks | +20.7% | +17.1% |
+| Worst peak-to-valley dip | 5.1% | 5.3% |
+| Money won per dollar lost | 2.00 | 1.78 |
+
+Six checks pass under both. **Check 4 fails at 20% borrow**: the 95% range for
+the typical day's return is −0.038% to +0.565%, so it includes zero. At 0%
+borrow the same range is +0.013% to +0.607% and passes. The verifier re-ran it
+with eight different random starting numbers; all eight failed at 20% and all
+eight passed at 0%, so this is a real gap, not a coin flip.
+
+The rule was "all seven or it does not count." It does not count.
+
+**What that does and does not mean.** It does not mean the edge is fake — the
+account never came close to losing money, it stayed ahead even at a brutal
+100%-a-year borrow rate, and the three neighbouring entry times (6:35, 6:40,
+6:45 a.m. Pacific) all stay positive with more than a dollar won per dollar
+lost. It means the daily-return statistics stop being convincingly positive
+once a harsh borrow cost is charged, and that borrow cost is still a guess.
+Which is exactly why TODO #98 starts measuring the real one.
+
+**Nothing about the live rule changed because of this test.** The timing
+comparison was a falsification check, not a contest, and production timing was
+not moved toward whichever row looked best.
+
 ## The measured evidence
 
 Stored data, 2026-06-01 to 2026-08-14. Every trade priced at the real first
@@ -103,7 +161,9 @@ the first print at or after 6:35 a.m. Pacific.
 | First half of the period | +2.50% |
 | Second half of the period | +1.22% |
 
-All eight frozen pass/fail gates passed. The unhedged stock short was measured
+All eight frozen pass/fail gates passed **for trades looked at one at a time**.
+Run as a portfolio those same trades fail one of seven portfolio checks under a
+harsh borrow assumption — see "The portfolio test" above. The unhedged stock short was measured
 separately — +1.69% average, 60.8% winners — and it also cleared gates 1 to 7,
 but **the feature only ever shows the pair trade**, because the pair is what the
 required outcome specified and it is the safer of the two.
