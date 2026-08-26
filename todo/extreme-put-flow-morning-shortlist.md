@@ -3,7 +3,13 @@
 **Status:** SOAKING until 2026-09-26
 **Created:** 2026-08-24
 
-**CURRENT STATUS (2026-08-25, late evening):** Two things happened today.
+**CURRENT STATUS (2026-08-26):** Entries are filling cleanly and the option and
+borrow data is now being saved. But the portfolio test says this is NOT a clean
+pass: run as a real overlapping account it clears six of seven frozen checks and
+**fails the seventh once a harsh 20%-a-year stock-borrowing fee is charged**. The
+honest sentence is: the isolated-trade test passed; portfolio viability did not.
+The signal rule was not changed and nothing was retuned. #96 stays owner-only and
+stays soaking. Detail below.
 
 **1. The entries filled.** AMZN, GOOGL, META and BMNR all entered at 6:35 a.m.
 Pacific this morning, all four shortable and not hard to borrow, borrow rate

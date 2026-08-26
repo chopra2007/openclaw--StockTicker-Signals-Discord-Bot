@@ -867,12 +867,13 @@ Get `MEMORY.md` back under its own 17KB working limit so the notes loaded into e
 
 **File:** `extreme-put-flow-morning-shortlist.md`
 
-**CURRENT STATUS (2026-08-24, late evening):** Pre-open hardening is DONE and
-proven. The card no longer claims every PUT was bought — it says "extreme PUT
-activity" and shows the real option-side label per name, taken from the existing
-#options-flow classifier. The frozen rule did not move: the live selector still
-reproduces the frozen 188 picks exactly. Four timers are armed for the morning
-(6:10 readiness, 6:15 watch card, 6:35 entry, 6:40 entry proof), all Pacific.
+**CURRENT STATUS (2026-08-26):** Entries are filling cleanly and the option and
+borrow data is now being saved. But the portfolio test says this is NOT a clean
+pass: run as a real overlapping account it clears six of seven frozen checks and
+**fails the seventh once a harsh 20%-a-year stock-borrowing fee is charged**. The
+honest sentence is: the isolated-trade test passed; portfolio viability did not.
+The signal rule was not changed and nothing was retuned. #96 stays owner-only and
+stays soaking. Detail below.
 
 Turn yesterday's most extreme PUT activity into zero to four stocks to short against SPY each morning, while displaying the existing BUY/SELL classification honestly.
 
@@ -880,15 +881,24 @@ Turn yesterday's most extreme PUT activity into zero to four stocks to short aga
 
 **File:** `multi-method-high-likelihood-trades.md`
 
-**CURRENT STATUS (2026-08-25):** Research run complete. Six trading methods were
-frozen in advance and tested honestly. **All six were rejected.** Nothing is
-recommended for a build. Two findings about features that are ALREADY LIVE came
-out of the run and are the main value delivered — see "What to do next".
+**CURRENT STATUS (2026-08-25, late evening):** Research complete AND all three
+follow-ups shipped the same day under TODO #98 — the expected-move wording is
+fixed and live, the options-flow alert no longer claims a proven trade, and
+option and borrow data now accumulates from every new TODO #96 position.
+See "All three follow-ups are now DONE" below.
 
 Find genuinely new ways to pick zero to four high-probability trades each morning, and honestly report that none of the six tested methods worked.
 
 ## 98. Prove the morning trade works as a portfolio, start saving option and borrow data, and fix two overstated displays
 
 **File:** `live-edge-portfolio-and-data-gap-closure.md`
+
+**CURRENT STATUS (2026-08-26, afternoon):** All three jobs are DONE, verified
+and live — and the last thing that was owed has now happened. At 6:35 a.m.
+Pacific the collection ran for real in production: **877 option rows and 8
+borrow rows landed**, 818 of them with genuine two-sided prices. The four
+positions that entered this morning (DKS, SUI, MSTR, MARA) have **real entry
+option quotes** — the first in this project's history. The 6:50 check passed
+silently and the 6:55 report wrote itself to the notifications file.
 
 Measure what an account actually does when up to four of the morning PUT-flow trades overlap, begin saving the option prices and borrow costs that no past session ever stored, and correct the expected-move and options-flow wording the bot currently overstates.

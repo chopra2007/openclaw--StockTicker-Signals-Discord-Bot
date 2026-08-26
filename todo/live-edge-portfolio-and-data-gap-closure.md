@@ -1,13 +1,15 @@
 # Portfolio proof, forward option/borrow data, and honest displays
 
-**Status:** OPEN — collection is live; first real production rows land 2026-08-26
+**Status:** OPEN — collection is live and proven in production 2026-08-26; first closed trade with a full option quote pair due 2026-09-01
 **Created:** 2026-08-25
 
-**CURRENT STATUS (2026-08-26, early morning):** All three jobs are BUILT,
-TESTED, INDEPENDENTLY VERIFIED and ON. The portfolio verdict is in and was
-confirmed by a separate agent that rebuilt it from scratch. The two display
-fixes are live and were read back from real Discord output. The forward
-collection is armed and proven against real Schwab data.
+**CURRENT STATUS (2026-08-26, afternoon):** All three jobs are DONE, verified
+and live — and the last thing that was owed has now happened. At 6:35 a.m.
+Pacific the collection ran for real in production: **877 option rows and 8
+borrow rows landed**, 818 of them with genuine two-sided prices. The four
+positions that entered this morning (DKS, SUI, MSTR, MARA) have **real entry
+option quotes** — the first in this project's history. The 6:50 check passed
+silently and the 6:55 report wrote itself to the notifications file.
 
 **Two independent verification passes ran, and both found real problems** —
 which is the point of running them:
@@ -34,8 +36,28 @@ regressions.
 calibration line is present, there is no 68% claim, and every time is Pacific.
 An @-mention answers.
 
-**The one thing still owed** is a real production row, which lands at 6:35 a.m.
-Pacific this morning. A 6:50 a.m. check and a 6:55 a.m. report are scheduled.
+**Proven in production, 2026-08-26 6:35 a.m. Pacific.** Not a rehearsal on a
+copy — the real morning job, writing to the real database:
+
+- 877 option rows and 8 borrow rows stored across all 8 open positions.
+- 818 of them carry a genuine two-sided price; 59 had no usable bid or ask and
+  are labelled that way; none were stale and none went missing.
+- The four names that entered this morning — DKS, SUI, MSTR and MARA — have
+  **real entry option quotes**, taken at the same moment as the fill. A sample
+  row: `DKS 260918P00120000`, bid 4.90 / ask 5.10, Schwab's mark 5.00, implied
+  volatility 47.0%, delta -0.433, open interest 3,158, quote 0 seconds old,
+  stock at $121.98 and SPY at $765.66. That is the first option quote this
+  project has ever captured at the moment of one of its own trades.
+- All 8 borrow rows came back shortable, not hard to borrow, rate 0.0 — stored
+  raw, units still UNKNOWN, no money derived from them.
+- The 6:50 check passed silently (`"ok": true`, 8 of 8 positions with rows) and
+  the 6:55 report wrote itself to the notifications file.
+
+**The next real milestone is 2026-09-01**, when DKS, SUI, MSTR and MARA close.
+Those will be the first trades in this project's history with a complete entry
+AND exit option quote — the pair that makes option profit answerable at all.
+The four older positions (AMZN, GOOGL, META, BMNR) close 2026-08-31 but started
+tracking mid-trade, so their option profit stays permanently unknowable.
 
 ## 1. Does the morning trade work as a PORTFOLIO? — answered: NOT a clean pass
 
