@@ -44,6 +44,7 @@ midpoint otherwise — never `last`, and never invented.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import math
@@ -210,9 +211,23 @@ _BORROW_INSERT_SQL = (
 _DRY_RUN = False
 
 
-def _set_dry_run(on: bool) -> None:
+@contextlib.contextmanager
+def _dry_run(on: bool):
+    """Hold the no-write flag for the duration of one call, and always put it
+    back — even when the body raises.
+
+    An earlier version set the flag and cleared it at the end of the function.
+    Any exception in between (a bad `stage`, a database error) left it stuck on
+    for the rest of the process, so later real captures reported rows they had
+    silently not written. A context manager cannot leak that way.
+    """
     global _DRY_RUN
+    previous = _DRY_RUN
     _DRY_RUN = bool(on)
+    try:
+        yield
+    finally:
+        _DRY_RUN = previous
 
 
 async def _insert_option_row(conn, values: dict) -> None:
@@ -556,11 +571,16 @@ async def capture_open_positions(session: str | None = None, stage: str = "MARK"
     Fail-soft per ticker: one Schwab error is recorded in the run row's
     `errors_json` and skips that ticker; it never aborts the batch.
     """
+    with _dry_run(dry_run):
+        return await _capture_open_positions(session, stage, dry_run)
+
+
+async def _capture_open_positions(session: str | None, stage: str,
+                                  dry_run: bool) -> dict:
     now = time.time()
     session = session or pacific_session(now)
     started_at = now
     errors: dict[str, str] = {}
-    _set_dry_run(dry_run)
 
     conn = await db.get_db()
     if stage == "MARK":
@@ -597,7 +617,6 @@ async def capture_open_positions(session: str | None = None, stage: str = "MARK"
         run["finished_at"] = time.time()
         if not dry_run:
             await _write_run_row(conn, run, errors)
-        _set_dry_run(False)
         return {**run, "errors": errors, "dry_run": dry_run,
                 "reason": "no open positions for this stage"}
 
@@ -640,7 +659,6 @@ async def capture_open_positions(session: str | None = None, stage: str = "MARK"
     run["finished_at"] = time.time()
     if not dry_run:
         await _write_run_row(conn, run, errors)
-    _set_dry_run(False)
     return {**run, "errors": errors, "dry_run": dry_run}
 
 

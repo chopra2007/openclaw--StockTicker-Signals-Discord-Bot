@@ -624,3 +624,42 @@ async def test_report_never_says_zero_positions_beside_stored_contracts(
     assert entry["positions_captured"] == 1, "counted 0 positions beside stored rows"
     assert entry["positions_expected"] == 1
     assert "0 of 0 positions" not in out["text"]
+
+
+async def test_dry_run_flag_cannot_leak_when_the_call_raises(tmp_db, monkeypatch):
+    """The exact defect the independent verifier found.
+
+    The flag used to be set at the top of the batch runner and cleared at the
+    bottom. A bad `stage` raises in between, so the flag stayed on for the rest
+    of the process — and the next REAL capture then reported contracts it had
+    silently not written.
+    """
+    row = await _seed_row()
+    rows = [_contract("NVDA1", 200.0, "2026-09-10")]
+    monkeypatch.setattr(
+        "consensus_engine.scanners.schwab_client.get_option_chain",
+        lambda *a, **k: _chain(rows))
+
+    with pytest.raises(ValueError):
+        await pfoc.capture_open_positions(session=row["entry_session"],
+                                          stage="BOGUS", dry_run=True)
+    assert pfoc._DRY_RUN is False, "the no-write flag leaked out of a failed call"
+
+    # The next real capture must actually write.
+    out = await pfoc.capture_entry(row, stock_quote=_quote(240.0),
+                                   spy_quote=_quote(640.0))
+    assert out["contracts_captured"] == 1
+    conn = await db.get_db()
+    cur = await conn.execute("SELECT COUNT(*) AS n FROM put_flow_option_snapshots")
+    assert (await cur.fetchone())["n"] == 1, "reported a row it never wrote"
+
+
+async def test_dry_run_restores_the_previous_value_not_just_false(tmp_db):
+    """Nesting must restore what was there, not blindly clear to False."""
+    assert pfoc._DRY_RUN is False
+    with pfoc._dry_run(True):
+        assert pfoc._DRY_RUN is True
+        with pfoc._dry_run(False):
+            assert pfoc._DRY_RUN is False
+        assert pfoc._DRY_RUN is True, "inner block clobbered the outer state"
+    assert pfoc._DRY_RUN is False
