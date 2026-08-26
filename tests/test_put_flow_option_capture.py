@@ -562,3 +562,65 @@ async def test_all_owner_visible_time_is_pacific_no_et_label(tmp_db, monkeypatch
     assert "ET" not in text.split() and "Eastern" not in text
     assert str(pfoc.PT) == "America/Los_Angeles"
     assert pfoc.pacific_session(time.time())    # does not raise, returns a date string
+
+
+# ───────────── a dry run writes nothing, and counts never contradict ─────────
+#
+# Both of these were REAL defects found by running the live 6:35 sequence
+# against a copy of the production database, not by reading the code. The dry
+# run used to write the option and borrow rows and skip only the audit row, so
+# the morning proof check then reported "the collection never ran" while 586
+# contracts sat in the table, and the plain-English report read "0 of 0
+# positions captured, 586 option contracts stored".
+
+async def test_dry_run_writes_absolutely_nothing(tmp_db, monkeypatch):
+    row = await _seed_row()
+    rows = [_contract("NVDA1", 200.0, "2026-09-10"),
+            _contract("NVDA2", 210.0, "2026-09-10")]
+    monkeypatch.setattr(
+        "consensus_engine.scanners.schwab_client.get_option_chain",
+        lambda *a, **k: _chain(rows))
+    monkeypatch.setattr(
+        "consensus_engine.scanners.schwab_client.get_quotes",
+        lambda syms: {s: _quote(240.0) for s in syms})
+
+    out = await pfoc.capture_open_positions(session=row["entry_session"],
+                                            stage="ENTRY", dry_run=True)
+    assert out["dry_run"] is True
+    assert out["contracts_captured"] == 2      # it still REPORTS what it would do
+
+    conn = await db.get_db()
+    for table in ("put_flow_option_snapshots", "put_flow_borrow_snapshots",
+                  "put_flow_capture_runs"):
+        cur = await conn.execute(f"SELECT COUNT(*) AS n FROM {table}")
+        assert (await cur.fetchone())["n"] == 0, f"dry run wrote to {table}"
+
+    # And the flag must not leak into the next, real call.
+    await pfoc.capture_open_positions(session=row["entry_session"],
+                                      stage="ENTRY", dry_run=False)
+    cur = await conn.execute("SELECT COUNT(*) AS n FROM put_flow_option_snapshots")
+    assert (await cur.fetchone())["n"] == 2
+
+
+async def test_report_never_says_zero_positions_beside_stored_contracts(
+        tmp_db, monkeypatch):
+    row = await _seed_row()
+    rows = [_contract("NVDA1", 200.0, "2026-09-10")]
+    monkeypatch.setattr(
+        "consensus_engine.scanners.schwab_client.get_option_chain",
+        lambda *a, **k: _chain(rows))
+    await pfoc.capture_entry(row, stock_quote=_quote(240.0), spy_quote=_quote(640.0))
+
+    # No audit row exists — capture_entry() alone does not write one. The report
+    # must still count the positions that really have stored rows.
+    conn = await db.get_db()
+    cur = await conn.execute("SELECT COUNT(*) AS n FROM put_flow_capture_runs")
+    assert (await cur.fetchone())["n"] == 0
+
+    out = await pfoc.report()
+    entry = out["by_stage"]["ENTRY"]
+    stored = sum(entry["contracts"].values())
+    assert stored == 1
+    assert entry["positions_captured"] == 1, "counted 0 positions beside stored rows"
+    assert entry["positions_expected"] == 1
+    assert "0 of 0 positions" not in out["text"]

@@ -203,11 +203,27 @@ _BORROW_INSERT_SQL = (
 )
 
 
+# A dry run must write NOTHING — not the option rows, not the borrow rows, not
+# the audit row. Writing the data but skipping the audit row (the earlier
+# behaviour) left the table full while the morning proof check reported that
+# the collection had never run, which is worse than either extreme.
+_DRY_RUN = False
+
+
+def _set_dry_run(on: bool) -> None:
+    global _DRY_RUN
+    _DRY_RUN = bool(on)
+
+
 async def _insert_option_row(conn, values: dict) -> None:
+    if _DRY_RUN:
+        return
     await conn.execute(_OPT_INSERT_SQL, tuple(values.get(c) for c in _OPT_COLS))
 
 
 async def _insert_borrow_row(conn, values: dict) -> None:
+    if _DRY_RUN:
+        return
     await conn.execute(_BORROW_INSERT_SQL, tuple(values.get(c) for c in _BORROW_COLS))
 
 
@@ -544,6 +560,7 @@ async def capture_open_positions(session: str | None = None, stage: str = "MARK"
     session = session or pacific_session(now)
     started_at = now
     errors: dict[str, str] = {}
+    _set_dry_run(dry_run)
 
     conn = await db.get_db()
     if stage == "MARK":
@@ -580,7 +597,9 @@ async def capture_open_positions(session: str | None = None, stage: str = "MARK"
         run["finished_at"] = time.time()
         if not dry_run:
             await _write_run_row(conn, run, errors)
-        return {**run, "errors": errors, "reason": "no open positions for this stage"}
+        _set_dry_run(False)
+        return {**run, "errors": errors, "dry_run": dry_run,
+                "reason": "no open positions for this stage"}
 
     from consensus_engine.scanners import schwab_client
     symbols = sorted({r["ticker"] for r in rows} | {"SPY"})
@@ -621,7 +640,8 @@ async def capture_open_positions(session: str | None = None, stage: str = "MARK"
     run["finished_at"] = time.time()
     if not dry_run:
         await _write_run_row(conn, run, errors)
-    return {**run, "errors": errors}
+    _set_dry_run(False)
+    return {**run, "errors": errors, "dry_run": dry_run}
 
 
 async def _write_run_row(conn, run: dict, errors: dict) -> None:
@@ -742,6 +762,22 @@ async def report(session: str | None = None) -> dict:
     for r in opt_rows:
         if r["stage"] in by_stage and r["quote_quality"] in QUALITIES:
             by_stage[r["stage"]]["contracts"][r["quote_quality"]] = r["n"]
+
+    # The audit row is the normal source for the position counts, but it can be
+    # absent — an older row written before the audit table existed, or a run
+    # that died between storing rows and writing its summary. Counting the real
+    # stored rows then is honest; printing "0 of 0 positions captured" next to
+    # 586 stored contracts is not.
+    cur = await conn.execute(
+        f"SELECT stage, COUNT(DISTINCT shortlist_id) AS positions "
+        f"FROM put_flow_option_snapshots{where} GROUP BY stage", args)
+    for r in await cur.fetchall():
+        st = r["stage"]
+        if st not in by_stage:
+            continue
+        real = r["positions"] or 0
+        by_stage[st]["positions_captured"] = max(by_stage[st]["positions_captured"], real)
+        by_stage[st]["positions_expected"] = max(by_stage[st]["positions_expected"], real)
 
     borrow_summary = {"rows": borrow_rows,
                       "rate_units_seen": sorted({r["rate_units"] for r in borrow_rows})}
