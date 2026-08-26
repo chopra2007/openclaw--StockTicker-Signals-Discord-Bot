@@ -287,3 +287,46 @@ as it stood.
   stress case is much closer to the 0%-borrow column, which passes. That is a
   question the collection now being live can actually answer — after enough
   sessions.
+
+---
+
+## Session notes — 2026-08-26
+
+- **Worked on:** the whole ticket, end to end, from
+  `.omc/plans/live-edge-portfolio-and-data-gap-closure-prompt.md`. Three
+  workstreams built in parallel by separate agents with separate file
+  ownership, integrated by the lead, then checked by two independent verifiers.
+- **What happened, in order:** froze and hashed the portfolio policy before
+  computing anything; ran the portfolio test (6 of 7 gates pass, gate 4 fails at
+  20% borrow); built the option/borrow collection and wired it into the existing
+  6:35 job; corrected the expected-move and options-flow wording; armed two new
+  timers; then let the real morning run prove the collection in production.
+- **Decisions:**
+  1. **Did NOT retune anything after seeing the portfolio answer.** The rule was
+     all seven gates or it does not count, and it does not count. #96's
+     owner-facing wording changed instead of its rule.
+  2. **Did NOT back-fill entry option quotes for the four positions already
+     open.** Capturing a chain hours after the fill and labelling it an entry
+     quote would be a lie about when it was taken. Their first daily mark
+     establishes what to track, and the report says plainly that their option
+     profit can never be measured.
+  3. **Did NOT derive any borrow cost in money.** The units of Schwab's
+     `htbRate` could not be proven from official material, so only the raw rate
+     is stored and `rate_units` stays UNKNOWN.
+  4. **Stored the bounded chain slice locally only.** The Schwab personal-use
+     terms forbid posting or publishing a raw per-strike chain; the database is
+     not in git and nothing renders a chain to Discord.
+  5. **Fixed a pre-existing `!em` crash rather than filing it.** It was in a file
+     this session already changed and it killed a live command on roughly a
+     fifth of liquid tickers.
+- **Bugs found by verification, not by tests:** a rehearsal flag that could get
+  stuck on after a failure (`ffd401b`), the `!em` crash on chains with no trade
+  timestamps (`edaeb5c`), and two collection defects found by running the real
+  6:35 sequence (`504c4eb`). None would have been caught by the suite as it
+  stood; all three now have regression tests.
+- **Proof:** full suite 3,652 passed / 0 failed on the exact final code, with an
+  empty `.test-baseline` (zero regressions). Real Discord read-backs of `!em
+  SPY`, `!emw SPY`, `!em NVDA`, `!all SPY` and an @-mention. Real production
+  capture at 6:35 a.m. Pacific: 877 option rows, 8 borrow rows, 818 usable.
+- **Next:** 2026-09-01, when DKS, SUI, MSTR and MARA close — the first trades
+  with a complete entry AND exit option quote pair.

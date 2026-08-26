@@ -321,3 +321,17 @@ on 2026-08-25, and the result card due 2026-08-31.
 - **Worked on:** Pre-open hardening, from `.omc/plans/todo-96-preopen-hardening-prompt.md`. The card's option-side label (copied from the existing #options-flow classifier, frozen into the row), the "PUT buying" → "extreme PUT activity" wording fix applied to the already-posted 2026-08-25 card in place, real Schwab short availability, and two new silent morning checks at 6:10 and 6:40.
 - **Decisions:** (1) Did NOT back-fill `flow_side_note` for the four waiting rows — deriving it after the fact means re-running the classifier on old numbers, which this ticket forbids; the column exists so notes accumulate from here. (2) Did NOT add a row-shape check to the 6:35 entry job, even though the 6:10 check cannot see rows that the 6:15 job has not created yet — changing the live entry path hours before its first real run was the worse trade. Written up in the "Known limit of the 6:10 check" section above. (3) Trimmed the card text and tightened its length test to 1950 chars, because the real post carries an "@owner " prefix the old 2000-char test ignored.
 - **Next:** 2026-08-25 after 6:40 a.m. Pacific — did AMZN, GOOGL, META and BMNR actually enter, and were the 6:10/6:40 checks silent? Then the 2026-08-31 result card. First real open is the one thing tonight could not simulate.
+
+### Session notes — 2026-08-26
+
+- **Worked on:** not the rule — only what is claimed about it, plus the new data
+  collection hanging off the same 6:35 job. See TODO #98.
+- **The entry check from last session is answered:** AMZN, GOOGL, META and BMNR
+  all entered at 6:35 a.m. Pacific on 2026-08-25, all shortable, and the 6:10
+  and 6:40 checks were both silent. Four more entered 2026-08-26 (DKS, SUI,
+  MSTR, MARA).
+- **Decisions:** the frozen rule file was not touched — zero diff across every
+  commit this session, and the live selector still reproduces the frozen 188
+  picks exactly (re-verified after all the changes landed). The portfolio
+  finding changed the DESCRIPTION, not the rule.
+- **Next:** 2026-08-31, when the first four close and a result card is posted.
