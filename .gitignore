@@ -134,6 +134,8 @@ tests/fixtures/charts/
 
 # F1 back-test parquet store (large binary research data)
 data/market_store/
+data/mmhl_daily/
+data/mmhl_earnings/
 
 # #64 Wolf eval corpus — third-party paid-newsletter bodies, keep private (public repo)
 tests/fixtures/wolf_eval/*.txt

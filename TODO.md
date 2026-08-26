@@ -875,3 +875,14 @@ reproduces the frozen 188 picks exactly. Four timers are armed for the morning
 (6:10 readiness, 6:15 watch card, 6:35 entry, 6:40 entry proof), all Pacific.
 
 Turn yesterday's most extreme PUT activity into zero to four stocks to short against SPY each morning, while displaying the existing BUY/SELL classification honestly.
+
+## 97. Test new high-likelihood trade methods — DONE 2026-08-25 (all six rejected)
+
+**File:** `multi-method-high-likelihood-trades.md`
+
+**CURRENT STATUS (2026-08-25):** Research run complete. Six trading methods were
+frozen in advance and tested honestly. **All six were rejected.** Nothing is
+recommended for a build. Two findings about features that are ALREADY LIVE came
+out of the run and are the main value delivered — see "What to do next".
+
+Find genuinely new ways to pick zero to four high-probability trades each morning, and honestly report that none of the six tested methods worked.
