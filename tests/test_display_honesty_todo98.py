@@ -195,3 +195,29 @@ def test_em_embed_footer_time_is_pacific_not_eastern():
     # A quote timestamp is present here, so the footer must carry a Pacific tz name.
     if r.quote_ts:
         assert any(tz in footer for tz in ("PDT", "PST"))
+
+
+def test_em_footer_survives_a_missing_quote_timestamp():
+    """`!em` used to crash outright when a chain carried no trade timestamp.
+
+    The Schwab client sets every lastTradeDate to pandas' NaT whenever its
+    epoch-ms conversion overflows, which it does on a large minority of liquid
+    tickers (see _chain_map_to_df). NaT is truthy, so the old `if not ts` guard
+    let it through, and formatting NaT raises ValueError — taking the whole
+    card down. Found by the independent verifier as a pre-existing bug.
+    """
+    import pandas as pd
+    from types import SimpleNamespace
+    from consensus_engine.scanners.expected_move import _fmt_quote_time
+
+    for source, expected in (("schwab", "Schwab · real-time quotes"),
+                             ("yfinance", "yfinance · delayed quotes")):
+        r = SimpleNamespace(quote_ts=pd.NaT, source=source)
+        assert _fmt_quote_time(r) == expected
+
+    # A real timestamp must still be formatted, in Pacific.
+    ts = pd.Timestamp("2026-08-26 13:14:00", tz="America/New_York")
+    r = SimpleNamespace(quote_ts=ts, source="schwab")
+    out = _fmt_quote_time(r)
+    assert "Schwab · real-time · quote" in out
+    assert "PDT" in out and "ET" not in out

@@ -717,7 +717,13 @@ def _fmt_quote_time(result: ExpectedMoveResult) -> str:
     served THIS result's chain, so real-time data is never mislabelled 'delayed'."""
     ts = result.quote_ts
     schwab = getattr(result, "source", "yfinance") == "schwab"
-    if not ts:
+    # `not ts` does NOT catch pandas' "no timestamp" value (NaT is truthy), and
+    # formatting NaT raises. That is a live path, not a theoretical one: the
+    # Schwab client deliberately sets every lastTradeDate to NaT when pandas'
+    # epoch-ms conversion blows up, which it does on a fifth of liquid tickers
+    # (see _chain_map_to_df). Before this guard, those chains crashed the whole
+    # !em card. NaT is the only value that is not equal to itself.
+    if not ts or ts != ts:
         return "Schwab · real-time quotes" if schwab else "yfinance · delayed quotes"
     try:
         from zoneinfo import ZoneInfo
