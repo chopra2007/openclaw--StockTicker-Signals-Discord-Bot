@@ -37,6 +37,24 @@ N_DATES = 130
 TARGET_POS = 100
 
 
+@pytest.fixture(scope="module", autouse=True)
+def _prior_dir(tmp_path_factory):
+    """`build_panel` reads two machine-only research files for the list of
+    degraded auction dates and halted date/instrument pairs. Those files are
+    git-ignored, so they are absent on GitHub CI. For this synthetic 2019 panel
+    both lists are empty anyway, so point PRIOR_DIR at a temp directory holding
+    minimal stand-ins with the same shape."""
+    d = tmp_path_factory.mktemp("prior")
+    (d / "phase1-gate.json").write_text(
+        '{"degraded_dates_xnys": [], "degraded_dates_equs": []}')
+    (d / "phase1b-raw-analysis.json").write_text(
+        '{"imbalance": {"halted_pairs": []}}')
+    prev = B.PRIOR_DIR
+    B.PRIOR_DIR = d
+    yield
+    B.PRIOR_DIR = prev
+
+
 # ---------------------------------------------------------------- clocks ----
 def test_snapshot_cutoff_keeps_the_latest_message_at_or_before_each_cutoff():
     slots = [None] * 5

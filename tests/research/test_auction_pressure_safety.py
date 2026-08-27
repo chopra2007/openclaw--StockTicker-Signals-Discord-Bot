@@ -16,15 +16,21 @@ SCRIPT_DIR = REPO / "scripts" / "research"
 # The scripts this plan is allowed to add.
 SCRIPT_GLOBS = ["auction_pressure_*.py", "check_auction_pressure_gate.py"]
 
+# The research scripts pin absolute VPS paths — they only ever run on the box
+# where the paid Databento extract lives. This check reads the script TEXT, which
+# is the same on any machine, so the allowed roots are spelled out as literals
+# rather than derived from the repo location (which differs on GitHub CI).
+_VPS = "/home/openclaw/.openclaw"
+
 ALLOWED_WRITE_ROOTS = [
-    str(REPO / ".omc" / "research" / "opening-auction-pressure-response"),
-    str(REPO / "scripts" / "research"),
-    str(REPO / "tests" / "research"),
+    _VPS + "/workspace/.omc/research/opening-auction-pressure-response",
+    _VPS + "/workspace/scripts/research",
+    _VPS + "/workspace/tests/research",
 ]
 
 READ_ONLY_DATA_ROOTS = [
-    "/home/openclaw/.openclaw/research-data/databento/opening-auctions",
-    str(REPO / ".omc" / "research" / "opening-auction-imbalance"),
+    _VPS + "/research-data/databento/opening-auctions",
+    _VPS + "/workspace/.omc/research/opening-auction-imbalance",
 ]
 
 # Anything that could reach a paid endpoint or read a key.

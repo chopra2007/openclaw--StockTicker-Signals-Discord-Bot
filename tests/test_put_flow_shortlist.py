@@ -511,6 +511,9 @@ async def test_preflight_is_silent_when_everything_is_ready(tmp_db, monkeypatch)
     await conn.commit()
     monkeypatch.setattr(job.cfg, "get", _cfg_on)
     monkeypatch.setattr(job, "_timer_ready", _timers_fine)
+    # The private-room id normally comes from the live machine's Discord config,
+    # which GitHub CI does not have. Supply it here so the check is self-contained.
+    monkeypatch.setattr(job, "channel_id", lambda: "424242424242424242")
     out = await job.preflight(session="2026-08-25", dry_run=True)
     assert out["ok"] is True
     assert out["failed"] == []
