@@ -893,12 +893,28 @@ Find genuinely new ways to pick zero to four high-probability trades each mornin
 
 **File:** `live-edge-portfolio-and-data-gap-closure.md`
 
-**CURRENT STATUS (2026-08-26, afternoon):** All three jobs are DONE, verified
-and live — and the last thing that was owed has now happened. At 6:35 a.m.
-Pacific the collection ran for real in production: **877 option rows and 8
-borrow rows landed**, 818 of them with genuine two-sided prices. The four
-positions that entered this morning (DKS, SUI, MSTR, MARA) have **real entry
-option quotes** — the first in this project's history. The 6:50 check passed
-silently and the 6:55 report wrote itself to the notifications file.
+**CURRENT STATUS (2026-08-27):** The collection works, but the feature goal is
+not complete. It still has no frozen option contract, profit target, stop or
+intraday exit rule, and the current job saves only 6:35 a.m. Pacific snapshots.
+Free Yahoo data was directly checked for the exact DKS contract and returned
+2,953 one-minute bars over five days, but only trade prices and volume — no
+historical bid/ask. Next: freeze the option rule before reading outcomes,
+download the expiring minute history now, use a Barchart free trial to test the
+181 historical signals, and add a small Schwab monitor that watches only the
+selected contracts and stores one-minute bid/ask summaries plus target hits.
 
 Measure what an account actually does when up to four of the morning PUT-flow trades overlap, begin saving the option prices and borrow costs that no past session ever stored, and correct the expected-move and options-flow wording the bot currently overstates.
+
+## 99. Make auction research tests work in GitHub
+
+**File:** `make-auction-research-tests-work-in-ci.md`
+
+**CURRENT STATUS (2026-08-27):** GitHub run 33024400974 failed because the
+auction tests expect machine-only research files and paths that do not exist on
+GitHub, plus one readiness test depends on live-machine state. The same 64
+affected checks pass on the live machine. This is a test-setup problem, not
+evidence that the morning PUT feature broke. Next: replace those outside-file
+and live-state assumptions with small test-owned fixtures, then rerun the full
+GitHub gate.
+
+Make the auction and readiness tests create the data they need so GitHub can verify them without relying on files or live-machine state that exist only on this server.

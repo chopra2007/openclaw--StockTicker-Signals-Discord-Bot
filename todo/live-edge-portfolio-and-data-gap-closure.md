@@ -3,13 +3,15 @@
 **Status:** OPEN — collection is live and proven in production 2026-08-26; first closed trade with a full option quote pair due 2026-09-01
 **Created:** 2026-08-25
 
-**CURRENT STATUS (2026-08-26, afternoon):** All three jobs are DONE, verified
-and live — and the last thing that was owed has now happened. At 6:35 a.m.
-Pacific the collection ran for real in production: **877 option rows and 8
-borrow rows landed**, 818 of them with genuine two-sided prices. The four
-positions that entered this morning (DKS, SUI, MSTR, MARA) have **real entry
-option quotes** — the first in this project's history. The 6:50 check passed
-silently and the 6:55 report wrote itself to the notifications file.
+**CURRENT STATUS (2026-08-27):** The collection works, but the feature goal is
+not complete. It still has no frozen option contract, profit target, stop or
+intraday exit rule, and the current job saves only 6:35 a.m. Pacific snapshots.
+Free Yahoo data was directly checked for the exact DKS contract and returned
+2,953 one-minute bars over five days, but only trade prices and volume — no
+historical bid/ask. Next: freeze the option rule before reading outcomes,
+download the expiring minute history now, use a Barchart free trial to test the
+181 historical signals, and add a small Schwab monitor that watches only the
+selected contracts and stores one-minute bid/ask summaries plus target hits.
 
 **Two independent verification passes ran, and both found real problems** —
 which is the point of running them:
@@ -330,3 +332,16 @@ as it stood.
   capture at 6:35 a.m. Pacific: 877 option rows, 8 borrow rows, 818 usable.
 - **Next:** 2026-09-01, when DKS, SUI, MSTR and MARA close — the first trades
   with a complete entry AND exit option quote pair.
+
+### Session notes — 2026-08-27
+
+- **Worked on:** re-evaluated what remains after confirming that free Yahoo
+  option pages expose one-minute contract history and that a selected-contract
+  Schwab stream can be stored cheaply as one-minute summaries.
+- **Decisions:** the earlier wording was too final. The exact bid/ask result for
+  older trades is still unknown, but approximate intraday option paths may be
+  recoverable from free minute trade bars. A single scheduled exit quote is not
+  enough to test profit targets.
+- **Next:** freeze the contract and exit rules before reading the minute-bar
+  outcomes, then download the current and historical contract data before any
+  short-retention minute history disappears.
