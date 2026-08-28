@@ -113,14 +113,15 @@ def trade_controls(ctrl, lookup, policy, rule):
     return run_rule(c, lookup, pol, rule)
 
 
-def run_all(panel, bars, policy, tag, pillar_bars=None):
+def run_all(panel, bars, policy, tag, pillar_bars=None, all_dates=None):
     lookup = bar_lookup(bars)
     plookup = bar_lookup(pillar_bars) if pillar_bars is not None else None
     results, trades_out = {}, {}
     for name, rule in RULES.items():
         t = run_rule(panel, lookup, policy, rule)
         trades_out[name] = t
-        s = summarise(t, name)
+        s = summarise(t, name, all_dates=all_dates,
+                      capacity_frac=policy["capacity_frac_of_pre_entry_minute"])
         if t.empty:
             results[name] = s
             continue
@@ -191,7 +192,8 @@ def main():
     pillar["symbol"] = pillar.symbol.astype(str)
     pillar = pillar[pillar.date.isin(keep)]
 
-    results, trades = run_all(panel, bars, policy, a.tag, pillar_bars=pillar)
+    results, trades = run_all(panel, bars, policy, a.tag, pillar_bars=pillar,
+                              all_dates=sorted(panel.date.unique()))
     out = {
         "tag": a.tag,
         "policy_sha256": POLICY_SHA.read_text().split()[0].strip(),

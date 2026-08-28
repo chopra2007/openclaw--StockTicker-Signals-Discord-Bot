@@ -122,13 +122,13 @@ def walk_forward_blocks(trades, n_blocks=5, col="net_bps"):
 
 def portfolio(trades, start_equity=100_000.0, risk_frac=0.0025,
               max_position=10_000.0, max_concurrent=4, max_gross_frac=0.40,
-              max_open_risk_frac=0.01):
+              max_open_risk_frac=0.01, capacity_frac=0.05, all_dates=None):
     """Run the trades as one real account, overlapping, not as isolated averages."""
     if trades.empty:
         return {"note": "no trades"}
     t = trades.sort_values(["date", "entry_minute"]).copy()
     equity = start_equity
-    curve, rejected = [], 0
+    curve, rejected, funded, notionals = [], 0, 0, []
     for date, day in t.groupby("date", sort=True):
         open_positions = []      # (exit_minute, notional, risk_dollars)
         day_pnl = 0.0
@@ -146,8 +146,11 @@ def portfolio(trades, start_equity=100_000.0, risk_frac=0.0025,
                 rejected += 1
                 continue
             notional = min(max_position, risk_frac * equity / stop_dist)
-            # capacity: never more than 1% of the dollar volume already printed
-            notional = min(notional, 0.01 * float(r.win_dollar_volume))
+            # capacity: never more than 1% of the dollar volume printed in the
+            # last COMPLETED minute before entry (frozen-policy.md section 10).
+            # Using the whole 30-minute window here would have loosened the cap
+            # by roughly thirty times.
+            notional = min(notional, capacity_frac * float(r.pre_entry_minute_dollar_volume))
             risk_dollars = notional * stop_dist
             if gross_open + notional > max_gross_frac * equity:
                 rejected += 1
@@ -158,11 +161,21 @@ def portfolio(trades, start_equity=100_000.0, risk_frac=0.0025,
             if notional < 500:
                 rejected += 1
                 continue
+            funded += 1
+            notionals.append(notional)
             day_pnl += notional * float(r.net_bps) / 1e4
             open_positions.append((int(r.exit_minute), notional, risk_dollars))
         equity += day_pnl
         curve.append({"date": date, "equity": equity, "pnl": day_pnl})
     c = pd.DataFrame(curve)
+    if all_dates is not None:
+        # Days with no trade are still days the account was open. Leaving them
+        # out would annualise a 672-day span over only its 523 trading days.
+        c = (c.set_index("date")
+             .reindex(sorted(all_dates))
+             .assign(pnl=lambda x: x.pnl.fillna(0.0))
+             .assign(equity=lambda x: x.equity.ffill().fillna(start_equity))
+             .reset_index().rename(columns={"index": "date"}))
     peak = c.equity.cummax()
     dd = (c.equity / peak - 1.0)
     n_days = len(c)
@@ -176,12 +189,19 @@ def portfolio(trades, start_equity=100_000.0, risk_frac=0.0025,
         "annualised_return": float(ann),
         "max_drawdown": mdd,
         "return_over_drawdown": float(ann / mdd) if mdd > 0 else float("inf"),
+        "signals_generated": int(len(t)),
+        "trades_funded": int(funded),
         "rejected_by_limits": int(rejected),
+        "median_position_usd": float(np.median(notionals)) if notionals else 0.0,
+        "mean_position_usd": float(np.mean(notionals)) if notionals else 0.0,
+        "profit_per_funded_trade_usd": float(
+            (c.equity.iloc[-1] - start_equity) / funded) if funded else float("nan"),
+        "annual_profit_usd_on_100k": float(ann * start_equity),
         "daily_pnl_std": float(c.pnl.std()),
     }
 
 
-def summarise(trades, label):
+def summarise(trades, label, all_dates=None, capacity_frac=0.05):
     if trades is None or trades.empty:
         return {"rule": label, "trades": 0, "note": "no trades"}
     t = trades[~trades.unresolvable.fillna(False)] if "unresolvable" in trades else trades
@@ -221,5 +241,5 @@ def summarise(trades, label):
         "exit_mix": {k: int(v) for k, v in t.exit_kind.value_counts().items()},
         "concentration": concentration(t),
         "walk_forward": walk_forward_blocks(t),
-        "portfolio": portfolio(t),
+        "portfolio": portfolio(t, all_dates=all_dates, capacity_frac=capacity_frac),
     }

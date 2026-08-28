@@ -70,7 +70,7 @@ def load_raw(wanted_keys, lo_min, hi_min):
 
 def replay(day, side, entry_minute, stop_px, target_px, hold, search):
     """A second, independently written implementation of the frozen fill rules."""
-    for m in range(entry_minute + 1, entry_minute + hold + 1):
+    for m in range(entry_minute + 1, entry_minute + hold):
         if m not in day:
             continue
         o, h, lo, c, v = day[m]

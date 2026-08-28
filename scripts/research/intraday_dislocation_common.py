@@ -42,8 +42,8 @@ MIN_STAB_1 = 10 * 60          # 10:00 bar - first stabilisation minute
 MIN_STAB_2 = 10 * 60 + 1      # 10:01 bar - second stabilisation minute
 MIN_ENTRY_DIRECT = 10 * 60 + 1     # direct entry: open of the 10:01 bar
 MIN_ENTRY_CONFIRMED = 10 * 60 + 2  # confirmed entry: open of the 10:02 bar
-MIN_HOLD_PRIMARY = 60         # primary maximum holding time, minutes
-MIN_HOLD_STRESS = 30          # frozen stress check only
+MIN_HOLD_PRIMARY = 30         # primary maximum holding time, minutes
+MIN_HOLD_STRESS = 60          # frozen stress check only, never a tie-breaker
 MIN_LAST_NEEDED = 11 * 60 + 10
 MIN_RTH_LAST = 15 * 60 + 59   # 15:59 bar closes the regular session
 

@@ -1,12 +1,31 @@
 # Test whether a big early-morning stock move snaps back or keeps going
 
-**Status:** OPEN
+**Status:** DONE (rejected direction)
 **Created:** 2026-08-28
 
-**CURRENT STATUS (2026-08-28):** Just started. Running the execution contract in
-`.omc/plans/profitable-intraday-dislocation-feature-prompt.md`. Nothing is live.
-Production is untouched. Next step: reproduce the local minute-price files from
-scratch, then freeze six exact rules before looking at any profit number.
+**CURRENT STATUS (2026-08-28):** REJECTED — all six rules failed. A rule needed
+to earn 40 basis points on the average trade before costs; the best earned 5.09.
+Every rule lost money after costs, in all five time blocks. Nothing was turned
+on, production is unchanged, no money was spent, and the 182 sealed dates were
+never opened. An independent check rebuilt 100 signals and 60 complete trades
+from the raw exchange files with zero mismatches, so this is not a machinery bug.
+Full write-up: `.omc/research/intraday-dislocation/FINAL-VERDICT.md`.
+
+The reason in one line: after an extreme move, these 60 stocks behave almost
+exactly like ordinary ones over the next half hour. The one effect above noise is
+a 6 basis point drift down after a big rise — smaller than the 10 basis points by
+which our two price feeds disagree about the same move, and under a third of what
+it costs to trade.
+
+**Next avenue, ranked first of three:** stop testing 20-to-60-minute holds. All
+nine mechanisms rejected across #93, #96, #97, #100 and #103 tried to predict a
+move that size, where a 20 basis point cost eats half the raw material. Holding
+for days instead of minutes costs nothing extra to test — the daily price data is
+free and already used here — and makes the cost hurdle roughly ten times easier.
+The other two avenues are in the final verdict.
+
+**The owner's broader goal — a repeatable automated trade that makes money after
+costs — remains unmet.**
 
 ## The goal
 

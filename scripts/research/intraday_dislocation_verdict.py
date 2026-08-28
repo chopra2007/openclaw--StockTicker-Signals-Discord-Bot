@@ -17,6 +17,7 @@ MAX_STOCK_SHARE = 0.15
 MAX_FIVE_DATE_SHARE = 0.25
 MAX_DRAWDOWN = 0.08
 MIN_RETURN_OVER_DRAWDOWN = 1.0
+MIN_ANNUAL_RETURN = 0.05  # gate 11b: below this the owner is better off in cash
 EARLY_STOP_GROSS_BPS = 40.0
 
 
@@ -75,6 +76,12 @@ def gates(s):
     ok = (pf.get("annualised_return", -1) > 0
           and pf.get("max_drawdown", 1) <= MAX_DRAWDOWN
           and pf.get("return_over_drawdown", 0) >= MIN_RETURN_OVER_DRAWDOWN)
+    g.append(("11b annual return >= 5% of the account",
+              pf.get("annualised_return", -1) >= MIN_ANNUAL_RETURN,
+              f"{pf.get('annualised_return', float('nan'))*100:.2f}% a year = "
+              f"${pf.get('annual_profit_usd_on_100k', float('nan')):,.0f} on $100,000, "
+              f"from {pf.get('trades_funded', 0)} funded trades at a median "
+              f"${pf.get('median_position_usd', float('nan')):,.0f} each"))
     g.append(("11 portfolio limits", ok,
               f"annual {pf.get('annualised_return', float('nan'))*100:.2f}%, "
               f"worst decline {pf.get('max_drawdown', float('nan'))*100:.2f}%, "

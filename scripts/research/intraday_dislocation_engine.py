@@ -23,7 +23,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-TIME_EXIT_SEARCH = 380  # minutes; search to the end of the regular session
+TIME_EXIT_SEARCH = 40  # minutes; past this the exit is not a 30-minute hold
 
 
 def bar_lookup(bars):
@@ -45,7 +45,10 @@ def bar_lookup(bars):
 def walk_trade(day_bars, side, entry_minute, entry_px, stop_px, target_px, hold):
     """Return (exit_price, exit_minute, exit_kind) or None if unresolvable."""
     last = entry_minute + hold
-    for m in range(entry_minute + 1, last + 1):
+    # The maximum holding minute itself is the timed exit and nothing else. It
+    # must not be scanned for a stop or target first: the trader is already out
+    # at that bar's open, so a level touched later inside it never reaches him.
+    for m in range(entry_minute + 1, last):
         bar = day_bars.get(m)
         if bar is None:
             continue
@@ -70,7 +73,7 @@ def walk_trade(day_bars, side, entry_minute, entry_px, stop_px, target_px, hold)
             return stop_px, m, "stop"
         if hit_target:
             return target_px, m, "target"
-    for m in range(last, last + TIME_EXIT_SEARCH + 1):
+    for m in range(last, last + TIME_EXIT_SEARCH + 1):  # never silently dropped
         bar = day_bars.get(m)
         if bar is not None and bar[4] > 0:
             return bar[0], m, "time"
