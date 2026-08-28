@@ -1,15 +1,27 @@
 # Make auction research tests work in GitHub
 
-**Status:** OPEN
+**Status:** DONE 2026-08-27
 **Created:** 2026-08-27
 
-**CURRENT STATUS (2026-08-27):** GitHub run 33024400974 failed because the
-auction tests expect machine-only research files and paths that do not exist on
-GitHub, plus one readiness test depends on live-machine state. The same 64
-affected checks pass on the live machine. This is a test-setup problem, not
-evidence that the morning PUT feature broke. Next: replace those outside-file
-and live-state assumptions with small test-owned fixtures, then rerun the full
-GitHub gate.
+**CURRENT STATUS (2026-08-27) — DONE.** All three test files now build their own
+inputs instead of reaching outside the repository: the auction feature tests
+write a temporary `phase1-gate.json` with the same shape, the auction safety
+tests spell out the allowed roots the research scripts actually pin rather than
+deriving them from wherever the repo happens to live, and the PUT-flow readiness
+test supplies its own private-room id. No auction calculation, conclusion or
+live behaviour changed — TODO #93 stays rejected.
+
+Proved the way GitHub sees it: the three files were run from a clean copy of the
+tracked tree with `.omc/research/opening-auction-imbalance/` absent. **113
+passed.** Commit `ef1b53c`.
+
+(The TODO said "64 affected checks" — that was GitHub's own tally. The three
+files hold 113 tests in total and every one of them passes.)
+
+One thing found along the way that was NOT the reported cause: the feature file
+also fails at import as the `openclaw` user because `databento` was missing for
+that user. It is in `requirements.txt` so CI installs it; it is now installed on
+this machine too.
 
 ## What happened
 

@@ -867,13 +867,13 @@ Get `MEMORY.md` back under its own 17KB working limit so the notes loaded into e
 
 **File:** `extreme-put-flow-morning-shortlist.md`
 
-**CURRENT STATUS (2026-08-26):** Entries are filling cleanly and the option and
-borrow data is now being saved. But the portfolio test says this is NOT a clean
-pass: run as a real overlapping account it clears six of seven frozen checks and
-**fails the seventh once a harsh 20%-a-year stock-borrowing fee is charged**. The
-honest sentence is: the isolated-trade test passed; portfolio viability did not.
-The signal rule was not changed and nothing was retuned. #96 stays owner-only and
-stays soaking. Detail below.
+**CURRENT STATUS (2026-08-27):** Unchanged and still running. Entries filled
+again this morning — AMD at $474.01 and META at $570.44, both easy to borrow,
+closing 2026-09-02. The portfolio verdict below is the one that still stands:
+run as a real overlapping account it clears six of seven frozen checks and
+**fails the seventh once a harsh 20%-a-year borrowing fee is charged**. The
+signal rule was not retuned and nothing here was changed. Stays owner-only and
+stays soaking.
 
 Turn yesterday's most extreme PUT activity into zero to four stocks to short against SPY each morning, while displaying the existing BUY/SELL classification honestly.
 
@@ -893,29 +893,29 @@ Find genuinely new ways to pick zero to four high-probability trades each mornin
 
 **File:** `live-edge-portfolio-and-data-gap-closure.md`
 
-**CURRENT STATUS (2026-08-27):** The collection works, but the feature goal is
-not complete. It still has no frozen option contract, profit target, stop or
-intraday exit rule, and the current job saves only 6:35 a.m. Pacific snapshots.
-Free Yahoo data was directly checked for the exact DKS contract and returned
-2,953 one-minute bars over five days, but only trade prices and volume — no
-historical bid/ask. Next: freeze the option rule before reading outcomes,
-download the expiring minute history now, use a Barchart free trial to test the
-181 historical signals, and add a small Schwab monitor that watches only the
-selected contracts and stores one-minute bid/ask summaries plus target hits.
+**CURRENT STATUS (2026-08-27):** The part this item was holding open — "would
+buying a put have made money?" — has now been asked properly by TODO #100 and
+came back **INSUFFICIENT DATA**. A frozen rule, a contract selector and a live
+monitor all exist; what does not exist is the historical price record needed to
+judge them, and it cannot be bought without an owner account. Two overstated
+claims in this file were corrected: exact past bid and ask really are gone, but
+an approximate minute trade path is often still purchasable. Forward option and
+borrow collection continues unchanged, and 2026-09-01 is still the first exit
+with a complete entry-and-exit option quote pair.
 
 Measure what an account actually does when up to four of the morning PUT-flow trades overlap, begin saving the option prices and borrow costs that no past session ever stored, and correct the expected-move and options-flow wording the bot currently overstates.
 
-## 99. Make auction research tests work in GitHub
+## 99. Make auction research tests work in GitHub — DONE 2026-08-27 (113 tests pass in a clean tree with the machine-only files absent)
 
 **File:** `make-auction-research-tests-work-in-ci.md`
 
-**CURRENT STATUS (2026-08-27):** GitHub run 33024400974 failed because the
-auction tests expect machine-only research files and paths that do not exist on
-GitHub, plus one readiness test depends on live-machine state. The same 64
-affected checks pass on the live machine. This is a test-setup problem, not
-evidence that the morning PUT feature broke. Next: replace those outside-file
-and live-state assumptions with small test-owned fixtures, then rerun the full
-GitHub gate.
+**CURRENT STATUS (2026-08-27) — DONE.** All three test files now build their own
+inputs instead of reaching outside the repository: the auction feature tests
+write a temporary `phase1-gate.json` with the same shape, the auction safety
+tests spell out the allowed roots the research scripts actually pin rather than
+deriving them from wherever the repo happens to live, and the PUT-flow readiness
+test supplies its own private-room id. No auction calculation, conclusion or
+live behaviour changed — TODO #93 stays rejected.
 
 Make the auction and readiness tests create the data they need so GitHub can verify them without relying on files or live-machine state that exist only on this server.
 
@@ -923,11 +923,17 @@ Make the auction and readiness tests create the data they need so GitHub can ver
 
 **File:** `put-flow-option-trade-system.md`
 
-**CURRENT STATUS (2026-08-27):** The option rule is frozen and hashed, the
-contract selector is built and proven against a real morning, and the live
-monitor ships today. The historical test could **not** be finished, and the
-reason is data, not the trade. Verdict on the history: **INSUFFICIENT DATA** —
-no PASS, no option recommendation, option display stays OFF.
+**CURRENT STATUS (2026-08-27):** Finished and answered. Verdict **INSUFFICIENT
+DATA** — the option idea was not rejected, it could not be tested. Nothing
+promoted, no option recommendation, the option section on the card stays OFF,
+TODO #96 untouched and still working. The contract selector and the live monitor
+are built, tested and running; the monitor timer fires at 6:30 a.m. Pacific and
+records real bid and ask every minute for the contracts the frozen rule picks.
+Two blockers, both measured, are written up below and in
+`.omc/research/put-flow-option-trade-system/FINAL-VERDICT.md`. The only thing
+left is one owner decision: a fresh Databento account (free) or ThetaData ($40,
+one month) unblocks the historical test this week; otherwise the forward monitor
+gets there on its own in roughly five months.
 
 Decide honestly whether buying a put on the morning extreme-PUT shortlist is a real trade after costs, and if it is, ship it owner-only with an exact contract, target, stop and automatic result.
 
@@ -943,6 +949,11 @@ Make Codex and Claude challenge whether a proposed test measures the owner's rea
 
 **File:** `gemini-video-test-hangs-in-full-suite.md`
 
-**CURRENT STATUS (2026-08-27):** One Gemini video test never finishes, which stops the whole suite at about 45% so the rest is never checked. Proved pre-existing — it hangs the same way on the code from before TODO #100.
+**CURRENT STATUS (2026-08-27):** A single test —
+`tests/test_gemini_video_parser.py::test_extract_evidence_chunked_budget_abort_keeps_partial`
+— never finishes. Because pytest runs tests one after another, it does not just
+fail: it **stops the entire suite** at roughly the 45% mark, so nothing after it
+is checked at all. Next: find what it waits on and give it a bounded fake
+instead of the real thing.
 
 Make the frozen Gemini video test finish on its own, and add a time limit so a future hang fails in seconds instead of silently skipping half the tests.

@@ -3,13 +3,18 @@
 **Status:** SOAKING until 2026-09-26
 **Created:** 2026-08-24
 
-**CURRENT STATUS (2026-08-26):** Entries are filling cleanly and the option and
-borrow data is now being saved. But the portfolio test says this is NOT a clean
-pass: run as a real overlapping account it clears six of seven frozen checks and
-**fails the seventh once a harsh 20%-a-year stock-borrowing fee is charged**. The
-honest sentence is: the isolated-trade test passed; portfolio viability did not.
-The signal rule was not changed and nothing was retuned. #96 stays owner-only and
-stays soaking. Detail below.
+**CURRENT STATUS (2026-08-27):** Unchanged and still running. Entries filled
+again this morning — AMD at $474.01 and META at $570.44, both easy to borrow,
+closing 2026-09-02. The portfolio verdict below is the one that still stands:
+run as a real overlapping account it clears six of seven frozen checks and
+**fails the seventh once a harsh 20%-a-year borrowing fee is charged**. The
+signal rule was not retuned and nothing here was changed. Stays owner-only and
+stays soaking.
+
+New this session, sitting on top and only observing: TODO #100 now picks an
+option contract at 6:35 and watches it. It never picks, ranks, delays or rejects
+a stock name. Its verdict is INSUFFICIENT DATA, so no option section shows on
+the card. Detail below.
 
 **1. The entries filled.** AMZN, GOOGL, META and BMNR all entered at 6:35 a.m.
 Pacific this morning, all four shortable and not hard to borrow, borrow rate
@@ -341,3 +346,25 @@ on 2026-08-25, and the result card due 2026-08-31.
   picks exactly (re-verified after all the changes landed). The portfolio
   finding changed the DESCRIPTION, not the rule.
 - **Next:** 2026-08-31, when the first four close and a result card is posted.
+
+---
+
+## Session notes — 2026-08-27
+
+The stock-pair feature was **not changed**. Its filters, ranking, four-name cap,
+6:35 entry, four-session hold, pair direction and 0.25% cost are all untouched.
+Entries filled normally this morning: AMD at $474.01 and META at $570.44, both
+easy to borrow, closing 2026-09-02.
+
+What is new sits on top and only observes: TODO #100 now chooses an option
+contract at 6:35 and watches it through the session. It never picks, ranks,
+delays or rejects a stock name. Its verdict is INSUFFICIENT DATA, so no option
+section appears on the card.
+
+Corrected the claim in this file that option profit before 2026-08-25 is
+"permanently UNKNOWN". Exact past bid and ask are genuinely gone; an approximate
+minute trade path is often still buyable. See TODO #100.
+
+One number from today worth carrying: at 6:35 the near-the-money puts on AMD and
+META were quoted 14% to 48% apart. The stock trade works at 6:35 because a stock
+has one price. The option version may not be tradeable at that moment at all.

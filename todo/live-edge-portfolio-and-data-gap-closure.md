@@ -1,17 +1,17 @@
 # Portfolio proof, forward option/borrow data, and honest displays
 
-**Status:** OPEN — collection is live and proven in production 2026-08-26; first closed trade with a full option quote pair due 2026-09-01
+**Status:** OPEN — the option question is now answered (INSUFFICIENT DATA, TODO #100); collection stays live; first closed trade with a full option quote pair due 2026-09-01
 **Created:** 2026-08-25
 
-**CURRENT STATUS (2026-08-27):** The collection works, but the feature goal is
-not complete. It still has no frozen option contract, profit target, stop or
-intraday exit rule, and the current job saves only 6:35 a.m. Pacific snapshots.
-Free Yahoo data was directly checked for the exact DKS contract and returned
-2,953 one-minute bars over five days, but only trade prices and volume — no
-historical bid/ask. Next: freeze the option rule before reading outcomes,
-download the expiring minute history now, use a Barchart free trial to test the
-181 historical signals, and add a small Schwab monitor that watches only the
-selected contracts and stores one-minute bid/ask summaries plus target hits.
+**CURRENT STATUS (2026-08-27):** The part this item was holding open — "would
+buying a put have made money?" — has now been asked properly by TODO #100 and
+came back **INSUFFICIENT DATA**. A frozen rule, a contract selector and a live
+monitor all exist; what does not exist is the historical price record needed to
+judge them, and it cannot be bought without an owner account. Two overstated
+claims in this file were corrected: exact past bid and ask really are gone, but
+an approximate minute trade path is often still purchasable. Forward option and
+borrow collection continues unchanged, and 2026-09-01 is still the first exit
+with a complete entry-and-exit option quote pair.
 
 **Two independent verification passes ran, and both found real problems** —
 which is the point of running them:
@@ -357,3 +357,23 @@ as it stood.
 - **Next:** freeze the contract and exit rules before reading the minute-bar
   outcomes, then download the current and historical contract data before any
   short-retention minute history disappears.
+
+---
+
+## Session notes — 2026-08-27
+
+The option question this item was holding open has now been asked properly, by
+TODO #100. Answer: **INSUFFICIENT DATA** — not "no edge". No rule was promoted
+because the price records needed to test one do not exist and cannot be bought
+without an owner account.
+
+Corrected an overstatement that lived in this file: option profit for older
+trades was called "permanently unknowable". Two different things were being run
+together. The exact bid and ask quoted at the time really are gone for a
+contract nobody recorded. An approximate minute-by-minute trade path is often
+still purchasable, and cheaply — that half was simply wrong. Both halves are now
+stated separately, and a trade-price bar is never called a quote.
+
+Forward option and borrow collection continues unchanged. The 2026-09-01 exit for
+DKS, SUI, MSTR and MARA is still the first trade in this project's history with
+a complete entry AND exit option quote pair.
