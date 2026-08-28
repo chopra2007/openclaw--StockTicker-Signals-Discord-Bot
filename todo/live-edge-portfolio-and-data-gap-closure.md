@@ -59,7 +59,10 @@ copy — the real morning job, writing to the real database:
 Those will be the first trades in this project's history with a complete entry
 AND exit option quote — the pair that makes option profit answerable at all.
 The four older positions (AMZN, GOOGL, META, BMNR) close 2026-08-31 but started
-tracking mid-trade, so their option profit stays permanently unknowable.
+tracking mid-trade. Their **entry** quote is genuinely gone — nothing recreates a
+price nobody recorded. Their price *path* is partly recoverable from free minute
+bars, which is why TODO #100 downloaded it; that is a rough trade-price trail,
+never a bid and ask, and it is labelled that way everywhere it appears.
 
 ## 1. Does the morning trade work as a PORTFOLIO? — answered: NOT a clean pass
 
@@ -128,8 +131,17 @@ Nothing is ever back-filled from a last price or a later snapshot.
 
 **Two things that are permanently UNKNOWN, and say so:**
 
-1. **Option profit.** No frozen evaluator exists and no complete entry/exit
-   quote pair exists yet. The report says UNKNOWN, with the reason.
+1. **Option profit.** UPDATED 2026-08-27 by TODO #100 — a frozen evaluator now
+   exists and the option question has been asked properly. The answer is
+   **INSUFFICIENT DATA**, not "no edge": no rule was promoted because the price
+   records needed to test one do not exist. Two different things were being
+   run together here, and they should stay apart:
+   - **Exact past bid and ask are gone.** For an expired contract nobody kept,
+     that really is unrecoverable from any free source.
+   - **Approximate past minute trade paths are sometimes recoverable** — and
+     buying them is cheap. See TODO #100 for the exact provider, price and
+     coverage. Calling both "permanently unknowable" overstated the first and
+     was simply wrong about the second.
 2. **The units of Schwab's borrow rate.** They could not be proven from
    official material, so `rate_units` is `UNKNOWN`, only the raw rate is
    stored, and **no dollar borrow cost is calculated from it**. The frozen

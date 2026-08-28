@@ -28,8 +28,14 @@ retuned. #96 stays owner-only and stays soaking.
 **Also new (TODO #98):** from tomorrow morning the system starts SAVING the
 option chain and the borrow fields at every entry, every daily mark and every
 exit. That is the only route to ever answering "would buying a put have made
-money?" and "what did borrowing actually cost?", both of which are permanently
-UNKNOWN for every trade before today.
+money?" and "what did borrowing actually cost?", neither of which was ever
+recorded before today.
+
+**Updated 2026-08-27 (TODO #100):** "permanently unknown" was too strong. The
+exact bid and ask quoted at the time really are gone for an expired contract,
+but an approximate minute-by-minute trade path is often still buyable, cheaply.
+The option question was asked properly and came back **INSUFFICIENT DATA** — no
+rule promoted, no option recommendation, and the option display stays off.
 
 **Next two things to look at, in order:**
 

@@ -918,3 +918,23 @@ and live-state assumptions with small test-owned fixtures, then rerun the full
 GitHub gate.
 
 Make the auction and readiness tests create the data they need so GitHub can verify them without relying on files or live-machine state that exist only on this server.
+
+## 100. Turn the morning PUT shortlist into a measured option trade — AWAITING APPROVAL: a free Databento account (or $40 ThetaData) is the only way to test the option rule on history
+
+**File:** `put-flow-option-trade-system.md`
+
+**CURRENT STATUS (2026-08-27):** The option rule is frozen and hashed, the
+contract selector is built and proven against a real morning, and the live
+monitor ships today. The historical test could **not** be finished, and the
+reason is data, not the trade. Verdict on the history: **INSUFFICIENT DATA** —
+no PASS, no option recommendation, option display stays OFF.
+
+Decide honestly whether buying a put on the morning extreme-PUT shortlist is a real trade after costs, and if it is, ship it owner-only with an exact contract, target, stop and automatic result.
+
+## 101. Make builders prove their tests match the real goal
+
+**File:** `make-builders-prove-their-tests-match-the-goal.md`
+
+**CURRENT STATUS (2026-08-27):** No builder-instruction file has been changed. The next session must first produce carefully reviewed wording and a safe edit plan. Claude will lead, but it must use the installed `codex@openai-codex` plugin so Claude and Codex independently challenge the idea, combine the strongest parts, and review the final changes.
+
+Make Codex and Claude challenge whether a proposed test measures the owner's real-world result before they plan, build or approve any future feature.
