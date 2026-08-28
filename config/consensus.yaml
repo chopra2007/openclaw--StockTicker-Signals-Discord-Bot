@@ -1333,3 +1333,26 @@ put_flow_shortlist:
     strike_high_pct: 1.10          # ... through 110% of the stock price at capture
     quote_max_age_sec: 900         # older than this is stored and LABELLED stale, never dropped
     max_contracts_per_capture: 400 # a hard ceiling so one wide chain cannot run away
+
+  # TODO #100 — the OPTION TRADE layer. Everything here only OBSERVES: it never
+  # picks, ranks, delays or rejects a stock name, and it never places an order.
+  # `display` stays OFF until a frozen option rule has actually earned it on the
+  # untouched evaluation. Selection and monitoring may run with display OFF —
+  # that is how the evidence gets collected in the first place.
+  option_trade:
+    select_enabled: true       # choose the contract at 6:35 and record the plan
+    monitor_enabled: true      # watch the chosen contracts through the session
+    display: false             # OFF: no option section on the owner-only cards yet
+    verdict: "UNDECIDED"       # PASS | PROVISIONAL | REJECTED | INSUFFICIENT_DATA | UNDECIDED
+    rule_version: "v1"
+    rule_fingerprint: "f284dbe96350cb16c6c4f527ab6f20b8d6ffa3d5f93aca1656f3e94e8209ffb0"
+    structure: "ATM_PUT"       # ATM_PUT | OTM5_PUT | PUT_DEBIT_SPREAD
+    exit_policy: "TIME_ONLY"   # TIME_ONLY | PT25_SL35 | PT50_SL35
+    min_open_interest: 100     # per leg, at entry
+    max_spread_pct_of_mid: 0.10  # per leg, at entry
+    commission_per_contract_side_usd: 0.45
+    poll_seconds: 15           # ONE batched /quotes call per poll, never one per contract
+    start_pt: "06:30"          # a few minutes before the 6:35 entry
+    stop_pt: "13:05"           # a few minutes after the 1:00 p.m. close
+    quote_max_age_sec: 120     # older than this is stored and LABELLED stale, never dropped
+    max_legs: 32               # 16 positions x 2 legs — a hard ceiling on one batch

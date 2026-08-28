@@ -1280,6 +1280,149 @@ CREATE TABLE IF NOT EXISTS put_flow_capture_runs (
     UNIQUE(capture_session, stage)
 );
 
+-- TODO #100: the OPTION layer on top of the TODO #96 stock pair.
+-- These four tables are OBSERVER-ONLY. Nothing here may cancel, delay or alter
+-- a stock-pair trade, and nothing here places a real order. Every price is a
+-- simulation. Raw chains are never published; only the ONE selected contract
+-- and its derived plan may reach an owner-only card.
+
+-- One row per (shortlist row, rule fingerprint). The contract is chosen at
+-- entry from entry-known fields ONLY, by the frozen rule whose fingerprint is
+-- stored beside it. If nothing qualifies the row still exists with
+-- selection_status='NO_OPTION_TRADE' and an exact reject_reason -- a rejected
+-- morning must stay visible in the counts, never vanish.
+CREATE TABLE IF NOT EXISTS put_flow_option_selections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shortlist_id INTEGER NOT NULL,
+    ticker TEXT NOT NULL,
+    signal_date TEXT NOT NULL,              -- Pacific date, YYYY-MM-DD
+    entry_session TEXT NOT NULL,            -- Pacific date, YYYY-MM-DD
+    rule_version TEXT NOT NULL,
+    rule_fingerprint TEXT NOT NULL,         -- sha256 of the frozen policy
+    structure TEXT NOT NULL,                -- ATM_PUT | OTM5_PUT | PUT_DEBIT_SPREAD
+    long_symbol TEXT,
+    short_symbol TEXT,
+    expiry TEXT,
+    long_strike REAL,
+    short_strike REAL,
+    entry_stock_px REAL,                    -- the 6:35 price the strike was chosen from
+    long_entry_ask REAL,
+    long_entry_bid REAL,
+    short_entry_bid REAL,
+    short_entry_ask REAL,
+    entry_cost REAL,                        -- per-share debit, before commission
+    entry_commission REAL,
+    target_liq_value REAL,                  -- liquidation value that counts as the target
+    stop_liq_value REAL,
+    max_exit_session TEXT,                  -- Pacific date the time exit fires
+    max_exit_pt TEXT,                       -- Pacific clock time, e.g. 06:35
+    exit_policy TEXT NOT NULL,              -- TIME_ONLY | PT25_SL35 | PT50_SL35
+    long_open_interest REAL,
+    short_open_interest REAL,
+    selection_status TEXT NOT NULL,         -- SELECTED | NO_OPTION_TRADE
+    structures_collapsed INTEGER NOT NULL DEFAULT 0,  -- 1 = ATM and 5%-out named the same contract (clarification C2)
+    reject_reason TEXT,
+    proof_tier TEXT,                        -- EXACT_BID_ASK | CONSERVATIVE_TRADE_BAR | ...
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL,
+    UNIQUE(shortlist_id, rule_fingerprint, structure, exit_policy)
+);
+CREATE INDEX IF NOT EXISTS idx_pfsel_shortlist ON put_flow_option_selections(shortlist_id);
+CREATE INDEX IF NOT EXISTS idx_pfsel_status ON put_flow_option_selections(selection_status);
+CREATE INDEX IF NOT EXISTS idx_pfsel_session ON put_flow_option_selections(entry_session);
+
+-- One row per CONTRACT per Pacific MINUTE, summarised in memory from the
+-- 15-second batched Schwab /quotes polls. Never one row per poll and never a
+-- raw tick archive. A minute nobody observed simply has no row -- an unseen
+-- interval is a visible gap, never a carried-forward value.
+--
+-- The key is the CONTRACT, not the selection. The same contract is usually
+-- shared by several selections -- three exit policies watch one put, and one
+-- structure's long leg is another's short leg -- but a bid is a bid: storing it
+-- once per selection would keep three identical copies of every quote and make
+-- the row counts read six times larger than the data really is. `selection_id`
+-- and `leg` are kept for provenance only; join on contract_symbol.
+CREATE TABLE IF NOT EXISTS put_flow_option_minutes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    selection_id INTEGER,
+    contract_symbol TEXT NOT NULL,
+    leg TEXT,                               -- LONG | SHORT, informational
+    session_date TEXT NOT NULL,             -- Pacific date, YYYY-MM-DD
+    minute_pt TEXT NOT NULL,                -- Pacific HH:MM
+    minute_epoch REAL NOT NULL,
+    bid_open REAL, bid_high REAL, bid_low REAL, bid_close REAL,
+    ask_open REAL, ask_high REAL, ask_low REAL, ask_close REAL,
+    last_open REAL, last_high REAL, last_low REAL, last_close REAL,
+    mark_open REAL, mark_high REAL, mark_low REAL, mark_close REAL,
+    volume REAL,
+    open_interest REAL,
+    poll_count INTEGER NOT NULL DEFAULT 0,
+    usable_polls INTEGER NOT NULL DEFAULT 0,
+    stale_polls INTEGER NOT NULL DEFAULT 0,
+    first_observed_at REAL,
+    last_observed_at REAL,
+    provider_quote_time REAL,
+    max_quote_age_sec REAL,
+    quote_quality TEXT NOT NULL,            -- OK | STALE | NO_TWO_SIDED | MISSING
+    created_at REAL NOT NULL,
+    UNIQUE(contract_symbol, session_date, minute_pt)
+);
+CREATE INDEX IF NOT EXISTS idx_pfmin_sel ON put_flow_option_minutes(selection_id);
+CREATE INDEX IF NOT EXISTS idx_pfmin_session ON put_flow_option_minutes(session_date);
+
+-- Immutable events. The FIRST observed event wins. A mistake is corrected by
+-- APPENDING a CORRECTION row that names the row it supersedes, never by
+-- editing or deleting the original.
+CREATE TABLE IF NOT EXISTS put_flow_option_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    selection_id INTEGER NOT NULL,
+    event_type TEXT NOT NULL,               -- TARGET | STOP | TIME_EXIT | QUOTE_GAP
+                                            -- | MONITOR_RESTART | FINAL_RESULT | CORRECTION
+    event_seq INTEGER NOT NULL DEFAULT 1,
+    session_date TEXT NOT NULL,
+    minute_pt TEXT,
+    observed_at REAL NOT NULL,
+    liq_value REAL,                         -- the observed bid / long bid - short ask
+    long_bid REAL, long_ask REAL,
+    short_bid REAL, short_ask REAL,
+    entry_cost REAL,
+    gross_pnl_usd REAL,
+    commission_usd REAL,
+    net_pnl_usd REAL,
+    net_pct REAL,
+    proof_tier TEXT,
+    quote_quality TEXT,
+    gap_start_pt TEXT,
+    gap_end_pt TEXT,
+    supersedes_event_id INTEGER,
+    note TEXT,
+    created_at REAL NOT NULL,
+    UNIQUE(selection_id, event_type, event_seq)
+);
+CREATE INDEX IF NOT EXISTS idx_pfev_sel ON put_flow_option_events(selection_id);
+CREATE INDEX IF NOT EXISTS idx_pfev_type ON put_flow_option_events(event_type);
+
+-- One audit row per monitor run, so "did the monitor really watch every open
+-- position today?" is answerable without re-deriving it. A restart UPDATES the
+-- row for the session and increments restart_count.
+CREATE TABLE IF NOT EXISTS put_flow_option_monitor_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_date TEXT NOT NULL,             -- Pacific date, YYYY-MM-DD
+    started_at REAL NOT NULL,
+    finished_at REAL,
+    selections_expected INTEGER NOT NULL DEFAULT 0,
+    selections_monitored INTEGER NOT NULL DEFAULT 0,
+    quote_batches INTEGER NOT NULL DEFAULT 0,
+    usable_observations INTEGER NOT NULL DEFAULT 0,
+    stale_observations INTEGER NOT NULL DEFAULT 0,
+    missing_observations INTEGER NOT NULL DEFAULT 0,
+    minutes_written INTEGER NOT NULL DEFAULT 0,
+    events_written INTEGER NOT NULL DEFAULT 0,
+    restart_count INTEGER NOT NULL DEFAULT 0,
+    errors_json TEXT,
+    UNIQUE(session_date)
+);
+
 CREATE TABLE IF NOT EXISTS youtube_setups (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     run_id INTEGER NOT NULL REFERENCES youtube_analysis_runs(id),
@@ -2015,6 +2158,10 @@ async def _run_column_migrations(conn) -> None:
         ("put_flow_shortlist", "shortable", "INTEGER"),
         ("put_flow_shortlist", "hard_to_borrow", "INTEGER"),
         ("put_flow_shortlist", "htb_rate", "REAL"),
+        # TODO #100 clarification C2: 1 when the at-the-money rule and the
+        # 5%-out rule named the SAME contract, so the two rows are one trade and
+        # must never be counted as two independent results.
+        ("put_flow_option_selections", "structures_collapsed", "INTEGER"),
         # TODO #87: SPY expected-move numbers + chart-render flags for the morning
         # brief card, as compact JSON. Kept OUT of rendered_content so a retry
         # re-posts clean readable text, not metadata. NULL on legacy rows.

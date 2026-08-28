@@ -669,3 +669,70 @@ async def test_entry_proof_catches_a_price_that_was_not_taken_this_morning(
     out = await job.entry_proof(session="2026-08-25", dry_run=True)
     assert "stale_entry" in out["failed"]
     assert "hours ago" in " ".join(out["detail"])
+
+
+# ── TODO #100: the owner-only option section on the entry card ──────────────
+
+def _sel(**kw):
+    """One put_flow_option_selections row, with sensible defaults."""
+    row = {"structure": "ATM_PUT", "exit_policy": "TIME_ONLY",
+           "selection_status": "SELECTED", "reject_reason": None,
+           "long_symbol": "DKS   260918P00120000", "short_symbol": None,
+           "expiry": "2026-09-18", "long_strike": 120.0, "short_strike": None,
+           "entry_cost": 5.1, "target_liq_value": None, "stop_liq_value": None,
+           "max_exit_session": "2026-09-01", "max_exit_pt": "06:35"}
+    row.update(kw)
+    return row
+
+
+def test_option_section_is_hidden_while_the_display_switch_is_off(monkeypatch):
+    """Selection and monitoring run with the display off -- that is how the
+    evidence gets collected. Nothing about the option may reach the card until
+    a frozen rule has actually earned it."""
+    monkeypatch.setattr(job, "option_display_on", lambda: False)
+    card = job.render_entry_card("2026-08-26", [{
+        "ticker": "DKS", "entry_stock_px": 121.98, "entry_spy_px": 765.66,
+        "planned_exit_session": "2026-09-01", "_option_sels": [_sel()]}], [])
+    assert "Option:" not in card
+    assert "260918P00120000" not in card
+
+
+def test_a_refused_option_is_printed_in_plain_words_not_hidden(monkeypatch):
+    monkeypatch.setattr(job, "option_display_on", lambda: True)
+    card = job.render_entry_card("2026-08-26", [{
+        "ticker": "SUI", "entry_stock_px": 126.25, "entry_spy_px": 765.66,
+        "planned_exit_session": "2026-09-01",
+        "_option_sels": [_sel(selection_status="NO_OPTION_TRADE",
+                              reject_reason="long leg (target strike ~126.25): "
+                                            "bid/ask spread is 143% of mid, over "
+                                            "the 10% limit; open interest 61 is "
+                                            "below 100")]}], [])
+    assert "No option trade — the price gap was too wide and too few contracts were open." in card
+    assert "% of mid" not in card          # no engineering wording on the card
+    assert "open interest 61" not in card
+
+
+def test_the_contract_is_named_the_way_a_person_would_say_it():
+    assert job.plain_contract("DKS   260918P00120000", "2026-09-18", 120.0) \
+        == "DKS Sep 18 $120 PUT"
+    assert job.plain_contract("MARA  260911P00011500", "2026-09-11", 11.5) \
+        == "MARA Sep 11 $11.50 PUT"
+
+
+def test_the_gate_label_never_reads_better_than_it_earned(monkeypatch):
+    def label(v):
+        monkeypatch.setattr(job.cfg, "get",
+                            lambda k, d=None: v if k.endswith("verdict") else d)
+        return job._gate_label()
+    assert label("PASS") == "Historical gate: PASS"
+    assert "still needs live bid confirmation" in label("PROVISIONAL")
+    assert "Not yet tested on history" in label("INSUFFICIENT_DATA")
+    assert "Not yet tested on history" in label("UNDECIDED")
+    # the untested states must never contain the word PASS
+    for v in ("INSUFFICIENT_DATA", "UNDECIDED", "REJECTED"):
+        assert "PASS" not in label(v)
+
+
+def test_owner_facing_times_drop_the_leading_zero():
+    assert job._clock("06:35") == "6:35"
+    assert job._clock("13:05") == "13:05"

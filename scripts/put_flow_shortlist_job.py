@@ -43,6 +43,7 @@ sys.path.insert(0, str(ROOT))
 from consensus_engine import config as cfg, db  # noqa: E402
 from consensus_engine.analysis import put_flow_shortlist as pfs
 from consensus_engine.analysis import put_flow_option_capture as pfoc  # noqa: E402
+from consensus_engine.analysis import put_flow_option_monitor as pfom  # noqa: E402
 from consensus_engine.utils.time_context import session_dates  # noqa: E402
 
 PT = ZoneInfo("America/Los_Angeles")
@@ -157,6 +158,109 @@ def render_watch_card(signal_date: str, entry_session: str, rows: list[dict]) ->
     return "".join(lines)
 
 
+def _clock(hhmm: str | None) -> str:
+    """`06:35` -> `6:35`. Nobody writes the leading zero when they say a time."""
+    return (hhmm or "").lstrip("0") or (hhmm or "")
+
+
+_MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
+           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+
+def option_display_on() -> bool:
+    """The option section is OFF until a frozen rule has earned it on the
+    untouched evaluation. Selection and monitoring still run while it is off —
+    that is how the evidence gets collected in the first place."""
+    return bool(cfg.get(f"{FEATURE}.option_trade.display", False))
+
+
+def plain_contract(symbol: str | None, expiry: str | None,
+                   strike: float | None) -> str:
+    """`DKS   260918P00120000` -> `DKS Sep 18 $120 PUT`. A person should not
+    have to decode an exchange code to know what the trade is."""
+    if not symbol:
+        return "—"
+    root = symbol.split()[0] if " " in symbol else symbol[:-15].strip()
+    if not expiry or strike is None:
+        return symbol.strip()
+    try:
+        y, m, d = expiry.split("-")
+        k = (f"${strike:,.0f}" if float(strike).is_integer()
+             else f"${strike:,.2f}")
+        return f"{root} {_MONTHS[int(m) - 1]} {int(d)} {k} PUT"
+    except Exception:
+        return symbol.strip()
+
+
+def _gate_label() -> str:
+    """What the history actually says about this rule, in plain words. It must
+    never read better than it earned."""
+    v = str(cfg.get(f"{FEATURE}.option_trade.verdict", "UNDECIDED")).upper()
+    if v == "PASS":
+        return "Historical gate: PASS"
+    if v.startswith("PROVISIONAL"):
+        return "Provisional — still needs live bid confirmation"
+    if v.startswith("INSUFFICIENT"):
+        return "Not yet tested on history — no price records exist to test it with"
+    return "Not yet tested on history"
+
+
+def plain_reason(reason: str | None) -> str:
+    """Turn the selector's engineering reason into one short sentence a person
+    can act on. The exact reason is always kept in the database; this is only
+    what the card says."""
+    r = (reason or "").lower()
+    if "spread is" in r and "limit" in r and "open interest" in r:
+        return "the price gap was too wide and too few contracts were open"
+    if "spread is" in r and "limit" in r:
+        return "the gap between the buy and sell price was too wide"
+    if "open interest" in r:
+        return "too few of these contracts were open to trade it safely"
+    if "same contract" in r:
+        return "both halves of the spread landed on the same contract"
+    if "not positive" in r or "crossed" in r or "two-sided" in r:
+        return "there was no usable buy and sell price at 6:35"
+    if "non-standard" in r or "multiplier" in r:
+        return "the contract is not a standard 100-share one"
+    if "no contracts listed" in r:
+        return "no contract was listed at a usable expiry"
+    if "expiration" in r or "expiry" in r:
+        return "no expiry fell in the allowed window"
+    return reason or "no reason recorded"
+
+
+def render_option_section(sels: list[dict]) -> str:
+    """The owner-only option block for ONE position. `sels` are that
+    position's `put_flow_option_selections` rows. A refusal is printed, never
+    hidden — a morning with no option trade is a result, not a blank."""
+    if not sels:
+        return ""
+    show = str(cfg.get(f"{FEATURE}.option_trade.structure", "ATM_PUT"))
+    policy = str(cfg.get(f"{FEATURE}.option_trade.exit_policy", "TIME_ONLY"))
+    row = next((r for r in sels if r["structure"] == show
+                and r["exit_policy"] == policy), None)
+    if row is None:
+        return ""
+    if row["selection_status"] != "SELECTED":
+        return f"\n    No option trade — {plain_reason(row['reject_reason'])}."
+    kind = ("PUT debit spread" if row["structure"] == "PUT_DEBIT_SPREAD"
+            else "long PUT")
+    name = plain_contract(row["long_symbol"], row["expiry"], row["long_strike"])
+    if row["structure"] == "PUT_DEBIT_SPREAD":
+        name += " / sell " + plain_contract(
+            row["short_symbol"], row["expiry"], row["short_strike"])
+    out = [f"\n    **Option:** {name} — {kind}",
+           f"\n    Simulated entry **${row['entry_cost']:,.2f}**"]
+    if row["target_liq_value"] is not None:
+        out.append(f", target **${row['target_liq_value']:,.2f}**")
+    if row["stop_liq_value"] is not None:
+        out.append(f", stop **${row['stop_liq_value']:,.2f}**")
+    out.append(f"\n    Closes by **{_clock(row['max_exit_pt'])} a.m. Pacific on "
+               f"{row['max_exit_session']}**. {_gate_label()}.")
+    out.append("\n    Simulation only — no order is placed.")
+    return "".join(out)
+
+
 def render_entry_card(entry_session: str, entered: list[dict],
                       rejected: list[dict]) -> str:
     head = f"**Morning short entries — {entry_session}, 6:35 a.m. Pacific**\n"
@@ -171,7 +275,9 @@ def render_entry_card(entry_session: str, entered: list[dict],
             f"Closes 6:35 a.m. Pacific on **{r['planned_exit_session']}**.\n"
             f"    Option side: "
             f"{pfs.side_label(r.get('flow_side'), r.get('flow_side_note'))}"
-            f"{_borrow_note(r)}")
+            f"{_borrow_note(r)}"
+            + (render_option_section(r.get("_option_sels") or [])
+               if option_display_on() else ""))
     for r in rejected:
         out.append(f"\n**{r['ticker']}** — skipped: {r['reject_reason']}.")
     out.append("\n\n" + SIDE_FOOTNOTE)
@@ -360,6 +466,19 @@ async def enter(dry_run: bool = False, entry_session: str | None = None) -> dict
                             {**r, "entry_stock_px": q["c"]},
                             stock_quote=q, spy_quote=spy_q, now=now)
     await conn.commit()
+
+    # TODO #100 — choose the option contract for every position that just
+    # entered, from the chain slice the line above stored. This runs AFTER the
+    # stock entries are committed, so a failure here cannot touch a trade that
+    # is already recorded. It only OBSERVES: it never rejects a stock name and
+    # it never places an order.
+    if not dry_run and entered:
+        for r in entered:
+            try:
+                r["_option_sels"] = await pfom.select_for_shortlist(r["id"])
+            except Exception as exc:      # observer: never raise into the trade
+                log.warning("option selection failed for %s: %s", r["ticker"], exc)
+                r["_option_sels"] = []
 
     cur = await conn.execute(
         "SELECT entry_msg_id FROM put_flow_shortlist WHERE entry_session=? "
