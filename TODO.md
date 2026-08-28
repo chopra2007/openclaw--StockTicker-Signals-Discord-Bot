@@ -957,3 +957,11 @@ is checked at all. Next: find what it waits on and give it a bounded fake
 instead of the real thing.
 
 Make the frozen Gemini video test finish on its own, and add a time limit so a future hang fails in seconds instead of silently skipping half the tests.
+
+## 103. Test whether a big early-morning stock move snaps back or keeps going
+
+**File:** `intraday-dislocation-reversal-or-continuation.md`
+
+Find out if a liquid stock that moves abnormally far just after the open then reverses, keeps going, or does neither — and whether either version still makes money after real trading costs.
+
+**CURRENT STATUS (2026-08-28):** Just started. Running the execution contract in `.omc/plans/profitable-intraday-dislocation-feature-prompt.md`. Nothing is live. Production is untouched. Next step: reproduce the local minute-price files from scratch, then freeze six exact rules before looking at any profit number.
