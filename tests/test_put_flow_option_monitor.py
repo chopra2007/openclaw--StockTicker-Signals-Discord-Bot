@@ -975,10 +975,24 @@ async def test_health_down_then_recovery_then_silent(tmp_db, monkeypatch):
 
 # ═══════════════════════════ job: JSON alone on stdout ═══════════════════════════
 
-def test_job_select_only_emits_only_json_on_stdout():
+def test_job_select_only_emits_only_json_on_stdout(tmp_path):
+    # The child must never be able to reach the live database, so it points
+    # consensus_engine.db.DB_PATH at a throwaway file under tmp_path BEFORE it
+    # loads the job script.
+    child = (
+        "import sys;"
+        "import consensus_engine.db as db;"
+        f"db.DB_PATH = {str(tmp_path / 'job.db')!r};"
+        "import importlib.util as u;"
+        "spec = u.spec_from_file_location("
+        "'pf_job', 'scripts/put_flow_option_monitor_job.py');"
+        "m = u.module_from_spec(spec); spec.loader.exec_module(m);"
+        "sys.argv = ['put_flow_option_monitor_job.py', '--run', '--once',"
+        " '--dry-run', '--session', '2026-08-29', '--force'];"
+        "sys.exit(m.main())"
+    )
     r = subprocess.run(
-        [sys.executable, "scripts/put_flow_option_monitor_job.py",
-         "--run", "--once", "--dry-run", "--session", "2026-08-29", "--force"],
+        [sys.executable, "-c", child],
         capture_output=True, text=True, cwd=str(ROOT_DIR))
     assert r.returncode == 0, r.stderr
     parsed = json.loads(r.stdout)                         # the ONLY thing on stdout

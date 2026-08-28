@@ -971,3 +971,30 @@ on, production is unchanged, no money was spent, and the 182 sealed dates were
 never opened. An independent check rebuilt 100 signals and 60 complete trades
 from the raw exchange files with zero mismatches, so this is not a machinery bug.
 Full write-up: `.omc/research/intraday-dislocation/FINAL-VERDICT.md`.
+
+## 104. Find one share-trading rule that actually makes money, and ship it today — DONE 2026-08-28 (NO PASS: no rule earned its costs)
+
+**File:** `immediate-profitable-share-feature.md`
+
+**CURRENT STATUS (2026-08-28):** **NO PASS.** All three rules failed. Each needed
+to earn 40 basis points a trade before costs (80 for a two-stock pair); they
+earned +1.0, −0.4 and +3.3. Set the trading cost to **zero** and they still earn
+the same three numbers against a bar of 20 — so this is not a cost argument.
+Nothing was built or turned on, production is unchanged, no money was spent, and
+the 182 sealed days were never opened. An independent rebuild from the raw
+exchange files matched 4,554 signals and 3,580 trades exactly; a hostile review
+found three real defects, all fixed, all of which made the rules look worse.
+
+Test three share-trading rules end to end today and turn one into an owner-only setup card, or state plainly that today's data supports none of them.
+
+## 105. Fix the test robot's dead failure alarm
+
+**File:** `ci-failure-notice-webhook-dead.md`
+
+**CURRENT STATUS (2026-08-28):** The remote test run posts its failure notice to
+a Discord address that no longer exists, so a failed run tells nobody. The fix
+is one command — replace the stored `DISCORD_WEBHOOK_URL` secret in GitHub with
+a live webhook — then push once and confirm the message lands.
+
+Make the remote test run able to tell us when it fails, instead of failing silently.
+

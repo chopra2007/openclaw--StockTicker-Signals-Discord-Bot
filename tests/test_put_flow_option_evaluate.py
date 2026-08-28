@@ -23,6 +23,116 @@ EMPTY_FS = {"by_sig": {}, "probe_by_contract": {}, "present": False,
             "_manifest_stats": {}}
 
 
+# --------------------------------------------------------------------------- #
+# Self-contained test policy + stock sample.
+#
+# These tests must pass on a clean checkout, so nothing here may read the
+# server-only files under .omc/research/ (they are git-ignored).  The shape
+# mirrors the real frozen policy; the numbers are the ones the tests assert on.
+# --------------------------------------------------------------------------- #
+TEST_POLICY_NAME = "put_flow_option_trade_system_test"
+TEST_TODO = 100
+
+
+def _mini_policy():
+    return {
+        "policy_name": TEST_POLICY_NAME,
+        "todo": TEST_TODO,
+        "authored_before_reading_any_option_outcome": True,
+        "data_cut": {
+            "entry_time_pacific": "06:35",
+            "join_keys": ["market_date", "ticker"],
+            "stock_sample_csv": "tests/fixture (in-memory)",
+            "stock_sample_sha256": None,
+            "underlying_entry_price_field": "stock_entry_px",
+        },
+        "split": {
+            "method": "chronological",
+            "unit": "unique signal date (market_date)",
+            "development_fraction": 0.6,
+            "evaluation_fraction": 0.4,
+        },
+        "structures": [
+            {"id": "ATM_PUT", "legs": [
+                {"side": "long", "type": "PUT",
+                 "strike_target": "closest listed strike to stock_entry_px"}]},
+            {"id": "OTM5_PUT", "legs": [
+                {"side": "long", "type": "PUT",
+                 "strike_target": "closest listed strike to 0.95 * stock_entry_px"}]},
+            {"id": "PUT_DEBIT_SPREAD", "legs": [
+                {"side": "long", "type": "PUT",
+                 "strike_target": "closest listed strike to stock_entry_px"},
+                {"side": "short", "type": "PUT",
+                 "strike_target": "closest listed strike to 0.95 * stock_entry_px"}]},
+        ],
+        "exit_policies": [dict(TIME_ONLY), dict(PT25), {
+            "id": "PT50_SL35", "target_pct": 0.5, "stop_pct": -0.35}],
+        "development_choice_order": [
+            "passes all development gates",
+            "highest date-grouped conservative lower estimate of average net return",
+        ],
+        "gates": {
+            "G1_full_sample_size": {"scope": "full eligible sample",
+                                    "min_eligible_trades": 100,
+                                    "min_signal_dates": 30, "min_stocks": 40},
+            "G2_evaluation_size": {"scope": "untouched evaluation",
+                                   "min_eligible_trades": 40,
+                                   "min_signal_dates": 15, "min_stocks": 20,
+                                   "on_failure": "verdict INSUFFICIENT DATA, never PASS"},
+            "G3_avg_net_return_positive": {"scope": "both"},
+            "G4_date_grouped_95_range_above_zero": {"scope": "both"},
+            "G5_win_rate": {"scope": "both", "min_win_rate": 0.55,
+                            "min_lower_95_win_rate": 0.5},
+            "G6_profit_factor": {"scope": "both", "min": 1.25},
+            "G7_halves_positive": {"scope": "earlier and later half inside BOTH "
+                                            "development and evaluation"},
+            "G8_concentration": {"max_share_of_total_profit_per_ticker": 0.1,
+                                 "max_share_of_total_profit_per_signal_date": 0.1},
+            "G9_portfolio": {"starting_capital_usd": 100000,
+                             "max_open_positions": 16,
+                             "max_premium_fraction_per_position": 0.0625,
+                             "max_drawdown": 0.1,
+                             "require_positive_finish": True},
+            "G10_timing_sensitivity": {"entries_pacific": ["06:35", "06:40", "06:45"],
+                                       "require": "frozen 06:35 passes AND at least "
+                                                  "one neighbour positive with "
+                                                  "profit factor > 1.0",
+                                       "forbid": "moving production timing to the "
+                                                 "best row"},
+            "G11_overlap_suppressed": {"require": "still positive when overlapping "
+                                                  "repeat signals in the same ticker "
+                                                  "are suppressed"},
+            "G12_proof_tier": {"require": "historical bid/ask, OR an independently "
+                                          "verified conservative trade-bar model "
+                                          "PLUS forward Schwab bid evidence",
+                               "forbid": "PASS from a last-price-only backtest"},
+        },
+    }
+
+
+def _write_policy(tmp_path, policy=None):
+    """Write a policy file plus its correct fingerprint under tmp_path."""
+    body = json.dumps(policy if policy is not None else _mini_policy(),
+                      indent=2, sort_keys=True) + "\n"
+    pol = tmp_path / "frozen-policy.json"
+    pol.write_text(body)
+    sha = tmp_path / "frozen-policy.sha256"
+    sha.write_text(ev.sha256_bytes(body.encode()) + "  frozen-policy.json\n")
+    return pol, sha
+
+
+def _mini_stock_sample():
+    """Six trades over five signal dates - enough for a chronological split."""
+    rows = []
+    dates = ["2026-06-01", "2026-06-02", "2026-06-03", "2026-06-04", "2026-06-05"]
+    tick = ["AAA", "BBB", "CCC", "DDD", "EEE", "FFF"]
+    for i, md in enumerate(dates + [dates[-1]]):
+        rows.append({"market_date": md, "rank": 1, "ticker": tick[i],
+                     "entry_date": md, "exit_date": "2026-06-12",
+                     "stock_entry_px": 100.0 + i})
+    return pd.DataFrame(rows)
+
+
 @pytest.fixture(autouse=True)
 def _reset_globals():
     """Keep the module-level frozen-selections / entry-time globals from leaking
@@ -64,10 +174,11 @@ def test_frozen_policy_hash_mismatch_aborts(tmp_path):
         ev.verify_frozen_policy(policy_path=bad, sha_path=sha)
 
 
-def test_frozen_policy_verifies_real_file():
-    policy = ev.verify_frozen_policy()
-    assert policy["policy_name"] == "put_flow_option_trade_system"
-    assert policy["todo"] == 100
+def test_frozen_policy_verifies_a_matching_file(tmp_path):
+    pol, sha = _write_policy(tmp_path)
+    policy = ev.verify_frozen_policy(policy_path=pol, sha_path=sha)
+    assert policy["policy_name"] == TEST_POLICY_NAME
+    assert policy["todo"] == TEST_TODO
 
 
 # --------------------------------------------------------------------------- #
@@ -248,7 +359,7 @@ def test_option_bars_before_0635_are_rejected(tmp_path):
 # Portfolio (G9)
 # --------------------------------------------------------------------------- #
 def _g9():
-    return ev.verify_frozen_policy()["gates"]["G9_portfolio"]
+    return _mini_policy()["gates"]["G9_portfolio"]
 
 
 def test_portfolio_16_position_cap_and_overflow_rejection():
@@ -334,7 +445,7 @@ def test_c2_structures_collapsed_flag_when_atm_equals_otm5():
     }
     fs = _fs_with("2026-06-03", "AAPL", contracts)
     ev._FROZEN_SELECTIONS = fs
-    policy = ev.verify_frozen_policy()
+    policy = _mini_policy()
     stock = _stock_one("AAPL")
     all_rows, _ = ev.build_all_rows(
         policy, stock, {"2026-06-03"}, set(), Path("/nonexistent"), None, None,
@@ -461,7 +572,9 @@ def test_bar_sparsity_block_splits_frozen_and_live():
 # --------------------------------------------------------------------------- #
 # Evaluation-split structural lock
 # --------------------------------------------------------------------------- #
-def test_evaluation_split_refused_without_fingerprint(tmp_path):
+def test_evaluation_split_refused_without_fingerprint(tmp_path, monkeypatch):
+    monkeypatch.setattr(ev, "verify_frozen_policy",
+                        lambda *a, **k: _mini_policy())
     ns = argparse.Namespace(out=str(tmp_path), data_root=str(tmp_path / "nd"),
                             manifest=None)
     with pytest.raises(SystemExit):
@@ -486,10 +599,17 @@ def test_tampered_fingerprint_keeps_evaluation_locked(tmp_path):
         ev.require_evaluation_unlocked(tmp_path)
 
 
-def test_full_split_runs_without_fingerprint_and_reports_counts(tmp_path):
+def test_full_split_runs_without_fingerprint_and_reports_counts(tmp_path,
+                                                                monkeypatch):
     """--split full needs no chosen rule; it reports real per-candidate counts."""
+    monkeypatch.setattr(ev, "verify_frozen_policy",
+                        lambda *a, **k: _mini_policy())
+    monkeypatch.setattr(ev, "load_stock_sample",
+                        lambda *a, **k: _mini_stock_sample())
+    monkeypatch.setattr(ev, "FROZEN_SELECTIONS_PATH", tmp_path / "no-selections.json")
     out = tmp_path / "out"
-    ns = argparse.Namespace(data_root=str(tmp_path / "nd"), manifest=None,
+    ns = argparse.Namespace(data_root=str(tmp_path / "nd"),
+                            manifest=str(tmp_path / "no-manifest.csv"),
                             out=str(out))
     ev.run_full(ns)
     g = json.loads((out / "gates.json").read_text())
