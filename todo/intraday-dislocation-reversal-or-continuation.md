@@ -82,3 +82,23 @@ strategy profits were never read) but not fully untouched.
 - Does cross-sectional reversal survive a 20 bps round-trip cost in 2023-2026
   large-cap NYSE names? Prior literature says the raw effect is partly bid-ask
   bounce, which a trader cannot capture.
+
+### Session notes — 2026-08-28
+- **Worked on:** Ran the whole execution contract end to end. Reproduced the local
+  minute files from scratch (19,653,306 records, exactly the recorded figure),
+  designed the test twice — Claude first, then Codex independently — reconciled
+  the two, had a clean-room reviewer approve it, froze and hashed six rules, ran
+  them on 672 development dates, and rejected the family.
+- **Decisions:** Six rules, best gross +5.09 bps against a +40 bar. Early stop
+  fired; the 182 sealed dates were never opened. Codex won most design arguments
+  (30-minute hold not 60, three-bar median prices, leave-one-out market, robust
+  threshold, full-day borrow, Bonferroni correction). One deliberate disagreement
+  kept: the continuation rules stay blind so rules 1 and 5 pick the same
+  stock-date and differ only in side. The clean-room reviewer found three real
+  bugs before any result existed, all fixed and all making the test stricter.
+  Codex's post-hoc adversarial review found one more (mean where the policy says
+  median) and returned REJECTION STANDS.
+- **Next:** Nothing on this item — it is closed as a rejected direction. The
+  ranked next avenue is in `FINAL-VERDICT.md`: test day-length holds instead of
+  minute-length ones, which costs nothing and makes the cost hurdle about ten
+  times easier.
