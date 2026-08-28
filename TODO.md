@@ -938,3 +938,11 @@ Decide honestly whether buying a put on the morning extreme-PUT shortlist is a r
 **CURRENT STATUS (2026-08-27):** No builder-instruction file has been changed. The next session must first produce carefully reviewed wording and a safe edit plan. Claude will lead, but it must use the installed `codex@openai-codex` plugin so Claude and Codex independently challenge the idea, combine the strongest parts, and review the final changes.
 
 Make Codex and Claude challenge whether a proposed test measures the owner's real-world result before they plan, build or approve any future feature.
+
+## 102. Fix the one test that freezes the whole test run
+
+**File:** `gemini-video-test-hangs-in-full-suite.md`
+
+**CURRENT STATUS (2026-08-27):** One Gemini video test never finishes, which stops the whole suite at about 45% so the rest is never checked. Proved pre-existing — it hangs the same way on the code from before TODO #100.
+
+Make the frozen Gemini video test finish on its own, and add a time limit so a future hang fails in seconds instead of silently skipping half the tests.
