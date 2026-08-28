@@ -38,9 +38,15 @@ def main():
           & (p[f"v{ENTRY}"] > 0) & (p[f"v{ENTRY+HOLD}"] > 0)].copy()
     p["fwd"] = np.log(p[f"o{ENTRY+HOLD}"] / p[f"o{ENTRY}"])
 
-    # the same market removal, applied to the forward window
-    fwd_mkt = p.groupby("date").fwd.transform(
-        lambda s: (s.sum() - s) / max(len(s) - 1, 1))
+    # the same market removal, applied to the forward window. The frozen policy
+    # uses the leave-one-out MEDIAN, not the mean; an earlier draft of this
+    # diagnostic used the mean, which Codex's adversarial review caught.
+    def loo_median(s):
+        v = s.to_numpy()
+        return pd.Series([np.median(np.delete(v, i)) for i in range(len(v))],
+                         index=s.index)
+
+    fwd_mkt = p.groupby("date").fwd.transform(loo_median)
     p["fwd_resid"] = p.fwd - p.beta * fwd_mkt
 
     def stats(sub, label):
