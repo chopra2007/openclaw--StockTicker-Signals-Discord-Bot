@@ -995,3 +995,21 @@ told**. Run `33189714617` failed 7 tests and the notice never arrived.
 
 Make the remote test run able to tell us when it fails, instead of failing silently.
 
+## 106. Find trading setups real professionals use, and test if they actually pay — DONE 2026-08-29 (NO PASS: best rule earned a ninth of its costs)
+
+**File:** `professional-day-trader-methods.md`
+
+**CURRENT STATUS (2026-08-29):** **NO PASS.** All three rules failed. The best
+earned **+4.7 basis points** a trade before any cost against the **+40** it
+needed; the other two earned +1.3 and −2.2. The 182 held-back days were never
+opened, because nothing earned the right to be tested there. Options were
+untestable: the project has two-sided option quotes for 3 days on 11 companies
+against a gate needing 100 days.
+
+Research what working day traders really do, turn the repeated practices into exact rules, and test honestly whether any of them make money after costs.
+
+## 107. Test whether public Schedule 13D filings lead to profitable share trades — DONE 2026-08-29 (NOT TESTABLE: required history is incomplete)
+
+**File:** `schedule-13d-follower-edge.md`
+
+Test whether the first legal share purchase after an initial Schedule 13D filing earns an after-cost profit, and build an owner-only setup card only if every locked check passes.
