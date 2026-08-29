@@ -976,14 +976,10 @@ Full write-up: `.omc/research/intraday-dislocation/FINAL-VERDICT.md`.
 
 **File:** `immediate-profitable-share-feature.md`
 
-**CURRENT STATUS (2026-08-28):** **NO PASS.** All three rules failed. Each needed
-to earn 40 basis points a trade before costs (80 for a two-stock pair); they
-earned +1.0, −0.4 and +3.3. Set the trading cost to **zero** and they still earn
-the same three numbers against a bar of 20 — so this is not a cost argument.
-Nothing was built or turned on, production is unchanged, no money was spent, and
-the 182 sealed days were never opened. An independent rebuild from the raw
-exchange files matched 4,554 signals and 3,580 trades exactly; a hostile review
-found three real defects, all fixed, all of which made the rules look worse.
+**CURRENT STATUS (2026-08-28):** **NO PASS.** All three rules failed. Every one
+of them needed to earn 40 basis points a trade before costs (80 for a two-stock
+pair) and they earned +1.0, −0.4 and +3.3. A basis point is one hundredth of one
+percent.
 
 Test three share-trading rules end to end today and turn one into an owner-only setup card, or state plainly that today's data supports none of them.
 
@@ -991,10 +987,11 @@ Test three share-trading rules end to end today and turn one into an owner-only 
 
 **File:** `ci-failure-notice-webhook-dead.md`
 
-**CURRENT STATUS (2026-08-28):** The remote test run posts its failure notice to
-a Discord address that no longer exists, so a failed run tells nobody. The fix
-is one command — replace the stored `DISCORD_WEBHOOK_URL` secret in GitHub with
-a live webhook — then push once and confirm the message lands.
+**CURRENT STATUS (2026-08-28):** Found while fixing the remote test run for
+TODO #104. GitHub's test robot tried to post its failure notice to Discord and
+got back `Unknown Webhook` — the address it has saved points at a Discord
+webhook that no longer exists. So when the remote test run fails, **nobody is
+told**. Run `33189714617` failed 7 tests and the notice never arrived.
 
 Make the remote test run able to tell us when it fails, instead of failing silently.
 
