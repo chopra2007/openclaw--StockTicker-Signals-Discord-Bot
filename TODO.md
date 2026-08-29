@@ -999,12 +999,10 @@ Make the remote test run able to tell us when it fails, instead of failing silen
 
 **File:** `professional-day-trader-methods.md`
 
-**CURRENT STATUS (2026-08-29):** **NO PASS.** All three rules failed. The best
-earned **+4.7 basis points** a trade before any cost against the **+40** it
-needed; the other two earned +1.3 and −2.2. The 182 held-back days were never
-opened, because nothing earned the right to be tested there. Options were
-untestable: the project has two-sided option quotes for 3 days on 11 companies
-against a gate needing 100 days.
+**CURRENT STATUS (2026-08-29):** **DONE — SHARES: NO PASS. OPTIONS:
+UNTESTABLE.** All three share methods failed every profit gate. Nothing was
+built, nothing turned on, no data bought, no production code touched. **The 182
+sealed days were never opened** — no method earned the right to be tested there.
 
 Research what working day traders really do, turn the repeated practices into exact rules, and test honestly whether any of them make money after costs.
 
@@ -1013,3 +1011,30 @@ Research what working day traders really do, turn the repeated practices into ex
 **File:** `schedule-13d-follower-edge.md`
 
 Test whether the first legal share purchase after an initial Schedule 13D filing earns an after-cost profit, and build an owner-only setup card only if every locked check passes.
+
+## 108. Keep every data-blocked feature ready for a future test — ONGOING
+
+**File:** `data-blocked-feature-inventory.md`
+
+**CURRENT STATUS (2026-08-29):** Audited the full TODO list. Six coded features
+still lack enough market evidence for a trustworthy decision. Three more ideas
+were researched or fully specified but correctly stopped before coding because the
+required history does not exist here. Keep them here until free forward
+collection becomes sufficient or the owner chooses a paid historical source.
+Do not call any item below a proven trading edge.
+
+Keep one honest list of coded features and research-ready ideas that cannot yet be judged because the required market history is missing or too thin, including the exact free-collection or paid-data path that would unblock each one.
+
+## 109. Trade 20 big tech names, and find free options data instead of waiting 100 days
+
+**File:** `twenty-names-and-free-options-data.md`
+
+**CURRENT STATUS (2026-08-29):** Nothing built yet. Three jobs, in this order:
+(1) pick the 20 names and start saving every field they need TODAY, because a
+field not saved today cannot be recovered later; (2) hunt for a free source that
+already holds *past* minute-by-minute option prices — if one exists it skips the
+100-day wait entirely; (3) act on the extra suggestions below. Job 1 and job 2
+run at the same time. Do not wait for the hunt to finish before starting to save
+data — that is the whole point.
+
+Pick 20 liquid tech names, start saving every field a future test could need before another 100 days are lost, and hunt for a free source that already holds past minute-by-minute option prices (SPX especially) so the wait can be skipped altogether.
