@@ -1029,12 +1029,10 @@ Keep one honest list of coded features and research-ready ideas that cannot yet 
 
 **File:** `twenty-names-and-free-options-data.md`
 
-**CURRENT STATUS (2026-08-29):** Nothing built yet. Three jobs, in this order:
-(1) pick the 20 names and start saving every field they need TODAY, because a
-field not saved today cannot be recovered later; (2) hunt for a free source that
-already holds *past* minute-by-minute option prices — if one exists it skips the
-100-day wait entirely; (3) act on the extra suggestions below. Job 1 and job 2
-run at the same time. Do not wait for the hunt to finish before starting to save
-data — that is the whole point.
+**CURRENT STATUS (2026-08-29):** Nothing built yet, and Job 1 below is approved
+by the owner to build. Job 1 is a full option-chain collector on Schwab for 20
+tech names — build it FIRST, because every day it is not running is a day of
+data that can never be recovered. Job 2 (hunting for free option history that
+already exists) runs alongside it, not before it. Job 3 is smaller extras.
 
 Pick 20 liquid tech names, start saving every field a future test could need before another 100 days are lost, and hunt for a free source that already holds past minute-by-minute option prices (SPX especially) so the wait can be skipped altogether.

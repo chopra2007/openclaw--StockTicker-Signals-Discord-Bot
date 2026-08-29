@@ -3,13 +3,11 @@
 **Status:** OPEN
 **Created:** 2026-08-29
 
-**CURRENT STATUS (2026-08-29):** Nothing built yet. Three jobs, in this order:
-(1) pick the 20 names and start saving every field they need TODAY, because a
-field not saved today cannot be recovered later; (2) hunt for a free source that
-already holds *past* minute-by-minute option prices — if one exists it skips the
-100-day wait entirely; (3) act on the extra suggestions below. Job 1 and job 2
-run at the same time. Do not wait for the hunt to finish before starting to save
-data — that is the whole point.
+**CURRENT STATUS (2026-08-29):** Nothing built yet, and Job 1 below is approved
+by the owner to build. Job 1 is a full option-chain collector on Schwab for 20
+tech names — build it FIRST, because every day it is not running is a day of
+data that can never be recovered. Job 2 (hunting for free option history that
+already exists) runs alongside it, not before it. Job 3 is smaller extras.
 
 ---
 
@@ -31,13 +29,73 @@ data is still fine for picking which strikes were liquid.
 
 ---
 
-## Job 1 — 20 names, and save everything they need starting now
+## Job 1 — BUILD THIS: a full option-chain collector for 20 names
 
-**The owner's instruction, verbatim in spirit:** don't come back in 100 days and
-say a field was forgotten. So the capture list below is deliberately wider than
-what any one rule needs.
+**Approved by the owner 2026-08-29.** This is the buildable feature. Everything
+else on the page is research around it.
 
-### 1a. Pick the 20 names
+### 1a. Why a FULL chain and not just the strikes a rule wants
+
+Every option capture built so far was made for one specific rule, so the moment a
+new rule appears the 100-day clock restarts. `put_flow_option_monitor.py` saves
+only the contracts its frozen selector picked — change the strike or expiry rule
+and the stored data is useless. A full chain snapshot is general: save the whole
+chain and any future rule can be tested against data already in hand.
+
+### 1b. What this one collector unblocks
+
+| Blocked item | Why a full chain fixes it |
+|---|---|
+| #106 credit spreads | Needs both legs quoted at the same instant. A full chain contains every spread that could be built, not only the ones we thought of today. Gate is 250 spreads over 100 days. |
+| #100 morning PUT trade | The current monitor saves only the frozen selector's contracts. A full chain lets a later session re-pick strikes and expiries without restarting the clock. |
+| #56 unusual options flow | We record that a big trade happened but not whether buying it paid. The chain supplies the price it would have cost and what it was worth later. |
+| #47 option-surface predictor | Implied volatility and skew are computed *from* a chain. This is exactly what the ~$50/month Alpha Vantage quote was for — buildable ourselves from owned data. |
+| #80 buy/sell-side direction | Already stores bid/ask per flow row; the surrounding chain adds the context that row is missing. |
+
+### 1c. The build spec
+
+Use the **existing Schwab client** (`consensus_engine/` Schwab integration,
+shipped and live since #57), **not yfinance** — yfinance option chains run about
+15 minutes stale, which is useless for a minute-level exit rule. Schwab is
+real-time. Chain requests must be bounded to the nearest N strikes; a full SPY
+chain is over 500 contracts and will blow the rate limit.
+
+- **When:** every minute, 06:30–13:00 Pacific, trading days only.
+- **What:** for each of the 20 tickers, every strike within roughly ±15% of the
+  current price, across the nearest 4 expirations — bid, ask, bid size, ask
+  size, last, volume.
+- **Plus:** the underlying stock price stamped on the same timestamp, so a
+  spread's value is never mixed across two moments.
+- **Plus:** one open-interest snapshot a day. It only updates overnight and can
+  never be filled in for a day that has passed.
+- **Where:** daily parquet files, one per date, compressed.
+- **Observer only:** no orders, no alerts, no change to live scoring or any
+  Discord output. Nothing user-facing moves.
+- **Proof of done:** one real trading day's output inspected row by row — real
+  timestamps, sane spreads, the expected strike count — before calling it done.
+  Not a replay of stored data.
+
+### 1d. The prompt to build it
+
+> Build a full option-chain collector for the 20 tickers in TODO #109 using the
+> existing Schwab client. Every minute from 6:30am to 1:00pm Pacific on trading
+> days, save bid/ask/sizes/last/volume for every strike within ±15% of spot
+> across the nearest 4 expirations, plus the underlying price on the same
+> timestamp, to daily parquet files. Bound each chain request to nearest-N
+> strikes. Add a once-daily open-interest snapshot. Observer only — no orders,
+> no alerts, no changes to live scoring. Prove it with one real trading day's
+> output inspected row by row before calling it done.
+
+### 1e. Watch out for
+
+- Schwab's token needs a weekly re-login, and a root-owned token file has killed
+  the options feed before (2.1 days lost). Check file ownership after any edit.
+- Rate limits: 20 tickers x 4 expirations every minute is a lot of calls. Bound
+  the strikes and measure the real call count before scheduling it.
+- The service reads `/root/.openclaw/.env.service`, not `.env`. Any new key goes
+  in both.
+
+### 1f. Pick the 20 names
 
 Current stock history is 60 **NYSE** large caps (Databento EQUS.MINI +
 XNYS.PILLAR, 2023-2026). **Most big tech is NASDAQ-listed** — AAPL, MSFT, NVDA,
@@ -51,7 +109,7 @@ Rough candidate 20 (tech-heavy, all deeply liquid, all with active weekly
 options): AAPL MSFT NVDA AMZN GOOGL META TSLA AVGO AMD NFLX MU QCOM INTC PLTR
 CRM ORCL SMCI COIN + SPY QQQ. Owner should confirm or swap names.
 
-### 1b. The full capture list — everything a future test could need
+### 1g. The full capture list — everything a future test could need
 
 Per name, per minute, saved forward from day one:
 
@@ -88,7 +146,7 @@ Per name, per minute, saved forward from day one:
 - Whether the day was a half day (early close) — phantom prints after half-day
   closes are a known trap in our minute files.
 
-### 1c. Disk space — measured, not guessed
+### 1h. Disk space — measured, not guessed
 
 - Compressed parquet: ~30 bytes a row (our stock bars run 12.4).
 - Live-forward, only what actually fires: ~23 MB a year.
@@ -158,20 +216,34 @@ into `.omc/research/` before spending a day on any one of them.
 
 ## Definition of Done
 
-1. The 20 names are chosen and written down, with a note for each on whether its
-   stock history already exists locally.
-2. A collector runs every session and saves the full 1b list, with its output
-   inspected on a real trading day — real rows, real timestamps, eyeballed.
-3. `.omc/research/` holds a graded table of every free-data lead, each marked
+**Job 1 (the build) — this is what "complete #109" means first:**
+
+1. The 20 names are chosen and written into the collector's config, each with a
+   note on whether its stock history already exists locally.
+2. The collector is coded, scheduled, and running as an observer — no orders, no
+   alerts, no live scoring touched.
+3. One real trading day's output has been inspected row by row: real timestamps,
+   sane bid/ask spreads, the expected number of strikes, the underlying price on
+   the same stamp. A replay of stored data is NOT proof.
+4. The once-daily open-interest snapshot has landed real rows.
+5. Tests pass and the regression baseline is unchanged.
+
+**Job 2 (the hunt) — runs alongside, finishes after:**
+
+6. `.omc/research/` holds a graded table of every free-data lead, each marked
    HAS HISTORY / LIVE ONLY, and INTRADAY / EOD ONLY.
-4. A one-line recommendation: free source found (name it), or start the 100-day
-   clock, or buy ThetaData at $40.
+7. A one-line recommendation: free source found (name it), or keep the collector
+   running for 100 days, or buy ThetaData at $40.
+
+**Not in scope:** testing any trading rule. This item builds the data supply
+only. No rule may be declared profitable off the back of it.
 
 ## Files involved
 
 - `data/mmhl_minute/`, `data/mmhl_daily/` — existing stock history
 - `scripts/research/pdtm_*.py` — #106's research code, reusable
-- `consensus_engine/analysis/put_flow_option_monitor.py` — existing option capture
+- `consensus_engine/analysis/put_flow_option_monitor.py` — existing narrow option capture; the model for the new collector, but it saves selected contracts only
+- Schwab client + `/root/.openclaw/.env.service` — real-time chains (#57, live since 2026-06-30)
 - `.omc/research/professional-day-trader-methods/` — #106's source-grading format
 
 ## Open questions
