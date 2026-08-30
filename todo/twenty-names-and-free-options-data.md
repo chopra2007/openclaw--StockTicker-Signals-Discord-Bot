@@ -1,6 +1,6 @@
 # Trade 20 liquid tech names, and hunt for free options data first
 
-**Status:** SOAKING until 2026-08-31
+**Status:** OPEN
 **Created:** 2026-08-29
 
 **CURRENT STATUS (2026-08-29):** Corrected and scheduled. Schwab now supplies
@@ -9,8 +9,9 @@ names, SPY, QQQ, and SPX. Each regular-session minute keeps the nearest four
 expirations inside a 15% strike band; the after-close job compacts those parts
 and writes the open-interest file and strict proof report. Databento is not
 needed for forward collection. It would be used only for a one-time purchase of
-older option history to skip the 100-day wait. The two timers are active; the
-only remaining gate is inspection of Monday's real files.
+older option history to skip the 100-day wait. The two timers are active. This
+item is OPEN for the next session; the next step is to inspect Monday's real
+files and decide whether a historical Databento purchase is worthwhile.
 
 ---
 

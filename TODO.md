@@ -1025,7 +1025,7 @@ Do not call any item below a proven trading edge.
 
 Keep one honest list of coded features and research-ready ideas that cannot yet be judged because the required market history is missing or too thin, including the exact free-collection or paid-data path that would unblock each one.
 
-## 109. Trade 20 big tech names, and find free options data instead of waiting 100 days — SOAKING until 2026-08-31
+## 109. Trade 20 big tech names, and find free options data instead of waiting 100 days
 
 **File:** `twenty-names-and-free-options-data.md`
 
@@ -1035,8 +1035,9 @@ names, SPY, QQQ, and SPX. Each regular-session minute keeps the nearest four
 expirations inside a 15% strike band; the after-close job compacts those parts
 and writes the open-interest file and strict proof report. Databento is not
 needed for forward collection. It would be used only for a one-time purchase of
-older option history to skip the 100-day wait. The two timers are active; the
-only remaining gate is inspection of Monday's real files.
+older option history to skip the 100-day wait. The two timers are active. This
+item is OPEN for the next session; the next step is to inspect Monday's real
+files and decide whether a historical Databento purchase is worthwhile.
 
 Pick 20 liquid tech names, start saving every field a future test could need before another 100 days are lost, and hunt for a free source that already holds past minute-by-minute option prices (SPX especially) so the wait can be skipped altogether.
 
