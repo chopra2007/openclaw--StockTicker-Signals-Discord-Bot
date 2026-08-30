@@ -1025,18 +1025,40 @@ Do not call any item below a proven trading edge.
 
 Keep one honest list of coded features and research-ready ideas that cannot yet be judged because the required market history is missing or too thin, including the exact free-collection or paid-data path that would unblock each one.
 
-## 109. Trade 20 big tech names, and find free options data instead of waiting 100 days
+## 109. Trade 20 big tech names, and find free options data instead of waiting 100 days — SOAKING until 2026-08-31
 
 **File:** `twenty-names-and-free-options-data.md`
 
-**CURRENT STATUS (2026-08-29):** Built and scheduled. The collector saves
-one-minute Schwab stock quotes and bars for 20 trade names plus market context,
-then uses licensed Databento option data for the nearest four expirations and a
-15% strike band. Raw Schwab option chains are not stored because this account's
-terms prohibit that. Both timers are active, SPX forward collection is on, and
-the free-data search found no usable 100-day intraday source. Two gates remain:
-the existing Databento key is rejected, and the first real trading-day files
-cannot be inspected until Monday, 2026-08-31. Keep this item open until both are
-cleared.
+**CURRENT STATUS (2026-08-29):** Corrected and scheduled. Schwab now supplies
+both the synchronized stock data and the stored option chains for 20 trade
+names, SPY, QQQ, and SPX. Each regular-session minute keeps the nearest four
+expirations inside a 15% strike band; the after-close job compacts those parts
+and writes the open-interest file and strict proof report. Databento is not
+needed for forward collection. It would be used only for a one-time purchase of
+older option history to skip the 100-day wait. The two timers are active; the
+only remaining gate is inspection of Monday's real files.
 
 Pick 20 liquid tech names, start saving every field a future test could need before another 100 days are lost, and hunt for a free source that already holds past minute-by-minute option prices (SPX especially) so the wait can be skipped altogether.
+
+## 110. Build a reusable loop that keeps working until the real goal passes
+
+**File:** `durable-outcome-loop-plugin.md`
+
+**CURRENT STATUS (2026-08-29):** The design is agreed but nothing has been
+built. Create the smallest reusable plugin that keeps working toward a measured
+outcome after an individual idea, plan, build, or test fails. Prove the plugin
+cannot accept a false pass before using it for the trading mission in TODO #111.
+
+Build and prove a reusable skill/plugin that brainstorms, researches, plans, builds, tests, and independently verifies repeated attempts without treating a failed attempt as completion.
+
+## 111. Build a profitable trading feature through the proven loop
+
+**File:** `profitable-trading-feature-outcome-loop.md`
+
+**CURRENT STATUS (2026-08-29):** Waiting for TODO #110 to build and prove the
+reusable outcome-loop plugin. After that proof, start this as a fresh mission in
+a separate session. The mission must continue through failed candidates instead
+of ending with another `NO PASS`, `NOT TESTABLE`, or request to wait for missing
+data.
+
+Use the independently tested outcome-loop plugin to keep trying genuinely different trading methods until one passes strict untouched historical profit and risk checks and is built as an owner-only feature.

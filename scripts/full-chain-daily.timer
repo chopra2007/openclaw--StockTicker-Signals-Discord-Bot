@@ -1,5 +1,5 @@
 [Unit]
-Description=Run TODO 109 daily capture after the option-feed delay
+Description=Run TODO 109 daily compaction and proof after the market closes
 
 [Timer]
 OnCalendar=Mon..Fri *-*-* 13:20:00 America/Los_Angeles

@@ -21,8 +21,9 @@ Design (see .claude/discover/schwab-options-realtime/final-plan.md):
   anchored to a frozen `_refresh_created`, and `SchwabRefreshTokenExpired` is the
   single signal that fires the weekly re-auth reminder.
 
-Personal-use license: callers render DERIVED SUMMARIES only (vol/OI, premium,
-max-pain, expected-move). Never post/store the raw per-strike chain.
+Personal-use handling: Schwab support confirmed to the owner that raw chains
+may be stored locally for personal testing. Never post or publish a raw
+per-strike chain; user-facing callers render derived summaries only.
 """
 
 import datetime

@@ -1,5 +1,5 @@
 [Unit]
-Description=TODO 109 synchronized stock quote collector
+Description=TODO 109 synchronized Schwab stock and option collector
 After=network-online.target
 
 [Service]

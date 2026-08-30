@@ -37,8 +37,9 @@ universe:
 capture:
   strike_band_pct: 0.15
   nearest_expirations: 4
-  databento_dataset: OPRA.PILLAR
-  max_daily_cost_usd: 2.00
+  # Large enough to cover the full 15% downside band on SPX in the live probe.
+  strike_count: 500
+  option_workers: 6
   data_root: /home/openclaw/.openclaw/research-data/todo-109
 
 local_history:

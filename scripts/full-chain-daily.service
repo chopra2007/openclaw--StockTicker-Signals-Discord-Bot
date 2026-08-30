@@ -1,5 +1,5 @@
 [Unit]
-Description=TODO 109 licensed option-chain, stock-bar, event, and proof collector
+Description=TODO 109 option compaction, stock-bar, event, and proof collector
 After=network-online.target full-chain-stock-poll.service
 
 [Service]

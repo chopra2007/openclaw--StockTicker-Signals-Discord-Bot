@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""TODO #109 forward stock and licensed full-options-chain collection.
+"""TODO #109 forward stock and full-options-chain collection from Schwab.
 
-Stock quotes come from Schwab. Raw option rows never come from Schwab because
-that account's personal-use terms forbid storing a per-strike chain. Instead,
-the daily job downloads Databento's historical OPRA CBBO-1m rows after the
-15-minute delay, then stores only the configured strikes and expirations.
+The owner confirmed with Schwab support that raw option chains may be stored for
+personal use and testing. Each regular-session poll therefore saves a bounded
+Schwab chain alongside the synchronized stock quote. The after-session job
+compacts those minute parts into one daily parquet file.
 
 Commands:
   stock-poll   Save one synchronized stock quote snapshot when inside 04:00-17:00 Pacific.
@@ -14,6 +14,7 @@ Commands:
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, time as clock_time, timedelta, timezone
 import json
 import logging
@@ -22,7 +23,6 @@ import os
 from pathlib import Path
 import re
 import sys
-from typing import Iterable
 import xml.etree.ElementTree as ET
 from zoneinfo import ZoneInfo
 
@@ -131,6 +131,15 @@ def stock_poll_allowed(now: datetime) -> bool:
     return clock_time(4, 0) <= now_pt.time().replace(tzinfo=None) <= clock_time(17, 0)
 
 
+def option_poll_allowed(now: datetime) -> bool:
+    now_pt = now.astimezone(PT)
+    bounds = session_bounds(now_pt.date())
+    if bounds is None:
+        return False
+    opened, closed = (stamp.astimezone(PT) for stamp in bounds)
+    return opened <= now_pt <= closed
+
+
 def capture_stock_poll(settings: dict, now: datetime | None = None) -> dict:
     now = now or datetime.now(UTC)
     if not stock_poll_allowed(now):
@@ -169,9 +178,13 @@ def capture_stock_poll(settings: dict, now: datetime | None = None) -> dict:
     frame = pd.DataFrame(rows)
     path = _day_path(settings, "stock_quotes", day)
     _append_parquet(frame, path, ["captured_at_utc", "ticker"])
+    option_result = capture_option_poll(settings, captured, quotes)
     if captured.astimezone(PT).minute % 5 == 0:
         capture_trade_halts(settings, day)
-    return {"skipped": False, "requested": len(symbols), "written": len(frame), "path": str(path)}
+    return {
+        "skipped": False, "requested": len(symbols), "written": len(frame),
+        "path": str(path), "options": option_result,
+    }
 
 
 def capture_trade_halts(settings: dict, day: date) -> pd.DataFrame:
@@ -283,44 +296,6 @@ def capture_events(settings: dict, day: date) -> pd.DataFrame:
     return frame
 
 
-def _parent_from_raw_symbol(raw_symbol: str) -> str:
-    parent = str(raw_symbol)[:6].strip().upper()
-    return "SPX" if parent == "SPXW" else parent
-
-
-def select_contracts(definitions: pd.DataFrame, spots: dict[str, float], day: date,
-                     strike_band_pct: float, nearest_expirations: int) -> pd.DataFrame:
-    if definitions.empty:
-        return definitions.copy()
-    frame = definitions.copy()
-    if "raw_symbol" not in frame.columns and "symbol" in frame.columns:
-        frame["raw_symbol"] = frame["symbol"]
-    frame["ticker"] = frame["raw_symbol"].map(_parent_from_raw_symbol)
-    frame["expiration"] = pd.to_datetime(frame["expiration"], utc=True, errors="coerce")
-    frame["strike_price"] = pd.to_numeric(frame["strike_price"], errors="coerce")
-    selected = []
-    for ticker, spot in spots.items():
-        if isinstance(spot, (tuple, list)):
-            spot_low, spot_high = map(float, spot)
-        else:
-            spot_low = spot_high = float(spot)
-        if not spot_low or not spot_high or not all(map(math.isfinite, (spot_low, spot_high))):
-            continue
-        group = frame[(frame["ticker"] == ticker) & (frame["expiration"].dt.date >= day)]
-        expirations = sorted(group["expiration"].dropna().dt.date.unique())[:nearest_expirations]
-        low = spot_low * (1 - strike_band_pct)
-        high = spot_high * (1 + strike_band_pct)
-        group = group[
-            group["expiration"].dt.date.isin(expirations)
-            & group["strike_price"].between(low, high, inclusive="both")
-        ]
-        selected.append(group)
-    if not selected:
-        return frame.iloc[0:0].copy()
-    result = pd.concat(selected, ignore_index=True)
-    return result.drop_duplicates(subset=["raw_symbol"])
-
-
 def _spot_ranges(settings: dict, day: date) -> dict[str, float | tuple[float, float]]:
     bar_path = _day_path(settings, "stock_bars", day)
     if bar_path.exists():
@@ -337,156 +312,134 @@ def _spot_ranges(settings: dict, day: date) -> dict[str, float | tuple[float, fl
     return {str(row.ticker): float(row.last) for row in quotes.itertuples()}
 
 
-def _open_interest_only(frame: pd.DataFrame) -> pd.DataFrame:
-    if frame.empty or "stat_type" not in frame.columns:
-        return frame.iloc[0:0].copy()
-    values = frame["stat_type"]
-    normalized = values.astype(str).str.lower()
-    return frame[(values == 9) | normalized.isin({"9", "open_interest", "stattype.open_interest"})]
+def _option_part_path(settings: dict, captured: datetime) -> Path:
+    captured_pt = captured.astimezone(PT)
+    return (
+        data_root(settings) / "option_parts" / captured_pt.date().isoformat()
+        / f"{captured_pt.strftime('%H%M%S')}.parquet"
+    )
 
 
-def _chunks(values: list[str], size: int = 1200) -> Iterable[list[str]]:
-    for index in range(0, len(values), size):
-        yield values[index:index + size]
+def _option_rows(ticker: str, chain, quote: dict, captured: datetime,
+                 strike_band_pct: float) -> pd.DataFrame:
+    spot = _finite(chain.underlying_price) or _finite(quote.get("c"))
+    if spot is None:
+        return pd.DataFrame()
+    low, high = spot * (1 - strike_band_pct), spot * (1 + strike_band_pct)
+    rows = []
+    for option_type, source in (("CALL", chain.calls), ("PUT", chain.puts)):
+        if source is None or source.empty:
+            continue
+        selected = source[source["strike"].between(low, high, inclusive="both")]
+        for contract in selected.itertuples(index=False):
+            values = contract._asdict()
+            last_trade = values.get("lastTradeDate")
+            rows.append({
+                "market_date": captured.astimezone(PT).date().isoformat(),
+                "captured_at_utc": captured.astimezone(UTC).isoformat(),
+                "ticker": ticker,
+                "contract_symbol": values.get("contractSymbol"),
+                "option_type": option_type,
+                "expiration": values.get("expiry"),
+                "strike_price": _finite(values.get("strike")),
+                "bid": _finite(values.get("bid")),
+                "ask": _finite(values.get("ask")),
+                "bid_size": _finite(values.get("bidSize")),
+                "ask_size": _finite(values.get("askSize")),
+                "last": _finite(values.get("lastPrice")),
+                "mark": _finite(values.get("mark")),
+                "volume": _finite(values.get("volume")),
+                "open_interest": _finite(values.get("openInterest")),
+                "implied_volatility": _finite(values.get("impliedVolatility")),
+                "delta": _finite(values.get("delta")),
+                "gamma": _finite(values.get("gamma")),
+                "theta": _finite(values.get("theta")),
+                "vega": _finite(values.get("vega")),
+                "rho": _finite(values.get("rho")),
+                "provider_quote_time_ms": values.get("providerQuoteTime") or 0,
+                "last_trade_time": None if pd.isna(last_trade) else str(last_trade),
+                "multiplier": _finite(values.get("multiplier")),
+                "non_standard": bool(values.get("nonStandard", False)),
+                "deliverable_note": str(values.get("deliverableNote") or ""),
+                "chain_is_delayed": bool(chain.is_delayed),
+                "chain_underlying_price": _finite(chain.underlying_price),
+                "underlying_last": _finite(quote.get("c")),
+                "underlying_bid": _finite(quote.get("bid")),
+                "underlying_ask": _finite(quote.get("ask")),
+            })
+    return pd.DataFrame(rows)
 
 
-def _frame_from_dbn(store) -> pd.DataFrame:
-    frame = store.to_df()
-    if frame.empty:
-        return frame.reset_index()
-    frame = frame.reset_index()
-    if "symbol" not in frame.columns and "raw_symbol" in frame.columns:
-        frame["symbol"] = frame["raw_symbol"]
-    return frame
-
-
-def _download_frames(client, dataset: str, symbols: list[str], schema: str,
-                     start: str, end: str, max_cost: float) -> tuple[pd.DataFrame, float]:
-    costs = []
-    groups = list(_chunks(symbols))
-    for group in groups:
-        costs.append(client.metadata.get_cost(
-            dataset=dataset, symbols=group, stype_in="raw_symbol",
-            schema=schema, start=start, end=end,
-        ))
-    total = float(sum(costs))
-    if total > max_cost:
-        raise RuntimeError(
-            f"{schema} request would cost ${total:.2f}, above the ${max_cost:.2f} daily limit"
-        )
+def capture_option_poll(settings: dict, captured: datetime, quotes: dict) -> dict:
+    if not option_poll_allowed(captured):
+        return {"skipped": True, "reason": "outside option session"}
+    symbols = universe(settings, "options")
+    nearest = int(settings["capture"]["nearest_expirations"])
+    strike_count = int(settings["capture"]["strike_count"])
+    band = float(settings["capture"]["strike_band_pct"])
+    workers = int(settings["capture"]["option_workers"])
     frames = []
-    for group in groups:
-        store = client.timeseries.get_range(
-            dataset=dataset, symbols=group, stype_in="raw_symbol", stype_out="raw_symbol",
-            schema=schema, start=start, end=end,
-        )
-        frame = _frame_from_dbn(store)
-        if not frame.empty:
-            frames.append(frame)
-    return (pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(), total)
-
-
-def _merge_option_frames(cbbo: pd.DataFrame, ohlcv: pd.DataFrame,
-                         definitions: pd.DataFrame) -> pd.DataFrame:
-    if cbbo.empty:
-        return cbbo
-    frame = cbbo.copy()
-    time_col = "ts_recv" if "ts_recv" in frame.columns else frame.columns[0]
-    frame["minute"] = pd.to_datetime(frame[time_col], utc=True).dt.floor("min")
-    frame["symbol"] = frame["symbol"].astype(str)
-    if not ohlcv.empty:
-        bars = ohlcv.copy()
-        bar_time = "ts_event" if "ts_event" in bars.columns else (
-            "ts_recv" if "ts_recv" in bars.columns else bars.columns[0]
-        )
-        bars["minute"] = pd.to_datetime(bars[bar_time], utc=True).dt.floor("min")
-        keep = [column for column in ("symbol", "minute", "open", "high", "low", "close", "volume")
-                if column in bars.columns]
-        frame = frame.merge(bars[keep].drop_duplicates(["symbol", "minute"]),
-                            on=["symbol", "minute"], how="left")
-    defs = definitions[["raw_symbol", "ticker", "expiration", "strike_price"]].copy()
-    defs = defs.rename(columns={"raw_symbol": "symbol"})
-    frame = frame.merge(defs, on="symbol", how="left")
-    frame["option_type"] = frame["symbol"].str[12:13]
-    return frame
-
-
-def _attach_underlying(settings: dict, day: date, options: pd.DataFrame) -> pd.DataFrame:
-    path = _day_path(settings, "stock_quotes", day)
-    if options.empty or not path.exists():
-        return options
-    quotes = pd.read_parquet(path)
-    quotes["minute"] = pd.to_datetime(quotes["captured_at_utc"], utc=True).dt.floor("min")
-    quotes = quotes.rename(columns={"last": "underlying_last", "bid": "underlying_bid",
-                                    "ask": "underlying_ask"})
-    keep = ["ticker", "minute", "underlying_last", "underlying_bid", "underlying_ask"]
-    return options.merge(quotes[keep].drop_duplicates(["ticker", "minute"]),
-                         on=["ticker", "minute"], how="left")
-
-
-def download_option_session(settings: dict, day: date) -> dict:
-    key = os.environ.get("DATABENTO_API_KEY", "").strip()
-    if not key:
-        raise RuntimeError("Databento access key is missing")
-    import databento as db
-
-    parents = [f"{ticker}.OPT" for ticker in universe(settings, "options")]
-    if settings["universe"].get("collect_spx_forward"):
-        parents.append("SPXW.OPT")
-    start = datetime.combine(day, clock_time(6, 30), PT).astimezone(UTC).isoformat()
-    end = datetime.combine(day, clock_time(13, 1), PT).astimezone(UTC).isoformat()
-    client = db.Historical(key)
-    dataset = settings["capture"]["databento_dataset"]
-    daily_limit = float(settings["capture"]["max_daily_cost_usd"])
-    definition_end = (day + timedelta(days=1)).isoformat()
-    definition_cost = float(client.metadata.get_cost(
-        dataset=dataset, schema="definition", symbols=parents, stype_in="parent",
-        start=day.isoformat(), end=definition_end,
-    ))
-    if definition_cost > daily_limit:
-        raise RuntimeError(
-            f"definition request would cost ${definition_cost:.2f}, "
-            f"above the ${daily_limit:.2f} daily limit"
-        )
-    definitions = _frame_from_dbn(client.timeseries.get_range(
-        dataset=dataset, schema="definition",
-        symbols=parents, stype_in="parent", start=day.isoformat(),
-        end=definition_end,
-    ))
-    spots = _spot_ranges(settings, day)
-    chosen = select_contracts(
-        definitions, spots, day,
-        float(settings["capture"]["strike_band_pct"]),
-        int(settings["capture"]["nearest_expirations"]),
-    )
-    raw_symbols = chosen["raw_symbol"].astype(str).tolist()
-    if not raw_symbols:
-        raise RuntimeError("no option contracts matched the configured expirations and strike band")
-    remaining = max(0.0, daily_limit - definition_cost)
-    cbbo, cbbo_cost = _download_frames(
-        client, dataset, raw_symbols, "cbbo-1m", start, end, remaining,
-    )
-    remaining = max(0.0, remaining - cbbo_cost)
-    ohlcv, ohlcv_cost = _download_frames(
-        client, dataset, raw_symbols, "ohlcv-1m", start, end, remaining,
-    )
-    remaining = max(0.0, remaining - ohlcv_cost)
-    stats_start = datetime.combine(day, clock_time(0, 0), UTC).isoformat()
-    stats_end = datetime.combine(day + timedelta(days=1), clock_time(0, 0), UTC).isoformat()
-    stats, stats_cost = _download_frames(
-        client, dataset, raw_symbols, "statistics", stats_start, stats_end, remaining,
-    )
-    stats = _open_interest_only(stats)
-    options = _merge_option_frames(cbbo, ohlcv, chosen)
-    options = _attach_underlying(settings, day, options)
-    _atomic_write_parquet(options, _day_path(settings, "option_chains", day))
-    if not stats.empty:
-        _atomic_write_parquet(stats, _day_path(settings, "open_interest", day))
+    errors = {}
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {
+            pool.submit(
+                schwab_client.get_option_chain, ticker,
+                nearest=nearest, strike_count=strike_count,
+            ): ticker
+            for ticker in symbols
+        }
+        for future in as_completed(futures):
+            ticker = futures[future]
+            try:
+                chain = future.result()
+                if chain is None:
+                    errors[ticker] = "no chain returned"
+                    continue
+                frame = _option_rows(ticker, chain, quotes.get(ticker, {}), captured, band)
+                if frame.empty:
+                    errors[ticker] = "no contracts inside strike band"
+                else:
+                    frames.append(frame)
+            except Exception as exc:
+                errors[ticker] = f"{type(exc).__name__}: {exc}"
+    result = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+    path = _option_part_path(settings, captured)
+    if not result.empty:
+        _atomic_write_parquet(result, path)
+    if not result.empty and not result["chain_is_delayed"].eq(False).all():
+        errors["delayed"] = "one or more Schwab chains were marked delayed"
+    if not result.empty and errors:
+        log.warning("option poll was partial: %s", ", ".join(sorted(errors)))
+    if result.empty:
+        _notify_once(captured.astimezone(PT).date(), "Schwab option poll saved no rows")
     return {
-        "contracts": len(raw_symbols), "option_rows": len(options), "statistics_rows": len(stats),
-        "estimated_cost_usd": round(
-            definition_cost + cbbo_cost + ohlcv_cost + stats_cost, 6
-        ),
+        "skipped": False, "requested": len(symbols), "names_written": len(frames),
+        "rows_written": len(result), "errors": errors, "path": str(path),
+    }
+
+
+def compact_option_day(settings: dict, day: date) -> dict:
+    parts_dir = data_root(settings) / "option_parts" / day.isoformat()
+    part_paths = sorted(parts_dir.glob("*.parquet"))
+    if not part_paths:
+        raise RuntimeError("no Schwab option minute files landed")
+    options = pd.concat((pd.read_parquet(path) for path in part_paths), ignore_index=True)
+    options = options.drop_duplicates(
+        subset=["captured_at_utc", "ticker", "contract_symbol"], keep="last",
+    ).sort_values(["captured_at_utc", "ticker", "expiration", "strike_price", "option_type"])
+    _atomic_write_parquet(options, _day_path(settings, "option_chains", day))
+    open_interest = (
+        options.dropna(subset=["open_interest"])
+        .sort_values("captured_at_utc")
+        .groupby(["ticker", "contract_symbol"], as_index=False)
+        .tail(1)[["market_date", "captured_at_utc", "ticker", "contract_symbol",
+                  "expiration", "strike_price", "option_type", "open_interest"]]
+    )
+    if not open_interest.empty:
+        _atomic_write_parquet(open_interest, _day_path(settings, "open_interest", day))
+    return {
+        "minute_files": len(part_paths), "option_rows": len(options),
+        "open_interest_rows": len(open_interest),
     }
 
 
@@ -521,12 +474,16 @@ def verify_day(settings: dict, day: date) -> dict:
     if option_path.exists():
         options = pd.read_parquet(option_path)
         checks["option_rows_present"] = len(options) > 0
-        if {"bid_px_00", "ask_px_00"}.issubset(options.columns):
-            quoted = options.dropna(subset=["bid_px_00", "ask_px_00"])
+        if {"bid", "ask"}.issubset(options.columns):
+            quoted = options.dropna(subset=["bid", "ask"])
             checks["option_spreads_sane"] = bool(len(quoted) and
-                                                  (quoted["bid_px_00"] <= quoted["ask_px_00"]).all())
+                                                  (quoted["bid"] <= quoted["ask"]).all())
         else:
             checks["option_spreads_sane"] = False
+        checks["option_chains_real_time"] = (
+            "chain_is_delayed" in options.columns
+            and options["chain_is_delayed"].eq(False).all()
+        )
         checks["underlying_same_minute_present"] = (
             "underlying_last" in options.columns
             and options["underlying_last"].notna().mean() >= 0.95
@@ -588,11 +545,11 @@ def run_daily(settings: dict, day: date) -> dict:
     option_summary = None
     error = None
     try:
-        option_summary = download_option_session(settings, day)
+        option_summary = compact_option_day(settings, day)
     except Exception as exc:
         error = f"{type(exc).__name__}: {exc}"
         _notify_once(day, error)
-        log.error("option download failed: %s", error)
+        log.error("option compaction failed: %s", error)
     proof = verify_day(settings, day)
     summary = {
         "skipped": False, "stock_bar_rows": len(bars), "event_rows": len(events),

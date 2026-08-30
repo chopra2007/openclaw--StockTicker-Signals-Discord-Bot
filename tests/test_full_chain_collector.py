@@ -5,7 +5,6 @@ from pathlib import Path
 import sys
 
 import pandas as pd
-import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -38,32 +37,12 @@ def test_stock_poll_window_uses_pacific_calendar():
     assert collector.stock_poll_allowed(monday_too_late) is False
 
 
-def test_select_contracts_limits_strikes_and_nearest_expirations():
-    rows = []
-    for expiry in ("2026-09-04", "2026-09-11", "2026-09-18", "2026-09-25", "2026-10-02"):
-        for strike in (80, 90, 100, 110, 120):
-            for side in ("C", "P"):
-                raw = f"AAPL  {expiry[2:].replace('-', '')}{side}{strike * 1000:08d}"
-                rows.append({"raw_symbol": raw, "expiration": expiry,
-                             "strike_price": strike})
-    frame = pd.DataFrame(rows)
-    selected = collector.select_contracts(
-        frame, {"AAPL": 100.0}, date(2026, 8, 31), 0.15, 4,
-    )
-    assert set(selected["strike_price"]) == {90, 100, 110}
-    assert selected["expiration"].dt.date.nunique() == 4
-    assert len(selected) == 3 * 2 * 4
-
-
-def test_spx_weekly_root_is_joined_to_spx_underlying():
-    assert collector._parent_from_raw_symbol("SPXW  260831P06000000") == "SPX"
-
-
 def test_stock_poll_saves_quote_sizes_and_borrow_facts(tmp_path, monkeypatch):
     cfg = settings(tmp_path)
     cfg["universe"]["trade_names"] = ["AAPL"]
     cfg["universe"]["stock_context"] = ["SPY"]
     monkeypatch.setattr(collector, "stock_poll_allowed", lambda now: True)
+    monkeypatch.setattr(collector, "option_poll_allowed", lambda now: False)
     monkeypatch.setattr(
         collector.schwab_client,
         "get_quotes",
@@ -85,39 +64,67 @@ def test_stock_poll_saves_quote_sizes_and_borrow_facts(tmp_path, monkeypatch):
     assert saved["shortable"].all()
 
 
-def test_merge_option_rows_keeps_last_quote_sizes_volume_and_contract_facts():
-    cbbo = pd.DataFrame([{ "ts_recv": "2026-08-31T13:31:00Z",
-                           "symbol": "AAPL  260904C00100000", "price": 2.5,
-                           "bid_px_00": 2.4, "ask_px_00": 2.6,
-                           "bid_sz_00": 10, "ask_sz_00": 11}])
-    bars = pd.DataFrame([{ "ts_event": "2026-08-31T13:31:00Z",
-                          "symbol": "AAPL  260904C00100000", "open": 2.4,
-                          "high": 2.7, "low": 2.3, "close": 2.5, "volume": 22}])
-    definitions = pd.DataFrame([{ "raw_symbol": "AAPL  260904C00100000",
-                                  "ticker": "AAPL", "expiration": "2026-09-04",
-                                  "strike_price": 100.0}])
-    merged = collector._merge_option_frames(cbbo, bars, definitions)
-    row = merged.iloc[0]
-    assert row["price"] == 2.5
-    assert row["bid_sz_00"] == 10 and row["ask_sz_00"] == 11
-    assert row["volume"] == 22
-    assert row["ticker"] == "AAPL" and row["option_type"] == "C"
+def _chain() -> collector.schwab_client.Chain:
+    contracts = pd.DataFrame([
+        {"contractSymbol": "AAPL  260904C00100000", "strike": 100.0,
+         "lastPrice": 2.5, "bid": 2.4, "ask": 2.6, "mark": 2.5,
+         "bidSize": 10, "askSize": 11, "volume": 22, "openInterest": 50,
+         "impliedVolatility": 0.3, "providerQuoteTime": 1_788_200_000_000,
+         "lastTradeDate": pd.Timestamp("2026-08-31T18:00:00Z"),
+         "expiry": "2026-09-04", "multiplier": 100, "nonStandard": False,
+         "deliverableNote": "", "delta": .5, "gamma": .1, "theta": -.1,
+         "vega": .2, "rho": .01},
+        {"contractSymbol": "AAPL  260904C00120000", "strike": 120.0,
+         "lastPrice": 0.1, "bid": 0.05, "ask": 0.15, "mark": 0.1,
+         "bidSize": 2, "askSize": 3, "volume": 1, "openInterest": 5,
+         "impliedVolatility": .4, "providerQuoteTime": 1_788_200_000_000,
+         "lastTradeDate": pd.NaT, "expiry": "2026-09-04", "multiplier": 100,
+         "nonStandard": False, "deliverableNote": "", "delta": .1,
+         "gamma": .01, "theta": -.01, "vega": .02, "rho": .001},
+    ])
+    return collector.schwab_client.Chain(
+        calls=contracts, puts=contracts.iloc[0:0], underlying_price=100.0,
+        is_delayed=False, expirations=["2026-09-04"],
+    )
 
 
-def test_option_download_refuses_a_request_above_the_daily_cost_limit():
-    class Metadata:
-        @staticmethod
-        def get_cost(**kwargs):
-            return 2.01
+def test_schwab_option_poll_filters_band_and_saves_full_quote(tmp_path, monkeypatch):
+    cfg = settings(tmp_path)
+    cfg["universe"]["trade_names"] = ["AAPL"]
+    cfg["universe"]["option_context"] = []
+    cfg["universe"]["collect_spx_forward"] = False
+    monkeypatch.setattr(collector, "option_poll_allowed", lambda now: True)
+    seen = {}
 
-    class Client:
-        metadata = Metadata()
+    def get_chain(ticker, **kwargs):
+        seen.update(kwargs)
+        return _chain()
 
-    with pytest.raises(RuntimeError, match="above the \\$2.00 daily limit"):
-        collector._download_frames(
-            Client(), "OPRA.PILLAR", ["AAPL  260904C00100000"],
-            "cbbo-1m", "2026-08-31T13:30:00Z", "2026-08-31T20:01:00Z", 2.00,
-        )
+    monkeypatch.setattr(collector.schwab_client, "get_option_chain", get_chain)
+    result = collector.capture_option_poll(
+        cfg, datetime(2026, 8, 31, 18, 1, tzinfo=timezone.utc),
+        {"AAPL": {"c": 100, "bid": 99.9, "ask": 100.1}},
+    )
+    saved = pd.read_parquet(result["path"])
+    assert result["rows_written"] == 1
+    assert saved.iloc[0]["contract_symbol"] == "AAPL  260904C00100000"
+    assert saved.iloc[0]["bid_size"] == 10
+    assert saved.iloc[0]["underlying_bid"] == 99.9
+    assert seen == {"nearest": 4, "strike_count": 500}
+
+
+def test_daily_compaction_creates_chain_and_open_interest_files(tmp_path):
+    cfg = settings(tmp_path)
+    day = date(2026, 8, 31)
+    captured = datetime(2026, 8, 31, 18, 1, tzinfo=timezone.utc)
+    rows = collector._option_rows(
+        "AAPL", _chain(), {"c": 100, "bid": 99.9, "ask": 100.1}, captured, .15,
+    )
+    collector._atomic_write_parquet(rows, collector._option_part_path(cfg, captured))
+    result = collector.compact_option_day(cfg, day)
+    assert result == {"minute_files": 1, "option_rows": 1, "open_interest_rows": 1}
+    assert collector._day_path(cfg, "option_chains", day).exists()
+    assert collector._day_path(cfg, "open_interest", day).exists()
 
 
 def test_verify_day_requires_real_option_and_open_interest_rows(tmp_path):
