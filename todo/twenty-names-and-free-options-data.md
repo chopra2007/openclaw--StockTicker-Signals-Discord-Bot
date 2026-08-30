@@ -3,11 +3,15 @@
 **Status:** OPEN
 **Created:** 2026-08-29
 
-**CURRENT STATUS (2026-08-29):** Nothing built yet, and Job 1 below is approved
-by the owner to build. Job 1 is a full option-chain collector on Schwab for 20
-tech names — build it FIRST, because every day it is not running is a day of
-data that can never be recovered. Job 2 (hunting for free option history that
-already exists) runs alongside it, not before it. Job 3 is smaller extras.
+**CURRENT STATUS (2026-08-29):** Built and scheduled. The collector saves
+one-minute Schwab stock quotes and bars for 20 trade names plus market context,
+then uses licensed Databento option data for the nearest four expirations and a
+15% strike band. Raw Schwab option chains are not stored because this account's
+terms prohibit that. Both timers are active, SPX forward collection is on, and
+the free-data search found no usable 100-day intraday source. Two gates remain:
+the existing Databento key is rejected, and the first real trading-day files
+cannot be inspected until Monday, 2026-08-31. Keep this item open until both are
+cleared.
 
 ---
 
@@ -33,6 +37,11 @@ data is still fine for picking which strikes were liquid.
 
 **Approved by the owner 2026-08-29.** This is the buildable feature. Everything
 else on the page is research around it.
+
+**Implementation safety note (2026-08-29):** the repository's Schwab client
+states that raw per-strike chains cannot be stored under this account's
+personal-use terms. The build therefore uses Schwab only for stock data and
+uses licensed Databento OPRA rows for stored option chains.
 
 ### 1a. Why a FULL chain and not just the strikes a rule wants
 
@@ -237,6 +246,31 @@ into `.omc/research/` before spending a day on any one of them.
 
 **Not in scope:** testing any trading rule. This item builds the data supply
 only. No rule may be declared profitable off the back of it.
+
+### Session notes — 2026-08-29
+
+- Chosen trade names: AAPL, MSFT, NVDA, AMZN, GOOGL, META, TSLA, AVGO, AMD,
+  NFLX, MU, QCOM, INTC, PLTR, CRM, ORCL, SMCI, COIN, NOW, and PANW. All 20 have
+  local daily stock files; none has the required local minute history.
+- Added SPY and QQQ as option context, SPY/QQQ/XLK/SMH as stock context, and SPX
+  forward collection because no usable free intraday history was found.
+- Built `scripts/full_chain_collector.py`, its config, two scheduled tasks, a
+  strict daily proof report, and focused tests. The stock path also records
+  bid/ask sizes, extended-hours bars, halts, earnings times, dividends, splits,
+  and early closes.
+- Both scheduled tasks are active. The stock timer starts Monday at 04:00
+  Pacific; the daily option job runs at 13:20 Pacific. Weekend skip runs passed.
+  A separate proof check is scheduled for 15:30 Pacific under task
+  `1788058600_02e314`, so the first files are checked automatically.
+- Focused checks passed as the `openclaw` account: 24 passed. The project gate
+  reached 3,816 passed and reported no new failures. Its sealed test area also
+  hid the account's Databento package from one unrelated auction-research test;
+  the real service account imports Databento 0.85.0 successfully.
+- Research is saved at `.omc/research/todo-109/free-options-data.md`. Databento
+  is the best technical fit, with a hard $2 daily ceiling in the collector, but
+  the existing key returned an authentication failure. That blocks raw option
+  rows until the access is renewed. Monday's live files still must be inspected
+  before this task can be marked done.
 
 ## Files involved
 

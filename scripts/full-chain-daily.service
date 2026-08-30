@@ -1,0 +1,13 @@
+[Unit]
+Description=TODO 109 licensed option-chain, stock-bar, event, and proof collector
+After=network-online.target full-chain-stock-poll.service
+
+[Service]
+Type=oneshot
+User=openclaw
+WorkingDirectory=/home/openclaw/.openclaw/workspace
+EnvironmentFile=-/home/openclaw/.openclaw/.env.service
+ExecStart=/usr/bin/python3 /home/openclaw/.openclaw/workspace/scripts/full_chain_collector.py daily
+TimeoutStartSec=2h
+StandardOutput=journal
+StandardError=journal

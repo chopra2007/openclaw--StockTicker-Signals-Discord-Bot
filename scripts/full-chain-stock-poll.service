@@ -1,0 +1,12 @@
+[Unit]
+Description=TODO 109 synchronized stock quote collector
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=openclaw
+WorkingDirectory=/home/openclaw/.openclaw/workspace
+EnvironmentFile=-/home/openclaw/.openclaw/.env.service
+ExecStart=/usr/bin/python3 /home/openclaw/.openclaw/workspace/scripts/full_chain_collector.py stock-poll
+StandardOutput=journal
+StandardError=journal

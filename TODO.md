@@ -1029,10 +1029,14 @@ Keep one honest list of coded features and research-ready ideas that cannot yet 
 
 **File:** `twenty-names-and-free-options-data.md`
 
-**CURRENT STATUS (2026-08-29):** Nothing built yet, and Job 1 below is approved
-by the owner to build. Job 1 is a full option-chain collector on Schwab for 20
-tech names — build it FIRST, because every day it is not running is a day of
-data that can never be recovered. Job 2 (hunting for free option history that
-already exists) runs alongside it, not before it. Job 3 is smaller extras.
+**CURRENT STATUS (2026-08-29):** Built and scheduled. The collector saves
+one-minute Schwab stock quotes and bars for 20 trade names plus market context,
+then uses licensed Databento option data for the nearest four expirations and a
+15% strike band. Raw Schwab option chains are not stored because this account's
+terms prohibit that. Both timers are active, SPX forward collection is on, and
+the free-data search found no usable 100-day intraday source. Two gates remain:
+the existing Databento key is rejected, and the first real trading-day files
+cannot be inspected until Monday, 2026-08-31. Keep this item open until both are
+cleared.
 
 Pick 20 liquid tech names, start saving every field a future test could need before another 100 days are lost, and hunt for a free source that already holds past minute-by-minute option prices (SPX especially) so the wait can be skipped altogether.

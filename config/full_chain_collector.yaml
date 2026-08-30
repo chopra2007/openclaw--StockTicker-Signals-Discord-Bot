@@ -1,0 +1,47 @@
+# TODO #109. Non-secret settings for the forward options-data collector.
+
+universe:
+  trade_names:
+    - AAPL
+    - MSFT
+    - NVDA
+    - AMZN
+    - GOOGL
+    - META
+    - TSLA
+    - AVGO
+    - AMD
+    - NFLX
+    - MU
+    - QCOM
+    - INTC
+    - PLTR
+    - CRM
+    - ORCL
+    - SMCI
+    - COIN
+    - NOW
+    - PANW
+  option_context:
+    - SPY
+    - QQQ
+  stock_context:
+    - SPY
+    - QQQ
+    - XLK
+    - SMH
+  # The only verified free OptionsDX file is one partial 2020 SPY session.
+  # That cannot replace forward SPX collection.
+  collect_spx_forward: true
+
+capture:
+  strike_band_pct: 0.15
+  nearest_expirations: 4
+  databento_dataset: OPRA.PILLAR
+  max_daily_cost_usd: 2.00
+  data_root: /home/openclaw/.openclaw/research-data/todo-109
+
+local_history:
+  minute_data: missing
+  daily_data: present_for_all_trade_names_and_context
+  note: The repository has daily JSON history, but data/mmhl_minute does not exist.

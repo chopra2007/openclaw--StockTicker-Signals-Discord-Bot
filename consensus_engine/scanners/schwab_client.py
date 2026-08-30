@@ -280,6 +280,8 @@ def _get(path: str, params: dict | None = None) -> dict:
 # ---------------------------------------------------------------------------
 def to_schwab_symbol(sym: str) -> str:
     s = (sym or "").strip().upper()
+    if s == "SPX":
+        return "$SPX"
     if s.startswith("^"):
         return "$" + s[1:]        # ^VIX -> $VIX (index symbology)
     return s.replace(".", "/")    # BRK.B -> BRK/B
@@ -486,6 +488,8 @@ def _map_quote(entry: dict) -> dict:
         "c": _num(c),
         "bid": _num(q.get("bidPrice")),
         "ask": _num(q.get("askPrice")),
+        "bid_size": _num(q.get("bidSize")),
+        "ask_size": _num(q.get("askSize")),
         "pc": _num(q.get("closePrice")),
         "dp": _num(dp),
         "o": _num(q.get("openPrice")),

@@ -1,0 +1,11 @@
+[Unit]
+Description=Run TODO 109 daily capture after the option-feed delay
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 13:20:00 America/Los_Angeles
+Persistent=true
+AccuracySec=1min
+Unit=full-chain-daily.service
+
+[Install]
+WantedBy=timers.target

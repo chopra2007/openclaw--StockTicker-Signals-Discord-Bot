@@ -33,6 +33,7 @@ def test_num_sanitizes():
 
 def test_to_schwab_symbol():
     assert sc.to_schwab_symbol("AAPL") == "AAPL"
+    assert sc.to_schwab_symbol("SPX") == "$SPX"
     assert sc.to_schwab_symbol("^VIX") == "$VIX"       # index symbology
     assert sc.to_schwab_symbol("^VIX3M") == "$VIX3M"
     assert sc.to_schwab_symbol("BRK.B") == "BRK/B"     # dotted class shares
@@ -50,7 +51,7 @@ def test_map_quote_uses_regular_last_and_ms_to_sec():
     entry = {
         "quote": {"lastPrice": 289.0, "closePrice": 281.74, "netPercentChange": 2.57,
                   "openPrice": 281.17, "highPrice": 289.94, "lowPrice": 280.695,
-                  "bidPrice": 289.20, "askPrice": 289.40,
+                  "bidPrice": 289.20, "askPrice": 289.40, "bidSize": 17, "askSize": 9,
                   "totalVolume": 65100155, "quoteTime": 1782863991793,
                   "tradeTime": 1782863991793},
         "regular": {"regularMarketLastPrice": 289.36, "regularMarketPercentChange": 2.70},
@@ -63,6 +64,7 @@ def test_map_quote_uses_regular_last_and_ms_to_sec():
     assert q["t"] == 1782863991           # epoch-ms → epoch-seconds
     assert q["quote_time"] == 1782863991
     assert q["bid"] == 289.20 and q["ask"] == 289.40
+    assert q["bid_size"] == 17 and q["ask_size"] == 9
 
 
 # --- chain mapping ---------------------------------------------------------
