@@ -23,6 +23,12 @@ Treat `COMPLETE` as true only when `final-gate` writes it. A failed goal starts 
 new candidate attempt. A failed build stays on the same candidate for repair.
 Stop only on a condition frozen in the mission. `STOPPED` is not success.
 
+`COMPLETE` means the hashed evidence copies passed the frozen goal check, not
+that the repository as it now stands passes. Evidence is copied and hashed when
+it is recorded, and review and the goal check read only those copies, so a file
+edited after it was recorded leaves the live code differing from what was
+certified. Record the evidence you intend to be judged on, last.
+
 The recorded identities and one-time capability rely on trusted orchestration.
 They separate roles and prevent casual replay, but are not cryptographic proof of
 which person or process performed a role. The controller also cannot detect work

@@ -416,8 +416,9 @@ fact.
 
 Before review and again before completion, the program checks:
 
-- every recorded source file still exists and has its recorded hash;
-- every copied file exists and has the same hash;
+- every copied file exists and has its recorded hash; the copy is the durable
+  record, and the working source may keep changing, because the repair loop is
+  expected to edit it;
 - every required kind exists for the current attempt;
 - feasibility evidence was recorded before its pass event;
 - plan evidence was recorded before `start-build`;
@@ -628,7 +629,7 @@ command if any precondition fails:
 6. stage order and checker results prove all four feasibility passes happened
    before build with meaningful, non-empty evidence;
 7. candidate fingerprint is absent from earlier rejected fingerprints;
-8. all required evidence exists and source/copy hashes match;
+8. all required evidence exists and every copied hash matches;
 9. plan, implementation, and test evidence occurred in the required order;
 10. no permission breach, budget breach, unrelated unfinished authorization, or overrun
    exists;
@@ -713,7 +714,7 @@ The test names below are the required behavior, not suggestions.
 10. `test_stopped_is_never_complete_and_cannot_resume_to_active`
 11. `test_resume_preserves_version_stage_attempt_rejections_budget_and_evidence`
 12. `test_resume_rebuilds_missing_state_from_intact_ledger`
-13. `test_missing_or_changed_source_or_copied_evidence_blocks_completion`
+13. `test_missing_or_changed_copied_evidence_blocks_completion`
 14. `test_name_only_retry_is_rejected`
 15. `test_threshold_only_retry_is_rejected`
 16. `test_review_input_contains_frozen_mission_raw_artifacts_and_capability_hash_only`
@@ -724,7 +725,8 @@ The test names below are the required behavior, not suggestions.
 21. `test_missing_reviewer_or_evidence_blocks_completion`
 22. `test_budget_overrun_and_permission_breach_stop_completion`
 23. `test_final_gate_repair_invalidates_review_and_requires_fresh_build_test_review`
-24. `test_changed_or_unrecorded_goal_input_blocks_completion`
+24. `test_changed_copied_goal_input_blocks_completion` and
+    `test_goal_check_reads_the_reviewed_copy_not_the_working_source`
 25. `test_changed_or_hanging_goal_checker_blocks_completion`
 26. `test_failed_goal_command_rejects_false_pass_and_continues_discovery`
 27. `test_valid_pass_needs_frozen_goal_check_intact_evidence_limits_authorization_and_read_only_approval`
@@ -807,9 +809,12 @@ evidence:
    keeps the same candidate.
 5. Candidate identity excludes names and thresholds, so those changes alone
    cannot evade a rejection.
-6. Recorded raw evidence is copied, hashed with SHA-256, and rechecked at review
-   and completion. Every final non-checker file input is a reviewed evidence
-   placeholder; direct, changed, unrecorded, or post-review inputs are rejected.
+6. Recorded raw evidence is copied and hashed with SHA-256 once, when recorded.
+   That copy is the durable record, is the only thing review and the goal check
+   read, and is rechecked at review and completion. Every final non-checker file
+   input is a reviewed evidence placeholder; direct, changed, unrecorded, or
+   post-review inputs are rejected. The working source is a snapshot at record
+   time and may change afterwards without affecting any result.
 7. Controller identity is frozen at init. Controller, builder, and reviewer are
    pairwise distinct; only the controller may submit review output, so a builder
    with the capability still cannot forge approval. The reviewer receives the

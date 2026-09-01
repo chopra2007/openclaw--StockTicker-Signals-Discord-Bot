@@ -242,13 +242,24 @@ def test_resume_rebuilds_missing_state_from_intact_ledger(repo):
     path,_=mission(repo); init(repo,path); state=repo/".omx/outcome-loop/analyst-record-dry-run/state.json"; state.write_text("not json\n"); assert run(repo,"resume","--mission-id","analyst-record-dry-run")["stage"]=="DISCOVERY" and json.loads(state.read_text())["stage"] == "DISCOVERY"
 
 
-def test_missing_or_changed_source_or_copied_evidence_blocks_completion(repo):
+def test_missing_or_changed_copied_evidence_blocks_completion(repo):
     path, _ = mission(repo)
     init(repo, path)
     reach_review(repo, "analyst-record-dry-run", 1, "plain-line-count", {"uniqueCompleteRecords": 4})
+    run_dir = repo / ".omx/outcome-loop/analyst-record-dry-run"
+    copied = next(run_dir.glob("evidence/attempt-0001/result--*.json"))
+
+    # Editing the working file is normal during repair and must not block.
     source = repo / "plugins/outcome-loop/tests/fixtures/analyst-record-dry-run-result-1.json"
     source.write_text("changed")
+    assert run(repo, "status", "--mission-id", "analyst-record-dry-run")["stage"] == "REVIEW"
 
+    # Changing the durable copy, or losing it, does block.
+    kept = copied.read_bytes()
+    copied.write_text("changed")
+    run(repo, "prepare-review", "--mission-id", "analyst-record-dry-run", expect=2)
+    copied.write_bytes(kept)
+    copied.unlink()
     run(repo, "prepare-review", "--mission-id", "analyst-record-dry-run", expect=2)
 
 
@@ -343,8 +354,30 @@ def test_review_repair_and_build_failure_each_require_new_build_evidence(repo):
     assert result["stage"]=="REVIEW"
 
 
-def test_changed_or_unrecorded_goal_input_blocks_completion(repo):
-    path,_=mission(repo); init(repo,path); reach_review(repo,"analyst-record-dry-run",1,"plain-line-count",{"uniqueCompleteRecords":4}); approve(repo,"analyst-record-dry-run",1); source=repo/"plugins/outcome-loop/tests/fixtures/analyst-record-dry-run-result-1.json"; source.write_text("changed"); run(repo,"authorize-action","--mission-id","analyst-record-dry-run","--action","run_goal_check","--estimated-cost-usd","0.00",expect=2)
+def test_goal_check_reads_the_reviewed_copy_not_the_working_source(repo):
+    # The goal checker is handed the copy under the run directory, so editing
+    # the working source after approval cannot steer the verdict either way.
+    path, _ = mission(repo)
+    init(repo, path)
+    reach_review(repo, "analyst-record-dry-run", 1, "plain-line-count", {"uniqueCompleteRecords": 4})
+    approve(repo, "analyst-record-dry-run", 1)
+    source = repo / "plugins/outcome-loop/tests/fixtures/analyst-record-dry-run-result-1.json"
+    # The reviewed copy holds 4 unique records, which passes this mission's goal.
+    # Rewrite the working source to 5, which fails it. The run still completes,
+    # so the verdict came from the reviewed copy and not from the edited source.
+    source.write_text(json.dumps({"uniqueCompleteRecords": 5}) + "\n")
+    result = final(repo, "analyst-record-dry-run")
+    assert result["stage"] == "COMPLETE"
+
+
+def test_changed_copied_goal_input_blocks_completion(repo):
+    path, _ = mission(repo)
+    init(repo, path)
+    reach_review(repo, "analyst-record-dry-run", 1, "plain-line-count", {"uniqueCompleteRecords": 4})
+    approve(repo, "analyst-record-dry-run", 1)
+    copied = next((repo / ".omx/outcome-loop/analyst-record-dry-run").glob("evidence/attempt-0001/result--*.json"))
+    copied.write_text(json.dumps({"uniqueCompleteRecords": 5}) + "\n")
+    run(repo, "authorize-action", "--mission-id", "analyst-record-dry-run", "--action", "run_goal_check", "--estimated-cost-usd", "0.00", expect=2)
 
 
 def test_changed_or_hanging_goal_checker_blocks_completion(repo):
@@ -363,14 +396,26 @@ def test_repeated_final_gate_is_byte_for_byte_idempotent(repo):
     full_two_attempt(repo); run_dir=repo/".omx/outcome-loop/analyst-record-dry-run"; ledger=run_dir.joinpath("ledger.jsonl").read_bytes(); final_bytes=run_dir.joinpath("final-result.json").read_bytes(); result=run(repo,"final-gate","--mission-id","analyst-record-dry-run","--authorization-id","already-complete"); assert result["stage"]=="COMPLETE" and ledger==run_dir.joinpath("ledger.jsonl").read_bytes() and final_bytes==run_dir.joinpath("final-result.json").read_bytes()
 
 
-@pytest.mark.parametrize("artifact", ["source", "copied"])
-def test_repeated_final_gate_rechecks_every_source_and_copied_evidence(repo, artifact):
+def test_repeated_final_gate_rechecks_copied_evidence_from_every_attempt(repo):
     full_two_attempt(repo)
     run_dir = repo / ".omx/outcome-loop/analyst-record-dry-run"
     state = json.loads((run_dir / "state.json").read_text())
     prior_attempt_evidence = next(entry for entry in state["evidence"] if entry["attempt"] == 1)
-    (repo / prior_attempt_evidence[artifact]).write_text("tampered\n")
+    (repo / prior_attempt_evidence["copied"]).write_text("tampered\n")
     run(repo, "final-gate", "--mission-id", "analyst-record-dry-run", "--authorization-id", "already-complete", expect=2)
+
+
+def test_completed_run_survives_edits_to_working_sources(repo):
+    # A finished mission must not be bricked by ordinary later work in the repo.
+    full_two_attempt(repo)
+    run_dir = repo / ".omx/outcome-loop/analyst-record-dry-run"
+    state = json.loads((run_dir / "state.json").read_text())
+    final_bytes = run_dir.joinpath("final-result.json").read_bytes()
+    for entry in state["evidence"]:
+        (repo / entry["source"]).write_text("moved on\n")
+    result = run(repo, "final-gate", "--mission-id", "analyst-record-dry-run", "--authorization-id", "already-complete")
+    assert result["stage"] == "COMPLETE"
+    assert run_dir.joinpath("final-result.json").read_bytes() == final_bytes
 
 
 @pytest.mark.parametrize("field", ["attempt", "goalRun", "completedAt"])
@@ -777,14 +822,17 @@ def test_same_byte_symlink_substitution_of_review_files_is_rejected(repo, artifa
     run(repo, "resume", "--mission-id", "analyst-record-dry-run", expect=2)
 
 
-@pytest.mark.parametrize("artifact", ["source", "copied"])
-def test_same_byte_symlink_substitution_of_recorded_evidence_is_rejected(repo, artifact):
+def test_same_byte_symlink_substitution_of_recorded_evidence_is_rejected(repo):
+    # The copy is the durable record and is read on every command, so swapping
+    # it for a symlink out of the repository is always refused. The equivalent
+    # swap on the working source is covered by the two symlink tests at the end
+    # of this file: inert during the loop, refused at the final gate.
     path, _ = mission(repo)
     init(repo, path)
     add_evidence(repo, "analyst-record-dry-run", "proof", "test", {"safe": True})
     state = json.loads((repo / ".omx/outcome-loop/analyst-record-dry-run/state.json").read_text())
-    original = repo / state["evidence"][0][artifact]
-    outside = repo.parent / f"same-bytes-evidence-{artifact}"
+    original = repo / state["evidence"][0]["copied"]
+    outside = repo.parent / "same-bytes-evidence-copied"
     outside.write_bytes(original.read_bytes())
     original.unlink(); original.symlink_to(outside)
     run(repo, "resume", "--mission-id", "analyst-record-dry-run", expect=2)
@@ -1085,3 +1133,247 @@ def test_extra_capability_field_is_refused_without_consuming_or_persisting_capab
     review.pop("reviewCapability")
     result = run(repo, "review-result", "--mission-id", "analyst-record-dry-run", "--submitter-agent-id", "controller-agent", "--submitter-thread-id", "controller-thread", "--from-stdin", stdin={"reviewCapability": prepared["reviewCapability"], "review": review})
     assert result["stage"] == "FINAL_GATE"
+
+
+def test_editing_a_recorded_evidence_source_does_not_brick_the_mission(repo):
+    path, _ = mission(repo)
+    init(repo, path)
+    mission_id = "analyst-record-dry-run"
+    candidate_path, _ = candidate(repo, 1, "plain-line-count")
+    run(repo, "candidate", "--mission-id", mission_id, "--candidate", str(candidate_path.relative_to(repo)))
+    reach_planned(repo, mission_id, 1)
+    source = repo / "plugins/outcome-loop/tests/fixtures" / f"{mission_id}-plan-1.json"
+    recorded = json.loads(source.read_text())
+    run_dir = repo / ".omx/outcome-loop" / mission_id
+    copied = next(run_dir.glob("evidence/attempt-0001/plan-1--*.json"))
+    copy_before = copied.read_bytes()
+
+    # The repair loop is expected to keep editing its own working files.
+    source.write_text(json.dumps({"steps": ["build", "test", "repair"]}) + "\n")
+
+    state = run(repo, "status", "--mission-id", mission_id)
+    assert state["stage"] == "PLANNED"
+    run(repo, "stop", "--mission-id", mission_id, "--condition", "owner_only_decision", "--evidence", "plan-1")
+    # The durable copy is untouched by the edit and still carries the recorded bytes.
+    assert copied.read_bytes() == copy_before == (json.dumps(recorded) + "\n").encode()
+
+
+def test_deleting_a_recorded_evidence_source_does_not_brick_the_mission(repo):
+    path, _ = mission(repo)
+    init(repo, path)
+    mission_id = "analyst-record-dry-run"
+    candidate_path, _ = candidate(repo, 1, "plain-line-count")
+    run(repo, "candidate", "--mission-id", mission_id, "--candidate", str(candidate_path.relative_to(repo)))
+    reach_planned(repo, mission_id, 1)
+    (repo / "plugins/outcome-loop/tests/fixtures" / f"{mission_id}-plan-1.json").unlink()
+    assert run(repo, "status", "--mission-id", mission_id)["stage"] == "PLANNED"
+
+
+def test_tampering_with_the_evidence_copy_is_still_refused(repo):
+    path, _ = mission(repo)
+    init(repo, path)
+    mission_id = "analyst-record-dry-run"
+    candidate_path, _ = candidate(repo, 1, "plain-line-count")
+    run(repo, "candidate", "--mission-id", mission_id, "--candidate", str(candidate_path.relative_to(repo)))
+    reach_planned(repo, mission_id, 1)
+    copied = next((repo / ".omx/outcome-loop" / mission_id).glob("evidence/attempt-0001/plan-1--*.json"))
+    copied.write_text(json.dumps({"steps": ["forged"]}) + "\n")
+    assert "changed" in run(repo, "status", "--mission-id", mission_id, expect=2)["error"]
+
+
+def test_checker_that_outlives_itself_via_a_child_still_times_out(repo):
+    path, value = mission(repo)
+    mission_id = "analyst-record-dry-run"
+    # Exits immediately, but leaves a child holding the inherited stdout pipe.
+    set_pass_checker(repo, path, value, "check_orphan.py", (
+        "import subprocess, sys\n"
+        "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])\n"
+        "sys.exit(0)\n"
+    ), timeout=3)
+    init(repo, path)
+    reach_review(repo, mission_id, 1, "plain-line-count", {"uniqueCompleteRecords": 4})
+    approve(repo, mission_id, 1)
+    auth = run(repo, "authorize-action", "--mission-id", mission_id, "--action", "run_goal_check", "--estimated-cost-usd", "0.00")["authorizationId"]
+    started = time.monotonic()
+    state = run(repo, "final-gate", "--mission-id", mission_id, "--authorization-id", auth)
+    elapsed = time.monotonic() - started
+    # The checker itself exited 0 well inside its timeout, so the run is allowed
+    # to complete. What must not happen is waiting on the surviving child: the
+    # old code blocked here for the child's full 60 seconds, holding the lock.
+    assert elapsed < 30, elapsed
+    assert state["stage"] == "COMPLETE"
+    # The lock was released, so the mission is still usable.
+    assert run(repo, "status", "--mission-id", mission_id)["stage"] == "COMPLETE"
+
+
+def test_mission_missing_a_required_action_is_refused_at_validation(repo):
+    for dropped in ("modify_repository", "run_goal_check"):
+        path, value = mission(repo, mission_id=f"missing-{dropped.replace('_', '-')}")
+        value["permissions"]["allowedActions"] = [x for x in value["permissions"]["allowedActions"] if x != dropped]
+        path.write_text(json.dumps(value, indent=2) + "\n")
+        error = run(repo, "validate-mission", "--mission", str(path.relative_to(repo)), expect=2)["error"]
+        assert dropped in error, error
+        init_error = run(repo, "init", "--mission", str(path.relative_to(repo)), "--controller-agent-id", "c", "--controller-thread-id", "t", expect=2)["error"]
+        assert dropped in init_error, init_error
+
+
+def test_repair_cycle_spend_can_be_authorized_and_recorded_in_building(repo):
+    path, value = mission(repo, max_cost="10.00")
+    mission_id = "analyst-record-dry-run"
+    value["permissions"]["allowedActions"].append("run_historical_test")
+    path.write_text(json.dumps(value, indent=2) + "\n")
+    init(repo, path)
+    candidate_path, _ = candidate(repo, 1, "plain-line-count")
+    run(repo, "candidate", "--mission-id", mission_id, "--candidate", str(candidate_path.relative_to(repo)))
+    reach_planned(repo, mission_id, 1)
+    build_auth = run(repo, "authorize-action", "--mission-id", mission_id, "--action", "modify_repository", "--estimated-cost-usd", "0.00")["authorizationId"]
+    run(repo, "start-build", "--mission-id", mission_id, "--builder-agent-id", "builder-agent", "--builder-thread-id", "builder-thread", "--authorization-id", build_auth)
+    run(repo, "complete-action", "--mission-id", mission_id, "--authorization-id", build_auth, "--actual-cost-usd", "0.00")
+    add_evidence(repo, mission_id, "implementation-1", "implementation", {"method": "plain-line-count"})
+    add_evidence(repo, mission_id, "test-1", "test", {"passed": False})
+    state = run(repo, "build-result", "--mission-id", mission_id, "--status", "fail", "--evidence", "implementation-1", "--evidence", "test-1")
+    assert state["stage"] == "BUILDING" and state["repairCycle"] == 1
+    assert "authorize-action" in state["legalNextCommands"]
+
+    # Repair-cycle research costs money and must reach the ledger.
+    repair_auth = run(repo, "authorize-action", "--mission-id", mission_id, "--action", "run_historical_test", "--estimated-cost-usd", "2.50")["authorizationId"]
+    state = run(repo, "complete-action", "--mission-id", mission_id, "--authorization-id", repair_auth, "--actual-cost-usd", "2.50")
+    assert state["budget"]["spentCostUsd"] == "2.50"
+    assert run(repo, "resume", "--mission-id", mission_id)["budget"]["spentCostUsd"] == "2.50"
+
+
+def test_repair_spend_over_budget_stops_the_mission(repo):
+    path, value = mission(repo, max_cost="1.00")
+    mission_id = "analyst-record-dry-run"
+    value["permissions"]["allowedActions"].append("run_historical_test")
+    path.write_text(json.dumps(value, indent=2) + "\n")
+    init(repo, path)
+    candidate_path, _ = candidate(repo, 1, "plain-line-count")
+    run(repo, "candidate", "--mission-id", mission_id, "--candidate", str(candidate_path.relative_to(repo)))
+    reach_planned(repo, mission_id, 1)
+    build_auth = run(repo, "authorize-action", "--mission-id", mission_id, "--action", "modify_repository", "--estimated-cost-usd", "0.00")["authorizationId"]
+    run(repo, "start-build", "--mission-id", mission_id, "--builder-agent-id", "builder-agent", "--builder-thread-id", "builder-thread", "--authorization-id", build_auth)
+    run(repo, "complete-action", "--mission-id", mission_id, "--authorization-id", build_auth, "--actual-cost-usd", "0.00")
+    add_evidence(repo, mission_id, "implementation-1", "implementation", {"method": "plain-line-count"})
+    add_evidence(repo, mission_id, "test-1", "test", {"passed": False})
+    run(repo, "build-result", "--mission-id", mission_id, "--status", "fail", "--evidence", "implementation-1", "--evidence", "test-1")
+    state = run(repo, "authorize-action", "--mission-id", mission_id, "--action", "run_historical_test", "--estimated-cost-usd", "5.00")
+    assert state["stage"] == "STOPPED"
+
+
+def test_modify_repository_and_goal_check_stay_pinned_to_their_own_stage(repo):
+    path, _ = mission(repo)
+    mission_id = "analyst-record-dry-run"
+    init(repo, path)
+    candidate_path, _ = candidate(repo, 1, "plain-line-count")
+    run(repo, "candidate", "--mission-id", mission_id, "--candidate", str(candidate_path.relative_to(repo)))
+    reach_planned(repo, mission_id, 1)
+    # run_goal_check belongs to the final gate, never to PLANNED.
+    assert "FINAL_GATE" in run(repo, "authorize-action", "--mission-id", mission_id, "--action", "run_goal_check", "--estimated-cost-usd", "0.00", expect=2)["error"]
+    build_auth = run(repo, "authorize-action", "--mission-id", mission_id, "--action", "modify_repository", "--estimated-cost-usd", "0.00")["authorizationId"]
+    run(repo, "start-build", "--mission-id", mission_id, "--builder-agent-id", "builder-agent", "--builder-thread-id", "builder-thread", "--authorization-id", build_auth)
+    run(repo, "complete-action", "--mission-id", mission_id, "--authorization-id", build_auth, "--actual-cost-usd", "0.00")
+    # A second repository authorization cannot be minted mid-build.
+    assert "PLANNED" in run(repo, "authorize-action", "--mission-id", mission_id, "--action", "modify_repository", "--estimated-cost-usd", "0.00", expect=2)["error"]
+
+
+def test_non_finite_and_malformed_mission_values_refuse_instead_of_crashing(repo):
+    for bad_cost in ("Infinity", "NaN", "-Infinity"):
+        path, value = mission(repo, mission_id="bad-cost-mission")
+        value["budget"]["maxCostUsd"] = bad_cost
+        path.write_text(json.dumps(value, indent=2) + "\n")
+        assert "error" in run(repo, "validate-mission", "--mission", str(path.relative_to(repo)), expect=2)
+
+    path, _ = mission(repo)
+    init(repo, path)
+    bad = write(repo, "bad-candidate.json", {"candidateId": "c", "name": "n", "method": {"family": "f", "inputs": [7], "transformation": "t", "decisionRule": "d", "output": "o"}, "thresholds": {}})
+    assert "error" in run(repo, "candidate", "--mission-id", "analyst-record-dry-run", "--candidate", str(bad.relative_to(repo)), expect=2)
+
+
+def test_final_gate_refuses_when_the_measured_work_is_gone_from_the_repository(repo):
+    path, _ = mission(repo)
+    mission_id = "analyst-record-dry-run"
+    init(repo, path)
+    reach_review(repo, mission_id, 1, "plain-line-count", {"uniqueCompleteRecords": 4})
+    approve(repo, mission_id, 1)
+    auth = run(repo, "authorize-action", "--mission-id", mission_id, "--action", "run_goal_check", "--estimated-cost-usd", "0.00")["authorizationId"]
+    fixtures = repo / "plugins/outcome-loop/tests/fixtures"
+    (fixtures / f"{mission_id}-implementation-1.json").unlink()
+    (fixtures / f"{mission_id}-result-1.json").unlink()
+    # Certifying success while the implementation and the measured result are
+    # gone from the working tree would make COMPLETE meaningless.
+    assert "does not exist" in run(repo, "final-gate", "--mission-id", mission_id, "--authorization-id", auth, expect=2)["error"]
+    assert run(repo, "status", "--mission-id", mission_id)["stage"] == "FINAL_GATE"
+
+
+def test_final_gate_still_passes_when_a_repair_edited_evidence_it_already_recorded(repo):
+    # A repair cycle legitimately rewrites files it recorded earlier in the same
+    # attempt. The gate must not become unpassable because of that.
+    path, _ = mission(repo)
+    mission_id = "analyst-record-dry-run"
+    init(repo, path)
+    reach_review(repo, mission_id, 1, "plain-line-count", {"uniqueCompleteRecords": 4})
+    approve(repo, mission_id, 1)
+    auth = run(repo, "authorize-action", "--mission-id", mission_id, "--action", "run_goal_check", "--estimated-cost-usd", "0.00")["authorizationId"]
+    source = repo / "plugins/outcome-loop/tests/fixtures" / f"{mission_id}-implementation-1.json"
+    source.write_text(json.dumps({"method": "plain-line-count", "revised": True}) + "\n")
+    assert run(repo, "final-gate", "--mission-id", mission_id, "--authorization-id", auth)["stage"] == "COMPLETE"
+
+
+def test_checker_whose_child_escapes_the_process_group_still_returns(repo):
+    path, value = mission(repo)
+    mission_id = "analyst-record-dry-run"
+    # The grandchild calls setsid, so killpg cannot reach it, and it holds the
+    # inherited stdout pipe open well past the timeout.
+    set_pass_checker(repo, path, value, "check_escaping_orphan.py", (
+        "import os, subprocess, sys\n"
+        "subprocess.Popen([sys.executable, '-c', 'import os,time; os.setsid(); time.sleep(120)'])\n"
+        "sys.exit(0)\n"
+    ), timeout=3)
+    init(repo, path)
+    reach_review(repo, mission_id, 1, "plain-line-count", {"uniqueCompleteRecords": 4})
+    approve(repo, mission_id, 1)
+    auth = run(repo, "authorize-action", "--mission-id", mission_id, "--action", "run_goal_check", "--estimated-cost-usd", "0.00")["authorizationId"]
+    started = time.monotonic()
+    state = run(repo, "final-gate", "--mission-id", mission_id, "--authorization-id", auth)
+    elapsed = time.monotonic() - started
+    # killpg cannot reach a setsid grandchild, so nothing may depend on it
+    # exiting or on it releasing an inherited stream. The old code waited the
+    # child's full 120 seconds; the timeout must be the only clock that matters.
+    assert elapsed < 40, elapsed
+    assert state["stage"] == "COMPLETE"
+    assert run(repo, "status", "--mission-id", mission_id)["stage"] == "COMPLETE"
+
+
+def test_replacing_a_recorded_source_with_a_symlink_does_not_brick_the_mission(repo, tmp_path):
+    path, _ = mission(repo)
+    mission_id = "analyst-record-dry-run"
+    init(repo, path)
+    candidate_path, _ = candidate(repo, 1, "plain-line-count")
+    run(repo, "candidate", "--mission-id", mission_id, "--candidate", str(candidate_path.relative_to(repo)))
+    reach_planned(repo, mission_id, 1)
+    source = repo / "plugins/outcome-loop/tests/fixtures" / f"{mission_id}-plan-1.json"
+    elsewhere = tmp_path / "moved-plan.json"
+    elsewhere.write_bytes(source.read_bytes())
+    source.unlink()
+    source.symlink_to(elsewhere)
+    # A file-to-symlink swap used to fail every command with no way forward.
+    assert run(repo, "status", "--mission-id", mission_id)["stage"] == "PLANNED"
+    run(repo, "stop", "--mission-id", mission_id, "--condition", "owner_only_decision", "--evidence", "plan-1")
+
+
+def test_symlinked_source_is_still_refused_at_the_final_gate(repo, tmp_path):
+    path, _ = mission(repo)
+    mission_id = "analyst-record-dry-run"
+    init(repo, path)
+    reach_review(repo, mission_id, 1, "plain-line-count", {"uniqueCompleteRecords": 4})
+    approve(repo, mission_id, 1)
+    auth = run(repo, "authorize-action", "--mission-id", mission_id, "--action", "run_goal_check", "--estimated-cost-usd", "0.00")["authorizationId"]
+    source = repo / "plugins/outcome-loop/tests/fixtures" / f"{mission_id}-implementation-1.json"
+    elsewhere = tmp_path / "outside-implementation.json"
+    elsewhere.write_bytes(source.read_bytes())
+    source.unlink()
+    source.symlink_to(elsewhere)
+    assert "symlink" in run(repo, "final-gate", "--mission-id", mission_id, "--authorization-id", auth, expect=2)["error"]
+    # Recoverable: the run is still alive and can be repaired.
+    assert run(repo, "status", "--mission-id", mission_id)["stage"] == "FINAL_GATE"

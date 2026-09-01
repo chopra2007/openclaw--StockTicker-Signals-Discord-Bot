@@ -18,8 +18,10 @@ to `independent-verifier`, mode to `read_only`, and `editedPaths` to `[]`.
 Judge all seven supplied checklist items from the raw artifacts. In particular,
 confirm the new method addresses the earlier failure, all goal evidence supports
 the claimed pass, permissions and budget stayed intact, and no checker uses the
-network. Approve only when every check is `PASS`. Otherwise reject with disposition
-`repair` or `new_candidate` and at least one concrete artifact finding.
+network. Approve only when every check is `PASS`, and send an approval with an empty
+`artifactFindings` list: an approval carrying any finding, even an advisory one, is
+refused. Otherwise reject with disposition `repair` or `new_candidate` and at least
+one concrete artifact finding.
 
 The capability and distinct recorded IDs depend on trusted orchestration. They are
 not cryptographic identity proof.

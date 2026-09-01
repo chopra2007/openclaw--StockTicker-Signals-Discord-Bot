@@ -12,9 +12,19 @@ in `checkerFiles`. Feasibility commands must contain exactly one `{evidence}`.
 Every goal input that is not a checker must be `{evidence:<id>}`. Direct work-file
 arguments are refused.
 
+`allowedActions` must contain `modify_repository` and `run_goal_check`. The
+controller asks for those two by name: `start-build` consumes an open
+`modify_repository` authorization and `final-gate` consumes an open
+`run_goal_check` one. A mission missing either is refused at validation.
+`modify_repository` is authorized in `PLANNED` and `run_goal_check` in
+`FINAL_GATE`; every other action may be authorized in `PLANNED` or `BUILDING`,
+so repair-cycle spend still passes the budget check.
+
 Evidence IDs and kinds are lower-case slugs. Evidence must be a regular file under
-an allowed repository root. The controller copies and hashes it. Source and copy
-must remain unchanged through review and completion.
+an allowed repository root. The controller copies and hashes it once, when it is
+recorded. That copy is the durable record and must stay unchanged through review
+and completion; the source file is only a snapshot at record time and may keep
+changing, because the repair loop is expected to edit it.
 
 Candidate identity is the normalized method only: family, sorted unique inputs,
 transformation, decision rule, and output. Names, thresholds, and claimed

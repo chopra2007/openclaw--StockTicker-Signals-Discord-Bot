@@ -20,7 +20,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import threading
 from zoneinfo import ZoneInfo
 from datetime import datetime
 
@@ -30,6 +29,8 @@ STAGES = {"DISCOVERY", "FEASIBILITY", "PLANNED", "BUILDING", "REVIEW", "FINAL_GA
 REQUIRED_FIELDS = {"formatVersion", "missionId", "missionVersion", "domain", "title", "goal", "passCondition", "feasibilityChecks", "permissions", "budget", "allowedEvidence", "stopConditions"}
 CHECKS = ("data", "access", "cost", "permission")
 STOP_CONDITIONS = {"budget_exhausted", "attempt_limit_reached", "permission_or_access_blocked", "owner_only_decision", "mission_invalidated"}
+REQUIRED_ACTIONS = {"modify_repository", "run_goal_check"}
+AUTHORIZATION_STAGES = {"run_goal_check": {"FINAL_GATE"}, "modify_repository": {"PLANNED"}}
 EVENTS = {
     "mission_initialized", "checkers_frozen", "attempt_started", "candidate_selected", "attempt_rejected",
     "evidence_recorded", "feasibility_recorded", "plan_recorded", "builder_declared",
@@ -75,7 +76,7 @@ def money(value):
         parsed = decimal.Decimal(value)
     except decimal.InvalidOperation as exc:
         raise Refusal("invalid decimal cost") from exc
-    if parsed < 0 or parsed.as_tuple().exponent < -2 or not parsed.is_finite():
+    if not parsed.is_finite() or parsed < 0 or parsed.as_tuple().exponent < -2:
         raise Refusal("cost must be non-negative with at most two decimals")
     return parsed
 
@@ -125,6 +126,13 @@ def identity(value, label):
     if not isinstance(value, str) or not value.strip():
         raise Refusal(f"{label} must be non-empty")
     return value.strip()
+
+
+def lexical_repo_path(root, raw):
+    # Path arithmetic only: no symlink walk, no resolve, no filesystem access.
+    if not isinstance(raw, str) or not raw or Path(raw).is_absolute() or ".." in Path(raw).parts:
+        raise Refusal("path must be non-empty and repository-relative")
+    return root / raw
 
 
 def safe_repo_path(root, raw, *, must_file=False):
@@ -208,6 +216,13 @@ def validate_mission(path, root):
             raise Refusal("permission actions must be unique lower-case slugs")
     if set(allowed) & set(forbidden):
         raise Refusal("allowed and forbidden actions overlap")
+    # The controller asks for these two by name. A mission that misspells or
+    # omits either one validates, initialises, and passes feasibility, then
+    # dies at the first authorization with a permission breach, which is
+    # terminal. Refuse it here, while the mission can still be edited.
+    missing_actions = sorted(REQUIRED_ACTIONS - set(allowed))
+    if missing_actions:
+        raise Refusal(f"allowedActions must contain {' and '.join(missing_actions)}")
     budget = mission["budget"]
     if not isinstance(budget, dict) or set(budget) != {"maxCostUsd", "maxAttempts"}:
         raise Refusal("invalid budget")
@@ -521,8 +536,7 @@ def validate_event_transition(before, after, event, history, mission, run):
             raise Refusal("authorization ID was reused")
         if any(item.get("status") in {"open", "running"} for item in before["authorizations"]):
             raise Refusal("another authorization is unfinished")
-        expected_stage = "FINAL_GATE" if action == "run_goal_check" else "PLANNED"
-        if before["stage"] != expected_stage:
+        if before["stage"] not in AUTHORIZATION_STAGES.get(action, {"PLANNED", "BUILDING"}):
             raise Refusal("authorization was created in an illegal stage")
     elif name == "builder_declared":
         builder = payload.get("builder")
@@ -562,7 +576,7 @@ def validate_event_transition(before, after, event, history, mission, run):
         elif new.get("action") == "modify_repository":
             if before["stage"] != "BUILDING" or old.get("usedByBuild") is not True:
                 raise Refusal("repository action completion is out of order")
-        elif before["stage"] != "PLANNED" or new.get("action") == "run_goal_check":
+        elif before["stage"] not in {"PLANNED", "BUILDING"} or new.get("action") == "run_goal_check":
             raise Refusal("action completion is out of order")
     elif name == "build_passed":
         ids = payload.get("evidenceIds")
@@ -821,6 +835,8 @@ def fingerprint(candidate):
         normalized[key] = value
     if not isinstance(method["inputs"], list) or not method["inputs"]:
         raise Refusal("method inputs required")
+    if not all(isinstance(x, str) for x in method["inputs"]):
+        raise Refusal("method inputs must be strings")
     normalized["inputs"] = sorted(set(x.strip().lower() for x in method["inputs"]))
     if not all(SLUG.fullmatch(x) for x in normalized["inputs"]):
         raise Refusal("method inputs must be slugs")
@@ -828,34 +844,31 @@ def fingerprint(candidate):
 
 
 def clean_run(command, cwd, timeout):
+    # The child writes to temporary files rather than pipes. A pipe has to be
+    # drained by this process while the child runs, and any process holding the
+    # write end open -- including a grandchild that escaped the process group
+    # with setsid, which killpg cannot reach -- can block that drain for as long
+    # as it likes, with the mission lock held. Nothing here waits on a writer:
+    # the timeout is the only thing that decides when we stop.
     env = {"PATH": os.defpath, "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8", "PYTHONNOUSERSITE": "1"}
-    process = subprocess.Popen(command, cwd=cwd, env=env, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
-    captured = {"stdout": bytearray(), "stderr": bytearray()}
-    totals = {"stdout": 0, "stderr": 0}
-
-    def drain(name, pipe):
-        while chunk := pipe.read(64 * 1024):
-            totals[name] += len(chunk)
-            remaining = MAX_OUTPUT - len(captured[name])
-            if remaining > 0:
-                captured[name].extend(chunk[:remaining])
-
-    readers = [
-        threading.Thread(target=drain, args=("stdout", process.stdout)),
-        threading.Thread(target=drain, args=("stderr", process.stderr)),
-    ]
-    for reader in readers:
-        reader.start()
     timed_out = False
-    try:
-        process.wait(timeout=timeout)
-    except subprocess.TimeoutExpired:
-        timed_out = True
-        os.killpg(process.pid, signal.SIGKILL)
-        process.wait()
-    for reader in readers:
-        reader.join()
-    stdout, stderr = bytes(captured["stdout"]), bytes(captured["stderr"])
+    with tempfile.TemporaryDirectory() as spool:
+        streams = {name: Path(spool) / f"{name}.bin" for name in ("stdout", "stderr")}
+        with open(streams["stdout"], "wb") as out, open(streams["stderr"], "wb") as err:
+            process = subprocess.Popen(command, cwd=cwd, env=env, shell=False, stdout=out, stderr=err, start_new_session=True)
+            try:
+                process.wait(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                with contextlib.suppress(ProcessLookupError, PermissionError):
+                    os.killpg(process.pid, signal.SIGKILL)
+                process.wait()
+        captured, totals = {}, {}
+        for name, path in streams.items():
+            totals[name] = path.stat().st_size
+            with open(path, "rb") as handle:
+                captured[name] = handle.read(MAX_OUTPUT)
+    stdout, stderr = captured["stdout"], captured["stderr"]
     return {
         "exitCode": None if timed_out else process.returncode,
         "timedOut": timed_out,
@@ -897,19 +910,33 @@ def frozen_command(root, run, manifest, cfg, evidence_path=None, final_evidence=
     return clean_run(command, cwd, cfg["timeoutSeconds"])
 
 
-def evidence_ok(root, state, *, mission, required=False, all_attempts=False):
+def evidence_ok(root, state, *, mission, required=False, all_attempts=False, require_source=False):
     current = [e for e in state["evidence"] if e["attempt"] == state["attempt"]]
     checked = state["evidence"] if all_attempts else current
     allowed = [safe_repo_path(root, path) for path in mission["allowedEvidence"]["roots"]]
     for entry in checked:
-        source = safe_repo_path(root, entry["source"], must_file=True)
+        # The source is a working file. It is hashed and copied once, when the
+        # evidence is recorded; the repair loop is expected to keep editing it.
+        # The copy under the run directory is the durable record, and it is the
+        # only thing review and the final gate ever read, so it is what must
+        # stay byte-for-byte identical. Re-checking the live source here would
+        # brick every command, including status and stop, the moment a builder
+        # edited a file it had already recorded.
+        # Outside the gate the source is resolved lexically and never touched on
+        # disk. It was validated when it was recorded, and all that is needed now
+        # is the allowed-roots check and its file name. Resolving it for real
+        # would reintroduce the brick in a narrower shape: swapping a recorded
+        # file for a symlink would fail every command, status and stop included.
+        # At the gate, require_source turns this back into a real check, where a
+        # refusal is recoverable through repair-final-gate.
+        source = safe_repo_path(root, entry["source"], must_file=True) if require_source else lexical_repo_path(root, entry["source"])
         if not any(inside(path, source) or source == path for path in allowed):
             raise Refusal("recorded evidence source is outside allowed roots")
         expected_copied = Path(".omx/outcome-loop") / state["missionId"] / "evidence" / f"attempt-{entry['attempt']:04d}" / f"{entry['id']}--{source.name}"
         if entry["copied"] != str(expected_copied):
             raise Refusal("recorded evidence destination is invalid")
         copied = safe_repo_path(root, entry["copied"], must_file=True)
-        if sha_file(source) != entry["sha256"] or sha_file(copied) != entry["sha256"]:
+        if sha_file(copied) != entry["sha256"]:
             raise Refusal("recorded evidence changed or is missing")
     if required:
         kinds = {e["kind"] for e in current}
@@ -973,7 +1000,7 @@ def legal_next(state):
     return {
         "DISCOVERY": ["candidate", "stop"], "FEASIBILITY": ["evidence", "feasibility", "reject-candidate", "stop"],
         "PLANNED": ["evidence", "plan", "authorize-action", "start-build", "stop"],
-        "BUILDING": ["evidence", "complete-action", "build-result", "stop"],
+        "BUILDING": ["evidence", "authorize-action", "complete-action", "build-result", "stop"],
         "REVIEW": ["prepare-review", "review-result", "stop"], "FINAL_GATE": ["authorize-action", "final-gate", "repair-final-gate", "stop"],
         "COMPLETE": ["status", "resume", "final-gate"], "STOPPED": ["status", "resume"],
     }[state["stage"]]
@@ -1101,8 +1128,12 @@ def cmd_feasibility(args, root, run, mission, manifest, state):
 
 def cmd_authorize(args, root, run, mission, manifest, state):
     if state["stage"] in {"COMPLETE", "STOPPED"}: raise Refusal("terminal mission")
-    expected_stage = "FINAL_GATE" if args.action == "run_goal_check" else "PLANNED"
-    if state["stage"] != expected_stage: raise Refusal(f"{args.action} authorization is only legal in {expected_stage}")
+    # run_goal_check belongs to the final gate and modify_repository is consumed
+    # by start-build, so both stay pinned to one stage. Everything else may also
+    # be authorized in BUILDING: repair cycles do real research and spend real
+    # money, and without this the whole repair loop runs off-budget.
+    expected_stages = AUTHORIZATION_STAGES.get(args.action, {"PLANNED", "BUILDING"})
+    if state["stage"] not in expected_stages: raise Refusal(f"{args.action} authorization is only legal in {' or '.join(sorted(expected_stages))}")
     if any(item["status"] in {"open", "running"} for item in state["authorizations"]): raise Refusal("another authorization is unfinished")
     estimate = money(args.estimated_cost_usd)
     allowed, forbidden = mission["permissions"]["allowedActions"], mission["permissions"]["forbiddenActions"]
@@ -1130,8 +1161,8 @@ def cmd_complete_action(args, root, run, mission, manifest, state):
     if auth["action"] == "run_goal_check": raise Refusal("run_goal_check is completed only by final-gate")
     if auth["action"] == "modify_repository" and (state["stage"] != "BUILDING" or auth.get("usedByBuild") is not True):
         raise Refusal("modify_repository is completed only in BUILDING after start-build")
-    if auth["action"] != "modify_repository" and state["stage"] != "PLANNED":
-        raise Refusal("action completion is only legal in PLANNED")
+    if auth["action"] != "modify_repository" and state["stage"] not in {"PLANNED", "BUILDING"}:
+        raise Refusal("action completion is only legal in PLANNED or BUILDING")
     actual = money(args.actual_cost_usd)
     spent = money(state["budget"]["spentCostUsd"])
     if spent + actual > money(state["budget"]["maxCostUsd"]):
@@ -1316,7 +1347,14 @@ def cmd_stop(args, root, run, mission, manifest, state):
 
 def final_preconditions(root, run, mission, manifest, state):
     if state["stage"] != "FINAL_GATE" or not state["review"] or not state["review"].get("output"): raise Refusal("valid approval is missing")
-    evidence = evidence_ok(root, state, mission=mission, required=True)
+    # Point-in-time gate check: the work being certified must still be present in
+    # the repository. Existence only, deliberately not the recorded hash: a
+    # repair cycle legitimately edits evidence it recorded earlier in the same
+    # attempt, and that entry stays in the current-attempt set, so demanding an
+    # unchanged hash here would make the gate permanently unpassable with no
+    # recovery short of abandoning the attempt. The measurement itself still
+    # comes from the reviewed copies, which are hash-checked on every command.
+    evidence = evidence_ok(root, state, mission=mission, required=True, require_source=True)
     input_path, output_path = validate_review_files(run, state, require_output=True)
     review_input = read_json(input_path)
     review_output = validate_review_contract(read_json(output_path), state, state["review"]["inputSha256"])

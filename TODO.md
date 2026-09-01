@@ -1046,12 +1046,17 @@ Pick 20 liquid tech names, start saving every field a future test could need bef
 
 **File:** `durable-outcome-loop-plugin.md`
 
-**CURRENT STATUS (2026-08-31):** The reusable plugin is built and its 105 focused
-tests pass. Two real proof missions each rejected a bad first attempt, accepted
-a meaningfully different second attempt, and resumed without changing their
-saved records. The full project run passed 3,846 tests. Claude should read
-`.omx/plans/todo-110-claude-handoff.md`, obtain the final independent code and
-design approvals, write the closing quality record, and only then mark #110 done.
+**CURRENT STATUS (2026-09-01):** The two independent reviews were run and both
+came back BLOCK, so the session became a repair pass. Six real defects were
+found and fixed, each with a regression test proved to fail without the fix. The
+worst: editing a file you had already recorded as evidence killed every command
+including `status` and `stop`, which broke the build-repair loop the plugin
+exists for. The design review is now **CLEAR**. The code review is still BLOCK on
+**one open defect** — a runaway checker now fills the host disk (28.3 GB of
+29.3 GB free consumed in four seconds, verified), introduced by the fix that
+stopped checkers hanging the controller. Focused suite: 119 passed. The full
+project suite still needs one clean run. Next session: read
+`.omx/plans/todo-110-claude-handoff.md` and start at "THE ONE OPEN BLOCKER".
 
 Build and prove a reusable skill/plugin that brainstorms, researches, plans, builds, tests, and independently verifies repeated attempts without treating a failed attempt as completion.
 
