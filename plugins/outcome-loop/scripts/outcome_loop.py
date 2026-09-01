@@ -15,15 +15,19 @@ import os
 from pathlib import Path
 import re
 import secrets
+import selectors
 import signal
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from zoneinfo import ZoneInfo
 from datetime import datetime
 
 MAX_OUTPUT = 1024 * 1024
+MAX_OUTPUT_TOTAL = 64 * 1024 * 1024
+OUTPUT_POLL_SECONDS = 0.02
 ZERO_HASH = "0" * 64
 STAGES = {"DISCOVERY", "FEASIBILITY", "PLANNED", "BUILDING", "REVIEW", "FINAL_GATE", "COMPLETE", "STOPPED"}
 REQUIRED_FIELDS = {"formatVersion", "missionId", "missionVersion", "domain", "title", "goal", "passCondition", "feasibilityChecks", "permissions", "budget", "allowedEvidence", "stopConditions"}
@@ -636,6 +640,7 @@ def validate_event_transition(before, after, event, history, mission, run):
             not prior or prior.get("event") != "action_completed"
             or prior_payload.get("goalRun") != run
             or not isinstance(run, dict) or run.get("exitCode") != 0 or run.get("timedOut") is not False
+            or run.get("outputLimitExceeded", False) is not False
             or not authorization or authorization.get("attempt") != after["attempt"]
             or authorization.get("action") != "run_goal_check" or authorization.get("status") != "completed"
             or authorization.get("actualCostUsd") != "0.00"
@@ -844,34 +849,70 @@ def fingerprint(candidate):
 
 
 def clean_run(command, cwd, timeout):
-    # The child writes to temporary files rather than pipes. A pipe has to be
-    # drained by this process while the child runs, and any process holding the
-    # write end open -- including a grandchild that escaped the process group
-    # with setsid, which killpg cannot reach -- can block that drain for as long
-    # as it likes, with the mission lock held. Nothing here waits on a writer:
-    # the timeout is the only thing that decides when we stop.
+    # Drain pipes only while the checker itself is running. Closing them when it
+    # exits prevents an escaped grandchild from filling the disk, without ever
+    # waiting for that grandchild to release an inherited stream.
     env = {"PATH": os.defpath, "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8", "PYTHONNOUSERSITE": "1"}
     timed_out = False
-    with tempfile.TemporaryDirectory() as spool:
-        streams = {name: Path(spool) / f"{name}.bin" for name in ("stdout", "stderr")}
-        with open(streams["stdout"], "wb") as out, open(streams["stderr"], "wb") as err:
-            process = subprocess.Popen(command, cwd=cwd, env=env, shell=False, stdout=out, stderr=err, start_new_session=True)
+    output_limit_exceeded = False
+    pipes = {name: os.pipe() for name in ("stdout", "stderr")}
+    totals = {name: 0 for name in pipes}
+    captured = {name: bytearray() for name in pipes}
+    process = subprocess.Popen(command, cwd=cwd, env=env, shell=False, stdout=pipes["stdout"][1], stderr=pipes["stderr"][1], start_new_session=True)
+    for read_fd, write_fd in pipes.values():
+        os.close(write_fd)
+        os.set_blocking(read_fd, False)
+    selector = selectors.DefaultSelector()
+    for name, (read_fd, _) in pipes.items():
+        selector.register(read_fd, selectors.EVENT_READ, name)
+
+    def drain(events):
+        nonlocal output_limit_exceeded
+        for key, _ in events:
             try:
-                process.wait(timeout=timeout)
-            except subprocess.TimeoutExpired:
-                timed_out = True
-                with contextlib.suppress(ProcessLookupError, PermissionError):
-                    os.killpg(process.pid, signal.SIGKILL)
-                process.wait()
-        captured, totals = {}, {}
-        for name, path in streams.items():
-            totals[name] = path.stat().st_size
-            with open(path, "rb") as handle:
-                captured[name] = handle.read(MAX_OUTPUT)
-    stdout, stderr = captured["stdout"], captured["stderr"]
+                data = os.read(key.fd, 64 * 1024)
+            except BlockingIOError:
+                continue
+            if not data:
+                selector.unregister(key.fd)
+                os.close(key.fd)
+                continue
+            remaining = MAX_OUTPUT_TOTAL - sum(totals.values())
+            kept = data[:remaining]
+            totals[key.data] += len(kept)
+            capture_room = MAX_OUTPUT - len(captured[key.data])
+            captured[key.data].extend(kept[:capture_room])
+            if len(data) >= remaining:
+                output_limit_exceeded = True
+                return
+
+    deadline = time.monotonic() + timeout
+    while not output_limit_exceeded:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            timed_out = True
+            break
+        drain(selector.select(min(OUTPUT_POLL_SECONDS, remaining)))
+        if process.poll() is not None:
+            while not output_limit_exceeded:
+                ready = selector.select(0)
+                if not ready:
+                    break
+                drain(ready)
+            break
+    if timed_out or output_limit_exceeded:
+        with contextlib.suppress(ProcessLookupError, PermissionError):
+            os.killpg(process.pid, signal.SIGKILL)
+        process.wait()
+    for key in list(selector.get_map().values()):
+        selector.unregister(key.fd)
+        os.close(key.fd)
+    selector.close()
+    stdout, stderr = bytes(captured["stdout"]), bytes(captured["stderr"])
     return {
-        "exitCode": None if timed_out else process.returncode,
+        "exitCode": None if timed_out or output_limit_exceeded else process.returncode,
         "timedOut": timed_out,
+        "outputLimitExceeded": output_limit_exceeded,
         "stdoutSha256": sha_bytes(stdout),
         "stderrSha256": sha_bytes(stderr),
         "stdoutBytes": len(stdout),
@@ -1113,7 +1154,7 @@ def cmd_feasibility(args, root, run, mission, manifest, state):
     if entry["bytes"] < 1: raise Refusal("feasibility evidence is empty")
     result = frozen_command(root, run, manifest, mission["feasibilityChecks"][args.check], root / entry["copied"])
     decision = None
-    if args.status == "pass" and result["exitCode"] == 0 and not result["timedOut"]:
+    if args.status == "pass" and result["exitCode"] == 0 and not result["timedOut"] and not result["outputLimitExceeded"]:
         try: decision = json.loads(result["stdout"])
         except json.JSONDecodeError: decision = None
     valid = isinstance(decision, dict) and decision.get("status") == "PASS" and decision.get("evidenceSha256") == entry["sha256"] and isinstance(decision.get("facts"), list) and bool(decision["facts"])
@@ -1404,7 +1445,7 @@ def cmd_final_gate(args, root, run, mission, manifest, state):
     auth["status"], auth["actualCostUsd"] = "completed", "0.00"
     facts = {k: v for k, v in result.items() if k not in {"stdout", "stderr"}}
     state = append_event(run, state, "action_completed", extra={"authorizationId": auth["id"], "goalRun": facts})
-    if result["exitCode"] != 0 or result["timedOut"]:
+    if result["exitCode"] != 0 or result["timedOut"] or result["outputLimitExceeded"]:
         stage = reset_attempt(state, "deterministic goal check failed")
         return append_event(run, state, "goal_check_failed", stage, {"run": facts})
     state["finalGate"] = facts

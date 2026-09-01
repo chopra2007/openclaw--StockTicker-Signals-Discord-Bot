@@ -1,7 +1,7 @@
 {
   "version": 1,
   "createdAt": "2026-08-30T07:51:17.731Z",
-  "updatedAt": "2026-08-30T13:58:40.879Z",
+  "updatedAt": "2026-09-01T08:46:12.323Z",
   "briefPath": ".omx/ultragoal/brief.md",
   "goalsPath": ".omx/ultragoal/goals.json",
   "ledgerPath": ".omx/ultragoal/ledger.jsonl",
@@ -35,13 +35,14 @@
       "id": "G003-prove-and-deliver-the-loop",
       "title": "Prove and deliver the loop",
       "objective": "Reject a seeded false pass, accept a valid independently reviewed pass, resume durable state, run a realistic non-trading dry mission, run cleanup and separate reviews, then close TODO #110 with the one-line TODO #111 kickoff.",
-      "status": "in_progress",
+      "status": "complete",
       "attempt": 1,
       "createdAt": "2026-08-30T07:51:17.731Z",
-      "updatedAt": "2026-08-30T13:58:40.879Z",
-      "startedAt": "2026-08-30T13:58:40.879Z"
+      "updatedAt": "2026-09-01T08:46:12.323Z",
+      "startedAt": "2026-08-30T13:58:40.879Z",
+      "evidence": "Final quality gate PASS: 125 focused tests; 3970 full-project tests with 2 skipped and 3 deliberate deselections; both proof missions COMPLETE byte-for-byte; cleanup PASS; code review APPROVE; design review CLEAR; operations healthy; five non-blocking follow-ups recorded as TODO 112.",
+      "completedAt": "2026-09-01T08:46:12.323Z"
     }
   ],
-  "codexObjective": "Complete the durable ultragoal plan in .omx/ultragoal/goals.json, including later accepted/appended stories, under the original brief constraints; use .omx/ultragoal/ledger.jsonl as the audit trail.",
-  "activeGoalId": "G003-prove-and-deliver-the-loop"
+  "codexObjective": "Complete the durable ultragoal plan in .omx/ultragoal/goals.json, including later accepted/appended stories, under the original brief constraints; use .omx/ultragoal/ledger.jsonl as the audit trail."
 }

@@ -1042,21 +1042,18 @@ inspection after that save bug is fixed. This is separate from #110.
 
 Pick 20 liquid tech names, start saving every field a future test could need before another 100 days are lost, and hunt for a free source that already holds past minute-by-minute option prices (SPX especially) so the wait can be skipped altogether.
 
-## 110. Build a reusable loop that keeps working until the real goal passes
+## 110. Build a reusable loop that keeps working until the real goal passes — DONE 2026-09-01
 
 **File:** `durable-outcome-loop-plugin.md`
 
-**CURRENT STATUS (2026-09-01):** The two independent reviews were run and both
-came back BLOCK, so the session became a repair pass. Six real defects were
-found and fixed, each with a regression test proved to fail without the fix. The
-worst: editing a file you had already recorded as evidence killed every command
-including `status` and `stop`, which broke the build-repair loop the plugin
-exists for. The design review is now **CLEAR**. The code review is still BLOCK on
-**one open defect** — a runaway checker now fills the host disk (28.3 GB of
-29.3 GB free consumed in four seconds, verified), introduced by the fix that
-stopped checkers hanging the controller. Focused suite: 119 passed. The full
-project suite still needs one clean run. Next session: read
-`.omx/plans/todo-110-claude-handoff.md` and start at "THE ONE OPEN BLOCKER".
+**CURRENT STATUS (2026-09-01):** DONE. The reusable outcome-loop plugin rejects
+false completion, survives repair and restart, requires separate review, and
+works for both analyst-record and invented trading-shaped missions. Runaway
+checker output now uses no disk, keeps at most 2 MiB in memory, and stops at
+64 MiB total. Final proof: 125 focused tests and 3,970 full-project tests passed;
+code review APPROVE; design review CLEAR; cleanup PASS; both saved proof runs
+remain `COMPLETE` byte-for-byte. Five non-blocking maintenance gaps are recorded
+separately in TODO #112.
 
 Build and prove a reusable skill/plugin that brainstorms, researches, plans, builds, tests, and independently verifies repeated attempts without treating a failed attempt as completion.
 
@@ -1064,10 +1061,20 @@ Build and prove a reusable skill/plugin that brainstorms, researches, plans, bui
 
 **File:** `profitable-trading-feature-outcome-loop.md`
 
-**CURRENT STATUS (2026-08-29):** Waiting for TODO #110 to build and prove the
-reusable outcome-loop plugin. After that proof, start this as a fresh mission in
-a separate session. The mission must continue through failed candidates instead
-of ending with another `NO PASS`, `NOT TESTABLE`, or request to wait for missing
-data.
+**CURRENT STATUS (2026-09-01):** READY FOR A FRESH SESSION. TODO #110 is complete:
+the reusable loop passed 125 focused tests, 3,970 full-project tests, two saved
+proof missions, cleanup review, code review, and design review. TODO #111 has not
+started. Its frozen mission and one-line kickoff are ready under `.omx/plans/`.
 
 Use the independently tested outcome-loop plugin to keep trying genuinely different trading methods until one passes strict untouched historical profit and risk checks and is built as an owner-only feature.
+
+## 112. Close the remaining outcome-loop maintenance gaps
+
+**File:** `outcome-loop-maintenance-gaps.md`
+
+**CURRENT STATUS (2026-09-01):** The reusable outcome loop is complete and
+verified. Five non-blocking maintenance gaps remain. They cannot create a false
+`COMPLETE`, but they can waste work, omit useful failure history, or slow every
+command. Fix them without changing the accepted evidence-copy and repair rules.
+
+Bound repair loops, record repair work and failed gates, close unfinished actions earlier, and remove repeated whole-project scans without weakening the proven completion checks.

@@ -2,11 +2,10 @@
 **Status:** OPEN
 **Created:** 2026-08-29
 
-**CURRENT STATUS (2026-08-29):** Waiting for TODO #110 to build and prove the
-reusable outcome-loop plugin. After that proof, start this as a fresh mission in
-a separate session. The mission must continue through failed candidates instead
-of ending with another `NO PASS`, `NOT TESTABLE`, or request to wait for missing
-data.
+**CURRENT STATUS (2026-09-01):** READY FOR A FRESH SESSION. TODO #110 is complete:
+the reusable loop passed 125 focused tests, 3,970 full-project tests, two saved
+proof missions, cleanup review, code review, and design review. TODO #111 has not
+started. Its frozen mission and one-line kickoff are ready under `.omx/plans/`.
 
 ## Goal
 
@@ -123,4 +122,3 @@ may justify paper testing; it is not historical proof of actual fills.
 - Completing a payment, login challenge, CAPTCHA, or new provider agreement.
 - Enabling a production alert or any action that could reach a real brokerage
   account.
-

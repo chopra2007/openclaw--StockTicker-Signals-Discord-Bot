@@ -561,6 +561,73 @@ for _ in range(32):
     assert hashlib.sha256(stderr).hexdigest() == facts["stderrSha256"]
 
 
+def test_runaway_goal_checker_is_killed_at_the_output_limit(repo):
+    path, value = mission(repo)
+    set_pass_checker(
+        repo,
+        path,
+        value,
+        "check_runaway_output.py",
+        """#!/usr/bin/env python3
+import os, time
+chunk = b"x" * (1024 * 1024)
+while True:
+    os.write(1, chunk)
+    time.sleep(0.002)
+""",
+    )
+    init(repo, path)
+    reach_review(repo, "analyst-record-dry-run", 1, "plain-line-count", {"uniqueCompleteRecords": 4})
+    approve(repo, "analyst-record-dry-run", 1)
+    started = time.monotonic()
+    final(repo, "analyst-record-dry-run")
+    assert time.monotonic() - started < 10
+    events = [json.loads(line) for line in (repo / ".omx/outcome-loop/analyst-record-dry-run/ledger.jsonl").read_text().splitlines()]
+    facts = events[-1]["payload"]["run"]
+    assert events[-1]["event"] == "goal_check_failed"
+    assert facts["exitCode"] is None
+    assert facts["timedOut"] is False
+    assert facts["outputLimitExceeded"] is True
+    assert facts["stdoutTotalBytes"] + facts["stderrTotalBytes"] == 64 * 1024 * 1024
+
+
+def test_escaped_writer_loses_its_output_pipe_when_checker_exits(repo):
+    path, value = mission(repo)
+    marker = repo / "escaped-writer-broken-pipe"
+    child = """import os, pathlib, sys, time
+os.setsid()
+time.sleep(0.2)
+try:
+    os.write(1, b"x" * (1024 * 1024))
+except BrokenPipeError:
+    pathlib.Path(sys.argv[1]).write_text("broken")
+"""
+    set_pass_checker(
+        repo,
+        path,
+        value,
+        "check_escaped_writer.py",
+        f"""#!/usr/bin/env python3
+import subprocess, sys
+subprocess.Popen([sys.executable, "-c", {child!r}, {str(marker)!r}])
+sys.exit(0)
+""",
+    )
+    init(repo, path)
+    reach_review(repo, "analyst-record-dry-run", 1, "plain-line-count", {"uniqueCompleteRecords": 4})
+    approve(repo, "analyst-record-dry-run", 1)
+    started = time.monotonic()
+    result = final(repo, "analyst-record-dry-run")
+    assert time.monotonic() - started < 10
+    assert result["stage"] == "COMPLETE"
+    deadline = time.monotonic() + 2
+    while not marker.exists() and time.monotonic() < deadline:
+        time.sleep(0.02)
+    assert marker.read_text() == "broken"
+    assert result["goalRun"]["outputLimitExceeded"] is False
+    assert result["goalRun"]["stdoutTotalBytes"] < 64 * 1024 * 1024
+
+
 @pytest.mark.parametrize("target", ["goal-stdout.bin", "goal-stderr.bin", "final-result.json"])
 def test_precreated_final_output_symlink_is_rejected_before_external_write(repo, target):
     path, _ = mission(repo)
@@ -659,6 +726,39 @@ def test_ledger_tampering_breaks_the_hash_chain(repo):
     lines[0] = json.dumps(first, separators=(",", ":"))
     ledger.write_text("\n".join(lines) + "\n")
     run(repo, "resume", "--mission-id", "analyst-record-dry-run", expect=2)
+
+
+@pytest.mark.parametrize(("value", "expected"), [("missing", 0), (False, 0), (True, 2), (None, 2)])
+def test_replay_accepts_only_legacy_missing_or_false_output_limit(repo, value, expected):
+    path, _ = mission(repo)
+    init(repo, path)
+    reach_review(repo, "analyst-record-dry-run", 1, "plain-line-count", {"uniqueCompleteRecords": 4})
+    approve(repo, "analyst-record-dry-run", 1)
+    final(repo, "analyst-record-dry-run")
+    ledger = repo / ".omx/outcome-loop/analyst-record-dry-run/ledger.jsonl"
+
+    def mutate(events):
+        goal_run = events[-2]["payload"]["goalRun"]
+        final_run = events[-1]["payload"]["run"]
+        saved_run = events[-1]["payload"]["stateAfter"]["finalGate"]
+        if value == "missing":
+            for item in (goal_run, final_run, saved_run):
+                item.pop("outputLimitExceeded")
+        else:
+            for item in (goal_run, final_run, saved_run):
+                item["outputLimitExceeded"] = value
+
+    rehash_ledger(ledger, mutate)
+    final_path = repo / ".omx/outcome-loop/analyst-record-dry-run/final-result.json"
+    saved_final = json.loads(final_path.read_text())
+    if value == "missing":
+        saved_final["goalRun"].pop("outputLimitExceeded")
+    else:
+        saved_final["goalRun"]["outputLimitExceeded"] = value
+    saved_final["ledgerHeadHash"] = json.loads(ledger.read_text().splitlines()[-1])["eventHash"]
+    final_path.write_text(json.dumps(saved_final, sort_keys=True, separators=(",", ":")) + "\n")
+    result = run(repo, "status", "--mission-id", "analyst-record-dry-run", expect=expected)
+    assert (result.get("stage") == "COMPLETE") is (expected == 0)
 
 
 @pytest.mark.parametrize("injection", ["complete", "review", "authorization", "evidence"])

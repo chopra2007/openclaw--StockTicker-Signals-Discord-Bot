@@ -450,10 +450,11 @@ only `PATH` set to `os.defpath`, `LANG=C.UTF-8`, `LC_ALL=C.UTF-8`, and
 variables through to the checker.
 
 Each command uses its frozen `timeoutSeconds`. A timeout, signal, malformed
-JSON response, changed checker hash, missing checker, wrong evidence hash, or
-non-zero exit is a failed check. The program caps stdout and stderr at 1 MiB
-each, redacts their bodies from normal chat output, and saves their hashes and
-exit facts in the ledger.
+JSON response, changed checker hash, missing checker, wrong evidence hash,
+output beyond the 64 MiB combined limit, or non-zero exit is a failed
+check. The program retains at most 1 MiB each from stdout and stderr, redacts
+their bodies from normal chat output, and saves their hashes and exit facts in
+the ledger.
 
 Version 1 does not claim arbitrary operating-system network isolation. Every
 mission used by TODO #110 must list `network_access` as forbidden. The reviewer
@@ -645,7 +646,8 @@ command if any precondition fails:
     post-review input path exists;
 17. an open zero-cost `run_goal_check` authorization exists;
 18. consume it and run the frozen checker arguments with no shell, the clean
-    environment, and the frozen timeout; save bounded raw output and its hash;
+    environment, the frozen timeout, and a 64 MiB combined output limit; save
+    bounded raw output and its hash;
 19. require exit code 0, then append `final_gate_passed`, move to `COMPLETE`,
     and write `final-result.json` from the ledger event.
 
@@ -653,10 +655,11 @@ Assistant text, a completed build, a passing test subset, a reviewer approval by
 itself, Ralph's completion phrase, or an Ultragoal completion state cannot write
 `COMPLETE`.
 
-If the goal command fails or times out, record its exit facts and hashed output, reject the
-current candidate, and start a new discovery attempt subject to the mission
-limits. Other correctable gate failures leave the mission incomplete at its
-current stage. `repair-final-gate` explicitly moves it back to `BUILDING`,
+If the goal command fails, times out, or exceeds the output limit, record its
+exit facts and hashed output, reject the current candidate, and start a new
+discovery attempt subject to the mission limits. Other correctable gate
+failures leave the mission incomplete at its current stage.
+`repair-final-gate` explicitly moves it back to `BUILDING`,
 invalidates the review and capability, and requires fresh build, test, and
 review proof before another final attempt.
 Boundary breaches move to `STOPPED`.

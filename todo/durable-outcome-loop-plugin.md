@@ -1,18 +1,15 @@
 # Build a reusable durable outcome loop
-**Status:** OPEN
+**Status:** DONE 2026-09-01
 **Created:** 2026-08-29
 
-**CURRENT STATUS (2026-09-01):** The two independent reviews were run and both
-came back BLOCK, so the session became a repair pass. Six real defects were
-found and fixed, each with a regression test proved to fail without the fix. The
-worst: editing a file you had already recorded as evidence killed every command
-including `status` and `stop`, which broke the build-repair loop the plugin
-exists for. The design review is now **CLEAR**. The code review is still BLOCK on
-**one open defect** — a runaway checker now fills the host disk (28.3 GB of
-29.3 GB free consumed in four seconds, verified), introduced by the fix that
-stopped checkers hanging the controller. Focused suite: 119 passed. The full
-project suite still needs one clean run. Next session: read
-`.omx/plans/todo-110-claude-handoff.md` and start at "THE ONE OPEN BLOCKER".
+**CURRENT STATUS (2026-09-01):** DONE. The reusable outcome-loop plugin rejects
+false completion, survives repair and restart, requires separate review, and
+works for both analyst-record and invented trading-shaped missions. Runaway
+checker output now uses no disk, keeps at most 2 MiB in memory, and stops at
+64 MiB total. Final proof: 125 focused tests and 3,970 full-project tests passed;
+code review APPROVE; design review CLEAR; cleanup PASS; both saved proof runs
+remain `COMPLETE` byte-for-byte. Five non-blocking maintenance gaps are recorded
+separately in TODO #112.
 
 ## Goal
 
@@ -118,3 +115,8 @@ and other project-specific rules belong in each mission file, not in the skill.
 - **Worked on:** Built the reusable outcome-loop plugin, added strict fail-closed checks and 105 focused tests, completed two independent false-then-valid proof missions, prepared the #111 mission, and passed the full project run with 3,846 passed, 1 skipped, and 3 known hanging cases excluded.
 - **Decisions:** Keep #110 OPEN until a fresh independent code reviewer says APPROVE, a fresh design reviewer says CLEAR, and the final quality record is written. Do not redo the implementation or proof runs.
 - **Next:** Continue from `.omx/plans/todo-110-claude-handoff.md`, finish the two reviews and closing records, then mark #110 done without starting #111.
+
+### Session notes — 2026-09-01
+- **Worked on:** Removed the runaway-checker disk-fill path, added exact output-limit and escaped-writer tests, preserved old saved ledgers, completed independent cleanup and code review, reran both proof missions, and passed 125 focused plus 3,970 full-project tests.
+- **Decisions:** Keep checker output off disk; retain only 1 MiB per stream in memory; stop at 64 MiB combined; preserve legacy ledgers that omit the new output-limit field; move the five non-blocking maintenance gaps to TODO #112.
+- **Next:** none for TODO #110. TODO #111 stays separate for a fresh session.
