@@ -14,6 +14,23 @@ Raw data + re-runnable harnesses for each round live under `.omc/research/`:
 
 ---
 
+## Cost rules (owner, hard requirements)
+
+- **Give the owner a total cost estimate BEFORE running any tests** — how much the whole
+  bake-off will spend on API calls. No test run starts without that number stated first.
+- **Target: about $1 total. Hard ceiling: $5.** An earlier round overshot and cost the
+  owner real money. If the plan estimates over ~$1, cut scope (fewer models, fewer
+  questions, cheaper screening prompts) or ask before proceeding. Never let a run pass $5.
+- **Meter spend live and stop at a budget.** The harness must track its own running cost
+  and cut a model off mid-run if it blows the budget (the #85 harness already does this —
+  it dropped one expensive model after two questions).
+- Keep costs down the proven way: screen every model on ~3 cheap prompts first, run the
+  full set only on survivors, small token caps, defeat caching with nonces.
+- For reference, done right the whole exercise is cheap: the 2026-06-15/16 round was
+  ~$0.05 total; the 2026-08-18 question round was $0.39 (vs $3.00 the naive way).
+
+---
+
 ## The AI jobs, and how each one must be tested
 
 The engine has four model "slots" in `config/consensus.yaml` (`llm:` block). They fall
@@ -252,6 +269,8 @@ only); nvidia/llama-nemotron-embed-vl-1b-v2:free (doesn't exist / is an embeddin
 
 ## If you re-run this
 
+- **First: estimate the total API cost and tell the owner.** Target ~$1, never over $5.
+  See "Cost rules" at the top of this file.
 - **Models change monthly** — re-run the harness for fresh rankings; ignore the specific
   picks above, keep the method.
 - Group 1 (text/primary): `.omc/research/model-bakeoff-2026-06-15/harness.py` +

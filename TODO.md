@@ -281,7 +281,7 @@ Swap out the dead NVIDIA backup model the health check flagged with a live one, 
 
 **File:** `model-bakeoff-2026-06-15.md`
 
-The one place to start for any "are we using the best/cheapest AI model?" question. Holds all three bake-offs (2026-06-04, 2026-06-15/16, and the 2026-08-18 question-answering round), split by how each job must be tested: simple one-shot jobs (tweet scoring, briefs, `!all` write-ups) test cheap with a throwaway script; the question-answering bot must be tested through the real `!ask` path because the cheap test picked a model that then timed out on every real heavy question. Old #24 and #85 are folded in here.
+The one place to start for any "are we using the best/cheapest AI model?" question. Holds all three bake-offs (2026-06-04, 2026-06-15/16, and the 2026-08-18 question-answering round), split by how each job must be tested: simple one-shot jobs (tweet scoring, briefs, `!all` write-ups) test cheap with a throwaway script; the question-answering bot must be tested through the real `!ask` path because the cheap test picked a model that then timed out on every real heavy question. Cost rule up top: always give the owner a total estimate before running, target ~$1, never over $5. Old #24 and #85 are folded in here.
 
 ## 45. Stop the bot repeating one command until it runs out of time — DONE 2026-08-03
 
