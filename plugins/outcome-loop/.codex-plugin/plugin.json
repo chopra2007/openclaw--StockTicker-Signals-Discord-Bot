@@ -1,0 +1,18 @@
+{
+  "name": "outcome-loop",
+  "version": "0.1.0",
+  "description": "Run evidence-backed work until a frozen deterministic goal passes or a declared stop condition is reached.",
+  "author": {
+    "name": "OpenClaw"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Outcome Loop",
+    "shortDescription": "Finish work only when the measured goal passes.",
+    "longDescription": "Coordinates discovery, feasibility, building, independent review, and a frozen final check using hashed evidence and an append-only ledger.",
+    "developerName": "OpenClaw",
+    "category": "Productivity",
+    "capabilities": [],
+    "defaultPrompt": "Use the outcome loop to run this mission until its measured goal passes or a frozen stop condition is reached."
+  }
+}

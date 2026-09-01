@@ -3,15 +3,16 @@
 **Status:** OPEN
 **Created:** 2026-08-29
 
-**CURRENT STATUS (2026-08-29):** Corrected and scheduled. Schwab now supplies
+**CURRENT STATUS (2026-08-31):** Corrected and scheduled. Schwab now supplies
 both the synchronized stock data and the stored option chains for 20 trade
 names, SPY, QQQ, and SPX. Each regular-session minute keeps the nearest four
 expirations inside a 15% strike band; the after-close job compacts those parts
 and writes the open-interest file and strict proof report. Databento is not
 needed for forward collection. It would be used only for a one-time purchase of
-older option history to skip the 100-day wait. The two timers are active. This
-item is OPEN for the next session; the next step is to inspect Monday's real
-files and decide whether a historical Databento purchase is worthwhile.
+older option history to skip the 100-day wait. The two timers are active. The
+August 31 proof task failed while saving its report because a NumPy true/false
+value was not converted to normal JSON first. The collector output still needs
+inspection after that save bug is fixed. This is separate from #110.
 
 ---
 
@@ -258,6 +259,7 @@ only. No rule may be declared profitable off the back of it.
   strict daily proof report, and focused tests. The stock path also records
   bid/ask sizes, extended-hours bars, halts, earnings times, dividends, splits,
   and early closes.
+
 - Both scheduled tasks are active. The stock timer starts Monday at 04:00
   Pacific; the daily compaction job runs at 13:20 Pacific. Weekend skip runs passed.
   A separate proof check is scheduled for 15:30 Pacific under task
@@ -284,3 +286,15 @@ only. No rule may be declared profitable off the back of it.
 - Collect both the 20 trade names and SPX, with SPY and QQQ as option context.
 - Keep the nearest four expirations.
 - Keep strikes inside 15% of the same-poll underlying price.
+
+### Session notes — 2026-08-30
+
+- **Worked on:** No new work; this task was already active when task 110 was resumed.
+- **Decisions:** none
+- **Next:** Inspect Monday's real collector files and decide whether buying older Databento history is worthwhile.
+
+### Session notes — 2026-08-31
+
+- **Worked on:** Triaged scheduled task `1788058600_02e314`; all three proof attempts failed while writing JSON because the report contained a NumPy true/false value.
+- **Decisions:** Keep #109 open. The failure is in proof-report saving, so no claim is made about the collector data itself.
+- **Next:** Convert NumPy values to normal Python values before JSON saving, rerun the August 31 proof, then inspect the real collector files.

@@ -2,10 +2,12 @@
 **Status:** OPEN
 **Created:** 2026-08-29
 
-**CURRENT STATUS (2026-08-29):** The design is agreed but nothing has been
-built. Create the smallest reusable plugin that keeps working toward a measured
-outcome after an individual idea, plan, build, or test fails. Prove the plugin
-cannot accept a false pass before using it for the trading mission in TODO #111.
+**CURRENT STATUS (2026-08-31):** The reusable plugin is built and its 105 focused
+tests pass. Two real proof missions each rejected a bad first attempt, accepted
+a meaningfully different second attempt, and resumed without changing their
+saved records. The full project run passed 3,846 tests. Claude should read
+`.omx/plans/todo-110-claude-handoff.md`, obtain the final independent code and
+design approvals, write the closing quality record, and only then mark #110 done.
 
 ## Goal
 
@@ -106,3 +108,8 @@ and other project-specific rules belong in each mission file, not in the skill.
 - Which existing OMX state files can be reused without creating competing
   sources of truth.
 
+### Session notes — 2026-08-31
+
+- **Worked on:** Built the reusable outcome-loop plugin, added strict fail-closed checks and 105 focused tests, completed two independent false-then-valid proof missions, prepared the #111 mission, and passed the full project run with 3,846 passed, 1 skipped, and 3 known hanging cases excluded.
+- **Decisions:** Keep #110 OPEN until a fresh independent code reviewer says APPROVE, a fresh design reviewer says CLEAR, and the final quality record is written. Do not redo the implementation or proof runs.
+- **Next:** Continue from `.omx/plans/todo-110-claude-handoff.md`, finish the two reviews and closing records, then mark #110 done without starting #111.

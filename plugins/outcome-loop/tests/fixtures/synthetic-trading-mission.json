@@ -1,0 +1,19 @@
+{
+  "formatVersion": 1,
+  "missionId": "synthetic-trading-dry-run",
+  "missionVersion": 1,
+  "domain": "synthetic-trading-shaped",
+  "title": "Exercise the loop on invented price rows",
+  "goal": "Select exactly two invented rows without making an edge claim.",
+  "passCondition": {"command": ["python3", "plugins/outcome-loop/tests/fixtures/check_synthetic_trading.py", "{evidence:synthetic-result}"], "checkerFiles": ["plugins/outcome-loop/tests/fixtures/check_synthetic_trading.py"], "workingDirectory": ".", "expectedExitCode": 0, "timeoutSeconds": 10},
+  "feasibilityChecks": {
+    "data": {"command": ["python3", "plugins/outcome-loop/tests/fixtures/check_feasibility.py", "data", "{evidence}"], "checkerFiles": ["plugins/outcome-loop/tests/fixtures/check_feasibility.py"], "timeoutSeconds": 10},
+    "access": {"command": ["python3", "plugins/outcome-loop/tests/fixtures/check_feasibility.py", "access", "{evidence}"], "checkerFiles": ["plugins/outcome-loop/tests/fixtures/check_feasibility.py"], "timeoutSeconds": 10},
+    "cost": {"command": ["python3", "plugins/outcome-loop/tests/fixtures/check_feasibility.py", "cost", "{evidence}"], "checkerFiles": ["plugins/outcome-loop/tests/fixtures/check_feasibility.py"], "timeoutSeconds": 10},
+    "permission": {"command": ["python3", "plugins/outcome-loop/tests/fixtures/check_feasibility.py", "permission", "{evidence}"], "checkerFiles": ["plugins/outcome-loop/tests/fixtures/check_feasibility.py"], "timeoutSeconds": 10}
+  },
+  "permissions": {"allowedActions": ["modify_repository", "run_goal_check"], "forbiddenActions": ["network_access", "place_trade", "push_remote", "read_secret", "send_production_message"]},
+  "budget": {"maxCostUsd": "0.00", "maxAttempts": 3},
+  "allowedEvidence": {"roots": ["plugins/outcome-loop", ".omx/outcome-loop/synthetic-trading-dry-run"], "requiredKinds": ["feasibility_data", "feasibility_access", "feasibility_cost", "feasibility_permission", "plan", "implementation", "test"]},
+  "stopConditions": ["budget_exhausted", "attempt_limit_reached", "permission_or_access_blocked", "owner_only_decision", "mission_invalidated"]
+}

@@ -1,0 +1,189 @@
+{
+  "formatVersion": 1,
+  "missionId": "todo-111-profitable-owner-only-feature",
+  "missionVersion": 1,
+  "domain": "trading-research",
+  "title": "DRAFT HANDOFF — independently proven owner-only trading feature",
+  "goal": "This is an uninitialized handoff draft. Before init, create and test scripts/research/todo111_outcome_gate.py as the mission-specific frozen checker for all four feasibility modes and the final mode; it must enforce every evidence and permission rule in this mission. Then use the reusable outcome-loop without adding trading rules to the plugin. Read prior final verdicts, inventory all usable local, free web, API, and existing-account historical sources, consider at least five genuinely different profit mechanisms, prove data feasibility before optional spending, freeze each chosen test before reading outcomes, and continue after failed candidates. Use free and already-owned data first; do not default to collecting new data and waiting. A single optional data purchase may cost no more than $50 total, may occur only after owner approval, and first requires proof that the source supports at least five distinct families plus verified fields, dates, history, and sample output. Legitimate free trials must be cancelled before renewal and refund abuse is forbidden. Paper brokerage use requires prior proof that the selected account cannot place a real-money order; ambiguity stops the order. Complete only when one built owner-only feature passes its frozen development and untouched historical numerical profit and risk gates after realistic fills, fees, spread, slippage, borrow, gaps, and missing prices; contains no future information or current-survivor selection; is not explained by one stock, analyst, date, or unusual trade; is independently reproduced and approved; produces inspected owner-only Pacific-time Discord output; passes feature replay and full project checks; and proves no real-money order was placed. If options are used, historical evidence must identify contract, strike, expiration, date, entry and exit times, source, and fill basis; last-price, midpoint, or chart marks must be disclosed and retested with harsh conservative fills. A positive historical options result may justify later paper testing but is not proof of executable historical fills. Historical profit is evidence, not a guarantee of future profit. Payment, a login challenge, CAPTCHA, a new provider agreement, production-alert enablement, or any real-brokerage-reachable action is an owner-only stop.",
+  "passCondition": {
+    "command": [
+      "python3",
+      "scripts/research/todo111_outcome_gate.py",
+      "final",
+      "{evidence:final-proof-bundle}",
+      "{evidence:source-inventory}",
+      "{evidence:prior-rejection-inventory}",
+      "{evidence:candidate-slate}",
+      "{evidence:five-family-feasibility}",
+      "{evidence:frozen-gates}",
+      "{evidence:development-result}",
+      "{evidence:untouched-result}",
+      "{evidence:realistic-cost-audit}",
+      "{evidence:point-in-time-audit}",
+      "{evidence:concentration-audit}",
+      "{evidence:instrument-fill-audit}",
+      "{evidence:independent-reproduction}",
+      "{evidence:owner-only-implementation}",
+      "{evidence:feature-replay}",
+      "{evidence:discord-output}",
+      "{evidence:pacific-time-output}",
+      "{evidence:project-checks}",
+      "{evidence:no-real-order-audit}",
+      "{evidence:purchase-audit}",
+      "{evidence:paper-account-safety}",
+      "{evidence:mission-checker-test}"
+    ],
+    "checkerFiles": [
+      "scripts/research/todo111_outcome_gate.py"
+    ],
+    "workingDirectory": ".",
+    "expectedExitCode": 0,
+    "timeoutSeconds": 300
+  },
+  "feasibilityChecks": {
+    "data": {
+      "command": [
+        "python3",
+        "scripts/research/todo111_outcome_gate.py",
+        "data",
+        "{evidence}"
+      ],
+      "checkerFiles": [
+        "scripts/research/todo111_outcome_gate.py"
+      ],
+      "timeoutSeconds": 120
+    },
+    "access": {
+      "command": [
+        "python3",
+        "scripts/research/todo111_outcome_gate.py",
+        "access",
+        "{evidence}"
+      ],
+      "checkerFiles": [
+        "scripts/research/todo111_outcome_gate.py"
+      ],
+      "timeoutSeconds": 120
+    },
+    "cost": {
+      "command": [
+        "python3",
+        "scripts/research/todo111_outcome_gate.py",
+        "cost",
+        "{evidence}"
+      ],
+      "checkerFiles": [
+        "scripts/research/todo111_outcome_gate.py"
+      ],
+      "timeoutSeconds": 120
+    },
+    "permission": {
+      "command": [
+        "python3",
+        "scripts/research/todo111_outcome_gate.py",
+        "permission",
+        "{evidence}"
+      ],
+      "checkerFiles": [
+        "scripts/research/todo111_outcome_gate.py"
+      ],
+      "timeoutSeconds": 120
+    }
+  },
+  "permissions": {
+    "allowedActions": [
+      "read_repository",
+      "read_local_data",
+      "network_access",
+      "browser_research",
+      "download_free_data",
+      "use_existing_account_access",
+      "use_named_existing_credential",
+      "use_legitimate_free_trial",
+      "cancel_free_trial_before_renewal",
+      "owner_approved_single_data_purchase",
+      "run_historical_test",
+      "run_paper_simulation_after_safety_proof",
+      "modify_repository",
+      "run_local_checks",
+      "render_owner_only_output",
+      "send_owner_only_test_output",
+      "run_goal_check"
+    ],
+    "forbiddenActions": [
+      "place_real_money_order",
+      "place_ambiguous_paper_order",
+      "automatic_data_purchase",
+      "multiple_data_purchases",
+      "spend_over_fifty_usd",
+      "refund_abuse",
+      "complete_payment_without_owner_approval",
+      "solve_login_challenge_without_owner_approval",
+      "accept_provider_agreement_without_owner_approval",
+      "bypass_captcha",
+      "enable_production_alert_without_owner_approval",
+      "send_public_output",
+      "push_remote_without_owner_approval",
+      "print_or_store_secret",
+      "weaken_frozen_gate",
+      "reuse_rejected_family",
+      "use_future_information",
+      "current_survivor_selection",
+      "claim_guaranteed_profit",
+      "wait_for_new_data_by_default"
+    ]
+  },
+  "budget": {
+    "maxCostUsd": "50.00",
+    "maxAttempts": 10
+  },
+  "allowedEvidence": {
+    "roots": [
+      ".omx/outcome-loop/todo-111-profitable-owner-only-feature",
+      ".omc/research",
+      "todo",
+      "scripts/research",
+      "tests",
+      "consensus_engine",
+      "config"
+    ],
+    "requiredKinds": [
+      "feasibility_data",
+      "feasibility_access",
+      "feasibility_cost",
+      "feasibility_permission",
+      "source_inventory",
+      "prior_rejection_inventory",
+      "candidate_slate",
+      "five_family_feasibility",
+      "frozen_gates",
+      "plan",
+      "implementation",
+      "test",
+      "development_result",
+      "untouched_result",
+      "realistic_cost_audit",
+      "point_in_time_audit",
+      "concentration_audit",
+      "instrument_fill_audit",
+      "independent_reproduction",
+      "owner_only_implementation",
+      "feature_replay",
+      "discord_output",
+      "pacific_time_output",
+      "project_checks",
+      "no_real_order_audit",
+      "purchase_audit",
+      "paper_account_safety",
+      "mission_checker_test",
+      "final_proof_bundle"
+    ]
+  },
+  "stopConditions": [
+    "budget_exhausted",
+    "attempt_limit_reached",
+    "permission_or_access_blocked",
+    "owner_only_decision",
+    "mission_invalidated"
+  ]
+}

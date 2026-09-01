@@ -1,58 +1,47 @@
 {
   "version": 1,
-  "createdAt": "2026-08-17T08:49:14.127Z",
-  "updatedAt": "2026-08-22T11:38:06.288Z",
+  "createdAt": "2026-08-30T07:51:17.731Z",
+  "updatedAt": "2026-08-30T13:58:40.879Z",
   "briefPath": ".omx/ultragoal/brief.md",
   "goalsPath": ".omx/ultragoal/goals.json",
   "ledgerPath": ".omx/ultragoal/ledger.jsonl",
   "codexGoalMode": "aggregate",
   "goals": [
     {
-      "id": "G001-analyst-group-alerts-83-and-84",
-      "title": "Analyst-group alerts (#83 and #84)",
-      "objective": "Remove the repeated SWARM wording, add faithful per-analyst direction and catalyst details, replay every recoverable group and price path, inspect real Discord output, and satisfy both TODO detail files without weakening existing card facts.",
+      "id": "G001-freeze-the-mission-contract",
+      "title": "Freeze the mission contract",
+      "objective": "Map existing plugin and OMX contracts, freeze the mission fields, state transitions, proof gates, permissions, budgets, reviewer separation, and completion tests before implementation.",
       "status": "complete",
       "attempt": 1,
-      "createdAt": "2026-08-17T08:49:14.127Z",
-      "updatedAt": "2026-08-17T10:56:00.527Z",
-      "startedAt": "2026-08-17T08:49:20.375Z",
-      "completedAt": "2026-08-17T10:56:00.527Z",
-      "evidence": "Commits c764b59 and 72e77e9; 84 focused checks passed in root rerun; independent focused 85 passed and affected 98 passed/1 skipped; saved immutable audit covered 756 events, 586 posts, 410 recoverable groups, 0 reversals, 0 unsupported reasons, 0 card failures; schema v34 live after one 3:49 AM Pacific restart; approved AAPL Discord card read back with 2 bullish analysts, source links, exact price, ping, no repeated SWARM wording, and Pacific-safe timing; both TODO checks passed."
+      "createdAt": "2026-08-30T07:51:17.731Z",
+      "updatedAt": "2026-08-30T08:17:48.354Z",
+      "startedAt": "2026-08-30T07:51:18.176Z",
+      "completedAt": "2026-08-30T08:17:48.354Z",
+      "evidence": "Approved spec at .omx/plans/todo-110-outcome-loop-spec.md; critic APPROVE after two revision rounds; pre-change suite 3846 passed, 1 skipped, 3 known frozen-test cases deselected."
     },
     {
-      "id": "G002-grounded-discord-feature-answers-85",
-      "title": "Grounded Discord feature answers (#85)",
-      "objective": "Build the recoverable real-question corpus, independently ground answers in current code and data, race capable agent models when needed, prove multi-turn false-premise handling through the real Discord path, and satisfy TODO #85.",
+      "id": "G002-build-the-reusable-plugin",
+      "title": "Build the reusable plugin",
+      "objective": "Create the repository-local outcome-loop plugin, controller, independent-verifier skill, mission template, deterministic state and final gate, and focused tests.",
       "status": "complete",
       "attempt": 1,
-      "createdAt": "2026-08-17T08:49:14.127Z",
-      "updatedAt": "2026-08-22T11:37:37.893Z",
-      "startedAt": "2026-08-17T10:56:01.013Z",
-      "completedAt": "2026-08-22T11:37:37.893Z",
-      "evidence": "G002-grounded-discord-feature-answers-85 complete for .omx/ultragoal/goals.json and .omx/ultragoal/ledger.jsonl: TODO #85 DONE and live; real question set, blind answer key, model race, prompt fixes, and real #chat readback are saved in .omx/evidence/todo-85/model-race-and-live-proof.md; TODO detail file is closed."
+      "createdAt": "2026-08-30T07:51:17.731Z",
+      "updatedAt": "2026-08-30T13:58:39.949Z",
+      "startedAt": "2026-08-30T08:17:49.370Z",
+      "completedAt": "2026-08-30T13:58:39.949Z",
+      "evidence": "Repository-local plugin and marketplace built in .agents/plugins/marketplace.json and plugins/outcome-loop. Independent verifier PASS: 44 focused tests in 118.28s, plugin validator passed, both skill validators passed, py_compile passed, all 14 spec files exist, tamper and stale-evidence repros fail closed."
     },
     {
-      "id": "G003-vvix-vix-leadership-and-streaks-86",
-      "title": "VVIX/VIX leadership and streaks (#86)",
-      "objective": "Add descriptive lead and market-day streak output, replay every stored row, separately measure predictive usefulness, inspect the real market card, and keep the feature out of scores and alerts.",
-      "status": "complete",
-      "attempt": 0,
-      "createdAt": "2026-08-17T08:49:14.127Z",
-      "updatedAt": "2026-08-22T11:37:49.599Z",
-      "completedAt": "2026-08-22T11:37:49.599Z",
-      "evidence": "G003-vvix-vix-leadership-and-streaks-86 complete for .omx/ultragoal/goals.json and .omx/ultragoal/ledger.jsonl: TODO #86 DONE and live; VVIX/VIX lead and streak display replayed over 23 stored rows/22 computable dates with 0 mismatches, real Discord !market readback inspected, display-only isolation preserved, independent verifier found tie bug and the fix was re-verified in .omx/evidence/todo-86/independent-verification.md."
-    },
-    {
-      "id": "G004-morning-brief-card-and-expected-move",
-      "title": "Morning brief card and expected-move charts (#87)",
-      "objective": "Build the stable compact card, reuse daily and weekly expected-move calculations and images, replay all archived briefs and saved daily snapshots, preserve retry and no-duplicate delivery behavior, inspect real Discord output, then complete the final Ultragoal quality gate.",
-      "status": "complete",
-      "attempt": 0,
-      "createdAt": "2026-08-17T08:49:14.127Z",
-      "updatedAt": "2026-08-22T11:38:06.288Z",
-      "evidence": "G004-morning-brief-card-and-expected-move complete for .omx/ultragoal/goals.json and .omx/ultragoal/ledger.jsonl: TODO #87 DONE and live; all 79 archived briefs replayed through the compact card builder, expected-move calculations reuse existing code, daily/weekly SPY charts proven on real Discord card, 7 independent-review defects fixed and documented in .omx/evidence/todo-87/independent-verification.md, TODO detail file closed.",
-      "completedAt": "2026-08-22T11:38:06.288Z"
+      "id": "G003-prove-and-deliver-the-loop",
+      "title": "Prove and deliver the loop",
+      "objective": "Reject a seeded false pass, accept a valid independently reviewed pass, resume durable state, run a realistic non-trading dry mission, run cleanup and separate reviews, then close TODO #110 with the one-line TODO #111 kickoff.",
+      "status": "in_progress",
+      "attempt": 1,
+      "createdAt": "2026-08-30T07:51:17.731Z",
+      "updatedAt": "2026-08-30T13:58:40.879Z",
+      "startedAt": "2026-08-30T13:58:40.879Z"
     }
   ],
-  "codexObjective": "Complete the durable ultragoal plan in .omx/ultragoal/goals.json, including later accepted/appended stories, under the original brief constraints; use .omx/ultragoal/ledger.jsonl as the audit trail."
+  "codexObjective": "Complete the durable ultragoal plan in .omx/ultragoal/goals.json, including later accepted/appended stories, under the original brief constraints; use .omx/ultragoal/ledger.jsonl as the audit trail.",
+  "activeGoalId": "G003-prove-and-deliver-the-loop"
 }
