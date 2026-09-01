@@ -152,7 +152,7 @@ When Wolf frames an actual trade, show a concise trade idea (entry → target + 
 
 **File:** `model-bakeoff-2026-06-04.md`
 
-Re-tested two dozen OpenRouter models for speed, smarts, and reliability and rebuilt the primary, text, and ask/mention model chains with the best cheap picks (full rankings + raw data saved for future reference).
+Folded into #44 (AI model bake-offs — master reference). First full re-test: two dozen OpenRouter models graded for speed, smarts, and reliability; primary/text/ask chains rebuilt with the best cheap picks. Full write-up and how to re-run: `todo/model-bakeoff-2026-06-15.md` (Round 1).
 
 ## 25. Stop cutting off long Wolf newsletters — DONE 2026-06-05
 
@@ -277,11 +277,11 @@ The one place that lists every bot switch touched in the 2026-06-15 build: what'
 
 Swap out the dead NVIDIA backup model the health check flagged with a live one, so the text model chain has a working second fallback.
 
-## 44. Bake off the best AI models for the three chains (text / primary / agent) — DONE 2026-06-15
+## 44. AI model bake-offs — master reference (what we picked, how to re-run one) — DONE 2026-06-15
 
 **File:** `model-bakeoff-2026-06-15.md`
 
-Live-test current cheap OpenRouter models against the three jobs (tweet-scoring/cleanup, big-writing, question-answering) to confirm we're using the best fit; swapped the text backup to a 4×-cheaper equal (qwen3-235b), and found the question-answering model times out on heavy questions — full results logged for future model decisions.
+The one place to start for any "are we using the best/cheapest AI model?" question. Holds all three bake-offs (2026-06-04, 2026-06-15/16, and the 2026-08-18 question-answering round), split by how each job must be tested: simple one-shot jobs (tweet scoring, briefs, `!all` write-ups) test cheap with a throwaway script; the question-answering bot must be tested through the real `!ask` path because the cheap test picked a model that then timed out on every real heavy question. Old #24 and #85 are folded in here.
 
 ## 45. Stop the bot repeating one command until it runs out of time — DONE 2026-08-03
 
@@ -735,7 +735,7 @@ Still open: the "why is it giving false signals" question is unanswered by every
 needs a longer investigation than the ~2-minute live budget allows. Evidence:
 `.omx/evidence/todo-85/model-race-and-live-proof.md`.
 
-Make the Discord bot read the live code and give accurate plain-English answers about its own features, including recognizing when a question assumes a ticker list that does not exist.
+Make the Discord bot read the live code and give accurate plain-English answers about its own features, including recognizing when a question assumes a ticker list that does not exist. Model-comparison method and result folded into #44 — see `todo/model-bakeoff-2026-06-15.md` (Round 3).
 
 ## 86. Make VVIX leadership and streaks obvious — DONE 2026-08-17
 

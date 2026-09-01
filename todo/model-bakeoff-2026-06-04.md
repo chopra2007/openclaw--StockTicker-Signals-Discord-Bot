@@ -3,6 +3,9 @@
 **Status:** DONE
 **Created:** 2026-06-04
 
+> **Folded into TODO #44.** All AI-model bake-offs now live in one reference:
+> `todo/model-bakeoff-2026-06-15.md`. This file is kept for history only.
+
 Goal: re-test OpenRouter models and pick the best for each LLM slot. Targets —
 **Primary** (smart analysis): cheap + intelligent + reliable. **Text** (tweet
 scoring): cheap + fast + reliable. **Agent** (`!ask`/@-mention): handles the big

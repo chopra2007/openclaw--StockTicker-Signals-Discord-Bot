@@ -4,6 +4,10 @@
 **Created:** 2026-08-17
 **Completed:** 2026-08-18
 
+> **Folded into TODO #44.** The model-comparison method and result from this task
+> now live in the one bake-off reference: `todo/model-bakeoff-2026-06-15.md`
+> (Round 3). This file is kept for history only.
+
 **CURRENT STATUS (2026-08-18):** DONE and live. The bot's chat model changed from
 `gpt-4.1-nano` to `gemini-3.7-flash`, and two prompt problems were fixed. Measured on 9 real
 questions taken from the owner's own past `#chat` messages, graded against a blind answer key: the
