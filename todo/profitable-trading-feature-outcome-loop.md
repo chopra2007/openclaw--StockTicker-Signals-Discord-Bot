@@ -2,10 +2,10 @@
 **Status:** OPEN
 **Created:** 2026-08-29
 
-**CURRENT STATUS (2026-09-01):** READY FOR A FRESH SESSION. TODO #110 is complete:
-the reusable loop passed 125 focused tests, 3,970 full-project tests, two saved
-proof missions, cleanup review, code review, and design review. TODO #111 has not
-started. Its frozen mission and one-line kickoff are ready under `.omx/plans/`.
+**CURRENT STATUS (2026-09-02):** READY TO RUN. The frozen mission and its
+pass/fail script are written and tested: `.omx/plans/todo-111-proven-trading-edge-mission.json`
+plus `scripts/research/todo_111_proven_trading_edge_gate.py`. Kickoff line:
+`Run the outcome-loop mission at .omx/plans/todo-111-proven-trading-edge-mission.json`.
 
 ## Goal
 
@@ -122,3 +122,8 @@ may justify paper testing; it is not historical proof of actual fills.
 - Completing a payment, login challenge, CAPTCHA, or new provider agreement.
 - Enabling a production alert or any action that could reach a real brokerage
   account.
+
+### Session notes — 2026-09-02
+- **Worked on:** Ran `/loopgoal #111` and interviewed the owner into a frozen mission + checker: `.omx/plans/todo-111-proven-trading-edge-mission.json` and `scripts/research/todo_111_proven_trading_edge_gate.py` (validates clean; fake-pass at 21.5% exits 0, fake-fail at 19.9% is refused, all four feasibility modes pass).
+- **Decisions:** Two-track profit bar — shares 1% average per trade after costs over 200+ trades, options 20% over 40+ trades, losers included. Credit-spread return = (premium collected − premium paid to close) ÷ premium collected. Random-entry control DROPPED — the owner trades long, short, debit and credit spreads, so market drift can't fake a direction-agnostic rule. Finish line also drops the Discord-output and full-test-suite checks at the owner's request; it keeps the untouched period, independent reproduction, best-ticker-removed retest, and harsh option fills. Budget $50 / one purchase / owner approves first / paid only after free is exhausted. 5 attempts, then write handoff notes and stop.
+- **Next:** Start the loop with the kickoff line above; the builder and reviewer must be separate agents from the controller.

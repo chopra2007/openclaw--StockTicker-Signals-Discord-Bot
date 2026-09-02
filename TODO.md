@@ -1061,10 +1061,10 @@ Build and prove a reusable skill/plugin that brainstorms, researches, plans, bui
 
 **File:** `profitable-trading-feature-outcome-loop.md`
 
-**CURRENT STATUS (2026-09-01):** READY FOR A FRESH SESSION. TODO #110 is complete:
-the reusable loop passed 125 focused tests, 3,970 full-project tests, two saved
-proof missions, cleanup review, code review, and design review. TODO #111 has not
-started. Its frozen mission and one-line kickoff are ready under `.omx/plans/`.
+**CURRENT STATUS (2026-09-02):** READY TO RUN. The frozen mission and its
+pass/fail script are written and tested: `.omx/plans/todo-111-proven-trading-edge-mission.json`
+plus `scripts/research/todo_111_proven_trading_edge_gate.py`. Kickoff line:
+`Run the outcome-loop mission at .omx/plans/todo-111-proven-trading-edge-mission.json`.
 
 Use the independently tested outcome-loop plugin to keep trying genuinely different trading methods until one passes strict untouched historical profit and risk checks and is built as an owner-only feature.
 
