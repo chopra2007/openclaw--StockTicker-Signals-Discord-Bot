@@ -120,3 +120,8 @@ and other project-specific rules belong in each mission file, not in the skill.
 - **Worked on:** Removed the runaway-checker disk-fill path, added exact output-limit and escaped-writer tests, preserved old saved ledgers, completed independent cleanup and code review, reran both proof missions, and passed 125 focused plus 3,970 full-project tests.
 - **Decisions:** Keep checker output off disk; retain only 1 MiB per stream in memory; stop at 64 MiB combined; preserve legacy ledgers that omit the new output-limit field; move the five non-blocking maintenance gaps to TODO #112.
 - **Next:** none for TODO #110. TODO #111 stays separate for a fresh session.
+
+### Session notes — 2026-09-01 (second session)
+- **Worked on:** Added `/loopgoal`, a front door for the loop — it asks six rounds of plain-English questions (round 1 optionally names a TODO item and pre-fills every later answer from it), then writes the mission JSON and its frozen pass/fail script itself, so nothing has to be hand-created.
+- **Decisions:** Questions are always asked even when the TODO item answers them (pre-filled and marked recommended, one click to accept); the pass/fail script is drafted by Claude and proved with a fake pass and a fake fail before anything runs; the last question is always "start now or save for later".
+- **Next:** none. First real use will be `/loopgoal #111`.
