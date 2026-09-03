@@ -1,0 +1,1702 @@
+{
+  "feed": "xnys",
+  "strideMinutes": 60,
+  "costBasis": "gross_no_costs",
+  "exitPriceResolution": "one_minute",
+  "target_pct": 1.0,
+  "stop_pct": 0.5,
+  "all": {
+    "tradeCount": 730536,
+    "winRatePct": 34.56462104536943,
+    "avgReturnPct": -0.04229099646973136,
+    "maxHoldingTradingDays": 11.0,
+    "outcomeMix": {
+      "stop": 477213,
+      "target": 252507,
+      "timeout": 418,
+      "stop_ambiguous": 398
+    },
+    "medianHoldingTradingDays": 1.0
+  },
+  "long": {
+    "tradeCount": 365268,
+    "winRatePct": 36.198626761720156,
+    "avgReturnPct": -0.016607771437539345,
+    "maxHoldingTradingDays": 11.0,
+    "outcomeMix": {
+      "stop": 232643,
+      "target": 132222,
+      "timeout": 209,
+      "stop_ambiguous": 194
+    },
+    "medianHoldingTradingDays": 1.0
+  },
+  "short": {
+    "tradeCount": 365268,
+    "winRatePct": 32.93061532901869,
+    "avgReturnPct": -0.06797422150192341,
+    "maxHoldingTradingDays": 9.0,
+    "outcomeMix": {
+      "stop": 244570,
+      "target": 120285,
+      "timeout": 209,
+      "stop_ambiguous": 204
+    },
+    "medianHoldingTradingDays": 1.0
+  },
+  "perSymbol": {
+    "ABBV": {
+      "long": {
+        "tradeCount": 5950,
+        "winRatePct": 35.9327731092437,
+        "avgReturnPct": -0.0032489718396120676,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 3806,
+          "target": 2138,
+          "timeout": 6
+        },
+        "medianHoldingTradingDays": 2.0
+      },
+      "short": {
+        "tradeCount": 5950,
+        "winRatePct": 33.22689075630252,
+        "avgReturnPct": -0.044860205023054066,
+        "maxHoldingTradingDays": 6.0,
+        "outcomeMix": {
+          "stop": 3968,
+          "target": 1977,
+          "timeout": 5
+        },
+        "medianHoldingTradingDays": 2.0
+      }
+    },
+    "ABT": {
+      "long": {
+        "tradeCount": 5795,
+        "winRatePct": 34.20189818809318,
+        "avgReturnPct": -0.03008296190351838,
+        "maxHoldingTradingDays": 6.0,
+        "outcomeMix": {
+          "stop": 3803,
+          "target": 1982,
+          "stop_ambiguous": 5,
+          "timeout": 5
+        },
+        "medianHoldingTradingDays": 2.0
+      },
+      "short": {
+        "tradeCount": 5795,
+        "winRatePct": 33.511647972389994,
+        "avgReturnPct": -0.04560407440335877,
+        "maxHoldingTradingDays": 6.0,
+        "outcomeMix": {
+          "stop": 3844,
+          "target": 1942,
+          "timeout": 5,
+          "stop_ambiguous": 4
+        },
+        "medianHoldingTradingDays": 2.0
+      }
+    },
+    "ACN": {
+      "long": {
+        "tradeCount": 6171,
+        "winRatePct": 35.78026251823043,
+        "avgReturnPct": -0.037696121685246615,
+        "maxHoldingTradingDays": 6.0,
+        "outcomeMix": {
+          "stop": 3961,
+          "target": 2208,
+          "stop_ambiguous": 1,
+          "timeout": 1
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 6171,
+        "winRatePct": 34.500081024145196,
+        "avgReturnPct": -0.03224793048454335,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 4037,
+          "target": 2129,
+          "stop_ambiguous": 5
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "ANET": {
+      "long": {
+        "tradeCount": 6200,
+        "winRatePct": 37.38709677419355,
+        "avgReturnPct": -0.05215631893598699,
+        "maxHoldingTradingDays": 4.0,
+        "outcomeMix": {
+          "stop": 3872,
+          "target": 2318,
+          "stop_ambiguous": 7,
+          "timeout": 3
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 6200,
+        "winRatePct": 32.75806451612903,
+        "avgReturnPct": -0.10328358036494925,
+        "maxHoldingTradingDays": 4.0,
+        "outcomeMix": {
+          "stop": 4157,
+          "target": 2031,
+          "stop_ambiguous": 10,
+          "timeout": 2
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "APH": {
+      "long": {
+        "tradeCount": 6334,
+        "winRatePct": 38.36438269655826,
+        "avgReturnPct": -0.05980486984915965,
+        "maxHoldingTradingDays": 7.0,
+        "outcomeMix": {
+          "stop": 3902,
+          "target": 2430,
+          "timeout": 2
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 6334,
+        "winRatePct": 30.896747710767286,
+        "avgReturnPct": -0.11385740066324557,
+        "maxHoldingTradingDays": 6.0,
+        "outcomeMix": {
+          "stop": 4376,
+          "target": 1957,
+          "timeout": 1
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "AXP": {
+      "long": {
+        "tradeCount": 6155,
+        "winRatePct": 38.18034118602762,
+        "avgReturnPct": 0.017139472828410895,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 3798,
+          "target": 2350,
+          "timeout": 4,
+          "stop_ambiguous": 3
+        },
+        "medianHoldingTradingDays": 2.0
+      },
+      "short": {
+        "tradeCount": 6155,
+        "winRatePct": 31.51909017059301,
+        "avgReturnPct": -0.08477068169366164,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 4207,
+          "target": 1940,
+          "timeout": 5,
+          "stop_ambiguous": 3
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "BA": {
+      "long": {
+        "tradeCount": 6331,
+        "winRatePct": 35.176117516979936,
+        "avgReturnPct": -0.02999851462020559,
+        "maxHoldingTradingDays": 4.0,
+        "outcomeMix": {
+          "stop": 4093,
+          "target": 2227,
+          "timeout": 6,
+          "stop_ambiguous": 5
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 6331,
+        "winRatePct": 34.386352866845684,
+        "avgReturnPct": -0.038486011573815926,
+        "maxHoldingTradingDays": 3.0,
+        "outcomeMix": {
+          "stop": 4144,
+          "target": 2177,
+          "stop_ambiguous": 6,
+          "timeout": 4
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "BAC": {
+      "long": {
+        "tradeCount": 6335,
+        "winRatePct": 35.880031570639304,
+        "avgReturnPct": -0.0112349481787919,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 4057,
+          "target": 2273,
+          "timeout": 3,
+          "stop_ambiguous": 2
+        },
+        "medianHoldingTradingDays": 2.0
+      },
+      "short": {
+        "tradeCount": 6335,
+        "winRatePct": 33.51223362273086,
+        "avgReturnPct": -0.053763201888619966,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 4205,
+          "target": 2123,
+          "timeout": 4,
+          "stop_ambiguous": 3
+        },
+        "medianHoldingTradingDays": 2.0
+      }
+    },
+    "BE": {
+      "long": {
+        "tradeCount": 6163,
+        "winRatePct": 34.88560765860782,
+        "avgReturnPct": -0.021254053028145325,
+        "maxHoldingTradingDays": 2.0,
+        "outcomeMix": {
+          "stop": 3988,
+          "target": 2150,
+          "stop_ambiguous": 23,
+          "timeout": 2
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 6163,
+        "winRatePct": 34.804478338471526,
+        "avgReturnPct": -0.01837223598591944,
+        "maxHoldingTradingDays": 2.0,
+        "outcomeMix": {
+          "stop": 3998,
+          "target": 2145,
+          "stop_ambiguous": 19,
+          "timeout": 1
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "BRK.B": {
+      "long": {
+        "tradeCount": 5802,
+        "winRatePct": 37.41813167873147,
+        "avgReturnPct": 0.041421343693283326,
+        "maxHoldingTradingDays": 11.0,
+        "outcomeMix": {
+          "stop": 3623,
+          "target": 2171,
+          "timeout": 5,
+          "stop_ambiguous": 3
+        },
+        "medianHoldingTradingDays": 2.0
+      },
+      "short": {
+        "tradeCount": 5802,
+        "winRatePct": 32.195794553602205,
+        "avgReturnPct": -0.04053218693125575,
+        "maxHoldingTradingDays": 9.0,
+        "outcomeMix": {
+          "stop": 3919,
+          "target": 1868,
+          "timeout": 12,
+          "stop_ambiguous": 3
+        },
+        "medianHoldingTradingDays": 2.0
+      }
+    },
+    "C": {
+      "long": {
+        "tradeCount": 5863,
+        "winRatePct": 37.5234521575985,
+        "avgReturnPct": 0.0021012902205586586,
+        "maxHoldingTradingDays": 4.0,
+        "outcomeMix": {
+          "stop": 3653,
+          "target": 2200,
+          "stop_ambiguous": 5,
+          "timeout": 5
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 5863,
+        "winRatePct": 32.35544942862016,
+        "avgReturnPct": -0.0872773435440303,
+        "maxHoldingTradingDays": 4.0,
+        "outcomeMix": {
+          "stop": 3960,
+          "target": 1897,
+          "stop_ambiguous": 3,
+          "timeout": 3
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "CAT": {
+      "long": {
+        "tradeCount": 6246,
+        "winRatePct": 36.58341338456612,
+        "avgReturnPct": -0.02124947177984639,
+        "maxHoldingTradingDays": 6.0,
+        "outcomeMix": {
+          "stop": 3956,
+          "target": 2285,
+          "timeout": 3,
+          "stop_ambiguous": 2
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 6246,
+        "winRatePct": 33.14121037463977,
+        "avgReturnPct": -0.08531923507975742,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 4172,
+          "target": 2070,
+          "stop_ambiguous": 2,
+          "timeout": 2
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "CIEN": {
+      "long": {
+        "tradeCount": 5971,
+        "winRatePct": 35.83989281527382,
+        "avgReturnPct": -0.034894135032309134,
+        "maxHoldingTradingDays": 4.0,
+        "outcomeMix": {
+          "stop": 3827,
+          "target": 2140,
+          "stop_ambiguous": 2,
+          "timeout": 2
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 5971,
+        "winRatePct": 33.8971696533244,
+        "avgReturnPct": -0.07224363965426221,
+        "maxHoldingTradingDays": 4.0,
+        "outcomeMix": {
+          "stop": 3943,
+          "target": 2024,
+          "stop_ambiguous": 2,
+          "timeout": 2
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "COHR": {
+      "long": {
+        "tradeCount": 5989,
+        "winRatePct": 35.53180831524462,
+        "avgReturnPct": -0.032929149791006675,
+        "maxHoldingTradingDays": 3.0,
+        "outcomeMix": {
+          "stop": 3850,
+          "target": 2128,
+          "stop_ambiguous": 9,
+          "timeout": 2
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 5989,
+        "winRatePct": 33.84538320253799,
+        "avgReturnPct": -0.07182148810247614,
+        "maxHoldingTradingDays": 3.0,
+        "outcomeMix": {
+          "stop": 3952,
+          "target": 2027,
+          "stop_ambiguous": 9,
+          "timeout": 1
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "COP": {
+      "long": {
+        "tradeCount": 6347,
+        "winRatePct": 36.58421301402237,
+        "avgReturnPct": -0.01694537204175314,
+        "maxHoldingTradingDays": 4.0,
+        "outcomeMix": {
+          "stop": 4016,
+          "target": 2322,
+          "timeout": 7,
+          "stop_ambiguous": 2
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 6347,
+        "winRatePct": 33.433118008507954,
+        "avgReturnPct": -0.06821362881777857,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 4218,
+          "target": 2122,
+          "timeout": 5,
+          "stop_ambiguous": 2
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "CRM": {
+      "long": {
+        "tradeCount": 6353,
+        "winRatePct": 34.597827797890766,
+        "avgReturnPct": -0.06978277343740677,
+        "maxHoldingTradingDays": 6.0,
+        "outcomeMix": {
+          "stop": 4147,
+          "target": 2198,
+          "stop_ambiguous": 6,
+          "timeout": 2
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 6353,
+        "winRatePct": 35.11726743270896,
+        "avgReturnPct": -0.0485933708970871,
+        "maxHoldingTradingDays": 6.0,
+        "outcomeMix": {
+          "stop": 4117,
+          "target": 2231,
+          "stop_ambiguous": 5
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "CVX": {
+      "long": {
+        "tradeCount": 5998,
+        "winRatePct": 36.57885961987329,
+        "avgReturnPct": -0.013376350551809734,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 3797,
+          "target": 2194,
+          "timeout": 6,
+          "stop_ambiguous": 1
+        },
+        "medianHoldingTradingDays": 2.0
+      },
+      "short": {
+        "tradeCount": 5998,
+        "winRatePct": 31.24374791597199,
+        "avgReturnPct": -0.09718014968131862,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 4116,
+          "target": 1874,
+          "timeout": 6,
+          "stop_ambiguous": 2
+        },
+        "medianHoldingTradingDays": 2.0
+      }
+    },
+    "DELL": {
+      "long": {
+        "tradeCount": 6026,
+        "winRatePct": 36.65781613010289,
+        "avgReturnPct": -0.009153673035748837,
+        "maxHoldingTradingDays": 4.0,
+        "outcomeMix": {
+          "stop": 3808,
+          "target": 2209,
+          "stop_ambiguous": 6,
+          "timeout": 3
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 6026,
+        "winRatePct": 32.44274809160305,
+        "avgReturnPct": -0.10246987910239518,
+        "maxHoldingTradingDays": 4.0,
+        "outcomeMix": {
+          "stop": 4066,
+          "target": 1955,
+          "stop_ambiguous": 5
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "DHR": {
+      "long": {
+        "tradeCount": 5925,
+        "winRatePct": 33.21518987341772,
+        "avgReturnPct": -0.07982864297404041,
+        "maxHoldingTradingDays": 7.0,
+        "outcomeMix": {
+          "stop": 3954,
+          "target": 1968,
+          "timeout": 2,
+          "stop_ambiguous": 1
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 5925,
+        "winRatePct": 35.20675105485232,
+        "avgReturnPct": -0.011566931112071863,
+        "maxHoldingTradingDays": 7.0,
+        "outcomeMix": {
+          "stop": 3837,
+          "target": 2086,
+          "timeout": 2
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "DIS": {
+      "long": {
+        "tradeCount": 6091,
+        "winRatePct": 35.347233623378756,
+        "avgReturnPct": -0.024393159988796254,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 3932,
+          "target": 2153,
+          "timeout": 5,
+          "stop_ambiguous": 1
+        },
+        "medianHoldingTradingDays": 2.0
+      },
+      "short": {
+        "tradeCount": 6091,
+        "winRatePct": 33.606961090132984,
+        "avgReturnPct": -0.06071064870100967,
+        "maxHoldingTradingDays": 6.0,
+        "outcomeMix": {
+          "stop": 4038,
+          "target": 2047,
+          "stop_ambiguous": 3,
+          "timeout": 3
+        },
+        "medianHoldingTradingDays": 2.0
+      }
+    },
+    "ETN": {
+      "long": {
+        "tradeCount": 6130,
+        "winRatePct": 38.02610114192496,
+        "avgReturnPct": 0.001142888760694877,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 3796,
+          "target": 2331,
+          "timeout": 2,
+          "stop_ambiguous": 1
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 6130,
+        "winRatePct": 31.924959216965743,
+        "avgReturnPct": -0.09806870163312569,
+        "maxHoldingTradingDays": 4.0,
+        "outcomeMix": {
+          "stop": 4167,
+          "target": 1957,
+          "timeout": 6
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "GE": {
+      "long": {
+        "tradeCount": 6307,
+        "winRatePct": 37.957824639289676,
+        "avgReturnPct": 0.002802900300497332,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 3911,
+          "target": 2394,
+          "stop_ambiguous": 1,
+          "timeout": 1
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 6307,
+        "winRatePct": 30.981449183446962,
+        "avgReturnPct": -0.08453099770863085,
+        "maxHoldingTradingDays": 6.0,
+        "outcomeMix": {
+          "stop": 4349,
+          "target": 1954,
+          "timeout": 3,
+          "stop_ambiguous": 1
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "GEV": {
+      "long": {
+        "tradeCount": 4011,
+        "winRatePct": 35.552231363749684,
+        "avgReturnPct": -0.027348328102768077,
+        "maxHoldingTradingDays": 3.0,
+        "outcomeMix": {
+          "stop": 2581,
+          "target": 1426,
+          "stop_ambiguous": 4
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 4011,
+        "winRatePct": 33.78209922712541,
+        "avgReturnPct": -0.06006098247172325,
+        "maxHoldingTradingDays": 3.0,
+        "outcomeMix": {
+          "stop": 2652,
+          "target": 1355,
+          "stop_ambiguous": 2,
+          "timeout": 2
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "GLW": {
+      "long": {
+        "tradeCount": 6036,
+        "winRatePct": 36.05036447978794,
+        "avgReturnPct": -0.03448042252161089,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 3856,
+          "target": 2176,
+          "timeout": 4
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 6036,
+        "winRatePct": 33.018555334658714,
+        "avgReturnPct": -0.10453750766105678,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 4037,
+          "target": 1993,
+          "stop_ambiguous": 3,
+          "timeout": 3
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "GS": {
+      "long": {
+        "tradeCount": 6227,
+        "winRatePct": 37.56222900273005,
+        "avgReturnPct": 0.011037764601479576,
+        "maxHoldingTradingDays": 4.0,
+        "outcomeMix": {
+          "stop": 3886,
+          "target": 2339,
+          "stop_ambiguous": 1,
+          "timeout": 1
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 6227,
+        "winRatePct": 31.34735827846475,
+        "avgReturnPct": -0.09407899308009919,
+        "maxHoldingTradingDays": 4.0,
+        "outcomeMix": {
+          "stop": 4274,
+          "target": 1952,
+          "timeout": 1
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "HD": {
+      "long": {
+        "tradeCount": 6298,
+        "winRatePct": 34.75706573515402,
+        "avgReturnPct": -0.03261663445277206,
+        "maxHoldingTradingDays": 6.0,
+        "outcomeMix": {
+          "stop": 4100,
+          "target": 2189,
+          "stop_ambiguous": 5,
+          "timeout": 4
+        },
+        "medianHoldingTradingDays": 2.0
+      },
+      "short": {
+        "tradeCount": 6298,
+        "winRatePct": 34.40774849158463,
+        "avgReturnPct": -0.03760997302131842,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 4122,
+          "target": 2167,
+          "timeout": 5,
+          "stop_ambiguous": 4
+        },
+        "medianHoldingTradingDays": 2.0
+      }
+    },
+    "IBM": {
+      "long": {
+        "tradeCount": 6326,
+        "winRatePct": 39.18748024027822,
+        "avgReturnPct": 0.03018551754406254,
+        "maxHoldingTradingDays": 7.0,
+        "outcomeMix": {
+          "stop": 3844,
+          "target": 2479,
+          "timeout": 3
+        },
+        "medianHoldingTradingDays": 2.0
+      },
+      "short": {
+        "tradeCount": 6326,
+        "winRatePct": 31.83686373695858,
+        "avgReturnPct": -0.07160747566785881,
+        "maxHoldingTradingDays": 6.0,
+        "outcomeMix": {
+          "stop": 4308,
+          "target": 2014,
+          "timeout": 3,
+          "stop_ambiguous": 1
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "JNJ": {
+      "long": {
+        "tradeCount": 6349,
+        "winRatePct": 36.43093400535518,
+        "avgReturnPct": 0.012659264016550906,
+        "maxHoldingTradingDays": 6.0,
+        "outcomeMix": {
+          "stop": 4026,
+          "target": 2313,
+          "stop_ambiguous": 6,
+          "timeout": 4
+        },
+        "medianHoldingTradingDays": 2.0
+      },
+      "short": {
+        "tradeCount": 6349,
+        "winRatePct": 33.70609544810206,
+        "avgReturnPct": -0.03718236801929395,
+        "maxHoldingTradingDays": 7.0,
+        "outcomeMix": {
+          "stop": 4197,
+          "target": 2140,
+          "stop_ambiguous": 6,
+          "timeout": 6
+        },
+        "medianHoldingTradingDays": 2.0
+      }
+    },
+    "JPM": {
+      "long": {
+        "tradeCount": 6353,
+        "winRatePct": 39.43019046119943,
+        "avgReturnPct": 0.048132833724762826,
+        "maxHoldingTradingDays": 7.0,
+        "outcomeMix": {
+          "stop": 3841,
+          "target": 2505,
+          "timeout": 4,
+          "stop_ambiguous": 3
+        },
+        "medianHoldingTradingDays": 2.0
+      },
+      "short": {
+        "tradeCount": 6353,
+        "winRatePct": 29.183063119785928,
+        "avgReturnPct": -0.12261801533789682,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 4492,
+          "target": 1854,
+          "timeout": 4,
+          "stop_ambiguous": 3
+        },
+        "medianHoldingTradingDays": 2.0
+      }
+    },
+    "KO": {
+      "long": {
+        "tradeCount": 6313,
+        "winRatePct": 34.57943925233645,
+        "avgReturnPct": -0.013108147032466131,
+        "maxHoldingTradingDays": 8.0,
+        "outcomeMix": {
+          "stop": 4118,
+          "target": 2183,
+          "stop_ambiguous": 6,
+          "timeout": 6
+        },
+        "medianHoldingTradingDays": 2.0
+      },
+      "short": {
+        "tradeCount": 6313,
+        "winRatePct": 34.04086805005544,
+        "avgReturnPct": -0.02371542210708636,
+        "maxHoldingTradingDays": 9.0,
+        "outcomeMix": {
+          "stop": 4152,
+          "target": 2149,
+          "stop_ambiguous": 6,
+          "timeout": 6
+        },
+        "medianHoldingTradingDays": 2.0
+      }
+    },
+    "LLY": {
+      "long": {
+        "tradeCount": 6003,
+        "winRatePct": 36.93153423288356,
+        "avgReturnPct": 0.0031945717007191557,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 3779,
+          "target": 2217,
+          "stop_ambiguous": 5,
+          "timeout": 2
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 6003,
+        "winRatePct": 32.816924870897886,
+        "avgReturnPct": -0.08678709873684277,
+        "maxHoldingTradingDays": 4.0,
+        "outcomeMix": {
+          "stop": 4025,
+          "target": 1970,
+          "stop_ambiguous": 4,
+          "timeout": 4
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "MA": {
+      "long": {
+        "tradeCount": 6295,
+        "winRatePct": 36.64813343923749,
+        "avgReturnPct": 0.010057579347017129,
+        "maxHoldingTradingDays": 7.0,
+        "outcomeMix": {
+          "stop": 3980,
+          "target": 2307,
+          "timeout": 5,
+          "stop_ambiguous": 3
+        },
+        "medianHoldingTradingDays": 2.0
+      },
+      "short": {
+        "tradeCount": 6295,
+        "winRatePct": 30.754567116759336,
+        "avgReturnPct": -0.07885120305637902,
+        "maxHoldingTradingDays": 7.0,
+        "outcomeMix": {
+          "stop": 4350,
+          "target": 1936,
+          "stop_ambiguous": 5,
+          "timeout": 4
+        },
+        "medianHoldingTradingDays": 2.0
+      }
+    },
+    "MCD": {
+      "long": {
+        "tradeCount": 6307,
+        "winRatePct": 35.230696052005705,
+        "avgReturnPct": -0.010796965509700893,
+        "maxHoldingTradingDays": 7.0,
+        "outcomeMix": {
+          "stop": 4073,
+          "target": 2222,
+          "timeout": 8,
+          "stop_ambiguous": 4
+        },
+        "medianHoldingTradingDays": 2.0
+      },
+      "short": {
+        "tradeCount": 6307,
+        "winRatePct": 34.13667353733946,
+        "avgReturnPct": -0.016639501799977127,
+        "maxHoldingTradingDays": 7.0,
+        "outcomeMix": {
+          "stop": 4142,
+          "target": 2153,
+          "timeout": 7,
+          "stop_ambiguous": 5
+        },
+        "medianHoldingTradingDays": 2.0
+      }
+    },
+    "MCK": {
+      "long": {
+        "tradeCount": 5400,
+        "winRatePct": 36.87037037037037,
+        "avgReturnPct": 0.02014918514851914,
+        "maxHoldingTradingDays": 7.0,
+        "outcomeMix": {
+          "stop": 3404,
+          "target": 1991,
+          "timeout": 3,
+          "stop_ambiguous": 2
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 5400,
+        "winRatePct": 31.814814814814813,
+        "avgReturnPct": -0.05944326762325019,
+        "maxHoldingTradingDays": 6.0,
+        "outcomeMix": {
+          "stop": 3680,
+          "target": 1718,
+          "stop_ambiguous": 1,
+          "timeout": 1
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "MRK": {
+      "long": {
+        "tradeCount": 5813,
+        "winRatePct": 35.23137794598314,
+        "avgReturnPct": -0.005749697019362779,
+        "maxHoldingTradingDays": 4.0,
+        "outcomeMix": {
+          "stop": 3757,
+          "target": 2048,
+          "stop_ambiguous": 6,
+          "timeout": 2
+        },
+        "medianHoldingTradingDays": 2.0
+      },
+      "short": {
+        "tradeCount": 5813,
+        "winRatePct": 32.47892654395321,
+        "avgReturnPct": -0.08091731166950208,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 3914,
+          "target": 1888,
+          "stop_ambiguous": 9,
+          "timeout": 2
+        },
+        "medianHoldingTradingDays": 2.0
+      }
+    },
+    "MS": {
+      "long": {
+        "tradeCount": 5821,
+        "winRatePct": 37.31317643016664,
+        "avgReturnPct": -0.0022046204776332685,
+        "maxHoldingTradingDays": 4.0,
+        "outcomeMix": {
+          "stop": 3647,
+          "target": 2172,
+          "timeout": 2
+        },
+        "medianHoldingTradingDays": 2.0
+      },
+      "short": {
+        "tradeCount": 5821,
+        "winRatePct": 31.987630991238618,
+        "avgReturnPct": -0.10111053069367659,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 3957,
+          "target": 1862,
+          "stop_ambiguous": 1,
+          "timeout": 1
+        },
+        "medianHoldingTradingDays": 2.0
+      }
+    },
+    "NEE": {
+      "long": {
+        "tradeCount": 6343,
+        "winRatePct": 35.89784013873562,
+        "avgReturnPct": 9.179905396324225e-05,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 4064,
+          "target": 2277,
+          "stop_ambiguous": 1,
+          "timeout": 1
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 6343,
+        "winRatePct": 32.22449944821062,
+        "avgReturnPct": -0.050030008593927915,
+        "maxHoldingTradingDays": 4.0,
+        "outcomeMix": {
+          "stop": 4294,
+          "target": 2044,
+          "timeout": 3,
+          "stop_ambiguous": 2
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "NEM": {
+      "long": {
+        "tradeCount": 6339,
+        "winRatePct": 36.22022401009623,
+        "avgReturnPct": -0.08251921218820013,
+        "maxHoldingTradingDays": 4.0,
+        "outcomeMix": {
+          "stop": 4037,
+          "target": 2296,
+          "stop_ambiguous": 3,
+          "timeout": 3
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 6339,
+        "winRatePct": 33.63306515223221,
+        "avgReturnPct": -0.10994880033919263,
+        "maxHoldingTradingDays": 4.0,
+        "outcomeMix": {
+          "stop": 4203,
+          "target": 2132,
+          "timeout": 4
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "NOW": {
+      "long": {
+        "tradeCount": 6017,
+        "winRatePct": 36.130962273558254,
+        "avgReturnPct": -0.03807268030692133,
+        "maxHoldingTradingDays": 4.0,
+        "outcomeMix": {
+          "stop": 3835,
+          "target": 2174,
+          "stop_ambiguous": 7,
+          "timeout": 1
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 6017,
+        "winRatePct": 33.18929699185641,
+        "avgReturnPct": -0.07727080720745765,
+        "maxHoldingTradingDays": 4.0,
+        "outcomeMix": {
+          "stop": 4012,
+          "target": 1997,
+          "stop_ambiguous": 8
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "ORCL": {
+      "long": {
+        "tradeCount": 5874,
+        "winRatePct": 36.43173306094654,
+        "avgReturnPct": -0.037857763100289425,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 3731,
+          "target": 2140,
+          "stop_ambiguous": 2,
+          "timeout": 1
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 5874,
+        "winRatePct": 31.903302689819547,
+        "avgReturnPct": -0.10437996579973939,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 3991,
+          "target": 1874,
+          "stop_ambiguous": 8,
+          "timeout": 1
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "PFE": {
+      "long": {
+        "tradeCount": 6131,
+        "winRatePct": 34.105366171913225,
+        "avgReturnPct": -0.0365404660254369,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 4033,
+          "target": 2091,
+          "stop_ambiguous": 5,
+          "timeout": 2
+        },
+        "medianHoldingTradingDays": 2.0
+      },
+      "short": {
+        "tradeCount": 6131,
+        "winRatePct": 35.247104876855325,
+        "avgReturnPct": -0.005474717455816294,
+        "maxHoldingTradingDays": 6.0,
+        "outcomeMix": {
+          "stop": 3966,
+          "target": 2161,
+          "timeout": 4
+        },
+        "medianHoldingTradingDays": 2.0
+      }
+    },
+    "PG": {
+      "long": {
+        "tradeCount": 5864,
+        "winRatePct": 34.31105047748977,
+        "avgReturnPct": -0.023181308297022793,
+        "maxHoldingTradingDays": 7.0,
+        "outcomeMix": {
+          "stop": 3847,
+          "target": 2012,
+          "timeout": 5
+        },
+        "medianHoldingTradingDays": 2.0
+      },
+      "short": {
+        "tradeCount": 5864,
+        "winRatePct": 34.6862210095498,
+        "avgReturnPct": -0.024101507419251524,
+        "maxHoldingTradingDays": 8.0,
+        "outcomeMix": {
+          "stop": 3827,
+          "target": 2034,
+          "timeout": 3
+        },
+        "medianHoldingTradingDays": 2.0
+      }
+    },
+    "PM": {
+      "long": {
+        "tradeCount": 6311,
+        "winRatePct": 38.10806528283949,
+        "avgReturnPct": 0.02314310550375215,
+        "maxHoldingTradingDays": 6.0,
+        "outcomeMix": {
+          "stop": 3899,
+          "target": 2405,
+          "timeout": 5,
+          "stop_ambiguous": 2
+        },
+        "medianHoldingTradingDays": 2.0
+      },
+      "short": {
+        "tradeCount": 6311,
+        "winRatePct": 31.928379020757408,
+        "avgReturnPct": -0.06690723650132417,
+        "maxHoldingTradingDays": 6.0,
+        "outcomeMix": {
+          "stop": 4290,
+          "target": 2015,
+          "stop_ambiguous": 3,
+          "timeout": 3
+        },
+        "medianHoldingTradingDays": 2.0
+      }
+    },
+    "RTX": {
+      "long": {
+        "tradeCount": 6315,
+        "winRatePct": 37.18131433095804,
+        "avgReturnPct": 0.0061649732872931596,
+        "maxHoldingTradingDays": 6.0,
+        "outcomeMix": {
+          "stop": 3960,
+          "target": 2348,
+          "stop_ambiguous": 5,
+          "timeout": 2
+        },
+        "medianHoldingTradingDays": 2.0
+      },
+      "short": {
+        "tradeCount": 6315,
+        "winRatePct": 31.828978622327792,
+        "avgReturnPct": -0.07772658575465913,
+        "maxHoldingTradingDays": 6.0,
+        "outcomeMix": {
+          "stop": 4296,
+          "target": 2010,
+          "timeout": 6,
+          "stop_ambiguous": 3
+        },
+        "medianHoldingTradingDays": 2.0
+      }
+    },
+    "SCHW": {
+      "long": {
+        "tradeCount": 6342,
+        "winRatePct": 35.430463576158935,
+        "avgReturnPct": -0.011002524684388391,
+        "maxHoldingTradingDays": 6.0,
+        "outcomeMix": {
+          "stop": 4088,
+          "target": 2247,
+          "timeout": 5,
+          "stop_ambiguous": 2
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 6342,
+        "winRatePct": 33.822138126773886,
+        "avgReturnPct": -0.04504379867428008,
+        "maxHoldingTradingDays": 4.0,
+        "outcomeMix": {
+          "stop": 4196,
+          "target": 2145,
+          "timeout": 1
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "SHW": {
+      "long": {
+        "tradeCount": 5941,
+        "winRatePct": 34.62380070695169,
+        "avgReturnPct": -0.03900723760654213,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 3873,
+          "target": 2057,
+          "timeout": 7,
+          "stop_ambiguous": 4
+        },
+        "medianHoldingTradingDays": 2.0
+      },
+      "short": {
+        "tradeCount": 5941,
+        "winRatePct": 34.186163945463726,
+        "avgReturnPct": -0.06040609141639959,
+        "maxHoldingTradingDays": 6.0,
+        "outcomeMix": {
+          "stop": 3898,
+          "target": 2031,
+          "stop_ambiguous": 8,
+          "timeout": 4
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "SNOW": {
+      "long": {
+        "tradeCount": 6303,
+        "winRatePct": 33.76170077740758,
+        "avgReturnPct": -0.0563757373383465,
+        "maxHoldingTradingDays": 3.0,
+        "outcomeMix": {
+          "stop": 4170,
+          "target": 2128,
+          "stop_ambiguous": 5
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 6303,
+        "winRatePct": 34.69776297001428,
+        "avgReturnPct": -0.045886807114997055,
+        "maxHoldingTradingDays": 3.0,
+        "outcomeMix": {
+          "stop": 4112,
+          "target": 2187,
+          "stop_ambiguous": 4
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "SPGI": {
+      "long": {
+        "tradeCount": 6101,
+        "winRatePct": 36.911981642353716,
+        "avgReturnPct": -0.0054946279673016175,
+        "maxHoldingTradingDays": 6.0,
+        "outcomeMix": {
+          "stop": 3845,
+          "target": 2252,
+          "timeout": 3,
+          "stop_ambiguous": 1
+        },
+        "medianHoldingTradingDays": 2.0
+      },
+      "short": {
+        "tradeCount": 6101,
+        "winRatePct": 32.15866251434191,
+        "avgReturnPct": -0.0783873230163316,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 4130,
+          "target": 1962,
+          "timeout": 6,
+          "stop_ambiguous": 3
+        },
+        "medianHoldingTradingDays": 2.0
+      }
+    },
+    "T": {
+      "long": {
+        "tradeCount": 5897,
+        "winRatePct": 36.83228760386637,
+        "avgReturnPct": -0.01599180700599783,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 3722,
+          "target": 2172,
+          "timeout": 2,
+          "stop_ambiguous": 1
+        },
+        "medianHoldingTradingDays": 2.0
+      },
+      "short": {
+        "tradeCount": 5897,
+        "winRatePct": 32.01627946413431,
+        "avgReturnPct": -0.07813963584887426,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 4003,
+          "target": 1888,
+          "timeout": 5,
+          "stop_ambiguous": 1
+        },
+        "medianHoldingTradingDays": 2.0
+      }
+    },
+    "TJX": {
+      "long": {
+        "tradeCount": 6266,
+        "winRatePct": 37.00925630386212,
+        "avgReturnPct": 0.029806838954770543,
+        "maxHoldingTradingDays": 6.0,
+        "outcomeMix": {
+          "stop": 3942,
+          "target": 2319,
+          "timeout": 5
+        },
+        "medianHoldingTradingDays": 2.0
+      },
+      "short": {
+        "tradeCount": 6266,
+        "winRatePct": 32.444940951165016,
+        "avgReturnPct": -0.05820294373621909,
+        "maxHoldingTradingDays": 6.0,
+        "outcomeMix": {
+          "stop": 4228,
+          "target": 2033,
+          "timeout": 5
+        },
+        "medianHoldingTradingDays": 2.0
+      }
+    },
+    "TMO": {
+      "long": {
+        "tradeCount": 6007,
+        "winRatePct": 34.12685200599301,
+        "avgReturnPct": -0.040974224899550396,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 3951,
+          "target": 2050,
+          "timeout": 4,
+          "stop_ambiguous": 2
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 6007,
+        "winRatePct": 35.691693024804394,
+        "avgReturnPct": -0.015258568567138364,
+        "maxHoldingTradingDays": 6.0,
+        "outcomeMix": {
+          "stop": 3860,
+          "target": 2144,
+          "timeout": 2,
+          "stop_ambiguous": 1
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "TSM": {
+      "long": {
+        "tradeCount": 6343,
+        "winRatePct": 36.433864102159866,
+        "avgReturnPct": -0.05042081374430934,
+        "maxHoldingTradingDays": 4.0,
+        "outcomeMix": {
+          "stop": 4026,
+          "target": 2311,
+          "timeout": 5,
+          "stop_ambiguous": 1
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 6343,
+        "winRatePct": 33.53302853539334,
+        "avgReturnPct": -0.14878600889462068,
+        "maxHoldingTradingDays": 3.0,
+        "outcomeMix": {
+          "stop": 4210,
+          "target": 2127,
+          "timeout": 6
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "UBER": {
+      "long": {
+        "tradeCount": 6350,
+        "winRatePct": 34.881889763779526,
+        "avgReturnPct": -0.03428811120818822,
+        "maxHoldingTradingDays": 4.0,
+        "outcomeMix": {
+          "stop": 4128,
+          "target": 2215,
+          "stop_ambiguous": 5,
+          "timeout": 2
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 6350,
+        "winRatePct": 34.724409448818896,
+        "avgReturnPct": -0.03454809990393055,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 4138,
+          "target": 2205,
+          "stop_ambiguous": 4,
+          "timeout": 3
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "UNH": {
+      "long": {
+        "tradeCount": 6304,
+        "winRatePct": 34.375,
+        "avgReturnPct": -0.07519143214278287,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 4128,
+          "target": 2167,
+          "stop_ambiguous": 5,
+          "timeout": 4
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 6304,
+        "winRatePct": 32.598350253807105,
+        "avgReturnPct": -0.08565033493868363,
+        "maxHoldingTradingDays": 4.0,
+        "outcomeMix": {
+          "stop": 4239,
+          "target": 2055,
+          "stop_ambiguous": 6,
+          "timeout": 4
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "V": {
+      "long": {
+        "tradeCount": 6357,
+        "winRatePct": 36.87273871322951,
+        "avgReturnPct": 0.007789680886332885,
+        "maxHoldingTradingDays": 8.0,
+        "outcomeMix": {
+          "stop": 4003,
+          "target": 2344,
+          "timeout": 6,
+          "stop_ambiguous": 4
+        },
+        "medianHoldingTradingDays": 2.0
+      },
+      "short": {
+        "tradeCount": 6357,
+        "winRatePct": 30.014157621519583,
+        "avgReturnPct": -0.10329181920479703,
+        "maxHoldingTradingDays": 7.0,
+        "outcomeMix": {
+          "stop": 4438,
+          "target": 1908,
+          "timeout": 6,
+          "stop_ambiguous": 5
+        },
+        "medianHoldingTradingDays": 2.0
+      }
+    },
+    "VRT": {
+      "long": {
+        "tradeCount": 6235,
+        "winRatePct": 36.054530874097836,
+        "avgReturnPct": -0.020680592634508183,
+        "maxHoldingTradingDays": 2.0,
+        "outcomeMix": {
+          "stop": 3983,
+          "target": 2248,
+          "stop_ambiguous": 2,
+          "timeout": 2
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 6235,
+        "winRatePct": 33.37610264635124,
+        "avgReturnPct": -0.07246063639845515,
+        "maxHoldingTradingDays": 2.0,
+        "outcomeMix": {
+          "stop": 4149,
+          "target": 2081,
+          "stop_ambiguous": 4,
+          "timeout": 1
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "VZ": {
+      "long": {
+        "tradeCount": 6285,
+        "winRatePct": 36.0381861575179,
+        "avgReturnPct": -0.011840738888988076,
+        "maxHoldingTradingDays": 6.0,
+        "outcomeMix": {
+          "stop": 4010,
+          "target": 2265,
+          "timeout": 9,
+          "stop_ambiguous": 1
+        },
+        "medianHoldingTradingDays": 2.0
+      },
+      "short": {
+        "tradeCount": 6285,
+        "winRatePct": 32.171837708830544,
+        "avgReturnPct": -0.060629759417676496,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 4255,
+          "target": 2022,
+          "timeout": 7,
+          "stop_ambiguous": 1
+        },
+        "medianHoldingTradingDays": 2.0
+      }
+    },
+    "WELL": {
+      "long": {
+        "tradeCount": 5989,
+        "winRatePct": 37.38520621138755,
+        "avgReturnPct": 0.034134398871585724,
+        "maxHoldingTradingDays": 4.0,
+        "outcomeMix": {
+          "stop": 3748,
+          "target": 2239,
+          "timeout": 2
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 5989,
+        "winRatePct": 30.03840374019035,
+        "avgReturnPct": -0.08463533639024592,
+        "maxHoldingTradingDays": 4.0,
+        "outcomeMix": {
+          "stop": 4187,
+          "target": 1799,
+          "timeout": 3
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "WFC": {
+      "long": {
+        "tradeCount": 5706,
+        "winRatePct": 36.17245005257624,
+        "avgReturnPct": -0.019667414829738026,
+        "maxHoldingTradingDays": 6.0,
+        "outcomeMix": {
+          "stop": 3634,
+          "target": 2064,
+          "timeout": 5,
+          "stop_ambiguous": 3
+        },
+        "medianHoldingTradingDays": 1.0
+      },
+      "short": {
+        "tradeCount": 5706,
+        "winRatePct": 33.99929898352611,
+        "avgReturnPct": -0.05529473881461969,
+        "maxHoldingTradingDays": 6.0,
+        "outcomeMix": {
+          "stop": 3757,
+          "target": 1940,
+          "timeout": 6,
+          "stop_ambiguous": 3
+        },
+        "medianHoldingTradingDays": 1.0
+      }
+    },
+    "XOM": {
+      "long": {
+        "tradeCount": 5614,
+        "winRatePct": 36.78304239401496,
+        "avgReturnPct": -0.02370231710990032,
+        "maxHoldingTradingDays": 4.0,
+        "outcomeMix": {
+          "stop": 3544,
+          "target": 2065,
+          "timeout": 3,
+          "stop_ambiguous": 2
+        },
+        "medianHoldingTradingDays": 2.0
+      },
+      "short": {
+        "tradeCount": 5614,
+        "winRatePct": 32.18738867117919,
+        "avgReturnPct": -0.09313555783898815,
+        "maxHoldingTradingDays": 5.0,
+        "outcomeMix": {
+          "stop": 3799,
+          "target": 1807,
+          "timeout": 5,
+          "stop_ambiguous": 3
+        },
+        "medianHoldingTradingDays": 2.0
+      }
+    }
+  }
+}

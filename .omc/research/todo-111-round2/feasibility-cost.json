@@ -1,0 +1,22 @@
+{
+  "kind": "feasibility_cost",
+  "mission": "todo-111-trading-edge-round2",
+  "writtenPacificDate": "2026-09-03",
+  "summary": "This session spends nothing. Every source it uses is already on the machine or free.",
+  "plannedSpendUsd": 0.00,
+  "plannedPurchaseCount": 0,
+  "ownerDecidesAnyPurchaseLater": true,
+  "spendSoFarUsd": 0.00,
+  "queuedForOwner": [
+    {
+      "item": "an intraday option price history",
+      "whyItMatters": "without it the +20% / -20% first-touch option rule cannot be tested at all",
+      "estimateUsd": "unknown until the owner picks a provider",
+      "status": "not priced, not bought, not signed up for"
+    }
+  ],
+  "facts": [
+    "planned spend $0.00 against a $0.00 cap",
+    "no purchase, no signup, no payment page opened"
+  ]
+}

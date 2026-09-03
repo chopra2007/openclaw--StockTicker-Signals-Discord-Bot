@@ -1,0 +1,48 @@
+{
+  "kind": "feasibility_access",
+  "mission": "todo-111-trading-edge-round2",
+  "writtenPacificDate": "2026-09-03",
+  "summary": "What this session can actually open today, and what it cannot without the owner.",
+  "existingAccountsReadOnly": true,
+  "reachable": [
+    {
+      "name": "local one-minute bars, both feeds",
+      "how": "plain files already on this machine",
+      "check": "120 parquet files listed and read; ABBV rows loaded from each feed"
+    },
+    {
+      "name": "DoltHub weekly option chains",
+      "how": "local dolt clone, no login",
+      "check": "select * from option_chain limit 2 returned real bid and ask rows"
+    },
+    {
+      "name": "DoltHub whole-market daily prices",
+      "how": "local dolt clone, no login",
+      "check": "select min(date), max(date) from ohlcv returned 2011-01-03 to 2026-09-01"
+    },
+    {
+      "name": "the project's own code and tests",
+      "how": "the working copy on this machine",
+      "check": "read and edited scripts under scripts/research/"
+    }
+  ],
+  "blocked": [
+    {
+      "name": "intraday option prices",
+      "why": "no free source found that carries a minute-by-minute option price history; every candidate provider wants a payment or an account",
+      "ownerDecision": "buy data, or grant a login - queued for the single decision list at the end of the session",
+      "consequence": "the option half of the finish line cannot be measured at all until this is settled"
+    },
+    {
+      "name": "Schwab real-time options feed",
+      "why": "the login lapses on 2026-09-04 and re-authorising needs the owner in a browser; it is also live quotes only, not a price history",
+      "ownerDecision": "re-run the Schwab login when convenient - not required by this mission",
+      "consequence": "none for this mission"
+    }
+  ],
+  "notLoggedIn": "No login screen was attempted, no CAPTCHA solved, no provider agreement accepted, no account created.",
+  "facts": [
+    "everything the share half of the mission needs is readable right now",
+    "the only blocked item is intraday option prices, and it is an owner decision"
+  ]
+}

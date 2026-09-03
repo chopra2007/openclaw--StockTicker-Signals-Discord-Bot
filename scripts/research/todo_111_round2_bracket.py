@@ -47,6 +47,42 @@ def load(symbol, feed="equs"):
     return df
 
 
+_CHUNK = 512
+
+
+def _first_touch(h, lo, i, end, tgt, stp, dirn):
+    """Offsets of the first target touch and the first stop touch after entry.
+
+    Walks forward in chunks and stops at the first chunk that contains a touch,
+    because almost every trade resolves in the first day or two and scanning the
+    whole 14-day window for all of them is wasted work. Whichever level is not
+    found in that chunk can only be later, so -1 is returned for it; every
+    caller only ever compares the two offsets.
+    """
+    a = i
+    while a < end:
+        b = a + _CHUNK
+        if b > end:
+            b = end
+        hh = h[a:b]
+        ll = lo[a:b]
+        if dirn > 0:
+            hit_t = hh >= tgt
+            hit_s = ll <= stp
+        else:
+            hit_t = ll <= tgt
+            hit_s = hh >= stp
+        any_t = hit_t.any()
+        any_s = hit_s.any()
+        if any_t or any_s:
+            off = a - i
+            jt = off + int(np.argmax(hit_t)) if any_t else -1
+            js = off + int(np.argmax(hit_s)) if any_s else -1
+            return jt, js
+        a = b
+    return -1, -1
+
+
 def simulate(df, entry_idx, direction, target_pct=TARGET_PCT, stop_pct=STOP_PCT,
              max_hold_days=MAX_HOLD_TRADING_DAYS):
     """Run the bracket for one symbol.
@@ -95,18 +131,7 @@ def simulate(df, entry_idx, direction, target_pct=TARGET_PCT, stop_pct=STOP_PCT,
         if end <= i:
             continue
 
-        hh = h[i:end]
-        ll = lo[i:end]
-
-        if dirn > 0:
-            hit_t = hh >= tgt
-            hit_s = ll <= stp
-        else:
-            hit_t = ll <= tgt
-            hit_s = hh >= stp
-
-        jt = int(np.argmax(hit_t)) if hit_t.any() else -1
-        js = int(np.argmax(hit_s)) if hit_s.any() else -1
+        jt, js = _first_touch(h, lo, i, end, tgt, stp, dirn)
 
         if jt < 0 and js < 0:
             j = end - i - 1

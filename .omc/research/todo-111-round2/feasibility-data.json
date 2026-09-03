@@ -1,0 +1,73 @@
+{
+  "kind": "feasibility_data",
+  "mission": "todo-111-trading-edge-round2",
+  "writtenPacificDate": "2026-09-03",
+  "summary": "Every price source available to this session without a login or a payment, with its fields checked against a real row rather than remembered.",
+  "fieldsVerifiedAgainstSample": true,
+  "sources": [
+    {
+      "name": "Databento EQUS.MINI one-minute bars, 60 large-cap symbols",
+      "path": "/home/openclaw/.openclaw/research-data/todo-111-round2/minutes/equs__<SYMBOL>.parquet",
+      "origin": "already downloaded locally at /home/openclaw/.openclaw/research-data/databento/opening-auctions/selected60_2023-01_to_2026-08/, extracted to parquet by scripts/research/todo_111_round2_extract_minutes.py",
+      "priceResolution": "one_minute",
+      "fields": ["ts", "open", "high", "low", "close", "volume"],
+      "rows": 19653306,
+      "symbolCount": 60,
+      "startDate": "2023-03-28",
+      "endDate": "2026-08-21",
+      "sampleOutput": "ABBV first bar: ts=2023-03-28 13:30:00+00:00, open=157.80, high=157.98, low=157.57, close=157.57, volume=1842",
+      "notes": "Bars are stamped at the START of the minute. EQUS.MINI is roughly 20% of the national tape, so a bar's high and low can understate the true range and miss a touch; XNYS.PILLAR below is the second opinion on every touch."
+    },
+    {
+      "name": "Databento XNYS.PILLAR one-minute bars, the same 60 symbols",
+      "path": "/home/openclaw/.openclaw/research-data/todo-111-round2/minutes/xnys__<SYMBOL>.parquet",
+      "origin": "same local download, same extraction script",
+      "priceResolution": "one_minute",
+      "fields": ["ts", "open", "high", "low", "close", "volume"],
+      "rows": 20625054,
+      "symbolCount": 60,
+      "startDate": "2023-01-03",
+      "endDate": "2026-08-21",
+      "sampleOutput": "ABBV first bar: ts=2023-01-03 14:30:00+00:00, open=162.04, high=162.38, low=161.02, close=161.45, volume=190984",
+      "notes": "A result that holds on only one of the two feeds is not a result."
+    },
+    {
+      "name": "DoltHub post-no-preference/options weekly end-of-day option chains",
+      "path": "/home/openclaw/.openclaw/research-data/todo-111/dolt/options",
+      "origin": "cloned free with the dolt CLI, no login, no key",
+      "priceResolution": "one_week_end_of_day",
+      "fields": ["date", "act_symbol", "expiration", "strike", "call_put", "bid", "ask", "vol", "delta", "gamma", "theta", "vega", "rho"],
+      "startDate": "2019-02-09",
+      "endDate": "2022-12-30",
+      "sampleOutput": "2019-02-09 | A | 2019-02-15 | 65.00 | Call | bid 10.50 | ask 11.25 | vol 0.2705 | delta 1.0000",
+      "notes": "Real bid and ask, but one snapshot a week after the close. It cannot see whether an option touched +20% before -20% inside a week, so the option half of the finish line cannot be measured on it."
+    },
+    {
+      "name": "DoltHub post-no-preference/stocks whole-US-market daily prices, delisted names included",
+      "path": "/home/openclaw/.openclaw/research-data/todo-111/dolt-stocks/stocks",
+      "origin": "cloned free with the dolt CLI, no login, no key",
+      "priceResolution": "one_day",
+      "fields": ["date", "act_symbol", "open", "high", "low", "close", "volume"],
+      "startDate": "2011-01-03",
+      "endDate": "2026-09-01",
+      "sampleOutput": "select min(date), max(date) from ohlcv returns 2011-01-03 and 2026-09-01; rows are keyed by act_symbol and date, used only to pick which names to look at, never to decide an exit",
+      "notes": "Daily bars cannot decide a first touch and are never used for an exit in this mission."
+    },
+    {
+      "name": "data/options-dx-2023 quarterly zips",
+      "path": "data/options-dx-2023",
+      "priceResolution": "none",
+      "fields": [],
+      "startDate": "2023-01-01",
+      "endDate": "2023-12-31",
+      "sampleOutput": "every file is exactly 2618 bytes - these are failed downloads, not data",
+      "notes": "Listed so no later step mistakes them for an intraday option source."
+    }
+  ],
+  "gapForTheOwner": "There is no intraday option price here. Until the owner buys one or completes a login, the option half of the finish line cannot be tested at all. Every option candidate is parked for that decision.",
+  "facts": [
+    "40,278,360 one-minute bars across 120 parquet files, two independent feeds of the same 60 symbols",
+    "the share half of the finish line is fully testable today with no login and no cost",
+    "the option half is blocked on data the owner has to decide about"
+  ]
+}
