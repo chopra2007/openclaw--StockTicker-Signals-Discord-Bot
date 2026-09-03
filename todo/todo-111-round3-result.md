@@ -97,3 +97,54 @@ number is on disk.
 - The second feed, XNYS.PILLAR, is still unused. It exists to confirm a claimed
   edge against a fuller tape. There has never been an edge to confirm.
 - $0.00 was spent. No order was placed, real or paper. No alert was enabled.
+
+---
+
+## The owner's answers, 2026-09-03
+
+**On the months-long momentum method — keep it.** His words: *"since I can trade
+more than one strategy simultaneously, i'd like to keep this as an option."* So
+#111 momentum is no longer disqualified by its three-month holds. It was never a
+"does it work" problem — it made +6.89% on development data and +10.74% on
+sealed data, verified three times. It can run alongside a short-horizon rule
+rather than instead of one. Nothing is live and nothing was enabled.
+
+**On the shape of the bracket — tested, and here is the answer.**
+
+He asked to try an even +0.5% target against a -0.5% stop instead of +1.0%
+against -0.5%. Measured on the same data, same entry rules, only the shape
+changed:
+
+| Entry rule | +1.0% / -0.5% | +0.5% / -0.5% |
+|---|---|---|
+| No trigger at all (11:30) | 34.00% | **49.66%** |
+| No trigger at all (11:00) | 34.77% | **50.56%** |
+| 15-minute opening-range breakout | 34.08% | **50.27%** |
+| Overnight-range breakout | 34.23% | **50.07%** |
+| 11:00 trend-day trade | 35.94% | **53.06%** |
+
+The win rate jumps about sixteen points across the board. That looks like a much
+better strategy and it is not one, for a reason worth being precise about:
+
+- At **+1.0% / -0.5%**, each win pays twice what each loss costs, so 60 wins in
+  100 averages +0.40% a trade.
+- At **+0.5% / -0.5%**, each win pays exactly what each loss costs, so the same
+  +0.40% a trade needs **90 wins in 100**.
+
+Every rule moved up, and so did the line it had to clear, by the same amount.
+The 11:00 trend-day trade went from 35.94% against a 60% bar to 53.06% against a
+90% bar — no closer. Its average per trade stayed at +0.02%, which is where it
+was before.
+
+**What this does tell you, and it is useful.** The even bracket is close to a
+coin flip: 49.66% with no trigger at all, where pure chance says 50%. That is a
+clean confirmation that these one-minute bars have essentially no directional
+drift over the next few days. It also means the shape of the bracket is a free
+choice — pick whichever suits how you actually trade, because it does not create
+or destroy an edge. The edge has to come from the entry, and that is what has
+not been found.
+
+Numbers: `.omc/research/todo-111-round3-bracket-shape-equs.json`. Harness:
+`scripts/research/todo_111_round3_bracket_shape.py` — it takes any family in the
+round-3 pre-screen and any target/stop pair, so a different shape can be tried
+in about fifteen minutes.

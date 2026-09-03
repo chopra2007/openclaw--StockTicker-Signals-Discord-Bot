@@ -2,21 +2,37 @@
 **Status:** OPEN
 **Created:** 2026-08-29
 
-**CURRENT STATUS (2026-09-03):** Round 3 is frozen and running — start from
-`todo/todo-111-round3-kickoff.md`. It keeps round 2's finish line and gate
-script unchanged, narrows the rejected-family rule to clear the 15-minute
-opening-range breakout and the overnight-range breakout, requires methods that
-combine conditions rather than single triggers, and says to keep going until
-the bar is cleared. Round 2's result, which stands as the record: **Eleven entry
-triggers measured, all eleven rejected.** A randomly chosen entry reaches the
-+1.0% target before the -0.5% stop **34.47%** of the time; the best of the
-eleven ideas managed **35.29%**; the owner's bar is **60%**. Nothing earned a
-frozen backtest and the sealed period was never opened. The option half of the
-finish line **could not be tested at all** — there is no intraday option price
-history here, and that is the one decision waiting on the owner. $0.00 spent,
-no order of any kind, nothing pushed. Numbers:
-`.omc/research/todo-111-round2/rejection-ledger.md` and `baseline-and-seal.md`;
-resume notes in `todo/todo-111-round2-resume.md`. Prior status:
+**CURRENT STATUS (2026-09-03):** Round 3 is **finished and stopped**; the owner
+has since made two decisions and both are recorded below. Six genuinely
+different mechanisms, ten entry rules, **all ten rejected** against matched
+same-time-of-day baselines. The two strategies the owner named were built and
+tested first: the 15-minute opening-range breakout reached the +1% target before
+the -0.5% stop **34.08%** of the time (32,010 trades) against **34.00%** for
+trading at that hour with no trigger at all, and the overnight-range breakout
+**34.23%** against the same 34.00%. Best of the whole set was an 11:00 trend-day
+trade at **35.94%**; the bar is **60%**. A ceiling test then settled whether an
+eleventh idea was worth building: cherry-picking the 20 best stock/hour/direction
+combinations with full hindsight reached **44.11%** and carried forward to only
+**37.93%**, so about 38% of an apparent edge in these bars survives fresh data —
+that bounds any picking rule, though not literally every trigger. Two directions
+remain untestable and neither is a rejection: the option half (no intraday option
+prices — the one decision still waiting on the owner) and anything using
+information outside the price series (the bot's 1.58M signal records all start
+July 2026, years after the July-2025 development cutoff; a waiting problem, not a
+money one). Loop STOPPED on the frozen `owner_only_decision` condition, 13
+evidence artifacts, $0.00 spent, no order real or paper, sealed period never
+opened. **The owner's two decisions:** (1) the months-long #111 momentum method
+**stays an option rather than a rejection**, because he can run more than one
+strategy at once, so its three-month holds no longer disqualify it — it is not
+live and nothing was enabled; (2) he asked to test an even **+0.5% / -0.5%**
+bracket, which was measured the same session: win rates rise to roughly a coin
+flip (baseline 34.00% → **49.66%**, opening-range breakout → **50.27%**,
+overnight breakout → **50.07%**, trend-day trade → **53.06%**) while the average
+per trade stays flat, because at +0.5/-0.5 the win rate needed to average +0.40%
+a trade rises from 60 in 100 to **90 in 100**. Same distance from the bar, new
+shape. Write-ups: `todo/todo-111-round3-result.md`,
+`todo/todo-111-round3-rejection-ledger.md`, numbers in
+`.omc/research/todo-111-round3*`. Prior status:
 
 Round-2 mission is FROZEN and validated. Files:
 `.omx/plans/todo-111-trading-edge-round2-mission.json`
@@ -301,3 +317,20 @@ may justify paper testing; it is not historical proof of actual fills.
 - **Nothing spent, nothing live.** $0.00 against a $0.00 cap, no purchase, no signup, no login attempted, no order real or paper, no alert enabled, nothing pushed.
 - **Built this session:** `scripts/research/todo_111_round2_baseline.py`, `..._prescreen.py`, `..._market_move.py`, plus a chunked first-touch search in `..._bracket.py` verified identical to the full scan on 24,000 sampled trades.
 - **Next:** the owner decides on intraday option data. For shares, the untried categories are event-driven ideas (excluding the families already rejected in #93, #97, #103, #106) and anything using information that is not in the price series.
+
+### Session notes — 2026-09-03 (round 3 run end to end, then the owner's two decisions)
+- **Worked on:** ran round 3 from `DISCOVERY` to `STOPPED`. Six genuinely different mechanisms, ten entry rules, a hindsight ceiling test, and — after the owner's reply — a test of the bracket's shape itself.
+- **The two strategies the owner named, both built and tested in both directions.** 15-minute opening-range breakout: 32,010 trades, target first **34.08%**, against **34.00%** for trading at the same time of day with no trigger at all. Overnight-range breakout: 15,073 trades, **34.23%** against the same 34.00%. Faded versions were worse (33.41% and 33.72%).
+- **Four more mechanisms, one per direction the owner pointed at.** Two conditions that must agree (break + the other 59 names moving the same way): 34.63%. The day's character (break only on unusually wide mornings): 34.35%. The time of day as the reason to trade (at 11:00, buy what climbed all morning): **35.94%**, best of the whole set. Range-day fade: 33.36%. Cross-sectional rank of all 60 names: 34.19% momentum, 33.95% reversal.
+- **Matched baselines are new in round 3.** Round 2 scored everything against one all-day baseline of 34.47%. The bracket's odds are not the same at 09:45 as at 15:30, so each family here is compared with a no-trigger baseline that trades at the same time of day (34.00% at 11:30, 34.77% at 11:00).
+- **The ceiling test — the reusable result.** Split development in half at 2024-05-01; with full hindsight pick the 20 best combinations of stock, hour and direction in the first half; trade exactly those in the second. Hindsight: **44.11%**. Carried forward: **37.93%** on 5,057 trades against a 34.28% baseline. About 38% of an apparent edge in these bars survives fresh data. It bounds any *picking* rule; it is not a proof about every trigger, since a trigger reacts to the day as it happens.
+- **Information outside the price series is blocked by time, not money.** The bot's own database holds 1,581,606 ticker signals and 213,713 options-flow rows, and the oldest are dated 2026-07-30 and 2026-06-01. Development ends 2025-07-01, so the entire collection sits inside the sealed period. Nothing to test on for roughly two more years; the collecting is already running. Measured live in `.omc/research/todo-111-round3/feasibility-data.json`.
+- **The option half is still untestable.** Unchanged from round 2: weekly end-of-day chains only.
+- **Loop STOPPED on the frozen `owner_only_decision` condition**, 13 evidence artifacts, $0.00 spent, no order real or paper, sealed period never opened.
+- **The owner's two decisions, given after seeing the above.**
+  1. **The months-long momentum method stays an option, not a rejection.** His words: *"since I can trade more than one strategy simultaneously, i'd like to keep this as an option"*. So #111 momentum (+6.89% development, +10.74% sealed, verified three times, three-month holds) is no longer disqualified by the minutes-to-days horizon — it can run alongside a short-horizon rule rather than instead of one. It is not live and nothing was enabled.
+  2. **Test an even bracket, +0.5% target against -0.5% stop.** Done the same session, and the answer is arithmetic rather than opinion: the win rate rises to almost exactly a coin flip and the money does not move. No-trigger baseline 34.00% → **49.66%**; opening-range breakout 34.08% → **50.27%**; overnight breakout 34.23% → **50.07%**; the 11:00 trend-day trade 35.94% → **53.06%**. Average per trade stayed flat or slightly negative in every case. The catch: at +1.0/-0.5 a rule needs 60 wins in 100 to average +0.40% a trade, and at +0.5/-0.5 the same +0.40% needs **90 wins in 100**, because each win now pays half as much while each loss still costs the same. Every family stayed the same distance from its own bar. Numbers: `.omc/research/todo-111-round3-bracket-shape-equs.json`, harness `scripts/research/todo_111_round3_bracket_shape.py`.
+- **Built this session:** `scripts/research/todo_111_round3_prescreen.py` (add a family to `FAMILIES` and it is measured), `..._panel.py` (anything ranking names against each other), `..._ceiling.py` (the hindsight test, reusable on any new data), `..._ledger.py` (writes the ledger so no number is typed by hand), `..._feasibility_data.py`, `..._bracket_shape.py`.
+- **Verified end to end, not just by reading the code:** JPM 2023-04-04, 15 opening-range bars, range 129.18–130.57, first break below at 09:46, short entered at the next bar's open 129.06, target touched at 11:18 the same day for +1.0%.
+- **Committed:** `15de447`. Write-ups at `todo/todo-111-round3-result.md` and `todo/todo-111-round3-rejection-ledger.md`.
+- **Next:** the outstanding owner decision is intraday option prices — still the only way to test the option half. On shares, the untried ground that the ceiling test does not cover is a trigger that reacts to the day as it happens using information from outside the price series, and that has no history to run on until roughly 2028. A fourth round on these bars is not worth freezing.
