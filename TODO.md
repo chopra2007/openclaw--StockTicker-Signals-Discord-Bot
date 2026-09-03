@@ -1061,17 +1061,28 @@ Build and prove a reusable skill/plugin that brainstorms, researches, plans, bui
 
 **File:** `profitable-trading-feature-outcome-loop.md`
 
-**CURRENT STATUS (2026-09-03):** A rule PASSED the frozen bar on both periods
-and was reproduced trade-for-trade by three independent verifiers — but it holds
-each position for THREE MONTHS, and the owner trades minutes to days, never
-months. So it is a valid measurement, not a usable trade. The loop is parked at
-stage REVIEW, attempt 3 of 5, repair cycle 1; the arithmetic is verified and the
-seven write-up errors the verifiers found are corrected, but the formal review
-envelope and `final-gate` were never run. The two free data unlocks found on the
-way (weekly option chains with real bid/ask 2019-2026, and whole-US-market daily
-prices INCLUDING delisted companies, both free and no-login) are worth more to
-this project than the trading result. Full detail:
-`.omc/research/todo-111-proven-trading-edge/HANDOFF.md`.
+**CURRENT STATUS (2026-09-03):** Loop is PARKED, not done. The one rule that
+cleared the frozen bar holds each position three months; the owner trades minutes
+to days, so it is a measurement, not a usable trade. On 2026-09-03 the owner set
+the terms for a fresh session to continue (nothing executed yet): (1) add a hard
+**14-trading-day holding cap** to the frozen gate — no longer-held rule can pass,
+whatever its profit; the current gate checks profit/sample/robustness only and
+has no trade-length rule, which is how the 3-month rule slipped through; (2) try
+**5 genuinely different ideas per session**, multiple sessions expected; (3) do
+real new research and idea generation, not a re-run of the old 6-family slate;
+(4) first read the previous session's build to fix two process failures — the
+loop hung at the test/verify/audit stages and never reached COMPLETE, and it
+burned tokens running many tests that were never going to pass (needs a cheap
+pre-screen); (5) find an **intraday (minute-level) option price source** — the
+free weekly end-of-day chains cannot test intra-trade management like "close at
+50% profit if touched". Credit spreads are NOT a closed family despite the
+rejection ledger: only the single-stock, hold-to-expiry, no-stop version failed.
+Round-2 plan now written (2026-09-02, nothing built):
+`todo/todo-111-round2-strategy.md` — five new candidate families, a
+30-minute pre-screen that would have killed both round-1 rejections before
+any backtest, the cause of the REVIEW hang, three intraday option price
+sources, and two open owner decisions. Full detail also in this file's
+newest session note and `.omc/research/todo-111-proven-trading-edge/HANDOFF.md`.
 
 Use the independently tested outcome-loop plugin to keep trying genuinely different trading methods until one passes strict untouched historical profit and risk checks and is built as an owner-only feature.
 

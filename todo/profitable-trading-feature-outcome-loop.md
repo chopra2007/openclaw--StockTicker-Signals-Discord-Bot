@@ -2,16 +2,23 @@
 **Status:** OPEN
 **Created:** 2026-08-29
 
-**CURRENT STATUS (2026-09-03):** A rule PASSED the frozen bar on both periods
-and was reproduced trade-for-trade by three independent verifiers — but it holds
-each position for THREE MONTHS, and the owner trades minutes to days, never
-months. So it is a valid measurement, not a usable trade. The loop is parked at
-stage REVIEW, attempt 3 of 5, repair cycle 1; the arithmetic is verified and the
-seven write-up errors the verifiers found are corrected, but the formal review
-envelope and `final-gate` were never run. The two free data unlocks found on the
-way (weekly option chains with real bid/ask 2019-2026, and whole-US-market daily
-prices INCLUDING delisted companies, both free and no-login) are worth more to
-this project than the trading result. Full detail:
+**CURRENT STATUS (2026-09-03):** Loop is PARKED, not done. The one rule that
+cleared the frozen bar holds each position three months; the owner trades minutes
+to days, so it is a measurement, not a usable trade. On 2026-09-03 the owner set
+the terms for a fresh session to continue (nothing executed yet): (1) add a hard
+**14-trading-day holding cap** to the frozen gate — no longer-held rule can pass,
+whatever its profit; the current gate checks profit/sample/robustness only and
+has no trade-length rule, which is how the 3-month rule slipped through; (2) try
+**5 genuinely different ideas per session**, multiple sessions expected; (3) do
+real new research and idea generation, not a re-run of the old 6-family slate;
+(4) first read the previous session's build to fix two process failures — the
+loop hung at the test/verify/audit stages and never reached COMPLETE, and it
+burned tokens running many tests that were never going to pass (needs a cheap
+pre-screen); (5) find an **intraday (minute-level) option price source** — the
+free weekly end-of-day chains cannot test intra-trade management like "close at
+50% profit if touched". Credit spreads are NOT a closed family despite the
+rejection ledger: only the single-stock, hold-to-expiry, no-stop version failed.
+Full detail and the decision list: this file's newest session note and
 `.omc/research/todo-111-proven-trading-edge/HANDOFF.md`.
 
 ## Goal
@@ -150,3 +157,58 @@ may justify paper testing; it is not historical proof of actual fills.
 - **Not done:** the formal review envelope (`prepare-review` -> reviewer signature -> `review-result`) and `final-gate`. The loop never reached COMPLETE. Also unverified by anyone: the +3.12% benchmark and the "new to the feed" split.
 - **Nothing is live.** No order of any kind, nothing bought, the $50 allowance untouched, no production alert enabled.
 - **Next:** decide whether the minutes-to-days horizon is worth a fresh mission using the two new data sources, and whether to close this loop formally or leave it parked.
+
+
+### Session notes — 2026-09-03 (owner decisions for the next session — NOT executed this session)
+- **Worked on:** Owner reviewed the loop's state and the candidate-1 credit-spread rejection. Conclusion: #111 is NOT done. "Passed but unusable" (the 3-month momentum rule) is worthless to the owner. The loop tried very little (3 mechanisms), tested a horizon the owner never accepts, and the rejection ledger over-generalised from one badly-designed test. All of the below is to be carried out in a FRESH session, not here.
+- **Decision 1 — 14-day holding cap.** Add a hard rule to the frozen gate (`scripts/research/todo_111_proven_trading_edge_gate.py`) and the mission goal: every trade must open and close within **14 trading days**. Any rule that holds longer CANNOT pass, regardless of profit. This is the hole that let the 3-month rule through — the current gate checks profit/sample/robustness only, nothing about trade length.
+- **Decision 2 — 5 ideas per session.** Try 5 genuinely different profit mechanisms per session (not 5 total for the mission). Multiple sessions expected. Raise/replace the mission's `maxAttempts: 5` accordingly.
+- **Decision 3 — real new work, not a slate re-run.** More research, more understanding of why past attempts failed, genuinely new ideas, and more testing. Do not just walk the existing 6-family slate.
+- **Decision 4 — fix last session's process failures first.** Before generating candidates, read the previous session's build (the outcome-loop run under `.omx/outcome-loop/todo-111-proven-trading-edge/` and the three attempt evidence folders). Two failures to solve:
+  - The loop **hung at the testing and verification/audit stages** — got stuck in REVIEW, repair cycles, never reached COMPLETE.
+  - It **burned tokens running many tests that were never going to pass** — need a cheap pre-screen so obviously-dead ideas are killed before a full frozen backtest.
+- **Decision 5 — intraday option prices are required.** To test a managed credit spread ("buy it back if it touches 50% profit at any point", stop at 2-3x credit, 21-DTE time exit) you need **minute-by-minute (or at least intraday) option pricing**. The free DoltHub `post-no-preference/options` feed is **weekly end-of-day only** — it cannot see an intra-trade touch. Finding an intraday option price source (free first; the $50 single-purchase allowance is available with owner approval) is a prerequisite for the whole managed-credit-spread family.
+- **Credit spreads are NOT a closed family.** The ledger's "do not re-propose selling option premium at any delta/width/holding time" is too broad. Only the single-stock, held-to-expiry, no-stop version was tested. A properly-designed version — index (SPX/XSP), take profit at 50%, time-exit by 21 DTE, hard stop at 2-3x credit, staggered weekly entries — was never tried and is a valid candidate once intraday pricing exists.
+- **Also still untested from the original slate:** earnings implied-volatility crush (short strangle), put/call skew relative value (risk reversal), long-dated call on a persistent trend.
+- **Close out the momentum attempt.** Record candidate 3 as "measured, does not meet the 14-day horizon" and stop polishing its write-up. Do not run its formal review envelope / `final-gate` just to reach COMPLETE on an unusable rule.
+- **Next:** fresh session — start by reading the previous build for the hang/token-waste fix (Decision 4), then update the gate + mission (Decisions 1, 2), then research an intraday option price source (Decision 5), then generate 5 new candidate families and run them.
+
+
+### Session notes — 2026-09-02 (round-2 plan reworked — still nothing built)
+- **Worked on:** Re-read the round-1 build and every prior short-horizon
+  verdict, researched intraday option price sources and the candidate
+  mechanisms, and wrote the reworked plan:
+  **`todo/todo-111-round2-strategy.md`**. No code changed, no data bought,
+  no test run.
+- **The finding that reframes the mission:** every short-horizon failure in this
+  project (#103 +5.1 bps, #104 +1.0/−0.4/+3.3 bps, #106 +4.7 bps) missed a
+  ~40 bps need *with trading made free*, while the only pass held three months
+  and cleared its bar by 47x. Edge grows with holding time; cost does not. At a
+  14-day cap, share rules barely clear the 1% bar in the best case ever
+  measured — so round 2 is effectively an **options** mission (4 of 5
+  candidates).
+- **Pre-screen designed (Decision 4b):** both round-1 rejections were
+  predictable from one division before any backtest. Candidate 1 needed a ~90%
+  win rate and had 71.5%; candidate 2's gross decay was +0.70%/month against a
+  +1.0% bar. Three kill numbers, 30 minutes each, no ceremony: gross size at
+  zero cost, move-to-cost ratio (under 3 = stop), structural win rate.
+- **Hang cause found (Decision 4a):** all seven reviewer findings were
+  hand-typed numbers in the write-up files drifting from what the code produced.
+  Fix: no number typed by hand, exercise the review envelope early on a
+  throwaway result, cap repair cycles at one.
+- **Gate hole confirmed:** `todo_111_proven_trading_edge_gate.py` has no
+  trade-length rule at all. The 14-trading-day cap has to be added to the
+  checker, not just the mission text.
+- **Intraday option data found (Decision 5):** optionsDX sells SPY/SPX/QQQ/VIX/
+  NVDA/TSLA/AAPL/UVXY/SLV chains with bid/ask + greeks, 2010–2023, at end-of-day
+  through minutely, $0–$50 a symbol-year, and its FAQ says free variants need no
+  billing details. Backups: Databento CBBO-1m (minute NBBO back to 2013,
+  $125 free credit for a new team) and ThetaData $40/mo or Polygon $29/mo.
+- **Killed by research, do not spend a session on it:** post-earnings drift at
+  ≤14 days — published reviews say the drift is mild through the first two weeks
+  and only accelerates at days 20–75, and it has largely vanished for large
+  liquid US names.
+- **Two owner decisions are open** (share bar vs 14-day cap; optionsDX checkout
+  or the $50 purchase). Both are in section 9 of the plan file.
+- **Next:** owner answers the two decisions, then a fresh session works section
+  10 of the plan in order.
