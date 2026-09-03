@@ -2,7 +2,12 @@
 **Status:** OPEN
 **Created:** 2026-08-29
 
-**CURRENT STATUS (2026-09-03):** Round 2 has run its first pass. **Eleven entry
+**CURRENT STATUS (2026-09-03):** Round 3 is frozen and running — start from
+`todo/todo-111-round3-kickoff.md`. It keeps round 2's finish line and gate
+script unchanged, narrows the rejected-family rule to clear the 15-minute
+opening-range breakout and the overnight-range breakout, requires methods that
+combine conditions rather than single triggers, and says to keep going until
+the bar is cleared. Round 2's result, which stands as the record: **Eleven entry
 triggers measured, all eleven rejected.** A randomly chosen entry reaches the
 +1.0% target before the -0.5% stop **34.47%** of the time; the best of the
 eleven ideas managed **35.29%**; the owner's bar is **60%**. Nothing earned a

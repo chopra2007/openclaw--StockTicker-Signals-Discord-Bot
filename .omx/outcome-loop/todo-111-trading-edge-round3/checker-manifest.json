@@ -1,0 +1,36 @@
+{
+  "files": [
+    {
+      "frozen": "frozen-checkers/pass/scripts/research/todo_111_trading_edge_round2_gate.py",
+      "group": "pass",
+      "sha256": "31956de34de3441a1ffff51c37b4a14783f65af035a68444e01e19a6a064ce5f",
+      "source": "scripts/research/todo_111_trading_edge_round2_gate.py"
+    },
+    {
+      "frozen": "frozen-checkers/feasibility/data/scripts/research/todo_111_trading_edge_round2_gate.py",
+      "group": "feasibility/data",
+      "sha256": "31956de34de3441a1ffff51c37b4a14783f65af035a68444e01e19a6a064ce5f",
+      "source": "scripts/research/todo_111_trading_edge_round2_gate.py"
+    },
+    {
+      "frozen": "frozen-checkers/feasibility/access/scripts/research/todo_111_trading_edge_round2_gate.py",
+      "group": "feasibility/access",
+      "sha256": "31956de34de3441a1ffff51c37b4a14783f65af035a68444e01e19a6a064ce5f",
+      "source": "scripts/research/todo_111_trading_edge_round2_gate.py"
+    },
+    {
+      "frozen": "frozen-checkers/feasibility/cost/scripts/research/todo_111_trading_edge_round2_gate.py",
+      "group": "feasibility/cost",
+      "sha256": "31956de34de3441a1ffff51c37b4a14783f65af035a68444e01e19a6a064ce5f",
+      "source": "scripts/research/todo_111_trading_edge_round2_gate.py"
+    },
+    {
+      "frozen": "frozen-checkers/feasibility/permission/scripts/research/todo_111_trading_edge_round2_gate.py",
+      "group": "feasibility/permission",
+      "sha256": "31956de34de3441a1ffff51c37b4a14783f65af035a68444e01e19a6a064ce5f",
+      "source": "scripts/research/todo_111_trading_edge_round2_gate.py"
+    }
+  ],
+  "formatVersion": 1,
+  "manifestHash": "62bf1746ed6fd5e41439cc92ff8d2cebecc9f34c0f2dae41dd633ea388cb97ff"
+}

@@ -1,0 +1,167 @@
+{
+  "formatVersion": 1,
+  "missionId": "todo-111-trading-edge-round3",
+  "missionVersion": 1,
+  "domain": "trading-research",
+  "title": "Find and build an owner-only trading rule that clears a frozen bar inside 14 trading days, round 3",
+  "goal": "Find, honestly test, build, and independently verify one owner-only trading rule that clears a frozen numerical bar and finishes every trade inside 14 trading days. Every trade must open and close within 14 trading days; a rule that holds longer cannot pass, whatever its profit. Trades may be staggered, so several may be open at once and new ones may open daily, as long as no single trade breaches the 14-trading-day cap. A share trade closes on the first touch of either a 1.0 percent move in the trade's direction or a 0.5 percent move against it, whichever happens first; the rule must reach the target before the stop in at least 60 out of 100 trades, must average at least 0.40 percent per trade counting winners and losers, and must do so across at least 200 trades. An option trade closes on the first touch of either 20 percent profit or 20 percent loss, whichever happens first; the rule must reach the target before the stop in at least 60 out of 100 trades, must average at least 4.00 percent per trade counting winners and losers, and must do so across at least 100 trades. Profit is taken at the first touch of the target, never held to expiration and never held to a generic fixed date. Because a first touch can happen and reverse within seconds, the exit must be decided on prices at one-minute resolution or finer; daily bars cannot tell whether the target or the stop came first inside the same day, and a result decided on daily bars is refused. All returns are measured gross, with no commission, no bid-ask spread, and no slippage removed, because the owner subtracts costs himself once a rule passes; a result that claims to be net of costs is a different measurement and is refused. Entry must be intentional and reasoned: the rule must name what it observed that made it open that specific trade at that specific moment, and a fixed schedule such as buying at the open every day is not an entry trigger. Direction is not constrained: long, short, debit spreads, and credit spreads are all in scope, and a losing stock shorted is as valid as a rising stock bought. Scaling out, such as taking most of the position at the target and trailing the stop on the remainder, is allowed but is not required to pass. Read the prior final verdicts, the round-2 strategy plan at todo/todo-111-round2-strategy.md, and the data-blocked inventory before proposing candidates so a rejected family is not quietly recycled; only the single-stock, hold-to-expiry, no-stop version of credit spreads was ever tested, so a properly managed index credit spread is not a closed family. Inventory every usable local, free web, API, and existing-account source before selecting candidates, including the 2.1 GB of local one-minute bars for 60 symbols covering January 2023 to August 2026 and the free DoltHub option chains and whole-market daily prices. Before any frozen backtest, run a cheap pre-screen on each candidate in under 30 minutes: measure the raw mechanism with all costs and filters removed, divide it by the round-trip cost, and compare the win rate the structure demands against the win rate observed; a candidate that fails the pre-screen is recorded and dropped without a full test. Produce a slate of at least five genuinely different profit mechanisms; a different threshold, holding time, or indicator mix inside one mechanism is not a separate family. Freeze each chosen test before any outcome is read. The passing rule must clear the bar on both a development period and a fresh untouched period it never saw, must contain no future information and no current-survivor selection, and must be independently reproduced and approved by a separate read-only reviewer who did not write the code being judged. Every number in every evidence file must be written by the script that computed it and never typed by hand, and the review envelope must be exercised once early on a throwaway result before the first real candidate exists. Repair cycles are capped at one per candidate; a second repair means the candidate returns to the rejection ledger and the work moves on. This session spends nothing at all: no payment, no new account, no login challenge, no CAPTCHA, and no provider agreement may be completed, and any of those is an owner-only stop that is recorded and deferred rather than worked around. Work that needs the owner is queued for a single decision list at the end, and the loop keeps going on everything that does not need him. The built feature must be owner-only and must never enable a production alert. No order of any kind may be placed, real or paper. Historical profit is evidence, not a guarantee of future profit. The frozen bar may not be lowered, reworded, or argued down. If five genuinely different approaches all fail, record every rejected family and why it failed, write handoff notes and the owner decision list that a fresh session can read to avoid repeating dead ends, and stop. ROUND 3 CHANGES, ALL SET BY THE OWNER ON 2026-09-03 AFTER SEEING ROUND 2'S RESULTS. Round 2 measured eleven entry triggers and rejected all eleven: the unconditional first-touch rate of the bracket is 34.47 percent, the best of the eleven reached 35.29 percent, and the bar is 60 percent. The round-2 ledger, its baseline, its rejection table and its four passing feasibility checks stand as the record and are not re-run here. First change: the owner has narrowed the rejected-family rule. Two strategies are explicitly cleared to be built and tested even though they touch previously rejected ground: the fifteen-minute opening-range breakout, meaning the high and low of the first fifteen minutes after the open traded on a break of either side; and the overnight-range breakout, meaning the high and low made between the previous close and the current open traded on a break of either side during regular hours. Nothing else is unblocked. The opening continuation, prior value-area failure and Fibonacci methods of TODO 106, the gap fade and the other five methods of TODO 97, the intraday dislocation family of TODO 103 and the opening auction family of TODO 93 all remain closed, and this exception does not extend by analogy to anything that merely resembles the two named strategies. Second change: a candidate must be a genuinely different mechanism, and the owner has ruled that a single condition applied to a single chart of a single stock is not a mechanism. Round 2's eleven triggers were each one condition on one chart, and the owner counts the whole set as roughly one idea. Methods in round 3 are expected to be more complex: two or more conditions that must agree, the time of day used as a condition rather than a filter, the character of the day itself such as whether it is already a trending day or a range day or an unusually volatile day, the stock's behaviour relative to its sector or to the whole group of names, and information that is not in the price series at all, including the insider filings, analyst mentions, options flow and news signals this project already collects. Third change: the owner has asked for persistence. The work continues until a rule clears the frozen bar or a stop condition frozen in this mission is genuinely reached. Running out of ideas is not a stop condition; neither is a discouraging result. Each rejection is recorded with its numbers and the work moves to the next mechanism. The finish line itself is unchanged from round 2 and is checked by the same frozen script. It may not be lowered, reworded or argued down.",
+  "passCondition": {
+    "command": [
+      "python3",
+      "scripts/research/todo_111_trading_edge_round2_gate.py",
+      "final",
+      "{evidence:final-proof-bundle}",
+      "{evidence:candidate-slate}",
+      "{evidence:frozen-gates}",
+      "{evidence:development-result}",
+      "{evidence:untouched-result}",
+      "{evidence:exit-rule-audit}",
+      "{evidence:entry-trigger-audit}",
+      "{evidence:point-in-time-audit}",
+      "{evidence:independent-reproduction}",
+      "{evidence:owner-only-implementation}",
+      "{evidence:no-real-order-audit}",
+      "{evidence:purchase-audit}",
+      "{evidence:rejection-ledger}"
+    ],
+    "checkerFiles": [
+      "scripts/research/todo_111_trading_edge_round2_gate.py"
+    ],
+    "workingDirectory": ".",
+    "expectedExitCode": 0,
+    "timeoutSeconds": 300
+  },
+  "feasibilityChecks": {
+    "data": {
+      "command": [
+        "python3",
+        "scripts/research/todo_111_trading_edge_round2_gate.py",
+        "data",
+        "{evidence}"
+      ],
+      "checkerFiles": [
+        "scripts/research/todo_111_trading_edge_round2_gate.py"
+      ],
+      "timeoutSeconds": 120
+    },
+    "access": {
+      "command": [
+        "python3",
+        "scripts/research/todo_111_trading_edge_round2_gate.py",
+        "access",
+        "{evidence}"
+      ],
+      "checkerFiles": [
+        "scripts/research/todo_111_trading_edge_round2_gate.py"
+      ],
+      "timeoutSeconds": 120
+    },
+    "cost": {
+      "command": [
+        "python3",
+        "scripts/research/todo_111_trading_edge_round2_gate.py",
+        "cost",
+        "{evidence}"
+      ],
+      "checkerFiles": [
+        "scripts/research/todo_111_trading_edge_round2_gate.py"
+      ],
+      "timeoutSeconds": 120
+    },
+    "permission": {
+      "command": [
+        "python3",
+        "scripts/research/todo_111_trading_edge_round2_gate.py",
+        "permission",
+        "{evidence}"
+      ],
+      "checkerFiles": [
+        "scripts/research/todo_111_trading_edge_round2_gate.py"
+      ],
+      "timeoutSeconds": 120
+    }
+  },
+  "permissions": {
+    "allowedActions": [
+      "read_repository",
+      "read_local_data",
+      "network_access",
+      "browser_research",
+      "download_free_data",
+      "use_existing_account_read_only",
+      "run_historical_test",
+      "modify_repository",
+      "run_local_checks",
+      "render_owner_only_output",
+      "run_goal_check"
+    ],
+    "forbiddenActions": [
+      "place_real_money_order",
+      "place_paper_order",
+      "spend_money",
+      "create_new_account",
+      "complete_payment_without_owner_approval",
+      "solve_login_challenge_without_owner_approval",
+      "accept_provider_agreement_without_owner_approval",
+      "bypass_captcha",
+      "enable_production_alert",
+      "send_public_output",
+      "push_remote",
+      "print_or_store_secret",
+      "weaken_frozen_gate",
+      "reuse_rejected_family_outside_owner_exception",
+      "use_future_information",
+      "current_survivor_selection",
+      "decide_exit_on_daily_bars",
+      "claim_returns_are_net_of_costs",
+      "claim_guaranteed_profit",
+      "wait_for_new_data_by_default",
+      "treat_single_condition_trigger_as_a_family"
+    ]
+  },
+  "budget": {
+    "maxCostUsd": "0.00",
+    "maxAttempts": 5
+  },
+  "allowedEvidence": {
+    "roots": [
+      ".omx/outcome-loop/todo-111-trading-edge-round3",
+      ".omc/research",
+      "todo",
+      "scripts/research",
+      "data",
+      "tests",
+      "consensus_engine",
+      "config"
+    ],
+    "requiredKinds": [
+      "feasibility_data",
+      "feasibility_access",
+      "feasibility_cost",
+      "feasibility_permission",
+      "plan",
+      "implementation",
+      "test",
+      "final_proof_bundle",
+      "candidate_slate",
+      "frozen_gates",
+      "development_result",
+      "untouched_result",
+      "exit_rule_audit",
+      "entry_trigger_audit",
+      "point_in_time_audit",
+      "independent_reproduction",
+      "owner_only_implementation",
+      "no_real_order_audit",
+      "purchase_audit",
+      "rejection_ledger"
+    ]
+  },
+  "stopConditions": [
+    "budget_exhausted",
+    "attempt_limit_reached",
+    "permission_or_access_blocked",
+    "owner_only_decision",
+    "mission_invalidated"
+  ]
+}

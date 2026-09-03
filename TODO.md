@@ -1061,7 +1061,12 @@ Build and prove a reusable skill/plugin that brainstorms, researches, plans, bui
 
 **File:** `profitable-trading-feature-outcome-loop.md`
 
-**CURRENT STATUS (2026-09-03):** Round 2 ran its first pass. **Eleven entry
+**CURRENT STATUS (2026-09-03):** Round 3 is frozen and running — kickoff in
+`todo/todo-111-round3-kickoff.md`, mission
+`.omx/plans/todo-111-trading-edge-round3-mission.json`. The owner narrowed the
+rejected-family rule to clear two strategies (15-minute opening-range breakout,
+overnight-range breakout) and asked for more complex, combined methods and for
+the work to continue until the bar is cleared. Round 2's result: **Eleven entry
 triggers measured, all eleven rejected.** A randomly chosen entry hits the +1%
 target before the -0.5% stop **34.47%** of the time (695,484 trades, confirmed
 at 34.56% on a second feed); the best idea managed **35.29%**; the bar is
