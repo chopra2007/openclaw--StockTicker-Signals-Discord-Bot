@@ -1057,9 +1057,33 @@ separately in TODO #112.
 
 Build and prove a reusable skill/plugin that brainstorms, researches, plans, builds, tests, and independently verifies repeated attempts without treating a failed attempt as completion.
 
-## 111. Build a profitable trading feature through the proven loop
+## 111. Build a profitable trading feature through the proven loop — AWAITING APPROVAL: buy intraday option prices, or change the bar/horizon?
 
 **File:** `profitable-trading-feature-outcome-loop.md`
+
+**CURRENT STATUS (2026-09-03):** Round 3 is **finished and stopped**, waiting on
+the owner. Six genuinely different mechanisms, ten entry rules, all measured on
+development data and **all ten rejected**. The two strategies the owner named
+were built and tested first: the 15-minute opening-range breakout hit the target
+first **34.08%** of the time (32,010 trades) against **34.00%** for doing nothing
+at that time of day, and the overnight-range breakout **34.23%** against the same
+34.00%. Best of the whole set was an 11:00 trend-day trade at **35.94%**. The bar
+is **60%**. Then a ceiling test settled whether an eleventh idea was worth
+building: cherry-picking the 20 best stock/hour/direction combinations with full
+hindsight reached **44.11%**, and those same picks carried forward to only
+**37.93%** — real, but 22 points short, and that is the friendliest number any
+picking rule can produce. Two directions could not be tested at all and neither
+is a rejection: the option half (still no intraday option prices) and anything
+using information outside the price series (the bot's 1.58M signal records all
+start July 2026, years after the development period — a waiting problem, not a
+money one). Loop STOPPED on the frozen `owner_only_decision` condition with 13
+evidence artifacts, $0.00 spent, no order real or paper, sealed period never
+opened. **Owner's call, three honest options:** buy intraday option data; accept
+the months-long horizon of the one method that did work (#111 momentum, +10.74%
+sealed); or change the reward-to-risk shape, since asking +1.0% before -0.5%
+means winning twice as often as chance. Full write-up:
+`.omc/research/todo-111-round3/handoff-and-owner-decisions.md`, numbers in
+`.omc/research/todo-111-round3/rejection-ledger.md`. Prior status:
 
 **CURRENT STATUS (2026-09-03):** Round 3 is frozen and running — kickoff in
 `todo/todo-111-round3-kickoff.md`, mission

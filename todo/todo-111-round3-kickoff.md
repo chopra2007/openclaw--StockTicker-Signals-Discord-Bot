@@ -1,5 +1,12 @@
 # TODO #111 round 3 — kickoff
 
+> **ROUND 3 IS FINISHED — 2026-09-03.** Do not start it again. Six mechanisms,
+> ten entry rules, all rejected; the loop is STOPPED on `owner_only_decision`
+> with $0.00 spent and the sealed period never opened. Read
+> `todo/todo-111-round3-result.md` first — it has
+> the results and the three choices now waiting on the owner. Everything below
+> is the brief this round was run from, kept as the record.
+
 Read this file, then `todo/todo-111-round2-resume.md` in full. The owner is not
 a coder: plain language, no jargon, all times in Pacific.
 

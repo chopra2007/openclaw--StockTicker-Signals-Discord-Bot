@@ -13,7 +13,125 @@
     "agentId": "controller-main-opus5",
     "threadId": "session_01B9fuFtdLhYsfq8Mm9t3UTR"
   },
-  "evidence": [],
+  "evidence": [
+    {
+      "attempt": 1,
+      "bytes": 8485,
+      "copied": ".omx/outcome-loop/todo-111-trading-edge-round3/evidence/attempt-0001/round3-rejection-ledger--rejection-ledger.md",
+      "id": "round3-rejection-ledger",
+      "kind": "rejection_ledger",
+      "sha256": "b7f543b53554aa60ff261fac1ab75b5792fa8548a73e8a62d39344bccba74bda",
+      "source": ".omc/research/todo-111-round3/rejection-ledger.md"
+    },
+    {
+      "attempt": 1,
+      "bytes": 5125,
+      "copied": ".omx/outcome-loop/todo-111-trading-edge-round3/evidence/attempt-0001/round3-handoff-and-owner-decisions--handoff-and-owner-decisions.md",
+      "id": "round3-handoff-and-owner-decisions",
+      "kind": "handoff",
+      "sha256": "792fe3be580bdc96ff6bc0ac6b5b992ba65cb74cf3ed22692c53a8725467ce19",
+      "source": ".omc/research/todo-111-round3/handoff-and-owner-decisions.md"
+    },
+    {
+      "attempt": 1,
+      "bytes": 10900,
+      "copied": ".omx/outcome-loop/todo-111-trading-edge-round3/evidence/attempt-0001/round3-prescreen-equs--todo-111-round3-prescreen-equs.json",
+      "id": "round3-prescreen-equs",
+      "kind": "test",
+      "sha256": "4cfd7dd423ba7cdd5fd09b97b7498d5e3b7a1b5a2b23f8035572eb0bf152909f",
+      "source": ".omc/research/todo-111-round3-prescreen-equs.json"
+    },
+    {
+      "attempt": 1,
+      "bytes": 2158,
+      "copied": ".omx/outcome-loop/todo-111-trading-edge-round3/evidence/attempt-0001/round3-panel-equs--todo-111-round3-panel-equs.json",
+      "id": "round3-panel-equs",
+      "kind": "test",
+      "sha256": "5924b79334a50d6752a3e17edd5327b259ed67ee6bf05c1f7e6277eb29d41137",
+      "source": ".omc/research/todo-111-round3-panel-equs.json"
+    },
+    {
+      "attempt": 1,
+      "bytes": 1325,
+      "copied": ".omx/outcome-loop/todo-111-trading-edge-round3/evidence/attempt-0001/round3-ceiling-equs--todo-111-round3-ceiling-equs.json",
+      "id": "round3-ceiling-equs",
+      "kind": "test",
+      "sha256": "105c28977c2d4db4a4dddef0b3e80ce9f9f152fbab99cd7cbd94199ecd53d87b",
+      "source": ".omc/research/todo-111-round3-ceiling-equs.json"
+    },
+    {
+      "attempt": 1,
+      "bytes": 1458,
+      "copied": ".omx/outcome-loop/todo-111-trading-edge-round3/evidence/attempt-0001/feasibility-data--feasibility-data.json",
+      "id": "feasibility-data",
+      "kind": "feasibility_data",
+      "sha256": "75b9ee9c353885d733f1e79784f2ea85c775dee5dfa3b1c4b884b87e3612ae8a",
+      "source": ".omc/research/todo-111-round3/feasibility-data.json"
+    },
+    {
+      "attempt": 1,
+      "bytes": 2725,
+      "copied": ".omx/outcome-loop/todo-111-trading-edge-round3/evidence/attempt-0001/round2-baseline-and-seal--baseline-and-seal.md",
+      "id": "round2-baseline-and-seal",
+      "kind": "test",
+      "sha256": "1f24f754e33c7f8e3f5f568b93722ec32458de85216ae68b85c8487585e17235",
+      "source": ".omc/research/todo-111-round2/baseline-and-seal.md"
+    },
+    {
+      "attempt": 1,
+      "bytes": 4926,
+      "copied": ".omx/outcome-loop/todo-111-trading-edge-round3/evidence/attempt-0001/round2-rejection-ledger--rejection-ledger.md",
+      "id": "round2-rejection-ledger",
+      "kind": "rejection_ledger",
+      "sha256": "e162b56e928b0f7509ebf46b0a002aa48dd50d06b0a5974b0d0761e745391471",
+      "source": ".omc/research/todo-111-round2/rejection-ledger.md"
+    },
+    {
+      "attempt": 1,
+      "bytes": 2118,
+      "copied": ".omx/outcome-loop/todo-111-trading-edge-round3/evidence/attempt-0001/feasibility-access--feasibility-access.json",
+      "id": "feasibility-access",
+      "kind": "feasibility_access",
+      "sha256": "d8dfee453b3394bb5f62a66dc5f77e0fb75a50acd385b3a677a501283817e026",
+      "source": ".omc/research/todo-111-round2/feasibility-access.json"
+    },
+    {
+      "attempt": 1,
+      "bytes": 770,
+      "copied": ".omx/outcome-loop/todo-111-trading-edge-round3/evidence/attempt-0001/feasibility-cost--feasibility-cost.json",
+      "id": "feasibility-cost",
+      "kind": "feasibility_cost",
+      "sha256": "202a67e55cda10d8e8ef0156322cef93452ba5bb2d6ca3c65a318d878a07277e",
+      "source": ".omc/research/todo-111-round2/feasibility-cost.json"
+    },
+    {
+      "attempt": 1,
+      "bytes": 1691,
+      "copied": ".omx/outcome-loop/todo-111-trading-edge-round3/evidence/attempt-0001/feasibility-permission--feasibility-permission.json",
+      "id": "feasibility-permission",
+      "kind": "feasibility_permission",
+      "sha256": "307aeac88a9c5e3bfae8091b0e25c79e3febb1cf74c26f09c8c6011a847e5f9b",
+      "source": ".omc/research/todo-111-round2/feasibility-permission.json"
+    },
+    {
+      "attempt": 1,
+      "bytes": 8928,
+      "copied": ".omx/outcome-loop/todo-111-trading-edge-round3/evidence/attempt-0001/round3-rejection-ledger-final--rejection-ledger.md",
+      "id": "round3-rejection-ledger-final",
+      "kind": "rejection_ledger",
+      "sha256": "a178611b62982ab67457d384fd4af6623e173cfff6fb879c510b2be2d7fef3a6",
+      "source": ".omc/research/todo-111-round3/rejection-ledger.md"
+    },
+    {
+      "attempt": 1,
+      "bytes": 5395,
+      "copied": ".omx/outcome-loop/todo-111-trading-edge-round3/evidence/attempt-0001/round3-handoff-final--handoff-and-owner-decisions.md",
+      "id": "round3-handoff-final",
+      "kind": "handoff",
+      "sha256": "d737e64db3ed37bd9b0e28a296e47f4863afa24471f03e0dce2da176c9008f81",
+      "source": ".omc/research/todo-111-round3/handoff-and-owner-decisions.md"
+    }
+  ],
   "feasibility": {
     "access": null,
     "cost": null,
@@ -22,7 +140,7 @@
   },
   "finalGate": null,
   "formatVersion": 1,
-  "ledgerHeadHash": "9b8529b4f21026058512c908e3427b246e9b80b81de16213d40bf3c5c8d087ad",
+  "ledgerHeadHash": "8326ce2daaed9dc26d54c08cc44383687431ffb3e23d746b7a42b13ff55bc91c",
   "missionHash": "1480996caeecda8505f3bbb13829bb58fd16221ac988ef41f545a7b286faa61b",
   "missionId": "todo-111-trading-edge-round3",
   "missionVersion": 1,
@@ -53,6 +171,6 @@
   ],
   "review": null,
   "reviewCapability": null,
-  "stage": "DISCOVERY",
-  "updatedAt": "2026-09-03T01:59:48.411448-07:00"
+  "stage": "STOPPED",
+  "updatedAt": "2026-09-03T15:41:42.912651-07:00"
 }
