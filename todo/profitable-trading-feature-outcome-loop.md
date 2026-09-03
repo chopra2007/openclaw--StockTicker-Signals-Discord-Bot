@@ -2,7 +2,14 @@
 **Status:** OPEN
 **Created:** 2026-08-29
 
-**CURRENT STATUS (2026-09-03):** Loop is PARKED, not done. The one rule that
+**CURRENT STATUS (2026-09-02):** Round-2 mission is FROZEN and validated,
+nothing run yet. Files: `.omx/plans/todo-111-trading-edge-round2-mission.json`
+and `scripts/research/todo_111_trading_edge_round2_gate.py`. New finish line is
+a target-and-stop rule exited on first touch, with a hard 14-trading-day cap,
+gross returns, and a $0 budget this session. Full detail in the newest session
+note at the bottom of this file. Prior status, still true of round 1:
+
+Loop is PARKED, not done. The one rule that
 cleared the frozen bar holds each position three months; the owner trades minutes
 to days, so it is a measurement, not a usable trade. On 2026-09-03 the owner set
 the terms for a fresh session to continue (nothing executed yet): (1) add a hard
@@ -212,3 +219,55 @@ may justify paper testing; it is not historical proof of actual fills.
   or the $50 purchase). Both are in section 9 of the plan file.
 - **Next:** owner answers the two decisions, then a fresh session works section
   10 of the plan in order.
+
+### Session notes — 2026-09-02 (round-2 mission frozen — nothing run yet)
+- **Worked on:** Ran `/loopgoal` and interviewed the owner into a new, separate
+  round-2 mission. Round 1's mission and gate are untouched and stay on record.
+  New files: `.omx/plans/todo-111-trading-edge-round2-mission.json` and
+  `scripts/research/todo_111_trading_edge_round2_gate.py`.
+- **The finish line changed shape.** Round 1 asked for an average return over a
+  hold to a date. Round 2 is a target-and-stop rule exited on FIRST TOUCH:
+  - Shares: +1.0% target, -0.5% stop, whichever is touched first. Must win
+    60 in 100, average at least +0.40% a trade, over 200+ trades.
+  - Options: +20% target, -20% stop, first touch. Must win 60 in 100, average
+    at least +4.00% a trade, over **100+** trades (raised from 40 mid-interview
+    once it was shown the local weekly chains hold ~300,000 observations, so
+    100 costs nothing).
+  - Hard **14-trading-day cap** on every trade. The gate refuses a longer hold
+    whatever the profit. Verified: a 63-day hold is rejected by the checker.
+  - Trades may be staggered; several may be open at once.
+  - Returns are **gross** — no commission, spread or slippage. The owner
+    subtracts costs himself. A bundle claiming to be net of costs is refused.
+  - Exit must be decided on **one-minute prices or finer**. Verified: a bundle
+    saying `one_day` is rejected, and a data-feasibility file with only daily
+    sources is rejected.
+  - Entry must name what was observed. A fixed schedule ("buy at the open every
+    day") is refused.
+- **Dropped at the owner's request:** the best-ticker-removal test (his note: a
+  20%-loss name shorted beats a 10%-gain name bought, so removing the top
+  contributor misreads a direction-agnostic rule) and the harsh-fill retest
+  (moot once returns are gross). Kept: fresh untouched period, independent
+  reproduction by a separate read-only agent.
+- **Budget is $0.00 this session, 0 purchases.** Every login, signup, payment
+  and CAPTCHA is deferred to a single owner decision list written at the end.
+  `place_real_money_order` and `place_paper_order` stay forbidden — the owner
+  did not tick that box in the interview, but it is a standing hard rule of
+  #111 and nothing this session asked to relax it. 5 attempts, then stop.
+- **Correction to an earlier note in this file:** local minute data is not a
+  ~41-day rolling window. `/home/openclaw/.openclaw/research-data/databento/`
+  `opening-auctions/selected60_2023-01_to_2026-08/` holds **2.1 GB of real
+  one-minute bars for 60 symbols, Jan 2023 to Aug 2026** (equs-mini from
+  2023-03-28, xnys-pillar from 2023-01-01), already downloaded, no login. This
+  is what makes a first-touch share test possible at all.
+- **Intraday OPTION prices are still missing.** `data/options-dx-2023/*.zip`
+  are 2,618 bytes each — failed downloads, not data. The local DoltHub chains
+  (509 weekly snapshot dates, 2019-02 to 2022-12, ~610 symbols) are weekly
+  end-of-day and cannot see a touch. So the option half of the finish line is
+  blocked until the owner decides on a data purchase or a login.
+- **Proof the gate works:** `validate-mission` returns `"valid": true`
+  (sha256 9e82e293…). Fake pass exits 0. Fake fail (untouched win rate 59.9%
+  against a 60.0% bar) exits 1. 63-day hold exits 1. Daily-bar exit exits 1.
+  All four feasibility modes pass on real evidence and the data mode refuses a
+  daily-only source.
+- **Next:** owner starts the loop, or it waits. Kickoff line:
+  `Run the outcome-loop mission at .omx/plans/todo-111-trading-edge-round2-mission.json`

@@ -1061,7 +1061,15 @@ Build and prove a reusable skill/plugin that brainstorms, researches, plans, bui
 
 **File:** `profitable-trading-feature-outcome-loop.md`
 
-**CURRENT STATUS (2026-09-03):** Loop is PARKED, not done. The one rule that
+**CURRENT STATUS (2026-09-02):** Round-2 mission FROZEN and validated, nothing
+run yet — `.omx/plans/todo-111-trading-edge-round2-mission.json` plus
+`scripts/research/todo_111_trading_edge_round2_gate.py`. Finish line is now a
+target-and-stop rule exited on first touch (shares +1%/-0.5%, options
++20%/-20%), 60 wins in 100, hard 14-trading-day cap, gross returns, $0 budget,
+5 attempts. Intraday option prices are the one blocker left for the owner.
+Prior status, still true of round 1:
+
+Loop is PARKED, not done. The one rule that
 cleared the frozen bar holds each position three months; the owner trades minutes
 to days, so it is a measurement, not a usable trade. On 2026-09-03 the owner set
 the terms for a fresh session to continue (nothing executed yet): (1) add a hard
