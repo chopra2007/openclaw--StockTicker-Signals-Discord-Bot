@@ -169,14 +169,36 @@ of day, used the day's own context, or used anything outside the price series.
   close and today's open — the thin overnight session — and trade the break of
   that range during regular hours.
 
-  **Conflict to settle first:** opening-range breakout was measured and
-  rejected as **#106**, and gap fade as **#97**. The frozen mission forbids
-  re-running a rejected family (`reuse_rejected_family`). The owner has asked
-  for these anyway, and the versions asked for are not identical to the
-  rejected ones — #106 used a different opening window, and the overnight range
-  is a different range from the opening range. Before running them, get the
-  owner's explicit sign-off to narrow that forbidden action to the exact
-  rejected variants, and record the sign-off. Do not quietly ignore the rule.
+  **OWNER SIGN-OFF GIVEN, 2026-09-03.** Asked whether to loosen the
+  rejected-family rule for these two, the owner answered: *"yes, loosen that
+  rule for those two strategies."* So:
+
+  - `reuse_rejected_family` **no longer blocks** the 15-minute opening-range
+    breakout or the overnight-range breakout. Both may be built and tested.
+  - It **still blocks everything else** already rejected: the #106 opening
+    continuation, prior value-area failure and Fibonacci methods, the #97 gap
+    fade and the other five methods in that batch, the #103 intraday
+    dislocation family, and the #93 opening auction. The loosening is these two
+    strategies only, and does not extend by analogy to anything that resembles
+    them.
+  - The two are not identical to what was rejected anyway: #106 used a
+    different opening window, and the overnight range is a different range from
+    the opening range.
+
+  **Mechanical catch — read before trying to apply this.** The round-2 mission
+  is hash-frozen. The controller compares
+  `.omx/outcome-loop/todo-111-trading-edge-round2/mission.json` against
+  `mission.sha256` on every command and refuses with *"frozen mission hash
+  changed"* if a byte moves, so the forbidden-actions list **cannot be edited
+  in place**. Carrying the sign-off into the loop means one of:
+
+  1. freeze a **round-3 mission** with the narrowed forbidden action, same gate
+     script and same finish line (cleanest — the round-2 ledger stays intact as
+     the record of the eleven rejections); or
+  2. re-`init` this mission id from scratch, which throws away the round-2
+     ledger.
+
+  Option 1 unless the owner says otherwise.
 
 **5. What "more complex" can mean, as starting material** (the owner did not
 specify these; they are the obvious unexplored directions):
