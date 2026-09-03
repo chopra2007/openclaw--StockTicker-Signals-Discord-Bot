@@ -142,14 +142,59 @@ the loop is built for that and records each one.
   killed is exactly what the pre-screen exists to prevent.
 - **The sealed period was never opened.**
 
+## Owner's instructions, 2026-09-03 — READ BEFORE PROPOSING ANYTHING
+
+Given after seeing the eleven rejections. Not acted on in that session; this is
+the standing brief for the next one.
+
+**1. Keep going until a winning method is found.** Eleven rejections is not a
+conclusion. Many more methods are to be tested.
+
+**2. The eleven were too simple, and count as roughly ONE idea.** Each was a
+single condition on a single chart of a single stock: one trigger, one
+direction, nothing else. The owner's words: *"this seems to be 1 idea, what
+about the other 4?"* A genuinely different idea is a different **mechanism**,
+not a different threshold on the same one.
+
+**3. Methods may need to be more complex.** Combinations are wanted, not
+single triggers. Nothing tested so far combined two conditions, used the time
+of day, used the day's own context, or used anything outside the price series.
+
+**4. Two specific strategies the owner named, to be tested:**
+
+- **15-minute opening-range breakout.** Take the high and the low of the first
+  15 minutes after the open. Buy a break above that high, short a break below
+  that low.
+- **Overnight-range breakout.** Take the high and low made between yesterday's
+  close and today's open — the thin overnight session — and trade the break of
+  that range during regular hours.
+
+  **Conflict to settle first:** opening-range breakout was measured and
+  rejected as **#106**, and gap fade as **#97**. The frozen mission forbids
+  re-running a rejected family (`reuse_rejected_family`). The owner has asked
+  for these anyway, and the versions asked for are not identical to the
+  rejected ones — #106 used a different opening window, and the overnight range
+  is a different range from the opening range. Before running them, get the
+  owner's explicit sign-off to narrow that forbidden action to the exact
+  rejected variants, and record the sign-off. Do not quietly ignore the rule.
+
+**5. What "more complex" can mean, as starting material** (the owner did not
+specify these; they are the obvious unexplored directions):
+
+- two or more conditions that must agree, rather than one trigger
+- the time of day as a condition, not just a filter
+- the day's own context: is today already a trend day, a range day, a high-
+  volatility day
+- the stock's behaviour relative to its sector or the whole group
+- anything not in the price series at all — the project already has insider
+  filings, analyst mentions, options flow and news signals
+
 ## Next steps, in order
 
-1. **Owner decision first:** the option half of the finish line cannot be
-   tested at all without intraday option prices. Nothing else in this mission
-   is blocked.
-2. If more share ideas are wanted, the untried categories are event-driven
-   (excluding the families already rejected in #93, #97, #103, #106) and
-   anything using information not in the price series.
+1. **Owner decision, still open:** the option half of the finish line cannot be
+   tested at all without intraday option prices. Nothing else is blocked.
+2. Work the owner's brief above. Start with the two named strategies once the
+   rejected-family conflict in point 4 is settled.
 3. Only if an idea clears roughly 40 in 100 on the pre-screen: register it as a
    candidate, plan, then hand the build to a **separate builder agent** — the
    loop requires the builder's agent and thread to differ from the controller,
