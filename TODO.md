@@ -1061,10 +1061,17 @@ Build and prove a reusable skill/plugin that brainstorms, researches, plans, bui
 
 **File:** `profitable-trading-feature-outcome-loop.md`
 
-**CURRENT STATUS (2026-09-02):** READY TO RUN. The frozen mission and its
-pass/fail script are written and tested: `.omx/plans/todo-111-proven-trading-edge-mission.json`
-plus `scripts/research/todo_111_proven_trading_edge_gate.py`. Kickoff line:
-`Run the outcome-loop mission at .omx/plans/todo-111-proven-trading-edge-mission.json`.
+**CURRENT STATUS (2026-09-03):** A rule PASSED the frozen bar on both periods
+and was reproduced trade-for-trade by three independent verifiers — but it holds
+each position for THREE MONTHS, and the owner trades minutes to days, never
+months. So it is a valid measurement, not a usable trade. The loop is parked at
+stage REVIEW, attempt 3 of 5, repair cycle 1; the arithmetic is verified and the
+seven write-up errors the verifiers found are corrected, but the formal review
+envelope and `final-gate` were never run. The two free data unlocks found on the
+way (weekly option chains with real bid/ask 2019-2026, and whole-US-market daily
+prices INCLUDING delisted companies, both free and no-login) are worth more to
+this project than the trading result. Full detail:
+`.omc/research/todo-111-proven-trading-edge/HANDOFF.md`.
 
 Use the independently tested outcome-loop plugin to keep trying genuinely different trading methods until one passes strict untouched historical profit and risk checks and is built as an owner-only feature.
 

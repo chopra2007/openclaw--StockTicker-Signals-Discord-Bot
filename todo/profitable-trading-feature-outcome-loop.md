@@ -2,10 +2,17 @@
 **Status:** OPEN
 **Created:** 2026-08-29
 
-**CURRENT STATUS (2026-09-02):** READY TO RUN. The frozen mission and its
-pass/fail script are written and tested: `.omx/plans/todo-111-proven-trading-edge-mission.json`
-plus `scripts/research/todo_111_proven_trading_edge_gate.py`. Kickoff line:
-`Run the outcome-loop mission at .omx/plans/todo-111-proven-trading-edge-mission.json`.
+**CURRENT STATUS (2026-09-03):** A rule PASSED the frozen bar on both periods
+and was reproduced trade-for-trade by three independent verifiers — but it holds
+each position for THREE MONTHS, and the owner trades minutes to days, never
+months. So it is a valid measurement, not a usable trade. The loop is parked at
+stage REVIEW, attempt 3 of 5, repair cycle 1; the arithmetic is verified and the
+seven write-up errors the verifiers found are corrected, but the formal review
+envelope and `final-gate` were never run. The two free data unlocks found on the
+way (weekly option chains with real bid/ask 2019-2026, and whole-US-market daily
+prices INCLUDING delisted companies, both free and no-login) are worth more to
+this project than the trading result. Full detail:
+`.omc/research/todo-111-proven-trading-edge/HANDOFF.md`.
 
 ## Goal
 
@@ -127,3 +134,19 @@ may justify paper testing; it is not historical proof of actual fills.
 - **Worked on:** Ran `/loopgoal #111` and interviewed the owner into a frozen mission + checker: `.omx/plans/todo-111-proven-trading-edge-mission.json` and `scripts/research/todo_111_proven_trading_edge_gate.py` (validates clean; fake-pass at 21.5% exits 0, fake-fail at 19.9% is refused, all four feasibility modes pass).
 - **Decisions:** Two-track profit bar — shares 1% average per trade after costs over 200+ trades, options 20% over 40+ trades, losers included. Credit-spread return = (premium collected − premium paid to close) ÷ premium collected. Random-entry control DROPPED — the owner trades long, short, debit and credit spreads, so market drift can't fake a direction-agnostic rule. Finish line also drops the Discord-output and full-test-suite checks at the owner's request; it keeps the untouched period, independent reproduction, best-ticker-removed retest, and harsh option fills. Budget $50 / one purchase / owner approves first / paid only after free is exhausted. 5 attempts, then write handoff notes and stop.
 - **Next:** Start the loop with the kickoff line above; the builder and reviewer must be separate agents from the controller.
+
+
+### Session notes — 2026-09-03
+- **Worked on:** Ran the outcome-loop mission end to end. Three candidates, each frozen before any outcome was read.
+- **Candidate 1 REJECTED** — selling out-of-money put credit spreads held to expiry, 18,992 trades 2019-2022: **-323% per trade** against a +20% bar, -136% dollar-weighted. Losers are ~9x winners at those strikes and a 71.5% win rate cannot pay for it. Fails at every credit size and in every year.
+- **Candidate 2 REJECTED** — shorting both legs of ten matched leveraged fund pairs monthly, 967 trades 2010-2018: **-0.61% per trade** against a +1.0% bar. The decay is real and measured at +0.70%/month gross, which is under the bar before any cost.
+- **Candidate 3 PASSED the bar** — twelve-month relative strength skipping the last month, top twenty, three-month hold. Development (2019-02..2022-09) **+6.89%** over 880 trades; untouched, sealed until the development number was locked (2023-01..2026-05) **+10.74%** over 820; combined **+8.75%** over 1,700. Equal-weight benchmark +3.12%.
+- **But it does not fit the owner.** Three-month holds against minutes-to-days trading. Recorded as the binding limit at the top of the handoff and in the proof bundle. Not usable as-is; do not re-propose it as a trade.
+- **Two free data unlocks** (both new to this project, both no-login, no key, no cost, via `https://www.dolthub.com/api/v1alpha1/<owner>/<db>/master?q=<sql>` and cloned locally with the `dolt` CLI):
+  - `post-no-preference/options` — weekly EOD option chains with **real bid and ask** plus greeks, ~610 symbols, 2019-02 to now. The old "no free option bid/ask history exists" note was about MINUTE quotes.
+  - `post-no-preference/stocks` — daily OHLCV for the **whole US market including delisted companies**, plus split, dividend and symbol tables. This removes the survivorship limit that capped every earlier share study here.
+- **Independent verification:** three read-only verifiers, none of which wrote a line of the code they judged, each rebuilt the pipeline from raw tables. All landed on 6.8943 / 10.7419 / 8.7502, matching trade for trade (largest disagreement 5e-07). One found a real defect (a ticker becoming a different company across a HOLE in the data was never caught, because the check only looked for a price jump); it was repaired with two frozen clauses and the fix RAISED development from +6.56% to +6.89%, because every trade it removed was built on a broken signal.
+- **Both formal verdicts were REJECT/repair**, and every finding was a wrong number in the write-up rather than in the rule. All seven corrected, including one that was backwards: renamed companies were claimed to cost the rule, when the forced early exit actually helped those trades.
+- **Not done:** the formal review envelope (`prepare-review` -> reviewer signature -> `review-result`) and `final-gate`. The loop never reached COMPLETE. Also unverified by anyone: the +3.12% benchmark and the "new to the feed" split.
+- **Nothing is live.** No order of any kind, nothing bought, the $50 allowance untouched, no production alert enabled.
+- **Next:** decide whether the minutes-to-days horizon is worth a fresh mission using the two new data sources, and whether to close this loop formally or leave it parked.
