@@ -57,11 +57,16 @@ exits 1; all four feasibility modes pass on real evidence.
 
 Extracted so far, at `/home/openclaw/.openclaw/research-data/todo-111-round2/minutes/`:
 
-- **60 symbols from the EQUS.MINI feed**, 19,653,306 one-minute bars,
-  2023-03-28 to 2026-08-22. 311 MB of parquet.
-- The XNYS.PILLAR copy of the same 60 symbols (2023-01-01 onward) was still
-  extracting when this note was written. Re-run the extractor to finish it;
-  symbols already written are rebuilt harmlessly.
+**Extraction is COMPLETE.** 120 parquet files, 40,278,360 one-minute bars:
+
+- `equs__<SYMBOL>.parquet` — 60 symbols from EQUS.MINI, 19,653,306 bars,
+  2023-03-28 to 2026-08-22.
+- `xnys__<SYMBOL>.parquet` — the same 60 symbols from XNYS.PILLAR,
+  20,625,054 bars, 2023-01-01 to 2026-08-22.
+
+Two feeds of the same names is deliberate: EQUS.MINI is about 20% of the tape,
+so its high and low can understate the true range and miss a touch. XNYS.PILLAR
+is the second opinion. A result that only survives on one feed is not a result.
 
 ## The data picture
 
