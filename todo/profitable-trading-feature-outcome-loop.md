@@ -2,8 +2,19 @@
 **Status:** OPEN
 **Created:** 2026-08-29
 
-**CURRENT STATUS (2026-09-02):** Round-2 mission is FROZEN and validated,
-nothing run yet. Files: `.omx/plans/todo-111-trading-edge-round2-mission.json`
+**CURRENT STATUS (2026-09-03):** Round 2 has run its first pass. **Eleven entry
+triggers measured, all eleven rejected.** A randomly chosen entry reaches the
++1.0% target before the -0.5% stop **34.47%** of the time; the best of the
+eleven ideas managed **35.29%**; the owner's bar is **60%**. Nothing earned a
+frozen backtest and the sealed period was never opened. The option half of the
+finish line **could not be tested at all** — there is no intraday option price
+history here, and that is the one decision waiting on the owner. $0.00 spent,
+no order of any kind, nothing pushed. Numbers:
+`.omc/research/todo-111-round2/rejection-ledger.md` and `baseline-and-seal.md`;
+resume notes in `todo/todo-111-round2-resume.md`. Prior status:
+
+Round-2 mission is FROZEN and validated. Files:
+`.omx/plans/todo-111-trading-edge-round2-mission.json`
 and `scripts/research/todo_111_trading_edge_round2_gate.py`. New finish line is
 a target-and-stop rule exited on first touch, with a hard 14-trading-day cap,
 gross returns, and a $0 budget this session. Full detail in the newest session
@@ -271,3 +282,17 @@ may justify paper testing; it is not historical proof of actual fills.
   daily-only source.
 - **Next:** owner starts the loop, or it waits. Kickoff line:
   `Run the outcome-loop mission at .omx/plans/todo-111-trading-edge-round2-mission.json`
+
+
+### Session notes — 2026-09-03 (round 2, first measurement pass)
+- **Worked on:** ran the round-2 mission from `init` onward: extracted the local one-minute bars, measured the baseline, declared the sealed period, wrote and passed all four feasibility checks, then pre-screened eleven entry triggers.
+- **The baseline.** A randomly chosen entry, closed on the first touch of +1.0% for or -0.5% against, hits the target first **34.47%** of the time on EQUS.MINI over 695,484 sampled trades, and **34.56%** on XNYS.PILLAR over 730,536. Theory said 33.3% (the stop is a third of the 1.5% round trip). Two independent feeds agree to within a tenth of a point.
+- **Eleven ideas, eleven rejections.** Best 35.29% (quiet half hour then a break out of it), worst 33.68% (one-minute volume spike, ridden). The whole spread from best to worst is 1.6 points, around a baseline of 34.5, against a bar of 60. Full table with the reasoning behind each idea: `.omc/research/todo-111-round2/rejection-ledger.md`.
+- **Why they all sat still.** To win 60 in 100 on a 2:1 bracket a trigger has to predict an average **+0.40% move per trade**. Every earlier short-horizon study here (#103, #104, #106) measured 1 to 5 basis points of gross edge. The ask is roughly a hundred times what has ever been measured.
+- **The bar is one condition, not two.** 60 wins at +1.0% against 40 losses at -0.5% averages exactly +0.40%. The win rate and the average say the same thing, so there is no way to satisfy one and miss the other.
+- **The sealed period was never opened.** Development is everything before 2025-07-01; the fourteen months after it are untouched. The pre-screen physically drops the sealed bars rather than trusting a filter, and the last entry signal is taken three weeks before the seal so no trade can run into it.
+- **No candidate was registered.** The loop is still at `DISCOVERY`, attempt 1 of 5. That is deliberate: the owner's decision 4 asked for a cheap pre-screen precisely so a dead idea never consumes a full frozen backtest. Seven evidence files are recorded in the loop's ledger (baseline, rejection ledger, the four feasibility files, the raw pre-screen numbers).
+- **The option half could not be tested at all.** There is no intraday option price history on this machine. The free DoltHub chains are one end-of-day snapshot a week, and `data/options-dx-2023/*.zip` are 2,618-byte failed downloads. Without minute-level option prices there is no way to see whether an option touched +20% before -20%.
+- **Nothing spent, nothing live.** $0.00 against a $0.00 cap, no purchase, no signup, no login attempted, no order real or paper, no alert enabled, nothing pushed.
+- **Built this session:** `scripts/research/todo_111_round2_baseline.py`, `..._prescreen.py`, `..._market_move.py`, plus a chunked first-touch search in `..._bracket.py` verified identical to the full scan on 24,000 sampled trades.
+- **Next:** the owner decides on intraday option data. For shares, the untried categories are event-driven ideas (excluding the families already rejected in #93, #97, #103, #106) and anything using information that is not in the price series.

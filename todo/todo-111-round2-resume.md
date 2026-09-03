@@ -119,14 +119,39 @@ the loop is built for that and records each one.
 3. Record the number in a one-page file even when the idea dies. That file is
    the cheap half of the rejection ledger.
 
+## Measured so far (2026-09-03)
+
+- **Baseline, both feeds:** the +1.0% / -0.5% bracket reaches its target first
+  **34.47%** of the time on EQUS.MINI (695,484 sampled trades) and **34.56%**
+  on XNYS.PILLAR (730,536). Theory said 33.3%. The bar is 60%.
+  Details: `.omc/research/todo-111-round2/baseline-and-seal.md`.
+- **The seal is declared:** development is everything before **2025-07-01**;
+  the fourteen months after it are untouched. The pre-screen physically drops
+  the sealed bars before computing anything.
+- **All four feasibility checks pass** against evidence files in
+  `.omc/research/todo-111-round2/`.
+- **Eleven entry-trigger families pre-screened and all eleven rejected.** Best
+  was 35.29%, worst 33.68%, against a 34.47% baseline and a 60% bar. Full table
+  and the reasoning behind each idea:
+  `.omc/research/todo-111-round2/rejection-ledger.md`. Harness:
+  `scripts/research/todo_111_round2_prescreen.py`.
+- **Seven evidence files recorded in the loop ledger** (baseline, ledger, the
+  four feasibility files, the raw pre-screen numbers). Loop still at
+  `DISCOVERY`, attempt 1 of 5, $0.00 spent — deliberately. No candidate earned
+  a frozen backtest, and burning an attempt on an idea the pre-screen already
+  killed is exactly what the pre-screen exists to prevent.
+- **The sealed period was never opened.**
+
 ## Next steps, in order
 
-1. Finish the XNYS extraction (re-run the extractor).
-2. Run the unconditional baseline hit rate. This one number decides whether the
-   share side is viable at all.
-3. Write the four feasibility evidence files and pass all four gate checks.
-4. Register candidate 1, plan, then hand the build to a **separate builder
-   agent** — the loop requires the builder's agent and thread to differ from
-   the controller, and the reviewer must be a new read-only agent.
-5. Queue every owner decision (option data purchase, logins) into a single list
-   for the end. Nothing is bought or logged into autonomously.
+1. **Owner decision first:** the option half of the finish line cannot be
+   tested at all without intraday option prices. Nothing else in this mission
+   is blocked.
+2. If more share ideas are wanted, the untried categories are event-driven
+   (excluding the families already rejected in #93, #97, #103, #106) and
+   anything using information not in the price series.
+3. Only if an idea clears roughly 40 in 100 on the pre-screen: register it as a
+   candidate, plan, then hand the build to a **separate builder agent** — the
+   loop requires the builder's agent and thread to differ from the controller,
+   and the reviewer must be a new read-only agent.
+4. Nothing is bought or logged into autonomously.

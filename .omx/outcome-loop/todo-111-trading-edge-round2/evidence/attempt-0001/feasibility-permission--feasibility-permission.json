@@ -1,0 +1,37 @@
+{
+  "kind": "feasibility_permission",
+  "mission": "todo-111-trading-edge-round2",
+  "writtenPacificDate": "2026-09-03",
+  "summary": "Nothing this mission does can reach a broker, a public channel, or the owner's live alerts.",
+  "realMoneyOrderPossible": false,
+  "productionAlertEnabled": false,
+  "outputOwnerOnly": true,
+  "howRealOrdersAreRuledOut": "The work is historical simulation over parquet files and a local dolt clone. No broker client is imported, no order function is called, and no paper-trading endpoint is touched. The Schwab credentials on this machine are for reading quotes and are not used by any file in this mission.",
+  "howOutputStaysPrivate": "Results are written to files under .omc/research and .omx/outcome-loop and reported to the owner in this session only. Nothing is posted to Discord, nothing is pushed to GitHub, no alert flag is flipped on.",
+  "forbiddenActionsAcknowledged": [
+    "place_real_money_order",
+    "place_paper_order",
+    "spend_money",
+    "create_new_account",
+    "complete_payment_without_owner_approval",
+    "solve_login_challenge_without_owner_approval",
+    "accept_provider_agreement_without_owner_approval",
+    "bypass_captcha",
+    "enable_production_alert",
+    "send_public_output",
+    "push_remote",
+    "print_or_store_secret",
+    "weaken_frozen_gate",
+    "reuse_rejected_family",
+    "use_future_information",
+    "current_survivor_selection",
+    "decide_exit_on_daily_bars",
+    "claim_returns_are_net_of_costs",
+    "claim_guaranteed_profit",
+    "wait_for_new_data_by_default"
+  ],
+  "facts": [
+    "no order path of any kind, real or paper",
+    "no production alert touched, output stays with the owner"
+  ]
+}

@@ -65,7 +65,7 @@ def features(df):
     lo30 = pd.Series(df["low"].to_numpy(np.float64)).rolling(30).min().shift(1).to_numpy()
     tradable = (mins >= FIRST_MIN) & (mins <= LAST_MIN)
     tradable &= (df["ts"] < LAST_SIGNAL).to_numpy()
-    return {"mins": mins, "close": close, "ret1": ret1, "vol": vol,
+    return {"ts": df["ts"].to_numpy(), "mins": mins, "close": close, "ret1": ret1, "vol": vol,
             "volume": volume, "vmed": vmed, "ret15": ret15, "ret30": ret30,
             "hi30": hi30, "lo30": lo30, "tradable": tradable}
 
@@ -152,6 +152,80 @@ def half_hour_drift(f, k=2.0):
     return idx, np.sign(f["ret30"][idx])
 
 
+def trendy_path(f, vr_min=1.5, k=1.0):
+    """Pick moments when the price has been TRENDING rather than chopping, and
+    ride the trend.
+
+    This one is aimed at the arithmetic rather than at direction. The 34-in-100
+    baseline assumes a coin-flip path: on such a path the far level is reached
+    first about a third of the time no matter what. A path that keeps going in
+    the same direction reaches the far level more often than that, and a choppy
+    one less often, whichever way the trade is pointed. The trigger is the
+    variance ratio: how much bigger the last half hour's move is than half an
+    hour of independent minutes would be. Above 1.0 the path is trending.
+    """
+    scale = f["vol"] * np.sqrt(30.0)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        vr = np.abs(f["ret30"]) / scale
+    hit = f["tradable"] & (vr > vr_min) & (np.abs(f["ret30"]) > k * scale)
+    idx = _ok(hit)
+    return idx, np.sign(f["ret30"][idx])
+
+
+def choppy_path_fade(f, vr_max=0.6):
+    """The mirror: pick moments when the path has been CHOPPY and fade the last
+    fifteen minutes. If trendiness lifts the far-level rate, choppiness should
+    lower it, and seeing both move the right way is the test of whether the
+    variance ratio is doing anything at all."""
+    scale = f["vol"] * np.sqrt(30.0)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        vr = np.abs(f["ret30"]) / scale
+    hit = f["tradable"] & (vr < vr_max) & (np.abs(f["ret15"]) > 0)
+    idx = _ok(hit)
+    return idx, -np.sign(f["ret15"][idx])
+
+
+_MARKET = {}
+MARKET_PATH = Path("/home/openclaw/.openclaw/research-data/todo-111-round2/"
+                   "market-move-equs.parquet")
+
+
+def _market_move():
+    """The whole group's half-hour move, minute by minute. Built once by
+    scripts/research/todo_111_round2_market_move.py."""
+    if "s" not in _MARKET:
+        m = pd.read_parquet(MARKET_PATH)
+        _MARKET["s"] = pd.Series(m["market_ret30"].to_numpy(),
+                                 index=pd.DatetimeIndex(m["ts"]))
+    return _MARKET["s"]
+
+
+def _own_move(f):
+    """This name's half-hour return with the group's taken out."""
+    market = _market_move().reindex(pd.DatetimeIndex(f["ts"])).to_numpy()
+    return f["ret30"] - market
+
+
+def relative_strength(f, k=2.0):
+    """The name pulled away from the other fifty-nine over the last half hour.
+    Reasoning: when one name moves and its group does not, the move is about
+    that company, and company news is absorbed over hours rather than minutes.
+    Trade WITH the name's own move."""
+    own = _own_move(f)
+    scale = f["vol"] * np.sqrt(30.0)
+    hit = f["tradable"] & (np.abs(own) > k * scale)
+    idx = _ok(hit)
+    return idx, np.sign(own[idx])
+
+
+def relative_reversion(f, k=2.0):
+    """The same trigger, traded the other way. Reasoning: a name that has left
+    its group behind for no reason is simply out of line with it, and the gap
+    closes."""
+    idx, dirn = relative_strength(f, k)
+    return idx, -dirn
+
+
 FAMILIES = {
     "ignition-continuation": ignition,
     "ignition-fade": ignition_fade,
@@ -160,6 +234,10 @@ FAMILIES = {
     "half-hour-range-break": range_break,
     "quiet-range-break": squeeze_break,
     "worked-order-drift": half_hour_drift,
+    "trending-path": trendy_path,
+    "choppy-path-fade": choppy_path_fade,
+    "relative-strength": relative_strength,
+    "relative-reversion": relative_reversion,
 }
 
 

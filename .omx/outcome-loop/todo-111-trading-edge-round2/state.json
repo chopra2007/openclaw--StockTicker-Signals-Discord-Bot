@@ -1,0 +1,122 @@
+{
+  "attempt": 1,
+  "authorizations": [],
+  "budget": {
+    "maxAttempts": 5,
+    "maxCostUsd": "0.00",
+    "spentCostUsd": "0.00"
+  },
+  "builder": null,
+  "candidate": null,
+  "checkerManifestHash": "62bf1746ed6fd5e41439cc92ff8d2cebecc9f34c0f2dae41dd633ea388cb97ff",
+  "controller": {
+    "agentId": "controller-main-opus5",
+    "threadId": "session_01B9fuFtdLhYsfq8Mm9t3UTR"
+  },
+  "evidence": [
+    {
+      "attempt": 1,
+      "bytes": 2725,
+      "copied": ".omx/outcome-loop/todo-111-trading-edge-round2/evidence/attempt-0001/baseline-and-seal--baseline-and-seal.md",
+      "id": "baseline-and-seal",
+      "kind": "test",
+      "sha256": "1f24f754e33c7f8e3f5f568b93722ec32458de85216ae68b85c8487585e17235",
+      "source": ".omc/research/todo-111-round2/baseline-and-seal.md"
+    },
+    {
+      "attempt": 1,
+      "bytes": 4926,
+      "copied": ".omx/outcome-loop/todo-111-trading-edge-round2/evidence/attempt-0001/rejection-ledger--rejection-ledger.md",
+      "id": "rejection-ledger",
+      "kind": "rejection_ledger",
+      "sha256": "e162b56e928b0f7509ebf46b0a002aa48dd50d06b0a5974b0d0761e745391471",
+      "source": ".omc/research/todo-111-round2/rejection-ledger.md"
+    },
+    {
+      "attempt": 1,
+      "bytes": 4524,
+      "copied": ".omx/outcome-loop/todo-111-trading-edge-round2/evidence/attempt-0001/feasibility-data--feasibility-data.json",
+      "id": "feasibility-data",
+      "kind": "feasibility_data",
+      "sha256": "8c02e160d512e489a2b821bfd7303a5cb740b516a74dfab33eba0e118660125c",
+      "source": ".omc/research/todo-111-round2/feasibility-data.json"
+    },
+    {
+      "attempt": 1,
+      "bytes": 2118,
+      "copied": ".omx/outcome-loop/todo-111-trading-edge-round2/evidence/attempt-0001/feasibility-access--feasibility-access.json",
+      "id": "feasibility-access",
+      "kind": "feasibility_access",
+      "sha256": "d8dfee453b3394bb5f62a66dc5f77e0fb75a50acd385b3a677a501283817e026",
+      "source": ".omc/research/todo-111-round2/feasibility-access.json"
+    },
+    {
+      "attempt": 1,
+      "bytes": 770,
+      "copied": ".omx/outcome-loop/todo-111-trading-edge-round2/evidence/attempt-0001/feasibility-cost--feasibility-cost.json",
+      "id": "feasibility-cost",
+      "kind": "feasibility_cost",
+      "sha256": "202a67e55cda10d8e8ef0156322cef93452ba5bb2d6ca3c65a318d878a07277e",
+      "source": ".omc/research/todo-111-round2/feasibility-cost.json"
+    },
+    {
+      "attempt": 1,
+      "bytes": 1691,
+      "copied": ".omx/outcome-loop/todo-111-trading-edge-round2/evidence/attempt-0001/feasibility-permission--feasibility-permission.json",
+      "id": "feasibility-permission",
+      "kind": "feasibility_permission",
+      "sha256": "307aeac88a9c5e3bfae8091b0e25c79e3febb1cf74c26f09c8c6011a847e5f9b",
+      "source": ".omc/research/todo-111-round2/feasibility-permission.json"
+    },
+    {
+      "attempt": 1,
+      "bytes": 12314,
+      "copied": ".omx/outcome-loop/todo-111-trading-edge-round2/evidence/attempt-0001/prescreen-numbers--todo-111-round2-prescreen-equs.json",
+      "id": "prescreen-numbers",
+      "kind": "test",
+      "sha256": "5d7ca9caafc7697dfa738944d6fd33ef89717c041017d542dff1de952f3186d2",
+      "source": ".omc/research/todo-111-round2-prescreen-equs.json"
+    }
+  ],
+  "feasibility": {
+    "access": null,
+    "cost": null,
+    "data": null,
+    "permission": null
+  },
+  "finalGate": null,
+  "formatVersion": 1,
+  "ledgerHeadHash": "eca9d6cff4b0908784877f07cc596dbe263f94702facaa06524bacd06dcce75d",
+  "missionHash": "9e82e293c3828c5ddfb2fb065cae2453acb63ff66f02a3b0405a809bdc2e6930",
+  "missionId": "todo-111-trading-edge-round2",
+  "missionVersion": 1,
+  "planEvidenceId": null,
+  "rejections": [],
+  "repairCycle": 0,
+  "requiredKinds": [
+    "feasibility_data",
+    "feasibility_access",
+    "feasibility_cost",
+    "feasibility_permission",
+    "plan",
+    "implementation",
+    "test",
+    "final_proof_bundle",
+    "candidate_slate",
+    "frozen_gates",
+    "development_result",
+    "untouched_result",
+    "exit_rule_audit",
+    "entry_trigger_audit",
+    "point_in_time_audit",
+    "independent_reproduction",
+    "owner_only_implementation",
+    "no_real_order_audit",
+    "purchase_audit",
+    "rejection_ledger"
+  ],
+  "review": null,
+  "reviewCapability": null,
+  "stage": "DISCOVERY",
+  "updatedAt": "2026-09-03T01:29:56.325830-07:00"
+}

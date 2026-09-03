@@ -1061,8 +1061,18 @@ Build and prove a reusable skill/plugin that brainstorms, researches, plans, bui
 
 **File:** `profitable-trading-feature-outcome-loop.md`
 
-**CURRENT STATUS (2026-09-02):** Round-2 mission FROZEN and validated, nothing
-run yet — `.omx/plans/todo-111-trading-edge-round2-mission.json` plus
+**CURRENT STATUS (2026-09-03):** Round 2 ran its first pass. **Eleven entry
+triggers measured, all eleven rejected.** A randomly chosen entry hits the +1%
+target before the -0.5% stop **34.47%** of the time (695,484 trades, confirmed
+at 34.56% on a second feed); the best idea managed **35.29%**; the bar is
+**60%**. The sealed period was never opened and no candidate earned a frozen
+backtest. The option half could not be tested at all — no intraday option price
+history here, and that is the one decision waiting on the owner. $0.00 spent,
+no order real or paper, nothing pushed. Numbers in
+`.omc/research/todo-111-round2/rejection-ledger.md`. Prior status:
+
+Round-2 mission FROZEN and validated —
+`.omx/plans/todo-111-trading-edge-round2-mission.json` plus
 `scripts/research/todo_111_trading_edge_round2_gate.py`. Finish line is now a
 target-and-stop rule exited on first touch (shares +1%/-0.5%, options
 +20%/-20%), 60 wins in 100, hard 14-trading-day cap, gross returns, $0 budget,
