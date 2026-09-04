@@ -1061,26 +1061,19 @@ Build and prove a reusable skill/plugin that brainstorms, researches, plans, bui
 
 **File:** `profitable-trading-feature-outcome-loop.md`
 
-**CURRENT STATUS (2026-09-03, latest):** The **option half is no longer
-blocked**, and the session ended with **two owner decisions that change how the
-next test is run**. With the owner's Databento authorisation, minute-level
-option bid/ask was bought for the first time in this project — $3.4836 of a $20
-ceiling, about $121.52 of the $125 credit left. **Selling** a SPY expected-move
-iron condor was frozen before anything was bought and is **REJECTED on
-development**: 241 trades 2014-2021, win rate 29.88% against a 60% bar, -14.75%
-a trade against +4.00%. The sealed 2022-2026 window was never opened. **The two
-decisions, both for the next session, neither executed:** (1) **all future fills
-are at the midpoint of the bid and ask**, not the bad side of each quote — a
-standing change that overrides the handoff and the frozen rule file, and one
-that matters because the bad-side round trip costs a median 9% of the credit;
-(2) **BUYING that same condor is now a live candidate** — the exact mirror is a
-**70.12% win rate** (169 of 241) and a naive +14.75% a trade, better than
-anything this project has tested, but it has never been computed with the buyer
-paying to get in, so midpoint fills, gap concentration and the buyer's own
-denominator all have to be measured first, on data already on disk. He wants
-more than one strategy running, so a pass joins the others rather than replacing
-them. Detail: `.omc/research/todo-111-condor/` and the two newest session notes
-at the bottom. Prior status:
+**CURRENT STATUS (2026-09-04, latest):** The **option tournament ran to
+completion** — 58 frozen tests over 7 mechanisms, 37 with fundable samples, and
+**all 37 now have complete data**. **Two different money-making mechanisms
+were found, and they are not the same trade.** (1) **Buy a call spread when SPY
+is already rising and let the winner run** — buy an at-the-money call, sell a
+further-out one to cheapen it, take profit at +100% with no stop inside 14 days:
+at a 60-day high in a calm market **54 trades, 68.5% wins, +18.28% a trade after
+commission, profit factor 2.29**; on a 12-month momentum uptrend **121 trades,
+65.3%, +12.12%**. (2) **Sell a put spread when the options market is charging a
+lot for fear**, with the stop at -200% of the credit: **265 trades, 84.5% wins,
++14.31% a trade**, worst losing run $708 against $2,596 made. **Nothing is
+proven** — the sealed 2022-2026 test is frozen, its data is downloading, it has
+NOT run.
 
 **CURRENT STATUS (2026-09-03):** Round 3 is frozen and running — kickoff in
 `todo/todo-111-round3-kickoff.md`, mission
