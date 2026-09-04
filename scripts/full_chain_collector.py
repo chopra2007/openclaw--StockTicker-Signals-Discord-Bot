@@ -19,6 +19,7 @@ from datetime import date, datetime, time as clock_time, timedelta, timezone
 import json
 import logging
 import math
+import numpy as np
 import os
 from pathlib import Path
 import re
@@ -101,10 +102,24 @@ def _append_parquet(frame: pd.DataFrame, path: Path, keys: list[str]) -> None:
     _atomic_write_parquet(frame, path)
 
 
+def _json_default(value):
+    if isinstance(value, np.generic):
+        return value.item()
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
+
 def _write_json(payload: dict, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    tmp.write_text(
+        json.dumps(
+            payload,
+            indent=2,
+            sort_keys=True,
+            default=_json_default,
+        ) + "\n",
+        encoding="utf-8",
+    )
     os.replace(tmp, path)
 
 
@@ -579,7 +594,7 @@ def main() -> int:
         result = run_daily(settings, day)
     else:
         result = verify_day(settings, day)
-    print(json.dumps(result, indent=2, sort_keys=True, default=str))
+    print(json.dumps(result, indent=2, sort_keys=True, default=_json_default))
     if args.command == "daily" and not result.get("skipped") and (
         result.get("option_error") or not result.get("proof_passed")
     ):

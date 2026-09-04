@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
+import json
 from pathlib import Path
 import sys
 
+import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -134,3 +136,9 @@ def test_verify_day_requires_real_option_and_open_interest_rows(tmp_path):
     assert report["passed"] is False
     assert report["checks"]["option_chain_exists"] is False
     assert report["checks"]["open_interest_exists"] is False
+
+
+def test_write_json_converts_numpy_true_false_values(tmp_path):
+    path = tmp_path / "proof.json"
+    collector._write_json({"passed": np.bool_(True)}, path)
+    assert json.loads(path.read_text()) == {"passed": True}

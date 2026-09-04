@@ -1029,16 +1029,16 @@ Keep one honest list of coded features and research-ready ideas that cannot yet 
 
 **File:** `twenty-names-and-free-options-data.md`
 
-**CURRENT STATUS (2026-08-31):** Corrected and scheduled. Schwab now supplies
-both the synchronized stock data and the stored option chains for 20 trade
-names, SPY, QQQ, and SPX. Each regular-session minute keeps the nearest four
-expirations inside a 15% strike band; the after-close job compacts those parts
-and writes the open-interest file and strict proof report. Databento is not
-needed for forward collection. It would be used only for a one-time purchase of
-older option history to skip the 100-day wait. The two timers are active. The
-August 31 proof task failed while saving its report because a NumPy true/false
-value was not converted to normal JSON first. The collector output still needs
-inspection after that save bug is fixed. This is separate from #110.
+**CURRENT STATUS (2026-09-04):** The save bug is fixed and tested on branch
+`todo-109-full-chain-proof`. The real August 31 output passes every proof check:
+3,721,860 option rows for all 23 names across exactly 390 market minutes,
+9,976 open-interest rows, four expirations per name, synchronized stock prices,
+no delayed chains, no crossed spreads, and no gap over 90 seconds. The focused
+tests pass 7 of 7 and the full project gate passes 3,838 with 11 skipped. #109
+stays open only because #111 is actively changing the main checkout; applying
+the saved fix there now would violate its isolation. Once #111 ends, integrate
+this branch before the next 13:20 Pacific daily run and confirm that run exits
+successfully. This is separate from #110.
 
 Pick 20 liquid tech names, start saving every field a future test could need before another 100 days are lost, and hunt for a free source that already holds past minute-by-minute option prices (SPX especially) so the wait can be skipped altogether.
 
