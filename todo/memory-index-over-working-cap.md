@@ -1,16 +1,15 @@
 # Trim the memory index back under its working size limit
 
-**Status:** OPEN
+**Status:** DONE 2026-09-04
 **Created:** 2026-08-24
 
-**CURRENT STATUS (2026-08-24):** `MEMORY.md` is 18,634 bytes. Its own header sets
-a 17,000-byte working limit, so it is about 1.6KB over. It is NOT broken — the
-hard limit where it would silently stop loading at session start is ~24,400
-bytes, and it is comfortably under that. Four clearly-finished project lines
-were moved out on 2026-08-24 (19,311 → 18,634). Getting the rest of the way
-needs judgment calls about which entries are still worth loading every session,
-which is a decision for the owner, not something to do unattended at session
-close.
+**CURRENT STATUS (2026-09-04):** Complete. The current private Codex router had
+grown to 20,460 bytes. It is now 15,567 bytes, below its 17,000-byte working
+limit. Routing descriptions were shortened without deleting active lessons,
+and five clearly shipped project entries moved to `indexes/project-index.md`.
+Every retained link in both edited files resolves. No private memory was copied
+into the public repository, and Codex's automatic `/root/.codex/memories/`
+store was not edited.
 
 ## What this is
 
@@ -54,5 +53,11 @@ ambiently, so demoting them is a real trade, not bookkeeping:
 
 ## Files
 
-- `/root/.claude/projects/-home-openclaw--openclaw-workspace/memory/MEMORY.md`
-- `/root/.claude/projects/-home-openclaw--openclaw-workspace/memory/indexes/project-index.md`
+- `/root/.codex/openclaw-memory/MEMORY.md`
+- `/root/.codex/openclaw-memory/indexes/project-index.md`
+
+### Session notes — 2026-09-04
+
+- **Worked on:** trimmed the current private router from 20,460 to 15,567 bytes and moved five shipped entries to the existing history index.
+- **Decisions:** preserved active warnings and behavior lessons; shortened route text instead of deleting those notes.
+- **Next:** none; all retained links resolve and the router is below its working limit.

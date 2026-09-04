@@ -847,18 +847,17 @@ from `.test-baseline`.
 
 Fix a test for the `!market` command's economic-conditions display that hardcodes a fixed date, so it silently starts failing once real time drifts more than 16 days past that date rather than reflecting anything actually broken in the code.
 
-## 95. Trim the memory index back under its working size limit
+## 95. Trim the memory index back under its working size limit — DONE 2026-09-04
 
 **File:** `memory-index-over-working-cap.md`
 
-**CURRENT STATUS (2026-08-24):** `MEMORY.md` is 18,634 bytes. Its own header sets
-a 17,000-byte working limit, so it is about 1.6KB over. It is NOT broken — the
-hard limit where it would silently stop loading at session start is ~24,400
-bytes, and it is comfortably under that. Four clearly-finished project lines
-were moved out on 2026-08-24 (19,311 → 18,634). Getting the rest of the way
-needs judgment calls about which entries are still worth loading every session,
-which is a decision for the owner, not something to do unattended at session
-close.
+**CURRENT STATUS (2026-09-04):** Complete. The current private Codex router had
+grown to 20,460 bytes. It is now 15,567 bytes, below its 17,000-byte working
+limit. Routing descriptions were shortened without deleting active lessons,
+and five clearly shipped project entries moved to `indexes/project-index.md`.
+Every retained link in both edited files resolves. No private memory was copied
+into the public repository, and Codex's automatic `/root/.codex/memories/`
+store was not edited.
 
 Get `MEMORY.md` back under its own 17KB working limit so the notes loaded into every session keep a safety margin before the size where they would silently stop loading.
 
