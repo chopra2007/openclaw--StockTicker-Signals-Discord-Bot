@@ -2,6 +2,19 @@
 **Status:** OPEN
 **Created:** 2026-08-29
 
+**CURRENT STATUS (2026-09-03, latest):** The **option half is no longer
+blocked**. With the owner's Databento authorisation, minute-level option bid/ask
+was bought for the first time in this project — $3.4836 of a $20 ceiling, about
+$121.52 of the $125 credit left. The first candidate it made testable, a **SPY
+expected-move iron condor**, was frozen before anything was bought and is
+**REJECTED on development**: 241 trades 2014-2021, win rate **29.88%** against a
+60% bar, **-14.75%** a trade against +4.00%; the put and call spreads alone fail
+too. The sealed 2022-2026 window was never opened. Two findings carry forward —
+a percentage stop does NOT cap the loss on short premium (it gaps overnight:
+worst trade -339%), and a +/-20% band is only about twice the cost of opening
+and closing four legs. Detail: `.omc/research/todo-111-condor/` and the newest
+session note at the bottom. Prior status:
+
 **CURRENT STATUS (2026-09-03):** Round 3 is **finished and stopped**; the owner
 has since made two decisions and both are recorded below. Six genuinely
 different mechanisms, ten entry rules, **all ten rejected** against matched
@@ -334,3 +347,17 @@ may justify paper testing; it is not historical proof of actual fills.
 - **Verified end to end, not just by reading the code:** JPM 2023-04-04, 15 opening-range bars, range 129.18–130.57, first break below at 09:46, short entered at the next bar's open 129.06, target touched at 11:18 the same day for +1.0%.
 - **Committed:** `15de447`. Write-ups at `todo/todo-111-round3-result.md` and `todo/todo-111-round3-rejection-ledger.md`.
 - **Next:** the outstanding owner decision is intraday option prices — still the only way to test the option half. On shares, the untried ground that the ceiling test does not cover is a trigger that reacts to the day as it happens using information from outside the price series, and that has no history to run on until roughly 2028. A fourth round on these bars is not worth freezing.
+
+
+### Session notes — 2026-09-03 (SPY expected-move iron condor — REJECTED on development)
+- **Worked on:** the owner's Databento authorisation. Built and ran the whole option half of #111 that every earlier round listed as untestable. The blocker was never the idea, it was minute-level option bid/ask; that is now bought and on disk.
+- **Frozen before anything was bought.** Entry weeks were chosen from free data only — VIX against SPY's own 20-day movement (a gap of at least 2 volatility points), plus a calm-market filter on the 14-day average true range. 279 development weeks, 160 in a sealed 2022-2026 window, both counted before a dollar was spent. Rule file `.omc/research/todo-111-condor/FROZEN-RULE.md`, sha256 `5668ed1e…`, plus `policy-clarifications.md` for three mechanical points. The rule was amended once, for two selector defects (a 37-day target that kept picking thin weekly expiries with no $5 wing, and a far wing with a 0.00 bid being treated as unlisted) — both found and fixed **before any trade return existed**, superseded hash recorded in the file.
+- **REJECTED.** 241 condors, 2014-2021. Win rate **29.88%** against a 60% bar, average **-14.75%** a trade against +4.00%. The put spread alone: 36.10% and -8.86%. The call spread alone: 28.63% and -10.93%. All three declared in advance, all three fail wide.
+- **The two findings worth keeping.** (1) **A percentage stop does not cap the loss on short premium.** It can only act while the market is open, and the position gaps overnight: 43 trades finished worse than -25%, 14 worse than -40%, 5 worse than -100%, worst -339%. Average winner +20.8%, average loser -29.9% — that shape needs a 59% win rate just to break even. It is the round-1 nine-to-one loser, shrunk by management but not removed. (2) **A ±20% band is close to the cost of trading four legs.** Getting in and straight out costs a median 9% of the credit, and on the first trade in the sample it cost 21.5%, tripping the stop one minute after entry.
+- **The sealed 2022-2026 window was never opened.** Its data was estimated ($2.81) and reserved, then not bought — a candidate that fails development does not earn a second look, and the window stays clean.
+- **Money: $3.4836 of a $20.00 ceiling**, 527 requests, every one cost-estimated before it was sent. About **$121.52** of the $125 Databento credit is left. Ledger: `research-data/todo-111-condor/spend_ledger.json`.
+- **Data quality, checked before the result was read:** 246 four-leg files, **0 problems** — right dataset and schema, right contracts, no duplicate timestamps, no negative prices. All four legs quoted in **100%** of regular-session minutes; missing-minute rate 1.4e-06. No minute was invented. One trade re-computed by hand matched the script exactly (2014-01-03: credit $0.93, close $1.13, -21.51%).
+- **Sample fairness:** 38 of 279 weeks dropped, nearly all because a $5 wing strike was not listed. The dropped weeks were **calmer** (median VIX 13.3 against 14.4), so the drop did not quietly remove the hard weeks.
+- **Built:** `scripts/research/todo_111_condor_signal.py`, `..._pull.py`, `..._validate.py`, `..._backtest.py`. Write-up: `.omc/research/todo-111-condor/DEVELOPMENT-RESULT.md`.
+- **Nothing live.** No order real or paper, no alert enabled, nothing pushed.
+- **Next:** the option half is no longer data-blocked — minute bid/ask for any SPY contract back to April 2013 costs about $0.004 a trade, and $121 of credit is left. The next short-premium candidate has to answer the two findings above before it is worth freezing: a wider bracket, fewer legs, or an exit that does not depend on a price being quotable at the moment it is needed.
