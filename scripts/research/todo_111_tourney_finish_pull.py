@@ -5,7 +5,11 @@ large batch, so this runs the same cost-estimated, ceiling-checked `buy()` one
 request at a time with retries and visible progress. It buys nothing that is
 already on disk and it obeys the same $20 run ceiling.
 
-Usage:  python3 -u scripts/research/todo_111_tourney_finish_pull.py <allowance>
+Usage:  python3 -u scripts/research/todo_111_tourney_finish_pull.py <allowance> [shard/of]
+
+`shard/of` runs only every `of`-th request starting at `shard` (1-based), so
+several copies can run side by side on disjoint work. The ledger append is
+locked across processes, so the run total and the ceiling stay correct.
 """
 from __future__ import annotations
 import glob, hashlib, json, os, socket, sys, time
@@ -83,7 +87,7 @@ def fetch_in_child(job) -> bool:
     return p.exitcode == 0 and os.path.exists(job["path"])
 
 
-def main(allowance: float):
+def main(allowance: float, shard: int = 1, of: int = 1):
     client = db.Historical(key=P.key())
     start = P.spent_all()
     print(f"starting run total ${start:.4f}, allowance ${allowance:.2f}", flush=True)
@@ -91,7 +95,10 @@ def main(allowance: float):
         man = json.load(open(f"{TOURNEY}/{name}.json"))
         jobs = [q for j in P.plan(man, P.rebuild_owned_index()) for q in split(j)]
         jobs = [j for j in jobs if not os.path.exists(j["path"])]
-        print(f"== {name}: {len(jobs)} requests still needed ==", flush=True)
+        if of > 1:
+            jobs = jobs[shard - 1::of]
+        tag = f" shard {shard}/{of}" if of > 1 else ""
+        print(f"== {name}{tag}: {len(jobs)} requests still needed ==", flush=True)
         for n, j in enumerate(jobs, 1):
             if P.spent_all() - start > allowance:
                 print(f"  STOP: ${allowance:.2f} allowance used up", flush=True)
@@ -112,4 +119,6 @@ def main(allowance: float):
 
 
 if __name__ == "__main__":
-    main(float(sys.argv[1]) if len(sys.argv) > 1 else 1.20)
+    allowance = float(sys.argv[1]) if len(sys.argv) > 1 else 1.20
+    shard, of = (int(x) for x in sys.argv[2].split("/")) if len(sys.argv) > 2 else (1, 1)
+    main(allowance, shard, of)

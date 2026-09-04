@@ -24,7 +24,7 @@ Manifest shape:
 `end_day` is the last trading day the exit walk may use (the 14- or 7-day cap).
 """
 from __future__ import annotations
-import argparse, hashlib, json, os, re, sys, threading
+import argparse, contextlib, fcntl, hashlib, json, os, re, sys, threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -40,6 +40,25 @@ CEILING = 20.00                 # hard, across the whole run, both ledgers
 NY = ZoneInfo("America/New_York")
 ENTRY_LOCAL = (10, 0)           # 10:00 exchange time = 7:00 a.m. Pacific
 LOCK = threading.Lock()
+LOCK_FILE = f"{TOURNEY}/spend_ledger.lock"
+
+
+@contextlib.contextmanager
+def ledger_lock():
+    """Serialise the ledger read-modify-write across threads AND processes.
+
+    A threading.Lock only guards one process. Sharded downloaders are separate
+    processes, so two of them could read the ledger, each append its own entry,
+    and the second write would drop the first -- losing a payment record and
+    quietly understating the run total the ceiling is checked against.
+    """
+    with LOCK:
+        with open(LOCK_FILE, "a+") as fh:
+            fcntl.flock(fh, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(fh, fcntl.LOCK_UN)
 # Six parallel requests were fine for the first few hundred files and then the
 # provider started throttling them to roughly one a minute. Keep it low and let
 # the environment raise it if a future run needs to.
@@ -70,7 +89,7 @@ def buy(client, label, path, **kw):
     if os.path.exists(path):
         return db.DBNStore.from_file(path)
     cost = client.metadata.get_cost(dataset=DATASET, **kw)
-    with LOCK:
+    with ledger_lock():
         if spent_all() + cost > CEILING:
             raise SystemExit(f"STOP: {label} would take the run total to "
                              f"${spent_all() + cost:.4f}, past ${CEILING:.2f}")
@@ -79,12 +98,20 @@ def buy(client, label, path, **kw):
     tmp = path + ".part"
     data.to_file(tmp)
     os.replace(tmp, path)
-    with LOCK:
+    with ledger_lock():
         led = ledger()
         led.append(dict(label=label, cost_usd=cost, billable_bytes=size, file=path,
                         request={k: (list(v) if isinstance(v, (list, tuple)) else str(v))
                                  for k, v in kw.items()}))
-        json.dump(led, open(LEDGER, "w"), indent=1)
+        # Write through a temp file and rename. json.dump truncates in place,
+        # so a reader calling spent_all() at the wrong instant sees half a file
+        # and dies on a JSONDecodeError -- which is exactly what killed two of
+        # ten parallel shards. os.replace is atomic, so a reader sees either
+        # the old ledger or the new one, never a torn one.
+        tmp_led = LEDGER + ".tmp"
+        with open(tmp_led, "w") as fh:
+            json.dump(led, fh, indent=1)
+        os.replace(tmp_led, LEDGER)
     return data
 
 
