@@ -1061,37 +1061,26 @@ Build and prove a reusable skill/plugin that brainstorms, researches, plans, bui
 
 **File:** `profitable-trading-feature-outcome-loop.md`
 
-**CURRENT STATUS (2026-09-03):** Round 3 is **finished and stopped**; the owner
-has since made two decisions and both are recorded below. Six genuinely
-different mechanisms, ten entry rules, **all ten rejected** against matched
-same-time-of-day baselines. The two strategies the owner named were built and
-tested first: the 15-minute opening-range breakout reached the +1% target before
-the -0.5% stop **34.08%** of the time (32,010 trades) against **34.00%** for
-trading at that hour with no trigger at all, and the overnight-range breakout
-**34.23%** against the same 34.00%. Best of the whole set was an 11:00 trend-day
-trade at **35.94%**; the bar is **60%**. A ceiling test then settled whether an
-eleventh idea was worth building: cherry-picking the 20 best stock/hour/direction
-combinations with full hindsight reached **44.11%** and carried forward to only
-**37.93%**, so about 38% of an apparent edge in these bars survives fresh data —
-that bounds any picking rule, though not literally every trigger. Two directions
-remain untestable and neither is a rejection: the option half (no intraday option
-prices — the one decision still waiting on the owner) and anything using
-information outside the price series (the bot's 1.58M signal records all start
-July 2026, years after the July-2025 development cutoff; a waiting problem, not a
-money one). Loop STOPPED on the frozen `owner_only_decision` condition, 13
-evidence artifacts, $0.00 spent, no order real or paper, sealed period never
-opened. **The owner's two decisions:** (1) the months-long #111 momentum method
-**stays an option rather than a rejection**, because he can run more than one
-strategy at once, so its three-month holds no longer disqualify it — it is not
-live and nothing was enabled; (2) he asked to test an even **+0.5% / -0.5%**
-bracket, which was measured the same session: win rates rise to roughly a coin
-flip (baseline 34.00% → **49.66%**, opening-range breakout → **50.27%**,
-overnight breakout → **50.07%**, trend-day trade → **53.06%**) while the average
-per trade stays flat, because at +0.5/-0.5 the win rate needed to average +0.40%
-a trade rises from 60 in 100 to **90 in 100**. Same distance from the bar, new
-shape. Write-ups: `todo/todo-111-round3-result.md`,
-`todo/todo-111-round3-rejection-ledger.md`, numbers in
-`.omc/research/todo-111-round3*`. Prior status:
+**CURRENT STATUS (2026-09-03, latest):** The **option half is no longer
+blocked**, and the session ended with **two owner decisions that change how the
+next test is run**. With the owner's Databento authorisation, minute-level
+option bid/ask was bought for the first time in this project — $3.4836 of a $20
+ceiling, about $121.52 of the $125 credit left. **Selling** a SPY expected-move
+iron condor was frozen before anything was bought and is **REJECTED on
+development**: 241 trades 2014-2021, win rate 29.88% against a 60% bar, -14.75%
+a trade against +4.00%. The sealed 2022-2026 window was never opened. **The two
+decisions, both for the next session, neither executed:** (1) **all future fills
+are at the midpoint of the bid and ask**, not the bad side of each quote — a
+standing change that overrides the handoff and the frozen rule file, and one
+that matters because the bad-side round trip costs a median 9% of the credit;
+(2) **BUYING that same condor is now a live candidate** — the exact mirror is a
+**70.12% win rate** (169 of 241) and a naive +14.75% a trade, better than
+anything this project has tested, but it has never been computed with the buyer
+paying to get in, so midpoint fills, gap concentration and the buyer's own
+denominator all have to be measured first, on data already on disk. He wants
+more than one strategy running, so a pass joins the others rather than replacing
+them. Detail: `.omc/research/todo-111-condor/` and the two newest session notes
+at the bottom. Prior status:
 
 **CURRENT STATUS (2026-09-03):** Round 3 is frozen and running — kickoff in
 `todo/todo-111-round3-kickoff.md`, mission

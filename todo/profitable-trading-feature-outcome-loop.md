@@ -3,17 +3,25 @@
 **Created:** 2026-08-29
 
 **CURRENT STATUS (2026-09-03, latest):** The **option half is no longer
-blocked**. With the owner's Databento authorisation, minute-level option bid/ask
-was bought for the first time in this project — $3.4836 of a $20 ceiling, about
-$121.52 of the $125 credit left. The first candidate it made testable, a **SPY
-expected-move iron condor**, was frozen before anything was bought and is
-**REJECTED on development**: 241 trades 2014-2021, win rate **29.88%** against a
-60% bar, **-14.75%** a trade against +4.00%; the put and call spreads alone fail
-too. The sealed 2022-2026 window was never opened. Two findings carry forward —
-a percentage stop does NOT cap the loss on short premium (it gaps overnight:
-worst trade -339%), and a +/-20% band is only about twice the cost of opening
-and closing four legs. Detail: `.omc/research/todo-111-condor/` and the newest
-session note at the bottom. Prior status:
+blocked**, and the session ended with **two owner decisions that change how the
+next test is run**. With the owner's Databento authorisation, minute-level
+option bid/ask was bought for the first time in this project — $3.4836 of a $20
+ceiling, about $121.52 of the $125 credit left. **Selling** a SPY expected-move
+iron condor was frozen before anything was bought and is **REJECTED on
+development**: 241 trades 2014-2021, win rate 29.88% against a 60% bar, -14.75%
+a trade against +4.00%. The sealed 2022-2026 window was never opened. **The two
+decisions, both for the next session, neither executed:** (1) **all future fills
+are at the midpoint of the bid and ask**, not the bad side of each quote — a
+standing change that overrides the handoff and the frozen rule file, and one
+that matters because the bad-side round trip costs a median 9% of the credit;
+(2) **BUYING that same condor is now a live candidate** — the exact mirror is a
+**70.12% win rate** (169 of 241) and a naive +14.75% a trade, better than
+anything this project has tested, but it has never been computed with the buyer
+paying to get in, so midpoint fills, gap concentration and the buyer's own
+denominator all have to be measured first, on data already on disk. He wants
+more than one strategy running, so a pass joins the others rather than replacing
+them. Detail: `.omc/research/todo-111-condor/` and the two newest session notes
+at the bottom. Prior status:
 
 **CURRENT STATUS (2026-09-03):** Round 3 is **finished and stopped**; the owner
 has since made two decisions and both are recorded below. Six genuinely
@@ -361,3 +369,12 @@ may justify paper testing; it is not historical proof of actual fills.
 - **Built:** `scripts/research/todo_111_condor_signal.py`, `..._pull.py`, `..._validate.py`, `..._backtest.py`. Write-up: `.omc/research/todo-111-condor/DEVELOPMENT-RESULT.md`.
 - **Nothing live.** No order real or paper, no alert enabled, nothing pushed.
 - **Next:** the option half is no longer data-blocked — minute bid/ask for any SPY contract back to April 2013 costs about $0.004 a trade, and $121 of credit is left. The next short-premium candidate has to answer the two findings above before it is worth freezing: a wider bracket, fewer legs, or an exit that does not depend on a price being quotable at the moment it is needed.
+
+
+### Session notes — 2026-09-03 (owner's two decisions after the condor result — NOT executed this session)
+- **Decision 1 — fills move to the midpoint. This is a standing change to every future test.** Buys and sells are priced halfway between the bid and the ask, not on the bad side of each quote. His words: *"i want buys and sells at the halfway point between the bid/ask. no more bad side of every quote, just in the middle."* This overrides the "sell at bid, buy at ask" instruction in the Databento handoff (`.omc/plans/todo-111-databento-download-handoff.md`) and the fill clause in `.omc/research/todo-111-condor/FROZEN-RULE.md`. It matters a lot here: getting in and straight out of four legs at the bad side costs a median **9% of the credit**, and that cost, charged twice, is what turned the mirrored condor from +14.75% into roughly break-even. **Every frozen rule written from now on states midpoint fills.** The existing condor data supports a re-run at midpoint with no new purchase — the raw bid and ask for all four legs, every minute, are already on disk.
+- **Decision 2 — the reversed condor is now a live candidate, and it may be the best thing tested so far.** BUYING the expected-move iron condor is the exact mirror of the rule that was rejected: **70.12% win rate** (169 of 241) against the 60% bar, and a naive **+14.75%** a trade against the +4.00% bar. His words: *"a 70%+ win rate is better than anything we've ever tested. This may be the most winning strategy so far."* Buying the call spread alone mirrors to **71.37%** and +10.93%. Nothing else in this project has come near a 70% win rate — every share family sat at 34%.
+- **What is NOT yet known about it, and must be measured before it is believed.** The +14.75% is the seller's loss with the sign flipped; it has never been computed with the buyer actually paying to get in. Three things to settle, in this order, all on data already bought: (1) re-run the mirror with **midpoint fills on both sides** — the single number that decides it; (2) check the concentration — a handful of overnight gaps carry much of it (5 mirrored trades over +100%, one +339%), and stripping those takes the naive average from about +14.75% to about +11.5%; (3) restate the returns against **what a buyer actually risks** (the debit paid), not against the seller's credit, because the two denominators are different sizes. Only after those three does the sealed 2022-2026 window get opened, and that costs about **$2.81** of the ~$121.52 Databento credit still available.
+- **He wants more than one strategy running.** Consistent with his 2026-09-03 decision to keep the months-long momentum method as an option: a candidate that passes does not replace the others, it joins them. Do not frame future results as a single winner-takes-all choice.
+- **Nothing was executed for either decision this session.** No re-run, no new purchase, no order real or paper, no alert enabled.
+- **Next session starts here:** re-run the condor mirror at midpoint fills on the existing files, then decide about the sealed window.

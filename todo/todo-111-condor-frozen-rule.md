@@ -1,5 +1,11 @@
 # TODO #111 — SPY expected-move iron condor: the frozen rule
 
+> **Superseded on 2026-09-03 for all FUTURE tests:** the owner changed fills to
+> the **midpoint of the bid and ask**. The bid/ask fill rule below is what this
+> completed study actually used and is left unchanged as its record; do not copy
+> it into a new rule. See the newest session note in
+> `todo/profitable-trading-feature-outcome-loop.md`.
+
 **Frozen:** 2026-09-03 (Pacific), before any option outcome was read.
 **Amended the same day, still before any outcome was read** — two selector
 defects found while validating the first downloads: the 37-day target was
