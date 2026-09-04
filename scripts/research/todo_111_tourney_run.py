@@ -45,6 +45,35 @@ DISCOVERY_END = "2018-12-31"
 CONFIRMATION_END = "2021-12-31"
 
 NO_FUND_TEST_IDS = {21, 22, 24, 31, 32}
+
+# Owner's call (2026-09-04, download throttled hard by the provider): a
+# funded test is only ranked once its development sample is actually
+# complete. Mechanism 3's leg download is still far behind (and mechanism 5
+# isn't in this script's scope at all), so it is forced incomplete outright.
+# Beyond that, ANY funded test counts as complete only if its missing-date
+# count (legs not yet downloaded) is at most 2% of the dates its trigger
+# fired on — checked uniformly, not just for mechanism 3, since several
+# mechanism-1/2/4 variants (off-boundary strikes, STRAD/STRANG, S1/S2 RR+)
+# are just as far behind as mechanism 3 is.
+# Mechanism 3 was blanket-excluded while its download was throttled part-way
+# through. The development legs finished on 2026-09-04, so it is now judged on
+# the same 2%-missing-date bar as everything else.
+INCOMPLETE_MECHANISMS = set()
+MAX_MISSING_DATE_PCT = 0.02
+
+
+def classify_completeness(r: dict):
+    """(is_complete, missing_pct) for one funded row. missing_pct is
+    no_minute_data_yet / eligible_weeks (the dates the trigger actually
+    fired on) — never None once a test has fired at least once."""
+    if r["mechanism_id"] in INCOMPLETE_MECHANISMS:
+        return False, None
+    fired = r.get("eligible_weeks") or 0
+    missing = r.get("no_minute_data_yet") or 0
+    if fired == 0:
+        return False, None
+    pct = missing / fired
+    return pct <= MAX_MISSING_DATE_PCT, pct
 NO_FUND_REASONS = {
     21: "sample too small to ever qualify — the trigger fires on 6 development dates against a 30-trade floor",
     22: "sample too small to ever qualify — the trigger fires on 6 development dates against a 30-trade floor",
@@ -344,14 +373,26 @@ def main():
 
     fill_neighbour_flags([r for r in rows if r["test_id"] not in NO_FUND_TEST_IDS])
 
+    for r in rows:
+        if r["test_id"] in NO_FUND_TEST_IDS:
+            continue
+        complete, pct = classify_completeness(r)
+        r["data_complete"] = complete
+        r["missing_date_pct"] = pct
+        if not complete:
+            r["verdict"] = "INCOMPLETE DATA"
+
     json.dump(rows, open(RESULTS_OUT, "w"), indent=1, default=str)
 
     def rank_key(r):
         v = r.get("avg_return_on_max_risk")
         return v if v is not None else float("-inf")
 
-    ranked = sorted((r for r in rows if r["test_id"] not in NO_FUND_TEST_IDS),
+    ranked = sorted((r for r in rows if r["test_id"] not in NO_FUND_TEST_IDS
+                      and r.get("data_complete")),
                      key=rank_key, reverse=True)
+    incomplete = [r for r in rows if r["test_id"] not in NO_FUND_TEST_IDS
+                  and not r.get("data_complete")]
     print(f"{'test':>4} {'mech':>4} {'trigger':>7} {'structure':>10} {'exit':>4} "
           f"{'dev_n':>6} {'no_data':>7} {'win%':>6} {'aft_comm':>9} {'ret/maxrisk':>11} "
           f"{'best_yr%':>9} {'best5%':>7} {'verdict':>20}")
@@ -373,6 +414,21 @@ def main():
     for tid in sorted(NO_FUND_TEST_IDS):
         r = next(x for x in rows if x["test_id"] == tid)
         print(f"{tid:>4}  (not funded) — {r['verdict']}: {r['rejection_reason']}")
+
+    print(f"\nINCOMPLETE DATA — excluded from ranking, unfinished not good or bad "
+          f"({len(incomplete)} tests):")
+    print(f"{'test':>4} {'mech':>4} {'trigger':>7} {'structure':>10} {'exit':>4} "
+          f"{'fired':>6} {'no_data':>7} {'missing_pct':>11}")
+    for r in sorted(incomplete, key=lambda r: r["test_id"]):
+        pct = r.get("missing_date_pct")
+        print(f"{r['test_id']:>4} {r['mechanism_id']:>4} {r['trigger']:>7} {r['structure']:>10} "
+              f"{r['exit_code']:>4} {r.get('eligible_weeks', 0):>6} "
+              f"{r.get('no_minute_data_yet', 0):>7} "
+              f"{(f'{pct:.1%}' if pct is not None else '-'):>11}")
+
+    print(f"\nCOMPLETE (missing-date count <= 2% of fired dates) — the only tests "
+          f"a finalist may be frozen from ({len(ranked)} tests):")
+    print("  " + ", ".join(str(r["test_id"]) for r in sorted(ranked, key=lambda r: r["test_id"])))
 
     print("\nmax simultaneous risk, top 10 by rank:")
     for r in ranked[:10]:

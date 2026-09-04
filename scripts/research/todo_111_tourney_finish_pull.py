@@ -20,8 +20,10 @@ import todo_111_tourney_pull as P
 import databento as db
 
 TOURNEY = "/home/openclaw/.openclaw/research-data/todo-111-tournament"
-MANIFESTS = ("manifest_dev_legs", "events_manifest_legs")
-DEADLINE_S = 420        # requests got much slower mid-run; this is generous on purpose
+# Sealed chain snapshots are structural only — they say where the strikes are.
+# No sealed OUTCOME is read by this script; that is todo_111_tourney_sealed.py.
+MANIFESTS = ("manifest_dev_legs", "events_manifest_legs", "manifest_sealed")
+DEADLINE_S = 150        # a single-contract request runs 3-25s; this is generous
 
 
 def sweep_parts():
@@ -30,7 +32,7 @@ def sweep_parts():
         os.remove(p)
 
 
-CHUNK = 4       # contracts per request; keeps each one inside the deadline
+CHUNK = 1       # one contract per request; anything larger stalls server-side
 
 
 def split(job) -> list:
