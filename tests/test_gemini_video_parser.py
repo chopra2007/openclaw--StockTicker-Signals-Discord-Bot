@@ -1074,7 +1074,11 @@ async def test_extract_evidence_chunked_budget_abort_keeps_partial():
     ]
 
     with patch("consensus_engine.analysis.gemini_video_parser._get_available_gemini_client",
-               return_value=(mock_client, "GEMINI_API_KEY")):
+               return_value=(mock_client, "GEMINI_API_KEY")), \
+         patch("consensus_engine.analysis.gemini_video_parser._get_gemini_keys",
+               return_value=["GEMINI_API_KEY"]), \
+         patch("consensus_engine.utils.rate_limiter.rate_limiter.acquire",
+               new=AsyncMock(return_value=True)):
         bundle, tel = await _extract_evidence_chunked(
             "vid-abort", "Chan", "2026-06-10T00:00:00Z",
             media_resolution="low",
@@ -1170,4 +1174,3 @@ async def test_extract_evidence_with_gemini_short_video_single_call():
     assert bundle is not None
     # Exactly 1 call: unchunked path for short video
     assert mock_client.models.generate_content.call_count == 1
-

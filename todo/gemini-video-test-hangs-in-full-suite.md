@@ -1,14 +1,14 @@
 # One Gemini video test hangs and stalls the whole test run
 
-**Status:** OPEN
+**Status:** DONE 2026-09-04
 **Created:** 2026-08-27
 
-**CURRENT STATUS (2026-08-27):** A single test —
-`tests/test_gemini_video_parser.py::test_extract_evidence_chunked_budget_abort_keeps_partial`
-— never finishes. Because pytest runs tests one after another, it does not just
-fail: it **stops the entire suite** at roughly the 45% mark, so nothing after it
-is checked at all. Next: find what it waits on and give it a bounded fake
-instead of the real thing.
+**CURRENT STATUS (2026-09-04):** Fixed and verified. The frozen test now limits
+the fake Gemini client to one key and bypasses live request pacing, so an
+exhausted mock cannot leave a worker waiting forever. The Gemini video file
+passes 69 tests, and the complete suite reaches 100% with 3,837 passed and 11
+skipped. `pytest-timeout` is recorded in `requirements-dev.txt`, with a default
+120-second test limit in `pytest.ini` so a future freeze fails visibly.
 
 ## Why we know it is not new
 
@@ -47,4 +47,9 @@ suite. Any real regression hiding in that half would go unnoticed.
 
 - `tests/test_gemini_video_parser.py`
 - `consensus_engine/scanners/` — whichever module the test drives
-- `pytest.ini`, `requirements.txt`
+- `pytest.ini`, `requirements-dev.txt`
+
+### Session notes — 2026-09-04
+- **Worked on:** reproduced the freeze under a 20-second cap, bounded the test's fake key and request pacing, and added the recorded 120-second default test limit.
+- **Decisions:** changed only the affected test plus `pytest.ini` and `requirements-dev.txt`; production Gemini code did not need a change.
+- **Next:** none; focused and complete test runs pass.

@@ -945,16 +945,16 @@ Decide honestly whether buying a put on the morning extreme-PUT shortlist is a r
 
 Make Codex and Claude challenge whether a proposed test measures the owner's real-world result before they plan, build or approve any future feature.
 
-## 102. Fix the one test that freezes the whole test run
+## 102. Fix the one test that freezes the whole test run — DONE 2026-09-04
 
 **File:** `gemini-video-test-hangs-in-full-suite.md`
 
-**CURRENT STATUS (2026-08-27):** A single test —
-`tests/test_gemini_video_parser.py::test_extract_evidence_chunked_budget_abort_keeps_partial`
-— never finishes. Because pytest runs tests one after another, it does not just
-fail: it **stops the entire suite** at roughly the 45% mark, so nothing after it
-is checked at all. Next: find what it waits on and give it a bounded fake
-instead of the real thing.
+**CURRENT STATUS (2026-09-04):** Fixed and verified. The frozen test now limits
+the fake Gemini client to one key and bypasses live request pacing, so an
+exhausted mock cannot leave a worker waiting forever. The Gemini video file
+passes 69 tests, and the complete suite reaches 100% with 3,837 passed and 11
+skipped. `pytest-timeout` is recorded in `requirements-dev.txt`, with a default
+120-second test limit in `pytest.ini` so a future freeze fails visibly.
 
 Make the frozen Gemini video test finish on its own, and add a time limit so a future hang fails in seconds instead of silently skipping half the tests.
 
