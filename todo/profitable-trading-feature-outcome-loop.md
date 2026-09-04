@@ -2,7 +2,65 @@
 **Status:** OPEN
 **Created:** 2026-08-29
 
-**CURRENT STATUS (2026-09-03, latest):** The **option half is no longer
+**CURRENT STATUS (2026-09-04, latest):** The **option tournament ran to
+completion** — 58 frozen tests over 7 mechanisms, 37 with fundable samples, and
+**all 37 now have complete data**. **Two different money-making mechanisms
+were found, and they are not the same trade.** (1) **Buy a call spread when SPY
+is already rising and let the winner run** — buy an at-the-money call, sell a
+further-out one to cheapen it, take profit at +100% with no stop inside 14 days:
+at a 60-day high in a calm market **54 trades, 68.5% wins, +18.28% a trade after
+commission, profit factor 2.29**; on a 12-month momentum uptrend **121 trades,
+65.3%, +12.12%**. (2) **Sell a put spread when the options market is charging a
+lot for fear**, with the stop at -200% of the credit: **265 trades, 84.5% wins,
++14.31% a trade**, worst losing run $708 against $2,596 made. **Nothing is
+proven** — the sealed 2022-2026 test is frozen, its data is downloading, it has
+NOT run.
+
+**An important correction to my own earlier conclusion this session.** Partway
+through, the data provider throttled us (4.4GB, 1,172 requests, 7 seconds a
+request becoming minutes) and the call-spread mechanism was left
+half-downloaded. On that partial data it was TOP of the table, so I excluded it
+— a half-downloaded sample is not a random one — and froze five finalists that
+were **all put credit spreads**, writing that "the edge is one-sided". The
+download then finished, and on complete data **the call spreads are the best
+mechanism in the tournament, about eight times better per dollar at risk than
+the best put spread**. The finalists were re-frozen (commit `2bdc8e1`,
+superseding `25faa1c`) as **1, 11, 26, 28, 40** across three mechanisms and two
+structures. Revising was legitimate because no sealed outcome had been read, but
+the earlier list was a product of missing data.
+
+**A pattern that showed up twice and is worth knowing:** both winning
+mechanisms work in ONE direction only and the mirror of each loses money —
+selling put spreads works while selling call spreads loses (-11.47%, -29.30%),
+and buying call spreads in an uptrend works while buying put spreads in a
+downtrend loses badly (-8.87%, -17.23%, -3.47%). Do not assume a "bearish
+version" of a working rule will work.
+
+**What lost money, settled on complete data rather than excluded for a gap:**
+every volatility-buying test (straddles and strangles, -0.75% to -6.00%), every
+call credit spread at every boundary, the iron condors (best makes $764 against
+a $1,984 drawdown), and every downside directional spread.
+
+**Three defects were found and fixed, all in rules I wrote, all recorded as
+dated amendments before the outcomes that could have motivated them:** the event
+trigger compared a ten-day option price against a one-day stock move so "options
+look cheap" could never fire (sample went from 0/181 to 101/77 once corrected);
+six releases fall on Good Friday when the market is shut and one gap poisoned
+the next twelve readings (44 dates looked broken, only 6 were); and mechanism 6
+had no expiry window. Mechanism 6's selection gate PASSED a three-way
+reconstruction test but its data was never bought.
+
+Spent **$5.09** this session, **$8.57** of the $20 ceiling in total, $5 sealed
+reserve intact. Nothing live, no order real or paper. Write-ups:
+`todo/todo-111-tournament-result.md`,
+`todo/todo-111-tournament-finalists.md`,
+`todo/todo-111-tournament-frozen-matrix.md`. **Next session starts here:** the
+event legs and the 242 sealed chain snapshots are downloading; when they land,
+run `python3 scripts/research/todo_111_tourney_sealed.py evaluate 1 11 26 28 40`
+(about $2.75), then have a reviewer who did not write the code reproduce any
+sealed winner. Prior status:
+
+**CURRENT STATUS (2026-09-03):** The **option half is no longer
 blocked**, and the session ended with **two owner decisions that change how the
 next test is run**. With the owner's Databento authorisation, minute-level
 option bid/ask was bought for the first time in this project — $3.4836 of a $20
