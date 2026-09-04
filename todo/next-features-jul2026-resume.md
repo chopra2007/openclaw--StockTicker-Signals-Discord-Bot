@@ -3,13 +3,13 @@
 **Status:** OPEN — 13 of 14 switch decisions are resolved; only the NFCI score decision remains.
 **Created:** 2026-07-06
 
-**CURRENT STATUS (2026-08-17):** 13 of 14 decisions are resolved and live. The short-interest score
-bump is intentionally off for good; a display-only squeeze tag is on instead. NFCI now appears in
-plain language in `!market` and on unusual detail cards, while its score multiplier remains off.
-The stored records cannot support a valid NFCI score replay because they lack each candidate's
-effective cutoff, complete inputs and weights, and point-in-time NFCI value and date. The remaining
-work is to record those fields for every candidate, then collect at least 12 weekly NFCI readings and
-100 candidates within five points of the cutoff before making the final NFCI score decision.
+**CURRENT STATUS (2026-09-04):** 13 of 14 decisions are resolved and live. The short-interest score
+bump is intentionally off for good; a display-only squeeze tag is on instead. NFCI appears in plain
+language, while its score multiplier remains off. The live database has four distinct weekly NFCI
+readings, from 2026-08-07 through 2026-08-28, against the required 12. It has 1,132 general
+measurement candidates, but zero can count toward the required 100 near-cutoff candidates because
+the records still do not store each candidate's effective cutoff, complete inputs and weights, and
+point-in-time NFCI value and date. Keep collecting; do not weaken or decide the score gate early.
 
 **PREVIOUS STATUS (2026-08-16):** **User: "flip all switches live except for 11 and 14."** Flipped 12 of the
 14 pending switches ON in `config/consensus.yaml`: `sources_denominator`, `trading_halts`, `skew_index`,
@@ -182,3 +182,9 @@ Resumed the run and took it all the way through the plan + first build stage.
 - **Worked on:** Replaced the short-interest score proposal with a live squeeze tag, added the live NFCI note, measured the stored decision history, and verified both displays in Discord.
 - **Decisions:** The short-interest score bump stays off for good. The NFCI score multiplier stays off because the stored records cannot reproduce a valid before-and-after decision.
 - **Next:** Record complete per-candidate score inputs, weights, cutoff, timestamp, and NFCI value/date; then collect at least 12 weekly readings and 100 near-cutoff candidates before deciding the NFCI score multiplier.
+
+### Session notes — 2026-09-04
+
+- **Worked on:** Refreshed the NFCI gate from the live database only. No feature, score, alert, or switch changed.
+- **Proof:** Four of 12 required weekly readings exist. The candidate table has 1,132 rows, but its record shape has no effective cutoff or point-in-time NFCI fields, so zero rows meet the complete near-cutoff proof requirement.
+- **Next:** Add the already-recorded missing candidate fields through its own future build, then wait for 12 readings and 100 complete near-cutoff candidates. Do not weaken the gate.

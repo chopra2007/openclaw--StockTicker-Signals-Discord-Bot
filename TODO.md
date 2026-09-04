@@ -474,13 +474,13 @@ short_interest.enabled.
 
 **Switches:** features.trading_halts.enabled=on; features.skew_index.enabled=on; features.dealer_gamma.enabled=on; features.iv_skew.enabled=on; features.oi_pinning.enabled=on; features.iv_rv_tag.enabled=on; features.vol_squeeze.enabled=on; features.market_breadth.enabled=on; features.market_breadth.shadow=on; features.short_interest.enabled=off; features.short_interest.squeeze_tag=on; features.short_interest.collect=on; features.pead.enabled=on; features.form144.enabled=on; features.insider_10b5_plans.enabled=on; features.congress_trades.enabled=on; features.cross_asset.nfci_leg_enabled=on; features.cross_asset.nfci_note=on; features.sources_denominator.enabled=on; features.vvix_residual.enabled=on; features.vvix_residual.collect=on; features.sweep.enabled=on
 
-**CURRENT STATUS (2026-08-17):** 13 of 14 decisions are resolved and live. The short-interest score
-bump is intentionally off for good; a display-only squeeze tag is on instead. NFCI now appears in
-plain language in `!market` and on unusual detail cards, while its score multiplier remains off.
-The stored records cannot support a valid NFCI score replay because they lack each candidate's
-effective cutoff, complete inputs and weights, and point-in-time NFCI value and date. The remaining
-work is to record those fields for every candidate, then collect at least 12 weekly NFCI readings and
-100 candidates within five points of the cutoff before making the final NFCI score decision.
+**CURRENT STATUS (2026-09-04):** 13 of 14 decisions are resolved and live. The short-interest score
+bump is intentionally off for good; a display-only squeeze tag is on instead. NFCI appears in plain
+language, while its score multiplier remains off. The live database has four distinct weekly NFCI
+readings, from 2026-08-07 through 2026-08-28, against the required 12. It has 1,132 general
+measurement candidates, but zero can count toward the required 100 near-cutoff candidates because
+the records still do not store each candidate's effective cutoff, complete inputs and weights, and
+point-in-time NFCI value and date. Keep collecting; do not weaken or decide the score gate early.
 
 **CURRENT STATUS (2026-07-07):** Ran the FULL discover pipeline, well past "just the menu". Passes 1–4 done: 113 ideas → triaged to 34 with merit → kill-tested the strong 27 (24 survived, 3 killed, 0 Codex-disputed) → planned the top 16 into a 6-stage build. **Stage 1 of 6 SHIPPED** — commit `f2b0b7d` (local, not pushed until this close): r14 trading-halt tripwire + r8 ^SKEW module, both config-flag **OFF**; a live-probe caught+fixed a redirect bug the green unit tests missed; full suite 2655 pass. **Stages 2–6 (14 features) set to run AUTONOMOUSLY** next session via the one-line trigger `discover: build next-features-jul2026` (everything ships OFF; go-live stays a separate user decision). Both former data-blockers SOLVED this session: House congress trades via `disclosures-clerk.house.gov` (index + machine-readable PTR PDFs), and market breadth via an RSP/SPY equal-weight proxy (2 tickers, no 500-name fan-out); only the Senate half of congress remains deferred. Resume brief with exact recipes: `todo/kickoffs/discover-next-features-resume.md`; run state: `.claude/discover/next-features-jul2026/`.
 
