@@ -105,3 +105,28 @@ python3 scripts/research/todo_111_tourney_sealed.py evaluate 1 11 26 28 40
 
 which refuses to run without an explicit finalist list and stamps that list and
 a timestamp into its output before it opens a single leg file.
+
+## Sealed sample sizes — known before the test runs
+
+From `selection_sealed.json`, built before any sealed outcome was read:
+
+| # | sealed dates its trigger fires on |
+|---|---|
+| 1 | 160 |
+| 11 | 160 |
+| 26 | 58 |
+| 28 | 32 |
+| 40 | resolves once the chain snapshots land |
+
+This is stated in advance because it caps what the sealed test can prove.
+**HISTORICAL WINNER needs at least 100 sealed trades.** Only tests 1 and 11 can
+reach that bar. Tests 26 and 28 — the best-performing mechanism on development —
+**cannot become historical winners in this run whatever they return**, because
+the trigger simply does not fire often enough in 2022-2026. Test 28 in
+particular has 32 sealed dates against a 30 floor, so a handful of skips would
+put it under.
+
+That is a limit of the sample, not a verdict. If the call spreads come through
+the sealed period positive, the honest label stays **PROMISING, NOT PROVEN** and
+the right next step is more history — the grid could be widened beyond one entry
+per week — rather than a claim the data cannot support.
