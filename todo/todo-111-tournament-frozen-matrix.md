@@ -430,3 +430,155 @@ stability across time, then drawdown, then win rate. Never by win rate alone.
   `a7aefb340cf21b437f5dab2c6c0572fbc7bf852689263399b559e0d4f717c4cd`
 - This file was committed before any new option outcome was computed. The
   commit that adds it is the freeze timestamp.
+
+---
+
+## 15. Amendment 1 — 2026-09-03, before any new outcome was read
+
+Two facts found while inventorying what is on disk. Both are recorded here
+before a single new option outcome exists.
+
+**(a) Mechanism 6 sits inside the sealed calendar, but not on SPY.** The
+put-flow morning shortlist covers **2026-06-01 to 2026-08-14** — 188 frozen
+candidates over 53 signal dates and 88 individual stocks
+(`.omc/research/put-flow-option-trade-system/frozen-candidates.csv`, rule hash
+`5b7cfcc12ec454113bb7b5bdb7713938d8f129f21977e252b175d2db9ab98427`). Those
+dates fall inside 2022–2026, but the trades are on **individual stocks, never
+SPY**, so running them does not open or contaminate the sealed SPY window that
+mechanisms 1–5 and 7 are judged on. Mechanism 6 therefore runs, and its verdict
+can be at best **PROMISING, NOT PROVEN**: one market regime, eleven weeks, no
+development-versus-sealed split is possible. It gets no development or
+confirmation claim and it may not be called a historical winner.
+
+**(b) Mechanism 5 needs a calendar that does not exist on disk.** The only
+stored economic calendar, `consensus_engine/data/macro_events.yaml`, covers
+May to December 2026 only. The 2013–2026 FOMC, CPI and jobs-report dates are
+being rebuilt from the primary published sources (federalreserve.gov and
+bls.gov) into
+`research-data/todo-111-tournament/event_calendar.json`. Release dates are
+published months ahead, so using them is not future information. If a class
+cannot be verified for a year, that year is dropped from that class rather than
+guessed, and the gap is reported.
+
+---
+
+## 16. Amendment 2 — 2026-09-04, before any new outcome was read
+
+**Mechanism 6 needs an expiry window and section 0.4 does not give it one.**
+Ruled now, before any put-flow option price has been looked at.
+
+- **Window: 25 to 60 calendar days, target 37, deepest-quoted expiry**, using the
+  same "most quoted strikes at the entry minute, ties to the target" rule as
+  every other mechanism.
+- Reason, stated before the outcome: individual stocks list far fewer expiries
+  than SPY. Outside the monthly cycle a 30-45 day window is simply empty in many
+  months, which would throw away trades for a calendar reason rather than an
+  economic one. 25-60 spans one monthly cycle either side of the 37-day target
+  and is within a week of the put-flow project's own frozen rule (earliest
+  listed expiry at least 7 days beyond the planned exit, at most 45 days from
+  entry).
+- This window is fixed for all four mechanism-6 tests and is not retuned.
+
+**The mechanism-6 selection gate is PASSED, with evidence.** The morning
+shortlist can be reconstructed from records that existed that morning:
+
+- all 188 rows carry a `detected_at` stamp, every one on the signal day and
+  hours before the next-morning entry — 0 failures;
+- the ranking inputs are the values from the first scan that flagged the
+  contract on day D, with open interest being the prior day's settled figure,
+  and the trade enters on D+1, so nothing unknowable at entry is used;
+- the underlying `options_flow` table is append-only apart from an "alerted"
+  flag;
+- the one real look-ahead risk — the freeze script having kept only events that
+  already had a five-day forward move on file — was tested by rebuilding the
+  list three ways (as frozen, with that filter off, and straight from the raw
+  scan table with no outcome join). All three produce the identical 188 rows in
+  the identical order, and the frozen fingerprint `5b7cfcc1…98427` matches. The
+  filter only decided where the sample ENDS; it never reshuffled a day's picks.
+
+Mechanism 6's verdict ceiling remains **PROMISING, NOT PROVEN** per amendment 1:
+eleven weeks, one market regime, no development-versus-sealed split.
+
+**Correction to a path in section 13's neighbourhood:** the frozen candidate
+file is `.omc/research/extreme-put-flow-morning-shortlist/frozen-candidates.csv`,
+not the put-flow-option-trade-system folder.
+
+---
+
+## 17. Amendment 3 — 2026-09-04, before any mechanism-5 return was computed
+
+**The mechanism-5 trigger as I first wrote it has a units error, and it is my
+error, not a market finding.** Section 5 compared
+
+- `implied_event_move` = the at-the-money straddle price divided by spot — the
+  move the options market is pricing over the option's **whole remaining life**,
+  about 10 trading days; against
+- `historical_event_move` = the median absolute return on the release day
+  itself — a **one-day** move.
+
+A ten-day price is naturally several times a one-day move, so the ratio came out
+between about 2.5 and 4 on every date checked. E1 (`ratio <= 0.90`) can
+therefore never fire and E2 (`ratio >= 1.30`) fires almost automatically. Tests
+43, 45, 47 and 49 were empty by construction rather than by evidence, and test
+50 was not really testing "sell when the market is charging too much" — it was
+testing "always sell before an event".
+
+This was found while computing the trigger only. **No mechanism-5 trade return
+had been computed, and none has been looked at.** The fix is therefore recorded
+here before the outcome it could have been chosen to flatter.
+
+**The corrected comparison — both sides on a one-day clock.** At the entry
+minute, with `T` = the number of trading days from entry to the option's
+expiry:
+
+- `sigma_implied_period = (mid(ATM call) + mid(ATM put)) / spot / 0.7979`
+- `sigma_implied_1d     = sigma_implied_period / sqrt(T)`
+- `sigma_historical_1d  = median(|close-to-close return on the release day|
+   over that class's previous 12 occurrences) / 0.6745`
+- `ratio = sigma_implied_1d / sigma_historical_1d`
+
+**E1 stays `ratio <= 0.90`. E2 stays `ratio >= 1.30`.** The decision thresholds
+are unchanged; only the two quantities being compared are put on the same clock.
+
+The two constants are fixed properties of the normal distribution, not tuned
+numbers: a straddle costs about `0.7979` standard deviations, and the median
+absolute value of a normal variable is about `0.6745` standard deviations. Both
+are declared here in advance and neither may be adjusted afterwards.
+
+Everything else in section 5 is unchanged: the entry is still the last session
+before the release, the expiry window is still 5 to 20 days, the historical
+window is still the previous 12 occurrences of that same class with no peeking,
+and the exit is still the sooner of the exit set's cap and the close of the
+second session after the release.
+
+### 17a. Addendum to amendment 3 — the Good Friday releases
+
+Also settled before any mechanism-5 return was computed. Six CPI or jobs
+reports in range are published on **Good Friday**, a day the government
+publishes but the stock market is shut: 2015-04-03, 2017-04-14, 2020-04-10,
+2021-04-02, 2023-04-07 and 2026-04-03. There is no closing price on a day the
+market never opened, so the release-day move could not be measured — and
+because each missing reading sits inside the trailing twelve-release history,
+one hole knocked out the following twelve releases of that class as well. That
+is why 44 dates first appeared unusable when only 6 were.
+
+**Rule, fixed here:** when a release falls on a day with no session, the
+release-day move is measured from the **last close before the release** to the
+**first close after it** — usually the following Monday. Both prices are real
+recorded closes; nothing is invented and no session is fabricated. After this,
+zero development dates are dropped for a missing price in any class.
+
+**Effect of amendment 3 plus this addendum on the sample**, computed before any
+return was read:
+
+| class | dates | E1 "cheap" fires | E2 "rich" fires | neither |
+|---|---|---|---|---|
+| FOMC | 59 | 15 | 34 | 7 |
+| CPI | 96 | 43 | 26 | 24 |
+| jobs report | 96 | 43 | 17 | 33 |
+| **pooled (tests 49, 50)** | **251** | **101** | **77** | — |
+
+Test 49 clears the 100-development-trade bar; test 50 falls short at 77 and
+therefore cannot reach HISTORICAL WINNER, whatever it returns. A further 9
+dates fired E2 but could not be built because a required $5-wider strike was
+not listed, which is section 0.4's own skip condition.
