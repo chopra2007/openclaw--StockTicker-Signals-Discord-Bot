@@ -866,13 +866,13 @@ Get `MEMORY.md` back under its own 17KB working limit so the notes loaded into e
 
 **File:** `extreme-put-flow-morning-shortlist.md`
 
-**CURRENT STATUS (2026-08-27):** Unchanged and still running. Entries filled
-again this morning — AMD at $474.01 and META at $570.44, both easy to borrow,
-closing 2026-09-02. The portfolio verdict below is the one that still stands:
-run as a real overlapping account it clears six of seven frozen checks and
-**fails the seventh once a harsh 20%-a-year borrowing fee is charged**. The
-signal rule was not retuned and nothing here was changed. Stays owner-only and
-stays soaking.
+**CURRENT STATUS (2026-09-04):** Unchanged, owner-only, and still soaking until
+2026-09-26. The live table has 14 closed positions and 14 open positions. Four
+of the open positions are due to close at 6:35 a.m. Pacific today; the others
+are due September 8–10. This is accumulation only, not the frozen evaluation.
+The portfolio verdict below still stands: the feature clears six of seven
+checks and fails the seventh under a harsh 20%-a-year borrowing fee. The signal
+rule was not retuned and no order was placed.
 
 Turn yesterday's most extreme PUT activity into zero to four stocks to short against SPY each morning, while displaying the existing BUY/SELL classification honestly.
 

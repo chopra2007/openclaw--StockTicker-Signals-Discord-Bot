@@ -3,13 +3,13 @@
 **Status:** SOAKING until 2026-09-26
 **Created:** 2026-08-24
 
-**CURRENT STATUS (2026-08-27):** Unchanged and still running. Entries filled
-again this morning — AMD at $474.01 and META at $570.44, both easy to borrow,
-closing 2026-09-02. The portfolio verdict below is the one that still stands:
-run as a real overlapping account it clears six of seven frozen checks and
-**fails the seventh once a harsh 20%-a-year borrowing fee is charged**. The
-signal rule was not retuned and nothing here was changed. Stays owner-only and
-stays soaking.
+**CURRENT STATUS (2026-09-04):** Unchanged, owner-only, and still soaking until
+2026-09-26. The live table has 14 closed positions and 14 open positions. Four
+of the open positions are due to close at 6:35 a.m. Pacific today; the others
+are due September 8–10. This is accumulation only, not the frozen evaluation.
+The portfolio verdict below still stands: the feature clears six of seven
+checks and fails the seventh under a harsh 20%-a-year borrowing fee. The signal
+rule was not retuned and no order was placed.
 
 New this session, sitting on top and only observing: TODO #100 now picks an
 option contract at 6:35 and watches it. It never picks, ranks, delays or rejects
@@ -368,3 +368,9 @@ minute trade path is often still buyable. See TODO #100.
 One number from today worth carrying: at 6:35 the near-the-money puts on AMD and
 META were quoted 14% to 48% apart. The stock trade works at 6:35 because a stock
 has one price. The option version may not be tradeable at that moment at all.
+
+## Session notes — 2026-09-04
+
+- **Worked on:** Refreshed the soak record from the live position table only. The frozen rule and running jobs were not changed.
+- **Proof:** 14 positions are closed and 14 are open. The watch, trade, and proof timers are active. Four open positions are due to close at 6:35 a.m. Pacific today.
+- **Next:** Keep collecting unchanged until the recorded 2026-09-26 evaluation gate. Do not judge or retune early.
