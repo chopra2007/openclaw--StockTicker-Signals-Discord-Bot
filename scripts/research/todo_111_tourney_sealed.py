@@ -40,6 +40,7 @@ from datetime import datetime, timezone
 sys.path.insert(0, os.path.dirname(__file__))
 import todo_111_tourney_core as core        # noqa: E402
 import todo_111_tourney_select as tsel      # noqa: E402
+import todo_111_tourney_pull as P          # noqa: E402
 import todo_111_tourney_run as trun         # noqa: E402
 
 TOURNEY = "/home/openclaw/.openclaw/research-data/todo-111-tournament"
@@ -89,10 +90,21 @@ def skew_dates_for_sealed(trig: dict):
     date lists are provisional and must not be trusted as final.
     """
     combined = dev_grid(trig) + sealed_grid(trig)
-    s1, s2, missing, _n = tsel.compute_skew_triggers(combined)
+    s1, s2, unusable, _n = tsel.compute_skew_triggers(combined)
+    # `unusable` counts dates with no usable reading, which is NOT the same as
+    # a snapshot that has not been bought. Frozen matrix 0.10 already settles
+    # the first case: a date with no usable reading is never a trigger date and
+    # contributes nothing to the history. Only an ABSENT FILE makes the lists
+    # provisional, because buying it could still change them.
+    absent = sum(1 for _sd, entry_day, _c14, _c7 in combined
+                 if not os.path.exists(P.chain_path(entry_day)))
+    if unusable and not absent:
+        print(f"NOTE: {unusable} grid dates have a snapshot but no usable skew "
+              f"reading. Per frozen matrix 0.10 they are skipped and contribute "
+              f"nothing; they do not block the trigger.", flush=True)
     return ([d for d in s1 if d >= SEALED_START],
             [d for d in s2 if d >= SEALED_START],
-            missing)
+            absent)
 
 
 # --------------------------------------------------------------- manifest

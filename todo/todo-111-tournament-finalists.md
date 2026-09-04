@@ -110,13 +110,22 @@ a timestamp into its output before it opens a single leg file.
 
 From `selection_sealed.json`, built before any sealed outcome was read:
 
-| # | sealed dates its trigger fires on |
-|---|---|
-| 1 | 160 |
-| 11 | 160 |
-| 26 | 58 |
-| 28 | 32 |
-| 40 | resolves once the chain snapshots land |
+| # | sealed dates its trigger fires on | of those, buildable |
+|---|---|---|
+| 1 | 160 | 145 |
+| 11 | 160 | 145 |
+| 26 | 58 | 58 |
+| 28 | 32 | 31 |
+| 40 | 113 | 97 |
+
+Test 40 briefly showed as BLOCKED with zero fire dates. That was a defect in the
+sealed script's gate, not a fact about the market: it treated "this date has a
+snapshot but no usable skew reading" the same as "this snapshot has not been
+bought", and refused to produce any dates while either was true. All 660 grid
+snapshots are on disk; 5 dates simply have no quotable strikes at the 1.0x
+boundary. Frozen matrix 0.10 already settles that case — such a date is never a
+trigger date and contributes nothing to the history — so the gate now blocks
+only on a genuinely absent file. Fixed before any sealed outcome was read.
 
 This is stated in advance because it caps what the sealed test can prove.
 **HISTORICAL WINNER needs at least 100 sealed trades.** Only tests 1 and 11 can
