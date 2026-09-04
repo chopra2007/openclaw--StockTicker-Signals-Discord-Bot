@@ -889,19 +889,19 @@ See "All three follow-ups are now DONE" below.
 
 Find genuinely new ways to pick zero to four high-probability trades each morning, and honestly report that none of the six tested methods worked.
 
-## 98. Prove the morning trade works as a portfolio, start saving option and borrow data, and fix two overstated displays
+## 98. Prove the morning trade works as a portfolio, start saving option and borrow data, and fix two overstated displays — DONE 2026-09-04
 
 **File:** `live-edge-portfolio-and-data-gap-closure.md`
 
-**CURRENT STATUS (2026-08-27):** The part this item was holding open — "would
-buying a put have made money?" — has now been asked properly by TODO #100 and
-came back **INSUFFICIENT DATA**. A frozen rule, a contract selector and a live
-monitor all exist; what does not exist is the historical price record needed to
-judge them, and it cannot be bought without an owner account. Two overstated
-claims in this file were corrected: exact past bid and ask really are gone, but
-an approximate minute trade path is often still purchasable. Forward option and
-borrow collection continues unchanged, and 2026-09-01 is still the first exit
-with a complete entry-and-exit option quote pair.
+**CURRENT STATUS (2026-09-04):** Complete. The promised September 1 milestone
+landed for DKS, SUI, MSTR, and MARA: each has real entry, daily-mark, exit, and
+borrow rows. A direct raw-row check of the DKS September 18 $120 put found
+$4.90/$5.10 at entry and $0.60/$0.80 at exit; buying at $5.10 and selling at
+$0.60 lost $450 per contract, or 88.235%. Its entry and exit borrow rows were
+fresh, shortable, not hard to borrow, and stored raw rate 0.0 with units still
+labelled UNKNOWN. Collection remains live. The 13 display-honesty tests confirm
+the expected-move and options-flow wording still tells the truth. No frozen
+signal rule was changed or retuned.
 
 Measure what an account actually does when up to four of the morning PUT-flow trades overlap, begin saving the option prices and borrow costs that no past session ever stored, and correct the expected-move and options-flow wording the bot currently overstates.
 

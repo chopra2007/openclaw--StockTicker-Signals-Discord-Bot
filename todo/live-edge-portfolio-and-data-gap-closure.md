@@ -1,17 +1,17 @@
 # Portfolio proof, forward option/borrow data, and honest displays
 
-**Status:** OPEN — the option question is now answered (INSUFFICIENT DATA, TODO #100); collection stays live; first closed trade with a full option quote pair due 2026-09-01
+**Status:** DONE 2026-09-04
 **Created:** 2026-08-25
 
-**CURRENT STATUS (2026-08-27):** The part this item was holding open — "would
-buying a put have made money?" — has now been asked properly by TODO #100 and
-came back **INSUFFICIENT DATA**. A frozen rule, a contract selector and a live
-monitor all exist; what does not exist is the historical price record needed to
-judge them, and it cannot be bought without an owner account. Two overstated
-claims in this file were corrected: exact past bid and ask really are gone, but
-an approximate minute trade path is often still purchasable. Forward option and
-borrow collection continues unchanged, and 2026-09-01 is still the first exit
-with a complete entry-and-exit option quote pair.
+**CURRENT STATUS (2026-09-04):** Complete. The promised September 1 milestone
+landed for DKS, SUI, MSTR, and MARA: each has real entry, daily-mark, exit, and
+borrow rows. A direct raw-row check of the DKS September 18 $120 put found
+$4.90/$5.10 at entry and $0.60/$0.80 at exit; buying at $5.10 and selling at
+$0.60 lost $450 per contract, or 88.235%. Its entry and exit borrow rows were
+fresh, shortable, not hard to borrow, and stored raw rate 0.0 with units still
+labelled UNKNOWN. Collection remains live. The 13 display-honesty tests confirm
+the expected-move and options-flow wording still tells the truth. No frozen
+signal rule was changed or retuned.
 
 **Two independent verification passes ran, and both found real problems** —
 which is the point of running them:
@@ -377,3 +377,9 @@ stated separately, and a trade-price bar is never called a quote.
 Forward option and borrow collection continues unchanged. The 2026-09-01 exit for
 DKS, SUI, MSTR and MARA is still the first trade in this project's history with
 a complete entry AND exit option quote pair.
+
+### Session notes — 2026-09-04
+
+- **Worked on:** inspected the due September 1 entry, mark, exit, option, and borrow rows directly in `consensus.db`; recomputed one complete DKS option quote pair from raw rows; checked current timer logs and the two corrected displays.
+- **Decisions:** closed #98 because its final promised milestone landed for all four named trades; continued collection belongs to the running #96/#100 measurements and does not keep this repair item open.
+- **Next:** none for #98; do not alter #96's frozen rule from these results.
