@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+# openclawupdate — update OpenClaw on this host.
+#
+# Three local facts make the one-shot `openclaw update` fail here:
+#
+#   1. The gateway is owned by a system-wide systemd unit. OpenClaw can only
+#      inspect a unit belonging to a login account, so it refuses to replace
+#      program files while something it cannot see may restart them.
+#      -> we stop and start the unit ourselves and pass --no-restart.
+#
+#   2. The program tree /usr/lib/node_modules is root-owned, so the openclaw
+#      account fails with "EACCES ... mkdtemp" and cannot stage the install.
+#      -> phase 1 (the program files) runs as root, and every state file root
+#         touched on the way is handed back to the openclaw account after.
+#
+#   3. Run as root, the plugin check compares each plugin folder's owner
+#      against root and wrongly calls all four local plugins "blocked", so the
+#      plugin step fails. Run as the openclaw account it is fine.
+#      -> phase 2 (plugins + doctor) runs as the openclaw account.
+#
+# Expect noisy "Failed to update <plugin>" lines during phase 1. Phase 2 is the
+# one that counts; the closing summary tells you whether it worked.
+set -uo pipefail
+
+UNIT=openclaw-gateway.service
+ACCOUNT=openclaw
+STATE=/home/openclaw/.openclaw
+CONFIG="$STATE/openclaw.json"
+OWNERSHIP="$STATE/workspace/scripts/check_ownership.py"
+
+# Behave the same whether or not the caller's shell exports these.
+unset OPENCLAW_STATE_DIR OPENCLAW_CONFIG_PATH OPENCLAW_WORKSPACE_DIR
+
+if [ "$(id -u)" -ne 0 ]; then
+  echo "openclawupdate: run this as root — it needs systemctl and writes /usr/lib/node_modules." >&2
+  exit 1
+fi
+
+backup="$CONFIG.bak-$(date +%Y%m%d-%H%M%S)"
+cp -p "$CONFIG" "$backup"
+before=$(md5sum < "$CONFIG")
+
+restarted=0
+restart_gateway() {
+  [ "$restarted" -eq 1 ] && return
+  restarted=1
+  if [ -f "$OWNERSHIP" ]; then
+    echo "==> handing root-owned files back to $ACCOUNT"
+    python3 "$OWNERSHIP" --fix --quiet || true
+  fi
+  echo "==> starting $UNIT"
+  systemctl start "$UNIT" || echo "openclawupdate: systemctl start failed." >&2
+}
+# Bring the gateway back even if the update dies or you press Ctrl-C.
+trap restart_gateway EXIT INT TERM
+
+echo "==> stopping $UNIT"
+systemctl stop "$UNIT"
+
+echo "==> phase 1/2: updating the OpenClaw program files (as root)"
+openclaw update --no-restart --yes
+rc=$?
+
+restart_gateway
+trap - EXIT INT TERM
+
+echo "==> waiting for the gateway to answer"
+healthy=0
+for _ in $(seq 1 30); do
+  if sudo -u "$ACCOUNT" -H openclaw gateway health >/dev/null 2>&1; then healthy=1; break; fi
+  sleep 2
+done
+
+if [ "$rc" -eq 0 ] && [ "$healthy" -eq 1 ]; then
+  echo "==> phase 2/2: plugins and config checks (as $ACCOUNT)"
+  sudo -u "$ACCOUNT" -H openclaw update repair --yes
+  rc=$?
+fi
+
+echo
+if [ "$(md5sum < "$CONFIG")" != "$before" ]; then
+  echo "NOTE: openclaw.json changed during the update. Previous copy kept at:"
+  echo "      $backup"
+else
+  rm -f "$backup"
+fi
+
+if ! systemctl is-active --quiet "$UNIT"; then
+  echo "FAILED: $UNIT is not running. Check: systemctl status $UNIT" >&2
+  exit 1
+fi
+if [ "$healthy" -ne 1 ]; then
+  echo "FAILED: $UNIT is running but the gateway never answered." >&2
+  echo "Check: sudo -u $ACCOUNT -H openclaw gateway status --deep" >&2
+  exit 1
+fi
+if [ "$rc" -ne 0 ]; then
+  echo "The update reported errors (exit $rc), but the gateway is back up and healthy." >&2
+  exit "$rc"
+fi
+
+sudo -u "$ACCOUNT" -H openclaw gateway status 2>/dev/null \
+  | grep -E "^(CLI version|Gateway version)"
+sudo -u "$ACCOUNT" -H openclaw gateway health --json 2>/dev/null \
+  | python3 -c 'import json,sys; d=json.load(sys.stdin); p=d["plugins"]; print("Plugins loaded:", ", ".join(p["loaded"]) or "none"); print("Plugin errors:", p["errors"] or "none")' 2>/dev/null
+echo "OK — update finished and the gateway is healthy."
