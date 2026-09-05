@@ -2,19 +2,22 @@
 **Status:** OPEN
 **Created:** 2026-08-29
 
-**CURRENT STATUS (2026-09-04, latest):** The **option tournament ran to
-completion** — 58 frozen tests over 7 mechanisms, 37 with fundable samples, and
-**all 37 now have complete data**. **Two different money-making mechanisms
-were found, and they are not the same trade.** (1) **Buy a call spread when SPY
-is already rising and let the winner run** — buy an at-the-money call, sell a
-further-out one to cheapen it, take profit at +100% with no stop inside 14 days:
-at a 60-day high in a calm market **54 trades, 68.5% wins, +18.28% a trade after
-commission, profit factor 2.29**; on a 12-month momentum uptrend **121 trades,
-65.3%, +12.12%**. (2) **Sell a put spread when the options market is charging a
-lot for fear**, with the stop at -200% of the credit: **265 trades, 84.5% wins,
-+14.31% a trade**, worst losing run $708 against $2,596 made. **Nothing is
-proven** — the sealed 2022-2026 test is frozen, its data is downloading, it has
-NOT run.
+**CURRENT STATUS (2026-09-05, latest):** **The sealed 2022-2026 window is now
+OPEN and all five finalists have been measured on it. Nothing is proven, and
+nothing is live.** Of the five frozen finalists, **two are dead** — they lose
+money after commission on fresh data — and **three survive as "promising, not
+proven"**. The best of them (test 11: sell a put spread when options are
+charging a lot for fear, take profit at +50% of the credit, stop at -200%)
+clears **every numeric bar** the frozen rules set for a proven winner: 265
+development trades and 136 sealed, **74.3% wins**, positive after commission,
+positive against maximum risk. **I would still not trade it**: it made **$249
+in total while at one point sitting $1,284 underwater**, tying up $1,698, at a
+profit factor of **1.06** — it wins $1.06 for every $1.00 it loses. The frozen
+rules require "acceptable drawdown"; that is not acceptable. Every finalist
+shrank sharply from development to sealed: per trade after commission, test 1
++$0.05 → **-$0.004**, test 11 +$0.14 → +$0.02, test 26 +$0.12 → +$0.09, test 28
++$0.18 → **-$0.03**, test 40 +$0.19 → +$0.04. **Money: $12.4457 of the $20.00
+ceiling.** Results: `research-data/todo-111-tournament/results_sealed.json`.
 
 **An important correction to my own earlier conclusion this session.** Partway
 through, the data provider throttled us (4.4GB, 1,172 requests, 7 seconds a
@@ -436,3 +439,16 @@ may justify paper testing; it is not historical proof of actual fills.
 - **He wants more than one strategy running.** Consistent with his 2026-09-03 decision to keep the months-long momentum method as an option: a candidate that passes does not replace the others, it joins them. Do not frame future results as a single winner-takes-all choice.
 - **Nothing was executed for either decision this session.** No re-run, no new purchase, no order real or paper, no alert enabled.
 - **Next session starts here:** re-run the condor mirror at midpoint fills on the existing files, then decide about the sealed window.
+
+
+### Session notes — 2026-09-05 (the sealed window opened — 2 dead, 3 promising, nothing proven)
+- **The sealed 2022-2026 test ran on all five frozen finalists at once**, after every finalist was frozen and before any outcome was read. Command: `python3 scripts/research/todo_111_tourney_sealed.py evaluate 1 11 26 28 40`. Results `research-data/todo-111-tournament/results_sealed.json`, stamped `frozen_finalist_ids` and `frozen_at_utc`.
+- **Every finalist shrank, several of them to nothing.** Per trade after the stated $0.45/contract/side commission, development → sealed: test 1 **+$0.0547 → -$0.0036**; test 11 +$0.1431 → **+$0.0201**; test 26 +$0.1212 → **+$0.0908**; test 28 **+$0.1828 → -$0.0320**; test 40 +$0.1867 → **+$0.0396**. Win rates fell 5-17 points across the board. Two went negative; the other three kept 20-75% of their development edge.
+- **Verdicts.** REJECTED: tests **1** (loses after commission, profit factor 0.99) and **28** (loses after commission). PROMISING, NOT PROVEN: tests **11**, **26**, **40**.
+- **Test 11 clears every numeric bar for HISTORICAL WINNER and I still would not trade it.** 265 development trades, 136 sealed, **74.3% wins** (95% CI 66.3-80.9%), average gross **+4.38%**, **+$0.0201** a trade after commission, **+0.44%** on maximum risk, concentration clean (best trade 3%, best 5 trades 12%, best year 17%). But **total profit $248.70 against a maximum drawdown of $1,284.40** — you sit five times your eventual gain underwater — with **$1,697.50** of risk on at once and a **profit factor of 1.06**. Section 11 requires "acceptable drawdown"; that is not acceptable. The independent reproduction section 11 also requires has **not** been done.
+- **A bug in my own verdict code, found because the owner questioned a number.** He asked why a strategy with only 56 sealed trades was entered in a contest whose top verdict needs 100. Checking that surfaced something worse: `apply_cheap_rejection` reads `dev_trades`, but the sealed results file holds **sealed trades only**, so that field was **0 for every finalist** and rule 1 ("fewer than 30 development trades") fired on all five — including tests with 265 development trades. Everything was stamped **REJECTED**, and I reported "all five lost their edge, nothing passed" to the owner. That was wrong. Fixed by judging the sealed period on sealed numbers while taking development counts from `results_dev.json`; re-ran; three of the five are PROMISING, NOT PROVEN. **Lesson: a rejection rule written for one period silently mislabels every result when reused on another.**
+- **A real design flaw the owner named, and he is right.** The finalist bar is 30 trades (section 10) but the top verdict needs 100 in **both** periods (section 11). I knew before opening the window that tests 26, 28 and 40 could only supply 56, 29 and 93 sealed trades — three of five finalists entered a contest they could not mathematically win. My reason (cutting them would have left only put spreads, repeating the one-sided error I had already made once) was a reason for a **different** fix: **widen the weekly entry grid**. One entry per ISO week caps a selective trigger far below 100 sealed trades. Two or three candidate days a week would have given test 26 roughly 150 instead of 56. Do this before any further round.
+- **Downloading got 10x faster and the fix is committed.** The serial downloader was buying one contract every **54.5s** with ~3.5 hours to go. Measured 1, 3 and 10 concurrent shards on the same work: **54.5s → 18.0s → 5.6s** per file, perfectly linear, so it was provider queueing and not an account cap. The remaining 231 contracts finished in about 20 minutes. `finish_pull.py` now takes a `shard/of` argument. Two safety fixes were needed for concurrency: `ledger_lock()` adds an `flock` (the old `threading.Lock` guards one process only, so two shards could each append and the second write would drop the first), and the ledger is now written through a temp file and renamed (`json.dump` truncates in place, so a shard calling `spent_all()` mid-write read half a file and died — that killed 2 of the 10 shards; they died before spending, and the ledger was verified afterwards: 2,221 entries, all 1,706 leg files recorded, no payment lost). Commit `466e195`.
+- **Money: $12.4457 of the $20.00 ceiling**, every request cost-estimated before it was sent.
+- **Nothing live.** No order real or paper, no alert enabled, no switch changed.
+- **Next session starts here, in order:** (1) have a reviewer that did **not** write this code reproduce test 11's and test 26's load-bearing trades from the raw quote files — section 11 requires it and the bug above makes it matter more; (2) widen the entry grid to 2-3 candidate days a week and re-measure, which is the only way tests 26 and 40 can reach a 100-trade sealed sample; (3) mechanism 5 (scheduled events) has complete data on disk and was never scored — it is free to run.

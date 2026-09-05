@@ -1061,19 +1061,22 @@ Build and prove a reusable skill/plugin that brainstorms, researches, plans, bui
 
 **File:** `profitable-trading-feature-outcome-loop.md`
 
-**CURRENT STATUS (2026-09-04, latest):** The **option tournament ran to
-completion** — 58 frozen tests over 7 mechanisms, 37 with fundable samples, and
-**all 37 now have complete data**. **Two different money-making mechanisms
-were found, and they are not the same trade.** (1) **Buy a call spread when SPY
-is already rising and let the winner run** — buy an at-the-money call, sell a
-further-out one to cheapen it, take profit at +100% with no stop inside 14 days:
-at a 60-day high in a calm market **54 trades, 68.5% wins, +18.28% a trade after
-commission, profit factor 2.29**; on a 12-month momentum uptrend **121 trades,
-65.3%, +12.12%**. (2) **Sell a put spread when the options market is charging a
-lot for fear**, with the stop at -200% of the credit: **265 trades, 84.5% wins,
-+14.31% a trade**, worst losing run $708 against $2,596 made. **Nothing is
-proven** — the sealed 2022-2026 test is frozen, its data is downloading, it has
-NOT run.
+**CURRENT STATUS (2026-09-05, latest):** **The sealed 2022-2026 window is now
+OPEN and all five finalists have been measured on it. Nothing is proven, and
+nothing is live.** Of the five frozen finalists, **two are dead** — they lose
+money after commission on fresh data — and **three survive as "promising, not
+proven"**. The best of them (test 11: sell a put spread when options are
+charging a lot for fear, take profit at +50% of the credit, stop at -200%)
+clears **every numeric bar** the frozen rules set for a proven winner: 265
+development trades and 136 sealed, **74.3% wins**, positive after commission,
+positive against maximum risk. **I would still not trade it**: it made **$249
+in total while at one point sitting $1,284 underwater**, tying up $1,698, at a
+profit factor of **1.06** — it wins $1.06 for every $1.00 it loses. The frozen
+rules require "acceptable drawdown"; that is not acceptable. Every finalist
+shrank sharply from development to sealed: per trade after commission, test 1
++$0.05 → **-$0.004**, test 11 +$0.14 → +$0.02, test 26 +$0.12 → +$0.09, test 28
++$0.18 → **-$0.03**, test 40 +$0.19 → +$0.04. **Money: $12.4457 of the $20.00
+ceiling.** Results: `research-data/todo-111-tournament/results_sealed.json`.
 
 **CURRENT STATUS (2026-09-03):** Round 3 is frozen and running — kickoff in
 `todo/todo-111-round3-kickoff.md`, mission

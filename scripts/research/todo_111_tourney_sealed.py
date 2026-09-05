@@ -221,6 +221,20 @@ def build_manifest(finalist_ids):
 
 # -------------------------------------------------------------- evaluation
 
+def _dev_rows() -> dict:
+    """Development results keyed by test id, for the section 9 rules that read
+    development counts. Contains no sealed outcome."""
+    path = f"{TOURNEY}/results_dev.json"
+    if not os.path.exists(path):
+        return {}
+    blob = json.load(open(path))
+    rows = blob["rows"] if isinstance(blob, dict) else blob
+    return {r["test_id"]: r for r in rows if "test_id" in r}
+
+
+DEV_ROWS = _dev_rows()
+
+
 def run_evaluation(finalist_ids):
     """Run the frozen finalists against sealed leg-minute data and write
     results_sealed.json, in the same row shape as results_dev.json.
@@ -284,7 +298,18 @@ def run_evaluation(finalist_ids):
         structure_kind = trun.kind_for_code(struct_code)
         summary = core.summarise(trade_rows, structure_kind, dates=list(dates.keys()))
         summary["no_minute_data_yet"] = no_minutes_yet
-        cheap = trun.apply_cheap_rejection(summary)
+        # Rules 1 and 6 of frozen matrix section 9 read DEVELOPMENT counts. This
+        # summary holds sealed trades only, so those fields are 0 here and rule 1
+        # ("fewer than 30 development trades") fired on every finalist, including
+        # ones with 265 development trades. Judge the sealed period on the sealed
+        # numbers, and take the development counts from the development results.
+        judged = dict(summary)
+        dev_row = DEV_ROWS.get(tid, {})
+        for f in ("dev_trades", "discovery_trades", "confirmation_trades",
+                  "discovery_vs_confirmation"):
+            if f in dev_row:
+                judged[f] = dev_row[f]
+        cheap = trun.apply_cheap_rejection(judged)
 
         rows.append({
             "test_id": tid, "mechanism": t["mechanism"], "mechanism_id": t["mechanism_id"],

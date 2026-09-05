@@ -3,6 +3,63 @@
 **Date:** 2026-09-04, Pacific. **Nothing is live. No order was placed, real or
 paper. No switch was turned on.**
 
+---
+
+# THE SEALED RESULT (2026-09-05) — this section supersedes the development
+# findings below, which were written before the 2022-2026 window was opened.
+
+**Two of the five finalists are dead. Three survive as "promising, not proven".
+Nothing is proven and nothing is live.**
+
+Every rule was frozen — the exact trigger, strikes, exits and the five finalist
+ids — before a single 2022-2026 outcome was read. Fills are at the midpoint of
+the bid and ask; commission of $0.45 per contract per side is charged on top.
+
+| test | the rule in plain words | dev per trade | sealed per trade | sealed trades | sealed wins | verdict |
+|---|---|---|---|---|---|---|
+| 1 | sell put spread when fear is expensive; take +50% of the credit, stop at -100% | +$0.0547 | **-$0.0036** | 136 | 64.7% | REJECTED |
+| 11 | the same, but stop at -200% instead | +$0.1431 | +$0.0201 | 136 | 74.3% | promising, not proven |
+| 26 | buy call spread in a 12-month uptrend; take +100%, no stop | +$0.1212 | +$0.0908 | 56 | 60.7% | promising, not proven |
+| 28 | buy call spread at a calm 60-day high; take +100%, no stop | +$0.1828 | **-$0.0320** | 29 | 51.7% | REJECTED |
+| 40 | sell put spread when downside insurance is unusually cheap | +$0.1867 | +$0.0396 | 93 | 68.8% | promising, not proven |
+
+**Everything shrank.** Win rates fell 5 to 17 points and the money per trade
+fell 20 to 100%. That is the normal fate of a rule tuned on eight years of
+history, and finding it out for $12.45 of data is the entire point of the
+sealed window.
+
+**The best one clears every number and I would still not trade it.** Test 11 has
+265 development trades and 136 sealed, 74.3% wins, is positive after commission
+and positive against maximum risk — every measurable condition the frozen rules
+set for a proven winner. But it made **$248.70 in total while at one point
+sitting $1,284.40 underwater**, with **$1,697.50** of risk on at once, at a
+**profit factor of 1.06** — it wins $1.06 for every $1.00 it loses. The frozen
+rules also require "acceptable drawdown", and a drawdown five times the total
+profit is not acceptable. It also still owes the independent reproduction the
+rules require.
+
+**Two honest problems with how this tournament was built.**
+
+1. **A bug in the verdict code stamped REJECTED on all five.** The rejection
+   rule "fewer than 30 development trades" was reading the sealed results file,
+   which by design contains sealed trades only — so that count was zero for
+   every finalist, including ones with 265 development trades. It was caught
+   because the owner questioned a sample size, and it had already been reported
+   to him as "all five lost their edge, nothing passed". Fixed and re-run.
+
+2. **Three of five finalists could not mathematically win.** Becoming a finalist
+   needs 30 trades; being called a proven winner needs 100 in both periods.
+   Tests 26, 28 and 40 could only supply 56, 29 and 93 sealed trades, and that
+   was known before the window opened. The fix is not a lower bar — it is more
+   entry opportunities. One candidate per ISO week starves any selective
+   trigger. Two or three a week would have given test 26 roughly 150 trades
+   instead of 56, and that is the first thing to change in any further round.
+
+**Money: $12.4457 of the $20.00 ceiling.** Raw numbers:
+`research-data/todo-111-tournament/results_sealed.json`.
+
+---
+
 ## The short version
 
 All 58 frozen tests were run; 37 had fundable samples and **all 37 are now
