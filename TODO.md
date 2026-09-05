@@ -1135,3 +1135,9 @@ verified. Five non-blocking maintenance gaps remain. They cannot create a false
 command. Fix them without changing the accepted evidence-copy and repair rules.
 
 Bound repair loops, record repair work and failed gates, close unfinished actions earlier, and remove repeated whole-project scans without weakening the proven completion checks.
+
+## 113. Trim the Claude memory index back under its size cap — DONE 2026-09-04
+
+**File:** `memory_index_trim_2026-09-04.md`
+
+Shrink the Claude session-start memory file back under its size limit so it never silently stops loading, without losing any of the facts it holds.
