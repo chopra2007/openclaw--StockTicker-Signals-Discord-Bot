@@ -3,12 +3,12 @@
 **Status:** DONE 2026-09-04
 **Created:** 2026-09-04
 
-**CURRENT STATUS (2026-09-04):** Done and verified same session. `MEMORY.md` (the
-routing index Claude reads at the start of every session) had grown from 17KB to
-20,152 bytes — past its own 17KB soft cap and closing in on the ~24.4KB hard cap
-where the harness silently stops loading it. Trimmed to 16,832 bytes. No facts
-deleted — settled/historical content moved to the on-demand Tier 2 index, and a
-regrowth warning was added so this doesn't happen unnoticed again.
+**CURRENT STATUS (2026-09-04):** Done and independently repaired. The Claude
+router is now 13,881 bytes, below both its 17,000-byte cap and 16,000-byte
+warning. The separate Codex router is 15,159 bytes and now carries the missing
+current #111 facts. Stale wording that rejected the owner's long-hold momentum
+option and claimed Databento was still blocked has been corrected in both
+memory copies.
 
 ## What was done
 
@@ -31,13 +31,20 @@ regrowth warning was added so this doesn't happen unnoticed again.
    (`/root/.claude/hooks/openclaw-digest.sh`): it now prints a one-line
    warning naming the file and its byte count if `MEMORY.md` is over 16,000
    bytes (threshold configurable via `MEMORY_WARN_BYTES` env var). Tested
-   both with `MEMORY_WARN_BYTES=1` (fires) and the real default (also fired
-   honestly, since 16,832 > 16,000 — the file landed closer to the 17KB hard
-   cap than the ~15KB stretch goal).
+   with `MEMORY_WARN_BYTES=1` (fires) and the real default (quiet at 13,881).
+6. Repaired the #111 history wording: the three-month momentum method is an
+   owner-kept option, not a rejected or unusable method. Nothing is live and
+   its concentration and market-cycle caveats remain.
+7. Corrected the Databento record from its obsolete 401/access blocker to the
+   two current spend ledgers: $12.4457 spent, about $112.55 of the original
+   $125 credit left. The older PUT-layer test remains untested, not rejected.
+8. Added the missing current #111, data-source, trade-horizon and rejected-idea
+   routing to `/root/.codex/openclaw-memory/`, with the needed topic files.
 
 ## Verification run (all passed)
 
-- Size: 20,152 → 16,832 bytes (target was <17,000, stretch ~15,000).
+- Claude router size: 20,152 → 13,881 bytes.
+- Codex router size: 15,159 bytes after adding the missing current facts.
 - No line over 200 chars except the 4 exempt `§` lines.
 - Every markdown link in `MEMORY.md` and both `indexes/*.md` files resolves to
   a real file (checked with a script that resolves relative to each source
@@ -46,34 +53,16 @@ regrowth warning was added so this doesn't happen unnoticed again.
   before vs. after the trim — empty diff.
 - Both `indexes/project-index.md` and `indexes/comm-check-index.md` exist and
   are referenced from `MEMORY.md`.
-
-## What didn't get done (flagged, not silently skipped)
-
-The kickoff also asked to compare the separate Codex memory router
-(`/root/.codex/openclaw-memory/MEMORY.md`) and add any hooks missing there
-too. Checked: it's missing the #111 tournament result and the rejected
-trade ideas bar. But none of the Claude-side topic files those facts live in
-exist in the Codex memory directory — porting them means writing new topic
-files there, not just adding a link, which is real authoring work rather
-than a trim. Left this as a follow-up rather than doing it unasked.
-
-## Possible next steps (priority order)
-
-1. If the user wants it: copy/adapt the #111 and rejected-trade-ideas topic
-   files into `/root/.codex/openclaw-memory/`, then add short hooks to that
-   router.
-2. Watch the new digest-hook warning over the next few sessions — confirm it
-   actually fires in a real session start (not just the manual test run) if
-   `MEMORY.md` ever creeps back over 16,000 bytes.
+- Every new Codex-router Markdown link resolves to a real file.
 
 ## Files involved
 
 - `/root/.claude/projects/-home-openclaw--openclaw-workspace/memory/MEMORY.md` (trimmed)
 - `/root/.claude/projects/-home-openclaw--openclaw-workspace/memory/indexes/project-index.md` (received the moved content)
 - `/root/.claude/hooks/openclaw-digest.sh` (regrowth warning added)
+- `/root/.codex/openclaw-memory/MEMORY.md` and its Tier 2 indexes (reconciled)
 - Kickoff file that specified this task: `todo/kickoff-memory-trim.md`
 
 ## Open questions
 
-- None — the trim itself is complete. The only open item is the optional
-  Codex-router cross-check noted above.
+- None.
