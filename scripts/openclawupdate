@@ -26,6 +26,7 @@ STATE=/home/openclaw/.openclaw
 CONFIG="$STATE/openclaw.json"
 OWNERSHIP="$STATE/workspace/scripts/check_ownership.py"
 PKG_ROOT=/usr/lib/node_modules/openclaw
+PORT=18789
 
 # Behave the same whether or not the caller's shell exports these.
 unset OPENCLAW_STATE_DIR OPENCLAW_CONFIG_PATH OPENCLAW_WORKSPACE_DIR
@@ -57,6 +58,18 @@ start_gateway() {
 trap start_gateway EXIT INT TERM
 
 systemctl stop "$UNIT"
+
+# `systemctl stop` returns as soon as the unit is inactive, but doctor's
+# session-store maintenance refuses to run while anything still holds the state
+# directory ("a maintenance command owns the state directory"). Wait for the
+# gateway process to be gone and the port to be free before phase 2.
+for _ in $(seq 1 30); do
+  if ! pgrep -u "$ACCOUNT" -f "openclaw gateway" >/dev/null 2>&1 \
+     && ! ss -ltn "sport = :$PORT" 2>/dev/null | grep -q ":$PORT"; then
+    break
+  fi
+  sleep 1
+done
 
 rc=0
 latest=$(npm view openclaw version 2>/dev/null)
