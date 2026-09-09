@@ -4,14 +4,21 @@
 
 **Created:** 2026-07-06
 
-**CURRENT STATUS (2026-09-07):** SHIPPED + LIVE. A deterministic Stop hook is installed globally
+**CURRENT STATUS (2026-09-08):** SHIPPED + LIVE. A deterministic Stop hook is installed globally
 (gated to this project + its worktrees) that re-runs the *affected* tests whenever a turn leaves
 uncommitted code changes and blocks the stop on a regression. No LLM / no per-turn cost (user chose
 "free test-checker only"). Proven with a 9/9 behavior harness + a live end-to-end block on a real
 worktree regression. See **SHIPPED (2026-07-07)** below. On 2026-09-07 the hook was repaired: its 180s test
 budget was shorter than the 186s the affected suite actually took, so it timed out and re-ran every
 turn without ever producing a verdict; it now skips an unchanged tree via a code fingerprint and has a
-300s budget. The original 3-phase plan is kept as history.
+300s budget. **On 2026-09-08 the real cause of the "stop hook freeze" was found and fixed:** the hook
+re-tested *every* uncommitted code file on *every* turn. With a feature branch sitting on 26 uncommitted
+files that meant 24 test files and **214 seconds of wall clock per stop** — all green, so it never
+blocked anything; it just froze the session for 3.5 minutes while the token count stayed flat. It now
+only re-tests code whose bytes changed **since its own last check** (per-file size+mtime record in
+`/root/.claude/hooks/state/vod-file-stamps.json`, kept outside /tmp so a reboot can't wipe it). Measured
+after the fix: 0.06s when nothing changed, 18s after touching one module, still blocks a real regression
+in 24s. The original 3-phase plan is kept as history.
 
 ---
 
@@ -145,3 +152,8 @@ Workflow engine — a Stop hook does NOT reach inside those background passes). 
 - **Worked on:** The hook could never finish. The in-progress trade-alerts build left 23 uncommitted code files, which mapped to 23 affected test files (394 tests) taking 186.5s — against the hook's own 180s cap. Every turn it ran ~3 minutes, got killed 6s short, produced no verdict, and repeated. Fixed: added a code fingerprint (path+size+mtime of the changed files, plus the test list) recorded on ATTEMPT, so an unchanged tree skips instantly; raised `VERIFY_ON_DONE_TIMEOUT` 180→300 and the `settings.json` hook timeout 240→420 so a run can actually reach a verdict.
 - **Decisions:** Record the fingerprint on attempt, not on success — a suite that times out must fail open once, not re-burn minutes every turn. Did not narrow the test selection (integration tests stay in scope); the cost problem was repetition, not breadth.
 - **Next:** Nothing owed. Watch that the ~3-minute check now happens once per code change, not once per turn.
+
+### Session notes — 2026-09-08
+- **Worked on:** Chased the "stop hook freezes at 7/8" report to its real cause and fixed three things: (1) the hook re-tested every uncommitted code file every turn — 24 test files, 214s per stop, all green, so it froze the session for 3.5 min and never blocked anything; it now only re-tests code whose bytes changed since its own last check (record in `/root/.claude/hooks/state/vod-file-stamps.json`, outside /tmp so a reboot can't wipe it). (2) `scripts/run_pytest_isolated.sh` resolved the repo from its own location, so in a worktree it tested the MAIN checkout's code; it now resolves from the caller's directory. (3) Both the hook and the runner ran `git` as root against openclaw-owned checkouts, so in any worktree not hand-added to root's `safe.directory` list git refused, the hook hit `common is None` and exited silently — it had been doing NOTHING in fresh worktrees; all git calls now pass `-c safe.directory=*`.
+- **Decisions:** Kept the cold-start full check (correct, one-time) rather than skipping it, because the record is now durable. Left `MIN_GAP_SECONDS=60` alone — two stops inside a minute still skip the check, pre-existing and unchanged.
+- **Next:** Nothing owed. Watch that a normal turn's stop stays under ~20s; if it creeps back up, the delta gate is the thing to check first.
