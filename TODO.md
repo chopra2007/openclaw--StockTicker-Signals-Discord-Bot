@@ -1171,3 +1171,9 @@ databento"` works; the same command with `HOME=/tmp` fails.
 The contained runner sets `HOME=/tmp`, which hides anything installed under `/home/openclaw/.local` —
 `databento` among them — so the full suite ends with a collection error that has nothing to do with the code.
 
+
+## 116. Fix wrong ticker symbols saved from videos
+
+**File:** `youtube_ticker_symbol_validation.md`
+
+Stop the video reader saving names like "NVIDIA" instead of NVDA, which makes the engine ask Yahoo for a symbol that does not exist every five minutes.
