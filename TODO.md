@@ -1141,3 +1141,33 @@ Bound repair loops, record repair work and failed gates, close unfinished action
 **File:** `memory_index_trim_2026-09-04.md`
 
 Shrink the Claude session-start memory file back under its size limit so it never silently stops loading, without losing any of the facts it holds.
+
+## 114. Make the session-close gate stop treating shell scripts as docs
+
+**File:** `session-close-gate-shell-scripts.md`
+
+**CURRENT STATUS (2026-09-08):** OPEN, found while fixing TODO #69. `session_close.sh` line ~106 decides
+"code change vs doc-only" with `grep -E "^(consensus_engine/|scripts/.*\.py|tests/|config/)"`. A `.sh`
+under `scripts/` matches nothing, so it is classified doc-only and pushed with `--no-verify` — no test
+gate at all. This is not theoretical: on 2026-09-08 a change to `scripts/run_pytest_isolated.sh` — the
+script that RUNS every test gate — went to master ungated for exactly this reason. `scripts/pre-push`
+itself has the same exposure.
+
+The close-time gate only counts `scripts/*.py` as code, so a change to a `.sh` under `scripts/` is pushed
+with no test run — including `run_pytest_isolated.sh` and `pre-push`, the scripts that run the gate itself.
+
+## 115. Make the contained test runner see openclaw's installed packages
+
+**File:** `isolated-runner-hides-home-packages.md`
+
+**CURRENT STATUS (2026-09-08):** OPEN, pre-existing since 2026-08-03 (commit f82ee38), found while
+running the full suite on 2026-09-08. `scripts/run_pytest_isolated.sh` sets `HOME=/tmp` for containment.
+Python looks for user-installed packages under `$HOME/.local`, so every package installed that way — e.g.
+`databento`, which lives in `/home/openclaw/.local/lib/python3.10/site-packages` — is invisible inside the
+runner. Result: `tests/research/test_auction_pressure_features.py` fails to import and the suite exits
+non-zero (3807 passed, 21 skipped, 1 collection error). Proven: `sudo -u openclaw python3 -c "import
+databento"` works; the same command with `HOME=/tmp` fails.
+
+The contained runner sets `HOME=/tmp`, which hides anything installed under `/home/openclaw/.local` —
+`databento` among them — so the full suite ends with a collection error that has nothing to do with the code.
+
