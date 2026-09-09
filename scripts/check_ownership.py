@@ -213,6 +213,16 @@ def main() -> int:
             print("Ownership sweep: clean — the bot can write everything it owns.")
         return 0
 
+    if args.fix:
+        # We are about to hand these back, so a list of alarms is wrong here.
+        failures = fix([p for p, _ in bad])
+        fixed = len(bad) - len(failures)
+        if not args.quiet or failures:
+            print(f"Handed {fixed} file(s) back to {BOT_USER}.")
+        for path, err in failures:
+            print(f"COULD NOT FIX: {path} — {err}")
+        return 1 if failures else 0
+
     known = [(p, o) for p, o in bad if p in KNOWN_VICTIMS]
     other = [(p, o) for p, o in bad if p not in KNOWN_VICTIMS]
 
@@ -232,14 +242,6 @@ def main() -> int:
             print(f"  ...and {len(folders) - 10} more folders")
 
     print(f"{len(bad)} file(s) the bot cannot write. Run: sudo python3 scripts/check_ownership.py --fix")
-
-    if args.fix:
-        failures = fix([p for p, _ in bad])
-        fixed = len(bad) - len(failures)
-        print(f"Handed {fixed} file(s) back to {BOT_USER}.")
-        for path, err in failures:
-            print(f"COULD NOT FIX: {path} — {err}")
-        return 1 if failures else 0
 
     return 1
 
