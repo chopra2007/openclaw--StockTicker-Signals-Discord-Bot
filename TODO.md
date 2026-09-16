@@ -1182,13 +1182,9 @@ Stop the video reader saving names like "NVIDIA" instead of NVDA, which makes th
 
 **File:** `finish-automated-trade-alert-build.md`
 
-**CURRENT STATUS (2026-09-15 22:45 PDT):** **M4.7A is accepted** - 39
-milestones now, up from 38. The SHORT-PUT geometry failure that had blocked it
-since 2026-09-14 was a bad test, not bad risk logic: it built a SHORT candidate
-by flipping only the direction label and left the LONG-shaped stop and target
-in place, making an impossible trade. Sonnet 5 at medium effort fixed it;
-protected verification ran the suite twice for repeatability, 65 passed both
-times. Opus was never needed for it.
+**CURRENT STATUS (2026-09-16 02:20 PDT):** **The M0.2/M9.3 stop is cleared and
+the controller is running again on M9.3.** Every blocker the build named has
+been answered, most of them with measurements rather than opinions.
 
 The build then moved to **M9.3** and stopped for a real reason, now stage
 `awaiting_attention`. Opus 5 did not fail - it gave a clean verdict: M9.3

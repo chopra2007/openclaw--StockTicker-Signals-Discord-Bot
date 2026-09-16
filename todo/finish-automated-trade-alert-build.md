@@ -2,27 +2,43 @@
 **Status:** OPEN
 **Created:** 2026-09-09
 
-**CURRENT STATUS (2026-09-15 22:45 PDT):** **M4.7A is accepted** - 39
-milestones now, up from 38. The SHORT-PUT geometry failure that had blocked it
-since 2026-09-14 was a bad test, not bad risk logic: it built a SHORT candidate
-by flipping only the direction label and left the LONG-shaped stop and target
-in place, making an impossible trade. Sonnet 5 at medium effort fixed it;
-protected verification ran the suite twice for repeatability, 65 passed both
-times. Opus was never needed for it.
+**CURRENT STATUS (2026-09-16 02:20 PDT):** **The M0.2/M9.3 stop is cleared and
+the controller is running again on M9.3.** Every blocker the build named has
+been answered, most of them with measurements rather than opinions.
 
-The build then moved to **M9.3** and stopped for a real reason, now stage
-`awaiting_attention`. Opus 5 did not fail - it gave a clean verdict: M9.3
-cannot be built because the M0.2 provider/queue/storage/disk/memory budgets are
-unresolved and need an owner or data decision. The measurable part is disk
-space: `/` has **7.2 GB free of 75 GB (90% full)** and the build's frozen
-reserve needs **12 GB**. About 5 GB has to be freed before the M0.2 family can
-run at all. The rest is money and data questions (billing position, an
-unexplained OPRA HTTP 400, unpriced dates, estimates above the USD 24
-unreserved amount). Nothing was deleted and no spending was authorized.
+- **Disk.** 7.2 GB free is now **13 GB free**. The system journal was trimmed
+  to 200 MB and seven database backups (4.1 GB) were moved to Google Drive,
+  each one uploaded, downloaded again and checked byte-for-byte before the
+  local copy was deleted. The newest backup stays on the server. The 12 GB
+  cushion was not lowered.
+- **The mystery HTTP 400.** Solved. Databento writes an options symbol as
+  `ROOT.OPT`, and Berkshire's ticker already contains a dot, so `BRK.B.OPT`
+  reads as nonsense to them. The right form is `BRKB.OPT`. Confirmed by asking
+  Databento to price it: it came back instantly at $0.0978 for one day.
+- **Money.** The owner raised the limit to **$60, a fresh total**. Bought one
+  year of every trade, one-minute best bid/offer and one-minute bars for the
+  17 chosen tickers: **billed $22.47**, exactly the quoted estimate, which
+  also settles the old "billing unknown" worry. **$37.53 left.**
+  Tick-by-tick quotes were quoted at $548 and deliberately skipped - tick
+  trades already answer whether a stop was hit before a target.
+- **Options data.** The free DoltHub chain set was checked first, as planned.
+  It covers 12 of the 17 tickers, misses QQQ, IWM, GLD, USO and VXX, and only
+  has one end-of-day price per contract with a thinned strike list. That
+  cannot price a same-week option trade at a real time of day, so it is kept
+  as a reference only. No option data was bought.
+- **The unanswerable questions.** The owner ruled that a fact that cannot be
+  bought is written down as a gap and every rule that needs it is switched off
+  and marked untested - never guessed at. That turns five permanent blockers
+  into recorded gaps instead of a dead stop.
 
-Also corrected: the kickoff file's `buildctl resume --clear-attention` does
-nothing - `buildctl` takes only one word, so the flag is ignored and it just
-prints status. Use `python3 controller.py --clear-attention resume` instead.
+All decisions are written into the build's own documents as D-101 to D-105 so
+the build reads them itself. 165 controller tests and 48 subtests pass, the
+same as before. Both bot services are untouched and active.
+
+Also corrected earlier: the kickoff file's `buildctl resume --clear-attention`
+does nothing - `buildctl` takes only one word, so the flag is ignored and it
+just prints status. Use `python3 controller.py --clear-attention resume`
+instead, then `./buildctl start`.
 
 ## Goal
 
