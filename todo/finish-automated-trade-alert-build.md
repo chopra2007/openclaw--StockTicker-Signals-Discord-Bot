@@ -264,6 +264,21 @@ the controller runs again:
 
 Do both together: clear the attention flag, then let the controller make
 Sonnet's repair attempt on M4.7A. If that attempt also fails, the next one
-escalates to Opus automatically. If Opus's attempt also fails, the milestone
-should go to a human, not another blind retry - there is no profile after
-`escalated`.
+escalates to Opus automatically.
+
+### Addition, 2026-09-16: what happens if Opus also fails
+
+Previously this said "if Opus's attempt also fails, the milestone should go
+to a human." That's no longer the whole story. If Opus's own attempt also
+fails, the controller now runs one more read-only session ("triage") that
+checks `ROADMAP.md` for a genuinely different, dependency-ready milestone -
+it never touches code and never re-judges the three failed attempts. If one
+exists, M4.7A is recorded in the blocked-milestone registry (never deleted)
+and the build moves on to that milestone automatically, with a fresh repair
+count. If nothing independent is ready, or the triage session itself fails
+for a non-quota reason, it falls back to exactly the old behavior - a human
+has to look, with the reason recorded in `last_failure`. Detail, code, and 11
+new tests: `/root/trade-alerts-builder/repairs/claude-routing-restored/CHANGE_NOTES.md`
+and `/root/trade-alerts-builder/test_triage.py`. `max_repairs` was also
+raised from 1 to 2 as part of this - at 1, Opus would never actually have
+gotten a turn (see that same CHANGE_NOTES.md for why).
