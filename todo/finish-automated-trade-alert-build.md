@@ -227,6 +227,25 @@ Nothing in production was touched: `trade-alerts-build.service` is still
 inactive, no `PAUSED` file was created or removed, no milestone was re-opened,
 `state.json` was not hand-edited, and nothing was committed or pushed.
 
+### Correction, 2026-09-16: Opus was not actually warranted next
+
+The paragraph below originally said the next build attempt would escalate
+straight to Opus, since `repairs` was already 1. That was wrong to accept
+uncorrected: the one recorded repair came from Codex's `gpt-5.6-sol` at
+`medium_build`, `repairs: 0` at the time - not from a failed Sonnet attempt.
+Jumping to Opus would have skipped giving Sonnet its own attempt at this
+specific bug. `repairs` itself is a fact of the milestone's history and was
+not hand-edited; instead `escalate_after_repairs` was raised from 1 to 2, so
+Sonnet gets one real attempt (and, if that fails, one repair) before Opus
+escalates, regardless of which provider produced the repairs already on the
+counter. `medium_build`, `repair`, and `hard_review` also now run at Sonnet
+**medium** effort instead of `low` - the bug blocking M4.7A was made by a
+medium-effort model, and this build's domain logic (options risk/target
+geometry) has produced real bugs before. Detail and updated test evidence:
+`/root/trade-alerts-builder/repairs/claude-routing-restored/CHANGE_NOTES.md`.
+The short kickoff for the next session is
+`todo/kickoffs/continue-trade-alert-build.md`.
+
 ### Single next action
 
 Two separate things are blocking M4.7A, and both need a human decision before
@@ -239,11 +258,12 @@ the controller runs again:
    on a half-switched or freshly-switched configuration is exactly what the
    kickoff said not to do.
 2. **The real test failure** (`SHORT risk and targets have invalid geometry`
-   on `SHORT-PUT` at delta -0.5 and -0.7) is still unfixed. Since `repairs` is
-   already 1, the very next build attempt on M4.7A will use the `escalated`
-   profile - Opus 5 at medium effort - per the routing above.
+   on `SHORT-PUT` at delta -0.5 and -0.7) is still unfixed. With `repairs: 1`
+   and `escalate_after_repairs: 2`, the next build attempt on M4.7A uses the
+   `repair` profile - Sonnet 5 at medium effort, not Opus.
 
-Do both together: clear the attention flag, then let the controller make its
-one escalated Opus repair attempt on M4.7A. If that attempt also fails, the
-milestone should go to a human, not another blind retry - there is no profile
-after `escalated`.
+Do both together: clear the attention flag, then let the controller make
+Sonnet's repair attempt on M4.7A. If that attempt also fails, the next one
+escalates to Opus automatically. If Opus's attempt also fails, the milestone
+should go to a human, not another blind retry - there is no profile after
+`escalated`.
