@@ -1177,3 +1177,24 @@ The contained runner sets `HOME=/tmp`, which hides anything installed under `/ho
 **File:** `youtube_ticker_symbol_validation.md`
 
 Stop the video reader saving names like "NVIDIA" instead of NVDA, which makes the engine ask Yahoo for a symbol that does not exist every five minutes.
+
+## 117. Finish the automated trade-alert build
+
+**File:** `finish-automated-trade-alert-build.md`
+
+**CURRENT STATUS (2026-09-12 21:30 PDT):** Paused cleanly, one decision waiting.
+Twenty-one milestones accepted: M2.2, M4.1, M4.2, M4.5, M4.6, M5.1, M5.3, M5.5,
+M6.1, M6.2, M6.3, M6.4, M7.1, M7.2, M7.3, M7.4, M7.5, M8.1, M8.2, M8.3, M8.4.
+M8.5 is the next one and sits part-built; nothing is broken and no repair is
+outstanding. The decision is money, not code: the weekly Claude allowance is
+spent (100% used, about 2 days 8 hours to reset) and the build had started
+drawing on paid extra usage, which the kickoff does not authorize, so it was
+paused rather than left spending overnight - either approve the overage or let
+it wait for the weekly reset. Two machinery faults found and fixed on
+2026-09-11/12 (the Claude launch command was missing `--verbose`; the test run
+had outgrown its own 420-second kill timer, now 1200) are written up below, and
+both had been misread in the earlier notes. M7.5's reviewer objection was real
+and is fixed: the replay now keeps the price level it announced and refuses a
+later one that differs. 145 controller tests pass. Next: read
+`/root/trade-alerts-builder/PAUSE_CHECKPOINT.md`, which carries the whole
+situation and the exact resume steps.
