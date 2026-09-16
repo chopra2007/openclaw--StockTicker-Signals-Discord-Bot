@@ -1182,19 +1182,18 @@ Stop the video reader saving names like "NVIDIA" instead of NVDA, which makes th
 
 **File:** `finish-automated-trade-alert-build.md`
 
-**CURRENT STATUS (2026-09-12 21:30 PDT):** Paused cleanly, one decision waiting.
-Twenty-one milestones accepted: M2.2, M4.1, M4.2, M4.5, M4.6, M5.1, M5.3, M5.5,
-M6.1, M6.2, M6.3, M6.4, M7.1, M7.2, M7.3, M7.4, M7.5, M8.1, M8.2, M8.3, M8.4.
-M8.5 is the next one and sits part-built; nothing is broken and no repair is
-outstanding. The decision is money, not code: the weekly Claude allowance is
-spent (100% used, about 2 days 8 hours to reset) and the build had started
-drawing on paid extra usage, which the kickoff does not authorize, so it was
-paused rather than left spending overnight - either approve the overage or let
-it wait for the weekly reset. Two machinery faults found and fixed on
-2026-09-11/12 (the Claude launch command was missing `--verbose`; the test run
-had outgrown its own 420-second kill timer, now 1200) are written up below, and
-both had been misread in the earlier notes. M7.5's reviewer objection was real
-and is fixed: the replay now keeps the price level it announced and refuses a
-later one that differs. 145 controller tests pass. Next: read
-`/root/trade-alerts-builder/PAUSE_CHECKPOINT.md`, which carries the whole
-situation and the exact resume steps.
+**CURRENT STATUS (2026-09-16 02:30 PDT):** Stopped on a real code failure, not
+a machinery fault. Milestone **M4.7A**, stage `awaiting_attention`, 38
+milestones accepted, 1 repair recorded. The last real build attempt (2026-09-14
+06:04-06:19 PDT) touched `event_store.py` and `options_portfolio.py` and left
+two failing tests: `test_options_portfolio.py::test_both_stock_directions_and_signed_delta_boundaries[SHORT-PUT--0.5]`
+and `[SHORT-PUT--0.7]`, both raising `RecordError: SHORT risk and targets have
+invalid geometry` (169 other tests passed). Every attempt after that one (71 of
+them, every 30 minutes from 06:19 PDT on the 14th through 17:54 PDT on the
+15th) hit Codex's hard usage cap immediately ("You've hit your usage limit...
+try again at Sep 19th, 2026 9:40 PM") and did nothing; none counted as a repair
+- the usage-limit-never-a-repair rule held for 35 hours straight. The
+controller only stopped retrying when an unrelated check later flagged
+"protected files changed since this milestone started" (this file and TODO.md
+were edited outside the build). See the "Switched back to Claude" section
+below for what changed and why, and "Single next action" for what to do.

@@ -2,22 +2,21 @@
 **Status:** OPEN
 **Created:** 2026-09-09
 
-**CURRENT STATUS (2026-09-12 21:30 PDT):** Paused cleanly, one decision waiting.
-Twenty-one milestones accepted: M2.2, M4.1, M4.2, M4.5, M4.6, M5.1, M5.3, M5.5,
-M6.1, M6.2, M6.3, M6.4, M7.1, M7.2, M7.3, M7.4, M7.5, M8.1, M8.2, M8.3, M8.4.
-M8.5 is the next one and sits part-built; nothing is broken and no repair is
-outstanding. The decision is money, not code: the weekly Claude allowance is
-spent (100% used, about 2 days 8 hours to reset) and the build had started
-drawing on paid extra usage, which the kickoff does not authorize, so it was
-paused rather than left spending overnight - either approve the overage or let
-it wait for the weekly reset. Two machinery faults found and fixed on
-2026-09-11/12 (the Claude launch command was missing `--verbose`; the test run
-had outgrown its own 420-second kill timer, now 1200) are written up below, and
-both had been misread in the earlier notes. M7.5's reviewer objection was real
-and is fixed: the replay now keeps the price level it announced and refuses a
-later one that differs. 145 controller tests pass. Next: read
-`/root/trade-alerts-builder/PAUSE_CHECKPOINT.md`, which carries the whole
-situation and the exact resume steps.
+**CURRENT STATUS (2026-09-16 02:30 PDT):** Stopped on a real code failure, not
+a machinery fault. Milestone **M4.7A**, stage `awaiting_attention`, 38
+milestones accepted, 1 repair recorded. The last real build attempt (2026-09-14
+06:04-06:19 PDT) touched `event_store.py` and `options_portfolio.py` and left
+two failing tests: `test_options_portfolio.py::test_both_stock_directions_and_signed_delta_boundaries[SHORT-PUT--0.5]`
+and `[SHORT-PUT--0.7]`, both raising `RecordError: SHORT risk and targets have
+invalid geometry` (169 other tests passed). Every attempt after that one (71 of
+them, every 30 minutes from 06:19 PDT on the 14th through 17:54 PDT on the
+15th) hit Codex's hard usage cap immediately ("You've hit your usage limit...
+try again at Sep 19th, 2026 9:40 PM") and did nothing; none counted as a repair
+- the usage-limit-never-a-repair rule held for 35 hours straight. The
+controller only stopped retrying when an unrelated check later flagged
+"protected files changed since this milestone started" (this file and TODO.md
+were edited outside the build). See the "Switched back to Claude" section
+below for what changed and why, and "Single next action" for what to do.
 
 ## Goal
 
@@ -153,3 +152,98 @@ Read `/root/trade-alerts-builder/CONTINUE_AUTOMATED.md`, then
 `PAUSE_CHECKPOINT.md`. Declare the session in `supervisors.json` before resuming,
 and expect one `protected files changed since this milestone started` stop,
 because this file and `TODO.md` were edited here.
+
+## Where it stands, 2026-09-15/16 - Codex usage cap, then switched back to Claude
+
+### What actually happened to Codex (read the machine state, not the old handoff prose)
+
+The build had moved onto Codex on 2026-09-11 around 14:45. Codex reached
+milestone M4.7A and, on 2026-09-14 at 06:04 PDT, made its one real attempt
+(`repairs` went from 0 to 1): it edited `consensus_engine/event_store.py`,
+`consensus_engine/options_portfolio.py`, and their tests/docs, then ran
+verification. Two tests failed:
+`tests/trade_alerts_contracts/test_options_portfolio.py::test_both_stock_directions_and_signed_delta_boundaries[SHORT-PUT--0.5]`
+and `[SHORT-PUT--0.7]`, both raising
+`consensus_engine.trade_alerts_models.RecordError: SHORT risk and targets have
+invalid geometry` (169 of 171 tests in that run passed). That failure is still
+the real, current blocker on M4.7A - nothing since has touched it.
+
+At 06:19 PDT the very next attempt (attempt 2, wall time 3.9 seconds) hit
+Codex's hard usage cap: `"You've hit your usage limit. Visit
+https://chatgpt.com/codex/settings/usage to purchase more credits or try again
+at Sep 19th, 2026 9:40 PM."` The controller correctly did not count this as a
+repair. But it also kept retrying automatically every 30 minutes - attempts 3
+through 72, every single one from 06:49 PDT on the 14th through 17:54 PDT on
+the 15th, about 35 hours - and every one hit the identical usage-cap message in
+under 4 seconds and did nothing. `repairs` stayed at 1 the entire time; the
+"usage limit is a wait, not a failure" rule worked exactly as designed, it just
+kept waiting for four and a half days (the cap does not clear until 2026-09-19).
+
+The controller only stopped polling when a separate, unrelated check tripped:
+at 18:24 PDT on the 15th it noticed `TODO.md` had changed since M4.7A's build
+started (a normal side effect of other work in this same workspace) and set
+`stage: awaiting_attention`, `attention: "protected files changed since this
+milestone started"`. `trade-alerts-build.service` went inactive at that point
+and has stayed inactive since; there is no `PAUSED` file. This is a real,
+unresolved attention flag, separate from the underlying test failure - both
+have to be dealt with before the milestone can move again.
+
+The six helper directories the earlier Codex session log named
+(`/root/m85_fix`, `/root/records_comparison_fix`, `/root/routing_review`,
+`/root/data_access_map`, `/root/provider_docs`, `/root/research_authority`) no
+longer exist on disk - nothing was left half-written there to build on or clean
+up.
+
+### Switched back to Claude
+
+The owner asked to move the controller off Codex and back onto Claude models
+rather than wait out the cap. This was already done once before, 2026-09-09 to
+2026-09-11 (preserved at
+`/root/trade-alerts-builder/repairs/codex-subscription/before/`); this was a
+merge of that preserved Claude launch path back into the current
+`controller.py`, not a rebuild, keeping every fix the file gained during the
+Codex period (the output-exhaustion stop, re-targeted at Claude's real
+`stop_reason: "max_tokens"` signal instead of Codex's schema-formatting bug;
+the anchored milestone-ID pattern; `finalize` outranking `escalated`).
+Routing is now Sonnet 5 at `low` effort for all ordinary work (build, review,
+repair, hard review, finalize) and Opus 5 at `medium` effort for the one
+escalation after a failed repair (`escalate_after_repairs: 1`, unchanged).
+Full detail, including exactly what was kept from the Codex-period file and
+why the old "effort must be medium" guard was deliberately removed, is in
+`/root/trade-alerts-builder/repairs/claude-routing-restored/CHANGE_NOTES.md`.
+The full controller test suite (165 tests, 48 subtests) passes, and two real
+`claude -p` sessions were run through the actual launcher against a disposable
+throwaway job directory (not the real build workspace) to prove the build and
+review launch paths both work and that the reviewer's Write tool is genuinely
+denied, not just denied in a mocked test.
+
+`/root/trade-alerts-builder/archives/storage-manager/README.md` had a stale
+paragraph claiming Google Drive access needs "the supervising connected Codex
+task" - corrected; the server-native rclone transfer (already live and
+verified since 2026-09-13) is the real path now, and it needs no AI session of
+any kind, Codex or otherwise.
+
+Nothing in production was touched: `trade-alerts-build.service` is still
+inactive, no `PAUSED` file was created or removed, no milestone was re-opened,
+`state.json` was not hand-edited, and nothing was committed or pushed.
+
+### Single next action
+
+Two separate things are blocking M4.7A, and both need a human decision before
+the controller runs again:
+
+1. **The attention flag** ("protected files changed since this milestone
+   started") needs `/root/trade-alerts-builder/buildctl resume
+   --clear-attention` - the controller's own checked recovery path. This was
+   deliberately not run as part of this switch, since starting the controller
+   on a half-switched or freshly-switched configuration is exactly what the
+   kickoff said not to do.
+2. **The real test failure** (`SHORT risk and targets have invalid geometry`
+   on `SHORT-PUT` at delta -0.5 and -0.7) is still unfixed. Since `repairs` is
+   already 1, the very next build attempt on M4.7A will use the `escalated`
+   profile - Opus 5 at medium effort - per the routing above.
+
+Do both together: clear the attention flag, then let the controller make its
+one escalated Opus repair attempt on M4.7A. If that attempt also fails, the
+milestone should go to a human, not another blind retry - there is no profile
+after `escalated`.
