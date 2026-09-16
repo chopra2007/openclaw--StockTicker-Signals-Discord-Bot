@@ -1182,18 +1182,24 @@ Stop the video reader saving names like "NVIDIA" instead of NVDA, which makes th
 
 **File:** `finish-automated-trade-alert-build.md`
 
-**CURRENT STATUS (2026-09-16 02:30 PDT):** Stopped on a real code failure, not
-a machinery fault. Milestone **M4.7A**, stage `awaiting_attention`, 38
-milestones accepted, 1 repair recorded. The last real build attempt (2026-09-14
-06:04-06:19 PDT) touched `event_store.py` and `options_portfolio.py` and left
-two failing tests: `test_options_portfolio.py::test_both_stock_directions_and_signed_delta_boundaries[SHORT-PUT--0.5]`
-and `[SHORT-PUT--0.7]`, both raising `RecordError: SHORT risk and targets have
-invalid geometry` (169 other tests passed). Every attempt after that one (71 of
-them, every 30 minutes from 06:19 PDT on the 14th through 17:54 PDT on the
-15th) hit Codex's hard usage cap immediately ("You've hit your usage limit...
-try again at Sep 19th, 2026 9:40 PM") and did nothing; none counted as a repair
-- the usage-limit-never-a-repair rule held for 35 hours straight. The
-controller only stopped retrying when an unrelated check later flagged
-"protected files changed since this milestone started" (this file and TODO.md
-were edited outside the build). See the "Switched back to Claude" section
-below for what changed and why, and "Single next action" for what to do.
+**CURRENT STATUS (2026-09-15 22:45 PDT):** **M4.7A is accepted** - 39
+milestones now, up from 38. The SHORT-PUT geometry failure that had blocked it
+since 2026-09-14 was a bad test, not bad risk logic: it built a SHORT candidate
+by flipping only the direction label and left the LONG-shaped stop and target
+in place, making an impossible trade. Sonnet 5 at medium effort fixed it;
+protected verification ran the suite twice for repeatability, 65 passed both
+times. Opus was never needed for it.
+
+The build then moved to **M9.3** and stopped for a real reason, now stage
+`awaiting_attention`. Opus 5 did not fail - it gave a clean verdict: M9.3
+cannot be built because the M0.2 provider/queue/storage/disk/memory budgets are
+unresolved and need an owner or data decision. The measurable part is disk
+space: `/` has **7.2 GB free of 75 GB (90% full)** and the build's frozen
+reserve needs **12 GB**. About 5 GB has to be freed before the M0.2 family can
+run at all. The rest is money and data questions (billing position, an
+unexplained OPRA HTTP 400, unpriced dates, estimates above the USD 24
+unreserved amount). Nothing was deleted and no spending was authorized.
+
+Also corrected: the kickoff file's `buildctl resume --clear-attention` does
+nothing - `buildctl` takes only one word, so the flag is ignored and it just
+prints status. Use `python3 controller.py --clear-attention resume` instead.

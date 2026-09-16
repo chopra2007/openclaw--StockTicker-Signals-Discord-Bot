@@ -2,21 +2,27 @@
 **Status:** OPEN
 **Created:** 2026-09-09
 
-**CURRENT STATUS (2026-09-16 02:30 PDT):** Stopped on a real code failure, not
-a machinery fault. Milestone **M4.7A**, stage `awaiting_attention`, 38
-milestones accepted, 1 repair recorded. The last real build attempt (2026-09-14
-06:04-06:19 PDT) touched `event_store.py` and `options_portfolio.py` and left
-two failing tests: `test_options_portfolio.py::test_both_stock_directions_and_signed_delta_boundaries[SHORT-PUT--0.5]`
-and `[SHORT-PUT--0.7]`, both raising `RecordError: SHORT risk and targets have
-invalid geometry` (169 other tests passed). Every attempt after that one (71 of
-them, every 30 minutes from 06:19 PDT on the 14th through 17:54 PDT on the
-15th) hit Codex's hard usage cap immediately ("You've hit your usage limit...
-try again at Sep 19th, 2026 9:40 PM") and did nothing; none counted as a repair
-- the usage-limit-never-a-repair rule held for 35 hours straight. The
-controller only stopped retrying when an unrelated check later flagged
-"protected files changed since this milestone started" (this file and TODO.md
-were edited outside the build). See the "Switched back to Claude" section
-below for what changed and why, and "Single next action" for what to do.
+**CURRENT STATUS (2026-09-15 22:45 PDT):** **M4.7A is accepted** - 39
+milestones now, up from 38. The SHORT-PUT geometry failure that had blocked it
+since 2026-09-14 was a bad test, not bad risk logic: it built a SHORT candidate
+by flipping only the direction label and left the LONG-shaped stop and target
+in place, making an impossible trade. Sonnet 5 at medium effort fixed it;
+protected verification ran the suite twice for repeatability, 65 passed both
+times. Opus was never needed for it.
+
+The build then moved to **M9.3** and stopped for a real reason, now stage
+`awaiting_attention`. Opus 5 did not fail - it gave a clean verdict: M9.3
+cannot be built because the M0.2 provider/queue/storage/disk/memory budgets are
+unresolved and need an owner or data decision. The measurable part is disk
+space: `/` has **7.2 GB free of 75 GB (90% full)** and the build's frozen
+reserve needs **12 GB**. About 5 GB has to be freed before the M0.2 family can
+run at all. The rest is money and data questions (billing position, an
+unexplained OPRA HTTP 400, unpriced dates, estimates above the USD 24
+unreserved amount). Nothing was deleted and no spending was authorized.
+
+Also corrected: the kickoff file's `buildctl resume --clear-attention` does
+nothing - `buildctl` takes only one word, so the flag is ignored and it just
+prints status. Use `python3 controller.py --clear-attention resume` instead.
 
 ## Goal
 
@@ -282,3 +288,115 @@ new tests: `/root/trade-alerts-builder/repairs/claude-routing-restored/CHANGE_NO
 and `/root/trade-alerts-builder/test_triage.py`. `max_repairs` was also
 raised from 1 to 2 as part of this - at 1, Opus would never actually have
 gotten a turn (see that same CHANGE_NOTES.md for why).
+
+## Where it stands, 2026-09-15 22:45 PDT - M4.7A ACCEPTED, now stopped on disk space and money
+
+### M4.7A is done
+
+The blocker that had held this milestone since 2026-09-14 is fixed and the
+milestone is accepted (recorded `completed_at: 2026-09-15T22:17:19-07:00`,
+review run `runs/20260915-221533-965276-review`). Accepted milestones went from
+38 to 39.
+
+The actual bug was in the test, not in the risk logic. The failing test
+`test_both_stock_directions_and_signed_delta_boundaries` built a SHORT
+candidate by flipping only the `direction` field with `replace()`, leaving the
+LONG-shaped stop and target in place. That produced an impossible trade - stop
+below entry and target above entry on a SHORT - so the geometry check in
+`consensus_engine/trade_alerts_models.py` correctly rejected it. Sonnet 5 at
+medium effort, `repair` profile, found this and corrected the test's
+construction. The protected verification then ran the suite twice for
+repeatability: 65 passed, exit code 0, both runs.
+
+So the Sonnet-gets-its-own-attempt decision (raising `escalate_after_repairs`
+from 1 to 2) was the right call - Sonnet solved it and Opus was never needed
+for M4.7A.
+
+### Then M9.3, and a real stop
+
+With M4.7A accepted the controller moved to M9.3 and hit a genuine wall, in
+two stages:
+
+1. Sonnet returned `status: blocked` naming `M0.2` as the next milestone, and
+   reported `trade_alerts_build_docs/ROADMAP.md` as a changed file. But the
+   file already contained the needed note, so nothing actually changed on disk.
+   The controller compares reported changes against the real file manifest,
+   found an empty delta, and rejected the submission as incomplete evidence.
+   It tried the same thing twice, tripped the repeat-failure guard
+   (`failure_recurrence >= 2`) and froze with `diagnosis_required: true`.
+2. After clearing that, the attempt escalated to Opus 5 at medium effort as
+   designed (`repairs: 2` met `escalate_after_repairs: 2`). Opus did not fail -
+   it returned a clean, definitive answer: M9.3 cannot be implemented because
+   the M0.2 provider/queue/storage/disk/memory budgets and the validated input
+   continuity they depend on are unresolved and need an owner or data decision
+   ("estimates above the USD 24 unreserved amount, unknown billing, unknown
+   OPRA HTTP 400 cause, unpriced dates, unresolved local capacity"), plus a
+   separately reviewed repair for the earlier storage/temp-folder failure.
+
+Because Opus returned `blocked` with no `next_milestone`, the controller took
+its "genuinely blocked, stop for a human" branch (controller.py line 1540)
+rather than the triage branch. The triage feature only fires when
+`repairs > max_repairs`, which never happened here - Opus answered cleanly
+instead of failing.
+
+### The concrete, measurable part of the blocker: disk space
+
+`/` is 75 GB, 65 GB used, **7.2 GB free (90% full)**. The build's frozen
+reserve requires 12,000,000,000 bytes (12 GB). That single fact is why the
+whole M0.2 family is blocked, and M9.3 sits behind it. Roughly 5 GB has to be
+freed. Where the space actually is:
+
+| Location | Size | Notes |
+|---|---|---|
+| `~/.openclaw/research-data` | 19 GB | paid market data (Databento etc.) - should NOT be deleted |
+| `~/.openclaw/workspace` | 6.3 GB | of which `.omc` is 2.9 GB (tool caches) |
+| `~/.openclaw/db-backups` | 4.7 GB | old database backups |
+| `/root/trade-alerts-builder` | 3.9 GB | the build's own run history |
+| `/var/log/journal` | 2.5 GB | system logs, safely vacuumable to ~200 MB |
+| `/root/.cursor-server` | 2.7 GB | |
+| `~/.openclaw/npm` | 2.6 GB | |
+| `/root/.codex` | 1.8 GB | Codex CLI data, no longer the build's router |
+
+Nothing was deleted - freeing space is the owner's call, and the paid market
+data is the largest single item.
+
+### Correction to the kickoff file: the resume command does not work as written
+
+`todo/kickoffs/continue-trade-alert-build.md` says to run
+`/root/trade-alerts-builder/buildctl resume --clear-attention`. That command
+silently does nothing useful: `buildctl` only accepts a single word
+(`if len(sys.argv) == 2`), so the extra flag makes it fall through to
+`status` and just print the current state. The flag lives on the controller,
+not on buildctl. The command that actually works is:
+
+```
+cd /root/trade-alerts-builder && python3 controller.py --clear-attention resume
+```
+
+then `./buildctl start` to restart the service.
+
+### Single next action - needs an owner decision
+
+The build cannot move on its own. Two choices, not mutually exclusive:
+
+1. **Free about 5 GB** so the M0.2 family's 12 GB reserve is satisfied. The
+   safe, non-destructive start is vacuuming the system journal (2.5 GB to
+   ~200 MB). Getting the rest means deciding about `db-backups` (4.7 GB),
+   `.omc` caches (2.9 GB), `.codex` (1.8 GB) or old builder runs - a decision
+   about what is disposable. The 19 GB of paid market data should stay.
+2. **Answer M0.2's data and money questions**: the billing position, the cause
+   of the OPRA HTTP 400, and the unpriced dates. Opus flagged estimates above
+   the USD 24 unreserved amount, and no new spending is authorized by this
+   TODO item.
+
+If neither is wanted right now, the other option is to authorize the build to
+skip M9.3 and work an independent milestone instead. About 76 roadmap
+milestones are neither completed nor in the blocked registry, so there is
+other work available - but routing to one means either a builder that returns
+`blocked` **with** a ready `next_milestone`, or letting the triage session
+choose, and triage currently only runs after a repair-limit failure. That is a
+behavior change to the governed controller, so it was not made unilaterally.
+
+All switches remain off. Nothing was activated, deployed, restarted, pushed,
+purchased, or deleted. `state.json` was not hand-edited; the only controller
+action taken was its own `--clear-attention resume`.
