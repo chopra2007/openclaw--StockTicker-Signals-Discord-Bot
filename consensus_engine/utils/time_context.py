@@ -10,12 +10,103 @@ answers time/market-hours questions correctly instead of hallucinating
 from stale training data.
 """
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, time, timedelta, timezone
+from typing import Literal
 from zoneinfo import ZoneInfo
 import pandas_market_calendars as mcal
 
 _NYSE = mcal.get_calendar("NYSE")
 _NY = ZoneInfo("America/New_York")
+_PACIFIC = ZoneInfo("America/Los_Angeles")
+
+
+def as_utc(moment: datetime) -> datetime:
+    """Preserve an absolute instant; never guess a timezone for a naive event."""
+    if moment.tzinfo is None or moment.utcoffset() is None:
+        raise ValueError("Timestamp must include a timezone")
+    return moment.astimezone(timezone.utc)
+
+
+def format_pacific(moment: datetime) -> str:
+    """Display an absolute timestamp with the correct Pacific seasonal label."""
+    return as_utc(moment).astimezone(_PACIFIC).strftime("%Y-%m-%d %I:%M:%S %p %Z")
+
+
+def session_date_at(moment: datetime) -> date:
+    """Exchange-calendar date for an instant, independent of its supplied zone.
+
+    This is the schedule lookup key, including on holidays and outside hours.
+    Use the bounds or phase helpers to establish whether a session exists/opens;
+    this does not roll a closed day backward to the previous trading session.
+    """
+    return as_utc(moment).astimezone(_NY).date()
+
+
+def _premarket_open(day: date, start: time, regular_open: datetime) -> datetime:
+    if start.tzinfo is not None:
+        raise ValueError("Premarket start must be a Pacific clock time without tzinfo")
+    opened = as_utc(datetime.combine(day, start, tzinfo=_PACIFIC))
+    if opened >= regular_open:
+        raise ValueError("Premarket start must precede the regular open")
+    return opened
+
+
+def premarket_bounds(
+    day: date, premarket_start: time,
+) -> tuple[datetime, datetime] | None:
+    """Caller-configured [Pacific start, scheduled open), as absolute instants.
+
+    Non-session dates return None. These clock bounds say nothing about whether
+    a provider supplies the required premarket data or its final observations.
+    D-090 F-02 uses time(1, 0); that research choice is not a platform default.
+    """
+    bounds = session_bounds(day)
+    if bounds is None:
+        return None
+    opened = as_utc(bounds[0])
+    return _premarket_open(day, premarket_start, opened), opened
+
+
+def regular_session_window(
+    day: date, start_after_open: timedelta, end_after_open: timedelta,
+) -> tuple[datetime, datetime] | None:
+    """Absolute [start, end) clock window, capped at the actual regular close.
+
+    Offsets come from the caller's strategy configuration. A holiday or a window
+    starting at/after the close returns None. Reaching a boundary does not prove
+    bar finality, coverage or feature readiness; consumers must check those.
+    """
+    if start_after_open < timedelta(0) or end_after_open <= start_after_open:
+        raise ValueError("Window offsets must satisfy 0 <= start < end")
+    bounds = session_bounds(day)
+    if bounds is None:
+        return None
+    opened, closed = (as_utc(value) for value in bounds)
+    start = opened + start_after_open
+    end = min(opened + end_after_open, closed)
+    return (start, end) if start < end else None
+
+
+def session_phase(
+    moment: datetime, premarket_start: time,
+) -> Literal["CLOSED", "PREMARKET", "REGULAR"]:
+    """Clock phase with inclusive starts and exclusive ends; not data health.
+
+    Before the configured premarket, after the regular close and on non-session
+    dates the result is CLOSED. Extended-hours provider availability is separate.
+    """
+    instant = as_utc(moment)
+    day = session_date_at(instant)
+    bounds = session_bounds(day)
+    if bounds is None:
+        return "CLOSED"
+    opened, closed = (as_utc(value) for value in bounds)
+    premarket = _premarket_open(day, premarket_start, opened)
+    if opened <= instant < closed:
+        return "REGULAR"
+    if premarket <= instant < opened:
+        return "PREMARKET"
+    return "CLOSED"
 
 
 def session_dates(start: date, end: date) -> list[date]:

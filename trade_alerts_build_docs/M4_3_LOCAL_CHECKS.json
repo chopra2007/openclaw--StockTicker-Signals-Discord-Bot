@@ -1,0 +1,172 @@
+{
+  "milestone": "M4.3",
+  "recorded_at_pacific": "2026-09-07T00:36:35-07:00",
+  "offline_status": "completed",
+  "required_full_completion_status": "blocked",
+  "next_milestone": "M4.4",
+  "supervisor_artifacts_received": true,
+  "starting_snapshot": "/tmp/m43-start-pg2c0w40",
+  "starting_file_count": 566,
+  "changed_files": [
+    "consensus_engine/structural_risk.py",
+    "tests/trade_alerts_contracts/test_structural_risk.py",
+    "trade_alerts_build_docs/PROJECT_INDEX.md",
+    "trade_alerts_build_docs/ROADMAP.md",
+    "trade_alerts_build_docs/CODING_STANDARDS.md",
+    "trade_alerts_build_docs/DATA_REQUIREMENTS.md",
+    "trade_alerts_build_docs/TESTING_AND_VALIDATION.md",
+    "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md",
+    "trade_alerts_build_docs/M4_3_VERIFICATION.md",
+    "trade_alerts_build_docs/M4_3_LOCAL_CHECKS.json",
+    "trade_alerts_build_docs/M4_3_LAUNCHER_LIMITATION.txt"
+  ],
+  "grammar_python_3_10_and_compilation": {
+    "consensus_engine/structural_risk.py": "PASS",
+    "tests/trade_alerts_contracts/test_structural_risk.py": "PASS"
+  },
+  "static_test_function_count": 26,
+  "static_test_case_count": 105,
+  "static_cases_by_function": {
+    "test_d090_fx08_fx09_and_canonical_geometry": 4,
+    "test_outward_tick_rounding_preserves_raw_stop_and_unrounded_boundary": 6,
+    "test_extension_compares_exactly_before_display_rounding": 6,
+    "test_nearest_obstacle_and_exact_t1_room": 8,
+    "test_non_target_obstacle_before_t1_blocks_even_above_minimum_room": 2,
+    "test_t2_is_next_distinct_admitted_level_and_never_fabricated": 8,
+    "test_equal_prices_keep_every_label_reference_and_are_order_independent": 1,
+    "test_no_admitted_directional_t1_rejects_without_an_arbitrary_multiple": 6,
+    "test_missing_each_risk_input_stays_unavailable": 5,
+    "test_every_required_family_must_have_complete_coverage": 7,
+    "test_catalog_labels_late_or_old_coverage_cannot_certify_clear_room": 6,
+    "test_anchor_path_is_not_invented": 2,
+    "test_bad_selected_feature_attribution_remains_unavailable": 12,
+    "test_stale_trigger_snapshot_cannot_be_refreshed_by_request_time": 2,
+    "test_tape_and_quote_path_modes_cannot_be_mixed": 2,
+    "test_zero_atr_is_known_but_zero_tick_and_nonpositive_stop_are_not_usable": 1,
+    "test_zero_risk_wrong_anchor_and_entry_before_boundary": 2,
+    "test_unusable_catalog_level_cannot_disappear_even_on_wrong_side": 5,
+    "test_conflicting_ids_do_not_overwrite_original_facts": 1,
+    "test_invalid_contract_shape_raises_without_io": 9,
+    "test_original_results_and_nested_inputs_remain_immutable_and_detached": 1,
+    "test_supplied_bars_to_shared_features_risk_candidate_recording_end_to_end": 2,
+    "test_unknown_catalog_contract_cannot_be_ready": 2,
+    "test_another_atr_feature_cannot_substitute_for_frozen_twenty_minute_atr": 1,
+    "test_non_numeric_or_nonfinite_prices_are_rejected_by_canonical_records": 3,
+    "test_later_atr_revision_cannot_change_frozen_crossing_geometry": 1
+  },
+  "protected_test_selectors": [
+    "tests/trade_alerts_contracts",
+    "tests/trade_alerts_contracts/test_structural_risk.py",
+    "tests/test_models.py",
+    "tests/test_schwab_client.py",
+    "tests/test_wolf_macro_brain.py::test_stock_sector_etf",
+    "tests/test_risk_reward.py"
+  ],
+  "protected_launcher": {
+    "exit_code": 1,
+    "phase": "initial os.chown before child creation or collection",
+    "exact_error": "OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-5t1ncx6x'",
+    "passing_tests": null,
+    "proof_recordings_produced": false,
+    "output_record": "trade_alerts_build_docs/M4_3_LAUNCHER_LIMITATION.txt"
+  },
+  "required_recordings": [
+    "m43-structural-risk-long-proof.json",
+    "m43-structural-risk-short-proof.json"
+  ],
+  "supervisor_proof": {
+    "protected": true,
+    "stable": true,
+    "source_hash": "978eb70b4b89d241b93f3884ac551305d297d4ec40eb92c98c856cec691ed5ba",
+    "runs": 2,
+    "exit_codes": [0, 0],
+    "passing_tests_each_run": 892,
+    "m4_3_cases_each_run": 105,
+    "failures_each_run": 0,
+    "errors_each_run": 0,
+    "skips_each_run": 0,
+    "ordered_test_ids_match": true,
+    "unexpected_isolation_denials_each_run": 0,
+    "cleanup_passed_each_run": true,
+    "long_recording_bytes": 13164,
+    "long_recording_sha256": "dd155cf7fe4ad2c35c24a7950fbe7f07815817c28c84b5d86f7f6914f4a9c1a4",
+    "short_recording_bytes": 13146,
+    "short_recording_sha256": "1283009e570271a5f0642843655fb02c996ed9ce5fcbb7dc9834c4176435a4d8",
+    "databento_credit_used": 0
+  },
+  "document_checks": {
+    "local_link_count": 90,
+    "missing_links": [],
+    "nine_canonical_files": true,
+    "functional_requirement_rows": 31,
+    "additional_capability_rows": 22,
+    "prior_blocked_rows_preserved": true,
+    "added_text_scan_matches": {
+      "email": false,
+      "webhook": false,
+      "private_identifier": false,
+      "wrong_visible_zone": false
+    },
+    "eight_playbooks_preserved": true,
+    "static_check_correction": "A first supplemental check incorrectly required the decision register to repeat all eight literal strategy IDs. It raised AssertionError. Corrected the check to the four documents that own full ID lists; no project document was changed for that check."
+  },
+  "preservation": {
+    "unrelated_content_changes": [],
+    "existing_owner_or_mode_changes": [],
+    "approved_packet_unchanged": true,
+    "configuration_unchanged": true,
+    "protection_unchanged": true,
+    "failing_test_list_unchanged": true
+  },
+  "new_file_ownership_attempts": [
+    {
+      "path": "consensus_engine/structural_risk.py",
+      "result": "[Errno 22] Invalid argument: 'consensus_engine/structural_risk.py'"
+    },
+    {
+      "path": "tests/trade_alerts_contracts/test_structural_risk.py",
+      "result": "[Errno 22] Invalid argument: 'tests/trade_alerts_contracts/test_structural_risk.py'"
+    },
+    {
+      "path": "trade_alerts_build_docs/M4_3_VERIFICATION.md",
+      "result": "[Errno 22] Invalid argument: 'trade_alerts_build_docs/M4_3_VERIFICATION.md'"
+    },
+    {
+      "path": "trade_alerts_build_docs/M4_3_LAUNCHER_LIMITATION.txt",
+      "result": "[Errno 22] Invalid argument: 'trade_alerts_build_docs/M4_3_LAUNCHER_LIMITATION.txt'"
+    },
+    {
+      "path": "trade_alerts_build_docs/M4_3_LOCAL_CHECKS.json",
+      "result": "[Errno 22] Invalid argument: 'trade_alerts_build_docs/M4_3_LOCAL_CHECKS.json'"
+    }
+  ],
+  "host_ownership_verification_required": true,
+  "host_read_only_checks": {
+    "active_status_known": false,
+    "active_status_error": "Failed to connect to bus: Operation not permitted (consider using --machine=<user>@.host --user to connect to bus of other user)",
+    "shortcut_resolved": true,
+    "recent_health_log_search_exit_code": 0,
+    "recent_health_log_match_count": 0
+  },
+  "lint_typecheck": "No repository lint/type-check command configured; source grammar/compilation only.",
+  "remaining_required_gate": "M4_3_VERIFICATION.md section 4: adopted full structural definitions/producers, actual path/family source coverage and valid increments, applicable soft invalidation/runner definitions.",
+  "databento_credit_used": 0,
+  "databento_credit_reserved": 0,
+  "sha256": {
+    "consensus_engine/structural_risk.py": "b1a029f39c8a434789833c024297d9ac0cb428505e6792114c38769f21f3685d",
+    "tests/trade_alerts_contracts/test_structural_risk.py": "b2dc3ceea715247e90335324980ed572929159c626b6f68611e63b7a21fac3f3",
+    "trade_alerts_build_docs/PROJECT_INDEX.md": "cd5dd6e28a686ca667ff333ad4c48aa815293add91754ccb20df39fb51cd4a69",
+    "trade_alerts_build_docs/ROADMAP.md": "e325a65f93e62d9ff1764654930a4e59cfd9f3c6599c4b66f9a35f4dc14b83cc",
+    "trade_alerts_build_docs/CODING_STANDARDS.md": "af42ebf9984984bca7127a801cf0ba140314162b8a447234b4c3c7ebd1b334b8",
+    "trade_alerts_build_docs/DATA_REQUIREMENTS.md": "f30169daf8cbdc3bf20f802fec503f98491a89f5ce27f3d8c6f819a6ddd2e041",
+    "trade_alerts_build_docs/TESTING_AND_VALIDATION.md": "1fb9df656b8ede98897051f09b2e15966d21db4d832b390613f7561038d88b68",
+    "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md": "c93aaa06a21853f7753c28fd0fdc0cc824d9ba57c4ce168a90b4e6426d630c0c",
+    "trade_alerts_build_docs/M4_3_VERIFICATION.md": "caf3b604e7a20d242861352afdbfaff0e2a25c338860c60560b50e64875e5c80",
+    "trade_alerts_build_docs/M4_3_LAUNCHER_LIMITATION.txt": "0cc210a8992908c90ce2d9910b8a589885b27e1cebc5f5b79f7cdd7d23297849",
+    "scripts/testing/run_trade_alerts_contracts.py": "6b609b643edfc467fc63480acd63ad50d4044616aec5efca61f32315af3d3ad2",
+    "scripts/testing/trade_alerts_contract_child.py": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c",
+    "config/consensus.yaml": "0081fd5a99bf84c4e2cf0e6fa991ea51984baf2d315507ab54b7037dc35fbac8",
+    ".test-baseline": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "trade_alerts_build_docs/M0_3_DEFINITION_PACKET.md": "a1a0f8e6a4e6d8c66e78f5df18ea7d20150d8cddf604d56ee709ca560f843c35"
+  }
+}

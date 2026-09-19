@@ -1,0 +1,272 @@
+{
+ "milestone": "M5.5",
+ "verified_at_pacific": "2026-09-09T23:45:38-07:00",
+ "protected": true,
+ "stable": true,
+ "phase": "acceptance",
+ "runs": 1,
+ "test_count": 1254,
+ "wall_seconds": 313.07,
+ "exit_code": 0,
+ "failures": 0,
+ "errors": 0,
+ "skips": 0,
+ "cleanup_passed": true,
+ "unexpected_denials": {},
+ "selection_reason": "unknown dependency impact; safe broad fallback",
+ "selectors": [
+  "tests/trade_alerts_contracts"
+ ],
+ "acceptance_artifacts": {
+  "path": "/root/trade-alerts-builder/runs/20260909-163637-638505-build/published-artifacts-573eaf0533d1",
+  "published_at_pacific": "2026-09-09T23:45:38-07:00",
+  "listed_files": 35,
+  "total_bytes": 981086,
+  "summary_sha256": "5608c2bff3aed7ad4d30dcf96a1537ebea91277357e3483064dc47f8d4538cc5",
+  "publication_sha256": "16405df8ab0770e6db5ddaa5f1cbbfaa78f09aae089f72b52638c0b22fb2e624",
+  "per_run": [
+   {
+    "run": "run-1",
+    "tests": 1254,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "reported_seconds": 309.878,
+    "pytest_exit_code": 0,
+    "unexpected_denials": {},
+    "cleanup": {
+     "db_closed": true,
+     "http_closed": true,
+     "config_cleared": true,
+     "http_lock_cleared": true
+    },
+    "cleanup_passed": true,
+    "session_recovery_long_sha256": "cff15f68fd5396d7ea0cdaf42549817d9fa75988384b59ab6eac2ff9a3c34a97",
+    "session_recovery_short_sha256": "ce2071380dd9264e0b73972afb3f098285c0703001eb08194ed9d25f7d78c1f7",
+    "m5_3_replay_sha256": "2356f8e1ef8413154336ec881ce576963469040d3f4b283c14d3ebcd938459e0"
+   }
+  ]
+ },
+ "focused": {
+  "phase": "focused",
+  "runs": 1,
+  "test_count": 1254,
+  "wall_seconds": 323.19,
+  "exit_code": 0,
+  "failures": 0,
+  "errors": 0,
+  "skips": 0,
+  "cleanup_passed": true,
+  "unexpected_denials": {},
+  "selection_reason": "builder named directly affected checks",
+  "selectors": [
+   "tests/trade_alerts_contracts"
+  ],
+  "artifacts_path": "/root/trade-alerts-builder/runs/20260909-163637-638505-build/published-artifacts-7ea0158b0c9f",
+  "published_at_pacific": "2026-09-09T23:37:09-07:00",
+  "listed_files": 35,
+  "total_bytes": 981089,
+  "summary_sha256": "5608c2bff3aed7ad4d30dcf96a1537ebea91277357e3483064dc47f8d4538cc5",
+  "publication_sha256": "cfc784e6c096563fb025245c59cffc97f68ddc45dfc4a721e00eabf679c8cf45",
+  "per_run": [
+   {
+    "run": "run-1",
+    "tests": 1254,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "reported_seconds": 319.923,
+    "pytest_exit_code": 0,
+    "unexpected_denials": {},
+    "cleanup": {
+     "db_closed": true,
+     "http_closed": true,
+     "config_cleared": true,
+     "http_lock_cleared": true
+    },
+    "cleanup_passed": true,
+    "session_recovery_long_sha256": "cff15f68fd5396d7ea0cdaf42549817d9fa75988384b59ab6eac2ff9a3c34a97",
+    "session_recovery_short_sha256": "ce2071380dd9264e0b73972afb3f098285c0703001eb08194ed9d25f7d78c1f7",
+    "m5_3_replay_sha256": "2356f8e1ef8413154336ec881ce576963469040d3f4b283c14d3ebcd938459e0"
+   }
+  ]
+ },
+ "repeatability": {
+  "phase": "repeatability",
+  "runs": 2,
+  "test_count": 28,
+  "wall_seconds": 194.683,
+  "exit_code": 0,
+  "failures": 0,
+  "errors": 0,
+  "skips": 0,
+  "cleanup_passed": true,
+  "unexpected_denials": {},
+  "selection_reason": "recording output requires fresh-process comparison",
+  "selectors": [
+   "tests/trade_alerts_contracts/test_alert_delivery.py::test_bars_to_candidates_to_recording_and_fake_delivery_end_to_end",
+   "tests/trade_alerts_contracts/test_candidate_assembly.py::test_supplied_features_confidence_candidate_suppression_recording_end_to_end",
+   "tests/trade_alerts_contracts/test_confidence.py::test_supplied_features_composition_candidate_recording_end_to_end",
+   "tests/trade_alerts_contracts/test_configuration.py::test_known_default_hash_matches_canonical_record",
+   "tests/trade_alerts_contracts/test_core_price_features.py::test_bar_to_coverage_to_feature_snapshot_recording_end_to_end",
+   "tests/trade_alerts_contracts/test_domain_models.py::test_deterministic_record_proof_is_written_under_tmp",
+   "tests/trade_alerts_contracts/test_historical_bars.py::test_request_raw_mapping_coverage_and_archive_end_to_end",
+   "tests/trade_alerts_contracts/test_historical_replay.py::test_chronological_same_runtime_replay_is_byte_deterministic",
+   "tests/trade_alerts_contracts/test_opening_range_features.py::test_bar_coverage_opening_range_recording_end_to_end",
+   "tests/trade_alerts_contracts/test_outcome_evaluator.py::test_compact_end_to_end_recording",
+   "tests/trade_alerts_contracts/test_participation_features.py::test_bar_coverage_participation_recording_end_to_end",
+   "tests/trade_alerts_contracts/test_quote_events.py::test_normalized_events_failure_reconnect_recording_end_to_end",
+   "tests/trade_alerts_contracts/test_reference_inputs.py::test_supplied_reference_coverage_recording_end_to_end",
+   "tests/trade_alerts_contracts/test_research_event_store.py::test_recording_pipeline_retains_full_facts_retry_and_reopen",
+   "tests/trade_alerts_contracts/test_schwab_normalization.py::test_write_deterministic_normalization_proof",
+   "tests/trade_alerts_contracts/test_session_recovery.py::test_interrupted_session_recovery_recording_end_to_end",
+   "tests/trade_alerts_contracts/test_state_transitions.py::test_market_features_strategy_transition_database_recording_end_to_end",
+   "tests/trade_alerts_contracts/test_strategy_interface.py::test_shared_feature_to_strategy_records_end_to_end",
+   "tests/trade_alerts_contracts/test_structural_risk.py::test_supplied_bars_to_shared_features_risk_candidate_recording_end_to_end"
+  ],
+  "artifacts_path": "/root/trade-alerts-builder/runs/20260909-163637-638505-build/published-artifacts-ae450c7a169a",
+  "published_at_pacific": "2026-09-09T23:45:38-07:00",
+  "listed_files": 67,
+  "total_bytes": 1534645,
+  "summary_sha256": "b1253053857c9fe90f69ad65be410e64001c1fc05351cbc0737283fe42295d19",
+  "publication_sha256": "dda2624f5a284dfef666622f42baf913c34425acb960ab69c925ba62f56a75bb",
+  "per_run": [
+   {
+    "run": "run-1",
+    "tests": 28,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "reported_seconds": 94.901,
+    "pytest_exit_code": 0,
+    "unexpected_denials": {},
+    "cleanup": {
+     "db_closed": true,
+     "http_closed": true,
+     "config_cleared": true,
+     "http_lock_cleared": true
+    },
+    "cleanup_passed": true,
+    "session_recovery_long_sha256": "cff15f68fd5396d7ea0cdaf42549817d9fa75988384b59ab6eac2ff9a3c34a97",
+    "session_recovery_short_sha256": "ce2071380dd9264e0b73972afb3f098285c0703001eb08194ed9d25f7d78c1f7",
+    "m5_3_replay_sha256": "2356f8e1ef8413154336ec881ce576963469040d3f4b283c14d3ebcd938459e0"
+   },
+   {
+    "run": "run-2",
+    "tests": 28,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "reported_seconds": 96.201,
+    "pytest_exit_code": 0,
+    "unexpected_denials": {},
+    "cleanup": {
+     "db_closed": true,
+     "http_closed": true,
+     "config_cleared": true,
+     "http_lock_cleared": true
+    },
+    "cleanup_passed": true,
+    "session_recovery_long_sha256": "cff15f68fd5396d7ea0cdaf42549817d9fa75988384b59ab6eac2ff9a3c34a97",
+    "session_recovery_short_sha256": "ce2071380dd9264e0b73972afb3f098285c0703001eb08194ed9d25f7d78c1f7",
+    "m5_3_replay_sha256": "2356f8e1ef8413154336ec881ce576963469040d3f4b283c14d3ebcd938459e0"
+   }
+  ],
+  "run_1_session_recovery_long_sha256": "cff15f68fd5396d7ea0cdaf42549817d9fa75988384b59ab6eac2ff9a3c34a97",
+  "run_2_session_recovery_long_sha256": "cff15f68fd5396d7ea0cdaf42549817d9fa75988384b59ab6eac2ff9a3c34a97",
+  "run_1_session_recovery_short_sha256": "ce2071380dd9264e0b73972afb3f098285c0703001eb08194ed9d25f7d78c1f7",
+  "run_2_session_recovery_short_sha256": "ce2071380dd9264e0b73972afb3f098285c0703001eb08194ed9d25f7d78c1f7",
+  "run_1_replay_sha256": "2356f8e1ef8413154336ec881ce576963469040d3f4b283c14d3ebcd938459e0",
+  "run_2_replay_sha256": "2356f8e1ef8413154336ec881ce576963469040d3f4b283c14d3ebcd938459e0",
+  "recording_artifacts_match": true,
+  "replay_artifacts_match": true,
+  "identical_recorded_artifacts": 31,
+  "differing_files": [
+   "output.txt",
+   "results.xml"
+  ],
+  "differing_files_note": "Only the console log and the JUnit report differ, and only in timing text. Every recorded proof, fixture and isolation file is byte-identical between the two processes."
+ },
+ "source_hash": "ce6313a72c90285a49a3e1e09e3d777b12bf949efc44056dd29823939c5c9b2b",
+ "tested_source_manifest": {
+  "path": "trade_alerts_build_docs/M5_5_TESTED_SOURCE_MANIFEST.json",
+  "entries": 851,
+  "file_sha256": "771dce6d953b6f2affd330a52e0248fe8973c55af6adf358f1f19af77e761e84",
+  "canonical_sha256": "ce6313a72c90285a49a3e1e09e3d777b12bf949efc44056dd29823939c5c9b2b",
+  "note": "Snapshot of the tested tree at 2026-09-09T23:45:38-07:00. Its canonical form (sorted keys, compact separators) reproduces the controller source_hash exactly. The M5.5 record files were finalized after that run, so their current bytes differ from the entries here; no source, test, configuration or protected input changed."
+ },
+ "databento_credit_used": 0,
+ "mechanical_evidence": {
+  "controller_evidence": "/root/trade-alerts-builder/runs/20260909-163637-638505-build/controller-evidence.json",
+  "readable_copy": "trade_alerts_build_docs/M5_5_CONTROLLER_EVIDENCE.json",
+  "diff": "/root/trade-alerts-builder/runs/20260909-163637-638505-build/changes.diff",
+  "changed_files": [
+   "consensus_engine/event_store.py",
+   "consensus_engine/session_recovery.py",
+   "consensus_engine/state_transitions.py",
+   "tests/trade_alerts_contracts/test_session_recovery.py",
+   "trade_alerts_build_docs/M5_3_VERIFICATION.md",
+   "trade_alerts_build_docs/M5_5_CONTROLLER_EVIDENCE.json",
+   "trade_alerts_build_docs/M5_5_LOCAL_CHECKS.json",
+   "trade_alerts_build_docs/M5_5_SUPERVISOR_TESTS.json",
+   "trade_alerts_build_docs/M5_5_TESTED_SOURCE_MANIFEST.json",
+   "trade_alerts_build_docs/M5_5_VERIFICATION.md",
+   "trade_alerts_build_docs/ROADMAP.md"
+  ]
+ },
+ "historical_proof": {
+  "superseded_stages": [
+   {
+    "artifacts": "published-artifacts-2e13ceb96538",
+    "published_at_pacific": "2026-09-09T16:44:25-07:00",
+    "runs": 1,
+    "tests": 1235,
+    "note": "pre-M5.5 stage retained as dated history"
+   },
+   {
+    "artifacts": "published-artifacts-afa56bb782b6",
+    "published_at_pacific": "2026-09-09T16:49:28-07:00",
+    "runs": 1,
+    "tests": 1235,
+    "note": "pre-M5.5 stage retained as dated history"
+   },
+   {
+    "artifacts": "published-artifacts-d2529a516de8",
+    "published_at_pacific": "2026-09-09T16:52:50-07:00",
+    "runs": 2,
+    "tests": 26,
+    "note": "pre-M5.5 repeatability retained as dated history"
+   },
+   {
+    "artifacts": "published-artifacts-41d7751caa66",
+    "published_at_pacific": "2026-09-09T20:44:22-07:00",
+    "runs": 1,
+    "tests": 1254,
+    "note": "earlier M5.5 broad stage; later stages supersede it"
+   },
+   {
+    "artifacts": "published-artifacts-67fb9aace7de",
+    "published_at_pacific": "2026-09-09T23:13:09-07:00",
+    "runs": 1,
+    "tests": 1254,
+    "note": "earlier M5.5 focused stage; the 23:37 stage supersedes it"
+   },
+   {
+    "artifacts": "published-artifacts-96ce217c6589",
+    "published_at_pacific": "2026-09-09T23:18:22-07:00",
+    "runs": 1,
+    "tests": 1254,
+    "note": "earlier M5.5 broad stage; the 23:42 stage supersedes it"
+   },
+   {
+    "artifacts": "published-artifacts-49df8eef259a",
+    "published_at_pacific": "2026-09-09T23:21:35-07:00",
+    "runs": 2,
+    "tests": 28,
+    "note": "earlier M5.5 repeatability; the 23:45 stage supersedes it"
+   }
+  ],
+  "note": "Superseded proof retained as dated history. The cited stages are 7ea0158b0c9f, 573eaf0533d1 and ae450c7a169a, republished after the M5.5 record files were written. No source, test, configuration or protected input changed between the earlier stages and these, and every recorded artifact hash is unchanged."
+ },
+ "result": "Protected focused, broad and two fresh-process checks passed with zero failures, errors and skips, clean isolation and passing cleanup. This proves only the offline supplied-record recovery contract."
+}

@@ -3091,3 +3091,3127 @@ Any later option purchase stays targeted — only the contracts and dates a
 signal actually selects, inside the D-103 10% ITM to 10% OTM band and the
 existing 0-7 DTE limit — because a full year of chains prices at USD 1,088 and
 above, which the budget cannot cover.
+
+## M9.3 status after the owner-decision release — 2026-09-16 Pacific
+
+- [!] **M9.3 — shadow mode: still BLOCKED, now on proof rather than on an owner
+  decision.** The release above answers every owner question the 2026-09-15
+  assessment named, but it does not itself publish the proof M9.3 depends on:
+  the selected mode's M0.2 provider/queue/storage/disk/memory budgets and
+  validated input continuity have not been measured and recorded under the D-104
+  bar (gaps recorded, dependent rules switched off and labelled untested), and
+  the storage repair has not had its own verification run. The complete M9.3
+  change stays records only: `trade_alerts_build_docs/ROADMAP.md` and
+  `trade_alerts_build_docs/M9_3_VERIFICATION.md`. No code, test, configuration
+  or protected input changed, and no new protected run is claimed. All switches
+  remain off.
+- [ ] **M0.2K — D-104 gap register and selected-mode budget and continuity
+  proof:** using only data already held (the D-102 core17 EQUS.MINI one-year
+  files, the 13-ETF inventories and existing collector dates), record each
+  field that cannot be obtained as a gap with its dependent rules switched off
+  and labelled untested, and measure and record the selected mode's provider,
+  queue, storage, disk and memory budgets and input continuity, including a
+  verification run of the storage repair. Shared data prerequisite work only; no
+  new provider request, spending, Strategy 5-8 work, replay result, alert, order
+  or activation. Independent review must confirm eligibility before the
+  controller advances.
+
+## M0.2K finalization — 2026-09-16 Pacific
+
+- [x] **M0.2K — D-104 gap register and selected-mode budget and continuity
+  proof:** `M0_2K_GAP_REGISTER.json` records ten D-104 gaps (original
+  availability, corrections/finality, point-in-time index membership,
+  historical borrow, complete real option chain, option intrabar tick path, the
+  free DoltHub reference source's coverage/timestamp limits, pre-2023-03-28 OPRA
+  pricing, catalyst history, and the collector-date-2026-09-11 and 13-ETF
+  provider-degraded coverage holes) plus two fields obtained without a gap, each
+  with its dependent rules named as switched off and labelled untested; nothing
+  is approximated or filled. `M0_2K_VERIFICATION.md` selects the offline
+  recording-sink shadow mode M9.3 names and measures its budgets: Databento
+  provider (USD 60 authority, USD 22.4702 spent, USD 37.53 remaining, ledger
+  `/root/trade-alerts-builder/databento-spend-ledger.json`); the frozen offline
+  queue ceiling (110/60s, max length 256, disabled); storage/disk (free
+  13,149,548,544 bytes now exceeds the 12,046,114,407-byte reserve by about
+  1.10 GB, curing the 2026-09-14 disk-full admission failure for plain reads;
+  the bounded compactor's own larger working-space reservation is separately
+  recorded as still not admitted); and memory (1.5 GB `peak_memory_bytes`
+  ceiling against about 4.9 GiB available). Input continuity is shown by 13
+  contiguous monthly files per schema spanning the full 2025-09-15 to
+  2026-09-15 window with no date gap. The storage-repair verification run
+  reran the two files that failed the 2026-09-15 M9.3 acceptance
+  (`test_orb5_replay.py`, `test_rs_trend_eligibility.py`) through the protected
+  launcher, one fresh process: 225 passed in 41.55s, exit code 0, artifacts at
+  `/tmp/trade-alerts-m04-ve9o341n/run-1`, no disk-full or temporary-folder
+  error. No new provider request, spending, Strategy 5-8 work, replay result,
+  alert, order or activation occurred. All switches remain off.
+- [ ] **M9.3 — shadow mode:** proposed next milestone. M0.2K above publishes the
+  selected mode's provider/queue/storage/disk/memory budgets, input continuity
+  and the storage-repair verification run that the 2026-09-15 blocked
+  assessment named as missing; M4.7A already resolved the adopted
+  options/portfolio dependency. The bounded compactor's own admission gap and
+  every D-104-recorded field gap and its disabled dependent rules stay open and
+  unresolved by this record. Independent review must confirm eligibility before
+  the controller advances.
+
+## M9.3 blocked assessment — missing replay adapters — 2026-09-16 Pacific
+
+- [!] **M9.3 — shadow mode: BLOCKED.** M9.3's own text requires proving "the
+  initial pipeline with the first four playbooks," using the shared M5.3
+  `Strategy` protocol and `HistoricalReplayRunner` (`consensus_engine/historical_replay.py`)
+  that M0.2K's selected offline recording-sink shadow mode is built on. Reading
+  the four playbook modules before writing anything shows only two of the four
+  have that adapter: `consensus_engine/orb5_replay.py` (`Orb5ReplayStrategy`,
+  built under M6.4) and `consensus_engine/hod_comp_rs_replay.py`
+  (`HodCompRsReplayStrategy`, built under M7.5) both subclass `Strategy` and
+  are driven by `HistoricalReplayRunner.run()` today, as
+  `tests/trade_alerts_contracts/test_orb5_replay.py` and
+  `test_rs_trend_eligibility.py` already prove. `consensus_engine/or_failure_rev.py`
+  (`OrFailureRevMachine`) and `consensus_engine/first_pullback_vwap.py`
+  (`FirstPullbackVwapMachine`), built under M8.2 and M8.4, only expose their own
+  `ReversalRequest`/`ReversalAssessment` and `PullbackRequest`/`PullbackAssessment`
+  shapes; neither subclasses `Strategy` or is callable from
+  `HistoricalReplayRunner`. Phase 8 of this ROADMAP (M8.1 through M8.5) never
+  reserved a milestone for that adapter step the way M6.4 and M7.5 did for the
+  first two playbooks, so this is a real gap in the plan itself, not a data or
+  owner-decision gate: building two new ~500-line `Strategy` adapters that
+  correctly re-derive `StrategyState`/`StrategyStateTransition` from each
+  Machine's existing gate logic is new, unscoped, strategy-specific
+  implementation work with its own correctness risk, not a same-session
+  extension of M9.3's records-only budget/continuity proof. It needs its own
+  milestone, definition review and protected test coverage before M9.3 can
+  honestly say all four playbooks ran through the initial pipeline, so it is
+  not attempted here. No code, test, configuration or protected input changed
+  in this M9.3 attempt; only this record and the M8.6 row below were added.
+  Nothing here claims trigger, edge, delivery or promotion evidence, and no
+  switch is enabled.
+- [ ] **M8.6 — replay adapters for `OR_FAILURE_REV` and `FIRST_PULLBACK_VWAP`:**
+  proposed next milestone. Add the M5.3 `Strategy`-protocol adapters for
+  `OrFailureRevMachine` and `FirstPullbackVwapMachine`, mirroring the pattern
+  `orb5_replay.py`/M6.4 and `hod_comp_rs_replay.py`/M7.5 already used for the
+  first two playbooks, with their own offline replay/synthetic test coverage.
+  This reuses only already-adopted M8.2/M8.4 gate logic and the existing M5.3
+  runner; it adds no new threshold, source claim or spending. Independent
+  review must confirm eligibility before the controller advances. Closing it
+  is what would let a future M9.3 attempt honestly run all four playbooks
+  through the shared pipeline.
+
+## M8.6 finalization — 2026-09-16 Pacific
+
+- [x] **M8.6 — replay adapters for `OR_FAILURE_REV` and `FIRST_PULLBACK_VWAP`:**
+  `consensus_engine/or_failure_rev_replay.py` (`OrFailureRevReplayStrategy`) and
+  `consensus_engine/first_pullback_vwap_replay.py`
+  (`FirstPullbackVwapReplayStrategy`) add the M5.3 `Strategy`-protocol adapters
+  for `OrFailureRevMachine` (M8.2) and `FirstPullbackVwapMachine` (M8.4),
+  mirroring `orb5_replay.py`/M6.4 and `hod_comp_rs_replay.py`/M7.5: every
+  threshold, handed-over M8.1 handoff or M8.3 measurement, observation,
+  confirmation, structural reading and confidence result is supplied by the
+  caller for one exact instant, `heads_up`/`actionable` stay `None`, and
+  `invalidate`/`expire` keep the same M8.2/M8.4 boundary of never letting a
+  caller assert an outcome the supplied evidence did not produce. Unlike the
+  first two playbooks these two machines have no separate eligibility owner, so
+  each adapter proposes directly against its one M8.2/M8.4 machine, including
+  the staged `SETUP_FORMING -> ARMED -> ALERT_TRIGGERED` transition pair in one
+  evaluation when the supplied inputs already pass every gate. No new
+  threshold, source claim or spending is added; the two machines' own frozen
+  M8.2/M8.4 rules are reused unchanged (`or_failure_rev_replay_rules()` and
+  `first_pullback_vwap_replay_rules()` equal `reversal_rules()` and
+  `pullback_rules()` exactly). New offline synthetic test coverage:
+  `tests/trade_alerts_contracts/test_or_failure_rev_replay.py` and
+  `test_first_pullback_vwap_replay.py`, each with a clean-trigger scenario and a
+  missing-last-trade arm-only scenario run through the real M5.3
+  `HistoricalReplayRunner`, the real M4.2 `StateTransitionEngine` and the real
+  M5.1 `SQLiteTransitionStore`/`ResearchEventStore`, plus byte-identical
+  replay-determinism checks, a recorded scenario proof, and the same
+  Strategy-interface/boundary/immutability/backward-time/invalidate/expire/reset
+  coverage style the M6.4 and M7.5 adapters use. Controller-recorded focused
+  protected run (`selection_reason`: "builder named directly affected checks",
+  per `test_summary.focused`): selector `tests/trade_alerts_contracts`, runs 1,
+  test count 3160, exit code 0, controller wall_seconds 594.718, published
+  artifacts `published-artifacts-9cc15931f359`. Controller-recorded broad
+  acceptance run (`selection_reason`: "unknown dependency impact; safe broad
+  fallback", per `controller-evidence.json`): selector
+  `tests/trade_alerts_contracts`, runs 1, test count 3160, exit code 0,
+  controller wall_seconds 586.807, published artifacts
+  `published-artifacts-5f63d4f61c62`. Controller-recorded repeatability run
+  (`selection_reason`: "recording output requires fresh-process comparison",
+  per `test_summary.repeatability`): the named list of 45
+  recording/deterministic selectors (including
+  `test_or_failure_rev_replay.py::test_the_same_supplied_scenario_replays_byte_identically`,
+  `test_or_failure_rev_replay.py::test_the_two_scenarios_record_one_deterministic_proof`,
+  `test_first_pullback_vwap_replay.py::test_the_same_supplied_scenario_replays_byte_identically`
+  and `test_first_pullback_vwap_replay.py::test_the_two_scenarios_record_one_deterministic_proof`),
+  runs 2, test count 71, exit code 0, controller wall_seconds 335.972,
+  published artifacts `published-artifacts-2c74f8308614`. All three phases
+  are from build run `20260916-090228-828429-build`. Zero failures,
+  errors or skips in any recorded run. `controller-evidence.json` records one
+  mechanical test entry (the broad full-directory run); the focused phase also
+  ran the full `tests/trade_alerts_contracts` directory rather than only the
+  two directly affected files, per `test_summary.focused.selectors`, and this
+  record reflects that. Earlier drafts of this record cited artifact folders
+  left in the same run directory by earlier controller stages
+  (`published-artifacts-a542abd9c89c`, `published-artifacts-b26341f4894f`,
+  `published-artifacts-b426c8fde11d`, `published-artifacts-f079b6ba7a70`,
+  `published-artifacts-5072df07aaf2`, `published-artifacts-3c96fc530a2f`) and
+  a focused-phase test count of 90; those citations did not match the
+  controller's current published evidence and are corrected here. No live
+  activation,
+  broker/Discord/provider call, application run, message, order, deployment,
+  bot restart or spending occurred; all switches remain off. This closes the
+  plan gap the 2026-09-16 M9.3 blocked assessment named; it does not itself
+  claim trigger, edge, delivery, promotion, source, historical-execution or
+  live evidence, and every D-104-recorded field gap and its disabled dependent
+  rules stay open and unresolved by this record.
+- [ ] **M9.3 — shadow mode:** proposed next milestone. All four first-playbook
+  Strategy-protocol adapters now exist (`Orb5ReplayStrategy`/M6.4,
+  `HodCompRsReplayStrategy`/M7.5, `OrFailureRevReplayStrategy`/M8.6,
+  `FirstPullbackVwapReplayStrategy`/M8.6), M0.2K already published the selected
+  offline recording-sink shadow mode's provider/queue/storage/disk/memory
+  budgets, input continuity and the storage-repair verification run, and M4.7A
+  already resolved the adopted options/portfolio dependency. The bounded
+  compactor's own admission gap and every D-104-recorded field gap and its
+  disabled dependent rules stay open and unresolved by this record. Independent
+  review must confirm eligibility before the controller advances.
+
+## M9.3 finalization — 2026-09-16 Pacific
+
+- [x] **M9.3 — shadow mode:** `consensus_engine/shadow_pipeline.py` implements
+  the engineering-pilot shared session over the four Strategy-protocol
+  adapters (`Orb5ReplayStrategy`/M6.4, `HodCompRsReplayStrategy`/M7.5,
+  `OrFailureRevReplayStrategy`/M8.6, `FirstPullbackVwapReplayStrategy`/M8.6),
+  driven through the real M5.3 `HistoricalReplayRunner`, the real M4.2
+  `StateTransitionEngine` and the real M5.1 `SQLiteTransitionStore`/
+  `ResearchEventStore`, recording to the sink by default per M9.3's own text.
+  New offline synthetic coverage:
+  `tests/trade_alerts_contracts/test_shadow_pipeline.py`, including
+  byte-identical replay-determinism and one deterministic recorded pilot proof
+  across the shared session. Controller-recorded focused protected run
+  (`selection_reason`: "builder named directly affected checks"): selector
+  `tests/trade_alerts_contracts/test_shadow_pipeline.py`, runs 1, test count 17,
+  exit code 0, controller wall_seconds 18.298, published artifacts
+  `published-artifacts-096ceb39584b`. Controller-recorded broad acceptance run
+  (`selection_reason`: "unknown dependency impact; safe broad fallback"):
+  selector `tests/trade_alerts_contracts`, runs 1, test count 3177, exit code
+  0, published artifacts `published-artifacts-effaa9698503`. Controller-recorded
+  repeatability run (`selection_reason`: "recording output requires
+  fresh-process comparison"): the named list of 45 recording/deterministic
+  selectors (including
+  `test_shadow_pipeline.py::test_the_same_shared_session_replays_byte_identically`
+  and
+  `test_shadow_pipeline.py::test_the_shared_session_records_one_deterministic_pilot_proof`),
+  runs 2, test count 73, exit code 0, controller wall_seconds 344.648,
+  published artifacts `published-artifacts-ec41ed8a7b4d`. All three phases are
+  from build run `20260916-135437-689602-build`; verification handoff manifest
+  `verified-manifest.json`, source hash
+  `a933a339cfed8bcf5d27d52e1d0539ed95ed6ff6208d271d7efd86d7b36af1f6`. Zero
+  failures, errors or skips in any recorded run. Review confirmed protected
+  supervisor tests passed and asked only for this evidence/roadmap
+  finalization; no code, test, configuration or protected input changed in
+  this finalization pass. This proves safe recording and input continuity for
+  the initial pipeline across the first four playbooks, per M9.3's own text; it
+  is the engineering pilot only, not the M17 evidence-bearing promotion gate.
+  No live activation, broker/Discord/provider call, application run, message,
+  order, deployment, bot restart or spending occurred; all switches remain
+  off. The bounded compactor's own admission gap and every D-104-recorded
+  field gap and its disabled dependent rules stay open and unresolved by this
+  record. This does not claim trigger, edge, delivery, human-reaction or
+  promotion evidence.
+- [ ] **M9.4 — human decision tags:** proposed next milestone. M9.3's shared
+  pilot session and recording sink now exist across all four first-playbook
+  adapters; independent review must confirm eligibility, exact scope and any
+  remaining dependency before the controller advances.
+
+## M9.4 blocked assessment — 2026-09-16 Pacific
+
+- [x] **M9.4 human-decision-tag capability:** the canonical `HumanDecisionRecord`
+  (`consensus_engine/trade_alerts_models.py`), its append-only
+  `ACKNOWLEDGMENT` storage in the M5.1 research event store
+  (`consensus_engine/event_store.py`) and its recovery read path
+  (`SessionRecovery.record_acknowledgment`/`acknowledgments` in
+  `consensus_engine/session_recovery.py`) already implement the offline
+  ACCEPTED/REJECTED/NO_DECISION tag, free-text note and optional manual trade
+  price MASTER_SPEC §20 requires so "alerts support human decision-making."
+  Existing coverage in `tests/trade_alerts_contracts/test_domain_models.py` and
+  `tests/trade_alerts_contracts/test_session_recovery.py` already exercises this
+  record end to end; no new field, table or code path is required or added by
+  this milestone. This checkbox records that this offline capability exists; it
+  is not a new trigger, delivery or human-reaction evidence claim.
+- [!] **M9.4 — human decision tags: BLOCKED on the early #1–#4 validation gate,
+  as this milestone's own text requires.** MASTER_SPEC §19 and D-041 require
+  completing early validation of playbooks #1–#4 before #5–#8 implementation.
+  M9.1's historical replay gate is still `INSUFFICIENT_DATA` for all four
+  playbooks (line 829 above) and M9.3's accepted shadow pilot is explicitly the
+  engineering pilot only, not the M17 evidence-bearing promotion gate; neither
+  supplies real trigger, expectancy, MFE/MAE, reaction-decay or human-decision
+  data because no live activation, delivery or human reaction is authorized or
+  has occurred. There is therefore no real `HumanDecisionRecord` population to
+  measure "human decision drift" or "human-selection drift" against, so the
+  early-validation gate stays open exactly as this milestone's own text
+  requires, and Strategy #5–#8 implementation (M10.1 and later) stays behind it
+  absent an explicit owner decision changing that order. No source, historical,
+  delivery or live gate is closed or narrowed by this record. All switches
+  remain off; no application ran, no message or order was sent and no spending
+  occurred.
+- No independent shared/data prerequisite is currently open in this roadmap:
+  M0.2K, M4.7A, M8.6 and M9.3 are all accepted above and no further `[ ]` shared
+  prerequisite row remains. The only path past this gate is either qualifying
+  historical/live evidence for M9.1/M9.3 or an explicit owner decision to
+  reorder implementation; this record proposes no next milestone.
+
+## M9.1 assessment is stale — 2026-09-16 Pacific
+
+The M9.4 stop of 2026-09-16 14:29 rests on M9.1's `INSUFFICIENT_DATA` verdict.
+That verdict is dated **2026-09-13**, which is before two things that changed
+its inputs: the paid EQUS.MINI history now on disk, and owner decision D-104.
+This section records the current facts. It does **not** re-open, re-decide or
+accept M9.1, calculate any return, choose any parameter, or authorize live
+action; a fresh assessment under the normal build and review path still owes
+that work.
+
+Measured 2026-09-16 from
+`/home/openclaw/.openclaw/research-data/databento/core17-1y_2025-09_to_2026-09/`:
+**251 trading sessions, 2025-09-15 to 2026-09-14, 17 symbols**, schemas
+`ohlcv-1m`, `bbo-1m` and `trades`. The 17 include the benchmark and reference
+names SPY, QQQ, IWM, XLV, GLD, USO and VXX (D-102).
+
+Against M9.1 section 2's five missing-evidence bullets:
+
+1. **Minute bars, quotes, benchmark/reference and participation inputs** — now
+   held for the 17 names: `ohlcv-1m` for bars, `bbo-1m` for quotes, `trades`
+   for the tick path, volume for participation, and the seven benchmark names
+   above. On 2026-09-13 none of this existed locally.
+2. **Original source and availability times, finality, revisions, corrections,
+   adjustments** — a **D-104 gap**, already entered in
+   `M0_2K_GAP_REGISTER.json`. Every rule depending on it is switched off and
+   labelled untested. It is not approximated or filled.
+3. **The prior-session history each playbook needs** — 251 sessions supports
+   the M0_3B walk-forward rule (at least 60 training sessions, consecutive
+   20-session test blocks advancing by 20) with room for multiple folds.
+4. **Corporate-action and historical-universe handling** — point-in-time
+   membership is a **D-104 gap** in the same register, dependents off.
+5. **Approved frozen definitions and an execution/outcome policy per playbook**
+   — **still genuinely open.** This is definition work, not a data or owner
+   gate, and choosing any threshold, timing, participation, risk or confidence
+   value after seeing returns remains forbidden.
+
+So M9.1's blocker is no longer "no historical dataset exists". It is bullet 5,
+plus two recorded gaps whose dependent rules stay off.
+
+### The part that remains an owner decision
+
+M9.4's stop also says M9.3's shadow pilot supplies no real trigger or
+human-reaction evidence and that no live activation is authorized to produce
+it. That is unchanged and is **not** resolved here. Human-reaction evidence
+cannot be manufactured offline. Under D-104 it is a gap: record it, switch off
+every rule that depends on it, label those untested, and do not approximate it.
+No live activation, alert, order or deployment is authorized by this section.
+
+## M9.4 / early validation gate — owner decisions of 2026-09-16 evening
+
+The 2026-09-16 17:36 M9.4 stop named two things: no human-decision evidence,
+and M9.1's historical replay still `INSUFFICIENT_DATA`. Both now have owner
+answers. Full text in `DECISIONS_AND_OPEN_QUESTIONS.md` sections 55-57.
+
+- **Human-decision evidence — closed by D-106.** The owner will take every
+  alert, within 30 seconds, with no skipping. The discretionary variable is
+  removed rather than measured, so the system's measured result is the owner's
+  result. Fills are modelled from the price path 0-30 seconds after alert time,
+  using real quotes, never the trigger price. No rule may lean on human
+  judgement to rescue a weak trigger. This is a stated policy, not observed
+  behaviour, and authorizes no live activation.
+- **Parameter selection — unblocked by D-107.** Choosing thresholds by
+  measuring returns is approved, provided the proof comes from a held-out set.
+  Tune on 9 named symbols, prove on 8 never-inspected symbols. No date holdout,
+  by owner choice; the study therefore proves generalisation across symbols
+  only, not across time, and must say so.
+- **Pass/fail — fixed by D-108, frozen before the search runs.** Mean profit
+  per trade after costs with a bootstrap lower bound above zero, at least 60%
+  winning weeks, and a worst drawdown recoverable in about six average winning
+  weeks.
+
+M9.1's remaining bullet-5 obstacle — "thresholds, timing rules, participation
+rules, risk choices and confidence floors are not all approved" — is what D-107
+resolves: they are now chosen by measured search on the training symbols rather
+than by prior approval. The two D-104 gaps behind M9.1 (original availability
+and finality; point-in-time membership) stay recorded gaps with their dependent
+rules switched off.
+
+All switches remain off. No live activation, alert, order, deployment or profit
+claim is created by this section.
+
+## M9.4 finalization — 2026-09-16 Pacific
+
+- [!] **M9.4 — human decision tags: gate still open, now on execution rather
+  than on an owner decision.** D-106, D-107 and D-108 (above) answer every
+  policy question the 2026-09-16 14:29 and 17:36 stops named: how a human
+  decision is modelled, how parameters may be chosen, and what "passes" means.
+  They do not themselves run the walk-forward search, produce the held-out
+  9-train/8-test proof, or evaluate it against D-108's bar. That empirical
+  study is real work against the 251-session `core17-1y` dataset and is not a
+  roadmap edit; this milestone's own text ("complete the required early #1-4
+  validation") is not satisfied until it runs and either passes or records its
+  own exact BLOCKED/INSUFFICIENT_DATA result. No such run has occurred. This
+  finalization changed only `trade_alerts_build_docs/ROADMAP.md`; no code,
+  test, configuration or protected input changed. All switches remain off; no
+  application ran, no message or order was sent and no spending occurred.
+- [ ] **M9.1 — Historical replay #1-4 (reopened under D-104/D-106/D-107/D-108):**
+  the next concrete step is the frozen, pre-registered walk-forward parameter
+  search itself — tune on the 9 named training symbols, prove on the 8 named
+  held-out symbols, apply D-108's frozen pass bar — using the now-held 251
+  session `core17-1y` dataset, with the two D-104 gaps (original
+  availability/finality; point-in-time membership) kept as recorded gaps and
+  their dependent rules switched off and labelled untested. Independent review
+  must confirm this scope before implementation begins.
+
+### Two owner option-exit arms added — 2026-09-16 evening
+
+`EXIT_OWNER_SCALE80_V1` and `EXIT_OWNER_SCALE80_TRAIL15_V1` are preregistered
+in `DECISIONS_AND_OPEN_QUESTIONS.md` section 58 (D-109), before any return has
+been read. Both scale out 4 of 5 contracts at 1.20x the entry premium; one
+takes the runner at 2.00x or a breakeven stop, the other trails it 15% below
+its high-water mark. Midpoint fills throughout, never held to expiry, stop
+resolves first inside a shared one-minute observation.
+
+They do not alter the 72 stock arms in M0_3B, which remain frozen and are
+measured in R on the underlying. The option arms are measured in option premium
+and are reported separately, on targeted option data bought only for the days
+and strikes the surviving setups select. The one-minute quote granularity is a
+recorded limitation of the trailing arm in particular.
+
+## M9.1 build-scope inventory — 2026-09-17 Pacific (partial, code unchanged)
+
+This session read the 2026-09-16 reopening text above ("the next concrete step
+is the frozen, pre-registered walk-forward parameter search itself") against
+the actual repository to see what that step needs. No code, test,
+configuration or protected input changed; this is a records-only inventory of
+a genuine implementation gap, not a data or owner gate.
+
+**What exists.** `consensus_engine/databento_minute_bars.py` converts one
+already-decoded DBN OHLCV-1m row into a canonical `Bar`; it has no reader for
+the actual retained files under
+`/home/openclaw/.openclaw/research-data/databento/core17-1y_2025-09_to_2026-09/`
+(1.2 GB across `ohlcv-1m`, `bbo-1m`, `trades`, 17 symbols, 251 sessions).
+`core_price_features.py`, `opening_range_features.py` and
+`participation_features.py` compute D-090 features from a supplied
+`HistoryBatch`/`Bar` sequence, with no I/O of their own. `orb5_replay.py`,
+`hod_comp_rs_replay.py`, `or_failure_rev_replay.py` and
+`first_pullback_vwap_replay.py` each drive their strategy's existing state
+machine, but only over caller-supplied `EligibilityRequest`/`TriggerRequest`
+instants, thresholds and confidence results for one already-identified
+instant; none of them derives those instants from raw bars. `outcome_evaluator.py`
+resolves outcomes for exactly one strategy (`CRVOL_ORB5`, `BAR_ONLY_ORB5_O1_PROXY_V1`)
+using next-bar-open entry with no spread, slippage or commission model; it does
+not implement the D-106 0-30-second post-alert tick-fill window or the D-107
+real-`bbo-1m`-spread/cost requirement, and no outcome evaluator exists yet for
+`HOD_COMP_RS`, `OR_FAILURE_REV` or `FIRST_PULLBACK_VWAP`.
+
+**What is missing before a real search can run**, all as new code with its own
+tests, none of which exists today:
+
+1. a bulk loader from the retained `core17-1y` DBN files into canonical
+   `Bar`/quote/trade records, per symbol per session;
+2. an adapter per playbook from that canonical history into the
+   `EligibilityRequest`/`TriggerRequest`/confidence inputs each replay module
+   already accepts (the state machines themselves need no change);
+3. a D-106/D-107-compliant fill and cost model (0-30s post-alert window,
+   `bbo-1m` spread, modeled slippage, commissions) shared across playbooks,
+   and outcome evaluators for the three playbooks that do not have one;
+4. the frozen parameter grid over the eight open settings (D-043, D-044,
+   D-045, D-048, D-049, D-052, D-054, D-055) and playbook-combination choices,
+   pre-registered before any result is read, plus the enforced 9-train/8-held-out
+   symbol split from D-107;
+5. the D-108 evaluator itself: per-trade mean profit after costs with a
+   bootstrap confidence interval, weekly win-rate (>=60%), and worst-drawdown
+   recoverable within about six average winning weeks, computed only on the
+   held-out eight and frozen before the search runs.
+
+None of items 1-5 exists in the repository under any name. This is
+substantially more than one milestone step can safely absorb in a single
+session without risking exactly the kind of shortcut D-104 forbids (filling a
+missing input so a test can run through it). Building it in one uninspected
+pass would also make it hard for independent review to check the frozen grid,
+the split enforcement and the cost model each on their own, which the roadmap
+text above already asks review to confirm before implementation proceeds.
+
+**Recommendation, not yet acted on:** split the reopened M9.1 step into
+reviewed sub-steps — (a) the bulk `core17-1y` loader, (b) per-playbook
+bar-to-replay-input adapters plus the missing outcome evaluators with the
+D-106/107 fill and cost model, (c) the frozen grid/split pre-registration
+record, (d) the D-108 evaluator, (e) the search run itself against the
+held-out eight. This session performed no data load, no feature computation
+against real bars, no signal generation, no parameter choice and no return
+calculation. The two D-104 gaps (original availability/finality;
+point-in-time membership) remain recorded gaps with dependent rules off. All
+switches remain off; no application ran, no message or order was sent and no
+spending occurred.
+
+## M9.1A — core17-1y OHLCV-1m bulk loader — 2026-09-17 Pacific
+
+Implements build-scope item (a) from the inventory above only: a bulk loader
+from the retained `core17-1y` OHLCV-1m DBN files into the existing canonical
+`DatabentoMinuteRecord`/`Bar` adapter. New module
+`consensus_engine/core17_bar_loader.py`, new tests
+`tests/trade_alerts_contracts/test_core17_bar_loader.py`.
+
+`verify_retained_files` hashes every file a batch-job manifest lists and
+raises rather than proceeding on a missing file, size mismatch or hash
+mismatch; no network call. `reverse_symbol_map` builds instrument-id-to-symbol
+from one file's Databento symbology and raises on an unresolved, partial or
+duplicate mapping. `iter_ohlcv_1m_records` converts already-decoded,
+duck-typed OHLCV-1m rows (not the live `databento` package) through the
+existing `normalize_databento_ohlcv_1m` adapter, raising on any row whose
+instrument does not resolve or whose session date is not in the retained
+condition list, rather than dropping it. Context received/available/normalized
+times are all set to each bar's own close instant (`start + 1 minute`): the
+retained batch files carry no real receipt-latency timestamp (verified by
+inspecting a real decoded record: no `ts_recv` field), so this records the
+earliest instant the bar could exist rather than inventing a latency figure.
+`open_core17_ohlcv_1m_file` is a thin integration wrapper around the real
+`databento.DBNStore` and the real retained files; it is deliberately not
+exercised by the offline contract tests, since the retained files and the
+`databento` decode path are outside the protected sandbox mount.
+
+A read-only local inspection (not a protected test run, not repeated as
+evidence below) confirmed the real retained `core17-1y` OHLCV-1m
+2025-09-15..30 file decodes with `databento` 0.84.0, that its
+`symbology.mappings` resolves all 17 raw symbols to instrument ids with no
+`not_found`/`partial` entries, and that `condition.json` dates use
+`"available"`/`"degraded"` values matching
+`DatabentoMinuteContext.provider_condition`. No decoded row exposes a
+`ts_recv` field, confirming the batch files carry no real receipt-latency
+timestamp.
+
+The two D-104 gaps (original availability/finality; point-in-time membership)
+stay recorded gaps with dependent rules off, unchanged by this loader. No
+signal generation, no feature computation, no parameter choice and no return
+calculation happens in this module. All switches remain off; no application
+ran, no message or order was sent and no spending occurred.
+
+Still missing before a real walk-forward search can run: (b) per-playbook
+bar-to-replay-input adapters, a D-106/107-compliant fill and cost model, and
+outcome evaluators for `HOD_COMP_RS`, `OR_FAILURE_REV` and
+`FIRST_PULLBACK_VWAP`; (c) the frozen parameter-grid/split pre-registration
+record; (d) the D-108 statistical evaluator; (e) the search run itself. Items
+(b)-(e) are unstarted; this row implements (a) only.
+
+- [x] **M9.1A — core17-1y OHLCV-1m bulk loader:** implemented as described
+  above. Controller-published protected proof (run
+  `/root/trade-alerts-builder/runs/20260917-074102-485403-build`,
+  `verification_handoff` source hash
+  `29e114a8038f3adaae6283262848e2437f94d73185dac7eff30e6728e70cd4d4`): focused
+  phase (`tests/trade_alerts_contracts/test_core17_bar_loader.py`,
+  `tests/trade_alerts_contracts/test_databento_minute_bars.py`), 21 tests,
+  3.063s wall, exit 0; broad acceptance phase over
+  `tests/trade_alerts_contracts`, 3187 tests, exit 0; repeatability phase, 2
+  fresh-process runs, 73 recording selectors each (see published artifacts
+  `published-artifacts-cfb872e50dfd`, top-level acceptance artifacts, and
+  `published-artifacts-434322edef47`), stable and hash-compared across both
+  runs. No code, test or protected input changed since that manifest; this
+  finalization records only the ROADMAP row. The controller's broad acceptance
+  artifact (`published-artifacts-5d9bb5501f51`) records 597.257 controller wall
+  seconds for its 3187 tests.
+- [!] **M9.1 — Historical replay #1-4 (reopened), sub-step handoff —
+  2026-09-17 Pacific:** too large for one session. Only sub-step M9.1A (the
+  bulk loader) is built and proven; sub-steps (b)-(e) above are unstarted, so
+  the walk-forward search has not run and M9.1 has no pass, BLOCKED or
+  `INSUFFICIENT_DATA` result of its own yet. Work continues at M9.1B. The two
+  D-104 gaps stay recorded gaps with dependent rules off. No code, test or
+  protected input changed in this handoff record.
+## M9.1B — shared D-106/D-107 fill and cost model — 2026-09-17 Pacific
+
+Implements one piece of build-scope item (b) from the inventory above: the
+shared fill and cost model that D-106 (0-30 second post-alert window) and
+D-107 (real spread, modeled slippage, commissions) require, ahead of the
+per-playbook adapters and the three missing outcome evaluators, which remain
+unbuilt (see M9.1C below). New module `consensus_engine/fill_cost_model.py`,
+new tests `tests/trade_alerts_contracts/test_fill_cost_model.py`.
+
+`model_fill` takes an alert time, a direction, a sequence of already-normalized
+trade-print `Quote` records, a sequence of top-of-book `Quote` snapshots, and
+an explicit `FillCostPolicy` (caller-supplied `slippage_bps` and
+`commission_per_share`; these are cost-realism inputs, not searched or
+returns-chosen strategy parameters). The window is fixed at D-106's 30 seconds
+and is not configurable. The fill price is the first valid trade print at or
+after alert time within that window — never the most favorable print in the
+window, and never the trigger price. Its cost is the half-spread from the most
+recent valid quote at or before that print (or, absent one, the earliest valid
+quote still inside the window), plus the policy's slippage and commission. A
+trade print or quote below `VALID` quality is excluded rather than used
+un-labeled. Absence of a usable trade print or quote inside the window is
+returned as an explicit `NO_TRADE_IN_WINDOW`/`NO_QUOTE_AT_FILL` status with a
+null price, per D-104, rather than approximated. No data is fetched, no alert
+instant is chosen, no position is sized and no stop/target outcome is
+evaluated here.
+
+The two D-104 gaps (original availability/finality; point-in-time membership)
+are unaffected by this model and stay recorded gaps with dependent rules off.
+No signal generation, no feature computation against real bars, no parameter
+search and no return calculation happens in this module. All switches remain
+off; no application ran, no message or order was sent and no spending
+occurred.
+
+Still missing before a real walk-forward search can run: per-playbook
+bar-to-replay-input adapters and outcome evaluators for `HOD_COMP_RS`,
+`OR_FAILURE_REV` and `FIRST_PULLBACK_VWAP` that consume this fill/cost model
+(build-scope item (b), remainder); the frozen parameter-grid/split
+pre-registration record (item (c)); the D-108 statistical evaluator (item
+(d)); and the search run itself (item (e)).
+
+- [x] **M9.1B — shared D-106/D-107 fill and cost model:** implemented as
+  described above. Focused local run (not the controller's published proof):
+  `tests/trade_alerts_contracts/test_fill_cost_model.py`, 15 tests, passed
+  twice in separate fresh processes with 0 failures/errors/skips. The
+  controller's own protected focused/broad/repeatability runs are the proof of
+  record for acceptance and are not restated here.
+- [!] **M9.1 — Historical replay #1-4 (reopened), sub-step handoff —
+  2026-09-17 Pacific:** still too large for one session. Sub-steps M9.1A (bulk
+  loader) and M9.1B (fill/cost model) are built; per-playbook adapters and the
+  three missing outcome evaluators, the frozen grid/split record, the D-108
+  evaluator and the search run itself are unstarted, so the walk-forward
+  search has not run and M9.1 has no pass, BLOCKED or `INSUFFICIENT_DATA`
+  result of its own yet. Work continues at M9.1C. The two D-104 gaps stay
+  recorded gaps with dependent rules off. No code, test or protected input
+  changed in this handoff record.
+## M9.1C — shared D-106/D-107 outcome evaluator for HOD_COMP_RS, OR_FAILURE_REV, FIRST_PULLBACK_VWAP — 2026-09-17 Pacific
+
+The named M9.1C scope bundled two different-sized pieces: per-playbook
+raw-bar-to-replay-input adapters (deriving RS trend, compression, distance,
+extension and tape-intensity features from `core17_bar_loader` bars for each
+of `HOD_COMP_RS`'s M7.2/M7.3 machine, `OR_FAILURE_REV`'s and
+`FIRST_PULLBACK_VWAP`'s equivalents) and the three playbooks' missing
+D-106/107-compliant outcome evaluators. Reading the three replay modules and
+their composed-outcome dataclasses (`HodCompRsOutcome`, `ReversalAssessment`,
+`PullbackAssessment`) showed all three already expose the same shape once
+composed — `risk: RiskLevel | None`, `targets: tuple[TargetLevel, ...]`,
+`confidence`, `status`, `evaluated_at` — so one evaluator can resolve any of
+their outcomes without playbook-specific logic, while the adapters (deriving
+those composed values from raw bars in the first place) are separate,
+substantially larger, unbuilt work with no shared shape across playbooks.
+Following the same too-large-for-one-session split used for M9.1A/M9.1B, this
+session builds only the shared evaluator; the adapters move to M9.1D.
+
+New module `consensus_engine/playbook_outcome_evaluator.py`, new tests
+`tests/trade_alerts_contracts/test_playbook_outcome_evaluator.py`.
+`evaluate_playbook_outcome` accepts one already-composed `risk`/`targets` pair
+for `HOD_COMP_RS`, `OR_FAILURE_REV` or `FIRST_PULLBACK_VWAP` only (a fourth
+`strategy_id` raises), models entry with `fill_cost_model.model_fill` (D-106's
+fixed 0-30s post-alert window and D-107's real spread/slippage/commission —
+never the trigger price, never the most favorable print in the window), and
+then resolves the stop/target path bar-by-bar from supplied history using the
+same stop-first-conservative rule the existing `CRVOL_ORB5`
+`BAR_ONLY_ORB5_O1_PROXY` evaluator already uses, generalized from that
+evaluator's fixed two units to one unit per supplied target so it also
+supports single- or three-target playbooks. `NO_TRADE_IN_WINDOW` and
+`NO_QUOTE_AT_FILL` (from the fill model) and incomplete bar coverage all stay
+explicit `UNKNOWN`/`CENSORED` results per D-104, never approximated. It
+derives no eligibility, trigger or structural input from raw bars; it
+evaluates an outcome that another owner already composed.
+
+The two D-104 gaps (original availability/finality; point-in-time membership)
+are unaffected by this evaluator and stay recorded gaps with dependent rules
+off. No signal generation, no feature computation against real bars, no
+parameter search and no return calculation happens in this module. All
+switches remain off; no application ran, no message or order was sent and no
+spending occurred.
+
+Still missing before a real walk-forward search can run: the per-playbook
+raw-bar-to-replay-input adapters for `HOD_COMP_RS`, `OR_FAILURE_REV` and
+`FIRST_PULLBACK_VWAP` (build-scope item (b), remainder — this is M9.1D); the
+frozen parameter-grid/split pre-registration record (item (c)); the D-108
+statistical evaluator (item (d)); and the search run itself (item (e)).
+
+- [x] **M9.1C — shared D-106/D-107 outcome evaluator:** implemented as
+  described above. Focused local run (not the controller's published proof):
+  `tests/trade_alerts_contracts/test_playbook_outcome_evaluator.py` (11
+  tests) together with `test_fill_cost_model.py` and `test_outcome_evaluator.py`
+  (75 tests total), passed in one run with 0 failures/errors/skips; the new
+  file alone also passed twice in separate fresh processes with identical
+  results. The controller's own protected focused/broad/repeatability runs are
+  the proof of record for acceptance and are not restated here.
+- [!] **M9.1 — Historical replay #1-4 (reopened), sub-step handoff —
+  2026-09-17 Pacific:** still too large for one session. Sub-steps M9.1A (bulk
+  loader), M9.1B (fill/cost model) and M9.1C (shared outcome evaluator) are
+  built; the per-playbook raw-bar-to-replay-input adapters, the frozen
+  grid/split record, the D-108 evaluator and the search run itself are
+  unstarted, so the walk-forward search has not run and M9.1 has no pass,
+  BLOCKED or `INSUFFICIENT_DATA` result of its own yet. Work continues at
+  M9.1D. The two D-104 gaps stay recorded gaps with dependent rules off. No
+  code, test or protected input changed in this handoff record.
+## M9.1D — blocked before implementation: core17 bars can never reach `FINAL` in the existing shared history path — 2026-09-17 Pacific
+
+Read before editing: `consensus_engine/databento_minute_bars.py`,
+`consensus_engine/historical_bars.py`, `consensus_engine/outcome_evaluator.py`,
+`consensus_engine/playbook_outcome_evaluator.py`. No code, test, configuration
+or protected input changed in this session; this is a records-only finding
+from tracing the exact data path M9.1D's adapters would have to feed.
+
+`normalize_databento_ohlcv_1m` (the only conversion from `core17_bar_loader`
+rows to a canonical `Bar`) unconditionally sets `is_final=False`,
+`adjustment_basis="UNKNOWN"`, and the `DatabentoMinuteRecord`-level
+`finality="UNKNOWN"`, because no source proof of finality exists for the
+retained files (the recorded D-104 gap). That is correct on its own.
+
+But every existing shared consumer of minute bars for this walk-forward step
+reads bar usability through `HistoryBatch.coverage_at`, and that method's
+status ladder is: `not bar.is_final` -> `"PROVISIONAL"`, checked *before* the
+`"NO_TRADE"`/`"FINAL"` branch. Since core17 bars are permanently
+`is_final=False`, every interval built from them is permanently
+`"PROVISIONAL"` and can never become `"FINAL"` or `"NO_TRADE"`. Every
+consumer that gates on `status == "FINAL"` is unconditionally blocked, not
+just the finality-dependent fact itself:
+
+- `rs_trend_eligibility._lookback_return` (`RS_WINDOW_` + status when not in
+  `("FINAL", "NO_TRADE")`) — RS, median dollar volume, RVOL, open return all
+  read this.
+- `relative_strength_features._first_fifteen_return` — same ladder.
+- `outcome_evaluator.py:111,180` and `playbook_outcome_evaluator.py:147,187`
+  (the M9.1C shared evaluator built two sessions ago) — entry-bar selection
+  and the stop/target path both require `item.status == "FINAL"` and stop
+  scanning explicitly `break`s on the first non-`FINAL` interval.
+
+So a bar-to-replay-input adapter built against the existing shared history
+contract would not produce a working eligibility/trigger/outcome pipeline
+with gaps in the specific D-104-named areas (original availability,
+finality, corrections, PIT membership) — it would produce **no usable
+feature or outcome at all**, for every minute, because the *entire* history
+coverage ladder is gated on finality, not only the finality-labelled facts.
+
+This is a scope beyond D-104's own text. D-104 says a missing field is a
+recorded gap with *its* dependents switched off; it does not say the
+underlying obtained price/volume becomes unusable everywhere. Making core17
+research bars usable for this walk-forward step — while still recording
+finality/corrections/PIT as open gaps and not silently upgrading them to
+proven — needs a decision on how (or whether) the shared `HistoryBatch`
+contract, which live/production code also depends on, should treat a
+`PROVISIONAL`-forever bar for offline research use, separate from any live
+evidentiary path. That is a definition/architecture question for the owner
+or an explicit reviewed research-arm decision, not something this session
+should resolve unilaterally inside the shared production module. Until that
+decision exists, no per-playbook adapter (`HOD_COMP_RS`, `OR_FAILURE_REV`,
+`FIRST_PULLBACK_VWAP`) can be built or tested against real core17 bars: it
+would either silently bypass the finality gate (forbidden) or produce
+100% `UNKNOWN`/`CENSORED` output (proves nothing, not a real search).
+
+No provider call, spend, or code/test change happened in this session. All
+switches stay off.
+
+- [!] **M9.1D — per-playbook raw-bar-to-replay-input adapters:** blocked
+  before implementation by the finding above. The remaining build-scope item
+  (b) — adapters from `core17_bar_loader` bars into each playbook's existing
+  `EligibilityRequest`/`TriggerRequest` inputs for `HOD_COMP_RS`,
+  `OR_FAILURE_REV` and `FIRST_PULLBACK_VWAP` — cannot proceed until an owner
+  or reviewed-research decision states how a permanently-`PROVISIONAL`
+  (finality-unknown) bar may be used for offline research feature/outcome
+  computation without changing the live `HistoryBatch` evidentiary contract.
+  Independent review must confirm the finding and the required decision
+  before any further M9.1D implementation attempt.
+
+### M9.1D unblocked — provisional bars are usable for offline research, 2026-09-17
+
+M9.1D stopped because Databento history is permanently `PROVISIONAL`: finality
+cannot be established, so `HistoryBatch.complete` and `final_bars` exclude every
+bar and no per-playbook adapter can read anything.
+
+D-110 settles it. Offline research computes over PROVISIONAL bars through its
+own explicitly-named path. `complete` and `final_bars` keep their exact present
+meaning and the live evidentiary contract is untouched, so no production caller
+can consume finality-unknown bars by accident. Every research result records
+that its bars were finality-unknown and how many intervals were provisional.
+The finality gap stays open in `M0_2K_GAP_REGISTER.json` with its dependent
+rules switched off; D-110 permits only the rules that do not require proven
+finality. No live path may read the research accessor. All switches stay off.
+
+## M9.1D sub-step — D-110 research-bar accessor built; per-playbook adapters still open — 2026-09-17 Pacific
+
+Following the same too-large-for-one-session split used for M9.1A/M9.1B/M9.1C,
+this session builds only the shared D-110 accessor the three per-playbook
+adapters all need; the adapters themselves move to M9.1E.
+
+`consensus_engine/research_bar_access.py` adds `research_coverage_at`, the one
+explicitly-named research path D-110 requires. It calls the existing untouched
+`HistoryBatch.coverage_at` and admits `PROVISIONAL` intervals (in addition to
+the `FINAL`/`NO_TRADE` intervals the live `final_bars` already admits) into a
+new `ResearchCoverage.bars`; `MISSING`/`NOT_ENDED`/`CONFLICT`/quality- and
+convention-rejected intervals stay excluded exactly as they are from
+`final_bars`. `historical_bars.py` itself is not modified: `complete` and
+`final_bars` keep their exact present meaning (condition 1). Every
+`ResearchCoverage` carries `.label()`, naming decision D-110, the exact
+`M0_2K_GAP_REGISTER.json` "corrections and finality" gap field, and the
+final/no-trade/provisional/excluded interval counts, satisfying condition 2's
+labelling requirement. No live module imports this new file (condition 3). The
+finality gap itself is not touched or closed in `M0_2K_GAP_REGISTER.json`
+(condition 4).
+
+New offline synthetic test coverage:
+`tests/trade_alerts_contracts/test_research_bar_access.py`, covering: the live
+`coverage_at`/`final_bars` view still rejects provisional bars unchanged; the
+new research view admits them and reports correct final/no-trade/provisional/
+excluded counts; the research view exactly equals `final_bars` when finality
+is already established (no behavior change for already-final data); missing
+and not-yet-ended intervals stay excluded from the research view too; the
+label's exact decision/gap-field/count fields; and a `RecordError` on a
+non-`HistoryBatch` argument. Locally run once through the protected launcher
+for orientation only (not protected acceptance evidence):
+`tests/trade_alerts_contracts/test_research_bar_access.py` (6 passed) and the
+directly affected `tests/trade_alerts_contracts/test_historical_bars.py`,
+confirming the live contract is unchanged (75 passed), both exit code 0.
+Controller-published protected proof for this milestone follows separately
+from build run `20260917-152402-043294-build` and supersedes these self-run
+numbers.
+
+No code path here derives eligibility, trigger or structural input from raw
+bars; it only decides which bars a research caller may see. The three
+per-playbook adapters from raw `core17_bar_loader` bars into `HOD_COMP_RS`,
+`OR_FAILURE_REV` and `FIRST_PULLBACK_VWAP`'s existing `EligibilityRequest`/
+`TriggerRequest` inputs (each backed by 600-1200 line eligibility/trigger
+modules) remain unbuilt; each is independent, larger, strategy-specific
+implementation work that does not fit in the same session as this shared
+accessor. No provider call, spend, or live/alert/order action occurred in this
+session. All switches stay off.
+
+- [x] **M9.1D — D-110 research-bar accessor:** implemented as described above;
+  `consensus_engine/research_bar_access.py` and its test file are the complete
+  change. This closes the blocking finding from the "blocked before
+  implementation" record above by giving offline research a way to read
+  `PROVISIONAL` bars without touching the live `HistoryBatch` contract.
+## M9.1E sub-step — `HOD_COMP_RS` RS/benchmark lookback research adapter; the rest of `HOD_COMP_RS` and both other playbooks still open — 2026-09-17 Pacific
+
+Read before editing: `consensus_engine/rs_trend_eligibility.py`,
+`consensus_engine/research_bar_access.py`. Tracing what a real per-playbook
+adapter needs found that `RsTrendPolicy` binds nine `REQUIRED_ROLES`
+(`MEDIAN_DOLLAR_VOLUME`, `RVOL`, `OPEN_RETURN`, `DAILY_ATR_PCT`,
+`SESSION_VWAP`, `RS`, `RS_WARMUP_COMPLETE`, `REFERENCE_EXTREME_COMPLETE`,
+`COMPRESSION_COMPLETE`) plus two quote-derived gates
+(`QUOTE_ACTIONABLE`/`SPREAD_BPS`) before `HOD_COMP_RS` eligibility can be
+assessed at all, and each role needs its own real-bar (or real-quote) adapter
+threaded through `research_coverage_at`, mirroring one already-adopted M7.x
+feature builder each. That is far more than one session, so this session
+narrows further than the "one playbook at a time" split the M9.1D record
+proposed: it builds only the `RS`/`RS_WARMUP_COMPLETE` pair, the two roles
+`rs_trend_eligibility.build_rs_trend_snapshot`'s own lookback-return measurement
+computes purely from minute price bars.
+
+New module `consensus_engine/hod_comp_rs_research_adapter.py` adds
+`build_rs_trend_snapshot_from_research`, mirroring `build_rs_trend_snapshot`'s
+window-selection, contiguity, no-trade and instrument-type checks exactly
+(same refusal reasons), but admitting `PROVISIONAL` intervals as ready in
+addition to `FINAL`/`NO_TRADE`, and calling the new-in-M9.1D
+`research_coverage_at` for each side (stock, benchmark) solely to attach that
+side's D-110 label (decision, gap field, final/no-trade/provisional/excluded
+counts) to the result. `historical_bars.py` and `rs_trend_eligibility.py` are
+untouched (no code path here modifies a shared production module or its
+status ladder). The produced `FeatureSnapshot` carries its own
+`RESEARCH_RS_FEATURE_VERSION`/`RESEARCH_RS_DATA_MODE`, distinct from the live
+`RS_FEATURE_VERSION`/`RS_DATA_MODE`, so an `RsTrendPolicy` binding cannot match
+it by accident; only a policy that names these research identifiers explicitly
+can bind to it for replay.
+
+New offline synthetic test coverage:
+`tests/trade_alerts_contracts/test_hod_comp_rs_research_adapter.py` (8 cases),
+covering: a `PROVISIONAL`-only history producing the same RS/benchmark/return
+numbers a `FINAL` history would (the live function would refuse this with
+`RS_WINDOW_PROVISIONAL`); the D-110 label naming decision/gap-field/interval
+counts on each side; warm-up-incomplete, missing-interval and no-traded-interval
+refusals behaving exactly like the live function's; a missing benchmark history
+leaving that side's label `None` while the stock side still succeeds; and the
+explicit symbol/instrument-type/benchmark-identity validation. Locally run once
+through the protected launcher for orientation only (not protected acceptance
+evidence): the new file (8 passed) and the directly affected
+`tests/trade_alerts_contracts/test_rs_trend_eligibility.py` plus
+`tests/trade_alerts_contracts/test_research_bar_access.py`, confirming both
+existing contracts are unchanged (163 passed combined), both exit code 0.
+Controller-published protected proof for this milestone follows separately
+and supersedes these self-run numbers.
+
+No code path here derives an eligibility gate, a trigger or a structural input;
+it only measures one already-adopted return calculation over real, research-
+admissible bars. Remaining `HOD_COMP_RS` build-scope (the other seven
+`REQUIRED_ROLES` and the two quote gates) and the two other named playbooks'
+(`OR_FAILURE_REV`, `FIRST_PULLBACK_VWAP`) adapters entirely remain unbuilt. No
+provider call, spend, or live/alert/order action occurred in this session. All
+switches stay off.
+
+- [!] **M9.1E — per-playbook raw-bar-to-replay-input adapters (`HOD_COMP_RS`,
+  `OR_FAILURE_REV`, `FIRST_PULLBACK_VWAP`):** too large for one session, and
+  smaller-grained than the original "one playbook at a time" split anticipated:
+  even one playbook (`HOD_COMP_RS`) needs one adapter per bound role. Only the
+  `RS`/`RS_WARMUP_COMPLETE` pair is built, as described above. Work continues
+  at M9.1F. The two D-104 gaps stay recorded gaps with dependent rules off. No
+  provider call or spend occurred.
+## M9.1F sub-step — `REFERENCE_EXTREME_COMPLETE`/`COMPRESSION_COMPLETE` research adapter; five roles still open — 2026-09-17 Pacific
+
+Following the same too-large-for-one-session split used for M9.1A-E, this
+session narrows M9.1F's named seven-role scope to the one pair that shares a
+single already-adopted computation: `REFERENCE_EXTREME_COMPLETE` and
+`COMPRESSION_COMPLETE` are both completion flags over `hod_compression.py`'s
+one frozen-reference/compression-window measurement, so one adapter covers
+both roles, exactly mirroring the M9.1E `RS`/`RS_WARMUP_COMPLETE` pairing.
+
+Read before editing: `consensus_engine/hod_compression.py`,
+`consensus_engine/hod_comp_rs_research_adapter.py` (the M9.1E precedent this
+session's module structure copies), `consensus_engine/research_bar_access.py`.
+
+New module `consensus_engine/hod_compression_research_adapter.py` adds
+`build_hod_compression_snapshot_from_research`, mirroring
+`hod_compression.build_hod_compression_snapshot`'s frozen-reference window and
+compression-window selection, contiguity, no-trade and instrument-type checks
+exactly (same refusal reasons: `REFERENCE_WINDOW_NOT_COVERED`,
+`INCOMPLETE_COMPRESSION_WINDOW`, `NO_TRADED_REFERENCE_INTERVAL`,
+`NO_TRADED_COMPRESSION_INTERVAL`, `INCOMPATIBLE_*`, ...), but admitting
+`PROVISIONAL` intervals as ready in addition to `FINAL`/`NO_TRADE`, and calling
+the M9.1D `research_coverage_at` once over the shared minute history to attach
+one D-110 label (decision, gap field, final/no-trade/provisional/excluded
+counts) to the result. `historical_bars.py` and `hod_compression.py` are
+untouched (no code path here modifies a shared production module or its status
+ladder). The produced `FeatureSnapshot` carries its own
+`RESEARCH_HOD_COMPRESSION_FEATURE_VERSION`/`RESEARCH_HOD_COMPRESSION_DATA_MODE`,
+distinct from the live `FEATURE_VERSION`/`DATA_MODE`, so a live `RsTrendPolicy`
+binding cannot match it by accident; only a policy that names these research
+identifiers explicitly can bind to it for replay.
+
+New offline synthetic test coverage:
+`tests/trade_alerts_contracts/test_hod_compression_research_adapter.py`
+(13 cases), covering: `PROVISIONAL`-only history producing the same
+reference/compression numbers `FINAL` history would (the live function would
+refuse this with `REFERENCE_PROVISIONAL`/`COMPRESSION_PROVISIONAL`); the D-110
+label naming decision/gap-field/interval counts once for the shared history;
+the reference staying frozen and never reading a later bar; an untraded
+reference minute and a short/untraded/missing compression window refusing by
+the same names as the live function; incompatible/absent history named for
+every feature with no label; a closed day and a wrong interval refused by
+name; and explicit symbol/instrument-type/policy/freeze-instant validation.
+Locally run once through the protected launcher for orientation only (not
+protected acceptance evidence): the new file (13 passed) plus the directly
+affected `tests/trade_alerts_contracts/test_hod_compression.py`,
+`tests/trade_alerts_contracts/test_rs_trend_eligibility.py` and
+`tests/trade_alerts_contracts/test_hod_comp_rs_research_adapter.py`, confirming
+all three existing contracts are unchanged (193 passed combined), exit code 0.
+Controller-published protected proof for this milestone follows separately and
+supersedes these self-run numbers.
+
+No code path here derives an eligibility gate, a trigger or a structural input;
+it only measures one already-adopted extreme/window computation over real,
+research-admissible bars. Remaining `HOD_COMP_RS` build-scope (the five roles
+`MEDIAN_DOLLAR_VOLUME`, `RVOL`, `OPEN_RETURN`, `DAILY_ATR_PCT`, `SESSION_VWAP`,
+plus the two quote-derived gates, which stay out of this bar-only scope
+entirely) and the two other named playbooks' (`OR_FAILURE_REV`,
+`FIRST_PULLBACK_VWAP`) adapters entirely remain unbuilt. No provider call,
+spend, or live/alert/order action occurred in this session. All switches stay
+off.
+
+- [!] **M9.1F — `REFERENCE_EXTREME_COMPLETE`/`COMPRESSION_COMPLETE` research
+  adapter:** implemented as described above; the remaining five roles move to
+  M9.1G. The two D-104 gaps stay recorded gaps with dependent rules off. No
+  provider call or spend occurred. Marked `[!]`, not `[x]`, because this
+  milestone handed off with build status `blocked`: its own adapter pair is
+  built and proven, but M9.1F's full stated scope is not finished. The
+  controller's `roadmap_ok(..., blocked=True)` check requires `[!]` on a
+  blocked handoff, exactly as M9.1E above.
+## M9.1G — `HOD_COMP_RS` remaining role adapters built — 2026-09-17 Pacific
+
+New module `consensus_engine/hod_comp_rs_role_adapter.py` adds
+`build_hod_comp_rs_role_snapshot_from_research`, covering the five remaining
+bar-only `RsTrendPolicy` roles in one session: `MEDIAN_DOLLAR_VOLUME`, `RVOL`,
+`OPEN_RETURN`, `DAILY_ATR_PCT` and `SESSION_VWAP`. `MEDIAN_DOLLAR_VOLUME`/
+`RVOL` mirror `participation_features._calculate`'s "daily"/"opening" window
+selection exactly (same required-slot, symbol, interval, unit and mode checks,
+same median-of-20/ratio-of-20 arithmetic); `OPEN_RETURN`/`SESSION_VWAP` mirror
+`core_price_features`'s `_opening`/`_session` window selection the same way.
+Every one admits a `PROVISIONAL` interval as ready where the live function
+stops at `FINAL`/`NO_TRADE`, through `research_bar_access.research_coverage_at`
+(D-110), exactly following the M9.1E/M9.1F precedent. `participation_features.py`
+and `core_price_features.py` are untouched (no code path here modifies a
+shared production module or its status ladder).
+
+As named in the prior M9.1G row, `core_price_features.py`'s
+`DAILY_ATR_14_SMA_V1` is `USD_PER_SHARE`, not the bound `DAILY_ATR_PCT` role's
+implied ratio unit. This session's explicit derivation divides that mirrored
+daily ATR by the prior regular-session close (the same prior-close computation
+`core_price_features._daily`/`_opening` already use for `GAP_OPEN_V1`), not a
+direct USD pass-through. The other four roles' units already matched their
+live counterparts and needed no derivation.
+
+Every result carries one D-110 label per supplied history side
+(`opening_history`, `daily_history`, `minute_history`). The produced
+`FeatureSnapshot` carries its own `RESEARCH_ROLE_FEATURE_VERSION`/
+`RESEARCH_ROLE_DATA_MODE`, distinct from the live D-090 versions/modes, so a
+live `RsTrendPolicy` binding cannot match it by accident; only a policy that
+names these research identifiers explicitly can bind to it for replay.
+
+New offline synthetic test coverage:
+`tests/trade_alerts_contracts/test_hod_comp_rs_role_adapter.py` (10 cases),
+covering: hand-computed values for all five roles from already-`FINAL` history;
+the same values from all-`PROVISIONAL` history (the live functions would
+refuse this); the D-110 label naming decision/gap-field/interval counts on
+each of the three supplied history sides; the `DAILY_ATR_PCT` price
+normalization against the live USD figure; each role's own missing-history
+reason when a side is absent; a quiet certified-no-trade reference day
+contributing zero volume without blocking (matching the live function); a
+dropped reference day staying incomplete rather than shortened; incompatible
+symbol/instrument-type refusals by name; and explicit symbol/instrument-type
+validation. Run once through the protected launcher together with the three
+directly affected existing contracts
+(`tests/trade_alerts_contracts/test_hod_comp_rs_role_adapter.py`,
+`tests/trade_alerts_contracts/test_participation_features.py`,
+`tests/trade_alerts_contracts/test_core_price_features.py`,
+`tests/trade_alerts_contracts/test_rs_trend_eligibility.py`), confirming all
+three existing contracts are unchanged: 267 passed, exit code 0. This was a
+self-run orientation pass only, not protected acceptance evidence; the
+controller's own published protected proof for this milestone follows
+separately and supersedes these numbers.
+
+The two quote-derived gates (`QUOTE_ACTIONABLE`, `SPREAD_BPS`) still need real
+quote data, separate from `core17_bar_loader`/`databento_minute_bars` records,
+and stay out of this bar-only adapter's scope entirely. No code path here
+derives an eligibility gate, a trigger or a structural input; it only measures
+five already-adopted bar computations over real, research-admissible bars. No
+provider call, spend, or live/alert/order action occurred in this session. All
+switches stay off.
+
+- [x] **M9.1G — `HOD_COMP_RS` remaining role adapters (`MEDIAN_DOLLAR_VOLUME`,
+  `RVOL`, `OPEN_RETURN`, `DAILY_ATR_PCT`, `SESSION_VWAP`):** implemented as
+  described above; all five roles built in this one session, so this
+  milestone's own stated scope is complete. Every `HOD_COMP_RS` role
+  (`RS`/`RS_WARMUP_COMPLETE` from M9.1E, `REFERENCE_EXTREME_COMPLETE`/
+  `COMPRESSION_COMPLETE` from M9.1F, and these five from M9.1G) now has a
+  research adapter; only the two quote-derived gates remain, and they need
+  real quote data outside this bar-only scope. `OR_FAILURE_REV` and
+  `FIRST_PULLBACK_VWAP` adapters remain fully open, so the reopened parent
+  `M9.1 — Historical replay #1-4` is still not complete; work continues at
+  M9.1H. The two D-104 gaps stay recorded gaps with dependent rules off. No
+  provider call or spend occurred.
+## M9.1H — `OR_FAILURE_REV` tape/minute-close bar adapter built — 2026-09-17 Pacific
+
+`HOD_COMP_RS` now has every bar-only role adapter M9.1E-G built; this session
+starts `OR_FAILURE_REV`'s own adapter chain. `OrFailureRevMachine`
+(`consensus_engine/or_failure_rev.py`) needs a supplied `Observation` (the tape
+read `LAST_BACK_INSIDE_RANGE`/`DISPLACEMENT_FROM_EDGE` use) and a supplied
+`MinuteClose` (the mandatory-arm confirmation read `FAILURE_CONFIRMATION`
+uses) at each evaluation instant; those are the two inputs this session's new
+module, `consensus_engine/or_failure_rev_research_adapter.py`
+(`build_or_failure_rev_bar_inputs_from_research`), derives from real minute
+bars, exactly mirroring the M9.1E/F/G PROVISIONAL-admitting pattern: the same
+`historical_bars.HistoryBatch.coverage_at` revision/interval-status selection
+the live callers already assume, with `research_bar_access.research_coverage_at`
+(D-110) admitting a `PROVISIONAL` interval as ready where a real tape/quote
+feed would never have produced one. The selected bar is the most recently
+ended real minute interval at or before `evaluated_at`; that one bar's close
+stands for both the tape print and the minute close, exactly as a real
+single-arm feed reporting the current minute would. Every `record_id` this
+module produces names its own `RESEARCH_OR_FAILURE_REV_V1` origin plus the
+source bar's own record ID, so it cannot be mistaken for a live tape/quote
+record. `orb5_trigger.py`, `or_failure_rev.py` and `or_failure_handoff.py` are
+untouched.
+
+The remaining `OR_FAILURE_REV` inputs -- `FailureBar` (needs the M8.1
+breakout-extreme chain to identify which bar is "the" failure bar, not just
+the latest one), `InsideAcceptance`, the quote decision, the structural risk
+reading, and the M8.1 `HandoffAssessment`/`BreakoutExtreme` chain this reversal
+consumes -- still need their own real-data adapters and stay open build-scope
+for a later M9.1H sub-step; `FIRST_PULLBACK_VWAP` remains fully unbuilt after
+this session, per the same one-playbook/one-sub-step-at-a-time split M9.1D-G
+used.
+
+New offline synthetic test coverage:
+`tests/trade_alerts_contracts/test_or_failure_rev_research_adapter.py` (10
+cases), covering: the latest-ended bar supplying both the tape read and the
+minute close identically; `PROVISIONAL` bars usable here exactly as already-
+`FINAL` ones, each correctly labelled by count; evaluating before any bar has
+ended yet finding nothing ready; a certified no-trade bar reporting
+`NO_TRADE_AT_LATEST_BAR` rather than a stale or invented price; a bar missing
+from history falling back to the prior ready bar rather than inventing one;
+absent minute history and an incompatible symbol/interval/unit/venue basis
+each refused by name with no label produced; an incompatible instrument type
+on the otherwise-selected bar refused by name; and explicit
+record-ID-prefix/instrument-type validation. Run once through the protected
+launcher together with `tests/trade_alerts_contracts/test_orb5_trigger.py` and
+`tests/trade_alerts_contracts/test_historical_bars.py`, confirming both
+existing contracts are unchanged: 304 passed, exit code 0. This was a
+self-run orientation pass only, not protected acceptance evidence; the
+controller's own published protected proof for this milestone follows
+separately and supersedes these numbers.
+
+No code path here derives a gate, a trigger, an alert or a live consumable
+input: it only measures one bar-native tape/close pair over real,
+research-admissible bars. No provider call, spend, or live/alert/order action
+occurred in this session. All switches stay off.
+
+- [x] **M9.1H — `OR_FAILURE_REV` tape/minute-close bar adapter:** implemented
+  as described above; the tape-read/minute-close pair is built and proven, but
+  `OR_FAILURE_REV`'s full stated input set is not finished and
+  `FIRST_PULLBACK_VWAP` remains fully open, so the reopened parent
+  `M9.1 — Historical replay #1-4` is still not complete; work continues at
+  M9.1I. The two D-104 gaps stay recorded gaps with dependent rules off. No
+  provider call or spend occurred.
+## M9.1I — `OR_FAILURE_REV` breakout-extreme/failure-bar adapter built — 2026-09-17 Pacific
+
+`OR_FAILURE_REV` now has its tape-read/minute-close pair from M9.1H; this
+session adds the M8.1 `BreakoutExtreme` (`consensus_engine/or_failure_handoff.py`)
+and the M8.2 `FailureBar` (`consensus_engine/or_failure_rev.py`), extended into
+the existing `consensus_engine/or_failure_rev_research_adapter.py` module
+(`build_or_failure_rev_extreme_inputs_from_research`) rather than a new file,
+since it shares the same D-110 `research_coverage_at`/`HistoryBatch.coverage_at`
+basis-checking helpers M9.1H already built there.
+
+PLAYBOOKS section 5 names the stronger trigger as "below failure-bar low" for a
+failed upside break; the failure bar is the real minute bar that produced the
+break's own furthest traded price since it crossed the opening range, and its
+opposite side (not a second bar's price) is the stronger-trigger level. So one
+bar is identified per evaluation -- the ready interval, among every one ending
+strictly after the supplied `crossed_at` and at or before `evaluated_at`, whose
+high is furthest out for a failed upside break or whose low is furthest out for
+a failed downside break -- and both `BreakoutExtreme.price` and
+`FailureBar.high`/`FailureBar.low` are read from that one bar, exactly
+mirroring the M9.1H PROVISIONAL-admitting, incompatible-basis-refusing pattern.
+A certified no-trade bar has no usable high/low and is excluded from the
+search rather than read as a zero excursion. `or_failure_handoff.py` and
+`or_failure_rev.py` are untouched; `orb5_trigger.py` and `orb5_replay.py` are
+also untouched.
+
+The remaining `OR_FAILURE_REV` inputs -- `InsideAcceptance`, the quote decision,
+the structural risk reading, and the M8.1 `HandoffAssessment` chain around this
+pair -- still need their own real-data adapters and stay open build-scope for a
+further M9.1 sub-step; `FIRST_PULLBACK_VWAP` remains fully unbuilt after this
+session, per the same one-playbook/one-sub-step-at-a-time split M9.1D-H used.
+
+New offline synthetic test coverage (appended to
+`tests/trade_alerts_contracts/test_or_failure_rev_research_adapter.py`, which
+already held the M9.1H cases): 10 new cases, covering: a failed upside break
+taking its extreme from the bar with the furthest high; a failed downside break
+taking its extreme from the bar with the furthest low; bars at or before the
+crossing excluded from the search; no ready bar since the crossing reporting a
+pending (not lost) extreme; missing minute history and an incompatible
+symbol/interval/unit/venue basis each refused by name with no label produced;
+an incompatible instrument type on the otherwise-selected bar refused by name;
+a certified no-trade bar excluded from the extreme search; `PROVISIONAL` bars
+usable here exactly as already-`FINAL` ones; and the crossing-after-evaluation
+and unsupported-direction input checks. Run once through the protected
+launcher together with `tests/trade_alerts_contracts/test_or_failure_rev.py`
+and `tests/trade_alerts_contracts/test_or_failure_handoff.py`, confirming both
+existing contracts are unchanged: 300 passed, exit code 0. This was a
+self-run orientation pass only, not protected acceptance evidence; the
+controller's own published protected proof for this milestone follows
+separately and supersedes these numbers.
+
+No code path here derives a gate, a trigger, an alert or a live consumable
+input: it only identifies one bar-native extreme/failure-bar pair over real,
+research-admissible bars. No provider call, spend, or live/alert/order action
+occurred in this session. All switches stay off.
+
+- [!] **M9.1I — `OR_FAILURE_REV` breakout-extreme/failure-bar adapter:**
+  implemented as described above; the extreme/failure-bar pair is built and
+  proven, but `OR_FAILURE_REV`'s full stated input set is not finished and
+  `FIRST_PULLBACK_VWAP` remains fully open, so the reopened parent
+  `M9.1 — Historical replay #1-4` is still not complete; work continues at
+  M9.1J. The two D-104 gaps stay recorded gaps with dependent rules off. No
+  provider call or spend occurred.
+## M9.1J — `OR_FAILURE_REV` `InsideAcceptance` adapter built — 2026-09-17 Pacific
+
+`OrFailureRevMachine` now has its tape/close pair (M9.1H) and its extreme/
+failure-bar pair (M9.1I); this session adds the `INSIDE_ACCEPTANCE` gate's own
+`InsideAcceptance` (`consensus_engine/or_failure_rev.py`), extended into the
+existing `consensus_engine/or_failure_rev_research_adapter.py` module
+(`build_or_failure_rev_acceptance_from_research`) rather than a new file, since
+it reuses the same D-110 `research_coverage_at`/basis-checking helpers M9.1H/I
+already built there.
+
+PLAYBOOKS section 13 leaves "the inside-acceptance window" itself unresolved,
+and M0.3B is PROPOSED, so this adapter adopts no window of its own: the caller
+supplies `window_start`/`window_end` exactly as it already supplies every other
+`ReversalPolicy` threshold, and this only computes the real bar-native share of
+that caller-named window spent with a bar's close strictly inside the supplied
+opening-range edges. A certified no-trade or wrong-instrument-type bar inside
+the window is excluded from the share (mirroring the M9.1I failure-bar
+exclusion) and breaks `coverage_complete` rather than being read as a covered
+minute; a window not yet fully elapsed reports a real partial share marked
+incomplete rather than an invented final one.
+
+The remaining `OR_FAILURE_REV` inputs -- the quote decision and the structural
+risk reading -- and the M8.1 handoff chain's own real-data adapter still need
+their own real-data adapters and stay open build-scope for a further M9.1
+sub-step; `FIRST_PULLBACK_VWAP` remains fully unbuilt after this session, per
+the same one-playbook/one-sub-step-at-a-time split M9.1D-I used.
+
+New offline synthetic test coverage (appended to
+`tests/trade_alerts_contracts/test_or_failure_rev_research_adapter.py`, which
+already held the M9.1H/M9.1I cases): 10 new cases, covering: the full-window
+real share of bars closing back inside the range; `PROVISIONAL` bars usable
+here exactly as already-`FINAL` ones; a window not yet fully elapsed reporting
+a real partial share marked incomplete; a window that has not started yet; a
+window with no ready bar; missing minute history and an incompatible symbol
+each refused by name with no label produced; an incompatible instrument type
+breaking the whole window's coverage; a certified no-trade bar leaving a
+coverage hole while still sharing the rest; and the window-must-have-positive-
+duration/range-ordering/instrument-type input checks. Run once through the
+protected launcher together with `tests/trade_alerts_contracts/test_or_failure_rev.py`
+and `tests/trade_alerts_contracts/test_or_failure_handoff.py`, confirming both
+existing contracts are unchanged: 310 passed, exit code 0. This was a
+self-run orientation pass only, not protected acceptance evidence; the
+controller's own published protected proof for this milestone follows
+separately and supersedes these numbers.
+
+No code path here derives a gate, a trigger, an alert or a live consumable
+input: it only computes one bar-native share over real, research-admissible
+bars within a window the caller names. No provider call, spend, or live/alert/
+order action occurred in this session. All switches stay off.
+
+- [!] **M9.1J — `OR_FAILURE_REV` `InsideAcceptance` adapter:** implemented as
+  described above; the acceptance share is built and proven, but
+  `OR_FAILURE_REV`'s full stated input set is not finished (the quote decision,
+  the structural risk reading and the M8.1 handoff chain's own real-data
+  adapter remain open) and `FIRST_PULLBACK_VWAP` remains fully open, so the
+  reopened parent `M9.1 — Historical replay #1-4` is still not complete; work
+  continues at M9.1K. The two D-104 gaps stay recorded gaps with dependent
+  rules off. No provider call or spend occurred.
+## M9.1K — `OR_FAILURE_REV` `ReversalStructural` stop/target adapter built — 2026-09-17 Pacific
+
+`OrFailureRevMachine` now has its tape/close pair (M9.1H), its extreme/failure-
+bar pair (M9.1I) and its `InsideAcceptance` share (M9.1J); this session adds
+the `RISK_TARGETS` gate's own `ReversalStructural` reading, extended into the
+existing `consensus_engine/or_failure_rev_research_adapter.py` module
+(`build_or_failure_rev_structural_from_research`), reusing the same D-110
+`research_coverage_at`/basis-checking helpers M9.1H-J already built there.
+
+PLAYBOOKS section 17 incorporates the frozen `M0_3D_DEFINITION_PACKET.md`
+section 6 rule this adapter implements exactly: the raw stop is the breakout
+extreme moved `0.05 * frozen_ATR_1m` further from entry, rounded outward (up
+for a short reversal, down for a long one) to the caller-supplied price
+increment; the target catalog is built from the frozen opening-range midpoint,
+the selected as-of session VWAP measured here from real minute bars up to
+`evaluated_at` (summed `hlc3 * volume` over every ready traded bar since the
+session open, admitting `PROVISIONAL` through D-110 exactly like the M9.1H/I/J
+reads), and the opposite opening-range edge; T1 is the nearest admitted level
+at least 1.5R ahead of entry, T2 the nearest distinct level beyond it at least
+2.5R ahead. `entry_reference` and `breakout_extreme_price` are supplied facts
+from their own producers (the M0.3A entry search and the M9.1I extreme); this
+adapter only measures the geometry those facts and real bars imply. Per D-104,
+an unknown price increment or an unavailable breakout extreme leaves the whole
+stop unavailable by name (`PRICE_INCREMENT_UNKNOWN`/`BREAKOUT_EXTREME_UNAVAILABLE`)
+rather than approximated, and a VWAP-incomplete catalog leaves the stop
+standing with an empty `targets` tuple, which the existing `RISK_TARGETS` gate
+in `or_failure_rev.py` already reads as `GEOMETRY_TARGETS_UNAVAILABLE` -- no gate
+code changed. `consensus_engine/or_failure_rev.py`, `or_failure_handoff.py` and
+`orb5_trigger.py` are untouched.
+
+The remaining `OR_FAILURE_REV` input -- the quote decision (`QuoteEventDecision`
+needs a real bid/ask quote stream this project has no source for, so it cannot
+be derived from bar-only history at all, unlike every other M9.1H-K input) --
+and the M8.1 handoff chain's own real-data adapter still need their own
+producers and stay open build-scope for a further M9.1 sub-step;
+`FIRST_PULLBACK_VWAP` remains fully unbuilt after this session, per the same
+one-playbook/one-sub-step-at-a-time split M9.1D-J used.
+
+New offline synthetic test coverage (appended to
+`tests/trade_alerts_contracts/test_or_failure_rev_research_adapter.py`, which
+already held the M9.1H/I/J cases): 11 new cases, covering: a long reversal's
+stop as the downside extreme minus the ATR pad; a long reversal finding the
+VWAP target first then the opposite edge as T2; a short reversal's stop as the
+upside extreme plus the ATR pad; outward rounding (down for long, up for
+short) at a coarse 0.25 increment; an unavailable breakout extreme and an
+unknown price increment each leaving risk unavailable by its own name rather
+than approximated; a stop on the wrong side of entry reported as
+`INVALID_STOP_GEOMETRY` rather than a negative risk figure; missing/
+incompatible minute history each still supplying the stop but leaving the
+target catalog empty; no traded bar yet leaving the catalog incomplete; and
+the direction/range-ordering input checks. Run once through the protected
+launcher together with `tests/trade_alerts_contracts/test_or_failure_rev.py`
+and `tests/trade_alerts_contracts/test_or_failure_handoff.py`, confirming both
+existing contracts are unchanged: 321 passed, exit code 0. This was a
+self-run orientation pass only, not protected acceptance evidence; the
+controller's own published protected proof for this milestone follows
+separately and supersedes these numbers.
+
+No code path here derives a gate, a trigger, an alert or a live consumable
+input: it only measures one bar-native stop/target geometry over real,
+research-admissible bars and caller-supplied facts. No provider call, spend,
+or live/alert/order action occurred in this session. All switches stay off.
+
+- [!] **M9.1K — `OR_FAILURE_REV` `ReversalStructural` stop/target adapter:**
+  implemented as described above; the stop/target geometry is built and
+  proven, but `OR_FAILURE_REV`'s quote decision cannot be derived from
+  bar-only history at all (it needs a real bid/ask quote stream this project
+  has no source for) and the M8.1 handoff chain's own real-data adapter
+  remains open, and `FIRST_PULLBACK_VWAP` remains fully open, so the reopened
+  parent `M9.1 — Historical replay #1-4` is still not complete; work continues
+  at M9.1L. The two D-104 gaps stay recorded gaps with dependent rules off. No
+  provider call or spend occurred.
+## M9.1L — the M8.1 handoff chain's own real-data opening range built — 2026-09-17 Pacific
+
+`OrFailureHandoffMachine`'s `HandoffRequest` (`consensus_engine/or_failure_handoff.py`)
+needs three bar-native supplied facts: `breakout_extreme` and `minute_close`,
+already built from real bars by M9.1I/M9.1H, and `opening_range` -- the M3.6
+`FeatureSnapshot` its `RANGE_GATE` checks by exact `feature_version` match. The
+live builder, `opening_range_features.build_opening_range_snapshot`, only
+admits `FINAL`/`NO_TRADE` bars, and M9.1D already found Databento history is
+permanently `PROVISIONAL` for this project, so it can never complete from real
+data. This session adds the missing piece: new module
+`consensus_engine/or_failure_handoff_research_adapter.py`
+(`build_or_failure_handoff_opening_range_from_research`), mirroring the M9.1D
+research-bar-accessor precedent M9.1E-K already used -- it reuses
+`build_opening_range_snapshot`'s exact five-minute high/low/mid/width
+definition, `FEATURE_VERSION` and revision-selection/conflict logic unchanged,
+only replacing its `HistoryBatch.coverage_at` call with `research_bar_access.
+research_coverage_at`'s D-110 `PROVISIONAL`-admitting view. The produced
+`FeatureSnapshot.feature_version` stays exactly the live
+`OPENING_RANGE_VERSION`, since the underlying definition is identical and only
+the finality admission differs, so `RANGE_GATE`'s version check binds to it
+directly; the research provenance is carried in `metadata.data_mode`
+(`RESEARCH_BAR_OPENING_RANGE_V1`) and the returned D-110 label, not a second
+version. Combined with the existing M9.1H/M9.1I reads, a `HandoffRequest` can
+now be built entirely from real bars for the first time; only the
+caller-supplied `TriggerAssessment` (the M6.2 attempt) and `HandoffPolicy`
+(the caller's own unresolved-rule thresholds) remain outside this module's
+scope, exactly as they already are for a live caller. `OR_FAILURE_REV`'s one
+remaining gap -- the quote decision -- still needs a real bid/ask quote source
+this project does not have, so it stays not buildable offline; no change was
+made there.
+
+New offline synthetic test coverage
+(`tests/trade_alerts_contracts/test_or_failure_handoff_research_adapter.py`,
+new file): 18 cases, covering: final and `PROVISIONAL` bars both reaching the
+live `feature_version` and completing the range (proving the live builder's
+own `OPENING_RANGE_PROVISIONAL` block is the only thing that changed); the
+range-not-yet-ended, certified-no-trade, all-no-trade, conflicting/overlapping,
+missing-history, wrong-symbol, wrong-instrument-type, holiday and
+explicit-input-validation cases mirrored from the M3.6 `test_opening_range_
+features.py` suite; a same-selected-bar check that the new module's close/
+extreme reads agree with the existing M9.1H/M9.1I builders; and one true
+end-to-end integration reusing the M8.1 fixture helpers unchanged (`attempt`/
+`policy`/`extreme`/`reacceptance` from `test_or_failure_handoff.py`) with only
+the live `opening_range()` builder swapped for this module's research one,
+forcing all five opening bars `PROVISIONAL`, and asserting `evaluate_or_
+failure_handoff` still reaches `RANGE_GATE` `PASS` and `FAILURE_FORMING`,
+exactly as the live-bar fixture already proves elsewhere in that file. A
+recording case following the M3.6 precedent writes a hash-compared JSON proof
+to `/tmp/m91l-or-failure-handoff-opening-range-proof.json`. Run once through
+the protected launcher together with `test_or_failure_handoff.py`,
+`test_opening_range_features.py`, `test_or_failure_rev_research_adapter.py`
+and `test_or_failure_rev.py`, confirming every existing contract is unchanged:
+363 passed, exit code 0. This was a self-run orientation pass only, not
+protected acceptance evidence; the controller's own published protected proof
+for this milestone follows separately and supersedes these numbers.
+
+No code path here derives a gate, a trigger, an alert or a live consumable
+input beyond the one M8.1 `RANGE_GATE` this proves compatibility with: it only
+builds one bar-native `FeatureSnapshot` over real, research-admissible bars.
+No provider call, spend, or live/alert/order action occurred in this session.
+All switches stay off.
+
+- [!] **M9.1L — the M8.1 handoff chain's own real-data opening range:**
+  implemented as described above; the handoff's `HandoffRequest` can now be
+  built entirely from real bars (`opening_range`, `breakout_extreme` and
+  `minute_close` all have research adapters), but `OR_FAILURE_REV`'s quote
+  decision still cannot be derived from bar-only history at all, and
+  `FIRST_PULLBACK_VWAP` remains fully unbuilt, so the reopened parent
+  `M9.1 — Historical replay #1-4` is still not complete; work continues at
+  M9.1M. The two D-104 gaps stay recorded gaps with dependent rules off. No
+  provider call or spend occurred.
+- [ ] **M9.1M — `FIRST_PULLBACK_VWAP`'s first bar-native input:** proposed next
+  milestone. `OR_FAILURE_REV` now has every bar-native input it can ever have
+  offline (the quote decision needs a real bid/ask quote source this project
+  does not have); `FIRST_PULLBACK_VWAP` remains fully unbuilt. Read
+  `consensus_engine/first_pullback_vwap.py`'s own input set before choosing
+  where to start; one sub-step at a time if a single session cannot fit the
+  whole remaining scope, per the same split M9.1D-L used. The two D-104 gaps
+  stay recorded gaps with dependent rules off. Independent review must confirm
+  eligibility before the controller advances.
+
+## M9.1M — `FIRST_PULLBACK_VWAP`'s first bar-native input: research impulse/pullback measurement — 2026-09-18 Pacific
+
+`OR_FAILURE_REV` has every bar-native input it can ever have offline (M9.1H-L);
+`FIRST_PULLBACK_VWAP` (`consensus_engine/first_pullback_vwap.py`) remained fully
+unbuilt. Its `PullbackRequest.measurement` is the M8.3 `FeatureSnapshot`
+`impulse_pullback.build_impulse_pullback_snapshot` produces, and that builder
+only admits `FINAL`/`NO_TRADE` minutes -- the same permanently-`PROVISIONAL`
+Databento block M9.1D already found. This session adds the first
+`FIRST_PULLBACK_VWAP` sub-step: new module
+`consensus_engine/impulse_pullback_research_adapter.py`
+(`build_impulse_pullback_snapshot_from_research`), mirroring
+`impulse_pullback.py`'s own window-selection, freeze, ordering, retracement,
+volume-ratio and VWAP-distance arithmetic exactly, with one change: readiness
+admits `PROVISIONAL` alongside `FINAL`/`NO_TRADE` through D-110's
+`research_bar_access.research_coverage_at`, exactly the M9.1E precedent already
+used for `HOD_COMP_RS`'s `RsTrendPolicy` inputs. `atr_1m` and `vwap` stay
+caller-supplied scalars unchanged, since deriving either from bars is not part
+of this sub-step's scope.
+
+The produced `FeatureSnapshot` uses its own `RESEARCH_IMPULSE_PULLBACK_
+FEATURE_VERSION`/`RESEARCH_IMPULSE_PULLBACK_DATA_MODE`, distinct from
+`impulse_pullback.FEATURE_VERSION`/`DATA_MODE`, because
+`first_pullback_vwap._measurement`'s `MEASUREMENT_GATE` checks both the
+feature version and the data mode strictly (unlike `OR_FAILURE_REV`'s
+`RANGE_GATE`, which only checks the feature version), so a live
+`PullbackRequest` cannot bind to this research output by accident -- exactly
+the M9.1E `RS`-snapshot rationale, not the M9.1L opening-range rationale. No
+matcher or policy binding this research version into `PullbackRequest.measurement`
+exists yet; that remains open build-scope for a further sub-step, along with
+the rest of `FIRST_PULLBACK_VWAP`'s input set (VWAP context, relative
+strength, the last-trade observation, the quote decision -- which needs a real
+bid/ask quote source this project does not have -- the structural stop/target
+and the M4.4 confidence). `impulse_pullback.py` and `first_pullback_vwap.py`
+are both untouched.
+
+New offline synthetic test coverage
+(`tests/trade_alerts_contracts/test_impulse_pullback_research_adapter.py`, new
+file): 13 cases, covering: `PROVISIONAL` bars usable here exactly as
+already-`FINAL` ones, with the distinct research feature version/data mode
+confirmed different from the live ones; the D-110 label naming the
+provisional/final interval counts; a later high never moving the frozen
+impulse; an unready/untraded/wrong-instrument-type/missing impulse minute each
+still refused by their own live-mirrored name; a missing or no-trade pullback
+minute refused the same way; missing history, wrong symbol and unknown-basis
+cases named for every feature with no D-110 label produced; the daily-interval
+and holiday refusals; and the symbol/instrument-type/policy input checks. A
+recording case writes a hash-compared JSON proof to
+`/tmp/m91m-impulse-pullback-research-proof.json`. Run once through the
+protected launcher together with `test_impulse_pullback.py`,
+`test_first_pullback_vwap.py` and `test_first_pullback_vwap_replay.py`,
+confirming every existing contract is unchanged: 266 passed, exit code 0. This
+was a self-run orientation pass only, not protected acceptance evidence; the
+controller's own published protected proof for this milestone follows
+separately and supersedes these numbers.
+
+No code path here derives a gate, a trigger, an alert or a live consumable
+input: it only measures one bar-native impulse/pullback leg over real,
+research-admissible bars. No provider call, spend, or live/alert/order action
+occurred in this session. All switches stay off.
+
+- [!] **M9.1M — `FIRST_PULLBACK_VWAP`'s first bar-native input:** implemented as
+  described above; the research impulse/pullback measurement is built and
+  proven, but nothing yet binds it into `PullbackRequest.measurement`, and
+  `FIRST_PULLBACK_VWAP`'s remaining inputs (VWAP context, relative strength,
+  last trade, quote decision, structural stop/target, confidence) are still
+  open, so the reopened parent `M9.1 — Historical replay #1-4` is still not
+  complete; work continues at M9.1N. The two D-104 gaps stay recorded gaps
+  with dependent rules off. No provider call or spend occurred.
+## M9.1N sub-step — `FIRST_PULLBACK_VWAP`'s relative-strength input built; the rest still open — 2026-09-18 Pacific
+
+Following the same too-large-for-one-session split used for M9.1A-M, this
+session narrows M9.1N's named scope to one input:
+`PullbackRequest.relative_strength` (`first_pullback_vwap.RelativeStrength`).
+`rs_trend_eligibility.RsWindowPolicy` already names the exact stock-return-
+minus-benchmark-return computation with no adopted number of its own -- "Nothing
+here adopts a number", per that module's own docstring -- and M9.1E's
+`hod_comp_rs_research_adapter.build_rs_trend_snapshot_from_research` already
+computes it from real, `PROVISIONAL`-admissible bars for `HOD_COMP_RS`. That
+computation is entirely the caller's own supplied `RsWindowPolicy` applied to
+two supplied `HistoryBatch`es, so it is playbook-neutral; nothing about it is
+specific to `HOD_COMP_RS`.
+
+New module `consensus_engine/first_pullback_vwap_research_adapter.py`
+(`build_relative_strength_from_research`) reuses that M9.1E computation
+unchanged and reshapes its `RS_LOOKBACK_V1` value and reason into a
+`first_pullback_vwap.RelativeStrength` record instead of a `FeatureSnapshot`.
+`coverage_complete` is true exactly when both the stock's and the benchmark's
+own bar coverage were computed at all (a compatible history was supplied and a
+regular session existed), independent of whether the RS value itself could be
+measured yet (for example, before warm-up); a value that could not be measured
+always carries its own named reason instead, exactly mirroring
+`RelativeStrength.__post_init__`'s own "missing value needs a missing reason"
+rule. `first_pullback_vwap.py`, `impulse_pullback_research_adapter.py` and
+`hod_comp_rs_research_adapter.py` are all untouched.
+
+Binding the M9.1M research measurement into a usable `PullbackRequest`, the
+VWAP context, the last-trade observation and the structural stop/target all
+remain open build-scope for a further M9.1 sub-step; the quote decision needs a
+real bid/ask quote source this project does not have and stays out of scope,
+exactly like `OR_FAILURE_REV`'s own.
+
+New offline synthetic test coverage
+(`tests/trade_alerts_contracts/test_first_pullback_vwap_research_adapter.py`,
+new file): 8 cases, covering: `PROVISIONAL` bars reading the same value as
+already-`FINAL` ones; warm-up-incomplete coverage staying complete with an
+absent value and its own named reason; a missing benchmark or stock history
+each read as incomplete coverage with its own named reason; no regular session
+read as incomplete coverage; a quiet no-trade interval refused by name with
+coverage still complete; the record ID requirement; and the result standing as
+a valid `RelativeStrength` record under its own `__post_init__` contract. Run
+once through the protected launcher together with `test_hod_comp_rs_research_
+adapter.py`, `test_impulse_pullback_research_adapter.py`,
+`test_first_pullback_vwap.py` and `test_first_pullback_vwap_replay.py`,
+confirming every existing contract is unchanged: 253 passed, exit code 0. This
+was a self-run orientation pass only, not protected acceptance evidence; the
+controller's own published protected proof for this milestone follows
+separately and supersedes these numbers.
+
+No code path here derives a gate, a trigger, an alert or a live consumable
+input on its own: it only measures one bar-native relative-strength reading
+over real, research-admissible bars, in the same shape a later sub-step's
+`PullbackRequest` will need. No provider call, spend, or live/alert/order
+action occurred in this session. All switches stay off.
+
+- [!] **M9.1N — `FIRST_PULLBACK_VWAP`'s relative-strength input:** implemented
+  as described above; the research relative-strength reading is built and
+  proven, but binding the M9.1M measurement into a usable `PullbackRequest` and
+  `FIRST_PULLBACK_VWAP`'s remaining inputs (VWAP context, last trade,
+  structural stop/target) are still open, so the reopened parent
+  `M9.1 — Historical replay #1-4` is still not complete; work continues at
+  M9.1O. The two D-104 gaps stay recorded gaps with dependent rules off. No
+  provider call or spend occurred.
+## M9.1O sub-step — the M9.1M/M9.1N readings bound into a usable `PullbackRequest`; the rest still open — 2026-09-18 Pacific
+
+Following the same too-large-for-one-session split used for M9.1A-N, this
+session narrows M9.1O's named scope to the first named piece: binding the
+M9.1M research impulse/pullback measurement and the M9.1N research relative-
+strength reading into one usable `first_pullback_vwap.PullbackRequest`.
+Neither `impulse_pullback_research_adapter.py` nor
+`first_pullback_vwap_research_adapter.py` assembles a `PullbackRequest`
+itself, exactly like `or_failure_handoff_research_adapter.py`/M9.1L left
+`HandoffRequest` assembly to the caller (`test_or_failure_handoff_research_
+adapter.py`'s own `test_the_produced_snapshot_binds_the_real_m81_range_gate_
+end_to_end`); this session adds that same caller-side assembly for
+`FIRST_PULLBACK_VWAP` and no new production module, since none is needed.
+
+New offline synthetic test coverage
+(`tests/trade_alerts_contracts/test_first_pullback_vwap_request_research_
+binding.py`, new file): 9 cases proving the two readings actually fit
+`PullbackRequest`'s own contract and documenting exactly what each does and
+does not bind to the live gates. `impulse_pullback_research_adapter.py`'s own
+docstring deliberately gives its snapshot a distinct `feature_version`/
+`data_mode` so `first_pullback_vwap._measurement` can never bind it by
+accident (unlike M9.1L's opening-range research, which kept the live
+`feature_version` unchanged); this session's own case confirms `MEASUREMENT_
+GATE` stays `UNKNOWN` with `MEASUREMENT_VERSION_MISMATCH` here, by design, not
+a false `PASS`. `RelativeStrength` carries no version check in `first_
+pullback_vwap._relative_strength`, so the M9.1N reading binds and evaluates
+genuinely: cases cover a real-bar reading passing `RS_GATE` against a low
+supplied minimum, the same reading failing against a higher one,
+`PROVISIONAL` bars binding the live gate exactly like `FINAL` ones,
+before-warm-up and missing-benchmark readings surfacing their own named
+reason on the live gate, confirmation that no combination here reaches
+`ALERT_TRIGGERED` (the remaining unsupplied inputs keep it out of reach), and
+that `measurement`/`relative_strength` must still be their own canonical
+records. Run once through the protected launcher together with
+`test_first_pullback_vwap_research_adapter.py`, `test_impulse_pullback_
+research_adapter.py` and `test_first_pullback_vwap.py`, confirming every
+existing contract is unchanged: 216 passed, exit code 0. This was a self-run
+orientation pass only, not protected acceptance evidence; the controller's own
+published protected proof for this milestone follows separately and
+supersedes these numbers.
+
+VWAP context, the last-trade observation, the quote decision, the structural
+stop/target and the M4.4 confidence all still need their own real-bar
+producers and remain open build-scope for a further M9.1 sub-step; the quote
+decision needs a real bid/ask quote source this project does not have and
+stays out of scope, exactly like `OR_FAILURE_REV`'s own.
+
+No code path here derives a gate, a trigger, an alert or a live consumable
+input on its own: `MEASUREMENT_GATE` and every other unsupplied gate stay
+`UNKNOWN`, and the assembled request never reaches `ALERT_TRIGGERED`. No
+provider call, spend, or live/alert/order action occurred in this session. All
+switches stay off.
+
+- [!] **M9.1O — `FIRST_PULLBACK_VWAP`'s remaining bar-native inputs:**
+  implemented as described above; the M9.1M measurement and M9.1N
+  relative-strength reading are bound into a usable `PullbackRequest` and
+  proven, but the VWAP context, the last-trade observation, the structural
+  stop/target, the quote decision and the M4.4 confidence are still open, so
+  the reopened parent `M9.1 — Historical replay #1-4` is still not complete;
+  work continues at M9.1P. The two D-104 gaps stay recorded gaps with
+  dependent rules off. No provider call or spend occurred.
+## M9.1P — `FIRST_PULLBACK_VWAP`'s VWAP context and last-trade observation built — 2026-09-18 Pacific
+
+Following the same split used for M9.1D-O, this session builds the two named
+bar-native inputs `first_pullback_vwap.py`'s `PullbackRequest.vwap`/
+`last_trade` still needed. `first_pullback_vwap_research_adapter.py` (the
+M9.1N module) gains two new functions rather than a new file, since both
+reuse that module's existing D-110/basis-check conventions directly.
+
+`build_last_trade_from_research` reproduces the M9.1H
+`OrFailureRevBarInputs` tape-read pattern exactly (newest ready bar at or
+before `evaluated_at`, `PROVISIONAL` admitted through D-110), producing only
+the `Observation` half of that pair since `FIRST_PULLBACK_VWAP` has no
+`MinuteClose`-shaped input; the observation always carries `mode=TAPE`.
+
+`build_vwap_context_from_research` computes the real, volume-weighted
+`hlc3`-average VWAP level over every ready traded bar from the regular
+session open through `evaluated_at`, the same computation
+`or_failure_rev_research_adapter._session_vwap` already uses for
+`OR_FAILURE_REV`'s own structural target catalog (M9.1K), admitting
+`PROVISIONAL` through D-110. PLAYBOOKS section 6 leaves the VWAP slope
+convention and the cross-count convention unresolved --
+`first_pullback_vwap.py`'s own `UNDEFINED` tuple already names
+`VWAP_SLOPE_CONVENTION_UNDEFINED` for exactly this gap -- so per D-104 this
+session computes no slope or cross count: the produced `VwapContext` always
+reports `slope=None`, `crosses=None` and that reason whenever a level is
+otherwise available, which still lets `PRICE_VS_VWAP` (`_vwap_side`)
+evaluate genuinely from a real level while `VWAP_SLOPE`/`VWAP_CROSSES` stay
+`UNKNOWN` by name -- exactly what `VwapContext.__post_init__`'s own contract
+allows a partially known context to report, since `_vwap_reason` only checks
+availability/`coverage_complete`, not which individual field is populated.
+
+New offline synthetic test coverage
+(`tests/trade_alerts_contracts/test_first_pullback_vwap_vwap_and_last_trade_
+research_adapter.py`, new file): 20 cases proving both producers against
+`orb5_trigger.Observation` and `first_pullback_vwap.VwapContext`'s own
+contracts directly, covering: the latest-ended-bar tape read and its
+`PROVISIONAL`-admitting behaviour, evaluating before any bar has ended, a
+certified no-trade bar reporting `NO_TRADE_AT_LATEST_BAR` rather than a stale
+price, a missing bar falling back to the prior ready one, missing/
+incompatible history and an incompatible instrument type for the tape read;
+the VWAP level matching an independently computed volume-weighted average,
+`PROVISIONAL` bars producing the same level as `FINAL` ones, only bars up to
+the evaluated instant being weighted, before-any-trade leaving the level
+absent while `coverage_complete` stays true, a certified no-trade bar being
+excluded from the weighted average, missing/incompatible history, an
+incompatible instrument type excluding every bar (not just one), a weekend
+instant having no regular session, and both explicit-input checks; a final
+case per producer confirms the result stands as its own canonical
+`Observation`/`VwapContext` record. Run once through the protected launcher
+together with `test_first_pullback_vwap_research_adapter.py`,
+`test_first_pullback_vwap.py` and `test_or_failure_rev_research_adapter.py`,
+confirming every existing contract is unchanged: 256 passed, exit code 0.
+This was a self-run orientation pass only, not protected acceptance evidence;
+the controller's own published protected proof for this milestone follows
+separately and supersedes these numbers.
+
+The structural stop/target, the quote decision (which needs a real bid/ask
+quote source this project does not have and stays out of scope, exactly like
+`OR_FAILURE_REV`'s own) and the M4.4 confidence still need their own real-bar
+producers and remain open build-scope for a further M9.1 sub-step.
+
+No code path here derives a gate, a trigger, an alert or a live consumable
+input on its own: nothing computed in this session reaches `ALERT_TRIGGERED`
+on its own, and `VWAP_SLOPE`/`VWAP_CROSSES` stay `UNKNOWN` by design. No
+provider call, spend, or live/alert/order action occurred in this session.
+All switches stay off.
+
+- [!] **M9.1P — `FIRST_PULLBACK_VWAP`'s VWAP context and last-trade
+  observation:** implemented as described above; the real VWAP level and the
+  real tape-read observation are built and proven, but the VWAP slope and
+  cross-count conventions stay an explicit recorded D-104 gap
+  (`VWAP_SLOPE_CONVENTION_UNDEFINED`), and the structural stop/target, the
+  quote decision and the M4.4 confidence are still open, so the reopened
+  parent `M9.1 — Historical replay #1-4` is still not complete; work
+  continues at M9.1Q. The two D-104 gaps stay recorded gaps with dependent
+  rules off. No provider call or spend occurred.
+## M9.1Q — `FIRST_PULLBACK_VWAP`'s structural raw stop built; the target catalog still open — 2026-09-18 Pacific
+
+Following the same too-large-for-one-session split used for M9.1D-P, this
+session narrows M9.1Q's named scope to the first piece of the structural
+stop/target: the raw stop `first_pullback_vwap.PullbackStructural` needs.
+`first_pullback_vwap_research_adapter.py` (the M9.1N/M9.1P module) gains a
+third function, `build_pullback_structural_from_research`.
+
+PLAYBOOKS section 6 gives the raw stop as `pullback_low - 0.05 * frozen_ATR_1m`
+for a long continuation and `pullback_high + 0.05 * frozen_ATR_1m` for a short
+one, rounded outward to the caller's own supplied price increment -- exactly
+the same `extreme -/+ 0.05*ATR` arithmetic `or_failure_rev_research_adapter
+.build_or_failure_rev_structural_from_research` (M9.1K) already uses for
+`OR_FAILURE_REV`'s own stop, reproduced here (that helper is private to its
+own module) rather than duplicated with a different number. `entry_reference`
+and `pullback_extreme_price` are caller-supplied facts from their own
+producers (the M0.3A entry search and the M8.3 measurement this playbook
+already reads unchanged), exactly like M9.1K's `entry_reference`/
+`breakout_extreme_price`; this adapter only measures the stop geometry those
+facts and the supplied price increment imply. No bar is read to compute the
+stop, so the returned `label` is always `None` this session.
+
+The target catalog PLAYBOOKS section 6 and the M0.3E packet section 7 name
+(the frozen impulse extreme, regular-session HOD/LOD available at trigger,
+prior-day high/low/close and whole/half-dollar levels between entry and the
+furthest supplied structural level) needs its own real-bar producer reading
+multiple sessions' history, unlike M9.1K's simpler three-level catalog, and
+remains open build-scope for a further M9.1 sub-step; `targets` is always `()`
+here. An unpriceable stop (an unavailable pullback extreme, an unknown price
+increment, or geometry that lands on the wrong side of entry) reports
+`risk=None` with its own named `missing_reason` per D-104, never an
+approximated number.
+
+New offline synthetic test coverage
+(`tests/trade_alerts_contracts/test_first_pullback_vwap_structural_research_
+adapter.py`, new file): 9 cases proving the producer against
+`first_pullback_vwap.PullbackStructural`'s own contract directly, covering: a
+long stop below the pullback low by the ATR pad, a short stop above the
+pullback high by the pad, outward rounding in both directions, an unavailable
+pullback extreme, an unknown price increment, a stop on the wrong side of
+entry, the record-ID-prefix/direction input checks, the supplied instants
+being carried through unchanged, and a final case confirming the result
+stands as its own canonical `PullbackStructural` record. Run once through the
+protected launcher together with `test_first_pullback_vwap_research_adapter.py`,
+`test_first_pullback_vwap_vwap_and_last_trade_research_adapter.py`,
+`test_first_pullback_vwap.py` and `test_or_failure_rev_research_adapter.py`,
+confirming every existing contract is unchanged: 265 passed, exit code 0. This
+was a self-run orientation pass only, not protected acceptance evidence; the
+controller's own published protected proof for this milestone follows
+separately and supersedes these numbers.
+
+No code path here derives a gate, a trigger, an alert or a live consumable
+input on its own: the produced `PullbackStructural` still needs the
+`RISK_TARGETS` gate's own re-check against the measured pullback, which
+`first_pullback_vwap._structural` already performs unchanged, and an empty
+`targets` tuple already reads as `GEOMETRY_TARGETS_UNAVAILABLE` there. No
+provider call, spend, or live/alert/order action occurred in this session.
+All switches stay off.
+
+- [!] **M9.1Q — `FIRST_PULLBACK_VWAP`'s structural raw stop:** implemented as
+  described above; the real raw-stop geometry is built and proven from
+  caller-supplied facts, but the target catalog, the quote decision and the
+  M4.4 confidence are still open, so the reopened parent
+  `M9.1 — Historical replay #1-4` is still not complete; work continues at
+  M9.1R. The two D-104 gaps stay recorded gaps with dependent rules off. No
+  provider call or spend occurred.
+- [ ] **M9.1R — `FIRST_PULLBACK_VWAP`'s structural target catalog:** proposed
+  next milestone. Read `consensus_engine/first_pullback_vwap.py`'s
+  `PullbackStructural.targets` need and the M0.3E packet section 7's target
+  rule (frozen impulse extreme, regular-session HOD/LOD available at trigger,
+  prior-day high/low/close, and known whole/half-dollar levels between entry
+  and the furthest supplied structural level, merged and sorted by directional
+  distance, T1 at least 1.5R away and T2 the nearest distinct level from
+  2.5R-4R) before choosing the exact real-bar computation this catalog needs;
+  one sub-step at a time if a single session cannot fit the whole remaining
+  scope, per the same split M9.1D-Q used. The quote decision (which needs a
+  real bid/ask quote source this project does not have) and the M4.4
+  confidence stay out of this sub-step's scope. The two D-104 gaps stay
+  recorded gaps with dependent rules off. Independent review must confirm
+  eligibility before the controller advances.
+
+## M9.1R — `FIRST_PULLBACK_VWAP`'s structural target catalog built — 2026-09-18 Pacific
+
+Following the same split used for M9.1D-Q, this session builds the M0.3E
+section 7 target catalog `build_pullback_structural_from_research` (the
+M9.1N/P/Q module) left open: `PullbackStructural.targets` is no longer always
+`()`. The frozen impulse extreme is a new caller-supplied fact
+(`impulse_extreme_price`), exactly like `pullback_extreme_price`'s own
+convention; regular-session HOD/LOD and the prior regular session's high/low/
+close are read here from real minute bars via two new helpers,
+`_session_extremes` and `_prior_day_ohlc`, admitting `PROVISIONAL` through
+D-110 exactly like `_session_vwap`'s own read for the M9.1K catalog. Known
+whole-dollar/half-dollar levels strictly between entry and the furthest of
+those real levels are generated arithmetically by a third new helper,
+`_dollar_half_levels`. A new `_build_target_catalog` helper keeps only levels
+ahead in the trade direction, merges exact prices while retaining every
+label, sorts by directional distance, and picks T1 (nearest level at least
+1.5R away) and T2 (nearest distinct later level from 2.5R through 4R) exactly
+per the M0.3E section 7 rule.
+
+The session HOD/LOD read only counts real traded bars from the regular
+session open through `evaluated_at`; the prior-day read requires the entire
+prior regular session's expected minutes to be present and ready (D-104: no
+partial-session approximation). Either source being unavailable, or no
+qualifying T1 among whatever real/whole/half-dollar levels are ahead in the
+trade direction, leaves `targets=()`, which the existing `RISK_TARGETS` gate
+already reads as `GEOMETRY_TARGETS_UNAVAILABLE` -- exactly the M9.1K
+precedent for its own absent-VWAP/no-T1 case; this module does not
+distinguish "known absence" from "incomplete inputs" beyond that existing
+reading. Every new parameter (`symbol`, `instrument_type`,
+`impulse_extreme_price`, `minute_history`) defaults to `None`, so every
+M9.1Q-era call keeps its exact stop-only, `targets=()`, `label=None` result
+unchanged.
+
+The remaining `FIRST_PULLBACK_VWAP` inputs (the quote decision, which needs a
+real bid/ask quote stream this project has no source for and so cannot be
+derived at all; and the M4.4 confidence) still need their own producers and
+stay open build-scope for a further M9.1 sub-step; `first_pullback_vwap.py`,
+`impulse_pullback_research_adapter.py`, `hod_comp_rs_research_adapter.py` and
+`or_failure_rev_research_adapter.py` are all untouched.
+
+New offline synthetic test coverage
+(`tests/trade_alerts_contracts/test_first_pullback_vwap_target_catalog_research_
+adapter.py`, new file): 11 cases proving the producer against
+`first_pullback_vwap.PullbackStructural`'s own contract directly, covering: T1
+from the nearest qualifying real level (prior-day high), T2 from the nearest
+qualifying whole/half-dollar level, the mirrored short-direction merge/sort,
+a duplicate price merging two labels into one target, a missing impulse
+extreme leaving the stop intact with no targets, every new parameter omitted
+reproducing the exact M9.1Q stop-only result, an incompatible symbol, no
+traded session bar yet, an incomplete prior-session window, no qualifying T1
+among the available levels, and a final case confirming the produced targets
+stand as their own canonical `TargetLevel`/`PullbackStructural` records. Run
+once through the protected launcher together with
+`test_first_pullback_vwap_structural_research_adapter.py`,
+`test_first_pullback_vwap_research_adapter.py`,
+`test_first_pullback_vwap_vwap_and_last_trade_research_adapter.py`,
+`test_first_pullback_vwap.py` and `test_or_failure_rev_research_adapter.py`,
+confirming every existing contract is unchanged: 276 passed, exit code 0.
+This was a self-run orientation pass only, not protected acceptance evidence;
+the controller's own published protected proof for this milestone follows
+separately and supersedes these numbers.
+
+No code path here derives a gate, a trigger, an alert or a live consumable
+input on its own: the produced `PullbackStructural` still needs the
+`RISK_TARGETS` gate's own re-check against the measured pullback, which
+`first_pullback_vwap._structural` already performs unchanged. No provider
+call, spend, or live/alert/order action occurred in this session. All
+switches stay off.
+
+- [!] **M9.1R — `FIRST_PULLBACK_VWAP`'s structural target catalog:**
+  implemented as described above; the real target-catalog geometry is built
+  and proven from caller-supplied facts plus real session/prior-day bars, but
+  the quote decision and the M4.4 confidence are still open, so the reopened
+  parent `M9.1 — Historical replay #1-4` is still not complete; work
+  continues at M9.1S. The two D-104 gaps stay recorded gaps with dependent
+  rules off. No provider call or spend occurred.
+- [ ] **M9.1S — `FIRST_PULLBACK_VWAP`'s quote decision and M4.4 confidence:**
+  proposed next milestone. With M9.1M-R, every bar-native
+  `FIRST_PULLBACK_VWAP` input (`RelativeStrength`, last-trade `Observation`,
+  `VwapContext`, and now the full `PullbackStructural` stop/target catalog)
+  is built and proven from real minute bars. The two inputs PLAYBOOKS section
+  6 still names -- the quote-decision `Observation`
+  (`policy.mode=QUOTE_PROJECTED`), which needs a real bid/ask quote stream
+  this project has no source for, and the M4.4 confidence score (M0.3E
+  section 8) -- remain open. Read `first_pullback_vwap.py`'s own
+  `PullbackRequest`/`_structural` consumers and the M0.3E section 8 score
+  formula before deciding whether either piece can be built offline at all,
+  or whether both stay a recorded D-104 gap; one sub-step at a time if a
+  single session cannot fit the whole remaining scope, per the same split
+  M9.1D-R used. The two D-104 gaps stay recorded gaps with dependent rules
+  off. Independent review must confirm eligibility before the controller
+  advances.
+
+## M9.1S — both remaining `FIRST_PULLBACK_VWAP` inputs confirmed unbuildable offline; no code change — 2026-09-18 Pacific
+
+This session read `first_pullback_vwap.py`'s `PullbackRequest` (its existing
+`quote: QuoteEventDecision | None = None` and `confidence: ConfidenceResult |
+None = None` fields), `quote_events.py`'s `QuoteEventDecision` (which requires
+a real `Quote`, i.e. an actual bid/ask), and the M0.3E section 8
+`FIRST_PULLBACK_VWAP_SCORE_V1` formula, to decide whether the quote decision or
+the M4.4 confidence score can be computed from the retained `core17-1y`
+minute-bar files at all.
+
+They cannot, and this is not a new limitation:
+
+- The quote-decision `Observation` (`policy.mode=QUOTE_PROJECTED`) and
+  `QuoteEventDecision` both require a real bid/ask quote stream. The retained
+  `core17-1y` files are OHLCV-1m/BBO-1m/trades bar and tape data, not a
+  reconstructable NBBO quote feed, and M0.2E/M0.2I already found this project
+  has no qualifying source for one (Schwab's current-access check is a dated,
+  bounded, non-historical read; Databento's OPRA/NBBO cost check stopped at
+  the first HTTP 400). This matches the D-104 original-availability/finality
+  gap pattern already recorded for this project.
+- The M0.3E section 8 score is `UNKNOWN` whenever any one of its twelve named
+  factors is missing, with no rescale. Three of its four execution-component
+  factors — `spread_bps`, `quote_age_seconds`, and (with it) staleness
+  headroom's use of a live extension — are themselves quote-stream reads, so
+  the score inherits the identical missing-source gap; it cannot be computed
+  offline from bars alone, independent of the quote-decision gap above.
+
+Both findings match the existing project-wide pattern rather than a new one:
+`consensus_engine/confidence.py` (M4.4) is a pure caller-supplied composition
+with no factor formulas of its own, and `hod_comp_rs_replay.py` and
+`or_failure_rev_replay.py` — the two playbooks whose own real-data replay
+inputs are already fully built (M9.1E-L) — likewise only ever accept
+`confidence: ConfidenceResult | None` as a caller-supplied, optional field;
+neither playbook computes it from real bars either. `PullbackRequest` already
+carries both `quote` and `confidence` as optional fields with full validation
+(`first_pullback_vwap.py` lines 436-440, 470-475), so no dataclass, adapter or
+research-binding change is needed to leave them supplied-or-null: they already
+are. No code changed this session.
+
+With M9.1M-R (relative strength, VWAP context, last-trade, impulse/pullback
+measurement, and the structural stop/target catalog) already built and proven
+from real minute bars, and this session confirming the two remaining named
+inputs are a recorded D-104-style gap rather than unbuilt work, every
+`FIRST_PULLBACK_VWAP` bar-native input now has real-data coverage matching
+`HOD_COMP_RS` and `OR_FAILURE_REV`. That completes build-scope item (b) (the
+per-playbook bar-to-replay-input adapters plus the shared outcome evaluator
+and fill/cost model, item (b) of the 2026-09-17 M9.1 build-scope inventory —
+`playbook_outcome_evaluator.py`/M9.1C already covers `HOD_COMP_RS`,
+`OR_FAILURE_REV` and `FIRST_PULLBACK_VWAP`, and `fill_cost_model.py`/M9.1B is
+shared) for all four playbooks. Items (c) the frozen parameter grid/train-
+held-out split pre-registration, (d) the D-108 statistical evaluator, and (e)
+the search run itself are still unstarted; no application ran, no signal was
+generated and no return was calculated.
+
+No test file changed, since no code changed; the existing
+`tests/trade_alerts_contracts/test_first_pullback_vwap.py`,
+`test_first_pullback_vwap_request_research_binding.py` and the M9.1M-R
+research-adapter test files already cover the `quote`/`confidence` optional-
+field validation this session confirmed needed no change.
+
+- [x] **M9.1S — `FIRST_PULLBACK_VWAP`'s quote decision and M4.4 confidence:**
+  both confirmed unbuildable offline as described above and recorded as a
+  D-104-style gap matching the existing `HOD_COMP_RS`/`OR_FAILURE_REV`
+  supplied-confidence pattern; no code changed. With M9.1M-R, every
+  `FIRST_PULLBACK_VWAP` bar-native input now has real-data coverage, completing
+  build-scope item (b) for all four playbooks. The reopened parent
+  `M9.1 — Historical replay #1-4` is still not complete: items (c) the frozen
+  grid/split pre-registration, (d) the D-108 evaluator and (e) the search run
+  itself remain unstarted; work continues at M9.1T. The two D-104 gaps stay
+  recorded gaps with dependent rules off. No provider call or spend occurred.
+## M9.1T — frozen parameter grid, playbook-combination and split pre-registration record — 2026-09-18 Pacific
+
+This session builds build-scope item (c) from the 2026-09-17 M9.1 inventory:
+pre-registering, before any result is read, the parameter grid over the eight
+open settings (D-043, D-044, D-045, D-048, D-049, D-052, D-054, D-055), the
+playbook-combination candidates, and confirmation of the D-107 9-train/
+8-held-out split. New file
+[M9_1T_PARAMETER_GRID_PREREGISTRATION.md](./M9_1T_PARAMETER_GRID_PREREGISTRATION.md)
+and new decision
+[D-111](./DECISIONS_AND_OPEN_QUESTIONS.md#60-d-111--agent-selected-m91t-parameter-grid-and-playbook-combination-preregistration)
+freeze: 2 candidates for D-043 (5m/15m, reusing the already-frozen
+`M03B_OR_RESEARCH_V2` range definitions), 3 for D-044 (RVOL 1.5/2.0/2.5), 3
+paired candidates for D-045 (acceptance window/prior), 2 for D-048
+(compression on/off), 2 for D-049 (RS mandatory/report-only), 2 for D-052
+(confirmed/faster entry), 2 for D-054 (VWAP mandatory/relaxed) and 2 for D-055
+(AVWAP off/on) — 18/4/2/4 per-strategy configurations for `CRVOL_ORB5`/
+`HOD_COMP_RS`/`OR_FAILURE_REV`/`FIRST_PULLBACK_VWAP` — plus 5 playbook-
+combination candidates (each playbook solo, and all four combined), with a
+two-stage design (per-playbook winning configuration on the training nine,
+then playbook-combination selection on the training nine, then a single
+stage-3 D-108 pass on the held-out eight) and fixed tie-break rules, instead
+of the 576-cell flat cross that a single combined grid would produce. This is
+a pure documentation/records change; no production module changed.
+
+No code, test or protected input changed. This is documentation-only research
+preregistration, not a search run: no training or held-out result was read,
+no signal was generated, no application ran and no spend occurred. Items (d)
+the D-108 evaluator itself and (e) the search run remain unstarted; work
+continues at M9.1U. The two D-104 gaps and the M9.1S quote-decision/M4.4-
+confidence gap stay recorded gaps with dependent rules off.
+
+- [x] **M9.1T — the frozen parameter grid, train/held-out split
+  pre-registration record:** implemented as described above — build-scope
+  item (c), the eight-setting grid, playbook-combination candidates and the
+  D-107 split, all frozen before any result is read. The reopened parent
+  `M9.1 — Historical replay #1-4` is still not complete: items (d) the D-108
+  evaluator and (e) the search run itself remain unstarted; work continues at
+  M9.1U. The two D-104 gaps stay recorded gaps with dependent rules off. No
+  provider call or spend occurred.
+- [ ] **M9.1U — the D-108 evaluator:** proposed next milestone. Build-scope
+  item (d) from the 2026-09-17 M9.1 inventory: implement the frozen D-108
+  success-bar evaluator (per-trade mean profit after costs with bootstrap
+  lower bound, >=60% weekly win rate, drawdown recoverable within about six
+  average winning weeks), computed only on the held-out eight and only after
+  the M9.1T stage-1/stage-2 training-set selection is complete. One sub-step
+  at a time if a single session cannot fit the whole remaining scope. The two
+  D-104 gaps stay recorded gaps with dependent rules off. Independent review
+  must confirm eligibility before the controller advances.
+
+## M9.1U — the D-108 success-bar evaluator built, no search run — 2026-09-18 Pacific
+
+This session builds build-scope item (d) from the 2026-09-17 M9.1 inventory:
+new module `consensus_engine/d108_evaluator.py` implements the frozen D-108
+bar (`DECISIONS_AND_OPEN_QUESTIONS.md` section 57) as a pure function over an
+already-resolved sequence of per-trade `resolved_r` values (each already
+reflecting the D-106/D-107 modeled fill and cost from
+`playbook_outcome_evaluator.py`/`outcome_evaluator.py`) with their close
+times. `evaluate_d108(candidate_id, trades)` computes all three named
+measures on whatever trade sequence it is given:
+
+1. **Profit** — mean R per trade, with a bootstrap lower bound above zero.
+   The bootstrap reuses this project's existing dependence-aware convention
+   (`M0_3B_DEFINITION_PACKET.md` section 5): a circular moving-block resample
+   over ordered calendar weeks (the D-108 unit here, not sessions), 10,000
+   draws, primary block length `L=10` with `L=5`/`L=20` sensitivities, a
+   frozen `NumPy Generator(PCG64(seed))` derived from a canonical-JSON SHA256
+   hash of the candidate ID, week count, block length and resample count, and
+   the same nearest-rank quantile rule at the ordinary one-sided `q=0.05`
+   (95%) — this is a single frozen measurement, not one of the 72-arm family
+   comparisons, so no Bonferroni-style allocation applies. A sensitivity that
+   flips the primary's pass/fail sets `review_required` and fails profit,
+   mirroring the existing `REVIEW_REQUIRED` convention rather than averaging
+   the three block lengths.
+2. **Consistency** — fraction of calendar weeks with net-positive summed R
+   >= 0.60.
+3. **Survivability** — worst peak-to-trough drawdown on the chronological
+   cumulative-R curve, divided by the average positive-week R, compared
+   against the ~6-winning-week bar; explicitly reported as failing (not a
+   crash or a silent pass) when there is no winning week to size a recovery
+   rate from, and trivially passing when there is no drawdown. Worst losing
+   streak is computed and reported alongside, never as pass/fail, per D-108.
+
+`evaluate_d108` raises `RecordError` on an empty trade sequence or a blank
+candidate ID rather than returning a default pass or fail — a configuration
+with zero held-out trades has no D-108 result. This module runs the frozen
+bar over a supplied sequence; it has no loader, adapter, search loop or
+clock of its own, does not choose a configuration, and does not read any
+result before the caller supplies it, so writing and testing it here reads
+no held-out data and computes no return for any real candidate.
+
+New test file `tests/trade_alerts_contracts/test_d108_evaluator.py` (18
+cases): empty/blank-input rejection, a strong all-winning synthetic pattern
+passing all three measures, a losing synthetic pattern failing all three, the
+60% consistency boundary on both sides, a recoverable and an unrecoverable
+drawdown, the explicit no-winning-week and no-drawdown edge cases, the
+losing-streak figure, bootstrap determinism and candidate-ID-sensitivity of
+the frozen seed, the configured resample/block-length constants, the
+sensitivity `review_required` disagreement path, and the `as_dict` shape.
+Focused run: `python3 scripts/testing/run_trade_alerts_contracts.py
+tests/trade_alerts_contracts/test_d108_evaluator.py` — 18 passed, run twice in
+two fresh isolated processes with matching results (same seeds/hashes/lower
+bounds both times, as the bootstrap is fully deterministic).
+
+Item (e), the search run itself (stage 1/2/3 over the real `core17-1y` bars,
+per `M9_1T_PARAMETER_GRID_PREREGISTRATION.md` section 3), remains unstarted;
+no application ran, no signal was generated, no real trade was evaluated and
+no spend occurred. The reopened parent `M9.1 — Historical replay #1-4` is
+still not complete: work continues at M9.1V. The two D-104 gaps and the
+M9.1S quote-decision/M4.4-confidence gap stay recorded gaps with dependent
+rules off. No provider call occurred.
+
+- [x] **M9.1U — the D-108 success-bar evaluator:** implemented as described
+  above — build-scope item (d), a pure profit/consistency/survivability
+  function over already-resolved per-trade R, reusing the project's existing
+  circular moving-block bootstrap convention. With items (a)-(d) of the
+  2026-09-17 M9.1 build-scope inventory now built, only item (e), the search
+  run itself, remains before the reopened parent `M9.1 — Historical replay
+  #1-4` can complete; work continues at M9.1V. The two D-104 gaps stay
+  recorded gaps with dependent rules off. No provider call or spend occurred.
+## M9.1V part 1 — frozen stage-1/stage-2 search catalog and training-set ranking rule built; no bars loaded, no search run — 2026-09-18 Pacific
+
+Build-scope item (e), the last item of the 2026-09-17 M9.1 inventory, is too
+large for one session: it needs the `core17_bar_loader.py` wiring, four
+playbook adapters driven through 18+4+2+4 stage-1 configurations and 5
+stage-2 combinations across nine training tickers and roughly a year of
+minute bars, then one held-out-eight `d108_evaluator.evaluate_d108` pass.
+This session builds the first piece only: new module
+`consensus_engine/search_run_config.py` reproduces
+`M9_1T_PARAMETER_GRID_PREREGISTRATION.md` sections 1-3 as pure data plus one
+pure comparison function — the D-107 training/held-out ticker split, the
+per-playbook stage-1 candidate grids (18/4/2/4, built as a fixed
+`itertools.product` cross in each table's own axis order so every
+candidate's `table_order` matches its preregistered tie-break priority), the
+five stage-2 playbook-combination candidates, and
+`rank_training_candidates`, which applies the frozen tie-break (highest
+mean profit, then weekly win rate, then lowest drawdown, then lowest
+`table_order`) to caller-supplied `TrainingMeasurement` values. It loads no
+bars, drives no adapter, computes no profit/win-rate/drawdown figure itself,
+and reads no training or held-out result — `TrainingMeasurement` is a plain
+value the caller must compute elsewhere and supply.
+
+New test file `tests/trade_alerts_contracts/test_search_run_config.py` (16
+cases): the exact D-107 split and its 9/8 disjoint sizes, the frozen
+four-playbook name tuple, each playbook's grid size (18/4/2/4) against both
+the built candidates and the recorded `STAGE1_GRID_SIZES`, unique candidate
+IDs per playbook, each grid containing its table-listed current-default
+candidate, fixed zero-based `table_order` per playbook, the five stage-2
+candidate IDs and their `playbooks` tuples (including `ALL_FOUR` matching the
+frozen four-playbook order), empty-sequence rejection, and the tie-break
+rule exercised at each of its four levels (profit, then win rate, then
+drawdown, then table order) plus a trivial single-candidate case. Focused
+run: `python3 scripts/testing/run_trade_alerts_contracts.py
+tests/trade_alerts_contracts/test_search_run_config.py` — 16 passed, run
+twice in two fresh isolated processes with matching results (pure data and
+arithmetic, no randomness).
+
+Stage 1 itself (loading real bars and driving the adapters through this
+catalog on the training nine) remains unstarted; no application ran, no
+signal was generated, no real trade was evaluated and no spend occurred. The
+reopened parent `M9.1 — Historical replay #1-4` is still not complete: work
+continues at M9.1W (wiring `core17_bar_loader.py` output into one
+playbook's adapter and running that playbook's stage-1 grid on the training
+nine). The two D-104 gaps and the M9.1S quote-decision/M4.4-confidence gap
+stay recorded gaps with dependent rules off.
+
+- [!] **M9.1V — the stage-1/stage-2/stage-3 walk-forward search run:**
+  part 1 (the frozen stage-1/stage-2 config catalog and training-set ranking
+  rule) implemented as described above. Build-scope item (e) is still not
+  complete: loading real bars, driving the four adapters through this
+  catalog on the training nine (stage 1), the combination search (stage 2)
+  and the held-out D-108 pass (stage 3) remain unstarted; the reopened
+  parent `M9.1 — Historical replay #1-4` is still not complete. Work
+  continues at M9.1W. The two D-104 gaps and the M9.1S
+  quote-decision/M4.4-confidence gap stay recorded gaps with dependent rules
+  off. No provider call, application run or spend occurred.
+- [ ] **M9.1W — wire `core17_bar_loader.py` into one playbook's
+  research adapter and run that playbook's stage-1 grid on the training
+  nine:** proposed next sub-step. Load the retained `core17-1y` OHLCV-1m
+  bars for the nine training tickers, drive one playbook's built adapter
+  (`CRVOL_ORB5`'s existing path is the smallest-wiring candidate) through
+  its `search_run_config.STAGE1_CANDIDATES` grid, and use
+  `rank_training_candidates` to pick that playbook's stage-1 winner. One
+  sub-step at a time if a single session cannot fit the whole remaining
+  scope, per the same split M9.1D-V used. The two D-104 gaps and the M9.1S
+  quote-decision/M4.4-confidence gap stay recorded gaps with dependent rules
+  off throughout. Independent review must confirm eligibility before the
+  controller advances.
+
+## M9.1W part 1 — per-ticker, per-session bar grouping built; no adapter driven, no search run — 2026-09-18 Pacific
+
+The full M9.1W scope (loader output into one playbook's adapter and that
+playbook's whole stage-1 grid on the training nine) is too large for one
+session. This session builds the first piece only: new module
+`consensus_engine/search_run_bars.py`, `group_session_bars`, which takes
+already-converted `DatabentoMinuteRecord` values (from
+`core17_bar_loader.iter_ohlcv_1m_records`) and a ticker list, and returns one
+time-ordered bar tuple per (ticker, session). A duplicate bar for the same
+ticker and minute raises. A session with any non-AVAILABLE provider condition
+is held back and listed in `degraded_sessions`, so dependent rules stay off and
+labelled untested (D-104) rather than running on a proxy. It computes no
+signal, return or parameter figure and reads no result.
+
+New test file `tests/trade_alerts_contracts/test_search_run_bars.py` (6
+cases): time-ordered grouping by ticker and session, dropped-ticker counting,
+duplicate-minute rejection, degraded-session hold-back, ticker-list validation
+and non-record rejection. Focused run of that file through the protected
+launcher — 6 passed in each of two fresh isolated processes the launcher ran.
+The controller's own published stages will supply the official counts and
+timings.
+
+No application ran, no signal was generated, no real trade was evaluated, no
+provider call and no spend occurred. The reopened parent `M9.1 — Historical
+replay #1-4` is still not complete. Work continues at M9.1X (driving one
+playbook's adapter over these grouped bars).
+
+- [!] **M9.1W — wire `core17_bar_loader.py` into one playbook's research
+  adapter and run its stage-1 grid:** part 1 (session bar grouping) built as
+  described above. Driving `CRVOL_ORB5`'s adapter through its stage-1 grid on
+  the training nine and picking its winner with `rank_training_candidates`
+  remain unstarted. The two D-104 gaps and the M9.1S
+  quote-decision/M4.4-confidence gap stay recorded gaps with dependent rules
+  off. No provider call, application run or spend occurred.
+- [ ] **M9.1X — drive `CRVOL_ORB5`'s research adapter over the grouped
+  training-nine bars for one stage-1 candidate:** proposed next sub-step.
+  Turn `search_run_bars.group_session_bars` output into the adapter's
+  per-instant inputs and resolve one candidate's trades to per-trade R, then
+  extend to the 18-candidate grid and `rank_training_candidates`. Independent
+  review must confirm eligibility before the controller advances.
+
+## M9.1X part 1 — grouped bars wrapped as a `HistoryBatch` for the research adapters; no ORB5 adapter driven, no search run — 2026-09-18 Pacific
+
+The full M9.1X scope is too large for one session, and a check of the code
+showed that `CRVOL_ORB5` has no research adapter of its own yet (only the
+supplied-input replay owner `orb5_replay.py`); the earlier note calling it the
+"existing path" meant that replay owner. Every built research adapter reads a
+`HistoryBatch`, so this session builds the shared bridge first:
+`search_run_bars.history_batch_for(grouped, ticker, session, conventions)`
+wraps one grouped (ticker, session) as a `HistoryBatch` over that session's
+regular hours. The caller supplies `conventions`; nothing is defaulted. The
+loader labels volume units unknown, so a caller that cannot name them passes
+UNKNOWN and the adapters refuse the batch (D-104) instead of running on a
+guess. The loader also labels every ticker's `instrument_type` as ETF; that is
+recorded here as a known mislabel for stocks and is not corrected in this step.
+
+Three new cases in `tests/trade_alerts_contracts/test_search_run_bars.py` (9
+in the file now): a grouped session feeds `OR_FAILURE_REV`'s existing bar
+adapter, unknown conventions leave the adapter with no price, and degraded,
+absent or malformed sessions and non-convention input are rejected. One
+focused protected-launcher run of that file: 9 passed. The controller's
+published stages will supply the official counts and timings.
+
+No application ran, no signal, trade or result was produced, no provider call
+and no spend occurred. The reopened parent `M9.1 — Historical replay #1-4` is
+still not complete.
+
+- [!] **M9.1X — drive `CRVOL_ORB5`'s research adapter over the grouped
+  training-nine bars:** part 1 (`HistoryBatch` bridge) built as described
+  above. The ORB5 research adapter itself, one candidate's per-trade R, the
+  18-candidate grid and `rank_training_candidates` remain unstarted. The two
+  D-104 gaps and the M9.1S quote-decision/M4.4-confidence gap stay recorded
+  gaps with dependent rules off.
+- [ ] **M9.1Y — build the `CRVOL_ORB5` bar-native research adapter:** proposed
+  next sub-step. Produce ORB5's `Observation`/`MinuteClose`/opening-range
+  inputs from a `HistoryBatch` made by `history_batch_for`, reusing the
+  `OR_FAILURE_REV` bar reads where they fit, and decide how the unknown volume
+  units and ETF mislabel are handled. Independent review must confirm
+  eligibility before the controller advances.
+
+## M9.1Y part 1 — `CRVOL_ORB5` bar-native research reads built; no trigger driven, no search run — 2026-09-18 Pacific
+
+New module `consensus_engine/orb5_research_adapter.py`. It builds the reads
+that one-minute bars can honestly supply to `Orb5TriggerMachine`:
+`build_orb5_bar_observations` (one TAPE `Observation` per grid instant, priced
+from the latest ready bar with its true age, so finer grid instants reuse the
+same close and the policy's maximum age makes them stale instead of inventing
+intra-minute prices), and `opening_range_from_bars` (high/low over the first N
+regular minutes, only if every minute has a ready traded bar). Basis checks
+reuse the `OR_FAILURE_REV` adapter, so UNKNOWN volume units are refused. The
+loader's `ETF` label for every ticker is left as is: a stock session named
+`EQUITY` reports INCOMPATIBLE_INSTRUMENT_TYPE, a recorded gap, until the label
+is fixed in its own step. `bar_tape_intensity` is always an explicit gap
+(`NO_15S_TAPE_FROM_MINUTE_BARS`): the 15-second tape intensity cannot come from
+minute bars, so any ORB5 rule that needs it stays off and labelled untested
+(D-104). Outputs carry the D-110 label.
+
+New test file `tests/trade_alerts_contracts/test_orb5_research_adapter.py` (7
+cases). One focused protected-launcher run of that file: 7 passed. The
+controller's published stages will supply the official counts and timings.
+
+No application ran, no signal, trade or result was produced, no provider call
+and no spend occurred. The reopened parent `M9.1 — Historical replay #1-4` is
+still not complete.
+
+- [!] **M9.1Y — build the `CRVOL_ORB5` bar-native research adapter:** part 1
+  (observations, opening range, intensity gap) built as described above. The
+  frozen-candidate/geometry/eligibility inputs, driving one candidate to
+  per-trade R, the 18-candidate grid and `rank_training_candidates` remain
+  unstarted. The two D-104 gaps and the M9.1S quote-decision/M4.4-confidence
+  gap stay recorded gaps with dependent rules off.
+- [ ] **M9.1Z — fix the loader's stock `ETF` label and wire the ORB5 reads
+  into one candidate's per-trade R:** proposed next sub-step. Independent
+  review must confirm eligibility before the controller advances.
+
+## M9.1Z part 1 — stock `EQUITY` label fixed in the bar loader; no candidate driven, no search run — 2026-09-18 Pacific
+
+`DatabentoMinuteContext` (`consensus_engine/databento_minute_bars.py`) and
+`iter_ohlcv_1m_records` (`consensus_engine/core17_bar_loader.py`) now take an
+`instrument_type` of `ETF` or `EQUITY`. The default stays `ETF`, so every
+existing core-17 ETF file is labelled exactly as before. The caller states the
+label for a whole file; it is never guessed from the symbol, and any other
+value is refused. A stock file labelled `EQUITY` now passes the ORB5 adapter's
+instrument check, and an `ETF`-labelled batch asked for as `EQUITY` (or the
+reverse) still reports INCOMPATIBLE_INSTRUMENT_TYPE. No stock file was read
+and no bar was decoded; this is only the offline label contract.
+
+Two new cases in `tests/trade_alerts_contracts/test_orb5_research_adapter.py`.
+One focused protected-launcher run of that file plus the core17 loader,
+Databento minute bar and search-run bar test files: 39 passed. The
+controller's published stages will supply the official counts and timings.
+
+No application ran, no signal, trade or result was produced, no provider call
+and no spend occurred. The reopened parent `M9.1 — Historical replay #1-4` is
+still not complete.
+
+- [!] **M9.1Z — fix the loader's stock `ETF` label and wire the ORB5 reads
+  into one candidate's per-trade R:** part 1 (the label fix) is built as
+  described above. Wiring the reads into one candidate's per-trade R (frozen
+  candidate, geometry and eligibility inputs, the 18-candidate grid and
+  `rank_training_candidates`) is unstarted. The two D-104 gaps and the
+  M9.1S quote-decision/M4.4-confidence gap stay recorded gaps with dependent
+  rules off.
+- [ ] **M9.1AA — wire the ORB5 bar reads into one candidate's per-trade R:**
+  proposed next sub-step. Independent review must confirm eligibility before
+  the controller advances.
+
+## M9.1AA part 1 — `CRVOL_ORB5` first crossing frozen from bar reads; no per-trade R, no search run — 2026-09-18 Pacific
+
+`find_orb5_crossing` in `consensus_engine/orb5_research_adapter.py` walks the
+bar-native observations after the opening range, tests each consecutive pair
+with the existing `evaluate_crossing` against the buffered boundary, and
+freezes the first fresh crossing as a `FrozenCandidate` (both directions). It
+returns no candidate, with a reason, when the basis, opening range or ATR is
+missing, or when nothing crosses. The ATR is supplied by the caller: one
+session of bars cannot give it, so a missing ATR is a recorded gap
+(`ATR_UNAVAILABLE`). Nothing beyond the frozen candidate is driven.
+
+Two new cases in `tests/trade_alerts_contracts/test_orb5_research_adapter.py`.
+One focused protected-launcher run of that file: 11 passed. The controller's
+published stages will supply the official counts and timings.
+
+Not built, and why the milestone is larger than one session: the trigger's
+participation gate needs `INTENSITY_15S_MEAN20_V1`, which minute bars cannot
+supply, so the TAPE arm cannot reach ALERT_TRIGGERED on bars alone; eligibility
+needs quote and status inputs this source lacks; geometry, the D-106/D-107
+fill and cost, and the walk to stop/target for one trade's R are unstarted.
+Those rules stay off and labelled untested (D-104); none is approximated.
+
+No application ran, no signal, trade or result was produced, no provider call
+and no spend occurred. The reopened parent `M9.1 — Historical replay #1-4` is
+still not complete.
+
+- [!] **M9.1AA — wire the ORB5 bar reads into one candidate's per-trade R:**
+  part 1 (first-crossing freeze) built as described above. Decide which
+  participation/eligibility gates run or are recorded off, then geometry, fill
+  and cost, and the stop/target walk to per-trade R, the 18-candidate grid and
+  `rank_training_candidates` remain unstarted. The two D-104 gaps and the
+  M9.1S quote-decision/M4.4-confidence gap stay recorded gaps with dependent
+  rules off.
+- [ ] **M9.1AB — decide the ORB5 gate coverage on bars and build geometry plus
+  the stop/target walk for one frozen candidate:** proposed next sub-step.
+  Independent review must confirm eligibility before the controller advances.
+
+## M9.1AB part 1 — ORB5 bar gate coverage decided, geometry and stop/target walk built; no search run — 2026-09-18 Pacific
+
+New `consensus_engine/orb5_trade_walk.py`.
+
+- Gate coverage (D-104): on bars only the boundary crossing runs. Acceptance,
+  participation, last-trade-beyond-boundary, eligibility and cost/slippage are
+  recorded OFF and untested with a reason each (`bar_gate_coverage`). None is
+  approximated.
+- Geometry: `STOP_FAR_OR_EDGE_V2` from the frozen candidate (ORL minus, or ORH
+  plus, 0.05 x frozen ATR, rounded outward to the supplied tick) and fixed
+  `EXIT_FIXED_2R_V2`/`EXIT_FIXED_3R_V2` targets at E ± kR. An unknown tick, a
+  missing entry or a stop not adverse to entry gives no geometry.
+- Walk: reads ready bars from the entry time. A bar touching both stop and
+  target is a stop; a bar opening beyond the stop exits at that open; a target
+  is credited at exactly k R. A missing bar before an exit, or no exit by the
+  close, is unresolved. R is gross of cost.
+
+The entry price and time are caller-supplied: bars cannot give the D-106
+quote-based fill, so that fill stays unbuilt and no entry is invented.
+
+Three new cases in `tests/trade_alerts_contracts/test_orb5_research_adapter.py`.
+One focused protected-launcher run of that file: 14 passed. The controller's
+published stages will supply the official counts and timings.
+
+Not built, which is why the milestone is larger than one session: the D-106/D-107
+entry fill and cost from quotes, the `EXIT_D090_STRUCTURE_V2` two-unit exit,
+wiring crossing to geometry to walk into one per-trade R record, the
+18-candidate grid and `rank_training_candidates`. No application ran, no signal,
+trade or result was produced, no provider call and no spend occurred. The
+reopened parent `M9.1 — Historical replay #1-4` is still not complete.
+
+- [!] **M9.1AB — decide the ORB5 gate coverage on bars and build geometry plus
+  the stop/target walk for one frozen candidate:** built as described above.
+  Entry fill/cost, the D090 structure exit, per-trade R wiring, the grid and
+  ranking remain unstarted. The two D-104 gaps and the M9.1S quote-decision/
+  M4.4-confidence gap stay recorded gaps with dependent rules off.
+- [ ] **M9.1AC — wire crossing, geometry and walk into one candidate's per-trade
+  R record:** proposed next sub-step. Independent review must confirm
+  eligibility before the controller advances.
+
+## M9.1AC part 1 — crossing, geometry and walk wired into one per-trade R record; no search run — 2026-09-18 Pacific
+
+`build_orb5_trade_record` in `consensus_engine/orb5_trade_walk.py` runs
+`find_orb5_crossing`, `build_orb5_geometry` and `walk_orb5_trade` for one
+direction and one fixed exit (`EXIT_FIXED_2R_V2` or `EXIT_FIXED_3R_V2`) and
+returns one `Orb5TradeRecord`: status, gross R, reason, the frozen candidate,
+geometry, walk, the caller's stated entry source, the bar gate coverage and the
+D-110 label. No candidate, no entry time, or no geometry gives an unresolved
+record with a reason and no R. An entry before the crossing, an unknown exit or
+a blank entry source is refused. The entry price and time stay caller-supplied;
+the D-106 quote-based fill is not built and none is invented.
+
+One new case in `tests/trade_alerts_contracts/test_orb5_research_adapter.py`.
+One focused protected-launcher run of that file: 15 passed. The controller's
+published stages will supply the official counts and timings.
+
+Not built, which is why the milestone is larger than one session: the
+D-106/D-107 entry fill and cost from quotes, the `EXIT_D090_STRUCTURE_V2`
+two-unit exit, the 18-candidate grid and `rank_training_candidates`. Gates
+recorded OFF stay OFF and untested (D-104). No application ran, no signal,
+trade or result was produced, no provider call and no spend occurred. The
+reopened parent `M9.1 — Historical replay #1-4` is still not complete.
+
+- [!] **M9.1AC — wire crossing, geometry and walk into one candidate's per-trade
+  R record:** built as described above. Entry fill/cost, the D090 structure
+  exit, the grid and ranking remain unstarted. The two D-104 gaps and the M9.1S
+  quote-decision/M4.4-confidence gap stay recorded gaps with dependent rules off.
+- [ ] **M9.1AD — run the per-trade R record over the 18-candidate grid for
+  training sessions and rank:** proposed next sub-step. Independent review must
+  confirm eligibility before the controller advances.
+
+## M9.1AD part 1 — the 18-candidate `CRVOL_ORB5` grid run built over supplied sessions; no search run — 2026-09-18 Pacific
+
+New `consensus_engine/orb5_grid_run.py`. `run_orb5_grid` takes caller-supplied
+training sessions (bars, ATR, tick, entry price/time and stated entry source),
+runs `build_orb5_trade_record` for both directions once per opening range, and
+gives every one of the 18 frozen stage-1 candidates a tally (trades, unresolved,
+mean gross R, weekly gross win rate) with its records.
+
+Finding (D-104): on bars only the D-043 opening-range axis can change a result.
+The D-044 participation and D-045 acceptance gates are OFF, so the 18 candidates
+fall into two groups of nine with identical records, and each tally names the
+untested axes. R is gross of cost and the entry is caller-supplied, so the
+result is `NOT_RANKABLE`: no `TrainingMeasurement` is built and
+`rank_training_candidates` is not called, because a table-order tie would be
+picked as a false winner. The blockers are listed in `ranking_blockers`.
+
+One new case in `tests/trade_alerts_contracts/test_orb5_research_adapter.py`.
+One focused protected-launcher run of that file: 16 passed. The controller's
+published stages will supply the official counts and timings.
+
+Not built, which is why the milestone is larger than one session: the D-106/D-107
+quote-based entry fill and cost, the `EXIT_D090_STRUCTURE_V2` exit, the real
+training-session inputs (ATR, tick, entries) and any real run. No application
+ran, no signal, trade or result was produced, no provider call and no spend
+occurred. The reopened parent `M9.1 — Historical replay #1-4` is still not
+complete.
+
+- [!] **M9.1AD — run the per-trade R record over the 18-candidate grid for
+  training sessions and rank:** the grid runner is built as described above;
+  ranking is blocked (cost off, D-044/D-045 untested, entry fill supplied). The
+  two D-104 gaps and the M9.1S quote-decision/M4.4-confidence gap stay recorded
+  gaps with dependent rules off.
+- [ ] **M9.1AE — build the D-106/D-107 quote-based entry fill and cost for one
+  ORB5 trade:** proposed next sub-step. Independent review must confirm
+  eligibility before the controller advances.
+
+## M9.1AE part 1 — D-106/D-107 quote-based entry fill and entry-side cost for one ORB5 trade; no search run — 2026-09-18 Pacific
+
+`build_orb5_quote_filled_record` in `consensus_engine/orb5_trade_walk.py` uses the
+frozen crossing time as the alert time and calls the existing
+`fill_cost_model.model_fill` (first valid trade print in the 0-30 second window,
+real half-spread from the quote at that print, modeled slippage and commission
+from a caller-supplied `FillCostPolicy`). The modeled price and print time become
+the entry passed to `build_orb5_trade_record`. No print or no quote in the window
+gives status `NO_FILL` with the fill reason and no R. Only the entry side is
+costed. No exit quotes exist in the inputs, so exit-side spread, slippage and
+commission are recorded OFF and untested (D-104) in `cost_scope`, and the walk
+reads bars that start at or after the print time. Nothing is approximated.
+
+One new case in `tests/trade_alerts_contracts/test_orb5_research_adapter.py`.
+One focused protected-launcher run of that file plus `test_fill_cost_model.py`:
+32 passed. The controller's published stages will supply the official counts and
+timings.
+
+Not built, which is why the milestone is larger than one session: the
+`EXIT_D090_STRUCTURE_V2` two-unit exit, the real training-session inputs (ATR,
+tick, trade prints, quotes) and any real run. No application ran, no signal,
+trade or result was produced, no provider call and no spend occurred. The
+reopened parent `M9.1 — Historical replay #1-4` is still not complete.
+
+- [!] **M9.1AE — build the D-106/D-107 quote-based entry fill and cost for one
+  ORB5 trade:** built as described above (entry side only). The D090 structure
+  exit and real inputs remain unstarted. The two D-104 gaps and the M9.1S
+  quote-decision/M4.4-confidence gap stay recorded gaps with dependent rules off.
+- [ ] **M9.1AF — build the `EXIT_D090_STRUCTURE_V2` two-unit exit for one ORB5
+  trade:** proposed next sub-step. Independent review must confirm eligibility
+  before the controller advances.
+
+## M9.1AF part 1 — `EXIT_D090_STRUCTURE_V2` two-unit exit for one ORB5 trade; no search run — 2026-09-18 Pacific
+
+`build_orb5_structure_exit_record` in `consensus_engine/orb5_trade_walk.py`
+adds the D-090 structure exit. `select_orb5_structure_targets` takes a
+caller-supplied level catalog: only levels ahead of entry count, equal prices
+merge with every label kept, any level closer than 1.5R suppresses the trade,
+T1 is the nearest level at or beyond 1.5R and T2 the next distinct level at or
+beyond 2.5R (or none). An incomplete catalog gives `CATALOG_INCOMPLETE` and no
+R, never "no obstacle" (D-104). The walk closes one unit at T1, the other at T2
+or the session close, keeps the stop unchanged after T1, closes every open unit
+at a stop, resolves a stop-and-target bar stop first, and exits a gap through
+the stop at the open. The bar-proxy horizon is the last regular bar's close; a
+missing bar or close is unresolved. R is `sum(exit-entry)/(2*R)`, gross of cost;
+cost stays OFF and untested.
+
+One new case in `tests/trade_alerts_contracts/test_orb5_research_adapter.py`.
+One focused protected-launcher run of that file: 18 passed. The controller's
+published stages will supply the official counts and timings.
+
+Not built, which is why the milestone is larger than one session: a real level
+catalog producer (PMH/PML, PDH/PDL, ATR, AVWAP, profile), the grid run using this
+exit, real training-session inputs and any real run. No application ran, no
+signal, trade or result was produced, no provider call and no spend occurred. The
+reopened parent `M9.1 — Historical replay #1-4` is still not complete.
+
+- [!] **M9.1AF — build the `EXIT_D090_STRUCTURE_V2` two-unit exit for one ORB5
+  trade:** built as described above from a caller-supplied catalog. The catalog
+  producers and real inputs remain unstarted. The two D-104 gaps and the M9.1S
+  quote-decision/M4.4-confidence gap stay recorded gaps with dependent rules off.
+- [ ] **M9.1AG — let the 18-candidate grid run use the D090 structure exit:**
+  proposed next sub-step. Independent review must confirm eligibility before the
+  controller advances.
+
+## M9.1AG part 1 — the 18-candidate grid run uses `EXIT_D090_STRUCTURE_V2`; no search run — 2026-09-18 Pacific
+
+`run_orb5_grid` in `consensus_engine/orb5_grid_run.py` now accepts
+`EXIT_D090_STRUCTURE_V2` besides the two fixed-R exits (any other name still
+raises). `Orb5Session` gained `levels` and `catalog_complete`, read only by the
+structure exit; the default is an incomplete catalog, which gives an unresolved
+`CATALOG_INCOMPLETE` trade and never "no obstacle" (D-104). A structure trade
+closes when its last unit closes, and that time sets its week for the weekly
+gross win rate. The result is still `NOT_RANKABLE` for the same three blockers
+(cost off, D-044/D-045 untested, caller-supplied entry).
+
+The old case that expected the structure exit to be refused now uses an unknown
+exit name. One new case in
+`tests/trade_alerts_contracts/test_orb5_research_adapter.py` covers the grid on
+the structure exit and the incomplete-catalog path.
+
+Test status (controller proof, source hash
+`ffc5eadfc3f105fc18b6a4221bcccb6d0ae78798bffd03de5b77b5a96672d1e2`, all exit 0):
+- Focused: 1 run, selector `tests/trade_alerts_contracts/test_orb5_research_adapter.py`,
+  19 tests, controller wall 10.732 s.
+- Broad acceptance: 1 run, selector `tests/trade_alerts_contracts`, 3431 tests.
+- Repeatability: 2 fresh runs, 76 tests, controller wall 343.134 s, stable, over the
+  discovered recording selectors (published artifacts
+  `published-artifacts-ef8a9c72f5c5`). No new recording selector was added by this
+  sub-step.
+The session itself made no protected run and did not self-run the family.
+
+Not built, which is why the milestone is larger than one session: a real level
+catalog producer (PMH/PML, PDH/PDL, ATR, AVWAP, profile), real training-session
+inputs and any real run. No application ran, no signal, trade or result was
+produced, no provider call and no spend occurred. The reopened parent
+`M9.1 — Historical replay #1-4` is still not complete.
+
+- [!] **M9.1AG — let the 18-candidate grid run use the D090 structure exit:**
+  built as described above from caller-supplied catalogs. Catalog producers and
+  real inputs remain unstarted. The two D-104 gaps and the M9.1S
+  quote-decision/M4.4-confidence gap stay recorded gaps with dependent rules off.
+- [ ] **M9.1AH — build the D-090 structural level catalog producer from bars:**
+  proposed next sub-step (levels the supplied bars can honestly give; the rest
+  recorded OFF and untested). Independent review must confirm eligibility before
+  the controller advances.
+
+## M9.1AH part 1 — D-090 level catalog producer from supplied features; no search run — 2026-09-18 Pacific
+
+`build_orb5_level_catalog` in `consensus_engine/orb5_level_catalog.py` builds one
+catalog per direction. PDH/PDL and PMH/PML are read from a `FeatureSnapshot`
+made by `build_core_price_snapshot`; the OR measured move is `ORH + width` (long)
+or `ORL - width` (short) from an available bar-native opening range. Each family
+reports `PRESENT` or `UNKNOWN` with a reason. ATR projection (the snapshot does
+not carry the prior close), confirmed daily swings and the prior-session bar
+profile are not built and stay `UNKNOWN`, so `complete` is always false and
+`select_orb5_structure_targets` gives `CATALOG_INCOMPLETE`. No proxy level is
+added and nothing is read as "no obstacle" (D-104).
+
+One new case in `tests/trade_alerts_contracts/test_orb5_research_adapter.py`. The
+controller's published stages will supply the official counts and timings; this
+session made no self-run of the contracts family.
+
+Not built, which is why the milestone is larger than one session: the ATR
+projection (needs the prior close exposed), daily swings, the bar profile, real
+training-session inputs and any real run. No application ran, no signal, trade
+or result was produced, no provider call and no spend occurred. The reopened
+parent `M9.1 — Historical replay #1-4` is still not complete.
+
+- [!] **M9.1AH — build the D-090 structural level catalog producer from bars:**
+  partly built as described above. ATR, swing and profile families remain
+  unbuilt. The two D-104 gaps and the M9.1S quote-decision/M4.4-confidence gap
+  stay recorded gaps with dependent rules off.
+- [ ] **M9.1AI — add the ATR-projection level family to the catalog:** proposed
+  next sub-step (expose the prior close, then build the prior-close ± daily ATR
+  levels; swings and profile follow). Independent review must confirm eligibility
+  before the controller advances.
+
+## M9.1AI part 1 — ATR-projection level family added to the catalog; no search run — 2026-09-18 Pacific
+
+`build_core_price_snapshot` now also emits `PRIOR_REGULAR_CLOSE_V1` (the prior
+final regular-session daily close it already computed for the gap). The catalog
+producer builds `ATR_PROJECTION` (`PRIOR_CLOSE_DAILY_ATR_LEVELS_V1`, packet
+4.2) as prior close plus and minus `DAILY_ATR_14_SMA_V1`, both from the
+snapshot. If either is absent or missing the family is `UNKNOWN` with that
+reason and no level is added. A level behind entry is left to the D-090
+selector. Confirmed daily swings and the prior-session bar profile stay
+`UNKNOWN`, so `complete` is still false (D-104).
+
+The existing catalog case in `test_orb5_research_adapter.py` was extended, and
+the daily-history identity list in `test_core_price_features.py` now names the
+new feature. Both files were opened by pytest outside the launcher and skipped
+there, so no result is claimed; the controller's protected stages will supply
+counts and timings. This session did not self-run the contracts family.
+
+Not built: daily swings, the bar profile, real training-session inputs and any
+real run. No application ran, no signal, trade or result was produced, no
+provider call and no spend occurred. The reopened parent `M9.1 — Historical
+replay #1-4` is still not complete.
+
+- [!] **M9.1AI — add the ATR-projection level family to the catalog:** built as
+  described above. Swing and profile families remain unbuilt. The two D-104
+  gaps and the M9.1S quote-decision/M4.4-confidence gap stay recorded gaps with
+  dependent rules off.
+- [ ] **M9.1AJ — add the confirmed daily swing level family to the catalog:**
+  proposed next sub-step (`DAILY_SWING_PLATEAU_2X2_V1` over 63 completed
+  sessions; the bar profile follows). Independent review must confirm
+  eligibility before the controller advances.
+
+## M9.1AJ part 1 — confirmed daily swing level family added to the catalog; no search run — 2026-09-18 Pacific
+
+`build_daily_swings` in `consensus_engine/core_price_features.py` builds
+`DAILY_SWING_PLATEAU_2X2_V1` (packet 4.3) from a daily `HistoryBatch`: the 63
+immediately preceding completed sessions, daily bars only. A plateau is a
+maximal run of exactly equal highs (lows); it is confirmed only if both left and
+both right neighbors are strictly below (above) and the run does not touch a
+series edge. A certified no-trade session breaks a run and is never a neighbor.
+A missing session, wrong interval or unknown basis gives `UNKNOWN`; a complete
+window with no swing gives `KNOWN_EMPTY`. `build_orb5_level_catalog` takes an
+optional `daily_history` and `evaluated_at` and adds `DAILY_SWING_HIGH` and
+`DAILY_SWING_LOW` levels; without them `DAILY_SWING` stays `UNKNOWN`
+(`MISSING_DAILY_HISTORY`). The prior-session bar profile is still `UNKNOWN`, so
+`complete` is still false (D-104).
+
+New case `test_daily_swings_use_two_strict_neighbors_and_plateaus` in
+`tests/trade_alerts_contracts/test_core_price_features.py`. The controller's
+published stages will supply the official counts and timings; this session made
+no self-run of the contracts family.
+
+Not built: the prior-session bar profile, real training-session inputs and any
+real run. No application ran, no signal, trade or result was produced, no
+provider call and no spend occurred. The reopened parent `M9.1 — Historical
+replay #1-4` is still not complete.
+
+- [!] **M9.1AJ — add the confirmed daily swing level family to the catalog:**
+  built as described above. The bar profile remains unbuilt. The two D-104 gaps
+  and the M9.1S quote-decision/M4.4-confidence gap stay recorded gaps with
+  dependent rules off.
+- [ ] **M9.1AK — add the prior-session bar profile level family to the catalog:**
+  proposed next sub-step (`PRIOR_SESSION_BAR_PROFILE_V1`, packet 4.6, from the
+  prior session's one-minute bars). Independent review must confirm eligibility
+  before the controller advances.
+
+## M9.1AK part 1 — prior-session bar profile level family added to the catalog; no search run — 2026-09-18 Pacific
+
+`build_prior_session_profile` in `consensus_engine/core_price_features.py` builds
+`PRIOR_SESSION_BAR_PROFILE_V1` (packet 4.6, `BAR_APPROX_PROFILE`) from the prior
+regular session's one-minute bars: bin width is `max(1, ceil(0.01 * ATR / tick))`
+ticks, volume is spread evenly over price inside each bar (a flat bar goes to its
+bin, the last bin keeps its upper edge), POC ties go to the midpoint nearest the
+prior close then the lower one, and the 70% value area grows one adjacent bin at
+a time by the same tie order. All arithmetic is exact fractions. The prior close
+and daily ATR are the snapshot's own values at the same evaluation time, so the
+ATR is the one that closed with the prior session. Any unexplained minute slot,
+missing input, invalid tick, no positive-volume bar or mismatched minute/daily
+basis gives `UNKNOWN` with a reason; nothing is filled in (D-104).
+`build_orb5_level_catalog` takes optional `minute_history` and `tick`, and adds
+`PROFILE_POC`, `PROFILE_VAL` and `PROFILE_VAH`. Without them the family stays
+`UNKNOWN`, so `complete` is false. The old `NOT_BUILT` table is gone.
+
+New case `test_prior_session_bar_profile_bins_poc_and_value_area` in
+`tests/trade_alerts_contracts/test_core_price_features.py`. Pytest outside the
+launcher skips these files, so no result is claimed here; the controller's
+protected stages will supply the counts and timings. This session did not
+self-run the contracts family.
+
+All four packet 4 catalog families are now built. Not built: real
+training-session inputs (bars, tick, a session builder that feeds the catalog
+into the grid run) and any real run. No application ran, no signal, trade or
+result was produced, no provider call and no spend occurred. The reopened parent
+`M9.1 — Historical replay #1-4` is still not complete.
+
+- [!] **M9.1AK — add the prior-session bar profile level family to the catalog:**
+  built as described above. Real inputs and any run remain unstarted. The two
+  D-104 gaps and the M9.1S quote-decision/M4.4-confidence gap stay recorded gaps
+  with dependent rules off.
+- [ ] **M9.1AL — build one ORB5 session record from supplied bars and the
+  catalog:** proposed next sub-step (assemble `Orb5Session` from minute/daily
+  history, the snapshot and the catalog producer, so the grid run needs no
+  hand-made levels). Independent review must confirm eligibility before the
+  controller advances.
+
+## M9.1AL part 1 — one ORB5 session record built from supplied bars and the catalog; no search run — 2026-09-18 Pacific
+
+`build_orb5_session` in the new `consensus_engine/orb5_session_builder.py` builds a
+`FeatureSnapshot` from supplied minute, daily and optional premarket history, then
+one `Orb5LevelCatalog` for each direction and each opening range (5 and 15
+minutes), and returns an `Orb5Session`. `Orb5Session` gained a `catalogs` field
+keyed by `(direction, opening-range minutes)`; `run_orb5_grid` uses a present key
+over the old single `levels`/`catalog_complete` pair, because the measured-move
+level depends on both (the old fields still work as the fallback). An opening
+range not finished at `evaluated_at` is unavailable, so a 15-minute catalog never
+reads later bars. The prior-session profile reads a separately supplied prior
+session minute history. ATR, tick and the entry fill stay caller-supplied (the
+D-106 quote fill still does not exist). Any family the inputs cannot prove stays
+`UNKNOWN`, the catalog incomplete and the trade unresolved (D-104).
+
+New case `test_session_builder_keys_catalogs_by_direction_and_opening_range_without_lookahead`
+in `tests/trade_alerts_contracts/test_orb5_research_adapter.py`. Pytest outside the
+launcher skips that file, so no protected result is claimed; the controller's
+protected stages will supply counts and timings. This session did not self-run the
+contracts family.
+
+Not built: real training-session inputs (a loader that supplies real bars, tick,
+ATR and prior-session history per ticker-day) and any real run. No application
+ran, no signal, trade or result was produced, no provider call and no spend
+occurred. The reopened parent `M9.1 — Historical replay #1-4` is still not
+complete.
+
+- [!] **M9.1AL — build one ORB5 session record from supplied bars and the
+  catalog:** built as described above. Real inputs and any run remain unstarted.
+  The two D-104 gaps and the M9.1S quote-decision/M4.4-confidence gap stay
+  recorded gaps with dependent rules off.
+- [ ] **M9.1AM — feed real training-session bars into `build_orb5_session`:**
+  proposed next sub-step (load per ticker-day minute, daily and prior-session
+  history from the existing local files, build the sessions, no search run).
+  Independent review must confirm eligibility before the controller advances.
+
+## M9.1AM part 1 — training-session records built from grouped bars; no search run — 2026-09-18 Pacific
+
+`build_training_sessions` in the new `consensus_engine/orb5_training_sessions.py`
+takes the output of `search_run_bars.group_session_bars` and a list of
+(ticker, session) pairs, wraps each day's bars and the previous regular session's
+bars as `HistoryBatch` values, and calls `build_orb5_session`. A pair with no
+usable bars or a degraded session is listed in `skipped` with its reason and no
+session is built. A day with no loaded prior session is listed in
+`without_prior_session`, and its prior-session family stays `UNKNOWN`. Daily
+history is not in the retained minute files and is not derived from minutes, so
+the families that need it stay `UNKNOWN` and the catalog incomplete (D-104). ATR
+and tick come only from the caller's mappings. No entry price or time is set,
+because the D-106 quote fill does not exist, so these sessions resolve no trade
+yet. The evaluation time is the open plus a caller-stated number of minutes, and
+it must be at least the longer opening range.
+
+New case `test_training_sessions_skip_degraded_and_missing_days_and_fill_nothing_in`
+in `tests/trade_alerts_contracts/test_orb5_research_adapter.py`. It is offline
+and synthetic, so it proves only that contract. Pytest outside the launcher skips
+that file. The controller's protected stages will supply counts and timings. This
+session did not self-run the contracts family.
+
+Not built: the reading of the real retained files into these sessions
+(`open_core17_ohlcv_1m_file` for the real bars, the condition list, real ATR and
+tick), a real daily-bar source, and any real run. No application ran, no signal,
+trade or result was produced, no provider call and no spend occurred. The
+reopened parent `M9.1 — Historical replay #1-4` is still not complete.
+
+- [!] **M9.1AM — feed real training-session bars into `build_orb5_session`:**
+  the pure grouping-to-session step is built as described above. The real-file
+  read and any run remain unstarted. The two D-104 gaps and the M9.1S
+  quote-decision/M4.4-confidence gap stay recorded gaps with dependent rules off.
+- [ ] **M9.1AN — read the retained `core17-1y` files into the session builder:**
+  proposed next sub-step (call the existing loader on the local retained files
+  for the training dates, group, and build the sessions, with no search run).
+  Independent review must confirm eligibility before the controller advances.
+
+## M9.1AN part 1 — retained `core17-1y` files read into the session builder; no search run — 2026-09-18 Pacific
+
+`load_retained_training_sessions` in the new `consensus_engine/orb5_retained_sessions.py`
+opens each caller-named retained monthly file with `open_core17_ohlcv_1m_file`
+(which checks the file's sha256 against its manifest first), groups the records
+for the tickers in the requested pairs, and calls `build_training_sessions`. Empty
+or duplicate file lists and empty pairs are refused. A prior-session day in an
+unnamed file is not loaded, so its family stays `UNKNOWN` (D-104). No entry is
+set and no search is run. The opener is injectable so the offline contract needs
+no real file.
+
+New case `test_retained_file_loader_opens_named_files_and_builds_sessions` in
+`tests/trade_alerts_contracts/test_orb5_research_adapter.py`. It is synthetic and
+proves only that contract. Pytest outside the launcher skips that file, so no
+result is claimed; the controller's protected stages will supply counts and
+timings. This session did not self-run the contracts family.
+
+Not built: a real run over the retained files, real ATR and tick, a real daily
+bar source and the D-106 quote fill. No application ran, no signal, trade or
+result was produced, no provider call and no spend occurred. The reopened parent
+`M9.1 — Historical replay #1-4` is still not complete.
+
+- [!] **M9.1AN — read the retained `core17-1y` files into the session builder:**
+  the loader is built as described above. Real reading, ATR/tick inputs and any
+  run remain unstarted. The two D-104 gaps and the M9.1S
+  quote-decision/M4.4-confidence gap stay recorded gaps with dependent rules off.
+- [ ] **M9.1AO — supply real ATR and tick per ticker-day to the retained-file loader:**
+  proposed next sub-step (derive or read the inputs from existing local sources
+  without proxies; unavailable ones stay recorded gaps). Independent review must
+  confirm eligibility before the controller advances.
+
+## M9.1AO part 1 — ATR and tick source check; both stay recorded gaps — 2026-09-18 Pacific
+
+This step looked for a real ATR value per ticker-day and a real tick per ticker in
+existing local sources, without a proxy. The retained `core17-1y` files hold only
+1-minute bars. Daily history is not in them, and daily ATR is not derived from
+minutes (OQ-006, the exact ATR convention, is still open). No tick-size table exists
+in the retained files or the project sources for these tickers. So no ATR or tick
+mapping was built. `load_retained_training_sessions` keeps taking them only from the
+caller, and a missing one stays `None` and its dependent rules stay off and labelled
+untested (D-104). No code, test or config changed in this step.
+
+No application ran, no signal, trade or result was produced, no provider call and
+no spend occurred. The reopened parent `M9.1 — Historical replay #1-4` is still not
+complete.
+
+- [!] **M9.1AO — supply real ATR and tick per ticker-day to the retained-file loader:**
+  no real ATR or tick source exists locally; both are recorded gaps with dependent
+  rules off. The real daily-bar source (a separate data gate) and the D-106 quote
+  fill remain unbuilt.
+- [ ] **M9.1AP — run the retained-file loader over the local `core17-1y` files with ATR and tick left unset:**
+  proposed next sub-step (count built, skipped and no-prior-session ticker-days only;
+  no entry, no trade, no result). Independent review must confirm eligibility before
+  the controller advances.
+
+## M9.1AP part 1 — retained-file loader run over the local `core17-1y` files; counts only — 2026-09-18 Pacific
+
+This step ran the existing `load_retained_training_sessions` once per ticker group
+over the 13 local retained `ohlcv-1m` monthly files (job `EQUS-20260916-47J8PRKRBB`,
+sha256 checked against its manifest by the opener) for all 17 D-102 names and all 261
+dates in the retained `condition.json`. Evaluation was 15 minutes after the open (the
+longer opening range). Conventions were `timestamp=START`, `session=REGULAR`, every
+other label left `UNKNOWN`. ATR and tick were left unset (recorded gaps, see M9.1AO).
+No code, test or config changed; the throwaway runner lived outside the project
+(`/tmp/m91ap_run.py`, not kept as a product file). Counts only; no entry, trade,
+signal, return or result was produced or looked at.
+
+| group | tickers | ticker-days | built | skipped (degraded) | skipped (no usable bars) | no prior session | run seconds |
+|---|---|---|---|---|---|---|---|
+| ETF | SPY QQQ IWM XLV GLD USO VXX | 1827 | 1743 | 14 | 70 | 14 | 536 |
+| stock | NVDA MSFT AAPL GOOGL AMZN META AVGO TSLA BRK.B LLY | 2610 | 2490 | 20 | 100 | 20 | 711 |
+| total | 17 | 4437 | 4233 | 34 | 170 | 34 | (two runs in parallel) |
+
+An SPY-only trial run gave 249 built, 2 degraded, 10 no usable bars, 2 no prior
+session, consistent with the ETF group. The 10 no-usable-bar days per ticker were not
+checked against the market calendar here, so no reason is claimed for them. Built
+sessions still have daily-history families `UNKNOWN`, ATR/tick `None` and no entry
+(D-106 quote fill not built), so they resolve no trade and the catalog is incomplete;
+dependent rules stay off and labelled untested (D-104). The read shows the retained
+files load and group; it is not source qualification, and the point-in-time
+membership, original-availability and finality gaps stand. Not repeated in a second
+fresh process; no protected test was added or run for this step, because nothing
+testable changed. No provider call and no spend occurred. The reopened parent
+`M9.1 — Historical replay #1-4` is still not complete.
+
+- [!] **M9.1AP — run the retained-file loader over the local `core17-1y` files with ATR and tick left unset:**
+  the run is done as counted above. No entry, trade or result exists; the D-104 gaps and
+  the M9.1S quote-decision/M4.4-confidence gap stay recorded gaps with dependent rules off.
+- [ ] **M9.1AQ — explain the 170 no-usable-bar and 34 degraded ticker-days from the retained files:**
+  proposed next sub-step (list them by date against the retained condition list only;
+  no proxy, no fill). Independent review must confirm eligibility before the controller advances.
+
+## M9.1AQ part 1 — the skipped ticker-days listed by date; counts only — 2026-09-18 Pacific
+
+This step re-ran the existing `load_retained_training_sessions` for two tickers
+(SPY as ETF, NVDA as EQUITY) over the same 13 retained files, evaluation 15
+minutes after the open, and listed the skipped and no-prior-session dates. The
+throwaway runner lived outside the project (`/tmp/m91aq_run.py`). No code, test or
+config changed. Both tickers gave the same 12 skipped dates and 2 no-prior dates:
+
+- DEGRADED_SESSION: 2025-10-10 and 2025-10-13. The retained `condition.json` marks
+  exactly these two of its 261 dates `degraded` (259 are `available`), so the
+  skips match the provider's own degraded-date flags. They stay skipped; nothing
+  was filled in.
+- NO_USABLE_BARS (10): 2025-11-27, 2025-12-25, 2026-01-01, 2026-01-19, 2026-02-16,
+  2026-04-03, 2026-05-25, 2026-06-19, 2026-07-03, 2026-09-07. These are weekdays
+  in the condition list that hold no regular-session bars in the files. They match
+  the usual US exchange full-closure weekdays (Thanksgiving, Christmas, New
+  Year's Day, MLK Day, Presidents Day, Good Friday, Memorial Day, Juneteenth,
+  Independence Day observed, Labor Day) by general knowledge only. No official
+  calendar source was checked here, so that match is a reading, not qualification.
+- No prior session: 2025-09-15 (first retained date) and 2025-10-14 (the day after
+  the degraded 2025-10-13 was skipped). Their prior-session family stays `UNKNOWN`.
+
+Per-ticker counts from M9.1AP (10 no-usable-bar, 2 degraded, 2 no-prior per
+ticker) fit this list, but the other 15 tickers' dates were not listed here.
+Nothing is a signal, trade or result. No protected test was added or run because
+nothing testable changed. The point-in-time membership, original-availability and
+finality gaps stand. No provider call and no spend occurred. The reopened parent
+`M9.1 — Historical replay #1-4` is still not complete.
+
+- [!] **M9.1AQ — explain the 170 no-usable-bar and 34 degraded ticker-days from the retained files:**
+  explained for SPY and NVDA as above; the D-104 gaps and the M9.1S
+  quote-decision/M4.4-confidence gap stay recorded gaps with dependent rules off.
+- [ ] **M9.1AR — confirm the other 15 tickers skip the same 12 dates:**
+  proposed next sub-step (list skipped dates per ticker from the retained files; no
+  proxy, no fill, no entry or result). Independent review must confirm eligibility
+  before the controller advances.
+
+## M9.1AR part 1 — the other 15 tickers skip the same 12 dates; counts only — 2026-09-18 Pacific
+
+This step re-ran the existing `load_retained_training_sessions` once per ticker
+(evaluation 15 minutes after the open, `timestamp=START`, `session=REGULAR`, other
+labels `UNKNOWN`) over the same 13 retained `ohlcv-1m` files for the 15 D-102 names
+not listed in M9.1AQ: QQQ, IWM, XLV, GLD, USO, VXX (ETF) and MSFT, AAPL, GOOGL, AMZN,
+META, AVGO, TSLA, BRK.B, LLY (EQUITY). The throwaway runner lived outside the project
+(`/tmp/m91ar_run.py`, the M9.1AQ runner reused unchanged). No code, test or config
+changed. Every one of the 15 tickers returned exactly the same 12 skipped dates as SPY
+and NVDA in M9.1AQ (2 DEGRADED_SESSION: 2025-10-10, 2025-10-13; 10 NO_USABLE_BARS:
+2025-11-27, 2025-12-25, 2026-01-01, 2026-01-19, 2026-02-16, 2026-04-03, 2026-05-25,
+2026-06-19, 2026-07-03, 2026-09-07) and the same 2 no-prior-session dates
+(2025-09-15, 2025-10-14). With SPY and NVDA that is all 17 tickers, so the M9.1AP
+totals (170 no usable bars, 34 degraded, 34 no prior) equal 17 x 10, 17 x 2 and 17 x 2.
+The no-usable-bar dates still match exchange closures by general knowledge only; no
+official calendar was checked, so that is a reading, not qualification. Nothing is a
+signal, trade or result. No protected test was added or run because nothing testable
+changed; not repeated in a second process. Point-in-time membership, original-availability
+and finality gaps stand. No provider call and no spend occurred. The reopened parent
+`M9.1 — Historical replay #1-4` is still not complete.
+
+- [!] **M9.1AR — confirm the other 15 tickers skip the same 12 dates:**
+  confirmed as above; the D-104 gaps and the M9.1S quote-decision/M4.4-confidence gap
+  stay recorded gaps with dependent rules off.
+- [ ] **M9.1AS — check the 10 no-usable-bar dates against an official exchange holiday calendar:**
+  proposed next sub-step (read-only, only a source already local or free public official
+  page; if none is available record the gap; no proxy, no fill, no entry or result).
+  Independent review must confirm eligibility before the controller advances.
+
+## M9.1AS part 1 — 8 of the 10 no-usable-bar dates match the official NYSE holiday page; 2 stay a recorded gap — 2026-09-18 Pacific
+
+This step made one free, read-only HTTP GET of the public NYSE "Holidays & Trading
+Hours" page (`https://www.nyse.com/trade/hours-calendars`, HTTP 200, no login, no
+credential, no provider account, no spend, no retry). The page says all NYSE markets
+observe the listed holidays "for 2026, 2027, and 2028". It lists, for 2026: New Year's
+Day Thursday January 1; Martin Luther King, Jr. Day Monday January 19; Washington's
+Birthday Monday February 16; Good Friday Friday April 3; Memorial Day Monday May 25;
+Juneteenth Friday June 19; Independence Day observed Friday July 3; Labor Day Monday
+September 7. These match exactly 8 of the 10 NO_USABLE_BARS dates from M9.1AQ/AR:
+2026-01-01, 2026-01-19, 2026-02-16, 2026-04-03, 2026-05-25, 2026-06-19, 2026-07-03,
+2026-09-07. Those 8 are now confirmed as official full-closure days, so their skip is
+correct on an official source, not only by general knowledge.
+
+The other 2 dates, 2025-11-27 (Thanksgiving) and 2025-12-25 (Christmas), are NOT on
+that page: it has no 2025 column. They stay a recorded gap, still a reading by general
+knowledge only. No proxy, no fill, no other source was tried. The 2 DEGRADED_SESSION
+dates (2025-10-10, 2025-10-13) are provider flags, not holidays, and were not part of
+this check. The throwaway parse ran outside the project on a `/tmp` copy of the page.
+No code, test or config changed; no protected test was added or run because nothing
+testable changed. Nothing is a signal, trade or result. Point-in-time membership,
+original-availability and finality gaps stand. The reopened parent
+`M9.1 — Historical replay #1-4` is still not complete.
+
+- [!] **M9.1AS — check the 10 no-usable-bar dates against an official exchange holiday calendar:**
+  done for 8 of 10 as above; 2025-11-27 and 2025-12-25 remain a recorded gap; the D-104
+  gaps and the M9.1S quote-decision/M4.4-confidence gap stay recorded gaps with
+  dependent rules off.
+- [ ] **M9.1AT — check 2025-11-27 and 2025-12-25 against an official 2025 exchange holiday source:**
+  proposed next sub-step (read-only; only a source already local or a free public official
+  page that lists 2025; if none is available record the gap; no proxy, no fill, no entry
+  or result). Independent review must confirm eligibility before the controller advances.
+
+## M9.1AT part 1 — the free public NYSE pages have no 2025 column; 2 dates stay a recorded gap — 2026-09-18 Pacific
+
+This step made two free, read-only HTTP GETs of public NYSE pages, no login, no
+credential, no provider account, no spend, no retry. `nyse.com/publicdocs/nyse/markets/nyse/NYSE_Holidays.pdf`
+returned HTTP 404. `nyse.com/markets/hours-calendars` returned HTTP 200 (same
+"for 2026, 2027, and 2028" page as M9.1AS); the saved copy has zero occurrences of
+"2025" and lists Thanksgiving Day and Christmas Day only in the 2026-2028 tables. So
+2025-11-27 and 2025-12-25 are still NOT confirmed on an official source and remain a
+recorded gap, a reading by general knowledge only. No proxy, no fill, no other source
+was tried. The throwaway fetch ran outside the project on `/tmp` copies. No code, test
+or config changed; no protected test was added or run because nothing testable changed.
+Nothing is a signal, trade or result. Point-in-time membership, original-availability
+and finality gaps stand. The reopened parent `M9.1 — Historical replay #1-4` is still
+not complete.
+
+- [!] **M9.1AT — check 2025-11-27 and 2025-12-25 against an official 2025 exchange holiday source:**
+  the two free public NYSE pages tried list no 2025; both dates stay a recorded gap; the
+  D-104 gaps and the M9.1S quote-decision/M4.4-confidence gap stay recorded gaps with
+  dependent rules off.
+- [ ] **M9.1AU — look for a 2025 holiday listing already stored locally:**
+  proposed next sub-step (read-only, local files only, no provider call or spend; if none
+  lists 2025 keep the gap and stop this calendar thread; no proxy, no fill, no entry or
+  result). Independent review must confirm eligibility before the controller advances.
+
+## M9.1AU part 1 — a local third-party calendar lists both 2025 dates; still no official 2025 source — 2026-09-18 Pacific
+
+This step was local and read-only: no provider call, no network, no credential, no
+spend. A search of the project files (excluding `.claude`, `.firecrawl`, `.git` and this
+ROADMAP) found no stored holiday listing that names 2025-11-27 or 2025-12-25. The
+project's `pandas_market_calendars` package (version 5.3.2, already used by
+`consensus_engine/utils/time_context.py`) has an NYSE calendar that lists both dates as
+holidays. That is a third-party library, not an official exchange source, so it is only
+corroboration of the general-knowledge reading. It does not close the gap: the two dates
+are still not confirmed on an official source. `config/consensus.yaml`
+`alfred.market_holidays` is an empty list. No proxy, no fill, no entry or result. No
+code, test or config changed and no protected test was added or run because nothing
+testable changed. The calendar thread stops here: no further free official 2025 source is
+known. Point-in-time membership, original-availability and finality gaps stand. The
+reopened parent `M9.1 — Historical replay #1-4` is still not complete.
+
+- [!] **M9.1AU — look for a 2025 holiday listing already stored locally:**
+  no stored official listing; only the third-party package calendar lists both dates
+  (corroboration, not official); both dates stay a recorded gap; the D-104 gaps and the
+  M9.1S quote-decision/M4.4-confidence gap stay recorded gaps with dependent rules off.
+- [ ] **M9.1AV — record the parent M9.1 state after the calendar thread closes:**
+  proposed next sub-step (records only: list which #1-4 replay pieces are done, which
+  rules are off because of D-104 gaps, and the one remaining concrete data or owner
+  boundary; no proxy, no fill, no entry or result). Independent review must confirm
+  eligibility before the controller advances.
+
+## M9.1AV part 1 — parent M9.1 state after the calendar thread closes — 2026-09-18 Pacific
+
+Records only. No code, test, config or input changed; no protected test was added or
+run; no provider call, credential read, network call or spend occurred. Nothing here is
+a signal, trade or result.
+
+Done (each accepted or recorded in its own row above):
+- Shared pieces: core17-1y bulk loader (M9.1A), D-106/D-107 fill and cost model
+  (M9.1B), outcome evaluator (M9.1C), research-bar accessor (M9.1D), frozen parameter
+  grid and train/held-out split (M9.1T), D-108 success-bar evaluator (M9.1U).
+- Bar-native inputs have real-data coverage for all four playbooks (M9.1E-S);
+  the `FIRST_PULLBACK_VWAP` quote decision and M4.4 confidence are a recorded gap (M9.1S).
+- `CRVOL_ORB5`: bar-native research adapter, crossing/geometry/walk, quote-based entry
+  fill, D090 structure exit, structural level catalog families, session builder and the
+  retained-file loader (M9.1Y-AN). The loader ran over the 13 local retained `ohlcv-1m`
+  files for all 17 names and 261 dates: 4437 ticker-days, 4233 built, 34 degraded and
+  170 no-usable-bar skipped, 34 with no prior session (M9.1AP), identical 12 skipped
+  dates for every ticker (M9.1AQ, M9.1AR).
+- Calendar thread: 8 of the 10 no-usable-bar dates match the official NYSE 2026-2028
+  page (M9.1AS); 2025-11-27 and 2025-12-25 have no official 2025 source found and stay
+  a recorded gap, with only the third-party package calendar as corroboration (M9.1AT,
+  M9.1AU). The thread is closed.
+
+Rules off and labelled untested (D-104): anything needing original availability or
+finality, point-in-time membership, historical borrow, or complete-chain proof; the
+`FIRST_PULLBACK_VWAP` quote decision and M4.4 confidence; ATR and tick (no local source,
+M9.1AO), so built sessions keep daily-history families `UNKNOWN` and resolve no trade.
+
+Not done: the stage-1 grid run on the training nine, the stage-2 combination search and
+the stage-3 held-out D-108 pass have not started for any playbook; the other three
+playbooks have no retained-file loader run. The one remaining concrete boundary is the
+missing real ATR/tick per ticker-day (a data gate); the source/qualification, final-date
+and live gates stand. The reopened parent `M9.1 — Historical replay #1-4` is still not
+complete.
+
+- [!] **M9.1AV — record the parent M9.1 state after the calendar thread closes:**
+  recorded as above; the parent stays incomplete; the D-104 gaps and the M9.1S
+  quote-decision/M4.4-confidence gap stay recorded gaps with dependent rules off.
+- [ ] **M9.1AW — decide whether ATR can come from the retained bars' own daily aggregates:**
+  proposed next sub-step (read-only assessment against the retained files and D-104: is
+  a prior-session ATR derivable without proxy or fill; tick stays a gap unless a real
+  source exists; no entry, no result). Independent review must confirm eligibility
+  before the controller advances.
+
+## M9.1AW part 1 — ATR from the retained bars' own daily aggregates: not derivable without a proxy; stays a recorded gap — 2026-09-18 Pacific
+
+Records only. No code, test, config or input changed; no protected test was added or
+run; no provider call, credential read, network call or spend occurred. Nothing here is
+a signal, trade or result.
+
+Read-only assessment against the frozen definition and the shared code:
+- `DAILY_ATR_14_SMA_V1` (M0_3_DEFINITION_PACKET) needs the 15 immediately preceding
+  completed regular sessions of daily bars, true range against the preceding daily
+  close, and says a missing session or adjustment reference is `UNKNOWN`, with no
+  older-day substitute.
+- The shared builder (`consensus_engine/core_price_features.py`, `_daily`) reads a
+  `1d` history batch with its own coverage record. The retained `core17-1y` files are
+  `ohlcv-1m` only, so there is no `1d` batch, coverage record or adjustment reference.
+- Building daily high, low and close by aggregating the minute bars would be a
+  substitute for that daily source, not the source itself: the minute files come from
+  the `EQUS.MINI` venue-aggregated feed, whose daily high, low and close can differ
+  from an official daily bar, and OQ-006 (the exact ATR convention) is still open.
+  D-104 says a field that cannot be obtained is recorded as a gap and never
+  approximated, so ATR is not derived this way.
+- Tick has no local source (M9.1AO) and stays a gap.
+
+Result: ATR and tick stay recorded gaps. Every rule that needs them stays off and
+labelled untested: the daily-ATR families, the ATR buffer and stop pad, and so any
+trade resolution in the built sessions. The real daily-bar source (a separate data
+gate) is still needed. The reopened parent `M9.1 — Historical replay #1-4` is still
+not complete.
+
+- [!] **M9.1AW — decide whether ATR can come from the retained bars' own daily aggregates:**
+  no; that would be a proxy for a missing `1d` source (D-104); ATR and tick stay
+  recorded gaps with dependent rules off.
+- [ ] **M9.1AX — run the retained-file loader for the other three playbooks' bar-native inputs:**
+  proposed next sub-step (counts only over the local `core17-1y` files for playbooks
+  #2-4, ATR and tick left unset; no entry, no trade, no result). Independent review
+  must confirm eligibility before the controller advances.
+
+## M9.1AX part 1 — no retained-file loader exists for playbooks #2-4; nothing run; the missing piece is named — 2026-09-18 Pacific
+
+Records only. No code, test, config or input changed; no protected test was added or
+run; no provider call, credential read, network call or spend occurred. Nothing here is
+a signal, trade or result.
+
+Read-only check of the shared code against this step's proposal:
+- The M9.1AP loader (`load_retained_training_sessions`) feeds only the `CRVOL_ORB5`
+  session builder. Its chain is retained file -> `group_session_bars` ->
+  `build_training_sessions` -> `Orb5Session`. It is `CRVOL_ORB5`-specific.
+- Playbooks #2-4 (`HOD_COMP_RS`, `OR_FAILURE_REV`, `FIRST_PULLBACK_VWAP`) have
+  bar-native research adapters (M9.1E-S) that each take one supplied history batch and
+  a decision moment. No code turns grouped retained bars into those batches per
+  ticker-day, and no code chooses the decision moments. So there is nothing existing to
+  "run" over the retained files for #2-4; a count would need a new builder plus offline
+  tests, which is a code step and not a run.
+- Some adapters take a 1-minute ATR (`atr_1m`). That is a different input from the
+  daily ATR ruled a gap in M9.1AW. Whether a 1-minute ATR can be read from the same
+  retained minute bars without a proxy has not been assessed and stays open; until it
+  is, those inputs stay unset and dependent rules off (D-104).
+- `FIRST_PULLBACK_VWAP` keeps its quote decision and M4.4 confidence as a recorded gap
+  (M9.1S).
+
+Result: the step as proposed cannot be run with existing code. The parent
+`M9.1 — Historical replay #1-4` is still not complete; the stage-1 grid run, stage-2
+search and stage-3 held-out D-108 pass have not started; the daily ATR/tick data gate
+and the source/final/live gates stand.
+
+- [!] **M9.1AX — run the retained-file loader for the other three playbooks' bar-native inputs:**
+  not runnable: no #2-4 retained-file loader exists; handed to a code sub-step below.
+- [ ] **M9.1AY — build the retained-file to history-batch builder for playbooks #2-4:**
+  proposed next sub-step (offline code plus focused tests: group retained minute bars
+  per ticker-day into the history batches the #2-4 adapters take, with `atr_1m` unset
+  unless it is shown derivable from the same bars without a proxy; no entry, no trade,
+  no result, no D-104 gap filled). Independent review must confirm eligibility before
+  the controller advances.
+
+## M9.1AY part 1 — retained-file history-batch builder for playbooks #2-4 built offline — 2026-09-18 Pacific
+
+Offline code and focused tests only. No provider call, credential read, network call,
+spend, real retained file read or run occurred. Nothing here is a signal, trade or result.
+
+- New `consensus_engine/retained_history_batches.py`: `build_history_batches` and
+  `load_retained_history_batches` group retained minute bars per named (ticker, session)
+  pair and wrap each session, plus the prior session when it was loaded, as a
+  `HistoryBatch`. The batches are the input the #2-4 research adapters take.
+- A degraded or absent session is skipped with a reason; a missing prior session is
+  listed, not filled; duplicate pairs and empty/duplicate file lists are rejected. The
+  caller supplies the source conventions; nothing is defaulted.
+- No decision moment is chosen and no entry is set. `atr_1m` is not produced: no
+  derivation from the same bars without a proxy has been shown, so it stays unset and
+  dependent rules stay off (D-104). Daily ATR/tick stay recorded gaps.
+- New focused tests: `tests/trade_alerts_contracts/test_retained_history_batches.py`
+  (3 cases, run with `test_orb5_research_adapter.py`; controller stage supplies the
+  published counts).
+
+The parent `M9.1 — Historical replay #1-4` is still not complete; source/final/live gates
+stand.
+
+- [x] **M9.1AY — build the retained-file to history-batch builder for playbooks #2-4:**
+  builder and focused offline tests done; controller protected stages supply the proof.
+- [ ] **M9.1AZ — choose the decision moments for playbooks #2-4 over the retained batches:**
+  proposed next sub-step (offline code plus focused tests: a finite, preregistered list of
+  decision moments per playbook applied to the batches from M9.1AY, with `atr_1m` unset;
+  no entry, no trade, no result). Independent review must confirm eligibility before the
+  controller advances.
+
+## M9.1AZ part 1 — preregistered decision moments for playbooks #2-4 built offline — 2026-09-18 Pacific
+
+Offline code and focused tests only. No provider call, credential read, network call,
+spend, real retained file read or run occurred. Nothing here is a signal, trade or result.
+
+- New `consensus_engine/retained_decision_moments.py`, version
+  `M91AZ_DECISION_MOMENTS_V1`, fixed before any result: every 5 minutes from open+5
+  through close-5 New York time (09:35-15:55 on a full day, 77 moments; early-close
+  aware), the same grid for `HOD_COMP_RS`, `OR_FAILURE_REV` and `FIRST_PULLBACK_VWAP`,
+  matching the M0.3I five-minute bands. Each playbook's own rules still decide
+  eligibility at a moment. `plan_decision_moments` applies the grid to the M9.1AY
+  batches; `atr_1m` stays unset and dependent rules stay off (D-104).
+- New focused tests: `tests/trade_alerts_contracts/test_retained_decision_moments.py`
+  (3 cases, run with `test_retained_history_batches.py`; controller stage supplies the
+  published counts).
+
+The parent `M9.1 — Historical replay #1-4` is still not complete; source/final/live gates
+and the daily ATR/tick gap stand.
+
+- [x] **M9.1AZ — choose the decision moments for playbooks #2-4 over the retained batches:**
+  grid and focused offline tests done; controller protected stages supply the proof.
+- [ ] **M9.1BA — run the #2-4 research adapters over the planned decision moments:**
+  proposed next sub-step (offline code plus focused tests: call the existing bar-native
+  adapters at each planned moment, count ready/not-ready inputs with reasons; no entry,
+  no trade, no result; ATR/tick and quote inputs left as recorded gaps). Independent
+  review must confirm eligibility before the controller advances.
+
+## M9.1BA part 1 — #2-4 bar-native adapters run over the planned moments, built offline — 2026-09-18 Pacific
+
+Offline code and focused tests only. No provider call, credential read, network call,
+spend, real retained file read or run occurred. Nothing here is a signal, trade or result.
+
+- New `consensus_engine/retained_adapter_run.py`, version `M91BA_ADAPTER_RUN_V1`:
+  `run_adapters` calls, at each planned moment, the `OR_FAILURE_REV` tape/close reader and
+  the `FIRST_PULLBACK_VWAP` last-trade and VWAP-level readers, and counts ready and
+  not-ready moments per input with the adapter's own reason.
+- Not called, listed in `NOT_CALLED` and left as recorded gaps with dependents off
+  (D-104): `atr_1m`, VWAP slope/crosses, the quote decision and the `HOD_COMP_RS`
+  policy-driven inputs. A missing instrument type is rejected, not defaulted.
+- New focused tests: `tests/trade_alerts_contracts/test_retained_adapter_run.py`
+  (2 cases, run with `test_retained_decision_moments.py`; controller stage supplies the
+  published counts).
+
+The parent `M9.1 — Historical replay #1-4` is still not complete; source/final/live gates
+and the daily ATR/tick gap stand.
+
+- [x] **M9.1BA — run the #2-4 research adapters over the planned decision moments:**
+  runner and focused offline tests done; controller protected stages supply the proof.
+- [ ] **M9.1BB — run the adapter counts over the retained files:**
+  proposed next sub-step (a run over the real retained minute files for the named
+  ticker-days, publishing ready/not-ready counts only; no entry, no trade, no result; needs
+  an explicitly assigned read of retained files). Independent review must confirm
+  eligibility before the controller advances.
+
+## M9.1BB part 1 — retained-file to adapter-counts entry point built offline — 2026-09-18 Pacific
+
+Offline code and focused tests only. No provider call, credential read, network call,
+spend, real retained file read or run occurred. Nothing here is a signal, trade or result.
+
+- New `consensus_engine/retained_count_run.py`, version `M91BB_RETAINED_COUNT_RUN_V1`:
+  `run_retained_counts` chains the M9.1AY loader, the M9.1AZ moment plan and the M9.1BA
+  adapter run and returns counts plus the skipped and no-prior-session lists. It picks no
+  files or tickers; the caller supplies them, with the source conventions and instrument
+  types. `NOT_CALLED` gaps stay recorded with dependents off (D-104).
+- New focused tests: `tests/trade_alerts_contracts/test_retained_count_run.py` (2 cases;
+  controller stage supplies the published counts).
+- The run over the real retained files is NOT done: it needs an explicitly assigned read
+  of retained files (named ticker-days, files, conventions), which this milestone was not
+  given. Handed off, not accepted as a whole.
+
+The parent `M9.1 — Historical replay #1-4` is still not complete; source/final/live gates
+and the daily ATR/tick gap stand.
+
+- [!] **M9.1BB — run the adapter counts over the retained files:**
+  entry point and focused offline tests done; the real-file run is blocked on an
+  explicitly assigned retained-file read. Handed to M9.1BC.
+- [ ] **M9.1BC — publish adapter counts from the real retained files:**
+  proposed next sub-step (execute `run_retained_counts` once over the named retained
+  minute files under an explicit read assignment; publish ready/not-ready counts only; no
+  entry, no trade, no result). Independent review must confirm eligibility and that the
+  read is assigned before the controller advances.
+
+## M9.1BC — real retained-file count run not assigned — 2026-09-18 Pacific
+
+Records only. No code, test, provider call, credential read, network call, spend or
+retained-file read occurred. The work packet for this milestone named no ticker-days, no
+retained files and no source conventions, so there is no explicit read assignment. Nothing
+here is a signal, trade or result. The `M91BB_RETAINED_COUNT_RUN_V1` entry point is
+unchanged and still has no published counts from real files.
+
+The parent `M9.1 — Historical replay #1-4` is still not complete; source/final/live gates
+and the daily ATR/tick gap stand.
+
+- [!] **M9.1BC — publish adapter counts from the real retained files:**
+  blocked on an explicit read assignment (named ticker-days, files, source conventions,
+  instrument types). Handed to M9.1BD.
+- [ ] **M9.1BD — publish adapter counts once a retained-file read is assigned:**
+  proposed next sub-step (execute `run_retained_counts` once over the assigned files;
+  publish ready/not-ready counts only; no entry, no trade, no result). Independent review
+  must confirm the read assignment exists before the controller advances.
+  **The read assignment now exists: D-112 in DECISIONS_AND_OPEN_QUESTIONS.md**, recorded
+  2026-09-19, naming the job directory, the manifest-verified files, the nine D-107
+  training ticker-days, the per-ticker instrument types and the full `HistoryConventions`
+  set. Use it verbatim; do not choose files, tickers or conventions yourself, and do not
+  read the eight held-out names.

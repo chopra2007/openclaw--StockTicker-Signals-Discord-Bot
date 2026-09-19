@@ -1,0 +1,180 @@
+{
+  "version": "M02I_COST_CHECK_RESULT_V2",
+  "observed_at_pacific": "2026-09-14T05:23:08.211951-07:00",
+  "scope": "Separately assigned and independently reviewed zero-spend source-cost check; V1 remains unchanged and is not reset.",
+  "source_plan": "M0_2H_SOURCE_ACQUISITION_SPEC.json",
+  "v1_preserved": {
+    "path": "M0_2I_COST_CHECK_RESULT.json",
+    "sha256": "70bf24c8577a1f05bcac265934d944113c6cd30d022c99a26a2a9bfeff4447fe",
+    "local_sdk_failures": 6,
+    "provider_connections": 0,
+    "provider_responses": 0
+  },
+  "request_window": {
+    "start": "2023-03-28T00:00:00Z",
+    "end": "2026-08-22T00:00:00-07:00",
+    "earlier_dates": "UNPRICED_COVERAGE_GAP"
+  },
+  "execution": {
+    "sdk": "databento 0.84.0",
+    "method": "Historical.metadata.get_cost",
+    "status": "STOPPED_ON_FIRST_FAILURE",
+    "sdk_calls_started": 3,
+    "sdk_calls_returned": 2,
+    "provider_connections": 3,
+    "provider_responses": 3,
+    "outbound_posts": 3,
+    "outbound_gets": 0,
+    "retries": 0,
+    "redirects": 0,
+    "downloads": 0,
+    "source_record_requests": 0,
+    "additional_metadata_calls": 0,
+    "incremental_spend_usd": 0,
+    "ledger_or_reservation_mutations": false
+  },
+  "results": [
+    {
+      "id": "V2_COST_EQUS_MINI_TRADES_2023_2026",
+      "status": "RETURNED",
+      "estimate_usd": 101.393871814013,
+      "http_status": 200
+    },
+    {
+      "id": "V2_COST_EQUS_MINI_MBP1_2023_2026",
+      "status": "RETURNED",
+      "estimate_usd": 931.397507786751,
+      "http_status": 200
+    },
+    {
+      "id": "V2_COST_OPRA_CMBP1_2023_2026",
+      "status": "FAILED",
+      "estimate_usd": null,
+      "http_status": 400,
+      "error_category": "PROVIDER_HTTP_FAILURE",
+      "specific_cause": "UNKNOWN"
+    },
+    {
+      "id": "V2_COST_OPRA_TRADES_2023_2026",
+      "status": "UNATTEMPTED",
+      "estimate_usd": null,
+      "http_status": null
+    },
+    {
+      "id": "V2_COST_OPRA_STATISTICS_2023_2026",
+      "status": "UNATTEMPTED",
+      "estimate_usd": null,
+      "http_status": null
+    },
+    {
+      "id": "V2_COST_OPRA_DEFINITION_2023_2026",
+      "status": "UNATTEMPTED",
+      "estimate_usd": null,
+      "http_status": null
+    }
+  ],
+  "spend_state": {
+    "owner_total_cap_usd": 40,
+    "existing_reserved_usd": 16,
+    "unreserved_usd": 24,
+    "billing": "UNKNOWN",
+    "returned_estimates_each_exceed_unreserved_amount": true,
+    "estimates_are_bills_or_authorization": false
+  },
+  "evidence": {
+    "assignment": "/root/trade-alerts-builder/repairs/codex-subscription/m02i-supervisor-source-preflight-v2/ASSIGNMENT.json",
+    "executed_result": "/root/trade-alerts-builder/repairs/codex-subscription/m02i-supervisor-source-preflight-v2/EXECUTED_RESULT.json",
+    "executed_report": "/root/trade-alerts-builder/repairs/codex-subscription/m02i-supervisor-source-preflight-v2/EXECUTED_REPORT.md",
+    "execution_independent_review": "/root/trade-alerts-builder/repairs/codex-subscription/m02i-supervisor-source-preflight-v2/execution-independent-review.md",
+    "preserved_inputs_unchanged": true
+  },
+  "gates": {
+    "source_qualification": "BLOCKED",
+    "chronological_split": "BLOCKED",
+    "historical_replay": "BLOCKED",
+    "promotion": "BLOCKED",
+    "live": "BLOCKED"
+  },
+  "next_milestone": {
+    "id": "M4.7A",
+    "status": "OPEN_PENDING_INDEPENDENT_REVIEW",
+    "scope": "Owner-reopened offline first-four options and portfolio repair; all M0.2I source, budget, capacity, historical and live gates remain blocked."
+  },
+  "verification": {
+    "tested_source_hash": "32e42616572168d66f827690ed7c94a31642c7c005920bd7d371f79b6db027bf",
+    "tested_source_manifest": "/root/trade-alerts-builder/runs/20260914-051046-194921-build/verified-manifest.json",
+    "acceptance": {
+      "phase": "acceptance",
+      "runs": 1,
+      "test_count": 3048,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "selection_reason": "unknown dependency impact; safe broad fallback",
+      "selectors": [
+        "tests/trade_alerts_contracts"
+      ],
+      "junit_seconds": 545.476,
+      "controller_wall_seconds": 549.701,
+      "artifacts": "/root/trade-alerts-builder/runs/20260914-051046-194921-build/published-artifacts-5e32c2eba17d"
+    },
+    "repeatability": {
+      "phase": "repeatability",
+      "runs": 2,
+      "test_count_per_run": 64,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "selection_reason": "recording output requires fresh-process comparison",
+      "selectors": [
+        "tests/trade_alerts_contracts/test_alert_delivery.py::test_bars_to_candidates_to_recording_and_fake_delivery_end_to_end",
+        "tests/trade_alerts_contracts/test_candidate_assembly.py::test_supplied_features_confidence_candidate_suppression_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_confidence.py::test_supplied_features_composition_candidate_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_configuration.py::test_known_default_hash_matches_canonical_record",
+        "tests/trade_alerts_contracts/test_core_price_features.py::test_bar_to_coverage_to_feature_snapshot_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_cross_strategy_interaction.py::test_recording_is_deterministic_and_retains_every_component_candidate",
+        "tests/trade_alerts_contracts/test_databento_minute_bars.py::test_recorded_source_identity_proof_is_deterministic",
+        "tests/trade_alerts_contracts/test_domain_models.py::test_deterministic_record_proof_is_written_under_tmp",
+        "tests/trade_alerts_contracts/test_first_pullback_vwap.py::test_the_supplied_continuation_through_the_m42_engine_and_m51_store",
+        "tests/trade_alerts_contracts/test_historical_bars.py::test_request_raw_mapping_coverage_and_archive_end_to_end",
+        "tests/trade_alerts_contracts/test_historical_replay.py::test_chronological_same_runtime_replay_is_byte_deterministic",
+        "tests/trade_alerts_contracts/test_hod_comp_rs_replay.py::test_the_same_supplied_scenario_replays_byte_identically",
+        "tests/trade_alerts_contracts/test_hod_comp_rs_replay.py::test_the_five_scenarios_record_one_deterministic_proof",
+        "tests/trade_alerts_contracts/test_hod_comp_rs_risk_confidence.py::test_the_composed_outcome_at_one_recorded_trigger",
+        "tests/trade_alerts_contracts/test_hod_comp_rs_trigger.py::test_the_supplied_heads_up_and_trigger_through_the_m42_engine_and_m51_store",
+        "tests/trade_alerts_contracts/test_hod_compression.py::test_hod_compression_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_impulse_pullback.py::test_impulse_pullback_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_opening_range_features.py::test_bar_coverage_opening_range_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_or_failure_handoff.py::test_the_supplied_handoff_through_the_m42_engine_and_m51_store",
+        "tests/trade_alerts_contracts/test_or_failure_rev.py::test_the_supplied_reversal_through_the_m42_engine_and_m51_store",
+        "tests/trade_alerts_contracts/test_orb5_eligibility.py::test_shared_features_through_the_m42_engine_and_m51_store",
+        "tests/trade_alerts_contracts/test_orb5_replay.py::test_the_same_supplied_scenario_replays_byte_identically",
+        "tests/trade_alerts_contracts/test_orb5_replay.py::test_the_six_scenarios_record_one_deterministic_proof",
+        "tests/trade_alerts_contracts/test_orb5_risk_confidence.py::test_the_composed_outcome_at_one_recorded_trigger",
+        "tests/trade_alerts_contracts/test_orb5_trigger.py::test_the_supplied_trigger_through_the_m42_engine_and_m51_store",
+        "tests/trade_alerts_contracts/test_outcome_evaluator.py::test_compact_end_to_end_recording",
+        "tests/trade_alerts_contracts/test_participation_features.py::test_bar_coverage_participation_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_quote_events.py::test_normalized_events_failure_reconnect_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_reference_inputs.py::test_supplied_reference_coverage_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_relative_strength_features.py::test_relative_strength_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_request_queue.py::test_recorded_load_proof_is_deterministic_and_contains_every_consumer",
+        "tests/trade_alerts_contracts/test_research_event_store.py::test_recording_pipeline_retains_full_facts_retry_and_reopen",
+        "tests/trade_alerts_contracts/test_rs_trend_eligibility.py::test_measured_inputs_through_the_m42_engine_and_m51_store",
+        "tests/trade_alerts_contracts/test_schwab_normalization.py::test_write_deterministic_normalization_proof",
+        "tests/trade_alerts_contracts/test_session_recovery.py::test_interrupted_session_recovery_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_state_transitions.py::test_market_features_strategy_transition_database_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_strategy_interface.py::test_shared_feature_to_strategy_records_end_to_end",
+        "tests/trade_alerts_contracts/test_structural_geometry.py::test_structural_geometry_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_structural_risk.py::test_supplied_bars_to_shared_features_risk_candidate_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_vwap_context_features.py::test_vwap_context_recording_end_to_end"
+      ],
+      "junit_seconds": [
+        151.826,
+        154.191
+      ],
+      "controller_wall_seconds": 309.964,
+      "stable": true,
+      "artifacts": "/root/trade-alerts-builder/runs/20260914-051046-194921-build/published-artifacts-813978acf2d6"
+    }
+  }
+}

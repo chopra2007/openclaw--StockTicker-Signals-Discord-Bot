@@ -1,0 +1,1476 @@
+{
+  "date": "2026-09-06 16:47:22 Pacific",
+  "milestone": "M3.1",
+  "status": "blocked",
+  "offline_status": "fifth_repair_protected_proof_finalized",
+  "next_milestone": "M3.2",
+  "changed_files": [
+    "consensus_engine/core_price_features.py",
+    "tests/trade_alerts_contracts/test_core_price_features.py",
+    "trade_alerts_build_docs/PROJECT_INDEX.md",
+    "trade_alerts_build_docs/CODING_STANDARDS.md",
+    "trade_alerts_build_docs/TESTING_AND_VALIDATION.md",
+    "trade_alerts_build_docs/ROADMAP.md",
+    "trade_alerts_build_docs/M3_1_VERIFICATION.md",
+    "trade_alerts_build_docs/M3_1_LOCAL_CHECKS.json",
+    "trade_alerts_build_docs/M3_1_LAUNCHER_LIMITATION.txt"
+  ],
+  "checks": {
+    "protected_launcher": "historical local attempt stopped before collection at initial ownership step; the supervisor later completed both protected runs",
+    "tests_rerun_in_finalization": false,
+    "application_imported_or_run_in_finalization": false,
+    "legacy_tests_run_outside_protection": false,
+    "source_grammar_and_compilation": "both changed Python files compiled successfully after the fifth repair",
+    "configured_lint_or_typecheck_task": "none found in repository configuration, Makefile or development requirements",
+    "read_only_git_status_note": "Permission denied for unrelated saved workflow paths; direct saved-content checks cover all milestone paths",
+    "host_ownership_independently_verified": false,
+    "local_verification_note": "The local launcher error is historical. The supervisor later ran the unchanged protection twice; both runs passed 591 tests and all 54 M3.1 cases."
+  },
+  "protection_hashes": {
+    "scripts/testing/run_trade_alerts_contracts.py": "6b609b643edfc467fc63480acd63ad50d4044616aec5efca61f32315af3d3ad2",
+    "scripts/testing/trade_alerts_contract_child.py": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c",
+    ".test-baseline": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "historical_supervisor_verification": {
+    "status": "predates_review_repair",
+    "at_pacific": "2026-09-06T13:49:53-07:00",
+    "protected": true,
+    "runs": 2,
+    "exit_codes": [
+      0,
+      0
+    ],
+    "tests_per_run": 549,
+    "m31_tests_per_run": 12,
+    "failures_per_run": 0,
+    "errors_per_run": 0,
+    "skips_per_run": 0,
+    "ordered_test_ids_identical": true,
+    "pytest_logs_identical": true,
+    "unexpected_isolation_denials_per_run": 0,
+    "cleanup_passed_both_runs": true,
+    "source_manifest_matches_current_code_and_test": false,
+    "code_or_tests_changed_in_finalization": false,
+    "selectors": [
+      "tests/trade_alerts_contracts",
+      "tests/test_models.py",
+      "tests/test_schwab_client.py",
+      "tests/test_wolf_macro_brain.py::test_stock_sector_etf"
+    ],
+    "m31_recording": {
+      "bytes_per_run": 504899,
+      "identical_bytes": true,
+      "sha256": "318198ce0e15587039a4896be3f4ab71303a071e5b21a1fb7e741b24be5d0478"
+    },
+    "source_hashes": {
+      "consensus_engine/core_price_features.py": "4e0c7de10bfef3548726857496d5b3c23696b3ea5b818bd6c353c7bba708fee5",
+      "tests/trade_alerts_contracts/test_core_price_features.py": "81e3cd38779c194eb76e016baadf0a487febc1ad253a323f1890579f39f2400c"
+    }
+  },
+  "repair_source_hashes": {
+    "consensus_engine/core_price_features.py": "3a8f8115f40d1542fbd5dff8dc893e76eda4fbc0d1085635257b928323de76ba",
+    "tests/trade_alerts_contracts/test_core_price_features.py": "aab9bdd49945182024437679bf4fd906dccdd8a77f032e706d5872c674e0eec4"
+  },
+  "required_fresh_verification": {
+    "status": "satisfied_by_fifth_review_supervisor_proof",
+    "protected": true,
+    "runs": 2,
+    "m31_tests_per_run": 54,
+    "selectors": [
+      "tests/trade_alerts_contracts",
+      "tests/test_models.py",
+      "tests/test_schwab_client.py",
+      "tests/test_wolf_macro_brain.py::test_stock_sector_etf",
+      "tests/trade_alerts_contracts/test_core_price_features.py"
+    ],
+    "requirements": [
+      "zero failures, errors and skips",
+      "identical ordered test IDs",
+      "byte-identical compact M3.1 recordings",
+      "recordings contain readable values and counts plus complete canonical SHA-256 hashes, not repeated full histories",
+      "each M3.1 recording is below 100000 bytes",
+      "no unexpected isolation denials",
+      "clean cleanup",
+      "records-only finalization after final source/test hash match"
+    ]
+  },
+  "required_source_gate": "Full eligible-trade coverage, actual opening-trade identity, trade-condition/duplicate/cancel/correction rules, and compatible actual daily, minute and premarket coverage remain blocked pending separately supervised evidence.",
+  "databento_credit_used": 0,
+  "databento_credit_reserved": 0,
+  "live_access": false,
+  "passing_tests_claimed": true,
+  "historical_supervisor_verification_after_first_repair": {
+    "status": "predates_second_review_repair",
+    "at_pacific": "2026-09-06T14:13:26-07:00",
+    "protected": true,
+    "runs": 2,
+    "exit_codes": [
+      0,
+      0
+    ],
+    "tests_per_run": 553,
+    "m31_tests_per_run": 16,
+    "failures_per_run": 0,
+    "errors_per_run": 0,
+    "skips_per_run": 0,
+    "ordered_test_ids_identical": true,
+    "unexpected_isolation_denials_per_run": 0,
+    "cleanup_passed_both_runs": true,
+    "recording": {
+      "bytes_per_run": 579059,
+      "identical_bytes": true,
+      "sha256": "b7f5b496906fcb7b06c21ddd1cbb76845a41971066c7585e2e59e3d09321ff79"
+    },
+    "source_manifest_matches_current_code_and_test": false,
+    "source_hashes": {
+      "consensus_engine/core_price_features.py": "843043d7af9528eab6d86ff158b98ecc2af6048af77fa283051072fa2bb2129a",
+      "tests/trade_alerts_contracts/test_core_price_features.py": "b4f65fe2ad3d31428cdd632e1af52306735d41e1a58c471e844b44a96dd3b8df"
+    }
+  },
+  "local_backup": {
+    "path": "/tmp/m31-point-in-time-repair-ritqxjlg",
+    "manifest": "manifest.json",
+    "files": 62
+  },
+  "fresh_supervisor_verification": {
+    "status": "predates_third_review_repair",
+    "at_pacific": "2026-09-06T15:07:09-07:00",
+    "protected": true,
+    "runs": 2,
+    "exit_codes": [
+      0,
+      0
+    ],
+    "tests_per_run": 569,
+    "m31_tests_per_run": 32,
+    "failures_per_run": 0,
+    "errors_per_run": 0,
+    "skips_per_run": 0,
+    "ordered_test_ids_identical": true,
+    "unexpected_isolation_denials_per_run": 0,
+    "cleanup_passed_both_runs": true,
+    "source_manifest_matches_current_code_and_test": false,
+    "source_hashes": {
+      "consensus_engine/core_price_features.py": "c93270b0d888604bc2ee9c6ebe091a58fdc7a35cf1919c3c3a2a6d3f727b5518",
+      "tests/trade_alerts_contracts/test_core_price_features.py": "e6d4cb0c37eec0c51dd05c534384d8c0bc17f91e4ababb3592514bc54e6b9a92"
+    },
+    "recording": {
+      "bytes_per_run": 32072,
+      "identical_bytes": true,
+      "sha256": "521f642677824ad7f4500a640e63931bb6579385c98c5f40a5881623720e79c2"
+    },
+    "selectors": [
+      "tests/trade_alerts_contracts",
+      "tests/test_models.py",
+      "tests/test_schwab_client.py",
+      "tests/test_wolf_macro_brain.py::test_stock_sector_etf",
+      "tests/trade_alerts_contracts/test_core_price_features.py"
+    ],
+    "code_or_tests_changed_in_finalization": false,
+    "databento_credit_used": 0
+  },
+  "after_fresh_offline_proof": {
+    "status": "historical_before_fifth_review_repair",
+    "offline_roadmap_row": "[x]",
+    "required_source_roadmap_row": "[!]",
+    "return_status": "blocked",
+    "next_milestone": "M3.2",
+    "independent_review_required": true
+  },
+  "historical_unit_instrument_repair": {
+    "status": "historical_before_fourth_review_repair",
+    "written_m31_test_cases": 40,
+    "source_hashes": {
+      "consensus_engine/core_price_features.py": "9c3223a78b36ec7652b1367b155de344e606efb7e48499e310443aa597d11bf1",
+      "tests/trade_alerts_contracts/test_core_price_features.py": "7fbd3ebf6a38f39192a98c740d86b54a740526ea6ab0cd00fb1d8b3fd0bc1b92"
+    },
+    "local_compilation_and_python_3_10_grammar": "passed",
+    "launcher_reached_test_collection": true,
+    "offline_roadmap_row": "[x]",
+    "required_source_roadmap_row": "[!]",
+    "next_milestone_after_proof_and_review": "M3.2",
+    "fresh_supervisor_verification": {
+      "at_pacific": "2026-09-06T15:37:54-07:00",
+      "protected": true,
+      "runs": 2,
+      "exit_codes": [
+        0,
+        0
+      ],
+      "tests_per_run": 577,
+      "m31_tests_per_run": 40,
+      "failures_per_run": 0,
+      "errors_per_run": 0,
+      "skips_per_run": 0,
+      "ordered_test_ids_identical": true,
+      "unexpected_isolation_denials_per_run": 0,
+      "cleanup_passed_both_runs": true,
+      "source_manifest_matches_current_code_and_test": false,
+      "recording_bytes_per_run": 41712,
+      "recordings_identical": true,
+      "recording_sha256": "5b3a9ebf39f9f81e989af9880b9914c699c19cceba5fdc2a8bab19220ade1ee1",
+      "databento_credit_used": 0
+    }
+  },
+  "historical_local_checks_before_fourth_repair": {
+    "source_grammar_and_compilation": {
+      "consensus_engine/core_price_features.py": "compilation_and_python_3_10_grammar_passed",
+      "tests/trade_alerts_contracts/test_core_price_features.py": "compilation_and_python_3_10_grammar_passed"
+    },
+    "written_m31_test_cases": 40,
+    "recording_format": "compact_readable_values_counts_and_missing_reasons_with_complete_canonical_sha256",
+    "recording_full_histories_published": false,
+    "protected_launcher": "historical_local_attempt_stopped_before_collection; fresh_supervisor_execution_passed",
+    "protected_launcher_exact_error": "OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-ruhx8u_r'",
+    "launcher_trace": "trade_alerts_build_docs/M3_1_LAUNCHER_LIMITATION.txt",
+    "legacy_tests_run_outside_protection": false,
+    "configured_lint_or_typecheck_task": "none found in repository configuration, Makefile or development requirements",
+    "local_markdown_links_checked": 61,
+    "changed_markdown_fences": "balanced",
+    "new_document_text_private_identifier_and_time_label_scan": "passed",
+    "new_document_text_whitespace_scan": "passed",
+    "documentation_drift_check": {
+      "canonical_files_present": 9,
+      "strategy_ids_present": 8,
+      "functional_requirements_present": 31,
+      "m31_offline_row": "[x]",
+      "m31_source_row": "[!]",
+      "m32_row": "[ ]",
+      "visible_time_labels": "Pacific_only",
+      "m03b_status": "PROPOSED"
+    },
+    "all_new_switches_off": 13,
+    "sink": "recording",
+    "preserved_file_count": 227,
+    "unexpected_content_changes": [],
+    "local_ownership_or_mode_changes": [],
+    "host_ownership_independently_verified": false,
+    "read_only_git_diff_check": "passed; untracked files additionally compared with saved copies",
+    "read_only_git_status_note": "Permission denied for unrelated saved workflow paths; those paths were not changed",
+    "protected_and_owner_rule_files_unchanged": [
+      "scripts/testing/run_trade_alerts_contracts.py",
+      "scripts/testing/trade_alerts_contract_child.py",
+      ".test-baseline",
+      "AGENTS.md",
+      "CLAUDE.md",
+      "config/consensus.yaml",
+      "trade_alerts_build_docs/M0_3_DEFINITION_PACKET.md",
+      "trade_alerts_build_docs/M0_3B_DEFINITION_PACKET.md",
+      "consensus_engine/analysis/indicators.py"
+    ],
+    "actual_changed_paths_since_repair_snapshot": [
+      "consensus_engine/core_price_features.py",
+      "tests/trade_alerts_contracts/test_core_price_features.py",
+      "trade_alerts_build_docs/CODING_STANDARDS.md",
+      "trade_alerts_build_docs/M3_1_LAUNCHER_LIMITATION.txt",
+      "trade_alerts_build_docs/M3_1_LOCAL_CHECKS.json",
+      "trade_alerts_build_docs/M3_1_VERIFICATION.md",
+      "trade_alerts_build_docs/PROJECT_INDEX.md",
+      "trade_alerts_build_docs/ROADMAP.md",
+      "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+    ]
+  },
+  "previous_local_backup": {
+    "path": "/tmp/m31-repair-r58ncv41",
+    "manifest": "manifest.json",
+    "files": 227
+  },
+  "latest_repair": {
+    "status": "offline_proof_finalized_required_source_gate_blocked",
+    "written_m31_test_cases": 50,
+    "source_hashes": {
+      "consensus_engine/core_price_features.py": "6e5f51466c86af7d2c736314df3a220ec25f82732d399bf03a0c5b43e52a10ec",
+      "tests/trade_alerts_contracts/test_core_price_features.py": "1a1e54e6172aac68b768250112fdfc843f1738a8d5f19aa5a11ad2dd7cb5e544"
+    },
+    "local_compilation_and_python_3_10_grammar": "passed",
+    "launcher_reached_test_collection": false,
+    "offline_roadmap_row": "[x]",
+    "required_source_roadmap_row": "[!]",
+    "next_milestone_after_proof_and_review": "M3.2",
+    "supervisor_reached_test_collection": true,
+    "protected_m31_cases_passed_per_run": 50,
+    "finalization_code_or_tests_changed": false,
+    "launcher_reached_test_collection_note": "false above describes the historical local attempt; the supervisor executed both protected runs successfully"
+  },
+  "supplied_historical_artifacts_rechecked": {
+    "status": "predates_fourth_repair_not_current_verification",
+    "selected_publication_hashes_match": true,
+    "runs": [
+      {
+        "tests": 577,
+        "m31_cases": 40,
+        "failures": 0,
+        "errors": 0,
+        "skips": 0,
+        "proof_bytes": 41712,
+        "proof_sha256": "5b3a9ebf39f9f81e989af9880b9914c699c19cceba5fdc2a8bab19220ade1ee1"
+      },
+      {
+        "tests": 577,
+        "m31_cases": 40,
+        "failures": 0,
+        "errors": 0,
+        "skips": 0,
+        "proof_bytes": 41712,
+        "proof_sha256": "5b3a9ebf39f9f81e989af9880b9914c699c19cceba5fdc2a8bab19220ade1ee1"
+      }
+    ],
+    "source_attribution": "previously saved 577-test/40-case proof; current source and tests changed"
+  },
+  "historical_local_checks_before_fourth_repair_proof": {
+    "source_grammar_and_compilation": {
+      "consensus_engine/core_price_features.py": "compilation_and_python_3_10_grammar_passed",
+      "tests/trade_alerts_contracts/test_core_price_features.py": "compilation_and_python_3_10_grammar_passed"
+    },
+    "written_m31_test_cases": 50,
+    "new_m31_cases": 10,
+    "recording_format": "compact_readable_values_counts_missing_reasons_and_instrument_type_with_complete_canonical_sha256",
+    "recording_full_histories_published": false,
+    "protected_launcher": "stopped_before_collection_at_initial_ownership_step",
+    "protected_launcher_exact_error": "OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-byq2d5wg'",
+    "protected_launcher_exit_code": 1,
+    "launcher_trace": "trade_alerts_build_docs/M3_1_LAUNCHER_LIMITATION.txt",
+    "launcher_reached_test_collection": false,
+    "legacy_tests_run_outside_protection": false,
+    "configured_lint_or_typecheck_task": "none found in repository configuration, Makefile or development requirements",
+    "caller_lookup": "test_core_price_features.py is the only Python caller; no live consumer",
+    "all_new_switches_off": 13,
+    "sink": "recording",
+    "host_ownership_independently_verified": false,
+    "read_only_git_status_note": "Permission denied for unrelated saved workflow paths; those paths were not changed",
+    "local_markdown_links_checked": 61,
+    "changed_markdown_fences": "balanced",
+    "new_document_text_private_identifier_and_time_label_scan": "passed",
+    "new_document_text_whitespace_scan": "passed",
+    "documentation_drift_check": {
+      "canonical_files_present": 9,
+      "strategy_ids_present": 8,
+      "functional_requirements_present": 31,
+      "m31_offline_row": "[~]",
+      "m31_source_row": "[!]",
+      "m32_row": "[ ]",
+      "visible_time_labels": "Pacific_only",
+      "m03b_status": "PROPOSED"
+    },
+    "preserved_file_count": 62,
+    "unexpected_content_changes": [],
+    "local_ownership_or_mode_changes": [],
+    "actual_changed_paths_since_repair_snapshot": [
+      "consensus_engine/core_price_features.py",
+      "tests/trade_alerts_contracts/test_core_price_features.py",
+      "trade_alerts_build_docs/CODING_STANDARDS.md",
+      "trade_alerts_build_docs/M3_1_LAUNCHER_LIMITATION.txt",
+      "trade_alerts_build_docs/M3_1_LOCAL_CHECKS.json",
+      "trade_alerts_build_docs/M3_1_VERIFICATION.md",
+      "trade_alerts_build_docs/PROJECT_INDEX.md",
+      "trade_alerts_build_docs/ROADMAP.md",
+      "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+    ],
+    "read_only_git_diff_check": "No whitespace diagnostic; unrelated saved workflow paths reported Permission denied. All nine changed files passed direct added-line whitespace and saved-copy comparisons.",
+    "protected_and_owner_rule_files_unchanged": [
+      ".test-baseline",
+      "AGENTS.md",
+      "CLAUDE.md",
+      "Makefile",
+      "config/consensus.yaml",
+      "consensus_engine/analysis/indicators.py",
+      "consensus_engine/config.py",
+      "consensus_engine/historical_bars.py",
+      "consensus_engine/quote_events.py",
+      "consensus_engine/reference_inputs.py",
+      "consensus_engine/scanners/schwab_client.py",
+      "consensus_engine/scanners/schwab_normalization.py",
+      "consensus_engine/trade_alerts_config.py",
+      "consensus_engine/trade_alerts_models.py",
+      "consensus_engine/utils/time_context.py",
+      "pytest.ini",
+      "requirements-dev.txt",
+      "scripts/testing/run_trade_alerts_contracts.py",
+      "scripts/testing/trade_alerts_contract_child.py",
+      "tests/trade_alerts_contracts/conftest.py",
+      "tests/trade_alerts_contracts/test_adapters_delivery.py",
+      "tests/trade_alerts_contracts/test_configuration.py",
+      "tests/trade_alerts_contracts/test_domain_models.py",
+      "tests/trade_alerts_contracts/test_foundations.py",
+      "tests/trade_alerts_contracts/test_historical_bars.py",
+      "tests/trade_alerts_contracts/test_market_clock.py",
+      "tests/trade_alerts_contracts/test_quote_events.py",
+      "tests/trade_alerts_contracts/test_reference_inputs.py",
+      "tests/trade_alerts_contracts/test_schwab_normalization.py",
+      "trade_alerts_build_docs/AUTOMATION_VERIFICATION.md",
+      "trade_alerts_build_docs/DATA_REQUIREMENTS.md",
+      "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md",
+      "trade_alerts_build_docs/FIRST_BUILD_SESSION.md",
+      "trade_alerts_build_docs/M0_3B_DEFINITION_PACKET.md",
+      "trade_alerts_build_docs/M0_3_DEFINITION_PACKET.md",
+      "trade_alerts_build_docs/M0_4_VERIFICATION.md",
+      "trade_alerts_build_docs/M1_1_VERIFICATION.md",
+      "trade_alerts_build_docs/M1_2_VERIFICATION.md",
+      "trade_alerts_build_docs/M1_3_VERIFICATION.md",
+      "trade_alerts_build_docs/M2_1_VERIFICATION.md",
+      "trade_alerts_build_docs/M2_2_LAUNCHER_LIMITATION.txt",
+      "trade_alerts_build_docs/M2_2_LOCAL_CHECKS.json",
+      "trade_alerts_build_docs/M2_2_VERIFICATION.md",
+      "trade_alerts_build_docs/M2_3_LAUNCHER_LIMITATION.txt",
+      "trade_alerts_build_docs/M2_3_LOCAL_CHECKS.json",
+      "trade_alerts_build_docs/M2_3_VERIFICATION.md",
+      "trade_alerts_build_docs/M2_4_LAUNCHER_LIMITATION.txt",
+      "trade_alerts_build_docs/M2_4_LOCAL_CHECKS.json",
+      "trade_alerts_build_docs/M2_4_VERIFICATION.md",
+      "trade_alerts_build_docs/MASTER_SPEC.md",
+      "trade_alerts_build_docs/PLAYBOOKS.md",
+      "trade_alerts_build_docs/PREBUILD_REVIEW.md",
+      "trade_alerts_build_docs/SESSION_PROTOCOL.md"
+    ]
+  },
+  "supervisor_verification": {
+    "status": "historical_before_fifth_review_repair",
+    "source_manifest_matches_current_code_and_test": false,
+    "at_pacific": "2026-09-06T16:10:11-07:00",
+    "inspected_at_pacific": "2026-09-06T16:16:48.738669-07:00",
+    "protected": true,
+    "runs": 2,
+    "exit_codes": [
+      0,
+      0
+    ],
+    "selectors": [
+      "tests/trade_alerts_contracts",
+      "tests/test_models.py",
+      "tests/test_schwab_client.py",
+      "tests/test_wolf_macro_brain.py::test_stock_sector_etf",
+      "tests/trade_alerts_contracts/test_core_price_features.py"
+    ],
+    "tests_per_run": 587,
+    "m31_tests_per_run": 50,
+    "failures_per_run": 0,
+    "errors_per_run": 0,
+    "skips_per_run": 0,
+    "ordered_test_ids_identical": true,
+    "pytest_logs_identical": true,
+    "ordered_test_ids_sha256": "720f88f61b963f4389347780f456e2bf04c137672630807c972747887e6fcb2d",
+    "publication_file_count": 27,
+    "publication_total_bytes": 772278,
+    "publication_file_hashes": {
+      "run-1/fixture.yaml": "1a578448b5de33f5e8a29399b09dbf3e4ac93298ae6b8ade7df5b2f868535de7",
+      "run-1/isolation.json": "76fc494063cdc83b5840b2d0c4290316342c6c984a28ac845bbdfc72f2c42c88",
+      "run-1/m13-domain-model-proof.json": "2fae11128857ae58d0aebb510131c6bb06bd0988d57ae01600e4c703890ed4c7",
+      "run-1/m21-schwab-normalization-proof.json": "481aa8aad4ff3667fe01adafddea7c9e34677fe2367e3256966df5b8e3cef6ba",
+      "run-1/m22-history-proof.json": "8c8358e78348a6c13994400a7e6813fa328b471e2b51ba1336808a87c5ee2a56",
+      "run-1/m23-quote-events-proof.json": "f11ddba2d05d678b765c8503b2f7e6749d0861fa0b3d7847e120ff2fb9557bf4",
+      "run-1/m24-reference-inputs-proof.json": "b687e7eac79cb63ced959c0ebafdb1c87cda3156a07591cc7bf37739a4e49110",
+      "run-1/m31-core-price-features-proof.json": "06ae7c6697ff498fda2c27eb0ee43c95a97db9034f072a11954127fa3753f261",
+      "run-1/output.txt": "0aac02c0d46554ca04fd3882e7bcb74d62de02eb322332d5ac8a9f636829cb9f",
+      "run-1/pipeline-obs.jsonl": "25e55e25d75056be935eabf69ad89046fae69a4b91feeddaaffceaced795cea9",
+      "run-1/pytest.log": "5db0eaf1b2e6f8c4bada0560591dc59d81bd2be78fa6320a8bf7cc6f2f973dcb",
+      "run-1/results.xml": "ef8fb76d8cbdb48b862b3afce345f22460c90379ab6273af425bbe8cd6b00e49",
+      "run-1/synthetic_sources.json": "c02fec043afaa1a9c4cfd5c68ed9fc7d425dbf94d919b5f02680383e0da419d7",
+      "run-2/fixture.yaml": "1a578448b5de33f5e8a29399b09dbf3e4ac93298ae6b8ade7df5b2f868535de7",
+      "run-2/isolation.json": "76fc494063cdc83b5840b2d0c4290316342c6c984a28ac845bbdfc72f2c42c88",
+      "run-2/m13-domain-model-proof.json": "2fae11128857ae58d0aebb510131c6bb06bd0988d57ae01600e4c703890ed4c7",
+      "run-2/m21-schwab-normalization-proof.json": "481aa8aad4ff3667fe01adafddea7c9e34677fe2367e3256966df5b8e3cef6ba",
+      "run-2/m22-history-proof.json": "8c8358e78348a6c13994400a7e6813fa328b471e2b51ba1336808a87c5ee2a56",
+      "run-2/m23-quote-events-proof.json": "f11ddba2d05d678b765c8503b2f7e6749d0861fa0b3d7847e120ff2fb9557bf4",
+      "run-2/m24-reference-inputs-proof.json": "b687e7eac79cb63ced959c0ebafdb1c87cda3156a07591cc7bf37739a4e49110",
+      "run-2/m31-core-price-features-proof.json": "06ae7c6697ff498fda2c27eb0ee43c95a97db9034f072a11954127fa3753f261",
+      "run-2/output.txt": "f72f5ef57cb7eab27562c5ba892d0a09a279415a436332e5b8745d10a6c4b193",
+      "run-2/pipeline-obs.jsonl": "2b7367a6eccffd08b1cf1a2125a3bd5f1986458fc200616490ba21a7b4d46565",
+      "run-2/pytest.log": "5db0eaf1b2e6f8c4bada0560591dc59d81bd2be78fa6320a8bf7cc6f2f973dcb",
+      "run-2/results.xml": "b19454b648bd210f3fa8f26894216cc52b8bc94490caa78cad307b54dc7a0399",
+      "run-2/synthetic_sources.json": "c02fec043afaa1a9c4cfd5c68ed9fc7d425dbf94d919b5f02680383e0da419d7",
+      "summary.json": "0bdbabc492a8763588dc59f8302f73b532b3740f0cbcc86f4df133eb118113db"
+    },
+    "all_publication_hashes_match": true,
+    "verified_manifest_content_sha256": "41cee36023c8f5d01dd1f07536b73d9c05404966f66d444f7d71577d5d79ded4",
+    "source_identity_sha256": "581a469039532d05e1b5ae95fc956c26fd814cea864a703962f0556bbe6d92fe",
+    "source_manifest_files_checked": 786,
+    "all_saved_source_contents_match_before_finalization": true,
+    "source_hashes": {
+      "consensus_engine/core_price_features.py": "6e5f51466c86af7d2c736314df3a220ec25f82732d399bf03a0c5b43e52a10ec",
+      "tests/trade_alerts_contracts/test_core_price_features.py": "1a1e54e6172aac68b768250112fdfc843f1738a8d5f19aa5a11ad2dd7cb5e544",
+      "scripts/testing/run_trade_alerts_contracts.py": "6b609b643edfc467fc63480acd63ad50d4044616aec5efca61f32315af3d3ad2",
+      "scripts/testing/trade_alerts_contract_child.py": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c",
+      ".test-baseline": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "run_records": [
+      {
+        "run": 1,
+        "tests": 587,
+        "m31_cases": 50,
+        "failures": 0,
+        "errors": 0,
+        "skips": 0,
+        "repair_identity_cases": 6,
+        "sentinel_denials": {
+          "network": 2,
+          "credential_read": 1,
+          "database_path": 1,
+          "outside_write": 1,
+          "child_process": 1
+        },
+        "unexpected_isolation_denials": {},
+        "cleanup": {
+          "db_closed": true,
+          "http_closed": true,
+          "config_cleared": true,
+          "http_lock_cleared": true
+        },
+        "temporary_database_connections": 4,
+        "all_database_connections_temporary": true,
+        "recording_bytes": 60249,
+        "recording_sha256": "06ae7c6697ff498fda2c27eb0ee43c95a97db9034f072a11954127fa3753f261",
+        "output_summary": "587 passed in 182.25s (0:03:02)",
+        "log_note": "Captured application logs contain expected fake delivery failures from negative tests; pass counts are in output.txt and results.xml."
+      },
+      {
+        "run": 2,
+        "tests": 587,
+        "m31_cases": 50,
+        "failures": 0,
+        "errors": 0,
+        "skips": 0,
+        "repair_identity_cases": 6,
+        "sentinel_denials": {
+          "network": 2,
+          "credential_read": 1,
+          "database_path": 1,
+          "outside_write": 1,
+          "child_process": 1
+        },
+        "unexpected_isolation_denials": {},
+        "cleanup": {
+          "db_closed": true,
+          "http_closed": true,
+          "config_cleared": true,
+          "http_lock_cleared": true
+        },
+        "temporary_database_connections": 4,
+        "all_database_connections_temporary": true,
+        "recording_bytes": 60249,
+        "recording_sha256": "06ae7c6697ff498fda2c27eb0ee43c95a97db9034f072a11954127fa3753f261",
+        "output_summary": "587 passed in 179.82s (0:02:59)",
+        "log_note": "Captured application logs contain expected fake delivery failures from negative tests; pass counts are in output.txt and results.xml."
+      }
+    ],
+    "recording": {
+      "bytes_per_run": 60249,
+      "sha256": "06ae7c6697ff498fda2c27eb0ee43c95a97db9034f072a11954127fa3753f261",
+      "identical_bytes": true,
+      "evidence": "SYNTHETIC_ONLY",
+      "format": "COMPACT_SUMMARY_WITH_CANONICAL_SHA256",
+      "initial_snapshot": {
+        "evaluated_at_pacific": "2026-07-06T06:32:00-07:00",
+        "instrument_type": "EQUITY",
+        "canonical_sha256": "6bdf91e10e10b0b9754033d78f1a6c126235fe3715674522e968e479dff34a27",
+        "features": {
+          "ATR_1M_20_SMA_V1": {
+            "input_count": 21,
+            "missing_reason": null,
+            "value": 0.21
+          },
+          "DAILY_ATR_14_SMA_V1": {
+            "input_count": 15,
+            "missing_reason": null,
+            "value": 2.1
+          },
+          "SESSION_VWAP_BAR_HLC3_V1": {
+            "input_count": 2,
+            "missing_reason": null,
+            "value": 100.0
+          },
+          "CURRENT_HOD_V1": {
+            "input_count": 2,
+            "missing_reason": null,
+            "value": 100.2
+          },
+          "CURRENT_LOD_V1": {
+            "input_count": 2,
+            "missing_reason": null,
+            "value": 99.8
+          },
+          "SESSION_OPEN_TRADE_V1": {
+            "input_count": 1,
+            "missing_reason": null,
+            "value": 102.0
+          },
+          "PDH_V1": {
+            "input_count": 1,
+            "missing_reason": null,
+            "value": 103.4
+          },
+          "PDL_V1": {
+            "input_count": 1,
+            "missing_reason": null,
+            "value": 100.0
+          },
+          "PMH_V1": {
+            "input_count": 330,
+            "missing_reason": null,
+            "value": 101.3
+          },
+          "PML_V1": {
+            "input_count": 330,
+            "missing_reason": null,
+            "value": 98.7
+          },
+          "GAP_OPEN_V1": {
+            "input_count": 2,
+            "missing_reason": null,
+            "value": 0.0
+          }
+        }
+      },
+      "future_instrument_revisions": {
+        "daily_history": {
+          "before_availability": {
+            "evaluated_at_pacific": "2026-07-06T06:32:00-07:00",
+            "instrument_type": "EQUITY",
+            "canonical_sha256": "6bdf91e10e10b0b9754033d78f1a6c126235fe3715674522e968e479dff34a27",
+            "features": {
+              "ATR_1M_20_SMA_V1": {
+                "input_count": 21,
+                "missing_reason": null,
+                "value": 0.21
+              },
+              "DAILY_ATR_14_SMA_V1": {
+                "input_count": 15,
+                "missing_reason": null,
+                "value": 2.1
+              },
+              "SESSION_VWAP_BAR_HLC3_V1": {
+                "input_count": 2,
+                "missing_reason": null,
+                "value": 100.0
+              },
+              "CURRENT_HOD_V1": {
+                "input_count": 2,
+                "missing_reason": null,
+                "value": 100.2
+              },
+              "CURRENT_LOD_V1": {
+                "input_count": 2,
+                "missing_reason": null,
+                "value": 99.8
+              },
+              "SESSION_OPEN_TRADE_V1": {
+                "input_count": 1,
+                "missing_reason": null,
+                "value": 102.0
+              },
+              "PDH_V1": {
+                "input_count": 1,
+                "missing_reason": null,
+                "value": 103.4
+              },
+              "PDL_V1": {
+                "input_count": 1,
+                "missing_reason": null,
+                "value": 100.0
+              },
+              "PMH_V1": {
+                "input_count": 330,
+                "missing_reason": null,
+                "value": 101.3
+              },
+              "PML_V1": {
+                "input_count": 330,
+                "missing_reason": null,
+                "value": 98.7
+              },
+              "GAP_OPEN_V1": {
+                "input_count": 2,
+                "missing_reason": null,
+                "value": 0.0
+              }
+            }
+          },
+          "at_availability": {
+            "evaluated_at_pacific": "2026-07-06T06:32:01-07:00",
+            "instrument_type": "EQUITY",
+            "canonical_sha256": "b1d56bd3644906024124a55b6ff61a0909b737f7911289e4e40f47e2ff574bfd",
+            "features": {
+              "ATR_1M_20_SMA_V1": {
+                "input_count": 21,
+                "missing_reason": null,
+                "value": 0.21
+              },
+              "DAILY_ATR_14_SMA_V1": {
+                "input_count": 0,
+                "missing_reason": "INCOMPATIBLE_INSTRUMENT_TYPE",
+                "value": null
+              },
+              "SESSION_VWAP_BAR_HLC3_V1": {
+                "input_count": 2,
+                "missing_reason": null,
+                "value": 100.0
+              },
+              "CURRENT_HOD_V1": {
+                "input_count": 2,
+                "missing_reason": null,
+                "value": 100.2
+              },
+              "CURRENT_LOD_V1": {
+                "input_count": 2,
+                "missing_reason": null,
+                "value": 99.8
+              },
+              "SESSION_OPEN_TRADE_V1": {
+                "input_count": 1,
+                "missing_reason": null,
+                "value": 102.0
+              },
+              "PDH_V1": {
+                "input_count": 0,
+                "missing_reason": "INCOMPATIBLE_INSTRUMENT_TYPE",
+                "value": null
+              },
+              "PDL_V1": {
+                "input_count": 0,
+                "missing_reason": "INCOMPATIBLE_INSTRUMENT_TYPE",
+                "value": null
+              },
+              "PMH_V1": {
+                "input_count": 330,
+                "missing_reason": null,
+                "value": 101.3
+              },
+              "PML_V1": {
+                "input_count": 330,
+                "missing_reason": null,
+                "value": 98.7
+              },
+              "GAP_OPEN_V1": {
+                "input_count": 0,
+                "missing_reason": "INCOMPATIBLE_INSTRUMENT_TYPE",
+                "value": null
+              }
+            }
+          }
+        },
+        "minute_history": {
+          "before_availability": {
+            "evaluated_at_pacific": "2026-07-06T06:32:00-07:00",
+            "instrument_type": "EQUITY",
+            "canonical_sha256": "6bdf91e10e10b0b9754033d78f1a6c126235fe3715674522e968e479dff34a27",
+            "features": {
+              "ATR_1M_20_SMA_V1": {
+                "input_count": 21,
+                "missing_reason": null,
+                "value": 0.21
+              },
+              "DAILY_ATR_14_SMA_V1": {
+                "input_count": 15,
+                "missing_reason": null,
+                "value": 2.1
+              },
+              "SESSION_VWAP_BAR_HLC3_V1": {
+                "input_count": 2,
+                "missing_reason": null,
+                "value": 100.0
+              },
+              "CURRENT_HOD_V1": {
+                "input_count": 2,
+                "missing_reason": null,
+                "value": 100.2
+              },
+              "CURRENT_LOD_V1": {
+                "input_count": 2,
+                "missing_reason": null,
+                "value": 99.8
+              },
+              "SESSION_OPEN_TRADE_V1": {
+                "input_count": 1,
+                "missing_reason": null,
+                "value": 102.0
+              },
+              "PDH_V1": {
+                "input_count": 1,
+                "missing_reason": null,
+                "value": 103.4
+              },
+              "PDL_V1": {
+                "input_count": 1,
+                "missing_reason": null,
+                "value": 100.0
+              },
+              "PMH_V1": {
+                "input_count": 330,
+                "missing_reason": null,
+                "value": 101.3
+              },
+              "PML_V1": {
+                "input_count": 330,
+                "missing_reason": null,
+                "value": 98.7
+              },
+              "GAP_OPEN_V1": {
+                "input_count": 2,
+                "missing_reason": null,
+                "value": 0.0
+              }
+            }
+          },
+          "at_availability": {
+            "evaluated_at_pacific": "2026-07-06T06:32:01-07:00",
+            "instrument_type": "UNKNOWN",
+            "canonical_sha256": "0f206ab21e32ac6bfd1f25847390d8c0ff79c9e34cc50f88ed92eaf71e49c2c1",
+            "features": {
+              "ATR_1M_20_SMA_V1": {
+                "input_count": 0,
+                "missing_reason": "INCOMPATIBLE_INSTRUMENT_TYPE",
+                "value": null
+              },
+              "DAILY_ATR_14_SMA_V1": {
+                "input_count": 15,
+                "missing_reason": null,
+                "value": 2.1
+              },
+              "SESSION_VWAP_BAR_HLC3_V1": {
+                "input_count": 0,
+                "missing_reason": "INCOMPATIBLE_INSTRUMENT_TYPE",
+                "value": null
+              },
+              "CURRENT_HOD_V1": {
+                "input_count": 0,
+                "missing_reason": "INCOMPATIBLE_INSTRUMENT_TYPE",
+                "value": null
+              },
+              "CURRENT_LOD_V1": {
+                "input_count": 0,
+                "missing_reason": "INCOMPATIBLE_INSTRUMENT_TYPE",
+                "value": null
+              },
+              "SESSION_OPEN_TRADE_V1": {
+                "input_count": 0,
+                "missing_reason": "INCOMPATIBLE_INSTRUMENT_TYPE",
+                "value": null
+              },
+              "PDH_V1": {
+                "input_count": 1,
+                "missing_reason": null,
+                "value": 103.4
+              },
+              "PDL_V1": {
+                "input_count": 1,
+                "missing_reason": null,
+                "value": 100.0
+              },
+              "PMH_V1": {
+                "input_count": 330,
+                "missing_reason": null,
+                "value": 101.3
+              },
+              "PML_V1": {
+                "input_count": 330,
+                "missing_reason": null,
+                "value": 98.7
+              },
+              "GAP_OPEN_V1": {
+                "input_count": 0,
+                "missing_reason": "INCOMPATIBLE_INSTRUMENT_TYPE",
+                "value": null
+              }
+            }
+          }
+        },
+        "premarket_history": {
+          "before_availability": {
+            "evaluated_at_pacific": "2026-07-06T06:32:00-07:00",
+            "instrument_type": "EQUITY",
+            "canonical_sha256": "6bdf91e10e10b0b9754033d78f1a6c126235fe3715674522e968e479dff34a27",
+            "features": {
+              "ATR_1M_20_SMA_V1": {
+                "input_count": 21,
+                "missing_reason": null,
+                "value": 0.21
+              },
+              "DAILY_ATR_14_SMA_V1": {
+                "input_count": 15,
+                "missing_reason": null,
+                "value": 2.1
+              },
+              "SESSION_VWAP_BAR_HLC3_V1": {
+                "input_count": 2,
+                "missing_reason": null,
+                "value": 100.0
+              },
+              "CURRENT_HOD_V1": {
+                "input_count": 2,
+                "missing_reason": null,
+                "value": 100.2
+              },
+              "CURRENT_LOD_V1": {
+                "input_count": 2,
+                "missing_reason": null,
+                "value": 99.8
+              },
+              "SESSION_OPEN_TRADE_V1": {
+                "input_count": 1,
+                "missing_reason": null,
+                "value": 102.0
+              },
+              "PDH_V1": {
+                "input_count": 1,
+                "missing_reason": null,
+                "value": 103.4
+              },
+              "PDL_V1": {
+                "input_count": 1,
+                "missing_reason": null,
+                "value": 100.0
+              },
+              "PMH_V1": {
+                "input_count": 330,
+                "missing_reason": null,
+                "value": 101.3
+              },
+              "PML_V1": {
+                "input_count": 330,
+                "missing_reason": null,
+                "value": 98.7
+              },
+              "GAP_OPEN_V1": {
+                "input_count": 2,
+                "missing_reason": null,
+                "value": 0.0
+              }
+            }
+          },
+          "at_availability": {
+            "evaluated_at_pacific": "2026-07-06T06:32:01-07:00",
+            "instrument_type": "EQUITY",
+            "canonical_sha256": "480316618f9b8876dd40de327133b650a3ddcde3a21bf4c3df144f9fe077f734",
+            "features": {
+              "ATR_1M_20_SMA_V1": {
+                "input_count": 21,
+                "missing_reason": null,
+                "value": 0.21
+              },
+              "DAILY_ATR_14_SMA_V1": {
+                "input_count": 15,
+                "missing_reason": null,
+                "value": 2.1
+              },
+              "SESSION_VWAP_BAR_HLC3_V1": {
+                "input_count": 2,
+                "missing_reason": null,
+                "value": 100.0
+              },
+              "CURRENT_HOD_V1": {
+                "input_count": 2,
+                "missing_reason": null,
+                "value": 100.2
+              },
+              "CURRENT_LOD_V1": {
+                "input_count": 2,
+                "missing_reason": null,
+                "value": 99.8
+              },
+              "SESSION_OPEN_TRADE_V1": {
+                "input_count": 1,
+                "missing_reason": null,
+                "value": 102.0
+              },
+              "PDH_V1": {
+                "input_count": 1,
+                "missing_reason": null,
+                "value": 103.4
+              },
+              "PDL_V1": {
+                "input_count": 1,
+                "missing_reason": null,
+                "value": 100.0
+              },
+              "PMH_V1": {
+                "input_count": 0,
+                "missing_reason": "INCOMPATIBLE_INSTRUMENT_TYPE",
+                "value": null
+              },
+              "PML_V1": {
+                "input_count": 0,
+                "missing_reason": "INCOMPATIBLE_INSTRUMENT_TYPE",
+                "value": null
+              },
+              "GAP_OPEN_V1": {
+                "input_count": 2,
+                "missing_reason": null,
+                "value": 0.0
+              }
+            }
+          }
+        }
+      },
+      "truncated_request_coverage": {
+        "bytes": 273093,
+        "complete": true,
+        "interval_count": 329,
+        "sha256": "3bb12f96198383d847411776d4d03b6cec48f3b7c8cfb2b6bc3403e9e5d662f3",
+        "status_counts": {
+          "FINAL": 2,
+          "NO_TRADE": 327
+        }
+      },
+      "truncated_request_snapshot": {
+        "evaluated_at_pacific": "2026-07-06T06:32:00-07:00",
+        "instrument_type": "EQUITY",
+        "canonical_sha256": "82343bd3118d53949581913b04cf6c042b02be6593b7550bd713139bd985084c",
+        "features": {
+          "ATR_1M_20_SMA_V1": {
+            "input_count": 21,
+            "missing_reason": null,
+            "value": 0.21
+          },
+          "DAILY_ATR_14_SMA_V1": {
+            "input_count": 15,
+            "missing_reason": null,
+            "value": 2.1
+          },
+          "SESSION_VWAP_BAR_HLC3_V1": {
+            "input_count": 2,
+            "missing_reason": null,
+            "value": 100.0
+          },
+          "CURRENT_HOD_V1": {
+            "input_count": 2,
+            "missing_reason": null,
+            "value": 100.2
+          },
+          "CURRENT_LOD_V1": {
+            "input_count": 2,
+            "missing_reason": null,
+            "value": 99.8
+          },
+          "SESSION_OPEN_TRADE_V1": {
+            "input_count": 1,
+            "missing_reason": null,
+            "value": 102.0
+          },
+          "PDH_V1": {
+            "input_count": 1,
+            "missing_reason": null,
+            "value": 103.4
+          },
+          "PDL_V1": {
+            "input_count": 1,
+            "missing_reason": null,
+            "value": 100.0
+          },
+          "PMH_V1": {
+            "input_count": 0,
+            "missing_reason": "INCOMPLETE_PREMARKET_WINDOW",
+            "value": null
+          },
+          "PML_V1": {
+            "input_count": 0,
+            "missing_reason": "INCOMPLETE_PREMARKET_WINDOW",
+            "value": null
+          },
+          "GAP_OPEN_V1": {
+            "input_count": 2,
+            "missing_reason": null,
+            "value": 0.0
+          }
+        }
+      },
+      "multi_session_request_coverage": {
+        "bytes": 548041,
+        "complete": true,
+        "interval_count": 660,
+        "sha256": "a6201d20778a4e417bb0f5713cf433ab914080942da46d317e54d1764a615b22",
+        "status_counts": {
+          "FINAL": 332,
+          "NO_TRADE": 328
+        }
+      },
+      "multi_session_request_snapshot": {
+        "evaluated_at_pacific": "2026-07-06T06:32:00-07:00",
+        "instrument_type": "EQUITY",
+        "canonical_sha256": "6bdf91e10e10b0b9754033d78f1a6c126235fe3715674522e968e479dff34a27",
+        "features": {
+          "ATR_1M_20_SMA_V1": {
+            "input_count": 21,
+            "missing_reason": null,
+            "value": 0.21
+          },
+          "DAILY_ATR_14_SMA_V1": {
+            "input_count": 15,
+            "missing_reason": null,
+            "value": 2.1
+          },
+          "SESSION_VWAP_BAR_HLC3_V1": {
+            "input_count": 2,
+            "missing_reason": null,
+            "value": 100.0
+          },
+          "CURRENT_HOD_V1": {
+            "input_count": 2,
+            "missing_reason": null,
+            "value": 100.2
+          },
+          "CURRENT_LOD_V1": {
+            "input_count": 2,
+            "missing_reason": null,
+            "value": 99.8
+          },
+          "SESSION_OPEN_TRADE_V1": {
+            "input_count": 1,
+            "missing_reason": null,
+            "value": 102.0
+          },
+          "PDH_V1": {
+            "input_count": 1,
+            "missing_reason": null,
+            "value": 103.4
+          },
+          "PDL_V1": {
+            "input_count": 1,
+            "missing_reason": null,
+            "value": 100.0
+          },
+          "PMH_V1": {
+            "input_count": 330,
+            "missing_reason": null,
+            "value": 101.3
+          },
+          "PML_V1": {
+            "input_count": 330,
+            "missing_reason": null,
+            "value": 98.7
+          },
+          "GAP_OPEN_V1": {
+            "input_count": 2,
+            "missing_reason": null,
+            "value": 0.0
+          }
+        }
+      },
+      "shortened_session_snapshots": [
+        {
+          "evaluated_at_pacific": "2026-11-27T09:59:59-08:00",
+          "instrument_type": "EQUITY",
+          "canonical_sha256": "ff950ea2494d194dfabd4afee8d387e565e3e96ade240b6225ce7ac344f72fc9",
+          "features": {
+            "ATR_1M_20_SMA_V1": {
+              "input_count": 21,
+              "missing_reason": null,
+              "value": 2.0
+            },
+            "DAILY_ATR_14_SMA_V1": {
+              "input_count": 0,
+              "missing_reason": "MISSING_DAILY_HISTORY",
+              "value": null
+            },
+            "SESSION_VWAP_BAR_HLC3_V1": {
+              "input_count": 209,
+              "missing_reason": null,
+              "value": 100.0
+            },
+            "CURRENT_HOD_V1": {
+              "input_count": 209,
+              "missing_reason": null,
+              "value": 101.0
+            },
+            "CURRENT_LOD_V1": {
+              "input_count": 209,
+              "missing_reason": null,
+              "value": 99.0
+            },
+            "SESSION_OPEN_TRADE_V1": {
+              "input_count": 0,
+              "missing_reason": "MISSING_IDENTIFIED_OPENING_TRADE",
+              "value": null
+            },
+            "PDH_V1": {
+              "input_count": 0,
+              "missing_reason": "MISSING_DAILY_HISTORY",
+              "value": null
+            },
+            "PDL_V1": {
+              "input_count": 0,
+              "missing_reason": "MISSING_DAILY_HISTORY",
+              "value": null
+            },
+            "PMH_V1": {
+              "input_count": 0,
+              "missing_reason": "MISSING_PREMARKET_HISTORY",
+              "value": null
+            },
+            "PML_V1": {
+              "input_count": 0,
+              "missing_reason": "MISSING_PREMARKET_HISTORY",
+              "value": null
+            },
+            "GAP_OPEN_V1": {
+              "input_count": 0,
+              "missing_reason": "MISSING_IDENTIFIED_OPENING_TRADE",
+              "value": null
+            }
+          }
+        },
+        {
+          "evaluated_at_pacific": "2026-11-27T10:00:00-08:00",
+          "instrument_type": "EQUITY",
+          "canonical_sha256": "9372ee08c5e849a29a9276a7d0750c8e64a8dcee1474129809aaad8aa826b471",
+          "features": {
+            "ATR_1M_20_SMA_V1": {
+              "input_count": 0,
+              "missing_reason": "INCOMPLETE_20_MINUTE_WINDOW",
+              "value": null
+            },
+            "DAILY_ATR_14_SMA_V1": {
+              "input_count": 0,
+              "missing_reason": "MISSING_DAILY_HISTORY",
+              "value": null
+            },
+            "SESSION_VWAP_BAR_HLC3_V1": {
+              "input_count": 0,
+              "missing_reason": "INCOMPLETE_CURRENT_SESSION_WINDOW",
+              "value": null
+            },
+            "CURRENT_HOD_V1": {
+              "input_count": 0,
+              "missing_reason": "INCOMPLETE_CURRENT_SESSION_WINDOW",
+              "value": null
+            },
+            "CURRENT_LOD_V1": {
+              "input_count": 0,
+              "missing_reason": "INCOMPLETE_CURRENT_SESSION_WINDOW",
+              "value": null
+            },
+            "SESSION_OPEN_TRADE_V1": {
+              "input_count": 0,
+              "missing_reason": "MISSING_IDENTIFIED_OPENING_TRADE",
+              "value": null
+            },
+            "PDH_V1": {
+              "input_count": 0,
+              "missing_reason": "MISSING_DAILY_HISTORY",
+              "value": null
+            },
+            "PDL_V1": {
+              "input_count": 0,
+              "missing_reason": "MISSING_DAILY_HISTORY",
+              "value": null
+            },
+            "PMH_V1": {
+              "input_count": 0,
+              "missing_reason": "MISSING_PREMARKET_HISTORY",
+              "value": null
+            },
+            "PML_V1": {
+              "input_count": 0,
+              "missing_reason": "MISSING_PREMARKET_HISTORY",
+              "value": null
+            },
+            "GAP_OPEN_V1": {
+              "input_count": 0,
+              "missing_reason": "MISSING_IDENTIFIED_OPENING_TRADE",
+              "value": null
+            }
+          }
+        },
+        {
+          "evaluated_at_pacific": "2026-11-27T10:00:02-08:00",
+          "instrument_type": "EQUITY",
+          "canonical_sha256": "939417192b7c99c2d92629430987f242642272e44168e0ea0cb456014f363d1f",
+          "features": {
+            "ATR_1M_20_SMA_V1": {
+              "input_count": 21,
+              "missing_reason": null,
+              "value": 2.0
+            },
+            "DAILY_ATR_14_SMA_V1": {
+              "input_count": 0,
+              "missing_reason": "MISSING_DAILY_HISTORY",
+              "value": null
+            },
+            "SESSION_VWAP_BAR_HLC3_V1": {
+              "input_count": 210,
+              "missing_reason": null,
+              "value": 100.0
+            },
+            "CURRENT_HOD_V1": {
+              "input_count": 210,
+              "missing_reason": null,
+              "value": 101.0
+            },
+            "CURRENT_LOD_V1": {
+              "input_count": 210,
+              "missing_reason": null,
+              "value": 99.0
+            },
+            "SESSION_OPEN_TRADE_V1": {
+              "input_count": 0,
+              "missing_reason": "MISSING_IDENTIFIED_OPENING_TRADE",
+              "value": null
+            },
+            "PDH_V1": {
+              "input_count": 0,
+              "missing_reason": "MISSING_DAILY_HISTORY",
+              "value": null
+            },
+            "PDL_V1": {
+              "input_count": 0,
+              "missing_reason": "MISSING_DAILY_HISTORY",
+              "value": null
+            },
+            "PMH_V1": {
+              "input_count": 0,
+              "missing_reason": "MISSING_PREMARKET_HISTORY",
+              "value": null
+            },
+            "PML_V1": {
+              "input_count": 0,
+              "missing_reason": "MISSING_PREMARKET_HISTORY",
+              "value": null
+            },
+            "GAP_OPEN_V1": {
+              "input_count": 0,
+              "missing_reason": "MISSING_IDENTIFIED_OPENING_TRADE",
+              "value": null
+            }
+          }
+        }
+      ]
+    },
+    "earlier_recordings_identical": {
+      "fixture.yaml": true,
+      "m13-domain-model-proof.json": true,
+      "m21-schwab-normalization-proof.json": true,
+      "m22-history-proof.json": true,
+      "m23-quote-events-proof.json": true,
+      "m24-reference-inputs-proof.json": true
+    },
+    "databento_credit_used": 0,
+    "code_or_tests_changed_in_finalization": false,
+    "tests_rerun_in_finalization": false
+  },
+  "finalization_changed_files": [
+    "trade_alerts_build_docs/M3_1_LOCAL_CHECKS.json",
+    "trade_alerts_build_docs/M3_1_VERIFICATION.md",
+    "trade_alerts_build_docs/ROADMAP.md"
+  ],
+  "finalization_backup": {
+    "path": "/tmp/m31-proof-finalization-kjwbotfa",
+    "documents": [
+      "M3_1_VERIFICATION.md",
+      "M3_1_LOCAL_CHECKS.json",
+      "ROADMAP.md"
+    ],
+    "starting_content_record": "starting-content.json",
+    "supervisor_artifact_check_record": "supervisor-proof-checks.json"
+  },
+  "historical_record_note": "All earlier test counts remain historical. M3_1_VERIFICATION section 14 preserves the 587-test/50-case proof that predates the fifth repair; section 15 records the repair and section 16 contains its finalized 591-test/54-case proof.",
+  "independent_next_work": {
+    "milestone": "M3.2",
+    "status": "proposed_pending_separate_review",
+    "ready_supplied_record_slice": [
+      "RVOL_OPEN5_MEAN20_V1",
+      "PM_RVOL_MEAN20_V1",
+      "DOLLAR_VOLUME_CLOSE_PROXY20_V1"
+    ],
+    "authority": "D-090 F-02 in M0_3_DEFINITION_PACKET section 3",
+    "inputs": "M2.2 supplied Bar histories and shared calendar; exact 20 prior sessions and complete compatible available-time coverage",
+    "does_not_require": [
+      "live streaming",
+      "full eligible-trade VWAP",
+      "identified opening trade"
+    ],
+    "remaining_m32_branches": "Same-time/cumulative RVOL, tape intensity, projected-minute coverage and actual source evidence retain their own definition/data gates under M3_1_VERIFICATION section 5."
+  },
+  "finalization_document_checks": {
+    "status": "historical_before_fifth_review_repair",
+    "all_nine_canonical_files_present": true,
+    "strategy_ids_present": 8,
+    "functional_requirement_map_rows": 31,
+    "additional_capability_map_rows": 22,
+    "local_markdown_links_checked": 16,
+    "changed_markdown_fences": "balanced",
+    "added_document_text_private_identifier_and_time_label_scan": "passed",
+    "added_document_text_whitespace_scan": "passed",
+    "m31_offline_row": "[~]",
+    "m31_source_row": "[!]",
+    "m32_row": "[ ]",
+    "next_milestone": "M3.2",
+    "all_new_switches_off": 13,
+    "sink": "recording",
+    "saved_content_comparison_count": 789,
+    "unchanged_saved_content_count": 786,
+    "actual_changed_paths_since_finalization_snapshot": [
+      "trade_alerts_build_docs/M3_1_LOCAL_CHECKS.json",
+      "trade_alerts_build_docs/M3_1_VERIFICATION.md",
+      "trade_alerts_build_docs/ROADMAP.md"
+    ],
+    "unexpected_content_changes": [],
+    "local_ownership_or_mode_changes": [],
+    "code_tests_and_protection_match_supervisor": false,
+    "all_other_unfinished_roadmap_rows_preserved": true
+  },
+  "fifth_review_repair": {
+    "at_pacific": "2026-09-06T16:35:57-07:00",
+    "status": "historical_ready_for_verification_before_supervisor_proof",
+    "local_backup": "/tmp/m31-fifth-repair-20260906-163409",
+    "review_findings_repaired": [
+      "minute ATR previous-close lookup is limited to regular-session minutes",
+      "certified no-trade opening minutes cannot cause a premarket close to enter minute ATR",
+      "daily features reject minute history",
+      "minute session features reject daily history"
+    ],
+    "written_m31_cases": 54,
+    "end_to_end_recording_updated": true,
+    "compilation_passed": true,
+    "protected_launcher_exit_code": 1,
+    "protected_tests_collected": false,
+    "launcher_error": "OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-yfkvid9x'",
+    "launcher_trace": "trade_alerts_build_docs/M3_1_LAUNCHER_LIMITATION.txt",
+    "legacy_tests_run_outside_protection": false,
+    "protection_changed": false,
+    "test_baseline_changed": false,
+    "required_selectors": [
+      "tests/trade_alerts_contracts",
+      "tests/test_models.py",
+      "tests/test_schwab_client.py",
+      "tests/test_wolf_macro_brain.py::test_stock_sector_etf",
+      "tests/trade_alerts_contracts/test_core_price_features.py"
+    ],
+    "source_hashes": {
+      "consensus_engine/core_price_features.py": "3a8f8115f40d1542fbd5dff8dc893e76eda4fbc0d1085635257b928323de76ba",
+      "tests/trade_alerts_contracts/test_core_price_features.py": "aab9bdd49945182024437679bf4fd906dccdd8a77f032e706d5872c674e0eec4"
+    },
+    "historical_supervisor_proof": "587 tests and 50 M3.1 cases per run; predates this repair",
+    "next_milestone": "M3.2",
+    "next_milestone_condition": "fresh M3.1 protected proof is complete; advance only after separate review"
+  },
+  "fifth_review_supervisor_proof": {
+    "at_pacific": "2026-09-06T16:47:22-07:00",
+    "status": "offline_proof_finalized_required_source_gate_blocked",
+    "protected": true,
+    "runs": 2,
+    "tests_per_run": 591,
+    "total_test_executions": 1182,
+    "m31_cases_per_run": 54,
+    "failures_per_run": 0,
+    "errors_per_run": 0,
+    "skips_per_run": 0,
+    "ordered_test_ids_match": true,
+    "required_selectors_present": true,
+    "unexpected_isolation_denials_per_run": 0,
+    "cleanup_checks_passed_per_run": 4,
+    "proof_bytes_per_run": 67989,
+    "proof_sha256": "89ed9dcbfce5f458dd452ed0cae0bdb4cf730eb282e24e46e136da32238d2234",
+    "proofs_byte_identical": true,
+    "published_files": 27,
+    "published_total_bytes": 789009,
+    "source_hash": "c110c86042de02becc9a4be38b0869e042bf175565c3754cfce50bdb44a0be09",
+    "tested_file_hashes": {
+      "consensus_engine/core_price_features.py": "3a8f8115f40d1542fbd5dff8dc893e76eda4fbc0d1085635257b928323de76ba",
+      "tests/trade_alerts_contracts/test_core_price_features.py": "aab9bdd49945182024437679bf4fd906dccdd8a77f032e706d5872c674e0eec4",
+      "scripts/testing/run_trade_alerts_contracts.py": "6b609b643edfc467fc63480acd63ad50d4044616aec5efca61f32315af3d3ad2",
+      "scripts/testing/trade_alerts_contract_child.py": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c"
+    },
+    "finalization_code_or_tests_changed": false,
+    "offline_roadmap_row": "[x]",
+    "required_source_roadmap_row": "[!]",
+    "next_milestone": "M3.2"
+  }
+}

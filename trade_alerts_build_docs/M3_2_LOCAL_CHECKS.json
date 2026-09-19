@@ -1,0 +1,177 @@
+{
+  "milestone": "M3.2",
+  "status": "blocked",
+  "recorded_pacific": "2026-09-06T17:53:03.970236-07:00",
+  "starting_backup": "/tmp/m32-start-hvvchwse",
+  "starting_backup_files": 221,
+  "written_test_cases": 46,
+  "protected_tests_passed": true,
+  "tests": [
+    "tests/trade_alerts_contracts",
+    "tests/test_models.py",
+    "tests/test_schwab_client.py",
+    "tests/test_wolf_macro_brain.py::test_stock_sector_etf",
+    "tests/trade_alerts_contracts/test_participation_features.py"
+  ],
+  "hashes": {
+    "consensus_engine/participation_features.py": "47515870bc8c01054c15da405f1731aff168269e91b902917a9a2e1d15dc5b9c",
+    "tests/trade_alerts_contracts/test_participation_features.py": "d6a9295271af94e21308affa9a8b434842db56008ce2a252401952d4a6eb095e",
+    "scripts/testing/run_trade_alerts_contracts.py": "6b609b643edfc467fc63480acd63ad50d4044616aec5efca61f32315af3d3ad2",
+    "scripts/testing/trade_alerts_contract_child.py": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c"
+  },
+  "python_compilation": "passed_without_execution",
+  "python_3_10_grammar": "passed",
+  "ruff_available": false,
+  "mypy_available": false,
+  "next_milestone": "M3.6",
+  "required_gate": "M3.2 definition/source completion: M3_2_VERIFICATION section 5",
+  "databento_used_usd": 0,
+  "databento_reserved_usd": 0,
+  "ownership_attempts": [
+    {
+      "path": "consensus_engine/participation_features.py",
+      "restored": false,
+      "error": "[Errno 22] Invalid argument: 'consensus_engine/participation_features.py'"
+    },
+    {
+      "path": "tests/trade_alerts_contracts/test_participation_features.py",
+      "restored": false,
+      "error": "[Errno 22] Invalid argument: 'tests/trade_alerts_contracts/test_participation_features.py'"
+    },
+    {
+      "path": "trade_alerts_build_docs/M3_2_VERIFICATION.md",
+      "restored": false,
+      "error": "[Errno 22] Invalid argument: 'trade_alerts_build_docs/M3_2_VERIFICATION.md'"
+    },
+    {
+      "path": "trade_alerts_build_docs/M3_2_LOCAL_CHECKS.json",
+      "restored": false,
+      "error": "[Errno 22] Invalid argument: 'trade_alerts_build_docs/M3_2_LOCAL_CHECKS.json'"
+    },
+    {
+      "path": "trade_alerts_build_docs/M3_2_LAUNCHER_LIMITATION.txt",
+      "restored": false,
+      "error": "[Errno 22] Invalid argument: 'trade_alerts_build_docs/M3_2_LAUNCHER_LIMITATION.txt'"
+    }
+  ],
+  "changed_files": [
+    "consensus_engine/participation_features.py",
+    "tests/trade_alerts_contracts/test_participation_features.py",
+    "trade_alerts_build_docs/CODING_STANDARDS.md",
+    "trade_alerts_build_docs/DATA_REQUIREMENTS.md",
+    "trade_alerts_build_docs/M3_2_LAUNCHER_LIMITATION.txt",
+    "trade_alerts_build_docs/M3_2_LOCAL_CHECKS.json",
+    "trade_alerts_build_docs/M3_2_VERIFICATION.md",
+    "trade_alerts_build_docs/PROJECT_INDEX.md",
+    "trade_alerts_build_docs/ROADMAP.md",
+    "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+  ],
+  "existing_snapshot_files_preserved_except_assigned_docs": true,
+  "existing_ownership_modes_preserved": true,
+  "baseline_unchanged_and_empty": true,
+  "m31_source_test_and_protection_match_saved_successful_proof": true,
+  "local_link_targets_checked": 72,
+  "local_links_fences_new_text_scan": "passed",
+  "canonical_files": 9,
+  "strategy_ids_retained": 8,
+  "functional_requirement_rows_retained": 31,
+  "new_switches_off": 13,
+  "sink": "recording",
+  "launcher_exit_code": 1,
+  "launcher_started_tests": false,
+  "launcher_error": "OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-qpjvlp31'",
+  "launcher_trace": "trade_alerts_build_docs/M3_2_LAUNCHER_LIMITATION.txt",
+  "source_test_protection_hashes": {
+    "consensus_engine/participation_features.py": "47515870bc8c01054c15da405f1731aff168269e91b902917a9a2e1d15dc5b9c",
+    "tests/trade_alerts_contracts/test_participation_features.py": "d6a9295271af94e21308affa9a8b434842db56008ce2a252401952d4a6eb095e",
+    "consensus_engine/core_price_features.py": "3a8f8115f40d1542fbd5dff8dc893e76eda4fbc0d1085635257b928323de76ba",
+    "tests/trade_alerts_contracts/test_core_price_features.py": "aab9bdd49945182024437679bf4fd906dccdd8a77f032e706d5872c674e0eec4",
+    "scripts/testing/run_trade_alerts_contracts.py": "6b609b643edfc467fc63480acd63ad50d4044616aec5efca61f32315af3d3ad2",
+    "scripts/testing/trade_alerts_contract_child.py": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c"
+  },
+  "finalization_required": "Satisfied. The offline row is complete; the required M3.2 definition/source gate remains blocked and next_milestone is M3.6.",
+  "initial_attempt_evidence": {
+    "recorded_pacific": "2026-09-06T17:33:37.910279-07:00",
+    "hashes": {
+      "consensus_engine/participation_features.py": "47515870bc8c01054c15da405f1731aff168269e91b902917a9a2e1d15dc5b9c",
+      "tests/trade_alerts_contracts/test_participation_features.py": "dbb337e8608556f77b85c79f15967380a22ce0f23a8126d5ced159de0ad4c57f",
+      "scripts/testing/run_trade_alerts_contracts.py": "6b609b643edfc467fc63480acd63ad50d4044616aec5efca61f32315af3d3ad2",
+      "scripts/testing/trade_alerts_contract_child.py": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c"
+    },
+    "source_test_protection_hashes": {
+      "consensus_engine/participation_features.py": "47515870bc8c01054c15da405f1731aff168269e91b902917a9a2e1d15dc5b9c",
+      "tests/trade_alerts_contracts/test_participation_features.py": "dbb337e8608556f77b85c79f15967380a22ce0f23a8126d5ced159de0ad4c57f",
+      "consensus_engine/core_price_features.py": "3a8f8115f40d1542fbd5dff8dc893e76eda4fbc0d1085635257b928323de76ba",
+      "tests/trade_alerts_contracts/test_core_price_features.py": "aab9bdd49945182024437679bf4fd906dccdd8a77f032e706d5872c674e0eec4",
+      "scripts/testing/run_trade_alerts_contracts.py": "6b609b643edfc467fc63480acd63ad50d4044616aec5efca61f32315af3d3ad2",
+      "scripts/testing/trade_alerts_contract_child.py": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c"
+    },
+    "launcher_error": "OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-5libtqff'",
+    "launcher_exit_code": 1,
+    "launcher_started_tests": false
+  },
+  "timeout_repair": {
+    "status": "verified",
+    "starting_backup": "/tmp/m32-repair-start-_vecp4py",
+    "failed_supervisor_log_sha256": "d5aa6bb549fdf3e5bcdc564b461a79b3d4e4d3844b25d01557307ea5523608a6",
+    "historical_first_child": {
+      "passed": 637,
+      "pytest_seconds": 296.18,
+      "unexpected_isolation_denials": 0
+    },
+    "historical_second_child": {
+      "error_type": "subprocess.TimeoutExpired",
+      "protected_limit_seconds": 300,
+      "result": "incomplete"
+    },
+    "published_artifacts_path_supplied": false,
+    "original_temporary_artifacts_readable": false,
+    "repair": "Test-only memoization of real immutable calendar intervals by the full frozen request; ordinary uncached requests and full Bar round trips in the end-to-end case.",
+    "production_source_unchanged": true,
+    "protection_unchanged": true,
+    "test_names_parameters_assertion_expressions_preserved": true,
+    "written_test_cases": 46,
+    "protected_tests_passed": true,
+    "repair_timing_verified": true,
+    "source_grammar_checks": "passed_without_execution",
+    "original_snapshot_unrelated_files_compared": 214,
+    "unrelated_original_snapshot_files_preserved": true,
+    "live_database_files_excluded_from_reads": true,
+    "repair_ownership_or_mode_changes": [],
+    "local_markdown_links_checked": 72,
+    "doc_links_fences_and_added_text_scan": "passed",
+    "read_only_git_status_note": "Permission denied was reported for unrelated saved workflow paths; those paths were not opened or changed.",
+    "fresh_supervisor_requirement": "Satisfied by the two protected runs recorded in fresh_supervisor_verification."
+  },
+  "fresh_supervisor_verification": {
+    "at_pacific": "2026-09-06T18:03:46-07:00",
+    "protected": true,
+    "runs": 2,
+    "exit_codes": [0, 0],
+    "tests_per_run": 637,
+    "m32_tests_per_run": 46,
+    "failures_per_run": 0,
+    "errors_per_run": 0,
+    "skips_per_run": 0,
+    "pytest_seconds": [262.14, 271.11],
+    "ordered_test_ids_identical": true,
+    "unexpected_isolation_denials_per_run": 0,
+    "cleanup_passed_both_runs": true,
+    "source_test_protection_hashes_match": true,
+    "recording": {
+      "bytes_per_run": 10041,
+      "identical_bytes": true,
+      "sha256": "23d7748ed5c043602236784d1f3052ed748d3f7c8143fe7ae898c649b701b02e"
+    },
+    "artifacts_path": "/root/trade-alerts-builder/runs/20260906-171551-039162-build/published-artifacts-3d19892c1bce",
+    "code_or_tests_changed_in_finalization": false,
+    "databento_credit_used": 0
+  },
+  "after_fresh_offline_proof": {
+    "offline_roadmap_row": "[x]",
+    "required_definition_source_row": "[!]",
+    "return_status": "blocked",
+    "next_milestone": "M3.6",
+    "independent_review_required": true
+  }
+}

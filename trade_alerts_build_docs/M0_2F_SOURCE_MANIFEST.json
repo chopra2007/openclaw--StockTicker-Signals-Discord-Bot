@@ -1,0 +1,75 @@
+{
+  "version": "M02F_RETAINED_DATABENTO_MINUTE_SOURCES_V1",
+  "status": "INVENTORY_ONLY",
+  "created_at_pacific": "2026-09-14",
+  "schema": "ohlcv-1m",
+  "symbols": [
+    "SPY", "QQQ", "XLB", "XLC", "XLE", "XLF", "XLI", "XLK", "XLP",
+    "XLRE", "XLU", "XLV", "XLY"
+  ],
+  "sources": [
+    {
+      "dataset": "XNYS.PILLAR",
+      "publisher_identity": "DIRECT_NYSE_INTEGRATED",
+      "venue_identity": "XNYS",
+      "file_name": "xnys-pillar_ohlcv-1m_13-etfs.dbn.zst",
+      "bytes": 70512738,
+      "sha256": "7a5cfcff20c3b84d071f986f29d35e57abc74b2c96cba0de4cde97f0c9182f6c",
+      "record_count": 4257208,
+      "request_start": "2023-01-01T00:00:00Z",
+      "request_end_exclusive": "2026-08-22T00:00:00Z",
+      "metadata_start_ns": 1672531200000000000,
+      "metadata_end_ns": 1787356800000000000,
+      "calendar_sessions": 912,
+      "opening5_complete_identity_sessions": 11500,
+      "opening15_complete_identity_sessions": 10450,
+      "possible_identity_sessions": 11856,
+      "degraded_dates": ["2023-01-24", "2023-12-04", "2023-12-11", "2024-08-08"]
+    },
+    {
+      "dataset": "EQUS.MINI",
+      "publisher_identity": "DERIVED_COMPONENT_VENUE_AGGREGATE",
+      "venue_identity": "ANONYMIZED",
+      "file_name": "equs-mini_ohlcv-1m_13-etfs.dbn.zst",
+      "bytes": 78549051,
+      "sha256": "a3a8de614f9ac54507e61bfdeb05ce69713a6a4b68235cf9188b67939b5fc9b3",
+      "record_count": 4483742,
+      "request_start": "2023-03-28T00:00:00Z",
+      "request_end_exclusive": "2026-08-22T00:00:00Z",
+      "metadata_start_ns": 1679961600000000000,
+      "metadata_end_ns": 1787356800000000000,
+      "calendar_sessions": 854,
+      "opening5_complete_identity_sessions": 11009,
+      "opening15_complete_identity_sessions": 10859,
+      "possible_identity_sessions": 11102,
+      "degraded_dates": [
+        "2025-03-24", "2025-04-04", "2025-05-06", "2025-06-04", "2025-06-16",
+        "2025-07-09", "2025-08-08", "2025-08-13", "2025-08-19", "2025-08-25",
+        "2025-09-03", "2025-09-08", "2025-09-12", "2025-10-10", "2025-10-13"
+      ]
+    }
+  ],
+  "shared_limits": {
+    "feeds_combined": false,
+    "missing_rows_certified_no_trade": false,
+    "original_availability": "UNKNOWN",
+    "finality": "UNKNOWN",
+    "correction_state": "UNKNOWN",
+    "adjustment_basis": "UNKNOWN",
+    "qualifying_historical_source": false,
+    "point_in_time_universe_or_sector_membership": false,
+    "executable_trade_or_option_evidence": false,
+    "untouched_final_validation": false
+  },
+  "provenance": {
+    "inventory_summary": "provider-cost-preflight/acquisition-audit-summary.json",
+    "coverage_files": [
+      "provider-cost-preflight/xnys-pillar-coverage.json",
+      "provider-cost-preflight/equs-mini-coverage.json"
+    ],
+    "condition_summary": "provider-cost-preflight/dataset-condition-summary.json",
+    "source_files_read_during_milestone": false,
+    "provider_requests_during_milestone": 0,
+    "purchases_during_milestone": 0
+  }
+}

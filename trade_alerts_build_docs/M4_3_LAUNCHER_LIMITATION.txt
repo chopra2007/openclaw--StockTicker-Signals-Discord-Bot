@@ -1,0 +1,13 @@
+M4.3 local protected attempt — 2026-09-07 Pacific
+Exit code: 1. Stopped before child creation or test collection.
+
+Traceback (most recent call last):
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 72, in <module>
+    raise SystemExit(main())
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 26, in main
+    os.chown(artifact_root, account.pw_uid, account.pw_gid)
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-5t1ncx6x'
+
+No test count, XML, isolation report or M4.3 recording was produced.
+The protection is unchanged. The supervisor must run the saved selection through
+the same protected launcher externally and return fresh readable proof.

@@ -1,0 +1,8 @@
+The Codex workspace-write sandbox stops the unchanged protected launcher before
+test collection at its temporary-directory ownership step with:
+
+OSError: [Errno 22] Invalid argument
+
+No test pass is claimed from this session. The controller must run the protected
+focused, broad acceptance and recording-repeatability stages in its proper
+environment.

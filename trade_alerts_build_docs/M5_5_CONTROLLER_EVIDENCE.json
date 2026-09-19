@@ -1,0 +1,247 @@
+{
+ "note": "Reviewer-readable copy of controller mechanical evidence for M5.5. Source files stay in the build run directory. These are the stages published at 23:37, 23:42 and 23:45 Pacific on 2026-09-09, which supersede the earlier same-day stages.",
+ "build_run": "/root/trade-alerts-builder/runs/20260909-163637-638505-build",
+ "controller_evidence": {
+  "changed_files": [
+   "consensus_engine/event_store.py",
+   "consensus_engine/session_recovery.py",
+   "consensus_engine/state_transitions.py",
+   "tests/trade_alerts_contracts/test_session_recovery.py",
+   "trade_alerts_build_docs/M5_3_VERIFICATION.md",
+   "trade_alerts_build_docs/M5_5_CONTROLLER_EVIDENCE.json",
+   "trade_alerts_build_docs/M5_5_LOCAL_CHECKS.json",
+   "trade_alerts_build_docs/M5_5_SUPERVISOR_TESTS.json",
+   "trade_alerts_build_docs/M5_5_TESTED_SOURCE_MANIFEST.json",
+   "trade_alerts_build_docs/M5_5_VERIFICATION.md",
+   "trade_alerts_build_docs/ROADMAP.md"
+  ],
+  "recorded_at": "2026-09-09T23:45:38-07:00",
+  "source_hash": "ce6313a72c90285a49a3e1e09e3d777b12bf949efc44056dd29823939c5c9b2b",
+  "tests": {
+   "artifacts_path": "/root/trade-alerts-builder/runs/20260909-163637-638505-build/published-artifacts-573eaf0533d1",
+   "exit_code": 0,
+   "runs": 1,
+   "selection_reason": "unknown dependency impact; safe broad fallback",
+   "selectors": [
+    "tests/trade_alerts_contracts"
+   ],
+   "test_count": 1254,
+   "wall_seconds": 313.07
+  }
+ },
+ "stages": {
+  "focused": {
+   "artifacts_path": "/root/trade-alerts-builder/runs/20260909-163637-638505-build/published-artifacts-7ea0158b0c9f",
+   "summary": {
+    "commands": [
+     "tests/trade_alerts_contracts"
+    ],
+    "exit_codes": [
+     0
+    ],
+    "runs": 1,
+    "databento_credit_used": 0
+   },
+   "publication": {
+    "files": {
+     "run-1/fixture.yaml": "1a578448b5de33f5e8a29399b09dbf3e4ac93298ae6b8ade7df5b2f868535de7",
+     "run-1/isolation.json": "ef805d4ca2dba0cb0c0c698f677b0d3996eb09bad0cc5c0b2d735c69f1acc2f2",
+     "run-1/m13-domain-model-proof.json": "2fae11128857ae58d0aebb510131c6bb06bd0988d57ae01600e4c703890ed4c7",
+     "run-1/m21-schwab-normalization-proof.json": "481aa8aad4ff3667fe01adafddea7c9e34677fe2367e3256966df5b8e3cef6ba",
+     "run-1/m22-history-proof.json": "8c8358e78348a6c13994400a7e6813fa328b471e2b51ba1336808a87c5ee2a56",
+     "run-1/m23-quote-events-proof.json": "f11ddba2d05d678b765c8503b2f7e6749d0861fa0b3d7847e120ff2fb9557bf4",
+     "run-1/m24-reference-inputs-proof.json": "b687e7eac79cb63ced959c0ebafdb1c87cda3156a07591cc7bf37739a4e49110",
+     "run-1/m31-core-price-features-proof.json": "89ed9dcbfce5f458dd452ed0cae0bdb4cf730eb282e24e46e136da32238d2234",
+     "run-1/m32-participation-features-proof.json": "23d7748ed5c043602236784d1f3052ed748d3f7c8143fe7ae898c649b701b02e",
+     "run-1/m36-opening-range-features-proof.json": "e51116fd2f4430d33e53014d4c02bde9ee36a11e90e922d2749ec2eb208912a3",
+     "run-1/m41-strategy-interface-long-proof.json": "23be25927e7f876715901a37b83504df58555e95db17d86b3bb34eccf48a8db6",
+     "run-1/m41-strategy-interface-short-proof.json": "4a3736d671827e4a447483a95f485546b3fbb20ca3d13e81f1827a3b41381593",
+     "run-1/m42-state-transitions-long-proof.json": "095254267472dfde371184fa449465ba1d9cde8631710f9dbcf7e56a4d39990c",
+     "run-1/m42-state-transitions-short-proof.json": "a839fa776c4e9559067589a0bd8530f0d892ee7e09ee292130f6b31ee2c00ab0",
+     "run-1/m43-structural-risk-long-proof.json": "dd155cf7fe4ad2c35c24a7950fbe7f07815817c28c84b5d86f7f6914f4a9c1a4",
+     "run-1/m43-structural-risk-short-proof.json": "1283009e570271a5f0642843655fb02c996ed9ce5fcbb7dc9834c4176435a4d8",
+     "run-1/m44-confidence-long-proof.json": "8c1da24c4a14eb1edbd48eb0c2184818b2b75e4d36c1107cb75312edb24f9816",
+     "run-1/m44-confidence-short-proof.json": "749d78f41e8a215b501590f9d4eb3284ac76d8644fe6706f6af1e713074a74b8",
+     "run-1/m45-candidate-assembly-long-proof.json": "768061f7a450d73459fed60019ee9f58b66f720e030789337224a8dcc0535d8f",
+     "run-1/m45-candidate-assembly-short-proof.json": "a3a3ca0a8f75d91f88fdc04e34fb87cc905577bac2f0ef3e4194d53ca5aff1b5",
+     "run-1/m46-alert-delivery-long-proof.json": "4f9487e326eb9ead290d44588c40fce5091880d29d353d487b8ee1a6bc2a0d6b",
+     "run-1/m46-alert-delivery-short-proof.json": "9a8eabf74b662e2c4b8945b6146b6b4435275e0485f6568d95c3850b71cf26bc",
+     "run-1/m51-research-event-store-long-proof.json": "5a34168849a516af60ad437bc2aad5edc713c0bf7890b5f8f7470d57ab142a79",
+     "run-1/m51-research-event-store-short-proof.json": "63f41036a98086befc5f6fe46e9ff0fe2a63ed2eb57cec52e88290cdae498139",
+     "run-1/m52-outcome-long-proof.json": "144140b599895db3eb9cafbc9376eeb338c6f77f61a897194476b272eeb0202d",
+     "run-1/m52-outcome-short-proof.json": "d59b8b6ada0a30bad0415e13fc7898a079f316fd62b902cb16d852de46531399",
+     "run-1/m55-session-recovery-long-proof.json": "cff15f68fd5396d7ea0cdaf42549817d9fa75988384b59ab6eac2ff9a3c34a97",
+     "run-1/m55-session-recovery-short-proof.json": "ce2071380dd9264e0b73972afb3f098285c0703001eb08194ed9d25f7d78c1f7",
+     "run-1/m5_3_replay_artifact.json": "2356f8e1ef8413154336ec881ce576963469040d3f4b283c14d3ebcd938459e0",
+     "run-1/output.txt": "48b5ae362e969c65c55cb46df00387a268209fe68a89078224498ad531dbd317",
+     "run-1/pipeline-obs.jsonl": "b8f6c884c65229265ecacf921a13df0cc89aad4e39a89ba741eb8e35518930fc",
+     "run-1/pytest.log": "80e724d486f47b779cd43da211194a478c5ad751cef1cf8e24f01d965af37a5a",
+     "run-1/results.xml": "46903d99b6c091251de3f62e92fe48f5a3e9dd6af3c2582f6be6c8e6da020905",
+     "run-1/synthetic_sources.json": "c02fec043afaa1a9c4cfd5c68ed9fc7d425dbf94d919b5f02680383e0da419d7",
+     "summary.json": "5608c2bff3aed7ad4d30dcf96a1537ebea91277357e3483064dc47f8d4538cc5"
+    },
+    "source": "/tmp/trade-alerts-m04-5ogrdk0y",
+    "total_bytes": 981089
+   }
+  },
+  "acceptance": {
+   "artifacts_path": "/root/trade-alerts-builder/runs/20260909-163637-638505-build/published-artifacts-573eaf0533d1",
+   "summary": {
+    "commands": [
+     "tests/trade_alerts_contracts"
+    ],
+    "exit_codes": [
+     0
+    ],
+    "runs": 1,
+    "databento_credit_used": 0
+   },
+   "publication": {
+    "files": {
+     "run-1/fixture.yaml": "1a578448b5de33f5e8a29399b09dbf3e4ac93298ae6b8ade7df5b2f868535de7",
+     "run-1/isolation.json": "ef805d4ca2dba0cb0c0c698f677b0d3996eb09bad0cc5c0b2d735c69f1acc2f2",
+     "run-1/m13-domain-model-proof.json": "2fae11128857ae58d0aebb510131c6bb06bd0988d57ae01600e4c703890ed4c7",
+     "run-1/m21-schwab-normalization-proof.json": "481aa8aad4ff3667fe01adafddea7c9e34677fe2367e3256966df5b8e3cef6ba",
+     "run-1/m22-history-proof.json": "8c8358e78348a6c13994400a7e6813fa328b471e2b51ba1336808a87c5ee2a56",
+     "run-1/m23-quote-events-proof.json": "f11ddba2d05d678b765c8503b2f7e6749d0861fa0b3d7847e120ff2fb9557bf4",
+     "run-1/m24-reference-inputs-proof.json": "b687e7eac79cb63ced959c0ebafdb1c87cda3156a07591cc7bf37739a4e49110",
+     "run-1/m31-core-price-features-proof.json": "89ed9dcbfce5f458dd452ed0cae0bdb4cf730eb282e24e46e136da32238d2234",
+     "run-1/m32-participation-features-proof.json": "23d7748ed5c043602236784d1f3052ed748d3f7c8143fe7ae898c649b701b02e",
+     "run-1/m36-opening-range-features-proof.json": "e51116fd2f4430d33e53014d4c02bde9ee36a11e90e922d2749ec2eb208912a3",
+     "run-1/m41-strategy-interface-long-proof.json": "23be25927e7f876715901a37b83504df58555e95db17d86b3bb34eccf48a8db6",
+     "run-1/m41-strategy-interface-short-proof.json": "4a3736d671827e4a447483a95f485546b3fbb20ca3d13e81f1827a3b41381593",
+     "run-1/m42-state-transitions-long-proof.json": "095254267472dfde371184fa449465ba1d9cde8631710f9dbcf7e56a4d39990c",
+     "run-1/m42-state-transitions-short-proof.json": "a839fa776c4e9559067589a0bd8530f0d892ee7e09ee292130f6b31ee2c00ab0",
+     "run-1/m43-structural-risk-long-proof.json": "dd155cf7fe4ad2c35c24a7950fbe7f07815817c28c84b5d86f7f6914f4a9c1a4",
+     "run-1/m43-structural-risk-short-proof.json": "1283009e570271a5f0642843655fb02c996ed9ce5fcbb7dc9834c4176435a4d8",
+     "run-1/m44-confidence-long-proof.json": "8c1da24c4a14eb1edbd48eb0c2184818b2b75e4d36c1107cb75312edb24f9816",
+     "run-1/m44-confidence-short-proof.json": "749d78f41e8a215b501590f9d4eb3284ac76d8644fe6706f6af1e713074a74b8",
+     "run-1/m45-candidate-assembly-long-proof.json": "768061f7a450d73459fed60019ee9f58b66f720e030789337224a8dcc0535d8f",
+     "run-1/m45-candidate-assembly-short-proof.json": "a3a3ca0a8f75d91f88fdc04e34fb87cc905577bac2f0ef3e4194d53ca5aff1b5",
+     "run-1/m46-alert-delivery-long-proof.json": "4f9487e326eb9ead290d44588c40fce5091880d29d353d487b8ee1a6bc2a0d6b",
+     "run-1/m46-alert-delivery-short-proof.json": "9a8eabf74b662e2c4b8945b6146b6b4435275e0485f6568d95c3850b71cf26bc",
+     "run-1/m51-research-event-store-long-proof.json": "5a34168849a516af60ad437bc2aad5edc713c0bf7890b5f8f7470d57ab142a79",
+     "run-1/m51-research-event-store-short-proof.json": "63f41036a98086befc5f6fe46e9ff0fe2a63ed2eb57cec52e88290cdae498139",
+     "run-1/m52-outcome-long-proof.json": "144140b599895db3eb9cafbc9376eeb338c6f77f61a897194476b272eeb0202d",
+     "run-1/m52-outcome-short-proof.json": "d59b8b6ada0a30bad0415e13fc7898a079f316fd62b902cb16d852de46531399",
+     "run-1/m55-session-recovery-long-proof.json": "cff15f68fd5396d7ea0cdaf42549817d9fa75988384b59ab6eac2ff9a3c34a97",
+     "run-1/m55-session-recovery-short-proof.json": "ce2071380dd9264e0b73972afb3f098285c0703001eb08194ed9d25f7d78c1f7",
+     "run-1/m5_3_replay_artifact.json": "2356f8e1ef8413154336ec881ce576963469040d3f4b283c14d3ebcd938459e0",
+     "run-1/output.txt": "95fc208a524984db9a0f31198ea78b20d43da3f299148a77a3dd75cee21bc92b",
+     "run-1/pipeline-obs.jsonl": "d95d877a9a86e736c4150f70bfefa2f6df481300fcd75c144af633bbb16cd5ce",
+     "run-1/pytest.log": "80e724d486f47b779cd43da211194a478c5ad751cef1cf8e24f01d965af37a5a",
+     "run-1/results.xml": "58c78f8a2e4f6a0f071806c77c6cd16a703fc60d814ecfa1fdc77451ca0ef765",
+     "run-1/synthetic_sources.json": "c02fec043afaa1a9c4cfd5c68ed9fc7d425dbf94d919b5f02680383e0da419d7",
+     "summary.json": "5608c2bff3aed7ad4d30dcf96a1537ebea91277357e3483064dc47f8d4538cc5"
+    },
+    "source": "/tmp/trade-alerts-m04-4eqnb_x5",
+    "total_bytes": 981086
+   }
+  },
+  "repeatability": {
+   "artifacts_path": "/root/trade-alerts-builder/runs/20260909-163637-638505-build/published-artifacts-ae450c7a169a",
+   "summary": {
+    "commands": [
+     "tests/trade_alerts_contracts/test_alert_delivery.py::test_bars_to_candidates_to_recording_and_fake_delivery_end_to_end",
+     "tests/trade_alerts_contracts/test_candidate_assembly.py::test_supplied_features_confidence_candidate_suppression_recording_end_to_end",
+     "tests/trade_alerts_contracts/test_confidence.py::test_supplied_features_composition_candidate_recording_end_to_end",
+     "tests/trade_alerts_contracts/test_configuration.py::test_known_default_hash_matches_canonical_record",
+     "tests/trade_alerts_contracts/test_core_price_features.py::test_bar_to_coverage_to_feature_snapshot_recording_end_to_end",
+     "tests/trade_alerts_contracts/test_domain_models.py::test_deterministic_record_proof_is_written_under_tmp",
+     "tests/trade_alerts_contracts/test_historical_bars.py::test_request_raw_mapping_coverage_and_archive_end_to_end",
+     "tests/trade_alerts_contracts/test_historical_replay.py::test_chronological_same_runtime_replay_is_byte_deterministic",
+     "tests/trade_alerts_contracts/test_opening_range_features.py::test_bar_coverage_opening_range_recording_end_to_end",
+     "tests/trade_alerts_contracts/test_outcome_evaluator.py::test_compact_end_to_end_recording",
+     "tests/trade_alerts_contracts/test_participation_features.py::test_bar_coverage_participation_recording_end_to_end",
+     "tests/trade_alerts_contracts/test_quote_events.py::test_normalized_events_failure_reconnect_recording_end_to_end",
+     "tests/trade_alerts_contracts/test_reference_inputs.py::test_supplied_reference_coverage_recording_end_to_end",
+     "tests/trade_alerts_contracts/test_research_event_store.py::test_recording_pipeline_retains_full_facts_retry_and_reopen",
+     "tests/trade_alerts_contracts/test_schwab_normalization.py::test_write_deterministic_normalization_proof",
+     "tests/trade_alerts_contracts/test_session_recovery.py::test_interrupted_session_recovery_recording_end_to_end",
+     "tests/trade_alerts_contracts/test_state_transitions.py::test_market_features_strategy_transition_database_recording_end_to_end",
+     "tests/trade_alerts_contracts/test_strategy_interface.py::test_shared_feature_to_strategy_records_end_to_end",
+     "tests/trade_alerts_contracts/test_structural_risk.py::test_supplied_bars_to_shared_features_risk_candidate_recording_end_to_end"
+    ],
+    "exit_codes": [
+     0,
+     0
+    ],
+    "runs": 2,
+    "databento_credit_used": 0
+   },
+   "publication": {
+    "files": {
+     "run-1/fixture.yaml": "1a578448b5de33f5e8a29399b09dbf3e4ac93298ae6b8ade7df5b2f868535de7",
+     "run-1/isolation.json": "f9d5c910d664667f60fd86da682c99c4600602a3f56824e6ec2fa56075e13ce3",
+     "run-1/m13-domain-model-proof.json": "2fae11128857ae58d0aebb510131c6bb06bd0988d57ae01600e4c703890ed4c7",
+     "run-1/m21-schwab-normalization-proof.json": "481aa8aad4ff3667fe01adafddea7c9e34677fe2367e3256966df5b8e3cef6ba",
+     "run-1/m22-history-proof.json": "8c8358e78348a6c13994400a7e6813fa328b471e2b51ba1336808a87c5ee2a56",
+     "run-1/m23-quote-events-proof.json": "f11ddba2d05d678b765c8503b2f7e6749d0861fa0b3d7847e120ff2fb9557bf4",
+     "run-1/m24-reference-inputs-proof.json": "b687e7eac79cb63ced959c0ebafdb1c87cda3156a07591cc7bf37739a4e49110",
+     "run-1/m31-core-price-features-proof.json": "89ed9dcbfce5f458dd452ed0cae0bdb4cf730eb282e24e46e136da32238d2234",
+     "run-1/m32-participation-features-proof.json": "23d7748ed5c043602236784d1f3052ed748d3f7c8143fe7ae898c649b701b02e",
+     "run-1/m36-opening-range-features-proof.json": "e51116fd2f4430d33e53014d4c02bde9ee36a11e90e922d2749ec2eb208912a3",
+     "run-1/m41-strategy-interface-long-proof.json": "23be25927e7f876715901a37b83504df58555e95db17d86b3bb34eccf48a8db6",
+     "run-1/m41-strategy-interface-short-proof.json": "4a3736d671827e4a447483a95f485546b3fbb20ca3d13e81f1827a3b41381593",
+     "run-1/m42-state-transitions-long-proof.json": "095254267472dfde371184fa449465ba1d9cde8631710f9dbcf7e56a4d39990c",
+     "run-1/m42-state-transitions-short-proof.json": "a839fa776c4e9559067589a0bd8530f0d892ee7e09ee292130f6b31ee2c00ab0",
+     "run-1/m43-structural-risk-long-proof.json": "dd155cf7fe4ad2c35c24a7950fbe7f07815817c28c84b5d86f7f6914f4a9c1a4",
+     "run-1/m43-structural-risk-short-proof.json": "1283009e570271a5f0642843655fb02c996ed9ce5fcbb7dc9834c4176435a4d8",
+     "run-1/m44-confidence-long-proof.json": "8c1da24c4a14eb1edbd48eb0c2184818b2b75e4d36c1107cb75312edb24f9816",
+     "run-1/m44-confidence-short-proof.json": "749d78f41e8a215b501590f9d4eb3284ac76d8644fe6706f6af1e713074a74b8",
+     "run-1/m45-candidate-assembly-long-proof.json": "768061f7a450d73459fed60019ee9f58b66f720e030789337224a8dcc0535d8f",
+     "run-1/m45-candidate-assembly-short-proof.json": "a3a3ca0a8f75d91f88fdc04e34fb87cc905577bac2f0ef3e4194d53ca5aff1b5",
+     "run-1/m46-alert-delivery-long-proof.json": "4f9487e326eb9ead290d44588c40fce5091880d29d353d487b8ee1a6bc2a0d6b",
+     "run-1/m46-alert-delivery-short-proof.json": "9a8eabf74b662e2c4b8945b6146b6b4435275e0485f6568d95c3850b71cf26bc",
+     "run-1/m51-research-event-store-long-proof.json": "5a34168849a516af60ad437bc2aad5edc713c0bf7890b5f8f7470d57ab142a79",
+     "run-1/m51-research-event-store-short-proof.json": "63f41036a98086befc5f6fe46e9ff0fe2a63ed2eb57cec52e88290cdae498139",
+     "run-1/m52-outcome-long-proof.json": "144140b599895db3eb9cafbc9376eeb338c6f77f61a897194476b272eeb0202d",
+     "run-1/m52-outcome-short-proof.json": "d59b8b6ada0a30bad0415e13fc7898a079f316fd62b902cb16d852de46531399",
+     "run-1/m55-session-recovery-long-proof.json": "cff15f68fd5396d7ea0cdaf42549817d9fa75988384b59ab6eac2ff9a3c34a97",
+     "run-1/m55-session-recovery-short-proof.json": "ce2071380dd9264e0b73972afb3f098285c0703001eb08194ed9d25f7d78c1f7",
+     "run-1/m5_3_replay_artifact.json": "2356f8e1ef8413154336ec881ce576963469040d3f4b283c14d3ebcd938459e0",
+     "run-1/output.txt": "73f0b028bceac9a63bfbef7f4ff9fc2b16d2724c55d9f07c7f1da9a4f740dd32",
+     "run-1/pytest.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+     "run-1/results.xml": "d99ab56a9eb8cab6554e484f026a99e06b65df38ee660c43fba8433585789e71",
+     "run-1/synthetic_sources.json": "c02fec043afaa1a9c4cfd5c68ed9fc7d425dbf94d919b5f02680383e0da419d7",
+     "run-2/fixture.yaml": "1a578448b5de33f5e8a29399b09dbf3e4ac93298ae6b8ade7df5b2f868535de7",
+     "run-2/isolation.json": "f9d5c910d664667f60fd86da682c99c4600602a3f56824e6ec2fa56075e13ce3",
+     "run-2/m13-domain-model-proof.json": "2fae11128857ae58d0aebb510131c6bb06bd0988d57ae01600e4c703890ed4c7",
+     "run-2/m21-schwab-normalization-proof.json": "481aa8aad4ff3667fe01adafddea7c9e34677fe2367e3256966df5b8e3cef6ba",
+     "run-2/m22-history-proof.json": "8c8358e78348a6c13994400a7e6813fa328b471e2b51ba1336808a87c5ee2a56",
+     "run-2/m23-quote-events-proof.json": "f11ddba2d05d678b765c8503b2f7e6749d0861fa0b3d7847e120ff2fb9557bf4",
+     "run-2/m24-reference-inputs-proof.json": "b687e7eac79cb63ced959c0ebafdb1c87cda3156a07591cc7bf37739a4e49110",
+     "run-2/m31-core-price-features-proof.json": "89ed9dcbfce5f458dd452ed0cae0bdb4cf730eb282e24e46e136da32238d2234",
+     "run-2/m32-participation-features-proof.json": "23d7748ed5c043602236784d1f3052ed748d3f7c8143fe7ae898c649b701b02e",
+     "run-2/m36-opening-range-features-proof.json": "e51116fd2f4430d33e53014d4c02bde9ee36a11e90e922d2749ec2eb208912a3",
+     "run-2/m41-strategy-interface-long-proof.json": "23be25927e7f876715901a37b83504df58555e95db17d86b3bb34eccf48a8db6",
+     "run-2/m41-strategy-interface-short-proof.json": "4a3736d671827e4a447483a95f485546b3fbb20ca3d13e81f1827a3b41381593",
+     "run-2/m42-state-transitions-long-proof.json": "095254267472dfde371184fa449465ba1d9cde8631710f9dbcf7e56a4d39990c",
+     "run-2/m42-state-transitions-short-proof.json": "a839fa776c4e9559067589a0bd8530f0d892ee7e09ee292130f6b31ee2c00ab0",
+     "run-2/m43-structural-risk-long-proof.json": "dd155cf7fe4ad2c35c24a7950fbe7f07815817c28c84b5d86f7f6914f4a9c1a4",
+     "run-2/m43-structural-risk-short-proof.json": "1283009e570271a5f0642843655fb02c996ed9ce5fcbb7dc9834c4176435a4d8",
+     "run-2/m44-confidence-long-proof.json": "8c1da24c4a14eb1edbd48eb0c2184818b2b75e4d36c1107cb75312edb24f9816",
+     "run-2/m44-confidence-short-proof.json": "749d78f41e8a215b501590f9d4eb3284ac76d8644fe6706f6af1e713074a74b8",
+     "run-2/m45-candidate-assembly-long-proof.json": "768061f7a450d73459fed60019ee9f58b66f720e030789337224a8dcc0535d8f",
+     "run-2/m45-candidate-assembly-short-proof.json": "a3a3ca0a8f75d91f88fdc04e34fb87cc905577bac2f0ef3e4194d53ca5aff1b5",
+     "run-2/m46-alert-delivery-long-proof.json": "4f9487e326eb9ead290d44588c40fce5091880d29d353d487b8ee1a6bc2a0d6b",
+     "run-2/m46-alert-delivery-short-proof.json": "9a8eabf74b662e2c4b8945b6146b6b4435275e0485f6568d95c3850b71cf26bc",
+     "run-2/m51-research-event-store-long-proof.json": "5a34168849a516af60ad437bc2aad5edc713c0bf7890b5f8f7470d57ab142a79",
+     "run-2/m51-research-event-store-short-proof.json": "63f41036a98086befc5f6fe46e9ff0fe2a63ed2eb57cec52e88290cdae498139",
+     "run-2/m52-outcome-long-proof.json": "144140b599895db3eb9cafbc9376eeb338c6f77f61a897194476b272eeb0202d",
+     "run-2/m52-outcome-short-proof.json": "d59b8b6ada0a30bad0415e13fc7898a079f316fd62b902cb16d852de46531399",
+     "run-2/m55-session-recovery-long-proof.json": "cff15f68fd5396d7ea0cdaf42549817d9fa75988384b59ab6eac2ff9a3c34a97",
+     "run-2/m55-session-recovery-short-proof.json": "ce2071380dd9264e0b73972afb3f098285c0703001eb08194ed9d25f7d78c1f7",
+     "run-2/m5_3_replay_artifact.json": "2356f8e1ef8413154336ec881ce576963469040d3f4b283c14d3ebcd938459e0",
+     "run-2/output.txt": "1eb3fded1d8d5259cc17f797ea9ea4ef798c6e630dbd0ab0bc4a2ca80a19059d",
+     "run-2/pytest.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+     "run-2/results.xml": "318600f538591e43e3a9a94fdbe4d36d4c170c3f1d7d1b8e8f5b7e15e36cdc60",
+     "run-2/synthetic_sources.json": "c02fec043afaa1a9c4cfd5c68ed9fc7d425dbf94d919b5f02680383e0da419d7",
+     "summary.json": "b1253053857c9fe90f69ad65be410e64001c1fc05351cbc0737283fe42295d19"
+    },
+    "source": "/tmp/trade-alerts-m04-68sip3no",
+    "total_bytes": 1534645
+   }
+  }
+ }
+}

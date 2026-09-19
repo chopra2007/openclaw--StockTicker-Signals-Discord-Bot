@@ -4,12 +4,40 @@ Asserts the 5 new daily tables (final-plan.md §4) are created by the normal
 init_db() path on a temp db, each with its expected columns, and that the new
 features.* flags default OFF via config.get.
 """
+import sys
+
 import pytest
 from consensus_engine import db, config as cfg
 
 
+# Only the protected lane uses this non-secret configuration excerpt. Its values
+# are checked against config/consensus.yaml in M4_2_LOCAL_CHECKS.json. The launcher
+# deliberately does not mount that file; ordinary suite runs still load it below.
+_PROTECTED_MARKET_CONFIG = """features:
+  sector_rotation: {enabled: false}
+  factor_rotation: {enabled: false}
+  trend_regime: {enabled: false}
+  macro_legs: {enabled: false}
+  internal_breadth: {enabled: false}
+  market_data:
+    store_dir: data/market_store
+    fallback_provider: stooq
+  recency_window:
+    max_age_min:
+      sector_rs: 1440
+      factor_rs: 1440
+      trend: 1440
+      macro_legs: 1440
+"""
+
+
 @pytest.fixture(autouse=True)
-def setup_config():
+def setup_config(tmp_path, monkeypatch):
+    if "trade_alerts_isolation" in sys.modules:
+        path = tmp_path / "market_config.yaml"
+        path.write_text(_PROTECTED_MARKET_CONFIG)
+        monkeypatch.setattr(cfg, "_DEFAULT_CONFIG_PATH", path)
+        monkeypatch.setattr(cfg, "_config", None)
     cfg.load_config()
 
 

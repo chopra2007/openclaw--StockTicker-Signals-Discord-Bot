@@ -1,0 +1,76 @@
+{
+  "version": "M02G_COVERAGE_ONLY_SPLIT_ADMISSION_V1",
+  "created_at_pacific": "2026-09-14",
+  "result_accessed": false,
+  "status": "BLOCKED_BY_QUALIFYING_SOURCE_FACTS",
+  "input_manifest": {
+    "path": "trade_alerts_build_docs/M0_2F_SOURCE_MANIFEST.json",
+    "sha256": "80ed81d9b5748b219d93b2151fbca48a84c7d7e9b5159b3447c9fa49b1fa9a83"
+  },
+  "inventory_inputs": [
+    {
+      "dataset": "XNYS.PILLAR",
+      "coverage_record": "provider-cost-preflight/xnys-pillar-coverage.json",
+      "coverage_record_sha256": "9b3fa977f773db363caa585e3fc1c8c24f57fdbc762b3778fa1305422091bb1b",
+      "source_file_sha256": "7a5cfcff20c3b84d071f986f29d35e57abc74b2c96cba0de4cde97f0c9182f6c",
+      "symbols": 13,
+      "calendar_sessions": 912,
+      "inventory_symbol_date_rows": 11856,
+      "opening5_complete_rows": 11500,
+      "opening15_complete_rows": 10450,
+      "regular_session_minute_complete_rows": 1976,
+      "provider_degraded_dates": 4
+    },
+    {
+      "dataset": "EQUS.MINI",
+      "coverage_record": "provider-cost-preflight/equs-mini-coverage.json",
+      "coverage_record_sha256": "7c56495d5e51b33056dbd6d3e3424e72fe6fba152f29ca94bc4cfc75886bc730",
+      "source_file_sha256": "a3a8de614f9ac54507e61bfdeb05ce69713a6a4b68235cf9188b67939b5fc9b3",
+      "symbols": 13,
+      "calendar_sessions": 854,
+      "inventory_symbol_date_rows": 11102,
+      "opening5_complete_rows": 11009,
+      "opening15_complete_rows": 10859,
+      "regular_session_minute_complete_rows": 4615,
+      "provider_degraded_dates": 15
+    }
+  ],
+  "inventory_symbol_date_rows": 22958,
+  "qualifying_row_rule": "A row must satisfy every required first-four stock, reference, tape, event-time, availability-time, correction, adjustment, point-in-time membership and untouched-final fact before it may enter the chronological split.",
+  "qualifying_symbol_date_rows": [],
+  "qualifying_symbol_date_row_count": 0,
+  "row_rejection_reasons": [
+    "The retained files contain only 13 ETFs, not the required point-in-time stock universe.",
+    "OHLCV-1m rows do not prove complete trades or certified no-trade intervals.",
+    "Original availability, finality, correction state and adjustment basis are unknown.",
+    "Point-in-time universe and sector membership are not proved.",
+    "Historical borrow and executable option quotes are not proved.",
+    "Previously exposed selected60 final dates are not untouched final-validation evidence."
+  ],
+  "chronological_split": {
+    "rule": "60_percent_development_20_percent_calibration_remainder_final_validation",
+    "admitted": false,
+    "qualifying_manifest_sha256": null,
+    "exact_development_dates": null,
+    "exact_calibration_dates": null,
+    "exact_final_validation_dates": null,
+    "reason": "Zero symbol/date rows meet the complete source rule, so no date list can be frozen without inventing missing facts."
+  },
+  "gates": {
+    "qualifying_historical_source": "BLOCKED",
+    "chronological_split": "BLOCKED",
+    "historical_replay": "BLOCKED",
+    "executable_stock_short": "BLOCKED",
+    "executable_options": "BLOCKED",
+    "promotion": "BLOCKED",
+    "live": "BLOCKED"
+  },
+  "activity": {
+    "source_files_read": false,
+    "strategy_results_read": false,
+    "provider_requests": 0,
+    "credential_reads": 0,
+    "purchases": 0,
+    "alerts_or_orders": 0
+  }
+}

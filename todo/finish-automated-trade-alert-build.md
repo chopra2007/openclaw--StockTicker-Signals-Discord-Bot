@@ -2,43 +2,51 @@
 **Status:** OPEN
 **Created:** 2026-09-09
 
-**CURRENT STATUS (2026-09-16 02:20 PDT):** **The M0.2/M9.3 stop is cleared and
-the controller is running again on M9.3.** Every blocker the build named has
-been answered, most of them with measurements rather than opinions.
+**CURRENT STATUS (2026-09-19 PDT):** **Running unattended, 53 steps accepted,
+deep inside the M9.1 historical-replay family (past M9.1BC).** The earlier
+2026-09-16 M0.2/M9.3 stop is long cleared; that account is kept below as
+history.
 
-- **Disk.** 7.2 GB free is now **13 GB free**. The system journal was trimmed
-  to 200 MB and seven database backups (4.1 GB) were moved to Google Drive,
-  each one uploaded, downloaded again and checked byte-for-byte before the
-  local copy was deleted. The newest backup stays on the server. The 12 GB
-  cushion was not lowered.
-- **The mystery HTTP 400.** Solved. Databento writes an options symbol as
-  `ROOT.OPT`, and Berkshire's ticker already contains a dot, so `BRK.B.OPT`
-  reads as nonsense to them. The right form is `BRKB.OPT`. Confirmed by asking
-  Databento to price it: it came back instantly at $0.0978 for one day.
-- **Money.** The owner raised the limit to **$60, a fresh total**. Bought one
-  year of every trade, one-minute best bid/offer and one-minute bars for the
-  17 chosen tickers: **billed $22.47**, exactly the quoted estimate, which
-  also settles the old "billing unknown" worry. **$37.53 left.**
-  Tick-by-tick quotes were quoted at $548 and deliberately skipped - tick
-  trades already answer whether a stop was hit before a target.
-- **Options data.** The free DoltHub chain set was checked first, as planned.
-  It covers 12 of the 17 tickers, misses QQQ, IWM, GLD, USO and VXX, and only
-  has one end-of-day price per contract with a thinned strike list. That
-  cannot price a same-week option trade at a real time of day, so it is kept
-  as a reference only. No option data was bought.
-- **The unanswerable questions.** The owner ruled that a fact that cannot be
-  bought is written down as a gap and every rule that needs it is switched off
-  and marked untested - never guessed at. That turns five permanent blockers
-  into recorded gaps instead of a dead stop.
+What is built and tested on stored data: all four playbooks read real minute
+bars; a runner that sweeps 18 candidate settings across the nine training
+tickers; the entry model that fills a trade at the real price within 30 seconds
+of the alert, charging the real spread and commission (D-106); a two-part exit;
+and the catalog of price levels the stops and targets hang off.
 
-All decisions are written into the build's own documents as D-101 to D-105 so
-the build reads them itself. 165 controller tests and 48 subtests pass, the
-same as before. Both bot services are untouched and active.
+**No profit figure exists yet.** The build refuses to rank the 18 candidates
+because the exit side has no quote data costed and two D-104 gaps are open.
+That refusal is correct and must not be worked around by approximating the
+missing costs.
 
-Also corrected earlier: the kickoff file's `buildctl resume --clear-attention`
-does nothing - `buildctl` takes only one word, so the flag is ignored and it
-just prints status. Use `python3 controller.py --clear-attention resume`
-instead, then `./buildctl start`.
+Latest stop, cleared 2026-09-19: the build asked which purchased files it was
+allowed to read. Answered as **D-112** in
+`trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md` and referenced from
+the M9.1BD roadmap row — the one-minute bar job directory
+(`research-data/databento/core17-1y_2025-09_to_2026-09/ohlcv-1m/`
+`EQUS-20260916-47J8PRKRBB`), manifest-verified files only, the nine D-107
+training tickers only, per-ticker EQUITY/ETF labels, and the full
+`HistoryConventions` set (bars stamped at START, premarket+regular,
+PROVISIONAL under D-110). The eight held-out tickers stay sealed.
+
+Two structural fixes that unstuck the build for good:
+- `MAX_PUBLISHED_ARTIFACT_FILES` raised 128 to 512 in `controller.py`. Each new
+  adapter added recorded files; the bundle hit 129 and would have blocked every
+  future step.
+- Step IDs can now carry two letters (`M9.1AA` onward) in `controller.py` and
+  both result schemas. The build previously died at `M9.1Z`.
+Both were followed by the full 176-test controller run and a READY.json reseal.
+
+Money: Databento authority $60 fresh total, $22.47 spent, **$37.53 left**.
+
+Operational: `buildctl resume --clear-attention` does nothing — `buildctl`
+takes only one word. Use `python3 controller.py --clear-attention resume`, then
+`./buildctl start`. `resume-watchdog.py` auto-restarts the build after
+known-harmless stops (mainly `.git/index` fingerprint trips) and logs anything
+it refuses to touch to `resume-watchdog.log`.
+
+**Trap to avoid:** editing any workspace file while a review is pending causes
+"source changed before review". Check the stage first; only edit when the build
+is halted.
 
 ## Goal
 

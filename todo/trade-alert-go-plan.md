@@ -76,3 +76,52 @@ stay off. Do not hand-edit `state.json`. Do not re-open an accepted milestone.
 Controller recovery is `python3 controller.py --clear-attention resume`
 (NOT `buildctl resume --clear-attention` - buildctl takes one word and
 silently ignores the flag), then `./buildctl start`.
+
+## Where this plan stands — 2026-09-19 PDT
+
+Steps 1-5 are **done**. Step 6 is **in progress and running unattended**.
+
+1. Disk — done. 13 GB free; the 12 GB reserve was never lowered.
+2. BRK.B — done. The options parent symbol is `BRKB.OPT`, not `BRK.B.OPT`.
+3. Stock bundle — bought. Billed **$22.47**, exactly the quote. One year of
+   `trades`, `bbo-1m` and `ohlcv-1m` for all 17 names, 2025-09-15 to
+   2026-09-14, in `~/.openclaw/research-data/databento/`
+   `core17-1y_2025-09_to_2026-09/`. **$37.53 of the $60 remains.**
+4. Options — still not bought, by design. DoltHub was checked first and is
+   reference-only (misses QQQ, IWM, GLD, USO, VXX; one end-of-day price per
+   contract). Targeted quotes cost roughly **$0.41 per name-day**, so about 90
+   name-days fit in what is left. They get bought only once the signal run
+   names the exact days and strikes.
+5. Budget documents — done, recorded as owner decisions D-101 to D-112.
+6. Controller — running. 53 steps accepted, now past **M9.1BC**. Four
+   playbooks read real bars; the 18-candidate sweep, the 30-second entry fill
+   with real spread and commission, the two-part exit and the price-level
+   catalog are built. **No ranking and no profit figure yet** — the build
+   correctly refuses while the exit side is uncosted and two D-104 gaps stand.
+
+### Decisions added since the original plan
+
+- **D-106** take every alert within 30 seconds; fills modelled in that window.
+- **D-107** train on 9 names (NVDA, MSFT, AAPL, TSLA, LLY, SPY, QQQ, XLV, USO),
+  prove on 8 unseen (GOOGL, AMZN, META, AVGO, BRK.B, IWM, GLD, VXX).
+- **D-108** the success bar, frozen before any search runs.
+- **D-109** two option-exit arms: sell 4 of 5 at 1.20x then runner to 2.00x or
+  breakeven; and the same first leg with a 0.85x trailing runner.
+- **D-110** offline research may use PROVISIONAL bars on its own named path.
+- **D-112** the retained-file read assignment for the adapter-count run.
+
+### Controller fixes made to keep it running
+
+- Published-file ceiling raised 128 to 512 (`MAX_PUBLISHED_ARTIFACT_FILES`).
+- Step IDs may carry two letters (`M9.1AA` onward), in `controller.py` and both
+  result schemas. The build used to die at `M9.1Z`.
+- `resume-watchdog.py` restarts the build after known-harmless stops only.
+
+### Next
+
+Run the adapter counts under D-112, cost the exit side, then the real search:
+tune on the nine training names, prove once on the eight held-out names, judge
+against D-108. Only then buy the targeted option quotes and test the D-109 arms.
+
+**Trap:** never edit a workspace file while a review is pending — it causes
+"source changed before review". Check the stage first.

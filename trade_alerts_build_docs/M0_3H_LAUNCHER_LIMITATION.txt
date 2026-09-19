@@ -1,0 +1,10 @@
+2026-09-13 Pacific
+
+Protected execution was not retried in this Codex session. The controller work
+packet already reproduced the fixed workspace-write limitation: the protected
+launcher's temporary-directory ownership change fails with
+OSError: [Errno 22] Invalid argument.
+
+No application test was run outside the protected launcher and no pass is
+claimed. The controller must run the protected focused, broader and required
+repeatability stages in its proper environment.

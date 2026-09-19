@@ -1,0 +1,66 @@
+{
+  "milestone": "M7.3",
+  "status": "completed_for_independent_review",
+  "checked_at_pacific": "2026-09-11T12:05:00-07:00",
+  "offline_status": "implementation_complete_awaiting_controller_published_figures",
+  "figures_source": "the controller's published protected stage supplies every count, timing, hash and byte figure for this milestone; no builder-local run supplied any number to this record or to ROADMAP",
+  "launcher": {
+    "path": "scripts/testing/run_trade_alerts_contracts.py",
+    "sha256": "a4ffdd55fd1f1673d99e73106e47c063923bfae9514d7e93a44be9dead7e6764",
+    "child_path": "scripts/testing/trade_alerts_contract_child.py",
+    "child_sha256": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c",
+    "unchanged": true
+  },
+  "hashes": {
+    "consensus_engine/hod_comp_rs_trigger.py": "fa9a534cfa2978b65792ccc4fd528718cecc1d4c7d245697f528451f72cb6a66",
+    "tests/trade_alerts_contracts/test_hod_comp_rs_trigger.py": "a916b60c9bdee50c3bc2e39168fd344590d86a0ee0f4455f44f893f2a08d537b"
+  },
+  "unchanged_dependencies": {
+    "consensus_engine/orb5_trigger.py": "eba26708aa1d4583894e92d823c2fc27049a8e6299bbefe482d8cd396c57145d",
+    "consensus_engine/rs_trend_eligibility.py": "6a53d814ab1df107dc95bb389e7d2b4a9472f29328f8e531afbd7a4003e55f29",
+    "consensus_engine/hod_compression.py": "23b93c991d1896cc39a8175307691a71a6805fce05cc1c1215d7b71a6f8bae00",
+    "consensus_engine/state_transitions.py": "eb29559eca9c0202a1fd845f45ae68001e9fddb199f4bb7b46c448477f856675",
+    "consensus_engine/strategy_interface.py": "c0df609b99d7543c718cca2b5e6ced2f32b3804e17860f837952fc34e2e16bf9",
+    "consensus_engine/trade_alerts_models.py": "b9674913b413f0a293552340db2c830bb0292788fb36689b1568e5ba8b5042d5",
+    "consensus_engine/trade_alerts_config.py": "b14169222ffee6cfa98bc45286874e1f989c396c31115edf228f1be49744ef9d"
+  },
+  "changed_files": [
+    "consensus_engine/hod_comp_rs_trigger.py",
+    "tests/trade_alerts_contracts/test_hod_comp_rs_trigger.py",
+    "trade_alerts_build_docs/M7_3_VERIFICATION.md",
+    "trade_alerts_build_docs/M7_3_LOCAL_CHECKS.json",
+    "trade_alerts_build_docs/ROADMAP.md"
+  ],
+  "required_protected_selection": {
+    "selectors": ["tests/trade_alerts_contracts"],
+    "selection_reason": "the delta adds two new files; the new module imports the shared M1.x canonical records, the M4.1 strategy context, the M5.3 transition rules, the M6.2 observation, intensity, projection and minute-close records and the M7.1 and M7.2 producers that the rest of the directory also exercises, and the launcher installs its isolation for the whole collection, so the whole contracts directory is the safe covering selection",
+    "focused_selectors": ["tests/trade_alerts_contracts/test_hod_comp_rs_trigger.py"],
+    "repeatability_required": true,
+    "repeatability_reason": "m7_3_hod_comp_rs_trigger_proof.json is a recorded artifact, so the recording selection must be compared between two fresh processes in addition to the acceptance run",
+    "recording_artifact": "m7_3_hod_comp_rs_trigger_proof.json",
+    "earlier_recordings_that_must_stay_unchanged": [
+      "m36-opening-range-features-proof.json",
+      "m61-orb5-eligibility-long-proof.json",
+      "m61-orb5-eligibility-short-proof.json",
+      "m6_4_orb5_scenarios.json",
+      "m7_1_hod_compression_proof.json",
+      "m7_2_rs_trend_proof.json"
+    ]
+  },
+  "local_checks_that_are_not_proof": [
+    "the two new files are the only added paths in the milestone delta",
+    "both launcher files keep the hashes M7.1 and M7.2 recorded, and the seven reused modules are unchanged",
+    "the new module carries none of the PLAYBOOKS section 13 HOD_COMP_RS numbers",
+    "the module compares only caller-supplied thresholds and adopts none",
+    "no configuration, migration, database schema or protected launcher file changed"
+  ],
+  "boundaries": {
+    "definition_gate_open": true,
+    "source_and_historical_data_gate_open": true,
+    "risk_confidence_suppression_and_replay": "unchanged M7.4-M7.5 owners; this module reports the heads-up notice and the actionable state only",
+    "candidate_assembly_and_delivery": "unchanged M4.5/M4.6/M4.7 owners",
+    "switches_off": true,
+    "databento_credit_used": 0,
+    "databento_credit_reserved": 0
+  }
+}

@@ -1,0 +1,593 @@
+{
+  "added_text_secret_and_visible_timezone_findings": {},
+  "all_eight_ids_and_31_functional_requirements_retained": true,
+  "blocked_required_next_branch": "M4.7; exact dependency and reopening proof in M4_6_VERIFICATION section 5",
+  "changed_files": [
+    "consensus_engine/alert_delivery.py",
+    "consensus_engine/alerts/discord.py",
+    "tests/trade_alerts_contracts/test_alert_delivery.py",
+    "trade_alerts_build_docs/CODING_STANDARDS.md",
+    "trade_alerts_build_docs/M4_6_LAUNCHER_LIMITATION.txt",
+    "trade_alerts_build_docs/M4_6_LOCAL_CHECKS.json",
+    "trade_alerts_build_docs/M4_6_VERIFICATION.md",
+    "trade_alerts_build_docs/PROJECT_INDEX.md",
+    "trade_alerts_build_docs/ROADMAP.md",
+    "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+  ],
+  "configured_lint_or_typecheck": null,
+  "databento_credit_reserved": 0,
+  "databento_credit_used": 0,
+  "existing_mode_changes": [],
+  "existing_sender_functions_unchanged": 31,
+  "host_ownership_verification_required": false,
+  "local_markdown_links_checked": 79,
+  "milestone": "M4.6",
+  "mypy_installed": false,
+  "next_milestone": "M5.1",
+  "next_ready_row": "[ ] M5.1",
+  "preserved_existing_file_count": 605,
+  "protected_and_existing_interfaces_preserved": {
+    ".test-baseline": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "config/consensus.yaml": "0081fd5a99bf84c4e2cf0e6fa991ea51984baf2d315507ab54b7037dc35fbac8",
+    "consensus_engine/candidate_assembly.py": "cab255c3973b6504b5f8c9926809099fc5e48871cc1f80a952cd973540517ad9",
+    "consensus_engine/trade_alerts_config.py": "b14169222ffee6cfa98bc45286874e1f989c396c31115edf228f1be49744ef9d",
+    "consensus_engine/trade_alerts_models.py": "b9674913b413f0a293552340db2c830bb0292788fb36689b1568e5ba8b5042d5",
+    "scripts/testing/run_trade_alerts_contracts.py": "6b609b643edfc467fc63480acd63ad50d4044616aec5efca61f32315af3d3ad2",
+    "scripts/testing/trade_alerts_contract_child.py": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c"
+  },
+  "read_only_runtime_checks": {
+    "recent_health_log_matches": 0,
+    "systemctl": "Failed to connect to bus: Operation not permitted (consider using --machine=<user>@.host --user to connect to bus of other user)",
+    "workspace_shortcut": "/home/openclaw/.openclaw"
+  },
+  "recorded_at_pacific": "2026-09-07T21:54:19.910283-07:00",
+  "roadmap_assigned_row": "[x] M4.6",
+  "ruff_installed": false,
+  "source_checks": {
+    "consensus_engine/alert_delivery.py": "Python 3.10 grammar and compilation passed; not executed",
+    "consensus_engine/alerts/discord.py": "Python 3.10 grammar and compilation passed; not executed",
+    "tests/trade_alerts_contracts/test_alert_delivery.py": "Python 3.10 grammar and compilation passed; not executed"
+  },
+  "starting_file_count": 610,
+  "starting_snapshot": "/tmp/m46-start-mzgqbus3",
+  "status": "completed",
+  "unexpected_changed_files": [],
+  "written_test_cases": 130,
+  "written_test_functions": 37,
+  "offline_status": "primary_attribution_repair_protected_proof_complete",
+  "historical_supervisor_proof": {
+    "artifacts_path": "/root/trade-alerts-builder/runs/20260907-020744-989785-build/published-artifacts-c559f8c8c561",
+    "completed_at_pacific": "2026-09-07T20:22:43-07:00",
+    "databento_credit_used": 0,
+    "exit_codes": [
+      0,
+      0
+    ],
+    "m46_cases_each_run": 77,
+    "ordered_test_ids_match": true,
+    "recordings": {
+      "long": {
+        "bytes": 25813,
+        "sha256": "99a0685f490ac581effac5ff2e57bd45872e4861a4a17bf500689b986fcdf37f"
+      },
+      "short": {
+        "bytes": 25850,
+        "sha256": "fe806c36e8e8302b53872f1c46123b7d2cb3f3019a72f5a5ed031c58d96ba2b2"
+      },
+      "matching_across_runs": true
+    },
+    "runs": 2,
+    "source_hash": "caf9ee85338b8cd1f9d4a4a174bfc744dca5f1a09ffa9b97409547edc0525b32",
+    "tests_each_run": 1140,
+    "unexpected_isolation_denials": 0,
+    "cleanup_complete": true,
+    "status": "historical_pre_repair"
+  },
+  "historical_protected_tests": {
+    "collected": false,
+    "exit_code": 1,
+    "first_attempt_limitation": "OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-3i5wbheo'",
+    "limitation": "OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-bo6qa120'",
+    "passed": null,
+    "selectors": [
+      "tests/trade_alerts_contracts",
+      "tests/trade_alerts_contracts/test_alert_delivery.py",
+      "tests/trade_alerts_contracts/test_candidate_assembly.py",
+      "tests/test_models.py",
+      "tests/test_schwab_client.py",
+      "tests/test_wolf_macro_brain.py::test_stock_sector_etf",
+      "tests/test_discord_alerts.py",
+      "tests/test_discord_embed_limits.py",
+      "tests/test_pass5_steps_6_7_8.py::test_step8_safe_send_returns_json_on_200",
+      "tests/test_pass5_steps_6_7_8.py::test_step8_safe_send_400_falls_back_to_plaintext",
+      "tests/test_pass5_steps_6_7_8.py::test_step8_safe_send_429_retries_then_succeeds",
+      "tests/test_pass5_steps_6_7_8.py::test_step8_safe_send_429_exhaustion_posts_truncation_notice",
+      "tests/test_pass5_steps_6_7_8.py::test_step8_safe_send_500_returns_none_no_retry",
+      "tests/test_pass5_steps_6_7_8.py::test_step8_safe_send_network_exception_returns_none"
+    ],
+    "supervisor_proof_received": false
+  },
+  "historical_ownership_attempts": [
+    {
+      "mode": "0o664",
+      "path": "consensus_engine/alert_delivery.py",
+      "result": "OSError: [Errno 22] Invalid argument: 'consensus_engine/alert_delivery.py'",
+      "visible_gid": 65534,
+      "visible_uid": 0
+    },
+    {
+      "mode": "0o674",
+      "path": "consensus_engine/alerts/discord.py",
+      "result": "OSError: [Errno 22] Invalid argument: 'consensus_engine/alerts/discord.py'",
+      "visible_gid": 65534,
+      "visible_uid": 65534
+    },
+    {
+      "mode": "0o664",
+      "path": "tests/trade_alerts_contracts/test_alert_delivery.py",
+      "result": "OSError: [Errno 22] Invalid argument: 'tests/trade_alerts_contracts/test_alert_delivery.py'",
+      "visible_gid": 65534,
+      "visible_uid": 0
+    },
+    {
+      "mode": "0o660",
+      "path": "trade_alerts_build_docs/PROJECT_INDEX.md",
+      "result": "OSError: [Errno 22] Invalid argument: 'trade_alerts_build_docs/PROJECT_INDEX.md'",
+      "visible_gid": 65534,
+      "visible_uid": 65534
+    },
+    {
+      "mode": "0o660",
+      "path": "trade_alerts_build_docs/ROADMAP.md",
+      "result": "OSError: [Errno 22] Invalid argument: 'trade_alerts_build_docs/ROADMAP.md'",
+      "visible_gid": 65534,
+      "visible_uid": 65534
+    },
+    {
+      "mode": "0o660",
+      "path": "trade_alerts_build_docs/CODING_STANDARDS.md",
+      "result": "OSError: [Errno 22] Invalid argument: 'trade_alerts_build_docs/CODING_STANDARDS.md'",
+      "visible_gid": 65534,
+      "visible_uid": 65534
+    },
+    {
+      "mode": "0o660",
+      "path": "trade_alerts_build_docs/TESTING_AND_VALIDATION.md",
+      "result": "OSError: [Errno 22] Invalid argument: 'trade_alerts_build_docs/TESTING_AND_VALIDATION.md'",
+      "visible_gid": 65534,
+      "visible_uid": 65534
+    },
+    {
+      "mode": "0o660",
+      "path": "trade_alerts_build_docs/M4_6_VERIFICATION.md",
+      "result": "OSError: [Errno 22] Invalid argument: 'trade_alerts_build_docs/M4_6_VERIFICATION.md'",
+      "visible_gid": 65534,
+      "visible_uid": 65534
+    },
+    {
+      "mode": "0o660",
+      "path": "trade_alerts_build_docs/M4_6_LOCAL_CHECKS.json",
+      "result": "OSError: [Errno 22] Invalid argument: 'trade_alerts_build_docs/M4_6_LOCAL_CHECKS.json'",
+      "visible_gid": 65534,
+      "visible_uid": 65534
+    },
+    {
+      "mode": "0o660",
+      "path": "trade_alerts_build_docs/M4_6_LAUNCHER_LIMITATION.txt",
+      "result": "OSError: [Errno 22] Invalid argument: 'trade_alerts_build_docs/M4_6_LAUNCHER_LIMITATION.txt'",
+      "visible_gid": 65534,
+      "visible_uid": 65534
+    }
+  ],
+  "historical_host_ownership_verified_in_supervisor_manifest": true,
+  "historical_completed_protected_tests": {
+    "collected": true,
+    "exit_codes": [
+      0,
+      0
+    ],
+    "passed_each_run": 1140,
+    "m46_cases_each_run": 77,
+    "selectors": [
+      "tests/trade_alerts_contracts",
+      "tests/trade_alerts_contracts/test_alert_delivery.py",
+      "tests/trade_alerts_contracts/test_candidate_assembly.py",
+      "tests/test_models.py",
+      "tests/test_schwab_client.py",
+      "tests/test_wolf_macro_brain.py::test_stock_sector_etf",
+      "tests/test_discord_alerts.py",
+      "tests/test_discord_embed_limits.py",
+      "tests/test_pass5_steps_6_7_8.py::test_step8_safe_send_returns_json_on_200",
+      "tests/test_pass5_steps_6_7_8.py::test_step8_safe_send_400_falls_back_to_plaintext",
+      "tests/test_pass5_steps_6_7_8.py::test_step8_safe_send_429_retries_then_succeeds",
+      "tests/test_pass5_steps_6_7_8.py::test_step8_safe_send_429_exhaustion_posts_truncation_notice",
+      "tests/test_pass5_steps_6_7_8.py::test_step8_safe_send_500_returns_none_no_retry",
+      "tests/test_pass5_steps_6_7_8.py::test_step8_safe_send_network_exception_returns_none"
+    ],
+    "supervisor_proof_received": true
+  },
+  "historical_records_only_recheck": {
+    "manifest_files": 828,
+    "prior_document_differences": [
+      "trade_alerts_build_docs/M4_6_LOCAL_CHECKS.json",
+      "trade_alerts_build_docs/M4_6_VERIFICATION.md",
+      "trade_alerts_build_docs/PROJECT_INDEX.md",
+      "trade_alerts_build_docs/ROADMAP.md"
+    ],
+    "publication_hashes_verified": 55,
+    "runs": [
+      {
+        "tests": 1140,
+        "m46_cases": 77,
+        "isolation_clean": true,
+        "failures": 0,
+        "errors": 0,
+        "skips": 0,
+        "seconds": 236.034
+      },
+      {
+        "tests": 1140,
+        "m46_cases": 77,
+        "isolation_clean": true,
+        "failures": 0,
+        "errors": 0,
+        "skips": 0,
+        "seconds": 235.996
+      }
+    ],
+    "ordered_ids_equal": true,
+    "at_pacific": "2026-09-07T20:49:40.950305-07:00",
+    "code_tests_configuration_protection_match": true,
+    "recordings_inspected": true,
+    "tests_rerun_in_finalization": false,
+    "final_document_checks": {
+      "links_checked": 33,
+      "fences_and_added_text_scan_passed": true,
+      "modes_preserved": true,
+      "handoff_rows_match": true,
+      "selectors_match_supervisor": true
+    },
+    "status": "historical_pre_repair"
+  },
+  "review_repair": {
+    "issue": "delivery accepted a copied assembly whose candidate still linked to missing or mismatched components",
+    "implemented": true,
+    "checks": [
+      "missing linked component rejected before persistence",
+      "wrong-strategy linked component rejected before persistence",
+      "opposite-direction linked component rejected before persistence",
+      "wrong-configuration linked component rejected before persistence",
+      "valid linked and unlinked components preserved in delivery intent and end-to-end recordings"
+    ],
+    "python_3_10_grammar_and_compilation": true,
+    "protection_changed": false,
+    "proved": true
+  },
+  "protected_tests": {
+    "collected": true,
+    "passed": true,
+    "exit_codes": [
+      0,
+      0
+    ],
+    "runs": 2,
+    "tests_each_run": 1193,
+    "m46_cases_each_run": 130,
+    "primary_rejection_cases_each_run": 48,
+    "selectors": [
+      "tests/trade_alerts_contracts",
+      "tests/trade_alerts_contracts/test_alert_delivery.py",
+      "tests/trade_alerts_contracts/test_candidate_assembly.py",
+      "tests/test_models.py",
+      "tests/test_schwab_client.py",
+      "tests/test_wolf_macro_brain.py::test_stock_sector_etf",
+      "tests/test_discord_alerts.py",
+      "tests/test_discord_embed_limits.py",
+      "tests/test_pass5_steps_6_7_8.py::test_step8_safe_send_returns_json_on_200",
+      "tests/test_pass5_steps_6_7_8.py::test_step8_safe_send_400_falls_back_to_plaintext",
+      "tests/test_pass5_steps_6_7_8.py::test_step8_safe_send_429_retries_then_succeeds",
+      "tests/test_pass5_steps_6_7_8.py::test_step8_safe_send_429_exhaustion_posts_truncation_notice",
+      "tests/test_pass5_steps_6_7_8.py::test_step8_safe_send_500_returns_none_no_retry",
+      "tests/test_pass5_steps_6_7_8.py::test_step8_safe_send_network_exception_returns_none"
+    ],
+    "supervisor_proof_received": true,
+    "ordered_test_ids_match": true,
+    "unexpected_isolation_denials": 0,
+    "cleanup_complete": true,
+    "recordings": {
+      "long": {
+        "bytes": 28043,
+        "sha256": "4f9487e326eb9ead290d44588c40fce5091880d29d353d487b8ee1a6bc2a0d6b",
+        "rejections_each_alert_type": 12,
+        "zero_stored_and_sent": true
+      },
+      "short": {
+        "bytes": 28094,
+        "sha256": "9a8eabf74b662e2c4b8945b6146b6b4435275e0485f6568d95c3850b71cf26bc",
+        "rejections_each_alert_type": 12,
+        "zero_stored_and_sent": true
+      }
+    },
+    "matching_recordings_across_runs": true,
+    "completed_at_pacific": "2026-09-07T22:03:30-07:00",
+    "artifacts_path": "/root/trade-alerts-builder/runs/20260907-020744-989785-build/published-artifacts-68de6ed36012",
+    "source_hash": "789edf991e750308668c742b5381fe2e5aeeac37486c81c876abb661626e78b4"
+  },
+  "historical_code_test_document_hashes": {
+    "consensus_engine/alert_delivery.py": "4b40398ad3f536be591004dcaaeb0ae945db1f4f4ad34785ed9a55705aa04420",
+    "consensus_engine/alerts/discord.py": "2f0d57a288672e4bc536a5ea6049bb39a691757de5c137b6c9082885fd56f9fb",
+    "tests/trade_alerts_contracts/test_alert_delivery.py": "de03b9db10f86a159321615415227b4dd61d48c7da8f4f090d790af6b4d62cd3",
+    "trade_alerts_build_docs/CODING_STANDARDS.md": "6ec99f12a5366a1f67ca24fd12d5ba37fafec0fc510316cd77c5f40342ee1dd7",
+    "trade_alerts_build_docs/M4_6_LAUNCHER_LIMITATION.txt": "4504dc599e3d76d48e6791683c8eeeb602eb964ad150095701cc7c914ca36403",
+    "trade_alerts_build_docs/M4_6_VERIFICATION.md": "2ba8721a0ebea662428f71d2b7264fec9a33d0be522a5c0acca7af91be264d76",
+    "trade_alerts_build_docs/PROJECT_INDEX.md": "9e26526ca7590ebb9ffca4b8dfcdaf4705cc23b29133c6d38fadc51869bcd854",
+    "trade_alerts_build_docs/ROADMAP.md": "777bf50dfcc67d89ae54033c4ab24394055d341cedadf16f0ef992ee85990be3",
+    "trade_alerts_build_docs/TESTING_AND_VALIDATION.md": "a0e65cb81bad4a7d31c468e733809e0df7570cb955960ab5e59e2fbac5817b92"
+  },
+  "code_test_document_hashes": {
+    "consensus_engine/alert_delivery.py": "59b14058d3bdc0a4dfa48e6338808fd1c3c20d9e7d7bfafbbbf516f215858c83",
+    "consensus_engine/alerts/discord.py": "2f0d57a288672e4bc536a5ea6049bb39a691757de5c137b6c9082885fd56f9fb",
+    "tests/trade_alerts_contracts/test_alert_delivery.py": "7d028e85893238f037b5c93ca235fbbbc5ca1e7bcb7f3b75f571b7b19054fd8a",
+    "trade_alerts_build_docs/CODING_STANDARDS.md": "be836b7613c1f344b5c4fe5cfa593407e403e88f654399e2ac67e9f07def5a89",
+    "trade_alerts_build_docs/M4_6_LAUNCHER_LIMITATION.txt": "be5b4f9ae55c204485250c791ee2f8a966fa393fa622964d5ba8708187256bbd",
+    "trade_alerts_build_docs/M4_6_VERIFICATION.md": "32595533465adb519c9d2ae2b5a7602583b4e55526d8404b36af5c08d6938b44",
+    "trade_alerts_build_docs/PROJECT_INDEX.md": "914eccc9ce1452f1d06b673e84979d31becf57998f50f635fae219a1bfac12e7",
+    "trade_alerts_build_docs/ROADMAP.md": "b9774640a9a6245e6354876f4d923cb0941e468bf199d74a6be5af45391f25e6",
+    "trade_alerts_build_docs/TESTING_AND_VALIDATION.md": "c14e8ac374a4829d718d8b9015142bdad573aa61867ee46b14204793161e971e"
+  },
+  "host_ownership_verified_in_supervisor_manifest": true,
+  "historical_component_protected_tests": {
+    "collected": true,
+    "exit_codes": [
+      0,
+      0
+    ],
+    "passed": true,
+    "m46_cases_each_run": 82,
+    "tests_each_run": 1145,
+    "runs": 2,
+    "supervisor_proof_received": true,
+    "ordered_test_ids_match": true,
+    "unexpected_isolation_denials": 0,
+    "cleanup_complete": true,
+    "recordings": {
+      "long": {
+        "bytes": 26915,
+        "sha256": "c3e08785c07266ed465c447170f34e5f61297776d5d7d98c453dd7006d50d579"
+      },
+      "short": {
+        "bytes": 26966,
+        "sha256": "56d5344b9c1c9da608f6048a514d070e20ed52608488a7d310fd21484f048a61"
+      },
+      "matching_across_runs": true,
+      "components_checked": true
+    },
+    "artifacts_path": "/root/trade-alerts-builder/runs/20260907-020744-989785-build/published-artifacts-2e658d2482f0",
+    "completed_at_pacific": "2026-09-07T21:18:09-07:00",
+    "source_hash": "d281071baae618c34c2ed3b749ae9945a1b2b727030d07aa215f8772f7d04438",
+    "selectors": [
+      "tests/trade_alerts_contracts",
+      "tests/trade_alerts_contracts/test_alert_delivery.py",
+      "tests/trade_alerts_contracts/test_candidate_assembly.py",
+      "tests/test_models.py",
+      "tests/test_schwab_client.py",
+      "tests/test_wolf_macro_brain.py::test_stock_sector_etf",
+      "tests/test_discord_alerts.py",
+      "tests/test_discord_embed_limits.py",
+      "tests/test_pass5_steps_6_7_8.py::test_step8_safe_send_returns_json_on_200",
+      "tests/test_pass5_steps_6_7_8.py::test_step8_safe_send_400_falls_back_to_plaintext",
+      "tests/test_pass5_steps_6_7_8.py::test_step8_safe_send_429_retries_then_succeeds",
+      "tests/test_pass5_steps_6_7_8.py::test_step8_safe_send_429_exhaustion_posts_truncation_notice",
+      "tests/test_pass5_steps_6_7_8.py::test_step8_safe_send_500_returns_none_no_retry",
+      "tests/test_pass5_steps_6_7_8.py::test_step8_safe_send_network_exception_returns_none"
+    ],
+    "status": "historical_before_primary_attribution_repair"
+  },
+  "historical_component_records_only_recheck": {
+    "at_pacific": "2026-09-07T21:43:10.798181-07:00",
+    "publication_hashes_verified": 55,
+    "manifest_files": 828,
+    "prior_document_differences": [
+      "trade_alerts_build_docs/M4_6_LOCAL_CHECKS.json",
+      "trade_alerts_build_docs/M4_6_VERIFICATION.md",
+      "trade_alerts_build_docs/PROJECT_INDEX.md",
+      "trade_alerts_build_docs/ROADMAP.md",
+      "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+    ],
+    "code_tests_configuration_protection_match": true,
+    "selectors_match_supervisor": true,
+    "runs": [
+      {
+        "tests": 1145,
+        "m46_cases": 82,
+        "failures": 0,
+        "errors": 0,
+        "skips": 0,
+        "seconds": 238.98,
+        "isolation_clean": true,
+        "cleanup_complete": true
+      },
+      {
+        "tests": 1145,
+        "m46_cases": 82,
+        "failures": 0,
+        "errors": 0,
+        "skips": 0,
+        "seconds": 235.647,
+        "isolation_clean": true,
+        "cleanup_complete": true
+      }
+    ],
+    "ordered_ids_equal": true,
+    "recordings": {
+      "long": {
+        "bytes": 26915,
+        "sha256": "c3e08785c07266ed465c447170f34e5f61297776d5d7d98c453dd7006d50d579",
+        "values_components_fallback_and_receipts_checked": true
+      },
+      "short": {
+        "bytes": 26966,
+        "sha256": "56d5344b9c1c9da608f6048a514d070e20ed52608488a7d310fd21484f048a61",
+        "values_components_fallback_and_receipts_checked": true
+      }
+    },
+    "tests_rerun_in_finalization": false,
+    "host_ownership_verified_in_supervisor_manifest": true,
+    "backup": "/tmp/m46-records-recheck-rmrc2j4v",
+    "final_document_checks": {
+      "links_checked": 22,
+      "modes_and_ownership_preserved": true,
+      "added_text_scan_passed": true,
+      "handoff_rows_match": true,
+      "saved_file_hashes_match": true
+    }
+  },
+  "historical_component_code_test_document_hashes": {
+    "consensus_engine/alert_delivery.py": "39d7d65eafac043a64e6b41428e6d84019b3ccfa9a8f67b4d8687fe892a5d7bd",
+    "consensus_engine/alerts/discord.py": "2f0d57a288672e4bc536a5ea6049bb39a691757de5c137b6c9082885fd56f9fb",
+    "tests/trade_alerts_contracts/test_alert_delivery.py": "5bfff168c2889b810b95c8033b3b92d008da903722be70cca13d9620e912006b",
+    "trade_alerts_build_docs/CODING_STANDARDS.md": "2486759e731c23ab6c413cb40130e28f106dacf69cf1796b2a457f63a0c5b16e",
+    "trade_alerts_build_docs/M4_6_LAUNCHER_LIMITATION.txt": "fbf6333cdbbeaea400fa964eed7df0e7511e6c51b028b84a0762b5fd08193ff6",
+    "trade_alerts_build_docs/M4_6_VERIFICATION.md": "8c27dc5fccc7236f7c0b03a3bf6aaeb0d9d560733d3456ce2eb396d1cec81765",
+    "trade_alerts_build_docs/PROJECT_INDEX.md": "a5318671d59a4a92daffd5a62e517c15056a54842190fb43013f19538588ad30",
+    "trade_alerts_build_docs/ROADMAP.md": "de28dc91916e449f74285342022498de788b6578e5982166e5c48e3cb84ae344",
+    "trade_alerts_build_docs/TESTING_AND_VALIDATION.md": "7e1293e69e4ab4d4ed33e6caa00d84e4d2c7d5abc733c59a57cf977654cd72f8"
+  },
+  "primary_attribution_repair": {
+    "implemented": true,
+    "proved": true,
+    "backup": "/tmp/m46-primary-repair-4bh7ibbl",
+    "python_3_10_grammar_and_compilation": true,
+    "new_written_cases": 48,
+    "written_cases_total": 130,
+    "new_rejection_kinds": [
+      "strategy",
+      "version",
+      "symbol",
+      "instrument_type",
+      "missing_feature",
+      "missing_primary_link",
+      "missing_confidence_link",
+      "unknown_input",
+      "reused_input_id",
+      "creation_time",
+      "delivery_status",
+      "confidence_result"
+    ],
+    "required_recordings": [
+      "m46-alert-delivery-long-proof.json",
+      "m46-alert-delivery-short-proof.json"
+    ],
+    "protected_files_unchanged": true,
+    "existing_sender_file_unchanged": true,
+    "ownership_attempts": [
+      {
+        "path": "consensus_engine/alert_delivery.py",
+        "result": "OSError: [Errno 22] Invalid argument: 'consensus_engine/alert_delivery.py'"
+      },
+      {
+        "path": "tests/trade_alerts_contracts/test_alert_delivery.py",
+        "result": "OSError: [Errno 22] Invalid argument: 'tests/trade_alerts_contracts/test_alert_delivery.py'"
+      }
+    ],
+    "document_links_checked": 79,
+    "added_document_text_scan_passed": true,
+    "visible_modes_preserved": true,
+    "this_attempt_changed_files": [
+      "consensus_engine/alert_delivery.py",
+      "tests/trade_alerts_contracts/test_alert_delivery.py",
+      "trade_alerts_build_docs/CODING_STANDARDS.md",
+      "trade_alerts_build_docs/M4_6_LAUNCHER_LIMITATION.txt",
+      "trade_alerts_build_docs/M4_6_LOCAL_CHECKS.json",
+      "trade_alerts_build_docs/M4_6_VERIFICATION.md",
+      "trade_alerts_build_docs/PROJECT_INDEX.md",
+      "trade_alerts_build_docs/ROADMAP.md",
+      "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+    ],
+    "handoff_rows_match": true
+  },
+  "historical_primary_local_attempt": {
+    "collected": false,
+    "passed": null,
+    "exit_code": 1,
+    "limitation": "OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-i4_f31uw'",
+    "selectors": [
+      "tests/trade_alerts_contracts",
+      "tests/trade_alerts_contracts/test_alert_delivery.py",
+      "tests/trade_alerts_contracts/test_candidate_assembly.py",
+      "tests/test_models.py",
+      "tests/test_schwab_client.py",
+      "tests/test_wolf_macro_brain.py::test_stock_sector_etf",
+      "tests/test_discord_alerts.py",
+      "tests/test_discord_embed_limits.py",
+      "tests/test_pass5_steps_6_7_8.py::test_step8_safe_send_returns_json_on_200",
+      "tests/test_pass5_steps_6_7_8.py::test_step8_safe_send_400_falls_back_to_plaintext",
+      "tests/test_pass5_steps_6_7_8.py::test_step8_safe_send_429_retries_then_succeeds",
+      "tests/test_pass5_steps_6_7_8.py::test_step8_safe_send_429_exhaustion_posts_truncation_notice",
+      "tests/test_pass5_steps_6_7_8.py::test_step8_safe_send_500_returns_none_no_retry",
+      "tests/test_pass5_steps_6_7_8.py::test_step8_safe_send_network_exception_returns_none"
+    ],
+    "supervisor_proof_received": false
+  },
+  "primary_proof_finalization": {
+    "at_pacific": "2026-09-07T22:07:28.451822-07:00",
+    "backup": "/tmp/m46-final-proof-hplo_rsh",
+    "manifest_file_count": 828,
+    "manifest_content_mismatches_before_edits": [],
+    "publication_hashes_verified": 55,
+    "publication_sha256": "48448db338bc0770e536e83a876ab895a6788b0fe2d79cd877b920fb7c126cab",
+    "manifest_sha256": "9513a57abf9d9b999a8a02fbabb75333f6c42c9f9bec5aa12e193cff53d2ad41",
+    "runs": [
+      {
+        "tests": 1193,
+        "m46_cases": 130,
+        "primary_rejection_cases": 48,
+        "failures": 0,
+        "errors": 0,
+        "skips": 0,
+        "seconds": 240.754,
+        "isolation_clean": true,
+        "cleanup_complete": true
+      },
+      {
+        "tests": 1193,
+        "m46_cases": 130,
+        "primary_rejection_cases": 48,
+        "failures": 0,
+        "errors": 0,
+        "skips": 0,
+        "seconds": 244.006,
+        "isolation_clean": true,
+        "cleanup_complete": true
+      }
+    ],
+    "ordered_ids_match": true,
+    "code_tests_configuration_protection_match": true,
+    "recordings_inspected": true,
+    "tests_rerun_in_finalization": false,
+    "host_ownership_verified_in_supervisor_manifest": true,
+    "final_document_checks": {
+      "links_checked": 72,
+      "fences_and_added_text_scan_passed": true,
+      "modes_preserved": true,
+      "visible_owner_matches_untouched_milestone_files": true,
+      "host_owner_confirmed_by_supervisor_manifest": true,
+      "handoff_rows_match": true,
+      "selectors_match_supervisor": true,
+      "only_five_evidence_documents_changed": true,
+      "other_tested_files_unchanged": true,
+      "backup_ownership_comparison": "Initial AssertionError: copy2 backup copies belong to their creator; backup owner is not original workspace ownership evidence. Used supervisor host manifest and unchanged workspace files instead."
+    }
+  },
+  "historical_primary_repair_code_test_document_hashes": {
+    "consensus_engine/alert_delivery.py": "59b14058d3bdc0a4dfa48e6338808fd1c3c20d9e7d7bfafbbbf516f215858c83",
+    "consensus_engine/alerts/discord.py": "2f0d57a288672e4bc536a5ea6049bb39a691757de5c137b6c9082885fd56f9fb",
+    "tests/trade_alerts_contracts/test_alert_delivery.py": "7d028e85893238f037b5c93ca235fbbbc5ca1e7bcb7f3b75f571b7b19054fd8a",
+    "trade_alerts_build_docs/CODING_STANDARDS.md": "be836b7613c1f344b5c4fe5cfa593407e403e88f654399e2ac67e9f07def5a89",
+    "trade_alerts_build_docs/M4_6_LAUNCHER_LIMITATION.txt": "be5b4f9ae55c204485250c791ee2f8a966fa393fa622964d5ba8708187256bbd",
+    "trade_alerts_build_docs/M4_6_VERIFICATION.md": "f606f194e91b6d63da54d683e38f172191a9ac6e0e2a259c2c14ad6ed80b7323",
+    "trade_alerts_build_docs/PROJECT_INDEX.md": "31af2e2275f23c778d94c5148c90a14e2c7e0c364f86e8c78ccfc172df1a002d",
+    "trade_alerts_build_docs/ROADMAP.md": "eafe62d6e3232a50d7b279322edec16cb8606fcb118d5e588b95c65f12b97cc3",
+    "trade_alerts_build_docs/TESTING_AND_VALIDATION.md": "487ee34f7ff7c06acedeeaaa7844aee18345ea63b7b4a0085966f5792fcd9e9b"
+  }
+}

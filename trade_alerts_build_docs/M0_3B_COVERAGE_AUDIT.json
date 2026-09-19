@@ -1,0 +1,15 @@
+{
+  "audit_date_pacific": "2026-09-14",
+  "coverage_authority": "DATA_REQUIREMENTS.md sections 44-49 and 62",
+  "inventory_symbol_date_rows": 22958,
+  "eligible_session_count": 0,
+  "exact_development_dates": null,
+  "exact_calibration_dates": null,
+  "exact_final_validation_dates": null,
+  "qualifying_source_manifest_present": false,
+  "qualifying_source_manifest_sha256": null,
+  "result_accessed": false,
+  "status": "BLOCKED_BY_QUALIFYING_SOURCE_FACTS",
+  "m02g_manifest": "M0_2G_COVERAGE_ONLY_MANIFEST.json",
+  "reason": "M0.2G found zero qualifying symbol/date rows. The ETF minute inventories do not prove the required point-in-time stock universe, intraday tape, event and availability times, corrections, complete reference coverage, borrow evidence, historical option quotes, or untouched final validation."
+}

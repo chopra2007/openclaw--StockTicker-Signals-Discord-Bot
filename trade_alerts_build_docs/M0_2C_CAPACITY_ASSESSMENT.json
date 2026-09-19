@@ -1,0 +1,48 @@
+{
+  "assessment_version": "M02C_CAPACITY_ASSESSMENT_V1",
+  "market_date_candidate": "2026-08-31",
+  "result": "BLOCKED_BY_CAPACITY",
+  "safe_activation": false,
+  "cleanup_enabled": false,
+  "live_switches_enabled": false,
+  "source_inventory": {
+    "observed_at_pacific": "2026-09-14T01:17:32.021176-07:00",
+    "source": "/root/trade-alerts-builder/repairs/codex-subscription/m02c-file-size-inventory.json",
+    "option_part_files": 390,
+    "option_part_logical_bytes": 147903541,
+    "option_part_allocated_bytes": 148725760,
+    "existing_chain_logical_bytes": 89846238,
+    "existing_open_interest_logical_bytes": 80271,
+    "scope": "names and file sizes only; this is not source qualification"
+  },
+  "admission": {
+    "observed_at_pacific": "2026-09-14T01:39:34-07:00",
+    "source": "/root/trade-alerts-builder/archives/storage-manager/status.json",
+    "free_bytes": 9200222208,
+    "fixed_reserve_bytes": 12000000000,
+    "reserve_fraction": 0.15,
+    "admitted": false,
+    "reason": "free space is already below the fixed reserve before an isolated copy or any compactor working files are created"
+  },
+  "measurement": {
+    "isolated_copy_created": false,
+    "compactor_started": false,
+    "source_compact_record_parity": "NOT_MEASURED",
+    "peak_memory_bytes": "NOT_MEASURED",
+    "wall_seconds": "NOT_MEASURED",
+    "output_bytes": "NOT_MEASURED",
+    "reason": "the frozen admission rule blocks the run before copying or compaction"
+  },
+  "storage_authority": {
+    "hard_limit_bytes": 175000000000,
+    "operating_limit_bytes": 165000000000,
+    "server_transfer": "AUTHORIZED_AND_LIVE_VERIFIED",
+    "note": "remote build storage does not replace the local compactor reserve"
+  },
+  "remaining_requirements": [
+    "recheck current local free space after the existing storage manager finishes eligible recovery",
+    "create an isolated copy only when the full admission calculation passes without lowering the reserve",
+    "run the bounded compactor on that copy and record source/compact parity, actual output bytes, peak memory and wall time",
+    "obtain separate review before any cleanup activation"
+  ]
+}

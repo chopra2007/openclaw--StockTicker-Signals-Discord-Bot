@@ -1,0 +1,9 @@
+M3.4 protected execution limitation — 2026-09-13 Pacific
+
+The controller work packet states that this Codex workspace-write sandbox denies
+the protected launcher's temporary-directory ownership change with:
+
+OSError: [Errno 22] Invalid argument
+
+The known failure was not retried. No application test was run outside the
+protected launcher, and the launcher was not weakened or changed.

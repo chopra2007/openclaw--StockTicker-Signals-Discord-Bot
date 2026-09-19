@@ -1,0 +1,15 @@
+Traceback (most recent call last):
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 72, in <module>
+    raise SystemExit(main())
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 26, in main
+    os.chown(artifact_root, account.pw_uid, account.pw_gid)
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-ogra10xt'
+
+
+Primary-attribution repair — 2026-09-07T21:54:19.910283-07:00
+Traceback (most recent call last):
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 72, in <module>
+    raise SystemExit(main())
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 26, in main
+    os.chown(artifact_root, account.pw_uid, account.pw_gid)
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-i4_f31uw'

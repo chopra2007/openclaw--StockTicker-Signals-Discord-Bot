@@ -1,0 +1,95 @@
+{
+  "version": "M02I_COST_CHECK_RESULT_V1",
+  "observed_at_pacific": "2026-09-14T05:12:38-07:00",
+  "source_plan": "M0_2H_SOURCE_ACQUISITION_SPEC.json",
+  "sdk": {
+    "name": "databento",
+    "version": "0.84.0",
+    "method": "Historical.metadata.get_cost"
+  },
+  "execution": {
+    "planned_requests": 6,
+    "sdk_calls_started": 6,
+    "provider_connections_established": 0,
+    "provider_responses_received": 0,
+    "retries": 0,
+    "serial": true,
+    "deprecated_mode_omitted": true,
+    "end_exclusive_passed_as_sdk_end": true,
+    "symbols_resolved_from_frozen_json_pointers": true,
+    "credential_read": "FAILED_PERMISSION_DENIED",
+    "credential_child_environment": "EMPTY_AFTER_FAILED_READ",
+    "credential_value_recorded": false,
+    "failure": "The sandbox denied the named .env.service read, then local name resolution failed before any connection to hist.databento.com was established.",
+    "no_retry_reason": "M0.2I permits each preregistered request only once."
+  },
+  "results": [
+    {
+      "id": "COST_EQUS_MINI_TRADES_2023_2026",
+      "attempted_at_pacific": "2026-09-14T05:12:38.694749-07:00",
+      "status": "FAILED_NO_RETRY_LOCAL_DNS",
+      "cost_usd": "UNKNOWN",
+      "provider_response": false
+    },
+    {
+      "id": "COST_EQUS_MINI_MBP1_2023_2026",
+      "attempted_at_pacific": "2026-09-14T05:12:38.698829-07:00",
+      "status": "FAILED_NO_RETRY_LOCAL_DNS",
+      "cost_usd": "UNKNOWN",
+      "provider_response": false
+    },
+    {
+      "id": "COST_OPRA_CMBP1_2023_2026",
+      "attempted_at_pacific": "2026-09-14T05:12:38.700819-07:00",
+      "status": "FAILED_NO_RETRY_LOCAL_DNS",
+      "cost_usd": "UNKNOWN",
+      "provider_response": false
+    },
+    {
+      "id": "COST_OPRA_TRADES_2023_2026",
+      "attempted_at_pacific": "2026-09-14T05:12:38.702629-07:00",
+      "status": "FAILED_NO_RETRY_LOCAL_DNS",
+      "cost_usd": "UNKNOWN",
+      "provider_response": false
+    },
+    {
+      "id": "COST_OPRA_STATISTICS_2023_2026",
+      "attempted_at_pacific": "2026-09-14T05:12:38.704219-07:00",
+      "status": "FAILED_NO_RETRY_LOCAL_DNS",
+      "cost_usd": "UNKNOWN",
+      "provider_response": false
+    },
+    {
+      "id": "COST_OPRA_DEFINITION_2023_2026",
+      "attempted_at_pacific": "2026-09-14T05:12:38.705588-07:00",
+      "status": "FAILED_NO_RETRY_LOCAL_DNS",
+      "cost_usd": "UNKNOWN",
+      "provider_response": false
+    }
+  ],
+  "activity": {
+    "source_record_requests": 0,
+    "downloads": 0,
+    "token_refreshes": 0,
+    "reservations_changed": false,
+    "ledger_changed": false,
+    "new_spending_usd": 0,
+    "prices_or_returns_inspected": false,
+    "live_switches_changed": false
+  },
+  "spend_state_preserved": {
+    "owner_total_cap_usd": 40,
+    "existing_reserved_usd": 16,
+    "unreserved_usd": 24,
+    "billing": "UNKNOWN"
+  },
+  "decision": {
+    "bounded_attempt_record": "COMPLETE",
+    "cost_evidence": "UNAVAILABLE",
+    "qualifying_source": "BLOCKED",
+    "chronological_split": "BLOCKED",
+    "historical_replay": "BLOCKED",
+    "promotion": "BLOCKED",
+    "live": "BLOCKED"
+  }
+}

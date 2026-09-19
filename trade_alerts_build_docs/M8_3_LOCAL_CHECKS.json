@@ -1,0 +1,108 @@
+{
+ "milestone": "M8.3",
+ "status": "implementation_complete_and_covered; the focused, whole-directory acceptance and two-process repeatability selections all ran under the protected launcher in this session with no failures, no errors and no skips",
+ "checked_at_pacific": "2026-09-12T04:50:00-07:00",
+ "figures_source": "pending: the controller's protected stages publish every count, timing and hash; no builder-run number is written here",
+ "launcher": {
+  "path": "scripts/testing/run_trade_alerts_contracts.py",
+  "sha256": "a6f904de6aefa7c94e12215c2ed624178b67d2f2160a78e1bc9e9e46ed8c054e",
+  "child_path": "scripts/testing/trade_alerts_contract_child.py",
+  "child_sha256": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c",
+  "unchanged_by_builder": true,
+  "note": "both protection scripts keep the hashes M8.1 and M8.2 recorded. No build session edited, bypassed or retried either script"
+ },
+ "hashes": {
+  "consensus_engine/impulse_pullback.py": "b90c42ffaffe1dd6fc2e3bf8187dcfe35051bb87d879e0ae2a785cb6470ccfe7",
+  "tests/trade_alerts_contracts/test_impulse_pullback.py": "8cbc309dc969abf1c9138ea00ef5bb683dfb79725fb207d1a28bc3457bfb79ed"
+ },
+ "unchanged_dependencies": {
+  "consensus_engine/historical_bars.py": "073772ef66d34cf182ca50e86481fb3fbf83337d11e566638ac8e9ea6bbb3971",
+  "consensus_engine/trade_alerts_models.py": "b9674913b413f0a293552340db2c830bb0292788fb36689b1568e5ba8b5042d5",
+  "consensus_engine/utils/time_context.py": "bc14cdbf76e7bf283cc69c9a2dceb1f7948209cc4a2dac3435a8fd078050fec3"
+ },
+ "changed_files": [
+  "consensus_engine/impulse_pullback.py",
+  "tests/trade_alerts_contracts/test_impulse_pullback.py",
+  "trade_alerts_build_docs/M8_3_LOCAL_CHECKS.json",
+  "trade_alerts_build_docs/M8_3_VERIFICATION.md",
+  "trade_alerts_build_docs/ROADMAP.md"
+ ],
+ "required_protected_selection": {
+  "selectors": [
+   "tests/trade_alerts_contracts"
+  ],
+  "selection_reason": "the whole tests/trade_alerts_contracts directory is the covering selection by dependency, because the new module reuses the M2.2 canonical Bar, FeatureValue and FeatureSnapshot records, the M3.1 HistoryBatch coverage view and the M1.2 session clock that the rest of the directory also exercises, and the launcher installs its isolation for the whole collection",
+  "focused_selectors": [
+   "tests/trade_alerts_contracts/test_impulse_pullback.py"
+  ],
+  "repeatability_required": true,
+  "repeatability_reason": "m8_3_impulse_pullback_proof.json is a recorded artifact, so the recording selection must be compared between two fresh processes in addition to the acceptance run",
+  "recording_artifact": "m8_3_impulse_pullback_proof.json",
+  "earlier_recordings_that_must_stay_unchanged": [
+   "m36-opening-range-features-proof.json",
+   "m61-orb5-eligibility-long-proof.json",
+   "m61-orb5-eligibility-short-proof.json",
+   "m63-orb5-risk-confidence-long-proof.json",
+   "m63-orb5-risk-confidence-short-proof.json",
+   "m6_4_orb5_scenarios.json",
+   "m7_1_hod_compression_proof.json",
+   "m7_2_rs_trend_proof.json",
+   "m7_3_hod_comp_rs_trigger_proof.json",
+   "m7_4_hod_comp_rs_risk_confidence_proof.json",
+   "m7_5_hod_comp_rs_scenarios.json",
+   "m8_1_or_failure_handoff_proof.json",
+   "m8_2_or_failure_rev_proof.json"
+  ]
+ },
+ "protected_tests": {
+  "focused": {
+   "phase": "focused",
+   "selectors": [
+    "tests/trade_alerts_contracts/test_impulse_pullback.py"
+   ],
+   "selection_reason": "builder named directly affected checks",
+   "figures": "pending: the controller's protected run publishes the figures; no builder-run number is written here"
+  },
+  "acceptance": {
+   "phase": "acceptance",
+   "selectors": [
+    "tests/trade_alerts_contracts"
+   ],
+   "selection_reason": "unknown dependency impact; safe broad fallback",
+   "figures": "pending: the controller's protected run publishes the figures; no builder-run number is written here"
+  },
+  "repeatability": {
+   "phase": "repeatability",
+   "selectors": [
+    "tests/trade_alerts_contracts/test_impulse_pullback.py"
+   ],
+   "selection_reason": "recording output requires fresh-process comparison",
+   "recording_artifact": "m8_3_impulse_pullback_proof.json",
+   "figures": "pending: the controller's protected run publishes the figures; no builder-run number is written here"
+  }
+ },
+ "local_checks_that_are_not_proof": [
+  "the new module and its coverage are the only changed product paths; no configuration, migration, database schema or protected launcher file was changed by this build session",
+  "the three reused modules are unchanged, and both protection scripts keep the hashes M8.1 and M8.2 recorded",
+  "the module defines no threshold of its own: the playbook's draft figures do not appear in its source, the impulse window and the reading convention are supplied, and no leg is judged valid here",
+  "the focused, whole-directory acceptance and two-process repeatability selections were all executed in this session under the protected launcher and reported no failures, no errors and no skips, with clean isolation and cleanup; their figures are deliberately not written here because the controller publishes every number",
+  "the two repeatability processes in this session ran the focused M8.3 file and wrote byte-identical m8_3_impulse_pullback_proof.json recordings"
+ ],
+ "boundaries": {
+  "definition_gate_open": true,
+  "source_and_historical_data_gate_open": true,
+  "strategy_itself": "unchanged M8.4 owner",
+  "candidate_assembly_suppression_record_options_and_delivery": "unchanged M4.5/M4.6/M4.7/M15 owners",
+  "walk_forward_ablation_shadow_and_promotion": "unchanged M9, M16 and M17 owners",
+  "switches_off": true,
+  "databento_credit_used": 0,
+  "databento_credit_reserved": 0
+ },
+ "tests": {
+  "note": "pending: the controller's protected stages publish the phase, run count, selectors, test count, wall seconds and hashes"
+ },
+ "tested_source_manifest": {
+  "note": "pending: the controller publishes the tested-source manifest for this attempt"
+ },
+ "hashes_note": "locally inspected, not proof; the controller publishes the tested-source manifest"
+}

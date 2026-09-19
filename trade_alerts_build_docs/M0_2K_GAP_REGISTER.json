@@ -1,0 +1,96 @@
+{
+  "register_version": "M02K_GAP_REGISTER_V1",
+  "policy": "D-104: a field that cannot be obtained is recorded as a gap here and every rule depending on it is switched off and labelled untested. No missing field is approximated, proxied or filled.",
+  "scope": "shared data prerequisite record only; no Strategy 5-8 work, replay result, alert, order or activation",
+  "gaps": [
+    {
+      "field": "original point-in-time availability (was this exact value knowable at that historical moment, unrevised)",
+      "status": "GAP",
+      "reason": "EQUS.MINI trades/bbo-1m/ohlcv-1m core17 files (D-102) and the XNYS.PILLAR/EQUS.MINI 13-ETF inventories carry no original-vs-revised flag",
+      "dependent_rules_off": ["any rule scoring or filtering on original-availability", "point-in-time backtest fidelity claims"],
+      "evidence": ["repairs/codex-subscription/owner-active-supervision.json:latest_etf_source_inventory", "repairs/codex-subscription/bar-source-audit/audit-v3-summary.json"]
+    },
+    {
+      "field": "corrections and finality (was a bar/trade later revised or busted)",
+      "status": "GAP",
+      "reason": "no correction/finality feed has been bought or identified for any held dataset",
+      "dependent_rules_off": ["any rule requiring untouched final values", "correction-aware confidence terms"],
+      "evidence": ["trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md#54"]
+    },
+    {
+      "field": "point-in-time index/universe membership (was this symbol actually in scope on that date, e.g. index adds/drops)",
+      "status": "GAP",
+      "reason": "the D-102 17-name and legacy 60-name research sets are current-date lists applied across the whole one-year window; no historical membership feed was bought",
+      "dependent_rules_off": ["Strategy #5 (M10.7) full-breadth point-in-time membership mode; sector-proxy fallback stays separately labeled"],
+      "evidence": ["trade_alerts_build_docs/ROADMAP.md Phase 10 M10.7 row"]
+    },
+    {
+      "field": "historical stock borrow/short-locate data",
+      "status": "GAP",
+      "reason": "no borrow source was identified or priced under M0.2H/M0.2I; zero requests attempted",
+      "dependent_rules_off": ["any rule gating short-side entries on locate/borrow cost or availability"],
+      "evidence": ["trade_alerts_build_docs/M0_2H_SOURCE_PREFLIGHT.md"]
+    },
+    {
+      "field": "complete real option chain, full year, all 17 names (every strike/expiration, intraday)",
+      "status": "GAP",
+      "reason": "OPRA full-year chains priced at USD 1,088+, which the USD 60 D-101 budget cannot cover; not bought",
+      "dependent_rules_off": ["any options rule requiring full historical chain replay outside the targeted signal-selected contracts"],
+      "evidence": ["trade_alerts_build_docs/ROADMAP.md 'M0.2 / M9.3 owner-decision release' section"]
+    },
+    {
+      "field": "option intrabar tick path (mbp-1) for the full year",
+      "status": "GAP",
+      "reason": "priced at USD 548 for the equity mbp-1 add-on; deliberately not bought; trades+bbo-1m substitute for intrabar stop/target order and spread estimation, not for tick-level option quotes",
+      "dependent_rules_off": ["any rule requiring true option-quote-tick fill simulation"],
+      "evidence": ["trade_alerts_build_docs/ROADMAP.md 'M0.2 / M9.3 owner-decision release' section"]
+    },
+    {
+      "field": "free DoltHub option reference coverage for 5 of 17 names and intraday timestamps",
+      "status": "GAP",
+      "reason": "QQQ, IWM, GLD, USO, VXX returned zero rows; the source is one end-of-day snapshot per contract with a sampled strike ladder (29-44 of hundreds for SPY), so it cannot price a 0-7 DTE intraday entry/exit for any name",
+      "dependent_rules_off": ["any 0-7 DTE option entry/exit priced from this free source"],
+      "evidence": ["trade_alerts_build_docs/ROADMAP.md 'Free option-chain source checked before any option spending' section"]
+    },
+    {
+      "field": "OPRA pricing and coverage before 2023-03-28",
+      "status": "GAP",
+      "reason": "M0.2I V2 narrowed its cost check to the common start date shared by the three priced OPRA schemas; earlier dates remain unpriced and unattempted",
+      "dependent_rules_off": ["any rule requiring option history before 2023-03-28"],
+      "evidence": ["trade_alerts_build_docs/ROADMAP.md M0.2I V2 evidence reconciliation section"]
+    },
+    {
+      "field": "catalyst/news history feed",
+      "status": "GAP",
+      "reason": "unidentified and unpriced under M0.2H",
+      "dependent_rules_off": ["Strategy #6 (M11.1-M11.6) catalyst-gated rules"],
+      "evidence": ["trade_alerts_build_docs/ROADMAP.md Phase 11 section"]
+    },
+    {
+      "field": "existing collector date 2026-09-11 option parts, chain and open-interest",
+      "status": "GAP",
+      "reason": "the file-size inventory shows this date lacks option parts, chain and open-interest entirely; presence on other dates does not imply coverage on this one",
+      "dependent_rules_off": ["any continuity claim spanning 2026-09-11 for option chain/open-interest fields"],
+      "evidence": ["repairs/codex-subscription/m02c-file-size-inventory.json"]
+    },
+    {
+      "field": "13-ETF minute inventory: partial opening windows and provider-degraded dates",
+      "status": "GAP",
+      "reason": "4 of 15 sampled dates are flagged provider-degraded and opening windows are partial; not corrected or backfilled",
+      "dependent_rules_off": ["any rule requiring a complete opening-window bar sequence on a flagged date for the 13-ETF set"],
+      "evidence": ["repairs/codex-subscription/owner-active-supervision.json:latest_etf_source_inventory"]
+    }
+  ],
+  "fields_obtained_no_gap": [
+    {
+      "field": "one year of EQUS.MINI trades, bbo-1m, ohlcv-1m for the D-102 17-name universe, 2025-09-15 to 2026-09-15",
+      "evidence": "/home/openclaw/.openclaw/research-data/databento/core17-1y_2025-09_to_2026-09/manifest.json",
+      "note": "13 contiguous monthly files per schema, no date-range gap; see continuity check below"
+    },
+    {
+      "field": "current Schwab read-only quote/chain access (dated, bounded)",
+      "evidence": "repairs/codex-subscription/schwab-current-source-check/REPORT.md",
+      "note": "does not establish entitlement scope, NBBO fidelity or continuity beyond the two dated GETs"
+    }
+  ]
+}

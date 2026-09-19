@@ -8,6 +8,8 @@ from typing import Any
 
 from dotenv import load_dotenv
 
+from .trade_alerts_config import TradeAlertsConfig
+
 # Load .env from ~/.openclaw/.env (resolves correctly for both root and service users).
 # Use a try/except because Path.exists() raises PermissionError on Python <3.12
 # when the calling process lacks permission to stat the path (e.g. service user).
@@ -63,6 +65,11 @@ def load_config(path: str | Path | None = None) -> dict:
     with open(config_path) as f:
         raw = yaml.safe_load(f)
 
+    # Validate only the extension, before environment expansion. Legacy settings
+    # keep their existing contract; this namespace accepts literal non-secret data.
+    if isinstance(raw, dict) and "trade_alerts" in raw:
+        TradeAlertsConfig(raw["trade_alerts"])
+
     _config = _resolve_dict(raw)
     return _config
 
@@ -98,3 +105,8 @@ def reload():
     global _config
     _config = None
     return load_config()
+
+
+def get_trade_alerts_config() -> TradeAlertsConfig:
+    """Capture validated settings once for a new trade-alert/replay session."""
+    return TradeAlertsConfig(load_config().get("trade_alerts", {}))

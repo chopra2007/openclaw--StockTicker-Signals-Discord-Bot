@@ -1356,3 +1356,25 @@ put_flow_shortlist:
     stop_pt: "13:05"           # a few minutes after the 1:00 p.m. close
     quote_max_age_sec: 120     # older than this is stored and LABELLED stale, never dropped
     max_legs: 32               # 16 positions x 2 legs — a hard ceiling on one batch
+
+# Trade-alert foundation only. No runtime consumes these switches yet.
+# Unfinished trading rules stay unset; version labels are not approval records.
+trade_alerts:
+  schema_version: 1
+  config_version: FOUNDATION_V1
+  evaluation_enabled: false
+  strategies:
+    CRVOL_ORB5: {enabled: false, strategy_version: null, window: null}
+    HOD_COMP_RS: {enabled: false, strategy_version: null, window: null}
+    OR_FAILURE_REV: {enabled: false, strategy_version: null, window: null}
+    FIRST_PULLBACK_VWAP: {enabled: false, strategy_version: null, window: null}
+    INDEX_OPEN_DRIVE_BREADTH: {enabled: false, strategy_version: null, window: null}
+    GAP_FADE_FAILED_OPEN: {enabled: false, strategy_version: null, window: null}
+    CAT_FIRST_CONSOL: {enabled: false, strategy_version: null, window: null}
+    VP_ACCEPT_LVN: {enabled: false, strategy_version: null, window: null}
+  data:
+    collection_enabled: false
+    premarket_start: null  # Explicit Pacific HH:MM when the chosen path supplies it.
+  options: {enabled: false, policy_version: null}
+  alerts: {delivery_enabled: false, sink: recording}
+  research: {enabled: false, policy_version: null}

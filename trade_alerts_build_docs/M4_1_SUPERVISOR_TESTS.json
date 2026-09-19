@@ -1,0 +1,54 @@
+{
+  "milestone": "M4.1",
+  "status": "completed",
+  "verified_at_pacific": "2026-09-06T20:50:15-07:00",
+  "source_hash": "cbe9b00eff98bd19e368ed693eacfcb33b734acc4db62a7cdf14a36f4964095b",
+  "protected": true,
+  "stable": true,
+  "runs": [
+    {
+      "run": 1,
+      "tests": 720,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "seconds": 275.243,
+      "unexpected_isolation_denials": 0,
+      "cleanup_passed": true
+    },
+    {
+      "run": 2,
+      "tests": 720,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "seconds": 281.661,
+      "unexpected_isolation_denials": 0,
+      "cleanup_passed": true
+    }
+  ],
+  "m41_cases_per_run": 55,
+  "ordered_test_ids_match": true,
+  "records": {
+    "m41-strategy-interface-long-proof.json": {
+      "bytes": 16032,
+      "sha256": "23be25927e7f876715901a37b83504df58555e95db17d86b3bb34eccf48a8db6",
+      "matches_across_runs": true
+    },
+    "m41-strategy-interface-short-proof.json": {
+      "bytes": 16044,
+      "sha256": "4a3736d671827e4a447483a95f485546b3fbb20ca3d13e81f1827a3b41381593",
+      "matches_across_runs": true
+    }
+  },
+  "selectors": [
+    "tests/trade_alerts_contracts",
+    "tests/test_models.py",
+    "tests/test_schwab_client.py",
+    "tests/test_wolf_macro_brain.py::test_stock_sector_etf",
+    "tests/trade_alerts_contracts/test_strategy_interface.py"
+  ],
+  "databento_credit_used": 0,
+  "code_or_test_changes_during_finalization": false,
+  "next_milestone": "M4.2"
+}

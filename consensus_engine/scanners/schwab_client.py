@@ -573,16 +573,16 @@ def _period_to_calendar_days(period: Optional[str]) -> int:
     return table.get(period, 40)
 
 
-def get_price_history(symbol: str, *, period: Optional[str] = None,
-                      interval: str = "1d", start=None, end=None,
-                      extended_hours: bool = False) -> Optional["object"]:
-    """OHLCV bars as a yfinance-compatible DataFrame:
-    columns [Open, High, Low, Close, Volume], tz-aware America/New_York index.
+def get_price_history_payload(symbol: str, *, period: Optional[str] = None,
+                              interval: str = "1d", start=None, end=None,
+                              extended_hours: bool = False) -> dict:
+    """Return the raw response through the existing authenticated request path.
 
-    extended_hours: when True, includes premarket/after-hours bars (only
-    meaningful for intraday `interval`s -- Schwab ignores it for daily+).
-    Default False preserves the prior regular-session-only behavior."""
-    import pandas as pd
+    Request settings do not certify returned coverage or candle conventions.
+    New historical consumers retain this response before the legacy conversion.
+    This synchronous function has no fallback; asynchronous callers must use the
+    host's existing thread boundary. No runtime consumer is added here.
+    """
     from datetime import datetime, timedelta, timezone
 
     freq_type, freq = _FREQ_MAP.get(interval, ("daily", 1))
@@ -614,7 +614,22 @@ def get_price_history(symbol: str, *, period: Optional[str] = None,
             p_type, p_val = _PERIOD_MAP.get(period or "5d", ("day", 5))
             params["period"] = p_val if p_type == "day" else 10
 
-    d = _get("/pricehistory", params)
+    return _get("/pricehistory", params)
+
+
+def get_price_history(symbol: str, *, period: Optional[str] = None,
+                      interval: str = "1d", start=None, end=None,
+                      extended_hours: bool = False) -> Optional["object"]:
+    """OHLCV bars as a yfinance-compatible DataFrame.
+
+    Preserve existing columns, index, empty results and extended-hours behavior.
+    """
+    import pandas as pd
+
+    d = get_price_history_payload(
+        symbol, period=period, interval=interval, start=start, end=end,
+        extended_hours=extended_hours,
+    )
     candles = d.get("candles", []) or []
     if not candles:
         return None

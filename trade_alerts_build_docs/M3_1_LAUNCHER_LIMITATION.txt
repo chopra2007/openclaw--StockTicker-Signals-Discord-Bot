@@ -1,0 +1,101 @@
+M3.1 review-repair protected launcher attempt — 2026-09-06 Pacific
+
+Selector: tests/trade_alerts_contracts/test_core_price_features.py
+Result: exit 1 before either protected child or test collection.
+
+Traceback (most recent call last):
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 72, in <module>
+    raise SystemExit(main())
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 26, in main
+    os.chown(artifact_root, account.pw_uid, account.pw_gid)
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-sroc7mlm'
+
+The protection files were not changed or bypassed. No repair test passed or failed
+because collection never began. The earlier 549-test runs predate this repair. The
+supervisor must run the unchanged launcher twice outside this sandbox and return its
+artifacts to a fresh builder.
+
+M3.1 second review-repair protected launcher attempt — 2026-09-06 Pacific
+
+Selectors:
+- tests/trade_alerts_contracts
+- tests/test_models.py
+- tests/test_schwab_client.py
+- tests/test_wolf_macro_brain.py::test_stock_sector_etf
+- tests/trade_alerts_contracts/test_core_price_features.py
+
+Result: stopped before either protected child or test collection.
+
+Traceback (most recent call last):
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 72, in <module>
+    raise SystemExit(main())
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 26, in main
+    os.chown(artifact_root, account.pw_uid, account.pw_gid)
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-ci5g_qn0'
+
+This is the current local limitation. The earlier trace above and the 549/553-test
+supervisor runs are historical. The second repair needs two new protected runs
+and matching recordings from the supervisor. No protection was changed or bypassed.
+
+M3.1 compact-recording repair protected launcher attempt — 2026-09-06 Pacific
+
+Selectors:
+- tests/trade_alerts_contracts
+- tests/test_models.py
+- tests/test_schwab_client.py
+- tests/test_wolf_macro_brain.py::test_stock_sector_etf
+- tests/trade_alerts_contracts/test_core_price_features.py
+
+Result: stopped before either protected child or test collection.
+
+Traceback (most recent call last):
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 72, in <module>
+    raise SystemExit(main())
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 26, in main
+    os.chown(artifact_root, account.pw_uid, account.pw_gid)
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-vsuneqri'
+
+The test file now writes the compact recording required by the artifact-size repair.
+No test ran, and neither protection file was changed or bypassed. The supervisor
+must run the unchanged launcher twice and publish the new compact recordings.
+
+M3.1 unit/instrument repair protected launcher attempt — 2026-09-06 Pacific
+
+Selectors:
+- tests/trade_alerts_contracts
+- tests/test_models.py
+- tests/test_schwab_client.py
+- tests/test_wolf_macro_brain.py::test_stock_sector_etf
+- tests/trade_alerts_contracts/test_core_price_features.py
+
+Result: stopped before either protected child or test collection.
+
+Traceback (most recent call last):
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 72, in <module>
+    raise SystemExit(main())
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 26, in main
+    os.chown(artifact_root, account.pw_uid, account.pw_gid)
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-ruhx8u_r'
+
+The unit, venue-basis, finite-price and instrument repair has 40 written M3.1
+cases. Local compilation and Python 3.10 grammar parsing passed. No test ran
+outside the protection, and neither protection file was changed or bypassed.
+The earlier 569-test proof predates this repair.
+
+Fourth review repair — 2026-09-06 16:02:00 Pacific
+Exit code: 1. Stopped before either child or test collection.
+Traceback (most recent call last):
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 72, in <module>
+    raise SystemExit(main())
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 26, in main
+    os.chown(artifact_root, account.pw_uid, account.pw_gid)
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-byq2d5wg'
+
+Fifth review repair — 2026-09-06 16:35:57 Pacific
+Exit code: 1. Stopped before either child or test collection.
+Traceback (most recent call last):
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 72, in <module>
+    raise SystemExit(main())
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 26, in main
+    os.chown(artifact_root, account.pw_uid, account.pw_gid)
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-yfkvid9x'

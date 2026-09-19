@@ -1,0 +1,3073 @@
+{
+  "milestone": "M2.3",
+  "status": "completed",
+  "checked_at_pacific": "2026-09-06T12:07:11.962770-07:00",
+  "changed_files": [
+    "consensus_engine/quote_events.py",
+    "tests/trade_alerts_contracts/test_quote_events.py",
+    "trade_alerts_build_docs/CODING_STANDARDS.md",
+    "trade_alerts_build_docs/DATA_REQUIREMENTS.md",
+    "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md",
+    "trade_alerts_build_docs/M2_3_LAUNCHER_LIMITATION.txt",
+    "trade_alerts_build_docs/M2_3_LOCAL_CHECKS.json",
+    "trade_alerts_build_docs/M2_3_VERIFICATION.md",
+    "trade_alerts_build_docs/PROJECT_INDEX.md",
+    "trade_alerts_build_docs/ROADMAP.md",
+    "trade_alerts_build_docs/SESSION_PROTOCOL.md",
+    "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+  ],
+  "evidence_files": [
+    "trade_alerts_build_docs/M2_3_VERIFICATION.md",
+    "trade_alerts_build_docs/M2_3_LOCAL_CHECKS.json",
+    "trade_alerts_build_docs/M2_3_LAUNCHER_LIMITATION.txt"
+  ],
+  "tests": [
+    "tests/trade_alerts_contracts",
+    "tests/test_models.py",
+    "tests/test_schwab_client.py"
+  ],
+  "next_milestone": "M2.4",
+  "next_milestone_status": "M2.4 proposed after independent acceptance; protected proof and records-only finalization are complete",
+  "test_execution": "SUPERVISOR_PROTECTED_PASS: 490 tests in each of two fresh runs; identical 43-decision recordings; actual XML, isolation reports and logs inspected",
+  "independent_acceptance": "Pending supervisor independent review of repaired M2.3 and proposed M2.4 scope",
+  "historical_before_second_review_repair": {
+    "milestone": "M2.3",
+    "changed_files": [
+      "consensus_engine/quote_events.py",
+      "tests/trade_alerts_contracts/test_quote_events.py",
+      "trade_alerts_build_docs/CODING_STANDARDS.md",
+      "trade_alerts_build_docs/DATA_REQUIREMENTS.md",
+      "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md",
+      "trade_alerts_build_docs/M2_3_LAUNCHER_LIMITATION.txt",
+      "trade_alerts_build_docs/M2_3_LOCAL_CHECKS.json",
+      "trade_alerts_build_docs/M2_3_VERIFICATION.md",
+      "trade_alerts_build_docs/PROJECT_INDEX.md",
+      "trade_alerts_build_docs/ROADMAP.md",
+      "trade_alerts_build_docs/SESSION_PROTOCOL.md",
+      "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+    ],
+    "evidence_files": [
+      "trade_alerts_build_docs/M2_3_VERIFICATION.md",
+      "trade_alerts_build_docs/M2_3_LOCAL_CHECKS.json",
+      "trade_alerts_build_docs/M2_3_LAUNCHER_LIMITATION.txt"
+    ],
+    "tests": [
+      "tests/trade_alerts_contracts",
+      "tests/test_models.py",
+      "tests/test_schwab_client.py"
+    ],
+    "next_milestone": "M2.4",
+    "historical_before_review_repair": {
+      "milestone": "M2.3",
+      "status": "completed",
+      "checked_at_pacific": "2026-09-06T11:05:28.813022-07:00",
+      "changed_files": [
+        "consensus_engine/quote_events.py",
+        "tests/trade_alerts_contracts/test_quote_events.py",
+        "trade_alerts_build_docs/CODING_STANDARDS.md",
+        "trade_alerts_build_docs/DATA_REQUIREMENTS.md",
+        "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md",
+        "trade_alerts_build_docs/M2_3_LAUNCHER_LIMITATION.txt",
+        "trade_alerts_build_docs/M2_3_LOCAL_CHECKS.json",
+        "trade_alerts_build_docs/M2_3_VERIFICATION.md",
+        "trade_alerts_build_docs/PROJECT_INDEX.md",
+        "trade_alerts_build_docs/ROADMAP.md",
+        "trade_alerts_build_docs/SESSION_PROTOCOL.md",
+        "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+      ],
+      "evidence_files": [
+        "trade_alerts_build_docs/M2_3_VERIFICATION.md",
+        "trade_alerts_build_docs/M2_3_LOCAL_CHECKS.json",
+        "trade_alerts_build_docs/M2_3_LAUNCHER_LIMITATION.txt"
+      ],
+      "tests": [
+        "tests/trade_alerts_contracts",
+        "tests/test_models.py",
+        "tests/test_schwab_client.py"
+      ],
+      "test_execution": "SUPERVISOR_PROTECTED_PASS: 487 tests passed in each of two runs; builder inspected supplied artifacts without rerunning tests",
+      "next_milestone": "M2.4",
+      "independent_acceptance": "pending supervisor separate review",
+      "backup_path": "/tmp/trade-alerts-m23-finalize-t2tzpaeh",
+      "historical_local_attempts": [
+        {
+          "milestone": "M2.3",
+          "status": "ready_for_verification",
+          "checked_at_pacific": "2026-09-06T10:55:49.535391-07:00",
+          "backup_path": "/tmp/trade-alerts-m23-start-q3nr6h4p",
+          "starting_snapshot_files": 528,
+          "changed_files": [
+            "consensus_engine/quote_events.py",
+            "tests/trade_alerts_contracts/test_quote_events.py",
+            "trade_alerts_build_docs/CODING_STANDARDS.md",
+            "trade_alerts_build_docs/DATA_REQUIREMENTS.md",
+            "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md",
+            "trade_alerts_build_docs/M2_3_LAUNCHER_LIMITATION.txt",
+            "trade_alerts_build_docs/M2_3_LOCAL_CHECKS.json",
+            "trade_alerts_build_docs/M2_3_VERIFICATION.md",
+            "trade_alerts_build_docs/PROJECT_INDEX.md",
+            "trade_alerts_build_docs/ROADMAP.md",
+            "trade_alerts_build_docs/SESSION_PROTOCOL.md",
+            "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+          ],
+          "tests": [
+            "tests/trade_alerts_contracts",
+            "tests/test_models.py",
+            "tests/test_schwab_client.py"
+          ],
+          "test_execution": "NOT_RUN: unchanged launcher failed before either protected child",
+          "next_milestone": "M2.4",
+          "static_syntax": {
+            "source_compilation": [
+              "consensus_engine/quote_events.py",
+              "tests/trade_alerts_contracts/test_quote_events.py"
+            ],
+            "python_310_grammar": [
+              "consensus_engine/quote_events.py",
+              "tests/trade_alerts_contracts/test_quote_events.py"
+            ],
+            "application_imported": false,
+            "counts_as_test_pass": false
+          },
+          "protected_scripts_unchanged": true,
+          "existing_code_tests_configuration_unchanged": true,
+          "failing_test_list_unchanged": true,
+          "baseline_file_bytes": 0,
+          "existing_modes_ownership_preserved": true,
+          "new_file_ownership_attempts": [
+            {
+              "file": "consensus_engine/quote_events.py",
+              "restored": false,
+              "error": "[Errno 22] Invalid argument: '/home/openclaw/.openclaw/workspace/consensus_engine/quote_events.py'"
+            },
+            {
+              "file": "tests/trade_alerts_contracts/test_quote_events.py",
+              "restored": false,
+              "error": "[Errno 22] Invalid argument: '/home/openclaw/.openclaw/workspace/tests/trade_alerts_contracts/test_quote_events.py'"
+            },
+            {
+              "file": "trade_alerts_build_docs/M2_3_VERIFICATION.md",
+              "restored": false,
+              "error": "[Errno 22] Invalid argument: '/home/openclaw/.openclaw/workspace/trade_alerts_build_docs/M2_3_VERIFICATION.md'"
+            },
+            {
+              "file": "trade_alerts_build_docs/M2_3_LAUNCHER_LIMITATION.txt",
+              "restored": false,
+              "error": "[Errno 22] Invalid argument: '/home/openclaw/.openclaw/workspace/trade_alerts_build_docs/M2_3_LAUNCHER_LIMITATION.txt'"
+            },
+            {
+              "file": "trade_alerts_build_docs/M2_3_LOCAL_CHECKS.json",
+              "restored": false,
+              "error": "[Errno 22] Invalid argument: '/home/openclaw/.openclaw/workspace/trade_alerts_build_docs/M2_3_LOCAL_CHECKS.json'"
+            }
+          ],
+          "source_sha256": {
+            "consensus_engine/quote_events.py": "a7ce71347c0cd5aac39a30c6622f777b6f33d7e1168e6acc0d0bb3827496cf67",
+            "tests/trade_alerts_contracts/test_quote_events.py": "6b79d89ffc6ae8a14d87bef7d60c08eae987eb770932439dcc16697775109c3d",
+            "scripts/testing/run_trade_alerts_contracts.py": "6b609b643edfc467fc63480acd63ad50d4044616aec5efca61f32315af3d3ad2",
+            "scripts/testing/trade_alerts_contract_child.py": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c"
+          },
+          "all_new_switches_off": true,
+          "recording_sink": true,
+          "documentation_checks": {
+            "broken_links": [],
+            "unbalanced_fences": [],
+            "added_trailing_whitespace": [],
+            "secret_or_non_pacific_additions": [],
+            "all_nine_canonical_files_present": true
+          },
+          "definition_packets_unchanged": true,
+          "capability_map": {
+            "functional_rows": 31,
+            "additional_rows": 22,
+            "playbook_rows": 8
+          },
+          "final_launcher_attempt": {
+            "exit_code": 1,
+            "output_record": "trade_alerts_build_docs/M2_3_LAUNCHER_LIMITATION.txt",
+            "artifact_root": "/tmp/trade-alerts-m04-pq_bl40a",
+            "artifact_files": [],
+            "protected_tests_passed": false,
+            "error": "OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-pq_bl40a'",
+            "tests": [
+              "tests/trade_alerts_contracts",
+              "tests/test_models.py",
+              "tests/test_schwab_client.py"
+            ]
+          },
+          "final_snapshot_check": {
+            "entire_milestone_delta_matches": true,
+            "source_test_protection_hashes_match": true,
+            "unchanged_starting_file_contents": 521,
+            "changed_existing_files": [
+              "trade_alerts_build_docs/CODING_STANDARDS.md",
+              "trade_alerts_build_docs/DATA_REQUIREMENTS.md",
+              "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md",
+              "trade_alerts_build_docs/PROJECT_INDEX.md",
+              "trade_alerts_build_docs/ROADMAP.md",
+              "trade_alerts_build_docs/SESSION_PROTOCOL.md",
+              "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+            ],
+            "added_files": [
+              "consensus_engine/quote_events.py",
+              "tests/trade_alerts_contracts/test_quote_events.py",
+              "trade_alerts_build_docs/M2_3_LAUNCHER_LIMITATION.txt",
+              "trade_alerts_build_docs/M2_3_LOCAL_CHECKS.json",
+              "trade_alerts_build_docs/M2_3_VERIFICATION.md"
+            ],
+            "deletions": []
+          },
+          "final_documentation_check": {
+            "errors": [],
+            "assigned_milestone_explicit_row": true,
+            "live_branch_explicit_blocker": true,
+            "next_milestone_matches_saved_handoff": true
+          }
+        }
+      ],
+      "supervisor_verification": {
+        "supervisor_handoff_at_pacific": "2026-09-06T10:58:04-07:00",
+        "publication_sha256": "90dd7c718f4dc2737643ea2b5c9346cb4a962e6cf224749746d5ce0890417260",
+        "publication_files": {
+          "run-1/fixture.yaml": "1a578448b5de33f5e8a29399b09dbf3e4ac93298ae6b8ade7df5b2f868535de7",
+          "run-1/isolation.json": "0c0c7705879df92cf3c567a34ad74a9913a5e3d7fed9629eb1a4d97767b3f28d",
+          "run-1/m13-domain-model-proof.json": "2fae11128857ae58d0aebb510131c6bb06bd0988d57ae01600e4c703890ed4c7",
+          "run-1/m21-schwab-normalization-proof.json": "481aa8aad4ff3667fe01adafddea7c9e34677fe2367e3256966df5b8e3cef6ba",
+          "run-1/m22-history-proof.json": "8c8358e78348a6c13994400a7e6813fa328b471e2b51ba1336808a87c5ee2a56",
+          "run-1/m23-quote-events-proof.json": "1b229326ed7bdcac63d2aadc66cdc21f1b4ef42b8af6be847985c376cffdfe40",
+          "run-1/output.txt": "9c6c935cd8b4c7bc7ba714e85095f64d7e32d537174135e75bfa10154a5ab685",
+          "run-1/pipeline-obs.jsonl": "18e61d40d01e409bd21b39d0d2019dd69a3800b200ab663c7b1b0e8a9ba7c2fe",
+          "run-1/pytest.log": "5db0eaf1b2e6f8c4bada0560591dc59d81bd2be78fa6320a8bf7cc6f2f973dcb",
+          "run-1/results.xml": "7c114a5c44f1d0bc6e1b08a60973ed7107b227c7a321908cec806de7ba8387d3",
+          "run-1/synthetic_sources.json": "c02fec043afaa1a9c4cfd5c68ed9fc7d425dbf94d919b5f02680383e0da419d7",
+          "run-2/fixture.yaml": "1a578448b5de33f5e8a29399b09dbf3e4ac93298ae6b8ade7df5b2f868535de7",
+          "run-2/isolation.json": "0c0c7705879df92cf3c567a34ad74a9913a5e3d7fed9629eb1a4d97767b3f28d",
+          "run-2/m13-domain-model-proof.json": "2fae11128857ae58d0aebb510131c6bb06bd0988d57ae01600e4c703890ed4c7",
+          "run-2/m21-schwab-normalization-proof.json": "481aa8aad4ff3667fe01adafddea7c9e34677fe2367e3256966df5b8e3cef6ba",
+          "run-2/m22-history-proof.json": "8c8358e78348a6c13994400a7e6813fa328b471e2b51ba1336808a87c5ee2a56",
+          "run-2/m23-quote-events-proof.json": "1b229326ed7bdcac63d2aadc66cdc21f1b4ef42b8af6be847985c376cffdfe40",
+          "run-2/output.txt": "d80e067f1b2fbd003e8ac31867135b9bca05d6a3bd5210df4c0bc8b044e624b8",
+          "run-2/pipeline-obs.jsonl": "3ec0702444666792fc995fa8e7af90e5746884e435f1d296f9da5a4d01e502a5",
+          "run-2/pytest.log": "5db0eaf1b2e6f8c4bada0560591dc59d81bd2be78fa6320a8bf7cc6f2f973dcb",
+          "run-2/results.xml": "62d54a0f2cb9c915d43cc466eda27f1c44b9a725e4c76c22467a23ec3ed56264",
+          "run-2/synthetic_sources.json": "c02fec043afaa1a9c4cfd5c68ed9fc7d425dbf94d919b5f02680383e0da419d7",
+          "summary.json": "35c8d7a860314e09849eb928aa6d2dea930ce0f64293424247588aae8f53cd28"
+        },
+        "all_publication_hashes_match": true,
+        "publication_file_count": 23,
+        "publication_total_bytes": 317292,
+        "summary": {
+          "selectors": [
+            "tests/trade_alerts_contracts",
+            "tests/test_models.py",
+            "tests/test_schwab_client.py"
+          ],
+          "exit_codes": [
+            0,
+            0
+          ],
+          "runs": 2,
+          "databento_credit_used": 0
+        },
+        "runs": [
+          {
+            "run": 1,
+            "tests": 487,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "test_classes": {
+              "tests.trade_alerts_contracts.test_adapters_delivery": 21,
+              "tests.trade_alerts_contracts.test_configuration": 48,
+              "tests.trade_alerts_contracts.test_domain_models": 144,
+              "tests.trade_alerts_contracts.test_foundations": 10,
+              "tests.trade_alerts_contracts.test_historical_bars": 75,
+              "tests.trade_alerts_contracts.test_market_clock": 41,
+              "tests.trade_alerts_contracts.test_quote_events": 84,
+              "tests.trade_alerts_contracts.test_schwab_normalization": 41,
+              "tests.test_models": 7,
+              "tests.test_schwab_client": 16
+            },
+            "ordered_test_ids_sha256": "d622717e5f2c30ce4368db36f4edfe7737fe94abb75de6b52c4dbacddb67de89",
+            "output_summary": "487 passed in 14.50s",
+            "isolation": {
+              "pytest_exit_code": 0,
+              "sentinel_denials": {
+                "network": 2,
+                "credential_read": 1,
+                "database_path": 1,
+                "outside_write": 1,
+                "child_process": 1
+              },
+              "unexpected_denials": {},
+              "cleanup": {
+                "db_closed": true,
+                "http_closed": true,
+                "config_cleared": true,
+                "http_lock_cleared": true
+              },
+              "dotenv_calls_intercepted": 1,
+              "ipv6_probe_suppressed": true
+            },
+            "all_database_connections_temporary": true,
+            "output_and_pytest_logs_read": true
+          },
+          {
+            "run": 2,
+            "tests": 487,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "test_classes": {
+              "tests.trade_alerts_contracts.test_adapters_delivery": 21,
+              "tests.trade_alerts_contracts.test_configuration": 48,
+              "tests.trade_alerts_contracts.test_domain_models": 144,
+              "tests.trade_alerts_contracts.test_foundations": 10,
+              "tests.trade_alerts_contracts.test_historical_bars": 75,
+              "tests.trade_alerts_contracts.test_market_clock": 41,
+              "tests.trade_alerts_contracts.test_quote_events": 84,
+              "tests.trade_alerts_contracts.test_schwab_normalization": 41,
+              "tests.test_models": 7,
+              "tests.test_schwab_client": 16
+            },
+            "ordered_test_ids_sha256": "d622717e5f2c30ce4368db36f4edfe7737fe94abb75de6b52c4dbacddb67de89",
+            "output_summary": "487 passed in 14.79s",
+            "isolation": {
+              "pytest_exit_code": 0,
+              "sentinel_denials": {
+                "network": 2,
+                "credential_read": 1,
+                "database_path": 1,
+                "outside_write": 1,
+                "child_process": 1
+              },
+              "unexpected_denials": {},
+              "cleanup": {
+                "db_closed": true,
+                "http_closed": true,
+                "config_cleared": true,
+                "http_lock_cleared": true
+              },
+              "dotenv_calls_intercepted": 1,
+              "ipv6_probe_suppressed": true
+            },
+            "all_database_connections_temporary": true,
+            "output_and_pytest_logs_read": true
+          }
+        ],
+        "identical_ordered_test_ids": true,
+        "end_to_end": {
+          "test": "tests/trade_alerts_contracts/test_quote_events.py::test_normalized_events_failure_reconnect_recording_end_to_end",
+          "proof_filename": "m23-quote-events-proof.json",
+          "sha256": "1b229326ed7bdcac63d2aadc66cdc21f1b4ef42b8af6be847985c376cffdfe40",
+          "byte_identical": true,
+          "evidence": "SYNTHETIC_ONLY",
+          "interface_version": "M23_V1",
+          "policy_is_live_approval": false,
+          "provider_coverage_proven": false,
+          "decision_count": 27,
+          "forwarded_quote_ids": [
+            "q1",
+            "q2",
+            "q5",
+            "q10"
+          ],
+          "forwarded_trade_snapshot_ids": [
+            "q1",
+            "q3",
+            "q5",
+            "q10"
+          ],
+          "action_counts": {
+            "CONNECTED": 2,
+            "ACCEPTED": 11,
+            "CONTINUITY_CONFIRMED": 4,
+            "DUPLICATE": 2,
+            "INSPECTED": 3,
+            "OUT_OF_ORDER": 1,
+            "DISCONNECTED": 1,
+            "CONTINUITY_REJECTED": 2,
+            "GAP": 1
+          },
+          "decisions": [
+            {
+              "index": 0,
+              "at_pacific": "2026-06-30T06:35:00-07:00",
+              "action": "CONNECTED",
+              "input_record_id": null,
+              "retained_record_id": null,
+              "continuity": "LOST",
+              "epoch": 1,
+              "quote_age_seconds": null,
+              "trade_age_seconds": null,
+              "reasons": [
+                "MISSING_QUOTE",
+                "CONTINUITY_LOST"
+              ],
+              "usable": false,
+              "forward_quote": false,
+              "forward_trade": false
+            },
+            {
+              "index": 1,
+              "at_pacific": "2026-06-30T06:35:00-07:00",
+              "action": "ACCEPTED",
+              "input_record_id": "q0",
+              "retained_record_id": "q0",
+              "continuity": "LOST",
+              "epoch": 1,
+              "quote_age_seconds": 0.0,
+              "trade_age_seconds": 0.0,
+              "reasons": [
+                "CONTINUITY_LOST"
+              ],
+              "usable": false,
+              "forward_quote": false,
+              "forward_trade": false
+            },
+            {
+              "index": 2,
+              "at_pacific": "2026-06-30T06:35:00-07:00",
+              "action": "CONTINUITY_CONFIRMED",
+              "input_record_id": "q0",
+              "retained_record_id": "q0",
+              "continuity": "CONFIRMED",
+              "epoch": 1,
+              "quote_age_seconds": 0.0,
+              "trade_age_seconds": 0.0,
+              "reasons": [],
+              "usable": true,
+              "forward_quote": false,
+              "forward_trade": false
+            },
+            {
+              "index": 3,
+              "at_pacific": "2026-06-30T06:35:01-07:00",
+              "action": "ACCEPTED",
+              "input_record_id": "q1",
+              "retained_record_id": "q1",
+              "continuity": "CONFIRMED",
+              "epoch": 1,
+              "quote_age_seconds": 0.0,
+              "trade_age_seconds": 0.0,
+              "reasons": [],
+              "usable": true,
+              "forward_quote": true,
+              "forward_trade": true
+            },
+            {
+              "index": 4,
+              "at_pacific": "2026-06-30T06:35:02-07:00",
+              "action": "DUPLICATE",
+              "input_record_id": "q1-repeat",
+              "retained_record_id": "q1",
+              "continuity": "CONFIRMED",
+              "epoch": 1,
+              "quote_age_seconds": 1.0,
+              "trade_age_seconds": 1.0,
+              "reasons": [],
+              "usable": true,
+              "forward_quote": false,
+              "forward_trade": false
+            },
+            {
+              "index": 5,
+              "at_pacific": "2026-06-30T06:35:04-07:00",
+              "action": "INSPECTED",
+              "input_record_id": null,
+              "retained_record_id": "q1",
+              "continuity": "CONFIRMED",
+              "epoch": 1,
+              "quote_age_seconds": 3.0,
+              "trade_age_seconds": 3.0,
+              "reasons": [],
+              "usable": true,
+              "forward_quote": false,
+              "forward_trade": false
+            },
+            {
+              "index": 6,
+              "at_pacific": "2026-06-30T06:35:04.001000-07:00",
+              "action": "INSPECTED",
+              "input_record_id": null,
+              "retained_record_id": "q1",
+              "continuity": "CONFIRMED",
+              "epoch": 1,
+              "quote_age_seconds": 3.001,
+              "trade_age_seconds": 3.001,
+              "reasons": [
+                "QUOTE_STALE"
+              ],
+              "usable": false,
+              "forward_quote": false,
+              "forward_trade": false
+            },
+            {
+              "index": 7,
+              "at_pacific": "2026-06-30T06:35:05-07:00",
+              "action": "ACCEPTED",
+              "input_record_id": "q2",
+              "retained_record_id": "q2",
+              "continuity": "CONFIRMED",
+              "epoch": 1,
+              "quote_age_seconds": 0.0,
+              "trade_age_seconds": 4.0,
+              "reasons": [],
+              "usable": true,
+              "forward_quote": true,
+              "forward_trade": false
+            },
+            {
+              "index": 8,
+              "at_pacific": "2026-06-30T06:35:07-07:00",
+              "action": "ACCEPTED",
+              "input_record_id": "q3",
+              "retained_record_id": "q3",
+              "continuity": "CONFIRMED",
+              "epoch": 1,
+              "quote_age_seconds": 2.0,
+              "trade_age_seconds": 0.0,
+              "reasons": [],
+              "usable": true,
+              "forward_quote": false,
+              "forward_trade": true
+            },
+            {
+              "index": 9,
+              "at_pacific": "2026-06-30T06:35:08-07:00",
+              "action": "OUT_OF_ORDER",
+              "input_record_id": "late",
+              "retained_record_id": "q3",
+              "continuity": "LOST",
+              "epoch": 2,
+              "quote_age_seconds": 3.0,
+              "trade_age_seconds": 1.0,
+              "reasons": [
+                "SOURCE_BEFORE_RECOVERY",
+                "CONTINUITY_LOST"
+              ],
+              "usable": false,
+              "forward_quote": false,
+              "forward_trade": false
+            },
+            {
+              "index": 10,
+              "at_pacific": "2026-06-30T06:35:09-07:00",
+              "action": "DISCONNECTED",
+              "input_record_id": null,
+              "retained_record_id": "q3",
+              "continuity": "LOST",
+              "epoch": 3,
+              "quote_age_seconds": 4.0,
+              "trade_age_seconds": 2.0,
+              "reasons": [
+                "SOURCE_BEFORE_RECOVERY",
+                "QUOTE_STALE",
+                "DISCONNECTED",
+                "CONTINUITY_LOST"
+              ],
+              "usable": false,
+              "forward_quote": false,
+              "forward_trade": false
+            },
+            {
+              "index": 11,
+              "at_pacific": "2026-06-30T06:35:10-07:00",
+              "action": "CONNECTED",
+              "input_record_id": null,
+              "retained_record_id": "q3",
+              "continuity": "LOST",
+              "epoch": 4,
+              "quote_age_seconds": 5.0,
+              "trade_age_seconds": 3.0,
+              "reasons": [
+                "SOURCE_BEFORE_RECOVERY",
+                "QUOTE_STALE",
+                "CONTINUITY_LOST"
+              ],
+              "usable": false,
+              "forward_quote": false,
+              "forward_trade": false
+            },
+            {
+              "index": 12,
+              "at_pacific": "2026-06-30T06:35:10-07:00",
+              "action": "DUPLICATE",
+              "input_record_id": "q3-repeat",
+              "retained_record_id": "q3",
+              "continuity": "LOST",
+              "epoch": 4,
+              "quote_age_seconds": 5.0,
+              "trade_age_seconds": 3.0,
+              "reasons": [
+                "SOURCE_BEFORE_RECOVERY",
+                "QUOTE_STALE",
+                "CONTINUITY_LOST"
+              ],
+              "usable": false,
+              "forward_quote": false,
+              "forward_trade": false
+            },
+            {
+              "index": 13,
+              "at_pacific": "2026-06-30T06:35:11-07:00",
+              "action": "ACCEPTED",
+              "input_record_id": "q4",
+              "retained_record_id": "q4",
+              "continuity": "LOST",
+              "epoch": 4,
+              "quote_age_seconds": 0.0,
+              "trade_age_seconds": 0.0,
+              "reasons": [
+                "CONTINUITY_LOST"
+              ],
+              "usable": false,
+              "forward_quote": false,
+              "forward_trade": false
+            },
+            {
+              "index": 14,
+              "at_pacific": "2026-06-30T06:35:11-07:00",
+              "action": "CONTINUITY_REJECTED",
+              "input_record_id": "q4",
+              "retained_record_id": "q4",
+              "continuity": "LOST",
+              "epoch": 4,
+              "quote_age_seconds": 0.0,
+              "trade_age_seconds": 0.0,
+              "reasons": [
+                "CONTINUITY_LOST"
+              ],
+              "usable": false,
+              "forward_quote": false,
+              "forward_trade": false
+            },
+            {
+              "index": 15,
+              "at_pacific": "2026-06-30T06:35:11-07:00",
+              "action": "CONTINUITY_REJECTED",
+              "input_record_id": "q4",
+              "retained_record_id": "q4",
+              "continuity": "LOST",
+              "epoch": 4,
+              "quote_age_seconds": 0.0,
+              "trade_age_seconds": 0.0,
+              "reasons": [
+                "CONTINUITY_LOST"
+              ],
+              "usable": false,
+              "forward_quote": false,
+              "forward_trade": false
+            },
+            {
+              "index": 16,
+              "at_pacific": "2026-06-30T06:35:11-07:00",
+              "action": "CONTINUITY_CONFIRMED",
+              "input_record_id": "q4",
+              "retained_record_id": "q4",
+              "continuity": "CONFIRMED",
+              "epoch": 4,
+              "quote_age_seconds": 0.0,
+              "trade_age_seconds": 0.0,
+              "reasons": [],
+              "usable": true,
+              "forward_quote": false,
+              "forward_trade": false
+            },
+            {
+              "index": 17,
+              "at_pacific": "2026-06-30T06:35:12-07:00",
+              "action": "ACCEPTED",
+              "input_record_id": "q5",
+              "retained_record_id": "q5",
+              "continuity": "CONFIRMED",
+              "epoch": 4,
+              "quote_age_seconds": 0.0,
+              "trade_age_seconds": 0.0,
+              "reasons": [],
+              "usable": true,
+              "forward_quote": true,
+              "forward_trade": true
+            },
+            {
+              "index": 18,
+              "at_pacific": "2026-06-30T06:35:13-07:00",
+              "action": "GAP",
+              "input_record_id": null,
+              "retained_record_id": "q5",
+              "continuity": "LOST",
+              "epoch": 5,
+              "quote_age_seconds": 1.0,
+              "trade_age_seconds": 1.0,
+              "reasons": [
+                "SOURCE_BEFORE_RECOVERY",
+                "OBSERVATION_GAP",
+                "CONTINUITY_LOST"
+              ],
+              "usable": false,
+              "forward_quote": false,
+              "forward_trade": false
+            },
+            {
+              "index": 19,
+              "at_pacific": "2026-06-30T06:35:14-07:00",
+              "action": "ACCEPTED",
+              "input_record_id": "q6",
+              "retained_record_id": "q6",
+              "continuity": "LOST",
+              "epoch": 5,
+              "quote_age_seconds": 0.0,
+              "trade_age_seconds": 0.0,
+              "reasons": [
+                "CONTINUITY_LOST"
+              ],
+              "usable": false,
+              "forward_quote": false,
+              "forward_trade": false
+            },
+            {
+              "index": 20,
+              "at_pacific": "2026-06-30T06:35:14-07:00",
+              "action": "CONTINUITY_CONFIRMED",
+              "input_record_id": "q6",
+              "retained_record_id": "q6",
+              "continuity": "CONFIRMED",
+              "epoch": 5,
+              "quote_age_seconds": 0.0,
+              "trade_age_seconds": 0.0,
+              "reasons": [],
+              "usable": true,
+              "forward_quote": false,
+              "forward_trade": false
+            },
+            {
+              "index": 21,
+              "at_pacific": "2026-06-30T06:35:21-07:00",
+              "action": "INSPECTED",
+              "input_record_id": null,
+              "retained_record_id": "q6",
+              "continuity": "LOST",
+              "epoch": 6,
+              "quote_age_seconds": 7.0,
+              "trade_age_seconds": 7.0,
+              "reasons": [
+                "SOURCE_BEFORE_RECOVERY",
+                "QUOTE_STALE",
+                "TRADE_STALE",
+                "OBSERVATION_GAP",
+                "CONTINUITY_LOST"
+              ],
+              "usable": false,
+              "forward_quote": false,
+              "forward_trade": false
+            },
+            {
+              "index": 22,
+              "at_pacific": "2026-06-30T06:35:22-07:00",
+              "action": "ACCEPTED",
+              "input_record_id": "q7",
+              "retained_record_id": "q7",
+              "continuity": "LOST",
+              "epoch": 7,
+              "quote_age_seconds": 0.0,
+              "trade_age_seconds": 0.0,
+              "reasons": [
+                "SOURCE_QUALITY_STALE",
+                "QUOTE_STATUS_STALE",
+                "DELAYED",
+                "CONTINUITY_LOST"
+              ],
+              "usable": false,
+              "forward_quote": false,
+              "forward_trade": false
+            },
+            {
+              "index": 23,
+              "at_pacific": "2026-06-30T06:35:23-07:00",
+              "action": "ACCEPTED",
+              "input_record_id": "q8",
+              "retained_record_id": "q8",
+              "continuity": "LOST",
+              "epoch": 8,
+              "quote_age_seconds": null,
+              "trade_age_seconds": null,
+              "reasons": [
+                "QUOTE_STATUS_MISSING",
+                "DELAY_UNKNOWN",
+                "MISSING_POSITIVE_SIDES",
+                "MISSING_POSITIVE_LAST",
+                "QUOTE_TIME_UNKNOWN",
+                "TRADE_TIME_UNKNOWN",
+                "CONTINUITY_LOST"
+              ],
+              "usable": false,
+              "forward_quote": false,
+              "forward_trade": false
+            },
+            {
+              "index": 24,
+              "at_pacific": "2026-06-30T06:35:24-07:00",
+              "action": "ACCEPTED",
+              "input_record_id": "q9",
+              "retained_record_id": "q9",
+              "continuity": "LOST",
+              "epoch": 8,
+              "quote_age_seconds": 0.0,
+              "trade_age_seconds": 0.0,
+              "reasons": [
+                "CONTINUITY_LOST"
+              ],
+              "usable": false,
+              "forward_quote": false,
+              "forward_trade": false
+            },
+            {
+              "index": 25,
+              "at_pacific": "2026-06-30T06:35:24-07:00",
+              "action": "CONTINUITY_CONFIRMED",
+              "input_record_id": "q9",
+              "retained_record_id": "q9",
+              "continuity": "CONFIRMED",
+              "epoch": 8,
+              "quote_age_seconds": 0.0,
+              "trade_age_seconds": 0.0,
+              "reasons": [],
+              "usable": true,
+              "forward_quote": false,
+              "forward_trade": false
+            },
+            {
+              "index": 26,
+              "at_pacific": "2026-06-30T06:35:25-07:00",
+              "action": "ACCEPTED",
+              "input_record_id": "q10",
+              "retained_record_id": "q10",
+              "continuity": "CONFIRMED",
+              "epoch": 8,
+              "quote_age_seconds": 0.0,
+              "trade_age_seconds": 0.0,
+              "reasons": [],
+              "usable": true,
+              "forward_quote": true,
+              "forward_trade": true
+            }
+          ]
+        },
+        "prior_record_normalization_history_proofs_byte_identical": true
+      },
+      "source_verification": {
+        "source_hash": "211f42f66ee5243e84aa56165758abc92d2b1c2cd46d2d8781fdff2f694b8a90",
+        "manifest_file_count": 776,
+        "all_saved_file_contents_match_before_edits": true,
+        "source_hash_matches_handoff": true,
+        "source_test_protection_sha256": {
+          "consensus_engine/quote_events.py": "a7ce71347c0cd5aac39a30c6622f777b6f33d7e1168e6acc0d0bb3827496cf67",
+          "tests/trade_alerts_contracts/test_quote_events.py": "6b79d89ffc6ae8a14d87bef7d60c08eae987eb770932439dcc16697775109c3d",
+          "scripts/testing/run_trade_alerts_contracts.py": "6b609b643edfc467fc63480acd63ad50d4044616aec5efca61f32315af3d3ad2",
+          "scripts/testing/trade_alerts_contract_child.py": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c"
+        },
+        "records_only_finalization": true,
+        "finalization_changed_files": [
+          "trade_alerts_build_docs/M2_3_VERIFICATION.md",
+          "trade_alerts_build_docs/M2_3_LOCAL_CHECKS.json",
+          "trade_alerts_build_docs/ROADMAP.md"
+        ],
+        "protected_tests_rerun_by_builder": false,
+        "application_imported_or_run": false,
+        "ownership_note": "Supervisor manifest records project ownership. The sandbox maps old and new files to the same different local owner; host ownership cannot be independently confirmed here. No ownership change was attempted.",
+        "local_document_ownership_modes_preserved": true
+      },
+      "whole_milestone_delta": {
+        "starting_snapshot_files": 528,
+        "changed_existing_files": [
+          "trade_alerts_build_docs/CODING_STANDARDS.md",
+          "trade_alerts_build_docs/DATA_REQUIREMENTS.md",
+          "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md",
+          "trade_alerts_build_docs/PROJECT_INDEX.md",
+          "trade_alerts_build_docs/ROADMAP.md",
+          "trade_alerts_build_docs/SESSION_PROTOCOL.md",
+          "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+        ],
+        "added_files": [
+          "consensus_engine/quote_events.py",
+          "tests/trade_alerts_contracts/test_quote_events.py",
+          "trade_alerts_build_docs/M2_3_LAUNCHER_LIMITATION.txt",
+          "trade_alerts_build_docs/M2_3_LOCAL_CHECKS.json",
+          "trade_alerts_build_docs/M2_3_VERIFICATION.md"
+        ],
+        "deletions": [],
+        "matches_controller_supplied_delta": true
+      },
+      "all_new_switches_off": true,
+      "recording_sink": true,
+      "failing_test_list_unchanged": true,
+      "definition_packets_unchanged": true,
+      "remaining_gates": {
+        "M2.3_live_provider_completion": "BLOCKED: official streaming fields/partial updates, current access/subscriptions, timing/coverage, refresh/reconnect/warm-up, shared capacity and separately supervised access; reopening proof in M2_3_VERIFICATION section 7",
+        "M2.4": "Proposed dependency-ready offline supplied-reference scope in M2_3_VERIFICATION section 6, after independent M2.3 acceptance",
+        "M0.2": "Actual source history/finality/adjustment/corporate-action and reference coverage remain unverified",
+        "M0.3": "M0.3B remains proposed; the other seven strategy definitions remain required",
+        "later_features": "All unfinished and full-data roadmap work remains required"
+      },
+      "scope_of_finalization": "Only M2_3_VERIFICATION.md, M2_3_LOCAL_CHECKS.json and ROADMAP.md updated. Earlier pending-proof wording in other canonical files is identified as historical in M2_3_VERIFICATION section 8 and superseded by ROADMAP section 31.",
+      "finalization_checks": {
+        "checked_at_pacific": "2026-09-06T11:06:42.083585-07:00",
+        "finalization_changed_files": [
+          "trade_alerts_build_docs/M2_3_LOCAL_CHECKS.json",
+          "trade_alerts_build_docs/M2_3_VERIFICATION.md",
+          "trade_alerts_build_docs/ROADMAP.md"
+        ],
+        "unexpected_changed_files": [],
+        "unchanged_supervisor_manifest_file_contents": 773,
+        "local_modes_ownership_changes": [],
+        "code_tests_configuration_protection_unchanged": true,
+        "failing_test_list_unchanged": true,
+        "document_checks": {
+          "errors": [],
+          "local_links_checked": 25,
+          "all_nine_canonical_files_present": true,
+          "other_roadmap_checkbox_rows_preserved": true,
+          "assigned_milestone_completed_row": true,
+          "required_live_branch_blocked_row": true,
+          "next_milestone_matches_saved_handoff": true,
+          "public_addition_scans_pass": true,
+          "superseded_pending_proof_wording_identified_in_current_records": true
+        },
+        "capability_map": {
+          "functional_rows": 31,
+          "additional_rows": 22,
+          "playbook_rows": 8
+        },
+        "all_new_switches_off": true,
+        "recording_sink": true
+      }
+    },
+    "historical_proof_applies_to_repaired_source": false,
+    "supervisor_verification": {
+      "supervisor_handoff_at_pacific": "2026-09-06T11:25:50-07:00",
+      "inspected_at_pacific": "2026-09-06T11:30:49.308380-07:00",
+      "publication_sha256": "e9db1da17238d1e943215bbd00f7594c0243f9568ada37c7a70d0165d053c097",
+      "publication_files": {
+        "run-1/fixture.yaml": "1a578448b5de33f5e8a29399b09dbf3e4ac93298ae6b8ade7df5b2f868535de7",
+        "run-1/isolation.json": "0c0c7705879df92cf3c567a34ad74a9913a5e3d7fed9629eb1a4d97767b3f28d",
+        "run-1/m13-domain-model-proof.json": "2fae11128857ae58d0aebb510131c6bb06bd0988d57ae01600e4c703890ed4c7",
+        "run-1/m21-schwab-normalization-proof.json": "481aa8aad4ff3667fe01adafddea7c9e34677fe2367e3256966df5b8e3cef6ba",
+        "run-1/m22-history-proof.json": "8c8358e78348a6c13994400a7e6813fa328b471e2b51ba1336808a87c5ee2a56",
+        "run-1/m23-quote-events-proof.json": "915e86e03cfde40c903c0c4b490080bb9b28ee525ef45f291233493e9bfd2b71",
+        "run-1/output.txt": "19c52b60ecd7b1acfef926153e73e95f27b0e66badc99572017481e1e8b368c4",
+        "run-1/pipeline-obs.jsonl": "fa3faa6ce559da1fa5e7800d3b5044a094d869b2d10f8adc7fbdc5aae8c57e37",
+        "run-1/pytest.log": "5db0eaf1b2e6f8c4bada0560591dc59d81bd2be78fa6320a8bf7cc6f2f973dcb",
+        "run-1/results.xml": "7cac4a01132d2168fcc72b88cc8aa2ff51a9fe4eac5681e5af8eb66b6d270623",
+        "run-1/synthetic_sources.json": "c02fec043afaa1a9c4cfd5c68ed9fc7d425dbf94d919b5f02680383e0da419d7",
+        "run-2/fixture.yaml": "1a578448b5de33f5e8a29399b09dbf3e4ac93298ae6b8ade7df5b2f868535de7",
+        "run-2/isolation.json": "0c0c7705879df92cf3c567a34ad74a9913a5e3d7fed9629eb1a4d97767b3f28d",
+        "run-2/m13-domain-model-proof.json": "2fae11128857ae58d0aebb510131c6bb06bd0988d57ae01600e4c703890ed4c7",
+        "run-2/m21-schwab-normalization-proof.json": "481aa8aad4ff3667fe01adafddea7c9e34677fe2367e3256966df5b8e3cef6ba",
+        "run-2/m22-history-proof.json": "8c8358e78348a6c13994400a7e6813fa328b471e2b51ba1336808a87c5ee2a56",
+        "run-2/m23-quote-events-proof.json": "915e86e03cfde40c903c0c4b490080bb9b28ee525ef45f291233493e9bfd2b71",
+        "run-2/output.txt": "a13b5c5507fd03054450008e4ae971e4fb1eaf4a589b822305ab95301fab6297",
+        "run-2/pipeline-obs.jsonl": "133a166530360a7e5b3cf5715f6e80f235e4e52d139ac6cdd2244b10541c2cd1",
+        "run-2/pytest.log": "5db0eaf1b2e6f8c4bada0560591dc59d81bd2be78fa6320a8bf7cc6f2f973dcb",
+        "run-2/results.xml": "69b6386610947c34e20db64a19307b075a32b81b898fe6b7184ca939ffb68004",
+        "run-2/synthetic_sources.json": "c02fec043afaa1a9c4cfd5c68ed9fc7d425dbf94d919b5f02680383e0da419d7",
+        "summary.json": "35c8d7a860314e09849eb928aa6d2dea930ce0f64293424247588aae8f53cd28"
+      },
+      "publication_file_count": 23,
+      "publication_total_bytes": 343979,
+      "all_publication_hashes_match": true,
+      "summary": {
+        "commands": [
+          "tests/trade_alerts_contracts",
+          "tests/test_models.py",
+          "tests/test_schwab_client.py"
+        ],
+        "exit_codes": [
+          0,
+          0
+        ],
+        "runs": 2,
+        "databento_credit_used": 0
+      },
+      "runs": [
+        {
+          "run": 1,
+          "counts": {
+            "tests": 489,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          "m23_cases": 86,
+          "repair_test_ids": [
+            "tests.trade_alerts_contracts.test_quote_events::test_repeated_timestamps_cannot_hide_invalid_source_time[None-SOURCE_TIME_UNKNOWN]",
+            "tests.trade_alerts_contracts.test_quote_events::test_repeated_timestamps_cannot_hide_invalid_source_time[source_time1-SOURCE_SESSION_MISMATCH]"
+          ],
+          "end_to_end_test_id": "tests.trade_alerts_contracts.test_quote_events::test_normalized_events_failure_reconnect_recording_end_to_end",
+          "test_ids_sha256": "1b4bf38b33e82cc6b913cadfc2fd39411bf3ee5c314b2371a8607ac63a0c848c",
+          "sentinel_denials": {
+            "network": 2,
+            "credential_read": 1,
+            "database_path": 1,
+            "outside_write": 1,
+            "child_process": 1
+          },
+          "unexpected_denials": {},
+          "cleanup": {
+            "db_closed": true,
+            "http_closed": true,
+            "config_cleared": true,
+            "http_lock_cleared": true
+          },
+          "temporary_database_connections": 4,
+          "all_database_connections_temporary": true,
+          "log_result_lines": [
+            "489 passed in 14.71s"
+          ],
+          "diagnostic_log": "Eight lines from synthetic delivery failure/missing-credential cases; no unexpected isolation denial"
+        },
+        {
+          "run": 2,
+          "counts": {
+            "tests": 489,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          "m23_cases": 86,
+          "repair_test_ids": [
+            "tests.trade_alerts_contracts.test_quote_events::test_repeated_timestamps_cannot_hide_invalid_source_time[None-SOURCE_TIME_UNKNOWN]",
+            "tests.trade_alerts_contracts.test_quote_events::test_repeated_timestamps_cannot_hide_invalid_source_time[source_time1-SOURCE_SESSION_MISMATCH]"
+          ],
+          "end_to_end_test_id": "tests.trade_alerts_contracts.test_quote_events::test_normalized_events_failure_reconnect_recording_end_to_end",
+          "test_ids_sha256": "1b4bf38b33e82cc6b913cadfc2fd39411bf3ee5c314b2371a8607ac63a0c848c",
+          "sentinel_denials": {
+            "network": 2,
+            "credential_read": 1,
+            "database_path": 1,
+            "outside_write": 1,
+            "child_process": 1
+          },
+          "unexpected_denials": {},
+          "cleanup": {
+            "db_closed": true,
+            "http_closed": true,
+            "config_cleared": true,
+            "http_lock_cleared": true
+          },
+          "temporary_database_connections": 4,
+          "all_database_connections_temporary": true,
+          "log_result_lines": [
+            "489 passed in 14.05s"
+          ],
+          "diagnostic_log": "Eight lines from synthetic delivery failure/missing-credential cases; no unexpected isolation denial"
+        }
+      ],
+      "test_ids_match": true,
+      "matching_proof_files": [
+        "m13-domain-model-proof.json",
+        "m21-schwab-normalization-proof.json",
+        "m22-history-proof.json",
+        "m23-quote-events-proof.json"
+      ],
+      "repaired_proof_sha256": "915e86e03cfde40c903c0c4b490080bb9b28ee525ef45f291233493e9bfd2b71",
+      "decision_count": 35,
+      "forwarded_quote_ids": [
+        "q1",
+        "q2",
+        "q5",
+        "q10",
+        "q14"
+      ],
+      "forwarded_trade_snapshot_ids": [
+        "q1",
+        "q3",
+        "q5",
+        "q10",
+        "q14"
+      ],
+      "decision_summaries": [
+        {
+          "at_pacific": "2026-06-30T06:35:00-07:00",
+          "action": "CONNECTED",
+          "input_record_id": null,
+          "current_record_id": null,
+          "usable": false,
+          "continuity": "LOST",
+          "epoch": 1,
+          "reasons": [
+            "MISSING_QUOTE",
+            "CONTINUITY_LOST"
+          ],
+          "forward_quote": false,
+          "forward_trade": false,
+          "quote_age_seconds": null,
+          "trade_age_seconds": null
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:00-07:00",
+          "action": "ACCEPTED",
+          "input_record_id": "q0",
+          "current_record_id": "q0",
+          "usable": false,
+          "continuity": "LOST",
+          "epoch": 1,
+          "reasons": [
+            "CONTINUITY_LOST"
+          ],
+          "forward_quote": false,
+          "forward_trade": false,
+          "quote_age_seconds": 0.0,
+          "trade_age_seconds": 0.0
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:00-07:00",
+          "action": "CONTINUITY_CONFIRMED",
+          "input_record_id": "q0",
+          "current_record_id": "q0",
+          "usable": true,
+          "continuity": "CONFIRMED",
+          "epoch": 1,
+          "reasons": [],
+          "forward_quote": false,
+          "forward_trade": false,
+          "quote_age_seconds": 0.0,
+          "trade_age_seconds": 0.0
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:01-07:00",
+          "action": "ACCEPTED",
+          "input_record_id": "q1",
+          "current_record_id": "q1",
+          "usable": true,
+          "continuity": "CONFIRMED",
+          "epoch": 1,
+          "reasons": [],
+          "forward_quote": true,
+          "forward_trade": true,
+          "quote_age_seconds": 0.0,
+          "trade_age_seconds": 0.0
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:02-07:00",
+          "action": "DUPLICATE",
+          "input_record_id": "q1-repeat",
+          "current_record_id": "q1",
+          "usable": true,
+          "continuity": "CONFIRMED",
+          "epoch": 1,
+          "reasons": [],
+          "forward_quote": false,
+          "forward_trade": false,
+          "quote_age_seconds": 1.0,
+          "trade_age_seconds": 1.0
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:04-07:00",
+          "action": "INSPECTED",
+          "input_record_id": null,
+          "current_record_id": "q1",
+          "usable": true,
+          "continuity": "CONFIRMED",
+          "epoch": 1,
+          "reasons": [],
+          "forward_quote": false,
+          "forward_trade": false,
+          "quote_age_seconds": 3.0,
+          "trade_age_seconds": 3.0
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:04.001000-07:00",
+          "action": "INSPECTED",
+          "input_record_id": null,
+          "current_record_id": "q1",
+          "usable": false,
+          "continuity": "CONFIRMED",
+          "epoch": 1,
+          "reasons": [
+            "QUOTE_STALE"
+          ],
+          "forward_quote": false,
+          "forward_trade": false,
+          "quote_age_seconds": 3.001,
+          "trade_age_seconds": 3.001
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:05-07:00",
+          "action": "ACCEPTED",
+          "input_record_id": "q2",
+          "current_record_id": "q2",
+          "usable": true,
+          "continuity": "CONFIRMED",
+          "epoch": 1,
+          "reasons": [],
+          "forward_quote": true,
+          "forward_trade": false,
+          "quote_age_seconds": 0.0,
+          "trade_age_seconds": 4.0
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:07-07:00",
+          "action": "ACCEPTED",
+          "input_record_id": "q3",
+          "current_record_id": "q3",
+          "usable": true,
+          "continuity": "CONFIRMED",
+          "epoch": 1,
+          "reasons": [],
+          "forward_quote": false,
+          "forward_trade": true,
+          "quote_age_seconds": 2.0,
+          "trade_age_seconds": 0.0
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:08-07:00",
+          "action": "OUT_OF_ORDER",
+          "input_record_id": "late",
+          "current_record_id": "q3",
+          "usable": false,
+          "continuity": "LOST",
+          "epoch": 2,
+          "reasons": [
+            "SOURCE_BEFORE_RECOVERY",
+            "CONTINUITY_LOST"
+          ],
+          "forward_quote": false,
+          "forward_trade": false,
+          "quote_age_seconds": 3.0,
+          "trade_age_seconds": 1.0
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:09-07:00",
+          "action": "DISCONNECTED",
+          "input_record_id": null,
+          "current_record_id": "q3",
+          "usable": false,
+          "continuity": "LOST",
+          "epoch": 3,
+          "reasons": [
+            "SOURCE_BEFORE_RECOVERY",
+            "QUOTE_STALE",
+            "DISCONNECTED",
+            "CONTINUITY_LOST"
+          ],
+          "forward_quote": false,
+          "forward_trade": false,
+          "quote_age_seconds": 4.0,
+          "trade_age_seconds": 2.0
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:10-07:00",
+          "action": "CONNECTED",
+          "input_record_id": null,
+          "current_record_id": "q3",
+          "usable": false,
+          "continuity": "LOST",
+          "epoch": 4,
+          "reasons": [
+            "SOURCE_BEFORE_RECOVERY",
+            "QUOTE_STALE",
+            "CONTINUITY_LOST"
+          ],
+          "forward_quote": false,
+          "forward_trade": false,
+          "quote_age_seconds": 5.0,
+          "trade_age_seconds": 3.0
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:10-07:00",
+          "action": "DUPLICATE",
+          "input_record_id": "q3-repeat",
+          "current_record_id": "q3",
+          "usable": false,
+          "continuity": "LOST",
+          "epoch": 4,
+          "reasons": [
+            "SOURCE_BEFORE_RECOVERY",
+            "QUOTE_STALE",
+            "CONTINUITY_LOST"
+          ],
+          "forward_quote": false,
+          "forward_trade": false,
+          "quote_age_seconds": 5.0,
+          "trade_age_seconds": 3.0
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:11-07:00",
+          "action": "ACCEPTED",
+          "input_record_id": "q4",
+          "current_record_id": "q4",
+          "usable": false,
+          "continuity": "LOST",
+          "epoch": 4,
+          "reasons": [
+            "CONTINUITY_LOST"
+          ],
+          "forward_quote": false,
+          "forward_trade": false,
+          "quote_age_seconds": 0.0,
+          "trade_age_seconds": 0.0
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:11-07:00",
+          "action": "CONTINUITY_REJECTED",
+          "input_record_id": "q4",
+          "current_record_id": "q4",
+          "usable": false,
+          "continuity": "LOST",
+          "epoch": 4,
+          "reasons": [
+            "CONTINUITY_LOST"
+          ],
+          "forward_quote": false,
+          "forward_trade": false,
+          "quote_age_seconds": 0.0,
+          "trade_age_seconds": 0.0
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:11-07:00",
+          "action": "CONTINUITY_REJECTED",
+          "input_record_id": "q4",
+          "current_record_id": "q4",
+          "usable": false,
+          "continuity": "LOST",
+          "epoch": 4,
+          "reasons": [
+            "CONTINUITY_LOST"
+          ],
+          "forward_quote": false,
+          "forward_trade": false,
+          "quote_age_seconds": 0.0,
+          "trade_age_seconds": 0.0
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:11-07:00",
+          "action": "CONTINUITY_CONFIRMED",
+          "input_record_id": "q4",
+          "current_record_id": "q4",
+          "usable": true,
+          "continuity": "CONFIRMED",
+          "epoch": 4,
+          "reasons": [],
+          "forward_quote": false,
+          "forward_trade": false,
+          "quote_age_seconds": 0.0,
+          "trade_age_seconds": 0.0
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:12-07:00",
+          "action": "ACCEPTED",
+          "input_record_id": "q5",
+          "current_record_id": "q5",
+          "usable": true,
+          "continuity": "CONFIRMED",
+          "epoch": 4,
+          "reasons": [],
+          "forward_quote": true,
+          "forward_trade": true,
+          "quote_age_seconds": 0.0,
+          "trade_age_seconds": 0.0
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:13-07:00",
+          "action": "GAP",
+          "input_record_id": null,
+          "current_record_id": "q5",
+          "usable": false,
+          "continuity": "LOST",
+          "epoch": 5,
+          "reasons": [
+            "SOURCE_BEFORE_RECOVERY",
+            "OBSERVATION_GAP",
+            "CONTINUITY_LOST"
+          ],
+          "forward_quote": false,
+          "forward_trade": false,
+          "quote_age_seconds": 1.0,
+          "trade_age_seconds": 1.0
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:14-07:00",
+          "action": "ACCEPTED",
+          "input_record_id": "q6",
+          "current_record_id": "q6",
+          "usable": false,
+          "continuity": "LOST",
+          "epoch": 5,
+          "reasons": [
+            "CONTINUITY_LOST"
+          ],
+          "forward_quote": false,
+          "forward_trade": false,
+          "quote_age_seconds": 0.0,
+          "trade_age_seconds": 0.0
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:14-07:00",
+          "action": "CONTINUITY_CONFIRMED",
+          "input_record_id": "q6",
+          "current_record_id": "q6",
+          "usable": true,
+          "continuity": "CONFIRMED",
+          "epoch": 5,
+          "reasons": [],
+          "forward_quote": false,
+          "forward_trade": false,
+          "quote_age_seconds": 0.0,
+          "trade_age_seconds": 0.0
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:21-07:00",
+          "action": "INSPECTED",
+          "input_record_id": null,
+          "current_record_id": "q6",
+          "usable": false,
+          "continuity": "LOST",
+          "epoch": 6,
+          "reasons": [
+            "SOURCE_BEFORE_RECOVERY",
+            "QUOTE_STALE",
+            "TRADE_STALE",
+            "OBSERVATION_GAP",
+            "CONTINUITY_LOST"
+          ],
+          "forward_quote": false,
+          "forward_trade": false,
+          "quote_age_seconds": 7.0,
+          "trade_age_seconds": 7.0
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:22-07:00",
+          "action": "ACCEPTED",
+          "input_record_id": "q7",
+          "current_record_id": "q7",
+          "usable": false,
+          "continuity": "LOST",
+          "epoch": 7,
+          "reasons": [
+            "SOURCE_QUALITY_STALE",
+            "QUOTE_STATUS_STALE",
+            "DELAYED",
+            "CONTINUITY_LOST"
+          ],
+          "forward_quote": false,
+          "forward_trade": false,
+          "quote_age_seconds": 0.0,
+          "trade_age_seconds": 0.0
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:23-07:00",
+          "action": "ACCEPTED",
+          "input_record_id": "q8",
+          "current_record_id": "q8",
+          "usable": false,
+          "continuity": "LOST",
+          "epoch": 8,
+          "reasons": [
+            "QUOTE_STATUS_MISSING",
+            "DELAY_UNKNOWN",
+            "MISSING_POSITIVE_SIDES",
+            "MISSING_POSITIVE_LAST",
+            "QUOTE_TIME_UNKNOWN",
+            "TRADE_TIME_UNKNOWN",
+            "CONTINUITY_LOST"
+          ],
+          "forward_quote": false,
+          "forward_trade": false,
+          "quote_age_seconds": null,
+          "trade_age_seconds": null
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:24-07:00",
+          "action": "ACCEPTED",
+          "input_record_id": "q9",
+          "current_record_id": "q9",
+          "usable": false,
+          "continuity": "LOST",
+          "epoch": 8,
+          "reasons": [
+            "CONTINUITY_LOST"
+          ],
+          "forward_quote": false,
+          "forward_trade": false,
+          "quote_age_seconds": 0.0,
+          "trade_age_seconds": 0.0
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:24-07:00",
+          "action": "CONTINUITY_CONFIRMED",
+          "input_record_id": "q9",
+          "current_record_id": "q9",
+          "usable": true,
+          "continuity": "CONFIRMED",
+          "epoch": 8,
+          "reasons": [],
+          "forward_quote": false,
+          "forward_trade": false,
+          "quote_age_seconds": 0.0,
+          "trade_age_seconds": 0.0
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:25-07:00",
+          "action": "ACCEPTED",
+          "input_record_id": "q10",
+          "current_record_id": "q10",
+          "usable": true,
+          "continuity": "CONFIRMED",
+          "epoch": 8,
+          "reasons": [],
+          "forward_quote": true,
+          "forward_trade": true,
+          "quote_age_seconds": 0.0,
+          "trade_age_seconds": 0.0
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:26-07:00",
+          "action": "ACCEPTED",
+          "input_record_id": "q11-source-missing",
+          "current_record_id": "q11-source-missing",
+          "usable": false,
+          "continuity": "LOST",
+          "epoch": 9,
+          "reasons": [
+            "SOURCE_TIME_UNKNOWN",
+            "CONTINUITY_LOST"
+          ],
+          "forward_quote": false,
+          "forward_trade": false,
+          "quote_age_seconds": 1.0,
+          "trade_age_seconds": 1.0
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:26-07:00",
+          "action": "CONTINUITY_REJECTED",
+          "input_record_id": "q11-source-missing",
+          "current_record_id": "q11-source-missing",
+          "usable": false,
+          "continuity": "LOST",
+          "epoch": 9,
+          "reasons": [
+            "SOURCE_TIME_UNKNOWN",
+            "CONTINUITY_LOST"
+          ],
+          "forward_quote": false,
+          "forward_trade": false,
+          "quote_age_seconds": 1.0,
+          "trade_age_seconds": 1.0
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:27-07:00",
+          "action": "REPEATED_TIMESTAMPS",
+          "input_record_id": "q10-cache",
+          "current_record_id": "q11-source-missing",
+          "usable": false,
+          "continuity": "LOST",
+          "epoch": 9,
+          "reasons": [
+            "SOURCE_TIME_UNKNOWN",
+            "CONTINUITY_LOST"
+          ],
+          "forward_quote": false,
+          "forward_trade": false,
+          "quote_age_seconds": 2.0,
+          "trade_age_seconds": 2.0
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:28-07:00",
+          "action": "ACCEPTED",
+          "input_record_id": "q12-source-wrong-session",
+          "current_record_id": "q12-source-wrong-session",
+          "usable": false,
+          "continuity": "LOST",
+          "epoch": 10,
+          "reasons": [
+            "SOURCE_SESSION_MISMATCH",
+            "CONTINUITY_LOST"
+          ],
+          "forward_quote": false,
+          "forward_trade": false,
+          "quote_age_seconds": 3.0,
+          "trade_age_seconds": 3.0
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:28-07:00",
+          "action": "CONTINUITY_REJECTED",
+          "input_record_id": "q12-source-wrong-session",
+          "current_record_id": "q12-source-wrong-session",
+          "usable": false,
+          "continuity": "LOST",
+          "epoch": 10,
+          "reasons": [
+            "SOURCE_SESSION_MISMATCH",
+            "CONTINUITY_LOST"
+          ],
+          "forward_quote": false,
+          "forward_trade": false,
+          "quote_age_seconds": 3.0,
+          "trade_age_seconds": 3.0
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:29-07:00",
+          "action": "ACCEPTED",
+          "input_record_id": "q13-recovery",
+          "current_record_id": "q13-recovery",
+          "usable": false,
+          "continuity": "LOST",
+          "epoch": 10,
+          "reasons": [
+            "CONTINUITY_LOST"
+          ],
+          "forward_quote": false,
+          "forward_trade": false,
+          "quote_age_seconds": 0.0,
+          "trade_age_seconds": 0.0
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:29-07:00",
+          "action": "CONTINUITY_CONFIRMED",
+          "input_record_id": "q13-recovery",
+          "current_record_id": "q13-recovery",
+          "usable": true,
+          "continuity": "CONFIRMED",
+          "epoch": 10,
+          "reasons": [],
+          "forward_quote": false,
+          "forward_trade": false,
+          "quote_age_seconds": 0.0,
+          "trade_age_seconds": 0.0
+        },
+        {
+          "at_pacific": "2026-06-30T06:35:30-07:00",
+          "action": "ACCEPTED",
+          "input_record_id": "q14",
+          "current_record_id": "q14",
+          "usable": true,
+          "continuity": "CONFIRMED",
+          "epoch": 10,
+          "reasons": [],
+          "forward_quote": true,
+          "forward_trade": true,
+          "quote_age_seconds": 0.0,
+          "trade_age_seconds": 0.0
+        }
+      ],
+      "source_identity_sha256": "980bc34bbb0bdad0259a6f1cac57550651f1310118d715788fdbe1312eb90873",
+      "source_manifest_file_count": 776,
+      "all_source_contents_match_before_edit": true,
+      "backup_path": "/tmp/trade-alerts-m23-repaired-finalize-jrn62xk2",
+      "this_finalization_changed_files": [
+        "trade_alerts_build_docs/M2_3_VERIFICATION.md",
+        "trade_alerts_build_docs/M2_3_LOCAL_CHECKS.json",
+        "trade_alerts_build_docs/ROADMAP.md"
+      ]
+    },
+    "repair": {
+      "finding": "Repeated quote/trade timestamps bypassed incoming missing or wrong-session source time, leaving the previous good quote usable",
+      "change": "Require present same-session source time for the repeated-timestamp shortcut; otherwise preserve bad input through existing unusable/continuity-loss path",
+      "definition_of_done": "Both invalid source-time cases remain visible and unusable with no forwarding; cache cannot heal them; fresh data and evidence restore continuity; two protected runs and recording proof pass; records and roadmap updated",
+      "focused_test": "tests/trade_alerts_contracts/test_quote_events.py::test_repeated_timestamps_cannot_hide_invalid_source_time",
+      "focused_parameter_cases": [
+        "source_time=None with unchanged quote/trade times",
+        "previous-session source_time with unchanged quote/trade times"
+      ],
+      "additional_checks": [
+        "inspection retains bad quote and reason",
+        "continuity lost",
+        "confirmation and old epoch proof rejected",
+        "healthy same-time cache cannot heal",
+        "fresh observation plus current proof required",
+        "original decision immutable"
+      ],
+      "source_test_repair_start_hashes_match_previous_proof": true
+    },
+    "whole_milestone_delta": {
+      "starting_snapshot_files": 528,
+      "changed_existing_files": [
+        "trade_alerts_build_docs/CODING_STANDARDS.md",
+        "trade_alerts_build_docs/DATA_REQUIREMENTS.md",
+        "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md",
+        "trade_alerts_build_docs/PROJECT_INDEX.md",
+        "trade_alerts_build_docs/ROADMAP.md",
+        "trade_alerts_build_docs/SESSION_PROTOCOL.md",
+        "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+      ],
+      "added_files": [
+        "consensus_engine/quote_events.py",
+        "tests/trade_alerts_contracts/test_quote_events.py",
+        "trade_alerts_build_docs/M2_3_LAUNCHER_LIMITATION.txt",
+        "trade_alerts_build_docs/M2_3_LOCAL_CHECKS.json",
+        "trade_alerts_build_docs/M2_3_VERIFICATION.md"
+      ],
+      "deletions": [],
+      "matches_controller_supplied_delta": true,
+      "checked_again_against_saved_starting_snapshot": true
+    },
+    "all_new_switches_off": true,
+    "recording_sink": true,
+    "failing_test_list_unchanged": true,
+    "definition_packets_unchanged": true,
+    "remaining_gates": {
+      "M2.3_live_provider_completion": "BLOCKED: official streaming fields/partial updates, current access/subscriptions, timing/coverage, refresh/reconnect/warm-up, shared capacity and separately supervised access; reopening proof in M2_3_VERIFICATION section 7",
+      "M2.4": "Proposed dependency-ready offline supplied-reference scope in M2_3_VERIFICATION section 6, after independent M2.3 acceptance",
+      "M0.2": "Actual source history/finality/adjustment/corporate-action and reference coverage remain unverified",
+      "M0.3": "M0.3B remains proposed; the other seven strategy definitions remain required",
+      "later_features": "All unfinished and full-data roadmap work remains required"
+    },
+    "spending": {
+      "used_under_D091": 0,
+      "reserved_under_D091": 0,
+      "requests_this_session": 0
+    },
+    "historical_review_repair": {
+      "status": "ready_for_verification",
+      "checked_at_pacific": "2026-09-06T11:24:25.548130-07:00",
+      "test_execution": "NOT_RUN: repaired source launcher exited before either protected child; earlier 487-test runs are historical only",
+      "next_milestone_status": "Proposed only; controller stays on M2.3 until two fresh protected runs, records-only finalization and independent acceptance",
+      "independent_acceptance": "Incomplete after source-time review finding; awaits fresh repair proof and separate review",
+      "backup_path": "/tmp/trade-alerts-m23-review-repair-6ojm9bss",
+      "expected_protected_output": {
+        "status": "WRITTEN_EXPECTATIONS_ONLY_NOT_EXECUTED",
+        "runs_required": 2,
+        "end_to_end_test": "test_normalized_events_failure_reconnect_recording_end_to_end",
+        "proof_file": "m23-quote-events-proof.json",
+        "decision_count": 35,
+        "forwarded_quote_ids": [
+          "q1",
+          "q2",
+          "q5",
+          "q10",
+          "q14"
+        ],
+        "forwarded_trade_snapshot_ids": [
+          "q1",
+          "q3",
+          "q5",
+          "q10",
+          "q14"
+        ],
+        "acceptance": "Matching test IDs; zero failures/errors/skips; no unexpected isolation denials; successful cleanup; byte-identical repaired proof files"
+      },
+      "source_verification": {
+        "source_test_protection_sha256": {
+          "consensus_engine/quote_events.py": "19a6baa2162861364cbae280eb24eb60b5752f29a8f0cce66211077b2d8211f6",
+          "tests/trade_alerts_contracts/test_quote_events.py": "68e8259ff28f361645cb6db2cc2df81251288a86969306d76b2c00b627c10549",
+          "scripts/testing/run_trade_alerts_contracts.py": "6b609b643edfc467fc63480acd63ad50d4044616aec5efca61f32315af3d3ad2",
+          "scripts/testing/trade_alerts_contract_child.py": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c"
+        },
+        "repair_start_source_test_protection_sha256": {
+          "consensus_engine/quote_events.py": "a7ce71347c0cd5aac39a30c6622f777b6f33d7e1168e6acc0d0bb3827496cf67",
+          "tests/trade_alerts_contracts/test_quote_events.py": "6b79d89ffc6ae8a14d87bef7d60c08eae987eb770932439dcc16697775109c3d",
+          "scripts/testing/run_trade_alerts_contracts.py": "6b609b643edfc467fc63480acd63ad50d4044616aec5efca61f32315af3d3ad2",
+          "scripts/testing/trade_alerts_contract_child.py": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c"
+        },
+        "records_only_finalization": false,
+        "application_imported_or_run": false,
+        "ownership_note": "Existing local ownership and modes preserved on all 535 repair-start files; no ownership mutation attempted. Host identity mapping is outside this local check."
+      },
+      "launcher_attempt": {
+        "started_at_pacific": "2026-09-06T11:21:49.681173-07:00",
+        "selectors": [
+          "tests/trade_alerts_contracts",
+          "tests/test_models.py",
+          "tests/test_schwab_client.py"
+        ],
+        "exit_code": 1,
+        "stage": "os.chown before either child",
+        "exact_error": "OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-0zcf8mc7'",
+        "artifact_directory": "/tmp/trade-alerts-m04-0zcf8mc7",
+        "artifact_files": [],
+        "protected_child_started": false,
+        "protection_modified_or_bypassed": false,
+        "log": "trade_alerts_build_docs/M2_3_LAUNCHER_LIMITATION.txt"
+      },
+      "local_checks": {
+        "source_compilation": "PASS: compile only; no application execution",
+        "python_3_10_grammar": "PASS",
+        "configured_lint_typecheck": "No configured task found in Makefile, pytest.ini, requirements-dev.txt or workflow files; none installed",
+        "protected_tests_executed": false,
+        "repair_start_file_count": 535,
+        "repair_changed_files": [
+          "consensus_engine/quote_events.py",
+          "tests/trade_alerts_contracts/test_quote_events.py",
+          "trade_alerts_build_docs/CODING_STANDARDS.md",
+          "trade_alerts_build_docs/DATA_REQUIREMENTS.md",
+          "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md",
+          "trade_alerts_build_docs/M2_3_LAUNCHER_LIMITATION.txt",
+          "trade_alerts_build_docs/M2_3_LOCAL_CHECKS.json",
+          "trade_alerts_build_docs/M2_3_VERIFICATION.md",
+          "trade_alerts_build_docs/PROJECT_INDEX.md",
+          "trade_alerts_build_docs/ROADMAP.md",
+          "trade_alerts_build_docs/SESSION_PROTOCOL.md",
+          "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+        ],
+        "unexpected_changed_files": [],
+        "unchanged_repair_start_file_contents": 523,
+        "local_ownership_mode_changes": [],
+        "protection_unchanged": true,
+        "prior_owner_code_tests_configuration_unchanged": true,
+        "definition_packets_unchanged": true,
+        "failing_test_list_unchanged": true,
+        "all_new_switches_off": true,
+        "recording_sink": true,
+        "document_checks": {
+          "local_links_checked": 84,
+          "broken_links": [],
+          "new_line_issues": [],
+          "code_fences_balanced": true,
+          "current_milestone_row": "[~] M2.3",
+          "live_blocker_row_unchanged": true,
+          "next_milestone": "M2.4",
+          "next_milestone_gated_on_repair_acceptance": true
+        },
+        "capability_map": {
+          "playbooks": 8,
+          "functional_requirements": 31,
+          "additional_capabilities": 22,
+          "all_present": true
+        }
+      },
+      "scope_of_repair": "M2.3 source and tests plus its seven canonical contract/status files and three evidence files. No prior foundation/history repair, runtime or controller work."
+    },
+    "status": "completed",
+    "checked_at_pacific": "2026-09-06T11:34:42.361105-07:00",
+    "test_execution": "SUPERVISOR_PROTECTED_PASS: 489 tests passed in each of two fresh runs on repaired source; builder inspected supplied artifacts without rerunning tests",
+    "next_milestone_status": "M2.4 proposed; controller stays on M2.3 until separate independent review accepts repaired offline scope and next scope",
+    "independent_acceptance": "Pending supervisor separate review",
+    "backup_path": "/tmp/trade-alerts-m23-repaired-finalize-jrn62xk2",
+    "this_finalization_changed_files": [
+      "trade_alerts_build_docs/M2_3_VERIFICATION.md",
+      "trade_alerts_build_docs/M2_3_LOCAL_CHECKS.json",
+      "trade_alerts_build_docs/ROADMAP.md"
+    ],
+    "source_verification": {
+      "source_identity_sha256": "980bc34bbb0bdad0259a6f1cac57550651f1310118d715788fdbe1312eb90873",
+      "saved_manifest_files": 776,
+      "all_saved_contents_match_before_finalization": true,
+      "source_test_protection_sha256": {
+        "consensus_engine/quote_events.py": "19a6baa2162861364cbae280eb24eb60b5752f29a8f0cce66211077b2d8211f6",
+        "tests/trade_alerts_contracts/test_quote_events.py": "68e8259ff28f361645cb6db2cc2df81251288a86969306d76b2c00b627c10549",
+        "scripts/testing/run_trade_alerts_contracts.py": "6b609b643edfc467fc63480acd63ad50d4044616aec5efca61f32315af3d3ad2",
+        "scripts/testing/trade_alerts_contract_child.py": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c"
+      },
+      "records_only_finalization": true,
+      "application_imported_or_run": false,
+      "ownership_note": "In-place writes preserve existing local ownership and modes. The sandbox mapped owner view does not independently establish host ownership. No ownership change attempted."
+    },
+    "tests_executed_by_this_session": false,
+    "launcher_retried_by_this_session": false,
+    "blocker": "",
+    "scope_of_finalization": "Only M2_3_VERIFICATION.md, M2_3_LOCAL_CHECKS.json and ROADMAP.md; source, tests and protection unchanged. Pending-proof status in other canonical files is superseded by verification section 10 and roadmap section 31.",
+    "local_checks": {
+      "checked_at_pacific": "2026-09-06T11:34:42.361105-07:00",
+      "saved_manifest_files": 776,
+      "unchanged_saved_file_contents": 773,
+      "this_finalization_changed_files": [
+        "trade_alerts_build_docs/M2_3_LOCAL_CHECKS.json",
+        "trade_alerts_build_docs/M2_3_VERIFICATION.md",
+        "trade_alerts_build_docs/ROADMAP.md"
+      ],
+      "only_evidence_and_roadmap_changed": true,
+      "local_ownership_mode_changes": [],
+      "whole_milestone_starting_files": 528,
+      "whole_milestone_changed_existing": [
+        "trade_alerts_build_docs/CODING_STANDARDS.md",
+        "trade_alerts_build_docs/DATA_REQUIREMENTS.md",
+        "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md",
+        "trade_alerts_build_docs/PROJECT_INDEX.md",
+        "trade_alerts_build_docs/ROADMAP.md",
+        "trade_alerts_build_docs/SESSION_PROTOCOL.md",
+        "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+      ],
+      "whole_milestone_added_files": [
+        "consensus_engine/quote_events.py",
+        "tests/trade_alerts_contracts/test_quote_events.py",
+        "trade_alerts_build_docs/M2_3_LAUNCHER_LIMITATION.txt",
+        "trade_alerts_build_docs/M2_3_LOCAL_CHECKS.json",
+        "trade_alerts_build_docs/M2_3_VERIFICATION.md"
+      ],
+      "whole_milestone_delta_matches_saved_and_controller_list": true,
+      "source_tests_configuration_and_protection_unchanged": true,
+      "definition_packets_unchanged": true,
+      "failing_test_list_unchanged": true,
+      "all_new_switches_off": true,
+      "recording_sink": true,
+      "document_checks": {
+        "links_checked": 25,
+        "broken_links": [],
+        "code_fences_balanced": true,
+        "new_public_line_scan_issues": [],
+        "all_nine_canonical_files_present": true,
+        "required_live_blocker_text_unchanged": true,
+        "next_scope_acceptance_text_unchanged": true,
+        "all_other_unfinished_rows_preserved": true,
+        "assigned_milestone_row": "[x] M2.3 offline evidence",
+        "next_milestone": "M2.4",
+        "next_milestone_gated_on_independent_acceptance": true,
+        "superseded_pending_wording_identified": true
+      },
+      "capability_map": {
+        "functional_rows": 31,
+        "additional_rows": 22,
+        "playbook_rows": 8
+      },
+      "application_tests_run_by_this_session": false,
+      "test_evidence": "Supervisor artifacts only; actual repaired 489-test runs and 35-decision recordings inspected"
+    }
+  },
+  "historical_proof_applies_to_current_source": false,
+  "backup_path": "/tmp/trade-alerts-m23-second-finalize-bsyj91sj",
+  "repair": {
+    "same_session_source_before_recovery": "Written same-session 06:34:59 source-time case with recovery at 06:35:00 Pacific",
+    "source_after_availability": "Retain offending input and permanent INVALID_SOURCE_TIME reason, reject confirmation even after clock catches up",
+    "cache_non_healing": "Existing bad-snapshot preservation assertions retained; rejected-at-consumption marker resets only on newly retained healthy data"
+  },
+  "expected_protected_output": {
+    "status": "OBSERVED_PASS_IN_BOTH_SUPERVISOR_RUNS",
+    "runs_required": 2,
+    "end_to_end_test": "test_normalized_events_failure_reconnect_recording_end_to_end",
+    "proof_file": "m23-quote-events-proof.json",
+    "decision_count": 43,
+    "forwarded_quote_ids": [
+      "q1",
+      "q2",
+      "q5",
+      "q10",
+      "q14",
+      "q18"
+    ],
+    "forwarded_trade_snapshot_ids": [
+      "q1",
+      "q3",
+      "q5",
+      "q10",
+      "q14",
+      "q18"
+    ],
+    "acceptance": "Matching test IDs; zero failures/errors/skips; no unexpected isolation denials; successful cleanup; byte-identical expanded recordings"
+  },
+  "source_verification": {
+    "source_hash": "0d239e6318b30c44663cf38e9a9dc24e16c91db627cc65c7bd2fda7eb445615a",
+    "source_hash_matches_handoff": true,
+    "manifest_file_count": 776,
+    "all_saved_file_contents_match_before_edits": true,
+    "source_test_protection_sha256": {
+      "consensus_engine/quote_events.py": "1e33aaac6f62a439f0ed74741717ecfd67d2f34aa225e83bf4ff0d0227279453",
+      "scripts/testing/run_trade_alerts_contracts.py": "6b609b643edfc467fc63480acd63ad50d4044616aec5efca61f32315af3d3ad2",
+      "scripts/testing/trade_alerts_contract_child.py": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c",
+      "tests/trade_alerts_contracts/test_quote_events.py": "0d7c85d02d1a9933a7fe7fb94522b0ecf2acb737c589064050fe7fff286c94da"
+    },
+    "records_only_finalization": true,
+    "application_imported_or_run": false,
+    "protected_tests_rerun_by_builder": false,
+    "finalization_changed_files": [
+      "trade_alerts_build_docs/M2_3_LOCAL_CHECKS.json",
+      "trade_alerts_build_docs/M2_3_VERIFICATION.md",
+      "trade_alerts_build_docs/ROADMAP.md"
+    ],
+    "ownership_note": "Existing local ownership and modes preserved by in-place writes; mapped sandbox ownership does not independently verify host ownership"
+  },
+  "local_checks": {
+    "finalization_start_files_checked": 779,
+    "changed_files": [
+      "trade_alerts_build_docs/M2_3_LOCAL_CHECKS.json",
+      "trade_alerts_build_docs/M2_3_VERIFICATION.md",
+      "trade_alerts_build_docs/ROADMAP.md"
+    ],
+    "unexpected_changed_files": [],
+    "deleted_files": [],
+    "local_ownership_mode_changes": [],
+    "source_tests_configuration_and_protection_unchanged": true,
+    "definition_packets_unchanged": true,
+    "failing_test_list_unchanged": true,
+    "all_new_switches_off": true,
+    "recording_sink": true,
+    "whole_milestone_delta_matches_saved_and_controller_list": true,
+    "document_checks": {
+      "local_links_checked": 26,
+      "broken_links": [],
+      "code_fences_balanced": true,
+      "new_public_line_scan_issues": [],
+      "all_nine_canonical_files_present": true,
+      "required_live_blocker_text_unchanged": true,
+      "next_scope_acceptance_text_unchanged": true,
+      "all_other_unfinished_rows_preserved": true,
+      "assigned_milestone_row": "[x] M2.3 offline evidence",
+      "next_milestone": "M2.4",
+      "next_milestone_gated_on_independent_acceptance": true,
+      "superseded_pending_wording_identified": true
+    },
+    "capability_map": {
+      "functional_rows": 31,
+      "additional_rows": 22,
+      "playbook_rows": 8
+    },
+    "application_tests_run_by_this_session": false,
+    "test_evidence": "Supervisor artifacts only; current repaired 490-test runs and 43-decision recordings inspected"
+  },
+  "remaining_gates": {
+    "M2.3_live_provider_completion": "BLOCKED: official streaming fields/partial updates, current access/subscriptions, timing/coverage, refresh/reconnect/warm-up, shared capacity and separately supervised access; reopening proof in M2_3_VERIFICATION section 7",
+    "M2.4": "Proposed next offline supplied-reference scope in M2_3_VERIFICATION section 6; now awaits independent acceptance of repaired M2.3 and next scope",
+    "M0.2": "Actual source history/finality/adjustment/corporate-action and reference coverage remain unverified",
+    "M0.3": "M0.3B remains proposed; the other seven strategy definitions remain required",
+    "later_features": "All unfinished and full-data roadmap work remains required"
+  },
+  "spending": {
+    "used_under_D091": 0,
+    "reserved_under_D091": 0,
+    "requests_this_session": 0
+  },
+  "whole_milestone_delta": {
+    "starting_snapshot_files": 528,
+    "changed_existing_files": [
+      "trade_alerts_build_docs/CODING_STANDARDS.md",
+      "trade_alerts_build_docs/DATA_REQUIREMENTS.md",
+      "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md",
+      "trade_alerts_build_docs/PROJECT_INDEX.md",
+      "trade_alerts_build_docs/ROADMAP.md",
+      "trade_alerts_build_docs/SESSION_PROTOCOL.md",
+      "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+    ],
+    "added_files": [
+      "consensus_engine/quote_events.py",
+      "tests/trade_alerts_contracts/test_quote_events.py",
+      "trade_alerts_build_docs/M2_3_LAUNCHER_LIMITATION.txt",
+      "trade_alerts_build_docs/M2_3_LOCAL_CHECKS.json",
+      "trade_alerts_build_docs/M2_3_VERIFICATION.md"
+    ],
+    "deletions": [],
+    "matches_controller_supplied_delta": true,
+    "checked_again_against_saved_starting_snapshot": true
+  },
+  "blocker": "",
+  "launcher_attempt": {
+    "started_at_pacific": "2026-09-06T11:54:02.951559-07:00",
+    "selectors": [
+      "tests/trade_alerts_contracts",
+      "tests/test_models.py",
+      "tests/test_schwab_client.py"
+    ],
+    "exit_code": 1,
+    "exact_error": "OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-dpt9v7y2'",
+    "artifact_directory": "/tmp/trade-alerts-m04-dpt9v7y2",
+    "artifact_files": [],
+    "protection_modified_or_bypassed": false,
+    "log": "trade_alerts_build_docs/M2_3_LAUNCHER_LIMITATION.txt",
+    "stage": "os.chown before either protected child",
+    "protected_child_started": false,
+    "historical": true,
+    "superseded_by": "supervisor_verification"
+  },
+  "tests_executed_by_this_session": false,
+  "launcher_retried_by_this_session": false,
+  "historical_second_review_repair": {
+    "status": "ready_for_verification",
+    "checked_at_pacific": "2026-09-06T11:56:59.668860-07:00",
+    "test_execution": "NOT_RUN: second repair launcher exited before either protected child; earlier 487/489-test results are historical only",
+    "independent_acceptance": "Reopened after two further source-time findings",
+    "backup_path": "/tmp/trade-alerts-m23-second-repair-4ixhxb5d",
+    "repair": {
+      "same_session_source_before_recovery": "Written same-session 06:34:59 source-time case with recovery at 06:35:00 Pacific",
+      "source_after_availability": "Retain offending input and permanent INVALID_SOURCE_TIME reason, reject confirmation even after clock catches up",
+      "cache_non_healing": "Existing bad-snapshot preservation assertions retained; rejected-at-consumption marker resets only on newly retained healthy data"
+    },
+    "expected_protected_output": {
+      "status": "WRITTEN_EXPECTATIONS_ONLY_NOT_EXECUTED",
+      "runs_required": 2,
+      "end_to_end_test": "test_normalized_events_failure_reconnect_recording_end_to_end",
+      "proof_file": "m23-quote-events-proof.json",
+      "decision_count": 43,
+      "forwarded_quote_ids": [
+        "q1",
+        "q2",
+        "q5",
+        "q10",
+        "q14",
+        "q18"
+      ],
+      "forwarded_trade_snapshot_ids": [
+        "q1",
+        "q3",
+        "q5",
+        "q10",
+        "q14",
+        "q18"
+      ],
+      "acceptance": "Matching test IDs; zero failures/errors/skips; no unexpected isolation denials; successful cleanup; byte-identical expanded recordings"
+    },
+    "source_verification": {
+      "source_test_protection_sha256": {
+        "consensus_engine/quote_events.py": "1e33aaac6f62a439f0ed74741717ecfd67d2f34aa225e83bf4ff0d0227279453",
+        "tests/trade_alerts_contracts/test_quote_events.py": "0d7c85d02d1a9933a7fe7fb94522b0ecf2acb737c589064050fe7fff286c94da",
+        "scripts/testing/run_trade_alerts_contracts.py": "6b609b643edfc467fc63480acd63ad50d4044616aec5efca61f32315af3d3ad2",
+        "scripts/testing/trade_alerts_contract_child.py": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c"
+      },
+      "records_only_finalization": false,
+      "application_imported_or_run": false,
+      "repair_start_source_test_protection_sha256": {
+        "consensus_engine/quote_events.py": "19a6baa2162861364cbae280eb24eb60b5752f29a8f0cce66211077b2d8211f6",
+        "tests/trade_alerts_contracts/test_quote_events.py": "68e8259ff28f361645cb6db2cc2df81251288a86969306d76b2c00b627c10549",
+        "scripts/testing/run_trade_alerts_contracts.py": "6b609b643edfc467fc63480acd63ad50d4044616aec5efca61f32315af3d3ad2",
+        "scripts/testing/trade_alerts_contract_child.py": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c"
+      },
+      "ownership_note": "In-place writes preserved existing local ownership and modes on all repair-start files. Sandbox owner mapping does not independently verify host ownership; no ownership mutation attempted.",
+      "repair_start_source_test_hashes_match_historical_489_proof": true
+    },
+    "local_checks": {
+      "source_compilation": "PASS: compile only, no imports/execution",
+      "python_3_10_grammar": "PASS",
+      "configured_lint_typecheck": "No configured task found; none installed",
+      "protected_tests_executed": false,
+      "repair_start_file_count": 566,
+      "repair_changed_files": [
+        "consensus_engine/quote_events.py",
+        "tests/trade_alerts_contracts/test_quote_events.py",
+        "trade_alerts_build_docs/CODING_STANDARDS.md",
+        "trade_alerts_build_docs/DATA_REQUIREMENTS.md",
+        "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md",
+        "trade_alerts_build_docs/M2_3_LAUNCHER_LIMITATION.txt",
+        "trade_alerts_build_docs/M2_3_LOCAL_CHECKS.json",
+        "trade_alerts_build_docs/M2_3_VERIFICATION.md",
+        "trade_alerts_build_docs/PROJECT_INDEX.md",
+        "trade_alerts_build_docs/ROADMAP.md",
+        "trade_alerts_build_docs/SESSION_PROTOCOL.md",
+        "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+      ],
+      "unexpected_changed_files": [],
+      "deleted_files": [],
+      "local_ownership_mode_changes": [],
+      "unchanged_repair_start_file_contents": 554,
+      "protection_unchanged": true,
+      "prior_owner_code_tests_configuration_unchanged": true,
+      "definition_packets_unchanged": true,
+      "failing_test_list_unchanged": true,
+      "all_new_switches_off": true,
+      "recording_sink": true,
+      "document_checks": {
+        "local_links_checked": 85,
+        "broken_links": [],
+        "new_public_line_issues": [],
+        "code_fences_balanced": true,
+        "all_nine_canonical_files_present": true,
+        "required_live_blocker_text_unchanged": true,
+        "next_scope_acceptance_text_unchanged": true,
+        "other_roadmap_checkbox_rows_unchanged": true,
+        "assigned_milestone_row": "[~] M2.3",
+        "next_milestone": "M2.4",
+        "next_milestone_gated_on_fresh_proof_and_independent_acceptance": true
+      },
+      "capability_map": {
+        "functional_rows": 31,
+        "additional_rows": 22,
+        "playbook_rows": 8
+      },
+      "static_helper_review": "Bounded read-only source/test review found no concrete issue; 43 decisions and forwarded IDs reconcile. Not protected execution or supervisor acceptance.",
+      "documentation_checker_repair": {
+        "first_error": "AssertionError",
+        "cause": "Temporary checker expected sink on a separate line; actual existing YAML has inline alerts mapping",
+        "resolution": "Matched the existing inline syntax, then passed; configuration was not edited"
+      }
+    },
+    "blocker": "OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-dpt9v7y2'; launcher exited before either protected child. The supervisor must run the unchanged protected launcher externally and return fresh artifacts for records-only finalization.",
+    "launcher_attempt": {
+      "started_at_pacific": "2026-09-06T11:54:02.951559-07:00",
+      "selectors": [
+        "tests/trade_alerts_contracts",
+        "tests/test_models.py",
+        "tests/test_schwab_client.py"
+      ],
+      "exit_code": 1,
+      "exact_error": "OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-dpt9v7y2'",
+      "artifact_directory": "/tmp/trade-alerts-m04-dpt9v7y2",
+      "artifact_files": [],
+      "protection_modified_or_bypassed": false,
+      "log": "trade_alerts_build_docs/M2_3_LAUNCHER_LIMITATION.txt",
+      "stage": "os.chown before either protected child",
+      "protected_child_started": false
+    },
+    "tests_executed_by_this_session": false,
+    "launcher_retried_by_this_session": true,
+    "next_milestone_status": "Proposed only, after fresh protected proof, records-only finalization and independent acceptance of M2.3 second repair and next scope"
+  },
+  "scope_of_finalization": "Evidence and roadmap only; no code, test, configuration, launcher or child change",
+  "this_finalization_changed_files": [
+    "trade_alerts_build_docs/M2_3_LOCAL_CHECKS.json",
+    "trade_alerts_build_docs/M2_3_VERIFICATION.md",
+    "trade_alerts_build_docs/ROADMAP.md"
+  ],
+  "all_new_switches_off": true,
+  "recording_sink": true,
+  "supervisor_verification": {
+    "all_publication_hashes_match": true,
+    "all_saved_file_contents_match_before_edits": true,
+    "checked_at_pacific": "2026-09-06T12:03:43.753859-07:00",
+    "databento_credit_used": 0,
+    "decision_count": 43,
+    "decisions": [
+      {
+        "action": "CONNECTED",
+        "continuity": "LOST",
+        "evaluated_at_pacific": "2026-06-30T06:35:00-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": null,
+        "quote_age_seconds": null,
+        "reasons": [
+          "MISSING_QUOTE",
+          "CONTINUITY_LOST"
+        ],
+        "retained_quote_id": null,
+        "trade_age_seconds": null,
+        "usable": false
+      },
+      {
+        "action": "ACCEPTED",
+        "continuity": "LOST",
+        "evaluated_at_pacific": "2026-06-30T06:35:00-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": "q0",
+        "quote_age_seconds": 0.0,
+        "reasons": [
+          "CONTINUITY_LOST"
+        ],
+        "retained_quote_id": "q0",
+        "trade_age_seconds": 0.0,
+        "usable": false
+      },
+      {
+        "action": "CONTINUITY_CONFIRMED",
+        "continuity": "CONFIRMED",
+        "evaluated_at_pacific": "2026-06-30T06:35:00-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": "q0",
+        "quote_age_seconds": 0.0,
+        "reasons": [],
+        "retained_quote_id": "q0",
+        "trade_age_seconds": 0.0,
+        "usable": true
+      },
+      {
+        "action": "ACCEPTED",
+        "continuity": "CONFIRMED",
+        "evaluated_at_pacific": "2026-06-30T06:35:01-07:00",
+        "forward_quote": true,
+        "forward_trade": true,
+        "input_record_id": "q1",
+        "quote_age_seconds": 0.0,
+        "reasons": [],
+        "retained_quote_id": "q1",
+        "trade_age_seconds": 0.0,
+        "usable": true
+      },
+      {
+        "action": "DUPLICATE",
+        "continuity": "CONFIRMED",
+        "evaluated_at_pacific": "2026-06-30T06:35:02-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": "q1-repeat",
+        "quote_age_seconds": 1.0,
+        "reasons": [],
+        "retained_quote_id": "q1",
+        "trade_age_seconds": 1.0,
+        "usable": true
+      },
+      {
+        "action": "INSPECTED",
+        "continuity": "CONFIRMED",
+        "evaluated_at_pacific": "2026-06-30T06:35:04-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": null,
+        "quote_age_seconds": 3.0,
+        "reasons": [],
+        "retained_quote_id": "q1",
+        "trade_age_seconds": 3.0,
+        "usable": true
+      },
+      {
+        "action": "INSPECTED",
+        "continuity": "CONFIRMED",
+        "evaluated_at_pacific": "2026-06-30T06:35:04.001000-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": null,
+        "quote_age_seconds": 3.001,
+        "reasons": [
+          "QUOTE_STALE"
+        ],
+        "retained_quote_id": "q1",
+        "trade_age_seconds": 3.001,
+        "usable": false
+      },
+      {
+        "action": "ACCEPTED",
+        "continuity": "CONFIRMED",
+        "evaluated_at_pacific": "2026-06-30T06:35:05-07:00",
+        "forward_quote": true,
+        "forward_trade": false,
+        "input_record_id": "q2",
+        "quote_age_seconds": 0.0,
+        "reasons": [],
+        "retained_quote_id": "q2",
+        "trade_age_seconds": 4.0,
+        "usable": true
+      },
+      {
+        "action": "ACCEPTED",
+        "continuity": "CONFIRMED",
+        "evaluated_at_pacific": "2026-06-30T06:35:07-07:00",
+        "forward_quote": false,
+        "forward_trade": true,
+        "input_record_id": "q3",
+        "quote_age_seconds": 2.0,
+        "reasons": [],
+        "retained_quote_id": "q3",
+        "trade_age_seconds": 0.0,
+        "usable": true
+      },
+      {
+        "action": "OUT_OF_ORDER",
+        "continuity": "LOST",
+        "evaluated_at_pacific": "2026-06-30T06:35:08-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": "late",
+        "quote_age_seconds": 3.0,
+        "reasons": [
+          "SOURCE_BEFORE_RECOVERY",
+          "CONTINUITY_LOST"
+        ],
+        "retained_quote_id": "q3",
+        "trade_age_seconds": 1.0,
+        "usable": false
+      },
+      {
+        "action": "DISCONNECTED",
+        "continuity": "LOST",
+        "evaluated_at_pacific": "2026-06-30T06:35:09-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": null,
+        "quote_age_seconds": 4.0,
+        "reasons": [
+          "SOURCE_BEFORE_RECOVERY",
+          "QUOTE_STALE",
+          "DISCONNECTED",
+          "CONTINUITY_LOST"
+        ],
+        "retained_quote_id": "q3",
+        "trade_age_seconds": 2.0,
+        "usable": false
+      },
+      {
+        "action": "CONNECTED",
+        "continuity": "LOST",
+        "evaluated_at_pacific": "2026-06-30T06:35:10-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": null,
+        "quote_age_seconds": 5.0,
+        "reasons": [
+          "SOURCE_BEFORE_RECOVERY",
+          "QUOTE_STALE",
+          "CONTINUITY_LOST"
+        ],
+        "retained_quote_id": "q3",
+        "trade_age_seconds": 3.0,
+        "usable": false
+      },
+      {
+        "action": "DUPLICATE",
+        "continuity": "LOST",
+        "evaluated_at_pacific": "2026-06-30T06:35:10-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": "q3-repeat",
+        "quote_age_seconds": 5.0,
+        "reasons": [
+          "SOURCE_BEFORE_RECOVERY",
+          "QUOTE_STALE",
+          "CONTINUITY_LOST"
+        ],
+        "retained_quote_id": "q3",
+        "trade_age_seconds": 3.0,
+        "usable": false
+      },
+      {
+        "action": "ACCEPTED",
+        "continuity": "LOST",
+        "evaluated_at_pacific": "2026-06-30T06:35:11-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": "q4",
+        "quote_age_seconds": 0.0,
+        "reasons": [
+          "CONTINUITY_LOST"
+        ],
+        "retained_quote_id": "q4",
+        "trade_age_seconds": 0.0,
+        "usable": false
+      },
+      {
+        "action": "CONTINUITY_REJECTED",
+        "continuity": "LOST",
+        "evaluated_at_pacific": "2026-06-30T06:35:11-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": "q4",
+        "quote_age_seconds": 0.0,
+        "reasons": [
+          "CONTINUITY_LOST"
+        ],
+        "retained_quote_id": "q4",
+        "trade_age_seconds": 0.0,
+        "usable": false
+      },
+      {
+        "action": "CONTINUITY_REJECTED",
+        "continuity": "LOST",
+        "evaluated_at_pacific": "2026-06-30T06:35:11-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": "q4",
+        "quote_age_seconds": 0.0,
+        "reasons": [
+          "CONTINUITY_LOST"
+        ],
+        "retained_quote_id": "q4",
+        "trade_age_seconds": 0.0,
+        "usable": false
+      },
+      {
+        "action": "CONTINUITY_CONFIRMED",
+        "continuity": "CONFIRMED",
+        "evaluated_at_pacific": "2026-06-30T06:35:11-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": "q4",
+        "quote_age_seconds": 0.0,
+        "reasons": [],
+        "retained_quote_id": "q4",
+        "trade_age_seconds": 0.0,
+        "usable": true
+      },
+      {
+        "action": "ACCEPTED",
+        "continuity": "CONFIRMED",
+        "evaluated_at_pacific": "2026-06-30T06:35:12-07:00",
+        "forward_quote": true,
+        "forward_trade": true,
+        "input_record_id": "q5",
+        "quote_age_seconds": 0.0,
+        "reasons": [],
+        "retained_quote_id": "q5",
+        "trade_age_seconds": 0.0,
+        "usable": true
+      },
+      {
+        "action": "GAP",
+        "continuity": "LOST",
+        "evaluated_at_pacific": "2026-06-30T06:35:13-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": null,
+        "quote_age_seconds": 1.0,
+        "reasons": [
+          "SOURCE_BEFORE_RECOVERY",
+          "OBSERVATION_GAP",
+          "CONTINUITY_LOST"
+        ],
+        "retained_quote_id": "q5",
+        "trade_age_seconds": 1.0,
+        "usable": false
+      },
+      {
+        "action": "ACCEPTED",
+        "continuity": "LOST",
+        "evaluated_at_pacific": "2026-06-30T06:35:14-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": "q6",
+        "quote_age_seconds": 0.0,
+        "reasons": [
+          "CONTINUITY_LOST"
+        ],
+        "retained_quote_id": "q6",
+        "trade_age_seconds": 0.0,
+        "usable": false
+      },
+      {
+        "action": "CONTINUITY_CONFIRMED",
+        "continuity": "CONFIRMED",
+        "evaluated_at_pacific": "2026-06-30T06:35:14-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": "q6",
+        "quote_age_seconds": 0.0,
+        "reasons": [],
+        "retained_quote_id": "q6",
+        "trade_age_seconds": 0.0,
+        "usable": true
+      },
+      {
+        "action": "INSPECTED",
+        "continuity": "LOST",
+        "evaluated_at_pacific": "2026-06-30T06:35:21-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": null,
+        "quote_age_seconds": 7.0,
+        "reasons": [
+          "SOURCE_BEFORE_RECOVERY",
+          "QUOTE_STALE",
+          "TRADE_STALE",
+          "OBSERVATION_GAP",
+          "CONTINUITY_LOST"
+        ],
+        "retained_quote_id": "q6",
+        "trade_age_seconds": 7.0,
+        "usable": false
+      },
+      {
+        "action": "ACCEPTED",
+        "continuity": "LOST",
+        "evaluated_at_pacific": "2026-06-30T06:35:22-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": "q7",
+        "quote_age_seconds": 0.0,
+        "reasons": [
+          "SOURCE_QUALITY_STALE",
+          "QUOTE_STATUS_STALE",
+          "DELAYED",
+          "CONTINUITY_LOST"
+        ],
+        "retained_quote_id": "q7",
+        "trade_age_seconds": 0.0,
+        "usable": false
+      },
+      {
+        "action": "ACCEPTED",
+        "continuity": "LOST",
+        "evaluated_at_pacific": "2026-06-30T06:35:23-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": "q8",
+        "quote_age_seconds": null,
+        "reasons": [
+          "QUOTE_STATUS_MISSING",
+          "DELAY_UNKNOWN",
+          "MISSING_POSITIVE_SIDES",
+          "MISSING_POSITIVE_LAST",
+          "QUOTE_TIME_UNKNOWN",
+          "TRADE_TIME_UNKNOWN",
+          "CONTINUITY_LOST"
+        ],
+        "retained_quote_id": "q8",
+        "trade_age_seconds": null,
+        "usable": false
+      },
+      {
+        "action": "ACCEPTED",
+        "continuity": "LOST",
+        "evaluated_at_pacific": "2026-06-30T06:35:24-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": "q9",
+        "quote_age_seconds": 0.0,
+        "reasons": [
+          "CONTINUITY_LOST"
+        ],
+        "retained_quote_id": "q9",
+        "trade_age_seconds": 0.0,
+        "usable": false
+      },
+      {
+        "action": "CONTINUITY_CONFIRMED",
+        "continuity": "CONFIRMED",
+        "evaluated_at_pacific": "2026-06-30T06:35:24-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": "q9",
+        "quote_age_seconds": 0.0,
+        "reasons": [],
+        "retained_quote_id": "q9",
+        "trade_age_seconds": 0.0,
+        "usable": true
+      },
+      {
+        "action": "ACCEPTED",
+        "continuity": "CONFIRMED",
+        "evaluated_at_pacific": "2026-06-30T06:35:25-07:00",
+        "forward_quote": true,
+        "forward_trade": true,
+        "input_record_id": "q10",
+        "quote_age_seconds": 0.0,
+        "reasons": [],
+        "retained_quote_id": "q10",
+        "trade_age_seconds": 0.0,
+        "usable": true
+      },
+      {
+        "action": "ACCEPTED",
+        "continuity": "LOST",
+        "evaluated_at_pacific": "2026-06-30T06:35:26-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": "q11-source-missing",
+        "quote_age_seconds": 1.0,
+        "reasons": [
+          "SOURCE_TIME_UNKNOWN",
+          "CONTINUITY_LOST"
+        ],
+        "retained_quote_id": "q11-source-missing",
+        "trade_age_seconds": 1.0,
+        "usable": false
+      },
+      {
+        "action": "CONTINUITY_REJECTED",
+        "continuity": "LOST",
+        "evaluated_at_pacific": "2026-06-30T06:35:26-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": "q11-source-missing",
+        "quote_age_seconds": 1.0,
+        "reasons": [
+          "SOURCE_TIME_UNKNOWN",
+          "CONTINUITY_LOST"
+        ],
+        "retained_quote_id": "q11-source-missing",
+        "trade_age_seconds": 1.0,
+        "usable": false
+      },
+      {
+        "action": "REPEATED_TIMESTAMPS",
+        "continuity": "LOST",
+        "evaluated_at_pacific": "2026-06-30T06:35:27-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": "q10-cache",
+        "quote_age_seconds": 2.0,
+        "reasons": [
+          "SOURCE_TIME_UNKNOWN",
+          "CONTINUITY_LOST"
+        ],
+        "retained_quote_id": "q11-source-missing",
+        "trade_age_seconds": 2.0,
+        "usable": false
+      },
+      {
+        "action": "ACCEPTED",
+        "continuity": "LOST",
+        "evaluated_at_pacific": "2026-06-30T06:35:28-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": "q12-source-wrong-session",
+        "quote_age_seconds": 3.0,
+        "reasons": [
+          "SOURCE_SESSION_MISMATCH",
+          "CONTINUITY_LOST"
+        ],
+        "retained_quote_id": "q12-source-wrong-session",
+        "trade_age_seconds": 3.0,
+        "usable": false
+      },
+      {
+        "action": "CONTINUITY_REJECTED",
+        "continuity": "LOST",
+        "evaluated_at_pacific": "2026-06-30T06:35:28-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": "q12-source-wrong-session",
+        "quote_age_seconds": 3.0,
+        "reasons": [
+          "SOURCE_SESSION_MISMATCH",
+          "CONTINUITY_LOST"
+        ],
+        "retained_quote_id": "q12-source-wrong-session",
+        "trade_age_seconds": 3.0,
+        "usable": false
+      },
+      {
+        "action": "ACCEPTED",
+        "continuity": "LOST",
+        "evaluated_at_pacific": "2026-06-30T06:35:29-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": "q13-recovery",
+        "quote_age_seconds": 0.0,
+        "reasons": [
+          "CONTINUITY_LOST"
+        ],
+        "retained_quote_id": "q13-recovery",
+        "trade_age_seconds": 0.0,
+        "usable": false
+      },
+      {
+        "action": "CONTINUITY_CONFIRMED",
+        "continuity": "CONFIRMED",
+        "evaluated_at_pacific": "2026-06-30T06:35:29-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": "q13-recovery",
+        "quote_age_seconds": 0.0,
+        "reasons": [],
+        "retained_quote_id": "q13-recovery",
+        "trade_age_seconds": 0.0,
+        "usable": true
+      },
+      {
+        "action": "ACCEPTED",
+        "continuity": "CONFIRMED",
+        "evaluated_at_pacific": "2026-06-30T06:35:30-07:00",
+        "forward_quote": true,
+        "forward_trade": true,
+        "input_record_id": "q14",
+        "quote_age_seconds": 0.0,
+        "reasons": [],
+        "retained_quote_id": "q14",
+        "trade_age_seconds": 0.0,
+        "usable": true
+      },
+      {
+        "action": "ACCEPTED",
+        "continuity": "LOST",
+        "evaluated_at_pacific": "2026-06-30T06:35:31-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": "q15-source-before-recovery",
+        "quote_age_seconds": 1.0,
+        "reasons": [
+          "SOURCE_BEFORE_RECOVERY",
+          "CONTINUITY_LOST"
+        ],
+        "retained_quote_id": "q15-source-before-recovery",
+        "trade_age_seconds": 1.0,
+        "usable": false
+      },
+      {
+        "action": "CONTINUITY_REJECTED",
+        "continuity": "LOST",
+        "evaluated_at_pacific": "2026-06-30T06:35:31-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": "q15-source-before-recovery",
+        "quote_age_seconds": 1.0,
+        "reasons": [
+          "SOURCE_BEFORE_RECOVERY",
+          "CONTINUITY_LOST"
+        ],
+        "retained_quote_id": "q15-source-before-recovery",
+        "trade_age_seconds": 1.0,
+        "usable": false
+      },
+      {
+        "action": "INVALID_SOURCE_TIME",
+        "continuity": "LOST",
+        "evaluated_at_pacific": "2026-06-30T06:35:32-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": "q16-source-after-availability",
+        "quote_age_seconds": 0.0,
+        "reasons": [
+          "INVALID_SOURCE_TIME",
+          "CONTINUITY_LOST"
+        ],
+        "retained_quote_id": "q16-source-after-availability",
+        "trade_age_seconds": 0.0,
+        "usable": false
+      },
+      {
+        "action": "INSPECTED",
+        "continuity": "LOST",
+        "evaluated_at_pacific": "2026-06-30T06:35:33-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": null,
+        "quote_age_seconds": 1.0,
+        "reasons": [
+          "INVALID_SOURCE_TIME",
+          "CONTINUITY_LOST"
+        ],
+        "retained_quote_id": "q16-source-after-availability",
+        "trade_age_seconds": 1.0,
+        "usable": false
+      },
+      {
+        "action": "CONTINUITY_REJECTED",
+        "continuity": "LOST",
+        "evaluated_at_pacific": "2026-06-30T06:35:33-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": "q16-source-after-availability",
+        "quote_age_seconds": 1.0,
+        "reasons": [
+          "INVALID_SOURCE_TIME",
+          "CONTINUITY_LOST"
+        ],
+        "retained_quote_id": "q16-source-after-availability",
+        "trade_age_seconds": 1.0,
+        "usable": false
+      },
+      {
+        "action": "ACCEPTED",
+        "continuity": "LOST",
+        "evaluated_at_pacific": "2026-06-30T06:35:34-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": "q17-recovery",
+        "quote_age_seconds": 0.0,
+        "reasons": [
+          "CONTINUITY_LOST"
+        ],
+        "retained_quote_id": "q17-recovery",
+        "trade_age_seconds": 0.0,
+        "usable": false
+      },
+      {
+        "action": "CONTINUITY_CONFIRMED",
+        "continuity": "CONFIRMED",
+        "evaluated_at_pacific": "2026-06-30T06:35:34-07:00",
+        "forward_quote": false,
+        "forward_trade": false,
+        "input_record_id": "q17-recovery",
+        "quote_age_seconds": 0.0,
+        "reasons": [],
+        "retained_quote_id": "q17-recovery",
+        "trade_age_seconds": 0.0,
+        "usable": true
+      },
+      {
+        "action": "ACCEPTED",
+        "continuity": "CONFIRMED",
+        "evaluated_at_pacific": "2026-06-30T06:35:35-07:00",
+        "forward_quote": true,
+        "forward_trade": true,
+        "input_record_id": "q18",
+        "quote_age_seconds": 0.0,
+        "reasons": [],
+        "retained_quote_id": "q18",
+        "trade_age_seconds": 0.0,
+        "usable": true
+      }
+    ],
+    "exit_codes": [
+      0,
+      0
+    ],
+    "forwarded_quote_ids": [
+      "q1",
+      "q2",
+      "q5",
+      "q10",
+      "q14",
+      "q18"
+    ],
+    "forwarded_trade_snapshot_ids": [
+      "q1",
+      "q3",
+      "q5",
+      "q10",
+      "q14",
+      "q18"
+    ],
+    "identical_ordered_test_ids": true,
+    "identical_quote_recordings": true,
+    "manifest_file_count": 776,
+    "policy_is_live_approval": false,
+    "provider_coverage_proven": false,
+    "publication_file_count": 23,
+    "publication_hashes": {
+      "run-1/fixture.yaml": "1a578448b5de33f5e8a29399b09dbf3e4ac93298ae6b8ade7df5b2f868535de7",
+      "run-1/isolation.json": "0c0c7705879df92cf3c567a34ad74a9913a5e3d7fed9629eb1a4d97767b3f28d",
+      "run-1/m13-domain-model-proof.json": "2fae11128857ae58d0aebb510131c6bb06bd0988d57ae01600e4c703890ed4c7",
+      "run-1/m21-schwab-normalization-proof.json": "481aa8aad4ff3667fe01adafddea7c9e34677fe2367e3256966df5b8e3cef6ba",
+      "run-1/m22-history-proof.json": "8c8358e78348a6c13994400a7e6813fa328b471e2b51ba1336808a87c5ee2a56",
+      "run-1/m23-quote-events-proof.json": "f11ddba2d05d678b765c8503b2f7e6749d0861fa0b3d7847e120ff2fb9557bf4",
+      "run-1/output.txt": "a31740569c7ca45ca233ba0bcd59636868d1a4e923f15ffb50f7936fe3aa20d5",
+      "run-1/pipeline-obs.jsonl": "d16c46575d794a5a6870ab69ed717d1de74cd22b7eec6821259aa584f30a1355",
+      "run-1/pytest.log": "5db0eaf1b2e6f8c4bada0560591dc59d81bd2be78fa6320a8bf7cc6f2f973dcb",
+      "run-1/results.xml": "1a23ecabc6a96e70a6eba1406d8f91c5321c85b0102e74a81c00176c34616a50",
+      "run-1/synthetic_sources.json": "c02fec043afaa1a9c4cfd5c68ed9fc7d425dbf94d919b5f02680383e0da419d7",
+      "run-2/fixture.yaml": "1a578448b5de33f5e8a29399b09dbf3e4ac93298ae6b8ade7df5b2f868535de7",
+      "run-2/isolation.json": "0c0c7705879df92cf3c567a34ad74a9913a5e3d7fed9629eb1a4d97767b3f28d",
+      "run-2/m13-domain-model-proof.json": "2fae11128857ae58d0aebb510131c6bb06bd0988d57ae01600e4c703890ed4c7",
+      "run-2/m21-schwab-normalization-proof.json": "481aa8aad4ff3667fe01adafddea7c9e34677fe2367e3256966df5b8e3cef6ba",
+      "run-2/m22-history-proof.json": "8c8358e78348a6c13994400a7e6813fa328b471e2b51ba1336808a87c5ee2a56",
+      "run-2/m23-quote-events-proof.json": "f11ddba2d05d678b765c8503b2f7e6749d0861fa0b3d7847e120ff2fb9557bf4",
+      "run-2/output.txt": "9a9167e2e02450dfb4eb44a340e209b75b1f531357b176b067d5d4d2684a1ad4",
+      "run-2/pipeline-obs.jsonl": "326d044794569d156dc1bc2999ebb223adcd6b4b41c17efb6cea5b40e2327e36",
+      "run-2/pytest.log": "5db0eaf1b2e6f8c4bada0560591dc59d81bd2be78fa6320a8bf7cc6f2f973dcb",
+      "run-2/results.xml": "1863d3c6aafba41c96609dcf3047800542d4aedbbf5c578798bdc9d38041ccfa",
+      "run-2/synthetic_sources.json": "c02fec043afaa1a9c4cfd5c68ed9fc7d425dbf94d919b5f02680383e0da419d7",
+      "summary.json": "35c8d7a860314e09849eb928aa6d2dea930ce0f64293424247588aae8f53cd28"
+    },
+    "publication_manifest_sha256": "4fc5ce36fb9d51bf189b3c1729f591bcfd4b93d254b0997260e583d1e1712d22",
+    "publication_total_bytes": 370538,
+    "quote_recording_sha256": "f11ddba2d05d678b765c8503b2f7e6749d0861fa0b3d7847e120ff2fb9557bf4",
+    "runs": [
+      {
+        "all_database_connections_temporary": true,
+        "database_connections": 4,
+        "errors": 0,
+        "failures": 0,
+        "isolation": {
+          "all_denials": {
+            "child_process": 1,
+            "credential_read": 1,
+            "database_path": 1,
+            "network": 2,
+            "outside_write": 1
+          },
+          "cleanup": {
+            "config_cleared": true,
+            "db_closed": true,
+            "http_closed": true,
+            "http_lock_cleared": true
+          },
+          "dotenv_calls_intercepted": 1,
+          "ipv6_probe_suppressed": true,
+          "pytest_exit_code": 0,
+          "sentinel_denials": {
+            "child_process": 1,
+            "credential_read": 1,
+            "database_path": 1,
+            "network": 2,
+            "outside_write": 1
+          },
+          "unexpected_denials": {}
+        },
+        "logs_read": true,
+        "m23_cases": 87,
+        "ordered_test_ids_sha256": "3a3cdb0b49f3a3320c188d12e4673af94cc10414e3aefede446f726d5af1199b",
+        "required_repair_test_ids": {
+          "test_normalized_events_failure_reconnect_recording_end_to_end": [
+            "tests.trade_alerts_contracts.test_quote_events::test_normalized_events_failure_reconnect_recording_end_to_end"
+          ],
+          "test_repeated_timestamps_cannot_hide_invalid_source_time": [
+            "tests.trade_alerts_contracts.test_quote_events::test_repeated_timestamps_cannot_hide_invalid_source_time[None-SOURCE_TIME_UNKNOWN]",
+            "tests.trade_alerts_contracts.test_quote_events::test_repeated_timestamps_cannot_hide_invalid_source_time[source_time1-SOURCE_SESSION_MISMATCH]",
+            "tests.trade_alerts_contracts.test_quote_events::test_repeated_timestamps_cannot_hide_invalid_source_time[source_time2-SOURCE_BEFORE_RECOVERY]"
+          ],
+          "test_unknown_or_future_source_time_cannot_confirm": [
+            "tests.trade_alerts_contracts.test_quote_events::test_unknown_or_future_source_time_cannot_confirm"
+          ]
+        },
+        "result_lines": [
+          "490 passed in 14.38s"
+        ],
+        "run": "run-1",
+        "skipped": 0,
+        "tests": 490
+      },
+      {
+        "all_database_connections_temporary": true,
+        "database_connections": 4,
+        "errors": 0,
+        "failures": 0,
+        "isolation": {
+          "all_denials": {
+            "child_process": 1,
+            "credential_read": 1,
+            "database_path": 1,
+            "network": 2,
+            "outside_write": 1
+          },
+          "cleanup": {
+            "config_cleared": true,
+            "db_closed": true,
+            "http_closed": true,
+            "http_lock_cleared": true
+          },
+          "dotenv_calls_intercepted": 1,
+          "ipv6_probe_suppressed": true,
+          "pytest_exit_code": 0,
+          "sentinel_denials": {
+            "child_process": 1,
+            "credential_read": 1,
+            "database_path": 1,
+            "network": 2,
+            "outside_write": 1
+          },
+          "unexpected_denials": {}
+        },
+        "logs_read": true,
+        "m23_cases": 87,
+        "ordered_test_ids_sha256": "3a3cdb0b49f3a3320c188d12e4673af94cc10414e3aefede446f726d5af1199b",
+        "required_repair_test_ids": {
+          "test_normalized_events_failure_reconnect_recording_end_to_end": [
+            "tests.trade_alerts_contracts.test_quote_events::test_normalized_events_failure_reconnect_recording_end_to_end"
+          ],
+          "test_repeated_timestamps_cannot_hide_invalid_source_time": [
+            "tests.trade_alerts_contracts.test_quote_events::test_repeated_timestamps_cannot_hide_invalid_source_time[None-SOURCE_TIME_UNKNOWN]",
+            "tests.trade_alerts_contracts.test_quote_events::test_repeated_timestamps_cannot_hide_invalid_source_time[source_time1-SOURCE_SESSION_MISMATCH]",
+            "tests.trade_alerts_contracts.test_quote_events::test_repeated_timestamps_cannot_hide_invalid_source_time[source_time2-SOURCE_BEFORE_RECOVERY]"
+          ],
+          "test_unknown_or_future_source_time_cannot_confirm": [
+            "tests.trade_alerts_contracts.test_quote_events::test_unknown_or_future_source_time_cannot_confirm"
+          ]
+        },
+        "result_lines": [
+          "490 passed in 14.22s"
+        ],
+        "run": "run-2",
+        "skipped": 0,
+        "tests": 490
+      }
+    ],
+    "selectors": [
+      "tests/trade_alerts_contracts",
+      "tests/test_models.py",
+      "tests/test_schwab_client.py"
+    ],
+    "source_hash": "0d239e6318b30c44663cf38e9a9dc24e16c91db627cc65c7bd2fda7eb445615a",
+    "source_hash_matches_handoff": true,
+    "source_test_protection_sha256": {
+      "consensus_engine/quote_events.py": "1e33aaac6f62a439f0ed74741717ecfd67d2f34aa225e83bf4ff0d0227279453",
+      "scripts/testing/run_trade_alerts_contracts.py": "6b609b643edfc467fc63480acd63ad50d4044616aec5efca61f32315af3d3ad2",
+      "scripts/testing/trade_alerts_contract_child.py": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c",
+      "tests/trade_alerts_contracts/test_quote_events.py": "0d7c85d02d1a9933a7fe7fb94522b0ecf2acb737c589064050fe7fff286c94da"
+    },
+    "supervisor_handoff_at_pacific": "2026-09-06T11:58:34-07:00",
+    "synthetic_only": true
+  },
+  "finalization_checks": {
+    "finalization_start_files_checked": 779,
+    "changed_files": [
+      "trade_alerts_build_docs/M2_3_LOCAL_CHECKS.json",
+      "trade_alerts_build_docs/M2_3_VERIFICATION.md",
+      "trade_alerts_build_docs/ROADMAP.md"
+    ],
+    "unexpected_changed_files": [],
+    "deleted_files": [],
+    "local_ownership_mode_changes": [],
+    "source_tests_configuration_and_protection_unchanged": true,
+    "definition_packets_unchanged": true,
+    "failing_test_list_unchanged": true,
+    "all_new_switches_off": true,
+    "recording_sink": true,
+    "whole_milestone_delta_matches_saved_and_controller_list": true,
+    "document_checks": {
+      "local_links_checked": 26,
+      "broken_links": [],
+      "code_fences_balanced": true,
+      "new_public_line_scan_issues": [],
+      "all_nine_canonical_files_present": true,
+      "required_live_blocker_text_unchanged": true,
+      "next_scope_acceptance_text_unchanged": true,
+      "all_other_unfinished_rows_preserved": true,
+      "assigned_milestone_row": "[x] M2.3 offline evidence",
+      "next_milestone": "M2.4",
+      "next_milestone_gated_on_independent_acceptance": true,
+      "superseded_pending_wording_identified": true
+    },
+    "capability_map": {
+      "functional_rows": 31,
+      "additional_rows": 22,
+      "playbook_rows": 8
+    },
+    "application_tests_run_by_this_session": false,
+    "test_evidence": "Supervisor artifacts only; current repaired 490-test runs and 43-decision recordings inspected"
+  }
+}

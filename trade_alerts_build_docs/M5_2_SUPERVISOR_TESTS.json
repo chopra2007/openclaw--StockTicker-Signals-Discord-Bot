@@ -1,0 +1,39 @@
+{
+  "verified_at_pacific": "2026-09-09T00:32:11-07:00",
+  "milestone": "M5.2",
+  "protected": true,
+  "stable": true,
+  "runs": 2,
+  "exit_codes": [0, 0],
+  "tests_each_run": 1250,
+  "m5_2_cases_each_run": 49,
+  "failures": 0,
+  "errors": 0,
+  "skips": 0,
+  "seconds": [304.67, 306.15],
+  "ordered_test_ids_match": true,
+  "unexpected_isolation_denials": {},
+  "cleanup_passed": true,
+  "recordings": {
+    "long": {"bytes": 52588, "sha256": "144140b599895db3eb9cafbc9376eeb338c6f77f61a897194476b272eeb0202d", "byte_identical": true},
+    "short": {"bytes": 52594, "sha256": "d59b8b6ada0a30bad0415e13fc7898a079f316fd62b902cb16d852de46531399", "byte_identical": true}
+  },
+  "selectors": [
+    "tests/trade_alerts_contracts",
+    "tests/test_batch2_trade_tracking.py::test_batch2_fact_tables_reject_update_and_delete",
+    "tests/test_batch2_trade_tracking.py::test_storage_retries_keep_stable_entity_ids_without_duplicate_facts",
+    "tests/test_market_layer_schema.py",
+    "tests/test_migration_idempotency.py",
+    "tests/test_models.py"
+  ],
+  "hashes": {
+    "consensus_engine/outcome_evaluator.py": "f5c4928adb19eb48fe5aad818e1740b54ca632ec7b7ec8063cc64be2ce36bc98",
+    "tests/trade_alerts_contracts/test_outcome_evaluator.py": "b8f53b9f79cd3794e5d4afbe2517f9f829e0dbf41802c8cfb3e9af1e4b1445d4",
+    "scripts/testing/run_trade_alerts_contracts.py": "7971f5147c0c05296c8c1d3d77e037c70279801369d060a9232604abeb9a6ed3",
+    "scripts/testing/trade_alerts_contract_child.py": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c",
+    "summary.json": "71c12d8f66d26b0a3e36194f2151f6c1acabd0e55c63a26c6a4b47e0cbd3f9a7",
+    "publication.json": "e3c7033f8d1bef3163de3d5d7c88e1a270cabed7f3d6e3926ec270b7eca637da"
+  },
+  "databento_credit_used": 0,
+  "result": "Both protected runs passed. This proves the repaired offline supplied-bar evaluator only. It does not prove actual market-data coverage or profit."
+}

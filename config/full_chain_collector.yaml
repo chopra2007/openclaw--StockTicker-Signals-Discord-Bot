@@ -46,3 +46,18 @@ local_history:
   minute_data: missing
   daily_data: present_for_all_trade_names_and_context
   note: The repository has daily JSON history, but data/mmhl_minute does not exist.
+
+# M0.2B offline storage remains opt-in. These are enforced byte ceilings, not
+# measured daily sizes and not permission to remove any saved data.
+storage:
+  bounded_compaction_enabled: false
+  fixed_reserve_bytes: 12000000000
+  reserve_fraction: 0.15
+  peak_memory_bytes: 1500000000
+  batch_bytes: 256000000
+  wall_seconds: 900
+  output_bounds:
+    chain_bytes: 1000000000
+    open_interest_bytes: 200000000
+    proof_bytes: 4000000
+    publication_bytes: 4096

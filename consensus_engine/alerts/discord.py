@@ -10,7 +10,10 @@ import logging
 import re
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import TYPE_CHECKING, Any, AsyncContextManager, Awaitable, Callable, Optional
+
+if TYPE_CHECKING:
+    from consensus_engine.alert_delivery import RenderedAlert, SendReceipt
 
 import aiohttp
 
@@ -1348,3 +1351,101 @@ async def send_detail_followup(xref: CrossReferenceResult, reply_to_msg_id: str,
                  xref.ticker, xref.final_score, msg_id)
         return msg_id
     return None
+
+
+async def send_trade_alert_payload(
+    rendered: "RenderedAlert", *, post: "Callable[..., AsyncContextManager[Any]]",
+    clock: "Callable[[], datetime]", sleep: "Callable[[float], Awaitable[None]]",
+    max_attempts: int,
+) -> "SendReceipt":
+    """Additive, complete-payload sender with an explicitly supplied transport.
+
+    The caller binds the existing pooled session's POST and destination only in
+    an authorized integration. M4.6 supplies fakes exclusively. This function
+    selects no credentials, destination, session or wall clock. Legacy senders
+    retain their existing return values and retry behavior.
+    """
+    import math
+    from consensus_engine.alert_delivery import RenderedAlert, SendReceipt
+    from consensus_engine.trade_alerts_models import RecordError
+    from consensus_engine.utils.time_context import as_utc
+
+    if not isinstance(rendered, RenderedAlert):
+        raise RecordError("sender requires a complete RenderedAlert")
+    if type(max_attempts) is not int or max_attempts < 1:
+        raise RecordError("max_attempts must be a positive integer")
+    plain = False
+    attempts = 0
+    previous = rendered.candidate.created_at
+    not_before = previous
+    while attempts < max_attempts:
+        now = as_utc(clock())
+        if now < previous:
+            raise RecordError("delivery clock cannot move backward")
+        previous = now
+        remaining = (rendered.candidate.expires_at - now).total_seconds()
+        if remaining <= 0:
+            return SendReceipt("REJECTED_BEFORE_SEND", "EXPIRED", now, attempts)
+        if now < not_before:
+            # A supplied sleep that returned early cannot bypass provider timing.
+            return SendReceipt("FAILED", "RETRY_DELAY_NOT_ELAPSED", now, attempts)
+        attempts += 1
+        delay = None
+        try:
+            payload = _safe_send_kwargs(rendered.payload(plain=plain))
+            async with post(json=payload, timeout=aiohttp.ClientTimeout(total=remaining)) as response:
+                status = response.status
+                if status in (200, 201):
+                    body = await response.json()
+                    reference = body.get("id") if isinstance(body, dict) else None
+                    if isinstance(reference, str) and reference.strip():
+                        return SendReceipt("CONFIRMED_DELIVERED", "MESSAGE_CONFIRMED", now,
+                                           attempts, reference)
+                    return SendReceipt("UNKNOWN", "MISSING_MESSAGE_REFERENCE", now, attempts)
+                if status == 400 and not plain:
+                    # One complete fallback, not the legacy truncated first embed.
+                    plain = True
+                    if attempts == max_attempts:
+                        return SendReceipt("FAILED", "ATTEMPTS_EXHAUSTED", now, attempts)
+                    continue
+                if status == 429:
+                    hints = [response.headers.get("Retry-After")]
+                    try:
+                        body = await response.json()
+                        if isinstance(body, dict):
+                            hints.append(body.get("retry_after"))
+                    except Exception:
+                        pass  # A valid response header can still supply the delay.
+                    valid = []
+                    for hint in hints:
+                        if isinstance(hint, bool):
+                            continue
+                        try:
+                            seconds = float(hint)
+                        except (TypeError, ValueError):
+                            continue
+                        if math.isfinite(seconds) and seconds >= 0:
+                            valid.append(seconds)
+                    if not valid:
+                        return SendReceipt("FAILED", "RETRY_DELAY_UNAVAILABLE", now, attempts)
+                    delay = max(valid)
+                    if attempts == max_attempts:
+                        return SendReceipt("FAILED", "ATTEMPTS_EXHAUSTED", now, attempts)
+                elif 400 <= status < 500:
+                    return SendReceipt("FAILED", "REQUEST_REJECTED", now, attempts)
+                else:
+                    # Server failures may follow a write. Never blindly duplicate.
+                    return SendReceipt("UNKNOWN", "UNCONFIRMED_RESPONSE", now, attempts)
+        except Exception:
+            return SendReceipt("UNKNOWN", "TRANSPORT_EXCEPTION", now, attempts)
+        # Release the response before any wait. Check expiry again after I/O.
+        now = as_utc(clock())
+        if now < previous:
+            raise RecordError("delivery clock cannot move backward")
+        previous = now
+        remaining = (rendered.candidate.expires_at - now).total_seconds()
+        if delay >= remaining:
+            return SendReceipt("REJECTED_BEFORE_SEND", "RETRY_WOULD_EXPIRE", now, attempts)
+        not_before = now + timedelta(seconds=delay)
+        await sleep(delay)
+    raise AssertionError("attempt loop must return a classified result")

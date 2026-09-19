@@ -1,0 +1,100 @@
+Current status, 2026-09-06 Pacific: repaired M2.2 protected verification and
+records-only finalization are complete. The supervisor supplied two fresh runs
+with 424 tests passing each, including all seven required selectors. Both history
+proofs match; isolation and cleanup checks pass. M2_2_VERIFICATION.md section 11
+and M2_2_LOCAL_CHECKS.json record the inspected evidence. Independent acceptance
+review remains; M2.3 is proposed until that review passes.
+
+No launcher retry, protection edit or ownership change occurred in this
+finalization. All errors and pending instructions below are historical and
+superseded by the fresh proof above; original tracebacks remain unchanged.
+
+Current review repair, 2026-09-06 Pacific: ready_for_verification.
+The unchanged protected launcher failed before either child or any test ran.
+The exact current traceback is appended below. The earlier 418-test runs apply
+only to the source before this repair; they do not verify the current changes
+or the two newly required peer-history selectors. The supervisor must run all
+seven selectors in M2_2_VERIFICATION.md section 3 after this session exits.
+No launcher or child protection change is requested.
+
+Historical status before the current review repair, 2026-09-06 Pacific: the
+supervisor subsequently supplied two passing protected runs (418 tests each).
+M2_2_VERIFICATION.md section 9 and M2_2_LOCAL_CHECKS.json record the inspected
+proof. The supervisor handoff reports ownership restored. This finalization
+made no launcher retry or ownership change. The original errors below are
+preserved verbatim; their pending instructions are superseded by that record.
+
+M2.2 protected-launcher attempt, 2026-09-06 Pacific.
+The launcher was unchanged. It stopped before either protected child or pytest.
+No results.xml, isolation.json or M2.2 end-to-end proof was produced by this attempt.
+
+Exact output:
+Traceback (most recent call last):
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 72, in <module>
+    raise SystemExit(main())
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 26, in main
+    os.chown(artifact_root, account.pw_uid, account.pw_gid)
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-2bp0335g'
+
+The same ownership operation was tried on each new Python file, using the named
+project account. Both returned exactly: OSError(22, 'Invalid argument')
+Existing file ownership and modes were preserved by in-place writes. New-file
+ownership must be restored by the supervisor outside this restricted process.
+
+Required next action: run the existing protected launcher externally with the
+selectors recorded in M2_2_VERIFICATION.md, inspect both XML/isolation records
+and the M2.2 synthetic proof, and obtain the supervisor's independent review.
+Do not bypass, weaken or edit either protection script. Do not run legacy tests
+directly or count syntax checks as passing acceptance tests.
+
+Repair attempt 1, 2026-09-06 03:53 Pacific.
+The same unchanged launcher was retried with all five saved selectors.
+Exit code: 1. Exact output:
+Traceback (most recent call last):
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 72, in <module>
+    raise SystemExit(main())
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 26, in main
+    os.chown(artifact_root, account.pw_uid, account.pw_gid)
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-19i8wo36'
+
+Alternative: invoke the unchanged launcher as the existing project account via
+setpriv, retaining the same selectors and all launcher protection.
+Exit code: 127. Exact output:
+setpriv: setresuid failed: Invalid argument
+
+Neither attempt reached a protected child or pytest. No XML, isolation record
+or end-to-end output was produced. Changing the launcher is neither needed nor
+authorized. External protected execution and ownership restoration remain the
+supervisor's next steps after this restricted process exits.
+
+Repair attempt 2, 2026-09-06 03:59 Pacific.
+The unchanged launcher was run with all five saved selectors.
+Exit code: 1. Exact output:
+Traceback (most recent call last):
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 72, in <module>
+    raise SystemExit(main())
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 26, in main
+    os.chown(artifact_root, account.pw_uid, account.pw_gid)
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-unnssqbj'
+
+The new artifact directory is empty. Neither protected child nor pytest ran.
+Fresh ownership restoration attempts on the same five new milestone files
+each returned exactly: OSError(22, 'Invalid argument')
+The earlier project-account alternative already failed before startup; it
+was not repeated in this attempt. No guard was changed or bypassed.
+The supervisor must execute protected verification and restore ownership
+outside this restricted process. M2.2 remains partial pending that evidence.
+
+Current review-repair attempt, 2026-09-06 Pacific.
+All seven saved selectors were supplied to the unchanged launcher.
+Exit code: 1. Exact output:
+Traceback (most recent call last):
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 72, in <module>
+    raise SystemExit(main())
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 26, in main
+    os.chown(artifact_root, account.pw_uid, account.pw_gid)
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-a1ph9qzk'
+
+The new artifact folder is empty. No XML, isolation report or synthetic
+end-to-end output was produced. Preserve the protection and repaired code/tests.
+Fresh supervisor execution, then records-only finalization, remains required.

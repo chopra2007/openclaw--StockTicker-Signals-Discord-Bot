@@ -1,0 +1,79 @@
+Historical expanded-selection attempt — 2026-09-06 23:25:40 Pacific
+Status at that attempt: stopped before child creation or test collection; exit 1.
+All 18 required selectors were supplied to the unchanged launcher.
+At that time, the earlier 822-test selection had passed; the four added checks
+remained unverified. Both later expanded runs passed 826 tests. Their proof and
+records-only finalization are complete in M4_2_VERIFICATION.md section 13.
+The unchanged traceback below is historical, not a current M4.2 blocker.
+
+Traceback (most recent call last):
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 72, in <module>
+    raise SystemExit(main())
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 26, in main
+    os.chown(artifact_root, account.pw_uid, account.pw_gid)
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-wohbdoo_'
+
+Historical attempts below — superseded as current status.
+Their original output is preserved.
+
+Historical initial local attempt — 2026-09-06 Pacific
+Traceback (most recent call last):
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 72, in <module>
+    raise SystemExit(main())
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 26, in main
+    os.chown(artifact_root, account.pw_uid, account.pw_gid)
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-7unre0tj'
+
+Supervisor failure inspected during repair 1 — 2026-09-06 Pacific
+First protected child at timeout=300: subprocess.TimeoutExpired
+Exact exception suffix: timed out after 299.99996812001336 seconds
+Detailed output read:
+tail: cannot open '/tmp/trade-alerts-m04-3x7b5nd0/run-1/output.txt' for reading: Permission denied
+
+Fresh local repair 1 attempt — 2026-09-06 21:57:20 Pacific
+Traceback (most recent call last):
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 72, in <module>
+    raise SystemExit(main())
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 26, in main
+    os.chown(artifact_root, account.pw_uid, account.pw_gid)
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-xf3f1p34'
+
+Supervisor failure inspected during repair 2 — 2026-09-06 22:05:33 Pacific
+First protected child at timeout=300: subprocess.TimeoutExpired
+Exact exception suffix: timed out after 299.9999740560015 seconds
+Detailed output and pytest log reads:
+tail: cannot open '/tmp/trade-alerts-m04-gdj1ed3h/run-1/output.txt' for reading: Permission denied
+tail: cannot open '/tmp/trade-alerts-m04-gdj1ed3h/run-1/pytest.log' for reading: Permission denied
+
+Fresh local repair 2 attempt — 2026-09-06 22:10:01 Pacific
+Traceback (most recent call last):
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 72, in <module>
+    raise SystemExit(main())
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 26, in main
+    os.chown(artifact_root, account.pw_uid, account.pw_gid)
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-uzqrwa95'
+
+Supervisor failure inspected during repair 3 — 2026-09-06 22:20:53 Pacific
+First protected child at timeout=300: subprocess.TimeoutExpired
+Exact exception suffix: timed out after 299.9999653759878 seconds
+Detailed output and pytest log reads:
+tail: cannot open '/tmp/trade-alerts-m04-cowefu4b/run-1/output.txt' for reading: Permission denied
+tail: cannot open '/tmp/trade-alerts-m04-cowefu4b/run-1/pytest.log' for reading: Permission denied
+
+Fresh local repair 3 attempt — 2026-09-06 22:31:38 Pacific
+Traceback (most recent call last):
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 72, in <module>
+    raise SystemExit(main())
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 26, in main
+    os.chown(artifact_root, account.pw_uid, account.pw_gid)
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-ntz2_91u'
+
+
+Fourth repair local attempt — 2026-09-06 22:55:18 Pacific
+Unchanged protected launcher; complete saved selection; exit 1 before test collection.
+Traceback (most recent call last):
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 72, in <module>
+    raise SystemExit(main())
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 26, in main
+    os.chown(artifact_root, account.pw_uid, account.pw_gid)
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-qj2rd_4q'

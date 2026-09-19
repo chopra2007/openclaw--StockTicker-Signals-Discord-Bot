@@ -1161,3 +1161,299 @@ form has no dot in the root: `BRKB.OPT`. Verified 2026-09-16 with
 the unexplained HTTP 400 that blocked M0.2I from 2026-09-14. The equity symbol
 remains `BRK.B`, which is correct for EQUS.MINI `raw_symbol` requests.
 M0_2H_SOURCE_ACQUISITION_SPEC.json has been corrected.
+
+## 55. D-106 — Human reaction policy: take every alert, within 30 seconds
+
+Status: **CONFIRMED**, owner decision 2026-09-16 Pacific.
+
+Owner's words: "Assume I will take the trade within 30 seconds of the alert. If
+the bot alerts, I will take the trade... If the system is designed right, I have
+no reason to skip any trade."
+
+This closes the human-reaction half of the M9.4 / MASTER_SPEC §19 early
+validation gate by **removing the discretionary variable** rather than by
+measuring it. The modelled human is deterministic:
+
+- every alert is acted on; there is no skip, no filter, no second look;
+- action occurs within 30 seconds of delivery, so fills are modelled from the
+  price path 0-30 seconds after alert time, not at the trigger instant;
+- therefore the system's measured result IS the owner's result. There is no
+  "the trader would have filtered the bad ones" allowance anywhere.
+
+Consequences that are now binding on the build:
+
+1. The burden moves entirely onto the alert rule. A rule may not rely on human
+   judgement to rescue a weak trigger.
+2. Fill modelling must use the 0-30s post-alert window, with the spread taken
+   from real quote data, not the trigger price.
+3. This is a **stated policy, not observed behaviour**. It is recorded as such.
+   It does not prove delivery latency, broker fill quality or execution
+   capacity, and it authorizes no live activation. Those stay open.
+
+Supersedes nothing. It answers the human-decision evidence gap named in the
+2026-09-16 M9.4 stop.
+
+## 56. D-107 — Parameter search design: tune on 9 names, prove on 8 unseen names
+
+Status: **CONFIRMED**, owner decision 2026-09-16 Pacific.
+
+The owner overruled the earlier reading that thresholds may never be chosen by
+measuring returns. That restriction applies only to the evidence set that is
+later quoted as proof. Tuning on a training set and proving on a held-out set
+is correct method and is now the approved approach.
+
+Owner's words: "You need to find out the optimal methods that produce the best
+returns... When you find the most winning combination, test it on 2 other stock
+and ETF's that you haven't looked at."
+
+**Split (frozen before any result is read).** From the D-102 universe of 17:
+
+- **Training (9):** NVDA, MSFT, AAPL, TSLA, LLY, SPY, QQQ, XLV, USO
+- **Held out (8):** GOOGL, AMZN, META, AVGO, BRK.B, IWM, GLD, VXX
+
+Five shares and four ETFs train; five shares and three ETFs are held out. The
+held-out eight must not be inspected, plotted, counted or used for any tuning
+decision until the training combination is final and written down.
+
+**No date holdout.** The owner declined a time-based split: "There can be a
+trend change the last 4 months that throws off otherwise good data, and I don't
+want to make the test so complicated that it is doomed to get bad results."
+The full 251 sessions (2025-09-15 to 2026-09-14) are used for both halves.
+Recorded limitation: the study therefore proves generalisation **across
+symbols only, not across time or regime**. Any result must say so.
+
+**Search space.** The eight open settings on playbooks #1-#4 (D-043, D-044,
+D-045, D-048, D-049, D-052, D-054, D-055) plus the combination of which
+playbooks run together. Their current defaults are starting points, not
+constraints.
+
+**Anti-fooling rules that stay in force.** Cluster to one event per
+ticker-day-side so a single busy session cannot dominate. Costs are mandatory:
+real spread from the `bbo-1m` quotes, modelled slippage, commissions. Fills use
+the D-106 window, 0-30 seconds after alert time, from the tick `trades` path.
+
+## 57. D-108 — Success bar, frozen before the search runs
+
+Status: **CONFIRMED**, owner decision 2026-09-16 Pacific. Owner asked for a bar
+that is not "so strict that a winning strategy is never found".
+
+A combination passes only if all three hold on the **held-out eight**:
+
+1. **Profit** — highest mean profit per trade after all costs, and the lower
+   bound of its bootstrap confidence interval is above zero. Ranking metric is
+   per-trade, not total, so a strategy cannot win by trading more often.
+2. **Consistency** — at least **60% winning weeks**. Calibration that set this
+   number: at about 5 trades per week with a 2:1 reward-to-risk shape, 60%
+   winning weeks implies roughly a 0.17R per-trade edge; 67% implies about
+   0.30R and 75% about 0.50R. The owner's instinct of 2-to-1 or 3-to-1 winning
+   weeks corresponds to a strong-to-exceptional system, strict enough to
+   discard a real but modest edge, so 60% was chosen deliberately.
+3. **Survivability** — worst peak-to-trough loss recoverable within about six
+   average winning weeks. Worst losing streak is reported alongside, not used
+   as a pass/fail.
+
+This bar is frozen **before** the search. Changing any of the three after a
+result exists invalidates the study. Frequency is not constrained; it is
+measured and reported (owner: let it float).
+
+Historical context recorded so a large number is checked rather than believed:
+every trade method previously tested in this project cleared under 0.11% per
+trade against an approximate 0.40% bar, and opening-range breakout, value-area
+and gap-fade specifically were rejected in TODO #106 and #97. The owner's
+position is that the tick-level data, catalyst and volume filters, spread model
+and 0-30s fill window make this a materially different test, not a repeat.
+
+## 58. D-109 — Two owner option-exit arms, preregistered 2026-09-16
+
+Status: **CONFIRMED**, owner decision 2026-09-16 Pacific, registered **before
+any return has been read**. The owner uses the first pattern in live trading
+with reported success; both are added as separate arms, neither is favoured.
+
+These are **option-premium** exit rules. They do not replace or alter the 72
+preregistered stock arms in M0_3B (12 base rows x 2 stops x 3 exits), which
+stay exactly as they are and are measured in R on the underlying. The two arms
+below are evaluated on the option data bought for the days the surviving
+setups actually trigger, and are reported separately.
+
+### Common terms for both arms
+
+- **Position:** 5 contracts per signal.
+- **Entry:** the D-106 window, 0-30 seconds after alert, at the option
+  **midpoint of bid and ask**.
+- **All fills at the midpoint**, never bid-on-sell / ask-on-buy (standing owner
+  rule since 2026-09-03; on a prior study the bad-side assumption alone cost a
+  median 9% of the credit and decided the result).
+- **Percentages are on the premium paid, gross of commissions.** Commissions
+  are then deducted as separate cash per transaction. The 4-contract sale is
+  one transaction; the 1-contract sale is another.
+- **Before the first scale-out fills**, the underlying structural stop governs
+  all 5 contracts; if it hits, all 5 exit at the option midpoint at that time.
+- **Never held to expiry.** Forced close at the earlier of the regular-session
+  close on the last permitted day, or two sessions before expiration (standing
+  owner rule: a position up 5x intraday can still expire at max loss, so exit
+  timing decides the outcome).
+- **Adverse resolution:** if a profit trigger and a stop are both satisfiable
+  within the same one-minute observation, the stop resolves first.
+
+### `EXIT_OWNER_SCALE80_V1` — fixed runner target
+
+1. Sell **4 of 5** contracts at the first observation where the midpoint is at
+   or above **1.20x** the entry midpoint.
+2. The remaining **1** contract exits at whichever comes first:
+   - midpoint at or above **2.00x** entry (+100%), or
+   - midpoint at or below **1.00x** entry — a **breakeven stop**, armed only
+     once the 4-contract sale has filled.
+
+### `EXIT_OWNER_SCALE80_TRAIL15_V1` — trailing runner
+
+1. Identical first leg: sell **4 of 5** at **1.20x** entry midpoint.
+2. The remaining **1** contract then trails: once the midpoint has touched
+   1.20x, exit when the midpoint falls to or below **0.85x the highest midpoint
+   observed since entry** (a 15% trailing stop on the high-water mark). There is
+   no fixed upper target. The trailing stop first arms at 1.02x entry, so it
+   supersedes the breakeven stop rather than sitting beneath it.
+
+### Known limitation, recorded now rather than discovered later
+
+The affordable option data is `cbbo-1m`, a **one-minute** consolidated quote.
+The trailing arm is materially more sensitive to that coarseness than the fixed
+arm, because a 15% retrace from a high-water mark can occur and reverse inside
+a single minute that the data never shows. The fixed arm's 1.20x and 2.00x
+touches are far less exposed. Any comparison between the two arms must state
+this; a trailing-arm result must not be read as if it were tick-accurate.
+
+### Sequencing and cost
+
+Option quotes cost about **USD 0.41 per name-day** measured 2026-09-16 (roughly
+0.20 for single shares, 0.70 for SPY and QQQ). USD 37.53 of the USD 60 remains,
+so about 90 name-days are affordable. Therefore: run the stock-data search
+first, take the days and strikes the surviving setups actually select, and buy
+option quotes for only those. A full year of chains is USD 1,088 and is not an
+option.
+
+## 59. D-110 — Offline research may compute over PROVISIONAL bars; the live contract is untouched
+
+Status: **CONFIRMED**, 2026-09-17 Pacific. Decided under the owner's standing
+D-104 ruling and their 2026-09-17 instruction to settle obvious unblocking
+questions without stopping the build.
+
+**The problem.** `historical_bars.py` marks a bar `FINAL` or `NO_TRADE` only
+when its finality can be established (line 313); otherwise it is `PROVISIONAL`
+(line 301). `HistoryBatch.complete` (line 189) and `final_bars` (line 194)
+admit only `FINAL`/`NO_TRADE`. Databento history arrives PROVISIONAL because
+original availability and correction/revision history are exactly the D-104
+gaps that money cannot close. A research path reading `final_bars` therefore
+sees **nothing**, and M9.1D cannot build a per-playbook adapter at all.
+
+**The decision.** Offline research may compute features and outcomes over
+PROVISIONAL bars, under these conditions:
+
+1. **The live contract does not change.** `complete` and `final_bars` keep
+   their exact present meaning. Production code that depends on them is not
+   touched, not relaxed, and not given a new default. Research reads
+   provisional data through its own explicitly-named path, so no caller can
+   consume finality-unknown bars by accident.
+2. **Every research output is labelled.** Any result computed this way records
+   that its bars were finality-unknown, and how many intervals were provisional
+   rather than final. A result that omits this label is invalid.
+3. **No live path may consume provisional bars.** No alert, delivery, order or
+   production decision may read the research path. All switches stay off.
+4. **The gap stays open.** This does not close the finality gap. It remains a
+   D-104 gap in `M0_2K_GAP_REGISTER.json` with its dependent rules switched off
+   and labelled untested. Any rule that genuinely requires proven finality
+   stays off; this decision only permits the rules that do not.
+
+**Why this is the right call and not a shortcut.** D-104 says a field that
+cannot be obtained is recorded as a gap with its dependents disabled — never
+approximated and tested through. Nothing here approximates finality. The bars
+are used as what they are, labelled as what they are, and the conclusions drawn
+from them are limited accordingly. The owner's words were "testing some data is
+better than testing nothing because 1 aspect wasn't able to be downloaded".
+Refusing to compute on provisional bars would mean testing nothing at all,
+since every bar this project can afford is provisional.
+
+**Recorded limitation.** If a data provider later issues corrections to bars in
+the 2025-09-15 to 2026-09-14 window, results computed under this decision were
+computed on uncorrected data. That is a known, accepted and documented
+weakness, not a hidden one.
+
+## 60. D-111 — Agent-selected M9.1T parameter-grid and playbook-combination preregistration
+
+Status: **CONFIRMED**, 2026-09-18 Pacific. Agent-selected under the
+2026-09-13 RESEARCH_AUTHORIZATION delegation, implementing D-107's "eight open
+settings on playbooks #1-#4 (D-043, D-044, D-045, D-048, D-049, D-052, D-054,
+D-055) plus the combination of which playbooks run together" before any
+result is read.
+
+Full candidate tables, the two-stage (per-playbook winning configuration, then
+playbook-combination selection) plus held-out-only stage-3 D-108 evaluation
+design, and tie-break rules are frozen in
+[M9_1T_PARAMETER_GRID_PREREGISTRATION.md](./M9_1T_PARAMETER_GRID_PREREGISTRATION.md).
+Summary: 2 candidates for D-043 (OR5/OR15, reusing the already-frozen
+`M03B_OR_RESEARCH_V2` range definitions), 3 for D-044 (RVOL 1.5/2.0/2.5), 3
+paired candidates for D-045 (acceptance window/prior), 2 for D-048
+(compression on/off), 2 for D-049 (RS mandatory/report-only), 2 for D-052
+(confirmed/faster entry), 2 for D-054 (VWAP mandatory/relaxed) and 2 for D-055
+(AVWAP off/on) — 18/4/2/4 configurations for `CRVOL_ORB5`/`HOD_COMP_RS`/
+`OR_FAILURE_REV`/`FIRST_PULLBACK_VWAP` respectively — plus 5 playbook-
+combination candidates (each playbook solo, and all four combined). The D-107
+9-train/8-held-out split (NVDA, MSFT, AAPL, TSLA, LLY, SPY, QQQ, XLV, USO
+train; GOOGL, AMZN, META, AVGO, BRK.B, IWM, GLD, VXX held out) is confirmed
+unchanged, with the held-out eight reserved for a single stage-3 pass after
+stages 1-2 are final.
+
+This record freezes the grid only. No search ran, no adapter or evaluator
+code changed, and no training or held-out result was read while writing it.
+The D-108 evaluator (item (d) of the 2026-09-17 M9.1 build-scope inventory)
+and the search run itself (item (e)) remain separate, unstarted work. The two
+D-104 gaps (original availability/finality; point-in-time membership) and the
+M9.1S quote-decision/M4.4-confidence gap stay recorded gaps with dependent
+rules off.
+
+## 61. D-112 — Retained-file read assignment for the adapter-count run (M9.1BD)
+
+Recorded 2026-09-19 Pacific by the supervising session, under the owner's
+standing instruction not to pause the build for decisions that need no market
+judgement. This is a read assignment only: which already-purchased files to
+open. It approves no rule, sets no threshold, spends nothing and produces no
+signal, trade or result.
+
+**Job directory.** `/home/openclaw/.openclaw/research-data/databento/`
+`core17-1y_2025-09_to_2026-09/ohlcv-1m/EQUS-20260916-47J8PRKRBB`
+
+**Files.** Every `*.dbn.zst` file the batch manifest in that directory lists,
+verified by `verify_retained_files` before any read. No file outside that
+manifest is opened.
+
+**Ticker-days.** The nine D-107 training names only — NVDA, MSFT, AAPL, TSLA,
+LLY, SPY, QQQ, XLV, USO — across every session the retained files contain
+(2025-09-15 to 2026-09-14). The eight held-out names (GOOGL, AMZN, META, AVGO,
+BRK.B, IWM, GLD, VXX) are NOT read in this run; they stay sealed until the
+single stage-3 pass D-107 reserves for them.
+
+**Instrument types.** `EQUITY` for NVDA, MSFT, AAPL, TSLA, LLY. `ETF` for SPY,
+QQQ, XLV, USO.
+
+**Source conventions** (`HistoryConventions`), taken from the EQUS.MINI facts
+already established on this box, not inferred at read time:
+
+- `timestamp="START"` — EQUS.MINI minute bars are stamped at the bar's start.
+- `session="PREMARKET_AND_REGULAR"` — the retained extract is not
+  regular-hours-only.
+- `coverage_basis` — EQUS.MINI is a consolidated subset carrying roughly a
+  fifth of the full tape, so any absolute share-count or dollar-volume
+  threshold read from it is not comparable to a full-tape threshold.
+- `adjustment_basis="UNADJUSTED"`, `price="TRADE"`, `volume="TRADE"`.
+- `finality="PROVISIONAL"` — these are Databento bars. Under D-110 they are
+  admissible on the offline research path only, never through
+  `HistoryBatch.complete` or `final_bars`.
+- `publication="BATCH"`, `evidence_reference` = this decision, D-112.
+
+**What the run may publish.** Ready and not-ready counts per playbook and
+input, plus the skipped and no-prior-session lists. Nothing else. No entry, no
+fill, no trade, no R, no profit figure.
+
+The two D-104 gaps (original availability/finality; point-in-time membership)
+and the M9.1S quote-decision/M4.4-confidence gap stay recorded gaps with every
+dependent rule switched off and labelled untested. The parent `M9.1 —
+Historical replay #1-4` is not complete.

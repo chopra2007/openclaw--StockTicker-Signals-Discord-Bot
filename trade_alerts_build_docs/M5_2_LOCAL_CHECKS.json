@@ -1,0 +1,217 @@
+{
+  "checked_at_pacific": "2026-09-09T00:32:11-07:00",
+  "milestone": "M5.2",
+  "status": "blocked",
+  "checks": {
+    "supervisor_protected_tests": "both fresh protected runs passed 1250 tests, including all 49 M5.2 cases and both required Batch 2 storage checks",
+    "source_test_configuration_protection_contents_match": true,
+    "ordered_test_ids_match": true,
+    "documentation_checks": "fresh proof was inspected; JSON syntax, saved status, roadmap checkboxes and next milestone were rechecked",
+    "ownership_matches_supervisor_manifest": false,
+    "records_only_changed_paths": [
+      "trade_alerts_build_docs/M5_2_LOCAL_CHECKS.json",
+      "trade_alerts_build_docs/M5_2_SUPERVISOR_TESTS.json",
+      "trade_alerts_build_docs/M5_2_VERIFICATION.md",
+      "trade_alerts_build_docs/ROADMAP.md",
+      "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+    ],
+    "ownership_note": "The local filesystem reports owner/group values that differ from the supervisor manifest for the milestone paths. This records-only finalization used in-place writes and made no ownership change. The manifest is host-side ownership evidence; the local view cannot independently confirm it."
+  },
+  "protected_tests_passed": true,
+  "hashes": {
+    "consensus_engine/event_store.py": "18dfcb2e4d13038d14518fe3b976c9d5bec962310c496022bbe599e35405019c",
+    "consensus_engine/outcome_evaluator.py": "f5c4928adb19eb48fe5aad818e1740b54ca632ec7b7ec8063cc64be2ce36bc98",
+    "tests/trade_alerts_contracts/test_outcome_evaluator.py": "b8f53b9f79cd3794e5d4afbe2517f9f829e0dbf41802c8cfb3e9af1e4b1445d4",
+    "scripts/testing/run_trade_alerts_contracts.py": "7971f5147c0c05296c8c1d3d77e037c70279801369d060a9232604abeb9a6ed3",
+    "scripts/testing/trade_alerts_contract_child.py": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c"
+  },
+  "notes": [
+    "The 1216-test proof and local ownership error are historical.",
+    "Earlier protected proof is historical after the original-risk storage test changed.",
+    "The new long/short test uses valid OHLC geometry and the evaluator now preserves the approved inclusive 1.50R room boundary with exact decimal comparisons.",
+    "Four new cases cover exact and just-over 0.35 entry extension values for long and short candidates. Their entry, risk and target are now built with exact decimal values, and the target price and target R multiple remain consistent.",
+    "The offline row is [~] until fresh protected proof; the separate required [!] source/definition gate remains open.",
+    "Independent next milestone M5.3 remains subject to reviewer validation.",
+    "No test, configuration, protection, live work, purchases or Git mutations."
+  ],
+  "offline_status": "protected_proof_complete",
+  "next_milestone": "M5.3",
+  "records_rechecked_at_pacific": "2026-09-08T13:59:24.270561-07:00",
+  "blocker": "Actual compatible point-in-time adjusted minute coverage, gaps, halts, corrections and adopted cost, borrow and statistical terms remain unavailable. Synthetic bars cannot close this required gate.",
+  "required_source_definition_gate": "M0.2/M5.2 actual dated minute coverage, adjustments, availability, gaps, halts and corrections remain unverified. M0.3/P-03 cost, borrow and statistical terms remain unadopted. Reopening requires separately supervised source evidence and a version-scoped owner decision; see M5_2_VERIFICATION section 8.",
+  "current_launcher_limitation": "historical local limitation; the supervisor completed both fresh protected runs externally",
+  "historical_pre_review_proof": {
+    "protected_proof": {
+      "at_pacific": "2026-09-08 02:22:16 PDT",
+      "runs": 2,
+      "tests_each_run": 1216,
+      "outcome_evaluator_cases": 15,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "ordered_test_ids_match": true,
+      "unexpected_isolation_denials": {},
+      "cleanup_passed": true,
+      "long_proof_bytes": 10890,
+      "short_proof_bytes": 10891,
+      "recordings_byte_identical": true,
+      "recordings_under_100000_bytes": true,
+      "fixture_db_path": "/tmp/default.db",
+      "synthetic_sources": {
+        "youtube_channels": []
+      },
+      "databento_credit_used": 0,
+      "databento_credit_reserved": 0
+    },
+    "records_recheck": {
+      "published_hashes_checked": 63,
+      "published_hashes_match": true,
+      "tested_manifest_entries": 838,
+      "tested_contents_matching_before_repair": 834,
+      "prior_records_only_differences": [
+        "trade_alerts_build_docs/M5_2_VERIFICATION.md",
+        "trade_alerts_build_docs/M5_2_LOCAL_CHECKS.json",
+        "trade_alerts_build_docs/ROADMAP.md",
+        "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+      ],
+      "source_test_configuration_protection_contents_match": true,
+      "publication_sha256": "8fefce7daff23adfa6d5fb72b29354b435d8e905cb1b9752b257c89e06ec3d2c",
+      "summary_sha256": "71c12d8f66d26b0a3e36194f2151f6c1acabd0e55c63a26c6a4b47e0cbd3f9a7",
+      "recording_sha256": {
+        "long": "b3c3ca3411962d7d137c58dbfac3c80c3953fa67e1a905fb49065517629224e2",
+        "short": "6eca5954cc9cab1fa04525f2acc935e0a9e926f0208f94238b3ddb593493f622"
+      },
+      "tests_rerun": false,
+      "documentation_checks": "Local links, added-line whitespace, secret-shaped text, saved status/next milestone and affected selector coverage passed.",
+      "ownership_restore_errors": {
+        "trade_alerts_build_docs/M5_2_VERIFICATION.md": "[Errno 22] Invalid argument: 'trade_alerts_build_docs/M5_2_VERIFICATION.md'",
+        "trade_alerts_build_docs/M5_2_LOCAL_CHECKS.json": "[Errno 22] Invalid argument: 'trade_alerts_build_docs/M5_2_LOCAL_CHECKS.json'",
+        "trade_alerts_build_docs/ROADMAP.md": "[Errno 22] Invalid argument: 'trade_alerts_build_docs/ROADMAP.md'",
+        "trade_alerts_build_docs/TESTING_AND_VALIDATION.md": "[Errno 22] Invalid argument: 'trade_alerts_build_docs/TESTING_AND_VALIDATION.md'"
+      },
+      "ownership_note": "Backup copy ownership is not a source ownership check. Host ownership verification remains for the supervisor; local ownership restoration failed as recorded."
+    },
+    "hashes": {
+      "consensus_engine/outcome_evaluator.py": "321e278de86b73d8ddf6b8e11e2616003a93c201f1cbf46400dc4c6ba0b0b58e",
+      "consensus_engine/event_store.py": "73ded7af98e19dd54be437c45082131f8f30833d6c1bb05bc80aa9f1f3933df1",
+      "tests/trade_alerts_contracts/test_outcome_evaluator.py": "489e91be91481b786c92767ab4cadb996f5a771ec26c60ea8b35e5f1d0198b35",
+      "scripts/testing/run_trade_alerts_contracts.py": "6b609b643edfc467fc63480acd63ad50d4044616aec5efca61f32315af3d3ad2",
+      "scripts/testing/trade_alerts_contract_child.py": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c"
+    }
+  },
+  "milestone_changed_files": [
+    "consensus_engine/outcome_evaluator.py",
+    "tests/trade_alerts_contracts/test_outcome_evaluator.py",
+    "trade_alerts_build_docs/M5_2_LAUNCHER_LIMITATION.txt",
+    "trade_alerts_build_docs/M5_2_LOCAL_CHECKS.json",
+    "trade_alerts_build_docs/M5_2_SUPERVISOR_TESTS.json",
+    "trade_alerts_build_docs/M5_2_VERIFICATION.md",
+    "trade_alerts_build_docs/ROADMAP.md",
+    "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+  ],
+  "historical_review_repair_local_checks": {
+    "checked_at_pacific": "2026-09-08T13:45:01.132304-07:00",
+    "checks": {
+      "python_310_grammar": "passed",
+      "python_in_memory_compile": "passed",
+      "written_parameter_expanded_cases": 41,
+      "protected_launcher": "stopped before collection at initial os.chown; exact traceback in M5_2_LAUNCHER_LIMITATION.txt",
+      "tests_executed": false,
+      "protection_unchanged": true,
+      "ownership_restore_errors": {
+        "consensus_engine/event_store.py": "[Errno 22] Invalid argument: 'consensus_engine/event_store.py'",
+        "consensus_engine/outcome_evaluator.py": "[Errno 22] Invalid argument: 'consensus_engine/outcome_evaluator.py'",
+        "tests/trade_alerts_contracts/test_outcome_evaluator.py": "[Errno 22] Invalid argument: 'tests/trade_alerts_contracts/test_outcome_evaluator.py'",
+        "trade_alerts_build_docs/M5_2_LAUNCHER_LIMITATION.txt": "[Errno 22] Invalid argument: 'trade_alerts_build_docs/M5_2_LAUNCHER_LIMITATION.txt'",
+        "trade_alerts_build_docs/M5_2_LOCAL_CHECKS.json": "[Errno 22] Invalid argument: 'trade_alerts_build_docs/M5_2_LOCAL_CHECKS.json'",
+        "trade_alerts_build_docs/M5_2_VERIFICATION.md": "[Errno 22] Invalid argument: 'trade_alerts_build_docs/M5_2_VERIFICATION.md'",
+        "trade_alerts_build_docs/ROADMAP.md": "[Errno 22] Invalid argument: 'trade_alerts_build_docs/ROADMAP.md'",
+        "trade_alerts_build_docs/TESTING_AND_VALIDATION.md": "[Errno 22] Invalid argument: 'trade_alerts_build_docs/TESTING_AND_VALIDATION.md'"
+      },
+      "documentation_links_added_whitespace_secret_patterns": "passed",
+      "scoped_git_diff_check": "passed",
+      "source_test_diff_review": "reviewed against saved pre-repair copies; no tests executed",
+      "handoff_consistency": "M5.2 repair pending; M5.3 proposed only after acceptance; required separate gate remains open"
+    },
+    "protected_tests_passed": false,
+    "offline_status": "repair_written_protected_execution_pending",
+    "blocker": "Protected launcher failed before collection at os.chown with OSError: [Errno 22] Invalid argument. Supervisor must run unchanged protection externally. Required separate source/definition gate remains open in M5_2_VERIFICATION section 8."
+  },
+  "historical_pre_exact_035_repair_protected_proof": {
+    "supplied_at_pacific": "2026-09-08T23:06:53-07:00",
+    "reports": [
+      {
+        "run": "run-1",
+        "tests": 1246,
+        "outcome_cases": 45,
+        "seconds": 306.46,
+        "failures": 0,
+        "errors": 0,
+        "skips": 0,
+        "unexpected_denials": {},
+        "cleanup_passed": true
+      },
+      {
+        "run": "run-2",
+        "tests": 1246,
+        "outcome_cases": 45,
+        "seconds": 305.01,
+        "failures": 0,
+        "errors": 0,
+        "skips": 0,
+        "unexpected_denials": {},
+        "cleanup_passed": true
+      }
+    ],
+    "selectors": [
+      "tests/trade_alerts_contracts",
+      "tests/test_batch2_trade_tracking.py::test_batch2_fact_tables_reject_update_and_delete",
+      "tests/test_batch2_trade_tracking.py::test_storage_retries_keep_stable_entity_ids_without_duplicate_facts",
+      "tests/test_market_layer_schema.py",
+      "tests/test_migration_idempotency.py",
+      "tests/test_models.py"
+    ],
+    "ordered_test_ids_match": true,
+    "published_hashes_checked": 63,
+    "published_hashes_match": true,
+    "publication_sha256": "74d43c2d57617dcf18e6aa0e87079c8a486f65370e2ab7f28345759bc3906cbd",
+    "summary_sha256": "71c12d8f66d26b0a3e36194f2151f6c1acabd0e55c63a26c6a4b47e0cbd3f9a7",
+    "recordings": {
+      "long": {
+        "bytes": 52588,
+        "sha256": "144140b599895db3eb9cafbc9376eeb338c6f77f61a897194476b272eeb0202d",
+        "byte_identical": true,
+        "resolved_r": 2.5,
+        "ambiguous_r": -1.0
+      },
+      "short": {
+        "bytes": 52594,
+        "sha256": "d59b8b6ada0a30bad0415e13fc7898a079f316fd62b902cb16d852de46531399",
+        "byte_identical": true,
+        "resolved_r": 2.5,
+        "ambiguous_r": -1.0
+      }
+    }
+  },
+  "recordings_byte_identical": true,
+  "final_supervisor_proof": {
+    "supplied_at_pacific": "2026-09-09T00:32:11-07:00",
+    "runs": 2,
+    "tests_each_run": 1250,
+    "m5_2_cases_each_run": 49,
+    "seconds": [304.67, 306.15],
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "ordered_test_ids_match": true,
+    "unexpected_isolation_denials": {},
+    "cleanup_passed": true,
+    "recording_bytes": {
+      "long": 52588,
+      "short": 52594
+    },
+    "recordings_byte_identical": true,
+    "databento_credit_used": 0,
+    "saved_record": "trade_alerts_build_docs/M5_2_SUPERVISOR_TESTS.json"
+  }
+}

@@ -34,6 +34,13 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from consensus_engine.scanners import schwab_client
+from consensus_engine.full_chain_storage import (
+    OutputBounds,
+    StoragePolicy,
+    plan_retention,
+    publish_option_set,
+    read_published_option_set,
+)
 from consensus_engine.utils.time_context import session_bounds
 
 PT = ZoneInfo("America/Los_Angeles")
@@ -456,6 +463,35 @@ def compact_option_day(settings: dict, day: date) -> dict:
         "minute_files": len(part_paths), "option_rows": len(options),
         "open_interest_rows": len(open_interest),
     }
+
+
+def compact_option_day_bounded(settings: dict, day: date, **overrides) -> dict:
+    """Run the M0.2B compactor only when its separate switch is on."""
+    storage = settings.get("storage", {})
+    policy = StoragePolicy(
+        enabled=bool(storage.get("bounded_compaction_enabled", False)),
+        fixed_reserve_bytes=int(storage.get("fixed_reserve_bytes", 12_000_000_000)),
+        reserve_fraction=float(storage.get("reserve_fraction", .15)),
+        peak_memory_bytes=int(storage.get("peak_memory_bytes", 1_500_000_000)),
+        batch_bytes=int(storage.get("batch_bytes", 256_000_000)),
+        wall_seconds=float(storage.get("wall_seconds", 900)),
+    )
+    configured = storage.get("output_bounds", {})
+    bounds = OutputBounds(
+        chain=int(configured["chain_bytes"]),
+        open_interest=int(configured["open_interest_bytes"]),
+        proof=int(configured["proof_bytes"]),
+        publication=int(configured["publication_bytes"]),
+    )
+    parts = sorted((data_root(settings) / "option_parts" / day.isoformat()).glob("*.parquet"))
+    return publish_option_set(data_root(settings), day, parts, bounds=bounds,
+                              policy=policy, **overrides)
+
+
+def plan_storage_retention(settings: dict, *, today: date,
+                           legal_holds=()) -> list[dict]:
+    """Return the M0.2B dry-run list; this function never deletes files."""
+    return plan_retention(data_root(settings), today=today, legal_holds=legal_holds)
 
 
 def verify_day(settings: dict, day: date) -> dict:

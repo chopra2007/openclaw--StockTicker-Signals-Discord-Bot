@@ -1,0 +1,13 @@
+M3.3 protected-launcher record
+Date: 2026-09-13 Pacific
+
+The implementation session could not run the protected launcher because the
+Codex workspace-write sandbox denied its temporary-directory ownership change
+with OSError: [Errno 22] Invalid argument. It did not retry the known failure,
+change the launcher, weaken isolation or run application tests outside protection.
+
+The controller then ran the focused, broad acceptance and two-run repeatability
+stages in its proper environment. The collected cases passed, but the proof did
+not contain the five direct rejection checks required by review and did not
+establish independent acceptance. M3.3 remains blocked. Current proof and its
+limits are recorded in M3_3_VERIFICATION.md and M3_3_LOCAL_CHECKS.json.

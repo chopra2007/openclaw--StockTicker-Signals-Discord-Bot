@@ -1,0 +1,750 @@
+{
+  "bounded_static_review": "No actionable issue after checking inherited canonical time validation; not test execution or supervisor acceptance.",
+  "changed_files": [
+    "consensus_engine/reference_inputs.py",
+    "tests/trade_alerts_contracts/test_reference_inputs.py",
+    "trade_alerts_build_docs/PROJECT_INDEX.md",
+    "trade_alerts_build_docs/ROADMAP.md",
+    "trade_alerts_build_docs/SESSION_PROTOCOL.md",
+    "trade_alerts_build_docs/CODING_STANDARDS.md",
+    "trade_alerts_build_docs/DATA_REQUIREMENTS.md",
+    "trade_alerts_build_docs/TESTING_AND_VALIDATION.md",
+    "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md",
+    "trade_alerts_build_docs/M2_4_VERIFICATION.md",
+    "trade_alerts_build_docs/M2_4_LOCAL_CHECKS.json",
+    "trade_alerts_build_docs/M2_4_LAUNCHER_LIMITATION.txt"
+  ],
+  "databento": {
+    "reserved": 0,
+    "used": 0
+  },
+  "document_checks": {
+    "added_text_scan_findings": [],
+    "additional_rows": 22,
+    "functional_rows": 31,
+    "handoff_agrees": true,
+    "local_links_checked": 131,
+    "missing_links": [],
+    "playbook_rows": 8,
+    "whitespace_findings": []
+  },
+  "final_file_hashes": {
+    "consensus_engine/reference_inputs.py": "6f3982e88cb2e3561caa2e60e7839d2b06dc9978eed6fe2616a47e55643c75cb",
+    "tests/trade_alerts_contracts/test_reference_inputs.py": "6e5967b79e993fbe47d5c022eea0613805b3ca356669b6c2386e17ab091d2ca9",
+    "trade_alerts_build_docs/CODING_STANDARDS.md": "7f18313753208ab9f6fdbc5141aa1505d74cf4b3104a8ff806b4f61284c28ae2",
+    "trade_alerts_build_docs/DATA_REQUIREMENTS.md": "8904c57e4cdfac692dad81b0dcfa65aad6f6a521652ab1528ea96a1bf641fb4b",
+    "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md": "0e4cbfe7abf4ea8c1498ba3def9d67305947e1b39b6f615f0681b2032035cb76",
+    "trade_alerts_build_docs/M2_4_LAUNCHER_LIMITATION.txt": "d549cefc1739d5f44ccbaade5124e53a405d7be158b7adcac67e20ddbc9cb246",
+    "trade_alerts_build_docs/M2_4_VERIFICATION.md": "456a06d8968a9cc91aa3dcffa6a8cb685e681200d3757b66d4c20d92f501e771",
+    "trade_alerts_build_docs/PROJECT_INDEX.md": "77c4f4c50cd6431ef714530da9a859e18f137de5fd08f2ed55350f23b35718f8",
+    "trade_alerts_build_docs/ROADMAP.md": "741e92eb372d3b4d908f3e3d702df073f2a065d77e1a39a2cda1361d02f4f7b4",
+    "trade_alerts_build_docs/SESSION_PROTOCOL.md": "28f7e312a8ea76e269e28023875d844571334b1afd5ec580939a05009e0b1a55",
+    "trade_alerts_build_docs/TESTING_AND_VALIDATION.md": "710eff00ed9e76565dbb0b82494fa18289d32907b36bc65845ad9338379ffe67"
+  },
+  "finalization_changed_files": [
+    "trade_alerts_build_docs/M2_4_VERIFICATION.md",
+    "trade_alerts_build_docs/M2_4_LOCAL_CHECKS.json",
+    "trade_alerts_build_docs/ROADMAP.md"
+  ],
+  "finalization_document_checks": {
+    "additional_rows": 22,
+    "approved_and_proposed_rule_files_unchanged": true,
+    "at_pacific": "2026-09-06T13:11:23.052418-07:00",
+    "changed_files_since_supervisor_proof": [
+      "trade_alerts_build_docs/M2_4_LOCAL_CHECKS.json",
+      "trade_alerts_build_docs/M2_4_VERIFICATION.md",
+      "trade_alerts_build_docs/ROADMAP.md"
+    ],
+    "code_tests_and_protection_unchanged": true,
+    "fences_balanced": true,
+    "functional_rows": 31,
+    "handoff_agrees": true,
+    "host_ownership_independently_verified": false,
+    "local_links_checked": 132,
+    "local_ownership_mode_changes": [],
+    "missing_links": [],
+    "new_text_scan_findings": [],
+    "off_switches": {
+      "alerts.delivery_enabled": false,
+      "data.collection_enabled": false,
+      "evaluation_enabled": false,
+      "options.enabled": false,
+      "research.enabled": false,
+      "strategy.CAT_FIRST_CONSOL": false,
+      "strategy.CRVOL_ORB5": false,
+      "strategy.FIRST_PULLBACK_VWAP": false,
+      "strategy.GAP_FADE_FAILED_OPEN": false,
+      "strategy.HOD_COMP_RS": false,
+      "strategy.INDEX_OPEN_DRIVE_BREADTH": false,
+      "strategy.OR_FAILURE_REV": false,
+      "strategy.VP_ACCEPT_LVN": false
+    },
+    "offline_row_finished": true,
+    "other_checkbox_rows_preserved": true,
+    "playbook_rows": 8,
+    "recording_sink": true,
+    "required_source_row_blocked": true,
+    "self_hash_excluded": "M2_4_LOCAL_CHECKS.json cannot contain its own final hash.",
+    "whitespace_findings": []
+  },
+  "historical_record_note": "Original local checks and launcher errors predate the successful supervisor proof. See supervisor_verification for current results.",
+  "lint_typecheck": "No configured repository lint/type-check task; no tools installed.",
+  "local_snapshot_scope": "Source/tests/config/build documents/testing launcher/project-rule files only; runtime data and controller files were not inspected.",
+  "milestone": "M2.4",
+  "next_milestone": "M3.1",
+  "off_switches": {
+    "alerts.delivery_enabled": false,
+    "data.collection_enabled": false,
+    "evaluation_enabled": false,
+    "options.enabled": false,
+    "research.enabled": false,
+    "strategy.CAT_FIRST_CONSOL": false,
+    "strategy.CRVOL_ORB5": false,
+    "strategy.FIRST_PULLBACK_VWAP": false,
+    "strategy.GAP_FADE_FAILED_OPEN": false,
+    "strategy.HOD_COMP_RS": false,
+    "strategy.INDEX_OPEN_DRIVE_BREADTH": false,
+    "strategy.OR_FAILURE_REV": false,
+    "strategy.VP_ACCEPT_LVN": false
+  },
+  "offline_status": "implementation_and_evidence_finished_for_independent_review",
+  "ownership_restore_errors": {
+    "trade_alerts_build_docs/M2_4_LAUNCHER_LIMITATION.txt": "[Errno 22] Invalid argument: '/home/openclaw/.openclaw/workspace/trade_alerts_build_docs/M2_4_LAUNCHER_LIMITATION.txt'",
+    "trade_alerts_build_docs/M2_4_LOCAL_CHECKS.json": "[Errno 22] Invalid argument: '/home/openclaw/.openclaw/workspace/trade_alerts_build_docs/M2_4_LOCAL_CHECKS.json'",
+    "trade_alerts_build_docs/M2_4_VERIFICATION.md": "[Errno 22] Invalid argument: '/home/openclaw/.openclaw/workspace/trade_alerts_build_docs/M2_4_VERIFICATION.md'"
+  },
+  "pre_supervisor_final_file_hashes": {
+    "consensus_engine/reference_inputs.py": "6f3982e88cb2e3561caa2e60e7839d2b06dc9978eed6fe2616a47e55643c75cb",
+    "tests/trade_alerts_contracts/test_reference_inputs.py": "6e5967b79e993fbe47d5c022eea0613805b3ca356669b6c2386e17ab091d2ca9",
+    "trade_alerts_build_docs/CODING_STANDARDS.md": "7f18313753208ab9f6fdbc5141aa1505d74cf4b3104a8ff806b4f61284c28ae2",
+    "trade_alerts_build_docs/DATA_REQUIREMENTS.md": "8904c57e4cdfac692dad81b0dcfa65aad6f6a521652ab1528ea96a1bf641fb4b",
+    "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md": "0e4cbfe7abf4ea8c1498ba3def9d67305947e1b39b6f615f0681b2032035cb76",
+    "trade_alerts_build_docs/M2_4_LAUNCHER_LIMITATION.txt": "d549cefc1739d5f44ccbaade5124e53a405d7be158b7adcac67e20ddbc9cb246",
+    "trade_alerts_build_docs/M2_4_VERIFICATION.md": "3bc73fb469248f189ae5cb2f61b3e4727875c5d9234a17006b41ba675e942bc4",
+    "trade_alerts_build_docs/PROJECT_INDEX.md": "77c4f4c50cd6431ef714530da9a859e18f137de5fd08f2ed55350f23b35718f8",
+    "trade_alerts_build_docs/ROADMAP.md": "59ed6babe04246a63b14347d4ad85d662aa53d09694c6e6c085fea1128df6d7e",
+    "trade_alerts_build_docs/SESSION_PROTOCOL.md": "28f7e312a8ea76e269e28023875d844571334b1afd5ec580939a05009e0b1a55",
+    "trade_alerts_build_docs/TESTING_AND_VALIDATION.md": "710eff00ed9e76565dbb0b82494fa18289d32907b36bc65845ad9338379ffe67"
+  },
+  "preservation": {
+    "changed_saved_files": [
+      "consensus_engine/reference_inputs.py",
+      "tests/trade_alerts_contracts/test_reference_inputs.py",
+      "trade_alerts_build_docs/CODING_STANDARDS.md",
+      "trade_alerts_build_docs/DATA_REQUIREMENTS.md",
+      "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md",
+      "trade_alerts_build_docs/PROJECT_INDEX.md",
+      "trade_alerts_build_docs/ROADMAP.md",
+      "trade_alerts_build_docs/SESSION_PROTOCOL.md",
+      "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+    ],
+    "local_ownership_mode_changes": [],
+    "missing_files": [],
+    "new_files": [
+      "trade_alerts_build_docs/M2_4_VERIFICATION.md",
+      "trade_alerts_build_docs/M2_4_LOCAL_CHECKS.json",
+      "trade_alerts_build_docs/M2_4_LAUNCHER_LIMITATION.txt"
+    ],
+    "protection_and_rules": {
+      ".test-baseline": {
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "unchanged": true
+      },
+      "AGENTS.md": {
+        "sha256": "f43d7528510cf5d95a5cd627594dbbf30081e45fdd575181178926dfe4a531a6",
+        "unchanged": true
+      },
+      "CLAUDE.md": {
+        "sha256": "74136d8dcfc6771375f4938470b32a1b7c8cd6ca5c48a5c214d8ec88d1b4815b",
+        "unchanged": true
+      },
+      "config/consensus.yaml": {
+        "sha256": "0081fd5a99bf84c4e2cf0e6fa991ea51984baf2d315507ab54b7037dc35fbac8",
+        "unchanged": true
+      },
+      "scripts/testing/run_trade_alerts_contracts.py": {
+        "sha256": "6b609b643edfc467fc63480acd63ad50d4044616aec5efca61f32315af3d3ad2",
+        "unchanged": true
+      },
+      "scripts/testing/trade_alerts_contract_child.py": {
+        "sha256": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c",
+        "unchanged": true
+      },
+      "trade_alerts_build_docs/M0_3B_DEFINITION_PACKET.md": {
+        "sha256": "ffd2b2f8bca262c5d9a1c6a37cc17db8cb335a9dd34aaf60f2b6664af3e331b5",
+        "unchanged": true
+      },
+      "trade_alerts_build_docs/M0_3_DEFINITION_PACKET.md": {
+        "sha256": "a1a0f8e6a4e6d8c66e78f5df18ea7d20150d8cddf604d56ee709ca560f843c35",
+        "unchanged": true
+      }
+    },
+    "saved_files": 571,
+    "unchanged_saved_files": 562,
+    "unexpected_changes": []
+  },
+  "protected_launcher": {
+    "current_proof": "Two successful supervisor runs are inspected under supervisor_verification; the error and tests_executed=false above describe only the earlier local attempt.",
+    "exit_code": 1,
+    "historical_local_attempt": true,
+    "output": "Traceback (most recent call last):\n  File \"/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py\", line 72, in <module>\n    raise SystemExit(main())\n  File \"/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py\", line 26, in main\n    os.chown(artifact_root, account.pw_uid, account.pw_gid)\nOSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-yf6zfyuj'\n",
+    "source_change_after_final_attempt": "Only an explanatory source comment; current source compilation/hash is saved. No successful test evidence exists.",
+    "supervisor_results_received": true,
+    "tests_executed": false
+  },
+  "recorded_at_pacific": "2026-09-06T12:58:27.418427-07:00",
+  "recording_sink": true,
+  "required_test_selectors": [
+    "tests/trade_alerts_contracts",
+    "tests/test_models.py",
+    "tests/test_schwab_client.py",
+    "tests/test_wolf_macro_brain.py::test_stock_sector_etf"
+  ],
+  "source_checks": {
+    "consensus_engine/reference_inputs.py": {
+      "python_3_10_grammar": true,
+      "sha256": "6f3982e88cb2e3561caa2e60e7839d2b06dc9978eed6fe2616a47e55643c75cb",
+      "source_compilation": true
+    },
+    "tests/trade_alerts_contracts/test_reference_inputs.py": {
+      "python_3_10_grammar": true,
+      "sha256": "6e5967b79e993fbe47d5c022eea0613805b3ca356669b6c2386e17ab091d2ca9",
+      "source_compilation": true
+    }
+  },
+  "source_gate": "M2.4 source completion remains blocked: per-symbol reference L1/minute/history coverage, supported spot-VIX contract, historical sector membership and shared capacity need separately supervised evidence; see M2_4_VERIFICATION.md section 7.",
+  "starting_file_count": 571,
+  "starting_snapshot": "/tmp/m24-start-l7hzdfb6",
+  "status": "blocked",
+  "supervisor_verification": {
+    "all_file_contents_match_before_finalization": true,
+    "all_publication_hashes_match": true,
+    "code_or_tests_changed_in_finalization": false,
+    "identical_proofs": {
+      "fixture.yaml": {
+        "identical_bytes": true,
+        "sha256": "1a578448b5de33f5e8a29399b09dbf3e4ac93298ae6b8ade7df5b2f868535de7"
+      },
+      "m13-domain-model-proof.json": {
+        "identical_bytes": true,
+        "sha256": "2fae11128857ae58d0aebb510131c6bb06bd0988d57ae01600e4c703890ed4c7"
+      },
+      "m21-schwab-normalization-proof.json": {
+        "identical_bytes": true,
+        "sha256": "481aa8aad4ff3667fe01adafddea7c9e34677fe2367e3256966df5b8e3cef6ba"
+      },
+      "m22-history-proof.json": {
+        "identical_bytes": true,
+        "sha256": "8c8358e78348a6c13994400a7e6813fa328b471e2b51ba1336808a87c5ee2a56"
+      },
+      "m23-quote-events-proof.json": {
+        "identical_bytes": true,
+        "sha256": "f11ddba2d05d678b765c8503b2f7e6749d0861fa0b3d7847e120ff2fb9557bf4"
+      },
+      "m24-reference-inputs-proof.json": {
+        "identical_bytes": true,
+        "sha256": "b687e7eac79cb63ced959c0ebafdb1c87cda3156a07591cc7bf37739a4e49110"
+      }
+    },
+    "inspected_at_pacific": "2026-09-06T13:08:15.503648-07:00",
+    "launcher_summary": {
+      "commands": [
+        "tests/trade_alerts_contracts",
+        "tests/test_models.py",
+        "tests/test_schwab_client.py",
+        "tests/test_wolf_macro_brain.py::test_stock_sector_etf"
+      ],
+      "databento_credit_used": 0,
+      "exit_codes": [
+        0,
+        0
+      ],
+      "runs": 2
+    },
+    "local_metadata_matches_saved_manifest": false,
+    "matching_ordered_test_ids": true,
+    "publication_sha256": "0577663814109baf415699c55a1fb062f9c619b60136155a9229e7c8576c8dd8",
+    "published_file_count": 25,
+    "published_file_hashes": {
+      "run-1/fixture.yaml": "1a578448b5de33f5e8a29399b09dbf3e4ac93298ae6b8ade7df5b2f868535de7",
+      "run-1/isolation.json": "76fc494063cdc83b5840b2d0c4290316342c6c984a28ac845bbdfc72f2c42c88",
+      "run-1/m13-domain-model-proof.json": "2fae11128857ae58d0aebb510131c6bb06bd0988d57ae01600e4c703890ed4c7",
+      "run-1/m21-schwab-normalization-proof.json": "481aa8aad4ff3667fe01adafddea7c9e34677fe2367e3256966df5b8e3cef6ba",
+      "run-1/m22-history-proof.json": "8c8358e78348a6c13994400a7e6813fa328b471e2b51ba1336808a87c5ee2a56",
+      "run-1/m23-quote-events-proof.json": "f11ddba2d05d678b765c8503b2f7e6749d0861fa0b3d7847e120ff2fb9557bf4",
+      "run-1/m24-reference-inputs-proof.json": "b687e7eac79cb63ced959c0ebafdb1c87cda3156a07591cc7bf37739a4e49110",
+      "run-1/output.txt": "b3c10e7ab24584b0a9c074e73eaaf8e579a8208ed47f42d4a2a826cf437e646f",
+      "run-1/pipeline-obs.jsonl": "a4bda2ec034f7ba33b273cdbb461ea748e7e2bd6f1d19a13467da24f983831e6",
+      "run-1/pytest.log": "5db0eaf1b2e6f8c4bada0560591dc59d81bd2be78fa6320a8bf7cc6f2f973dcb",
+      "run-1/results.xml": "6adf816238cfec198d65a2af7955d11dccde50260fbb6fbeda0996a71c6f108f",
+      "run-1/synthetic_sources.json": "c02fec043afaa1a9c4cfd5c68ed9fc7d425dbf94d919b5f02680383e0da419d7",
+      "run-2/fixture.yaml": "1a578448b5de33f5e8a29399b09dbf3e4ac93298ae6b8ade7df5b2f868535de7",
+      "run-2/isolation.json": "76fc494063cdc83b5840b2d0c4290316342c6c984a28ac845bbdfc72f2c42c88",
+      "run-2/m13-domain-model-proof.json": "2fae11128857ae58d0aebb510131c6bb06bd0988d57ae01600e4c703890ed4c7",
+      "run-2/m21-schwab-normalization-proof.json": "481aa8aad4ff3667fe01adafddea7c9e34677fe2367e3256966df5b8e3cef6ba",
+      "run-2/m22-history-proof.json": "8c8358e78348a6c13994400a7e6813fa328b471e2b51ba1336808a87c5ee2a56",
+      "run-2/m23-quote-events-proof.json": "f11ddba2d05d678b765c8503b2f7e6749d0861fa0b3d7847e120ff2fb9557bf4",
+      "run-2/m24-reference-inputs-proof.json": "b687e7eac79cb63ced959c0ebafdb1c87cda3156a07591cc7bf37739a4e49110",
+      "run-2/output.txt": "56b4fd31cadb5529f41e67d0402461e2b8a18eb09adce383307a07b8703b8047",
+      "run-2/pipeline-obs.jsonl": "f9691800680e2c0e15ff624217f4a8643ad183e16bb94d56cde469db2f106659",
+      "run-2/pytest.log": "5db0eaf1b2e6f8c4bada0560591dc59d81bd2be78fa6320a8bf7cc6f2f973dcb",
+      "run-2/results.xml": "178fc47f6f4a86c1c94d85ffe7141d892e4d8bd6c71350ad853038fec192efb3",
+      "run-2/synthetic_sources.json": "c02fec043afaa1a9c4cfd5c68ed9fc7d425dbf94d919b5f02680383e0da419d7",
+      "summary.json": "fd617c16011c3640eef3bfc129f54210a751a29e0cdb1109b61538cf585b1e8a"
+    },
+    "published_total_bytes": 635068,
+    "reference_recording": {
+      "evidence": "SYNTHETIC_ONLY",
+      "interface_version": "M24_V1",
+      "snapshots": [
+        {
+          "complete_history_count": 11,
+          "coverage_basis": "SUPPLIED_RECORDS_ONLY",
+          "current_sector_mappings": [
+            {
+              "basis": "CURRENT_MAP_ONLY",
+              "historical_membership": "UNAVAILABLE",
+              "sector_etf": "XLK",
+              "stock": "NVDA"
+            },
+            {
+              "basis": "CURRENT_MAP_ONLY",
+              "historical_membership": "UNAVAILABLE",
+              "sector_etf": null,
+              "stock": "ZZZZ"
+            }
+          ],
+          "display_time_pacific": "2026-06-30 06:35:01 AM PDT",
+          "expected_etfs": [
+            "SPY",
+            "QQQ",
+            "XLK",
+            "XLF",
+            "XLY",
+            "XLC",
+            "XLI",
+            "XLV",
+            "XLP",
+            "XLE",
+            "XLU",
+            "XLRE",
+            "XLB"
+          ],
+          "references": [
+            {
+              "history_complete": true,
+              "history_reasons": [],
+              "quote_reasons": [],
+              "quote_usable": true,
+              "symbol": "SPY"
+            },
+            {
+              "history_complete": true,
+              "history_reasons": [],
+              "quote_reasons": [
+                "MISSING_QUOTE_DECISION"
+              ],
+              "quote_usable": false,
+              "symbol": "QQQ"
+            },
+            {
+              "history_complete": false,
+              "history_reasons": [
+                "HISTORY_INCOMPLETE"
+              ],
+              "quote_reasons": [],
+              "quote_usable": true,
+              "symbol": "XLK"
+            },
+            {
+              "history_complete": false,
+              "history_reasons": [
+                "MISSING_HISTORY"
+              ],
+              "quote_reasons": [],
+              "quote_usable": true,
+              "symbol": "XLF"
+            },
+            {
+              "history_complete": true,
+              "history_reasons": [],
+              "quote_reasons": [],
+              "quote_usable": true,
+              "symbol": "XLY"
+            },
+            {
+              "history_complete": true,
+              "history_reasons": [],
+              "quote_reasons": [],
+              "quote_usable": true,
+              "symbol": "XLC"
+            },
+            {
+              "history_complete": true,
+              "history_reasons": [],
+              "quote_reasons": [],
+              "quote_usable": true,
+              "symbol": "XLI"
+            },
+            {
+              "history_complete": true,
+              "history_reasons": [],
+              "quote_reasons": [
+                "MISSING_QUOTE_DECISION"
+              ],
+              "quote_usable": false,
+              "symbol": "XLV"
+            },
+            {
+              "history_complete": true,
+              "history_reasons": [],
+              "quote_reasons": [
+                "SOURCE_BEFORE_RECOVERY",
+                "DISCONNECTED",
+                "CONTINUITY_LOST"
+              ],
+              "quote_usable": false,
+              "symbol": "XLP"
+            },
+            {
+              "history_complete": true,
+              "history_reasons": [],
+              "quote_reasons": [
+                "QUOTE_STATUS_STALE",
+                "DELAYED",
+                "CONTINUITY_LOST"
+              ],
+              "quote_usable": false,
+              "symbol": "XLE"
+            },
+            {
+              "history_complete": true,
+              "history_reasons": [],
+              "quote_reasons": [],
+              "quote_usable": true,
+              "symbol": "XLU"
+            },
+            {
+              "history_complete": true,
+              "history_reasons": [],
+              "quote_reasons": [],
+              "quote_usable": true,
+              "symbol": "XLRE"
+            },
+            {
+              "history_complete": true,
+              "history_reasons": [],
+              "quote_reasons": [],
+              "quote_usable": true,
+              "symbol": "XLB"
+            },
+            {
+              "history_complete": false,
+              "history_reasons": [
+                "UNSUPPORTED_INDEX_INPUT"
+              ],
+              "quote_reasons": [
+                "UNSUPPORTED_INDEX_INPUT"
+              ],
+              "quote_usable": false,
+              "symbol": "VIX"
+            }
+          ],
+          "usable_quote_count": 9,
+          "xlf_history_status": "MISSING",
+          "xlk_history_status": "MISSING"
+        },
+        {
+          "complete_history_count": 12,
+          "coverage_basis": "SUPPLIED_RECORDS_ONLY",
+          "current_sector_mappings": [
+            {
+              "basis": "CURRENT_MAP_ONLY",
+              "historical_membership": "UNAVAILABLE",
+              "sector_etf": "XLK",
+              "stock": "NVDA"
+            },
+            {
+              "basis": "CURRENT_MAP_ONLY",
+              "historical_membership": "UNAVAILABLE",
+              "sector_etf": null,
+              "stock": "ZZZZ"
+            }
+          ],
+          "display_time_pacific": "2026-06-30 06:35:04 AM PDT",
+          "expected_etfs": [
+            "SPY",
+            "QQQ",
+            "XLK",
+            "XLF",
+            "XLY",
+            "XLC",
+            "XLI",
+            "XLV",
+            "XLP",
+            "XLE",
+            "XLU",
+            "XLRE",
+            "XLB"
+          ],
+          "references": [
+            {
+              "history_complete": true,
+              "history_reasons": [],
+              "quote_reasons": [
+                "QUOTE_STALE"
+              ],
+              "quote_usable": false,
+              "symbol": "SPY"
+            },
+            {
+              "history_complete": true,
+              "history_reasons": [],
+              "quote_reasons": [
+                "MISSING_QUOTE_DECISION"
+              ],
+              "quote_usable": false,
+              "symbol": "QQQ"
+            },
+            {
+              "history_complete": true,
+              "history_reasons": [],
+              "quote_reasons": [
+                "QUOTE_STALE"
+              ],
+              "quote_usable": false,
+              "symbol": "XLK"
+            },
+            {
+              "history_complete": false,
+              "history_reasons": [
+                "MISSING_HISTORY"
+              ],
+              "quote_reasons": [
+                "QUOTE_STALE"
+              ],
+              "quote_usable": false,
+              "symbol": "XLF"
+            },
+            {
+              "history_complete": true,
+              "history_reasons": [],
+              "quote_reasons": [
+                "QUOTE_STALE"
+              ],
+              "quote_usable": false,
+              "symbol": "XLY"
+            },
+            {
+              "history_complete": true,
+              "history_reasons": [],
+              "quote_reasons": [
+                "QUOTE_STALE"
+              ],
+              "quote_usable": false,
+              "symbol": "XLC"
+            },
+            {
+              "history_complete": true,
+              "history_reasons": [],
+              "quote_reasons": [
+                "QUOTE_STALE"
+              ],
+              "quote_usable": false,
+              "symbol": "XLI"
+            },
+            {
+              "history_complete": true,
+              "history_reasons": [],
+              "quote_reasons": [
+                "MISSING_QUOTE_DECISION"
+              ],
+              "quote_usable": false,
+              "symbol": "XLV"
+            },
+            {
+              "history_complete": true,
+              "history_reasons": [],
+              "quote_reasons": [
+                "SOURCE_BEFORE_RECOVERY",
+                "QUOTE_STALE",
+                "DISCONNECTED",
+                "CONTINUITY_LOST"
+              ],
+              "quote_usable": false,
+              "symbol": "XLP"
+            },
+            {
+              "history_complete": true,
+              "history_reasons": [],
+              "quote_reasons": [
+                "QUOTE_STATUS_STALE",
+                "DELAYED",
+                "CONTINUITY_LOST"
+              ],
+              "quote_usable": false,
+              "symbol": "XLE"
+            },
+            {
+              "history_complete": true,
+              "history_reasons": [],
+              "quote_reasons": [
+                "QUOTE_STALE"
+              ],
+              "quote_usable": false,
+              "symbol": "XLU"
+            },
+            {
+              "history_complete": true,
+              "history_reasons": [],
+              "quote_reasons": [
+                "QUOTE_STALE"
+              ],
+              "quote_usable": false,
+              "symbol": "XLRE"
+            },
+            {
+              "history_complete": true,
+              "history_reasons": [],
+              "quote_reasons": [
+                "QUOTE_STALE"
+              ],
+              "quote_usable": false,
+              "symbol": "XLB"
+            },
+            {
+              "history_complete": false,
+              "history_reasons": [
+                "UNSUPPORTED_INDEX_INPUT"
+              ],
+              "quote_reasons": [
+                "UNSUPPORTED_INDEX_INPUT"
+              ],
+              "quote_usable": false,
+              "symbol": "VIX"
+            }
+          ],
+          "usable_quote_count": 0,
+          "xlf_history_status": "MISSING",
+          "xlk_history_status": "FINAL"
+        }
+      ]
+    },
+    "runs": [
+      {
+        "all_databases_temporary": true,
+        "errors": 0,
+        "failures": 0,
+        "isolation": {
+          "all_denials": {
+            "child_process": 1,
+            "credential_read": 1,
+            "database_path": 1,
+            "network": 2,
+            "outside_write": 1
+          },
+          "cleanup": {
+            "config_cleared": true,
+            "db_closed": true,
+            "http_closed": true,
+            "http_lock_cleared": true
+          },
+          "dotenv_calls_intercepted": 2,
+          "ipv6_probe_suppressed": true,
+          "pytest_exit_code": 0,
+          "sentinel_denials": {
+            "child_process": 1,
+            "credential_read": 1,
+            "database_path": 1,
+            "network": 2,
+            "outside_write": 1
+          },
+          "unexpected_denials": {}
+        },
+        "ordered_test_ids_sha256": "808bcb160451132093a08c7960b07434d88509697fd040ce95ef98d4b3c52e98",
+        "passed": 537,
+        "run": 1,
+        "seconds": 44.892,
+        "skipped": 0,
+        "started_at_pacific": "2026-09-06T13:01:36.843906-07:00",
+        "temporary_database_connections": 4,
+        "test_classes": {
+          "tests.test_models": 7,
+          "tests.test_schwab_client": 16,
+          "tests.test_wolf_macro_brain": 1,
+          "tests.trade_alerts_contracts.test_adapters_delivery": 21,
+          "tests.trade_alerts_contracts.test_configuration": 48,
+          "tests.trade_alerts_contracts.test_domain_models": 144,
+          "tests.trade_alerts_contracts.test_foundations": 10,
+          "tests.trade_alerts_contracts.test_historical_bars": 75,
+          "tests.trade_alerts_contracts.test_market_clock": 41,
+          "tests.trade_alerts_contracts.test_quote_events": 87,
+          "tests.trade_alerts_contracts.test_reference_inputs": 46,
+          "tests.trade_alerts_contracts.test_schwab_normalization": 41
+        }
+      },
+      {
+        "all_databases_temporary": true,
+        "errors": 0,
+        "failures": 0,
+        "isolation": {
+          "all_denials": {
+            "child_process": 1,
+            "credential_read": 1,
+            "database_path": 1,
+            "network": 2,
+            "outside_write": 1
+          },
+          "cleanup": {
+            "config_cleared": true,
+            "db_closed": true,
+            "http_closed": true,
+            "http_lock_cleared": true
+          },
+          "dotenv_calls_intercepted": 2,
+          "ipv6_probe_suppressed": true,
+          "pytest_exit_code": 0,
+          "sentinel_denials": {
+            "child_process": 1,
+            "credential_read": 1,
+            "database_path": 1,
+            "network": 2,
+            "outside_write": 1
+          },
+          "unexpected_denials": {}
+        },
+        "ordered_test_ids_sha256": "808bcb160451132093a08c7960b07434d88509697fd040ce95ef98d4b3c52e98",
+        "passed": 537,
+        "run": 2,
+        "seconds": 44.583,
+        "skipped": 0,
+        "started_at_pacific": "2026-09-06T13:02:23.435045-07:00",
+        "temporary_database_connections": 4,
+        "test_classes": {
+          "tests.test_models": 7,
+          "tests.test_schwab_client": 16,
+          "tests.test_wolf_macro_brain": 1,
+          "tests.trade_alerts_contracts.test_adapters_delivery": 21,
+          "tests.trade_alerts_contracts.test_configuration": 48,
+          "tests.trade_alerts_contracts.test_domain_models": 144,
+          "tests.trade_alerts_contracts.test_foundations": 10,
+          "tests.trade_alerts_contracts.test_historical_bars": 75,
+          "tests.trade_alerts_contracts.test_market_clock": 41,
+          "tests.trade_alerts_contracts.test_quote_events": 87,
+          "tests.trade_alerts_contracts.test_reference_inputs": 46,
+          "tests.trade_alerts_contracts.test_schwab_normalization": 41
+        }
+      }
+    ],
+    "source_hash": "6076d7235995a94712db88fd99cbbd53a8b5b90e19fb5c587decc3c9513ebb7f",
+    "supervisor_handoff_at_pacific": "2026-09-06T13:03:09-07:00",
+    "temporary_backup": "/tmp/m24-proof-finalize-86htxag7",
+    "tests_rerun_in_finalization": false,
+    "verified_file_count": 781,
+    "verified_manifest_sha256": "89e7d4f933c13d824ca20f95dc68ce30492350f40e959e7d6460b5aaf9de8f37"
+  },
+  "supplied_partial_files": [
+    "consensus_engine/reference_inputs.py",
+    "tests/trade_alerts_contracts/test_reference_inputs.py"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "changed_files": [
+    "trade_alerts_build_docs/CODING_STANDARDS.md",
+    "trade_alerts_build_docs/DATA_REQUIREMENTS.md",
+    "trade_alerts_build_docs/M0_2E_SOURCE_RECONCILIATION.md",
+    "trade_alerts_build_docs/ROADMAP.md"
+  ],
+  "recorded_at": "2026-09-14T03:06:38-07:00",
+  "source_hash": "847836ef6c213ab445d46bd0b8faea0c344b53923c67bea45af75307bf2f69e1",
+  "tests": {
+    "artifacts_path": "/root/trade-alerts-builder/runs/20260914-024639-929081-build/published-artifacts-9cbd8e418a16",
+    "exit_code": 0,
+    "runs": 1,
+    "selection_reason": "unknown dependency impact; safe broad fallback",
+    "selectors": [
+      "tests/trade_alerts_contracts"
+    ],
+    "test_count": 3037,
+    "wall_seconds": 547.087
+  }
+}

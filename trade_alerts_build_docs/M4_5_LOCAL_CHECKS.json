@@ -1,0 +1,188 @@
+{
+  "changed_files": [
+    "consensus_engine/candidate_assembly.py",
+    "tests/trade_alerts_contracts/test_candidate_assembly.py",
+    "trade_alerts_build_docs/CODING_STANDARDS.md",
+    "trade_alerts_build_docs/M4_5_LAUNCHER_LIMITATION.txt",
+    "trade_alerts_build_docs/M4_5_LOCAL_CHECKS.json",
+    "trade_alerts_build_docs/M4_5_VERIFICATION.md",
+    "trade_alerts_build_docs/PROJECT_INDEX.md",
+    "trade_alerts_build_docs/ROADMAP.md",
+    "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+  ],
+  "databento_credit_reserved": 0,
+  "databento_credit_used": 0,
+  "document_checks": {
+    "added_text_scan_matches": {
+      "email": false,
+      "private_identifier": false,
+      "webhook": false,
+      "wrong_visible_zone": false
+    },
+    "additional_capability_rows": 22,
+    "functional_requirement_rows": 31,
+    "local_links_checked": 77,
+    "missing_links": [],
+    "new_python_trailing_whitespace": [],
+    "next_milestone_saved": true,
+    "nine_canonical_files": true,
+    "prior_blocked_rows_preserved": true
+  },
+  "grammar_python_3_10_and_compilation": {
+    "consensus_engine/candidate_assembly.py": "PASS",
+    "tests/trade_alerts_contracts/test_candidate_assembly.py": "PASS"
+  },
+  "host_ownership_verification_required": false,
+  "host_read_only_checks": {
+    "active_status_error": "Failed to connect to bus: Operation not permitted (consider using --machine=<user>@.host --user to connect to bus of other user)",
+    "active_status_known": false,
+    "recent_health_log_match_count": 0,
+    "recent_health_log_search_exit_code": 1,
+    "shortcut_resolved": true
+  },
+  "lint_typecheck": "No configured repository lint/type-check command found; grammar/compilation and static checks only.",
+  "milestone": "M4.5",
+  "new_file_ownership_attempts": [
+    {
+      "path": "consensus_engine/candidate_assembly.py",
+      "result": "[Errno 22] Invalid argument: '/home/openclaw/.openclaw/workspace/consensus_engine/candidate_assembly.py'"
+    },
+    {
+      "path": "tests/trade_alerts_contracts/test_candidate_assembly.py",
+      "result": "[Errno 22] Invalid argument: '/home/openclaw/.openclaw/workspace/tests/trade_alerts_contracts/test_candidate_assembly.py'"
+    },
+    {
+      "path": "trade_alerts_build_docs/PROJECT_INDEX.md",
+      "result": "[Errno 22] Invalid argument: '/home/openclaw/.openclaw/workspace/trade_alerts_build_docs/PROJECT_INDEX.md'"
+    },
+    {
+      "path": "trade_alerts_build_docs/ROADMAP.md",
+      "result": "[Errno 22] Invalid argument: '/home/openclaw/.openclaw/workspace/trade_alerts_build_docs/ROADMAP.md'"
+    },
+    {
+      "path": "trade_alerts_build_docs/CODING_STANDARDS.md",
+      "result": "[Errno 22] Invalid argument: '/home/openclaw/.openclaw/workspace/trade_alerts_build_docs/CODING_STANDARDS.md'"
+    },
+    {
+      "path": "trade_alerts_build_docs/TESTING_AND_VALIDATION.md",
+      "result": "[Errno 22] Invalid argument: '/home/openclaw/.openclaw/workspace/trade_alerts_build_docs/TESTING_AND_VALIDATION.md'"
+    },
+    {
+      "path": "trade_alerts_build_docs/M4_5_VERIFICATION.md",
+      "result": "[Errno 22] Invalid argument: '/home/openclaw/.openclaw/workspace/trade_alerts_build_docs/M4_5_VERIFICATION.md'"
+    },
+    {
+      "path": "trade_alerts_build_docs/M4_5_LOCAL_CHECKS.json",
+      "result": "[Errno 22] Invalid argument: '/home/openclaw/.openclaw/workspace/trade_alerts_build_docs/M4_5_LOCAL_CHECKS.json'"
+    },
+    {
+      "path": "trade_alerts_build_docs/M4_5_LAUNCHER_LIMITATION.txt",
+      "result": "[Errno 22] Invalid argument: '/home/openclaw/.openclaw/workspace/trade_alerts_build_docs/M4_5_LAUNCHER_LIMITATION.txt'"
+    }
+  ],
+  "next_milestone": "M4.6",
+  "offline_status": "completed",
+  "preservation": {
+    "existing_owner_or_mode_changes": [],
+    "protected_inputs_unchanged": true,
+    "unrelated_content_changes": []
+  },
+  "protected_launcher": {
+    "exact_error": "OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-fl0x2sd2'",
+    "exit_code": 1,
+    "output_record": "trade_alerts_build_docs/M4_5_LAUNCHER_LIMITATION.txt",
+    "passing_tests": null,
+    "phase": "initial os.chown before child creation or collection",
+    "proof_recordings_produced": false
+  },
+  "supervisor_proof": {
+    "artifacts_path": "/root/trade-alerts-builder/runs/20260907-012813-745394-build/published-artifacts-1a15a27a90b8",
+    "completed_at_pacific": "2026-09-07T01:54:53-07:00",
+    "databento_credit_used": 0,
+    "exit_codes": [0, 0],
+    "m45_cases_each_run": 96,
+    "ordered_test_ids_match": true,
+    "recordings": {
+      "long": {
+        "bytes": 19511,
+        "sha256": "768061f7a450d73459fed60019ee9f58b66f720e030789337224a8dcc0535d8f"
+      },
+      "short": {
+        "bytes": 19522,
+        "sha256": "a3a3ca0a8f75d91f88fdc04e34fb87cc905577bac2f0ef3e4194d53ca5aff1b5"
+      },
+      "matching_across_runs": true
+    },
+    "runs": 2,
+    "source_hash": "a0ba4a732a36c28b2b82e228107948d1ca268c70a7991e5c3c7ed561bde28702",
+    "tests_each_run": 1045,
+    "unexpected_isolation_denials": 0,
+    "cleanup_complete": true
+  },
+  "protected_test_selectors": [
+    "tests/trade_alerts_contracts",
+    "tests/trade_alerts_contracts/test_candidate_assembly.py",
+    "tests/trade_alerts_contracts/test_confidence.py",
+    "tests/test_models.py",
+    "tests/test_schwab_client.py",
+    "tests/test_wolf_macro_brain.py::test_stock_sector_etf"
+  ],
+  "recorded_at_pacific": "2026-09-07T01:54:53-07:00",
+  "remaining_required_gate": "Independent acceptance review only. No required live, data or definition gate belongs to the assigned common assembly mechanism.",
+  "required_recordings": [
+    "m45-candidate-assembly-long-proof.json",
+    "m45-candidate-assembly-short-proof.json"
+  ],
+  "sha256": {
+    ".test-baseline": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "config/consensus.yaml": "0081fd5a99bf84c4e2cf0e6fa991ea51984baf2d315507ab54b7037dc35fbac8",
+    "consensus_engine/candidate_assembly.py": "cab255c3973b6504b5f8c9926809099fc5e48871cc1f80a952cd973540517ad9",
+    "consensus_engine/confidence.py": "4169b372c3d0a049b10c4873ea72fbedd45dcc4c7e6159868f9fcc19f5ce7fda",
+    "consensus_engine/strategy_interface.py": "c0df609b99d7543c718cca2b5e6ced2f32b3804e17860f837952fc34e2e16bf9",
+    "consensus_engine/trade_alerts_models.py": "b9674913b413f0a293552340db2c830bb0292788fb36689b1568e5ba8b5042d5",
+    "scripts/testing/run_trade_alerts_contracts.py": "6b609b643edfc467fc63480acd63ad50d4044616aec5efca61f32315af3d3ad2",
+    "scripts/testing/trade_alerts_contract_child.py": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c",
+    "tests/trade_alerts_contracts/test_candidate_assembly.py": "8050586eb1addbc2f54c843136b46d418fc09ab63f18129a15c553a8a622ecc4",
+    "trade_alerts_build_docs/CODING_STANDARDS.md": "52c19db1c8baa52e8bb5e8425e5f6291b9c9ef36b3cac3fad9d30e77d4d29afe",
+    "trade_alerts_build_docs/M0_3B_DEFINITION_PACKET.md": "ffd2b2f8bca262c5d9a1c6a37cc17db8cb335a9dd34aaf60f2b6664af3e331b5",
+    "trade_alerts_build_docs/M0_3_DEFINITION_PACKET.md": "a1a0f8e6a4e6d8c66e78f5df18ea7d20150d8cddf604d56ee709ca560f843c35",
+    "trade_alerts_build_docs/M4_5_LAUNCHER_LIMITATION.txt": "d1c6a684ea4f61cfdc6781b33f7c5afc4cf3f9e17ce21a3bd1619d48e92b0b80",
+    "trade_alerts_build_docs/M4_5_VERIFICATION.md": "ac91a8cde392cca96f85835c3d0b3560800b6ab51c05c84a8b1cf2e9e83ff352",
+    "trade_alerts_build_docs/PROJECT_INDEX.md": "445af2c79e9b2fc12e3f715e4e59fdbfed1bfa9317addad35833d0fc59a1fc51",
+    "trade_alerts_build_docs/ROADMAP.md": "aa4ce4b28e919735416a74d0b0610307f4240db8fa2c1606a22795fb491136a6",
+    "trade_alerts_build_docs/TESTING_AND_VALIDATION.md": "67b25c1600f4c66fc3b31445a3e7a9ecfc56a2ce45f0acd93143979a9688062b"
+  },
+  "starting_file_count": 571,
+  "starting_snapshot": "/tmp/m45-start-onzs7j89",
+  "static_canonical_constructor_calls_checked": 46,
+  "static_cases_by_function": {
+    "test_all_existing_strategy_ids_use_supplied_versions_without_activation": 8,
+    "test_both_types_and_directions_preserve_supplied_facts": 4,
+    "test_candidate_metadata_identity_and_time_must_match_context": 5,
+    "test_confidence_must_match_full_context_identity_and_original_calculation": 9,
+    "test_confluence_preserves_every_component_and_never_changes_primary_or_scores": 1,
+    "test_confluence_requires_exact_available_component_identity": 11,
+    "test_exact_supplied_expiry_boundary_is_read_only": 3,
+    "test_expiry_requires_explicit_aware_instants_after_creation": 1,
+    "test_explicit_proxy_facts_remain_labeled_and_do_not_select_a_new_rule": 1,
+    "test_full_assembly_is_immutable_and_repeated_inputs_produce_identical_bytes": 1,
+    "test_future_candidate_availability_is_rejected": 1,
+    "test_heads_up_can_preserve_unknown_action_prices_and_nonvalid_candidate": 1,
+    "test_known_zero_confidence_is_preserved_without_a_cutoff": 1,
+    "test_missing_confidence_or_primary_feature_never_becomes_zero": 4,
+    "test_missing_duplicate_unknown_and_unattributed_feature_links_fail": 5,
+    "test_missing_or_degraded_primary_feature_quality_cannot_be_hidden_by_scores": 1,
+    "test_missing_valid_actionable_facts_cannot_produce_a_candidate": 4,
+    "test_primary_feature_and_all_confidence_snapshot_links_are_required": 1,
+    "test_saved_strategy_version_cannot_be_overridden": 1,
+    "test_supplied_features_confidence_candidate_suppression_recording_end_to_end": 2,
+    "test_supplied_geometry_must_agree_for_both_alert_types": 16,
+    "test_suppression_is_linked_to_exact_candidate_without_inventing_a_reason": 8,
+    "test_unknown_candidate_source_facts_cannot_supply_valid_actionable": 3,
+    "test_unusable_supplied_data_cannot_be_labeled_valid_actionable": 4
+  },
+  "static_check_errors": [],
+  "static_test_case_count": 96,
+  "static_test_function_count": 24,
+  "supervisor_artifacts_received": true
+}

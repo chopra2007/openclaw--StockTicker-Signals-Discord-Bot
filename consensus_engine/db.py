@@ -1646,6 +1646,120 @@ CREATE TABLE IF NOT EXISTS ops_alert_state (
     last_detail TEXT
 );
 
+-- M4.2: complete canonical transitions, reusing the host database for M5.
+CREATE TABLE IF NOT EXISTS trade_alerts_transitions_v1 (
+    record_id TEXT PRIMARY KEY NOT NULL,
+    stream_id TEXT NOT NULL,
+    position INTEGER NOT NULL CHECK(position > 0),
+    previous_record_id TEXT,
+    scope_json TEXT NOT NULL,
+    transition_json TEXT NOT NULL,
+    UNIQUE(stream_id, position),
+    CHECK((position = 1 AND previous_record_id IS NULL)
+          OR (position > 1 AND previous_record_id IS NOT NULL))
+);
+CREATE TRIGGER IF NOT EXISTS trade_alerts_transitions_v1_no_update
+BEFORE UPDATE ON trade_alerts_transitions_v1
+BEGIN SELECT RAISE(ABORT, 'append-only table'); END;
+CREATE TRIGGER IF NOT EXISTS trade_alerts_transitions_v1_no_delete
+BEFORE DELETE ON trade_alerts_transitions_v1
+BEGIN SELECT RAISE(ABORT, 'append-only table'); END;
+
+-- M5.1: append-only typed research event store (full supplied attribution).
+CREATE TABLE IF NOT EXISTS trade_alerts_research_events_v1 (
+    record_id TEXT PRIMARY KEY NOT NULL,
+    record_type TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    session TEXT NOT NULL,
+    fingerprint TEXT NOT NULL,
+    links_json TEXT NOT NULL,
+    recorded_at TEXT NOT NULL,
+    record_json TEXT NOT NULL
+);
+CREATE TRIGGER IF NOT EXISTS trade_alerts_research_events_v1_no_update
+BEFORE UPDATE ON trade_alerts_research_events_v1
+BEGIN SELECT RAISE(ABORT, 'append-only table'); END;
+CREATE TRIGGER IF NOT EXISTS trade_alerts_research_events_v1_no_delete
+BEFORE DELETE ON trade_alerts_research_events_v1
+BEGIN SELECT RAISE(ABORT, 'append-only table'); END;
+
+-- Check facts and both directions of links inside the same write transaction.
+CREATE TRIGGER IF NOT EXISTS trade_alerts_research_events_v1_check_insert
+BEFORE INSERT ON trade_alerts_research_events_v1
+BEGIN
+    SELECT CASE WHEN EXISTS (
+        SELECT 1 FROM trade_alerts_research_events_v1 old
+        WHERE old.record_id = NEW.record_id AND (
+            old.record_type != NEW.record_type OR old.kind != NEW.kind
+            OR old.session != NEW.session OR old.fingerprint != NEW.fingerprint
+            OR old.record_json != NEW.record_json OR old.links_json != NEW.links_json
+            OR NEW.kind = 'DELIVERY_INTENT')
+    ) THEN RAISE(ABORT, 'research event conflicts with existing facts') END;
+    SELECT CASE WHEN EXISTS (
+        SELECT 1 FROM json_each(NEW.links_json) link
+        JOIN (SELECT record_id, kind, record_type, record_json FROM trade_alerts_research_events_v1
+              UNION ALL SELECT NEW.record_id, NEW.kind, NEW.record_type, NEW.record_json) target
+          ON target.record_id = json_extract(link.value, '$[0]')
+        WHERE NOT ((json_extract(link.value, '$[1]') = 'INPUTLINK' AND target.kind IN ('RAW_INPUT','FEATURE_SNAPSHOT'))
+            OR (json_extract(link.value, '$[1]') = 'RAWLINK' AND target.kind IN ('RAW_INPUT'))
+            OR (json_extract(link.value, '$[1]') = 'FEATURELINK' AND target.kind IN ('FEATURE_SNAPSHOT'))
+            OR (json_extract(link.value, '$[1]') = 'CONFIGLINK' AND target.kind IN ('CONFIGURATION'))
+            OR (json_extract(link.value, '$[1]') = 'CANDIDATELINK' AND target.kind IN ('CANDIDATE'))
+            OR (json_extract(link.value, '$[1]') = 'OPTIONLINK' AND target.kind IN ('RAW_INPUT'))
+            OR (json_extract(link.value, '$[1]') = 'SUPPRESSIONLINK' AND target.kind IN ('RAW_INPUT','FEATURE_SNAPSHOT','CANDIDATE')))
+        OR (json_extract(link.value, '$[1]') = 'FEATURELINK'
+            AND NEW.record_type = 'AlertCandidate'
+            AND (json_extract(NEW.record_json, '$.metadata.instrument_id')
+                    IS NOT json_extract(target.record_json, '$.metadata.instrument_id')
+                 OR json_extract(NEW.record_json, '$.metadata.instrument_type')
+                    IS NOT json_extract(target.record_json, '$.metadata.instrument_type')
+                 OR json_extract(NEW.record_json, '$.metadata.session')
+                    IS NOT json_extract(target.record_json, '$.metadata.session')))
+        OR (json_extract(link.value, '$[1]') = 'OPTIONLINK'
+            AND (target.record_type != 'OptionQuote'
+                 OR json_extract(NEW.record_json, '$.contract_id')
+                    IS NOT json_extract(target.record_json, '$.contract_id')))
+        OR (json_extract(link.value, '$[1]') = 'CONFIGLINK'
+            AND (json_extract(NEW.record_json, '$.config_hash')
+                    IS NOT json_extract(target.record_json, '$.config_hash')
+                 OR json_extract(NEW.record_json, '$.config_version')
+                    IS NOT json_extract(target.record_json, '$.config_version')
+                 OR NEW.session IS NOT json_extract(target.record_json, '$.session')))
+    ) THEN RAISE(ABORT, 'research event conflicts with linked kind') END;
+    SELECT CASE WHEN EXISTS (
+        SELECT 1 FROM trade_alerts_research_events_v1 old, json_each(old.links_json) link
+        WHERE json_extract(link.value, '$[0]') = NEW.record_id
+          AND (NOT ((json_extract(link.value, '$[1]') = 'INPUTLINK' AND NEW.kind IN ('RAW_INPUT','FEATURE_SNAPSHOT'))
+            OR (json_extract(link.value, '$[1]') = 'RAWLINK' AND NEW.kind IN ('RAW_INPUT'))
+            OR (json_extract(link.value, '$[1]') = 'FEATURELINK' AND NEW.kind IN ('FEATURE_SNAPSHOT'))
+            OR (json_extract(link.value, '$[1]') = 'CONFIGLINK' AND NEW.kind IN ('CONFIGURATION'))
+            OR (json_extract(link.value, '$[1]') = 'CANDIDATELINK' AND NEW.kind IN ('CANDIDATE'))
+            OR (json_extract(link.value, '$[1]') = 'OPTIONLINK' AND NEW.kind IN ('RAW_INPUT'))
+            OR (json_extract(link.value, '$[1]') = 'SUPPRESSIONLINK' AND NEW.kind IN ('RAW_INPUT','FEATURE_SNAPSHOT','CANDIDATE')))
+          OR (json_extract(link.value, '$[1]') = 'FEATURELINK'
+              AND old.record_type = 'AlertCandidate'
+              AND (json_extract(old.record_json, '$.metadata.instrument_id')
+                      IS NOT json_extract(NEW.record_json, '$.metadata.instrument_id')
+                   OR json_extract(old.record_json, '$.metadata.instrument_type')
+                      IS NOT json_extract(NEW.record_json, '$.metadata.instrument_type')
+                   OR json_extract(old.record_json, '$.metadata.session')
+                      IS NOT json_extract(NEW.record_json, '$.metadata.session')))
+          OR (json_extract(link.value, '$[1]') = 'OPTIONLINK'
+              AND (NEW.record_type != 'OptionQuote'
+                   OR json_extract(old.record_json, '$.contract_id')
+                      IS NOT json_extract(NEW.record_json, '$.contract_id')))
+          OR (json_extract(link.value, '$[1]') = 'CONFIGLINK'
+              AND (json_extract(old.record_json, '$.config_hash')
+                      IS NOT json_extract(NEW.record_json, '$.config_hash')
+                   OR json_extract(old.record_json, '$.config_version')
+                      IS NOT json_extract(NEW.record_json, '$.config_version')
+                   OR old.session IS NOT json_extract(NEW.record_json, '$.session'))))
+    ) THEN RAISE(ABORT, 'research event conflicts with earlier link') END;
+    SELECT CASE WHEN EXISTS (
+        SELECT 1 FROM trade_alerts_research_events_v1 WHERE record_id = NEW.record_id
+    ) THEN RAISE(IGNORE) END;
+END;
+
 CREATE TABLE IF NOT EXISTS schema_version (
     version INTEGER PRIMARY KEY,
     applied_at REAL NOT NULL,
@@ -2263,6 +2377,8 @@ async def init_db() -> AsyncConnection:
         (32, "Batch 1 append-only trade measurement ledger v1"),
         (33, "Batch 2 append-only exact trade tracking v1"),
         (34, "durable ticker-specific analyst post views"),
+        (35, "append-only canonical trade-alert state transitions v1"),
+        (36, "append-only typed research event store v1"),
     ]
     for version, note in _schema_versions:
         await _db.execute(

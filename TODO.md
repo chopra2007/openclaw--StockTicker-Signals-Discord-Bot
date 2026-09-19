@@ -1182,20 +1182,34 @@ Stop the video reader saving names like "NVIDIA" instead of NVDA, which makes th
 
 **File:** `finish-automated-trade-alert-build.md`
 
-**CURRENT STATUS (2026-09-16 02:20 PDT):** **The M0.2/M9.3 stop is cleared and
-the controller is running again on M9.3.** Every blocker the build named has
-been answered, most of them with measurements rather than opinions.
+**CURRENT STATUS (2026-09-19 PDT):** **The build is running unattended and has
+accepted 53 steps.** It is deep inside the M9.1 historical-replay family, now
+past step M9.1BC, building the machinery that will measure real trades on the
+one year of minute data already purchased.
 
-The build then moved to **M9.3** and stopped for a real reason, now stage
-`awaiting_attention`. Opus 5 did not fail - it gave a clean verdict: M9.3
-cannot be built because the M0.2 provider/queue/storage/disk/memory budgets are
-unresolved and need an owner or data decision. The measurable part is disk
-space: `/` has **7.2 GB free of 75 GB (90% full)** and the build's frozen
-reserve needs **12 GB**. About 5 GB has to be freed before the M0.2 family can
-run at all. The rest is money and data questions (billing position, an
-unexplained OPRA HTTP 400, unpriced dates, estimates above the USD 24
-unreserved amount). Nothing was deleted and no spending was authorized.
+What is built: all four playbooks read real bars; a runner that can sweep 18
+candidate settings across the nine training tickers; the entry model that fills
+a trade at the real price within 30 seconds of the alert, charging the real
+spread and commission; a two-part exit; and the catalog of price levels the
+stops and targets hang off.
 
-Also corrected: the kickoff file's `buildctl resume --clear-attention` does
-nothing - `buildctl` takes only one word, so the flag is ignored and it just
-prints status. Use `python3 controller.py --clear-attention resume` instead.
+**No profit number exists yet, and none should be believed until one does.** The
+build refuses to rank the 18 candidates because the exit side has no quote data
+costed and two data gaps are still open. That refusal is correct behaviour, not
+a failure.
+
+Latest stop, now cleared: the build asked which purchased files it was allowed
+to read. Answered as **D-112** in `DECISIONS_AND_OPEN_QUESTIONS.md` — the
+one-minute bar job directory, manifest-verified files, the nine training
+tickers only, per-ticker EQUITY/ETF labels, and the full source conventions.
+The eight held-out tickers stay sealed for the single final test.
+
+Two fixes that unstuck the build for good: the published-file ceiling was
+raised from 128 to 512 (adapters kept adding files and would have blocked every
+future step), and step names can now carry two letters, so the build no longer
+dies at M9.1Z.
+
+Operational note: `buildctl resume --clear-attention` does nothing — `buildctl`
+takes only one word. Use `python3 controller.py --clear-attention resume`.
+A watchdog (`resume-watchdog.py`) auto-restarts the build after known-harmless
+stops and logs anything it will not touch.

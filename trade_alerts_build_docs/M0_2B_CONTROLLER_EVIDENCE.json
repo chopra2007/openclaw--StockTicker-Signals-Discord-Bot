@@ -1,0 +1,116 @@
+{
+  "changed_files": [
+    "config/full_chain_collector.yaml",
+    "consensus_engine/full_chain_storage.py",
+    "scripts/full_chain_collector.py",
+    "tests/test_full_chain_storage.py",
+    "trade_alerts_build_docs/CODING_STANDARDS.md",
+    "trade_alerts_build_docs/M0_2B_CONTROLLER_EVIDENCE.json",
+    "trade_alerts_build_docs/M0_2B_TESTED_SOURCE_MANIFEST.json",
+    "trade_alerts_build_docs/M0_2B_VERIFICATION.md",
+    "trade_alerts_build_docs/ROADMAP.md"
+  ],
+  "recorded_at": "2026-09-14T00:07:48-07:00",
+  "source_hash": "6fad85282215c27582984c1a01fea889bd81b289d3490625d580e49bc9e76777",
+  "tests": {
+    "artifacts_path": "/root/trade-alerts-builder/runs/20260913-225525-864306-build/published-artifacts-1ebd3d797ae3",
+    "exit_code": 0,
+    "runs": 1,
+    "selection_reason": "unknown dependency impact; safe broad fallback",
+    "selectors": [
+      "tests/trade_alerts_contracts",
+      "tests/test_full_chain_collector.py",
+      "tests/test_full_chain_storage.py"
+    ],
+    "test_count": 3388,
+    "wall_seconds": 635.29,
+    "phase": "acceptance",
+    "pytest_line": "3388 passed in 630.92s (0:10:30)",
+    "junit_seconds": 630.798,
+    "storage_proof_sha256": "a1c8a9e2b6824e4fabe8b5fd2ab71c5c0249ff62963846e7f6b4df379975f36b"
+  },
+  "focused": {
+    "artifacts_path": "/root/trade-alerts-builder/runs/20260913-225525-864306-build/published-artifacts-0369165b8e86",
+    "exit_code": 0,
+    "phase": "focused",
+    "runs": 1,
+    "selection_reason": "builder named directly affected checks",
+    "selectors": [
+      "tests/test_full_chain_collector.py",
+      "tests/test_full_chain_storage.py",
+      "tests/trade_alerts_contracts"
+    ],
+    "test_count": 3388,
+    "wall_seconds": 628.831,
+    "pytest_line": "3388 passed in 624.27s (0:10:24)",
+    "junit_seconds": 624.139,
+    "storage_proof_sha256": "a1c8a9e2b6824e4fabe8b5fd2ab71c5c0249ff62963846e7f6b4df379975f36b"
+  },
+  "repeatability": {
+    "artifacts_path": "/root/trade-alerts-builder/runs/20260913-225525-864306-build/published-artifacts-fe50b508ea16",
+    "exit_code": 0,
+    "phase": "repeatability",
+    "runs": 2,
+    "selection_reason": "recording output requires fresh-process comparison",
+    "selectors": [
+      "tests/trade_alerts_contracts/test_alert_delivery.py::test_bars_to_candidates_to_recording_and_fake_delivery_end_to_end",
+      "tests/trade_alerts_contracts/test_candidate_assembly.py::test_supplied_features_confidence_candidate_suppression_recording_end_to_end",
+      "tests/trade_alerts_contracts/test_confidence.py::test_supplied_features_composition_candidate_recording_end_to_end",
+      "tests/trade_alerts_contracts/test_configuration.py::test_known_default_hash_matches_canonical_record",
+      "tests/trade_alerts_contracts/test_core_price_features.py::test_bar_to_coverage_to_feature_snapshot_recording_end_to_end",
+      "tests/trade_alerts_contracts/test_cross_strategy_interaction.py::test_recording_is_deterministic_and_retains_every_component_candidate",
+      "tests/trade_alerts_contracts/test_domain_models.py::test_deterministic_record_proof_is_written_under_tmp",
+      "tests/trade_alerts_contracts/test_first_pullback_vwap.py::test_the_supplied_continuation_through_the_m42_engine_and_m51_store",
+      "tests/trade_alerts_contracts/test_historical_bars.py::test_request_raw_mapping_coverage_and_archive_end_to_end",
+      "tests/trade_alerts_contracts/test_historical_replay.py::test_chronological_same_runtime_replay_is_byte_deterministic",
+      "tests/trade_alerts_contracts/test_hod_comp_rs_replay.py::test_the_same_supplied_scenario_replays_byte_identically",
+      "tests/trade_alerts_contracts/test_hod_comp_rs_replay.py::test_the_five_scenarios_record_one_deterministic_proof",
+      "tests/trade_alerts_contracts/test_hod_comp_rs_risk_confidence.py::test_the_composed_outcome_at_one_recorded_trigger",
+      "tests/trade_alerts_contracts/test_hod_comp_rs_trigger.py::test_the_supplied_heads_up_and_trigger_through_the_m42_engine_and_m51_store",
+      "tests/trade_alerts_contracts/test_hod_compression.py::test_hod_compression_recording_end_to_end",
+      "tests/trade_alerts_contracts/test_impulse_pullback.py::test_impulse_pullback_recording_end_to_end",
+      "tests/trade_alerts_contracts/test_opening_range_features.py::test_bar_coverage_opening_range_recording_end_to_end",
+      "tests/trade_alerts_contracts/test_or_failure_handoff.py::test_the_supplied_handoff_through_the_m42_engine_and_m51_store",
+      "tests/trade_alerts_contracts/test_or_failure_rev.py::test_the_supplied_reversal_through_the_m42_engine_and_m51_store",
+      "tests/trade_alerts_contracts/test_orb5_eligibility.py::test_shared_features_through_the_m42_engine_and_m51_store",
+      "tests/trade_alerts_contracts/test_orb5_replay.py::test_the_same_supplied_scenario_replays_byte_identically",
+      "tests/trade_alerts_contracts/test_orb5_replay.py::test_the_six_scenarios_record_one_deterministic_proof",
+      "tests/trade_alerts_contracts/test_orb5_risk_confidence.py::test_the_composed_outcome_at_one_recorded_trigger",
+      "tests/trade_alerts_contracts/test_orb5_trigger.py::test_the_supplied_trigger_through_the_m42_engine_and_m51_store",
+      "tests/trade_alerts_contracts/test_outcome_evaluator.py::test_compact_end_to_end_recording",
+      "tests/trade_alerts_contracts/test_participation_features.py::test_bar_coverage_participation_recording_end_to_end",
+      "tests/trade_alerts_contracts/test_quote_events.py::test_normalized_events_failure_reconnect_recording_end_to_end",
+      "tests/trade_alerts_contracts/test_reference_inputs.py::test_supplied_reference_coverage_recording_end_to_end",
+      "tests/trade_alerts_contracts/test_relative_strength_features.py::test_relative_strength_recording_end_to_end",
+      "tests/trade_alerts_contracts/test_research_event_store.py::test_recording_pipeline_retains_full_facts_retry_and_reopen",
+      "tests/trade_alerts_contracts/test_rs_trend_eligibility.py::test_measured_inputs_through_the_m42_engine_and_m51_store",
+      "tests/trade_alerts_contracts/test_schwab_normalization.py::test_write_deterministic_normalization_proof",
+      "tests/trade_alerts_contracts/test_session_recovery.py::test_interrupted_session_recovery_recording_end_to_end",
+      "tests/trade_alerts_contracts/test_state_transitions.py::test_market_features_strategy_transition_database_recording_end_to_end",
+      "tests/trade_alerts_contracts/test_strategy_interface.py::test_shared_feature_to_strategy_records_end_to_end",
+      "tests/trade_alerts_contracts/test_structural_geometry.py::test_structural_geometry_recording_end_to_end",
+      "tests/trade_alerts_contracts/test_structural_risk.py::test_supplied_bars_to_shared_features_risk_candidate_recording_end_to_end",
+      "tests/trade_alerts_contracts/test_vwap_context_features.py::test_vwap_context_recording_end_to_end"
+    ],
+    "test_count": 62,
+    "wall_seconds": 308.612,
+    "run_records": [
+      {
+        "run": 1,
+        "pytest_line": "62 passed in 154.33s (0:02:34)",
+        "junit_seconds": 154.332
+      },
+      {
+        "run": 2,
+        "pytest_line": "62 passed in 150.35s (0:02:30)",
+        "junit_seconds": 150.349
+      }
+    ],
+    "comparison": "All deterministic proof artifact hashes matched between the two fresh processes."
+  },
+  "protected": true,
+  "stable": true,
+  "failures": 0,
+  "errors": 0,
+  "skips": 0
+}

@@ -1,0 +1,106 @@
+{
+  "milestone": "M0.3F",
+  "status": "completed",
+  "checked_at_pacific": "2026-09-13T15:27:00-07:00",
+  "version": "M03F_INDEX_OPEN_DRIVE_BREADTH_V2",
+  "protected_tests_passed": true,
+  "source_hash": "cd53ff6cbe814c28cc3dc32cd8b8b8c52abc1afd23f38416fc80a89c0234292d",
+  "tested_source_manifest": "trade_alerts_build_docs/M0_3F_TESTED_SOURCE_MANIFEST.json",
+  "controller_evidence": "trade_alerts_build_docs/M0_3F_CONTROLLER_EVIDENCE.json",
+  "diagnosis": "V1 left the VWAP mode and Up Volume interval, observation order and share attribution to the implementer.",
+  "different_approach": "V2 selects SESSION_VWAP_BAR_HLC3_V1 throughout and freezes cumulative regular-session per-trade directional shares, immediate predecessor prices, neutral first and tied trades, ordering, corrections and coverage.",
+  "tests": {
+    "focused": {
+      "artifacts_path": "/root/trade-alerts-builder/runs/20260913-142357-771316-build/published-artifacts-f698672b0778",
+      "phase": "focused",
+      "runs": 1,
+      "selection_reason": "builder named directly affected checks",
+      "selectors": [
+        "tests/trade_alerts_contracts"
+      ],
+      "test_count": 2922,
+      "wall_seconds": 502.358
+    },
+    "acceptance": {
+      "artifacts_path": "/root/trade-alerts-builder/runs/20260913-142357-771316-build/published-artifacts-5c5759dac7f4",
+      "phase": "acceptance",
+      "runs": 1,
+      "selection_reason": "unknown dependency impact; safe broad fallback",
+      "selectors": [
+        "tests/trade_alerts_contracts"
+      ],
+      "test_count": 2922,
+      "wall_seconds": 511.713
+    },
+    "repeatability": {
+      "artifacts_path": "/root/trade-alerts-builder/runs/20260913-142357-771316-build/published-artifacts-ec481d9167f8",
+      "phase": "repeatability",
+      "runs": 2,
+      "selection_reason": "recording output requires fresh-process comparison",
+      "test_count": 59,
+      "wall_seconds": 299.572,
+      "selectors": [
+        "tests/trade_alerts_contracts/test_alert_delivery.py::test_bars_to_candidates_to_recording_and_fake_delivery_end_to_end",
+        "tests/trade_alerts_contracts/test_candidate_assembly.py::test_supplied_features_confidence_candidate_suppression_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_confidence.py::test_supplied_features_composition_candidate_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_configuration.py::test_known_default_hash_matches_canonical_record",
+        "tests/trade_alerts_contracts/test_core_price_features.py::test_bar_to_coverage_to_feature_snapshot_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_cross_strategy_interaction.py::test_recording_is_deterministic_and_retains_every_component_candidate",
+        "tests/trade_alerts_contracts/test_domain_models.py::test_deterministic_record_proof_is_written_under_tmp",
+        "tests/trade_alerts_contracts/test_first_pullback_vwap.py::test_the_supplied_continuation_through_the_m42_engine_and_m51_store",
+        "tests/trade_alerts_contracts/test_historical_bars.py::test_request_raw_mapping_coverage_and_archive_end_to_end",
+        "tests/trade_alerts_contracts/test_historical_replay.py::test_chronological_same_runtime_replay_is_byte_deterministic",
+        "tests/trade_alerts_contracts/test_hod_comp_rs_replay.py::test_the_same_supplied_scenario_replays_byte_identically",
+        "tests/trade_alerts_contracts/test_hod_comp_rs_replay.py::test_the_five_scenarios_record_one_deterministic_proof",
+        "tests/trade_alerts_contracts/test_hod_comp_rs_risk_confidence.py::test_the_composed_outcome_at_one_recorded_trigger",
+        "tests/trade_alerts_contracts/test_hod_comp_rs_trigger.py::test_the_supplied_heads_up_and_trigger_through_the_m42_engine_and_m51_store",
+        "tests/trade_alerts_contracts/test_hod_compression.py::test_hod_compression_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_impulse_pullback.py::test_impulse_pullback_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_opening_range_features.py::test_bar_coverage_opening_range_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_or_failure_handoff.py::test_the_supplied_handoff_through_the_m42_engine_and_m51_store",
+        "tests/trade_alerts_contracts/test_or_failure_rev.py::test_the_supplied_reversal_through_the_m42_engine_and_m51_store",
+        "tests/trade_alerts_contracts/test_orb5_eligibility.py::test_shared_features_through_the_m42_engine_and_m51_store",
+        "tests/trade_alerts_contracts/test_orb5_replay.py::test_the_same_supplied_scenario_replays_byte_identically",
+        "tests/trade_alerts_contracts/test_orb5_replay.py::test_the_six_scenarios_record_one_deterministic_proof",
+        "tests/trade_alerts_contracts/test_orb5_risk_confidence.py::test_the_composed_outcome_at_one_recorded_trigger",
+        "tests/trade_alerts_contracts/test_orb5_trigger.py::test_the_supplied_trigger_through_the_m42_engine_and_m51_store",
+        "tests/trade_alerts_contracts/test_outcome_evaluator.py::test_compact_end_to_end_recording",
+        "tests/trade_alerts_contracts/test_participation_features.py::test_bar_coverage_participation_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_quote_events.py::test_normalized_events_failure_reconnect_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_reference_inputs.py::test_supplied_reference_coverage_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_research_event_store.py::test_recording_pipeline_retains_full_facts_retry_and_reopen",
+        "tests/trade_alerts_contracts/test_rs_trend_eligibility.py::test_measured_inputs_through_the_m42_engine_and_m51_store",
+        "tests/trade_alerts_contracts/test_schwab_normalization.py::test_write_deterministic_normalization_proof",
+        "tests/trade_alerts_contracts/test_session_recovery.py::test_interrupted_session_recovery_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_state_transitions.py::test_market_features_strategy_transition_database_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_strategy_interface.py::test_shared_feature_to_strategy_records_end_to_end",
+        "tests/trade_alerts_contracts/test_structural_risk.py::test_supplied_bars_to_shared_features_risk_candidate_recording_end_to_end"
+      ]
+    }
+  },
+  "repeatability_comparison": {
+    "ordered_test_ids_match": true,
+    "acceptance_to_each_repeatability_run_matching_json_recordings": 48
+  },
+  "records_only_finalization": {
+    "code_tests_configuration_dependencies_or_protected_inputs_changed": false,
+    "original_proof_retained": true,
+    "prior_comparison_recorded_at_pacific": "2026-09-13T15:37:51-07:00",
+    "prior_comparison_covered_first_nine_record_corrections": true,
+    "current_complete_comparison": "controller records-only stage will supply"
+  },
+  "next_milestone": "M0.3G",
+  "remaining_gates": [
+    "full and hybrid point-in-time source coverage",
+    "sector-proxy coverage for all 11 named ETFs",
+    "source manifest and exact chronological date splits"
+  ],
+  "safety": {
+    "offline_only": true,
+    "switches_off": true,
+    "external_calls": false,
+    "spending": 0,
+    "live_use_authorized": false,
+    "profit_claim": false
+  }
+}

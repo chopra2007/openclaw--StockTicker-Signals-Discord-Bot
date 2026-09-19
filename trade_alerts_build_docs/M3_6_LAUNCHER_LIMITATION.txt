@@ -1,0 +1,86 @@
+M3.6 protected launcher attempt — 2026-09-06 Pacific
+
+Command scope: the selectors saved in M3_6_VERIFICATION.md §2 were passed to the
+unchanged scripts/testing/run_trade_alerts_contracts.py launcher.
+
+Result: exit 1 before child creation or test collection. No test or recording
+artifact was produced.
+
+Traceback (most recent call last):
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 72, in <module>
+    raise SystemExit(main())
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 26, in main
+    os.chown(artifact_root, account.pw_uid, account.pw_gid)
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-vz7ki7zt'
+
+The protection was not changed or bypassed. The supervisor must run the saved
+selection twice outside this sandbox and return the readable artifacts.
+
+Repair-session retry — 2026-09-06 18:38 Pacific
+
+The controller supplied no readable supervisor artifacts. The unchanged launcher
+was retried with the same saved selectors and again exited before child creation
+or test collection. The final traceback line was:
+
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-voqb57lt'
+
+An attempt to start the unchanged launcher as the openclaw account also stopped
+before launch with: setpriv: setresuid failed: Invalid argument
+
+No test or compact recording artifact was produced.
+
+Second repair retry — 2026-09-06 18:54 Pacific
+
+The supplied controller summary reported failure but provided no readable
+test output or artifacts. Its actual failure cause remains unknown.
+The local unchanged launcher was attempted with all five saved M3.6 selectors.
+It returned exit 1 before either child or test collection.
+
+Traceback (most recent call last):
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 72, in <module>
+    raise SystemExit(main())
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 26, in main
+    os.chown(artifact_root, account.pw_uid, account.pw_gid)
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-kf43l78w'
+
+No XML, isolation report or compact recording was produced. Production, tests
+and protection remain unchanged. Supervisor execution is still required.
+
+Third repair retry — 2026-09-06 19:11 Pacific
+
+One test-only speed change was present: the broad request helper selects its five
+opening intervals before creating Bars. Test names, parameter lists and assertion
+expressions remain unchanged. Production and protection files are unchanged.
+
+The unchanged launcher was run with all five saved selectors. It returned exit 1
+before either child or test collection:
+
+Traceback (most recent call last):
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 72, in <module>
+    raise SystemExit(main())
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 26, in main
+    os.chown(artifact_root, account.pw_uid, account.pw_gid)
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-im7o5oft'
+
+No XML, isolation report or compact recording was produced. Supervisor execution
+of the current test file is still required.
+
+Request-window repair retry — 2026-09-06 19:37 Pacific
+
+The production calculation now validates the supplied request, and the current
+test file has 28 cases including truncated and disjoint requests. Both files pass
+local compilation and Python 3.10 grammar checks. Those checks are not test proof.
+
+The unchanged launcher was run with all five saved selectors. It returned exit 1
+before either child or test collection:
+
+Traceback (most recent call last):
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 72, in <module>
+    raise SystemExit(main())
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 26, in main
+    os.chown(artifact_root, account.pw_uid, account.pw_gid)
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-kdywcp4y'
+
+No XML, isolation report or compact recording was produced. The protection was
+not changed or bypassed. Supervisor execution of the current source and test
+hashes is still required.

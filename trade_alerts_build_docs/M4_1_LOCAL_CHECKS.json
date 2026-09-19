@@ -1,0 +1,224 @@
+{
+  "milestone": "M4.1",
+  "status": "completed",
+  "at_pacific": "2026-09-06T21:07:06.685625-07:00",
+  "next_milestone": "M4.2",
+  "summary": "Protected supervisor proof is complete. Earlier local failure and ownership notes are historical. Independent acceptance review remains.",
+  "protected_tests": {
+    "status": "passed",
+    "verified_at_pacific": "2026-09-06T20:50:15-07:00",
+    "evidence_file": "trade_alerts_build_docs/M4_1_SUPERVISOR_TESTS.json",
+    "verification_record": "trade_alerts_build_docs/M4_1_VERIFICATION.md",
+    "passed_tests_per_run": 720,
+    "m41_cases_per_run": 55,
+    "runs": 2,
+    "ordered_test_ids_match": true,
+    "isolation_and_cleanup": "passed",
+    "records": {
+      "m41-strategy-interface-long-proof.json": {
+        "bytes": 16032,
+        "sha256": "23be25927e7f876715901a37b83504df58555e95db17d86b3bb34eccf48a8db6",
+        "matches_across_runs": true
+      },
+      "m41-strategy-interface-short-proof.json": {
+        "bytes": 16044,
+        "sha256": "4a3736d671827e4a447483a95f485546b3fbb20ca3d13e81f1827a3b41381593",
+        "matches_across_runs": true
+      }
+    },
+    "selectors": [
+      "tests/trade_alerts_contracts",
+      "tests/test_models.py",
+      "tests/test_schwab_client.py",
+      "tests/test_wolf_macro_brain.py::test_stock_sector_etf",
+      "tests/trade_alerts_contracts/test_strategy_interface.py"
+    ]
+  },
+  "records_only_repair": {
+    "backup": "/tmp/m41-status-repair-lznb5qna",
+    "proof_rechecked_at_pacific": "2026-09-06T21:02:09.742206-07:00",
+    "publication_files_verified": 35,
+    "publication_sha256": "5e1e33bcc8ea100fb99a3ffb81838f93664652d7b3aab1a79df39c44c3c56cb9",
+    "tested_manifest_sha256": "b337a2103462390435e91e36aa79ea4032a662e850101b638af0f004bf63f9c1",
+    "tested_manifest_files_checked": 801,
+    "tested_manifest_content_differences_before_repair": [
+      "trade_alerts_build_docs/M4_1_VERIFICATION.md",
+      "trade_alerts_build_docs/ROADMAP.md"
+    ],
+    "source_tests_and_protection_match_tested_manifest": true,
+    "test_execution_in_this_repair": false,
+    "application_run": false,
+    "live_or_paid_access": false,
+    "git_mutation": false,
+    "ownership_note": "Earlier failed restoration results below describe the initial sandbox attempt only. This repair preserves observed ownership and modes; host ownership is not inferred from sandbox identity mapping.",
+    "all_new_switches_off": true,
+    "databento_credit_used": 0,
+    "databento_credit_reserved": 0
+  },
+  "changed_files": [
+    "consensus_engine/strategy_interface.py",
+    "tests/trade_alerts_contracts/test_strategy_interface.py",
+    "trade_alerts_build_docs/CODING_STANDARDS.md",
+    "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md",
+    "trade_alerts_build_docs/M4_1_LAUNCHER_LIMITATION.txt",
+    "trade_alerts_build_docs/M4_1_LOCAL_CHECKS.json",
+    "trade_alerts_build_docs/M4_1_SUPERVISOR_TESTS.json",
+    "trade_alerts_build_docs/M4_1_VERIFICATION.md",
+    "trade_alerts_build_docs/PROJECT_INDEX.md",
+    "trade_alerts_build_docs/ROADMAP.md",
+    "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+  ],
+  "historical_local_attempt_note": "The full original 20:40 Pacific local snapshot follows unchanged. Its ready_for_verification, not_collected, missing-artifact and ownership-error fields are historical and superseded by the verified supervisor proof above.",
+  "historical_local_attempt": {
+    "milestone": "M4.1",
+    "status": "ready_for_verification",
+    "at_pacific": "2026-09-06T20:40:06.054273-07:00",
+    "starting_snapshot": "/tmp/m41-start-h4s_xfj9/manifest.json",
+    "source_checks": {
+      "compilation": "passed",
+      "python_3_10_grammar": "passed",
+      "written_test_functions": 13,
+      "written_test_cases": 55,
+      "case_count_method": "static source inspection, not collection",
+      "lint_typecheck": "No configured repository command"
+    },
+    "protected_tests": {
+      "status": "not_collected",
+      "passed_tests": null,
+      "launcher_exit_code": 1,
+      "child_started": false,
+      "proof_files_produced": false,
+      "stage": "initial_temporary_directory_ownership",
+      "error": "OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-6tlzls3e'",
+      "traceback_file": "trade_alerts_build_docs/M4_1_LAUNCHER_LIMITATION.txt",
+      "selectors": [
+        "tests/trade_alerts_contracts",
+        "tests/test_models.py",
+        "tests/test_schwab_client.py",
+        "tests/test_wolf_macro_brain.py::test_stock_sector_etf",
+        "tests/trade_alerts_contracts/test_strategy_interface.py"
+      ],
+      "required_records": [
+        "m41-strategy-interface-long-proof.json",
+        "m41-strategy-interface-short-proof.json"
+      ],
+      "supervisor_artifacts_supplied": false,
+      "note": "Final test-helper inspection fixed lazy supplied inputs and reference-only mode attribution after the failed pre-collection attempt; no test run or passing result preceded or followed that correction."
+    },
+    "next_milestone": "M4.2",
+    "ownership": [
+      {
+        "path": "consensus_engine/strategy_interface.py",
+        "restored": false,
+        "error": "[Errno 22] Invalid argument: 'consensus_engine/strategy_interface.py'"
+      },
+      {
+        "path": "tests/trade_alerts_contracts/test_strategy_interface.py",
+        "restored": false,
+        "error": "[Errno 22] Invalid argument: 'tests/trade_alerts_contracts/test_strategy_interface.py'"
+      },
+      {
+        "path": "trade_alerts_build_docs/M4_1_VERIFICATION.md",
+        "restored": false,
+        "error": "[Errno 22] Invalid argument: 'trade_alerts_build_docs/M4_1_VERIFICATION.md'"
+      },
+      {
+        "path": "trade_alerts_build_docs/M4_1_LOCAL_CHECKS.json",
+        "restored": false,
+        "error": "[Errno 22] Invalid argument: 'trade_alerts_build_docs/M4_1_LOCAL_CHECKS.json'"
+      },
+      {
+        "path": "trade_alerts_build_docs/M4_1_LAUNCHER_LIMITATION.txt",
+        "restored": false,
+        "error": "[Errno 22] Invalid argument: 'trade_alerts_build_docs/M4_1_LAUNCHER_LIMITATION.txt'"
+      }
+    ],
+    "changed_files": [
+      "consensus_engine/strategy_interface.py",
+      "tests/trade_alerts_contracts/test_strategy_interface.py",
+      "trade_alerts_build_docs/CODING_STANDARDS.md",
+      "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md",
+      "trade_alerts_build_docs/M4_1_LAUNCHER_LIMITATION.txt",
+      "trade_alerts_build_docs/M4_1_LOCAL_CHECKS.json",
+      "trade_alerts_build_docs/M4_1_VERIFICATION.md",
+      "trade_alerts_build_docs/PROJECT_INDEX.md",
+      "trade_alerts_build_docs/ROADMAP.md",
+      "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+    ],
+    "preservation": {
+      "starting_files": 230,
+      "unchanged_existing_files": 225,
+      "only_expected_documents_changed": true,
+      "existing_document_ownership_and_modes_unchanged": true,
+      "protected_launcher_unchanged": true,
+      "protected_child_unchanged": true,
+      "baseline_unchanged": true,
+      "config_and_live_sources_unchanged": true,
+      "application_run": false,
+      "live_or_paid_access": false,
+      "git_mutation": false,
+      "all_new_switches_off": true,
+      "databento_credit_used": 0,
+      "databento_credit_reserved": 0
+    },
+    "document_checks": {
+      "local_links_checked": 78,
+      "missing_local_links": [],
+      "nine_canonical_documents_retained": true,
+      "eight_playbooks_retained": true,
+      "functional_rows": 31,
+      "additional_capability_rows": 22,
+      "new_secret_shaped_or_non_pacific_text_found": false,
+      "whitespace_and_code_fences": "passed",
+      "saved_next_milestone": "M4.2",
+      "source_and_definition_gates_retained": true
+    },
+    "read_only_host_checks": {
+      "service_status": "unverified",
+      "service_error": "Failed to connect to bus: Operation not permitted (consider using --machine=<user>@.host --user to connect to bus of other user)",
+      "workspace_shortcut": "correct",
+      "recent_model_drift_or_health_failure_matches": 0
+    },
+    "hashes": {
+      "consensus_engine/strategy_interface.py": "c0df609b99d7543c718cca2b5e6ced2f32b3804e17860f837952fc34e2e16bf9",
+      "tests/trade_alerts_contracts/test_strategy_interface.py": "8317ac4701be095e0b7234e7124b8d02df066c7dd0cb9528a5f4b9691fbfbeaf",
+      "consensus_engine/trade_alerts_models.py": "b9674913b413f0a293552340db2c830bb0292788fb36689b1568e5ba8b5042d5",
+      "consensus_engine/trade_alerts_config.py": "b14169222ffee6cfa98bc45286874e1f989c396c31115edf228f1be49744ef9d",
+      "consensus_engine/utils/time_context.py": "bc14cdbf76e7bf283cc69c9a2dceb1f7948209cc4a2dac3435a8fd078050fec3",
+      "consensus_engine/quote_events.py": "1e33aaac6f62a439f0ed74741717ecfd67d2f34aa225e83bf4ff0d0227279453",
+      "consensus_engine/opening_range_features.py": "5f3f911f99b789f7e4a6863fb93b67de495389cdc3e4b3cb09cf7bf7ea019f1f",
+      "consensus_engine/historical_bars.py": "073772ef66d34cf182ca50e86481fb3fbf83337d11e566638ac8e9ea6bbb3971",
+      "tests/trade_alerts_contracts/test_opening_range_features.py": "60936b85728917189416c259a65a5b2d09943df21b7bc174fdbe6f09f248de0b",
+      "scripts/testing/run_trade_alerts_contracts.py": "6b609b643edfc467fc63480acd63ad50d4044616aec5efca61f32315af3d3ad2",
+      "scripts/testing/trade_alerts_contract_child.py": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c"
+    }
+  },
+  "document_checks": {
+    "local_links_checked": 72,
+    "missing_local_links": [],
+    "current_m41_status_synchronized": true,
+    "original_local_snapshot_preserved_as_history": true,
+    "source_tests_config_and_protection_unchanged_in_repair": true,
+    "source_tests_and_protection_match_tested_manifest": true,
+    "observed_ownership_and_modes_unchanged": true,
+    "roadmap_checkbox_states_unchanged": true,
+    "blocked_rows_preserved_exactly": true,
+    "d090_d091_and_m03b_records_unchanged": true,
+    "nine_canonical_documents_retained": true,
+    "eight_playbooks_retained": true,
+    "functional_rows": 31,
+    "additional_capability_rows": 22,
+    "whitespace_and_code_fences": "passed",
+    "new_secret_shaped_or_non_pacific_text_found": false,
+    "saved_next_milestone": "M4.2",
+    "all_new_switches_off": true,
+    "changed_files_in_this_repair": [
+      "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md",
+      "trade_alerts_build_docs/M4_1_LOCAL_CHECKS.json",
+      "trade_alerts_build_docs/M4_1_VERIFICATION.md",
+      "trade_alerts_build_docs/PROJECT_INDEX.md",
+      "trade_alerts_build_docs/ROADMAP.md",
+      "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+    ]
+  }
+}

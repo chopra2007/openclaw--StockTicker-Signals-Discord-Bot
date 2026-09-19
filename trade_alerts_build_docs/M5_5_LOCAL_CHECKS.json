@@ -1,0 +1,111 @@
+{
+ "milestone": "M5.5",
+ "status": "completed",
+ "checked_at_pacific": "2026-09-09T23:45:38-07:00",
+ "protected_tests_passed": true,
+ "offline_status": "protected_proof_complete",
+ "source_hash": "ce6313a72c90285a49a3e1e09e3d777b12bf949efc44056dd29823939c5c9b2b",
+ "tested_source_manifest": {
+  "path": "trade_alerts_build_docs/M5_5_TESTED_SOURCE_MANIFEST.json",
+  "entries": 851,
+  "file_sha256": "771dce6d953b6f2affd330a52e0248fe8973c55af6adf358f1f19af77e761e84",
+  "canonical_sha256": "ce6313a72c90285a49a3e1e09e3d777b12bf949efc44056dd29823939c5c9b2b",
+  "note": "Snapshot of the tested tree at 2026-09-09T23:45:38-07:00. Its canonical form (sorted keys, compact separators) reproduces the controller source_hash exactly. The M5.5 record files were finalized after that run, so their current bytes differ from the entries here; no source, test, configuration or protected input changed."
+ },
+ "hashes": {
+  "consensus_engine/event_store.py": "9237a580cf840b26e741be1a5aae010186c79032ec1dd064686fa89aae1e1389",
+  "consensus_engine/session_recovery.py": "566bcc2e1bb1c1ab119589629d7e118d685af1e90f12963dfd11618f8f8b9129",
+  "consensus_engine/state_transitions.py": "eb29559eca9c0202a1fd845f45ae68001e9fddb199f4bb7b46c448477f856675",
+  "tests/trade_alerts_contracts/test_session_recovery.py": "bc25f9b384f464a1ea0ffed7cbbc129a18252809cb778e8c9597ef7c4ce1708a"
+ },
+ "checks": {
+  "atomic_facts_with_delivery_intent": true,
+  "one_final_delivery_fact_per_intent": true,
+  "crash_after_send_stays_unknown": true,
+  "expiry_aware_retry": true,
+  "versioned_state_recovery_fails_closed": true,
+  "acknowledgment_stored_separately": true,
+  "recovered_rendering_matches_stored_intent": true,
+  "repeatable_recording": true,
+  "failures": 0,
+  "errors": 0,
+  "skips": 0,
+  "cleanup_passed": true,
+  "unexpected_isolation_denials": 0
+ },
+ "milestone_changed_files": [
+  "consensus_engine/event_store.py",
+  "consensus_engine/session_recovery.py",
+  "consensus_engine/state_transitions.py",
+  "tests/trade_alerts_contracts/test_session_recovery.py",
+  "trade_alerts_build_docs/M5_3_VERIFICATION.md",
+  "trade_alerts_build_docs/M5_5_CONTROLLER_EVIDENCE.json",
+  "trade_alerts_build_docs/M5_5_LOCAL_CHECKS.json",
+  "trade_alerts_build_docs/M5_5_SUPERVISOR_TESTS.json",
+  "trade_alerts_build_docs/M5_5_TESTED_SOURCE_MANIFEST.json",
+  "trade_alerts_build_docs/M5_5_VERIFICATION.md",
+  "trade_alerts_build_docs/ROADMAP.md"
+ ],
+ "next_milestone": "none dependency-ready from M5.5 alone",
+ "limits": [
+  "Offline supplied records only.",
+  "Actual source coverage, live delivery, human receipt, recovery under real load, strategy edge and profit remain unproved.",
+  "M5.4 stays data-blocked and M18 keeps full load and failure hardening.",
+  "No proposed rule was approved.",
+  "All switches remain off."
+ ],
+ "historical_proof": {
+  "superseded_stages": [
+   {
+    "artifacts": "published-artifacts-2e13ceb96538",
+    "published_at_pacific": "2026-09-09T16:44:25-07:00",
+    "runs": 1,
+    "tests": 1235,
+    "note": "pre-M5.5 stage retained as dated history"
+   },
+   {
+    "artifacts": "published-artifacts-afa56bb782b6",
+    "published_at_pacific": "2026-09-09T16:49:28-07:00",
+    "runs": 1,
+    "tests": 1235,
+    "note": "pre-M5.5 stage retained as dated history"
+   },
+   {
+    "artifacts": "published-artifacts-d2529a516de8",
+    "published_at_pacific": "2026-09-09T16:52:50-07:00",
+    "runs": 2,
+    "tests": 26,
+    "note": "pre-M5.5 repeatability retained as dated history"
+   },
+   {
+    "artifacts": "published-artifacts-41d7751caa66",
+    "published_at_pacific": "2026-09-09T20:44:22-07:00",
+    "runs": 1,
+    "tests": 1254,
+    "note": "earlier M5.5 broad stage; later stages supersede it"
+   },
+   {
+    "artifacts": "published-artifacts-67fb9aace7de",
+    "published_at_pacific": "2026-09-09T23:13:09-07:00",
+    "runs": 1,
+    "tests": 1254,
+    "note": "earlier M5.5 focused stage; the 23:37 stage supersedes it"
+   },
+   {
+    "artifacts": "published-artifacts-96ce217c6589",
+    "published_at_pacific": "2026-09-09T23:18:22-07:00",
+    "runs": 1,
+    "tests": 1254,
+    "note": "earlier M5.5 broad stage; the 23:42 stage supersedes it"
+   },
+   {
+    "artifacts": "published-artifacts-49df8eef259a",
+    "published_at_pacific": "2026-09-09T23:21:35-07:00",
+    "runs": 2,
+    "tests": 28,
+    "note": "earlier M5.5 repeatability; the 23:45 stage supersedes it"
+   }
+  ],
+  "note": "Superseded proof retained as dated history. The cited stages are 7ea0158b0c9f, 573eaf0533d1 and ae450c7a169a, republished after the M5.5 record files were written. No source, test, configuration or protected input changed between the earlier stages and these, and every recorded artifact hash is unchanged."
+ }
+}

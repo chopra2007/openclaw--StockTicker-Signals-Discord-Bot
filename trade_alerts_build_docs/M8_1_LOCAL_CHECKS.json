@@ -1,0 +1,199 @@
+{
+ "milestone": "M8.1",
+ "status": "implementation_complete_and_covered; the focused, whole-directory acceptance and two-process repeatability selections all ran under the protected launcher with no failures, no errors and no skips. The earlier per-run cap blocker was cleared by the controller's own protection repair before this attempt",
+ "checked_at_pacific": "2026-09-12T00:00:00-07:00",
+ "figures_source": "pending: the controller's protected stages publish every count, timing and hash; no builder-run number is written here",
+ "launcher": {
+  "path": "scripts/testing/run_trade_alerts_contracts.py",
+  "sha256": "a6f904de6aefa7c94e12215c2ed624178b67d2f2160a78e1bc9e9e46ed8c054e",
+  "child_path": "scripts/testing/trade_alerts_contract_child.py",
+  "child_sha256": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c",
+  "unchanged_by_builder": true,
+  "changed_by_controller": true,
+  "previous_sha256_in_build_run_start_manifest": "a4ffdd55fd1f1673d99e73106e47c063923bfae9514d7e93a44be9dead7e6764",
+  "note": "the controller raised the launcher's own per-run subprocess cap before this attempt, as its separately reviewed protection repair. The file on disk matches this attempt's protected baseline exactly. No build session edited, bypassed or retried either protection script; the child script is unchanged"
+ },
+ "hashes": {
+  "consensus_engine/or_failure_handoff.py": "c875eb583777247b3764e2cd879ea4dd70553958f95b5d721b9f2219390c6e45",
+  "tests/trade_alerts_contracts/test_or_failure_handoff.py": "ea9b101ae604bb563c38d4c5c8bdfdd5fcae2bf13808f42e4a88cfc382731abe"
+ },
+ "unchanged_dependencies": {
+  "consensus_engine/orb5_trigger.py": "eba26708aa1d4583894e92d823c2fc27049a8e6299bbefe482d8cd396c57145d",
+  "consensus_engine/opening_range_features.py": "5f3f911f99b789f7e4a6863fb93b67de495389cdc3e4b3cb09cf7bf7ea019f1f",
+  "consensus_engine/state_transitions.py": "eb29559eca9c0202a1fd845f45ae68001e9fddb199f4bb7b46c448477f856675",
+  "consensus_engine/strategy_interface.py": "c0df609b99d7543c718cca2b5e6ced2f32b3804e17860f837952fc34e2e16bf9",
+  "consensus_engine/trade_alerts_models.py": "b9674913b413f0a293552340db2c830bb0292788fb36689b1568e5ba8b5042d5",
+  "consensus_engine/event_store.py": "9237a580cf840b26e741be1a5aae010186c79032ec1dd064686fa89aae1e1389",
+  "consensus_engine/transition_store.py": "d0850f4b532d2610a8b1f245afb198ddebbb83c42b71e5c156cb03f3e9f94992",
+  "consensus_engine/trade_alerts_config.py": "b14169222ffee6cfa98bc45286874e1f989c396c31115edf228f1be49744ef9d"
+ },
+ "changed_files": [
+  "consensus_engine/or_failure_handoff.py",
+  "tests/trade_alerts_contracts/test_or_failure_handoff.py",
+  "trade_alerts_build_docs/M8_1_LOCAL_CHECKS.json",
+  "trade_alerts_build_docs/M8_1_VERIFICATION.md",
+  "trade_alerts_build_docs/M8_1_LAUNCHER_LIMITATION.txt",
+  "trade_alerts_build_docs/ROADMAP.md"
+ ],
+ "required_protected_selection": {
+  "selectors": [
+   "tests/trade_alerts_contracts"
+  ],
+  "selection_reason": "the whole tests/trade_alerts_contracts directory is the covering selection by dependency, because the new module reuses the M6.2 trigger records, the M3.6 opening range, the M4.2 transition engine and the M5.1 research store that the rest of the directory also exercises, and the launcher installs its isolation for the whole collection. It runs as one protected process again now that the controller has raised the per-run cap",
+  "focused_selectors": [
+   "tests/trade_alerts_contracts/test_or_failure_handoff.py"
+  ],
+  "repeatability_required": true,
+  "repeatability_reason": "m8_1_or_failure_handoff_proof.json is a recorded artifact, so the recording selection must be compared between two fresh processes in addition to the acceptance run",
+  "recording_artifact": "m8_1_or_failure_handoff_proof.json",
+  "earlier_recordings_that_must_stay_unchanged": [
+   "m36-opening-range-features-proof.json",
+   "m61-orb5-eligibility-long-proof.json",
+   "m61-orb5-eligibility-short-proof.json",
+   "m63-orb5-risk-confidence-long-proof.json",
+   "m63-orb5-risk-confidence-short-proof.json",
+   "m6_4_orb5_scenarios.json",
+   "m7_1_hod_compression_proof.json",
+   "m7_2_rs_trend_proof.json",
+   "m7_3_hod_comp_rs_trigger_proof.json",
+   "m7_4_hod_comp_rs_risk_confidence_proof.json",
+   "m7_5_hod_comp_rs_scenarios.json"
+  ]
+ },
+ "protected_tests": {
+  "focused": {
+   "phase": "focused",
+   "selectors": [
+    "tests/trade_alerts_contracts/test_or_failure_handoff.py"
+   ],
+   "selection_reason": "builder named directly affected checks",
+   "figures": "pending: the controller's protected run publishes the figures; no builder-run number is written here"
+  },
+  "acceptance": {
+   "phase": "acceptance",
+   "selectors": [
+    "tests/trade_alerts_contracts"
+   ],
+   "selection_reason": "unknown dependency impact; safe broad fallback",
+   "figures": "pending: the controller's protected run publishes the figures; no builder-run number is written here"
+  },
+  "repeatability": {
+   "phase": "repeatability",
+   "selectors": [
+    "tests/trade_alerts_contracts/test_alert_delivery.py::test_bars_to_candidates_to_recording_and_fake_delivery_end_to_end",
+    "tests/trade_alerts_contracts/test_candidate_assembly.py::test_supplied_features_confidence_candidate_suppression_recording_end_to_end",
+    "tests/trade_alerts_contracts/test_confidence.py::test_supplied_features_composition_candidate_recording_end_to_end",
+    "tests/trade_alerts_contracts/test_configuration.py::test_known_default_hash_matches_canonical_record",
+    "tests/trade_alerts_contracts/test_core_price_features.py::test_bar_to_coverage_to_feature_snapshot_recording_end_to_end",
+    "tests/trade_alerts_contracts/test_domain_models.py::test_deterministic_record_proof_is_written_under_tmp",
+    "tests/trade_alerts_contracts/test_historical_bars.py::test_request_raw_mapping_coverage_and_archive_end_to_end",
+    "tests/trade_alerts_contracts/test_historical_replay.py::test_chronological_same_runtime_replay_is_byte_deterministic",
+    "tests/trade_alerts_contracts/test_hod_comp_rs_replay.py::test_the_same_supplied_scenario_replays_byte_identically",
+    "tests/trade_alerts_contracts/test_hod_comp_rs_replay.py::test_the_five_scenarios_record_one_deterministic_proof",
+    "tests/trade_alerts_contracts/test_hod_comp_rs_risk_confidence.py::test_the_composed_outcome_at_one_recorded_trigger",
+    "tests/trade_alerts_contracts/test_hod_comp_rs_trigger.py::test_the_supplied_heads_up_and_trigger_through_the_m42_engine_and_m51_store",
+    "tests/trade_alerts_contracts/test_hod_compression.py::test_hod_compression_recording_end_to_end",
+    "tests/trade_alerts_contracts/test_opening_range_features.py::test_bar_coverage_opening_range_recording_end_to_end",
+    "tests/trade_alerts_contracts/test_or_failure_handoff.py::test_the_supplied_handoff_through_the_m42_engine_and_m51_store",
+    "tests/trade_alerts_contracts/test_orb5_eligibility.py::test_shared_features_through_the_m42_engine_and_m51_store",
+    "tests/trade_alerts_contracts/test_orb5_replay.py::test_the_same_supplied_scenario_replays_byte_identically",
+    "tests/trade_alerts_contracts/test_orb5_replay.py::test_the_six_scenarios_record_one_deterministic_proof",
+    "tests/trade_alerts_contracts/test_orb5_risk_confidence.py::test_the_composed_outcome_at_one_recorded_trigger",
+    "tests/trade_alerts_contracts/test_orb5_trigger.py::test_the_supplied_trigger_through_the_m42_engine_and_m51_store",
+    "tests/trade_alerts_contracts/test_outcome_evaluator.py::test_compact_end_to_end_recording",
+    "tests/trade_alerts_contracts/test_participation_features.py::test_bar_coverage_participation_recording_end_to_end",
+    "tests/trade_alerts_contracts/test_quote_events.py::test_normalized_events_failure_reconnect_recording_end_to_end",
+    "tests/trade_alerts_contracts/test_reference_inputs.py::test_supplied_reference_coverage_recording_end_to_end",
+    "tests/trade_alerts_contracts/test_research_event_store.py::test_recording_pipeline_retains_full_facts_retry_and_reopen",
+    "tests/trade_alerts_contracts/test_rs_trend_eligibility.py::test_measured_inputs_through_the_m42_engine_and_m51_store",
+    "tests/trade_alerts_contracts/test_schwab_normalization.py::test_write_deterministic_normalization_proof",
+    "tests/trade_alerts_contracts/test_session_recovery.py::test_interrupted_session_recovery_recording_end_to_end",
+    "tests/trade_alerts_contracts/test_state_transitions.py::test_market_features_strategy_transition_database_recording_end_to_end",
+    "tests/trade_alerts_contracts/test_strategy_interface.py::test_shared_feature_to_strategy_records_end_to_end",
+    "tests/trade_alerts_contracts/test_structural_risk.py::test_supplied_bars_to_shared_features_risk_candidate_recording_end_to_end"
+   ],
+   "selection_reason": "recording output requires fresh-process comparison",
+   "recording_artifact": "m8_1_or_failure_handoff_proof.json",
+   "figures": "pending: the controller's protected run publishes the figures; no builder-run number is written here"
+  }
+ },
+ "local_checks_that_are_not_proof": [
+  "the two milestone files are the only changed product paths; no configuration, migration, database schema or protected launcher file was changed by this build session",
+  "the eight reused modules are unchanged, and the child launcher script keeps the hash M7.1 to M7.5 recorded; the parent launcher hash changed only because the controller raised its own per-run cap",
+  "the new module holds no integer or float in its namespace, so it adopts no threshold of its own",
+  "the supplied rules stop before OR_FAILURE_REV ARMED and ALERT_TRIGGERED, which stay with M8.2",
+  "the frozen opening range of a taken-over handoff cannot be replaced by a different attempt, and one ended attempt cannot be handed over twice",
+  "the focused, whole-directory acceptance and two-process repeatability selections were all executed in this session under the protected launcher and reported no failures, no errors and no skips, with clean isolation and cleanup; their figures are deliberately not written here because the controller publishes every number",
+  "the two repeatability processes wrote byte-identical m8_1_or_failure_handoff_proof.json recordings, and every earlier milestone recording listed above matched between the same two processes"
+ ],
+ "protected_run_limitation": {
+  "stands": false,
+  "what": "the unchanged launcher caps each child process at 420 seconds (its own subprocess.run timeout), and the whole tests/trade_alerts_contracts directory no longer finishes inside one such process",
+  "controller_evidence": "the controller's verification of this build run raised subprocess.TimeoutExpired after 419.9999785159998 seconds on the tests/trade_alerts_contracts selection, before pytest reported; the exact traceback is preserved in M8_1_LAUNCHER_LIMITATION.txt",
+  "why": "a capacity limit, not a failing test: the controller's published M7.5 acceptance stage recorded 2327 tests and 407.816 wall seconds for the same selection, already inside 97 percent of the cap, and M8.1 adds one more test file. The M8.1 file's per-test cost is below the directory average, so trimming it would drop required coverage without a durable margin",
+  "withdrawn_earlier_claim": "an earlier attempt in this build run recorded that the broad acceptance selection did fit the 420-second cap and removed this note; the controller's timeout shows it does not, so that claim is withdrawn",
+  "split_acceptance": {
+   "what": "the same directory coverage, run as two protected launcher invocations that each fit the cap; both ran clean under the unchanged launcher with no failures, no errors and no skips and with clean isolation and cleanup",
+   "group_a": [
+    "tests/trade_alerts_contracts/test_adapters_delivery.py",
+    "tests/trade_alerts_contracts/test_alert_delivery.py",
+    "tests/trade_alerts_contracts/test_candidate_assembly.py",
+    "tests/trade_alerts_contracts/test_confidence.py",
+    "tests/trade_alerts_contracts/test_configuration.py",
+    "tests/trade_alerts_contracts/test_core_price_features.py",
+    "tests/trade_alerts_contracts/test_domain_models.py",
+    "tests/trade_alerts_contracts/test_foundations.py",
+    "tests/trade_alerts_contracts/test_historical_bars.py",
+    "tests/trade_alerts_contracts/test_historical_replay.py",
+    "tests/trade_alerts_contracts/test_hod_compression.py",
+    "tests/trade_alerts_contracts/test_hod_comp_rs_replay.py",
+    "tests/trade_alerts_contracts/test_hod_comp_rs_risk_confidence.py",
+    "tests/trade_alerts_contracts/test_hod_comp_rs_trigger.py",
+    "tests/trade_alerts_contracts/test_market_clock.py",
+    "tests/trade_alerts_contracts/test_opening_range_features.py"
+   ],
+   "group_b": [
+    "tests/trade_alerts_contracts/test_orb5_eligibility.py",
+    "tests/trade_alerts_contracts/test_orb5_replay.py",
+    "tests/trade_alerts_contracts/test_orb5_risk_confidence.py",
+    "tests/trade_alerts_contracts/test_orb5_trigger.py",
+    "tests/trade_alerts_contracts/test_or_failure_handoff.py",
+    "tests/trade_alerts_contracts/test_outcome_evaluator.py",
+    "tests/trade_alerts_contracts/test_participation_features.py",
+    "tests/trade_alerts_contracts/test_quote_events.py",
+    "tests/trade_alerts_contracts/test_reference_inputs.py",
+    "tests/trade_alerts_contracts/test_research_event_store.py",
+    "tests/trade_alerts_contracts/test_rs_trend_eligibility.py",
+    "tests/trade_alerts_contracts/test_schwab_normalization.py",
+    "tests/trade_alerts_contracts/test_session_recovery.py",
+    "tests/trade_alerts_contracts/test_state_transitions.py",
+    "tests/trade_alerts_contracts/test_strategy_interface.py",
+    "tests/trade_alerts_contracts/test_structural_risk.py"
+   ],
+   "note": "group A was invoked with tests/trade_alerts_contracts/conftest.py listed alongside its files; conftest.py is collected automatically either way. Together the two groups collect the same files as the directory selection. No builder-run count, timing or hash is recorded here",
+   "superseded": true,
+   "superseded_note": "kept only as the historical record of what the earlier attempt ran while the lower cap stood. The acceptance selection is the whole directory, not these groups"
+  },
+  "required_next_action": "none outstanding. The controller took option 2 and raised the per-run cap itself; the single directory selection is the acceptance selection again. No protection file was edited, bypassed or retried by any build session",
+  "resolved_by": "the controller, before this attempt, by raising the launcher's own per-run subprocess cap under its separately reviewed protection repair. This was option 2 of the required_next_action below",
+  "resolution_evidence": "the launcher hash changed from a4ffdd55fd1f1673d99e73106e47c063923bfae9514d7e93a44be9dead7e6764 in the build-run start manifest to a6f904de6aefa7c94e12215c2ed624178b67d2f2160a78e1bc9e9e46ed8c054e in this attempt's protected baseline and on disk; under it the single tests/trade_alerts_contracts selection runs to completion in one child process and reports its result instead of timing out",
+  "history_note": "the what/why/controller_evidence fields below describe the state during the two earlier attempts and are kept as history. The diagnosis still holds: it was a capacity limit, not a failing test, and nothing in the M8.1 module or its coverage was changed to make the directory fit"
+ },
+ "boundaries": {
+  "definition_gate_open": true,
+  "source_and_historical_data_gate_open": true,
+  "armed_trigger_risk_targets_and_score": "unchanged M8.2 owner",
+  "candidate_assembly_suppression_record_options_and_delivery": "unchanged M4.5/M4.6/M4.7 owners",
+  "walk_forward_ablation_shadow_and_promotion": "unchanged M9, M16 and M17 owners",
+  "switches_off": true,
+  "databento_credit_used": 0,
+  "databento_credit_reserved": 0
+ },
+ "tests": {
+  "note": "pending: the controller's protected stages publish the phase, run count, selectors, test count, wall seconds and hashes"
+ },
+ "tested_source_manifest": {
+  "note": "pending: the controller publishes the tested-source manifest for this attempt"
+ },
+ "hashes_note": "locally inspected, not proof; the controller publishes the tested-source manifest"
+}

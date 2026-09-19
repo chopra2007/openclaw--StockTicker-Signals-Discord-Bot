@@ -1,0 +1,1036 @@
+{
+  "audit_id": "M0.2",
+  "checked_at_pacific": "2026-09-13T20:53:54-07:00",
+  "scope": "Offline record reconciliation of local audit and separately authorized dated source checks; no new provider calls",
+  "external_calls_made": false,
+  "saved_output": {
+    "stock_quote_dates": 9,
+    "stock_quote_rows": 160575,
+    "stock_quote_symbols": 25,
+    "stock_bar_dates": 8,
+    "stock_bar_symbols": 25,
+    "stock_bar_rows_by_date_min": 12915,
+    "stock_bar_rows_by_date_max": 13212,
+    "option_chain_dates": 8,
+    "option_chain_rows_by_date_min": 3151940,
+    "option_chain_rows_by_date_max": 3751024,
+    "open_interest_rows_by_date_min": 8464,
+    "open_interest_rows_by_date_max": 10562,
+    "event_dates": 9,
+    "event_rows_by_date_min": 32,
+    "event_rows_by_date_max": 35,
+    "latest_market_date": "2026-09-11",
+    "latest_market_date_stock_quote_rows": 4600,
+    "latest_market_date_stock_bar_rows": 0,
+    "latest_market_date_option_chain_rows": 0
+  },
+  "premarket_observation": {
+    "dates": 8,
+    "scheduled_minutes_per_full_premarket": 150,
+    "symbols_with_bars": 25,
+    "symbols_complete_on_every_saved_date": 1,
+    "lowest_observed_symbol_date_minutes": 0,
+    "note": "Saved extended-hours bars are useful observed output, but they do not establish complete per-symbol premarket coverage."
+  },
+  "saved_option_sample": {
+    "market_date": "2026-09-10",
+    "rows": 3751024,
+    "bid_ask_size_volume_open_interest_rows": 3751024,
+    "greek_rows": 3748812,
+    "chain_is_delayed_values": [
+      false
+    ],
+    "note": "A saved false delay flag is observed output, not proof of current entitlement or OPRA completeness."
+  },
+  "daily_reference_history": {
+    "spy_qqq_and_11_sector_etfs_present": true,
+    "common_last_date": "2026-09-11",
+    "most_common_first_date": "2012-01-03",
+    "xlc_first_date": "2018-06-19",
+    "xlre_first_date": "2015-10-08"
+  },
+  "local_capacity": {
+    "forward_store_used": "1.8 GB",
+    "filesystem_used_percent": 91,
+    "filesystem_available": "6.8 GB",
+    "retention_rule_present": false,
+    "safe_free_space_reserve_present": false,
+    "peak_memory_budget_present": false
+  },
+  "blocked_required_modes": [
+    "complete historical one-minute bars",
+    "time-and-sales",
+    "canonical VIX",
+    "low-latency catalyst feed",
+    "complete minute sector coverage",
+    "historical intraday option quotes",
+    "account-wide request coordination",
+    "approved retention and latency budgets",
+    "official field units and NBBO fidelity",
+    "original availability, finality, corrections and adjustments",
+    "point-in-time universe and sector membership",
+    "untouched final validation",
+    "historical borrow and executable evidence"
+  ],
+  "status": "BLOCKED_BY_SOURCE_AND_CAPACITY",
+  "repair": {
+    "attempt": 2,
+    "cause": "The prior audit generalized a sandbox login-file failure to account access, omitted verified source inventories and newer spending/storage authority, and bypassed the required early Strategies 1-4 validation order.",
+    "different_approach": "Reconcile existing supervisor proofs, keep bounded access separate from source qualification, and propose a shared storage prerequisite instead of Strategy 5.",
+    "changes": "Research records only; preserve prior work, proof and attempt history.",
+    "prior_result": "/root/trade-alerts-builder/runs/20260913-205040-087953-build/attempt-history/build-1-build-result.json"
+  },
+  "external_calls_made_note": "False applies only to this implementation session and the earlier local audit; separately assigned source tasks made the calls recorded below.",
+  "prior_local_access_attempt": {
+    "status": "BLOCKED_BY_SUPERVISED_ACCESS",
+    "token_file_present": true,
+    "token_contents_read": false,
+    "first_error": "PermissionError: [Errno 13] Permission denied: '/home/openclaw/.openclaw/schwab_token.json'",
+    "alternate_user_error": "runuser: cannot set groups: Operation not permitted",
+    "conclusion": "Historical local sandbox limitation only; superseded as an account-access assessment by the separately authorized successful bounded check."
+  },
+  "current_access_check": {
+    "status": "OBSERVED_BOUNDED_CURRENT_ACCESS",
+    "started_at_pacific": "2026-09-13T21:09:41.869756-07:00",
+    "proof_report": "/root/trade-alerts-builder/repairs/codex-subscription/schwab-current-source-check/REPORT.md",
+    "proof_result": "/root/trade-alerts-builder/repairs/codex-subscription/schwab-current-source-check/result.json",
+    "verification": {
+      "market_data_get_requests": 2,
+      "http_successes": 2,
+      "retries": 0,
+      "refresh_or_login_writes": false,
+      "provider_account_or_order_requests": 0,
+      "contracts_counted": 20,
+      "provider_contract_count_matches": true,
+      "expiration_dates_within_requested_range": true,
+      "raw_response_hashes_verified": true,
+      "raw_files_mode_600": true,
+      "additional_spending_usd": 0,
+      "claims_not_proven": [
+        "official units",
+        "NBBO fidelity",
+        "full entitlement",
+        "chain completeness",
+        "historical coverage",
+        "streaming latency",
+        "full-calendar capacity",
+        "executable profit"
+      ],
+      "result_sha256": "1726f19c686e0a30da23ef143bdff42502a56dec98cf264683f569e4ea486178"
+    },
+    "requests": [
+      {
+        "label": "quote",
+        "method": "GET",
+        "path": "/quotes",
+        "params": {
+          "symbols": "SPY"
+        },
+        "requested_at_pacific": "2026-09-13T21:09:41.870002-07:00",
+        "received_at_pacific": "2026-09-13T21:09:42.301846-07:00",
+        "http_status": 200,
+        "response_bytes": 1786,
+        "sha256": "46d6da06b67e7c20cc2e95cf9c39426e969b86dcb06ba4e631652e9ada0a16aa",
+        "elapsed_seconds": 0.433,
+        "delay_flags": {
+          "realtime": true
+        },
+        "timestamps_pacific_assuming_epoch_ms": {
+          "extended": {
+            "quoteTime": "2026-09-13T21:09:40.493000-07:00",
+            "tradeTime": "2026-09-13T21:09:36-07:00"
+          },
+          "fundamental": {},
+          "quote": {
+            "askTime": "2026-09-11T16:59:59.596000-07:00",
+            "bidTime": "2026-09-11T16:59:59.596000-07:00",
+            "quoteTime": "2026-09-11T16:59:59.596000-07:00",
+            "tradeTime": "2026-09-11T16:59:59.596000-07:00"
+          },
+          "reference": {},
+          "regular": {
+            "regularMarketTradeTime": "2026-09-11T17:00:00.094000-07:00"
+          }
+        }
+      },
+      {
+        "label": "option-chain",
+        "method": "GET",
+        "path": "/chains",
+        "params": {
+          "symbol": "SPY",
+          "strikeCount": 2,
+          "includeUnderlyingQuote": "true",
+          "fromDate": "2026-09-14",
+          "toDate": "2026-09-18",
+          "strategy": "SINGLE"
+        },
+        "requested_at_pacific": "2026-09-13T21:09:44.305433-07:00",
+        "received_at_pacific": "2026-09-13T21:09:44.778603-07:00",
+        "http_status": 200,
+        "response_bytes": 24829,
+        "sha256": "a0696bd7ddeccaee0617a1687d20ae7e0ab13981d882a1f712a17fce896448db",
+        "elapsed_seconds": 0.475,
+        "delay_flags": {
+          "isDelayed": false
+        },
+        "isChainTruncated": false,
+        "provider_numberOfContracts": 20,
+        "underlying_delay_flags": {
+          "delayed": false
+        },
+        "timestamps_pacific_assuming_epoch_ms": {
+          "quoteTimeInLong": {
+            "earliest": "2026-09-11T13:14:59.419000-07:00",
+            "latest": "2026-09-11T13:15:00.091000-07:00"
+          },
+          "tradeTimeInLong": {
+            "earliest": "2026-09-11T13:00:32.270000-07:00",
+            "latest": "2026-09-11T13:14:59.029000-07:00"
+          }
+        },
+        "underlying_source_time_pacific_assuming_epoch_ms": {
+          "quoteTime": "2026-09-11T16:59:59.596000-07:00",
+          "tradeTime": "2026-09-11T16:59:59.596000-07:00"
+        }
+      }
+    ],
+    "freshness_conclusion": "Sunday read access succeeded; Friday stock quote fields and option quote/trade fields remain stale despite realtime=true and isDelayed=false. Extended stock fields have Sunday times. Epoch-millisecond interpretation is assumed, not an official field definition.",
+    "remaining_gates": [
+      "official units",
+      "NBBO fidelity",
+      "full entitlement",
+      "full chain completeness",
+      "exchange-hours continuity",
+      "historical coverage",
+      "streaming and request limits",
+      "executable profit"
+    ],
+    "option_slice": {
+      "calls": 10,
+      "puts": 10,
+      "contracts": 20,
+      "expiration_dates": [
+        "2026-09-14",
+        "2026-09-15",
+        "2026-09-16",
+        "2026-09-17",
+        "2026-09-18"
+      ],
+      "fields_present_on_all_contracts": [
+        "bid",
+        "ask",
+        "bidSize",
+        "askSize",
+        "delta",
+        "gamma",
+        "theta",
+        "vega",
+        "rho",
+        "volatility",
+        "totalVolume",
+        "openInterest",
+        "multiplier",
+        "quoteTimeInLong",
+        "tradeTimeInLong"
+      ]
+    }
+  },
+  "etf_minute_inventory": {
+    "status": "COMPLETE_INVENTORY_ONLY",
+    "proof_directory": "/root/trade-alerts-builder/repairs/codex-subscription/provider-cost-preflight",
+    "fields_read": [
+      "instrument_id",
+      "ts_event"
+    ],
+    "prices_volumes_returns_read": false,
+    "files": [
+      {
+        "path": "/home/openclaw/.openclaw/research-data/databento/benchmark-sector-etfs_20260913_v1/xnys-pillar_ohlcv-1m_13-etfs.dbn.zst",
+        "dataset": "XNYS.PILLAR",
+        "bytes": 70512738,
+        "sha256": "7a5cfcff20c3b84d071f986f29d35e57abc74b2c96cba0de4cde97f0c9182f6c",
+        "request": {
+          "dataset": "XNYS.PILLAR",
+          "symbols": [
+            "SPY",
+            "QQQ",
+            "XLB",
+            "XLC",
+            "XLE",
+            "XLF",
+            "XLI",
+            "XLK",
+            "XLP",
+            "XLRE",
+            "XLU",
+            "XLV",
+            "XLY"
+          ],
+          "schema": "ohlcv-1m",
+          "stype_in": "raw_symbol",
+          "start_pacific": "2022-12-31T16:00:00-08:00",
+          "end_pacific": "2026-08-21T17:00:00-07:00",
+          "end_exclusive": true
+        },
+        "observed": {
+          "absent_calendar_sessions": 0,
+          "calendar_sessions": 912,
+          "duplicates": 0,
+          "hash_unchanged": true,
+          "identities": 13,
+          "opening15_complete_identity_sessions": 10450,
+          "opening5_complete_identity_sessions": 11500,
+          "record_count_verified": true,
+          "records": 4257208
+        },
+        "coverage_file": "/root/trade-alerts-builder/repairs/codex-subscription/provider-cost-preflight/xnys-pillar-coverage.json"
+      },
+      {
+        "path": "/home/openclaw/.openclaw/research-data/databento/benchmark-sector-etfs_20260913_v1/equs-mini_ohlcv-1m_13-etfs.dbn.zst",
+        "dataset": "EQUS.MINI",
+        "bytes": 78549051,
+        "sha256": "a3a8de614f9ac54507e61bfdeb05ce69713a6a4b68235cf9188b67939b5fc9b3",
+        "request": {
+          "dataset": "EQUS.MINI",
+          "symbols": [
+            "SPY",
+            "QQQ",
+            "XLB",
+            "XLC",
+            "XLE",
+            "XLF",
+            "XLI",
+            "XLK",
+            "XLP",
+            "XLRE",
+            "XLU",
+            "XLV",
+            "XLY"
+          ],
+          "schema": "ohlcv-1m",
+          "stype_in": "raw_symbol",
+          "start_pacific": "2023-03-27T17:00:00-07:00",
+          "end_pacific": "2026-08-21T17:00:00-07:00",
+          "end_exclusive": true
+        },
+        "observed": {
+          "absent_calendar_sessions": 0,
+          "calendar_sessions": 854,
+          "duplicates": 0,
+          "hash_unchanged": true,
+          "identities": 13,
+          "opening15_complete_identity_sessions": 10859,
+          "opening5_complete_identity_sessions": 11009,
+          "record_count_verified": true,
+          "records": 4483742
+        },
+        "coverage_file": "/root/trade-alerts-builder/repairs/codex-subscription/provider-cost-preflight/equs-mini-coverage.json"
+      }
+    ],
+    "verification": {
+      "raw_files_read_only_openclaw_owned": true,
+      "request_metadata_exact_bounds_symbols_and_schema_checked": true,
+      "all_counts_match_metadata": true,
+      "all_original_hashes_unchanged_after_scan": true,
+      "audit_summary_sha256": "2fccbed206da4092a1e9d0673fb4a6f34ed3f399474bd7384a5efddae706e579",
+      "reserved_usd": 16,
+      "remaining_unreserved_usd": 24,
+      "billed_cost_usd": null,
+      "billed_cost_status": "unknown_not_an_invoice",
+      "paid_get_range_calls": 2,
+      "paid_retries": 0,
+      "purchases_usd": 0
+    },
+    "provider_conditions": {
+      "XNYS.PILLAR": {
+        "condition_counts": {
+          "available": 946,
+          "degraded": 4
+        },
+        "non_available_non_calendar_conditions": [
+          {
+            "date": "2023-01-24",
+            "condition": "degraded",
+            "last_modified_date": "2025-03-07"
+          },
+          {
+            "date": "2023-12-04",
+            "condition": "degraded",
+            "last_modified_date": "2025-03-07"
+          },
+          {
+            "date": "2023-12-11",
+            "condition": "degraded",
+            "last_modified_date": "2025-03-07"
+          },
+          {
+            "date": "2024-08-08",
+            "condition": "degraded",
+            "last_modified_date": "2025-03-07"
+          }
+        ]
+      },
+      "EQUS.MINI": {
+        "condition_counts": {
+          "available": 874,
+          "degraded": 15
+        },
+        "non_available_non_calendar_conditions": [
+          {
+            "date": "2025-03-24",
+            "condition": "degraded",
+            "last_modified_date": "2025-03-25"
+          },
+          {
+            "date": "2025-04-04",
+            "condition": "degraded",
+            "last_modified_date": "2025-04-05"
+          },
+          {
+            "date": "2025-05-06",
+            "condition": "degraded",
+            "last_modified_date": "2025-05-07"
+          },
+          {
+            "date": "2025-06-04",
+            "condition": "degraded",
+            "last_modified_date": "2025-06-05"
+          },
+          {
+            "date": "2025-06-16",
+            "condition": "degraded",
+            "last_modified_date": "2025-06-17"
+          },
+          {
+            "date": "2025-07-09",
+            "condition": "degraded",
+            "last_modified_date": "2025-07-10"
+          },
+          {
+            "date": "2025-08-08",
+            "condition": "degraded",
+            "last_modified_date": "2025-08-09"
+          },
+          {
+            "date": "2025-08-13",
+            "condition": "degraded",
+            "last_modified_date": "2025-08-18"
+          },
+          {
+            "date": "2025-08-19",
+            "condition": "degraded",
+            "last_modified_date": "2025-08-20"
+          },
+          {
+            "date": "2025-08-25",
+            "condition": "degraded",
+            "last_modified_date": "2025-08-26"
+          },
+          {
+            "date": "2025-09-03",
+            "condition": "degraded",
+            "last_modified_date": "2025-09-04"
+          },
+          {
+            "date": "2025-09-08",
+            "condition": "degraded",
+            "last_modified_date": "2025-09-09"
+          },
+          {
+            "date": "2025-09-12",
+            "condition": "degraded",
+            "last_modified_date": "2025-09-13"
+          },
+          {
+            "date": "2025-10-10",
+            "condition": "degraded",
+            "last_modified_date": "2025-10-11"
+          },
+          {
+            "date": "2025-10-13",
+            "condition": "degraded",
+            "last_modified_date": "2025-10-14"
+          }
+        ]
+      }
+    },
+    "limitations": "Inventory only. Keep XNYS.PILLAR single-venue and EQUS.MINI component-venue aggregation separate; do not combine bars or volumes. Missing opening minutes and degraded dates require explicit treatment; neither dataset proves complete-market coverage, original availability, corrections, adjustments, point-in-time universe/sector membership, trades, borrow, options or untouched final validation.",
+    "implementation_read_limit": {
+      "error": "PermissionError: [Errno 13] Permission denied: '/home/openclaw/.openclaw/research-data/databento/benchmark-sector-etfs_20260913_v1/xnys-pillar_ohlcv-1m_13-etfs.dbn.zst'",
+      "conclusion": "Local file stat was denied. Inventory and original-hash facts are copied from the supplied supervisor acquisition verification, not remeasured by this session; this does not negate the successful source acquisition."
+    }
+  },
+  "selected60_inventory": {
+    "proof_summary": "/root/trade-alerts-builder/repairs/codex-subscription/bar-source-audit/audit-v3-summary.json",
+    "proof_inventory": "/root/trade-alerts-builder/repairs/codex-subscription/bar-source-audit/timestamp-instrument-inventory.json",
+    "source_manifest": "/home/openclaw/.openclaw/research-data/databento/opening-auctions/selected60_2023-01_to_2026-08/manifest.json",
+    "source_manifest_sha256": "2a4cf0cdba9bcb41c6f74b539b591162b6fe0a5b63780dee56d6fae257308078",
+    "audit": {
+      "completed_at_pacific": "2026-09-13T14:25:29.158648-07:00",
+      "gates": {
+        "historical_final": "BLOCKED",
+        "promotion": "BLOCKED",
+        "qualifying_source": "BLOCKED"
+      },
+      "peak_memory_mib": 590.4609375,
+      "prices_volumes_returns_read": false,
+      "sources": {
+        "equs_mini_brkb_ohlcv_1m": {
+          "absent_calendar_sessions": 0,
+          "adjacent_timestamp_decreases": 0,
+          "duplicates": 0,
+          "expected_xnys_sessions": 854,
+          "hash_matches_original": true,
+          "hash_unchanged_after_scan": true,
+          "identities": 1,
+          "invalid_mapping_entries": 0,
+          "nonaligned": 0,
+          "noncalendar_dates": 0,
+          "opening15_complete_identity_sessions": 613,
+          "opening5_complete_identity_sessions": 682,
+          "record_count_matches_original": true,
+          "records": 328201,
+          "unmapped_or_ambiguous_records": 0
+        },
+        "equs_mini_ohlcv_1m": {
+          "absent_calendar_sessions": 0,
+          "adjacent_timestamp_decreases": 0,
+          "duplicates": 0,
+          "expected_xnys_sessions": 854,
+          "hash_matches_original": true,
+          "hash_unchanged_after_scan": true,
+          "identities": 59,
+          "invalid_mapping_entries": 0,
+          "nonaligned": 0,
+          "noncalendar_dates": 0,
+          "opening15_complete_identity_sessions": 39967,
+          "opening5_complete_identity_sessions": 43930,
+          "record_count_matches_original": true,
+          "records": 19325105,
+          "unmapped_or_ambiguous_records": 0
+        },
+        "xnys_pillar_ohlcv_1m": {
+          "absent_calendar_sessions": 0,
+          "adjacent_timestamp_decreases": 0,
+          "duplicates": 0,
+          "expected_xnys_sessions": 912,
+          "hash_matches_original": true,
+          "hash_unchanged_after_scan": true,
+          "identities": 60,
+          "invalid_mapping_entries": 0,
+          "nonaligned": 0,
+          "noncalendar_dates": 0,
+          "opening15_complete_identity_sessions": 39915,
+          "opening5_complete_identity_sessions": 42974,
+          "record_count_matches_original": true,
+          "records": 20625054,
+          "unmapped_or_ambiguous_records": 0
+        }
+      },
+      "split": "NOT_YET_FROZEN",
+      "started_at_pacific": "2026-09-13T14:17:05.033828-07:00",
+      "status": "COMPLETE_INVENTORY_ONLY"
+    },
+    "files": [
+      {
+        "file": "xnys-pillar_ohlcv-1m_60-symbols_2023-01-01_2026-08-22.dbn.zst",
+        "dataset": "XNYS.PILLAR",
+        "start": "2023-01-01",
+        "end": "2026-08-22",
+        "record_count": 20625054,
+        "sha256": "2c2b888a83e00a153a68f65148d81faaa80c39dee98d8b4ad0fd97a5dbeee705"
+      },
+      {
+        "file": "equs-mini_ohlcv-1m_60-symbols_2023-03-28_2026-08-22.dbn.zst",
+        "dataset": "EQUS.MINI",
+        "start": "2023-03-28",
+        "end": "2026-08-22",
+        "record_count": 19325105,
+        "sha256": "d8efbec18b2a9b892af1a38b2e59420133d707eec017fb20c48ae52348585d2c"
+      },
+      {
+        "file": "equs-mini_ohlcv-1m_BRK.B_2023-03-28_2026-08-22.dbn.zst",
+        "dataset": "EQUS.MINI",
+        "start": "2023-03-28",
+        "end": "2026-08-22",
+        "record_count": 328201,
+        "sha256": "0138515e2fccaff97559d7b09d9f87f0f53fd2d4fb874a8c247ed60076ef4284"
+      }
+    ],
+    "limitations": "v1/v2 inventories are invalid and preserved as history; v3 is timestamp/identity inventory only. No wholly absent calendar session does not mean complete symbol opening windows. Selected60 uses 78 selection sessions through 2026-08-21; prior final182 dates were profit-sealed, not untouched. New ETF files cannot repair selection bias or prior exposure. No dates frozen or outcomes inspected."
+  },
+  "current_authority": {
+    "proof": "/root/trade-alerts-builder/repairs/codex-subscription/owner-active-supervision.json",
+    "google_drive_build_bytes": 100000000000,
+    "databento_total_api_cap_usd": 40,
+    "paid_download_requests": 2,
+    "quoted_usage_usd": 5.470512807369,
+    "conservative_reserved_usd": 16,
+    "remaining_unreserved_usd": 24,
+    "billed_usage": null,
+    "billing_note": "Unknown; quoted usage is not an invoice; retain reservations.",
+    "spend_ledger": "/root/trade-alerts-builder/repairs/codex-subscription/databento-build-spend-ledger.json",
+    "scope": "Supersedes earlier 10 GB and zero-spend rules only for saved current Drive build-storage and Databento API authority; other purchases, paid fallback and live actions remain unauthorized. No further provider call needed for reconciliation.",
+    "research": "Agent-owned finite versioned research choices remain delegated; D-090 is preserved separately; no live authorization."
+  },
+  "storage_backup": {
+    "restore_index": "/root/trade-alerts-builder/archives/etf-source-backup/etf-source-backup-index.json",
+    "pending_delta": "/root/trade-alerts-builder/archives/etf-source-backup/pending-storage-accounting-delta.json",
+    "status": "COMPLETE_REMOTE_SIZE_VERIFIED_LOCAL_HASH_VERIFIED",
+    "remote_hash_verified": false,
+    "shared_accounting_status": "PENDING_SHARED_ACCOUNTING_MERGE",
+    "note": "Original sources remain local. These dated backup and pending-accounting records do not prove retention, memory or reserve budgets; no ledger changed in this repair."
+  },
+  "optional_blocked_modes": [
+    "L2 depth; not a core strategy prerequisite"
+  ],
+  "next_milestone": {
+    "id": "M0.2A",
+    "scope": "Offline shared-storage retention and capacity contract",
+    "dependency": "Existing collector code and local metadata are available; no qualifying market history or strategy outcome is required for this bounded prerequisite. Independent reviewer must confirm eligibility.",
+    "strategy_order": "Strategies 5-8, including M10.1, remain ineligible until required early Strategies 1-4 validation or an explicit owner order change."
+  },
+  "prior_protected_proof": {
+    "controller_evidence": "/root/trade-alerts-builder/runs/20260913-205040-087953-build/controller-evidence.json",
+    "source_hash": "e7277207c0359c837191bbfa79570871d1bdfb59f342d04e356cad2e9565f931",
+    "complete_milestone_delta": [
+      "trade_alerts_build_docs/DATA_REQUIREMENTS.md",
+      "trade_alerts_build_docs/M0_2_CAPABILITY_AUDIT.json",
+      "trade_alerts_build_docs/ROADMAP.md"
+    ],
+    "tests": {
+      "artifacts_path": "/root/trade-alerts-builder/runs/20260913-205040-087953-build/published-artifacts-8f933cd34ecd",
+      "exit_code": 0,
+      "runs": 1,
+      "selection_reason": "unknown dependency impact; safe broad fallback",
+      "selectors": [
+        "tests/trade_alerts_contracts"
+      ],
+      "test_count": 2994,
+      "wall_seconds": 536.453,
+      "focused": {
+        "phase": "focused",
+        "runs": 1,
+        "test_count": 2994,
+        "wall_seconds": 543.577,
+        "selection_reason": "builder named directly affected checks",
+        "selectors": [
+          "tests/trade_alerts_contracts"
+        ],
+        "artifacts_path": "/root/trade-alerts-builder/runs/20260913-205040-087953-build/published-artifacts-5bfee352a282",
+        "publication_hash_manifest": "/root/trade-alerts-builder/runs/20260913-205040-087953-build/published-artifacts-5bfee352a282/publication.json",
+        "exit_codes": [
+          0
+        ],
+        "stable": true,
+        "published_runs": [
+          {
+            "directory": "/root/trade-alerts-builder/runs/20260913-205040-087953-build/published-artifacts-5bfee352a282/run-1",
+            "junit": {
+              "errors": "0",
+              "failures": "0",
+              "skipped": "0",
+              "tests": "2994",
+              "time": "539.667"
+            },
+            "pytest_summary": "2994 passed in 539.78s (0:08:59)",
+            "result_xml_sha256": "1e078c9f6aa29e5f8c7ac4539d217554c1193ac362a9db55b7285ab7aa7ce6d8",
+            "isolation_sha256": "1a8bcec148a2b8afc636b60ece35272db8f61cc2d52a2b8136406838de88151f",
+            "cleanup": {
+              "db_closed": true,
+              "http_closed": true,
+              "config_cleared": true,
+              "http_lock_cleared": true
+            },
+            "unexpected_denials": {},
+            "pytest_summary_source": "/root/trade-alerts-builder/runs/20260913-205040-087953-build/published-artifacts-5bfee352a282/run-1/output.txt"
+          }
+        ]
+      },
+      "repeatability": {
+        "phase": "repeatability",
+        "runs": 2,
+        "test_count": 62,
+        "wall_seconds": 305.292,
+        "selection_reason": "recording output requires fresh-process comparison",
+        "selectors": [
+          "tests/trade_alerts_contracts/test_alert_delivery.py::test_bars_to_candidates_to_recording_and_fake_delivery_end_to_end",
+          "tests/trade_alerts_contracts/test_candidate_assembly.py::test_supplied_features_confidence_candidate_suppression_recording_end_to_end",
+          "tests/trade_alerts_contracts/test_confidence.py::test_supplied_features_composition_candidate_recording_end_to_end",
+          "tests/trade_alerts_contracts/test_configuration.py::test_known_default_hash_matches_canonical_record",
+          "tests/trade_alerts_contracts/test_core_price_features.py::test_bar_to_coverage_to_feature_snapshot_recording_end_to_end",
+          "tests/trade_alerts_contracts/test_cross_strategy_interaction.py::test_recording_is_deterministic_and_retains_every_component_candidate",
+          "tests/trade_alerts_contracts/test_domain_models.py::test_deterministic_record_proof_is_written_under_tmp",
+          "tests/trade_alerts_contracts/test_first_pullback_vwap.py::test_the_supplied_continuation_through_the_m42_engine_and_m51_store",
+          "tests/trade_alerts_contracts/test_historical_bars.py::test_request_raw_mapping_coverage_and_archive_end_to_end",
+          "tests/trade_alerts_contracts/test_historical_replay.py::test_chronological_same_runtime_replay_is_byte_deterministic",
+          "tests/trade_alerts_contracts/test_hod_comp_rs_replay.py::test_the_same_supplied_scenario_replays_byte_identically",
+          "tests/trade_alerts_contracts/test_hod_comp_rs_replay.py::test_the_five_scenarios_record_one_deterministic_proof",
+          "tests/trade_alerts_contracts/test_hod_comp_rs_risk_confidence.py::test_the_composed_outcome_at_one_recorded_trigger",
+          "tests/trade_alerts_contracts/test_hod_comp_rs_trigger.py::test_the_supplied_heads_up_and_trigger_through_the_m42_engine_and_m51_store",
+          "tests/trade_alerts_contracts/test_hod_compression.py::test_hod_compression_recording_end_to_end",
+          "tests/trade_alerts_contracts/test_impulse_pullback.py::test_impulse_pullback_recording_end_to_end",
+          "tests/trade_alerts_contracts/test_opening_range_features.py::test_bar_coverage_opening_range_recording_end_to_end",
+          "tests/trade_alerts_contracts/test_or_failure_handoff.py::test_the_supplied_handoff_through_the_m42_engine_and_m51_store",
+          "tests/trade_alerts_contracts/test_or_failure_rev.py::test_the_supplied_reversal_through_the_m42_engine_and_m51_store",
+          "tests/trade_alerts_contracts/test_orb5_eligibility.py::test_shared_features_through_the_m42_engine_and_m51_store",
+          "tests/trade_alerts_contracts/test_orb5_replay.py::test_the_same_supplied_scenario_replays_byte_identically",
+          "tests/trade_alerts_contracts/test_orb5_replay.py::test_the_six_scenarios_record_one_deterministic_proof",
+          "tests/trade_alerts_contracts/test_orb5_risk_confidence.py::test_the_composed_outcome_at_one_recorded_trigger",
+          "tests/trade_alerts_contracts/test_orb5_trigger.py::test_the_supplied_trigger_through_the_m42_engine_and_m51_store",
+          "tests/trade_alerts_contracts/test_outcome_evaluator.py::test_compact_end_to_end_recording",
+          "tests/trade_alerts_contracts/test_participation_features.py::test_bar_coverage_participation_recording_end_to_end",
+          "tests/trade_alerts_contracts/test_quote_events.py::test_normalized_events_failure_reconnect_recording_end_to_end",
+          "tests/trade_alerts_contracts/test_reference_inputs.py::test_supplied_reference_coverage_recording_end_to_end",
+          "tests/trade_alerts_contracts/test_relative_strength_features.py::test_relative_strength_recording_end_to_end",
+          "tests/trade_alerts_contracts/test_research_event_store.py::test_recording_pipeline_retains_full_facts_retry_and_reopen",
+          "tests/trade_alerts_contracts/test_rs_trend_eligibility.py::test_measured_inputs_through_the_m42_engine_and_m51_store",
+          "tests/trade_alerts_contracts/test_schwab_normalization.py::test_write_deterministic_normalization_proof",
+          "tests/trade_alerts_contracts/test_session_recovery.py::test_interrupted_session_recovery_recording_end_to_end",
+          "tests/trade_alerts_contracts/test_state_transitions.py::test_market_features_strategy_transition_database_recording_end_to_end",
+          "tests/trade_alerts_contracts/test_strategy_interface.py::test_shared_feature_to_strategy_records_end_to_end",
+          "tests/trade_alerts_contracts/test_structural_geometry.py::test_structural_geometry_recording_end_to_end",
+          "tests/trade_alerts_contracts/test_structural_risk.py::test_supplied_bars_to_shared_features_risk_candidate_recording_end_to_end",
+          "tests/trade_alerts_contracts/test_vwap_context_features.py::test_vwap_context_recording_end_to_end"
+        ],
+        "artifacts_path": "/root/trade-alerts-builder/runs/20260913-205040-087953-build/published-artifacts-bfb70b952b8b",
+        "publication_hash_manifest": "/root/trade-alerts-builder/runs/20260913-205040-087953-build/published-artifacts-bfb70b952b8b/publication.json",
+        "exit_codes": [
+          0,
+          0
+        ],
+        "stable": true,
+        "published_runs": [
+          {
+            "directory": "/root/trade-alerts-builder/runs/20260913-205040-087953-build/published-artifacts-bfb70b952b8b/run-1",
+            "junit": {
+              "errors": "0",
+              "failures": "0",
+              "skipped": "0",
+              "tests": "62",
+              "time": "152.195"
+            },
+            "pytest_summary": "62 passed in 152.19s (0:02:32)",
+            "result_xml_sha256": "13f55ee3d61a4f8f7e13ef22ac40c54edc46e84a4b696ab2725374e04a1ae445",
+            "isolation_sha256": "777f26c2a6ea92ca8fbfbd54d17856e63ab22302af70e819e56f4cc40487d31a",
+            "cleanup": {
+              "db_closed": true,
+              "http_closed": true,
+              "config_cleared": true,
+              "http_lock_cleared": true
+            },
+            "unexpected_denials": {},
+            "pytest_summary_source": "/root/trade-alerts-builder/runs/20260913-205040-087953-build/published-artifacts-bfb70b952b8b/run-1/output.txt"
+          },
+          {
+            "directory": "/root/trade-alerts-builder/runs/20260913-205040-087953-build/published-artifacts-bfb70b952b8b/run-2",
+            "junit": {
+              "errors": "0",
+              "failures": "0",
+              "skipped": "0",
+              "tests": "62",
+              "time": "149.005"
+            },
+            "pytest_summary": "62 passed in 149.00s (0:02:29)",
+            "result_xml_sha256": "c8b16031c00943681f860060160c78c5c18370bda858b1b3181641cbded684a2",
+            "isolation_sha256": "777f26c2a6ea92ca8fbfbd54d17856e63ab22302af70e819e56f4cc40487d31a",
+            "cleanup": {
+              "db_closed": true,
+              "http_closed": true,
+              "config_cleared": true,
+              "http_lock_cleared": true
+            },
+            "unexpected_denials": {},
+            "pytest_summary_source": "/root/trade-alerts-builder/runs/20260913-205040-087953-build/published-artifacts-bfb70b952b8b/run-2/output.txt"
+          }
+        ],
+        "recording_hash_comparison": {
+          "m13-domain-model-proof.json": {
+            "run-1_sha256": "2fae11128857ae58d0aebb510131c6bb06bd0988d57ae01600e4c703890ed4c7",
+            "run-2_sha256": "2fae11128857ae58d0aebb510131c6bb06bd0988d57ae01600e4c703890ed4c7",
+            "equal": true
+          },
+          "m21-schwab-normalization-proof.json": {
+            "run-1_sha256": "481aa8aad4ff3667fe01adafddea7c9e34677fe2367e3256966df5b8e3cef6ba",
+            "run-2_sha256": "481aa8aad4ff3667fe01adafddea7c9e34677fe2367e3256966df5b8e3cef6ba",
+            "equal": true
+          },
+          "m22-history-proof.json": {
+            "run-1_sha256": "8c8358e78348a6c13994400a7e6813fa328b471e2b51ba1336808a87c5ee2a56",
+            "run-2_sha256": "8c8358e78348a6c13994400a7e6813fa328b471e2b51ba1336808a87c5ee2a56",
+            "equal": true
+          },
+          "m23-quote-events-proof.json": {
+            "run-1_sha256": "f11ddba2d05d678b765c8503b2f7e6749d0861fa0b3d7847e120ff2fb9557bf4",
+            "run-2_sha256": "f11ddba2d05d678b765c8503b2f7e6749d0861fa0b3d7847e120ff2fb9557bf4",
+            "equal": true
+          },
+          "m24-reference-inputs-proof.json": {
+            "run-1_sha256": "b687e7eac79cb63ced959c0ebafdb1c87cda3156a07591cc7bf37739a4e49110",
+            "run-2_sha256": "b687e7eac79cb63ced959c0ebafdb1c87cda3156a07591cc7bf37739a4e49110",
+            "equal": true
+          },
+          "m31-core-price-features-proof.json": {
+            "run-1_sha256": "89ed9dcbfce5f458dd452ed0cae0bdb4cf730eb282e24e46e136da32238d2234",
+            "run-2_sha256": "89ed9dcbfce5f458dd452ed0cae0bdb4cf730eb282e24e46e136da32238d2234",
+            "equal": true
+          },
+          "m32-participation-features-proof.json": {
+            "run-1_sha256": "23d7748ed5c043602236784d1f3052ed748d3f7c8143fe7ae898c649b701b02e",
+            "run-2_sha256": "23d7748ed5c043602236784d1f3052ed748d3f7c8143fe7ae898c649b701b02e",
+            "equal": true
+          },
+          "m33-relative-strength-proof.json": {
+            "run-1_sha256": "91728e81d80454e10eb62191ad9cd4082f1472968b7847e37b4eb44f06d1cd8e",
+            "run-2_sha256": "91728e81d80454e10eb62191ad9cd4082f1472968b7847e37b4eb44f06d1cd8e",
+            "equal": true
+          },
+          "m34-vwap-context-proof.json": {
+            "run-1_sha256": "d9660abc714e7cf4faf38369793afd20d5022f62e47599eaf61c4ec4ded15c2e",
+            "run-2_sha256": "d9660abc714e7cf4faf38369793afd20d5022f62e47599eaf61c4ec4ded15c2e",
+            "equal": true
+          },
+          "m35-structural-geometry-proof.json": {
+            "run-1_sha256": "498598c7ca58416937d5de39b093c023f5ab0683a9865e962ad382e99be0a570",
+            "run-2_sha256": "498598c7ca58416937d5de39b093c023f5ab0683a9865e962ad382e99be0a570",
+            "equal": true
+          },
+          "m36-opening-range-features-proof.json": {
+            "run-1_sha256": "e51116fd2f4430d33e53014d4c02bde9ee36a11e90e922d2749ec2eb208912a3",
+            "run-2_sha256": "e51116fd2f4430d33e53014d4c02bde9ee36a11e90e922d2749ec2eb208912a3",
+            "equal": true
+          },
+          "m41-strategy-interface-long-proof.json": {
+            "run-1_sha256": "23be25927e7f876715901a37b83504df58555e95db17d86b3bb34eccf48a8db6",
+            "run-2_sha256": "23be25927e7f876715901a37b83504df58555e95db17d86b3bb34eccf48a8db6",
+            "equal": true
+          },
+          "m41-strategy-interface-short-proof.json": {
+            "run-1_sha256": "4a3736d671827e4a447483a95f485546b3fbb20ca3d13e81f1827a3b41381593",
+            "run-2_sha256": "4a3736d671827e4a447483a95f485546b3fbb20ca3d13e81f1827a3b41381593",
+            "equal": true
+          },
+          "m42-state-transitions-long-proof.json": {
+            "run-1_sha256": "095254267472dfde371184fa449465ba1d9cde8631710f9dbcf7e56a4d39990c",
+            "run-2_sha256": "095254267472dfde371184fa449465ba1d9cde8631710f9dbcf7e56a4d39990c",
+            "equal": true
+          },
+          "m42-state-transitions-short-proof.json": {
+            "run-1_sha256": "a839fa776c4e9559067589a0bd8530f0d892ee7e09ee292130f6b31ee2c00ab0",
+            "run-2_sha256": "a839fa776c4e9559067589a0bd8530f0d892ee7e09ee292130f6b31ee2c00ab0",
+            "equal": true
+          },
+          "m43-structural-risk-long-proof.json": {
+            "run-1_sha256": "dd155cf7fe4ad2c35c24a7950fbe7f07815817c28c84b5d86f7f6914f4a9c1a4",
+            "run-2_sha256": "dd155cf7fe4ad2c35c24a7950fbe7f07815817c28c84b5d86f7f6914f4a9c1a4",
+            "equal": true
+          },
+          "m43-structural-risk-short-proof.json": {
+            "run-1_sha256": "1283009e570271a5f0642843655fb02c996ed9ce5fcbb7dc9834c4176435a4d8",
+            "run-2_sha256": "1283009e570271a5f0642843655fb02c996ed9ce5fcbb7dc9834c4176435a4d8",
+            "equal": true
+          },
+          "m44-confidence-long-proof.json": {
+            "run-1_sha256": "8c1da24c4a14eb1edbd48eb0c2184818b2b75e4d36c1107cb75312edb24f9816",
+            "run-2_sha256": "8c1da24c4a14eb1edbd48eb0c2184818b2b75e4d36c1107cb75312edb24f9816",
+            "equal": true
+          },
+          "m44-confidence-short-proof.json": {
+            "run-1_sha256": "749d78f41e8a215b501590f9d4eb3284ac76d8644fe6706f6af1e713074a74b8",
+            "run-2_sha256": "749d78f41e8a215b501590f9d4eb3284ac76d8644fe6706f6af1e713074a74b8",
+            "equal": true
+          },
+          "m45-candidate-assembly-long-proof.json": {
+            "run-1_sha256": "768061f7a450d73459fed60019ee9f58b66f720e030789337224a8dcc0535d8f",
+            "run-2_sha256": "768061f7a450d73459fed60019ee9f58b66f720e030789337224a8dcc0535d8f",
+            "equal": true
+          },
+          "m45-candidate-assembly-short-proof.json": {
+            "run-1_sha256": "a3a3ca0a8f75d91f88fdc04e34fb87cc905577bac2f0ef3e4194d53ca5aff1b5",
+            "run-2_sha256": "a3a3ca0a8f75d91f88fdc04e34fb87cc905577bac2f0ef3e4194d53ca5aff1b5",
+            "equal": true
+          },
+          "m46-alert-delivery-long-proof.json": {
+            "run-1_sha256": "4f9487e326eb9ead290d44588c40fce5091880d29d353d487b8ee1a6bc2a0d6b",
+            "run-2_sha256": "4f9487e326eb9ead290d44588c40fce5091880d29d353d487b8ee1a6bc2a0d6b",
+            "equal": true
+          },
+          "m46-alert-delivery-short-proof.json": {
+            "run-1_sha256": "9a8eabf74b662e2c4b8945b6146b6b4435275e0485f6568d95c3850b71cf26bc",
+            "run-2_sha256": "9a8eabf74b662e2c4b8945b6146b6b4435275e0485f6568d95c3850b71cf26bc",
+            "equal": true
+          },
+          "m51-research-event-store-long-proof.json": {
+            "run-1_sha256": "5a34168849a516af60ad437bc2aad5edc713c0bf7890b5f8f7470d57ab142a79",
+            "run-2_sha256": "5a34168849a516af60ad437bc2aad5edc713c0bf7890b5f8f7470d57ab142a79",
+            "equal": true
+          },
+          "m51-research-event-store-short-proof.json": {
+            "run-1_sha256": "63f41036a98086befc5f6fe46e9ff0fe2a63ed2eb57cec52e88290cdae498139",
+            "run-2_sha256": "63f41036a98086befc5f6fe46e9ff0fe2a63ed2eb57cec52e88290cdae498139",
+            "equal": true
+          },
+          "m52-outcome-long-proof.json": {
+            "run-1_sha256": "144140b599895db3eb9cafbc9376eeb338c6f77f61a897194476b272eeb0202d",
+            "run-2_sha256": "144140b599895db3eb9cafbc9376eeb338c6f77f61a897194476b272eeb0202d",
+            "equal": true
+          },
+          "m52-outcome-short-proof.json": {
+            "run-1_sha256": "d59b8b6ada0a30bad0415e13fc7898a079f316fd62b902cb16d852de46531399",
+            "run-2_sha256": "d59b8b6ada0a30bad0415e13fc7898a079f316fd62b902cb16d852de46531399",
+            "equal": true
+          },
+          "m55-session-recovery-long-proof.json": {
+            "run-1_sha256": "cff15f68fd5396d7ea0cdaf42549817d9fa75988384b59ab6eac2ff9a3c34a97",
+            "run-2_sha256": "cff15f68fd5396d7ea0cdaf42549817d9fa75988384b59ab6eac2ff9a3c34a97",
+            "equal": true
+          },
+          "m55-session-recovery-short-proof.json": {
+            "run-1_sha256": "ce2071380dd9264e0b73972afb3f098285c0703001eb08194ed9d25f7d78c1f7",
+            "run-2_sha256": "ce2071380dd9264e0b73972afb3f098285c0703001eb08194ed9d25f7d78c1f7",
+            "equal": true
+          },
+          "m5_3_replay_artifact.json": {
+            "run-1_sha256": "2356f8e1ef8413154336ec881ce576963469040d3f4b283c14d3ebcd938459e0",
+            "run-2_sha256": "2356f8e1ef8413154336ec881ce576963469040d3f4b283c14d3ebcd938459e0",
+            "equal": true
+          },
+          "m61-orb5-eligibility-long-proof.json": {
+            "run-1_sha256": "f7e25fc26612925f918eb1c2ebd1f499c09e6d190121a8758f4aeeeb0f19ceab",
+            "run-2_sha256": "f7e25fc26612925f918eb1c2ebd1f499c09e6d190121a8758f4aeeeb0f19ceab",
+            "equal": true
+          },
+          "m61-orb5-eligibility-short-proof.json": {
+            "run-1_sha256": "d0e4cd03bf088d497110393cac1aca087a5134a8becf06bda154cdebde1141d6",
+            "run-2_sha256": "d0e4cd03bf088d497110393cac1aca087a5134a8becf06bda154cdebde1141d6",
+            "equal": true
+          },
+          "m62-orb5-trigger-long-proof.json": {
+            "run-1_sha256": "cd9817b46006ddc1b917f3a1173a94b6c03fef548e605deba230d6fd26242e04",
+            "run-2_sha256": "cd9817b46006ddc1b917f3a1173a94b6c03fef548e605deba230d6fd26242e04",
+            "equal": true
+          },
+          "m62-orb5-trigger-short-proof.json": {
+            "run-1_sha256": "e8a8485562a97ff582c0778a46e5a52a9cbdd1723e3a377bcedc17cea3590f8b",
+            "run-2_sha256": "e8a8485562a97ff582c0778a46e5a52a9cbdd1723e3a377bcedc17cea3590f8b",
+            "equal": true
+          },
+          "m63-orb5-risk-confidence-long-proof.json": {
+            "run-1_sha256": "3ca696f4bffa751e0c79c5e37f24376b3ac8930876ec134c2cd865e48f6298e6",
+            "run-2_sha256": "3ca696f4bffa751e0c79c5e37f24376b3ac8930876ec134c2cd865e48f6298e6",
+            "equal": true
+          },
+          "m63-orb5-risk-confidence-short-proof.json": {
+            "run-1_sha256": "6a0baf9e7065cc451ecc9fa674a96c3a06866105e7ff1e1c908c77c7207f2373",
+            "run-2_sha256": "6a0baf9e7065cc451ecc9fa674a96c3a06866105e7ff1e1c908c77c7207f2373",
+            "equal": true
+          },
+          "m6_4_orb5_scenarios.json": {
+            "run-1_sha256": "4f73cb7e6e43b343cfbf04e91c67f4af3b4e50907fdb951c99eaf120f4a98768",
+            "run-2_sha256": "4f73cb7e6e43b343cfbf04e91c67f4af3b4e50907fdb951c99eaf120f4a98768",
+            "equal": true
+          },
+          "m7_1_hod_compression_proof.json": {
+            "run-1_sha256": "dcea90ba3da5c86dcc73da9b05a18f289dd2270707595e5b4374a29f49863655",
+            "run-2_sha256": "dcea90ba3da5c86dcc73da9b05a18f289dd2270707595e5b4374a29f49863655",
+            "equal": true
+          },
+          "m7_2_rs_trend_proof.json": {
+            "run-1_sha256": "1f238319e376f4027c1dc1ca0b27367fa8defd3a34d1f7baf45db9e02862d0d4",
+            "run-2_sha256": "1f238319e376f4027c1dc1ca0b27367fa8defd3a34d1f7baf45db9e02862d0d4",
+            "equal": true
+          },
+          "m7_3_hod_comp_rs_trigger_proof.json": {
+            "run-1_sha256": "edaf7ad6f0ed507ec49cb2f6920e0c11466fa3ef28633d5505b7e471f0f43e9e",
+            "run-2_sha256": "edaf7ad6f0ed507ec49cb2f6920e0c11466fa3ef28633d5505b7e471f0f43e9e",
+            "equal": true
+          },
+          "m7_4_hod_comp_rs_risk_confidence_proof.json": {
+            "run-1_sha256": "04223c08f73201974e9ff0bc1c507d7d365074fa2d6ebeba3ec80182d2364348",
+            "run-2_sha256": "04223c08f73201974e9ff0bc1c507d7d365074fa2d6ebeba3ec80182d2364348",
+            "equal": true
+          },
+          "m7_5_hod_comp_rs_scenarios.json": {
+            "run-1_sha256": "8eaf6dd0356fc6270a1b682e0dbfa21cbaeb1a8cc6a9cf73227f17c825461548",
+            "run-2_sha256": "8eaf6dd0356fc6270a1b682e0dbfa21cbaeb1a8cc6a9cf73227f17c825461548",
+            "equal": true
+          },
+          "m8_1_or_failure_handoff_proof.json": {
+            "run-1_sha256": "0435dab6c8e374e1f07fddcbca64fcc580c5d96398e3b6a3d39a01463d4d0ecf",
+            "run-2_sha256": "0435dab6c8e374e1f07fddcbca64fcc580c5d96398e3b6a3d39a01463d4d0ecf",
+            "equal": true
+          },
+          "m8_2_or_failure_rev_proof.json": {
+            "run-1_sha256": "b739c01f635e5b34f4189d4c4a7f7a2c9edc4a2e5ef4b6545782cb2a25cefb91",
+            "run-2_sha256": "b739c01f635e5b34f4189d4c4a7f7a2c9edc4a2e5ef4b6545782cb2a25cefb91",
+            "equal": true
+          },
+          "m8_3_impulse_pullback_proof.json": {
+            "run-1_sha256": "f33c556ca4144e0512f8f2f6c92588a5081e11b122136d1493c156fcf4ef0c89",
+            "run-2_sha256": "f33c556ca4144e0512f8f2f6c92588a5081e11b122136d1493c156fcf4ef0c89",
+            "equal": true
+          },
+          "m8_4_first_pullback_vwap_proof.json": {
+            "run-1_sha256": "a96dc8153dac4e8cf6b05d68e731e505ccb6d207e501c08395279432e772d0c0",
+            "run-2_sha256": "a96dc8153dac4e8cf6b05d68e731e505ccb6d207e501c08395279432e772d0c0",
+            "equal": true
+          },
+          "m8_5_cross_strategy_interaction_handoff_short_proof.json": {
+            "run-1_sha256": "0565a672b4c93fa9d32aa0e2517dc4d4e59fa52aa47538431db7ee29d2e40133",
+            "run-2_sha256": "0565a672b4c93fa9d32aa0e2517dc4d4e59fa52aa47538431db7ee29d2e40133",
+            "equal": true
+          },
+          "m8_5_cross_strategy_interaction_proof.json": {
+            "run-1_sha256": "743228377cf79f33c9f231051b5f5cdc53321ce733ee900fce0d45b9a1565b4a",
+            "run-2_sha256": "743228377cf79f33c9f231051b5f5cdc53321ce733ee900fce0d45b9a1565b4a",
+            "equal": true
+          },
+          "m8_5_cross_strategy_interaction_reversal_long_proof.json": {
+            "run-1_sha256": "7a3ad97e9619ea6347f6ca9bc153636c145abc714197d49c77c326d4d2d8b264",
+            "run-2_sha256": "7a3ad97e9619ea6347f6ca9bc153636c145abc714197d49c77c326d4d2d8b264",
+            "equal": true
+          },
+          "m8_5_cross_strategy_interaction_reversal_short_proof.json": {
+            "run-1_sha256": "d3dd0b24ffc0da9636d346b8dfa4ae5484601c40a7f518b539258ae1971fc2c4",
+            "run-2_sha256": "d3dd0b24ffc0da9636d346b8dfa4ae5484601c40a7f518b539258ae1971fc2c4",
+            "equal": true
+          }
+        },
+        "comparison_basis": "Compare the two published run hashes for each recorded milestone JSON; controller reports stable=true. Keep both run directories and publication.json."
+      },
+      "publication_hash_manifest": "/root/trade-alerts-builder/runs/20260913-205040-087953-build/published-artifacts-8f933cd34ecd/publication.json",
+      "phase": "acceptance",
+      "published_runs": [
+        {
+          "directory": "/root/trade-alerts-builder/runs/20260913-205040-087953-build/published-artifacts-8f933cd34ecd/run-1",
+          "junit": {
+            "errors": "0",
+            "failures": "0",
+            "skipped": "0",
+            "tests": "2994",
+            "time": "532.267"
+          },
+          "pytest_summary": "2994 passed in 532.38s (0:08:52)",
+          "result_xml_sha256": "8a28d1ee429029acc7ee3c5b6cdb9a0616b65a7556878ce2e764b18c5ac871a9",
+          "isolation_sha256": "1a8bcec148a2b8afc636b60ece35272db8f61cc2d52a2b8136406838de88151f",
+          "cleanup": {
+            "db_closed": true,
+            "http_closed": true,
+            "config_cleared": true,
+            "http_lock_cleared": true
+          },
+          "unexpected_denials": {},
+          "pytest_summary_source": "/root/trade-alerts-builder/runs/20260913-205040-087953-build/published-artifacts-8f933cd34ecd/run-1/output.txt"
+        }
+      ]
+    },
+    "note": "Prior published protected proof is retained, not a new pass or independent acceptance. This records-only repair changes only DATA_REQUIREMENTS.md, M0_2_CAPABILITY_AUDIT.json and ROADMAP.md. The supplied verification handoff preserves the original tested-source manifest and source hash; later prose-only record changes are separate and do not change tested code, tests, configuration, dependencies or protected inputs.",
+    "verification_handoff": {
+      "at": "2026-09-13T21:30:57-07:00",
+      "review_run": "/root/trade-alerts-builder/runs/20260913-211856-254042-review",
+      "manifest": "/root/trade-alerts-builder/runs/20260913-205040-087953-build/verified-manifest.json",
+      "source_hash": "e7277207c0359c837191bbfa79570871d1bdfb59f342d04e356cad2e9565f931"
+    }
+  }
+}

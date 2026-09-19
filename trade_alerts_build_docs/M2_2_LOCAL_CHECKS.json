@@ -1,0 +1,1160 @@
+{
+  "actual_delta_since_milestone_start": [
+    "consensus_engine/historical_bars.py",
+    "consensus_engine/scanners/schwab_client.py",
+    "tests/trade_alerts_contracts/test_historical_bars.py",
+    "trade_alerts_build_docs/CODING_STANDARDS.md",
+    "trade_alerts_build_docs/DATA_REQUIREMENTS.md",
+    "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md",
+    "trade_alerts_build_docs/M2_2_LAUNCHER_LIMITATION.txt",
+    "trade_alerts_build_docs/M2_2_LOCAL_CHECKS.json",
+    "trade_alerts_build_docs/M2_2_VERIFICATION.md",
+    "trade_alerts_build_docs/PROJECT_INDEX.md",
+    "trade_alerts_build_docs/ROADMAP.md",
+    "trade_alerts_build_docs/SESSION_PROTOCOL.md",
+    "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+  ],
+  "blocker": "",
+  "broken_heading_links": [],
+  "broken_links": [],
+  "changed_files": [
+    "consensus_engine/historical_bars.py",
+    "consensus_engine/scanners/schwab_client.py",
+    "tests/trade_alerts_contracts/test_historical_bars.py",
+    "trade_alerts_build_docs/CODING_STANDARDS.md",
+    "trade_alerts_build_docs/DATA_REQUIREMENTS.md",
+    "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md",
+    "trade_alerts_build_docs/M2_2_LAUNCHER_LIMITATION.txt",
+    "trade_alerts_build_docs/M2_2_LOCAL_CHECKS.json",
+    "trade_alerts_build_docs/M2_2_VERIFICATION.md",
+    "trade_alerts_build_docs/PROJECT_INDEX.md",
+    "trade_alerts_build_docs/ROADMAP.md",
+    "trade_alerts_build_docs/SESSION_PROTOCOL.md",
+    "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+  ],
+  "checked_local_link_count": 82,
+  "checks": {
+    "M0_3B_DEFINITION_PACKET.md:preserved": true,
+    "M0_3_DEFINITION_PACKET.md:preserved": true,
+    "MASTER_SPEC.md:preserved": true,
+    "PLAYBOOKS.md:preserved": true,
+    "added_lines_have_no_trailing_whitespace": true,
+    "added_text_uses_pacific_labels": true,
+    "all_22_additional_rows_retained": true,
+    "all_31_functional_rows_retained": true,
+    "all_771_manifest_files_matched_before_edits": true,
+    "all_eight_playbook_rows_retained": true,
+    "all_new_switches_off": true,
+    "all_nine_canonical_files_retained": true,
+    "all_unedited_snapshot_files_preserved": true,
+    "code_tests_configuration_and_protection_preserved": true,
+    "d090_d091_approval_records_and_ledger_preserved": true,
+    "failing_test_list_and_agent_rules_preserved": true,
+    "fresh_isolation_and_cleanup_pass": true,
+    "fresh_proof_matches_across_runs": true,
+    "handoffs_agree_on_m23_after_independent_acceptance": true,
+    "launcher_failure_text_preserved_verbatim": true,
+    "local_document_ownership_and_modes_preserved": true,
+    "local_heading_links_exist": true,
+    "local_links_exist": true,
+    "no_added_secret_shaped_values_or_private_controller_paths": true,
+    "no_added_stale_session_claims": true,
+    "prior_unfinished_roadmap_rows_retained": true,
+    "recording_sink_retained": true,
+    "required_repair_and_peer_history_cases_passed_twice": true,
+    "roadmap_completed_m22_and_unchecked_proposed_m23": true,
+    "trade_alerts_build_docs/DATA_REQUIREMENTS.md:balanced_fences": true,
+    "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md:balanced_fences": true,
+    "trade_alerts_build_docs/M2_2_VERIFICATION.md:balanced_fences": true,
+    "trade_alerts_build_docs/PROJECT_INDEX.md:balanced_fences": true,
+    "trade_alerts_build_docs/ROADMAP.md:balanced_fences": true,
+    "trade_alerts_build_docs/SESSION_PROTOCOL.md:balanced_fences": true,
+    "trade_alerts_build_docs/TESTING_AND_VALIDATION.md:balanced_fences": true,
+    "whole_milestone_delta_matches_saved_start": true
+  },
+  "failed_checks": [],
+  "historical_review_repair": {
+    "actual_delta_since_milestone_start": [
+      "consensus_engine/historical_bars.py",
+      "consensus_engine/scanners/schwab_client.py",
+      "tests/trade_alerts_contracts/test_historical_bars.py",
+      "trade_alerts_build_docs/CODING_STANDARDS.md",
+      "trade_alerts_build_docs/DATA_REQUIREMENTS.md",
+      "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md",
+      "trade_alerts_build_docs/M2_2_LAUNCHER_LIMITATION.txt",
+      "trade_alerts_build_docs/M2_2_LOCAL_CHECKS.json",
+      "trade_alerts_build_docs/M2_2_VERIFICATION.md",
+      "trade_alerts_build_docs/PROJECT_INDEX.md",
+      "trade_alerts_build_docs/ROADMAP.md",
+      "trade_alerts_build_docs/SESSION_PROTOCOL.md",
+      "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+    ],
+    "blocker": "OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-a1ph9qzk' The unchanged launcher stopped at os.chown before either protected child. Supervisor execution is required.",
+    "broken_heading_links": [],
+    "broken_links": [],
+    "changed_files": [
+      "consensus_engine/historical_bars.py",
+      "consensus_engine/scanners/schwab_client.py",
+      "tests/trade_alerts_contracts/test_historical_bars.py",
+      "trade_alerts_build_docs/CODING_STANDARDS.md",
+      "trade_alerts_build_docs/DATA_REQUIREMENTS.md",
+      "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md",
+      "trade_alerts_build_docs/M2_2_LAUNCHER_LIMITATION.txt",
+      "trade_alerts_build_docs/M2_2_LOCAL_CHECKS.json",
+      "trade_alerts_build_docs/M2_2_VERIFICATION.md",
+      "trade_alerts_build_docs/PROJECT_INDEX.md",
+      "trade_alerts_build_docs/ROADMAP.md",
+      "trade_alerts_build_docs/SESSION_PROTOCOL.md",
+      "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+    ],
+    "checked_local_link_count": 85,
+    "checks": {
+      "M0_3B_DEFINITION_PACKET.md:preserved": true,
+      "M0_3_DEFINITION_PACKET.md:preserved": true,
+      "MASTER_SPEC.md:preserved": true,
+      "PLAYBOOKS.md:preserved": true,
+      "added_lines_have_no_trailing_whitespace": true,
+      "added_text_uses_pacific_labels": true,
+      "all_22_additional_rows_retained": true,
+      "all_31_functional_rows_retained": true,
+      "all_eight_playbook_map_rows_retained": true,
+      "all_new_switches_off": true,
+      "all_nine_canonical_files_retained": true,
+      "all_unrelated_snapshot_files_preserved": true,
+      "configuration_and_failing_test_list_unchanged": true,
+      "consensus_engine/historical_bars.py:python_3_10_syntax": true,
+      "consensus_engine/scanners/schwab_client.py:python_3_10_syntax": true,
+      "d090_d091_approvals_and_ledger_unchanged": true,
+      "failed_launcher_produced_no_test_artifacts": true,
+      "legacy_history_client_unchanged_during_repair": true,
+      "local_heading_links_exist": true,
+      "local_links_exist": true,
+      "local_ownership_and_modes_preserved": true,
+      "no_added_secret_shaped_values": true,
+      "production_repair_is_only_the_evidence_reference_condition": true,
+      "protected_selection_includes_both_peer_history_tests": true,
+      "protection_unchanged": true,
+      "recording_sink_retained": true,
+      "roadmap_pending_row_and_matching_m23_handoff": true,
+      "tests/trade_alerts_contracts/test_historical_bars.py:python_3_10_syntax": true,
+      "tests_only_add_four_unknown_reference_cases": true,
+      "trade_alerts_build_docs/CODING_STANDARDS.md:balanced_fences": true,
+      "trade_alerts_build_docs/DATA_REQUIREMENTS.md:balanced_fences": true,
+      "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md:balanced_fences": true,
+      "trade_alerts_build_docs/M2_2_VERIFICATION.md:balanced_fences": true,
+      "trade_alerts_build_docs/PROJECT_INDEX.md:balanced_fences": true,
+      "trade_alerts_build_docs/ROADMAP.md:balanced_fences": true,
+      "trade_alerts_build_docs/SESSION_PROTOCOL.md:balanced_fences": true,
+      "trade_alerts_build_docs/TESTING_AND_VALIDATION.md:balanced_fences": true,
+      "whole_milestone_delta_matches_saved_start": true
+    },
+    "failed_checks": [],
+    "historical_finalization": {
+      "broken_heading_links": [],
+      "broken_links": [],
+      "changed_files": [
+        "consensus_engine/historical_bars.py",
+        "consensus_engine/scanners/schwab_client.py",
+        "tests/trade_alerts_contracts/test_historical_bars.py",
+        "trade_alerts_build_docs/CODING_STANDARDS.md",
+        "trade_alerts_build_docs/DATA_REQUIREMENTS.md",
+        "trade_alerts_build_docs/M2_2_LAUNCHER_LIMITATION.txt",
+        "trade_alerts_build_docs/M2_2_LOCAL_CHECKS.json",
+        "trade_alerts_build_docs/M2_2_VERIFICATION.md",
+        "trade_alerts_build_docs/PROJECT_INDEX.md",
+        "trade_alerts_build_docs/ROADMAP.md",
+        "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+      ],
+      "checked_local_link_count": 67,
+      "checks": {
+        "CODING_STANDARDS.md:balanced_fences": true,
+        "DATA_REQUIREMENTS.md:balanced_fences": true,
+        "M2_2_VERIFICATION.md:balanced_fences": true,
+        "PROJECT_INDEX.md:balanced_fences": true,
+        "ROADMAP.md:balanced_fences": true,
+        "TESTING_AND_VALIDATION.md:balanced_fences": true,
+        "added_lines_have_no_trailing_whitespace": true,
+        "added_text_uses_pacific_labels": true,
+        "all_22_additional_rows_retained": true,
+        "all_31_functional_rows_retained": true,
+        "all_eight_playbook_map_rows_retained": true,
+        "all_new_switches_off": true,
+        "all_nine_canonical_files_retained": true,
+        "all_published_artifact_hashes_match": true,
+        "all_source_tests_and_other_manifest_files_unchanged": true,
+        "both_protected_runs_succeeded": true,
+        "exact_requested_test_selection_executed": true,
+        "identical_history_proof_bytes": true,
+        "identical_ordered_test_ids": true,
+        "local_document_ownership_and_modes_preserved": true,
+        "local_heading_links_exist": true,
+        "local_links_exist": true,
+        "m22_source_and_tests_match_previous_attempts": true,
+        "no_added_secret_shaped_values": true,
+        "no_databento_credit_used": true,
+        "only_existing_evidence_and_progress_files_edited": true,
+        "protection_and_configuration_and_failing_list_unchanged": true,
+        "published_artifact_size_matches": true,
+        "recording_sink_retained": true,
+        "remaining_required_features_and_gates_retained": true,
+        "roadmap_completed_row_and_matching_next_handoff": true,
+        "run_1_418_tests_passed": true,
+        "run_1_71_historical_cases_passed": true,
+        "run_1_before_actual_history_view_matches_contract": true,
+        "run_1_boundary_actual_history_view_matches_contract": true,
+        "run_1_history_is_synthetic_only": true,
+        "run_1_isolation_and_cleanup_passed": true,
+        "run_1_ready_actual_history_view_matches_contract": true,
+        "run_1_required_end_to_end_case_executed": true,
+        "run_2_418_tests_passed": true,
+        "run_2_71_historical_cases_passed": true,
+        "run_2_before_actual_history_view_matches_contract": true,
+        "run_2_boundary_actual_history_view_matches_contract": true,
+        "run_2_history_is_synthetic_only": true,
+        "run_2_isolation_and_cleanup_passed": true,
+        "run_2_ready_actual_history_view_matches_contract": true,
+        "run_2_required_end_to_end_case_executed": true,
+        "supervisor_source_identity_matches_handoff": true,
+        "whole_milestone_delta_matches_saved_start": true
+      },
+      "failed_checks": [],
+      "historical_local_attempts": {
+        "broken_links": [],
+        "changed_existing_ownership_or_modes": [],
+        "changed_files": [
+          "consensus_engine/historical_bars.py",
+          "consensus_engine/scanners/schwab_client.py",
+          "tests/trade_alerts_contracts/test_historical_bars.py",
+          "trade_alerts_build_docs/CODING_STANDARDS.md",
+          "trade_alerts_build_docs/DATA_REQUIREMENTS.md",
+          "trade_alerts_build_docs/M2_2_LAUNCHER_LIMITATION.txt",
+          "trade_alerts_build_docs/M2_2_LOCAL_CHECKS.json",
+          "trade_alerts_build_docs/M2_2_VERIFICATION.md",
+          "trade_alerts_build_docs/PROJECT_INDEX.md",
+          "trade_alerts_build_docs/ROADMAP.md",
+          "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+        ],
+        "checked_local_link_count": 60,
+        "checks": {
+          "added_lines_no_trailing_whitespace": true,
+          "added_text_uses_pacific_labels": true,
+          "all_22_additional_rows_retained": true,
+          "all_31_functional_rows_retained": true,
+          "all_eight_strategy_rows_retained": true,
+          "all_new_switches_off": true,
+          "baseline_unchanged": true,
+          "consensus_engine/historical_bars.py:python_3_10_syntax": true,
+          "consensus_engine/scanners/schwab_client.py:python_3_10_syntax": true,
+          "existing_ownership_and_modes_preserved": true,
+          "legacy_request_construction_unchanged": true,
+          "legacy_signature_unchanged": true,
+          "legacy_table_conversion_unchanged": true,
+          "legacy_transport_call_unchanged": true,
+          "local_document_links_exist": true,
+          "no_added_secret_shaped_text": true,
+          "other_client_definitions_unchanged": true,
+          "protected_launcher_unchanged": true,
+          "recording_sink_unchanged": true,
+          "roadmap_partial_row_and_matching_handoff": true,
+          "tests/trade_alerts_contracts/test_historical_bars.py:python_3_10_syntax": true,
+          "trade_alerts_build_docs/CODING_STANDARDS.md:balanced_fences": true,
+          "trade_alerts_build_docs/DATA_REQUIREMENTS.md:balanced_fences": true,
+          "trade_alerts_build_docs/M2_2_VERIFICATION.md:balanced_fences": true,
+          "trade_alerts_build_docs/PROJECT_INDEX.md:balanced_fences": true,
+          "trade_alerts_build_docs/ROADMAP.md:balanced_fences": true,
+          "trade_alerts_build_docs/TESTING_AND_VALIDATION.md:balanced_fences": true,
+          "unrelated_snapshot_files_preserved": true,
+          "whole_milestone_delta_matches_list": true
+        },
+        "date": "2026-09-06 Pacific",
+        "end_to_end_output_exists_from_this_attempt": false,
+        "launcher_error": "OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-2bp0335g'",
+        "milestone": "M2.2",
+        "new_file_ownership_errors": {
+          "consensus_engine/historical_bars.py": "OSError(22, 'Invalid argument')",
+          "tests/trade_alerts_contracts/test_historical_bars.py": "OSError(22, 'Invalid argument')",
+          "trade_alerts_build_docs/M2_2_LAUNCHER_LIMITATION.txt": "OSError(22, 'Invalid argument')",
+          "trade_alerts_build_docs/M2_2_LOCAL_CHECKS.json": "OSError(22, 'Invalid argument')",
+          "trade_alerts_build_docs/M2_2_VERIFICATION.md": "OSError(22, 'Invalid argument')"
+        },
+        "next_milestone": "M2.2",
+        "preserved_snapshot_file_count": 195,
+        "protected_sha256": {
+          "scripts/testing/run_trade_alerts_contracts.py": "6b609b643edfc467fc63480acd63ad50d4044616aec5efca61f32315af3d3ad2",
+          "scripts/testing/trade_alerts_contract_child.py": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c"
+        },
+        "repair_attempt_1": {
+          "broken_links": [],
+          "checked_local_link_count": 60,
+          "checked_saved_source_and_document_files": 199,
+          "checks": {
+            "added_lines_have_no_trailing_whitespace": true,
+            "added_text_has_no_secret_shaped_values": true,
+            "added_text_uses_pacific_labels": true,
+            "all_22_additional_rows_retained": true,
+            "all_31_functional_rows_retained": true,
+            "all_eight_strategy_rows_retained": true,
+            "all_listed_paths_exist": true,
+            "all_off_configuration_unchanged": true,
+            "both_protection_files_unchanged": true,
+            "consensus_engine/historical_bars.py:syntax_and_python_3_10": true,
+            "consensus_engine/scanners/schwab_client.py:syntax_and_python_3_10": true,
+            "existing_file_ownership_and_modes_preserved": true,
+            "failing_test_list_unchanged": true,
+            "implementation_and_tests_unchanged_from_first_attempt": true,
+            "local_document_links_exist": true,
+            "no_test_or_end_to_end_artifact_from_retry": true,
+            "repair_changes_only_evidence_and_handoff_docs": true,
+            "roadmap_partial_row_and_matching_handoff": true,
+            "tests/trade_alerts_contracts/test_historical_bars.py:syntax_and_python_3_10": true,
+            "trade_alerts_build_docs/CODING_STANDARDS.md:balanced_fences": true,
+            "trade_alerts_build_docs/DATA_REQUIREMENTS.md:balanced_fences": true,
+            "trade_alerts_build_docs/M2_2_VERIFICATION.md:balanced_fences": true,
+            "trade_alerts_build_docs/PROJECT_INDEX.md:balanced_fences": true,
+            "trade_alerts_build_docs/ROADMAP.md:balanced_fences": true,
+            "trade_alerts_build_docs/TESTING_AND_VALIDATION.md:balanced_fences": true,
+            "unrelated_saved_source_and_documents_preserved": true,
+            "whole_milestone_delta_matches_saved_list": true
+          },
+          "end_to_end_output_exists": false,
+          "excluded_live_database_paths": [
+            "consensus_engine/data.db",
+            "consensus_engine/signals.db"
+          ],
+          "launcher_error": "OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-19i8wo36'",
+          "launcher_exit_code": 1,
+          "new_file_ownership_errors": {
+            "consensus_engine/historical_bars.py": "OSError(22, 'Invalid argument')",
+            "tests/trade_alerts_contracts/test_historical_bars.py": "OSError(22, 'Invalid argument')",
+            "trade_alerts_build_docs/M2_2_LAUNCHER_LIMITATION.txt": "OSError(22, 'Invalid argument')",
+            "trade_alerts_build_docs/M2_2_LOCAL_CHECKS.json": "OSError(22, 'Invalid argument')",
+            "trade_alerts_build_docs/M2_2_VERIFICATION.md": "OSError(22, 'Invalid argument')"
+          },
+          "next_milestone": "M2.2",
+          "project_account_attempt_error": "setpriv: setresuid failed: Invalid argument",
+          "project_account_attempt_exit_code": 127,
+          "protected_sha256": {
+            "scripts/testing/run_trade_alerts_contracts.py": "6b609b643edfc467fc63480acd63ad50d4044616aec5efca61f32315af3d3ad2",
+            "scripts/testing/trade_alerts_contract_child.py": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c"
+          },
+          "recorded_at_pacific": "2026-09-06T03:55:39.972785-07:00",
+          "repair_changed_files": [
+            "trade_alerts_build_docs/M2_2_LAUNCHER_LIMITATION.txt",
+            "trade_alerts_build_docs/M2_2_LOCAL_CHECKS.json",
+            "trade_alerts_build_docs/M2_2_VERIFICATION.md",
+            "trade_alerts_build_docs/PROJECT_INDEX.md",
+            "trade_alerts_build_docs/ROADMAP.md",
+            "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+          ],
+          "required_external_step": "Supervisor runs both protected processes, checks XML/isolation and identical synthetic proof, restores five new-file owners, and obtains independent review.",
+          "required_tests": [
+            "tests/trade_alerts_contracts",
+            "tests/test_schwab_client.py",
+            "tests/test_fetch_history_extended_hours.py",
+            "tests/test_models.py",
+            "tests/test_skew_index.py"
+          ],
+          "source_sha256": {
+            "consensus_engine/historical_bars.py": "66c126641954c605d494a60ad3e6e8953322d072451cddf452c1aae31167d013",
+            "consensus_engine/scanners/schwab_client.py": "32ac6c659826beb58793105b41f413618ac65aaef3e4f2527d37462716185544",
+            "tests/trade_alerts_contracts/test_historical_bars.py": "d10ecc6e312672f70c2bb4f3da58a2137101a27d6c63fd6f3f4ff1781f03750e"
+          },
+          "status": "partial",
+          "tests_executed": false,
+          "unexpected_saved_source_changes": [],
+          "whole_milestone_changed_files": [
+            "consensus_engine/historical_bars.py",
+            "consensus_engine/scanners/schwab_client.py",
+            "tests/trade_alerts_contracts/test_historical_bars.py",
+            "trade_alerts_build_docs/CODING_STANDARDS.md",
+            "trade_alerts_build_docs/DATA_REQUIREMENTS.md",
+            "trade_alerts_build_docs/M2_2_LAUNCHER_LIMITATION.txt",
+            "trade_alerts_build_docs/M2_2_LOCAL_CHECKS.json",
+            "trade_alerts_build_docs/M2_2_VERIFICATION.md",
+            "trade_alerts_build_docs/PROJECT_INDEX.md",
+            "trade_alerts_build_docs/ROADMAP.md",
+            "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+          ]
+        },
+        "repair_attempt_2": {
+          "broken_links": [],
+          "changed_existing_ownership_or_modes": [],
+          "checked_local_link_count": 60,
+          "checked_saved_source_and_document_files": 204,
+          "checks": {
+            "added_lines_have_no_trailing_whitespace": true,
+            "added_text_has_no_secret_shaped_values": true,
+            "added_text_uses_pacific_labels": true,
+            "all_22_additional_rows_retained": true,
+            "all_31_functional_rows_retained": true,
+            "all_eight_playbook_rows_retained": true,
+            "all_listed_paths_exist": true,
+            "all_new_switches_off": true,
+            "all_off_configuration_unchanged": true,
+            "both_protection_files_unchanged": true,
+            "consensus_engine/historical_bars.py:syntax_and_python_3_10": true,
+            "consensus_engine/scanners/schwab_client.py:syntax_and_python_3_10": true,
+            "existing_ownership_and_modes_preserved": true,
+            "failing_test_list_unchanged": true,
+            "implementation_and_tests_unchanged": true,
+            "legacy_request_construction_preserved": true,
+            "legacy_signature_preserved": true,
+            "legacy_table_conversion_preserved": true,
+            "legacy_transport_preserved": true,
+            "local_document_links_exist": true,
+            "no_test_or_end_to_end_artifacts_from_retry": true,
+            "other_client_definitions_preserved": true,
+            "recording_sink_retained": true,
+            "roadmap_partial_row_and_matching_handoff": true,
+            "tests/trade_alerts_contracts/test_historical_bars.py:syntax_and_python_3_10": true,
+            "trade_alerts_build_docs/CODING_STANDARDS.md:balanced_fences": true,
+            "trade_alerts_build_docs/DATA_REQUIREMENTS.md:balanced_fences": true,
+            "trade_alerts_build_docs/M2_2_VERIFICATION.md:balanced_fences": true,
+            "trade_alerts_build_docs/PROJECT_INDEX.md:balanced_fences": true,
+            "trade_alerts_build_docs/ROADMAP.md:balanced_fences": true,
+            "trade_alerts_build_docs/TESTING_AND_VALIDATION.md:balanced_fences": true,
+            "unrelated_repair_snapshot_files_preserved": true,
+            "whole_milestone_delta_matches_saved_list": true
+          },
+          "end_to_end_output_exists": false,
+          "excluded_live_database_paths": [
+            "consensus_engine/data.db",
+            "consensus_engine/signals.db"
+          ],
+          "independent_next_work": "No later milestone selected. M2.3 still needs its precise offline scope and M0.2 streaming source/definition check; current handoff keeps M2.2 verification first.",
+          "launcher_artifact_files": [],
+          "launcher_error": "OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-unnssqbj'",
+          "launcher_exit_code": 1,
+          "milestone": "M2.2",
+          "new_file_ownership_errors": {
+            "consensus_engine/historical_bars.py": "OSError(22, 'Invalid argument')",
+            "tests/trade_alerts_contracts/test_historical_bars.py": "OSError(22, 'Invalid argument')",
+            "trade_alerts_build_docs/M2_2_LAUNCHER_LIMITATION.txt": "OSError(22, 'Invalid argument')",
+            "trade_alerts_build_docs/M2_2_LOCAL_CHECKS.json": "OSError(22, 'Invalid argument')",
+            "trade_alerts_build_docs/M2_2_VERIFICATION.md": "OSError(22, 'Invalid argument')"
+          },
+          "next_milestone": "M2.2",
+          "previous_project_account_error": "setpriv: setresuid failed: Invalid argument",
+          "project_account_alternative_retried": false,
+          "protected_sha256": {
+            "scripts/testing/run_trade_alerts_contracts.py": "6b609b643edfc467fc63480acd63ad50d4044616aec5efca61f32315af3d3ad2",
+            "scripts/testing/trade_alerts_contract_child.py": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c"
+          },
+          "recorded_at_pacific": "2026-09-06T04:03:26.237782-07:00",
+          "repair_changed_files": [
+            "trade_alerts_build_docs/M2_2_LAUNCHER_LIMITATION.txt",
+            "trade_alerts_build_docs/M2_2_LOCAL_CHECKS.json",
+            "trade_alerts_build_docs/M2_2_VERIFICATION.md",
+            "trade_alerts_build_docs/PROJECT_INDEX.md",
+            "trade_alerts_build_docs/ROADMAP.md",
+            "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+          ],
+          "repair_start_snapshot": "/tmp/trade-alerts-m22-repair2-gnaz7h8j",
+          "required_external_step": "Supervisor runs the unchanged launcher, inspects both XML/isolation records and identical synthetic proof, restores five new-file owners, then obtains independent review.",
+          "required_tests": [
+            "tests/trade_alerts_contracts",
+            "tests/test_schwab_client.py",
+            "tests/test_fetch_history_extended_hours.py",
+            "tests/test_models.py",
+            "tests/test_skew_index.py"
+          ],
+          "source_sha256": {
+            "consensus_engine/historical_bars.py": "66c126641954c605d494a60ad3e6e8953322d072451cddf452c1aae31167d013",
+            "consensus_engine/scanners/schwab_client.py": "32ac6c659826beb58793105b41f413618ac65aaef3e4f2527d37462716185544",
+            "tests/trade_alerts_contracts/test_historical_bars.py": "d10ecc6e312672f70c2bb4f3da58a2137101a27d6c63fd6f3f4ff1781f03750e"
+          },
+          "static_check_note": "The first text scan missed inline YAML settings and falsely reported two failures. The scan was corrected for the existing inline format; configuration was not changed. Initial scan evidence is retained in the repair backup.",
+          "status": "partial",
+          "tests_executed": false,
+          "unexpected_saved_source_changes": [],
+          "whole_milestone_changed_files": [
+            "consensus_engine/historical_bars.py",
+            "consensus_engine/scanners/schwab_client.py",
+            "tests/trade_alerts_contracts/test_historical_bars.py",
+            "trade_alerts_build_docs/CODING_STANDARDS.md",
+            "trade_alerts_build_docs/DATA_REQUIREMENTS.md",
+            "trade_alerts_build_docs/M2_2_LAUNCHER_LIMITATION.txt",
+            "trade_alerts_build_docs/M2_2_LOCAL_CHECKS.json",
+            "trade_alerts_build_docs/M2_2_VERIFICATION.md",
+            "trade_alerts_build_docs/PROJECT_INDEX.md",
+            "trade_alerts_build_docs/ROADMAP.md",
+            "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+          ]
+        },
+        "required_tests": [
+          "tests/trade_alerts_contracts",
+          "tests/test_schwab_client.py",
+          "tests/test_fetch_history_extended_hours.py",
+          "tests/test_models.py",
+          "tests/test_skew_index.py"
+        ],
+        "source_sha256": {
+          "consensus_engine/historical_bars.py": "66c126641954c605d494a60ad3e6e8953322d072451cddf452c1aae31167d013",
+          "consensus_engine/scanners/schwab_client.py": "32ac6c659826beb58793105b41f413618ac65aaef3e4f2527d37462716185544",
+          "tests/trade_alerts_contracts/test_historical_bars.py": "d10ecc6e312672f70c2bb4f3da58a2137101a27d6c63fd6f3f4ff1781f03750e"
+        },
+        "status": "partial",
+        "tests_executed": false,
+        "unexpected_snapshot_changes": []
+      },
+      "launcher_retried_by_this_session": false,
+      "limits": [
+        "Synthetic engineering evidence only; no real data coverage or profitability proof.",
+        "M3.6 still owns actual opening-range extrema and the traded-input requirement.",
+        "Full application/release suite and previously listed unsupported legacy tests were not run.",
+        "M0.3B, other seven strategy definitions, full-data modes and later milestones remain unfinished."
+      ],
+      "milestone": "M2.2",
+      "next_milestone": "M2.3",
+      "next_scope": "M2.3 offline canonical Quote event/continuity prerequisite; explicit supplied policy, fixed clock and recording output. Full streaming transport/access/field/cadence/recovery/capacity proof remains required under M0.2/M2.3.",
+      "ownership_changes_attempted_by_this_session": false,
+      "protected_sha256": {
+        "scripts/testing/run_trade_alerts_contracts.py": "6b609b643edfc467fc63480acd63ad50d4044616aec5efca61f32315af3d3ad2",
+        "scripts/testing/trade_alerts_contract_child.py": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c"
+      },
+      "recorded_at_pacific": "2026-09-06T09:51:07.343206-07:00",
+      "required_tests": [
+        "tests/trade_alerts_contracts",
+        "tests/test_schwab_client.py",
+        "tests/test_fetch_history_extended_hours.py",
+        "tests/test_models.py",
+        "tests/test_skew_index.py"
+      ],
+      "scope": "Bounded offline historical-bar interface. Supervisor decides independent acceptance.",
+      "source_preservation": {
+        "changed_manifest_paths": [
+          "trade_alerts_build_docs/CODING_STANDARDS.md",
+          "trade_alerts_build_docs/DATA_REQUIREMENTS.md",
+          "trade_alerts_build_docs/M2_2_LAUNCHER_LIMITATION.txt",
+          "trade_alerts_build_docs/M2_2_LOCAL_CHECKS.json",
+          "trade_alerts_build_docs/M2_2_VERIFICATION.md",
+          "trade_alerts_build_docs/PROJECT_INDEX.md",
+          "trade_alerts_build_docs/ROADMAP.md",
+          "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+        ],
+        "ownership_note": "The supervisor reports new-source ownership restored. This sandbox presents the same local owner for old and new files, differing from host manifest metadata. Host ownership was not independently confirmed or changed here. Local document ownership/modes were preserved.",
+        "recoverable_doc_backup": "/tmp/trade-alerts-m22-finalize-4dck675b",
+        "unchanged_other_manifest_file_count": 763
+      },
+      "source_sha256": {
+        "consensus_engine/historical_bars.py": "66c126641954c605d494a60ad3e6e8953322d072451cddf452c1aae31167d013",
+        "consensus_engine/scanners/schwab_client.py": "32ac6c659826beb58793105b41f413618ac65aaef3e4f2527d37462716185544",
+        "tests/trade_alerts_contracts/test_historical_bars.py": "d10ecc6e312672f70c2bb4f3da58a2137101a27d6c63fd6f3f4ff1781f03750e"
+      },
+      "status": "completed",
+      "supervisor_verification": {
+        "evidence_origin": "Supervisor protected execution; fresh builder readback. Original files remain in the supervisor-readable publication. Artifact paths below are relative to that publication, not this repo.",
+        "handoff_at_pacific": "2026-09-06T09:36:46-07:00",
+        "history_proof_sha256": "8c8358e78348a6c13994400a7e6813fa328b471e2b51ba1336808a87c5ee2a56",
+        "identical_history_output": true,
+        "identical_test_ids": true,
+        "publication_sha256": "683d3e0d68053c7650a24ff0fd9b5122b83710b3b6d0e6cdd1c3e80c192194a1",
+        "published_file_count": 21,
+        "published_files_sha256": {
+          "run-1/fixture.yaml": "1a578448b5de33f5e8a29399b09dbf3e4ac93298ae6b8ade7df5b2f868535de7",
+          "run-1/isolation.json": "0c0c7705879df92cf3c567a34ad74a9913a5e3d7fed9629eb1a4d97767b3f28d",
+          "run-1/m13-domain-model-proof.json": "2fae11128857ae58d0aebb510131c6bb06bd0988d57ae01600e4c703890ed4c7",
+          "run-1/m21-schwab-normalization-proof.json": "481aa8aad4ff3667fe01adafddea7c9e34677fe2367e3256966df5b8e3cef6ba",
+          "run-1/m22-history-proof.json": "8c8358e78348a6c13994400a7e6813fa328b471e2b51ba1336808a87c5ee2a56",
+          "run-1/output.txt": "027aabdd8bfbd459e78055a97a52eece3dd04331a03e932ba2787411d6f18620",
+          "run-1/pipeline-obs.jsonl": "35913cb61a67a522379ba515fbae77464c7f0cb5af8cdad55d19fe31355720cc",
+          "run-1/pytest.log": "5db0eaf1b2e6f8c4bada0560591dc59d81bd2be78fa6320a8bf7cc6f2f973dcb",
+          "run-1/results.xml": "1e668a4ffffc22da7dff89c613eaf096f261fd699b347e26aed1c3ed18791bf9",
+          "run-1/synthetic_sources.json": "c02fec043afaa1a9c4cfd5c68ed9fc7d425dbf94d919b5f02680383e0da419d7",
+          "run-2/fixture.yaml": "1a578448b5de33f5e8a29399b09dbf3e4ac93298ae6b8ade7df5b2f868535de7",
+          "run-2/isolation.json": "0c0c7705879df92cf3c567a34ad74a9913a5e3d7fed9629eb1a4d97767b3f28d",
+          "run-2/m13-domain-model-proof.json": "2fae11128857ae58d0aebb510131c6bb06bd0988d57ae01600e4c703890ed4c7",
+          "run-2/m21-schwab-normalization-proof.json": "481aa8aad4ff3667fe01adafddea7c9e34677fe2367e3256966df5b8e3cef6ba",
+          "run-2/m22-history-proof.json": "8c8358e78348a6c13994400a7e6813fa328b471e2b51ba1336808a87c5ee2a56",
+          "run-2/output.txt": "f8c694977bb09f1506bc10aa0d64b94f65f1eb8dd41e7c960fa6f2bd0fdf6c3b",
+          "run-2/pipeline-obs.jsonl": "89d8f3208fc84b63258e07bf940c38dc8fb78ada7c663412bbb378358a133f98",
+          "run-2/pytest.log": "5db0eaf1b2e6f8c4bada0560591dc59d81bd2be78fa6320a8bf7cc6f2f973dcb",
+          "run-2/results.xml": "ce9a7d3e82b7640bace0d06863f695758cc0e91b6592a060483f946438bbc460",
+          "run-2/synthetic_sources.json": "c02fec043afaa1a9c4cfd5c68ed9fc7d425dbf94d919b5f02680383e0da419d7",
+          "summary.json": "7c7bc6a98dab8b23de89e1afd4face337fc9da4b8ef222523aa55b1c13be26b1"
+        },
+        "published_total_bytes": 208512,
+        "reported_at_pacific": "2026-09-06T09:27:31-07:00",
+        "runs": [
+          {
+            "artifacts_sha256": {
+              "isolation.json": "0c0c7705879df92cf3c567a34ad74a9913a5e3d7fed9629eb1a4d97767b3f28d",
+              "m22-history-proof.json": "8c8358e78348a6c13994400a7e6813fa328b471e2b51ba1336808a87c5ee2a56",
+              "output.txt": "027aabdd8bfbd459e78055a97a52eece3dd04331a03e932ba2787411d6f18620",
+              "results.xml": "1e668a4ffffc22da7dff89c613eaf096f261fd699b347e26aed1c3ed18791bf9"
+            },
+            "counts": {
+              "errors": 0,
+              "failures": 0,
+              "skipped": 0,
+              "tests": 418
+            },
+            "counts_by_test_class": {
+              "tests.test_fetch_history_extended_hours.TestSchwabPath": 2,
+              "tests.test_fetch_history_extended_hours.TestYfinanceFallback": 2,
+              "tests.test_models": 7,
+              "tests.test_schwab_client": 16,
+              "tests.test_skew_index": 15,
+              "tests.trade_alerts_contracts.test_adapters_delivery": 21,
+              "tests.trade_alerts_contracts.test_configuration": 48,
+              "tests.trade_alerts_contracts.test_domain_models": 144,
+              "tests.trade_alerts_contracts.test_foundations": 10,
+              "tests.trade_alerts_contracts.test_historical_bars": 71,
+              "tests.trade_alerts_contracts.test_market_clock": 41,
+              "tests.trade_alerts_contracts.test_schwab_normalization": 41
+            },
+            "history_views": {
+              "before": {
+                "complete": false,
+                "evaluated_at_pacific": "2026-06-30T06:34:59-07:00",
+                "observed_volume_shares": 46.0,
+                "statuses": [
+                  "FINAL",
+                  "FINAL",
+                  "FINAL",
+                  "FINAL",
+                  "NOT_ENDED"
+                ]
+              },
+              "boundary": {
+                "complete": false,
+                "evaluated_at_pacific": "2026-06-30T06:35:00-07:00",
+                "observed_volume_shares": 46.0,
+                "statuses": [
+                  "FINAL",
+                  "FINAL",
+                  "FINAL",
+                  "FINAL",
+                  "MISSING"
+                ]
+              },
+              "ready": {
+                "complete": true,
+                "evaluated_at_pacific": "2026-06-30T06:35:02-07:00",
+                "observed_volume_shares": 60.0,
+                "statuses": [
+                  "FINAL",
+                  "FINAL",
+                  "FINAL",
+                  "FINAL",
+                  "FINAL"
+                ]
+              }
+            },
+            "isolation": {
+              "cleanup": {
+                "config_cleared": true,
+                "db_closed": true,
+                "http_closed": true,
+                "http_lock_cleared": true
+              },
+              "sentinel_denials": {
+                "child_process": 1,
+                "credential_read": 1,
+                "database_path": 1,
+                "network": 2,
+                "outside_write": 1
+              },
+              "unexpected_denials": {}
+            },
+            "last_bar_normalization_pacific": "2026-06-30T13:30:00-07:00",
+            "last_bar_original_availability_pacific": "2026-06-30T06:35:02-07:00",
+            "ordered_test_ids_sha256": "fdeca7ed535fc59d0e9e92e1e2636424039d5abde625d9e63fe78fa4847f3be9",
+            "run": 1
+          },
+          {
+            "artifacts_sha256": {
+              "isolation.json": "0c0c7705879df92cf3c567a34ad74a9913a5e3d7fed9629eb1a4d97767b3f28d",
+              "m22-history-proof.json": "8c8358e78348a6c13994400a7e6813fa328b471e2b51ba1336808a87c5ee2a56",
+              "output.txt": "f8c694977bb09f1506bc10aa0d64b94f65f1eb8dd41e7c960fa6f2bd0fdf6c3b",
+              "results.xml": "ce9a7d3e82b7640bace0d06863f695758cc0e91b6592a060483f946438bbc460"
+            },
+            "counts": {
+              "errors": 0,
+              "failures": 0,
+              "skipped": 0,
+              "tests": 418
+            },
+            "counts_by_test_class": {
+              "tests.test_fetch_history_extended_hours.TestSchwabPath": 2,
+              "tests.test_fetch_history_extended_hours.TestYfinanceFallback": 2,
+              "tests.test_models": 7,
+              "tests.test_schwab_client": 16,
+              "tests.test_skew_index": 15,
+              "tests.trade_alerts_contracts.test_adapters_delivery": 21,
+              "tests.trade_alerts_contracts.test_configuration": 48,
+              "tests.trade_alerts_contracts.test_domain_models": 144,
+              "tests.trade_alerts_contracts.test_foundations": 10,
+              "tests.trade_alerts_contracts.test_historical_bars": 71,
+              "tests.trade_alerts_contracts.test_market_clock": 41,
+              "tests.trade_alerts_contracts.test_schwab_normalization": 41
+            },
+            "history_views": {
+              "before": {
+                "complete": false,
+                "evaluated_at_pacific": "2026-06-30T06:34:59-07:00",
+                "observed_volume_shares": 46.0,
+                "statuses": [
+                  "FINAL",
+                  "FINAL",
+                  "FINAL",
+                  "FINAL",
+                  "NOT_ENDED"
+                ]
+              },
+              "boundary": {
+                "complete": false,
+                "evaluated_at_pacific": "2026-06-30T06:35:00-07:00",
+                "observed_volume_shares": 46.0,
+                "statuses": [
+                  "FINAL",
+                  "FINAL",
+                  "FINAL",
+                  "FINAL",
+                  "MISSING"
+                ]
+              },
+              "ready": {
+                "complete": true,
+                "evaluated_at_pacific": "2026-06-30T06:35:02-07:00",
+                "observed_volume_shares": 60.0,
+                "statuses": [
+                  "FINAL",
+                  "FINAL",
+                  "FINAL",
+                  "FINAL",
+                  "FINAL"
+                ]
+              }
+            },
+            "isolation": {
+              "cleanup": {
+                "config_cleared": true,
+                "db_closed": true,
+                "http_closed": true,
+                "http_lock_cleared": true
+              },
+              "sentinel_denials": {
+                "child_process": 1,
+                "credential_read": 1,
+                "database_path": 1,
+                "network": 2,
+                "outside_write": 1
+              },
+              "unexpected_denials": {}
+            },
+            "last_bar_normalization_pacific": "2026-06-30T13:30:00-07:00",
+            "last_bar_original_availability_pacific": "2026-06-30T06:35:02-07:00",
+            "ordered_test_ids_sha256": "fdeca7ed535fc59d0e9e92e1e2636424039d5abde625d9e63fe78fa4847f3be9",
+            "run": 2
+          }
+        ],
+        "source_manifest_canonical_sha256": "aec4e273f740d786f646b338718c176ec199b8d806634152b13453a05019c526",
+        "source_manifest_file_contents_checked_before_edits": 771,
+        "source_manifest_file_sha256": "47ea144136e4590719a5a050392f5d01a92184674c337ee49e1cc0104d1d35d8",
+        "summary": {
+          "commands": [
+            "tests/trade_alerts_contracts",
+            "tests/test_schwab_client.py",
+            "tests/test_fetch_history_extended_hours.py",
+            "tests/test_models.py",
+            "tests/test_skew_index.py"
+          ],
+          "databento_credit_used": 0,
+          "exit_codes": [
+            0,
+            0
+          ],
+          "runs": 2
+        }
+      },
+      "tests_executed_by_this_session": false,
+      "this_finalization_changed_files": [
+        "trade_alerts_build_docs/CODING_STANDARDS.md",
+        "trade_alerts_build_docs/DATA_REQUIREMENTS.md",
+        "trade_alerts_build_docs/M2_2_LAUNCHER_LIMITATION.txt",
+        "trade_alerts_build_docs/M2_2_LOCAL_CHECKS.json",
+        "trade_alerts_build_docs/M2_2_VERIFICATION.md",
+        "trade_alerts_build_docs/PROJECT_INDEX.md",
+        "trade_alerts_build_docs/ROADMAP.md",
+        "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+      ]
+    },
+    "historical_publication_rechecked": {
+      "all_hashes_match": true,
+      "case_counts": [
+        418,
+        418
+      ],
+      "published_files_checked": 21,
+      "repaired_source_verified": false,
+      "scope": "HISTORICAL_ONLY_BEFORE_REVIEW_REPAIR",
+      "total_bytes_match": true
+    },
+    "limits": [
+      "Fresh protected execution and identical end-to-end outputs are pending.",
+      "Compilation and static checks are not passing tests; no lint/type-check task is configured.",
+      "No application or live run, credentials, paid data, Git mutation, or protection change.",
+      "M0.2 source coverage and full M2.3 live-provider proof remain open.",
+      "M0.3B proposals, other seven definitions and every later required feature remain open."
+    ],
+    "milestone": "M2.2",
+    "next_milestone": "M2.3",
+    "protected_sha256": {
+      "scripts/testing/run_trade_alerts_contracts.py": "6b609b643edfc467fc63480acd63ad50d4044616aec5efca61f32315af3d3ad2",
+      "scripts/testing/trade_alerts_contract_child.py": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c"
+    },
+    "protected_test_execution": {
+      "error": "OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-a1ph9qzk'",
+      "exact_output_file": "trade_alerts_build_docs/M2_2_LAUNCHER_LIMITATION.txt",
+      "fresh_test_artifacts_exist": false,
+      "launcher_exit_code": 1,
+      "launcher_unchanged": true,
+      "protected_children_started": false
+    },
+    "recorded_at_pacific": "2026-09-06T10:10:07.381383-07:00",
+    "required_tests": [
+      "tests/trade_alerts_contracts",
+      "tests/test_schwab_client.py",
+      "tests/test_fetch_history_extended_hours.py",
+      "tests/test_models.py",
+      "tests/test_skew_index.py",
+      "tests/test_all_command_levers.py::test_pct_change_short_history_returns_none",
+      "tests/test_all_command_levers.py::test_pct_change_happy"
+    ],
+    "scope": "Repair unknown evidence references, synchronize handoffs, expand protected caller coverage.",
+    "source_preservation": {
+      "prior_milestone_start": "/tmp/trade-alerts-m22-start-cu_lvtkc",
+      "repair_backup": "/tmp/trade-alerts-m22-review-repair-b6f94i1w",
+      "snapshot_files": 526,
+      "unrelated_changed_paths": []
+    },
+    "source_sha256": {
+      "consensus_engine/historical_bars.py": "073772ef66d34cf182ca50e86481fb3fbf83337d11e566638ac8e9ea6bbb3971",
+      "consensus_engine/scanners/schwab_client.py": "32ac6c659826beb58793105b41f413618ac65aaef3e4f2527d37462716185544",
+      "tests/trade_alerts_contracts/test_historical_bars.py": "cae55b19109a4d2a285820a3ae66202f4c85f77a55d7f7e4868b854e06c54c77"
+    },
+    "status": "ready_for_verification",
+    "supervisor_verification_for_repaired_source": null,
+    "tests_executed_by_this_session": false
+  },
+  "independent_acceptance": "PENDING_SUPERVISOR_REVIEW",
+  "launcher_retried_by_this_session": false,
+  "limits": [
+    "Independent acceptance remains with the supervisor; M2.3 is proposed until accepted.",
+    "Only the bounded protected selection passed; full application/release and live checks were not run.",
+    "Synthetic coverage does not establish real provider access, complete market data or profitability.",
+    "M0.2 real source coverage, M3.6 opening-range features and full M2.3 live-provider work remain required.",
+    "M0.3B proposals, other seven definitions and every later required feature remain open.",
+    "No code, tests, configuration, approval records, protection, runtime memory or controller file changed; switches remain off.",
+    "No configured lint/type-check task; this session inspected proof and checked documents without executing application code."
+  ],
+  "milestone": "M2.2",
+  "next_milestone": "M2.3",
+  "next_scope": "Proposed M2.3 offline normalized Quote event/continuity prerequisite after independent M2.2 acceptance; full live-provider requirements remain open.",
+  "ownership_changes_attempted_by_this_session": false,
+  "protected_sha256": {
+    "scripts/testing/run_trade_alerts_contracts.py": "6b609b643edfc467fc63480acd63ad50d4044616aec5efca61f32315af3d3ad2",
+    "scripts/testing/trade_alerts_contract_child.py": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c"
+  },
+  "protected_test_execution": {
+    "case_counts": [
+      424,
+      424
+    ],
+    "executor": "supervisor",
+    "exit_codes": [
+      0,
+      0
+    ],
+    "fresh_test_artifacts_exist": true,
+    "launcher_unchanged": true,
+    "protected_children_started": true
+  },
+  "recorded_at_pacific": "2026-09-06T10:25:45.214906-07:00",
+  "required_tests": [
+    "tests/trade_alerts_contracts",
+    "tests/test_schwab_client.py",
+    "tests/test_fetch_history_extended_hours.py",
+    "tests/test_models.py",
+    "tests/test_skew_index.py",
+    "tests/test_all_command_levers.py::test_pct_change_short_history_returns_none",
+    "tests/test_all_command_levers.py::test_pct_change_happy"
+  ],
+  "scope": "Records-only finalization against fresh supervisor proof for the reviewed repair.",
+  "source_preservation": {
+    "finalization_backup": "/tmp/trade-alerts-m22-proof-finalize-bkok8zb1",
+    "host_ownership_limit": "Mapped local owner metadata cannot independently establish host ownership.",
+    "preservation_scope": "All manifest file contents plus the failing-test list and agent rules; document ownership/modes in this sandbox view.",
+    "snapshot_files": 774,
+    "source_manifest_contents_checked_before_edits": 771,
+    "unrelated_changed_paths": []
+  },
+  "source_sha256": {
+    "consensus_engine/historical_bars.py": "073772ef66d34cf182ca50e86481fb3fbf83337d11e566638ac8e9ea6bbb3971",
+    "consensus_engine/scanners/schwab_client.py": "32ac6c659826beb58793105b41f413618ac65aaef3e4f2527d37462716185544",
+    "tests/trade_alerts_contracts/test_historical_bars.py": "cae55b19109a4d2a285820a3ae66202f4c85f77a55d7f7e4868b854e06c54c77"
+  },
+  "status": "completed",
+  "supervisor_verification_for_repaired_source": {
+    "all_publication_hashes_match": true,
+    "evidence": "SYNTHETIC_ONLY",
+    "identical_history_proof_bytes": true,
+    "identical_ordered_test_ids": true,
+    "manifest_canonical_sha256": "52b99cff0c95b5eb65c6981ff44900de5cae7eabcef371d6883eda306b50c158",
+    "manifest_file_count": 771,
+    "manifest_file_sha256": "4786dad35a00d8810cf344129f4774c4e6420cdff7ee3312a3f53d7596eb185a",
+    "publication_sha256": "c481891dced66740a47a1566a5c73b4877711f9e72a3d2c5527af09140b9ee05",
+    "published_file_sha256": {
+      "run-1/fixture.yaml": "1a578448b5de33f5e8a29399b09dbf3e4ac93298ae6b8ade7df5b2f868535de7",
+      "run-1/isolation.json": "0c0c7705879df92cf3c567a34ad74a9913a5e3d7fed9629eb1a4d97767b3f28d",
+      "run-1/m13-domain-model-proof.json": "2fae11128857ae58d0aebb510131c6bb06bd0988d57ae01600e4c703890ed4c7",
+      "run-1/m21-schwab-normalization-proof.json": "481aa8aad4ff3667fe01adafddea7c9e34677fe2367e3256966df5b8e3cef6ba",
+      "run-1/m22-history-proof.json": "8c8358e78348a6c13994400a7e6813fa328b471e2b51ba1336808a87c5ee2a56",
+      "run-1/output.txt": "ccf13ef12e74d23a97a252fc5d239710a4e90219bc40bf6cefe1c3166afc07d9",
+      "run-1/pipeline-obs.jsonl": "c34c50818d50a3e22ac5393e5d9b60bd66b60425d70bb5abff5b58b8281604cd",
+      "run-1/pytest.log": "5db0eaf1b2e6f8c4bada0560591dc59d81bd2be78fa6320a8bf7cc6f2f973dcb",
+      "run-1/results.xml": "36f1f01a8b686726a62bc75eb7a57ba5722d34423cdc26604200806865b27f4a",
+      "run-1/synthetic_sources.json": "c02fec043afaa1a9c4cfd5c68ed9fc7d425dbf94d919b5f02680383e0da419d7",
+      "run-2/fixture.yaml": "1a578448b5de33f5e8a29399b09dbf3e4ac93298ae6b8ade7df5b2f868535de7",
+      "run-2/isolation.json": "0c0c7705879df92cf3c567a34ad74a9913a5e3d7fed9629eb1a4d97767b3f28d",
+      "run-2/m13-domain-model-proof.json": "2fae11128857ae58d0aebb510131c6bb06bd0988d57ae01600e4c703890ed4c7",
+      "run-2/m21-schwab-normalization-proof.json": "481aa8aad4ff3667fe01adafddea7c9e34677fe2367e3256966df5b8e3cef6ba",
+      "run-2/m22-history-proof.json": "8c8358e78348a6c13994400a7e6813fa328b471e2b51ba1336808a87c5ee2a56",
+      "run-2/output.txt": "55379684e1581b55cfddf269ba44c83f181ebdacba591e76b7f3f09b6a830008",
+      "run-2/pipeline-obs.jsonl": "85b92383aea1bc2c1b37f5c81661f38789f1a3e142f5c40ec2815dd13eae7885",
+      "run-2/pytest.log": "5db0eaf1b2e6f8c4bada0560591dc59d81bd2be78fa6320a8bf7cc6f2f973dcb",
+      "run-2/results.xml": "8399eb8dd17602c127fb937ce1d4fee1d91aadd19e3a8e4b4e42c3b84484830a",
+      "run-2/synthetic_sources.json": "c02fec043afaa1a9c4cfd5c68ed9fc7d425dbf94d919b5f02680383e0da419d7",
+      "summary.json": "1e78113c9379d1c3310f48004e5223c87fba066e4e4727fc5dbf4a96004f6433"
+    },
+    "published_files_checked": 21,
+    "published_total_bytes": 210435,
+    "recorded_at_pacific": "2026-09-06T10:18:35.106277-07:00",
+    "runs": [
+      {
+        "artifact_sha256": {
+          "isolation.json": "0c0c7705879df92cf3c567a34ad74a9913a5e3d7fed9629eb1a4d97767b3f28d",
+          "m22-history-proof.json": "8c8358e78348a6c13994400a7e6813fa328b471e2b51ba1336808a87c5ee2a56",
+          "output.txt": "ccf13ef12e74d23a97a252fc5d239710a4e90219bc40bf6cefe1c3166afc07d9",
+          "results.xml": "36f1f01a8b686726a62bc75eb7a57ba5722d34423cdc26604200806865b27f4a"
+        },
+        "counts": {
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "tests": 424
+        },
+        "counts_by_test_class": {
+          "tests.test_all_command_levers": 2,
+          "tests.test_fetch_history_extended_hours.TestSchwabPath": 2,
+          "tests.test_fetch_history_extended_hours.TestYfinanceFallback": 2,
+          "tests.test_models": 7,
+          "tests.test_schwab_client": 16,
+          "tests.test_skew_index": 15,
+          "tests.trade_alerts_contracts.test_adapters_delivery": 21,
+          "tests.trade_alerts_contracts.test_configuration": 48,
+          "tests.trade_alerts_contracts.test_domain_models": 144,
+          "tests.trade_alerts_contracts.test_foundations": 10,
+          "tests.trade_alerts_contracts.test_historical_bars": 75,
+          "tests.trade_alerts_contracts.test_market_clock": 41,
+          "tests.trade_alerts_contracts.test_schwab_normalization": 41
+        },
+        "history_views": {
+          "before": {
+            "complete": false,
+            "evaluated_at_pacific": "2026-06-30T06:34:59-07:00",
+            "observed_volume_shares": 46.0,
+            "statuses": [
+              "FINAL",
+              "FINAL",
+              "FINAL",
+              "FINAL",
+              "NOT_ENDED"
+            ]
+          },
+          "boundary": {
+            "complete": false,
+            "evaluated_at_pacific": "2026-06-30T06:35:00-07:00",
+            "observed_volume_shares": 46.0,
+            "statuses": [
+              "FINAL",
+              "FINAL",
+              "FINAL",
+              "FINAL",
+              "MISSING"
+            ]
+          },
+          "ready": {
+            "complete": true,
+            "evaluated_at_pacific": "2026-06-30T06:35:02-07:00",
+            "observed_volume_shares": 60.0,
+            "statuses": [
+              "FINAL",
+              "FINAL",
+              "FINAL",
+              "FINAL",
+              "FINAL"
+            ]
+          }
+        },
+        "isolation": {
+          "cleanup": {
+            "config_cleared": true,
+            "db_closed": true,
+            "http_closed": true,
+            "http_lock_cleared": true
+          },
+          "sentinel_denials": {
+            "child_process": 1,
+            "credential_read": 1,
+            "database_path": 1,
+            "network": 2,
+            "outside_write": 1
+          },
+          "unexpected_denials": {}
+        },
+        "last_bar_normalization_pacific": "2026-06-30T13:30:00-07:00",
+        "last_bar_original_availability_pacific": "2026-06-30T06:35:02-07:00",
+        "ordered_test_ids_sha256": "b0971d7ff53cfb3628052a2f37393ec6644e0c987142e289e6c04c086d7ec4a5",
+        "required_history_case_ids": [
+          "tests.test_all_command_levers::test_pct_change_short_history_returns_none",
+          "tests.test_all_command_levers::test_pct_change_happy",
+          "tests.trade_alerts_contracts.test_historical_bars::test_request_raw_mapping_coverage_and_archive_end_to_end",
+          "tests.trade_alerts_contracts.test_historical_bars::test_unknown_source_semantics_preserve_prices_but_block_coverage[change8]",
+          "tests.trade_alerts_contracts.test_historical_bars::test_unknown_source_semantics_preserve_prices_but_block_coverage[change9]",
+          "tests.trade_alerts_contracts.test_historical_bars::test_unknown_source_semantics_preserve_prices_but_block_coverage[change10]",
+          "tests.trade_alerts_contracts.test_historical_bars::test_unknown_source_semantics_preserve_prices_but_block_coverage[change11]"
+        ],
+        "run": 1
+      },
+      {
+        "artifact_sha256": {
+          "isolation.json": "0c0c7705879df92cf3c567a34ad74a9913a5e3d7fed9629eb1a4d97767b3f28d",
+          "m22-history-proof.json": "8c8358e78348a6c13994400a7e6813fa328b471e2b51ba1336808a87c5ee2a56",
+          "output.txt": "55379684e1581b55cfddf269ba44c83f181ebdacba591e76b7f3f09b6a830008",
+          "results.xml": "8399eb8dd17602c127fb937ce1d4fee1d91aadd19e3a8e4b4e42c3b84484830a"
+        },
+        "counts": {
+          "errors": 0,
+          "failures": 0,
+          "skipped": 0,
+          "tests": 424
+        },
+        "counts_by_test_class": {
+          "tests.test_all_command_levers": 2,
+          "tests.test_fetch_history_extended_hours.TestSchwabPath": 2,
+          "tests.test_fetch_history_extended_hours.TestYfinanceFallback": 2,
+          "tests.test_models": 7,
+          "tests.test_schwab_client": 16,
+          "tests.test_skew_index": 15,
+          "tests.trade_alerts_contracts.test_adapters_delivery": 21,
+          "tests.trade_alerts_contracts.test_configuration": 48,
+          "tests.trade_alerts_contracts.test_domain_models": 144,
+          "tests.trade_alerts_contracts.test_foundations": 10,
+          "tests.trade_alerts_contracts.test_historical_bars": 75,
+          "tests.trade_alerts_contracts.test_market_clock": 41,
+          "tests.trade_alerts_contracts.test_schwab_normalization": 41
+        },
+        "history_views": {
+          "before": {
+            "complete": false,
+            "evaluated_at_pacific": "2026-06-30T06:34:59-07:00",
+            "observed_volume_shares": 46.0,
+            "statuses": [
+              "FINAL",
+              "FINAL",
+              "FINAL",
+              "FINAL",
+              "NOT_ENDED"
+            ]
+          },
+          "boundary": {
+            "complete": false,
+            "evaluated_at_pacific": "2026-06-30T06:35:00-07:00",
+            "observed_volume_shares": 46.0,
+            "statuses": [
+              "FINAL",
+              "FINAL",
+              "FINAL",
+              "FINAL",
+              "MISSING"
+            ]
+          },
+          "ready": {
+            "complete": true,
+            "evaluated_at_pacific": "2026-06-30T06:35:02-07:00",
+            "observed_volume_shares": 60.0,
+            "statuses": [
+              "FINAL",
+              "FINAL",
+              "FINAL",
+              "FINAL",
+              "FINAL"
+            ]
+          }
+        },
+        "isolation": {
+          "cleanup": {
+            "config_cleared": true,
+            "db_closed": true,
+            "http_closed": true,
+            "http_lock_cleared": true
+          },
+          "sentinel_denials": {
+            "child_process": 1,
+            "credential_read": 1,
+            "database_path": 1,
+            "network": 2,
+            "outside_write": 1
+          },
+          "unexpected_denials": {}
+        },
+        "last_bar_normalization_pacific": "2026-06-30T13:30:00-07:00",
+        "last_bar_original_availability_pacific": "2026-06-30T06:35:02-07:00",
+        "ordered_test_ids_sha256": "b0971d7ff53cfb3628052a2f37393ec6644e0c987142e289e6c04c086d7ec4a5",
+        "required_history_case_ids": [
+          "tests.test_all_command_levers::test_pct_change_short_history_returns_none",
+          "tests.test_all_command_levers::test_pct_change_happy",
+          "tests.trade_alerts_contracts.test_historical_bars::test_request_raw_mapping_coverage_and_archive_end_to_end",
+          "tests.trade_alerts_contracts.test_historical_bars::test_unknown_source_semantics_preserve_prices_but_block_coverage[change8]",
+          "tests.trade_alerts_contracts.test_historical_bars::test_unknown_source_semantics_preserve_prices_but_block_coverage[change9]",
+          "tests.trade_alerts_contracts.test_historical_bars::test_unknown_source_semantics_preserve_prices_but_block_coverage[change10]",
+          "tests.trade_alerts_contracts.test_historical_bars::test_unknown_source_semantics_preserve_prices_but_block_coverage[change11]"
+        ],
+        "run": 2
+      }
+    ],
+    "source_handoff_at_pacific": "2026-09-06T10:15:24-07:00",
+    "summary": {
+      "commands": [
+        "tests/trade_alerts_contracts",
+        "tests/test_schwab_client.py",
+        "tests/test_fetch_history_extended_hours.py",
+        "tests/test_models.py",
+        "tests/test_skew_index.py",
+        "tests/test_all_command_levers.py::test_pct_change_short_history_returns_none",
+        "tests/test_all_command_levers.py::test_pct_change_happy"
+      ],
+      "databento_credit_used": 0,
+      "exit_codes": [
+        0,
+        0
+      ],
+      "runs": 2
+    },
+    "supervisor_executed_at_pacific": "2026-09-06T10:13:37-07:00"
+  },
+  "tests_executed_by_this_session": false,
+  "this_finalization_changed_files": [
+    "trade_alerts_build_docs/DATA_REQUIREMENTS.md",
+    "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md",
+    "trade_alerts_build_docs/M2_2_LAUNCHER_LIMITATION.txt",
+    "trade_alerts_build_docs/M2_2_LOCAL_CHECKS.json",
+    "trade_alerts_build_docs/M2_2_VERIFICATION.md",
+    "trade_alerts_build_docs/PROJECT_INDEX.md",
+    "trade_alerts_build_docs/ROADMAP.md",
+    "trade_alerts_build_docs/SESSION_PROTOCOL.md",
+    "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+  ]
+}

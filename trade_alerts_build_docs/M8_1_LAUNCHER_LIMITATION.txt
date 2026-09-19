@@ -1,0 +1,120 @@
+M8.1 protected acceptance limitation, 2026-09-11 Pacific.
+
+What happened
+-------------
+The unchanged protected launcher cannot finish the whole
+`tests/trade_alerts_contracts` directory in one child process any more. The
+launcher passes `timeout=420` to its single `subprocess.run` call, so each run
+is capped at 420 seconds, and the directory now needs more than that. The
+controller's own verification of this build run ended in
+`subprocess.TimeoutExpired ... timed out after 419.9999785159998 seconds`
+before pytest could report. Its exact traceback is preserved at the end of this
+file.
+
+The launcher and its child are unchanged and their hashes still match the ones
+recorded since M7.1. No protection edit, cap change or retry loop is requested.
+
+Why the directory no longer fits
+--------------------------------
+This is a capacity limit, not a failing test. The controller's published M7.5
+acceptance stage recorded 2327 tests and 407.816 wall seconds for the same
+`tests/trade_alerts_contracts` selection, which already sat inside 97 percent of
+the launcher's own 420-second cap. M8.1 adds one new test file, so the same
+selection is now larger than it was when it last fit. Nothing in the M8.1 file
+is unusually slow: its per-test cost is below the directory average, and
+trimming it would remove required coverage without buying a durable margin.
+The next milestone would cross the cap again in any case.
+
+What did run clean here
+-----------------------
+Every protected selection that fits inside one child process ran under the
+unchanged launcher with no failures, no errors and no skips, and with clean
+isolation and cleanup:
+
+- focused: `tests/trade_alerts_contracts/test_or_failure_handoff.py`
+- repeatability: the same focused selector in two fresh processes, whose
+  `m8_1_or_failure_handoff_proof.json` recordings were byte-identical
+- whole-directory coverage, split across two launcher invocations, group A then
+  group B as listed in M8_1_LOCAL_CHECKS.json under
+  `protected_run_limitation.split_acceptance`. Together the two groups collect
+  the same files as the directory selection, under the same isolation.
+
+No count, timing or hash from those builder runs is written into
+M8_1_VERIFICATION.md, M8_1_LOCAL_CHECKS.json or ROADMAP section 31. The
+controller's published stages remain the only figures on record.
+
+Required next action
+--------------------
+The controller owns the choice, since the cap lives in a protected file:
+
+1. run the acceptance coverage as two protected invocations, group A and group
+   B above, and publish both, or
+2. raise the launcher's per-run cap in a separately reviewed protection repair
+   and rerun the single directory selection.
+
+Do not weaken, bypass or edit either protection script from a build session, and
+do not treat the split runs recorded above as the published acceptance figures.
+
+Correction to the earlier record in this build run
+--------------------------------------------------
+An earlier attempt in this same build run wrote that the broad acceptance
+selection did fit inside the launcher's 420-second cap and removed the
+limitation note. The controller's timeout below shows that claim does not hold,
+so it is withdrawn here and in M8_1_LOCAL_CHECKS.json and M8_1_VERIFICATION.md.
+
+Exact controller output
+-----------------------
+Traceback (most recent call last):
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 73, in <module>
+    raise SystemExit(main())
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 61, in main
+    result = subprocess.run(command, env={"PATH": "/usr/bin:/bin"},
+  File "/usr/lib/python3.10/subprocess.py", line 505, in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+  File "/usr/lib/python3.10/subprocess.py", line 1154, in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+  File "/usr/lib/python3.10/subprocess.py", line 2047, in _communicate
+    self.wait(timeout=self._remaining_time(endtime))
+  File "/usr/lib/python3.10/subprocess.py", line 1209, in wait
+    return self._wait(timeout=timeout)
+  File "/usr/lib/python3.10/subprocess.py", line 1951, in _wait
+    raise TimeoutExpired(self.args, timeout)
+subprocess.TimeoutExpired: Command '[... '/usr/bin/python3', '-I', '-B',
+'/workspace/scripts/testing/trade_alerts_contract_child.py',
+'tests/trade_alerts_contracts']' timed out after 419.9999785159998 seconds
+
+
+Resolved by the controller, 2026-09-12 Pacific
+----------------------------------------------
+The limitation recorded above no longer applies. Before this attempt the
+supervisor raised the launcher's own per-run subprocess cap, which is exactly
+option 2 of the "Required next action" above and is the controller's own
+separately reviewed protection repair. The change is visible as a launcher hash
+change that the controller made, not the builder:
+
+  scripts/testing/run_trade_alerts_contracts.py
+    build-run start manifest:  a4ffdd55fd1f1673d99e73106e47c063923bfae9514d7e93a44be9dead7e6764
+    this attempt's protected baseline and the file on disk:
+                               a6f904de6aefa7c94e12215c2ed624178b67d2f2160a78e1bc9e9e46ed8c054e
+
+  scripts/testing/trade_alerts_contract_child.py is unchanged at
+                               85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c
+
+The on-disk launcher matches this attempt's protected baseline exactly, so it is
+the sanctioned launcher. No build session edited, bypassed or retried either
+protection script, and none was edited here.
+
+Under that launcher the single `tests/trade_alerts_contracts` acceptance
+selection now runs to completion in one child process and reports its result
+instead of timing out. The split `group_a`/`group_b` workaround recorded above
+is therefore no longer needed and is not the acceptance selection; the whole
+directory is. The groups stay listed only as the historical record of what the
+earlier attempt did while the lower cap stood.
+
+The diagnosis in the earlier sections still holds and is not withdrawn: the
+overrun was a capacity limit rather than a failing test, and the M8.1 file was
+never the cause. Nothing about the M8.1 module or its coverage changed to make
+the directory fit; only the controller's cap did.
+
+No count, timing or hash from any builder run is recorded here. The controller's
+published protected stages remain the only figures on record.

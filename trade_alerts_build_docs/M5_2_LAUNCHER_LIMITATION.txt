@@ -1,0 +1,109 @@
+M5.2 protected launcher attempt — 2026-09-08 02:01 Pacific
+
+The unchanged protected launcher stopped before test collection at its first
+ownership operation. Verbatim output:
+
+Traceback (most recent call last):
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 72, in <module>
+    raise SystemExit(main())
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 26, in main
+    os.chown(artifact_root, account.pw_uid, account.pw_gid)
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-7yzwx8mn'
+
+No test was collected. No passing result is claimed. The launcher and child were
+not changed or bypassed.
+
+Review repair attempt — 2026-09-08 Pacific (current)
+Traceback (most recent call last):
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 72, in <module>
+    raise SystemExit(main())
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 26, in main
+    os.chown(artifact_root, account.pw_uid, account.pw_gid)
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-9tobc8k9'
+Exit code: 1. No tests collected. Protection unchanged.
+M5.2 original-risk proof repair — 2026-09-08 21:03 Pacific
+
+The unchanged protected launcher stopped before test collection:
+
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-8ywjjki6'
+
+The failure occurred at the launcher's initial os.chown call. No direct test,
+application, live call or weaker workaround ran.
+
+M5.2 controller repair check — 2026-09-08 21:45 Pacific
+
+The unchanged protected launcher stopped before test collection:
+
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-8ghnzwfx'
+
+The failure occurred at the launcher's initial os.chown call. Exit code was 1.
+No artifact path was printed and no test was collected. The launcher and child
+were not changed or bypassed.
+
+M5.2 invalid-fixture repair check — 2026-09-08 22:18 Pacific
+
+The reported protected runs collected the new original-risk test but failed
+because its synthetic entry bar opened at 100.20 while its high remained 100.10.
+The test now raises the same bar's high to 100.20; short mirroring keeps valid
+OHLC geometry. Static Python compilation passed.
+
+The full required selection was sent to the unchanged protected launcher after
+the repair. It stopped before collection at the initial ownership operation:
+
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-rcc14n69'
+
+Exit code was 1. No artifact path was printed and no passing result is claimed.
+
+M5.2 exact 0.35 extension repair check — 2026-09-08 Pacific
+
+The full required selection was sent to the unchanged protected launcher after
+the reviewer-required exact-boundary repair. It stopped before collection at the
+initial ownership operation:
+
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-e0j87i0l'
+
+Exit code was 1. No artifact path was printed and no test was collected. The
+launcher and child were not changed or bypassed.
+
+M5.2 420-second launcher repair check — 2026-09-08 22:52 Pacific
+
+The full required selection was sent to the protected launcher after its verified
+per-run limit was raised from 300 to 420 seconds. It stopped before collection at
+the initial ownership operation:
+
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-ectkvi_j'
+
+Exit code was 1. No artifact path was printed and no test was collected. The
+launcher and child were not changed or bypassed in this session.
+
+M5.2 exact-boundary repair check — 2026-09-08 22:34 Pacific
+
+The supplied protected runs showed that the valid 1.50R room boundary was
+rejected by binary decimal rounding. The evaluator now compares the approved
+0.35 and 1.50 boundaries using exact decimal values. Static Python compilation
+passed.
+
+The full required selection was sent to the unchanged protected launcher. It
+stopped before collection at the initial ownership operation:
+
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-cn5s9ora'
+
+Exit code was 1. No artifact path was printed and no passing result is claimed.
+2026-09-09 Pacific exact-boundary fixture repair check
+Traceback (most recent call last):
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 72, in <module>
+    raise SystemExit(main())
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 26, in main
+    os.chown(artifact_root, account.pw_uid, account.pw_gid)
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-rs_oasqu'
+
+2026-09-09 00:18 Pacific decimal target fixture repair check
+Traceback (most recent call last):
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 72, in <module>
+    raise SystemExit(main())
+  File "/home/openclaw/.openclaw/workspace/scripts/testing/run_trade_alerts_contracts.py", line 26, in main
+    os.chown(artifact_root, account.pw_uid, account.pw_gid)
+OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-grko4uin'
+
+No test was collected. No passing result is claimed. The launcher and child were
+not changed or bypassed.

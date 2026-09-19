@@ -1,0 +1,25 @@
+{
+  "changed_files": [
+    "trade_alerts_build_docs/DATA_REQUIREMENTS.md",
+    "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md",
+    "trade_alerts_build_docs/M0_3F_DEFINITION_PACKET.md",
+    "trade_alerts_build_docs/M0_3F_LOCAL_CHECKS.json",
+    "trade_alerts_build_docs/M0_3F_VERIFICATION.md",
+    "trade_alerts_build_docs/PLAYBOOKS.md",
+    "trade_alerts_build_docs/ROADMAP.md",
+    "trade_alerts_build_docs/TESTING_AND_VALIDATION.md"
+  ],
+  "recorded_at": "2026-09-13T14:54:10-07:00",
+  "source_hash": "87c18c4c7c1f70b396ec9482ad661f53caf483dc0ed1c050638f423cd6bda9a9",
+  "tests": {
+    "artifacts_path": "/root/trade-alerts-builder/runs/20260913-142357-771316-build/published-artifacts-9ad2d0ae4e3b",
+    "exit_code": 0,
+    "runs": 1,
+    "selection_reason": "unknown dependency impact; safe broad fallback",
+    "selectors": [
+      "tests/trade_alerts_contracts"
+    ],
+    "test_count": 2922,
+    "wall_seconds": 517.53
+  }
+}

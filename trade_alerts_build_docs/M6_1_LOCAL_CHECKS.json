@@ -1,0 +1,171 @@
+{
+  "milestone": "M6.1",
+  "status": "completed",
+  "checked_at_pacific": "2026-09-10T05:11:08-07:00",
+  "records_corrected_at_pacific": "2026-09-10T09:34:16-07:00",
+  "records_correction_note": "Records-only repair: run figures and per-stage selections restated from the published controller artifacts. No code, test, configuration or protected input changed, so the existing protected proof still applies.",
+  "protected_tests_passed": true,
+  "offline_status": "protected_proof_complete",
+  "launcher": {
+    "path": "scripts/testing/run_trade_alerts_contracts.py",
+    "sha256": "a4ffdd55fd1f1673d99e73106e47c063923bfae9514d7e93a44be9dead7e6764",
+    "child_path": "scripts/testing/trade_alerts_contract_child.py",
+    "child_sha256": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c",
+    "unchanged": true
+  },
+  "hashes": {
+    "consensus_engine/orb5_eligibility.py": "2ca3414533667674d6fefa6da4f97c410998bce868069a0ca130868d832b8396",
+    "tests/trade_alerts_contracts/test_orb5_eligibility.py": "907a3a468e51e2a1bb05e0cb9fa254f9ffb85ce84a6d1e609c3635162b45bdca"
+  },
+  "timing_measures": {
+    "pytest_seconds": "the 'passed in' line at the end of the published run-N/output.txt",
+    "junit_seconds": "the testsuite time attribute in the published run-N/results.xml",
+    "controller_wall_seconds": "the controller's own phase wall clock, which includes launcher setup and artifact publication"
+  },
+  "stages": {
+    "focused": {
+      "phase": "focused",
+      "selection_reason": "builder named directly affected checks",
+      "selectors": ["tests/trade_alerts_contracts"],
+      "artifacts_id": "published-artifacts-1d47d8eb3802",
+      "at_pacific": "2026-09-10T05:18:49-07:00",
+      "runs": 1,
+      "tests": 1397,
+      "pytest_seconds": 321.49,
+      "junit_seconds": 321.435,
+      "controller_wall_seconds": 324.632,
+      "limit_seconds": 420,
+      "m61_file_cases_in_results_xml": 143,
+      "m61_file_case_seconds_in_results_xml": 15.266,
+      "exit_code": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "unexpected_isolation_denials": 0,
+      "cleanup_passed": true
+    },
+    "broad_acceptance": {
+      "phase": "acceptance",
+      "selection_reason": "unknown dependency impact; safe broad fallback",
+      "selectors": ["tests/trade_alerts_contracts"],
+      "artifacts_id": "published-artifacts-98dae56ac548",
+      "runs": 1,
+      "tests": 1397,
+      "pytest_seconds": 319.15,
+      "junit_seconds": 319.089,
+      "controller_wall_seconds": 322.335,
+      "limit_seconds": 420,
+      "m61_file_cases_in_results_xml": 143,
+      "m61_file_case_seconds_in_results_xml": 15.7,
+      "exit_code": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "unexpected_isolation_denials": 0,
+      "cleanup_passed": true
+    },
+    "full_run_comparison": {
+      "compares": ["published-artifacts-1d47d8eb3802/run-1", "published-artifacts-98dae56ac548/run-1"],
+      "note": "two separate full-directory runs in fresh processes, not the controller repeatability phase",
+      "artifacts_per_run": 36,
+      "byte_identical_artifacts": 33,
+      "differing_artifacts": ["output.txt", "results.xml", "pipeline-obs.jsonl"],
+      "differing_reason": "timing text and observation timestamps only"
+    },
+    "repeatability": {
+      "phase": "repeatability",
+      "selection_reason": "recording output requires fresh-process comparison",
+      "artifacts_id": "published-artifacts-fa444cd142e2",
+      "at_pacific": "2026-09-10T05:27:42-07:00",
+      "selectors": [
+        "tests/trade_alerts_contracts/test_alert_delivery.py::test_bars_to_candidates_to_recording_and_fake_delivery_end_to_end",
+        "tests/trade_alerts_contracts/test_candidate_assembly.py::test_supplied_features_confidence_candidate_suppression_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_confidence.py::test_supplied_features_composition_candidate_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_configuration.py::test_known_default_hash_matches_canonical_record",
+        "tests/trade_alerts_contracts/test_core_price_features.py::test_bar_to_coverage_to_feature_snapshot_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_domain_models.py::test_deterministic_record_proof_is_written_under_tmp",
+        "tests/trade_alerts_contracts/test_historical_bars.py::test_request_raw_mapping_coverage_and_archive_end_to_end",
+        "tests/trade_alerts_contracts/test_historical_replay.py::test_chronological_same_runtime_replay_is_byte_deterministic",
+        "tests/trade_alerts_contracts/test_opening_range_features.py::test_bar_coverage_opening_range_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_orb5_eligibility.py::test_shared_features_through_the_m42_engine_and_m51_store",
+        "tests/trade_alerts_contracts/test_outcome_evaluator.py::test_compact_end_to_end_recording",
+        "tests/trade_alerts_contracts/test_participation_features.py::test_bar_coverage_participation_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_quote_events.py::test_normalized_events_failure_reconnect_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_reference_inputs.py::test_supplied_reference_coverage_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_research_event_store.py::test_recording_pipeline_retains_full_facts_retry_and_reopen",
+        "tests/trade_alerts_contracts/test_schwab_normalization.py::test_write_deterministic_normalization_proof",
+        "tests/trade_alerts_contracts/test_session_recovery.py::test_interrupted_session_recovery_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_state_transitions.py::test_market_features_strategy_transition_database_recording_end_to_end",
+        "tests/trade_alerts_contracts/test_strategy_interface.py::test_shared_feature_to_strategy_records_end_to_end",
+        "tests/trade_alerts_contracts/test_structural_risk.py::test_supplied_bars_to_shared_features_risk_candidate_recording_end_to_end"
+      ],
+      "selector_count": 20,
+      "runs": 2,
+      "tests_per_run": 30,
+      "pytest_seconds": [102.8, 102.88],
+      "junit_seconds": [102.802, 102.878],
+      "controller_wall_seconds_for_phase": 209.332,
+      "artifacts_per_run": 35,
+      "byte_identical_artifacts": 33,
+      "differing_artifacts": ["output.txt", "results.xml"],
+      "differing_reason": "timing text only",
+      "exit_codes": [0, 0],
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "unexpected_isolation_denials": 0,
+      "cleanup_passed": true,
+      "databento_credit_used": 0
+    },
+    "unpublished_builder_local": {
+      "note": "single-file run of tests/trade_alerts_contracts/test_orb5_eligibility.py, 143 tests in about 17.99 seconds. Builder-local, no published artifact set, not part of the accepted proof.",
+      "published": false
+    }
+  },
+  "recordings": {
+    "m61-orb5-eligibility-long-proof.json": {
+      "bytes": 3832,
+      "sha256": "f7e25fc26612925f918eb1c2ebd1f499c09e6d190121a8758f4aeeeb0f19ceab",
+      "identical_across_runs": true
+    },
+    "m61-orb5-eligibility-short-proof.json": {
+      "bytes": 3826,
+      "sha256": "d0e4cd03bf088d497110393cac1aca087a5134a8becf06bda154cdebde1141d6",
+      "identical_across_runs": true
+    }
+  },
+  "checks": {
+    "no_threshold_hardcoded": true,
+    "policy_requires_every_supplied_value": true,
+    "feature_bound_by_full_identity": true,
+    "half_open_window_both_edges": true,
+    "three_valued_stock_in_play": true,
+    "unknown_never_passes_a_gate": true,
+    "exact_decimal_boundaries": true,
+    "machine_advances_only_after_storage": true,
+    "shared_m3_m4_features_end_to_end": true,
+    "m42_engine_and_m51_store_integration": true,
+    "earlier_milestone_recordings_unchanged": true,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "cleanup_passed": true,
+    "unexpected_isolation_denials": 0
+  },
+  "milestone_changed_files": [
+    "consensus_engine/orb5_eligibility.py",
+    "tests/trade_alerts_contracts/test_orb5_eligibility.py",
+    "trade_alerts_build_docs/M6_1_LOCAL_CHECKS.json",
+    "trade_alerts_build_docs/M6_1_VERIFICATION.md",
+    "trade_alerts_build_docs/ROADMAP.md"
+  ],
+  "next_milestone": "M6.2",
+  "limits": [
+    "Offline supplied inputs only; every threshold comes from the caller.",
+    "The exact ARMED thresholds still need the PROPOSED M03B_ORB5_V1 definition.",
+    "ARMED is a reported state at one instant, not a trigger, alert or permission to act.",
+    "Actual source, trade eligibility, halt and macro classification coverage remain blocked.",
+    "No strategy edge or profit is established.",
+    "All switches remain off; D-091 stays $0 used and $0 reserved."
+  ]
+}

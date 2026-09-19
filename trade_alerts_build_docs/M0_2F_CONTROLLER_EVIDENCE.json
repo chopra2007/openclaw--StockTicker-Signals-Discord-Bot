@@ -1,0 +1,24 @@
+{
+  "changed_files": [
+    "consensus_engine/databento_minute_bars.py",
+    "tests/trade_alerts_contracts/test_databento_minute_bars.py",
+    "trade_alerts_build_docs/CODING_STANDARDS.md",
+    "trade_alerts_build_docs/DATA_REQUIREMENTS.md",
+    "trade_alerts_build_docs/M0_2F_SOURCE_MANIFEST.json",
+    "trade_alerts_build_docs/M0_2F_VERIFICATION.md",
+    "trade_alerts_build_docs/ROADMAP.md"
+  ],
+  "recorded_at": "2026-09-14T03:43:37-07:00",
+  "source_hash": "603325b34100b63b1b566d45de2a2c43c60081afcb8183db9ff5602dede4416b",
+  "tests": {
+    "artifacts_path": "/root/trade-alerts-builder/runs/20260914-032056-806227-build/published-artifacts-a30c76845df4",
+    "exit_code": 0,
+    "runs": 1,
+    "selection_reason": "unknown dependency impact; safe broad fallback",
+    "selectors": [
+      "tests/trade_alerts_contracts"
+    ],
+    "test_count": 3048,
+    "wall_seconds": 554.204
+  }
+}

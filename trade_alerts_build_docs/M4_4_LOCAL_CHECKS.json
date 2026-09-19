@@ -1,0 +1,178 @@
+{
+  "milestone": "M4.4",
+  "recorded_at_pacific": "2026-09-07T01:14:41-07:00",
+  "offline_status": "completed",
+  "required_full_completion_status": "blocked",
+  "next_milestone": "M4.5",
+  "supervisor_artifacts_received": true,
+  "starting_snapshot": "/tmp/m44-start-7mljztgn",
+  "starting_file_count": 563,
+  "changed_files": [
+    "consensus_engine/confidence.py",
+    "tests/trade_alerts_contracts/test_confidence.py",
+    "trade_alerts_build_docs/PROJECT_INDEX.md",
+    "trade_alerts_build_docs/ROADMAP.md",
+    "trade_alerts_build_docs/CODING_STANDARDS.md",
+    "trade_alerts_build_docs/DATA_REQUIREMENTS.md",
+    "trade_alerts_build_docs/TESTING_AND_VALIDATION.md",
+    "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md",
+    "trade_alerts_build_docs/M4_4_VERIFICATION.md",
+    "trade_alerts_build_docs/M4_4_LOCAL_CHECKS.json",
+    "trade_alerts_build_docs/M4_4_LAUNCHER_LIMITATION.txt"
+  ],
+  "grammar_python_3_10_and_compilation": {
+    "consensus_engine/confidence.py": "PASS",
+    "tests/trade_alerts_contracts/test_confidence.py": "PASS"
+  },
+  "static_test_function_count": 21,
+  "static_test_case_count": 68,
+  "static_cases_by_function": {
+    "test_hand_worked_supplied_weight_arithmetic": 8,
+    "test_each_playbook_preserves_its_explicit_current_weights": 8,
+    "test_zero_endpoints_and_unrounded_decimal_weighting": 4,
+    "test_unknown_scores_and_declared_factors_never_become_zero_or_get_dropped": 6,
+    "test_missing_binding_snapshot_or_feature_cannot_hide_a_required_factor": 1,
+    "test_zero_weight_still_requires_score_and_factor_without_renormalizing": 1,
+    "test_signed_factor_contributions_are_preserved_without_inventing_normalization": 1,
+    "test_multiple_factors_keep_separate_versions_bindings_and_component_membership": 1,
+    "test_out_of_bounds_scores_are_unavailable_not_clamped_into_valid_inputs": 2,
+    "test_wrong_units_cannot_supply_scores_or_factor_contributions": 4,
+    "test_wrong_identity_source_mode_and_quality_cannot_pass": 8,
+    "test_explicit_proxy_mode_and_quality_survive_in_complete_attribution": 1,
+    "test_wrong_feature_definition_and_old_calculation_stay_unavailable": 1,
+    "test_missing_or_unlinked_ancestry_cannot_lose_factor_source_attribution": 1,
+    "test_existing_context_rejects_future_misattributed_and_conflicting_records": 5,
+    "test_invalid_weights_fail_without_rescaling_or_defaulting": 8,
+    "test_policy_and_binding_contract_errors_are_explicit": 1,
+    "test_canonical_values_reject_non_numeric_or_nonfinite_contributions": 3,
+    "test_fixed_configuration_and_version_are_attributed_without_activation": 1,
+    "test_full_result_and_canonical_factors_are_immutable_with_detached_exports": 1,
+    "test_supplied_features_composition_candidate_recording_end_to_end": 2
+  },
+  "protected_test_selectors": [
+    "tests/trade_alerts_contracts",
+    "tests/trade_alerts_contracts/test_confidence.py",
+    "tests/test_models.py",
+    "tests/test_schwab_client.py",
+    "tests/test_wolf_macro_brain.py::test_stock_sector_etf"
+  ],
+  "protected_launcher": {
+    "exit_code": 1,
+    "phase": "initial os.chown before child creation or collection",
+    "exact_error": "OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-bbbda9mz'",
+    "passing_tests": null,
+    "proof_recordings_produced": false,
+    "output_record": "trade_alerts_build_docs/M4_4_LAUNCHER_LIMITATION.txt"
+  },
+  "required_recordings": [
+    "m44-confidence-long-proof.json",
+    "m44-confidence-short-proof.json"
+  ],
+  "supervisor_proof": {
+    "protected": true,
+    "stable": true,
+    "source_hash": "f1115ce6204c40de56a39b6189426deb9829a6e92aba03d90640e0df4569f336",
+    "runs": 2,
+    "exit_codes": [0, 0],
+    "passing_tests_each_run": 949,
+    "m4_4_cases_each_run": 68,
+    "failures_each_run": 0,
+    "errors_each_run": 0,
+    "skips_each_run": 0,
+    "ordered_test_ids_match": true,
+    "unexpected_isolation_denials_each_run": 0,
+    "cleanup_passed_each_run": true,
+    "long_recording_bytes": 11958,
+    "long_recording_sha256": "8c1da24c4a14eb1edbd48eb0c2184818b2b75e4d36c1107cb75312edb24f9816",
+    "short_recording_bytes": 11966,
+    "short_recording_sha256": "749d78f41e8a215b501590f9d4eb3284ac76d8644fe6706f6af1e713074a74b8",
+    "databento_credit_used": 0
+  },
+  "document_checks": {
+    "local_link_count": 96,
+    "missing_links": [],
+    "nine_canonical_files": true,
+    "functional_requirement_rows": 31,
+    "additional_capability_rows": 22,
+    "prior_blocked_rows_preserved": true,
+    "added_text_scan_matches": {
+      "email": false,
+      "webhook": false,
+      "private_identifier": false,
+      "wrong_visible_zone": false
+    },
+    "eight_playbooks_preserved": true,
+    "new_python_trailing_whitespace": []
+  },
+  "preservation": {
+    "unrelated_content_changes": [],
+    "existing_owner_or_mode_changes": [],
+    "canonical_records_unchanged": true,
+    "configuration_unchanged": true,
+    "protection_unchanged": true,
+    "approved_packet_and_proposals_unchanged": true,
+    "failing_test_list_unchanged": true
+  },
+  "new_file_ownership_attempts": [
+    {
+      "path": "consensus_engine/confidence.py",
+      "result": "[Errno 22] Invalid argument: '/home/openclaw/.openclaw/workspace/consensus_engine/confidence.py'"
+    },
+    {
+      "path": "tests/trade_alerts_contracts/test_confidence.py",
+      "result": "[Errno 22] Invalid argument: '/home/openclaw/.openclaw/workspace/tests/trade_alerts_contracts/test_confidence.py'"
+    },
+    {
+      "path": "trade_alerts_build_docs/M4_4_VERIFICATION.md",
+      "result": "[Errno 22] Invalid argument: '/home/openclaw/.openclaw/workspace/trade_alerts_build_docs/M4_4_VERIFICATION.md'"
+    },
+    {
+      "path": "trade_alerts_build_docs/M4_4_LOCAL_CHECKS.json",
+      "result": "[Errno 22] Invalid argument: '/home/openclaw/.openclaw/workspace/trade_alerts_build_docs/M4_4_LOCAL_CHECKS.json'"
+    },
+    {
+      "path": "trade_alerts_build_docs/M4_4_LAUNCHER_LIMITATION.txt",
+      "result": "[Errno 22] Invalid argument: '/home/openclaw/.openclaw/workspace/trade_alerts_build_docs/M4_4_LAUNCHER_LIMITATION.txt'"
+    }
+  ],
+  "host_ownership_verification_required": false,
+  "host_read_only_checks": {
+    "active_status_known": false,
+    "active_status_error": "Failed to connect to bus: Operation not permitted (consider using --machine=<user>@.host --user to connect to bus of other user)",
+    "shortcut_resolved": true,
+    "recent_health_log_search_exit_code": 0,
+    "recent_health_log_match_count": 0
+  },
+  "lint_typecheck": "No repository lint/type-check command configured; source grammar/compilation only.",
+  "test_gate": "PASS: two fresh protected runs passed 949 tests each, including all 68 M4.4 cases, with matching recordings, clean isolation and cleanup.",
+  "remaining_required_gate": "M4_4_VERIFICATION.md section 4: adopted full factor definitions, normalization, missingness/freshness policy and actual compatible source readiness. M5 retains durable storage; M16.4 retains calibration.",
+  "databento_credit_used": 0,
+  "databento_credit_reserved": 0,
+  "sha256": {
+    "consensus_engine/confidence.py": "4169b372c3d0a049b10c4873ea72fbedd45dcc4c7e6159868f9fcc19f5ce7fda",
+    "tests/trade_alerts_contracts/test_confidence.py": "5a93ee080e6c9eaf89f55bf939d2a4653fc8cd1f7da8e849217956fce0ba88f7",
+    "trade_alerts_build_docs/PROJECT_INDEX.md": "a9e64d7c2b3b7b6cfebe99e13de9d970a66faae9b7b5eb8e162d173cd202312e",
+    "trade_alerts_build_docs/ROADMAP.md": "a518d2d5b3fc20eea7634d2310185a4c1995a517374c2b45675ad3b1bbbc85ab",
+    "trade_alerts_build_docs/CODING_STANDARDS.md": "73ec643ef712d3e7c84823ceb933c94c2af9d83e54286b65a247649e59894a94",
+    "trade_alerts_build_docs/DATA_REQUIREMENTS.md": "2d4f1e8d44b3cd7dbfcd8310953eee24fcc26473863aa3e044f5cb789c39e2e0",
+    "trade_alerts_build_docs/TESTING_AND_VALIDATION.md": "61475346e77c84195e9185dab94cb44b3322dbec035167a12638e4fab7f4db4d",
+    "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md": "19736e611331e60e2542cae70467155df61aa0b6e2780bbc1681b461d5f6061a",
+    "trade_alerts_build_docs/M4_4_VERIFICATION.md": "6cadd329fa5a62d66cc50ad5f4c4dbedc171a6194d81769028a9600422ad1861",
+    "trade_alerts_build_docs/M4_4_LAUNCHER_LIMITATION.txt": "c99a431ccdfefee6bb4e6942a58233e3aa9522369020601aa6859761392a409d",
+    "scripts/testing/run_trade_alerts_contracts.py": "6b609b643edfc467fc63480acd63ad50d4044616aec5efca61f32315af3d3ad2",
+    "scripts/testing/trade_alerts_contract_child.py": "85285dee88b1e2894e0ffa0239d20a27c073b27ba70908204e9b1f02cd79f24c",
+    ".test-baseline": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "config/consensus.yaml": "0081fd5a99bf84c4e2cf0e6fa991ea51984baf2d315507ab54b7037dc35fbac8",
+    "consensus_engine/trade_alerts_models.py": "b9674913b413f0a293552340db2c830bb0292788fb36689b1568e5ba8b5042d5",
+    "consensus_engine/strategy_interface.py": "c0df609b99d7543c718cca2b5e6ced2f32b3804e17860f837952fc34e2e16bf9",
+    "trade_alerts_build_docs/M0_3_DEFINITION_PACKET.md": "a1a0f8e6a4e6d8c66e78f5df18ea7d20150d8cddf604d56ee709ca560f843c35",
+    "trade_alerts_build_docs/M0_3B_DEFINITION_PACKET.md": "ffd2b2f8bca262c5d9a1c6a37cc17db8cb335a9dd34aaf60f2b6664af3e331b5"
+  },
+  "static_check_note": "The initial case-counter tried literal_eval on a float constructor in a parameter list and failed. The corrected counter counts syntax-list entries without executing tests.",
+  "static_canonical_constructor_keyword_check": {
+    "calls_checked": 11,
+    "result": "PASS",
+    "method": "AST source inspection only; no test execution"
+  },
+  "tracked_diff_whitespace_check": "PASS: GIT_OPTIONAL_LOCKS=0 git diff --check returned exit 0 with no output."
+}

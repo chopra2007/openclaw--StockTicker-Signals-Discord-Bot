@@ -6,9 +6,6 @@ import pytest
 
 from consensus_engine import config as cfg, db, measurement
 from consensus_engine import trade_tracking as tracking
-from scripts.check_batch2_trade_gate import evaluate_gate
-
-
 @pytest.fixture
 async def tracking_db(tmp_path):
     cfg.load_config()
@@ -632,21 +629,8 @@ async def test_trade_plan_has_explicit_frozen_gate_columns(tracking_db):
     } <= columns
 
 
-@pytest.mark.parametrize(
-    "table,id_column",
-    [
-        ("measurement_trade_rule_sets_v1", "rule_set_id"),
-        ("measurement_trade_plan_events_v1", "event_id"),
-        ("measurement_contract_selection_events_v1", "event_id"),
-        ("measurement_market_observations_v1", "observation_id"),
-        ("measurement_trade_result_events_v1", "event_id"),
-    ],
-)
-@pytest.mark.parametrize("operation", ["UPDATE", "DELETE"])
 @pytest.mark.asyncio
-async def test_batch2_fact_tables_reject_update_and_delete(
-    tracking_db, table, id_column, operation
-):
+async def test_batch2_fact_tables_reject_update_and_delete(tracking_db):
     links = await _batch1_links()
     ids = await tracking.write_initial_trade_tracking_bundle(
         rule_set=_rule_set(),
@@ -670,14 +654,22 @@ async def test_batch2_fact_tables_reject_update_and_delete(
         "measurement_market_observations_v1": ids["observation_id"],
         "measurement_trade_result_events_v1": ids["result_event_id"],
     }
-    sql = (
-        f"UPDATE {table} SET {id_column}={id_column} WHERE {id_column}=?"
-        if operation == "UPDATE"
-        else f"DELETE FROM {table} WHERE {id_column}=?"
-    )
-
-    with pytest.raises(sqlite3.IntegrityError, match="append-only table"):
-        await tracking_db.execute(sql, (row_ids[table],))
+    tables = [
+        ("measurement_trade_rule_sets_v1", "rule_set_id"),
+        ("measurement_trade_plan_events_v1", "event_id"),
+        ("measurement_contract_selection_events_v1", "event_id"),
+        ("measurement_market_observations_v1", "observation_id"),
+        ("measurement_trade_result_events_v1", "event_id"),
+    ]
+    for table, id_column in tables:
+        for operation in ("UPDATE", "DELETE"):
+            sql = (
+                f"UPDATE {table} SET {id_column}={id_column} WHERE {id_column}=?"
+                if operation == "UPDATE"
+                else f"DELETE FROM {table} WHERE {id_column}=?"
+            )
+            with pytest.raises(sqlite3.IntegrityError, match="append-only table"):
+                await tracking_db.execute(sql, (row_ids[table],))
 
 
 @pytest.mark.asyncio
@@ -885,6 +877,8 @@ async def test_forced_final_write_failure_leaves_no_partial_batch2_bundle(tracki
 async def test_gate_requires_linked_usable_timestamped_exit_and_reproduces_share_math(
     tracking_db,
 ):
+    from scripts.check_batch2_trade_gate import evaluate_gate
+
     links = await _batch1_links()
     delivered = 1_786_563_000.0
     await tracking.record_trade_rule_set(**_rule_set())
@@ -940,6 +934,8 @@ async def test_gate_requires_linked_usable_timestamped_exit_and_reproduces_share
 async def test_gate_blocks_overdue_eligible_trade_and_mismatched_linked_prices(
     tracking_db,
 ):
+    from scripts.check_batch2_trade_gate import evaluate_gate
+
     delivered = 1_786_563_000.0
     await tracking.record_trade_rule_set(**_rule_set())
     overdue_links = await _batch1_links(suffix="overdue")
@@ -1037,6 +1033,8 @@ async def test_gate_blocks_overdue_eligible_trade_and_mismatched_linked_prices(
 
 @pytest.mark.asyncio
 async def test_gate_rejects_result_time_before_its_linked_exit(tracking_db):
+    from scripts.check_batch2_trade_gate import evaluate_gate
+
     delivered = 1_786_563_000.0
     links = await _batch1_links(suffix="result-time")
     await tracking.record_trade_rule_set(**_rule_set(rule_set_id="rules-result-time"))
