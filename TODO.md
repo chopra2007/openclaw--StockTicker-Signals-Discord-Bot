@@ -1186,10 +1186,10 @@ Stop the video reader saving names like "NVIDIA" instead of NVDA, which makes th
 step is written up in `trade_alerts_build_docs/HANDOFF_OPEN_ISSUES.md`. Read that
 first — it is written to be picked up by any agent, including a non-Claude one.
 
-**CURRENT STATUS (2026-09-19 PDT):** **The build is running unattended and has
-accepted 55 steps.** It is deep inside the M9.1 historical-replay family, now
-past step M9.1BC, building the machinery that will measure real trades on the
-one year of minute data already purchased.
+**CURRENT STATUS (2026-09-19 PDT):** **Running unattended, 53 steps accepted,
+deep inside the M9.1 historical-replay family (past M9.1BC).** The earlier
+2026-09-16 M0.2/M9.3 stop is long cleared; that account is kept below as
+history.
 
 What is built: all four playbooks read real bars; a runner that can sweep 18
 candidate settings across the nine training tickers; the entry model that fills

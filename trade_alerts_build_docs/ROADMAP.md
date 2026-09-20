@@ -6657,6 +6657,7 @@ The parent `M9.1 — Historical replay #1-4` is not complete; source/final/live 
 - [!] **M9.1BT — code fix done; count run still running:** hours remain. Handed to M9.1BU.
 - Note (2026-09-19 Pacific, late): the three shards launched earlier were gone with no part files; relaunched once with setsid, still running when this session ended.
 - Note (2026-09-20 Pacific, early): the shards were gone again with no part files; relaunched once more with setsid and seen running 20 seconds later. Still running when this session ended.
+- Note (2026-09-20 Pacific, morning): checked again; no `m91_count_part` process and no `part_*.json` in `/tmp/m91bt/` (only empty logs from 02:14). The shards died a third time with no output. No relaunch in this session.
 - [ ] **M9.1BU — collect the finished stock-typed D-113 count output:**
   next sub-step. If all three `/tmp/m91bt/part_*.json` exist and no `m91_count_part` process is running, merge them,
   publish as `trade_alerts_build_docs/M9_1BT_RETAINED_COUNTS.json` with its sha256, counts only, and compare with
