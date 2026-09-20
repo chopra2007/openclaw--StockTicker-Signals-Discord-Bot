@@ -167,3 +167,27 @@ what it says, not that the run measured what it was told to.
 **Lesson:** never report or trust a combined total for work split across named
 things. Split it. Treat any zero as a failure. This is what D-116's 2% gate exists
 to enforce.
+
+### 10. Nobody was watching for 6h20m — the largest single cost
+The build stopped at 02:50 and was not looked at until 09:15. The watchdog only
+auto-resumes stops it already recognises; anything else sits silently forever and
+notifies no one. The owner found it, not the agent.
+**Lesson:** a stalled build is the expensive failure, not the mistake that stalled
+it. Check the stage on a fixed cadence, and add a notification for any stop the
+watchdog cannot clear itself. Never assume "it is running" without looking.
+
+### 11. Asserting a command's behaviour from memory instead of reading it
+The previous session claimed `buildctl resume --clear-attention` would work.
+`buildctl` takes exactly one word; the flag was silently ignored, so a "fix" that
+did nothing was reported as done. The real path is
+`python3 controller.py --clear-attention resume`.
+**Lesson:** read the script before stating what a flag does. Verify the effect
+afterwards rather than assuming the command worked.
+
+### 12. Repeating a mistake ten minutes after writing the lesson for it
+`pkill -f <name>` killed the invoking shell for a **third** time — after the
+lesson in item 6 had already been written down, because the pattern matched the
+shell's own command line containing that text.
+**Lesson:** a written lesson does not protect you. When killing a process, list it
+with `ps -eo pid,args | grep "[m]y_pattern"` (the bracket stops grep matching
+itself), confirm the PID is the real target, then kill that PID alone.
