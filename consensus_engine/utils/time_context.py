@@ -10,6 +10,7 @@ answers time/market-hours questions correctly instead of hallucinating
 from stale training data.
 """
 
+from functools import lru_cache
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Literal
 from zoneinfo import ZoneInfo
@@ -109,6 +110,20 @@ def session_phase(
     return "CLOSED"
 
 
+@lru_cache(maxsize=None)
+def _session_dates_cached(start: date, end: date) -> tuple[date, ...]:
+    return tuple(ts.date() for ts in _NYSE.schedule(start, end).index)
+
+
+@lru_cache(maxsize=None)
+def _session_bounds_cached(day: date) -> tuple[datetime, datetime] | None:
+    sched = _NYSE.schedule(day, day)
+    if sched.empty:
+        return None
+    return (sched.iloc[0]["market_open"].astimezone(_NY),
+            sched.iloc[0]["market_close"].astimezone(_NY))
+
+
 def session_dates(start: date, end: date) -> list[date]:
     """NYSE trading-session dates from ``start`` to ``end``, inclusive.
 
@@ -117,20 +132,13 @@ def session_dates(start: date, end: date) -> list[date]:
     """
     if end < start:
         return []
-    sched = _NYSE.schedule(start, end)
-    if sched.empty:
-        return []
-    return [ts.date() for ts in sched.index]
+    return list(_session_dates_cached(start, end))
 
 
 def session_bounds(day: date) -> tuple[datetime, datetime] | None:
     """(open, close) in New York time for ``day``, or None if it is not a
     trading session. Early-close aware — a half-day returns its real close."""
-    sched = _NYSE.schedule(day, day)
-    if sched.empty:
-        return None
-    return (sched.iloc[0]["market_open"].astimezone(_NY),
-            sched.iloc[0]["market_close"].astimezone(_NY))
+    return _session_bounds_cached(day)
 
 
 def nyse_open_now(now_et: datetime | None = None) -> bool:

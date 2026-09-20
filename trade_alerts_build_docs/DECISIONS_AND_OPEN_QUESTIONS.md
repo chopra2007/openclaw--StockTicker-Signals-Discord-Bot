@@ -1457,3 +1457,128 @@ The two D-104 gaps (original availability/finality; point-in-time membership)
 and the M9.1S quote-decision/M4.4-confidence gap stay recorded gaps with every
 dependent rule switched off and labelled untested. The parent `M9.1 —
 Historical replay #1-4` is not complete.
+
+## 62. D-113 — the price and volume unit labels for the retained EQUS.MINI minute bars
+
+Recorded 2026-09-19 Pacific by the supervising session. This closes the stop that
+sub-steps M9.1BE to M9.1BM all waited on, and it corrects two labels D-112 got wrong.
+
+D-112 set `HistoryConventions.price="TRADE"` and `volume="TRADE"`. That was a mistake:
+those two fields are **unit** labels, not price-source labels, and no adapter accepts
+`TRADE` for either. That single wrong label is why the M9.1BC count run produced
+`ready: []` and returned `INCOMPATIBLE_PRICE_UNIT` on all 515,727 decision moments.
+
+The correct labels, verified in the code rather than assumed:
+
+- `price = "USD_PER_SHARE"`. `consensus_engine/databento_minute_bars.py` sets
+  `PRICE_SCALE = 1_000_000_000` and `_fixed_price` divides every open/high/low/close
+  by it before the bar is built, so each price reaching an adapter is already plain
+  US dollars per share (e.g. a raw `183_420_000_000` becomes `183.42`). The record
+  keeps `price_convention="DATABENTO_FIXED_1E9_REPORTED"` to say where it came from;
+  that is provenance, and is a separate field from the unit.
+- `volume = "SHARES"`. `iter_ohlcv_1m_records` passes `row.volume` through unchanged,
+  and the Databento OHLCV-1m field is a count of shares traded in the minute.
+
+Everything else in D-112 stands unchanged: the same job directory, the same
+manifest-verified `*.dbn.zst` files, the same nine D-107 training tickers with the
+eight held-out names still unread, the same instrument types, and
+`timestamp="START"`, `session="PREMARKET_AND_REGULAR"`, `adjustment_basis="UNADJUSTED"`,
+`finality="PROVISIONAL"` (D-110 offline path only), `publication="BATCH"`.
+`coverage_basis` keeps its D-112 note that EQUS.MINI carries roughly one fifth of the
+full tape, so absolute share-volume thresholds are not comparable across feeds.
+`evidence_reference` becomes `D-113`.
+
+Re-run `run_retained_counts` once with the corrected conventions and publish the
+ready/not-ready counts only. Do not choose files, tickers or conventions yourself.
+Publish no entry, no trade, no R and no profit figure. The two D-104 gaps, the
+M9.1S quote-decision/M4.4-confidence gap and the daily ATR/tick gap stay open with
+every dependent rule switched off, and the parent `M9.1 — Historical replay #1-4` is
+not complete.
+
+## 63. D-114 — run long offline jobs detached, and split them across the four cores
+
+Recorded 2026-09-19 Pacific by the supervising session, after the D-113 count run
+died twice with no output.
+
+### Why
+The run was launched from inside the builder's own agent session. When that
+session ended, the run died with it: 2h07m of work lost, no partial output, twice.
+The kernel log shows **no** out-of-memory kill, so starvation was not the cause.
+The cause is process ownership — the job was never detached from its parent.
+
+### The rule
+1. **Any job expected to run longer than one agent session must be launched
+   detached**, with `setsid nohup ... </dev/null &`, so it survives the session
+   that started it. This applies to every count run, sweep and backtest from here
+   on.
+2. **Split the work across cores by ticker.** The nine training names are
+   independent, so each process can load only its own. Python uses one core per
+   process, which is why a single run pins exactly one of the four.
+3. **Use three shards, not four.** The box has 7.7 GB of RAM, 4 cores and **no
+   swap**. Three shards measured about 200 MB each and leave a core for the
+   build's own test suite. Four would remove that headroom for no real gain.
+4. **Write one part file per shard, then merge.** Never have shards append to a
+   shared file.
+
+### What now exists
+- `/root/trade-alerts-builder/m91_count_part.py` — one shard. Takes a
+  comma-separated ticker list and an output path. It asserts the shard is a subset
+  of the nine D-107 training names, so it cannot read a held-out name by accident.
+- `/root/trade-alerts-builder/m91_count_merge.py` — sums the part files into one
+  result with the same shape a single run produces: counts summed per
+  (playbook, adapter, reason) key, skipped and no-prior lists concatenated.
+
+Launched 2026-09-19 as three shards: NVDA,MSFT,AAPL / TSLA,LLY,SPY / QQQ,XLV,USO,
+each writing `/tmp/m91_part_N.json`. Merge to `/tmp/m91bn_counts.json`, which is
+the path the open collect sub-step already looks for.
+
+### Applies to the next job too
+The 18-candidate threshold sweep is roughly eighteen times this workload. Run it
+the same way: detached, sharded by ticker, merged at the end. Do not run it inside
+an agent session.
+
+### Unchanged
+D-113's conventions, D-112's file and ticker assignment, and the sealed eight
+held-out names (GOOGL, AMZN, META, AVGO, BRK.B, IWM, GLD, VXX). Publish
+ready/not-ready counts only: no entry, no trade, no R, no profit figure.
+
+## 64. D-115 — the first non-empty count run, and the instrument-type mismatch it exposed
+
+Recorded 2026-09-19 Pacific. Result file:
+`trade_alerts_build_docs/M9_1BN_RETAINED_COUNTS.json`, produced by the three
+detached shards of D-114 and merged by `m91_count_merge.py`. This is the first run
+in this build to return a non-empty `ready` list.
+
+### What it found
+Per adapter, 171,909 decision moments. **76,404 ready (44%)**, 95,505 not ready.
+Totals across the three adapters: 515,727 moments called, 2,241 sessions used,
+13 manifest-verified files, 108 skipped ticker-days (90 `NO_USABLE_BARS`, which
+match ten market holidays across the nine names, and 18 `DEGRADED_SESSION` on
+2025-10-10 and 2025-10-13), 18 ticker-days with no prior session.
+
+### The mismatch — open, not fixed
+Every `not_ready` moment on two of the three adapters is
+`INCOMPATIBLE_INSTRUMENT_TYPE`, and the count is 95,505, which is exactly
+171,909 × 5/9. Five of the nine training names are stocks. **So every stock moment
+is being rejected and only the four ETFs are being measured.**
+
+The cause is a label mismatch, not bad data. `or_failure_rev_research_adapter.py`
+line 205 compares `bar.metadata.instrument_type` against the caller's declared
+type. `open_core17_ohlcv_1m_file` in `core17_bar_loader.py` stamps every bar with
+its default `instrument_type = "ETF"`, and takes no per-ticker argument. D-112
+correctly declares NVDA, MSFT, AAPL, TSLA and LLY as `EQUITY`, so those never
+match.
+
+**This must be fixed before any result is believed.** As it stands, any measurement
+would silently be an ETF-only study presented as a nine-name one. The fix is to
+give the loader a per-ticker instrument type instead of a single default; do not
+"fix" it by relabelling the stocks as ETFs.
+
+The third adapter's `vwap_level` rejects the same 95,505 moments with
+`NO_TRADED_SESSION_BAR_YET`. Whether that is the same root cause or a genuinely
+separate one has **not** been established.
+
+### Unchanged
+No entry, trade, R or profit figure is published here, and none should be until the
+mismatch above is fixed and the exit side is costed. The eight held-out names
+remain sealed and unread.

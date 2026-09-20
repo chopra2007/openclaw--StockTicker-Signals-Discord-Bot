@@ -161,3 +161,30 @@ def test_iter_ohlcv_1m_records_rejects_unknown_session_date():
             [_row()], dataset="EQUS.MINI", source_file_sha256=HASH,
             instrument_symbols=SYMBOLS, condition_by_date={}, record_id_prefix="t",
         ))
+
+
+def test_iter_ohlcv_1m_records_uses_declared_type_per_ticker():
+    symbols = {15144: "SPY", 7: "NVDA"}
+    records = list(iter_ohlcv_1m_records(
+        [_row(), _row(instrument_id=7)], dataset="EQUS.MINI", source_file_sha256=HASH,
+        instrument_symbols=symbols, condition_by_date=CONDITIONS, record_id_prefix="t",
+        instrument_types={"SPY": "ETF", "NVDA": "EQUITY"},
+    ))
+    assert [r.bar.metadata.instrument_type for r in records] == ["ETF", "EQUITY"]
+
+
+def test_iter_ohlcv_1m_records_skips_symbol_without_declared_type():
+    records = list(iter_ohlcv_1m_records(
+        [_row()], dataset="EQUS.MINI", source_file_sha256=HASH,
+        instrument_symbols=SYMBOLS, condition_by_date=CONDITIONS, record_id_prefix="t",
+        instrument_types={"NVDA": "EQUITY"},
+    ))
+    assert records == []
+
+
+def test_iter_ohlcv_1m_records_default_label_is_unchanged_without_types():
+    records = list(iter_ohlcv_1m_records(
+        [_row()], dataset="EQUS.MINI", source_file_sha256=HASH,
+        instrument_symbols=SYMBOLS, condition_by_date=CONDITIONS, record_id_prefix="t",
+    ))
+    assert records[0].bar.metadata.instrument_type == "ETF"

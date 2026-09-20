@@ -132,6 +132,7 @@ def iter_ohlcv_1m_records(
     condition_by_date: Mapping[str, str],
     record_id_prefix: str,
     instrument_type: str = "ETF",
+    instrument_types: Mapping[str, str] | None = None,
 ) -> Iterator[DatabentoMinuteRecord]:
     """Convert already-decoded OHLCV-1m rows into canonical `DatabentoMinuteRecord`.
 
@@ -150,6 +151,12 @@ def iter_ohlcv_1m_records(
     `instrument_type` is the caller's label for every row in this file: `ETF`
     (default, the original core-17 files) or `EQUITY` for a stock file. It is
     stated by the caller, never guessed from the symbol.
+
+    `instrument_types` (raw symbol -> `ETF`/`EQUITY`) gives a true type per
+    ticker for a file that mixes stocks and ETFs. When supplied it wins over
+    `instrument_type`, and a symbol missing from it is skipped, never given
+    the default label: the caller has not declared it, so it is not read
+    (this keeps sealed held-out names out of a run that names only its own).
 
     `condition_by_date` keys are Pacific calendar dates, matching the session
     `normalize_databento_ohlcv_1m` derives from each bar's own event time. The
@@ -170,6 +177,11 @@ def iter_ohlcv_1m_records(
         condition = condition_by_date.get(session)
         if condition is None:
             raise RecordError(f"row {index} session {session} is not in the retained condition list")
+        row_type = instrument_type
+        if instrument_types is not None:
+            row_type = instrument_types.get(raw_symbol)
+            if row_type is None:
+                continue
         provider_condition = "AVAILABLE" if condition == "available" else "DEGRADED"
         close_instant = start + _MINUTE
         context = DatabentoMinuteContext(
@@ -182,7 +194,7 @@ def iter_ohlcv_1m_records(
             normalized_time=close_instant,
             source_file_sha256=source_file_sha256,
             provider_condition=provider_condition,
-            instrument_type=instrument_type,
+            instrument_type=row_type,
         )
         record = {
             "publisher_id": row.publisher_id,
@@ -201,12 +213,16 @@ def iter_ohlcv_1m_records(
         )
 
 
-def open_core17_ohlcv_1m_file(job_dir: Path, dbn_filename: str) -> Iterator[DatabentoMinuteRecord]:
+def open_core17_ohlcv_1m_file(
+    job_dir: Path, dbn_filename: str, instrument_types: Mapping[str, str] | None = None,
+) -> Iterator[DatabentoMinuteRecord]:
     """Integration wrapper: verify, decode and convert one real retained monthly file.
 
     Not exercised by the offline contract tests: it imports `databento` and
     reads the retained files outside the protected sandbox. Kept thin on
     purpose so `iter_ohlcv_1m_records` carries the tested conversion logic.
+    `instrument_types` is passed through as the true per-ticker type (D-115);
+    without it every bar keeps the old default `ETF` label.
     """
     import databento as db  # local import: keep the SDK dependency out of the protected sandbox path
 
@@ -226,4 +242,5 @@ def open_core17_ohlcv_1m_file(job_dir: Path, dbn_filename: str) -> Iterator[Data
         instrument_symbols=instrument_symbols,
         condition_by_date=condition_by_date,
         record_id_prefix=f"core17-1y:{dbn_filename}",
+        instrument_types=instrument_types,
     )

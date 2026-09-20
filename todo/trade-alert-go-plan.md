@@ -125,3 +125,42 @@ against D-108. Only then buy the targeted option quotes and test the D-109 arms.
 
 **Trap:** never edit a workspace file while a review is pending — it causes
 "source changed before review". Check the stage first.
+
+## Handoff — read this first (2026-09-19 Pacific, updated)
+
+`trade_alerts_build_docs/HANDOFF_OPEN_ISSUES.md` is the single list of every open
+issue, every trap, and what to do next. It is written for any agent picking this
+up, including a non-Claude one. Highlights:
+
+- 54 steps accepted; current step M9.1BM/M9.1BN.
+- **No profit number exists yet.** The exit side is uncosted and two D-104 gaps
+  stand. The build's refusal to rank the 18 candidates is correct — do not work
+  around it by approximating a missing cost.
+- **D-113** corrected two unit labels D-112 got wrong: `price = "USD_PER_SHARE"`
+  and `volume = "SHARES"` (D-112 wrongly said `"TRADE"` for both). That one label
+  made the first real count run return zero usable moments out of 515,727 and
+  cost 6h20m and ~1.26M tokens in repeated blocked steps.
+- The eight held-out tickers (GOOGL, AMZN, META, AVGO, BRK.B, IWM, GLD, VXX) are
+  still sealed and unread. One shot against the D-108 bar.
+- Databento budget: $37.53 of $60 left.
+- Two unfixed controller weaknesses: it grinds on a repeated blocker instead of
+  halting, and nothing notifies a human when it stops.
+
+### 2026-09-19 evening — first real result, and the bug it found
+
+- **55 steps accepted.** The D-113 count run finished:
+  **76,404 usable decision moments per playbook out of 171,909 (44%)**.
+  Result file: `trade_alerts_build_docs/M9_1BN_RETAINED_COUNTS.json` (D-115).
+  First non-empty result in this build.
+- **Most important open bug:** every rejection is `INCOMPATIBLE_INSTRUMENT_TYPE`,
+  at exactly 5/9 of the total. `open_core17_ohlcv_1m_file` labels every bar `ETF`
+  by default, so **all five stock names are discarded and only SPY, QQQ, XLV and
+  USO are measured.** Give the loader a per-ticker type. Do not relabel the stocks.
+- **D-114:** long jobs must be launched detached (`setsid nohup ... </dev/null &`)
+  and sharded by ticker across three cores. Two runs died because they were
+  launched inside an AI session; no out-of-memory kill was involved. Sharded run
+  took about an hour against a 7-hour single-process estimate. Helpers:
+  `m91_count_part.py` and `m91_count_merge.py` in `/root/trade-alerts-builder/`.
+- **Do not stop `consensus-engine.service` while the build runs.** It frees ~960 MB
+  but the controller checks the bot is alive and halts with "a live bot program
+  needs attention".

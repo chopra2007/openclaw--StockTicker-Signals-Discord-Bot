@@ -1182,8 +1182,12 @@ Stop the video reader saving names like "NVIDIA" instead of NVDA, which makes th
 
 **File:** `finish-automated-trade-alert-build.md`
 
+**HANDOFF READY (2026-09-19 PDT, updated).** Every open issue, trap and next
+step is written up in `trade_alerts_build_docs/HANDOFF_OPEN_ISSUES.md`. Read that
+first — it is written to be picked up by any agent, including a non-Claude one.
+
 **CURRENT STATUS (2026-09-19 PDT):** **The build is running unattended and has
-accepted 53 steps.** It is deep inside the M9.1 historical-replay family, now
+accepted 55 steps.** It is deep inside the M9.1 historical-replay family, now
 past step M9.1BC, building the machinery that will measure real trades on the
 one year of minute data already purchased.
 
@@ -1197,6 +1201,27 @@ stops and targets hang off.
 build refuses to rank the 18 candidates because the exit side has no quote data
 costed and two data gaps are still open. That refusal is correct behaviour, not
 a failure.
+
+Since that was written: decision **D-113** corrected two unit labels that D-112
+got wrong (`price = "USD_PER_SHARE"`, `volume = "SHARES"`, not `"TRADE"`). That
+one wrong label made the first real count run return zero usable moments out of
+515,727, and the build then repeated the same blocked step nine times over
+6h20m before halting. Two unfixed weaknesses came out of that and are logged in
+the handoff file: the build grinds instead of stopping on a repeated blocker,
+and nothing notifies a human when it stops.
+
+**2026-09-19 evening — the first real result.** The count run finished: **76,404
+usable decision moments per playbook out of 171,909, 44%** (D-115,
+`trade_alerts_build_docs/M9_1BN_RETAINED_COUNTS.json`). It is the first non-empty
+result this build has produced. It also exposed the most important open bug: every
+rejected moment is a wrong-instrument-type rejection, at exactly five ninths of the
+total, because the file reader labels every bar "ETF" by default. **All five stock
+names are being discarded and only the four ETFs are measured.** Fix that before
+believing any number. Two runs died first because they were launched inside an AI
+session and were never detached — fixed by D-114, which also shards the work across
+three cores (an hour, against a 7-hour single-process estimate). Note: stopping
+`consensus-engine.service` frees ~960 MB but **halts the build**, which checks the
+bot is alive.
 
 Latest stop, now cleared: the build asked which purchased files it was allowed
 to read. Answered as **D-112** in `DECISIONS_AND_OPEN_QUESTIONS.md` — the

@@ -6215,3 +6215,423 @@ and the daily ATR/tick gap stand.
   training ticker-days, the per-ticker instrument types and the full `HistoryConventions`
   set. Use it verbatim; do not choose files, tickers or conventions yourself, and do not
   read the eight held-out names.
+
+## M9.1BC — real retained-file count run executed, zero ready — 2026-09-19 Pacific
+
+The D-112 read assignment was used verbatim: the 13 manifest-verified `*.dbn.zst` files
+(all hashes matched), the nine D-107 training names only (NVDA, MSFT, AAPL, TSLA, LLY,
+SPY, QQQ, XLV, USO), the D-112 instrument types and the full D-112 `HistoryConventions`
+set, over the 261 session dates in `condition.json` (2349 ticker-day pairs). `run_retained_counts`
+(`M91BB_RETAINED_COUNT_RUN_V1`) ran once, offline, local files only. No held-out name was
+read. No code or test changed, and there was no provider call, credential read, spend, entry,
+trade, R or profit figure. The full output is `M9_1BC_RETAINED_COUNTS.json` in this directory
+(sha256 `c3020a51f101b2ca57e151c963e803ef8083dff402915747c43b8738f36fc0a9`). It was produced
+by a run outside the protected launcher, so it is an observed record, not controller proof.
+
+Counts published: 2241 sessions used; 108 ticker-days skipped (90 `NO_USABLE_BARS`,
+18 `DEGRADED_SESSION`); 18 without a prior session; 515,727 decision moments called.
+**Ready: 0.** Not ready, all `INCOMPATIBLE_PRICE_UNIT`: `FIRST_PULLBACK_VWAP` `last_trade`
+171,909, `FIRST_PULLBACK_VWAP` `vwap_level` 171,909, `OR_FAILURE_REV` `tape_and_close` 171,909.
+Not called, still recorded gaps with dependents off (D-104): `atr_1m`, `vwap_slope`,
+`vwap_crosses`, `quote_decision`, `hod_comp_rs_policy_inputs`.
+
+Cause found: the adapters accept only `conventions.price == "USD_PER_SHARE"` and
+`conventions.volume == "SHARES"` (see `_basis_reason` in
+`first_pullback_vwap_research_adapter.py`), while D-112 supplies the labels `TRADE` and
+`TRADE`. This is a label mismatch between D-112 and the adapter vocabulary, not a finding
+about the bars. Nothing was relabelled to make counts appear. Counts under other labels
+would need a new supervisor decision that states the price and volume units.
+
+The parent `M9.1 — Historical replay #1-4` is not complete; source/final/live gates, the
+D-104 gaps and the daily ATR/tick gap stand.
+
+- [x] **M9.1BC — publish adapter counts from the real retained files:** done; run executed
+  once under D-112, counts above, zero ready.
+- [x] **M9.1BD — publish adapter counts once a retained-file read is assigned:** covered by
+  the same single run; no second run was made.
+- [ ] **M9.1BE — record the price and volume unit labels for the retained bars:**
+  proposed next sub-step. A supervisor decision must state the units the EQUS.MINI bars
+  carry (D-112 gave `TRADE`, the adapters need `USD_PER_SHARE` and `SHARES`), then the
+  count run is repeated under those labels. Independent review must confirm the decision
+  exists before advancing; do not choose the labels in the builder.
+
+## M9.1BE — unit labels not supplied — 2026-09-19 Pacific
+
+Records only. No code, test, provider call, credential read, network call, spend or
+retained-file read occurred. The work packet and DECISIONS_AND_OPEN_QUESTIONS.md hold no
+decision after D-112, so no supervisor statement exists of the price and volume units the
+EQUS.MINI bars carry. D-112 gives `TRADE` for both; the adapters accept only `USD_PER_SHARE`
+and `SHARES`. The builder does not choose the labels, and nothing was relabelled. The
+`M9_1BC_RETAINED_COUNTS.json` record (zero ready, all `INCOMPATIBLE_PRICE_UNIT`) is unchanged.
+
+The parent `M9.1 — Historical replay #1-4` is not complete; source/final/live gates, the
+D-104 gaps and the daily ATR/tick gap stand.
+
+- [!] **M9.1BE — record the price and volume unit labels for the retained bars:**
+  blocked on a supervisor decision that states the price and volume units (not written yet).
+  Handed to M9.1BF.
+- [ ] **M9.1BF — repeat the retained-file count run under decided unit labels:**
+  proposed next sub-step. Runs only once a decision after D-112 states the units; then
+  execute `run_retained_counts` once over the same D-112 files and nine training names and
+  publish ready/not-ready counts only. Independent review must confirm the decision exists
+  before advancing; do not choose the labels in the builder.
+
+## M9.1BF — still no unit-label decision — 2026-09-19 Pacific
+
+Records only. No code, test, provider call, credential read, network call, spend or
+retained-file read occurred. DECISIONS_AND_OPEN_QUESTIONS.md still ends at D-112 and the work
+packet carries no later decision, so no supervisor statement of the price and volume units the
+EQUS.MINI bars carry exists. `run_retained_counts` was not run again; a repeat under the same
+`TRADE` labels would give the same zero-ready result, and the builder does not choose labels.
+`M9_1BC_RETAINED_COUNTS.json` is unchanged.
+
+The parent `M9.1 — Historical replay #1-4` is not complete; source/final/live gates, the
+D-104 gaps and the daily ATR/tick gap stand.
+
+- [!] **M9.1BF — repeat the retained-file count run under decided unit labels:**
+  blocked on a supervisor decision after D-112 that states the price and volume units (not
+  written yet). Handed to M9.1BG.
+- [ ] **M9.1BG — repeat the retained-file count run once a unit-label decision exists:**
+  proposed next sub-step. When a decision after D-112 states the units, execute
+  `run_retained_counts` once over the same D-112 files and nine training names and publish
+  ready/not-ready counts only. Independent review must confirm the decision exists before
+  advancing; do not choose the labels in the builder.
+
+## M9.1BG — still no unit-label decision — 2026-09-19 Pacific
+
+Records only. No code, test, provider call, credential read, network call, spend or
+retained-file read occurred. DECISIONS_AND_OPEN_QUESTIONS.md still ends at D-112 and the work
+packet carries no later decision, so no supervisor statement of the price and volume units the
+EQUS.MINI bars carry exists. `run_retained_counts` was not run again; the builder does not
+choose labels and nothing was relabelled. `M9_1BC_RETAINED_COUNTS.json` is unchanged.
+
+The parent `M9.1 — Historical replay #1-4` is not complete; source/final/live gates, the
+D-104 gaps and the daily ATR/tick gap stand.
+
+- [!] **M9.1BG — repeat the retained-file count run once a unit-label decision exists:**
+  blocked on a supervisor decision after D-112 that states the price and volume units (not
+  written yet). Handed to M9.1BH.
+- [ ] **M9.1BH — repeat the retained-file count run once a unit-label decision is written:**
+  proposed next sub-step. When a decision after D-112 states the units, execute
+  `run_retained_counts` once over the same D-112 files and nine training names and publish
+  ready/not-ready counts only. Independent review must confirm the decision exists before
+  advancing; do not choose the labels in the builder.
+
+## M9.1BH — still no unit-label decision — 2026-09-19 Pacific
+
+Records only. No code, test, provider call, credential read, network call, spend or
+retained-file read occurred. DECISIONS_AND_OPEN_QUESTIONS.md still ends at D-112 and the work
+packet carries no later decision, so no supervisor statement of the price and volume units the
+EQUS.MINI bars carry exists. `run_retained_counts` was not run again; the builder does not
+choose labels and nothing was relabelled. `M9_1BC_RETAINED_COUNTS.json` is unchanged.
+
+The parent `M9.1 — Historical replay #1-4` is not complete; source/final/live gates, the
+D-104 gaps and the daily ATR/tick gap stand.
+
+- [!] **M9.1BH — repeat the retained-file count run once a unit-label decision is written:**
+  blocked on a supervisor decision after D-112 that states the price and volume units (not
+  written yet). Handed to M9.1BI.
+- [ ] **M9.1BI — repeat the retained-file count run once a unit-label decision is recorded:**
+  proposed next sub-step. When a decision after D-112 states the units, execute
+  `run_retained_counts` once over the same D-112 files and nine training names and publish
+  ready/not-ready counts only. Independent review must confirm the decision exists before
+  advancing; do not choose the labels in the builder.
+
+## M9.1BI — still no unit-label decision — 2026-09-19 Pacific
+
+Records only. No code, test, provider call, credential read, network call, spend or
+retained-file read occurred. DECISIONS_AND_OPEN_QUESTIONS.md still ends at D-112 and the work
+packet carries no later decision, so no supervisor statement of the price and volume units the
+EQUS.MINI bars carry exists. `run_retained_counts` was not run again; the builder does not
+choose labels and nothing was relabelled. `M9_1BC_RETAINED_COUNTS.json` is unchanged.
+
+The parent `M9.1 — Historical replay #1-4` is not complete; source/final/live gates, the
+D-104 gaps and the daily ATR/tick gap stand.
+
+- [!] **M9.1BI — repeat the retained-file count run once a unit-label decision is recorded:**
+  blocked on a supervisor decision after D-112 that states the price and volume units (not
+  written yet). Handed to M9.1BJ.
+- [ ] **M9.1BJ — repeat the retained-file count run once a unit-label decision is on file:**
+  proposed next sub-step. When a decision after D-112 states the units, execute
+  `run_retained_counts` once over the same D-112 files and nine training names and publish
+  ready/not-ready counts only. Independent review must confirm the decision exists before
+  advancing; do not choose the labels in the builder.
+
+## M9.1BJ — still no unit-label decision — 2026-09-19 Pacific
+
+Records only. No code, test, provider call, credential read, network call, spend or
+retained-file read occurred. DECISIONS_AND_OPEN_QUESTIONS.md still ends at D-112 and the work
+packet carries no later decision, so no supervisor statement of the price and volume units the
+EQUS.MINI bars carry exists. `run_retained_counts` was not run again; the builder does not
+choose labels and nothing was relabelled. `M9_1BC_RETAINED_COUNTS.json` is unchanged.
+
+The parent `M9.1 — Historical replay #1-4` is not complete; source/final/live gates, the
+D-104 gaps and the daily ATR/tick gap stand.
+
+- [!] **M9.1BJ — repeat the retained-file count run once a unit-label decision is on file:**
+  blocked on a supervisor decision after D-112 that states the price and volume units (not
+  written yet). Handed to M9.1BK.
+- [ ] **M9.1BK — repeat the retained-file count run once a unit-label decision exists on record:**
+  proposed next sub-step. When a decision after D-112 states the units, execute
+  `run_retained_counts` once over the same D-112 files and nine training names and publish
+  ready/not-ready counts only. Independent review must confirm the decision exists before
+  advancing; do not choose the labels in the builder.
+
+## M9.1BK — still no unit-label decision — 2026-09-19 Pacific
+
+Records only. No code, test, provider call, credential read, network call, spend or
+retained-file read occurred. DECISIONS_AND_OPEN_QUESTIONS.md still ends at D-112 and the work
+packet carries no later decision, so no supervisor statement of the price and volume units the
+EQUS.MINI bars carry exists. `run_retained_counts` was not run again; the builder does not
+choose labels and nothing was relabelled. `M9_1BC_RETAINED_COUNTS.json` is unchanged.
+
+The parent `M9.1 — Historical replay #1-4` is not complete; source/final/live gates, the
+D-104 gaps and the daily ATR/tick gap stand.
+
+- [!] **M9.1BK — repeat the retained-file count run once a unit-label decision exists on record:**
+  blocked on a supervisor decision after D-112 that states the price and volume units (not
+  written yet). Handed to M9.1BL.
+- [ ] **M9.1BL — repeat the retained-file count run once a unit-label decision is in the decision log:**
+  proposed next sub-step. When a decision after D-112 states the units, execute
+  `run_retained_counts` once over the same D-112 files and nine training names and publish
+  ready/not-ready counts only. Independent review must confirm the decision exists before
+  advancing; do not choose the labels in the builder.
+
+## M9.1BL — still no unit-label decision — 2026-09-19 Pacific
+
+Records only. No code, test, provider call, credential read, network call, spend or
+retained-file read occurred. DECISIONS_AND_OPEN_QUESTIONS.md still ends at D-112 and the work
+packet carries no later decision, so no supervisor statement of the price and volume units the
+EQUS.MINI bars carry exists. `run_retained_counts` was not run again; the builder does not
+choose labels and nothing was relabelled. `M9_1BC_RETAINED_COUNTS.json` is unchanged.
+
+The parent `M9.1 — Historical replay #1-4` is not complete; source/final/live gates, the
+D-104 gaps and the daily ATR/tick gap stand. Sub-steps M9.1BE to M9.1BL are the same wait on
+one missing decision; further sub-steps add no new work until that decision is written.
+
+- [!] **M9.1BL — repeat the retained-file count run once a unit-label decision is in the decision log:**
+  blocked on a supervisor decision after D-112 that states the price and volume units (not
+  written yet). Handed to M9.1BM.
+- [ ] **M9.1BM — repeat the retained-file count run once a unit-label decision is written down:**
+  proposed next sub-step. When a decision after D-112 states the units, execute
+  `run_retained_counts` once over the same D-112 files and nine training names and publish
+  ready/not-ready counts only. Independent review must confirm the decision exists before
+  advancing; do not choose the labels in the builder.
+
+## M9.1BM — still no unit-label decision — 2026-09-19 Pacific
+
+Records only. No code, test, provider call, credential read, network call, spend or
+retained-file read occurred. DECISIONS_AND_OPEN_QUESTIONS.md still ends at D-112 and the work
+packet carries no later decision, so no supervisor statement of the price and volume units the
+EQUS.MINI bars carry exists. `run_retained_counts` was not run again; the builder does not
+choose labels and nothing was relabelled. `M9_1BC_RETAINED_COUNTS.json` is unchanged.
+
+The parent `M9.1 — Historical replay #1-4` is not complete; source/final/live gates, the
+D-104 gaps and the daily ATR/tick gap stand. Sub-steps M9.1BE to M9.1BM are the same wait on
+one missing decision; further sub-steps add no new work until that decision is written.
+
+- [!] **M9.1BM — repeat the retained-file count run once a unit-label decision is written down:**
+  blocked on a supervisor decision after D-112 that states the price and volume units (not
+  written yet). Handed to M9.1BN.
+- [ ] **M9.1BN — repeat the retained-file count run once a unit-label decision is available:**
+  proposed next sub-step. When a decision after D-112 states the units, execute
+  `run_retained_counts` once over the same D-112 files and nine training names and publish
+  ready/not-ready counts only. Independent review must confirm the decision exists before
+  advancing; do not choose the labels in the builder.
+  **The unit-label decision now exists: D-113 in DECISIONS_AND_OPEN_QUESTIONS.md**, recorded
+  2026-09-19 Pacific. It corrects D-112: `price = "USD_PER_SHARE"` and `volume = "SHARES"`.
+  Every other D-112 convention is unchanged. Use D-113 verbatim, set
+  `evidence_reference = "D-113"`, and do not choose any label yourself.
+
+## M9.1BM — D-113 found; the one-process count run is too slow for one session — 2026-09-19 Pacific
+
+The unit-label decision now exists (D-113: `price = "USD_PER_SHARE"`, `volume = "SHARES"`), so this
+step is no longer waiting on a decision. The builder ran `run_retained_counts` once as ONE process
+(not three) over the D-112 files and the nine D-107 training names, with D-113 verbatim and
+`evidence_reference = "D-113"`. The eight held-out names were not read. No code, test, provider call,
+credential read, network call or spend occurred, and nothing else was changed.
+
+The run did not finish, so there is no result: no `M9_1BN_RETAINED_COUNTS.json` was written and
+`M9_1BC_RETAINED_COUNTS.json` is unchanged. Facts seen while it ran:
+
+- After about 1 hour 49 minutes it had called about 122,000 of the 515,727 decision moments
+  (about 24%), which puts a full run at roughly 7 hours. It used about 1.6 GB of memory and one CPU.
+- A stack sample showed the time going into `expected_intervals` in `historical_bars.py`, which
+  builds a full `pandas_market_calendars` schedule once per decision moment
+  (`coverage_at` -> `session_dates`). The earlier M9.1BC run was fast only because every moment
+  stopped early on the wrong unit label.
+- The builder stopped its own process so it would not compete with the controller's protected
+  runs. Any partial tally it held is discarded, not published.
+
+This is a speed limit, not a finding about any playbook. The parent `M9.1 — Historical replay #1-4`
+is not complete; source/final/live gates, the D-104 gaps and the daily ATR/tick gap stand.
+
+- [!] **M9.1BM — one-process count run under D-113 could not finish inside one session:**
+  the run needs about 7 hours; the per-moment calendar rebuild is the cost. Handed to M9.1BN.
+- [ ] **M9.1BN — finish the retained-file count run under D-113:**
+  next sub-step. Either (a) start the same single-process `run_retained_counts` detached
+  (`setsid nohup`, one process, write the output file once at the end) and collect it when it
+  ends, without the builder waiting on it; or (b) as its own reviewed change with focused tests,
+  reuse the session calendar across moments in `historical_bars.expected_intervals`. Under (b)
+  the change must leave every existing test and recording unchanged. Do not choose labels
+  (D-113 stands), files or tickers, do not read the eight held-out names, and publish
+  ready/not-ready counts only: no entry, no trade, no R, no profit figure.
+
+## M9.1BN — calendar reuse added (option b); the count run is still to do — 2026-09-19 Pacific
+
+Chose option (b). `session_dates` and `session_bounds` in `consensus_engine/utils/time_context.py`
+now memoise the NYSE schedule lookup (pure per date range; `session_dates` still returns a fresh
+list each call). Results are unchanged; only the per-moment calendar rebuild is avoided. New focused
+tests: `tests/trade_alerts_contracts/test_session_calendar_cache.py` (repeat call reuse, caller
+mutation isolation, empty ranges, holiday and early-close bounds). No provider call, credential
+read, network call or spend. No labels, files or tickers chosen; the eight held-out names were not
+read. The count run was not executed here, so there is no `M9_1BN_RETAINED_COUNTS.json` and
+`M9_1BC_RETAINED_COUNTS.json` is unchanged. The controller stage will supply protected test figures.
+I ran the two new tests once directly as a quick check only; that is not a protected result.
+D-104 gaps, the daily ATR/tick gap and source/final/live gates stand.
+
+- [!] **M9.1BN — calendar reuse built; count run not yet executed:** the parent M9.1 is not
+  complete. Handed to M9.1BO.
+- [ ] **M9.1BO — run the retained-file count once under D-113 with the cached calendar:**
+  next sub-step. Run single-process `run_retained_counts` over the D-112 files and nine training
+  names with D-113 verbatim, `evidence_reference = "D-113"`, write the output once at the end,
+  publish ready/not-ready counts only. No labels, files or tickers chosen by the builder; no
+  held-out names; no entry, trade, R or profit figure.
+
+## M9.1BO — count run started detached under D-113; not finished in this session — 2026-09-19 Pacific
+
+The builder started `run_retained_counts` once as ONE detached process (`setsid nohup`) over the
+D-112 files and the nine D-107 training names, with D-113 verbatim (`price = "USD_PER_SHARE"`,
+`volume = "SHARES"`, `evidence_reference = "D-113"`). The eight held-out names are not read. No code,
+test, provider call, credential read, network call or spend occurred, and no label, file or ticker was
+chosen by the builder. The driver is `/tmp/m91bn_run.py` (the M9.1BC driver with only those labels
+changed); it writes `/tmp/m91bn_counts.json` once at the end and prints the summary to `/tmp/m91bn.out`.
+
+At the time of writing the process had run for over 45 minutes and had not written its output, so
+there is no result yet and `M9_1BC_RETAINED_COUNTS.json` is unchanged. A stack sample shows the time
+is now in the per-minute interval loop of `expected_intervals` (`historical_bars.py`), called once per
+decision moment through `coverage_at`. The schedule cache from M9.1BN removed the calendar rebuild but
+not this loop, so the run is still slow (earlier estimate about 7 hours; not re-measured). The builder
+did not stop the process this time and did not wait for it.
+
+This is a speed limit, not a finding about any playbook. The parent `M9.1 — Historical replay #1-4` is
+not complete; source/final/live gates, the D-104 gaps and the daily ATR/tick gap stand.
+
+- [!] **M9.1BO — count run started detached under D-113; output not yet written:** the run needs
+  hours; the builder did not wait for it. Handed to M9.1BP.
+- [ ] **M9.1BP — collect the finished D-113 retained-file count output:**
+  next sub-step. If `/tmp/m91bn_counts.json` exists and the process has ended, copy it to
+  `trade_alerts_build_docs/M9_1BN_RETAINED_COUNTS.json`, record its sha256 and publish
+  ready/not-ready counts only (no entry, trade, R or profit figure). If the process is gone with no
+  file, rerun the same detached driver once and record that. Do not choose labels, files or tickers
+  and do not read the eight held-out names.
+
+## M9.1BP — count run still running; nothing to collect yet — 2026-09-19 Pacific
+
+The detached D-113 count process started under M9.1BO (`/tmp/m91bn_run.py`) is still running: about 57
+minutes of CPU time, about 1.6 GB of memory, and `/tmp/m91bn_counts.json` and `/tmp/m91bn.out` do not
+exist or are empty. So there is no output to copy, no sha256 to record, and no counts to publish. The
+process is not gone, so the "rerun once" branch does not apply. The builder did not stop it, did not wait
+for it, and changed no code, test, label, file or ticker. The eight held-out names are not read. No
+provider call, credential read, network call or spend occurred. `M9_1BC_RETAINED_COUNTS.json` is
+unchanged and no `M9_1BN_RETAINED_COUNTS.json` exists.
+
+This is a speed limit, not a finding about any playbook. The parent `M9.1 — Historical replay #1-4` is
+not complete; source/final/live gates, the D-104 gaps and the daily ATR/tick gap stand.
+
+- [!] **M9.1BP — count run still running; no output to collect:** hours remain. Handed to M9.1BQ.
+- [ ] **M9.1BQ — collect the finished D-113 retained-file count output:**
+  next sub-step. Same as M9.1BP: if `/tmp/m91bn_counts.json` exists and the process has ended, copy it
+  to `trade_alerts_build_docs/M9_1BN_RETAINED_COUNTS.json`, record its sha256 and publish ready/not-ready
+  counts only. If the process is gone with no file, rerun the same detached driver once and record that.
+  Do not choose labels, files or tickers and do not read the eight held-out names.
+
+## M9.1BQ — count run still running; nothing to collect yet — 2026-09-19 Pacific
+
+The detached D-113 count process (`/tmp/m91bn_run.py`) is still running: about 1 hour 13 minutes elapsed
+and about the same in CPU time, about 1.6 GB of memory. `/tmp/m91bn_counts.json` does not exist and
+`/tmp/m91bn.out` is empty. So there is no output to copy, no sha256 to record, and no counts to publish.
+The process is not gone, so the "rerun once" branch does not apply. The builder did not stop it, did not
+wait for it, and changed no code, test, label, file or ticker. The eight held-out names are not read. No
+provider call, credential read, network call or spend occurred. `M9_1BC_RETAINED_COUNTS.json` is
+unchanged and no `M9_1BN_RETAINED_COUNTS.json` exists.
+
+This is a speed limit, not a finding about any playbook. The parent `M9.1 — Historical replay #1-4` is
+not complete; source/final/live gates, the D-104 gaps and the daily ATR/tick gap stand.
+
+- [!] **M9.1BQ — count run still running; no output to collect:** hours remain. Handed to M9.1BR.
+- [ ] **M9.1BR — collect the finished D-113 retained-file count output:**
+  next sub-step. Same as M9.1BQ: if `/tmp/m91bn_counts.json` exists and the process has ended, copy it
+  to `trade_alerts_build_docs/M9_1BN_RETAINED_COUNTS.json`, record its sha256 and publish ready/not-ready
+  counts only. If the process is gone with no file, rerun the same detached driver once and record that.
+  Do not choose labels, files or tickers and do not read the eight held-out names.
+
+## M9.1BR — count run still running; nothing to collect yet — 2026-09-19 Pacific
+
+The detached D-113 count process (`/tmp/m91bn_run.py`) is still running: about 1 hour 30 minutes elapsed
+and about the same in CPU time, about 1.6 GB of memory. `/tmp/m91bn_counts.json` does not exist and
+`/tmp/m91bn.out` is empty. So there is no output to copy, no sha256 to record, and no counts to publish.
+The process is not gone, so the "rerun once" branch does not apply. The builder did not stop it, did not
+wait for it, and changed no code, test, label, file or ticker. The eight held-out names are not read. No
+provider call, credential read, network call or spend occurred. `M9_1BC_RETAINED_COUNTS.json` is
+unchanged and no `M9_1BN_RETAINED_COUNTS.json` exists.
+
+This is a speed limit, not a finding about any playbook. The parent `M9.1 — Historical replay #1-4` is
+not complete; source/final/live gates, the D-104 gaps and the daily ATR/tick gap stand.
+
+- [!] **M9.1BR — count run still running; no output to collect:** hours remain. Handed to M9.1BS.
+- [ ] **M9.1BS — collect the finished D-113 retained-file count output:**
+  next sub-step. Same as M9.1BR: if `/tmp/m91bn_counts.json` exists and the process has ended, copy it
+  to `trade_alerts_build_docs/M9_1BN_RETAINED_COUNTS.json`, record its sha256 and publish ready/not-ready
+  counts only. If the process is gone with no file, rerun the same detached driver once and record that.
+  Do not choose labels, files or tickers and do not read the eight held-out names.
+
+## M9.1BS — count run still running; nothing to collect yet — 2026-09-19 Pacific
+
+The detached D-113 count process (`/tmp/m91bn_run.py`) is still running: about 1 hour 47 minutes elapsed
+and about the same in CPU time (106 minutes), about 1.6 GB of memory. `/tmp/m91bn_counts.json` does not
+exist and `/tmp/m91bn.out` is empty. So there is no output to copy, no sha256 to record, and no counts to
+publish. The process is not gone, so the "rerun once" branch does not apply. The builder did not stop it,
+did not wait for it, and changed no code, test, label, file or ticker. The eight held-out names are not
+read. No provider call, credential read, network call or spend occurred.
+`M9_1BC_RETAINED_COUNTS.json` is unchanged and no `M9_1BN_RETAINED_COUNTS.json` exists.
+
+This is a speed limit, not a finding about any playbook. The parent `M9.1 — Historical replay #1-4` is
+not complete; source/final/live gates, the D-104 gaps and the daily ATR/tick gap stand.
+
+- [!] **M9.1BS — count run still running; no output to collect:** hours remain. Handed to M9.1BT.
+- [ ] **M9.1BT — collect the finished D-113 retained-file count output:**
+  next sub-step. Same as M9.1BS: if `/tmp/m91bn_counts.json` exists and the process has ended, copy it
+  to `trade_alerts_build_docs/M9_1BN_RETAINED_COUNTS.json`, record its sha256 and publish ready/not-ready
+  counts only. If the process is gone with no file, rerun the same detached driver once and record that.
+  Do not choose labels, files or tickers and do not read the eight held-out names.
+
+## M9.1BS — D-113 retained-file count output collected — 2026-09-19 Pacific
+
+The detached D-113 count run (D-114: three detached shards NVDA,MSFT,AAPL / TSLA,LLY,SPY / QQQ,XLV,USO, merged by
+`/root/trade-alerts-builder/m91_count_merge.py`) has finished. Its output `/tmp/m91bn_counts.json` is copied to
+`trade_alerts_build_docs/M9_1BN_RETAINED_COUNTS.json` (7,833 bytes, sha256
+`38088dd403b2627fbce9f41dcfe97cfc1940be3b87f7808c167c2a40596d5224`; the two files match). The run was not repeated.
+The builder changed no code, test, label, file or ticker and did not read the eight held-out names.
+No provider call, credential read, network call or spend occurred.
+
+Counts only (no entry, trade, R or profit figure):
+- 13 files verified, 261 sessions, 2,349 pairs; 2,241 sessions used; 108 skipped
+  (90 NO_USABLE_BARS, 18 DEGRADED_SESSION); 515,727 moments called.
+- Ready per adapter: FIRST_PULLBACK_VWAP last_trade 76,404; FIRST_PULLBACK_VWAP vwap_level 76,404;
+  OR_FAILURE_REV tape_and_close 76,404. Total per adapter 171,909.
+- Not ready per adapter: 95,505, which is 5/9 of 171,909. Reasons: INCOMPATIBLE_INSTRUMENT_TYPE for last_trade and
+  tape_and_close; NO_TRADED_SESSION_BAR_YET for vwap_level.
+- Not called: atr_1m, vwap_slope, vwap_crosses, quote_decision, hod_comp_rs_policy_inputs.
+
+Bug exposed (D-115, recorded, not fixed here): `open_core17_ohlcv_1m_file` stamps every bar as ETF by default and
+takes no per-ticker type, so the five stock names are discarded and only the four ETFs are measured. The stocks were
+not relabelled as ETFs. This is a speed and measurement finding, not a finding about any playbook.
+The parent `M9.1 — Historical replay #1-4` is not complete; source/final/live gates, the D-104 gaps and the daily
+ATR/tick gap stand.
+
+- [x] **M9.1BS — D-113 retained-file count output collected and published.**
+- [ ] **M9.1BT — per-ticker instrument type for the core17 minute-file opener:**
+  next sub-step. Let `open_core17_ohlcv_1m_file` take the true instrument type per ticker (stock or ETF, from the
+  frozen list, no relabelling), add offline tests, then rerun the counts as a detached job
+  (`setsid nohup ... </dev/null &`). Do not read the eight held-out names.
