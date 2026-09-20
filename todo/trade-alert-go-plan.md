@@ -164,3 +164,17 @@ up, including a non-Claude one. Highlights:
 - **Do not stop `consensus-engine.service` while the build runs.** It frees ~960 MB
   but the controller checks the bot is alive and halts with "a live bot program
   needs attention".
+
+### MANDATORY before any long run — the 2% gate (D-116, 2026-09-20)
+
+    cd /home/openclaw/.openclaw/workspace
+    PYTHONPATH=. python3 /root/trade-alerts-builder/m91_sample_gate.py
+
+Runs the first 2% (~2 sessions per ticker), prints usable moments **per ticker**
+and **per adapter**, and **exits non-zero** if any ticker or adapter scores zero.
+Non-zero exit = stop and fix; do not start the full run.
+
+Why: the 44% success rate in D-115 was four ETFs at 100% and five stocks at
+exactly zero, averaged into a plausible-looking number. A total hides a hole.
+Zero is a failure, not a result. The contract tests passed the whole time this
+bug was live.

@@ -1223,6 +1223,12 @@ three cores (an hour, against a 7-hour single-process estimate). Note: stopping
 `consensus-engine.service` frees ~960 MB but **halts the build**, which checks the
 bot is alive.
 
+**2026-09-20 — the 2% gate (D-116).** Before any long run, run
+`PYTHONPATH=. python3 /root/trade-alerts-builder/m91_sample_gate.py`. It runs the
+first 2%, prints usable moments per ticker and per adapter, and exits non-zero if
+any scores zero. That single check would have caught the ETF-only bug in minutes
+instead of after two crashes and a full run.
+
 Latest stop, now cleared: the build asked which purchased files it was allowed
 to read. Answered as **D-112** in `DECISIONS_AND_OPEN_QUESTIONS.md` — the
 one-minute bar job directory, manifest-verified files, the nine training

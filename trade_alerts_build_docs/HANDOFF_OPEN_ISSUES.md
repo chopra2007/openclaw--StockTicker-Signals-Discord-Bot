@@ -125,6 +125,32 @@ Also watch `archives/storage-manager/manager.py scan` in the builder directory �
 was observed pinning a whole core while the count run needed it. Nobody has checked
 what schedules it or whether it needs to run that often.
 
+## 2.13 MANDATORY before any long run — the 2% gate (D-116)
+
+Do not start a count run, sweep or backtest without running the 2% sample first.
+It takes minutes; a full run takes hours, and D-115 proved a full run can finish
+"successfully" while measuring only four of the nine names.
+
+    cd /home/openclaw/.openclaw/workspace
+    PYTHONPATH=. python3 /root/trade-alerts-builder/m91_sample_gate.py
+
+It prints usable moments **per ticker** and **per adapter**, never one combined
+total, and **exits non-zero** if any assigned ticker or any adapter scores zero.
+A non-zero exit means stop and fix — do not start the full run.
+
+Why it matters: the reported 44% success rate was four ETFs at 100% and five
+stocks at exactly zero, averaged together. A combined total launders a hole; a
+per-ticker split makes it obvious at a glance. Zero is a failure, not a result.
+The contract tests all passed while this bug was live — they check the code does
+what it says, not that the run measured what it was told to.
+
+## 2.14 The 2% gate is written but NOT yet proven
+`/root/trade-alerts-builder/m91_sample_gate.py` correctly reported five stocks at
+zero and four ETFs working. A later memory fix then filtered on the wrong field
+name and made it report **all nine** as zero. The memory problem is real (the
+first version held 2.6 GB) but the current filter is wrong. Fix the field name and
+confirm the gate reports the four ETFs as non-zero before relying on it.
+
 ## 3. Traps that will cost you hours if you do not know them
 
 1. **Never edit any file in the workspace while a review is pending.** The

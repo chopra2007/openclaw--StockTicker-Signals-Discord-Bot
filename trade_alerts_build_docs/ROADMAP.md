@@ -6635,3 +6635,29 @@ ATR/tick gap stand.
   next sub-step. Let `open_core17_ohlcv_1m_file` take the true instrument type per ticker (stock or ETF, from the
   frozen list, no relabelling), add offline tests, then rerun the counts as a detached job
   (`setsid nohup ... </dev/null &`). Do not read the eight held-out names.
+
+## M9.1BT — per-ticker instrument type added; new count run launched, not finished — 2026-09-19 Pacific
+
+Code: `iter_ohlcv_1m_records` and `open_core17_ohlcv_1m_file` in `consensus_engine/core17_bar_loader.py` take an
+optional `instrument_types` map (raw symbol to `ETF`/`EQUITY`). When given, it wins over the single default; a symbol
+not in the map is skipped (not labelled ETF), so undeclared and held-out names are not read. Without the map the old
+`ETF` default is unchanged. Three offline tests were added to `tests/trade_alerts_contracts/test_core17_bar_loader.py`
+(per-ticker type, undeclared symbol skipped, default unchanged). The driver `/root/trade-alerts-builder/m91_count_part.py`
+now passes the D-112 types for the nine training names (five `EQUITY`, four `ETF`) to both the opener and the adapter run.
+A first launch failed at once because my first version raised on undeclared names in the file; I changed it to skip and
+relaunched. Neither launch read the held-out names' data into a result.
+
+The three detached shards (same split as D-114) write `/tmp/m91bt/part_{1,2,3}.json`; they were still running when this
+session ended. Merge with `m91_count_merge.py` when all three exist. No protected run happened in this session: a plain
+pytest of the affected files reported only skips outside the launcher, so the controller stage supplies test figures.
+No provider call, credential read, network call or spend occurred.
+
+The parent `M9.1 — Historical replay #1-4` is not complete; source/final/live gates and D-104 gaps stand.
+
+- [!] **M9.1BT — code fix done; count run still running:** hours remain. Handed to M9.1BU.
+- Note (2026-09-19 Pacific, late): the three shards launched earlier were gone with no part files; relaunched once with setsid, still running when this session ended.
+- Note (2026-09-20 Pacific, early): the shards were gone again with no part files; relaunched once more with setsid and seen running 20 seconds later. Still running when this session ended.
+- [ ] **M9.1BU — collect the finished stock-typed D-113 count output:**
+  next sub-step. If all three `/tmp/m91bt/part_*.json` exist and no `m91_count_part` process is running, merge them,
+  publish as `trade_alerts_build_docs/M9_1BT_RETAINED_COUNTS.json` with its sha256, counts only, and compare with
+  `M9_1BN_RETAINED_COUNTS.json`. If a shard died with no file, relaunch that shard once detached. Do not read held-out names.

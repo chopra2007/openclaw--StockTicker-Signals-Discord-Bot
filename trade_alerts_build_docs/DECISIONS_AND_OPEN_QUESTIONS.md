@@ -1582,3 +1582,34 @@ separate one has **not** been established.
 No entry, trade, R or profit figure is published here, and none should be until the
 mismatch above is fixed and the exit side is costed. The eight held-out names
 remain sealed and unread.
+
+## 65. D-116 — run the first 2% and check it before releasing any full run
+
+Recorded 2026-09-20 Pacific, on the owner's instruction, after D-115 showed that
+a full run can complete "successfully" while silently measuring only four of the
+nine names.
+
+**The rule.** Before any run that takes longer than a few minutes — count run,
+threshold sweep, backtest — execute the first **2%** of the work, stop, and
+inspect it. Only release the full run once the sample is clean.
+
+**What the sample must print**, never a single combined total:
+1. Counts **per ticker**. A combined percentage hides a hole; 44% turned out to be
+   four ETFs at 100% and five stocks at exactly zero.
+2. Counts per day type: a normal session, a half day, a degraded session.
+3. Every field each adapter consumed, with its unit label, for one moment.
+
+**Hard stops — abort and report, never continue:**
+- any assigned ticker produces **zero** usable moments;
+- any adapter produces zero across the whole sample;
+- any field is missing, or carries an `UNKNOWN`/empty unit label.
+
+Zero is a failure, not a result. Do not average it into a total.
+
+**Sizing.** 2% of 2,349 ticker-days is about 45 — a couple of minutes against
+hours. Spread the sample across all nine names rather than taking the first 45
+chronologically, or it silently becomes a one-ticker test.
+
+**Why this beats a bigger test suite.** The contract tests all passed while this
+bug was live: they check that the code does what it says, not that the run
+measured what it was told to measure. Only real output, split by ticker, shows it.
