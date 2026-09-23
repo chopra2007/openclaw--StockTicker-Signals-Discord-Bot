@@ -1244,3 +1244,17 @@ Operational note: `buildctl resume --clear-attention` does nothing — `buildctl
 takes only one word. Use `python3 controller.py --clear-attention resume`.
 A watchdog (`resume-watchdog.py`) auto-restarts the build after known-harmless
 stops and logs anything it will not touch.
+
+## 118. Keep Claude's token-saving changes, or undo them — AWAITING APPROVAL: remove the status-bar paste from settings?
+
+**File:** `claude-token-efficiency-changes.md`
+
+**CURRENT STATUS (2026-09-22):** Three small changes are live and a new helper exists. One planned change is still waiting on the user: deleting the status-bar hook that pastes the usage bar into every message. Claude's own safety check blocked Claude from editing its settings, so the user decides and makes that edit by hand. Everything can be undone with one script (commands below).
+
+Keep the smaller session-start text, the tighter instructions and the new output-trimming helper from 2026-09-22 (each can be undone with one command), and decide whether to delete the settings hook that pastes the usage bar into every message.
+
+## 119. Turn Codex command-output savings on and off — DONE 2026-09-23
+
+**File:** `codex-savings-mode.md`
+
+Use `enable savings`, `disable savings`, or `$savings` to control smaller output during long Codex builds, with complete saved logs and guarded rollback steps.
