@@ -2,32 +2,32 @@
 
 ## Communication Style
 
-User is not a coder. See global CLAUDE.md for the full rule. Short version: plain language, no jargon (translate it), short sentences, concrete examples, no filler.
+User is not a coder. Follow the global Communication Style rule: plain language, jargon translated, short sentences, concrete examples, no filler.
 
 ## Timezone — PDT only (hard rule)
 
-User's timezone is **PDT (Pacific)**. Never show or mention "ET"/Eastern anywhere (chat, alerts, examples, bot output) — all times in PDT. (internal NYSE logic may stay Eastern but must never surface). New time code → `ZoneInfo("America/Los_Angeles")`, never a fixed offset or `"ET"` label.
+User's timezone is **PDT (Pacific)**. Never show or mention "ET"/Eastern anywhere (chat, alerts, examples, bot output); all times are PDT. Internal NYSE logic may stay Eastern but must never surface. New time code uses `ZoneInfo("America/Los_Angeles")`, never a fixed offset or an `"ET"` label.
 
 ## Communication Discipline
 
-The style rules above erode without active enforcement. This section is the operational layer.
+The style rules erode without active enforcement. This section is the operational layer.
 
 ### Pre-send check — before any explanation or factual claim
 
-1. **Translate jargon.** Any technical term not translated? Translate it. See table below.
-2. **Cold-read test.** Could a non-coder read this without context? If not, rewrite.
-3. **No filler.** No "let me break this down," "there are several factors," "let me explain," "in summary." Every sentence must move the explanation forward or be cut.
-4. **Concrete example.** Did I use a real example, specific name, path, or number? If not, add one.
-5. **Completeness check.** Did I stop at the first plausible cause? Force one more pass — "what else?" — and either name everything I actually know or flag the gap.
-6. **One yardstick — consistent framing.** Explaining a scale, ratio, or two-sided thing? Hold one sentence shape across every value, whole numbers only (never "half of X" beside "twice the Y"), with a constant anchor word per line — the reader should never invert, divide, or re-orient. Show the full scale so a single value has context. Answer at the asker's level: no unrequested primer, no pointing at the code. (See `comm-check.md` Section 6.)
+1. **Translate jargon.** Translate every technical term (table below).
+2. **Cold-read test.** A non-coder must understand it without context; otherwise rewrite.
+3. **No filler.** No "let me break this down," "there are several factors," "let me explain," "in summary." Cut any sentence that does not move the explanation forward.
+4. **Concrete example.** Include a real example, specific name, path, or number.
+5. **Completeness check.** Don't stop at the first plausible cause. Ask "what else?" once more, then name everything you actually know or flag the gap.
+6. **One yardstick — consistent framing.** For a scale, ratio, or two-sided thing: one sentence shape for every value, whole numbers only (never "half of X" beside "twice the Y"), a constant anchor word per line — the reader should never invert, divide, or re-orient. Show the full scale so a single value has context. Answer at the asker's level: no unrequested primer, no pointing at the code. (See `comm-check.md` Section 6.)
 
 ### Verification ladder — before claiming a fact about code, config, files, or paths
 
-1. **Already loaded?** Direct evidence already in this conversation's context? Quote it. No new tool call needed.
-2. **Smallest probe first.** `grep -n "thing" path` → targeted Read (20–50 lines around the match) → full Read only when file is small (<200 lines) or question is structural.
-3. **Parallel for breadth.** Multiple files → parallel greps or Explore agent, not sequential full Reads.
+1. **Already loaded?** If direct evidence is already in this conversation's context, quote it; no new tool call.
+2. **Smallest probe first.** `grep -n "thing" path` → targeted Read (20–50 lines around the match) → full Read only when the file is small (<200 lines) or the question is structural.
+3. **Parallel for breadth.** Several files → parallel greps or an Explore agent, not sequential full Reads.
 
-Never describe behavior from memory or pattern-match alone. Verify, or say "I don't know."
+Never describe behavior from memory or pattern-matching alone. Verify, or say "I don't know."
 
 ### Jargon → plain English
 
@@ -65,21 +65,9 @@ Add new terms only after verifying their meaning from actual code, not from a fi
 
 ## Behavior
 
-Always proceed without asking for confirmation. Never ask "shall I proceed?", "do you want me to continue?", or "would you like me to...?".
-
-Don't assume you can't access, research, or figure something out — assume you can, and work from there.
-
-### Close subagents when you're done with them
-
-When a subagent's work is accepted, stop it (`TaskStop`) instead of leaving it
-idle. This session runs with `teammateMode: "tmux"` (forced by
-`/root/.openclaw/teams.sh`), so every subagent gets its own tmux pane, and that
-pane stays open for as long as the process lives. An idle agent is not
-finished — it is holding its memory of the work, waiting for a follow-up.
-
-Keep one alive only when you still owe it something: a correction to re-check,
-a question you have not asked yet. Otherwise stop it in the same turn you
-accept its result, and say so in one short line.
+- Always proceed without asking for confirmation. Never ask "shall I proceed?", "do you want me to continue?", or "would you like me to...?".
+- Don't assume you can't access, research, or figure something out — assume you can, and work from there.
+- **Close subagents when you're done with them.** When you accept a subagent's result, stop it (`TaskStop`) in the same turn and say so in one short line. This session runs with `teammateMode: "tmux"` (forced by `/root/.openclaw/teams.sh`), so every subagent keeps its own tmux pane open, and its memory of the work, for as long as it lives. Keep one alive only while you still owe it something: a correction to re-check, or a question not yet asked.
 
 ## TODO List
 
@@ -91,7 +79,7 @@ When the user sends only "goodbye" or "bye": read `todo/SESSION_CLOSE.md` and fo
 
 ## Start of Build
 
-Run these before writing code, not after (TODO #88 — the checks that judgement, not a script, has to carry):
+Run these before writing code, not after (TODO #88 — checks that judgement, not a script, has to carry):
 
 - Read the actual code before writing a probe or a test. Never from memory.
 - Before calling a scheduled feature done, read its real posted output, from a real run, at the real time. A replay of stored data is not proof.
@@ -100,12 +88,12 @@ Run these before writing code, not after (TODO #88 — the checks that judgement
 
 ## Definition of Done
 
-A task is not done if an **in-scope** user-facing critical path is broken. In scope = the `[always]` bucket plus every bucket your changed file paths trigger (table in "What to verify" #3). Within those buckets, "pre-existing," "out of scope," "not my regression" are NOT valid exemptions — regardless of who broke it or when. Only three responses when verification surfaces a broken in-scope path:
+A task is not done if an **in-scope** user-facing critical path is broken. In scope = the `[always]` bucket plus every bucket your changed file paths trigger (table in "What to verify" #3). Within those buckets, "pre-existing," "out of scope," and "not my regression" are NOT valid exemptions, regardless of who broke it or when. When verification surfaces a broken in-scope path, there are only three responses:
 1. Fix it.
 2. Attempt a fix, surface the specific failure, ask whether to keep digging.
 3. Get explicit user permission to defer.
 
-A broken check in a bucket your change did NOT touch doesn't block done — but you must report it in one sentence and make sure it lands on the TODO list (reported, never silently dropped). (Scope-aware since 2026-07-12, TODO #5 — before that, one flaky unrelated check could block honest completion of unrelated work.)
+A broken check in a bucket your change did NOT touch doesn't block done, but report it in one sentence and make sure it lands on the TODO list (reported, never silently dropped).
 
 ### Built switches default to ON
 
@@ -114,7 +102,7 @@ A feature built and tested on stored data is turned ON in the same session, not 
 ### What to verify
 
 1. **Test the whole feature you changed**, not just the line you touched. Changed catalyst code inside `!all`? Test all of `!all`.
-2. **Find the hidden dependents before committing.** When a change alters a function's arguments or a user-visible output string, `grep -rn` the symbol/old-string across `tests/` and run every match before committing. The breakage usually hides in *other* files — assertions on the old text, or mock/`monkeypatch.setattr` stubs with the old signature — not the file you edited.
+2. **Find the hidden dependents before committing.** When a change alters a function's arguments or a user-visible output string, `grep -rn` the symbol/old string across `tests/` and run every match before committing. The breakage usually hides in *other* files — assertions on the old text, or mock/`monkeypatch.setattr` stubs with the old signature.
 3. **Scoped critical-path checks.** Decide which buckets apply from the changed file paths (`git diff --name-only` for the session; an explicit `surfaces:` list in a kickoff file overrides). Run `[always]` plus every triggered bucket:
 
    | Bucket | Triggered when the diff touches | Checks |
@@ -142,23 +130,23 @@ Never claim complete on "service started," "code looks right," or "unit tests pa
 3. Show the actual output.
 4. Test each distinct claim separately (commands and mentions are different code paths).
 5. Verify after every restart, not before.
-6. Before asserting what a function, flag, or config key does — grep or read the actual code. Never from memory.
-7. Judge output against the goal, not the code against the spec. A feature that runs but produces generic or unhelpful output has not met its goal. Compare the real output to why the feature was built.
+6. Before asserting what a function, flag, or config key does, grep or read the actual code. Never from memory.
+7. Judge output against the goal, not the code against the spec. A feature that runs but produces generic or unhelpful output has not met its goal; compare the real output to why the feature was built.
 
 For multi-phase execution (discover, ralph, autopilot): run at least one real end-to-end invocation and inspect the actual output before declaring done.
 
-Do real-world testing whenever the user-observable outcome can be checked from this environment — before deferring a test, probe what's actually accessible (and check memory) rather than assuming a tool is unavailable. When a real-world test errors: diagnose the real cause → attempt a fix → try alternative paths to the same outcome → only then surface to the user, with what was tried and a specific recommendation. Never ask the user to do something you can do yourself.
+Do real-world testing whenever the user-observable outcome can be checked from this environment. Before deferring a test, probe what's actually accessible (and check memory) rather than assuming a tool is unavailable. When a real-world test errors: diagnose the real cause → attempt a fix → try alternative paths to the same outcome → only then surface it to the user, with what was tried and a specific recommendation. Never ask the user to do something you can do yourself.
 
 ## Regression Gate
 
 Before feature work — especially a `discover` run or any multi-commit change — establish a test baseline.
 
 1. **Baseline** = list of known-failing test IDs in `.test-baseline` (repo root, committed). Refresh with `make test-baseline`.
-2. **No commit may make a passing test fail.** Any test failing now but absent from `.test-baseline` is a regression — fix before committing.
-3. **Set matters, not count.** Fix one, break another = still a regression even if the count is unchanged.
-4. **Separate verifier.** At end of feature work, a separate agent (not the one that wrote the code) re-runs the full suite and diffs the baseline.
+2. **No commit may make a passing test fail.** Any test failing now but absent from `.test-baseline` is a regression — fix it before committing.
+3. **Set matters, not count.** Fixing one and breaking another is still a regression even if the count is unchanged.
+4. **Separate verifier.** At the end of feature work, a separate agent (not the one that wrote the code) re-runs the full suite and diffs the baseline.
 
-Pre-push hook (`scripts/pre-push`) enforces this mechanically. Bypass only with `git push --no-verify` for genuine exceptions.
+The pre-push hook (`scripts/pre-push`) enforces this mechanically. Bypass only with `git push --no-verify` for genuine exceptions.
 
 ## Alert Philosophy
 
@@ -194,9 +182,9 @@ docker compose up -d                 # SearXNG (8888)
 
 ## Deferred Task System
 
-When a task must run in the future: create with `/root/task_system/scripts/create_task.sh`, use systemd timers, include retries + logging + cleanup. Never leave future tasks unscheduled.
+When a task must run in the future: create it with `/root/task_system/scripts/create_task.sh`, use systemd timers, include retries + logging + cleanup. Never leave future tasks unscheduled.
 
-At session start: check `/root/task_system/notifications.log`. If it has entries, summarize them clearly then clear the file. If empty, do nothing.
+At session start: check `/root/task_system/notifications.log`. If it has entries, summarize them clearly, then clear the file. If empty, do nothing.
 
 ## GitHub & Documentation Automation
 
