@@ -21,7 +21,7 @@ intentional or risky-to-touch and left as-is. #38 effectively done.
 
 **Memory search provider** — changed from `local` (not configured) to `github-copilot` via `openclaw config set agents.defaults.memorySearch.provider github-copilot`. Gateway restarted to apply.
 
-> **2026-09-24: this was the wrong fix and has been reversed.** Copilot was never the plan and had no credential, so search failed closed ("Unknown memory embedding provider"). Memory search is back on `local` (EmbeddingGemma via the llama-cpp add-on) reading `/root/.codex/openclaw-memory`, kept current by `openclaw-memory-sync.timer`. See `todo/kickoff-memory-search-local.md`.
+> **2026-09-24: this was the wrong fix and has been reversed.** Copilot was never the plan and had no credential, so search failed closed ("Unknown memory embedding provider"). Memory search is back on `local` (EmbeddingGemma via the llama-cpp add-on) reading a mirror of `/root/.codex/openclaw-memory` at `workspace/memory/codex/` (keeps it out of OpenClaw's age-based score shrinking), kept current by `openclaw-memory-sync.timer`. See `todo/kickoff-memory-search-local.md`.
 
 **Plugin version drift** — ran `openclaw update`; confirmed both brave and discord at 2026.6.6 matching openclaw version. Drift warning gone.
 
