@@ -1,0 +1,228 @@
+{
+  "milestone": "M9.1BT",
+  "status": "blocked",
+  "date_pacific": "2026-09-20",
+  "original_failure": "acceptance verification failed",
+  "cause": "Controller acceptance protected-file fingerprints changed during the run (protected=false); test exit, source stability and artifact checks passed.",
+  "specific_changed_protected_path": "Not identified in the saved result; not inferred from the current protected-start snapshot, which belongs to this later attempt.",
+  "different_approach": "Read the saved controller result and rejection branch and checked published artifact hashes; did not rerun acceptance, relaunch count jobs or edit code/protection.",
+  "authority_gate": "Resolving a protected-file change is outside the assigned loader milestone; no separately reviewed protection repair was assigned.",
+  "failing_test_ids": [],
+  "failing_test_ids_basis": "Published JUnit contains no failures/errors/skips in either phase; the failure is the separate controller protection check.",
+  "controller_state_reference": "/root/trade-alerts-builder/state.json",
+  "controller_branch_reference": "/root/trade-alerts-builder/controller.py:1607",
+  "tests": {
+    "artifacts": true,
+    "artifacts_path": "/root/trade-alerts-builder/runs/20260919-233851-902759-build/published-artifacts-92b9415c52ab",
+    "at": "2026-09-20T09:41:10-07:00",
+    "exit_code": 0,
+    "focused": {
+      "artifacts": true,
+      "artifacts_path": "/root/trade-alerts-builder/runs/20260919-233851-902759-build/published-artifacts-73c9275dea12",
+      "at": "2026-09-20T09:34:56-07:00",
+      "exit_code": 0,
+      "phase": "focused",
+      "protected": true,
+      "run": "/root/trade-alerts-builder/runs/20260919-233851-902759-build",
+      "runs": 1,
+      "selection_reason": "builder named directly affected checks",
+      "selectors": [
+        "tests/trade_alerts_contracts/test_core17_bar_loader.py"
+      ],
+      "stable": true,
+      "test_count": 13,
+      "wall_seconds": 3.527
+    },
+    "phase": "acceptance",
+    "protected": false,
+    "run": "/root/trade-alerts-builder/runs/20260919-233851-902759-build",
+    "runs": 1,
+    "selection_reason": "unknown dependency impact; safe broad fallback",
+    "selectors": [
+      "tests/trade_alerts_contracts"
+    ],
+    "stable": true,
+    "test_count": 3452,
+    "wall_seconds": 373.669
+  },
+  "published_artifacts": [
+    {
+      "phase": "focused",
+      "artifact_directory": "/root/trade-alerts-builder/runs/20260919-233851-902759-build/published-artifacts-73c9275dea12",
+      "publication": "/root/trade-alerts-builder/runs/20260919-233851-902759-build/published-artifacts-73c9275dea12/publication.json",
+      "published_file_hashes": {
+        "run-1/fixture.yaml": "1a578448b5de33f5e8a29399b09dbf3e4ac93298ae6b8ade7df5b2f868535de7",
+        "run-1/isolation.json": "77fb71738f186d9274ef91de64405b952fa98b293072e69c0f2648e8da30d8de",
+        "run-1/output.txt": "4d2d23e24a3eb6a8e38dd8d089ad0542df34650d57b7d9c653354417bb255581",
+        "run-1/pytest.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "run-1/results.xml": "4fd66aa3c195e1a4a93b80b1285348be2f49cb214907611a7f80e5d2d16b4ec0",
+        "run-1/synthetic_sources.json": "c02fec043afaa1a9c4cfd5c68ed9fc7d425dbf94d919b5f02680383e0da419d7",
+        "summary.json": "f0e8719d0529818a99a92d188c151d5412dcb0611b3aaae3f185820b763389d3"
+      },
+      "publication_hash_mismatches": [],
+      "junit_suites": [
+        {
+          "tests": "13",
+          "failures": "0",
+          "errors": "0",
+          "skipped": "0",
+          "time": "1.745"
+        }
+      ],
+      "junit_time_unit": "seconds",
+      "pytest_summary_lines": [
+        "13 passed in 1.74s"
+      ],
+      "isolation": {
+        "pytest_exit_code": 0,
+        "cleanup": {
+          "db_closed": true,
+          "http_closed": true,
+          "config_cleared": true,
+          "http_lock_cleared": true
+        },
+        "unexpected_denials": {}
+      }
+    },
+    {
+      "phase": "acceptance",
+      "artifact_directory": "/root/trade-alerts-builder/runs/20260919-233851-902759-build/published-artifacts-92b9415c52ab",
+      "publication": "/root/trade-alerts-builder/runs/20260919-233851-902759-build/published-artifacts-92b9415c52ab/publication.json",
+      "published_file_hashes": {
+        "run-1/fixture.yaml": "1a578448b5de33f5e8a29399b09dbf3e4ac93298ae6b8ade7df5b2f868535de7",
+        "run-1/isolation.json": "30d596d8429833fdc90a0da48f5c37354e795d6ab4db5db09fec837ffdae70c9",
+        "run-1/m02d-request-queue-proof.json": "7b6e50e91d0d50d7033e375bb78f18a43e3681b881b141588b169f6d98b2a71e",
+        "run-1/m02f-databento-minute-source-proof.json": "998824281d92111987132df1849982ba95e8cdff96d0fcb845ddd1f6bbc596fe",
+        "run-1/m13-domain-model-proof.json": "2fae11128857ae58d0aebb510131c6bb06bd0988d57ae01600e4c703890ed4c7",
+        "run-1/m21-schwab-normalization-proof.json": "481aa8aad4ff3667fe01adafddea7c9e34677fe2367e3256966df5b8e3cef6ba",
+        "run-1/m22-history-proof.json": "8c8358e78348a6c13994400a7e6813fa328b471e2b51ba1336808a87c5ee2a56",
+        "run-1/m23-quote-events-proof.json": "f11ddba2d05d678b765c8503b2f7e6749d0861fa0b3d7847e120ff2fb9557bf4",
+        "run-1/m24-reference-inputs-proof.json": "b687e7eac79cb63ced959c0ebafdb1c87cda3156a07591cc7bf37739a4e49110",
+        "run-1/m31-core-price-features-proof.json": "3d884b7eba53d166f307402de2a901806f04019d335f13ba48108cab7990ac60",
+        "run-1/m32-participation-features-proof.json": "23d7748ed5c043602236784d1f3052ed748d3f7c8143fe7ae898c649b701b02e",
+        "run-1/m33-relative-strength-proof.json": "62dbbfb958c89a6ed89e8cc78b1e2a9a52ac4ebf488969c2a8682fc934f95ac1",
+        "run-1/m34-vwap-context-proof.json": "d9660abc714e7cf4faf38369793afd20d5022f62e47599eaf61c4ec4ded15c2e",
+        "run-1/m35-structural-geometry-proof.json": "498598c7ca58416937d5de39b093c023f5ab0683a9865e962ad382e99be0a570",
+        "run-1/m36-opening-range-features-proof.json": "e51116fd2f4430d33e53014d4c02bde9ee36a11e90e922d2749ec2eb208912a3",
+        "run-1/m41-strategy-interface-long-proof.json": "23be25927e7f876715901a37b83504df58555e95db17d86b3bb34eccf48a8db6",
+        "run-1/m41-strategy-interface-short-proof.json": "4a3736d671827e4a447483a95f485546b3fbb20ca3d13e81f1827a3b41381593",
+        "run-1/m42-state-transitions-long-proof.json": "095254267472dfde371184fa449465ba1d9cde8631710f9dbcf7e56a4d39990c",
+        "run-1/m42-state-transitions-short-proof.json": "a839fa776c4e9559067589a0bd8530f0d892ee7e09ee292130f6b31ee2c00ab0",
+        "run-1/m43-structural-risk-long-proof.json": "908e58e56959ca6b85dd19d1550909e67f7a3ae91eecb2b51121ba47dd60700d",
+        "run-1/m43-structural-risk-short-proof.json": "faab3c424fa71ead5f6545bd58621638aa65884cd9bf222285d1809d73348778",
+        "run-1/m44-confidence-long-proof.json": "8c1da24c4a14eb1edbd48eb0c2184818b2b75e4d36c1107cb75312edb24f9816",
+        "run-1/m44-confidence-short-proof.json": "749d78f41e8a215b501590f9d4eb3284ac76d8644fe6706f6af1e713074a74b8",
+        "run-1/m45-candidate-assembly-long-proof.json": "768061f7a450d73459fed60019ee9f58b66f720e030789337224a8dcc0535d8f",
+        "run-1/m45-candidate-assembly-short-proof.json": "a3a3ca0a8f75d91f88fdc04e34fb87cc905577bac2f0ef3e4194d53ca5aff1b5",
+        "run-1/m46-alert-delivery-long-proof.json": "4f9487e326eb9ead290d44588c40fce5091880d29d353d487b8ee1a6bc2a0d6b",
+        "run-1/m46-alert-delivery-short-proof.json": "9a8eabf74b662e2c4b8945b6146b6b4435275e0485f6568d95c3850b71cf26bc",
+        "run-1/m4_7_options_portfolio.json": "420e47a677d9e2570ec953e1fb19ee20277e37ed3064956ff2b7aa20d39b5191",
+        "run-1/m51-research-event-store-long-proof.json": "5a34168849a516af60ad437bc2aad5edc713c0bf7890b5f8f7470d57ab142a79",
+        "run-1/m51-research-event-store-short-proof.json": "63f41036a98086befc5f6fe46e9ff0fe2a63ed2eb57cec52e88290cdae498139",
+        "run-1/m52-outcome-long-proof.json": "144140b599895db3eb9cafbc9376eeb338c6f77f61a897194476b272eeb0202d",
+        "run-1/m52-outcome-short-proof.json": "d59b8b6ada0a30bad0415e13fc7898a079f316fd62b902cb16d852de46531399",
+        "run-1/m55-session-recovery-long-proof.json": "cff15f68fd5396d7ea0cdaf42549817d9fa75988384b59ab6eac2ff9a3c34a97",
+        "run-1/m55-session-recovery-short-proof.json": "ce2071380dd9264e0b73972afb3f098285c0703001eb08194ed9d25f7d78c1f7",
+        "run-1/m5_3_replay_artifact.json": "2356f8e1ef8413154336ec881ce576963469040d3f4b283c14d3ebcd938459e0",
+        "run-1/m61-orb5-eligibility-long-proof.json": "ef2f356eafae4a5fb78aa376cdeac3fe3a4d539621901aeca9d4f8d17a336c63",
+        "run-1/m61-orb5-eligibility-short-proof.json": "747d685a6eaa2429c43e6c02fb468a94205bf7515234c27d36c943f1d2aa0f18",
+        "run-1/m62-orb5-trigger-long-proof.json": "cd9817b46006ddc1b917f3a1173a94b6c03fef548e605deba230d6fd26242e04",
+        "run-1/m62-orb5-trigger-short-proof.json": "e8a8485562a97ff582c0778a46e5a52a9cbdd1723e3a377bcedc17cea3590f8b",
+        "run-1/m63-orb5-risk-confidence-long-proof.json": "3ca696f4bffa751e0c79c5e37f24376b3ac8930876ec134c2cd865e48f6298e6",
+        "run-1/m63-orb5-risk-confidence-short-proof.json": "6a0baf9e7065cc451ecc9fa674a96c3a06866105e7ff1e1c908c77c7207f2373",
+        "run-1/m6_4_orb5_scenarios.json": "4f73cb7e6e43b343cfbf04e91c67f4af3b4e50907fdb951c99eaf120f4a98768",
+        "run-1/m7_1_hod_compression_proof.json": "dcea90ba3da5c86dcc73da9b05a18f289dd2270707595e5b4374a29f49863655",
+        "run-1/m7_2_rs_trend_proof.json": "1f238319e376f4027c1dc1ca0b27367fa8defd3a34d1f7baf45db9e02862d0d4",
+        "run-1/m7_3_hod_comp_rs_trigger_proof.json": "edaf7ad6f0ed507ec49cb2f6920e0c11466fa3ef28633d5505b7e471f0f43e9e",
+        "run-1/m7_4_hod_comp_rs_risk_confidence_proof.json": "04223c08f73201974e9ff0bc1c507d7d365074fa2d6ebeba3ec80182d2364348",
+        "run-1/m7_5_hod_comp_rs_scenarios.json": "8eaf6dd0356fc6270a1b682e0dbfa21cbaeb1a8cc6a9cf73227f17c825461548",
+        "run-1/m8_1_or_failure_handoff_proof.json": "0435dab6c8e374e1f07fddcbca64fcc580c5d96398e3b6a3d39a01463d4d0ecf",
+        "run-1/m8_2_or_failure_rev_proof.json": "b739c01f635e5b34f4189d4c4a7f7a2c9edc4a2e5ef4b6545782cb2a25cefb91",
+        "run-1/m8_3_impulse_pullback_proof.json": "f33c556ca4144e0512f8f2f6c92588a5081e11b122136d1493c156fcf4ef0c89",
+        "run-1/m8_4_first_pullback_vwap_proof.json": "a96dc8153dac4e8cf6b05d68e731e505ccb6d207e501c08395279432e772d0c0",
+        "run-1/m8_5_cross_strategy_interaction_handoff_short_proof.json": "e1c8954f4c8bad29f65b1d56bbab2407f24b643cb6151736fa975cd3f0f4d226",
+        "run-1/m8_5_cross_strategy_interaction_proof.json": "7092e3e81572ff0b49f392d37483db9ab96cb9d190ac9610916968f4132812a4",
+        "run-1/m8_5_cross_strategy_interaction_reversal_long_proof.json": "fca041193f69d6199cf42be589caefdf48c47f47fbff7761ee7c18fe82d0106a",
+        "run-1/m8_5_cross_strategy_interaction_reversal_short_proof.json": "dfa7a846bfce8c29b2d82e03c293fd04f22e47a3f40333bcd7443b53efb73f69",
+        "run-1/m8_6_first_pullback_vwap_scenarios.json": "731299d13df9689da1f8f4294653f7b06db45269cfe48abfc8820e89b08c04d0",
+        "run-1/m8_6_or_failure_rev_scenarios.json": "a8dc9ab75c0f6abda2165d2040d7994bf7f349f76256a97f1c62880b1808da1d",
+        "run-1/m91f_hod_compression_research_proof.json": "adee5336796b3898384630e404a2c4aa6c3623a70dd9b732326ac0b5a0745ec4",
+        "run-1/m91l-or-failure-handoff-opening-range-proof.json": "32654376cf722e73a068e83aa97700f68cc59b6d10bfd083a17bcc8f83a16a1f",
+        "run-1/m91m-impulse-pullback-research-proof.json": "690b2a40935fb26da0a8dbf1ef920eae1bd277dddc651c9101e3fa38fb676b31",
+        "run-1/m9_3_shadow_pilot.json": "dba8bd15ca071c27fc6686e1884aa6b7a6fd06f20df3b2a1429040a679fd23c2",
+        "run-1/output.txt": "8e4a3aceaf8f771258adb577cc4fc04e13fefa344771b754e4daa0024b453293",
+        "run-1/pipeline-obs.jsonl": "5272431d3db5346a3fe828eea667ac13f4f8ae23dddef14a5603f27f138cdc37",
+        "run-1/pytest.log": "80e724d486f47b779cd43da211194a478c5ad751cef1cf8e24f01d965af37a5a",
+        "run-1/results.xml": "e051d0ea5793c5b41a72d9968989b4e0ec08444026d587970dd69100af2f66e1",
+        "run-1/synthetic_sources.json": "c02fec043afaa1a9c4cfd5c68ed9fc7d425dbf94d919b5f02680383e0da419d7",
+        "summary.json": "5608c2bff3aed7ad4d30dcf96a1537ebea91277357e3483064dc47f8d4538cc5"
+      },
+      "publication_hash_mismatches": [],
+      "junit_suites": [
+        {
+          "tests": "3452",
+          "failures": "0",
+          "errors": "0",
+          "skipped": "0",
+          "time": "368.993"
+        }
+      ],
+      "junit_time_unit": "seconds",
+      "pytest_summary_lines": [
+        "3452 passed in 369.17s (0:06:09)"
+      ],
+      "isolation": {
+        "pytest_exit_code": 0,
+        "cleanup": {
+          "db_closed": true,
+          "http_closed": true,
+          "config_cleared": true,
+          "http_lock_cleared": true
+        },
+        "unexpected_denials": {}
+      }
+    }
+  ],
+  "repeatability": "No published repeatability phase is supplied; the controller stopped at acceptance protection failure. No fresh-process comparison is claimed.",
+  "tested_source": {
+    "controller_recorded_source_hash": "0293a9f0f271aed2dc0f6bd8ad2d1e64a79a34d85e0c7afc349dd917cb3c99f4",
+    "controller_build_run": "/root/trade-alerts-builder/runs/20260919-233851-902759-build",
+    "prior_complete_delta": [
+      "consensus_engine/core17_bar_loader.py",
+      "tests/trade_alerts_contracts/test_core17_bar_loader.py",
+      "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md",
+      "trade_alerts_build_docs/HANDOFF_OPEN_ISSUES.md",
+      "trade_alerts_build_docs/ROADMAP.md"
+    ],
+    "original_diff": "/root/trade-alerts-builder/runs/20260919-233851-902759-build/changes.diff",
+    "start_manifest": "/root/trade-alerts-builder/runs/20260919-233851-902759-build/start-manifest.json",
+    "start_manifest_role": "Pre-implementation snapshot, not a complete tested-source manifest.",
+    "verification_handoff": null,
+    "current_proof_status": "Prior collected-case evidence only; no acceptance or source-identity claim for the current expanded delta. Fresh controller stages must supply current figures after gate recovery."
+  },
+  "complete_known_milestone_delta": [
+    "consensus_engine/core17_bar_loader.py",
+    "consensus_engine/retained_count_run.py",
+    "tests/trade_alerts_contracts/test_core17_bar_loader.py",
+    "tests/trade_alerts_contracts/test_retained_count_run.py",
+    "trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md",
+    "trade_alerts_build_docs/HANDOFF_OPEN_ISSUES.md",
+    "trade_alerts_build_docs/ROADMAP.md",
+    "trade_alerts_build_docs/M9_1BT_DIAGNOSIS.json"
+  ],
+  "this_attempt_record_edits": [
+    "trade_alerts_build_docs/HANDOFF_OPEN_ISSUES.md",
+    "trade_alerts_build_docs/ROADMAP.md",
+    "trade_alerts_build_docs/M9_1BT_DIAGNOSIS.json"
+  ],
+  "preserved_existing_caller_edits": [
+    "consensus_engine/retained_count_run.py",
+    "tests/trade_alerts_contracts/test_retained_count_run.py"
+  ],
+  "other_owner_files": "Unrelated owner files and inaccessible M0.2E/M0.2F proof records were not changed or attributed to this milestone.",
+  "count_status": "No m91_count_part process or completed part JSON was found; /tmp/m91bt contains the earlier logs. No count was launched.",
+  "next_milestone": "M9.1BU",
+  "next_dependency": "Existing count continuation requires supervisor protection-gate recovery, fresh complete-delta proof and independent review; it is not an independent bypass of the gate.",
+  "safety": "No provider, broker, Discord, credential, spending, application-run, restart or Git mutation. All switches and D-104 disabled/untested dependents remain unchanged; no held-out data or returns inspected.",
+  "usage": "Unknown; no cost inferred from tokens."
+}

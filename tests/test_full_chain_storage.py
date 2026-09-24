@@ -20,6 +20,7 @@ from consensus_engine.full_chain_storage import (
     StoragePolicy,
     check_admission,
     plan_retention,
+    execute_retention_cleanup,
     pointer_path,
     publish_option_set,
     read_published_option_set,
@@ -196,6 +197,28 @@ def test_storage_reserve_refuses_write_before_crossing_limit():
         OutputBounds(10, 20, -1, 40)
 
 
+def test_separate_scratch_bound_is_admitted_and_enforced(tmp_path):
+    bounds = OutputBounds(10, 20, 30, 40, scratch=200)
+    assert working_space_bytes(1, bounds, 5, 6) == 311
+    assert working_space_bytes(1, replace(bounds, scratch=201), 5, 6) == 312
+    with pytest.raises(StorageContractError, match="known nonnegative"):
+        replace(bounds, scratch=-1)
+
+    part = _part(tmp_path, "scratch.parquet")
+    with pytest.raises(StorageContractError, match="scratch merge"):
+        publish_option_set(
+            tmp_path,
+            DAY,
+            [part],
+            bounds=replace(BOUNDS, scratch=1),
+            policy=POLICY,
+            free_bytes=20_000_000,
+            capacity_bytes=20_000_000,
+        )
+    assert part.exists()
+    assert read_published_option_set(tmp_path, DAY) is None
+
+
 def test_retention_dry_run_respects_age_hold_and_partial_date(tmp_path):
     old_day = DAY - timedelta(days=8)
     part = tmp_path / "option_parts" / old_day.isoformat() / "093100.parquet"
@@ -209,6 +232,99 @@ def test_retention_dry_run_respects_age_hold_and_partial_date(tmp_path):
         {"path": str(marker.resolve()), "reason": "notification marker older than 30 days"}
     ]
     assert plan_retention(tmp_path, today=DAY, legal_holds=[marker]) == []
+
+
+def test_cleanup_defaults_to_dry_run_and_removes_nothing(tmp_path):
+    marker = tmp_path / f".notified-{(DAY - timedelta(days=30)).isoformat()}"
+    marker.touch()
+    result = execute_retention_cleanup(tmp_path, today=DAY)
+    assert result == {
+        "enabled": False,
+        "dry_run": True,
+        "planned": [{"path": str(marker.resolve()),
+                     "reason": "notification marker older than 30 days"}],
+        "removed": [],
+        "stopped": False,
+    }
+    assert marker.exists()
+
+
+def test_cleanup_removes_only_revalidated_planned_classes_and_records_each_result(tmp_path):
+    part = _part(tmp_path, "a.parquet")
+    published = _publish(tmp_path, [part], complete_day=True)
+    pointer = Path(published["pointer"])
+    old = datetime(2026, 9, 1, 12, tzinfo=ZoneInfo("America/Los_Angeles"))
+    os.utime(pointer, (old.timestamp(), old.timestamp()))
+    temporary = Path(published["set_directory"]) / "chain.parquet.tmp"
+    temporary.write_bytes((temporary.with_suffix("")).read_bytes())
+    now = datetime(2026, 9, 17, 12, tzinfo=ZoneInfo("America/Los_Angeles"))
+    os.utime(temporary, (now.timestamp() - 86400, now.timestamp() - 86400))
+    marker = tmp_path / f".notified-{(now.date() - timedelta(days=30)).isoformat()}"
+    marker.touch()
+    audit = tmp_path / "cleanup-results" / "test-run"
+    result = execute_retention_cleanup(
+        tmp_path, today=now.date(), now=now, enabled=True,
+        result_directory=audit,
+        policy=StoragePolicy(fixed_reserve_bytes=0, reserve_fraction=0),
+    )
+    assert result["stopped"] is False
+    assert set(result["removed"]) == {str(part), str(temporary), str(marker)}
+    assert not part.exists() and not temporary.exists() and not marker.exists()
+    records = [json.loads(path.read_text()) for path in sorted(audit.glob("*.json"))]
+    assert len(records) == 3
+    assert {record["result"] for record in records} == {"removed"}
+    assert {record["path"] for record in records} == set(result["removed"])
+
+
+def test_cleanup_stops_before_removal_when_eligibility_changes(tmp_path, monkeypatch):
+    marker = tmp_path / f".notified-{(DAY - timedelta(days=30)).isoformat()}"
+    marker.touch()
+    original = storage.plan_retention
+    calls = 0
+    def changed_plan(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            marker.write_text("changed")
+        return original(*args, **kwargs)
+    monkeypatch.setattr(storage, "plan_retention", changed_plan)
+    result = execute_retention_cleanup(
+        tmp_path, today=DAY, enabled=True,
+        result_directory=tmp_path / "cleanup-results" / "changed",
+        policy=StoragePolicy(fixed_reserve_bytes=0, reserve_fraction=0),
+    )
+    assert result["stopped"] is True
+    assert result["removed"] == []
+    assert "no longer eligible" in result["error"]
+    assert marker.exists()
+    record = json.loads(next((tmp_path / "cleanup-results" / "changed").glob("*.json")).read_text())
+    assert record["result"] == "stopped"
+
+
+def test_m02cc_cleanup_recording_is_deterministic(tmp_path):
+    marker = tmp_path / f".notified-{(DAY - timedelta(days=30)).isoformat()}"
+    marker.touch()
+    audit = tmp_path / "cleanup-results" / "recording"
+    result = execute_retention_cleanup(
+        tmp_path, today=DAY, enabled=True, result_directory=audit,
+        policy=StoragePolicy(fixed_reserve_bytes=0, reserve_fraction=0),
+    )
+    durable = json.loads(next(audit.glob("*.json")).read_text())
+    record = {
+        "contract_version": durable["contract_version"],
+        "planned_reasons": [item["reason"] for item in result["planned"]],
+        "results": [{"name": Path(durable["path"]).name,
+                     "reason": durable["reason"],
+                     "result": durable["result"],
+                     "bytes": durable["identity"]["bytes"],
+                     "sha256": durable["identity"]["sha256"]}],
+        "stopped": result["stopped"],
+    }
+    assert record["results"][0]["result"] == "removed"
+    Path("/tmp/m02cc-cleanup-proof.json").write_text(
+        json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n",
+        encoding="utf-8",
+    )
 
 
 def test_compaction_stays_inside_memory_batch_and_time_budgets(tmp_path):

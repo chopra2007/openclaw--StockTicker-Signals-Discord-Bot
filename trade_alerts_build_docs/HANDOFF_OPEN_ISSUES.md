@@ -10,7 +10,7 @@ The goal is an alert bot that tells the owner to take a trade, and a measured,
 honest answer to whether those alerts make money. The owner takes every alert
 within 30 seconds; the system, not the owner, decides the thresholds.
 
-54 milestones accepted. The current step is M9.1BM/M9.1BN. What exists: four
+55 milestones are accepted. The controller is stopped at M9.1BT. What exists: four
 playbooks running on real one-minute bars, an 18-candidate threshold sweep, a
 30-second entry fill using real spreads and commission, a two-part exit, and a
 price-level catalog.
@@ -40,7 +40,7 @@ From the M9.1BC count run, `not_called`: `atr_1m`, `vwap_slope`, `vwap_crosses`,
 are legitimately out of scope for the two active playbooks or silently skipped.
 Unverified either way.
 
-### 2.4 Only the four ETFs are actually being measured — NEW, most important open bug
+### 2.4 ETF-only measurement bug — sample fixed, full run still required
 The first non-empty count run (D-115, 2026-09-19,
 `M9_1BN_RETAINED_COUNTS.json`) returned 76,404 ready moments per adapter out of
 171,909 — 44%. Every rejected moment is `INCOMPATIBLE_INSTRUMENT_TYPE`, and the
@@ -49,50 +49,47 @@ moments are being thrown away and only SPY, QQQ, XLV and USO are measured.**
 Cause: `open_core17_ohlcv_1m_file` stamped every bar `ETF` by default and took no
 per-ticker type, while D-112 correctly calls the five stocks `EQUITY`.
 
-**Half fixed as of 2026-09-19.** The loader now accepts an `instrument_types`
-mapping (symbol -> `ETF`/`EQUITY`); it wins over the old default and raises if a
-symbol is missing rather than falling back — the right behaviour. **But the count
-run does not pass it yet.** `run_retained_counts` calls its opener as
-`opener(job_dir, filename)` with no third argument, so every bar still gets the
-default `ETF` label and the result above is unchanged. **Next step: thread the
-per-ticker mapping through `run_retained_counts` to the opener, then re-run the
-count.** Do **not** relabel the stocks as ETFs. Until the re-run lands, any result
-is an ETF-only study wearing a nine-name label.
+The loader accepts an `instrument_types`
+mapping (symbol -> `ETF`/`EQUITY`); it wins over the old default and skips a
+symbol missing from that mapping rather than falling back. On 2026-09-20 the shared count path was
+fixed to pass that mapping into the loader. The D-116 sample then returned 1,386
+usable readings for each of the five stocks and four ETFs. The full count still
+must be rerun. Do **not** relabel the stocks as ETFs.
 Separately, the `vwap_level` adapter rejects the same 95,505 moments with
 `NO_TRADED_SESSION_BAR_YET`; same root cause or not is unestablished.
 
-### 2.4b The count run before that produced no ready moment at all
+### 2.4b Historical empty count run — diagnosed
 M9.1BC checked 515,727 decision moments and returned `ready: []`. The cause was a
-wrong unit label, now fixed by D-113. The corrected run has not yet completed, so
-**nobody has yet seen a non-empty ready count**. Until that lands, treat the whole
-adapter chain as unproven end to end on real data.
+wrong unit label, now fixed by D-113. D-115 and the clean D-116 sample are now
+non-empty. The full corrected nine-name count still has not completed.
 
-### 2.5 The build grinds instead of stopping on a repeated blocker
+### 2.5 Repeated-blocker controller repair — implemented
 When the builder cannot proceed it writes a *new* sub-step and hits the same wall
 again. On 2026-09-19 it repeated an identical blocker nine times (M9.1BE to
 M9.1BM), roughly 35 minutes each, about 1.26M tokens, before halting. It should
-halt on the first repeat. Not fixed. `controller.py` is the place to fix it.
+halt on the first repeat. The controller now records attempts before launch and
+stops when the same normalized blocker appears twice, even under a renamed step.
 
-### 2.6 Nothing tells a human when the build stops
+### 2.6 Stop notification — implemented
 `resume-watchdog.py` auto-resumes only stops it already recognises. Anything else
 leaves the build sitting silently. On 2026-09-19 that was a 6h20m silent stall.
-No notification exists. Not fixed.
+The system-managed watcher now allows one recovery for an exact diagnosed process
+death and sends an operations notice for unknown stops or an exhausted allowance.
 
-### 2.7 Builder sessions die mid-run
+### 2.7 Long jobs now checkpoint outside the builder session
 The M9.1BM/BN builder started the real count run, split it into three parallel
 processes across the nine tickers, and its session died with no partial output
 kept. The controller records this as `builder process failed`. The watchdog treats
-it as benign and retries, so it self-heals — but every death throws away the whole
-run. Work is not checkpointed.
+it as benign and retries, so it self-heals — but every death threw away the whole
+run under the old launcher.
 
 **Root cause found, 2026-09-19:** the run was launched inside the builder's own
 agent session and was never detached, so it died when that session ended. Two
 deaths, 2h07m of work lost each time, no partial output. The kernel log shows **no**
 out-of-memory kill, so memory was not the cause. **D-114** is the fix: launch long
-jobs with `setsid nohup ... </dev/null &`, shard by ticker across three cores, merge
-the parts. Helpers: `m91_count_part.py` and `m91_count_merge.py` in
-`/root/trade-alerts-builder/`. The work is still not checkpointed — a death still
-costs the whole run — so that remains open.
+jobs through `trade-alerts-offline-count@1..3.service`. Each shard now writes a
+checkpoint after every ticker and skips completed tickers after a restart. Helpers
+remain under `/root/trade-alerts-builder/`.
 
 ### 2.8 Skipped and degraded sessions are unreviewed
 The count run skipped 108 ticker-days: 90 `NO_USABLE_BARS` (these line up with ten
@@ -117,10 +114,10 @@ Databento authority is $60 total. $22.47 spent, **$37.53 left**. Targeted option
 quotes run about $0.41 per name-day, so roughly 90 name-days fit in what remains.
 Buy only the specific days and strikes the signals pick, after they exist.
 
-### 2.12 The box is small — free it before a long run
-7.7 GB RAM, 4 cores, **no swap**. Two services can be stopped when the owner is not
-using the bot, freeing about 960 MB: `systemctl stop consensus-engine.service
-openclaw-gateway.service`. Restart them before any live or Discord-facing work.
+### 2.12 The box is small — keep long runs bounded
+7.7 GB RAM, 4 cores, **no swap**. Keep both bot programs running because the
+controller treats either one stopping as a health failure. The three offline shard
+units are each capped at one CPU and 1.7 GB.
 Also watch `archives/storage-manager/manager.py scan` in the builder directory — it
 was observed pinning a whole core while the count run needed it. Nobody has checked
 what schedules it or whether it needs to run that often.
@@ -144,12 +141,25 @@ per-ticker split makes it obvious at a glance. Zero is a failure, not a result.
 The contract tests all passed while this bug was live — they check the code does
 what it says, not that the run measured what it was told to.
 
-## 2.14 The 2% gate is written but NOT yet proven
-`/root/trade-alerts-builder/m91_sample_gate.py` correctly reported five stocks at
-zero and four ETFs working. A later memory fix then filtered on the wrong field
-name and made it report **all nine** as zero. The memory problem is real (the
-first version held 2.6 GB) but the current filter is wrong. Fix the field name and
-confirm the gate reports the four ETFs as non-zero before relying on it.
+## 2.14 The 2% gate passed on 2026-09-20 Pacific
+The gate now reads the real session field, passes the instrument mapping through
+the shared count path, and checks every ticker against every expected called
+adapter. It returned 1,386 usable readings for each of the nine names and 4,158
+for each expected adapter path. Observed memory was about 178 MB.
+
+## 2.15 M9.1BT acceptance blocked by protected-file change
+
+The controller's saved acceptance result has `exit_code: 0`, `stable: true`,
+`artifacts: true`, but `protected: false`. Its reported error was
+`acceptance verification failed`. This means its protected-file fingerprints
+changed during that run; it is not a reported failing test. The saved result
+does not identify the changed protected path or its writer. Do not guess either,
+change protection, or repeat the same run without resolving that outside gate.
+`M9_1BT_DIAGNOSIS.json` preserves both published phases and their exact figures.
+The existing shared count-path edits are preserved and need fresh controller
+proof; the old test output does not establish acceptance of today's full delta.
+The full count output is still absent. ROADMAP carries the blocked row and the
+conditional M9.1BU continuation; no long job was launched in this diagnosis.
 
 ## 3. Traps that will cost you hours if you do not know them
 
@@ -170,8 +180,8 @@ confirm the gate reports the four ETFs as non-zero before relying on it.
 6. **OPRA parent symbology drops the dot**: `BRKB.OPT`, not `BRK.B.OPT`.
 7. **EQUS.MINI carries roughly one fifth of the full tape.** Absolute share-volume
    thresholds are not comparable across feeds. Bars are stamped at bar START.
-8. **Never launch a long job from inside an agent session.** It dies with the
-   session. Use `setsid nohup ... </dev/null &`. See D-114.
+8. **Never launch a long job from inside an agent session.** Start the three
+   `trade-alerts-offline-count@.service` shards so systemd owns them. See D-114.
 9. Databento prices arrive as integers scaled by 1,000,000,000. The loader divides
    before any adapter sees them, so adapter-level prices are plain dollars per share.
 

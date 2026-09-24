@@ -10,6 +10,7 @@ Commands:
   stock-poll   Save one synchronized stock quote snapshot when inside 04:00-17:00 Pacific.
   daily        Save minute stock bars, events, option rows, open interest, and a proof report.
   verify       Rebuild the proof report for one date without network calls.
+  cleanup      Print the retention plan unless the separate cleanup switch is on.
 """
 from __future__ import annotations
 
@@ -35,6 +36,7 @@ sys.path.insert(0, str(ROOT))
 
 from consensus_engine.scanners import schwab_client
 from consensus_engine.full_chain_storage import (
+    execute_retention_cleanup,
     OutputBounds,
     StoragePolicy,
     plan_retention,
@@ -482,6 +484,7 @@ def compact_option_day_bounded(settings: dict, day: date, **overrides) -> dict:
         open_interest=int(configured["open_interest_bytes"]),
         proof=int(configured["proof_bytes"]),
         publication=int(configured["publication_bytes"]),
+        scratch=int(configured.get("scratch_bytes", configured["chain_bytes"])),
     )
     parts = sorted((data_root(settings) / "option_parts" / day.isoformat()).glob("*.parquet"))
     return publish_option_set(data_root(settings), day, parts, bounds=bounds,
@@ -492,6 +495,22 @@ def plan_storage_retention(settings: dict, *, today: date,
                            legal_holds=()) -> list[dict]:
     """Return the M0.2B dry-run list; this function never deletes files."""
     return plan_retention(data_root(settings), today=today, legal_holds=legal_holds)
+
+
+def run_storage_cleanup(settings: dict, *, today: date, legal_holds=(), now=None,
+                        result_directory: Path | None = None) -> dict:
+    """Run the retention action; checked-in settings keep this in dry-run mode."""
+    storage = settings.get("storage", {})
+    policy = StoragePolicy(
+        fixed_reserve_bytes=int(storage.get("fixed_reserve_bytes", 12_000_000_000)),
+        reserve_fraction=float(storage.get("reserve_fraction", .15)),
+    )
+    return execute_retention_cleanup(
+        data_root(settings), today=today,
+        enabled=storage.get("cleanup_enabled", False),
+        legal_holds=legal_holds, now=now, result_directory=result_directory,
+        result_bytes=int(storage.get("cleanup_result_bytes", 16_384)), policy=policy,
+    )
 
 
 def verify_day(settings: dict, day: date) -> dict:
@@ -618,7 +637,7 @@ def parse_day(value: str | None) -> date:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=("stock-poll", "daily", "verify"))
+    parser.add_argument("command", choices=("stock-poll", "daily", "verify", "cleanup"))
     parser.add_argument("--date", default="today")
     parser.add_argument("--config", type=Path, default=CONFIG_PATH)
     args = parser.parse_args()
@@ -628,14 +647,18 @@ def main() -> int:
         result = capture_stock_poll(settings)
     elif args.command == "daily":
         result = run_daily(settings, day)
-    else:
+    elif args.command == "verify":
         result = verify_day(settings, day)
+    else:
+        result = run_storage_cleanup(settings, today=day)
     print(json.dumps(result, indent=2, sort_keys=True, default=_json_default))
     if args.command == "daily" and not result.get("skipped") and (
         result.get("option_error") or not result.get("proof_passed")
     ):
         return 1
     if args.command == "verify" and not result.get("passed"):
+        return 1
+    if args.command == "cleanup" and result.get("stopped"):
         return 1
     return 0
 

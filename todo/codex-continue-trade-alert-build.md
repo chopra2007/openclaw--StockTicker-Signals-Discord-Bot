@@ -94,6 +94,8 @@ outside the nine training names) and `m91_count_merge.py` (sums the parts).
 ## The build controller (if you use it rather than working directly)
 Lives in `/root/trade-alerts-builder/`. `./buildctl status|start|pause|resume|stop`
 — exactly one word. State is `state.json`.
+- Read `/root/trade-alerts-builder/CONTINUE_CODEX_BUILD.md` first. It contains the
+  current Codex routing, exact saved stop and restart-safe long-job procedure.
 - **Never edit a workspace file while a review is pending** — it causes
   "source changed before review". Check the stage first.
 - Any git operation trips the tamper alarm, because it fingerprints `.git`.
@@ -101,9 +103,8 @@ Lives in `/root/trade-alerts-builder/`. `./buildctl status|start|pause|resume|st
 - To force a legitimate rebuild, write the real reasons into `review_issues` in
   `state.json` and set `stage` to `"build"`. Do not edit `state.json` any other way
   and never reopen an accepted milestone.
-- Known weakness: on a repeated blocker it writes a new sub-step and hits the same
-  wall again instead of halting. It did this nine times in one morning, ~35 minutes
-  each. Halt it yourself if you see the same blocker twice.
+- Repeated blockers are now compared across renamed sub-steps and halt on the
+  second occurrence. Confirm this from current controller tests before resuming.
 
 ## Every mistake that wasted time in the previous session — do not repeat these
 

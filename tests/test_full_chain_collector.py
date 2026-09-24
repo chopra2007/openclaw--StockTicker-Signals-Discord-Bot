@@ -20,6 +20,17 @@ def settings(tmp_path: Path) -> dict:
     return result
 
 
+def test_storage_cleanup_is_checked_in_off_and_dry_run_is_default(tmp_path):
+    cfg = settings(tmp_path)
+    marker = tmp_path / ".notified-2026-08-01"
+    marker.touch()
+    result = collector.run_storage_cleanup(cfg, today=date(2026, 9, 1))
+    assert cfg["storage"]["cleanup_enabled"] is False
+    assert result["dry_run"] is True
+    assert result["removed"] == []
+    assert marker.exists()
+
+
 def test_universe_is_twenty_trade_names_plus_separate_context(tmp_path):
     cfg = settings(tmp_path)
     trade = cfg["universe"]["trade_names"]
@@ -127,6 +138,36 @@ def test_daily_compaction_creates_chain_and_open_interest_files(tmp_path):
     assert result == {"minute_files": 1, "option_rows": 1, "open_interest_rows": 1}
     assert collector._day_path(cfg, "option_chains", day).exists()
     assert collector._day_path(cfg, "open_interest", day).exists()
+
+
+def test_bounded_compaction_forwards_separate_scratch_and_time_limits(tmp_path, monkeypatch):
+    cfg = settings(tmp_path)
+    cfg["storage"] = {
+        "bounded_compaction_enabled": True,
+        "wall_seconds": 1800,
+        "output_bounds": {
+            "chain_bytes": 1_000_000_000,
+            "scratch_bytes": 4_500_000_000,
+            "open_interest_bytes": 200_000_000,
+            "proof_bytes": 4_000_000,
+            "publication_bytes": 4096,
+        },
+    }
+    captured = {}
+
+    def publish(root, day, parts, *, bounds, policy, **overrides):
+        captured.update(root=root, day=day, parts=parts, bounds=bounds,
+                        policy=policy, overrides=overrides)
+        return {"published": False}
+
+    monkeypatch.setattr(collector, "publish_option_set", publish)
+    day = date(2026, 8, 31)
+    assert collector.compact_option_day_bounded(cfg, day, complete_day=True) == {
+        "published": False,
+    }
+    assert captured["bounds"].scratch_limit == 4_500_000_000
+    assert captured["policy"].wall_seconds == 1800
+    assert captured["overrides"] == {"complete_day": True}
 
 
 def test_verify_day_requires_real_option_and_open_interest_rows(tmp_path):

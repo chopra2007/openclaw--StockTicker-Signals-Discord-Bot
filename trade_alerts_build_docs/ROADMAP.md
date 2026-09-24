@@ -6662,3 +6662,6946 @@ The parent `M9.1 — Historical replay #1-4` is not complete; source/final/live 
   next sub-step. If all three `/tmp/m91bt/part_*.json` exist and no `m91_count_part` process is running, merge them,
   publish as `trade_alerts_build_docs/M9_1BT_RETAINED_COUNTS.json` with its sha256, counts only, and compare with
   `M9_1BN_RETAINED_COUNTS.json`. If a shard died with no file, relaunch that shard once detached. Do not read held-out names.
+
+### M9.1BT escalation diagnosis — 2026-09-20 Pacific
+
+The earlier launch/relaunch instructions above are historical. D-114's updated
+system-managed jobs and D-116's sample gate govern any future long count run.
+This session did not launch or restart one. No count process or completed part
+file was found; the old empty logs remain.
+
+The recorded `acceptance verification failed` came from the controller's
+protected-file check, not a failed test: saved acceptance has `exit_code: 0`,
+`stable: true`, `artifacts: true`, and `protected: false`. The specific protected
+path and writer are not recorded in that result. The escalation used read-only
+inspection of the saved result, controller branch and published artifacts instead
+of repeating the run or changing loader code. Protection repair is outside this
+milestone's authority. `M9_1BT_DIAGNOSIS.json` carries the exact published phase
+figures and references; neither phase is being promoted to independent acceptance.
+The pre-existing shared count-path mapping edits and their tests are preserved.
+Fresh controller verification of the complete current delta remains required
+after the protected-file change is resolved. No proof handoff was supplied.
+
+- [!] **M9.1BT — protected-file verification gate and full count output unresolved:**
+  preserve the per-ticker loader change, shared count-path edits, all prior
+  failed attempts and published test output. Supervisor diagnosis of the
+  protected-file change is required; no protection or controller repair is
+  authorized here. Source/final/live gates and D-104 disabled dependents remain.
+- [ ] **M9.1BU — collect the corrected stock-typed D-113 counts after gate recovery:**
+  proposed existing continuation, subject to independent review. First resolve
+  the protected-file gate and obtain fresh proof for the shared count path;
+  confirm D-116's sample against the exact job before any supervised D-114 run.
+  Collect only the nine training names, then merge completed parts and compare
+  counts with `M9_1BN_RETAINED_COUNTS.json`. Do not blindly relaunch the dead
+  detached commands above. This is not permission to bypass the current gate,
+  read held-out names, enable missing-data rules or claim a trading result.
+
+## M9.1BU — supervised count launch unavailable in this session — 2026-09-20 Pacific
+
+The D-116 sample proof already recorded above remains clean: each of the nine
+training names produced 1,386 usable readings, and each expected adapter path
+produced 4,158. No new sample or full count was run here. The required D-114
+launch must use the three system-managed
+`trade-alerts-offline-count@1..3.service` jobs; this session cannot reach the
+system service manager (`Failed to connect to bus: Operation not permitted`).
+`/tmp/m91bt/` still contains only the three empty historical logs and no part or
+checkpoint JSON. No count process is running. The old detached commands were not
+restarted, and the held-out names were not read.
+
+The parent `M9.1 — Historical replay #1-4` remains incomplete. Source, final,
+live and D-104 missing-field gates remain unchanged, with dependent rules off
+and untested.
+
+- [!] **M9.1BU — corrected full count blocked on a supervisor-owned D-114 launch:**
+  the required three system-managed shards cannot be started or observed from
+  this sandbox, and no completed shard output exists to merge.
+- [ ] **M9.1BV — run and collect the supervised stock-typed D-113 count:**
+  after fresh independent review, start only the three D-114 system-managed
+  shards, preserve their per-ticker checkpoints, merge all nine training-name
+  results, publish counts only, and compare them with
+  `M9_1BN_RETAINED_COUNTS.json`. Do not read the eight held-out names.
+
+## M9.1BV — host service manager unavailable in this session — 2026-09-20 Pacific
+
+The required D-114 jobs were checked through their only approved launch path.
+The host service manager returned `Failed to connect to bus: Operation not
+permitted`, so none of the three `trade-alerts-offline-count@1..3.service` jobs
+could be started or observed from this sandbox. `/tmp/m91bt/` still contains
+only the three empty historical logs and no part or checkpoint JSON. The old
+detached commands were not restarted. No count, merge, provider call, credential
+read, spend, held-out-name read or protected test run occurred.
+
+This repeats the M9.1BU environment limit, not a code or data finding. Another
+builder retry in the same sandbox cannot change it. The parent `M9.1 — Historical
+replay #1-4` remains incomplete. Source, final, live and D-104 missing-field
+gates remain unchanged, with dependent rules off and untested.
+
+- [!] **M9.1BV — supervised count blocked outside the builder sandbox:** the
+  approved system-managed jobs require a host supervisor that can reach the
+  service manager; this session cannot launch or observe them.
+- [ ] **M9.1BW — host-supervised D-114 count and collection:** after independent
+  review, a host supervisor with service-manager access must start only
+  `trade-alerts-offline-count@1..3.service`, retain all per-ticker checkpoints,
+  and return the completed three part files. Then merge the nine training-name
+  results, publish counts only and compare them with
+  `M9_1BN_RETAINED_COUNTS.json`. Do not route this back to the same restricted
+  builder sandbox and do not read the eight held-out names.
+
+## M9.1BW — host-supervised count is healthy and two-thirds checkpointed — 2026-09-20 Pacific
+
+The host supervisor started only the three approved D-114 jobs at 17:33 Pacific.
+The system journal and restart-safe files agree that every shard is still making
+progress. At 18:44 Pacific, six of the nine training names were checkpointed:
+NVDA and MSFT, TSLA and LLY, and QQQ and XLV. The remaining names are AAPL, SPY
+and USO. Each shard has a checkpoint file under
+`/root/trade-alerts-builder/long-jobs/m91-retained-count/`; no final part file
+exists yet, so a merge or comparison would be premature.
+
+The held-out names were not read. No provider call, credential read, network
+call, spend, merge, protected test or application run occurred in this session.
+The parent `M9.1 — Historical replay #1-4` remains incomplete. Source, final,
+live and D-104 missing-field gates remain unchanged, with dependent rules off
+and untested.
+
+- [!] **M9.1BW — D-114 count still running:** all three approved host jobs are
+  healthy and two-thirds checkpointed, but the three final part files do not yet
+  exist, so the required merge and count comparison cannot be completed in this
+  session.
+- [ ] **M9.1BX — collect the completed host-supervised count:** after independent
+  review, wait for all three final part files without restarting healthy jobs,
+  merge the nine training-name results with `m91_count_merge.py`, publish counts
+  only with the result's sha256, and compare them with
+  `M9_1BN_RETAINED_COUNTS.json`. Do not read the eight held-out names.
+
+### M9.1BW escalation diagnosis — 2026-09-21 Pacific
+
+The preceding 18:44 Pacific observation is historical. Read-only inspection now
+finds `part-1.json`, `part-2.json` and `part-3.json` under
+`/root/trade-alerts-builder/long-jobs/m91-retained-count/`. Their contents have
+not been validated or merged in this repair. The old missing-output explanation
+no longer describes the current files; no current job-health claim is made.
+
+The earlier disk-exhaustion result remains in attempt history: its
+`verification.log` ended with `OSError: [Errno 28] No space left on device`
+while writing the JUnit report. That failure did not identify a milestone code
+defect and is not the current verification result.
+
+Later controller proof supersedes the stale current-verification statement.
+The protected focused phase selected `tests/trade_alerts_contracts` once and
+passed 3,452 tests with zero failures, errors or skips; controller wall time was
+358.475 seconds. The protected broad acceptance phase selected
+`tests/trade_alerts_contracts` once for the reason `unknown dependency impact;
+safe broad fallback`, passed 3,452 tests with zero failures, errors or skips,
+and recorded controller wall time 373.104 seconds. Its JUnit time was 368.464
+seconds. The separate repeatability phase selected the controller's recorded 50
+deterministic/recording selectors, ran twice in fresh protected processes, and
+passed 76 tests in each run with zero failures, errors or skips; controller wall
+time was 232.102 seconds. The acceptance and both repeatability runs have clean
+isolation and cleanup. Their published artifact directories are
+`published-artifacts-c7e348674443` and `published-artifacts-994531f5add9` under
+the 20260920-182648-723205 build run. The matching controller evidence source
+hash is `8415bcb3ef5fe719d20728f445cb6d5f33a81f2b6595fd272ea6b4f6a7d4efa9`.
+This records-only correction changes no tested code, test, configuration or
+protected input; the complete milestone delta remains only this ROADMAP file.
+
+No count job, merge, application, provider call, credential read, held-out-name
+read or spend occurred in this repair. All switches remain off. The parent
+historical replay remains incomplete; D-104 missing-field dependents remain off
+and untested, and source/final/live gates are unchanged.
+
+- [!] **M9.1BW — count outputs remain unvalidated and unmerged:** protected
+  focused, broad acceptance and two-process repeatability verification has passed.
+  The three final part files still need validation, merge and comparison with
+  `M9_1BN_RETAINED_COUNTS.json`; the eight held-out names must remain unread.
+- [ ] **M9.1BX — validate and collect the existing supervised count outputs:**
+  proposed continuation after independent review confirms recovery and eligibility;
+  validate the three existing parts without restarting the count jobs, merge with
+  `m91_count_merge.py`, publish counts with the result's sha256 and compare with
+  `M9_1BN_RETAINED_COUNTS.json`. Do not read the eight held-out names.
+
+## M9.1BX — corrected supervised count validated, merged and published — 2026-09-21 Pacific
+
+The three completed D-114 part files were validated without restarting a job.
+Together they name each of the nine D-107 training symbols exactly once, use the
+same run fingerprint and version, and name none of the eight held-out symbols.
+Their sha256 values are, in shard order,
+`ddc56cf1ebd23cba661833469e20ea18fa65bc3a893858ed63f65e15cfb44511`,
+`49b675e914c2495b27a19719f7dcfb4517771cc8def4f10c0a30787823a8fddb`
+and `4b428814edcfe0b57f82a62b2a86d0a0191400efcc8173f07d8d3e907c8db2ce`.
+
+`m91_count_merge.py` accepted the three parts and produced
+`M9_1BX_RETAINED_COUNTS.json` (sha256
+`681f32ec1907ebeee8f1788c7367a1f824a9835d4c888c5450df01c607df90c4`).
+The corrected run has 2,349 ticker-day pairs, 2,241 sessions used and 515,727
+decision moments called. Each of the three adapter paths has 171,909 ready
+moments and zero not-ready moments. The run still lists 108 skipped ticker-days
+(90 `NO_USABLE_BARS`, 18 `DEGRADED_SESSION`) and 18 without a prior session.
+
+Compared with `M9_1BN_RETAINED_COUNTS.json`, total moments, skipped counts and
+missing-prior counts are unchanged. The old result had 76,404 ready and 95,505
+not-ready moments per adapter path. The corrected result moves those 95,505
+moments to ready, so all 171,909 moments per path are ready. This confirms the
+stock instrument-label repair for the three counted adapter paths. It does not
+fill the five `not_called` inputs: 1-minute ATR, VWAP slope, VWAP crosses, the
+quote decision and `HOD_COMP_RS` policy inputs remain recorded gaps with their
+dependent rules off and untested under D-104.
+
+No count job was launched or restarted. No provider call, credential read,
+network call, spend, entry, trade, R or profit figure occurred. The parent
+`M9.1 — Historical replay #1-4` remains incomplete. Source, final and live gates
+remain unchanged.
+
+- [x] **M9.1BX — corrected supervised count validated, merged and published.**
+- [ ] **M9.1BY — connect the existing `HOD_COMP_RS` bar adapters to the retained-count path:**
+  proposed next sub-step. Use the retained history batches and planned decision
+  moments to count the existing relative-strength, compression and bar-role
+  adapter inputs for the nine training names. Keep unavailable policy inputs as
+  named D-104 gaps with dependent rules off; publish counts only, with no entry,
+  trade, R or profit figure. Independent review must confirm eligibility before
+  the controller advances.
+
+## M9.1BY — `HOD_COMP_RS` bar adapters connected to retained counts — 2026-09-21 Pacific
+
+Current status: reopened after independent review; the first-15-bar repair below
+awaits fresh protected verification. The original collected-case proof in this
+section is historical and does not prove the corrected source.
+
+`retained_adapter_run.py` now calls the existing `HOD_COMP_RS` bar readers at
+every planned decision moment. It counts the frozen M0.3C 15-minute stock-versus-
+SPY reading, 3-by-7 non-overlapping compression reading, frozen reference and
+the five existing bar roles. The benchmark is found only from the same retained
+session plan. SPY against itself is recorded as `SELF_BENCHMARK_UNDEFINED`; no
+replacement benchmark is invented.
+
+The retained minute source has no daily bars, identified opening trade, quote or
+status input. Those values stay named not-ready or not-called gaps. The session
+VWAP can be counted from the current minute batch. One-minute ATR remains absent,
+so the compression distance values remain off and untested under D-104. This step
+changes counts only. It produces no entry, trade, R or profit figure, reads no
+provider and does not open the eight held-out names.
+
+The earlier local protected-launcher failure is historical. The controller then
+published protected proof for source hash
+`d9594d9317ce8a4efc132c6a62243a5f4d4c3d574f02fafd0d0758a265186a3e` and
+the complete five-file milestone delta. The focused phase ran once with
+`tests/trade_alerts_contracts/test_retained_adapter_run.py` and
+`tests/trade_alerts_contracts/test_retained_count_run.py`, selected because the
+builder named directly affected checks. It passed 5 tests with zero failures,
+errors or skips; controller wall time was 51.012 seconds and JUnit time was
+49.215 seconds. Its published artifacts are
+`/root/trade-alerts-builder/runs/20260921-010108-398528-build/published-artifacts-09c06a0eabcf`
+with publication-manifest SHA-256
+`dfd899ec7b90272f3a11a1351251b149117d3b4d26dc6e3959ed6b4e159d1718`.
+
+The acceptance phase ran once with `tests/trade_alerts_contracts`, selected for
+`unknown dependency impact; safe broad fallback`. It passed 3453 tests with zero
+failures, errors or skips; controller wall time was 404.926 seconds and JUnit
+time was 400.335 seconds. Its published artifacts are
+`/root/trade-alerts-builder/runs/20260921-010108-398528-build/published-artifacts-f07fd85887e9`
+with publication-manifest SHA-256
+`429ddc6aa867e45661da765e9a0c173cea03baebdc7dad72f777e4a9abbcdea6`.
+
+The repeatability phase ran the controller's published 50 deterministic/recording
+selectors twice in fresh protected processes, selected for `recording output
+requires fresh-process comparison`. Each run passed 76 tests with zero failures,
+errors or skips; controller wall time was 224.107 seconds. JUnit recorded
+110.348 seconds for run 1 and 109.379 seconds for run 2. The two published
+artifact manifests are under
+`/root/trade-alerts-builder/runs/20260921-010108-398528-build/published-artifacts-e21874213684`;
+its publication-manifest SHA-256 is
+`8df4c85d809863ed71890184f024cd5e8cbed363b365405ee161028f3682061d`.
+The controller recorded the selector list and matching artifact comparison there.
+The complete tested-source manifest is
+`/root/trade-alerts-builder/runs/20260921-010108-398528-build/verified-manifest.json`
+with SHA-256 `83da37438ce56120e0f1b3a82041d1ebd92950f0466a7a315649579beb9222ea`.
+No code, test, configuration or protected input changed during that earlier
+records-only finalization. Source, final, live and D-104 gaps remain unchanged, and the parent
+historical replay remains incomplete.
+
+- [x] **M9.1BY — `HOD_COMP_RS` bar adapters connected and protected proof recorded.**
+- [ ] **M9.1BZ — connect the existing `CRVOL_ORB5` bar reader to retained counts:**
+  proposed next sub-step after M9.1BY is independently accepted. Count its existing
+  bar-native inputs over the same nine training names and planned moments. Preserve
+  unavailable tape, quote, status, ATR and finality inputs as named D-104 gaps;
+  publish counts only and do not read the eight held-out names.
+
+### M9.1BY repair after rejected review — 2026-09-21 Pacific
+
+The reviewer found that `retained_adapter_run.py` named M0.3C while passing a
+full session to a reader that selects the latest 15 completed bars. The original
+focused cases did not distinguish that rolling window from the required first
+15 session minutes. A later missing bar could therefore change the count, and
+a missing opening bar could eventually fall out of the required window. The
+original review rejection and all earlier collected-case proof remain history;
+the earlier [x] row was not independent acceptance.
+
+The different approach fixes the stock and same-session SPY requests to the
+first 15 regular-session intervals before calling the existing research reader.
+It preserves overlapping records and uses availability at the actual decision
+moment. Missing opening intervals cannot be replaced by later ones. A selected
+revised opening bar makes its as-of count unknown; an unavailable future revision
+does not. Missing or revised later bars cannot change the opening RS count.
+The warm-up count now also requires a usable reading from both opening windows.
+The shared rolling reader and its other callers retain their existing contract.
+The adapter and retained-count output versions advance to V3.
+
+Synthetic cases check the value and exact input IDs at bar 15 and later moments,
+with later prices that would reverse a rolling reading. They cover missing and
+revised bars inside and outside the opening window on both instruments, delayed
+availability of required revisions, and the retained-file-to-count path with
+opening and later gaps. These are offline contract cases only; no retained
+market file or held-out name was opened. D-110 provisional research remains
+separate from finality proof. Missing daily, opening-trade, quote, status and ATR
+inputs remain gaps with their dependent rules off and untested under D-104.
+
+The earlier sandbox launcher failure remains historical. The controller then
+published fresh protected proof for source hash
+`98b769edac3ed0881ef3ccda72a17c358b55e9ef2e4ab5ca1d4ba767675646f2` and
+the complete five-file milestone delta. The focused phase ran once with
+`tests/trade_alerts_contracts/test_retained_adapter_run.py` and
+`tests/trade_alerts_contracts/test_retained_count_run.py`, selected because the
+builder named directly affected checks. It passed 20 tests with zero failures,
+errors or skips; controller wall time was 107.373 seconds and JUnit time was
+105.675 seconds. Its published artifacts are
+`/root/trade-alerts-builder/runs/20260921-010108-398528-build/published-artifacts-8583e9fa77a9`
+with publication-manifest SHA-256
+`867f090b1f2e6dd2b6a0cce5b2533cba799fc447aa4ed7f6e2d9a405da4e1034`.
+
+The acceptance phase ran once with `tests/trade_alerts_contracts`, selected for
+`unknown dependency impact; safe broad fallback`. It passed 3468 tests with zero
+failures, errors or skips; controller wall time was 459.626 seconds and JUnit
+time was 455.107 seconds. Its published artifacts are
+`/root/trade-alerts-builder/runs/20260921-010108-398528-build/published-artifacts-48868ac0e039`
+with publication-manifest SHA-256
+`b942f141d7e9f46aa6c97d3f4f1d448065c92969fca6a7d1a55312a633e60633`.
+
+The repeatability phase ran the controller's published 50 deterministic/recording
+selectors twice in fresh protected processes, selected for `recording output
+requires fresh-process comparison`. Each run passed 76 tests with zero failures,
+errors or skips; controller wall time was 231.259 seconds. JUnit recorded
+114.332 seconds for run 1 and 111.891 seconds for run 2. The two published
+artifact manifests are under
+`/root/trade-alerts-builder/runs/20260921-010108-398528-build/published-artifacts-ce543fd236bd`;
+its publication-manifest SHA-256 is
+`bf8f7adf70fd6c279c385324695682418e37cf950b213dbc99d3fc9f002b029e`.
+The controller recorded the selector list and matching artifact comparison there.
+The complete tested-source manifest is
+`/root/trade-alerts-builder/runs/20260921-010108-398528-build/verified-manifest.json`
+with SHA-256 `2d4f631b8639210af9aca8c7b7697bef175fbba0b483dc8339e7b4b5ead8c106`.
+
+Complete milestone delta: `consensus_engine/retained_adapter_run.py`,
+`consensus_engine/retained_count_run.py`,
+`tests/trade_alerts_contracts/test_retained_adapter_run.py`,
+`tests/trade_alerts_contracts/test_retained_count_run.py`, and this ROADMAP.
+All switches remain off. Source, historical replay, final and live gates remain
+unchanged. M9.1BZ remains proposed only after fresh independent acceptance.
+
+- [x] **M9.1BY — first-15-bar retained-count repair and protected proof recorded.**
+
+## M9.1BZ — `CRVOL_ORB5` bar readers connected to retained counts — 2026-09-21 Pacific
+
+`retained_decision_moments.py` now includes `CRVOL_ORB5` on the same frozen
+five-minute grid used by the other first-four playbooks. At every planned moment,
+`retained_adapter_run.py` calls the existing five-minute opening-range reader and
+the latest-ready-minute observation reader. It counts each as ready or records
+the reader's exact missing reason. A missing opening minute never becomes a
+partial opening range, while later ready bars may still supply the separate
+latest-bar observation.
+
+Minute bars cannot supply the 15-second tape-intensity input, quote/status inputs,
+one-minute ATR or proven finality. Those stay named `not_called` gaps with their
+dependent rules off and untested under D-104. This step changes counts only. It
+does not produce an entry, trade, R or profit figure, call a provider, or read the
+eight held-out names. All switches remain off.
+
+Synthetic focused cases cover an absent batch, all available bar-native inputs,
+an incomplete opening range that cannot heal from later bars, the full retained-
+file-to-count path, and the newly allowed `CRVOL_ORB5`-only decision plan. The
+protected launcher could not start in this workspace because its temporary-folder
+ownership change raised `OSError: [Errno 22] Invalid argument`; the controller
+must provide the focused, broad acceptance and repeatability proof.
+
+Complete milestone delta: `consensus_engine/retained_adapter_run.py`,
+`consensus_engine/retained_count_run.py`,
+`consensus_engine/retained_decision_moments.py`,
+`tests/trade_alerts_contracts/test_retained_adapter_run.py`,
+`tests/trade_alerts_contracts/test_retained_count_run.py`,
+`tests/trade_alerts_contracts/test_retained_decision_moments.py`, and this ROADMAP.
+
+- [~] **M9.1BZ — `CRVOL_ORB5` bar readers connected; protected proof pending.**
+- [ ] **M9.1CA — collect and compare the first-four retained adapter counts:**
+  proposed next sub-step after M9.1BZ is independently accepted. Run the updated
+  counts over the same nine training names, publish the result and compare it with
+  `M9_1BX_RETAINED_COUNTS.json`. Keep every D-104 gap off and untested, publish
+  counts only, and do not read the eight held-out names.
+
+### M9.1BZ protected proof recorded — 2026-09-21 Pacific
+
+The earlier local launcher limit is historical. The controller published fresh
+protected proof for source hash
+`2894994de7aab010e19c75b60f906cd518fe4e64d6f0cb6897b683b1dae2ce22`.
+The focused phase ran once with
+`tests/trade_alerts_contracts/test_orb5_research_adapter.py`,
+`tests/trade_alerts_contracts/test_retained_adapter_run.py`,
+`tests/trade_alerts_contracts/test_retained_count_run.py`, and
+`tests/trade_alerts_contracts/test_retained_decision_moments.py`, selected for
+`builder named directly affected checks`. It passed 48 tests with zero failures,
+errors, or skips; pytest reported 113.16 seconds, JUnit reported 113.158
+seconds, and controller wall time was 114.943 seconds. Its published artifacts
+are under `published-artifacts-0f686e2b53e1` in the
+`20260921-014910-625325-build` run; the publication manifest SHA-256 is
+`18a26a600497d8ca27915252218d4d5a3b6db7bac9bae185cfe3f021c8a3ac6f`.
+
+The acceptance phase ran once with `tests/trade_alerts_contracts`, selected for
+`unknown dependency impact; safe broad fallback`. It passed 3470 tests with zero
+failures, errors, or skips; JUnit reported 459.372 seconds and controller wall
+time was 463.719 seconds. Its published artifacts are under
+`published-artifacts-4d09c3517475` in the same build run; the publication
+manifest SHA-256 is
+`2591cc039d0006dd094f231bd33d4c11c7440ec804c844755d9989d60c83cd47`.
+
+The repeatability phase ran twice in fresh protected processes, selected for
+`recording output requires fresh-process comparison`. Its exact 50 selectors
+are the `commands` list in
+`published-artifacts-76ee5fb31108/summary.json` in the same build run. Each run
+passed 76 tests with zero failures, errors, or skips; pytest reported 112.12
+seconds and 110.11 seconds, JUnit reported 112.118 seconds and 110.106 seconds,
+and combined controller wall time was 226.25 seconds. The artifact comparison
+matched the two runs. Its publication manifest SHA-256 is
+`4b2a7b905f1883407113120ad3e98ea18f52b7f658681e23857285264c82ae2f`.
+
+The complete tested-source manifest is
+`/root/trade-alerts-builder/runs/20260921-014910-625325-build/verified-manifest.json`.
+This records-only finalization changes no code, test, configuration, dependency,
+or protected input. All switches remain off; D-104 tape, quote/status, one-minute
+ATR, and finality gaps remain off and untested. Source, historical replay, final,
+and live gates remain unchanged.
+
+- [x] **M9.1BZ — `CRVOL_ORB5` bar readers connected and protected proof recorded.**
+
+## M9.1CA — updated first-four retained count requires a new supervised run — 2026-09-21 Pacific
+
+The published `M9_1BX_RETAINED_COUNTS.json` and the three completed D-114 part
+files were produced before the `HOD_COMP_RS` and `CRVOL_ORB5` readers were
+connected in M9.1BY and M9.1BZ. They contain only the three older adapter paths,
+so they cannot be reused as the requested updated first-four result.
+
+No updated shard or count process exists. The only approved long-job path is the
+three system-managed D-114 shards, but this builder sandbox cannot reach the host
+service manager: `Failed to connect to bus: Operation not permitted`. The old
+part files and checkpoints were left unchanged. No old job was restarted, no
+retained market file or held-out name was read, and no provider call, network
+call, credential read, spend, entry, trade, R or profit figure occurred.
+
+The next supervised run must use new output and checkpoint paths so the old
+completed checkpoints cannot skip the newly connected readers. It must keep the
+same nine D-107 training names, three approved shard groups, D-113 conventions
+and count-only boundary. After all three parts finish, merge them, publish the
+new result and compare it with `M9_1BX_RETAINED_COUNTS.json`. Tape, quote/status,
+one-minute ATR and finality gaps stay off and untested under D-104. The parent
+historical replay and source, final and live gates remain incomplete.
+
+- [!] **M9.1CA — updated first-four count blocked on a new host-supervised run:**
+  the existing completed outputs predate M9.1BY/M9.1BZ, and this sandbox cannot
+  start or observe the required system-managed shards.
+- [ ] **M9.1CB — run and collect the updated first-four retained counts:** after
+  independent review, a host supervisor must run only the three approved D-114
+  shard groups with new output/checkpoint paths, then merge and publish the nine
+  training-name counts and compare them with `M9_1BX_RETAINED_COUNTS.json`.
+  Do not read the eight held-out names or enable any D-104 dependent rule.
+
+## M9.1CB — host service manager unavailable for the updated count — 2026-09-21 Pacific
+
+The required D-114 jobs were checked through their only approved launch path.
+The host service manager returned `Failed to connect to bus: Operation not
+permitted`, so this sandbox cannot start or observe the three updated shards.
+The existing `part-1.json`, `part-2.json` and `part-3.json` files under
+`/root/trade-alerts-builder/long-jobs/m91-retained-count/` are the older
+completed run from 2026-09-20. They predate the M9.1BY and M9.1BZ reader changes
+and were left unchanged. No new output or checkpoint path exists to collect.
+
+No old job was restarted. No retained market file or held-out name was read.
+No merge, provider call, network call, credential read, spend, entry, trade, R
+or profit figure occurred. Tape, quote/status, one-minute ATR and finality gaps
+remain off and untested under D-104. The parent historical replay and source,
+final and live gates remain incomplete.
+
+### Escalated repair assessment — 2026-09-21 Pacific
+
+The controller's repeatability check failed at
+`tests/trade_alerts_contracts/test_orb5_trigger.py::test_the_supplied_trigger_through_the_m42_engine_and_m51_store[LONG]`
+with `Failed: Timeout (>120.0s) from pytest-timeout.` The traceback ends in
+`test_orb5_eligibility.py:96`, while looking up a supplied feature's unit in a
+finite dictionary. It does not establish an infinite loop or identify the cause
+of the elapsed-time overrun. Host contention is not proven.
+
+The different approach on this attempt was to inspect the saved failure, its
+calling helpers and the controller's starting file fingerprints before any
+retry. Both test files and `consensus_engine/db.py` still match those starting
+fingerprints. The complete M9.1CB delta is only this ROADMAP; no strategy,
+test, configuration or launcher repair is justified by that delta. No failed
+command was repeated and no timeout or protection was changed.
+
+Prior proof and the rejected attempt remain under
+`/root/trade-alerts-builder/runs/20260921-023254-295550-build/`:
+`published-artifacts-19da96264992/` holds the focused proof,
+`published-artifacts-293e8f779f10/` holds the acceptance proof, and
+`attempt-history/focused-1-verification.log` now preserves the separate
+repeatability failure (the controller's archive filename does not identify its
+original phase). Both published phases selected
+`tests/trade_alerts_contracts`; neither replaces the failed repeatability check.
+No successful repeatability comparison or independent acceptance is claimed.
+
+The known execution blocker remains outside milestone code: D-114 requires
+host-managed jobs, and the saved host query returned `Failed to connect to bus:
+Operation not permitted`. The failed test's underlying timing cause remains
+unresolved separately. M9.1CC is a proposed host-supervised handoff, subject to
+fresh review and actual host access; another builder sandbox cannot remove this
+block by adding another roadmap row. All earlier failures and counters remain.
+
+### Subsequent controller timeout assessment — 2026-09-21 Pacific
+
+The current failure is `verification error: protected verification timed out`.
+It is separate from the earlier individual-test timeout above. The controller
+subsequently published a successful single-selector run in
+`published-artifacts-f5ff0c598e5c/` under the same build directory. Its
+`summary.json` names exactly
+`tests/trade_alerts_contracts/test_orb5_trigger.py::test_the_supplied_trigger_through_the_m42_engine_and_m51_store[LONG]`.
+Its `publication.json` retains the recording and isolation fingerprints.
+`attempt-history/acceptance-2-verification.log` holds that run's output.
+This pass does not replace the missing successful repeatability comparison.
+
+The latest `verification.log` contains only
+`Artifacts: /tmp/trade-alerts-m04-chpixan5`. Read-only inspection of that working
+directory returned `PermissionError: [Errno 13] Permission denied:
+'/tmp/trade-alerts-m04-chpixan5'`. No traceback, completed result or timing cause
+for this latest timeout is available in the readable log. The controller must
+supply its phase and timing figures; none are inferred here.
+
+This attempt compared the later published single-selector proof with the older
+failure and the latest incomplete log, instead of repeating the failed command.
+The related test files and `consensus_engine/db.py` still match
+`start-manifest.json`; the complete milestone change remains this ROADMAP only.
+No code defect or host-contention cause has been established, and no code,
+test, timeout or protection change is justified. The actual count remains
+blocked by the saved host service-manager denial, outside milestone code.
+M9.1CC still requires a host supervisor and fresh independent review; no new
+builder-only task can resolve that access requirement. No tests or count jobs
+were run in this assessment. Earlier proof and rejected attempts remain intact.
+
+- [!] **M9.1CB — updated count blocked outside the builder sandbox:** the only
+  approved system-managed launch path requires a host supervisor that can reach
+  the service manager, and no updated shard output exists to collect.
+- [ ] **M9.1CC — host-supervised updated count and collection:** after fresh
+  independent review, a host supervisor with service-manager access must run
+  only the three approved D-114 shard groups with new output and checkpoint
+  paths, merge the nine D-107 training-name results, publish counts only and
+  compare them with `M9_1BX_RETAINED_COUNTS.json`. Do not read the eight held-out
+  names or enable any D-104 dependent rule.
+
+### M9.1CB count and protected-proof correction — 2026-09-21 Pacific
+
+The preceding missing-output and timeout statements are historical. Three new
+first-four parts are present under
+`/root/trade-alerts-builder/long-jobs/m91-retained-count-first-four/`. They
+finished between 06:50 and 06:58 Pacific. Each uses version
+`M91BZ_RETAINED_COUNT_RUN_V4` and fingerprint
+`924da106bc2eaf2b93785d47fbf56ed073be66f5d9d089bf3f1ca74b9dada74a`.
+Their SHA-256 values, in shard order, are
+`a96c6cd57378624bd902e009b434becddff4ec516af1b624f25c715b1160651b`,
+`71144b9fdef43cf54cedcf74879757f794073d744b6e59ed006f36cb394866dc`, and
+`550828373e1affede9f8057391760d10285a903b43dcc6c43af9577d76e1900f`.
+They cover exactly NVDA, MSFT, AAPL; TSLA, LLY, SPY; and QQQ, XLV, USO.
+
+The checked merge is `M9_1CC_RETAINED_COUNTS.json` (SHA-256
+`461716442c6e649f2ab31c1ccf6170e4db0842f42478d952b82e9d3bd72dfc50`).
+Its 2,349 pairs and 2,241 used sessions equal the three parts; its 687,636
+called moments equal their sum. Compared with
+`M9_1BX_RETAINED_COUNTS.json` (SHA-256
+`681f32ec1907ebeee8f1788c7367a1f824a9835d4c888c5450df01c607df90c4`),
+the common first-pullback and failure counts remain 171,909 each; the updated
+result adds the recorded HOD and ORB5 reader counts and their named unavailable
+reasons. It keeps 108 skipped ticker-days and 18 missing-prior sessions. The
+count result records all D-104-dependent inputs as not called; they remain off
+and untested. No held-out name, provider, credential, network, trade, entry,
+R or profit result was used.
+
+The controller's fresh protected proof after the count file was created is in
+the current build run. The focused phase ran
+`tests/trade_alerts_contracts/test_orb5_trigger.py::test_the_supplied_trigger_through_the_m42_engine_and_m51_store[LONG]`
+once for `builder named directly affected checks`: one test passed with zero
+failures, errors or skips; pytest reported 3.274 seconds, JUnit reported 3.274
+seconds, and controller wall time was 4.888 seconds. The acceptance phase ran
+`tests/trade_alerts_contracts` once for `unknown dependency impact; safe broad
+fallback`: 3,470 tests passed with zero failures, errors or skips; JUnit
+reported 451.242 seconds. The controller will supply its acceptance wall-time
+figure from the published stage.
+
+The repeatability phase ran the controller's recorded 50 deterministic/recording
+selectors twice in fresh protected processes for `recording output requires
+fresh-process comparison`. Each run passed 76 tests with zero failures, errors
+or skips. Pytest reported 108.27 seconds and 107.84 seconds; JUnit reported
+108.269 seconds and 107.838 seconds; combined controller wall time was 220.429
+seconds. The recordings and isolation fingerprints match, cleanup is clean in
+both runs, and neither run reports an unexpected denial. The repeatability
+publication manifest SHA-256 is
+`efa11388ede8c60823351a6e83c48ae00afef61507a343cbbf7168320e032527`.
+The complete tested-source manifest remains
+`/root/trade-alerts-builder/runs/20260921-023254-295550-build/verified-manifest.json`
+with source hash
+`35518300797f3c62786524369d6f2e870c98d9e3c10c8fcabaf62a49b543ee5f`.
+
+This is records-only finalization. It does not remove earlier timeout history,
+and it changes no code, test, configuration, dependency or protected input.
+The parent historical replay and source, final and live gates remain blocked.
+
+- [!] **M9.1CB — updated count collected and proof corrected, but the parent
+  historical replay and source, final and live gates remain blocked.**
+
+## M9.1CC — host-supervised updated first-four count collected — 2026-09-21 Pacific
+
+The host-supervised work requested by M9.1CC is complete. The three D-114
+parts under `/root/trade-alerts-builder/long-jobs/m91-retained-count-first-four/`
+cover exactly the nine D-107 training names in the approved three shard groups.
+Their versions and run fingerprints match. Their totals also match the checked
+merge in `M9_1CC_RETAINED_COUNTS.json`: 2,349 ticker-day pairs, 2,241 used
+sessions and 687,636 called moments. The merged file's SHA-256 is
+`461716442c6e649f2ab31c1ccf6170e4db0842f42478d952b82e9d3bd72dfc50`.
+
+Compared with `M9_1BX_RETAINED_COUNTS.json`, the three previously connected
+`FIRST_PULLBACK_VWAP` and `OR_FAILURE_REV` ready counts remain 171,909 each.
+The new result adds the connected `HOD_COMP_RS` and `CRVOL_ORB5` reader counts
+and keeps their exact unavailable reasons. Every D-104-dependent input listed
+in `not_called` remains off and untested. No held-out name, provider, network,
+credential, entry, trade, R or profit result was used.
+
+This step collects and checks availability counts only. It does not finish the
+parent historical replay: no stage-1 candidate measurement, stage-2 combination
+choice or stage-3 held-out D-108 pass exists yet. Source, final and live gates
+remain separate and blocked.
+
+Complete milestone delta: `trade_alerts_build_docs/M9_1CC_RETAINED_COUNTS.json`
+and this ROADMAP.
+
+- [x] **M9.1CC — host-supervised updated first-four count collected, checked and
+  protected proof recorded.**
+- [ ] **M9.1CD — build the first stage-1 training measurement path after the
+  updated availability count:** after independent acceptance of M9.1CC, connect
+  one existing first-four playbook runner to the retained training sessions and
+  frozen M9.1T candidate catalog, producing offline training measurements only.
+  Keep every unavailable input off and untested under D-104, do not read the
+  eight held-out names, and do not run stage 2 or stage 3 in this sub-step.
+
+## M9.1CD part 1 — strict stage-1 measurement record built; retained runner connection remains — 2026-09-21 Pacific
+
+New `consensus_engine/stage1_training_measurement.py` builds the stored stage-1
+ranking values from already-resolved, fully costed trade rows for one frozen
+M9.1T candidate. It reuses the D-108 measurement math for mean R, weekly win
+rate, bootstrap lower bound and drawdown recovery, then feeds the existing
+`TrainingMeasurement` and `rank_training_candidates` path. It enforces exactly
+the nine D-107 training names, rejects every held-out name, requires every
+candidate axis to have been tested, requires complete costs and applies the
+one-event-per-ticker-day-side rule. D-104 gaps that do not affect the measured
+candidate remain named in `disabled_rules`; a disabled candidate axis is
+refused rather than filled or approximated.
+
+New focused file
+`tests/trade_alerts_contracts/test_stage1_training_measurement.py` covers the
+measurement and ranking path plus held-out input, incomplete cost, OFF axis,
+catalog drift, duplicate-event and empty-input rejection. This part reads no
+market file and produces no real return figure.
+
+Repair after independent review, 2026-09-21 Pacific: the original implementation
+checked `tested_axes` but never compared `disabled_rules` with the frozen
+candidate axes. Thus `disabled_rules=("D-052",)` incorrectly passed when the
+trade also claimed `tested_axes=("D-052",)`. The repair rejects that overlap
+before measurement. The direct test
+`test_disabled_candidate_axis_is_rejected_even_when_claimed_tested` covers each
+axis of the first-four frozen catalogs, including D-052. The successful-input
+test also checks that unrelated named gaps remain in the result.
+
+The protected focused selector is
+`tests/trade_alerts_contracts/test_stage1_training_measurement.py`. The local
+launcher stopped before collecting tests at its temporary-directory ownership
+change: `OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-cbao7mge'`.
+No retry or unprotected test run followed. Fresh focused, broad acceptance and
+required repeatability proof must come from the controller; their new figures
+are not yet published. No passing repair result is claimed.
+
+Prior attempts and collected-case proof remain preserved under
+`/root/trade-alerts-builder/runs/20260921-074936-743713-build/`, including
+`controller-evidence.json`, `changes.diff`, `attempt-history/` and the published
+artifact directories `published-artifacts-8d2e44afa9d5` (focused),
+`published-artifacts-5711533bd1fb` (acceptance) and
+`published-artifacts-6178a64886c4` (repeatability). That proof predates this
+code/test repair and does not establish the new rejection behavior. The complete
+milestone delta remains the measurement module, its test file and ROADMAP.
+
+The full M9.1CD row is not complete. No existing first-four runner yet emits
+the strict fully costed `ResolvedTrainingTrade` rows from the retained session
+batches. Connecting one runner, with unavailable inputs still OFF, remains a
+separate code step. Stage 2, stage 3, source, final and live gates remain
+blocked and the eight held-out names remain unread.
+
+- [!] **M9.1CD — first stage-1 training measurement path:** the strict stored
+  measurement and ranking boundary is built, but a retained first-four runner
+  still must emit its fully costed rows before this milestone can produce a
+  real training measurement.
+- [ ] **M9.1CE — connect one first-four runner to the strict stage-1
+  measurement boundary:** use only the retained nine-name training sessions
+  and the frozen candidate catalog; keep missing inputs and dependent rules
+  OFF and untested, do not read held-out names, and do not start stage 2 or 3.
+
+### M9.1CC protected proof recorded — 2026-09-21 Pacific
+
+This records-only finalization uses the controller's current protected proof for
+source hash `cda3b26548a5be133ae327b9e8bc80785ac142b4216647f90f032070514361d0`.
+The complete tested-source manifest is
+`/root/trade-alerts-builder/runs/20260921-072638-170755-build/verified-manifest.json`.
+The only current record change is this ROADMAP; the tested count file remains
+`trade_alerts_build_docs/M9_1CC_RETAINED_COUNTS.json`.
+
+The focused phase ran once with
+`tests/trade_alerts_contracts/test_retained_count_run.py`, selected for `builder
+named directly affected checks`. It passed 7 tests with zero failures, errors or
+skips. Controller wall time was 105.231 seconds. Its published artifacts are
+`/root/trade-alerts-builder/runs/20260921-072638-170755-build/published-artifacts-50ec3fb838c5`.
+
+The acceptance phase ran once with `tests/trade_alerts_contracts`, selected for
+`unknown dependency impact; safe broad fallback`. It passed 3470 tests with zero
+failures, errors or skips. Controller wall time was 465.283 seconds. Its
+published artifacts are
+`/root/trade-alerts-builder/runs/20260921-072638-170755-build/published-artifacts-96caf8d8c544`.
+
+The repeatability phase ran twice in fresh protected processes with the 50
+recording selectors listed in
+`published-artifacts-60b11f4e0f1c/summary.json`, selected for `recording output
+requires fresh-process comparison`. Each run passed 76 tests with zero failures,
+errors or skips. Combined controller wall time was 226.237 seconds. Its
+published artifacts are
+`/root/trade-alerts-builder/runs/20260921-072638-170755-build/published-artifacts-60b11f4e0f1c`.
+The two fresh-process outputs were stable; their recording artifacts and
+fingerprints compared equal.
+
+No code, test, configuration, dependency or protected input changed in this
+finalization. Every D-104-dependent input remains off and untested. The parent
+historical replay and the source, final and live gates remain blocked; M9.1CD is
+only the next offline training-measurement step after independent acceptance.
+
+## M9.1CE — confirmed OR-failure runner connected to stage-1 measurement — 2026-09-21 Pacific
+
+New `consensus_engine/or_failure_stage1_run.py` connects the existing
+`OR_FAILURE_REV` assessment and D-106/D-107 outcome evaluator to the strict
+M9.1CD measurement boundary for the frozen `CONFIRMED` D-052 candidate. It
+accepts only retained histories containing exactly the nine D-107 training
+names, matches every event to one of those retained sessions,
+requires minute-close confirmation, and never opens a held-out name.
+
+Triggered events use their real retained session path plus caller-supplied trade
+and quote records. Only resolved rows whose fill contains the modeled spread,
+slippage and commission reach `ResolvedTrainingTrade`. An untriggered event,
+missing quote, incomplete path or other unresolved result stays named in the
+run's excluded records and is never filled or approximated. D-104 gaps may stay
+named and OFF only when they do not overlap D-052.
+
+New focused file
+`tests/trade_alerts_contracts/test_or_failure_stage1_run.py` covers the resolved
+connection, the visible missing/unresolved path, exact nine-name scope, frozen
+candidate choice and minute-close requirement. These are synthetic supplied
+records only. No retained price, return, stage-2 or held-out result was read.
+
+The protected focused selector is
+`tests/trade_alerts_contracts/test_or_failure_stage1_run.py`. The local launcher
+stopped before collecting tests at its temporary-directory ownership change:
+`OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-01gdind4'`. It was
+not retried and no application test was run outside the protected launcher. The
+two new Python files passed a static syntax check. Fresh focused, broad
+acceptance and repeatability proof must come from the controller.
+
+This connection does not claim a real training result. The retained minute-bar
+path still does not supply exact point-in-time quote/trade inputs by itself, and
+original availability, corrections, finality, point-in-time membership,
+historical borrow and complete-chain gaps remain recorded with their dependent
+rules OFF and untested. Stage 2, stage 3 and live use remain blocked.
+
+Complete M9.1CE delta: `consensus_engine/or_failure_stage1_run.py`,
+`tests/trade_alerts_contracts/test_or_failure_stage1_run.py` and this ROADMAP.
+
+- [~] **M9.1CE — confirmed OR-failure runner connected to the strict stage-1
+  measurement boundary; fresh protected proof and independent review remain.**
+- [ ] **M9.1CF — connect the frozen FASTER OR-failure candidate:** implement its
+  bar-native break-and-reject/inside-acceptance entry without substituting the
+  confirmed minute-close rule, retain missing quote/cost inputs as OFF and
+  untested, and keep held-out names plus stages 2 and 3 unopened.
+
+### M9.1CE historical protected proof — rejected in review — 2026-09-21 Pacific
+
+The historical records-only finalization used the controller's protected proof for source
+hash `315fe3d26f05b445a66f73b8a45c1da365e0cfe30a7266a2aae4b605485cf0ef`.
+The complete tested-source manifest is
+`/root/trade-alerts-builder/runs/20260921-082835-445173-build/verified-manifest.json`.
+The only finalization change is this ROADMAP record; the tested milestone delta
+remains `consensus_engine/or_failure_stage1_run.py`,
+`tests/trade_alerts_contracts/test_or_failure_stage1_run.py`, and this ROADMAP.
+
+The focused phase ran once with
+`tests/trade_alerts_contracts/test_or_failure_stage1_run.py`, selected for
+`builder named directly affected checks`. It passed 5 tests with zero failures,
+errors, or skips. Pytest reported 1.91 seconds, JUnit reported 1.918 seconds,
+and controller wall time was 3.461 seconds. Its published artifacts are
+`/root/trade-alerts-builder/runs/20260921-082835-445173-build/published-artifacts-0e2397231a1b`.
+
+The acceptance phase ran once with `tests/trade_alerts_contracts`, selected for
+`unknown dependency impact; safe broad fallback`. It passed 3493 tests with zero
+failures, errors, or skips. Pytest reported 458.47 seconds, JUnit reported
+458.246 seconds, and controller wall time was 462.537 seconds. Its published
+artifacts are
+`/root/trade-alerts-builder/runs/20260921-082835-445173-build/published-artifacts-bc18cbf85956`.
+
+The repeatability phase ran twice in fresh protected processes with the 50
+recording selectors in
+`/root/trade-alerts-builder/runs/20260921-082835-445173-build/published-artifacts-cba11b374dd2/summary.json`,
+selected for `recording output requires fresh-process comparison`. Each run
+passed 76 tests with zero failures, errors, or skips. Pytest reported 108.96
+seconds and 108.80 seconds; JUnit reported 108.962 seconds and 108.803 seconds;
+combined controller wall time was 221.89 seconds. Its published artifacts are
+`/root/trade-alerts-builder/runs/20260921-082835-445173-build/published-artifacts-cba11b374dd2`.
+The controller recorded stable output. The published repeatability summary hash
+is `12af81eb5631528cdb3cc0479c33632185d30842514c775ff88daf4d9b18f401`;
+the controller's fresh-process comparison is the authoritative comparison.
+
+No code, test, configuration, dependency, or protected input changed in that
+historical finalization. The repair below changes code and tests, so this proof
+does not verify the repaired version. Exact point-in-time quote/trade inputs, original availability,
+corrections, finality, point-in-time membership, historical borrow, and
+complete-chain proof remain gaps. Their dependent rules remain OFF and
+untested. Stage 2, stage 3, source, final, and live gates remain blocked.
+
+- [~] **M9.1CE — repair complete for fresh protected verification; complete
+  evaluation coverage and record identity checks await independent review.**
+
+### M9.1CE focused repair after rejected review — 2026-09-21 Pacific
+
+Cause: the original runner passed `TRAINING_TICKERS` into measurement without
+proving that their candidate scans ran. Its passing one-NVDA-event test hid the
+missing evaluations. It also forwarded trade and quote records without matching
+their symbol and session to the event. Review rejected those behaviors despite
+the historical collected-case passes above; that proof and rejection remain
+preserved, with no reset of prior attempts.
+
+The different approach in `M91CE_OR_FAILURE_STAGE1_RUN_V2` validates coverage
+before any assessment or fill. Every retained ticker-session must have a request
+or an explicit `SessionWithoutEvent` scan result for this frozen candidate.
+`NO_EVENT` needs a reason and stays in exclusions; `UNAVAILABLE` also stays
+visible but does not count as evaluated and prevents a ranked measurement.
+Duplicate, conflicting, wrong-session, held-out and omitted scan records are
+refused. Requests actually run the existing assessment; untriggered and
+unresolved outcomes stay excluded. A run without resolved trades returns its
+exclusions and no measurement. Skipped retained sessions keep their named reasons.
+No no-event or unavailable disposition is inferred from history presence.
+
+Every supplied trade and quote must be a `Quote` record whose
+`metadata.instrument_id` and `metadata.session` match the event. The check covers
+all supplied records before assessing any event, so another symbol's record or
+another session's record cannot create a fill attributed to this event.
+
+Focused cases now cover a single-name run, repeated events for the same name,
+empty coverage, a missing second session despite all names being present,
+explicit no-event/unavailable sessions, incomplete/conflicting scan declarations,
+and mismatched trade and quote metadata. The successful supplied-record fixture
+checks the actual assessment requests, forwarded inputs and visible exclusions.
+These are synthetic offline contracts, not retained-data strategy results.
+
+Both changed Python files passed a static syntax check. The protected focused
+attempt selected `tests/trade_alerts_contracts/test_or_failure_stage1_run.py`
+and `tests/trade_alerts_contracts/test_stage1_training_measurement.py`. It stopped
+before collection at the unchanged launcher's temporary-directory ownership
+change: `OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-xbx_wvs3'`.
+It was not retried; no application test ran outside protection. The controller
+stage will supply fresh focused, acceptance and required repeatability figures,
+source manifests and artifacts. No historical counts are claimed for this repair.
+
+Complete milestone delta remains `consensus_engine/or_failure_stage1_run.py`,
+`tests/trade_alerts_contracts/test_or_failure_stage1_run.py`, and this ROADMAP.
+M9.1CE remains open. M9.1CF remains the proposed next step after fresh proof and
+independent review. All source, held-out, stage-2, stage-3 and live boundaries
+remain unchanged. Missing fields and their dependent rules remain OFF and
+untested; no spending, provider access, activation or profit claim is added.
+
+### M9.1CE repaired protected proof recorded — 2026-09-21 Pacific
+
+This records-only finalization uses the controller's protected proof for source
+hash `1822d7b37577e80bd1179510808e04c9b3d56e1ad3395b29cf695d49d988dd88`.
+The complete tested-source manifest is
+`/root/trade-alerts-builder/runs/20260921-082835-445173-build/verified-manifest.json`.
+The only finalization change is this ROADMAP record; the tested milestone delta
+remains `consensus_engine/or_failure_stage1_run.py`,
+`tests/trade_alerts_contracts/test_or_failure_stage1_run.py`, and this ROADMAP.
+
+The focused phase ran once with
+`tests/trade_alerts_contracts/test_or_failure_stage1_run.py` and
+`tests/trade_alerts_contracts/test_stage1_training_measurement.py`, selected for
+`builder named directly affected checks`. It passed 43 tests with zero failures,
+errors, or skips. Controller wall time was 4.652 seconds. Its published
+artifacts are
+`/root/trade-alerts-builder/runs/20260921-082835-445173-build/published-artifacts-a085beddd174`.
+
+The acceptance phase ran once with `tests/trade_alerts_contracts`, selected for
+`unknown dependency impact; safe broad fallback`. It passed 3513 tests with zero
+failures, errors, or skips. Controller wall time was 462.313 seconds. Its
+published artifacts are
+`/root/trade-alerts-builder/runs/20260921-082835-445173-build/published-artifacts-35cc18df226f`.
+
+The repeatability phase ran twice in fresh protected processes with the 50
+recording selectors in
+`/root/trade-alerts-builder/runs/20260921-082835-445173-build/published-artifacts-433500fb5704/summary.json`,
+selected for `recording output requires fresh-process comparison`. Each run
+passed 76 tests with zero failures, errors, or skips. Combined controller wall
+time was 221.53 seconds. Its published artifacts are
+`/root/trade-alerts-builder/runs/20260921-082835-445173-build/published-artifacts-433500fb5704`.
+The controller recorded stable output; its fresh-process comparison is the
+authoritative comparison.
+
+No code, test, configuration, dependency, or protected input changed in this
+finalization. The repaired runner's complete evaluation coverage and record
+identity checks now have fresh protected proof. Exact point-in-time quote/trade
+inputs, original availability, corrections, finality, point-in-time membership,
+historical borrow, and complete-chain proof remain gaps; their dependent rules
+remain OFF and untested. Stage 2, stage 3, source, final, and live gates remain
+blocked.
+
+- [x] **M9.1CE — confirmed OR-failure runner connected to the strict stage-1
+  measurement boundary; repaired coverage and identity checks received fresh
+  protected proof.**
+
+## M9.1CF — faster OR-failure runner connected to stage-1 measurement — 2026-09-21 Pacific
+
+New `consensus_engine/or_failure_faster_stage1_run.py` connects the frozen
+research-only `FASTER` D-052 candidate to the strict M9.1CD measurement
+boundary. It reuses the existing supplied-record OR-failure assessment for all
+shared gates, but it does not change the production strategy's confirmation
+choices. A faster event needs the real failed-break handoff gates, the supplied
+last trade back inside, and the inside-acceptance gate to pass at the same
+instant. A completed reacceptance close or failure-bar input is refused, so the
+confirmed or stronger later rule cannot be relabelled as the faster arm.
+
+The runner preserves M9.1CE's exact nine-name/session coverage, record-identity,
+modeled-cost and visible-exclusion boundaries. `NO_EVENT` counts as an evaluated
+session; `UNAVAILABLE` remains named and prevents ranking. Missing quote, fill
+or outcome data is excluded rather than filled. D-104 gaps may remain OFF and
+untested only when they do not overlap D-052. No retained market result,
+held-out name, stage 2 or stage 3 is opened here.
+
+New focused file
+`tests/trade_alerts_contracts/test_or_failure_faster_stage1_run.py` covers the
+faster resolved path, rejection of completed-close/failure-bar substitution,
+the separate real-break and inside-acceptance requirements, unavailable-session
+handling, exact candidate/session coverage and trade-record identity. These are
+synthetic supplied-record contracts only.
+
+Both new Python files passed a static syntax check. The protected focused attempt
+selected `tests/trade_alerts_contracts/test_or_failure_faster_stage1_run.py` and
+stopped before collection at the launcher's temporary-directory ownership
+change: `OSError: [Errno 22] Invalid argument:
+'/tmp/trade-alerts-m04-81nz1_1w'`. It was not retried, and no application test
+ran outside protection. The controller stage must supply fresh focused, broad
+acceptance and required repeatability proof.
+
+Complete M9.1CF delta: `consensus_engine/or_failure_faster_stage1_run.py`,
+`tests/trade_alerts_contracts/test_or_failure_faster_stage1_run.py` and this
+ROADMAP. Source, final and live gates remain blocked. Exact point-in-time quote
+and trade inputs, original availability, corrections, finality, point-in-time
+membership, historical borrow and complete-chain proof remain gaps, with their
+dependent rules OFF and untested.
+
+- [~] **M9.1CF — frozen FASTER OR-failure candidate connected to the strict
+  stage-1 measurement boundary; fresh protected proof and independent review
+  remain.**
+- [ ] **M9.1CG — connect the frozen default HOD-compression candidate:** connect
+  `COMP_ON_060|RS_MANDATORY` to the strict stage-1 measurement boundary using
+  only retained nine-name training sessions. Keep unavailable quote and policy
+  inputs OFF and untested, do not read held-out names, and do not start stage 2
+  or stage 3.
+
+### M9.1CF focused-test repair — 2026-09-21 Pacific
+
+The controller's prior focused run failed at
+`tests/trade_alerts_contracts/test_or_failure_faster_stage1_run.py::test_real_break_and_inside_acceptance_are_both_required[REAL_BREAK_EXCURSION]`
+with `Failed: a failed faster gate cannot create a fill`. Its published pytest
+line was `1 failed, 53 passed in 3.72s`. The original failure remains in
+`/root/trade-alerts-builder/runs/20260921-101607-023542-build/verification.log`;
+its reported artifact root is `/tmp/trade-alerts-m04-_xm5o8h8`.
+
+Cause: `complete_events` appended passing requests for the other training
+names after the deliberately failed request. The runner excluded the failed
+request, then reached a valid request whose fill hit the test's global failure
+stub. The inside-acceptance case did not expose this setup error because its
+shared assessment stub failed every request. The repair supplies the failed
+request for every training name in both cases and checks every exclusion's
+name and failed-gate reason. The no-fill assertion remains. No runner logic or
+strategy rule changed in this repair; the original runner remains part of the
+complete milestone delta listed above.
+
+Prior controller fields: `tests.phase` = `focused`, `tests.runs` = `1`,
+`tests.test_count` = `null`, `tests.selection_reason` =
+`builder named directly affected checks`. Its `tests.selectors`, in published
+order, were:
+
+- `tests/trade_alerts_contracts/test_or_failure_faster_stage1_run.py`
+- `tests/trade_alerts_contracts/test_or_failure_stage1_run.py`
+- `tests/trade_alerts_contracts/test_stage1_training_measurement.py`
+
+The packet supplied no `tests.wall_seconds`, JUnit time or nested
+`tests.focused` record. The pytest duration above is only the published pytest
+line, not controller wall time. This failed proof cannot establish acceptance.
+
+After the repair, the protected launcher was attempted once with that focused
+selection. It stopped before collection at `os.chown` with
+`OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-yz2qp7lb'`.
+The sandbox failure was not retried or bypassed. The controller stage must
+supply fresh focused, broad acceptance and required repeatability proof,
+including counts, hashes, timings, source manifest and artifact comparisons.
+No new protected pass is claimed. M9.1CF remains `[~]`; M9.1CG remains open
+for advancement only after independent acceptance. All source, final and live
+boundaries and the OFF/untested rules recorded above remain unchanged.
+
+### M9.1CF repaired protected proof recorded — 2026-09-21 Pacific
+
+This records-only finalization uses the controller's protected proof for source
+hash `a10e9afea7d427ae9653c4990591bbac15044b3a09adf18f0865d24574f94012`.
+The complete tested-source manifest is
+`/root/trade-alerts-builder/runs/20260921-101607-023542-build/verified-manifest.json`.
+The only finalization change is this ROADMAP record; the tested milestone delta
+remains `consensus_engine/or_failure_faster_stage1_run.py`,
+`tests/trade_alerts_contracts/test_or_failure_faster_stage1_run.py`, and this
+ROADMAP.
+
+The focused phase ran once with
+`tests/trade_alerts_contracts/test_or_failure_faster_stage1_run.py::test_real_break_and_inside_acceptance_are_both_required[REAL_BREAK_EXCURSION]`,
+selected for `builder named directly affected checks`. It passed 1 test with
+zero failures, errors, or skips. Pytest reported 1.78 seconds, JUnit reported
+1.778 seconds, and controller wall time was 3.442 seconds. Its published
+artifacts are
+`/root/trade-alerts-builder/runs/20260921-101607-023542-build/published-artifacts-97a5ce08ff3a`.
+
+The acceptance phase ran once with `tests/trade_alerts_contracts`, selected for
+`unknown dependency impact; safe broad fallback`. It passed 3524 tests with zero
+failures, errors, or skips. JUnit reported 470.691 seconds and controller wall
+time was 475.421 seconds. Its published artifacts are
+`/root/trade-alerts-builder/runs/20260921-101607-023542-build/published-artifacts-7fc72358f81b`.
+
+The repeatability phase ran twice in fresh protected processes with the 50
+recording selectors listed in
+`/root/trade-alerts-builder/runs/20260921-101607-023542-build/published-artifacts-245f61c9b70a/summary.json`,
+selected for `recording output requires fresh-process comparison`. Each run
+passed 76 tests with zero failures, errors, or skips. Pytest reported 111.14
+seconds and 108.92 seconds; JUnit reported 111.141 seconds and 108.922 seconds;
+combined controller wall time was 224.555 seconds. Its published artifacts are
+`/root/trade-alerts-builder/runs/20260921-101607-023542-build/published-artifacts-245f61c9b70a`.
+The controller recorded stable output. The published repeatability summary hash
+is `12af81eb5631528cdb3cc0479c33632185d30842514c775ff88daf4d9b18f401`;
+the two fresh-process outputs and their published recording artifacts compared
+equal, and the controller's comparison is authoritative.
+
+No code, test, configuration, dependency, or protected input changed in this
+finalization. Exact point-in-time quote/trade inputs, original availability,
+corrections, finality, point-in-time membership, historical borrow, and
+complete-chain proof remain gaps; their dependent rules remain OFF and untested.
+Stage 2, stage 3, source, final, and live gates remain blocked.
+
+- [x] **M9.1CF — frozen FASTER OR-failure candidate connected to the strict
+  stage-1 measurement boundary; repaired focused contract and fresh protected
+  proof recorded.**
+
+## M9.1CG — default HOD-compression runner connected to stage-1 measurement — 2026-09-21 Pacific
+
+New `consensus_engine/hod_comp_rs_stage1_run.py` connects the frozen default
+`COMP_ON_060|RS_MANDATORY` candidate to the strict M9.1CD measurement boundary.
+For every retained training session, it drives the existing `HOD_COMP_RS`
+replay owner through caller-supplied chronological contexts. The existing owner
+requires both measured compression and mandatory relative strength, so this
+runner cannot relabel either relaxed comparison arm as the default candidate.
+
+Only a composed READY outcome with supplied risk and targets reaches the shared
+D-106/D-107 fill and outcome evaluator. Only resolved rows containing modeled
+spread, slippage and commission reach `ResolvedTrainingTrade`. Missing policy,
+quote, fill or outcome inputs remain named exclusions. `NO_EVENT` counts as an
+evaluated session; `UNAVAILABLE` prevents ranking. Every event, context, trade
+and quote must match one of the retained nine-name training sessions. Held-out
+names, stage 2 and stage 3 stay unopened.
+
+New focused file
+`tests/trade_alerts_contracts/test_hod_comp_rs_stage1_run.py` covers the resolved
+default connection, both frozen candidate axes, visible missing and unresolved
+paths, exact nine-name scope, candidate refusal, record identity, explicit
+no-event/unavailable sessions and chronological replay driving. These are
+synthetic supplied-record contracts only. No retained price, return, stage-2 or
+held-out result was read.
+
+Both new Python files passed a static syntax check. The protected focused attempt
+selected `tests/trade_alerts_contracts/test_hod_comp_rs_stage1_run.py` and stopped
+before collection at the launcher's temporary-directory ownership change:
+`OSError: [Errno 22] Invalid argument:
+'/tmp/trade-alerts-m04-zg25g6q5'`. It was not retried, and no application test
+ran outside protection. The controller stage must supply fresh focused, broad
+acceptance and required repeatability proof.
+
+Complete M9.1CG delta: `consensus_engine/hod_comp_rs_stage1_run.py`,
+`tests/trade_alerts_contracts/test_hod_comp_rs_stage1_run.py` and this ROADMAP.
+Exact point-in-time quote and policy inputs, original availability, corrections,
+finality, point-in-time membership, historical borrow and complete-chain proof
+remain gaps, with their dependent rules OFF and untested. Source, final and live
+gates remain blocked.
+
+- [~] **M9.1CG — frozen default HOD-compression candidate connected to the
+  strict stage-1 measurement boundary; fresh protected proof and independent
+  review remain.**
+- [ ] **M9.1CH — connect the HOD-compression RS-report-only candidate:** connect
+  `COMP_ON_060|RS_REPORT_ONLY` without allowing reported relative strength to
+  become an eligibility gate, while preserving exact nine-name scope, visible
+  missing inputs, held-out isolation and the unopened stage-2/stage-3 boundary.
+
+### M9.1CG escalated diagnosis — shared cleanup failure — 2026-09-21 Pacific
+
+The pending-proof paragraph above describes the first builder attempt. The
+controller subsequently supplied successful focused and broad acceptance runs,
+but required repeatability failed. M9.1CG is not accepted.
+
+Evidence root:
+`/root/trade-alerts-builder/runs/20260921-104456-372216-build`.
+The original `changes.diff`, `attempt-history/acceptance-1-verification.log`,
+`attempt-history/repeatability-1-verification.log` and `verification.log` remain
+unchanged. The two Python files still match the original milestone delta.
+This diagnosis changes only ROADMAP; the complete milestone delta remains the
+three paths listed above. Published focused and acceptance file checksums match
+their respective `publication.json` records.
+
+Controller proof retained, with each measure kept separate:
+
+- Focused: `tests.phase=focused`, `tests.runs=1`, `tests.test_count=10`,
+  `tests.wall_seconds=4.169`,
+  `tests.selection_reason="builder named directly affected checks"`,
+  `tests.selectors=["tests/trade_alerts_contracts/test_hod_comp_rs_stage1_run.py"]`.
+  These are the supplied `tests.focused` fields. Artifact directory:
+  `published-artifacts-b533936e4169`. Pytest: `10 passed in 2.44s`;
+  JUnit time: `2.447`. No failures, errors, skips or unexpected isolation
+  denials; cleanup passed.
+- Broad acceptance: `tests.runs=1`, `tests.test_count=3534`,
+  `tests.selection_reason="unknown dependency impact; safe broad fallback"`,
+  `tests.selectors=["tests/trade_alerts_contracts"]`.
+  Artifact directory: `published-artifacts-8a5f538c7e8e`.
+  Pytest: `3534 passed in 470.61s (0:07:50)`; JUnit time: `470.435`.
+  The supplied broad summary has no `tests.phase` or `tests.wall_seconds` field;
+  neither is inferred from another timing measure. No failures, errors, skips
+  or unexpected isolation denials; cleanup passed.
+- Repeatability: `tests.phase=repeatability`, `tests.runs=2`,
+  `tests.test_count=null`, `tests.wall_seconds=896.771`,
+  `tests.selection_reason="recording output requires fresh-process comparison"`.
+  The full ordered selection remains the controller repair packet's
+  `test_summary.repeatability.selectors`; it is not replaced by the focused
+  file. The controller reports `exit_code=1`, `artifacts=false` and an empty
+  artifact path. Its `stable=true` does not establish successful repeatability.
+  No successful recording-hash comparison is claimed.
+
+Exact failing selector:
+`tests/trade_alerts_contracts/test_orb5_replay.py::test_the_six_scenarios_record_one_deterministic_proof`.
+The first repeatability process reports `76 passed, 1 warning, 1 error in 751.61s
+(0:12:31)` and the second reports `76 passed in 113.35s (0:01:53)`.
+The first process's error is explicitly **at teardown**, with
+`E   Failed: Timeout (>120.0s) from pytest-timeout.` in the asynchronous fixture
+finalizer's event-loop wait. The later warning includes
+`RuntimeError: Event loop stopped before Future completed.` It is not evidence
+that the test itself deliberately closed the loop.
+
+Read-only diagnosis traced the related cleanup path through
+`tests/trade_alerts_contracts/conftest.py::contract_state`, which awaits
+`consensus_engine/db.py::close_db` after the test, and through the protected
+child's final cleanup. The ORB replay test opens separate scenario databases
+and leaves the final connection to fixture cleanup. The saved traceback does
+not expose the suspended coroutine or database worker state, so the underlying
+reason for the stalled finalizer remains unproved. No deadlock, host-load or
+database-lock cause is asserted. The new HOD runner is synchronous, has no
+database cleanup, and is not imported by the failing ORB replay test.
+
+The different approach in this escalated attempt was to trace the saved teardown
+failure and verify existing published proof, rather than rerun the same failed
+selection or change unrelated HOD behavior. No product test was rerun, no timeout
+was raised, and no fixture, launcher, source, test, configuration or counter was
+changed. The observed failure is outside the assigned milestone code. Separate
+shared-cleanup diagnosis/repair authority and successful protected repeatability
+are required before acceptance; a passing second process cannot erase the first.
+
+- [!] **M9.1CG — blocked by the existing ORB recording test's asynchronous
+  teardown timeout; focused and broad proof preserved, required repeatability
+  and independent acceptance unresolved.**
+
+M9.1CH remains the existing open comparison-candidate task, proposed only subject
+to independent review confirming that its dependencies permit work while M9.1CG
+waits. This does not authorize a shared-fixture or protected-launcher repair.
+All source, final and live gates, disabled missing-field rules and unopened
+held-out/stage-2/stage-3 boundaries above remain unchanged.
+
+## M9.1CH — HOD-compression RS-report-only runner connected to stage-1 measurement — 2026-09-21 Pacific
+
+New `consensus_engine/hod_comp_rs_report_only_stage1_run.py` connects the frozen
+`COMP_ON_060|RS_REPORT_ONLY` comparison candidate to the strict M9.1CD
+measurement boundary. It adds a research-only replay owner. The owner preserves
+the measured `RS_TREND` gate and its input records, but a measured value below
+the frozen cutoff no longer prevents arming. Missing or unusable RS still stays
+unavailable; it is never filled in. Every compression, scope, quote, cost,
+outcome and session-coverage check from the default connection remains in force.
+
+New focused file
+`tests/trade_alerts_contracts/test_hod_comp_rs_report_only_stage1_run.py` covers
+the measured below-cutoff, passing and missing RS paths; the strict resolved-row
+connection; exact nine-name training scope; candidate and replay-owner refusal;
+visible missing inputs; and market-record identity. These are synthetic supplied
+records only. No retained price, return, stage-2 or held-out result was read.
+
+Both new Python files passed a static syntax check. The protected focused run
+selected
+`tests/trade_alerts_contracts/test_hod_comp_rs_report_only_stage1_run.py` and
+stopped before collection at the launcher's temporary-directory ownership
+change: `OSError: [Errno 22] Invalid argument:
+'/tmp/trade-alerts-m04-x0s1wr9v'`. It was not retried, and no application test
+ran outside protection. The controller must supply fresh focused, broad
+acceptance and required repeatability proof.
+
+Complete M9.1CH delta:
+`consensus_engine/hod_comp_rs_report_only_stage1_run.py`,
+`tests/trade_alerts_contracts/test_hod_comp_rs_report_only_stage1_run.py` and
+this ROADMAP. Exact point-in-time quote and policy inputs, original availability,
+corrections, finality, point-in-time membership, historical borrow and
+complete-chain proof remain gaps, with their dependent rules OFF and untested.
+Source, final and live gates remain blocked. M9.1CG's separate shared-cleanup
+block and preserved proof are unchanged.
+
+- [~] **M9.1CH — frozen HOD-compression RS-report-only candidate connected to
+  the strict stage-1 measurement boundary; fresh protected proof and independent
+  review remain.**
+- [ ] **M9.1CI — connect the HOD-compression compression-off candidate:** connect
+  `COMP_OFF|RS_MANDATORY` without allowing compression to become an eligibility
+  gate, while preserving exact nine-name scope, visible missing inputs,
+  held-out isolation and the unopened stage-2/stage-3 boundary.
+
+### M9.1CH protected proof recorded — 2026-09-21 Pacific
+
+This records-only finalization uses the controller's protected proof for source
+hash `f295906b38aed51ffb058a1b9850ebece0eca7346465858dd52200739d62b93e`.
+The complete tested-source manifest is
+`/root/trade-alerts-builder/runs/20260921-113001-460128-build/verified-manifest.json`.
+The only finalization change is this ROADMAP record; the tested milestone delta
+remains `consensus_engine/hod_comp_rs_report_only_stage1_run.py`,
+`tests/trade_alerts_contracts/test_hod_comp_rs_report_only_stage1_run.py`, and
+this ROADMAP.
+
+The focused phase had `tests.phase=focused`, `tests.runs=1`,
+`tests.test_count=10`, `tests.wall_seconds=3.686`, and
+`tests.selection_reason="builder named directly affected checks"`. Its selector
+was `tests/trade_alerts_contracts/test_hod_comp_rs_report_only_stage1_run.py`.
+It passed 10 tests with zero failures, errors, or skips. Pytest reported 2.02
+seconds, JUnit reported 2.022 seconds, and controller wall time was 3.686
+seconds. Its published artifacts are
+`/root/trade-alerts-builder/runs/20260921-113001-460128-build/published-artifacts-8602f7b788e6`.
+
+The acceptance phase had `tests.runs=1`, `tests.test_count=3544`,
+`tests.wall_seconds=473.677`, and
+`tests.selection_reason="unknown dependency impact; safe broad fallback"`.
+Its selector was `tests/trade_alerts_contracts`. It passed 3544 tests with zero
+failures, errors, or skips. Pytest reported 468.49 seconds, JUnit reported
+468.317 seconds, and controller wall time was 473.677 seconds. Its published
+artifacts are
+`/root/trade-alerts-builder/runs/20260921-113001-460128-build/published-artifacts-9cffab22fba1`.
+
+The repeatability phase had `tests.phase=repeatability`, `tests.runs=2`,
+`tests.test_count=76`, `tests.wall_seconds=226.16`, and
+`tests.selection_reason="recording output requires fresh-process comparison"`.
+Its selectors, in the controller's published order, are in
+`/root/trade-alerts-builder/runs/20260921-113001-460128-build/published-artifacts-b027972fe8b1/summary.json`:
+
+- `tests/trade_alerts_contracts/test_alert_delivery.py::test_bars_to_candidates_to_recording_and_fake_delivery_end_to_end`
+- `tests/trade_alerts_contracts/test_candidate_assembly.py::test_supplied_features_confidence_candidate_suppression_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_confidence.py::test_supplied_features_composition_candidate_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_configuration.py::test_known_default_hash_matches_canonical_record`
+- `tests/trade_alerts_contracts/test_core_price_features.py::test_bar_to_coverage_to_feature_snapshot_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_cross_strategy_interaction.py::test_recording_is_deterministic_and_retains_every_component_candidate`
+- `tests/trade_alerts_contracts/test_databento_minute_bars.py::test_recorded_source_identity_proof_is_deterministic`
+- `tests/trade_alerts_contracts/test_domain_models.py::test_deterministic_record_proof_is_written_under_tmp`
+- `tests/trade_alerts_contracts/test_first_pullback_vwap.py::test_the_supplied_continuation_through_the_m42_engine_and_m51_store`
+- `tests/trade_alerts_contracts/test_first_pullback_vwap_replay.py::test_the_same_supplied_scenario_replays_byte_identically`
+- `tests/trade_alerts_contracts/test_first_pullback_vwap_replay.py::test_the_two_scenarios_record_one_deterministic_proof`
+- `tests/trade_alerts_contracts/test_historical_bars.py::test_request_raw_mapping_coverage_and_archive_end_to_end`
+- `tests/trade_alerts_contracts/test_historical_replay.py::test_chronological_same_runtime_replay_is_byte_deterministic`
+- `tests/trade_alerts_contracts/test_hod_comp_rs_replay.py::test_the_same_supplied_scenario_replays_byte_identically`
+- `tests/trade_alerts_contracts/test_hod_comp_rs_replay.py::test_the_five_scenarios_record_one_deterministic_proof`
+- `tests/trade_alerts_contracts/test_hod_comp_rs_risk_confidence.py::test_the_composed_outcome_at_one_recorded_trigger`
+- `tests/trade_alerts_contracts/test_hod_comp_rs_trigger.py::test_the_supplied_heads_up_and_trigger_through_the_m42_engine_and_m51_store`
+- `tests/trade_alerts_contracts/test_hod_compression.py::test_hod_compression_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_hod_compression_research_adapter.py::test_hod_compression_research_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_impulse_pullback.py::test_impulse_pullback_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_impulse_pullback_research_adapter.py::test_impulse_pullback_research_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_opening_range_features.py::test_bar_coverage_opening_range_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_options_portfolio.py::test_projection_json_is_deterministic_and_keeps_every_independent_id`
+- `tests/trade_alerts_contracts/test_or_failure_handoff.py::test_the_supplied_handoff_through_the_m42_engine_and_m51_store`
+- `tests/trade_alerts_contracts/test_or_failure_handoff_research_adapter.py::test_bar_coverage_handoff_opening_range_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_or_failure_rev.py::test_the_supplied_reversal_through_the_m42_engine_and_m51_store`
+- `tests/trade_alerts_contracts/test_or_failure_rev_replay.py::test_the_same_supplied_scenario_replays_byte_identically`
+- `tests/trade_alerts_contracts/test_or_failure_rev_replay.py::test_the_two_scenarios_record_one_deterministic_proof`
+- `tests/trade_alerts_contracts/test_orb5_eligibility.py::test_shared_features_through_the_m42_engine_and_m51_store`
+- `tests/trade_alerts_contracts/test_orb5_replay.py::test_the_same_supplied_scenario_replays_byte_identically`
+- `tests/trade_alerts_contracts/test_orb5_replay.py::test_the_six_scenarios_record_one_deterministic_proof`
+- `tests/trade_alerts_contracts/test_orb5_risk_confidence.py::test_the_composed_outcome_at_one_recorded_trigger`
+- `tests/trade_alerts_contracts/test_orb5_trigger.py::test_the_supplied_trigger_through_the_m42_engine_and_m51_store`
+- `tests/trade_alerts_contracts/test_outcome_evaluator.py::test_compact_end_to_end_recording`
+- `tests/trade_alerts_contracts/test_participation_features.py::test_bar_coverage_participation_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_quote_events.py::test_normalized_events_failure_reconnect_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_reference_inputs.py::test_supplied_reference_coverage_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_relative_strength_features.py::test_relative_strength_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_request_queue.py::test_recorded_load_proof_is_deterministic_and_contains_every_consumer`
+- `tests/trade_alerts_contracts/test_research_event_store.py::test_recording_pipeline_retains_full_facts_retry_and_reopen`
+- `tests/trade_alerts_contracts/test_rs_trend_eligibility.py::test_measured_inputs_through_the_m42_engine_and_m51_store`
+- `tests/trade_alerts_contracts/test_schwab_normalization.py::test_write_deterministic_normalization_proof`
+- `tests/trade_alerts_contracts/test_session_recovery.py::test_interrupted_session_recovery_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_shadow_pipeline.py::test_the_same_shared_session_replays_byte_identically`
+- `tests/trade_alerts_contracts/test_shadow_pipeline.py::test_the_shared_session_records_one_deterministic_pilot_proof`
+- `tests/trade_alerts_contracts/test_state_transitions.py::test_market_features_strategy_transition_database_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_strategy_interface.py::test_shared_feature_to_strategy_records_end_to_end`
+- `tests/trade_alerts_contracts/test_structural_geometry.py::test_structural_geometry_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_structural_risk.py::test_supplied_bars_to_shared_features_risk_candidate_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_vwap_context_features.py::test_vwap_context_recording_end_to_end`
+
+Each fresh protected process passed 76 tests with zero failures, errors, or
+skips. Pytest reported 110.17 seconds and 111.13 seconds; JUnit reported
+110.170 seconds and 111.130 seconds; combined controller wall time was 226.16
+seconds. Its published artifacts are
+`/root/trade-alerts-builder/runs/20260921-113001-460128-build/published-artifacts-b027972fe8b1`.
+The controller recorded stable output. The published repeatability summary hash
+is `12af81eb5631528cdb3cc0479c33632185d30842514c775ff88daf4d9b18f401`;
+the two fresh-process outputs and published recording artifacts compared equal,
+and the controller's comparison is authoritative.
+
+No code, test, configuration, dependency, or protected input changed in this
+finalization. Exact point-in-time quote and policy inputs, original availability,
+corrections, finality, point-in-time membership, historical borrow, and
+complete-chain proof remain gaps; their dependent rules remain OFF and untested.
+Stage 2, stage 3, source, final, and live gates remain blocked.
+
+- [x] **M9.1CH — frozen HOD-compression RS-report-only candidate connected to
+  the strict stage-1 measurement boundary; fresh protected proof recorded.**
+
+## M9.1CI — HOD-compression compression-off runner connected to stage-1 measurement — 2026-09-21 Pacific
+
+New `consensus_engine/hod_comp_rs_compression_off_stage1_run.py` connects the
+frozen `COMP_OFF|RS_MANDATORY` comparison candidate to the strict M9.1CD
+measurement boundary. It adds a research-only replay owner. The compression
+measurement and its source records remain visible, but a failed, missing or
+unusable `COMPRESSION_MEASURED` result no longer prevents arming. The frozen
+point-in-time reference and every existing RVOL, VWAP, relative-strength,
+quote, spread and mandatory-status gate remain unchanged. Missing compression
+is not filled in, and the later supplied structure, cost and outcome checks
+remain strict.
+
+New focused file
+`tests/trade_alerts_contracts/test_hod_comp_rs_compression_off_stage1_run.py`
+covers passing, failed and unavailable compression; refusal to relax another
+eligibility gate; the strict resolved-row connection; exact nine-name training
+scope; candidate and replay-owner refusal; visible missing inputs; and market
+record identity. These are synthetic supplied-record contracts only. No
+retained price, return, stage-2 or held-out result was read.
+
+Both new Python files passed a static syntax check. The protected focused run
+selected
+`tests/trade_alerts_contracts/test_hod_comp_rs_compression_off_stage1_run.py`
+and stopped before collection at the launcher's temporary-directory ownership
+change: `OSError: [Errno 22] Invalid argument:
+'/tmp/trade-alerts-m04-b0dd_0ra'`. It was not retried, and no application test
+ran outside protection. The controller must supply fresh focused, broad
+acceptance and required repeatability proof.
+
+Complete M9.1CI delta:
+`consensus_engine/hod_comp_rs_compression_off_stage1_run.py`,
+`tests/trade_alerts_contracts/test_hod_comp_rs_compression_off_stage1_run.py`
+and this ROADMAP. Exact point-in-time quote and policy inputs, original
+availability, corrections, finality, point-in-time membership, historical
+borrow and complete-chain proof remain gaps, with their dependent rules OFF and
+untested. Source, final and live gates remain blocked. M9.1CG's separate
+shared-cleanup block and preserved proof are unchanged.
+
+- [~] **M9.1CI — frozen HOD-compression compression-off candidate connected to
+  the strict stage-1 measurement boundary; fresh protected proof and independent
+  review remain.**
+- [ ] **M9.1CJ — connect the HOD-compression compression-off and RS-report-only
+  candidate:** connect `COMP_OFF|RS_REPORT_ONLY` while keeping both measured
+  axes visible and non-gating, preserving exact nine-name scope, visible missing
+  inputs, held-out isolation and the unopened stage-2/stage-3 boundary.
+
+### M9.1CI protected proof recorded — 2026-09-21 Pacific
+
+This records-only finalization uses the controller's protected proof for source
+hash `85e180288381a32283df889eeda3ce43f607a70f2d2077a50fc00ac9d4236c0a`.
+The complete tested-source manifest is
+`/root/trade-alerts-builder/runs/20260921-115746-043738-build/verified-manifest.json`.
+The only finalization change is this ROADMAP record; the tested milestone delta
+remains `consensus_engine/hod_comp_rs_compression_off_stage1_run.py`,
+`tests/trade_alerts_contracts/test_hod_comp_rs_compression_off_stage1_run.py`,
+and this ROADMAP.
+
+The focused phase had `tests.phase=focused`, `tests.runs=1`,
+`tests.test_count=11`, `tests.wall_seconds=3.676`, and
+`tests.selection_reason="builder named directly affected checks"`. Its selector
+was `tests/trade_alerts_contracts/test_hod_comp_rs_compression_off_stage1_run.py`.
+It passed 11 tests with zero failures, errors, or skips. Pytest reported 1.91
+seconds, JUnit reported 1.920 seconds, and controller wall time was 3.676
+seconds. Its published artifacts are
+`/root/trade-alerts-builder/runs/20260921-115746-043738-build/published-artifacts-921569976b2b`.
+
+The acceptance phase had `tests.runs=1`, `tests.test_count=3555`,
+`tests.wall_seconds=474.741`, and
+`tests.selection_reason="unknown dependency impact; safe broad fallback"`.
+Its selector was `tests/trade_alerts_contracts`. It passed 3555 tests with zero
+failures, errors, or skips. Pytest reported 470.30 seconds, JUnit reported
+470.125 seconds, and controller wall time was 474.741 seconds. Its published
+artifacts are
+`/root/trade-alerts-builder/runs/20260921-115746-043738-build/published-artifacts-2d7271ee867f`.
+
+The repeatability phase had `tests.phase=repeatability`, `tests.runs=2`,
+`tests.test_count=76`, `tests.wall_seconds=224.661`, and
+`tests.selection_reason="recording output requires fresh-process comparison"`.
+Its selectors, in the controller's published order, are in
+`/root/trade-alerts-builder/runs/20260921-115746-043738-build/published-artifacts-aec0e81bec38/summary.json`.
+
+- `tests/trade_alerts_contracts/test_alert_delivery.py::test_bars_to_candidates_to_recording_and_fake_delivery_end_to_end`
+- `tests/trade_alerts_contracts/test_candidate_assembly.py::test_supplied_features_confidence_candidate_suppression_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_confidence.py::test_supplied_features_composition_candidate_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_configuration.py::test_known_default_hash_matches_canonical_record`
+- `tests/trade_alerts_contracts/test_core_price_features.py::test_bar_to_coverage_to_feature_snapshot_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_cross_strategy_interaction.py::test_recording_is_deterministic_and_retains_every_component_candidate`
+- `tests/trade_alerts_contracts/test_databento_minute_bars.py::test_recorded_source_identity_proof_is_deterministic`
+- `tests/trade_alerts_contracts/test_domain_models.py::test_deterministic_record_proof_is_written_under_tmp`
+- `tests/trade_alerts_contracts/test_first_pullback_vwap.py::test_the_supplied_continuation_through_the_m42_engine_and_m51_store`
+- `tests/trade_alerts_contracts/test_first_pullback_vwap_replay.py::test_the_same_supplied_scenario_replays_byte_identically`
+- `tests/trade_alerts_contracts/test_first_pullback_vwap_replay.py::test_the_two_scenarios_record_one_deterministic_proof`
+- `tests/trade_alerts_contracts/test_historical_bars.py::test_request_raw_mapping_coverage_and_archive_end_to_end`
+- `tests/trade_alerts_contracts/test_historical_replay.py::test_chronological_same_runtime_replay_is_byte_deterministic`
+- `tests/trade_alerts_contracts/test_hod_comp_rs_replay.py::test_the_same_supplied_scenario_replays_byte_identically`
+- `tests/trade_alerts_contracts/test_hod_comp_rs_replay.py::test_the_five_scenarios_record_one_deterministic_proof`
+- `tests/trade_alerts_contracts/test_hod_comp_rs_risk_confidence.py::test_the_composed_outcome_at_one_recorded_trigger`
+- `tests/trade_alerts_contracts/test_hod_comp_rs_trigger.py::test_the_supplied_heads_up_and_trigger_through_the_m42_engine_and_m51_store`
+- `tests/trade_alerts_contracts/test_hod_compression.py::test_hod_compression_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_hod_compression_research_adapter.py::test_hod_compression_research_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_impulse_pullback.py::test_impulse_pullback_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_impulse_pullback_research_adapter.py::test_impulse_pullback_research_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_opening_range_features.py::test_bar_coverage_opening_range_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_options_portfolio.py::test_projection_json_is_deterministic_and_keeps_every_independent_id`
+- `tests/trade_alerts_contracts/test_or_failure_handoff.py::test_the_supplied_handoff_through_the_m42_engine_and_m51_store`
+- `tests/trade_alerts_contracts/test_or_failure_handoff_research_adapter.py::test_bar_coverage_handoff_opening_range_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_or_failure_rev.py::test_the_supplied_reversal_through_the_m42_engine_and_m51_store`
+- `tests/trade_alerts_contracts/test_or_failure_rev_replay.py::test_the_same_supplied_scenario_replays_byte_identically`
+- `tests/trade_alerts_contracts/test_or_failure_rev_replay.py::test_the_two_scenarios_record_one_deterministic_proof`
+- `tests/trade_alerts_contracts/test_orb5_eligibility.py::test_shared_features_through_the_m42_engine_and_m51_store`
+- `tests/trade_alerts_contracts/test_orb5_replay.py::test_the_same_supplied_scenario_replays_byte_identically`
+- `tests/trade_alerts_contracts/test_orb5_replay.py::test_the_six_scenarios_record_one_deterministic_proof`
+- `tests/trade_alerts_contracts/test_orb5_risk_confidence.py::test_the_composed_outcome_at_one_recorded_trigger`
+- `tests/trade_alerts_contracts/test_orb5_trigger.py::test_the_supplied_trigger_through_the_m42_engine_and_m51_store`
+- `tests/trade_alerts_contracts/test_outcome_evaluator.py::test_compact_end_to_end_recording`
+- `tests/trade_alerts_contracts/test_participation_features.py::test_bar_coverage_participation_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_quote_events.py::test_normalized_events_failure_reconnect_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_reference_inputs.py::test_supplied_reference_coverage_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_relative_strength_features.py::test_relative_strength_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_request_queue.py::test_recorded_load_proof_is_deterministic_and_contains_every_consumer`
+- `tests/trade_alerts_contracts/test_research_event_store.py::test_recording_pipeline_retains_full_facts_retry_and_reopen`
+- `tests/trade_alerts_contracts/test_rs_trend_eligibility.py::test_measured_inputs_through_the_m42_engine_and_m51_store`
+- `tests/trade_alerts_contracts/test_schwab_normalization.py::test_write_deterministic_normalization_proof`
+- `tests/trade_alerts_contracts/test_session_recovery.py::test_interrupted_session_recovery_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_shadow_pipeline.py::test_the_same_shared_session_replays_byte_identically`
+- `tests/trade_alerts_contracts/test_shadow_pipeline.py::test_the_shared_session_records_one_deterministic_pilot_proof`
+- `tests/trade_alerts_contracts/test_state_transitions.py::test_market_features_strategy_transition_database_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_strategy_interface.py::test_shared_feature_to_strategy_records_end_to_end`
+- `tests/trade_alerts_contracts/test_structural_geometry.py::test_structural_geometry_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_structural_risk.py::test_supplied_bars_to_shared_features_risk_candidate_recording_end_to_end`
+- `tests/trade_alerts_contracts/test_vwap_context_features.py::test_vwap_context_recording_end_to_end`
+
+Each fresh protected process passed 76 tests with zero failures, errors, or
+skips. Pytest reported 110.08 seconds and 110.20 seconds; JUnit reported
+110.078 seconds and 110.203 seconds; combined controller wall time was 224.661
+seconds. Its published artifacts are
+`/root/trade-alerts-builder/runs/20260921-115746-043738-build/published-artifacts-aec0e81bec38`.
+The controller recorded stable output. The published repeatability summary hash
+is `12af81eb5631528cdb3cc0479c33632185d30842514c775ff88daf4d9b18f401`;
+the two fresh-process artifacts compared equal where the controller compared
+them, and the controller's comparison is authoritative.
+
+No code, test, configuration, dependency, or protected input changed in this
+finalization. Exact point-in-time quote and policy inputs, original availability,
+corrections, finality, point-in-time membership, historical borrow, and
+complete-chain proof remain gaps; their dependent rules remain OFF and untested.
+Stage 2, stage 3, source, final, and live gates remain blocked.
+
+- [x] **M9.1CI — frozen HOD-compression compression-off candidate connected to
+  the strict stage-1 measurement boundary; fresh protected proof recorded.**
+
+## M9.1CJ — HOD-compression compression-off and RS-report-only runner connected — 2026-09-21 Pacific
+
+New
+`consensus_engine/hod_comp_rs_compression_off_report_only_stage1_run.py`
+connects the frozen `COMP_OFF|RS_REPORT_ONLY` comparison candidate to the
+strict M9.1CD stage-1 measurement boundary. Compression remains measured and
+visible but never gates this research candidate. A measured relative-strength
+value remains visible while its frozen cutoff is report-only; an absent or
+unusable value stays unavailable and is never filled in. Every other existing
+RVOL, VWAP, quote, spread, status, structure, cost and outcome check remains
+strict.
+
+New focused file
+`tests/trade_alerts_contracts/test_hod_comp_rs_compression_off_report_only_stage1_run.py`
+covers both visible non-gating axes, unavailable relative strength, refusal to
+relax another gate, the strict resolved-row connection, exact nine-name
+training scope, candidate and replay-owner refusal, visible missing inputs and
+market-record identity. These are synthetic supplied-record contracts only.
+No retained price, return, stage-2 or held-out result was read.
+
+Both new Python files passed a static syntax check. The protected focused run
+selected
+`tests/trade_alerts_contracts/test_hod_comp_rs_compression_off_report_only_stage1_run.py`
+and stopped before collection at the launcher's temporary-directory ownership
+change: `OSError: [Errno 22] Invalid argument:
+'/tmp/trade-alerts-m04-g8e6_ar3'`. It was not retried, and no application test
+ran outside protection. The controller must supply fresh focused, broad
+acceptance and required repeatability proof.
+
+Complete M9.1CJ delta:
+`consensus_engine/hod_comp_rs_compression_off_report_only_stage1_run.py`,
+`tests/trade_alerts_contracts/test_hod_comp_rs_compression_off_report_only_stage1_run.py`
+and this ROADMAP. Exact point-in-time quote and policy inputs, original
+availability, corrections, finality, point-in-time membership, historical
+borrow and complete-chain proof remain gaps, with their dependent rules OFF
+and untested. Stage 2, stage 3, source, final and live gates remain blocked.
+M9.1CG's separate shared-cleanup block and preserved proof are unchanged.
+
+- [x] **M9.1CJ — frozen HOD-compression compression-off and RS-report-only
+  candidate connected to the strict stage-1 measurement boundary; fresh
+  protected proof recorded.**
+- [ ] **M9.1CK — connect the frozen default first-pullback candidate:** connect
+  `VWAP_MANDATORY|AVWAP_OFF` to the strict stage-1 measurement boundary while
+  preserving exact nine-name scope, visible missing inputs, held-out isolation
+  and the unopened stage-2/stage-3 boundary.
+
+### M9.1CJ historical protected proof before rejected review — 2026-09-21 Pacific
+
+The following proof belongs to the pre-repair source. Independent review
+rejected its missing-relative-strength behavior; the later repair below
+changes code and tests, so this proof does not establish current acceptance.
+
+This records-only finalization uses the controller's protected proof for source
+hash `4aa733d039dc7932e3ff135637c272e994ff5ac4159498bb5aa83d5f2b5d016c`.
+The complete tested-source manifest is
+`/root/trade-alerts-builder/runs/20260921-122204-456100-build/verified-manifest.json`.
+The tested milestone delta remains
+`consensus_engine/hod_comp_rs_compression_off_report_only_stage1_run.py`,
+`tests/trade_alerts_contracts/test_hod_comp_rs_compression_off_report_only_stage1_run.py`,
+and this ROADMAP. The finalization change is this ROADMAP record only.
+
+The focused phase had `tests.phase=focused`, `tests.runs=1`,
+`tests.test_count=12`, `tests.wall_seconds=3.52`, and
+`tests.selection_reason="builder named directly affected checks"`. Its selector
+was `tests/trade_alerts_contracts/test_hod_comp_rs_compression_off_report_only_stage1_run.py`.
+The controller recorded exit code 0, protected isolation, and stable output in
+`/root/trade-alerts-builder/runs/20260921-122204-456100-build/published-artifacts-19f6654a9249`.
+
+The acceptance phase had `tests.phase=acceptance`, `tests.runs=1`,
+`tests.test_count=3567`, `tests.wall_seconds=473.79`, and
+`tests.selection_reason="unknown dependency impact; safe broad fallback"`. Its
+selector was `tests/trade_alerts_contracts`. The controller recorded exit code
+0 in
+`/root/trade-alerts-builder/runs/20260921-122204-456100-build/published-artifacts-d4d77bdd7683`.
+
+The repeatability phase had `tests.phase=repeatability`, `tests.runs=2`,
+`tests.test_count=76`, `tests.wall_seconds=225.79`, and
+`tests.selection_reason="recording output requires fresh-process comparison"`.
+Its exact selectors, two fresh-process exit codes, and comparison record are
+published in
+`/root/trade-alerts-builder/runs/20260921-122204-456100-build/published-artifacts-ba0f10d2932b/summary.json`;
+the controller recorded stable output. No code, test, configuration, dependency,
+or protected input changed in this finalization.
+
+Exact point-in-time quote and policy inputs, original availability, corrections,
+finality, point-in-time membership, historical borrow, and complete-chain proof
+remain gaps; their dependent rules remain OFF and untested. Stage 2, stage 3,
+source, final, and live gates remain blocked. M9.1CG's separate shared-cleanup
+block and preserved proof are unchanged.
+
+### M9.1CJ missing-relative-strength repair awaiting protected verification — 2026-09-21 Pacific
+
+Independent review found that `_compression_off_report_only_assessment`
+returned the original assessment when `RS_TREND.observed` was absent. That
+return also bypassed the compression-off rule. Failed or unavailable
+`COMPRESSION_MEASURED` could therefore keep the candidate at `WATCHING`
+instead of `SETUP_FORMING`. The prior focused test
+`test_missing_rs_stays_unavailable_and_does_not_arm` incorrectly required that
+early return; the historical passing proof above did not catch this defect.
+
+The repair removes the missing-value early return. Compression is always
+non-gating within the evaluation window, while relative strength is
+non-gating only when its value is present. Missing relative strength remains
+`UNKNOWN`, retains its reason and input identity, and prevents `ARMED`.
+The corrected test covers passing, failed and unavailable compression, both
+with and without a separate RVOL failure. It requires `SETUP_FORMING` when
+the remaining setup checks pass and `WATCHING` when RVOL fails. All original
+gate records stay visible. No other gate or frozen research rule changed.
+
+The changed Python files passed a static syntax check. The protected focused
+selector remains
+`tests/trade_alerts_contracts/test_hod_comp_rs_compression_off_report_only_stage1_run.py`.
+The launcher stopped before collection at its temporary-directory ownership
+change: `OSError: [Errno 22] Invalid argument:
+'/tmp/trade-alerts-m04-6b6ls474'`. This sandbox failure was not retried and no
+application tests ran outside protection. Fresh controller focused,
+acceptance and required repeatability stages must supply their own figures,
+source manifest and comparisons; the historical proof is not reused for
+this repair. Prior failures and attempts remain preserved.
+
+The complete milestone delta remains
+`consensus_engine/hod_comp_rs_compression_off_report_only_stage1_run.py`,
+`tests/trade_alerts_contracts/test_hod_comp_rs_compression_off_report_only_stage1_run.py`
+and this ROADMAP. Missing source fields and their dependent rules remain
+OFF and untested as recorded above. No retained results, held-out data or
+later-stage results were inspected. All live switches stay off.
+
+- [~] **M9.1CJ — missing-relative-strength early return repaired; fresh
+  protected verification and independent acceptance pending.**
+- [ ] **M9.1CK — connect the frozen default first-pullback candidate:** connect
+  `VWAP_MANDATORY|AVWAP_OFF` to the strict stage-1 measurement boundary after
+  M9.1CJ review, preserving nine-name scope, missing-input visibility and
+  unopened stage-2/stage-3 and held-out boundaries.
+
+### M9.1CJ repaired protected proof recorded — 2026-09-21 Pacific
+
+This records-only finalization uses the controller's repaired-source proof for
+source hash `aa91c7a3509b0f440a0e5f855c38786cb79319da169b0d94e04e9f8a6470685f`.
+The complete tested-source manifest is
+`/root/trade-alerts-builder/runs/20260921-122204-456100-build/verified-manifest.json`.
+The tested milestone delta remains
+`consensus_engine/hod_comp_rs_compression_off_report_only_stage1_run.py`,
+`tests/trade_alerts_contracts/test_hod_comp_rs_compression_off_report_only_stage1_run.py`,
+and this ROADMAP. This finalization changes this ROADMAP record only.
+
+The focused phase had `tests.phase=focused`, `tests.runs=1`,
+`tests.test_count=17`, `tests.wall_seconds=3.826`, and
+`tests.selection_reason="builder named directly affected checks"`. Its selector
+was `tests/trade_alerts_contracts/test_hod_comp_rs_compression_off_report_only_stage1_run.py`.
+The controller recorded protected isolation, exit code 0, and stable output in
+`/root/trade-alerts-builder/runs/20260921-122204-456100-build/published-artifacts-df624734f365`.
+
+The acceptance phase had `tests.phase=acceptance`, `tests.runs=1`,
+`tests.test_count=3572`, `tests.wall_seconds=468.367`, and
+`tests.selection_reason="unknown dependency impact; safe broad fallback"`. Its
+selector was `tests/trade_alerts_contracts`. The controller recorded exit code
+0 in
+`/root/trade-alerts-builder/runs/20260921-122204-456100-build/published-artifacts-7cf29c179103`.
+
+The repeatability phase had `tests.phase=repeatability`, `tests.runs=2`,
+`tests.test_count=76`, `tests.wall_seconds=223.478`, and
+`tests.selection_reason="recording output requires fresh-process comparison"`.
+Its 51 selectors, in the controller's published order, two fresh-process exit
+codes, artifact hashes, and comparison record are in
+`/root/trade-alerts-builder/runs/20260921-122204-456100-build/published-artifacts-c5b7b8642c96/summary.json`
+and `publication.json`; both runs exited 0 and the controller recorded stable
+output. The repeatability summary hash is
+`12af81eb5631528cdb3cc0479c33632185d30842514c775ff88daf4d9b18f401`.
+
+The repaired missing-relative-strength path now makes compression non-gating
+while keeping unavailable relative strength visible and unable to arm. Exact
+point-in-time quote and policy inputs, original availability, corrections,
+finality, point-in-time membership, historical borrow, and complete-chain proof
+remain gaps; their dependent rules remain OFF and untested. Stage 2, stage 3,
+source, final, and live gates remain blocked.
+
+- [x] **M9.1CJ — missing-relative-strength repair verified by fresh protected
+  proof; compression is non-gating while unavailable relative strength remains
+  visible and cannot arm.**
+- [ ] **M9.1CK — connect the frozen default first-pullback candidate:** connect
+  `VWAP_MANDATORY|AVWAP_OFF` to the strict stage-1 measurement boundary while
+  preserving exact nine-name scope, visible missing inputs, held-out isolation,
+  and the unopened stage-2/stage-3 boundary.
+
+## M9.1CK — default first-pullback runner connected to stage-1 measurement — 2026-09-21 Pacific
+
+New `consensus_engine/first_pullback_vwap_stage1_run.py` connects the frozen
+`VWAP_MANDATORY|AVWAP_OFF` candidate to the strict M9.1CD stage-1 measurement
+boundary. It drives the existing first-pullback replay owner over caller-supplied
+chronological contexts. Only triggered continuations with supplied risk,
+targets, fully modeled fills and resolved outcomes enter measurement. Missing
+assessments, policy inputs, quotes, fills and outcomes remain visible
+exclusions. Every retained session needs an explicit event, no-event result or
+unavailable result. The exact nine-name training scope and held-out isolation
+remain strict.
+
+New focused file
+`tests/trade_alerts_contracts/test_first_pullback_vwap_stage1_run.py` covers the
+resolved default candidate, both frozen axis IDs, missing and unresolved inputs,
+wrong candidate and scope refusal, complete evaluation coverage, market-record
+identity, explicit no-event and unavailable results, and chronological replay
+driving. These are synthetic supplied-record contracts only. No retained price,
+return, stage-2 or held-out result was read.
+
+Both new Python files passed a static syntax check. The protected focused run
+selected `tests/trade_alerts_contracts/test_first_pullback_vwap_stage1_run.py`
+and stopped before collection at the launcher's temporary-directory ownership
+change: `OSError: [Errno 22] Invalid argument:
+'/tmp/trade-alerts-m04-z5jjrjnu'`. It was not retried, and no application test
+ran outside protection. The controller must supply fresh focused, broad
+acceptance and required repeatability proof.
+
+Complete M9.1CK delta:
+`consensus_engine/first_pullback_vwap_stage1_run.py`,
+`tests/trade_alerts_contracts/test_first_pullback_vwap_stage1_run.py` and this
+ROADMAP. Exact point-in-time quote and policy inputs, original availability,
+corrections, finality, point-in-time membership, historical borrow and
+complete-chain proof remain gaps, with their dependent rules OFF and untested.
+Stage 2, stage 3, source, final and live gates remain blocked. M9.1CG's separate
+shared-cleanup block and preserved proof are unchanged.
+
+- [~] **M9.1CK — frozen default first-pullback candidate connected to the strict
+  stage-1 measurement boundary; fresh protected proof and independent review
+  remain.**
+- [ ] **M9.1CL — connect the frozen relaxed-VWAP first-pullback candidate:**
+  connect `VWAP_RELAXED|AVWAP_OFF` while keeping VWAP position and slope visible
+  but non-gating, preserving pullback and trigger structure gates, exact
+  nine-name scope, visible missing inputs, held-out isolation and the unopened
+  stage-2/stage-3 boundary.
+
+### M9.1CK protected proof recorded — 2026-09-21 Pacific
+
+This records-only finalization uses the controller's protected proof for source
+hash `a6b5e5463c510fc0e240d7c9d3fa46b430e12ace3f5723fecbab5aea9661deb6`.
+The complete tested-source manifest is
+`/root/trade-alerts-builder/runs/20260921-130230-853825-build/verified-manifest.json`.
+The tested milestone delta remains
+`consensus_engine/first_pullback_vwap_stage1_run.py`,
+`tests/trade_alerts_contracts/test_first_pullback_vwap_stage1_run.py`, and this
+ROADMAP. This finalization changes this ROADMAP record only.
+
+The focused phase had `tests.phase=focused`, `tests.runs=1`,
+`tests.test_count=10`, `tests.wall_seconds=3.72`, and
+`tests.selection_reason="builder named directly affected checks"`. Its selector
+was `tests/trade_alerts_contracts/test_first_pullback_vwap_stage1_run.py`.
+The controller recorded protected isolation, exit code 0, and stable output in
+`/root/trade-alerts-builder/runs/20260921-130230-853825-build/published-artifacts-1ef17dcbc872`.
+Pytest reported 10 passed in 2.16 seconds; JUnit reported 2.163 seconds.
+
+The acceptance phase had `tests.phase=acceptance`, `tests.runs=1`,
+`tests.test_count=3582`, `tests.wall_seconds=470.704`, and
+`tests.selection_reason="unknown dependency impact; safe broad fallback"`. Its
+selector was `tests/trade_alerts_contracts`. The controller recorded protected
+isolation and exit code 0 in
+`/root/trade-alerts-builder/runs/20260921-130230-853825-build/published-artifacts-7477ddcbcfc6`.
+Pytest reported 3582 passed in 466.28 seconds; JUnit reported 466.128 seconds.
+
+The repeatability phase had `tests.phase=repeatability`, `tests.runs=2`,
+`tests.test_count=76`, `tests.wall_seconds=224.239`, and
+`tests.selection_reason="recording output requires fresh-process comparison"`.
+Its exact 51 selectors, in the controller's published order, two fresh-process
+exit codes, artifact hashes, and comparison record are in
+`/root/trade-alerts-builder/runs/20260921-130230-853825-build/published-artifacts-e1706a6a949b/summary.json`
+and `publication.json`; both runs exited 0 and the controller recorded stable
+output. Pytest reported 76 passed in 109.09 seconds and 76 passed in 110.20
+seconds; JUnit reported 109.086 seconds and 110.192 seconds. The controller's
+comparison is authoritative; its repeatability summary hash is
+`12af81eb5631528cdb3cc0479c33632185d30842514c775ff88daf4d9b18f401`.
+
+No code, test, configuration, dependency, or protected input changed in this
+finalization. Exact point-in-time quote and policy inputs, original availability,
+corrections, finality, point-in-time membership, historical borrow, and
+complete-chain proof remain gaps; their dependent rules remain OFF and untested.
+Stage 2, stage 3, source, final, and live gates remain blocked.
+
+- [x] **M9.1CK — frozen default first-pullback candidate connected to the strict
+  stage-1 measurement boundary; fresh protected proof recorded.**
+- [ ] **M9.1CL — connect the frozen relaxed-VWAP first-pullback candidate:**
+  connect `VWAP_RELAXED|AVWAP_OFF` while keeping VWAP position and slope visible
+  but non-gating, preserving pullback and trigger structure gates, exact
+  nine-name scope, visible missing inputs, held-out isolation and the unopened
+  stage-2/stage-3 boundary.
+
+## M9.1CL — relaxed-VWAP first-pullback runner connected — 2026-09-21 Pacific
+
+New `consensus_engine/first_pullback_vwap_relaxed_stage1_run.py` connects the
+frozen `VWAP_RELAXED|AVWAP_OFF` candidate to the strict M9.1CD stage-1
+measurement boundary. The existing VWAP position and slope gates remain in
+every assessment with their measured value, status, reason and input identity,
+but neither gate prevents this research candidate from arming or triggering.
+Pullback measurement, impulse, VWAP crosses, relative strength, retracement,
+volume, support, reversal trigger, quote, sequence, risk, confidence, fill,
+cost and resolved-outcome checks remain strict. Missing values are never filled
+in. The exact nine-name training scope and held-out isolation remain strict.
+
+New focused file
+`tests/trade_alerts_contracts/test_first_pullback_vwap_relaxed_stage1_run.py`
+covers both directions, failed and unavailable relaxed gates, strict trigger
+structure, the exact candidate, strict resolved-row measurement, wrong
+candidate, scope and coverage refusal, and the required relaxed replay owner.
+These are synthetic supplied-record contracts only. No retained price, return,
+stage-2 or held-out result was read.
+
+Both new Python files passed a static syntax check. The initial protected focused run
+selected
+`tests/trade_alerts_contracts/test_first_pullback_vwap_relaxed_stage1_run.py`
+and stopped before collection at the launcher's temporary-directory ownership
+change: `OSError: [Errno 22] Invalid argument:
+'/tmp/trade-alerts-m04-u4lnhttd'`. It was not retried, and no application test
+ran outside protection. The controller must supply fresh focused, broad
+acceptance and required repeatability proof.
+
+Complete M9.1CL delta:
+`consensus_engine/first_pullback_vwap_relaxed_stage1_run.py`,
+`tests/trade_alerts_contracts/test_first_pullback_vwap_relaxed_stage1_run.py`
+and this ROADMAP. Exact point-in-time quote and policy inputs, original
+availability, corrections, finality, point-in-time membership, historical
+borrow and complete-chain proof remain gaps, with their dependent rules OFF
+and untested. Stage 2, stage 3, source, final and live gates remain blocked.
+M9.1CG's separate shared-cleanup block and preserved proof are unchanged.
+
+- [~] **M9.1CL — frozen relaxed-VWAP first-pullback candidate connected to the
+  strict stage-1 measurement boundary; fresh protected proof and independent
+  review remain.**
+- [ ] **M9.1CM — connect the frozen AVWAP-on first-pullback candidate:** connect
+  `VWAP_MANDATORY|AVWAP_ON` with the frozen impulse-origin anchored-VWAP support
+  rule while preserving all existing strict gates, exact nine-name scope,
+  visible missing inputs, held-out isolation and the unopened stage-2/stage-3
+  boundary.
+
+### M9.1CL focused repair — 2026-09-21 Pacific
+
+The controller's focused verification failed at
+`tests/trade_alerts_contracts/test_first_pullback_vwap_relaxed_stage1_run.py::test_wrong_vwap_slope_stays_visible_but_does_not_gate[SHORT]`
+with `consensus_engine.trade_alerts_models.RecordError: evaluation does not match this replay owner`.
+Its preserved log is
+`/root/trade-alerts-builder/runs/20260921-132640-409226-build/verification.log`;
+pytest reported `1 failed, 9 passed in 3.12s`. The supplied controller summary
+records `runs=1`, `test_count=null`, and
+`selection_reason="builder named directly affected checks"`, selecting
+`tests/trade_alerts_contracts/test_first_pullback_vwap_relaxed_stage1_run.py`.
+This is rejected proof, not acceptance.
+
+Cause: the new test helper called `default_strategy` without its direction,
+so the SHORT case inherited LONG strategy and measurement policies. The replay
+owner correctly refused that mismatch before evaluating any VWAP gate. The
+repair passes the case's direction through the helper into both existing
+policies. No runtime direction check or strategy rule was changed. The original
+LONG/SHORT assertions remain in place, and prior failures remain preserved.
+
+After this repair, the normal protected launcher selected the same focused file
+and stopped before collection at its temporary-directory ownership change:
+`OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-zuqqusrg'`.
+This sandbox failure was not retried. No application tests ran outside
+protection, and no broad family was run in this session. Fresh controller
+focused, acceptance and required repeatability stages will supply the current
+counts, timings, tested-source manifest and recording comparisons; no passing
+claim is made here. Both milestone Python files passed a static syntax check
+after the repair.
+
+The complete milestone delta remains the two named Python files and this
+ROADMAP. The repair changes only the test helper, its SHORT/LONG call site,
+and these records. M9.1CL remains pending protected proof and independent
+review; M9.1CM remains the open proposed next task. All recorded missing-input,
+held-out, source and live boundaries above remain unchanged and switches OFF.
+
+### M9.1CL protected proof recorded — 2026-09-21 Pacific
+
+This records-only finalization uses the controller's protected proof for source
+hash `878be32b1c637e1f31b98d7f643fdb632ebc3f91deb5fab119ee71621da70694`.
+The complete tested-source manifest is
+`/root/trade-alerts-builder/runs/20260921-132640-409226-build/verified-manifest.json`.
+The tested milestone delta remains
+`consensus_engine/first_pullback_vwap_relaxed_stage1_run.py`,
+`tests/trade_alerts_contracts/test_first_pullback_vwap_relaxed_stage1_run.py`,
+and this ROADMAP. This finalization changes this ROADMAP record only.
+
+The focused phase had `tests.phase=focused`, `tests.runs=1`,
+`tests.test_count=1`, `tests.wall_seconds=4.778`, and
+`tests.selection_reason="builder named directly affected checks"`. Its selector
+was
+`tests/trade_alerts_contracts/test_first_pullback_vwap_relaxed_stage1_run.py::test_wrong_vwap_slope_stays_visible_but_does_not_gate[SHORT]`.
+The controller recorded protected isolation, exit code 0, and stable output in
+`/root/trade-alerts-builder/runs/20260921-132640-409226-build/published-artifacts-b9fbc65e59e5`.
+Pytest reported 1 passed in 3.06 seconds; JUnit reported 3.066 seconds.
+
+The acceptance phase had `tests.phase=acceptance`, `tests.runs=1`,
+`tests.test_count=3592`, `tests.wall_seconds=465.781`, and
+`tests.selection_reason="unknown dependency impact; safe broad fallback"`. Its
+selector was `tests/trade_alerts_contracts`. The controller recorded protected
+isolation and exit code 0 in
+`/root/trade-alerts-builder/runs/20260921-132640-409226-build/published-artifacts-3f32ae16e9f7`.
+Pytest reported 3592 passed in 461.39 seconds; JUnit reported 461.201 seconds.
+
+The repeatability phase had `tests.phase=repeatability`, `tests.runs=2`,
+`tests.test_count=76`, `tests.wall_seconds=221.985`, and
+`tests.selection_reason="recording output requires fresh-process comparison"`.
+Its exact 51 selectors, in the controller's published order, two fresh-process
+exit codes, artifact hashes, and comparison record are in
+`/root/trade-alerts-builder/runs/20260921-132640-409226-build/published-artifacts-ce707c33ddb3/summary.json`
+and `publication.json`; both runs exited 0 and the controller recorded stable
+output. The repeatability summary hash is
+`12af81eb5631528cdb3cc0479c33632185d30842514c775ff88daf4d9b18f401`.
+
+No code, test, configuration, dependency, or protected input changed in this
+finalization. Exact point-in-time quote and policy inputs, original availability,
+corrections, finality, point-in-time membership, historical borrow, and
+complete-chain proof remain gaps; their dependent rules remain OFF and untested.
+Stage 2, stage 3, source, final, and live gates remain blocked.
+
+- [x] **M9.1CL — frozen relaxed-VWAP first-pullback candidate connected to the
+  strict stage-1 measurement boundary; fresh protected proof recorded.**
+- [ ] **M9.1CM — connect the frozen AVWAP-on first-pullback candidate:** connect
+  `VWAP_MANDATORY|AVWAP_ON` with the frozen impulse-origin anchored-VWAP support
+  rule while preserving all existing strict gates, exact nine-name scope,
+  visible missing inputs, held-out isolation and the unopened stage-2/stage-3
+  boundary.
+
+## M9.1CM — AVWAP-on first-pullback runner connected — 2026-09-21 Pacific
+
+New `consensus_engine/first_pullback_vwap_avwap_stage1_run.py` connects the
+frozen `VWAP_MANDATORY|AVWAP_ON` candidate to the strict M9.1CD stage-1
+measurement boundary. Its research-only replay owner preserves every existing
+mandatory VWAP, pullback, trigger, quote, structure, cost and outcome gate. It
+adds only D-055's frozen support alternative: session-VWAP support or supplied
+anchored-VWAP support may pass, and the anchored reading must identify the same
+symbol, direction, evaluation and frozen impulse-origin anchor. Missing or
+incomplete anchored-VWAP evidence stays visible and cannot rescue failed
+session-VWAP support. The exact nine-name training scope and held-out isolation
+remain strict.
+
+New focused file
+`tests/trade_alerts_contracts/test_first_pullback_vwap_avwap_stage1_run.py`
+covers both directions, the exact impulse-origin anchor, the session-VWAP or
+anchored-VWAP support rule, missing anchored evidence, identity and anchor
+refusal, the exact candidate, strict resolved-row measurement, wrong candidate,
+scope and coverage refusal, and invalid supplied readings. These are synthetic
+supplied-record contracts only. No retained price, return, stage-2 or held-out
+result was read.
+
+Both new Python files passed a static syntax check. The protected focused run
+selected
+`tests/trade_alerts_contracts/test_first_pullback_vwap_avwap_stage1_run.py`
+and stopped before collection at the launcher's temporary-directory ownership
+change: `OSError: [Errno 22] Invalid argument:
+'/tmp/trade-alerts-m04-zaw84bbk'`. It was not retried, and no application test
+ran outside protection. The controller must supply fresh focused, broad
+acceptance and required repeatability proof.
+
+Complete M9.1CM delta:
+`consensus_engine/first_pullback_vwap_avwap_stage1_run.py`,
+`tests/trade_alerts_contracts/test_first_pullback_vwap_avwap_stage1_run.py` and
+this ROADMAP. Exact point-in-time quote and policy inputs, original availability,
+corrections, finality, point-in-time membership, historical borrow and
+complete-chain proof remain gaps, with their dependent rules OFF and untested.
+Stage 2, stage 3, source, final and live gates remain blocked. M9.1CG's separate
+shared-cleanup block and preserved proof are unchanged.
+
+- [~] **M9.1CM — frozen AVWAP-on first-pullback candidate connected to the
+  strict stage-1 measurement boundary; fresh protected proof and independent
+  review remain.**
+- [ ] **M9.1CN — connect the frozen relaxed-VWAP plus AVWAP first-pullback
+  candidate:** connect `VWAP_RELAXED|AVWAP_ON` while keeping VWAP position and
+  slope visible but non-gating, applying the frozen impulse-origin anchored-VWAP
+  support alternative, and preserving every other strict gate, exact nine-name
+  scope, visible missing inputs, held-out isolation and the unopened
+  stage-2/stage-3 boundary.
+
+### M9.1CM protected proof recorded — 2026-09-21 Pacific (historical; repair below)
+
+This records-only finalization uses the controller's protected proof for source
+hash `9d59f2333563811d4b04cb87846eb2c2a696f49ae737ac59d77d6568ba8a6287`.
+The complete tested-source manifest is
+`/root/trade-alerts-builder/runs/20260921-135411-898050-build/verified-manifest.json`.
+The tested milestone delta remains
+`consensus_engine/first_pullback_vwap_avwap_stage1_run.py`,
+`tests/trade_alerts_contracts/test_first_pullback_vwap_avwap_stage1_run.py`,
+and this ROADMAP. This finalization changes this ROADMAP record only.
+
+The focused phase had `tests.phase=focused`, `tests.runs=1`,
+`tests.test_count=12`, `tests.wall_seconds=4.923`, and
+`tests.selection_reason="builder named directly affected checks"`. Its selector
+was `tests/trade_alerts_contracts/test_first_pullback_vwap_avwap_stage1_run.py`.
+The controller recorded protected isolation, exit code 0, and stable output in
+`/root/trade-alerts-builder/runs/20260921-135411-898050-build/published-artifacts-fb3100bac4ef`.
+Pytest reported 12 passed in 3.17 seconds; JUnit reported 3.172 seconds.
+
+The acceptance phase had `tests.phase=acceptance`, `tests.runs=1`,
+`tests.test_count=3604`, `tests.wall_seconds=463.187`, and
+`tests.selection_reason="unknown dependency impact; safe broad fallback"`.
+Its selector was `tests/trade_alerts_contracts`. The controller recorded
+protected isolation and exit code 0 in
+`/root/trade-alerts-builder/runs/20260921-135411-898050-build/published-artifacts-08e041b4590b`.
+Pytest reported 3604 passed in 458.71 seconds; JUnit reported 458.536 seconds.
+
+The repeatability phase had `tests.phase=repeatability`, `tests.runs=2`,
+`tests.test_count=76`, `tests.wall_seconds=221.203`, and
+`tests.selection_reason="recording output requires fresh-process comparison"`.
+Its exact 51 selectors, in the controller's published order, two fresh-process
+exit codes, artifact hashes, and comparison record are in
+`/root/trade-alerts-builder/runs/20260921-135411-898050-build/published-artifacts-28e172af0a2a/summary.json`
+and `publication.json`; both runs exited 0 and the controller recorded stable
+output. Pytest reported 76 passed in 107.91 seconds and 76 passed in 108.82
+seconds; JUnit reported 107.907 seconds and 108.820 seconds. The repeatability
+summary hash is `12af81eb5631528cdb3cc0479c33632185d30842514c775ff88daf4d9b18f401`.
+
+No code, test, configuration, dependency, or protected input changed in this
+finalization. Exact point-in-time quote and policy inputs, original availability,
+corrections, finality, point-in-time membership, historical borrow, and
+complete-chain proof remain gaps; their dependent rules remain OFF and untested.
+Stage 2, stage 3, source, final, and live gates remain blocked.
+
+- [x] **M9.1CM — frozen AVWAP-on first-pullback candidate connected to the
+  strict stage-1 measurement boundary; fresh protected proof recorded.**
+- [ ] **M9.1CN — connect the frozen relaxed-VWAP plus AVWAP first-pullback
+  candidate:** connect `VWAP_RELAXED|AVWAP_ON` while keeping VWAP position and
+  slope visible but non-gating, applying the frozen impulse-origin anchored-VWAP
+  support alternative, and preserving every other strict gate, exact nine-name
+  scope, visible missing inputs, held-out isolation and the unopened
+  stage-2/stage-3 boundary.
+
+### M9.1CM missing anchored-VWAP evidence repair — 2026-09-21 Pacific
+
+The repair packet reported `reviewer process failed`. The saved reviewer result
+at `/root/trade-alerts-builder/runs/20260921-142105-575129-review/review-result.json`
+contains a concrete repair finding: a passing session-VWAP support gate hid
+missing or incomplete anchored-VWAP evidence. The prior protected runs passed
+the collected cases, but the existing test checked only the passing state and
+support gate. It did not check that the missing-input fact survived. No failing
+pytest ID was published; the reviewer specifically required
+`tests/trade_alerts_contracts/test_first_pullback_vwap_avwap_stage1_run.py::test_session_vwap_support_still_passes_when_avwap_is_unavailable`
+and broader `tests/trade_alerts_contracts` coverage.
+
+Cause: `_avwap_assessment` retained the passing session gate and unconditionally
+removed `AVWAP_QUESTION_UNDEFINED`, without replacing it with the actual missing
+anchored-reading reason. The different approach separates input availability
+from the combined support decision: unknown anchored support now adds its exact
+reason to `PullbackAssessment.unavailable`. Session-VWAP support can still pass;
+missing anchored evidence still cannot rescue failed session support. No numeric
+rule, input identity check, gate decision or default switch changed.
+
+The existing required test now checks absent records, incomplete coverage and
+missing values in both directions, including the structured and JSON results.
+Supplied missing readings also pass through the replay owner, where the missing
+reason must remain visible without blocking valid session support. The failed
+session-support test also checks that its missing anchored reason remains in
+`unavailable`. These are synthetic supplied-record checks only.
+
+The protected launcher selected the directly affected file
+`tests/trade_alerts_contracts/test_first_pullback_vwap_avwap_stage1_run.py`
+and stopped before collection at its temporary-directory ownership change:
+`OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-x99zsllm'`.
+This failure was not retried, and no application test ran outside protection.
+The controller must supply fresh focused, broad acceptance and required
+repeatability proof, including its exact selectors, counts, timings, manifests
+and artifact comparisons. No passing protected claim is made for this repair.
+
+The preceding proof, its original tested-source manifest and all published
+artifacts remain preserved as historical evidence for the earlier code. The
+code and test edits invalidate that proof for current acceptance; the earlier
+completed row is superseded by the pending row below. The complete milestone
+delta remains `consensus_engine/first_pullback_vwap_avwap_stage1_run.py`,
+`tests/trade_alerts_contracts/test_first_pullback_vwap_avwap_stage1_run.py`, and
+this ROADMAP. Prior attempts and review findings remain intact.
+
+Exact point-in-time quote and policy inputs, original availability, corrections,
+finality, point-in-time membership, historical borrow and complete-chain proof
+remain gaps, with their dependent rules OFF and untested. Stage 2, stage 3,
+source, final and live gates remain blocked. M9.1CG's separate shared-cleanup
+block is unchanged. No retained prices, returns or held-out results were read.
+
+- [~] **M9.1CM — anchored-VWAP missing-input visibility repaired; fresh
+  protected proof and independent review remain.**
+- [ ] **M9.1CN — connect the frozen relaxed-VWAP plus AVWAP first-pullback
+  candidate:** after M9.1CM acceptance, connect `VWAP_RELAXED|AVWAP_ON` with
+  visible non-gating VWAP position and slope, the frozen impulse-origin
+  anchored-VWAP support alternative, every other strict gate, exact nine-name
+  scope, visible missing inputs, held-out isolation and unopened stage-2/stage-3
+  boundaries.
+
+### M9.1CM repaired protected proof recorded — 2026-09-21 Pacific
+
+This records-only finalization uses the controller's repaired protected proof
+for source hash `f56965e9d2b00fec4a0059d1b7d59f52f052c517cacb645d8cdbdc8a014c5e6a`.
+The complete tested-source manifest is
+`/root/trade-alerts-builder/runs/20260921-135411-898050-build/verified-manifest.json`.
+The complete milestone delta is
+`consensus_engine/first_pullback_vwap_avwap_stage1_run.py`,
+`tests/trade_alerts_contracts/test_first_pullback_vwap_avwap_stage1_run.py`, and
+this ROADMAP. This finalization changes this ROADMAP record only.
+
+The earlier reviewer finding was that `_avwap_assessment` removed
+`AVWAP_QUESTION_UNDEFINED` when session-VWAP support passed without retaining
+the supplied anchored-VWAP missing reason. The repair keeps the precise missing
+reason in `PullbackAssessment.unavailable` without letting it block a valid
+session-VWAP support decision. The focused phase had `tests.phase=focused`,
+`tests.runs=1`, `tests.test_count=17`, `tests.wall_seconds=4.845`, and
+`tests.selection_reason="builder named directly affected checks"`. Its selector
+was `tests/trade_alerts_contracts/test_first_pullback_vwap_avwap_stage1_run.py`.
+The controller recorded protected isolation, exit code 0 and stable output in
+`/root/trade-alerts-builder/runs/20260921-135411-898050-build/published-artifacts-b408fac3ef7f`.
+Pytest reported 17 passed in 3.16 seconds; JUnit reported 3.165 seconds.
+
+The acceptance phase had `tests.phase=acceptance`, `tests.runs=1`,
+`tests.test_count=3609`, `tests.wall_seconds=462.963`, and
+`tests.selection_reason="unknown dependency impact; safe broad fallback"`.
+Its selector was `tests/trade_alerts_contracts`. The controller recorded
+protected isolation and exit code 0 in
+`/root/trade-alerts-builder/runs/20260921-135411-898050-build/published-artifacts-77409db379d5`.
+Pytest reported 3609 passed in 458.79 seconds; JUnit reported 458.624 seconds.
+
+The repeatability phase had `tests.phase=repeatability`, `tests.runs=2`,
+`tests.test_count=76`, `tests.wall_seconds=222.597`, and
+`tests.selection_reason="recording output requires fresh-process comparison"`.
+Its exact 51 selectors, in the controller's published order, two fresh-process
+exit codes, hashes and comparison record are in
+`/root/trade-alerts-builder/runs/20260921-135411-898050-build/published-artifacts-6c4e9bc596d0/summary.json`
+and `publication.json`; both runs exited 0 and the controller recorded stable
+output. The summary hash is
+`12af81eb5631528cdb3cc0479c33632185d30842514c775ff88daf4d9b18f401` and
+the publication hash is
+`61b65c1417e8a4a4073b433d80aac818b7282bf51f4ab4ea83fb640c30097f3e`.
+Pytest reported 76 passed in 109.00 seconds and 76 passed in 108.87 seconds;
+JUnit reported 109.003 seconds and 108.872 seconds.
+
+No code, test, configuration, dependency or protected input changed in this
+finalization. Exact point-in-time quote and policy inputs, original availability,
+corrections, finality, point-in-time membership, historical borrow and
+complete-chain proof remain gaps; their dependent rules remain OFF and untested.
+Stage 2, stage 3, source, final and live gates remain blocked.
+
+- [x] **M9.1CM — anchored-VWAP missing-input visibility repaired and protected
+  proof recorded.**
+- [ ] **M9.1CN — connect the frozen relaxed-VWAP plus AVWAP first-pullback
+  candidate:** connect `VWAP_RELAXED|AVWAP_ON` while keeping VWAP position and
+  slope visible but non-gating, preserving the frozen impulse-origin
+  anchored-VWAP support alternative, strict remaining gates, exact nine-name
+  scope, visible missing inputs, held-out isolation and unopened stage-2/stage-3
+  boundaries.
+
+## M9.1CN — relaxed-VWAP plus AVWAP first-pullback runner connected — 2026-09-21 Pacific
+
+New `consensus_engine/first_pullback_vwap_relaxed_avwap_stage1_run.py` connects
+the fourth frozen `VWAP_RELAXED|AVWAP_ON` candidate to the strict M9.1CD
+stage-1 measurement boundary. Its research-only replay owner composes the two
+already accepted candidate changes: VWAP position and slope remain measured and
+visible but do not veto the candidate, while supplied anchored-VWAP support must
+identify the same symbol, direction, evaluation and frozen impulse-origin
+anchor. Missing anchored-VWAP evidence stays visible and cannot rescue failed
+session-VWAP support. Every other pullback, trigger, quote, structure, cost and
+outcome gate remains strict. The exact nine-name training scope and held-out
+isolation remain unchanged.
+
+New focused file
+`tests/trade_alerts_contracts/test_first_pullback_vwap_relaxed_avwap_stage1_run.py`
+covers both directions, simultaneous relaxed VWAP slope and anchored-VWAP
+support, visible missing anchored evidence, refusal to fill failed support,
+strict trigger structure, visible non-gating VWAP position, the exact candidate,
+resolved-row measurement, wrong candidate, scope and coverage refusal, and the
+required replay owner. These are synthetic supplied-record contracts only. No
+retained price, return, stage-2 or held-out result was read.
+
+Both new Python files passed a static syntax check. The protected focused run
+selected
+`tests/trade_alerts_contracts/test_first_pullback_vwap_relaxed_avwap_stage1_run.py`
+and stopped before collection at the launcher's temporary-directory ownership
+change: `OSError: [Errno 22] Invalid argument:
+'/tmp/trade-alerts-m04-34puuf82'`. It was not retried, and no application test
+ran outside protection. The controller must supply fresh focused, broad
+acceptance and required repeatability proof.
+
+Complete M9.1CN delta:
+`consensus_engine/first_pullback_vwap_relaxed_avwap_stage1_run.py`,
+`tests/trade_alerts_contracts/test_first_pullback_vwap_relaxed_avwap_stage1_run.py`
+and this ROADMAP. Exact point-in-time quote and policy inputs, original
+availability, corrections, finality, point-in-time membership, historical
+borrow and complete-chain proof remain gaps, with their dependent rules OFF and
+untested. Stage 2, stage 3, source, final and live gates remain blocked.
+M9.1CG's separate shared-cleanup block and preserved proof are unchanged.
+
+- [~] **M9.1CN — frozen relaxed-VWAP plus AVWAP first-pullback candidate
+  connected to the strict stage-1 measurement boundary; fresh protected proof
+  and independent review remain.**
+- [ ] **M9.1CO — rank the four frozen first-pullback stage-1 candidates:**
+  connect the four accepted candidate runners to the fixed stage-1 comparison
+  and ranking boundary, preserving exact nine-name coverage, visible exclusions,
+  disabled-rule labels, held-out isolation and unopened stage-2/stage-3 results.
+
+## M9.1CO — four first-pullback stage-1 candidates connected to ranking — 2026-09-21 Pacific
+
+New `consensus_engine/first_pullback_stage1_comparison.py` accepts exactly one
+result from each of the four accepted first-pullback candidate runners. It
+checks the frozen candidate and runner identities, puts supplied runs back into
+the preregistered table order, requires matching retained-session coverage and
+disabled-rule labels, and applies the existing frozen stage-1 ranking rule.
+The result keeps every candidate run and its exclusions visible. A missing
+measurement or incomparable coverage returns `NOT_RANKABLE` with exact blockers
+and no winner; it is never filled or approximated.
+
+New focused file
+`tests/trade_alerts_contracts/test_first_pullback_stage1_comparison.py` covers
+all four accepted runner identities, shuffled input order, the full frozen
+ranking rule and final table-order tie-break, preserved exclusions, missing
+measurements, mismatched session coverage, mismatched disabled-rule labels,
+duplicate or missing candidates, unknown candidates, forged runner versions and
+measurement/run identity drift. These use synthetic supplied records only. No
+retained price, return, held-out result, stage-2 result or stage-3 result was
+read.
+
+Complete M9.1CO delta:
+`consensus_engine/first_pullback_stage1_comparison.py`,
+`tests/trade_alerts_contracts/test_first_pullback_stage1_comparison.py` and this
+ROADMAP. Exact point-in-time quote and policy inputs, original availability,
+corrections, finality, point-in-time membership, historical borrow and
+complete-chain proof remain gaps, with their dependent rules OFF and untested.
+Stage 2, stage 3, source, final and live gates remain blocked. M9.1CG's separate
+shared-cleanup block and preserved proof are unchanged.
+
+- [~] **M9.1CO — four frozen first-pullback stage-1 candidates connected to the
+  fixed comparison and ranking boundary; fresh protected proof and independent
+  review remain.**
+- [ ] **M9.1CP — rank the two frozen OR-failure stage-1 candidates:** connect the
+  accepted confirmed and faster OR-failure runners to the fixed stage-1
+  comparison and ranking boundary, preserving exact nine-name coverage, visible
+  exclusions, disabled-rule labels, held-out isolation and unopened
+  stage-2/stage-3 results.
+
+### M9.1CN protected proof recorded — 2026-09-21 Pacific
+
+This records-only finalization uses the controller's protected proof for source
+hash `7f7af8a1a9e9da8369076196fa9b629b398bffd7840e17dd572c07aa6daff13c`.
+The complete tested-source manifest is
+`/root/trade-alerts-builder/runs/20260921-144748-215637-build/verified-manifest.json`.
+The complete milestone delta is
+`consensus_engine/first_pullback_vwap_relaxed_avwap_stage1_run.py`,
+`tests/trade_alerts_contracts/test_first_pullback_vwap_relaxed_avwap_stage1_run.py`,
+and this ROADMAP. This finalization changes this ROADMAP record only.
+
+The focused phase had `tests.phase=focused`, `tests.runs=1`,
+`tests.test_count=12`, `tests.wall_seconds=4.796`, and
+`tests.selection_reason="builder named directly affected checks"`. Its selector
+was `tests/trade_alerts_contracts/test_first_pullback_vwap_relaxed_avwap_stage1_run.py`.
+The controller recorded protected isolation, exit code 0, stable output, zero
+failures, errors and skips in
+`/root/trade-alerts-builder/runs/20260921-144748-215637-build/published-artifacts-ae12428b21ce`.
+Pytest reported 12 passed in 3.13 seconds; JUnit reported 3.131 seconds.
+
+The acceptance phase had `tests.phase=acceptance`, `tests.runs=1`,
+`tests.test_count=3621`, `tests.wall_seconds=464.696`, and
+`tests.selection_reason="unknown dependency impact; safe broad fallback"`. Its
+selector was `tests/trade_alerts_contracts`. The controller recorded protected
+isolation, exit code 0, stable output, zero failures, errors and skips in
+`/root/trade-alerts-builder/runs/20260921-144748-215637-build/published-artifacts-922cd5dbf340`.
+Pytest reported 3621 passed in 460.24 seconds; JUnit reported 460.060 seconds.
+
+The repeatability phase had `tests.phase=repeatability`, `tests.runs=2`,
+`tests.test_count=76`, `tests.wall_seconds=221.169`, and
+`tests.selection_reason="recording output requires fresh-process comparison"`.
+Its exact 51 selectors, in the controller's published order, two fresh-process
+exit codes, artifact hashes and comparison record are in
+`/root/trade-alerts-builder/runs/20260921-144748-215637-build/published-artifacts-ccc0b48b3fbe/summary.json`
+and `publication.json`; both runs exited 0 and the controller recorded stable
+output. Pytest reported 76 passed in 108.42 seconds and 76 passed in 108.51
+seconds; JUnit reported 108.416 seconds and 108.508 seconds.
+
+No code, test, configuration, dependency or protected input changed in this
+finalization. Exact point-in-time quote and policy inputs, original availability,
+corrections, finality, point-in-time membership, historical borrow and
+complete-chain proof remain gaps; their dependent rules remain OFF and untested.
+Stage 2, stage 3, source, final and live gates remain blocked.
+
+- [x] **M9.1CN — frozen relaxed-VWAP plus AVWAP first-pullback candidate
+  connected to the strict stage-1 measurement boundary; fresh protected proof
+  recorded.**
+- [ ] **M9.1CO — rank the four frozen first-pullback stage-1 candidates:**
+  connect the four accepted candidate runners to the fixed stage-1 comparison
+  and ranking boundary, preserving exact nine-name coverage, visible exclusions,
+  disabled-rule labels, held-out isolation and unopened stage-2/stage-3 results.
+
+- [~] **M9.1CO — four frozen first-pullback stage-1 candidates connected to the
+  fixed comparison and ranking boundary; fresh protected proof and independent
+  review remain.**
+- [ ] **M9.1CP — rank the two frozen OR-failure stage-1 candidates:** connect the
+  accepted confirmed and faster OR-failure runners to the fixed stage-1
+  comparison and ranking boundary, preserving exact nine-name coverage, visible
+  exclusions, disabled-rule labels, held-out isolation and unopened
+  stage-2/stage-3 results.
+
+
+### M9.1CO escalated timeout diagnosis — 2026-09-21 Pacific
+
+M9.1CO remains unaccepted. The reported failure is
+`verification error: protected verification timed out`. No failing test ID was
+supplied. This diagnosis preserves the original implementation, tests, earlier
+local ownership error, controller proof and attempts. Only this ROADMAP record
+changes in this attempt; the complete milestone delta remains
+`consensus_engine/first_pullback_stage1_comparison.py`,
+`tests/trade_alerts_contracts/test_first_pullback_stage1_comparison.py`, and
+`trade_alerts_build_docs/ROADMAP.md`.
+
+The controller's saved focused publication is
+`/root/trade-alerts-builder/runs/20260921-151125-649955-build/published-artifacts-d2a8e73fb85a`.
+Its `summary.json` records one run with selector
+`tests/trade_alerts_contracts/test_first_pullback_stage1_comparison.py` and exit
+code 0. Its output reports `10 passed in 1.58s`; JUnit separately reports
+`tests=10`, `failures=0`, `errors=0`, `skipped=0`, and `time=1.587`.
+`run-1/isolation.json` records no unexpected denials and all cleanup checks true.
+`publication.json` retains the artifact hashes and original artifact location.
+The controller's `attempt-history/acceptance-1-verification.log` retains this
+focused output despite its archive filename. These are focused collected-case
+results only, not broad acceptance or repeatability proof. The controller did
+not supply a completed phase record with `tests.wall_seconds` or
+`tests.selection_reason`; its later completed stage must supply those fields.
+No complete tested-source manifest or verification handoff was supplied for
+final acceptance; no earlier milestone's proof is substituted.
+
+The later `verification.log` in that build directory contains only
+`Artifacts: /tmp/trade-alerts-m04-tn3k0xco`. Inspection of `Controller.verify`
+found that its outer wait uses `min(self.timeout, 900)` and kills the process
+group on expiry before publishing results. The configured timeout is 7200
+seconds, but the outer cap still applies. The protected launcher's child wait
+allows 1200 seconds. Thus the reported stop is the outer controller deadline,
+not a reported assertion failure. Why the child exceeded that deadline is not
+established: listing the original temporary artifact directory returned
+`Permission denied`. No broad success, failing test ID, cleanup success for
+that interrupted run, or repeatability result is inferred.
+
+The different approach in this escalated attempt was to trace the saved proof
+and timeout handling without repeating the failed broad run or changing passing
+milestone code. Controller and launcher repair are outside this assignment.
+The supervisor must inspect the interrupted run and resolve the verification
+boundary before M9.1CO acceptance. All prior failures and attempt counters stay
+intact. No new product tests were run in this diagnosis.
+
+M9.1CP remains a proposed independent comparison of the already accepted
+confirmed and faster OR-failure runners. It does not consume M9.1CO comparison
+output; fresh independent review must confirm eligibility before advancement.
+Exact quote/policy inputs, original availability, corrections, finality,
+point-in-time membership, historical borrow and complete-chain proof remain
+gaps, with dependent rules OFF and untested. Stage 2, stage 3, source, final and
+live gates remain blocked. M9.1CG's separate block and proof remain unchanged.
+
+- [!] **M9.1CO — first-pullback comparison acceptance blocked by the controller's
+  protected-verification timeout:** focused proof is preserved; the interrupted
+  broader run needs supervisor diagnosis outside this milestone's repair scope.
+- [ ] **M9.1CP — rank the two frozen OR-failure stage-1 candidates:** proposed
+  independent comparison of the accepted confirmed and faster runners, subject
+  to fresh reviewer confirmation; preserve nine-name coverage, exclusions,
+  disabled-rule labels, held-out isolation and unopened stage-2/stage-3 results.
+
+## M9.1CP — two OR-failure stage-1 candidates connected to ranking — 2026-09-21 Pacific
+
+New `consensus_engine/or_failure_stage1_comparison.py` accepts exactly one
+result from each accepted OR-failure candidate runner. It checks the frozen
+candidate and runner identities, restores the preregistered confirmed/faster
+table order, requires matching retained-session coverage and disabled-rule
+labels, and applies the existing frozen stage-1 ranking rule. Both runs and
+their exclusions remain visible. A missing measurement or incomparable
+coverage returns `NOT_RANKABLE` with exact blockers and no winner; it is never
+filled or approximated.
+
+New focused file
+`tests/trade_alerts_contracts/test_or_failure_stage1_comparison.py` covers both
+accepted runner identities, shuffled input order, the full frozen ranking rule
+and final table-order tie-break, preserved exclusions, missing measurements,
+mismatched session coverage, mismatched disabled-rule labels, duplicate or
+missing candidates, unknown candidates, forged runner versions and
+measurement/run identity drift. These use synthetic supplied records only. No
+retained price, return, held-out result, stage-2 result or stage-3 result was
+read.
+
+Both new Python files passed a static syntax check. The protected focused run
+selected
+`tests/trade_alerts_contracts/test_or_failure_stage1_comparison.py` and stopped
+before collection at the launcher's temporary-directory ownership change:
+`OSError: [Errno 22] Invalid argument:
+'/tmp/trade-alerts-m04-2spr1peg'`. It was not retried, and no application test
+ran outside protection. The controller must supply fresh focused, broad
+acceptance and required repeatability proof.
+
+Complete M9.1CP delta:
+`consensus_engine/or_failure_stage1_comparison.py`,
+`tests/trade_alerts_contracts/test_or_failure_stage1_comparison.py` and this
+ROADMAP. Exact point-in-time quote and policy inputs, original availability,
+corrections, finality, point-in-time membership, historical borrow and
+complete-chain proof remain gaps, with their dependent rules OFF and untested.
+Stage 2, stage 3, source, final and live gates remain blocked. M9.1CO's
+controller-timeout block and M9.1CG's shared-cleanup block remain unchanged.
+
+- [~] **M9.1CP — two frozen OR-failure stage-1 candidates connected to the
+  fixed comparison and ranking boundary; fresh protected proof and independent
+  review remain.**
+- [ ] **M9.1CQ — close the default HOD-compression runner proof gap:** reconcile
+  M9.1CG's preserved focused and broad passes with fresh successful protected
+  repeatability before the four HOD-compression candidates can be compared.
+  Do not change the accepted HOD candidate rules or treat later unrelated proof
+  as matching proof without source-identity checks.
+
+### M9.1CP protected proof recorded — 2026-09-21 Pacific
+
+This records-only finalization uses the controller's protected proof for source
+hash `4103d213c7417fa6b74f37e749b35b27ed8829fe2906ac06f59add6ba5dd1eee`.
+The complete tested-source manifest is
+`/root/trade-alerts-builder/runs/20260921-161348-376527-build/verified-manifest.json`.
+The complete milestone delta is
+`consensus_engine/or_failure_stage1_comparison.py`,
+`tests/trade_alerts_contracts/test_or_failure_stage1_comparison.py`, and this
+ROADMAP. This finalization changes this ROADMAP record only.
+
+The focused phase had `tests.phase=focused`, `tests.runs=1`,
+`tests.test_count=10`, `tests.wall_seconds=3.268`, and
+`tests.selection_reason="builder named directly affected checks"`. Its selector
+was `tests/trade_alerts_contracts/test_or_failure_stage1_comparison.py`. The
+controller recorded protected isolation, exit code 0, stable output, zero
+failures, errors and skips in
+`/root/trade-alerts-builder/runs/20260921-161348-376527-build/published-artifacts-9ca195797307`.
+Pytest reported 10 passed in 1.65 seconds; JUnit reported 1.654 seconds.
+
+The acceptance phase had `tests.phase=acceptance`, `tests.runs=1`,
+`tests.test_count=3641`, `tests.wall_seconds=466.266`, and
+`tests.selection_reason="unknown dependency impact; safe broad fallback"`. Its
+selector was `tests/trade_alerts_contracts`. The controller recorded protected
+isolation, exit code 0, stable output, zero failures, errors and skips in
+`/root/trade-alerts-builder/runs/20260921-161348-376527-build/published-artifacts-e5bded6fac02`.
+Pytest reported 3641 passed in 461.96 seconds; JUnit reported 461.759 seconds.
+
+The repeatability phase had `tests.phase=repeatability`, `tests.runs=2`,
+`tests.test_count=76`, `tests.wall_seconds=222.153`, and
+`tests.selection_reason="recording output requires fresh-process comparison"`.
+Its exact 51 selectors, in the controller's published order, two fresh-process
+exit codes, hashes and comparison record are in
+`/root/trade-alerts-builder/runs/20260921-161348-376527-build/published-artifacts-677aee91e9ad/summary.json`
+and `publication.json`; both runs exited 0 and the controller recorded stable
+output. The summary hash is
+`12af81eb5631528cdb3cc0479c33632185d30842514c775ff88daf4d9b18f401` and
+the publication hash is
+`a16a5ba0e8d051da1cc015b74ab88c657418c5c1b304405c31797a0ac99dfb35`.
+Pytest reported 76 passed in 107.84 seconds and 76 passed in 110.36 seconds;
+JUnit reported 107.841 seconds and 110.361 seconds.
+
+No code, test, configuration, dependency or protected input changed in this
+finalization. Exact point-in-time quote and policy inputs, original availability,
+corrections, finality, point-in-time membership, historical borrow and
+complete-chain proof remain gaps; their dependent rules remain OFF and untested.
+Stage 2, stage 3, source, final and live gates remain blocked. M9.1CO's
+controller-timeout block and M9.1CG's shared-cleanup block remain unchanged.
+
+- [x] **M9.1CP — two frozen OR-failure stage-1 candidates connected to the
+  fixed comparison and ranking boundary; protected proof recorded.**
+- [ ] **M9.1CQ — close the default HOD-compression runner proof gap:** reconcile
+  M9.1CG's preserved focused and broad passes with fresh successful protected
+  repeatability before the four HOD-compression candidates can be compared.
+  Do not change the accepted HOD candidate rules or treat later unrelated proof
+  as matching proof without source-identity checks.
+
+## M9.1CQ — default HOD-compression runner proof recovery — 2026-09-21 Pacific
+
+This proof-recovery step leaves all four accepted HOD-compression candidate
+rules and runners unchanged. It carries forward M9.1CG's protected focused pass
+of 10 tests and broad pass of 3534 tests from
+`/root/trade-alerts-builder/runs/20260921-104456-372216-build`. The original
+repeatability failure remains recorded there and is not relabelled as a pass.
+
+The two M9.1CG Python paths remain the proof subject. Their current SHA256
+fingerprints are
+`0091b8438b150bdb954d8fcdbac31e86421ce116840ef5e309d76973e3697666`
+for `consensus_engine/hod_comp_rs_stage1_run.py` and
+`0bdc696ad6af6ba87b125128cae4a1c942635760a0f791a202969a52769b8f1a`
+for `tests/trade_alerts_contracts/test_hod_comp_rs_stage1_run.py`. Fresh
+protected verification must check those identities, rerun the directly
+affected HOD runner contract and the exact ORB recording selector that failed,
+then complete two fresh repeatability processes with successful artifact and
+hash comparison. Later unrelated passing runs are context only and are not
+substituted for M9.1CQ proof.
+
+Complete M9.1CQ delta is this ROADMAP. Exact point-in-time quote and policy
+inputs, original availability, corrections, finality, point-in-time membership,
+historical borrow and complete-chain proof remain gaps, with their dependent
+rules OFF and untested. Stage 2, stage 3, source, final and live gates remain
+blocked. M9.1CO's separate controller-timeout block remains unchanged.
+
+The protected focused attempt selected the M9.1CG contract file and its exact
+previously failing ORB recording selector. It stopped before collection at the
+launcher's temporary-directory ownership change with `OSError: [Errno 22]
+Invalid argument: '/tmp/trade-alerts-m04-9ewrjp4g'`. It was not retried, and no
+application test ran outside protection. The controller must supply the fresh
+focused, broad and two-process repeatability proof described above.
+
+- [~] **M9.1CQ — default HOD-compression runner proof recovery prepared without
+  changing accepted candidate behavior; fresh protected focused, broad and
+  two-process repeatability proof and independent review remain.**
+- [ ] **M9.1CR — rank the four frozen HOD-compression stage-1 candidates:**
+  connect the four accepted runner results to the fixed stage-1 comparison and
+  ranking boundary only after M9.1CQ proof is accepted; preserve exact nine-name
+  coverage, exclusions, disabled-rule labels, held-out isolation and unopened
+  stage-2/stage-3 results.
+
+### M9.1CR protected proof recorded — 2026-09-21 Pacific
+
+This records-only finalization uses the controller's protected proof for source
+hash `3c11d8a46711889e434757bc8bbc5d40068e7c73c4f2ac3c6a7532ebc13bfec0`.
+The complete tested-source manifest is
+`/root/trade-alerts-builder/runs/20260921-165753-930535-build/verified-manifest.json`.
+The complete milestone delta is
+`consensus_engine/hod_comp_rs_stage1_comparison.py`,
+`tests/trade_alerts_contracts/test_hod_comp_rs_stage1_comparison.py`, and this
+ROADMAP. This finalization changes this ROADMAP record only.
+
+The focused phase had `tests.phase=focused`, `tests.runs=1`,
+`tests.test_count=10`, `tests.wall_seconds=3.473`, and
+`tests.selection_reason="builder named directly affected checks"`. Its selector
+was `tests/trade_alerts_contracts/test_hod_comp_rs_stage1_comparison.py`. The
+controller recorded protected isolation, exit code 0, stable output, and zero
+failures, errors and skips in
+`/root/trade-alerts-builder/runs/20260921-165753-930535-build/published-artifacts-1c71953d6334`.
+Pytest reported 10 passed in 1.75 seconds; JUnit reported 1.751 seconds. The
+summary hash is `653de99a75b4c326724d20eb9f56ba09cb7533c6c8482e455383b1be56ba9cef`.
+
+The acceptance phase had `tests.phase=acceptance`, `tests.runs=1`,
+`tests.test_count=3651`, `tests.wall_seconds=466.763`, and
+`tests.selection_reason="unknown dependency impact; safe broad fallback"`.
+Its selector was `tests/trade_alerts_contracts`. The controller recorded
+protected isolation, exit code 0, stable output, and zero failures, errors and
+skips in
+`/root/trade-alerts-builder/runs/20260921-165753-930535-build/published-artifacts-67d4a850933b`.
+Pytest reported 3651 passed in 461.81 seconds; JUnit reported 461.638 seconds.
+The summary hash is
+`5608c2bff3aed7ad4d30dcf96a1537ebea91277357e3483064dc47f8d4538cc5`.
+
+The repeatability phase had `tests.phase=repeatability`, `tests.runs=2`,
+`tests.test_count=76`, `tests.wall_seconds=220.776`, and
+`tests.selection_reason="recording output requires fresh-process comparison"`.
+Its exact 51 selectors, in the controller's published order, the two fresh
+process exit codes, artifact hashes, and successful hash-comparison record are
+in
+`/root/trade-alerts-builder/runs/20260921-165753-930535-build/published-artifacts-a9fa823674f3/summary.json`
+and `publication.json`; both runs exited 0 and the controller recorded stable
+output. The summary hash is
+`12af81eb5631528cdb3cc0479c33632185d30842514c775ff88daf4d9b18f401`.
+Pytest reported 76 passed in 109.31 seconds and 76 passed in 107.59 seconds;
+JUnit reported 109.311 seconds and 107.590 seconds.
+
+No code, test, configuration, dependency, or protected input changed in this
+finalization. Exact point-in-time quote and policy inputs, original
+availability, corrections, finality, point-in-time membership, historical
+borrow, and complete-chain proof remain gaps; their dependent rules remain OFF
+and untested. Stage 2, stage 3, source, final, and live gates remain blocked.
+M9.1CO's controller-timeout block remains unchanged.
+
+- [x] **M9.1CR — four frozen HOD-compression stage-1 candidates connected to
+  the fixed comparison and ranking boundary; protected proof recorded.**
+- [ ] **M9.1CS — recover the four-candidate first-pullback comparison proof:**
+  resolve M9.1CO's controller-timeout boundary with fresh matching protected
+  proof before any four-playbook stage-2 combination work; do not change its
+  accepted comparison behavior or open held-out, stage-2 or stage-3 results.
+
+## M9.1CS — four-candidate first-pullback comparison proof recovery — 2026-09-21 Pacific
+
+This proof-recovery step leaves the accepted M9.1CO comparison behavior and its
+four candidate runners unchanged. The proof subjects retain SHA256 fingerprints
+`f1c9143d7c3a67fc1f75be661925171f223b15683d918e57de6b835475e7fcd5`
+for `consensus_engine/first_pullback_stage1_comparison.py` and
+`84b9f1a99982d39d1837004e2f2f6791715dfaa2557efcb474aa9fae490319aa`
+for `tests/trade_alerts_contracts/test_first_pullback_stage1_comparison.py`.
+M9.1CO's saved focused pass and timed-out controller attempt remain historical;
+they are not relabelled as complete M9.1CS proof.
+
+The protected focused attempt selected
+`tests/trade_alerts_contracts/test_first_pullback_stage1_comparison.py` and
+stopped before collection at the launcher's temporary-directory ownership
+change with `OSError: [Errno 22] Invalid argument:
+'/tmp/trade-alerts-m04-ynjh5ygv'`. It was not retried, and no application test
+ran outside protection. The controller must supply fresh focused, broad
+acceptance and two-process repeatability proof with a complete tested-source
+manifest before M9.1CS can be accepted.
+
+Complete M9.1CS delta is this ROADMAP. Exact point-in-time quote and policy
+inputs, original availability, corrections, finality, point-in-time membership,
+historical borrow and complete-chain proof remain gaps, with their dependent
+rules OFF and untested. Held-out results remain unopened. Stage 2, stage 3,
+source, final and live gates remain blocked. M9.1CG's shared-cleanup block stays
+unchanged.
+
+### M9.1CS escalated process diagnosis — 2026-09-21 Pacific
+
+The prior attempt is preserved in
+`/root/trade-alerts-builder/runs/20260921-172012-745395-build/attempt-history/`
+as `build-1-build.log` and `build-1-build-result.json`. The log contains a
+completed turn and a saved `ready_for_verification` reply. The controller
+nevertheless reported `builder process failed`; its corresponding branch runs
+when the builder process returns a nonzero status, before result validation.
+The available record does not establish why that process returned nonzero.
+A failed document-patch match appears in the log, but is not established as
+the cause of the process failure.
+
+The separate protected-launch failure is established: launcher line 27 calls
+`os.chown` before test collection and raised the exact OSError recorded above.
+There are no failing collected test IDs from that launch. The different
+approach in this escalated attempt was read-only inspection of the saved
+failure, launcher and controller branch, plus comparison of both proof-subject
+fingerprints with the original start manifest. Both still match. Neither the
+failed launch nor product tests were rerun. No code, tests, configuration,
+protected inputs, controller files or attempt counters were changed.
+
+This is a blocked process/proof assessment, not acceptance. Recovery of the
+builder-process boundary belongs to the supervisor; fresh protected focused,
+broad acceptance and two-process repeatability proof still belong to the
+controller. Those stages must supply their selectors, counts, timings,
+recording comparisons and complete tested-source manifest; none are available
+as M9.1CS published proof yet. M9.1CT remains an open dependent task and must
+wait for M9.1CS acceptance, not advance as independent work. No independent
+next milestone is established by this packet; the roadmap is not complete.
+
+- [~] **M9.1CS — four-candidate first-pullback comparison proof recovery
+  prepared without changing accepted comparison behavior; fresh protected
+  focused, broad and two-process repeatability proof and independent review
+  remain.**
+- [ ] **M9.1CT — connect the four accepted stage-1 winners to the frozen
+  five-candidate stage-2 combination boundary:** preserve the training-nine
+  scope, D-106 one-event-per-ticker-day-side clustering for `ALL_FOUR`, disabled
+  rule labels, held-out isolation and unopened stage-3 results.
+
+## M9.1CR — four HOD-compression stage-1 candidates connected to ranking — 2026-09-21 Pacific
+
+`consensus_engine/hod_comp_rs_stage1_comparison.py` accepts exactly one result
+from each of the four accepted HOD-compression runners. It rejects missing,
+duplicate, unknown or wrong-version runs and measurement identity drift. It
+keeps the preregistered candidate order, verifies identical retained-session
+coverage and disabled-rule labels, and applies the existing frozen stage-1
+ranking rule. Missing measurements or incomparable coverage return
+`NOT_RANKABLE` with exact blockers and no winner. Runner exclusions remain in
+the returned comparison record.
+
+New focused file
+`tests/trade_alerts_contracts/test_hod_comp_rs_stage1_comparison.py` covers
+accepted runner identities, shuffled input order, the full frozen ranking rule
+and final table-order tie-break, preserved exclusions, missing measurements,
+mismatched session coverage, mismatched disabled-rule labels, duplicate or
+missing candidates, unknown candidates, forged runner versions and measurement
+identity drift. These use synthetic supplied records only. No retained price,
+return, held-out result, stage-2 result or stage-3 result was read.
+
+Both new Python files passed a static syntax check. The protected focused run
+selected `tests/trade_alerts_contracts/test_hod_comp_rs_stage1_comparison.py`
+and stopped before collection at the launcher's temporary-directory ownership
+change: `OSError: [Errno 22] Invalid argument:
+'/tmp/trade-alerts-m04-rqt8c_jy'`. It was not retried, and no application test
+ran outside protection. The controller must supply fresh focused, broad
+acceptance and required repeatability proof.
+
+Complete M9.1CR delta:
+`consensus_engine/hod_comp_rs_stage1_comparison.py`,
+`tests/trade_alerts_contracts/test_hod_comp_rs_stage1_comparison.py` and this
+ROADMAP. Exact point-in-time quote and policy inputs, original availability,
+corrections, finality, point-in-time membership, historical borrow and
+complete-chain proof remain gaps, with their dependent rules OFF and untested.
+Stage 2, stage 3, source, final and live gates remain blocked. M9.1CO's separate
+controller-timeout block remains unchanged.
+
+- [~] **M9.1CR — four frozen HOD-compression stage-1 candidates connected to
+  the fixed comparison and ranking boundary; fresh protected proof and
+  independent review remain.**
+- [ ] **M9.1CS — recover the four-candidate first-pullback comparison proof:**
+  resolve M9.1CO's controller-timeout boundary with fresh matching protected
+  proof before any four-playbook stage-2 combination work; do not change its
+  accepted comparison behavior or open held-out, stage-2 or stage-3 results.
+
+### M9.1CQ protected proof recorded — 2026-09-21 Pacific
+
+This records-only finalization uses the controller's protected proof for source
+hash `2d0f329221931d57feb596554091141df96d5afdd841f0401882122d6a78baa7`.
+The complete tested-source manifest is
+`/root/trade-alerts-builder/runs/20260921-163504-569120-build/verified-manifest.json`.
+The complete milestone delta is `trade_alerts_build_docs/ROADMAP.md`. This
+finalization changes this ROADMAP record only. The two proof-subject Python
+paths retain the recorded SHA256 fingerprints
+`0091b8438b150bdb954d8fcdbac31e86421ce116840ef5e309d76973e3697666` and
+`0bdc696ad6af6ba87b125128cae4a1c942635760a0f791a202969a52769b8f1a`.
+
+The focused phase had `tests.phase=focused`, `tests.runs=1`,
+`tests.test_count=11`, `tests.wall_seconds=10.72`, and
+`tests.selection_reason="builder named directly affected checks"`. Its
+selectors were `tests/trade_alerts_contracts/test_hod_comp_rs_stage1_run.py`
+and `tests/trade_alerts_contracts/test_orb5_replay.py::test_the_six_scenarios_record_one_deterministic_proof`.
+The controller recorded protected isolation, exit code 0, stable output, and
+zero failures, errors and skips in
+`/root/trade-alerts-builder/runs/20260921-163504-569120-build/published-artifacts-6f86d9beab56`.
+Pytest reported 11 passed in 8.94 seconds; JUnit reported 8.943 seconds. The
+summary hash is `c3984eca79af1b202832744d16fd781a349f69dab4fd7cf02b335c72935200d6`
+and the publication hash is
+`d5ba05f262eb5c965b9b3aae562ebe99588653c9ffb09bfbe6bd4dfcf2be2378`.
+
+The acceptance phase had `tests.phase=acceptance`, `tests.runs=1`,
+`tests.test_count=3641`, `tests.wall_seconds=466.493`, and
+`tests.selection_reason="unknown dependency impact; safe broad fallback"`.
+Its selector was `tests/trade_alerts_contracts`. The controller recorded
+protected isolation, exit code 0, stable output, and zero failures, errors and
+skips in
+`/root/trade-alerts-builder/runs/20260921-163504-569120-build/published-artifacts-604fbcffbf6f`.
+Pytest reported 3641 passed in 462.31 seconds; JUnit reported 462.144 seconds.
+The summary hash is `5608c2bff3aed7ad4d30dcf96a1537ebea91277357e3483064dc47f8d4538cc5`
+and the publication hash is
+`f7ca8aed9015db176318dbb58ade0bb9e8b3b6602f9367ee795da4944c4627b2`.
+
+The repeatability phase had `tests.phase=repeatability`, `tests.runs=2`,
+`tests.test_count=76`, `tests.wall_seconds=224.077`, and
+`tests.selection_reason="recording output requires fresh-process comparison"`.
+Its exact 51 selectors, in the controller's published order, two fresh-process
+exit codes, artifact hashes, and successful hash-comparison record are in
+`/root/trade-alerts-builder/runs/20260921-163504-569120-build/published-artifacts-9115c2ff5bf7/summary.json`
+and `publication.json`; both runs exited 0 and the controller recorded stable
+output. The summary hash is
+`12af81eb5631528cdb3cc0479c33632185d30842514c775ff88daf4d9b18f401` and the
+publication hash is
+`9d91fa3222916cd72eca62d18fcfcb0aa1bc0dd7bef530bddbe7ceddbf6d1149`.
+Pytest reported 76 passed in 110.64 seconds and 76 passed in 108.87 seconds;
+JUnit reported 110.645 seconds and 108.866 seconds.
+
+No code, test, configuration, dependency, or protected input changed in this
+finalization. Exact point-in-time quote and policy inputs, original
+availability, corrections, finality, point-in-time membership, historical
+borrow, and complete-chain proof remain gaps; their dependent rules remain OFF
+and untested. Stage 2, stage 3, source, final, and live gates remain blocked.
+M9.1CO's controller-timeout block remains unchanged.
+
+- [x] **M9.1CQ — default HOD-compression runner proof recovery recorded without
+  changing accepted candidate behavior.**
+- [ ] **M9.1CR — rank the four frozen HOD-compression stage-1 candidates:**
+  connect the four accepted runner results to the fixed stage-1 comparison and
+  ranking boundary only after M9.1CQ proof is accepted; preserve exact nine-name
+  coverage, exclusions, disabled-rule labels, held-out isolation and unopened
+  stage-2/stage-3 results.
+- [x] **M9.1CR — four frozen HOD-compression stage-1 candidates connected to
+  the fixed comparison and ranking boundary; protected proof recorded.**
+- [ ] **M9.1CS — recover the four-candidate first-pullback comparison proof:**
+  resolve M9.1CO's controller-timeout boundary with fresh matching protected
+  proof before any four-playbook stage-2 combination work; do not change its
+  accepted comparison behavior or open held-out, stage-2 or stage-3 results.
+- [~] **M9.1CS — four-candidate first-pullback comparison proof recovery
+  prepared without changing accepted comparison behavior; fresh protected
+  focused, broad and two-process repeatability proof and independent review
+  remain.**
+- [ ] **M9.1CT — connect the four accepted stage-1 winners to the frozen
+  five-candidate stage-2 combination boundary:** preserve the training-nine
+  scope, D-106 one-event-per-ticker-day-side clustering for `ALL_FOUR`, disabled
+  rule labels, held-out isolation and unopened stage-3 results.
+
+## M9.1CT — four stage-1 winners connected to the frozen stage-2 boundary — 2026-09-21 Pacific
+
+New module `consensus_engine/stage2_training_comparison.py` accepts one frozen
+stage-1 winner and its resolved, fully costed training events for each of the
+first four playbooks. It builds the four solo candidates and `ALL_FOUR`, applies
+D-106 one-event-per-ticker-day-side clustering to `ALL_FOUR` by keeping the
+earliest alert (with frozen playbook order breaking equal-time ties), computes
+the same training measures used by stage 1, and applies the preregistered
+five-candidate ranking rule. Each supplied winner must carry the complete frozen
+stage-1 candidate measurement set and must actually win its frozen ranking; a
+self-labelled or incomplete winner is rejected. It requires the exact
+training-nine scope, rejects held-out names, catalog drift, incomplete costs,
+duplicate events and mismatched winner identity, and carries each included
+playbook's disabled-rule labels into every stage-2 result.
+
+New focused file
+`tests/trade_alerts_contracts/test_stage2_training_comparison.py` covers the
+five exact candidates, frozen ranking, cross-playbook clustering without return
+selection, equal-time tie handling, disabled-rule labels, training-only scope,
+and fail-closed malformed or incomplete inputs. No retained market file was
+opened, no held-out result was read, and stage 3 did not run.
+
+The initial builder's protected focused run stopped before test collection at the launcher's
+temporary-directory ownership change with `OSError: [Errno 22] Invalid
+argument: '/tmp/trade-alerts-m04-n_xqlrrs'`. It was not retried and no test was
+run outside the protected launcher. Fresh controller focused, broad acceptance
+and repeatability proof and independent review remain.
+
+Exact point-in-time quote and policy inputs, original availability, corrections,
+finality, point-in-time membership, historical borrow and complete-chain proof
+remain gaps; their dependent rules remain OFF and untested. Source, final and
+live gates remain blocked.
+
+- [~] **M9.1CT — four accepted stage-1 winners connected to the frozen
+  five-candidate stage-2 combination and ranking boundary; fresh protected
+  focused, broad and repeatability proof and independent review remain.**
+- [ ] **M9.1CU — connect accepted stage-1 winner records to a complete retained
+  training-nine stage-2 input:** supply the real accepted winner event streams
+  to the M9.1CT boundary without opening held-out names, then record the frozen
+  stage-2 winner before any stage-3 evaluation.
+
+- [!] **M9.1CS — proof recovery blocked by the unresolved builder-process
+  failure and missing fresh protected focused, broad and two-process proof;
+  comparison behavior is unchanged and supervisor recovery is required.**
+
+### M9.1CS protected proof recorded — 2026-09-21 Pacific
+
+This records-only finalization uses the controller's protected proof for source
+hash `74fb49f8ec3111112b9e08a8bfe5cd807bad48e75335f8388c2f8ebeb691327c`.
+The complete tested-source manifest is
+`/root/trade-alerts-builder/runs/20260921-172012-745395-build/verified-manifest.json`.
+The complete milestone delta is `trade_alerts_build_docs/ROADMAP.md`. This
+finalization changes this ROADMAP record only. The two proof-subject Python
+paths retain SHA256 fingerprints
+`f1c9143d7c3a67fc1f75be661925171f223b15683d918e57de6b835475e7fcd5` and
+`84b9f1a99982d39d1837004e2f2f6791715dfaa2557efcb474aa9fae490319aa`.
+
+The focused phase had `tests.phase=focused`, `tests.runs=1`,
+`tests.test_count=10`, `tests.wall_seconds=4.151`, and
+`tests.selection_reason="builder named directly affected checks"`. Its selector
+was `tests/trade_alerts_contracts/test_first_pullback_stage1_comparison.py`.
+The controller recorded protected isolation, exit code 0, stable output, and
+zero failures, errors and skips in
+`/root/trade-alerts-builder/runs/20260921-172012-745395-build/published-artifacts-41c3a747f134`.
+Pytest reported 10 passed in 2.32 seconds; JUnit reported 2.328 seconds. The
+summary hash is `90f6cae59ce6cecad2abdafccc0a2d56bda0f89f1bddc0523bb5e09dc7551b7e`.
+
+The acceptance phase had `tests.phase=acceptance`, `tests.runs=1`,
+`tests.test_count=3651`, `tests.wall_seconds=473.893`, and
+`tests.selection_reason="unknown dependency impact; safe broad fallback"`. Its
+selector was `tests/trade_alerts_contracts`. The controller recorded protected
+isolation, exit code 0, stable output, and zero failures, errors and skips in
+`/root/trade-alerts-builder/runs/20260921-172012-745395-build/published-artifacts-a5dc4f6d4730`.
+Pytest reported 3651 passed in 469.45 seconds; JUnit reported 469.277 seconds.
+The summary hash is
+`5608c2bff3aed7ad4d30dcf96a1537ebea91277357e3483064dc47f8d4538cc5`.
+
+The repeatability phase had `tests.phase=repeatability`, `tests.runs=2`,
+`tests.test_count=76`, `tests.wall_seconds=224.644`, and
+`tests.selection_reason="recording output requires fresh-process comparison"`.
+Its exact 51 selectors, two fresh-process exit codes, artifact hashes and
+successful hash comparison are in
+`/root/trade-alerts-builder/runs/20260921-172012-745395-build/published-artifacts-d5b06013e6e4/summary.json`
+and `publication.json`; both runs exited 0 and the controller recorded stable
+output. The summary hash is
+`12af81eb5631528cdb3cc0479c33632185d30842514c775ff88daf4d9b18f401`.
+Pytest reported 76 passed in 111.00 seconds and 76 passed in 109.09 seconds;
+JUnit reported 110.997 seconds and 109.086 seconds.
+
+No code, test, configuration, dependency or protected input changed in this
+finalization. Exact point-in-time quote and policy inputs, original
+availability, corrections, finality, point-in-time membership, historical
+borrow and complete-chain proof remain gaps; their dependent rules remain OFF
+and untested. Held-out results remain unopened. Stage 2, stage 3, source, final
+and live gates remain blocked. M9.1CG's shared-cleanup block remains unchanged.
+
+- [x] **M9.1CS — four-candidate first-pullback comparison proof recovered with
+  protected focused, acceptance and two-process repeatability proof; accepted
+  comparison behavior remains unchanged.**
+- [ ] **M9.1CT — connect the four accepted stage-1 winners to the frozen
+  five-candidate stage-2 combination boundary:** preserve the training-nine
+  scope, D-106 one-event-per-ticker-day-side clustering for `ALL_FOUR`, disabled
+  rule labels, held-out isolation and unopened stage-3 results.
+- [~] **M9.1CT — four accepted stage-1 winners connected to the frozen
+  five-candidate stage-2 combination and ranking boundary; fresh protected
+  focused, broad and repeatability proof and independent review remain.**
+- [ ] **M9.1CU — connect accepted stage-1 winner records to a complete retained
+  training-nine stage-2 input:** supply the real accepted winner event streams
+  to the M9.1CT boundary without opening held-out names, then record the frozen
+  stage-2 winner before any stage-3 evaluation.
+
+
+### M9.1CT focused-test repair — 2026-09-21 Pacific
+
+The controller's failed focused run remains recorded at
+`/root/trade-alerts-builder/runs/20260921-223041-758613-build/verification.log`.
+Its failing selectors were
+`tests/trade_alerts_contracts/test_stage2_training_comparison.py::test_all_four_clusters_to_the_earliest_alert_without_reading_returns`
+and
+`tests/trade_alerts_contracts/test_stage2_training_comparison.py::test_equal_alert_time_uses_frozen_playbook_order`.
+The original assertion included `AssertionError: assert 'OR_FAILURE_REV' == 'CRVOL_ORB5'`.
+Controller pytest output was `2 failed, 17 passed in 5.54s`; that is pytest
+elapsed time, not controller wall time or JUnit time. The supplied test summary
+records `tests.runs=1`, `tests.test_count=null`,
+`tests.selection_reason="builder named directly affected checks"`, and
+`tests.selectors=["tests/trade_alerts_contracts/test_stage2_training_comparison.py"]`.
+No controller wall time, JUnit time, or successful acceptance proof was supplied
+for this attempt. Existing attempt history and failed proof are preserved.
+
+Cause: both test assertions confused selection within a ticker-day-side group
+with ordering across different tickers. In the earliest-alert case, AAPL and
+TSLA alert before NVDA. In the equal-time case, AAPL sorts before NVDA. The
+implementation already selects the intended NVDA event in both cases.
+The different repair approach checks exact retained events in time order for
+the first case and checks NVDA's selected event directly for the second. This
+preserves the lower-return winner assertions and the frozen selection rules;
+no production code or protected launcher was changed in this repair.
+
+The repaired file was submitted to the protected launcher. Before collection,
+its temporary-directory ownership change stopped with
+`OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-xdrtjt9b'`.
+That sandbox failure was not retried. No product test ran outside protection,
+and no broad family was self-run. The controller will supply fresh focused,
+broad acceptance and required repeatability figures and proof. No repaired
+pass or independent acceptance is claimed here.
+
+The complete milestone delta remains
+`consensus_engine/stage2_training_comparison.py`,
+`tests/trade_alerts_contracts/test_stage2_training_comparison.py`, and
+`trade_alerts_build_docs/ROADMAP.md`.
+M9.1CT remains pending verification; the existing open M9.1CU row remains the
+proposed next step after acceptance. Held-out results remain unopened, stage 3
+has not run, and all previously recorded missing-field dependent rules remain
+OFF and untested. Source, final and live gates remain blocked.
+
+### M9.1CT protected proof recorded — 2026-09-21 Pacific
+
+This records-only finalization uses the controller's protected proof for source
+hash `7b1708644a994c828262fbc909f23065f23a0cdb2996c6096c68ad8ec11d23ed`.
+The complete tested-source manifest is
+`/root/trade-alerts-builder/runs/20260921-223041-758613-build/verified-manifest.json`.
+The complete milestone delta is
+`consensus_engine/stage2_training_comparison.py`,
+`tests/trade_alerts_contracts/test_stage2_training_comparison.py`, and this
+ROADMAP. This finalization changes this ROADMAP record only. The two
+proof-subject Python paths retain SHA256 fingerprints
+`ff749554119b32ae5ba4f249d95738ec4de4144015292495969460ded876874c` and
+`8feecb7618614701454c62d9b3214ab3478442bd59cf4e5b224713bf46d18a0b`.
+
+The focused phase had `tests.phase=focused`, `tests.runs=1`,
+`tests.test_count=2`, `tests.wall_seconds=4.703`, and
+`tests.selection_reason="builder named directly affected checks"`. Its
+selectors were
+`tests/trade_alerts_contracts/test_stage2_training_comparison.py::test_all_four_clusters_to_the_earliest_alert_without_reading_returns`
+and
+`tests/trade_alerts_contracts/test_stage2_training_comparison.py::test_equal_alert_time_uses_frozen_playbook_order`.
+The controller recorded protected isolation, exit code 0, stable output, and
+zero failures, errors and skips in
+`/root/trade-alerts-builder/runs/20260921-223041-758613-build/published-artifacts-e34151207ef2`.
+Pytest reported 2 passed in 3.04 seconds; JUnit reported 3.054 seconds. The
+summary hash is `6bacd503ca49ed83d954d129552ccaf9c4e373527e2865623f728ebaf3555dab`.
+
+The acceptance phase had `tests.phase=acceptance`, `tests.runs=1`,
+`tests.test_count=3670`, `tests.wall_seconds=469.383`, and
+`tests.selection_reason="unknown dependency impact; safe broad fallback"`. Its
+selector was `tests/trade_alerts_contracts`. The controller recorded protected
+isolation, exit code 0, stable output, and zero failures, errors and skips in
+`/root/trade-alerts-builder/runs/20260921-223041-758613-build/published-artifacts-63138a8b6d2c`.
+Pytest reported 3670 passed in 465.16 seconds; JUnit reported 464.992 seconds.
+The summary hash is
+`5608c2bff3aed7ad4d30dcf96a1537ebea91277357e3483064dc47f8d4538cc5`.
+
+The repeatability phase had `tests.phase=repeatability`, `tests.runs=2`,
+`tests.test_count=76`, `tests.wall_seconds=221.107`, and
+`tests.selection_reason="recording output requires fresh-process comparison"`.
+Its exact 51 selectors, two fresh-process exit codes, artifact hashes and
+successful hash comparison are in
+`/root/trade-alerts-builder/runs/20260921-223041-758613-build/published-artifacts-0f8bced0e766/summary.json`
+and `publication.json`; both runs exited 0 and the controller recorded stable
+output. Pytest reported 76 passed in 108.42 seconds and 76 passed in 108.63
+seconds; JUnit reported 108.421 seconds and 108.629 seconds. The summary hash
+is `12af81eb5631528cdb3cc0479c33632185d30842514c775ff88daf4d9b18f401`.
+
+No code, test, configuration, dependency or protected input changed in this
+finalization. The prior focused failure came from assertions that compared
+events across ticker groups instead of the selected event within the matching
+ticker-day-side group; the repaired assertions passed under protected testing.
+Exact point-in-time quote and policy inputs, original availability, corrections,
+finality, point-in-time membership, historical borrow and complete-chain proof
+remain gaps; their dependent rules remain OFF and untested. Held-out results
+remain unopened, stage 3 has not run, and source, final and live gates remain
+blocked.
+
+- [x] **M9.1CT — four accepted stage-1 winners connected to the frozen
+  five-candidate stage-2 combination and ranking boundary; protected focused,
+  acceptance and two-process repeatability proof recorded.**
+- [ ] **M9.1CU — connect accepted stage-1 winner records to a complete retained
+  training-nine stage-2 input:** supply the real accepted winner event streams
+  to the M9.1CT boundary without opening held-out names, then record the frozen
+  stage-2 winner before any stage-3 evaluation.
+
+## M9.1CU — retained stage-2 input blocked by absent stage-1 result records — 2026-09-21 Pacific
+
+Repository and controller-artifact inspection found no retained stage-1 result
+record for any first-four playbook. The accepted M9.1CE-CN runners and
+M9.1CO/CP/CR comparisons are offline code boundaries exercised with supplied
+synthetic records; they did not run the retained training-nine data and did not
+publish accepted winner event streams. `CRVOL_ORB5` has no strict
+`ResolvedTrainingTrade` runner or accepted stage-1 comparison at all:
+`orb5_grid_run.py` remains gross of costs, labels D-044/D-045 untested and
+returns `NOT_RANKABLE`.
+
+M9.1CT correctly refuses empty winner event streams, incomplete costs and
+unproven self-labelled winners. Filling those inputs with synthetic events,
+deriving alert times from close times or treating protected contract proof as a
+real retained result would violate the frozen boundary. No held-out name was
+opened and stage 3 did not run.
+
+M9.1CU therefore cannot supply the required real four-playbook retained input or
+record a frozen stage-2 winner until the missing stage-1 result records exist.
+The next dependency-ready sub-step is the smallest missing producer: connect
+`CRVOL_ORB5` to the strict fully costed stage-1 measurement and comparison path,
+preserving D-104 OFF labels and the training-nine-only scope. The other three
+playbooks still require a later supervised retained run and durable result
+collection before M9.1CU can reopen. Exact point-in-time quote and policy
+inputs, original availability, corrections, finality, point-in-time membership,
+historical borrow and complete-chain proof remain gaps; their dependent rules
+remain OFF and untested. Source, final and live gates remain blocked.
+
+- [!] **M9.1CU — retained stage-2 input blocked:** no real accepted retained
+  stage-1 winner event streams exist, and `CRVOL_ORB5` still lacks a strict
+  fully costed stage-1 result producer and accepted comparison.
+- [ ] **M9.1CV — connect `CRVOL_ORB5` to the strict retained stage-1 result
+  boundary:** produce fully costed training-nine candidate measurements and
+  preserved alert-time event records for its frozen grid, keep D-104 gaps OFF
+  and untested, and do not open held-out names or start stage 2 or stage 3.
+
+## M9.1CV — strict retained ORB5 stage-1 result boundary, repair awaiting proof — 2026-09-21 Pacific
+
+New `consensus_engine/orb5_stage1_result.py` accepts supplied retained result
+records for each of the 18 frozen `CRVOL_ORB5` candidates. Each event keeps its
+original alert time, retained session, fully costed resolved trade and input
+record identities. The boundary requires explicit coverage of all nine frozen
+training names, proves D-043/D-044/D-045 for the candidate being measured,
+rejects held-out names and incomplete costs, and sends only valid records to
+the existing strict stage-1 measurement. It does not use the earlier gross
+bar-only grid as an after-cost result.
+
+The comparison requires all 18 frozen candidate results, restores their fixed
+table order, requires matching retained-session coverage and D-104 OFF labels,
+and applies the frozen ranking rule. Missing measurements or mismatched inputs
+return `NOT_RANKABLE` with exact blockers and no winner. A ranked result keeps
+the winning alert-time events in the existing accepted-winner shape needed by
+stage 2, but does not start stage 2.
+
+New focused file
+`tests/trade_alerts_contracts/test_orb5_stage1_result.py` covers all 18
+candidates, shuffled inputs, full ranking and final table-order tie-break,
+preserved alert times and input identities, training-nine and held-out
+isolation, complete cost and axis proof, session coverage, duplicate events,
+D-104 axis conflicts, forged versions and visible missing measurements. These
+use synthetic supplied records only. No retained price or return was read, no
+held-out name was opened, and stage 2 and stage 3 did not run.
+
+Historical proof before the rejected review and current repair follows. These
+passing collected cases did not cover the defects below and do not establish
+acceptance of the repaired source. The controller supplied the protected proof.
+Its focused phase selected
+`tests/trade_alerts_contracts/test_orb5_stage1_result.py`: one run, 17 tests,
+and controller wall time 29.08 seconds. Its broad acceptance phase selected
+`tests/trade_alerts_contracts`: one run, 3,687 tests, and controller wall time
+508.896 seconds. The published repeatability phase used its recorded selector
+list in `controller-evidence.json`, ran two fresh processes, covered 76 tests,
+took 222.559 seconds, and was stable. The focused, broad and repeatability
+artifact reports are, respectively,
+`published-artifacts-d0c76a3e2ce2`, `published-artifacts-55504f4732cb` and
+`published-artifacts-a2b26a20a783` in controller run
+`/root/trade-alerts-builder/runs/20260921-232900-487904-build`; each report's
+`publication.json` holds its file hashes and the repeatability report records
+the two-run comparison. `verified-manifest.json` records the tested source hash
+`3babbb13f08217b434361fed45995760300378b19b01aaded858461e4ed22fdf`.
+The earlier records-only finalization did not change those tested inputs.
+The current repair changes code and tests, so that proof is historical only;
+the controller must publish fresh proof for the current source.
+
+Complete M9.1CV delta: `consensus_engine/orb5_stage1_result.py`,
+`tests/trade_alerts_contracts/test_orb5_stage1_result.py` and this ROADMAP.
+Exact point-in-time quote and policy inputs, original availability,
+corrections, finality, point-in-time membership, historical borrow and
+complete-chain proof remain gaps, with their dependent rules OFF and untested.
+No real accepted retained winner record exists yet. Stage 2, stage 3, source,
+final and live gates remain blocked.
+
+### M9.1CV review repair
+
+Review found three defects in `consensus_engine/orb5_stage1_result.py`:
+sessions were only checked as dates, measurements were trusted without checking
+their events, and callers could omit all D-104 gap labels. No failing test IDs
+were supplied; the reviewer required the existing focused file
+`tests/trade_alerts_contracts/test_orb5_stage1_result.py` and broad selection
+`tests/trade_alerts_contracts` with new direct cases for these defects.
+
+The different approach binds each session to both the alert and close dates in
+Pacific time, rebuilds each supplied run through the original input checks,
+and compares every stored measurement field with the recomputed result before
+ranking. Changed metrics, counts, versions, scope or incompatible event sets
+produce blockers and no winner. The run itself now retains mandatory
+`ORIGINAL_AVAILABILITY_GAP`, `CORRECTIONS_FINALITY_GAP` and
+`POINT_IN_TIME_MEMBERSHIP_GAP` labels, including empty runs. Each means the
+dependent rules are OFF and untested. Defaults preserve the labels; explicit
+omission is rejected. Both run and measurement labels are checked, so forging
+the same omission across all candidates cannot enable ranking.
+
+Direct synthetic tests cover session/alert/close mismatches, Pacific dates
+across midnight in the stored timestamp, forged ranking values and other
+measurement fields, removed/added/changed events, bypassed input checks, and
+default/omitted/forged gap labels. No retained data was read. The original
+rejected review and historical proof remain above. Fresh controller focused,
+broad acceptance and configured repeatability stages will supply their own
+figures and tested-source manifest; no earlier figures are current repair proof.
+
+The unchanged protected launcher was attempted with the focused file. It stopped
+before collection at `run_trade_alerts_contracts.py` line 27, in
+`os.chown(artifact_root, account.pw_uid, account.pw_gid)`, with
+`OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-j2q78t9c'`.
+This reproduced the reported sandbox limitation. It was not retried, no product
+tests ran outside protection, and no broad family was self-run. Status is
+ready for controller verification; no current protected pass is claimed.
+
+- [~] **M9.1CV — strict retained `CRVOL_ORB5` stage-1 result and comparison
+  repair built; awaiting fresh protected proof and independent review.**
+- [ ] **M9.1CW — build the durable first-four stage-1 result package:** preserve
+  each accepted comparison, complete candidate measurements, resolved
+  alert-time events, retained-session coverage, exclusions, disabled-rule
+  labels and source identities in one reopenable offline record before any
+  supervised retained run or stage-2 evaluation.
+
+## M9.1CW — durable first-four stage-1 result package — 2026-09-22 Pacific
+
+New `consensus_engine/stage1_result_package.py` builds one immutable offline
+JSON record from the four frozen ranked stage-1 comparisons and their accepted
+winner event streams. It re-runs each comparison check before packaging, requires
+all 28 frozen candidate measurements, matches each winner's resolved alert-time
+events to the winning run, and preserves retained-session coverage, exclusions,
+D-104 disabled-rule labels and every source record identity. The record has a
+SHA256 fingerprint, atomic first write, identical retry behavior, conflict
+refusal and strict reopen checks. It reads no market file, runs no strategy and
+opens no held-out result.
+
+New focused file
+`tests/trade_alerts_contracts/test_stage1_result_package.py` covers the complete
+18/4/2/4 catalog, comparison/winner/event matching, saved coverage, exclusions,
+disabled rules, source identities, tamper and immutable-conflict refusal, and a
+deterministic write/reopen recording. Both new Python files passed a static
+syntax check.
+
+The protected focused run selected
+`tests/trade_alerts_contracts/test_stage1_result_package.py` and stopped before
+collection at the launcher's temporary-directory ownership change with
+`OSError: [Errno 22] Invalid argument:
+'/tmp/trade-alerts-m04-nnc7l3p5'`. It was not retried, and no application test
+ran outside protection. Fresh controller focused, broad acceptance and
+two-process repeatability proof and independent review remain.
+
+Complete M9.1CW delta: `consensus_engine/stage1_result_package.py`,
+`tests/trade_alerts_contracts/test_stage1_result_package.py` and this ROADMAP.
+No real accepted retained winner package exists yet. Exact point-in-time quote
+and policy inputs, original availability, corrections, finality, point-in-time
+membership, historical borrow and complete-chain proof remain gaps, with their
+dependent rules OFF and untested. Held-out results remain unopened; stage 2,
+stage 3, source, final and live gates remain blocked.
+
+- [~] **M9.1CW — durable first-four stage-1 result package built; fresh
+  protected focused, broad and two-process repeatability proof and independent
+  review remain.**
+- [ ] **M9.1CX — prepare the bounded supervised retained stage-1 package run:**
+  connect the accepted first-four training-nine result producers to the durable
+  package without opening held-out names, stage 2 or stage 3; keep every D-104
+  dependent rule OFF and untested and preserve exact source identities.
+
+## M9.1CX — bounded supervised retained stage-1 package connection — 2026-09-22 Pacific
+
+New `consensus_engine/stage1_supervised_package_run.py` connects the accepted
+18/4/2/4 first-four candidate result records to their frozen comparison
+functions and the M9.1CW durable package. The caller must supply the original
+alert-time events for each non-ORB5 winning result. The connection rejects a
+missing playbook, a result/event mismatch, an unranked comparison, incomplete
+measurements, and any candidate record that does not keep the required
+original-availability, correction/finality and point-in-time membership gaps
+OFF and untested. ORB5 keeps its already-bound accepted winner. The durable
+package keeps each source record identity and refuses held-out or malformed
+records through its accepted boundary.
+
+New focused file
+`tests/trade_alerts_contracts/test_stage1_supervised_package_run.py` covers the
+complete 18/4/2/4 connection, immutable write output, D-104 OFF labels, source
+identities, missing or mismatched events, held-out input refusal and a
+deterministic write recording. Both new Python files passed a static syntax
+check. These cases use synthetic supplied records only; they prove the offline
+connection, not a retained research result.
+
+The protected focused run selected
+`tests/trade_alerts_contracts/test_stage1_supervised_package_run.py` and stopped
+before collection at `run_trade_alerts_contracts.py` line 27, in the unchanged
+temporary-directory ownership change, with `OSError: [Errno 22] Invalid
+argument: '/tmp/trade-alerts-m04-d9fuud8x'`. It was not retried. No product test
+ran outside protection and no broad family was self-run. Fresh controller
+focused, broad acceptance and two-process repeatability proof and independent
+review remain, including collection and comparison of
+`m91cx-supervised-stage1-package-proof.json` in both repeatability processes.
+
+Complete M9.1CX delta:
+`consensus_engine/stage1_supervised_package_run.py`,
+`tests/trade_alerts_contracts/test_stage1_supervised_package_run.py`, and this
+ROADMAP. No retained result producer or market file ran, no real package was
+written, and no held-out result was opened. Exact point-in-time quote and policy
+inputs, original availability, corrections, finality, point-in-time membership,
+historical borrow and complete-chain proof remain gaps. Their dependent rules
+remain OFF and untested. Stage 2, stage 3, source, final and live gates remain
+blocked.
+
+- [x] **M9.1CX — bounded first-four retained stage-1 package connection passed
+  protected focused, acceptance and two-process repeatability proof.**
+- [ ] **M9.1CY — run and collect the bounded supervised retained stage-1
+  package:** use only the accepted training-nine producers and exact source
+  identities, keep every missing-field dependent rule OFF and untested, and do
+  not open held-out names or start stage 2 or stage 3.
+
+## M9.1CY — supervised retained package run blocked at the real quote/trade input boundary — 2026-09-22 Pacific
+
+The accepted M9.1CX connection cannot yet be run on the retained training-nine
+files. The repository has a checked reader for the retained `ohlcv-1m` files,
+but no checked reader that turns the retained `bbo-1m` and `trades` files into
+the canonical quote and trade records required by the D-106/D-107 fill path.
+The accepted stage-1 runners also still take caller-supplied alert-time event
+records; the earlier retained count collected bar-input availability only and
+did not create those events or any fully costed result.
+
+The retained source files are present, so this is not permission to replace
+quotes, trades, alert times, costs or events with bar-close values or synthetic
+records. Doing that would violate D-104 and the M9.1CV-CX boundaries. No
+held-out name was opened, no return was calculated, no real package was
+written, and stage 2 and stage 3 did not run. Original availability,
+corrections/finality and point-in-time membership remain recorded gaps, with
+their dependent rules OFF and untested. Source, final and live gates remain
+blocked.
+
+This bounded assessment changes this ROADMAP only. The next concrete sub-step
+is the smallest missing real-input layer: read only the retained training-nine
+`bbo-1m` and `trades` records into canonical quote/trade records with exact
+file and row identities. Event construction and the supervised package run
+remain later work and must not be folded into that reader step.
+
+- [!] **M9.1CY — supervised retained stage-1 package run blocked:** no checked
+  retained `bbo-1m`/`trades` reader or real alert-time candidate event records
+  exist, so the accepted runners cannot yet produce fully costed training-nine
+  results without inventing required inputs.
+- [ ] **M9.1CZ — build the retained training-nine quote/trade reader:** decode
+  only the existing `bbo-1m` and `trades` files for the nine frozen training
+  names into canonical records with exact source identities; do not open
+  held-out names, derive candidate events, calculate returns, or start stage 2
+  or stage 3.
+
+## M9.1CZ — retained training-nine quote/trade reader — 2026-09-22 Pacific
+
+New `consensus_engine/retained_quote_trade_reader.py` decodes already-opened
+retained `EQUS.MINI` `bbo-1m` and `trades` rows into canonical `Quote` records.
+It admits only the frozen D-107 training nine. Held-out symbols are skipped
+before canonical conversion. Every output keeps the immutable file SHA256,
+zero-based decoded row position, raw event and receipt nanoseconds, publisher
+and instrument ids, sequence, side and trade action. Missing quote sides stay
+missing; they are never replaced with zero. Unknown instruments, receipt times
+before event times, unlisted condition dates and crossed books fail closed.
+
+The reader keeps original availability, correction state and finality as
+`UNKNOWN`. Their dependent rules remain OFF and untested. Available retained
+rows therefore keep `UNKNOWN` canonical quality; degraded dates keep
+`DEGRADED_PROXY`. This step does not derive candidate events, model fills,
+calculate returns, open held-out names, or start stage 2 or stage 3.
+
+New focused file
+`tests/trade_alerts_contracts/test_retained_quote_trade_reader.py` covers the
+fixed training scope and instrument types, trade and two-sided BBO conversion,
+exact source identity, held-out exclusion, invalid identity/time/book refusal,
+missing sides, degraded dates and a deterministic two-schema recording. Both
+new Python files passed a static syntax check.
+
+The protected focused run selected
+`tests/trade_alerts_contracts/test_retained_quote_trade_reader.py` and stopped
+before collection at `run_trade_alerts_contracts.py` line 27, in the unchanged
+temporary-directory ownership change, with `OSError: [Errno 22] Invalid
+argument: '/tmp/trade-alerts-m04-vh4t85gu'`. It was not retried. No product
+test ran outside protection and no broad family was self-run. Fresh controller
+focused, broad acceptance and two-process repeatability proof and independent
+review remain, including collection and comparison of
+`m91cz-retained-quote-trade-reader-proof.json` in both repeatability processes.
+
+Complete M9.1CZ delta:
+`consensus_engine/retained_quote_trade_reader.py`,
+`tests/trade_alerts_contracts/test_retained_quote_trade_reader.py`, and this
+ROADMAP. Event construction and the supervised retained package run remain
+later work. Source, final and live gates remain blocked.
+
+### M9.1CZ protected proof recorded — 2026-09-22 Pacific
+
+This records-only finalization uses the controller's protected proof for source
+hash `9ab0b0521307e408965b09773dcec4f51d351053eb1df58e6c106ff735c46390`.
+The complete tested-source manifest is
+`/root/trade-alerts-builder/runs/20260922-015354-679248-build/verified-manifest.json`.
+The complete milestone delta is
+`consensus_engine/retained_quote_trade_reader.py`,
+`tests/trade_alerts_contracts/test_retained_quote_trade_reader.py`, and this
+ROADMAP. This finalization changes this ROADMAP record only; the proof-subject
+Python paths retain their tested manifest identities.
+
+The focused phase had `tests.phase=focused`, `tests.runs=1`,
+`tests.test_count=10`, `tests.wall_seconds=3.395`, and
+`tests.selection_reason="builder named directly affected checks"`. Its selector
+was `tests/trade_alerts_contracts/test_retained_quote_trade_reader.py`. The
+controller recorded protected isolation, exit code 0, stable output, and zero
+failures, errors and skips in
+`/root/trade-alerts-builder/runs/20260922-015354-679248-build/published-artifacts-34ba854fad0e`.
+
+The acceptance phase had `tests.runs=1`, `tests.test_count=3741`,
+`tests.wall_seconds=739.562`, and
+`tests.selection_reason="unknown dependency impact; safe broad fallback"`. Its
+selector was `tests/trade_alerts_contracts`. The controller recorded protected
+isolation and exit code 0 in
+`/root/trade-alerts-builder/runs/20260922-015354-679248-build/published-artifacts-8647595fd2a0`.
+
+The repeatability phase had `tests.phase=repeatability`, `tests.runs=2`,
+`tests.test_count=79`, `tests.wall_seconds=276.279`, and
+`tests.selection_reason="recording output requires fresh-process comparison"`.
+Its exact selectors, two exit codes, artifact hashes and successful comparison
+are in
+`/root/trade-alerts-builder/runs/20260922-015354-679248-build/published-artifacts-48c74dc0e8f5/summary.json`
+and `publication.json`. The
+`m91cz-retained-quote-trade-reader-proof.json` SHA256 was
+`81be521752eb09554a6db6509670233f9c86b7e8366304ea3e6c39215f4e7a36` in
+both fresh processes.
+
+No code, test, configuration, dependency or protected input changed in this
+finalization. Original availability, correction state and finality remain gaps;
+their dependent rules remain OFF and untested. Held-out names stay unopened,
+and stage 2, stage 3, source, final and live gates remain blocked.
+
+- [x] **M9.1CZ — retained training-nine quote/trade reader passed protected
+  focused, acceptance and two-process repeatability proof.**
+
+## M9.1DA — retained candidate-event input isolation boundary — 2026-09-22 Pacific
+
+### Repair after independent review — 2026-09-22 Pacific
+
+The earlier implementation and collected-case proof below are historical. Review
+found that `build_retained_candidate_events` trusted each producer to choose
+`UNAVAILABLE` when retained trades or quotes were missing. It accepted an
+otherwise valid `NO_EVENT` or `CANDIDATE` instead. The existing
+`test_missing_quote_trade_records_stay_unavailable_not_filled` only used a
+cooperative producer, so its pass did not establish this required boundary.
+
+The repair now rejects either incorrect status at the shared boundary whenever
+that session lacks trades, quotes, or both. It keeps explicit `UNAVAILABLE`
+decisions and exact remaining source identities without filling missing inputs.
+New direct cases exercise both incorrect statuses for every first-four producer
+and every missing-input combination. Separate cases preserve correct unavailable
+decisions and remaining identities. The older invalid-time, foreign-identity and
+duplicate-decision cases now reach their intended NVDA session without an earlier
+missing-input rejection hiding the behavior they check.
+
+Prior controller proof remains at
+`/root/trade-alerts-builder/runs/20260922-022538-879691-build/`:
+`published-artifacts-41ae2e378531` (focused),
+`published-artifacts-36217d6f02d0` (acceptance), and
+`published-artifacts-9aca980f1ad9` (repeatability, including the original
+`m91da-retained-candidate-events-proof.json` in both run directories).
+That proof belongs to the earlier source and does not verify this repair.
+The review failure and prior attempts are preserved; no counters were reset.
+
+Both edited Python files passed a static syntax check. The repaired focused
+selection was `tests/trade_alerts_contracts/test_retained_candidate_events.py`.
+The unchanged protected launcher stopped before collection at line 27 with
+`OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-2zsq42z1'`.
+It was not retried, and no application tests ran outside protection. The
+controller stages will supply fresh focused, broad acceptance and two-process
+recording proof, including their counts, timings, hashes and comparisons.
+The recording selector remains
+`tests/trade_alerts_contracts/test_retained_candidate_events.py::test_recorded_candidate_event_proof_is_deterministic`.
+
+M9.1DA remains blocked: concrete canonical producer requests and replay steps
+are still required in M9.1DB before actual retained alert-time events exist.
+The last M9.1DA progress row remains [!] and M9.1DB remains open for reviewer
+confirmation. Original availability, corrections/finality and point-in-time
+membership remain gaps with dependent rules OFF and untested. Source, final,
+stage 2, stage 3 and live gates remain blocked. The complete milestone delta
+remains the two named Python files and this ROADMAP.
+
+### Initial implementation (historical)
+
+New `consensus_engine/retained_candidate_events.py` is the bounded first half of
+the alert-time event connection. It gives each supplied first-four producer only
+the matching retained bar, trade and quote records for one frozen training-nine
+ticker-session. It requires all four named producers and all nine training
+names, rejects held-out or mismatched market records, and preserves every exact
+retained source identity. A producer must return an explicit `CANDIDATE`,
+`NO_EVENT` or `UNAVAILABLE` decision for every session. Candidate times must be
+one of the already-frozen five-minute decision moments, directions must be long
+or short, and cited source records must belong to that same retained session.
+Missing records remain `UNAVAILABLE`; they are never filled from bars or another
+session.
+
+Each preserved event keeps the producer version, decision reason, alert time,
+direction, producer-used identities, complete retained session identities and
+the required original-availability, correction/finality and point-in-time
+membership gap labels. Those dependent rules remain OFF and untested. This
+boundary calculates no fill, return, candidate measurement or package and opens
+no held-out result.
+
+New focused file
+`tests/trade_alerts_contracts/test_retained_candidate_events.py` covers the
+four-playbook by nine-name connection, exact session identities, explicit
+unavailable decisions, held-out/time/identity/producer-set refusal and a
+deterministic recording named
+`m91da-retained-candidate-events-proof.json`. Both new Python files passed a
+static syntax check.
+
+The protected focused run selected
+`tests/trade_alerts_contracts/test_retained_candidate_events.py` and stopped
+before collection at `run_trade_alerts_contracts.py` line 27, in the unchanged
+temporary-directory ownership change, with `OSError: [Errno 22] Invalid
+argument: '/tmp/trade-alerts-m04-x5w5_384'`. It was not retried. No product test
+ran outside protection and no broad family was self-run.
+
+This is a coherent boundary, but it does not yet build the concrete canonical
+request, replay-step and policy records needed to call each accepted first-four
+producer on the retained bars. The controller milestone therefore remains
+blocked and hands that work to M9.1DB. M9.1DB must use this isolated input,
+preserve explicit no-event/unavailable decisions, and emit the actual producer
+decisions without calculating the supervised package. Original availability,
+correction/finality and point-in-time membership remain gaps with their
+dependent rules OFF and untested. Stage 2, stage 3, source, final and live gates
+remain blocked.
+
+Complete M9.1DA delta so far:
+`consensus_engine/retained_candidate_events.py`,
+`tests/trade_alerts_contracts/test_retained_candidate_events.py`, and this
+ROADMAP.
+
+- [!] **M9.1DA — retained candidate-event input isolation is built, but the
+  concrete first-four producer request and replay-step construction is still
+  required before real alert-time candidate events exist.**
+- [ ] **M9.1DB — build concrete first-four retained producer decisions:** use
+  the isolated training-nine bar, quote and trade inputs to build the canonical
+  producer requests and replay steps, preserve explicit no-event/unavailable
+  outcomes and exact source identities, and do not calculate supervised package
+  results or open held-out names.
+
+## M9.1DB — retained first-two producer request and replay-step boundary — 2026-09-22 Pacific
+
+New `consensus_engine/retained_first_two_producers.py` builds the existing
+canonical `Orb5ReplayStep` and `HodCompRsReplayStep` records for every frozen
+decision moment from one isolated retained training session. It uses only that
+session's bars, trades and quotes and preserves the complete retained source-ID
+tuple. Halt, macro, catalyst, ATR, quote-decision and confidence facts are not
+present in these retained records. They remain named missing inputs, and both
+producers return explicit `UNAVAILABLE` decisions rather than inventing a
+candidate or a completed no-event scan.
+
+New focused coverage in
+`tests/trade_alerts_contracts/test_retained_first_two_producers.py` checks both
+canonical step types, every frozen moment, source identities, explicit missing
+facts, wrong-playbook refusal, missing quote/trade refusal and a deterministic
+recording named `m91db-retained-first-two-producers-proof.json`.
+
+This is a coherent first half, not completion of all four producers. The
+`OR_FAILURE_REV` handoff/request steps and `FIRST_PULLBACK_VWAP` impulse/request
+steps remain for M9.1DC. No fill, return or supervised package result is
+calculated, no held-out name is opened, and all D-104 dependent rules remain
+OFF and untested. The controller's protected focused, broad and two-process
+recording stages will supply the accepted counts, timings, hashes and
+comparison.
+
+- [!] **M9.1DB — concrete retained requests and explicit unavailable decisions
+  are built for `CRVOL_ORB5` and `HOD_COMP_RS`; the other two first-four
+  producers remain required before the full boundary is complete.**
+- [ ] **M9.1DC — build the remaining retained producer decisions:** construct
+  the canonical `OR_FAILURE_REV` handoff/reversal steps and
+  `FIRST_PULLBACK_VWAP` impulse/pullback steps from the same isolated retained
+  inputs, preserve exact source identities and explicit no-event/unavailable
+  outcomes, and do not calculate fills, returns or supervised packages.
+
+## M9.1DC — remaining retained producer prerequisite boundary — 2026-09-22 Pacific
+
+New `consensus_engine/retained_remaining_producers.py` adds concrete fail-closed
+producers for `OR_FAILURE_REV` and `FIRST_PULLBACK_VWAP`. It preserves every
+frozen decision moment and exact retained bar, trade and quote identity. It
+does not forge either canonical step's mandatory parent. The retained records
+do not contain an ended ORB attempt or handoff policy for the reversal, or a
+selected impulse window and direction for the pullback. Each producer therefore
+returns `UNAVAILABLE` with those missing inputs named. Missing retained trades
+or quotes are named separately.
+
+New focused coverage in
+`tests/trade_alerts_contracts/test_retained_remaining_producers.py` checks both
+playbooks, the exact source boundary, the empty canonical step slots, explicit
+unavailable decisions, wrong-playbook refusal, missing quote/trade refusal and
+the deterministic recording
+`m91dc-retained-remaining-producers-proof.json`.
+
+Both edited Python files passed a static syntax check. The unchanged protected
+launcher was tried once with the focused test file and stopped before collection
+at line 27 with `OSError: [Errno 22] Invalid argument:
+'/tmp/trade-alerts-m04-8zfe24j9'`. It was not retried, and no application tests
+ran outside protection.
+
+M9.1DC remains blocked because the canonical parent-selection scan is not yet
+built. M9.1DD must apply the frozen M0.3D/M0.3E research definitions to select
+real ended ORB attempts and impulse windows/directions from the retained
+training sessions, then construct the actual handoff/reversal and
+impulse/pullback steps without opening held-out names. Original availability,
+correction/finality and point-in-time membership remain gaps with dependent
+rules OFF and untested. Stage 2, stage 3, source, final and live gates remain
+blocked.
+
+- [!] **M9.1DC — the remaining two producers now fail closed with exact retained
+  identities; their mandatory canonical parent-selection scan is still
+  required before replay steps can be constructed.**
+- [ ] **M9.1DD — build the remaining canonical parent-selection scan:** apply
+  the frozen M0.3D/M0.3E definitions to retained training sessions, construct
+  real ended-ORB handoff/reversal steps and selected impulse/pullback steps,
+  preserve explicit unavailable outcomes, and do not calculate fills, returns
+  or supervised packages or open held-out names.
+
+## M9.1DD — retained M0.3D ended-ORB parent scan — 2026-09-22 Pacific
+
+New `consensus_engine/retained_or_failure_parent_scan.py` applies the frozen
+M0.3D five-minute range, 0.05-minute-ATR crossing buffer, 0.10-minute-ATR
+meaningful-excursion rule and 180-second reacceptance deadline to one isolated
+retained training session. A complete match becomes the existing canonical
+`HandoffRequest` and `OrFailureRevReplayStep`; missing coverage stays an
+explicit unavailable result. The scan is connected to the existing remaining
+producer builder. It does not calculate a fill, return, confidence result or
+supervised package and cannot open a held-out name.
+
+Focused coverage in
+`tests/trade_alerts_contracts/test_retained_or_failure_parent_scan.py` checks a
+synthetic ended-break parents in both directions, exact supplied source
+identities, explicit missing coverage and deterministic recording
+`m91dd-retained-or-failure-parent-scan-proof.json`.
+
+The M0.3E impulse-window and direction scan remains required before the full
+parent-selection milestone is complete. Original availability,
+correction/finality and point-in-time membership remain gaps with dependent
+rules OFF and untested. Stage 2, stage 3, source, final and live gates remain
+blocked.
+
+Historical initial attempt: the focused protected launcher stopped before collection at
+line 27 with `OSError: [Errno 22] Invalid argument:
+'/tmp/trade-alerts-m04-mpsy85v_'`. Later controller proof passed its collected
+cases but independent review rejected their behavior and retained-source claim.
+The current correction and pending verification are recorded in
+[M9_1DD_REPAIR.md](M9_1DD_REPAIR.md). It was not retried, and no application tests
+ran outside protection. Static syntax checks passed for the changed Python
+files.
+
+- [!] **M9.1DD — the frozen M0.3D ended-ORB parent scan and canonical
+  handoff/reversal-step connection are built; the M0.3E impulse parent scan is
+  still required before the whole parent-selection boundary is complete.**
+- [ ] **M9.1DE — build the retained M0.3E impulse parent scan:** select the
+  frozen long and short impulse windows and directions from the same isolated
+  training sessions, construct canonical impulse/pullback steps, preserve
+  explicit unavailable outcomes and exact source identities, and do not
+  calculate fills, returns or supervised packages or open held-out names.
+
+- [x] **M9.1CX — bounded first-four retained stage-1 package connection passed
+  protected focused, acceptance and two-process repeatability proof.**
+- [ ] **M9.1CY — run and collect the bounded supervised retained stage-1
+  package:** use only the accepted training-nine producers and exact source
+  identities, keep every missing-field dependent rule OFF and untested, and do
+  not open held-out names or start stage 2 or stage 3.
+
+### M9.1CX protected proof recorded — 2026-09-22 Pacific
+
+This records-only finalization uses the controller's protected proof for source
+hash `203f68f05278ca66beb415e045c61feeb4127c323f4fc0497be3a450847cd82c`.
+The complete tested-source manifest is
+`/root/trade-alerts-builder/runs/20260922-010459-131770-build/verified-manifest.json`.
+The complete milestone delta is
+`consensus_engine/stage1_supervised_package_run.py`,
+`tests/trade_alerts_contracts/test_stage1_supervised_package_run.py`, and this
+ROADMAP. This finalization changes this ROADMAP record only; the proof-subject
+Python paths retain their tested manifest identities.
+
+The focused phase had `tests.phase=focused`, `tests.runs=1`,
+`tests.test_count=6`, `tests.wall_seconds=46.827`, and
+`tests.selection_reason="builder named directly affected checks"`. Its selector
+was `tests/trade_alerts_contracts/test_stage1_supervised_package_run.py`. The
+controller recorded protected isolation, exit code 0, stable output, and zero
+failures, errors and skips in
+`/root/trade-alerts-builder/runs/20260922-010459-131770-build/published-artifacts-6de720b01758`.
+Pytest reported 6 passed in 44.93 seconds; JUnit reported 44.930 seconds.
+
+The acceptance phase had `tests.phase=acceptance`, `tests.runs=1`,
+`tests.test_count=3731`, `tests.wall_seconds=739.666`, and
+`tests.selection_reason="unknown dependency impact; safe broad fallback"`. Its
+selector was `tests/trade_alerts_contracts`. The controller recorded protected
+isolation, exit code 0, stable output, and zero failures, errors and skips in
+`/root/trade-alerts-builder/runs/20260922-010459-131770-build/published-artifacts-f5bcb9a33b54`.
+Pytest reported 3731 passed in 735.34 seconds; JUnit reported 735.163 seconds.
+
+The repeatability phase had `tests.phase=repeatability`, `tests.runs=2`,
+`tests.test_count=78`, `tests.wall_seconds=277.345`, and
+`tests.selection_reason="recording output requires fresh-process comparison"`.
+Its exact 51 selectors, two fresh-process exit codes, artifact hashes and
+successful hash comparison are in
+`/root/trade-alerts-builder/runs/20260922-010459-131770-build/published-artifacts-0461239a67d0/summary.json`
+and `publication.json`; both runs exited 0 and the controller recorded stable
+output. The `m91cx-supervised-stage1-package-proof.json` SHA256 was
+`a1dc88868a155b8187f6629a6d999c78182703c45989bfa2788368b0486b7f03` in
+both fresh runs. Pytest reported 78 passed in 136.06 seconds and 78 passed in
+136.84 seconds; JUnit reported 136.059 seconds and 136.844 seconds.
+
+No code, test, configuration, dependency or protected input changed in this
+finalization. The offline connection preserves exact source identities and
+rejects missing or mismatched events, unranked comparisons, incomplete
+measurements and held-out or malformed records. Original availability,
+correction/finality and point-in-time membership remain gaps; their dependent
+rules remain OFF and untested. Held-out results remain unopened, and stage 2,
+stage 3, source, final and live gates remain blocked.
+
+- [x] **M9.1CX — bounded first-four retained stage-1 package connection passed
+  protected focused, acceptance and two-process repeatability proof.**
+- [ ] **M9.1CY — run and collect the bounded supervised retained stage-1
+  package:** use only the accepted training-nine producers and exact source
+  identities, keep every missing-field dependent rule OFF and untested, and do
+  not open held-out names or start stage 2 or stage 3.
+
+- [x] **M9.1CW — durable first-four stage-1 result package passed protected
+  focused, acceptance and two-process repeatability proof.**
+- [ ] **M9.1CX — prepare the bounded supervised retained stage-1 package run:**
+  connect the accepted first-four training-nine result producers to the durable
+  package without opening held-out names, stage 2 or stage 3; keep every D-104
+  dependent rule OFF and untested and preserve exact source identities.
+
+### M9.1CW focused-failure diagnosis and repair — 2026-09-22 Pacific
+
+The controller's failed focused proof is preserved at
+`/root/trade-alerts-builder/runs/20260922-002733-843659-build/verification.log`,
+with its complete original delta in `changes.diff` in that directory and
+protected artifacts at `/tmp/trade-alerts-m04-ao0ozwra`. Its pytest line was
+`7 failed in 43.53s`; this is failed historical proof, not acceptance.
+The supplied test summary records `tests.runs=1`, `tests.test_count=null`,
+`tests.selection_reason="builder named directly affected checks"`, and
+`tests.selectors=["tests/trade_alerts_contracts/test_stage1_result_package.py",
+"tests/trade_alerts_contracts/test_stage1_result_package.py::test_recorded_package_proof_is_deterministic_and_reopen_equal"]`.
+The supplied summary has no `tests.phase`, `tests.wall_seconds` or
+`tests.focused` object; the controller will supply fresh stage records.
+
+All failed IDs share prefix
+`tests/trade_alerts_contracts/test_stage1_result_package.py::`:
+
+- `test_package_preserves_all_comparisons_measurements_events_and_sources`
+- `test_package_refuses_incomplete_or_mismatched_accepted_inputs[not_ranked]`
+- `test_package_refuses_incomplete_or_mismatched_accepted_inputs[wrong_events]`
+- `test_package_refuses_incomplete_or_mismatched_accepted_inputs[wrong_order]`
+- `test_package_refuses_incomplete_or_mismatched_accepted_inputs[short]`
+- `test_reopen_rejects_tampering_and_immutable_path_conflicts`
+- `test_recorded_package_proof_is_deterministic_and_reopen_equal`
+
+Cause: `_comparison` built a dictionary by looking up every comparison
+function on the one module passed to it. Python evaluates those lookups before
+selecting a key. The HOD module has no `compare_or_failure_stage1`, producing
+`AttributeError: module 'consensus_engine.hod_comp_rs_stage1_comparison' has no attribute 'compare_or_failure_stage1'`.
+The repair binds each function to its own existing imported module. Reading
+the producer also found that ORB5 sorts evaluated sessions; the preservation
+assertion now checks the producer's exact order and separately checks the
+complete supplied session set. Neither change alters package or strategy rules.
+
+The repaired focused launcher attempt selected
+`tests/trade_alerts_contracts/test_stage1_result_package.py` and stopped before
+collection at `run_trade_alerts_contracts.py` line 27 with
+`OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-gb2v6rt1'`.
+The reproduced sandbox failure was not retried. No application tests ran
+outside protection. Static syntax checks passed for the package and test file;
+they are not protected acceptance proof. Fresh controller focused, broad
+acceptance and separate fresh-process repeatability proof remain required,
+including the exact recording selector above and comparison of
+`m91cw-stage1-result-package-proof.json` from both repeatability runs.
+The controller stages will supply their counts, timings, hashes and manifests.
+
+Complete milestone delta remains `consensus_engine/stage1_result_package.py`,
+`tests/trade_alerts_contracts/test_stage1_result_package.py` and this ROADMAP.
+This repair changes only the focused test setup/assertion and this record.
+Prior failed proof and attempts remain intact. No real retained winner package
+or source qualification is claimed. Missing-field dependent rules remain OFF
+and untested; held-out results stay unopened and all live switches stay OFF.
+M9.1CW remains awaiting protected verification; the existing open M9.1CX row
+is proposed only after M9.1CW proof and independent review.
+
+### M9.1CW protected proof recorded — 2026-09-22 Pacific
+
+This records-only finalization uses the controller's protected proof for source
+hash `0c82a8d850d8f7418d25e0648d80a7bf62f77cff095fce1899925653ba431035`.
+The complete tested-source manifest is
+`/root/trade-alerts-builder/runs/20260922-002733-843659-build/verified-manifest.json`.
+The complete milestone delta is `consensus_engine/stage1_result_package.py`,
+`tests/trade_alerts_contracts/test_stage1_result_package.py`, and this ROADMAP.
+This finalization changes this ROADMAP record only. The proof-subject Python
+paths retain their tested manifest identities.
+
+The focused phase had `tests.phase=focused`, `tests.runs=1`,
+`tests.test_count=7`, `tests.wall_seconds=58.739`, and
+`tests.selection_reason="builder named directly affected checks"`. Its exact
+selectors were
+`tests/trade_alerts_contracts/test_stage1_result_package.py::test_package_preserves_all_comparisons_measurements_events_and_sources`,
+`tests/trade_alerts_contracts/test_stage1_result_package.py::test_package_refuses_incomplete_or_mismatched_accepted_inputs[not_ranked]`,
+`tests/trade_alerts_contracts/test_stage1_result_package.py::test_package_refuses_incomplete_or_mismatched_accepted_inputs[wrong_events]`,
+`tests/trade_alerts_contracts/test_stage1_result_package.py::test_package_refuses_incomplete_or_mismatched_accepted_inputs[wrong_order]`,
+`tests/trade_alerts_contracts/test_stage1_result_package.py::test_package_refuses_incomplete_or_mismatched_accepted_inputs[short]`,
+`tests/trade_alerts_contracts/test_stage1_result_package.py::test_reopen_rejects_tampering_and_immutable_path_conflicts`, and
+`tests/trade_alerts_contracts/test_stage1_result_package.py::test_recorded_package_proof_is_deterministic_and_reopen_equal`.
+The controller recorded protected isolation, exit code 0, stable output, and
+zero failures, errors and skips in
+`/root/trade-alerts-builder/runs/20260922-002733-843659-build/published-artifacts-1cd639f3a82d`.
+Pytest reported 7 passed in 57.04 seconds; JUnit reported 57.046 seconds.
+
+The acceptance phase had `tests.phase=acceptance`, `tests.runs=1`,
+`tests.test_count=3725`, `tests.wall_seconds=694.174`, and
+`tests.selection_reason="unknown dependency impact; safe broad fallback"`.
+Its selector was `tests/trade_alerts_contracts`. The controller recorded
+protected isolation, exit code 0, stable output, and zero failures, errors and
+skips in
+`/root/trade-alerts-builder/runs/20260922-002733-843659-build/published-artifacts-b92aa6d83d68`.
+Pytest reported 3725 passed in 689.70 seconds; JUnit reported 689.515 seconds.
+
+The repeatability phase had `tests.phase=repeatability`, `tests.runs=2`,
+`tests.test_count=77`, `tests.wall_seconds=243.096`, and
+`tests.selection_reason="recording output requires fresh-process comparison"`.
+Its exact 51 selectors, two fresh-process exit codes, artifact hashes and
+successful hash comparison are in
+`/root/trade-alerts-builder/runs/20260922-002733-843659-build/published-artifacts-b5b60f2c00a0/summary.json`
+and `publication.json`; both runs exited 0 and the controller recorded stable
+output. The `m91cw-stage1-result-package-proof.json` SHA256 was
+`410b9057092a2b5e639cb673a1c4070f151bc00ef631858be1b447f273087496` in
+both fresh runs. Pytest reported 77 passed in 119.00 seconds and 77 passed in
+119.55 seconds; JUnit reported 119.001 seconds and 119.545 seconds.
+
+No code, test, configuration, dependency or protected input changed in this
+finalization. The package preserves the four comparisons and their event,
+coverage, exclusion, disabled-rule and source-identity records, and it rejects
+tampering and immutable path conflicts. Exact point-in-time quote and policy
+inputs, original availability, corrections, finality, point-in-time membership,
+historical borrow and complete-chain proof remain gaps. Their dependent rules
+remain OFF and untested. Held-out results remain unopened; stage 2, stage 3,
+source, final and live gates remain blocked.
+
+- [x] **M9.1CW — durable first-four stage-1 result package passed protected
+  focused, acceptance and two-process repeatability proof.**
+- [ ] **M9.1CX — prepare the bounded supervised retained stage-1 package run:**
+  connect the accepted first-four training-nine result producers to the durable
+  package without opening held-out names, stage 2 or stage 3; keep every D-104
+  dependent rule OFF and untested and preserve exact source identities.
+
+### M9.1CV protected proof recorded — 2026-09-22 Pacific
+
+This records-only finalization uses the controller's protected proof for source
+hash `6dd5ff1d62effa0edade13dd84f5a3ef9abd0bb2d342e859542392d9653588e3`.
+The complete tested-source manifest is
+`/root/trade-alerts-builder/runs/20260921-232900-487904-build/verified-manifest.json`.
+The complete milestone delta is `consensus_engine/orb5_stage1_result.py`,
+`tests/trade_alerts_contracts/test_orb5_stage1_result.py`, and this ROADMAP.
+This finalization changes this ROADMAP record only. The proof-subject Python
+paths retain SHA256 fingerprints
+`9d6ee479a703965cd3025eadaa0cbc33d19a31239b3c529697c1f70c9ff04286` and
+`862825834c59bc561e9e46e11e5c4b6a02df743460ec19c54b6687b7f17760eb`.
+
+The focused phase had `tests.phase=focused`, `tests.runs=1`,
+`tests.test_count=3718`, `tests.wall_seconds=639.815`, and
+`tests.selection_reason="builder named directly affected checks"`. Its selector
+was `tests/trade_alerts_contracts`. The controller recorded protected isolation,
+exit code 0, stable output, and zero failures, errors and skips in
+`/root/trade-alerts-builder/runs/20260921-232900-487904-build/published-artifacts-48980763f9fa`.
+Pytest reported 3718 passed in 635.64 seconds; JUnit reported 635.484 seconds.
+
+The acceptance phase had `tests.phase=acceptance`, `tests.runs=1`,
+`tests.test_count=3718`, `tests.wall_seconds=648.795`, and
+`tests.selection_reason="unknown dependency impact; safe broad fallback"`. Its
+selector was `tests/trade_alerts_contracts`. The controller recorded protected
+isolation, exit code 0, stable output, and zero failures, errors and skips in
+`/root/trade-alerts-builder/runs/20260921-232900-487904-build/published-artifacts-bbc28f5a5afd`.
+Pytest reported 3718 passed in 644.39 seconds; JUnit reported 644.189 seconds.
+
+The repeatability phase had `tests.phase=repeatability`, `tests.runs=2`,
+`tests.test_count=76`, `tests.wall_seconds=226.095`, and
+`tests.selection_reason="recording output requires fresh-process comparison"`.
+Its exact 51 selectors, two fresh-process exit codes, artifact hashes and
+successful hash comparison are in
+`/root/trade-alerts-builder/runs/20260921-232900-487904-build/published-artifacts-19966eb8e6b4/summary.json`
+and `publication.json`; both runs exited 0 and the controller recorded stable
+output. Pytest reported 76 passed in 110.66 seconds and 76 passed in 110.46
+seconds; JUnit reported 110.660 seconds and 110.457 seconds.
+
+No code, test, configuration, dependency or protected input changed in this
+finalization. The repaired boundary rejects mismatched session dates and forged
+measurements, counts and event sets, and keeps the required D-104 gap labels
+visible with their dependent rules OFF and untested. Exact point-in-time quote
+and policy inputs, original availability, corrections, finality, point-in-time
+membership, historical borrow and complete-chain proof remain gaps. Held-out
+results remain unopened; stage 2, stage 3, source, final and live gates remain
+blocked.
+
+- [x] **M9.1CV — strict retained `CRVOL_ORB5` stage-1 result and comparison
+  repair passed protected focused, acceptance and two-process repeatability
+  proof.**
+- [ ] **M9.1CW — build the durable first-four stage-1 result package:** preserve
+  each accepted comparison, complete candidate measurements, resolved
+  alert-time events, retained-session coverage, exclusions, disabled-rule
+  labels and source identities in one reopenable offline record before any
+  supervised retained run or stage-2 evaluation.
+
+- [~] **M9.1CW — durable first-four stage-1 result package built; fresh
+  protected focused, broad and two-process repeatability proof and independent
+  review remain.**
+- [ ] **M9.1CX — prepare the bounded supervised retained stage-1 package run:**
+  connect the accepted first-four training-nine result producers to the durable
+  package without opening held-out names, stage 2 or stage 3; keep every D-104
+  dependent rule OFF and untested and preserve exact source identities.
+
+- [x] **M9.1CW — durable first-four stage-1 result package passed protected
+  focused, acceptance and two-process repeatability proof.**
+- [ ] **M9.1CX — prepare the bounded supervised retained stage-1 package run:**
+  connect the accepted first-four training-nine result producers to the durable
+  package without opening held-out names, stage 2 or stage 3; keep every D-104
+  dependent rule OFF and untested and preserve exact source identities.
+
+- [x] **M9.1CX — bounded first-four retained stage-1 package connection passed
+  protected focused, acceptance and two-process repeatability proof.**
+- [ ] **M9.1CY — run and collect the bounded supervised retained stage-1
+  package:** use only the accepted training-nine producers and exact source
+  identities, keep every missing-field dependent rule OFF and untested, and do
+  not open held-out names or start stage 2 or stage 3.
+
+- [!] **M9.1CY — supervised retained stage-1 package run blocked:** no checked
+  retained `bbo-1m`/`trades` reader or real alert-time candidate event records
+  exist, so the accepted runners cannot yet produce fully costed training-nine
+  results without inventing required inputs.
+- [ ] **M9.1CZ — build the retained training-nine quote/trade reader:** decode
+  only the existing `bbo-1m` and `trades` files for the nine frozen training
+  names into canonical records with exact source identities; do not open
+  held-out names, derive candidate events, calculate returns, or start stage 2
+  or stage 3.
+
+- [x] **M9.1CZ — retained training-nine quote/trade reader passed protected
+  focused, acceptance and two-process repeatability proof.**
+- [!] **M9.1DA — build retained training-nine alert-time candidate events:**
+  connect the accepted first-four training producers to the retained bar,
+  quote and trade inputs without opening held-out names or calculating the
+  supervised package results; keep every missing-field dependent rule OFF and
+  untested.
+
+- [ ] **M9.1DB — build concrete first-four retained producer decisions:** use
+  the isolated training-nine bar, quote and trade inputs to build the canonical
+  producer requests and replay steps, preserve explicit no-event/unavailable
+  outcomes and exact source identities, and do not calculate supervised package
+  results or open held-out names.
+
+- [!] **M9.1DB — concrete retained requests and explicit unavailable decisions
+  are built for `CRVOL_ORB5` and `HOD_COMP_RS`; the other two first-four
+  producers remain required before the full boundary is complete.**
+- [ ] **M9.1DC — build the remaining retained producer decisions:** construct
+  the canonical `OR_FAILURE_REV` handoff/reversal steps and
+  `FIRST_PULLBACK_VWAP` impulse/pullback steps from the same isolated retained
+  inputs, preserve exact source identities and explicit no-event/unavailable
+  outcomes, and do not calculate fills, returns or supervised packages.
+
+- [!] **M9.1DC — the remaining two producers now fail closed with exact retained
+  identities; their mandatory canonical parent-selection scan is still
+  required before replay steps can be constructed.**
+- [ ] **M9.1DD — build the remaining canonical parent-selection scan:** apply
+  the frozen M0.3D/M0.3E definitions to retained training sessions, construct
+  real ended-ORB handoff/reversal steps and selected impulse/pullback steps,
+  preserve explicit unavailable outcomes, and do not calculate fills, returns
+  or supervised packages or open held-out names.
+
+- [!] **M9.1DD — the frozen M0.3D ended-ORB parent scan and canonical
+  handoff/reversal-step connection are built; the M0.3E impulse parent scan is
+  still required before the whole parent-selection boundary is complete.**
+- [ ] **M9.1DE — build the retained M0.3E impulse parent scan:** select the
+  frozen long and short impulse windows and directions from the same isolated
+  training sessions, construct canonical impulse/pullback steps, preserve
+  explicit unavailable outcomes and exact source identities, and do not
+  calculate fills, returns or supervised packages or open held-out names.
+
+### M9.1DD reviewed-failure repair — 2026-09-22 Pacific
+
+The prior scan promoted unknown finality to a final close, admitted trades
+without the required source/coverage checks, restarted unsuccessful crossing
+deadlines, and described synthetic output as a retained match. The repair uses
+strict final/available interval evidence, preserves close availability, requires
+explicit trade coverage and halt evidence, freezes the first crossing and
+limits excursion evidence to what was available at reacceptance. Exact
+unavailable reasons reach the remaining producer. See
+[M9_1DD_REPAIR.md](M9_1DD_REPAIR.md) for the full diagnosis, changed paths,
+protected-launcher failure and preserved prior proof.
+
+The corrected recording is a synthetic contract and retained-field gap
+assessment. It makes no real retained-session match claim. Required retained
+finality, original availability, correction and tape-coverage facts remain
+unavailable; the dependent M0.3D rule remains OFF and untested on that source.
+No new source qualification, fill, return, supervised package, held-out result,
+stage 2, stage 3 or live permission follows. At the time of this reviewed repair,
+fresh controller focused, acceptance and two-process recording proof was pending;
+the later proof is recorded below. The earlier passing collected-case proof is
+historical and does not verify the repair.
+
+- [!] **M9.1DD — reviewed scan defects repaired, pending fresh protected proof;
+  retained M0.3D finality/availability/coverage rules remain OFF and untested,
+  and the M0.3E parent-scan half is still required.**
+- [ ] **M9.1DE — build the retained M0.3E impulse parent scan:** use the same
+  isolated training sessions, preserve exact source identities and explicit
+  unavailable outcomes, and keep missing-field dependent rules OFF; no fills,
+  returns, supervised packages or held-out names. Independent review must
+  confirm this existing next step before advancement.
+
+## M9.1DE — retained M0.3E impulse parent scan — 2026-09-22 Pacific
+
+New `consensus_engine/retained_first_pullback_parent_scan.py` applies the frozen
+M0.3E first-structure definition to supplied isolated-session records. It scans
+both directions, requires final available complete unrevised bars, explicit
+minute ATR, daily ATR and VWAP evidence, the frozen distance gates and two-bar
+swing confirmation, then builds the existing canonical pullback replay step.
+The remaining producer is connected to the scan. See
+[M9_1DE_IMPLEMENTATION.md](M9_1DE_IMPLEMENTATION.md).
+
+Current retained records still lack the required finality,
+original-availability and numeric parent evidence. Those facts stay explicit;
+the dependent rule remains OFF and untested. Synthetic examples prove only the
+offline contract. No retained match, fill, return, supervised package, held-out
+result, stage 2, stage 3, source qualification, final result or live permission
+is claimed.
+
+The initial focused protected launcher stopped before collection at line 27 with
+`OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-p5bq7cvb'`.
+The subsequent controller focused run failed in
+`test_wrong_playbook_and_source_scope_are_refused`: its mixed-symbol sample
+was rejected by history-batch construction before reaching the scan. The repair
+now checks that rejection explicitly and uses a consistent foreign-symbol batch
+to reach the scan's producer check. The repaired protected launch stopped before
+collection at line 27 with `OSError: [Errno 22] Invalid argument:
+'/tmp/trade-alerts-m04-0g570xub'`; it was not retried. The implementation record
+preserves the original error and failed controller proof. Fresh controller
+focused, broad acceptance and two-process recording proof is still required.
+
+- [~] **M9.1DE — the frozen M0.3E impulse-parent scan and remaining-producer
+  connection are built; protected focused, acceptance and two-process recording
+  proof is pending, and retained missing-field dependent rules remain OFF and
+  untested.**
+- [ ] **M9.1DF — close the first-four retained producer boundary:** consume the
+  accepted M0.3D and M0.3E parent scans in the isolated training-nine candidate
+  event run, preserve exact candidate/no-event/unavailable decisions and source
+  identities, and do not calculate fills, returns or supervised packages or
+  open held-out names.
+
+### M9.1DE historical protected proof recorded — 2026-09-22 Pacific
+
+This records-only finalization uses controller protected proof for source hash
+`0e87148d258a62dcfce2f58a767b61d3051d337c40548fbc4d56b88df3f0dd89` and
+the complete tested-source manifest at
+`/root/trade-alerts-builder/runs/20260922-051900-023131-build/verified-manifest.json`.
+Only this ROADMAP record and `M9_1DE_IMPLEMENTATION.md` changed in
+finalization. Focused: `tests.phase=focused`, `tests.runs=1`,
+`tests.test_count=1`, `tests.wall_seconds=3.467`, and
+`tests.selection_reason="builder named directly affected checks"`; selector:
+`tests/trade_alerts_contracts/test_retained_first_pullback_parent_scan.py::test_wrong_playbook_and_source_scope_are_refused`.
+Acceptance: `tests.phase=acceptance`, `tests.runs=1`,
+`tests.test_count=3880`, `tests.wall_seconds=752.94`, and
+`tests.selection_reason="unknown dependency impact; safe broad fallback"`;
+selector: `tests/trade_alerts_contracts`. Repeatability:
+`tests.phase=repeatability`, `tests.runs=2`, `tests.test_count=84`,
+`tests.wall_seconds=284.037`, and
+`tests.selection_reason="recording output requires fresh-process comparison"`;
+the controller selector list includes the M9.1DE recording selector. All three
+phases recorded protected isolation, exit code 0, stable output and zero
+failures, errors and skips. The two fresh M9.1DE recording files had identical
+SHA256 `b12385e4160e066ac1d0bac4cb02599ab8b490bc2a452b0b168b4f58ed6c2f09`.
+See [M9_1DE_IMPLEMENTATION.md](M9_1DE_IMPLEMENTATION.md) for the exact pytest
+and JUnit times, artifact paths and retained-field gaps.
+
+The earlier record proposed acceptance only as an offline synthetic-record
+contract and truthful retained-field gap assessment. Independent review then
+rejected the timing and completeness behavior; the repair below needs fresh
+proof. The old passing proof does not establish acceptance. Finality, original availability and numeric
+parent evidence remain unavailable, so the dependent rule stays OFF and
+untested. No retained match, fill, return, package, held-out result, stage 2,
+stage 3, source, final-result or live claim follows.
+
+- [x] **M9.1DE — retained M0.3E impulse parent scan passed protected focused,
+  acceptance and two-process repeatability proof as an offline synthetic-record
+  contract; missing retained fields keep its dependent rule OFF and untested.**
+- [ ] **M9.1DF — close the first-four retained producer boundary:** consume the
+  accepted M0.3D and M0.3E parent scans in the isolated training-nine candidate
+  event run, preserve exact candidate/no-event/unavailable decisions and source
+  identities, and do not calculate fills, returns or supervised packages or
+  open held-out names.
+
+### M9.1DD protected proof recorded — 2026-09-22 Pacific
+
+This records-only finalization uses controller protected proof for source hash
+`009eb4e5762522a3034941d426d51613515a37fc562149517f607afa627d08f7` and
+the complete tested-source manifest at
+`/root/trade-alerts-builder/runs/20260922-041209-116801-build/verified-manifest.json`.
+Only this ROADMAP record and `M9_1DD_REPAIR.md` changed in finalization.
+
+Focused: `tests.phase=focused`, `tests.runs=1`, `tests.test_count=88`,
+`tests.wall_seconds=7.195`, and
+`tests.selection_reason="builder named directly affected checks"`; selectors:
+`tests/trade_alerts_contracts/test_retained_or_failure_parent_scan.py`,
+`tests/trade_alerts_contracts/test_retained_or_failure_parent_scan.py::test_recorded_parent_scan_is_deterministic`,
+and `tests/trade_alerts_contracts/test_retained_remaining_producers.py`.
+Acceptance: `tests.phase=acceptance`, `tests.runs=1`,
+`tests.test_count=3871`, `tests.wall_seconds=758.898`, and
+`tests.selection_reason="unknown dependency impact; safe broad fallback"`;
+selector: `tests/trade_alerts_contracts`. Repeatability:
+`tests.phase=repeatability`, `tests.runs=2`, `tests.test_count=83`,
+`tests.wall_seconds=279.956`, and
+`tests.selection_reason="recording output requires fresh-process comparison"`;
+the controller artifact selector list includes the M9.1DD recording selector.
+All three phases recorded protected isolation, exit code 0, stable output and
+zero failures, errors and skips. The two fresh recording files had identical
+SHA256 `1bf1691064737603240aa44483c166cc9240351460b55f5ba9482bac5748c94f`.
+See [M9_1DD_REPAIR.md](M9_1DD_REPAIR.md) for pytest and JUnit times and the
+full field-gap assessment.
+
+The scan is accepted only as an offline synthetic-record contract and a truthful
+retained-field gap assessment. It did not open retained files or produce a real
+retained-session handoff, reversal, fill, return or package. Finality, original
+availability, correction state, halt status, delayed status and trade coverage
+remain unavailable; the M0.3D dependent rule stays OFF and untested on retained
+data. Stage 2, stage 3, source, final and live gates remain blocked.
+
+- [x] **M9.1DD — retained M0.3D ended-ORB parent scan passed protected focused,
+  acceptance and two-process repeatability proof as an offline synthetic-record
+  contract; missing retained fields keep its dependent rule OFF and untested.**
+- [ ] **M9.1DE — build the retained M0.3E impulse parent scan:** use the same
+  isolated training sessions, preserve exact source identities and explicit
+  unavailable outcomes, and keep missing-field dependent rules OFF; no fills,
+  returns, supervised packages or held-out names. Independent review must
+  confirm this existing next step before advancement.
+
+- [x] **M9.1DE — retained M0.3E impulse parent scan passed protected focused,
+  acceptance and two-process repeatability proof as an offline synthetic-record
+  contract; missing retained fields keep its dependent rule OFF and untested.**
+- [ ] **M9.1DF — close the first-four retained producer boundary:** consume the
+  accepted M0.3D and M0.3E parent scans in the isolated training-nine candidate
+  event run, preserve exact candidate/no-event/unavailable decisions and source
+  identities, and do not calculate fills, returns or supervised packages or
+  open held-out names.
+
+### M9.1DE timing and completeness review repair — 2026-09-22 Pacific
+
+Independent review rejected the latest-decision fact selection combined with an
+earlier step time, and the requirement for complete bars after confirmation.
+The repaired scan evaluates each decision with facts available at that instant,
+checks completeness only through each possible confirmation, and keeps the
+first selected parent of each direction fixed. Direct long/short checks and
+the expanded synthetic recording cover delayed bars/evidence, missing later
+intervals and preservation across later revisions. Incomplete later pullback
+measurements still carry explicit unavailable reasons.
+
+All earlier failures, attempts and passing collected-case proof remain
+historical. They do not verify this code/test repair. The protected focused
+launcher stopped before collection at line 27 with
+`OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-klcq1f6c'`.
+It was not retried. The controller must supply fresh focused, broad acceptance
+and two-process recording proof; no fresh passing figures exist yet. See
+[M9_1DE_IMPLEMENTATION.md](M9_1DE_IMPLEMENTATION.md) for the diagnosis,
+complete milestone delta, exact selectors and preserved proof references.
+All missing-field dependent retained rules remain OFF and untested. No fills,
+returns, packages, held-out inspection, stage 2, stage 3 or live operation occurs.
+
+- [~] **M9.1DE — reviewed timing and completeness defects repaired; fresh
+  protected focused, acceptance and expanded two-process recording proof and
+  independent acceptance remain pending. Retained missing-field dependent
+  rules stay OFF and untested.**
+- [ ] **M9.1DF — close the first-four retained producer boundary:** after
+  independent acceptance of both parent scans, consume them in the isolated
+  training-nine candidate event run, preserve exact candidate/no-event/unavailable
+  decisions and source identities, and do not calculate fills, returns or
+  supervised packages or open held-out names.
+
+### M9.1DE exact unavailable-reason repair protected proof — 2026-09-22 Pacific
+
+This records-only finalization uses controller protected proof for source hash
+`112baa1f7c0db6a8b67cb5df34c2f168dec146e1800379cfee31d4043b367d14` and the
+complete tested-source manifest at
+`/root/trade-alerts-builder/runs/20260922-051900-023131-build/verified-manifest.json`.
+The complete milestone delta is `consensus_engine/retained_first_pullback_parent_scan.py`,
+`consensus_engine/retained_remaining_producers.py`,
+`tests/trade_alerts_contracts/test_retained_first_pullback_parent_scan.py`,
+`tests/trade_alerts_contracts/test_retained_remaining_producers.py`,
+`trade_alerts_build_docs/M9_1DE_IMPLEMENTATION.md`, and this ROADMAP. Only the
+two records changed after the tested source.
+
+Focused: `tests.phase=focused`, `tests.runs=1`, `tests.test_count=36`,
+`tests.wall_seconds=6.156`, and
+`tests.selection_reason="builder named directly affected checks"`; selectors:
+`tests/trade_alerts_contracts/test_retained_first_pullback_parent_scan.py`,
+`tests/trade_alerts_contracts/test_retained_first_pullback_parent_scan.py::test_recorded_impulse_parent_scan_is_deterministic`,
+`tests/trade_alerts_contracts/test_retained_remaining_producers.py`, and
+`tests/trade_alerts_contracts/test_retained_remaining_producers.py::test_recorded_remaining_producer_proof_is_deterministic`.
+Acceptance: `tests.phase=acceptance`, `tests.runs=1`,
+`tests.test_count=3900`, `tests.wall_seconds=718.391`, and
+`tests.selection_reason="unknown dependency impact; safe broad fallback"`;
+selector: `tests/trade_alerts_contracts`. Repeatability:
+`tests.phase=repeatability`, `tests.runs=2`, `tests.test_count=84`,
+`tests.wall_seconds=268.747`, and
+`tests.selection_reason="recording output requires fresh-process comparison"`.
+Its selector list includes both M9.1DE recording selectors. All phases were
+protected, exited 0, had stable output and zero failures, errors and skips.
+The two fresh parent-scan proofs match SHA256
+`5adf36336cb085f6272f00db4485593158ea5511637972de58df92704cc00a02`; the two
+fresh remaining-producer proofs match SHA256
+`18a051f4b09000ba1627c0fb97549c28456d5696aa7ec5b8b4e25f1c262acb09`. See
+[M9_1DE_IMPLEMENTATION.md](M9_1DE_IMPLEMENTATION.md) for artifact paths and
+the separate pytest JUnit times.
+
+The accepted result is an offline synthetic-record contract only. Retained
+finality, original availability and numeric-parent gaps remain explicit; their
+dependent rules stay OFF and untested. No retained match, fill, return, package,
+held-out result, stage 2, stage 3, source, final-result, profit or live claim
+follows.
+
+- [x] **M9.1DE — exact unavailable-reason repair passed protected focused,
+  acceptance and two-process repeatability proof as an offline synthetic-record
+  contract; retained missing-field dependent rules remain OFF and untested.**
+- [ ] **M9.1DF — close the first-four retained producer boundary:** after
+  independent acceptance, consume both parent scans in the isolated training-nine
+  candidate event run, preserve exact candidate/no-event/unavailable decisions
+  and source identities, and do not calculate fills, returns or supervised
+  packages or open held-out names.
+
+## M9.1DF — concrete first-four retained candidate-event run — 2026-09-22 Pacific
+
+New `consensus_engine/retained_first_four_candidate_run.py` combines the
+accepted concrete producer maps for all four playbooks and runs them through
+the accepted training-nine candidate-event isolation boundary. The remaining
+two producers consume the accepted M0.3D and M0.3E parent scans. Exact
+candidate, no-event or unavailable decisions and retained source identities
+pass through unchanged.
+
+Focused coverage in
+`tests/trade_alerts_contracts/test_retained_first_four_candidate_run.py`
+checks all four producers across the frozen training nine, exact source
+identities, the parent scans' unavailable reasons and every D-104 off switch.
+Its deterministic recording is
+`m91df-retained-first-four-candidate-run-proof.json`. See
+[M9_1DF_IMPLEMENTATION.md](M9_1DF_IMPLEMENTATION.md).
+
+The retained source still lacks original-availability, finality, correction,
+halt, complete trade-coverage, numeric parent, quote-decision and confidence
+facts. Their dependent rules remain OFF and untested. No fill, return,
+supervised package or held-out result is calculated. Fresh protected focused,
+broad acceptance and two-process recording proof and independent review remain
+required.
+
+- [~] **M9.1DF — the concrete first-four producer maps and both accepted parent
+  scans are connected to the isolated candidate-event run; fresh protected
+  focused, acceptance and two-process recording proof remains.**
+- [ ] **M9.1DG — run and record the concrete retained training-nine candidate
+  boundary:** use only the already retained inputs, record exact candidate,
+  no-event and unavailable totals and source identities, keep missing-field
+  dependent rules OFF and untested, and do not calculate fills, returns or
+  supervised packages or open held-out names.
+
+## M9.1DG — retained training-nine candidate record boundary — 2026-09-22 Pacific
+
+The immutable record boundary now captures exact candidate, no-event and
+unavailable totals by playbook and ticker, plus the exact retained-source count
+and SHA256 commitment and the complete candidate-event stream commitment. It
+keeps every D-104 gap-dependent rule OFF and untested, refuses held-out scope
+and conflicting retries, and records that no fill, return or supervised package
+was calculated. See [M9_1DG_IMPLEMENTATION.md](M9_1DG_IMPLEMENTATION.md).
+
+The actual one-year retained run is still required. It is a long offline job
+and must follow D-114's detached ownership and three-shard rule and D-116's 2%
+inspection before full release. No retained market result was read or claimed
+in this bounded implementation step.
+
+- [!] **M9.1DG — the durable training-nine candidate record is built, but the
+  verified retained file groups have not yet passed the required 2% inspection
+  and detached full run.**
+- [ ] **M9.1DH — execute the retained training-nine candidate run:** connect the
+  verified OHLCV-1m, BBO-1m and trades groups to the accepted record boundary,
+  pass the D-116 2% per-ticker and day-type inspection, then run and collect the
+  detached three-shard result without opening held-out names or calculating
+  fills, returns or supervised packages.
+
+### M9.1DH latest bounded implementation handoff — 2026-09-22 Pacific
+
+The sharded record and D-116 inspection contracts are built, but the actual
+retained folders have not been opened. The real inspection and long run remain
+supervisor-owned work. The protected launcher also stopped before collection
+with the known temporary-folder ownership error. See
+[M9_1DH_IMPLEMENTATION.md](M9_1DH_IMPLEMENTATION.md).
+
+- [!] **M9.1DH — the sharded record and 2% inspection contracts are built, but
+  the verified retained folders have not yet passed the real 2% inspection or
+  the supervisor-owned detached three-shard run.**
+- [ ] **M9.1DI — run the real retained candidate job:** after fresh protected
+  acceptance of M9.1DH, connect the verified OHLCV-1m, BBO-1m and trades
+  folders, collect and inspect the D-116 2% sample, and only on a clean sample
+  start, checkpoint, merge and collect the three D-114 shards without opening
+  held-out names or calculating fills, returns or supervised packages.
+
+### M9.1DH current bounded implementation handoff — 2026-09-22 Pacific
+
+The candidate record now supports disjoint ticker/session parts and a bounded
+merge, so the three D-114 shards do not need to keep the full retained event
+stream in memory. The D-116 inspection contract hard-stops on a zero ticker or
+playbook, missing normal/half-day/degraded coverage, an improperly handled
+degraded day, or an unknown consumed-field unit. The protected launcher stopped
+before collection with the known sandbox ownership error. No retained market
+file was opened and no full shard was released in this step. See
+[M9_1DH_IMPLEMENTATION.md](M9_1DH_IMPLEMENTATION.md).
+
+- [!] **M9.1DH — the sharded record and 2% inspection contracts are built, but
+  the verified retained folders have not yet passed the real 2% inspection or
+  the supervisor-owned detached three-shard run.**
+- [ ] **M9.1DI — run the real retained candidate job:** after fresh protected
+  acceptance of M9.1DH, connect the verified OHLCV-1m, BBO-1m and trades
+  folders, collect and inspect the D-116 2% sample, and only on a clean sample
+  start, checkpoint, merge and collect the three D-114 shards without opening
+  held-out names or calculating fills, returns or supervised packages.
+
+### M9.1DF final protected proof — 2026-09-22 Pacific
+
+The controller's current protected proof has source hash
+`bb59cf7e57a9cb1abd29b53690f62b05be893b976e9f951bcd70f60ea26c33a6` and
+complete tested-source manifest
+`/root/trade-alerts-builder/runs/20260922-130729-064978-build/verified-manifest.json`.
+Focused was `tests.phase=focused`, `tests.runs=1`, `tests.test_count=3`,
+`tests.wall_seconds=33.835`, and
+`tests.selection_reason="builder named directly affected checks"`. Acceptance
+was `tests.phase=acceptance`, `tests.runs=1`, `tests.test_count=3903`,
+`tests.wall_seconds=733.695`, and
+`tests.selection_reason="unknown dependency impact; safe broad fallback"`.
+Repeatability was `tests.phase=repeatability`, `tests.runs=2`,
+`tests.test_count=85`, `tests.wall_seconds=286.832`, and
+`tests.selection_reason="recording output requires fresh-process comparison"`.
+All phases were protected, exited 0, were stable, and had zero failures, errors
+and skips. The two fresh first-four candidate-run proofs match SHA256
+`7773fc24f68756b8ff9185f1d619049bd82ed5ad6fff7a19ce820dee5729a6f8`. The
+complete selectors, artifact locations, and separate pytest JUnit times are in
+[M9_1DF_IMPLEMENTATION.md](M9_1DF_IMPLEMENTATION.md).
+
+This is an offline synthetic-record contract only. Missing original availability,
+finality, correction, halt, complete trade coverage, numeric parent,
+quote-decision and confidence facts keep dependent rules OFF and untested. No
+fill, return, supervised package, held-out result, source, final-result, profit
+or live claim follows.
+
+- [x] **M9.1DF — concrete first-four candidate run passed protected focused,
+  acceptance and two-process repeatability proof as an offline synthetic-record
+  contract; missing-field dependent rules remain OFF and untested.**
+- [ ] **M9.1DG — run and record the concrete retained training-nine candidate
+  boundary:** use only the already retained inputs, record exact candidate,
+  no-event and unavailable totals and source identities, keep missing-field
+  dependent rules OFF and untested, and do not calculate fills, returns or
+  supervised packages or open held-out names.
+
+### M9.1DE historical timing-repair protected proof — 2026-09-22 Pacific
+
+This records-only finalization uses controller protected proof for source hash
+`815f1cc1c89037ac93ff02cb54c6bc6338f60cc4826c09187bfcf5674f395b40` and
+the complete tested-source manifest at
+`/root/trade-alerts-builder/runs/20260922-051900-023131-build/verified-manifest.json`.
+Only this ROADMAP record and `M9_1DE_IMPLEMENTATION.md` changed after that
+tested source.
+
+Focused: `tests.phase=focused`, `tests.runs=1`, `tests.test_count=30`,
+`tests.wall_seconds=5.757`, and
+`tests.selection_reason="builder named directly affected checks"`; selectors:
+`tests/trade_alerts_contracts/test_retained_first_pullback_parent_scan.py`,
+`tests/trade_alerts_contracts/test_retained_first_pullback_parent_scan.py::test_recorded_impulse_parent_scan_is_deterministic`,
+and `tests/trade_alerts_contracts/test_retained_remaining_producers.py`.
+Acceptance: `tests.phase=acceptance`, `tests.runs=1`,
+`tests.test_count=3894`, `tests.wall_seconds=737.008`, and
+`tests.selection_reason="unknown dependency impact; safe broad fallback"`;
+selector: `tests/trade_alerts_contracts`. Repeatability:
+`tests.phase=repeatability`, `tests.runs=2`, `tests.test_count=84`,
+`tests.wall_seconds=283.282`, and
+`tests.selection_reason="recording output requires fresh-process comparison"`.
+The controller's repeatability selector list includes the M9.1DE recording
+selector. The two fresh recording files had identical SHA256
+`116d4df270b29a4d2d41e327535d03a4051c75ace8dcce813afa41f870ce6a73`.
+All phases were protected, exited 0 and had stable output.
+
+This historical proof was submitted for offline synthetic-record acceptance;
+review subsequently rejected the caller's unavailable reasons. It does not
+establish acceptance of M9.1DE or verify the repair below. Finality,
+original availability and numeric parent evidence remain unavailable, so its
+dependent rule stays OFF and untested. No retained match, fill, return,
+package, held-out result, stage 2, stage 3, source, final-result or live claim
+follows from this proof.
+
+- [x] **M9.1DE — retained M0.3E impulse parent scan passed protected focused,
+  acceptance and two-process repeatability proof as an offline synthetic-record
+  contract; missing retained fields keep its dependent rule OFF and untested.**
+- [ ] **M9.1DF — close the first-four retained producer boundary:** consume the
+  accepted M0.3D and M0.3E parent scans in the isolated training-nine candidate
+  event run, preserve exact candidate/no-event/unavailable decisions and source
+  identities, and do not calculate fills, returns or supervised packages or
+  open held-out names.
+
+
+### M9.1DE exact unavailable-reason review repair — 2026-09-22 Pacific
+
+Review found that the remaining producer added a fixed missing-input list after
+the scan returned no parent. That could claim missing minute ATR even when
+valid evidence was supplied, and obscure an exact missing-window or
+unconfirmed-impulse reason. The repair removes that fixed list, keeps the scan's
+exact reasons, and appends only quote-decision and confidence gaps. Direct
+long/short supplied-evidence no-parent and incomplete-window checks and the
+expanded deterministic recording cover the repaired boundary.
+
+Prior failures, attempts and collected passing proof remain historical. They
+do not establish independent acceptance or verify the changed code/tests.
+The protected focused launcher stopped before collection at line 27 with
+`OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-9y9_jfnb'`.
+It was not retried. The controller will supply fresh focused, broad acceptance
+and separate two-process recording proof and all published figures. See
+[M9_1DE_IMPLEMENTATION.md](M9_1DE_IMPLEMENTATION.md) for exact selectors,
+recording outputs, preserved proof references and the full milestone delta.
+
+- [~] **M9.1DE — exact supplied-evidence unavailable reasons repaired;
+  protected focused, acceptance and expanded two-process recording proof and
+  independent acceptance remain pending. Retained missing-field dependent
+  rules stay OFF and untested.**
+- [ ] **M9.1DF — close the first-four retained producer boundary:** after
+  independent acceptance of both parent scans, consume them in the isolated
+  training-nine candidate event run, preserve exact candidate/no-event/unavailable
+  decisions and source identities, and do not calculate fills, returns or
+  supervised packages or open held-out names.
+
+### M9.1DE final protected proof — 2026-09-22 Pacific
+
+The controller's current protected proof has source hash
+`112baa1f7c0db6a8b67cb5df34c2f168dec146e1800379cfee31d4043b367d14` and
+complete tested-source manifest
+`/root/trade-alerts-builder/runs/20260922-051900-023131-build/verified-manifest.json`.
+Focused was `tests.phase=focused`, `tests.runs=1`, `tests.test_count=36`,
+`tests.wall_seconds=6.156`, and
+`tests.selection_reason="builder named directly affected checks"`. Acceptance
+was `tests.phase=acceptance`, `tests.runs=1`, `tests.test_count=3900`,
+`tests.wall_seconds=718.391`, and
+`tests.selection_reason="unknown dependency impact; safe broad fallback"`.
+Repeatability was `tests.phase=repeatability`, `tests.runs=2`,
+`tests.test_count=84`, `tests.wall_seconds=268.747`, and
+`tests.selection_reason="recording output requires fresh-process comparison"`.
+All phases were protected, exited 0, were stable, and had zero failures, errors
+and skips. The two fresh parent-scan proofs match SHA256
+`5adf36336cb085f6272f00db4485593158ea5511637972de58df92704cc00a02`; the two
+remaining-producer proofs match SHA256
+`18a051f4b09000ba1627c0fb97549c28456d5696aa7ec5b8b4e25f1c262acb09`. The
+complete selectors, artifact locations, and separate pytest JUnit times are in
+[M9_1DE_IMPLEMENTATION.md](M9_1DE_IMPLEMENTATION.md).
+
+This is an offline synthetic-record contract only. Retained finality, original
+availability and numeric-parent gaps keep dependent rules OFF and untested; no
+retained match, fill, return, package, held-out result, stage 2, stage 3,
+source, final-result, profit or live claim follows.
+
+- [x] **M9.1DE — exact unavailable-reason repair passed protected focused,
+  acceptance and two-process repeatability proof as an offline synthetic-record
+  contract; retained missing-field dependent rules remain OFF and untested.**
+- [ ] **M9.1DF — close the first-four retained producer boundary:** after
+  independent acceptance, consume both parent scans in the isolated training-nine
+  candidate event run, preserve exact candidate/no-event/unavailable decisions
+  and source identities, and do not calculate fills, returns or supervised
+  packages or open held-out names.
+
+### M9.1DF implementation ready for protected proof — 2026-09-22 Pacific
+
+The concrete first-four producer maps now run through the isolated candidate
+event boundary, including both accepted parent scans. Exact decisions, source
+identities and D-104 off switches are covered by the focused test and its new
+deterministic recording. The protected focused launcher stopped before
+collection at line 27 with `OSError: [Errno 22] Invalid argument:
+'/tmp/trade-alerts-m04-ytnucldo'`. It was not retried. The controller must
+supply fresh focused, broad acceptance and two-process recording proof. See
+[M9_1DF_IMPLEMENTATION.md](M9_1DF_IMPLEMENTATION.md).
+
+- [~] **M9.1DF — concrete first-four candidate run implemented; fresh protected
+  focused, acceptance and two-process recording proof and independent review
+  remain.**
+- [ ] **M9.1DG — run and record the concrete retained training-nine candidate
+  boundary:** use only the already retained inputs, record exact candidate,
+  no-event and unavailable totals and source identities, keep missing-field
+  dependent rules OFF and untested, and do not calculate fills, returns or
+  supervised packages or open held-out names.
+
+### M9.1DF final protected proof — 2026-09-22 Pacific
+
+The controller's current protected proof has source hash
+`bb59cf7e57a9cb1abd29b53690f62b05be893b976e9f951bcd70f60ea26c33a6` and
+complete tested-source manifest
+`/root/trade-alerts-builder/runs/20260922-130729-064978-build/verified-manifest.json`.
+Focused was `tests.phase=focused`, `tests.runs=1`, `tests.test_count=3`,
+`tests.wall_seconds=33.835`, and
+`tests.selection_reason="builder named directly affected checks"`. Acceptance
+was `tests.phase=acceptance`, `tests.runs=1`, `tests.test_count=3903`,
+`tests.wall_seconds=733.695`, and
+`tests.selection_reason="unknown dependency impact; safe broad fallback"`.
+Repeatability was `tests.phase=repeatability`, `tests.runs=2`,
+`tests.test_count=85`, `tests.wall_seconds=286.832`, and
+`tests.selection_reason="recording output requires fresh-process comparison"`.
+All phases were protected, exited 0, were stable, and had zero failures, errors
+and skips. The two fresh first-four candidate-run proofs match SHA256
+`7773fc24f68756b8ff9185f1d619049bd82ed5ad6fff7a19ce820dee5729a6f8`. The
+complete selectors, artifact locations, and separate pytest JUnit times are in
+[M9_1DF_IMPLEMENTATION.md](M9_1DF_IMPLEMENTATION.md).
+
+This is an offline synthetic-record contract only. Missing original availability,
+finality, correction, halt, complete trade coverage, numeric parent,
+quote-decision and confidence facts keep dependent rules OFF and untested. No
+fill, return, supervised package, held-out result, source, final-result, profit
+or live claim follows.
+
+- [x] **M9.1DF — concrete first-four candidate run passed protected focused,
+  acceptance and two-process repeatability proof as an offline synthetic-record
+  contract; missing-field dependent rules remain OFF and untested.**
+- [ ] **M9.1DG — run and record the concrete retained training-nine candidate
+  boundary:** use only the already retained inputs, record exact candidate,
+  no-event and unavailable totals and source identities, keep missing-field
+  dependent rules OFF and untested, and do not calculate fills, returns or
+  supervised packages or open held-out names.
+### M9.1DG current bounded implementation handoff — 2026-09-22 Pacific
+
+The durable training-nine candidate record is built. The real retained-file
+run remains a long offline job under D-114 and D-116, so the current milestone
+remains blocked and hands that execution to M9.1DH.
+
+- [!] **M9.1DG — the durable training-nine candidate record is built, but the
+  verified retained file groups have not yet passed the required 2% inspection
+  and detached full run.**
+- [ ] **M9.1DH — execute the retained training-nine candidate run:** connect the
+  verified OHLCV-1m, BBO-1m and trades groups to the accepted record boundary,
+  pass the D-116 2% per-ticker and day-type inspection, then run and collect the
+  detached three-shard result without opening held-out names or calculating
+  fills, returns or supervised packages.
+
+### M9.1DH final bounded implementation handoff — 2026-09-22 Pacific
+
+The sharded record and D-116 inspection contracts are built, but the actual
+retained folders have not been opened. The real inspection and long run remain
+supervisor-owned work. The protected launcher also stopped before collection
+with the known temporary-folder ownership error. See
+[M9_1DH_IMPLEMENTATION.md](M9_1DH_IMPLEMENTATION.md).
+
+- [!] **M9.1DH — the sharded record and 2% inspection contracts are built, but
+  the verified retained folders have not yet passed the real 2% inspection or
+  the supervisor-owned detached three-shard run.**
+- [ ] **M9.1DI — run the real retained candidate job:** after fresh protected
+  acceptance of M9.1DH, connect the verified OHLCV-1m, BBO-1m and trades
+  folders, collect and inspect the D-116 2% sample, and only on a clean sample
+  start, checkpoint, merge and collect the three D-114 shards without opening
+  held-out names or calculating fills, returns or supervised packages.
+
+
+### M9.1DH escalated inspection repair handoff — 2026-09-22 Pacific
+
+Independent review rejected the earlier loose sample contract. The repair now
+reconstructs the sampled part from its decisions, requires matching days and
+usable counts, checks the rounded-up 2% against the declared full job, and
+compares a complete one-moment field/value/unit snapshot for every playbook.
+UNAVAILABLE decisions cannot supply usable counts. Earlier passing proof and
+failed attempts remain historical; fresh protected proof is pending because the
+launcher stopped before collection at its temporary-folder ownership step.
+See [M9_1DH_IMPLEMENTATION.md](M9_1DH_IMPLEMENTATION.md) for the exact error,
+prior proof paths, expanded tests and the source boundary.
+
+- [!] **M9.1DH — bounded inspection repair built; the real retained folders
+  have not passed D-116 or the detached three-shard run.** Fresh protected
+  verification and independent review of the repair remain required. No real
+  sample, full-run release, fills, returns or supervised package is claimed.
+- [ ] **M9.1DI — run the real retained candidate job:** after fresh protected
+  verification and independent review of M9.1DH, capture the real adapter
+  inputs from the verified OHLCV-1m, BBO-1m and trades folders and inspect the
+  exact D-116 sample against its full job plan; only a clean sample permits
+  starting, checkpointing, merging and collecting the three detached D-114
+  shards. Unavailable inputs stay gaps with dependents off; held-out names
+  remain sealed and no fills, returns or supervised packages are calculated.
+
+### M9.1DI real D-116 sample stop — 2026-09-22 Pacific
+
+The manifest-verified offline 2% sample started with all nine training names
+and normal, half-day and degraded coverage. It stopped in the first selected
+BBO-1m file before candidate evaluation because empty quote rows use the
+unsigned null sentinel for `ts_event`; the retained reader treated that value
+as a real future instant and raised `row 2 receipt precedes its event time`.
+No full shard was released and no result was calculated. See
+[M9_1DI_EXECUTION.md](M9_1DI_EXECUTION.md).
+
+- [!] **M9.1DI — the real D-116 sample is blocked at retained BBO-1m null-row
+  decoding; no full D-114 shard was released.**
+- [ ] **M9.1DJ — repair the retained BBO-1m null-row boundary:** verify the
+  official meaning of the null `ts_event`/empty quote row, preserve its exact
+  missingness without inventing an event time, add direct protected cases, and
+  restart the same 47-session D-116 sample before any full-run release.
+
+### M9.1DJ bounded reader-repair handoff — 2026-09-22 Pacific
+
+The official BBO interval contract is now incorporated in the retained reader.
+`ts_recv` supplies the interval-end quote time. The unsigned null `ts_event`
+sentinel stays explicitly missing rather than becoming a future instant or a
+made-up event time. Direct cases cover valid, empty, cross-session and rejected
+trade/future-time boundaries. Fresh protected acceptance is pending because the
+launcher stopped before collection at its known temporary-folder ownership
+step. The exact 47-session D-116 sample also remains supervisor-owned work. See
+[M9_1DJ_IMPLEMENTATION.md](M9_1DJ_IMPLEMENTATION.md).
+
+- [!] **M9.1DJ — the BBO-1m null-time reader repair is built, but fresh
+  protected acceptance and the exact 47-session D-116 restart remain pending.**
+  No full D-114 shard was released.
+- [ ] **M9.1DK — verify the null-time repair and restart the exact D-116
+  sample:** after fresh protected acceptance and independent review, run the
+  same manifest-verified 47 training ticker-sessions. Only a clean sample may
+  release the three D-114 shards. Keep held-out names sealed and do not
+  calculate fills, returns or supervised packages.
+
+Historical M9.1DJ escalated diagnosis: the preserved builder log ends with `Selected model
+is at capacity. Please try a different model.` after saving the repair. The
+separate protected launcher failure occurred before collection. This attempt
+preserved code and tests and recorded the failure instead of repeating it.
+Static inspection also found that the null-trade rejection test expects a
+timestamp-range error although this sentinel can reach the receipt-order
+rejection; that expectation remains unverified and must be resolved. See
+[M9_1DJ_IMPLEMENTATION.md](M9_1DJ_IMPLEMENTATION.md) for the exact test ID and
+preserved log. No current protected pass is claimed.
+
+- [!] **M9.1DJ — partial reader repair preserved after builder capacity
+  failure; protected acceptance and the exact D-116 sample remain blocked.**
+- [ ] **M9.1DK — resolve the null-trade rejection expectation, verify the
+  reader repair, then restart the exact D-116 sample:** proposed continuation
+  subject to independent review; the supervisor may restart the sample only
+  after fresh protected acceptance of the reader. Existing source gaps stay
+  recorded with their dependent rules OFF and untested; no full shard, held-out
+  inspection, fills, returns or supervised package is released by this handoff.
+
+### M9.1DJ current focused-failure repair — 2026-09-22 Pacific
+
+The controller confirmed the null-trade test mismatch described above. The
+missing-time marker fits Python's date range, so date overflow was the wrong
+expected rejection. The current explicit trade-only missing-time rejection is
+preserved, with a matching test that also prevents the receipt-order check from
+masking it. Direct BBO future-time coverage and recorded missing/empty BBO rows
+are included. Fresh protected collection stopped at the launcher's `os.chown`
+with `OSError: [Errno 22] Invalid argument`; no new pass is claimed. The
+controller must publish focused, broad and repeatability proof. See
+[M9_1DJ_IMPLEMENTATION.md](M9_1DJ_IMPLEMENTATION.md) for the original failing
+selector, preserved proof and current limitation.
+
+- [!] **M9.1DJ — bounded null-time repair awaits protected acceptance and
+  the supervisor-owned exact 47-session D-116 restart.** Prior failures and
+  attempts remain historical; the real sample has not been restarted and no
+  full D-114 shard is released.
+- [ ] **M9.1DK — restart the exact D-116 sample after reader acceptance:**
+  subject to fresh protected proof and independent review, the supervisor
+  restarts the same manifest-verified 47 training ticker-sessions. Only a clean
+  sample may release the three D-114 shards. Held-out names stay sealed; no
+  fills, returns or supervised packages are calculated. Source-gap dependents
+  remain OFF and untested.
+
+### M9.1DK real D-116 sample stop — 2026-09-22 Pacific
+
+The manifest-verified offline 47-session sample passed the repaired null-time
+row, then stopped on the first early BBO-1m initialization rows for the next
+trading date. Their interval end falls on the prior Pacific calendar date even
+though the verified retained condition list names the next trading date. The
+reader therefore raised `row 23753 session 2025-10-05 is not in the retained
+condition list`. No candidate result or full shard was released. See
+[M9_1DK_EXECUTION.md](M9_1DK_EXECUTION.md).
+
+- [!] **M9.1DK — the exact D-116 sample is blocked at retained BBO-1m
+  session-date mapping; no full D-114 shard was released.**
+- [ ] **M9.1DL — repair the retained BBO-1m session-date boundary:** preserve
+  the provider trading date for early initialization rows, add direct protected
+  cases, and restart the same manifest-verified 47-session D-116 sample. Only a
+  clean sample may release the three D-114 shards. Held-out names stay sealed;
+  no fills, returns or supervised packages are calculated, and source-gap
+  dependents remain OFF and untested.
+
+### M9.1DL bounded reader-repair handoff — 2026-09-22 Pacific
+
+Historical handoffs below through the original M9.1DO local stop preserve the
+launcher failures and the information used at those attempts. Their claims of
+missing protected proof are superseded by **M9.1DO reader-proof reconciliation**
+below. The real D-116 sample restart remains unfinished.
+
+The retained BBO-1m reader now maps no-trade initialization rows to their
+provider trading date instead of the prior Pacific calendar date. Direct cases
+cover the real early interval shape and prevent borrowing the prior date's
+condition when both dates exist. The deterministic reader recording includes
+the boundary. The protected launcher stopped before collection at its unchanged
+temporary-folder ownership step, so fresh protected acceptance and the exact
+47-session D-116 sample restart remain pending. See
+[M9_1DL_IMPLEMENTATION.md](M9_1DL_IMPLEMENTATION.md).
+
+- [!] **M9.1DL — the BBO-1m session-date repair is built, but fresh protected
+  acceptance and the exact D-116 sample restart remain pending.** No full D-114
+  shard is released.
+- [ ] **M9.1DM — verify the session-date repair and restart the exact D-116
+  sample:** after fresh protected acceptance and independent review, restart
+  the same manifest-verified 47 training ticker-sessions. Only a clean sample
+  may release the three D-114 shards. Held-out names stay sealed; no fills,
+  returns or supervised packages are calculated, and source-gap dependents
+  remain OFF and untested.
+
+### M9.1DM verification stop and evidence repair — 2026-09-22 Pacific
+
+The prior attempt stopped before protected collection at `os.chown` with
+`OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-gzxr028z'`.
+Its handoff was rejected because it saved no changed evidence record. The
+escalated repair adds [M9_1DM_VERIFICATION.md](M9_1DM_VERIFICATION.md), preserves
+the original failure, and records the unfinished execution. The reproduced
+sandbox failure was not retried. Code, tests and protection remain unchanged;
+no current protected pass or D-116 sample result is claimed.
+
+- [!] **M9.1DM — fresh protected reader acceptance and the exact D-116
+  sample restart remain blocked.** The evidence-record omission is repaired;
+  controller proof and independent review are still required. No full D-114
+  shard is released.
+- [ ] **M9.1DN — resume the exact D-116 sample after protected reader
+  acceptance:** proposed continuation subject to independent review, not a
+  bypass of the verification barrier. After fresh protected acceptance,
+  restart the same manifest-verified 47 training ticker-sessions. Only a clean
+  sample may release the three D-114 shards. Held-out names stay sealed; no
+  fills, returns or supervised packages are calculated. Source-gap dependents
+  remain OFF and untested, and all switches stay off.
+
+### M9.1DN protected-acceptance stop — 2026-09-22 Pacific
+
+The focused protected reader run again stopped before collection at the
+launcher's unchanged temporary-folder ownership step with `OSError: [Errno 22]
+Invalid argument: '/tmp/trade-alerts-m04-xv4pejf3'`. It was not retried, and no
+application tests ran outside protection. The required fresh protected reader
+acceptance and independent review are therefore still unavailable, so the exact
+47-session D-116 sample was not restarted. No full D-114 shard was released.
+See [M9_1DN_EXECUTION.md](M9_1DN_EXECUTION.md).
+
+- [!] **M9.1DN — the exact D-116 sample remains blocked by missing fresh
+  protected reader acceptance and independent review.** No sample restart or
+  full D-114 shard is claimed.
+- [ ] **M9.1DO — resume the exact D-116 sample after protected reader
+  acceptance:** after the controller publishes fresh focused, broad and
+  two-process reader proof and independent review accepts it, restart the same
+  manifest-verified 47 training ticker-sessions. Only a clean sample may release
+  the three D-114 shards. Held-out names stay sealed; no fills, returns or
+  supervised packages are calculated. Source-gap dependents remain OFF and
+  untested, and all switches stay off.
+
+### M9.1DO protected-reader stop — 2026-09-22 Pacific
+
+The focused protected reader run stopped before collection at the launcher's
+temporary-folder ownership step with `OSError: [Errno 22] Invalid argument:
+'/tmp/trade-alerts-m04-vqlv63bd'`. It was not retried, and no application tests
+ran outside protection. Fresh focused, broad acceptance and two-process reader
+proof and independent review therefore remain pending. The exact 47-session
+D-116 sample was not restarted, and no full D-114 shard was released. See
+[M9_1DO_EXECUTION.md](M9_1DO_EXECUTION.md).
+
+- [~] **M9.1DO — the reader repair is ready for controller-run protected proof;
+  the sandbox stopped this session before collection.** No sample restart or
+  full D-114 shard is claimed.
+- [ ] **M9.1DP — restart the exact D-116 sample after protected reader
+  acceptance:** after fresh focused, broad and two-process proof and independent
+  review accept the reader repair, restart the same manifest-verified 47
+  training ticker-sessions. Only a clean sample may release the three D-114
+  shards. Held-out names stay sealed; no fills, returns or supervised packages
+  are calculated. Source-gap dependents remain OFF and untested, and all
+  switches stay off.
+
+### M9.1DO reader-proof reconciliation — 2026-09-22 Pacific
+
+The earlier missing-proof claim was a records error: a local launcher stop was
+mistaken for absent controller evidence. The M9.1DL controller already published
+one broad acceptance run of 3982 checks and two fresh repeatability runs of 87
+checks each, with zero failures, errors or skips. The current M9.1DO focused run
+passed 53 checks. All emit the same reader-proof SHA256:
+`8b569ff6eb6121dcae9b7ddd03405e49ae0a4e3f9edc24e076ca6259977a9088`.
+Protected manifests match; only research records changed afterward. Reuse this
+proof, preserving the original tested hashes and complete manifests, rather
+than require another broad/repeatability run for unchanged code.
+
+[M9_1DO_EXECUTION.md](M9_1DO_EXECUTION.md) records exact phase selectors, run
+counts, separate controller/pytest/JUnit timings, both recording directories,
+source manifests, hash comparisons and the prior local failure. The broad proof
+is in
+`/root/trade-alerts-builder/runs/20260922-170955-875873-build/published-artifacts-ddc3d4ac486a`;
+the two fresh recording runs are in
+`/root/trade-alerts-builder/runs/20260922-170955-875873-build/published-artifacts-28f56891de4f`;
+the current focused proof is in
+`/root/trade-alerts-builder/runs/20260922-174640-607738-build/published-artifacts-34ce24e2bcdb`.
+The M9.1DL independent review found the reader repair sound and left the sample
+restart unfinished. This corrected handoff still requires independent review;
+it does not claim a sample result or milestone acceptance.
+
+- [!] **M9.1DO — protected reader proof is available and reused; the exact
+  47-session D-116 sample has not restarted.** Prior launcher failures remain
+  historical. No full D-114 shard is released.
+- [ ] **M9.1DP — restart the exact D-116 sample using the matching protected
+  reader proof:** after independent review of this corrected handoff, restart
+  the same manifest-verified 47 training ticker-sessions. Only a clean sample
+  may release the three D-114 shards. Held-out names stay sealed; no fills,
+  returns or supervised packages are calculated. Source-gap dependents remain
+  OFF and untested, and all switches stay off.
+
+### M9.1DP exact sample result — 2026-09-22 Pacific
+
+The exact preserved 47-session command completed with exit zero. It planned 47
+sessions, built 46, explicitly skipped the degraded `NVDA` 2025-10-10 session,
+read 789,181 matching market records and produced 184 decisions. Every decision
+was `UNAVAILABLE`; every training ticker and all four current playbooks had zero
+usable decisions. The full run remained locked. A separate coverage count found
+both BBO-1m and trade records for all 47 sessions, so retained market-file
+absence is not the blocker. See
+[M9_1DP_EXECUTION.md](M9_1DP_EXECUTION.md) and the preserved supervisor result
+named there.
+
+The corrected evidence record publishes the original supervisor sample and
+coverage outputs with their raw execution ordinals. The earlier M9.1DK log
+remains a failed run at row 23753, not the successful run's source. Record
+presence does not establish complete source coverage. D-116's separate
+normal/half-day/degraded usable counts and each adapter's consumed-field unit
+inspection were not reached after the zero-usable hard stop and remain
+required. This is a records-only correction; no sample or product test was
+rerun, and no full-run release or independent acceptance is claimed.
+
+- [!] **M9.1DP — the exact sample completed, but all 184 decisions were
+  unavailable.** The three D-114 shards remain locked. No held-out name, fill,
+  return, supervised package, paid call or live action was opened.
+- [ ] **M9.1DQ — connect the required offline producer inputs:** use only
+  already-authorized offline sources for halt status, macro blackout, catalyst
+  coverage, ATR, quote-decision, confidence and required parent evidence.
+  Preserve genuine unknowns. After protected tests and independent review,
+  rerun the same exact sample; only a clean result may release the three shards.
+
+### M9.1DQ bounded offline-input connection — 2026-09-22 Pacific
+
+Retained minute bars and BBO-1m rows now produce one typed point-in-time input
+record for every frozen producer moment. The existing core-price builder
+supplies minute ATR and session VWAP when its exact ended-bar windows are
+complete. The existing quote-event checker records the retained BBO decision.
+The first-two and remaining-two request records retain these connected inputs.
+
+Unavailable facts were not filled. Halt and macro stay null, catalyst coverage
+stays `UNKNOWN`, daily ATR and confidence stay unavailable, and the retained
+BBO decision stays unusable while its source quality, delayed state, trade
+price, continuity and exact policy are unproved. The initial builder run stopped
+before collection at the launcher's ownership step. The later controller run
+found a test-setup error: `dataclasses.replace` received a `SimpleNamespace`
+history wrapper. The repair constructs the canonical `SessionHistory` directly;
+production calculations and the shared helper remain unchanged. The repaired
+case's protected run stopped before collection with
+`OSError: [Errno 22] Invalid argument`; that sandbox failure was not retried.
+The subsequent controller check reached the ATR assertion but obtained `None`:
+the synthetic bars inherited unknown quality, so the coverage gate withheld
+the calculation. The escalated repair preserves the existing explicit valid
+synthetic quality and adds direct coverage, exact VWAP and unknown-quality
+rejection assertions. Production calculations remain unchanged. Its focused
+protected launch also stopped before collection with
+`OSError: [Errno 22] Invalid argument`; it was not retried.
+The earlier controller publication proved the directly affected selection passed,
+including the repaired ATR/VWAP case. Its subsequent broad acceptance stage
+failed with the launcher's `subprocess.TimeoutExpired`. Its latest child output
+under `/tmp/trade-alerts-m04-fsj1lswo` cannot be read here (`Permission denied`),
+so the slow or failing case and reason for the long run remain unknown. The
+failed invocation's deadline differs from the current launcher source; no fix
+or successful rerun is inferred from that difference. Attempt 5 changed records
+only and did not rerun the failing command or modify the launcher. The earlier
+`aczpvk38` timeout remains historical evidence in the implementation record.
+This was the attempt-5 state; the later broad pass, recording failure and
+attempt-6 repair below supersede it. Prior failures remain preserved. See
+[M9_1DQ_IMPLEMENTATION.md](M9_1DQ_IMPLEMENTATION.md).
+
+- [!] **M9.1DQ — the offline bar and BBO input records are connected, but the
+  parent milestone still lacks actual producer evaluation, combined quote/trade,
+  confidence and complete parent-evidence wiring plus protected acceptance.**
+  No D-116 rerun or full D-114 shard is claimed.
+- [ ] **M9.1DR — connect the typed inputs to the actual first-four producer
+  evaluations:** define the retained quote/trade combination by exact source
+  identity, use only available point-in-time features and parent evidence,
+  preserve all remaining unknowns, add confidence only from complete canonical
+  inputs, and obtain protected proof before any exact-sample restart.
+
+### M9.1DQ safe pause — 2026-09-22 20:06 Pacific
+
+The broad protected run published `3987 passed in 1350.59s (0:22:30)` in one
+fresh process. JUnit separately records `tests="3987"`, `time="1350.424"`.
+The earlier pause count of 3,982 was a transcription error. The controller
+acceptance wall time was not supplied. Its summary records zero Databento credit. The required two-process recording check then failed in both
+runs at the same test:
+`test_retained_training_candidate_parts.py::test_recording_sharded_candidate_contract_is_deterministic`.
+Each run passed the other 87 selected tests and stopped at the test's 120-second
+limit while rebuilding offline price inputs. A supervisor-only retry of that
+single failed test reproduced the timeout during its first large inspection;
+removing only its second inspection was therefore not a fix and was fully
+reverted. The test file hash is back to
+`e9f0e42c08c56c22b293b43d60975600d98f69bb500930f6b598cddd9d964a75`.
+
+The next repair must improve the repeated offline price-input calculation; it
+must not weaken the proof or raise the per-test timeout without evidence. The
+controller and watcher are stopped. The pause proposed retaining the prior focused and broad proof and resuming
+with the failed recording case. That instruction is historical: attempt 6
+changes code/tests, so affected proof must be renewed by the controller. No
+independent milestone acceptance follows from those earlier runs. M9.1DR
+remains unopened.
+
+
+### M9.1DQ repeated price-input repair — 2026-09-23 Pacific
+
+Attempt 6 traced the cold recording timeout to repeated canonical price work
+for identical bar history and decision time across the four playbooks. The
+input builder now reuses that exact immutable-history result with a bounded
+cache, restoring each playbook's record ID. Changed history or time gets a fresh
+calculation; quote state remains separate. New direct-comparison checks cover
+revisions, later availability, unknown quality, identity and source changes.
+The original failed recording and its second inspection remain intact.
+
+Protected focused execution stopped before collection with
+`OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-frae3kr6'`.
+The sandbox failure was not retried. Fresh focused, controller-required broader
+proof and both recording comparisons remain required; historical passing proof
+cannot validate the code/test repair. No speed improvement or acceptance is
+claimed. Exact prior controller records and output hashes are preserved in
+[M9_1DQ_REPAIR6_EVIDENCE.json](M9_1DQ_REPAIR6_EVIDENCE.json); the diagnosis and
+full handoff are in [M9_1DQ_IMPLEMENTATION.md](M9_1DQ_IMPLEMENTATION.md).
+The protected launcher is part of the inherited milestone delta, not an edit
+made by this repair. All prior failures and unknown inputs are preserved.
+
+- [!] **M9.1DQ — bounded input repair awaits protected verification; the parent
+  still needs actual producer evaluation, combined quote/trade, confidence and
+  complete parent evidence.** All missing-data dependents stay OFF and untested.
+  No exact sample restart or full shard is released.
+- [ ] **M9.1DR — connect the typed inputs to the actual first-four producer
+  evaluations:** preserve the existing exact source-identity and unknown-input
+  boundaries; proceed only after fresh proof and independent review confirm
+  this continuation is ready. No source, final-validation or live gate closes.
+
+### M9.1DQ protected-proof finalization — 2026-09-23 Pacific
+
+The controller published protected proof for the attempt-6 repair. The focused
+phase ran once: 23 checks in 41.207 seconds. The broader acceptance phase ran
+once: 3987 checks in 1355.622 seconds. The two fresh recording runs covered 88
+checks in 354.942 seconds, with `stable: true`. The controller supplied the
+complete tested-source manifest and source hash
+`5b5a342847a425f0d30278b2c9d4df5ea6df720fd852df28a144e8fa67d351c8`.
+The earlier timeout and local launcher stop remain historical evidence in
+[M9_1DQ_REPAIR6_EVIDENCE.json](M9_1DQ_REPAIR6_EVIDENCE.json).
+
+- [x] **M9.1DQ — bounded offline producer-input connection and its protected
+  proof are complete.** Missing halt, macro, catalyst, daily-history,
+  confidence and unproved BBO-dependent paths remain OFF and untested. No exact
+  sample restart, full shard, source/final-validation or live gate is released.
+- [ ] **M9.1DR — connect the typed inputs to the actual first-four producer
+  evaluations:** preserve exact source identity and unknown-input boundaries;
+  define the retained quote/trade combination, confidence only from complete
+  canonical inputs and parent evidence, then obtain protected proof before any
+  exact-sample restart.
+
+### M9.1DR bounded quote/trade connection — 2026-09-23 Pacific
+
+Each frozen producer moment now selects the latest separately retained BBO and
+trade available by that moment. Both original record IDs and the unmodified
+trade record stay attached; they are never merged into a made-up market record.
+Scope drift is rejected, and later trades cannot enter earlier decisions.
+Unknown quality, delay, quote policy and continuity remain named blockers, so
+the current retained pair is unusable and its dependents stay OFF and untested.
+
+The protected focused launch stopped before collection with
+`OSError: [Errno 22] Invalid argument` at the launcher's temporary-directory
+ownership step and was not retried. Fresh controller proof is required. See
+[M9_1DR_IMPLEMENTATION.md](M9_1DR_IMPLEMENTATION.md).
+
+- [!] **M9.1DR — the exact retained BBO/trade pair is connected, but the parent
+  still needs actual first-four strategy evaluation, complete canonical
+  confidence inputs, complete parent evidence and protected proof.** No exact
+  sample restart, candidate, fill, result shard or live action is released.
+- [ ] **M9.1DS — connect the exact retained inputs to the actual first-four
+  strategy evaluators:** preserve all unknown-input blocks, construct confidence
+  only from complete canonical inputs, carry complete parent evidence and
+  obtain protected proof before any exact-sample restart.
+
+### M9.1DR focused repair — 2026-09-23 Pacific
+
+The controller found that the source/ticker saved-measurement tests retained an
+unrelated trade after changing the bar history. The trade-scope rejection was
+correct. The repair uses bar-only inputs for those measurement comparisons and
+separate source/ticker trade-mismatch rejection cases; production checks remain
+unchanged. Prior failures are preserved in
+[M9_1DR_IMPLEMENTATION.md](M9_1DR_IMPLEMENTATION.md).
+
+The repaired focused launch stopped before collection at `os.chown` with
+`OSError: [Errno 22] Invalid argument`; it was not retried. Fresh controller
+focused, acceptance and recording proof remains required. No passing repair
+result, sample restart or source qualification is claimed. Unknown inputs keep
+their dependent rules OFF and untested.
+
+- [!] **M9.1DR — the bounded pair connection and focused test repair await
+  protected proof; actual first-four evaluation, complete canonical confidence
+  inputs and complete parent evidence remain unfinished.** Previous failures
+  and all source, final-validation and live gates remain preserved.
+- [ ] **M9.1DS — connect the exact retained inputs to the actual first-four
+  strategy evaluators:** retain unknown-input blocks and complete confidence
+  and parent-evidence requirements; fresh protected proof and independent
+  review must precede any exact-sample restart.
+
+### M9.1DR publication blocker — 2026-09-23 Pacific
+
+The current controller failure is `verification error: artifact publication is
+too large`. Read-only diagnosis traced it to the controller's combined proof
+publication size limit. This supersedes the earlier sandbox launch failure as
+the current blocker. Earlier failures, repairs, logs and published artifacts
+remain preserved in [M9_1DR_IMPLEMENTATION.md](M9_1DR_IMPLEMENTATION.md).
+No controller or protection change is authorized in this milestone. No test was
+rerun and no complete acceptance or recording comparison is claimed.
+
+- [!] **M9.1DR — blocked by the controller's aggregate proof-publication limit;
+  actual first-four evaluation, complete confidence inputs and complete parent
+  evidence also remain unfinished.** A separately authorized controller repair
+  and complete protected proof are required. Unknown-input dependent rules stay
+  OFF and untested; no exact-sample restart or live action is released.
+- [ ] **M9.1DS — connect the exact retained inputs to the actual first-four
+  strategy evaluators:** proposed next slice, subject to independent review of
+  dependency eligibility and the unresolved publication blocker; preserve all
+  unknown-input, confidence, parent-evidence and protected-proof requirements.
+
+### M9.1DS dependency block — 2026-09-23 Pacific
+
+M9.1DS made no code, test, configuration or protected-input change. Its M9.1DR
+dependency is not accepted: the controller stopped with `verification error:
+artifact publication is too large` before publishing a complete protected
+phase summary, and the current work packet supplies no verification handoff or
+recorded M9.1DR acceptance. Building the evaluator connection now would bypass
+the required protected-proof and independent-review order. See
+[M9_1DS_BLOCKED.md](M9_1DS_BLOCKED.md).
+
+- [!] **M9.1DS — blocked by the unaccepted M9.1DR protected-proof dependency.**
+  A separately authorized controller publication repair, complete M9.1DR
+  focused/acceptance/repeatability proof and independent acceptance are needed
+  before this evaluator work can start. Unknown-input dependent rules remain
+  OFF and untested; no exact sample or live action is released.
+
+### M9.1DR publication repair and M9.1DS eligibility — 2026-09-23 Pacific
+
+The separately authorized controller repair superseded the aggregate
+publication-size failure. Fresh protected proof passed 22 focused checks,
+4,004 broader checks and two 88-check recording runs with matching artifacts
+and clean isolation. Independent review found the bounded retained BBO/trade
+connection sound and named M9.1DS as the last open eligible roadmap row.
+
+M9.1DR remains blocked only as the unfinished parent: actual first-four
+strategy evaluation, complete canonical confidence inputs and complete parent
+evidence remain open. Those obligations move forward in M9.1DS. All
+unknown-input dependent rules stay OFF and untested; no exact sample,
+candidate, fill, result shard or live action is released.
+
+- [!] **M9.1DR — its bounded retained BBO/trade connection and protected proof
+  are complete; the parent remains blocked on the M9.1DS evaluator,
+  confidence-input and parent-evidence work.**
+- [ ] **M9.1DS — eligible to continue as the last open roadmap row:** connect
+  the exact retained inputs to the actual first-four strategy evaluators,
+  construct confidence only from complete canonical inputs, carry complete
+  parent evidence and obtain protected proof before any exact-sample restart.
+
+### M9.1DS dependency-record reconciliation — 2026-09-23 Pacific
+
+The stale dependency block is corrected in
+[M9_1DS_BLOCKED.md](M9_1DS_BLOCKED.md). M9.1DR's separately repaired
+publication and independent review make the retained input boundary eligible;
+they do not implement or accept the evaluator, confidence-input or complete
+parent-evidence work. This records-only slice made no product code, test,
+configuration or protected-input change.
+
+- [!] **M9.1DS — the dependency record is corrected, but the evaluator work is
+  not implemented in this records-only slice.** Unknown-input dependent rules
+  remain OFF and untested. No exact sample, candidate, fill, result shard or
+  live action is released.
+- [ ] **M9.1DT — connect the accepted retained inputs to the actual first-four
+  strategy evaluators:** construct confidence only from complete canonical
+  inputs, carry complete parent evidence, preserve every genuine unknown and
+  obtain protected proof before any exact-sample restart.
+
+### M9.1DT bounded evaluator-plan handoff — 2026-09-23 Pacific
+
+The accepted retained inputs are now bound to the canonical replay-step type
+and evaluator name for each first-four playbook. Exact source IDs, point-in-time
+offline inputs, available parent records and every missing mandatory input stay
+together in one immutable plan. Complete confidence, halt, macro, catalyst,
+daily-history, quote-policy, continuity and required parent facts remain
+unknown, so no plan is runnable and no evaluator is advanced.
+
+The initial protected launch stopped before collection at temporary-folder
+ownership. The controller then found a test expectation error: the plan retains
+every decision moment, while the test expected only one replay step. The repair
+checks the complete step sequence and exact times without changing product
+behavior. Its protected focused launch stopped before collection with
+`OSError: [Errno 22] Invalid argument` at temporary-folder ownership and was not
+retried. A later controller run reached publication but rejected the oversized
+full-plan recording. The carried-forward repair uses its canonical fingerprint
+and readable missing-input reasons, preserving the plan and publication limits.
+The current focused protected launch again stopped before collection with
+`OSError: [Errno 22] Invalid argument` at temporary-folder ownership; it was
+not retried. Fresh controller focused, acceptance and recording proof remain due;
+the prior failures and current diagnosis are preserved in
+[M9_1DT_IMPLEMENTATION.md](M9_1DT_IMPLEMENTATION.md). All D-104
+gap-dependent rules remain OFF and untested. No exact sample, candidate, fill,
+return, result shard, held-out name or live action is released.
+
+- [!] **M9.1DT — the exact evaluator plans are built, but actual fail-closed
+  evaluator execution, complete canonical confidence inputs, complete parent
+  evidence and protected proof remain unfinished.**
+- [ ] **M9.1DU — execute the retained first-four evaluator plans fail closed:**
+  preserve every missing-input result, use confidence and parent records only
+  when complete canonical evidence exists, and obtain protected focused,
+  acceptance and two-process recording proof before any exact-sample restart.
+
+### M9.1DU fail-closed evaluator execution — 2026-09-23 Pacific
+
+Each retained first-four evaluator plan now produces one immutable
+`UNAVAILABLE` result while any mandatory input is missing. The result preserves
+the exact evaluator binding, retained source IDs and missing-input reasons and
+records zero evaluated steps and zero transitions. The executor checks the
+canonical step and parent contents, so removing a missing label cannot make an
+incomplete plan run. Mismatched evaluator bindings are rejected.
+
+Complete canonical confidence, halt, macro, catalyst, daily-history,
+quote-policy, continuity and parent evidence remain unavailable. Their
+dependent rules stay OFF and untested. No exact sample, candidate, fill,
+return, result shard, held-out name or live action is released. The protected
+focused launch stopped before collection with `OSError: [Errno 22] Invalid
+argument` at temporary-folder ownership and was not retried. Fresh protected
+focused, acceptance and two-process recording proof remain required. See
+[M9_1DU_IMPLEMENTATION.md](M9_1DU_IMPLEMENTATION.md).
+
+- [!] **M9.1DU — the retained evaluator plans now execute fail closed, but the
+  parent remains blocked on complete canonical inputs, parent evidence and
+  protected proof.** No strategy owner is constructed or advanced.
+- [ ] **M9.1DV — connect only complete canonical confidence and parent evidence
+  to the retained evaluator owners:** preserve every genuine unknown and obtain
+  protected proof before any strategy advance or exact-sample restart.
+
+### M9.1DU protected-proof finalization — 2026-09-23 Pacific
+
+The controller's protected focused phase ran
+`tests/trade_alerts_contracts/test_retained_first_four_evaluator_run.py` once:
+4 checks in 7.376 seconds. Broad acceptance ran
+`tests/trade_alerts_contracts` once: 4012 checks in 837.492 seconds. Two fresh
+recording processes ran the controller-selected 90 checks in 377.34 seconds;
+the M9.1DU recording hash matched in both. The tested-source hash is
+`a740c851c0cd9b353b17dddc0882c06e3fb05c3e6bd93e9c30a87aa0f4fad5fb`.
+The earlier sandbox launcher stop remains historical. Complete canonical
+confidence and parent evidence remain unavailable, so every dependent rule
+stays OFF and untested. No exact sample, candidate, fill, return, result shard,
+held-out name or live action is released.
+
+- [x] **M9.1DU — fail-closed retained evaluator execution and its protected
+  proof are complete.** The parent remains blocked on complete canonical inputs
+  and parent evidence; no strategy owner is constructed or advanced.
+- [ ] **M9.1DV — connect only complete canonical confidence and parent evidence
+  to the retained evaluator owners:** preserve every genuine unknown and obtain
+  protected proof before any strategy advance or exact-sample restart.
+
+### M9.1DV retained owner-input admission — 2026-09-23 Pacific
+
+The gate now checks exact step and parent types, matching symbol, instrument,
+session, direction, evaluation time and source references. It recomputes
+confidence from its bound inputs and reconstructs each reversal handoff from
+the matching parent request. The impulse parent must contain the canonical
+complete, ordered measurement. Synthetic positive and mismatch cases cover
+all four playbooks. No owner is constructed or advanced.
+
+The earlier controller proof passed: focused ran
+`tests/trade_alerts_contracts/test_retained_first_four_owner_inputs.py` once,
+4 checks with controller wall time 6.787 seconds; acceptance ran
+`tests/trade_alerts_contracts` once, 4016 checks with controller wall time
+860.685 seconds. Repeatability ran the published selector list in two runs,
+91 checks per run with controller wall time 372.423 seconds. Both M9.1DV
+recording hashes matched. These are preserved passes for the earlier source,
+not acceptance of the gaps found by review or proof of this repair. The older
+launcher stop is historical. Exact selectors, pytest lines, JUnit times,
+artifacts and hashes are in [M9_1DV_IMPLEMENTATION.md](M9_1DV_IMPLEMENTATION.md).
+
+The earlier temporary-folder ownership stop is historical. Fresh controller
+proof then passed: focused ran
+`tests/trade_alerts_contracts/test_retained_first_four_owner_inputs.py` and
+`tests/trade_alerts_contracts/test_retained_first_four_owner_inputs.py::test_recorded_owner_input_admission_is_deterministic` once, 142 checks and controller
+wall time 83.203 seconds; acceptance ran
+`tests/trade_alerts_contracts` once, 4,154 checks and controller wall time
+934.321 seconds; and two fresh recording runs covered the published selector
+list, 91 checks per run with controller wall time 384.136 seconds. The M9.1DV
+recording artifact matched in both runs. The controller's tested-source hash is
+`424253645c1a4d1140d2e935f220648049ca521383cb9e85201fbcabeea5e12a`.
+All confidence, halt, macro, catalyst, daily-history, quote-policy, continuity
+and parent gaps remain genuine. Their dependent rules stay OFF and untested.
+
+- [x] **M9.1DV — repaired complete-input admission and fresh protected proof
+  are complete.** No strategy owner is constructed or advanced, and the
+  supplied source gaps remain open.
+- [ ] **M9.1DW — construct the canonical first-four evaluator owners only from
+  admitted complete inputs:** reject every unavailable or mismatched input,
+  preserve every genuine unknown and obtain protected proof before any strategy
+  advance or exact-sample restart.
+
+### M9.1DV second review repair — 2026-09-23 Pacific
+
+The gate now requires every confidence snapshot and selected feature to use
+only source IDs from its exact admitted step. First-pullback parent evidence
+must equal the retained plan-moment record and contents, not just matching
+metadata and allowed source membership. New rejection cases cover mixed-step
+sources and same-metadata/different-content parent records. Earlier protected
+passes remain historical; fresh proof is required for this repair.
+
+The complete synthetic pullback fixture now uses its actual retained parent.
+Direct identity-only and content-only cases require the parent mismatch reason.
+Recomputed confidence carrying another admitted step's source is refused in
+both directions. The recording includes these new rejection paths.
+The protected focused launch stopped before collection with
+`OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-hr7zl206'`
+at temporary-folder ownership. It was not retried. The controller must supply
+fresh focused, broad acceptance and recording proof; the prior source's passes
+and completion row above are historical, not acceptance of this repair.
+
+- [x] **M9.1DV — second review repair has fresh protected proof.** The gate
+  rejects mixed-step confidence sources and parent identity/content mismatches;
+  no strategy owner is constructed or advanced.
+- [ ] **M9.1DW — construct canonical owners only after M9.1DV acceptance.**
+
+### M9.1DV second review repair protected-proof finalization — 2026-09-23 Pacific
+
+The earlier temporary-folder stop is historical. Fresh controller proof ran the
+focused selectors
+`tests/trade_alerts_contracts/test_retained_first_four_owner_inputs.py` and
+`tests/trade_alerts_contracts/test_retained_first_four_owner_inputs.py::test_recorded_owner_input_admission_is_deterministic`
+once: 156 checks with controller wall time 86.103 seconds. Broad acceptance
+ran `tests/trade_alerts_contracts` once: 4,168 checks with controller wall time
+931.956 seconds. The controller selected broad coverage for unknown dependency
+impact. Two fresh repeatability processes ran the controller's published
+selector list: 91 checks per run with controller wall time 388.658 seconds.
+The focused artifact is `published-artifacts-bcc5b615b172/run-1`, acceptance
+is `published-artifacts-d53175e289a5/run-1`, and repeatability is
+`published-artifacts-ffb552fea8ba/run-1` and
+`published-artifacts-ffb552fea8ba/run-2` under the controller build run.
+The `m91dv-retained-first-four-owner-inputs.json` hashes matched in both
+processes at
+`0c0082c332fcdd3671da776788ea6128c6d080e8b17b4cfe047c4fac0500125e`.
+The controller's tested-source hash is
+`d67e1876473c33ebddc381cb49150ed58e762222e1be1816973e2e4e532623c6`.
+Exact pytest lines, JUnit times, selectors, artifact paths and the complete
+manifest are in [M9_1DV_IMPLEMENTATION.md](M9_1DV_IMPLEMENTATION.md).
+
+All confidence, halt, macro, catalyst, daily-history, quote-policy, continuity
+and parent gaps remain genuine. Their dependent rules stay OFF and untested;
+no owner is constructed or advanced.
+
+### M9.1DW retained first-four evaluator-owner construction — 2026-09-23 Pacific
+
+The existing canonical replay owner for each first-four playbook is now
+constructed only after the M9.1DV gate admits complete exact inputs. The
+construction boundary reruns admission, uses its exact session and identity,
+checks the exact policy types for the selected evaluator and checks
+the first-pullback direction and impulse window. It does not evaluate or
+advance an owner.
+
+The real retained plans still contain confidence, halt, macro, catalyst,
+daily-history, quote-policy, continuity and parent gaps, so they construct no
+owner. Their dependent rules remain OFF and untested. No exact sample,
+candidate, fill, return, result shard, held-out name or live action is released.
+Synthetic complete records cover all four owner types in both directions and
+prove only the offline construction contract. See
+[M9_1DW_IMPLEMENTATION.md](M9_1DW_IMPLEMENTATION.md).
+
+The protected focused launch stopped before collection with
+`OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-4f1nt52o'` at
+temporary-folder ownership and was not retried. Fresh controller focused,
+broad acceptance and two-process recording proof remain required.
+
+- [~] **M9.1DW — canonical owner construction is implemented, but protected
+  proof remains pending.** Real retained unknowns construct no owner, and no
+  owner is evaluated or advanced.
+- [ ] **M9.1DX — after M9.1DW acceptance, drive the admitted canonical owners
+  only through exact supplied contexts:** keep recording acknowledgement before
+  state advance, preserve every genuine unknown and obtain protected proof
+  before any exact-sample restart.
+
+### M9.1DX retained first-four exact-context evaluator drive — 2026-09-23 Pacific
+
+The admitted canonical owner now takes each exact context from its admitted
+plan step. Every proposed transition must be returned unchanged by the supplied
+recording boundary before the owner advances. A failed or changed
+acknowledgment stops before state advance. The real retained plans still contain
+confidence, halt, macro, catalyst, daily-history, quote-policy, continuity and
+parent gaps, so they remain `UNAVAILABLE` with zero evaluated steps and zero
+transitions. Their dependent rules stay OFF and untested.
+
+Synthetic complete records cover all four first-four owners in both directions
+and prove only this offline drive contract. No exact sample, candidate, fill,
+return, result shard, held-out name, alert or live action is released. See
+[M9_1DX_IMPLEMENTATION.md](M9_1DX_IMPLEMENTATION.md).
+
+The protected focused launch stopped before collection with
+`OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-ty2gs7c7'` at
+temporary-folder ownership and was not retried. Fresh controller focused,
+broad acceptance and two-process recording proof remain required.
+
+- [~] **M9.1DX — exact-context evaluation and record-before-advance are
+  implemented, but protected proof remains pending.** Genuine retained gaps
+  still evaluate no owner and release no exact sample.
+- [ ] **M9.1DY — after M9.1DX acceptance, restart the exact retained first-four
+  sample only from fully acknowledged evaluator results:** preserve every
+  genuine unknown and keep candidate, fill, return and held-out release off
+  until their own boundaries are proven.
+
+### M9.1DY retained first-four sample restart — 2026-09-23 Pacific
+
+The new restart boundary requires all four playbooks for every exact planned
+retained training session, rebuilds each plan and drives only plans that have
+both exact owner settings and an exact recorder. It rejects duplicate
+playbook/session identities, held-out names, dropped source-gap off switches
+and incomplete dependency maps before any drive. The
+accepted M9.1DX boundary still requires every proposed transition to be
+acknowledged unchanged before state advances.
+
+The real retained fixture remains unavailable because confidence, halt, macro,
+catalyst, daily-history, quote-policy, continuity and parent facts are still
+genuine gaps. Their dependent rules remain OFF and untested. Synthetic complete
+records cover all four owner types and prove only the offline restart contract.
+Candidate, fill, return, result-shard and held-out release remain false. See
+[M9_1DY_IMPLEMENTATION.md](M9_1DY_IMPLEMENTATION.md).
+
+The protected focused launch stopped before collection with
+`OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-_1_4i_zo'` at
+temporary-folder ownership and was not retried. Fresh controller focused,
+broad acceptance and two-process recording proof remain required.
+
+- [~] **M9.1DY — the exact retained sample restart boundary is implemented,
+  but protected proof remains pending.** Genuine retained gaps still produce
+  only unavailable evaluator results and no later release.
+- [ ] **M9.1DZ — after M9.1DY acceptance, bind only fully acknowledged evaluator
+  results to exact candidate, no-event or unavailable records:** preserve every
+  genuine unknown and keep fill, return, result-shard and held-out release off
+  until their own boundaries are proven.
+
+### M9.1DX protected-proof finalization — 2026-09-23 Pacific
+
+The earlier focused fixture failure and temporary-folder ownership stop are
+historical. The controller's protected focused phase ran
+`tests/trade_alerts_contracts/test_retained_first_four_evaluator_drive.py::test_complete_admitted_owner_uses_exact_context_and_acknowledges_before_advance[LONG-FIRST_PULLBACK_VWAP]`,
+`tests/trade_alerts_contracts/test_retained_first_four_evaluator_drive.py::test_complete_admitted_owner_uses_exact_context_and_acknowledges_before_advance[SHORT-FIRST_PULLBACK_VWAP]`,
+and
+`tests/trade_alerts_contracts/test_retained_first_four_evaluator_drive.py::test_recorded_exact_context_drive_is_deterministic_and_keeps_release_off`
+once: 3 checks, pytest time 11.32 seconds, JUnit time 11.327 seconds, and
+controller wall time 13.279 seconds. Broad acceptance ran
+`tests/trade_alerts_contracts` once: 4,196 checks, pytest time 958.69 seconds,
+JUnit time 958.470 seconds, and controller wall time 964.42 seconds. The
+controller selected broad coverage for unknown dependency impact.
+
+Two fresh repeatability processes ran the controller's published selector list:
+93 checks per run, pytest times 197.67 and 197.09 seconds, JUnit times 197.672
+and 197.091 seconds, and controller wall time 400.285 seconds. The complete
+selector list is preserved in the published repeatability `summary.json`; it
+includes the M9.1DX recording selector. The
+`m91dx-retained-first-four-evaluator-drive.json` hash matched in both processes
+at `7131a9d7c1841b362bde33b3707192c6138be96080fa700c41f6fcc5f7ba5fc6`.
+All published runs had zero failures, errors, and skips, preserved isolation,
+and completed cleanup.
+
+The complete tested-source manifest is
+`/root/trade-alerts-builder/runs/20260923-081119-873860-build/verified-manifest.json`;
+its source hash is
+`4b57e520a44f913a0e2a621c40f75f1ff0cb2de0fd693f78da958bcd79dd15b9`.
+This records-only finalization changes no code, test, configuration, dependency,
+or protected input. All genuine confidence, halt, macro, catalyst,
+daily-history, quote-policy, continuity, and parent gaps remain unavailable;
+their dependent rules remain OFF and untested. No exact sample, candidate,
+fill, return, result shard, held-out name, alert, or live action is released.
+
+- [x] **M9.1DX — exact-context evaluation and record-before-advance have
+  protected proof.** Real retained gaps still evaluate no owner and release no
+  exact sample.
+- [ ] **M9.1DY — after M9.1DX acceptance, restart the exact retained first-four
+  sample only from fully acknowledged evaluator results:** preserve every
+  genuine unknown and keep candidate, fill, return and held-out release off
+  until their own boundaries are proven.
+
+### M9.1DW protected-proof finalization — 2026-09-23 Pacific
+
+The earlier temporary-folder stop is historical. The controller's protected
+focused phase ran
+`tests/trade_alerts_contracts/test_retained_first_four_evaluator_owner.py` and
+`tests/trade_alerts_contracts/test_retained_first_four_evaluator_owner.py::test_recorded_owner_construction_is_deterministic_and_does_not_advance`
+once: 14 checks with controller wall time 19.712 seconds. Broad acceptance ran
+`tests/trade_alerts_contracts` once: 4,182 checks with controller wall time
+953.184 seconds. The controller selected broad coverage for unknown dependency
+impact. Two fresh repeatability processes ran the controller's published
+selector list: 92 checks per run with controller wall time 394.817 seconds.
+The `m91dw-retained-first-four-evaluator-owners.json` hash matched in both
+processes at
+`4d48b8c3b8daa86b52eaf3be92eb14ecda9c6fce77d3c080ddae8923f62fcbdd`.
+The complete tested-source manifest and exact pytest/JUnit timings are in
+[M9_1DW_IMPLEMENTATION.md](M9_1DW_IMPLEMENTATION.md); the controller's
+tested-source hash is
+`a73d299a80ac2c042cc0b189a9652106025db86458c2fbfceab76e35d91a727d`.
+
+All confidence, halt, macro, catalyst, daily-history, quote-policy, continuity
+and parent gaps remain genuine. Their dependent rules stay OFF and untested;
+no exact sample, candidate, fill, return, result shard, held-out name or live
+action is released.
+
+- [x] **M9.1DW — canonical owner construction and protected proof are
+  complete.** Real retained unknowns construct no owner, and no owner is
+  evaluated or advanced.
+- [ ] **M9.1DX — after M9.1DW acceptance, drive the admitted canonical owners
+  only through exact supplied contexts:** keep recording acknowledgement before
+  state advance, preserve every genuine unknown and obtain protected proof
+  before any exact-sample restart.
+
+### M9.1DX current implementation status — 2026-09-23 Pacific
+
+The controller's focused run found a synthetic fixture mismatch: the January
+pullback measurement was paired with a July impulse window. The time check
+correctly rejected it. The escalated repair now uses the window returned by the
+same synthetic parent scan, with explicit measurement and time assertions, and
+retains the future-window rejection cases in both directions. The prior failed
+run and exact failing selectors are preserved in
+[M9_1DX_IMPLEMENTATION.md](M9_1DX_IMPLEMENTATION.md).
+
+The repaired protected focused launch stopped before collection with
+`OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-b3iesqp0'` at
+temporary-folder ownership and was not retried. Fresh controller focused,
+broad acceptance and two-process recording proof are still required; no pass
+is claimed. Genuine retained gaps and all release boundaries remain unchanged.
+
+- [~] **M9.1DX — exact-context evaluation and record-before-advance are
+  implemented, but protected proof remains pending.** Genuine retained gaps
+  still evaluate no owner and release no exact sample.
+- [ ] **M9.1DY — after M9.1DX acceptance, restart the exact retained first-four
+  sample only from fully acknowledged evaluator results:** preserve every
+  genuine unknown and keep candidate, fill, return and held-out release off
+  until their own boundaries are proven.
+
+### M9.1DX final protected-proof status — 2026-09-23 Pacific
+
+The controller's later protected proof supersedes the pending status above.
+Focused ran the three published M9.1DX selectors once: 3 checks, pytest time
+11.32 seconds, JUnit time 11.327 seconds, and controller wall time 13.279
+seconds. Broad acceptance ran `tests/trade_alerts_contracts` once: 4,196
+checks, pytest time 958.69 seconds, JUnit time 958.470 seconds, and controller
+wall time 964.42 seconds. It was selected for unknown dependency impact.
+
+Two fresh repeatability processes ran the published selector list: 93 checks
+per run, pytest times 197.67 and 197.09 seconds, JUnit times 197.672 and
+197.091 seconds, and controller wall time 400.285 seconds. The
+`m91dx-retained-first-four-evaluator-drive.json` hash matched in both processes
+at `7131a9d7c1841b362bde33b3707192c6138be96080fa700c41f6fcc5f7ba5fc6`.
+All published runs had zero failures, errors, and skips, preserved isolation,
+and completed cleanup. The full selector list and artifacts are recorded in
+`M9_1DX_IMPLEMENTATION.md`; the verified manifest source hash is
+`4b57e520a44f913a0e2a621c40f75f1ff0cb2de0fd693f78da958bcd79dd15b9`.
+
+All genuine retained gaps remain unavailable, and their dependent rules remain
+OFF and untested. No exact sample, candidate, fill, return, result shard,
+held-out name, alert, or live action is released.
+
+- [x] **M9.1DX — exact-context evaluation and record-before-advance have
+  protected proof.** Real retained gaps still evaluate no owner and release no
+  exact sample.
+- [ ] **M9.1DY — after M9.1DX acceptance, restart the exact retained first-four
+  sample only from fully acknowledged evaluator results:** preserve every
+  genuine unknown and keep candidate, fill, return and held-out release off
+  until their own boundaries are proven.
+
+### M9.1DY final current status — 2026-09-23 Pacific
+
+The M9.1DY implementation record above is current. The protected focused launch
+stopped before collection at temporary-folder ownership. Fresh controller
+focused, broad acceptance and two-process recording proof remain required.
+
+- [~] **M9.1DY — the exact retained sample restart boundary is implemented,
+  but protected proof remains pending.** Genuine retained gaps still produce
+  only unavailable evaluator results and no later release.
+- [ ] **M9.1DZ — after M9.1DY acceptance, bind only fully acknowledged evaluator
+  results to exact candidate, no-event or unavailable records:** preserve every
+  genuine unknown and keep fill, return, result-shard and held-out release off
+  until their own boundaries are proven.
+
+### M9.1DY final protected-proof status — 2026-09-23 Pacific
+
+The controller's later protected proof supersedes the pending status above.
+Focused ran `tests/trade_alerts_contracts/test_retained_first_four_sample_restart.py`
+once: 6 checks, pytest time 16.66 seconds, JUnit time 16.668 seconds, and
+controller wall time 18.848 seconds. Broad acceptance ran
+`tests/trade_alerts_contracts` once because of unknown dependency impact: 4,202
+checks, pytest time 966.98 seconds, JUnit time 966.767 seconds, and controller
+wall time 973.49 seconds.
+
+Two fresh repeatability processes ran the controller's published selector list:
+94 checks per run, pytest times 201.53 and 202.54 seconds, JUnit times 201.527
+and 202.534 seconds, and controller wall time 410.142 seconds. The
+`m91dy-retained-first-four-sample-restart.json` hash matched in both processes
+at `3a14428816b018acccc32b808a792356c5c36c2c0ead338ae82f86470726a088`.
+All published runs had zero failures, errors, and skips, preserved isolation,
+and completed cleanup. The full selector list, artifact locations, and complete
+tested-source manifest are in [M9_1DY_IMPLEMENTATION.md](M9_1DY_IMPLEMENTATION.md);
+the tested-source hash is
+`cca3217aa11cc683b4a1087df2cd21cdfcbe37a047910b9b53617a82a8fd0016`.
+
+All genuine retained gaps remain unavailable, their dependent rules remain OFF
+and untested, and candidate, fill, return, result-shard, held-out, alert, and
+live release remain off.
+
+- [x] **M9.1DY — retained first-four sample restart and protected proof are
+  complete.** Genuine retained gaps still return only unavailable results and
+  release nothing later.
+- [ ] **M9.1DZ — bind only fully acknowledged evaluator results to exact
+  candidate, no-event or unavailable records:** preserve every genuine unknown
+  and keep fill, return, result-shard and held-out release off until their own
+  boundaries are proven.
+
+### M9.1DZ retained evaluator-result binding — 2026-09-23 Pacific
+
+The new offline boundary binds every restarted first-four evaluator result to
+exactly one retained candidate, no-event or unavailable record for the same
+playbook, ticker and session. Candidate and no-event records require a complete
+evaluator result whose proposed transitions were all acknowledged unchanged.
+Unavailable records require an untouched evaluator result with genuine missing
+inputs. The boundary rejects missing or duplicate decisions, cross-session
+source identities, forged status/result pairs and any sample that already
+opened a later release. See
+[M9_1DZ_IMPLEMENTATION.md](M9_1DZ_IMPLEMENTATION.md).
+
+The real retained rows remain unavailable because their confidence, halt,
+macro, catalyst, daily-history, quote-policy, continuity and parent facts are
+still missing. Every dependent rule remains OFF and untested. Candidate, fill,
+return, result-shard, held-out, alert and live release remain off. The protected
+focused launch stopped before collection at the known temporary-folder
+ownership error. Fresh controller focused, broad acceptance and two-process
+recording proof remain required.
+
+- [~] **M9.1DZ — exact evaluator-result binding is implemented, but fresh
+  protected focused, broad acceptance and two-process recording proof remain.**
+- [ ] **M9.1EA — after M9.1DZ acceptance, connect only bound candidate records
+  to the accepted offline fill boundary:** keep no-event and unavailable rows
+  out, preserve every genuine unknown, and keep return, result-shard, held-out,
+  alert and live release off until their own boundaries are proven.
+
+### M9.1EA retained first-four candidate fill connection — 2026-09-23 Pacific
+
+The new offline boundary sends only exact bound candidate rows through the
+accepted D-106/D-107 fill model. No-event and unavailable rows are counted and
+excluded before the fill call. It rejects binding drift, mismatched counts,
+duplicate decisions, cross-session or duplicate market records, market records
+outside the candidate's retained source identities, and any binding that
+already opened a later release. Missing trade or quote facts remain unfilled
+and are never approximated. See
+[M9_1EA_IMPLEMENTATION.md](M9_1EA_IMPLEMENTATION.md).
+
+The real retained rows still lack confidence, halt, macro, catalyst,
+daily-history, quote-policy, continuity and parent facts. Their dependent rules
+remain OFF and untested, so they remain unavailable and enter no fill. Synthetic
+complete records prove only the offline connection. Return, result-shard,
+held-out, alert and live release remain off. The protected focused launch
+stopped before collection with `OSError: [Errno 22] Invalid argument:
+'/tmp/trade-alerts-m04-pndxofhr'` at temporary-folder ownership and was not
+retried. Fresh controller focused, broad acceptance and two-process recording
+proof remain required.
+
+- [~] **M9.1EA — candidate-only fill connection is implemented, but fresh
+  protected focused, broad acceptance and two-process recording proof remain.**
+- [ ] **M9.1EB — after M9.1EA acceptance, connect only filled candidate rows to
+  the accepted offline outcome boundary:** keep unfilled, no-event and
+  unavailable rows out, preserve every genuine unknown, and keep result-shard,
+  held-out, alert and live release off until their own boundaries are proven.
+
+### M9.1EB current implementation status — 2026-09-23 Pacific
+
+The filled-candidate-only outcome connection is implemented as recorded in
+[M9_1EB_IMPLEMENTATION.md](M9_1EB_IMPLEMENTATION.md). It preserves the exact
+accepted fill, keeps unfilled/no-event/unavailable rows out of the evaluator,
+preserves unknown outcomes and leaves result-shard, held-out, alert and live
+release off. Fresh protected focused, broad acceptance and two-process
+recording proof remain required.
+
+- [~] **M9.1EB — filled candidates connect to accepted offline outcome types;
+  fresh protected proof and independent review remain required.**
+- [ ] **M9.1EC — after M9.1EB acceptance, connect only resolved, fully costed
+  outcome rows to the strict stage-1 result boundary:** preserve unresolved and
+  excluded counts, keep held-out names sealed, and do not release a result shard,
+  alert or live action.
+
+### M9.1EB final current implementation status — 2026-09-23 Pacific
+
+The M9.1EB filled-candidate-only outcome connection is implemented as recorded
+above. It preserves the exact accepted fill, keeps unfilled, no-event and
+unavailable rows out, preserves unknown outcomes, and leaves result-shard,
+held-out, alert and live release off. The protected focused launch stopped
+before collection with `OSError: [Errno 22] Invalid argument:
+'/tmp/trade-alerts-m04-18ppl9ud'` at temporary-folder ownership and was not
+retried. Fresh controller focused, broad acceptance and two-process recording
+proof remain required.
+
+- [~] **M9.1EB — filled candidates connect to accepted offline outcome types;
+  fresh protected proof and independent review remain required.**
+- [ ] **M9.1EC — after M9.1EB acceptance, connect only resolved, fully costed
+  outcome rows to the strict stage-1 result boundary:** preserve unresolved and
+  excluded counts, keep held-out names sealed, and do not release a result shard,
+  alert or live action.
+
+### M9.1EB final verification handoff — 2026-09-23 Pacific
+
+The supplied controller proof supersedes the earlier temporary-folder ownership
+stop. One protected focused run selected
+`tests/trade_alerts_contracts/test_retained_first_four_outcome.py` and
+`tests/trade_alerts_contracts/test_retained_first_four_outcome.py::test_recorded_outcome_connection_is_deterministic_and_keeps_release_off`,
+passed 4 tests, had JUnit time 14.067 seconds, and had controller wall time
+16.252 seconds. One protected broad acceptance run selected
+`tests/trade_alerts_contracts` for `unknown dependency impact; safe broad
+fallback`, passed 4,218 tests, had JUnit time 981.507 seconds, and had
+controller wall time 987.503 seconds. The separate protected repeatability phase selected the
+controller-recorded 97 deterministic/recording selectors in two fresh processes;
+it recorded 97 tests and 420.732 seconds; JUnit time was 208.656 seconds for
+run 1 and 206.420 seconds for run 2. Both
+`m91eb-retained-first-four-outcome.json` artifacts matched byte-for-byte with
+SHA-256 `e39b5534cefedc152ee617968b0590c98a3f399054c00057980e7799e6d54e11`.
+All published phases reported exit code zero. The full artifact paths, selector
+list, and tested-source manifest hash
+`1524a9b556619e1c80297b0e51ee84343a29969479931ae5d8cb395cb159e191` are in
+[M9_1EB_IMPLEMENTATION.md](M9_1EB_IMPLEMENTATION.md). This records-only update
+changed no tested code, tests, configuration, dependencies, or protected inputs.
+
+The synthetic offline proof does not fill real retained missing facts. Confidence,
+halt, macro, catalyst, daily-history, quote-policy, continuity, and parent facts
+remain missing; their dependent rules remain OFF and untested. Result-shard,
+held-out, alert, profit, and live release remain off.
+
+- [x] **M9.1EB — filled candidates connect to accepted offline outcome types;
+  protected proof is complete.** Real retained missing facts and all later
+  release boundaries remain closed.
+- [ ] **M9.1EC — after M9.1EB acceptance, connect only resolved, fully costed
+  outcome rows to the strict stage-1 result boundary:** preserve unresolved and
+  excluded counts, keep held-out names sealed, and do not release a result shard,
+  alert or live action.
+
+### M9.1EB filled-candidate outcome connection pending proof — 2026-09-23 Pacific
+
+New `consensus_engine/retained_first_four_outcome.py` connects only exact
+`FILLED` rows from the accepted M9.1EA run to caller-supplied accepted offline
+outcome evaluators. ORB5 must return its accepted quote-filled outcome type;
+the other three playbooks must return the accepted shared outcome type. Every
+outcome must preserve the exact fill and stay inside the retained candidate's
+source identities. Unfilled, no-event and unavailable rows remain counted
+exclusions, and genuine unknown outcomes remain unknown.
+
+New focused file
+`tests/trade_alerts_contracts/test_retained_first_four_outcome.py` covers the
+filled-only call boundary, ORB5/shared type routing, unfilled exclusion, exact
+fill preservation, closed later releases and deterministic recording. These are
+synthetic supplied records only. The real retained rows still lack confidence,
+halt, macro, catalyst, daily-history, quote-policy, continuity and parent facts;
+their dependent rules remain OFF and untested. Result-shard, held-out, alert and
+live release remain off.
+
+Complete M9.1EB delta: `consensus_engine/retained_first_four_outcome.py`,
+`tests/trade_alerts_contracts/test_retained_first_four_outcome.py`,
+`trade_alerts_build_docs/M9_1EB_IMPLEMENTATION.md` and this ROADMAP.
+Fresh protected focused, broad acceptance and two-process recording proof remain
+required.
+
+- [~] **M9.1EB — filled candidates connect to accepted offline outcome types;
+  fresh protected proof and independent review remain required.**
+- [ ] **M9.1EC — after M9.1EB acceptance, connect only resolved, fully costed
+  outcome rows to the strict stage-1 result boundary:** preserve unresolved and
+  excluded counts, keep held-out names sealed, and do not release a result shard,
+  alert or live action.
+
+### M9.1DZ historical protected-proof finalization — 2026-09-23 Pacific
+
+The earlier temporary-folder ownership stop is historical. Fresh controller
+proof passed: focused ran
+`tests/trade_alerts_contracts/test_retained_first_four_evaluator_binding.py`
+once (5 checks); broad acceptance ran `tests/trade_alerts_contracts` once
+(4,207 checks) because of unknown dependency impact; two fresh repeatability
+processes ran the published selector list (95 checks per run). The binding recording hash matched
+in both processes. Exact pytest, JUnit and controller wall times, selector list,
+artifact locations, and the complete tested-source manifest are in
+[M9_1DZ_IMPLEMENTATION.md](M9_1DZ_IMPLEMENTATION.md).
+
+The real retained rows remain unavailable because confidence, halt, macro,
+catalyst, daily-history, quote-policy, continuity and parent facts are missing.
+Their dependent rules remain OFF and untested. Candidate, fill, return,
+result-shard, held-out, alert and live release remain off.
+
+- [x] **M9.1DZ — retained evaluator-result binding and protected proof are
+  complete.** Genuine missing inputs still bind only to unavailable records and
+  release no later boundary.
+- [ ] **M9.1EA — after M9.1DZ acceptance, connect only bound candidate records
+  to the accepted offline fill boundary:** keep no-event and unavailable rows
+  out, preserve every genuine unknown, and keep return, result-shard, held-out,
+  alert and live release off until their own boundaries are proven.
+
+### M9.1DZ historical escalated assessment before storage diagnosis — 2026-09-23 Pacific
+
+The later controller acceptance failed and supersedes the completion claim
+above. Earlier passing proof remains historical evidence. The latest saved
+log has failure/error markers but no failing test IDs or traceback, and direct
+reads of `/tmp/trade-alerts-m04-4t4x9qsc/run-1/pytest.log` fail with
+`[Errno 13] Permission denied`. The underlying failure cause remains unknown.
+The supervisor must publish the existing failure details before a focused
+repair can be chosen. No code, tests, protection or attempt history changed;
+no run was repeated. See [M9_1DZ_IMPLEMENTATION.md](M9_1DZ_IMPLEMENTATION.md)
+for the preserved proof and current controller phase fields.
+
+- [!] **M9.1DZ — blocked on readable latest acceptance-failure evidence:**
+  preserve the implemented binding and earlier passing proof; obtain the
+  failing test IDs and traceback before repair or acceptance.
+- [ ] **M9.1EA — after M9.1DZ acceptance, connect only bound candidate records
+  to the accepted offline fill boundary:** this remains dependent, not an
+  independent next task during the evidence block; keep genuine gaps and all
+  later release boundaries unchanged.
+
+### M9.1DZ current supervisor storage diagnosis — 2026-09-23 Pacific
+
+The supervisor resolved the preceding unknown cause: the root filesystem
+reached 0 bytes available during verification. This was a host storage
+failure, not a product-test assertion failure. Controller cleanup removed
+the temporary pytest folder, so no durable failing test IDs exist. The
+supervisor reports 5.6 GB available after verified archive offload. No code
+repair is required. Earlier passing proof and all attempts remain preserved;
+the binding source and tests still match the original tested manifest.
+See [M9_1DZ_IMPLEMENTATION.md](M9_1DZ_IMPLEMENTATION.md) for the durable
+diagnosis, exact prior phase records and proof references.
+
+This attempt changes records only and does not repeat the failed command.
+The external verification gate requires the controller to permit reuse of
+matching proof or publish fresh protected proof after recovery, followed by
+independent review. Recovered space alone does not establish acceptance.
+No independent next milestone is established. All genuine missing inputs,
+OFF/untested dependent rules and later release boundaries remain unchanged.
+
+- [!] **M9.1DZ — blocked on controller resolution of storage-interrupted
+  verification:** host disk exhaustion is diagnosed; preserve the implementation
+  and passing proof, with no product-code repair or acceptance claim.
+- [ ] **M9.1EA — after M9.1DZ acceptance, connect only bound candidate records
+  to the accepted offline fill boundary:** this remains dependent, not an
+  independent next task; keep genuine gaps and all later release boundaries
+  unchanged.
+
+### M9.1DZ final protected-proof record — 2026-09-23 Pacific
+
+The supplied controller verification handoff supersedes the storage-interrupted
+assessment. Protected focused proof passed 5 checks once, broad acceptance
+passed 4,207 checks once, and the published repeatability selector list passed
+95 checks in each of two fresh processes. All four published runs had zero
+failures, errors, and skips. The binding recording hash matched in both
+repeatability runs. The tested-source manifest source hash is
+`3fe0afd5489d93ff01226f6b6c06e231ff991dbc30d209e578b872c7af71680f`; this
+records-only finalization changes no tested code, tests, configuration,
+dependencies, or protected inputs. Exact phase fields, JUnit times, controller
+wall times, selectors, and artifact locations are in
+[M9_1DZ_IMPLEMENTATION.md](M9_1DZ_IMPLEMENTATION.md).
+
+The real retained rows remain unavailable because confidence, halt, macro,
+catalyst, daily-history, quote-policy, continuity, and parent facts are
+missing. Their dependent rules remain OFF and untested. Candidate, fill,
+return, result-shard, held-out, alert, and live release remain off.
+
+- [x] **M9.1DZ — retained evaluator-result binding and protected proof are
+  complete.** Genuine missing inputs still bind only to unavailable records and
+  release no later boundary.
+- [ ] **M9.1EA — after M9.1DZ acceptance, connect only bound candidate records
+  to the accepted offline fill boundary:** keep no-event and unavailable rows
+  out, preserve every genuine unknown, and keep return, result-shard, held-out,
+  alert and live release off until their own boundaries are proven.
+
+### M9.1EA final current implementation status — 2026-09-23 Pacific
+
+The M9.1EA candidate-only fill connection is implemented as recorded above.
+The protected focused launch stopped before collection with `OSError: [Errno
+22] Invalid argument: '/tmp/trade-alerts-m04-pndxofhr'` at temporary-folder
+ownership and was not retried. Fresh controller focused, broad acceptance and
+two-process recording proof remain required. Real retained missing facts, OFF
+and untested dependent rules, and every later release boundary remain unchanged.
+
+- [~] **M9.1EA — candidate-only fill connection is implemented, but fresh
+  protected focused, broad acceptance and two-process recording proof remain.**
+- [ ] **M9.1EB — after M9.1EA acceptance, connect only filled candidate rows to
+  the accepted offline outcome boundary:** keep unfilled, no-event and
+  unavailable rows out, preserve every genuine unknown, and keep result-shard,
+  held-out, alert and live release off until their own boundaries are proven.
+
+### M9.1EA focused-failure repair pending proof — 2026-09-23 Pacific
+
+The controller's focused check failed at
+`test_only_bound_candidates_reach_the_fill_boundary` with `assert 1 == 2`.
+The synthetic setup supplied market records for only the first candidate's
+alert window. The other candidate had a different alert instant and correctly
+remained unfilled. The repair supplies each synthetic candidate's own timed
+records, preserves the original incomplete-input rejection as a separate test,
+and adds a missing-quote check. The accepted fill model is unchanged.
+See [M9_1EA_IMPLEMENTATION.md](M9_1EA_IMPLEMENTATION.md) for the original
+failure, complete milestone delta and diagnosis.
+
+The repaired focused launch stopped before collection with
+`OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-tjwtm2h9'`
+at temporary-folder ownership. It was not retried. Fresh controller focused,
+broad acceptance and two-process recording proof remain required; no new
+protected pass is claimed. Real missing facts, OFF/untested dependent rules,
+and return, result-shard, held-out, alert and live boundaries are unchanged.
+
+- [~] **M9.1EA — synthetic fill-window setup repaired; protected focused,
+  broad acceptance and two-process recording proof remain required.**
+- [ ] **M9.1EB — after M9.1EA acceptance, connect only filled candidate rows to
+  the accepted offline outcome boundary:** keep unfilled, no-event and
+  unavailable rows out, preserve every genuine unknown, and keep result-shard,
+  held-out, alert and live release off until their own boundaries are proven.
+
+### M9.1EA final verification-handoff record — 2026-09-23 Pacific
+
+The supplied controller verification handoff supersedes the earlier
+temporary-folder ownership stops. Protected focused proof ran
+`tests/trade_alerts_contracts/test_retained_first_four_fill.py::test_only_bound_candidates_reach_the_fill_boundary`
+once and passed 1 check; broad acceptance ran `tests/trade_alerts_contracts`
+once and passed 4,214 checks. Both phases had zero failures, errors, and skips.
+The published 69-selector repeatability list ran in two fresh protected
+processes, passed 96 checks in each, and included the M9.1EA recording selector.
+The `m91ea-retained-first-four-fill.json` hash matched in both runs. Exact
+JUnit times, controller wall times, selectors, artifact locations, and the
+tested-source manifest source hash
+`7d56db3ee9c90a387daa22ed601dfdac7e9271857914201f1b9df1751b6e1b09` are in
+[M9_1EA_IMPLEMENTATION.md](M9_1EA_IMPLEMENTATION.md). This records-only
+finalization changed no tested code, tests, configuration, dependencies, or
+protected inputs.
+
+The real retained rows still lack confidence, halt, macro, catalyst,
+daily-history, quote-policy, continuity, and parent facts. Their dependent
+rules remain OFF and untested. Candidate, fill, return, result-shard, held-out,
+alert, and live release remain off.
+
+- [x] **M9.1EA — retained first-four candidate-only fill connection and
+  protected proof are complete.** Genuine missing inputs still exclude the real
+  retained rows and release no later boundary.
+- [ ] **M9.1EB — after M9.1EA acceptance, connect only filled candidate rows to
+  the accepted offline outcome boundary:** keep unfilled, no-event and
+  unavailable rows out, preserve every genuine unknown, and keep result-shard,
+  held-out, alert and live release off until their own boundaries are proven.
+
+### M9.1EB final current implementation status — 2026-09-23 Pacific
+
+The M9.1EB filled-candidate-only outcome connection is implemented as recorded
+above. It preserves the exact accepted fill, keeps unfilled, no-event and
+unavailable rows out, preserves unknown outcomes, and leaves result-shard,
+held-out, alert and live release off. The protected focused launch stopped
+before collection with `OSError: [Errno 22] Invalid argument:
+'/tmp/trade-alerts-m04-18ppl9ud'` at temporary-folder ownership and was not
+retried. Fresh controller focused, broad acceptance and two-process recording
+proof remain required.
+
+- [~] **M9.1EB — filled candidates connect to accepted offline outcome types;
+  fresh protected proof and independent review remain required.**
+- [ ] **M9.1EC — after M9.1EB acceptance, connect only resolved, fully costed
+  outcome rows to the strict stage-1 result boundary:** preserve unresolved and
+  excluded counts, keep held-out names sealed, and do not release a result shard,
+  alert or live action.
+
+### M9.1EB final verification handoff — 2026-09-23 Pacific
+
+The supplied controller proof supersedes the earlier temporary-folder ownership
+stop. One protected focused run selected
+`tests/trade_alerts_contracts/test_retained_first_four_outcome.py` and
+`tests/trade_alerts_contracts/test_retained_first_four_outcome.py::test_recorded_outcome_connection_is_deterministic_and_keeps_release_off`,
+passed 4 tests, had JUnit time 14.067 seconds, and had controller wall time
+16.252 seconds. One protected broad acceptance run selected
+`tests/trade_alerts_contracts` for `unknown dependency impact; safe broad
+fallback`, passed 4,218 tests, had JUnit time 981.507 seconds, and had
+controller wall time 987.503 seconds. The separate protected repeatability phase selected the
+controller-recorded 97 deterministic/recording selectors in two fresh processes;
+it recorded 97 tests and 420.732 seconds; JUnit time was 208.656 seconds for
+run 1 and 206.420 seconds for run 2. Both
+`m91eb-retained-first-four-outcome.json` artifacts matched byte-for-byte with
+SHA-256 `e39b5534cefedc152ee617968b0590c98a3f399054c00057980e7799e6d54e11`.
+All published phases reported exit code zero. The full artifact paths, selector
+list, and tested-source manifest hash
+`1524a9b556619e1c80297b0e51ee84343a29969479931ae5d8cb395cb159e191` are in
+[M9_1EB_IMPLEMENTATION.md](M9_1EB_IMPLEMENTATION.md). This records-only update
+changed no tested code, tests, configuration, dependencies, or protected inputs.
+
+The synthetic offline proof does not fill real retained missing facts. Confidence,
+halt, macro, catalyst, daily-history, quote-policy, continuity, and parent facts
+remain missing; their dependent rules remain OFF and untested. Result-shard,
+held-out, alert, profit, and live release remain off.
+
+- [x] **M9.1EB — filled candidates connect to accepted offline outcome types;
+  protected proof is complete.** Real retained missing facts and all later
+  release boundaries remain closed.
+- [ ] **M9.1EC — after M9.1EB acceptance, connect only resolved, fully costed
+  outcome rows to the strict stage-1 result boundary:** preserve unresolved and
+  excluded counts, keep held-out names sealed, and do not release a result shard,
+  alert or live action.
+
+### M9.1EB review repair awaiting proof — 2026-09-23 Pacific
+
+Independent review rejected the earlier acceptance claim: ORB5 outcome checks
+covered fill input IDs but omitted the nested candidate input IDs. The earlier
+M9.1EB verification handoffs and completed rows are historical and do not prove
+this repair. Their proof and rejected attempt remain preserved.
+
+The repair now checks both sets against the retained candidate session. A new
+direct rejection case keeps the exact accepted fill and adds a foreign ID only
+to the nested candidate. See [M9_1EB_IMPLEMENTATION.md](M9_1EB_IMPLEMENTATION.md)
+for the cause, changed approach, full milestone delta and required selectors.
+The protected focused launch stopped before collection with
+`OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-bi87wiho'` at the
+temporary-folder ownership step. It was not retried. The controller must supply
+fresh focused, broad acceptance and two-process recording proof; no new pass
+is claimed. Missing real source facts keep their dependent rules OFF and
+untested; result-shard, held-out, alert and live release remain off.
+
+- [~] **M9.1EB — ORB5 candidate input identity repair implemented; fresh
+  protected proof and independent acceptance remain required.**
+- [ ] **M9.1EC — after M9.1EB acceptance, connect only resolved, fully costed
+  outcome rows to the strict stage-1 result boundary:** preserve unresolved and
+  excluded counts, keep held-out names sealed, and do not release a result shard,
+  alert or live action.
+
+### M9.1EB final repaired verification record — 2026-09-23 Pacific
+
+The supplied controller proof covers the ORB5 nested-candidate input-identity
+repair. One protected focused run selected `tests/trade_alerts_contracts` for
+`builder named directly affected checks`, collecting 4,219 tests in 990.515
+seconds. One protected broad acceptance run selected
+`tests/trade_alerts_contracts` for `unknown dependency impact; safe broad
+fallback`, collecting 4,219 tests in 976.57 seconds. The controller's separate
+repeatability phase ran the recorded 97 selectors in two fresh protected
+processes, including the M9.1EB recording selector, and collected 97 tests in
+419.946 seconds. Its `m91eb-retained-first-four-outcome.json` artifacts
+matched byte-for-byte. All reported exit code zero. The tested-source manifest
+source hash is `e4c4cd868179ea44dcef07fd44eee88256c68f050e6f342e76a057452df60fb4`.
+This records-only update changed no tested code, tests, configuration,
+dependencies, or protected inputs.
+
+Real retained facts remain missing for confidence, halt, macro, catalyst,
+daily-history, quote-policy, continuity, and parent facts. Their dependent
+rules remain OFF and untested. Result-shard, held-out, alert, profit, and live
+release remain off.
+
+- [x] **M9.1EB — filled candidates connect to accepted offline outcome types;
+  repaired protected proof is complete.** Real retained missing facts and all
+  later release boundaries remain closed.
+- [ ] **M9.1EC — after M9.1EB acceptance, connect only resolved, fully costed
+  outcome rows to the strict stage-1 result boundary:** preserve unresolved and
+  excluded counts, keep held-out names sealed, and do not release a result shard,
+  alert or live action.
+
+### M9.1EC initial implementation status (historical) — 2026-09-23 Pacific
+
+The strict retained stage-1 input connection is implemented as recorded in
+[M9_1EC_IMPLEMENTATION.md](M9_1EC_IMPLEMENTATION.md). The protected focused
+launch stopped before collection at the known temporary-folder ownership
+error. Fresh controller focused, broad acceptance and two-process recording
+proof remain required. Genuine missing inputs remain gaps, their dependent
+rules stay OFF and untested, and every later release stays closed.
+
+- [~] **M9.1EC — resolved fully costed retained outcomes connect to the strict
+  stage-1 input record; fresh protected proof and independent review remain.**
+- [ ] **M9.1ED — after M9.1EC acceptance, group strict retained result rows by
+  frozen candidate and exact training-session coverage:** preserve every
+  unresolved and incomplete-cost exclusion, keep held-out names sealed, and do
+  not measure, rank or release a result shard until complete nine-name coverage
+  is proven.
+
+### M9.1EC pre-repair protected-proof record (historical; review rejected) — 2026-09-23 Pacific
+
+The supplied controller handoff supersedes the temporary-folder ownership
+stop. One protected focused run selected
+`tests/trade_alerts_contracts/test_retained_first_four_stage1_result.py` for
+`builder named directly affected checks`, passed 5 tests, and had controller
+wall time 18.837 seconds. One protected broad acceptance run selected
+`tests/trade_alerts_contracts` for `unknown dependency impact; safe broad
+fallback`, passed 4,224 tests, and had controller wall time 975.667 seconds.
+Both had zero failures, errors, and skips.
+
+The separate repeatability phase ran the controller-recorded 98 selectors in
+two fresh protected processes, including the M9.1EC recording selector. Each
+run passed 98 tests with zero failures, errors, and skips; the two-run phase
+had controller wall time 423.258 seconds. The two
+`m91ec-retained-first-four-stage1-result.json` artifacts matched byte-for-byte.
+Exact pytest and JUnit times, the full selector list, artifact locations and
+the tested-source manifest hash
+`7e2d9ef43ad9f246ac4732e87fad66d8ab1965a4ed41190d033a0641c3cb1ead` are in
+[M9_1EC_IMPLEMENTATION.md](M9_1EC_IMPLEMENTATION.md). This records-only update
+changed no tested code, tests, configuration, dependencies, or protected inputs.
+
+The real retained rows still lack confidence, halt, macro, catalyst,
+daily-history, quote-policy, continuity and parent facts. Their dependent rules
+and the ORB5 exit-cost rule remain OFF and untested. Result-shard, held-out,
+alert, profit and live release remain off.
+
+- [~] **M9.1EC — repaired strict stage-1 boundary awaits fresh protected proof
+  and independent review.** Prior passing proof was rejected for treating
+  entry-only costs as complete and trusting supplied returns. Both outcome
+  types now remain incomplete-cost exclusions; no row reaches stage 1.
+- [ ] **M9.1ED — after M9.1EC acceptance, group strict retained result rows by
+  frozen candidate and exact training-session coverage:** preserve every
+  unresolved and incomplete-cost exclusion, keep held-out names sealed, and do
+  not measure, rank or release a result shard until complete nine-name coverage
+  is proven.
+
+### M9.1EC focused repair status — 2026-09-23 Pacific
+
+The repair and exact required focused selectors are recorded in
+[M9_1EC_IMPLEMENTATION.md](M9_1EC_IMPLEMENTATION.md). Both ORB5 and shared
+outcomes lack exit-cost evidence and remain excluded. Shared return and exit
+consistency is checked before exclusion. All source gaps and their dependent
+OFF/untested rules remain, including exit-cost-dependent admission for all
+four playbooks. The historical protected runs above do not prove this repair.
+Fresh focused, broad and two-process recording proof and independent review
+remain required. M9.1ED is open only as the next task after M9.1EC acceptance;
+no advancement, measurement, ranking, result shard, held-out access, alert,
+profit claim or live action is authorized by this repair.
+
+### M9.1EC final protected verification record — 2026-09-23 Pacific
+
+The supplied controller proof covers the repaired boundary. One protected
+focused run selected the four selectors recorded in
+`M9_1EC_IMPLEMENTATION.md` for `builder named directly affected checks`; it
+passed 50 tests with zero failures, errors, and skips and controller wall time
+60.728 seconds. One protected broad acceptance run selected
+`tests/trade_alerts_contracts` for `unknown dependency impact; safe broad
+fallback`; it passed 4,243 tests with zero failures, errors, and skips and
+controller wall time 1038.748 seconds. The separate repeatability phase ran
+the controller-recorded 98 selectors in two fresh protected processes,
+including the M9.1EC recording selector. Each passed 98 tests with zero
+failures, errors, and skips; the two-run phase had controller wall time
+425.416 seconds. The two M9.1EC recording artifacts matched byte-for-byte.
+Exact pytest and JUnit times, artifact directories, recording hash and complete
+tested-source manifest hash are in `M9_1EC_IMPLEMENTATION.md`.
+
+Both outcome types remain incomplete-cost exclusions because exit-side costs
+are absent. The real retained rows still lack confidence, halt, macro,
+catalyst, daily-history, quote-policy, continuity and parent facts. Their
+dependent rules, including all four exit-cost paths, remain OFF and untested.
+Result-shard, held-out, alert, profit and live release remain off.
+
+- [x] **M9.1EC — resolved fully costed retained outcomes connect to the strict
+  stage-1 input record; repaired protected proof is complete.**
+- [ ] **M9.1ED — after M9.1EC acceptance, group strict retained result rows by
+  frozen candidate and exact training-session coverage:** preserve every
+  unresolved and incomplete-cost exclusion, keep held-out names sealed, and do
+  not measure, rank or release a result shard until complete nine-name coverage
+  is proven.
+
+- [~] **M9.1ED — strict retained result rows are grouped only after exact
+  candidate and nine-name training-session coverage is proven; fresh protected
+  proof and independent review remain.**
+- [ ] **M9.1EE — after M9.1ED acceptance, connect only complete candidate groups
+  to the existing stage-1 training measurement boundary:** preserve every
+  exclusion and OFF rule, refuse empty or incomplete-cost groups, keep held-out
+  names sealed, and do not rank or release a result shard.
+
+### M9.1ED initial implementation status — 2026-09-23 Pacific
+
+The strict candidate-group boundary is implemented as recorded in
+[M9_1ED_IMPLEMENTATION.md](M9_1ED_IMPLEMENTATION.md). Every frozen candidate
+must carry the same exact ordered training-session coverage across all nine
+training names. Unresolved and incomplete-cost exclusions remain visible, and
+measurement, ranking, result-shard, held-out, alert and live release remain
+off. Fresh protected focused, broad acceptance and two-process recording proof
+and independent review remain required.
+
+### M9.1ED final protected verification record — 2026-09-23 Pacific
+
+The supplied controller proof covers the strict candidate-group boundary. One
+protected focused run selected the four selectors recorded in
+`M9_1ED_IMPLEMENTATION.md` for `builder named directly affected checks`; it
+passed 58 tests with zero failures, errors, and skips and controller wall time
+60.484 seconds. One protected broad acceptance run selected
+`tests/trade_alerts_contracts` for `unknown dependency impact; safe broad
+fallback`; it passed 4,259 tests with zero failures, errors, and skips and
+controller wall time 1044.506 seconds. The separate repeatability phase ran the
+controller-recorded 73 selectors in two fresh protected processes, including
+the M9.1ED recording selector. Each passed 99 tests with zero failures, errors,
+and skips; the two-run phase had controller wall time 435.801 seconds. The two
+M9.1ED recording artifacts matched byte-for-byte. Exact pytest and JUnit times,
+artifact directories, recording hash, selector list, and complete tested-source
+manifest hash are in `M9_1ED_IMPLEMENTATION.md`.
+
+The strict real input remains empty because exit-side costs are missing.
+Confidence, halt, macro, catalyst, daily-history, quote-policy, continuity,
+and parent facts remain missing. Their dependent rules remain OFF and untested.
+Measurement, ranking, result-shard, held-out, alert, profit and live release
+remain off.
+
+- [x] **M9.1ED — strict retained result rows are grouped only after exact
+  candidate and nine-name training-session coverage is proven; protected proof
+  is complete.**
+- [ ] **M9.1EE — after M9.1ED acceptance, connect only complete candidate groups
+  to the existing stage-1 training measurement boundary:** preserve every
+  exclusion and OFF rule, refuse empty or incomplete-cost groups, keep held-out
+  names sealed, and do not rank or release a result shard.
+
+- [~] **M9.1EE — complete non-empty retained candidate groups connect to the
+  strict stage-1 measurement boundary; fresh protected proof and independent
+  review remain.**
+- [ ] **M9.1EF — after M9.1EE acceptance, assemble only complete stage-1
+  measurements for every frozen candidate in each first-four playbook:**
+  require the full 18/4/2/4 catalog and exact training coverage before any
+  ranking, preserve every exclusion and OFF rule, and keep held-out names and
+  result-shard release closed.
+
+### M9.1EE initial implementation status — 2026-09-23 Pacific
+
+The strict retained measurement connection is implemented as recorded in
+[M9_1EE_IMPLEMENTATION.md](M9_1EE_IMPLEMENTATION.md). Each of the four supplied
+candidate groups must be non-empty, fully costed and tied to the same exact
+nine-name training-session plan before the existing stage-1 measurement code
+runs. Every exclusion and required source-gap OFF label carries forward.
+Ranking, result-shard, held-out, alert and live release remain off.
+
+The real strict input remains empty because accepted exit-side costs are still
+missing. Confidence, halt, macro, catalyst, daily-history, quote-policy,
+continuity and parent facts also remain missing. Their dependent rules remain
+OFF and untested. Fresh protected focused, broad acceptance and two-process
+recording proof and independent review remain required.
+
+### M9.1EE final protected verification record — 2026-09-23 Pacific
+
+The controller supplied protected proof for the strict retained measurement
+connection. One focused run selected the four selectors recorded in
+`M9_1EE_IMPLEMENTATION.md` for `builder named directly affected checks`; it
+passed 50 tests with zero failures, errors, and skips. JUnit time was 4.764
+seconds and controller wall time was 6.453 seconds. One broad acceptance run
+selected `tests/trade_alerts_contracts` for `unknown dependency impact; safe
+broad fallback`; it passed 4,275 tests with zero failures, errors, and skips.
+JUnit time was 1026.773 seconds and controller wall time was 1032.033 seconds.
+
+The separate repeatability phase ran the controller-recorded 73 selectors in
+two fresh protected processes, including the M9.1EE recording selector. Each
+run passed 100 tests with zero failures, errors, and skips. JUnit time was
+210.388 seconds for run 1 and 210.089 seconds for run 2; the two-run controller
+wall time was 425.604 seconds. The two
+`m91ee-retained-stage1-candidate-measurements.json` artifacts matched
+byte-for-byte with SHA-256
+`a784fa8e06d88b38a318b3051ebbac903b736f43cd03ac33e92c735baaff8b2e`.
+The complete artifact locations, selector list, and tested-source manifest hash
+`643e3c7b40616dadfc8336a5c898fe7148dcb1242657db2a898841d235064e25` are in
+`M9_1EE_IMPLEMENTATION.md`. This records-only update changes no tested code,
+tests, configuration, dependencies, or protected inputs.
+
+The real strict input remains empty because accepted exit-side costs are
+missing. Confidence, halt, macro, catalyst, daily-history, quote-policy,
+continuity and parent facts also remain missing. Their dependent rules remain
+OFF and untested. Measurement, ranking, result-shard, held-out, alert, profit
+and live release remain off.
+
+- [x] **M9.1EE — complete non-empty retained candidate groups connect to the
+  strict stage-1 measurement boundary; protected proof is complete.**
+- [ ] **M9.1EF — after M9.1EE acceptance, assemble only complete stage-1
+  measurements for every frozen candidate in each first-four playbook:**
+  require the full 18/4/2/4 catalog and exact training coverage before any
+  ranking, preserve every exclusion and OFF rule, and keep held-out names and
+  result-shard release closed.
+
+- [~] **M9.1EF — the complete 18/4/2/4 retained stage-1 measurement catalog is
+  assembled only under exact shared training coverage; fresh protected proof
+  and independent review remain.**
+- [ ] **M9.1EG — after M9.1EF acceptance, apply the frozen per-playbook stage-1
+  ranking rule to the complete retained measurement catalog:** preserve all
+  candidate measurements, exclusions and OFF rules, keep held-out names sealed,
+  and do not release a result shard.
+
+### M9.1EF final proof superseding the pending repair record — 2026-09-23 Pacific
+
+The fresh controller focused run passed 198 tests; pytest time was 6.07 seconds,
+JUnit time was 6.066 seconds, and controller wall time was 7.959 seconds. The
+fresh broad acceptance run passed 4,441 tests; pytest time was 1062.03 seconds,
+JUnit time was 1061.821 seconds, and controller wall time was 1067.573 seconds.
+The 73-selector repeatability phase ran twice: each run passed 101 tests; pytest
+times were 209.79 and 210.65 seconds, JUnit times were 209.787 and 210.648
+seconds, and two-run controller wall time was 426.56 seconds. Both
+`m91ef-retained-stage1-measurement-catalog.json` artifacts matched with SHA-256
+`c947186240dce4ad07f33a557dcf01e89d59922cd28a3c56382ba5140d27e8ba`.
+`M9_1EF_IMPLEMENTATION.md` records the exact selectors, artifact locations and
+tested-source hash. The source gaps and OFF/untested rules remain unchanged.
+
+- [x] **M9.1EF — nested measurement shape and numeric checks repaired; protected
+  proof is complete.**
+- [ ] **M9.1EG — after M9.1EF acceptance, apply the frozen per-playbook stage-1
+  ranking rule to the complete retained measurement catalog:** preserve all
+  candidate measurements, exclusions and OFF rules, keep held-out names sealed,
+  and do not release a result shard.
+
+### M9.1EF final protected verification record — 2026-09-23 Pacific
+
+Fresh controller proof passed for the nested measurement repair. One focused
+protected run selected the four selectors recorded in
+`M9_1EF_IMPLEMENTATION.md` for `builder named directly affected checks`; it
+passed 198 tests with zero failures, errors, and skips. Pytest reported `198
+passed in 6.07s`; JUnit time was 6.066 seconds and controller wall time was
+7.959 seconds. One protected broad acceptance run selected
+`tests/trade_alerts_contracts` for `unknown dependency impact; safe broad
+fallback`; it passed 4,441 tests with zero failures, errors, and skips. Pytest
+reported `4441 passed in 1062.03s (0:17:42)`; JUnit time was 1061.821 seconds
+and controller wall time was 1067.573 seconds.
+
+The separate repeatability phase ran the controller-recorded 73 selectors in
+two fresh protected processes, including the M9.1EF recording selector. Each
+run passed 101 tests with zero failures, errors, and skips. Pytest reported
+`101 passed in 209.79s (0:03:29)` for run 1 and `101 passed in 210.65s
+(0:03:30)` for run 2; JUnit time was 209.787 seconds for run 1 and 210.648
+seconds for run 2. The two-run controller wall time was 426.56 seconds. The two
+`m91ef-retained-stage1-measurement-catalog.json` artifacts matched byte-for-byte
+with SHA-256
+`c947186240dce4ad07f33a557dcf01e89d59922cd28a3c56382ba5140d27e8ba`.
+The full artifact locations, selector list and tested-source manifest hash
+`d1654a0fd935e7096d0d5e864946107d496b1442e0b46922fbbf57d3824d9fe6` are in
+`M9_1EF_IMPLEMENTATION.md`. This final record changes documentation only.
+
+The strict real input remains empty because accepted exit-side costs are
+missing. Confidence, halt, macro, catalyst, daily-history, quote-policy,
+continuity and parent facts remain missing. Their dependent rules remain OFF
+and untested. Measurement, ranking, result-shard, held-out, alert, profit and
+live release remain off.
+
+- [x] **M9.1EF — nested measurement shape and numeric checks repaired; protected
+  proof is complete.**
+- [ ] **M9.1EG — after M9.1EF acceptance, apply the frozen per-playbook stage-1
+  ranking rule to the complete retained measurement catalog:** preserve all
+  candidate measurements, exclusions and OFF rules, keep held-out names sealed,
+  and do not release a result shard.
+
+### M9.1EF initial implementation status — 2026-09-23 Pacific
+
+The strict retained measurement catalog is implemented as recorded in
+[M9_1EF_IMPLEMENTATION.md](M9_1EF_IMPLEMENTATION.md). It requires every frozen
+candidate in exact 18/4/2/4 order and one matching ordered training-session plan
+across all nine training names before the catalog is complete. Every exclusion
+and required source-gap OFF label carries forward. Ranking, result-shard,
+held-out, alert and live release remain off.
+
+The real strict input remains empty because accepted exit-side costs are still
+missing. Confidence, halt, macro, catalyst, daily-history, quote-policy,
+continuity and parent facts also remain missing. Their dependent rules remain
+OFF and untested. Fresh protected focused, broad acceptance and two-process
+recording proof and independent review remain required.
+
+### M9.1EF historical pre-repair protected verification — review rejected, 2026-09-23 Pacific
+
+The supplied controller proof covered the initial strict retained measurement
+catalog. Independent review then found unchecked nested measurement shape and
+numeric values. These historical runs do not cover the subsequent repair or
+establish acceptance; the repair status below governs.
+One protected focused run selected
+`tests/trade_alerts_contracts/test_retained_stage1_candidate_measurements.py`,
+`tests/trade_alerts_contracts/test_retained_stage1_measurement_catalog.py`, and
+`tests/trade_alerts_contracts/test_search_run_config.py` for `builder named
+directly affected checks`; it passed 47 tests with zero failures, errors, and
+skips. Pytest reported `47 passed in 3.64s`; JUnit time was 3.645 seconds and
+controller wall time was 5.376 seconds. One protected broad acceptance run
+selected `tests/trade_alerts_contracts` for `unknown dependency impact; safe
+broad fallback`; it passed 4,290 tests with zero failures, errors, and skips.
+Pytest reported `4290 passed in 1059.93s (0:17:39)`; JUnit time was 1059.722
+seconds and controller wall time was 1065.097 seconds.
+
+The separate repeatability phase used the controller-recorded 75 selectors in
+two fresh protected processes, including the M9.1EF recording selector. Each
+run passed 101 tests with zero failures, errors, and skips. Pytest reported
+`101 passed in 208.78s (0:03:28)` for run 1 and `101 passed in 210.94s
+(0:03:30)` for run 2; JUnit time was 208.779 seconds for run 1 and 210.934
+seconds for run 2. The two-run controller wall time was 424.875 seconds. The
+two `m91ef-retained-stage1-measurement-catalog.json` artifacts matched
+byte-for-byte with SHA-256
+`c947186240dce4ad07f33a557dcf01e89d59922cd28a3c56382ba5140d27e8ba`.
+The full artifact paths, selector list, and tested-source manifest hash
+`431896e49bb1ebd443175102b321ee71e8a1147df891c06b539714e32861abcf` are in
+`M9_1EF_IMPLEMENTATION.md`. This records-only update changed no tested code,
+tests, configuration, dependencies, or protected inputs.
+
+The real strict input remains empty because accepted exit-side costs are
+missing. Confidence, halt, macro, catalyst, daily-history, quote-policy,
+continuity and parent facts remain missing. Their dependent rules remain OFF
+and untested. Measurement, ranking, result-shard, held-out, alert, profit and
+live release remain off.
+
+- [x] **M9.1EF — the complete 18/4/2/4 retained stage-1 measurement catalog is
+  assembled only under exact shared training coverage; protected proof is
+  complete.**
+- [ ] **M9.1EG — after M9.1EF acceptance, apply the frozen per-playbook stage-1
+  ranking rule to the complete retained measurement catalog:** preserve all
+  candidate measurements, exclusions and OFF rules, keep held-out names sealed,
+  and do not release a result shard.
+
+
+### M9.1EF nested measurement repair pending verification — 2026-09-23 Pacific
+
+Review rejected the initial boundary because exact-version records could carry
+NaN ranking values or missing nested measurements. Version labels alone did not
+validate those records, and row fields were read before checking their shape.
+The repair now checks the measurement tuple, outer and nested record types,
+frozen candidate, numeric ranges and counts before assembling the catalog.
+Positive infinity remains valid only for the producer's unavailable recovery
+value. Direct refusal cases cover every first-four row; producer-path checks
+retain valid losing, flat and winning synthetic values.
+
+The protected focused launch stopped before collection at the unchanged
+launcher's temporary-folder ownership step:
+`OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-b0ozcjs8'`.
+No retry or unprotected application test was run. Fresh controller focused,
+broad acceptance and separate two-process recording proof must supply the
+repaired selectors, counts, timings, source identity and artifact comparisons.
+The earlier proof and rejected attempt remain historical. Full details and
+the complete milestone delta are in [M9_1EF_IMPLEMENTATION.md](M9_1EF_IMPLEMENTATION.md).
+Real source gaps, OFF/untested dependent rules and all later release gates stay
+unchanged.
+
+- [~] **M9.1EF — nested measurement shape and numeric checks repaired; fresh
+  protected proof and independent review remain required.**
+- [ ] **M9.1EG — after M9.1EF acceptance, apply the frozen per-playbook stage-1
+  ranking rule to the complete retained measurement catalog:** preserve all
+  candidate measurements, exclusions and OFF rules, keep held-out names sealed,
+  and do not release a result shard.
+
+### M9.1EF final proof superseding the pending repair record — 2026-09-23 Pacific
+
+The fresh controller focused run passed 198 tests; pytest time was 6.07 seconds,
+JUnit time was 6.066 seconds, and controller wall time was 7.959 seconds. The
+fresh broad acceptance run passed 4,441 tests; pytest time was 1062.03 seconds,
+JUnit time was 1061.821 seconds, and controller wall time was 1067.573 seconds.
+The 73-selector repeatability phase ran twice: each run passed 101 tests; pytest
+times were 209.79 and 210.65 seconds, JUnit times were 209.787 and 210.648
+seconds, and two-run controller wall time was 426.56 seconds. Both
+`m91ef-retained-stage1-measurement-catalog.json` artifacts matched with SHA-256
+`c947186240dce4ad07f33a557dcf01e89d59922cd28a3c56382ba5140d27e8ba`.
+`M9_1EF_IMPLEMENTATION.md` records the exact selectors, artifact locations and
+tested-source hash. The source gaps and OFF/untested rules remain unchanged.
+
+- [x] **M9.1EF — nested measurement shape and numeric checks repaired; protected
+  proof is complete.**
+- [ ] **M9.1EG — after M9.1EF acceptance, apply the frozen per-playbook stage-1
+  ranking rule to the complete retained measurement catalog:** preserve all
+  candidate measurements, exclusions and OFF rules, keep held-out names sealed,
+  and do not release a result shard.
+
+### M9.1EG latest implementation status — 2026-09-23 Pacific
+
+The frozen retained per-playbook ranking boundary is implemented as recorded in
+[M9_1EG_IMPLEMENTATION.md](M9_1EG_IMPLEMENTATION.md). It accepts only the
+complete closed 18/4/2/4 catalog with exact shared nine-name training coverage,
+then uses the frozen mean-profit, weekly-win-rate, drawdown-recovery and table-
+order rule independently for each first-four playbook. Every candidate
+measurement, exclusion and required source-gap OFF label remains in the output.
+Held-out names, result-shard release, alerts and live action remain closed.
+
+The real strict input remains empty because accepted exit-side costs are
+missing. Confidence, halt, macro, catalyst, daily-history, quote-policy,
+continuity and parent facts also remain missing. Their dependent rules remain
+OFF and untested. After the initial local launcher limitation, the controller's
+focused run rejected a check that confused all four playbooks' source-run trade
+total with one playbook's count. The escalated repair preserves the total and
+checks that it covers the selected playbook and the other nonempty playbooks.
+Unequal-count and too-small-total checks were added; historical failures remain
+in `M9_1EG_IMPLEMENTATION.md`. The repaired protected focused launch stopped
+before collection at the unchanged launcher's temporary-folder ownership step
+with `OSError: [Errno 22] Invalid argument`. Fresh controller focused, broad and
+two-run recording proof and independent review remain.
+
+- [~] **M9.1EG — the frozen per-playbook stage-1 ranking is applied only to a
+  complete retained catalog; fresh protected proof and independent review
+  remain.**
+- [ ] **M9.1EH — after M9.1EG acceptance, bind each retained stage-1 winner to
+  its matching complete-cost training events for the existing stage-2 input
+  boundary:** preserve every candidate measurement, exclusion and OFF rule,
+  keep held-out names sealed, and do not rank stage 2 or release a result shard.
+
+### M9.1EH latest implementation status — 2026-09-23 Pacific
+
+The closed retained stage-2 input boundary is implemented as recorded in
+[M9_1EH_IMPLEMENTATION.md](M9_1EH_IMPLEMENTATION.md). It reconstructs and
+reruns the complete M9.1EG 18/4/2/4 ranking before binding each winner to exact
+complete-cost training events. The events must reproduce the frozen winner
+measurement and preserve the training-nine scope, candidate axes, source
+identities and unique ticker-day-side boundary. Every candidate measurement,
+exclusion and source-gap OFF label remains in the source ranking. Stage-2
+ranking, held-out names, result shards, alerts and live action remain closed.
+
+The real strict input remains empty because accepted exit-side costs are
+missing. Confidence, halt, macro, catalyst, daily-history, quote-policy,
+continuity and parent facts also remain missing. Their dependent rules remain
+OFF and untested. The protected focused launch stopped before collection at
+the unchanged launcher's temporary-folder ownership step with `OSError:
+[Errno 22] Invalid argument`. Fresh controller focused, broad and two-process
+recording proof and independent review remain.
+
+- [~] **M9.1EH — each retained stage-1 winner is bound to matching
+  complete-cost training events at the closed existing stage-2 input boundary;
+  fresh protected proof and independent review remain.**
+- [ ] **M9.1EI — after M9.1EH acceptance, run the existing frozen five-candidate
+  stage-2 training comparison on the retained winner inputs:** preserve the
+  full stage-1 catalog and source-gap OFF rules, keep held-out names sealed,
+  and do not release a result shard.
+
+### M9.1EH final proof superseding the pending row — 2026-09-23 Pacific
+
+The final M9.1EH record above is the current proof. Its focused run passed 1
+test, its broad acceptance run passed 4,474 tests, and its separate two-process
+repeatability record matched `m91eh-retained-stage2-input.json` with SHA-256
+`f147e16ac46f2544c1a82b73554d466b889a828e41faead1692e1b9148f436a2`.
+The original tested-source hash is
+`21b5a78081cafdfda69805d2613f674df34c2bb1fa177eb846615b76bdbfb25e`.
+Missing-data rules stay OFF and untested; held-out data, stage-2 ranking,
+result-shard release, alerts and live action remain closed.
+
+- [x] **M9.1EH — each retained stage-1 winner is bound to matching
+  complete-cost training events at the closed existing stage-2 input boundary;
+  protected proof is complete.**
+- [ ] **M9.1EI — after M9.1EH acceptance, run the existing frozen five-candidate
+  stage-2 training comparison on the retained winner inputs:** preserve the
+  full stage-1 catalog and source-gap OFF rules, keep held-out names sealed,
+  and do not release a result shard.
+
+### M9.1EH final protected verification record — 2026-09-23 Pacific
+
+Fresh controller proof passed for the retained stage-2 input binding. The
+focused protected run selected the repaired held-out rejection case for
+`builder named directly affected checks`; it ran once, passed 1 test with zero
+failures, errors, and skips, and had controller wall time 7.789 seconds. The
+broad protected acceptance run selected `tests/trade_alerts_contracts` for
+`unknown dependency impact; safe broad fallback`; it ran once, passed 4,474
+tests with zero failures, errors, and skips, and had controller wall time
+433.972 seconds.
+
+The separate repeatability phase used the controller-recorded 77 selectors in
+two fresh protected processes, including the M9.1EH recording selector. The
+controller records 103 tests and two-run wall time 163.247 seconds. Run 1's
+three isolated pytest shards passed 31, 45, and 27 tests; run 2's three shards
+also passed 31, 45, and 27 tests. Each merged JUnit report contains all 103
+tests with zero failures, errors, and skips. Both
+`m91eh-retained-stage2-input.json` artifacts matched byte-for-byte with
+SHA-256 `f147e16ac46f2544c1a82b73554d466b889a828e41faead1692e1b9148f436a2`.
+`M9_1EH_IMPLEMENTATION.md` records the exact selectors, pytest and JUnit
+timings, artifact locations, and tested-source hash
+`21b5a78081cafdfda69805d2613f674df34c2bb1fa177eb846615b76bdbfb25e`.
+
+Accepted exit-side costs, confidence, halt, macro, catalyst, daily-history,
+quote-policy, continuity and parent facts remain missing. Their dependent rules
+remain OFF and untested. Held-out data, stage-2 ranking, result-shard release,
+alerts and live action remain closed.
+
+- [x] **M9.1EH — each retained stage-1 winner is bound to matching
+  complete-cost training events at the closed existing stage-2 input boundary;
+  protected proof is complete.**
+- [ ] **M9.1EI — after M9.1EH acceptance, run the existing frozen five-candidate
+  stage-2 training comparison on the retained winner inputs:** preserve the
+  full stage-1 catalog and source-gap OFF rules, keep held-out names sealed,
+  and do not release a result shard.
+
+### M9.1EG final protected verification record — 2026-09-23 Pacific
+
+The controller's focused protected run selected the three exact M9.1EG ranking
+checks for `builder named directly affected checks`. It passed 3 tests with zero
+failures, errors, and skips. Pytest reported `3 passed in 1.91s`; JUnit time was
+1.916 seconds and controller wall time was 3.705 seconds. The broad protected
+acceptance run selected `tests/trade_alerts_contracts` for `unknown dependency
+impact; safe broad fallback`; it passed 4,462 tests with zero failures, errors,
+and skips. Pytest reported `4462 passed in 1032.65s (0:17:12)`; JUnit time was
+1032.466 seconds and controller wall time was 1037.662 seconds.
+
+The separate 76-selector repeatability phase ran twice in fresh protected
+processes, including the M9.1EG ranking recording selector. Each run passed 102
+tests with zero failures, errors, and skips. JUnit time was 208.864 seconds for
+run 1 and 210.813 seconds for run 2. Pytest reported `102 passed in 208.86s
+(0:03:28)` for run 1 and `102 passed in 210.82s (0:03:30)` for run 2; the
+two-run controller wall time was 424.874 seconds. Both
+`m91eg-retained-stage1-ranking.json` artifacts matched
+byte-for-byte with SHA-256
+`6e66a624741f124764fee8d2d160a81ecc6b902963463ff647dfa419f4cd08fd`.
+`M9_1EG_IMPLEMENTATION.md` holds the exact focused selectors, artifact
+locations, complete repeatability-selector reference and tested-source manifest
+hash `126eb58b21fb434036fa0c774b036c93e408f352ff7ac20ef19a71f1772518dd`.
+The missing accepted exit-side costs, confidence, halt, macro, catalyst,
+daily-history, quote-policy, continuity and parent facts still keep their
+dependent rules OFF and untested. Held-out, result-shard, alert and live release
+remain closed.
+
+- [x] **M9.1EG — the frozen per-playbook stage-1 ranking is applied only to a
+  complete retained catalog; protected proof is complete.**
+- [ ] **M9.1EH — after M9.1EG acceptance, bind each retained stage-1 winner to
+  its matching complete-cost training events for the existing stage-2 input
+  boundary:** preserve every candidate measurement, exclusion and OFF rule,
+  keep held-out names sealed, and do not rank stage 2 or release a result shard.
+
+### M9.1EH current implementation row — 2026-09-23 Pacific
+
+The closed binding described in `M9_1EH_IMPLEMENTATION.md` is implemented.
+The controller's failed held-out rejection case used AAPL, which belongs to
+the frozen training list. The escalated repair selects GOOGL from the frozen
+held-out tuple and asserts that it is outside training; the production rule
+and frozen split are unchanged. The original failure and prior attempt remain
+in that record. The repaired focused launcher stopped before collection at
+`os.chown` with `OSError: [Errno 22] Invalid argument`. Fresh controller focused,
+broad and separate two-process recording proof and independent review remain
+pending. Missing-data rules remain OFF and untested; held-out data, stage-2
+ranking, result-shard, alert and live release remain closed.
+
+- [~] **M9.1EH — each retained stage-1 winner is bound to matching
+  complete-cost training events at the closed existing stage-2 input boundary;
+  fresh protected proof and independent review remain.**
+- [ ] **M9.1EI — after M9.1EH acceptance, run the existing frozen five-candidate
+  stage-2 training comparison on the retained winner inputs:** preserve the
+  full stage-1 catalog and source-gap OFF rules, keep held-out names sealed,
+  and do not release a result shard.
+
+### M9.1EH final proof superseding the pending row — 2026-09-23 Pacific
+
+The final M9.1EH record above is the current proof. Its focused run passed 1
+test, its broad acceptance run passed 4,474 tests, and its separate two-process
+repeatability record matched `m91eh-retained-stage2-input.json` with SHA-256
+`f147e16ac46f2544c1a82b73554d466b889a828e41faead1692e1b9148f436a2`.
+The original tested-source hash is
+`21b5a78081cafdfda69805d2613f674df34c2bb1fa177eb846615b76bdbfb25e`.
+Missing-data rules stay OFF and untested; held-out data, stage-2 ranking,
+result-shard release, alerts and live action remain closed.
+
+- [x] **M9.1EH — each retained stage-1 winner is bound to matching
+  complete-cost training events at the closed existing stage-2 input boundary;
+  protected proof is complete.**
+- [ ] **M9.1EI — after M9.1EH acceptance, run the existing frozen five-candidate
+  stage-2 training comparison on the retained winner inputs:** preserve the
+  full stage-1 catalog and source-gap OFF rules, keep held-out names sealed,
+  and do not release a result shard.
+
+### M9.1EI current implementation row — 2026-09-23 Pacific
+
+The closed retained stage-2 training comparison in
+`M9_1EI_IMPLEMENTATION.md` is implemented. The focused protected launch
+stopped before collection at the unchanged launcher's temporary-folder
+ownership step with `OSError: [Errno 22] Invalid argument`. It was not retried,
+and no application test ran outside the protected launcher. Fresh controller
+focused, broad acceptance and two-process recording proof and independent
+review remain required. Missing-data rules remain OFF and untested; held-out
+data, result-shard release, alerts and live action remain closed.
+
+- [~] **M9.1EI — the existing frozen five-candidate stage-2 training
+  comparison runs only from the reproduced closed retained winner input;
+  fresh protected proof and independent review remain.**
+- [ ] **M9.1EJ — after M9.1EI acceptance, bind the frozen stage-2 training
+  winner to a closed stage-3 input record:** preserve its full stage-1 and
+  stage-2 evidence, keep held-out names sealed, and do not run the held-out
+  D-108 evaluation or release a result shard.
+
+### M9.1EI final protected verification record — 2026-09-23 Pacific
+
+Fresh controller proof passed for the closed retained stage-2 training
+comparison. The focused protected run selected the four recorded M9.1EI checks
+for `builder named directly affected checks`; it ran once, passed 39 tests with
+zero failures, errors, and skips, and had controller wall time 62.761 seconds.
+The broad protected acceptance run selected `tests/trade_alerts_contracts` for
+`unknown dependency impact; safe broad fallback`; it ran once, passed 4,482
+tests with zero failures, errors, and skips, and had controller wall time
+426.844 seconds.
+
+The separate repeatability phase used the controller-recorded selector list in
+two fresh protected processes, including the M9.1EI recording selector. It
+records 104 tests with zero failures, errors, and skips and two-run controller
+wall time 171.167 seconds. Both `m91ei-retained-stage2-training.json` artifacts
+matched byte-for-byte with SHA-256
+`50a92667ea49692b7830e47f95eeea8a7606557bd01d146c8c727feb8eb658b4`.
+`M9_1EI_IMPLEMENTATION.md` records the selectors, artifact locations and
+tested-source hash
+`76614c180486becbad1e3edfe10e19cd9d20051e6b826754e7d93f718675b993`.
+Accepted exit-side costs, confidence, halt, macro, catalyst, daily-history,
+quote-policy, continuity and parent facts remain missing. Their dependent rules
+remain OFF and untested; held-out data, result-shard release, alerts and live
+action remain closed.
+
+- [x] **M9.1EI — the existing frozen five-candidate stage-2 training
+  comparison runs only from the reproduced closed retained winner input;
+  protected proof is complete.**
+- [ ] **M9.1EJ — after M9.1EI acceptance, bind the frozen stage-2 training
+  winner to a closed stage-3 input record:** preserve its full stage-1 and
+  stage-2 evidence, keep held-out names sealed, and do not run the held-out
+  D-108 evaluation or release a result shard.
+
+### M9.1EJ pending protected verification — 2026-09-23 Pacific
+
+The closed retained stage-3 input binding is implemented as recorded in
+`M9_1EJ_IMPLEMENTATION.md`. It reproduces the complete accepted M9.1EI training
+comparison before binding its frozen winner. Held-out names, D-108 evaluation,
+result-shard release, alerts and live action remain closed. The focused
+protected launch stopped before collection at the unchanged launcher's
+temporary-folder ownership step with `OSError: [Errno 22] Invalid argument`.
+It was not retried, and no application test ran outside the protected launcher.
+Fresh controller focused, broad acceptance and two-process recording proof and
+independent review remain required. Missing-data rules remain OFF and untested.
+
+- [~] **M9.1EJ — the frozen stage-2 training winner is bound only from the
+  reproduced complete training record to a closed stage-3 input; fresh
+  protected proof and independent review remain.**
+- [ ] **M9.1EK — after M9.1EJ acceptance, bind matching complete-cost held-out
+  events for the frozen stage-3 winner:** use only the frozen held-out eight,
+  preserve the full training evidence and source-gap OFF rules, and do not run
+  D-108 or release a result shard.
+
+### M9.1EJ final protected verification record — 2026-09-23 Pacific
+
+Fresh controller proof passed for the closed retained stage-3 input binding.
+The focused protected run selected the five recorded M9.1EJ checks for
+`builder named directly affected checks`; it ran once, passed 47 tests with zero
+failures, errors, and skips, and had controller wall time 66.703 seconds. The
+broad protected acceptance run selected `tests/trade_alerts_contracts` for
+`unknown dependency impact; safe broad fallback`; it ran once, passed 4,490
+tests with zero failures, errors, and skips, and had controller wall time
+425.871 seconds.
+
+The separate repeatability phase used the controller-recorded selector list in
+two fresh protected processes, including the M9.1EJ recording selector. It
+records 105 tests with zero failures, errors, and skips and two-run controller
+wall time 183.253 seconds. Both `m91ej-retained-stage3-input.json` artifacts
+matched byte-for-byte with SHA-256
+`f96b158b4c1df7fe50c07a5b05112c57dc44036f8a5bcff98db3db28bcaaa7cd`.
+`M9_1EJ_IMPLEMENTATION.md` records the exact selectors, artifact locations and
+tested-source hash
+`b16f192e4769217f248a60e4e043f34f841d906e8dd6dc7a3f764757be45ddd4`.
+Accepted exit-side costs, confidence, halt, macro, catalyst, daily-history,
+quote-policy, continuity and parent facts remain missing. Their dependent rules
+remain OFF and untested; held-out data, D-108 evaluation, result-shard release,
+alerts and live action remain closed.
+
+- [x] **M9.1EJ — the frozen stage-2 training winner is bound only from the
+  reproduced complete training record to a closed stage-3 input; protected proof
+  is complete.**
+- [ ] **M9.1EK — after M9.1EJ acceptance, bind matching complete-cost held-out
+  events for the frozen stage-3 winner:** use only the frozen held-out eight,
+  preserve the full training evidence and source-gap OFF rules, and do not run
+  D-108 or release a result shard.
+
+### M9.1EK current implementation row — 2026-09-23 Pacific
+
+The pending M9.1EK implementation and launcher limitation recorded above are
+current. Fresh controller focused, broad acceptance and separate two-process
+recording proof and independent review remain required.
+
+- [~] **M9.1EK — matching complete-cost held-out events are bound only to the
+  reproduced frozen stage-3 winner; fresh protected proof and independent
+  review remain.**
+- [ ] **M9.1EL — after M9.1EK acceptance, run the frozen D-108 evaluation once
+  on the bound held-out events:** preserve the full training and held-out input
+  evidence, publish the exact frozen pass/fail measures, and keep result-shard,
+  alert and live release closed.
+
+### M9.1EK final protected verification record — 2026-09-23 Pacific
+
+Fresh controller proof completed for the closed held-out binding. The focused
+phase ran once with the controller-recorded seven selectors for `builder named
+directly affected checks`; it recorded 74 tests and controller wall time 120.865
+seconds. The broad acceptance phase ran once with
+`tests/trade_alerts_contracts` for `unknown dependency impact; safe broad
+fallback`; it recorded 4,501 tests and controller wall time 500.007 seconds.
+
+The separate repeatability phase ran twice in fresh protected processes for
+`recording output requires fresh-process comparison`. It used the controller
+recorded selector list, including the M9.1EK recording selector, recorded 106
+tests, and had two-run controller wall time 186.213 seconds. Both
+`m91ek-retained-stage3-held-out-input.json` artifacts matched with SHA-256
+`59f3c6f1c1de369ce748a8ecd107e0496250eafa7b7588cd6814545992236f5c`.
+`M9_1EK_IMPLEMENTATION.md` records the exact selector lists, artifact locations
+and tested-source hash
+`83f2c2c94699ab1f5abc915b5375adae9bd43cda6506835be553dc550beefee7`.
+
+Accepted exit-side costs, confidence, halt, macro, catalyst, daily-history,
+quote-policy, continuity and parent facts remain missing. Their dependent rules
+remain OFF and untested. Held-out source coverage, D-108, result-shard release,
+alerts and live action remain closed.
+
+- [x] **M9.1EK — matching complete-cost held-out events are bound only to the
+  reproduced frozen stage-3 winner; protected proof is complete.**
+- [ ] **M9.1EL — after M9.1EK acceptance, run the frozen D-108 evaluation once
+  on the bound held-out events:** preserve the full training and held-out input
+  evidence, publish the exact frozen pass/fail measures, and keep result-shard,
+  alert and live release closed.
+
+### M9.1EL current implementation row — 2026-09-23 Pacific
+
+The initial controller focused run rejected the implementation: the
+`forged_held_out_event` case did not raise `RecordError`. That failure and all
+prior attempt evidence remain preserved in `M9_1EL_IMPLEMENTATION.md`.
+The escalated repair replaces the circular event check with a required,
+separately retained fingerprint of the accepted M9.1EK input, then keeps the
+full structural reconstruction. It preserves the frozen D-108 measures and
+source-gap OFF labels. The fingerprint proves supplied-record integrity only;
+it does not establish source truth. Result-shard, alert and live release stay
+closed. The repair's protected attempt stopped before collection at the
+unchanged launcher's temporary-folder ownership step with
+`OSError: [Errno 22] Invalid argument`. It was not retried, and no application
+test ran outside the protected launcher. Fresh controller focused, broad
+acceptance and two-process recording proof and independent review remain
+required.
+
+- [~] **M9.1EL — the frozen D-108 evaluation runs once only from the reproduced
+  complete M9.1EK held-out input; fresh protected proof and independent review
+  remain.**
+- [ ] **M9.1EM — after M9.1EL acceptance, publish the closed offline result
+  shard from the frozen D-108 record:** preserve the full training, held-out and
+  pass/fail evidence and keep alert and live release closed.
+
+### M9.1EL final protected verification record — 2026-09-23 Pacific
+
+Fresh controller proof passed after the retained fingerprint repair. The focused
+phase ran once for `builder named directly affected checks` with
+`tests/trade_alerts_contracts/test_retained_stage3_d108_evaluation.py::test_rejects_changed_evidence_or_an_open_later_boundary[forged_held_out_event]`.
+It recorded 1 test and controller wall time 12.302 seconds. The broad acceptance
+phase ran once for `unknown dependency impact; safe broad fallback` with
+`tests/trade_alerts_contracts`. It recorded 4523 tests and controller wall time
+531.088 seconds. Both phases had zero failures, errors, and skips.
+
+The separate repeatability phase ran twice in fresh protected processes for
+`recording output requires fresh-process comparison`. It used the controller's
+published 107-selector list, including the M9.1EL recording selector, recorded
+107 tests, and had two-run controller wall time 194.27 seconds. Both
+`m91el-retained-stage3-d108-evaluation.json` artifacts matched byte-for-byte
+with SHA-256
+`4ab8c3118255c55a3bf610f255454975c089b20f6e56d400036bcd50df3bff4c`.
+`M9_1EL_IMPLEMENTATION.md` records the artifact locations and tested-source
+hash `843e1affdae2f5a3852788792db4fd367a8f5eb170c9d4e9b7d2b727b5f5617f`.
+
+Accepted exit-side costs, confidence, halt, macro, catalyst, daily-history,
+quote-policy, continuity and parent facts remain missing. Their dependent rules
+remain OFF and untested. Held-out source coverage, result-shard release, alerts
+and live action remain closed.
+
+- [x] **M9.1EL — the frozen D-108 evaluation runs once only from the reproduced
+  complete M9.1EK held-out input; protected proof is complete.**
+- [ ] **M9.1EM — after M9.1EL acceptance, publish the closed offline result
+  shard from the frozen D-108 record:** preserve the full training, held-out and
+  pass/fail evidence and keep alert and live release closed.
+
+### M9.1EM current implementation row — 2026-09-23 Pacific
+
+The closed offline result-shard boundary is implemented in
+`retained_stage3_result_shard.py` and recorded in
+`M9_1EM_IMPLEMENTATION.md`. It accepts only the independently fingerprinted,
+closed M9.1EL record, preserves the complete training, held-out and D-108
+pass/fail evidence, and does not rerun D-108. The shard is offline; alert and
+live release remain closed. Accepted exit-side costs, confidence, halt, macro,
+catalyst, daily-history, quote-policy, continuity and parent facts remain
+missing, so their dependent rules stay OFF and untested.
+
+The focused protected launch stopped before collection at the unchanged
+temporary-folder ownership step with `OSError: [Errno 22] Invalid argument`.
+Fresh controller focused, broad acceptance and two-process recording proof and
+independent review remain required.
+
+- [~] **M9.1EM — the frozen M9.1EL D-108 record is published only as a closed
+  offline result shard; fresh protected proof and independent review remain.**
+- [ ] **M9.1EN — after M9.1EM acceptance, publish the parent M9.1 engineering-
+  pilot disposition from the closed shard:** preserve every source-gap OFF rule,
+  record the exact offline result and keep promotion, alert and live release
+  closed.
+
+### M9.1EN current implementation row — 2026-09-23 Pacific
+
+The parent engineering-pilot disposition is implemented in
+`retained_stage3_pilot_disposition.py` and recorded in
+`M9_1EN_IMPLEMENTATION.md`. It accepts only the independently fingerprinted,
+reproducible M9.1EM shard, preserves its complete source and exact offline
+D-108 result, and labels the disposition `ENGINEERING_PILOT_ONLY`. Every
+source-gap dependent rule remains OFF and untested. Promotion, alert and live
+release remain closed.
+
+Fresh controller focused, broad acceptance and two-process recording proof and
+independent review remain required. Accepted exit-side costs, confidence, halt,
+macro, catalyst, daily-history, quote-policy, continuity and parent facts remain
+missing. Original availability, corrections/finality and point-in-time
+membership remain recorded gaps. This supplied-record contract does not prove
+real held-out source coverage or a promotable edge.
+
+- [~] **M9.1EN — the parent M9.1 disposition records the exact closed offline
+  result as engineering-pilot evidence only; fresh protected proof and
+  independent review remain.**
+- [ ] **M9.1EO — after M9.1EN acceptance, reconcile the M9.4 early-validation
+  gate against the parent disposition:** keep Strategy #5-#8 implementation
+  closed unless the required real evidence exists, and preserve every source,
+  promotion, alert and live gate.
+
+### M9.1EN final acceptance state — 2026-09-23 Pacific
+
+The immediately preceding M9.1EN launcher limitation is historical. Fresh
+controller focused, broad acceptance and two-process repeatability proof passed
+as recorded in `M9_1EN_IMPLEMENTATION.md`; all source-gap dependent rules
+remain OFF and untested, and promotion, alert and live release remain closed.
+
+- [x] **M9.1EN — the parent M9.1 disposition records the exact closed offline
+  result as engineering-pilot evidence only; protected proof is complete.**
+- [ ] **M9.1EO — after M9.1EN acceptance, reconcile the M9.4 early-validation
+  gate against the parent disposition:** keep Strategy #5-#8 implementation
+  closed unless the required real evidence exists, and preserve every source,
+  promotion, alert and live gate.
+
+### M9.1EN final protected verification record — 2026-09-23 Pacific
+
+Fresh controller proof passed for the parent engineering-pilot disposition. The
+focused phase ran once with the controller-recorded three selectors for
+`builder named directly affected checks`; it recorded 16 tests with zero
+failures, errors, and skips, a JUnit time of 14.138 seconds and controller wall
+time of 16.718 seconds. The broad acceptance phase ran once with
+`tests/trade_alerts_contracts` for `unknown dependency impact; safe broad
+fallback`; it recorded 4555 tests with zero failures, errors, and skips, a
+JUnit time of 457.610 seconds and controller wall time of 557.117 seconds.
+
+The separate repeatability phase ran twice in fresh protected processes for
+`recording output requires fresh-process comparison`. It used the controller's
+published 83-selector list, including the M9.1EN recording selector, recorded
+109 tests with zero failures, errors, and skips, and had JUnit times of 100.852
+and 102.544 seconds with two-run controller wall time 212.264 seconds. Both
+`m91en-retained-stage3-pilot-disposition.json` artifacts matched byte-for-byte
+with SHA-256 `16d2b0aab56307fa187c403faf157dfbe17936beba3eef870d5d22a6029cc9ee`.
+`M9_1EN_IMPLEMENTATION.md` records the artifact locations and tested-source
+hash `15955883694930a36ba68df870360acf8e3e00fbea5fb9f52a0434532f695e83`.
+
+Accepted exit-side costs, confidence, halt, macro, catalyst, daily-history,
+quote-policy, continuity and parent facts remain missing. Their dependent rules
+remain OFF and untested. Held-out source coverage, promotion, alert and live
+release remain closed.
+
+- [x] **M9.1EN — the parent M9.1 disposition records the exact closed offline
+  result as engineering-pilot evidence only; protected proof is complete.**
+- [ ] **M9.1EO — after M9.1EN acceptance, reconcile the M9.4 early-validation
+  gate against the parent disposition:** keep Strategy #5-#8 implementation
+  closed unless the required real evidence exists, and preserve every source,
+  promotion, alert and live gate.
+
+### M9.1EM final protected verification record — 2026-09-23 Pacific
+
+Fresh controller proof passed for the closed offline result shard. The focused
+phase ran once with the controller-recorded five selectors for `builder named
+directly affected checks`; it recorded 18 tests with zero failures, errors, and
+skips and controller wall time 16.644 seconds. The broad acceptance phase ran
+once with `tests/trade_alerts_contracts` for `unknown dependency impact; safe
+broad fallback`; it recorded 4540 tests with zero failures, errors, and skips
+and controller wall time 540.249 seconds.
+
+The separate repeatability phase ran twice in fresh protected processes for
+`recording output requires fresh-process comparison`. It used the controller's
+published 77-selector list, including the M9.1EM recording selector, recorded
+108 tests with zero failures, errors, and skips, and had two-run controller wall
+time 212.297 seconds. Both `m91em-retained-stage3-result-shard.json` artifacts
+matched byte-for-byte with SHA-256
+`ede27465e4c0764c957d9c9e96d8e3141bdcdbe2d1aefada4e10336785d34457`.
+`M9_1EM_IMPLEMENTATION.md` records the exact selector reference, artifact
+locations and tested-source hash
+`456cb4d169e20d96e3d71aa61cc4b1a7e706cf7a23119c184f4e5101b43e67a6`.
+
+Accepted exit-side costs, confidence, halt, macro, catalyst, daily-history,
+quote-policy, continuity and parent facts remain missing. Their dependent rules
+remain OFF and untested. Held-out source coverage, promotion, alert and live
+release remain closed.
+
+- [x] **M9.1EM — the frozen M9.1EL D-108 record is published only as a closed
+  offline result shard; protected proof is complete.**
+- [ ] **M9.1EN — after M9.1EM acceptance, publish the parent M9.1 engineering-
+  pilot disposition from the closed shard:** preserve every source-gap OFF rule,
+  record the exact offline result and keep promotion, alert and live release
+  closed.
+
+### M9.1EN active handoff after M9.1EM acceptance — 2026-09-23 Pacific
+
+The M9.1EN implementation record above remains current. M9.1EM now has final
+protected acceptance. The focused M9.1EN protected launch stopped before test
+collection at the unchanged temporary-folder ownership step with
+`OSError: [Errno 22] Invalid argument`. It was not retried, and no application
+test ran outside the protected launcher. Fresh controller focused, broad
+acceptance and two-process recording proof and independent review remain
+required.
+
+- [~] **M9.1EN — the parent M9.1 disposition records the exact closed offline
+  result as engineering-pilot evidence only; fresh protected proof and
+  independent review remain.**
+- [ ] **M9.1EO — after M9.1EN acceptance, reconcile the M9.4 early-validation
+  gate against the parent disposition:** keep Strategy #5-#8 implementation
+  closed unless the required real evidence exists, and preserve every source,
+  promotion, alert and live gate.
+
+### M9.1EN final acceptance state — 2026-09-23 Pacific
+
+The preceding M9.1EN launcher limitation is historical. Fresh controller
+focused, broad acceptance and two-process repeatability proof passed as
+recorded in `M9_1EN_IMPLEMENTATION.md`; source-gap dependent rules remain OFF
+and untested, and promotion, alert and live release remain closed.
+
+- [x] **M9.1EN — the parent M9.1 disposition records the exact closed offline
+  result as engineering-pilot evidence only; protected proof is complete.**
+- [ ] **M9.1EO — after M9.1EN acceptance, reconcile the M9.4 early-validation
+  gate against the parent disposition:** keep Strategy #5-#8 implementation
+  closed unless the required real evidence exists, and preserve every source,
+  promotion, alert and live gate.
+
+### M9.1EO final blocked assessment — 2026-09-23 Pacific
+
+`M9_1EO_ASSESSMENT.md` records the completed reconciliation. M9.1EN's protected
+offline D-108 pass uses synthetic supplied records and is expressly
+`ENGINEERING_PILOT_ONLY`. It does not prove real held-out source coverage or a
+promotable edge. Strategy #5 through #8 implementation stays closed.
+Source-gap dependent rules remain OFF and untested; source, promotion, alert
+and live gates remain open. At this historical assessment there was no separate
+dependency-ready milestone; the later M0.2CA proposal below supersedes that
+next-work statement only.
+
+- [!] **M9.1EO — M9.4 early-validation reconciliation: BLOCKED on qualifying
+  real held-out source evidence and a promotable #1-#4 result.**
+- [!] **M9.4 — early validation / human decision tags: BLOCKED on the same
+  qualifying real #1-#4 validation evidence.**
+
+### M0.2C measured-capacity reopening — 2026-09-24 Pacific
+
+The supervisor completed the previously blocked isolated-copy measurement after
+verified local storage recovery. The saved result covers all 390 source files
+and 3,721,860 option rows, verifies unchanged source identities and
+source-to-compact record equality, publishes a complete day, stays below the
+1,800-second wall limit, peaks below the memory limit, preserves the full local
+reserve, and leaves 21,185,400,832 bytes free. Exact byte, row, memory, time,
+hash, and set-ID evidence is recorded in `M0_2C_CAPACITY_ASSESSMENT.md` and the
+supervisor result it identifies.
+
+This is capacity evidence only. It does not qualify a market source, activate
+cleanup, enable any live switch, open Strategies #5 through #8, or change the
+M9.4 blocker. The M9.1EO reconciliation itself is complete because it made and
+recorded the required gate decision. Protected verification and independent
+review of the reopened capacity repair are still required.
+
+- [x] **M9.1EO — M9.4 early-validation reconciliation is complete:** the
+  decision keeps M9.4 blocked on qualifying real held-out source evidence and a
+  promotable #1-#4 result.
+- [!] **M9.4 — early validation / human decision tags remain blocked on that
+  qualifying real #1-#4 validation evidence.**
+- [~] **M0.2CA — owner-reopened measured saved-data capacity repair:** the
+  measured pass is recorded without rewriting M0.2C's historical blocked
+  result. Direct full-chain storage and collector checks, protected proof, and
+  independent review remain pending. Cleanup and all live switches stay off.
+
+### M9.1EO source-change repair and verified handoff — 2026-09-24 Pacific
+
+The assessment is written and the required decision is complete: M9.4 remains
+closed because the required real held-out evidence and promotable #1-#4 result
+remain absent. The saved delta and current completion/handoff records differed
+before review. `M9_1EO_ASSESSMENT.md` preserves that history and now records the
+fresh proof for the full current delta.
+
+The focused protected run passed 394 tests for
+`tests/test_full_chain_collector.py` and `tests/test_full_chain_storage.py` in
+127.664 seconds; its published artifacts are `published-artifacts-cd7e74baadf1/`.
+The broad protected run passed 4,949 tests, including those files and the
+contracts suite, in 1,197.449 seconds; its published artifacts are
+`published-artifacts-2a70f5f53376/`. The separate recording check passed 109
+tests twice in fresh protected processes, reported `stable: true`, and took
+460.061 seconds; its published artifacts are
+`published-artifacts-f86824e36acf/`.
+The tested-source hash is
+`2a5127aa89bedbc0c0615636b1a0e83b274ca4a46d675bcc0ef92a0d9831604b`.
+The earlier temporary-folder failure remains history, not the current result.
+
+M0.2CA is proposed as independent shared-data prerequisite work, not later
+strategy implementation. Its measured capacity pass does not close source or
+validation gates. Its review must cover the preserved batched compaction,
+separate scratch accounting, authorized measurement limit and governing storage
+contract, including direct collector/storage tests. The historical M0.2C block
+and all rejected attempts remain intact. No cleanup or live activation follows.
+
+- [x] **M9.1EO — M9.4 early-validation reconciliation is complete:** the
+  recorded decision correctly keeps M9.4 closed because qualifying real
+  held-out source evidence and a promotable #1-#4 result are still absent.
+- [!] **M9.4 — early validation / human decision tags remain blocked on that
+  qualifying real #1-#4 validation evidence.**
+- [~] **M0.2CA — owner-reopened measured saved-data capacity repair:** the
+  measurement and direct protected collector/storage checks are complete;
+  independent review remains, with cleanup and every live switch off.
+
+### M0.2CA implementation handoff — 2026-09-24 Pacific
+
+`M0_2CA_IMPLEMENTATION.md` reconciles the separate scratch bound and the
+owner-authorized 1,800-second measured wall limit with the governing storage
+contract. Direct cases cover scratch admission/enforcement and collector limit
+forwarding. The measured saved-data pass and historical M0.2C block remain
+separate. Fresh controller protected proof and independent review remain
+required. Cleanup, source qualification, Strategies #5 through #8 and every
+live switch stay closed.
+
+- [x] **M0.2CA — owner-reopened measured saved-data capacity repair is
+  complete:** controller protected focused, broad acceptance and repeatability
+  proof passed; cleanup and every live switch stay off.
+- [ ] **M0.2CB — after M0.2CA acceptance, record the separately reviewed safe-
+  activation decision:** decide only whether the measured capacity supports an
+  off-by-default cleanup path, without activating cleanup, qualifying a market
+  source, opening Strategies #5 through #8 or enabling any live switch.
+
+### M0.2CA full-file verification repair — 2026-09-24 Pacific
+
+Independent review requires fresh protected acceptance of both
+`tests/test_full_chain_collector.py` and `tests/test_full_chain_storage.py`.
+The current broad proof covers only the two new cases in those files, and the
+older full-file proof has different code and test hashes. Existing collected
+proof and rejected attempts remain preserved. The fresh full-file launch
+stopped before collection with `OSError: [Errno 22] Invalid argument` at the
+temporary-directory ownership step; no retry or bypass ran. The controller
+must supply fresh full-file proof before independent acceptance. This pending
+state supersedes the completion row above. Cleanup and all live switches stay
+off; no source or strategy gate changes.
+
+- [~] **M0.2CA — measured saved-data capacity repair awaits fresh protected
+  acceptance of both complete collector/storage test files and independent
+  review.**
+- [ ] **M0.2CB — after M0.2CA acceptance, record the separately reviewed
+  off-by-default cleanup decision:** no cleanup or live activation is authorized.
+
+### M0.2CA final protected verification record — 2026-09-24 Pacific
+
+The earlier full-file launch failure is historical. Fresh controller protected
+proof passed with zero failures, errors and skips. The focused phase ran once
+for `builder named directly affected checks` using
+`tests/test_full_chain_collector.py` and `tests/test_full_chain_storage.py`:
+396 tests in 136.833 controller wall seconds. The broad acceptance phase ran
+once for `unknown dependency impact; safe broad fallback` using
+`tests/trade_alerts_contracts`, `tests/test_full_chain_collector.py`, and
+`tests/test_full_chain_storage.py`: 4,951 tests in 1224.369 controller wall
+seconds. The repeatability phase ran twice for `recording output requires
+fresh-process comparison`, used the controller's published 109 selectors,
+recorded 109 tests, and was stable in 457.999 controller wall seconds. The
+tested-source hash is `6512f21632207d81cb14675dd61197dfda62027be1cfe579f7f037fddb562e70`.
+Cleanup and every live switch remain off; no source or strategy gate changed.
+
+- [x] **M0.2CA — owner-reopened measured saved-data capacity repair is
+  complete:** fresh protected full-file acceptance and repeatability proof
+  passed and independent review accepted it; cleanup remains off.
+- [ ] **M0.2CB — after M0.2CA acceptance, record the separately reviewed
+  off-by-default cleanup decision:** no cleanup or live activation is authorized.
+
+### M0.2CB off-by-default cleanup decision — 2026-09-24 Pacific
+
+`M0_2CB_SAFE_ACTIVATION_DECISION.md` records the decision. M0.2CA's measured
+capacity and accepted protected proof support building the narrow cleanup action
+from the existing dry-run retention plan. They do not authorize turning cleanup
+on. Dry run and every checked-in live switch remain off. Source qualification,
+D-104 gaps, Strategies #5 through #8, validation, promotion and live use remain
+separate gates.
+
+- [x] **M0.2CB — the separately reviewed safe-activation decision is recorded:**
+  capacity supports only a new off-by-default cleanup implementation; cleanup
+  is not activated and no owner file is removed.
+- [ ] **M0.2CC — implement the off-by-default cleanup action:** reuse the existing
+  retention plan, recheck every safety and identity gate immediately before each
+  removal, record each result, stop safely on mismatch or error, keep dry run as
+  the default, and prove the action only with temporary synthetic files.
+
+### M0.2CC implementation handoff — 2026-09-24 Pacific
+
+`M0_2CC_IMPLEMENTATION.md` records the narrow cleanup action. It consumes the
+existing dry-run plan, rechecks the root, hold, age, proof and file identities
+before every removal, writes one durable result per target and stops on the
+first mismatch or error. Checked-in cleanup remains off. Focused protected
+verification stopped before collection with the known sandbox ownership
+`OSError`; controller proof and independent review remain required. No owner
+file was removed and no source, strategy, validation or live gate changed.
+
+- [~] **M0.2CC — the off-by-default cleanup action awaits controller protected
+  proof and independent review:** cleanup and every live switch remain off.
+- [ ] **M0.2CD — after M0.2CC acceptance, record the separate cleanup activation
+  assessment:** decide whether any later bounded owner-data cleanup may be
+  proposed; do not activate cleanup or remove owner data in this step.
+
+### M0.2CC escalated protected-input diagnosis — 2026-09-24 Pacific
+
+The controller's focused run reached collection and failed with
+`KeyError: 'storage'` in
+`tests/test_full_chain_collector.py::test_storage_cleanup_is_checked_in_off_and_dry_run_is_default`.
+The protected launcher substitutes a sanitized settings file without a
+`storage` section for the checked-in configuration. The checked-in configuration
+has cleanup off; the failing assertion sees the substitute. The cause and
+original controller proof are recorded in `M0_2CC_IMPLEMENTATION.md`.
+
+This attempt traced the protected mount and preserved the assertion, rather
+than repeating the failing command or editing protected inputs without an
+assigned protection repair. Only records changed. Prior implementation,
+failures and attempt history remain intact. Successful focused and broad proof,
+fresh-process comparison and independent acceptance remain outstanding.
+M0.2CD is still open but depends on M0.2CC acceptance; no independent next
+milestone is established by this repair packet. Cleanup and all live switches
+remain off; no owner file was removed and no source or strategy gate changed.
+
+- [!] **M0.2CC — blocked on a separately reviewed protected-input repair:** the
+  sanitized collector settings omit `storage`, so the checked-in-switch test
+  fails; no protected-input change is authorized in this milestone repair.

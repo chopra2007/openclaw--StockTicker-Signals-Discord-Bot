@@ -36,6 +36,8 @@ def test_plan_covers_each_playbook_with_atr_unset_and_rejects_bad_playbooks():
     plan = plan_decision_moments(batches)
     assert [p.playbook for p in plan] == list(PLAYBOOKS)
     assert all(p.atr_1m is None and len(p.moments) == 77 for p in plan)
-    for bad in ((), ("HOD_COMP_RS", "HOD_COMP_RS"), ("CRVOL_ORB5",)):
+    orb_only = plan_decision_moments(batches, playbooks=("CRVOL_ORB5",))
+    assert len(orb_only) == 1 and orb_only[0].playbook == "CRVOL_ORB5"
+    for bad in ((), ("HOD_COMP_RS", "HOD_COMP_RS"), ("UNKNOWN",)):
         with pytest.raises(RecordError):
             plan_decision_moments(batches, playbooks=bad)

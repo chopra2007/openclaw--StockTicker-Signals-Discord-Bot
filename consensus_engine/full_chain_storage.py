@@ -1,8 +1,8 @@
 """Offline, off-by-default storage tools for the full-chain collector.
 
 The module has no network or live caller.  It publishes an option chain, an
-open-interest snapshot and their proof as one immutable set.  Source parts are
-never removed here; ``plan_retention`` only reports eligible paths.
+open-interest snapshot and their proof as one immutable set.  Cleanup is a
+separate, off-by-default action over ``plan_retention`` results.
 """
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ import sqlite3
 import tempfile
 from pathlib import Path
 import resource
+import stat
 import time
 from typing import Callable, Iterable
 from zoneinfo import ZoneInfo
@@ -64,12 +65,18 @@ class OutputBounds:
     open_interest: int
     proof: int
     publication: int
+    scratch: int | None = None
 
     def __post_init__(self) -> None:
         if any(type(value) is not int or value < 0 for value in (
             self.chain, self.open_interest, self.proof, self.publication
-        )):
+        )) or (self.scratch is not None and
+               (type(self.scratch) is not int or self.scratch < 0)):
             raise StorageContractError("every output bound must be a known nonnegative byte count")
+
+    @property
+    def scratch_limit(self) -> int:
+        return self.chain if self.scratch is None else self.scratch
 
 
 def reserve_bytes(capacity: int, policy: StoragePolicy) -> int:
@@ -80,7 +87,8 @@ def working_space_bytes(source: int, bounds: OutputBounds, existing: int, tempor
     if any(type(value) is not int or value < 0 for value in (source, existing, temporary)):
         raise StorageContractError("storage sizes must be known nonnegative byte counts")
     members = bounds.chain + bounds.open_interest + bounds.proof + bounds.publication
-    return max(((9 * source + 3) // 4), 2 * members) + existing + temporary
+    staged = max(2 * members, bounds.scratch_limit + members)
+    return max(((9 * source + 3) // 4), staged) + existing + temporary
 
 
 def check_admission(*, free: int, capacity: int, source: int, bounds: OutputBounds,
@@ -188,7 +196,7 @@ def _batches(path, policy, guard):
             guard()
             if source.metadata.row_group(group).total_byte_size > policy.batch_bytes:
                 raise StorageContractError("one decoded source batch exceeds the byte limit")
-            for batch in source.iter_batches(batch_size=1, row_groups=[group]):
+            for batch in source.iter_batches(batch_size=1024, row_groups=[group]):
                 guard()
                 frame = batch.to_pandas()
                 if batch.nbytes + int(frame.memory_usage(index=True, deep=True).sum()) > policy.batch_bytes:
@@ -266,8 +274,9 @@ def _sql_value(value):
 def _merge_to_disk(parts, work, bounds, policy, checkpoint, guard):
     """Indexed disk merge; no accumulated DataFrame or unbounded sort in RAM.
 
-    The scratch database is capped at C bytes, inside the doubled C/O/P/A
-    allowance. It is never recovered or loaded from an earlier invocation.
+    The scratch database is capped at its separate Q bound. The admission
+    allowance includes Q plus one complete C/O/P/A output set. Scratch is never
+    recovered or loaded from an earlier invocation.
     """
     schemas = []
     for path in parts:
@@ -290,7 +299,7 @@ def _merge_to_disk(parts, work, bounds, policy, checkpoint, guard):
         execute("PRAGMA journal_mode=OFF")
         execute("PRAGMA temp_store=FILE")
         execute("PRAGMA cache_size=-1024")
-        execute(f"PRAGMA max_page_count={max(1, bounds.chain // 4096)}")
+        execute(f"PRAGMA max_page_count={max(1, bounds.scratch_limit // 4096)}")
         sort_fields = ", ".join(f"s{i}" for i in range(len(order)))
         sort_order = ", ".join(f"s{i} IS NULL, s{i}" for i in range(len(order)))
         execute(f"CREATE TABLE chain (k BLOB PRIMARY KEY, {sort_fields}, seq INTEGER, payload BLOB)")
@@ -305,38 +314,78 @@ def _merge_to_disk(parts, work, bounds, policy, checkpoint, guard):
                 # and timestamp types in the scratch row payload.
                 frame = pa.Table.from_pandas(frame.reindex(columns=schema.names),
                                              schema=schema, preserve_index=False).to_pandas()
-                row = frame.iloc[0]
-                if any(pd.isna(row[column]) for column in CHAIN_KEYS):
-                    raise StorageContractError("source key is missing")
-                key = pickle.dumps(tuple(_sql_value(row[column]) for column in CHAIN_KEYS), protocol=4)
-                values = [key] + [_sql_value(row[column]) for column in order]
-                values += [seq, pickle.dumps(frame, protocol=4)]
-                execute(f"INSERT OR REPLACE INTO chain VALUES ({','.join('?' for _ in values)})", values)
+                positions = {name: schema.names.index(name) for name in set(CHAIN_KEYS + order)}
+                pending = []
+                for row in frame.itertuples(index=False, name=None):
+                    if any(pd.isna(row[positions[column]]) for column in CHAIN_KEYS):
+                        raise StorageContractError("source key is missing")
+                    key = pickle.dumps(
+                        tuple(_sql_value(row[positions[column]]) for column in CHAIN_KEYS),
+                        protocol=4,
+                    )
+                    values = [key] + [
+                        _sql_value(row[positions[column]]) for column in order
+                    ]
+                    values += [seq, pickle.dumps(row, protocol=4)]
+                    pending.append(values)
+                    seq += 1
+                guard()
+                db.executemany(
+                    f"INSERT OR REPLACE INTO chain VALUES "
+                    f"({','.join('?' for _ in pending[0])})",
+                    pending,
+                )
                 commit()
                 guard()
-                seq += 1
         oi_schema = pa.schema([schema.field(name) if name in schema.names else pa.field(name, pa.null())
                                for name in OI_COLUMNS])
+        oi_positions = [schema.names.index(name) if name in schema.names else None
+                        for name in OI_COLUMNS]
+        ticker_position = schema.names.index("ticker")
+        contract_position = schema.names.index("contract_symbol")
+        open_interest_position = (schema.names.index("open_interest")
+                                  if "open_interest" in schema.names else None)
         def chains():
+            pending_rows = []
+            def frame_from_pending():
+                frame = pd.DataFrame(pending_rows, columns=schema.names)
+                oi_values = []
+                for row in pending_rows:
+                    if (open_interest_position is not None and
+                            not pd.isna(row[open_interest_position])):
+                        oi_row = tuple(row[index] if index is not None else None
+                                       for index in oi_positions)
+                        oi_values.append((
+                            _sql_value(row[ticker_position]),
+                            _sql_value(row[contract_position]),
+                            pickle.dumps(oi_row, protocol=4),
+                        ))
+                if oi_values:
+                    guard()
+                    db.executemany("INSERT OR REPLACE INTO oi VALUES (?, ?, ?)", oi_values)
+                commit()
+                return frame
             for (payload,) in execute(f"SELECT payload FROM chain ORDER BY {sort_order}, seq"):
                 guard()
-                frame = pickle.loads(payload)  # only this invocation's private scratch writes
-                row = frame.iloc[0]
-                if "open_interest" in frame and not pd.isna(row["open_interest"]):
-                    oi = frame.reindex(columns=OI_COLUMNS)
-                    guard()
-                    execute("INSERT OR REPLACE INTO oi VALUES (?, ?, ?)", (
-                        _sql_value(row["ticker"]), _sql_value(row["contract_symbol"]),
-                        pickle.dumps(oi, protocol=4)))
-                    commit()
-                yield frame
+                pending_rows.append(pickle.loads(payload))
+                if len(pending_rows) == 1024:
+                    yield frame_from_pending()
+                    pending_rows.clear()
+            if pending_rows:
+                yield frame_from_pending()
         chain = _write_records(chains(), schema, work / "chain.parquet", bounds.chain,
                                checkpoint, guard, "chain")
         checkpoint("after_chain_before_open_interest")
         def interests():
+            pending_rows = []
             for (payload,) in execute("SELECT payload FROM oi ORDER BY ticker, contract"):
                 guard()
-                yield pickle.loads(payload)
+                pending_rows.append(pickle.loads(payload))
+                if len(pending_rows) == 1024:
+                    yield pd.DataFrame(pending_rows, columns=OI_COLUMNS)
+                    pending_rows.clear()
+            if pending_rows:
+                yield pd.DataFrame(pending_rows, columns=OI_COLUMNS)
         oi = _write_records(interests(), oi_schema, work / "open_interest.parquet",
                             bounds.open_interest, checkpoint, guard, "open_interest")
         return chain, oi
@@ -375,7 +424,7 @@ def _inventory(root: Path) -> tuple[int, int]:
     """Count all retained sets and all incomplete/scratch bytes, across dates."""
     existing = temporary = 0
     # Legacy daily outputs also remain retained when using the new caller.
-    for family in ("option_chains", "open_interest", "proof", "runs"):
+    for family in ("option_chains", "open_interest", "proof", "runs", "cleanup_results"):
         folder = root / family
         if folder.exists():
             _inside(root, folder)
@@ -693,3 +742,194 @@ def plan_retention(root: Path, *, today: date, legal_holds: Iterable[Path] = (),
         if reason:
             planned.append({"path": str(resolved), "reason": reason})
     return planned
+
+
+def _file_identity(path: Path) -> dict:
+    info = path.lstat()
+    if not stat.S_ISREG(info.st_mode) or path.is_symlink():
+        raise StorageContractError("cleanup target must be a regular file, not a symlink")
+    return {"device": info.st_dev, "inode": info.st_ino, "bytes": info.st_size,
+            "modified_ns": info.st_mtime_ns, "sha256": _sha256(path)}
+
+
+def _write_cleanup_result(root: Path, result_dir: Path, number: int, payload: dict,
+                          byte_limit: int, policy: StoragePolicy) -> Path:
+    encoded = _fixed_json(payload)
+    if type(byte_limit) is not int or byte_limit <= 0 or len(encoded) > byte_limit:
+        raise StorageContractError("cleanup result exceeded its byte bound")
+    disk = os.statvfs(root)
+    free = disk.f_bavail * disk.f_frsize
+    capacity = disk.f_blocks * disk.f_frsize
+    if free - byte_limit < reserve_bytes(capacity, policy):
+        raise StorageContractError("cleanup result would cross the storage reserve")
+    result_dir.mkdir(parents=True, exist_ok=True)
+    _inside(root, result_dir)
+    path = _inside(root, result_dir / f"{number:06d}.json")
+    _atomic_bytes(path, encoded, byte_limit, lambda _name: None, "cleanup result")
+    _flush_dir(result_dir)
+    return path
+
+
+def execute_retention_cleanup(root: Path, *, today: date, enabled: bool = False,
+                              legal_holds: Iterable[Path] = (),
+                              now: datetime | None = None,
+                              result_directory: Path | None = None,
+                              result_bytes: int = 16_384,
+                              policy: StoragePolicy = StoragePolicy()) -> dict:
+    """Remove only freshly revalidated ``plan_retention`` targets.
+
+    Dry run is the default.  An enabled run durably records authorization before
+    removal and the final result afterwards.  It stops at the first mismatch or
+    operating-system error.
+    """
+    if type(enabled) is not bool:
+        raise StorageContractError("cleanup switch must be explicitly true or false")
+    configured_root = Path(root).absolute()
+    if configured_root.is_symlink() or not configured_root.is_dir():
+        raise StorageContractError("configured cleanup root must be a real directory")
+    root = configured_root.resolve()
+    root_identity = _file_identity(root) if root.is_file() else root.stat()
+    root_key = (root_identity.st_dev, root_identity.st_ino)
+    holds = tuple(Path(path) for path in legal_holds)
+    planned = plan_retention(root, today=today, legal_holds=holds, now=now)
+    if not enabled:
+        return {"enabled": False, "dry_run": True, "planned": planned,
+                "removed": [], "stopped": False}
+    if result_directory is None:
+        stamp = (now or datetime.now(PACIFIC)).astimezone(PACIFIC).strftime("%Y%m%dT%H%M%S%f%z")
+        result_directory = root / "cleanup_results" / stamp
+    if type(result_bytes) is not int or result_bytes <= 0:
+        raise StorageContractError("cleanup result requires a positive byte bound")
+    result_directory = _inside(root, Path(result_directory).absolute())
+    if result_directory.exists():
+        raise StorageContractError("cleanup result directory already exists")
+    disk = os.statvfs(root)
+    if (disk.f_bavail * disk.f_frsize - result_bytes <
+            reserve_bytes(disk.f_blocks * disk.f_frsize, policy)):
+        raise StorageContractError("cleanup result would cross the storage reserve")
+    result_directory.mkdir(parents=True)
+    _flush_dir(result_directory.parent)
+    initial = []
+    set_contexts: dict[str, dict] = {}
+    try:
+        initial = [(item, _file_identity(Path(item["path"]))) for item in planned]
+        for item, _identity_ in initial:
+            path = Path(item["path"])
+            if path.parent.parent == root / "option_parts":
+                market_day = date.fromisoformat(path.parent.name)
+            elif path.suffix == ".tmp":
+                market_day = date.fromisoformat(path.parents[2].name)
+            else:
+                continue
+            key = market_day.isoformat()
+            if key in set_contexts:
+                continue
+            published = read_published_option_set(root, market_day)
+            if published is None:
+                raise StorageContractError("cleanup set proof became unavailable")
+            proof = published["proof"]
+            set_dir = Path(published["set_directory"])
+            support = [Path(published["pointer"]), set_dir / "proof.json",
+                       set_dir / "chain.parquet", set_dir / "open_interest.parquet"]
+            set_contexts[key] = {
+                "sources": {source["path"]: {"bytes": source["bytes"],
+                                              "sha256": source["sha256"]}
+                            for source in proof["sources"]},
+                "support": {str(member): _file_identity(member) for member in support},
+            }
+    except (OSError, StorageContractError, ValueError) as error:
+        item = planned[0] if planned else {"path": str(root), "reason": "cleanup preparation"}
+        try:
+            _write_cleanup_result(
+                root, result_directory, 1,
+                {"contract_version": CONTRACT_VERSION, **item, "result": "stopped",
+                 "error": f"{type(error).__name__}: {error}"},
+                result_bytes, policy,
+            )
+        except (OSError, StorageContractError):
+            pass
+        return {"enabled": True, "dry_run": False, "planned": planned,
+                "removed": [], "stopped": True,
+                "error": f"{type(error).__name__}: {error}",
+                "result_directory": str(result_directory)}
+    removed_set: set[str] = set()
+
+    def recheck(item: dict, identity: dict) -> None:
+        path = Path(item["path"])
+        resolved = _inside(root, path)
+        if any(hold.resolve() == resolved or hold.resolve() in resolved.parents for hold in holds):
+            raise StorageContractError("cleanup target gained a legal hold")
+        if _file_identity(resolved) != identity:
+            raise StorageContractError("cleanup target identity changed")
+        if path.name.startswith(".notified-"):
+            if item not in plan_retention(root, today=today, legal_holds=holds, now=now):
+                raise StorageContractError("cleanup target is no longer eligible")
+            return
+        market_day = (date.fromisoformat(path.parent.name)
+                      if path.parent.parent == root / "option_parts"
+                      else date.fromisoformat(path.parents[2].name))
+        context = set_contexts[market_day.isoformat()]
+        for name, expected in context["support"].items():
+            if _file_identity(Path(name)) != expected:
+                raise StorageContractError("cleanup complete-set proof changed")
+        sources = context["sources"]
+        source_dir = root / "option_parts" / market_day.isoformat()
+        current = {member.relative_to(root).as_posix() for member in source_dir.glob("*.parquet")}
+        expected = set(sources) - removed_set
+        if current != expected:
+            raise StorageContractError("cleanup source set changed")
+        for relative in current:
+            member = root / relative
+            source = sources[relative]
+            if (member.stat().st_size != source["bytes"] or
+                    _sha256(member) != source["sha256"]):
+                raise StorageContractError("cleanup source identity changed")
+        if path.suffix == ".tmp":
+            destination = path.with_name(path.name.removesuffix(".tmp"))
+            if (path.name.removesuffix(".tmp") not in
+                    ("chain.parquet", "open_interest.parquet", "proof.json") or
+                    _sha256(path) != _sha256(destination)):
+                raise StorageContractError("cleanup temporary duplicate changed")
+            modified = datetime.fromtimestamp(path.stat().st_mtime, PACIFIC)
+            if (now or datetime.combine(today, datetime.min.time(), tzinfo=PACIFIC)).timestamp() - modified.timestamp() < 86400:
+                raise StorageContractError("cleanup temporary duplicate is too new")
+
+    removed = []
+    for number, (item, identity) in enumerate(initial, 1):
+        path = Path(item["path"])
+        base = {"contract_version": CONTRACT_VERSION, "path": str(path),
+                "reason": item["reason"], "identity": identity}
+        try:
+            current_root = configured_root.resolve()
+            current_root_info = current_root.stat()
+            if (configured_root.is_symlink() or current_root != root or
+                    (current_root_info.st_dev, current_root_info.st_ino) != root_key):
+                raise StorageContractError("configured cleanup root changed")
+            resolved = _inside(root, path)
+            recheck(item, identity)
+            _write_cleanup_result(root, result_directory, number,
+                                  {**base, "result": "removal_authorized"},
+                                  result_bytes, policy)
+            resolved.unlink()
+            _flush_dir(resolved.parent)
+            removed.append(str(resolved))
+            if resolved.parent.parent == root / "option_parts":
+                removed_set.add(resolved.relative_to(root).as_posix())
+            _write_cleanup_result(root, result_directory, number,
+                                  {**base, "result": "removed"},
+                                  result_bytes, policy)
+        except (OSError, StorageContractError) as error:
+            try:
+                _write_cleanup_result(root, result_directory, number,
+                                      {**base, "result": "stopped",
+                                       "error": f"{type(error).__name__}: {error}"},
+                                      result_bytes, policy)
+            except (OSError, StorageContractError):
+                pass
+            return {"enabled": True, "dry_run": False, "planned": planned,
+                    "removed": removed, "stopped": True,
+                    "error": f"{type(error).__name__}: {error}",
+                    "result_directory": str(result_directory)}
+    return {"enabled": True, "dry_run": False, "planned": planned,
+            "removed": removed, "stopped": False,
+            "result_directory": str(result_directory)}

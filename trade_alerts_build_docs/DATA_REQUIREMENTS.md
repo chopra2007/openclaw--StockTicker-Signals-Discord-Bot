@@ -1619,3 +1619,24 @@ executable quotes, catalyst history, untouched final dates, and local capacity
 remain blocked. No qualifying split can be frozen. Replay, promotion, profit
 claims and live use remain blocked, and all switches stay off. A later source
 acquisition or budget change requires a separate owner and data decision.
+
+## 65. M0.2CB off-by-default cleanup decision
+
+The accepted M0.2CA measurement supports building the narrow removal action in
+`M0_2A_STORAGE_CONTRACT.md`; it does not support enabling cleanup now. The run
+covered all 390 saved source files and 3,721,860 option rows, preserved source
+identities, verified source-to-compact record equality and stayed inside its
+disk, scratch, memory, batch and owner-authorized wall limits. Fresh protected
+collector/storage proof and independent review passed.
+
+M0.2CC may implement only an off-by-default action over the existing dry-run
+retention plan. It must recheck root containment, legal holds, current source
+identity, complete-set proof, age and file identity immediately before each
+removal. Unknown, changed, incomplete, held or unproved state blocks removal.
+Primary and supporting records remain outside this first cleanup action. Dry run
+stays the default, checked-in cleanup stays off, and tests may remove only
+temporary synthetic files.
+
+`M0_2CB_SAFE_ACTIVATION_DECISION.md` records the full boundary. This decision
+does not qualify a source, close any D-104 gap, open Strategies #5 through #8,
+prove a trading result or enable any live switch.

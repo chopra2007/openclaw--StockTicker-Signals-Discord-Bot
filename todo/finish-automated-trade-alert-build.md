@@ -2,8 +2,8 @@
 **Status:** OPEN
 **Created:** 2026-09-09
 
-**CURRENT STATUS (2026-09-19 PDT):** **Running unattended, 53 steps accepted,
-deep inside the M9.1 historical-replay family (past M9.1BC).** The earlier
+**CURRENT STATUS (2026-09-20 Pacific):** **Stopped at M9.1BT with 55 steps
+accepted.** The Codex controller and restart-safe long-run changes are complete. The earlier
 2026-09-16 M0.2/M9.3 stop is long cleared; that account is kept below as
 history.
 
@@ -38,11 +38,11 @@ Both were followed by the full 176-test controller run and a READY.json reseal.
 
 Money: Databento authority $60 fresh total, $22.47 spent, **$37.53 left**.
 
-Operational: `buildctl resume --clear-attention` does nothing — `buildctl`
-takes only one word. Use `python3 controller.py --clear-attention resume`, then
-`./buildctl start`. `resume-watchdog.py` auto-restarts the build after
-known-harmless stops (mainly `.git/index` fingerprint trips) and logs anything
-it refuses to touch to `resume-watchdog.log`.
+Operational: read `/root/trade-alerts-builder/CONTINUE_CODEX_BUILD.md` before
+resuming. `buildctl` now rejects extra arguments. The watcher allows one automatic
+recovery for an exact diagnosed process death and notifies on unknown stops.
+Long count shards use `trade-alerts-offline-count@1..3.service` and checkpoint
+after each ticker.
 
 **Trap to avoid:** editing any workspace file while a review is pending causes
 "source changed before review". Check the stage first; only edit when the build

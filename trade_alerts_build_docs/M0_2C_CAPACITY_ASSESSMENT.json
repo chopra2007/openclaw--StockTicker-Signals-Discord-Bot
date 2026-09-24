@@ -1,7 +1,7 @@
 {
-  "assessment_version": "M02C_CAPACITY_ASSESSMENT_V1",
+  "assessment_version": "M02CA_CAPACITY_REOPEN_V1",
   "market_date_candidate": "2026-08-31",
-  "result": "BLOCKED_BY_CAPACITY",
+  "result": "MEASURED_CAPACITY_PASS",
   "safe_activation": false,
   "cleanup_enabled": false,
   "live_switches_enabled": false,
@@ -16,22 +16,34 @@
     "scope": "names and file sizes only; this is not source qualification"
   },
   "admission": {
-    "observed_at_pacific": "2026-09-14T01:39:34-07:00",
-    "source": "/root/trade-alerts-builder/archives/storage-manager/status.json",
-    "free_bytes": 9200222208,
-    "fixed_reserve_bytes": 12000000000,
-    "reserve_fraction": 0.15,
-    "admitted": false,
-    "reason": "free space is already below the fixed reserve before an isolated copy or any compactor working files are created"
+    "observed_at_pacific": "2026-09-24T04:59:27.960523-07:00",
+    "source": "/root/trade-alerts-builder/repairs/codex-subscription/m02c-measured-capacity-20260924-final4/RESULT.json",
+    "free_bytes": 24032628736,
+    "capacity_bytes": 80307429376,
+    "reserve_bytes": 12046114407,
+    "working_bytes": 5704004096,
+    "remaining_bytes": 18328624640,
+    "admitted": true
   },
   "measurement": {
-    "isolated_copy_created": false,
-    "compactor_started": false,
-    "source_compact_record_parity": "NOT_MEASURED",
-    "peak_memory_bytes": "NOT_MEASURED",
-    "wall_seconds": "NOT_MEASURED",
-    "output_bytes": "NOT_MEASURED",
-    "reason": "the frozen admission rule blocks the run before copying or compaction"
+    "profile": "M02C_MEASURED_CAPACITY_V1",
+    "source_files": 390,
+    "option_rows": 3721860,
+    "open_interest_rows": 9976,
+    "source_compact_record_parity": "VERIFIED_BY_FROZEN_WRITER_AND_REOPEN",
+    "peak_memory_bytes": 428077056,
+    "wall_seconds": 888.3310328269145,
+    "total_wall_seconds": 891.6052063190145,
+    "output_bytes": {
+      "chain": 199211477,
+      "open_interest": 77145,
+      "proof": 56219,
+      "publication": 227,
+      "scratch": 2647519232
+    },
+    "post_measurement_free_bytes": 21185400832,
+    "set_id": "bc18a69e0c847e0dff79ce17631dcfc0a697c071b72fd030ead1748655b97061",
+    "originals_unchanged": true
   },
   "storage_authority": {
     "hard_limit_bytes": 175000000000,
@@ -40,9 +52,62 @@
     "note": "remote build storage does not replace the local compactor reserve"
   },
   "remaining_requirements": [
-    "recheck current local free space after the existing storage manager finishes eligible recovery",
-    "create an isolated copy only when the full admission calculation passes without lowering the reserve",
-    "run the bounded compactor on that copy and record source/compact parity, actual output bytes, peak memory and wall time",
-    "obtain separate review before any cleanup activation"
-  ]
+    "independent review before accepting M0.2CA",
+    "separate review before any cleanup activation"
+  ],
+  "protected_verification": {
+    "at_pacific": "2026-09-24T07:56:31-07:00",
+    "controller_run": "/root/trade-alerts-builder/runs/20260924-065018-740920-build",
+    "tested_source_manifest": "/root/trade-alerts-builder/runs/20260924-065018-740920-build/verified-manifest.json",
+    "tested_source_hash": "6512f21632207d81cb14675dd61197dfda62027be1cfe579f7f037fddb562e70",
+    "focused": {
+      "phase": "focused",
+      "runs": 1,
+      "test_count": 396,
+      "wall_seconds": 136.833,
+      "selection_reason": "builder named directly affected checks",
+      "selectors": [
+        "tests/test_full_chain_collector.py",
+        "tests/test_full_chain_storage.py"
+      ],
+      "artifacts": "/root/trade-alerts-builder/runs/20260924-065018-740920-build/published-artifacts-8cbb3efc5108"
+    },
+    "acceptance": {
+      "phase": "acceptance",
+      "runs": 1,
+      "test_count": 4951,
+      "wall_seconds": 1224.369,
+      "selection_reason": "unknown dependency impact; safe broad fallback",
+      "selectors": [
+        "tests/trade_alerts_contracts",
+        "tests/test_full_chain_collector.py",
+        "tests/test_full_chain_storage.py"
+      ],
+      "artifacts": "/root/trade-alerts-builder/runs/20260924-065018-740920-build/published-artifacts-39836501d7b7"
+    },
+    "repeatability": {
+      "phase": "repeatability",
+      "runs": 2,
+      "test_count": 109,
+      "wall_seconds": 457.999,
+      "selection_reason": "recording output requires fresh-process comparison",
+      "selectors": "controller-published 109 recording selectors in published-artifacts-cfe697f57738/summary.json",
+      "artifacts": "/root/trade-alerts-builder/runs/20260924-065018-740920-build/published-artifacts-cfe697f57738",
+      "stable": true
+    },
+    "full_file_review_followup": {
+      "status": "CONTROLLER_VERIFICATION_COMPLETE",
+      "selectors": ["tests/test_full_chain_collector.py", "tests/test_full_chain_storage.py"],
+      "proof": "Fresh focused proof covers both complete files on the recorded current source hash.",
+      "prior_proof_preserved": true,
+      "code_and_tests_changed_this_attempt": false
+    }
+  },
+  "historical_blocked_result": {
+    "assessment_version": "M02C_CAPACITY_ASSESSMENT_V1",
+    "observed_at_pacific": "2026-09-14T01:39:34-07:00",
+    "free_bytes": 9200222208,
+    "result": "BLOCKED_BY_CAPACITY",
+    "compactor_started": false
+  }
 }

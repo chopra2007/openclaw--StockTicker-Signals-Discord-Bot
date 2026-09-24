@@ -72,7 +72,8 @@ program must estimate its source, destination and temporary-file needs. It must
 refuse a new write when estimated free space after the write would cross the
 reserve. It must not delete data automatically to admit that write.
 
-For compaction, use this version 2 admission allowance, in whole bytes:
+For the original M0.2B compaction, use this version 2 admission allowance, in
+whole bytes:
 
 `W = max(ceil(2.25 * S), 2 * (C + O + P + A)) + E + T`.
 
@@ -114,6 +115,35 @@ These values are first-version safety limits. M0.2B must record actual daily
 growth, peak resident memory, temporary space and wall time. Any later change is
 versioned and independently reviewed; observed results cannot silently widen a
 limit.
+
+### 5.2 M0.2CA measured-capacity resource profile
+
+The owner-authorized M0.2CA measurement preregistered
+`M02C_MEASURED_CAPACITY_V1`. It keeps the 12,000,000,000-byte / 15% reserve,
+1,500,000,000-byte peak-memory limit and 256,000,000-byte decoded-batch limit.
+For this measured saved-data date it changes the wall limit to 1,800 seconds
+and adds a separate 4,500,000,000-byte scratch-database bound. The complete
+output bounds stay C=1,000,000,000, O=200,000,000, P=4,000,000 and A=4,096
+bytes.
+
+For this profile the admission allowance is:
+
+`W = max(ceil(2.25 * S), 2 * (C + O + P + A), Q + C + O + P + A) + E + T`.
+
+`Q` is the enforced scratch-database bound. It is separate from the immutable
+complete output set and is removed only as temporary work after the invocation.
+Unknown Q blocks admission. The original version 2 formula remains the fallback
+when no separate Q is configured because Q then equals C. The changed resource
+profile does not alter record ordering, duplicate handling, proof fields or the
+immutable publication format, so the stored-data contract version remains
+`M02B_STORAGE_V2`; the separate measurement profile supplies the required
+version identity.
+
+The owner-authorized wider wall limit and separate scratch bound apply only to
+the off-by-default bounded compactor. They do not weaken the reserve, memory or
+batch limits, enable cleanup, qualify a source or enable a live switch. The
+saved-data result and source identities are recorded in
+`M0_2C_CAPACITY_ASSESSMENT.md`.
 
 ### 5.1 Complete-set publication and recovery
 
@@ -408,3 +438,23 @@ the tested manifest and controller proof above remain the source evidence.
 M0.2B still owns implementation and measured capacity proof. No cleanup was
 activated, no owner data was removed or moved, and no source, capacity or live
 gate closes.
+
+## 12. M0.2CB off-by-default cleanup decision — 2026-09-24 Pacific
+
+M0.2CA supplied the missing saved-data measurement and fresh protected proof.
+The measured run stayed inside the separate scratch, memory, batch, wall-time
+and disk-reserve limits and preserved source identity and record equality.
+Independent review accepted that proof.
+
+The result supports implementing the section 3 removal action behind an
+off-by-default switch. It does not turn cleanup on. M0.2CC owns that narrow
+implementation: reuse `plan_retention`, recheck every eligibility and identity
+condition immediately before each removal, refuse changed or unknown state,
+write a durable per-file result and stop on the first mismatch or removal error.
+Dry run remains the default. Tests use only temporary synthetic files; no owner
+file may be removed during implementation or proof.
+
+The exact decision and remaining boundaries are in
+`M0_2CB_SAFE_ACTIVATION_DECISION.md`. Checked-in cleanup and every live switch
+remain off. Source qualification, historical completeness, strategy validation,
+promotion and live use remain separate gates.

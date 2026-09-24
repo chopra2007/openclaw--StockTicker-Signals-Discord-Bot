@@ -1,4 +1,4 @@
-"""M9.1AZ: finite, preregistered decision moments for playbooks #2-4 over retained batches.
+"""M9.1AZ/M9.1BZ: finite decision moments for playbooks #1-4 over retained batches.
 
 Version `M91AZ_DECISION_MOMENTS_V1` is fixed before any result is seen. For every
 session batch built by `retained_history_batches`, the moments are every 5 minutes
@@ -6,7 +6,8 @@ from open+5 minutes through close-5 minutes (09:35-15:55 New York on a full day)
 matching the five-minute decision-time bands of M0.3I. The same grid applies to
 `HOD_COMP_RS`, `OR_FAILURE_REV` and `FIRST_PULLBACK_VWAP`; each playbook's own
 rules decide whether anything is eligible at a moment. Nothing here sets an entry,
-`atr_1m` (left unset, D-104), a trade or a result, and no data is read.
+`atr_1m` (left unset, D-104), a trade or a result, and no data is read. M9.1BZ
+adds `CRVOL_ORB5` to the same already-frozen grid; it does not change the grid.
 """
 
 from __future__ import annotations
@@ -18,8 +19,8 @@ from .retained_history_batches import RetainedHistoryBatches, SessionHistory
 from .trade_alerts_models import RecordError
 from .utils.time_context import session_bounds
 
-DECISION_MOMENTS_VERSION = "M91AZ_DECISION_MOMENTS_V1"
-PLAYBOOKS = ("HOD_COMP_RS", "OR_FAILURE_REV", "FIRST_PULLBACK_VWAP")
+DECISION_MOMENTS_VERSION = "M91BZ_DECISION_MOMENTS_V2"
+PLAYBOOKS = ("CRVOL_ORB5", "HOD_COMP_RS", "OR_FAILURE_REV", "FIRST_PULLBACK_VWAP")
 STEP = timedelta(minutes=5)
 EDGE = timedelta(minutes=5)
 

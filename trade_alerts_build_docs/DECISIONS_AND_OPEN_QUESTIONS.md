@@ -1507,6 +1507,12 @@ The kernel log shows **no** out-of-memory kill, so starvation was not the cause.
 The cause is process ownership — the job was never detached from its parent.
 
 ### The rule
+Updated 2026-09-20 Pacific: systemd now owns the three count shards. This
+supersedes the `setsid nohup` launch detail below because the controller service's
+process group can still kill a merely detached child. Start
+`trade-alerts-offline-count@1..3.service`. Each shard checkpoints after every
+ticker and skips completed tickers after a restart.
+
 1. **Any job expected to run longer than one agent session must be launched
    detached**, with `setsid nohup ... </dev/null &`, so it survives the session
    that started it. This applies to every count run, sweep and backtest from here
@@ -1613,3 +1619,26 @@ chronologically, or it silently becomes a one-ticker test.
 **Why this beats a bigger test suite.** The contract tests all passed while this
 bug was live: they check that the code does what it says, not that the run
 measured what it was told to measure. Only real output, split by ticker, shows it.
+
+## 66. D-117 — M0.2CB permits only an off-by-default cleanup implementation
+
+Status: **CONFIRMED**, 2026-09-24 Pacific.
+
+M0.2CA's accepted saved-data measurement is enough to proceed with the narrow
+cleanup implementation defined by the M0.2A storage contract. It is not enough
+to enable cleanup. The measured compactor preserved source identity and exact
+record equality and stayed inside its disk, scratch, memory, batch and approved
+wall-time limits. Fresh protected collector/storage proof and independent review
+passed.
+
+M0.2CC may add an off-by-default removal action that consumes the existing
+`plan_retention` result. Dry run remains the default. The action must recheck
+root containment, legal holds, current source identities, complete-set proof,
+ages and file identity immediately before each removal; refuse changed or
+unknown state; record each result durably; and stop on the first mismatch or
+removal error. It may target only the contract's class 3, 4 and 5 records. It
+may not remove owner files during implementation or proof, and checked-in
+cleanup remains off.
+
+This decision changes no source, D-104, validation, promotion, alert or live
+gate. `M0_2CB_SAFE_ACTIVATION_DECISION.md` is the full decision record.

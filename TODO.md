@@ -1182,12 +1182,12 @@ Stop the video reader saving names like "NVIDIA" instead of NVDA, which makes th
 
 **File:** `finish-automated-trade-alert-build.md`
 
-**HANDOFF READY (2026-09-19 PDT, updated).** Every open issue, trap and next
+**HANDOFF READY (2026-09-20 Pacific, updated).** Every open issue, trap and next
 step is written up in `trade_alerts_build_docs/HANDOFF_OPEN_ISSUES.md`. Read that
 first — it is written to be picked up by any agent, including a non-Claude one.
 
-**CURRENT STATUS (2026-09-19 PDT):** **Running unattended, 53 steps accepted,
-deep inside the M9.1 historical-replay family (past M9.1BC).** The earlier
+**CURRENT STATUS (2026-09-20 Pacific):** **Stopped at M9.1BT with 55 steps
+accepted.** The Codex controller and restart-safe long-run changes are complete. The earlier
 2026-09-16 M0.2/M9.3 stop is long cleared; that account is kept below as
 history.
 
@@ -1206,9 +1206,8 @@ Since that was written: decision **D-113** corrected two unit labels that D-112
 got wrong (`price = "USD_PER_SHARE"`, `volume = "SHARES"`, not `"TRADE"`). That
 one wrong label made the first real count run return zero usable moments out of
 515,727, and the build then repeated the same blocked step nine times over
-6h20m before halting. Two unfixed weaknesses came out of that and are logged in
-the handoff file: the build grinds instead of stopping on a repeated blocker,
-and nothing notifies a human when it stops.
+6h20m before halting. The controller now detects the same blocker across renamed
+steps, caps recovery, and sends an operations notice on an unknown stop.
 
 **2026-09-19 evening — the first real result.** The count run finished: **76,404
 usable decision moments per playbook out of 171,909, 44%** (D-115,
@@ -1223,11 +1222,12 @@ three cores (an hour, against a 7-hour single-process estimate). Note: stopping
 `consensus-engine.service` frees ~960 MB but **halts the build**, which checks the
 bot is alive.
 
-**2026-09-20 — the 2% gate (D-116).** Before any long run, run
+**2026-09-20 — the 2% gate (D-116) passed.** Before any long run, run
 `PYTHONPATH=. python3 /root/trade-alerts-builder/m91_sample_gate.py`. It runs the
 first 2%, prints usable moments per ticker and per adapter, and exits non-zero if
-any scores zero. That single check would have caught the ETF-only bug in minutes
-instead of after two crashes and a full run.
+any scores zero. The real sample returned 1,386 usable readings for every one of
+the nine names and 4,158 for each expected adapter path. Long shards now run as
+`trade-alerts-offline-count@1..3.service` and checkpoint after every ticker.
 
 Latest stop, now cleared: the build asked which purchased files it was allowed
 to read. Answered as **D-112** in `DECISIONS_AND_OPEN_QUESTIONS.md` — the

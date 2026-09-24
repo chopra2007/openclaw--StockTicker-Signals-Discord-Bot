@@ -10,6 +10,7 @@ from __future__ import annotations
 from bisect import bisect_right
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
+from functools import lru_cache
 from typing import Any, Mapping
 from zoneinfo import ZoneInfo
 
@@ -83,6 +84,7 @@ class HistoryRequest:
             raise RecordError("minute history requires whole-minute request edges")
         self.expected_intervals()
 
+    @lru_cache(maxsize=512)
     def expected_intervals(self) -> tuple[BarInterval, ...]:
         intervals = []
         first = self.start.astimezone(_PACIFIC).date()
