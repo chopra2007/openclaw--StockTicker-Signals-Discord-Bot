@@ -641,7 +641,7 @@ def _strip_secrets_preamble(text: str, max_continuation: int = 20) -> str:
 
 
 def _extract_agent_reply(stdout_text: str) -> str:
-    """Pull the agent's answer out of `openclaw agent --local --json` stdout.
+    """Pull the agent's answer out of `openclaw agent --json` stdout.
 
     With ``--json`` openclaw emits a single JSON document
     ({"payloads": [{"text": ...}], "meta": {...}}) and sends every doctor
@@ -653,12 +653,17 @@ def _extract_agent_reply(stdout_text: str) -> str:
     """
     try:
         doc = json.loads(stdout_text.strip())
-        payloads = doc.get("payloads")
+        # Through the gateway the answer sits under "result"; --local put it at the top.
+        body = doc.get("result") or doc
+        payloads = body.get("payloads")
         if isinstance(payloads, list):
             texts = [p.get("text", "") for p in payloads
                      if isinstance(p, dict) and p.get("text")]
             joined = "\n".join(t.strip() for t in texts).strip()
             return joined or "(agent returned no content)"
+        # Valid JSON with no answer is a failure report ({"ok": false, "error": ...}).
+        # Never post it to Discord as the reply; let the retry path handle it.
+        return "(agent returned no content)"
     except (ValueError, AttributeError):
         pass
     return _strip_secrets_preamble(stdout_text)
@@ -675,7 +680,7 @@ def _agent_run_aborted(stdout_text: str, reply: str) -> bool:
     """
     try:
         doc = json.loads(stdout_text.strip())
-        meta = doc.get("meta")
+        meta = (doc.get("result") or doc).get("meta")
         if isinstance(meta, dict) and meta.get("aborted") is True:
             return True
     except (ValueError, AttributeError):
@@ -823,7 +828,9 @@ def _agent_attempt_target(channel_id: str, attempt: int) -> tuple[str, str]:
         return f"channel-{channel_id}", ""
     fallbacks = cfg.get("llm.agent_fallback_models", []) or []
     idx = attempt - 2
-    return f"channel-{channel_id}-retry", (fallbacks[idx] if idx < len(fallbacks) else "")
+    # consensus.yaml keeps bare ids; openclaw's model allow-list wants them openrouter/-prefixed.
+    model = fallbacks[idx] if idx < len(fallbacks) else ""
+    return f"channel-{channel_id}-retry", (f"openrouter/{model}" if model else "")
 
 
 def _agent_attempt_budget() -> int:
@@ -996,7 +1003,7 @@ _STEERING_TEMPLATE = (
 
 async def _handle_mention(content: str, channel_id: str, message_id: str,
                           *, allow_intercept: bool = True) -> None:
-    """Forward @-mentions / !ask to the OpenClaw agent (`openclaw agent --local`).
+    """Forward @-mentions / !ask to the OpenClaw agent (`openclaw agent`, via the gateway).
 
     openclaw walks the model chain in openclaw.json `agents.defaults.model`
     ({primary, fallbacks}) within a single invocation — that is the model
@@ -1082,7 +1089,9 @@ async def _handle_mention(content: str, channel_id: str, message_id: str,
                      session_id, retry_model or "(chain default)")
         try:
             argv = [
-                "openclaw", "agent", "--local", "--json",
+                # Through the running gateway: since 2026.9.6, --local refuses
+                # to run while the gateway holds the state directory.
+                "openclaw", "agent", "--json",
                 "--agent", "main",
                 "--session-id", session_id,
                 "--message", wrapped_message,

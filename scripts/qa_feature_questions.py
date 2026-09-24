@@ -114,7 +114,7 @@ def spend_so_far() -> float | None:
 
 
 def run_turn(message: str, session_id: str, model: str | None, timeout: int) -> dict:
-    argv = ["openclaw", "agent", "--local", "--json", "--agent", "main",
+    argv = ["openclaw", "agent", "--json", "--agent", "main",
             "--session-id", session_id, "--message", message, "--timeout", str(timeout)]
     if model:
         # openclaw wants the provider-qualified id (openclaw.json stores
@@ -127,6 +127,7 @@ def run_turn(message: str, session_id: str, model: str | None, timeout: int) -> 
     reply, meta = "", {}
     try:
         doc = json.loads(proc.stdout.strip())
+        doc = doc.get("result") or doc  # gateway mode nests the answer under "result"
         reply = "\n".join(p.get("text", "") for p in doc.get("payloads", []) if p.get("text")).strip()
         m = doc.get("meta", {})
         meta = {

@@ -203,8 +203,8 @@ async def test_retry_changes_both_model_and_session(monkeypatch):
     # Retries: scratch session, and a different model each time.
     for argv in (second, third):
         assert argv[argv.index("--session-id") + 1] != "channel-chan_1"
-    assert second[second.index("--model") + 1] == _FALLBACKS[0]
-    assert third[third.index("--model") + 1] == _FALLBACKS[1]
+    assert second[second.index("--model") + 1] == f"openrouter/{_FALLBACKS[0]}"
+    assert third[third.index("--model") + 1] == f"openrouter/{_FALLBACKS[1]}"
     assert second[second.index("--model") + 1] != third[third.index("--model") + 1]
 
     # The scratch session is wiped before each retry, so no transcript carries over.
@@ -219,7 +219,7 @@ def test_agent_attempt_target_never_reuses_the_live_session_on_retry():
     for attempt in (2, 3):
         session, model = main_mod._agent_attempt_target("c1", attempt)
         assert session == "channel-c1-retry", "retries must not write the live session"
-        assert model == _FALLBACKS[attempt - 2]
+        assert model == f"openrouter/{_FALLBACKS[attempt - 2]}"
 
 
 def test_reset_agent_session_refuses_path_traversal(tmp_path, monkeypatch):
@@ -417,3 +417,27 @@ async def test_handle_mention_empty_content_short_circuits(monkeypatch):
     assert factory.await_count == 0, "no subprocess on empty content"
     assert reply_mock.await_count == 1
     assert "use `!help`" in reply_mock.call_args.args[2]
+
+
+def test_extract_reply_reads_gateway_shape():
+    """Through the gateway (no --local) the answer is nested under "result"."""
+    out = '{"status": "ok", "result": {"payloads": [{"text": "pong"}], "meta": {"aborted": false}}}'
+    assert main_mod._extract_agent_reply(out) == "pong"
+    assert main_mod._agent_run_aborted(out, "pong") is False
+
+
+def test_aborted_flag_read_from_gateway_shape():
+    out = '{"result": {"payloads": [{"text": "partial"}], "meta": {"aborted": true}}}'
+    assert main_mod._agent_run_aborted(out, "partial") is True
+
+
+def test_error_json_never_becomes_the_reply():
+    """A failure report must hit the retry path, not be posted to Discord."""
+    out = '{"ok": false, "error": {"type": "cli_error", "message": "boom"}}'
+    assert main_mod._extract_agent_reply(out) == "(agent returned no content)"
+
+
+def test_agent_argv_goes_through_gateway():
+    """2026.9.6: --local refuses to run while the gateway is up."""
+    import inspect
+    assert '"--local"' not in inspect.getsource(main_mod._handle_mention)
