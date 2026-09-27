@@ -1178,7 +1178,7 @@ The contained runner sets `HOME=/tmp`, which hides anything installed under `/ho
 
 Stop the video reader saving names like "NVIDIA" instead of NVDA, which makes the engine ask Yahoo for a symbol that does not exist every five minutes.
 
-## 117. Finish the automated trade-alert build
+## 117. Finish the automated trade-alert build — DONE 2026-09-27
 
 **File:** `finish-automated-trade-alert-build.md`
 
@@ -1186,10 +1186,7 @@ Stop the video reader saving names like "NVIDIA" instead of NVDA, which makes th
 step is written up in `trade_alerts_build_docs/HANDOFF_OPEN_ISSUES.md`. Read that
 first — it is written to be picked up by any agent, including a non-Claude one.
 
-**CURRENT STATUS (2026-09-20 Pacific):** **Stopped at M9.1BT with 55 steps
-accepted.** The Codex controller and restart-safe long-run changes are complete. The earlier
-2026-09-16 M0.2/M9.3 stop is long cleared; that account is kept below as
-history.
+**CURRENT STATUS (2026-09-27 Pacific):** **DONE. The protected build and its final trading-edge research are complete.** The controller finished at M9.1ES with 111 accepted steps and reports `research done` / `Build complete`.
 
 What is built: all four playbooks read real bars; a runner that can sweep 18
 candidate settings across the nine training tickers; the entry model that fills

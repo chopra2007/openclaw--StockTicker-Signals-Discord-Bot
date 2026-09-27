@@ -1,52 +1,16 @@
 # Finish the automated trade-alert build
-**Status:** OPEN
+**Status:** DONE
 **Created:** 2026-09-09
 
-**CURRENT STATUS (2026-09-20 Pacific):** **Stopped at M9.1BT with 55 steps
-accepted.** The Codex controller and restart-safe long-run changes are complete. The earlier
-2026-09-16 M0.2/M9.3 stop is long cleared; that account is kept below as
-history.
+**CURRENT STATUS (2026-09-27 Pacific):** **DONE. The protected build and its final trading-edge research are complete.** The controller finished at M9.1ES with 111 accepted steps and reports `research done` / `Build complete`.
 
-What is built and tested on stored data: all four playbooks read real minute
-bars; a runner that sweeps 18 candidate settings across the nine training
-tickers; the entry model that fills a trade at the real price within 30 seconds
-of the alert, charging the real spread and commission (D-106); a two-part exit;
-and the catalog of price levels the stops and targets hang off.
+The last research campaign found one promising historical rule, `FIXED_H15__EARLY_1H`, but the evidence is too thin to trade. Its historical result was 11.4874 basis points above the comparison return by date and 12.4426 basis points per trade by event. A one-minute entry delay still showed 9.9387 basis points. However, confirmation would require an estimated 1,028 weeks of new observations, far beyond the fixed 39-week limit; even reaching the 200-trade operating minimum would take about 92 weeks. Short-share availability and borrowing cost also remain unknown. The binding verdict is **PARK — INSUFFICIENT_EVIDENCE**.
 
-**No profit figure exists yet.** The build refuses to rank the 18 candidates
-because the exit side has no quote data costed and two D-104 gaps are open.
-That refusal is correct and must not be worked around by approximating the
-missing costs.
+No Databento purchase, Robinhood data use, protected-period read, confirmation run, live order, or live-alert change occurred. Spend was **$0**. The bot-population checks and the older momentum result also ended PARK. Displayed quote spreads were measured for CRM, NOW, and ORCL, but they are quotes rather than proven fill costs.
 
-Latest stop, cleared 2026-09-19: the build asked which purchased files it was
-allowed to read. Answered as **D-112** in
-`trade_alerts_build_docs/DECISIONS_AND_OPEN_QUESTIONS.md` and referenced from
-the M9.1BD roadmap row — the one-minute bar job directory
-(`research-data/databento/core17-1y_2025-09_to_2026-09/ohlcv-1m/`
-`EQUS-20260916-47J8PRKRBB`), manifest-verified files only, the nine D-107
-training tickers only, per-ticker EQUITY/ETF labels, and the full
-`HistoryConventions` set (bars stamped at START, premarket+regular,
-PROVISIONAL under D-110). The eight held-out tickers stay sealed.
+Final records are in `.omc/research/trading-edge-e2/edge-verdict.md`, `edge-verdict.json`, and `e2-reproduction.json`; the E1 proof is under `.omc/research/trading-edge-discovery/`. Verification passed: 161 research tests, 37 controller tests, independent raw-bar reproduction, matching final file fingerprints, and matching READY records. Long work used saved per-cell, per-variant, and per-block checkpoints plus automatic retries.
 
-Two structural fixes that unstuck the build for good:
-- `MAX_PUBLISHED_ARTIFACT_FILES` raised 128 to 512 in `controller.py`. Each new
-  adapter added recorded files; the bundle hit 129 and would have blocked every
-  future step.
-- Step IDs can now carry two letters (`M9.1AA` onward) in `controller.py` and
-  both result schemas. The build previously died at `M9.1Z`.
-Both were followed by the full 176-test controller run and a READY.json reseal.
-
-Money: Databento authority $60 fresh total, $22.47 spent, **$37.53 left**.
-
-Operational: read `/root/trade-alerts-builder/CONTINUE_CODEX_BUILD.md` before
-resuming. `buildctl` now rejects extra arguments. The watcher allows one automatic
-recovery for an exact diagnosed process death and notifies on unknown stops.
-Long count shards use `trade-alerts-offline-count@1..3.service` and checkpoint
-after each ticker.
-
-**Trap to avoid:** editing any workspace file while a review is pending causes
-"source changed before review". Check the stage first; only edit when the build
-is halted.
+**Work left:** none under this roadmap. Keep this result parked. Open a new task only for a genuinely different idea, real executable short-borrow cost and availability evidence, or a study whose required sample can be collected in a practical time. Do not buy data or run confirmation for this rule.
 
 ## Goal
 
@@ -477,3 +441,9 @@ Why: the 44% success rate in D-115 was four ETFs at 100% and five stocks at
 exactly zero, averaged into a plausible-looking number. A total hides a hole.
 Zero is a failure, not a result. The contract tests passed the whole time this
 bug was live.
+
+### Session notes — 2026-09-27
+- **Worked on:** Completed E1 discovery across 126 cells (101,081 events and 700,822 responses), tested exactly nine E2 refinements, reproduced the winner directly from raw bars, and completed the controller's final review.
+- **Finding:** The best historical rule was `FIXED_H15__EARLY_1H`, but the required 1,028-week confirmation makes it unusable. Final verdict: **PARK — INSUFFICIENT_EVIDENCE**.
+- **Checks:** 161 research tests and 37 controller tests passed; final file fingerprints and READY records matched. Total new data spend was $0.
+- **Next:** Nothing remains for this campaign. Keep it parked unless a new idea, usable borrow evidence, or a feasible study design creates a separate task.
