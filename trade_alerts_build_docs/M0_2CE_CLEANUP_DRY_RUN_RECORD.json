@@ -1,0 +1,78 @@
+{
+  "milestone": "M0.2CE",
+  "contract_version": 1,
+  "observed_at_pacific": "2026-09-24T16:39:53.678081-07:00",
+  "method": "existing execute_retention_cleanup dry-run path",
+  "configuration": {
+    "path": "config/full_chain_collector.yaml",
+    "sha256": "1aa88c87e43f10e44e802a39ebf1326a30fc8a09b92e0f651235a172226dea3c",
+    "cleanup_enabled": false,
+    "cleanup_result_bytes": 16384,
+    "fixed_reserve_bytes": 12000000000,
+    "reserve_fraction": 0.15
+  },
+  "configured_root": {
+    "path": "/home/openclaw/.openclaw/research-data/todo-109",
+    "device": 2049,
+    "inode": 1683625,
+    "is_symlink": false
+  },
+  "legal_holds_input": [],
+  "legal_holds_note": "The complete legal-hold input supplied to this dry run was the empty list. No file became eligible because of that input: the dry-run plan was empty.",
+  "class_3_minute_parts": {
+    "scanned_file_count": 5225,
+    "eligible_candidate_count": 0,
+    "dates": [
+      {"market_date": "2026-08-31", "age_days": 24, "part_count": 390, "part_bytes": 147903541, "publication_pointer_exists": false, "complete_set_proof": false},
+      {"market_date": "2026-09-01", "age_days": 23, "part_count": 390, "part_bytes": 150494358, "publication_pointer_exists": false, "complete_set_proof": false},
+      {"market_date": "2026-09-02", "age_days": 22, "part_count": 390, "part_bytes": 149338453, "publication_pointer_exists": false, "complete_set_proof": false},
+      {"market_date": "2026-09-03", "age_days": 21, "part_count": 390, "part_bytes": 145365412, "publication_pointer_exists": false, "complete_set_proof": false},
+      {"market_date": "2026-09-04", "age_days": 20, "part_count": 390, "part_bytes": 146742745, "publication_pointer_exists": false, "complete_set_proof": false},
+      {"market_date": "2026-09-08", "age_days": 16, "part_count": 390, "part_bytes": 138998692, "publication_pointer_exists": false, "complete_set_proof": false},
+      {"market_date": "2026-09-09", "age_days": 15, "part_count": 390, "part_bytes": 131899528, "publication_pointer_exists": false, "complete_set_proof": false},
+      {"market_date": "2026-09-10", "age_days": 14, "part_count": 389, "part_bytes": 151503120, "publication_pointer_exists": false, "complete_set_proof": false},
+      {"market_date": "2026-09-14", "age_days": 10, "part_count": 390, "part_bytes": 145482248, "publication_pointer_exists": false, "complete_set_proof": false},
+      {"market_date": "2026-09-15", "age_days": 9, "part_count": 390, "part_bytes": 165877070, "publication_pointer_exists": false, "complete_set_proof": false},
+      {"market_date": "2026-09-16", "age_days": 8, "part_count": 390, "part_bytes": 167077324, "publication_pointer_exists": false, "complete_set_proof": false},
+      {"market_date": "2026-09-17", "age_days": 7, "part_count": 390, "part_bytes": 156733367, "publication_pointer_exists": false, "complete_set_proof": false},
+      {"market_date": "2026-09-18", "age_days": 6, "part_count": 390, "part_bytes": 154694441, "publication_pointer_exists": false, "complete_set_proof": false},
+      {"market_date": "2026-09-24", "age_days": 0, "part_count": 156, "part_bytes": 62447467, "publication_pointer_exists": false, "complete_set_proof": false}
+    ],
+    "exclusion": "Every date lacked a current published complete-set pointer and proof, so no minute part qualified."
+  },
+  "class_4_temporary_files": {
+    "scanned_file_count": 0,
+    "eligible_candidate_count": 0,
+    "candidates": []
+  },
+  "class_5_notification_markers": {
+    "scanned_file_count": 4,
+    "eligible_candidate_count": 0,
+    "markers": [
+      {"name": ".notified-2026-09-11", "age_days": 13, "bytes": 0, "modified_ns": 1789158026934174770, "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+      {"name": ".notified-2026-09-21", "age_days": 3, "bytes": 0, "modified_ns": 1790022031481292876, "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+      {"name": ".notified-2026-09-22", "age_days": 2, "bytes": 0, "modified_ns": 1790108427937283351, "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+      {"name": ".notified-2026-09-23", "age_days": 1, "bytes": 0, "modified_ns": 1790194829149421109, "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}
+    ],
+    "exclusion": "Every marker was younger than the 30-day minimum."
+  },
+  "filesystem": {
+    "capacity_bytes": 80307429376,
+    "available_bytes": 17518407680,
+    "required_reserve_bytes": 12046114407,
+    "reserve_met": true
+  },
+  "dry_run_result": {
+    "enabled": false,
+    "dry_run": true,
+    "planned": [],
+    "removed": [],
+    "stopped": false
+  },
+  "boundaries": {
+    "owner_files_removed": 0,
+    "cleanup_remains_off": true,
+    "removal_authorized": false,
+    "classes_1_and_2_scanned_for_removal": false
+  }
+}

@@ -13583,7 +13583,10 @@ file was removed and no source, strategy, validation or live gate changed.
   assessment:** decide whether any later bounded owner-data cleanup may be
   proposed; do not activate cleanup or remove owner data in this step.
 
-### M0.2CC escalated protected-input diagnosis — 2026-09-24 Pacific
+### M0.2CC historical escalated protected-input diagnosis — 2026-09-24 Pacific
+
+This is the earlier diagnosis; the current continuation below supersedes its
+fixture status and blocking row while preserving the failed proof.
 
 The controller's focused run reached collection and failed with
 `KeyError: 'storage'` in
@@ -13605,3 +13608,649 @@ remain off; no owner file was removed and no source or strategy gate changed.
 - [!] **M0.2CC — blocked on a separately reviewed protected-input repair:** the
   sanitized collector settings omit `storage`, so the checked-in-switch test
   fails; no protected-input change is authorized in this milestone repair.
+
+### M0.2CC current protected-verification handoff — 2026-09-24 Pacific
+
+The protected substitute settings now include `storage.cleanup_enabled: false`
+and retain their temporary output root. This continuation changed no protected
+input, product code or assertion. The earlier `KeyError: 'storage'` and failed
+controller proof remain historical; current inspection no longer finds the
+missing section. `M0_2CC_IMPLEMENTATION.md` records the evidence and continuation.
+
+The focused protected launch was attempted once with the supplied five selectors
+and stopped before collection with `OSError: [Errno 22] Invalid argument` at its
+temporary-directory ownership change. No retry or unprotected test followed.
+Fresh controller focused/broad proof, two-process recording comparison and
+independent review remain required. No owner data was removed; cleanup and all
+live switches remain off and all source and strategy gates are unchanged.
+
+- [~] **M0.2CC — the off-by-default cleanup action awaits fresh controller
+  protected proof and independent review:** the earlier missing settings section
+  is now present; the local protected launch cannot pass the sandbox ownership
+  operation and supplies no test pass.
+- [ ] **M0.2CD — after M0.2CC acceptance, record the separate cleanup activation
+  assessment:** do not activate cleanup or remove owner data in this step.
+
+### M0.2CC final controller-proof assessment — 2026-09-24 Pacific
+
+This assessment supersedes the earlier in-progress rows above. The controller's
+protected focused and broad phases passed; the broad phase recorded 5,012 tests
+and emitted `m02cc-cleanup-proof.json`. The separate repeatability phase passed
+its published selection with `test_count: 109` and `runs: 2`, but its selector list and
+both artifact file lists omit the M0.2CC cleanup recording test and that proof
+file. The required new-recording comparison is absent. This is a proof gap, not
+a product-test failure. Cleanup remains off, no owner data was removed, and all
+source, strategy, validation, and live gates remain unchanged.
+
+- [!] **M0.2CC — blocked on the missing two-process comparison of the M0.2CC
+  cleanup recording:** passing broad proof cannot replace the required recording
+  comparison.
+- [ ] **M0.2CD — after M0.2CC acceptance, record the separate cleanup activation
+  assessment:** do not activate cleanup or remove owner data in this step.
+
+### M0.2CC current controller-proof assessment — 2026-09-24 Pacific
+
+The controller's protected focused and broad phases passed. The broad phase
+recorded 5,012 tests and emitted the cleanup proof. Its separate two-process
+repeatability phase passed its own published 109 selectors, but neither the
+published selector list nor either artifact contains the M0.2CC cleanup
+recording test or `m02cc-cleanup-proof.json`. The required fresh-process
+comparison for that new recording is therefore absent. This is a proof gap;
+cleanup remains off, no owner data was removed, and all source, strategy,
+validation, and live gates remain unchanged.
+
+- [!] **M0.2CC — blocked on the missing two-process comparison of the M0.2CC
+  cleanup recording:** the passing broad proof does not replace that required
+  repeatability evidence.
+- [ ] **M0.2CD — after M0.2CC acceptance, record the separate cleanup activation
+  assessment:** do not activate cleanup or remove owner data in this step.
+
+### M0.2CC historical controller-proof finalization — 2026-09-24 Pacific
+
+Independent review subsequently rejected this selection as incomplete; the
+current coverage repair below supersedes the completion row in this history.
+The controller's protected focused phase passed its one named collector check.
+The broad phase reported `test_count: 4560`; the separate repeatability phase
+reported `test_count: 109` and `runs: 2` for its published selector list. The
+controller's complete tested-source hash is
+`2ba42fb7ebfce481ce4fda97a66aa778e3d706806e5c5d85c0bd2b31ea83bc41`; the
+published acceptance cleanup proof is hash
+`48b037e63f0328a78b1285d9d39ea4d3aa5038ba5eda7537657ef16d2302a855`.
+The controller records protected isolation without unexpected denials and
+successful cleanup. Earlier sandbox and protected-input failures remain
+historical. These final record edits change no tested code, test, configuration,
+or protected input.
+
+- [x] **M0.2CC — off-by-default cleanup action has controller protected proof:**
+  cleanup remains off by default; no owner file was removed and every source,
+  strategy, validation, and live gate remains unchanged.
+- [ ] **M0.2CD — after M0.2CC acceptance, record the separate cleanup activation
+  assessment:** do not activate cleanup or remove owner data in this step.
+
+### M0.2CC historical coverage-repair handoff — 2026-09-24 Pacific
+
+Independent review found that the earlier passing broad selection omitted full
+storage and collector coverage and the changed mention path. The different
+approach now requests all of `tests/test_full_chain_collector.py`,
+`tests/test_full_chain_storage.py`, `tests/test_handle_mention.py` and
+`tests/test_agent_watchdog.py`. The complete milestone delta and original proof
+are preserved in `M0_2CC_IMPLEMENTATION.md`; only records changed in this repair.
+
+The expanded protected launch stopped before collection with
+`OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-ayqwiub2'`
+at the temporary-folder ownership operation. No retry or unprotected test ran.
+The controller must publish fresh focused and required broader proof, then
+independent review must assess it. The earlier repeatability publication did not
+collect the M0.2CC cleanup recording or emit its file in either run; the explicit
+cleanup recording selector must be collected and its output compared in both
+fresh runs. Prior passes remain evidence only for the cases actually collected.
+Cleanup and all live switches remain off; no owner data was removed and no
+source, strategy or validation gate changed.
+
+- [~] **M0.2CC — awaits expanded controller protected verification and review:**
+  complete collector, storage, mention and watchdog checks plus the M0.2CC
+  cleanup recording comparison remain required; the local sandbox stopped
+  before collection.
+- [ ] **M0.2CD — after M0.2CC acceptance, record the separate cleanup activation
+  assessment:** do not activate cleanup or remove owner data in this step.
+
+### M0.2CC historical mention-test isolation handoff — 2026-09-24 Pacific
+
+The expanded controller focused run failed because the mention tests left the
+real watchdog reading its live session path. The current test fixture now
+redirects that read to temporary files; this existing edit postdates the failed
+log and was preserved. `M0_2CC_IMPLEMENTATION.md` records the exact cause,
+failing cases, complete milestone delta, prior proof and different approach.
+Only records changed in this diagnosis.
+
+The protected mention/watchdog check stopped before collection with
+`OSError: [Errno 22] Invalid argument: '/tmp/trade-alerts-m04-8_zz3_s5'`
+at the launcher's temporary-folder ownership change. It was not retried.
+The controller must run fresh focused verification, then required broad
+acceptance and both cleanup recording comparisons. The earlier passing
+selections do not establish acceptance of this current test setup. Cleanup
+and all live switches remain off; no owner data was removed and no source,
+strategy or validation gate changed.
+
+- [~] **M0.2CC — awaits controller verification of the repaired mention-test
+  setup and independent review:** full collector, storage, mention and watchdog
+  checks and the two-run cleanup recording comparison remain required.
+- [ ] **M0.2CD — after M0.2CC acceptance, record the separate cleanup activation
+  assessment:** do not activate cleanup or remove owner data in this step.
+
+### M0.2CC final controller-proof assessment — 2026-09-24 Pacific
+
+This assessment supersedes the earlier in-progress rows above. The controller's
+protected focused and broad phases passed; the broad phase recorded 5,012 tests
+and emitted `m02cc-cleanup-proof.json`. The separate repeatability phase passed
+its published selection with `test_count: 109` and `runs: 2`, but its selector list and
+both artifact file lists omit the M0.2CC cleanup recording test and that proof
+file. The required new-recording comparison is absent. This is a proof gap, not
+a product-test failure. Cleanup remains off, no owner data was removed, and all
+source, strategy, validation, and live gates remain unchanged.
+
+- [!] **M0.2CC — blocked on the missing two-process comparison of the M0.2CC
+  cleanup recording:** passing broad proof cannot replace the required recording
+  comparison.
+- [ ] **M0.2CD — after M0.2CC acceptance, record the separate cleanup activation
+  assessment:** do not activate cleanup or remove owner data in this step.
+
+
+### M0.2CC records-only proof reconciliation — 2026-09-24 Pacific
+
+The focused mention failures are resolved in the published controller proof.
+`M0_2CC_IMPLEMENTATION.md` now records each phase's exact selectors, counts,
+separate timings, artifact directories, hashes, isolation and test cleanup,
+and the complete original tested-source manifest. No product tests were rerun
+and no code, tests, configuration or protected inputs changed in finalization.
+
+The repeatability selection still omits
+`tests/test_full_chain_storage.py::test_m02cc_cleanup_recording_is_deterministic`;
+neither fresh run collects that case or contains `m02cc-cleanup-proof.json`.
+The published test-case lists and file hashes confirm the omission. Matching
+hashes of other emitted records do not meet this requirement. The remaining
+block is the supervisor's selection/proof gate, not the resolved mention-test
+failure or the historical local ownership error. The earlier failure history remains;
+passing focused and broad proof does not establish independent acceptance.
+M0.2CD is dependent work, so no independent next milestone is proposed. The
+roadmap is not complete. Cleanup and all live switches stay off.
+
+- [x] **M0.2CC — off-by-default cleanup action has complete controller proof:**
+  the fresh two-process comparison collected the cleanup recording case, emitted
+  matching proof files, and left cleanup and every live switch off.
+- [ ] **M0.2CD — after M0.2CC acceptance, record the separate cleanup activation
+  assessment:** do not activate cleanup or remove owner data in this step.
+
+### M0.2CC final records-only correction — 2026-09-24 Pacific
+
+The preceding blocked assessment is historical. The current controller
+repeatability artifact ran 110 tests twice in fresh protected processes,
+including `tests/test_full_chain_storage.py::test_m02cc_cleanup_recording_is_deterministic`.
+Both runs passed with zero failures, errors, and skips, emitted
+`m02cc-cleanup-proof.json`, and have the same SHA-256:
+`48b037e63f0328a78b1285d9d39ea4d3aa5038ba5eda7537657ef16d2302a855`.
+The focused phase ran 7 tests and broad acceptance ran 5,012 tests. No code,
+tests, configuration, protected inputs, cleanup settings, or live switches
+changed in this records-only correction. No owner file was removed; source,
+strategy, validation, and live gates remain unchanged.
+
+- [x] **M0.2CC — off-by-default cleanup action has complete controller proof:**
+  the required two-process cleanup-recording comparison passed with matching
+  emitted proof files; cleanup and every live switch remain off.
+- [ ] **M0.2CD — after M0.2CC acceptance, record the separate cleanup activation
+  assessment:** do not activate cleanup or remove owner data in this step.
+
+### M0.2CD cleanup activation assessment — 2026-09-24 Pacific
+
+`M0_2CD_CLEANUP_ACTIVATION_ASSESSMENT.md` records the proposed decision. M0.2CC's
+accepted synthetic proof supports proposing a separate owner-data dry run, but
+not enabling cleanup. No current real target list, complete legal-hold input or
+target-by-target owner-data proof has been reviewed. Checked-in cleanup and every
+live switch remain off, and no owner file was removed.
+
+The next bounded step may only collect a zero-removal dry-run record binding the
+configured root, legal holds, exact class 3/4/5 candidates and identities,
+complete-set/source proof, ages and disk reserve. Any real removal remains a
+separate destructive step needing exact targets, fresh checks, independent
+review and separate owner authority. Source, D-104, strategy, validation and
+live gates are unchanged.
+
+- [x] **M0.2CD — cleanup activation assessment recorded from the controller's
+  protected focused proof:** cleanup stays off, no owner data was removed, and
+  independent review remains required before any separate removal proposal.
+- [ ] **M0.2CE — collect the bounded owner-data cleanup dry-run record:** use
+  only the existing dry-run path, bind every current eligibility input and
+  candidate identity, prove zero removals and keep the checked-in switch off.
+
+### M0.2CE owner-data cleanup dry-run — 2026-09-24 Pacific
+
+`M0_2CE_CLEANUP_DRY_RUN_RECORD.json` records one bounded use of the existing
+dry-run path. Cleanup remained off. The plan and removal lists were both empty.
+All 5,225 minute parts were excluded because none of the 14 dates had a current
+published complete-set pointer and proof. No temporary candidate existed, and
+all four notification markers were younger than 30 days. The supplied legal-hold
+input was the empty list and the disk-reserve check passed. No owner file was
+removed.
+
+- [x] **M0.2CE — bounded owner-data cleanup dry-run recorded:** current
+  eligibility inputs produced zero targets and zero removals; cleanup and every
+  live switch remain off.
+- [ ] **M0.2CF — record the independent zero-target cleanup decision:** review
+  the M0.2CE record and close this cleanup branch without proposing removal
+  unless a fresh eligible target set and separate owner authority exist.
+
+### M0.2CF zero-target cleanup decision — 2026-09-24 Pacific
+
+`M0_2CF_ZERO_TARGET_CLEANUP_DECISION.md` records the no-removal decision. The
+M0.2CE plan and removal lists were empty. No minute-part date had current
+published complete-set proof, no temporary candidate existed, and all four
+notification markers were too young. The passing reserve check and empty
+supplied legal-hold list make no file eligible. Cleanup and every live switch
+remain off, and no owner file was removed.
+
+This cleanup branch stops here. Reopening requires a fresh eligible class 3, 4
+or 5 target set. Any removal remains a separate destructive step requiring
+exact targets, then-current legal holds and file proof, fresh pre-removal checks,
+independent review and separate owner authority. No source, D-104, strategy,
+validation or live gate changed, and no independent dependency-ready milestone
+is available from this branch.
+
+- [x] **M0.2CF — zero-target cleanup decision complete:** the current plan has
+  no eligible target, so zero files were removed; cleanup stays off and this
+  branch is closed.
+
+### M0.2CF corrected blocked handoff — 2026-09-24 Pacific
+
+Historical assessment: the existing-data reopening below supersedes its claim
+that no next task is available. The failure and blocked row remain preserved.
+
+The preceding completion row records the finished no-removal decision. Its
+completed build transition was rejected because an empty next milestone did
+not mean the whole roadmap was finished. The decision and prior proof remain
+intact in `M0_2CF_ZERO_TARGET_CLEANUP_DECISION.md`.
+
+No dependency-ready next task is established by the current progress list.
+The capacity and cleanup branch through M0.2CE has already been accepted.
+M9.4 still lacks qualifying real held-out source evidence and a promotable
+#1–#4 result; the synthetic engineering pilot cannot close that gate.
+ROADMAP §14 keeps Strategy #5–#8 implementation behind that validation gate.
+D-104 gap-dependent rules stay OFF and untested. Reopening needs that real
+validation evidence or an explicit build-order decision preserving source,
+promotion and live gates. No duplicate paperwork milestone is proposed.
+
+- [!] **M0.2CF — build handoff blocked after the finished no-removal decision:**
+  no eligible independent next task is established, and M9.4's required real
+  held-out #1–#4 validation evidence remains absent. The next milestone is empty
+  because this is a blocked stop, not because all work is complete. Zero cleanup
+  targets do not create a deletion-authority request; cleanup and live switches
+  remain off.
+
+### Existing-data validation reopening — 2026-09-25 Pacific
+
+The host already contains two large saved one-minute-bar datasets covering
+2023 through 2026, plus smaller daily and research result files. Their presence
+does not prove that they meet M9.4, but it provides dependency-ready work that
+the prior handoff missed. The next step must inspect provenance, date and symbol
+coverage, duplicates, missing intervals, session bounds, price/volume sanity,
+cross-dataset agreement, adjustments and every available time-integrity field.
+It may then run only the frozen first-four tests supported by qualified fields,
+with development and held-out dates kept separate. Missing bid/ask, correction,
+finality, membership or original-availability facts remain visible blockers and
+must not be invented or replaced by a profitability claim.
+
+- [ ] **M9.1EP — qualify and test the existing saved market data:** publish a
+  read-only coverage and defect record for the saved datasets, connect every
+  honestly supported bar-native first-four input, and run the frozen held-out
+  evaluation where the evidence permits. Keep promotion, alerts, live trading,
+  spending and source-gap-dependent rules off.
+
+### M0.2CF current handoff correction — 2026-09-25 Pacific
+
+The rejected transition omitted a next milestone while the roadmap remained
+unfinished. The later existing-data reopening above supplies a concrete next
+task: M9.1EP. This is shared data qualification for the first four strategies,
+not permission to implement Strategy #5–#8 or a claim that M9.4 has passed.
+The prior no-next-task assessment is historical. The no-removal decision and
+controller proof remain in `M0_2CF_ZERO_TARGET_CLEANUP_DECISION.md`; only records
+changed. Independent review must confirm acceptance and next-task eligibility.
+
+- [x] **M0.2CF — zero-target cleanup decision complete:** no removal is
+  proposed, no owner file was removed, and cleanup and every live switch stay
+  off; the overall roadmap remains unfinished.
+- [ ] **M9.1EP — qualify and test the existing saved market data:** follow the
+  existing-data reopening scope above, checking source evidence before any
+  supported frozen first-four evaluation; preserve held-out safeguards, D-104
+  disabled rules and all source, promotion, spending and live gates.
+
+### M9.1EP saved-data audit handoff — 2026-09-25 Pacific
+
+`M9_1EP_SAVED_DATA_QUALIFICATION.json` records the first bounded part: exact
+saved-file identities, coverage, missing minutes, key/order checks, OHLCV sanity,
+40-date cross-file agreement and the still-missing source facts. It binds the
+saved derivatives to the prior raw inventory, capability record and extraction
+scripts without a provider call or spend. Historical bid/ask is absent;
+original availability, corrections/finality, point-in-time membership,
+historical borrow, complete-chain execution and adjustment provenance remain
+gaps, so their dependent rules stay OFF and untested under D-104.
+
+No held-out strategy result was opened. The frozen first-four input binding and
+permitted evaluation are still pending, so the parent task is handed forward
+rather than marked complete.
+
+- [!] **M9.1EP — saved-data qualification is not yet complete:** the read-only
+  coverage and defect audit is built, but frozen first-four bar-input binding,
+  protected proof and any evidence-permitted held-out evaluation remain.
+- [ ] **M9.1EQ — bind audited bar-native inputs for the frozen first four:**
+  publish the exact enabled/disabled input matrix and keep the held-out result
+  closed until the binding and protected proof pass.
+
+### M9.1EQ audited input-binding handoff — 2026-09-25 Pacific
+
+`M9_1EQ_AUDITED_INPUT_BINDING.json` now binds the unchanged M9.1EP audit to
+the existing first-four adapter-count runner. Eleven OHLCV/event-time inputs
+are conditionally enabled only when each required bar window is complete.
+Eleven daily, quote, 15-second tape, exact-ATR, finality or unresolved-VWAP
+inputs stay `OFF_UNTESTED`. All six D-104 source gaps remain explicit, and the
+held-out evaluation, promotion, alerts, live actions and spending remain
+closed.
+
+Static compilation passed. The focused protected launch stopped before test
+collection with `OSError: [Errno 22] Invalid argument` at the launcher's
+temporary-folder ownership operation. The controller must publish fresh
+focused and broader proof; no unprotected application test replaced it.
+
+- [~] **M9.1EQ — audited first-four input binding awaits controller proof and
+  independent review:** the matrix is published and keeps every unsupported
+  input off, but the local sandbox could not complete protected collection.
+- [ ] **M9.1ER — run development-only readiness counts through the audited
+  binding:** after M9.1EQ acceptance, count enabled inputs on preregistered
+  development dates only; keep held-out results and every D-104-dependent rule
+  closed.
+
+### M9.1EQ controller-proof finalization — 2026-09-25 Pacific
+
+The preceding local launcher failure is historical. The controller's protected
+focused phase passed 7 tests once on
+`tests/trade_alerts_contracts/test_saved_market_data_audit.py` and
+`tests/trade_alerts_contracts/test_saved_market_data_binding.py`; its controller
+wall time was 4.702 seconds. The protected broad acceptance phase passed 4,562
+tests once on `tests/trade_alerts_contracts`; its controller wall time was
+1094.88 seconds. The separate protected repeatability phase passed its published
+109-selector recording selection twice in fresh processes; its controller wall
+time was 445.378 seconds. The controller's original tested-source manifest and
+published artifacts are recorded in `M9_1EQ_IMPLEMENTATION.md`.
+
+No code, tests, configuration or protected inputs changed in this records-only
+finalization. Every unsupported input remains OFF_UNTESTED; held-out evaluation,
+promotion, alerts, live actions and spending remain closed.
+
+- [x] **M9.1EQ — audited first-four input binding has controller protected
+  proof:** supported inputs remain conditional on complete windows and every
+  unsupported D-104-dependent rule stays off.
+- [ ] **M9.1ER — run development-only readiness counts through the audited
+  binding:** keep held-out results and every D-104-dependent rule closed.
+
+### M9.1ER historical readiness-count handoff — rejected, 2026-09-25 Pacific
+
+The completion claim in this handoff was rejected. The current blocked
+assessment follows below; historical passing counts do not establish exact
+saved-data recording proof or compliance with the development-date read scope.
+
+`M9_1ER_DEVELOPMENT_READINESS_COUNTS.json` runs both audited saved bar files
+through the existing first-four adapter-count path for the first 24 dates of
+M9.1EP's frozen 40-date sample. It reads only the nine D-107 development names.
+Each file contains 24 usable `LLY` sessions and none of the other eight names,
+so each source records 7,392 decision moments, zero ready relative-strength or
+warmup moments and zero ready RVOL moments. Exact partly-ready bar-window counts
+and every not-ready reason remain in the record.
+
+All 11 unsupported inputs and all six D-104 gap-dependent rule groups remain
+OFF and untested. No held-out ticker or result was opened, and no return, alert,
+order, promotion, provider call, spend, deployment or live action occurred.
+The 16 dates not read here were already inspected by M9.1EP's cross-file audit,
+so they are not claimed as untouched final-validation evidence.
+
+The prior local launcher failure is historical. Controller-protected proof
+passed: focused, once, 11 tests in 64.055 seconds; broad acceptance, once on
+`tests/trade_alerts_contracts`, 4,568 tests in 1089.936 seconds; and the
+published recording selection twice in fresh processes, 110 tests in 530.307
+seconds. The M9.1ER readiness proof matched across both repeatability runs.
+The tested-source manifest and proof details are recorded in
+`M9_1ER_IMPLEMENTATION.md`.
+
+- [x] **M9.1ER — development readiness counts have controller protected
+  proof:** the bounded counts keep every unsupported input and D-104-dependent
+  rule off and keep held-out evaluation closed.
+- [ ] **M9.1ES — record the evidence-forced no-evaluation decision:** after
+  M9.1ER acceptance, keep the held-out result closed because eight development
+  names, SPY-relative-strength readiness and the D-104 source facts remain
+  absent; reopen evaluation only if new qualifying evidence closes them.
+
+### M9.1ER escalated blocked assessment — 2026-09-25 Pacific
+
+Independent review found that the published recording verifies a synthetic
+two-date case rather than `M9_1ER_DEVELOPMENT_READINESS_COUNTS.json`, and that
+the research script reads intervening dates with its inclusive range filter.
+Both requirements remain unresolved. Prior passing collected-case proof and
+failed attempts remain historical, not milestone acceptance.
+
+The different diagnostic approach traced the actual script and inputs through
+the protected launcher's mounts. The script, governing records and saved bar
+files are absent from that environment. A separately reviewed protection repair
+is required before the exact-record test can run with isolation preserved;
+this assignment does not authorize editing protected launcher files. No new
+test run or implementation correction is claimed. The exact-date filter fix,
+its intervening-date rejection test and the actual saved-data recording in both
+fresh controller processes remain required in M9.1ER. See
+`M9_1ER_IMPLEMENTATION.md` for the source references and retained proof.
+
+- [!] **M9.1ER — exact-date read scope and real saved-data proof remain
+  unresolved:** required script/input access needs a separately reviewed
+  protected-launcher assignment; no isolation bypass is authorized.
+- [ ] **M9.1ES — record the evidence-forced no-evaluation decision:** still
+  depends on M9.1ER acceptance and is not eligible to advance now; held-out
+  evaluation and all unsupported/D-104-dependent rules remain closed.
+
+### M9.1ER repaired proof handoff — 2026-09-25 Pacific
+
+The preceding blocked assessment is historical. The installed protected launcher
+now provides the exact read-only script and inputs; this session did not change
+protection. The partial exact-date filter repair is preserved. The scope test
+now observes rows at materialization, so later date discards cannot hide an
+intervening-date or held-out-ticker read. The real saved-data test executes the
+research script's entry point, writes the full development count record under
+`/tmp`, and compares every field and byte with the unchanged published record.
+The controller's unchanged discovery rule recognizes its new recording selector.
+
+The focused protected attempt stopped before collection with
+`OSError: [Errno 22] Invalid argument` at the temporary-folder ownership step.
+No retry, unprotected application tests or broad self-run followed. Fresh
+controller focused/acceptance proof and two fresh processes that collect and
+compare the exact saved-data recording remain required. The controller will
+supply all new stage figures and artifacts. Prior synthetic proof and rejected
+attempts remain historical. See `M9_1ER_IMPLEMENTATION.md` for the exact error,
+selector, artifact name and retained proof references.
+
+- [~] **M9.1ER — repaired development-read scope and exact saved-data recording
+  await controller verification:** local protected collection stopped at the
+  ownership operation; no new protected pass or acceptance is claimed.
+- [ ] **M9.1ES — record the evidence-forced no-evaluation decision:** after
+  fresh M9.1ER proof and independent acceptance, keep held-out evaluation closed
+  and unsupported/D-104-dependent rules OFF and untested.
+
+### M9.1ER controller protected-proof finalization — 2026-09-25 Pacific
+
+The preceding local ownership failure, blocked assessment and synthetic-only
+proof are historical. Fresh controller protected proof passed: the focused
+phase ran once with the named readiness file and exact real-record selector,
+passing 8 tests with controller wall time 339.371 seconds; broad acceptance ran
+once on `tests/trade_alerts_contracts`, passing 4,570 tests with controller wall
+time 1329.914 seconds; and the published recording selection ran twice in fresh
+processes, passing 111 tests with controller wall time 1074.334 seconds. Both
+repeatability runs collected the exact real-record selector and emitted matching
+`M9_1ER_DEVELOPMENT_READINESS_COUNTS.json` files. The phase artifacts, matching
+hashes and tested-source manifest are recorded in `M9_1ER_IMPLEMENTATION.md`.
+
+No code, tests, configuration or protected inputs changed in this records-only
+finalization. The 11 unsupported inputs and six D-104 gap-dependent rule groups
+remain OFF and untested. Held-out evaluation, alerts, orders, promotion,
+deployment and live action remain closed.
+
+- [x] **M9.1ER — development readiness counts have fresh controller protected
+  proof:** exact-date scope and the real 24-date saved-data record matched in
+  both fresh repeatability processes; unsupported and D-104-dependent rules
+  remain off and held-out evaluation remains closed.
+- [ ] **M9.1ES — record the evidence-forced no-evaluation decision:** after
+  M9.1ER acceptance, keep the held-out result closed because eight development
+  names, SPY-relative-strength readiness and the D-104 source facts remain
+  absent; reopen evaluation only if new qualifying evidence closes them.
+
+### M9.1ES evidence-forced no-evaluation decision — 2026-09-25 Pacific
+
+`M9_1ES_NO_EVALUATION_DECISION.md` records the required no-action decision.
+Both accepted saved sources had usable development-date bars only for `LLY`;
+the other eight development names, including `SPY`, were absent. Relative-
+strength, relative-strength warmup and RVOL readiness were therefore zero.
+The held-out eight-symbol evaluation stays closed, and no entry, trade, return,
+success-bar result or profit figure was produced.
+
+All 11 unsupported inputs and all six D-104 gap-dependent rule groups remain
+OFF and untested. Reopening requires new qualifying eight-name development
+coverage including `SPY`, the required RVOL reference history, and independent
+review before any held-out name is read. No source, promotion, delivery or live
+gate is closed by this decision.
+
+- [x] **M9.1ES — evidence-forced no-evaluation decision recorded:** the
+  held-out result remains closed; the M9.1 historical-evaluation and early
+  first-four validation gates remain blocked by the named missing evidence.
+- No dependency-ready implementation milestone remains open in the current
+  roadmap. Reopen the affected gate only when the exact evidence named in
+  `M9_1ES_NO_EVALUATION_DECISION.md` exists.
+
+### M9.1ES historical escalated verification block — 2026-09-25 Pacific
+
+This earlier blocked state is superseded by the final correction below.
+
+The preceding completed row records the no-action decision, not independent
+acceptance. The controller's focused verification stopped with
+`RuntimeError: parallel verification memory reserve fell below 2 GiB`.
+Tracing the protected launcher's reserve check identified an execution-resource
+gate outside the milestone documents. No failing test case was identified by
+the supplied log, and no pass is claimed. This diagnosis did not repeat the
+failed command or change protection. The decision record preserves the original
+attempt, exact failure, controller selection and unavailable proof fields.
+
+- [!] **M9.1ES — no-evaluation decision recorded; protected verification
+  blocked by the parallel memory reserve:** supervisor resolution of the
+  execution-resource gate and published proof are required before acceptance.
+- No dependency-ready implementation milestone remains open. The overall
+  roadmap remains incomplete; held-out evaluation and all unsupported or
+  D-104-dependent rules remain closed and untested.
+
+
+### M9.1ES historical prior protected-proof record correction — 2026-09-25 Pacific
+
+The preceding memory-reserve block is historical. The controller's published
+focused phase ran once with the two exact saved-readiness selectors, passing
+2 tests with controller wall time 279.549 seconds. Acceptance ran once on
+`tests/trade_alerts_contracts`, passing 4570 tests with controller wall time
+2028.246 seconds. The published repeatability selection ran twice in fresh
+processes, passing 111 tests per run with controller wall time 1337.47 seconds.
+There were no failures, errors, skips, unexpected denials or cleanup failures.
+The ordered repeatability test IDs and recording files matched, including the
+actual `M9_1ER_DEVELOPMENT_READINESS_COUNTS.json` in both runs.
+`M9_1ES_NO_EVALUATION_DECISION.md` retains exact phase selectors, separate pytest
+and JUnit figures, all phase artifact paths, recording hashes and the complete
+original tested-source manifest reference.
+
+The complete milestone delta includes `scripts/testing/run_trade_alerts_contracts.py`
+as well as the decision record and `ROADMAP.md`. The successful proof exercised
+the launcher's directory-selection read-only mounts and extended timeout;
+the memory reserve and isolation remained intact. This final correction edits
+only the two documents and does not rerun tests or alter tested code. Earlier
+failed attempts and the review requesting record repair remain preserved.
+Independent acceptance is still the reviewer's decision.
+
+- [x] **M9.1ES — evidence-forced no-evaluation decision and controller proof
+  recorded:** the stale verification block and incomplete changed-file account
+  are corrected; held-out evaluation stays closed and every unsupported or
+  D-104-dependent rule remains OFF and untested.
+- No dependency-ready implementation milestone remains open; `next_milestone`
+  is empty and the overall roadmap remains incomplete. M9.1 historical
+  evaluation and early first-four validation still require the missing
+  development coverage, SPY history and RVOL reference evidence. No source,
+  promotion, delivery, deployment or live gate is closed by this decision.
+
+### M9.1ES current controller-proof correction — 2026-09-25 Pacific
+
+The preceding two-test focused account is historical. The current controller
+record has tested-source hash
+`efe2aa6351eb86f853ff937bc92b2dfbc394db8da375ec45b87bad3427bea62f`.
+Its focused phase ran once on `tests/trade_alerts_contracts`, passed 4,570
+tests, and has controller wall time `1983.739` seconds in
+`published-artifacts-ee8a690cab50`. Its acceptance phase ran once on the same
+selector, passed 4,570 tests, and has controller wall time `2090.553` seconds
+in `published-artifacts-ca2fc15df9ce`. Its two repeatability runs used the
+controller recording selection, passed 111 tests per run, have controller wall
+time `1304.876` seconds, and are in `published-artifacts-64c5faaec238`.
+
+The complete tested delta remains `scripts/testing/run_trade_alerts_contracts.py`,
+`M9_1ES_NO_EVALUATION_DECISION.md`, and `ROADMAP.md`. This records-only
+correction changes no tested code, test, configuration, or protected input.
+The held-out evaluation remains closed, and every unsupported or D-104-dependent
+rule remains OFF and untested. No source, promotion, delivery, deployment, or
+live gate is closed.
+
+- [x] **M9.1ES — evidence-forced no-evaluation decision and current controller
+  proof recorded:** historical two-test proof is retained as history; the
+  current 4,570-test focused and acceptance proof is now the final account.
+- No dependency-ready implementation milestone remains open; `next_milestone`
+  is empty and the overall roadmap remains incomplete. M9.1 historical
+  evaluation and early first-four validation still require the missing
+  development coverage, SPY history and RVOL reference evidence.
+
+### M9.1ES controller handoff block after independent pass — 2026-09-25 Pacific
+
+The independent review at
+`/root/trade-alerts-builder/runs/20260925-203447-459621-review/review-result.json`
+passed the no-action decision and current proof, with no next milestone and
+`all_complete: false`. The controller then returned
+`review acceptance has an incomplete roadmap`. Its terminal roadmap check
+requires status rows for later headings such as M10.1, and cannot accept this
+completed no-action decision at the unfinished build's stopping boundary.
+The exact cause and read-only reproduction are recorded in
+`M9_1ES_NO_EVALUATION_DECISION.md`. This is outside milestone code; a separately
+assigned controller repair is required. Adding later rows merely to make that
+check pass would cause the controller to mark the unfinished build done.
+
+- [!] **M9.1ES — no-evaluation decision independently passed; controller
+  handoff blocked:** preserve the passing review and all current protected
+  proof while the supervisor resolves the controller's stopping boundary.
+  This status does not reopen the decision or invalidate its proof.
+- No dependency-ready implementation milestone remains open. `next_milestone`
+  is empty and `all_complete` remains false. Historical evaluation and early
+  first-four validation still require the named development coverage, SPY
+  history and RVOL reference evidence. All unsupported and D-104-dependent
+  rules stay OFF and untested; no source, promotion, delivery or live gate is
+  closed. Earlier attempts and reviews remain preserved.
+
+The follow-up also checked the controller's blocked review branch: with no
+eligible next milestone it stops at `awaiting_attention`. It cannot record
+acceptance of this finished no-action decision without the separate controller
+repair. The last M9.1ES row remains `[!]`; no new milestone, source clearance,
+test result or completed-build claim is added by this record clarification.
+
+### M9.1ES final controller-boundary correction — 2026-09-25 Pacific
+
+The separately authorized controller repair now accepts a passing current
+milestone when the independent reviewer names no eligible next milestone,
+without claiming that the wider roadmap is complete. The focused controller
+and handoff checks passed 63 tests. The previously published protected proof
+and passing independent review remain unchanged.
+
+- [x] **M9.1ES — accepted after controller stopping-boundary repair:** the
+  no-evaluation decision, protected proof and independent pass are final.
+- The controller has accepted 111 milestones and is stopped cleanly with no
+  eligible next implementation milestone. The wider roadmap remains incomplete;
+  its missing development coverage, SPY history and RVOL reference evidence
+  remain blocked, and all unsupported rules remain OFF.

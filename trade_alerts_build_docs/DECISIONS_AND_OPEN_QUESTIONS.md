@@ -1642,3 +1642,47 @@ cleanup remains off.
 
 This decision changes no source, D-104, validation, promotion, alert or live
 gate. `M0_2CB_SAFE_ACTIVATION_DECISION.md` is the full decision record.
+
+## 67. D-118 — cleanup needs a real dry-run record before any removal proposal
+
+Status: **CONFIRMED — CURRENT ZERO-TARGET BRANCH CLOSED; REMOVAL NOT
+AUTHORIZED**, 2026-09-24 Pacific.
+
+M0.2CC's accepted protected proof establishes the off-by-default cleanup action
+with temporary synthetic files. It does not identify current owner-data targets
+or bind current legal holds and complete-set evidence. Cleanup remains disabled.
+
+M0.2CE may collect a zero-removal dry-run record from the existing owner-data
+root. The record must bind the root, checked-in off switch, complete legal holds,
+exact class 3/4/5 candidates and identities, complete-set/source proof, ages and
+disk reserve. Unknown, missing, changed, incomplete or held state excludes a
+target. Classes 1 and 2 remain ineligible.
+
+Independent review of that record is required before a separate removal
+proposal. Actual owner-data removal remains a destructive action requiring
+separate owner authority, exact targets and fresh pre-removal checks. The
+server storage manager's verified old-test-copy archive cleanup is separate and
+does not authorize collector market-data cleanup. No source, strategy,
+validation, promotion, alert or live gate changes.
+
+### D-118 dry-run observation — 2026-09-24 Pacific
+
+M0.2CE's existing dry-run path planned and removed zero files with cleanup still
+off. No minute-part date had a current published complete-set pointer and proof,
+no temporary candidate existed, and the four notification markers were all
+younger than 30 days. The supplied legal-hold input was the empty list. The disk
+reserve check passed. This observation supports no removal proposal; a later
+destructive step still needs actual eligible targets, fresh checks, independent
+review and separate owner authority.
+
+### D-118 zero-target disposition — 2026-09-24 Pacific
+
+The current cleanup branch closes without a removal proposal. The reviewed
+M0.2CE record contains an empty plan, zero removals and no eligible class 3, 4
+or 5 target. The passing reserve check and empty supplied legal-hold list do not
+authorize removal. Cleanup stays off.
+
+A later proposal needs a fresh eligible target set, then-current legal holds,
+complete-set and source proof, exact file identities, fresh checks, independent
+review and separate owner authority. This disposition changes no source,
+historical, D-104, validation, promotion, alert or live gate.

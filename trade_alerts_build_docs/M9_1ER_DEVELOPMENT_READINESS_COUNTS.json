@@ -1,0 +1,2586 @@
+{
+  "development_dates": [
+    "2023-03-28",
+    "2023-04-27",
+    "2023-05-30",
+    "2023-06-30",
+    "2023-08-02",
+    "2023-09-01",
+    "2023-10-04",
+    "2023-11-03",
+    "2023-12-05",
+    "2024-01-08",
+    "2024-02-08",
+    "2024-03-12",
+    "2024-04-12",
+    "2024-05-14",
+    "2024-06-14",
+    "2024-07-18",
+    "2024-08-16",
+    "2024-09-18",
+    "2024-10-18",
+    "2024-11-19",
+    "2024-12-20",
+    "2025-01-27",
+    "2025-02-27",
+    "2025-03-31"
+  ],
+  "frozen_sample_dates": [
+    "2023-03-28",
+    "2023-04-27",
+    "2023-05-30",
+    "2023-06-30",
+    "2023-08-02",
+    "2023-09-01",
+    "2023-10-04",
+    "2023-11-03",
+    "2023-12-05",
+    "2024-01-08",
+    "2024-02-08",
+    "2024-03-12",
+    "2024-04-12",
+    "2024-05-14",
+    "2024-06-14",
+    "2024-07-18",
+    "2024-08-16",
+    "2024-09-18",
+    "2024-10-18",
+    "2024-11-19",
+    "2024-12-20",
+    "2025-01-27",
+    "2025-02-27",
+    "2025-03-31",
+    "2025-04-30",
+    "2025-06-02",
+    "2025-07-03",
+    "2025-08-05",
+    "2025-09-05",
+    "2025-10-07",
+    "2025-11-06",
+    "2025-12-09",
+    "2026-01-09",
+    "2026-02-11",
+    "2026-03-16",
+    "2026-04-16",
+    "2026-05-18",
+    "2026-06-18",
+    "2026-07-22",
+    "2026-08-21"
+  ],
+  "held_out_evaluation": "CLOSED",
+  "held_out_tickers_read": [],
+  "network_used": false,
+  "promotion_or_live_release": false,
+  "reserved_non_development_dates": [
+    "2025-04-30",
+    "2025-06-02",
+    "2025-07-03",
+    "2025-08-05",
+    "2025-09-05",
+    "2025-10-07",
+    "2025-11-06",
+    "2025-12-09",
+    "2026-01-09",
+    "2026-02-11",
+    "2026-03-16",
+    "2026-04-16",
+    "2026-05-18",
+    "2026-06-18",
+    "2026-07-22",
+    "2026-08-21"
+  ],
+  "return_calculated": false,
+  "scope_reference": "M9.1EP frozen 40-date audit sample; first 60% development dates only",
+  "sources": [
+    {
+      "counts": {
+        "adapter_run_version": "M91BZ_ADAPTER_RUN_V4",
+        "binding_version": "M91EQ_SAVED_BAR_INPUT_BINDING_V1",
+        "d104_gaps": {
+          "complete_option_chain_execution": {
+            "dependent_rules": "OFF_UNTESTED",
+            "status": "GAP"
+          },
+          "corrections_and_finality": {
+            "dependent_rules": "OFF_UNTESTED",
+            "status": "GAP"
+          },
+          "historical_bid_ask_execution": {
+            "dependent_rules": "OFF_UNTESTED",
+            "status": "GAP"
+          },
+          "historical_borrow": {
+            "dependent_rules": "OFF_UNTESTED",
+            "status": "GAP"
+          },
+          "original_availability": {
+            "dependent_rules": "OFF_UNTESTED",
+            "status": "GAP"
+          },
+          "point_in_time_membership": {
+            "dependent_rules": "OFF_UNTESTED",
+            "status": "GAP"
+          }
+        },
+        "development_dates": [
+          "2023-03-28",
+          "2023-04-27",
+          "2023-05-30",
+          "2023-06-30",
+          "2023-08-02",
+          "2023-09-01",
+          "2023-10-04",
+          "2023-11-03",
+          "2023-12-05",
+          "2024-01-08",
+          "2024-02-08",
+          "2024-03-12",
+          "2024-04-12",
+          "2024-05-14",
+          "2024-06-14",
+          "2024-07-18",
+          "2024-08-16",
+          "2024-09-18",
+          "2024-10-18",
+          "2024-11-19",
+          "2024-12-20",
+          "2025-01-27",
+          "2025-02-27",
+          "2025-03-31"
+        ],
+        "development_tickers": [
+          "NVDA",
+          "MSFT",
+          "AAPL",
+          "TSLA",
+          "LLY",
+          "SPY",
+          "QQQ",
+          "XLV",
+          "USO"
+        ],
+        "disabled_inputs": [
+          {
+            "input": "median_dollar_volume",
+            "playbook": "HOD_COMP_RS",
+            "reason": "SEPARATE_DAILY_HISTORY_NOT_BOUND",
+            "status": "OFF_UNTESTED"
+          },
+          {
+            "input": "open_return",
+            "playbook": "HOD_COMP_RS",
+            "reason": "PRIOR_DAILY_CLOSE_AND_OPENING_TRADE_NOT_BOUND",
+            "status": "OFF_UNTESTED"
+          },
+          {
+            "input": "daily_atr_pct",
+            "playbook": "HOD_COMP_RS",
+            "reason": "SEPARATE_DAILY_ATR_SOURCE_NOT_BOUND",
+            "status": "OFF_UNTESTED"
+          },
+          {
+            "input": "atr_1m",
+            "playbook": "SHARED",
+            "reason": "EXACT_ATR_SOURCE_AND_CONVENTION_UNRESOLVED",
+            "status": "OFF_UNTESTED"
+          },
+          {
+            "input": "vwap_slope",
+            "playbook": "FIRST_PULLBACK_VWAP",
+            "reason": "VWAP_SLOPE_CONVENTION_UNDEFINED",
+            "status": "OFF_UNTESTED"
+          },
+          {
+            "input": "vwap_crosses",
+            "playbook": "FIRST_PULLBACK_VWAP",
+            "reason": "VWAP_CROSS_COUNT_CONVENTION_UNDEFINED",
+            "status": "OFF_UNTESTED"
+          },
+          {
+            "input": "quote_decision",
+            "playbook": "FIRST_PULLBACK_VWAP",
+            "reason": "HISTORICAL_BID_ASK_ABSENT",
+            "status": "OFF_UNTESTED"
+          },
+          {
+            "input": "quote_and_status_inputs",
+            "playbook": "HOD_COMP_RS",
+            "reason": "HISTORICAL_BID_ASK_AND_STATUS_ABSENT",
+            "status": "OFF_UNTESTED"
+          },
+          {
+            "input": "tape_intensity",
+            "playbook": "CRVOL_ORB5",
+            "reason": "FIFTEEN_SECOND_TAPE_PRINTS_ABSENT",
+            "status": "OFF_UNTESTED"
+          },
+          {
+            "input": "quote_and_status_inputs",
+            "playbook": "CRVOL_ORB5",
+            "reason": "HISTORICAL_BID_ASK_AND_STATUS_ABSENT",
+            "status": "OFF_UNTESTED"
+          },
+          {
+            "input": "bar_finality",
+            "playbook": "CRVOL_ORB5",
+            "reason": "FINALITY_UNKNOWN",
+            "status": "OFF_UNTESTED"
+          }
+        ],
+        "enabled_input_counts": [
+          {
+            "input": "opening_range_5m",
+            "not_ready": [
+              {
+                "count": 308,
+                "reason": "OPENING_RANGE_BAR_NOT_READY"
+              }
+            ],
+            "playbook": "CRVOL_ORB5",
+            "ready": 1540
+          },
+          {
+            "input": "latest_bar_observation",
+            "not_ready": [],
+            "playbook": "CRVOL_ORB5",
+            "ready": 1848
+          },
+          {
+            "input": "rs_15m",
+            "not_ready": [
+              {
+                "count": 1425,
+                "reason": "BENCHMARK_MISSING_MINUTE_HISTORY"
+              },
+              {
+                "count": 48,
+                "reason": "RS_WARMUP_INCOMPLETE"
+              },
+              {
+                "count": 375,
+                "reason": "RS_WINDOW_MISSING"
+              }
+            ],
+            "playbook": "HOD_COMP_RS",
+            "ready": 0
+          },
+          {
+            "input": "rs_warmup",
+            "not_ready": [
+              {
+                "count": 1425,
+                "reason": "BENCHMARK_MISSING_MINUTE_HISTORY"
+              },
+              {
+                "count": 48,
+                "reason": "RS_WARMUP_INCOMPLETE"
+              },
+              {
+                "count": 375,
+                "reason": "RS_WINDOW_MISSING"
+              }
+            ],
+            "playbook": "HOD_COMP_RS",
+            "ready": 0
+          },
+          {
+            "input": "reference_extreme",
+            "not_ready": [
+              {
+                "count": 1382,
+                "reason": "REFERENCE_MISSING"
+              }
+            ],
+            "playbook": "HOD_COMP_RS",
+            "ready": 466
+          },
+          {
+            "input": "compression",
+            "not_ready": [
+              {
+                "count": 474,
+                "reason": "COMPRESSION_MISSING"
+              },
+              {
+                "count": 24,
+                "reason": "INCOMPLETE_COMPRESSION_WINDOW"
+              }
+            ],
+            "playbook": "HOD_COMP_RS",
+            "ready": 1350
+          },
+          {
+            "input": "rvol",
+            "not_ready": [
+              {
+                "count": 1848,
+                "reason": "REFERENCE_WINDOW_NOT_REQUESTED"
+              }
+            ],
+            "playbook": "HOD_COMP_RS",
+            "ready": 0
+          },
+          {
+            "input": "session_vwap",
+            "not_ready": [
+              {
+                "count": 1399,
+                "reason": "INCOMPLETE_CURRENT_SESSION_WINDOW"
+              }
+            ],
+            "playbook": "HOD_COMP_RS",
+            "ready": 449
+          },
+          {
+            "input": "tape_and_close",
+            "not_ready": [],
+            "playbook": "OR_FAILURE_REV",
+            "ready": 1848
+          },
+          {
+            "input": "last_trade",
+            "not_ready": [],
+            "playbook": "FIRST_PULLBACK_VWAP",
+            "ready": 1848
+          },
+          {
+            "input": "vwap_level",
+            "not_ready": [],
+            "playbook": "FIRST_PULLBACK_VWAP",
+            "ready": 1848
+          }
+        ],
+        "held_out_evaluation": "CLOSED",
+        "missing_tickers": [
+          "NVDA",
+          "MSFT",
+          "AAPL",
+          "TSLA",
+          "SPY",
+          "QQQ",
+          "XLV",
+          "USO"
+        ],
+        "moments_called": 7392,
+        "network_used": false,
+        "promotion_or_live_release": false,
+        "return_calculated": false,
+        "sessions_requested": 216,
+        "sessions_used": 24,
+        "skipped": [
+          [
+            "NVDA",
+            "2023-03-28",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2023-04-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2023-05-30",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2023-06-30",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2023-08-02",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2023-09-01",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2023-10-04",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2023-11-03",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2023-12-05",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2024-01-08",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2024-02-08",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2024-03-12",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2024-04-12",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2024-05-14",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2024-06-14",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2024-07-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2024-08-16",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2024-09-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2024-10-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2024-11-19",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2024-12-20",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2025-01-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2025-02-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2025-03-31",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2023-03-28",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2023-04-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2023-05-30",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2023-06-30",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2023-08-02",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2023-09-01",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2023-10-04",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2023-11-03",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2023-12-05",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2024-01-08",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2024-02-08",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2024-03-12",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2024-04-12",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2024-05-14",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2024-06-14",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2024-07-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2024-08-16",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2024-09-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2024-10-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2024-11-19",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2024-12-20",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2025-01-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2025-02-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2025-03-31",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2023-03-28",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2023-04-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2023-05-30",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2023-06-30",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2023-08-02",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2023-09-01",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2023-10-04",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2023-11-03",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2023-12-05",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2024-01-08",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2024-02-08",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2024-03-12",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2024-04-12",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2024-05-14",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2024-06-14",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2024-07-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2024-08-16",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2024-09-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2024-10-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2024-11-19",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2024-12-20",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2025-01-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2025-02-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2025-03-31",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2023-03-28",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2023-04-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2023-05-30",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2023-06-30",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2023-08-02",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2023-09-01",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2023-10-04",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2023-11-03",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2023-12-05",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2024-01-08",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2024-02-08",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2024-03-12",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2024-04-12",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2024-05-14",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2024-06-14",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2024-07-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2024-08-16",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2024-09-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2024-10-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2024-11-19",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2024-12-20",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2025-01-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2025-02-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2025-03-31",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2023-03-28",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2023-04-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2023-05-30",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2023-06-30",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2023-08-02",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2023-09-01",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2023-10-04",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2023-11-03",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2023-12-05",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2024-01-08",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2024-02-08",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2024-03-12",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2024-04-12",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2024-05-14",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2024-06-14",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2024-07-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2024-08-16",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2024-09-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2024-10-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2024-11-19",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2024-12-20",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2025-01-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2025-02-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2025-03-31",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2023-03-28",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2023-04-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2023-05-30",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2023-06-30",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2023-08-02",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2023-09-01",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2023-10-04",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2023-11-03",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2023-12-05",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2024-01-08",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2024-02-08",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2024-03-12",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2024-04-12",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2024-05-14",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2024-06-14",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2024-07-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2024-08-16",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2024-09-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2024-10-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2024-11-19",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2024-12-20",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2025-01-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2025-02-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2025-03-31",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2023-03-28",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2023-04-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2023-05-30",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2023-06-30",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2023-08-02",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2023-09-01",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2023-10-04",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2023-11-03",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2023-12-05",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2024-01-08",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2024-02-08",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2024-03-12",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2024-04-12",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2024-05-14",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2024-06-14",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2024-07-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2024-08-16",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2024-09-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2024-10-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2024-11-19",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2024-12-20",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2025-01-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2025-02-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2025-03-31",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2023-03-28",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2023-04-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2023-05-30",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2023-06-30",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2023-08-02",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2023-09-01",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2023-10-04",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2023-11-03",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2023-12-05",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2024-01-08",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2024-02-08",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2024-03-12",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2024-04-12",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2024-05-14",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2024-06-14",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2024-07-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2024-08-16",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2024-09-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2024-10-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2024-11-19",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2024-12-20",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2025-01-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2025-02-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2025-03-31",
+            "NO_USABLE_BARS"
+          ]
+        ],
+        "spend_usd": 0,
+        "version": "M91ER_SAVED_BAR_READINESS_V1"
+      },
+      "dataset": "EQUS.MINI",
+      "path": "/home/openclaw/.openclaw/workspace/.omc/research/professional-day-trader-methods/bars-equs-allmin.parquet",
+      "sha256": "395f5069aec26d3b29750f8c8e9eeb21a5667add86360c31d46ba5d0882d3261"
+    },
+    {
+      "counts": {
+        "adapter_run_version": "M91BZ_ADAPTER_RUN_V4",
+        "binding_version": "M91EQ_SAVED_BAR_INPUT_BINDING_V1",
+        "d104_gaps": {
+          "complete_option_chain_execution": {
+            "dependent_rules": "OFF_UNTESTED",
+            "status": "GAP"
+          },
+          "corrections_and_finality": {
+            "dependent_rules": "OFF_UNTESTED",
+            "status": "GAP"
+          },
+          "historical_bid_ask_execution": {
+            "dependent_rules": "OFF_UNTESTED",
+            "status": "GAP"
+          },
+          "historical_borrow": {
+            "dependent_rules": "OFF_UNTESTED",
+            "status": "GAP"
+          },
+          "original_availability": {
+            "dependent_rules": "OFF_UNTESTED",
+            "status": "GAP"
+          },
+          "point_in_time_membership": {
+            "dependent_rules": "OFF_UNTESTED",
+            "status": "GAP"
+          }
+        },
+        "development_dates": [
+          "2023-03-28",
+          "2023-04-27",
+          "2023-05-30",
+          "2023-06-30",
+          "2023-08-02",
+          "2023-09-01",
+          "2023-10-04",
+          "2023-11-03",
+          "2023-12-05",
+          "2024-01-08",
+          "2024-02-08",
+          "2024-03-12",
+          "2024-04-12",
+          "2024-05-14",
+          "2024-06-14",
+          "2024-07-18",
+          "2024-08-16",
+          "2024-09-18",
+          "2024-10-18",
+          "2024-11-19",
+          "2024-12-20",
+          "2025-01-27",
+          "2025-02-27",
+          "2025-03-31"
+        ],
+        "development_tickers": [
+          "NVDA",
+          "MSFT",
+          "AAPL",
+          "TSLA",
+          "LLY",
+          "SPY",
+          "QQQ",
+          "XLV",
+          "USO"
+        ],
+        "disabled_inputs": [
+          {
+            "input": "median_dollar_volume",
+            "playbook": "HOD_COMP_RS",
+            "reason": "SEPARATE_DAILY_HISTORY_NOT_BOUND",
+            "status": "OFF_UNTESTED"
+          },
+          {
+            "input": "open_return",
+            "playbook": "HOD_COMP_RS",
+            "reason": "PRIOR_DAILY_CLOSE_AND_OPENING_TRADE_NOT_BOUND",
+            "status": "OFF_UNTESTED"
+          },
+          {
+            "input": "daily_atr_pct",
+            "playbook": "HOD_COMP_RS",
+            "reason": "SEPARATE_DAILY_ATR_SOURCE_NOT_BOUND",
+            "status": "OFF_UNTESTED"
+          },
+          {
+            "input": "atr_1m",
+            "playbook": "SHARED",
+            "reason": "EXACT_ATR_SOURCE_AND_CONVENTION_UNRESOLVED",
+            "status": "OFF_UNTESTED"
+          },
+          {
+            "input": "vwap_slope",
+            "playbook": "FIRST_PULLBACK_VWAP",
+            "reason": "VWAP_SLOPE_CONVENTION_UNDEFINED",
+            "status": "OFF_UNTESTED"
+          },
+          {
+            "input": "vwap_crosses",
+            "playbook": "FIRST_PULLBACK_VWAP",
+            "reason": "VWAP_CROSS_COUNT_CONVENTION_UNDEFINED",
+            "status": "OFF_UNTESTED"
+          },
+          {
+            "input": "quote_decision",
+            "playbook": "FIRST_PULLBACK_VWAP",
+            "reason": "HISTORICAL_BID_ASK_ABSENT",
+            "status": "OFF_UNTESTED"
+          },
+          {
+            "input": "quote_and_status_inputs",
+            "playbook": "HOD_COMP_RS",
+            "reason": "HISTORICAL_BID_ASK_AND_STATUS_ABSENT",
+            "status": "OFF_UNTESTED"
+          },
+          {
+            "input": "tape_intensity",
+            "playbook": "CRVOL_ORB5",
+            "reason": "FIFTEEN_SECOND_TAPE_PRINTS_ABSENT",
+            "status": "OFF_UNTESTED"
+          },
+          {
+            "input": "quote_and_status_inputs",
+            "playbook": "CRVOL_ORB5",
+            "reason": "HISTORICAL_BID_ASK_AND_STATUS_ABSENT",
+            "status": "OFF_UNTESTED"
+          },
+          {
+            "input": "bar_finality",
+            "playbook": "CRVOL_ORB5",
+            "reason": "FINALITY_UNKNOWN",
+            "status": "OFF_UNTESTED"
+          }
+        ],
+        "enabled_input_counts": [
+          {
+            "input": "opening_range_5m",
+            "not_ready": [
+              {
+                "count": 462,
+                "reason": "OPENING_RANGE_BAR_NOT_READY"
+              }
+            ],
+            "playbook": "CRVOL_ORB5",
+            "ready": 1386
+          },
+          {
+            "input": "latest_bar_observation",
+            "not_ready": [],
+            "playbook": "CRVOL_ORB5",
+            "ready": 1848
+          },
+          {
+            "input": "rs_15m",
+            "not_ready": [
+              {
+                "count": 1350,
+                "reason": "BENCHMARK_MISSING_MINUTE_HISTORY"
+              },
+              {
+                "count": 48,
+                "reason": "RS_WARMUP_INCOMPLETE"
+              },
+              {
+                "count": 450,
+                "reason": "RS_WINDOW_MISSING"
+              }
+            ],
+            "playbook": "HOD_COMP_RS",
+            "ready": 0
+          },
+          {
+            "input": "rs_warmup",
+            "not_ready": [
+              {
+                "count": 1350,
+                "reason": "BENCHMARK_MISSING_MINUTE_HISTORY"
+              },
+              {
+                "count": 48,
+                "reason": "RS_WARMUP_INCOMPLETE"
+              },
+              {
+                "count": 450,
+                "reason": "RS_WINDOW_MISSING"
+              }
+            ],
+            "playbook": "HOD_COMP_RS",
+            "ready": 0
+          },
+          {
+            "input": "reference_extreme",
+            "not_ready": [
+              {
+                "count": 1403,
+                "reason": "REFERENCE_MISSING"
+              }
+            ],
+            "playbook": "HOD_COMP_RS",
+            "ready": 445
+          },
+          {
+            "input": "compression",
+            "not_ready": [
+              {
+                "count": 376,
+                "reason": "COMPRESSION_MISSING"
+              },
+              {
+                "count": 24,
+                "reason": "INCOMPLETE_COMPRESSION_WINDOW"
+              }
+            ],
+            "playbook": "HOD_COMP_RS",
+            "ready": 1448
+          },
+          {
+            "input": "rvol",
+            "not_ready": [
+              {
+                "count": 1848,
+                "reason": "REFERENCE_WINDOW_NOT_REQUESTED"
+              }
+            ],
+            "playbook": "HOD_COMP_RS",
+            "ready": 0
+          },
+          {
+            "input": "session_vwap",
+            "not_ready": [
+              {
+                "count": 1412,
+                "reason": "INCOMPLETE_CURRENT_SESSION_WINDOW"
+              }
+            ],
+            "playbook": "HOD_COMP_RS",
+            "ready": 436
+          },
+          {
+            "input": "tape_and_close",
+            "not_ready": [],
+            "playbook": "OR_FAILURE_REV",
+            "ready": 1848
+          },
+          {
+            "input": "last_trade",
+            "not_ready": [],
+            "playbook": "FIRST_PULLBACK_VWAP",
+            "ready": 1848
+          },
+          {
+            "input": "vwap_level",
+            "not_ready": [],
+            "playbook": "FIRST_PULLBACK_VWAP",
+            "ready": 1848
+          }
+        ],
+        "held_out_evaluation": "CLOSED",
+        "missing_tickers": [
+          "NVDA",
+          "MSFT",
+          "AAPL",
+          "TSLA",
+          "SPY",
+          "QQQ",
+          "XLV",
+          "USO"
+        ],
+        "moments_called": 7392,
+        "network_used": false,
+        "promotion_or_live_release": false,
+        "return_calculated": false,
+        "sessions_requested": 216,
+        "sessions_used": 24,
+        "skipped": [
+          [
+            "NVDA",
+            "2023-03-28",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2023-04-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2023-05-30",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2023-06-30",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2023-08-02",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2023-09-01",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2023-10-04",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2023-11-03",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2023-12-05",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2024-01-08",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2024-02-08",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2024-03-12",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2024-04-12",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2024-05-14",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2024-06-14",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2024-07-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2024-08-16",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2024-09-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2024-10-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2024-11-19",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2024-12-20",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2025-01-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2025-02-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "NVDA",
+            "2025-03-31",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2023-03-28",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2023-04-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2023-05-30",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2023-06-30",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2023-08-02",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2023-09-01",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2023-10-04",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2023-11-03",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2023-12-05",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2024-01-08",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2024-02-08",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2024-03-12",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2024-04-12",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2024-05-14",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2024-06-14",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2024-07-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2024-08-16",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2024-09-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2024-10-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2024-11-19",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2024-12-20",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2025-01-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2025-02-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "MSFT",
+            "2025-03-31",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2023-03-28",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2023-04-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2023-05-30",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2023-06-30",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2023-08-02",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2023-09-01",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2023-10-04",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2023-11-03",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2023-12-05",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2024-01-08",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2024-02-08",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2024-03-12",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2024-04-12",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2024-05-14",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2024-06-14",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2024-07-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2024-08-16",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2024-09-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2024-10-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2024-11-19",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2024-12-20",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2025-01-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2025-02-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "AAPL",
+            "2025-03-31",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2023-03-28",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2023-04-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2023-05-30",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2023-06-30",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2023-08-02",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2023-09-01",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2023-10-04",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2023-11-03",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2023-12-05",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2024-01-08",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2024-02-08",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2024-03-12",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2024-04-12",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2024-05-14",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2024-06-14",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2024-07-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2024-08-16",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2024-09-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2024-10-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2024-11-19",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2024-12-20",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2025-01-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2025-02-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "TSLA",
+            "2025-03-31",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2023-03-28",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2023-04-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2023-05-30",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2023-06-30",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2023-08-02",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2023-09-01",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2023-10-04",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2023-11-03",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2023-12-05",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2024-01-08",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2024-02-08",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2024-03-12",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2024-04-12",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2024-05-14",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2024-06-14",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2024-07-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2024-08-16",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2024-09-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2024-10-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2024-11-19",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2024-12-20",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2025-01-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2025-02-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "SPY",
+            "2025-03-31",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2023-03-28",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2023-04-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2023-05-30",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2023-06-30",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2023-08-02",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2023-09-01",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2023-10-04",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2023-11-03",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2023-12-05",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2024-01-08",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2024-02-08",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2024-03-12",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2024-04-12",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2024-05-14",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2024-06-14",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2024-07-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2024-08-16",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2024-09-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2024-10-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2024-11-19",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2024-12-20",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2025-01-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2025-02-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "QQQ",
+            "2025-03-31",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2023-03-28",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2023-04-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2023-05-30",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2023-06-30",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2023-08-02",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2023-09-01",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2023-10-04",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2023-11-03",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2023-12-05",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2024-01-08",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2024-02-08",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2024-03-12",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2024-04-12",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2024-05-14",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2024-06-14",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2024-07-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2024-08-16",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2024-09-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2024-10-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2024-11-19",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2024-12-20",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2025-01-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2025-02-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "XLV",
+            "2025-03-31",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2023-03-28",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2023-04-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2023-05-30",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2023-06-30",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2023-08-02",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2023-09-01",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2023-10-04",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2023-11-03",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2023-12-05",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2024-01-08",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2024-02-08",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2024-03-12",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2024-04-12",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2024-05-14",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2024-06-14",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2024-07-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2024-08-16",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2024-09-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2024-10-18",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2024-11-19",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2024-12-20",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2025-01-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2025-02-27",
+            "NO_USABLE_BARS"
+          ],
+          [
+            "USO",
+            "2025-03-31",
+            "NO_USABLE_BARS"
+          ]
+        ],
+        "spend_usd": 0,
+        "version": "M91ER_SAVED_BAR_READINESS_V1"
+      },
+      "dataset": "XNYS.PILLAR",
+      "path": "/home/openclaw/.openclaw/workspace/.omc/research/professional-day-trader-methods/bars-pillar-allmin.parquet",
+      "sha256": "f2723222f3743d577f3d33fc408a0f68b3b309963aa508f1a2b891059869711a"
+    }
+  ],
+  "spend_usd": 0,
+  "version": "M91ER_DEVELOPMENT_READINESS_RECORD_V1"
+}

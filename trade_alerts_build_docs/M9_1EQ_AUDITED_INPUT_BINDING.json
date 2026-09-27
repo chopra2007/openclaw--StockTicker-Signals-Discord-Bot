@@ -1,0 +1,232 @@
+{
+  "adapter_run_version": "M91BZ_ADAPTER_RUN_V4",
+  "d104_gaps": {
+    "complete_option_chain_execution": {
+      "dependent_rules": "OFF_UNTESTED",
+      "status": "GAP"
+    },
+    "corrections_and_finality": {
+      "dependent_rules": "OFF_UNTESTED",
+      "status": "GAP"
+    },
+    "historical_bid_ask_execution": {
+      "dependent_rules": "OFF_UNTESTED",
+      "status": "GAP"
+    },
+    "historical_borrow": {
+      "dependent_rules": "OFF_UNTESTED",
+      "status": "GAP"
+    },
+    "original_availability": {
+      "dependent_rules": "OFF_UNTESTED",
+      "status": "GAP"
+    },
+    "point_in_time_membership": {
+      "dependent_rules": "OFF_UNTESTED",
+      "status": "GAP"
+    }
+  },
+  "disabled_inputs": [
+    {
+      "input": "median_dollar_volume",
+      "playbook": "HOD_COMP_RS",
+      "reason": "SEPARATE_DAILY_HISTORY_NOT_BOUND",
+      "status": "OFF_UNTESTED"
+    },
+    {
+      "input": "open_return",
+      "playbook": "HOD_COMP_RS",
+      "reason": "PRIOR_DAILY_CLOSE_AND_OPENING_TRADE_NOT_BOUND",
+      "status": "OFF_UNTESTED"
+    },
+    {
+      "input": "daily_atr_pct",
+      "playbook": "HOD_COMP_RS",
+      "reason": "SEPARATE_DAILY_ATR_SOURCE_NOT_BOUND",
+      "status": "OFF_UNTESTED"
+    },
+    {
+      "input": "atr_1m",
+      "playbook": "SHARED",
+      "reason": "EXACT_ATR_SOURCE_AND_CONVENTION_UNRESOLVED",
+      "status": "OFF_UNTESTED"
+    },
+    {
+      "input": "vwap_slope",
+      "playbook": "FIRST_PULLBACK_VWAP",
+      "reason": "VWAP_SLOPE_CONVENTION_UNDEFINED",
+      "status": "OFF_UNTESTED"
+    },
+    {
+      "input": "vwap_crosses",
+      "playbook": "FIRST_PULLBACK_VWAP",
+      "reason": "VWAP_CROSS_COUNT_CONVENTION_UNDEFINED",
+      "status": "OFF_UNTESTED"
+    },
+    {
+      "input": "quote_decision",
+      "playbook": "FIRST_PULLBACK_VWAP",
+      "reason": "HISTORICAL_BID_ASK_ABSENT",
+      "status": "OFF_UNTESTED"
+    },
+    {
+      "input": "quote_and_status_inputs",
+      "playbook": "HOD_COMP_RS",
+      "reason": "HISTORICAL_BID_ASK_AND_STATUS_ABSENT",
+      "status": "OFF_UNTESTED"
+    },
+    {
+      "input": "tape_intensity",
+      "playbook": "CRVOL_ORB5",
+      "reason": "FIFTEEN_SECOND_TAPE_PRINTS_ABSENT",
+      "status": "OFF_UNTESTED"
+    },
+    {
+      "input": "quote_and_status_inputs",
+      "playbook": "CRVOL_ORB5",
+      "reason": "HISTORICAL_BID_ASK_AND_STATUS_ABSENT",
+      "status": "OFF_UNTESTED"
+    },
+    {
+      "input": "bar_finality",
+      "playbook": "CRVOL_ORB5",
+      "reason": "FINALITY_UNKNOWN",
+      "status": "OFF_UNTESTED"
+    }
+  ],
+  "enabled_inputs": [
+    {
+      "input": "opening_range_5m",
+      "playbook": "CRVOL_ORB5",
+      "required_observed_fields": [
+        "open",
+        "high",
+        "low",
+        "event_time"
+      ],
+      "status": "ENABLED_IF_REQUIRED_BAR_WINDOWS_COMPLETE"
+    },
+    {
+      "input": "latest_bar_observation",
+      "playbook": "CRVOL_ORB5",
+      "required_observed_fields": [
+        "close",
+        "event_time"
+      ],
+      "status": "ENABLED_IF_REQUIRED_BAR_WINDOWS_COMPLETE"
+    },
+    {
+      "input": "rs_15m",
+      "playbook": "HOD_COMP_RS",
+      "required_observed_fields": [
+        "open",
+        "close",
+        "event_time",
+        "benchmark_bars"
+      ],
+      "status": "ENABLED_IF_REQUIRED_BAR_WINDOWS_COMPLETE"
+    },
+    {
+      "input": "rs_warmup",
+      "playbook": "HOD_COMP_RS",
+      "required_observed_fields": [
+        "open",
+        "close",
+        "event_time",
+        "benchmark_bars"
+      ],
+      "status": "ENABLED_IF_REQUIRED_BAR_WINDOWS_COMPLETE"
+    },
+    {
+      "input": "reference_extreme",
+      "playbook": "HOD_COMP_RS",
+      "required_observed_fields": [
+        "high",
+        "low",
+        "event_time"
+      ],
+      "status": "ENABLED_IF_REQUIRED_BAR_WINDOWS_COMPLETE"
+    },
+    {
+      "input": "compression",
+      "playbook": "HOD_COMP_RS",
+      "required_observed_fields": [
+        "high",
+        "low",
+        "event_time"
+      ],
+      "status": "ENABLED_IF_REQUIRED_BAR_WINDOWS_COMPLETE"
+    },
+    {
+      "input": "rvol",
+      "playbook": "HOD_COMP_RS",
+      "required_observed_fields": [
+        "volume",
+        "event_time",
+        "20_reference_openings"
+      ],
+      "status": "ENABLED_IF_REQUIRED_BAR_WINDOWS_COMPLETE"
+    },
+    {
+      "input": "session_vwap",
+      "playbook": "HOD_COMP_RS",
+      "required_observed_fields": [
+        "high",
+        "low",
+        "close",
+        "volume",
+        "event_time"
+      ],
+      "status": "ENABLED_IF_REQUIRED_BAR_WINDOWS_COMPLETE"
+    },
+    {
+      "input": "tape_and_close",
+      "playbook": "OR_FAILURE_REV",
+      "required_observed_fields": [
+        "close",
+        "event_time"
+      ],
+      "status": "ENABLED_IF_REQUIRED_BAR_WINDOWS_COMPLETE"
+    },
+    {
+      "input": "last_trade",
+      "playbook": "FIRST_PULLBACK_VWAP",
+      "required_observed_fields": [
+        "close",
+        "event_time"
+      ],
+      "status": "ENABLED_IF_REQUIRED_BAR_WINDOWS_COMPLETE"
+    },
+    {
+      "input": "vwap_level",
+      "playbook": "FIRST_PULLBACK_VWAP",
+      "required_observed_fields": [
+        "high",
+        "low",
+        "close",
+        "volume",
+        "event_time"
+      ],
+      "status": "ENABLED_IF_REQUIRED_BAR_WINDOWS_COMPLETE"
+    }
+  ],
+  "held_out_evaluation": {
+    "reason": "INPUT_BINDING_AND_PROTECTED_PROOF_REQUIRED_BEFORE_RESULTS",
+    "status": "CLOSED"
+  },
+  "network_used": false,
+  "promotion_or_live_release": false,
+  "source_audit_version": "M91EP_SAVED_MARKET_DATA_AUDIT_V1",
+  "source_files": [
+    {
+      "path": "/home/openclaw/.openclaw/workspace/.omc/research/professional-day-trader-methods/bars-equs-allmin.parquet",
+      "sha256": "395f5069aec26d3b29750f8c8e9eeb21a5667add86360c31d46ba5d0882d3261"
+    },
+    {
+      "path": "/home/openclaw/.openclaw/workspace/.omc/research/professional-day-trader-methods/bars-pillar-allmin.parquet",
+      "sha256": "f2723222f3743d577f3d33fc408a0f68b3b309963aa508f1a2b891059869711a"
+    }
+  ],
+  "spend_usd": 0,
+  "version": "M91EQ_SAVED_BAR_INPUT_BINDING_V1"
+}

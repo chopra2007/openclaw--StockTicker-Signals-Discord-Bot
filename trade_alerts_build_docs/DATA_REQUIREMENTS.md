@@ -1640,3 +1640,46 @@ temporary synthetic files.
 `M0_2CB_SAFE_ACTIVATION_DECISION.md` records the full boundary. This decision
 does not qualify a source, close any D-104 gap, open Strategies #5 through #8,
 prove a trading result or enable any live switch.
+
+## 66. M0.2CD cleanup activation assessment
+
+M0.2CC's accepted synthetic proof is enough to propose a separate owner-data
+dry run, but not enough to enable cleanup. No current real target list, complete
+legal-hold input or target-by-target owner-data proof has been reviewed.
+
+M0.2CE may use only the existing dry-run path. It must record the configured
+root identity, checked-in off switch, exact class 3/4/5 candidates and file
+identities, legal holds, complete-set and source proof, age checks, disk-reserve
+result and zero removals. Missing, unknown, changed, incomplete or held state
+excludes a target. Primary and supporting records remain ineligible.
+
+Any later real removal is a separate destructive step requiring exact targets,
+fresh checks, independent review and separate owner authority. Collector cleanup
+remains off. The build-storage archive manager's old-test-copy cleanup is a
+different process and supplies no market-data removal authority. Source,
+historical, D-104, validation, promotion and live gates are unchanged.
+
+### M0.2CE current dry-run result — 2026-09-24 Pacific
+
+The bounded existing dry-run path planned and removed zero owner files. The
+record scanned 5,225 minute parts across 14 dates, no temporary files and four
+notification markers. No date had a current published complete-set pointer and
+proof, and every marker was younger than 30 days. The checked-in switch stayed
+off. `M0_2CE_CLEANUP_DRY_RUN_RECORD.json` binds the empty supplied legal-hold
+input, root identity, per-date counts and ages, marker identities and the passing
+disk-reserve check. This zero-target record gives no removal authority.
+
+### M0.2CF zero-target decision — 2026-09-24 Pacific
+
+The current cleanup branch closes without a removal proposal. M0.2CE produced
+an empty plan and removed nothing: no minute-part date had current published
+complete-set proof, no temporary candidate existed, and every notification
+marker was too young. The passing reserve check and empty supplied legal-hold
+list do not make any file eligible. Collector cleanup remains off.
+
+A later branch requires a fresh eligible class 3, 4 or 5 target set and must
+bind the then-current root, complete legal holds, exact file identities,
+complete-set and source proof, ages and reserve result. Actual removal remains a
+separate destructive step requiring fresh checks, independent review and
+separate owner authority. Classes 1 and 2 remain ineligible. All source,
+historical, D-104, validation, promotion and live gates are unchanged.

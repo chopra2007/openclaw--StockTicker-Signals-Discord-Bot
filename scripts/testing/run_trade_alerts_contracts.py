@@ -21,6 +21,7 @@ import xml.etree.ElementTree as ET
 
 MINIMUM_AVAILABLE_MEMORY = 2 * 1024**3
 MEMORY_PER_WORKER = 512 * 1024**2
+VERIFICATION_TIMEOUT_SECONDS = 3600
 INFRASTRUCTURE_FILES = {
     "fixture.yaml", "isolation.json", "output.txt", "pipeline-obs.jsonl",
     "pytest.log", "results.xml", "synthetic_sources.json",
@@ -57,6 +58,13 @@ def digest(path):
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             value.update(chunk)
     return value.hexdigest()
+
+
+def selects_test(selectors, target):
+    return any(
+        path == target or target.startswith(path.rstrip("/") + "/")
+        for path in (selector.split("::", 1)[0] for selector in selectors)
+    )
 
 
 def expand_test_groups(repo, selectors, workers):
@@ -106,6 +114,23 @@ def sandbox_command(repo, run_root, tests, account):
             "/workspace/scripts/full_chain_collector.py",
             "--ro-bind", str(repo / "tests/trade_alerts_contracts/fixtures/full_chain_collector.yaml"),
             "/workspace/config/full_chain_collector.yaml",
+        ]
+    if selects_test(
+            tests, "tests/trade_alerts_contracts/test_saved_market_data_readiness.py"):
+        data_root = repo / ".omc/research/professional-day-trader-methods"
+        command += [
+            "--ro-bind", str(repo / "scripts/research/run_saved_market_data_readiness.py"),
+            "/workspace/scripts/research/run_saved_market_data_readiness.py",
+            "--ro-bind", str(repo / "trade_alerts_build_docs/M9_1EQ_AUDITED_INPUT_BINDING.json"),
+            "/workspace/trade_alerts_build_docs/M9_1EQ_AUDITED_INPUT_BINDING.json",
+            "--ro-bind", str(repo / "trade_alerts_build_docs/M9_1EP_SAVED_DATA_QUALIFICATION.json"),
+            "/workspace/trade_alerts_build_docs/M9_1EP_SAVED_DATA_QUALIFICATION.json",
+            "--ro-bind", str(repo / "trade_alerts_build_docs/M9_1ER_DEVELOPMENT_READINESS_COUNTS.json"),
+            "/workspace/trade_alerts_build_docs/M9_1ER_DEVELOPMENT_READINESS_COUNTS.json",
+            "--ro-bind", str(data_root / "bars-equs-allmin.parquet"),
+            "/workspace/.omc/research/professional-day-trader-methods/bars-equs-allmin.parquet",
+            "--ro-bind", str(data_root / "bars-pillar-allmin.parquet"),
+            "/workspace/.omc/research/professional-day-trader-methods/bars-pillar-allmin.parquet",
         ]
     command += [
         "--bind", str(run_root), "/tmp", "--remount-ro", "/",
@@ -171,7 +196,7 @@ def run_groups(repo, run_root, groups, account):
             return subprocess.run(
                 sandbox_command(repo, run_root, groups[0], account),
                 env={"PATH": "/usr/bin:/bin"}, stdout=output,
-                stderr=subprocess.STDOUT, timeout=1800,
+                stderr=subprocess.STDOUT, timeout=VERIFICATION_TIMEOUT_SECONDS,
             ).returncode
     shard_parent = run_root / ".parallel-shards"
     shard_parent.mkdir()
@@ -195,11 +220,12 @@ def run_groups(repo, run_root, groups, account):
                 if process.poll() is None:
                     os.killpg(process.pid, 15)
             raise RuntimeError("parallel verification memory reserve fell below 2 GiB")
-        if time.monotonic() - started > 1800:
+        if time.monotonic() - started > VERIFICATION_TIMEOUT_SECONDS:
             for process, _ in processes:
                 if process.poll() is None:
                     os.killpg(process.pid, 9)
-            raise subprocess.TimeoutExpired("parallel protected verification", 1800)
+            raise subprocess.TimeoutExpired(
+                "parallel protected verification", VERIFICATION_TIMEOUT_SECONDS)
         time.sleep(1)
     for _, output in processes:
         output.close()

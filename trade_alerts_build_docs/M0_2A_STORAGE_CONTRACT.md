@@ -458,3 +458,37 @@ The exact decision and remaining boundaries are in
 `M0_2CB_SAFE_ACTIVATION_DECISION.md`. Checked-in cleanup and every live switch
 remain off. Source qualification, historical completeness, strategy validation,
 promotion and live use remain separate gates.
+
+## 13. M0.2CD activation assessment — 2026-09-24 Pacific
+
+M0.2CC's accepted protected proof establishes the cleanup action only with
+temporary synthetic files. It does not establish a current eligible owner-data
+target set. Cleanup therefore remains disabled.
+
+A later bounded proposal may begin with M0.2CE, which runs only the existing
+dry-run path and records the current root identity, complete legal holds, exact
+class 3/4/5 candidates and identities, complete-set/source proof, age checks,
+disk-reserve result and zero removals. Unknown, missing, changed, incomplete or
+held state excludes a target. Classes 1 and 2 stay ineligible.
+
+Fresh independent review of that dry-run record is required before any separate
+removal proposal. Actual owner-data removal remains a destructive step needing
+separate owner authority, exact targets and fresh pre-removal checks. It is not
+authorized by M0.2CD or M0.2CE. The full decision is in
+`M0_2CD_CLEANUP_ACTIVATION_ASSESSMENT.md`.
+
+## 14. M0.2CE owner-data dry-run record — 2026-09-24 Pacific
+
+`M0_2CE_CLEANUP_DRY_RUN_RECORD.json` records one bounded call through the
+existing dry-run path. The checked-in switch was `false`; the result planned and
+removed zero files. All 5,225 minute parts were excluded because none of the 14
+dates had a current published complete-set pointer and proof. No temporary
+candidate existed, and all four notification markers were younger than 30 days.
+The filesystem had 17,518,407,680 bytes available against the required
+12,046,114,407-byte reserve.
+
+The supplied legal-hold input was the empty list, recorded exactly. It did not
+make a target eligible because the complete-set and age checks independently
+excluded every scanned class 3, 4 and 5 file. Cleanup remains off. This record
+does not authorize removal or change any source, research, validation or live
+gate.

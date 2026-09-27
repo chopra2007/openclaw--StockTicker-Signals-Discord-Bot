@@ -35,6 +35,21 @@ capture:
   strike_count: 500
   option_workers: 6
   data_root: /tmp/test-full-chain-collector
+storage:
+  bounded_compaction_enabled: false
+  cleanup_enabled: false
+  cleanup_result_bytes: 16384
+  fixed_reserve_bytes: 12000000000
+  reserve_fraction: 0.15
+  peak_memory_bytes: 1500000000
+  batch_bytes: 256000000
+  wall_seconds: 1800
+  output_bounds:
+    chain_bytes: 1000000000
+    scratch_bytes: 4500000000
+    open_interest_bytes: 200000000
+    proof_bytes: 4000000
+    publication_bytes: 4096
 local_history:
   minute_data: missing
   daily_data: present_for_all_trade_names_and_context

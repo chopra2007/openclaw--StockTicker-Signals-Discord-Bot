@@ -1,0 +1,288 @@
+{
+  "cross_dataset_agreement": {
+    "close_difference_bps_median": 0.9013068949981218,
+    "close_difference_bps_p95": 5.123153516952694,
+    "close_difference_bps_p99": 10.034950548642984,
+    "method": "deterministic evenly spaced date sample",
+    "overlapping_rows": 878139,
+    "sample_dates": [
+      "2023-03-28",
+      "2023-04-27",
+      "2023-05-30",
+      "2023-06-30",
+      "2023-08-02",
+      "2023-09-01",
+      "2023-10-04",
+      "2023-11-03",
+      "2023-12-05",
+      "2024-01-08",
+      "2024-02-08",
+      "2024-03-12",
+      "2024-04-12",
+      "2024-05-14",
+      "2024-06-14",
+      "2024-07-18",
+      "2024-08-16",
+      "2024-09-18",
+      "2024-10-18",
+      "2024-11-19",
+      "2024-12-20",
+      "2025-01-27",
+      "2025-02-27",
+      "2025-03-31",
+      "2025-04-30",
+      "2025-06-02",
+      "2025-07-03",
+      "2025-08-05",
+      "2025-09-05",
+      "2025-10-07",
+      "2025-11-06",
+      "2025-12-09",
+      "2026-01-09",
+      "2026-02-11",
+      "2026-03-16",
+      "2026-04-16",
+      "2026-05-18",
+      "2026-06-18",
+      "2026-07-22",
+      "2026-08-21"
+    ],
+    "volume_ratio_left_over_right_median": 0.5330065359477124
+  },
+  "field_support": {
+    "adjustment_provenance": "NOT_PROVEN_BY_SAVED_PARQUET",
+    "bar_native_ohlcv": "OBSERVED",
+    "bid_ask": "ABSENT",
+    "corrections": "UNKNOWN",
+    "event_time": "MINUTE_START_FROM_SAVED_DATE_AND_MINUTE",
+    "finality": "UNKNOWN",
+    "original_availability": "UNKNOWN",
+    "point_in_time_membership": "UNKNOWN"
+  },
+  "files": [
+    {
+      "columns": [
+        "date",
+        "symbol",
+        "minute",
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume"
+      ],
+      "complete_390_minute_symbol_dates": 13281,
+      "dates": 854,
+      "duplicate_keys": 0,
+      "first_date": "2023-03-28",
+      "incomplete_symbol_dates": 37705,
+      "invalid_ohlc_rows": 0,
+      "last_date": "2026-08-21",
+      "median_symbols_per_date": 60.0,
+      "minimum_symbols_per_date": 59,
+      "minute_range": [
+        240,
+        1199
+      ],
+      "missing_regular_minutes": 666650,
+      "negative_volume_rows": 0,
+      "nonfinite_prices": 0,
+      "nonpositive_prices": 0,
+      "null_counts": {
+        "close": 0,
+        "date": 0,
+        "high": 0,
+        "low": 0,
+        "minute": 0,
+        "open": 0,
+        "symbol": 0,
+        "volume": 0
+      },
+      "out_of_order_keys": 0,
+      "outside_regular_session_rows": 435416,
+      "overfull_symbol_dates": 0,
+      "path": "/home/openclaw/.openclaw/workspace/.omc/research/professional-day-trader-methods/bars-equs-allmin.parquet",
+      "rows": 19653306,
+      "sha256": "395f5069aec26d3b29750f8c8e9eeb21a5667add86360c31d46ba5d0882d3261",
+      "size_bytes": 244166178,
+      "symbol_dates": 50986,
+      "symbols": 60,
+      "zero_volume_rows": 0
+    },
+    {
+      "columns": [
+        "date",
+        "symbol",
+        "minute",
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume"
+      ],
+      "complete_390_minute_symbol_dates": 15264,
+      "dates": 912,
+      "duplicate_keys": 0,
+      "first_date": "2023-01-03",
+      "incomplete_symbol_dates": 39144,
+      "invalid_ohlc_rows": 0,
+      "last_date": "2026-08-21",
+      "median_symbols_per_date": 60.0,
+      "minimum_symbols_per_date": 59,
+      "minute_range": [
+        570,
+        967
+      ],
+      "missing_regular_minutes": 649525,
+      "negative_volume_rows": 0,
+      "nonfinite_prices": 0,
+      "nonpositive_prices": 0,
+      "null_counts": {
+        "close": 0,
+        "date": 0,
+        "high": 0,
+        "low": 0,
+        "minute": 0,
+        "open": 0,
+        "symbol": 0,
+        "volume": 0
+      },
+      "out_of_order_keys": 0,
+      "outside_regular_session_rows": 55459,
+      "overfull_symbol_dates": 0,
+      "path": "/home/openclaw/.openclaw/workspace/.omc/research/professional-day-trader-methods/bars-pillar-allmin.parquet",
+      "rows": 20625054,
+      "sha256": "f2723222f3743d577f3d33fc408a0f68b3b309963aa508f1a2b891059869711a",
+      "size_bytes": 251332895,
+      "symbol_dates": 54408,
+      "symbols": 60,
+      "zero_volume_rows": 0
+    }
+  ],
+  "gaps": {
+    "complete_option_chain_execution": {
+      "dependent_rules": "OFF_UNTESTED",
+      "status": "GAP"
+    },
+    "corrections_and_finality": {
+      "dependent_rules": "OFF_UNTESTED",
+      "status": "GAP"
+    },
+    "historical_bid_ask_execution": {
+      "dependent_rules": "OFF_UNTESTED",
+      "status": "GAP"
+    },
+    "historical_borrow": {
+      "dependent_rules": "OFF_UNTESTED",
+      "status": "GAP"
+    },
+    "original_availability": {
+      "dependent_rules": "OFF_UNTESTED",
+      "status": "GAP"
+    },
+    "point_in_time_membership": {
+      "dependent_rules": "OFF_UNTESTED",
+      "status": "GAP"
+    }
+  },
+  "held_out_evaluation_run": false,
+  "mode": "READ_ONLY_OFFLINE_INVENTORY",
+  "network_used": false,
+  "promotion_or_live_release": false,
+  "provenance": {
+    "boundary": "These bindings identify the saved derivatives and their recorded raw sources. They do not independently prove original availability, corrections, finality, point-in-time membership, or adjustment handling.",
+    "extraction_scripts": [
+      {
+        "path": "scripts/research/ipsf_extract_full_session.py",
+        "sha256": "0a0a310be6c899e4c8d45420568b5077018c6bf1ec98a034918b5eceafa6aefa"
+      },
+      {
+        "path": "scripts/research/pdtm_extract_all_minutes.py",
+        "sha256": "7c330fd8f0119cebf70092788acdc8328f24471f8a48e1d743cfb8d323d957f8"
+      }
+    ],
+    "prior_capability_record": {
+      "minute_feeds": {
+        "equs": {
+          "adjustment": "UNADJUSTED raw prices; three in-sample splits handled by dropping the split session",
+          "ask_present": false,
+          "ask_size_present": false,
+          "bid_present": false,
+          "bid_size_present": false,
+          "content": "trade bars only: open, high, low, close, volume",
+          "dates": 854,
+          "first_date": "2023-03-28",
+          "known_before_entry": "yes for any bar strictly before the decision minute",
+          "label": "EQUS.MINI consolidated (primary)",
+          "last_date": "2026-08-21",
+          "median_premarket_bars_when_present": 4.0,
+          "median_regular_bars_per_symbol_date": 386.0,
+          "missing_minute_rate": 0.03352604586276564,
+          "order_book_depth": false,
+          "parquet": "/home/openclaw/.openclaw/workspace/.omc/research/professional-day-trader-methods/bars-equs-allmin.parquet",
+          "postmarket_bars_total": 133784,
+          "premarket_bars_total": 301632,
+          "regular_session_bars": 19217890,
+          "symbol_dates": 50986,
+          "symbol_dates_with_30plus_premarket": 2095,
+          "symbol_dates_with_all_390": 13281,
+          "symbol_dates_with_any_premarket": 33408,
+          "symbols": 60,
+          "timestamp_convention": "ts_event, converted to US/Eastern session date and Eastern minute-of-day"
+        },
+        "pillar": {
+          "adjustment": "UNADJUSTED raw prices; three in-sample splits handled by dropping the split session",
+          "ask_present": false,
+          "ask_size_present": false,
+          "bid_present": false,
+          "bid_size_present": false,
+          "content": "trade bars only: open, high, low, close, volume",
+          "dates": 912,
+          "first_date": "2023-01-03",
+          "known_before_entry": "yes for any bar strictly before the decision minute",
+          "label": "XNYS.PILLAR NYSE-only (independent check)",
+          "last_date": "2026-08-21",
+          "median_premarket_bars_when_present": 0.0,
+          "median_regular_bars_per_symbol_date": 387.0,
+          "missing_minute_rate": 0.03061036461455524,
+          "order_book_depth": false,
+          "parquet": "/home/openclaw/.openclaw/workspace/.omc/research/professional-day-trader-methods/bars-pillar-allmin.parquet",
+          "postmarket_bars_total": 55459,
+          "premarket_bars_total": 0,
+          "regular_session_bars": 20569595,
+          "symbol_dates": 54408,
+          "symbol_dates_with_30plus_premarket": 0,
+          "symbol_dates_with_all_390": 15264,
+          "symbol_dates_with_any_premarket": 0,
+          "symbols": 60,
+          "timestamp_convention": "ts_event, converted to US/Eastern session date and Eastern minute-of-day"
+        }
+      },
+      "path": ".omc/research/professional-day-trader-methods/data-capability.json",
+      "sha256": "33f635e7ad180340895cb6e4d83aa95b3d5b372a15fdda5b443a0666c5a0a2fe"
+    },
+    "prior_inventory": {
+      "path": ".omc/research/immediate-profitable-share-feature/current-state.json",
+      "raw_files": {
+        "equs-mini_ohlcv-1m_60-symbols_2023-03-28_2026-08-22.dbn.zst": {
+          "path": "/home/openclaw/.openclaw/research-data/databento/opening-auctions/selected60_2023-01_to_2026-08/equs-mini_ohlcv-1m_60-symbols_2023-03-28_2026-08-22.dbn.zst",
+          "sha256": "d8efbec18b2a9b892af1a38b2e59420133d707eec017fb20c48ae52348585d2c",
+          "size_bytes": 406859094
+        },
+        "equs-mini_ohlcv-1m_BRK.B_2023-03-28_2026-08-22.dbn.zst": {
+          "path": "/home/openclaw/.openclaw/research-data/databento/opening-auctions/selected60_2023-01_to_2026-08/equs-mini_ohlcv-1m_BRK.B_2023-03-28_2026-08-22.dbn.zst",
+          "sha256": "0138515e2fccaff97559d7b09d9f87f0f53fd2d4fb874a8c247ed60076ef4284",
+          "size_bytes": 6470994
+        },
+        "xnys-pillar_ohlcv-1m_60-symbols_2023-01-01_2026-08-22.dbn.zst": {
+          "path": "/home/openclaw/.openclaw/research-data/databento/opening-auctions/selected60_2023-01_to_2026-08/xnys-pillar_ohlcv-1m_60-symbols_2023-01-01_2026-08-22.dbn.zst",
+          "sha256": "2c2b888a83e00a153a68f65148d81faaa80c39dee98d8b4ad0fd97a5dbeee705",
+          "size_bytes": 429232023
+        }
+      },
+      "sha256": "e8cc0857957afa48246a50f2adcea47e14bf4cdfa533194c3e8d18a7723503e5"
+    }
+  },
+  "spend_usd": 0,
+  "version": "M91EP_SAVED_MARKET_DATA_AUDIT_V1"
+}

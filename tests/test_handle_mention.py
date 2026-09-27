@@ -33,8 +33,11 @@ _FALLBACKS = ["fallback/model-a", "fallback/model-b", "fallback/model-c"]
 
 
 @pytest.fixture(autouse=True)
-def pinned_agent_chain(monkeypatch):
-    """Pin the fallback chain so attempt counts don't drift with consensus.yaml."""
+def pinned_agent_chain(monkeypatch, tmp_path):
+    """Pin retry inputs and keep watchdog reads inside the test sandbox."""
+    from consensus_engine.tools import agent_watchdog
+
+    monkeypatch.setattr(agent_watchdog, "SESSION_DIR", str(tmp_path))
     real_get = main_mod.cfg.get
 
     def _fake_get(key, default=None):
