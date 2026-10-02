@@ -1312,8 +1312,8 @@ schwab:
 # deliberately NOT config keys, so no future session can quietly retune them.
 put_flow_shortlist:
   enabled: true          # ON in owner-only mode from 2026-08-24
-  owner_only: true       # posts to the owner's private briefing room, @-mentions the owner
-  channel_id: ""         # blank -> api_keys.discord_briefing_channel_id
+  owner_only: true       # @-mentions the owner on the shortlist cards
+  channel_id: "$DISCORD_TRADE_IDEAS_CHANNEL_ID" # Trade Ideas; unset -> briefing channel
   max_per_date: 4        # a maximum, never a target; zero names is a normal day
   quote_max_age_sec: 300 # a price older than this at 6:35 is rejected, not traded
 
