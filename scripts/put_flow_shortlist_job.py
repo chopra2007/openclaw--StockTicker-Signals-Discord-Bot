@@ -110,29 +110,8 @@ def _borrow_note(r: dict) -> str:
     return f" · **hard to borrow**{rate_txt} (Schwab)"
 
 
-# The one thing the card must never let the reader confuse. The pair is bearish
-# because of the SIZE of yesterday's PUT trading, not because anyone was proved
-# to be buying puts. A PUT SELL is not a bearish bet, and it is not why the
-# stock is on this list.
-SIDE_FOOTNOTE = (
-    "**Why these names:** the whole rule is that yesterday's PUT trading was "
-    "extreme for that contract. Shorting the stock against SPY is the bearish "
-    "side because extreme PUT activity has been followed by the stock lagging "
-    "SPY.\n"
-    "**The option side above** describes that one print, not the stock. It does "
-    "not pick or rank these names, and PUT SELL is not a bearish bet."
-)
-
-
 def render_watch_card(signal_date: str, entry_session: str, rows: list[dict]) -> str:
-    """The 6:15 a.m. card. No prices yet — nothing is tradeable until 6:35.
-
-    Two different facts have to stay separate on this card, and it says both:
-      1. The stock/SPY pair leans bearish because extreme PUT ACTIVITY has
-         historically been followed by the stock lagging SPY.
-      2. The option-side label describes that one option print. It is not what
-         picked the stock, and a PUT SELL is not a bearish bet.
-    """
+    """The 6:15 a.m. watch card, before entry prices are available."""
     head = (f"**Morning short watch — {len(rows)} name{'' if len(rows) == 1 else 's'}**\n"
             f"From extreme PUT activity on {signal_date}. Trading day {entry_session}.\n")
     if not rows:
@@ -153,8 +132,6 @@ def render_watch_card(signal_date: str, entry_session: str, rows: list[dict]) ->
     lines.append(f"\n\nPlanned entry **6:35 a.m. Pacific**. Planned close "
                  f"**6:35 a.m. Pacific on {rows[0]['planned_exit_session']}** "
                  f"(four trading days later).")
-    lines.append("\n\n" + SIDE_FOOTNOTE)
-    lines.append("\nMeasurement only — no order is placed, and this is not advice.")
     return "".join(lines)
 
 
@@ -280,7 +257,6 @@ def render_entry_card(entry_session: str, entered: list[dict],
                if option_display_on() else ""))
     for r in rejected:
         out.append(f"\n**{r['ticker']}** — skipped: {r['reject_reason']}.")
-    out.append("\n\n" + SIDE_FOOTNOTE)
     out.append("\nSimulated. No order was placed.")
     return "".join(out)
 

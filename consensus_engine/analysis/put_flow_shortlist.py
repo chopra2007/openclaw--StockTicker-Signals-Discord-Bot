@@ -122,15 +122,11 @@ def side_label(flow_side: str | None, flow_side_note: str | None = None) -> str:
     MISSING   = this burst was recorded before the label existed.
     """
     bucket = side_bucket(flow_side)
-    note = (flow_side_note or "").strip()
-    tail = f" ({note})" if note else ""
     if bucket == "BUY":
-        return f"PUT BUY — printed at or above the ask{tail}"
+        return "PUT BUY"
     if bucket == "SELL":
-        return f"PUT SELL — printed at or below the bid{tail}"
-    if bucket == "AMBIGUOUS":
-        return "side unclear — the price did not say which"
-    return "side not recorded — older than the label"
+        return "PUT SELL"
+    return "Unknown"
 
 
 def short_problem(q: dict | None) -> str:

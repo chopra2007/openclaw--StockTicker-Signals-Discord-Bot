@@ -364,7 +364,7 @@ def test_a_missing_label_stays_missing():
     """A row collected before the label existed is never re-guessed."""
     for empty in (None, "", "   "):
         assert pfs.side_bucket(empty) == "MISSING"
-        assert "not recorded" in pfs.side_label(empty)
+        assert pfs.side_label(empty) == "Unknown"
     # An unrecognised value is also not evidence of a side.
     assert pfs.side_bucket("PROBABLY_BUY") == "MISSING"
 
@@ -373,10 +373,11 @@ def test_each_label_reads_as_itself():
     assert pfs.side_bucket("BUY") == "BUY"
     assert pfs.side_bucket("sell") == "SELL"
     assert pfs.side_bucket("AMBIGUOUS") == "AMBIGUOUS"
-    assert "PUT BUY" in pfs.side_label("BUY")
-    assert "PUT SELL" in pfs.side_label("SELL")
-    assert "unclear" in pfs.side_label("AMBIGUOUS")
-    assert "(at-ask)" in pfs.side_label("BUY", "at-ask")
+    assert pfs.side_label("BUY") == "PUT BUY"
+    assert pfs.side_label("SELL") == "PUT SELL"
+    assert pfs.side_label("AMBIGUOUS") == "Unknown"
+    assert pfs.side_label("BUY", "at-ask") == "PUT BUY"
+    assert pfs.side_label("SELL", "at-bid") == "PUT SELL"
 
 
 def test_put_sell_is_never_called_a_bearish_bet():
@@ -391,9 +392,9 @@ def test_put_sell_is_never_called_a_bearish_bet():
         assert "bearish options bet" not in lowered
         assert "put buying" not in lowered
         assert "heavy put buying" not in lowered
-        # and it must say out loud that the label is not the selector
-        assert "does not pick or rank" in lowered
-        assert "put sell is not a bearish bet" in lowered
+        assert "why these names" not in lowered
+        assert "does not pick or rank" not in lowered
+        assert "measurement only" not in lowered
 
 
 def test_the_card_no_longer_claims_every_put_was_bought():
@@ -405,7 +406,7 @@ def test_the_card_no_longer_claims_every_put_was_bought():
 def test_a_card_with_no_recorded_label_says_so_honestly():
     rows = [dict(_rows()[0], flow_side=None)]
     card = job.render_watch_card("2026-08-14", "2026-08-17", rows)
-    assert "not recorded" in card
+    assert "Option side: Unknown" in card
     # The per-name line must not claim a side. (The closing note explains what
     # the labels mean, so it names them on purpose — check the name line only.)
     side_lines = [ln for ln in card.splitlines() if "Option side:" in ln]
