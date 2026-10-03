@@ -1,8 +1,8 @@
-"""YouTube evidence chain — Gemini primary, Supadata captions as final backup.
+"""YouTube evidence chain — Gemini primary, free/paid transcripts as backup.
 
 Order: F2 (Gemini watches the video — the only reliably-working path from this VPS,
-since Google fetches the video server-side, not via our blacklisted IP) → F1 (Supadata
-captions, limited-credit last resort). The old F3 yt-dlp+Whisper stage was REMOVED
+since Google fetches the video server-side, not via our blacklisted IP) → F1
+(Usetranscribe, then Supadata captions). The old F3 yt-dlp+Whisper stage was REMOVED
 2026-06-09 (yt-dlp is IP-blocked here) — see the note at the bottom of this file.
 Short-circuits on first viable bundle. F6 hygiene runs at entry and in finally:.
 """
@@ -44,7 +44,7 @@ async def extract_evidence_via_chain(
 # ─── Public helpers (isolated for testability) ────────────────────────────────
 
 async def fetch_captions(video_id: str) -> str | None:
-    """F1: fetch auto-captions via Supadata only. Returns None when disabled or it fails.
+    """F1: use the shared transcript cascade. None when disabled or all sources fail.
 
     REMOVED 2026-06-09: the youtube_transcript_api tier that used to run first.
     It hits YouTube directly from our IP, which YouTube has BLACKLISTED (IpBlocked /
@@ -56,17 +56,15 @@ async def fetch_captions(video_id: str) -> str | None:
     if not cfg("youtube.captions.enabled", False):
         return None
 
-    # Supadata — fetches via their own residential infra, sidesteps the IP block.
-    # SUPADATA_API_KEY in env. Helper at consensus_engine/utils/transcript_fetch.py.
     try:
-        from consensus_engine.utils.transcript_fetch import _fetch_via_supadata
-        result = await _fetch_via_supadata(video_id)
+        from consensus_engine.utils.transcript_fetch import fetch_transcript_cascade
+        result = await fetch_transcript_cascade(video_id)
         if result is not None:
             text, _lang, _is_manual = result
-            log.info("F1 captions via Supadata for %s: %d chars", video_id, len(text))
+            log.info("F1 transcript for %s: %d chars", video_id, len(text))
             return text
     except Exception as exc:
-        log.warning("F1 Supadata fallback failed for %s: %s", video_id, exc)
+        log.warning("F1 transcript fallback failed for %s: %s", video_id, exc)
 
     return None
 
@@ -138,7 +136,7 @@ async def _run_chain(
             if bundle is not None:
                 return bundle, telemetry
 
-        # F1: captions (Supadata only) → LLM ticker extraction — FINAL BACKUP when
+        # F1: Usetranscribe → Supadata → LLM ticker extraction — BACKUP when
         # Gemini is unavailable / quota-exhausted. Audio-only (no chart visuals) and
         # Supadata's free plan has limited monthly credits, so it's last-resort.
         if cfg("youtube.captions.enabled", False):

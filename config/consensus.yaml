@@ -564,8 +564,12 @@ youtube:
     require_verified: false            # false = include unverified; true = only verified
   show_timestamps_in_alerts: true
   near_price_dedup_pct: 0.5
+  usetranscribe:
+    enabled: true
+    timeout_seconds: 360
+    cache_dir: "artifacts/transcripts/usetranscribe"
   captions:
-    enabled: true             # F1 ON — Supadata-only now (youtube_transcript_api tier removed 2026-06-09, IP-blocked). captions_llm_parser (commit d3cf2be) resolves company name→ticker via Gemini Flash. Supadata free plan = limited credits, so F1 is the final backup behind Gemini.
+    enabled: true             # F1: Usetranscribe then Supadata; Gemini video stays primary for charts.
     # LLM chain for caption→ticker extraction. Real-world probe (2026-05-15)
     # on a 25k-char S&P 500 video:
     #   - google/gemini-2.5-flash      → 6.98s, 25 spans, 27 valid tickers ✅

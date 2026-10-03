@@ -85,13 +85,12 @@ class TestVttToText:
 # ---------------------------------------------------------------------------
 
 class TestFetchTranscriptCascade:
-    # The cascade is Supadata-only now — the Invidious-captions and
-    # youtube-transcript-api tiers were removed 2026-06-09 (dead on this VPS's
-    # blacklisted IP). Only Supadata fetches via its own residential network.
+    # Exercise the paid backup with the free provider unavailable.
     @pytest.fixture(autouse=True)
     def _patch_tiers(self):
         base = "consensus_engine.utils.transcript_fetch"
-        with patch(f"{base}._fetch_via_supadata") as self.mock_supadata:
+        with patch(f"{base}._fetch_via_supadata") as self.mock_supadata, \
+                patch(f"{base}._fetch_via_usetranscribe", AsyncMock(return_value=None)):
             self.mock_supadata.return_value = None  # default: fail
             yield
 

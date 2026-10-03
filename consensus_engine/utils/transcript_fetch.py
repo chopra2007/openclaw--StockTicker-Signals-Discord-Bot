@@ -1,7 +1,7 @@
-"""YouTube transcript fetcher — Supadata only.
+"""YouTube transcripts — Usetranscribe first, Supadata backup.
 
 From this VPS, Supadata (paid managed API, fetches via its own residential network)
-is the ONLY caption source that works. The free-tier direct sources that used to be
+was the only working caption source before adding Usetranscribe. Direct sources that used to be
 in this cascade — Invidious-captions, youtube-transcript-api, Playwright — were all
 REMOVED 2026-06-09 because YouTube has blacklisted this server's IP and never served
 them captions. DO NOT re-add them (see the REMOVED note further down, and TODO #17).
@@ -168,14 +168,19 @@ async def _fetch_via_supadata(video_id: str, lang: str = "en") -> tuple[str, str
 #   • youtube-transcript-api (`_fetch_via_yt_transcript_api`): hits YouTube directly
 #     from our IP, which YouTube has BLACKLISTED (IpBlocked / "confirm you're not a
 #     bot"). Cookies don't help — it's the datacenter IP, not auth.
-# Supadata is the ONLY caption source that works here (it fetches via its own
-# residential network), so it is the sole remaining tier. See TODO #17.
+# These direct caption sources remain removed. Usetranscribe and Supadata fetch
+# remotely; neither requires this VPS to download captions from YouTube.
 # ---------------------------------------------------------------------------
 
 
 # ---------------------------------------------------------------------------
 # Public API: cascade fetch
 # ---------------------------------------------------------------------------
+
+
+async def _fetch_via_usetranscribe(video_id: str, lang: str = "en") -> tuple[str, str, bool] | None:
+    from consensus_engine.utils.usetranscribe import fetch_usetranscribe
+    return await fetch_usetranscribe(video_id, lang)
 
 async def fetch_transcript_cascade(
     video_id: str,
@@ -189,11 +194,10 @@ async def fetch_transcript_cascade(
         preferred_languages = ["en"]
     lang = preferred_languages[0] if preferred_languages else "en"
 
-    # Supadata is the ONLY working caption source from this VPS (see the REMOVED
-    # note above — Invidious-captions + youtube-transcript-api are dead on our
-    # blacklisted IP). It's the paid managed API (limited free credits), so treat it
-    # as the final backup, not a first choice.
+    # The free service checks local/shared caches before starting a bounded job.
+    # Supadata remains the backup when the free service is limited or unavailable.
     tiers: list[tuple[str, object, int]] = [
+        ("Usetranscribe", lambda: _fetch_via_usetranscribe(video_id, lang), 650),
         ("Supadata", lambda: _fetch_via_supadata(video_id, lang), 20),
     ]
 

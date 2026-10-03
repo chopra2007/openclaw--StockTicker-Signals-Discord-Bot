@@ -3,6 +3,20 @@
 **Status:** OPEN
 **Created:** 2026-09-08
 
+## Related direction-attribution finding — October 2, 2026, Pacific time
+
+During the Usetranscribe comparison, a read-only database check found video
+`Z2h0LIK-FPU` had an unsuppressed LONG TLT signal whose source snippet describes
+falling long-dated Treasury bond prices. This record existed before the provider
+integration. Both transcript suppliers returned essentially the same words, so
+changing the transcript source does not resolve the direction/context mismatch.
+
+When repairing video-reader validation, also trace this example through
+`analysis/video_classifier.py` and the shared macro context used in signal
+classification. Use the source snippet and video moment to determine direction,
+and verify that bullish commentary about a different sector does not flip TLT.
+No classifier change or historical record rewrite was made in the provider task.
+
 The part of the bot that reads YouTube videos saves whatever the speaker called
 a stock. When someone says "NVIDIA" it stores `NVIDIA`, not `NVDA`. Yahoo has no
 symbol called NVIDIA, so every poll cycle the engine asks for a price and gets a

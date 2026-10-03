@@ -1593,7 +1593,10 @@ async def _transcript_and_reply(youtube_url: str, channel_id: str, message_id: s
         caption_type = "auto-generated" if is_auto else "manual"
         header = f"**Transcript** ({lang}, {caption_type}, {len(text)} chars)"
         preview = text[:1500] + "..." if len(text) > 1500 else text
-        await send_command_reply(channel_id, message_id, f"{header}\n{preview}")
+        from consensus_engine.utils.usetranscribe import get_cached_permalink
+        permalink = get_cached_permalink(video_id)
+        extras = f"\nSummary, sections & Q&A: <{permalink}>" if permalink else ""
+        await send_command_reply(channel_id, message_id, f"{header}\n{preview}{extras}")
     except Exception as e:
         log.error("Transcript command error for %s: %s", youtube_url, e)
         await send_command_reply(channel_id, message_id, f"Transcript failed: {e}")
