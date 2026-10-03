@@ -96,6 +96,10 @@ answers to every question shown on the page.
 Supadata-only transcript fetching. `timeout_seconds` bounds new jobs and
 `cache_dir` controls its archive location. No credentials are required.
 
+`youtube.transcript_first` enables the split workflow. Disabling it restores
+Gemini-first video analysis. The visual worker runs independently during normal
+operation and the weekend market pause, so already queued videos can finish.
+
 ## Measured usage on the sample
 
 The earlier full-video run recorded 70,767 input and 3,009 output tokens.
@@ -117,3 +121,12 @@ payload, concurrent cached reads, Supadata fallback and the transcript reply lin
 Live probes read the sample and created a transcript for an existing failed-queue
 video. An isolated database probe exercised real free-source text through
 OpenClaw's caption evidence extraction without posting alerts.
+
+Production verification saved the transcript for failed-queue video `Y8e40HcCvOc`
+before its visual job finished. The live weekend worker then added two on-screen
+observations using 3,329 input and 996 output tokens. Both services remained active.
+Independent isolated full-suite verification starting at `0c6c470` reported
+4,337 passed, 121 skipped and the existing Databento research collection error
+(`ModuleNotFoundError: No module named 'databento'`). Final-commit transcript and
+scanner verification at `17c2454` passed all 29 tests. Live uncommitted work was
+preserved byte for byte.
