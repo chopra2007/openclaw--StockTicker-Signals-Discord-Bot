@@ -124,6 +124,25 @@ async def _run_chain(
             log.warning("F6 pre-flight failed — skipping chain for %s", video_id)
             return None, telemetry
 
+        if cfg("youtube.transcript_first", False) and cfg("youtube.captions.enabled", False):
+            telemetry.chain_attempts.append("ytdlp-captions/v1")
+            bundle = await _stage_captions(video_id, telemetry, published_at)
+            if bundle is not None:
+                from consensus_engine.analysis.youtube_visual_jobs import queue_visuals
+                if not cfg("youtube.gemini.disabled_for_test", False):
+                    telemetry.chain_attempts.append("gemini-visual/v1")
+                    try:
+                        ready = await queue_visuals(bundle)
+                    except Exception as exc:
+                        log.warning("Visual work remains pending for %s: %s", video_id, exc)
+                        ready = False
+                else:
+                    ready = False
+                telemetry.chain_winner = "transcript+visual/v1" if ready else "transcript/visual-pending-v1"
+                telemetry.f2_failure_category = None  # speech succeeded even if visuals hit quota
+                telemetry.latency_ms = int((time.monotonic() - chain_start) * 1000)
+                return bundle, telemetry
+
         # F2: Gemini video — PRIMARY. Only path that reads on-screen chart numbers
         # (visual_evidence) AND the only path that works reliably from this VPS:
         # Google fetches the video on its own servers, sidestepping our blacklisted
@@ -139,7 +158,7 @@ async def _run_chain(
         # F1: Usetranscribe → Supadata → LLM ticker extraction — BACKUP when
         # Gemini is unavailable / quota-exhausted. Audio-only (no chart visuals) and
         # Supadata's free plan has limited monthly credits, so it's last-resort.
-        if cfg("youtube.captions.enabled", False):
+        if cfg("youtube.captions.enabled", False) and not cfg("youtube.transcript_first", False):
             # Label kept as the legacy "ytdlp-captions/v1" for telemetry/DB continuity
             # (matches get_youtube_coverage_counts + historical rows); it is actually
             # Supadata now — the yt-dlp path was removed.
@@ -182,7 +201,16 @@ async def _stage_captions(
         # LLM chain (Gemini Flash → free OpenRouter fallbacks) which can
         # resolve company-name → ticker reliably.
         from consensus_engine.analysis.captions_llm_parser import extract_evidence_from_captions
-        bundle = await extract_evidence_from_captions(video_id, text, published_at, telemetry)
+        from consensus_engine.utils.usetranscribe import get_cached_record
+        record = get_cached_record(video_id)
+        segments = record["transcript"]["segments"] if record else None
+        # Only associate cached timestamps with the text that actually won the cascade.
+        if segments and " ".join(s["text"].strip() for s in segments if s["text"].strip()) != text:
+            segments = None
+        if segments:
+            bundle = await extract_evidence_from_captions(video_id, text, published_at, telemetry, source_segments=segments)
+        else:
+            bundle = await extract_evidence_from_captions(video_id, text, published_at, telemetry)
         if bundle is None:
             return None
 

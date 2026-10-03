@@ -49,6 +49,7 @@ def _audit_flags_default_off(monkeypatch):
     _real = _cfg.get
     _off = {
         "youtube.usetranscribe.enabled": False,  # dedicated provider tests opt in; no routine network jobs
+        "youtube.transcript_first": False,  # dedicated split tests opt in explicitly
         "alerts.merged_detail_card.enabled": False,
         "all_command.market_cap_gate_enabled": False,
         "all_command.sparse_banner.enabled": False,

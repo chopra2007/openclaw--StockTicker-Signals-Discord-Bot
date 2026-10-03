@@ -318,7 +318,19 @@ async def _process_video_two_stage(
 
     gemini_model = cfg.get("youtube.gemini.model", "gemini-2.5-flash")
     parser_version = f"gemini-evidence/{gemini_model}-v1"
+    if telemetry.chain_winner and telemetry.chain_winner.startswith("transcript"):
+        parser_version = "transcript-evidence/v1"
     run_id = await db.create_analysis_run(video_id, parser_version)
+
+    if telemetry.chain_winner and telemetry.chain_winner.startswith("transcript"):
+        # Gemini's legacy speech path persists its own evidence. The split path
+        # records source-timed speech and visual observations here exactly once.
+        from consensus_engine.analysis.youtube_visual_jobs import persist_visuals
+        for span in bundle.spans:
+            await db.insert_youtube_evidence_span(run_id=run_id, video_id=video_id,
+                ts_sec=span.ts_sec, quote=span.quote, tickers=span.tickers,
+                numbers=span.numbers, dates=span.dates_mentioned)
+        await persist_visuals(bundle)
 
     import json as _json
     macro_json = None
@@ -455,6 +467,9 @@ async def _process_video_two_stage(
     # only HERE — after every signal/level/setup row is persisted and the video has
     # reached its terminal 'analyzed_gemini_v2' state — so the run is never closed early.
     await db.update_analysis_run(run_id, status="complete")
+    if telemetry.chain_winner == "transcript+visual/v1":
+        from consensus_engine.analysis.youtube_visual_jobs import mark_complete
+        mark_complete(video_id)
 
     # Partial-read detection. Gemini silently caps long videos on input (observed only
     # 18.7min of a verified 105min video, finish_reason=STOP), so the back of a long
@@ -1382,10 +1397,10 @@ async def _emit_daily_coverage() -> None:
     _LAST_COVERAGE_DAY = today
     if not counts:
         return
-    gemini = counts.get("gemini/v2", 0)
+    gemini = counts.get("gemini/v2", 0) + counts.get("transcript+visual/v1", 0) + counts.get("gemini-visual/v1", 0)
     total = sum(counts.values())
     log.info(
-        "youtube coverage (24h): %d/%d videos got full Gemini chart read; breakdown=%s",
+        "youtube coverage (24h): %d/%d runs include chart evidence; breakdown=%s",
         gemini, total, counts,
     )
 
@@ -1413,6 +1428,20 @@ async def _emit_daily_coverage() -> None:
 
 
 async def youtube_poll_loop(stop_event: asyncio.Event) -> None:
+    """Own both workers so chart jobs cannot hold up incoming transcripts."""
+    visual_task = None
+    if cfg.get("youtube.enabled", False) and cfg.get("youtube.transcript_first", False):
+        from consensus_engine.analysis.youtube_visual_jobs import visual_poll_loop
+        visual_task = asyncio.create_task(visual_poll_loop(stop_event), name="youtube-visual-worker")
+    try:
+        await _youtube_transcript_poll_loop(stop_event)
+    finally:
+        if visual_task:
+            visual_task.cancel()
+            await asyncio.gather(visual_task, return_exceptions=True)
+
+
+async def _youtube_transcript_poll_loop(stop_event: asyncio.Event) -> None:
     """Background loop — runs youtube_scan_once() every poll_interval_seconds."""
     if not cfg.get("youtube.enabled", False):
         log.debug("youtube: disabled, poll loop not started")

@@ -168,15 +168,21 @@ async def fetch_usetranscribe(video_id: str, lang: str = "en") -> tuple[str, str
         return None
 
 
-def get_cached_permalink(video_id: str) -> str | None:
-    """Link to the archived provider features without another network request."""
+def get_cached_record(video_id: str) -> dict | None:
+    """Return validated source segments already acquired by the cascade."""
     if not re.fullmatch(r"[A-Za-z0-9_-]{11}", video_id):
         return None
     directory = Path(cfg.get("youtube.usetranscribe.cache_dir", "artifacts/transcripts/usetranscribe"))
     try:
-        return _record(_read(directory / f"{video_id}.json"), video_id)["permalink"]
+        return _record(_read(directory / f"{video_id}.json"), video_id)
     except (ValueError, TypeError, KeyError, AttributeError):
         return None
+
+
+def get_cached_permalink(video_id: str) -> str | None:
+    """Link to the archived provider features without another network request."""
+    record = get_cached_record(video_id)
+    return record["permalink"] if record else None
 
 
 async def _fetch(video_id: str, lang: str, directory: Path) -> tuple[str, str, bool] | None:

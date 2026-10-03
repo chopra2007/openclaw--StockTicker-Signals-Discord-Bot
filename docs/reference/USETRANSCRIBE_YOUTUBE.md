@@ -32,12 +32,30 @@ The finding is recorded in the existing video-reader validation TODO.
 
 ## Implemented routing
 
-Video evidence keeps its current order:
+Video evidence now separates speech from charts:
 
-1. Gemini video analysis, which retains chart evidence.
-2. Caption/text evidence when Gemini fails or exhausts quota:
-   Usetranscribe first, then Supadata, then OpenClaw's existing caption evidence
-   extractor and classifier.
+1. Usetranscribe source transcript first; Supadata supplies a transcript if the
+   free source cannot. Every text chunk is read, including the tail.
+2. Source quotes and company/ticker labels pass through the existing classifier.
+   Usetranscribe's segment times anchor quotes locally. Quotes must match source
+   text with punctuation preserved, so a decimal cannot become a thousands separator.
+3. An independent worker reads chart frames and adds visual evidence and conservative
+   chart levels. Transcript ingestion never waits for Google to finish this work.
+4. Full Gemini speech/video extraction is the last resort when transcript acquisition
+   or text analysis fails. The old legacy parser remains disabled.
+
+Known-duration videos sample at roughly 20-second intervals, capped at 60 frames.
+Each frame is acquired through a four-second clip at 0.25 fps; requests contain
+at most ten clips. The model returns observations indexed by clip, and OpenClaw
+assigns the actual source time locally. Missing clip indices fail that batch.
+Completed batches are cached; failed visual work resumes after restart without
+repeating transcript analysis or completed Google reads. A small tail margin
+handles captions that extend slightly past the actual video end.
+
+The visual request uses medium resolution for readable labels, a 3,000-token
+output limit, and no reasoning tokens on the tested Gemini 2.5 Flash model.
+Tiny video clips still contain a small amount of audio input; the request asks
+only for visible evidence and accepts no speech transcription output.
 
 The shared `fetch_transcript_cascade` also gives the free source first to existing
 transcript commands and the catch-up script. The old legacy video parser remains
@@ -62,12 +80,13 @@ the full transcript, summary, sections and interactive Q&A are available.
 
 ## Limits that remain
 
-This supplements Gemini rather than eliminating Gemini's model quotas. Text-only
-fallback cannot recover chart visuals. The current caption evidence extractor
-processes at most the first 15,000 characters and assigns approximate evidence
-timestamps; the full provider transcript and exact segment timestamps are archived
-even when that extractor truncates its input. Changing that extractor is outside
-this provider integration. Usetranscribe Q&A is linked through its page, not added
+Google's model quotas still apply to visual work, which waits independently when
+unavailable. Short-lived visuals between sampled frames can be missed, and long
+videos receive coarser sampling after the 60-frame cap. Unknown-duration transcript
+fallbacks use sparse full-video sampling; that path retains the soundtrack's input
+overhead. Supadata's plain-text fallback retains approximate quote times and does
+not invent a video duration from quote count. Usetranscribe Q&A is linked through
+its page, not added
 as a new Discord command. Its API supplies suggested questions, not precomputed
 answers to every question shown on the page.
 
@@ -76,6 +95,21 @@ answers to every question shown on the page.
 `youtube.usetranscribe.enabled` enables the provider; disable it to return to
 Supadata-only transcript fetching. `timeout_seconds` bounds new jobs and
 `cache_dir` controls its archive location. No credentials are required.
+
+## Measured usage on the sample
+
+The earlier full-video run recorded 70,767 input and 3,009 output tokens.
+The completed six-batch visual run recorded 24,732 input and 5,252 output tokens.
+Both source-text calls together recorded 9,543 input and 809 output tokens.
+Combined: 40,336 tokens versus 73,776, about **45% fewer total tokens** and
+52% fewer input tokens. This is one sample, with different model routes; it is
+not a general accuracy or cost guarantee. Experiment retries are excluded from
+that comparison. It measures the API workflow, not the user's Codex subscription.
+
+The visual worker saved 84 distinct on-screen observations spanning 20–1,190
+seconds and filed five chart levels, with unsupported ticker attribution suppressed.
+Generated summaries were not used as trading evidence. This comparison does not
+establish that sparse sampling captures every chart or improves speech accuracy.
 
 Validation covers cached and new streaming jobs, source identity/language,
 malformed or empty transcripts, quota cooldowns, permanent errors, a large SSE

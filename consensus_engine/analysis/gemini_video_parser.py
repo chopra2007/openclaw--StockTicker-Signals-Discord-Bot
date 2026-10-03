@@ -11,6 +11,7 @@ import logging
 import os
 import re
 import time
+from pathlib import Path
 
 from consensus_engine import config as cfg, db
 from consensus_engine.models import (
@@ -448,7 +449,7 @@ def _is_negative_ts(ts) -> bool:
     return False
 
 
-def _clean_visual_evidence(raw: object, duration_sec: int | None) -> list[dict]:
+def _clean_visual_evidence(raw: object, duration_sec: int | None, *, per_ticker: bool = False) -> list[dict]:
     """Normalize, dedup, range-filter, and cap on-screen visual-evidence items.
 
     - Each entry normalized to {ts_sec:int, value:str, kind:str, where:str}.
@@ -468,11 +469,12 @@ def _clean_visual_evidence(raw: object, duration_sec: int | None) -> list[dict]:
         value = str(item.get("value", "")).strip()
         if not value:
             continue
-        if value in seen_values:
+        identity = (value, item.get("ticker")) if per_ticker else value
+        if identity in seen_values:
             continue
         if duration_sec is not None and ts_sec > duration_sec:
             continue
-        seen_values.add(value)
+        seen_values.add(identity)
         entry = {
             "ts_sec": ts_sec,
             "value": value,
@@ -929,6 +931,74 @@ async def _extract_evidence_chunked(
     return (merged, combined_tel)
 
 
+_VISUAL_ONLY_PROMPT = """Read ONLY visible charts, overlays, tables and labels in this video.
+Speech has already been transcribed separately. Do not transcribe, summarize or extract audio.
+Return ONLY JSON: {"duration_sec": <full video length in seconds>, "visual_evidence":
+[{"ts_sec": <actual second>, "value": "<literal visible text or number>",
+"kind": "<price|ticker|label|date|other>", "where": "<location and chart context>",
+"ticker": "<US-listed ticker visibly labeling the SAME chart, or null>"}], "spans": [], "segments": []}.
+Inspect the sampled frames across the full timeline. Record at most 50 useful distinct items.
+Prioritize marked levels, trade annotations, table entries, chart patterns and dates.
+Do not infer prices or tickers from the audio or another chart. Skip illegible text.
+Do not confuse axis gridlines or a percentage with a marked trade level.
+"""
+
+
+async def extract_visual_evidence_with_gemini(video_id, published_at, *, duration_sec=None, cache_dir=None):
+    """Read evenly spaced frames via tiny clips; checkpoint each successful batch.
+
+    Four seconds at 0.25 fps provides one frame plus only four seconds of audio
+    input, rather than sending the entire soundtrack. Source time is assigned
+    locally from the requested frame, never guessed by the model.
+    """
+    resolution = cfg.get("youtube.visual.media_resolution", "medium")
+    if not duration_sec or duration_sec <= 4:
+        return await _extract_evidence_single_pass(video_id, "", published_at, resolution, visual_only=True)
+    from consensus_engine.utils.usetranscribe import _read, _write
+    count = min(60, max(2, int(duration_sec / 20) + 1))
+    # Captions can extend past the actual video by a second or two. Leave
+    # four seconds of tail margin so the final sampled clip still has a frame.
+    starts = sorted({min(round(i * (duration_sec - 4) / (count - 1)), max(0, duration_sec - 8))
+                     for i in range(count)})
+    windows = [(s, min(s + 4, duration_sec)) for s in starts]
+    all_items, telemetry = [], RunTelemetry(json_parse_ok=True)
+    started = time.monotonic()
+    for index in range(0, len(windows), 10):
+        batch = windows[index:index + 10]
+        path = Path(cache_dir) / f"{index // 10}.json" if cache_dir else None
+        saved = _read(path) if path else {}
+        if saved.get("windows") == [list(w) for w in batch] and saved.get("resolution") == resolution:
+            items = saved.get("visual_evidence", [])
+            telemetry.input_tokens += saved.get("input_tokens", 0)
+            telemetry.output_tokens += saved.get("output_tokens", 0)
+        else:
+            bundle, tel = await _extract_evidence_single_pass(
+                video_id, "", published_at, resolution, visual_only=True, visual_windows=batch,
+            )
+            telemetry.input_tokens += tel.input_tokens
+            telemetry.output_tokens += tel.output_tokens
+            if bundle is None:
+                telemetry.f2_failure_category = tel.f2_failure_category
+                telemetry.json_parse_ok = False
+                telemetry.latency_ms = int((time.monotonic() - started) * 1000)
+                return None, telemetry
+            items = bundle.visual_evidence
+            if path:
+                _write(path, {"windows": batch, "resolution": resolution, "visual_evidence": items,
+                              "input_tokens": tel.input_tokens, "output_tokens": tel.output_tokens})
+        all_items.extend(items)
+    telemetry.latency_ms = int((time.monotonic() - started) * 1000)
+    # Keep observations across the full timeline, rather than cutting off the
+    # latter batches when the shared legacy cleaner caps its output at 50.
+    seen, unique = set(), []
+    for item in all_items:
+        identity = (item["value"], item.get("ticker"), item["kind"], item["where"])
+        if identity not in seen:
+            seen.add(identity)
+            unique.append(item)
+    return EvidenceBundle(video_id, duration_sec, published_at, visual_evidence=unique), telemetry
+
+
 async def _extract_evidence_single_pass(
     video_id: str,
     channel_name: str,
@@ -937,6 +1007,8 @@ async def _extract_evidence_single_pass(
     *,
     start_offset_sec: int | None = None,
     end_offset_sec: int | None = None,
+    visual_only: bool = False,
+    visual_windows: list[tuple[int, int]] | None = None,
 ) -> tuple[EvidenceBundle | None, RunTelemetry]:
     """One Gemini extraction round at the given media_resolution.
 
@@ -971,7 +1043,12 @@ async def _extract_evidence_single_pass(
         if m and m != model_primary
     ]
     models_to_try = [model_primary] + model_fallbacks
+    if visual_only:
+        model_primary = cfg.get("youtube.visual.model", "gemini-2.5-flash")
+        models_to_try = [m for m in dict.fromkeys([model_primary, *models_to_try]) if not m.startswith("gemini-2.0-")]
     fps_cfg = cfg.get("youtube.gemini.fps", None)
+    if visual_only:
+        fps_cfg = max(0.01, min(0.5, float(cfg.get("youtube.visual.fps", 0.05))))
     youtube_url = f"https://www.youtube.com/watch?v={video_id}"
     timeout_sec = int(cfg.get("youtube.gemini.timeout_sec", 120))
     # 503 "high demand" is common on free-tier video models; latency is not a
@@ -981,6 +1058,10 @@ async def _extract_evidence_single_pass(
     from google.genai import types
 
     gen_config = _build_generation_config(media_resolution)
+    if visual_only:
+        gen_config = gen_config or types.GenerateContentConfig()
+        gen_config.response_mime_type = "application/json"
+        gen_config.max_output_tokens = 3000
 
     def _video_part():
         # fps via VideoMetadata cuts input tokens (~225k→144k at 0.5fps, no
@@ -1026,13 +1107,32 @@ async def _extract_evidence_single_pass(
                     await asyncio.sleep(_bo)
                 try:
                     def _sync_call(_client=client, _model=_m):
+                        contents = [types.Part.from_text(text=_VISUAL_ONLY_PROMPT if visual_only else _evidence_prompt()), _video_part()]
+                        call_config = gen_config
+                        if visual_only:
+                            call_config = gen_config.model_copy(deep=True)
+                            if _model.startswith("gemini-2.5-flash"):
+                                call_config.thinking_config = types.ThinkingConfig(thinking_budget=0)
+                        if visual_windows:
+                            contents = [types.Part.from_text(text=(
+                                'Inspect ONLY the visible frame in EVERY numbered clip below. Speech is already transcribed; '
+                                'do not transcribe audio. Return JSON {"clips":[{"clip_index":integer,'
+                                '"visual_evidence":[{"value":"literal visible text or number","kind":"price|ticker|label|date|other",'
+                                '"where":"chart location and context","ticker":"same-chart US ticker or null"}]}]}. '
+                                f'Return exactly {len(visual_windows)} clip objects with each index exactly once; '
+                                'an empty visual_evidence array is valid for a frame with no useful chart information. '
+                                'At most TWO useful observations PER clip. Prefer marked trade levels, annotated chart patterns, '
+                                'option table entries and named chart labels. Skip menus, generic headlines and axis gridlines. '
+                                'Percentages are kind other, never price. Do not infer illegible numbers or symbols from speech.'
+                            ))]
+                            for clip_index, (start, end) in enumerate(visual_windows):
+                                contents.extend([types.Part.from_text(text=f"CLIP INDEX {clip_index}."),
+                                    types.Part(file_data=types.FileData(file_uri=youtube_url, mime_type="video/*"),
+                                        video_metadata=types.VideoMetadata(fps=0.25, start_offset=f"{start}s", end_offset=f"{end}s"))])
                         return _client.models.generate_content(
                             model=_model,
-                            contents=[
-                                types.Part.from_text(text=_evidence_prompt()),
-                                _video_part(),
-                            ],
-                            config=gen_config,
+                            contents=contents,
+                            config=call_config,
                         )
 
                     loop = asyncio.get_event_loop()
@@ -1126,6 +1226,36 @@ async def _extract_evidence_single_pass(
         return (None, telemetry)
 
     telemetry.json_parse_ok = True
+    if visual_only:
+        if telemetry.saw_null_input_tokens or telemetry.input_tokens <= 0:
+            telemetry.f2_failure_category = "gemini_no_input_tokens"
+            telemetry.json_parse_ok = False
+            return None, telemetry
+        if visual_windows:
+            clips = data.get("clips")
+            if (not isinstance(clips, list) or len(clips) != len(visual_windows)
+                or any(not isinstance(c, dict) or type(c.get("clip_index")) is not int for c in clips)
+                or {c["clip_index"] for c in clips} != set(range(len(visual_windows)))
+                or any(not isinstance(c.get("visual_evidence"), list) for c in clips)):
+                telemetry.json_parse_ok = False
+                telemetry.f2_failure_category = "incomplete_visual_batch"
+                return None, telemetry
+            data["duration_sec"] = max(end for start, end in visual_windows)
+            data["visual_evidence"] = [
+                {**v, "ts_sec": visual_windows[c["clip_index"]][0]}
+                for c in sorted(clips, key=lambda c: c["clip_index"])
+                for v in c["visual_evidence"][:2] if isinstance(v, dict)
+            ]
+            for item in data["visual_evidence"]:
+                if "%" in str(item.get("value", "")) and item.get("kind") == "price":
+                    item["kind"] = "other"
+        if not isinstance(data.get("visual_evidence"), list):
+            telemetry.json_parse_ok = False
+            return None, telemetry
+        # Never accept a duplicated ASR result from the visual reader.
+        data["spans"], data["segments"] = [], []
     bundle = _build_evidence_bundle(data, video_id, published_at)
+    if visual_only:
+        bundle.visual_evidence = _clean_visual_evidence(data["visual_evidence"], bundle.duration_sec, per_ticker=True)
     telemetry.span_count = len(bundle.spans)
     return (bundle, telemetry)

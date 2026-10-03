@@ -541,6 +541,12 @@ youtube:
     budget_pct_for_default: 50    # <50% used → start at default
     budget_pct_for_medium: 75     # 50-75% used → start at medium; >75% → low
   visual:
+    # Known-duration videos: up to 60 frames spaced across the whole timeline,
+    # fetched as four-second clips, ten per request, with per-batch checkpoints.
+    model: "gemini-2.5-flash"          # live-tested clips; no thinking-token overhead
+    fps: 0.05                         # fallback sampling only when video duration is unknown
+    media_resolution: "medium"        # chart labels need readable text
+    jobs_dir: "artifacts/youtube_visual_jobs"
     # Task C Phase 2 — on-screen chart numbers (kind='price') attributed to a
     # ticker in !all are kept only when within this fraction of the ticker's
     # live price; drops axis gridlines (0/10/20 on a $98 stock) + numbers
@@ -568,8 +574,9 @@ youtube:
     enabled: true
     timeout_seconds: 360
     cache_dir: "artifacts/transcripts/usetranscribe"
+  transcript_first: true              # speech from free-first cascade; Gemini supplements visuals
   captions:
-    enabled: true             # F1: Usetranscribe then Supadata; Gemini video stays primary for charts.
+    enabled: true             # Usetranscribe then Supadata; full Gemini speech is last resort.
     # LLM chain for caption→ticker extraction. Real-world probe (2026-05-15)
     # on a 25k-char S&P 500 video:
     #   - google/gemini-2.5-flash      → 6.98s, 25 spans, 27 valid tickers ✅

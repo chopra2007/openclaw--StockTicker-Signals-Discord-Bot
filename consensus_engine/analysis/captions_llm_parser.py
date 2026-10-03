@@ -29,9 +29,7 @@ from consensus_engine.models import EvidenceBundle, EvidenceSpan, RunTelemetry
 
 log = logging.getLogger("consensus_engine.analysis.captions_llm_parser")
 
-# Cap caption length sent to the LLM. ~15K chars ≈ ~4K tokens — leaves room
-# for the prompt and 4K output. Long videos (>40 min) get truncated; the
-# classifier doesn't need every span, just enough ticker coverage.
+# Bound each call, rather than dropping the end of a long video.
 _MAX_CAPTION_CHARS = 15000
 
 _TA_ABBREVIATIONS = {
@@ -156,18 +154,77 @@ async def extract_evidence_from_captions(
     transcript: str,
     published_at: str,
     telemetry: RunTelemetry,
+    *,
+    source_segments: list[dict] | None = None,
 ) -> EvidenceBundle | None:
+    """Read every chunk; source timestamps and quotes are verified locally."""
+    if not transcript or not transcript.strip():
+        return None
+    chunks = []
+    if source_segments:
+        current, ids, size = [], {}, 0
+        for index, segment in enumerate(source_segments):
+            text = segment["text"].strip()
+            # A pathological long segment is still read in bounded pieces.
+            for offset in range(0, len(text), _MAX_CAPTION_CHARS - 100):
+                line = f'[{index}] {text[offset:offset + _MAX_CAPTION_CHARS - 100]}'
+                if current and size + len(line) > _MAX_CAPTION_CHARS:
+                    chunks.append(("\n".join(current), ids))
+                    overlap = []
+                    for previous in reversed(current[-4:]):
+                        if sum(len(v) + 1 for v in overlap) + len(previous) + 1 > 2000:
+                            break
+                        overlap.insert(0, previous)
+                    while overlap and sum(len(v) + 1 for v in overlap) + len(line) + 1 > _MAX_CAPTION_CHARS:
+                        overlap.pop(0)
+                    keep = {int(v.split("]", 1)[0][1:]) for v in overlap}
+                    current, ids = overlap, {i: s for i, s in ids.items() if i in keep}
+                    size = sum(len(v) + 1 for v in current)
+                current.append(line)
+                ids[index] = segment
+                size += len(line) + 1
+        if current:
+            chunks.append(("\n".join(current), ids))
+    else:
+        # Word boundary splits preserve text even without provider timestamps.
+        remainder = transcript
+        while remainder:
+            cut = min(len(remainder), _MAX_CAPTION_CHARS)
+            if cut < len(remainder):
+                space = remainder.rfind(" ", 0, cut)
+                if space > 0:
+                    cut = space + 1
+            chunks.append((remainder[:cut], None))
+            remainder = remainder[cut:]
+    all_spans, seen, clean = [], set(), True
+    for text, source in chunks:
+        chunk = await _extract_chunk(video_id, text, published_at, telemetry, source)
+        if chunk is None:
+            return None  # never mark a partially read transcript complete
+        clean = clean and telemetry.json_parse_ok
+        for span in chunk.spans:
+            key = (span.ts_sec if source else None, span.quote.casefold(), tuple(span.tickers))
+            if key not in seen:
+                seen.add(key)
+                if not source:
+                    span.ts_sec = len(all_spans) * 30  # legacy untimed fallback
+                all_spans.append(span)
+    if not all_spans and not source_segments:
+        return None
+    telemetry.span_count = len(all_spans)
+    telemetry.json_parse_ok = clean
+    duration = int(max(s["end"] for s in source_segments)) if source_segments else None
+    return EvidenceBundle(video_id, duration, published_at,
+                          segments=source_segments or [{"text": transcript}], spans=all_spans)
+
+
+async def _extract_chunk(video_id, transcript, published_at, telemetry, source=None):
     """Send caption text to the LLM chain and convert the JSON response into
     an EvidenceBundle. Returns None when the chain fails or yields no spans."""
     if not transcript or not transcript.strip():
         return None
 
-    truncated = transcript[:_MAX_CAPTION_CHARS]
-    if len(transcript) > _MAX_CAPTION_CHARS:
-        log.info(
-            "captions_llm: transcript truncated %d → %d chars for %s",
-            len(transcript), _MAX_CAPTION_CHARS, video_id,
-        )
+    truncated = transcript  # the chunk builder already bounds calls without dropping words
 
     chain = _build_chain()
     if not chain:
@@ -182,6 +239,15 @@ async def extract_evidence_from_captions(
         ta_abbrevs=", ".join(sorted(_TA_ABBREVIATIONS)),
         transcript=truncated,
     )
+    if source:
+        user_prompt += (
+            '\nEach source line starts with its integer segment ID in brackets. '
+            'For each span also return "start_segment" and "end_segment" IDs. '
+            'Quotes MUST be copied exactly from contiguous source text, joining adjacent lines if needed. '
+            'Do not rewrite grammar, add words, or replace company names with symbols in quotes. '
+            'Each quote must be at most 500 characters. Include numerical values and '
+            'dates_mentioned only when literally in that quote. Do not invent timestamps.'
+        )
     messages = [
         {"role": "system", "content": _SYSTEM_PROMPT},
         {"role": "user", "content": user_prompt},
@@ -222,12 +288,47 @@ async def extract_evidence_from_captions(
         return None
 
     spans = _normalize_spans(raw_spans)
-    if not spans:
-        log.info(
-            "captions_llm: LLM returned %d raw spans → 0 usable for %s (%dms)",
-            len(raw_spans), video_id, elapsed_ms,
-        )
-        return None
+    if source:
+        spans = []
+        from consensus_engine.analysis.ticker_grounding import filter_tickers_by_grounding
+        def normalized(value):
+            return " ".join(value.casefold().split())
+        # Derive timestamps from source text locally. A model's segment IDs
+        # are hints only; incorrect IDs must not move a real quote in time.
+        joined, positions = "", []
+        for index, segment in sorted(source.items()):
+            text = normalized(segment["text"])
+            start = len(joined)
+            joined += text + " "
+            positions.append((start, len(joined), segment))
+        for entry in raw_spans:
+            if not isinstance(entry, dict):
+                continue
+            quote = entry.get("quote")
+            if not isinstance(quote, str) or not normalized(quote) or len(quote) > 500:
+                continue
+            offset = joined.find(normalized(quote))
+            if offset < 0:
+                continue
+            end = offset + len(normalized(quote))
+            if (offset and joined[offset - 1].isalnum() and quote[0].isalnum()) or (
+                end < len(joined) and quote[-1].isalnum() and (
+                    joined[end].isalnum() or re.match(r"[.,]\d", joined[end:]))
+            ):
+                continue
+            segment = next(s for start, end, s in positions if start <= offset < end)
+            cleaned = _normalize_spans([entry])
+            if not cleaned:
+                continue
+            span = cleaned[0]
+            span.ts_sec = int(segment["start"])
+            span.tickers, _ = filter_tickers_by_grounding(span.tickers, quote)
+            if not span.tickers:
+                continue
+            span.numbers = [float(n.replace(",", "")) for n in re.findall(r"(?<!\w)\d[\d,]*(?:\.\d+)?", quote)]
+            dates = entry.get("dates_mentioned", [])
+            span.dates_mentioned = [d for d in dates if isinstance(d, str) and d.casefold() in quote.casefold()] if isinstance(dates, list) else []
+            spans.append(span)
 
     duration_sec = (len(spans) - 1) * 30 + 30
     bundle = EvidenceBundle(
