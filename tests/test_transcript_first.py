@@ -288,3 +288,19 @@ async def test_queue_does_not_wait_for_google_or_transcribe_again(tmp_path):
         assert not await jobs.queue_visuals(bundle)
     model.assert_not_awaited()
     assert jobs._read(tmp_path / f"{bundle.video_id}.json")["status"] == "pending"
+
+
+@pytest.mark.asyncio
+async def test_visual_worker_lifetime_follows_owner_stop():
+    import asyncio
+    from consensus_engine.analysis import youtube_visual_jobs as jobs
+    stop, started = asyncio.Event(), asyncio.Event()
+    async def worker(event):
+        started.set()
+        await event.wait()
+    with patch("consensus_engine.config.get", return_value=True), patch.object(jobs, "visual_poll_loop", worker):
+        task = jobs.start_visual_worker(stop)
+        await asyncio.wait_for(started.wait(), 1)
+        assert not task.done()
+        stop.set()
+        await asyncio.wait_for(task, 1)

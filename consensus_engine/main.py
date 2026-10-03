@@ -1234,6 +1234,8 @@ async def run_live(stop_event: asyncio.Event):
                 on_mention=on_mention_weekend,
             )
             weekend_stop = asyncio.Event()
+            from consensus_engine.analysis.youtube_visual_jobs import start_visual_worker
+            visual_task = start_visual_worker(weekend_stop)
 
             async def _resume_timer():
                 secs = _seconds_until_resume()
@@ -1251,6 +1253,9 @@ async def run_live(stop_event: asyncio.Event):
                 log.debug("Command listener paused: %s", e)
             finally:
                 resume_task.cancel()
+                if visual_task:
+                    visual_task.cancel()
+                    await asyncio.gather(visual_task, return_exceptions=True)
 
             await asyncio.sleep(5)
             continue

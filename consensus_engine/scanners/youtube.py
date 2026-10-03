@@ -1429,10 +1429,8 @@ async def _emit_daily_coverage() -> None:
 
 async def youtube_poll_loop(stop_event: asyncio.Event) -> None:
     """Own both workers so chart jobs cannot hold up incoming transcripts."""
-    visual_task = None
-    if cfg.get("youtube.enabled", False) and cfg.get("youtube.transcript_first", False):
-        from consensus_engine.analysis.youtube_visual_jobs import visual_poll_loop
-        visual_task = asyncio.create_task(visual_poll_loop(stop_event), name="youtube-visual-worker")
+    from consensus_engine.analysis.youtube_visual_jobs import start_visual_worker
+    visual_task = start_visual_worker(stop_event)
     try:
         await _youtube_transcript_poll_loop(stop_event)
     finally:

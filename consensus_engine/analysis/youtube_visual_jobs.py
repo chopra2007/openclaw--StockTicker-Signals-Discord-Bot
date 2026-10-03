@@ -178,3 +178,10 @@ async def visual_poll_loop(stop_event):
             await asyncio.wait_for(stop_event.wait(), timeout=1 if processed else 30)
         except asyncio.TimeoutError:
             pass
+
+
+def start_visual_worker(stop_event):
+    """Both market-hours and weekend listeners own the same stoppable worker."""
+    if cfg.get("youtube.enabled", False) and cfg.get("youtube.transcript_first", False):
+        return asyncio.create_task(visual_poll_loop(stop_event), name="youtube-visual-worker")
+    return None
