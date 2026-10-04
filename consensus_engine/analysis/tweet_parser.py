@@ -20,31 +20,19 @@ from consensus_engine.models import (
 )
 from consensus_engine.utils.tickers import extract_tickers
 from models.router import process_tweet as process_multimodal_tweet
+from .analyst_evidence import (
+    comparison_direction, direction_context, direction_is_supported, safe_image_evidence, ticker_text_context, unsided_option,
+)
 
 log = logging.getLogger("consensus_engine.analysis.tweet_parser")
 
-ANALYST_VIEW_PARSER_VERSION = "analyst-view-v1"
+ANALYST_VIEW_PARSER_VERSION = "analyst-view-v2"
 _UNSAFE_VIEW_CODES = {
     "generic_activity", "neutral", "unsided_option", "multi_ticker_ambiguous",
     "missing", "invalid_span",
 }
 _SAFE_VIEW_CODES = {"explicit_clause", "reason_only", "direction_only"}
 _SOURCE_TICKER_RE = re.compile(r"(?<![A-Za-z0-9])\$([A-Za-z]{1,10})(?![A-Za-z0-9])")
-_OPTION_MENTION_RE = re.compile(r"\b(?:calls?|puts?|\d+(?:\.\d+)?\s*[cp])\b", re.IGNORECASE)
-_OPTION_SIDE_RE = re.compile(
-    r"\b(?:buy|buying|bought|long|sell|selling|sold|short|write|writing|wrote)\b",
-    re.IGNORECASE,
-)
-_LONG_EVIDENCE_RE = re.compile(
-    r"\b(?:long|buy|buying|bought|bullish|add|adding|added|breakout|broke|"
-    r"reclaim|reclaimed|reclaiming|upside|bounce|bouncing|above)\b",
-    re.IGNORECASE,
-)
-_SHORT_EVIDENCE_RE = re.compile(
-    r"\b(?:short|sell|selling|sold|bearish|fade|fading|breakdown|"
-    r"lost support|downside|below|reject|rejected|rejecting)\b",
-    re.IGNORECASE,
-)
 
 
 def _unclear_view(ticker: str, decision_code: str = "missing") -> TickerPostView:
@@ -74,9 +62,6 @@ def _validate_ticker_view(
     decision_code = str(item.get("decision_code", "missing")).lower()
     if decision_code not in _SAFE_VIEW_CODES:
         return _unclear_view(ticker, decision_code)
-    if _OPTION_MENTION_RE.search(original_text) and not _OPTION_SIDE_RE.search(original_text):
-        return _unclear_view(ticker, "unsided_option")
-
     direction = str(item.get("direction", "unclear")).lower()
     reason_kind = str(item.get("reason_kind", "none")).lower()
     reason_text = item.get("reason_text")
@@ -97,7 +82,7 @@ def _validate_ticker_view(
         for other in all_tickers:
             if other != ticker and _ticker_in_span(other, reason_text):
                 return _unclear_view(ticker, "multi_ticker_ambiguous")
-        if _OPTION_MENTION_RE.search(reason_text) and not _OPTION_SIDE_RE.search(reason_text):
+        if unsided_option(reason_text):
             return _unclear_view(ticker, "unsided_option")
     else:
         start = end = None
@@ -106,11 +91,21 @@ def _validate_ticker_view(
 
     direction_is_safe = False
     if direction_requested and direction in {"long", "short"}:
-        evidence_text = original_text if len(all_tickers) == 1 else reason_text or ""
-        evidence_re = _LONG_EVIDENCE_RE if direction == "long" else _SHORT_EVIDENCE_RE
-        direction_is_safe = bool(evidence_re.search(evidence_text))
-        if _OPTION_MENTION_RE.search(evidence_text) and not _OPTION_SIDE_RE.search(evidence_text):
+        evidence_text = direction_context(original_text, span, ticker) if span else (
+            original_text if len(all_tickers) == 1 else "")
+        direction_is_safe = direction_is_supported(direction, evidence_text)
+        if unsided_option(evidence_text):
             return _unclear_view(ticker, "unsided_option")
+    elif span is not None and decision_code == "reason_only":
+        evidence_text = direction_context(original_text, span, ticker)
+        comparison = comparison_direction(evidence_text)
+        if comparison and not unsided_option(evidence_text):
+            direction, direction_is_safe = comparison, True
+
+    # A genuine stock setup is independent of an option-performance recap. A
+    # neutral event plus unsided contracts still cannot establish direction.
+    if unsided_option(original_text) and not direction_is_safe:
+        return _unclear_view(ticker, "unsided_option")
 
     reason_is_safe = span is not None
     if direction_is_safe and reason_is_safe:
@@ -154,7 +149,88 @@ def _parse_ticker_views(payload: dict, tickers: list[str], original_text: str) -
             code = "multi_ticker_ambiguous" if len(candidates) > 1 else "missing"
             views.append(_unclear_view(ticker, code))
         else:
-            views.append(_validate_ticker_view(candidates[0], ticker, source_tickers, original_text))
+            item = candidates[0]
+            if item.get("decision_code") == "image_evidence":
+                outputs = payload.get("vision_outputs", [])
+                index = item.get("vision_index")
+                evidence = None
+                if isinstance(outputs, list) and type(index) is int and 0 <= index < len(outputs):
+                    evidence = safe_image_evidence(outputs[index], ticker, item.get("direction"))
+                    opposite = "short" if item.get("direction") == "long" else "long"
+                    # Prompt instructions are not a conflict gate. Reject opposing
+                    # reliable charts and opposing text for this same ticker.
+                    chart_conflict = any(safe_image_evidence(output, ticker, opposite) for output in outputs)
+                    text_conflict = direction_is_supported(opposite, ticker_text_context(original_text, ticker))
+                    if chart_conflict or text_conflict:
+                        evidence = None
+                views.append(TickerPostView(
+                    ticker=ticker, direction=item["direction"], reason_kind="image",
+                    decision_code="image_evidence", parser_version=ANALYST_VIEW_PARSER_VERSION,
+                    image_evidence=evidence,
+                ) if evidence else _unclear_view(ticker))
+            else:
+                view = _validate_ticker_view(item, ticker, source_tickers, original_text)
+                opposite = "short" if view.direction == "long" else "long"
+                outputs = payload.get("vision_outputs", [])
+                if view.direction in {"long", "short"} and isinstance(outputs, list) and any(
+                    safe_image_evidence(output, ticker, opposite) for output in outputs
+                ):
+                    view = _unclear_view(ticker, "neutral")
+                if view.direction == "unclear" and (
+                    view.decision_code in {"neutral", "generic_activity"} and len(source_tickers) == 1
+                    or view.decision_code == "multi_ticker_ambiguous" and (
+                        item.get("decision_code") == "multi_ticker_ambiguous"
+                        or isinstance(item.get("reason_text"), str) and _ticker_in_span(ticker, item["reason_text"])
+                    )
+                ):
+                    # An ETF appended to a chart caption or a separate forecast
+                    # must not erase a clear, uniquely quoted ticker clause.
+                    repaired_views = []
+                    for anchor in re.finditer(rf"(?<![A-Za-z0-9])\$?{re.escape(ticker)}(?![A-Za-z0-9])", original_text, re.I):
+                        start = anchor.start()
+                        boundary = re.search(r"[;!?]|\.(?!\d)|\$[A-Za-z]{1,10}\b", original_text[anchor.end():])
+                        end = anchor.end() + boundary.start() if boundary else len(original_text)
+                        quote = original_text[start:end].rstrip()
+                        quote = re.sub(r"\s+(?:and|while|but)$", "", quote, flags=re.I)
+                        inferred = comparison_direction(quote, numeric_only=view.decision_code != "multi_ticker_ambiguous")
+                        if view.decision_code != "multi_ticker_ambiguous":
+                            scope = original_text if len(source_tickers) == 1 else ticker_text_context(original_text, ticker)
+                            if comparison_direction(scope, numeric_only=True) != inferred:
+                                inferred = None
+                        if inferred:
+                            repaired = _validate_ticker_view(
+                                {"decision_code": "explicit_clause", "direction": inferred,
+                                 "reason_kind": "setup", "reason_text": quote},
+                                ticker, source_tickers, original_text,
+                            )
+                            if repaired.direction in {"long", "short"}:
+                                repaired_views.append(repaired)
+                    if len({candidate.direction for candidate in repaired_views}) == 1:
+                        recovered = repaired_views[0]
+                        opposite = "short" if recovered.direction == "long" else "long"
+                        if not direction_is_supported(opposite, ticker_text_context(original_text, ticker)):
+                            view = recovered
+                if view.direction == "unclear" and isinstance(outputs, list):
+                    supported_images = [
+                        (side, evidence) for side in ("long", "short") for output in outputs
+                        if (evidence := safe_image_evidence(output, ticker, side)) is not None
+                    ]
+                    sides = {side for side, _ in supported_images}
+                    if len(sides) == 1:
+                        side, evidence = supported_images[0]
+                        opposite = "short" if side == "long" else "long"
+                        if not direction_is_supported(opposite, ticker_text_context(original_text, ticker)):
+                            view = TickerPostView(
+                                ticker=ticker, direction=side, reason_kind="image", decision_code="image_evidence",
+                                parser_version=ANALYST_VIEW_PARSER_VERSION, image_evidence=evidence,
+                            )
+                # Recovered text is subject to the same chart conflict check.
+                if view.direction in {"long", "short"} and isinstance(outputs, list) and any(
+                    safe_image_evidence(output, ticker, "short" if view.direction == "long" else "long")
+                    for output in outputs
+                ):
+                    view = _unclear_view(ticker, "neutral")
+                views.append(view)
     return views
 
 

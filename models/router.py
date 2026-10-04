@@ -47,7 +47,8 @@ async def _vision_for_url(image_url: str) -> dict[str, Any]:
             "confidence": 0.0,
             "summary": "",
         }
-    _cache_set(image_url, payload)
+    if payload.get("ticker") or payload.get("summary"):
+        _cache_set(image_url, payload)
     return payload
 
 
@@ -73,4 +74,8 @@ async def process_tweet(tweet: dict[str, Any]) -> dict[str, Any]:
     )
 
     text_output["vision_outputs"] = vision_outputs
+    # URL attribution is supplied by the router, never invented by either model.
+    text_output["vision_outputs"] = [
+        {**output, "image_url": url} for url, output in zip(image_urls, vision_outputs)
+    ]
     return text_output

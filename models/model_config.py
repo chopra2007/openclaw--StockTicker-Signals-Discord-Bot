@@ -43,6 +43,8 @@ VISION_MODEL_DEFAULT = _cfg_get("llm.vision_model", "")
 # Env vars are runtime overrides, not secret-only fields.
 TEXT_MODEL = os.getenv("TEXT_MODEL", TEXT_MODEL_DEFAULT)
 VISION_MODEL = os.getenv("VISION_MODEL", VISION_MODEL_DEFAULT)
+TEXT_FALLBACK_MODELS = app_cfg.get("llm.text_fallback_models", []) if app_cfg else []
+VISION_FALLBACK_MODELS = app_cfg.get("llm.vision_fallback_models", []) if app_cfg else []
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_URL = os.getenv("OPENROUTER_URL", "https://openrouter.ai/api/v1/chat/completions")
 MODEL_TIMEOUT_SECONDS = float(os.getenv("MODEL_TIMEOUT_SECONDS", "25"))

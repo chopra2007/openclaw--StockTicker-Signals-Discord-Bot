@@ -38,7 +38,8 @@ Given tweet text and optional vision analysis JSON, return ONLY valid JSON with 
       "reason_start": 0,
       "reason_end": 0,
       "reason_kind": "position|setup|event_claim|none",
-      "decision_code": "explicit_clause|reason_only|direction_only|generic_activity|neutral|unsided_option|multi_ticker_ambiguous|missing"
+      "decision_code": "explicit_clause|reason_only|direction_only|image_evidence|generic_activity|neutral|unsided_option|multi_ticker_ambiguous|missing",
+      "vision_index": null
     }
   ],
   "final_signal": {
@@ -68,8 +69,14 @@ Rules:
 - Exclude technical indicators (RSI, EMA, MACD, VWAP, SMA, ATR, RVOL) as tickers.
 - Use vision context if provided to enrich confidence, reason, and key_levels.
 - Ensure source_types includes "image" when vision context is provided.
-- ticker_views is optional and is ONLY for later analyst-group cards. Return one
+- ticker_views is required for later analyst-group cards. Return one
   item per ticker. Do not copy one post-wide direction or reason across tickers.
+- Retain named stock tickers even in factual news, generic activity or watchlists.
+  Type D and top-level neutral do not require empty tickers when a stock is named.
+  Analyst-group bias is independent of trade actionability and catalyst_horizon.
+  A positive earnings/delivery surprise or insider share purchase has bullish
+  event bias even without a forward-looking entry. A negative surprise has
+  bearish event bias. A bare scheduled event remains unclear.
 - reason_text must be an exact, continuous quote from tweet_text. reason_start is
   its zero-based first character and reason_end is the first character after it.
   Never paraphrase. The server will correct offsets only when reason_text appears
@@ -80,6 +87,30 @@ Rules:
 - Use reason_only when the exact ticker-specific reason is clear but long versus
   short is not. Use direction_only when long versus short is clearly stated but
   the post gives no exact ticker-specific reason. Check these two fields separately.
+- Classify the directional meaning, not just literal buy/sell words. Positive
+  recommendations (top pick, upgrade, overweight), earnings/delivery beats,
+  raised guidance, open-market insider purchases, bullish chart patterns,
+  breakouts and upside forecasts can be long. Downgrades, earnings misses,
+  guidance cuts, breakdowns and price declines can be short. These are the
+  post's bias, even when it reports news rather than a personal trade. Do not
+  imply that the analyst personally owns a position or that the claim is verified.
+- Compare actual figures to estimates for earnings, revenue and deliveries.
+  Mixed beats/misses require judgment; neutral schedules or bare price targets
+  without directional context are unclear. Never borrow prices from outside input.
+- Conditional setups still have bias. Negation and failed setups change meaning:
+  no breakout yet or not bullish cannot support a bullish label by word matching.
+- In multi-ticker posts, choose the shortest exact complete clause for EACH
+  ticker's own setup. A trailing sector ETF or another ticker in a later sentence
+  does not erase the first ticker's attributable setup. Exclude those other
+  tickers from its reason span. For shared ambiguous clauses, stay unclear.
+- A clear stock breakout clause remains directional when another sentence
+  recaps unsided calls. Do not infer direction from unsided options themselves.
+- If text does not establish direction but a vision_output has that exact ticker,
+  matching sentiment, confidence >= 0.65, a non-none direction_basis and visible
+  direction_evidence, use image_evidence and its zero-based vision_index. Set
+  reason_text/start/end null and reason_kind none: image interpretation is not
+  a quote from tweet_text. Conflicting charts or text/image disagreement stays
+  unclear. Never attach one ticker's chart bias to another ticker.
 - Generic activity, neutral/watch-list mentions, option contracts with no stated
   buy/sell side, and ambiguous multi-ticker clauses must use direction unclear,
   reason_kind none, no reason span, and the matching decision_code.
@@ -173,16 +204,18 @@ async def analyze_tweet(tweet_text: str, analyst: str, vision_output: list[dict[
         "tweet_text": tweet_text,
         "vision_output": vision_output or [],
     }
-    raw = await chat_completion(
-        model_config.TEXT_MODEL,
-        [
-            {"role": "system", "content": TEXT_PROMPT},
-            {"role": "user", "content": json.dumps(user_context)},
-        ],
-        max_tokens=1800,
-        temperature=0.1,
-    )
-    parsed = _parse_json_response(raw)
+    parsed = _default_payload()
+    for model in dict.fromkeys([model_config.TEXT_MODEL, *model_config.TEXT_FALLBACK_MODELS]):
+        raw = await chat_completion(
+            model,
+            [{"role": "system", "content": TEXT_PROMPT},
+             {"role": "user", "content": json.dumps(user_context)}],
+            max_tokens=2600, temperature=0.1,
+        )
+        parsed = _parse_json_response(raw)
+        named_source = bool(re.search(r"\$[A-Za-z]{1,10}\b", tweet_text))
+        if raw and parsed != _default_payload() and (parsed.get("tickers") or not named_source):
+            break
     if vision_output and "image" not in parsed["final_signal"].get("source_types", []):
         parsed["final_signal"]["source_types"] = list({*parsed["final_signal"].get("source_types", []), "image"})
     return parsed
