@@ -698,14 +698,11 @@ stayed intact.
 
 Since `#alerts` contains only analyst-group alerts, remove the repeated `SWARM` label and put the ticker, analyst count, and elapsed time first.
 
-## 84. Show analyst direction and catalyst inside the alert — DONE 2026-08-17
+## 84. Show analyst direction and catalyst inside the alert — DONE 2026-10-04
 
 **File:** `analyst-alert-direction-catalyst.md`
 
-**CURRENT STATUS (2026-08-17):** DONE in commit `c764b59`. Each analyst-group card now shows the safe
-group bias plus each analyst's independently validated direction and exact source-grounded reason.
-Missing, ambiguous, neutral, generic, malformed, and unsided-option evidence fails closed as unclear or
-reason not stated. The historical audit, live schema, and real Discord readback all passed.
+**CURRENT STATUS (2026-10-04 Pacific):** DONE and live. The follow-up audit corrected 16 false unclear views in a frozen sample of 19 source posts and 22 ticker views; three genuinely ambiguous views stayed unclear. The bot now recognizes directional forecasts and event surprises, joins attributable split charts, retains image evidence separately from source quotes, and uses a backup image reader when the first provider is unavailable. Negation, shared ticker subjects, conflicting evidence, and unsided options still fail closed. Final focused Linux checks: 226 passed. Production replay confirmed bullish chart-arrow evidence and a ticker-specific delivery beat; both services are active and Discord reconnected. New alert cards use the fix. Clean-checkout research failures are tracked separately in TODO #120.
 
 Make each analyst-group alert show bullish, bearish, mixed, or unclear plus the catalyst or setup, then have Codex verify every historical group against its source tweets and the stock's move from the first tweet.
 
@@ -1227,3 +1224,11 @@ Keep the smaller session-start text, the tighter instructions and the new output
 **File:** `codex-savings-mode.md`
 
 Use `enable savings`, `disable savings`, or `$savings` to control smaller output during long Codex builds, with complete saved logs and guarded rollback steps.
+
+## 120. Make research checks work in clean checkouts
+
+**File:** `research-checks-clean-checkout.md`
+
+**CURRENT STATUS (2026-10-04 Pacific):** OPEN. Master GitHub regression run 37194805878 at commit 7b949be already fails 14 research checks. They require ignored research evidence bundles or a server-only opening-auction manifest. The analyst-bias clean-copy baseline and candidate reproduce the same 12 bundle failures; two additional manifest failures appear in GitHub CI, where server data is absent. Exact current-master failure IDs are recorded in `.test-baseline`; all checks continue to run, and any new failure still blocks the gate. This limitation does not prove the research results pass.
+
+Make research evidence checks reproducible without private ignored files or server-only manifests, so clean-clone CI can pass every check.
