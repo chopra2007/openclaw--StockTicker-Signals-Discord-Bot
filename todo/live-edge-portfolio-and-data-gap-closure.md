@@ -3,15 +3,11 @@
 **Status:** DONE 2026-09-04
 **Created:** 2026-08-25
 
-**CURRENT STATUS (2026-09-04):** Complete. The promised September 1 milestone
-landed for DKS, SUI, MSTR, and MARA: each has real entry, daily-mark, exit, and
-borrow rows. A direct raw-row check of the DKS September 18 $120 put found
-$4.90/$5.10 at entry and $0.60/$0.80 at exit; buying at $5.10 and selling at
-$0.60 lost $450 per contract, or 88.235%. Its entry and exit borrow rows were
-fresh, shortable, not hard to borrow, and stored raw rate 0.0 with units still
-labelled UNKNOWN. Collection remains live. The 13 display-honesty tests confirm
-the expected-move and options-flow wording still tells the truth. No frozen
-signal rule was changed or retuned.
+**CURRENT STATUS (2026-10-02):** Complete: the original portfolio/data/display work and September 1 collection milestone remain recorded. On 2026-10-02 the owner shelved parent strategy #96, so its strategy-specific option/borrow captures and proof job are stopped. Saved historical rows and the corrected general flow displays remain intact. General options-flow ingestion is still running.
+
+## Historical record — before shelving
+
+The entries below describe earlier work. The current status above and the October 2 shelving record supersede old running, soak, or payment instructions.
 
 **Two independent verification passes ran, and both found real problems** —
 which is the point of running them:
@@ -383,3 +379,7 @@ a complete entry AND exit option quote pair.
 - **Worked on:** inspected the due September 1 entry, mark, exit, option, and borrow rows directly in `consensus.db`; recomputed one complete DKS option quote pair from raw rows; checked current timer logs and the two corrected displays.
 - **Decisions:** closed #98 because its final promised milestone landed for all four named trades; continued collection belongs to the running #96/#100 measurements and does not keep this repair item open.
 - **Next:** none for #98; do not alter #96's frozen rule from these results.
+
+## Session notes — 2026-10-02
+
+The original completed milestone is unchanged. Owner shelving of #96 stops its strategy-specific option/borrow capture and capture-proof jobs. Earlier rows are preserved; general data ingest and the display wording remain unchanged. See #96 for the final study and shutdown proof.

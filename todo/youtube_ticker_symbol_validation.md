@@ -3,6 +3,12 @@
 **Status:** OPEN
 **Created:** 2026-09-08
 
+**CURRENT STATUS (2026-10-04):** Symbol part BUILT + committed (130ee75), NOT LIVE until `consensus-engine.service` is restarted (the restart was blocked by the auto-mode classifier as a production deploy; user must run it). `resolve_video_ticker` in `ticker_grounding.py` maps company names to symbols (NVIDIA to NVDA, NEBIUS to NBIS via `config/ticker_aliases.json`) and flags NASDAQ/SPXW/SPIRIT/forex/crypto pairs as `invalid_symbol`; the three YouTube insert functions in `db.py` apply it (flagged rows saved with suppressed=1); the level-alert ticker query now skips suppressed rows. Live rows backfilled (backup `consensus.db.bak.pre-ticker-fix-2026-10-04`). 16 new tests; full suite 4386 passed. The 404 log lines were already 0 in the prior 24h. STILL OPEN: the TLT direction-attribution finding below (video `Z2h0LIK-FPU`), untouched.
+
+### Session notes — 2026-10-04
+- **Decision:** forex, crypto and index mentions are suppressed, not remapped (user can ask for e.g. NASDAQ to QQQ).
+- **Next:** user restarts the engine, then confirm a new video saves NVDA not NVIDIA; then the TLT classifier finding.
+
 ## Related direction-attribution finding — October 2, 2026, Pacific time
 
 During the Usetranscribe comparison, a read-only database check found video

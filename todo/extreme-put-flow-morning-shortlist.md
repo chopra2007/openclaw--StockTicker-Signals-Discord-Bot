@@ -1,15 +1,13 @@
 # Extreme PUT-flow morning shortlist
 
-**Status:** SOAKING until 2026-09-26
+**Status:** PARKED: shelved by owner; no further strategy runs
 **Created:** 2026-08-24
 
-**CURRENT STATUS (2026-09-04):** Unchanged, owner-only, and still soaking until
-2026-09-26. The live table has 14 closed positions and 14 open positions. Four
-of the open positions are due to close at 6:35 a.m. Pacific today; the others
-are due September 8–10. This is accumulation only, not the frozen evaluation.
-The portfolio verdict below still stands: the feature clears six of seven
-checks and fails the seventh under a harsh 20%-a-year borrowing fee. The signal
-rule was not retuned and no order was placed.
+**CURRENT STATUS (2026-10-02):** Shelved by the owner after the frozen recent-period test. All six strategy timers are disabled and stopped; services and timers are guarded against accidental restart. The standalone research runner has completed and is not scheduled. General options-flow collection and the main bot remain running. Results: current/four-session +$73.95 across 68 trades ($1.09 per $1,000 pair); target/stop exits -$48.17 (-$0.71 per pair). Later-period results were negative for both. Smart entry produced zero qualifying setups and is inconclusive. No further tuning, trading runs or monitoring is authorized. Saved historical rows are preserved; existing ENTERED rows remain frozen simulations, not live broker orders.
+
+## Historical record — before shelving
+
+The entries below describe earlier work. The current status above and the October 2 shelving record supersede old running, soak, or payment instructions.
 
 New this session, sitting on top and only observing: TODO #100 now picks an
 option contract at 6:35 and watches it. It never picks, ranks, delays or rejects
@@ -374,3 +372,42 @@ has one price. The option version may not be tradeable at that moment at all.
 - **Worked on:** Refreshed the soak record from the live position table only. The frozen rule and running jobs were not changed.
 - **Proof:** 14 positions are closed and 14 are open. The watch, trade, and proof timers are active. Four open positions are due to close at 6:35 a.m. Pacific today.
 - **Next:** Keep collecting unchanged until the recorded 2026-09-26 evaluation gate. Do not judge or retune early.
+
+## Session notes — 2026-10-02: strategy shelved
+
+The owner explicitly asked to shelve the strategy and stop the script. This supersedes the old soak and evaluation instructions below. Resume only on a new explicit owner instruction.
+
+### Frozen study findings
+
+Flow period August 24–September 24, 2026; entries August 25–September 25; paths through October 1. $1,000 total per trade: $500 short stock and $500 long SPY, fixed shares, both legs closed together. Primary figures include $1.25 execution cost, 10% assumed annual borrow on the short leg, and applicable dividends.
+
+| Version | Trades | Net dollars | Average per $1,000 pair |
+|---|---:|---:|---:|
+| A Current entry / four sessions | 68 | $73.95 | $1.09 |
+| B Smart entry / four sessions | 0 | Not testable | Not testable |
+| C Current entry / target-stop | 68 | -$48.17 | -$0.71 |
+| D Smart entry / target-stop | 0 | Not testable | Not testable |
+| Same-day reference | 68 | $83.34 | $1.23 |
+| One-session reference | 68 | $24.32 | $0.36 |
+| Two-session reference | 68 | $105.55 | $1.55 |
+
+- Later slice: A -$211.65; C -$60.12. Under doubled execution cost: A -$247.90; C -$96.37.
+- C lowered worst loss from $88.12 to $38.21 and portfolio drawdown from $426.67 to $200.06, but reduced matched-trade profit by $122.12.
+- Peak concurrent allocation: A $15,000; C $8,000. This is allocation, not required broker margin.
+- At 0% / 10% / 30% assumed borrow, A net was $128.20 / $73.95 / -$34.54; C was -$38.62 / -$48.17 / -$67.27. Historical fee units were UNKNOWN, so these are scenarios.
+- Removing A's largest winner leaves -$1.49. The largest winner was CRWV, signal September 8, +$75.44.
+- 131 raw candidates, 67 stocks, 22 actual candidate mornings; 119 valid complete paths. Exclusions: nine missing candle paths (one also incomplete actions), two CRWD split paths, one invalid Sunday PLTR signal. No open-only candles or forward fills.
+- Smart skip reasons: divergence 82, location 15, rejection 9, insufficient target room 6, relative weakness 5, matching pivot area 2. No filters were loosened. The required 20 total / 10 later smart entries were not reached.
+- Verification: 25 deterministic checks passed; 57 stock prefix replays checked 201,384 past decisions; 340 trade records independently audited across six cost scenarios. Existing repository tests had 71 unchanged Windows collection errors; no full-suite pass is claimed.
+- Conclusion: smart entry INCONCLUSIVE; adaptive exits show NO PROFIT IMPROVEMENT in this sample. The owner chose to shelve the overall strategy.
+
+### Saved evidence on this VPS
+
+Study directory: `.omc/research/put-flow-smart-timing/2026-10-02-frozen-study/`.
+Includes [one-page report](../.omc/research/put-flow-smart-timing/2026-10-02-frozen-study/one-page-report.pdf), [full report](../.omc/research/put-flow-smart-timing/2026-10-02-frozen-study/REPORT.md), complete trade ledger, all period/cost comparisons, coverage manifest, frozen rules, candidate funnel, causal checks, independent audit and review decisions. Full downloaded candles remain in the isolated Windows worktree; findings and audit outputs are archived here. No paid data was purchased.
+
+### What was stopped
+
+Disabled and stopped: `put-flow-shortlist-watch.timer`, `put-flow-shortlist-trade.timer`, `put-flow-shortlist-preflight.timer`, `put-flow-shortlist-proof.timer`, `put-flow-option-monitor.timer`, `put-flow-capture-proof.timer`; corresponding services stopped. A `90-owner-shelved.conf` condition on each service and timer blocks starts while `/home/openclaw/.openclaw/disabled-features/put-flow-shortlist` exists. Base unit files and production strategy code were not rewritten.
+
+General options-flow ingest remains running. No orders or Discord posts were made; historical database rows were not changed. Open simulated rows are preserved as frozen records, not automatically closed or continued. TODO #100's dependent monitor and TODO #98's strategy-specific capture/proof work are stopped too.

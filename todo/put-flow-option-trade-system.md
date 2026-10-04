@@ -1,19 +1,13 @@
 # Turn the morning PUT shortlist into a measured option trade
 
-**Status:** AWAITING APPROVAL: a free Databento account (or $40 ThetaData) is the only way to test the option rule on history
+**Status:** PARKED: parent PUT-flow strategy shelved by owner
 **Created:** 2026-08-27
 
-**CURRENT STATUS (2026-08-27):** Finished and answered. Verdict **INSUFFICIENT
-DATA** — the option idea was not rejected, it could not be tested. Nothing
-promoted, no option recommendation, the option section on the card stays OFF,
-TODO #96 untouched and still working. The contract selector and the live monitor
-are built, tested and running; the monitor timer fires at 6:30 a.m. Pacific and
-records real bid and ask every minute for the contracts the frozen rule picks.
-Two blockers, both measured, are written up below and in
-`.omc/research/put-flow-option-trade-system/FINAL-VERDICT.md`. The only thing
-left is one owner decision: a fresh Databento account (free) or ThetaData ($40,
-one month) unblocks the historical test this week; otherwise the forward monitor
-gets there on its own in roughly five months.
+**CURRENT STATUS (2026-10-02):** Paused because the owner shelved the parent PUT-flow strategy (#96) on 2026-10-02. Its option-monitor timer and service are stopped and restart-guarded. No option recommendations, new selections or forward monitoring will run. Historical option records and earlier research remain preserved. The previous paid-data/account decision is inactive while the parent strategy is shelved; a new owner instruction is required to resume.
+
+## Historical record — before shelving
+
+The entries below describe earlier work. The current status above and the October 2 shelving record supersede old running, soak, or payment instructions.
 
 **The one thing blocking the historical test.** Nobody can price a put in
 June 2026 without the bid and ask that were quoted at the time, and we cannot
@@ -197,3 +191,7 @@ tracked as TODO #102.
 a fresh Databento account ($125 free credit, whole pull under $5) or ThetaData
 at $40 for one month. The free forward route works too but needs roughly five
 months at ~1 option trade a day.
+
+## Session notes — 2026-10-02
+
+Parent strategy #96 shelved by owner after frozen recent-period testing. Dependent monitor disabled/stopped and restart-guarded; historical records preserved. No forward collection or paid historical test scheduled. Full findings live under #96.

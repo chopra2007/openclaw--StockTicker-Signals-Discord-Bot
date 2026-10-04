@@ -1,9 +1,11 @@
 # Claude token-efficiency changes (2026-09-22) and how to undo them
 
-**Status:** AWAITING APPROVAL
+**Status:** DONE 2026-10-04 — user declined removing the status-bar hook; it stays. The three other changes stay live.
 **Created:** 2026-09-22
 
-**CURRENT STATUS (2026-09-22):** Three small changes are live and a new helper exists. One planned change is still waiting on the user: deleting the status-bar hook that pastes the usage bar into every message. Claude's own safety check blocked Claude from editing its settings, so the user decides and makes that edit by hand. Everything can be undone with one script (commands below).
+**CURRENT STATUS (2026-10-04):** DONE. User declined removing the status-bar hook, so it stays; the three other changes stay live and can still be undone with the rollback script below.
+
+**EARLIER STATUS (2026-09-22):** Three small changes are live and a new helper exists. One planned change is still waiting on the user: deleting the status-bar hook that pastes the usage bar into every message. Claude's own safety check blocked Claude from editing its settings, so the user decides and makes that edit by hand. Everything can be undone with one script (commands below).
 
 ## What changed
 
@@ -57,3 +59,6 @@ After undoing the workspace `CLAUDE.md`, commit it as openclaw, not as root (`su
 1. The user says yes or no to removing the status-bar hook. On yes, delete the entry by hand, then start a new session and check that the status bar still shows.
 2. Optionally, re-measure a week from now: `cd ~/.local/share/cli-token-efficiency/bench && python3 bench.py later Z`. Compare `first_request_context_tokens` with 45,708.
 3. Codex session: read `claude-handoff.md` in the record folder.
+
+### Session notes — 2026-10-04
+- **Decision:** user answered "no" to removing the status-bar hook. Nothing changed in settings.json.

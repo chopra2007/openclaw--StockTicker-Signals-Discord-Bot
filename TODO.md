@@ -862,17 +862,11 @@ store was not edited.
 Get `MEMORY.md` back under its own 17KB working limit so the notes loaded into every session keep a safety margin before the size where they would silently stop loading.
 
 
-## 96. Track extreme PUT activity each morning — SOAKING until 2026-09-26 (single trades passed; run as a portfolio it fails one of seven checks once borrow cost is charged)
+## 96. Track extreme PUT activity each morning — PARKED: shelved by owner; no further strategy runs
 
 **File:** `extreme-put-flow-morning-shortlist.md`
 
-**CURRENT STATUS (2026-09-04):** Unchanged, owner-only, and still soaking until
-2026-09-26. The live table has 14 closed positions and 14 open positions. Four
-of the open positions are due to close at 6:35 a.m. Pacific today; the others
-are due September 8–10. This is accumulation only, not the frozen evaluation.
-The portfolio verdict below still stands: the feature clears six of seven
-checks and fails the seventh under a harsh 20%-a-year borrowing fee. The signal
-rule was not retuned and no order was placed.
+**CURRENT STATUS (2026-10-02):** Shelved by the owner after the frozen recent-period test. All six strategy timers are disabled and stopped; services and timers are guarded against accidental restart. The standalone research runner has completed and is not scheduled. General options-flow collection and the main bot remain running. Results: current/four-session +$73.95 across 68 trades ($1.09 per $1,000 pair); target/stop exits -$48.17 (-$0.71 per pair). Later-period results were negative for both. Smart entry produced zero qualifying setups and is inconclusive. No further tuning, trading runs or monitoring is authorized. Saved historical rows are preserved; existing ENTERED rows remain frozen simulations, not live broker orders.
 
 Turn yesterday's most extreme PUT activity into zero to four stocks to short against SPY each morning, while displaying the existing BUY/SELL classification honestly.
 
@@ -892,15 +886,7 @@ Find genuinely new ways to pick zero to four high-probability trades each mornin
 
 **File:** `live-edge-portfolio-and-data-gap-closure.md`
 
-**CURRENT STATUS (2026-09-04):** Complete. The promised September 1 milestone
-landed for DKS, SUI, MSTR, and MARA: each has real entry, daily-mark, exit, and
-borrow rows. A direct raw-row check of the DKS September 18 $120 put found
-$4.90/$5.10 at entry and $0.60/$0.80 at exit; buying at $5.10 and selling at
-$0.60 lost $450 per contract, or 88.235%. Its entry and exit borrow rows were
-fresh, shortable, not hard to borrow, and stored raw rate 0.0 with units still
-labelled UNKNOWN. Collection remains live. The 13 display-honesty tests confirm
-the expected-move and options-flow wording still tells the truth. No frozen
-signal rule was changed or retuned.
+**CURRENT STATUS (2026-10-02):** Complete: the original portfolio/data/display work and September 1 collection milestone remain recorded. On 2026-10-02 the owner shelved parent strategy #96, so its strategy-specific option/borrow captures and proof job are stopped. Saved historical rows and the corrected general flow displays remain intact. General options-flow ingestion is still running.
 
 Measure what an account actually does when up to four of the morning PUT-flow trades overlap, begin saving the option prices and borrow costs that no past session ever stored, and correct the expected-move and options-flow wording the bot currently overstates.
 
@@ -918,21 +904,11 @@ live behaviour changed — TODO #93 stays rejected.
 
 Make the auction and readiness tests create the data they need so GitHub can verify them without relying on files or live-machine state that exist only on this server.
 
-## 100. Turn the morning PUT shortlist into a measured option trade — AWAITING APPROVAL: a free Databento account (or $40 ThetaData) is the only way to test the option rule on history
+## 100. Turn the morning PUT shortlist into a measured option trade — PARKED: parent PUT-flow strategy shelved by owner
 
 **File:** `put-flow-option-trade-system.md`
 
-**CURRENT STATUS (2026-08-27):** Finished and answered. Verdict **INSUFFICIENT
-DATA** — the option idea was not rejected, it could not be tested. Nothing
-promoted, no option recommendation, the option section on the card stays OFF,
-TODO #96 untouched and still working. The contract selector and the live monitor
-are built, tested and running; the monitor timer fires at 6:30 a.m. Pacific and
-records real bid and ask every minute for the contracts the frozen rule picks.
-Two blockers, both measured, are written up below and in
-`.omc/research/put-flow-option-trade-system/FINAL-VERDICT.md`. The only thing
-left is one owner decision: a fresh Databento account (free) or ThetaData ($40,
-one month) unblocks the historical test this week; otherwise the forward monitor
-gets there on its own in roughly five months.
+**CURRENT STATUS (2026-10-02):** Paused because the owner shelved the parent PUT-flow strategy (#96) on 2026-10-02. Its option-monitor timer and service are stopped and restart-guarded. No option recommendations, new selections or forward monitoring will run. Historical option records and earlier research remain preserved. The previous paid-data/account decision is inactive while the parent strategy is shelved; a new owner instruction is required to resume.
 
 Decide honestly whether buying a put on the morning extreme-PUT shortlist is a real trade after costs, and if it is, ship it owner-only with an exact contract, target, stop and automatic result.
 
@@ -1156,17 +1132,11 @@ itself has the same exposure.
 The close-time gate only counts `scripts/*.py` as code, so a change to a `.sh` under `scripts/` is pushed
 with no test run — including `run_pytest_isolated.sh` and `pre-push`, the scripts that run the gate itself.
 
-## 115. Make the contained test runner see openclaw's installed packages
+## 115. Make the contained test runner see openclaw's installed packages — DONE 2026-10-04
 
 **File:** `isolated-runner-hides-home-packages.md`
 
-**CURRENT STATUS (2026-09-08):** OPEN, pre-existing since 2026-08-03 (commit f82ee38), found while
-running the full suite on 2026-09-08. `scripts/run_pytest_isolated.sh` sets `HOME=/tmp` for containment.
-Python looks for user-installed packages under `$HOME/.local`, so every package installed that way — e.g.
-`databento`, which lives in `/home/openclaw/.local/lib/python3.10/site-packages` — is invisible inside the
-runner. Result: `tests/research/test_auction_pressure_features.py` fails to import and the suite exits
-non-zero (3807 passed, 21 skipped, 1 collection error). Proven: `sudo -u openclaw python3 -c "import
-databento"` works; the same command with `HOME=/tmp` fails.
+**CURRENT STATUS (2026-10-04):** DONE. Added `PYTHONUSERBASE=/home/openclaw/.local` to `PYTEST_ENV` in `scripts/run_pytest_isolated.sh` (commit 130ee75). The `databento` collection error is gone; `test_auction_pressure_features.py` 32 passed; full suite 4386 passed, 121 skipped, 0 failed (21 min).
 
 The contained runner sets `HOME=/tmp`, which hides anything installed under `/home/openclaw/.local` —
 `databento` among them — so the full suite ends with a collection error that has nothing to do with the code.
@@ -1175,6 +1145,8 @@ The contained runner sets `HOME=/tmp`, which hides anything installed under `/ho
 ## 116. Fix wrong ticker symbols saved from videos
 
 **File:** `youtube_ticker_symbol_validation.md`
+
+**CURRENT STATUS (2026-10-04):** Symbol part BUILT + committed (130ee75), NOT LIVE until `consensus-engine.service` is restarted (the restart was blocked by the auto-mode classifier as a production deploy; user must run it). `resolve_video_ticker` in `ticker_grounding.py` maps company names to symbols (NVIDIA to NVDA, NEBIUS to NBIS via `config/ticker_aliases.json`) and flags NASDAQ/SPXW/SPIRIT/forex/crypto pairs as `invalid_symbol`; the three YouTube insert functions in `db.py` apply it (flagged rows saved with suppressed=1); the level-alert ticker query now skips suppressed rows. Live rows backfilled (backup `consensus.db.bak.pre-ticker-fix-2026-10-04`). 16 new tests; full suite 4386 passed. The 404 log lines were already 0 in the prior 24h. STILL OPEN: the TLT direction-attribution finding below (video `Z2h0LIK-FPU`), untouched.
 
 Stop the video reader saving names like "NVIDIA" instead of NVDA, which makes the engine ask Yahoo for a symbol that does not exist every five minutes.
 
@@ -1242,11 +1214,11 @@ takes only one word. Use `python3 controller.py --clear-attention resume`.
 A watchdog (`resume-watchdog.py`) auto-restarts the build after known-harmless
 stops and logs anything it will not touch.
 
-## 118. Keep Claude's token-saving changes, or undo them — AWAITING APPROVAL: remove the status-bar paste from settings?
+## 118. Keep Claude's token-saving changes, or undo them — DONE 2026-10-04 (user said no: status-bar hook stays)
 
 **File:** `claude-token-efficiency-changes.md`
 
-**CURRENT STATUS (2026-09-22):** Three small changes are live and a new helper exists. One planned change is still waiting on the user: deleting the status-bar hook that pastes the usage bar into every message. Claude's own safety check blocked Claude from editing its settings, so the user decides and makes that edit by hand. Everything can be undone with one script (commands below).
+**CURRENT STATUS (2026-10-04):** DONE. User declined removing the status-bar hook, so it stays; the three other changes stay live and can still be undone with the rollback script below.
 
 Keep the smaller session-start text, the tighter instructions and the new output-trimming helper from 2026-09-22 (each can be undone with one command), and decide whether to delete the settings hook that pastes the usage bar into every message.
 
