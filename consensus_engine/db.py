@@ -4569,6 +4569,17 @@ async def get_youtube_backlog_depth(cap: int) -> dict:
 # YouTube signal analysis helpers
 # ---------------------------------------------------------------------------
 
+def _checked_video_ticker(
+    ticker: str, suppressed: int, suppression_reason: str | None
+) -> tuple[str, int, str | None]:
+    """Fix a company name saved as a symbol (NVIDIA -> NVDA); suppress non-shares."""
+    from consensus_engine.analysis.ticker_grounding import resolve_video_ticker
+    fixed, bad = resolve_video_ticker(ticker)
+    if bad:
+        return fixed, 1, bad
+    return fixed, suppressed, suppression_reason
+
+
 async def insert_youtube_signal(
     video_id: str,
     channel_name: str,
@@ -4589,6 +4600,7 @@ async def insert_youtube_signal(
     suppression_reason: str | None = None,
 ) -> None:
     """Insert a YouTube signal for a ticker extracted from a video."""
+    ticker, suppressed, suppression_reason = _checked_video_ticker(ticker, suppressed, suppression_reason)
     conn = await get_db()
     await conn.execute(
         """INSERT OR IGNORE INTO youtube_signals
@@ -4624,6 +4636,7 @@ async def insert_youtube_level(
     suppression_reason: str | None = None,
 ) -> None:
     """Insert a price level (support/resistance) extracted from a YouTube video."""
+    ticker, suppressed, suppression_reason = _checked_video_ticker(ticker, suppressed, suppression_reason)
     conn = await get_db()
     await conn.execute(
         """INSERT OR IGNORE INTO youtube_levels
@@ -5338,15 +5351,18 @@ async def insert_youtube_catalyst(
     evidence_span_ids: str | None = None,
 ) -> None:
     """Idempotent insert of a catalyst row (unique per run/ticker/date/type)."""
+    ticker, suppressed, suppression_reason = _checked_video_ticker(ticker, 0, None)
     conn = await get_db()
     await conn.execute(
         """INSERT OR IGNORE INTO youtube_catalysts
            (run_id, video_id, ticker, catalyst_type, mentioned_date, resolved_date,
-            verified, context_text, video_timestamp_sec, evidence_span_ids)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            verified, context_text, video_timestamp_sec, evidence_span_ids,
+            suppressed, suppression_reason)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             run_id, video_id, ticker, catalyst_type, mentioned_date, resolved_date,
             verified, context_text, video_timestamp_sec, evidence_span_ids,
+            suppressed, suppression_reason,
         ),
     )
     await conn.commit()

@@ -14,6 +14,7 @@ REPO_ROOT="${CALLER_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 SCRATCH="$(mktemp -d /tmp/openclaw-tests.XXXXXX)"
 PYTEST_ENV=(
     "HOME=/tmp"
+    "PYTHONUSERBASE=/home/openclaw/.local"
     "TMPDIR=${SCRATCH}"
     "PYTHONDONTWRITEBYTECODE=1"
     "PYTHONPYCACHEPREFIX=${SCRATCH}/pycache"

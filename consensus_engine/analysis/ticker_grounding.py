@@ -165,3 +165,35 @@ def build_video_allowlist(
         if assert_ticker_grounded_in_any(ticker, pool):
             out.add(ticker.upper())
     return out
+
+
+# ─── Symbol validity (is this a real, quotable symbol?) ────────────────────
+# Separate from grounding above: grounding asks "did the video talk about it?",
+# this asks "can Yahoo/Finnhub price it as typed?".
+
+# Names the video reader saves that are not tradeable shares: index/exchange
+# names, option roots, and companies with no live listing.
+_NOT_A_SHARE = frozenset({"NASDAQ", "SPXW", "SPIRIT"})
+# Currency/crypto pairs such as USDJPY or BTCUSD. Real US symbols are <=5 letters.
+_PAIR_RE = re.compile(r"^(?:[A-Z]{3,5}USD|USD[A-Z]{3})$")
+
+
+def resolve_video_ticker(raw: str) -> tuple[str, str | None]:
+    """Return (ticker, invalid_reason) for a symbol the video reader extracted.
+
+    A company name is resolved through the alias map (NVIDIA -> NVDA). Anything
+    that cannot be priced as a share comes back unchanged with reason
+    "invalid_symbol" so the caller can suppress it instead of polling Yahoo.
+    """
+    sym = (raw or "").strip().lstrip("$").upper()
+    if not sym:
+        return sym, None
+    aliases_by_ticker = _load_aliases()
+    if sym not in aliases_by_ticker:
+        low = sym.lower()
+        for ticker, aliases in aliases_by_ticker.items():
+            if low in aliases:
+                return ticker, None
+    if sym in _NOT_A_SHARE or _PAIR_RE.match(sym):
+        return sym, "invalid_symbol"
+    return sym, None

@@ -6,6 +6,7 @@
   "AMZN": ["amazon"],
   "META": ["meta", "facebook"],
   "NVDA": ["nvidia"],
+  "NBIS": ["nebius"],
   "TSLA": ["tesla"],
   "AMD": ["amd"],
   "NFLX": ["netflix"],

@@ -1606,7 +1606,8 @@ async def _check_youtube_level_alerts() -> None:
     try:
         conn = await db.get_db()
         cursor = await conn.execute(
-            "SELECT DISTINCT ticker FROM youtube_levels WHERE extracted_at >= ?", (cutoff,)
+            "SELECT DISTINCT ticker FROM youtube_levels WHERE extracted_at >= ?"
+            " AND (suppressed IS NULL OR suppressed = 0)", (cutoff,)
         )
         tickers = [row["ticker"] for row in await cursor.fetchall()]
     except Exception as e:
