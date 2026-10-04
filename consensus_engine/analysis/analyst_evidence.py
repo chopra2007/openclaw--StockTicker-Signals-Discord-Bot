@@ -112,6 +112,21 @@ def ticker_text_context(text: str, ticker: str) -> str:
     return text if not named or named == {ticker.upper()} else ""
 
 
+def shared_ticker_subject(text: str, span: tuple[int, int], ticker: str) -> bool:
+    """A quote cannot detach the last symbol of a coordinated subject."""
+    boundaries = list(re.finditer(r"[\n;!?]|\.(?!\d)", text[:span[0]]))
+    left = boundaries[-1].end() if boundaries else 0
+    anchors = list(re.compile(r"\$([A-Za-z]{1,10})\b").finditer(text, left, span[1]))
+    own = [i for i, anchor in enumerate(anchors) if anchor[1].upper() == ticker.upper()]
+    if not own or own[-1] == 0:
+        return False
+    anchor, prior = anchors[own[-1]], anchors[own[-1] - 1]
+    return prior[1].upper() != ticker.upper() and bool(re.fullmatch(
+        r"[\s,/&+]*(?:(?:and|or|plus|with|versus|vs\.?)\s*)?",
+        text[prior.end():anchor.start()], re.I,
+    ))
+
+
 def comparison_direction(text: str, *, numeric_only: bool = False) -> str | None:
     """Infer only specific event/setup evidence, never generic long/add words."""
     metric = _metric_bias(text)

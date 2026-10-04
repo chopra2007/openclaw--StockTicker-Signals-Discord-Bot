@@ -16,7 +16,7 @@ from consensus_engine.models import (
     TickerPostView, TickerSignal, SourceType, Sentiment, locate_unique_source_span,
 )
 from consensus_engine.analysis.analyst_evidence import (
-    direction_context, direction_is_supported, safe_image_evidence, ticker_text_context, unsided_option,
+    direction_context, direction_is_supported, safe_image_evidence, shared_ticker_subject, ticker_text_context, unsided_option,
 )
 
 log = logging.getLogger("consensus_engine.db")
@@ -2510,6 +2510,7 @@ def _storage_safe_ticker_view(signal: TickerSignal, view: TickerPostView) -> Tic
         span is not None
         and view.reason_kind in {"position", "setup", "event_claim"}
         and isinstance(source_reason, str)
+        and not shared_ticker_subject(signal.raw_text, span, signal.ticker)
         and _view_ticker_is_attributable(signal, source_reason)
         and not (
             unsided_option(source_reason)

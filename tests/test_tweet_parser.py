@@ -301,7 +301,7 @@ def test_multi_ticker_span_recovers_only_unambiguous_own_clause():
     assert views["NVDA"].direction == "unclear"
 
 
-def test_source_ticker_omitted_by_model_still_makes_clause_ambiguous():
+def test_quote_without_symbol_expands_only_to_its_unique_own_source_clause():
     text = "$AMD broke resistance while $NVDA lost support"
     payload = {
         "type": "A", "tickers": ["AMD"], "direction": "long",
@@ -316,9 +316,9 @@ def test_source_ticker_omitted_by_model_still_makes_clause_ambiguous():
 
     tweet = _parse_llm_response(payload, "https://example.test/post", "analyst", text)
 
-    assert tweet.ticker_views[0].direction == "unclear"
-    assert tweet.ticker_views[0].reason_text is None
-    assert tweet.ticker_views[0].decision_code == "multi_ticker_ambiguous"
+    assert tweet.ticker_views[0].direction == "long"
+    assert tweet.ticker_views[0].reason_text == "$AMD broke resistance"
+    assert tweet.ticker_views[0].decision_code == "explicit_clause"
 
 
 @pytest.mark.asyncio

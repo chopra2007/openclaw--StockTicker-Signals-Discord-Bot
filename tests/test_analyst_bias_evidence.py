@@ -258,6 +258,31 @@ def test_numeric_neutral_recovery_does_not_guess_multi_ticker_metric_ownership()
     assert _parse_model_payload(p, "https://example.test/post", "analyst", text).ticker_views[0].direction == "unclear"
 
 
+@pytest.mark.parametrize("text,ticker,expected", [
+    ("Tesla, $TSLA, deliveries 486,532 vs 461,974 estimate. $AMD watching", "TSLA", "long"),
+    ("$TSLA and $AMD deliveries 486,532 vs 461,974 estimate", "TSLA", "unclear"),
+    ("$TSLA and $AMD deliveries 486,532 vs 461,974 estimate", "AMD", "unclear"),
+])
+def test_quote_symbol_expansion_is_attributable_in_parser_and_storage(text, ticker, expected):
+    reason = "deliveries 486,532 vs 461,974 estimate"
+    p = payload(reason)
+    p["tickers"] = ["TSLA", "AMD"]
+    p["ticker_views"][0].update(ticker=ticker, direction="long", reason_kind="event_claim")
+    view = _parse_model_payload(p, "https://example.test/post", "analyst", text).view_for_ticker(ticker)
+    stored = db._storage_safe_ticker_view(TickerSignal(ticker=ticker, source_type=SourceType.TWITTER, source_detail="analyst", raw_text=text), view)
+    assert stored.direction == expected
+
+
+@pytest.mark.parametrize("decision_code", ["explicit_clause", "multi_ticker_ambiguous"])
+def test_last_symbol_cannot_borrow_shared_numeric_subject(decision_code):
+    text = "$TSLA and $AMD deliveries 486,532 vs 461,974 estimate"
+    p = payload("$AMD deliveries 486,532 vs 461,974 estimate")
+    p["tickers"] = ["TSLA", "AMD"]
+    p["ticker_views"][0].update(ticker="AMD", direction="long", decision_code=decision_code)
+    view = _parse_model_payload(p, "https://example.test/post", "analyst", text).view_for_ticker("AMD")
+    assert view.direction == "unclear"
+
+
 @pytest.mark.parametrize("opposing", ["breakdown", "bearish", "sell", "below support"])
 def test_conflicting_own_setups_are_not_recovered_as_one_direction(opposing):
     text = f"$NVDA breakout. $NVDA {opposing}. $AMD watching"

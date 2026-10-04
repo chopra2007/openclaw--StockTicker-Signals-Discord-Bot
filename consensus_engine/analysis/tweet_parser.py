@@ -21,7 +21,7 @@ from consensus_engine.models import (
 from consensus_engine.utils.tickers import extract_tickers
 from models.router import process_tweet as process_multimodal_tweet
 from .analyst_evidence import (
-    comparison_direction, direction_context, direction_is_supported, safe_image_evidence, ticker_text_context, unsided_option,
+    comparison_direction, direction_context, direction_is_supported, safe_image_evidence, shared_ticker_subject, ticker_text_context, unsided_option,
 )
 
 log = logging.getLogger("consensus_engine.analysis.tweet_parser")
@@ -75,10 +75,26 @@ def _validate_ticker_view(
         return _unclear_view(ticker, "invalid_span")
 
     if span is not None:
+        if shared_ticker_subject(original_text, span, ticker):
+            return _unclear_view(ticker, "multi_ticker_ambiguous")
         start, end = span
         reason_text = original_text[start:end]
         if len(all_tickers) > 1 and not _ticker_in_span(ticker, reason_text):
-            return _unclear_view(ticker, "multi_ticker_ambiguous")
+            boundaries = list(re.finditer(r"[\n;!?]|\.(?!\d)", original_text[:start]))
+            clause_start = boundaries[-1].end() if boundaries else 0
+            # Check the original subject before context trims prior tickers.
+            # A shared '$A and $B' subject cannot become B-only evidence.
+            prefix = original_text[clause_start:end]
+            if any(_ticker_in_span(other, prefix) for other in all_tickers if other != ticker):
+                return _unclear_view(ticker, "multi_ticker_ambiguous")
+            context = direction_context(original_text, span, ticker).strip()
+            context = re.sub(r"\s+(?:and|while|but)$", "", context, flags=re.I)
+            expanded_span = locate_unique_source_span(original_text, context)
+            if (expanded_span is None or not _ticker_in_span(ticker, context)
+                    or any(_ticker_in_span(other, context) for other in all_tickers if other != ticker)):
+                return _unclear_view(ticker, "multi_ticker_ambiguous")
+            start, end = expanded_span
+            span, reason_text = expanded_span, original_text[start:end]
         for other in all_tickers:
             if other != ticker and _ticker_in_span(other, reason_text):
                 return _unclear_view(ticker, "multi_ticker_ambiguous")
