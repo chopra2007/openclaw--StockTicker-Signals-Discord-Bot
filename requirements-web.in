@@ -1,0 +1,5 @@
+# Dedicated Python 3.12 web environment; never install into the bot environment.
+fastapi==0.142.2
+pydantic==2.13.5
+uvicorn==0.54.0
+argon2-cffi==25.1.0
