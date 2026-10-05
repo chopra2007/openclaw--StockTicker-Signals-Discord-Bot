@@ -60,6 +60,7 @@ def _label(value):
 class QuotaBroker:
     def __init__(self, store, *, clock=time.time):
         self.store, self.clock = store, clock
+        self.dashboard_owner_allowed = None
 
     def configure_scope(self, scope_id, *, window_seconds, verified_limit, bot_reserved,
                         dashboard_allocated, safety_margin, verified=False,
@@ -100,6 +101,10 @@ class QuotaBroker:
         now = self.clock()
         def denied(reason, when=None):
             return Admission(False, not_before=when if when is not None else now+5, reason=reason)
+        if identity.caller == 'dashboard' and self.dashboard_owner_allowed is not None:
+            try: allowed=self.dashboard_owner_allowed(identity.owner) is True
+            except Exception: allowed=False
+            if not allowed: return denied('unregistered_worker')
         if (identity.caller not in ('bot', 'dashboard') or not _label(attempt_id)
                 or not _label(endpoint)
                 or not isinstance(scope_ids, (list, tuple)) or not 0 < len(scope_ids) <= 16

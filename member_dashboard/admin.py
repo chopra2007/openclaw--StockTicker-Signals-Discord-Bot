@@ -22,7 +22,10 @@ def opaque(value):
 
 
 class AdminService:
-    def __init__(self,store,auth,*,clock=time.time): self.store,self.auth,self.clock=store,auth,clock
+    def __init__(self,store,auth,*,clock=time.time):
+        self.store,self.auth,self.clock=store,auth,clock
+        self.frontend_observation=None
+        self.denial_journal=None
 
     def _actor(self,con,actor,now):
         self.auth.revalidate(actor,now,con=con)
@@ -44,6 +47,8 @@ class AdminService:
         now=self.clock()
         with self.store.transaction() as con:
             self._actor(con,actor,now)
+            if not enabled and self.denial_journal is not None:
+                self.denial_journal.append('feature_disabled',feature)
             con.execute('UPDATE features SET enabled=?,version=version+1,updated_at=? WHERE name=? AND enabled!=?',(int(enabled),now,feature,int(enabled)))
             row=con.execute('SELECT enabled,version FROM features WHERE name=?',(feature,)).fetchone()
             self.auth._audit(con,'feature_changed',feature,now,actor.member_id,{'result':'ok'})
@@ -79,6 +84,8 @@ class AdminService:
                 issued=self.auth.issue_reset(actor,member_id,now,con=con)
                 result=TokenLink(id=issued.id,token=issued.token,expires_at=issued.expires_at)
             else:
+                if action in ('member_suspended','sessions_revoked') and self.denial_journal is not None:
+                    self.denial_journal.append(action,member_id)
                 status='suspended' if action=='member_suspended' else 'active' if action=='member_reactivated' else row[1]
                 con.execute('UPDATE members SET status=?,authorization_version=authorization_version+1,updated_at=? WHERE id=?',(status,now,member_id))
                 con.execute('DELETE FROM sessions WHERE member_id=?',(member_id,))
@@ -120,4 +127,7 @@ class AdminService:
         from .monitoring import snapshot
         with self.store.transaction() as con:
             now=self.clock(); self._actor(con,actor,now)
-            return snapshot(con,now)
+            result=snapshot(con,now)
+            if self.frontend_observation is not None:
+                result.frontend=self.frontend_observation(now)
+            return result

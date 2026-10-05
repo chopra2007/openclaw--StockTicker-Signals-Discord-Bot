@@ -164,7 +164,7 @@ async def test_supervisor_keeps_feed_running_and_kills_descendants_before_replac
         launched.append(process)
         return process
     supervisor = WorkerSupervisor(dashboard.store, factory, lambda now: ticks.append(now),
-                                  clock=dashboard.clock, stop_timeout=2)
+                                  clock=dashboard.clock, stop_timeout=2, reconcile=lambda _: True)
     try:
         supervisor.tick()
         await wait_until(marker.exists)

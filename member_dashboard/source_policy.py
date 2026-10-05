@@ -73,6 +73,7 @@ class SourcePolicy:
         self.store=store
         self.authority_current=authority_current
         self.backup_compliant=backup_compliant
+        self.denial_journal=None
 
     def record(self,permission: SourcePermission) -> None:
         """Local trusted grant registry insertion; never exposed as a web route."""
@@ -81,6 +82,8 @@ class SourcePolicy:
         # Fields come exclusively from this fixed DTO, not a caller's mapping.
         names=tuple(SourcePermission.model_fields)
         with self.store.transaction() as conn:
+            if permission.status!='allowed' and self.denial_journal is not None:
+                self.denial_journal.append('source_denied',permission.source_id+'/'+permission.product_id)
             conn.execute('INSERT INTO source_permissions(id,'+','.join(names)+') VALUES ('+
                 ','.join('?' for _ in range(len(names)+1))+')',
                 (str(uuid4()),*(values[name] for name in names)))

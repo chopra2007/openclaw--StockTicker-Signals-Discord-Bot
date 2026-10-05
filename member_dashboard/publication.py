@@ -270,6 +270,8 @@ class Publisher:
     def retract(self,source_post_key: str,ticker: str,now: float) -> None:
         """Trusted explicit withdrawal, never invoked merely because a row disappeared."""
         with self.store.transaction() as conn:
+            if self.policy.denial_journal is not None:
+                self.policy.denial_journal.append('retraction',source_post_key+'/'+ticker)
             conn.row_factory=sqlite3.Row
             rows=conn.execute('SELECT * FROM publications WHERE source_post_key=? AND ticker=?',
                              (source_post_key,ticker)).fetchall()

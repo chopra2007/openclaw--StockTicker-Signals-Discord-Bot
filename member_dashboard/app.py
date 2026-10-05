@@ -17,7 +17,6 @@ from .source_policy import SourcePolicy
 from .assets import router as assets_router
 from .routes.feed import router as feed_router
 from .publication import FeedService
-from .market_reader import MarketReader
 from .history import HistoryService
 from .routes.history import router as history_router
 from .admin import AdminService
@@ -45,8 +44,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.state.anonymous_csrf = AnonymousCsrf()
     app.state.source_policy = SourcePolicy(store)
     app.state.feed = (FeedService(store,app.state.auth,app.state.source_policy,
-        signing_key=settings.feed_signing_key,clock=settings.clock,
-        reader=MarketReader(settings.market_path,clock=settings.clock)) if settings.feed_signing_key else None)
+        signing_key=settings.feed_signing_key,clock=settings.clock) if settings.feed_signing_key else None)
     app.state.research = JobService(store, app.state.auth, app.state.source_policy,
         settings.provider_registry if isinstance(settings.provider_registry, ProviderRegistry) else ProviderRegistry())
     app.state.history = HistoryService(app.state.research, signing_key=settings.feed_signing_key, clock=settings.clock)

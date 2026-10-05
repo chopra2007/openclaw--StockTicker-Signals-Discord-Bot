@@ -24,6 +24,7 @@ class HistoryError(Exception):
 class HistoryService:
     def __init__(self, jobs, *, signing_key, clock):
         self.jobs, self.clock = jobs, clock
+        self.denial_journal=None
         if signing_key is not None and (type(signing_key) is not bytes or len(signing_key) < 32):
             raise ValueError('History signing key must contain at least 32 bytes')
         self.key = signing_key
@@ -167,6 +168,7 @@ class HistoryService:
             self.jobs.auth.revalidate(principal,now,con=con)
             owner = con.execute('SELECT id FROM report_owners WHERE report_id=? AND member_id=? AND deleted_at IS NULL',(report_id,principal.member_id)).fetchone()
             if owner is None: raise HistoryError()
+            if self.denial_journal is not None: self.denial_journal.append('report_deleted',owner[0])
             con.execute('UPDATE job_subscribers SET deleted_at=?,subscriber_version=subscriber_version+1 WHERE member_id=? AND request_id IN (SELECT id FROM research_requests WHERE report_owner_id=? AND member_id=?) AND deleted_at IS NULL',(now,principal.member_id,owner[0],principal.member_id))
             con.execute('UPDATE research_requests SET deleted_at=?,subscriber_version=subscriber_version+1 WHERE report_owner_id=? AND member_id=? AND deleted_at IS NULL',(now,owner[0],principal.member_id))
             con.execute('UPDATE report_owners SET deleted_at=?,subscriber_version=subscriber_version+1 WHERE id=? AND member_id=?',(now,owner[0],principal.member_id))
@@ -231,5 +233,6 @@ class HistoryService:
         with self.jobs.store.transaction() as con:
             con.row_factory = sqlite3.Row
             if self.owned_live_conversation(con,principal,conversation_id,now) is None: raise HistoryError()
+            if self.denial_journal is not None: self.denial_journal.append('conversation_deleted',conversation_id)
             con.execute('UPDATE conversations SET deleted_at=?,version=version+1 WHERE id=? AND member_id=?',(now,conversation_id,principal.member_id))
             con.execute("UPDATE assistant_runs SET deleted_at=?,subscriber_version=subscriber_version+1,status=CASE WHEN status='queued' THEN 'cancelled' WHEN status='running' THEN 'draining' ELSE status END,finished_at=CASE WHEN status='queued' THEN ? ELSE finished_at END WHERE conversation_id=? AND member_id=? AND deleted_at IS NULL",(now,now,conversation_id,principal.member_id))

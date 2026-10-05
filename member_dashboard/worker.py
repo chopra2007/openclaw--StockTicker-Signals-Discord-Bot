@@ -28,6 +28,7 @@ class ComputeWorker:
         self.prefer_assistant = True
         self._last_observation = None
 
+
     def _observe(self, *, progress=False):
         from .monitoring import observe,CADENCE
         now=self.clock()
@@ -243,6 +244,19 @@ class ProcessTree:
             try: os.killpg(self.pid, signal.SIGTERM)
             except ProcessLookupError: pass
 
+    def contains_pid(self,pid):
+        """Verify a gated runtime PID belongs to this OS-owned tree (venv launchers may fork)."""
+        if self._closed or type(pid) is not int or pid<=0: return False
+        if os.name=='nt':
+            c=self._ctypes
+            class ProcessIds(c.Structure):
+                _fields_=[('assigned',c.c_uint32),('listed',c.c_uint32),('pids',c.c_size_t*128)]
+            value=ProcessIds()
+            if not self._kernel.QueryInformationJobObject(self._job,3,c.byref(value),c.sizeof(value),None): return False
+            return value.assigned<=128 and pid in value.pids[:value.listed]
+        try: return os.getpgid(pid)==self.pid
+        except ProcessLookupError: return False
+
     def kill_tree(self):
         if self._closed:
             return
@@ -302,6 +316,7 @@ class WorkerSupervisor:
         self.blocked = False
         self._observation_id = str(uuid4())
         self._last_observation = None
+        self._pending_exit = None
 
     def request_restart(self):
         self._restart = True
@@ -330,13 +345,10 @@ class WorkerSupervisor:
                     self._restart = True
             if child.is_dead():
                 self.last_exit_confirmed = True
-                reconciled = not self._has_uncertainty(child.worker_id)
-                if not reconciled:
-                    try: reconciled = self.reconcile(child.worker_id) is True
-                    except Exception: reconciled = False
-                from .jobs import JobService
-                JobService(self.store,None,None,None).confirm_worker_exit(child.worker_id,now,reconciled=reconciled)
-                self.blocked = not reconciled
+                # The independent broker can own admissions absent from web state.
+                # Persist/retain the exact exited identity until every bounded batch
+                # is reconciled; feed/heartbeat continue while the broker is offline.
+                self._pending_exit = child.worker_id
                 child.close()
                 self.child = None
                 self._stop_at, self._restart = None, False
@@ -346,6 +358,16 @@ class WorkerSupervisor:
                     self._stop_at = now+self.stop_timeout
                 elif now >= self._stop_at:
                     child.kill_tree()
+        if self._pending_exit is not None:
+            try: reconciled = self.reconcile(self._pending_exit) is True
+            except Exception: reconciled = False
+            from .jobs import JobService
+            jobs=JobService(self.store,None,None,None)
+            jobs.confirm_worker_exit(self._pending_exit,now,reconciled=reconciled)
+            self.blocked=not reconciled
+            if reconciled:
+                jobs.recover_expired_leases(now)
+                self._pending_exit=None
         if self.child is None and not self.blocked:
             # Startup never restores stale permits from a historical snapshot.
             if self._has_uncertainty():
