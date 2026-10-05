@@ -81,6 +81,23 @@ def test_duplicate_rpc_and_owner_binding(quota):
         assert con.execute('SELECT finished_at FROM provider_admissions').fetchone()[0] is None
 
 
+@pytest.mark.parametrize('outcome,retry_after,advance', [('uncertain', None, 0), ('429_uncertain', 5, 6)])
+def test_explicit_uncertain_finish_cannot_be_replayed(quota, outcome, retry_after, advance):
+    b, store, now, _, web = quota
+    admission = reserve(b, web, attempt='uncertain-replay')
+    assert admission.allowed
+    # Pre-send retries of the admission RPC still return the same permit.
+    assert reserve(b, web, attempt='uncertain-replay') == admission
+    b.finish(admission.admission_id, web, outcome, retry_after)
+    now[0] += advance
+    replay = reserve(b, web, attempt='uncertain-replay')
+    assert not replay.allowed
+    assert replay.reason == 'stale_attempt'
+    with store.transaction() as con:
+        assert con.execute('SELECT count(*),sum(units),max(finished_at) FROM provider_admissions').fetchone() == (1, 1, None)
+    assert reserve(b, web, attempt='actual-new-send').allowed
+
+
 def test_old_admission_cannot_authorize_a_send_in_a_new_window(quota):
     b, _, now, _, web = quota
     assert reserve(b, web, attempt='lost-reply').allowed
@@ -299,6 +316,61 @@ def test_transport_exception_remains_uncertain_and_sdk_cannot_bypass(quota):
             budget.require_sdk('yahoo')
     with store.transaction() as con:
         assert con.execute('SELECT units,uncertain,finished_at FROM provider_admissions').fetchone() == (1, 1, None)
+
+
+@pytest.mark.parametrize('method', ['GET', 'POST'])
+@pytest.mark.parametrize('truncated', [True, False])
+def test_real_sync_429_headers_survive_body_handling(quota, method, truncated):
+    requests = pytest.importorskip('requests')
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    from consensus_engine.utils.provider_budget import TransportBudget, Route, BudgetClient
+    from member_dashboard.quota_broker import BrokerServer
+    b, store, _, bot, _ = quota
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(429)
+            self.send_header('Retry-After', '900')
+            self.send_header('Content-Length', '100' if truncated else '1')
+            self.end_headers()
+            self.wfile.write(b'x')
+            self.close_connection = True
+        do_POST = do_GET
+        def log_message(self, *_):
+            pass
+    server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+    thread = threading.Thread(target=lambda: server.serve_forever(poll_interval=.01), daemon=True)
+    thread.start()
+    origin = f'http://127.0.0.1:{server.server_port}'
+    observed = []
+    def existing_hook(response, *args, **kwargs):
+        with store.transaction() as con:
+            observed.append(con.execute('SELECT outcome,finished_at FROM provider_admissions').fetchone())
+        return response
+    try:
+        with BrokerServer.for_loopback_tests(b, {'web': 'dashboard'}) as broker:
+            budget = TransportBudget(BudgetClient(broker.address, credential='web'), 'dashboard',
+                                     [Route(method, origin, '/', 'quote', ('account',))])
+            def send():
+                return budget.request(getattr(requests, method.lower()), method, origin+'/',
+                                      timeout=2, proxies={'http': '', 'https': ''},
+                                      hooks={'response': existing_hook})
+            if truncated:
+                with pytest.raises(requests.exceptions.ChunkedEncodingError):
+                    send()
+            else:
+                response = send()
+                assert response.status_code == 429 and response.content == b'x'
+            assert reserve(b, bot).not_before == 1900
+            # Headers establish a shared hold before existing response hooks or
+            # eager body reading run; concurrency remains owned until completion.
+            assert observed == [('429_uncertain', None)]
+        with store.transaction() as con:
+            assert con.execute('SELECT units,uncertain,finished_at,outcome FROM provider_admissions').fetchone() == (
+                (1, 1, None, '429_uncertain') if truncated else (1, 0, 1000, '429'))
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(2)
 
 
 @pytest.mark.asyncio

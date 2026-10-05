@@ -143,12 +143,30 @@ class TransportBudget:
             raise BudgetDeferred('streaming transport unsupported')
         admission = self.admit(method, url)
         kwargs['allow_redirects'] = False
+        throttled, retry_after = False, None
+        def capture_headers(response, *args, **hook_kwargs):
+            # requests invokes response hooks before eager body consumption.
+            # Retain only quota metadata, never the response/content/credentials.
+            nonlocal throttled, retry_after
+            if response.status_code == 429:
+                throttled = True
+                retry_after = retry_after_seconds(response.headers.get('Retry-After'))
+                # Establish the hold immediately without releasing concurrency.
+                self.client.finish(admission.admission_id, '429_uncertain', retry_after)
+            return response
+        hooks = dict(kwargs.get('hooks') or {})
+        existing = hooks.get('response') or []
+        hooks['response'] = [capture_headers] + ([existing] if callable(existing) else list(existing))
+        kwargs['hooks'] = hooks
         try:
             response = send(url, **kwargs)
         except BaseException:
-            self.client.finish(admission.admission_id, 'uncertain')
+            self.client.finish(admission.admission_id, '429_uncertain' if throttled else 'uncertain', retry_after)
             raise
-        self.complete(admission, response)
+        if throttled:
+            self.client.finish(admission.admission_id, '429', retry_after)
+        else:
+            self.complete(admission, response)
         return response
 
     def require_sdk(self, product):

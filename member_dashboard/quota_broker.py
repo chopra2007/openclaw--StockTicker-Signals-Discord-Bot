@@ -118,7 +118,7 @@ class QuotaBroker:
             if prior:
                 if prior[1:] != (identity.owner, identity.caller, fingerprint):
                     return denied('attempt_conflict')
-                if con.execute('SELECT 1 FROM provider_admissions a JOIN provider_quota_policy p ON p.scope_id=a.scope_id WHERE a.group_id=? AND (a.finished_at IS NOT NULL OR a.admitted_at<=?-p.window_seconds OR p.verified=0 OR p.expires_at IS NULL OR p.expires_at<=?) LIMIT 1', (prior[0], now, now)).fetchone():
+                if con.execute('SELECT 1 FROM provider_admissions a JOIN provider_quota_policy p ON p.scope_id=a.scope_id WHERE a.group_id=? AND (a.outcome IS NOT NULL OR a.finished_at IS NOT NULL OR a.admitted_at<=?-p.window_seconds OR p.verified=0 OR p.expires_at IS NULL OR p.expires_at<=?) LIMIT 1', (prior[0], now, now)).fetchone():
                     return denied('stale_attempt')
                 cooldown = con.execute('SELECT max(c.not_before) FROM provider_admissions a JOIN provider_cooldowns c ON c.scope_id=a.scope_id WHERE a.group_id=?', (prior[0],)).fetchone()[0]
                 if cooldown is not None and cooldown > now:
