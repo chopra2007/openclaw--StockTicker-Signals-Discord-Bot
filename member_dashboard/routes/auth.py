@@ -1,5 +1,6 @@
 """Auth-only routes; no administration/recovery over HTTP."""
 from typing import Literal
+from dataclasses import dataclass, field
 import hmac
 import secrets
 import threading
@@ -41,25 +42,46 @@ class CsrfView(PublicModel):
     token: str
 
 
+@dataclass(frozen=True)
+class AnonymousChallenge:
+    token: str = field(repr=False)
+    expires_at: float
+    address_digest: bytes = field(repr=False)
+
+
 class AnonymousCsrf:
     """Bounded synchronizer challenges. Restart invalidates anonymous forms safely."""
     def __init__(self):
         self._values = {}
+        self._issued_by_address = {}
         self._lock = threading.Lock()
 
-    def issue(self, now):
-        cookie, token = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
+    def issue(self, now, address, existing_cookie=''):
+        address_key = digest(address)
         with self._lock:
-            self._values = {key:value for key,value in self._values.items() if value[1]>now}
+            self._values = {key:value for key,value in self._values.items() if value.expires_at>now}
+            self._issued_by_address = {key:[stamp for stamp in stamps if stamp>now-900]
+                                       for key,stamps in self._issued_by_address.items()
+                                       if any(stamp>now-900 for stamp in stamps)}
+            row = self._values.get(digest(existing_cookie))
+            if row is not None and hmac.compare_digest(row.address_digest,address_key):
+                return existing_cookie,row.token,row.expires_at
+            history = self._issued_by_address.get(address_key,[])
+            # A single trusted address can occupy at most50 of4096 slots/15min,
+            # even if it discards every cookie or changes forwarded headers.
+            if len(history)>=50:
+                raise AuthError()
             if len(self._values)>=4096:
                 raise AuthError()
-            self._values[digest(cookie)] = (digest(token),now+900)
-        return cookie, token
+            cookie, token = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
+            self._values[digest(cookie)] = AnonymousChallenge(token,now+900,address_key)
+            self._issued_by_address[address_key] = [*history,now]
+        return cookie, token, now+900
 
     def check(self,cookie,token,now):
         with self._lock:
             row = self._values.get(digest(cookie))
-            if row is None or row[1]<=now or not hmac.compare_digest(row[0],digest(token)):
+            if row is None or row.expires_at<=now or not hmac.compare_digest(digest(row.token),digest(token)):
                 raise AuthError()
 
 
@@ -76,8 +98,13 @@ def csrf(request:Request,response:Response):
             return CsrfView(token=request.app.state.auth.session_csrf(session,now))
         except AuthError:
             response.delete_cookie(SESSION_COOKIE,path='/',secure=True,httponly=True,samesite='lax')
-    cookie, token = request.app.state.anonymous_csrf.issue(now)
-    response.set_cookie('__Host-member_csrf',cookie,max_age=900,path='/',secure=True,httponly=True,samesite='lax')
+    try:
+        cookie, token, expires = request.app.state.anonymous_csrf.issue(
+            now,request.client.host if request.client else 'unknown',
+            request.cookies.get('__Host-member_csrf',''))
+    except AuthError:
+        raise HTTPException(403) from None
+    response.set_cookie('__Host-member_csrf',cookie,max_age=max(0,int(expires-now)),path='/',secure=True,httponly=True,samesite='lax')
     return CsrfView(token=token)
 
 

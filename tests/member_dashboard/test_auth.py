@@ -30,7 +30,7 @@ def admin(auth, dashboard, username='synthetic_admin'):
 
 def member(auth, dashboard, username='synthetic_member'):
     actor = admin(auth, dashboard)
-    token = auth.issue_invite(actor, dashboard.clock())
+    token = auth.issue_invite_trusted(actor, dashboard.clock())
     return auth.redeem_invite(token.token, username, PASSWORD, dashboard.clock())
 
 
@@ -48,7 +48,7 @@ def test_http_auth_exists(dashboard):
 def test_invite_has_one_winner(auth, dashboard):
     from member_dashboard.auth import AuthError, AuthService
     actor = admin(auth, dashboard)
-    token = auth.issue_invite(actor, dashboard.clock())
+    token = auth.issue_invite_trusted(actor, dashboard.clock())
     barrier = threading.Barrier(2)
     def redeem(index):
         service = AuthService(dashboard.store)
@@ -70,7 +70,7 @@ def test_invite_has_one_winner(auth, dashboard):
 def test_invite_invalid_state(auth, dashboard, state):
     from member_dashboard.auth import AuthError
     actor = admin(auth, dashboard)
-    token = auth.issue_invite(actor, dashboard.clock())
+    token = auth.issue_invite_trusted(actor, dashboard.clock())
     now = dashboard.clock()
     if state == 'expiry':
         now = token.expires_at
@@ -86,9 +86,9 @@ def test_invite_invalid_state(auth, dashboard, state):
 def test_username_collision_keeps_invite_unused(auth, dashboard):
     from member_dashboard.auth import AuthError
     actor = admin(auth, dashboard)
-    first = auth.issue_invite(actor, dashboard.clock())
+    first = auth.issue_invite_trusted(actor, dashboard.clock())
     auth.redeem_invite(first.token, 'MiXeD_Name', PASSWORD, dashboard.clock())
-    second = auth.issue_invite(actor, dashboard.clock())
+    second = auth.issue_invite_trusted(actor, dashboard.clock())
     with pytest.raises(AuthError):
         auth.redeem_invite(second.token, 'mixed_NAME', PASSWORD, dashboard.clock())
     result = auth.redeem_invite(second.token, 'other_member', PASSWORD, dashboard.clock())
@@ -99,7 +99,7 @@ def test_username_collision_keeps_invite_unused(auth, dashboard):
 def test_invalid_password_leaves_invite(auth, dashboard, password):
     from member_dashboard.auth import AuthError
     actor = admin(auth, dashboard)
-    token = auth.issue_invite(actor, dashboard.clock())
+    token = auth.issue_invite_trusted(actor, dashboard.clock())
     with pytest.raises(AuthError):
         auth.redeem_invite(token.token, 'test_member', password, dashboard.clock())
     assert auth.redeem_invite(token.token, 'test_member', PASSWORD, dashboard.clock()).role == 'member'
@@ -108,7 +108,7 @@ def test_invalid_password_leaves_invite(auth, dashboard, password):
 @pytest.mark.parametrize('username', ['has space', 'ééé', 'ab', 'a'*33])
 def test_invalid_username(auth, dashboard, username):
     from member_dashboard.auth import AuthError
-    token = auth.issue_invite(admin(auth, dashboard), dashboard.clock())
+    token = auth.issue_invite_trusted(admin(auth, dashboard), dashboard.clock())
     with pytest.raises(AuthError):
         auth.redeem_invite(token.token, username, PASSWORD, dashboard.clock())
 
@@ -117,12 +117,12 @@ def test_issue_requires_active_admin(auth, dashboard):
     from member_dashboard.auth import AuthError
     target = member(auth, dashboard)
     with pytest.raises(AuthError):
-        auth.issue_invite(target.id, dashboard.clock())
+        auth.issue_invite_trusted(target.id, dashboard.clock())
     with dashboard.store.transaction() as con:
         con.execute("UPDATE members SET status='suspended' WHERE role='admin'")
         actor = con.execute("SELECT id FROM members WHERE role='admin'").fetchone()[0]
     with pytest.raises(AuthError):
-        auth.issue_reset(actor, target.id, dashboard.clock())
+        auth.issue_reset_trusted(actor, target.id, dashboard.clock())
 
 
 def test_only_digests_persist(auth, dashboard):
@@ -194,8 +194,8 @@ def test_reset_replaces_tokens_and_revokes_all_sessions(auth, dashboard):
     actor = admin(auth, dashboard, 'second_admin')
     auth.login(target.username, PASSWORD, dashboard.clock(), '192.0.2.1')
     auth.login(target.username, PASSWORD, dashboard.clock(), '192.0.2.2')
-    old = auth.issue_reset(actor, target.id, dashboard.clock())
-    new = auth.issue_reset(actor, target.id, dashboard.clock())
+    old = auth.issue_reset_trusted(actor, target.id, dashboard.clock())
+    new = auth.issue_reset_trusted(actor, target.id, dashboard.clock())
     with pytest.raises(AuthError): auth.reset_password(old.token, NEW_PASSWORD, dashboard.clock())
     auth.reset_password(new.token, NEW_PASSWORD, dashboard.clock())
     with pytest.raises(AuthError): auth.reset_password(new.token, NEW_PASSWORD, dashboard.clock())
@@ -210,7 +210,7 @@ def test_reset_has_one_winner(auth, dashboard):
     from member_dashboard.auth import AuthService, AuthError
     target = member(auth, dashboard)
     actor = admin(auth, dashboard, 'second_admin')
-    token = auth.issue_reset(actor, target.id, dashboard.clock())
+    token = auth.issue_reset_trusted(actor, target.id, dashboard.clock())
     barrier = threading.Barrier(2)
     def reset(index):
         service = AuthService(dashboard.store)
@@ -270,7 +270,7 @@ def test_local_recovery_needs_no_admin_session(auth, dashboard, monkeypatch, tmp
     actor = admin(auth, dashboard)
     first = auth.login('synthetic_admin',PASSWORD,dashboard.clock(),'192.0.2.1')
     second = auth.login('synthetic_admin',PASSWORD,dashboard.clock(),'192.0.2.2')
-    reset = auth.issue_reset(actor,actor,dashboard.clock())
+    reset = auth.issue_reset_trusted(actor,actor,dashboard.clock())
     with dashboard.store.transaction() as con:
         con.execute('UPDATE sessions SET absolute_expires_at=?',(dashboard.clock(),))
     authorize_local(monkeypatch,dashboard)
@@ -298,7 +298,7 @@ def test_recovery_cli_rejects_invalid_input(auth,dashboard,monkeypatch,tmp_path,
     actor = admin(auth,dashboard)
     target='synthetic_admin'
     if mode=='nonadmin':
-        token=auth.issue_invite(actor,dashboard.clock())
+        token=auth.issue_invite_trusted(actor,dashboard.clock())
         target=auth.redeem_invite(token.token,'synthetic_member',PASSWORD,dashboard.clock()).username
     if mode=='unknown': target='missing_admin'
     authorize_local(monkeypatch,dashboard)
@@ -334,7 +334,7 @@ def test_recovery_does_not_reactivate_or_promote(auth,dashboard,monkeypatch):
 def test_password_change_failure_rolls_back_everything(auth,dashboard,monkeypatch,operation):
     actor=admin(auth,dashboard)
     issued=auth.login('synthetic_admin',PASSWORD,dashboard.clock(),'192.0.2.1')
-    reset=auth.issue_reset(actor,actor,dashboard.clock())
+    reset=auth.issue_reset_trusted(actor,actor,dashboard.clock())
     authorize_local(monkeypatch,dashboard)
     with dashboard.store.transaction() as con:
         before=con.execute('SELECT password_hash,authorization_version FROM members WHERE id=?',(actor,)).fetchone()
@@ -364,7 +364,7 @@ def test_work_principal_cannot_survive_password_reset(auth,dashboard):
     issued=auth.login('synthetic_admin',PASSWORD,dashboard.clock(),'192.0.2.1')
     principal=auth.principal(issued.token,dashboard.clock())
     auth.revalidate(principal,dashboard.clock())
-    reset=auth.issue_reset(actor,actor,dashboard.clock())
+    reset=auth.issue_reset_trusted(actor,actor,dashboard.clock())
     auth.reset_password(reset.token,NEW_PASSWORD,dashboard.clock())
     with dashboard.store.transaction() as con:
         with pytest.raises(AuthError): auth.revalidate(principal,dashboard.clock(),con=con)
@@ -373,7 +373,7 @@ def test_work_principal_cannot_survive_password_reset(auth,dashboard):
 def test_reset_expiry_boundary_and_weak_password(auth,dashboard):
     from member_dashboard.auth import AuthError
     actor=admin(auth,dashboard)
-    token=auth.issue_reset(actor,actor,dashboard.clock())
+    token=auth.issue_reset_trusted(actor,actor,dashboard.clock())
     with pytest.raises(AuthError): auth.reset_password(token.token,'weak',dashboard.clock())
     with pytest.raises(AuthError): auth.reset_password(token.token,NEW_PASSWORD,token.expires_at)
     auth.reset_password(token.token,NEW_PASSWORD,token.expires_at-1)
@@ -403,7 +403,7 @@ def test_forwarded_header_does_not_evade_address_throttle(auth,dashboard):
 def test_login_cannot_publish_session_after_concurrent_reset(auth,dashboard,monkeypatch):
     from member_dashboard.auth import AuthError
     actor=admin(auth,dashboard)
-    token=auth.issue_reset(actor,actor,dashboard.clock())
+    token=auth.issue_reset_trusted(actor,actor,dashboard.clock())
     verified=threading.Event()
     reset_done=threading.Event()
     original=auth._verify_password
@@ -532,7 +532,7 @@ def test_linux_pty_recovery_and_bootstrap(auth,dashboard):
     with dashboard.store.transaction() as con:
         actor=con.execute("SELECT id FROM members WHERE username='sole_admin'").fetchone()[0]
     session=auth.login('sole_admin',PASSWORD,dashboard.clock(),'192.0.2.1')
-    token=auth.issue_reset(actor,actor,dashboard.clock())
+    token=auth.issue_reset_trusted(actor,actor,dashboard.clock())
     with dashboard.store.transaction() as con:
         con.execute('UPDATE sessions SET absolute_expires_at=?',(dashboard.clock(),))
     code,output=terminal('recover-admin','sole_admin',[NEW_PASSWORD,NEW_PASSWORD])
@@ -561,7 +561,7 @@ def test_linux_pty_recovery_and_bootstrap(auth,dashboard):
 
 def test_public_token_writes_obey_address_budget(auth,dashboard):
     actor=admin(auth,dashboard)
-    token=auth.issue_invite(actor,dashboard.clock())
+    token=auth.issue_invite_trusted(actor,dashboard.clock())
     for index in range(50): auth._reserve_login(f'absent_{index}','testclient',dashboard.clock())
     response=post(dashboard,'/auth/redeem',{'token':token.token,'username':'budget_member','password':PASSWORD})
     assert response.status_code==400
@@ -571,12 +571,12 @@ def test_public_token_writes_obey_address_budget(auth,dashboard):
 
 def test_http_invite_reset_session_flow(auth,dashboard):
     actor=admin(auth,dashboard)
-    token=auth.issue_invite(actor,dashboard.clock())
+    token=auth.issue_invite_trusted(actor,dashboard.clock())
     response=post(dashboard,'/auth/redeem',{'token':token.token,'username':'http_member','password':PASSWORD})
     assert response.status_code==201 and response.json()['role']=='member'
     assert post(dashboard,'/auth/redeem',{'token':token.token,'username':'other_member','password':PASSWORD}).status_code==400
     assert post(dashboard,'/auth/login',{'username':'http_member','password':PASSWORD}).status_code==200
-    reset=auth.issue_reset(actor,response.json()['id'],dashboard.clock())
+    reset=auth.issue_reset_trusted(actor,response.json()['id'],dashboard.clock())
     assert post(dashboard,'/auth/reset',{'token':reset.token,'password':NEW_PASSWORD}).status_code==204
     assert dashboard.client.get('/api/v1/me').status_code==401
     assert post(dashboard,'/auth/login',{'username':'http_member','password':NEW_PASSWORD}).status_code==200
@@ -586,7 +586,7 @@ def test_http_invite_reset_session_flow(auth,dashboard):
 def test_recovery_wins_against_simultaneous_old_reset(auth,dashboard,monkeypatch):
     from member_dashboard.auth import AuthError
     actor=admin(auth,dashboard)
-    token=auth.issue_reset(actor,actor,dashboard.clock())
+    token=auth.issue_reset_trusted(actor,actor,dashboard.clock())
     authorize_local(monkeypatch,dashboard)
     original=auth.hash_password
     barrier=threading.Barrier(2)
@@ -608,3 +608,104 @@ def test_recovery_wins_against_simultaneous_old_reset(auth,dashboard,monkeypatch
         assert auth._verify_password(hashed,NEW_PASSWORD)
         assert con.execute("SELECT count(*) FROM password_resets WHERE consumed_at IS NULL AND revoked_at IS NULL").fetchone()[0]==0
         assert con.execute("SELECT count(*) FROM audit_events WHERE action='local_admin_recovery'").fetchone()[0]==1
+
+
+@pytest.mark.parametrize('operation',['invite','reset'])
+@pytest.mark.parametrize('state',['revoked','deleted','idle','absolute','reset','recovery','suspended','revision','role'])
+def test_public_issuance_rejects_stale_admin_principal(auth,dashboard,monkeypatch,operation,state):
+    from member_dashboard.auth import AuthError
+    actor=admin(auth,dashboard)
+    issued=auth.login('synthetic_admin',PASSWORD,dashboard.clock(),'192.0.2.1')
+    principal=auth.principal(issued.token,dashboard.clock())
+    old=auth.issue_reset_trusted(actor,actor,dashboard.clock())
+    if state=='reset': auth.reset_password(old.token,NEW_PASSWORD,dashboard.clock())
+    elif state=='recovery':
+        authorize_local(monkeypatch,dashboard)
+        auth.recover_admin(actor,NEW_PASSWORD,'uid:0:synthetic_operator',dashboard.clock())
+    else:
+        with dashboard.store.transaction() as con:
+            if state=='revoked': con.execute('UPDATE sessions SET revoked_at=?',(dashboard.clock(),))
+            if state=='deleted': con.execute('DELETE FROM sessions')
+            if state=='idle': con.execute('UPDATE sessions SET idle_expires_at=?',(dashboard.clock(),))
+            if state=='absolute': con.execute('UPDATE sessions SET absolute_expires_at=?',(dashboard.clock(),))
+            if state=='suspended': con.execute("UPDATE members SET status='suspended'")
+            if state=='revision': con.execute('UPDATE members SET authorization_version=authorization_version+1')
+            if state=='role': con.execute("UPDATE members SET role='member'")
+    with dashboard.store.transaction() as con:
+        before=[con.execute(f'SELECT * FROM {table}').fetchall() for table in ['invites','password_resets','audit_events']]
+    with pytest.raises(AuthError):
+        if operation=='invite': auth.issue_invite(principal,dashboard.clock())
+        else: auth.issue_reset(principal,actor,dashboard.clock())
+    with dashboard.store.transaction() as con:
+        after=[con.execute(f'SELECT * FROM {table}').fetchall() for table in ['invites','password_resets','audit_events']]
+        assert after==before
+
+
+def test_public_issuance_joins_caller_transaction_and_rolls_back(auth,dashboard):
+    actor=admin(auth,dashboard)
+    session=auth.login('synthetic_admin',PASSWORD,dashboard.clock(),'192.0.2.1')
+    principal=auth.principal(session.token,dashboard.clock())
+    with pytest.raises(RuntimeError,match='synthetic action rollback'):
+        with dashboard.store.transaction() as con:
+            invite=auth.issue_invite(principal,dashboard.clock(),con=con)
+            reset=auth.issue_reset(principal,actor,dashboard.clock(),con=con)
+            assert con.execute('SELECT id FROM invites').fetchone()[0]==invite.id
+            assert con.execute('SELECT id FROM password_resets').fetchone()[0]==reset.id
+            assert con.execute("SELECT count(*) FROM audit_events WHERE action IN ('invite_issued','reset_issued')").fetchone()[0]==2
+            raise RuntimeError('synthetic action rollback')
+    with dashboard.store.transaction() as con:
+        assert con.execute('SELECT count(*) FROM invites').fetchone()[0]==0
+        assert con.execute('SELECT count(*) FROM password_resets').fetchone()[0]==0
+        assert con.execute("SELECT count(*) FROM audit_events WHERE action IN ('invite_issued','reset_issued')").fetchone()[0]==0
+    assert auth.issue_invite(principal,dashboard.clock()).id
+    assert auth.issue_reset(principal,actor,dashboard.clock()).id
+
+
+def test_anonymous_csrf_reuses_live_challenge(dashboard):
+    first=dashboard.client.get('/api/v1/auth/csrf')
+    cookie=dashboard.client.cookies.get('__Host-member_csrf')
+    second=dashboard.client.get('/api/v1/auth/csrf')
+    assert first.status_code==second.status_code==200
+    assert second.json()['token']==first.json()['token']
+    assert dashboard.client.cookies.get('__Host-member_csrf')==cookie
+    dashboard.clock.advance(900)
+    third=dashboard.client.get('/api/v1/auth/csrf')
+    assert third.status_code==200 and third.json()['token']!=first.json()['token']
+
+
+def test_csrf_abusive_address_cannot_exhaust_other_clients(dashboard):
+    from fastapi.testclient import TestClient
+    rejected=False
+    for index in range(80):
+        dashboard.client.cookies.clear()
+        response=dashboard.client.get('/api/v1/auth/csrf',headers={'X-Forwarded-For':f'192.0.2.{index+1}'})
+        if response.status_code!=200:
+            rejected=True
+            break
+    assert rejected, 'one trusted address must hit its own budget before global capacity'
+    with TestClient(dashboard.app,base_url=dashboard.settings.origin,client=('192.0.2.254',45000)) as other:
+        response=other.get('/api/v1/auth/csrf')
+        assert response.status_code==200
+        token=response.json()['token']
+        assert other.post('/api/v1/auth/login',json={'username':'unknown','password':PASSWORD},headers={'Origin':dashboard.settings.origin,'X-CSRF-Token':token}).status_code==401
+    dashboard.clock.advance(901)
+    assert dashboard.client.get('/api/v1/auth/csrf').status_code==200
+
+
+
+@pytest.mark.parametrize('operation',['invite','reset'])
+def test_public_issuance_rejects_autocommit_connection(auth,dashboard,operation):
+    from member_dashboard.auth import AuthError
+    actor=admin(auth,dashboard)
+    session=auth.login('synthetic_admin',PASSWORD,dashboard.clock(),'192.0.2.1')
+    principal=auth.principal(session.token,dashboard.clock())
+    con=dashboard.store._connect()
+    try:
+        assert not con.in_transaction
+        with pytest.raises(AuthError):
+            if operation=='invite': auth.issue_invite(principal,dashboard.clock(),con=con)
+            else: auth.issue_reset(principal,actor,dashboard.clock(),con=con)
+        assert con.execute('SELECT count(*) FROM invites').fetchone()[0]==0
+        assert con.execute('SELECT count(*) FROM password_resets').fetchone()[0]==0
+    finally:
+        con.close()

@@ -105,14 +105,30 @@ class AuthService:
         con.execute('INSERT INTO audit_events(id,actor_member_id,action,target_id,occurred_at,detail_json) VALUES (?,?,?,?,?,?)',
                     (str(uuid4()), actor, action, target_id, now, json.dumps(detail or {})))
 
-    def issue_invite(self, actor_id, now):
+    def _insert_invite(self, con, actor_id, now):
+        self._admin(con, actor_id)
         token = IssuedToken(str(uuid4()), secrets.token_urlsafe(32), now+7*86400)
-        with self.store.transaction() as con:
-            self._admin(con, actor_id)
-            con.execute('INSERT INTO invites(id,token_digest,created_by,created_at,expires_at) VALUES (?,?,?,?,?)',
-                        (token.id, digest(token.token), actor_id, now, token.expires_at))
-            self._audit(con, 'invite_issued', token.id, now, actor_id)
+        con.execute('INSERT INTO invites(id,token_digest,created_by,created_at,expires_at) VALUES (?,?,?,?,?)',
+                    (token.id, digest(token.token), actor_id, now, token.expires_at))
+        self._audit(con, 'invite_issued', token.id, now, actor_id)
         return token
+
+    def issue_invite(self, principal, now, *, con=None):
+        """Public admin boundary: revalidate session and issue in one transaction."""
+        if not isinstance(principal, Principal):
+            raise AuthError()
+        if con is None:
+            with self.store.transaction() as transaction:
+                return self.issue_invite(principal, now, con=transaction)
+        if not con.in_transaction:
+            raise AuthError()
+        self.revalidate(principal, now, con=con)
+        return self._insert_invite(con, principal.member_id, now)
+
+    def issue_invite_trusted(self, actor_id, now):
+        """Trusted internal provisioning only; never use from an HTTP/assistant route."""
+        with self.store.transaction() as con:
+            return self._insert_invite(con, actor_id, now)
 
     def redeem_invite(self, token, username, password, now):
         username = normalize_username(username)
@@ -170,16 +186,32 @@ class AuthService:
         # random subject cannot collide with or expose a username/token digest.
         self._reserve_login('anonymous:'+secrets.token_urlsafe(32),address,now)
 
-    def issue_reset(self, actor_id, member_id, now):
+    def _insert_reset(self, con, actor_id, member_id, now):
+        self._admin(con,actor_id)
+        if con.execute('SELECT 1 FROM members WHERE id=?',(member_id,)).fetchone() is None:
+            raise AuthError()
         issued = IssuedToken(str(uuid4()),secrets.token_urlsafe(32),now+3600)
-        with self.store.transaction() as con:
-            self._admin(con,actor_id)
-            if con.execute('SELECT 1 FROM members WHERE id=?',(member_id,)).fetchone() is None:
-                raise AuthError()
-            con.execute('UPDATE password_resets SET revoked_at=? WHERE member_id=? AND consumed_at IS NULL AND revoked_at IS NULL',(now,member_id))
-            con.execute('INSERT INTO password_resets(id,member_id,token_digest,created_at,expires_at) VALUES (?,?,?,?,?)',(issued.id,member_id,digest(issued.token),now,issued.expires_at))
-            self._audit(con,'reset_issued',member_id,now,actor_id)
+        con.execute('UPDATE password_resets SET revoked_at=? WHERE member_id=? AND consumed_at IS NULL AND revoked_at IS NULL',(now,member_id))
+        con.execute('INSERT INTO password_resets(id,member_id,token_digest,created_at,expires_at) VALUES (?,?,?,?,?)',(issued.id,member_id,digest(issued.token),now,issued.expires_at))
+        self._audit(con,'reset_issued',member_id,now,actor_id)
         return issued
+
+    def issue_reset(self, principal, member_id, now, *, con=None):
+        """Public admin boundary: revalidate before revoking/issuing reset authority."""
+        if not isinstance(principal, Principal):
+            raise AuthError()
+        if con is None:
+            with self.store.transaction() as transaction:
+                return self.issue_reset(principal, member_id, now, con=transaction)
+        if not con.in_transaction:
+            raise AuthError()
+        self.revalidate(principal, now, con=con)
+        return self._insert_reset(con, principal.member_id, member_id, now)
+
+    def issue_reset_trusted(self, actor_id, member_id, now):
+        """Trusted internal provisioning only; never use from an HTTP/assistant route."""
+        with self.store.transaction() as con:
+            return self._insert_reset(con, actor_id, member_id, now)
 
     def _replace_password(self, con, member_id, hashed, now):
         con.execute('UPDATE members SET password_hash=?,updated_at=?,authorization_version=authorization_version+1 WHERE id=?',(hashed,now,member_id))
