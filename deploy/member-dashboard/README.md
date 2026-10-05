@@ -88,15 +88,19 @@ creation/retention and socket ACLs are still production integration gates.
 
 `DenialJournal` stores at most 1,000 fixed denial records in a separate private
 SQLite file. Its independent anchor holds the monotonic revision, hash-chain head,
-issue time and <=300-second expiry. Both live outside web backups. Only a trusted
+issue time and <=300-second expiry. A separate non-restored high-water checkpoint
+must match the pair, including after restart; a matching older pair cannot renew.
+All three live outside web backups. Only a trusted
 updater may append/renew; expiry, an older journal/anchor, chain mismatch or an
 interrupted journal/anchor update blocks mutation/restore. Root ownership alone
 is not accepted as freshness. Exhaustion fails closed pending reviewed compaction.
 
 Configured admin suspension/session revocation/feature-off, member history deletion,
 source denial and explicit retraction append durably **before** changing web state.
-An append failure aborts the web transaction. A crash after append can over-deny,
-which is deliberate. Reads never append. Synthetic staging composes this updater;
+An append failure aborts the web transaction. Schema 10 records the applied revision
+and digest. Bound stores reconcile before and after every transaction, including
+startup, so a committed denial survives a subsequent web rollback. Reads never append.
+Synthetic staging composes this updater;
 production mutation coverage and positive permission authority remain unconfigured.
 
 `scripts/member_dashboard_backup.py backup` accepts explicit source/output,
@@ -104,21 +108,23 @@ quota-path, protected 32-byte key-file and Node executable paths. SQLite backup 
 captures committed WAL state, with a 64 MiB/10-second snapshot bound. AES-256-GCM
 encrypts and authenticates the archive with a <=30-day expiry; key bytes arrive on
 stdin, never command-line/environment. Sources requiring special backup deletion
-are rejected. Private temporary snapshots are removed, but this does not prove
+are rejected from the actual consistent snapshot. Only `.mdb` archives are accepted;
+an OS lock serializes capacity checks and publication across processes. Private
+temporary snapshots are removed, but this does not prove
 physical media/WAL erasure.
 
 `restore-closed` additionally requires the current external denial journal and
-anchor. It restores into a fresh file, validates schema/integrity, applies current
+anchor and independent checkpoint. It restores into a fresh file, validates schema/integrity, applies current
 denials, revokes all old sessions/invitations/resets, suspends old accounts, disables
 features, closes runnable jobs and retains source-retraction withholding. This is
 **quarantine**, not functioning restored access. A trusted positive-current-state
 reconciliation is required before selective reactivation. The independent quota
 ledger is never replaced; historical quota policy in a web snapshot is disabled.
 
-Task 12 adds no web migration: web schema remains 9, matching the preceding reviewed
-release. That is the format window, not proof that the previous executable has been
-tested with every restored scenario. Previous-release rollback verification remains
-part of the final acceptance record.
+Task 12 adds schema 10 for the durable denial projection. The backup reader accepts
+schema 9 or 10 and upgrades quarantine to 10. A schema 9 executable rejects schema
+10; rollback must use its paired schema 9 backup and still enforce current authority
+before serving. Previous-release rollback verification remains a final gate.
 
 ## Deployment and rollback order
 

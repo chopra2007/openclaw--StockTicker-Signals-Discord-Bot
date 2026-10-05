@@ -155,10 +155,10 @@ def test_encrypted_backup_roundtrip_and_tamper(tmp_path):
 
 
 def test_current_denial_journal_survives_old_web_restore_and_rejects_rollback(tmp_path):
-    from member_dashboard.authority import DenialJournal
+    from member_dashboard.authority import DenialJournal,CheckpointStore
     from member_dashboard.store import WebStore
     root=tmp_path/'authority';root.mkdir(mode=0o700)
-    journal=DenialJournal.create(root/'journal.sqlite3',root/'anchor.json',clock=lambda:100)
+    journal=DenialJournal.create(root/'journal.sqlite3',root/'anchor.json',checkpoint=CheckpointStore.create(tmp_path/'checkpoint.sqlite3'),clock=lambda:100)
     live=tmp_path/'web.sqlite3';WebStore(live).migrate()
     snapshot=tmp_path/'old.sqlite3';backup_web(live,snapshot,tmp_path,quota_path=tmp_path/'quota.sqlite3')
     old_anchor=(root/'anchor.json').read_bytes()
@@ -173,11 +173,11 @@ def test_current_denial_journal_survives_old_web_restore_and_rejects_rollback(tm
 
 
 def test_denial_append_failure_blocks_web_mutation_and_expiry_blocks_restore(dashboard,tmp_path):
-    from member_dashboard.authority import DenialJournal
+    from member_dashboard.authority import DenialJournal,CheckpointStore
     from member_dashboard.admin import AdminService
     from tests.member_dashboard.test_admin import identity
     root=tmp_path/'authority';root.mkdir(mode=0o700)
-    journal=DenialJournal.create(root/'journal.sqlite3',root/'anchor.json',clock=dashboard.clock)
+    journal=DenialJournal.create(root/'journal.sqlite3',root/'anchor.json',checkpoint=CheckpointStore.create(tmp_path/'checkpoint.sqlite3'),clock=dashboard.clock)
     service=dashboard.app.state.admin;service.denial_journal=journal
     _,_,actor=identity(dashboard)
     # Failure occurs before the feature mutation commits.
@@ -190,9 +190,9 @@ def test_denial_append_failure_blocks_web_mutation_and_expiry_blocks_restore(das
 
 
 def test_journal_anchor_interruption_blocks_renewal(tmp_path,monkeypatch):
-    from member_dashboard.authority import DenialJournal
+    from member_dashboard.authority import DenialJournal,CheckpointStore
     root=tmp_path/'authority';root.mkdir(mode=0o700)
-    journal=DenialJournal.create(root/'journal.sqlite3',root/'anchor.json',clock=lambda:100)
+    journal=DenialJournal.create(root/'journal.sqlite3',root/'anchor.json',checkpoint=CheckpointStore.create(tmp_path/'checkpoint.sqlite3'),clock=lambda:100)
     monkeypatch.setattr('member_dashboard.authority.os.replace',lambda *_: (_ for _ in ()).throw(OSError('synthetic anchor failure')))
     with pytest.raises(OSError): journal.append('retraction','post/SPY')
     with pytest.raises(ValueError): journal.current()
@@ -204,9 +204,9 @@ from test_history import history,completed
 
 
 def test_current_history_deletion_applies_to_old_backup(history,research,dashboard,tmp_path):
-    from member_dashboard.authority import DenialJournal
+    from member_dashboard.authority import DenialJournal,CheckpointStore
     root=tmp_path/'authority';root.mkdir(mode=0o700)
-    journal=DenialJournal.create(root/'journal.sqlite3',root/'anchor.json',clock=dashboard.clock)
+    journal=DenialJournal.create(root/'journal.sqlite3',root/'anchor.json',checkpoint=CheckpointStore.create(tmp_path/'checkpoint.sqlite3'),clock=dashboard.clock)
     history.denial_journal=journal
     request=completed(research,dashboard)[0]
     history.get_report(research[1][0],request.report_id)
@@ -225,9 +225,99 @@ def test_staging_source_authority_closes_when_updater_expires(tmp_path):
     import time
     from types import SimpleNamespace
     from member_dashboard.runtime import staging_journal
-    state=SimpleNamespace(admin=SimpleNamespace(),history=SimpleNamespace(),source_policy=SimpleNamespace())
+    from member_dashboard.store import WebStore
+    store=WebStore(tmp_path/'web.sqlite3');store.migrate()
+    state=SimpleNamespace(store=store,admin=SimpleNamespace(),history=SimpleNamespace(),source_policy=SimpleNamespace())
     journal=staging_journal(SimpleNamespace(state=state),tmp_path,initialize=True)
     assert state.source_policy.authority_current() is True
     journal.clock=lambda:time.time()+301
     os.utime(journal.anchor,None)
     assert state.source_policy.authority_current() is False
+
+
+def test_pending_broker_exit_survives_supervisor_restart(dashboard):
+    from member_dashboard.worker import WorkerSupervisor
+    class Dead:
+        worker_id='persisted-dead'
+        def is_dead(self): return True
+        def close(self): pass
+    spawned=[];calls=[]
+    first=WorkerSupervisor(dashboard.store,lambda:spawned.append(True),lambda _:None,
+        clock=dashboard.clock,reconcile=lambda _:False)
+    first.child=Dead();first.tick()
+    second=WorkerSupervisor(dashboard.store,lambda:spawned.append(True),lambda _:None,
+        clock=dashboard.clock,reconcile=lambda worker:calls.append(worker) or False)
+    second.tick()
+    assert not spawned and calls==['persisted-dead']
+    second.reconcile=lambda worker:worker=='persisted-dead'
+    second.tick()
+    assert spawned==[True]
+
+
+def test_archive_rejects_noncanonical_suffix_and_serializes_writers(tmp_path,monkeypatch):
+    from member_dashboard.backup import encrypted_backup,archive_lock
+    root=tmp_path/'archive';root.mkdir(mode=0o700)
+    with pytest.raises(ValueError,match='archive_name'):
+        encrypted_backup(root/'web',root/'backup.bin',root,quota_path=root/'quota',key_path=root/'key',node=root/'node')
+    with archive_lock(root):
+        with pytest.raises(ValueError,match='archive_busy'):
+            with archive_lock(root): pytest.fail('competing writer acquired the archive')
+        import subprocess,sys
+        child=subprocess.run([sys.executable,'-c',
+            'from member_dashboard.backup import archive_lock; import sys;\nwith archive_lock(sys.argv[1]): pass',str(root)],
+            capture_output=True,text=True,timeout=10)
+        assert child.returncode!=0 and 'archive_busy' in child.stderr
+
+
+def test_archive_checks_retention_after_snapshot(tmp_path,monkeypatch):
+    from member_dashboard import backup
+    from member_dashboard.store import WebStore
+    from member_dashboard.source_policy import SourcePolicy,SourcePermission
+    root=tmp_path/'archive';root.mkdir(mode=0o700)
+    source=root/'web.sqlite3';store=WebStore(source);store.migrate()
+    original=backup.backup_web
+    def snapshot(*args,**kwargs):
+        SourcePolicy(store).record(SourcePermission(source_id='synthetic',product_id='fixture',provider='fixture',
+            policy_version='v1',audience='invited_members',status='denied',delete_on_expiry=True))
+        return original(*args,**kwargs)
+    monkeypatch.setattr(backup,'backup_web',snapshot)
+    with pytest.raises(ValueError,match='source_backup_deletion_unverified'):
+        backup.encrypted_backup(source,root/'backup.mdb',root,quota_path=root/'quota',key_path=root/'key',node=root/'node')
+    assert not (root/'backup.mdb').exists()
+
+
+def test_matching_journal_anchor_rollback_is_rejected_by_external_checkpoint(tmp_path):
+    from member_dashboard.authority import DenialJournal,CheckpointStore
+    from contextlib import closing
+    root=tmp_path/'authority';root.mkdir(mode=0o700)
+    checkpoint=CheckpointStore.create(tmp_path/'checkpoint.sqlite3')
+    journal=DenialJournal.create(root/'journal.sqlite3',root/'anchor.json',checkpoint=checkpoint,clock=lambda:100)
+    old_db=(root/'journal.sqlite3').read_bytes();old_anchor=(root/'anchor.json').read_bytes()
+    journal.append('feature_disabled','options')
+    (root/'journal.sqlite3').write_bytes(old_db);(root/'anchor.json').write_bytes(old_anchor)
+    restarted=DenialJournal(root/'journal.sqlite3',root/'anchor.json',checkpoint=CheckpointStore(tmp_path/'checkpoint.sqlite3'),clock=lambda:100)
+    with pytest.raises(ValueError,match='checkpoint'): restarted.current()
+    with pytest.raises(ValueError,match='checkpoint'): restarted.renew()
+
+
+def test_denial_commit_web_rollback_blocks_auth_before_and_after_restart(dashboard,tmp_path):
+    from member_dashboard.authority import DenialJournal,CheckpointStore
+    from member_dashboard.auth import AuthService,AuthError
+    from member_dashboard.store import WebStore
+    from tests.member_dashboard.test_admin import identity
+    root=tmp_path/'authority';root.mkdir(mode=0o700)
+    checkpoint=CheckpointStore.create(tmp_path/'checkpoint.sqlite3')
+    journal=DenialJournal.create(root/'journal.sqlite3',root/'anchor.json',checkpoint=checkpoint,clock=dashboard.clock)
+    _,session,actor=identity(dashboard,'member')
+    dashboard.store.bind_authority(journal)
+    with pytest.raises(RuntimeError):
+        with dashboard.store.transaction() as con:
+            journal.append('member_suspended',actor.member_id)
+            raise RuntimeError('synthetic web commit failure')
+    with pytest.raises(AuthError): AuthService(dashboard.store).principal(session.token,dashboard.clock())
+    for store in (dashboard.store,WebStore(dashboard.settings.web_path)):
+        store.bind_authority(journal)
+        with pytest.raises(AuthError): AuthService(store).principal(session.token,dashboard.clock())
+        with store.transaction() as con:
+            assert con.execute('SELECT revision FROM authority_projection').fetchone()[0]==1
+            assert con.execute('SELECT status FROM members WHERE id=?',(actor.member_id,)).fetchone()[0]=='suspended'

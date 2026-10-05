@@ -21,14 +21,53 @@ ZERO='0'*64
 LIMIT=1000
 
 
+class CheckpointStore:
+    """Independent non-restored high-water authority. Never auto-created on open.
+
+    Production composition must give only its trusted updater write access;
+    consumers use the narrow checkpoint client, not this local writer object.
+    """
+    def __init__(self,path):
+        self.path=protected(Path(path))
+        protected(self.path.parent,directory=True)
+
+    @classmethod
+    def create(cls,path):
+        path=Path(path);protected(path.parent,directory=True)
+        fd=os.open(path,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600);os.close(fd)
+        with closing(sqlite3.connect(path)) as con:
+            con.execute('CREATE TABLE checkpoint(singleton INTEGER PRIMARY KEY CHECK(singleton=1),revision INTEGER NOT NULL,digest TEXT NOT NULL) STRICT')
+            con.execute('INSERT INTO checkpoint VALUES (1,0,?)',(ZERO,));con.commit()
+        return cls(path)
+
+    def current(self):
+        with closing(sqlite3.connect(self.path.as_uri()+'?mode=ro',uri=True,timeout=2)) as con:
+            row=con.execute('SELECT revision,digest FROM checkpoint WHERE singleton=1').fetchone()
+        if row is None: raise ValueError('checkpoint_missing')
+        return row
+
+    def advance(self,previous,digest):
+        with closing(sqlite3.connect(self.path,timeout=2)) as con:
+            con.execute('BEGIN IMMEDIATE')
+            if con.execute('SELECT revision,digest FROM checkpoint WHERE singleton=1').fetchone()!=previous:
+                raise ValueError('checkpoint_conflict')
+            con.execute('UPDATE checkpoint SET revision=?,digest=? WHERE singleton=1',(previous[0]+1,digest))
+            con.commit()
+
+
 class DenialJournal:
-    def __init__(self,path,anchor,*,clock=time.time):
+    def __init__(self,path,anchor,*,checkpoint=None,clock=time.time):
         self.path,self.anchor,self.clock=Path(path),Path(anchor),clock
+        if checkpoint is None: raise ValueError('independent_checkpoint_required')
+        self.checkpoint=checkpoint
+        if isinstance(checkpoint,CheckpointStore) and checkpoint.path.parent.resolve() in (self.path.parent.resolve(),self.anchor.parent.resolve()):
+            raise ValueError('checkpoint_must_live_outside_journal_directory')
         if self.path.resolve()==self.anchor.resolve(): raise ValueError('independent_anchor_required')
 
     @classmethod
-    def create(cls,path,anchor,*,clock=time.time):
-        self=cls(path,anchor,clock=clock)
+    def create(cls,path,anchor,*,checkpoint=None,clock=time.time):
+        self=cls(path,anchor,checkpoint=checkpoint,clock=clock)
+        if checkpoint.current()!=(0,ZERO): raise ValueError('checkpoint_already_advanced')
         protected(self.path.parent,directory=True);protected(self.anchor.parent,directory=True)
         if self.path.exists() or self.anchor.exists(): raise ValueError('authority_already_exists')
         fd=os.open(self.path,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600);os.close(fd)
@@ -55,6 +94,7 @@ class DenialJournal:
             digest=self._digest(digest,revision,kind,key,when)
             if stored!=digest: raise ValueError('authority_chain_mismatch')
         if digest!=anchor['digest']: raise ValueError('authority_anchor_mismatch')
+        if self.checkpoint.current()!=(anchor['revision'],digest): raise ValueError('authority_checkpoint_mismatch')
         return rows,anchor
 
     @staticmethod
@@ -78,6 +118,7 @@ class DenialJournal:
             digest=self._digest(anchor['digest'],revision,kind,key,now)
             con.execute('INSERT INTO denials VALUES (?,?,?,?,?)',(revision,kind,key,now,digest))
             con.commit()
+            self.checkpoint.advance((anchor['revision'],anchor['digest']),digest)
             # Journal is durable BEFORE the independent anchor. Any interruption
             # produces a mismatch and blocks mutation/restore, never a rollback.
             temporary=self.anchor.parent/(str(uuid4())+'.anchor')
@@ -103,12 +144,17 @@ class DenialJournal:
 
     def reconcile(self,con):
         rows=self.current()
-        for _,kind,key,when,_ in rows:
+        projection=con.execute('SELECT revision,digest FROM authority_projection WHERE singleton=1').fetchone()
+        if projection is None: raise ValueError('authority_projection_missing')
+        revision,digest=projection
+        if revision>len(rows) or digest!=(rows[revision-1][4] if revision else ZERO):
+            raise ValueError('authority_projection_mismatch')
+        for _,kind,key,when,_ in rows[revision:]:
             if kind=='member_suspended':
-                con.execute("UPDATE members SET status='suspended',authorization_version=authorization_version+1 WHERE id=?",(key,))
+                con.execute("UPDATE members SET status='suspended',authorization_version=authorization_version+1 WHERE id=? AND status!='suspended'",(key,))
             if kind in ('member_suspended','sessions_revoked'):
                 con.execute('DELETE FROM sessions WHERE member_id=?',(key,))
-            elif kind=='feature_disabled': con.execute('UPDATE features SET enabled=0,version=version+1 WHERE name=?',(key,))
+            elif kind=='feature_disabled': con.execute('UPDATE features SET enabled=0,version=version+1 WHERE name=? AND enabled!=0',(key,))
             elif kind=='report_deleted':
                 con.execute('UPDATE report_owners SET deleted_at=?,subscriber_version=subscriber_version+1 WHERE id=?',(when,key))
                 con.execute('UPDATE research_requests SET deleted_at=?,subscriber_version=subscriber_version+1 WHERE report_owner_id=?',(when,key))
@@ -120,4 +166,7 @@ class DenialJournal:
                 # No source-specific positive clearance exists. Quarantine
                 # globally closes source delivery instead of guessing lineage.
                 con.execute('UPDATE feed_state SET retraction_authority_required=1')
-        self.current()  # Expiry or competing rollback during restore aborts it.
+                con.execute('UPDATE authority_projection SET source_withheld=1 WHERE singleton=1')
+        if self.current()!=rows: raise ValueError('authority_changed_during_reconciliation')
+        con.execute('UPDATE authority_projection SET revision=?,digest=? WHERE singleton=1',
+                    (len(rows),rows[-1][4] if rows else ZERO))

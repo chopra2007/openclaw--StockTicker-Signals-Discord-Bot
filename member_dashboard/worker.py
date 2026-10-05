@@ -335,6 +335,12 @@ class WorkerSupervisor:
         if self._last_feed is None or now-self._last_feed >= 5:
             self.feed_tick(now)
             self._last_feed = now
+        if self.child is None and self._pending_exit is None:
+            with self.store.transaction() as con:
+                pending=con.execute('SELECT worker_id FROM worker_exits WHERE reconciled=0 ORDER BY confirmed_at,worker_id LIMIT 1').fetchone()
+            if pending:
+                self._pending_exit=pending[0]
+                self.blocked=True
         child = self.child
         if child is not None:
             with self.store.transaction() as con:
@@ -349,6 +355,8 @@ class WorkerSupervisor:
                 # Persist/retain the exact exited identity until every bounded batch
                 # is reconciled; feed/heartbeat continue while the broker is offline.
                 self._pending_exit = child.worker_id
+                from .jobs import JobService
+                JobService(self.store,None,None,None).confirm_worker_exit(child.worker_id,now,reconciled=False)
                 child.close()
                 self.child = None
                 self._stop_at, self._restart = None, False
@@ -370,7 +378,9 @@ class WorkerSupervisor:
                 self._pending_exit=None
         if self.child is None and not self.blocked:
             # Startup never restores stale permits from a historical snapshot.
-            if self._has_uncertainty():
+            with self.store.transaction() as con:
+                pending=con.execute('SELECT 1 FROM worker_exits WHERE reconciled=0 LIMIT 1').fetchone()
+            if pending or self._has_uncertainty():
                 self.blocked = True
             else:
                 self.child = self.child_factory()

@@ -102,6 +102,8 @@ class SourcePolicy:
         stamps=[]; statuses=[]; deadlines=[]; attributions=[]; delays=[]
         try: authority=self.authority_current() is True
         except Exception: authority=False
+        if conn.execute('SELECT source_withheld FROM authority_projection WHERE singleton=1').fetchone()[0]:
+            authority=False
         for item in items:
             conn.row_factory=sqlite3.Row
             row=conn.execute('SELECT source_id,product_id,provider,private_grant_ref,private_account_ref,'

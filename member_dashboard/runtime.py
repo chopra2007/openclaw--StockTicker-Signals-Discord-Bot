@@ -167,14 +167,16 @@ async def compute(config_path,worker):
 
 def staging_journal(app,run,*,initialize):
     """Staging updater only; never confers a real source grant."""
-    from .authority import DenialJournal
+    from .authority import DenialJournal,CheckpointStore
     from .launch import secure_directory
     directory=run/'authority'
     if initialize:
         directory.mkdir(mode=0o700)
         secure_directory(directory)
-        journal=DenialJournal.create(directory/'denials.sqlite3',directory/'anchor.json')
-    else: journal=DenialJournal(directory/'denials.sqlite3',directory/'anchor.json')
+        checkpoint=CheckpointStore.create(run/'authority-high-water.sqlite3')
+        journal=DenialJournal.create(directory/'denials.sqlite3',directory/'anchor.json',checkpoint=checkpoint)
+    else: journal=DenialJournal(directory/'denials.sqlite3',directory/'anchor.json',checkpoint=CheckpointStore(run/'authority-high-water.sqlite3'))
+    app.state.store.bind_authority(journal)
     app.state.admin.denial_journal=journal
     app.state.history.denial_journal=journal
     app.state.source_policy.denial_journal=journal

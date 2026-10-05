@@ -146,7 +146,7 @@ def _snapshot(source, destination, root, quota_path):
         with closing(sqlite3.connect(source.as_uri()+'?mode=ro',uri=True,timeout=2)) as src, closing(sqlite3.connect(destination)) as dst:
             src.backup(dst,pages=128,progress=bounded,sleep=.01)
             if dst.execute('PRAGMA integrity_check').fetchone()[0]!='ok': raise ValueError('invalid_backup')
-            if {row[0] for row in dst.execute('SELECT version FROM schema_migrations')} != set(range(1,10)):
+            if {row[0] for row in dst.execute('SELECT version FROM schema_migrations')} not in (set(range(1,10)),set(range(1,11))):
                 raise ValueError('unsupported_backup_schema')
     except BaseException:
         destination.unlink(missing_ok=True)
@@ -170,6 +170,8 @@ def restore_closed(source, destination, root, *, quota_path, denial_journal=None
     """
     if denial_journal is not None: denial_journal.current()
     path=_snapshot(source,destination,root,quota_path)
+    from .store import WebStore
+    WebStore(path).migrate()
     with closing(sqlite3.connect(path)) as con:
         con.execute('PRAGMA foreign_keys=ON')
         con.execute('DELETE FROM sessions');con.execute('DELETE FROM invites');con.execute('DELETE FROM password_resets')
