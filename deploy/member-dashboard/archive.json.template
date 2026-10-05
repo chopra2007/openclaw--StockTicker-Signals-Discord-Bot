@@ -1,0 +1,7 @@
+{
+  "role": "archive",
+  "uid": "UNCONFIGURED_ARCHIVE_UID",
+  "archive_root": "/var/lib/member-dashboard/archives",
+  "key_path": "/etc/member-dashboard/archive-key",
+  "node_path": "/opt/member-dashboard/node/bin/node"
+}

@@ -2,7 +2,8 @@
 
 This journal cannot grant access. The trusted updater renews a <=300 second
 anchor only after validating the complete monotonic hash chain. Interrupted
-append/anchor updates fail closed. Production updater identity/wiring is absent.
+append/anchor updates fail closed. The Linux updater is denial-only; deployment
+identities and positive external permission authority remain unconfigured.
 """
 from contextlib import closing
 import hashlib
@@ -58,9 +59,11 @@ class CheckpointStore:
 class DenialJournal:
     def __init__(self,path,anchor,*,checkpoint=None,clock=time.time):
         self.path,self.anchor,self.clock=Path(path),Path(anchor),clock
+        self._protected_identities={}
         if checkpoint is None: raise ValueError('independent_checkpoint_required')
         self.checkpoint=checkpoint
-        if isinstance(checkpoint,CheckpointStore) and checkpoint.path.parent.resolve() in (self.path.parent.resolve(),self.anchor.parent.resolve()):
+        if isinstance(checkpoint,CheckpointStore) and any(root in checkpoint.path.resolve().parents
+                for root in (self.path.parent.resolve(),self.anchor.parent.resolve())):
             raise ValueError('checkpoint_must_live_outside_journal_directory')
         if self.path.resolve()==self.anchor.resolve(): raise ValueError('independent_anchor_required')
 
@@ -79,7 +82,9 @@ class DenialJournal:
         return self
 
     def _read(self,con):
-        anchor=read_private_json(self.anchor)
+        self._protected(self.anchor)
+        if self.anchor.stat().st_size>4096: raise ValueError('authority_anchor_limit')
+        anchor=json.loads(self.anchor.read_bytes())
         now=self.clock()
         if (set(anchor)!={'revision','digest','issued_at','expires_at'}
                 or type(anchor['revision']) is not int or not 0<=anchor['revision']<=LIMIT
@@ -101,15 +106,23 @@ class DenialJournal:
     def _digest(previous,revision,kind,key,when):
         return hashlib.sha256(json.dumps([previous,revision,kind,key,float(when)],separators=(',',':'),allow_nan=False).encode()).hexdigest()
 
+    def _protected(self,path):
+        # The trusted private directory owns replacements. Recheck ownership and
+        # mode on every call; cache expensive Windows ACL checks per file identity.
+        if path.is_symlink(): raise ValueError('unsafe_authority_path')
+        info=path.stat();identity=(info.st_dev,info.st_ino,info.st_mode,info.st_uid)
+        if os.name!='nt' or self._protected_identities.get(path)!=identity:
+            protected(path);self._protected_identities[path]=identity
+
     def current(self):
-        protected(self.path)
+        self._protected(self.path)
         with closing(sqlite3.connect(self.path.as_uri()+'?mode=ro',uri=True,timeout=2)) as con:
             return self._read(con)[0]
 
     def append(self,kind,key):
-        if kind not in KINDS or not isinstance(key,str) or not 1<=len(key)<=512 or any(ord(c)<32 for c in key):
+        if kind not in KINDS or not isinstance(key,str) or not 1<=len(key.encode('utf-8'))<=512 or any(ord(c)<32 for c in key):
             raise ValueError('invalid_denial')
-        protected(self.path)
+        self._protected(self.path)
         with closing(sqlite3.connect(self.path,timeout=2)) as con:
             con.execute('BEGIN IMMEDIATE')
             rows,anchor=self._read(con)
@@ -132,7 +145,7 @@ class DenialJournal:
 
     def renew(self):
         """Trusted updater heartbeat; stale/mismatched state cannot be renewed."""
-        protected(self.path)
+        self._protected(self.path)
         with closing(sqlite3.connect(self.path,timeout=2)) as con:
             con.execute('BEGIN IMMEDIATE')
             _,anchor=self._read(con)

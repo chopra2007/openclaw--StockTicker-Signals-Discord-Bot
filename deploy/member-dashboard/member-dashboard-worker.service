@@ -7,7 +7,7 @@ ExecCondition=/usr/bin/false
 User=UNCONFIGURED_SUPERVISOR_USER
 Group=UNCONFIGURED_SUPERVISOR_GROUP
 WorkingDirectory=/opt/member-dashboard/current
-ExecStart=/opt/member-dashboard/venv/bin/python -m member_dashboard.runtime supervisor --config /etc/member-dashboard/worker.json
+ExecStart=/opt/member-dashboard/venv/bin/python -m member_dashboard.operations supervisor --config /etc/member-dashboard/worker.json
 Slice=member-dashboard.slice
 UMask=0077
 NoNewPrivileges=yes
@@ -19,12 +19,16 @@ ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectControlGroups=yes
 RestrictSUIDSGID=yes
-CapabilityBoundingSet=
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SETUID CAP_SETGID
+AmbientCapabilities=CAP_SYS_ADMIN CAP_SETUID CAP_SETGID
+Delegate=yes
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 IPAddressDeny=any
 IPAddressAllow=localhost
 ReadWritePaths=/var/lib/member-dashboard/web /run/member-dashboard-worker
-ReadOnlyPaths=/etc/member-dashboard/worker.json
+ReadOnlyPaths=/etc/member-dashboard/worker.json /etc/member-dashboard/compute.json
+# Reviewed delegated subtree only; parent/other cgroups remain read-only.
+ReadWritePaths=UNCONFIGURED_DELEGATED_COMPUTE_SUBTREE
 InaccessiblePaths=/root /home/openclaw /var/lib/member-dashboard/quota
 # Bind ONLY reviewed market DB/WAL/SHM files into /run/member-dashboard-market.
 # Never bind the bot directory or grant its general group to the web user.

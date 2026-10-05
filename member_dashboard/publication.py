@@ -338,8 +338,10 @@ class FeedService:
             conn.execute('PRAGMA busy_timeout='+str(max(1,min(50,int(remaining*1000)))))
             conn.row_factory=sqlite3.Row
             conn.set_progress_handler(lambda:int(time.monotonic()>=deadline),100)
-            conn.execute('BEGIN IMMEDIATE' if write else 'BEGIN')
+            conn.execute('BEGIN IMMEDIATE' if write or self.store.authority is not None else 'BEGIN')
+            if self.store.authority is not None: self.store.authority.reconcile(conn)
             yield conn
+            if self.store.authority is not None: self.store.authority.reconcile(conn)
             if time.monotonic()>=deadline: raise TimeoutError('feed_deadline')
             conn.commit()
         except BaseException:

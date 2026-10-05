@@ -66,3 +66,84 @@ print(json.dumps({'wal_read':True,'source_write_denied':True,'secret_read_denied
         writer.close()
         assert result.returncode==0,result.stderr
         assert json.loads(result.stdout)=={'wal_read':True,'source_write_denied':True,'secret_read_denied':True}
+
+
+def test_gated_compute_actual_cgroup_registration_and_recovery(monkeypatch):
+    """Only the isolated transient-unit runner supplies this delegated subtree."""
+    import time
+    from member_dashboard.compute_launcher import CgroupLauncher,ExitClient
+    from member_dashboard.exit_control import ExitRegistry,ExitControlServer
+    from member_dashboard.quota_broker import QuotaBroker,Identity
+    from member_dashboard.store import WebStore
+    from member_dashboard.authority import DenialJournal,CheckpointStore
+    from member_dashboard.authority_rpc import AuthorityService,AuthorityServer
+    if os.getuid()!=0 or 'MEMBER_TEST_CGROUP' not in os.environ:
+        pytest.skip('Task-owned transient cgroup proof runner required')
+    root=Path(os.environ['MEMBER_TEST_CGROUP'])
+    from member_dashboard import compute_launcher
+    original_popen=compute_launcher.subprocess.Popen
+    def capture(*args,**kwargs):
+        kwargs['stderr']=subprocess.PIPE
+        return original_popen(*args,**kwargs)
+    monkeypatch.setattr(compute_launcher.subprocess,'Popen',capture)
+    # Numeric nobody belongs only to this synthetic proof; no production identity inference.
+    with tempfile.TemporaryDirectory(prefix='cg-',dir='/run') as directory:
+        run=Path(directory);run.chmod(0o755)
+        socketdir=run/'broker';socketdir.mkdir(mode=0o700)
+        store=WebStore(socketdir/'quota');store.migrate()
+        broker=QuotaBroker(store)
+        registry=ExitRegistry(broker,supervisor_uid=0,compute_uid=65534,cgroup_root=root)
+        webdir=run/'web';webdir.mkdir(mode=0o700);os.chown(webdir,65534,65534)
+        journal_dir=run/'journal';journal_dir.mkdir(mode=0o700)
+        highwater=run/'highwater';highwater.mkdir(mode=0o700)
+        journal=DenialJournal.create(journal_dir/'journal',journal_dir/'anchor',checkpoint=CheckpointStore.create(highwater/'checkpoint'))
+        authority_dir=run/'authority';authority_dir.mkdir(mode=0o750);os.chown(authority_dir,0,65534)
+        authority=AuthorityServer(AuthorityService(journal,read_uids=[65534],write_uids=[]),str(authority_dir/'rpc'))
+        os.chown(authority_dir/'rpc',0,65534)
+        config=run/'compute.json'
+        config.write_text(json.dumps({'role':'compute','uid':65534,'web_path':str(webdir/'web.sqlite3'),
+            'authority_socket':str(authority_dir/'rpc'),'authority_uid':0}))
+        os.chown(config,65534,65534);config.chmod(0o600)
+        with authority,ExitControlServer(registry,str(socketdir/'control')):
+            control=ExitClient(socketdir/'control',0)
+            launcher=CgroupLauncher(root,compute_uid=65534,compute_gid=65534,config=config,control=control)
+            assert launcher.recover()
+            child=launcher()
+            with store.transaction() as con:
+                row=con.execute('SELECT worker,owner,cgroup,state FROM trusted_workers').fetchone()
+            assert row[0]==child.worker_id and row[2]==str(child.path) and row[3]=='registered'
+            deadline=time.monotonic()+8;observed=False
+            while not child.is_dead() and time.monotonic()<deadline:
+                try:
+                    with sqlite3.connect((webdir/'web.sqlite3').as_uri()+'?mode=ro',uri=True) as con:
+                        observed=con.execute("SELECT 1 FROM health_observations WHERE component='compute'").fetchone() is not None
+                except sqlite3.Error: pass
+                if observed: break
+                time.sleep(.05)
+            assert observed,child.process.stderr.read(4096).decode() if child.is_dead() else 'heartbeat missing'
+            assert not child.is_dead()
+            child.kill_tree()
+            deadline=time.monotonic()+3
+            while not child.is_dead() and time.monotonic()<deadline: time.sleep(.05)
+            assert child.is_dead()
+            child.close()
+            replacement=CgroupLauncher(root,compute_uid=65534,compute_gid=65534,config=config,control=control)
+            assert replacement.recover()
+            with store.transaction() as con:
+                assert con.execute('SELECT state FROM trusted_workers').fetchone()[0]=='reconciled'
+            assert child.path.is_dir()  # Evidence retained through recovery.
+
+
+def test_authority_rpc_authenticates_actual_peers(tmp_path):
+    from member_dashboard.authority import DenialJournal,CheckpointStore
+    from member_dashboard.authority_rpc import AuthorityService,AuthorityServer,AuthorityClient
+    root=tmp_path/'authority';root.mkdir(mode=0o700)
+    journal=DenialJournal.create(root/'journal',root/'anchor',checkpoint=CheckpointStore.create(tmp_path/'checkpoint'))
+    service=AuthorityService(journal,read_uids=[os.getuid()],write_uids=[os.getuid()])
+    with AuthorityServer(service,str(root/'rpc')):
+        client=AuthorityClient(root/'rpc',os.getuid())
+        assert client.current()==[]
+        assert client.append('feature_disabled','options')==1
+        assert client.current()[0][1]=='feature_disabled'
+        with pytest.raises(ValueError,match='wrong_authority_server'):
+            AuthorityClient(root/'rpc',os.getuid()+1).current()

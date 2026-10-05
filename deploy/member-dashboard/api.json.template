@@ -1,0 +1,9 @@
+{
+  "role": "api",
+  "uid": "UNCONFIGURED_API_UID",
+  "web_path": "/var/lib/member-dashboard/web/web.sqlite3",
+  "origin": "https://UNCONFIGURED_HOST",
+  "signing_key": "/etc/member-dashboard/api-signing-key",
+  "authority_socket": "/run/member-dashboard-authority/authority.sock",
+  "authority_uid": "UNCONFIGURED_AUTHORITY_UID"
+}

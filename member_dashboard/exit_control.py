@@ -81,6 +81,11 @@ class ExitRegistry:
 
     def dispatch(self,request,*,peer_uid):
         if peer_uid!=self.supervisor_uid or not isinstance(request,dict): raise ValueError('unauthorized_supervisor')
+        if request=={'method':'pending'}:
+            with self.broker.store.transaction() as con:
+                rows=con.execute("SELECT worker FROM trusted_workers WHERE state='registered' ORDER BY registered_at,worker LIMIT 33").fetchall()
+            if len(rows)>32: raise ValueError('worker_registry_capacity')
+            return {'workers':[row[0] for row in rows]}
         if request.get('method')=='register' and set(request)=={'method','worker','pid'}:
             return {'ok':self.register(request['worker'],request['pid'])}
         if request.get('method')=='reconcile' and set(request)=={'method','worker'}:

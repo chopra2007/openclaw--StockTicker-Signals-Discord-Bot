@@ -1,0 +1,14 @@
+{
+  "role": "supervisor",
+  "uid": "UNCONFIGURED_SUPERVISOR_UID",
+  "web_path": "/var/lib/member-dashboard/web/web.sqlite3",
+  "authority_socket": "/run/member-dashboard-authority/authority.sock",
+  "authority_uid": "UNCONFIGURED_AUTHORITY_UID",
+  "market_path": "/run/member-dashboard-market/source.sqlite3",
+  "cgroup_root": "/sys/fs/cgroup/UNCONFIGURED_RETAINED_UNIT/compute",
+  "compute_uid": "UNCONFIGURED_COMPUTE_UID",
+  "compute_gid": "UNCONFIGURED_COMPUTE_GID",
+  "compute_config": "/etc/member-dashboard/compute.json",
+  "control_socket": "/run/member-dashboard-quota/control.sock",
+  "quota_uid": "UNCONFIGURED_QUOTA_UID"
+}

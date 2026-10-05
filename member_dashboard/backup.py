@@ -1,6 +1,7 @@
 """Encrypted private web backups; quota and current authority are not restored."""
 from contextlib import closing,contextmanager
 import os
+import json
 from pathlib import Path
 import sqlite3
 import subprocess
@@ -96,3 +97,28 @@ def encrypted_restore(source,destination,root,*,quota_path,key_path,node,denial_
         with os.fdopen(fd,'wb') as stream: stream.write(data)
         return restore_closed(temporary,destination,root,quota_path=quota_path,denial_journal=denial_journal)
     finally: temporary.unlink(missing_ok=True)
+
+
+def maintain_archives(root,*,key_path,node,now=None):
+    """At most two authenticated expired files per call, under the creation lock.
+
+    Header time only selects candidates. Authentication precedes unlink. This is
+    logical retention maintenance, not proof of media or filesystem erasure.
+    """
+    now=time.time() if now is None else now
+    removed=0
+    with archive_lock(root):
+        archives=sorted(Path(root).glob('*.mdb'))
+        if len(archives)>30 or sum(p.lstat().st_size for p in archives)>128*1024*1024:
+            raise ValueError('backup_growth_limit')
+        for path in archives:
+            protected(path)
+            if path.stat().st_size>MAX_BACKUP+4096: raise ValueError('backup_capacity')
+            with path.open('rb') as stream: header=stream.read(12)
+            if len(header)!=12 or header[:4]!=b'MDB1': raise ValueError('invalid_archive')
+            if int.from_bytes(header[4:12],'big')>now: continue
+            evidence=json.loads(_crypt('inspect',path.read_bytes(),key_path,node))
+            if evidence['expires_at']>now: raise ValueError('expiry_changed')
+            path.unlink();removed+=1
+            if removed==2: break
+    return removed

@@ -1,7 +1,7 @@
 // Fixed AES-256-GCM envelope. Key arrives on stdin, never argv/environment.
 import {createCipheriv,createDecipheriv,randomBytes} from 'node:crypto';
 const mode=process.argv[2];
-if(!['seal','open'].includes(mode))throw Error('invalid mode');
+if(!['seal','open','inspect'].includes(mode))throw Error('invalid mode');
 const chunks=[];let size=0;
 for await(const chunk of process.stdin){size+=chunk.length;if(size>64*1024*1024+4096)throw Error('input too large');chunks.push(chunk);}
 const input=Buffer.concat(chunks),key=input.subarray(0,32),data=input.subarray(32);
@@ -20,6 +20,8 @@ if(mode==='seal'){
   const expires=data.subarray(4,12),decipher=createDecipheriv('aes-256-gcm',key,data.subarray(12,24));
   decipher.setAAD(data.subarray(0,12));decipher.setAuthTag(data.subarray(24,40));
   output=Buffer.concat([decipher.update(data.subarray(40)),decipher.final()]);
-  if(Number(expires.readBigUInt64BE())<=Date.now()/1000)throw Error('backup expired');
+  const deadline=Number(expires.readBigUInt64BE());
+  if(mode==='inspect')output=Buffer.from(JSON.stringify({expires_at:deadline}));
+  else if(deadline<=Date.now()/1000)throw Error('backup expired');
 }
 process.stdout.write(output);

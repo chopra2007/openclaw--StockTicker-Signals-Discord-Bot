@@ -1,11 +1,11 @@
 # Member dashboard launch package
 
 **NOT READY for production.** These files are review templates. Every service has
-an unconditional false start condition, and Python production composition rejects
-unconfigured roles. Nothing in a configuration file can assert production readiness.
+an unconditional false start condition, and fixed Linux role composition rejects
+unknown fields, paths or identities. Nothing in a configuration file can assert production readiness.
 No unit, proxy, timer, account, certificate or provider has been installed.
 
-The runnable composition is **synthetic staging only**. Its API owns a supervisor
+The convenience browser composition is **synthetic staging only**. Its API owns a supervisor
 and a Windows Job/Linux process-group compute child for convenient local tests.
 That arrangement is not the production security boundary. The production API must
 have only web state, no market mount, provider configuration, control socket or
@@ -31,8 +31,8 @@ broker and frontend require separate reviewed identities and filesystem views.
   mutation path, positive grant reconciliation and source-specific deletion proof
   remain required. The local denial journal below is a conservative primitive;
   it does not grant access or prove legal/physical deletion compliance.
-- Encrypted archive retention/size maintenance must be integrated into the actual
-  deployment. No maintenance timer was installed. Expired backups cannot restore;
+- The implemented encrypted archive retention/size maintenance still needs actual
+  deployment integration. No maintenance timer was installed. Expired backups cannot restore;
   automatic media erasure and 30-day physical removal are not yet proven.
 - Owner approval of the concrete launch result is last, after these evidence
   gates. A separate host additionally needs a reviewed authenticated bounded
@@ -69,7 +69,8 @@ compute progress. No admin-supplied URL or process-control operation exists.
 ## Trusted exit and quota ordering
 
 `ExitControlServer` is a separate Linux local socket. Only the configured distinct
-supervisor UID may call `register(worker UUID, PID)` or `reconcile(worker UUID)`.
+supervisor UID may call `register(worker UUID, PID)`, `reconcile(worker UUID)` or
+the bounded pending-owner inventory used during supervisor restart.
 The broker derives boot/PID/start identity and a dedicated cgroup path/inode from
 the kernel; the child must be gated alone and owned by the configured compute UID.
 No client-supplied owner, cgroup, path or dead flag is accepted. The ordinary budget
@@ -101,7 +102,8 @@ An append failure aborts the web transaction. Schema 10 records the applied revi
 and digest. Bound stores reconcile before and after every transaction, including
 startup, so a committed denial survives a subsequent web rollback. Reads never append.
 Synthetic staging composes this updater;
-production mutation coverage and positive permission authority remain unconfigured.
+the Linux authority role now owns append/renew and an authenticated denial-only RPC.
+External mutation coverage and positive permission authority remain unconfigured.
 
 `scripts/member_dashboard_backup.py backup` accepts explicit source/output,
 quota-path, protected 32-byte key-file and Node executable paths. SQLite backup API
@@ -144,3 +146,52 @@ before serving. Previous-release rollback verification remains a final gate.
    Retain quota while bot clients depend on it. Returning bot clients to legacy
    admission requires all dashboard work terminated and shared reservations settled.
    Revert only reviewed shared extraction changes, preserving unrelated live edits.
+
+
+## Fixed Linux composition (disabled templates)
+
+`python -m member_dashboard.operations ROLE --config ABSOLUTE_FILE` selects one
+fixed role. The six JSON templates show the complete accepted fields. Placeholder
+UID/GID strings deliberately fail validation. Config files are owned by their role,
+private, and mounted read-only; ownership is not positive rights evidence. Socket
+ACLs must grant connect access only, without write access to their owning directory.
+No role accepts commands, plugin/module names, provider credentials or verified flags.
+
+| Role | Owned access and concrete behavior |
+| --- | --- |
+| API | Web state, 32-byte signing key and denial RPC only. No source path, reader, compute launcher, control RPC or provider registry. Four request threads; fixed frontend observation. |
+| Supervisor | Web state and exact read-only market DB/WAL/SHM mounts; bounded feed projection, cgroup launcher and exit RPC. No provider credentials. Source lineage/positive authority remains unavailable. |
+| Compute | Distinct UID/GID in private PID namespace, gated before app/config import. Empty provider registry and no assistant transport while external evidence is absent; no quota/source secret access is inferred. |
+| Quota | Separate retained quota DB, ordinary budget socket and supervisor-only control socket. Does not open web/journal/checkpoint. Startup preserves accounting but disables historical positive policy flags until current external account integration exists. |
+| Authority | Journal/anchor and separate non-restored high-water file. Readers/writers are explicit peer UID sets. Only current-denial pages and denial append exist; no positive grants, paths or renewal request on wire. |
+| Archive | Archive directory and protected key only; no live DB/journal/quota mounts. Authenticates expired candidates before removing at most two per run. |
+
+The launcher uses only `/usr/bin/unshare --pid --fork --mount-proc`, the current
+Python executable and the fixed compute module. Kernel SCM_CREDENTIALS supplies
+the actual child PID/UID/GID after privilege drop. The supervisor moves that gated
+child into a UUID cgroup under its explicitly delegated service subtree, then the
+independent broker verifies and registers it before admission. All descendants
+inherit that group. Replacement first inventories pending broker owners and kills/
+reconciles retained groups; absent or recreated evidence blocks. At most 32 worker
+groups are retained. No automatic cgroup cleanup or broad host writes occur.
+
+The exact delegated subtree must preexist and lie beneath the supervisor's current
+service cgroup. The service manager must retain it through reconciliation/restart;
+if it removes the subtree, recovery deliberately blocks. The template capability
+and writable-subtree declarations still need actual host review. No system unit,
+user, mount, ACL, egress rule or cgroup delegation was installed by this task.
+
+Authority initialization is an explicit trusted provisioning operation using
+CheckpointStore.create and DenialJournal.create; normal service startup never
+recreates missing state. Renewal validates the entire chain against the independent
+checkpoint, and fails on expiry/mismatch. The service must be running to maintain
+its <=300-second continuity window. Lost/expired authority needs trusted recovery;
+this code does not manufacture an external-current receipt. Denial continuity
+cannot upgrade source/account/model rights. API and worker source policies remain
+closed and compute providers unavailable until evidence-specific integration exists.
+
+Archive creation rejects any source/payload retention deadline or special deletion
+obligation in the actual snapshot. The hourly disabled maintenance template scans
+at most 30 canonical archives/128 MiB, authenticates at most two expired candidates
+per call, and fails closed on tampering. This proves logical expiry enforcement,
+not physical disk/WAL/media erasure or licensed-source deletion compliance.
