@@ -265,3 +265,33 @@ def test_json_numeric_projection_rejects_nonfinite_duplicate_and_unexpected_keys
             (1,'TEST',75.,'news',value,'{}',NOW-10,None))
     batch=MarketReader(path,clock=lambda:NOW).read_batch(SourceName.ALERT,SourceCheckpoint())
     assert not batch.records and batch.blocked_keys
+
+
+@pytest.mark.parametrize('stored,want',[('bullish','bullish'),('bearish','bearish'),('neutral','neutral')])
+def test_ticker_signal_uses_its_actual_stored_sentiment(tmp_path,stored,want):
+    from member_dashboard.market_reader import MarketReader,SourceName,SourceCheckpoint
+    path=tmp_path/'market.sqlite3'
+    with sqlite3.connect(path) as conn:
+        conn.execute('CREATE TABLE ticker_signals(id INTEGER,ticker TEXT,source_type TEXT,sentiment TEXT,'
+            'detected_at REAL,expires_at REAL)')
+        conn.execute('INSERT INTO ticker_signals VALUES (?,?,?,?,?,?)',
+            (1,'TEST','twitter',stored,NOW-1000,NOW+1000))
+    record=MarketReader(path,clock=lambda:NOW).read_batch(SourceName.TICKER,SourceCheckpoint()).records[0]
+    assert record.direction==want
+
+
+def test_ticker_signal_opposite_old_correction_changes_direction_and_version(tmp_path):
+    from member_dashboard.market_reader import MarketReader,SourceName,SourceCheckpoint
+    path=tmp_path/'market.sqlite3'
+    with sqlite3.connect(path) as conn:
+        conn.execute('CREATE TABLE ticker_signals(id INTEGER,ticker TEXT,source_type TEXT,sentiment TEXT,'
+            'detected_at REAL,expires_at REAL)')
+        conn.execute('INSERT INTO ticker_signals VALUES (?,?,?,?,?,?)',
+            (1,'TEST','twitter','bullish',NOW-1000,NOW+1000))
+    reader=MarketReader(path,clock=lambda:NOW)
+    first=reader.read_batch(SourceName.TICKER,SourceCheckpoint())
+    with sqlite3.connect(path) as conn:
+        conn.execute("UPDATE ticker_signals SET sentiment='bearish' WHERE id=1")
+    second=reader.read_batch(SourceName.TICKER,first.checkpoint)
+    assert first.records[0].direction=='bullish' and second.records[0].direction=='bearish'
+    assert first.records[0].version!=second.records[0].version

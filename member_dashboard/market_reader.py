@@ -126,6 +126,7 @@ _PUBLIC_HOSTS = frozenset({'x.com','twitter.com','www.twitter.com','www.youtube.
     'support.google.com','policies.google.com'})
 _TICKER = re.compile(r'[A-Z][A-Z0-9.\-]{0,15}\Z')
 _DIRECTIONS = {'long':'bullish','short':'bearish','neutral':'neutral','unclear':'unclear'}
+_TICKER_SENTIMENTS = {'bullish':'bullish','bearish':'bearish','neutral':'neutral'}
 
 
 def safe_url(value: object) -> str | None:
@@ -430,7 +431,7 @@ class MarketReader:
             classification['source_type']=_text(row['source_type'],64)
             if row['source_type'] in {'desktop_auth','desktop_local'}: raise ValueError('private source')
             _timestamp(row['expires_at'],now)
-            direction=_DIRECTIONS.get(row['sentiment'],'unclear')
+            direction=_TICKER_SENTIMENTS.get(row['sentiment'],'unclear')
         elif source==SourceName.RESEARCH:
             if row['source'] not in {'analyst','sec','news'}: raise ValueError('unknown research source')
             classification['subsource']=row['source']

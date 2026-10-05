@@ -19,6 +19,19 @@ def card_identity(key: str,ticker: str) -> str:
     return str(uuid5(NAMESPACE_URL,json.dumps([key,ticker],separators=(',',':'))))
 
 
+def publication_uses(payload: MarketPayload) -> tuple[str,...]:
+    """Actual source fields determine use; the UI feature never grants rights.
+
+    Every card carries raw source facts (ticker, observations/quotes/evidence).
+    Classifier direction, quality score and computed trade levels additionally
+    require derived-display permission. An unavailable direction is no result.
+    """
+    if (payload.direction!='unclear' or any(value is not None for value in
+            (payload.score,payload.entry,payload.target,payload.invalidation))):
+        return ('display_raw','display_derived')
+    return ('display_raw',)
+
+
 @dataclass(frozen=True)
 class Publication:
     card_id: str
@@ -60,10 +73,11 @@ class Publisher:
     def save(self,publication: Publication,now: float) -> bool:
         if not isinstance(publication,Publication): raise ValueError('typed publication required')
         with self.store.transaction() as conn:
-            use='display_raw' if publication.required_feature=='feed' else 'display_derived'
-            decision=self.policy._authorize_lineage(conn,publication.lineage,use,now,publication.observed_at)
+            decisions=[self.policy._authorize_lineage(conn,publication.lineage,use,now,publication.observed_at)
+                       for use in publication_uses(publication.payload)]
             retain=self.policy._authorize_lineage(conn,publication.lineage,'retain',now)
-            if not decision.allowed or not retain.allowed: return False
+            if not all(item.allowed for item in decisions) or not retain.allowed: return False
+            decision=decisions[0]
             payload=publication.payload.model_copy(update={'attributions':list(decision.attributions),
                                                           'evidence':list(publication.evidence)})
             values=(publication.source_post_key,publication.payload.ticker,publication.content_version,
@@ -90,11 +104,13 @@ class Publisher:
                 'retention_deadline,feature,observed_at,retracted_at FROM publications WHERE id=?',(publication_id,)).fetchone()
             if row is None or row['retracted_at'] is not None: return None
             lineage=self.policy.stored_lineage(row)
-            use='display_raw' if row['feature']=='feed' else 'display_derived'
-            decision=self.policy._authorize_lineage(conn,lineage,use,now,row['observed_at'])
-            if not decision.allowed or row['feature'] not in lineage.required_features: return None
             try:
                 payload=MarketPayload.model_validate(strict_json(row['content_json']))
+                decisions=[self.policy._authorize_lineage(conn,lineage,use,now,row['observed_at'])
+                           for use in publication_uses(payload)]
+                if not all(item.allowed for item in decisions) or row['feature'] not in lineage.required_features:
+                    return None
+                decision=decisions[0]
                 evidence=[item.model_copy(update={'url':safe_url(item.url),
                     'excerpt':html.escape(html.unescape(item.excerpt),quote=True)}) for item in payload.evidence]
                 return payload.model_copy(update={'excerpt':html.escape(html.unescape(payload.excerpt),quote=True),

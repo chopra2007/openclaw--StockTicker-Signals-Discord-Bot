@@ -205,3 +205,81 @@ def test_retention_sweep_revisits_rows_beyond_first_page(dashboard):
     dashboard.clock.advance(200)
     second=policy(dashboard).purge(dashboard.clock.now,limit=1,cursors=first.cursors)
     assert second.deleted==1 # Permitted older row did not starve later expired rows.
+
+
+@pytest.mark.parametrize('feature',['feed','setups'])
+@pytest.mark.parametrize('denied_use',['display_raw','display_derived'])
+@pytest.mark.parametrize('delivery',['save','load'])
+def test_mixed_publication_requires_both_display_uses_on_save_and_load(dashboard,feature,denied_use,delivery):
+    from member_dashboard.market_reader import SourceRecord,SourceName,MarketPayload
+    from member_dashboard.publication import Publisher,publishable
+    grant(dashboard,**{denied_use:False})
+    sources=lineage()
+    sources.required_features=[feature]
+    record=SourceRecord(SourceName.ANALYST if feature=='feed' else SourceName.ALERT,
+        'fixture-post','TEST','source-v1',dashboard.clock.now-10,dashboard.clock.now-5,
+        'https://x.com/fixture/status/123','bullish','Raw source quote',
+        MarketPayload(ticker='TEST',direction='bullish',excerpt='Raw source quote',score=80.0),lineage=sources)
+    publication=publishable(record)
+    publisher=Publisher(dashboard.store,policy(dashboard))
+    if delivery=='save':
+        assert not publisher.save(publication,dashboard.clock.now)
+        return
+    # A saved/restored content copy must receive the same current check even if
+    # another writer inserted it before this policy decision.
+    id=str(uuid4())
+    with dashboard.store.transaction() as conn:
+        conn.execute('INSERT INTO publications(id,source_post_key,ticker,content_version,feature,content_json,'
+            'source_lineage_json,required_features_json,observed_at,published_at) VALUES (?,?,?,?,?,?,?,?,?,?)',
+            (id,'fixture-post','TEST','source-v1',feature,record.payload.model_dump_json(),
+             json.dumps([s.model_dump() for s in sources.sources]),json.dumps([feature]),1.0,1.0))
+    assert publisher.load(id,dashboard.clock.now) is None
+
+
+@pytest.mark.parametrize('feature',['feed','setups'])
+def test_raw_only_content_does_not_require_derived_permission(dashboard,feature):
+    from member_dashboard.market_reader import SourceRecord,SourceName,MarketPayload
+    from member_dashboard.publication import Publisher,publishable
+    grant(dashboard,display_derived=False)
+    sources=lineage(); sources.required_features=[feature]
+    record=SourceRecord(SourceName.ANALYST if feature=='feed' else SourceName.ALERT,
+        'fixture-post','TEST','source-v1',dashboard.clock.now-10,
+        dashboard.clock.now-5,None,'unclear','Raw source quote',
+        MarketPayload(ticker='TEST',direction='unclear',excerpt='Raw source quote'),lineage=sources)
+    publisher=Publisher(dashboard.store,policy(dashboard))
+    assert publisher.save(publishable(record),dashboard.clock.now)
+    with dashboard.store.transaction() as conn:
+        id=conn.execute('SELECT id FROM publications').fetchone()[0]
+    assert publisher.load(id,dashboard.clock.now) is not None
+
+
+def test_quality_field_requires_derived_permission_even_without_direction(dashboard):
+    from member_dashboard.market_reader import SourceRecord,SourceName,MarketPayload
+    from member_dashboard.publication import Publisher,publishable
+    grant(dashboard,display_derived=False)
+    record=SourceRecord(SourceName.SIGNAL,'fixture-signal','TEST','source-v1',dashboard.clock.now-10,
+        dashboard.clock.now-5,None,'unclear','',
+        MarketPayload(ticker='TEST',direction='unclear',excerpt='',score=80.0),lineage=lineage())
+    assert not Publisher(dashboard.store,policy(dashboard)).save(publishable(record),dashboard.clock.now)
+
+
+def test_purge_exempts_only_member_text_and_content_free_removals(dashboard):
+    member_id,conversation_id,user_id,assistant_id,card_id=[str(uuid4()) for _ in range(5)]
+    with dashboard.store.transaction() as conn:
+        conn.execute('INSERT INTO members(id,username,password_hash,role,created_at) VALUES (?,?,?,?,?)',
+            (member_id,'synthetic_empty','unused','member',1.0))
+        conn.execute('INSERT INTO conversations(id,member_id,created_at) VALUES (?,?,?)',
+            (conversation_id,member_id,1.0))
+        for id,role in [(user_id,'user'),(assistant_id,'assistant')]:
+            conn.execute('INSERT INTO messages(id,conversation_id,member_id,role,content_json,created_at) '
+                'VALUES (?,?,?,?,?,?)',(id,conversation_id,member_id,role,'{"content":"fixture"}',1.0))
+        for version,operation,payload in [('upsert','upsert','{"excerpt":"unknown source"}'),
+                                         ('contentful-delete','delete','{"excerpt":"unknown source"}'),
+                                         ('content-free-delete','delete',None)]:
+            conn.execute('INSERT INTO publication_changes(card_id,content_version,operation,feature,content_json,changed_at) '
+                'VALUES (?,?,?,?,?,?)',(card_id,version,operation,'feed',payload,1.0))
+    assert policy(dashboard).purge(dashboard.clock.now).deleted==3
+    with dashboard.store.transaction() as conn:
+        assert [row[0] for row in conn.execute('SELECT id FROM messages')]==[user_id]
+        assert conn.execute('SELECT content_version,operation,content_json FROM publication_changes').fetchall()==[
+            ('content-free-delete','delete',None)]

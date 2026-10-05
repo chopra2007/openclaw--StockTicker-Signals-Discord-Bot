@@ -182,15 +182,20 @@ class SourcePolicy:
                 if type(cursor) is not int or cursor<0: raise ValueError('invalid purge cursor')
                 id_column='sequence' if table=='publication_changes' else 'id'
                 extra=',source_post_key,ticker,feature,content_version' if table=='publications' else ''
+                if table=='messages': extra=',role'
+                if table=='publication_changes': extra=',operation,content_json'
                 rows=conn.execute(f'SELECT rowid AS scan_id,{id_column} AS object_id,source_lineage_json,'
                     f'field_dependencies_json,required_features_json,retention_deadline{extra} FROM {table} '
                     'WHERE rowid>? ORDER BY rowid LIMIT ?',(cursor,limit)).fetchall()
                 next_cursors[table]=rows[-1]['scan_id'] if rows else cursor
                 more=more or len(rows)==limit
                 for row in rows:
-                    if table=='messages' and row['source_lineage_json']=='[]' and row['retention_deadline'] is None:
+                    no_source_metadata=(row['source_lineage_json']=='[]' and row['retention_deadline'] is None
+                                        and row['field_dependencies_json']=='[]' and row['required_features_json']=='[]')
+                    if table=='messages' and row['role']=='user' and no_source_metadata:
                         continue # A member's own text is not inferred to be source content.
-                    if table=='publication_changes' and row['source_lineage_json']=='[]' and row['retention_deadline'] is None:
+                    if (table=='publication_changes' and row['operation']=='delete' and row['content_json'] is None
+                            and no_source_metadata):
                         continue # Non-content delete events must survive.
                     lineage=self.stored_lineage(row)
                     if self._authorize_lineage(conn,lineage,'retain',now).allowed: continue
