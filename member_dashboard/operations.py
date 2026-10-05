@@ -109,12 +109,10 @@ async def run_compute(config,worker):
     await ComputeWorker(jobs,registry,runtime).serve()
 
 
-def recover_worker_state(launcher,store,now):
+def recover_worker_state(launcher,jobs,now):
     """Repeatable broker-to-web handoff; broker tombstones survive either crash."""
-    from .jobs import JobService
     workers=launcher.recover()
     if workers is None: return False
-    jobs=JobService(store,None,None,None)
     for worker in workers: jobs.confirm_worker_exit(worker,now,reconciled=True)
     jobs.recover_expired_leases(now)
     return True
@@ -128,18 +126,21 @@ def supervisor(config):
     from .market_reader import MarketReader
     from .publication import FeedService
     from .jobs import JobService
+    from .providers import ProviderRegistry
     store=web_store(config)
     control=ExitClient(config['control_socket'],config['quota_uid'])
     launcher=CgroupLauncher(config['cgroup_root'],compute_uid=config['compute_uid'],compute_gid=config['compute_gid'],
         config=config['compute_config'],control=control)
     policy=SourcePolicy(store);policy.authority_current=lambda:False
     policy.denial_journal=store.authority
-    feed=FeedService(store,AuthService(store),policy,signing_key=b'not-used-for-member-cursors-000000',reader=MarketReader(Path(config['market_path'])))
+    auth=AuthService(store)
+    jobs=JobService(store,auth,policy,ProviderRegistry())
+    feed=FeedService(store,auth,policy,signing_key=b'not-used-for-member-cursors-000000',reader=MarketReader(Path(config['market_path'])))
     worker=WorkerSupervisor(store,launcher,feed.feed_tick,reconcile=control.reconcile)
     try:
         while True:
             if worker.child is None:
-                if not recover_worker_state(launcher,store,time.time()):
+                if not recover_worker_state(launcher,jobs,time.time()):
                     feed.feed_tick(time.time());time.sleep(1);continue
                 worker.blocked=False  # tick rechecks any still-unknown web owner.
             worker.tick();time.sleep(.1)
@@ -149,7 +150,7 @@ def supervisor(config):
             deadline=time.monotonic()+5
             while not worker.child.is_dead() and time.monotonic()<deadline: time.sleep(.05)
             if worker.child.is_dead():
-                JobService(store,None,None,None).confirm_worker_exit(worker.child.worker_id,time.time(),reconciled=False)
+                jobs.confirm_worker_exit(worker.child.worker_id,time.time(),reconciled=False)
                 worker.child.close()
 
 

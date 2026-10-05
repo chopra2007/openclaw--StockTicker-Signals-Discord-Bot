@@ -110,8 +110,9 @@ def test_renew_waits_for_complete_denial_publication(tmp_path,monkeypatch):
 from test_jobs import research
 
 
-@pytest.mark.parametrize('with_call',[False,True])
-def test_restart_carries_broker_tombstone_into_web_after_crash(research,dashboard,tmp_path,with_call):
+@pytest.mark.parametrize('with_call,attempts,current_rights',[
+    (False,1,True),(True,1,True),(False,3,True),(True,3,True),(False,3,False)])
+def test_restart_carries_broker_tombstone_into_web_after_crash(research,dashboard,tmp_path,with_call,attempts,current_rights):
     from member_dashboard.operations import recover_worker_state
     from member_dashboard.exit_control import ExitRegistry
     from member_dashboard.quota_broker import QuotaBroker
@@ -120,8 +121,18 @@ def test_restart_carries_broker_tombstone_into_web_after_crash(research,dashboar
     from member_dashboard.worker import WorkerSupervisor
     from uuid import uuid4
     service,users,_,_=research;worker=str(uuid4());now=dashboard.clock()
-    service.request_research(users[0],'SPY',False,now)
+    request=service.request_research(users[0],'SPY',False,now)
+    completed_kind=None
+    if attempts==3:
+        from test_jobs import fixture_result
+        prior=service.claim_job('completed-worker',now)
+        service.complete_job(prior.id,prior.lease_token,fixture_result(prior.kind,now),now)
+        completed_kind=prior.kind
     job=service.claim_job(worker,now)
+    with dashboard.store.transaction() as con:
+        con.execute('UPDATE web_jobs SET attempts=? WHERE id=?',(attempts,job.id))
+        version_before=con.execute('SELECT current_version_id FROM report_owners WHERE report_id=?',(request.report_id,)).fetchone()[0]
+    service.policy.authority_current=lambda:current_rights
     if with_call:
         with dashboard.store.transaction() as con:
             con.execute("INSERT INTO provider_calls(call_id,worker_id,provider,status,started_at) VALUES (?,?,?,'running',?)",(job.call_id,worker,'synthetic',now))
@@ -141,11 +152,22 @@ def test_restart_carries_broker_tombstone_into_web_after_crash(research,dashboar
     with dashboard.store.transaction() as con:
         assert con.execute('SELECT count(*) FROM worker_exits').fetchone()[0]==0
     restarted=CgroupLauncher.__new__(CgroupLauncher);restarted.root=root;restarted.control=Control()
-    assert recover_worker_state(restarted,dashboard.store,now)
+    assert recover_worker_state(restarted,service,now)
     with dashboard.store.transaction() as con:
         assert con.execute('SELECT reconciled FROM worker_exits WHERE worker_id=?',(worker,)).fetchone()[0]==1
-        assert con.execute('SELECT status FROM web_jobs WHERE id=?',(job.id,)).fetchone()[0]=='queued'
+        assert con.execute('SELECT status FROM web_jobs WHERE id=?',(job.id,)).fetchone()[0]==('queued' if attempts==1 else 'failed')
         if with_call: assert con.execute('SELECT status FROM provider_calls').fetchone()[0]=='failed'
+        if attempts==3 and current_rights:
+            import json
+            row=con.execute('SELECT v.content_json FROM report_versions v JOIN report_owners o ON o.current_version_id=v.id WHERE o.report_id=?',(request.report_id,)).fetchone()
+            snapshot=json.loads(row[0])
+            assert snapshot[job.kind]['status']=='failed'
+            assert snapshot[completed_kind]['status']=='completed'
+        if not current_rights:
+            assert con.execute('SELECT current_version_id FROM report_owners WHERE report_id=?',(request.report_id,)).fetchone()[0]==version_before
+    if not current_rights:
+        assert service.get_request(users[0],request.id,now).sections[completed_kind].status=='unavailable'
+    assert recover_worker_state(restarted,service,now)  # Repeat after the web commit too.
     spawned=[]
     supervisor=WorkerSupervisor(dashboard.store,lambda:spawned.append(True),lambda _:None,clock=dashboard.clock)
     supervisor.tick()
