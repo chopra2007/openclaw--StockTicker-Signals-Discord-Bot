@@ -18,11 +18,33 @@ from .provider_runtime import ProviderOutcome
 
 
 class ComputeWorker:
-    def __init__(self, jobs, registry, runtime, *, clock=time.time, deadlines=None):
+    def __init__(self, jobs, registry, runtime, *, clock=time.time, deadlines=None, assistant=None):
         self.jobs, self.registry, self.runtime, self.clock = jobs, registry, runtime, clock
         self.deadlines = {**DEADLINES, **(deadlines or {})}
         self.current = None
         self.restart_requested = False
+        self.assistant = assistant
+        self.assistant_current = None
+        self.prefer_assistant = True
+
+    async def _assistant_heartbeat(self, run):
+        while True:
+            await asyncio.sleep(5)
+            self.assistant.heartbeat(run)
+
+    async def _run_assistant(self):
+        run = self.assistant.claim(self.runtime.worker_id) if self.assistant else None
+        if run is None: return False
+        self.assistant_current = run
+        self.prefer_assistant = False
+        heartbeat = asyncio.create_task(self._assistant_heartbeat(run))
+        try:
+            if await self.assistant.execute(run, self.runtime): self.assistant_current = None
+        finally:
+            heartbeat.cancel()
+            try: await heartbeat
+            except asyncio.CancelledError: pass
+        return True
 
     async def _heartbeat(self, job):
         while True:
@@ -50,6 +72,9 @@ class ComputeWorker:
 
     async def run_once(self):
         self.restart_requested = self.runtime.check_drains()
+        if self.assistant_current:
+            if self.assistant.settle(self.assistant_current,self.runtime): self.assistant_current = None
+            return
         if self.current:
             job = self.current
             self.jobs.heartbeat(job.id, job.lease_token, self.clock())
@@ -59,9 +84,12 @@ class ComputeWorker:
             return
         if self.restart_requested:
             return
+        if self.prefer_assistant and await self._run_assistant(): return
         job = self.jobs.claim_job(self.runtime.worker_id, self.clock())
         if job is None:
+            await self._run_assistant()
             return
+        self.prefer_assistant = True
         self.current = job
         heartbeat = asyncio.create_task(self._heartbeat(job))
         try:

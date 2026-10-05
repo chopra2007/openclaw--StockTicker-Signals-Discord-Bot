@@ -91,3 +91,31 @@ test('feature loss clears sections and navigation; feed revision and tombstone a
   await control(request,{action:'feature',feature:'sec',enabled:true});
   await page.goto('/');await control(request,{action:'delete'});await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await expect(page.locator('#feed').getByText('Corrected synthetic research.')).toHaveCount(0);
 });
+
+test('assistant: explicit send, persisted reopen, private access and delete',async({page,request,browser})=>{
+ await join(page,request);await page.getByRole('link',{name:'Market Assistant',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Market Assistant',exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'New conversation'}).click();await page.getByLabel('Your question').fill('Explain SPY');
+ await page.getByRole('button',{name:'Send question'}).click();
+ await expect(page.getByText('Observation: synthetic momentum is improving. Interpretation: more evidence is needed.')).toBeVisible();
+ const conversations=await page.request.get('/api/v1/conversations');const id=(await conversations.json()).items[0].id;
+ const other=await browser.newContext({ignoreHTTPSErrors:true,baseURL:'https://localhost:3443'});await join(await other.newPage(),request);
+ expect((await other.request.get('/api/v1/conversations/'+id)).status()).toBe(404);await other.close();
+ await page.reload();await page.getByRole('button',{name:'Market research',exact:true}).click();
+ await expect(page.getByText('Observation: synthetic momentum is improving. Interpretation: more evidence is needed.')).toBeVisible();
+ for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();await page.screenshot({path:`.e2e/screenshots/assistant-${width}.png`,fullPage:true});}
+ await page.getByRole('button',{name:'Delete conversation',exact:true}).click();await expect(page.getByText('Observation: synthetic momentum is improving. Interpretation: more evidence is needed.')).toHaveCount(0);
+ await expect.poll(async()=>(await page.request.get('/api/v1/conversations/'+id)).status()).toBe(404);
+});
+
+test('assistant: unavailable retry and terminal access refresh without new calls',async({page,request})=>{
+ await page.clock.install();await join(page,request);await control(request,{action:'assistant',enabled:false});
+ await page.goto('/assistant?ticker=SPY');await expect(page.getByText('Selected ticker:')).toContainText('SPY');
+ await page.getByRole('button',{name:'New conversation'}).click();await page.getByLabel('Your question').fill('Explain SPY');await page.getByRole('button',{name:'Send question'}).click();
+ await expect(page.getByText('Market Assistant is unavailable.')).toBeVisible();await control(request,{action:'assistant',enabled:true});
+ await page.getByRole('button',{name:'Retry question'}).click();await page.clock.fastForward(1001);
+ await expect(page.getByText('Observation: synthetic momentum is improving. Interpretation: more evidence is needed.')).toBeVisible();
+ const before=await control(request,{action:'stats'});await control(request,{action:'grant',allowed:false});
+ await page.clock.fastForward(15001);await expect(page.getByText('Observation: synthetic momentum is improving. Interpretation: more evidence is needed.')).toHaveCount(0);
+ expect(await control(request,{action:'stats'})).toEqual(before);await control(request,{action:'grant',allowed:true});
+});

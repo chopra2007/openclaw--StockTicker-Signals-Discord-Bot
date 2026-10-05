@@ -7,3 +7,5 @@
 
 .auth-card fieldset{display:grid;gap:18px;border:0;padding:0;margin:0;min-width:0}
 @media(min-width:1001px){.history-layout{grid-template-columns:280px minmax(0,1fr)}}
+
+.assistant-message{border-bottom:1px solid var(--border);padding:1rem 0;overflow-wrap:anywhere}.history-layout textarea{display:block;width:100%;margin:.5rem 0 1rem;background:transparent;color:inherit;border:1px solid #666;border-radius:.5rem;padding:.75rem}.history-layout input{max-width:100%}

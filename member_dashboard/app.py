@@ -20,6 +20,8 @@ from .publication import FeedService
 from .market_reader import MarketReader
 from .history import HistoryService
 from .routes.history import router as history_router
+from .assistant import AssistantService
+from .routes.assistant import router as assistant_router
 
 
 def create_app(settings: Settings) -> FastAPI:
@@ -46,11 +48,13 @@ def create_app(settings: Settings) -> FastAPI:
     app.state.research = JobService(store, app.state.auth, app.state.source_policy,
         settings.provider_registry if isinstance(settings.provider_registry, ProviderRegistry) else ProviderRegistry())
     app.state.history = HistoryService(app.state.research, signing_key=settings.feed_signing_key, clock=settings.clock)
+    app.state.assistant = AssistantService(app.state.history,transport=settings.assistant_transport,clock=settings.clock)
     app.include_router(auth_router)
     app.include_router(research_router)
     app.include_router(assets_router)
     app.include_router(feed_router)
     app.include_router(history_router)
+    app.include_router(assistant_router)
 
     def safe_error(status, code):
         return JSONResponse(status_code=status,

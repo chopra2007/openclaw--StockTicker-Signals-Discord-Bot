@@ -254,3 +254,40 @@ finally:
     result = subprocess.run([sys.executable, '-B', '-c', script], text=True,
                             capture_output=True, timeout=30)
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_assistant_import_and_unavailable_transport_cannot_reach_operational_state():
+    script=r'''
+import sys,os,importlib.abc,asyncio
+loop=asyncio.new_event_loop()  # Windows creates its local wakeup socket before the trap.
+attempts=[]
+class Trap(importlib.abc.MetaPathFinder):
+    def find_spec(self,fullname,path=None,target=None):
+        if fullname.startswith(('consensus_engine','dotenv','openclaw')):
+            attempts.append(fullname);raise AssertionError(fullname)
+sys.meta_path.insert(0,Trap())
+def audit(event,args):
+    if event in {'socket.connect','socket.getaddrinfo','socket.sendto','subprocess.Popen','os.system'}:
+        attempts.append(event);raise AssertionError(event)
+    if event=='open' and isinstance(args[0],(str,bytes)):
+        value=os.fsdecode(args[0]).lower().replace('\\','/')
+        if any(marker in value for marker in ('schwab_token','consensus.yaml','/.env','/vault/','/.openclaw/')):
+            attempts.append('private_file');raise AssertionError('private_file')
+sys.addaudithook(audit)
+from member_dashboard.app import create_app
+from member_dashboard.assistant_tools import parse_tool
+from member_dashboard.assistant_transport import DirectTransport,TurnBudget,AssistantUnavailable
+transport=DirectTransport('',None,(),(),0)
+async def run():
+    try: await transport.complete([],{},TurnBudget('unavailable',1))
+    except AssistantUnavailable: pass
+    else: raise AssertionError('missing access permitted')
+    for name in ('run_shell','read_file','browser','!ask'):
+        try: parse_tool({'name':name,'arguments':{}})
+        except ValueError: pass
+        else: raise AssertionError('host tool accepted')
+loop.run_until_complete(run());loop.close()
+assert not attempts,attempts
+'''
+    result=subprocess.run([sys.executable,'-B','-c',script],text=True,capture_output=True,timeout=30)
+    assert result.returncode==0,result.stdout+result.stderr

@@ -213,7 +213,8 @@ class HistoryService:
                     lineage = self.jobs.policy.stored_lineage(message)
                     tracked = {(s.source_id,s.source_version) for s in lineage.sources} if lineage else set()
                     complete = all((e.source_id,e.source_version) in tracked for e in content.evidence)
-                    allowed = source_free or (lineage is not None and complete and require_features(con,lineage.required_features) and all(self.jobs.policy._authorize_lineage(con,lineage,use,now,message['created_at']).allowed for use in ('retain','display_raw','display_derived')))
+                    observed_at = message['source_observed_at'] if message['role']=='assistant' else message['created_at']
+                    allowed = source_free or (lineage is not None and complete and require_features(con,lineage.required_features) and all(self.jobs.policy._authorize_lineage(con,lineage,use,now,observed_at).allowed for use in ('retain','display_raw','display_derived')))
                     if allowed:
                         annotations = self._annotations(con,content.evidence)
                         if not annotations: text,evidence = content.text,content.evidence

@@ -109,7 +109,7 @@ class JobService:
         key = hashed([ticker, section, lineage.model_dump(), metadata, saved_mask])
         return key, lineage, saved_mask, metadata
 
-    def request_research(self, principal, ticker, refresh, now):
+    def request_research(self, principal, ticker, refresh, now, *, guard=None):
         try:
             ticker = self.registry.catalog.lookup(ticker)
         except SymbolError as error:
@@ -118,6 +118,7 @@ class JobService:
         with self.store.transaction() as con:
             con.row_factory = sqlite3.Row
             self.auth.revalidate(principal, now, con=con)
+            if guard is not None: guard(con)
             self._endpoint_limit(con, principal, now)
             enabled = [name for name in SECTIONS if feature_mask(con)[name][0]]
             active = {r[0] for r in con.execute("SELECT DISTINCT r.ticker FROM research_requests r JOIN request_sections s ON s.request_id=r.id JOIN report_owners o ON o.id=r.report_owner_id WHERE r.member_id=? AND r.deleted_at IS NULL AND o.deleted_at IS NULL AND s.status IN ('queued','running')", (principal.member_id,))}
@@ -231,6 +232,8 @@ class JobService:
             con.row_factory = sqlite3.Row
             # Exactly one expensive lane across every process, including draining work.
             if con.execute("SELECT 1 FROM web_jobs WHERE status IN ('running','draining') LIMIT 1").fetchone():
+                return None
+            if con.execute("SELECT 1 FROM assistant_runs WHERE status IN ('running','draining') LIMIT 1").fetchone():
                 return None
             rows = con.execute("SELECT * FROM web_jobs WHERE status='queued' AND coalesce(not_before,0)<=? AND attempts<3 ORDER BY created_at,rowid LIMIT 50", (now,)).fetchall()
             row = None
@@ -425,6 +428,9 @@ class JobService:
             con.execute("UPDATE provider_calls SET status='uncertain',completed_at=?,reconciled=? WHERE worker_id=? AND status IN ('running','draining')", (now, int(reconciled), worker_id))
             if reconciled:
                 con.execute("UPDATE provider_calls SET status='failed',reconciled=1 WHERE worker_id=? AND status='uncertain'", (worker_id,))
+                # An uncertain model turn is never automatically replayed.
+                con.execute("UPDATE assistant_turns SET status='uncertain' WHERE run_id IN (SELECT id FROM assistant_runs WHERE worker_id=? AND status IN ('running','draining')) AND status='prepared'", (worker_id,))
+                con.execute("UPDATE assistant_runs SET status='unavailable',finished_at=?,error_code='unavailable' WHERE worker_id=? AND status IN ('running','draining')", (now,worker_id))
                 from .provider_runtime import settle_exited_probes
                 settle_exited_probes(con,worker_id,now)
 

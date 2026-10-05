@@ -21,6 +21,8 @@ from member_dashboard.source_policy import SourcePolicy, SourcePermission
 from member_dashboard.providers import ProviderRegistry, ProviderSpec, SymbolCatalog, ResearchCompletion
 from member_dashboard.jobs import JobService
 from member_dashboard.history import HistoryService
+from member_dashboard.assistant import AssistantService
+from member_dashboard.assistant_transport import ModelTurn
 from member_dashboard.provider_runtime import ProviderRuntime
 from member_dashboard.worker import ComputeWorker
 from member_dashboard.publication import FeedService, Publisher, publishable
@@ -45,7 +47,7 @@ sources = [SourceContribution(source_id='synthetic', product_id='fixture', sourc
 def grant(allowed=True):
     policy.record(SourcePermission(source_id='synthetic',product_id='fixture',provider='fixture',
         policy_version='v1',audience='invited_members',status='allowed' if allowed else 'denied',
-        display_raw=True,display_derived=True,retain=True,private_grant_ref='synthetic',evidence_ref='synthetic',
+        display_raw=True,display_derived=True,retain=True,model_input=True,private_grant_ref='synthetic',evidence_ref='synthetic',
         terms_url='https://www.sec.gov/synthetic-terms',effective_at=0.0,
         attribution='Synthetic Exchange · demonstration data',delay_seconds=60.0,tombstone_allowed=True))
 
@@ -112,7 +114,21 @@ def publish(version='v1', excerpt='Synthetic research: momentum is improving.', 
     publisher.save(publishable(record),time.time())
 publish(); publish(key='setup-one',feature='setups',excerpt='Synthetic setup with defined invalidation.')
 runtime=ProviderRuntime(store,'browser-fixture')
-worker=ComputeWorker(app.state.research,registry,runtime)
+
+class SyntheticAssistant:
+    model='synthetic-web-only'
+    fingerprint='synthetic-web-only-v1'
+    enabled=True
+    def available(self,now): return self.enabled
+    async def complete(self,messages,schemas,budget):
+        await asyncio.sleep(.1)
+        if any('untrusted_evidence' in m and m.get('tool')=='lookup_market' for m in messages):
+            return ModelTurn(answer='Observation: synthetic momentum is improving. Interpretation: more evidence is needed.',input_tokens=40,output_tokens=20)
+        return ModelTurn(tool_calls=[{'name':'lookup_market','arguments':{'ticker':'SPY','limit':2}}],input_tokens=30,output_tokens=10)
+
+assistant_transport=SyntheticAssistant()
+app.state.assistant=AssistantService(app.state.history,transport=assistant_transport)
+worker=ComputeWorker(app.state.research,registry,runtime,assistant=app.state.assistant)
 
 @asynccontextmanager
 async def lifespan(_):
@@ -128,6 +144,7 @@ app.router.lifespan_context=lifespan
 async def control(request:Request):
     command=await request.json()
     action=command['action']
+    if action=='assistant': assistant_transport.enabled=command['enabled']
     if action=='invite':
         return {'token':auth.issue_invite_trusted(admin,time.time()).token}
     if action=='reset':

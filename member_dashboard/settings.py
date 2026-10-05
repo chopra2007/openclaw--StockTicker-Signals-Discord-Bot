@@ -14,6 +14,7 @@ class Settings:
     clock: Callable[[], float] = time.time
     provider_registry: object | None = field(default=None, repr=False)
     feed_signing_key: bytes | None = field(default=None, repr=False)
+    assistant_transport: object | None = field(default=None, repr=False)
 
     def __post_init__(self):
         if self.feed_signing_key is not None and (type(self.feed_signing_key) is not bytes or len(self.feed_signing_key)<32):

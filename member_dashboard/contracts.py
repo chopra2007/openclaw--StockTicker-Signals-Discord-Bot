@@ -310,3 +310,18 @@ class SavedMessage(PublicModel):
 class SavedConversation(ConversationRef):
     messages: list[SavedMessage] = Field(max_length=100)
     cursor: Annotated[str, Field(max_length=4096)] | None
+
+
+class AssistantRun(PublicModel):
+    id: Identifier
+    conversation_id: Identifier
+    status: Status
+    ticker_context: Annotated[str, Field(max_length=16)] | None
+    created_at: float
+    finished_at: float | None
+    message: ShortText | None
+    response_message_id: Identifier | None
+    model_id: Identifier | None
+    input_tokens: int | None
+    output_tokens: int | None
+    cost: float | None

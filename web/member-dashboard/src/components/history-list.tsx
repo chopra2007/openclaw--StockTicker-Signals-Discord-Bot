@@ -10,22 +10,22 @@ import {EvidenceList} from './research-details';
 import {Button} from './ui/button';
 
 /** Current access refresh replaces or clears every visible page, without work submission. */
-function useHistoryRead<T>(path:string|null,accessKey:string){
+export function useHistoryRead<T>(path:string|null,accessKey:string,interval=15000){
  const key=path+accessKey;
  const [state,setState]=useState<{key:string;data:T|null;error:string}>({key,data:null,error:''});
  useEffect(()=>{
-  let closed=false,busy=false,again=false,timer:ReturnType<typeof setTimeout>|undefined;
+  let closed=false,busy=false,again=false,delay=interval,timer:ReturnType<typeof setTimeout>|undefined;
   const controller=new AbortController();
   const read=async()=>{
    if(closed||busy||document.hidden||!path)return;busy=true;
-   try{const data=await api<T>(path,{signal:controller.signal});if(!closed)setState({key,data,error:''});}
+   try{const data=await api<T>(path,{signal:controller.signal});delay=data&&typeof data==='object'&&'status' in data&&(data.status==='queued'||data.status==='running')?interval:15000;if(!closed)setState({key,data,error:''});}
    catch(e){if(!closed&&!(e instanceof DOMException&&e.name==='AbortError'))setState({key,data:null,error:e instanceof ApiError?e.message:'Unable to check current access.'});}
-   finally{busy=false;if(!closed){clearTimeout(timer);const immediately=again&&!document.hidden;again=false;timer=setTimeout(read,immediately?0:15000);}}
+   finally{busy=false;if(!closed){clearTimeout(timer);const immediately=again&&!document.hidden;again=false;timer=setTimeout(read,immediately?0:delay);}}
   };
   const focus=()=>{clearTimeout(timer);if(busy&&!document.hidden)again=true;else void read();};
   void read();window.addEventListener('focus',focus);document.addEventListener('visibilitychange',focus);
   return()=>{closed=true;controller.abort();clearTimeout(timer);window.removeEventListener('focus',focus);document.removeEventListener('visibilitychange',focus);};
- },[path,accessKey,key]);
+ },[path,accessKey,key,interval]);
  return state.key===key?state:{data:null,error:''};
 }
 
