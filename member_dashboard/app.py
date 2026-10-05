@@ -10,6 +10,10 @@ from .settings import Settings
 from .store import WebStore
 from .auth import AuthService
 from .routes.auth import router as auth_router, AnonymousCsrf
+from .routes.research import router as research_router
+from .jobs import JobService
+from .providers import ProviderRegistry
+from .source_policy import SourcePolicy
 
 
 def create_app(settings: Settings) -> FastAPI:
@@ -29,7 +33,11 @@ def create_app(settings: Settings) -> FastAPI:
     app.state.providers = settings.provider_registry
     app.state.auth = AuthService(store)
     app.state.anonymous_csrf = AnonymousCsrf()
+    app.state.source_policy = SourcePolicy(store)
+    app.state.research = JobService(store, app.state.auth, app.state.source_policy,
+        settings.provider_registry if isinstance(settings.provider_registry, ProviderRegistry) else ProviderRegistry())
     app.include_router(auth_router)
+    app.include_router(research_router)
 
     def safe_error(status, code):
         return JSONResponse(status_code=status,

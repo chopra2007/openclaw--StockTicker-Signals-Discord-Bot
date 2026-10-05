@@ -89,7 +89,7 @@ def test_migration_is_idempotent(dashboard):
     dashboard.store.migrate()
     with dashboard.store.transaction() as connection:
         assert connection.execute("SELECT id FROM members").fetchone()[0] == member_id
-        assert connection.execute("SELECT version FROM schema_migrations ORDER BY version").fetchall() == [(1,), (2,)]
+        assert connection.execute("SELECT version FROM schema_migrations ORDER BY version").fetchall() == [(1,), (2,), (3,)]
 
 
 def test_failed_transaction_rolls_back(dashboard):

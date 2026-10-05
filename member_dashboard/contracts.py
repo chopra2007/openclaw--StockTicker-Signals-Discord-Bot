@@ -174,3 +174,10 @@ class SectionResult(PublicModel):
 
 class HealthResponse(PublicModel):
     status: Literal["ok"]
+
+
+class ResearchRequest(PublicModel):
+    id: Identifier
+    report_id: Identifier
+    ticker: Annotated[str, Field(max_length=16)]
+    sections: dict[Section, SectionResult]
