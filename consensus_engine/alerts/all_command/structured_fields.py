@@ -15,7 +15,6 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Optional
 
-from consensus_engine import config as cfg
 from consensus_engine.models import OptionsResult, ScoreBreakdown
 
 
@@ -336,6 +335,7 @@ def compute_confidence_label(
 ) -> str:
     """Binary HIGH/LOW vs config-driven threshold (default 80)."""
     if threshold is None:
+        from consensus_engine import config as cfg
         threshold = cfg.get("precision_engine.thresholds.high_confidence", 80)
     try:
         thr = float(threshold)
@@ -361,13 +361,12 @@ def _parse_iso_date(s: str) -> Optional[date]:
 def compute_breakout_timeframe(
     ticker: str,
     earnings_date: Optional[str],
-    options_data: Optional[OptionsResult],
-) -> str:
+    options_data: Optional[OptionsResult], *, today=None,) -> str:
     """Return earnings_date if within 30 days, else nearest options expiry.
 
     Falls back to the literal string "TBD" when neither is available.
     """
-    today = date.today()
+    today = date.today() if today is None else today
     earnings_d = _parse_iso_date(earnings_date) if earnings_date else None
     if earnings_d is not None:
         delta_days = (earnings_d - today).days
@@ -463,8 +462,7 @@ def compute_swing_horizon(
     tp1: Optional[float],
     atr14: Optional[float],
     earnings_date: Optional[str] = None,
-    realized_daily_move: Optional[float] = None,
-) -> tuple[Optional[int], Optional[tuple], Optional[str]]:
+    realized_daily_move: Optional[float] = None, *, today=None, horizon_realized_vol=None,) -> tuple[Optional[int], Optional[tuple], Optional[str]]:
     """Estimate days-to-TP1 and a ±25% band around that estimate.
 
     Returns `(days, band, note)` where:
@@ -498,10 +496,13 @@ def compute_swing_horizon(
     # calm tape (realized < ATR) keeps the ATR floor while a volatile tape
     # (realized > ATR) shortens the horizon. Flag OFF or no realized move →
     # the original ATR-only denominator (byte-identical).
+    if horizon_realized_vol is None:
+        from consensus_engine import config as cfg
+        horizon_realized_vol = cfg.get("all_command.horizon_realized_vol", False)
     atr_slippage = _HORIZON_DAILY_SLIPPAGE * atr_f
     daily_slippage = atr_slippage
     if (
-        cfg.get("all_command.horizon_realized_vol", False)
+        horizon_realized_vol
         and realized_daily_move is not None
     ):
         try:
@@ -521,7 +522,7 @@ def compute_swing_horizon(
     # T-5 is allowed to extend horizon ABOVE the floor (trader holds through),
     # ER beyond T-5 caps as before.
     earnings_d = _parse_iso_date(earnings_date) if earnings_date else None
-    days_to_er = (earnings_d - date.today()).days if earnings_d is not None else None
+    days_to_er = (earnings_d - (date.today() if today is None else today)).days if earnings_d is not None else None
     if days_to_er is not None and days_to_er == 0:
         pass  # intraday catalyst — keep est_days as computed (usually 1)
     else:
@@ -598,8 +599,7 @@ def compute_magnitude_band(
 def compute_next_catalyst_days(
     earnings_date: Optional[str],
     options_data: Optional[OptionsResult],
-    extra_events: Optional[list] = None,
-) -> Optional[int]:
+    extra_events: Optional[list] = None, *, today=None,) -> Optional[int]:
     """Days until next material catalyst (earnings preferred, then options).
 
     Returns the integer day count, or None if no future catalyst is found.
@@ -610,7 +610,7 @@ def compute_next_catalyst_days(
     merged into the candidate set; nearest forward-dated wins.
     """
     days, _, _ = compute_next_catalyst(
-        earnings_date, options_data, extra_events,
+        earnings_date, options_data, extra_events, today=today,
     )
     return days
 
@@ -618,8 +618,7 @@ def compute_next_catalyst_days(
 def compute_next_catalyst(
     earnings_date: Optional[str],
     options_data: Optional[OptionsResult],
-    extra_events: Optional[list] = None,
-) -> tuple[Optional[int], Optional[str], Optional[str]]:
+    extra_events: Optional[list] = None, *, today=None,) -> tuple[Optional[int], Optional[str], Optional[str]]:
     """Like compute_next_catalyst_days but also returns kind + mechanism.
 
     Returns `(days_to_next, kind_label, mechanism_string)` so the narrator
@@ -630,7 +629,7 @@ def compute_next_catalyst(
     Priority: earnings > product/analyst events > options expiry >
     dividend ex-date > IPO. Within priority, nearest date wins.
     """
-    today = date.today()
+    today = date.today() if today is None else today
     candidates: list[tuple[date, str, str, int]] = []  # (date, kind, mechanism, priority)
 
     _PRIO = {

@@ -17,7 +17,10 @@ import enum
 import logging
 import time
 
-from consensus_engine.api_adapters import get_live_quote_price
+async def get_live_quote_price(ticker):
+    """Compatibility collector; the pure classifier never reaches this path."""
+    from consensus_engine.api_adapters import get_live_quote_price as fetch
+    return await fetch(ticker)
 
 log = logging.getLogger(__name__)
 
@@ -65,8 +68,8 @@ async def _cached_quote(ticker: str) -> float | None:
     return price
 
 
-async def classify_level(ticker: str, level_price: float,
-                         live_price: float | None = None) -> LevelVerdict:
+def classify_level_from_quote(ticker: str, level_price: float,
+                         live_price: float | None) -> LevelVerdict:
     """Tri-state plausibility of one stored level for `ticker` at today's price."""
     try:
         lp = float(level_price)
@@ -76,9 +79,6 @@ async def classify_level(ticker: str, level_price: float,
         return LevelVerdict.DROP
 
     tk = (ticker or "").upper()
-
-    if live_price is None:
-        live_price = await _cached_quote(tk)
 
     if live_price and live_price > 0:
         # Penny exemption: <$5 names have real multi-bagger targets (!all exempts them).
@@ -103,6 +103,19 @@ async def classify_level(ticker: str, level_price: float,
         return LevelVerdict.KEEP
     # Unknown ticker, no quote -> fail-open but flag (matches the YouTube path's fail-open).
     return LevelVerdict.SUSPECT
+
+
+async def classify_level(ticker: str, level_price: float,
+                         live_price: float | None = None) -> LevelVerdict:
+    # Preserve the legacy invalid-level short circuit before quote collection.
+    try:
+        if float(level_price) <= 0:
+            return LevelVerdict.DROP
+    except (TypeError, ValueError):
+        return LevelVerdict.DROP
+    if live_price is None:
+        live_price = await _cached_quote((ticker or "").upper())
+    return classify_level_from_quote(ticker, level_price, live_price)
 
 
 async def filter_levels_for_display(ticker: str, levels, live_price: float | None = None):

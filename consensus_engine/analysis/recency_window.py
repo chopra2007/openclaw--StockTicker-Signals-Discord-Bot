@@ -25,7 +25,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Optional, Union
 
-from consensus_engine import config as cfg
 
 log = logging.getLogger(__name__)
 
@@ -66,15 +65,17 @@ def _coerce_ts(ts: Timestamp) -> Optional[datetime]:
     return dt.astimezone(timezone.utc)
 
 
-def is_fresh(source: str, as_of: Timestamp, *, now: Optional[datetime] = None) -> bool:
+def is_fresh(source: str, as_of: Timestamp, *, now: Optional[datetime] = None, settings=None,) -> bool:
     """True when `as_of` is inside `source`'s freshness cap.
 
     None/unparseable timestamps are stale (False). A source without a
     configured cap is fresh by definition (caps are opt-in).
     """
-    if not cfg.get("features.recency_window.enabled", True):
+    if settings is None:
+        from consensus_engine import config as settings
+    if not settings.get("features.recency_window.enabled", True):
         return True
-    cap_min = cfg.get(f"features.recency_window.max_age_min.{source}", None)
+    cap_min = settings.get(f"features.recency_window.max_age_min.{source}", None)
     if cap_min is None:
         log.debug("recency_window: no max_age_min cap configured for source %r — leg kept", source)
         return True
@@ -89,17 +90,19 @@ def is_fresh(source: str, as_of: Timestamp, *, now: Optional[datetime] = None) -
     return age_min <= float(cap_min)
 
 
-def filter_fresh(legs: list[SourceLeg], *, now: Optional[datetime] = None) -> list[SourceLeg]:
+def filter_fresh(legs: list[SourceLeg], *, now: Optional[datetime] = None, settings=None,) -> list[SourceLeg]:
     """Drop every leg outside its source's freshness cap.
 
     With `features.recency_window.enabled: false` this is an identity pass.
     """
-    if not cfg.get("features.recency_window.enabled", True):
+    if settings is None:
+        from consensus_engine import config as settings
+    if not settings.get("features.recency_window.enabled", True):
         return list(legs)
     now = now or datetime.now(timezone.utc)
     kept = []
     for leg in legs:
-        if is_fresh(leg.source, leg.as_of, now=now):
+        if is_fresh(leg.source, leg.as_of, now=now, settings=settings):
             kept.append(leg)
         else:
             log.debug(

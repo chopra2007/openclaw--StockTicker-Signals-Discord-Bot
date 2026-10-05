@@ -1282,129 +1282,16 @@ async def synthesize_narrative(
         catalyst_research=catalyst_research,
     )
 
-    from consensus_engine.alerts.all_command import quality_bar as _qb
-
-    obs_log({"ts": time.time(), "event": "narrator_cache_miss", "ticker": ticker})
-    raw = await _invoke_synthesis(messages, deadline_seconds)
-    obs_log({"ts": time.time(), "event": "synth_initial", "ticker": ticker})
-    if not raw:
-        return "", "fallback_data_only"
-
-    # If the narrator dropped one of the required sections
-    # (TL;DR / ## Risk Considerations), retry once with a hardened
-    # prompt that lists the missing tokens explicitly. After one retry, we
-    # accept whatever comes back and let output_filter handle contradictions.
-    if not _qb.has_required_sections(raw):
-        missing = _qb.missing_required_sections(raw)
-        log.warning(
-            "narrator: missing required sections %s — re-prompting once", missing,
-        )
-        obs_log({
-            "ts": time.time(), "event": "synth_retry",
-            "reason": "missing_sections", "ticker": ticker, "missing": missing,
-        })
-        hardened_sections = list(messages)
-        hardened_sections[-1] = dict(hardened_sections[-1])
-        hardened_sections[-1]["content"] = (
-            hardened_sections[-1].get("content", "")
-            + "\n\nMISSING SECTIONS — your previous draft dropped: "
-            + ", ".join(missing)
-            + ". Re-emit the FULL narrative with EVERY required section "
-              "header present verbatim."
-        )
-        retried = await _invoke_synthesis(
-            hardened_sections, max(1.0, deadline_seconds * 0.5),
-        )
-        if retried:
-            raw = retried
-
-    # all-risk-section (Feature B) — hard gate behind the prompt's "no price
-    # levels in Risk Considerations" rule. Prompt-only bans proved unreliable on
-    # the free-model chain (live NVDA restated the stop 6×), so re-prompt once if
-    # the stop-loss price literal leaks into the merged risk section.
-    _stop_price = getattr(structured, "sl", None)
-    # #24 strict price gate (flag all_command.risk_price_gate_strict, default
-    # off). When on, the gate also catches leaked entry/target/buy-zone prices,
-    # not just the stop literal. Flag off → byte-identical to the stop-only check.
-    _risk_gate_strict = bool(
-        _cfg.get("all_command.risk_price_gate_strict", False)
-    )
-    _current_price = getattr(structured, "current_price", None)
-    _price_levels = [
-        v for v in (
-            _stop_price,
-            getattr(structured, "tp1", None),
-            getattr(structured, "tp2", None),
-            getattr(structured, "tp3", None),
-            getattr(structured, "buy_zone_low", None),
-            getattr(structured, "buy_zone_high", None),
-            _current_price,
-        )
-        if v is not None
-    ]
-    _risk_violations = _qb.risk_section_violations(
-        raw, _stop_price,
-        price_levels=_price_levels,
-        current_price=_current_price,
-        strict=_risk_gate_strict,
-    )
-    if _risk_violations:
-        log.warning(
-            "narrator: risk-section violations %s — re-prompting once",
-            _risk_violations,
-        )
-        obs_log({
-            "ts": time.time(), "event": "synth_retry",
-            "reason": "risk_violation", "ticker": ticker,
-        })
-        hardened_risk = list(messages)
-        hardened_risk[-1] = dict(hardened_risk[-1])
-        hardened_risk[-1]["content"] = (
-            hardened_risk[-1].get("content", "")
-            + "\n\nRISK SECTION FIX — your previous draft violated: "
-            + "; ".join(_risk_violations)
-            + ". Re-emit the FULL narrative. In `## Risk Considerations` do NOT "
-              "mention the stop-loss or ANY price level — the trader already "
-              "sees the stop in the Trade Plan. Replace every such line with a "
-              "specific, evidence-cited business / macro / positioning risk."
-        )
-        retried_risk = await _invoke_synthesis(
-            hardened_risk, max(1.0, deadline_seconds * 0.5),
-        )
-        # all-risk-section v2 Fix #3 — re-validate the retry before adopting it.
-        # A stubborn free-tier model can leak the stop price twice; adopting an
-        # unchecked retry let a still-bad output through. Keep the ORIGINAL raw
-        # if the retry still violates (or is empty).
-        if retried_risk and not _qb.risk_section_violations(
-            retried_risk, _stop_price,
-            price_levels=_price_levels,
-            current_price=_current_price,
-            strict=_risk_gate_strict,
-        ):
-            raw = retried_risk
-        else:
-            log.warning(
-                "narrator: risk-section retry still violated (or empty) — keeping original",
-            )
-
-    # Retry-once with hardened prompt if output_filter detects contradiction.
-    async def _retry_fn() -> str:
-        obs_log({
-            "ts": time.time(), "event": "synth_retry",
-            "reason": "contradiction", "ticker": ticker,
-        })
-        hardened = list(messages)
-        hardened[0] = dict(hardened[0])
-        hardened[0]["content"] = (
-            build_time_context() + "\n\n"
-            + _SYS_INSTRUCTION + " STRICT: do not contradict the COMPUTED "
-            "SIGNAL block. Do not include @everyone or @here."
-        )
-        retry_deadline = max(1.0, deadline_seconds * 0.5)
-        return await _invoke_synthesis(hardened, retry_deadline)
-
-    sanitized, status = await output_filter.sanitize_or_retry(
-        raw, structured, retry_fn=_retry_fn,
+    from consensus_engine.analysis.research_compute import synthesize_with_gates
+    sanitized, status = await synthesize_with_gates(
+        ticker=ticker, messages=messages, structured=structured,
+        deadline_seconds=deadline_seconds, invoke=_invoke_synthesis,
+        telemetry=obs_log, epoch=time.time,
+        risk_gate_strict=bool(_cfg.get("all_command.risk_price_gate_strict", False)),
+        contradiction_system=lambda: (
+            build_time_context() + "\n\n" + _SYS_INSTRUCTION
+            + " STRICT: do not contradict the COMPUTED SIGNAL block. "
+              "Do not include @everyone or @here."),
     )
     if cache_enabled and _cache_k and status == "ok" and sanitized:
         _cache_put(_cache_k, (sanitized, status))

@@ -18,10 +18,7 @@ import logging
 import math
 from typing import Optional
 
-import aiohttp
-
 from consensus_engine.analysis import indicators
-from consensus_engine.utils.http import get_session
 
 log = logging.getLogger("consensus_engine.analysis.patterns")
 
@@ -38,6 +35,8 @@ async def fetch_daily_candles(ticker: str, range_str: str = "3mo") -> list[dict]
     params = {"interval": "1d", "range": range_str}
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
     try:
+        import aiohttp
+        from consensus_engine.utils.http import get_session
         session = await get_session()
         async with session.get(
             url, params=params, headers=headers,
