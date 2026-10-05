@@ -1393,7 +1393,7 @@ def _select_trade_plan_ladder(
     spot: Optional[float] = None,
     atr14: Optional[float] = None,
     direction: str = "BULLISH",
-    earnings_days: Optional[int] = None, settings=None,) -> dict:
+    earnings_days: Optional[int] = None, settings=None, telemetry=None, now=None,) -> dict:
     """3-rung trade-plan ladder (Wave 2 smart-levels).
 
     RUNG 1  real + technical anchors clustered >= min_anchors_for_plan, with a
@@ -1418,6 +1418,7 @@ def _select_trade_plan_ladder(
         base = select_trade_plan(
             [], [], spot=spot, atr14=atr14,
             direction=direction, earnings_days=earnings_days, settings=settings, engine_on=False,
+            telemetry=telemetry, now=now,
         )
         base["entry"] = round(spot, 2) if spot else None
         base["risk_reward"] = None
@@ -1633,6 +1634,7 @@ def select_trade_plan(
         return _select_trade_plan_ladder(
             supports, resistances, spot=spot, atr14=atr14,
             direction=direction, earnings_days=earnings_days, settings=settings,
+            telemetry=telemetry, now=now,
         )
     if settings is None:
         from consensus_engine import config as _cfg

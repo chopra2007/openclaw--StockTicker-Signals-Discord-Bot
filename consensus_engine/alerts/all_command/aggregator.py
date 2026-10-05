@@ -980,7 +980,11 @@ async def _collect_research_request(request, ticker, data, start, stage_t):
             log.debug("aggregator: parity log write failed: %s", exc)
         return None
     if request.kind == "gap_fill":
-        return await gap_fill.run_gap_fill(**request.value)
+        # The preceding quote may have awaited I/O. Preserve the legacy budget
+        # from this effect boundary, still capped by the overall request budget.
+        arguments = dict(request.value)
+        arguments["deadline"] = time.time() + min(20.0, _remaining(start))
+        return await gap_fill.run_gap_fill(**arguments)
     if request.kind == "smart_shadow":
         _log_smart_levels_shadow(**request.value)
         return None
