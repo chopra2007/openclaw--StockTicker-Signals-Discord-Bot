@@ -127,7 +127,7 @@ class HistoryService:
                         if saved.result_id is not None:
                             parent = con.execute('SELECT m.* FROM market_results m JOIN report_owners o ON o.report_id=? AND o.member_id=? AND o.current_version_id=? AND o.deleted_at IS NULL WHERE m.id=?',
                                 (report_id,principal.member_id,version['id'],saved.result_id)).fetchone()
-                            current = self.jobs._read_result(con,parent,now) if parent else None
+                            current = self.jobs._read_result(con,parent,now,historical=True) if parent else None
                             if current is not None and current.section == name:
                                 # Payload, evidence, timestamps and analysis version stay original.
                                 visible = saved.model_copy(update={'attributions':current.attributions,'delay_seconds':current.delay_seconds})

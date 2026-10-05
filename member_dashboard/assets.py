@@ -45,7 +45,7 @@ class AssetService:
             asset=con.execute('SELECT * FROM assets WHERE id=?',(asset_id,)).fetchone()
             if asset is None: return None
             parent=con.execute('SELECT * FROM market_results WHERE id=?',(asset['result_id'],)).fetchone()
-            result = self.jobs._read_result(con,parent,now) if parent else None
+            result = self.jobs._read_result(con,parent,now,historical=True) if parent else None
             if result is None or any(evidence_retraction(con,item,self.jobs.policy) is not None for item in result.evidence): return None
             lineage=self.jobs.policy.stored_lineage(asset)
             if lineage is None or not require_features(con,lineage.required_features): return None

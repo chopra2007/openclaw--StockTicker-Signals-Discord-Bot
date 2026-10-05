@@ -109,6 +109,51 @@ def test_current_features_hide_old_sections_but_do_not_mutate_snapshot(history, 
         assert con.execute('SELECT content_json FROM report_versions ORDER BY rowid DESC LIMIT 1').fetchone()[0] == original
 
 
+def test_reenabled_features_restore_original_history_and_chart_without_reviving_deleted_owner(history, research, dashboard):
+    from io import BytesIO
+    from PIL import Image
+    from member_dashboard.assets import AssetService
+    from member_dashboard.history import HistoryError
+    jobs, users, *_ = research
+    requests = [jobs.request_research(u, 'SPY', False, dashboard.clock()) for u in users[:2]]
+    png = BytesIO(); Image.new('RGB', (8, 8)).save(png, format='PNG')
+    while job := jobs.claim_job('fixture', dashboard.clock()):
+        jobs.complete_job(job.id, job.lease_token, fixture_result(job.kind, dashboard.clock()), dashboard.clock(),
+                          png=png.getvalue() if job.kind == 'em_daily' else None)
+    original = history.get_report(users[1], requests[1].report_id)
+    chart = original.sections['em_daily'].payload.chart_asset_id
+    assets = AssetService(jobs)
+    with jobs.store.transaction() as con:
+        con.execute("UPDATE features SET enabled=0,version=version+1 WHERE name IN ('sec','em_daily')")
+    disabled = history.get_report(users[1], requests[1].report_id)
+    assert all(disabled.sections[name].payload is None for name in ('sec', 'em_daily', 'analysis'))
+    assert assets.read(users[1], chart, dashboard.clock()) is None
+    history.delete_report(users[0], requests[0].report_id)
+    with jobs.store.transaction() as con:
+        con.execute("UPDATE features SET enabled=1,version=version+1 WHERE name IN ('sec','em_daily')")
+    assert history.get_report(users[1], requests[1].report_id) == original
+    assert assets.read(users[1], chart, dashboard.clock()) == png.getvalue()
+    with pytest.raises(HistoryError): history.get_report(users[0], requests[0].report_id)
+    assert assets.read(users[0], chart, dashboard.clock()) is None
+    # Re-enabling permits the original personal snapshot, not stale cache reuse.
+    fresh = jobs.request_research(users[1], 'SPY', False, dashboard.clock())
+    assert all(fresh.sections[name].status == 'queued' and fresh.sections[name].result_id is None
+               for name in ('sec', 'em_daily', 'analysis'))
+
+
+def test_reenabled_features_do_not_revive_old_running_completion(history, research, dashboard):
+    jobs, users, *_ = research
+    request = jobs.request_research(users[0], 'SPY', False, dashboard.clock())
+    job = jobs.claim_job('fixture', dashboard.clock())
+    with jobs.store.transaction() as con:
+        con.execute('UPDATE features SET enabled=0,version=version+1 WHERE name=?', (job.kind,))
+        con.execute('UPDATE features SET enabled=1,version=version+1 WHERE name=?', (job.kind,))
+    jobs.complete_job(job.id, job.lease_token, fixture_result(job.kind, dashboard.clock()), dashboard.clock())
+    with jobs.store.transaction() as con:
+        assert con.execute('SELECT result_id FROM request_sections WHERE request_id=? AND section=?', (request.id, job.kind)).fetchone()[0] is None
+    assert history.get_report(users[0], request.report_id).sections.get(job.kind) is None
+
+
 def test_provider_purge_applies_to_every_copy_and_null_never_falls_back(history, research, dashboard):
     from member_dashboard.source_policy import SourcePermission
     jobs, users, _, policy = research

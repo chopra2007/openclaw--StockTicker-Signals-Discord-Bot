@@ -178,14 +178,20 @@ class JobService:
             raise ResearchError('request_rate_limit')
         con.execute("INSERT INTO web_usage(id,member_id,kind,units,occurred_at) VALUES (?,?,'research_endpoint',1,?)", (str(uuid4()), principal.member_id, now))
 
-    def _read_result(self, con, row, now):
+    def _read_result(self, con, row, now, *, historical=False):
+        """Historical owners need current rights, not original job generations.
+
+        Only owned immutable history/assets opt in. Live request, cache and
+        snapshot paths keep the default generation fence.
+        """
         lineage = self.policy.stored_lineage(row)
         if lineage is None or not require_features(con, lineage.required_features):
             return None
         result = SectionResult.model_validate_json(row['content_json'])
-        job = con.execute('SELECT feature_mask_json FROM web_jobs WHERE id=?', (result.job_id,)).fetchone()
-        if job is None or not mask_current(con, job[0]):
-            return None
+        if not historical:
+            job = con.execute('SELECT feature_mask_json FROM web_jobs WHERE id=?', (result.job_id,)).fetchone()
+            if job is None or not mask_current(con, job[0]):
+                return None
         decisions = [self.policy._authorize_lineage(con, lineage, use, now, result.observed_at)
                      for use in ('retain', 'display_raw', 'display_derived')]
         if not all(decision.allowed for decision in decisions):
