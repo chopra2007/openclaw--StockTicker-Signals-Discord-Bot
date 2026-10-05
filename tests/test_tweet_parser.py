@@ -280,7 +280,7 @@ def test_event_claim_keeps_exact_span_for_visible_attribution():
     assert tweet.ticker_views[0].reason_text == reason
 
 
-def test_multi_ticker_span_with_two_symbols_fails_closed():
+def test_multi_ticker_span_recovers_only_unambiguous_own_clause():
     text = "$AMD broke resistance while $NVDA lost support"
     payload = {
         "type": "A", "tickers": ["AMD", "NVDA"], "direction": "long",
@@ -295,12 +295,13 @@ def test_multi_ticker_span_with_two_symbols_fails_closed():
     tweet = _parse_llm_response(payload, "https://example.test/post", "analyst", text)
 
     views = {view.ticker: view for view in tweet.ticker_views}
-    assert views["AMD"].direction == "unclear"
-    assert views["AMD"].decision_code == "multi_ticker_ambiguous"
+    assert views["AMD"].direction == "long"
+    assert views["AMD"].decision_code == "explicit_clause"
+    assert views["AMD"].reason_text == "$AMD broke resistance"
     assert views["NVDA"].direction == "unclear"
 
 
-def test_source_ticker_omitted_by_model_still_makes_clause_ambiguous():
+def test_quote_without_symbol_expands_only_to_its_unique_own_source_clause():
     text = "$AMD broke resistance while $NVDA lost support"
     payload = {
         "type": "A", "tickers": ["AMD"], "direction": "long",
@@ -315,9 +316,9 @@ def test_source_ticker_omitted_by_model_still_makes_clause_ambiguous():
 
     tweet = _parse_llm_response(payload, "https://example.test/post", "analyst", text)
 
-    assert tweet.ticker_views[0].direction == "unclear"
-    assert tweet.ticker_views[0].reason_text is None
-    assert tweet.ticker_views[0].decision_code == "multi_ticker_ambiguous"
+    assert tweet.ticker_views[0].direction == "long"
+    assert tweet.ticker_views[0].reason_text == "$AMD broke resistance"
+    assert tweet.ticker_views[0].decision_code == "explicit_clause"
 
 
 @pytest.mark.asyncio

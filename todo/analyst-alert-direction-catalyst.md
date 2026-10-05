@@ -1,9 +1,11 @@
 # Show analyst direction and catalyst inside the alert
 
-**Status:** DONE 2026-08-17
+**Status:** DONE 2026-10-04
 **Created:** 2026-08-17
 
-**CURRENT STATUS (2026-08-17):** DONE in commit `c764b59`. Each analyst-group card now shows the safe
+**CURRENT STATUS (2026-10-04 Pacific):** DONE and live. The follow-up audit corrected 16 false unclear views in a frozen sample of 19 source posts and 22 ticker views; three genuinely ambiguous views stayed unclear. The bot now recognizes directional forecasts and event surprises, joins attributable split charts, retains image evidence separately from source quotes, and uses a backup image reader when the first provider is unavailable. Negation, shared ticker subjects, conflicting evidence, and unsided options still fail closed. Final focused Linux checks: 226 passed. Production replay confirmed bullish chart-arrow evidence and a ticker-specific delivery beat; both services are active and Discord reconnected. New alert cards use the fix. Clean-checkout research failures are tracked separately in TODO #120.
+
+**EARLIER STATUS (2026-08-17):** DONE in commit `c764b59`. Each analyst-group card now shows the safe
 group bias plus each analyst's independently validated direction and exact source-grounded reason.
 Missing, ambiguous, neutral, generic, malformed, and unsided-option evidence fails closed as unclear or
 reason not stated. The historical audit, live schema, and real Discord readback all passed.
@@ -151,3 +153,19 @@ summary, keeps per-analyst lines, and labels exact intraday versus daily-price e
 - **Tests:** 75 focused tests, 40 additional affected alert tests, and 102 Batch 2 checks passed; compile and changed-file checks also passed.
 - **Historical proof:** The saved immutable audit covered 756 group events, 586 unique posts, and 410 fully recoverable groups with 0 bullish/bearish reversals, 0 unsupported displayed reasons, and 0 card fact failures.
 - **Live proof:** Schema v34 was live after the 3:49 AM Pacific engine restart. The approved AAPL `#chat` card showed Bullish bias, 2 bullish/0 bearish/0 unclear, and price `$305.93`. `@DeItaone` was Bullish with `Analyst says: APPLE UPGRADED TO BUY — $400 TARGET`; `@OMillionaires` was Bullish with `Analyst says: upgraded to Buy from Neutral`. Both source links and the owner ping were present; no non-Pacific clock label or repeated `SWARM` wording appeared.
+
+### Session notes - 2026-10-04 Pacific
+
+- Independently assessed original posts, stored per-ticker views, chart images, and rendered cards before changing labels. This bounded sample is not a general accuracy estimate.
+- Added shared text validation for directional meaning, exact attribution, negation, and option side. Chart intent is distinct from overall consolidation sentiment and is never a fabricated source-text quote.
+- Joined only the declared chart sequence with matching relay, channel, count, and send window. Read-only live source checks recovered all four charts from three parent messages.
+- Verified durable storage and actual bullish, bearish, and unclear card output in a separate database. No audit messages were sent to Discord.
+- Development checks: 713 related checks passed; final focused Linux checks: 226 passed. A broad clean-copy run passed 4,386 checks; its 12 research failures matched the prior baseline exactly. Current master GitHub CI has 14 missing-private-input research failures, including two server-only manifest checks; see TODO #120.
+- Deployed checked patches with backups, preserved unrelated live edits, restarted the engine, and verified the column migration, Discord READY, both active services, and matching model-chain configuration.
+- Integrated only this feature onto current master, leaving the separate pending YouTube command change out.
+
+### Integration verification - 2026-10-04 Pacific
+
+- Rebased the feature onto current master and ran the complete two-worker regression suite: 4,447 passed, 130 skipped, 12 known research-input failures, no new failure IDs.
+- Ran the regression comparison after correcting archive-only Windows line endings in the test copy; the committed baseline already uses LF. The gate reported no regression against the independently verified current-master baseline.
+- TODO status synchronization passed. Production code hashes match the reviewed integration code.

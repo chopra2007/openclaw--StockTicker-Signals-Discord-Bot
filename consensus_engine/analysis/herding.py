@@ -78,7 +78,7 @@ async def _swarm_members(
         """SELECT se.id AS signal_event_id, se.source_detail AS analyst,
                   se.recorded_at AS first_at, se.source_link,
                   se.analyst_post_view_id, apv.display_direction,
-                  apv.reason_text, apv.reason_kind, apv.decision_code
+                  apv.reason_text, apv.reason_kind, apv.decision_code, apv.image_evidence_json
              FROM signal_events se
              LEFT JOIN analyst_post_views apv
                ON apv.id=se.analyst_post_view_id AND apv.ticker=se.ticker
@@ -105,6 +105,12 @@ async def _swarm_members(
         raw_direction = (row["display_direction"] if row else None) or ""
         direction = raw_direction if raw_direction in {"long", "short"} else "unclear"
         stored_reason = (row["reason_text"] if row else None) or ""
+        if row and row["reason_kind"] == "image" and row["image_evidence_json"]:
+            try:
+                evidence = json.loads(row["image_evidence_json"])
+                stored_reason = evidence.get("direction_evidence", "")
+            except (ValueError, TypeError, AttributeError):
+                direction = "unclear"
         reason = " ".join(stored_reason.split()) or "reason not stated"
         details.append(SwarmMemberDetail(
             analyst=analyst,

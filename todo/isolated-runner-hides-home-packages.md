@@ -29,3 +29,11 @@ full suite and confirm it ends 0 errors.
 - **Worked on:** applied the `PYTHONUSERBASE` fix; ran the target test file and the full suite.
 - **Result:** 0 errors, 0 failures.
 - **Next:** none. `.test-baseline` refresh was not needed (suite fully green).
+
+### Analyst-bias verification note - 2026-10-04 Pacific
+
+The runner fix above remains DONE. Separate clean tracked-file test copies lack
+ignored research evidence files. The analyst-bias baseline and broad candidate
+runs had the same 12 research failure IDs; the candidate had no setup errors.
+These missing evidence inputs are a separate clean-checkout regression-gate issue,
+not a return of the package-path bug. Final analyst and shared-path checks passed.

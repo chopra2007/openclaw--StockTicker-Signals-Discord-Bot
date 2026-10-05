@@ -780,6 +780,8 @@ def format_swarm_alert(swarm, current_price: float = 0.0, links: Optional[dict] 
         reason = " ".join((detail.reason or "").split()) or "reason not stated"
         if getattr(detail, "reason_kind", "none") == "event_claim" and reason != "reason not stated":
             reason = f"Analyst says: {reason}"
+        elif getattr(detail, "reason_kind", "none") == "image" and reason != "reason not stated":
+            reason = f"Chart read: {reason}"
         reason = _clip(reason, max(20, 250 - len(prefix)))
         lines.append(prefix + reason)
 

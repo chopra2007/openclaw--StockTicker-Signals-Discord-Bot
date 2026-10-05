@@ -215,11 +215,11 @@ async def test_storage_repairs_unique_exact_reason_offsets(test_db):
     await db.insert_signal(signal, ticker_view=view, source_url="https://example.test/unique")
 
     row = await (await test_db.execute("SELECT * FROM analyst_post_views")).fetchone()
-    assert row["display_direction"] == "unclear"
+    assert row["display_direction"] == "long"  # Raised guidance is directional event evidence.
     assert row["reason_text"] == reason
     assert row["reason_start"] == raw_text.index(reason)
     assert row["reason_end"] == raw_text.index(reason) + len(reason)
-    assert row["decision_code"] == "reason_only"
+    assert row["decision_code"] == "explicit_clause"
 
 
 async def test_storage_maps_unique_whitespace_normalized_reason_to_source(test_db):

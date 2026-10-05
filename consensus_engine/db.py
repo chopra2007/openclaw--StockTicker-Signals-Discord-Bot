@@ -15,6 +15,9 @@ from consensus_engine import config as cfg
 from consensus_engine.models import (
     TickerPostView, TickerSignal, SourceType, Sentiment, locate_unique_source_span,
 )
+from consensus_engine.analysis.analyst_evidence import (
+    direction_context, direction_is_supported, safe_image_evidence, shared_ticker_subject, ticker_text_context, unsided_option,
+)
 
 log = logging.getLogger("consensus_engine.db")
 
@@ -324,6 +327,7 @@ CREATE TABLE IF NOT EXISTS analyst_post_views (
     reason_kind TEXT NOT NULL,
     decision_code TEXT NOT NULL,
     parser_version TEXT NOT NULL,
+    image_evidence_json TEXT,
     created_at REAL NOT NULL,
     UNIQUE(source_post_key, ticker, parser_version)
 );
@@ -2203,6 +2207,7 @@ async def _run_column_migrations(conn) -> None:
         ("signal_events", "source_link", "TEXT"),
         # schema v34: durable, ticker-specific analyst group-card evidence.
         ("signal_events", "analyst_post_view_id", "INTEGER REFERENCES analyst_post_views(id)"),
+        ("analyst_post_views", "image_evidence_json", "TEXT"),
         ("sec_form4_filings", "is_10b5_1", "INTEGER DEFAULT 0"),
         ("youtube_videos",    "description", "TEXT"),
         ("youtube_evidence_spans", "parser_version",   "TEXT"),
@@ -2456,21 +2461,6 @@ def _source_post_key(signal: TickerSignal, source_url: str | None) -> str:
     return hashlib.sha256(identity.encode("utf-8")).hexdigest()
 
 
-_VIEW_OPTION_RE = re.compile(r"\b(?:calls?|puts?|\d+(?:\.\d+)?\s*[cp])\b", re.IGNORECASE)
-_VIEW_OPTION_SIDE_RE = re.compile(
-    r"\b(?:buy|buying|bought|long|sell|selling|sold|short|write|writing|wrote)\b",
-    re.IGNORECASE,
-)
-_VIEW_LONG_RE = re.compile(
-    r"\b(?:long|buy|buying|bought|bullish|add|adding|added|breakout|broke|"
-    r"reclaim|reclaimed|reclaiming|upside|bounce|bouncing|above)\b",
-    re.IGNORECASE,
-)
-_VIEW_SHORT_RE = re.compile(
-    r"\b(?:short|sell|selling|sold|bearish|fade|fading|breakdown|"
-    r"lost support|downside|below|reject|rejected|rejecting)\b",
-    re.IGNORECASE,
-)
 _VIEW_TICKER_RE = re.compile(r"(?<![A-Za-z0-9])\$([A-Za-z]{1,10})(?![A-Za-z0-9])")
 
 
@@ -2478,13 +2468,14 @@ def _view_ticker_is_attributable(signal: TickerSignal, reason_text: str) -> bool
     source_tickers = {match.upper() for match in _VIEW_TICKER_RE.findall(signal.raw_text)}
     if len(source_tickers) <= 1:
         return True
-    reason_tickers = {match.upper() for match in _VIEW_TICKER_RE.findall(reason_text)}
+    reason_tickers = {ticker for ticker in source_tickers if re.search(
+        rf"(?<![A-Za-z0-9])\$?{re.escape(ticker)}(?![A-Za-z0-9])", reason_text, re.I,
+    )}
     return reason_tickers == {signal.ticker.upper()}
 
 
 def _view_direction_is_supported(direction: str, source_text: str) -> bool:
-    evidence_re = _VIEW_LONG_RE if direction == "long" else _VIEW_SHORT_RE
-    return bool(evidence_re.search(source_text))
+    return direction_is_supported(direction, source_text)
 
 
 def _storage_safe_ticker_view(signal: TickerSignal, view: TickerPostView) -> TickerPostView:
@@ -2496,17 +2487,22 @@ def _storage_safe_ticker_view(signal: TickerSignal, view: TickerPostView) -> Tic
         )
 
     code = view.decision_code
+    if code == "image_evidence":
+        evidence = safe_image_evidence(view.image_evidence, signal.ticker, view.direction)
+        opposite = "short" if view.direction == "long" else "long"
+        if direction_is_supported(opposite, ticker_text_context(signal.raw_text, signal.ticker)):
+            evidence = None
+        return TickerPostView(
+            ticker=signal.ticker, direction=view.direction if evidence else "unclear",
+            reason_kind="image" if evidence else "none",
+            decision_code="image_evidence" if evidence else "invalid_span",
+            parser_version=view.parser_version, image_evidence=evidence,
+        )
     if code not in {"explicit_clause", "reason_only", "direction_only"}:
         return TickerPostView(
             ticker=signal.ticker, direction="unclear", reason_kind="none",
             decision_code=code, parser_version=view.parser_version,
         )
-    if _VIEW_OPTION_RE.search(signal.raw_text) and not _VIEW_OPTION_SIDE_RE.search(signal.raw_text):
-        return TickerPostView(
-            ticker=signal.ticker, direction="unclear", reason_kind="none",
-            decision_code="unsided_option", parser_version=view.parser_version,
-        )
-
     reason_requested = code in {"explicit_clause", "reason_only"}
     span = locate_unique_source_span(signal.raw_text, view.reason_text) if reason_requested else None
     source_reason = signal.raw_text[span[0]:span[1]] if span is not None else None
@@ -2514,10 +2510,10 @@ def _storage_safe_ticker_view(signal: TickerSignal, view: TickerPostView) -> Tic
         span is not None
         and view.reason_kind in {"position", "setup", "event_claim"}
         and isinstance(source_reason, str)
+        and not shared_ticker_subject(signal.raw_text, span, signal.ticker)
         and _view_ticker_is_attributable(signal, source_reason)
         and not (
-            _VIEW_OPTION_RE.search(source_reason)
-            and not _VIEW_OPTION_SIDE_RE.search(source_reason)
+            unsided_option(source_reason)
         )
     )
     if reason_requested and not reason_is_safe:
@@ -2529,13 +2525,19 @@ def _storage_safe_ticker_view(signal: TickerSignal, view: TickerPostView) -> Tic
     direction_is_safe = False
     if code in {"explicit_clause", "direction_only"} and view.direction in {"long", "short"}:
         source_tickers = {match.upper() for match in _VIEW_TICKER_RE.findall(signal.raw_text)}
-        evidence_text = signal.raw_text if len(source_tickers) <= 1 else source_reason or ""
+        evidence_text = direction_context(signal.raw_text, span, signal.ticker) if span else (
+            signal.raw_text if len(source_tickers) <= 1 else "")
         direction_is_safe = (
             _view_direction_is_supported(view.direction, evidence_text)
             and not (
-                _VIEW_OPTION_RE.search(evidence_text)
-                and not _VIEW_OPTION_SIDE_RE.search(evidence_text)
+                unsided_option(evidence_text)
             )
+        )
+
+    if unsided_option(signal.raw_text) and not direction_is_safe:
+        return TickerPostView(
+            ticker=signal.ticker, direction="unclear", reason_kind="none",
+            decision_code="unsided_option", parser_version=view.parser_version,
         )
 
     if reason_is_safe:
@@ -2602,8 +2604,9 @@ async def insert_signal(
                 """INSERT OR IGNORE INTO analyst_post_views
                    (source_post_key, source_url, analyst, ticker, detected_at, raw_text,
                     raw_text_sha256, parsed_summary, display_direction, reason_text,
-                    reason_start, reason_end, reason_kind, decision_code, parser_version, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    reason_start, reason_end, reason_kind, decision_code, parser_version, created_at,
+                    image_evidence_json)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     post_key, source_url, signal.source_detail, signal.ticker,
                     signal.detected_at, signal.raw_text,
@@ -2611,6 +2614,7 @@ async def insert_signal(
                     parsed_summary, safe_view.direction, safe_view.reason_text,
                     safe_view.reason_start, safe_view.reason_end, safe_view.reason_kind,
                     safe_view.decision_code, safe_view.parser_version, time.time(),
+                    json.dumps(safe_view.image_evidence) if safe_view.image_evidence else None,
                 ),
             ))
             view_lookup_sql = (

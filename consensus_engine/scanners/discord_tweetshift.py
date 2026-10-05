@@ -62,6 +62,22 @@ def _normalize_handle(raw: str) -> str:
     return raw.lstrip("@").lower()
 
 
+def _message_image_urls(message: dict) -> list[str]:
+    urls = []
+    for attachment in message.get("attachments", []):
+        if (attachment.get("content_type", "").startswith("image/")
+                or attachment.get("filename", "").lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".webp"))):
+            if attachment.get("url"):
+                urls.append(attachment["url"])
+    for embed in message.get("embeds", []):
+        for key in ("image", "thumbnail"):
+            if embed.get(key, {}).get("url"):
+                urls.append(embed[key]["url"])
+    urls.extend(re.findall(r'\[.*?\]\((https?://\S+\.(?:png|jpe?g|gif|webp)[^)]*)\)',
+                           message.get("content", ""), re.I))
+    return list(dict.fromkeys(urls))
+
+
 def _snowflake_age_seconds(message_id: str, now: float) -> float:
     """Age in seconds of a Discord snowflake id relative to `now` (epoch secs).
 
@@ -179,6 +195,7 @@ class DiscordTweetShiftListener:
         self._on_command = on_command
         self._on_mention = on_mention
         self._token: str = ""
+        self._consumed_media_ids: deque[str] = deque(maxlen=512)
         self._feed_channel_id: str = ""
         self._commands_channel_id: str = ""
         self._briefing_channel_id: str = ""
@@ -346,29 +363,16 @@ class DiscordTweetShiftListener:
 
             # TweetShift feed channel: process as tweet
             if channel_id == self._feed_channel_id:
+                if message_id in self._consumed_media_ids:
+                    return
                 tweet_data = _parse_tweetshift_message(data)
                 guild_id = str(data.get("guild_id", ""))
 
                 # Extract images from attachments and embeds regardless of tweet parse
-                image_urls = []
-                for att in data.get("attachments", []):
-                    ct = att.get("content_type", "")
-                    fn = att.get("filename", "")
-                    if ct.startswith("image/") or fn.lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".webp")):
-                        image_urls.append(att["url"])
-                for embed in data.get("embeds", []):
-                    image_url = embed.get("image", {}).get("url")
-                    if image_url:
-                        image_urls.append(image_url)
-                for embed in data.get("embeds", []):
-                    thumb_url = embed.get("thumbnail", {}).get("url")
-                    if thumb_url:
-                        image_urls.append(thumb_url)
-                # Also extract bare URLs from markdown image links in content: [text](url)
-                if content:
-                    for m in re.finditer(r'\[.*?\]\((https?://\S+\.(?:png|jpe?g|gif|webp)[^)]*)\)', content, re.IGNORECASE):
-                        image_urls.append(m.group(1))
-                deduped = list(dict.fromkeys(image_urls))
+                deduped = _message_image_urls(data)
+                if tweet_data:
+                    deduped, media_ids = await self._collect_tweet_media(data, deduped)
+                    self._consumed_media_ids.extend(media_ids)
 
                 if not tweet_data:
                     # Image-only message: skip if no images to analyze
@@ -587,6 +591,58 @@ class DiscordTweetShiftListener:
         if replayed:
             log.info("Replay: routed %d missed message(s) for channel %s",
                      replayed, channel_id)
+
+    async def _collect_tweet_media(self, message: dict, existing: list[str]) -> tuple[list[str], set[str]]:
+        """Join TweetShift's declared charts only across an unbroken media sequence.
+
+        Same relay, channel, image count and a ten-second send window are required.
+        Another tweet ends attribution, even when it comes from the same relay.
+        """
+        footer = " ".join(e.get("footer", {}).get("text", "") for e in message.get("embeds", []))
+        counts = re.findall(r"📷\s*(\d+)", footer)
+        expected = sum(int(count) for count in counts)
+        if "TweetShift" not in footer or not 0 < expected <= 10 or len(existing) >= expected or not self._token:
+            return existing, set()
+        mid = str(message.get("id", ""))
+        relay = message.get("author", {}).get("id")
+        if not mid.isdigit() or not relay:
+            return existing, set()
+        age = _snowflake_age_seconds(mid, time.time())
+        if age < 1.2:
+            await asyncio.sleep(1.2 - max(0, age))
+        for attempt in range(2):
+            page = await self._fetch_messages_since(str(message.get("channel_id", "")), mid)
+            urls, ids = list(existing), set()
+            for candidate in sorted(page or [], key=lambda m: int(m.get("id", "0"))):
+                candidate_id = str(candidate.get("id", ""))
+                if not candidate_id.isdigit() or int(candidate_id) <= int(mid):
+                    continue
+                elapsed = (int(candidate_id) - int(mid)) / (1 << 22) / 1000
+                images = _message_image_urls(candidate)
+                # Only TweetShift's camera-link message is a continuation.
+                # Unparseable prose with an image may be a separate analyst post.
+                camera_links = re.findall(r'\[📷\]\(https?://[^)]+\)', candidate.get("content", ""))
+                media_only = bool(camera_links) and not re.sub(r'\[📷\]\(https?://[^)]+\)', "", candidate.get("content", "")).strip()
+                media_only = media_only and not any(
+                    e.get("description") or e.get("title") or e.get("fields") or e.get("author")
+                    for e in candidate.get("embeds", [])
+                )
+                if (elapsed > 10 or candidate.get("author", {}).get("id") != relay
+                        or candidate.get("channel_id") != message.get("channel_id")
+                        or _parse_tweetshift_message(candidate) or not images or not media_only):
+                    break
+                urls = list(dict.fromkeys([*urls, *images]))
+                ids.add(candidate_id)
+                if len(urls) == expected:
+                    log.info("Joined %d split chart(s) to TweetShift message=%s", expected, mid)
+                    return urls, ids
+                if len(urls) > expected:
+                    break
+            if age > 3 or attempt or page is None:
+                break
+            await asyncio.sleep(.8)
+        log.warning("TweetShift charts unavailable or ambiguous message=%s expected=%d", mid, expected)
+        return existing, set()
 
     async def _fetch_messages_since(
         self, channel_id: str, after_id: Optional[str],

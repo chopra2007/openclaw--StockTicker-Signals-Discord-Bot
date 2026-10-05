@@ -269,6 +269,7 @@ class TickerPostView:
     reason_kind: str = "none"
     decision_code: str = "missing"
     parser_version: str = "analyst-view-v1"
+    image_evidence: Optional[dict] = None
 
 
 @dataclass
