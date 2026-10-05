@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 Section = Literal["analysis", "sec", "options", "em_daily", "em_weekly"]
 Status = Literal["queued", "running", "completed", "unavailable", "failed"]
 Feature = Literal["feed", "setups", "analysis", "sec", "options", "em_daily", "em_weekly", "assistant"]
+FeedSource = Literal['analyst_views','signal_events','alert_history','decision_snapshots','ticker_signals','research_sections']
 ShortText = Annotated[str, Field(max_length=256)]
 Text = Annotated[str, Field(max_length=4000)]
 Identifier = Annotated[str, Field(min_length=1, max_length=128)]
@@ -64,6 +65,59 @@ class Evidence(PublicModel):
     url: Annotated[str, Field(max_length=2048)] | None
     excerpt: Text
     research_only: bool
+
+
+class FeedPayload(PublicModel):
+    ticker: str = Field(max_length=16)
+    direction: Literal['bullish','bearish','neutral','unclear']
+    excerpt: Text
+    score: float | None = None
+    price: float | None = None
+    research_only: Literal[True] = True
+    entry: float | None = None
+    target: float | None = None
+    invalidation: float | None = None
+    attributions: list[Annotated[str,Field(max_length=1536)]] = Field(default_factory=list,max_length=200)
+    evidence: list[Evidence] = Field(default_factory=list,max_length=200)
+
+
+class FeedUpsert(PublicModel):
+    operation: Literal['upsert'] = 'upsert'
+    id: Identifier
+    content_version: Identifier
+    summary_version: Identifier
+    source: FeedSource | None
+    payload: FeedPayload
+    observed_at: float | None
+    projected_at: float
+    published_at: float | None = None
+    stale: bool
+    delay_seconds: float = Field(ge=0)
+
+
+class FeedDelete(PublicModel):
+    operation: Literal['delete'] = 'delete'
+    id: Identifier
+
+
+class SourceFreshness(PublicModel):
+    source: FeedSource
+    status: Literal['available','stale','unavailable']
+    checked_at: float | None
+    succeeded_at: float | None
+
+
+class FeedPage(PublicModel):
+    records: list[Annotated[FeedUpsert | FeedDelete,Field(discriminator='operation')]] = Field(max_length=100)
+    cursor: str = Field(max_length=4096)
+    snapshot: bool
+    has_more: bool
+    sources: list[SourceFreshness] = Field(max_length=9)
+
+
+class RetractionAnnotation(PublicModel):
+    status: Literal['retracted','unavailable']
+    recorded_at: float | None
 
 
 class Level(PublicModel):

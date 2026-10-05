@@ -15,6 +15,9 @@ from .jobs import JobService
 from .providers import ProviderRegistry
 from .source_policy import SourcePolicy
 from .assets import router as assets_router
+from .routes.feed import router as feed_router
+from .publication import FeedService
+from .market_reader import MarketReader
 
 
 def create_app(settings: Settings) -> FastAPI:
@@ -35,11 +38,15 @@ def create_app(settings: Settings) -> FastAPI:
     app.state.auth = AuthService(store)
     app.state.anonymous_csrf = AnonymousCsrf()
     app.state.source_policy = SourcePolicy(store)
+    app.state.feed = (FeedService(store,app.state.auth,app.state.source_policy,
+        signing_key=settings.feed_signing_key,clock=settings.clock,
+        reader=MarketReader(settings.market_path,clock=settings.clock)) if settings.feed_signing_key else None)
     app.state.research = JobService(store, app.state.auth, app.state.source_policy,
         settings.provider_registry if isinstance(settings.provider_registry, ProviderRegistry) else ProviderRegistry())
     app.include_router(auth_router)
     app.include_router(research_router)
     app.include_router(assets_router)
+    app.include_router(feed_router)
 
     def safe_error(status, code):
         return JSONResponse(status_code=status,

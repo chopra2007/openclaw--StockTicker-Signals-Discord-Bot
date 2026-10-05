@@ -13,8 +13,11 @@ class Settings:
     origin: str = "https://dashboard.test"
     clock: Callable[[], float] = time.time
     provider_registry: object | None = field(default=None, repr=False)
+    feed_signing_key: bytes | None = field(default=None, repr=False)
 
     def __post_init__(self):
+        if self.feed_signing_key is not None and (type(self.feed_signing_key) is not bytes or len(self.feed_signing_key)<32):
+            raise ValueError('feed signing key must contain at least 32 bytes')
         if not self.web_path.is_absolute() or not self.market_path.is_absolute():
             raise ValueError("web and market paths must be absolute")
         self.validate_paths()

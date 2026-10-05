@@ -160,11 +160,24 @@ class SourcePolicy:
 
     def _tombstone_allowed(self,conn,lineage):
         if lineage is None: return False
-        for source in lineage.sources:
+        return self._tombstone_sources_allowed(conn,lineage.sources)
+
+    def _tombstone_sources_allowed(self,conn,sources):
+        for source in sources:
             row=conn.execute('SELECT tombstone_allowed FROM source_permissions WHERE source_id=? AND product_id=? '
                 'ORDER BY rowid DESC LIMIT 1',(source.source_id,source.product_id)).fetchone()
             if row is None or not row[0]: return False
         return True
+
+    def _retraction_metadata_allowed(self,conn,raw_sources):
+        """Current non-content retention rights, independent of content grants."""
+        try:
+            if self.authority_current() is not True: return False
+            values=json.loads(raw_sources)
+            if not isinstance(values,list) or not 1<=len(values)<=200: return False
+            sources=[SourceContribution.model_validate(value) for value in values]
+            return self._tombstone_sources_allowed(conn,sources)
+        except Exception: return False
 
     def purge(self,now: float, *, limit: int=100,cursors: dict[str,int] | None=None) -> PurgeOutcome:
         """Bounded deletion of web content; never bot tables/files or backups.
@@ -203,11 +216,25 @@ class SourcePolicy:
                         conn.execute('INSERT OR IGNORE INTO content_tombstones(object_type,object_id,reason,removed_at) '
                             "VALUES (?,?,'source_permission_unavailable',?)",(table,str(row['object_id']),now))
                     if table=='publications':
-                        # No content or lineage in the removal notification.
-                        from .publication import card_identity
-                        card_id=card_identity(row['source_post_key'],row['ticker'])
-                        conn.execute('INSERT OR IGNORE INTO publication_changes(card_id,content_version,operation,feature,changed_at) '
-                            "VALUES (?,?,'delete',?,?)",(card_id,row['content_version'],row['feature'],now))
+                        from .publication import purge_publication
+                        purge_publication(conn,row,now)
+                    if table=='publication_changes':
+                        from .publication import advance_log_floor
+                        advance_log_floor(conn,row['object_id'])
                     conn.execute(f'DELETE FROM {table} WHERE {id_column}=?',(row['object_id'],))
+                    deleted+=1
+            for table in ('publication_retractions','evidence_retractions'):
+                cursor=cursors.get(table,0)
+                if type(cursor) is not int or cursor<0: raise ValueError('invalid purge cursor')
+                rows=conn.execute(f'SELECT rowid,source_lineage_json FROM {table} WHERE rowid>? ORDER BY rowid LIMIT ?',
+                                  (cursor,limit)).fetchall()
+                next_cursors[table]=rows[-1][0] if rows else cursor
+                more=more or len(rows)==limit
+                for row in rows:
+                    if self._retraction_metadata_allowed(conn,row[1]): continue
+                    # Erasing the exact identity must never allow it to be
+                    # treated as unretracted after restart or reapproval.
+                    conn.execute('UPDATE feed_state SET retraction_authority_required=1 WHERE singleton=1')
+                    conn.execute(f'DELETE FROM {table} WHERE rowid=?',(row[0],))
                     deleted+=1
         return PurgeOutcome(deleted,next_cursors,more)
