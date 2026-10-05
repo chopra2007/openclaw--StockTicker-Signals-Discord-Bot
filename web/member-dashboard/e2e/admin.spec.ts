@@ -6,7 +6,7 @@ test('admin: real role boundary, switches, account recovery and safe monitoring'
  await expect(page.getByRole('link',{name:'Administration'})).toHaveCount(0);
  await page.goto('/admin');await expect(page.getByText('Administrator access required.')).toBeVisible();
  expect((await page.request.get('/api/v1/admin/members')).status()).toBe(403);
- const context=await browser.newContext({ignoreHTTPSErrors:true,baseURL:'https://localhost:3443'});const owner=await context.newPage();
+ const context=await browser.newContext({ignoreHTTPSErrors:true,baseURL:'https://localhost:3443'});const owner=await context.newPage();const adminRequests:string[]=[];owner.on('request',r=>{if(r.url().includes('/api/v1/admin/'))adminRequests.push(r.method()+' '+new URL(r.url()).pathname);});
  await owner.goto('/login');await owner.getByLabel('Username',{exact:true}).fill('fixture_admin');await owner.getByLabel('Password',{exact:true}).fill(password);await owner.getByRole('button',{name:'Sign in',exact:true}).click();
  await owner.getByRole('link',{name:'Administration'}).click();await expect(owner.getByRole('heading',{name:'Administration',exact:true})).toBeVisible();
  await expect(owner.getByText('Verify identity outside this dashboard before issuing a password reset.')).toBeVisible();
@@ -23,5 +23,6 @@ test('admin: real role boundary, switches, account recovery and safe monitoring'
  await expect(owner.getByTestId('health-frontend')).toContainText('unavailable');await expect(owner.getByTestId('health-compute')).toContainText('responsive');
  const audit=await owner.request.get('/api/v1/admin/audit');expect(await audit.text()).not.toContain(invite);expect(await audit.text()).not.toContain('token_digest');
  await owner.setViewportSize({width:1440,height:1000});await owner.screenshot({path:'.e2e/screenshots/admin-1440.png',fullPage:true});await owner.setViewportSize({width:390,height:844});await owner.screenshot({path:'.e2e/screenshots/admin-390.png',fullPage:true});expect(await owner.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(adminRequests).toContain('GET /api/v1/admin/features');expect(adminRequests.filter(x=>x==='PUT /api/v1/admin/features/options')).toHaveLength(2);expect(adminRequests.some(x=>/^DELETE \/api\/v1\/admin\/invites\/[a-f0-9-]+$/.test(x))).toBe(true);expect(adminRequests.some(x=>x.startsWith('POST /api/v1/admin/features/')||x.endsWith('/revoke'))).toBe(false);
  await context.close();
 });

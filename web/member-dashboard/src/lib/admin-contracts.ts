@@ -10,6 +10,8 @@ export const adminMembers=z.strictObject({items:z.array(member).max(100),next_cu
 export const adminInvites=z.strictObject({items:z.array(invite).max(100),next_cursor:id.nullable()});
 export const adminAudit=z.strictObject({items:z.array(audit).max(100),next_cursor:id.nullable()});
 export const adminFeature=z.strictObject({name:z.enum(features),enabled:z.boolean(),version:z.number().int().positive()});
+export const adminFeatures=z.array(adminFeature).length(8).refine(rows=>new Set(rows.map(row=>row.name)).size===8);
+export type AdminFeatures=z.infer<typeof adminFeatures>;
 export const adminToken=z.strictObject({id,token:z.string().max(128),expires_at:z.number().finite()});
 export const adminHealth=z.strictObject({checked_at:z.number().finite(),api:observation,frontend:observation,supervisor:observation,compute:observation,
  queue:z.strictObject({queued:z.number().int().nonnegative(),running:z.number().int().nonnegative(),draining:z.number().int().nonnegative(),oldest_age_seconds:epoch}),
@@ -21,4 +23,4 @@ export type AdminInvites=z.infer<typeof adminInvites>;
 export type AdminAudit=z.infer<typeof adminAudit>;
 export type AdminHealth=z.infer<typeof adminHealth>;
 export type AdminToken=z.infer<typeof adminToken>;
-export function adminSchema(path:string){return path.startsWith('/admin/features/')?adminFeature:path.endsWith('/reset-link')||path==='/admin/invites'?adminToken:path.startsWith('/admin/invites?')?adminInvites:path.startsWith('/admin/members')?adminMembers:path.startsWith('/admin/audit')?adminAudit:adminHealth;}
+export function adminSchema(path:string){return path==='/admin/features'?adminFeatures:path.startsWith('/admin/features/')?adminFeature:path.endsWith('/reset-link')||path==='/admin/invites'?adminToken:path.startsWith('/admin/invites?')?adminInvites:path.startsWith('/admin/members')?adminMembers:path.startsWith('/admin/audit')?adminAudit:adminHealth;}

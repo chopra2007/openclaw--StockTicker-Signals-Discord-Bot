@@ -36,7 +36,11 @@ def audit(request:Request,cursor:UUID|None=None,actor=Depends(require_admin)):
 def health(request:Request,actor=Depends(require_admin)):
     return call(request,'health_snapshot',actor)
 
-@router.post('/features/{feature}',response_model=FeatureState,dependencies=[Depends(require_csrf)])
+@router.get('/features',response_model=list[FeatureState])
+def features(request:Request,actor=Depends(require_admin)):
+    return call(request,'features',actor)
+
+@router.put('/features/{feature}',response_model=FeatureState,dependencies=[Depends(require_csrf)])
 def set_feature(feature:Feature,body:FeatureWrite,request:Request,actor=Depends(require_admin)):
     return call(request,'set_feature',actor,feature,body.enabled)
 
@@ -44,8 +48,8 @@ def set_feature(feature:Feature,body:FeatureWrite,request:Request,actor=Depends(
 def invite(body:EmptyWrite,request:Request,actor=Depends(require_admin)):
     return call(request,'create_invite',actor)
 
-@router.post('/invites/{invite_id}/revoke',status_code=204,dependencies=[Depends(require_csrf)])
-def revoke(invite_id:UUID,body:EmptyWrite,request:Request,actor=Depends(require_admin)):
+@router.delete('/invites/{invite_id}',status_code=204,dependencies=[Depends(require_csrf)])
+def revoke(invite_id:UUID,request:Request,actor=Depends(require_admin)):
     call(request,'revoke_invite',actor,str(invite_id));return Response(status_code=204)
 
 @router.post('/members/{member_id}/reset-link',response_model=TokenLink,dependencies=[Depends(require_csrf)])

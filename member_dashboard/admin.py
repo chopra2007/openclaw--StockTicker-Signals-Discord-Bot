@@ -33,6 +33,12 @@ class AdminService:
             self.auth.revalidate(principal,self.clock(),con=con)
             if feature not in get_args(Feature) or not require_features(con,[feature]): raise AdminError()
 
+    def features(self,actor):
+        with self.store.transaction() as con:
+            self._actor(con,actor,self.clock())
+            return [FeatureState(name=name,enabled=bool(enabled),version=version)
+                    for name,enabled,version in con.execute('SELECT name,enabled,version FROM features ORDER BY name')]
+
     def set_feature(self,actor,feature,enabled):
         if feature not in get_args(Feature) or type(enabled) is not bool: raise AdminError(422)
         now=self.clock()

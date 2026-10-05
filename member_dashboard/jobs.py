@@ -101,11 +101,11 @@ class JobService:
                         for use in ('retain', 'display_raw', 'display_derived'))
         if not permitted:
             return None
-        saved_mask = {name: mask[name] for name in (SECTIONS if section == 'analysis' else required)}
+        saved_mask = {name: mask[name] for name in sorted(set(required) | (set(SECTIONS) if section == 'analysis' else set()))}
         metadata = {'analysis_version': spec.analysis_version, 'safe_input_version': spec.safe_input_version,
                     'settings_hash': spec.settings_hash, 'policy_stamp': hashed(grant_rows),
                     'provider_spec': spec.descriptor(),
-                    'enabled_features': [name for name in SECTIONS if name in required],
+                    'enabled_features': [name for name in (*SECTIONS,'feed','setups','assistant') if name in required],
                     'source_lineage': [source.model_dump() for source in lineage.sources]}
         key = hashed([ticker, section, lineage.model_dump(), metadata, saved_mask])
         return key, lineage, saved_mask, metadata

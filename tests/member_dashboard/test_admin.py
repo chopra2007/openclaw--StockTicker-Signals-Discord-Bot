@@ -24,7 +24,8 @@ def login(d, session):
 
 
 def write(d,path,session,body=None):
-    return d.client.post('/api/v1/admin/'+path,json=body or {},headers={'Origin':d.settings.origin,'X-CSRF-Token':session.csrf_token})
+    method='PUT' if path.startswith('features/') else 'DELETE' if path.startswith('invites/') else 'POST'
+    return d.client.request(method,'/api/v1/admin/'+path,json=body or {},headers={'Origin':d.settings.origin,'X-CSRF-Token':session.csrf_token})
 
 
 def test_admin_routes_roles_csrf_unknown_and_safe_lists(dashboard):
@@ -32,7 +33,7 @@ def test_admin_routes_roles_csrf_unknown_and_safe_lists(dashboard):
     mid,session,_=identity(d,'member');login(d,session)
     assert d.client.get('/api/v1/admin/members').status_code==403
     aid,owner,_=identity(d);login(d,owner)
-    assert d.client.post('/api/v1/admin/features/sec',json={'enabled':False}).status_code==403
+    assert d.client.put('/api/v1/admin/features/sec',json={'enabled':False}).status_code==403
     assert write(d,'features/unknown',owner,{'enabled':False}).status_code==422
     assert write(d,'features/sec',owner,{'enabled':False,'role':'admin'}).status_code==422
     response=d.client.get('/api/v1/admin/members')
@@ -81,7 +82,7 @@ def test_invite_reset_redaction_and_prior_reset_revoked(dashboard):
     invite=write(d,'invites',a)
     assert invite.status_code==200
     issued=invite.json()
-    assert write(d,'invites/'+issued['id']+'/revoke',a).status_code==204
+    assert write(d,'invites/'+issued['id'],a).status_code==204
     with pytest.raises(AuthError): d.app.state.auth.redeem_invite(issued['token'],'new_member',PASSWORD,d.clock())
     first=write(d,'members/'+mid+'/reset-link',a).json()
     second=write(d,'members/'+mid+'/reset-link',a).json()
@@ -415,3 +416,57 @@ def test_usage_counts_only_runs_with_both_actual_token_values(assistant,research
     _,_,actor=identity(dashboard)
     usage=dashboard.app.state.admin.health_snapshot(actor).usage
     assert usage.known_usage_runs==0 and usage.input_tokens is None and usage.output_tokens is None and usage.cost is None
+
+
+def test_review_fixed_admin_route_contract(dashboard):
+    d=dashboard
+    _,member_session,_=identity(d,'member');login(d,member_session)
+    assert d.client.get('/api/v1/admin/features').status_code==403
+    _,session,_=identity(d);login(d,session)
+    response=d.client.get('/api/v1/admin/features')
+    assert response.status_code==200
+    assert {r['name'] for r in response.json()}==set(get_args(Feature))
+    assert all(set(r)=={'name','enabled','version'} for r in response.json())
+    assert write(d,'features/feed',session,{'enabled':False}).status_code==200
+    assert next(r for r in d.client.get('/api/v1/admin/features').json() if r['name']=='feed')=={'name':'feed','enabled':False,'version':2}
+    invite=write(d,'invites',session).json()
+    assert d.client.delete('/api/v1/admin/invites/'+invite['id']).status_code==403
+    assert write(d,'invites/'+invite['id'],session).status_code==204
+    assert d.client.post('/api/v1/admin/features/feed',json={'enabled':True}).status_code==405
+    assert d.client.post('/api/v1/admin/invites/'+invite['id']+'/revoke').status_code==404
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('feature',['feed','setups','assistant'])
+async def test_review_analysis_carries_enabled_nonsection_dependency(dashboard,feature):
+    from dataclasses import replace
+    from test_research_parity import prepared_case
+    from test_sec_outcomes import member_context
+    from consensus_engine.analysis.research_contracts import ResearchServices,GapFillResult
+    from member_dashboard.research import MemberResearchProvider
+    from member_dashboard.providers import ProviderRegistry,SymbolCatalog,ComputeInputs,ProviderWait
+    from member_dashboard.jobs import JobService
+    from member_dashboard.provider_runtime import ProviderRuntime
+    _,record,settings,clock=prepared_case('sparse_levels')
+    record=replace(record,evidence=tuple(replace(row,source_id='synthetic',source_version='s1') for row in record.evidence))
+    async def synthesis(request):return ''
+    async def gap(request):return GapFillResult()
+    context=member_context(dashboard,{},analysis_records={'NVDA':record},analysis_services=ResearchServices(settings,clock,synthesis,gap,lambda event:None),
+        input_dependencies={'analysis_records':['analysis',feature],'analysis_services':['analysis']})
+    provider=MemberResearchProvider(context);registry=ProviderRegistry(SymbolCatalog({'NVDA':'equity'}));provider.register(registry)
+    jobs=JobService(dashboard.store,dashboard.app.state.auth,context.policy,registry)
+    _,_,actor=identity(dashboard)
+    request=jobs.request_research(actor,'NVDA',False,dashboard.clock())
+    job=jobs.claim_job('worker',dashboard.clock())
+    assert job.kind=='analysis' and feature in job.inputs['enabled_features']
+    runtime=ProviderRuntime(dashboard.store,'worker',clock=dashboard.clock)
+    try:
+        result=await registry.compute(job.ticker,job.kind,ComputeInputs(runtime,job.call_id,2,dashboard.clock(),job.inputs))
+        assert result.status=='completed' and result.payload is not None
+        dashboard.app.state.admin.set_feature(actor,feature,False)
+        assert (await provider.compute('NVDA','analysis',job.inputs)).status=='unavailable'
+        with dashboard.store.transaction() as con: assert jobs._prepare(con,'NVDA','analysis',dashboard.clock()) is None
+        dashboard.app.state.admin.set_feature(actor,feature,True)
+        jobs.complete_job(job.id,job.lease_token,result,dashboard.clock())
+        assert jobs.get_request(actor,request.id,dashboard.clock()).sections['analysis'].payload is None
+    finally: runtime.shutdown()
