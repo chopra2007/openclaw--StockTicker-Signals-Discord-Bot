@@ -481,3 +481,33 @@ async def test_registry_compute_returns_the_typed_section_contract(research,dash
         assert isinstance(result,SectionResult)
     finally:
         runtime.shutdown()
+
+
+@pytest.mark.parametrize('recovery',[False,True])
+def test_last_failure_finalizes_immutable_mixed_outcome_snapshot(research,dashboard,recovery):
+    import json
+    service,users,_,_=research
+    initial_now=dashboard.clock()
+    request=service.request_research(users[0],'SPY',False,dashboard.clock())
+    for _ in range(4):
+        job=service.claim_job('worker',dashboard.clock())
+        service.complete_job(job.id,job.lease_token,fixture_result(job.kind,dashboard.clock()),dashboard.clock())
+        dashboard.clock.advance(1)
+    last=service.claim_job('worker',dashboard.clock())
+    if recovery:
+        for _ in range(2):
+            service.fail_attempt(last.id,last.lease_token,dashboard.clock())
+            dashboard.clock.advance(40)
+            last=service.claim_job('worker',dashboard.clock())
+        service.confirm_worker_exit('worker',dashboard.clock(),reconciled=True)
+        dashboard.clock.advance(31)
+        service.recover_expired_leases(dashboard.clock())
+    else:
+        service.fail_attempt(last.id,last.lease_token,dashboard.clock(),retryable=False)
+    with dashboard.store.transaction() as con:
+        row=con.execute('SELECT v.finalized,v.content_json FROM report_versions v JOIN report_owners o ON o.current_version_id=v.id WHERE o.report_id=?',(request.report_id,)).fetchone()
+        assert row[0] == 1
+        content=json.loads(row[1])
+        assert content['em_weekly']['status'] == 'failed'
+        assert content['analysis']['observed_at'] == initial_now-100
+        assert con.execute('SELECT count(*) FROM report_versions WHERE report_id=?',(request.report_id,)).fetchone()[0] == 5

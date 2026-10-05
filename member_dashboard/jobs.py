@@ -323,6 +323,11 @@ class JobService:
             if lineage.retention_deadline is not None: deadlines.append(lineage.retention_deadline)
         if not values:
             return
+        for section in con.execute('SELECT section,status,job_id FROM request_sections WHERE request_id=?',(request_id,)):
+            if section['section'] not in values:
+                values[section['section']] = empty_result(section['section'],
+                    'unavailable' if section['status'] == 'completed' else section['status'],
+                    job_id=section['job_id']).model_dump()
         version = con.execute('SELECT coalesce(max(version),0)+1 FROM report_versions WHERE report_id=?', (owner['report_id'],)).fetchone()[0]
         finalized = not con.execute("SELECT 1 FROM request_sections WHERE request_id=? AND status IN ('queued','running')", (request_id,)).fetchone()
         identity = str(uuid4())
@@ -344,6 +349,10 @@ class JobService:
             con.execute('UPDATE web_jobs SET status=?,not_before=?,lease_until=NULL,actual_finished=1,error_code=? WHERE id=?',
                         ('queued' if retry else 'failed', now+delay, 'provider_failed', job_id))
             con.execute('UPDATE request_sections SET status=? WHERE job_id=? AND result_id IS NULL', ('queued' if retry else 'failed', job_id))
+            if not retry:
+                for sub in con.execute('SELECT * FROM job_subscribers WHERE job_id=? AND deleted_at IS NULL',(job_id,)).fetchall():
+                    if self._authorized_subscriber(con,sub,row,now):
+                        self._snapshot(con,sub['request_id'],now)
 
     def defer_unsubmitted(self, job_id, lease_token, now):
         """Capacity denial is not a provider attempt; leave work in the durable queue."""
@@ -380,5 +389,9 @@ class JobService:
                     delay = (5 if row['attempts'] == 1 else 30) + min(1, max(0, self.jitter()))
                     con.execute('UPDATE web_jobs SET status=?,lease_token=NULL,not_before=?,actual_finished=1 WHERE id=?', ('queued' if retry else 'failed', now+delay, row['id']))
                     con.execute('UPDATE request_sections SET status=? WHERE job_id=? AND result_id IS NULL', ('queued' if retry else 'failed', row['id']))
+                    if not retry:
+                        for sub in con.execute('SELECT * FROM job_subscribers WHERE job_id=? AND deleted_at IS NULL',(row['id'],)).fetchall():
+                            if self._authorized_subscriber(con,sub,row,now):
+                                self._snapshot(con,sub['request_id'],now)
                 recovered += 1
         return recovered
