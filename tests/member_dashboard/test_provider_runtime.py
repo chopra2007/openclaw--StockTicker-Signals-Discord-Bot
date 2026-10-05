@@ -164,7 +164,7 @@ async def test_supervisor_keeps_feed_running_and_kills_descendants_before_replac
         launched.append(process)
         return process
     supervisor = WorkerSupervisor(dashboard.store, factory, lambda now: ticks.append(now),
-                                  clock=dashboard.clock, stop_timeout=2, reconcile=lambda _: True)
+                                  jobs=dashboard.app.state.research,clock=dashboard.clock, stop_timeout=2, reconcile=lambda _: True)
     try:
         supervisor.tick()
         await wait_until(marker.exists)
@@ -196,7 +196,7 @@ async def test_supervisor_restart_blocks_when_quota_uncertainty_is_unreconciled(
         process = ProcessTree.start([sys.executable,'-c','import time; time.sleep(30)'])
         launched.append(process)
         return process
-    supervisor = WorkerSupervisor(dashboard.store, factory, lambda now: None, clock=dashboard.clock)
+    supervisor = WorkerSupervisor(dashboard.store, factory, lambda now: None, jobs=dashboard.app.state.research,clock=dashboard.clock)
     supervisor.tick()
     process = launched[0]
     with dashboard.store.transaction() as con:
@@ -220,7 +220,7 @@ async def test_supervisor_detects_persisted_drain_and_preserves_feed_on_reconcil
     from member_dashboard.worker import ProcessTree, WorkerSupervisor
     process = ProcessTree.start([sys.executable,'-c','import time; time.sleep(30)'])
     feeds = []
-    supervisor = WorkerSupervisor(dashboard.store,lambda:process,feeds.append,clock=dashboard.clock,
+    supervisor = WorkerSupervisor(dashboard.store,lambda:process,feeds.append,jobs=dashboard.app.state.research,clock=dashboard.clock,
                                   reconcile=lambda _: (_ for _ in ()).throw(RuntimeError('broker offline')))
     supervisor.tick()
     with dashboard.store.transaction() as con:

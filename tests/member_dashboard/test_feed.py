@@ -443,7 +443,7 @@ def test_callback_failure_still_allows_supervisor_to_kill_draining_child(feed):
     sync=service(feed)
     def failed(_): raise RuntimeError('synthetic projection failure')
     sync.sync_publications=failed
-    supervisor=WorkerSupervisor(feed.dashboard.store,lambda:child,sync.feed_tick,clock=feed.dashboard.clock)
+    supervisor=WorkerSupervisor(feed.dashboard.store,lambda:child,sync.feed_tick,jobs=feed.dashboard.app.state.research,clock=feed.dashboard.clock)
     supervisor.child=child
     supervisor.request_restart()
     supervisor.tick()

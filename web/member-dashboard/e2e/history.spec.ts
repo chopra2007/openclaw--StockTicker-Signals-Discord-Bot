@@ -1,8 +1,26 @@
-import {test,expect} from '@playwright/test';
-import {join,research,control} from './helpers';
+import {expect} from '@playwright/test';
+import {test,join,research,control} from './helpers';
+
+test('history: pending saved report refreshes promptly without submitting work',async({page,request})=>{
+ await join(page,request);await research(page);
+ for(const name of ['analysis','options','em_daily','em_weekly','sec'])await expect(page.getByTestId(name+'-status')).toHaveText('Completed');
+ await page.clock.install();let reads=0;const posts:string[]=[];
+ await page.route('**/api/v1/reports/*',async route=>{
+  const response=await route.fetch();const data=await response.json();reads++;
+  if(reads===1){data.finalized=false;data.availability='pending';data.sections.analysis={...data.sections.analysis,status:'running',payload:null};}
+  await route.fulfill({response,json:data});
+ });
+ page.on('request',r=>{if(r.method()==='POST')posts.push(r.url());});
+ await page.goto('/history');await page.getByRole('button',{name:/Open saved report/}).first().click();
+ await expect(page.getByText(/Not finalized/)).toBeVisible();await expect(page.getByTestId('analysis-status')).toHaveText('Running');
+ await page.clock.fastForward(1001);await expect.poll(()=>reads).toBe(2);
+ await expect(page.getByTestId('analysis-status')).toHaveText('Completed');await expect(page.getByText(/· Finished/)).toBeVisible();
+ expect(posts).toEqual([]);
+});
 
 test('history: reopen original, delete owned report and clear selected content',async({page,request})=>{
- await join(page,request);await research(page);await expect(page.getByTestId('em_weekly-status')).toHaveText('Completed');
+ await join(page,request);await research(page);
+ for(const name of ['analysis','options','em_daily','em_weekly','sec'])await expect(page.getByTestId(name+'-status')).toHaveText('Completed');
  const original=await page.locator('#analysis').textContent();const stats=await control(request,{action:'stats'});
  await page.getByRole('link',{name:'History',exact:true}).click();await expect(page.getByRole('heading',{name:'Your history',exact:true})).toBeVisible();
  await page.getByRole('button',{name:/Open saved report/}).first().click();await expect(page.getByTestId('analysis-status')).toHaveText('Completed');

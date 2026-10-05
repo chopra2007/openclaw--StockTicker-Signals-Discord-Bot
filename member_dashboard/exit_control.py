@@ -116,6 +116,6 @@ class ExitControlServer(BrokerServer):
                 try:
                     _,uid,_=struct.unpack('3i',connection.getsockopt(socket.SOL_SOCKET,socket.SO_PEERCRED,12))
                     result=self.registry.dispatch(receive_frame(connection),peer_uid=uid)
-                except (OSError,ValueError,TypeError,KeyError,StopIteration,sqlite3.Error): result={'ok':False}
+                except (OSError,ValueError,TypeError,KeyError,StopIteration,RecursionError,sqlite3.Error): result={'ok':False}
                 try: send_frame(connection,result)
                 except OSError: pass

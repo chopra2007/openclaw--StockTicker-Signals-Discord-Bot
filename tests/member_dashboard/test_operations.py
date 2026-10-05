@@ -110,6 +110,83 @@ def test_renew_waits_for_complete_denial_publication(tmp_path,monkeypatch):
 from test_jobs import research
 
 
+def test_synthetic_auth_boundary_preserves_per_test_address_limit(tmp_path):
+    from member_dashboard.synthetic import create_synthetic
+    from member_dashboard.auth import AuthError
+    from fastapi.testclient import TestClient
+    import time
+    app=create_synthetic(tmp_path)
+    with TestClient(app) as client:
+        for _ in range(2):
+            for index in range(50): app.state.auth._reserve_login(str(index),'synthetic-address',time.time())
+            with pytest.raises(AuthError): app.state.auth.reserve_public_write('synthetic-address',time.time())
+            assert client.post('/__fixture/control',json={'action':'auth_test_boundary'}).status_code==200
+        with app.state.store.transaction() as con:
+            assert con.execute('SELECT count(*) FROM auth_attempts').fetchone()[0]==0
+
+
+@pytest.mark.parametrize('attempts,current_rights',[(1,True),(3,True),(3,False)])
+def test_live_supervisor_terminal_recovery_uses_current_authorization(research,dashboard,attempts,current_rights):
+    from member_dashboard.worker import WorkerSupervisor
+    from test_jobs import fixture_result
+    import json
+    service,users,_,_=research;now=dashboard.clock()
+    request=service.request_research(users[0],'SPY',False,now)
+    prior=service.claim_job('completed-worker',now)
+    service.complete_job(prior.id,prior.lease_token,fixture_result(prior.kind,now),now)
+    job=service.claim_job('dead-worker',now)
+    with dashboard.store.transaction() as con:
+        con.execute('UPDATE web_jobs SET attempts=? WHERE id=?',(attempts,job.id))
+        before=con.execute('SELECT current_version_id FROM report_owners WHERE report_id=?',(request.report_id,)).fetchone()[0]
+    service.policy.authority_current=lambda:current_rights
+    class Dead:
+        worker_id='dead-worker'
+        def is_dead(self): return True
+        def close(self): pass
+    spawned=[]
+    supervisor=WorkerSupervisor(dashboard.store,lambda:spawned.append(True),lambda _:None,
+        jobs=service,clock=dashboard.clock,reconcile=lambda _:True)
+    supervisor.child=Dead();supervisor.tick()
+    assert spawned==[True]
+    with dashboard.store.transaction() as con:
+        assert con.execute('SELECT status FROM web_jobs WHERE id=?',(job.id,)).fetchone()[0]==('queued' if attempts==1 else 'failed')
+        row=con.execute('SELECT v.id,v.content_json FROM report_versions v JOIN report_owners o ON o.current_version_id=v.id WHERE o.report_id=?',(request.report_id,)).fetchone()
+        if attempts==3 and current_rights:
+            snapshot=json.loads(row[1]);assert snapshot[job.kind]['status']=='failed'
+            assert snapshot[prior.kind]['status']=='completed'
+        if not current_rights: assert row[0]==before
+
+
+def test_exit_control_decoder_failure_does_not_stop_later_connections(monkeypatch):
+    from member_dashboard import exit_control
+    from types import SimpleNamespace
+    import struct,threading
+    stopping=threading.Event();responses=[]
+    monkeypatch.setattr(exit_control.socket,'SO_PEERCRED',17,raising=False)
+    class Connection:
+        def __enter__(self): return self
+        def __exit__(self,*_): pass
+        def settimeout(self,_): pass
+        def getsockopt(self,*_): return struct.pack('3i',10,123,456)
+    connections=iter([Connection(),Connection()])
+    def accept():
+        connection=next(connections)
+        if responses: stopping.set()
+        return connection,None
+    calls=iter([RecursionError('synthetic decoder recursion limit'),{'method':'recovery'}])
+    def receive(_):
+        value=next(calls)
+        if isinstance(value,Exception): raise value
+        return value
+    monkeypatch.setattr(exit_control,'receive_frame',receive)
+    monkeypatch.setattr(exit_control,'send_frame',lambda _,value:responses.append(value))
+    server=exit_control.ExitControlServer.__new__(exit_control.ExitControlServer)
+    server.stopping=stopping;server.socket=SimpleNamespace(accept=accept)
+    server.registry=SimpleNamespace(dispatch=lambda request,peer_uid:{'workers':[]})
+    server._serve()
+    assert responses==[{'ok':False},{'workers':[]}]
+
+
 @pytest.mark.parametrize('with_call,attempts,current_rights',[
     (False,1,True),(True,1,True),(False,3,True),(True,3,True),(False,3,False)])
 def test_restart_carries_broker_tombstone_into_web_after_crash(research,dashboard,tmp_path,with_call,attempts,current_rights):
@@ -169,6 +246,6 @@ def test_restart_carries_broker_tombstone_into_web_after_crash(research,dashboar
         assert service.get_request(users[0],request.id,now).sections[completed_kind].status=='unavailable'
     assert recover_worker_state(restarted,service,now)  # Repeat after the web commit too.
     spawned=[]
-    supervisor=WorkerSupervisor(dashboard.store,lambda:spawned.append(True),lambda _:None,clock=dashboard.clock)
+    supervisor=WorkerSupervisor(dashboard.store,lambda:spawned.append(True),lambda _:None,jobs=dashboard.app.state.research,clock=dashboard.clock)
     supervisor.tick()
     assert spawned==[True]

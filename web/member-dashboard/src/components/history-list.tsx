@@ -18,7 +18,9 @@ export function useHistoryRead<T>(path:string|null,accessKey:string,interval=150
   const controller=new AbortController();
   const read=async()=>{
    if(closed||busy||document.hidden||!path)return;busy=true;
-   try{const data=await api<T>(path,{signal:controller.signal});delay=data&&typeof data==='object'&&'status' in data&&(data.status==='queued'||data.status==='running')?interval:15000;if(!closed)setState({key,data,error:''});}
+   try{const data=await api<T>(path,{signal:controller.signal});
+    const pending=data&&typeof data==='object'&&(('status' in data&&(data.status==='queued'||data.status==='running'))||('availability' in data&&data.availability==='pending'));
+    delay=pending?interval:15000;if(!closed)setState({key,data,error:''});}
    catch(e){if(!closed&&!(e instanceof DOMException&&e.name==='AbortError'))setState({key,data:null,error:e instanceof ApiError?e.message:'Unable to check current access.'});}
    finally{busy=false;if(!closed){clearTimeout(timer);const immediately=again&&!document.hidden;again=false;timer=setTimeout(read,immediately?0:delay);}}
   };
@@ -40,7 +42,7 @@ export function HistoryList(){
  const allowed=resource==='reports'||!!member?.features.assistant.enabled;
  const accessKey=member?.id+JSON.stringify(member?.features)+revision;
  const list=useHistoryRead<ReportPage|ConversationPage>(allowed?'/'+resource+(cursor?'?cursor='+encodeURIComponent(cursor):''):null,accessKey);
- const detail=useHistoryRead<SavedReport|SavedConversation>(allowed&&selected?'/'+resource+'/'+encodeURIComponent(selected)+(messageCursor?'?cursor='+encodeURIComponent(messageCursor):''):null,accessKey);
+ const detail=useHistoryRead<SavedReport|SavedConversation>(allowed&&selected?'/'+resource+'/'+encodeURIComponent(selected)+(messageCursor?'?cursor='+encodeURIComponent(messageCursor):''):null,accessKey,1000);
  const saved=detail.data&&'sections' in detail.data?detail.data:null;
  const conversation=detail.data&&'messages' in detail.data?detail.data:null;
  function choose(next:'reports'|'conversations'){setResource(next);setCursor(null);setPrevious([]);setSelected(null);setMessageCursor(null);setDeleteError('');}

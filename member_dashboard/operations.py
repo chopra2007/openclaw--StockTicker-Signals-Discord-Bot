@@ -136,7 +136,7 @@ def supervisor(config):
     auth=AuthService(store)
     jobs=JobService(store,auth,policy,ProviderRegistry())
     feed=FeedService(store,auth,policy,signing_key=b'not-used-for-member-cursors-000000',reader=MarketReader(Path(config['market_path'])))
-    worker=WorkerSupervisor(store,launcher,feed.feed_tick,reconcile=control.reconcile)
+    worker=WorkerSupervisor(store,launcher,feed.feed_tick,jobs=jobs,reconcile=control.reconcile)
     try:
         while True:
             if worker.child is None:

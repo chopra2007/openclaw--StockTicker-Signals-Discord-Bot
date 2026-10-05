@@ -182,6 +182,35 @@ def test_authority_nested_json_cannot_kill_rpc_thread(tmp_path,monkeypatch):
         assert server.thread.is_alive()
 
 
+def test_exit_control_nested_json_cannot_kill_rpc_thread(tmp_path,monkeypatch):
+    import struct
+    from member_dashboard import exit_control
+    from member_dashboard.store import WebStore
+    from member_dashboard.quota_broker import QuotaBroker
+    from consensus_engine.utils.provider_budget import receive_frame
+    store=WebStore(tmp_path/'quota');store.migrate()
+    registry=exit_control.ExitRegistry(QuotaBroker(store),supervisor_uid=os.getuid(),
+        compute_uid=os.getuid()+1,cgroup_root=Path('/sys/fs/cgroup/synthetic-unused'))
+    with exit_control.ExitControlServer(registry,str(tmp_path/'rpc')) as server:
+        def roundtrip(payload):
+            with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as connection:
+                connection.settimeout(2);connection.connect(str(tmp_path/'rpc'))
+                connection.sendall(struct.pack('!I',len(payload))+payload)
+                return receive_frame(connection)
+        payload=b'['*4000+b'0'+b']'*4000
+        assert roundtrip(payload)=={'ok':False}
+        assert roundtrip(b'{"method":"recovery"}')=={'workers':[]}
+        original=exit_control.receive_frame
+        def decoder_limit(connection):
+            value=original(connection)
+            if isinstance(value,list): raise RecursionError('synthetic decoder recursion limit')
+            return value
+        monkeypatch.setattr(exit_control,'receive_frame',decoder_limit)
+        assert roundtrip(b'[]')=={'ok':False}
+        assert roundtrip(b'{"method":"recovery"}')=={'workers':[]}
+        assert server.thread.is_alive()
+
+
 def test_nonroot_ambient_capabilities_are_removed_before_compute(tmp_path):
     if os.getuid()!=0: pytest.skip('Isolated root runner required for ambient capability fixture')
     # Only this disposable child gains synthetic capabilities; parent and host

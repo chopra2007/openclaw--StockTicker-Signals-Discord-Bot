@@ -89,7 +89,7 @@ def staging_app(config_path):
         # denied by config validation and requires independent exit control.
         return child is not None and child.is_dead()
 
-    supervisor=WorkerSupervisor(app.state.store,factory,lambda now:None,reconcile=reconcile)
+    supervisor=WorkerSupervisor(app.state.store,factory,lambda now:None,jobs=app.state.research,reconcile=reconcile)
     app.state.synthetic_supervisor=supervisor
     def metrics():
         if supervisor.child is None: return None

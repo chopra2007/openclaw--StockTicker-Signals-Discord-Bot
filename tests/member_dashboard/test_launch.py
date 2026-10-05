@@ -78,7 +78,7 @@ def test_supervisor_reconciles_empty_web_ledger_and_retries_bounded(dashboard):
         calls.append(worker)
         return len(calls)>=3
     supervisor=WorkerSupervisor(dashboard.store,lambda:spawned.append(True),feeds.append,
-        clock=dashboard.clock,reconcile=reconcile)
+        jobs=dashboard.app.state.research,clock=dashboard.clock,reconcile=reconcile)
     supervisor.child=Dead()
     supervisor.tick()
     assert calls==['dead-child'] and not spawned and supervisor.blocked
@@ -243,10 +243,10 @@ def test_pending_broker_exit_survives_supervisor_restart(dashboard):
         def close(self): pass
     spawned=[];calls=[]
     first=WorkerSupervisor(dashboard.store,lambda:spawned.append(True),lambda _:None,
-        clock=dashboard.clock,reconcile=lambda _:False)
+        jobs=dashboard.app.state.research,clock=dashboard.clock,reconcile=lambda _:False)
     first.child=Dead();first.tick()
     second=WorkerSupervisor(dashboard.store,lambda:spawned.append(True),lambda _:None,
-        clock=dashboard.clock,reconcile=lambda worker:calls.append(worker) or False)
+        jobs=dashboard.app.state.research,clock=dashboard.clock,reconcile=lambda worker:calls.append(worker) or False)
     second.tick()
     assert not spawned and calls==['persisted-dead']
     second.reconcile=lambda worker:worker=='persisted-dead'

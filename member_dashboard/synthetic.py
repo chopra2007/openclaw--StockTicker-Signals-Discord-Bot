@@ -144,6 +144,10 @@ def create_synthetic(run: Path, *, initialize=True, worker_id='browser-fixture')
     async def control(request:Request):
         command=await request.json()
         action=command['action']
+        if action=='auth_test_boundary':
+            # Browser cases share this disposable fixture, but not an address
+            # budget. Never reset between requests or members within a case.
+            with store.transaction() as con: con.execute('DELETE FROM auth_attempts')
         if action=='assistant': assistant_transport.enabled=command['enabled']
         if action=='invite':
             return {'token':auth.issue_invite_trusted(admin,time.time()).token}

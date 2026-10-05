@@ -302,11 +302,12 @@ class ProcessTree:
 
 
 class WorkerSupervisor:
-    def __init__(self, store, child_factory, feed_tick, *, clock=time.time, stop_timeout=5,
+    def __init__(self, store, child_factory, feed_tick, *, jobs, clock=time.time, stop_timeout=5,
                  reconcile=lambda worker_id: False):
         if not 0 < stop_timeout <= 30:
             raise ValueError('bounded stop timeout required')
         self.store, self.child_factory, self.feed_tick = store, child_factory, feed_tick
+        self.jobs = jobs
         self.clock, self.stop_timeout, self.reconcile = clock, stop_timeout, reconcile
         self.child = None
         self._last_feed = None
@@ -355,8 +356,7 @@ class WorkerSupervisor:
                 # Persist/retain the exact exited identity until every bounded batch
                 # is reconciled; feed/heartbeat continue while the broker is offline.
                 self._pending_exit = child.worker_id
-                from .jobs import JobService
-                JobService(self.store,None,None,None).confirm_worker_exit(child.worker_id,now,reconciled=False)
+                self.jobs.confirm_worker_exit(child.worker_id,now,reconciled=False)
                 child.close()
                 self.child = None
                 self._stop_at, self._restart = None, False
@@ -369,12 +369,10 @@ class WorkerSupervisor:
         if self._pending_exit is not None:
             try: reconciled = self.reconcile(self._pending_exit) is True
             except Exception: reconciled = False
-            from .jobs import JobService
-            jobs=JobService(self.store,None,None,None)
-            jobs.confirm_worker_exit(self._pending_exit,now,reconciled=reconciled)
+            self.jobs.confirm_worker_exit(self._pending_exit,now,reconciled=reconciled)
             self.blocked=not reconciled
             if reconciled:
-                jobs.recover_expired_leases(now)
+                self.jobs.recover_expired_leases(now)
                 self._pending_exit=None
         if self.child is None and not self.blocked:
             # Startup never restores stale permits from a historical snapshot.

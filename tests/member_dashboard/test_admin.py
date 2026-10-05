@@ -286,7 +286,7 @@ def test_supervisor_actual_tick_and_usage_unknown_partial(dashboard):
     from member_dashboard.worker import WorkerSupervisor
     d=dashboard;_,_,actor=identity(d)
     child=SimpleNamespace(worker_id='fake-tree',is_dead=lambda:False)
-    supervisor=WorkerSupervisor(d.store,lambda:child,lambda now:None,clock=d.clock)
+    supervisor=WorkerSupervisor(d.store,lambda:child,lambda now:None,jobs=d.app.state.research,clock=d.clock)
     supervisor.tick()
     value=d.app.state.admin.health_snapshot(actor)
     assert value.supervisor.status=='responsive'
