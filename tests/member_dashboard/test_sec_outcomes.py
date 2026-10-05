@@ -27,18 +27,21 @@ def sec_wire():
         def do_GET(self):
             requests.append(self.path)
             status, value, headers = replies.get(self.path, (404, {}, {}))
-            if status == 'timeout':
-                import time
-                time.sleep(.1)
-                status=200
+            delayed_body=status=='timeout'
+            if delayed_body: status=200
             if status == 'drop':
                 self.connection.close()
                 return
             self.send_response(status)
             for key, val in headers.items(): self.send_header(key, str(val))
             self.end_headers()
+            if delayed_body:
+                # Establish the real request/response before stalling its body.
+                # A tiny connect deadline tests scheduler jitter instead.
+                self.wfile.flush()
+                __import__('time').sleep(1)
             try: self.wfile.write(value if isinstance(value, bytes) else json.dumps(value).encode())
-            except (BrokenPipeError,ConnectionResetError): pass
+            except (BrokenPipeError,ConnectionResetError,ConnectionAbortedError): pass
         def log_message(self, *args): pass
     server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -155,7 +158,7 @@ def test_schwab_missing_context_fails_closed():
     with pytest.raises(ValueError,match='Explicit isolated credentials'): SchwabClient(None)
 
 
-def member_context(dashboard, clients, **kwargs):
+def member_context(dashboard, clients, *, delay_seconds=0, **kwargs):
     from member_dashboard.providers import ProviderContext
     from member_dashboard.source_policy import SourcePolicy,SourcePermission
     from member_dashboard.contracts import ContentLineage,SourceContribution
@@ -166,7 +169,8 @@ def member_context(dashboard, clients, **kwargs):
     for source in source_ids:
         policy.record(SourcePermission(source_id=source,product_id='fixture',provider=source,policy_version='p1',
             audience='invited_members',status='allowed',display_raw=True,display_derived=True,retain=True,
-            private_grant_ref='fixture',evidence_ref='fixture',terms_url='https://www.sec.gov/fixture',effective_at=0.0))
+            private_grant_ref='fixture',evidence_ref='fixture',terms_url='https://www.sec.gov/fixture',effective_at=0.0,
+            delay_seconds=delay_seconds))
         sources.append(SourceContribution(source_id=source,product_id='fixture',source_version='s1',policy_version='p1'))
     now=datetime(2026,6,25,14,36,tzinfo=ZoneInfo('America/Los_Angeles'))
     lineage={section:ContentLineage(sources=sources,required_features=[section],field_dependencies=[],retention_deadline=None)
@@ -185,7 +189,11 @@ def synthetic_chain():
     expirations=raw['inputs']['expirations']
     calls=pd.concat([calls.assign(expiry=expiry) for expiry in expirations],ignore_index=True)
     puts=pd.concat([puts.assign(expiry=expiry) for expiry in expirations],ignore_index=True)
-    return Chain(calls,puts,bundle['spot'],False,expirations)
+    # Explicit synthetic source observations; old golden inputs remain unchanged.
+    observed=datetime(2026,6,25,14,10,tzinfo=ZoneInfo('America/Los_Angeles')).timestamp()
+    calls['providerQuoteTime']=observed*1000
+    puts['providerQuoteTime']=observed*1000
+    return Chain(calls,puts,bundle['spot'],False,expirations,observed)
 
 
 def test_member_moves_separate_horizons_history_failure_no_fallback(dashboard):
@@ -278,6 +286,7 @@ def test_real_chart_renders_with_private_cache(dashboard,tmp_path,monkeypatch):
     history=pd.DataFrame({'Open':[730.,731,732,733,734],'High':[731.,732,733,734,735],
                           'Low':[729.,730,731,732,733],'Close':[730.5,731.5,732.5,733.5,734.5]},
                          index=pd.date_range('2026-06-25',periods=5,freq='5min',tz='America/Los_Angeles'))
+    history['sourceObservedAt']=datetime(2026,6,25,14,10,tzinfo=ZoneInfo('America/Los_Angeles')).timestamp()
     client=SimpleNamespace(get_option_chain=lambda *args,**kwargs:synthetic_chain(),get_price_history=lambda *args,**kwargs:history)
     completion=MemberResearchProvider(member_context(dashboard,{'synthetic':client},chart_renderer=render_chart)).compute_blocking('SPY','em_daily',{})
     assert completion.result.status=='completed'
@@ -409,7 +418,7 @@ async def test_map_wire_failures_are_budgeted(sec_wire,status,expected,attempts)
     from consensus_engine.scanners.sec_edgar import resolve_cik_outcome
     sec_wire.replies['/map']=(status,{'0':{'ticker':'SPY','cik_str':1}},{'Retry-After':'30'})
     ctx,session,meter,_=await context(sec_wire)
-    ctx.timeout=.02
+    if status=='timeout': ctx.timeout=.25
     try:
         result=await resolve_cik_outcome('SPY',ctx)
         assert result.status=='unavailable' and result.reason_code==expected
@@ -457,3 +466,111 @@ async def test_successful_empty_and_missing_symbol_differ(sec_wire):
         assert empty.status == 'ok' and empty.data == ()
         assert missing.status == 'not_found' and missing.data is None
     finally: await session.close()
+
+
+@pytest.mark.parametrize('missing',['column','value'])
+def test_review_missing_option_price_never_asserts_zero(dashboard,missing):
+    from member_dashboard.research import MemberResearchProvider
+    chain=synthetic_chain()
+    for frame in (chain.calls,chain.puts):
+        if missing=='column': frame.drop(columns=['lastPrice'],inplace=True)
+        else: frame['lastPrice']=None
+    client=SimpleNamespace(get_option_chain=lambda *a,**k:chain)
+    result=MemberResearchProvider(member_context(dashboard,{'synthetic':client})).compute_blocking('SPY','options',{})
+    assert result.status=='unavailable'
+
+
+@pytest.mark.parametrize('input_kind',['call','put','underlying'])
+@pytest.mark.parametrize('timestamp',['fresh','missing','future'])
+def test_review_em_delay_uses_each_price_observation(dashboard,input_kind,timestamp):
+    from member_dashboard.research import MemberResearchProvider
+    chain=synthetic_chain()
+    client=SimpleNamespace(get_option_chain=lambda *a,**k:chain,get_price_history=lambda *a,**k:None)
+    ctx=member_context(dashboard,{'synthetic':client},delay_seconds=900)
+    now=ctx.clock().timestamp()
+    for frame in (chain.calls,chain.puts):
+        frame['providerQuoteTime']=(now-1200)*1000
+        frame['lastTradeDate']=ctx.clock()-__import__('datetime').timedelta(days=1)
+    chain.underlying_quote_time=now-1200
+    value={'fresh':now,'missing':None,'future':now+1}[timestamp]
+    if input_kind=='underlying': chain.underlying_quote_time=value
+    else: getattr(chain,'calls' if input_kind=='call' else 'puts')['providerQuoteTime']=None if value is None else value*1000
+    result=MemberResearchProvider(ctx).compute_blocking('SPY','em_daily',{})
+    assert getattr(result,'result',result).status=='unavailable'
+
+
+@pytest.mark.asyncio
+async def test_review_sec_relevant_51st_filing_is_not_empty(dashboard,sec_wire):
+    from dataclasses import replace
+    from member_dashboard.research import MemberResearchProvider
+    sec_wire.replies['/map']=(200,{'0':{'ticker':'SPY','cik_str':1}},{})
+    sec_wire.replies['/CIK0000000001.json']=(200,recent(*(['S-8']*50+['8-K'])),{})
+    ctx,session,_,_=await context(sec_wire)
+    try:
+        provider=MemberResearchProvider(replace(member_context(dashboard,{}),sec_context=ctx,clock=ctx.clock))
+        result=await provider.compute('SPY','sec',{})
+        assert result.status=='completed'
+        assert len(result.payload.filings)==1
+        assert result.payload.filings[0].form=='8-K'
+        assert result.message is None
+    finally: await session.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('code',['','X','J'])
+async def test_review_unknown_form4_classification_not_routine(dashboard,sec_wire,code):
+    from dataclasses import replace
+    from member_dashboard.research import MemberResearchProvider
+    sec_wire.replies['/map']=(200,{'0':{'ticker':'SPY','cik_str':1}},{})
+    sec_wire.replies['/CIK0000000001.json']=(200,recent('4'),{})
+    sec_wire.replies['/1/000000000126000000/form4.xml']=(200,form4(code),{})
+    ctx,session,_,_=await context(sec_wire)
+    try:
+        provider=MemberResearchProvider(replace(member_context(dashboard,{}),sec_context=ctx,clock=ctx.clock))
+        result=await provider.compute('SPY','sec',{})
+        assert result.status=='completed' and result.payload.coverage=='partial'
+        assert result.payload.insiders[0].conviction=='unknown'
+        assert 'Routine' not in result.payload.insiders[0].summary
+    finally: await session.close()
+
+
+@pytest.mark.parametrize('history_time',['fresh','missing','partial','future','permitted'])
+def test_review_history_observations_gate_chart_inputs(dashboard,history_time):
+    import pandas as pd
+    from member_dashboard.research import MemberResearchProvider
+    chain=synthetic_chain()
+    history=pd.DataFrame({name:[730.0]*5 for name in ('Open','High','Low','Close')})
+    rendered=[]
+    client=SimpleNamespace(get_option_chain=lambda *a,**k:chain,get_price_history=lambda *a,**k:history)
+    ctx=member_context(dashboard,{'synthetic':client},delay_seconds=900,chart_renderer=lambda result:rendered.append(result.history.copy()))
+    now=ctx.clock().timestamp()
+    chain.underlying_quote_time=now-1500
+    chain.calls['providerQuoteTime']=(now-1300)*1000
+    chain.puts['providerQuoteTime']=(now-1200)*1000
+    if history_time!='missing': history['sourceObservedAt']=now-(1000 if history_time=='permitted' else 0)
+    if history_time=='partial': history.loc[2,'sourceObservedAt']=None
+    if history_time=='future': history['sourceObservedAt']=now+1
+    result=MemberResearchProvider(ctx).compute_blocking('SPY','em_daily',{}).result
+    assert result.status=='completed'
+    assert len(rendered[0])==(5 if history_time=='permitted' else 0)
+    assert result.observed_at==now-(1000 if history_time=='permitted' else 1200)
+    times={row.input_kind:row.observed_at for row in result.payload.quote_times}
+    assert times['call']==now-1300 and times['put']==now-1200 and times['underlying']==now-1500
+    assert ('history' in times)==(history_time=='permitted')
+
+
+@pytest.mark.parametrize('observed',[None,1791223800])
+def test_review_schwab_chain_preserves_explicit_spot_observation(tmp_path,sec_wire,observed):
+    sec_wire.replies['/token']=(200,{'access_token':'synthetic-new','expires_in':1800},{})
+    leg={'symbol':'SYNTHETIC','strikePrice':100,'bid':1,'ask':1.1,'last':1.05,
+         'totalVolume':100,'openInterest':500,'volatility':20,'quoteTimeInLong':1791223800000}
+    data={'status':'SUCCESS','underlyingPrice':100,'underlying':{'quoteTime':observed*1000 if observed else None},
+          'callExpDateMap':{'2026-10-09:4':{'100':[leg]}},'putExpDateMap':{'2026-10-09:4':{'100':[leg]}}}
+    sec_wire.replies['/chains?symbol=SPY&contractType=ALL&toDate=2026-10-09']=(200,data,{})
+    client,meter,_=isolated_schwab(tmp_path,sec_wire)
+    try:
+        chain=client.get_option_chain('SPY',to_date='2026-10-09')
+        assert chain.underlying_quote_time==observed
+        assert chain.calls.iloc[0]['providerQuoteTime']==1791223800000
+        assert len(sec_wire.requests)==len(meter.reservations)==2
+    finally: client.close()

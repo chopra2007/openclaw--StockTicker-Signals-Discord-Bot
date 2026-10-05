@@ -412,6 +412,7 @@ class Chain:
     underlying_price: float
     is_delayed: bool
     expirations: list = field(default_factory=list)
+    underlying_quote_time: float | None = None  # explicit provider observation, epoch seconds
 
     def by_expiry(self, exp: str):
         """Return a yfinance-option_chain-shaped namespace for one expiry."""
@@ -850,7 +851,11 @@ class SchwabClient:
         calls,puts = _chain_map_to_df(data['callExpDateMap']),_chain_map_to_df(data['putExpDateMap'])
         if calls.empty and puts.empty: return None
         expirations=sorted(set(calls.get('expiry',[])).union(puts.get('expiry',[])))
-        return Chain(calls,puts,_num(data.get('underlyingPrice')),bool(data.get('isDelayed',True)),expirations)
+        # Member-only metadata: no collection-time or last-trade substitution.
+        underlying=data.get('underlying')
+        quote_time=underlying.get('quoteTime') if isinstance(underlying,dict) else None
+        observed=quote_time/1000 if type(quote_time) in (int,float) and math.isfinite(quote_time) and quote_time>0 else None
+        return Chain(calls,puts,_num(data.get('underlyingPrice')),bool(data.get('isDelayed',True)),expirations,observed)
 
     def get_quote(self, symbol):
         value = self._get('/quotes',{'symbols':to_schwab_symbol(symbol)})

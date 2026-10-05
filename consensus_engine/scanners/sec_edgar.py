@@ -511,7 +511,9 @@ async def fetch_filings_outcome(ticker, hours_back, context):
         return FetchOutcome('unavailable', None, raw.observed_at, 'invalid_filings_structure')
     cutoff = _sec_now(context.clock) - timedelta(hours=hours_back)
     results, exclusions = [], []
-    for values in zip(*(recent[key][:50] for key in keys)):
+    # The HTTP response is body-bounded. Inspect every returned recent row;
+    # the bot-only 50-row cap cannot establish member collection completeness.
+    for values in zip(*(recent[key] for key in keys)):
         form, filed_date, accepted, accession, document = values
         try:
             if not all(isinstance(value, str) for value in values): raise ValueError('Invalid row')
@@ -567,10 +569,11 @@ async def fetch_form4_outcome(cik, accession_number, primary_document, context):
                 numbers.append(number)
             tx_code = val(tx, 'transactionCode')
             label = {'P': 'Open Market Purchase', 'S': 'Open Market Sale', 'A': 'Award/Grant', 'F': 'Tax Withholding',
-                     'M': 'Option Exercise', 'G': 'Gift', 'D': 'Disposition'}.get(tx_code, 'Transaction')
+                     'M': 'Option Exercise', 'G': 'Gift', 'D': 'Disposition'}.get(tx_code, 'Unknown')
             transactions.append(InsiderTransaction(reporter, title, val(tx, 'securityTitle'), date, *numbers,
                                                    'Buy' if code == 'A' else 'Sell', label))
             if None in numbers: exclusions.append('missing_transaction_value')
+            if label == 'Unknown': exclusions.append('unknown_transaction_classification')
         except ValueError: exclusions.append('invalid_transaction')
     if exclusions and not transactions: return FetchOutcome('unavailable', None, epoch, 'invalid_transactions', exclusions=tuple(exclusions))
     return FetchOutcome('partial' if exclusions else 'ok', tuple(transactions), epoch,

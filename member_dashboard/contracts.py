@@ -140,6 +140,7 @@ class MoveRange(PublicModel):
 class QuoteTime(PublicModel):
     source_id: Identifier
     observed_at: float | None
+    input_kind: Literal['call','put','underlying','selection','history'] | None = None
 
 
 class MovePayload(PublicModel):

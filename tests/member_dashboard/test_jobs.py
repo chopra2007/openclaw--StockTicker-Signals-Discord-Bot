@@ -11,6 +11,58 @@ def test_jobs_contract_is_available():
     assert importlib.util.find_spec('member_dashboard.jobs') is not None
 
 
+@pytest.mark.parametrize('age',[0,1200])
+def test_review_quote_delay_survives_completion_and_delivery(research,dashboard,age):
+    from dataclasses import replace
+    from datetime import datetime,timedelta,timezone
+    from types import SimpleNamespace
+    from test_sec_outcomes import synthetic_chain
+    from consensus_engine.scanners.expected_move import ExpectedMoveSettings
+    from member_dashboard.providers import ProviderContext
+    from member_dashboard.research import MemberResearchProvider
+    from member_dashboard.source_policy import SourcePermission
+    service,users,registry,policy=research
+    now=dashboard.clock()
+    instant=datetime.fromtimestamp(now,timezone.utc)
+    chain=synthetic_chain()
+    expiry=(instant+timedelta(days=1)).date().isoformat()
+    chain.calls=chain.calls[chain.calls.expiry==chain.expirations[0]].copy()
+    chain.puts=chain.puts[chain.puts.expiry==chain.expirations[0]].copy()
+    for frame in (chain.calls,chain.puts):
+        frame['expiry']=expiry
+        frame['providerQuoteTime']=(now-age)*1000
+        frame['lastTradeDate']=instant-timedelta(days=1)
+    chain.expirations=[expiry]
+    chain.underlying_quote_time=now-age
+    policy.record(SourcePermission(source_id='synthetic',product_id='fixture',provider='fixture',policy_version='p2',
+        audience='invited_members',status='allowed',display_raw=True,display_derived=True,retain=True,
+        private_grant_ref='fixture',evidence_ref='fixture',terms_url='https://www.sec.gov/fixture',effective_at=0.0,
+        delay_seconds=900))
+    spec=registry.providers['em_daily']
+    lineage=spec.lineage.model_copy(update={'sources':[s.model_copy(update={'policy_version':'p2'}) for s in spec.lineage.sources]})
+    client=SimpleNamespace(get_option_chain=lambda *a,**k:chain,get_price_history=lambda *a,**k:None)
+    provider=MemberResearchProvider(ProviderContext(policy,{'em_daily':lineage},{'synthetic':client},ExpectedMoveSettings(),
+        lambda:instant,object(),object(),object(),lambda event:None,'synthetic'))
+    provider.register(registry)
+    request=service.request_research(users[0],'SPY',False,now)
+    while job:=service.claim_job('fixture-worker',now):
+        if job.kind=='em_daily': break
+        service.complete_job(job.id,job.lease_token,fixture_result(job.kind,now),now)
+    completion=provider.compute_blocking('SPY','em_daily',{})
+    result=getattr(completion,'result',completion)
+    service.complete_job(job.id,job.lease_token,result,now)
+    public=service.get_request(users[0],request.id,now).sections['em_daily']
+    with service.store.transaction() as con:
+        count=con.execute("SELECT count(*) FROM market_results WHERE section='em_daily'").fetchone()[0]
+    if age==0:
+        assert public.status=='unavailable' and count==0
+    else:
+        assert public.status=='completed' and count==1
+        assert public.observed_at==now-age and public.delay_seconds==900
+        assert {row.input_kind:row.observed_at for row in public.payload.quote_times}==dict.fromkeys(
+            ('call','put','underlying','selection'),now-age)
+
+
 def test_chart_completion_is_atomic_owned_and_current(research,dashboard):
     from io import BytesIO
     from PIL import Image

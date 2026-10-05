@@ -90,7 +90,9 @@ class MemberResearchProvider:
                 transactions=detail.data if detail and detail.status in ('ok','partial') else ()
                 conviction=any(tx.transaction_type in ('Open Market Purchase','Open Market Sale') for tx in transactions)
                 complete=detail is not None and detail.status == 'ok'
-                label='conviction' if conviction else 'routine' if complete else 'unknown'
+                routine=complete and bool(transactions) and all(tx.transaction_type in
+                    ('Award/Grant','Tax Withholding','Option Exercise','Gift','Disposition') for tx in transactions)
+                label='conviction' if conviction else 'routine' if routine else 'unknown'
                 amount=sum(tx.shares*tx.price for tx in transactions if tx.transaction_type in ('Open Market Purchase','Open Market Sale') and tx.shares is not None and tx.price is not None)
                 value=metric(amount,'USD','verified open-market shares times price') if complete and conviction else None
                 insiders.append(InsiderSummary(accession=row.accession_number,summary={'conviction':'Open-market transaction reported.','routine':'Routine transactions reported.','unknown':'Insider detail coverage incomplete.'}[label],conviction=label,transaction_value=value))
@@ -118,11 +120,25 @@ class MemberResearchProvider:
                 for field in ('strike','bid','ask','lastPrice','volume','openInterest','impliedVolatility'):
                     value=row.get(field)
                     if value is None:
-                        if field in ('strike','volume') or em and field in ('bid','ask','openInterest'):
+                        if field in ('strike','volume') or not em and field=='lastPrice' or em and field in ('bid','ask','openInterest'):
                             raise ValueError('missing_required_quote')
                         continue
                     if isinstance(value,bool) or not isinstance(value,(int,float)) or not math.isfinite(value) or value<0:
                         raise ValueError('invalid_quote')
+
+    def _observations(self, section, values, *, milliseconds=False):
+        """Authorize real source observations, independently of last-trade time."""
+        epochs=[]
+        now=self.context.clock().timestamp()
+        for value in values:
+            if isinstance(value,bool) or not isinstance(value,(int,float)) or not math.isfinite(value):
+                raise ValueError('missing_source_observation')
+            epoch=value/1000 if milliseconds else value
+            if not 0 < epoch <= now: raise ValueError('invalid_source_observation')
+            epochs.append(epoch)
+        # Equal timestamps share the same policy decision; every row was validated.
+        for epoch in set(epochs): self._authorize(section,observed_at=epoch)
+        return epochs
 
     def compute_blocking(self,ticker,section,inputs):
         """Register on the existing runtime's blocking lane, including rendering."""
@@ -203,7 +219,19 @@ class MemberResearchProvider:
                 chosen=chain.by_expiry(expiry)
                 bundle=dict(spot=spot,expiration=expiry,session_label=label,calls=chosen.calls,puts=chosen.puts,
                             history=pd.DataFrame(),history_label='no price history',source=source)
-                result=compute_em_from_bundle(ticker,bundle,self.context.settings,now,horizon)
+                candidate=compute_em_from_bundle(ticker,bundle,self.context.settings,now,horizon)
+                times=[]
+                selection=[]
+                for kind,frame,quote in (('call',chosen.calls,candidate.call),('put',chosen.puts,candidate.put)):
+                    epochs=self._observations(section,frame.get('providerQuoteTime',[None]*len(frame)),milliseconds=True)
+                    if not epochs: raise ValueError('missing_source_observation')
+                    selection.extend(epochs)
+                    index=next(i for i,strike in enumerate(frame['strike']) if strike==quote.strike)
+                    times.append(QuoteTime(source_id=source,input_kind=kind,observed_at=epochs[index]))
+                spot_time=self._observations(section,[getattr(chain,'underlying_quote_time',None)])[0]
+                times.extend((QuoteTime(source_id=source,input_kind='underlying',observed_at=spot_time),
+                              QuoteTime(source_id=source,input_kind='selection',observed_at=max(selection))))
+                result=candidate
                 break
             except Exception:
                 self.context.telemetry({'event':'member_quote_unavailable','reason_code':'quote_quality_unavailable'})
@@ -216,12 +244,13 @@ class MemberResearchProvider:
                 if history is not None and len(history)>=5:
                     if len(history)>10_000 or not all(math.isfinite(float(v)) for key in ('Open','High','Low','Close') for v in history[key]):
                         raise ValueError('invalid_history')
+                    history_times=self._observations(section,history.get('sourceObservedAt',[None]*len(history)))
                     result.history=history
                     result.history_label=period+' / '+interval
+                    times.append(QuoteTime(source_id=source,input_kind='history',observed_at=max(history_times)))
                     break
             except Exception: pass
-        stamps=[q.last_trade.timestamp() for q in (result.call,result.put) if q.last_trade is not None]
-        observation=min(stamps) if stamps else None
+        observation=max(item.observed_at for item in times)
         self._authorize(section,observed_at=observation)
         ranges=[MoveRange(method='raw ATM straddle',lower=metric(result.lower,'USD','spot minus straddle'),
                     upper=metric(result.upper,'USD','spot plus straddle'),expected_move=metric(result.primary_em,'USD','call midpoint plus put midpoint'))]
@@ -230,7 +259,7 @@ class MemberResearchProvider:
                 lower=metric(result.iv_band_lower,'USD','spot minus IV move'),upper=metric(result.iv_band_upper,'USD','spot plus IV move'),
                 expected_move=metric(result.em['iv_em_1sd'],'USD','ATM IV and time to selected expiry')))
         payload=MovePayload(horizon=horizon,spot=metric(result.spot,'USD','chain underlying quote'),expiry=result.expiration,
-            ranges=ranges,quote_times=[QuoteTime(source_id=source,observed_at=observation)],chart_asset_id=None)
+            ranges=ranges,quote_times=times,chart_asset_id=None)
         public=self._result(section,payload,observed_at=observation)
         png=None
         if self.context.chart_renderer is not None:
