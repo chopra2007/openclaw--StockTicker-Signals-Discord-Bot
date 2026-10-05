@@ -31,6 +31,7 @@ class ProviderContext:
     analysis_services: object = None
     chart_renderer: object = None
     supplied_metrics: object = None
+    input_dependencies: object = None
 
     def __post_init__(self):
         from datetime import datetime
@@ -40,6 +41,31 @@ class ProviderContext:
         if not isinstance(instant,datetime) or instant.tzinfo is None or instant.utcoffset() is None:
             raise ValueError('Aware provider clock required')
         lineage={key:ContentLineage.model_validate(value).model_copy(deep=True) for key,value in self.lineage.items()}
+        # Each trusted mixed unit is indivisible: its declaration covers every
+        # contributing field/evidence and every possible service response.
+        from .contracts import Feature, FieldDependency
+        from typing import get_args
+        paths={}
+        for name in ('analysis_records','analysis_services'):
+            if getattr(self,name) is not None: paths[name]=('analysis','payload')
+        for section,rows in (self.supplied_metrics or {}).items():
+            if section not in lineage or len(rows)>20: raise ValueError('Invalid input dependencies')
+            for index,_ in enumerate(rows): paths[f'supplied_metrics.{section}.{index}']=(section,'payload.context_metrics')
+        declarations=dict(self.input_dependencies or {})
+        if len(declarations)>102 or set(declarations)!=set(paths): raise ValueError('Complete input dependencies required')
+        owned={}
+        for path,values in declarations.items():
+            if not isinstance(values,(list,tuple)) or not 1<=len(values)<=8 or any(v not in get_args(Feature) for v in values):
+                raise ValueError('Invalid input dependencies')
+            section,output=paths[path]
+            if section not in lineage: raise ValueError('Invalid input dependencies')
+            owned[path]=tuple(sorted(set(values)))
+            value=lineage[section].model_dump()
+            value['field_dependencies'].append(FieldDependency(field_path=output,required_features=list(owned[path])).model_dump())
+            lineage[section]=ContentLineage.model_validate(value)
+        object.__setattr__(self,'input_dependencies',MappingProxyType(owned))
+        if self.analysis_records is not None:
+            object.__setattr__(self,'analysis_records',MappingProxyType(dict(self.analysis_records)))
         object.__setattr__(self,'lineage',MappingProxyType(lineage))
         object.__setattr__(self,'clients',MappingProxyType(dict(self.clients)))
         object.__setattr__(self,'fallback_allowlist',tuple(self.fallback_allowlist))
@@ -139,6 +165,13 @@ class ProviderRegistry:
             # Recheck mutable lineage before actual invocation, after runtime admission.
             if saved != spec.descriptor():
                 raise ValueError('provider specification changed')
+            # Re-read immediately before invoking the admitted operation. The
+            # claim's feature snapshot is never permission to start later work.
+            from .features import require_features
+            lineage=ContentLineage.model_validate(spec.lineage.model_dump())
+            with inputs.runtime.store.transaction() as con:
+                if not require_features(con,lineage.required_features) or not require_features(con,inputs.safe_inputs.get('enabled_features',[])):
+                    raise ValueError('feature_unavailable')
             return spec.operation(ticker,section,inputs.safe_inputs)
         run = inputs.runtime.run_async if spec.asynchronous else inputs.runtime.run_blocking
         outcome = await run(inputs.call_id, operation, inputs.wait_timeout, provider=spec.provider)

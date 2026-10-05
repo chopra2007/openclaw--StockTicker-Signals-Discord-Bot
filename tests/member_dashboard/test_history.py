@@ -127,7 +127,8 @@ def test_reenabled_features_restore_original_history_and_chart_without_reviving_
         con.execute("UPDATE features SET enabled=0,version=version+1 WHERE name IN ('sec','em_daily')")
     disabled = history.get_report(users[1], requests[1].report_id)
     assert all(disabled.sections[name].payload is None for name in ('sec', 'em_daily', 'analysis'))
-    assert assets.read(users[1], chart, dashboard.clock()) is None
+    from member_dashboard.assets import AssetDenial
+    assert assets.read(users[1], chart, dashboard.clock()) is AssetDenial.FEATURE_DISABLED
     history.delete_report(users[0], requests[0].report_id)
     with jobs.store.transaction() as con:
         con.execute("UPDATE features SET enabled=1,version=version+1 WHERE name IN ('sec','em_daily')")

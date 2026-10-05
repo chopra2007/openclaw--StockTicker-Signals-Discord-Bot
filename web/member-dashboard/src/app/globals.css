@@ -9,3 +9,16 @@
 @media(min-width:1001px){.history-layout{grid-template-columns:280px minmax(0,1fr)}}
 
 .assistant-message{border-bottom:1px solid var(--border);padding:1rem 0;overflow-wrap:anywhere}.history-layout textarea{display:block;width:100%;margin:.5rem 0 1rem;background:transparent;color:inherit;border:1px solid #666;border-radius:.5rem;padding:.75rem}.history-layout input{max-width:100%}
+
+.admin-page { max-width: 1180px; margin: auto; padding: 32px 24px; }
+.admin-page section { margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--border, #333); }
+.admin-page h2, .admin-page h3 { margin: 16px 0 10px; }
+.admin-page p { color: var(--muted-foreground, #aaa); margin: 8px 0; }
+.admin-switches, .admin-health { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap: 16px; }
+.admin-switches label { display: flex; gap: 12px; align-items: center; padding: 12px; }
+.admin-switches input { width: 18px; height: 18px; accent-color: #8bd8bc; }
+.admin-row { display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 18px 0; border-bottom: 1px solid var(--border, #333); overflow-wrap: anywhere; }
+.admin-actions, .admin-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+.admin-health article, .admin-link { border: 1px solid var(--border, #333); border-radius: 10px; padding: 16px; }
+.admin-link textarea { width: 100%; min-height: 85px; background: transparent; padding: 10px; border: 1px solid #666; color: inherit; }
+@media (max-width: 650px) { .admin-row { display: block; } .admin-page { padding: 24px 16px; } }

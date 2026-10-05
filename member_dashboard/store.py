@@ -40,11 +40,11 @@ class WebStore:
             connection.execute("CREATE TABLE IF NOT EXISTS schema_migrations "
                                "(version INTEGER PRIMARY KEY, applied_at REAL NOT NULL) STRICT")
             versions = {row[0] for row in connection.execute("SELECT version FROM schema_migrations")}
-            if versions - {1, 2, 3, 4, 5, 6, 7, 8}:
+            if versions - {1, 2, 3, 4, 5, 6, 7, 8, 9}:
                 raise ValueError("web schema is newer than this application")
             from .publication import card_identity
             connection.create_function('publication_card_id', 2, card_identity, deterministic=True)
-            for version, name in [(1, '001_initial.sql'), (2, '002_source_policy.sql'), (3, '003_research.sql'), (4, '004_probe_ownership.sql'), (5, '005_quota_ownership.sql'), (6, '006_feed.sql'), (7, '007_feed_evidence_refs.sql'), (8, '008_assistant.sql')]:
+            for version, name in [(1, '001_initial.sql'), (2, '002_source_policy.sql'), (3, '003_research.sql'), (4, '004_probe_ownership.sql'), (5, '005_quota_ownership.sql'), (6, '006_feed.sql'), (7, '007_feed_evidence_refs.sql'), (8, '008_assistant.sql'), (9, '009_health_observations.sql')]:
                 if version in versions:
                     continue
                 script = (Path(__file__).parent / "migrations" / name).read_text(encoding="utf-8")

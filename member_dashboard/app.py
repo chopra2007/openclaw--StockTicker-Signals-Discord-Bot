@@ -20,6 +20,8 @@ from .publication import FeedService
 from .market_reader import MarketReader
 from .history import HistoryService
 from .routes.history import router as history_router
+from .admin import AdminService
+from .routes.admin import router as admin_router
 from .assistant import AssistantService
 from .routes.assistant import router as assistant_router
 
@@ -49,6 +51,8 @@ def create_app(settings: Settings) -> FastAPI:
         settings.provider_registry if isinstance(settings.provider_registry, ProviderRegistry) else ProviderRegistry())
     app.state.history = HistoryService(app.state.research, signing_key=settings.feed_signing_key, clock=settings.clock)
     app.state.assistant = AssistantService(app.state.history,transport=settings.assistant_transport,clock=settings.clock)
+    app.state.admin = AdminService(store,app.state.auth,clock=settings.clock)
+    app.include_router(admin_router)
     app.include_router(auth_router)
     app.include_router(research_router)
     app.include_router(assets_router)

@@ -323,7 +323,7 @@ def test_context_metrics_require_explicit_matching_provenance(dashboard):
     good=DerivedContextMetric('iv_skew',None,'IV fraction','25-delta put IV minus call IV',None,'synthetic','s1')
     bad=DerivedContextMetric('net_gamma',1.0,'USD per 1% move','native gamma',None,'unknown','s1')
     client=SimpleNamespace(get_option_chain=lambda *args,**kwargs:synthetic_chain(),get_price_history=lambda *args,**kwargs:None)
-    context=member_context(dashboard,{'synthetic':client},supplied_metrics={'em_daily':(good,bad,{'total_net_gex':0})})
+    context=member_context(dashboard,{'synthetic':client},supplied_metrics={'em_daily':(good,bad,{'total_net_gex':0})},input_dependencies={f'supplied_metrics.em_daily.{i}':['options'] for i in range(3)})
     result=MemberResearchProvider(context).compute_blocking('SPY','em_daily',{}).result
     assert len(result.payload.context_metrics)==1
     row=result.payload.context_metrics[0]
@@ -346,12 +346,12 @@ async def test_analysis_model_use_requires_distinct_permission(dashboard):
     async def synthesis(request): calls.append('synthesis'); return ''
     async def gap(request): calls.append('gap'); return GapFillResult()
     services=ResearchServices(settings,clock,synthesis,gap,lambda event:None)
-    context=member_context(dashboard,{},analysis_records={'NVDA':record},analysis_services=services)
-    result=await MemberResearchProvider(context).compute('NVDA','analysis',{})
+    context=member_context(dashboard,{},analysis_records={'NVDA':record},analysis_services=services,input_dependencies={'analysis_records':['analysis'],'analysis_services':['analysis']})
+    result=await MemberResearchProvider(context).compute('NVDA','analysis',{'enabled_features':['analysis']})
     assert result.status=='completed' and calls==[]
     assert result.payload.score.value is not None and result.evidence[0].source_id=='synthetic'
     bad=replace(record,evidence=tuple(replace(row,source_id='unlisted') for row in record.evidence))
-    result=await MemberResearchProvider(replace(context,analysis_records={'NVDA':bad})).compute('NVDA','analysis',{})
+    result=await MemberResearchProvider(replace(context,analysis_records={'NVDA':bad})).compute('NVDA','analysis',{'enabled_features':['analysis']})
     assert result.status=='unavailable' and calls==[]
 
 

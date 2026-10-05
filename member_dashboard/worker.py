@@ -26,11 +26,21 @@ class ComputeWorker:
         self.assistant = assistant
         self.assistant_current = None
         self.prefer_assistant = True
+        self._last_observation = None
+
+    def _observe(self, *, progress=False):
+        from .monitoring import observe,CADENCE
+        now=self.clock()
+        if progress or self._last_observation is None or now-self._last_observation>=CADENCE:
+            state='draining' if self.restart_requested else 'busy' if self.current or self.assistant_current else 'idle'
+            observe(self.jobs.store,'compute',self.runtime.worker_id,now,state=state,progress=progress)
+            self._last_observation=now
 
     async def _assistant_heartbeat(self, run):
         while True:
             await asyncio.sleep(5)
             self.assistant.heartbeat(run)
+            self._observe()
 
     async def _run_assistant(self):
         run = self.assistant.claim(self.runtime.worker_id) if self.assistant else None
@@ -39,7 +49,9 @@ class ComputeWorker:
         self.prefer_assistant = False
         heartbeat = asyncio.create_task(self._assistant_heartbeat(run))
         try:
-            if await self.assistant.execute(run, self.runtime): self.assistant_current = None
+            if await self.assistant.execute(run, self.runtime):
+                self.assistant_current = None
+                self._observe(progress=True)
         finally:
             heartbeat.cancel()
             try: await heartbeat
@@ -50,6 +62,7 @@ class ComputeWorker:
         while True:
             await asyncio.sleep(5)
             self.jobs.heartbeat(job.id, job.lease_token, self.clock())
+            self._observe()
 
     def _settle(self, job, outcome):
         if outcome.status == 'completed':
@@ -68,12 +81,16 @@ class ComputeWorker:
             return False
         self.runtime.forget(job.call_id)
         self.current = None
+        self._observe(progress=True)
         return True
 
     async def run_once(self):
+        self._observe()
         self.restart_requested = self.runtime.check_drains()
         if self.assistant_current:
-            if self.assistant.settle(self.assistant_current,self.runtime): self.assistant_current = None
+            if self.assistant.settle(self.assistant_current,self.runtime):
+                self.assistant_current = None
+                self._observe(progress=True)
             return
         if self.current:
             job = self.current
@@ -283,6 +300,8 @@ class WorkerSupervisor:
         self._restart = False
         self.last_exit_confirmed = False
         self.blocked = False
+        self._observation_id = str(uuid4())
+        self._last_observation = None
 
     def request_restart(self):
         self._restart = True
@@ -294,6 +313,10 @@ class WorkerSupervisor:
 
     def tick(self):
         now = self.clock()
+        from .monitoring import observe,CADENCE
+        if self._last_observation is None or now-self._last_observation>=CADENCE:
+            observe(self.store,'supervisor',self._observation_id,now,state='blocked' if self.blocked else 'busy' if self._restart else 'idle')
+            self._last_observation=now
         if self._last_feed is None or now-self._last_feed >= 5:
             self.feed_tick(now)
             self._last_feed = now

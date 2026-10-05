@@ -43,6 +43,12 @@ class ContentLineage(BaseModel):
     retention_deadline: float | None
 
 
+    @model_validator(mode="after")
+    def union_dependencies(self):
+        self.required_features = sorted(set(self.required_features).union(*(set(item.required_features) for item in self.field_dependencies)))
+        return self
+
+
 class Metric(PublicModel):
     value: float | None
     unit: ShortText

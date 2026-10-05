@@ -26,6 +26,11 @@ class MemberResearchProvider:
 
     def _authorize(self, section, use='display_derived', observed_at=None):
         lineage=self.context.lineage[section]
+        mixed=any(key.startswith('analysis_') if section=='analysis' else key.startswith('supplied_metrics.'+section+'.') for key in self.context.input_dependencies)
+        if mixed or hasattr(self.context.policy,'store'):
+            from .features import require_features
+            with self.context.policy.store.transaction() as con:
+                if not require_features(con,lineage.required_features): raise ValueError('feature_unavailable')
         decision=self.context.policy.authorize_lineage(lineage,use,self.context.clock().timestamp(),observed_at=observed_at)
         if not decision.allowed: raise ValueError('source_permission_unavailable')
         return lineage
@@ -55,7 +60,7 @@ class MemberResearchProvider:
         try:
             self._authorize(section,'retain')
             if section == 'sec': return await self._sec(ticker)
-            if section == 'analysis': return await self._analysis(ticker)
+            if section == 'analysis': return await self._analysis(ticker,inputs)
             return self.compute_blocking(ticker,section,inputs)
         except Exception:
             self.context.telemetry({'event':'member_collection_unavailable','reason_code':'collection_unavailable'})
@@ -273,7 +278,10 @@ class MemberResearchProvider:
                 self.context.telemetry({'event':'member_chart_unavailable','reason_code':'chart_unavailable'})
         return ResearchCompletion(public,png)
 
-    async def _analysis(self,ticker):
+    async def _analysis(self,ticker,inputs):
+        allowed=inputs.get('enabled_features')
+        if not isinstance(allowed,list) or not set(self.context.lineage['analysis'].required_features)<=set(allowed):
+            raise ValueError('feature_unavailable')
         from consensus_engine.analysis.research_compute import MemberResearchProvider as PureProvider
         from .market_reader import safe_url
         services=self.context.analysis_services
@@ -290,10 +298,13 @@ class MemberResearchProvider:
         async def synthesis(request):
             approved(request.evidence,'model_input')
             self._authorize('analysis','model_input',observed_at=min((row.observed_at for row in request.evidence if row.observed_at is not None),default=None))
-            return await services.synthesis(request)
+            response=await services.synthesis(request)
+            self._authorize('analysis','model_input',observed_at=min((row.observed_at for row in request.evidence if row.observed_at is not None),default=None))
+            return response
         async def gap(request):
             self._authorize('analysis','model_input')
             response=await services.gap_fill(request)
+            self._authorize('analysis','model_input')
             approved(response.evidence,'retain')
             return response
         result=await PureProvider(self.context.analysis_records,replace(services,synthesis=synthesis,gap_fill=gap)).compute(ticker)

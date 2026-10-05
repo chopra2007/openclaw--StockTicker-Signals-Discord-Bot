@@ -98,7 +98,8 @@ def test_chart_completion_is_atomic_owned_and_current(research,dashboard):
     assert assets.read(new_principal,result.payload.chart_asset_id,dashboard.clock())==png.getvalue()
     with service.store.transaction() as con:
         con.execute("UPDATE features SET enabled=0 WHERE name='em_daily'")
-    assert assets.read(new_principal,result.payload.chart_asset_id,dashboard.clock()) is None
+    from member_dashboard.assets import AssetDenial
+    assert assets.read(new_principal,result.payload.chart_asset_id,dashboard.clock()) is AssetDenial.FEATURE_DISABLED
 
 
 @pytest.mark.parametrize('withdraw',['source','retention','session','owner'])
@@ -128,7 +129,10 @@ def test_chart_reads_recheck_every_permission(research,dashboard,withdraw):
         with service.store.transaction() as con:
             if withdraw=='session': con.execute('UPDATE sessions SET revoked_at=? WHERE id=?',(dashboard.clock(),users[0].session_id))
             else: con.execute('UPDATE report_owners SET deleted_at=? WHERE member_id=?',(dashboard.clock(),users[0].member_id))
-    assert AssetService(service).read(users[0],asset_id,dashboard.clock()) is None
+    if withdraw=='session':
+        from member_dashboard.auth import AuthError
+        with pytest.raises(AuthError): AssetService(service).read(users[0],asset_id,dashboard.clock())
+    else: assert AssetService(service).read(users[0],asset_id,dashboard.clock()) is None
 
 
 def test_late_chart_with_deleted_owner_persists_nothing(research,dashboard):

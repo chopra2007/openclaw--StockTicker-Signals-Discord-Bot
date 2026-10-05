@@ -84,11 +84,12 @@ class JobService:
         if spec is None:
             return None
         mask = feature_mask(con)
-        required = sorted(set(spec.lineage.required_features +
+        declared = ContentLineage.model_validate(spec.lineage.model_dump())
+        required = sorted(set(declared.required_features +
                               ([name for name in SECTIONS if mask[name][0]] if section == 'analysis' else [])))
         if not require_features(con, required):
             return None
-        lineage = spec.lineage.model_copy(update={'required_features': required})
+        lineage = declared.model_copy(update={'required_features': required})
         # Full grant metadata (not only the textual policy version) changes identity.
         grant_rows = []
         for source in lineage.sources:
@@ -282,6 +283,7 @@ class JobService:
 
     def _authorized_subscriber(self, con, sub, job, now):
         return (self._authorized_owner(con,sub,now) and mask_current(con,job['feature_mask_json'])
+                and require_features(con,ContentLineage.model_validate_json(job['lineage_json']).required_features)
                 and require_features(con,json.loads(job['required_features_json'])))
 
     def complete_job(self, job_id, lease_token, result, now, *, png=None):
