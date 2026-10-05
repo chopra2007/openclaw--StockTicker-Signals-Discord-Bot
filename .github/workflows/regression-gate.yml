@@ -28,11 +28,17 @@ jobs:
           # pytest exits non-zero whenever the suite is red — which is the
           # expected baseline state. Under GitHub's default `bash -e` shell
           # that non-zero exit would abort the step before the baseline
-          # comparison ever runs, so the gate could never pass. `|| true`
-          # keeps the step alive; the `Compare against baseline` step below
-          # is what actually decides pass/fail.
-          OUTPUT=$(python3 -m pytest tests/ -q --tb=no -p no:cacheprovider 2>&1) || true
+          # comparison ever runs, so the gate could never pass. Keep ordinary
+          # test failures for baseline comparison, but surface pytest errors.
+          set +e
+          OUTPUT=$(python3 -m pytest tests/ -q --tb=no -p no:cacheprovider 2>&1)
+          TEST_EXIT=$?
+          set -e
           echo "$OUTPUT"
+          if [ "$TEST_EXIT" -gt 1 ]; then
+            echo "pytest failed before baseline comparison (exit $TEST_EXIT)" >&2
+            exit "$TEST_EXIT"
+          fi
           SUMMARY=$(echo "$OUTPUT" | grep -E '[0-9]+ (passed|failed|error)' | tail -1 || true)
           echo "summary=$SUMMARY" >> $GITHUB_OUTPUT
 
@@ -76,31 +82,60 @@ jobs:
             echo "fixed_count=0" >> $GITHUB_OUTPUT
           fi
 
-      - name: Notify Discord (pass, only when tests newly fixed)
-        if: steps.gate.outputs.status == 'PASSED' && steps.gate.outputs.fixed_count != '0'
-        env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
-        run: |
-          COMMIT_SHORT="${{ github.sha }}"
-          COMMIT_SHORT="${COMMIT_SHORT:0:7}"
-          COMMIT_MSG=$(git log -1 --pretty=%s)
-          FIXED_COUNT="${{ steps.gate.outputs.fixed_count }}"
-          curl -s -X POST "$DISCORD_WEBHOOK" \
-            -H "Content-Type: application/json" \
-            -d "{\"content\": \"✅ **Regression gate passed** — \`$COMMIT_SHORT\` $COMMIT_MSG | $FIXED_COUNT test(s) newly fixed — run \`make test-baseline\`\", \"username\": \"CI\"}"
-
       - name: Notify Discord (fail)
-        if: steps.gate.outputs.status == 'FAILED'
+        if: ${{ failure() || steps.gate.outputs.status == 'FAILED' }}
         env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          GATE_STATUS: ${{ steps.gate.outputs.status }}
+          NEW_FAILURES: ${{ steps.gate.outputs.new_failures }}
         run: |
-          COMMIT_SHORT="${{ github.sha }}"
-          COMMIT_SHORT="${COMMIT_SHORT:0:7}"
-          COMMIT_MSG=$(git log -1 --pretty=%s)
-          NEW_FAILURES="${{ steps.gate.outputs.new_failures }}"
-          curl -s -X POST "$DISCORD_WEBHOOK" \
-            -H "Content-Type: application/json" \
-            -d "{\"content\": \"❌ **Regression gate FAILED** — \`$COMMIT_SHORT\` $COMMIT_MSG\nNew test failures:\n\`\`\`\n$NEW_FAILURES\n\`\`\`\", \"username\": \"CI\"}"
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+          from http.client import HTTPException
+          from urllib.error import HTTPError, URLError
+          from urllib.request import Request, urlopen
+
+
+          def main():
+              if os.environ.get("GATE_STATUS") == "PASSED":
+                  return 0
+
+              webhook = os.environ.get("DISCORD_WEBHOOK_URL")
+              if not webhook:
+                  print("Discord notification failed: webhook secret is missing", file=sys.stderr)
+                  return 1
+
+              sha = os.environ.get("GITHUB_SHA", "")[:7]
+              run_url = (
+                  f"{os.environ.get('GITHUB_SERVER_URL', 'https://github.com')}/"
+                  f"{os.environ.get('GITHUB_REPOSITORY', '')}/actions/runs/"
+                  f"{os.environ.get('GITHUB_RUN_ID', '')}"
+              )
+              failures = os.environ.get("NEW_FAILURES", "").strip()
+              content = f"Regression gate failed ({sha}). {run_url}"
+              if failures:
+                  content += f"\nNew test failures:\n{failures}"
+              payload = json.dumps(
+                  {"content": content[:1900], "username": "CI", "allowed_mentions": {"parse": []}}
+              ).encode("utf-8")
+              try:
+                  request = Request(webhook, data=payload, headers={"Content-Type": "application/json"})
+                  with urlopen(request, timeout=10):
+                      pass
+              except HTTPError as error:
+                  print(f"Discord notification failed: HTTP {error.code}", file=sys.stderr)
+                  return 1
+              except (HTTPException, URLError, TimeoutError, ValueError):
+                  print("Discord notification failed: request error", file=sys.stderr)
+                  return 1
+              return 0
+
+
+          if __name__ == "__main__":
+              sys.exit(main())
+          PY
 
       - name: Fail the job if gate blocked
         if: steps.gate.outputs.status == 'FAILED'
