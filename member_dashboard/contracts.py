@@ -315,6 +315,7 @@ class SavedConversation(ConversationRef):
 class AssistantRun(PublicModel):
     id: Identifier
     conversation_id: Identifier
+    input_message_id: Identifier | None
     status: Status
     ticker_context: Annotated[str, Field(max_length=16)] | None
     created_at: float

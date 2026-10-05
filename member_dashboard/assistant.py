@@ -64,7 +64,7 @@ class AssistantService:
     @staticmethod
     def _dto(row):
         status={'draining':'running','cancelled':'unavailable'}.get(row['status'],row['status'])
-        return AssistantRun(id=row['id'],conversation_id=row['conversation_id'],status=status,ticker_context=row['ticker_context'],created_at=row['created_at'],finished_at=row['finished_at'],message=UNSUPPORTED if row['error_code']=='unsupported' else NOTICE if status in ('unavailable','failed') else None,response_message_id=row['response_message_id'],model_id=row['model_id'],input_tokens=row['actual_input_tokens'],output_tokens=row['actual_output_tokens'],cost=row['cost'])
+        return AssistantRun(id=row['id'],conversation_id=row['conversation_id'],input_message_id=row['input_message_id'],status=status,ticker_context=row['ticker_context'],created_at=row['created_at'],finished_at=row['finished_at'],message=UNSUPPORTED if row['error_code']=='unsupported' else NOTICE if status in ('unavailable','failed') else None,response_message_id=row['response_message_id'],model_id=row['model_id'],input_tokens=row['actual_input_tokens'],output_tokens=row['actual_output_tokens'],cost=row['cost'])
 
     def get_run(self,principal,conversation_id,run_id):
         with self.jobs.store.transaction() as con:

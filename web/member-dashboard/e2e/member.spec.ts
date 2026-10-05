@@ -119,3 +119,42 @@ test('assistant: unavailable retry and terminal access refresh without new calls
  await page.clock.fastForward(15001);await expect(page.getByText('Observation: synthetic momentum is improving. Interpretation: more evidence is needed.')).toHaveCount(0);
  expect(await control(request,{action:'stats'})).toEqual(before);await control(request,{action:'grant',allowed:true});
 });
+
+test('assistant review: newest answer and exact latest-run retry beyond fifty messages',async({page,request})=>{
+ const username=await join(page,request);await control(request,{action:'long_conversation',username});
+ await page.goto('/assistant');await page.getByRole('button',{name:'Long conversation',exact:true}).click();
+ await page.getByLabel('Your question').fill('Newest question beyond the first page');await page.getByRole('button',{name:'Send question'}).click();
+ await expect(page.getByText('Observation: synthetic momentum is improving. Interpretation: more evidence is needed.')).toBeVisible();
+ await expect(page.getByText('Newest question beyond the first page',{exact:true})).toBeVisible();
+ await expect(page.locator('.assistant-message')).toHaveCount(50);
+ await control(request,{action:'assistant',enabled:false});
+ await page.getByLabel('Your question').fill('Actual latest failed question');await page.getByRole('button',{name:'Send question'}).click();
+ await expect(page.getByText('Market Assistant is unavailable.')).toBeVisible();
+ await page.reload();await page.getByRole('button',{name:'Long conversation',exact:true}).click();
+ await expect(page.getByText('Actual latest failed question',{exact:true})).toBeVisible();
+ const submitted=page.waitForRequest(r=>r.method()==='POST'&&r.url().endsWith('/messages'));
+ await control(request,{action:'assistant',enabled:true});await page.getByRole('button',{name:'Retry question'}).click();
+ expect((await submitted).postDataJSON().message).toBe('Actual latest failed question');
+ await expect(page.getByText('Preparing your answer…')).toHaveCount(0);
+});
+
+test('assistant review: access change aborts pending write without disabling controls or replay',async({page,request})=>{
+ await join(page,request);await page.goto('/assistant');
+ let release:()=>void=()=>{};const gate=new Promise<void>(resolve=>{release=resolve;});
+ let received:()=>void=()=>{};const accepted=new Promise<void>(resolve=>{received=resolve;});
+ let delivered:()=>void=()=>{};const done=new Promise<void>(resolve=>{delivered=resolve;});let writes=0;
+ await page.route('**/api/v1/conversations',async route=>{
+  if(route.request().method()!=='POST'){await route.continue();return;}
+  writes++;const response=await route.fetch();expect(response.status()).toBe(200);received();await gate;
+  try{await route.fulfill({response});}catch{}finally{delivered();}
+ });
+ await page.getByRole('button',{name:'New conversation'}).click();await accepted;
+ await expect(page.getByRole('button',{name:'New conversation'})).toBeDisabled();
+ await control(request,{action:'feature',feature:'options',enabled:false});await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+ try{
+  await expect(page.getByRole('button',{name:'New conversation'})).toBeEnabled();
+ }finally{release();await done;await control(request,{action:'feature',feature:'options',enabled:true});}
+ await page.waitForTimeout(100);
+ await expect(page.getByText('Create or select a private conversation to begin.')).toBeVisible();
+ await expect(page.getByLabel('Your question')).toHaveCount(0);expect(writes).toBe(1);
+});

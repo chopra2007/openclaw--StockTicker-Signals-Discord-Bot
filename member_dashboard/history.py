@@ -190,18 +190,21 @@ class HistoryService:
     def _conversation_ref(row):
         return ConversationRef(id=row['id'],title=row['title'],created_at=row['created_at'],version=row['version'])
 
-    def get_conversation(self, principal, conversation_id, cursor=None, limit=50):
+    def get_conversation(self, principal, conversation_id, cursor=None, limit=50, *, tail=False):
         now = self.clock()
         with self.jobs.store.transaction() as con:
             con.row_factory = sqlite3.Row
             row = self.owned_live_conversation(con,principal,conversation_id,now)
             if row is None: raise HistoryError()
             if not require_features(con,['assistant']): raise HistoryError(403)
-            resource = 'messages:'+conversation_id
+            resource = ('messages-tail:' if tail else 'messages:')+conversation_id
             position = self._position(principal,resource,cursor,limit)
-            clause,args = ('',[]) if position is None else (' AND (m.created_at,m.id)>(?,?)',list(position))
-            rows = con.execute('SELECT m.* FROM messages m JOIN conversations c ON c.id=m.conversation_id AND c.member_id=m.member_id WHERE c.id=? AND c.member_id=? AND c.deleted_at IS NULL AND m.member_id=?'+clause+' ORDER BY m.created_at,m.id LIMIT ?', (conversation_id,principal.member_id,principal.member_id,*args,limit+1)).fetchall()
+            clause,args = ('',[]) if position is None else (' AND (m.created_at,m.id)'+('<' if tail else '>')+'(?,?)',list(position))
+            order = 'm.created_at DESC,m.id DESC' if tail else 'm.created_at,m.id'
+            rows = con.execute('SELECT m.* FROM messages m JOIN conversations c ON c.id=m.conversation_id AND c.member_id=m.member_id WHERE c.id=? AND c.member_id=? AND c.deleted_at IS NULL AND m.member_id=?'+clause+' ORDER BY '+order+' LIMIT ?', (conversation_id,principal.member_id,principal.member_id,*args,limit+1)).fetchall()
             more,rows = len(rows)>limit,rows[:limit]
+            cursor = self._cursor(principal,resource,[rows[-1]['created_at'],rows[-1]['id']]) if more else None
+            if tail: rows.reverse()
             messages=[]
             for message in rows:
                 text, evidence, annotations = None, [], []
@@ -221,7 +224,6 @@ class HistoryService:
                 except (ValueError,TypeError,ValidationError): pass
                 messages.append(SavedMessage(id=message['id'],role=message['role'],created_at=message['created_at'],text=text,evidence=evidence,
                     availability='available' if text is not None else 'unavailable',annotations=annotations))
-            cursor = self._cursor(principal,resource,[rows[-1]['created_at'],rows[-1]['id']]) if more else None
             return SavedConversation(**self._conversation_ref(row).model_dump(),messages=messages,cursor=cursor)
 
     def delete_conversation(self, principal, conversation_id):

@@ -368,3 +368,27 @@ def test_assistant_message_evidence_must_belong_to_complete_lineage(history,rese
             (str(uuid4()),conversation,users[0].member_id,json.dumps(content),json.dumps([source.model_dump()]),'["assistant"]',dashboard.clock()))
     value=next(m for m in history.get_conversation(users[0],conversation).messages if m.role=='assistant')
     assert value.text is None and value.evidence==[]
+
+
+def test_assistant_tail_page_is_bounded_owned_and_distinct_from_default(history,research,dashboard):
+    from member_dashboard.assistant import AssistantService
+    from member_dashboard.contracts import MessageContent
+    from member_dashboard.history import HistoryError
+    service=AssistantService(history,clock=dashboard.clock)
+    owner,other=research[1][:2]
+    conversation=service.create_conversation(owner,'Long conversation')
+    with research[0].store.transaction() as con:
+        for index in range(61):
+            con.execute("INSERT INTO messages(id,conversation_id,member_id,role,content_json,created_at) VALUES (?,?,?,'user',?,?)",
+                (str(uuid4()),conversation.id,owner.member_id,MessageContent(text='Question '+str(index)).model_dump_json(),dashboard.clock()+index))
+    first=history.get_conversation(owner,conversation.id)
+    assert len(first.messages)==50 and first.messages[0].text=='Question 0' and first.messages[-1].text=='Question 49'
+    tail=history.get_conversation(owner,conversation.id,tail=True)
+    assert len(tail.messages)==50 and tail.messages[0].text=='Question 11' and tail.messages[-1].text=='Question 60'
+    older=history.get_conversation(owner,conversation.id,cursor=tail.cursor,tail=True)
+    assert len(older.messages)==11 and older.messages[-1].text=='Question 10' and older.cursor is None
+    with pytest.raises(HistoryError):history.get_conversation(other,conversation.id,tail=True)
+    with pytest.raises(HistoryError):history.get_conversation(owner,conversation.id,cursor=first.cursor,tail=True)
+    with pytest.raises(HistoryError):history.get_conversation(owner,conversation.id,cursor=tail.cursor)
+    service.history.delete_conversation(owner,conversation.id)
+    with pytest.raises(HistoryError):history.get_conversation(owner,conversation.id,tail=True)

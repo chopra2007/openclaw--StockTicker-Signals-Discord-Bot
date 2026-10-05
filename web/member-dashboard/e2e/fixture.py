@@ -160,6 +160,15 @@ async def control(request:Request):
             con.execute("INSERT INTO messages(id,conversation_id,member_id,role,content_json,created_at) VALUES (?,?,?,'user',?,?)",
                 (str(uuid4()),identity,member,json.dumps({'text':'My saved question'}),time.time()))
         return {'id':identity}
+    if action=='long_conversation':
+        identity=str(uuid4())
+        with store.transaction() as con:
+            member=con.execute('SELECT id FROM members WHERE username=?',(command['username'],)).fetchone()[0]
+            con.execute('INSERT INTO conversations(id,member_id,title,created_at) VALUES (?,?,?,?)',(identity,member,'Long conversation',time.time()-100))
+            for index in range(54):
+                con.execute("INSERT INTO messages(id,conversation_id,member_id,role,content_json,created_at) VALUES (?,?,?,'user',?,?)",
+                    (str(uuid4()),identity,member,json.dumps({'text':'Earlier question '+str(index)}),time.time()-100+index))
+        return {'id':identity}
     if action=='grant': policy.authority_current=lambda:command['allowed']
     if action=='feature':
         with store.transaction() as con:

@@ -39,8 +39,8 @@ def conversations(request: Request, principal=Depends(require_member), cursor: s
 
 
 @router.get('/conversations/{conversation_id}', response_model=SavedConversation)
-def conversation(conversation_id: str, request: Request, principal=Depends(require_member), cursor: str | None=Query(None,max_length=4096), limit: int=Query(50,ge=1,le=100)):
-    return invoke(request,'get_conversation',principal,conversation_id,cursor,limit)
+def conversation(conversation_id: str, request: Request, principal=Depends(require_member), cursor: str | None=Query(None,max_length=4096), limit: int=Query(50,ge=1,le=100), tail: bool=Query(False)):
+    return invoke(request,'get_conversation',principal,conversation_id,cursor,limit,tail=tail)
 
 
 @router.delete('/conversations/{conversation_id}', status_code=204, dependencies=[Depends(require_csrf)])

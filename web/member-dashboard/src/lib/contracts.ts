@@ -51,6 +51,6 @@ export type ReportPage=z.infer<typeof reportPageSchema>;
 export type SavedReport=z.infer<typeof savedReportSchema>;
 export type ConversationPage=z.infer<typeof conversationPageSchema>;
 export type SavedConversation=z.infer<typeof savedConversationSchema>;
-export const assistantRunSchema=z.strictObject({id,conversation_id:id,status:z.enum(['queued','running','completed','unavailable','failed']),ticker_context:z.string().max(16).nullable(),created_at:z.number().finite(),finished_at:epoch,message:short.nullable(),response_message_id:id.nullable(),model_id:id.nullable(),input_tokens:z.number().int().nonnegative().nullable(),output_tokens:z.number().int().nonnegative().nullable(),cost:z.number().finite().nonnegative().nullable()});
+export const assistantRunSchema=z.strictObject({id,conversation_id:id,input_message_id:id.nullable(),status:z.enum(['queued','running','completed','unavailable','failed']),ticker_context:z.string().max(16).nullable(),created_at:z.number().finite(),finished_at:epoch,message:short.nullable(),response_message_id:id.nullable(),model_id:id.nullable(),input_tokens:z.number().int().nonnegative().nullable(),output_tokens:z.number().int().nonnegative().nullable(),cost:z.number().finite().nonnegative().nullable()});
 export type AssistantRun=z.infer<typeof assistantRunSchema>;
 export type ConversationRef=z.infer<typeof conversationRef>;
