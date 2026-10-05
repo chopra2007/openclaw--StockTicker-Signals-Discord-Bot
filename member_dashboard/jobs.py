@@ -361,11 +361,12 @@ class JobService:
         # An existing authorized report still needs a terminal workflow version
         # after all source content is withdrawn. Empty lineage grants no source
         # access; these envelopes carry neither content nor old observation IDs.
-        if content_free and (not finalized or owner['current_version_id'] is None):
+        if content_free and not finalized:
             return
         for section in sections:
             if content_free:
-                values[section['section']] = empty_result(section['section']).model_dump()
+                values[section['section']] = empty_result(section['section'],
+                    'failed' if section['status'] == 'failed' else 'unavailable').model_dump()
             elif section['section'] not in values:
                 values[section['section']] = empty_result(section['section'],
                     'unavailable' if section['status'] == 'completed' else section['status'],
@@ -375,6 +376,8 @@ class JobService:
         con.execute('INSERT INTO report_versions(id,report_id,version,content_json,source_lineage_json,field_dependencies_json,required_features_json,retention_deadline,created_at,finalized) VALUES (?,?,?,?,?,?,?,?,?,?)',
             (identity, owner['report_id'], version, packed(values), packed(list(sources.values())), packed(fields), packed(sorted(features)), min(deadlines) if deadlines else None, now, int(finalized)))
         con.execute('UPDATE report_owners SET current_version_id=? WHERE id=? AND deleted_at IS NULL', (identity, owner['id']))
+        from .contracts import ReportRef
+        return ReportRef(id=owner['report_id'],created_at=owner['created_at'])
 
     def fail_attempt(self, job_id, lease_token, now, *, retryable=True):
         with self.store.transaction() as con:

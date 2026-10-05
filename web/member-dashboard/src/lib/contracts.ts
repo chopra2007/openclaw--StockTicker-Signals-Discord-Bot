@@ -37,3 +37,17 @@ export type MovePayload=z.infer<typeof move>;
 export type FeedCard=z.infer<typeof upsertSchema>;
 export type FeedPage=z.infer<typeof feedSchema>;
 export type SourceFreshness=z.infer<typeof freshnessSchema>;
+
+const cursor=z.string().max(4096).nullable();
+const reportRef=z.strictObject({id,created_at:z.number().finite(),ticker:z.string().max(16).nullable()});
+const annotation=z.strictObject({evidence_id:id,source_id:id,source_version:id,status:z.enum(['retracted','unavailable']),recorded_at:epoch});
+export const reportPageSchema=z.strictObject({items:z.array(reportRef).max(100),cursor});
+export const savedReportSchema=reportRef.extend({version:z.number().int().positive().nullable(),saved_at:epoch,finalized:z.boolean(),availability:z.enum(['available','pending','unavailable']),sections:z.partialRecord(z.enum(sections),section),annotations:z.partialRecord(z.enum(sections),z.array(annotation).max(200))}).refine(x=>Object.entries(x.sections).every(([key,value])=>key===value.section));
+const conversationRef=z.strictObject({id,title:short,created_at:z.number().finite(),version:z.number().int().positive()});
+export const conversationPageSchema=z.strictObject({items:z.array(conversationRef).max(100),cursor});
+const savedMessage=z.strictObject({id,role:z.enum(['user','assistant']),created_at:z.number().finite(),text:text.nullable(),evidence:z.array(evidence).max(200),availability:z.enum(['available','unavailable']),annotations:z.array(annotation).max(200)});
+export const savedConversationSchema=conversationRef.extend({messages:z.array(savedMessage).max(100),cursor});
+export type ReportPage=z.infer<typeof reportPageSchema>;
+export type SavedReport=z.infer<typeof savedReportSchema>;
+export type ConversationPage=z.infer<typeof conversationPageSchema>;
+export type SavedConversation=z.infer<typeof savedConversationSchema>;

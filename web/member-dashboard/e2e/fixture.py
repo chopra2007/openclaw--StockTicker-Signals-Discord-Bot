@@ -1,5 +1,6 @@
 """Loopback-only synthetic composition. Never imported by the application."""
 import asyncio
+import json
 from contextlib import asynccontextmanager
 from io import BytesIO
 from pathlib import Path
@@ -19,6 +20,7 @@ from member_dashboard.contracts import ContentLineage, SourceContribution, Secti
 from member_dashboard.source_policy import SourcePolicy, SourcePermission
 from member_dashboard.providers import ProviderRegistry, ProviderSpec, SymbolCatalog, ResearchCompletion
 from member_dashboard.jobs import JobService
+from member_dashboard.history import HistoryService
 from member_dashboard.provider_runtime import ProviderRuntime
 from member_dashboard.worker import ComputeWorker
 from member_dashboard.publication import FeedService, Publisher, publishable
@@ -98,6 +100,7 @@ for section in ['sec','analysis','options','em_daily','em_weekly']:
     registry.register(section,ProviderSpec(ContentLineage(sources=sources,required_features=[section],field_dependencies=[],retention_deadline=None),operation,'fixture',analysis_version='fixture-v1'))
 app.state.source_policy=policy
 app.state.research=JobService(store,auth,policy,registry)
+app.state.history=HistoryService(app.state.research,signing_key=b'synthetic-fixture-signing-key-only-32',clock=time.time)
 app.state.feed=FeedService(store,auth,policy,signing_key=b'synthetic-fixture-signing-key-only-32')
 publisher=Publisher(store,policy)
 
@@ -131,6 +134,15 @@ async def control(request:Request):
         with store.transaction() as con:
             member=con.execute('SELECT id FROM members WHERE username=?',(command['username'],)).fetchone()[0]
         return {'token':auth.issue_reset_trusted(admin,member,time.time()).token}
+    if action=='conversation':
+        identity=str(uuid4())
+        with store.transaction() as con:
+            member=con.execute('SELECT id FROM members WHERE username=?',(command['username'],)).fetchone()[0]
+            con.execute('INSERT INTO conversations(id,member_id,title,created_at) VALUES (?,?,?,?)',
+                (identity,member,'Synthetic saved conversation',time.time()))
+            con.execute("INSERT INTO messages(id,conversation_id,member_id,role,content_json,created_at) VALUES (?,?,?,'user',?,?)",
+                (str(uuid4()),identity,member,json.dumps({'text':'My saved question'}),time.time()))
+        return {'id':identity}
     if action=='grant': policy.authority_current=lambda:command['allowed']
     if action=='feature':
         with store.transaction() as con:

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from .authorization import require_member
 from .auth import AuthError
 from .features import require_features
+from .publication import evidence_retraction
 
 
 def validate_png(png):
@@ -44,20 +45,18 @@ class AssetService:
             asset=con.execute('SELECT * FROM assets WHERE id=?',(asset_id,)).fetchone()
             if asset is None: return None
             parent=con.execute('SELECT * FROM market_results WHERE id=?',(asset['result_id'],)).fetchone()
-            if parent is None or self.jobs._read_result(con,parent,now) is None: return None
+            result = self.jobs._read_result(con,parent,now) if parent else None
+            if result is None or any(evidence_retraction(con,item,self.jobs.policy) is not None for item in result.evidence): return None
             lineage=self.jobs.policy.stored_lineage(asset)
             if lineage is None or not require_features(con,lineage.required_features): return None
             if not all(self.jobs.policy._authorize_lineage(con,lineage,use,now,parent['observed_at']).allowed for use in ('retain','display_raw','display_derived')):
                 return None
             # An owned report is sufficient even after its request is discarded.
-            owned=con.execute("""SELECT 1 FROM report_owners o JOIN report_versions v ON o.report_id=v.report_id,
+            owned=con.execute("""SELECT 1 FROM report_owners o JOIN report_versions v ON o.report_id=v.report_id AND o.current_version_id=v.id,
                 json_each(CASE WHEN json_valid(v.content_json) THEN v.content_json ELSE '{}' END) item
                 WHERE o.member_id=? AND o.deleted_at IS NULL
                 AND json_extract(CASE WHEN item.type='object' THEN item.value ELSE '{}' END,'$.result_id')=? LIMIT 1""",
                 (principal.member_id,asset['result_id'])).fetchone() is not None
-            if not owned:
-                owned=con.execute('SELECT 1 FROM request_sections s JOIN research_requests r ON r.id=s.request_id JOIN report_owners o ON o.id=r.report_owner_id WHERE s.result_id=? AND r.member_id=? AND r.deleted_at IS NULL AND o.member_id=r.member_id AND o.deleted_at IS NULL LIMIT 1',
-                    (asset['result_id'],principal.member_id)).fetchone() is not None
             return bytes(asset['content']) if owned else None
 
 

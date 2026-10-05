@@ -249,3 +249,64 @@ class ResearchRequest(PublicModel):
     report_id: Identifier
     ticker: Annotated[str, Field(max_length=16)]
     sections: dict[Section, SectionResult]
+
+
+class ReportRef(PublicModel):
+    id: Identifier
+    created_at: float
+    ticker: Annotated[str, Field(max_length=16)] | None = None
+
+
+class ReportPage(PublicModel):
+    items: list[ReportRef] = Field(max_length=100)
+    cursor: Annotated[str, Field(max_length=4096)] | None
+
+
+class SavedEvidenceAnnotation(PublicModel):
+    evidence_id: Identifier
+    source_id: Identifier
+    source_version: Identifier
+    status: Literal['retracted', 'unavailable']
+    recorded_at: float | None
+
+
+class SavedReport(ReportRef):
+    version: int | None
+    saved_at: float | None
+    finalized: bool
+    availability: Literal['available', 'pending', 'unavailable']
+    sections: dict[Section, SectionResult]
+    annotations: dict[Section, list[SavedEvidenceAnnotation]] = Field(default_factory=dict)
+
+
+class ConversationRef(PublicModel):
+    id: Identifier
+    title: ShortText
+    created_at: float
+    version: int
+
+
+class ConversationPage(PublicModel):
+    items: list[ConversationRef] = Field(max_length=100)
+    cursor: Annotated[str, Field(max_length=4096)] | None
+
+
+class MessageContent(PublicModel):
+    """Task 10 persists this typed body, with complete internal model lineage."""
+    text: Text
+    evidence: list[Evidence] = Field(default_factory=list, max_length=200)
+
+
+class SavedMessage(PublicModel):
+    id: Identifier
+    role: Literal['user', 'assistant']
+    created_at: float
+    text: Text | None
+    evidence: list[Evidence] = Field(default_factory=list, max_length=200)
+    availability: Literal['available', 'unavailable']
+    annotations: list[SavedEvidenceAnnotation] = Field(default_factory=list, max_length=200)
+
+
+class SavedConversation(ConversationRef):
+    messages: list[SavedMessage] = Field(max_length=100)
+    cursor: Annotated[str, Field(max_length=4096)] | None
