@@ -8,6 +8,8 @@ from .contracts import HealthResponse
 from .errors import ErrorResponse
 from .settings import Settings
 from .store import WebStore
+from .auth import AuthService
+from .routes.auth import router as auth_router, AnonymousCsrf
 
 
 def create_app(settings: Settings) -> FastAPI:
@@ -25,6 +27,9 @@ def create_app(settings: Settings) -> FastAPI:
     app.state.store = store
     app.state.clock = settings.clock
     app.state.providers = settings.provider_registry
+    app.state.auth = AuthService(store)
+    app.state.anonymous_csrf = AnonymousCsrf()
+    app.include_router(auth_router)
 
     def safe_error(status, code):
         return JSONResponse(status_code=status,
