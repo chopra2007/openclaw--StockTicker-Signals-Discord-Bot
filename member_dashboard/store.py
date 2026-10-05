@@ -40,10 +40,12 @@ class WebStore:
             connection.execute("CREATE TABLE IF NOT EXISTS schema_migrations "
                                "(version INTEGER PRIMARY KEY, applied_at REAL NOT NULL) STRICT")
             versions = {row[0] for row in connection.execute("SELECT version FROM schema_migrations")}
-            if versions - {1}:
+            if versions - {1, 2}:
                 raise ValueError("web schema is newer than this application")
-            if 1 not in versions:
-                script = (Path(__file__).parent / "migrations" / "001_initial.sql").read_text(encoding="utf-8")
+            for version, name in [(1, '001_initial.sql'), (2, '002_source_policy.sql')]:
+                if version in versions:
+                    continue
+                script = (Path(__file__).parent / "migrations" / name).read_text(encoding="utf-8")
                 # executescript implicitly commits. Parse complete SQL statements
                 # instead so schema creation and version insertion remain atomic.
                 statement = ""
@@ -54,7 +56,7 @@ class WebStore:
                         statement = ""
                 if statement.strip():
                     raise ValueError("incomplete migration statement")
-                connection.execute("INSERT INTO schema_migrations(version,applied_at) VALUES (1,?)", (time.time(),))
+                connection.execute("INSERT INTO schema_migrations(version,applied_at) VALUES (?,?)", (version,time.time()))
             connection.commit()
         except BaseException:
             connection.rollback()
