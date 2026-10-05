@@ -163,3 +163,9 @@ summary, keeps per-analyst lines, and labels exact intraday versus daily-price e
 - Development checks: 713 related checks passed; final focused Linux checks: 226 passed. A broad clean-copy run passed 4,386 checks; its 12 research failures matched the prior baseline exactly. Current master GitHub CI has 14 missing-private-input research failures, including two server-only manifest checks; see TODO #120.
 - Deployed checked patches with backups, preserved unrelated live edits, restarted the engine, and verified the column migration, Discord READY, both active services, and matching model-chain configuration.
 - Integrated only this feature onto current master, leaving the separate pending YouTube command change out.
+
+### Integration verification - 2026-10-04 Pacific
+
+- Rebased the feature onto current master and ran the complete two-worker regression suite: 4,447 passed, 130 skipped, 12 known research-input failures, no new failure IDs.
+- Ran the regression comparison after correcting archive-only Windows line endings in the test copy; the committed baseline already uses LF. The gate reported no regression against the independently verified current-master baseline.
+- TODO status synchronization passed. Production code hashes match the reviewed integration code.
