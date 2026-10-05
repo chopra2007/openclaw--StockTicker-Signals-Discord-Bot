@@ -142,10 +142,14 @@ async def control(request:Request):
         with store.transaction() as con:
             con.execute('INSERT OR REPLACE INTO feed_source_status(source_id,available,checked_at,succeeded_at) VALUES (?,?,?,?)',('analyst_views',1,time.time(),time.time() if command['fresh'] else time.time()-100))
     if action=='delete': publisher.retract('feed-one','SPY',time.time())
+    if action=='refresh_ready':
+        with store.transaction() as con:
+            con.execute('UPDATE web_jobs SET created_at=created_at-61 WHERE ticker=?',(command['ticker'],))
     if action=='stats':
         with store.transaction() as con:
             return {'jobs':con.execute('SELECT count(*) FROM web_jobs').fetchone()[0],
-                    'calls':con.execute('SELECT count(*) FROM provider_calls').fetchone()[0]}
+                    'calls':con.execute('SELECT count(*) FROM provider_calls').fetchone()[0],
+                    'compute_charges':con.execute("SELECT count(*) FROM web_usage WHERE kind='research_compute'").fetchone()[0]}
     return {'ok':True}
 
 if __name__=='__main__':

@@ -1,5 +1,28 @@
 import {test,expect} from '@playwright/test';
 import {control,join,research,password} from './helpers';
+test('review: abandoned delayed refresh cannot navigate back and retains server charge',async({page,request})=>{
+ await join(page,request);await research(page);await expect(page.getByTestId('analysis-status')).toHaveText('Completed');
+ await control(request,{action:'refresh_ready',ticker:'SPY'});const before=await control(request,{action:'stats'});
+ let release:()=>void=()=>{};const gate=new Promise<void>(resolve=>{release=resolve;});
+ let received:()=>void=()=>{};const accepted=new Promise<void>(resolve=>{received=resolve;});
+ let delivered:()=>void=()=>{};const done=new Promise<void>(resolve=>{delivered=resolve;});
+ await page.route('**/api/v1/research',async route=>{
+   const response=await route.fetch();expect(response.status()).toBe(200);received();await gate;
+   try{await route.fulfill({response});}catch{/* The departed browser may already have aborted. */}finally{delivered();}
+ });
+ await page.getByRole('button',{name:'Refresh research'}).click();await accepted;
+ await page.getByRole('link',{name:'Overview',exact:true}).click();await expect(page.getByRole('heading',{name:'Your market workspace'})).toBeVisible();
+ release();await done;
+ // Allow the released response and any resulting router transition to settle.
+ await page.waitForTimeout(500);await expect(page).toHaveURL('https://localhost:3443/');
+ const after=await control(request,{action:'stats'});expect(after.jobs).toBe(before.jobs+5);expect(after.compute_charges).toBe(before.compute_charges+1);
+});
+test('review: session transport failure offers retry and recovers',async({page,request})=>{
+ await join(page,request);let fail=true;await page.route('**/api/v1/me',async route=>{if(fail)await route.abort('connectionfailed');else await route.continue();});
+ await page.goto('/');await expect(page.locator('p[role=alert]')).toContainText('Unable to check your session');
+ await expect(page.getByRole('button',{name:'Try again'})).toBeVisible();await expect(page.getByText('Checking your session…')).toHaveCount(0);
+ fail=false;await page.getByRole('button',{name:'Try again'}).click();await expect(page.getByRole('heading',{name:'Your market workspace'})).toBeVisible();
+});
 test('invite fragment is removed before any fetch, secure login and reset',async({page,request,context})=>{
   const hashes:string[]=[];await page.addInitScript(()=>{const native=window.fetch;window.fetch=(...args)=>{(window as unknown as {fetchHashes:string[]}).fetchHashes??=[];(window as unknown as {fetchHashes:string[]}).fetchHashes.push(location.hash);return native(...args);};});
   const username=await join(page,request);hashes.push(...await page.evaluate(()=>(window as unknown as {fetchHashes:string[]}).fetchHashes));expect(hashes.every(x=>x==='')).toBeTruthy();
