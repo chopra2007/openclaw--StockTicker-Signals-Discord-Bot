@@ -6,6 +6,7 @@ from pathlib import Path
 import types
 import unittest
 from unittest.mock import patch
+from http.client import InvalidURL
 from urllib.error import HTTPError
 
 
@@ -88,6 +89,15 @@ class RegressionGateNotificationTests(unittest.TestCase):
                     self.assertEqual(load_notifier().main(), 1)
         output = "".join(str(call) for call in stderr.write.call_args_list)
         self.assertNotIn(self.env["DISCORD_WEBHOOK_URL"], output)
+
+    def test_invalid_url_from_http_client_does_not_expose_webhook(self):
+        invalid = "https://example.invalid/webhook secret"
+        with patch.dict(os.environ, {**self.env, "DISCORD_WEBHOOK_URL": invalid, "GATE_STATUS": "FAILED"}, clear=True):
+            with patch("urllib.request.urlopen", side_effect=InvalidURL(invalid)):
+                with patch("sys.stderr") as stderr:
+                    self.assertEqual(load_notifier().main(), 1)
+        output = "".join(str(call) for call in stderr.write.call_args_list)
+        self.assertNotIn(invalid, output)
 
 
 if __name__ == "__main__":
