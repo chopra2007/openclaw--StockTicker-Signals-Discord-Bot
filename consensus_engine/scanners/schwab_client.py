@@ -42,6 +42,7 @@ from zoneinfo import ZoneInfo
 import requests
 
 from consensus_engine import config
+from consensus_engine.utils.provider_budget import budgeted_request
 
 log = logging.getLogger("consensus_engine.scanner.schwab")
 
@@ -222,7 +223,7 @@ def get_access_token() -> str:
 
             refresh_token = doc["token"]["refresh_token"]
             key, secret = _creds()
-            resp = requests.post(
+            resp = budgeted_request(requests.post, 'POST',
                 TOKEN_URL,
                 auth=(key, secret),
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
@@ -262,7 +263,7 @@ def _get(path: str, params: dict | None = None) -> dict:
         raise SchwabError("schwab cooldown active (recent 429)")
     _bucket.acquire()
     token = get_access_token()
-    resp = requests.get(
+    resp = budgeted_request(requests.get, 'GET',
         f"{MD_BASE}{path}",
         headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         params=params or {},

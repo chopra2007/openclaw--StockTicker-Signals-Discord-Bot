@@ -227,6 +227,8 @@ async def check_unusual_options(ticker: str, executor, nearest: int = 1) -> Opti
 
     def _fetch():
         try:
+            from consensus_engine.utils.provider_budget import require_mapped_sdk
+            require_mapped_sdk('yahoo')
             import yfinance as yf
             t = yf.Ticker(ticker)
             expirations = t.options
@@ -431,6 +433,8 @@ async def _fetch_flow_chains(ticker: str, executor, nearest: int, use_schwab: bo
 
     def _f():
         try:
+            from consensus_engine.utils.provider_budget import require_mapped_sdk
+            require_mapped_sdk('yahoo')
             import yfinance as yf
             t = yf.Ticker(ticker)
             exps = t.options
@@ -1041,6 +1045,8 @@ async def compute_max_pain(ticker: str, executor=None) -> Optional[dict]:
 
     def _f():
         try:
+            from consensus_engine.utils.provider_budget import require_mapped_sdk
+            require_mapped_sdk('yahoo')
             import yfinance as yf
             t = yf.Ticker(ticker)
             exps = list(t.options or [])

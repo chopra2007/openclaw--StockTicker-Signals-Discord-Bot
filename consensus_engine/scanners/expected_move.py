@@ -434,6 +434,8 @@ def _schwab_bundle(ticker: str, now_et: datetime, horizon: str = "daily") -> Opt
 def _yfinance_bundle(ticker: str, now_et: datetime,
                      horizon: str = "daily") -> dict:
     """Blocking delayed-data fallback with the same shape as _schwab_bundle."""
+    from consensus_engine.utils.provider_budget import require_mapped_sdk
+    require_mapped_sdk('yahoo')
     import yfinance as yf
     t = yf.Ticker(ticker)
 

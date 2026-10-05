@@ -12,6 +12,7 @@ from typing import Optional
 import aiohttp
 
 from consensus_engine import config
+from consensus_engine.utils.provider_budget import wrap_session
 
 log = logging.getLogger("consensus_engine.utils.http")
 
@@ -44,7 +45,12 @@ async def get_session() -> aiohttp.ClientSession:
                 connect=10,
                 sock_read=20,
             )
-            _session = aiohttp.ClientSession(connector=connector, timeout=timeout)
+            raw_session = aiohttp.ClientSession(connector=connector, timeout=timeout)
+            try:
+                _session = wrap_session(raw_session)
+            except BaseException:
+                await raw_session.close()
+                raise
             log.debug("Created shared aiohttp session")
     return _session
 

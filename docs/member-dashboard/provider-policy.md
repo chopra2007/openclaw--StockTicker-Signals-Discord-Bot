@@ -78,3 +78,130 @@ model inputs and final responses must all recheck the applicable policy; no
 unrestricted stored dictionary is a public or model-input bypass. Task 4A owns
 the additional quota inventory and cross-process admission portions of this
 document.
+
+## Provider capacity and activation policy
+
+Reviewed October 5, 2026, Pacific time. **Every real dashboard source remains
+disabled.** No production policy, endpoint mapping, emergency reservation or
+source grant is supplied by this change. Synthetic test values are not provider
+quotas. No private account, key, token or outbound address was inspected.
+
+### Inventory and evidence gaps
+
+| Product | Verified public evidence | Transport inventory | Activation gaps |
+| --- | --- | --- | --- |
+| SEC EDGAR | [SEC access policy](https://www.sec.gov/about/privacy-information) limits aggregate automated requests to 10/second regardless of machines and describes recovery after ten minutes below threshold. | Shared HTTP: ticker-map cold retries, submissions, every filing XML, 8-K watcher, Form 144, Form 4 cluster and research sources. Research scripts also make direct requests outside the shared session. | Automation/user scope, all hosts and egress, active jobs, complete participation, fixed bot demand and member use permission unverified. |
+| Finnhub REST | [Official documentation](https://www.finnhub.io/docs/api/country) search-indexed rate-limit text describes an additional 30/second ceiling. This is not an account allowance. | Shared HTTP: quotes, company news, earnings, calendars, ticker profile and API adapters. Some research scripts bypass it. | Plan/product/key/account/IP intersections, minute/day/reset limits, live consumers and permissions unverified. |
+| Schwab market data and OAuth | [Product portal](https://developer.schwab.com/products/trader-api--individual); no public numeric allowance verified. Existing source comments are not account evidence. | Guarded market GET covers quotes, history, expirations and chains. Refresh POST is separately guarded and completes before market admission. Options/history fallbacks may invoke Yahoo. | App/account/key/egress/OAuth intersections, licensed member use, contract, bot reservation and other hosts unverified. |
+| Yahoo chart and SDK | No contractual quota or permission verified. | Direct shared-session chart requests can be classified. SDK metadata, history, chain, cookie, crumb, consent, retry and threaded download sends remain unmapped. | All shared SDK use denied in participating permitted dashboard paths. Daily jobs, direct SDK consumers and external scripts are not fully covered. |
+| Groq | [Rate limits](https://console.groq.com/docs/rate-limits) apply organization/model request and token windows; [projects](https://console.groq.com/docs/projects) remain under organization capacity. | Shared HTTP includes bot model attempts and video models; races, fallbacks, scripts and external gateway also contribute. | No verified organization/model/project/token allocation or complete transport coverage. Separate keys alone do not prove independence. |
+| OpenRouter | [Limits](https://openrouter.ai/docs/api_reference/limits) and [provider routing](https://openrouter.ai/docs/guides/routing/provider-selection) describe account/key/provider capacity and routing. | Bot model and video attempts, scripts, external gateway and upstream fallback. | Account/model/upstream/BYOK/credit limits, token charging and full participation unverified. Shared dashboard model calls remain off. |
+| Other contributing news/search/social/video products | No deployment quota or member-use grant verified. | Some consumers use the shared session; other libraries and scripts bypass it. | Inventory incomplete; never inherit another product's allowance. |
+
+The public SEC policy was read from its official page. The Finnhub numeric fact
+was available in the current official search index; direct root documentation
+returned HTTP 429 and the country page rendered no text. Neither establishes
+deployment capacity. Independently licensed dashboard capacity is preferred only
+when account, IP and upstream independence are proven.
+
+Private launch inventory must record opaque product/account/key aliases, every
+outbound host/IP and consumer, contract evidence/version/expiry, intersecting
+request/burst/daily/token windows and reset semantics, measured bot peak demand,
+fixed bot reservation, dashboard allocation and safety margin. Each scope must
+satisfy `bot_reserved + dashboard_allocated + safety_margin <= verified_limit`.
+Current values for all deployment-specific fields are **unverified**. There is
+no emergency allocation. No real source is enabled while these facts are missing.
+
+### Local admission contract
+
+`BudgetClient.reserve(scope_ids, caller, endpoint, units, attempt_id)` returns
+`Admission(allowed, admission_id, not_before, reason)`. `finish(admission_id,
+outcome, retry_after)` records completion or uncertainty. Units are a positive
+finite scalar for every scope, or an exact scope-to-units mapping (for example,
+one request plus the full bounded token allowance). No post-completion token
+refund occurs. Real model adapters still need independently reviewed token
+reservation and participation before activation.
+
+The broker owns the exact endpoint-to-scope mapping and minimum units. Missing,
+unverified, expired, omitted or additional scopes fail closed. All scopes reserve
+atomically in one web-store transaction. Strict per-role allocations cannot be
+borrowed. Sliding windows conservatively cover bursts/fixed provider resets.
+Finish frees only concurrency, never request/token consumption. Active policies
+cannot be reallocated, and changing a window requires a new scope while retaining
+the old intersecting scope until its charges expire.
+
+Use a new attempt ID before every actual page, retry, fallback or OAuth send.
+Reuse it only to retry the same admission RPC before sending that request. An
+idempotent admission response is not authorization to send again after a prior
+send. Attempt replay is bound to authenticated process identity and exact
+endpoint/scopes/units. Uncertain work remains charged and holds concurrency after
+restart. Replays after completion, expiry, window rollover, mapping withdrawal
+or a newly shared cooldown are deferred; old permits cannot authorize new sends.
+Unfinished work continues holding concurrency after
+restart, even after its request window ends. A shared 429 cooldown applies to all
+charged scopes; numeric and HTTP-date Retry-After values are not shortened.
+Missing/invalid values cause a conservative 600-second hold. A 429 body failure
+still persists the cooldown while retaining uncertain concurrency.
+
+The Linux server requires a broker-owned directory restricted to 0750 or tighter
+and binds a 0660 Unix socket. Deployment supplies a restricted shared group for
+socket access and distinct bot/dashboard UIDs. Linux `SO_PEERCRED` determines the
+role and PID; boot ID plus process start ticks distinguish reused PIDs. Member,
+model and request payloads cannot assign roles. Socket mode, group membership and
+UID mapping require deployment proof. No account/DB/configuration/reconciliation
+RPC exists: only reserve and finish. The bot client has no web-store import or
+database path. Frames are capped at 16 KiB, connections are serial with bounded
+backlog, receive deadline and finite SQLite/RPC waits.
+
+The authenticated loopback factory is for isolated synthetic Windows tests only.
+It binds role-specific test credentials to identities; it is not production
+process identity or a cross-host deployment route. A topology sharing limits
+across hosts cannot activate until an authenticated central route is implemented.
+Missing broker access defers participating bot/dashboard work. No fail-open
+fallback or inferred emergency capacity exists.
+
+### Transport and operation ownership
+
+Trusted bootstrap may call `configure_transport_budget` before creating sessions
+or starting any work. With no configuration, existing bot calls, calculations,
+schedules and output are unchanged. With configuration, shared aiohttp requests
+and Schwab market/OAuth sends require trusted static method/origin/path mappings.
+Only opaque endpoint labels reach the broker; URLs, queries, headers and bodies
+are not stored. Every matched request is separately charged. Implicit redirects
+are disabled, and activated aiohttp requires its verified retry-disable mechanism.
+Async context-manager ownership persists through response-body handling. Awaited
+raw responses, streaming requests, custom retrying sessions and unknown SDKs are
+unsupported. Missing exact route mappings defer rather than guess.
+
+Yahoo fallback guards in prices, expected move and options deny before entering
+the SDK in participating processes. This does not certify every other bot SDK
+consumer: those inventory gaps keep Yahoo closed. The broad bot model transport
+and external gateway were not changed, so generic HTTP coverage does not certify
+model source participation. SEC/Finnhub direct research-script bypasses likewise
+keep shared source activation closed.
+
+`ProviderRuntime` remains the single authority for the dashboard's two actual
+operations, shared by future analysis/model/summary lanes. The broker is a
+separate per-transport budget authority; scanner invocation is not one request.
+No second executor or coroutine-count concurrency mechanism is introduced.
+Timeout of a waiting coroutine does not complete the real transport or refund
+either authority's capacity.
+
+### Supervisor reconciliation required at composition
+
+Task 12 must contain the entire worker process tree, confirm its exit using exact
+boot/PID/start identity, then invoke `QuotaBroker.reconcile_exited(owner,
+confirmed_dead=trusted_tree_exit_predicate, limit=100)` in bounded batches. The
+method returns the number of scope rows settled; repeat until zero before
+settling runtime calls/probes and permitting replacement work. It is not exposed
+to clients. Without the explicit trusted predicate it does nothing. Missing
+heartbeat, RPC outage, elapsed time and broker restart are never exit proof.
+`confirmed_process_exit` checks only an individual Linux identity and is not by
+itself process-tree proof. Reconciliation records uncertain completed work and
+retains every consumed request/token charge. Broker restart must not delete
+unfinished admissions or replace a socket belonging to a live server.
+
+Task 12 also owns separate service identities, safe socket lifecycle, permission
+proof, health/deadline handling and retention of durable quota data. Source-use
+grants from `source_policy.py` remain independent gates on live, cached, stored
+and model-input use. None of this local implementation activates a provider.

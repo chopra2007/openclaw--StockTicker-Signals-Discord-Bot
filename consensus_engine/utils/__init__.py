@@ -2,11 +2,11 @@
 
 import logging
 import sys
-from consensus_engine import config as cfg
 
 
 def setup_logging() -> logging.Logger:
     """Configure structured logging for the engine."""
+    from consensus_engine import config as cfg
     log_level = cfg.get("logging.level", "INFO")
     log_format = cfg.get("logging.format", "%(asctime)s [%(levelname)s] %(name)s: %(message)s")
     log_file = cfg.get("logging.file")
