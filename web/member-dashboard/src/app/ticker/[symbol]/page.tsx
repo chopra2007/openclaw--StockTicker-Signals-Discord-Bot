@@ -1,0 +1,2 @@
+import {TickerReport} from '@/components/ticker-report';
+export default async function Page({params,searchParams}:{params:Promise<{symbol:string}>;searchParams:Promise<{request?:string}>}){const {symbol}=await params;const {request}=await searchParams;const requestId=request&&/^[A-Za-z0-9_-]{1,128}$/.test(request)?request:null;return <TickerReport key={requestId||symbol} symbol={symbol.slice(0,16).toUpperCase()} requestId={requestId}/>}

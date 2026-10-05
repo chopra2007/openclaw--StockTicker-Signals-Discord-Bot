@@ -9,6 +9,7 @@ from pydantic import Field
 from ..auth import AuthError, digest
 from ..authorization import SESSION_COOKIE, require_csrf, require_member
 from ..contracts import PublicModel
+from ..features import feature_mask
 
 router = APIRouter(prefix='/api/v1')
 
@@ -31,6 +32,26 @@ class MemberView(PublicModel):
     id: str
     username: str
     role: Literal['member','admin']
+
+
+class FeatureView(PublicModel):
+    enabled: bool
+    version: int = Field(ge=1)
+
+
+class MemberFeatures(PublicModel):
+    feed: FeatureView
+    setups: FeatureView
+    analysis: FeatureView
+    sec: FeatureView
+    options: FeatureView
+    em_daily: FeatureView
+    em_weekly: FeatureView
+    assistant: FeatureView
+
+
+class CurrentMemberView(MemberView):
+    features: MemberFeatures
 
 
 class LoginView(PublicModel):
@@ -139,12 +160,17 @@ def reset(body:Reset,request:Request,response:Response):
     response.delete_cookie(SESSION_COOKIE,path='/',secure=True,httponly=True,samesite='lax')
 
 
-@router.get('/me',response_model=MemberView)
+@router.get('/me',response_model=CurrentMemberView)
 def me(request:Request,principal=Depends(require_member)):
-    with request.app.state.store.transaction() as con:
-        request.app.state.auth.revalidate(principal,request.app.state.clock(),con=con)
-        row = con.execute('SELECT id,username,role FROM members WHERE id=?',(principal.member_id,)).fetchone()
-    return MemberView(id=row[0],username=row[1],role=row[2])
+    try:
+        with request.app.state.store.transaction() as con:
+            request.app.state.auth.revalidate(principal,request.app.state.clock(),con=con)
+            row = con.execute('SELECT id,username,role FROM members WHERE id=?',(principal.member_id,)).fetchone()
+            features = MemberFeatures(**{name:FeatureView(enabled=stamp[0],version=stamp[1])
+                                        for name,stamp in feature_mask(con).items()})
+    except AuthError:
+        raise HTTPException(401) from None
+    return CurrentMemberView(id=row[0],username=row[1],role=row[2],features=features)
 
 
 @router.post('/auth/logout',status_code=204)

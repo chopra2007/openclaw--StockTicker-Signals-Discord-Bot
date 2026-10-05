@@ -12,6 +12,30 @@ PASSWORD = 'synthetic long password one'
 NEW_PASSWORD = 'synthetic long password two'
 
 
+def test_me_returns_all_current_feature_versions(auth, dashboard):
+    target = member(auth, dashboard)
+    response = post(dashboard, '/auth/login', {'username':target.username,'password':PASSWORD})
+    assert set(response.json()['member']) == {'id','username','role'}
+    with dashboard.store.transaction() as con:
+        con.execute("UPDATE features SET enabled=0,version=version+1 WHERE name='sec'")
+    response = dashboard.client.get('/api/v1/me')
+    assert response.status_code == 200
+    features = response.json()['features']
+    assert set(features) == {'feed','setups','analysis','sec','options','em_daily','em_weekly','assistant'}
+    assert features['sec'] == {'enabled':False,'version':2}
+    assert all(type(v['enabled']) is bool and type(v['version']) is int for v in features.values())
+
+
+def test_me_revalidation_race_is_unauthorized(auth, dashboard, monkeypatch):
+    from member_dashboard.auth import AuthError
+    target = member(auth, dashboard)
+    post(dashboard, '/auth/login', {'username':target.username,'password':PASSWORD})
+    def revoked(*args, **kwargs):
+        raise AuthError()
+    monkeypatch.setattr(dashboard.app.state.auth, 'revalidate', revoked)
+    assert dashboard.client.get('/api/v1/me').status_code == 401
+
+
 @pytest.fixture
 def auth(dashboard):
     from member_dashboard.auth import AuthService
