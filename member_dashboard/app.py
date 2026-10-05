@@ -14,6 +14,7 @@ from .routes.research import router as research_router
 from .jobs import JobService
 from .providers import ProviderRegistry
 from .source_policy import SourcePolicy
+from .assets import router as assets_router
 
 
 def create_app(settings: Settings) -> FastAPI:
@@ -38,6 +39,7 @@ def create_app(settings: Settings) -> FastAPI:
         settings.provider_registry if isinstance(settings.provider_registry, ProviderRegistry) else ProviderRegistry())
     app.include_router(auth_router)
     app.include_router(research_router)
+    app.include_router(assets_router)
 
     def safe_error(status, code):
         return JSONResponse(status_code=status,

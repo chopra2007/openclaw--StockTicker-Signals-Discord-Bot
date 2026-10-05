@@ -1,0 +1,293 @@
+{
+  "forbidden_attempts": [],
+  "inputs": {
+    "bundle": {
+      "calls": {
+        "_type": "DataFrame",
+        "columns": [
+          "strike",
+          "bid",
+          "ask",
+          "lastPrice",
+          "impliedVolatility",
+          "volume",
+          "openInterest",
+          "lastTradeDate"
+        ],
+        "records": [
+          {
+            "ask": 3.75,
+            "bid": 3.64,
+            "impliedVolatility": 0.141,
+            "lastPrice": 3.68,
+            "lastTradeDate": "2026-06-25T20:14:59+00:00",
+            "openInterest": 5636,
+            "strike": 733.0,
+            "volume": 4000
+          },
+          {
+            "ask": 3.1,
+            "bid": 3.08,
+            "impliedVolatility": 0.1359,
+            "lastPrice": 3.08,
+            "lastTradeDate": "2026-06-25T20:14:59+00:00",
+            "openInterest": 2186,
+            "strike": 734.0,
+            "volume": 76897
+          },
+          {
+            "ask": 2.53,
+            "bid": 2.51,
+            "impliedVolatility": 0.132,
+            "lastPrice": 2.52,
+            "lastTradeDate": "2026-06-25T20:14:59+00:00",
+            "openInterest": 8067,
+            "strike": 735.0,
+            "volume": 6000
+          }
+        ]
+      },
+      "expiration": "2026-03-09",
+      "history": {
+        "_type": "DataFrame",
+        "columns": [],
+        "records": []
+      },
+      "history_label": "no price history",
+      "puts": {
+        "_type": "DataFrame",
+        "columns": [
+          "strike",
+          "bid",
+          "ask",
+          "lastPrice",
+          "impliedVolatility",
+          "volume",
+          "openInterest",
+          "lastTradeDate"
+        ],
+        "records": [
+          {
+            "ask": 2.17,
+            "bid": 2.15,
+            "impliedVolatility": 0.128,
+            "lastPrice": 2.16,
+            "lastTradeDate": "2026-06-25T20:14:59+00:00",
+            "openInterest": 3963,
+            "strike": 733.0,
+            "volume": 5000
+          },
+          {
+            "ask": 2.56,
+            "bid": 2.53,
+            "impliedVolatility": 0.1249,
+            "lastPrice": 2.55,
+            "lastTradeDate": "2026-06-25T20:14:59+00:00",
+            "openInterest": 7648,
+            "strike": 734.0,
+            "volume": 64256
+          },
+          {
+            "ask": 3.01,
+            "bid": 2.95,
+            "impliedVolatility": 0.122,
+            "lastPrice": 2.97,
+            "lastTradeDate": "2026-06-25T20:14:59+00:00",
+            "openInterest": 5113,
+            "strike": 735.0,
+            "volume": 4000
+          }
+        ]
+      },
+      "session_label": "Next session (market closed)",
+      "source": "schwab",
+      "spot": 734.3
+    },
+    "expirations": [
+      "2026-03-06",
+      "2026-03-09"
+    ],
+    "good_fallback": {
+      "calls": {
+        "_type": "DataFrame",
+        "columns": [
+          "strike",
+          "bid",
+          "ask",
+          "lastPrice",
+          "impliedVolatility",
+          "volume",
+          "openInterest",
+          "lastTradeDate"
+        ],
+        "records": [
+          {
+            "ask": 3.75,
+            "bid": 3.64,
+            "impliedVolatility": 0.141,
+            "lastPrice": 3.68,
+            "lastTradeDate": "2026-06-25T20:14:59+00:00",
+            "openInterest": 5636,
+            "strike": 733.0,
+            "volume": 4000
+          },
+          {
+            "ask": 3.1,
+            "bid": 3.08,
+            "impliedVolatility": 0.1359,
+            "lastPrice": 3.08,
+            "lastTradeDate": "2026-06-25T20:14:59+00:00",
+            "openInterest": 2186,
+            "strike": 734.0,
+            "volume": 76897
+          },
+          {
+            "ask": 2.53,
+            "bid": 2.51,
+            "impliedVolatility": 0.132,
+            "lastPrice": 2.52,
+            "lastTradeDate": "2026-06-25T20:14:59+00:00",
+            "openInterest": 8067,
+            "strike": 735.0,
+            "volume": 6000
+          }
+        ]
+      },
+      "expiration": "2026-03-09",
+      "history": {
+        "_type": "DataFrame",
+        "columns": [],
+        "records": []
+      },
+      "history_label": "no price history",
+      "puts": {
+        "_type": "DataFrame",
+        "columns": [
+          "strike",
+          "bid",
+          "ask",
+          "lastPrice",
+          "impliedVolatility",
+          "volume",
+          "openInterest",
+          "lastTradeDate"
+        ],
+        "records": [
+          {
+            "ask": 2.17,
+            "bid": 2.15,
+            "impliedVolatility": 0.128,
+            "lastPrice": 2.16,
+            "lastTradeDate": "2026-06-25T20:14:59+00:00",
+            "openInterest": 3963,
+            "strike": 733.0,
+            "volume": 5000
+          },
+          {
+            "ask": 2.56,
+            "bid": 2.53,
+            "impliedVolatility": 0.1249,
+            "lastPrice": 2.55,
+            "lastTradeDate": "2026-06-25T20:14:59+00:00",
+            "openInterest": 7648,
+            "strike": 734.0,
+            "volume": 64256
+          },
+          {
+            "ask": 3.01,
+            "bid": 2.95,
+            "impliedVolatility": 0.122,
+            "lastPrice": 2.97,
+            "lastTradeDate": "2026-06-25T20:14:59+00:00",
+            "openInterest": 5113,
+            "strike": 735.0,
+            "volume": 4000
+          }
+        ]
+      },
+      "session_label": "Next session (market closed)",
+      "source": "schwab",
+      "spot": 734.3
+    },
+    "horizon": "daily",
+    "now": "2026-03-06T17:00:00-05:00",
+    "settings": {
+      "expected_move.max_atm_spread_pct": 0.25,
+      "expected_move.max_atm_strike_distance_pct": 0.05,
+      "expected_move.min_atm_open_interest": 100,
+      "expected_move.multiplier": 0.85,
+      "options_flow.staleness_failclosed": false
+    }
+  },
+  "output": {
+    "absent_chart": null,
+    "fallback_calls": [],
+    "result": {
+      "_type": "ExpectedMoveResult",
+      "atm_strike": 734.0,
+      "call": {
+        "_type": "OptionQuote",
+        "ask": 3.1,
+        "bid": 3.08,
+        "iv": 0.1359,
+        "last": 3.08,
+        "last_trade": "2026-06-25T20:14:59+00:00",
+        "open_interest": 2186.0,
+        "strike": 734.0,
+        "volume": 76897.0
+      },
+      "em": {
+        "adjusted_straddle_em": 4.78975,
+        "adjusted_straddle_em_pct": 0.0065228789323164916,
+        "atm_iv": 0.1304,
+        "iv_em_1sd": 8.559493895321797,
+        "iv_em_252": 6.031854392333348,
+        "iv_em_365": 5.01192643010824,
+        "iv_em_to_expiration": 6.031854392333348,
+        "multiplier": 0.85,
+        "raw_straddle_em": 5.635,
+        "raw_straddle_em_pct": 0.00767397521448999,
+        "straddle_implied_iv": 0.10759283815358753
+      },
+      "expiration": "2026-03-09",
+      "history": {
+        "_type": "DataFrame",
+        "columns": [],
+        "records": []
+      },
+      "history_label": "no price history",
+      "horizon": "daily",
+      "iv_band_lower": 725.7405061046782,
+      "iv_band_upper": 742.8594938953217,
+      "lower": 728.665,
+      "market_open": false,
+      "primary_em": 5.635,
+      "put": {
+        "_type": "OptionQuote",
+        "ask": 2.56,
+        "bid": 2.53,
+        "iv": 0.1249,
+        "last": 2.55,
+        "last_trade": "2026-06-25T20:14:59+00:00",
+        "open_interest": 7648.0,
+        "strike": 734.0,
+        "volume": 64256.0
+      },
+      "quote_ts": "2026-06-25T20:14:59+00:00",
+      "session_label": "Next session (market closed)",
+      "source": "schwab",
+      "spot": 734.3,
+      "ticker": "SPY",
+      "tte": {
+        "T_252": 0.003968253968253968,
+        "T_365": 0.007990867579908675,
+        "calendar_days": 2.9166666666666665,
+        "session_fraction_today": 0.0,
+        "sessions_remaining": 1,
+        "trading_days": 1.0
+      },
+      "upper": 739.935
+    },
+    "status": "returned"
+  }
+}

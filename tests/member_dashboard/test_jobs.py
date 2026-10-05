@@ -11,6 +11,174 @@ def test_jobs_contract_is_available():
     assert importlib.util.find_spec('member_dashboard.jobs') is not None
 
 
+def test_chart_completion_is_atomic_owned_and_current(research,dashboard):
+    from io import BytesIO
+    from PIL import Image
+    service,users,_,policy=research
+    request=service.request_research(users[0],'SPY',False,dashboard.clock())
+    png=BytesIO(); Image.new('RGB',(8,8),'navy').save(png,format='PNG')
+    while job:=service.claim_job('fixture-worker',dashboard.clock()):
+        if job.kind=='em_daily': break
+        service.complete_job(job.id,job.lease_token,fixture_result(job.kind,dashboard.clock()),dashboard.clock())
+    service.complete_job(job.id,job.lease_token,fixture_result(job.kind,dashboard.clock()),dashboard.clock(),png=png.getvalue())
+    result=service.get_request(users[0],request.id,dashboard.clock()).sections['em_daily']
+    assert result.payload.chart_asset_id
+    from member_dashboard.assets import AssetService
+    assets=AssetService(service)
+    assert assets.read(users[0],result.payload.chart_asset_id,dashboard.clock()) == png.getvalue()
+    assert assets.read(users[1],result.payload.chart_asset_id,dashboard.clock()) is None
+    with service.store.transaction() as con:
+        assert con.execute('SELECT count(*) FROM assets WHERE result_id=?',(result.result_id,)).fetchone()[0]==1
+        content=con.execute('SELECT content_json FROM report_versions ORDER BY rowid DESC LIMIT 1').fetchone()[0]
+        assert result.payload.chart_asset_id in content
+        # Valid JSON with unrelated malformed section shape cannot break ownership.
+        con.execute('INSERT INTO report_versions(id,report_id,version,content_json,created_at) VALUES (?,?,?,?,?)',
+                    (str(uuid4()),request.report_id,999,'{"unrelated":"not an object"}',dashboard.clock()))
+        # Password reset fences pending work, but retained owned history remains
+        # readable from a newly authenticated session after the version changes.
+        con.execute('UPDATE members SET authorization_version=2 WHERE id=?',(users[0].member_id,))
+        con.execute('UPDATE sessions SET authorization_version=2 WHERE id=?',(users[0].session_id,))
+    from dataclasses import replace
+    new_principal=replace(users[0],authorization_version=2)
+    assert assets.read(new_principal,result.payload.chart_asset_id,dashboard.clock())==png.getvalue()
+    with service.store.transaction() as con:
+        con.execute('UPDATE research_requests SET deleted_at=? WHERE id=?',(dashboard.clock(),request.id))
+    assert assets.read(new_principal,result.payload.chart_asset_id,dashboard.clock())==png.getvalue()
+    with service.store.transaction() as con:
+        con.execute("UPDATE features SET enabled=0 WHERE name='em_daily'")
+    assert assets.read(new_principal,result.payload.chart_asset_id,dashboard.clock()) is None
+
+
+@pytest.mark.parametrize('withdraw',['source','retention','session','owner'])
+def test_chart_reads_recheck_every_permission(research,dashboard,withdraw):
+    from io import BytesIO
+    from PIL import Image
+    from dataclasses import replace
+    from member_dashboard.assets import AssetService
+    from member_dashboard.source_policy import SourcePermission
+    service,users,registry,policy=research
+    if withdraw=='retention':
+        spec=registry.providers['em_daily']
+        registry.providers['em_daily']=replace(spec,lineage=spec.lineage.model_copy(update={'retention_deadline':dashboard.clock()+5}))
+    service.request_research(users[0],'SPY',False,dashboard.clock())
+    while job:=service.claim_job('fixture-worker',dashboard.clock()):
+        if job.kind=='em_daily': break
+        service.complete_job(job.id,job.lease_token,fixture_result(job.kind,dashboard.clock()),dashboard.clock())
+    png=BytesIO(); Image.new('RGB',(8,8)).save(png,format='PNG')
+    service.complete_job(job.id,job.lease_token,fixture_result(job.kind,dashboard.clock()),dashboard.clock(),png=png.getvalue())
+    with service.store.transaction() as con:
+        asset_id=con.execute('SELECT id FROM assets').fetchone()[0]
+    assert AssetService(service).read(users[0],asset_id,dashboard.clock())==png.getvalue()
+    if withdraw=='source':
+        policy.record(SourcePermission(source_id='synthetic',product_id='fixture',provider='fixture',policy_version='p2',audience='invited_members',status='denied'))
+    elif withdraw=='retention': dashboard.clock.advance(6)
+    else:
+        with service.store.transaction() as con:
+            if withdraw=='session': con.execute('UPDATE sessions SET revoked_at=? WHERE id=?',(dashboard.clock(),users[0].session_id))
+            else: con.execute('UPDATE report_owners SET deleted_at=? WHERE member_id=?',(dashboard.clock(),users[0].member_id))
+    assert AssetService(service).read(users[0],asset_id,dashboard.clock()) is None
+
+
+def test_late_chart_with_deleted_owner_persists_nothing(research,dashboard):
+    from io import BytesIO
+    from PIL import Image
+    service,users,_,_=research
+    request=service.request_research(users[0],'SPY',False,dashboard.clock())
+    while job:=service.claim_job('fixture-worker',dashboard.clock()):
+        if job.kind=='em_daily': break
+        service.complete_job(job.id,job.lease_token,fixture_result(job.kind,dashboard.clock()),dashboard.clock())
+    with service.store.transaction() as con:
+        con.execute('UPDATE report_owners SET deleted_at=? WHERE member_id=?',(dashboard.clock(),users[0].member_id))
+    png=BytesIO(); Image.new('RGB',(8,8)).save(png,format='PNG')
+    service.complete_job(job.id,job.lease_token,fixture_result(job.kind,dashboard.clock()),dashboard.clock(),png=png.getvalue())
+    with service.store.transaction() as con:
+        assert con.execute("SELECT count(*) FROM market_results WHERE section='em_daily'").fetchone()[0]==0
+        assert con.execute('SELECT count(*) FROM assets').fetchone()[0]==0
+
+
+def test_disclosures_rechecked_from_current_policy_on_cache_read(research,dashboard):
+    from member_dashboard.source_policy import SourcePermission
+    service,users,registry,policy=research
+    def grant(version,attribution,delay,allowed=True):
+        policy.record(SourcePermission(source_id='synthetic',product_id='fixture',provider='fixture',policy_version=version,
+            audience='invited_members',status='allowed',display_raw=True,display_derived=allowed,retain=True,
+            private_grant_ref='fixture',evidence_ref='fixture',terms_url='https://www.sec.gov/fixture-terms',effective_at=0.0,
+            attribution=attribution,delay_seconds=float(delay)))
+    grant('p2','Synthetic provider attribution',20)
+    from dataclasses import replace
+    for section,spec in list(registry.providers.items()):
+        sources=[source.model_copy(update={'policy_version':'p2'}) for source in spec.lineage.sources]
+        registry.providers[section]=replace(spec,lineage=spec.lineage.model_copy(update={'sources':sources}))
+    request=service.request_research(users[0],'SPY',False,dashboard.clock())
+    finish_all(service,dashboard.clock())
+    result=service.get_request(users[0],request.id,dashboard.clock()).sections['options']
+    assert result.attributions==['Synthetic provider attribution'] and result.delay_seconds==20
+    cached=service.get_request(users[0],request.id,dashboard.clock()+1).sections['options']
+    assert cached.attributions==result.attributions and cached.delay_seconds==20
+    grant('p3','Revised attribution',30,False)
+    assert service.get_request(users[0],request.id,dashboard.clock()).sections['options'].status=='unavailable'
+
+
+@pytest.mark.asyncio
+async def test_chart_handoff_keeps_same_actual_work_until_render_finishes(research,dashboard):
+    import asyncio
+    from dataclasses import replace
+    from io import BytesIO
+    from PIL import Image
+    from member_dashboard.providers import ResearchCompletion
+    from member_dashboard.provider_runtime import ProviderRuntime
+    from member_dashboard.worker import ComputeWorker
+    service,users,registry,_=research
+    with service.store.transaction() as con:
+        con.execute("UPDATE features SET enabled=0 WHERE name IN ('analysis','sec','options','em_weekly')")
+    entered,release=threading.Event(),threading.Event()
+    png=BytesIO(); Image.new('RGB',(8,8)).save(png,format='PNG')
+    def compute(*args):
+        entered.set()
+        release.wait(5)
+        return ResearchCompletion(fixture_result('em_daily',dashboard.clock()),png.getvalue())
+    registry.providers['em_daily']=replace(registry.providers['em_daily'],operation=compute)
+    request=service.request_research(users[0],'SPY',False,dashboard.clock())
+    runtime=ProviderRuntime(dashboard.store,'chart-worker',clock=dashboard.clock)
+    worker=ComputeWorker(service,registry,runtime,clock=dashboard.clock,deadlines={'em_daily':.01})
+    try:
+        await worker.run_once()
+        assert entered.is_set() and runtime.running_count==1
+        with service.store.transaction() as con:
+            assert con.execute('SELECT count(*) FROM assets').fetchone()[0]==0
+            assert con.execute('SELECT count(*) FROM provider_calls').fetchone()[0]==1
+        release.set()
+        for _ in range(100):
+            if runtime.running_count==0: break
+            await asyncio.sleep(.01)
+        await worker.run_once()
+        result=service.get_request(users[0],request.id,dashboard.clock()).sections['em_daily']
+        assert result.status=='completed' and result.payload.chart_asset_id
+    finally:
+        release.set()
+        runtime.shutdown()
+
+
+def test_chart_insert_failure_rolls_back_parent(research,dashboard):
+    import sqlite3
+    from io import BytesIO
+    from PIL import Image
+    service,users,_,_=research
+    service.request_research(users[0],'SPY',False,dashboard.clock())
+    while job:=service.claim_job('fixture-worker',dashboard.clock()):
+        if job.kind=='em_daily': break
+        service.complete_job(job.id,job.lease_token,fixture_result(job.kind,dashboard.clock()),dashboard.clock())
+    png=BytesIO(); Image.new('RGB',(8,8)).save(png,format='PNG')
+    with service.store.transaction() as con:
+        con.execute("CREATE TRIGGER reject_chart BEFORE INSERT ON assets BEGIN SELECT RAISE(ABORT,'synthetic chart failure'); END")
+    with pytest.raises(sqlite3.IntegrityError,match='synthetic chart failure'):
+        service.complete_job(job.id,job.lease_token,fixture_result(job.kind,dashboard.clock()),dashboard.clock(),png=png.getvalue())
+    with service.store.transaction() as con:
+        assert con.execute("SELECT count(*) FROM market_results WHERE section='em_daily'").fetchone()[0]==0
+        assert con.execute('SELECT count(*) FROM assets').fetchone()[0]==0
+        assert con.execute('SELECT status FROM web_jobs WHERE id=?',(job.id,)).fetchone()[0]=='running'
+
+
 @pytest.fixture
 def research(dashboard):
     from member_dashboard.auth import Principal

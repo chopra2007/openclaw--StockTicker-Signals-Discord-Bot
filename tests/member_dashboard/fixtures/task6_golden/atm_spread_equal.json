@@ -1,0 +1,124 @@
+{
+  "forbidden_attempts": [],
+  "inputs": {
+    "calls": {
+      "_type": "DataFrame",
+      "columns": [
+        "strike",
+        "bid",
+        "ask",
+        "lastPrice",
+        "impliedVolatility",
+        "volume",
+        "openInterest",
+        "lastTradeDate"
+      ],
+      "records": [
+        {
+          "ask": 2.25,
+          "bid": 1.75,
+          "impliedVolatility": 0.141,
+          "lastPrice": 3.68,
+          "lastTradeDate": "2026-06-25T20:14:59+00:00",
+          "openInterest": 5636,
+          "strike": 733.0,
+          "volume": 4000
+        },
+        {
+          "ask": 2.25,
+          "bid": 1.75,
+          "impliedVolatility": 0.1359,
+          "lastPrice": 3.08,
+          "lastTradeDate": "2026-06-25T20:14:59+00:00",
+          "openInterest": 2186,
+          "strike": 734.0,
+          "volume": 76897
+        },
+        {
+          "ask": 2.25,
+          "bid": 1.75,
+          "impliedVolatility": 0.132,
+          "lastPrice": 2.52,
+          "lastTradeDate": "2026-06-25T20:14:59+00:00",
+          "openInterest": 8067,
+          "strike": 735.0,
+          "volume": 6000
+        }
+      ]
+    },
+    "min_oi": 100,
+    "puts": {
+      "_type": "DataFrame",
+      "columns": [
+        "strike",
+        "bid",
+        "ask",
+        "lastPrice",
+        "impliedVolatility",
+        "volume",
+        "openInterest",
+        "lastTradeDate"
+      ],
+      "records": [
+        {
+          "ask": 2.25,
+          "bid": 1.75,
+          "impliedVolatility": 0.128,
+          "lastPrice": 2.16,
+          "lastTradeDate": "2026-06-25T20:14:59+00:00",
+          "openInterest": 3963,
+          "strike": 733.0,
+          "volume": 5000
+        },
+        {
+          "ask": 2.25,
+          "bid": 1.75,
+          "impliedVolatility": 0.1249,
+          "lastPrice": 2.55,
+          "lastTradeDate": "2026-06-25T20:14:59+00:00",
+          "openInterest": 7648,
+          "strike": 734.0,
+          "volume": 64256
+        },
+        {
+          "ask": 2.25,
+          "bid": 1.75,
+          "impliedVolatility": 0.122,
+          "lastPrice": 2.97,
+          "lastTradeDate": "2026-06-25T20:14:59+00:00",
+          "openInterest": 5113,
+          "strike": 735.0,
+          "volume": 4000
+        }
+      ]
+    },
+    "spot": 734.3
+  },
+  "output": {
+    "status": "returned",
+    "value": [
+      {
+        "_type": "OptionQuote",
+        "ask": 2.25,
+        "bid": 1.75,
+        "iv": 0.1359,
+        "last": 3.08,
+        "last_trade": "2026-06-25T20:14:59+00:00",
+        "open_interest": 2186.0,
+        "strike": 734.0,
+        "volume": 76897.0
+      },
+      {
+        "_type": "OptionQuote",
+        "ask": 2.25,
+        "bid": 1.75,
+        "iv": 0.1249,
+        "last": 2.55,
+        "last_trade": "2026-06-25T20:14:59+00:00",
+        "open_interest": 7648.0,
+        "strike": 734.0,
+        "volume": 64256.0
+      }
+    ]
+  }
+}

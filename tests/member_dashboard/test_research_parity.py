@@ -182,3 +182,94 @@ def test_gap_fill_requires_source_provenance():
     from consensus_engine.analysis.research_contracts import GapFillResult
     with pytest.raises(ValueError, match='provenance'):
         GapFillResult(catalyst_research_snippets=('An unattributed catalyst',))
+def test_task6_pure_calculator_exists():
+    from pathlib import Path
+    source = Path('consensus_engine/scanners/expected_move.py').read_text(encoding='utf-8')
+    assert 'def compute_em_from_bundle(' in source, 'Pure expected-move boundary is missing'
+
+
+def test_task6_options_selection_exists():
+    from importlib.util import find_spec
+    assert find_spec('consensus_engine.analysis.options_presentation'), 'Shared options selection is missing'
+
+
+def test_task6_dashboard_adapter_exists():
+    from importlib.util import find_spec
+    assert find_spec('member_dashboard.research'), 'Approved collection adapter is missing'
+
+
+def _task6_decode(value):
+    from datetime import datetime
+    import pandas as pd
+    if isinstance(value, list): return [_task6_decode(v) for v in value]
+    if not isinstance(value, dict): return value
+    if '_nonfinite' in value: return float(value['_nonfinite'])
+    if value.get('_type') == 'DataFrame':
+        result = pd.DataFrame(_task6_decode(value['records']), columns=value['columns'])
+        if 'lastTradeDate' in result:
+            result['lastTradeDate'] = pd.to_datetime(result['lastTradeDate'])
+        return result
+    return {key: _task6_decode(val) for key, val in value.items()}
+
+
+def _task6_encode(value):
+    import dataclasses, math
+    from datetime import date, datetime
+    import pandas as pd
+    import numpy as np
+    if dataclasses.is_dataclass(value):
+        return {'_type': type(value).__name__, **{f.name: _task6_encode(getattr(value,f.name)) for f in dataclasses.fields(value)}}
+    if isinstance(value,pd.DataFrame): return {'_type':'DataFrame','columns':list(value.columns),'records':_task6_encode(value.to_dict('records'))}
+    if isinstance(value,(datetime,date)): return value.isoformat()
+    if isinstance(value,dict): return {k:_task6_encode(v) for k,v in value.items()}
+    if isinstance(value,(tuple,list)): return [_task6_encode(v) for v in value]
+    if isinstance(value,(float,np.floating)) and not math.isfinite(value): return {'_nonfinite':str(float(value))}
+    if isinstance(value,np.generic): return value.item()
+    return value
+
+
+@pytest.mark.parametrize('case', sorted(p.stem for p in (Path(__file__).parent/'fixtures/task6_golden').glob('*.json')))
+@pytest.mark.asyncio
+async def test_task6_original_recorded_outputs(case, monkeypatch):
+    from datetime import datetime
+    from types import SimpleNamespace
+    from consensus_engine.scanners import expected_move as em, options
+    from consensus_engine.analysis import options_presentation as selection
+    raw = json.loads((Path(__file__).parent/'fixtures/task6_golden'/f'{case}.json').read_text())
+    inputs = _task6_decode(raw['inputs'])
+    def outcome(operation):
+        try: return {'status':'returned','value':_task6_encode(operation())}
+        except Exception as exc: return {'status':'raised','exception':type(exc).__name__,'message':str(exc)}
+    if case.startswith('em_'):
+        calls=[]
+        now=datetime.fromisoformat(inputs['now'])
+        monkeypatch.setattr(em,'now_eastern',lambda:now)
+        monkeypatch.setattr(em.cfg,'get',lambda key,default=None: inputs['settings'].get(key,default))
+        monkeypatch.setattr(em,'_fetch_bundle',lambda *args:inputs['bundle'])
+        def fallback(ticker,now,horizon):
+            calls.append([ticker,now.isoformat(),horizon])
+            if case == 'em_quality_fallback_failed': raise RuntimeError('synthetic delayed fetch failure')
+            return {**inputs['good_fallback'],'source':'yfinance'}
+        monkeypatch.setattr(em,'_yfinance_bundle',fallback)
+        try:
+            result = await em.compute_em('SPY',horizon=inputs['horizon'])
+            actual={'status':'returned','result':_task6_encode(result),'absent_chart':em.render_chart(result)}
+            chosen = inputs['good_fallback'] if calls else inputs['bundle']
+            if calls: chosen = {**chosen,'source':'yfinance'}
+            pure = em.compute_em_from_bundle('SPY',chosen,em.ExpectedMoveSettings(),now,inputs['horizon'])
+            assert _task6_encode(pure) == actual['result']
+        except em.EMUnavailable as exc:
+            actual={'status':'raised','exception':type(exc).__name__,'message':str(exc)}
+        actual['fallback_calls']=calls
+    elif case.startswith('atm_'):
+        actual=outcome(lambda:em.select_atm(inputs['calls'],inputs['puts'],inputs['spot'],min_open_interest=100))
+    elif case.startswith('pool_'):
+        actual=[vars(h) for h in selection._current_day_pool([SimpleNamespace(**h) for h in inputs])]
+    elif case == 'options_directional_boundaries':
+        actual=[selection._is_directional(*row) for row in inputs]
+    else:
+        import pandas as pd
+        chain=SimpleNamespace(calls=inputs['calls'],puts=pd.DataFrame())
+        actual={'unusual':outcome(lambda:options._detect_unusual_activity(chain)),
+                'flow':outcome(lambda:options._scan_chain_for_flow('SYNTH',chain,'2026-06-26',inputs['spot'],**inputs['flow_args']))}
+    assert actual == raw['output']

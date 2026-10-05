@@ -1,0 +1,65 @@
+{
+  "forbidden_attempts": [],
+  "inputs": {
+    "calls": {
+      "_type": "DataFrame",
+      "columns": [
+        "contractSymbol",
+        "strike",
+        "volume",
+        "openInterest",
+        "lastPrice",
+        "lastTradeDate",
+        "bid",
+        "ask"
+      ],
+      "records": [
+        {
+          "ask": 2.1,
+          "bid": 1.9,
+          "contractSymbol": "SYNTH_C",
+          "lastPrice": 2.0,
+          "lastTradeDate": "2026-06-25T20:14:59+00:00",
+          "openInterest": {
+            "_nonfinite": "nan"
+          },
+          "strike": 100.0,
+          "volume": 5000.0
+        }
+      ]
+    },
+    "flow_args": {
+      "max_stale_sec": 0,
+      "min_premium": 0,
+      "min_vol_oi": 0.01,
+      "min_volume": 100,
+      "now": 1782418499.0
+    },
+    "spot": 100.0
+  },
+  "output": {
+    "flow": {
+      "status": "returned",
+      "value": []
+    },
+    "unusual": {
+      "status": "returned",
+      "value": {
+        "_type": "OptionsResult",
+        "dominant_last_trade_ts": 0.0,
+        "dominant_side": "",
+        "horizon": "",
+        "max_call_ratio": 0.0,
+        "max_put_ratio": 0.0,
+        "premium_notional": 0.0,
+        "put_call_ratio": 0.0,
+        "ticker": "",
+        "top_contract": "",
+        "total_call_vol": 5000.0,
+        "total_put_vol": 0.0,
+        "unusual_calls": false,
+        "unusual_puts": false
+      }
+    }
+  }
+}

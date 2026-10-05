@@ -1,0 +1,94 @@
+{
+  "forbidden_attempts": [],
+  "inputs": {
+    "calls": {
+      "_type": "DataFrame",
+      "columns": [
+        "strike",
+        "bid",
+        "ask",
+        "lastPrice",
+        "impliedVolatility",
+        "volume",
+        "lastTradeDate"
+      ],
+      "records": [
+        {
+          "ask": 3.75,
+          "bid": 3.64,
+          "impliedVolatility": 0.141,
+          "lastPrice": 3.68,
+          "lastTradeDate": "2026-06-25T20:14:59+00:00",
+          "strike": 733.0,
+          "volume": 4000
+        },
+        {
+          "ask": 3.1,
+          "bid": 3.08,
+          "impliedVolatility": 0.1359,
+          "lastPrice": 3.08,
+          "lastTradeDate": "2026-06-25T20:14:59+00:00",
+          "strike": 734.0,
+          "volume": 76897
+        },
+        {
+          "ask": 2.53,
+          "bid": 2.51,
+          "impliedVolatility": 0.132,
+          "lastPrice": 2.52,
+          "lastTradeDate": "2026-06-25T20:14:59+00:00",
+          "strike": 735.0,
+          "volume": 6000
+        }
+      ]
+    },
+    "min_oi": 100,
+    "puts": {
+      "_type": "DataFrame",
+      "columns": [
+        "strike",
+        "bid",
+        "ask",
+        "lastPrice",
+        "impliedVolatility",
+        "volume",
+        "lastTradeDate"
+      ],
+      "records": [
+        {
+          "ask": 2.17,
+          "bid": 2.15,
+          "impliedVolatility": 0.128,
+          "lastPrice": 2.16,
+          "lastTradeDate": "2026-06-25T20:14:59+00:00",
+          "strike": 733.0,
+          "volume": 5000
+        },
+        {
+          "ask": 2.56,
+          "bid": 2.53,
+          "impliedVolatility": 0.1249,
+          "lastPrice": 2.55,
+          "lastTradeDate": "2026-06-25T20:14:59+00:00",
+          "strike": 734.0,
+          "volume": 64256
+        },
+        {
+          "ask": 3.01,
+          "bid": 2.95,
+          "impliedVolatility": 0.122,
+          "lastPrice": 2.97,
+          "lastTradeDate": "2026-06-25T20:14:59+00:00",
+          "strike": 735.0,
+          "volume": 4000
+        }
+      ]
+    },
+    "spot": 734.3
+  },
+  "output": {
+    "exception": "EMUnavailable",
+    "message": "The selected expiration does not have reliable two-sided quotes right now (missing bids/asks, wide spreads, or low open interest).",
+    "status": "raised"
+  }
+}

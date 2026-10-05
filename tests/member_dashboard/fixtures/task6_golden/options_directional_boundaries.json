@@ -1,0 +1,61 @@
+{
+  "forbidden_attempts": [],
+  "inputs": [
+    [
+      130,
+      100,
+      "CALL"
+    ],
+    [
+      130.01,
+      100,
+      "CALL"
+    ],
+    [
+      90,
+      100,
+      "CALL"
+    ],
+    [
+      89.99,
+      100,
+      "CALL"
+    ],
+    [
+      70,
+      100,
+      "PUT"
+    ],
+    [
+      69.99,
+      100,
+      "PUT"
+    ],
+    [
+      110,
+      100,
+      "PUT"
+    ],
+    [
+      110.01,
+      100,
+      "PUT"
+    ],
+    [
+      999,
+      0,
+      "CALL"
+    ]
+  ],
+  "output": [
+    true,
+    false,
+    true,
+    false,
+    true,
+    false,
+    true,
+    false,
+    true
+  ]
+}

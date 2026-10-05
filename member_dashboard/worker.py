@@ -13,7 +13,7 @@ from uuid import uuid4
 
 from .contracts import SectionResult
 from .jobs import DEADLINES, empty_result
-from .providers import ComputeInputs, ProviderWait
+from .providers import ComputeInputs, ProviderWait, ResearchCompletion
 from .provider_runtime import ProviderOutcome
 
 
@@ -32,8 +32,10 @@ class ComputeWorker:
     def _settle(self, job, outcome):
         if outcome.status == 'completed':
             try:
-                result = SectionResult.model_validate(outcome.value)
-                self.jobs.complete_job(job.id, job.lease_token, result, self.clock())
+                completion = outcome.value
+                result = completion.result if isinstance(completion,ResearchCompletion) else SectionResult.model_validate(completion)
+                self.jobs.complete_job(job.id, job.lease_token, result, self.clock(),
+                                       png=completion.png if isinstance(completion,ResearchCompletion) else None)
             except (ValueError, TypeError):
                 self.jobs.fail_attempt(job.id, job.lease_token, self.clock(), retryable=False)
         elif outcome.status == 'failed':

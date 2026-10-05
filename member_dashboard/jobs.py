@@ -186,10 +186,13 @@ class JobService:
         job = con.execute('SELECT feature_mask_json FROM web_jobs WHERE id=?', (result.job_id,)).fetchone()
         if job is None or not mask_current(con, job[0]):
             return None
-        if not all(self.policy._authorize_lineage(con, lineage, use, now, result.observed_at).allowed
-                   for use in ('retain', 'display_raw', 'display_derived')):
+        decisions = [self.policy._authorize_lineage(con, lineage, use, now, result.observed_at)
+                     for use in ('retain', 'display_raw', 'display_derived')]
+        if not all(decision.allowed for decision in decisions):
             return None
-        return result.model_copy(update={'stale': result.valid_until is None or result.valid_until <= now})
+        return result.model_copy(update={'stale': result.valid_until is None or result.valid_until <= now,
+            'attributions': sorted({text for decision in decisions for text in decision.attributions}),
+            'delay_seconds': max(decision.delay_seconds for decision in decisions)})
 
     def _get_request(self, con, principal, request_id, now):
         self.auth.revalidate(principal, now, con=con)
@@ -272,8 +275,13 @@ class JobService:
         return (self._authorized_owner(con,sub,now) and mask_current(con,job['feature_mask_json'])
                 and require_features(con,json.loads(job['required_features_json'])))
 
-    def complete_job(self, job_id, lease_token, result, now):
+    def complete_job(self, job_id, lease_token, result, now, *, png=None):
         result = SectionResult.model_validate(result)
+        if png is not None:
+            from .assets import validate_png
+            validate_png(png)
+            if result.section not in ('em_daily','em_weekly') or result.status != 'completed' or result.payload is None:
+                raise ValueError('Chart requires completed expected-move parent')
         with self.store.transaction() as con:
             con.row_factory = sqlite3.Row
             job = con.execute("SELECT * FROM web_jobs WHERE id=? AND lease_token=? AND status IN ('running','draining')", (job_id, lease_token)).fetchone()
@@ -288,7 +296,9 @@ class JobService:
             if any((item.source_id,item.source_version) not in tracked for item in result.evidence):
                 raise ValueError('evidence absent from source lineage')
             decisions = [self.policy._authorize_lineage(con, lineage, use, now, result.observed_at) for use in ('retain', 'display_raw', 'display_derived')]
-            permitted = all(decision.allowed for decision in decisions)
+            subscribers = con.execute('SELECT * FROM job_subscribers WHERE job_id=? AND deleted_at IS NULL', (job_id,)).fetchall()
+            permitted = all(decision.allowed for decision in decisions) and any(
+                self._authorized_subscriber(con, sub, job, now) for sub in subscribers)
             deadlines = [decision.retention_deadline for decision in decisions if decision.retention_deadline is not None]
             if deadlines:
                 lineage = lineage.model_copy(update={'retention_deadline':min(deadlines)})
@@ -296,6 +306,12 @@ class JobService:
             status = result.status if permitted else 'unavailable'
             if status == 'completed':
                 result_id = str(uuid4())
+                asset_id = str(uuid4()) if png is not None else None
+                if result.section in ('em_daily','em_weekly') and result.payload is not None:
+                    result = result.model_copy(update={'payload': result.payload.model_copy(update={'chart_asset_id':asset_id})})
+                result = result.model_copy(update={
+                    'attributions':sorted({text for decision in decisions for text in decision.attributions}),
+                    'delay_seconds':max(decision.delay_seconds for decision in decisions)})
                 limits = [now+TTL[job['section']]]
                 if result.valid_until is not None: limits.append(result.valid_until)
                 if lineage.retention_deadline is not None: limits.append(lineage.retention_deadline)
@@ -305,6 +321,9 @@ class JobService:
                 con.execute('INSERT INTO market_results(id,fingerprint,ticker,section,analysis_version,content_json,source_lineage_json,field_dependencies_json,required_features_json,retention_deadline,observed_at,computed_at,valid_until,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
                     (result_id, hashed([job['dedupe_key'], lease_token]), job['ticker'], job['section'], result.analysis_version, result.model_dump_json(), packed([s.model_dump() for s in lineage.sources]), packed([d.model_dump() for d in lineage.field_dependencies]), packed(lineage.required_features), lineage.retention_deadline, result.observed_at, now, result.valid_until, now))
                 con.execute('INSERT INTO research_cache(dedupe_key,result_id) VALUES (?,?) ON CONFLICT(dedupe_key) DO UPDATE SET result_id=excluded.result_id', (job['dedupe_key'], result_id))
+                if asset_id is not None:
+                    from .assets import store_chart
+                    store_chart(result_id, png, con=con, asset_id=asset_id, lineage=lineage, now=now)
             con.execute('UPDATE web_jobs SET status=?,result_id=?,finished_at=?,lease_until=NULL,actual_finished=1 WHERE id=? AND lease_token=?', (status, result_id, now, job_id, lease_token))
             for sub in con.execute('SELECT * FROM job_subscribers WHERE job_id=? AND deleted_at IS NULL', (job_id,)).fetchall():
                 if self._authorized_subscriber(con, sub, job, now):

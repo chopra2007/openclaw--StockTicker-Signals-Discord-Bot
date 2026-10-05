@@ -1,0 +1,19 @@
+{
+  "forbidden_attempts": [],
+  "inputs": [
+    {
+      "last_trade_ts": 1782457140.0,
+      "symbol": "SYNTH_0"
+    },
+    {
+      "last_trade_ts": 1782457260.0,
+      "symbol": "SYNTH_1"
+    }
+  ],
+  "output": [
+    {
+      "last_trade_ts": 1782457260.0,
+      "symbol": "SYNTH_1"
+    }
+  ]
+}

@@ -8,10 +8,110 @@ from datetime import date
 from types import MappingProxyType
 import dataclasses
 import math
+from typing import Generic, TypeVar
 if TYPE_CHECKING:
     from consensus_engine.alerts.all_command.structured_fields import StructuredFields
 from consensus_engine.models import (ScoreBreakdown, CatalystResult, TechnicalResult,
                                     OptionsResult, YouTubeContext)
+
+
+T = TypeVar('T')
+
+
+@dataclass(frozen=True)
+class FetchOutcome(Generic[T]):
+    """Verified collection state; an outage is never a successful empty value."""
+    status: Literal['ok', 'not_found', 'partial', 'unavailable']
+    data: T | None
+    observed_at: float
+    reason_code: str | None = None
+    retryable: bool = False
+    retry_after: float | None = None
+    exclusions: tuple[str, ...] = ()
+
+    def __post_init__(self):
+        import re
+        if self.status not in {'ok', 'not_found', 'partial', 'unavailable'}:
+            raise ValueError('Invalid fetch status')
+        if not math.isfinite(self.observed_at):
+            raise ValueError('Invalid observation time')
+        if self.status in {'not_found', 'unavailable'} and self.data is not None:
+            raise ValueError('Unavailable collection cannot contain verified data')
+        if self.status in {'ok', 'partial'} and self.data is None:
+            raise ValueError('Verified collection requires data')
+        for code in (self.reason_code, *self.exclusions):
+            if code is not None and not re.fullmatch(r'[a-z][a-z0-9_]{0,63}', code):
+                raise ValueError('Safe reason code required')
+        if self.retry_after is not None and (not math.isfinite(self.retry_after) or self.retry_after < 0):
+            raise ValueError('Invalid retry hint')
+
+
+@dataclass(frozen=True)
+class SecFiling:
+    form: str
+    filing_date: str
+    acceptance_datetime: str
+    accession_number: str
+    primary_document: str
+    cik: str
+    filed_at: float
+    url: str
+
+
+@dataclass(frozen=True)
+class InsiderTransaction:
+    reporter_name: str
+    title: str
+    security: str
+    date: str
+    shares: float | None
+    price: float | None
+    direction: str
+    transaction_type: str
+
+
+@dataclass(frozen=True)
+class SecDetail:
+    accession: str
+    outcome: FetchOutcome[tuple[InsiderTransaction, ...]] | None
+
+
+@dataclass(frozen=True)
+class SecResearch:
+    filings: FetchOutcome[tuple[SecFiling, ...]]
+    details: tuple[SecDetail, ...]
+    coverage: Literal['complete', 'partial']
+
+
+@dataclass(frozen=True)
+class OptionsResearch:
+    result: OptionsResult
+    eligible: tuple
+    top: object | None
+    peak_call: float | None
+    peak_put: float | None
+    put_call_ratio: float | None
+
+
+@dataclass(frozen=True)
+class DerivedContextMetric:
+    """Explicitly supplied reusable analysis, never inferred provenance."""
+    name: Literal['net_gamma', 'gamma_flip', 'iv_skew', 'risk']
+    value: float | None
+    unit: str
+    method: str
+    observed_at: float | None
+    source_id: str
+    source_version: str
+
+    def __post_init__(self):
+        if self.name not in {'net_gamma','gamma_flip','iv_skew','risk'}:
+            raise ValueError('Unknown context metric')
+        for value in (self.value,self.observed_at):
+            if value is not None and (isinstance(value,bool) or type(value) not in (int,float) or not math.isfinite(value)):
+                raise ValueError('Finite context values required')
+        if not all(isinstance(value,str) and 0<len(value)<=256 for value in (self.unit,self.method,self.source_id,self.source_version)):
+            raise ValueError('Explicit metric metadata required')
 
 
 @dataclass(frozen=True)

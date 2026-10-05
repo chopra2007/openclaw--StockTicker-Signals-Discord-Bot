@@ -1079,30 +1079,7 @@ _OPT_OTM_MAX = 0.30   # allow OTM directional bets up to 30% from spot
 _OPT_ITM_MAX = 0.10   # past 10% ITM the option is stock-like (a hedge), not a bet
 
 
-def _is_directional(strike: float, spot: float, side: str) -> bool:
-    """A contract is a directional bet (vs a far-OTM lottery ticket or a deep-ITM
-    hedge/stock-replacement) when its strike sits within 30% OTM / 10% ITM of
-    spot. OTM/ITM flips by side: a CALL is OTM above spot, a PUT is OTM below
-    spot. No spot (can't classify) -> keep it."""
-    if not spot:
-        return True
-    otm = (strike > spot) if side == "CALL" else (strike < spot)
-    dist = abs(strike - spot) / spot
-    return dist <= (_OPT_OTM_MAX if otm else _OPT_ITM_MAX)
-
-
-def _current_day_pool(hits: list) -> list:
-    """Keep only contracts that last traded on the MOST RECENT session present
-    (today during market hours, the prior session otherwise), so a stale
-    high-ratio strike can't surface. Undated input is returned unchanged."""
-    dated = [h for h in hits if h.last_trade_ts]
-    if not dated:
-        return list(hits)
-    latest_day = max(
-        datetime.fromtimestamp(h.last_trade_ts, _OPT_PT).date() for h in dated
-    )
-    return [h for h in dated
-            if datetime.fromtimestamp(h.last_trade_ts, _OPT_PT).date() == latest_day]
+from consensus_engine.analysis.options_presentation import _is_directional, _current_day_pool
 
 
 def _build_options_embed(ticker: str, result, top, peak_call: float, peak_put: float) -> dict:

@@ -12,6 +12,58 @@ from types import MappingProxyType
 from .contracts import ContentLineage, SectionResult
 
 
+@dataclass(frozen=True)
+class ProviderContext:
+    """Trusted composition only; member safe_inputs cannot supply clients/state."""
+    policy: object
+    lineage: object
+    clients: object
+    settings: object
+    clock: object
+    runtime: object
+    budget_client: object
+    state: object
+    telemetry: object
+    primary_source: str
+    fallback_allowlist: tuple[str, ...] = ()
+    sec_context: object = None
+    analysis_records: object = None
+    analysis_services: object = None
+    chart_renderer: object = None
+    supplied_metrics: object = None
+
+    def __post_init__(self):
+        from datetime import datetime
+        if any(item is None for item in (self.policy,self.settings,self.runtime,self.budget_client,self.state)):
+            raise ValueError('Explicit provider dependencies required')
+        instant=self.clock()
+        if not isinstance(instant,datetime) or instant.tzinfo is None or instant.utcoffset() is None:
+            raise ValueError('Aware provider clock required')
+        lineage={key:ContentLineage.model_validate(value).model_copy(deep=True) for key,value in self.lineage.items()}
+        object.__setattr__(self,'lineage',MappingProxyType(lineage))
+        object.__setattr__(self,'clients',MappingProxyType(dict(self.clients)))
+        object.__setattr__(self,'fallback_allowlist',tuple(self.fallback_allowlist))
+        if self.supplied_metrics is not None:
+            object.__setattr__(self,'supplied_metrics',MappingProxyType({key:tuple(values) for key,values in self.supplied_metrics.items()}))
+        if any(source not in self.clients for source in self.fallback_allowlist):
+            raise ValueError('Explicit fallback clients required')
+
+
+@dataclass(frozen=True)
+class ResearchCompletion:
+    """Private worker handoff; bytes never enter a public response."""
+    result: SectionResult
+    png: bytes | None = None
+
+    def __post_init__(self):
+        if not isinstance(self.result,SectionResult): raise ValueError('Typed result required')
+        if self.png is not None:
+            if not isinstance(self.png,bytes) or not 8 <= len(self.png) <= 2_000_000 or not self.png.startswith(b'\x89PNG\r\n\x1a\n'):
+                raise ValueError('Bounded PNG required')
+            if self.result.section not in ('em_daily','em_weekly') or self.result.status != 'completed':
+                raise ValueError('Chart parent must be completed expected move')
+
+
 class SymbolError(ValueError):
     pass
 
@@ -92,4 +144,5 @@ class ProviderRegistry:
         outcome = await run(inputs.call_id, operation, inputs.wait_timeout, provider=spec.provider)
         if outcome.status != 'completed':
             raise ProviderWait(outcome)
+        if isinstance(outcome.value,ResearchCompletion): return outcome.value
         return SectionResult.model_validate(outcome.value)

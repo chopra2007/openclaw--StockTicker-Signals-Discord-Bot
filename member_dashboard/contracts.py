@@ -48,6 +48,14 @@ class Metric(PublicModel):
     method: ShortText
 
 
+class ContextMetric(PublicModel):
+    name: Literal['net_gamma', 'gamma_flip', 'iv_skew', 'risk']
+    metric: Metric
+    observed_at: float | None
+    source_id: Identifier
+    source_version: Identifier
+
+
 class Evidence(PublicModel):
     id: Identifier
     source_id: Identifier
@@ -72,6 +80,7 @@ class AnalysisPayload(PublicModel):
     conflicts: list[Text] = Field(default_factory=list, max_length=50)
     levels: list[Level] = Field(default_factory=list, max_length=50)
     risk_metrics: list[Metric] = Field(default_factory=list, max_length=50)
+    context_metrics: list[ContextMetric] = Field(default_factory=list, max_length=20)
 
 
 class Filing(PublicModel):
@@ -118,6 +127,7 @@ class OptionsPayload(PublicModel):
     put_call_ratio: Metric | None
     call_premium: Metric | None
     put_premium: Metric | None
+    context_metrics: list[ContextMetric] = Field(default_factory=list, max_length=20)
 
 
 class MoveRange(PublicModel):
@@ -140,6 +150,7 @@ class MovePayload(PublicModel):
     ranges: list[MoveRange] = Field(default_factory=list, max_length=10)
     quote_times: list[QuoteTime] = Field(default_factory=list, max_length=20)
     chart_asset_id: Identifier | None
+    context_metrics: list[ContextMetric] = Field(default_factory=list, max_length=20)
 
 
 Payload = Annotated[AnalysisPayload | SecPayload | OptionsPayload | MovePayload, Field(discriminator="kind")]
@@ -158,6 +169,8 @@ class SectionResult(PublicModel):
     evidence: list[Evidence] = Field(default_factory=list, max_length=200)
     payload: Payload | None
     message: Text | None
+    attributions: list[ShortText] = Field(default_factory=list, max_length=200)
+    delay_seconds: float = Field(default=0.0, ge=0)
 
     @model_validator(mode="after")
     def validate_section_payload(self):

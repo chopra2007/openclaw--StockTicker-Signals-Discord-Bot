@@ -4,6 +4,107 @@ import sys
 import pytest
 
 
+def test_task6_provider_modules_import_without_bot_state():
+    script = '''
+import importlib.abc, sys, os
+blocked = {'consensus_engine.config', 'consensus_engine.db', 'dotenv',
+           'consensus_engine.utils.http', 'consensus_engine.utils.rate_limiter',
+           'consensus_engine.utils.yahoo_limit', 'consensus_engine.alerts.ops_alert'}
+attempts=[]
+class Trap(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname in blocked:
+            attempts.append(fullname)
+            raise AssertionError('operational import: '+fullname)
+sys.meta_path.insert(0,Trap())
+from consensus_engine.scanners import sec_edgar, expected_move, options, schwab_client
+assert hasattr(schwab_client,'SchwabClient'), 'Isolated Schwab instance is missing'
+assert attempts == [], attempts
+'''
+    result = subprocess.run([sys.executable,'-B','-c',script],text=True,capture_output=True,timeout=30)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_task6_runtime_failure_paths_have_no_ambient_effects():
+    script = r'''
+import sys, os, importlib.abc, pathlib, datetime
+from types import SimpleNamespace
+from zoneinfo import ZoneInfo
+attempts=[]
+def forbidden(kind):
+    attempts.append(kind)
+    raise AssertionError(kind)
+class Trap(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname in {'consensus_engine.config','consensus_engine.db','consensus_engine.alerts.ops_alert','dotenv','yfinance'}:
+            forbidden('import:'+fullname)
+sys.meta_path.insert(0,Trap())
+def audit(event,args):
+    if event in {'socket.connect','socket.getaddrinfo','socket.sendto','subprocess.Popen','os.system'}:
+        forbidden(event)
+    if event=='open' and isinstance(args[0],(str,bytes)):
+        value=os.fsdecode(args[0]).lower().replace('\\','/')
+        if any(marker in value for marker in ('schwab_token','schwab_reauth','consensus.yaml','/.env','/vault/','/.openclaw/')):
+            forbidden('private_file')
+sys.addaudithook(audit)
+original_getitem=type(os.environ).__getitem__
+def environment(self,key):
+    if any(marker in key.upper() for marker in ('API_KEY','APP_KEY','APP_SECRET','ACCESS_TOKEN','REFRESH_TOKEN')):
+        forbidden('credential_environment')
+    return original_getitem(self,key)
+type(os.environ).__getitem__=environment
+sys.path.insert(0,'tests/member_dashboard')
+from test_sec_outcomes import synthetic_chain
+from member_dashboard.providers import ProviderContext
+from member_dashboard.research import MemberResearchProvider
+from member_dashboard.contracts import ContentLineage,SourceContribution
+from consensus_engine.scanners.expected_move import ExpectedMoveSettings
+from consensus_engine.scanners.schwab_client import SchwabClient,SchwabContext,PrivateTokenStore,SchwabRefreshTokenExpired
+source=SourceContribution(source_id='synthetic',product_id='fixture',source_version='s1',policy_version='p1')
+class Client:
+    mode='good'
+    def get_option_chain(self,*args,**kwargs):
+        if self.mode=='transport': raise RuntimeError('synthetic')
+        value=synthetic_chain()
+        if self.mode=='quality': value.calls['bid']=0
+        return value
+    def get_price_history(self,*args,**kwargs): raise RuntimeError('synthetic missing history')
+client=Client()
+context=ProviderContext(SimpleNamespace(authorize_lineage=lambda *args,**kwargs:SimpleNamespace(allowed=True)),
+    {'em_daily':ContentLineage(sources=[source],required_features=['em_daily'],field_dependencies=[],retention_deadline=None)},
+    {'synthetic':client},ExpectedMoveSettings(),lambda:datetime.datetime(2026,6,25,14,36,tzinfo=ZoneInfo('America/Los_Angeles')),
+    object(),object(),object(),lambda event:None,'synthetic')
+provider=MemberResearchProvider(context)
+for mode in ('good','transport','quality'):
+    client.mode=mode
+    result=provider.compute_blocking('SPY','em_daily',{})
+    assert (result.result.status if hasattr(result,'result') else result.status)==('completed' if mode=='good' else 'unavailable')
+try: SchwabClient(None)
+except ValueError: pass
+else: raise AssertionError('missing settings accepted')
+import tempfile
+from consensus_engine.utils.provider_budget import TransportBudget
+with tempfile.TemporaryDirectory() as temporary:
+    directory=pathlib.Path(temporary)/'member-state'
+    directory.mkdir(mode=0o700)
+    state=PrivateTokenStore(directory)
+    epoch=context.clock().timestamp()
+    state.write({'creation_timestamp':epoch-3600,'_refresh_created':epoch-8*86400,
+                 'token':{'access_token':'synthetic','refresh_token':'synthetic','expires_in':1800}})
+    isolated=SchwabClient(SchwabContext('synthetic','synthetic',state,TransportBudget(None,'dashboard',[]),
+                          context.clock,'https://unlisted.invalid/token','https://unlisted.invalid/market'))
+    try:
+        try: isolated.get_quote('SPY')
+        except SchwabRefreshTokenExpired: pass
+        else: raise AssertionError('expired refresh accepted')
+        assert {p.name for p in directory.iterdir()}=={'token.json','refresh.lock','reauth.json'}
+    finally: isolated.close()
+assert attempts==[], attempts
+'''
+    result=subprocess.run([sys.executable,'-B','-c',script],text=True,capture_output=True,timeout=30)
+    assert result.returncode==0,result.stdout+result.stderr
+
+
 def test_research_import_has_no_operational_dependencies():
     script = '''
 import importlib.abc, sys

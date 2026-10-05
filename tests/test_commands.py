@@ -398,3 +398,8 @@ async def test_yt_analyse_reply_includes_setups_and_options():
     all_calls = "\n".join(str(c) for c in mock_send.call_args_list)
     assert "TSLA" in all_calls or "250" in all_calls
     assert "NVDA" in all_calls or "800" in all_calls
+def test_options_selection_uses_shared_functions():
+    from consensus_engine.alerts import commands
+    from consensus_engine.analysis import options_presentation
+    assert commands._is_directional is options_presentation._is_directional
+    assert commands._current_day_pool is options_presentation._current_day_pool
