@@ -603,3 +603,50 @@ def test_withdrawal_snapshot_settles_without_resurrecting_owner(research,dashboa
             assert con.execute('SELECT finalized FROM report_versions WHERE id=?',(old,)).fetchone()[0] == 0
         else:
             assert row[0] == old
+
+
+@pytest.mark.parametrize('started',[False,True])
+@pytest.mark.parametrize('withdraw',['features','policy'])
+@pytest.mark.parametrize('owner_state',['active','deleted','revoked','suspended'])
+def test_all_withdrawn_terminal_snapshot_is_content_free_and_owner_guarded(research,dashboard,started,withdraw,owner_state):
+    import json
+    from member_dashboard.source_policy import SourcePermission
+    service,users,_,policy=research
+    request=service.request_research(users[0],'SPY',False,dashboard.clock())
+    for _ in range(4):
+        job=service.claim_job('worker',dashboard.clock())
+        service.complete_job(job.id,job.lease_token,fixture_result(job.kind,dashboard.clock()),dashboard.clock())
+        dashboard.clock.advance(1)
+    last=service.claim_job('worker',dashboard.clock()) if started else None
+    with dashboard.store.transaction() as con:
+        original=con.execute('SELECT v.id,v.content_json,v.finalized,v.source_lineage_json FROM report_versions v JOIN report_owners o ON o.current_version_id=v.id WHERE o.report_id=?',(request.report_id,)).fetchone()
+        if withdraw=='features':
+            con.execute("UPDATE features SET enabled=0,version=version+1 WHERE name IN ('analysis','sec','options','em_daily','em_weekly')")
+        if owner_state=='deleted':
+            con.execute('UPDATE report_owners SET deleted_at=? WHERE report_id=?',(dashboard.clock(),request.report_id))
+        elif owner_state=='revoked':
+            con.execute('UPDATE sessions SET revoked_at=? WHERE id=?',(dashboard.clock(),users[0].session_id))
+        elif owner_state=='suspended':
+            con.execute("UPDATE members SET status='suspended' WHERE id=?",(users[0].member_id,))
+    if withdraw=='policy':
+        policy.record(SourcePermission(source_id='synthetic',product_id='fixture',provider='fixture',policy_version='p2',audience='invited_members',status='denied'))
+    if last:
+        service.complete_job(last.id,last.lease_token,fixture_result(last.kind,dashboard.clock()),dashboard.clock())
+    else:
+        assert service.claim_job('worker',dashboard.clock()) is None
+    with dashboard.store.transaction() as con:
+        latest=con.execute('SELECT v.id,v.finalized,v.content_json,v.source_lineage_json,v.field_dependencies_json,v.required_features_json,v.retention_deadline FROM report_versions v JOIN report_owners o ON o.current_version_id=v.id WHERE o.report_id=?',(request.report_id,)).fetchone()
+        assert con.execute('SELECT id,content_json,finalized,source_lineage_json FROM report_versions WHERE id=?',(original[0],)).fetchone()==original
+        if owner_state!='active':
+            assert latest[0]==original[0]
+            assert con.execute('SELECT count(*) FROM report_versions WHERE report_id=?',(request.report_id,)).fetchone()[0]==4
+            return
+        assert latest[0]!=original[0] and latest[1]==1
+        sections=json.loads(latest[2])
+        assert set(sections)=={'analysis','sec','options','em_daily','em_weekly'}
+        for value in sections.values():
+            assert value['status']=='unavailable'
+            assert value['payload'] is None and value['evidence']==[]
+            assert all(value[name] is None for name in ['observed_at','computed_at','valid_until','job_id','result_id','message'])
+        assert latest[3:]==('[]','[]','[]',None)
+        assert con.execute('SELECT count(*) FROM report_versions WHERE report_id=?',(request.report_id,)).fetchone()[0]==5

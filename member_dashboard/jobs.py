@@ -325,8 +325,6 @@ class JobService:
         except AuthError:
             return
         rows = con.execute('SELECT m.* FROM request_sections s JOIN market_results m ON m.id=s.result_id WHERE s.request_id=?', (request_id,)).fetchall()
-        if not rows:
-            return
         values, sources, features, fields, deadlines = {}, {}, set(), [], []
         for row in rows:
             result = self._read_result(con, row, now)
@@ -338,15 +336,22 @@ class JobService:
             features.update(lineage.required_features)
             fields.extend(d.model_dump() for d in lineage.field_dependencies)
             if lineage.retention_deadline is not None: deadlines.append(lineage.retention_deadline)
-        if not values:
+        sections = con.execute('SELECT section,status,job_id FROM request_sections WHERE request_id=?',(request_id,)).fetchall()
+        finalized = not any(section['status'] in ('queued','running') for section in sections)
+        content_free = not values
+        # An existing authorized report still needs a terminal workflow version
+        # after all source content is withdrawn. Empty lineage grants no source
+        # access; these envelopes carry neither content nor old observation IDs.
+        if content_free and (not finalized or owner['current_version_id'] is None):
             return
-        for section in con.execute('SELECT section,status,job_id FROM request_sections WHERE request_id=?',(request_id,)):
-            if section['section'] not in values:
+        for section in sections:
+            if content_free:
+                values[section['section']] = empty_result(section['section']).model_dump()
+            elif section['section'] not in values:
                 values[section['section']] = empty_result(section['section'],
                     'unavailable' if section['status'] == 'completed' else section['status'],
                     job_id=section['job_id']).model_dump()
         version = con.execute('SELECT coalesce(max(version),0)+1 FROM report_versions WHERE report_id=?', (owner['report_id'],)).fetchone()[0]
-        finalized = not con.execute("SELECT 1 FROM request_sections WHERE request_id=? AND status IN ('queued','running')", (request_id,)).fetchone()
         identity = str(uuid4())
         con.execute('INSERT INTO report_versions(id,report_id,version,content_json,source_lineage_json,field_dependencies_json,required_features_json,retention_deadline,created_at,finalized) VALUES (?,?,?,?,?,?,?,?,?,?)',
             (identity, owner['report_id'], version, packed(values), packed(list(sources.values())), packed(fields), packed(sorted(features)), min(deadlines) if deadlines else None, now, int(finalized)))
