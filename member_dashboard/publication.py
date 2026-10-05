@@ -11,6 +11,7 @@ import hmac
 import html
 import json
 import logging
+import math
 import sqlite3
 import time
 from uuid import NAMESPACE_URL,uuid5,uuid4
@@ -53,6 +54,7 @@ class Publication:
     research_only: bool
     stale: bool=False
     source: SourceName | None=None
+    source_computed_at: float | None=None
 
 
 def publishable(row: SourceRecord) -> Publication | None:
@@ -72,7 +74,7 @@ def publishable(row: SourceRecord) -> Publication | None:
         source_version=row.version,observed_at=row.observed_at,url=safe_url(row.url),
         excerpt=row.excerpt,research_only=True)
     return Publication(card_identity(row.key,row.ticker),version,feature,row.observed_at,None,payload,
-        (evidence,),row.lineage,row.key,True,row.stale,row.source)
+        (evidence,),row.lineage,row.key,True,row.stale,row.source,row.computed_at)
 
 
 def advance_log_floor(conn, sequence):
@@ -106,9 +108,16 @@ def transition(conn, card_id, row, active, now):
     return True
 
 
-def purge_publication(conn, row, now):
+def purge_publication(conn, row, now, policy):
     """Do not let deleting an old revision withdraw a newer active revision."""
     card_id=card_identity(row['source_post_key'],row['ticker'])
+    try: evidence=MarketPayload.model_validate(strict_json(row['content_json'])).evidence
+    except (ValueError,TypeError,RecursionError): evidence=[]
+    if not evidence:
+        conn.execute('UPDATE feed_state SET retraction_authority_required=1 WHERE singleton=1')
+    for item in evidence:
+        _retain_marker(conn,policy,'publication_evidence_refs',(card_id,item.id,item.source_id,item.source_version),
+                       now,[row['source_lineage_json']])
     head=conn.execute('SELECT publication_id,active FROM publication_heads WHERE card_id=?',(card_id,)).fetchone()
     if head is None or (head[0]==row['object_id'] and head[1]):
         values=dict(row); values['id']=row['object_id']
@@ -125,13 +134,13 @@ def purge_publication(conn, row, now):
 def evidence_retraction(conn, evidence: Evidence, policy) -> RetractionAnnotation | None:
     """Task 9 applies this exact-identity annotation after its ownership guard."""
     if not isinstance(evidence,Evidence): raise ValueError('typed evidence required')
+    if conn.execute('SELECT retraction_authority_required FROM feed_state').fetchone()[0]:
+        return RetractionAnnotation(status='unavailable',recorded_at=None)
     row=conn.execute('SELECT recorded_at,source_lineage_json FROM evidence_retractions WHERE evidence_id=? AND source_id=? '
                      'AND source_version=?',(evidence.id,evidence.source_id,evidence.source_version)).fetchone()
     if row:
         if policy._retraction_metadata_allowed(conn,row[1]):
             return RetractionAnnotation(status='retracted',recorded_at=row[0])
-        return RetractionAnnotation(status='unavailable',recorded_at=None)
-    if conn.execute('SELECT retraction_authority_required FROM feed_state').fetchone()[0]:
         return RetractionAnnotation(status='unavailable',recorded_at=None)
     return None
 
@@ -152,8 +161,14 @@ def _marker_sources(raw_values):
 
 
 def _retain_marker(conn,policy,table,keys,now,raw_values):
-    # Only these two internal callers choose table/column identifiers.
-    columns=('card_id',) if table=='publication_retractions' else ('evidence_id','source_id','source_version')
+    # Lost coverage cannot be repaired by a later partial reference/marker.
+    # Existing permanent card markers still prevent republication.
+    if conn.execute('SELECT retraction_authority_required FROM feed_state').fetchone()[0]: return False
+    columns={
+        'publication_retractions':('card_id',),
+        'evidence_retractions':('evidence_id','source_id','source_version'),
+        'publication_evidence_refs':('card_id','evidence_id','source_id','source_version'),
+    }[table]
     where=' AND '.join(name+'=?' for name in columns)
     old=conn.execute(f'SELECT source_lineage_json FROM {table} WHERE {where}',keys).fetchone()
     try:
@@ -192,7 +207,9 @@ class Publisher:
 
     def _save(self,conn,publication,now):
         conn.row_factory=sqlite3.Row
-        if publication.observed_at is not None and publication.observed_at<=now-90*86400: return False
+        ages=[value for value in (publication.observed_at,publication.source_computed_at) if value is not None]
+        if (not ages or any(type(value) not in (int,float) or not math.isfinite(value) or value<=0 or value>now+86400
+                            for value in ages) or min(ages)<=now-90*86400): return False
         if self._retracted(conn,publication.source_post_key,publication.payload.ticker): return False
         if not require_features(conn,publication.lineage.required_features): return False
         decisions=[self.policy._authorize_lineage(conn,publication.lineage,use,now,publication.observed_at)
@@ -207,10 +224,10 @@ class Publisher:
             json.dumps([s.model_dump() for s in publication.lineage.sources]),
             json.dumps([d.model_dump() for d in publication.lineage.field_dependencies]),
             json.dumps(publication.lineage.required_features),decision.retention_deadline,
-            publication.observed_at,now)
+            publication.observed_at,now,publication.source_computed_at)
         conn.execute('INSERT OR IGNORE INTO publications(id,source_post_key,ticker,content_version,feature,'
             'content_json,source_lineage_json,field_dependencies_json,required_features_json,retention_deadline,'
-            'observed_at,published_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',(str(uuid4()),*values))
+            'observed_at,published_at,source_computed_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',(str(uuid4()),*values))
         row=conn.execute('SELECT * FROM publications WHERE source_post_key=? AND ticker=? AND content_version=?',
             (publication.source_post_key,publication.payload.ticker,publication.content_version)).fetchone()
         if row['published_at']+90*86400<=now: return False
@@ -232,7 +249,8 @@ class Publisher:
         if row is None or row['retracted_at'] is not None: return None
         if self._retracted(conn,row['source_post_key'],row['ticker']): return None
         if feed_guard and (row['published_at']+90*86400<=now or
-            (row['observed_at'] is not None and row['observed_at']<=now-90*86400)): return None
+            (row['observed_at'] is not None and row['observed_at']<=now-90*86400) or
+            (row['source_computed_at'] is not None and row['source_computed_at']<=now-90*86400)): return None
         lineage=self.policy.stored_lineage(row)
         try:
             payload=MarketPayload.model_validate(strict_json(row['content_json']))
@@ -256,9 +274,13 @@ class Publisher:
             rows=conn.execute('SELECT * FROM publications WHERE source_post_key=? AND ticker=?',
                              (source_post_key,ticker)).fetchall()
             card_id=card_identity(source_post_key,ticker)
+            references=conn.execute('SELECT * FROM publication_evidence_refs WHERE card_id=?',(card_id,)).fetchall()
             _retain_marker(conn,self.policy,'publication_retractions',(card_id,),now,
-                           [row['source_lineage_json'] for row in rows])
+                           [row['source_lineage_json'] for row in [*rows,*references]])
             evidence_sources={}
+            for reference in references:
+                key=(reference['evidence_id'],reference['source_id'],reference['source_version'])
+                evidence_sources.setdefault(key,[]).append(reference['source_lineage_json'])
             for row in rows:
                 conn.execute('UPDATE publications SET retracted_at=COALESCE(retracted_at,?) WHERE id=?',(now,row['id']))
                 try: evidence=MarketPayload.model_validate(strict_json(row['content_json'])).evidence
@@ -411,7 +433,7 @@ class FeedService:
                 value['expires']=now+_CURSOR_TTL
             return FeedPage(records=records,cursor=self._sign(value),snapshot=snapshot,has_more=more,sources=sources)
 
-    def _cleanup(self,conn,now):
+    def _cleanup(self,conn,now,deadline):
         rows=conn.execute('SELECT sequence FROM publication_changes WHERE changed_at<? ORDER BY changed_at,sequence LIMIT 100',
                           (now-_LOG_RETENTION,)).fetchall()
         if rows:
@@ -423,10 +445,11 @@ class FeedService:
             advance_log_floor(conn,max(r[1] for r in intervals))
             conn.executemany('DELETE FROM publication_intervals WHERE start_sequence=?',[(r[0],) for r in intervals])
         # This is feed-only retention. Never truncate report versions or messages.
-        expired=conn.execute('SELECT *,id AS object_id FROM publications WHERE published_at<=? OR observed_at<=? '
-            'ORDER BY published_at,id LIMIT 100',(now-90*86400,now-90*86400)).fetchall()
+        expired=conn.execute('SELECT *,id AS object_id FROM publications WHERE published_at<=? OR observed_at<=? OR source_computed_at<=? '
+            'ORDER BY published_at,id LIMIT 100',(now-90*86400,now-90*86400,now-90*86400)).fetchall()
         for row in expired:
-            purge_publication(conn,row,now)
+            if deadline-time.monotonic()<.05: break
+            purge_publication(conn,row,now,self.policy)
             conn.execute('DELETE FROM publications WHERE id=?',(row['id'],))
 
     @staticmethod
@@ -532,7 +555,7 @@ class FeedService:
             # roll back already committed source/checkpoint/reconciliation work.
             if deadline-time.monotonic()>.03:
                 try:
-                    with self._transaction(deadline,write=True) as conn: self._cleanup(conn,now)
+                    with self._transaction(deadline,write=True) as conn: self._cleanup(conn,now,deadline)
                 except (sqlite3.Error,TimeoutError):
                     return SyncStats(scanned,published,reconciled,unavailable,'partial')
             return SyncStats(scanned,published,reconciled,unavailable)

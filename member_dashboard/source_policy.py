@@ -194,7 +194,7 @@ class SourcePolicy:
                 cursor=cursors.get(table,0)
                 if type(cursor) is not int or cursor<0: raise ValueError('invalid purge cursor')
                 id_column='sequence' if table=='publication_changes' else 'id'
-                extra=',source_post_key,ticker,feature,content_version' if table=='publications' else ''
+                extra=',source_post_key,ticker,feature,content_version,content_json' if table=='publications' else ''
                 if table=='messages': extra=',role'
                 if table=='publication_changes': extra=',operation,content_json'
                 rows=conn.execute(f'SELECT rowid AS scan_id,{id_column} AS object_id,source_lineage_json,'
@@ -217,13 +217,13 @@ class SourcePolicy:
                             "VALUES (?,?,'source_permission_unavailable',?)",(table,str(row['object_id']),now))
                     if table=='publications':
                         from .publication import purge_publication
-                        purge_publication(conn,row,now)
+                        purge_publication(conn,row,now,self)
                     if table=='publication_changes':
                         from .publication import advance_log_floor
                         advance_log_floor(conn,row['object_id'])
                     conn.execute(f'DELETE FROM {table} WHERE {id_column}=?',(row['object_id'],))
                     deleted+=1
-            for table in ('publication_retractions','evidence_retractions'):
+            for table in ('publication_retractions','evidence_retractions','publication_evidence_refs'):
                 cursor=cursors.get(table,0)
                 if type(cursor) is not int or cursor<0: raise ValueError('invalid purge cursor')
                 rows=conn.execute(f'SELECT rowid,source_lineage_json FROM {table} WHERE rowid>? ORDER BY rowid LIMIT ?',

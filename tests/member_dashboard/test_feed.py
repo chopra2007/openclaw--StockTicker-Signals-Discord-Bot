@@ -567,6 +567,175 @@ def test_retained_revision_explicit_marker_remains_after_feed_retention(feed):
         assert con.execute('SELECT count(*) FROM publication_retractions').fetchone()[0]==1
 
 
+def test_retraction_covers_exact_saved_evidence_after_old_feed_revision_is_purged(feed):
+    from member_dashboard.publication import evidence_retraction
+    original=publish(feed)
+    saved=original.evidence[0].model_dump_json()
+    with feed.dashboard.store.transaction() as con:
+        con.execute('INSERT INTO report_versions(id,report_id,version,content_json,created_at) VALUES (?,?,?,?,?)',
+                    (str(uuid4()),str(uuid4()),1,saved,feed.dashboard.clock()))
+    feed.dashboard.clock.advance(89*86400)
+    publish(feed,version='v2',excerpt='Later')
+    feed.dashboard.clock.advance(2*86400)
+    assert service(feed).sync_publications(feed.dashboard.clock()).status=='ok'
+    with feed.dashboard.store.transaction() as con:
+        assert con.execute('SELECT count(*) FROM publications').fetchone()[0]==1
+        assert con.execute('SELECT retraction_authority_required FROM feed_state').fetchone()[0]==0
+    feed.publisher.retract('post-a','TEST',feed.dashboard.clock())
+    with feed.dashboard.store.transaction() as con:
+        annotation=evidence_retraction(con,original.evidence[0],feed.policy)
+        assert annotation is not None and annotation.status=='retracted'
+        assert con.execute('SELECT content_json FROM report_versions').fetchone()[0]==saved
+        assert con.execute('SELECT retraction_authority_required FROM feed_state').fetchone()[0]==0
+        assert evidence_retraction(con,original.evidence[0].model_copy(update={'source_version':'not-the-saved-version'}),feed.policy) is None
+    unrelated=publish(feed,key='unrelated')
+    with feed.dashboard.store.transaction() as con:
+        con.execute('UPDATE sessions SET absolute_expires_at=?,idle_expires_at=?',
+                    (feed.dashboard.clock()+43200,feed.dashboard.clock()+7200))
+    assert [row['id'] for row in page(feed).json()['records']]==[unrelated.card_id]
+
+
+def test_unchanged_null_observation_uses_source_computation_age_after_purge(feed):
+    original=replace(record(feed,feature='setups'),source=SourceName.RESEARCH,
+                     observed_at=None,computed_at=feed.dashboard.clock()-10)
+    publication=publishable(original)
+    assert feed.publisher.save(publication,feed.dashboard.clock())
+    response=page(feed,feature='setups').json()['records'][0]
+    assert response['observed_at'] is None and response['projected_at']==feed.dashboard.clock()
+    assert response['published_at'] is None
+    feed.dashboard.clock.advance(91*86400)
+    assert service(feed).sync_publications(feed.dashboard.clock()).status=='ok'
+    with feed.dashboard.store.transaction() as con:
+        assert con.execute('SELECT count(*) FROM publications').fetchone()[0]==0
+    assert not feed.publisher.save(publishable(original),feed.dashboard.clock())
+
+
+def test_publication_without_provable_source_age_fails_closed(feed):
+    original=replace(record(feed,feature='setups'),source=SourceName.RESEARCH,observed_at=None,computed_at=None)
+    assert not feed.publisher.save(publishable(original),feed.dashboard.clock())
+
+
+def test_null_observation_retention_ends_from_computation_age_not_projection(feed):
+    original=replace(record(feed,feature='setups'),source=SourceName.RESEARCH,
+                     observed_at=None,computed_at=feed.dashboard.clock()-89*86400)
+    assert feed.publisher.save(publishable(original),feed.dashboard.clock())
+    feed.dashboard.clock.advance(2*86400)
+    service(feed).sync_publications(feed.dashboard.clock())
+    with feed.dashboard.store.transaction() as con:
+        assert con.execute('SELECT count(*) FROM publications').fetchone()[0]==0
+        assert con.execute('SELECT count(*) FROM publication_evidence_refs').fetchone()[0]==1
+
+
+def test_source_policy_purge_archives_exact_evidence_before_deleting_content(feed):
+    from member_dashboard.publication import evidence_retraction
+    original=publish(feed)
+    grant(feed.dashboard,policy_version='v2',retain=False,tombstone_allowed=True)
+    feed.policy.purge(feed.dashboard.clock())
+    with feed.dashboard.store.transaction() as con:
+        assert con.execute('SELECT count(*) FROM publications').fetchone()[0]==0
+        assert con.execute('SELECT count(*) FROM publication_evidence_refs').fetchone()[0]==1
+        assert con.execute('SELECT retraction_authority_required FROM feed_state').fetchone()[0]==0
+    feed.publisher.retract('post-a','TEST',feed.dashboard.clock())
+    with feed.dashboard.store.transaction() as con:
+        assert evidence_retraction(con,original.evidence[0],feed.policy).status=='retracted'
+
+
+@pytest.mark.parametrize('change',['rights','authority'])
+def test_archived_evidence_refs_revoke_with_latch_before_identity_loss(feed,change):
+    from member_dashboard.publication import evidence_retraction
+    original=publish(feed)
+    feed.dashboard.clock.advance(91*86400)
+    service(feed).sync_publications(feed.dashboard.clock())
+    with feed.dashboard.store.transaction() as con:
+        assert con.execute('SELECT count(*) FROM publication_evidence_refs').fetchone()[0]==1
+    if change=='rights': grant(feed.dashboard,policy_version='v2',tombstone_allowed=False)
+    else: feed.policy.authority_current=lambda:False
+    result=feed.policy.purge(feed.dashboard.clock(),limit=1)
+    assert 'publication_evidence_refs' in result.cursors
+    with feed.dashboard.store.transaction() as con:
+        assert con.execute('SELECT count(*) FROM publication_evidence_refs').fetchone()[0]==0
+        assert con.execute('SELECT retraction_authority_required FROM feed_state').fetchone()[0]==1
+        assert evidence_retraction(con,original.evidence[0],feed.policy).status=='unavailable'
+
+
+def test_lost_archive_union_across_cleanup_turns_cannot_reappear_as_partial_proof(feed):
+    from member_dashboard.publication import evidence_retraction
+    base=lineage().sources[0]
+    for start in (0,1,2):
+        contributors=lineage()
+        contributors.sources=[base.model_copy(update={'source_version':f'version-{n}'}) for n in range(start,start+200)]
+        candidate=publishable(replace(record(feed),lineage=contributors))
+        assert feed.publisher.save(candidate,feed.dashboard.clock())
+    grant(feed.dashboard,policy_version='v2',retain=False,tombstone_allowed=True)
+    first=feed.policy.purge(feed.dashboard.clock(),limit=1)
+    with feed.dashboard.store.transaction() as con:
+        assert con.execute('SELECT count(*) FROM publication_evidence_refs').fetchone()[0]==1
+        assert con.execute('SELECT retraction_authority_required FROM feed_state').fetchone()[0]==0
+    second=feed.policy.purge(feed.dashboard.clock(),limit=1,cursors=first.cursors)
+    with feed.dashboard.store.transaction() as con:
+        assert con.execute('SELECT count(*) FROM publication_evidence_refs').fetchone()[0]==0
+        assert con.execute('SELECT retraction_authority_required FROM feed_state').fetchone()[0]==1
+    feed.policy.purge(feed.dashboard.clock(),limit=1,cursors=second.cursors)
+    feed.publisher.retract('post-a','TEST',feed.dashboard.clock())
+    with feed.dashboard.store.transaction() as con:
+        assert con.execute('SELECT count(*) FROM publication_evidence_refs').fetchone()[0]==0
+        assert evidence_retraction(con,candidate.evidence[0],feed.policy).status=='unavailable'
+
+
+def test_global_lost_coverage_overrides_later_partial_annotation(feed):
+    from member_dashboard.publication import evidence_retraction
+    original=publish(feed)
+    feed.publisher.retract('post-a','TEST',feed.dashboard.clock())
+    with feed.dashboard.store.transaction() as con:
+        con.execute('UPDATE feed_state SET retraction_authority_required=1')
+        assert evidence_retraction(con,original.evidence[0],feed.policy).status=='unavailable'
+    assert not service(feed,retraction_clearance=lambda key,ticker:True).publisher.save(original,feed.dashboard.clock())
+
+
+def test_archived_identity_unions_contributors_across_separate_policy_purges(feed):
+    import json
+    from member_dashboard.publication import evidence_retraction
+    original=publish(feed)
+    grant(feed.dashboard,source='other')
+    combined=lineage()
+    combined.sources.extend(lineage('other').sources)
+    second=publishable(replace(record(feed),lineage=combined))
+    assert feed.publisher.save(second,feed.dashboard.clock())
+    grant(feed.dashboard,policy_version='v2',retain=False,tombstone_allowed=True)
+    first=feed.policy.purge(feed.dashboard.clock(),limit=1)
+    feed.policy.purge(feed.dashboard.clock(),limit=1,cursors=first.cursors)
+    with feed.dashboard.store.transaction() as con:
+        refs=con.execute('SELECT source_lineage_json FROM publication_evidence_refs').fetchall()
+        assert len(refs)==1 and {s['source_id'] for s in json.loads(refs[0][0])}=={'permitted','other'}
+    feed.publisher.retract('post-a','TEST',feed.dashboard.clock())
+    with feed.dashboard.store.transaction() as con:
+        assert evidence_retraction(con,original.evidence[0],feed.policy).status=='retracted'
+    grant(feed.dashboard,source='other',policy_version='v2',tombstone_allowed=False)
+    with feed.dashboard.store.transaction() as con:
+        assert evidence_retraction(con,original.evidence[0],feed.policy).status=='unavailable'
+
+
+def test_feed_cleanup_commits_bounded_archive_progress_before_deadline(feed):
+    import time
+    for n in range(80): publish(feed,key=f'old-{n}')
+    feed.dashboard.clock.advance(91*86400)
+    def slow_authority():
+        time.sleep(.015)
+        return True
+    feed.policy.authority_current=slow_authority
+    sync=service(feed)
+    started=time.monotonic()
+    sync.sync_publications(feed.dashboard.clock())
+    assert time.monotonic()-started<1.1
+    with feed.dashboard.store.transaction() as con:
+        remaining=con.execute('SELECT count(*) FROM publications').fetchone()[0]
+        assert 0<remaining<80
+        assert con.execute('SELECT count(*) FROM publication_evidence_refs').fetchone()[0]==80-remaining
+    sync.sync_publications(feed.dashboard.clock())
+    with feed.dashboard.store.transaction() as con:
+        assert con.execute('SELECT count(*) FROM publications').fetchone()[0]==0
+
+
 def test_stale_source_record_cannot_restart_ninety_day_feed_retention(source_feed):
     feed,sync=source_feed
     sync.sync_publications(feed.dashboard.clock())

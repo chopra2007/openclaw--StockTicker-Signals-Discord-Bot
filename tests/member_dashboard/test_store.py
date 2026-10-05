@@ -89,7 +89,34 @@ def test_migration_is_idempotent(dashboard):
     dashboard.store.migrate()
     with dashboard.store.transaction() as connection:
         assert connection.execute("SELECT id FROM members").fetchone()[0] == member_id
-        assert connection.execute("SELECT version FROM schema_migrations ORDER BY version").fetchall() == [(1,), (2,), (3,), (4,), (5,), (6,)]
+        assert connection.execute("SELECT version FROM schema_migrations ORDER BY version").fetchall() == [(1,), (2,), (3,), (4,), (5,), (6,), (7,)]
+
+
+@pytest.mark.parametrize('coverage',['intact','floor','orphan'])
+def test_feed_evidence_upgrade_preserves_timestamps_and_latches_only_potential_loss(tmp_path,coverage):
+    from member_dashboard.store import WebStore
+    from member_dashboard.publication import card_identity
+    path=tmp_path/'upgrade-six.sqlite3'
+    migrations=Path(__file__).parents[2]/'member_dashboard'/'migrations'
+    with sqlite3.connect(path) as con:
+        con.create_function('publication_card_id',2,card_identity,deterministic=True)
+        con.execute('CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY,applied_at REAL NOT NULL) STRICT')
+        for number in range(1,7):
+            con.executescript(next(migrations.glob(f'{number:03}_*.sql')).read_text())
+            con.execute('INSERT INTO schema_migrations VALUES (?,1)',(number,))
+        con.execute('INSERT INTO publications(id,source_post_key,ticker,content_version,feature,content_json,published_at,observed_at) '
+                    'VALUES (?,?,?,?,?,?,?,?)',(str(uuid4()),'synthetic-post','TEST','v1','setups','{}',42.0,None))
+        if coverage=='floor': con.execute('UPDATE feed_state SET retained_floor=5,high_water=5')
+        if coverage=='orphan':
+            con.execute('INSERT INTO publication_heads(card_id,publication_id,feature,active,last_sequence,updated_at) '
+                        'VALUES (?,NULL,?,0,1,42)',(card_identity('orphan','TEST'),'feed'))
+    WebStore(path).migrate()
+    with WebStore(path).transaction() as con:
+        assert con.execute('SELECT published_at,observed_at,source_computed_at FROM publications').fetchone()==(42.0,None,None)
+        assert con.execute('SELECT retraction_authority_required FROM feed_state').fetchone()[0]==(0 if coverage=='intact' else 1)
+        assert con.execute('SELECT count(*) FROM publication_evidence_refs').fetchone()[0]==0
+        with pytest.raises(sqlite3.IntegrityError,match='immutable publication'):
+            con.execute('UPDATE publications SET source_computed_at=43')
 
 
 def test_failed_transaction_rolls_back(dashboard):
