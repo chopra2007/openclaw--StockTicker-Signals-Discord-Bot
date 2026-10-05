@@ -51,6 +51,12 @@ class ProviderSpec:
     safe_input_version: str = 'v1'
     settings_hash: str = 'default'
 
+    def descriptor(self):
+        """Declared executable/input contract; a deployment must version code changes."""
+        return dict(analysis_version=self.analysis_version,safe_input_version=self.safe_input_version,
+                    settings_hash=self.settings_hash,provider=self.provider,asynchronous=self.asynchronous,
+                    lineage=self.lineage.model_dump())
+
 
 @dataclass(frozen=True)
 class ComputeInputs:
@@ -74,7 +80,14 @@ class ProviderRegistry:
 
     async def compute(self, ticker, section, inputs) -> SectionResult:
         spec = self.providers[section]
-        operation = lambda: spec.operation(ticker, section, inputs.safe_inputs)
+        saved = inputs.safe_inputs.get('provider_spec')
+        if saved != spec.descriptor():
+            raise ValueError('provider specification changed')
+        def operation():
+            # Recheck mutable lineage before actual invocation, after runtime admission.
+            if saved != spec.descriptor():
+                raise ValueError('provider specification changed')
+            return spec.operation(ticker,section,inputs.safe_inputs)
         run = inputs.runtime.run_async if spec.asynchronous else inputs.runtime.run_blocking
         outcome = await run(inputs.call_id, operation, inputs.wait_timeout, provider=spec.provider)
         if outcome.status != 'completed':

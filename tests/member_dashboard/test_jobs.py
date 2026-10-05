@@ -408,19 +408,24 @@ def test_real_process_crash_response_boundary_is_bounded_and_persisted_result_su
     request = service.request_research(users[0],'SPY',False,dashboard.clock())
     marker = tmp_path/'responses.txt'
     script = '''
-import asyncio,os,sys
+import asyncio,json,os,sys
 from pathlib import Path
 from member_dashboard.auth import AuthService
 from member_dashboard.jobs import JobService
 from member_dashboard.store import WebStore
 from member_dashboard.source_policy import SourcePolicy
-from member_dashboard.providers import ProviderRegistry
+from member_dashboard.providers import ProviderRegistry,ProviderSpec
 from member_dashboard.provider_runtime import ProviderRuntime
-from member_dashboard.contracts import SectionResult
+from member_dashboard.contracts import ContentLineage,SectionResult
 path,marker,worker,now,persist=sys.argv[1:]
 now=float(now)
 store=WebStore(Path(path))
-service=JobService(store,AuthService(store),SourcePolicy(store,authority_current=lambda:True,backup_compliant=lambda *_:True),ProviderRegistry())
+registry=ProviderRegistry()
+with store.transaction() as con:
+    for section,metadata in con.execute('SELECT section,input_json FROM web_jobs'):
+        spec=json.loads(metadata)['provider_spec']
+        registry.register(section,ProviderSpec(ContentLineage.model_validate(spec['lineage']),lambda *_:None,spec['provider'],spec['asynchronous'],spec['analysis_version'],spec['safe_input_version'],spec['settings_hash']))
+service=JobService(store,AuthService(store),SourcePolicy(store,authority_current=lambda:True,backup_compliant=lambda *_:True),registry)
 job=service.claim_job(worker,now)
 runtime=ProviderRuntime(store,worker,clock=lambda:now)
 def response():
@@ -474,10 +479,12 @@ async def test_registry_compute_returns_the_typed_section_contract(research,dash
     from member_dashboard.contracts import SectionResult
     from member_dashboard.provider_runtime import ProviderRuntime
     from member_dashboard.providers import ComputeInputs
-    _,_,registry,_=research
+    service,users,registry,_=research
+    service.request_research(users[0],'SPY',False,dashboard.clock())
+    job=service.claim_job('worker',dashboard.clock())
     runtime=ProviderRuntime(dashboard.store,'worker',clock=dashboard.clock)
     try:
-        result=await registry.compute('SPY','sec',ComputeInputs(runtime,'contract',1,dashboard.clock(),{}))
+        result=await registry.compute(job.ticker,job.kind,ComputeInputs(runtime,job.call_id,1,dashboard.clock(),job.inputs))
         assert isinstance(result,SectionResult)
     finally:
         runtime.shutdown()
@@ -511,3 +518,88 @@ def test_last_failure_finalizes_immutable_mixed_outcome_snapshot(research,dashbo
         assert content['em_weekly']['status'] == 'failed'
         assert content['analysis']['observed_at'] == initial_now-100
         assert con.execute('SELECT count(*) FROM report_versions WHERE report_id=?',(request.report_id,)).fetchone()[0] == 5
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('changed', ['analysis_version','safe_input_version','settings_hash','sources','dependencies'])
+@pytest.mark.parametrize('after_claim',[False,True])
+async def test_saved_provider_spec_is_fenced_before_execution(research,dashboard,changed,after_claim):
+    from dataclasses import replace
+    from member_dashboard.contracts import FieldDependency
+    from member_dashboard.provider_runtime import ProviderRuntime
+    from member_dashboard.worker import ComputeWorker
+    service,users,registry,_=research
+    request=service.request_research(users[0],'SPY',False,dashboard.clock())
+    job=service.claim_job('worker',dashboard.clock()) if after_claim else None
+    executed=[]
+    spec=registry.providers['analysis']
+    update={'operation':lambda *_: executed.append('changed') or fixture_result('analysis',dashboard.clock())}
+    if changed == 'sources':
+        update['lineage']=spec.lineage.model_copy(update={'sources':[s.model_copy(update={'source_version':'new-input'}) for s in spec.lineage.sources]})
+    elif changed == 'dependencies':
+        update['lineage']=spec.lineage.model_copy(update={'field_dependencies':[FieldDependency(field_path='summary',required_features=['sec'])]})
+    else:
+        update[changed]='new-version'
+    registry.providers['analysis']=replace(spec,**update)
+    runtime=ProviderRuntime(dashboard.store,'worker',clock=dashboard.clock)
+    worker=ComputeWorker(service,registry,runtime,clock=dashboard.clock)
+    try:
+        if job:
+            # Existing claim models a rolling registry change between claim and compute.
+            from member_dashboard.providers import ComputeInputs
+            with pytest.raises(ValueError,match='specification'):
+                await registry.compute(job.ticker,job.kind,ComputeInputs(runtime,job.call_id,1,dashboard.clock(),job.inputs))
+        else:
+            await worker.run_once()
+            assert service.get_request(users[0],request.id,dashboard.clock()).sections['analysis'].status == 'unavailable'
+        assert executed == []
+        with dashboard.store.transaction() as con:
+            assert con.execute("SELECT count(*) FROM market_results WHERE section='analysis'").fetchone()[0] == 0
+    finally:
+        runtime.shutdown()
+
+
+def test_completion_rejects_wrong_version_instead_of_relabeling(research,dashboard):
+    service,users,_,_=research
+    service.request_research(users[0],'SPY',False,dashboard.clock())
+    job=service.claim_job('worker',dashboard.clock())
+    wrong=fixture_result(job.kind,dashboard.clock()).model_copy(update={'analysis_version':'v2'})
+    with pytest.raises(ValueError,match='version'):
+        service.complete_job(job.id,job.lease_token,wrong,dashboard.clock())
+
+
+@pytest.mark.parametrize('started',[False,True])
+@pytest.mark.parametrize('withdraw',['feature','deleted','session'])
+def test_withdrawal_snapshot_settles_without_resurrecting_owner(research,dashboard,started,withdraw):
+    import json
+    service,users,_,_=research
+    request=service.request_research(users[0],'SPY',False,dashboard.clock())
+    initial=dashboard.clock()
+    for _ in range(4):
+        job=service.claim_job('worker',dashboard.clock())
+        service.complete_job(job.id,job.lease_token,fixture_result(job.kind,dashboard.clock()),dashboard.clock())
+        dashboard.clock.advance(1)
+    last=service.claim_job('worker',dashboard.clock()) if started else None
+    with dashboard.store.transaction() as con:
+        old=con.execute('SELECT current_version_id FROM report_owners WHERE report_id=?',(request.report_id,)).fetchone()[0]
+        if withdraw=='feature':
+            con.execute("UPDATE features SET enabled=0,version=version+1 WHERE name='em_weekly'")
+        elif withdraw=='deleted':
+            con.execute('UPDATE report_owners SET deleted_at=? WHERE report_id=?',(dashboard.clock(),request.report_id))
+        else:
+            con.execute('UPDATE sessions SET revoked_at=? WHERE id=?',(dashboard.clock(),users[0].session_id))
+    if last:
+        service.complete_job(last.id,last.lease_token,fixture_result(last.kind,dashboard.clock()),dashboard.clock())
+    else:
+        assert service.claim_job('worker',dashboard.clock()) is None
+    with dashboard.store.transaction() as con:
+        row=con.execute('SELECT v.id,v.finalized,v.content_json FROM report_versions v JOIN report_owners o ON o.current_version_id=v.id WHERE o.report_id=?',(request.report_id,)).fetchone()
+        if withdraw=='feature':
+            assert row[0] != old and row[1] == 1
+            content=json.loads(row[2])
+            assert content['em_weekly']['status']=='unavailable'
+            assert content['analysis']['payload'] is None
+            assert content['sec']['observed_at']==initial-99
+            assert con.execute('SELECT finalized FROM report_versions WHERE id=?',(old,)).fetchone()[0] == 0
+        else:
+            assert row[0] == old

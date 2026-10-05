@@ -103,6 +103,7 @@ class JobService:
         saved_mask = {name: mask[name] for name in (SECTIONS if section == 'analysis' else required)}
         metadata = {'analysis_version': spec.analysis_version, 'safe_input_version': spec.safe_input_version,
                     'settings_hash': spec.settings_hash, 'policy_stamp': hashed(grant_rows),
+                    'provider_spec': spec.descriptor(),
                     'enabled_features': [name for name in SECTIONS if name in required],
                     'source_lineage': [source.model_dump() for source in lineage.sources]}
         key = hashed([ticker, section, lineage.model_dump(), metadata, saved_mask])
@@ -229,12 +230,17 @@ class JobService:
                 permission = all(self.policy._authorize(con,lineage.sources,use,now).allowed for use in ('retain','display_raw','display_derived'))
                 subscribers = con.execute('SELECT * FROM job_subscribers WHERE job_id=? AND deleted_at IS NULL',(candidate['id'],)).fetchall()
                 authorized = [sub for sub in subscribers if self._authorized_subscriber(con,sub,candidate,now)]
-                if permission and authorized:
+                prepared = self._prepare(con,candidate['ticker'],candidate['section'],now)
+                matches = prepared is not None and prepared[0] == candidate['dedupe_key']
+                if permission and authorized and matches:
                     row = candidate
                     break
                 con.execute("UPDATE web_jobs SET status='unavailable',finished_at=? WHERE id=?",(now,candidate['id']))
                 con.execute("UPDATE request_sections SET status='unavailable' WHERE job_id=?",(candidate['id'],))
                 con.execute('UPDATE job_subscribers SET deleted_at=? WHERE job_id=? AND deleted_at IS NULL',(now,candidate['id']))
+                for sub in subscribers:
+                    if self._authorized_owner(con,sub,now):
+                        self._snapshot(con,sub['request_id'],now)
             if row is None:
                 return None
             generation = row['work_version'] + 1
@@ -252,7 +258,7 @@ class JobService:
             if con.execute("UPDATE web_jobs SET status='draining',error_code='deadline' WHERE id=? AND lease_token=? AND status='running'", (job_id, lease_token)).rowcount:
                 con.execute("UPDATE request_sections SET status='unavailable',message_code='deadline' WHERE job_id=?", (job_id,))
 
-    def _authorized_subscriber(self, con, sub, job, now):
+    def _authorized_owner(self, con, sub, now):
         owner = con.execute('SELECT r.deleted_at,o.deleted_at,r.subscriber_version,o.subscriber_version FROM research_requests r JOIN report_owners o ON o.id=r.report_owner_id WHERE r.id=? AND o.member_id=?', (sub['request_id'], sub['member_id'])).fetchone()
         if owner is None or owner[0] is not None or owner[1] is not None or owner[2] != sub['subscriber_version'] or owner[3] != sub['subscriber_version']:
             return False
@@ -260,7 +266,11 @@ class JobService:
             self.auth.revalidate(Principal(sub['member_id'], sub['role'], sub['session_id'], sub['authorization_version']), now, con=con)
         except AuthError:
             return False
-        return mask_current(con, job['feature_mask_json']) and require_features(con, json.loads(job['required_features_json']))
+        return True
+
+    def _authorized_subscriber(self, con, sub, job, now):
+        return (self._authorized_owner(con,sub,now) and mask_current(con,job['feature_mask_json'])
+                and require_features(con,json.loads(job['required_features_json'])))
 
     def complete_job(self, job_id, lease_token, result, now):
         result = SectionResult.model_validate(result)
@@ -271,6 +281,8 @@ class JobService:
                 return
             if result.section != job['section'] or result.status not in ('completed', 'unavailable', 'failed'):
                 raise ValueError('invalid terminal result')
+            if result.status == 'completed' and result.analysis_version != json.loads(job['input_json'])['analysis_version']:
+                raise ValueError('result analysis version differs from claimed job')
             lineage = ContentLineage.model_validate_json(job['lineage_json'])
             tracked = {(source.source_id,source.source_version) for source in lineage.sources}
             if any((item.source_id,item.source_version) not in tracked for item in result.evidence):
@@ -289,8 +301,7 @@ class JobService:
                 if lineage.retention_deadline is not None: limits.append(lineage.retention_deadline)
                 if job['section'] in ('em_daily','em_weekly'):
                     limits.append(move_boundary(now,result.payload.expiry if result.payload else None))
-                result = result.model_copy(update={'job_id': job_id, 'result_id': result_id, 'valid_until': min(limits), 'computed_at': now,
-                                                  'analysis_version': json.loads(job['input_json'])['analysis_version']})
+                result = result.model_copy(update={'job_id': job_id, 'result_id': result_id, 'valid_until': min(limits), 'computed_at': now})
                 con.execute('INSERT INTO market_results(id,fingerprint,ticker,section,analysis_version,content_json,source_lineage_json,field_dependencies_json,required_features_json,retention_deadline,observed_at,computed_at,valid_until,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
                     (result_id, hashed([job['dedupe_key'], lease_token]), job['ticker'], job['section'], result.analysis_version, result.model_dump_json(), packed([s.model_dump() for s in lineage.sources]), packed([d.model_dump() for d in lineage.field_dependencies]), packed(lineage.required_features), lineage.retention_deadline, result.observed_at, now, result.valid_until, now))
                 con.execute('INSERT INTO research_cache(dedupe_key,result_id) VALUES (?,?) ON CONFLICT(dedupe_key) DO UPDATE SET result_id=excluded.result_id', (job['dedupe_key'], result_id))
@@ -302,10 +313,16 @@ class JobService:
                 else:
                     con.execute('UPDATE job_subscribers SET deleted_at=? WHERE id=?', (now, sub['id']))
                     con.execute("UPDATE request_sections SET status='unavailable',result_id=NULL WHERE request_id=? AND job_id=?", (sub['request_id'], job_id))
+                    if self._authorized_owner(con,sub,now):
+                        self._snapshot(con,sub['request_id'],now)
 
     def _snapshot(self, con, request_id, now):
-        owner = con.execute('SELECT o.* FROM report_owners o JOIN research_requests r ON r.report_owner_id=o.id WHERE r.id=? AND o.deleted_at IS NULL', (request_id,)).fetchone()
+        owner = con.execute('SELECT o.*,r.session_id,r.authorization_version AS request_authorization_version,m.role FROM report_owners o JOIN research_requests r ON r.report_owner_id=o.id JOIN members m ON m.id=r.member_id WHERE r.id=? AND r.deleted_at IS NULL AND o.deleted_at IS NULL AND o.member_id=r.member_id AND o.subscriber_version=r.subscriber_version', (request_id,)).fetchone()
         if owner is None:
+            return
+        try:
+            self.auth.revalidate(Principal(owner['member_id'],owner['role'],owner['session_id'],owner['request_authorization_version']),now,con=con)
+        except AuthError:
             return
         rows = con.execute('SELECT m.* FROM request_sections s JOIN market_results m ON m.id=s.result_id WHERE s.request_id=?', (request_id,)).fetchall()
         if not rows:
@@ -375,6 +392,8 @@ class JobService:
             con.execute("UPDATE provider_calls SET status='uncertain',completed_at=?,reconciled=? WHERE worker_id=? AND status IN ('running','draining')", (now, int(reconciled), worker_id))
             if reconciled:
                 con.execute("UPDATE provider_calls SET status='failed',reconciled=1 WHERE worker_id=? AND status='uncertain'", (worker_id,))
+                from .provider_runtime import settle_exited_probes
+                settle_exited_probes(con,worker_id,now)
 
     def recover_expired_leases(self, now):
         recovered = 0

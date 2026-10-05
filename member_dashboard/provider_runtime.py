@@ -17,6 +17,20 @@ class ProviderOutcome:
     value: object = None
 
 
+def _repair_orphaned_probes(con, now):
+    # Called only after confirmed/reconciled exit of the sole compute child.
+    # Missing new ownership fields never prove a legacy probe ended. Boot must
+    # not call this, even if some unrelated historical call is completed.
+    con.execute("UPDATE provider_circuits SET status='open',probe_after=max(probe_after,?) WHERE status='probing' AND NOT EXISTS (SELECT 1 FROM provider_probes p WHERE p.provider=provider_circuits.provider) AND NOT EXISTS (SELECT 1 FROM provider_calls c WHERE c.provider=provider_circuits.provider AND c.status IN ('running','draining','uncertain'))",(now+60,))
+
+
+def settle_exited_probes(con, worker_id, now):
+    """Only after confirmed process death AND broker reconciliation; never refund quota."""
+    con.execute("UPDATE provider_circuits SET status='open',probe_after=max(probe_after,?) WHERE provider IN (SELECT provider FROM provider_probes WHERE worker_id=?)", (now+60,worker_id))
+    con.execute('DELETE FROM provider_probes WHERE worker_id=?',(worker_id,))
+    _repair_orphaned_probes(con,now)
+
+
 class ProviderRuntime:
     def __init__(self, store, worker_id, *, clock=time.time):
         self.store, self.worker_id, self.clock = store, worker_id, clock
@@ -43,6 +57,8 @@ class ProviderRuntime:
             circuit = con.execute('SELECT status FROM provider_circuits WHERE provider=?', (provider,)).fetchone()
             if circuit and circuit[0] != 'closed' and not probe:
                 return 'circuit_open'
+            if probe and not con.execute('SELECT 1 FROM provider_probes WHERE provider=? AND call_id=? AND worker_id=?',(provider,call_id,self.worker_id)).fetchone():
+                return 'circuit_open'
             active = con.execute("SELECT count(*) FROM provider_calls WHERE status IN ('running','draining','uncertain')").fetchone()[0]
             if active >= 2:
                 return 'busy'
@@ -62,6 +78,12 @@ class ProviderRuntime:
             with self.store.transaction() as con:
                 con.execute('UPDATE provider_calls SET status=?,completed_at=? WHERE call_id=? AND worker_id=?',
                             (outcome.status, self.clock(), call_id, self.worker_id))
+                probe=con.execute('SELECT provider FROM provider_probes WHERE call_id=? AND worker_id=?',(call_id,self.worker_id)).fetchone()
+                if probe:
+                    # A newer drain/circuit opening must not be healed by this late probe.
+                    healthy=outcome.status=='completed' and outcome.value is True
+                    con.execute("UPDATE provider_circuits SET status=CASE WHEN status='probing' AND ? THEN 'closed' ELSE 'open' END,probe_after=max(probe_after,?) WHERE provider=?",(healthy,self.clock()+60,probe[0]))
+                    con.execute('DELETE FROM provider_probes WHERE call_id=? AND worker_id=?',(call_id,self.worker_id))
             self._outcomes[call_id] = outcome
 
     def outcome(self, call_id):
@@ -138,17 +160,27 @@ class ProviderRuntime:
         return bool(rows)
 
     async def health_probe(self, provider, call_id, operation):
-        """One bounded probe after cooldown; failed probes keep the circuit closed to traffic."""
+        """Durable probe ownership; actual completion settles even after waiter cancellation."""
         with self.store.transaction() as con:
-            changed = con.execute("UPDATE provider_circuits SET status='probing' WHERE provider=? AND status='open' AND probe_after<=?",
-                                  (provider, self.clock())).rowcount
+            changed = con.execute("UPDATE provider_circuits SET status='probing' WHERE provider=? AND status='open' AND probe_after<=? AND NOT EXISTS (SELECT 1 FROM provider_probes WHERE provider=?)",
+                                  (provider,self.clock(),provider)).rowcount
+            if changed:
+                con.execute('INSERT INTO provider_probes(provider,call_id,worker_id,started_at) VALUES (?,?,?,?)',(provider,call_id,self.worker_id,self.clock()))
         if not changed:
             return ProviderOutcome('circuit_open', False)
-        outcome = await self._run(call_id, operation, 5, provider, False, probe=True)
-        with self.store.transaction() as con:
-            con.execute('UPDATE provider_circuits SET status=?,probe_after=? WHERE provider=?',
-                        ('closed' if outcome.status == 'completed' and outcome.value is True else 'open', self.clock()+60, provider))
-        return outcome
+        try:
+            return await self._run(call_id,operation,5,provider,False,probe=True)
+        finally:
+            # Cancellation before submission/admission denial has no callback.
+            # Active/uncertain operations keep ownership and capacity for their
+            # actual callback or confirmed/reconciled process-exit settlement.
+            with self._lock:
+                with self.store.transaction() as con:
+                    active=con.execute("SELECT 1 FROM provider_calls WHERE call_id=? AND status IN ('running','draining','uncertain')",(call_id,)).fetchone()
+                    owned=con.execute('SELECT 1 FROM provider_probes WHERE provider=? AND call_id=? AND worker_id=?',(provider,call_id,self.worker_id)).fetchone()
+                    if owned and not active:
+                        con.execute("UPDATE provider_circuits SET status='open',probe_after=max(probe_after,?) WHERE provider=?",(self.clock()+60,provider))
+                        con.execute('DELETE FROM provider_probes WHERE provider=? AND call_id=? AND worker_id=?',(provider,call_id,self.worker_id))
 
     def shutdown(self):
         self._closed = True
