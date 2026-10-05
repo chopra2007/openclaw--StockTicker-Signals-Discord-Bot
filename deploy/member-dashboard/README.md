@@ -14,13 +14,16 @@ broker and frontend require separate reviewed identities and filesystem views.
 
 ## Concrete remaining launch gates
 
-- Recorded deployment disk was approximately 2.2 GiB free and 97% used. A fresh
+- The ending local verification disk check still failed capacity; see the
+  [verification record](../../docs/member-dashboard-verification.md). A fresh
   owner-approved capacity solution must meet 10 GiB and 15% disk free, 3 GiB
   available memory before startup, aggregate web resident memory <=2 GiB, and
   1 GiB remaining during load. Do not delete unrelated files to meet this gate.
-- Independent final bot/web/frontend/browser suites and the 20-member five-minute
-  browser load remain required. A short smoke is not acceptance. Same-host bot
-  latency requires separate authorization and no sustained increase above 10%.
+- Independent local verification and the 20-member five-minute synthetic browser
+  load are recorded in the verification record above, including focused fixes,
+  baseline failures and the development-tool advisory. Actual deployment checks
+  remain required. Same-host bot latency requires separate authorization and no
+  sustained increase above 10%.
 - Real display/derived/retention/model-use permissions, actual section coverage,
   complete intersecting provider quotas and a functioning restricted assistant
   remain unknown. A key, synthetic grant, HTTP success or public source is not proof.

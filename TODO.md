@@ -1232,3 +1232,19 @@ Use `enable savings`, `disable savings`, or `$savings` to control smaller output
 **CURRENT STATUS (2026-10-04 Pacific):** OPEN. Master GitHub regression run 37194805878 at commit 7b949be already fails 14 research checks. They require ignored research evidence bundles or a server-only opening-auction manifest. The analyst-bias clean-copy baseline and candidate reproduce the same 12 bundle failures; two additional manifest failures appear in GitHub CI, where server data is absent. Exact current-master failure IDs are recorded in `.test-baseline`; all checks continue to run, and any new failure still blocks the gate. This limitation does not prove the research results pass.
 
 Make research evidence checks reproducible without private ignored files or server-only manifests, so clean-clone CI can pass every check.
+
+## 121. Complete the member dashboard production launch — PARKED: external permissions and capacity
+
+**Details:** [Deployment runbook](deploy/member-dashboard/README.md) and
+[local verification](docs/member-dashboard-verification.md).
+
+**CURRENT STATUS (2026-10-05 Pacific):** Local implementation, independent review
+and synthetic verification are complete. Nothing was deployed or enabled.
+The server still fails disk headroom. Real source/use permissions, positive
+current authority, account/IP quota coverage and restricted assistant access
+remain unverified; real provider mappings stay closed. Finish those evidence-based
+integrations, production identity/filesystem/egress/HTTPS and backup/deletion
+proofs, the separately authorized same-host bot comparison, and the development
+dependency re-audit before seeking owner approval of the concrete launch result.
+Do not guess credentials or rights, delete unrelated files, enable the templates,
+or treat the synthetic load result as production acceptance.
