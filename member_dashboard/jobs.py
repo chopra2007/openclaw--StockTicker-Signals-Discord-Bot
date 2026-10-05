@@ -429,6 +429,9 @@ class JobService:
             con.execute('INSERT INTO worker_exits(worker_id,confirmed_at,reconciled) VALUES (?,?,?) ON CONFLICT(worker_id) DO UPDATE SET reconciled=max(reconciled,excluded.reconciled)', (worker_id, now, int(reconciled)))
             con.execute("UPDATE provider_calls SET status='uncertain',completed_at=?,reconciled=? WHERE worker_id=? AND status IN ('running','draining')", (now, int(reconciled), worker_id))
             if reconciled:
+                # A dead, broker-reconciled owner cannot renew even an unexpired
+                # lease (including work claimed before any provider call).
+                con.execute("UPDATE web_jobs SET lease_until=min(lease_until,?) WHERE worker_id=? AND status IN ('running','draining')",(now,worker_id))
                 con.execute("UPDATE provider_calls SET status='failed',reconciled=1 WHERE worker_id=? AND status='uncertain'", (worker_id,))
                 # An uncertain model turn is never automatically replayed.
                 con.execute("UPDATE assistant_turns SET status='uncertain' WHERE run_id IN (SELECT id FROM assistant_runs WHERE worker_id=? AND status IN ('running','draining')) AND status='prepared'", (worker_id,))

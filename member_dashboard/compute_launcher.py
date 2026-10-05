@@ -63,7 +63,7 @@ class CgroupLauncher:
 
         Unknown/missing/recreated tree evidence blocks; no web-only ledger reset.
         """
-        response=self.control.call('pending')
+        response=self.control.call('recovery')
         if set(response)!={'workers'} or len(response['workers'])>32: raise ValueError('unknown_broker_ownership')
         children=[p for p in self.root.iterdir() if p.is_dir()]
         if len(children)>32: raise ValueError('retained_cgroup_capacity')
@@ -75,8 +75,8 @@ class CgroupLauncher:
             path=self.root/worker
             if path.is_symlink() or not path.is_dir(): raise ValueError('missing_retained_cgroup')
             (path/'cgroup.kill').write_text('1')
-            if not self.control.reconcile(worker): return False
-        return True
+            if not self.control.reconcile(worker): return None
+        return response['workers']
 
     def __call__(self):
         # cgroup interface files are not children; cap retained worker directories.
@@ -111,6 +111,36 @@ class CgroupLauncher:
         finally: parent.close();child.close()
 
 
+def drop_compute_privileges(uid,gid):
+    """Drop held capabilities explicitly, including nonroot ambient launchers.
+
+    no_new_privs prevents regaining privilege at a later exec; bounding-set bits
+    are ceilings, not held privileges, and need not be expanded with SETPCAP just
+    to remove them. No privileged sibling thread may survive the transition.
+    """
+    import ctypes
+    if sys.platform!='linux' or uid<=0 or gid<=0 or len(list(Path('/proc/self/task').iterdir()))!=1:
+        raise ValueError('single_thread_linux_privilege_drop_required')
+    libc=ctypes.CDLL(None,use_errno=True)
+    libc.prctl.argtypes=[ctypes.c_int,*([ctypes.c_ulong]*4)]
+    class Header(ctypes.Structure): _fields_=[('version',ctypes.c_uint32),('pid',ctypes.c_int)]
+    class Data(ctypes.Structure): _fields_=[('effective',ctypes.c_uint32),('permitted',ctypes.c_uint32),('inheritable',ctypes.c_uint32)]
+    libc.capset.argtypes=[ctypes.POINTER(Header),ctypes.POINTER(Data)]
+    def checked(result):
+        if result!=0: raise OSError(ctypes.get_errno(),'compute capability drop failed')
+    checked(libc.prctl(38,1,0,0,0))  # PR_SET_NO_NEW_PRIVS
+    os.setgroups([]);os.setresgid(gid,gid,gid);os.setresuid(uid,uid,uid)
+    checked(libc.prctl(47,4,0,0,0))  # PR_CAP_AMBIENT_CLEAR_ALL
+    header=Header(0x20080522,0);empty=(Data*2)()
+    checked(libc.capset(ctypes.byref(header),empty))
+    status=dict(line.split(':',1) for line in Path('/proc/self/status').read_text().splitlines())
+    if (any(int(status[key].strip(),16)!=0 for key in ('CapEff','CapPrm','CapInh','CapAmb'))
+            or status['NoNewPrivs'].strip()!='1'
+            or any(int(value)!=uid for value in status['Uid'].split())
+            or any(int(value)!=gid for value in status['Gid'].split()) or status['Groups'].strip()):
+        raise ValueError('compute_privilege_drop_unverified')
+
+
 def main():
     import argparse
     parser=argparse.ArgumentParser()
@@ -118,7 +148,7 @@ def main():
     for key in ('config','worker'): parser.add_argument('--'+key,required=True)
     args=parser.parse_args()
     if os.getpid()!=1 or args.uid<=0 or args.gid<=0: raise ValueError('private_compute_namespace_required')
-    os.setgroups([]);os.setgid(args.gid);os.setuid(args.uid)
+    drop_compute_privileges(args.uid,args.gid)
     # No provider/app/config import before the independent broker admission.
     with socket.socket(fileno=args.gate_fd) as gate:
         gate.settimeout(5);gate.sendall(b'R')

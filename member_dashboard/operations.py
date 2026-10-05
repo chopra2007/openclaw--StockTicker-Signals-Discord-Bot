@@ -109,6 +109,17 @@ async def run_compute(config,worker):
     await ComputeWorker(jobs,registry,runtime).serve()
 
 
+def recover_worker_state(launcher,store,now):
+    """Repeatable broker-to-web handoff; broker tombstones survive either crash."""
+    from .jobs import JobService
+    workers=launcher.recover()
+    if workers is None: return False
+    jobs=JobService(store,None,None,None)
+    for worker in workers: jobs.confirm_worker_exit(worker,now,reconciled=True)
+    jobs.recover_expired_leases(now)
+    return True
+
+
 def supervisor(config):
     from .compute_launcher import CgroupLauncher,ExitClient
     from .worker import WorkerSupervisor
@@ -127,8 +138,10 @@ def supervisor(config):
     worker=WorkerSupervisor(store,launcher,feed.feed_tick,reconcile=control.reconcile)
     try:
         while True:
-            if worker.child is None and not launcher.recover():
-                feed.feed_tick(time.time());time.sleep(1);continue
+            if worker.child is None:
+                if not recover_worker_state(launcher,store,time.time()):
+                    feed.feed_tick(time.time());time.sleep(1);continue
+                worker.blocked=False  # tick rechecks any still-unknown web owner.
             worker.tick();time.sleep(.1)
     finally:
         if worker.child is not None:

@@ -5,13 +5,14 @@ anchor only after validating the complete monotonic hash chain. Interrupted
 append/anchor updates fail closed. The Linux updater is denial-only; deployment
 identities and positive external permission authority remain unconfigured.
 """
-from contextlib import closing
+from contextlib import closing,contextmanager
 import hashlib
 import json
 import math
 import os
 from pathlib import Path
 import sqlite3
+import stat
 import time
 from uuid import uuid4
 from .launch import protected,private_output,read_private_json
@@ -115,11 +116,53 @@ class DenialJournal:
             protected(path);self._protected_identities[path]=identity
 
     def current(self):
+        with self._publication_lock(): return self._current()
+
+    @contextmanager
+    def _publication_lock(self):
+        """Bounded process/thread lock covers journal, checkpoint and anchor.
+
+        Only lock contention is waited on. An acquired lock never makes a stale
+        or interrupted state retryable or acceptable.
+        """
+        path=self.path.parent/'.authority.lock'
+        if path.is_symlink(): raise ValueError('unsafe_authority_lock')
+        fd=os.open(path,os.O_CREAT|os.O_RDWR|getattr(os,'O_NOFOLLOW',0),0o600)
+        acquired=False
+        try:
+            info=os.fstat(fd)
+            if not stat.S_ISREG(info.st_mode) or (os.name=='posix' and (info.st_uid!=os.getuid() or info.st_mode&0o077)):
+                raise ValueError('unsafe_authority_lock')
+            if info.st_size==0: os.write(fd,b'0')
+            deadline=time.monotonic()+2
+            while True:
+                try:
+                    if os.name=='nt':
+                        import msvcrt
+                        os.lseek(fd,0,os.SEEK_SET);msvcrt.locking(fd,msvcrt.LK_NBLCK,1)
+                    else:
+                        import fcntl
+                        fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+                    acquired=True;break
+                except OSError:
+                    if time.monotonic()>=deadline: raise ValueError('authority_busy') from None
+                    time.sleep(.01)
+            yield
+        finally:
+            if acquired:
+                if os.name=='nt': os.lseek(fd,0,os.SEEK_SET);msvcrt.locking(fd,msvcrt.LK_UNLCK,1)
+                else: fcntl.flock(fd,fcntl.LOCK_UN)
+            os.close(fd)
+
+    def _current(self):
         self._protected(self.path)
         with closing(sqlite3.connect(self.path.as_uri()+'?mode=ro',uri=True,timeout=2)) as con:
             return self._read(con)[0]
 
     def append(self,kind,key):
+        with self._publication_lock(): return self._append(kind,key)
+
+    def _append(self,kind,key):
         if kind not in KINDS or not isinstance(key,str) or not 1<=len(key.encode('utf-8'))<=512 or any(ord(c)<32 for c in key):
             raise ValueError('invalid_denial')
         self._protected(self.path)
@@ -145,6 +188,9 @@ class DenialJournal:
 
     def renew(self):
         """Trusted updater heartbeat; stale/mismatched state cannot be renewed."""
+        with self._publication_lock(): return self._renew()
+
+    def _renew(self):
         self._protected(self.path)
         with closing(sqlite3.connect(self.path,timeout=2)) as con:
             con.execute('BEGIN IMMEDIATE')

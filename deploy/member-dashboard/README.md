@@ -70,7 +70,8 @@ compute progress. No admin-supplied URL or process-control operation exists.
 
 `ExitControlServer` is a separate Linux local socket. Only the configured distinct
 supervisor UID may call `register(worker UUID, PID)`, `reconcile(worker UUID)` or
-the bounded pending-owner inventory used during supervisor restart.
+the bounded recovery inventory used during supervisor restart. Reconciled tombstones
+remain in that inventory so a crash before the web commit cannot lose the handoff.
 The broker derives boot/PID/start identity and a dedicated cgroup path/inode from
 the kernel; the child must be gated alone and owned by the configured compute UID.
 No client-supplied owner, cgroup, path or dead flag is accepted. The ordinary budget
@@ -168,11 +169,19 @@ No role accepts commands, plugin/module names, provider credentials or verified 
 
 The launcher uses only `/usr/bin/unshare --pid --fork --mount-proc`, the current
 Python executable and the fixed compute module. Kernel SCM_CREDENTIALS supplies
-the actual child PID/UID/GID after privilege drop. The supervisor moves that gated
+the actual child PID/UID/GID after privilege drop. Before that handshake, compute
+explicitly clears effective/permitted/inheritable/ambient capabilities, verifies all
+four sets are zero and all real/effective/saved/filesystem IDs match, and requires
+no_new_privs. This covers a nonroot supervisor with ambient capabilities as well as
+root. Bounding-set ceilings are not held privileges; no extra SETPCAP capability is
+added merely to erase those ceilings. The supervisor moves that gated
 child into a UUID cgroup under its explicitly delegated service subtree, then the
 independent broker verifies and registers it before admission. All descendants
 inherit that group. Replacement first inventories pending broker owners and kills/
-reconciles retained groups; absent or recreated evidence blocks. At most 32 worker
+reconciles retained groups and carries the exact confirmed identities into durable
+web call/probe/lease settlement before replacement. The broker retains its tombstones
+if the supervisor crashes between broker and web commits; repeating the handoff is
+idempotent. Absent or recreated evidence blocks. At most 32 worker
 groups are retained. No automatic cgroup cleanup or broad host writes occur.
 
 The exact delegated subtree must preexist and lie beneath the supervisor's current
@@ -184,7 +193,10 @@ user, mount, ACL, egress rule or cgroup delegation was installed by this task.
 Authority initialization is an explicit trusted provisioning operation using
 CheckpointStore.create and DenialJournal.create; normal service startup never
 recreates missing state. Renewal validates the entire chain against the independent
-checkpoint, and fails on expiry/mismatch. The service must be running to maintain
+checkpoint, and fails on expiry/mismatch. A bounded OS lock serializes reads, append
+and renewal through the complete journal/checkpoint/anchor publication, across
+objects/processes. Only lock contention waits; unknown mismatches are never retried.
+Malformed decoder recursion is contained to its RPC connection. The service must be running to maintain
 its <=300-second continuity window. Lost/expired authority needs trusted recovery;
 this code does not manufacture an external-current receipt. Denial continuity
 cannot upgrade source/account/model rights. API and worker source policies remain

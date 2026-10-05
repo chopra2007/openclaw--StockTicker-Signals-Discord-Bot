@@ -107,7 +107,7 @@ def test_gated_compute_actual_cgroup_registration_and_recovery(monkeypatch):
         with authority,ExitControlServer(registry,str(socketdir/'control')):
             control=ExitClient(socketdir/'control',0)
             launcher=CgroupLauncher(root,compute_uid=65534,compute_gid=65534,config=config,control=control)
-            assert launcher.recover()
+            assert launcher.recover()==[]
             child=launcher()
             with store.transaction() as con:
                 row=con.execute('SELECT worker,owner,cgroup,state FROM trusted_workers').fetchone()
@@ -128,7 +128,7 @@ def test_gated_compute_actual_cgroup_registration_and_recovery(monkeypatch):
             assert child.is_dead()
             child.close()
             replacement=CgroupLauncher(root,compute_uid=65534,compute_gid=65534,config=config,control=control)
-            assert replacement.recover()
+            assert replacement.recover()==[child.worker_id]
             with store.transaction() as con:
                 assert con.execute('SELECT state FROM trusted_workers').fetchone()[0]=='reconciled'
             assert child.path.is_dir()  # Evidence retained through recovery.
@@ -147,3 +147,85 @@ def test_authority_rpc_authenticates_actual_peers(tmp_path):
         assert client.current()[0][1]=='feature_disabled'
         with pytest.raises(ValueError,match='wrong_authority_server'):
             AuthorityClient(root/'rpc',os.getuid()+1).current()
+
+
+def test_authority_nested_json_cannot_kill_rpc_thread(tmp_path,monkeypatch):
+    import struct
+    from member_dashboard.authority import DenialJournal,CheckpointStore
+    from member_dashboard.authority_rpc import AuthorityService,AuthorityServer,AuthorityClient
+    root=tmp_path/'authority';root.mkdir(mode=0o700)
+    journal=DenialJournal.create(root/'journal',root/'anchor',checkpoint=CheckpointStore.create(tmp_path/'checkpoint'))
+    service=AuthorityService(journal,read_uids=[os.getuid()],write_uids=[os.getuid()])
+    with AuthorityServer(service,str(root/'rpc')) as server:
+        with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as bad:
+            bad.settimeout(2);bad.connect(str(root/'rpc'))
+            payload=b'['*4000+b'0'+b']'*4000
+            bad.sendall(struct.pack('!I',len(payload))+payload)
+            bad.recv(1024)
+        client=AuthorityClient(root/'rpc',os.getuid())
+        assert client.current()==[]
+        assert client.append('feature_disabled','options')==1
+        assert server.thread.is_alive()
+        # Some supported Python builds accept all nesting that fits 16KiB.
+        # Exercise the decoder exception boundary deterministically as well.
+        from member_dashboard import authority_rpc
+        original=authority_rpc.receive_frame
+        def decoder_limit(connection):
+            value=original(connection)
+            if isinstance(value,list): raise RecursionError('synthetic decoder recursion limit')
+            return value
+        monkeypatch.setattr(authority_rpc,'receive_frame',decoder_limit)
+        with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as bad:
+            bad.settimeout(2);bad.connect(str(root/'rpc'))
+            bad.sendall(struct.pack('!I',len(payload))+payload);bad.recv(1024)
+        assert client.current()[0][1]=='feature_disabled'
+        assert server.thread.is_alive()
+
+
+def test_nonroot_ambient_capabilities_are_removed_before_compute(tmp_path):
+    if os.getuid()!=0: pytest.skip('Isolated root runner required for ambient capability fixture')
+    # Only this disposable child gains synthetic capabilities; parent and host
+    # permissions are unchanged. Mirror the documented nonroot supervisor unit.
+    script=r'''
+import ctypes,json,os,socket,sys
+from pathlib import Path
+from member_dashboard.compute_launcher import drop_compute_privileges
+libc=ctypes.CDLL(None,use_errno=True)
+class Header(ctypes.Structure): _fields_=[('version',ctypes.c_uint32),('pid',ctypes.c_int)]
+class Data(ctypes.Structure): _fields_=[('effective',ctypes.c_uint32),('permitted',ctypes.c_uint32),('inheritable',ctypes.c_uint32)]
+header=Header(0x20080522,0);data=(Data*2)();mask=(1<<6)|(1<<7)|(1<<21)
+assert libc.prctl(8,1,0,0,0)==0
+os.setgroups([]);os.setgid(65533);os.setuid(65533)
+data[0]=Data(mask,mask,mask)
+assert libc.capset(ctypes.byref(header),ctypes.byref(data))==0
+for capability in (6,7,21): assert libc.prctl(47,2,capability,0,0)==0
+before=Path('/proc/self/status').read_text()
+assert int(next(v.split()[1] for v in before.splitlines() if v.startswith('CapAmb:')),16)==mask
+drop_compute_privileges(65534,65534)
+for change in (lambda:os.setuid(65533),lambda:os.setgid(65533),lambda:os.setgroups([65533])):
+    try: change()
+    except PermissionError: pass
+    else: raise AssertionError('privileged identity operation survived')
+status=Path('/proc/self/status').read_text()
+for label in ('CapEff:','CapPrm:','CapInh:','CapAmb:'):
+    assert int(next(v.split()[1] for v in status.splitlines() if v.startswith(label)),16)==0
+assert next(v.split()[1] for v in status.splitlines() if v.startswith('NoNewPrivs:'))=='1'
+from consensus_engine.utils.provider_budget import send_frame,receive_frame
+with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as con:
+    con.connect(sys.argv[1]);send_frame(con,{'method':'recovery'})
+    assert receive_frame(con)=={'ok':False}
+print(json.dumps({'ambient_before':mask,'held_after':0,'identity_change_denied':True,'control_denied':True}))
+'''
+    from member_dashboard.store import WebStore
+    from member_dashboard.quota_broker import QuotaBroker
+    from member_dashboard.exit_control import ExitRegistry,ExitControlServer
+    with tempfile.TemporaryDirectory(prefix='ambient-',dir='/run') as directory:
+        root=Path(directory);root.chmod(0o755)
+        socketdir=root/'control';socketdir.mkdir(mode=0o750);os.chown(socketdir,0,65534)
+        store=WebStore(root/'quota');store.migrate()
+        registry=ExitRegistry(QuotaBroker(store),supervisor_uid=65533,compute_uid=65534,cgroup_root=Path('/sys/fs/cgroup/synthetic'))
+        server=ExitControlServer(registry,str(socketdir/'rpc'));os.chown(socketdir/'rpc',0,65534)
+        with server:
+            result=subprocess.run([sys.executable,'-c',script,str(socketdir/'rpc')],capture_output=True,text=True,timeout=10)
+        assert result.returncode==0,result.stderr
+        assert json.loads(result.stdout)['held_after']==0

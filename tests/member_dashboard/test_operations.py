@@ -77,3 +77,76 @@ def test_checkpoint_cannot_hide_inside_journal_snapshot(tmp_path):
     checkpoint=CheckpointStore.create(nested/'checkpoint')
     with pytest.raises(ValueError,match='outside_journal'):
         DenialJournal.create(root/'journal',root/'anchor',checkpoint=checkpoint)
+
+
+def test_renew_waits_for_complete_denial_publication(tmp_path,monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    import threading
+    from member_dashboard.authority import DenialJournal,CheckpointStore
+    root=tmp_path/'journal';root.mkdir(mode=0o700)
+    journal=DenialJournal.create(root/'journal',root/'anchor',checkpoint=CheckpointStore.create(tmp_path/'checkpoint'))
+    # Separate object matches the updater/RPC concurrency and shares no Python lock.
+    updater=DenialJournal(root/'journal',root/'anchor',checkpoint=CheckpointStore(tmp_path/'checkpoint'))
+    entered=threading.Event();release=threading.Event();renew_entered=threading.Event()
+    original=journal.checkpoint.advance
+    def paused(*args):
+        entered.set();assert release.wait(5);return original(*args)
+    monkeypatch.setattr(journal.checkpoint,'advance',paused)
+    def renew(): renew_entered.set();return updater.renew()
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        append=pool.submit(journal.append,'feature_disabled','options')
+        if not entered.wait(5): append.result(timeout=1);pytest.fail('append did not reach checkpoint')
+        renewal=pool.submit(renew);assert renew_entered.wait(5)
+        try:
+            import time
+            time.sleep(.2)
+            assert not renewal.done(), 'renew observed the intentional multi-file update gap'
+        finally: release.set()
+        assert append.result(timeout=5)==1
+        renewal.result(timeout=5)
+    assert updater.current()[0][1]=='feature_disabled'
+
+
+from test_jobs import research
+
+
+@pytest.mark.parametrize('with_call',[False,True])
+def test_restart_carries_broker_tombstone_into_web_after_crash(research,dashboard,tmp_path,with_call):
+    from member_dashboard.operations import recover_worker_state
+    from member_dashboard.exit_control import ExitRegistry
+    from member_dashboard.quota_broker import QuotaBroker
+    from member_dashboard.store import WebStore
+    from member_dashboard.compute_launcher import CgroupLauncher
+    from member_dashboard.worker import WorkerSupervisor
+    from uuid import uuid4
+    service,users,_,_=research;worker=str(uuid4());now=dashboard.clock()
+    service.request_research(users[0],'SPY',False,now)
+    job=service.claim_job(worker,now)
+    if with_call:
+        with dashboard.store.transaction() as con:
+            con.execute("INSERT INTO provider_calls(call_id,worker_id,provider,status,started_at) VALUES (?,?,?,'running',?)",(job.call_id,worker,'synthetic',now))
+    quota=WebStore(tmp_path/'quota.sqlite3');quota.migrate()
+    registry=ExitRegistry(QuotaBroker(quota),supervisor_uid=123,compute_uid=456,cgroup_root=Path('/sys/fs/cgroup/synthetic'))
+    with quota.transaction() as con:
+        con.execute('INSERT INTO trusted_workers VALUES (?,?,?,?,?,?)',(worker,'synthetic-owner','/sys/fs/cgroup/synthetic/'+worker,1,now,'registered'))
+    registry._tree_dead=lambda _:True  # Kernel proof is exercised separately on Linux.
+    root=tmp_path/'groups';root.mkdir();(root/worker).mkdir();(root/worker/'cgroup.kill').touch()
+    class Control:
+        def call(self,method): return registry.dispatch({'method':method},peer_uid=123)
+        def reconcile(self,key): return registry.reconcile(key)
+    launcher=CgroupLauncher.__new__(CgroupLauncher);launcher.root=root;launcher.control=Control()
+    # Abrupt crash: no worker_exits row. Then crash again after independent broker
+    # settlement but before any web commit. Fresh launcher must rediscover tombstone.
+    assert launcher.recover()==[worker]
+    with dashboard.store.transaction() as con:
+        assert con.execute('SELECT count(*) FROM worker_exits').fetchone()[0]==0
+    restarted=CgroupLauncher.__new__(CgroupLauncher);restarted.root=root;restarted.control=Control()
+    assert recover_worker_state(restarted,dashboard.store,now)
+    with dashboard.store.transaction() as con:
+        assert con.execute('SELECT reconciled FROM worker_exits WHERE worker_id=?',(worker,)).fetchone()[0]==1
+        assert con.execute('SELECT status FROM web_jobs WHERE id=?',(job.id,)).fetchone()[0]=='queued'
+        if with_call: assert con.execute('SELECT status FROM provider_calls').fetchone()[0]=='failed'
+    spawned=[]
+    supervisor=WorkerSupervisor(dashboard.store,lambda:spawned.append(True),lambda _:None,clock=dashboard.clock)
+    supervisor.tick()
+    assert spawned==[True]

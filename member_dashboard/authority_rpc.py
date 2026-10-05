@@ -44,7 +44,7 @@ class AuthorityServer(BrokerServer):
                 try:
                     _,uid,_=struct.unpack('3i',connection.getsockopt(socket.SOL_SOCKET,socket.SO_PEERCRED,12))
                     result=self.service.dispatch(receive_frame(connection),peer_uid=uid)
-                except (OSError,ValueError,TypeError,KeyError,sqlite3.Error): result={'error':'authority_unavailable'}
+                except (OSError,ValueError,TypeError,KeyError,RecursionError,sqlite3.Error): result={'error':'authority_unavailable'}
                 try: send_frame(connection,result)
                 except (OSError,ValueError): pass
 
