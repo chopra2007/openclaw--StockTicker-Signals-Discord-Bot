@@ -23,7 +23,10 @@ The sections below this one are the original design notes; where they say "templ
 - **Logs:** `journalctl --namespace=member-dashboard`. The compute child's own output is discarded by design.
 - **Public site (live 2026-10-06):** nginx on 443 for `akash.ignorelist.com` (provision.sh step 10), port 80 closed.
   First admin: as root in a real terminal, `cd /opt/member-dashboard/current && /opt/member-dashboard/venv/bin/python -m member_dashboard.manage create-admin --username NAME`.
-  Still open: backups (64 MB database cap in the backup tool), certificate auto-renew, egress restriction for the compute child.
+  Backups: `member-dashboard-archive.timer` 02:30 nightly; root copies the DB (`web-snapshot.py`), md-archive strips
+  feed cards, encrypts to `/var/lib/member-dashboard/archives/*.mdb` (14 days). A restore suspends every account;
+  get back in with `manage recover-admin`. Certificate: `certbot-renew.timer` (opens port 80 only while renewing).
+  Still open: egress restriction for the compute child.
 
 **NOT READY for production.** These files are review templates. Every service has
 an unconditional false start condition, and fixed Linux role composition rejects

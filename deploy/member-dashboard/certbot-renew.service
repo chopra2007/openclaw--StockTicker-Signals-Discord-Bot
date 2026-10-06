@@ -1,0 +1,6 @@
+[Unit]
+Description=Renew the akash.ignorelist.com HTTPS certificate when due (opens port 80 only while renewing)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/certbot renew -q

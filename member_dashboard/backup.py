@@ -122,3 +122,25 @@ def maintain_archives(root,*,key_path,node,now=None):
             path.unlink();removed+=1
             if removed==2: break
     return removed
+
+
+# Feed cards are copies of bot data and the feed re-imports them once its checkpoints are gone.
+FEED_TABLES=('publication_intervals','publication_heads','publication_evidence_refs','publication_retractions',
+             'publication_changes','publications','source_checkpoints','feed_source_status')
+
+
+def accounts_backup(staging,root,*,key_path,node,now=None,retention_seconds=14*86400):
+    """Encrypted backup of a private web snapshot without feed cards (owner decision 2026-10-06).
+
+    The snapshot is consumed: feed rows are deleted from it, then it is encrypted and removed.
+    """
+    staging=protected(Path(staging))
+    try:
+        with closing(sqlite3.connect(staging)) as con:
+            for table in FEED_TABLES: con.execute(f'DELETE FROM {table}')
+            con.commit();con.execute('VACUUM')
+        name=time.strftime('%Y%m%d-%H%M%S',time.gmtime(time.time() if now is None else now))+'.mdb'
+        return encrypted_backup(staging,Path(root)/name,root,quota_path=Path(root)/'no-quota.sqlite3',
+                                key_path=key_path,node=node,retention_seconds=retention_seconds)
+    finally:
+        for suffix in ('','-wal','-shm'): Path(str(staging)+suffix).unlink(missing_ok=True)

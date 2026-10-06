@@ -1233,16 +1233,11 @@ Proven live: assistant answers (OpenRouter gpt-4o-mini, $3/day cap stops spendin
 bot DB, SEC/options/expected moves/analysis (AI write-up shares the $3 cap), public sign-in + research.
 Bot speed unchanged with the dashboard on (fresh `!all` median 90.1 s off vs 91.7 s on). Disk 29 GB free.
 
+**Done 2026-10-06 (owner decisions):** admin `akash` created; test member `phasec_probe` suspended.
+Nightly accounts-only encrypted backup 02:30 PDT (feed cards excluded, they rebuild; 14-day retention; restore
+proven). Certificate auto-renew timer on (dry run passed). Dashboard Schwab share lowered 40 → 15/min (the bot
+shares the Schwab login). Raw bot mentions (`ticker_signals`) are deliberately NOT member feed cards.
+
 **Open follow-ups:**
-1. Owner: create the first admin (needs your password typed in):
-   in an SSH terminal as root (it needs a real terminal for the hidden password prompt):
-   `cd /opt/member-dashboard/current && /opt/member-dashboard/venv/bin/python -m member_dashboard.manage create-admin --username NAME`
-   then suspend test member `phasec_probe` in the admin page (kept for the 07:00 PDT 2026-10-06 market-hours check).
-   Raw bot mentions (`ticker_signals`) are deliberately NOT member feed cards (~55k/day; 90-day retention ≈ 12 GB).
-2. Backups: built-in encrypted backup caps the database at 64 MB (30 files / 128 MB total); the web DB is
-   now 77 MB and steady after the history copy (bot feed cards, rebuildable). Decide: back up accounts only, or raise caps.
-3. Certificate auto-renew is OFF (renewal opens port 80 briefly); reminder fires 2026-12-15, expiry 2027-01-04.
-4. Egress: the worker can reach the whole internet (no per-host allowlist yet).
-6. Shared Schwab limit: dashboard + bot use one Schwab app; at 07:00 2026-10-06 a dashboard research run pushed the
-   bot's TODO #109 option poll into a 429 cooldown (one poll lost). Lower the dashboard's 40/60 s Schwab budget.
-5. Web DB growth: watch `/var/lib/member-dashboard/web/web.sqlite3` size (77 MB, steady, 2026-10-06 06:00).
+1. Egress: the worker can reach the whole internet (no per-host allowlist yet).
+2. Web DB growth: watch `/var/lib/member-dashboard/web/web.sqlite3` (77 MB, steady, 2026-10-06).

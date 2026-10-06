@@ -36,7 +36,8 @@ SEC_SCOPE,SCHWAB_SCOPE='sec.requests','schwab.requests'
 SEC_AGENT='OpenClaw Signal Engine (ak@openclaw.dev)'
 # (scope, rolling window seconds, dashboard limit). SEC allows 10/s overall; Schwab ~120/min
 # shared with the bot, which is not metered here, so the dashboard keeps a third of it.
-PROVIDER_LIMITS=((SEC_SCOPE,60,300),(SCHWAB_SCOPE,60,40))
+# Schwab: the bot shares this app login; owner chose 15/min (2026-10-06) so the bot keeps its headroom.
+PROVIDER_LIMITS=((SEC_SCOPE,60,300),(SCHWAB_SCOPE,60,15))
 SYMBOLS=Path('/etc/member-dashboard/symbols.json')  # Written by provision.sh from SEC ticker lists.
 
 
@@ -405,8 +406,10 @@ def main():
     elif args.role=='quota': quota(config)
     elif args.role=='authority': authority(config)
     elif args.role=='archive':
-        from .backup import maintain_archives
+        from .backup import maintain_archives,accounts_backup
         maintain_archives(config['archive_root'],key_path=Path(config['key_path']),node=Path(config['node_path']))
+        staging=Path(config['archive_root'])/'web-snapshot.sqlite3'  # Written by the unit's root pre-step.
+        if staging.exists(): accounts_backup(staging,config['archive_root'],key_path=Path(config['key_path']),node=Path(config['node_path']))
     else: raise ValueError('compute_requires_kernel_gate')
 
 

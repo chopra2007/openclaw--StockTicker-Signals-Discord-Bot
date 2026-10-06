@@ -1,8 +1,9 @@
-# REVIEW TEMPLATE. No Install section; never enabled automatically.
 [Unit]
-Description=Member dashboard bounded archive maintenance
-ConditionPathExists=UNCONFIGURED_OWNER_APPROVED_ACTIVATION
+Description=Member dashboard nightly accounts backup (02:30 PDT)
 [Timer]
-OnBootSec=10m
-OnUnitActiveSec=1h
+OnCalendar=*-*-* 02:30
+Persistent=true
 Unit=member-dashboard-archive.service
+
+[Install]
+WantedBy=timers.target

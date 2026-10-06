@@ -154,6 +154,26 @@ def test_encrypted_backup_roundtrip_and_tamper(tmp_path):
     assert not (root/'bad.sqlite3').exists()
 
 
+def test_accounts_backup_drops_feed_cards_and_keeps_members(tmp_path):
+    import shutil,time,uuid
+    from member_dashboard.backup import accounts_backup,encrypted_restore
+    from member_dashboard.store import WebStore
+    node=shutil.which('node') or '/opt/member-dashboard/node/bin/node'
+    if not Path(node).exists(): pytest.skip('Node is needed for the archive cipher')
+    root=tmp_path/'archive';root.mkdir(mode=0o700)
+    staging=root/'web-snapshot.sqlite3';WebStore(staging).migrate();staging.chmod(0o600)
+    with sqlite3.connect(staging) as con:
+        con.execute("INSERT INTO members(id,username,password_hash,role,created_at) VALUES (?,?,?,?,?)",(str(uuid.uuid4()),'owner','x','admin',1.0))
+        con.execute("INSERT INTO source_checkpoints(source_id,last_id,updated_at) VALUES ('alert_history',9,1.0)")
+    key=root/'key';key.write_bytes(os.urandom(32));key.chmod(0o600)
+    archive=accounts_backup(staging,root,key_path=key,node=Path(node),now=time.time())
+    assert not staging.exists() and archive.suffix=='.mdb' and archive.parent==root
+    restored=encrypted_restore(archive,root/'restore.sqlite3',root,quota_path=root/'quota.sqlite3',key_path=key,node=Path(node))
+    with sqlite3.connect(restored) as con:
+        assert con.execute("SELECT username FROM members").fetchall()==[('owner',)]
+        assert con.execute("SELECT count(*) FROM source_checkpoints").fetchone()[0]==0  # Feed re-imports after restore.
+
+
 def test_current_denial_journal_survives_old_web_restore_and_rejects_rollback(tmp_path):
     from member_dashboard.authority import DenialJournal,CheckpointStore
     from member_dashboard.store import WebStore

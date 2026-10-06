@@ -190,15 +190,16 @@ umask 077
 [ -e "$LIB/denials/journal.sqlite3" ] || runuser -u md-authority -- "$PY" -c \
   "from member_dashboard.authority import DenialJournal,CheckpointStore as C;DenialJournal.create('$LIB/denials/journal.sqlite3','$LIB/denials/anchor.json',checkpoint=C.create('/var/lib/member-dashboard-high-water/checkpoint.sqlite3'))"
 
-# 8. Units (archive timer stays off until backups are owner-approved).
+# 8. Units. Nightly accounts backup approved by the owner 2026-10-06 (archive timer).
 install -m 0644 "$REPO"/deploy/member-dashboard/member-dashboard.slice /etc/systemd/system/
-install -m 0644 "$REPO"/deploy/member-dashboard/member-dashboard-{api,worker,authority,frontend,archive}.service /etc/systemd/system/
+install -m 0644 "$REPO"/deploy/member-dashboard/member-dashboard-{api,worker,authority,frontend,archive}.service \
+  "$REPO"/deploy/member-dashboard/member-dashboard-archive.timer /etc/systemd/system/
 install -m 0644 "$REPO"/deploy/member-dashboard/quota.service /etc/systemd/system/member-dashboard-quota.service
 install -m 0644 "$REPO"/deploy/member-dashboard/journald.conf /etc/systemd/journald@member-dashboard.conf
 install -m 0644 "$REPO"/deploy/member-dashboard/member-dashboard-schwab-{sync.service,sync.timer,renew.service} /etc/systemd/system/
-install -d -m 0755 "$OPT/deploy" && install -m 0755 "$REPO"/deploy/member-dashboard/schwab-token-sync.py "$OPT/deploy/"
+install -d -m 0755 "$OPT/deploy" && install -m 0755 "$REPO"/deploy/member-dashboard/{schwab-token-sync,web-snapshot}.py "$OPT/deploy/"
 systemctl daemon-reload
-systemctl enable --now member-dashboard-schwab-sync.timer >/dev/null
+systemctl enable --now member-dashboard-schwab-sync.timer member-dashboard-archive.timer >/dev/null
 echo "provisioned; start with: systemctl enable --now member-dashboard-{authority,quota,api,worker,frontend}"
 
 # 9. Owner-attested data permissions (owner decision 2026-10-05: provider permissions are the

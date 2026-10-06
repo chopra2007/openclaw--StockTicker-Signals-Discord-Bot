@@ -1,9 +1,8 @@
 # REVIEW TEMPLATE. Logical authenticated expiry removal; no media-erasure claim.
 [Unit]
-Description=Member dashboard archive retention
+Description=Member dashboard nightly accounts backup and archive retention
 [Service]
 Type=oneshot
-ExecCondition=/usr/bin/false
 User=md-archive
 Group=md-archive
 WorkingDirectory=/opt/member-dashboard/current
@@ -29,8 +28,10 @@ Restart=no
 StandardOutput=journal
 StandardError=journal
 LogNamespace=member-dashboard
+# Root copies the live DB first (owner decision 2026-10-06: back up accounts, not feed cards).
+ExecStartPre=+/usr/bin/python3 /opt/member-dashboard/deploy/web-snapshot.py
 ExecStart=/opt/member-dashboard/venv/bin/python -m member_dashboard.operations archive --config /etc/member-dashboard/archive.json
-RuntimeMaxSec=45
+RuntimeMaxSec=180
 ReadWritePaths=/var/lib/member-dashboard/archives
 ReadOnlyPaths=/etc/member-dashboard/archive.json /etc/member-dashboard/archive-key
 InaccessiblePaths=-/root -/home/openclaw -/var/lib/member-dashboard/web -/var/lib/member-dashboard/quota -/var/lib/member-dashboard/denials -/var/lib/member-dashboard-high-water -/etc/member-dashboard/providers
