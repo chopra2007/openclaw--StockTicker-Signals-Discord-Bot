@@ -25,7 +25,7 @@ git worktree `C:/Users/Desktop/.codex/worktrees/ac44/Discord bot`:
 
 ## What is NOT done (never mark these complete without proof)
 
-1. The work exists **only on the PC**. It is not on GitHub and not on this server (checked:
+1. ~~Work only on the PC~~: transferred in Phase A (branch `member-dashboard` here; not on GitHub yet).
    `git cat-file -t 421d71c` fails here; no matching branch on origin).
 2. Not merged into `master`. Master has moved since the base: `eb4faa1`, `077a05f`,
    `0d8d1d9`, `5a7af09` (touching `TODO.md`, `config/consensus.yaml`,
@@ -39,7 +39,9 @@ git worktree `C:/Users/Desktop/.codex/worktrees/ac44/Discord bot`:
 5. Launch (TODO #121 gates). Blocked on the user, see Phase C. Nothing is deployed and all dashboard
    service units are shipped switched off (`ExecCondition=false`).
 
-## Phase A: transfer (Windows PC, Claude Code, small)
+## Phase A: transfer (Windows PC, Claude Code, small) — DONE 2026-10-05
+
+Result: branch `member-dashboard` = `421d71c…` (35 commits since `725e48f`) is in this repo. Evidence is in `.omc/member-dashboard-evidence/` (1,088 files, 28 MB, after removing a copied Python environment and package installers that were not evidence). Phase B step 1 still re-checks this independently.
 
 Implementer: Claude Code on the PC (Codex has no credits until 2026-10-12). Run from the worktree folder.
 
