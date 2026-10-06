@@ -531,4 +531,5 @@ def test_wire_body_names_the_exact_tools():
     system=wire_body([{'text':'q'}],TOOL_SCHEMAS)['messages'][0]['content']
     assert 'Exact tool names: get_research, lookup_market, request_research.' in system
     assert 'answer is one plain-text string' in system
+    assert system.startswith('You are the assistant of a stock-market') and 'I can only help with stocks and this dashboard' in system  # Owner rule 2026-10-06: no off-topic answers.
     assert 'Exact tool names' not in wire_body([{'text':'q'}],{})['messages'][0]['content']
