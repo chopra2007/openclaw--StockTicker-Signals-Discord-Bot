@@ -3,7 +3,7 @@ from fastapi import APIRouter,Depends,Request,Query,HTTPException
 from fastapi.responses import JSONResponse
 from ..authorization import require_member
 from ..auth import AuthError
-from ..contracts import FeedPage
+from ..contracts import FeedPage,LatestPage
 from ..publication import FeedError
 
 router=APIRouter(prefix='/api/v1')
@@ -27,3 +27,22 @@ def feed(request:Request,cursor:str | None=None,limit:int=Query(default=50,ge=1,
 @router.get('/setups',response_model=FeedPage)
 def setups(request:Request,cursor:str | None=None,limit:int=Query(default=50,ge=1,le=100),principal=Depends(require_member)):
     return read(request,principal,'setups',cursor,limit)
+
+
+def latest(request,principal,feature):
+    service=request.app.state.feed
+    if service is None: raise HTTPException(503)
+    try: return service.latest(principal,feature)
+    except AuthError: raise HTTPException(401) from None
+    except FeedError as error:
+        return JSONResponse(status_code=error.status,content={'error':error.code,'message':'Request unavailable.'})
+
+
+@router.get('/feed/latest',response_model=LatestPage)
+def feed_latest(request:Request,principal=Depends(require_member)):
+    return latest(request,principal,'feed')
+
+
+@router.get('/setups/latest',response_model=LatestPage)
+def setups_latest(request:Request,principal=Depends(require_member)):
+    return latest(request,principal,'setups')

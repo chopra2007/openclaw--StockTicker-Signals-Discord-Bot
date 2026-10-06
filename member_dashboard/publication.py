@@ -322,20 +322,20 @@ _CURSOR_TTL=900
 
 class FeedService:
     def __init__(self,store,auth,policy, *, signing_key,clock=time.time,reader=None,
-                 lineage_resolver=lambda row:None,retraction_clearance=lambda key,ticker:False):
+                 lineage_resolver=lambda row:None,retraction_clearance=lambda key,ticker:False,sources=_FEED_SOURCES):
         if type(signing_key) is not bytes or len(signing_key)<32:
             raise ValueError('feed signing key must contain at least 32 bytes')
         self.store=store; self.auth=auth; self.policy=policy; self.signing_key=signing_key
-        self.clock=clock; self.reader=reader; self.lineage_resolver=lineage_resolver
+        self.clock=clock; self.reader=reader; self.lineage_resolver=lineage_resolver; self.sources=tuple(sources)
         self.publisher=Publisher(store,policy,retraction_clearance=retraction_clearance)
 
     @contextmanager
-    def _transaction(self,deadline, *, write=False):
+    def _transaction(self,deadline, *, write=False, busy_ms=50):
         conn=self.store._connect()
         try:
             remaining=deadline-time.monotonic()
             if remaining<=0: raise TimeoutError('feed_deadline')
-            conn.execute('PRAGMA busy_timeout='+str(max(1,min(50,int(remaining*1000)))))
+            conn.execute('PRAGMA busy_timeout='+str(max(1,min(busy_ms,int(remaining*1000)))))
             conn.row_factory=sqlite3.Row
             conn.set_progress_handler(lambda:int(time.monotonic()>=deadline),100)
             conn.execute('BEGIN IMMEDIATE' if write or self.store.authority is not None else 'BEGIN')
@@ -378,7 +378,7 @@ class FeedService:
             status=('unavailable' if source.value not in rows or not rows[source.value]['available'] else
                     'stale' if rows[source.value]['succeeded_at'] is None or rows[source.value]['succeeded_at']<now-30 else 'available'),
             checked_at=rows[source.value]['checked_at'] if source.value in rows else None,
-            succeeded_at=rows[source.value]['succeeded_at'] if source.value in rows else None) for source in _FEED_SOURCES]
+            succeeded_at=rows[source.value]['succeeded_at'] if source.value in rows else None) for source in self.sources]
 
     def _record(self,conn,card_id,row,now,sources):
         if row is None: return FeedDelete(id=card_id)
@@ -437,6 +437,49 @@ class FeedService:
                 value['expires']=now+_CURSOR_TTL
             return FeedPage(records=records,cursor=self._sign(value),snapshot=snapshot,has_more=more,sources=sources)
 
+    def latest(self,principal,feature,limit=30,window=7*86400):
+        """Newest readable cards for the website (owner request 2026-10-06).
+
+        Only scanned sources, observed within `window`, newest first. Feed cards need text;
+        setup cards need a computed trade plan (buy zone or stop, and a target).
+        """
+        from .contracts import LatestCard,LatestPage,TradePlan
+        if feature not in {'feed','setups'} or type(limit) is not int or not 1<=limit<=50:
+            raise FeedError('invalid_request',422)
+        now=self.clock()
+        names=tuple(source.value for source in self.sources)
+        # Writers (copier, worker) hold the lock for milliseconds every second: wait for them.
+        with self._transaction(time.monotonic()+5,busy_ms=3000) as conn:
+            self.auth.revalidate(principal,now,con=conn)
+            feature_row=conn.execute('SELECT enabled FROM features WHERE name=?',(feature,)).fetchone()
+            if not feature_row or not feature_row[0]: raise FeedError('forbidden',403)
+            sources=self._freshness(conn,now)
+            rows=conn.execute('SELECT h.card_id,p.* FROM publication_heads h JOIN publications p ON p.id=h.publication_id '
+                'WHERE h.feature=? AND h.active=1 AND h.authority_blocked=0 AND p.observed_at>? AND h.source_id IN '
+                '('+','.join('?'*len(names))+') ORDER BY p.observed_at DESC LIMIT 400',(feature,now-window,*names)).fetchall()
+            cards,seen=[],set()
+            for row in rows:
+                if len(cards)>=limit: break
+                record=self._record(conn,row['card_id'],row,now,sources)
+                if not isinstance(record,FeedUpsert): continue
+                p=record.payload; plan=None
+                if feature=='setups':
+                    if p.ticker in seen: continue  # One setup per ticker: the newest alert.
+                    level=conn.execute('SELECT * FROM setup_levels WHERE ticker=?',(p.ticker,)).fetchone()
+                    targets=[v for v in (level['target1'],level['target2'],level['target3']) if v is not None] if level else []
+                    if not level or not targets or (level['stop'] is None and level['entry_low'] is None): continue
+                    plan=TradePlan(direction=level['direction'],entry_low=level['entry_low'],entry_high=level['entry_high'],
+                                   stop=level['stop'],targets=targets,computed_at=level['computed_at'])
+                    price=level['price'] if level['price'] is not None else p.price
+                else:
+                    if not p.excerpt.strip(): continue
+                    price=p.price
+                seen.add(p.ticker)
+                url=next((e.url for e in p.evidence if e.url),None)
+                cards.append(LatestCard(id=record.id,ticker=p.ticker,direction=p.direction,text=html.unescape(p.excerpt),
+                                        url=url,score=p.score,price=price,observed_at=record.observed_at,plan=plan))
+            return LatestPage(cards=cards)
+
     def _cleanup(self,conn,now,deadline):
         rows=conn.execute('SELECT sequence FROM publication_changes WHERE changed_at<? ORDER BY changed_at,sequence LIMIT 100',
                           (now-_LOG_RETENTION,)).fetchall()
@@ -480,16 +523,16 @@ class FeedService:
                 state=conn.execute('SELECT source_rotation,head_cursor FROM feed_state WHERE singleton=1').fetchone()
                 checkpoints={r['source_id']:SourceCheckpoint(r['last_id'],r['last_observed_at'],r['reconciliation_cursor'])
                     for r in conn.execute('SELECT * FROM source_checkpoints')}
-            start=state['source_rotation']%len(_FEED_SOURCES)
+            start=state['source_rotation']%len(self.sources)
             batches=[]; remaining=100
-            for offset in range(len(_FEED_SOURCES)):
+            for offset in range(len(self.sources)):
                 if self.reader is None or deadline-time.monotonic()<.45: break
-                source=_FEED_SOURCES[(start+offset)%len(_FEED_SOURCES)]
+                source=self.sources[(start+offset)%len(self.sources)]
                 checkpoint=checkpoints.get(source.value,SourceCheckpoint())
                 reader=self.reader
                 if isinstance(reader,MarketReader):
                     reader=MarketReader(reader.path,clock=reader.clock,query_seconds=min(.05,deadline-time.monotonic()-.15))
-                limit=max(1,remaining//(len(_FEED_SOURCES)-offset))
+                limit=max(1,remaining//(len(self.sources)-offset))
                 try:
                     batch=reader.read_batch(source,checkpoint,limit)
                     if len(batch.records)+len(batch.blocked_keys)>limit: raise ValueError('source_batch_exceeded')
@@ -543,7 +586,7 @@ class FeedService:
                         (source.value,cp.last_id,cp.last_observed_at,cp.reconciliation_cursor,now))
                 # Rotate both source-first ordering and card reconciliation, even
                 # through unavailable sources. No single busy source owns the turn.
-                conn.execute('UPDATE feed_state SET source_rotation=? WHERE singleton=1',((start+1)%len(_FEED_SOURCES),))
+                conn.execute('UPDATE feed_state SET source_rotation=? WHERE singleton=1',((start+1)%len(self.sources),))
                 heads=conn.execute('SELECT h.card_id,h.authority_blocked,p.* FROM publication_heads h '
                     'JOIN publications p ON p.id=h.publication_id WHERE h.card_id>? ORDER BY h.card_id LIMIT 100',
                     (state['head_cursor'],)).fetchall()

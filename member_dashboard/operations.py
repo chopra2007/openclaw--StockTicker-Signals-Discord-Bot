@@ -99,6 +99,14 @@ def authority_fresh(authority,*,seconds=5):
     return current
 
 
+def member_feed_sources():
+    """Owner request 2026-10-06: the feed shows analyst calls with their reasoning, setups come from
+    bot alerts. Other bot tables carry no readable text (or duplicate alerts) and the raw-mention
+    table is 1.5M rows whose scanning locked the database."""
+    from .market_reader import SourceName
+    return (SourceName.ANALYST,SourceName.ALERT)
+
+
 def bot_feed_lineage(row):
     """Owner-attested lineage for rows read from the bot database (decision 1)."""
     from .contracts import ContentLineage,SourceContribution
@@ -198,6 +206,21 @@ class _NoAnalysisSettings:
     def services(self): raise ValueError('analysis_settings_missing')
 
 
+def _waiting_budget(budget,routes):
+    """Schwab calls wait (up to 25 s) for a free slot in the dashboard's per-minute share
+    instead of failing a member's section as 'unavailable' (owner report 2026-10-06)."""
+    from consensus_engine.utils.provider_budget import BudgetDeferred,TransportBudget
+    class Waiting(TransportBudget):
+        def admit(self,method,url):
+            deadline=time.monotonic()+25
+            while True:
+                try: return super().admit(method,url)
+                except BudgetDeferred as error:
+                    if 'unmapped' in str(error) or time.monotonic()>=deadline: raise
+                    time.sleep(2)
+    return Waiting(budget,'dashboard',routes)
+
+
 async def research_registry(registry,store,policy,runtime,config,*,telemetry=lambda event:None):
     """Compute side: SEC from public EDGAR, options/expected moves from Schwab."""
     import aiohttp,json
@@ -223,7 +246,7 @@ async def research_registry(registry,store,policy,runtime,config,*,telemetry=lam
         from consensus_engine.scanners.schwab_client import PrivateTokenStore,SchwabClient,SchwabContext,TOKEN_URL,MD_BASE
         secret=json.loads(protected(credentials).read_text())
         client=SchwabClient(SchwabContext(secret['key'],secret['secret'],PrivateTokenStore(state),
-            TransportBudget(budget,'dashboard',routes['schwab']),clock,TOKEN_URL,MD_BASE,refresh_allowed=False))
+            _waiting_budget(budget,routes['schwab']),clock,TOKEN_URL,MD_BASE,refresh_allowed=False))
     # Analysis: !all on Schwab data; the write-up shares the assistant's $3/day cap. Without the
     # exported bot settings file there is no collector and the section completes as unavailable.
     from .analysis_collector import AnalysisCollector,CappedSynthesis
@@ -239,6 +262,7 @@ async def research_registry(registry,store,policy,runtime,config,*,telemetry=lam
                                     budget,store,telemetry,SCHWAB_SOURCE,chart_renderer=render_chart,
                                     analysis_collector=collector,input_dependencies=dict(ANALYSIS_INPUTS)))
     for context in contexts: MemberResearchProvider(context).register(registry)
+    registry.analysis_collector=collector  # Reused for trade setup levels when idle.
     return registry
 
 
@@ -251,6 +275,8 @@ def web_store(config):
 
 
 def api_app(config):
+    from . import testing_phase
+    testing_phase.apply_flag()
     from .app import create_app
     from .settings import Settings
     from .runtime import FrontendObservation
@@ -284,6 +310,7 @@ def api_app(config):
         try: yield
         finally: task.cancel();await asyncio.gather(task,return_exceptions=True)
     app.router.lifespan_context=lifespan
+    app.state.feed.sources=member_feed_sources()
     return app
 
 
@@ -312,7 +339,11 @@ async def run_compute(config,worker):
     transport=DirectTransport(key,BudgetClient(config['budget_socket']),(ASSISTANT_REQUEST_SCOPE,),(),
                               config['assistant_verified_until'],cost_scopes=(ASSISTANT_COST_SCOPE,))
     assistant=AssistantService(history,transport=transport)
-    await ComputeWorker(jobs,registry,runtime,assistant=assistant).serve()
+    from .setup_levels import refresh_one
+    async def setup_levels():
+        try: await refresh_one(store,registry.analysis_collector)
+        except Exception: pass  # A chore; the next idle minute tries again.
+    await ComputeWorker(jobs,registry,runtime,assistant=assistant,idle=setup_levels).serve()
 
 
 def recover_worker_state(launcher,jobs,now):
@@ -343,7 +374,7 @@ def supervisor(config):
     auth=AuthService(store)
     jobs=JobService(store,auth,policy,register_research_specs(ProviderRegistry(symbol_catalog())))
     feed=FeedService(store,auth,policy,signing_key=b'not-used-for-member-cursors-000000',reader=MarketReader(Path(config['market_path'])),
-                     lineage_resolver=bot_feed_lineage)
+                     lineage_resolver=bot_feed_lineage,sources=member_feed_sources())
     worker=WorkerSupervisor(store,launcher,feed.feed_tick,jobs=jobs,reconcile=control.reconcile)
     try:
         while True:

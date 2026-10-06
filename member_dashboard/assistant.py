@@ -52,7 +52,8 @@ class AssistantService:
             if owner is None: raise HistoryError()
             if not require_features(con,['assistant']): raise HistoryError(403)
             if con.execute("SELECT 1 FROM assistant_runs WHERE member_id=? AND status IN ('queued','running','draining')",(principal.member_id,)).fetchone(): raise HistoryError(429)
-            if con.execute("SELECT count(*) FROM web_usage WHERE member_id=? AND kind='assistant_message' AND occurred_at>?",(principal.member_id,now-3600)).fetchone()[0]>=20: raise HistoryError(429)
+            from . import testing_phase
+            if testing_phase.THROTTLES_ON and con.execute("SELECT count(*) FROM web_usage WHERE member_id=? AND kind='assistant_message' AND occurred_at>?",(principal.member_id,now-3600)).fetchone()[0]>=20: raise HistoryError(429)
             message_id,run_id=str(uuid4()),str(uuid4())
             con.execute("INSERT INTO messages(id,conversation_id,member_id,role,content_json,created_at) VALUES (?,?,?,'user',?,?)",(message_id,conversation_id,principal.member_id,MessageContent(text=message.strip()).model_dump_json(),now))
             available=self.transport is not None and self.transport.available(now)

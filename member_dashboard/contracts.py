@@ -332,3 +332,30 @@ class AssistantRun(PublicModel):
     input_tokens: int | None
     output_tokens: int | None
     cost: float | None
+
+
+class TradePlan(PublicModel):
+    """Same buy zone / stop / targets as the ticker research page (no AI write-up)."""
+    direction: Literal['long','short','neutral']
+    entry_low: float | None = None
+    entry_high: float | None = None
+    stop: float | None = None
+    targets: list[float] = Field(default_factory=list, max_length=3)
+    computed_at: float
+
+
+class LatestCard(PublicModel):
+    """One readable card: newest first, recent, always with content (owner request 2026-10-06)."""
+    id: Identifier
+    ticker: str = Field(max_length=16)
+    direction: Literal['bullish','bearish','neutral','unclear']
+    text: Text
+    url: str | None = Field(default=None, max_length=2048)
+    score: float | None = None
+    price: float | None = None
+    observed_at: float
+    plan: TradePlan | None = None
+
+
+class LatestPage(PublicModel):
+    cards: list[LatestCard] = Field(max_length=50)

@@ -10,8 +10,8 @@ test('review: abandoned delayed refresh cannot navigate back and retains server 
    const response=await route.fetch();expect(response.status()).toBe(200);received();await gate;
    try{await route.fulfill({response});}catch{/* The departed browser may already have aborted. */}finally{delivered();}
  });
- await page.getByRole('button',{name:'Refresh research'}).click();await accepted;
- await page.getByRole('link',{name:'Overview',exact:true}).click();await expect(page.getByRole('heading',{name:'Your market workspace'})).toBeVisible();
+ await page.getByRole('button',{name:'Refresh',exact:true}).click();await accepted;
+ await page.getByRole('link',{name:'Overview',exact:true}).click();await expect(page.getByRole('heading',{name:'Market overview'})).toBeVisible();
  release();await done;
  // Allow the released response and any resulting router transition to settle.
  await page.waitForTimeout(500);await expect(page).toHaveURL('https://localhost:3443/');
@@ -21,7 +21,7 @@ test('review: session transport failure offers retry and recovers',async({page,r
  await join(page,request);let fail=true;await page.route('**/api/v1/me',async route=>{if(fail)await route.abort('connectionfailed');else await route.continue();});
  await page.goto('/');await expect(page.locator('p[role=alert]')).toContainText('Unable to check your session');
  await expect(page.getByRole('button',{name:'Try again'})).toBeVisible();await expect(page.getByText('Checking your session…')).toHaveCount(0);
- fail=false;await page.getByRole('button',{name:'Try again'}).click();await expect(page.getByRole('heading',{name:'Your market workspace'})).toBeVisible();
+ fail=false;await page.getByRole('button',{name:'Try again'}).click();await expect(page.getByRole('heading',{name:'Market overview'})).toBeVisible();
 });
 test('invite fragment is removed before any fetch, secure login and reset',async({page,request,context})=>{
   const hashes:string[]=[];await page.addInitScript(()=>{const native=window.fetch;window.fetch=(...args)=>{(window as unknown as {fetchHashes:string[]}).fetchHashes??=[];(window as unknown as {fetchHashes:string[]}).fetchHashes.push(location.hash);return native(...args);};});
@@ -40,16 +40,16 @@ test('one search runs sections independently; cached result, owned chart and exp
   await expect(page.getByText('2026-10-09',{exact:false}).first()).toBeVisible();
   expect(await page.evaluate(()=>typeof (window as unknown as {unsafe:unknown}).unsafe)).toBe('undefined');
   const stats=await control(request,{action:'stats'});await research(page);await expect(page.getByTestId('analysis-status')).toHaveText('Completed');expect(await control(request,{action:'stats'})).toEqual(stats);
-  await page.getByRole('button',{name:'Refresh research'}).click();await expect(page.locator('p[role=alert]')).toContainText('try again later');
+  await page.getByRole('button',{name:'Refresh',exact:true}).click();await expect(page.locator('p[role=alert]')).toContainText('try again later');
 });
 test('failure is independent and invalid or unknown symbols create no work',async({page,request})=>{
   await join(page,request);await research(page,'QQQ');await expect(page.getByTestId('options-status')).toHaveText('Failed');await expect(page.getByTestId('em_weekly-status')).toHaveText('Completed');
-  const stats=await control(request,{action:'stats'});for(const ticker of ['BAD!','ZZZZ']){await page.getByRole('searchbox',{name:'Ticker'}).fill(ticker);await page.getByRole('button',{name:'Research ticker'}).click();await expect(page.locator('p[role=alert]')).toContainText('Invalid or unsupported ticker');}expect(await control(request,{action:'stats'})).toEqual(stats);
+  const stats=await control(request,{action:'stats'});for(const ticker of ['BAD!','ZZZZ']){await page.getByRole('searchbox',{name:'Ticker'}).fill(ticker);await page.getByRole('button',{name:'Research',exact:true}).click();await expect(page.locator('p[role=alert]')).toContainText('Invalid or unsupported ticker');}expect(await control(request,{action:'stats'})).toEqual(stats);
 });
 test('direct ticker routes never start research or assistant and private results stay private',async({page,request})=>{
   await page.goto('/ticker/SPY?request=unknown');await expect(page.getByRole('heading',{name:'Sign in'})).toBeVisible();await join(page,request);
   const stats=await control(request,{action:'stats'});const unsafe:string[]=[];page.on('request',r=>{if(r.method()==='POST')unsafe.push(r.url());});
-  await page.goto('/ticker/SPY');await expect(page.getByText('Use Research ticker to start all enabled sections.')).toBeVisible();expect(unsafe).toEqual([]);expect(await control(request,{action:'stats'})).toEqual(stats);
+  await page.goto('/ticker/SPY');await expect(page.getByText('Search a ticker above to start a report.')).toBeVisible();expect(unsafe).toEqual([]);expect(await control(request,{action:'stats'})).toEqual(stats);
   await page.goto('/ticker/SPY?request=not-owned');await expect(page.locator('p[role=alert]')).toContainText('not found');
 });
 test('terminal access checks withdraw source payloads and charts; expiry clears everything',async({page,request})=>{
@@ -72,16 +72,17 @@ test('cached POST result appears immediately while access GET is in flight',asyn
  await page.route('**/api/v1/research/*',async route=>{await gate;await route.continue();});
  try{await research(page);await expect(page.getByTestId('analysis-status')).toHaveText('Completed',{timeout:1000});}finally{release();}
 });
-test('feed empty delta updates freshness and an invalid opaque cursor resets snapshot',async({page,request})=>{
+test('feed shows newest cards and keeps them when a refresh fails',async({page,request})=>{
  await control(request,{action:'freshness',fresh:true});await join(page,request);await expect(page.locator('#feed article').first()).toBeVisible();
- await control(request,{action:'freshness',fresh:false});await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await expect(page.locator('#feed article').first()).toContainText('Stale');
- let corrupted=false;await page.route('**/api/v1/feed?*',async route=>{if(!corrupted){corrupted=true;await route.continue({url:'https://localhost:3443/api/v1/feed?cursor=tampered'});}else await route.continue();});
- let reset=0;page.on('response',r=>{if(r.url().includes('/api/v1/feed')&&r.status()===409)reset++;});await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await expect.poll(()=>reset).toBe(1);await expect(page.locator('#feed article').first()).toBeVisible();
+ const shown=await page.locator('#feed article').count();
+ await page.route('**/api/v1/feed/latest',route=>route.fulfill({status:503,body:'{}'}));
+ await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
+ await expect(page.getByText('Reconnecting…')).toBeVisible();await expect(page.locator('#feed article')).toHaveCount(shown);
 });
 test('CSRF failure does not replay a write and disabled feed clears both API and navigation',async({page,request})=>{
  await join(page,request);const before=await control(request,{action:'stats'});let writes=0;
  await page.route('**/api/v1/research',async route=>{writes++;await route.continue({headers:{...route.request().headers(),'x-csrf-token':'invalid'}});});
- await page.getByRole('searchbox',{name:'Ticker'}).fill('SPY');await page.getByRole('button',{name:'Research ticker'}).click();await expect(page.locator('p[role=alert]')).toContainText('Access is unavailable');expect(writes).toBe(1);expect(await control(request,{action:'stats'})).toEqual(before);
+ await page.getByRole('searchbox',{name:'Ticker'}).fill('SPY');await page.getByRole('button',{name:'Research',exact:true}).click();await expect(page.locator('p[role=alert]')).toContainText('Access is unavailable');expect(writes).toBe(1);expect(await control(request,{action:'stats'})).toEqual(before);
  await control(request,{action:'feature',feature:'feed',enabled:false});expect((await page.context().request.get('/api/v1/feed')).status()).toBe(403);await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await expect(page.locator('#feed')).toHaveCount(0);await expect(page.getByRole('link',{name:'Research feed',exact:true})).toHaveCount(0);await control(request,{action:'feature',feature:'feed',enabled:true});
 });
 test('feature loss clears sections and navigation; feed revision and tombstone are applied',async({page,request})=>{
@@ -93,7 +94,7 @@ test('feature loss clears sections and navigation; feed revision and tombstone a
 });
 
 test('assistant: explicit send, persisted reopen, private access and delete',async({page,request,browser})=>{
- await join(page,request);await page.getByRole('link',{name:'Market Assistant',exact:true}).click();
+ await join(page,request);await page.getByRole('link',{name:'Assistant',exact:true}).click();
  await expect(page.getByRole('heading',{name:'Market Assistant',exact:true})).toBeVisible();
  await page.getByRole('button',{name:'New conversation'}).click();await page.getByLabel('Your question').fill('Explain SPY');
  await page.getByRole('button',{name:'Send question'}).click();

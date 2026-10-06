@@ -1,5 +1,8 @@
 import Link from 'next/link';
-import type {FeedCard as Card} from '@/lib/contracts';
-import {formatPacific} from '@/lib/time';
-import {EvidenceList} from './research-details';
-export function FeedCard({card,setup=false}:{card:Card;setup?:boolean}){const p=card.payload;return <article className="feed-card"><div className="section-heading"><Link href={'/ticker/'+encodeURIComponent(p.ticker)} className="ticker-link">{p.ticker}</Link><span className="tag capitalize">{p.direction}</span></div><p>{p.excerpt}</p><div className="feed-numbers"><span>Score <b>{p.score??'Unavailable'}</b></span><span>Price <b>{p.price??'Unavailable'}</b></span></div>{setup&&<dl className="setup-levels"><div><dt>Entry</dt><dd>{p.entry??'Unavailable'}</dd></div><div><dt>Target</dt><dd>{p.target??'Unavailable'}</dd></div><div><dt>Invalidation</dt><dd>{p.invalidation??'Unavailable'}</dd></div></dl>}<div className="small muted"><p>Observed {formatPacific(card.observed_at)}</p><p>Projected {formatPacific(card.projected_at)}</p><p>{card.stale?'Stale · ':''}Research only{card.delay_seconds>0?` · Source delay ${card.delay_seconds} seconds`:''}</p></div><EvidenceList items={p.evidence}/>{p.attributions.map((a,i)=><p className="small muted" key={i}>{a}</p>)}</article>}
+import type {LatestCard} from '@/lib/contracts';
+import {sourceLabel,timeAgo} from '@/lib/format';
+export function Direction({value}:{value:string}){if(value==='unclear')return null;const label={bullish:'Bullish',bearish:'Bearish',long:'Long',short:'Short',neutral:'Neutral',unclear:'Mixed'}[value]||value;
+ const tone=value==='bullish'||value==='long'?'up':value==='bearish'||value==='short'?'down':'flat';return <span className={'pill pill-'+tone}>{label}</span>}
+export function FeedCard({card}:{card:LatestCard}){const who=sourceLabel(card.url);
+ return <article className="item"><div className="item-head"><Link href={'/ticker/'+encodeURIComponent(card.ticker)} className="ticker">{card.ticker}</Link><Direction value={card.direction}/><span className="item-time">{timeAgo(card.observed_at)}</span></div>
+ <p className="item-text">{card.text}</p>{who&&<p className="item-source">{card.url?<a href={card.url} target="_blank" rel="noreferrer noopener">{who} ↗</a>:who}</p>}</article>}

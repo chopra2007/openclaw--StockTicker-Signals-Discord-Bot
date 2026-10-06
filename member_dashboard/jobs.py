@@ -123,7 +123,8 @@ class JobService:
             self._endpoint_limit(con, principal, now)
             enabled = [name for name in SECTIONS if feature_mask(con)[name][0]]
             active = {r[0] for r in con.execute("SELECT DISTINCT r.ticker FROM research_requests r JOIN request_sections s ON s.request_id=r.id JOIN report_owners o ON o.id=r.report_owner_id WHERE r.member_id=? AND r.deleted_at IS NULL AND o.deleted_at IS NULL AND s.status IN ('queued','running')", (principal.member_id,))}
-            if ticker not in active and len(active) >= 2:
+            from . import testing_phase
+            if testing_phase.THROTTLES_ON and ticker not in active and len(active) >= 2:
                 raise ResearchError('member_capacity')
             plans = []
             for section in enabled:
@@ -140,7 +141,7 @@ class JobService:
                         cached = candidate
                 if refresh:
                     recent = con.execute('SELECT 1 FROM web_jobs WHERE ticker=? AND section=? AND created_at>? LIMIT 1', (ticker, section, now-60)).fetchone()
-                    if recent:
+                    if recent and testing_phase.THROTTLES_ON:
                         raise ResearchError('refresh_cooldown')
                 plans.append((section, prep, job, cached))
             new_count = sum(prep is not None and job is None and cache is None for _, prep, job, cache in plans)
@@ -149,7 +150,7 @@ class JobService:
                 if pending + new_count > 50:
                     raise ResearchError('global_capacity')
                 charged = con.execute("SELECT count(*) FROM web_usage WHERE member_id=? AND kind='research_compute' AND occurred_at>?", (principal.member_id, now-3600)).fetchone()[0]
-                if charged >= 10:
+                if charged >= 10 and testing_phase.THROTTLES_ON:
                     raise ResearchError('member_hourly_limit')
                 con.execute("INSERT INTO web_usage(id,member_id,kind,units,occurred_at) VALUES (?,?,'research_compute',1,?)", (str(uuid4()), principal.member_id, now))
             request_id, owner_id, report_id = str(uuid4()), str(uuid4()), str(uuid4())
@@ -176,7 +177,8 @@ class JobService:
             return self._get_request(con, principal, request_id, now)
 
     def _endpoint_limit(self, con, principal, now):
-        if con.execute("SELECT count(*) FROM web_usage WHERE member_id=? AND kind='research_endpoint' AND occurred_at>?", (principal.member_id, now-60)).fetchone()[0] >= 60:
+        from . import testing_phase
+        if testing_phase.THROTTLES_ON and con.execute("SELECT count(*) FROM web_usage WHERE member_id=? AND kind='research_endpoint' AND occurred_at>?", (principal.member_id, now-60)).fetchone()[0] >= 60:
             raise ResearchError('request_rate_limit')
         con.execute("INSERT INTO web_usage(id,member_id,kind,units,occurred_at) VALUES (?,?,'research_endpoint',1,?)", (str(uuid4()), principal.member_id, now))
 

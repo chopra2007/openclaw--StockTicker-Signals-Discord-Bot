@@ -18,7 +18,7 @@ from .provider_runtime import ProviderOutcome
 
 
 class ComputeWorker:
-    def __init__(self, jobs, registry, runtime, *, clock=time.time, deadlines=None, assistant=None):
+    def __init__(self, jobs, registry, runtime, *, clock=time.time, deadlines=None, assistant=None, idle=None):
         self.jobs, self.registry, self.runtime, self.clock = jobs, registry, runtime, clock
         self.deadlines = {**DEADLINES, **(deadlines or {})}
         self.current = None
@@ -27,6 +27,9 @@ class ComputeWorker:
         self.assistant_current = None
         self.prefer_assistant = True
         self._last_observation = None
+        # Background chore for idle minutes (production: trade setup levels). Never awaited
+        # inline, so a member's job or question never waits on it.
+        self.idle, self._idle_task, self._idle_at = idle, None, 0.0
 
 
     def _observe(self, *, progress=False):
@@ -146,10 +149,15 @@ class ComputeWorker:
         try:
             while not stop_requested() and not self.restart_requested:
                 await self.run_once()
+                if (self.idle and not self.current and not self.assistant_current and self.clock() - self._idle_at >= 180
+                        and (self._idle_task is None or self._idle_task.done())):
+                    self._idle_at = self.clock()
+                    self._idle_task = asyncio.create_task(self.idle())
                 # Idle polling costs several authority-fenced transactions per pass; back off
                 # to 1 s when nothing is running (a new job waits at most ~1 s to start).
                 await asyncio.sleep(.05 if self.current or self.assistant_current else 1.0)
         finally:
+            if self._idle_task is not None: self._idle_task.cancel()
             self.runtime.shutdown()
 
 

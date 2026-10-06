@@ -3,12 +3,12 @@ import {test,join,password} from './helpers';
 
 test('admin: real role boundary, switches, account recovery and safe monitoring',async({page,request,browser})=>{
  const username=await join(page,request);
- await expect(page.getByRole('link',{name:'Administration'})).toHaveCount(0);
+ await expect(page.getByRole('link',{name:'Admin',exact:true})).toHaveCount(0);
  await page.goto('/admin');await expect(page.getByText('Administrator access required.')).toBeVisible();
  expect((await page.request.get('/api/v1/admin/members')).status()).toBe(403);
  const context=await browser.newContext({ignoreHTTPSErrors:true,baseURL:'https://localhost:3443'});const owner=await context.newPage();const adminRequests:string[]=[];owner.on('request',r=>{if(r.url().includes('/api/v1/admin/'))adminRequests.push(r.method()+' '+new URL(r.url()).pathname);});
  await owner.goto('/login');await owner.getByLabel('Username',{exact:true}).fill('fixture_admin');await owner.getByLabel('Password',{exact:true}).fill(password);await owner.getByRole('button',{name:'Sign in',exact:true}).click();
- await owner.getByRole('link',{name:'Administration'}).click();await expect(owner.getByRole('heading',{name:'Administration',exact:true})).toBeVisible();
+ await owner.getByRole('link',{name:'Admin',exact:true}).click();await expect(owner.getByRole('heading',{name:'Administration',exact:true})).toBeVisible();
  await expect(owner.getByText('Verify identity outside this dashboard before issuing a password reset.')).toBeVisible();
  const self=owner.getByTestId('admin-member').filter({hasText:'fixture_admin'});await expect(self.getByRole('button',{name:'Suspend',exact:true})).toBeDisabled();
  await owner.getByRole('checkbox',{name:'Options Activity'}).click();await expect(owner.getByRole('checkbox',{name:'Options Activity'})).not.toBeChecked();

@@ -1,7 +1,12 @@
 'use client';
-import {useFeed} from '@/lib/use-feed';
-import {labels} from '@/lib/contracts';
-import {formatPacific} from '@/lib/time';
+import {useLatest} from '@/lib/use-latest';
 import {FeedCard} from './feed-card';
 import {SetupCard} from './setup-card';
-export function FeedPanel({feature,accessKey}:{feature:'feed'|'setups';accessKey:string}){const {cards,sources,error}=useFeed(feature,accessKey);return <section className="card" id={feature}><div className="section-heading"><h2>{labels[feature]}</h2><span className="small muted">{cards.length} {cards.length===1?'observation':'observations'}</span></div><p className="muted">{feature==='feed'?'Permitted observations, with their original context.':'Entry, target and invalidation are separate from expected move estimates.'}</p>{error&&<p role="status">{error}</p>}{!cards.length&&!error&&<div className="empty-state">No eligible observations are available.</div>}{cards.map(card=>feature==='feed'?<FeedCard key={card.id} card={card}/>:<SetupCard key={card.id} card={card}/>)}<details className="evidence"><summary>Source freshness</summary>{Object.values(sources).map(s=><p key={s.source}>{s.source.replaceAll('_',' ')} · {s.status}<br/><small>Checked {formatPacific(s.checked_at)} · Last success {formatPacific(s.succeeded_at)}</small></p>)}</details></section>}
+const copy={feed:{title:'Analyst calls',sub:'What analysts are saying, newest first.',empty:'No analyst calls in the last 7 days.'},
+ setups:{title:'Trade setups',sub:'Recent bot alerts with entry, stop and targets.',empty:'No trade setups in the last 7 days.'}};
+export function FeedPanel({feature,accessKey}:{feature:'feed'|'setups';accessKey:string}){const {cards,failed}=useLatest(feature,accessKey);const c=copy[feature];
+ return <section className="panel" id={feature}><header className="panel-head"><div><h2>{c.title}</h2><p>{c.sub}</p></div>{failed&&cards&&<span className="pill pill-muted">Reconnecting…</span>}</header>
+ {cards===null?(failed?<p className="panel-empty">Couldn’t load right now. Retrying shortly.</p>:<div className="skeleton-list" aria-label="Loading"><span/><span/><span/></div>)
+  :cards.length===0?<p className="panel-empty">{c.empty}</p>
+  :<ul className="card-list">{cards.map(card=><li key={card.id}>{feature==='feed'?<FeedCard card={card}/>:<SetupCard card={card}/>}</li>)}</ul>}
+ </section>}

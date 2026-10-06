@@ -206,9 +206,9 @@ def test_existing_alert_is_research_only_and_json_mutation_versions_it(tmp_path)
     from member_dashboard.market_reader import MarketReader,SourceName,SourceCheckpoint
     path=tmp_path/'market.sqlite3'
     with sqlite3.connect(path) as conn:
-        conn.execute('CREATE TABLE alert_history(id INTEGER,ticker TEXT,confidence_score REAL,catalyst_type TEXT,'
+        conn.execute('CREATE TABLE alert_history(id INTEGER,ticker TEXT,confidence_score REAL,catalyst TEXT,catalyst_type TEXT,'
             'consensus_breakdown TEXT,technical_data TEXT,alerted_at REAL,price_at_alert REAL)')
-        conn.execute('INSERT INTO alert_history VALUES (?,?,?,?,?,?,?,?)',
+        conn.execute('INSERT INTO alert_history(id,ticker,confidence_score,catalyst_type,consensus_breakdown,technical_data,alerted_at,price_at_alert) VALUES (?,?,?,?,?,?,?,?)',
             (1,'TEST',75.0,'news','{"news_catalyst":5}','{"price":0}',NOW-1000,0))
     reader=MarketReader(path,clock=lambda:NOW)
     first=reader.read_batch(SourceName.ALERT,SourceCheckpoint())
@@ -259,9 +259,9 @@ def test_json_numeric_projection_rejects_nonfinite_duplicate_and_unexpected_keys
     from member_dashboard.market_reader import MarketReader,SourceName,SourceCheckpoint
     path=tmp_path/'market.sqlite3'
     with sqlite3.connect(path) as conn:
-        conn.execute('CREATE TABLE alert_history(id INTEGER,ticker TEXT,confidence_score REAL,catalyst_type TEXT,'
+        conn.execute('CREATE TABLE alert_history(id INTEGER,ticker TEXT,confidence_score REAL,catalyst TEXT,catalyst_type TEXT,'
             'consensus_breakdown TEXT,technical_data TEXT,alerted_at REAL,price_at_alert REAL)')
-        conn.execute('INSERT INTO alert_history VALUES (?,?,?,?,?,?,?,?)',
+        conn.execute('INSERT INTO alert_history(id,ticker,confidence_score,catalyst_type,consensus_breakdown,technical_data,alerted_at,price_at_alert) VALUES (?,?,?,?,?,?,?,?)',
             (1,'TEST',75.,'news',value,'{}',NOW-10,None))
     batch=MarketReader(path,clock=lambda:NOW).read_batch(SourceName.ALERT,SourceCheckpoint())
     assert not batch.records and batch.blocked_keys

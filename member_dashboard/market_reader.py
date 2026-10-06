@@ -106,7 +106,7 @@ _SPECS = {
         'decision_code parser_version image_evidence_json created_at', 'created_at'),
     SourceName.SIGNAL: _spec('signal_events', 'id source_type ticker direction quality_score recorded_at '
         'source_link analyst_post_view_id', 'recorded_at'),
-    SourceName.ALERT: _spec('alert_history', 'id ticker confidence_score catalyst_type consensus_breakdown '
+    SourceName.ALERT: _spec('alert_history', 'id ticker confidence_score catalyst catalyst_type consensus_breakdown '
         'technical_data alerted_at price_at_alert', 'alerted_at'),
     SourceName.SNAPSHOT: _spec('decision_snapshots', 'id ticker decision final_score contradiction_index '
         'sources_json recorded_at outcome_price_at_alert alert_id', 'recorded_at'),
@@ -413,6 +413,10 @@ class MarketReader:
                 if name!='precision_classification': _number(value)
             classification['scores']={name:value for name,value in values.items() if name!='precision_classification'}
             if source==SourceName.ALERT:
+                # The reason a member reads: the news headline, else the catalyst type ("Analyst Upgrade").
+                headline=row['catalyst'] if isinstance(row['catalyst'],str) and row['catalyst'].strip() else None
+                kind=row['catalyst_type'] if isinstance(row['catalyst_type'],str) and row['catalyst_type'].strip() else None
+                if headline or kind: excerpt=_text(''.join(c for c in ' '.join((headline or kind.replace('_',' ').capitalize()).split()) if ord(c)>=32)[:400])
                 technical=strict_json(row['technical_data'])
                 if set(technical)-{'ticker','filters','price','volume','price_change_pct','atr14'}:
                     raise ValueError('unknown technical fields')
