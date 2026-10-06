@@ -1246,11 +1246,11 @@ TESTING PHASE: member throttles lifted until the owner says "ready to ship" (lis
 
 **Open follow-ups:**
 1. Egress: the worker can reach the whole internet (no per-host allowlist yet). Now also needs news.google.com.
+2. (Automated) Daily 08:00 size check alerts #errors if the dashboard DB passes 300 MB, grows 50 MB in a day, or
+   disk drops under 15% free; history in `/home/openclaw/.openclaw/state/member-dashboard-size.jsonl`.
 3. Browser test suite (web/member-dashboard/e2e) updated to the new wording but not run: its test server needs
    port 3444, which the live site uses. Run it on a spare port or a copy before ship.
 4. Ideas to improve (owner asked for next steps 2026-10-06): price + day change in the ticker header even when
    expected moves are unavailable; tap a setup card to see why the bot alerted; news for every setup ticker; earnings
    date in the header; assistant shows its source links; History page in the same chat-style look as the Assistant; suspend test member
    `claude_qa` and restore throttles at ship.
-2. (Automated) Daily 08:00 size check alerts #errors if the dashboard DB passes 300 MB, grows 50 MB in a day, or
-   disk drops under 15% free; history in `/home/openclaw/.openclaw/state/member-dashboard-size.jsonl`.
