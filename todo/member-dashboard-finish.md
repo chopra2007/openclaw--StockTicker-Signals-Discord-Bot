@@ -53,7 +53,13 @@ Implementer: Claude Code on the PC (Codex has no credits until 2026-10-12). Run 
 4. On the server: `chown -R openclaw:openclaw /home/openclaw/.openclaw/workspace/.git /home/openclaw/.openclaw/workspace/.omc/member-dashboard-evidence`.
 5. Report the branch hash and the evidence file count. Change nothing else. No commits, no GitHub push.
 
-## Phase B: integrate (this server, Claude Code)
+## Phase B: integrate (this server, Claude Code) — DONE 2026-10-05
+
+Result: merged on master (`dbf9add`, no conflicts). Follow-ups: `d05a8f7` flaky cache test (two calls straddled a 5-min
+time slot), `0ef30b1` bot suite skips `tests/member_dashboard` when its web environment is absent, `aa65e6f` `!all` lost its
+SL line when the model wrote "Stop‑Loss". Independent verifier: one full run, 0 new failing IDs; 8 baseline IDs now
+pass (removed from `.test-baseline`). Live `!all`/`!sec`/`!options`/`!em` NVDA numbers unchanged vs pre-merge. The `/tmp`
+Codex scratch folders were already absent. Dashboard still not launched (Phase C).
 
 Implementer: main session. Verifier: a **separate** subagent that wrote none of the code.
 Follow CLAUDE.md "Start of Build", "Definition of Done" and "Regression Gate".
